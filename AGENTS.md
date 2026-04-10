@@ -2,7 +2,7 @@
 
 **Future** is an agent-native enterprise operating system being built by SETA. It replaces four fragmented internal apps (EMS, Timesheet, Hiring, Resource Insight) with a unified platform that has a canonical data layer and an embedded AI agent ecosystem. SETA is customer zero (300+ person org). The platform will be commercialized for Vietnamese SMEs and globally.
 
-This repository is currently **documentation-only** — all specs are agreed and the build team is starting from scratch in Q2 2026. The monorepo codebase described in the specs does not yet exist.
+The monorepo scaffold is **actively being built** (started Q2 2026). Specs are agreed and locked. The build team is scaffolding the codebase now — see `docs/superpowers/plans/` for the implementation plan.
 
 ---
 
@@ -27,7 +27,39 @@ docs/
     2026-execution-roadmap.md            — build team operating roadmap (workstreams, sequencing)
   legacy/                                — documentation of the four apps being replaced
     ems/ timesheet-app/ hiring-app/ resource-insight/
-  superpowers/specs/                     — design specs
+  superpowers/
+    specs/                               — design specs
+    plans/                               — implementation plans (e.g. 2026-04-10-monorepo-scaffold.md)
+
+apps/                                    — Next.js zones (being scaffolded)
+  api/                                   — NestJS modular monolith
+  web-shell/                             — Auth hub (Microsoft Entra OIDC)
+  web-people/ web-time/ web-hiring/ ...  — 11 domain zones (ports 3001–3011)
+  e2e/                                   — Playwright test runner
+
+packages/                                — Shared packages
+  tsconfig/                              — @future/tsconfig — shared TS base + Next.js configs
+  eslint-config/                         — @future/eslint-config — lint rules + boundaries
+  event-contracts/                       — @future/event-contracts — plain TS domain event classes
+  auth/                                  — @future/auth — MSAL session helpers
+  db/                                    — @future/db — Drizzle ORM setup + migration runner
+  ui/                                    — @future/ui — purely presentational React components
+  api-client/                            — @future/api-client — type-only tRPC AppRouter export
+
+agents/                                  — Agent platform assets
+  langfuse/                              — Self-hosted LLM observability (Dockerfile)
+  mcp-tools/                             — Per-module MCP tool contract stubs
+  prompts/                               — Versioned system prompts, topic configs, guardrails
+  evals/                                 — LLM eval harness (regression testing model behavior)
+  channels/                              — Channel adapter stubs (Teams, Slack, WebSocket)
+
+data-platform/                           — Analytics pipeline
+  cubejs/                                — Cube.js semantic layer (dual data source: RDS + Athena)
+  glue/                                  — AWS Glue ETL scripts (Bronze → Gold)
+
+infra/                                   — Terraform stubs (VPC, ALB, ECS, RDS, ECR, Secrets)
+
+.github/workflows/                       — CI + 17 deploy workflow stubs
 ```
 
 ---
