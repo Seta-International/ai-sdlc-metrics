@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { AppClsModule } from './common/cls/cls.module.js'
+import { DbModule } from './common/db/db.module.js'
 import { TrpcModule } from './common/trpc/trpc.module.js'
 import { HealthController } from './common/health/health.controller.js'
 import { KernelModule } from './modules/kernel/kernel.module.js'
@@ -19,6 +20,7 @@ import { AdminModule } from './modules/admin/admin.module.js'
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    DbModule,
     AppClsModule,
     TrpcModule,
     KernelModule,
