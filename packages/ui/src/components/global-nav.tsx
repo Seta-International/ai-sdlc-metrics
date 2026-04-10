@@ -21,7 +21,7 @@ const NAV_ITEMS: NavItem[] = [
 
 export function GlobalNav() {
   return (
-    <nav className="flex items-center gap-4 px-4 py-2 border-b">
+    <nav className="flex flex-wrap items-center gap-2 px-4 py-2 border-b overflow-x-auto">
       <a href="https://seta-international.com" className="font-bold">
         Future
       </a>
