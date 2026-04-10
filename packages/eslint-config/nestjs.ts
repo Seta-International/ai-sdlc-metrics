@@ -1,9 +1,9 @@
 import boundaries from 'eslint-plugin-boundaries'
 import prettier from 'eslint-config-prettier'
-import base from './base.js'
+import type { Linter } from 'eslint'
+import base from './base.ts'
 
-/** @type {import('eslint').Linter.Config[]} */
-export default [
+const config: Linter.Config[] = [
   ...base,
   {
     plugins: {
@@ -34,3 +34,5 @@ export default [
   },
   prettier,
 ]
+
+export default config

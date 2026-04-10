@@ -3,9 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "exports": {
-    "./base": "./base.js",
-    "./nestjs": "./nestjs.js",
-    "./nextjs": "./nextjs.js"
+    "./base": "./base.ts",
+    "./nestjs": "./nestjs.ts",
+    "./nextjs": "./nextjs.ts"
   },
   "peerDependencies": {
     "eslint": "^9",

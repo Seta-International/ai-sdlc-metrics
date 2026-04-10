@@ -21,6 +21,7 @@
     "format:check": "prettier --check ."
   },
   "devDependencies": {
+    "jiti": "^2.6.1",
     "prettier": "^3.8.2",
     "turbo": "^2.9.4",
     "typescript": "^6.0.2"
