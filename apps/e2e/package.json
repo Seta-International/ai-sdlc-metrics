@@ -9,7 +9,7 @@
   "devDependencies": {
     "@future/eslint-config": "workspace:*",
     "@future/tsconfig": "workspace:*",
-    "@playwright/test": "^1.50",
+    "@playwright/test": "^1.59",
     "eslint": "^10.2.0",
     "typescript": "^6.0.2"
   }

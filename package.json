@@ -1,7 +1,7 @@
 {
   "name": "future",
   "private": true,
-  "packageManager": "bun@1.3.11",
+  "packageManager": "bun@1.3.12",
   "workspaces": [
     "apps/*",
     "agents/*",
@@ -27,7 +27,7 @@
     "jiti": "^2.6.1",
     "lefthook": "^2.1.5",
     "prettier": "^3.8.2",
-    "turbo": "^2.9.4",
+    "turbo": "^2.9.5",
     "typescript": "^6.0.2"
   }
 }
