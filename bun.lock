@@ -30,6 +30,7 @@
       },
       "devDependencies": {
         "@future/tsconfig": "*",
+        "@types/node": "^25.6.0",
         "@types/pg": "^8",
         "drizzle-kit": "^0.28",
         "typescript": "^6.0.2",
