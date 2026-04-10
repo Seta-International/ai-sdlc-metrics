@@ -1,0 +1,10 @@
+{
+  "extends": "@future/tsconfig/nextjs.json",
+  "compilerOptions": {
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": ["src", "next.config.ts"],
+  "exclude": ["node_modules"]
+}

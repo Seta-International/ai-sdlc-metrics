@@ -2,6 +2,12 @@
   "name": "@future/api",
   "version": "0.0.1",
   "private": true,
+  "exports": {
+    "./trpc": {
+      "types": "./dist/common/trpc/app-router.d.ts",
+      "default": "./dist/common/trpc/app-router.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "dev": "bun run --watch src/main.ts",

@@ -33,6 +33,186 @@
         "vitest": "^4",
       },
     },
+    "apps/web-admin": {
+      "name": "@future/web-admin",
+      "version": "0.0.1",
+      "dependencies": {
+        "@future/api-client": "workspace:*",
+        "@future/auth": "workspace:*",
+        "@future/ui": "workspace:*",
+        "next": "16.2.3",
+        "react": "^19",
+        "react-dom": "^19",
+      },
+      "devDependencies": {
+        "@future/tsconfig": "workspace:*",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "typescript": "^6.0.2",
+      },
+    },
+    "apps/web-agents": {
+      "name": "@future/web-agents",
+      "version": "0.0.1",
+      "dependencies": {
+        "@future/api-client": "workspace:*",
+        "@future/auth": "workspace:*",
+        "@future/ui": "workspace:*",
+        "next": "16.2.3",
+        "react": "^19",
+        "react-dom": "^19",
+      },
+      "devDependencies": {
+        "@future/tsconfig": "workspace:*",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "typescript": "^6.0.2",
+      },
+    },
+    "apps/web-finance": {
+      "name": "@future/web-finance",
+      "version": "0.0.1",
+      "dependencies": {
+        "@future/api-client": "workspace:*",
+        "@future/auth": "workspace:*",
+        "@future/ui": "workspace:*",
+        "next": "16.2.3",
+        "react": "^19",
+        "react-dom": "^19",
+      },
+      "devDependencies": {
+        "@future/tsconfig": "workspace:*",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "typescript": "^6.0.2",
+      },
+    },
+    "apps/web-goals": {
+      "name": "@future/web-goals",
+      "version": "0.0.1",
+      "dependencies": {
+        "@future/api-client": "workspace:*",
+        "@future/auth": "workspace:*",
+        "@future/ui": "workspace:*",
+        "next": "16.2.3",
+        "react": "^19",
+        "react-dom": "^19",
+      },
+      "devDependencies": {
+        "@future/tsconfig": "workspace:*",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "typescript": "^6.0.2",
+      },
+    },
+    "apps/web-hiring": {
+      "name": "@future/web-hiring",
+      "version": "0.0.1",
+      "dependencies": {
+        "@future/api-client": "workspace:*",
+        "@future/auth": "workspace:*",
+        "@future/ui": "workspace:*",
+        "next": "16.2.3",
+        "react": "^19",
+        "react-dom": "^19",
+      },
+      "devDependencies": {
+        "@future/tsconfig": "workspace:*",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "typescript": "^6.0.2",
+      },
+    },
+    "apps/web-insights": {
+      "name": "@future/web-insights",
+      "version": "0.0.1",
+      "dependencies": {
+        "@future/api-client": "workspace:*",
+        "@future/auth": "workspace:*",
+        "@future/ui": "workspace:*",
+        "next": "16.2.3",
+        "react": "^19",
+        "react-dom": "^19",
+      },
+      "devDependencies": {
+        "@future/tsconfig": "workspace:*",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "typescript": "^6.0.2",
+      },
+    },
+    "apps/web-people": {
+      "name": "@future/web-people",
+      "version": "0.0.1",
+      "dependencies": {
+        "@future/api-client": "workspace:*",
+        "@future/auth": "workspace:*",
+        "@future/ui": "workspace:*",
+        "next": "16.2.3",
+        "react": "^19",
+        "react-dom": "^19",
+      },
+      "devDependencies": {
+        "@future/tsconfig": "workspace:*",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "typescript": "^6.0.2",
+      },
+    },
+    "apps/web-performance": {
+      "name": "@future/web-performance",
+      "version": "0.0.1",
+      "dependencies": {
+        "@future/api-client": "workspace:*",
+        "@future/auth": "workspace:*",
+        "@future/ui": "workspace:*",
+        "next": "16.2.3",
+        "react": "^19",
+        "react-dom": "^19",
+      },
+      "devDependencies": {
+        "@future/tsconfig": "workspace:*",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "typescript": "^6.0.2",
+      },
+    },
+    "apps/web-planner": {
+      "name": "@future/web-planner",
+      "version": "0.0.1",
+      "dependencies": {
+        "@future/api-client": "workspace:*",
+        "@future/auth": "workspace:*",
+        "@future/ui": "workspace:*",
+        "next": "16.2.3",
+        "react": "^19",
+        "react-dom": "^19",
+      },
+      "devDependencies": {
+        "@future/tsconfig": "workspace:*",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "typescript": "^6.0.2",
+      },
+    },
+    "apps/web-projects": {
+      "name": "@future/web-projects",
+      "version": "0.0.1",
+      "dependencies": {
+        "@future/api-client": "workspace:*",
+        "@future/auth": "workspace:*",
+        "@future/ui": "workspace:*",
+        "next": "16.2.3",
+        "react": "^19",
+        "react-dom": "^19",
+      },
+      "devDependencies": {
+        "@future/tsconfig": "workspace:*",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "typescript": "^6.0.2",
+      },
+    },
     "apps/web-shell": {
       "name": "@future/web-shell",
       "version": "0.0.0",
@@ -50,10 +230,29 @@
         "typescript": "^6.0.2",
       },
     },
+    "apps/web-time": {
+      "name": "@future/web-time",
+      "version": "0.0.1",
+      "dependencies": {
+        "@future/api-client": "workspace:*",
+        "@future/auth": "workspace:*",
+        "@future/ui": "workspace:*",
+        "next": "16.2.3",
+        "react": "^19",
+        "react-dom": "^19",
+      },
+      "devDependencies": {
+        "@future/tsconfig": "workspace:*",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "typescript": "^6.0.2",
+      },
+    },
     "packages/api-client": {
       "name": "@future/api-client",
       "version": "0.0.1",
       "dependencies": {
+        "@future/api": "*",
         "@trpc/client": "^11",
       },
       "devDependencies": {
@@ -308,7 +507,29 @@
 
     "@future/ui": ["@future/ui@workspace:packages/ui"],
 
+    "@future/web-admin": ["@future/web-admin@workspace:apps/web-admin"],
+
+    "@future/web-agents": ["@future/web-agents@workspace:apps/web-agents"],
+
+    "@future/web-finance": ["@future/web-finance@workspace:apps/web-finance"],
+
+    "@future/web-goals": ["@future/web-goals@workspace:apps/web-goals"],
+
+    "@future/web-hiring": ["@future/web-hiring@workspace:apps/web-hiring"],
+
+    "@future/web-insights": ["@future/web-insights@workspace:apps/web-insights"],
+
+    "@future/web-people": ["@future/web-people@workspace:apps/web-people"],
+
+    "@future/web-performance": ["@future/web-performance@workspace:apps/web-performance"],
+
+    "@future/web-planner": ["@future/web-planner@workspace:apps/web-planner"],
+
+    "@future/web-projects": ["@future/web-projects@workspace:apps/web-projects"],
+
     "@future/web-shell": ["@future/web-shell@workspace:apps/web-shell"],
+
+    "@future/web-time": ["@future/web-time@workspace:apps/web-time"],
 
     "@hookform/resolvers": ["@hookform/resolvers@5.2.2", "", { "dependencies": { "@standard-schema/utils": "^0.3.0" }, "peerDependencies": { "react-hook-form": "^7.55.0" } }, "sha512-A/IxlMLShx3KjV/HeTcTfaMxdwy690+L/ZADoeaTltLx+CVuzkeVIPuybK3jrRfw7YZnmdKsVVHAlEPIAEUNlA=="],
 
