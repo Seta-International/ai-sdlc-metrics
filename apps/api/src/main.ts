@@ -1,13 +1,28 @@
 import 'reflect-metadata'
 import { NestFactory } from '@nestjs/core'
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify'
+import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/adapters/fastify'
 import { runMigrations } from '@future/db/migrate'
 import { AppModule } from './app.module'
+import { appRouter, type AppRouter } from './common/trpc/app-router'
 
 async function bootstrap() {
   await runMigrations()
 
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter())
+  const adapter = new FastifyAdapter()
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter)
+
+  // Mount tRPC on the raw Fastify instance before listen
+  const fastify = adapter.getInstance()
+  await fastify.register(fastifyTRPCPlugin, {
+    prefix: '/trpc',
+    trpcOptions: {
+      router: appRouter,
+      onError({ path, error }) {
+        console.error(`tRPC error on '${path}':`, error)
+      },
+    } satisfies FastifyTRPCPluginOptions<AppRouter>['trpcOptions'],
+  })
 
   const port = parseInt(process.env['PORT'] ?? '4000', 10)
   await app.listen(port, '0.0.0.0')

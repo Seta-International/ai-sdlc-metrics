@@ -1,4 +1,4 @@
-import { initTRPC } from '@trpc/server'
+import { router } from './trpc-init'
 import { kernelRouter } from '../../modules/kernel/interface/trpc/kernel.router'
 import { peopleRouter } from '../../modules/people/interface/trpc/people.router'
 import { timeRouter } from '../../modules/time/interface/trpc/time.router'
@@ -11,10 +11,6 @@ import { insightsRouter } from '../../modules/insights/interface/trpc/insights.r
 import { agentsRouter } from '../../modules/agents/interface/trpc/agents.router'
 import { plannerRouter } from '../../modules/planner/interface/trpc/planner.router'
 import { adminRouter } from '../../modules/admin/interface/trpc/admin.router'
-
-const t = initTRPC.create()
-export const router = t.router
-export const publicProcedure = t.procedure
 
 export const appRouter = router({
   kernel: kernelRouter,
