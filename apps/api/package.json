@@ -30,9 +30,11 @@
     "zod": "^3"
   },
   "devDependencies": {
+    "@future/eslint-config": "workspace:*",
     "@future/tsconfig": "*",
     "@nestjs/cli": "^11.0.19",
     "@vitest/coverage-v8": "^4",
+    "eslint": "^9",
     "typescript": "^6.0.2",
     "vitest": "^4"
   }
