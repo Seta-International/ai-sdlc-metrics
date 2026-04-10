@@ -237,6 +237,20 @@ Branch: `feat/{ticket}` or `fix/{ticket}` off `main`. No long-lived branches. No
 
 PR requirements: CI green + one reviewer approval.
 
+### Git Rules (No Exceptions)
+
+- **Never push directly to `main`.** All changes go through a PR.
+- **Always checkout a new branch** before starting any work. Never commit on `main`.
+- **Never use `git worktree`.** Use `git checkout -b <branch>` to work on a new branch.
+- **Never force-push** (`--force`) or hard-reset (`git reset --hard`) on shared branches.
+
+### Package / Workspace Management (No Exceptions)
+
+- **Never manually edit `package.json`, `bun.lock`, or any lockfile.**
+- Install dependencies via CLI: `bun add <pkg>`, `bun add -d <pkg>`, `bun add <pkg>@<version>`, `bun remove <pkg>`.
+- Add a new app or package to the monorepo via Turborepo CLI: `turbo gen workspace` — never create the directory and `package.json` by hand.
+- Add a workspace dependency between packages: `bun add <pkg> --filter <workspace>`.
+
 ---
 
 ## Security

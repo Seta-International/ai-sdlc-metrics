@@ -172,7 +172,16 @@ Microservice extraction path: swap `EventBus.publish()` → BullMQ producer. Dom
 
 ### Package Management
 - Never manually edit `package.json`, `bun.lock`, or any lockfile.
-- Use the CLI: `bun add <pkg>`, `bun add -d <pkg>`, `bun add <pkg>@<version>`, `bun remove <pkg>`.
+- Install or remove packages using the CLI only: `bun add <pkg>`, `bun add -d <pkg>`, `bun add <pkg>@<version>`, `bun remove <pkg>`.
+- Add a new app or package to the monorepo using the Turborepo CLI: `turbo gen workspace` or copy an existing workspace scaffold — never create the directory and `package.json` manually.
+- Add an existing workspace as a dependency of another using `bun add <pkg> --filter <workspace>`.
+
+### Git Workflow
+- Never push directly to `main`. All changes go through a PR.
+- Always create a new branch before starting work: `git checkout -b feat/{ticket}` or `fix/{ticket}` off `main`.
+- Never use `git worktree`. Checkout to a new branch instead.
+- Open a PR for every change. CI must be green and at least one reviewer must approve before merging.
+- Never use `--force` push or `git reset --hard` on shared branches.
 
 ### When in Doubt, Ask
 - If a requirement is ambiguous, ask before implementing. Do not guess and build the wrong thing.
