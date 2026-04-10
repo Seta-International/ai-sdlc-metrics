@@ -1,0 +1,30 @@
+{
+  "name": "@future/db",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "generate": "drizzle-kit generate",
+    "migrate": "bun run src/migrate.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45",
+    "pg": "^8",
+    "uuidv7": "^1"
+  },
+  "devDependencies": {
+    "@future/tsconfig": "*",
+    "@types/pg": "^8",
+    "drizzle-kit": "^0.28",
+    "typescript": "^6.0.2"
+  }
+}
