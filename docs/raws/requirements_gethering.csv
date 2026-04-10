@@ -1,0 +1,106 @@
+Tool,Tính n?ng,Flow,End-user,T?n su?t s? d?ng tính n?ng,M?c ?? quan tr?ng c?a tính n?ng,Các tool khác c?n s? d?ng song song khi th?c hi?n thao tác này,C?n c?i thi?n,Tính n?ng hi?n t?i c?n b? sung,Final decision
+Hiring,T?o request tuy?n d?ng,Hiring manager or TA leader t?o request tuy?n d?ng,Hiring Manager/TA,Daily,Must Keep,Google sheet: L?u gi? các request tuy?n d?ng,S? d?ng ch?c n?ng l?c th?i gian các request tuy?n d?ng còn sai,,Gi?
+Hiring,T?o request tuy?n d?ng,"Khi t?o request tuy?n d?ng kèm JD c? th?, ?? ch? ?? public, job s? lên site seta career ?? post job",TA,Daily,Must Keep,"Post job lên m?ng xã h?i: Các trang tuy?n d?ng m?t phí, linkedin,Fb,...",,,Gi?
+Hiring,"Upload CV lên h? th?ng, import d? li?u c? ??u vào, export d? li?u và upload ??ng lo?t cv lên h? th?ng","Dùng AI ?? upload cv v?i các tr??ng thông tin c? b?n, kèm cv",TA,Daily,Must Keep,"Google Sheet: L?u gi? data ?ng viên, update status ?ng viên, HR contact","Hi?n t?i v?n ch?a ???c công ty phê duy?t chi phí c?p openAI key ?? AI ??c cv nhanh h?n. Chi phí 5$ cho 1200 CV. Có ?? xu?t ch? H?ng nh?ng process ph?n k? toán ch?a ?c duy?t. Cái này r?t c?n, vì tool hiring r?t c?n cái này ?? ti?t ki?m th?i gian nh?p d? li?u thông tin ?ng viên",C?n thêm ph?n l?c ?ng viên theo các tr??ng s? ?i?n tho?i và email giúp tìm ?ng viên d? h?n,Gi?
+Hiring,Talent pool,L?u tr? data ?ng viên và t?o các talent pool ?? ph?c v? nhu c?u tuy?n d?ng trong t??ng lai,HR,Daily,Must Keep,,,,Gi?
+Hiring,Talent pool,AI g?i ý các CV phù h?p v?i các job ?ang tuy?n,HR,Daily,Must Keep,"Google form: l?u tr? data ?ánh giá sau ph?ng v?n
+Google sheet: copy và paste d? li?u ?ánh giá sau ph?ng v?n",,,Gi?
+Hiring,Th?c hi?n quy trình tuy?n d?ng t? ?ng viên apply --> offer,"L?u tr? thông tin v? các vòng ph?ng v?n, k?t qu? ph?ng v?n",HR,Daily,Must Keep,"Google Sheet: L?u gi? data ?ng viên, update status ?ng viên, HR contact",,,Gi?
+Hiring,Interview,"G?i mail, h?n l?ch ph?ng v?n, book phòng h?p",HR,Daily,Must Keep,"Google Sheet: L?u gi? data ?ng viên, update status ?ng viên, HR contact",,,Gi?
+Hiring,L?ch ph?ng v?n,Hi?n th? các cu?c interview ?ã và ?ang setup,HR,Daily,Must Keep,Google Calendar,,,Gi?
+Hiring,Báo cáo qu?n tr?,Báo cáo tuy?n d?ng,HR,Weekly,Must Keep,,"Hi?n t?i ch?a có 1 báo cáo nào hoàn ch?nh v? ph?n này.
+Tool ?ang có count d? li?u ch?a chu?n. C?n làm l?i ?? phù h?p v?i nhu c?u h?n. ",,S?a
+Hiring,"Setting thêm d? án, thêm talent pool, set up quy?n cho nhân s?,...",Cài ??t ban ??u,HR,Daily,Must Keep,,,,Gi?
+Hiring,Web Crawling,Giúp cho HR tìm ki?m thêm nhi?u ?ng viên (ch? y?u là Likendin),HR,Daily,Must Keep,Các tool ngoài ?? tìm ki?m ?ng viên. Tuy nhiên ch?c này v?n c?n giúp HR ?a ??ng các ngu?n tìm ?ng viên,,,Gi?
+Hiring,Onboard ?ng viên,C?n l?y data ??u vào t? Hiring tool: ?ng viên status là Offered s? ???c chuy?n qua EMS ?? làm th? t?c onboard,,,,,,,Thêm m?i
+EMS,Onboard nhân s?,"T?o account và sync v?i timesheet, review, audit
+??ng th?i thông báo t?i Teams c?a IT ?? IT approve","HR
+IT",Weekly,Cross-System Integration Issue,"Trong tr??ng h?p sync data b? l?i, c?n nh?p l?i 3 l?n manual trên Timesheet, Review, audit","call webhook t?i các app khác th??ng xuyên b? l?i, gây b?t ti?n cho TA",,S?a
+EMS,Onboard nhân s?,Thông báo t?i các stakeholder ?? th?c hi?n các task hoàn thi?n th? t?c onboard cho nhân s?,"các stakeholder liên quan t?i vi?c onboard 1 nhân s? (PM, IT, ...)",Weekly,Hidden Manual Work,Jira: dùng ?? t?o request t?i IT v? vi?c chu?n b? máy cho nhân s?,,C?n b? sung tính n?ng assign task cho các stakeholder khi có 1 nhân s? onbaord,S?a
+EMS,Qu?n lý profile nhân s?,"Qu?n lý toàn b? thông tin nhân s?: thông tin cá nhân, kinh nghi?m làm vi?c, tech stack, ...
+Export CV theo chu?n format công ty","HR
+Employee
+L&D",Monthly,Must Keep,"Google docs: HR dùng ?? t?o template CV SETA khi nhân s? c?n
+Microsoft form: K? toán, HR v?n dùng file response c?a microsoft form ?? l?y data nhân s? m?i onboard: ngày sinh nh?t, ngày vào công ty, làm h?p ??ng, thông tin Mã s? thu?, ...
+Google sheet: Team tuy?n d?ng dùng ?? l?u tr? thông tin ngày onboard, m?c l??ng offer, data c? v? CV, thông tin ph?ng v?n, ...",,"C?n tính n?ng yêu c?u employee update profile, CV trên EMS ??nh k? (m?i 2 tháng, m?i quý, ...)
+C?n dùng 1 ngu?n duy nh?t ?? ??m b?o gi?m effort và ??ng nh?t d? li?u",S?a
+EMS,Qu?n lý danh m?c Account-Project,"Theo dõi danh sách account, project hi?n có c?a công ty
+Dashboard t?ng account và project","BOD
+CDO, CTO
+PM
+PMO",Daily,Must Fix,"Google sheet: l?u tr? r?i r?c, không ??y ?? và không up-to-date","Thông tin v? nhân s? trong d? án, effort c?a nhân s? không ???c update th??ng xuyên","C?n dashboard theo dõi t?ng th? và qu?n lý toàn b? account/project c?a công ty
+C?n các tính n?ng xu?t báo cáo ph?c v? PM, CDO",Thêm m?i
+EMS,"Qu?n lý danh sách nhân s? thu?c Account/Project, effort allocation",Theo dõi t?ng effort và phân b? effort c?a nhân s? trong các d? án,"BOD
+HR Dept
+CDO, CTO
+PM
+PMO",Daily,Must Fix,"Google sheet: l?u tr? r?i r?c, không ??y ?? và không up-to-date",Hi?n t?i ?? theo dõi effort c?a nhân s? c?n vào c? th? t?ng account/project nhân s? ?ang tham gia,"C?n có b?ng theo dõi t?ng th? toàn công ty v?: danh sách d? án ?ang tham gia, t?ng và phân b? effort
+C?n tính n?ng xu?t báo cáo ph?c v? CPO",Thêm m?i
+EMS,T?o và qu?n lý Template h?p ??ng,T?o các template h?p ??ng,HR,Daily,Hidden Manual Work,"Word, Excel ?? mail merge",,,Gi?
+EMS,T?o h?p ??ng và qu?n lý h?p ??ng,"T?o h?p ??ng cho nhân s? và l?u tr?
+Theo dõi tình tr?ng h?p ??ng: s?p h?t h?n, ?ã h?t h?n, ...
+Remind HR vi?c gia h?n h?p ??ng",HR,Daily,Hidden Manual Work,"Word, Excel ?? mail merge",Khi data gi?a các tool centralize thì CPO s? t?o h?p ??ng thu?n ti?n và thông tin chính xác,,S?a
+EMS,Offboard nhân s?,Employee t?o ??n xin ngh? vi?c trên h? th?ng và th?c hi?n các th? t?c offboard theo ?úng quy ??nh,"Employee
+HR",Weekly,Cross-System Integration Issue,"Microsoft Teams: thông báo t?i HR v? vi?c làm th? t?c ngh? vi?c cho nhân s?
+Microsoft Teams: thông báo t?i PM, ng??i nh?n bàn giao v? vi?c th?c hi?n th? t?c bàn giao công vi?c
+Jira: t?o request t?i IT ?? yêu c?u xóa tài kho?n, thu h?i máy, ...
+Mail outlook: nhân s? dùng ?? g?i ??n xin ngh? vi?c",,,S?a
+EMS,Offboard nhân s?,HR có th? ch? ??ng t?o và th?c hi?n quy trình ngh? vi?c cho nhân s?,HR,Weekly,Cross-System Integration Issue,,,,S?a
+EMS,Xóa nhân s?,"Khi nhân s? offboard, xóa nhân s? kh?i h? th?ng",HR,Weekly,Must Fix,,Xóa nhân s? ? tool này ch?a sync v?i các tool khác,"Sync data gi?a các tool ?? ??m b?o consistent v? danh sách nhân s?, ID, h? tên, d? án, leader",S?a
+Review Tool,Thêm m?i nhân s? vào h? th?ng,"T?o, s?a các nhân s?",HR,Monthly,Cross-System Integration Issue,"EMS: sync data nhân s? m?i
+Google sheet: l?y thông tin v? leader mà HR l?u tr?","Hi?n t?i vi?c sync data t? EMS ch? h? tr? cho nhân s? SETA, do ?ó nhân s? BlueOC s? c?n nh?p manual","Sync data gi?a các tool ?? ??m b?o consistent v? danh sách nhân s?, ID, h? tên, d? án, leader",S?a
+Review Tool,Assign và thay ??i ng??i ?ánh giá nhân s?,Assign ng??i ?ánh giá performance cho nhân s? và thay ??i khi có request,HR,Monthly,Must Fix,Microsoft Teams: nh?n request t? các PM/Leader qua tin nh?n v? vi?c ??i ng??i ?ánh giá,,"1 nhân s? s? có:
+- ng??i ?ánh giá performance: có th? là PM, Techlead, leader tr?c ti?p
+- ng??i approve timesheet: th??ng là PM, có th? là techlead
+C?n sync c? data v? leader/PM và ng??i ?ánh giá gi?a các tool ?? ??m b?o ??ng nh?t. 
+Khi thay ??i c?ng s? c?n sync",S?a
+Review Tool,Request thay ??i nhân s? t?i Admin,,"PM, Leader",Monthly,Nice To Have,,,,B?
+Review Tool,Leader/PM ?ánh giá nhân s?,"?ánh giá theo các tiêu chí có s?n
+L?u tr? l?ch s? ?ánh giá","PM, Leader",Monthly,Must Fix,,,,Gi?
+Review Tool,Ch?n chu k? ?ánh giá,"Ch?n chu k? ?ánh giá ? hi?n t?i ho?c quá kh? ?? ??m b?o ?ánh giá ?úng tháng, tháng nào c?ng ???c ?ánh giá. Tr??c ?ây, nhi?u TH ?ánh giá vào ??u tháng sau. khi export thì data b? ghi nh?n là data c?a tháng làm ?ánh giá --> gây sai l?ch d? li?u","PM, Leader",Monthly,Nice To Have,,,,
+Review Tool,L?a ch?n nhân s? vào danh sách b?ng vàng thành tích ho?c danh sách nhân s? c?n ???c nh?c nh?,Tick ch?n các nhân s? vào 2 danh sách này,HR,Monthly,Automation Opportunity,"Google sheet/Excel: dùng ?? phân tích data
+Mail: HR dùng ?? ?? xu?t danh sách b?ng vàng và danh sách c?n nh?c nh? t?i BOD",Hi?n t?i data ?ánh giá c?n t?i v? d?ng Excel và HR phân tích manual,C?n AI h? tr? phân tích và ?? xu?t nhân s? vào b?ng vàng thành tích và nhân s? c?n ???c nh?c nh?,S?a
+Review Tool,Xóa nhân s?,,,Monthly,Must Fix,,Xóa nhân s? ? tool này ch?a sync v?i các tool khác,"Sync data gi?a các tool ?? ??m b?o consistent v? danh sách nhân s?, ID, h? tên, d? án, leader",S?a
+Review Tool,Tính n?ng nhân s? t? ?ánh giá,Member t? ?ánh giá chính mình v?i các tiêu chí gi?ng nh? leader ?ánh giá member. ?ánh giá c?a member và leader là 2 ?ánh giá ??c l?p,Employee,Monthly,Must Keep,,,,Thêm m?i
+Review Tool,,,,,,,,,Thêm m?i
+Timesheet,T?o nhân s?,"T?o nhân s?, assign PM/leader là ng??i approve timesheet",HR,,Automation Opportunity,,,,Gi?
+Timesheet,T?o nhân s?,"Set up gi? làm vi?c, hình th?c làm vi?c
+Set up th?i gian ngh? phép
+L?u tr? biometric",HR,"Khi nhân s? offboard, xóa nhân s? kh?i h? th?ng",Automation Opportunity,,,,S?a
+Timesheet,"T?o l?nh: forget, làm bù, ngh? phép",T?o l?nh --> PM/Leader approve --> CPO Approve,"Employee
+HR",,Must Keep,,,,Gi?
+Timesheet,Theo dõi chuyên c?n c?a nhân s?,"Tab theo dõi th?i gian check in/out c?a toàn b? nhân s?
+Theo dõi th?i gian ngh? phép c?a nhân s?","Employee
+HR",,Must Fix,,,"AI h? tr? phân tích, warning nh?ng nhân s? c?n c?i thi?n chuyên c?n",Thêm m?i
+Timesheet,Thay ??i PM/leader approve timesheet c?a nhân s?,S?a tr?c ti?p trên timesheet,HR,,Must Fix,,"vi?c thay ??i ch? th?c hi?n ? timesheet, ch?a sync qua các tool khác","Sync data gi?a các tool ?? ??m b?o consistent v? danh sách nhân s?, ID, h? tên, d? án, leader",S?a
+Timesheet,Xóa nhân s?,"Khi nhân s? offboard, xóa nhân s? kh?i h? th?ng",HR,,Must Fix,,Xóa nhân s? ? tool này ch?a sync v?i các tool khác,"Sync data gi?a các tool ?? ??m b?o consistent v? danh sách nhân s?, ID, h? tên, d? án, leader",S?a
+Timesheet,Tính ngày công,export d? li?u check in/out và ngày ngh? phép,CPO,,Must Keep,"Mail Outlook: nh?ng tr??ng h?p h?t h?n làm l?nh forget s? g?i mail kèm evidence t?i PM và cc admin
+Excel: export file data r?i Vlookup vào file excel tính l??ng","liên quan ??n vi?c nhân s? ?i mu?n, h?p ?êm, v?n c?n làm manual
+approve qua mail r?i update manual vào excel
+s?a ??nh d?ng các s? trong file export",,S?a
+Timesheet,H? tr? export các báo cáo lao ??ng,Xu?t report theo template ch? H?ng cung c?p,CPO,,Nice To Have,,,,Thêm m?i
+Timesheet,Báo cáo b?o hi?m,export ra excel ?? nh?p hàng lo?t lên ph?n m?m b?o hi?m,CPO,,Nice To Have,Ph?n m?m b?o hi?m,,,Thêm m?i
+Audit tool,T?o nhân s?,"T?o nhân s?, assign PM/leader/d? án",HR,Monthly,Cross-System Integration Issue,"EMS: sync data nhân s? m?i
+Google sheet: l?y thông tin v? nhân s? mà HR l?u tr?","Hi?n t?i vi?c sync data t? EMS ch? h? tr? cho nhân s? SETA, do ?ó nhân s? BlueOC s? c?n nh?p manual","Sync data gi?a các tool ?? ??m b?o consistent v? danh sách nhân s?, ID, h? tên, d? án, leader",S?a
+Audit tool,"Theo dõi t? ??ng vi ph?m các l?i:
+- Set status Teams khi ngh? phép
+- Log work/commit code trên Jira
+- ?ánh giá mu?n/không ?ánh giá monthly cho member trên Review tool","Tool track t? ??ng qua Jira, Teams, Review Tool",HR,Daily,Must Keep,,"Data t? Jira ch?a th?c s? ?áng tin c?y. Nhi?u TH ghi nh?n l?i nh?ng track sai, ph?i check manual nhi?u.",,S?a
+Audit tool,"Log manual các l?i không track ???c automate. VD: l?i nhóm 1: ?i mu?n liên t?c trong th?i gian dài, gây l? b?o m?t d? án,...","Log l?i th? công, sau ?ó tool ghi nh?n và x? lý y nh? các l?i t? ??ng khác",HR,Monthly,Must Keep,,,,Gi?
+Audit tool,G?i email thông báo ghi nh?n và email k?t lu?n vi ph?m,"Khi phát hi?n l?i, tool t? ??ng g?i email báo ghi nh?n l?i t?i NL? -> ??m ng??c 24h n?u không có email gi?i trình thì s? g?i thêm 1 email k?t lu?n có vi ph?m.",HR,Daily,Must Keep,,,,Gi?
+Audit tool,Báo cáo tình tr?ng vi ph?m,,HR,Monthly,Nice To Have,Excel: xu?t excel ?? tính s? ti?n th??ng tuân th? còn l?i sau khi vi ph?m,,,Gi?
+Audit tool,Xóa nhân s?,"Khi nhân s? offboard, xóa nhân s? kh?i h? th?ng",HR,,Cross-System Integration Issue,,,,Thêm m?i
+Planner,Ki?m soát và ??m b?o các meeting ???c t? ch?c ?úng quy trình,"Th?i l??ng phù h?p, có agenda ??y ?? tr??c bu?i h?p, ghi l?i và l?u tr? MoM, có follow-up action items sau bu?i h?p",,,,,,,Thêm m?i
+Planner,T?o các action item sau bu?i h?p,,Employee,,,,,,Thêm m?i
+Planner,Theo dõi và remind các task ch?a th?c hi?n ho?c s?p h?t h?n,,,,,,,,Thêm m?i
+Planner,?ánh giá m?c ?? hoàn thành các task. Là 1 ngu?n ?ánh giá performance,,,,,,,,Thêm m?i
+"Insight: c?n nh?ng insight gì, ??a ra quy?t ??nh gì",,,,,,,,,Thêm m?i
+"KPI: h? th?ng các ch? s? OKR --> KPI, tr?ng s?, áp d?ng cho t?ng ??i t??ng, cách ?ánh giá (có ch? s? mình ?ánh giá, có ch? s? KH ?ánh giá), c? ch? review, ??c data cross-app (timesheet, review, finance, ...)",,,,,,,,,Thêm m?i
+,Set up b? KPI cho t?ng nhân s?,,,,,,,,Thêm m?i
+,Leader/PM ?ánh giá nhân s? ??nh kì,,,,,,,,Thêm m?i
+,"T? ??ng l?y data t? các tool (Jira, Planner, ...) ?? h? tr? ?ánh giá KPI",,,,,,,,Thêm m?i
+Finance,,,,,,,,,
+?ào t?o,"Các tính n?ng ph?c v? ?ào t?o: l?u tr? h?c li?u, l?u tr? và ?ánh giá d? li?u h?c/d?y c?a employee
+Là c? s? ?? ?ánh giá KPI nhân s?
+?ánh giá hi?u qu? ?ào t?o",TBD,"Employee
+L&D",,,,,,Thêm m?i
