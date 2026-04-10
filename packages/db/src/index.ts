@@ -6,6 +6,9 @@ export function createDb(connectionString: string) {
     connectionString,
     max: 10,
   })
+  pool.on('error', (err) => {
+    console.error('Unexpected idle pool client error', err)
+  })
   return drizzle(pool)
 }
 

@@ -9,9 +9,12 @@ async function runMigrations() {
   const pool = new Pool({ connectionString })
   const db = drizzle(pool)
 
-  await migrate(db, { migrationsFolder: './drizzle/migrations' })
-  await pool.end()
-  console.log('Migrations complete')
+  try {
+    await migrate(db, { migrationsFolder: './drizzle/migrations' })
+    console.log('Migrations complete')
+  } finally {
+    await pool.end()
+  }
 }
 
 runMigrations().catch((err) => {
