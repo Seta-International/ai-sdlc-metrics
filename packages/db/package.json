@@ -13,6 +13,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
     "generate": "drizzle-kit generate",
     "migrate": "bun run src/migrate.ts"
   },
@@ -22,10 +23,12 @@
     "uuidv7": "^1"
   },
   "devDependencies": {
+    "@future/eslint-config": "workspace:*",
     "@future/tsconfig": "*",
     "@types/node": "^25.6.0",
     "@types/pg": "^8",
     "drizzle-kit": "^0.28",
+    "eslint": "^10.2.0",
     "typescript": "^6.0.2"
   }
 }

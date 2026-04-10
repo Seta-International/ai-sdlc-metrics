@@ -19,7 +19,9 @@
     "@azure/msal-browser": "^3.0.0"
   },
   "devDependencies": {
+    "@future/eslint-config": "workspace:*",
     "@future/tsconfig": "*",
+    "eslint": "^10.2.0",
     "typescript": "^6.0.2"
   }
 }
