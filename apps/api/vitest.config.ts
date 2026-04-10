@@ -26,6 +26,11 @@ export default defineConfig({
           name: 'integration',
           include: ['src/**/*.integration.spec.ts'],
           setupFiles: ['src/test-setup.integration.ts'],
+          env: {
+            TEST_DATABASE_URL:
+              process.env['TEST_DATABASE_URL'] ??
+              'postgresql://future:future@localhost:5432/future_test',
+          },
         },
       },
     ],

@@ -20,16 +20,20 @@ describe('createRequestBoundDbProxy', () => {
     expect(baseDb.execute).not.toHaveBeenCalled()
   })
 
-  it('falls back to the base db when no request db is set', async () => {
-    const baseDb = {
-      execute: vi.fn().mockResolvedValue('base-result'),
-    } as unknown as Db
+  it('returns non-function properties directly from the active db', () => {
+    const baseDb = { dialect: 'base-dialect' } as unknown as Db
+    const requestDb = { dialect: 'request-dialect' } as unknown as Db
+
+    const db = createRequestBoundDbProxy(baseDb, () => requestDb)
+
+    expect((db as unknown as { dialect: string }).dialect).toBe('request-dialect')
+  })
+
+  it('returns non-function properties from base db when no request db is set', () => {
+    const baseDb = { dialect: 'base-dialect' } as unknown as Db
 
     const db = createRequestBoundDbProxy(baseDb, () => null)
 
-    const result = await db.execute('SELECT 1' as never)
-
-    expect(result).toBe('base-result')
-    expect(baseDb.execute).toHaveBeenCalledWith('SELECT 1')
+    expect((db as unknown as { dialect: string }).dialect).toBe('base-dialect')
   })
 })

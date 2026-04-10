@@ -78,6 +78,76 @@ describe('RlsMiddleware', () => {
     expect(requestDbContext.clearDb).toHaveBeenCalledTimes(1)
   })
 
+  it('cleans up on response close instead of finish', async () => {
+    const client = {
+      query: vi.fn().mockResolvedValue(undefined),
+      release: vi.fn(),
+    }
+    const baseDb = { $client: { connect: vi.fn().mockResolvedValue(client) } } as unknown as Db
+    const requestDb = {} as Db
+    vi.mocked(createDb).mockReturnValue(requestDb)
+
+    const response = new FakeResponse()
+    const next = vi.fn()
+    const middleware = new RlsMiddleware(
+      baseDb,
+      tenantContext as TenantContextService,
+      requestDbContext as RequestDbContextService,
+    )
+
+    await middleware.use({}, response, next)
+    response.emit('close')
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(requestDbContext.clearDb).toHaveBeenCalledTimes(1)
+    expect(client.release).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not clean up twice when both finish and close fire', async () => {
+    const client = {
+      query: vi.fn().mockResolvedValue(undefined),
+      release: vi.fn(),
+    }
+    const baseDb = { $client: { connect: vi.fn().mockResolvedValue(client) } } as unknown as Db
+    vi.mocked(createDb).mockReturnValue({} as Db)
+
+    const response = new FakeResponse()
+    const middleware = new RlsMiddleware(
+      baseDb,
+      tenantContext as TenantContextService,
+      requestDbContext as RequestDbContextService,
+    )
+
+    await middleware.use({}, response, vi.fn())
+    response.emit('finish')
+    response.emit('close')
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(client.release).toHaveBeenCalledTimes(1)
+  })
+
+  it('releases the client and rethrows when set_config fails', async () => {
+    const client = {
+      query: vi.fn().mockRejectedValue(new Error('pg error')),
+      release: vi.fn(),
+    }
+    const baseDb = { $client: { connect: vi.fn().mockResolvedValue(client) } } as unknown as Db
+
+    const middleware = new RlsMiddleware(
+      baseDb,
+      tenantContext as TenantContextService,
+      requestDbContext as RequestDbContextService,
+    )
+
+    await expect(middleware.use({}, new FakeResponse(), vi.fn())).rejects.toThrow('pg error')
+    expect(client.release).toHaveBeenCalledTimes(1)
+    expect(requestDbContext.setDb).not.toHaveBeenCalled()
+  })
+
   it('skips request db binding when the tenant context is missing', async () => {
     const connect = vi.fn()
     const baseDb = {
