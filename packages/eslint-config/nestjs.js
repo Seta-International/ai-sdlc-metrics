@@ -23,6 +23,7 @@ export default [
         {
           default: 'disallow',
           rules: [
+            { from: 'domain', allow: [] },
             { from: 'application', allow: ['domain'] },
             { from: 'infrastructure', allow: ['domain'] },
             { from: 'interface', allow: ['application'] },
