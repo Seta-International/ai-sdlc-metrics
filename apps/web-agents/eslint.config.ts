@@ -1,10 +1,8 @@
-import coreWebVitals from 'eslint-config-next/core-web-vitals'
-import prettier from 'eslint-config-prettier'
+import nextjs from '@future/eslint-config/nextjs'
 import type { Linter } from 'eslint'
 
 const config: Linter.Config[] = [
-  ...coreWebVitals,
-  // @next/next plugin is now loaded — safe to reference its rules
+  ...nextjs,
   {
     rules: {
       // Zones use <a> tags for cross-zone navigation (hard reload is intentional)
@@ -13,7 +11,13 @@ const config: Linter.Config[] = [
       '@typescript-eslint/no-explicit-any': 'error',
     },
   },
-  prettier,
+  {
+    languageOptions: {
+      parserOptions: {
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
 ]
 
 export default config

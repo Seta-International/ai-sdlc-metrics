@@ -18,6 +18,8 @@ const config: Linter.Config[] = [
       ],
     },
     rules: {
+      // boundaries/element-types is deprecated in v6 (renamed to boundaries/dependencies)
+      // Using it here until the rule is fully migrated
       'boundaries/element-types': [
         'error',
         {

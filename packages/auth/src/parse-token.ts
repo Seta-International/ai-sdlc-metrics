@@ -6,7 +6,7 @@ export interface FutureTokenClaims {
   roles: string[]
 }
 
-export function parseToken(idToken: string): FutureTokenClaims {
+export function parseToken(_idToken: string): FutureTokenClaims {
   // TODO: decode the Entra OIDC JWT and extract claims
   // For now, return a stub — real implementation uses MSAL token claims
   throw new Error('parseToken: not yet implemented')

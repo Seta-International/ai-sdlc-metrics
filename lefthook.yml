@@ -4,12 +4,11 @@ pre-commit:
     format-check:
       glob: '*.{ts,tsx,js,mjs,json,md}'
       run: bunx prettier --check {staged_files}
-    lint:
-      glob: '*.{ts,tsx}'
-      run: bunx eslint {staged_files}
 
 pre-push:
   commands:
+    lint:
+      run: bun turbo lint
     typecheck:
       run: bun turbo typecheck
     test:

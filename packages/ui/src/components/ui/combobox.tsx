@@ -4,14 +4,9 @@ import * as React from 'react'
 import { Combobox as ComboboxPrimitive } from '@base-ui/react'
 import { CheckIcon, ChevronDownIcon, XIcon } from 'lucide-react'
 
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from '@/components/ui/input-group'
+import { cn } from '../../lib/utils'
+import { Button } from './button'
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from './input-group'
 
 const Combobox = ComboboxPrimitive.Root
 
@@ -246,7 +241,11 @@ function ComboboxChip({
   )
 }
 
-function ComboboxChipsInput({ className, children, ...props }: ComboboxPrimitive.Input.Props) {
+function ComboboxChipsInput({
+  className,
+  children: _children,
+  ...props
+}: ComboboxPrimitive.Input.Props) {
   return (
     <ComboboxPrimitive.Input
       data-slot="combobox-chip-input"

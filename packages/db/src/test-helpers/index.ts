@@ -7,8 +7,8 @@ export function createTestDb(): Db {
 }
 
 export async function seedActor(
-  db: Db,
-  overrides?: Partial<{
+  _db: Db,
+  _overrides?: Partial<{
     id: string
     tenantId: string
     type: 'person' | 'organization' | 'system'

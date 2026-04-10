@@ -7,11 +7,11 @@ import { Injectable } from '@nestjs/common'
 @Injectable()
 export class KernelQueryFacade {
   // TODO: implement actor lookup, role checks, delegation resolution
-  async getActor(tenantId: string, actorId: string): Promise<null> {
+  async getActor(_tenantId: string, _actorId: string): Promise<null> {
     return null
   }
 
-  async hasRole(tenantId: string, actorId: string, role: string): Promise<boolean> {
+  async hasRole(_tenantId: string, _actorId: string, _role: string): Promise<boolean> {
     return false
   }
 }

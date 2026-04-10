@@ -8,6 +8,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./test-helpers": {
+      "import": "./dist/test-helpers/index.js",
+      "types": "./dist/test-helpers/index.d.ts"
     }
   },
   "scripts": {
@@ -27,7 +31,7 @@
     "@future/tsconfig": "*",
     "@types/node": "^25.6.0",
     "@types/pg": "^8",
-    "drizzle-kit": "^0.31",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^10.2.0",
     "typescript": "^6.0.2"
   }
