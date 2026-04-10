@@ -1,0 +1,9 @@
+{
+  "extends": "@future/tsconfig/nextjs.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["react", "react-dom"]
+  },
+  "include": ["src"]
+}
