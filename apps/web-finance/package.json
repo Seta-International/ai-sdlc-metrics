@@ -18,6 +18,7 @@
   },
   "devDependencies": {
     "@future/tsconfig": "workspace:*",
+    "@types/node": "^25.6.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^10.2.0",

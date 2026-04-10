@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "cubejs-server",
-    "build": "cubejs-server build"
+    "build": "echo \"Cube.js: no build step — deployed as a server (cubejs-server server)\""
   },
   "dependencies": {
     "@cubejs-backend/athena-driver": "^1.6",
