@@ -9,9 +9,13 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
+    "./migrate": {
+      "import": "./src/migrate.ts",
+      "types": "./src/migrate.ts"
+    },
     "./test-helpers": {
-      "import": "./dist/test-helpers/index.js",
-      "types": "./dist/test-helpers/index.d.ts"
+      "import": "./src/test-helpers/index.ts",
+      "types": "./src/test-helpers/index.ts"
     }
   },
   "scripts": {

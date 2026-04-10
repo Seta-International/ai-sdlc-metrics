@@ -1,4 +1,4 @@
-import { coreSchema } from './actor.schema.js'
+import { coreSchema } from './actor.schema'
 import { uuid, timestamp } from 'drizzle-orm/pg-core'
 
 // Idempotency log for outbox event relay

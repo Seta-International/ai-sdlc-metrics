@@ -1,9 +1,18 @@
-import { drizzle } from 'drizzle-orm/node-postgres'
+import { drizzle, type NodePgClient } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 
-export function createDb(connectionString: string) {
+export type Db = ReturnType<typeof drizzle>
+export type DbClient = NodePgClient
+
+export function createDb(connectionString: string): Db
+export function createDb(client: DbClient): Db
+export function createDb(connectionStringOrClient: string | DbClient): Db {
+  if (typeof connectionStringOrClient !== 'string') {
+    return drizzle(connectionStringOrClient)
+  }
+
   const pool = new Pool({
-    connectionString,
+    connectionString: connectionStringOrClient,
     max: 10,
   })
   pool.on('error', (err) => {
@@ -11,5 +20,3 @@ export function createDb(connectionString: string) {
   })
   return drizzle(pool)
 }
-
-export type Db = ReturnType<typeof createDb>

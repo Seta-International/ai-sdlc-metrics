@@ -21,6 +21,7 @@
     "@nestjs/common": "^11",
     "@nestjs/config": "^4",
     "@nestjs/core": "^11",
+    "@nestjs/cqrs": "^11.0.3",
     "@nestjs/platform-fastify": "^11",
     "@trpc/server": "^11",
     "drizzle-orm": "^0.45.2",
@@ -34,7 +35,7 @@
     "@future/eslint-config": "workspace:*",
     "@future/tsconfig": "*",
     "@nestjs/cli": "^11.0.19",
-    "@vitest/coverage-v8": "^4",
+    "@vitest/coverage-v8": "^4.1.4",
     "eslint": "^10.2.0",
     "typescript": "^6.0.2",
     "vitest": "^4"

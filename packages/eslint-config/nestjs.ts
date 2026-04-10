@@ -18,17 +18,15 @@ const config: Linter.Config[] = [
       ],
     },
     rules: {
-      // boundaries/element-types is deprecated in v6 (renamed to boundaries/dependencies)
-      // Using it here until the rule is fully migrated
-      'boundaries/element-types': [
+      'boundaries/dependencies': [
         'error',
         {
           default: 'disallow',
           rules: [
-            { from: 'domain', allow: [] },
-            { from: 'application', allow: ['domain'] },
-            { from: 'infrastructure', allow: ['domain'] },
-            { from: 'interface', allow: ['application'] },
+            { from: { type: 'domain' }, allow: [] },
+            { from: { type: 'application' }, allow: [{ to: { type: 'domain' } }] },
+            { from: { type: 'infrastructure' }, allow: [{ to: { type: 'domain' } }] },
+            { from: { type: 'interface' }, allow: [{ to: { type: 'application' } }] },
           ],
         },
       ],

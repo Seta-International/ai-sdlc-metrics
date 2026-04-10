@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common'
-import { PlannerQueryFacade } from './application/facades/planner-query.facade.js'
+import { PlannerQueryFacade } from './application/facades/planner-query.facade'
 
 @Module({
   providers: [PlannerQueryFacade],

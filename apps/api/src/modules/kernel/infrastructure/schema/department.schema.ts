@@ -1,5 +1,5 @@
-import { coreSchema } from './actor.schema.js'
-import { uuid, text, timestamp } from 'drizzle-orm/pg-core'
+import { coreSchema } from './actor.schema'
+import { uuid, text, timestamp, boolean } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const department = coreSchema.table('department', {
@@ -9,5 +9,8 @@ export const department = coreSchema.table('department', {
   tenantId: uuid('tenant_id').notNull(),
   name: text('name').notNull(),
   parentId: uuid('parent_id'), // soft ref to department.id
+  costCenterCode: text('cost_center_code'),
+  isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })

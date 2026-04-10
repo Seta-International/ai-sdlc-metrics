@@ -1,5 +1,6 @@
 import { Module, Global } from '@nestjs/common'
 import { ClsModule } from 'nestjs-cls'
+import { TenantContextService } from './tenant-context.service'
 
 @Global()
 @Module({
@@ -8,12 +9,17 @@ import { ClsModule } from 'nestjs-cls'
       global: true,
       middleware: {
         mount: true,
-        setup: (_cls, _req, _res) => {
-          // TODO: extract tenantId + actorId from session cookie
-          // and call cls.set('tenantId', tenantId) here
+        setup: (cls, req) => {
+          const rawTenantId = req.headers?.['x-tenant-id']
+          const tenantId = Array.isArray(rawTenantId) ? rawTenantId[0] : rawTenantId
+          if (tenantId) {
+            cls.set('tenantId', tenantId)
+          }
         },
       },
     }),
   ],
+  providers: [TenantContextService],
+  exports: [TenantContextService],
 })
 export class AppClsModule {}
