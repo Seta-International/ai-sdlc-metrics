@@ -1,32 +1,24 @@
-import js from "@eslint/js";
-import eslintConfigPrettier from "eslint-config-prettier";
-import turboPlugin from "eslint-plugin-turbo";
-import tseslint from "typescript-eslint";
-import onlyWarn from "eslint-plugin-only-warn";
+import boundaries from 'eslint-plugin-boundaries'
+import tsPlugin from '@typescript-eslint/eslint-plugin'
 
-/**
- * A shared ESLint configuration for the repository.
- *
- * @type {import("eslint").Linter.Config[]}
- * */
-export const config = [
-  js.configs.recommended,
-  eslintConfigPrettier,
-  ...tseslint.configs.recommended,
+/** @type {import('eslint').Linter.Config[]} */
+export default [
   {
     plugins: {
-      turbo: turboPlugin,
+      '@typescript-eslint': tsPlugin,
+      boundaries,
     },
     rules: {
-      "turbo/no-undeclared-env-vars": "warn",
+      ...tsPlugin.configs['recommended'].rules,
+      '@typescript-eslint/no-explicit-any': 'error',
+      'boundaries/element-types': ['error', {
+        default: 'disallow',
+        rules: [
+          { from: 'infrastructure', allow: ['domain'] },
+          { from: 'application',    allow: ['domain'] },
+          { from: 'interface',      allow: ['application'] },
+        ],
+      }],
     },
   },
-  {
-    plugins: {
-      onlyWarn,
-    },
-  },
-  {
-    ignores: ["dist/**"],
-  },
-];
+]
