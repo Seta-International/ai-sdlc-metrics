@@ -34,7 +34,7 @@
     "@future/tsconfig": "*",
     "@nestjs/cli": "^11.0.19",
     "@vitest/coverage-v8": "^4",
-    "eslint": "^9",
+    "eslint": "^10.2.0",
     "typescript": "^6.0.2",
     "vitest": "^4"
   }

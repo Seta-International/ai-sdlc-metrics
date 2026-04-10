@@ -21,7 +21,10 @@
     "format:check": "prettier --check ."
   },
   "devDependencies": {
+    "eslint": "^10.2.0",
+    "future": "^2.3.1",
     "jiti": "^2.6.1",
+    "lefthook": "^2.1.5",
     "prettier": "^3.8.2",
     "turbo": "^2.9.4",
     "typescript": "^6.0.2"
