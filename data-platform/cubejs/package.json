@@ -1,0 +1,14 @@
+{
+  "name": "@future/cubejs",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "cubejs-server",
+    "build": "cubejs-server build"
+  },
+  "dependencies": {
+    "@cubejs-backend/athena-driver": "^1.6",
+    "@cubejs-backend/postgres-driver": "^1.6",
+    "@cubejs-backend/server": "^1.6"
+  }
+}
