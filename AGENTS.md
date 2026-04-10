@@ -204,6 +204,12 @@ Microservice extraction path: swap `EventBus.publish()` → BullMQ producer. Dom
 - Install or remove packages using the CLI only: `bun add <pkg>`, `bun add -d <pkg>`, `bun add <pkg>@<version>`, `bun remove <pkg>`.
 - Add a new app or package to the monorepo using the Turborepo CLI: `turbo gen workspace` or copy an existing workspace scaffold — never create the directory and `package.json` manually.
 - Add an existing workspace as a dependency of another using `bun add <pkg> --filter <workspace>`.
+- Generate NestJS components (modules, controllers, services, resources) using the NestJS CLI — never create boilerplate files manually:
+  - `bunx nest generate module <name> --no-spec`
+  - `bunx nest generate controller <name> --no-spec`
+  - `bunx nest generate service <name> --no-spec`
+  - `bunx nest generate resource <name> --no-spec` (generates full CRUD scaffold)
+  - Run these from the `apps/api` directory or pass `--project api` from the root.
 
 ### Git Workflow
 - Never push directly to `main`. All changes go through a PR.

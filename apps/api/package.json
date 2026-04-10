@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@future/tsconfig": "*",
+    "@nestjs/cli": "^11.0.19",
     "@vitest/coverage-v8": "^4",
     "typescript": "^6.0.2",
     "vitest": "^4"

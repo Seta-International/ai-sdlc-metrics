@@ -1,4 +1,4 @@
-FROM oven/bun:1.3-slim AS base
+FROM --platform=linux/arm64 oven/bun:1.3-slim AS base
 
 FROM base AS deps
 WORKDIR /app

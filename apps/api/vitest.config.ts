@@ -4,14 +4,18 @@ export default defineConfig({
   test: {
     projects: [
       {
-        name: 'unit',
-        include: ['src/**/*.spec.ts'],
-        exclude: ['src/**/*.integration.spec.ts'],
+        test: {
+          name: 'unit',
+          include: ['src/**/*.spec.ts'],
+          exclude: ['src/**/*.integration.spec.ts'],
+        },
       },
       {
-        name: 'integration',
-        include: ['src/**/*.integration.spec.ts'],
-        setupFiles: ['src/test-setup.integration.ts'],
+        test: {
+          name: 'integration',
+          include: ['src/**/*.integration.spec.ts'],
+          setupFiles: ['src/test-setup.integration.ts'],
+        },
       },
     ],
   },

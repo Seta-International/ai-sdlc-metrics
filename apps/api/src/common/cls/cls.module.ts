@@ -8,7 +8,7 @@ import { ClsModule } from 'nestjs-cls'
       global: true,
       middleware: {
         mount: true,
-        setup: (cls, req) => {
+        setup: (cls, req, _res) => {
           // TODO: extract tenantId + actorId from session cookie
           // and call cls.set('tenantId', tenantId) here
         },
