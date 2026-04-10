@@ -16,10 +16,10 @@
     "lint": "eslint src/"
   },
   "dependencies": {
-    "@future/api": "workspace:*",
     "@trpc/client": "^11"
   },
   "devDependencies": {
+    "@future/api": "workspace:*",
     "@future/tsconfig": "*",
     "@trpc/server": "^11",
     "typescript": "^6.0.2"
