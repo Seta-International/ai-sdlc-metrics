@@ -1,0 +1,9 @@
+{
+  "extends": "@future/tsconfig/base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "lib": ["dom", "esnext"]
+  },
+  "include": ["src"]
+}

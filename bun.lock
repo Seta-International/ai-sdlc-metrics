@@ -9,6 +9,17 @@
         "typescript": "^6.0.2",
       },
     },
+    "packages/auth": {
+      "name": "@future/auth",
+      "version": "0.0.1",
+      "dependencies": {
+        "@azure/msal-browser": "^3.0.0",
+      },
+      "devDependencies": {
+        "@future/tsconfig": "*",
+        "typescript": "^6.0.2",
+      },
+    },
     "packages/eslint-config": {
       "name": "@future/eslint-config",
       "version": "0.0.1",
@@ -42,6 +53,10 @@
     },
   },
   "packages": {
+    "@azure/msal-browser": ["@azure/msal-browser@3.30.0", "", { "dependencies": { "@azure/msal-common": "14.16.1" } }, "sha512-I0XlIGVdM4E9kYP5eTjgW8fgATdzwxJvQ6bm2PNiHaZhEuUz47NYw1xHthC9R+lXz4i9zbShS0VdLyxd7n0GGA=="],
+
+    "@azure/msal-common": ["@azure/msal-common@14.16.1", "", {}, "sha512-nyxsA6NA4SVKh5YyRpbSXiMr7oQbwark7JU9LMeg6tJYTSPyAGkdx61wPT4gyxZfxlSxMMEyAsWaubBlNyIa1w=="],
+
     "@eslint-community/eslint-utils": ["@eslint-community/eslint-utils@4.9.1", "", { "dependencies": { "eslint-visitor-keys": "^3.4.3" }, "peerDependencies": { "eslint": "^6.0.0 || ^7.0.0 || >=8.0.0" } }, "sha512-phrYmNiYppR7znFEdqgfWHXR6NCkZEK7hwWDHZUjit/2/U0r6XvkDl0SYnoM51Hq7FhCGdLDT6zxCCOY1hexsQ=="],
 
     "@eslint-community/regexpp": ["@eslint-community/regexpp@4.12.2", "", {}, "sha512-EriSTlt5OC9/7SXkRSCAhfSxxoSUgBm33OH+IkwbdpgoqsSsUg7y3uh+IICI/Qg4BBWr3U2i39RpmycbxMq4ew=="],
@@ -59,6 +74,8 @@
     "@eslint/object-schema": ["@eslint/object-schema@2.1.7", "", {}, "sha512-VtAOaymWVfZcmZbp6E2mympDIHvyjXs/12LqWYjVw6qjrfF+VK+fyG33kChz3nnK+SU5/NeHOqrTEHS8sXO3OA=="],
 
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.4.1", "", { "dependencies": { "@eslint/core": "^0.17.0", "levn": "^0.4.1" } }, "sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA=="],
+
+    "@future/auth": ["@future/auth@workspace:packages/auth"],
 
     "@future/eslint-config": ["@future/eslint-config@workspace:packages/eslint-config"],
 
