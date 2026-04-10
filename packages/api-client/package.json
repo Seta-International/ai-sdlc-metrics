@@ -1,0 +1,29 @@
+{
+  "name": "@future/api-client",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@trpc/client": "^11"
+  },
+  "devDependencies": {
+    "@future/api": "workspace:*",
+    "@future/eslint-config": "workspace:*",
+    "@future/tsconfig": "*",
+    "@trpc/server": "^11",
+    "eslint": "^10.2.0",
+    "typescript": "^6.0.2"
+  }
+}

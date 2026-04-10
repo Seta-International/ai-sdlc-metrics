@@ -11,6 +11,7 @@
 Tests are not optional. They are part of implementation. You do not write a feature and then write tests — you write them together or the feature is not done.
 
 Three rules:
+
 1. Every command handler has a test covering the happy path + at least one error path.
 2. Every cross-module interaction has an integration test hitting a real database.
 3. Every user-visible flow on a critical path (leave approval, payroll submission, agent conversation) has an E2E test.
@@ -38,17 +39,16 @@ The cost of tests with AI-assisted coding is near-zero. There is no "we'll add t
 
 ## Test Frameworks
 
-| Layer | Framework | Command |
-|-------|-----------|---------|
-| Unit | Vitest `^4.x` (current: 4.1.3) | `bun vitest run` |
-| Integration | Vitest `^4.x` + real PostgreSQL | `bun vitest run --project integration` |
-| E2E | Playwright `^1.59` (current: 1.59.1) | `bun playwright test` |
-| Agent evals | Custom eval harness + Anthropic API | `bun run evals` |
+| Layer       | Framework                            | Command                                |
+| ----------- | ------------------------------------ | -------------------------------------- |
+| Unit        | Vitest `^4.x` (current: 4.1.3)       | `bun vitest run`                       |
+| Integration | Vitest `^4.x` + real PostgreSQL      | `bun vitest run --project integration` |
+| E2E         | Playwright `^1.59` (current: 1.59.1) | `bun playwright test`                  |
+| Agent evals | Custom eval harness + Anthropic API  | `bun run evals`                        |
 
 ### Why Vitest, not Jest?
 
 Vitest runs natively with Bun, shares TypeScript config, and is 5-10x faster than Jest. No transform config, no Babel, no `moduleNameMapper` hacks. Unit tests for a 10-module NestJS app should run in under 10 seconds.
-
 
 ### Why not Supertest for integration?
 
@@ -119,15 +119,29 @@ describe('CreateEmploymentContractHandler', () => {
     vi.mocked(kernelQuery.getActor).mockResolvedValue(null)
 
     await expect(
-      handler.execute({ actorId: 'missing', tenantId: 'tenant-1', startDate: new Date(), type: 'full_time' })
+      handler.execute({
+        actorId: 'missing',
+        tenantId: 'tenant-1',
+        startDate: new Date(),
+        type: 'full_time',
+      }),
     ).rejects.toThrow('ActorNotFoundException')
   })
 
   it('throws when actor is archived', async () => {
-    vi.mocked(kernelQuery.getActor).mockResolvedValue({ id: 'actor-1', status: 'archived', tenantId: 'tenant-1' })
+    vi.mocked(kernelQuery.getActor).mockResolvedValue({
+      id: 'actor-1',
+      status: 'archived',
+      tenantId: 'tenant-1',
+    })
 
     await expect(
-      handler.execute({ actorId: 'actor-1', tenantId: 'tenant-1', startDate: new Date(), type: 'full_time' })
+      handler.execute({
+        actorId: 'actor-1',
+        tenantId: 'tenant-1',
+        startDate: new Date(),
+        type: 'full_time',
+      }),
     ).rejects.toThrow()
   })
 })
@@ -145,7 +159,7 @@ describe('CreateEmploymentContractHandler', () => {
 
 **Why per-file schema, not transaction rollback:** transaction rollback cannot test code that itself opens transactions (e.g. outbox writes, which must commit before the relay can see them). Per-file schema handles all cases correctly.
 
-```ts
+````ts
 // employment-contract.repository.integration.spec.ts
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { drizzle } from 'drizzle-orm/node-postgres'
@@ -216,7 +230,7 @@ export default defineConfig({
     ]
   }
 })
-```
+````
 
 ---
 
@@ -226,13 +240,13 @@ export default defineConfig({
 
 **Mandatory E2E tests:**
 
-| Flow | Why |
-|------|-----|
-| Leave request → approval workflow | Touches 3+ services, decision_case kernel, notification |
-| Payroll reconciliation export | Finance data + tenant isolation |
-| Agent conversation (Q&A) | LLM + MCP tool + RLS + audit_event |
-| SSO login via Microsoft Entra | Auth flow, cross-zone session handoff |
-| Employee onboarding (people + time + hiring modules) | Cross-module data creation |
+| Flow                                                 | Why                                                     |
+| ---------------------------------------------------- | ------------------------------------------------------- |
+| Leave request → approval workflow                    | Touches 3+ services, decision_case kernel, notification |
+| Payroll reconciliation export                        | Finance data + tenant isolation                         |
+| Agent conversation (Q&A)                             | LLM + MCP tool + RLS + audit_event                      |
+| SSO login via Microsoft Entra                        | Auth flow, cross-zone session handoff                   |
+| Employee onboarding (people + time + hiring modules) | Cross-module data creation                              |
 
 **Location:** `apps/e2e/` — a separate app in the monorepo.
 
@@ -283,7 +297,7 @@ test.describe('Leave approval workflow', () => {
     // Switch back to employee — verify balance
     await page.goto('/api/test/login?role=employee&tenantId=' + tenantId)
     await page.goto('/time/leave/balance')
-    await expect(page.getByTestId('remaining-days')).toContainText('7')  // started with 12, used 5
+    await expect(page.getByTestId('remaining-days')).toContainText('7') // started with 12, used 5
   })
 })
 ```
@@ -324,15 +338,16 @@ runEval({
 
 **Eval gates:**
 
-| Phase | Gate to progress |
-|-------|-----------------|
+| Phase          | Gate to progress                                    |
+| -------------- | --------------------------------------------------- |
 | Phase A launch | >50% accuracy on 30 real queries from user research |
-| Phase B launch | >60% accuracy on stratified 50-query sample |
-| Phase C launch | >80% accuracy on stratified 50-query sample |
+| Phase B launch | >60% accuracy on stratified 50-query sample         |
+| Phase C launch | >80% accuracy on stratified 50-query sample         |
 
 When upgrading an Anthropic model, the eval suite runs before the change merges.
 
 **Eval triggers:**
+
 - Any change to a system prompt or tool definition
 - Any change to RAG retrieval logic
 - Any model version bump
@@ -347,7 +362,10 @@ When upgrading an Anthropic model, the eval suite runs before the change merges.
 
 ```ts
 // packages/db/test-helpers/index.ts
-export async function seedActor(db: Database, overrides: Partial<Actor> & { schemaName?: string } = {}): Promise<Actor> {
+export async function seedActor(
+  db: Database,
+  overrides: Partial<Actor> & { schemaName?: string } = {},
+): Promise<Actor> {
   const actor = {
     id: uuidv7(),
     tenantId: overrides.tenantId ?? uuidv7(),
@@ -392,18 +410,21 @@ module.exports = {
     ],
   },
   rules: {
-    'boundaries/element-types': ['error', {
-      default: 'disallow',
-      rules: [
-        // infrastructure can import domain
-        { from: 'infrastructure', allow: ['domain'] },
-        // application can import domain
-        { from: 'application', allow: ['domain'] },
-        // interface can import application (facades only, enforced by DI)
-        { from: 'interface', allow: ['application'] },
-        // domain cannot import anything from this list (it is pure)
-      ],
-    }],
+    'boundaries/element-types': [
+      'error',
+      {
+        default: 'disallow',
+        rules: [
+          // infrastructure can import domain
+          { from: 'infrastructure', allow: ['domain'] },
+          // application can import domain
+          { from: 'application', allow: ['domain'] },
+          // interface can import application (facades only, enforced by DI)
+          { from: 'interface', allow: ['application'] },
+          // domain cannot import anything from this list (it is pure)
+        ],
+      },
+    ],
   },
 }
 ```
@@ -430,6 +451,7 @@ Weekly (scheduled):
 ```
 
 **Gate policy:**
+
 - Steps 1-4 are required to merge. PR is blocked if any fail.
 - Step 5 blocks promotion to production. Staging deploy proceeds; production deploy waits for E2E green.
 - Steps 6-7 never block deploys. They produce a report. If accuracy drops below the gate threshold, a follow-up sprint is triggered (not a revert).

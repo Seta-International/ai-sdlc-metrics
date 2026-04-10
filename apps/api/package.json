@@ -1,0 +1,42 @@
+{
+  "name": "@future/api",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    "./trpc": {
+      "types": "./dist/common/trpc/app-router.d.ts",
+      "default": "./dist/common/trpc/app-router.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "bun run --watch src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "test": "vitest run --project unit",
+    "test:integration": "vitest run --project integration"
+  },
+  "dependencies": {
+    "@future/db": "workspace:*",
+    "@nestjs/common": "^11",
+    "@nestjs/config": "^4",
+    "@nestjs/core": "^11",
+    "@nestjs/platform-fastify": "^11",
+    "@trpc/server": "^11",
+    "drizzle-orm": "^0.45.2",
+    "nestjs-cls": "^6.2.0",
+    "reflect-metadata": "^0.2",
+    "rxjs": "^7",
+    "uuidv7": "^1.2.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@future/eslint-config": "workspace:*",
+    "@future/tsconfig": "*",
+    "@nestjs/cli": "^11.0.19",
+    "@vitest/coverage-v8": "^4",
+    "eslint": "^10.2.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4"
+  }
+}

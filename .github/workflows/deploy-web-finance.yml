@@ -1,0 +1,29 @@
+name: Deploy web-finance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web-finance/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+
+      # TODO: bun turbo build --filter=web-finance
+      # TODO: docker build --platform linux/arm64 -t $ECR_REGISTRY/future-web-finance:$SHA .
+      # TODO: docker push $ECR_REGISTRY/future-web-finance:$SHA
+      # TODO: aws ecs update-service --cluster future --service web-finance --force-new-deployment
+      # See: docs/architecture/deployment.md for full pipeline spec
+      - run: echo "Deploy not yet implemented. See docs/architecture/deployment.md."

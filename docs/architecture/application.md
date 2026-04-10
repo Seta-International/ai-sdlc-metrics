@@ -29,20 +29,20 @@ This document captures the agreed application architecture for Future — how do
 
 Names are chosen to match industry-standard HR/AaaS product naming — what customers recognize from Rippling, HiBob, Gusto, Personio, etc. Not internal SETA terminology.
 
-| Module | Canonical Name | Domain Responsibility |
-|---|---|---|
-| Core | `core` | Kernel primitives — Actor, Identity, Role, Org, Decision, Audit, Exposure |
-| People | `people` | Employee profiles, employment terms, org placements, offboarding |
-| Time | `time` | Attendance, leave, overtime, timesheets |
-| Hiring | `hiring` | Recruitment requests, candidate pipeline, interviews, offers |
-| Performance | `performance` | Review cycles, evaluations, feedback, 1:1s |
-| Projects | `projects` | Project staffing, assignments, client delivery tracking |
-| Finance | `finance` | Invoices, payroll execution, budget (future) |
-| Goals | `goals` | OKRs, KPIs, objectives, scoring |
-| Insights | `insights` | Analytics, dashboards, reporting, exports |
-| Agents | `agents` | AI agent configs, execution logs, tool registry |
-| Planner | `planner` | Org-wide task and action tracking, AI-powered reminders, meeting action item extraction (read.ai-style), KPI linkage |
-| Admin | `admin` | Tenant settings, AI provider config, module entitlements |
+| Module      | Canonical Name | Domain Responsibility                                                                                                |
+| ----------- | -------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Core        | `core`         | Kernel primitives — Actor, Identity, Role, Org, Decision, Audit, Exposure                                            |
+| People      | `people`       | Employee profiles, employment terms, org placements, offboarding                                                     |
+| Time        | `time`         | Attendance, leave, overtime, timesheets                                                                              |
+| Hiring      | `hiring`       | Recruitment requests, candidate pipeline, interviews, offers                                                         |
+| Performance | `performance`  | Review cycles, evaluations, feedback, 1:1s                                                                           |
+| Projects    | `projects`     | Project staffing, assignments, client delivery tracking                                                              |
+| Finance     | `finance`      | Invoices, payroll execution, budget (future)                                                                         |
+| Goals       | `goals`        | OKRs, KPIs, objectives, scoring                                                                                      |
+| Insights    | `insights`     | Analytics, dashboards, reporting, exports                                                                            |
+| Agents      | `agents`       | AI agent configs, execution logs, tool registry                                                                      |
+| Planner     | `planner`      | Org-wide task and action tracking, AI-powered reminders, meeting action item extraction (read.ai-style), KPI linkage |
+| Admin       | `admin`        | Tenant settings, AI provider config, module entitlements                                                             |
 
 ---
 
@@ -69,6 +69,7 @@ apps/
 ```
 
 Each zone is a standalone Next.js app with no `basePath` — each lives at the root of its own subdomain:
+
 ```ts
 // apps/web-finance/next.config.ts
 export default {
@@ -90,6 +91,7 @@ export default {
 **Inspired by how Google Workspace and Microsoft 365 work:** the shell owns auth only. Each app is fully autonomous.
 
 `web-shell` is the **navigation hub** — the home users return to between modules — and owns auth. Four responsibilities:
+
 1. **Navigation hub (`/`)** — authenticated home: module tiles, org switcher, waffle menu, global notification bell. The Microsoft 365 `office.com` equivalent.
 2. **Microsoft SSO (MSAL)** — owns the Entra OIDC flow, sets httpOnly session cookie, redirects back to the originally requested zone post-login.
 3. **Global search** (future) — cross-module search lives here, not inside any zone.
@@ -108,6 +110,7 @@ Zone boots (e.g. web-finance)
 `<GlobalNav />` uses plain `<a>` tags for cross-zone navigation — no Next.js `<Link>`, no runtime dependency on other zones.
 
 **Result:**
+
 - `web-shell` outage → users inside any module zone are completely unaffected
 - Finance deploys → no other zone restarts, no shared state invalidated
 - No `window.__FUTURE__` globals — no hidden coupling between zones
@@ -126,6 +129,7 @@ packages/
 ```
 
 **Hard rules:**
+
 - `packages/ui` — no API calls, no auth, pure presentational only
 - `packages/api-client` — no React, no UI; type + factory only
 - `packages/event-contracts` — no NestJS, no Drizzle; plain TS classes only
@@ -142,16 +146,16 @@ Frontend ↔ backend communication is end-to-end type-safe via tRPC. No REST con
 ```ts
 // apps/api/src/trpc/app.router.ts — assembled in NestJS app
 export const appRouter = router({
-  kernel:      kernelRouter,
-  people:      peopleRouter,
-  time:        timeRouter,
-  hiring:      hiringRouter,
+  kernel: kernelRouter,
+  people: peopleRouter,
+  time: timeRouter,
+  hiring: hiringRouter,
   performance: performanceRouter,
-  projects:    projectsRouter,
-  finance:     financeRouter,
-  goals:       goalsRouter,
-  insights:    insightsRouter,
-  agents:      agentsRouter,
+  projects: projectsRouter,
+  finance: financeRouter,
+  goals: goalsRouter,
+  insights: insightsRouter,
+  agents: agentsRouter,
 })
 export type AppRouter = typeof appRouter
 
@@ -224,14 +228,17 @@ modules/people/
 ```
 
 **Boundary rules enforced two ways:**
+
 1. `people.module.ts` exports only `PeopleQueryFacade` — NestJS DI enforces this at runtime
 2. `eslint-plugin-boundaries` — warns at compile time if any module imports from another module's `domain/` or `infrastructure/`
 
 **What other modules may import from People:**
+
 - `PeopleQueryFacade` (via NestJS DI injection) — read-only queries
 - `PersonHiredEvent` (from `packages/event-contracts/people/`) — event subscription
 
 **What other modules may NOT import:**
+
 - Anything from `modules/people/domain/`
 - Anything from `modules/people/infrastructure/`
 - `DrizzlePeopleRepository` or any Drizzle schema from the people module
@@ -242,14 +249,15 @@ modules/people/
 
 Two mechanisms, clearly separated:
 
-| Mechanism | When to use | Direction |
-|---|---|---|
-| `QueryFacade` | Module B needs to read data owned by Module A | Synchronous, request-scoped |
-| Domain Events | Module A's state changes and Module B must react | Async, decoupled |
+| Mechanism     | When to use                                      | Direction                   |
+| ------------- | ------------------------------------------------ | --------------------------- |
+| `QueryFacade` | Module B needs to read data owned by Module A    | Synchronous, request-scoped |
+| Domain Events | Module A's state changes and Module B must react | Async, decoupled            |
 
 No direct service imports. No shared repositories across module boundaries.
 
 `AdminQueryFacade` is also available cross-module for reading AI config and module entitlements:
+
 - `getResolvedAiConfig(tenantId)` — tenant override → platform default resolution
 - `isModuleEnabled(tenantId, moduleKey)` — used by tRPC middleware before routing
 
@@ -272,9 +280,9 @@ export class PersonHiredEvent {
 
 **Two categories of events:**
 
-| Category | Location | Visibility |
-|---|---|---|
-| Internal events | `modules/x/domain/events/` | Own module only |
+| Category            | Location                      | Visibility                     |
+| ------------------- | ----------------------------- | ------------------------------ |
+| Internal events     | `modules/x/domain/events/`    | Own module only                |
 | Cross-module events | `packages/event-contracts/x/` | Any module, any future service |
 
 **Canonical cross-module event catalog** (minimum required for default agents and module wiring):
@@ -396,6 +404,7 @@ export class OnCandidateHiredHandler {
 ```
 
 `core.processed_events` schema:
+
 ```sql
 processed_events
   event_id      UUID NOT NULL   -- outbox_event.id
@@ -407,6 +416,7 @@ processed_events
 ### Microservice Extraction Path
 
 When a module is extracted to its own service:
+
 1. `packages/event-contracts` stays unchanged — same event class, same schema
 2. Transport swap: replace in-process `EventBus.publish()` with BullMQ producer (Redis already in stack)
 3. Handler swap: replace `@EventsHandler` with BullMQ consumer
@@ -414,7 +424,7 @@ When a module is extracted to its own service:
 
 ```ts
 // This handler works in monolith AND as a separate service
-@EventsHandler(PersonHiredEvent)  // ← swap decorator only for microservice
+@EventsHandler(PersonHiredEvent) // ← swap decorator only for microservice
 export class OnPersonHiredHandler implements IEventHandler<PersonHiredEvent> {
   async handle(event: PersonHiredEvent) {
     await this.timeService.createDefaultLeaveBalance(event.actorId)
@@ -454,14 +464,18 @@ No FK constraints across module schemas. Application layer enforces integrity.
 ```ts
 // people module references kernel actor — soft reference, no .references()
 export const employment = pgTable('employment', {
-  id:       uuid('id').primaryKey().$defaultFn(() => uuidv7()),
+  id: uuid('id')
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   tenantId: uuid('tenant_id').notNull(),
-  actorId:  uuid('actor_id').notNull(),  // ← validated by PeopleCommandHandler via KernelQueryFacade
+  actorId: uuid('actor_id').notNull(), // ← validated by PeopleCommandHandler via KernelQueryFacade
 })
 
 // Within a module — hard FK is fine (never crosses boundary)
 export const decisionStep = pgTable('decision_step', {
-  caseId: uuid('case_id').notNull().references(() => decisionCase.id),  // ← same module
+  caseId: uuid('case_id')
+    .notNull()
+    .references(() => decisionCase.id), // ← same module
 })
 ```
 
@@ -509,13 +523,13 @@ Summary: `tenant_id` on every table, RLS enforced at DB layer via `set_config`, 
 
 ### Why Drizzle over Prisma
 
-| | Drizzle | Prisma |
-|---|---|---|
-| Bundle size | ~7.4 KB | ~1.6 MB |
-| RLS support | Native (set_config + RLS policies) | Requires middleware workarounds |
-| Type safety | TypeScript-native SQL builder | Generated client |
-| Query control | Full SQL when needed | Abstracted, escape hatches limited |
-| Migration | SQL migrations (version controlled) | Prisma migrate |
+|               | Drizzle                             | Prisma                             |
+| ------------- | ----------------------------------- | ---------------------------------- |
+| Bundle size   | ~7.4 KB                             | ~1.6 MB                            |
+| RLS support   | Native (set_config + RLS policies)  | Requires middleware workarounds    |
+| Type safety   | TypeScript-native SQL builder       | Generated client                   |
+| Query control | Full SQL when needed                | Abstracted, escape hatches limited |
+| Migration     | SQL migrations (version controlled) | Prisma migrate                     |
 
 ---
 
@@ -573,12 +587,13 @@ future/                          (Turborepo root)
 ```
 
 **Turborepo pipeline:**
+
 ```json
 {
-  "build":     { "dependsOn": ["^build"] },
+  "build": { "dependsOn": ["^build"] },
   "typecheck": { "dependsOn": ["^build"] },
-  "lint":      {},
-  "dev":       { "cache": false, "persistent": true }
+  "lint": {},
+  "dev": { "cache": false, "persistent": true }
 }
 ```
 
@@ -588,28 +603,28 @@ Independent zone deployment: `turbo build --filter=web-finance` builds only Fina
 
 ## Decisions Log
 
-| Decision | Outcome |
-|---|---|
-| Frontend architecture | Next.js Multi-Zones — 10 independent zones + shell, each own ECS service |
-| Shell responsibility | Navigation hub (landing, module tiles, waffle, org switcher) + MSAL auth + zone routing |
-| Session context in zones | Each zone calls `trpc.kernel.me` on mount — typed, cached, no globals |
-| In-zone nav chrome | `<GlobalNav />` from `packages/ui` with plain `<a>` tags — no runtime dep on shell |
-| tRPC assembly | `apps/api` assembles AppRouter explicitly in `apps/api/src/trpc/app.router.ts` — each module exports its router, imported and merged directly. No auto-discovery. |
-| Module boundary enforcement | NestJS `exports: [QueryFacade]` (runtime) + eslint-plugin-boundaries (compile-time) |
-| Module internal structure | domain / application (commands, queries, facades, event-handlers) / infrastructure / interface |
-| Cross-module communication | QueryFacade (reads) + domain events (state changes) |
-| Cross-module events location | `packages/event-contracts` — Published Language, zero NestJS deps |
-| Internal events location | `modules/x/domain/events/` — never exported outside the module |
-| Cross-module FK | Soft references only — no FK constraints across module schemas |
-| Within-module FK | Hard FK constraints — safe, never crosses boundary |
-| All IDs | UUID v7 — `$defaultFn(() => uuidv7())` |
-| Design system | shadcn/ui base in `packages/ui`, overridable per brand direction |
-| Microservice extraction | Transport swap only (EventBus → BullMQ). Domain/handler code unchanged. |
-| Admin zone | `web-admin` at `admin.seta-international.com` — self-service portal for tenant admins; platform_admin role unlocks all-tenant view |
-| AdminQueryFacade | Cross-module read interface for AI config resolution and module entitlement checks |
-| Event handler idempotency key | `outbox_event.id` — universal dedup key checked against `core.processed_events(event_id, handler_name)` before every cross-module handler |
-| Frontend zone routing | Subdomain-per-zone on `*.seta-international.com`. Cookie: `Domain=.seta-international.com; HttpOnly; Secure; SameSite=Lax` |
-| Drizzle migration strategy | Hybrid: single `drizzle.config.ts` in `packages/db`; migrations organized by schema in `drizzle/migrations/{schema}/`; `_metadata.json` defines dependency graph; NestJS `MigrationRunner` applies in topological order at startup |
+| Decision                      | Outcome                                                                                                                                                                                                                            |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend architecture         | Next.js Multi-Zones — 10 independent zones + shell, each own ECS service                                                                                                                                                           |
+| Shell responsibility          | Navigation hub (landing, module tiles, waffle, org switcher) + MSAL auth + zone routing                                                                                                                                            |
+| Session context in zones      | Each zone calls `trpc.kernel.me` on mount — typed, cached, no globals                                                                                                                                                              |
+| In-zone nav chrome            | `<GlobalNav />` from `packages/ui` with plain `<a>` tags — no runtime dep on shell                                                                                                                                                 |
+| tRPC assembly                 | `apps/api` assembles AppRouter explicitly in `apps/api/src/trpc/app.router.ts` — each module exports its router, imported and merged directly. No auto-discovery.                                                                  |
+| Module boundary enforcement   | NestJS `exports: [QueryFacade]` (runtime) + eslint-plugin-boundaries (compile-time)                                                                                                                                                |
+| Module internal structure     | domain / application (commands, queries, facades, event-handlers) / infrastructure / interface                                                                                                                                     |
+| Cross-module communication    | QueryFacade (reads) + domain events (state changes)                                                                                                                                                                                |
+| Cross-module events location  | `packages/event-contracts` — Published Language, zero NestJS deps                                                                                                                                                                  |
+| Internal events location      | `modules/x/domain/events/` — never exported outside the module                                                                                                                                                                     |
+| Cross-module FK               | Soft references only — no FK constraints across module schemas                                                                                                                                                                     |
+| Within-module FK              | Hard FK constraints — safe, never crosses boundary                                                                                                                                                                                 |
+| All IDs                       | UUID v7 — `$defaultFn(() => uuidv7())`                                                                                                                                                                                             |
+| Design system                 | shadcn/ui base in `packages/ui`, overridable per brand direction                                                                                                                                                                   |
+| Microservice extraction       | Transport swap only (EventBus → BullMQ). Domain/handler code unchanged.                                                                                                                                                            |
+| Admin zone                    | `web-admin` at `admin.seta-international.com` — self-service portal for tenant admins; platform_admin role unlocks all-tenant view                                                                                                 |
+| AdminQueryFacade              | Cross-module read interface for AI config resolution and module entitlement checks                                                                                                                                                 |
+| Event handler idempotency key | `outbox_event.id` — universal dedup key checked against `core.processed_events(event_id, handler_name)` before every cross-module handler                                                                                          |
+| Frontend zone routing         | Subdomain-per-zone on `*.seta-international.com`. Cookie: `Domain=.seta-international.com; HttpOnly; Secure; SameSite=Lax`                                                                                                         |
+| Drizzle migration strategy    | Hybrid: single `drizzle.config.ts` in `packages/db`; migrations organized by schema in `drizzle/migrations/{schema}/`; `_metadata.json` defines dependency graph; NestJS `MigrationRunner` applies in topological order at startup |
 
 ---
 

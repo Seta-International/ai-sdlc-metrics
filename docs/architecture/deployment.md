@@ -112,39 +112,39 @@ Each zone is an independent ECS service, ECR repo, and GitHub Actions deployment
 
 ### Production
 
-| Resource | Spec | Monthly |
-|---|---|---|
-| ECS api | 1 vCPU / 2GB, Graviton, mixed Spot | ~$30 |
-| ECS web-shell | 0.25 vCPU / 0.5GB, Graviton, On-Demand | ~$8 |
-| ECS web-admin | 0.25 vCPU / 0.5GB, Graviton, On-Demand | ~$8 |
-| ECS 7 domain zones (people, time, hiring, perf, projects, finance, goals) | 0.25 vCPU / 0.5GB, Graviton, Spot | ~$28 |
-| ECS web-insights + web-agents | 0.5 vCPU / 1GB, Graviton, Spot | ~$16 |
-| ECS cubejs | 1 vCPU / 2GB, Graviton, On-Demand | ~$30 |
-| ECS langfuse | 0.5 vCPU / 1GB, Graviton, On-Demand | ~$17 |
-| RDS OLTP (db.t4g.medium) | PostgreSQL 16, single-AZ, Graviton | ~$55 |
-| RDS Read Replica (db.t4g.medium) | Cube.js direct connection | ~$55 |
-| RDS Langfuse (db.t4g.micro) | Isolated trace storage, single-AZ | ~$15 |
-| RDS Proxy | NestJS API connection pooling + RLS | ~$22 |
-| ElastiCache (cache.t4g.small) | Cube.js query cache only | ~$20 |
-| ALB | | ~$20 |
-| AWS Glue ETL (hourly batch) | ~2 DPU × 5min × 24 runs/day | ~$2 |
-| S3 lakehouse (bronze + gold, ~100GB) | | ~$3 |
-| Amazon Athena (ad-hoc, 10 tenants) | | ~$5 |
-| ECR + CloudWatch + misc | | ~$15 |
-| **Total production** | | **~$349/month** |
+| Resource                                                                  | Spec                                   | Monthly         |
+| ------------------------------------------------------------------------- | -------------------------------------- | --------------- |
+| ECS api                                                                   | 1 vCPU / 2GB, Graviton, mixed Spot     | ~$30            |
+| ECS web-shell                                                             | 0.25 vCPU / 0.5GB, Graviton, On-Demand | ~$8             |
+| ECS web-admin                                                             | 0.25 vCPU / 0.5GB, Graviton, On-Demand | ~$8             |
+| ECS 7 domain zones (people, time, hiring, perf, projects, finance, goals) | 0.25 vCPU / 0.5GB, Graviton, Spot      | ~$28            |
+| ECS web-insights + web-agents                                             | 0.5 vCPU / 1GB, Graviton, Spot         | ~$16            |
+| ECS cubejs                                                                | 1 vCPU / 2GB, Graviton, On-Demand      | ~$30            |
+| ECS langfuse                                                              | 0.5 vCPU / 1GB, Graviton, On-Demand    | ~$17            |
+| RDS OLTP (db.t4g.medium)                                                  | PostgreSQL 16, single-AZ, Graviton     | ~$55            |
+| RDS Read Replica (db.t4g.medium)                                          | Cube.js direct connection              | ~$55            |
+| RDS Langfuse (db.t4g.micro)                                               | Isolated trace storage, single-AZ      | ~$15            |
+| RDS Proxy                                                                 | NestJS API connection pooling + RLS    | ~$22            |
+| ElastiCache (cache.t4g.small)                                             | Cube.js query cache only               | ~$20            |
+| ALB                                                                       |                                        | ~$20            |
+| AWS Glue ETL (hourly batch)                                               | ~2 DPU × 5min × 24 runs/day            | ~$2             |
+| S3 lakehouse (bronze + gold, ~100GB)                                      |                                        | ~$3             |
+| Amazon Athena (ad-hoc, 10 tenants)                                        |                                        | ~$5             |
+| ECR + CloudWatch + misc                                                   |                                        | ~$15            |
+| **Total production**                                                      |                                        | **~$349/month** |
 
 ### Staging
 
-| Resource | Notes | Monthly |
-|---|---|---|
-| ECS all services (14 services) | Scale-to-zero off SGT business hours (~50hrs/week active) | ~$28 |
-| RDS OLTP (db.t4g.micro) | Smaller instance, single-AZ | ~$20 |
-| RDS Read Replica (db.t4g.micro) | | ~$20 |
-| RDS Langfuse (db.t4g.micro) | | ~$15 |
-| ElastiCache (cache.t4g.micro) | | ~$15 |
-| ALB | | ~$18 |
-| Glue + Athena + S3 + misc | | ~$8 |
-| **Total staging** | | **~$127/month** |
+| Resource                        | Notes                                                     | Monthly         |
+| ------------------------------- | --------------------------------------------------------- | --------------- |
+| ECS all services (14 services)  | Scale-to-zero off SGT business hours (~50hrs/week active) | ~$28            |
+| RDS OLTP (db.t4g.micro)         | Smaller instance, single-AZ                               | ~$20            |
+| RDS Read Replica (db.t4g.micro) |                                                           | ~$20            |
+| RDS Langfuse (db.t4g.micro)     |                                                           | ~$15            |
+| ElastiCache (cache.t4g.micro)   |                                                           | ~$15            |
+| ALB                             |                                                           | ~$18            |
+| Glue + Athena + S3 + misc       |                                                           | ~$8             |
+| **Total staging**               |                                                           | **~$127/month** |
 
 **Total both environments: ~$476/month**
 
@@ -215,6 +215,7 @@ infra/
 ```
 
 Adding a new zone is one block in `main.tf`:
+
 ```hcl
 module "web_people" {
   source      = "./modules/ecs-service"
@@ -236,6 +237,7 @@ module "web_admin" {
 ```
 
 **Workspace commands:**
+
 ```bash
 terraform workspace select staging
 terraform apply -var-file=environments/staging.tfvars
@@ -245,6 +247,7 @@ terraform apply -var-file=environments/production.tfvars
 ```
 
 **Terraform state:**
+
 - S3 bucket with versioning enabled (safe rollbacks)
 - DynamoDB table for state locking (`PAY_PER_REQUEST` billing)
 - State keys: `future/staging/terraform.tfstate`, `future/production/terraform.tfstate`
@@ -254,6 +257,7 @@ terraform apply -var-file=environments/production.tfvars
 ## CI/CD Pipeline — GitHub Actions
 
 ### Security
+
 - GitHub Actions OIDC → IAM role assumption per environment. No static AWS access keys.
 - Separate IAM roles: `future-staging-deploy`, `future-production-deploy` (least-privilege).
 
@@ -283,6 +287,7 @@ On manual release (workflow_dispatch → select zone or 'all'):
 **Independent per-zone deploys:** Each zone has its own GitHub Actions workflow file. Changing `apps/web-finance/**` triggers only the `deploy-web-finance.yml` workflow. `web-people`, `web-time`, and all other zones are untouched.
 
 ### Turbo Optimization
+
 - Remote cache: unchanged packages never rebuild (~30s for lint/typecheck on cache hit)
 - `--filter` flag: only affected apps and their dependencies build
 - Docker layer cache from ECR: only changed layers rebuild
@@ -293,9 +298,9 @@ On manual release (workflow_dispatch → select zone or 'all'):
 
 EventBridge Scheduler rules (SGT = UTC+8):
 
-| Rule | Cron (UTC) | Action |
-|---|---|---|
-| Scale up weekdays | `0 1 ? * MON-FRI *` (9am SGT) | All ECS services → desired count 1 |
+| Rule                | Cron (UTC)                     | Action                             |
+| ------------------- | ------------------------------ | ---------------------------------- |
+| Scale up weekdays   | `0 1 ? * MON-FRI *` (9am SGT)  | All ECS services → desired count 1 |
 | Scale down weekdays | `0 12 ? * MON-FRI *` (8pm SGT) | All ECS services → desired count 0 |
 
 RDS staging instance runs 24/7 (cold start is 5-10 min, cost at t4g.micro is negligible).
@@ -304,27 +309,27 @@ RDS staging instance runs 24/7 (cold start is 5-10 min, cost at t4g.micro is neg
 
 ## Decisions Log
 
-| Decision | Outcome |
-|---|---|
-| Region | AWS ap-southeast-1 (Singapore) |
-| Domain | `seta-international.com` — wildcard `*.seta-international.com` covers all zones |
-| ALB routing | Host-based rules (subdomain-per-zone) — not path-based. Each zone lives at its own subdomain. |
-| Session cookie | `Domain=.seta-international.com; HttpOnly; Secure; SameSite=Lax` — shared across all subdomains |
-| Compute | ECS Fargate Graviton ARM64 — 20% cheaper, no code changes |
-| Frontend zones | Fargate Spot — up to 70% cheaper for stateless workloads |
-| NestJS API | 1 On-Demand baseline + Spot scale-out |
-| Environments | staging + production only, single AWS account, Terraform workspaces |
-| Staging scale-to-zero | EventBridge: 9am-8pm SGT weekdays only |
-| Multi-AZ | Not enabled — add when first enterprise tenant signs SLA |
-| Data protection | RDS automated backups (7-day), point-in-time recovery, snapshot before migrations |
-| CloudFront | Not now — ALB only. Add when performance is a real user complaint. |
-| Terraform bootstrap | `infra/bootstrap/` one-time module for S3 + DynamoDB |
-| Langfuse RDS | Separate db.t4g.micro — isolated from OLTP trace write volume |
-| LLM provider | OpenAI API key (`OPENAI_API_KEY`) in Secrets Manager for platform default; per-tenant BYO keys stored at `future/{env}/tenant/{tenantId}/openai-api-key` |
-| Agent channels | Teams bot credentials + Slack signing secret in Secrets Manager |
-| Admin zone | `web-admin` — On-Demand Fargate (0.25 vCPU / 0.5GB), own ECR repo and GitHub Actions workflow |
-| Lakehouse | S3 bronze/gold + Glue ETL (hourly) + Athena — all in Terraform `glue/` module |
-| Total cost | ~$349/month production + ~$127/month staging = ~$476/month |
+| Decision              | Outcome                                                                                                                                                  |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Region                | AWS ap-southeast-1 (Singapore)                                                                                                                           |
+| Domain                | `seta-international.com` — wildcard `*.seta-international.com` covers all zones                                                                          |
+| ALB routing           | Host-based rules (subdomain-per-zone) — not path-based. Each zone lives at its own subdomain.                                                            |
+| Session cookie        | `Domain=.seta-international.com; HttpOnly; Secure; SameSite=Lax` — shared across all subdomains                                                          |
+| Compute               | ECS Fargate Graviton ARM64 — 20% cheaper, no code changes                                                                                                |
+| Frontend zones        | Fargate Spot — up to 70% cheaper for stateless workloads                                                                                                 |
+| NestJS API            | 1 On-Demand baseline + Spot scale-out                                                                                                                    |
+| Environments          | staging + production only, single AWS account, Terraform workspaces                                                                                      |
+| Staging scale-to-zero | EventBridge: 9am-8pm SGT weekdays only                                                                                                                   |
+| Multi-AZ              | Not enabled — add when first enterprise tenant signs SLA                                                                                                 |
+| Data protection       | RDS automated backups (7-day), point-in-time recovery, snapshot before migrations                                                                        |
+| CloudFront            | Not now — ALB only. Add when performance is a real user complaint.                                                                                       |
+| Terraform bootstrap   | `infra/bootstrap/` one-time module for S3 + DynamoDB                                                                                                     |
+| Langfuse RDS          | Separate db.t4g.micro — isolated from OLTP trace write volume                                                                                            |
+| LLM provider          | OpenAI API key (`OPENAI_API_KEY`) in Secrets Manager for platform default; per-tenant BYO keys stored at `future/{env}/tenant/{tenantId}/openai-api-key` |
+| Agent channels        | Teams bot credentials + Slack signing secret in Secrets Manager                                                                                          |
+| Admin zone            | `web-admin` — On-Demand Fargate (0.25 vCPU / 0.5GB), own ECR repo and GitHub Actions workflow                                                            |
+| Lakehouse             | S3 bronze/gold + Glue ETL (hourly) + Athena — all in Terraform `glue/` module                                                                            |
+| Total cost            | ~$349/month production + ~$127/month staging = ~$476/month                                                                                               |
 
 ---
 

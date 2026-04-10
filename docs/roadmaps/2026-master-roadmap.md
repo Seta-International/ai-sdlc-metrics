@@ -53,16 +53,16 @@ The roadmap therefore optimizes for:
 
 ## Operating Constraints
 
-| Constraint | 2026 Position |
-|---|---|
-| Starting point | Architecture/specs only, no meaningful implementation yet |
-| Team size | 4 dedicated builders |
-| End date | Hard commitment: 2026-12-31 |
-| Customer focus | Internal-first, SETA only |
-| Product scope | Full internal OS, all 7 modules plus full data platform and agent runtime |
-| Legacy outcome | Full replacement of EMS, Timesheet, Hiring App, and Resource Insight |
+| Constraint            | 2026 Position                                                                             |
+| --------------------- | ----------------------------------------------------------------------------------------- |
+| Starting point        | Architecture/specs only, no meaningful implementation yet                                 |
+| Team size             | 4 dedicated builders                                                                      |
+| End date              | Hard commitment: 2026-12-31                                                               |
+| Customer focus        | Internal-first, SETA only                                                                 |
+| Product scope         | Full internal OS, all 7 modules plus full data platform and agent runtime                 |
+| Legacy outcome        | Full replacement of EMS, Timesheet, Hiring App, and Resource Insight                      |
 | Data platform outcome | Full lakehouse (S3, Glue ETL, Iceberg, Athena, Cube.js) live in production from the start |
-| Agent outcome | Agent capability tiers A, B, C, and D live internally by year-end |
+| Agent outcome         | Agent capability tiers A, B, C, and D live internally by year-end                         |
 
 ---
 
@@ -95,12 +95,12 @@ No real product code               in milestone-driven cutovers       Legacy sta
 
 ## Legacy Replacement Map
 
-| Legacy System | Target in Future | 2026 Replacement Intent |
-|---|---|---|
-| EMS | Core, People, Projects, Finance, selected integration and governance surfaces | Replace in workflow slices, then retire as the broadest legacy system |
-| Timesheet App | Time | Replace attendance, leave, approvals, schedules, and related manager/admin flows |
-| Hiring App | Hiring | Replace recruitment planning, candidate pipeline, interview operations, and reporting |
-| Resource Insight | Performance, Goals, selected Projects and org views | Replace review cycles, project assessment flows, performance history, and org/reporting surfaces |
+| Legacy System    | Target in Future                                                              | 2026 Replacement Intent                                                                          |
+| ---------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| EMS              | Core, People, Projects, Finance, selected integration and governance surfaces | Replace in workflow slices, then retire as the broadest legacy system                            |
+| Timesheet App    | Time                                                                          | Replace attendance, leave, approvals, schedules, and related manager/admin flows                 |
+| Hiring App       | Hiring                                                                        | Replace recruitment planning, candidate pipeline, interview operations, and reporting            |
+| Resource Insight | Performance, Goals, selected Projects and org views                           | Replace review cycles, project assessment flows, performance history, and org/reporting surfaces |
 
 The roadmap does **not** migrate by legacy app name alone. It migrates by workflow family, because EMS in particular spills across several future Future modules.
 
@@ -109,6 +109,7 @@ The roadmap does **not** migrate by legacy app name alone. It migrates by workfl
 ## 2026 Milestone Ladder
 
 ### Milestone 1: Foundation Ready
+
 **Date target:** 2026-06-30
 
 **What must be true**
@@ -128,6 +129,7 @@ Without this milestone, every later module will invent its own shortcuts and the
 ---
 
 ### Milestone 2: Core Operations Online
+
 **Date target:** 2026-08-15
 
 **What must be true**
@@ -145,6 +147,7 @@ This is the first point where Future stops being a build artifact and starts bec
 ---
 
 ### Milestone 3: Replacement Tranche 1 Complete
+
 **Date target:** 2026-09-30
 
 **What must be true**
@@ -163,6 +166,7 @@ By the end of Q3, the roadmap must kill real legacy risk, not just accumulate mo
 ---
 
 ### Milestone 4: Full Internal Surface Ready
+
 **Date target:** 2026-11-15
 
 **What must be true**
@@ -180,6 +184,7 @@ This milestone closes the breadth gap. After this point, the remaining work is c
 ---
 
 ### Milestone 5: Full Cutover and Legacy Shutdown
+
 **Date target:** 2026-12-31
 
 **What must be true**
@@ -200,11 +205,11 @@ This is the only end-state that counts as success for 2026.
 
 ## Quarter Buckets
 
-| Period | Theme | Outcome |
-|---|---|---|
+| Period            | Theme                           | Outcome                                                                                                         |
+| ----------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | Remaining Q2 2026 | Foundations and migration truth | Platform skeleton, kernel, auth, infra + full data platform scaffolded, migration mapping, first governed flows |
-| Q3 2026 | Core replacement | Operational modules online, Insights live on real data, Agent tiers A-B live, first major legacy cutovers |
-| Q4 2026 | Complete replacement | Remaining modules live, Athena lakehouse path fully serving analytics, Agent tiers C-D live, final decommission |
+| Q3 2026           | Core replacement                | Operational modules online, Insights live on real data, Agent tiers A-B live, first major legacy cutovers       |
+| Q4 2026           | Complete replacement            | Remaining modules live, Athena lakehouse path fully serving analytics, Agent tiers C-D live, final decommission |
 
 ---
 
@@ -315,13 +320,13 @@ If any legacy system still carries a mission-critical workflow on 2026-12-31, th
 
 ## Primary Risks
 
-| Risk | Why it matters | 2026 response |
-|---|---|---|
-| Too much parallelism | 4 builders can create broad partial coverage but not reliable replacement | Hold the roadmap to milestone gates and cutover order |
-| UI-first drift | Easy to ship surfaces without migration truth, audit parity, or ops readiness | Tie every milestone to real workflow replacement |
-| EMS scope sprawl | EMS covers too much and can absorb the whole year by itself | Decompose EMS into workflow families and replace slices deliberately |
-| Agent overreach | Tier D becomes fantasy if A-C do not prove out first | Keep autonomy narrow, audited, and internal-only |
-| Cutover avoidance | Teams tolerate dual-run too long and legacy systems never die | Define explicit retirement criteria and shutdown dates |
+| Risk                 | Why it matters                                                                | 2026 response                                                        |
+| -------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Too much parallelism | 4 builders can create broad partial coverage but not reliable replacement     | Hold the roadmap to milestone gates and cutover order                |
+| UI-first drift       | Easy to ship surfaces without migration truth, audit parity, or ops readiness | Tie every milestone to real workflow replacement                     |
+| EMS scope sprawl     | EMS covers too much and can absorb the whole year by itself                   | Decompose EMS into workflow families and replace slices deliberately |
+| Agent overreach      | Tier D becomes fantasy if A-C do not prove out first                          | Keep autonomy narrow, audited, and internal-only                     |
+| Cutover avoidance    | Teams tolerate dual-run too long and legacy systems never die                 | Define explicit retirement criteria and shutdown dates               |
 
 ---
 

@@ -1,0 +1,38 @@
+{
+  "name": "@future/db",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./test-helpers": {
+      "import": "./dist/test-helpers/index.js",
+      "types": "./dist/test-helpers/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "generate": "drizzle-kit generate",
+    "migrate": "bun run src/migrate.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45",
+    "pg": "^8",
+    "uuidv7": "^1"
+  },
+  "devDependencies": {
+    "@future/eslint-config": "workspace:*",
+    "@future/tsconfig": "*",
+    "@types/node": "^25.6.0",
+    "@types/pg": "^8",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^10.2.0",
+    "typescript": "^6.0.2"
+  }
+}

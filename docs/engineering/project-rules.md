@@ -14,11 +14,15 @@ PRs violating any of these do not merge.
 
 ```ts
 // ✓
-id: uuid('id').$defaultFn(() => uuidv7()).primaryKey()
+id: uuid('id')
+  .$defaultFn(() => uuidv7())
+  .primaryKey()
 
 // ✗
 id: serial('id').primaryKey()
-id: uuid('id').$defaultFn(() => randomUUID()).primaryKey()
+id: uuid('id')
+  .$defaultFn(() => randomUUID())
+  .primaryKey()
 ```
 
 ### 2. No FK constraints across module schemas
@@ -28,7 +32,9 @@ id: uuid('id').$defaultFn(() => randomUUID()).primaryKey()
 actorId: uuid('actor_id').notNull()
 
 // ✗
-actorId: uuid('actor_id').notNull().references(() => coreSchema.actor.id)
+actorId: uuid('actor_id')
+  .notNull()
+  .references(() => coreSchema.actor.id)
 ```
 
 ### 3. audit_event is INSERT-only
@@ -191,26 +197,26 @@ tRPC translates domain exceptions to HTTP status codes. Never expose SQL error m
 
 ### Database
 
-| Thing | Convention | Example |
-|-------|------------|---------|
-| Tables | `snake_case`, plural | `employment_contracts` |
-| Columns | `snake_case` | `actor_id`, `created_at` |
-| Schemas | singular module name | `people`, `time`, `core` |
+| Thing   | Convention              | Example                         |
+| ------- | ----------------------- | ------------------------------- |
+| Tables  | `snake_case`, plural    | `employment_contracts`          |
+| Columns | `snake_case`            | `actor_id`, `created_at`        |
+| Schemas | singular module name    | `people`, `time`, `core`        |
 | Indexes | `idx_{table}_{columns}` | `idx_employment_contract_actor` |
-| Enums | `snake_case` | `full_time`, `part_time` |
+| Enums   | `snake_case`            | `full_time`, `part_time`        |
 
 ### TypeScript
 
-| Thing | Convention | Example |
-|-------|------------|---------|
-| Classes | `PascalCase` | `EmploymentContractRepository` |
-| Interfaces | `PascalCase`, no `I` prefix | `LeaveRequestPort` |
-| Files | `kebab-case` | `employment-contract.repository.ts` |
-| Events | `PascalCase` + `Event` | `TimesheetSubmittedEvent` |
-| Commands | `PascalCase` + `Command` | `SubmitLeaveRequestCommand` |
-| Handlers | `PascalCase` + `Handler` | `SubmitLeaveRequestHandler` |
-| Facades | `PascalCase` + `QueryFacade` | `PeopleQueryFacade` |
-| MCP tools | `{module}_{verb}_{noun}` | `time_submit_leave_request` |
+| Thing      | Convention                   | Example                             |
+| ---------- | ---------------------------- | ----------------------------------- |
+| Classes    | `PascalCase`                 | `EmploymentContractRepository`      |
+| Interfaces | `PascalCase`, no `I` prefix  | `LeaveRequestPort`                  |
+| Files      | `kebab-case`                 | `employment-contract.repository.ts` |
+| Events     | `PascalCase` + `Event`       | `TimesheetSubmittedEvent`           |
+| Commands   | `PascalCase` + `Command`     | `SubmitLeaveRequestCommand`         |
+| Handlers   | `PascalCase` + `Handler`     | `SubmitLeaveRequestHandler`         |
+| Facades    | `PascalCase` + `QueryFacade` | `PeopleQueryFacade`                 |
+| MCP tools  | `{module}_{verb}_{noun}`     | `time_submit_leave_request`         |
 
 ### tRPC routers: `module.noun.verb`
 
@@ -236,6 +242,20 @@ Scopes: module names (`people`, `time`, `kernel`) or areas (`deploy`, `ci`)
 Branch: `feat/{ticket}` or `fix/{ticket}` off `main`. No long-lived branches. No `develop`.
 
 PR requirements: CI green + one reviewer approval.
+
+### Git Rules (No Exceptions)
+
+- **Never push directly to `main`.** All changes go through a PR.
+- **Always checkout a new branch** before starting any work. Never commit on `main`.
+- **Never use `git worktree`.** Use `git checkout -b <branch>` to work on a new branch.
+- **Never force-push** (`--force`) or hard-reset (`git reset --hard`) on shared branches.
+
+### Package / Workspace Management (No Exceptions)
+
+- **Never manually edit `package.json`, `bun.lock`, or any lockfile.**
+- Install dependencies via CLI: `bun add <pkg>`, `bun add -d <pkg>`, `bun add <pkg>@<version>`, `bun remove <pkg>`.
+- Add a new app or package to the monorepo via Turborepo CLI: `turbo gen workspace` — never create the directory and `package.json` by hand.
+- Add a workspace dependency between packages: `bun add <pkg> --filter <workspace>`.
 
 ---
 

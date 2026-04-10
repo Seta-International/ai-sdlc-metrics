@@ -14,11 +14,11 @@ This document captures every technology choice in the Future stack, with the ver
 
 ## Runtime and Monorepo
 
-| Tool | Version | Why |
-|------|---------|-----|
-| **Bun** | `^1.3` (current: 1.3.11) | Runtime + package manager. 30-100x faster than npm for install. Native TS execution. Drop-in for Node.js in NestJS containers. |
-| **Turborepo** | `^2.9` (current: 2.9.4) | Monorepo task orchestration. Remote caching means lint + typecheck on cache hit is ~30 seconds across 15+ packages. |
-| **TypeScript** | `^6.x` (current: 6.0.2) | Strict mode on. `"strict": true` in every tsconfig. No `any`. moduleResolution must be `bundler` or `nodenext` — `classic` was removed in v6. |
+| Tool           | Version                  | Why                                                                                                                                           |
+| -------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Bun**        | `^1.3` (current: 1.3.11) | Runtime + package manager. 30-100x faster than npm for install. Native TS execution. Drop-in for Node.js in NestJS containers.                |
+| **Turborepo**  | `^2.9` (current: 2.9.4)  | Monorepo task orchestration. Remote caching means lint + typecheck on cache hit is ~30 seconds across 15+ packages.                           |
+| **TypeScript** | `^6.x` (current: 6.0.2)  | Strict mode on. `"strict": true` in every tsconfig. No `any`. moduleResolution must be `bundler` or `nodenext` — `classic` was removed in v6. |
 
 **Monorepo layout:**
 
@@ -83,14 +83,14 @@ infra/               → Terraform IaC
 
 ### NestJS
 
-| Item | Choice |
-|------|--------|
-| Version | `^11.x` (current: 11.1.18) |
-| Module system | Standard NestJS DI container |
-| API protocol | tRPC (`trpc-nestjs-adapter` or `@trpc/server` with NestJS adapter) |
-| Background jobs | `pg-boss` via `nest-pg-boss` or custom `PgBossModule` |
-| Validation | `class-validator` + `class-transformer` (input DTOs only — not domain objects) |
-| Config | `@nestjs/config` + Zod schema validation at startup |
+| Item            | Choice                                                                         |
+| --------------- | ------------------------------------------------------------------------------ |
+| Version         | `^11.x` (current: 11.1.18)                                                     |
+| Module system   | Standard NestJS DI container                                                   |
+| API protocol    | tRPC (`trpc-nestjs-adapter` or `@trpc/server` with NestJS adapter)             |
+| Background jobs | `pg-boss` via `nest-pg-boss` or custom `PgBossModule`                          |
+| Validation      | `class-validator` + `class-transformer` (input DTOs only — not domain objects) |
+| Config          | `@nestjs/config` + Zod schema validation at startup                            |
 
 **Application structure inside `apps/api/src/`:**
 
@@ -138,12 +138,12 @@ modules/people/
 
 ### Drizzle ORM
 
-| Item | Choice |
-|------|--------|
-| Version | `^0.45` (current: 0.45.2) |
-| Driver | `drizzle-orm/node-postgres` with `pg` driver |
-| Schema style | `pgSchema()` — one schema per module (e.g., `pgSchema('people')`) |
-| Migrations | `drizzle-kit` — migrations live in `packages/db/migrations/` |
+| Item          | Choice                                                            |
+| ------------- | ----------------------------------------------------------------- |
+| Version       | `^0.45` (current: 0.45.2)                                         |
+| Driver        | `drizzle-orm/node-postgres` with `pg` driver                      |
+| Schema style  | `pgSchema()` — one schema per module (e.g., `pgSchema('people')`) |
+| Migrations    | `drizzle-kit` — migrations live in `packages/db/migrations/`      |
 | ID generation | `$defaultFn(() => uuidv7())` — UUID v7 on every table, every time |
 
 **No cross-schema FK constraints.** `people.employment_contract` can store `actor_id` (a UUID referencing `core.actor`) but without `.references()`. Cross-module integrity is enforced at the application layer via `KernelQueryFacade`.
@@ -152,7 +152,9 @@ modules/people/
 
 ```ts
 export const employmentContract = peopleSchema.table('employment_contract', {
-  id: uuid('id').$defaultFn(() => uuidv7()).primaryKey(),
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
   tenantId: uuid('tenant_id').notNull(),
   // ... other columns
 })
@@ -162,12 +164,12 @@ The `tenantId` column is on every table. RLS policy is set at the DB level. `set
 
 ### tRPC
 
-| Item | Choice |
-|------|--------|
-| Version | `^11.x` (current: 11.16.0) |
-| Assembly | `apps/api/src/common/trpc/app-router.ts` — merges all module routers |
+| Item            | Choice                                                                                   |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| Version         | `^11.x` (current: 11.16.0)                                                               |
+| Assembly        | `apps/api/src/common/trpc/app-router.ts` — merges all module routers                     |
 | Frontend client | `packages/api-client` re-exports the `AppRouter` type only — `import type { AppRouter }` |
-| Auth | tRPC middleware checks session cookie, injects `tenantId` + `actorId` into context |
+| Auth            | tRPC middleware checks session cookie, injects `tenantId` + `actorId` into context       |
 
 Each zone creates its own typed client:
 
@@ -177,7 +179,7 @@ import type { AppRouter } from '@future/api-client'
 import { createTRPCProxyClient, httpBatchLink } from '@trpc/client'
 
 export const trpc = createTRPCProxyClient<AppRouter>({
-  links: [httpBatchLink({ url: '/api/trpc' })]
+  links: [httpBatchLink({ url: '/api/trpc' })],
 })
 ```
 
@@ -185,13 +187,13 @@ export const trpc = createTRPCProxyClient<AppRouter>({
 
 ### PostgreSQL and Connection Management
 
-| Item | Choice |
-|------|--------|
-| Version | PostgreSQL 16 |
-| Connection pooling | RDS Proxy (production) → Drizzle pool (`max: 10` per task) |
-| Tenant context | `nestjs-cls` injects `set_config('app.tenant_id', tenantId, false)` before every query |
-| Outbox relay | 1 dedicated connection per API task (not from the request pool) |
-| pg-boss | 1 dedicated connection per API task (not from the request pool) |
+| Item               | Choice                                                                                 |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| Version            | PostgreSQL 16                                                                          |
+| Connection pooling | RDS Proxy (production) → Drizzle pool (`max: 10` per task)                             |
+| Tenant context     | `nestjs-cls` injects `set_config('app.tenant_id', tenantId, false)` before every query |
+| Outbox relay       | 1 dedicated connection per API task (not from the request pool)                        |
+| pg-boss            | 1 dedicated connection per API task (not from the request pool)                        |
 
 Connection budget: `api_tasks × (pool_size + 2)`. Keep below 100 for `db.t4g.medium`.
 
@@ -201,15 +203,15 @@ Connection budget: `api_tasks × (pool_size + 2)`. Keep below 100 for `db.t4g.me
 
 ### Next.js
 
-| Item | Choice |
-|------|--------|
-| Version | `^16.x` (current: 16.2.2) |
-| Router | App Router (RSC — React Server Components default) |
-| Output | `standalone` — smaller Docker images, self-contained |
-| CSS | Tailwind CSS `^4.x` (current: 4.2.2) + `packages/ui` shared component library |
-| Auth | `web-shell` only. All other zones read session from httpOnly cookie. |
-| Cross-zone nav | `<a>` tags — not `<Link>`. Hard reload between zones is intentional. |
-| Bundler | Turbopack (now the default in Next.js 16) |
+| Item           | Choice                                                                        |
+| -------------- | ----------------------------------------------------------------------------- |
+| Version        | `^16.x` (current: 16.2.2)                                                     |
+| Router         | App Router (RSC — React Server Components default)                            |
+| Output         | `standalone` — smaller Docker images, self-contained                          |
+| CSS            | Tailwind CSS `^4.x` (current: 4.2.2) + `packages/ui` shared component library |
+| Auth           | `web-shell` only. All other zones read session from httpOnly cookie.          |
+| Cross-zone nav | `<a>` tags — not `<Link>`. Hard reload between zones is intentional.          |
+| Bundler        | Turbopack (now the default in Next.js 16)                                     |
 
 **Breaking changes from Next.js 15 → 16 (relevant to this project):**
 
@@ -226,6 +228,7 @@ Connection budget: `api_tasks × (pool_size + 2)`. Keep below 100 for `db.t4g.me
 4. **Turbopack is the default bundler** — `next dev` uses Turbopack. This is a good thing (faster builds). No config changes needed.
 
 A Next.js codemod handles the async params migration automatically:
+
 ```bash
 npx @next/codemod@latest async-requests
 ```
@@ -236,7 +239,7 @@ npx @next/codemod@latest async-requests
 
 ```css
 /* apps/web-people/src/app/globals.css */
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* Custom theme tokens go here via @theme, not in a JS config file */
 @theme {
@@ -258,19 +261,19 @@ No `@tailwind base/components/utilities` directives. No `tailwind.config.js` unl
 
 ## AI and Agent Platform
 
-| Item | Choice |
-|------|--------|
-| AI SDK | Vercel AI SDK `^6.x` (current: 6.0.154) — package name: `ai` |
-| OpenAI provider | `@ai-sdk/openai ^3.x` (current: 3.0.52) |
-| LLM provider | OpenAI API (direct) — not AWS Bedrock, not Anthropic |
-| Classification model | `gpt-5.4-nano` — topic routing, intent classification |
-| Reasoning model | `gpt-5.4` — multi-step agent reasoning, tool use |
-| Embedding model | `text-embedding-3-small` — 1536 dims, pgvector HNSW |
-| Observability | Langfuse (self-hosted on ECS, isolated RDS) |
-| Session storage | PostgreSQL `agents.agent_session` — not Redis |
-| Memory | pgvector HNSW in `agents` schema — `vector(1536)` |
-| Tool protocol | MCP (Model Context Protocol) via `@rekog/mcp-nest` |
-| Azure fallback | `@ai-sdk/azure` — provider factory swap only, no business logic changes |
+| Item                 | Choice                                                                  |
+| -------------------- | ----------------------------------------------------------------------- |
+| AI SDK               | Vercel AI SDK `^6.x` (current: 6.0.154) — package name: `ai`            |
+| OpenAI provider      | `@ai-sdk/openai ^3.x` (current: 3.0.52)                                 |
+| LLM provider         | OpenAI API (direct) — not AWS Bedrock, not Anthropic                    |
+| Classification model | `gpt-5.4-nano` — topic routing, intent classification                   |
+| Reasoning model      | `gpt-5.4` — multi-step agent reasoning, tool use                        |
+| Embedding model      | `text-embedding-3-small` — 1536 dims, pgvector HNSW                     |
+| Observability        | Langfuse (self-hosted on ECS, isolated RDS)                             |
+| Session storage      | PostgreSQL `agents.agent_session` — not Redis                           |
+| Memory               | pgvector HNSW in `agents` schema — `vector(1536)`                       |
+| Tool protocol        | MCP (Model Context Protocol) via `@rekog/mcp-nest`                      |
+| Azure fallback       | `@ai-sdk/azure` — provider factory swap only, no business logic changes |
 
 **AI SDK v6 + OpenAI notes:**
 
@@ -285,6 +288,7 @@ No `@tailwind base/components/utilities` directives. No `tailwind.config.js` unl
 **MCP tool naming convention:** `{module}_{action}` — e.g., `people_get_employment_profile`, `time_submit_leave_request`.
 
 **Every MCP tool call must:**
+
 1. Check `exposure_contract` (deny-by-default access control)
 2. Check `role_grant` (actor permissions)
 3. Write an `audit_event` after execution
@@ -302,13 +306,13 @@ Cube.js semantic layer → apps/api trpc.insights.* router → frontend zones
                          (zones never call Cube.js directly)
 ```
 
-| Item | Choice |
-|------|--------|
-| ETL | AWS Glue (Python shell job, hourly, ~$2/month) |
-| Storage format | Apache Parquet (Bronze) + Apache Iceberg (Gold) |
-| Query engine | Amazon Athena (ad-hoc, serverless) |
+| Item           | Choice                                                                  |
+| -------------- | ----------------------------------------------------------------------- |
+| ETL            | AWS Glue (Python shell job, hourly, ~$2/month)                          |
+| Storage format | Apache Parquet (Bronze) + Apache Iceberg (Gold)                         |
+| Query engine   | Amazon Athena (ad-hoc, serverless)                                      |
 | Semantic layer | Cube.js `^1.6` (current: 1.6.x) — defines metrics, dimensions, measures |
-| Cache | ElastiCache Redis (Cube.js query cache only) |
+| Cache          | ElastiCache Redis (Cube.js query cache only)                            |
 
 **No real-time CDC.** Hourly batch is sufficient and intentional. Operational reads (last 30 days) go through the read replica. Historical cross-module analytics go through Athena.
 
@@ -316,17 +320,17 @@ Cube.js semantic layer → apps/api trpc.insights.* router → frontend zones
 
 ## Infrastructure
 
-| Item | Choice |
-|------|--------|
-| Cloud | AWS ap-southeast-1 (Singapore) |
-| Compute | ECS Fargate Graviton ARM64 |
-| IaC | Terraform `~>1.7` |
-| CI/CD | GitHub Actions + OIDC (no static AWS credentials) |
-| Container registry | ECR (one repo per service — 14 repos) |
-| DNS + TLS | Route 53 + ACM |
-| Secrets | AWS Secrets Manager — `OPENAI_API_KEY` (platform default); per-tenant BYO keys at `future/{env}/tenant/{tenantId}/openai-api-key` |
-| Logs | CloudWatch Logs |
-| Slack/Teams tokens | Secrets Manager only — never in the database |
+| Item               | Choice                                                                                                                            |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| Cloud              | AWS ap-southeast-1 (Singapore)                                                                                                    |
+| Compute            | ECS Fargate Graviton ARM64                                                                                                        |
+| IaC                | Terraform `~>1.7`                                                                                                                 |
+| CI/CD              | GitHub Actions + OIDC (no static AWS credentials)                                                                                 |
+| Container registry | ECR (one repo per service — 14 repos)                                                                                             |
+| DNS + TLS          | Route 53 + ACM                                                                                                                    |
+| Secrets            | AWS Secrets Manager — `OPENAI_API_KEY` (platform default); per-tenant BYO keys at `future/{env}/tenant/{tenantId}/openai-api-key` |
+| Logs               | CloudWatch Logs                                                                                                                   |
+| Slack/Teams tokens | Secrets Manager only — never in the database                                                                                      |
 
 ---
 

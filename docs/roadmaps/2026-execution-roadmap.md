@@ -32,15 +32,15 @@ This document assumes the 2026 master roadmap is the governing source for busine
 
 ## Hard Constraints
 
-| Constraint | Execution implication |
-|---|---|
-| 4 dedicated builders | Keep critical paths narrow. Avoid six-way parallelism. |
-| Docs-only starting point | Q2 is foundation-heavy. There is no hidden codebase to save us. |
-| Hard deadline: 2026-12-31 | Roadmap must optimize for cutover certainty, not optional breadth. |
-| Internal-first year | External GTM and partner packaging are out of scope. |
-| Full legacy replacement | Every major legacy workflow needs a destination and a retirement gate. |
+| Constraint                      | Execution implication                                                                          |
+| ------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 4 dedicated builders            | Keep critical paths narrow. Avoid six-way parallelism.                                         |
+| Docs-only starting point        | Q2 is foundation-heavy. There is no hidden codebase to save us.                                |
+| Hard deadline: 2026-12-31       | Roadmap must optimize for cutover certainty, not optional breadth.                             |
+| Internal-first year             | External GTM and partner packaging are out of scope.                                           |
+| Full legacy replacement         | Every major legacy workflow needs a destination and a retirement gate.                         |
 | Full data platform from day one | The lakehouse (S3, Glue ETL, Iceberg, Athena) ships in initial infra — not as a later upgrade. |
-| Agent tiers A-D by year-end | Agent rollout must be gated and narrow, not magical. |
+| Agent tiers A-D by year-end     | Agent rollout must be gated and narrow, not magical.                                           |
 
 ---
 
@@ -148,13 +148,13 @@ Future is not just a replacement admin system. The intelligence layer is part of
 
 The build must not treat the legacy systems as indivisible monoliths.
 
-| Legacy source | Workflow family | Target module(s) |
-|---|---|---|
-| EMS | employee master data, org placement, role governance | Core, People |
-| EMS | account, project, staffing, assignment visibility | Projects, People |
-| EMS | contracts, offboarding, partner/webhook governance | People, Finance, Core |
-| Timesheet App | attendance, leave, schedules, approval flows | Time |
-| Hiring App | recruitment demand, candidates, interviews, reports | Hiring |
+| Legacy source    | Workflow family                                                    | Target module(s)             |
+| ---------------- | ------------------------------------------------------------------ | ---------------------------- |
+| EMS              | employee master data, org placement, role governance               | Core, People                 |
+| EMS              | account, project, staffing, assignment visibility                  | Projects, People             |
+| EMS              | contracts, offboarding, partner/webhook governance                 | People, Finance, Core        |
+| Timesheet App    | attendance, leave, schedules, approval flows                       | Time                         |
+| Hiring App       | recruitment demand, candidates, interviews, reports                | Hiring                       |
 | Resource Insight | review cycles, evaluations, performance history, org/project views | Performance, Goals, Projects |
 
 This matters because the cutover plan is by workflow family, not by "rewrite EMS last."
@@ -165,17 +165,17 @@ This matters because the cutover plan is by workflow family, not by "rewrite EMS
 
 These are not nice-to-have discussions. They are schedule protectors.
 
-| Decision | Recommended 2026 position | Why |
-|---|---|---|
-| Agent Builder depth | Minimal internal admin builder only | Full visual builder is not needed for internal replacement |
-| Teams integration path | Single-tenant Azure Bot Service + admin-approved sideload | Multi-tenant bot creation deprecated by Microsoft July 2025 |
-| Embedding strategy | Multilingual model, selected once in Q2 | Avoid reindex churn later in the year |
-| External API strategy | Internal tRPC first, explicit REST only where replacement requires it | Keep build surface focused |
-| Core event projection model | Core subscribes to explicit domain events | Keeps module boundaries clean |
-| Migration runner | Unified migration entrypoint | Reduces schema drift and ops confusion |
-| Data export path | AWS Glue ETL (hourly batch, ~$2/month) | Single pipeline: RDS → S3 Bronze → S3 Gold Iceberg → Athena |
-| Terraform bootstrap | Dedicated `infra/bootstrap/` module | Removes day-one infra ambiguity |
-| Langfuse timing | Live before Agent Tier C | Proposal and monitoring tiers need full trace visibility |
+| Decision                    | Recommended 2026 position                                             | Why                                                         |
+| --------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Agent Builder depth         | Minimal internal admin builder only                                   | Full visual builder is not needed for internal replacement  |
+| Teams integration path      | Single-tenant Azure Bot Service + admin-approved sideload             | Multi-tenant bot creation deprecated by Microsoft July 2025 |
+| Embedding strategy          | Multilingual model, selected once in Q2                               | Avoid reindex churn later in the year                       |
+| External API strategy       | Internal tRPC first, explicit REST only where replacement requires it | Keep build surface focused                                  |
+| Core event projection model | Core subscribes to explicit domain events                             | Keeps module boundaries clean                               |
+| Migration runner            | Unified migration entrypoint                                          | Reduces schema drift and ops confusion                      |
+| Data export path            | AWS Glue ETL (hourly batch, ~$2/month)                                | Single pipeline: RDS → S3 Bronze → S3 Gold Iceberg → Athena |
+| Terraform bootstrap         | Dedicated `infra/bootstrap/` module                                   | Removes day-one infra ambiguity                             |
+| Langfuse timing             | Live before Agent Tier C                                              | Proposal and monitoring tiers need full trace visibility    |
 
 ---
 
@@ -183,11 +183,11 @@ These are not nice-to-have discussions. They are schedule protectors.
 
 With 4 builders, recommended allocation by period:
 
-| Period | Suggested allocation |
-|---|---|
+| Period       | Suggested allocation                                                                                          |
+| ------------ | ------------------------------------------------------------------------------------------------------------- |
 | Remaining Q2 | 2 on foundation + data platform infra, 1 on migration mapping + seed imports, 1 on Insights + agent scaffolds |
-| Q3 | 1 on foundation/core hardening, 2 on module replacement, 1 on insights/agents |
-| Q4 | 1 on cutover + ops hardening, 2 on remaining modules, 1 on Athena lakehouse + agents |
+| Q3           | 1 on foundation/core hardening, 2 on module replacement, 1 on insights/agents                                 |
+| Q4           | 1 on cutover + ops hardening, 2 on remaining modules, 1 on Athena lakehouse + agents                          |
 
 This is a planning shape, not a fixed org chart. The point is to keep one person always holding the cross-cutting platform line.
 
@@ -262,7 +262,7 @@ This is a planning shape, not a fixed org chart. The point is to keep one person
 
 Q3 has two jobs:
 
-1. make Future operational for high-frequency internal workflows  
+1. make Future operational for high-frequency internal workflows
 2. retire the first legacy systems
 
 ### Milestone 2 Window: 2026-07-01 to 2026-08-15
@@ -373,29 +373,29 @@ Q4 is not for inventing a second roadmap. It is for closing the gaps, hardening 
 
 ## Module Target Order
 
-| Module | First meaningful production target | Dependency notes |
-|---|---|---|
-| Core | Q2 | Everything depends on it |
-| People | Q3 early | Needed for EMS displacement and identity truth |
-| Time | Q3 early | First major cutover candidate |
-| Hiring | Q3 early | First major cutover candidate |
-| Projects | Q3 early | Needed for staffing and delivery visibility |
-| Performance | Q3 late | Needed for Resource Insight displacement |
-| Finance | Q4 | Needed for final EMS replacement depth |
-| Goals | Q4 | Depends on canonical data and insights maturity |
-| Insights | Q3 (live on real data) | Cube.js wired to both data sources from Q2; dashboards live as modules ship data |
-| Agents | Q3 for A-B, Q4 for C-D | Depends on core governance and data trust |
+| Module      | First meaningful production target | Dependency notes                                                                 |
+| ----------- | ---------------------------------- | -------------------------------------------------------------------------------- |
+| Core        | Q2                                 | Everything depends on it                                                         |
+| People      | Q3 early                           | Needed for EMS displacement and identity truth                                   |
+| Time        | Q3 early                           | First major cutover candidate                                                    |
+| Hiring      | Q3 early                           | First major cutover candidate                                                    |
+| Projects    | Q3 early                           | Needed for staffing and delivery visibility                                      |
+| Performance | Q3 late                            | Needed for Resource Insight displacement                                         |
+| Finance     | Q4                                 | Needed for final EMS replacement depth                                           |
+| Goals       | Q4                                 | Depends on canonical data and insights maturity                                  |
+| Insights    | Q3 (live on real data)             | Cube.js wired to both data sources from Q2; dashboards live as modules ship data |
+| Agents      | Q3 for A-B, Q4 for C-D             | Depends on core governance and data trust                                        |
 
 ---
 
 ## Agent Rollout Plan
 
-| Tier | Timing | 2026 scope |
-|---|---|---|
-| Tier A: Knowledge and Q&A | Q3 early | policy Q&A, org lookup, read-only explanation |
-| Tier B: Data and Insights | Q3 late | KPI lookups, summaries, analytic support over trusted internal data |
-| Tier C: Action Proposals | Q4 early | draft actions and approvals in narrow workflows, always human-approved |
-| Tier D: Autonomous Monitoring | Q4 late | anomaly detection and scheduled monitoring for selected internal operational flows |
+| Tier                          | Timing   | 2026 scope                                                                         |
+| ----------------------------- | -------- | ---------------------------------------------------------------------------------- |
+| Tier A: Knowledge and Q&A     | Q3 early | policy Q&A, org lookup, read-only explanation                                      |
+| Tier B: Data and Insights     | Q3 late  | KPI lookups, summaries, analytic support over trusted internal data                |
+| Tier C: Action Proposals      | Q4 early | draft actions and approvals in narrow workflows, always human-approved             |
+| Tier D: Autonomous Monitoring | Q4 late  | anomaly detection and scheduled monitoring for selected internal operational flows |
 
 ### Gating Rule
 
@@ -407,14 +407,14 @@ Each tier unlocks only after the prior one is operating on real internal usage w
 
 The data platform runs from initial deployment. There is no transitional phase.
 
-| Component | Status from day one | Notes |
-|---|---|---|
-| RDS Read Replica | Operational queries, last 30 days | Cube.js data source 1 |
-| Glue ETL (hourly batch) | Runs against all module schemas | ~$2/month, 60-min lag acceptable |
-| S3 Bronze | Parquet snapshots per module table | Partitioned by `etl_date` |
-| S3 Gold (Iceberg) | Merged, deduplicated Iceberg tables | Cube.js data source 2 via Athena |
-| Athena | Historical and trend queries | Backed by `future_gold` Glue catalog |
-| Cube.js | Semantic layer with explicit routing | Operational → RDS replica; Historical → Athena |
+| Component               | Status from day one                  | Notes                                          |
+| ----------------------- | ------------------------------------ | ---------------------------------------------- |
+| RDS Read Replica        | Operational queries, last 30 days    | Cube.js data source 1                          |
+| Glue ETL (hourly batch) | Runs against all module schemas      | ~$2/month, 60-min lag acceptable               |
+| S3 Bronze               | Parquet snapshots per module table   | Partitioned by `etl_date`                      |
+| S3 Gold (Iceberg)       | Merged, deduplicated Iceberg tables  | Cube.js data source 2 via Athena               |
+| Athena                  | Historical and trend queries         | Backed by `future_gold` Glue catalog           |
+| Cube.js                 | Semantic layer with explicit routing | Operational → RDS replica; Historical → Athena |
 
 The semantic layer contract is stable from initial deployment. Adding more data to Athena does not require product changes to Insights.
 
@@ -436,12 +436,12 @@ No legacy system is retired until all of the following are true:
 
 ## Suggested Legacy Shutdown Sequence
 
-| System | Target retirement window | Why this order |
-|---|---|---|
-| Timesheet App | By 2026-09-30 | Narrowest high-frequency operational wedge |
-| Hiring App | By 2026-09-30 | Distinct workflow family, good early proof system |
-| Resource Insight | By 2026-11-15 | Depends on Performance and Goals maturity |
-| EMS | By 2026-12-31 | Broadest and messiest, should retire last |
+| System           | Target retirement window | Why this order                                    |
+| ---------------- | ------------------------ | ------------------------------------------------- |
+| Timesheet App    | By 2026-09-30            | Narrowest high-frequency operational wedge        |
+| Hiring App       | By 2026-09-30            | Distinct workflow family, good early proof system |
+| Resource Insight | By 2026-11-15            | Depends on Performance and Goals maturity         |
+| EMS              | By 2026-12-31            | Broadest and messiest, should retire last         |
 
 ---
 
