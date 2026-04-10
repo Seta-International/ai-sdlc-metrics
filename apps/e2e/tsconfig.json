@@ -1,0 +1,5 @@
+{
+  "extends": "@future/tsconfig/base.json",
+  "compilerOptions": { "moduleResolution": "bundler" },
+  "include": ["."]
+}
