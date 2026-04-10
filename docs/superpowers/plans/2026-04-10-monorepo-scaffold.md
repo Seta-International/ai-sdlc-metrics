@@ -36,6 +36,7 @@ infra/                     → Task 17
 ## Task 1: Workspace Root
 
 **Files:**
+
 - Create: `package.json`
 - Create: `turbo.json`
 - Create: `.gitignore`
@@ -50,14 +51,14 @@ infra/                     → Task 17
   "private": true,
   "workspaces": ["apps/*", "agents/*", "data-platform/*", "packages/*"],
   "scripts": {
-    "build":       "turbo build",
-    "dev":         "turbo dev",
-    "lint":        "turbo lint",
-    "typecheck":   "turbo typecheck",
-    "test":        "turbo test",
-    "test:e2e":    "turbo test:e2e",
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "test:e2e": "turbo test:e2e",
     "db:generate": "bun run --cwd packages/db generate",
-    "db:migrate":  "bun run --cwd packages/db migrate"
+    "db:migrate": "bun run --cwd packages/db migrate"
   },
   "devDependencies": {
     "turbo": "^2.9.4",
@@ -72,12 +73,12 @@ infra/                     → Task 17
 {
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
-    "build":     { "dependsOn": ["^build"], "outputs": [".next/**", "dist/**"] },
+    "build": { "dependsOn": ["^build"], "outputs": [".next/**", "dist/**"] },
     "typecheck": { "dependsOn": ["^build"] },
-    "lint":      {},
-    "test":      { "dependsOn": ["^build"] },
-    "test:e2e":  { "dependsOn": ["^build"] },
-    "dev":       { "cache": false, "persistent": true }
+    "lint": {},
+    "test": { "dependsOn": ["^build"] },
+    "test:e2e": { "dependsOn": ["^build"] },
+    "dev": { "cache": false, "persistent": true }
   }
 }
 ```
@@ -119,7 +120,7 @@ NEXTAUTH_URL=http://localhost:3000
 
 - [ ] **Step 5: Create `README.md`**
 
-```markdown
+````markdown
 # Future
 
 Agent-native enterprise OS by SETA.
@@ -148,16 +149,18 @@ bun vitest run --project integration
 # E2E (requires staging)
 bun playwright test
 ```
+````
 
 See `docs/` for full architecture and tech stack docs.
-```
+
+````
 
 - [ ] **Step 6: Install Turborepo and verify workspace**
 
 ```bash
 bun add -d turbo@^2.9.4 typescript@^6.0.2
 bun install
-```
+````
 
 Expected: `bun.lockb` created, `node_modules/.bin/turbo` exists.
 
@@ -173,6 +176,7 @@ git commit -m "chore: init turborepo workspace root"
 ## Task 2: Shared Config Packages
 
 **Files:**
+
 - Create: `packages/tsconfig/package.json`
 - Create: `packages/tsconfig/base.json`
 - Create: `packages/tsconfig/nextjs.json`
@@ -270,14 +274,17 @@ export default [
     rules: {
       ...tsPlugin.configs['recommended'].rules,
       '@typescript-eslint/no-explicit-any': 'error',
-      'boundaries/element-types': ['error', {
-        default: 'disallow',
-        rules: [
-          { from: 'infrastructure', allow: ['domain'] },
-          { from: 'application',    allow: ['domain'] },
-          { from: 'interface',      allow: ['application'] },
-        ],
-      }],
+      'boundaries/element-types': [
+        'error',
+        {
+          default: 'disallow',
+          rules: [
+            { from: 'infrastructure', allow: ['domain'] },
+            { from: 'application', allow: ['domain'] },
+            { from: 'interface', allow: ['application'] },
+          ],
+        },
+      ],
     },
   },
 ]
@@ -314,6 +321,7 @@ git commit -m "chore: add tsconfig and eslint-config packages"
 Zero deps. Plain TypeScript event classes. Every event has a static `eventName` and typed constructor args.
 
 **Files:**
+
 - Create: `packages/event-contracts/package.json`
 - Create: `packages/event-contracts/tsconfig.json`
 - Create: `packages/event-contracts/src/` (9 namespace directories + index)
@@ -364,6 +372,7 @@ Zero deps. Plain TypeScript event classes. Every event has a static `eventName` 
 Create each file exactly as shown. No external imports.
 
 `src/kernel/decision-case-resolved.event.ts`:
+
 ```ts
 export class DecisionCaseResolvedEvent {
   static readonly eventName = 'kernel.decision-case-resolved'
@@ -377,6 +386,7 @@ export class DecisionCaseResolvedEvent {
 ```
 
 `src/people/person-hired.event.ts`:
+
 ```ts
 export class PersonHiredEvent {
   static readonly eventName = 'people.person-hired'
@@ -390,6 +400,7 @@ export class PersonHiredEvent {
 ```
 
 `src/people/person-offboarded.event.ts`:
+
 ```ts
 export class PersonOffboardedEvent {
   static readonly eventName = 'people.person-offboarded'
@@ -402,6 +413,7 @@ export class PersonOffboardedEvent {
 ```
 
 `src/people/org-placement-changed.event.ts`:
+
 ```ts
 export class OrgPlacementChangedEvent {
   static readonly eventName = 'people.org-placement-changed'
@@ -415,6 +427,7 @@ export class OrgPlacementChangedEvent {
 ```
 
 `src/time/leave-approved.event.ts`:
+
 ```ts
 export class LeaveApprovedEvent {
   static readonly eventName = 'time.leave-approved'
@@ -429,6 +442,7 @@ export class LeaveApprovedEvent {
 ```
 
 `src/time/leave-rejected.event.ts`:
+
 ```ts
 export class LeaveRejectedEvent {
   static readonly eventName = 'time.leave-rejected'
@@ -442,6 +456,7 @@ export class LeaveRejectedEvent {
 ```
 
 `src/hiring/candidate-hired.event.ts`:
+
 ```ts
 export class CandidateHiredEvent {
   static readonly eventName = 'hiring.candidate-hired'
@@ -455,6 +470,7 @@ export class CandidateHiredEvent {
 ```
 
 `src/projects/assignment-changed.event.ts`:
+
 ```ts
 export class AssignmentChangedEvent {
   static readonly eventName = 'projects.assignment-changed'
@@ -469,6 +485,7 @@ export class AssignmentChangedEvent {
 ```
 
 `src/performance/review-cycle-completed.event.ts`:
+
 ```ts
 export class ReviewCycleCompletedEvent {
   static readonly eventName = 'performance.review-cycle-completed'
@@ -481,6 +498,7 @@ export class ReviewCycleCompletedEvent {
 ```
 
 `src/goals/kpi-score-submitted.event.ts`:
+
 ```ts
 export class KpiScoreSubmittedEvent {
   static readonly eventName = 'goals.kpi-score-submitted'
@@ -495,6 +513,7 @@ export class KpiScoreSubmittedEvent {
 ```
 
 `src/finance/invoice-approved.event.ts`:
+
 ```ts
 export class InvoiceApprovedEvent {
   static readonly eventName = 'finance.invoice-approved'
@@ -508,6 +527,7 @@ export class InvoiceApprovedEvent {
 ```
 
 `src/planner/task-created.event.ts`:
+
 ```ts
 export class TaskCreatedEvent {
   static readonly eventName = 'planner.task-created'
@@ -523,6 +543,7 @@ export class TaskCreatedEvent {
 ```
 
 `src/planner/task-completed.event.ts`:
+
 ```ts
 export class TaskCompletedEvent {
   static readonly eventName = 'planner.task-completed'
@@ -575,6 +596,7 @@ git commit -m "chore: add event-contracts package with all domain event classes"
 MSAL helpers — no React dep, no NestJS dep.
 
 **Files:**
+
 - Create: `packages/auth/package.json`
 - Create: `packages/auth/tsconfig.json`
 - Create: `packages/auth/src/index.ts`
@@ -635,8 +657,8 @@ bun add @azure/msal-browser@^3.0.0 --cwd packages/auth
 
 ```ts
 export interface FutureTokenClaims {
-  oid: string        // Entra Object ID → maps to actor.sso_subject
-  tid: string        // Entra Tenant ID
+  oid: string // Entra Object ID → maps to actor.sso_subject
+  tid: string // Entra Tenant ID
   preferred_username: string
   name: string
   roles: string[]
@@ -697,6 +719,7 @@ git commit -m "chore: add auth package with MSAL session stubs"
 Drizzle ORM setup, migration runner stub, test helpers.
 
 **Files:**
+
 - Create: `packages/db/package.json`
 - Create: `packages/db/tsconfig.json`
 - Create: `packages/db/drizzle.config.ts`
@@ -830,12 +853,15 @@ export function createTestDb(): Db {
   return createDb(url)
 }
 
-export async function seedActor(db: Db, overrides?: Partial<{
-  id: string
-  tenantId: string
-  type: 'person' | 'organization' | 'system'
-  displayName: string
-}>) {
+export async function seedActor(
+  db: Db,
+  overrides?: Partial<{
+    id: string
+    tenantId: string
+    type: 'person' | 'organization' | 'system'
+    displayName: string
+  }>,
+) {
   // TODO: implement once kernel schema is defined in apps/api
   throw new Error('seedActor: not yet implemented — add after kernel schema Task 9')
 }
@@ -869,6 +895,7 @@ git commit -m "chore: add db package with Drizzle setup and migration runner"
 Purely presentational React components. No API calls, no auth.
 
 **Files:**
+
 - Create: `packages/ui/package.json`
 - Create: `packages/ui/tsconfig.json`
 - Create: `packages/ui/src/index.ts`
@@ -995,6 +1022,7 @@ git commit -m "chore: add ui package with GlobalNav stub"
 Type-only tRPC export. Zero runtime server code ships to the browser.
 
 **Files:**
+
 - Create: `packages/api-client/package.json`
 - Create: `packages/api-client/tsconfig.json`
 - Create: `packages/api-client/src/index.ts`
@@ -1102,6 +1130,7 @@ git commit -m "chore: add api-client package with type-only AppRouter export"
 NestJS bootstrap, health endpoint, tRPC module, nestjs-cls setup.
 
 **Files:**
+
 - Create: `apps/api/package.json`
 - Create: `apps/api/tsconfig.json`
 - Create: `apps/api/Dockerfile`
@@ -1295,10 +1324,7 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { AppModule } from './app.module.js'
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule,
-    new FastifyAdapter(),
-  )
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter())
 
   const port = parseInt(process.env['PORT'] ?? '4000', 10)
   await app.listen(port, '0.0.0.0')
@@ -1381,6 +1407,7 @@ git commit -m "chore: scaffold NestJS API with health endpoint and tRPC foundati
 The kernel module is the foundation everything else builds on. It gets pre-stubbed schema files for all 15 kernel tables per `docs/architecture/kernel.md`.
 
 **Files:**
+
 - Create: `apps/api/src/modules/kernel/` (full hexagonal layout)
 - Create: `apps/api/src/modules/kernel/infrastructure/schema/` (15 table stubs)
 
@@ -1401,6 +1428,7 @@ Create these files exactly:
 `src/modules/kernel/application/event-handlers/.gitkeep` — empty
 
 `src/modules/kernel/application/facades/kernel-query.facade.ts`:
+
 ```ts
 import { Injectable } from '@nestjs/common'
 
@@ -1426,6 +1454,7 @@ export class KernelQueryFacade {
 `src/modules/kernel/infrastructure/listeners/.gitkeep` — empty
 
 `src/modules/kernel/interface/trpc/kernel.router.ts`:
+
 ```ts
 import { router, publicProcedure } from '../../../../common/trpc/app-router.js'
 
@@ -1435,6 +1464,7 @@ export const kernelRouter = router({
 ```
 
 `src/modules/kernel/kernel.module.ts`:
+
 ```ts
 import { Module } from '@nestjs/common'
 import { KernelQueryFacade } from './application/facades/kernel-query.facade.js'
@@ -1449,6 +1479,7 @@ export class KernelModule {}
 - [ ] **Step 2: Create kernel schema stubs (15 tables)**
 
 `src/modules/kernel/infrastructure/schema/actor.schema.ts`:
+
 ```ts
 import { pgSchema, uuid, text, timestamp } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
@@ -1456,163 +1487,197 @@ import { uuidv7 } from 'uuidv7'
 export const coreSchema = pgSchema('core')
 
 export const actor = coreSchema.table('actor', {
-  id:         uuid('id').$defaultFn(() => uuidv7()).primaryKey(),
-  tenantId:   uuid('tenant_id').notNull(),
-  type:       text('type', { enum: ['person', 'organization', 'system'] }).notNull(),
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  type: text('type', { enum: ['person', 'organization', 'system'] }).notNull(),
   displayName: text('display_name').notNull(),
-  createdAt:  timestamp('created_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 ```
 
 `src/modules/kernel/infrastructure/schema/user-identity.schema.ts`:
+
 ```ts
 import { coreSchema } from './actor.schema.js'
 import { uuid, text, timestamp } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const userIdentity = coreSchema.table('user_identity', {
-  id:         uuid('id').$defaultFn(() => uuidv7()).primaryKey(),
-  tenantId:   uuid('tenant_id').notNull(),
-  actorId:    uuid('actor_id').notNull(),       // soft ref to actor.id
-  ssoSubject: text('sso_subject').notNull(),    // Entra OID
-  email:      text('email').notNull(),
-  createdAt:  timestamp('created_at').defaultNow().notNull(),
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  actorId: uuid('actor_id').notNull(), // soft ref to actor.id
+  ssoSubject: text('sso_subject').notNull(), // Entra OID
+  email: text('email').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 ```
 
 `src/modules/kernel/infrastructure/schema/external-identity-map.schema.ts`:
+
 ```ts
 import { coreSchema } from './actor.schema.js'
 import { uuid, text, timestamp } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const externalIdentityMap = coreSchema.table('external_identity_map', {
-  id:           uuid('id').$defaultFn(() => uuidv7()).primaryKey(),
-  tenantId:     uuid('tenant_id').notNull(),
-  actorId:      uuid('actor_id').notNull(),
-  systemName:   text('system_name').notNull(),   // 'ems' | 'timesheet' | 'slack' | 'teams'
-  externalId:   text('external_id').notNull(),
-  createdAt:    timestamp('created_at').defaultNow().notNull(),
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  actorId: uuid('actor_id').notNull(),
+  systemName: text('system_name').notNull(), // 'ems' | 'timesheet' | 'slack' | 'teams'
+  externalId: text('external_id').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 ```
 
 `src/modules/kernel/infrastructure/schema/department.schema.ts`:
+
 ```ts
 import { coreSchema } from './actor.schema.js'
 import { uuid, text, timestamp } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const department = coreSchema.table('department', {
-  id:         uuid('id').$defaultFn(() => uuidv7()).primaryKey(),
-  tenantId:   uuid('tenant_id').notNull(),
-  name:       text('name').notNull(),
-  parentId:   uuid('parent_id'),               // soft ref to department.id
-  createdAt:  timestamp('created_at').defaultNow().notNull(),
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  name: text('name').notNull(),
+  parentId: uuid('parent_id'), // soft ref to department.id
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 ```
 
 `src/modules/kernel/infrastructure/schema/role-grant.schema.ts`:
+
 ```ts
 import { coreSchema } from './actor.schema.js'
 import { uuid, text, timestamp } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const roleGrant = coreSchema.table('role_grant', {
-  id:         uuid('id').$defaultFn(() => uuidv7()).primaryKey(),
-  tenantId:   uuid('tenant_id').notNull(),
-  actorId:    uuid('actor_id').notNull(),
-  role:       text('role').notNull(),
-  scope:      text('scope', { enum: ['global', 'department', 'project', 'account'] }).notNull(),
-  scopeId:    uuid('scope_id'),
-  grantedAt:  timestamp('granted_at').defaultNow().notNull(),
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  actorId: uuid('actor_id').notNull(),
+  role: text('role').notNull(),
+  scope: text('scope', { enum: ['global', 'department', 'project', 'account'] }).notNull(),
+  scopeId: uuid('scope_id'),
+  grantedAt: timestamp('granted_at').defaultNow().notNull(),
 })
 ```
 
 `src/modules/kernel/infrastructure/schema/delegation.schema.ts`:
+
 ```ts
 import { coreSchema } from './actor.schema.js'
 import { uuid, text, timestamp } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const delegation = coreSchema.table('delegation', {
-  id:           uuid('id').$defaultFn(() => uuidv7()).primaryKey(),
-  tenantId:     uuid('tenant_id').notNull(),
-  delegatorId:  uuid('delegator_id').notNull(),
-  delegateeId:  uuid('delegatee_id').notNull(),
-  role:         text('role').notNull(),
-  validFrom:    timestamp('valid_from').notNull(),
-  validUntil:   timestamp('valid_until').notNull(),
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  delegatorId: uuid('delegator_id').notNull(),
+  delegateeId: uuid('delegatee_id').notNull(),
+  role: text('role').notNull(),
+  validFrom: timestamp('valid_from').notNull(),
+  validUntil: timestamp('valid_until').notNull(),
 })
 ```
 
 `src/modules/kernel/infrastructure/schema/org-placement.schema.ts`:
+
 ```ts
 import { coreSchema } from './actor.schema.js'
 import { uuid, timestamp } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const orgPlacement = coreSchema.table('org_placement', {
-  id:            uuid('id').$defaultFn(() => uuidv7()).primaryKey(),
-  tenantId:      uuid('tenant_id').notNull(),
-  actorId:       uuid('actor_id').notNull(),
-  departmentId:  uuid('department_id').notNull(),
-  managerId:     uuid('manager_id'),
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  actorId: uuid('actor_id').notNull(),
+  departmentId: uuid('department_id').notNull(),
+  managerId: uuid('manager_id'),
   effectiveFrom: timestamp('effective_from').notNull(),
-  effectiveUntil: timestamp('effective_until'),    // NULL = current placement
+  effectiveUntil: timestamp('effective_until'), // NULL = current placement
 })
 ```
 
 `src/modules/kernel/infrastructure/schema/decision-case.schema.ts`:
+
 ```ts
 import { coreSchema } from './actor.schema.js'
 import { uuid, text, timestamp } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const decisionCase = coreSchema.table('decision_case', {
-  id:           uuid('id').$defaultFn(() => uuidv7()).primaryKey(),
-  tenantId:     uuid('tenant_id').notNull(),
-  module:       text('module').notNull(),
-  subjectId:    uuid('subject_id').notNull(),
-  requestedBy:  uuid('requested_by').notNull(),
-  status:       text('status', { enum: ['pending', 'approved', 'rejected', 'cancelled'] }).notNull().default('pending'),
-  createdAt:    timestamp('created_at').defaultNow().notNull(),
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  module: text('module').notNull(),
+  subjectId: uuid('subject_id').notNull(),
+  requestedBy: uuid('requested_by').notNull(),
+  status: text('status', { enum: ['pending', 'approved', 'rejected', 'cancelled'] })
+    .notNull()
+    .default('pending'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 ```
 
 `src/modules/kernel/infrastructure/schema/decision-step.schema.ts`:
+
 ```ts
 import { coreSchema } from './actor.schema.js'
 import { uuid, text, integer, timestamp } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const decisionStep = coreSchema.table('decision_step', {
-  id:           uuid('id').$defaultFn(() => uuidv7()).primaryKey(),
-  tenantId:     uuid('tenant_id').notNull(),
-  caseId:       uuid('case_id').notNull(),
-  stepOrder:    integer('step_order').notNull(),
-  approverId:   uuid('approver_id').notNull(),
-  status:       text('status', { enum: ['pending', 'approved', 'rejected'] }).notNull().default('pending'),
-  decidedAt:    timestamp('decided_at'),
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  caseId: uuid('case_id').notNull(),
+  stepOrder: integer('step_order').notNull(),
+  approverId: uuid('approver_id').notNull(),
+  status: text('status', { enum: ['pending', 'approved', 'rejected'] })
+    .notNull()
+    .default('pending'),
+  decidedAt: timestamp('decided_at'),
 })
 ```
 
 `src/modules/kernel/infrastructure/schema/decision-outcome.schema.ts`:
+
 ```ts
 import { coreSchema } from './actor.schema.js'
 import { uuid, text, timestamp } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const decisionOutcome = coreSchema.table('decision_outcome', {
-  id:          uuid('id').$defaultFn(() => uuidv7()).primaryKey(),
-  tenantId:    uuid('tenant_id').notNull(),
-  caseId:      uuid('case_id').notNull(),
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  caseId: uuid('case_id').notNull(),
   finalAction: text('final_action', { enum: ['approved', 'rejected'] }).notNull(),
-  decidedBy:   uuid('decided_by').notNull(),
-  decidedAt:   timestamp('decided_at').defaultNow().notNull(),
+  decidedBy: uuid('decided_by').notNull(),
+  decidedAt: timestamp('decided_at').defaultNow().notNull(),
 })
 ```
 
 `src/modules/kernel/infrastructure/schema/audit-event.schema.ts`:
+
 ```ts
 import { coreSchema } from './actor.schema.js'
 import { uuid, text, timestamp, jsonb } from 'drizzle-orm/pg-core'
@@ -1620,73 +1685,85 @@ import { uuidv7 } from 'uuidv7'
 
 // INSERT-ONLY. No UPDATE or DELETE ever.
 export const auditEvent = coreSchema.table('audit_event', {
-  id:        uuid('id').$defaultFn(() => uuidv7()).primaryKey(),
-  tenantId:  uuid('tenant_id').notNull(),
-  actorId:   uuid('actor_id').notNull(),
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  actorId: uuid('actor_id').notNull(),
   eventType: text('event_type').notNull(),
-  module:    text('module').notNull(),
+  module: text('module').notNull(),
   subjectId: uuid('subject_id').notNull(),
-  payload:   jsonb('payload').notNull(),
+  payload: jsonb('payload').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 ```
 
 `src/modules/kernel/infrastructure/schema/outbox-event.schema.ts`:
+
 ```ts
 import { coreSchema } from './actor.schema.js'
 import { uuid, text, timestamp, jsonb, boolean } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const outboxEvent = coreSchema.table('outbox_event', {
-  id:          uuid('id').$defaultFn(() => uuidv7()).primaryKey(),
-  tenantId:    uuid('tenant_id').notNull(),
-  eventName:   text('event_name').notNull(),
-  payload:     jsonb('payload').notNull(),
-  published:   boolean('published').notNull().default(false),
-  createdAt:   timestamp('created_at').defaultNow().notNull(),
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  eventName: text('event_name').notNull(),
+  payload: jsonb('payload').notNull(),
+  published: boolean('published').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
   publishedAt: timestamp('published_at'),
 })
 ```
 
 `src/modules/kernel/infrastructure/schema/visibility-scope.schema.ts`:
+
 ```ts
 import { coreSchema } from './actor.schema.js'
 import { uuid, text, timestamp } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const visibilityScope = coreSchema.table('visibility_scope', {
-  id:        uuid('id').$defaultFn(() => uuidv7()).primaryKey(),
-  tenantId:  uuid('tenant_id').notNull(),
-  name:      text('name').notNull(),
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  name: text('name').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 ```
 
 `src/modules/kernel/infrastructure/schema/exposure-contract.schema.ts`:
+
 ```ts
 import { coreSchema } from './actor.schema.js'
 import { uuid, text, timestamp } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const exposureContract = coreSchema.table('exposure_contract', {
-  id:          uuid('id').$defaultFn(() => uuidv7()).primaryKey(),
-  tenantId:    uuid('tenant_id').notNull(),
-  toolName:    text('tool_name').notNull(),      // e.g. 'people_get_employment_profile'
-  scopeId:     uuid('scope_id').notNull(),
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  toolName: text('tool_name').notNull(), // e.g. 'people_get_employment_profile'
+  scopeId: uuid('scope_id').notNull(),
   allowedRoles: text('allowed_roles').array().notNull(),
-  createdAt:   timestamp('created_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 ```
 
 `src/modules/kernel/infrastructure/schema/processed-events.schema.ts`:
+
 ```ts
 import { coreSchema } from './actor.schema.js'
 import { uuid, text, timestamp } from 'drizzle-orm/pg-core'
 
 // Idempotency log for outbox event relay
 export const processedEvents = coreSchema.table('processed_events', {
-  eventId:     uuid('event_id').primaryKey(),
-  tenantId:    uuid('tenant_id').notNull(),
+  eventId: uuid('event_id').primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
   processedAt: timestamp('processed_at').defaultNow().notNull(),
 })
 ```
@@ -1694,6 +1771,7 @@ export const processedEvents = coreSchema.table('processed_events', {
 - [ ] **Step 3: Add KernelModule to AppModule**
 
 Modify `src/app.module.ts`:
+
 ```ts
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
@@ -1703,12 +1781,7 @@ import { HealthController } from './common/health/health.controller.js'
 import { KernelModule } from './modules/kernel/kernel.module.js'
 
 @Module({
-  imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    AppClsModule,
-    TrpcModule,
-    KernelModule,
-  ],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), AppClsModule, TrpcModule, KernelModule],
   controllers: [HealthController],
 })
 export class AppModule {}
@@ -1736,6 +1809,7 @@ git commit -m "chore: scaffold kernel module with 15 table schema stubs"
 People, time, hiring, performance, projects, finance, goals, insights, agents, planner, admin. All follow the exact same hexagonal layout as kernel.
 
 **Files:** For each module `{name}`:
+
 - `src/modules/{name}/domain/entities/.gitkeep`
 - `src/modules/{name}/domain/value-objects/.gitkeep`
 - `src/modules/{name}/domain/repositories/.gitkeep`
@@ -1754,6 +1828,7 @@ People, time, hiring, performance, projects, finance, goals, insights, agents, p
 For each of the 11 modules, substitute `{Name}` (PascalCase) and `{name}` (camelCase):
 
 `src/modules/{name}/application/facades/{name}-query.facade.ts`:
+
 ```ts
 import { Injectable } from '@nestjs/common'
 
@@ -1764,6 +1839,7 @@ export class {Name}QueryFacade {
 ```
 
 `src/modules/{name}/infrastructure/schema/{name}.schema.ts`:
+
 ```ts
 import { pgSchema } from 'drizzle-orm/pg-core'
 
@@ -1774,6 +1850,7 @@ export const {name}Schema = pgSchema('{name}')
 ```
 
 `src/modules/{name}/interface/trpc/{name}.router.ts`:
+
 ```ts
 import { router, publicProcedure } from '../../../../common/trpc/app-router.js'
 
@@ -1783,6 +1860,7 @@ export const {name}Router = router({
 ```
 
 `src/modules/{name}/{name}.module.ts`:
+
 ```ts
 import { Module } from '@nestjs/common'
 import { {Name}QueryFacade } from './application/facades/{name}-query.facade.js'
@@ -1796,23 +1874,24 @@ export class {Name}Module {}
 
 Apply this template for all 11 modules:
 
-| Module name | PascalCase |
-|---|---|
-| `people` | `People` |
-| `time` | `Time` |
-| `hiring` | `Hiring` |
+| Module name   | PascalCase    |
+| ------------- | ------------- |
+| `people`      | `People`      |
+| `time`        | `Time`        |
+| `hiring`      | `Hiring`      |
 | `performance` | `Performance` |
-| `projects` | `Projects` |
-| `finance` | `Finance` |
-| `goals` | `Goals` |
-| `insights` | `Insights` |
-| `agents` | `Agents` |
-| `planner` | `Planner` |
-| `admin` | `Admin` |
+| `projects`    | `Projects`    |
+| `finance`     | `Finance`     |
+| `goals`       | `Goals`       |
+| `insights`    | `Insights`    |
+| `agents`      | `Agents`      |
+| `planner`     | `Planner`     |
+| `admin`       | `Admin`       |
 
 - [ ] **Step 2: Add all modules to AppModule**
 
 Replace `src/app.module.ts`:
+
 ```ts
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
@@ -1858,6 +1937,7 @@ export class AppModule {}
 - [ ] **Step 3: Merge all module routers into AppRouter**
 
 Update `src/common/trpc/app-router.ts`:
+
 ```ts
 import { initTRPC } from '@trpc/server'
 import { kernelRouter } from '../../modules/kernel/interface/trpc/kernel.router.js'
@@ -1878,18 +1958,18 @@ export const router = t.router
 export const publicProcedure = t.procedure
 
 export const appRouter = router({
-  kernel:      kernelRouter,
-  people:      peopleRouter,
-  time:        timeRouter,
-  hiring:      hiringRouter,
+  kernel: kernelRouter,
+  people: peopleRouter,
+  time: timeRouter,
+  hiring: hiringRouter,
   performance: performanceRouter,
-  projects:    projectsRouter,
-  finance:     financeRouter,
-  goals:       goalsRouter,
-  insights:    insightsRouter,
-  agents:      agentsRouter,
-  planner:     plannerRouter,
-  admin:       adminRouter,
+  projects: projectsRouter,
+  finance: financeRouter,
+  goals: goalsRouter,
+  insights: insightsRouter,
+  agents: agentsRouter,
+  planner: plannerRouter,
+  admin: adminRouter,
 })
 
 export type AppRouter = typeof appRouter
@@ -1917,6 +1997,7 @@ git commit -m "chore: scaffold all 12 domain modules with hexagonal layout and t
 Microsoft Entra auth hub. Thin by design. All other zones read session from httpOnly cookie.
 
 **Files:**
+
 - Create: `apps/web-shell/package.json`
 - Create: `apps/web-shell/tsconfig.json`
 - Create: `apps/web-shell/next.config.ts`
@@ -1992,7 +2073,7 @@ export default config
 - [ ] **Step 5: Create `src/app/globals.css`**
 
 ```css
-@import "tailwindcss";
+@import 'tailwindcss';
 ```
 
 - [ ] **Step 6: Create `src/app/layout.tsx`**
@@ -2097,19 +2178,19 @@ git commit -m "chore: scaffold web-shell with Next.js 16, GlobalNav, and auth/me
 
 All zones are identical in structure. The template below uses `web-people` (port 3001) as the reference. Apply to all 11.
 
-| Zone | Port | Subdomain |
-|---|---|---|
-| `web-people` | 3001 | people.seta-international.com |
-| `web-time` | 3002 | time.seta-international.com |
-| `web-hiring` | 3003 | hiring.seta-international.com |
+| Zone              | Port | Subdomain                          |
+| ----------------- | ---- | ---------------------------------- |
+| `web-people`      | 3001 | people.seta-international.com      |
+| `web-time`        | 3002 | time.seta-international.com        |
+| `web-hiring`      | 3003 | hiring.seta-international.com      |
 | `web-performance` | 3004 | performance.seta-international.com |
-| `web-projects` | 3005 | projects.seta-international.com |
-| `web-finance` | 3006 | finance.seta-international.com |
-| `web-goals` | 3007 | goals.seta-international.com |
-| `web-insights` | 3008 | insights.seta-international.com |
-| `web-agents` | 3009 | agents.seta-international.com |
-| `web-admin` | 3010 | admin.seta-international.com |
-| `web-planner` | 3011 | planner.seta-international.com |
+| `web-projects`    | 3005 | projects.seta-international.com    |
+| `web-finance`     | 3006 | finance.seta-international.com     |
+| `web-goals`       | 3007 | goals.seta-international.com       |
+| `web-insights`    | 3008 | insights.seta-international.com    |
+| `web-agents`      | 3009 | agents.seta-international.com      |
+| `web-admin`       | 3010 | admin.seta-international.com       |
+| `web-planner`     | 3011 | planner.seta-international.com     |
 
 - [ ] **Step 1: Create `apps/web-people/package.json`** (template — repeat for all 11 with name/port substituted)
 
@@ -2171,7 +2252,7 @@ export default config
 - [ ] **Step 4: Create `apps/web-people/src/app/globals.css`**
 
 ```css
-@import "tailwindcss";
+@import 'tailwindcss';
 ```
 
 - [ ] **Step 5: Create `apps/web-people/src/app/layout.tsx`**
@@ -2240,18 +2321,18 @@ CMD ["bun", "apps/web-people/server.js"]
 
 Apply with exact substitutions:
 
-| Zone dir | `name` field | `--port` | `EXPOSE` | Title |
-|---|---|---|---|---|
-| `web-time` | `@future/web-time` | 3002 | 3002 | Time — Future |
-| `web-hiring` | `@future/web-hiring` | 3003 | 3003 | Hiring — Future |
-| `web-performance` | `@future/web-performance` | 3004 | 3004 | Performance — Future |
-| `web-projects` | `@future/web-projects` | 3005 | 3005 | Projects — Future |
-| `web-finance` | `@future/web-finance` | 3006 | 3006 | Finance — Future |
-| `web-goals` | `@future/web-goals` | 3007 | 3007 | Goals — Future |
-| `web-insights` | `@future/web-insights` | 3008 | 3008 | Insights — Future |
-| `web-agents` | `@future/web-agents` | 3009 | 3009 | Agents — Future |
-| `web-admin` | `@future/web-admin` | 3010 | 3010 | Admin — Future |
-| `web-planner` | `@future/web-planner` | 3011 | 3011 | Planner — Future |
+| Zone dir          | `name` field              | `--port` | `EXPOSE` | Title                |
+| ----------------- | ------------------------- | -------- | -------- | -------------------- |
+| `web-time`        | `@future/web-time`        | 3002     | 3002     | Time — Future        |
+| `web-hiring`      | `@future/web-hiring`      | 3003     | 3003     | Hiring — Future      |
+| `web-performance` | `@future/web-performance` | 3004     | 3004     | Performance — Future |
+| `web-projects`    | `@future/web-projects`    | 3005     | 3005     | Projects — Future    |
+| `web-finance`     | `@future/web-finance`     | 3006     | 3006     | Finance — Future     |
+| `web-goals`       | `@future/web-goals`       | 3007     | 3007     | Goals — Future       |
+| `web-insights`    | `@future/web-insights`    | 3008     | 3008     | Insights — Future    |
+| `web-agents`      | `@future/web-agents`      | 3009     | 3009     | Agents — Future      |
+| `web-admin`       | `@future/web-admin`       | 3010     | 3010     | Admin — Future       |
+| `web-planner`     | `@future/web-planner`     | 3011     | 3011     | Planner — Future     |
 
 - [ ] **Step 9: Typecheck all zones**
 
@@ -2275,6 +2356,7 @@ git commit -m "chore: scaffold all 11 domain web zones (Next.js 16, standalone, 
 Playwright test runner. Runs against staging only.
 
 **Files:**
+
 - Create: `apps/e2e/package.json`
 - Create: `apps/e2e/tsconfig.json`
 - Create: `apps/e2e/playwright.config.ts`
@@ -2327,9 +2409,7 @@ export default defineConfig({
     baseURL: process.env['PLAYWRIGHT_BASE_URL'] ?? 'https://shell.seta-international.com',
     trace: 'on-first-retry',
   },
-  projects: [
-    { name: 'chromium', use: { browserName: 'chromium' } },
-  ],
+  projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
 })
 ```
 
@@ -2392,6 +2472,7 @@ git commit -m "chore: scaffold Playwright e2e with auth and leave approval test 
 Langfuse ECS service + MCP tool contracts, prompts, evals, channel adapters.
 
 **Files:**
+
 - Create: `agents/langfuse/Dockerfile`
 - Create: `agents/langfuse/.env.example`
 - Create: `agents/mcp-tools/README.md` + per-module `.gitkeep` files
@@ -2429,6 +2510,7 @@ Tool naming convention: `{module}_{action}`
 Examples: `people_get_employment_profile`, `time_submit_leave_request`
 
 Every tool call must:
+
 1. Check `exposure_contract` (deny-by-default access control)
 2. Check `role_grant` (actor permissions)
 3. Write an `audit_event` after execution
@@ -2437,6 +2519,7 @@ See: docs/architecture/agent-runtime.md
 ```
 
 Then create `.gitkeep` files:
+
 ```bash
 for dir in people time hiring performance projects finance goals planner admin; do
   mkdir -p agents/mcp-tools/$dir
@@ -2453,7 +2536,7 @@ System prompts, topic routing configs, and guardrail rule definitions.
 All files here are versioned — model upgrades require eval validation before
 swapping prompt versions.
 
-topics/     → YAML configs mapping user intent to agent topics
+topics/ → YAML configs mapping user intent to agent topics
 guardrails/ → Rule definitions for agent safety enforcement
 ```
 
@@ -2496,6 +2579,7 @@ mkdir -p agents/channels/teams agents/channels/slack agents/channels/websocket
 ```
 
 `agents/channels/README.md`:
+
 ```markdown
 # Channel Adapters
 
@@ -2507,6 +2591,7 @@ See: docs/architecture/agent-runtime.md — Channels section.
 ```
 
 `agents/channels/teams/README.md`:
+
 ```markdown
 # Microsoft Teams Adapter
 
@@ -2515,6 +2600,7 @@ Normalizes Teams activity payloads → AgentGateway.handleMessage()
 ```
 
 `agents/channels/slack/README.md`:
+
 ```markdown
 # Slack Adapter
 
@@ -2524,6 +2610,7 @@ See: docs/architecture/agent-runtime.md — Slack channel section.
 ```
 
 `agents/channels/websocket/README.md`:
+
 ```markdown
 # WebSocket Adapter
 
@@ -2544,6 +2631,7 @@ git commit -m "chore: scaffold agents/ folder with langfuse, mcp-tools, prompts,
 Cube.js semantic layer (real config, stub cubes) and Glue ETL Python scripts.
 
 **Files:**
+
 - Create: `data-platform/cubejs/package.json`
 - Create: `data-platform/cubejs/cube.js`
 - Create: `data-platform/cubejs/Dockerfile`
@@ -2591,19 +2679,19 @@ module.exports = {
   driverFactory: ({ dataSource }) => {
     if (dataSource === 'historical') {
       return new (require('@cubejs-backend/athena-driver'))({
-        accessKeyId:     process.env.CUBEJS_ATHENA_KEY_ID,
+        accessKeyId: process.env.CUBEJS_ATHENA_KEY_ID,
         secretAccessKey: process.env.CUBEJS_ATHENA_SECRET,
-        region:          process.env.CUBEJS_ATHENA_REGION ?? 'ap-southeast-1',
+        region: process.env.CUBEJS_ATHENA_REGION ?? 'ap-southeast-1',
         S3OutputLocation: process.env.CUBEJS_ATHENA_S3_OUTPUT,
-        database:        'future_gold',
+        database: 'future_gold',
       })
     }
     return new (require('@cubejs-backend/postgres-driver'))({
-      host:     process.env.CUBEJS_DB_HOST,
+      host: process.env.CUBEJS_DB_HOST,
       database: process.env.CUBEJS_DB_NAME,
-      user:     process.env.CUBEJS_DB_USER,
+      user: process.env.CUBEJS_DB_USER,
       password: process.env.CUBEJS_DB_PASS,
-      port:     parseInt(process.env.CUBEJS_DB_PORT ?? '5432', 10),
+      port: parseInt(process.env.CUBEJS_DB_PORT ?? '5432', 10),
     })
   },
 
@@ -2615,7 +2703,11 @@ module.exports = {
       ...query,
       filters: [
         ...(query.filters ?? []),
-        { member: `${query.measures?.[0]?.split('.')[0]}.tenantId`, operator: 'equals', values: [tenantId] },
+        {
+          member: `${query.measures?.[0]?.split('.')[0]}.tenantId`,
+          operator: 'equals',
+          values: [tenantId],
+        },
       ],
     }
   },
@@ -2634,9 +2726,9 @@ cube('LeaveRequest', {
 
   dimensions: {
     tenantId: { sql: 'tenant_id', type: 'string' },
-    id:       { sql: 'id', type: 'string', primaryKey: true },
-    status:   { sql: 'status', type: 'string' },
-    actorId:  { sql: 'actor_id', type: 'string' },
+    id: { sql: 'id', type: 'string', primaryKey: true },
+    status: { sql: 'status', type: 'string' },
+    actorId: { sql: 'actor_id', type: 'string' },
   },
 
   measures: {
@@ -2801,7 +2893,7 @@ chmod +x data-platform/glue/deploy.sh
 
 - [ ] **Step 11: Create `data-platform/glue/README.md`**
 
-```markdown
+````markdown
 # AWS Glue ETL
 
 Hourly batch pipeline: RDS → S3 Bronze (Parquet) → S3 Gold (Iceberg) → Athena.
@@ -2813,14 +2905,16 @@ See `docs/architecture/data-platform.md` for full pipeline spec.
 ```bash
 GLUE_SCRIPTS_BUCKET=your-bucket ./deploy.sh
 ```
-```
+````
+
+````
 
 - [ ] **Step 12: Commit**
 
 ```bash
 git add data-platform/
 git commit -m "chore: scaffold data-platform/ with Cube.js config and Glue ETL stubs"
-```
+````
 
 ---
 
@@ -2829,6 +2923,7 @@ git commit -m "chore: scaffold data-platform/ with Cube.js config and Glue ETL s
 `ci.yml` fully wired. 17 deploy stubs (one per ECS service + Glue).
 
 **Files:**
+
 - Create: `.github/workflows/ci.yml`
 - Create: `.github/workflows/deploy-api.yml` (and 16 more)
 
@@ -2912,27 +3007,28 @@ jobs:
 
 Create each file with the same structure, substituting `path`, service name, and port:
 
-| File | `paths` filter | Service |
-|---|---|---|
-| `deploy-web-shell.yml` | `apps/web-shell/**` | web-shell |
-| `deploy-web-people.yml` | `apps/web-people/**` | web-people |
-| `deploy-web-time.yml` | `apps/web-time/**` | web-time |
-| `deploy-web-hiring.yml` | `apps/web-hiring/**` | web-hiring |
-| `deploy-web-performance.yml` | `apps/web-performance/**` | web-performance |
-| `deploy-web-projects.yml` | `apps/web-projects/**` | web-projects |
-| `deploy-web-finance.yml` | `apps/web-finance/**` | web-finance |
-| `deploy-web-goals.yml` | `apps/web-goals/**` | web-goals |
-| `deploy-web-insights.yml` | `apps/web-insights/**` | web-insights |
-| `deploy-web-agents.yml` | `apps/web-agents/**` | web-agents |
-| `deploy-web-planner.yml` | `apps/web-planner/**` | web-planner |
-| `deploy-web-admin.yml` | `apps/web-admin/**` | web-admin |
-| `deploy-cubejs.yml` | `data-platform/cubejs/**` | cubejs |
-| `deploy-langfuse.yml` | `agents/langfuse/**` | langfuse |
-| `deploy-glue.yml` | `data-platform/glue/**` | glue (S3 upload, not ECS) |
+| File                         | `paths` filter            | Service                   |
+| ---------------------------- | ------------------------- | ------------------------- |
+| `deploy-web-shell.yml`       | `apps/web-shell/**`       | web-shell                 |
+| `deploy-web-people.yml`      | `apps/web-people/**`      | web-people                |
+| `deploy-web-time.yml`        | `apps/web-time/**`        | web-time                  |
+| `deploy-web-hiring.yml`      | `apps/web-hiring/**`      | web-hiring                |
+| `deploy-web-performance.yml` | `apps/web-performance/**` | web-performance           |
+| `deploy-web-projects.yml`    | `apps/web-projects/**`    | web-projects              |
+| `deploy-web-finance.yml`     | `apps/web-finance/**`     | web-finance               |
+| `deploy-web-goals.yml`       | `apps/web-goals/**`       | web-goals                 |
+| `deploy-web-insights.yml`    | `apps/web-insights/**`    | web-insights              |
+| `deploy-web-agents.yml`      | `apps/web-agents/**`      | web-agents                |
+| `deploy-web-planner.yml`     | `apps/web-planner/**`     | web-planner               |
+| `deploy-web-admin.yml`       | `apps/web-admin/**`       | web-admin                 |
+| `deploy-cubejs.yml`          | `data-platform/cubejs/**` | cubejs                    |
+| `deploy-langfuse.yml`        | `agents/langfuse/**`      | langfuse                  |
+| `deploy-glue.yml`            | `data-platform/glue/**`   | glue (S3 upload, not ECS) |
 
 For `deploy-glue.yml`, replace the ECS TODO comment with:
+
 ```yaml
-      # TODO: GLUE_SCRIPTS_BUCKET=your-bucket bash data-platform/glue/deploy.sh
+# TODO: GLUE_SCRIPTS_BUCKET=your-bucket bash data-platform/glue/deploy.sh
 ```
 
 - [ ] **Step 4: Commit**
@@ -2964,7 +3060,7 @@ Correct file structure with TODO markers. No real HCL resources.
 
 - [ ] **Step 2: Create `infra/bootstrap/README.md`**
 
-```markdown
+````markdown
 # Terraform Bootstrap
 
 Run once before any other Terraform ops to create the S3 state bucket and DynamoDB lock table.
@@ -2974,7 +3070,9 @@ cd infra/bootstrap
 terraform init
 terraform apply
 ```
-```
+````
+
+````
 
 - [ ] **Step 3: Create all module stubs**
 
@@ -2985,9 +3083,10 @@ Create each `infra/modules/{name}/main.tf` with a comment block:
 # VPC: 2 AZs, public + private subnets, NAT gateway, security groups
 # See docs/architecture/deployment.md — Network section
 # TODO: aws_vpc, aws_subnet, aws_internet_gateway, aws_nat_gateway, aws_security_group
-```
+````
 
 `infra/modules/alb/main.tf`:
+
 ```hcl
 # ALB: HTTPS listener, host-based routing to ECS services, ACM wildcard cert for *.seta-international.com
 # See docs/architecture/deployment.md — ALB Routing section
@@ -2995,6 +3094,7 @@ Create each `infra/modules/{name}/main.tf` with a comment block:
 ```
 
 `infra/modules/ecs-cluster/main.tf`:
+
 ```hcl
 # ECS Cluster: Fargate + Spot capacity providers, Graviton ARM64
 # See docs/architecture/deployment.md — ECS Cluster section
@@ -3002,6 +3102,7 @@ Create each `infra/modules/{name}/main.tf` with a comment block:
 ```
 
 `infra/modules/ecs-service/main.tf`:
+
 ```hcl
 # Parameterized ECS service module (name, image, cpu, memory, spot_weight)
 # Used by: api, web-shell, all 11 zones, cubejs, langfuse
@@ -3010,6 +3111,7 @@ Create each `infra/modules/{name}/main.tf` with a comment block:
 ```
 
 `infra/modules/rds/main.tf`:
+
 ```hcl
 # RDS PostgreSQL 16 (db.t4g.medium), RDS Proxy, read replica (single-AZ)
 # See docs/architecture/deployment.md — Database section
@@ -3017,6 +3119,7 @@ Create each `infra/modules/{name}/main.tf` with a comment block:
 ```
 
 `infra/modules/rds-langfuse/main.tf`:
+
 ```hcl
 # Isolated RDS for Langfuse LLM trace storage (db.t4g.micro)
 # Separate from the main application RDS — Langfuse owns its schema
@@ -3024,12 +3127,14 @@ Create each `infra/modules/{name}/main.tf` with a comment block:
 ```
 
 `infra/modules/redis/main.tf`:
+
 ```hcl
 # ElastiCache Redis (cache.t4g.small) — Cube.js query cache only
 # TODO: aws_elasticache_cluster, aws_elasticache_subnet_group
 ```
 
 `infra/modules/ecr/main.tf`:
+
 ```hcl
 # ECR repos: one per ECS service (15 total)
 # api, web-shell, web-people, web-time, web-hiring, web-performance,
@@ -3040,6 +3145,7 @@ Create each `infra/modules/{name}/main.tf` with a comment block:
 ```
 
 `infra/modules/secrets/main.tf`:
+
 ```hcl
 # Secrets Manager entries: DB creds, OPENAI_API_KEY, Slack/Teams bot tokens
 # Key paths:
@@ -3052,6 +3158,7 @@ Create each `infra/modules/{name}/main.tf` with a comment block:
 ```
 
 `infra/modules/glue/main.tf`:
+
 ```hcl
 # AWS Glue: ETL jobs, Data Catalog databases, crawlers
 # Jobs: etl_bronze (hourly), etl_gold (hourly, after bronze)
@@ -3060,6 +3167,7 @@ Create each `infra/modules/{name}/main.tf` with a comment block:
 ```
 
 `infra/modules/eventbridge/main.tf`:
+
 ```hcl
 # EventBridge: staging scale-to-zero rules (9am-8pm SGT weekdays)
 # Scale up:   cron(0 1 ? * MON-FRI *)  → ECS desired count 1
@@ -3071,6 +3179,7 @@ Create each `infra/modules/{name}/main.tf` with a comment block:
 - [ ] **Step 4: Create root Terraform files**
 
 `infra/main.tf`:
+
 ```hcl
 # Root Terraform configuration
 # Calls all modules. See each module's main.tf for what it provisions.
@@ -3089,12 +3198,14 @@ module "eventbridge" { source = "./modules/eventbridge" }
 ```
 
 `infra/variables.tf`:
+
 ```hcl
 variable "env"    { type = string }
 variable "region" { type = string  default = "ap-southeast-1" }
 ```
 
 `infra/backend.tf`:
+
 ```hcl
 terraform {
   backend "s3" {
@@ -3109,6 +3220,7 @@ terraform {
 ```
 
 `infra/environments/staging.tfvars`:
+
 ```hcl
 env    = "staging"
 region = "ap-southeast-1"
@@ -3116,6 +3228,7 @@ region = "ap-southeast-1"
 ```
 
 `infra/environments/production.tfvars`:
+
 ```hcl
 env    = "production"
 region = "ap-southeast-1"
@@ -3197,30 +3310,31 @@ git commit -m "chore: final scaffold verification fixes"
 
 **Spec coverage check:**
 
-| Spec requirement | Covered by |
-|---|---|
-| Workspace root with 4 workspace globs | Task 1 |
-| 7 shared packages | Tasks 2–7 |
-| apps/api with 12 module hexagonal skeletons | Tasks 8–10 |
-| apps/web-shell | Task 11 |
-| 11 domain web zones | Task 12 |
-| apps/e2e Playwright | Task 13 |
-| agents/ with langfuse + stubs | Task 14 |
-| data-platform/ with cubejs + glue | Task 15 |
-| ci.yml fully wired + 17 deploy stubs | Task 16 |
-| Terraform all stubs | Task 17 |
-| kernel 15 table schema stubs | Task 9 |
-| event-contracts all 13 event classes | Task 3 |
-| `moduleResolution: nodenext` for API | Task 8 |
-| `moduleResolution: bundler` for web zones | Task 11–12 |
-| UUID v7 on all kernel tables | Task 9 |
-| No cross-schema FK constraints | Task 9 (soft refs only) |
-| Graviton ARM64 Dockerfiles | Tasks 8, 11, 12 |
-| Deploy path filters correct (data-platform/, agents/) | Task 16 |
-| Glue: no ECR repo, deploy.sh uploads to S3 | Tasks 15, 16 |
-| ECR: 15 repos (no glue) | Task 17 |
+| Spec requirement                                      | Covered by              |
+| ----------------------------------------------------- | ----------------------- |
+| Workspace root with 4 workspace globs                 | Task 1                  |
+| 7 shared packages                                     | Tasks 2–7               |
+| apps/api with 12 module hexagonal skeletons           | Tasks 8–10              |
+| apps/web-shell                                        | Task 11                 |
+| 11 domain web zones                                   | Task 12                 |
+| apps/e2e Playwright                                   | Task 13                 |
+| agents/ with langfuse + stubs                         | Task 14                 |
+| data-platform/ with cubejs + glue                     | Task 15                 |
+| ci.yml fully wired + 17 deploy stubs                  | Task 16                 |
+| Terraform all stubs                                   | Task 17                 |
+| kernel 15 table schema stubs                          | Task 9                  |
+| event-contracts all 13 event classes                  | Task 3                  |
+| `moduleResolution: nodenext` for API                  | Task 8                  |
+| `moduleResolution: bundler` for web zones             | Task 11–12              |
+| UUID v7 on all kernel tables                          | Task 9                  |
+| No cross-schema FK constraints                        | Task 9 (soft refs only) |
+| Graviton ARM64 Dockerfiles                            | Tasks 8, 11, 12         |
+| Deploy path filters correct (data-platform/, agents/) | Task 16                 |
+| Glue: no ECR repo, deploy.sh uploads to S3            | Tasks 15, 16            |
+| ECR: 15 repos (no glue)                               | Task 17                 |
 
 **Type consistency verified:**
+
 - `AppRouter` defined in `apps/api/src/common/trpc/app-router.ts` → exported via `packages/api-client/src/index.ts` as `import type`
 - `KernelQueryFacade` exported from `KernelModule` → only valid cross-module import from kernel
 - `coreSchema` defined in `actor.schema.ts` → imported by all other kernel schema files

@@ -12,42 +12,43 @@
 
 ## File Map
 
-| File | Action | Purpose |
-|---|---|---|
-| `.prettierrc` | Create | Shared Prettier config |
-| `.prettierignore` | Create | Exclude build artifacts from formatting |
-| `lefthook.yml` | Create | Pre-commit and pre-push hook definitions |
-| `package.json` | Modify | Add `format`, `format:check`, `prepare` scripts; add `prettier`, `lefthook` devDeps |
-| `turbo.json` | Modify | Add `format` task |
-| `packages/eslint-config/package.json` | Modify | Add `nestjs` export; add `eslint-config-prettier` dep |
-| `packages/eslint-config/base.js` | Modify | Remove boundaries (moved to nestjs.js); add prettier at end |
-| `packages/eslint-config/nestjs.js` | Create | base + boundaries for hexagonal NestJS layers + prettier |
-| `packages/eslint-config/nextjs.js` | Modify | Add prettier; add Next.js-specific rule suppressions |
-| `apps/api/eslint.config.js` | Create | Uses `@future/eslint-config/nestjs` |
-| `apps/web-shell/eslint.config.js` | Create | Uses FlatCompat + `@future/eslint-config/nextjs` |
-| `apps/web-people/eslint.config.js` | Create | Same as web-shell |
-| `apps/web-time/eslint.config.js` | Create | Same as web-shell |
-| `apps/web-hiring/eslint.config.js` | Create | Same as web-shell |
-| `apps/web-performance/eslint.config.js` | Create | Same as web-shell |
-| `apps/web-projects/eslint.config.js` | Create | Same as web-shell |
-| `apps/web-finance/eslint.config.js` | Create | Same as web-shell |
-| `apps/web-goals/eslint.config.js` | Create | Same as web-shell |
-| `apps/web-insights/eslint.config.js` | Create | Same as web-shell |
-| `apps/web-agents/eslint.config.js` | Create | Same as web-shell |
-| `apps/web-planner/eslint.config.js` | Create | Same as web-shell |
-| `apps/web-admin/eslint.config.js` | Create | Same as web-shell |
-| `apps/e2e/eslint.config.js` | Create | Uses `@future/eslint-config/base` |
-| `packages/auth/eslint.config.js` | Create | Uses `@future/eslint-config/base` |
-| `packages/db/eslint.config.js` | Create | Uses `@future/eslint-config/base` |
-| `packages/ui/eslint.config.js` | Create | Uses `@future/eslint-config/base` |
-| `packages/api-client/eslint.config.js` | Create | Uses `@future/eslint-config/base` |
-| `packages/event-contracts/eslint.config.js` | Create | Uses `@future/eslint-config/base` |
+| File                                        | Action | Purpose                                                                             |
+| ------------------------------------------- | ------ | ----------------------------------------------------------------------------------- |
+| `.prettierrc`                               | Create | Shared Prettier config                                                              |
+| `.prettierignore`                           | Create | Exclude build artifacts from formatting                                             |
+| `lefthook.yml`                              | Create | Pre-commit and pre-push hook definitions                                            |
+| `package.json`                              | Modify | Add `format`, `format:check`, `prepare` scripts; add `prettier`, `lefthook` devDeps |
+| `turbo.json`                                | Modify | Add `format` task                                                                   |
+| `packages/eslint-config/package.json`       | Modify | Add `nestjs` export; add `eslint-config-prettier` dep                               |
+| `packages/eslint-config/base.js`            | Modify | Remove boundaries (moved to nestjs.js); add prettier at end                         |
+| `packages/eslint-config/nestjs.js`          | Create | base + boundaries for hexagonal NestJS layers + prettier                            |
+| `packages/eslint-config/nextjs.js`          | Modify | Add prettier; add Next.js-specific rule suppressions                                |
+| `apps/api/eslint.config.js`                 | Create | Uses `@future/eslint-config/nestjs`                                                 |
+| `apps/web-shell/eslint.config.js`           | Create | Uses FlatCompat + `@future/eslint-config/nextjs`                                    |
+| `apps/web-people/eslint.config.js`          | Create | Same as web-shell                                                                   |
+| `apps/web-time/eslint.config.js`            | Create | Same as web-shell                                                                   |
+| `apps/web-hiring/eslint.config.js`          | Create | Same as web-shell                                                                   |
+| `apps/web-performance/eslint.config.js`     | Create | Same as web-shell                                                                   |
+| `apps/web-projects/eslint.config.js`        | Create | Same as web-shell                                                                   |
+| `apps/web-finance/eslint.config.js`         | Create | Same as web-shell                                                                   |
+| `apps/web-goals/eslint.config.js`           | Create | Same as web-shell                                                                   |
+| `apps/web-insights/eslint.config.js`        | Create | Same as web-shell                                                                   |
+| `apps/web-agents/eslint.config.js`          | Create | Same as web-shell                                                                   |
+| `apps/web-planner/eslint.config.js`         | Create | Same as web-shell                                                                   |
+| `apps/web-admin/eslint.config.js`           | Create | Same as web-shell                                                                   |
+| `apps/e2e/eslint.config.js`                 | Create | Uses `@future/eslint-config/base`                                                   |
+| `packages/auth/eslint.config.js`            | Create | Uses `@future/eslint-config/base`                                                   |
+| `packages/db/eslint.config.js`              | Create | Uses `@future/eslint-config/base`                                                   |
+| `packages/ui/eslint.config.js`              | Create | Uses `@future/eslint-config/base`                                                   |
+| `packages/api-client/eslint.config.js`      | Create | Uses `@future/eslint-config/base`                                                   |
+| `packages/event-contracts/eslint.config.js` | Create | Uses `@future/eslint-config/base`                                                   |
 
 ---
 
 ## Task 1: Add Prettier
 
 **Files:**
+
 - Create: `.prettierrc`
 - Create: `.prettierignore`
 - Modify: `package.json` (root)
@@ -86,6 +87,7 @@ coverage
 - [ ] **Step 4: Add format scripts to root `package.json`**
 
 Current `scripts` block:
+
 ```json
 "scripts": {
   "build":       "turbo build",
@@ -100,6 +102,7 @@ Current `scripts` block:
 ```
 
 Add `format` and `format:check`:
+
 ```json
 "scripts": {
   "build":         "turbo build",
@@ -144,6 +147,7 @@ git commit -m "chore: add prettier with format and format:check scripts"
 ## Task 2: Restructure `packages/eslint-config`
 
 **Files:**
+
 - Modify: `packages/eslint-config/base.js`
 - Create: `packages/eslint-config/nestjs.js`
 - Modify: `packages/eslint-config/nextjs.js`
@@ -167,25 +171,25 @@ Edit `packages/eslint-config/package.json` — add `eslint-config-prettier` to `
   "version": "0.0.1",
   "private": true,
   "exports": {
-    "./base":   "./base.js",
+    "./base": "./base.js",
     "./nestjs": "./nestjs.js",
     "./nextjs": "./nextjs.js"
   },
   "peerDependencies": {
-    "eslint":                          "^9",
+    "eslint": "^9",
     "@typescript-eslint/eslint-plugin": "^8",
-    "@typescript-eslint/parser":        "^8",
-    "eslint-plugin-boundaries":         "^4",
-    "eslint-config-prettier":           "^10",
-    "typescript-eslint":                "^8"
+    "@typescript-eslint/parser": "^8",
+    "eslint-plugin-boundaries": "^4",
+    "eslint-config-prettier": "^10",
+    "typescript-eslint": "^8"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8",
-    "@typescript-eslint/parser":        "^8",
-    "eslint":                          "^9",
-    "eslint-plugin-boundaries":         "^4",
-    "eslint-config-prettier":           "^10",
-    "typescript-eslint":                "^8"
+    "@typescript-eslint/parser": "^8",
+    "eslint": "^9",
+    "eslint-plugin-boundaries": "^4",
+    "eslint-config-prettier": "^10",
+    "typescript-eslint": "^8"
   }
 }
 ```
@@ -230,21 +234,24 @@ export default [
     },
     settings: {
       'boundaries/elements': [
-        { type: 'domain',         pattern: '**/modules/*/domain/**' },
-        { type: 'application',    pattern: '**/modules/*/application/**' },
+        { type: 'domain', pattern: '**/modules/*/domain/**' },
+        { type: 'application', pattern: '**/modules/*/application/**' },
         { type: 'infrastructure', pattern: '**/modules/*/infrastructure/**' },
-        { type: 'interface',      pattern: '**/modules/*/interface/**' },
+        { type: 'interface', pattern: '**/modules/*/interface/**' },
       ],
     },
     rules: {
-      'boundaries/element-types': ['error', {
-        default: 'disallow',
-        rules: [
-          { from: 'application',    allow: ['domain'] },
-          { from: 'infrastructure', allow: ['domain'] },
-          { from: 'interface',      allow: ['application'] },
-        ],
-      }],
+      'boundaries/element-types': [
+        'error',
+        {
+          default: 'disallow',
+          rules: [
+            { from: 'application', allow: ['domain'] },
+            { from: 'infrastructure', allow: ['domain'] },
+            { from: 'interface', allow: ['application'] },
+          ],
+        },
+      ],
     },
   },
   prettier,
@@ -283,6 +290,7 @@ git commit -m "feat(eslint-config): add nestjs export, integrate eslint-config-p
 ## Task 3: Wire `apps/api`
 
 **Files:**
+
 - Create: `apps/api/eslint.config.js`
 - Modify: `apps/api/package.json` (add devDeps)
 
@@ -322,6 +330,7 @@ git commit -m "feat(api): wire eslint with nestjs hexagonal boundary config"
 ## Task 4: Wire all 12 Next.js zones
 
 **Files:**
+
 - Create: `apps/web-{shell,people,time,hiring,performance,projects,finance,goals,insights,agents,planner,admin}/eslint.config.js`
 - Modify: same 12 `package.json` files (add devDeps)
 
@@ -359,10 +368,7 @@ const __dirname = dirname(__filename)
 
 const compat = new FlatCompat({ baseDirectory: __dirname })
 
-export default [
-  ...compat.extends('next/core-web-vitals'),
-  ...nextjs,
-]
+export default [...compat.extends('next/core-web-vitals'), ...nextjs]
 ```
 
 **Why FlatCompat:** `eslint-config-next` uses the legacy config format internally. `FlatCompat` bridges it into ESLint 9's flat config. The `@future/eslint-config/nextjs` TypeScript rules then overlay on top. Prettier (from `nextjs`) is always last, so no formatting conflicts.
@@ -398,6 +404,7 @@ git commit -m "feat(web-zones): wire eslint flat config across all 12 Next.js zo
 ## Task 5: Wire `packages/*` and `apps/e2e`
 
 **Files:**
+
 - Create: `packages/auth/eslint.config.js`
 - Create: `packages/db/eslint.config.js`
 - Create: `packages/ui/eslint.config.js`
@@ -421,6 +428,7 @@ bun add -d eslint @future/eslint-config --filter @future/e2e
 - [ ] **Step 2: Create `eslint.config.js` — identical for all 5 packages and e2e**
 
 Create this file at each of these paths:
+
 - `packages/auth/eslint.config.js`
 - `packages/db/eslint.config.js`
 - `packages/ui/eslint.config.js`
@@ -437,6 +445,7 @@ export default [...base]
 - [ ] **Step 3: Add `lint` script to `packages/db/package.json`**
 
 Current scripts:
+
 ```json
 "scripts": {
   "build":     "tsc",
@@ -447,6 +456,7 @@ Current scripts:
 ```
 
 Add lint:
+
 ```json
 "scripts": {
   "build":     "tsc",
@@ -460,6 +470,7 @@ Add lint:
 - [ ] **Step 4: Add `lint` script to `apps/e2e/package.json`**
 
 Current scripts:
+
 ```json
 "scripts": {
   "test:e2e": "playwright test"
@@ -467,6 +478,7 @@ Current scripts:
 ```
 
 Add lint:
+
 ```json
 "scripts": {
   "lint":     "eslint src/",
@@ -500,6 +512,7 @@ git commit -m "feat(packages): wire eslint base config across all packages and e
 ## Task 6: Install and configure Lefthook
 
 **Files:**
+
 - Create: `lefthook.yml`
 - Modify: `package.json` (root — add `prepare` script and `lefthook` devDep)
 
@@ -514,11 +527,13 @@ Expected: `lefthook` appears in root `package.json` devDependencies.
 - [ ] **Step 2: Add `prepare` script to root `package.json`**
 
 Add to the `scripts` block (alongside the existing scripts):
+
 ```json
 "prepare": "lefthook install"
 ```
 
 Full scripts block after edit:
+
 ```json
 "scripts": {
   "build":        "turbo build",
@@ -542,10 +557,10 @@ pre-commit:
   parallel: true
   commands:
     format-check:
-      glob: "*.{ts,tsx,js,mjs,json,md}"
+      glob: '*.{ts,tsx,js,mjs,json,md}'
       run: prettier --check {staged_files}
     lint:
-      glob: "*.{ts,tsx}"
+      glob: '*.{ts,tsx}'
       run: eslint {staged_files}
 
 pre-push:
@@ -557,6 +572,7 @@ pre-push:
 ```
 
 **What each section does:**
+
 - `pre-commit` runs only on staged files — fast even in a large monorepo. `parallel: true` runs format-check and lint simultaneously.
 - `pre-push` runs the full Turborepo typecheck and test pipelines. Turborepo's remote cache means unchanged packages cost ~0ms.
 - `{staged_files}` is Lefthook's built-in template that expands to the list of staged files matching the glob.
@@ -568,6 +584,7 @@ bunx lefthook install
 ```
 
 Expected output:
+
 ```
   SYNCING
   SUCCESSFUL
@@ -589,6 +606,7 @@ bunx lefthook run pre-commit
 Expected: Lefthook runs. ESLint should report `@typescript-eslint/no-explicit-any` error on `bad.ts`. The hook exits non-zero (blocked).
 
 Clean up:
+
 ```bash
 git restore --staged packages/event-contracts/src/bad.ts
 rm packages/event-contracts/src/bad.ts
@@ -606,37 +624,40 @@ git commit -m "chore: add lefthook with pre-commit (lint+format) and pre-push (t
 ## Task 7: Update `turbo.json` and run full monorepo lint
 
 **Files:**
+
 - Modify: `turbo.json`
 
 - [ ] **Step 1: Add `format` task to `turbo.json`**
 
 Current `turbo.json`:
+
 ```json
 {
   "$schema": "https://turborepo.dev/schema.json",
   "tasks": {
-    "build":     { "dependsOn": ["^build"], "outputs": [".next/**", "dist/**"] },
+    "build": { "dependsOn": ["^build"], "outputs": [".next/**", "dist/**"] },
     "typecheck": { "dependsOn": ["^build"] },
-    "lint":      { "dependsOn": ["^build"] },
-    "test":      { "dependsOn": ["^build"] },
-    "test:e2e":  { "dependsOn": ["^build"] },
-    "dev":       { "cache": false, "persistent": true }
+    "lint": { "dependsOn": ["^build"] },
+    "test": { "dependsOn": ["^build"] },
+    "test:e2e": { "dependsOn": ["^build"] },
+    "dev": { "cache": false, "persistent": true }
   }
 }
 ```
 
 Add `format` task:
+
 ```json
 {
   "$schema": "https://turborepo.dev/schema.json",
   "tasks": {
-    "build":     { "dependsOn": ["^build"], "outputs": [".next/**", "dist/**"] },
+    "build": { "dependsOn": ["^build"], "outputs": [".next/**", "dist/**"] },
     "typecheck": { "dependsOn": ["^build"] },
-    "lint":      { "dependsOn": ["^build"] },
-    "test":      { "dependsOn": ["^build"] },
-    "test:e2e":  { "dependsOn": ["^build"] },
-    "format":    { "cache": false },
-    "dev":       { "cache": false, "persistent": true }
+    "lint": { "dependsOn": ["^build"] },
+    "test": { "dependsOn": ["^build"] },
+    "test:e2e": { "dependsOn": ["^build"] },
+    "format": { "cache": false },
+    "dev": { "cache": false, "persistent": true }
   }
 }
 ```

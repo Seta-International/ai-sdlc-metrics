@@ -15,4 +15,3 @@ This spike documents the existing `timesheet-app` as a business system, not as a
 2. `02-capabilities-and-use-cases.md`
 3. `03-workflows-rules-and-domain.md`
 4. `04-clone-critical-understanding.md`
-

@@ -1,7 +1,6 @@
 ## Project Overview
 
-**Future** is an agent-native enterprise operating system being built by SETA. It replaces four fragmented internal apps (EMS, Timesheet, Hiring, Resource Insight) with a unified platform that has a canonical data layer and an embedded AI agent ecosystem. SETA is customer zero (300+ person org). The platform will be commercialized for Vietnamese SMEs and globally.
----
+## **Future** is an agent-native enterprise operating system being built by SETA. It replaces four fragmented internal apps (EMS, Timesheet, Hiring, Resource Insight) with a unified platform that has a canonical data layer and an embedded AI agent ecosystem. SETA is customer zero (300+ person org). The platform will be commercialized for Vietnamese SMEs and globally.
 
 ## Repository Structure
 
@@ -65,19 +64,19 @@ infra/                                   — Terraform stubs (VPC, ALB, ECS, RDS
 
 ### Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js Multi-Zones (11 independent zones + shell) |
-| Backend | NestJS modular monolith (Turborepo monorepo) |
-| API communication | tRPC (end-to-end type-safe) |
-| Database | PostgreSQL 16 (Drizzle ORM, schema-per-module, RLS) |
-| Background jobs | pg-boss |
-| Event delivery | Custom `outbox_event` + polling relay |
-| Analytics | AWS Glue ETL → S3 Bronze → S3 Gold (Iceberg) → Amazon Athena → Cube.js semantic layer |
-| Agent AI | Vercel AI SDK + OpenAI API (`gpt-5.4-nano` for classification, `gpt-5.4` for reasoning, `text-embedding-3-small` for embeddings) |
-| Agent observability | Langfuse (self-hosted on ECS) |
-| Infrastructure | AWS ECS Fargate (Graviton ARM64), Terraform, ap-southeast-1 |
-| Auth | Microsoft Entra OIDC (MSAL) |
+| Layer               | Technology                                                                                                                       |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend            | Next.js Multi-Zones (11 independent zones + shell)                                                                               |
+| Backend             | NestJS modular monolith (Turborepo monorepo)                                                                                     |
+| API communication   | tRPC (end-to-end type-safe)                                                                                                      |
+| Database            | PostgreSQL 16 (Drizzle ORM, schema-per-module, RLS)                                                                              |
+| Background jobs     | pg-boss                                                                                                                          |
+| Event delivery      | Custom `outbox_event` + polling relay                                                                                            |
+| Analytics           | AWS Glue ETL → S3 Bronze → S3 Gold (Iceberg) → Amazon Athena → Cube.js semantic layer                                            |
+| Agent AI            | Vercel AI SDK + OpenAI API (`gpt-5.4-nano` for classification, `gpt-5.4` for reasoning, `text-embedding-3-small` for embeddings) |
+| Agent observability | Langfuse (self-hosted on ECS)                                                                                                    |
+| Infrastructure      | AWS ECS Fargate (Graviton ARM64), Terraform, ap-southeast-1                                                                      |
+| Auth                | Microsoft Entra OIDC (MSAL)                                                                                                      |
 
 ### Process Kernel (`core` schema)
 
@@ -103,24 +102,25 @@ The kernel is the single source of truth that every module, agent, and integrati
 
 ### Domain Modules
 
-| Module | Schema | Responsibility |
-|---|---|---|
-| `kernel` | `core` | Identity, authority, decisions, events, exposure |
-| `people` | `people` | Employment profiles, org placements, offboarding |
-| `time` | `time` | Attendance, leave, OT, timesheets |
-| `hiring` | `hiring` | Recruitment, candidate pipeline, interviews, offers |
-| `performance` | `performance` | Review cycles, evaluations, feedback |
-| `projects` | `projects` | Project staffing, assignments, delivery tracking |
-| `finance` | `finance` | Invoices, payroll, budget |
-| `goals` | `goals` | OKRs, KPIs, objectives, scoring |
-| `insights` | `insights` | Analytics proxy to Cube.js — no persistent tables |
-| `agents` | `agents` | Agent configs, sessions, messages, tool registry |
-| `planner` | `planner` | Org-wide task tracking, AI reminders, meeting action item extraction, KPI linkage |
-| `admin` | `admin` | Tenant settings, AI provider config, module entitlements |
+| Module        | Schema        | Responsibility                                                                    |
+| ------------- | ------------- | --------------------------------------------------------------------------------- |
+| `kernel`      | `core`        | Identity, authority, decisions, events, exposure                                  |
+| `people`      | `people`      | Employment profiles, org placements, offboarding                                  |
+| `time`        | `time`        | Attendance, leave, OT, timesheets                                                 |
+| `hiring`      | `hiring`      | Recruitment, candidate pipeline, interviews, offers                               |
+| `performance` | `performance` | Review cycles, evaluations, feedback                                              |
+| `projects`    | `projects`    | Project staffing, assignments, delivery tracking                                  |
+| `finance`     | `finance`     | Invoices, payroll, budget                                                         |
+| `goals`       | `goals`       | OKRs, KPIs, objectives, scoring                                                   |
+| `insights`    | `insights`    | Analytics proxy to Cube.js — no persistent tables                                 |
+| `agents`      | `agents`      | Agent configs, sessions, messages, tool registry                                  |
+| `planner`     | `planner`     | Org-wide task tracking, AI reminders, meeting action item extraction, KPI linkage |
+| `admin`       | `admin`       | Tenant settings, AI provider config, module entitlements                          |
 
 ### Module Internal Structure (Hexagonal + DDD)
 
 Every module follows this layout:
+
 ```
 modules/people/
   domain/           → pure TypeScript entities, value-objects, ports (interfaces) — zero NestJS/Drizzle imports
@@ -131,6 +131,7 @@ modules/people/
 ```
 
 **Boundary rules:** `eslint-plugin-boundaries` at compile time + NestJS DI at runtime. No module may import from another module's `domain/` or `infrastructure/`. Cross-module communication is:
+
 1. **QueryFacade** — synchronous reads (e.g. `PeopleQueryFacade`)
 2. **Domain events** in `packages/event-contracts` — async state change propagation (plain TS classes, zero NestJS deps)
 
@@ -153,6 +154,7 @@ modules/people/
 ### Agent Runtime
 
 The agent platform lives inside the NestJS monolith (`modules/agents`). Architecture:
+
 - **Agent Gateway** (OpenClaw/GoClaw pattern) — single control plane: SessionManager → TopicRouter → McpToolRegistry → guardrail enforcement.
 - **Channels** — WebSocket (web chat), Microsoft Teams, Slack, event triggers. Channel-agnostic: adding a new channel = one new adapter class.
 - **Topics/Actions/Guardrails** — Agentforce-style tenant-configurable agent builder (no-code via `web-agents` zone).
@@ -188,6 +190,7 @@ Microservice extraction path: swap `EventBus.publish()` → BullMQ producer. Dom
 ## Hard Rules (No Exceptions)
 
 ### Infrastructure
+
 - All infrastructure changes go through Terraform. No manual AWS console changes.
 - ECS tasks run on Graviton ARM64 (`linux/arm64`). Do not add x86-only dependencies.
 - Secrets live in AWS Secrets Manager. Never in env files, never in the database, never hardcoded.
@@ -196,10 +199,12 @@ Microservice extraction path: swap `EventBus.publish()` → BullMQ producer. Dom
 - Frontend zones never query the database directly. All data goes through `apps/api` tRPC.
 
 ### No Backward Compatibility
+
 - No compatibility shims, no legacy code paths, no deprecated API aliases.
 - When a caller breaks, update the caller. Do not preserve the old interface.
 
 ### Package Management
+
 - Never manually edit `package.json`, `bun.lock`, or any lockfile.
 - Install or remove packages using the CLI only: `bun add <pkg>`, `bun add -d <pkg>`, `bun add <pkg>@<version>`, `bun remove <pkg>`.
 - Add a new app or package to the monorepo using the Turborepo CLI: `turbo gen workspace` or copy an existing workspace scaffold — never create the directory and `package.json` manually.
@@ -212,6 +217,7 @@ Microservice extraction path: swap `EventBus.publish()` → BullMQ producer. Dom
   - Run these from the `apps/api` directory or pass `--project api` from the root.
 
 ### Git Workflow
+
 - Never push directly to `main`. All changes go through a PR.
 - Always create a new branch before starting work: `git checkout -b feat/{ticket}` or `fix/{ticket}` off `main`.
 - Never use `git worktree`. Checkout to a new branch instead.
@@ -219,6 +225,7 @@ Microservice extraction path: swap `EventBus.publish()` → BullMQ producer. Dom
 - Never use `--force` push or `git reset --hard` on shared branches.
 
 ### When in Doubt, Ask
+
 - If a requirement is ambiguous, ask before implementing. Do not guess and build the wrong thing.
 - If a decision has meaningful tradeoffs, surface them and ask. Do not silently pick one.
 - One clarifying question upfront costs nothing. A wrong implementation costs hours.
@@ -249,6 +256,7 @@ tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
 The skill has specialized workflows that produce better results than ad-hoc answers.
 
 Key routing rules:
+
 - Product ideas, "is this worth building", brainstorming → invoke office-hours
 - Bugs, errors, "why is this broken", 500 errors → invoke investigate
 - Ship, deploy, push, create PR → invoke ship

@@ -29,11 +29,13 @@ Biome was eliminated: it does not support `eslint-plugin-boundaries`, which is r
 ### Installation
 
 Add to root `devDependencies`:
+
 ```
 prettier
 ```
 
 Add to `packages/eslint-config` `devDependencies` and `peerDependencies`:
+
 ```
 eslint-config-prettier
 ```
@@ -41,6 +43,7 @@ eslint-config-prettier
 ### Config
 
 Single `.prettierrc` at repo root:
+
 ```json
 {
   "semi": false,
@@ -52,6 +55,7 @@ Single `.prettierrc` at repo root:
 ```
 
 Single `.prettierignore` at repo root:
+
 ```
 node_modules
 .next
@@ -63,6 +67,7 @@ coverage
 ### Scripts
 
 Add to root `package.json`:
+
 ```json
 "format":       "prettier --write .",
 "format:check": "prettier --check ."
@@ -76,11 +81,11 @@ Add to root `package.json`:
 
 Three named exports:
 
-| Export | File | Used by |
-|---|---|---|
-| `@future/eslint-config/base` | `base.js` | `packages/*`, `apps/e2e` |
-| `@future/eslint-config/nestjs` | `nestjs.js` | `apps/api` |
-| `@future/eslint-config/nextjs` | `nextjs.js` | `apps/web-*` |
+| Export                         | File        | Used by                  |
+| ------------------------------ | ----------- | ------------------------ |
+| `@future/eslint-config/base`   | `base.js`   | `packages/*`, `apps/e2e` |
+| `@future/eslint-config/nestjs` | `nestjs.js` | `apps/api`               |
+| `@future/eslint-config/nextjs` | `nextjs.js` | `apps/web-*`             |
 
 `nestjs.js` is a new file. It extends `base.js` and configures `eslint-plugin-boundaries` with the hexagonal layer rules matching `apps/api`'s folder structure. The existing `base.js` already defines boundary elements — `nestjs.js` will tighten the pattern globs to match NestJS module paths specifically.
 
@@ -95,18 +100,21 @@ Add `./nestjs` to `exports`. Add `eslint-config-prettier` to `peerDependencies` 
 Each app gets an `eslint.config.js` at its root. All use the flat config format (ESLint 9). Each app adds `@future/eslint-config` and `eslint` as `devDependencies`.
 
 **apps/api** — uses `nestjs` config:
+
 ```js
 import nestjs from '@future/eslint-config/nestjs'
 export default [...nestjs]
 ```
 
 **apps/web-\*** (12 Next.js zones) — uses `nextjs` config:
+
 ```js
 import nextjs from '@future/eslint-config/nextjs'
 export default [...nextjs]
 ```
 
 **packages/\*** and **apps/e2e** — uses `base` config:
+
 ```js
 import base from '@future/eslint-config/base'
 export default [...base]
@@ -136,6 +144,7 @@ Every app already has `"lint": "eslint src/"` (api) or `"lint": "next lint"` (we
 ### Installation
 
 Add to root `devDependencies`:
+
 ```
 lefthook
 ```
@@ -143,6 +152,7 @@ lefthook
 Run `lefthook install` after install to register hooks in `.git/hooks`.
 
 Add to root `package.json` scripts:
+
 ```json
 "prepare": "lefthook install"
 ```
@@ -154,10 +164,10 @@ pre-commit:
   parallel: true
   commands:
     format-check:
-      glob: "*.{ts,tsx,js,json,md}"
+      glob: '*.{ts,tsx,js,json,md}'
       run: prettier --check {staged_files}
     lint:
-      glob: "*.{ts,tsx}"
+      glob: '*.{ts,tsx}'
       run: eslint {staged_files}
 
 pre-push:
@@ -169,12 +179,14 @@ pre-push:
 ```
 
 **pre-commit behavior:**
+
 - Runs only on staged files matching the glob — fast even in large monorepos
 - `format-check` and `lint` run in parallel
 - Fails fast: if Prettier finds unformatted files, the commit is blocked
 - Developer runs `bun format` to fix, re-stages, recommits
 
 **pre-push behavior:**
+
 - Runs `turbo typecheck` and `turbo test` sequentially
 - Turborepo remote cache means unchanged packages cost ~0ms
 - Pushes to shared branches only pass if types and unit tests are green
@@ -184,6 +196,7 @@ pre-push:
 ## 4. Turborepo Pipeline Update
 
 Add `format` task to `turbo.json` for CI:
+
 ```json
 "format": { "cache": false }
 ```
@@ -194,23 +207,24 @@ CI runs `turbo lint` and `bun run format:check` independently. Lint is cacheable
 
 ## 5. Files Created / Modified
 
-| File | Action |
-|---|---|
-| `.prettierrc` | Create |
-| `.prettierignore` | Create |
-| `lefthook.yml` | Create |
-| `packages/eslint-config/nestjs.js` | Create |
-| `packages/eslint-config/base.js` | Update (add `eslint-config-prettier`) |
-| `packages/eslint-config/nextjs.js` | Update (add `eslint-config-prettier`) |
-| `packages/eslint-config/package.json` | Update (add `nestjs` export, add `eslint-config-prettier` dep) |
-| `apps/api/eslint.config.js` | Create |
-| `apps/web-*/eslint.config.js` | Create (12 files) |
-| `apps/e2e/eslint.config.js` | Create |
-| `packages/*/eslint.config.js` | Create (7 files) |
-| `root package.json` | Update (add `format`, `format:check`, `prepare` scripts; add `prettier`, `lefthook` devDeps) |
-| `turbo.json` | Update (add `format` task) |
+| File                                  | Action                                                                                       |
+| ------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `.prettierrc`                         | Create                                                                                       |
+| `.prettierignore`                     | Create                                                                                       |
+| `lefthook.yml`                        | Create                                                                                       |
+| `packages/eslint-config/nestjs.js`    | Create                                                                                       |
+| `packages/eslint-config/base.js`      | Update (add `eslint-config-prettier`)                                                        |
+| `packages/eslint-config/nextjs.js`    | Update (add `eslint-config-prettier`)                                                        |
+| `packages/eslint-config/package.json` | Update (add `nestjs` export, add `eslint-config-prettier` dep)                               |
+| `apps/api/eslint.config.js`           | Create                                                                                       |
+| `apps/web-*/eslint.config.js`         | Create (12 files)                                                                            |
+| `apps/e2e/eslint.config.js`           | Create                                                                                       |
+| `packages/*/eslint.config.js`         | Create (7 files)                                                                             |
+| `root package.json`                   | Update (add `format`, `format:check`, `prepare` scripts; add `prettier`, `lefthook` devDeps) |
+| `turbo.json`                          | Update (add `format` task)                                                                   |
 
 Dependencies installed via `bun add`:
+
 - Root: `prettier`, `lefthook` (devDeps)
 - `packages/eslint-config`: `eslint-config-prettier` (dev + peer)
 - Each app/package: `@future/eslint-config`, `eslint` (devDeps, where missing)

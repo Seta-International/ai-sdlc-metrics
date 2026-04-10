@@ -48,6 +48,7 @@ tenant
 **Row-level isolation** — all tenants share one PostgreSQL database and schema. Every table carries a `tenant_id` column. PostgreSQL Row Level Security (RLS) policies enforce that no query leaks data across tenant boundaries.
 
 **Why not schema-per-tenant or database-per-tenant:**
+
 - Cost-effective at current scale (<10 tenants, ~300 users per tenant)
 - Operationally simple for a 2–4 person engineering team
 - Schema-per-tenant isolation can be added if a specific tenant requires it for compliance — this is a targeted migration for that tenant, not a system-wide rewrite
@@ -68,7 +69,7 @@ Tenant (root container)
 // nestjs-cls middleware — runs at the start of every request
 // (HTTP requests, WebSocket messages, event handlers)
 await db.execute(
-  sql`SELECT set_config('app.tenant_id', ${tenantId}, false)`
+  sql`SELECT set_config('app.tenant_id', ${tenantId}, false)`,
   //                                                   ^^^^
   //                   false = transaction-local (resets at transaction end)
   //                   true  = session-local (NEVER use — leaks across pooled connections)
@@ -78,6 +79,7 @@ await db.execute(
 **Why this matters with RDS Proxy:** RDS Proxy reuses backend PostgreSQL connections across requests. If `set_config` is session-level, a reused connection carries the previous request's `tenant_id` — any query without an explicit `set_config` call will run scoped to the wrong tenant. Transaction-local scope resets automatically at transaction end, making it safe with connection pooling.
 
 **Implementation rule:** Every code path that executes DB queries (tRPC procedures, event handlers, MCP tool handlers, outbox relay worker) MUST either:
+
 1. Call `set_config` with `false` (transaction-local) before executing queries, OR
 2. Run inside the nestjs-cls request context that sets tenant_id at the lifecycle start
 
@@ -93,11 +95,11 @@ An **Actor** is anything in the system that can hold identity, be assigned to th
 
 **Three types:**
 
-| Type | Represents | Examples |
-|---|---|---|
-| `person` | Any individual human | Employee, contractor, intern, candidate, client contact |
-| `organization` | Any company or external entity | Client company, partner, vendor org |
-| `system` | Non-human actors | AI agents, integration bots, biometric devices, API consumers |
+| Type           | Represents                     | Examples                                                      |
+| -------------- | ------------------------------ | ------------------------------------------------------------- |
+| `person`       | Any individual human           | Employee, contractor, intern, candidate, client contact       |
+| `organization` | Any company or external entity | Client company, partner, vendor org                           |
+| `system`       | Non-human actors               | AI agents, integration bots, biometric devices, API consumers |
 
 **Why `system` from day one:** AI agents proposing staffing changes, or biometric devices writing attendance records, need auditable identities. Without this, those actions have no traceable actor in the audit log.
 
@@ -277,6 +279,7 @@ CREATE INDEX idx_outbox_event_pending ON core.outbox_event (tenant_id, status, c
 ```
 
 **What this replaces:**
+
 - EMS `manager` and account/project manager roles
 - Timesheet `manager_id` and `line_manager_id`
 - Review `direct_manager_id` and `reports_to_id`
@@ -389,7 +392,7 @@ BEFORE UPDATE OR DELETE ON core.audit_event
 FOR EACH ROW EXECUTE FUNCTION core.prevent_audit_event_mutation();
 ```
 
-**GDPR compliance note:** When an individual requests erasure, the audit_event record is NOT deleted. Instead, personally identifiable fields in `payload` JSONB are anonymised in place (e.g., replace name with "ANONYMISED", replace email with a hash). The `actor_id` reference is preserved for audit integrity — but `actor` record can be anonymised. The audit trail of *that an action occurred* is retained; the *identity* of who performed it is anonymised.
+**GDPR compliance note:** When an individual requests erasure, the audit*event record is NOT deleted. Instead, personally identifiable fields in `payload` JSONB are anonymised in place (e.g., replace name with "ANONYMISED", replace email with a hash). The `actor_id` reference is preserved for audit integrity — but `actor` record can be anonymised. The audit trail of \_that an action occurred* is retained; the _identity_ of who performed it is anonymised.
 
 Never deleted. The system's permanent memory.
 
@@ -413,7 +416,7 @@ outbox_event
 **Delivery mechanism:**
 
 ```
-outbox_event (pending) 
+outbox_event (pending)
   → NestJS scheduled relay (every 5s, SELECT ... FOR UPDATE SKIP LOCKED)
   → NestJS in-process EventBus.publish()
   → mark delivered
@@ -424,10 +427,10 @@ outbox_event (pending)
 
 **Two tables, two purposes:**
 
-| Table | Purpose | Retention |
-|---|---|---|
-| `audit_event` | Permanent immutable compliance log | Forever |
-| `outbox_event` | Transactional delivery guarantee | 7 days, then pruned |
+| Table          | Purpose                            | Retention           |
+| -------------- | ---------------------------------- | ------------------- |
+| `audit_event`  | Permanent immutable compliance log | Forever             |
+| `outbox_event` | Transactional delivery guarantee   | 7 days, then pruned |
 
 **How it differs from pg-boss:**
 
@@ -565,7 +568,11 @@ The only cross-module import allowed from the kernel module. All other modules i
 export interface KernelQueryFacade {
   // Actor — returns null if not found (caller owns the NotFoundException)
   getActor(actorId: string, tenantId: string): Promise<Actor | null>
-  findActorByExternalId(systemName: string, externalId: string, tenantId: string): Promise<Actor | null>
+  findActorByExternalId(
+    systemName: string,
+    externalId: string,
+    tenantId: string,
+  ): Promise<Actor | null>
 
   // Org placement
   getCurrentOrgPlacement(actorId: string, tenantId: string): Promise<OrgPlacement | null>
@@ -587,7 +594,7 @@ export interface KernelQueryFacade {
     consumerId: string,
     resourceType: string,
     resourceId: string,
-    tenantId: string
+    tenantId: string,
   ): Promise<ExposureContract | null>
 
   // Tenant
@@ -609,16 +616,16 @@ export interface KernelQueryFacade {
 
 These stay in domain modules. The kernel provides primitives; modules own workflow.
 
-| Domain | Owned by |
-|---|---|
-| Employee profiles, employment terms | People module |
-| Attendance, leave, OT records | Time module |
-| Project staffing requests, assignments | Projects module |
-| Candidate pipeline | Hiring module |
-| Review cycles, evaluations | Performance module |
-| Invoices, payroll execution | Finance module (future) |
-| OKRs, KPI objectives, scores | Goals module (future) |
-| Agent configs, execution logs | Agents module (future) |
+| Domain                                 | Owned by                |
+| -------------------------------------- | ----------------------- |
+| Employee profiles, employment terms    | People module           |
+| Attendance, leave, OT records          | Time module             |
+| Project staffing requests, assignments | Projects module         |
+| Candidate pipeline                     | Hiring module           |
+| Review cycles, evaluations             | Performance module      |
+| Invoices, payroll execution            | Finance module (future) |
+| OKRs, KPI objectives, scores           | Goals module (future)   |
+| Agent configs, execution logs          | Agents module (future)  |
 
 ---
 
@@ -626,19 +633,19 @@ These stay in domain modules. The kernel provides primitives; modules own workfl
 
 All open questions resolved:
 
-| Question | Decision |
-|---|---|
-| ID strategy | UUID v7 — time-ordered, `$defaultFn(() => uuidv7())` in Drizzle |
-| Delegation model | Separate `delegation` table — not a role_grant variant |
-| Department ownership | Kernel-owned `department` table — People module writes, all modules reference |
-| Tenant onboarding | CLI script (`bun run tenant:provision --name "SETA" --domain seta-international.com`). Writes tenant record, seeds default agents, creates platform_admin role grant. No UI dependency — unblocks team from Day 1. Self-service signup is a future capability. |
-| Actor status | 5 states: `invited → active → inactive → suspended → archived` |
-| org_placement history | Full temporal history — new row per change, `effective_until IS NULL` = current |
-| audit_event mutability | Immutable — INSERT only, no UPDATE/DELETE at DB layer |
-| Outbox mechanism | Custom `core.outbox_event` polling table + `FOR UPDATE SKIP LOCKED` relay |
-| Queue system | pg-boss for background jobs; BullMQ when extracting a module to a separate service (transport swap only, no schema change) |
-| AI provider config | `core.ai_provider_config` — kernel owns table, `admin` module owns CRUD. Tenant can supply BYO OpenAI key via Secrets Manager ARN. |
-| Module entitlement | `core.module_entitlement` — all modules enabled at provisioning. Platform admin can toggle per tenant. |
+| Question               | Decision                                                                                                                                                                                                                                                       |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ID strategy            | UUID v7 — time-ordered, `$defaultFn(() => uuidv7())` in Drizzle                                                                                                                                                                                                |
+| Delegation model       | Separate `delegation` table — not a role_grant variant                                                                                                                                                                                                         |
+| Department ownership   | Kernel-owned `department` table — People module writes, all modules reference                                                                                                                                                                                  |
+| Tenant onboarding      | CLI script (`bun run tenant:provision --name "SETA" --domain seta-international.com`). Writes tenant record, seeds default agents, creates platform_admin role grant. No UI dependency — unblocks team from Day 1. Self-service signup is a future capability. |
+| Actor status           | 5 states: `invited → active → inactive → suspended → archived`                                                                                                                                                                                                 |
+| org_placement history  | Full temporal history — new row per change, `effective_until IS NULL` = current                                                                                                                                                                                |
+| audit_event mutability | Immutable — INSERT only, no UPDATE/DELETE at DB layer                                                                                                                                                                                                          |
+| Outbox mechanism       | Custom `core.outbox_event` polling table + `FOR UPDATE SKIP LOCKED` relay                                                                                                                                                                                      |
+| Queue system           | pg-boss for background jobs; BullMQ when extracting a module to a separate service (transport swap only, no schema change)                                                                                                                                     |
+| AI provider config     | `core.ai_provider_config` — kernel owns table, `admin` module owns CRUD. Tenant can supply BYO OpenAI key via Secrets Manager ARN.                                                                                                                             |
+| Module entitlement     | `core.module_entitlement` — all modules enabled at provisioning. Platform admin can toggle per tenant.                                                                                                                                                         |
 
 ---
 

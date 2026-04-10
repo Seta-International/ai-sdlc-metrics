@@ -122,10 +122,10 @@ Database: future_gold     → Iceberg tables (ACID, time travel, schema evolutio
 
 **S3 lifecycle policies:**
 
-| Layer | Retention | Transition |
-|---|---|---|
-| Bronze | 90 days active | → Glacier after 90d → delete at 1 year |
-| Gold (Iceberg) | Indefinite | Glue managed compaction handles old snapshots |
+| Layer          | Retention      | Transition                                    |
+| -------------- | -------------- | --------------------------------------------- |
+| Bronze         | 90 days active | → Glacier after 90d → delete at 1 year        |
+| Gold (Iceberg) | Indefinite     | Glue managed compaction handles old snapshots |
 
 ---
 
@@ -137,11 +137,8 @@ Cube.js is the stable analytics interface. All zones access analytics via `trpc.
 
 ```ts
 // cube.js config — explicit routing, no magic
-dataSources:
-  operational:
-    type: postgres          // RDS Read Replica — last 30 days, sub-second
-  historical:
-    type: athena            // S3 Gold Iceberg — historical, trends, cross-module
+dataSources: operational: type: postgres // RDS Read Replica — last 30 days, sub-second
+historical: type: athena // S3 Gold Iceberg — historical, trends, cross-module
 ```
 
 Each cube definition declares its data source:
@@ -149,13 +146,13 @@ Each cube definition declares its data source:
 ```ts
 // cubes/LeaveRequest.js
 cube('LeaveRequest', {
-  dataSource: 'operational',     // live data — RDS Read Replica
+  dataSource: 'operational', // live data — RDS Read Replica
   sql: `SELECT * FROM time.leave_request`,
   // ...
 })
 
 cube('LeaveRequestHistory', {
-  dataSource: 'historical',      // Athena — multi-year trends
+  dataSource: 'historical', // Athena — multi-year trends
   sql: `SELECT * FROM future_gold.time_leave_request`,
   // ...
 })
@@ -172,9 +169,9 @@ queryTransformer: (query, { securityContext }) => ({
     {
       member: `${query.measures[0].split('.')[0]}.tenantId`,
       operator: 'equals',
-      values: [securityContext.tenantId]
-    }
-  ]
+      values: [securityContext.tenantId],
+    },
+  ],
 })
 ```
 
@@ -193,11 +190,11 @@ Cube.js uses Redis (ElastiCache) for query result caching. Hot dashboard queries
 ```ts
 // apps/api/src/modules/insights/interface/trpc/insights.router.ts
 export const insightsRouter = router({
-  headcountTrend:     protectedProcedure.query(({ ctx }) => cubejsProxy('HeadcountTrend', ctx)),
-  leaveUtilization:   protectedProcedure.query(({ ctx }) => cubejsProxy('LeaveUtilization', ctx)),
-  hiringFunnel:       protectedProcedure.query(({ ctx }) => cubejsProxy('HiringFunnel', ctx)),
-  invoiceAgeing:      protectedProcedure.query(({ ctx }) => cubejsProxy('InvoiceAgeing', ctx)),
-  kpiScoreTrend:      protectedProcedure.query(({ ctx }) => cubejsProxy('KpiScoreTrend', ctx)),
+  headcountTrend: protectedProcedure.query(({ ctx }) => cubejsProxy('HeadcountTrend', ctx)),
+  leaveUtilization: protectedProcedure.query(({ ctx }) => cubejsProxy('LeaveUtilization', ctx)),
+  hiringFunnel: protectedProcedure.query(({ ctx }) => cubejsProxy('HiringFunnel', ctx)),
+  invoiceAgeing: protectedProcedure.query(({ ctx }) => cubejsProxy('InvoiceAgeing', ctx)),
+  kpiScoreTrend: protectedProcedure.query(({ ctx }) => cubejsProxy('KpiScoreTrend', ctx)),
 })
 
 // apps/web-people — headcount sparkline embedded inline
@@ -234,6 +231,7 @@ CREATE INDEX ON agents.embedding_store
 ```
 
 **Embedding pipeline:**
+
 ```
 Document uploaded / audit_event written
   → pg-boss job: generate-embedding
@@ -248,31 +246,31 @@ Document uploaded / audit_event written
 
 ## Cost Estimate
 
-| Component | Monthly |
-|---|---|
-| RDS Read Replica (db.t4g.medium) | ~$35 |
-| Cube.js on ECS Fargate (1 vCPU / 2GB) | ~$30 |
-| Redis ElastiCache (t4g.small) | ~$20 |
-| AWS Glue ETL (hourly batch) | ~$2 |
-| S3 storage (100GB bronze + gold) | ~$3 |
-| Amazon Athena (light ad-hoc, 10 tenants) | ~$5 |
-| **Total data platform** | **~$95/month** |
+| Component                                | Monthly        |
+| ---------------------------------------- | -------------- |
+| RDS Read Replica (db.t4g.medium)         | ~$35           |
+| Cube.js on ECS Fargate (1 vCPU / 2GB)    | ~$30           |
+| Redis ElastiCache (t4g.small)            | ~$20           |
+| AWS Glue ETL (hourly batch)              | ~$2            |
+| S3 storage (100GB bronze + gold)         | ~$3            |
+| Amazon Athena (light ad-hoc, 10 tenants) | ~$5            |
+| **Total data platform**                  | **~$95/month** |
 
 ---
 
 ## Decisions Log
 
-| Decision | Outcome |
-|---|---|
-| Architecture | Full lakehouse from day one — no phases |
-| ETL mechanism | Hourly Glue ETL batch (A) — sufficient for HR analytics, ~$2/month |
-| Storage | Single S3 bucket, prefix-partitioned by module + tenant_id + date |
-| Table format | Apache Iceberg via Glue Data Catalog (NOT S3 Tables — 20x cost overhead) |
-| Cube.js routing | Two explicit data sources: RDS Read Replica (operational) + Athena (historical) |
-| Analytics API | tRPC proxy (`trpc.insights.*`) — zones never call Cube.js directly |
-| Embedded analytics | Chart components in `packages/ui` + `trpc.insights.*` per zone |
-| Vector search | pgvector on RDS, HNSW index, `vector(1536)` — OpenAI `text-embedding-3-small` |
-| All IDs | UUID v7 |
+| Decision           | Outcome                                                                                  |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| Architecture       | Full lakehouse from day one — no phases                                                  |
+| ETL mechanism      | Hourly Glue ETL batch (A) — sufficient for HR analytics, ~$2/month                       |
+| Storage            | Single S3 bucket, prefix-partitioned by module + tenant_id + date                        |
+| Table format       | Apache Iceberg via Glue Data Catalog (NOT S3 Tables — 20x cost overhead)                 |
+| Cube.js routing    | Two explicit data sources: RDS Read Replica (operational) + Athena (historical)          |
+| Analytics API      | tRPC proxy (`trpc.insights.*`) — zones never call Cube.js directly                       |
+| Embedded analytics | Chart components in `packages/ui` + `trpc.insights.*` per zone                           |
+| Vector search      | pgvector on RDS, HNSW index, `vector(1536)` — OpenAI `text-embedding-3-small`            |
+| All IDs            | UUID v7                                                                                  |
 | Glue ETL merge key | `(tenant_id, id)` — universal across all tables. Consistent, no per-table config needed. |
 
 ---

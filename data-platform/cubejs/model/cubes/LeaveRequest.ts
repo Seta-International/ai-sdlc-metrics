@@ -4,7 +4,7 @@ cube('LeaveRequest', {
 
   dimensions: {
     tenantId: { sql: 'tenant_id', type: 'string' },
-    id:       { sql: 'id', type: 'string', primaryKey: true },
+    id: { sql: 'id', type: 'string', primaryKey: true },
   },
 
   measures: {

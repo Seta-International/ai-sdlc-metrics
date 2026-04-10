@@ -14,22 +14,25 @@ export default [
     },
     settings: {
       'boundaries/elements': [
-        { type: 'domain',         pattern: '**/domain/**' },
-        { type: 'application',    pattern: '**/application/**' },
+        { type: 'domain', pattern: '**/domain/**' },
+        { type: 'application', pattern: '**/application/**' },
         { type: 'infrastructure', pattern: '**/infrastructure/**' },
-        { type: 'interface',      pattern: '**/interface/**' },
+        { type: 'interface', pattern: '**/interface/**' },
       ],
     },
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
-      'boundaries/element-types': ['error', {
-        default: 'disallow',
-        rules: [
-          { from: 'infrastructure', allow: ['domain'] },
-          { from: 'application',    allow: ['domain'] },
-          { from: 'interface',      allow: ['application'] },
-        ],
-      }],
+      'boundaries/element-types': [
+        'error',
+        {
+          default: 'disallow',
+          rules: [
+            { from: 'infrastructure', allow: ['domain'] },
+            { from: 'application', allow: ['domain'] },
+            { from: 'interface', allow: ['application'] },
+          ],
+        },
+      ],
     },
   },
 ]

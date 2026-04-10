@@ -6,12 +6,15 @@ export function createTestDb(): Db {
   return createDb(url)
 }
 
-export async function seedActor(db: Db, overrides?: Partial<{
-  id: string
-  tenantId: string
-  type: 'person' | 'organization' | 'system'
-  displayName: string
-}>) {
+export async function seedActor(
+  db: Db,
+  overrides?: Partial<{
+    id: string
+    tenantId: string
+    type: 'person' | 'organization' | 'system'
+    displayName: string
+  }>,
+) {
   // TODO: implement once kernel schema is defined in apps/api
   throw new Error('seedActor: not yet implemented — add after kernel schema Task 9')
 }

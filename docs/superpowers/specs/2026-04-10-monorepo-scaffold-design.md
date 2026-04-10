@@ -21,15 +21,15 @@ All-at-once scaffold (Approach B): every workspace, package, and app is created 
 
 ## Scope
 
-| Layer | What is scaffolded |
-|---|---|
-| Workspace root | `package.json`, `turbo.json`, `.gitignore`, `README.md`, `.env.example` |
-| 7 shared packages | `tsconfig`, `eslint-config`, `ui`, `auth`, `api-client`, `event-contracts`, `db` |
-| 14 apps | `api` (12 module skeletons), `web-shell`, 11 domain zones, `e2e` |
-| data-platform | `cubejs`, `langfuse`, `glue` |
-| agents | `langfuse` (ECS service) + stub directories: `mcp-tools/`, `prompts/`, `evals/`, `channels/` |
-| CI | `ci.yml` (fully wired) + 17 per-service deploy workflow stubs |
-| Terraform | `infra/bootstrap/` + 11 module stubs + 2 environment tfvars |
+| Layer             | What is scaffolded                                                                           |
+| ----------------- | -------------------------------------------------------------------------------------------- |
+| Workspace root    | `package.json`, `turbo.json`, `.gitignore`, `README.md`, `.env.example`                      |
+| 7 shared packages | `tsconfig`, `eslint-config`, `ui`, `auth`, `api-client`, `event-contracts`, `db`             |
+| 14 apps           | `api` (12 module skeletons), `web-shell`, 11 domain zones, `e2e`                             |
+| data-platform     | `cubejs`, `langfuse`, `glue`                                                                 |
+| agents            | `langfuse` (ECS service) + stub directories: `mcp-tools/`, `prompts/`, `evals/`, `channels/` |
+| CI                | `ci.yml` (fully wired) + 17 per-service deploy workflow stubs                                |
+| Terraform         | `infra/bootstrap/` + 11 module stubs + 2 environment tfvars                                  |
 
 **Not in scope:** no kernel schema implemented, no auth logic, no tRPC routes, no Terraform HCL resources. Those are workstream deliverables, not scaffold deliverables.
 
@@ -40,20 +40,21 @@ All-at-once scaffold (Approach B): every workspace, package, and app is created 
 Files at `/`:
 
 ### `package.json`
+
 ```json
 {
   "name": "future",
   "private": true,
   "workspaces": ["apps/*", "agents/*", "data-platform/*", "packages/*"],
   "scripts": {
-    "build":       "turbo build",
-    "dev":         "turbo dev",
-    "lint":        "turbo lint",
-    "typecheck":   "turbo typecheck",
-    "test":        "turbo test",
-    "test:e2e":    "turbo test:e2e",
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "test:e2e": "turbo test:e2e",
     "db:generate": "bun run --cwd packages/db generate",
-    "db:migrate":  "bun run --cwd packages/db migrate"
+    "db:migrate": "bun run --cwd packages/db migrate"
   },
   "devDependencies": {
     "turbo": "^2.9.4",
@@ -63,27 +64,31 @@ Files at `/`:
 ```
 
 ### `turbo.json`
+
 ```json
 {
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
-    "build":     { "dependsOn": ["^build"], "outputs": [".next/**", "dist/**"] },
+    "build": { "dependsOn": ["^build"], "outputs": [".next/**", "dist/**"] },
     "typecheck": { "dependsOn": ["^build"] },
-    "lint":      {},
-    "test":      { "dependsOn": ["^build"] },
-    "test:e2e":  { "dependsOn": ["^build"] },
-    "dev":       { "cache": false, "persistent": true }
+    "lint": {},
+    "test": { "dependsOn": ["^build"] },
+    "test:e2e": { "dependsOn": ["^build"] },
+    "dev": { "cache": false, "persistent": true }
   }
 }
 ```
 
 ### `.gitignore`
+
 Covers: `node_modules/`, `.next/`, `dist/`, `.turbo/`, `*.env.local`, `.env`, `bun.lockb` is committed (not ignored).
 
 ### `.env.example`
+
 Documents every required env var with safe placeholder values — no actual secrets. Includes `DATABASE_URL`, `TEST_DATABASE_URL`, `PORT`, `NEXTAUTH_URL`, `NEXT_PUBLIC_API_URL`.
 
 ### `README.md`
+
 Day-one dev commands — see Section 6.
 
 ---
@@ -91,6 +96,7 @@ Day-one dev commands — see Section 6.
 ## Section 2: Shared Packages
 
 ### Package constraints (hard rules from architecture)
+
 - `packages/ui` — no API calls, no auth, purely presentational
 - `packages/api-client` — zero runtime server code, type + factory only
 - `packages/event-contracts` — zero NestJS deps, zero Drizzle deps, plain TypeScript classes only
@@ -102,6 +108,7 @@ Day-one dev commands — see Section 6.
 ### `packages/tsconfig/`
 
 **`base.json`** — extended by all packages and `apps/api`:
+
 ```json
 {
   "compilerOptions": {
@@ -118,6 +125,7 @@ Day-one dev commands — see Section 6.
 ```
 
 **`nextjs.json`** — extended by all web zones:
+
 ```json
 {
   "extends": "./base.json",
@@ -138,10 +146,12 @@ Note: `apps/api` uses `moduleResolution: "nodenext"` in its own `tsconfig.json` 
 ### `packages/eslint-config/`
 
 Exports two flat configs:
+
 - `base` — applied to all packages and `apps/api`
 - `nextjs` — applied to all web zones
 
 Includes `eslint-plugin-boundaries` with the module boundary rules from `docs/engineering/testing-strategy.md`:
+
 ```js
 {
   'boundaries/element-types': ['error', {
@@ -251,22 +261,22 @@ Key deps: `drizzle-orm ^0.45`, `drizzle-kit`, `pg`, `uuidv7`.
 
 ### Dev ports (collision-free local dev)
 
-| App | Port |
-|---|---|
-| `api` | 4000 |
-| `web-shell` | 3000 |
-| `web-people` | 3001 |
-| `web-time` | 3002 |
-| `web-hiring` | 3003 |
+| App               | Port |
+| ----------------- | ---- |
+| `api`             | 4000 |
+| `web-shell`       | 3000 |
+| `web-people`      | 3001 |
+| `web-time`        | 3002 |
+| `web-hiring`      | 3003 |
 | `web-performance` | 3004 |
-| `web-projects` | 3005 |
-| `web-finance` | 3006 |
-| `web-goals` | 3007 |
-| `web-insights` | 3008 |
-| `web-agents` | 3009 |
-| `web-admin` | 3010 |
-| `web-planner` | 3011 |
-| `cubejs` | 4001 |
+| `web-projects`    | 3005 |
+| `web-finance`     | 3006 |
+| `web-goals`       | 3007 |
+| `web-insights`    | 3008 |
+| `web-agents`      | 3009 |
+| `web-admin`       | 3010 |
+| `web-planner`     | 3011 |
+| `cubejs`          | 4001 |
 
 ---
 
@@ -358,6 +368,7 @@ Dockerfile                        → multi-stage, linux/arm64, standalone outpu
 ```
 
 Subdomain routing (from deployment architecture):
+
 - `web-people` → `people.seta-international.com`
 - `web-time` → `time.seta-international.com`
 - `web-admin` → `admin.seta-international.com`
@@ -516,6 +527,7 @@ All 4 steps are required to merge. PR is blocked if any fail.
 ### Deploy workflow stubs
 
 Each `deploy-{zone}.yml` contains:
+
 - Trigger: `push` to `main` with path filter for the relevant `apps/{zone}/**`
 - Steps: `TODO: bun turbo build --filter={zone}`, `TODO: docker build --platform linux/arm64`, `TODO: ECR push`, `TODO: ECS rolling update`
 - Comment block linking to `docs/architecture/deployment.md` for the full pipeline spec
@@ -591,34 +603,34 @@ bun turbo build --filter=web-people
 
 ## Decisions Made in This Design
 
-| Decision | Choice | Reason |
-|---|---|---|
-| Scaffold approach | All-at-once | Spec is fully agreed; no iterative discovery needed |
-| Zone count | All 18 apps | "Multi-Zones from day one" + full data platform from day one |
-| Next.js basePath | Not set | Subdomain routing — each zone at root of its own subdomain |
-| `moduleResolution` for API | `nodenext` | NestJS is a Node.js process, not a bundler target |
-| `moduleResolution` for web zones | `bundler` | Next.js 16 + Turbopack default |
-| CI | ci.yml fully wired, deploy stubs | Team gets a working CI gate immediately |
-| Terraform | All stubs | Infra is a separate workstream; correct file structure is enough |
-| Storybook | Not in scaffold | Add when first real component is built |
-| event-contracts events | Fully stubbed (not empty) | Short, fully specced — no reason to leave as placeholders |
-| kernel schema stubs | Pre-stubbed column shapes | Kernel is the first workstream deliverable; schema is fully specced |
-| `data-platform/cubejs` | Real config, stub cube definitions | Data platform is operational from day one — not added later |
-| `agents/langfuse` | Dockerfile only (upstream image) | Self-hosted; no custom code; ECR push for air-gap compliance |
-| `data-platform/glue` | Python scripts, not a container | Glue is a managed runtime; no Docker/ECR needed |
-| `apps/web-planner` | Same pattern as all zones | Planner is a Q3 module per the proposal |
-| Top-level folder split | `apps/` + `agents/` + `data-platform/` | `apps/` = ECS web/API services only. `agents/` = LLM platform (langfuse + tool contracts + prompts + evals). `data-platform/` = analytics infra (cubejs, glue). Deployment ownership and team ownership match the folder boundary. |
-| Langfuse location | `agents/langfuse/` (not `data-platform/`) | Langfuse observes agent calls, not the OLAP pipeline. Owned by the AI team. If agent team is idle, Langfuse is idle. |
+| Decision                         | Choice                                    | Reason                                                                                                                                                                                                                             |
+| -------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scaffold approach                | All-at-once                               | Spec is fully agreed; no iterative discovery needed                                                                                                                                                                                |
+| Zone count                       | All 18 apps                               | "Multi-Zones from day one" + full data platform from day one                                                                                                                                                                       |
+| Next.js basePath                 | Not set                                   | Subdomain routing — each zone at root of its own subdomain                                                                                                                                                                         |
+| `moduleResolution` for API       | `nodenext`                                | NestJS is a Node.js process, not a bundler target                                                                                                                                                                                  |
+| `moduleResolution` for web zones | `bundler`                                 | Next.js 16 + Turbopack default                                                                                                                                                                                                     |
+| CI                               | ci.yml fully wired, deploy stubs          | Team gets a working CI gate immediately                                                                                                                                                                                            |
+| Terraform                        | All stubs                                 | Infra is a separate workstream; correct file structure is enough                                                                                                                                                                   |
+| Storybook                        | Not in scaffold                           | Add when first real component is built                                                                                                                                                                                             |
+| event-contracts events           | Fully stubbed (not empty)                 | Short, fully specced — no reason to leave as placeholders                                                                                                                                                                          |
+| kernel schema stubs              | Pre-stubbed column shapes                 | Kernel is the first workstream deliverable; schema is fully specced                                                                                                                                                                |
+| `data-platform/cubejs`           | Real config, stub cube definitions        | Data platform is operational from day one — not added later                                                                                                                                                                        |
+| `agents/langfuse`                | Dockerfile only (upstream image)          | Self-hosted; no custom code; ECR push for air-gap compliance                                                                                                                                                                       |
+| `data-platform/glue`             | Python scripts, not a container           | Glue is a managed runtime; no Docker/ECR needed                                                                                                                                                                                    |
+| `apps/web-planner`               | Same pattern as all zones                 | Planner is a Q3 module per the proposal                                                                                                                                                                                            |
+| Top-level folder split           | `apps/` + `agents/` + `data-platform/`    | `apps/` = ECS web/API services only. `agents/` = LLM platform (langfuse + tool contracts + prompts + evals). `data-platform/` = analytics infra (cubejs, glue). Deployment ownership and team ownership match the folder boundary. |
+| Langfuse location                | `agents/langfuse/` (not `data-platform/`) | Langfuse observes agent calls, not the OLAP pipeline. Owned by the AI team. If agent team is idle, Langfuse is idle.                                                                                                               |
 
 ---
 
 ## Risks and Assumptions
 
-| Item | Detail |
-|---|---|
-| TypeScript 6 | `moduleResolution: "classic"` is removed. All tsconfigs must use `bundler` or `nodenext`. Verify no transitive dep requires `classic`. |
-| Next.js 16 | `params` and `searchParams` must be awaited. Scaffold uses async page/layout signatures from day one. |
-| Bun lockfile | `bun.lockb` is binary. Commit it. Do not use `npm install` or `yarn install` — they generate a different lockfile format. |
-| eslint-plugin-boundaries | Must be configured before first module code is written. Boundary violations caught at compile time, not review time. |
-| RLS `set_config` | Third arg is always `false` (transaction-local). Integration test scaffold must set this before every query. |
-| Graviton ARM64 | All Dockerfiles must use `--platform linux/arm64`. Local Mac (Apple Silicon) builds match. Intel Mac developers need `--platform` override or Rosetta. |
+| Item                     | Detail                                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TypeScript 6             | `moduleResolution: "classic"` is removed. All tsconfigs must use `bundler` or `nodenext`. Verify no transitive dep requires `classic`.                 |
+| Next.js 16               | `params` and `searchParams` must be awaited. Scaffold uses async page/layout signatures from day one.                                                  |
+| Bun lockfile             | `bun.lockb` is binary. Commit it. Do not use `npm install` or `yarn install` — they generate a different lockfile format.                              |
+| eslint-plugin-boundaries | Must be configured before first module code is written. Boundary violations caught at compile time, not review time.                                   |
+| RLS `set_config`         | Third arg is always `false` (transaction-local). Integration test scaffold must set this before every query.                                           |
+| Graviton ARM64           | All Dockerfiles must use `--platform linux/arm64`. Local Mac (Apple Silicon) builds match. Intel Mac developers need `--platform` override or Rosetta. |

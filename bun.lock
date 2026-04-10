@@ -5,6 +5,7 @@
     "": {
       "name": "future",
       "devDependencies": {
+        "prettier": "^3.8.2",
         "turbo": "^2.9.4",
         "typescript": "^6.0.2",
       },
@@ -270,10 +271,10 @@
       "name": "@future/api-client",
       "version": "0.0.1",
       "dependencies": {
-        "@future/api": "*",
         "@trpc/client": "^11",
       },
       "devDependencies": {
+        "@future/api": "workspace:*",
         "@future/tsconfig": "*",
         "@trpc/server": "^11",
         "typescript": "^6.0.2",
@@ -2456,6 +2457,8 @@
     "postgres-interval": ["postgres-interval@1.2.0", "", { "dependencies": { "xtend": "^4.0.0" } }, "sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ=="],
 
     "prelude-ls": ["prelude-ls@1.2.1", "", {}, "sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g=="],
+
+    "prettier": ["prettier@3.8.2", "", { "bin": { "prettier": "bin/prettier.cjs" } }, "sha512-8c3mgTe0ASwWAJK+78dpviD+A8EqhndQPUBpNUIPt6+xWlIigCwfN01lWr9MAede4uqXGTEKeQWTvzb3vjia0Q=="],
 
     "process-nextick-args": ["process-nextick-args@2.0.1", "", {}, "sha512-3ouUOpQhtgrbOa17J7+uxOTpITYWaGP7/AhoR3+A+/1e9skrzelGi/dXzEYyvbxubEF6Wn2ypscTKiKJFFn1ag=="],
 

@@ -17,18 +17,18 @@ export const router = t.router
 export const publicProcedure = t.procedure
 
 export const appRouter = router({
-  kernel:      kernelRouter,
-  people:      peopleRouter,
-  time:        timeRouter,
-  hiring:      hiringRouter,
+  kernel: kernelRouter,
+  people: peopleRouter,
+  time: timeRouter,
+  hiring: hiringRouter,
   performance: performanceRouter,
-  projects:    projectsRouter,
-  finance:     financeRouter,
-  goals:       goalsRouter,
-  insights:    insightsRouter,
-  agents:      agentsRouter,
-  planner:     plannerRouter,
-  admin:       adminRouter,
+  projects: projectsRouter,
+  finance: financeRouter,
+  goals: goalsRouter,
+  insights: insightsRouter,
+  agents: agentsRouter,
+  planner: plannerRouter,
+  admin: adminRouter,
 })
 
 export type AppRouter = typeof appRouter

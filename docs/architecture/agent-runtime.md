@@ -163,13 +163,13 @@ Message arrives (WebSocket from web-agents)
 
 **Error handling contract:**
 
-| Failure point | User experience | Audit trail |
-|---|---|---|
-| Step 2: Haiku API down | "I'm having trouble. Try again." | audit_event: agent.classification_failed |
-| Step 6: Sonnet timeout (before streaming started) | "I'm having trouble. Try again." | audit_event: agent.reasoning_failed |
-| Step 6: Sonnet failure mid-stream | Partial text shown, then error message appended | audit_event: agent.reasoning_partial, partial=true |
-| Step 5: exposure_contract check fails | "You don't have permission to do that." | audit_event: agent.permission_denied |
-| Any MCP tool failure | Tool error surfaced in response, loop continues or stops | audit_event: agent.tool_error |
+| Failure point                                     | User experience                                          | Audit trail                                        |
+| ------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------- |
+| Step 2: Haiku API down                            | "I'm having trouble. Try again."                         | audit_event: agent.classification_failed           |
+| Step 6: Sonnet timeout (before streaming started) | "I'm having trouble. Try again."                         | audit_event: agent.reasoning_failed                |
+| Step 6: Sonnet failure mid-stream                 | Partial text shown, then error message appended          | audit_event: agent.reasoning_partial, partial=true |
+| Step 5: exposure_contract check fails             | "You don't have permission to do that."                  | audit_event: agent.permission_denied               |
+| Any MCP tool failure                              | Tool error surfaced in response, loop continues or stops | audit_event: agent.tool_error                      |
 
 **Rule:** ALL agent session closures — success, error, escalation, or expiry — MUST write a final `agent_message` record and update `agent_session.status`. No orphaned sessions without a terminal message.
 
@@ -312,6 +312,7 @@ packages/event-contracts → PersonHiredEvent fires
 Two tiers:
 
 **Platform-managed (Future enforces, tenants cannot override):**
+
 - Agents only access data within their tenant boundary (RLS + exposure_contract)
 - No action executes without a valid `exposure_contract`
 - All actions produce `audit_event` records — always
@@ -319,6 +320,7 @@ Two tiers:
 - Max 3 tool calls per event-triggered run
 
 **Tenant-defined (configurable via Agent Builder):**
+
 - Topic restriction: agent only handles declared topics
 - Data restriction: "never surface salary data in responses"
 - Escalation rule: "always escalate termination requests to HR Ops"
@@ -329,19 +331,19 @@ Two tiers:
 
 ## LLM Configuration
 
-| Use case | Model | Why |
-|---|---|---|
-| Topic classification | `gpt-5.4-nano` | Fast (<200ms), lowest cost, single classification call |
-| Multi-step reasoning + tool calls | `gpt-5.4` | Best reasoning quality, native parallel tool calls |
-| Simple notifications (event agents) | `gpt-5.4-nano` | No complex reasoning needed |
+| Use case                            | Model          | Why                                                    |
+| ----------------------------------- | -------------- | ------------------------------------------------------ |
+| Topic classification                | `gpt-5.4-nano` | Fast (<200ms), lowest cost, single classification call |
+| Multi-step reasoning + tool calls   | `gpt-5.4`      | Best reasoning quality, native parallel tool calls     |
+| Simple notifications (event agents) | `gpt-5.4-nano` | No complex reasoning needed                            |
 
 ```ts
 import { openai } from '@ai-sdk/openai'
 // OPENAI_API_KEY resolved at runtime via AdminQueryFacade.getResolvedAiConfig()
 // Tenant BYO key takes precedence over platform default
 
-const classifyModel  = openai(resolvedConfig.classificationModel)  // default: 'gpt-5.4-nano'
-const reasoningModel = openai(resolvedConfig.reasoningModel)        // default: 'gpt-5.4'
+const classifyModel = openai(resolvedConfig.classificationModel) // default: 'gpt-5.4-nano'
+const reasoningModel = openai(resolvedConfig.reasoningModel) // default: 'gpt-5.4'
 ```
 
 Model selection is per-topic and per-tenant — configurable in Agent Builder and overridable by tenant admin in `web-admin`.
@@ -360,15 +362,15 @@ Langfuse runs on ECS Fargate with its own RDS instance (separate from OLTP — t
 import { Langfuse } from 'langfuse'
 
 const langfuse = new Langfuse({
-  publicKey:  process.env.LANGFUSE_PUBLIC_KEY,   // from Secrets Manager
-  secretKey:  process.env.LANGFUSE_SECRET_KEY,
-  baseUrl:    process.env.LANGFUSE_BASE_URL,     // internal ECS service URL
+  publicKey: process.env.LANGFUSE_PUBLIC_KEY, // from Secrets Manager
+  secretKey: process.env.LANGFUSE_SECRET_KEY,
+  baseUrl: process.env.LANGFUSE_BASE_URL, // internal ECS service URL
 })
 
 const trace = langfuse.trace({
   name: 'agent-execution',
   userId: actorId,
-  metadata: { tenantId, agentId, sessionId }
+  metadata: { tenantId, agentId, sessionId },
 })
 ```
 
@@ -379,6 +381,7 @@ Collects per run: model, tokens, latency, tool calls, guardrail hits, errors —
 ## Microsoft Teams Channel
 
 **Architecture:**
+
 ```
 Teams user sends message
   → Azure Bot Service (single-tenant registration, SETA's Azure AD)
@@ -394,12 +397,14 @@ Teams user sends message
 ```
 
 **Deployment model:**
+
 - Single Azure Bot Service registration in SETA's Azure tenant
 - Distributed to customer tenants via Teams Admin Center (admin-approved sideload)
 - Each customer IT admin installs once — all their users can chat with the bot
 - Multi-tenant bot deprecation (July 2025): resolved by single-tenant registration + AppSource distribution
 
 **Teams tenant onboarding:**
+
 ```sql
 -- When a customer installs the Teams bot, store their Azure tenant ID
 INSERT INTO external_identity_map (actor_id, system_name, external_id)
@@ -413,6 +418,7 @@ VALUES ($future_tenant_actor_id, 'microsoft_teams', $azure_tenant_id)
 ## Slack Channel
 
 **Architecture:**
+
 ```
 Slack user sends message to @FutureBot
   → Slack Events API → POST /slack/events → NestJS SlackChannel adapter
@@ -428,6 +434,7 @@ Slack user sends message to @FutureBot
 ```
 
 **Multi-workspace OAuth installation:**
+
 - Each Future customer installs the Slack app in their workspace via OAuth
 - Installation stores `bot_token` + `workspace_id` in `agents.slack_installation`
 - `authorize` function in `nest-slack-bolt` looks up token by workspace ID per request
@@ -455,7 +462,7 @@ Secrets Manager has ~40ms round-trip latency from ap-southeast-1. Calling it per
 @Injectable()
 export class ChannelTokenCacheService {
   private readonly cache = new Map<string, { token: string; expiresAt: number }>()
-  private readonly TTL_MS = 5 * 60 * 1000  // 5 minutes
+  private readonly TTL_MS = 5 * 60 * 1000 // 5 minutes
 
   async getBotToken(secretArn: string): Promise<string> {
     const cached = this.cache.get(secretArn)
@@ -477,42 +484,42 @@ export class ChannelTokenCacheService {
 
 ## Default Agents (Seeded at Tenant Provisioning)
 
-| Agent | Default Topics | Channels | Mode |
-|---|---|---|---|
-| HR Assistant | Leave policy Q&A, leave requests, org lookups | Web Chat + Teams + Slack | Conversational |
-| Manager Assistant | Team approvals, performance summaries, roster view | Web Chat + Teams + Slack | Conversational |
-| Hiring Assistant | CV shortlist, interview scheduling, pipeline summary | Web Chat + Slack | Conversational |
-| Executive Assistant | KPI summary, org health, headcount trends | Web Chat + Teams + Slack | Conversational |
-| Onboarding Agent | Checklist creation, day-1 briefing | Event: PersonHired | Automation |
-| Offboarding Agent | Clearance workflow, access revocation | Event: PersonOffboarded | Automation |
-| Staffing Agent | Roster gap detection, assignment recommendations | Event: project events | Automation |
+| Agent               | Default Topics                                       | Channels                 | Mode           |
+| ------------------- | ---------------------------------------------------- | ------------------------ | -------------- |
+| HR Assistant        | Leave policy Q&A, leave requests, org lookups        | Web Chat + Teams + Slack | Conversational |
+| Manager Assistant   | Team approvals, performance summaries, roster view   | Web Chat + Teams + Slack | Conversational |
+| Hiring Assistant    | CV shortlist, interview scheduling, pipeline summary | Web Chat + Slack         | Conversational |
+| Executive Assistant | KPI summary, org health, headcount trends            | Web Chat + Teams + Slack | Conversational |
+| Onboarding Agent    | Checklist creation, day-1 briefing                   | Event: PersonHired       | Automation     |
+| Offboarding Agent   | Clearance workflow, access revocation                | Event: PersonOffboarded  | Automation     |
+| Staffing Agent      | Roster gap detection, assignment recommendations     | Event: project events    | Automation     |
 
 ---
 
 ## Decisions Log
 
-| Decision | Outcome |
-|---|---|
-| Gateway pattern | Adopted from OpenClaw/GoClaw — implemented inside NestJS agents module |
-| Gateway deployment | Not a separate service — lives inside NestJS monolith. Extract when needed. |
-| Channel abstraction | Infrastructure adapters per channel — WebSocket (now), Slack/Zalo (future) |
-| Current channels | Web chat (WebSocket) + Microsoft Teams + Slack + event triggers |
-| Teams bot registration | Single-tenant Azure Bot Service (SETA's Azure AD) + admin-approved sideload |
-| Teams tenant mapping | `external_identity_map` system_name: `microsoft_teams` → Future tenant_id |
-| Slack integration | `nest-slack-bolt`, OAuth per workspace, `agents.slack_installation` table |
-| Slack tenant mapping | `external_identity_map` system_name: `slack` → Future tenant_id |
-| Agent definition model | Topics / Actions / Guardrails (Agentforce-style) |
-| MCP servers | Per-module, `@rekog/mcp-nest`, HTTP+SSE at `/mcp/{module}` |
-| Tool naming | `{module}_{action}` convention |
-| LLM provider | OpenAI API (`@ai-sdk/openai`) — not Bedrock, not Anthropic |
-| Classification model | `gpt-5.4-nano` — configurable per tenant via `web-admin` |
-| Reasoning model | `gpt-5.4` — configurable per tenant via `web-admin` |
-| Parallel tool calls | OpenAI executes tool calls concurrently — all MCP handlers must be concurrency-safe |
-| AI config resolution | `AdminQueryFacade.getResolvedAiConfig()` — tenant override → platform default |
-| Observability | Langfuse self-hosted on ECS, separate RDS instance |
-| Session storage | PostgreSQL `agents.agent_session` (auditable, not ephemeral Redis) |
-| Event-triggered delivery | packages/event-contracts → EventBus → agent event-handlers |
-| All IDs | UUID v7 |
+| Decision                 | Outcome                                                                             |
+| ------------------------ | ----------------------------------------------------------------------------------- |
+| Gateway pattern          | Adopted from OpenClaw/GoClaw — implemented inside NestJS agents module              |
+| Gateway deployment       | Not a separate service — lives inside NestJS monolith. Extract when needed.         |
+| Channel abstraction      | Infrastructure adapters per channel — WebSocket (now), Slack/Zalo (future)          |
+| Current channels         | Web chat (WebSocket) + Microsoft Teams + Slack + event triggers                     |
+| Teams bot registration   | Single-tenant Azure Bot Service (SETA's Azure AD) + admin-approved sideload         |
+| Teams tenant mapping     | `external_identity_map` system_name: `microsoft_teams` → Future tenant_id           |
+| Slack integration        | `nest-slack-bolt`, OAuth per workspace, `agents.slack_installation` table           |
+| Slack tenant mapping     | `external_identity_map` system_name: `slack` → Future tenant_id                     |
+| Agent definition model   | Topics / Actions / Guardrails (Agentforce-style)                                    |
+| MCP servers              | Per-module, `@rekog/mcp-nest`, HTTP+SSE at `/mcp/{module}`                          |
+| Tool naming              | `{module}_{action}` convention                                                      |
+| LLM provider             | OpenAI API (`@ai-sdk/openai`) — not Bedrock, not Anthropic                          |
+| Classification model     | `gpt-5.4-nano` — configurable per tenant via `web-admin`                            |
+| Reasoning model          | `gpt-5.4` — configurable per tenant via `web-admin`                                 |
+| Parallel tool calls      | OpenAI executes tool calls concurrently — all MCP handlers must be concurrency-safe |
+| AI config resolution     | `AdminQueryFacade.getResolvedAiConfig()` — tenant override → platform default       |
+| Observability            | Langfuse self-hosted on ECS, separate RDS instance                                  |
+| Session storage          | PostgreSQL `agents.agent_session` (auditable, not ephemeral Redis)                  |
+| Event-triggered delivery | packages/event-contracts → EventBus → agent event-handlers                          |
+| All IDs                  | UUID v7                                                                             |
 
 ---
 

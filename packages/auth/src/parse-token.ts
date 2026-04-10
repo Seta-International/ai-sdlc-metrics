@@ -1,6 +1,6 @@
 export interface FutureTokenClaims {
-  oid: string        // Entra Object ID → maps to actor.sso_subject
-  tid: string        // Entra Tenant ID
+  oid: string // Entra Object ID → maps to actor.sso_subject
+  tid: string // Entra Tenant ID
   preferred_username: string
   name: string
   roles: string[]

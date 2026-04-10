@@ -3,6 +3,5 @@
 // Import like: import type { AppRouter } from '@future/api-client'
 export type { AppRouter } from '@future/api/trpc'
 
-
 export { createTRPCClient } from './client.js'
 export type { TRPCClient } from './client.js'
