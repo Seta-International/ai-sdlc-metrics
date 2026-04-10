@@ -1,3 +1,4 @@
+import { afterAll } from 'vitest'
 import { createTestDb } from '@future/db/test-helpers'
 
 const db = createTestDb()

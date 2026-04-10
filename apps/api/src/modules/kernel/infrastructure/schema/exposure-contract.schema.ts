@@ -1,4 +1,4 @@
-import { coreSchema } from './actor.schema.js'
+import { coreSchema } from './actor.schema'
 import { uuid, text, timestamp } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 

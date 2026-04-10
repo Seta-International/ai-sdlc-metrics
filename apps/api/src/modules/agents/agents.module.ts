@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common'
-import { AgentsQueryFacade } from './application/facades/agents-query.facade.js'
+import { AgentsQueryFacade } from './application/facades/agents-query.facade'
 
 @Module({
   providers: [AgentsQueryFacade],

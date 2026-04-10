@@ -10,5 +10,11 @@ export const actor = coreSchema.table('actor', {
   tenantId: uuid('tenant_id').notNull(),
   type: text('type', { enum: ['person', 'organization', 'system'] }).notNull(),
   displayName: text('display_name').notNull(),
+  status: text('status', {
+    enum: ['invited', 'active', 'inactive', 'suspended', 'archived'],
+  })
+    .notNull()
+    .default('invited'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })

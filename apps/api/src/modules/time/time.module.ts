@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common'
-import { TimeQueryFacade } from './application/facades/time-query.facade.js'
+import { TimeQueryFacade } from './application/facades/time-query.facade'
 
 @Module({
   providers: [TimeQueryFacade],

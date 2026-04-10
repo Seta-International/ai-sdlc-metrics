@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: future-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: future
+      POSTGRES_PASSWORD: future
+      POSTGRES_DB: future
+    ports:
+      - '5432:5432'
+    volumes:
+      - future-postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U future -d future']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  future-postgres-data:

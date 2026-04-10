@@ -13,3 +13,5 @@ pre-push:
       run: bun turbo typecheck
     test:
       run: bun turbo test
+    coverage:
+      run: bun --cwd apps/api vitest run --coverage

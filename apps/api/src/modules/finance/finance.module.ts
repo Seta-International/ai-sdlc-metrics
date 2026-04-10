@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common'
-import { FinanceQueryFacade } from './application/facades/finance-query.facade.js'
+import { FinanceQueryFacade } from './application/facades/finance-query.facade'
 
 @Module({
   providers: [FinanceQueryFacade],

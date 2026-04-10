@@ -19,7 +19,13 @@
     "db:generate": "bun run --cwd packages/db generate",
     "db:migrate": "bun run --cwd packages/db migrate",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "tenant:provision": "bun run apps/api/scripts/provision-tenant.ts",
+    "db:up": "docker compose -f docker-compose.local.yml up -d postgres",
+    "db:down": "docker compose -f docker-compose.local.yml down",
+    "db:logs": "docker compose -f docker-compose.local.yml logs -f postgres",
+    "test:unit": "bun run --cwd apps/api test",
+    "test:integration": "bun run --cwd apps/api test:integration"
   },
   "devDependencies": {
     "eslint": "^10.2.0",

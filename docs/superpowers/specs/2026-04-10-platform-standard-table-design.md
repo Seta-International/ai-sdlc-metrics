@@ -517,14 +517,15 @@ type FutureExportQuery = {
 
 Execution modes:
 
-- exports with `totalCount <= 1000` rows return synchronously as CSV
-- exports with `totalCount > 1000` rows are queued as background jobs and notify the user when the file is ready
+- the first implementation slice delivers synchronous CSV export for `totalCount <= 1000` rows
+- async export jobs for `totalCount > 1000` rows are intentionally deferred to a follow-up workstream that reuses the same `FutureExportQuery` contract
 
 Rules:
 
 - export does not bypass field validation
 - export must honor tenant isolation and row visibility exactly like the on-screen list
 - export ignores `pageIndex` and `pageSize`
+- until the async workstream lands, exports over `1000` rows return a typed over-limit error instead of attempting background processing
 - export configuration is page-defined, but the toolbar affordance is standardized
 
 ---

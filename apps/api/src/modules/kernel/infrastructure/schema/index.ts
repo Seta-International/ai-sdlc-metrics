@@ -1,0 +1,5 @@
+export { coreSchema, actor } from './actor.schema'
+export { tenant } from './tenant.schema'
+export { userIdentity } from './user-identity.schema'
+export { roleGrant } from './role-grant.schema'
+export { department } from './department.schema'
