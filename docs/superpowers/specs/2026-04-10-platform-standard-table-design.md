@@ -100,6 +100,7 @@ Decision: reject for the platform default.
 - `packages/ui` remains presentational only. It owns rendering, interaction patterns, and state contracts, but never data fetching or persistence.
 - Server-side behavior is the default for search, filters, sorting, and pagination.
 - Every operational list page should feel like the same product, not a different local invention.
+- Actor-scoped UI personalization belongs in a dedicated cross-cutting `preferences` module, not in kernel and not in tenant-wide `admin`.
 - Saved views are personal-only in v1. Shared team views are explicitly out of scope.
 - Bulk selection is included, but cross-query "select all matching rows" is not part of the default baseline.
 - Virtualization must be possible later without breaking the public API, but it is not enabled by default in v1.
@@ -236,6 +237,7 @@ Non-shareable local state:
 
 - `rowSelection`
 - `expanded`
+- `isViewDirty`
 - popover open state
 - transient loading and refresh indicators
 
@@ -259,14 +261,15 @@ Why this is the default:
 Saved view resolution rules:
 
 - initial page load precedence is deterministic:
-  - load saved view state first when `activeViewId` is present and valid
-  - then apply explicit URL params on top of that state field by field
+  - if `activeViewId` is present and valid, load that saved view state first
+  - otherwise, if `defaultViewId` is present, load the default saved view state first and update the URL with `activeViewId=<defaultViewId>` using replace-state semantics, not a new history entry
+  - then apply explicit URL params on top of that base state field by field
+- if `activeViewId` is present but invalid, deleted, or belongs to a different actor, remove it from the URL with replace-state semantics, then fall back to `defaultViewId` if one exists, otherwise use raw URL state only
 - `pageIndex` is never restored from saved views and only comes from the URL or in-page interaction
 - selecting a saved view from the live UI is a different action from initial page load:
   - apply the saved view state
   - reset `pageIndex` to `0`
   - update the URL to match the newly applied state
-- if `activeViewId` is missing, invalid, deleted, or belongs to a different actor, the page ignores it and uses raw URL state only
 - pages must not fail rendering because a saved view cannot be resolved
 
 Canonical URL serialization:
@@ -277,6 +280,11 @@ Canonical URL serialization:
 - `sorting` is a single URI-encoded JSON array of `FutureTableSort`
 - saved views persist exactly the same `filters` and `sorting` JSON shapes inside `state_json`
 - the backend receives the already-decoded filter and sorting arrays through typed tRPC input
+- explicit URL params always override saved-view values, including explicit empty values
+- `search=` overrides a saved-view search with the empty string
+- `filters=[]` and `sorting=[]` override saved-view filters or sorting with empty arrays
+- invalid `pageIndex` values coerce to `0`
+- invalid `pageSize` values coerce to the default size `25`
 
 ---
 
@@ -311,7 +319,7 @@ Validation rules:
 - The application layer maps those validated fields onto Drizzle query logic.
 - Invalid fields or operators fail validation before query construction.
 - Saved-view resolution does not happen inside list endpoints.
-- Zone pages resolve `activeViewId` through `kernel.savedView.*`, apply the saved state client-side, and send already-applied list state to the resource endpoint.
+- Zone pages resolve `activeViewId` through `preferences.savedView.*`, apply the saved state client-side, and send already-applied list state to the resource endpoint.
 
 ### Result Contract
 
@@ -400,15 +408,30 @@ That capability can be added later only where the business case is strong enough
 
 Saved views are personal-only in v1 and persist server-side.
 
+`preferences` module definition:
+
+- `preferences` is a new cross-cutting application module for actor-scoped UI personalization artifacts
+- in v1, its scope is limited to saved views for operational tables; broader personalization remains future work
+- it owns saved views and future per-actor UI preferences, but it does not own domain business records
+- it is tenant-scoped through request context and actor-scoped through authenticated session context
+- `actor_id` is derived from auth context only and is never accepted from the client
+- the module follows the same boundary rules as other modules:
+  - exposes its own `PreferencesQueryFacade` for read access if other modules need it
+  - exposes its own `preferences.*` tRPC router for frontend usage
+  - owns its own schema and persistence; kernel and admin do not store these records
+
 Decision:
 
-- Store saved views in the kernel as a cross-cutting actor-scoped capability.
-- Add a new kernel-owned table: `core.saved_view`.
+- Store saved views in a dedicated cross-cutting `preferences` module as an actor-scoped personalization capability.
+- Add a new `preferences.saved_view` table.
+- Treat this as an explicit architecture delta from the current module map and capture it in the implementation plan and architecture docs.
 
 Rationale:
 
 - saved views are not domain-specific business data
 - they are actor-scoped, cross-zone product preferences
+- they are not kernel primitives like identity, authority, decisions, events, or exposure
+- they are not tenant-wide admin settings
 - duplicating the capability across modules would create unnecessary fragmentation
 
 Required fields:
@@ -426,22 +449,47 @@ Required fields:
 Required constraints:
 
 - one default view per actor + resource key
+- view names are not required to be unique
 - `state_json` stores only the persisted subset of `FutureTableState`
 - no shared/team visibility flag in v1
 
 Required restore rules:
 
 - selecting a saved view applies its persisted state, then resets `pageIndex` to `0`
-- changing filters, search, or sorting after a saved view is applied mutates live table state only until the user explicitly saves the view
+- changing filters, search, sorting, density, or visible columns after a saved view is applied mutates live table state only until the user explicitly saves the view
+- after live state diverges from the persisted saved view, `activeViewId` remains set and the page marks the view as dirty through local `isViewDirty` state
+- `isViewDirty` is derived UI state only and is never stored in the URL or in saved-view persistence
+- `isViewDirty` compares only the persisted saved-view field set: `search`, `filters`, `sorting`, `pagination.pageSize`, `columnVisibility`, `columnPinning`, and `density`
+- `isViewDirty` ignores `pageIndex`, `rowSelection`, `expanded`, popover state, and transient loading state
+- "Save changes" updates the currently active saved view
+- "Save as new view" creates a new saved view and makes that new view active
 - copying a URL with explicit search or filters must remain useful even if the recipient cannot resolve the sender's `activeViewId`
 
 Required tRPC surface:
 
-- `kernel.savedView.list`
-- `kernel.savedView.create`
-- `kernel.savedView.update`
-- `kernel.savedView.delete`
-- `kernel.savedView.setDefault`
+- `preferences.savedView.list`
+- `preferences.savedView.resolve`
+- `preferences.savedView.create`
+- `preferences.savedView.update`
+- `preferences.savedView.delete`
+- `preferences.savedView.setDefault`
+
+Required endpoint behavior:
+
+- `preferences.savedView.list({ resourceKey })` returns all saved views for the current actor and resource
+- `preferences.savedView.resolve({ resourceKey, activeViewId })` is the canonical initial page-hydration call
+- `resolve` returns:
+  - `views`: all views for the current actor and resource
+  - `activeView`: the final fallback-resolved active view or `null`
+  - `defaultViewId`: the current default view id or `null`
+- `resolve` never exposes views belonging to another actor, even if a foreign `activeViewId` is provided
+
+Default-view lifecycle rules:
+
+- creating or updating a view with `isDefault = true` clears the previous default for the same `(tenant_id, actor_id, resource_key)` in the same transaction
+- `setDefault` clears the previous default and marks the target view as default in the same transaction
+- deleting a default view does not auto-promote another view; the actor simply has no default for that resource until they set one
+- enforce one-default semantics with both transactional mutation logic and a partial unique index on `(tenant_id, actor_id, resource_key)` where `is_default = true`
 
 ---
 
