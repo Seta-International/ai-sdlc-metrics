@@ -207,6 +207,8 @@ tRPC translates domain exceptions to HTTP status codes. Never expose SQL error m
 
 ### TypeScript
 
+- In backend packages using `moduleResolution: "nodenext"` and `module: "nodenext"`, use `.js` extensions in relative imports so the emitted Node ESM code resolves at runtime (for example `import { Foo } from './foo.js'`). In bundler-managed frontend packages, follow the local package convention.
+
 | Thing      | Convention                   | Example                             |
 | ---------- | ---------------------------- | ----------------------------------- |
 | Classes    | `PascalCase`                 | `EmploymentContractRepository`      |
@@ -286,6 +288,17 @@ const results = await db
 **Current org placement:** always include `isNull(orgPlacementTable.effectiveUntil)` to hit the partial index `idx_org_placement_actor_current`.
 
 **Analytics queries** go through `trpc.insights.*` → Cube.js. Never run aggregates directly against the OLTP DB or read replica.
+
+---
+
+## Testing (TDD — No Exceptions)
+
+- **Write the test first.** A feature is not started until a failing test exists. A feature is not done until the test passes.
+- **Minimum 70% coverage** (lines, functions, branches). PRs that drop below 70% are blocked.
+- Command handlers: unit test for happy path + every error path.
+- Cross-module interactions: integration test against a real database.
+- Critical user flows: E2E Playwright test.
+- Tests are co-located: `create-employment-contract.handler.spec.ts` next to `create-employment-contract.handler.ts`.
 
 ---
 
