@@ -14,8 +14,17 @@
       "version": "0.0.1",
       "devDependencies": {
         "@typescript-eslint/eslint-plugin": "^8",
+        "@typescript-eslint/parser": "^8",
         "eslint": "^9",
         "eslint-plugin-boundaries": "^4",
+        "typescript-eslint": "^8",
+      },
+      "peerDependencies": {
+        "@typescript-eslint/eslint-plugin": "^8",
+        "@typescript-eslint/parser": "^8",
+        "eslint": "^9",
+        "eslint-plugin-boundaries": "^4",
+        "typescript-eslint": "^8",
       },
     },
     "packages/tsconfig": {
@@ -261,6 +270,8 @@
     "type-check": ["type-check@0.4.0", "", { "dependencies": { "prelude-ls": "^1.2.1" } }, "sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew=="],
 
     "typescript": ["typescript@6.0.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-bGdAIrZ0wiGDo5l8c++HWtbaNCWTS4UTv7RaTH/ThVIgjkveJt83m74bBHMJkuCbslY8ixgLBVZJIOiQlQTjfQ=="],
+
+    "typescript-eslint": ["typescript-eslint@8.58.1", "", { "dependencies": { "@typescript-eslint/eslint-plugin": "8.58.1", "@typescript-eslint/parser": "8.58.1", "@typescript-eslint/typescript-estree": "8.58.1", "@typescript-eslint/utils": "8.58.1" }, "peerDependencies": { "eslint": "^8.57.0 || ^9.0.0 || ^10.0.0", "typescript": ">=4.8.4 <6.1.0" } }, "sha512-gf6/oHChByg9HJvhMO1iBexJh12AqqTfnuxscMDOVqfJW3htsdRJI/GfPpHTTcyeB8cSTUY2JcZmVgoyPqcrDg=="],
 
     "uri-js": ["uri-js@4.4.1", "", { "dependencies": { "punycode": "^2.1.0" } }, "sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg=="],
 

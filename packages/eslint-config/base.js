@@ -1,15 +1,26 @@
 import boundaries from 'eslint-plugin-boundaries'
-import tsPlugin from '@typescript-eslint/eslint-plugin'
+import tseslint from 'typescript-eslint'
+import tsParser from '@typescript-eslint/parser'
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
+  ...tseslint.configs.recommended,
   {
     plugins: {
-      '@typescript-eslint': tsPlugin,
       boundaries,
     },
+    languageOptions: {
+      parser: tsParser,
+    },
+    settings: {
+      'boundaries/elements': [
+        { type: 'domain',         pattern: '**/domain/**' },
+        { type: 'application',    pattern: '**/application/**' },
+        { type: 'infrastructure', pattern: '**/infrastructure/**' },
+        { type: 'interface',      pattern: '**/interface/**' },
+      ],
+    },
     rules: {
-      ...tsPlugin.configs['recommended'].rules,
       '@typescript-eslint/no-explicit-any': 'error',
       'boundaries/element-types': ['error', {
         default: 'disallow',

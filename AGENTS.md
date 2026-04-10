@@ -1,9 +1,6 @@
 ## Project Overview
 
 **Future** is an agent-native enterprise operating system being built by SETA. It replaces four fragmented internal apps (EMS, Timesheet, Hiring, Resource Insight) with a unified platform that has a canonical data layer and an embedded AI agent ecosystem. SETA is customer zero (300+ person org). The platform will be commercialized for Vietnamese SMEs and globally.
-
-The monorepo scaffold is **actively being built** (started Q2 2026). Specs are agreed and locked. The build team is scaffolding the codebase now — see `docs/superpowers/plans/` for the implementation plan.
-
 ---
 
 ## Repository Structure
