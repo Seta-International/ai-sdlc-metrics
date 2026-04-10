@@ -1,0 +1,25 @@
+name: Deploy glue
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'data-platform/glue/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+
+      # TODO: GLUE_SCRIPTS_BUCKET=your-bucket bash data-platform/glue/deploy.sh
+      - run: echo "Deploy not yet implemented. See docs/architecture/deployment.md."
