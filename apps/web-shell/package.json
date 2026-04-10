@@ -19,6 +19,9 @@
     "@future/tsconfig": "workspace:*",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "^16.2.3",
+    "eslint-config-prettier": "^10.1.8",
     "typescript": "^6.0.2"
   }
 }
