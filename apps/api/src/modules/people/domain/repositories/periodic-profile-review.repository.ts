@@ -1,4 +1,7 @@
-import { PeriodicProfileReview } from '../entities/periodic-profile-review.entity'
+import {
+  PeriodicProfileReview,
+  PeriodicReviewStatus,
+} from '../entities/periodic-profile-review.entity'
 
 export const PERIODIC_PROFILE_REVIEW_REPOSITORY = Symbol('IPeriodicProfileReviewRepository')
 
@@ -10,5 +13,10 @@ export interface IPeriodicProfileReviewRepository {
     profileId: string
     dueDate: Date
   }): Promise<PeriodicProfileReview>
-  updateStatus(id: string, tenantId: string, status: string, completedAt?: Date): Promise<void>
+  updateStatus(
+    id: string,
+    tenantId: string,
+    status: PeriodicReviewStatus,
+    completedAt?: Date,
+  ): Promise<void>
 }
