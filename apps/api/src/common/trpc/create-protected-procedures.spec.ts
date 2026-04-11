@@ -16,7 +16,7 @@ describe('createProtectedProcedures', () => {
   it('should create permissionProtectedProcedure that checks permissions', () => {
     const { permissionProtectedProcedure } = createProtectedProcedures(
       kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
+      auditRepo,
     )
     expect(permissionProtectedProcedure).toBeDefined()
   })
@@ -24,7 +24,7 @@ describe('createProtectedProcedures', () => {
   it('should allow building a router with permission meta', () => {
     const { permissionProtectedProcedure } = createProtectedProcedures(
       kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
+      auditRepo,
     )
     const testRouter = router({
       test: permissionProtectedProcedure
@@ -37,7 +37,7 @@ describe('createProtectedProcedures', () => {
   it('should allow building a router without permission meta', () => {
     const { permissionProtectedProcedure } = createProtectedProcedures(
       kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
+      auditRepo,
     )
     const testRouter = router({
       test: permissionProtectedProcedure.query(() => 'ok'),

@@ -31,16 +31,12 @@ export class DrizzleIdpGroupMappingRepository implements IIdpGroupMappingReposit
     return rows as IdpGroupMapping[]
   }
 
-  async findByTenantId(tenantId: string): Promise<IdpGroupMapping[]> {
+  async listByTenantId(tenantId: string): Promise<IdpGroupMapping[]> {
     const rows = await this.db
       .select()
       .from(idpGroupMapping)
       .where(eq(idpGroupMapping.tenantId, tenantId))
     return rows as IdpGroupMapping[]
-  }
-
-  async listByTenantId(tenantId: string): Promise<IdpGroupMapping[]> {
-    return this.findByTenantId(tenantId)
   }
 
   async upsert(data: {

@@ -41,7 +41,6 @@ describe('SyncIdpGroupsHandler', () => {
   beforeEach(() => {
     providerRepo = {
       findById: vi.fn(),
-      findByTenantId: vi.fn(),
       findPrimary: vi.fn(),
       insert: vi.fn(),
       update: vi.fn(),

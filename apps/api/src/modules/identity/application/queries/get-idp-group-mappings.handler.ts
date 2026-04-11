@@ -18,6 +18,6 @@ export class GetIdpGroupMappingsHandler implements IQueryHandler<
   ) {}
 
   async execute(query: GetIdpGroupMappingsQuery): Promise<IdpGroupMapping[]> {
-    return this.mappingRepo.findByTenantId(query.tenantId)
+    return this.mappingRepo.listByTenantId(query.tenantId)
   }
 }

@@ -24,7 +24,7 @@ describe('permission enforcement integration', () => {
     kernelFacade.canDo.mockResolvedValue(true)
     const { permissionProtectedProcedure } = createProtectedProcedures(
       kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
+      auditRepo,
     )
     const testRouter = router({
       secret: permissionProtectedProcedure
@@ -41,7 +41,7 @@ describe('permission enforcement integration', () => {
     kernelFacade.canDo.mockResolvedValue(false)
     const { permissionProtectedProcedure } = createProtectedProcedures(
       kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
+      auditRepo,
     )
     const testRouter = router({
       secret: permissionProtectedProcedure
@@ -70,7 +70,7 @@ describe('permission enforcement integration', () => {
   it('should skip permission check when no meta.permission is set', async () => {
     const { permissionProtectedProcedure } = createProtectedProcedures(
       kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
+      auditRepo,
     )
     const testRouter = router({
       open: permissionProtectedProcedure.query(() => ({ public: true })),
@@ -96,7 +96,7 @@ describe('permission enforcement integration', () => {
       .mockResolvedValueOnce(false) // second call: denied
     const { permissionProtectedProcedure } = createProtectedProcedures(
       kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
+      auditRepo,
     )
     const testRouter = router({
       read: permissionProtectedProcedure

@@ -73,9 +73,9 @@ describe('DrizzleIdpGroupMappingRepository', () => {
     })
   })
 
-  describe('findByTenantId', () => {
+  describe('listByTenantId', () => {
     it('returns all mappings for the tenant', async () => {
-      const mappings = await repo.findByTenantId(TENANT)
+      const mappings = await repo.listByTenantId(TENANT)
       expect(mappings.length).toBeGreaterThanOrEqual(1)
       expect(mappings.every((m) => m.tenantId === TENANT)).toBe(true)
     })

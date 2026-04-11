@@ -20,17 +20,13 @@ describe('checkPermission', () => {
   it('should resolve when permission is granted', async () => {
     kernelFacade.canDo.mockResolvedValue(true)
     await expect(
-      checkPermission(
-        kernelFacade as unknown as KernelQueryFacade,
-        auditRepo as unknown as IAuditEventRepository,
-        {
-          actorId: ACTOR_ID,
-          tenantId: TENANT_ID,
-          permission: 'people:profile:update',
-          scopeType: 'department',
-          scopeId: DEPARTMENT_ID,
-        },
-      ),
+      checkPermission(kernelFacade as unknown as KernelQueryFacade, auditRepo, {
+        actorId: ACTOR_ID,
+        tenantId: TENANT_ID,
+        permission: 'people:profile:update',
+        scopeType: 'department',
+        scopeId: DEPARTMENT_ID,
+      }),
     ).resolves.toBeUndefined()
     expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'people:profile:update', {
       tenantId: TENANT_ID,
@@ -42,28 +38,24 @@ describe('checkPermission', () => {
   it('should throw FORBIDDEN when permission is denied', async () => {
     kernelFacade.canDo.mockResolvedValue(false)
     await expect(
-      checkPermission(
-        kernelFacade as unknown as KernelQueryFacade,
-        auditRepo as unknown as IAuditEventRepository,
-        {
-          actorId: ACTOR_ID,
-          tenantId: TENANT_ID,
-          permission: 'people:profile:update',
-          scopeType: 'department',
-          scopeId: DEPARTMENT_ID,
-        },
-      ),
+      checkPermission(kernelFacade as unknown as KernelQueryFacade, auditRepo, {
+        actorId: ACTOR_ID,
+        tenantId: TENANT_ID,
+        permission: 'people:profile:update',
+        scopeType: 'department',
+        scopeId: DEPARTMENT_ID,
+      }),
     ).rejects.toThrow(TRPCError)
   })
 
   it('should throw with FORBIDDEN code', async () => {
     kernelFacade.canDo.mockResolvedValue(false)
     try {
-      await checkPermission(
-        kernelFacade as unknown as KernelQueryFacade,
-        auditRepo as unknown as IAuditEventRepository,
-        { actorId: ACTOR_ID, tenantId: TENANT_ID, permission: 'people:profile:update' },
-      )
+      await checkPermission(kernelFacade as unknown as KernelQueryFacade, auditRepo, {
+        actorId: ACTOR_ID,
+        tenantId: TENANT_ID,
+        permission: 'people:profile:update',
+      })
       expect.unreachable('should have thrown')
     } catch (error) {
       expect((error as TRPCError).code).toBe('FORBIDDEN')
@@ -73,17 +65,13 @@ describe('checkPermission', () => {
   it('should write audit_event on denial', async () => {
     kernelFacade.canDo.mockResolvedValue(false)
     try {
-      await checkPermission(
-        kernelFacade as unknown as KernelQueryFacade,
-        auditRepo as unknown as IAuditEventRepository,
-        {
-          actorId: ACTOR_ID,
-          tenantId: TENANT_ID,
-          permission: 'time:leave:approve',
-          scopeType: 'department',
-          scopeId: DEPARTMENT_ID,
-        },
-      )
+      await checkPermission(kernelFacade as unknown as KernelQueryFacade, auditRepo, {
+        actorId: ACTOR_ID,
+        tenantId: TENANT_ID,
+        permission: 'time:leave:approve',
+        scopeType: 'department',
+        scopeId: DEPARTMENT_ID,
+      })
     } catch {
       /* expected */
     }
@@ -104,26 +92,22 @@ describe('checkPermission', () => {
 
   it('should not write audit_event on success', async () => {
     kernelFacade.canDo.mockResolvedValue(true)
-    await checkPermission(
-      kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
-      { actorId: ACTOR_ID, tenantId: TENANT_ID, permission: 'people:profile:read' },
-    )
+    await checkPermission(kernelFacade as unknown as KernelQueryFacade, auditRepo, {
+      actorId: ACTOR_ID,
+      tenantId: TENANT_ID,
+      permission: 'people:profile:read',
+    })
     expect(auditRepo.insert).not.toHaveBeenCalled()
   })
 
   it('should pass resourceOwnerId for self-permission checks', async () => {
     kernelFacade.canDo.mockResolvedValue(true)
-    await checkPermission(
-      kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
-      {
-        actorId: ACTOR_ID,
-        tenantId: TENANT_ID,
-        permission: 'people:profile:self:read',
-        resourceOwnerId: ACTOR_ID,
-      },
-    )
+    await checkPermission(kernelFacade as unknown as KernelQueryFacade, auditRepo, {
+      actorId: ACTOR_ID,
+      tenantId: TENANT_ID,
+      permission: 'people:profile:self:read',
+      resourceOwnerId: ACTOR_ID,
+    })
     expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'people:profile:self:read', {
       tenantId: TENANT_ID,
       resourceOwnerId: ACTOR_ID,
@@ -132,11 +116,11 @@ describe('checkPermission', () => {
 
   it('should work with minimal context (no scope)', async () => {
     kernelFacade.canDo.mockResolvedValue(true)
-    await checkPermission(
-      kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
-      { actorId: ACTOR_ID, tenantId: TENANT_ID, permission: 'admin:role:manage' },
-    )
+    await checkPermission(kernelFacade as unknown as KernelQueryFacade, auditRepo, {
+      actorId: ACTOR_ID,
+      tenantId: TENANT_ID,
+      permission: 'admin:role:manage',
+    })
     expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'admin:role:manage', {
       tenantId: TENANT_ID,
     })

@@ -19,10 +19,7 @@ describe('permissionMiddleware', () => {
   })
 
   function callMiddleware(meta: { permission?: string } | undefined) {
-    const mw = createPermissionMiddleware(
-      kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
-    )
+    const mw = createPermissionMiddleware(kernelFacade as unknown as KernelQueryFacade, auditRepo)
     return mw({
       ctx: { actorId: ACTOR_ID, tenantId: TENANT_ID },
       meta,
