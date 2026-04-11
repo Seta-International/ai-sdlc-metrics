@@ -26,6 +26,7 @@
     "@nestjs/platform-fastify": "^11",
     "@trpc/server": "^11",
     "drizzle-orm": "^0.45.2",
+    "jose": "^6.2.2",
     "nestjs-cls": "^6.2.0",
     "reflect-metadata": "^0.2",
     "rxjs": "^7",
