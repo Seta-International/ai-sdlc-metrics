@@ -50,6 +50,13 @@
       "when": 1775913259657,
       "tag": "0006_vengeful_white_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1775913701106,
+      "tag": "0007_optimal_rumiko_fujikawa",
+      "breakpoints": true
     }
   ]
 }

@@ -35,7 +35,7 @@ export async function migrateForTest(): Promise<void> {
 
 export async function truncateCoreSchema(db: Db): Promise<void> {
   await db.execute(
-    sql`TRUNCATE core.role_grant, core.user_identity, core.actor, core.department, core.tenant RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE core.role_permission, core.role_grant, core.user_identity, core.actor, core.department, core.tenant RESTART IDENTITY CASCADE`,
   )
 }
 
