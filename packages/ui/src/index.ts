@@ -8,6 +8,7 @@ export type {
   AppLauncherTriggerProps,
   AppChipProps,
 } from './components/app-launcher'
+export { ThemeProvider } from './components/theme-provider'
 
 // shadcn/ui components
 export * from './components/ui/accordion'
