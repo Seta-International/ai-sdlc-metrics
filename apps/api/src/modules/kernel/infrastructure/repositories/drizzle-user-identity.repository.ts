@@ -47,4 +47,11 @@ export class DrizzleUserIdentityRepository implements IUserIdentityRepository {
       .returning()
     return rows[0] as UserIdentity
   }
+
+  async deprovisionByActorId(actorId: string, tenantId: string): Promise<void> {
+    await this.db
+      .update(userIdentity)
+      .set({ status: 'deprovisioned' })
+      .where(and(eq(userIdentity.actorId, actorId), eq(userIdentity.tenantId, tenantId)))
+  }
 }

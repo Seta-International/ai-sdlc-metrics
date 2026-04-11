@@ -42,8 +42,8 @@ describe('GrantRoleHandler', () => {
   let roleGrantRepo: IRoleGrantRepository
 
   beforeEach(() => {
-    actorRepo = { findById: vi.fn(), insert: vi.fn() }
-    roleGrantRepo = { findByActorId: vi.fn(), insert: vi.fn() }
+    actorRepo = { findById: vi.fn(), insert: vi.fn(), updateStatus: vi.fn() }
+    roleGrantRepo = { findByActorId: vi.fn(), insert: vi.fn(), revokeAllForActor: vi.fn() }
     handler = new GrantRoleHandler(actorRepo, roleGrantRepo)
   })
 

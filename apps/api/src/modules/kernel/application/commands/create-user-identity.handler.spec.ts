@@ -44,8 +44,13 @@ describe('CreateUserIdentityHandler', () => {
   let identityRepo: IUserIdentityRepository
 
   beforeEach(() => {
-    actorRepo = { findById: vi.fn(), insert: vi.fn() }
-    identityRepo = { findById: vi.fn(), findBySsoSubject: vi.fn(), insert: vi.fn() }
+    actorRepo = { findById: vi.fn(), insert: vi.fn(), updateStatus: vi.fn() }
+    identityRepo = {
+      findById: vi.fn(),
+      findBySsoSubject: vi.fn(),
+      insert: vi.fn(),
+      deprovisionByActorId: vi.fn(),
+    }
     handler = new CreateUserIdentityHandler(actorRepo, identityRepo)
   })
 

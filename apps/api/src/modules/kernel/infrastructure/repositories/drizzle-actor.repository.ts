@@ -34,4 +34,11 @@ export class DrizzleActorRepository implements IActorRepository {
       .returning()
     return rows[0] as Actor
   }
+
+  async updateStatus(id: string, tenantId: string, status: Actor['status']): Promise<void> {
+    await this.db
+      .update(actor)
+      .set({ status, updatedAt: new Date() })
+      .where(and(eq(actor.id, id), eq(actor.tenantId, tenantId)))
+  }
 }
