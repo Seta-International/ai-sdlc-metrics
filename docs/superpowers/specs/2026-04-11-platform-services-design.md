@@ -423,10 +423,12 @@ export interface PdfMetadata {
   createdAt?: Date
 }
 
-export async function parsePdf(buffer: Buffer): Promise<ParsedPdf>
+export async function parsePdf(input: Buffer | string): Promise<ParsedPdf>
 ```
 
-Uses `pdf-parse` under the hood. Returns raw text — LLM structuring happens in the consuming module (e.g. `hiring` calls `parsePdf()` then sends text to OpenAI for CV field extraction).
+Uses `pdf-parse` under the hood (class-based API: `new PDFParse()` → `getText()` / `getInfo()` → `destroy()`). Accepts a `Buffer` or URL string. Returns raw text — LLM structuring happens in the consuming module (e.g. `hiring` calls `parsePdf()` then sends text to OpenAI for CV field extraction).
+
+**Implementation note:** Use `puppeteer-core` (not full `puppeteer`) for PDF generation. `page.pdf()` returns `Uint8Array` in current Puppeteer — convert at boundary via `Buffer.from()`. Use SESv2 (`@aws-sdk/client-sesv2`) not SES v1. Use `DynamoDBDocumentClient` for native JS types.
 
 ### PDF Generation
 
