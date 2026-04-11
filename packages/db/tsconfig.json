@@ -2,7 +2,7 @@
   "extends": "@future/tsconfig/base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "../..",
+    "rootDir": "src",
     "moduleResolution": "nodenext",
     "module": "nodenext",
     "types": ["node"]
