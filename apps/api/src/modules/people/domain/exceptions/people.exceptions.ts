@@ -49,6 +49,13 @@ export class OnboardingTaskNotFoundException extends DomainException {
   }
 }
 
+export class OffboardingTaskNotFoundException extends DomainException {
+  readonly code = 'OFFBOARDING_TASK_NOT_FOUND'
+  constructor(id: string) {
+    super(`Offboarding task not found: ${id}`)
+  }
+}
+
 export class OffboardingCaseNotFoundException extends DomainException {
   readonly code = 'OFFBOARDING_CASE_NOT_FOUND'
   constructor(id: string) {

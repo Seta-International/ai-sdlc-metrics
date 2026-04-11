@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CompleteTaskCommand } from './complete-task.command'
 import { CompleteTaskHandler } from './complete-task.handler'
-import { OnboardingTaskNotFoundException } from '../../domain/exceptions/people.exceptions'
+import {
+  OnboardingTaskNotFoundException,
+  OffboardingTaskNotFoundException,
+} from '../../domain/exceptions/people.exceptions'
 import type { IOnboardingCaseRepository } from '../../domain/repositories/onboarding-case.repository'
 import type { IOffboardingCaseRepository } from '../../domain/repositories/offboarding-case.repository'
 import type { IEmploymentProfileRepository } from '../../domain/repositories/employment-profile.repository'
@@ -204,14 +207,14 @@ describe('CompleteTaskHandler', () => {
       ).rejects.toThrow(OnboardingTaskNotFoundException)
     })
 
-    it('throws OnboardingTaskNotFoundException when offboarding task not found', async () => {
+    it('throws OffboardingTaskNotFoundException when offboarding task not found', async () => {
       vi.mocked(offboardingCaseRepo.findTaskById).mockResolvedValue(null)
 
       await expect(
         handler.execute(
           new CompleteTaskCommand(TENANT_ID, TASK_ID, 'offboarding', COMPLETED_BY, null),
         ),
-      ).rejects.toThrow(OnboardingTaskNotFoundException)
+      ).rejects.toThrow(OffboardingTaskNotFoundException)
     })
   })
 })

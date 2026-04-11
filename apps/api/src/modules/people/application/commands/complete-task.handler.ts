@@ -1,6 +1,9 @@
 import { Inject } from '@nestjs/common'
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
-import { OnboardingTaskNotFoundException } from '../../domain/exceptions/people.exceptions'
+import {
+  OnboardingTaskNotFoundException,
+  OffboardingTaskNotFoundException,
+} from '../../domain/exceptions/people.exceptions'
 import {
   ONBOARDING_CASE_REPOSITORY,
   type IOnboardingCaseRepository,
@@ -87,7 +90,7 @@ export class CompleteTaskHandler implements ICommandHandler<CompleteTaskCommand,
     evidenceUrl: string | null,
   ): Promise<void> {
     const task = await this.offboardingCaseRepo.findTaskById(taskId, tenantId)
-    if (!task) throw new OnboardingTaskNotFoundException(taskId)
+    if (!task) throw new OffboardingTaskNotFoundException(taskId)
 
     const now = new Date()
     await this.offboardingCaseRepo.updateTaskStatus(taskId, tenantId, 'completed', now, evidenceUrl)
