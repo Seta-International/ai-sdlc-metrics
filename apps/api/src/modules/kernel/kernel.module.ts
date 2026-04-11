@@ -16,6 +16,7 @@ import { GrantRoleHandler } from './application/commands/grant-role.handler'
 import { ResolveDecisionCaseHandler } from './application/commands/resolve-decision-case.handler'
 import { RevokeAllRoleGrantsHandler } from './application/commands/revoke-all-role-grants.handler'
 import { UpdateActorStatusHandler } from './application/commands/update-actor-status.handler'
+import { SeedRolePermissionsHandler } from './application/commands/seed-role-permissions.handler'
 import { KernelQueryFacade } from './application/facades/kernel-query.facade'
 import { GetActorHandler } from './application/queries/get-actor.handler'
 import { GetRoleGrantsHandler } from './application/queries/get-role-grants.handler'
@@ -57,6 +58,7 @@ import { DrizzleOutboxEventRepository } from './infrastructure/repositories/driz
     ResolveDecisionCaseHandler,
     RevokeAllRoleGrantsHandler,
     UpdateActorStatusHandler,
+    SeedRolePermissionsHandler,
     GetActorHandler,
     GetTenantHandler,
     GetRoleGrantsHandler,
