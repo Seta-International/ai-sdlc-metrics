@@ -1,6 +1,7 @@
 import { Inject } from '@nestjs/common'
 import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import {
+  EmploymentProfileNotFoundException,
   OffboardingCaseNotFoundException,
   OffboardingNotInProcessingException,
 } from '../../domain/exceptions/people.exceptions'
@@ -59,28 +60,27 @@ export class CompleteOffboardingHandler implements ICommandHandler<
 
     // 3. Find employment profile
     const profile = await this.profileRepo.findById(offboardingCase.profileId, command.tenantId)
+    if (!profile) throw new EmploymentProfileNotFoundException(offboardingCase.profileId)
 
     const now = new Date()
 
     // 4. Mark profile as terminated
-    await this.profileRepo.updateStatus(profile!.id, command.tenantId, 'terminated', now)
+    await this.profileRepo.updateStatus(profile.id, command.tenantId, 'terminated', now)
 
     // 5. Mark offboarding case as completed
     await this.caseRepo.updateStatus(command.offboardingCaseId, command.tenantId, 'completed')
 
     // 6. Close all account memberships
-    await this.accountMembershipRepo.closeAllForActor(profile!.actorId, command.tenantId, now)
+    await this.accountMembershipRepo.closeAllForActor(profile.actorId, command.tenantId, now)
 
     // 7. Dispatch kernel commands
     await this.commandBus.execute(
-      new UpdateActorStatusCommand(command.tenantId, profile!.actorId, 'inactive'),
+      new UpdateActorStatusCommand(command.tenantId, profile.actorId, 'inactive'),
     )
     await this.commandBus.execute(
-      new DeprovisionUserIdentityCommand(command.tenantId, profile!.actorId),
+      new DeprovisionUserIdentityCommand(command.tenantId, profile.actorId),
     )
-    await this.commandBus.execute(
-      new RevokeAllRoleGrantsCommand(command.tenantId, profile!.actorId),
-    )
+    await this.commandBus.execute(new RevokeAllRoleGrantsCommand(command.tenantId, profile.actorId))
 
     // 8. Emit outbox event
     await this.outboxRepo.insert({
