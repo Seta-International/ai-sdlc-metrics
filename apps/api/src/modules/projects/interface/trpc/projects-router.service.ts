@@ -1,34 +1,30 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, type OnModuleInit } from '@nestjs/common'
 import { CommandBus, QueryBus } from '@nestjs/cqrs'
 
-/**
- * Singleton NestJS service that exposes CommandBus/QueryBus to the tRPC router.
- * The tRPC router is a static object (not NestJS-managed), so it cannot use
- * constructor injection. Instead, the router calls ProjectsRouterService methods.
- */
-@Injectable()
-export class ProjectsRouterService {
-  private static instance: ProjectsRouterService
+let instance: ProjectsRouterService | null = null
 
+@Injectable()
+export class ProjectsRouterService implements OnModuleInit {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
-  ) {
-    ProjectsRouterService.instance = this
+  ) {}
+
+  onModuleInit() {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    instance = this
   }
 
   static getInstance(): ProjectsRouterService {
-    if (!ProjectsRouterService.instance) {
-      throw new Error('ProjectsRouterService not initialized — ensure ProjectsModule is imported')
-    }
-    return ProjectsRouterService.instance
+    if (!instance) throw new Error('ProjectsRouterService not initialized')
+    return instance
   }
 
-  getCommandBus(): CommandBus {
-    return this.commandBus
+  command<T>(command: T): Promise<unknown> {
+    return this.commandBus.execute(command as never)
   }
 
-  getQueryBus(): QueryBus {
-    return this.queryBus
+  query<T>(query: T): Promise<unknown> {
+    return this.queryBus.execute(query as never)
   }
 }

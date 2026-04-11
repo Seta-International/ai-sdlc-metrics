@@ -31,9 +31,8 @@ export class ProjectsQueryFacade {
     startDate: Date,
     endDate: Date,
   ): Promise<number> {
-    // Delegates directly to the allocation repository via a query.
-    // In production, this would use a dedicated query handler.
-    // For now, this is a convenience method that other modules can call.
+    // Fetches all allocations for the actor and filters client-side.
+    // A future optimization would filter at the database level via a dedicated query.
     const allocations = await this.getPersonAllocations(actorId, tenantId)
     return allocations
       .filter((a) => a.status === 'confirmed')

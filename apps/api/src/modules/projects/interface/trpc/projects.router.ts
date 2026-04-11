@@ -35,16 +35,12 @@ export const projectsRouter = router({
       }),
     )
     .query(({ input }) =>
-      svc()
-        .getQueryBus()
-        .execute(new ListAccountsQuery(input.tenantId, input.limit, input.offset)),
+      svc().query(new ListAccountsQuery(input.tenantId, input.limit, input.offset)),
     ),
 
   getAccount: publicProcedure
     .input(z.object({ accountId: z.string().uuid(), tenantId: z.string().uuid() }))
-    .query(({ input }) =>
-      svc().getQueryBus().execute(new GetAccountQuery(input.accountId, input.tenantId)),
-    ),
+    .query(({ input }) => svc().query(new GetAccountQuery(input.accountId, input.tenantId))),
 
   createAccount: publicProcedure
     .input(
@@ -62,22 +58,20 @@ export const projectsRouter = router({
       }),
     )
     .mutation(({ input }) =>
-      svc()
-        .getCommandBus()
-        .execute(
-          new CreateAccountCommand(
-            input.tenantId,
-            input.name,
-            input.clientCompany,
-            input.description,
-            input.domain,
-            input.location,
-            input.timezone,
-            input.billingModel,
-            input.accountManagerId,
-            input.startedAt,
-          ),
+      svc().command(
+        new CreateAccountCommand(
+          input.tenantId,
+          input.name,
+          input.clientCompany,
+          input.description,
+          input.domain,
+          input.location,
+          input.timezone,
+          input.billingModel,
+          input.accountManagerId,
+          input.startedAt,
         ),
+      ),
     ),
 
   updateAccount: publicProcedure
@@ -104,9 +98,7 @@ export const projectsRouter = router({
       }),
     )
     .mutation(({ input }) =>
-      svc()
-        .getCommandBus()
-        .execute(new UpdateAccountCommand(input.tenantId, input.accountId, input.data)),
+      svc().command(new UpdateAccountCommand(input.tenantId, input.accountId, input.data)),
     ),
 
   // --- Account Memberships (delegated to People module) ---
@@ -116,7 +108,7 @@ export const projectsRouter = router({
       // Delegates to PeopleQueryFacade.listAccountMembers().
       // The account_membership table lives in the people schema.
       // PeopleQueryFacade must expose this method.
-      // Implementation: svc().getQueryBus().execute(new ListAccountMembersQuery(...))
+      // Implementation: svc().query(new ListAccountMembersQuery(...))
       // where ListAccountMembersQuery is handled by PeopleModule.
       // For now, returns empty array — wire after People module exposes the facade method.
       return [] as Array<{ actorId: string; roleKey: string; joinedAt: Date }>
@@ -134,7 +126,7 @@ export const projectsRouter = router({
     .mutation(({ input }) => {
       // Dispatches AddAccountMemberCommand to People module's CommandBus.
       // The account_membership table lives in the people schema.
-      // Implementation: svc().getCommandBus().execute(new AddAccountMemberCommand(...))
+      // Implementation: svc().command(new AddAccountMemberCommand(...))
       // where AddAccountMemberCommand is handled by PeopleModule.
       return { success: true }
     }),
@@ -149,7 +141,7 @@ export const projectsRouter = router({
     )
     .mutation(({ input }) => {
       // Dispatches RemoveAccountMemberCommand to People module's CommandBus.
-      // Implementation: svc().getCommandBus().execute(new RemoveAccountMemberCommand(...))
+      // Implementation: svc().command(new RemoveAccountMemberCommand(...))
       return { success: true }
     }),
 
@@ -164,16 +156,14 @@ export const projectsRouter = router({
       }),
     )
     .query(({ input }) =>
-      svc()
-        .getQueryBus()
-        .execute(new ListProjectsQuery(input.tenantId, input.limit, input.offset, input.accountId)),
+      svc().query(
+        new ListProjectsQuery(input.tenantId, input.limit, input.offset, input.accountId),
+      ),
     ),
 
   getProject: publicProcedure
     .input(z.object({ projectId: z.string().uuid(), tenantId: z.string().uuid() }))
-    .query(({ input }) =>
-      svc().getQueryBus().execute(new GetProjectQuery(input.projectId, input.tenantId)),
-    ),
+    .query(({ input }) => svc().query(new GetProjectQuery(input.projectId, input.tenantId))),
 
   createProject: publicProcedure
     .input(
@@ -189,20 +179,18 @@ export const projectsRouter = router({
       }),
     )
     .mutation(({ input }) =>
-      svc()
-        .getCommandBus()
-        .execute(
-          new CreateProjectCommand(
-            input.tenantId,
-            input.accountId,
-            input.name,
-            input.code,
-            input.description,
-            input.deliveryModel,
-            input.startedAt,
-            input.tags,
-          ),
+      svc().command(
+        new CreateProjectCommand(
+          input.tenantId,
+          input.accountId,
+          input.name,
+          input.code,
+          input.description,
+          input.deliveryModel,
+          input.startedAt,
+          input.tags,
         ),
+      ),
     ),
 
   updateProject: publicProcedure
@@ -223,19 +211,15 @@ export const projectsRouter = router({
       }),
     )
     .mutation(({ input }) =>
-      svc()
-        .getCommandBus()
-        .execute(new UpdateProjectCommand(input.tenantId, input.projectId, input.data)),
+      svc().command(new UpdateProjectCommand(input.tenantId, input.projectId, input.data)),
     ),
 
   // --- Project Roles ---
   listProjectRoles: publicProcedure
     .input(z.object({ projectId: z.string().uuid(), tenantId: z.string().uuid() }))
     .query(async ({ input }) => {
-      const result = await svc()
-        .getQueryBus()
-        .execute(new GetProjectQuery(input.projectId, input.tenantId))
-      return result.roles
+      const result = await svc().query(new GetProjectQuery(input.projectId, input.tenantId))
+      return (result as { roles: unknown[] }).roles
     }),
 
   createProjectRole: publicProcedure
@@ -249,17 +233,15 @@ export const projectsRouter = router({
       }),
     )
     .mutation(({ input }) =>
-      svc()
-        .getCommandBus()
-        .execute(
-          new CreateProjectRoleCommand(
-            input.tenantId,
-            input.projectId,
-            input.roleName,
-            input.skillsRequired,
-            input.headcount,
-          ),
+      svc().command(
+        new CreateProjectRoleCommand(
+          input.tenantId,
+          input.projectId,
+          input.roleName,
+          input.skillsRequired,
+          input.headcount,
         ),
+      ),
     ),
 
   updateProjectRole: publicProcedure
@@ -275,9 +257,7 @@ export const projectsRouter = router({
       }),
     )
     .mutation(({ input }) =>
-      svc()
-        .getCommandBus()
-        .execute(new UpdateProjectRoleCommand(input.tenantId, input.projectRoleId, input.data)),
+      svc().command(new UpdateProjectRoleCommand(input.tenantId, input.projectRoleId, input.data)),
     ),
 
   // --- Allocations ---
@@ -297,30 +277,26 @@ export const projectsRouter = router({
       }),
     )
     .mutation(({ input }) =>
-      svc()
-        .getCommandBus()
-        .execute(
-          new CreateAllocationCommand(
-            input.tenantId,
-            input.projectRoleId,
-            input.actorId,
-            input.position,
-            input.hoursPerDay,
-            input.billingType,
-            input.memberType,
-            input.startedAt,
-            input.endedAt,
-            input.note,
-          ),
+      svc().command(
+        new CreateAllocationCommand(
+          input.tenantId,
+          input.projectRoleId,
+          input.actorId,
+          input.position,
+          input.hoursPerDay,
+          input.billingType,
+          input.memberType,
+          input.startedAt,
+          input.endedAt,
+          input.note,
         ),
+      ),
     ),
 
   confirmAllocation: publicProcedure
     .input(z.object({ tenantId: z.string().uuid(), allocationId: z.string().uuid() }))
     .mutation(({ input }) =>
-      svc()
-        .getCommandBus()
-        .execute(new ConfirmAllocationCommand(input.tenantId, input.allocationId)),
+      svc().command(new ConfirmAllocationCommand(input.tenantId, input.allocationId)),
     ),
 
   updateAllocation: publicProcedure
@@ -340,9 +316,7 @@ export const projectsRouter = router({
       }),
     )
     .mutation(({ input }) =>
-      svc()
-        .getCommandBus()
-        .execute(new UpdateAllocationCommand(input.tenantId, input.allocationId, input.data)),
+      svc().command(new UpdateAllocationCommand(input.tenantId, input.allocationId, input.data)),
     ),
 
   closeAllocation: publicProcedure
@@ -354,9 +328,7 @@ export const projectsRouter = router({
       }),
     )
     .mutation(({ input }) =>
-      svc()
-        .getCommandBus()
-        .execute(new CloseAllocationCommand(input.tenantId, input.allocationId, input.endedAt)),
+      svc().command(new CloseAllocationCommand(input.tenantId, input.allocationId, input.endedAt)),
     ),
 
   // --- Reporting ---
@@ -369,15 +341,13 @@ export const projectsRouter = router({
       }),
     )
     .query(({ input }) =>
-      svc()
-        .getQueryBus()
-        .execute(new GetStaffingOverviewQuery(input.tenantId, input.startDate, input.endDate)),
+      svc().query(new GetStaffingOverviewQuery(input.tenantId, input.startDate, input.endDate)),
     ),
 
   getPersonAllocations: publicProcedure
     .input(z.object({ actorId: z.string().uuid(), tenantId: z.string().uuid() }))
     .query(({ input }) =>
-      svc().getQueryBus().execute(new GetPersonAllocationsQuery(input.actorId, input.tenantId)),
+      svc().query(new GetPersonAllocationsQuery(input.actorId, input.tenantId)),
     ),
 
   getCapacityReport: publicProcedure
@@ -389,14 +359,12 @@ export const projectsRouter = router({
       }),
     )
     .query(({ input }) =>
-      svc()
-        .getQueryBus()
-        .execute(new GetCapacityReportQuery(input.tenantId, input.startDate, input.endDate)),
+      svc().query(new GetCapacityReportQuery(input.tenantId, input.startDate, input.endDate)),
     ),
 
   getAccountStaffing: publicProcedure
     .input(z.object({ accountId: z.string().uuid(), tenantId: z.string().uuid() }))
     .query(({ input }) =>
-      svc().getQueryBus().execute(new GetAccountStaffingQuery(input.accountId, input.tenantId)),
+      svc().query(new GetAccountStaffingQuery(input.accountId, input.tenantId)),
     ),
 })
