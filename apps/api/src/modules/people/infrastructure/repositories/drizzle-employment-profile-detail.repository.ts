@@ -41,7 +41,7 @@ export class DrizzleEmploymentProfileDetailRepository implements IEmploymentProf
       })
       .onConflictDoUpdate({
         target: employmentProfileDetail.profileId,
-        set: data as Record<string, unknown>,
+        set: { tenantId, ...data } as Record<string, unknown>,
       })
       .returning()
     return rows[0] as EmploymentProfileDetail

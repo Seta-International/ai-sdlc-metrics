@@ -67,7 +67,7 @@ export class DrizzleProfileChangeRequestRepository implements IProfileChangeRequ
   ): Promise<void> {
     await this.db
       .update(profileChangeRequest)
-      .set({ status, reviewedBy: reviewedBy ?? undefined } as Record<string, unknown>)
+      .set({ status, reviewedBy: reviewedBy ?? null })
       .where(and(eq(profileChangeRequest.id, id), eq(profileChangeRequest.tenantId, tenantId)))
   }
 

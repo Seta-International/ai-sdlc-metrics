@@ -94,9 +94,7 @@ export class DrizzleEmploymentProfileRepository implements IEmploymentProfileRep
   ): Promise<EmploymentProfile> {
     const rows = await this.db
       .update(employmentProfile)
-      .set({ ...data, updatedAt: new Date() } as Parameters<typeof this.db.update>[0] extends never
-        ? never
-        : Record<string, unknown>)
+      .set({ ...data, updatedAt: new Date() } as Record<string, unknown>)
       .where(and(eq(employmentProfile.id, id), eq(employmentProfile.tenantId, tenantId)))
       .returning()
     return rows[0] as EmploymentProfile
@@ -112,20 +110,16 @@ export class DrizzleEmploymentProfileRepository implements IEmploymentProfileRep
       conditions.push(eq(employmentProfile.employmentStatus, filters.status))
     }
 
-    const query = this.db
+    let q = this.db
       .select()
       .from(employmentProfile)
       .where(and(...conditions))
+      .$dynamic()
 
-    if (filters?.limit !== undefined) {
-      query.limit(filters.limit)
-    }
+    if (filters?.limit !== undefined) q = q.limit(filters.limit)
+    if (filters?.offset !== undefined) q = q.offset(filters.offset)
 
-    if (filters?.offset !== undefined) {
-      query.offset(filters.offset)
-    }
-
-    const rows = await query
+    const rows = await q
     return rows as EmploymentProfile[]
   }
 }

@@ -266,7 +266,9 @@ describe('DrizzleEmploymentProfileRepository', () => {
 
       expect(page1).toHaveLength(2)
       expect(page2).toHaveLength(2)
-      expect(page1[0]?.id).not.toBe(page2[0]?.id)
+      const page1Ids = page1.map((p) => p.id)
+      const page2Ids = page2.map((p) => p.id)
+      expect(page1Ids.filter((id) => page2Ids.includes(id))).toHaveLength(0)
     })
   })
 })
