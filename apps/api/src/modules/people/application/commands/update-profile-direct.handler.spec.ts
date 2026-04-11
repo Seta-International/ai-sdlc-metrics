@@ -108,4 +108,18 @@ describe('UpdateProfileDirectHandler', () => {
     })
     expect(detailRepo.updateField).not.toHaveBeenCalled()
   })
+
+  it('only calls detailRepo.updateField when all fields are detail-level', async () => {
+    vi.mocked(profileRepo.findById).mockResolvedValue(fakeProfile)
+
+    await handler.execute(
+      new UpdateProfileDirectCommand(TENANT_ID, PROFILE_ID, ACTOR_ID, {
+        currentAddress: '123 Main St',
+        emergencyContactName: 'Jane Doe',
+      }),
+    )
+
+    expect(profileRepo.update).not.toHaveBeenCalled()
+    expect(detailRepo.updateField).toHaveBeenCalledTimes(2)
+  })
 })
