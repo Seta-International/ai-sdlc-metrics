@@ -77,9 +77,12 @@ export class DrizzleOffboardingCaseRepository implements IOffboardingCaseReposit
     tenantId: string,
     data: Partial<Pick<OffboardingCase, 'status' | 'decisionCaseId'>>,
   ): Promise<void> {
+    const setValues: Partial<typeof offboardingCase.$inferInsert> = { updatedAt: new Date() }
+    if (data.status !== undefined) setValues.status = data.status
+    if (data.decisionCaseId !== undefined) setValues.decisionCaseId = data.decisionCaseId
     await this.db
       .update(offboardingCase)
-      .set({ ...data, updatedAt: new Date() } as Record<string, unknown>)
+      .set(setValues)
       .where(and(eq(offboardingCase.id, id), eq(offboardingCase.tenantId, tenantId)))
   }
 
@@ -98,6 +101,7 @@ export class DrizzleOffboardingCaseRepository implements IOffboardingCaseReposit
       caseId: data.caseId,
       assigneeActorId: data.actorId ?? undefined,
       title: data.title,
+      description: data.description ?? null,
       assigneeRole: data.assigneeRole as
         | 'hr'
         | 'it'
@@ -250,9 +254,17 @@ export class DrizzleOffboardingTemplateRepository implements IOffboardingTemplat
     tenantId: string,
     data: Partial<Omit<OffboardingTemplate, 'id' | 'tenantId'>>,
   ): Promise<OffboardingTemplate> {
+    const setValues: Partial<typeof offboardingTemplate.$inferInsert> = {}
+    if (data.name !== undefined) setValues.name = data.name
+    if (data.employmentType !== undefined)
+      setValues.employmentType = data.employmentType ?? undefined
+    if (data.reasonCategory !== undefined)
+      setValues.reasonCategory = data.reasonCategory ?? undefined
+    if (data.isDefault !== undefined) setValues.isDefault = data.isDefault
+    if (data.isActive !== undefined) setValues.isActive = data.isActive
     const rows = await this.db
       .update(offboardingTemplate)
-      .set(data as Record<string, unknown>)
+      .set(setValues)
       .where(and(eq(offboardingTemplate.id, id), eq(offboardingTemplate.tenantId, tenantId)))
       .returning()
     return rows[0] as OffboardingTemplate

@@ -76,6 +76,7 @@ export class DrizzleOnboardingCaseRepository implements IOnboardingCaseRepositor
       caseId: data.caseId,
       assigneeActorId: data.actorId ?? undefined,
       title: data.title,
+      description: data.description ?? null,
       assigneeRole: data.assigneeRole as 'hr' | 'it' | 'project_manager' | 'employee',
       isRequired: data.isRequired,
       dueDate: data.dueDate,
@@ -206,9 +207,15 @@ export class DrizzleOnboardingTemplateRepository implements IOnboardingTemplateR
     tenantId: string,
     data: Partial<Omit<OnboardingTemplate, 'id' | 'tenantId'>>,
   ): Promise<OnboardingTemplate> {
+    const setValues: Partial<typeof onboardingTemplate.$inferInsert> = {}
+    if (data.name !== undefined) setValues.name = data.name
+    if (data.employmentType !== undefined)
+      setValues.employmentType = data.employmentType ?? undefined
+    if (data.isDefault !== undefined) setValues.isDefault = data.isDefault
+    if (data.isActive !== undefined) setValues.isActive = data.isActive
     const rows = await this.db
       .update(onboardingTemplate)
-      .set(data as Record<string, unknown>)
+      .set(setValues)
       .where(and(eq(onboardingTemplate.id, id), eq(onboardingTemplate.tenantId, tenantId)))
       .returning()
     return rows[0] as OnboardingTemplate

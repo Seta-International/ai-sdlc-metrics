@@ -159,6 +159,7 @@ export const onboardingTask = peopleSchema.table('onboarding_task', {
   tenantId: uuid('tenant_id').notNull(),
   caseId: uuid('case_id').notNull(),
   title: text('title').notNull(),
+  description: text('description'),
   assigneeRole: text('assignee_role', {
     enum: ['hr', 'it', 'project_manager', 'employee'],
   }).notNull(),
@@ -234,6 +235,7 @@ export const offboardingTask = peopleSchema.table('offboarding_task', {
   tenantId: uuid('tenant_id').notNull(),
   caseId: uuid('case_id').notNull(),
   title: text('title').notNull(),
+  description: text('description'),
   assigneeRole: text('assignee_role', {
     enum: ['hr', 'it', 'project_manager', 'employee', 'account_manager'],
   }).notNull(),
