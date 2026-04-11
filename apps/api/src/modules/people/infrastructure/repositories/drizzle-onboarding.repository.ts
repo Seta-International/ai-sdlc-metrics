@@ -95,7 +95,13 @@ export class DrizzleOnboardingCaseRepository implements IOnboardingCaseRepositor
         isRequired: onboardingTask.isRequired,
       })
       .from(onboardingTask)
-      .where(and(eq(onboardingTask.caseId, caseId), eq(onboardingTask.tenantId, tenantId)))
+      .where(
+        and(
+          eq(onboardingTask.caseId, caseId),
+          eq(onboardingTask.tenantId, tenantId),
+          eq(onboardingTask.isRequired, true),
+        ),
+      )
     return rows
   }
 

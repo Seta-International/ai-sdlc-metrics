@@ -39,8 +39,7 @@ describe('ApproveOffboardingHandler', () => {
       findByActorId: vi.fn(),
       insert: vi.fn(),
       updateStatus: vi.fn(),
-      list: vi.fn(),
-      count: vi.fn(),
+      listByTenant: vi.fn(),
     } as unknown as IEmploymentProfileRepository
     templateRepo = {
       findMatch: vi.fn().mockResolvedValue({
@@ -175,5 +174,25 @@ describe('ApproveOffboardingHandler', () => {
     await handler.execute(new ApproveOffboardingCommand(TENANT_ID, CASE_ID, APPROVER_ID))
 
     expect(templateRepo.findDefault).toHaveBeenCalledWith(TENANT_ID)
+  })
+
+  it('does not call commandBus.execute when decisionCaseId is null', async () => {
+    vi.mocked(caseRepo.findById).mockResolvedValue({
+      id: CASE_ID,
+      tenantId: TENANT_ID,
+      profileId: PROFILE_ID,
+      status: 'pending',
+      reason: 'Resignation',
+      reasonCategory: 'voluntary',
+      templateId: null,
+      decisionCaseId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    vi.mocked(templateRepo.getTaskTemplates).mockResolvedValue([])
+
+    await handler.execute(new ApproveOffboardingCommand(TENANT_ID, CASE_ID, APPROVER_ID))
+
+    expect(commandBus.execute).not.toHaveBeenCalled()
   })
 })

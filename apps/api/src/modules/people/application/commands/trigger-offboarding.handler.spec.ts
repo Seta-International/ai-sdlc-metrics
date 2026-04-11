@@ -51,7 +51,7 @@ describe('TriggerOffboardingHandler', () => {
       insert: vi.fn(),
       updateStatus: vi.fn(),
       update: vi.fn(),
-      list: vi.fn(),
+      listByTenant: vi.fn(),
     } as unknown as IEmploymentProfileRepository
 
     offboardingCaseRepo = {

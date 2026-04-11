@@ -64,4 +64,26 @@ describe('RejectOffboardingHandler', () => {
       ),
     ).rejects.toThrow(OffboardingCaseNotFoundException)
   })
+
+  it('does not call commandBus.execute when decisionCaseId is null', async () => {
+    vi.mocked(caseRepo.findById).mockResolvedValue({
+      id: CASE_ID,
+      tenantId: TENANT_ID,
+      profileId: '01900000-0000-7000-8000-000000000003',
+      status: 'pending',
+      reason: 'Resignation',
+      reasonCategory: 'voluntary',
+      templateId: null,
+      decisionCaseId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
+    await handler.execute(
+      new RejectOffboardingCommand(TENANT_ID, CASE_ID, REJECTOR_ID, 'Employee withdrew'),
+    )
+
+    expect(caseRepo.updateStatus).toHaveBeenCalledWith(CASE_ID, TENANT_ID, 'rejected')
+    expect(commandBus.execute).not.toHaveBeenCalled()
+  })
 })

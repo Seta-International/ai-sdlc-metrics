@@ -125,7 +125,13 @@ export class DrizzleOffboardingCaseRepository implements IOffboardingCaseReposit
         isRequired: offboardingTask.isRequired,
       })
       .from(offboardingTask)
-      .where(and(eq(offboardingTask.caseId, caseId), eq(offboardingTask.tenantId, tenantId)))
+      .where(
+        and(
+          eq(offboardingTask.caseId, caseId),
+          eq(offboardingTask.tenantId, tenantId),
+          eq(offboardingTask.isRequired, true),
+        ),
+      )
     return rows
   }
 
