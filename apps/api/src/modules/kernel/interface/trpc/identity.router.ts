@@ -68,26 +68,13 @@ export const identityRouter = router({
       }
     }),
 
-  requestMagicLink: publicProcedure.input(requestMagicLinkInput).mutation(async ({ input }) => {
-    // Delegates to RequestMagicLinkCommand from Plan 02
-    // Sends magic link email via pg-boss job
-    const bus = getCommandBus()
-    await bus.execute(
-      // Command class from Plan 02 — RequestMagicLinkCommand
-      { email: input.email, tenantId: input.tenantId },
-    )
-    // Always return success to prevent email enumeration
-    return { sent: true }
+  requestMagicLink: publicProcedure.input(requestMagicLinkInput).mutation(async () => {
+    // TODO(Plan 02): Replace with RequestMagicLinkCommand once Plan 02 is implemented
+    throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Magic link not yet implemented' })
   }),
 
-  validateMagicLink: publicProcedure.input(validateMagicLinkInput).mutation(async ({ input }) => {
-    // Delegates to ValidateMagicLinkCommand from Plan 02
-    // Returns same ResolveLoginResult shape
-    const bus = getCommandBus()
-    const result: ResolveLoginResult = await bus.execute(
-      // Command class from Plan 02 — ValidateMagicLinkCommand
-      { token: input.token, tenantId: input.tenantId },
-    )
-    return result
+  validateMagicLink: publicProcedure.input(validateMagicLinkInput).mutation(async () => {
+    // TODO(Plan 02): Replace with ValidateMagicLinkCommand once Plan 02 is implemented
+    throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'Magic link not yet implemented' })
   }),
 })
