@@ -88,3 +88,60 @@ export async function seedActor(
 
   return { id, tenantId }
 }
+
+export async function truncatePeopleSchema(db: Db): Promise<void> {
+  await db.execute(
+    sql`TRUNCATE
+      people.employment_profile,
+      people.employment_profile_detail,
+      people.profile_section,
+      people.profile_change_request,
+      people.periodic_profile_review,
+      people.onboarding_template,
+      people.onboarding_task_template,
+      people.onboarding_case,
+      people.onboarding_task,
+      people.offboarding_template,
+      people.offboarding_task_template,
+      people.offboarding_case,
+      people.offboarding_task,
+      people.account_membership,
+      people.contract_version
+    RESTART IDENTITY CASCADE`,
+  )
+}
+
+export async function seedEmploymentProfile(
+  db: Db,
+  overrides: Partial<{
+    id: string
+    tenantId: string
+    actorId: string
+    employeeCode: string
+    companyEmail: string
+    employmentType: string
+    employmentStatus: string
+    workArrangement: string
+    hireDate: string
+    jobTitle: string
+  }> = {},
+): Promise<{ id: string; tenantId: string; actorId: string }> {
+  const id = overrides.id ?? uuidv7()
+  const tenantId = overrides.tenantId ?? uuidv7()
+  const actorId = overrides.actorId ?? uuidv7()
+  const employeeCode = overrides.employeeCode ?? `SETA-${id.slice(0, 8).toUpperCase()}`
+  const companyEmail = overrides.companyEmail ?? `employee-${id.slice(0, 8)}@seta-international.vn`
+  const employmentType = overrides.employmentType ?? 'permanent'
+  const employmentStatus = overrides.employmentStatus ?? 'active'
+  const workArrangement = overrides.workArrangement ?? 'onsite'
+  const hireDate = overrides.hireDate ?? new Date().toISOString()
+  const jobTitle = overrides.jobTitle ?? 'Software Engineer'
+
+  await db.execute(
+    sql`INSERT INTO people.employment_profile
+      (id, tenant_id, actor_id, employee_code, company_email, employment_type, employment_status, work_arrangement, hire_date, job_title, created_at, updated_at)
+      VALUES (${id}, ${tenantId}, ${actorId}, ${employeeCode}, ${companyEmail}, ${employmentType}, ${employmentStatus}, ${workArrangement}, ${hireDate}, ${jobTitle}, NOW(), NOW())`,
+  )
+
+  return { id, tenantId, actorId }
+}
