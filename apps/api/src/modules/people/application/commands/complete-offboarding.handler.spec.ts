@@ -137,8 +137,10 @@ describe('CompleteOffboardingHandler', () => {
       reason: 'Resignation',
       reasonCategory: 'voluntary',
       decisionCaseId: null,
+      templateId: null,
       createdAt: new Date(),
-    } as any)
+      updatedAt: new Date(),
+    })
 
     await expect(
       handler.execute(new CompleteOffboardingCommand(TENANT_ID, CASE_ID, COMPLETED_BY)),

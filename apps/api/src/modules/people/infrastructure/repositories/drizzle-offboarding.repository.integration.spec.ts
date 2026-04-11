@@ -20,7 +20,7 @@ const TENANT_B = '01900000-0000-7fff-8000-000000000021'
 describe('DrizzleOffboardingCaseRepository', () => {
   const db = createTestDb()
   let caseRepo: DrizzleOffboardingCaseRepository
-  let templateRepo: DrizzleOffboardingTemplateRepository
+  let _templateRepo: DrizzleOffboardingTemplateRepository
 
   let profileIdA: string
 
@@ -31,7 +31,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
     await seedTenant(db, { id: TENANT_A, slug: 'offboarding-tenant-a' })
     await seedTenant(db, { id: TENANT_B, slug: 'offboarding-tenant-b' })
     caseRepo = new DrizzleOffboardingCaseRepository(db as never)
-    templateRepo = new DrizzleOffboardingTemplateRepository(db as never)
+    _templateRepo = new DrizzleOffboardingTemplateRepository(db as never)
 
     await setTenantContext(db, TENANT_A)
     const { id: actorId } = await seedActor(db, { tenantId: TENANT_A })

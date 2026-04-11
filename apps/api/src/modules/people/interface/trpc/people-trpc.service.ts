@@ -11,6 +11,7 @@ export class PeopleTrpcService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     instance = this
   }
 

@@ -1,15 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { QueryBus } from '@nestjs/cqrs'
 import { PeopleQueryFacade } from './people-query.facade'
 import { GetProfileQuery } from '../queries/get-profile.query'
 import { ListEmployeesQuery } from '../queries/list-employees.query'
 
 describe('PeopleQueryFacade', () => {
   let facade: PeopleQueryFacade
-  const mockQueryBus = { execute: vi.fn() }
+  const mockQueryBus = { execute: vi.fn() } as unknown as QueryBus
 
   beforeEach(() => {
     vi.clearAllMocks()
-    facade = new PeopleQueryFacade(mockQueryBus as any)
+    facade = new PeopleQueryFacade(mockQueryBus)
   })
 
   describe('getProfile', () => {
