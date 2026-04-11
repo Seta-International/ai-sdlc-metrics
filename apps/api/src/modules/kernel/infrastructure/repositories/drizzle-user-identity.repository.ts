@@ -28,12 +28,22 @@ export class DrizzleUserIdentityRepository implements IUserIdentityRepository {
     return (rows[0] as UserIdentity | undefined) ?? null
   }
 
+  async findByEmail(email: string, tenantId: string): Promise<UserIdentity | null> {
+    const rows = await this.db
+      .select()
+      .from(userIdentity)
+      .where(and(eq(userIdentity.email, email), eq(userIdentity.tenantId, tenantId)))
+      .limit(1)
+    return (rows[0] as UserIdentity | undefined) ?? null
+  }
+
   async insert(data: {
     tenantId: string
     actorId: string
     email: string
     ssoSubject: string
     provider: UserIdentity['provider']
+    status?: UserIdentity['status']
   }): Promise<UserIdentity> {
     const rows = await this.db
       .insert(userIdentity)
@@ -43,9 +53,17 @@ export class DrizzleUserIdentityRepository implements IUserIdentityRepository {
         email: data.email,
         ssoSubject: data.ssoSubject,
         provider: data.provider,
+        status: data.status,
       })
       .returning()
     return rows[0] as UserIdentity
+  }
+
+  async updateLastLogin(id: string): Promise<void> {
+    await this.db
+      .update(userIdentity)
+      .set({ lastLoginAt: new Date() })
+      .where(eq(userIdentity.id, id))
   }
 
   async deprovisionByActorId(actorId: string, tenantId: string): Promise<void> {

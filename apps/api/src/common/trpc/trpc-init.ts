@@ -1,5 +1,5 @@
 import { initTRPC } from '@trpc/server'
-import { createAuthMiddleware, type AuthContext } from './auth-middleware'
+import { createAuthMiddleware } from './auth-middleware'
 import type { JwtService } from '../auth/jwt.service'
 
 export interface TrpcContext {

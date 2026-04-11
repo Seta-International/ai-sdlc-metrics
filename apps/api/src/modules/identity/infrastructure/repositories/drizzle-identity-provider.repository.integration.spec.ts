@@ -97,6 +97,10 @@ describe('DrizzleIdentityProviderRepository', () => {
       await setTenantContext(db, TENANT_A)
       const providers = await repo.findByTenantId(TENANT_A)
       const provider = providers[0]
+      expect(provider).toBeDefined()
+      if (!provider) {
+        throw new Error('Expected seeded provider for tenant A')
+      }
 
       const updated = await repo.update(provider.id, TENANT_A, {
         displayName: 'Updated Name',
@@ -111,6 +115,10 @@ describe('DrizzleIdentityProviderRepository', () => {
       await setTenantContext(db, TENANT_A)
       const providers = await repo.findByTenantId(TENANT_A)
       const provider = providers[0]
+      expect(provider).toBeDefined()
+      if (!provider) {
+        throw new Error('Expected seeded provider for tenant A')
+      }
       const now = new Date()
 
       const updated = await repo.update(provider.id, TENANT_A, {
@@ -128,6 +136,10 @@ describe('DrizzleIdentityProviderRepository', () => {
       await setTenantContext(db, TENANT_A)
       const providers = await repo.findByTenantId(TENANT_A)
       const provider = providers[0]
+      expect(provider).toBeDefined()
+      if (!provider) {
+        throw new Error('Expected seeded provider for tenant A')
+      }
 
       await setTenantContext(db, TENANT_B)
       const found = await repo.findById(provider.id, TENANT_B)

@@ -40,7 +40,10 @@ describe('RequestMagicLinkHandler', () => {
         email: 'user@seta.vn',
       }),
     )
-    const storedCall = vi.mocked(tokenRepo.insert).mock.calls[0][0]
+    const storedCall = vi.mocked(tokenRepo.insert).mock.calls[0]?.[0]
+    if (!storedCall) {
+      throw new Error('Expected tokenRepo.insert to be called')
+    }
     expect(storedCall.tokenHash).not.toBe(result.plaintextToken)
   })
 
@@ -77,7 +80,10 @@ describe('RequestMagicLinkHandler', () => {
     await handler.execute(new RequestMagicLinkCommand(TENANT_ID, 'user@seta.vn'))
     const after = Date.now()
 
-    const storedCall = vi.mocked(tokenRepo.insert).mock.calls[0][0]
+    const storedCall = vi.mocked(tokenRepo.insert).mock.calls[0]?.[0]
+    if (!storedCall) {
+      throw new Error('Expected tokenRepo.insert to be called')
+    }
     const expiresMs = storedCall.expiresAt.getTime()
     expect(expiresMs).toBeGreaterThanOrEqual(before + 14 * 60 * 1000)
     expect(expiresMs).toBeLessThanOrEqual(after + 16 * 60 * 1000)

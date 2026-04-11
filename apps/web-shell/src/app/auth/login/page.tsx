@@ -28,7 +28,7 @@ function buildGoogleAuthUrl(state: string): string {
 
 export default function LoginPage() {
   // In production, state would include CSRF token + tenant slug
-  const state = encodeURIComponent(JSON.stringify({ ts: Date.now() }))
+  const state = encodeURIComponent(JSON.stringify({ intent: 'login' }))
   const microsoftUrl = buildMicrosoftAuthUrl(state)
   const googleUrl = buildGoogleAuthUrl(state)
 

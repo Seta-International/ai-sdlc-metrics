@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { setIdentityCommandBus, setIdentityJwtService } from './identity.router'
+import { identityRouter, setIdentityCommandBus, setIdentityJwtService } from './identity.router'
 import { createCallerFactory } from '../../../../common/trpc/trpc-init'
 import type { CommandBus } from '@nestjs/cqrs'
 import type { JwtService } from '../../../../common/auth/jwt.service'
@@ -15,11 +15,18 @@ const RESOLVE_RESULT: ResolveLoginResult = {
   provider: 'microsoft',
 }
 
+type ResolveLoginInput = {
+  provider: 'microsoft' | 'google' | 'magic_link'
+  ssoSubject: string
+  email: string
+  displayName: string
+  tenantId: string
+}
+
 const MOCK_CTX = { req: { headers: {} } }
 
 describe('identityRouter procedures', () => {
-  it('exports resolveLogin, requestMagicLink, and validateMagicLink procedures', async () => {
-    const { identityRouter } = await import('./identity.router')
+  it('exports resolveLogin, requestMagicLink, and validateMagicLink procedures', () => {
     expect(identityRouter).toBeDefined()
     expect(identityRouter._def.procedures).toHaveProperty('resolveLogin')
     expect(identityRouter._def.procedures).toHaveProperty('requestMagicLink')
@@ -46,12 +53,13 @@ describe('resolveLogin mutation', () => {
   })
 
   it('returns sessionToken after signing JWT from resolve result', async () => {
-    const { identityRouter } = await import('./identity.router')
-
     const createCaller = createCallerFactory(identityRouter)
     const caller = createCaller(MOCK_CTX)
+    const resolveLogin = caller.resolveLogin as unknown as (
+      input: ResolveLoginInput,
+    ) => Promise<{ sessionToken: string }>
 
-    const result = await caller.resolveLogin({
+    const result = await resolveLogin({
       provider: 'microsoft',
       ssoSubject: 'entra-oid-123',
       email: 'alice@seta.vn',
@@ -71,13 +79,14 @@ describe('resolveLogin mutation', () => {
   it('throws FORBIDDEN for suspended account', async () => {
     vi.mocked(mockCommandBus.execute).mockRejectedValue(new Error('Account is suspended: xyz'))
 
-    const { identityRouter } = await import('./identity.router')
-
     const createCaller = createCallerFactory(identityRouter)
     const caller = createCaller(MOCK_CTX)
+    const resolveLogin = caller.resolveLogin as unknown as (
+      input: ResolveLoginInput,
+    ) => Promise<{ sessionToken: string }>
 
     await expect(
-      caller.resolveLogin({
+      resolveLogin({
         provider: 'microsoft',
         ssoSubject: 'entra-oid-999',
         email: 'suspended@seta.vn',

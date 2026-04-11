@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { initTRPC, TRPCError } from '@trpc/server'
 import { createAuthMiddleware } from './auth-middleware'
 import type { JwtService } from '../auth/jwt.service'
 import type { SessionPayload } from '../auth/session-payload'

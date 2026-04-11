@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseToken, type FutureTokenClaims } from './parse-token'
+import { parseToken } from './parse-token'
 
 // Create a base64url-encoded JWT payload (no signature verification — client-side only)
 function createFakeJwt(payload: Record<string, unknown>): string {

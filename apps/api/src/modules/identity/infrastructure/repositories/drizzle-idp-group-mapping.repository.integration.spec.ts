@@ -85,6 +85,10 @@ describe('DrizzleIdpGroupMappingRepository', () => {
     it('deletes the mapping by id', async () => {
       const mappings = await repo.findByProviderId(providerId, TENANT)
       const toRemove = mappings[0]
+      expect(toRemove).toBeDefined()
+      if (!toRemove) {
+        throw new Error('Expected mapping to remove')
+      }
 
       await repo.remove(toRemove.id, TENANT)
 

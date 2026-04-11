@@ -1,10 +1,11 @@
-import { createTRPCProxyClient, httpBatchLink } from '@trpc/client'
+import { createTRPCClient as createVanillaTRPCClient, httpBatchLink } from '@trpc/client'
+import type { TRPCClient as VanillaTRPCClient } from '@trpc/client'
 import type { AppRouter } from './index'
 
-export function createTRPCClient(apiUrl: string) {
-  return createTRPCProxyClient<AppRouter>({
+export type TRPCClient = VanillaTRPCClient<AppRouter>
+
+export function createTRPCClient(apiUrl: string): TRPCClient {
+  return createVanillaTRPCClient<AppRouter>({
     links: [httpBatchLink({ url: `${apiUrl}/trpc` })],
   })
 }
-
-export type TRPCClient = ReturnType<typeof createTRPCClient>

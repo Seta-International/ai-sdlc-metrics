@@ -6,24 +6,24 @@ import {
   IdentityProviderNotFoundException,
   DirectorySyncAlreadyRunningException,
 } from '../../domain/exceptions/identity.exceptions'
+import type { IdentityProviderEntity } from '../../domain/entities/identity-provider.entity'
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
 import type { IIdpGroupMappingRepository } from '../../domain/repositories/idp-group-mapping.repository'
 import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
 import type {
   IDirectoryProvider,
   IdpUser,
-  IdpGroup,
 } from '../../infrastructure/providers/directory-provider.interface'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const PROVIDER_ID = '01900000-0000-7000-8000-000000000002'
 
-const makeProvider = (overrides?: Partial<ReturnType<typeof makeProviderDefaults>>) => ({
+const makeProvider = (overrides?: Partial<IdentityProviderEntity>) => ({
   ...makeProviderDefaults(),
   ...overrides,
 })
 
-function makeProviderDefaults() {
+function makeProviderDefaults(): IdentityProviderEntity {
   return {
     id: PROVIDER_ID,
     tenantId: TENANT_ID,

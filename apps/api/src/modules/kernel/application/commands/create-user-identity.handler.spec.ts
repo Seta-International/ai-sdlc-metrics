@@ -48,7 +48,9 @@ describe('CreateUserIdentityHandler', () => {
     identityRepo = {
       findById: vi.fn(),
       findBySsoSubject: vi.fn(),
+      findByEmail: vi.fn(),
       insert: vi.fn(),
+      updateLastLogin: vi.fn(),
       deprovisionByActorId: vi.fn(),
     }
     handler = new CreateUserIdentityHandler(actorRepo, identityRepo)
