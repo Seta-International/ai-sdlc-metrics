@@ -71,4 +71,63 @@ export class DrizzleRolePermissionRepository implements IRolePermissionRepositor
 
     return rows as RolePermission[]
   }
+
+  async findByTenantId(tenantId: string): Promise<RolePermission[]> {
+    return this.findAll(tenantId)
+  }
+
+  async findByRoleKeyAndPermissionKey(
+    roleKey: RoleKeyValue,
+    permissionKey: string,
+    tenantId: string,
+  ): Promise<RolePermission | null> {
+    const rows = await this.db
+      .select()
+      .from(rolePermission)
+      .where(
+        and(
+          eq(rolePermission.roleKey, roleKey),
+          eq(rolePermission.permissionKey, permissionKey),
+          eq(rolePermission.tenantId, tenantId),
+        ),
+      )
+      .limit(1)
+
+    return (rows[0] as RolePermission) ?? null
+  }
+
+  async removeById(id: string, tenantId: string): Promise<void> {
+    await this.db
+      .delete(rolePermission)
+      .where(and(eq(rolePermission.id, id), eq(rolePermission.tenantId, tenantId)))
+  }
+
+  async removeAllForRole(roleKey: RoleKeyValue, tenantId: string): Promise<void> {
+    await this.db
+      .delete(rolePermission)
+      .where(and(eq(rolePermission.roleKey, roleKey), eq(rolePermission.tenantId, tenantId)))
+  }
+
+  async insertMany(
+    data: Array<{
+      tenantId: string
+      roleKey: RoleKeyValue
+      permissionKey: string
+      isLocked: boolean
+    }>,
+  ): Promise<void> {
+    if (data.length === 0) return
+
+    await this.db
+      .insert(rolePermission)
+      .values(
+        data.map((d) => ({
+          tenantId: d.tenantId,
+          roleKey: d.roleKey,
+          permissionKey: d.permissionKey,
+          isLocked: d.isLocked,
+        })),
+      )
+      .onConflictDoNothing()
+  }
 }

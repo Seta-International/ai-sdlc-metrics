@@ -14,4 +14,20 @@ export interface IRolePermissionRepository {
   }): Promise<RolePermission | null>
   remove(tenantId: string, roleKey: RoleKeyValue, permissionKey: string): Promise<void>
   findAll(tenantId: string): Promise<RolePermission[]>
+  findByTenantId(tenantId: string): Promise<RolePermission[]>
+  findByRoleKeyAndPermissionKey(
+    roleKey: RoleKeyValue,
+    permissionKey: string,
+    tenantId: string,
+  ): Promise<RolePermission | null>
+  removeById(id: string, tenantId: string): Promise<void>
+  removeAllForRole(roleKey: RoleKeyValue, tenantId: string): Promise<void>
+  insertMany(
+    data: Array<{
+      tenantId: string
+      roleKey: RoleKeyValue
+      permissionKey: string
+      isLocked: boolean
+    }>,
+  ): Promise<void>
 }

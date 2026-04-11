@@ -24,6 +24,11 @@ describe('SeedRolePermissionsHandler', () => {
       })),
       remove: vi.fn(),
       findAll: vi.fn(),
+      findByTenantId: vi.fn(),
+      findByRoleKeyAndPermissionKey: vi.fn(),
+      removeById: vi.fn(),
+      removeAllForRole: vi.fn(),
+      insertMany: vi.fn(),
     }
     handler = new SeedRolePermissionsHandler(rolePermissionRepo)
   })

@@ -76,6 +76,11 @@ describe('CanDoHandler', () => {
       insert: vi.fn(),
       remove: vi.fn(),
       findAll: vi.fn(),
+      findByTenantId: vi.fn(),
+      findByRoleKeyAndPermissionKey: vi.fn(),
+      removeById: vi.fn(),
+      removeAllForRole: vi.fn(),
+      insertMany: vi.fn(),
     }
     delegationRepo = {
       findActiveDelegationsForDelegatee: vi.fn().mockResolvedValue([]),
