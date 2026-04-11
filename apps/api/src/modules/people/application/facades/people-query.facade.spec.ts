@@ -6,7 +6,8 @@ import { ListEmployeesQuery } from '../queries/list-employees.query'
 
 describe('PeopleQueryFacade', () => {
   let facade: PeopleQueryFacade
-  const mockQueryBus = { execute: vi.fn() } as unknown as QueryBus
+  const mockExecute = vi.fn()
+  const mockQueryBus = { execute: mockExecute } as unknown as QueryBus
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -16,16 +17,16 @@ describe('PeopleQueryFacade', () => {
   describe('getProfile', () => {
     it('calls queryBus.execute with GetProfileQuery and returns the result', async () => {
       const expected = { actorId: 'actor-1', tenantId: 'tenant-1', employeeCode: 'E001' }
-      mockQueryBus.execute.mockResolvedValueOnce(expected)
+      mockExecute.mockResolvedValueOnce(expected)
 
       const result = await facade.getProfile('actor-1', 'tenant-1')
 
-      expect(mockQueryBus.execute).toHaveBeenCalledWith(new GetProfileQuery('actor-1', 'tenant-1'))
+      expect(mockExecute).toHaveBeenCalledWith(new GetProfileQuery('actor-1', 'tenant-1'))
       expect(result).toBe(expected)
     })
 
     it('returns null when queryBus.execute resolves to null', async () => {
-      mockQueryBus.execute.mockResolvedValueOnce(null)
+      mockExecute.mockResolvedValueOnce(null)
 
       const result = await facade.getProfile('actor-1', 'tenant-1')
 
@@ -36,11 +37,11 @@ describe('PeopleQueryFacade', () => {
   describe('listEmployees', () => {
     it('calls queryBus.execute with ListEmployeesQuery and returns the result', async () => {
       const expected = { items: [], total: 0 }
-      mockQueryBus.execute.mockResolvedValueOnce(expected)
+      mockExecute.mockResolvedValueOnce(expected)
 
       const result = await facade.listEmployees('tenant-1', 10, 0)
 
-      expect(mockQueryBus.execute).toHaveBeenCalledWith(new ListEmployeesQuery('tenant-1', 10, 0))
+      expect(mockExecute).toHaveBeenCalledWith(new ListEmployeesQuery('tenant-1', 10, 0))
       expect(result).toBe(expected)
     })
   })
