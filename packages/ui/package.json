@@ -6,6 +6,10 @@
     ".": {
       "import": "./src/index.ts",
       "types": "./src/index.ts"
+    },
+    "./fonts": {
+      "import": "./src/lib/fonts.ts",
+      "types": "./src/lib/fonts.ts"
     }
   },
   "scripts": {
