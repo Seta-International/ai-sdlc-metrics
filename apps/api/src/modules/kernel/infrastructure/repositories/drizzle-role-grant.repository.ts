@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import type { Db } from '@future/db'
 import { and, eq, gt, isNull, or } from 'drizzle-orm'
-import type { RoleGrant } from '../../domain/entities/role-grant.entity'
+import type { RoleGrant, RoleGrantSourceValue } from '../../domain/entities/role-grant.entity'
 import type { IRoleGrantRepository } from '../../domain/repositories/role-grant.repository.port'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { roleGrant } from '../schema/index'
@@ -33,6 +33,7 @@ export class DrizzleRoleGrantRepository implements IRoleGrantRepository {
     scopeType: RoleGrant['scopeType']
     scopeId: string | null
     grantedBy: string
+    source?: RoleGrantSourceValue
   }): Promise<RoleGrant> {
     const rows = await this.db
       .insert(roleGrant)
@@ -43,6 +44,7 @@ export class DrizzleRoleGrantRepository implements IRoleGrantRepository {
         scopeType: data.scopeType,
         scopeId: data.scopeId ?? undefined,
         grantedBy: data.grantedBy,
+        source: data.source ?? 'manual',
       })
       .returning()
     return rows[0] as RoleGrant
@@ -56,6 +58,25 @@ export class DrizzleRoleGrantRepository implements IRoleGrantRepository {
         and(
           eq(roleGrant.actorId, actorId),
           eq(roleGrant.tenantId, tenantId),
+          isNull(roleGrant.validUntil),
+        ),
+      )
+  }
+
+  async revokeBySource(
+    actorId: string,
+    tenantId: string,
+    source: RoleGrantSourceValue,
+    revokedAt: Date,
+  ): Promise<void> {
+    await this.db
+      .update(roleGrant)
+      .set({ validUntil: revokedAt })
+      .where(
+        and(
+          eq(roleGrant.actorId, actorId),
+          eq(roleGrant.tenantId, tenantId),
+          eq(roleGrant.source, source),
           isNull(roleGrant.validUntil),
         ),
       )

@@ -44,7 +44,12 @@ describe('GrantRoleHandler', () => {
 
   beforeEach(() => {
     actorRepo = { findById: vi.fn(), insert: vi.fn(), updateStatus: vi.fn() }
-    roleGrantRepo = { findByActorId: vi.fn(), insert: vi.fn(), revokeAllForActor: vi.fn() }
+    roleGrantRepo = {
+      findByActorId: vi.fn(),
+      insert: vi.fn(),
+      revokeAllForActor: vi.fn(),
+      revokeBySource: vi.fn(),
+    }
     handler = new GrantRoleHandler(actorRepo, roleGrantRepo)
   })
 
@@ -64,6 +69,7 @@ describe('GrantRoleHandler', () => {
       scopeType: 'global',
       scopeId: null,
       grantedBy: GRANTER_ID,
+      source: 'manual',
     })
   })
 
@@ -80,6 +86,33 @@ describe('GrantRoleHandler', () => {
     )
 
     expect(result).toBe(GRANT_ID)
+  })
+
+  it('passes source through to repository insert', async () => {
+    vi.mocked(actorRepo.findById).mockResolvedValue(fakeActor)
+    vi.mocked(roleGrantRepo.insert).mockResolvedValue({
+      ...fakeGrant,
+      source: 'idp_sync',
+    })
+
+    await handler.execute(
+      new GrantRoleCommand(TENANT_ID, ACTOR_ID, 'employee', 'global', null, GRANTER_ID, 'idp_sync'),
+    )
+
+    expect(roleGrantRepo.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'idp_sync' }),
+    )
+  })
+
+  it('defaults source to manual when not provided', async () => {
+    vi.mocked(actorRepo.findById).mockResolvedValue(fakeActor)
+    vi.mocked(roleGrantRepo.insert).mockResolvedValue(fakeGrant)
+
+    await handler.execute(
+      new GrantRoleCommand(TENANT_ID, ACTOR_ID, 'employee', 'global', null, GRANTER_ID),
+    )
+
+    expect(roleGrantRepo.insert).toHaveBeenCalledWith(expect.objectContaining({ source: 'manual' }))
   })
 
   it('throws ActorNotFoundException when actor does not exist', async () => {

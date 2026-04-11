@@ -1,4 +1,8 @@
-import type { RoleKeyValue, ScopeTypeValue } from '../../domain/entities/role-grant.entity'
+import type {
+  RoleGrantSourceValue,
+  RoleKeyValue,
+  ScopeTypeValue,
+} from '../../domain/entities/role-grant.entity'
 
 export class GrantRoleCommand {
   constructor(
@@ -8,5 +12,6 @@ export class GrantRoleCommand {
     readonly scopeType: ScopeTypeValue,
     readonly scopeId: string | null,
     readonly grantedBy: string,
+    readonly source: RoleGrantSourceValue = 'manual',
   ) {}
 }
