@@ -74,8 +74,8 @@ describe('ListPeriodicReviewsHandler', () => {
     expect(periodicReviewRepo.findPendingByProfileId).toHaveBeenCalledWith(PROFILE_ID_1, TENANT_ID)
     expect(periodicReviewRepo.findPendingByProfileId).toHaveBeenCalledWith(PROFILE_ID_2, TENANT_ID)
     expect(result).toHaveLength(2)
-    expect(result[0].id).toBe('review-001')
-    expect(result[1].id).toBe('review-002')
+    expect(result[0]!.id).toBe('review-001')
+    expect(result[1]!.id).toBe('review-002')
   })
 
   it('returns empty array when no profiles exist', async () => {
