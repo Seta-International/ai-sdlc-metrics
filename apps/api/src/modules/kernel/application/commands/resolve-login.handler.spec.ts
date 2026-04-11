@@ -72,6 +72,7 @@ describe('ResolveLoginHandler', () => {
         scopeType: 'global',
         scopeId: null,
         grantedBy: ACTOR_ID,
+        source: 'manual' as const,
         validFrom: new Date(),
         validUntil: null,
       },

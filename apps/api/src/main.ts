@@ -5,6 +5,7 @@ import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/a
 import { runMigrations } from '@future/db/migrate'
 import { AppModule } from './app.module'
 import { appRouter, type AppRouter } from './common/trpc/app-router'
+import type { TrpcContext } from './common/trpc/trpc-init'
 
 async function bootstrap() {
   await runMigrations()
@@ -18,6 +19,15 @@ async function bootstrap() {
     prefix: '/trpc',
     trpcOptions: {
       router: appRouter,
+      createContext({ req }): TrpcContext {
+        return {
+          req: {
+            headers: {
+              cookie: req.headers.cookie,
+            },
+          },
+        }
+      },
       onError({ path, error }) {
         console.error(`tRPC error on '${path}':`, error)
       },
