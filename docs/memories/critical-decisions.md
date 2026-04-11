@@ -17,8 +17,8 @@ Append durable decisions here when they materially change how agents should oper
 
 - `Area:` docs
 - `Context:` AGENTS.md can hold standing instructions, but repeated implementation and review lessons would otherwise get lost between sessions.
-- `Decision:` Critical agent decisions must be logged in `docs/agents/critical-decisions.md`, and recurring failures must be logged separately in `docs/agents/repeat-issues.md`.
-- `Action:` Added the `Agent Decision Memory` rule to `AGENTS.md` and created the `docs/agents/` memory folder.
+- `Decision:` Critical agent decisions must be logged in `docs/memories/critical-decisions.md`, and recurring failures must be logged separately in `docs/memories/repeat-issues.md`.
+- `Action:` Added the `Agent Decision Memory` rule to `AGENTS.md` and created the `docs/memories/` memory folder.
 
 ### 2026-04-11 — Check Shared Packages Before Building Locally
 

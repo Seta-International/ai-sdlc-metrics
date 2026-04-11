@@ -14,6 +14,7 @@ const fakeApiKey: ApiKey = {
   tenantId: TENANT_ID,
   actorId: '01900000-0000-7000-8000-000000000080',
   keyHash: 'sha256-hash',
+  keyLastFour: 'abcd',
   name: 'CI/CD Integration',
   lastUsedAt: null,
   expiresAt: null,

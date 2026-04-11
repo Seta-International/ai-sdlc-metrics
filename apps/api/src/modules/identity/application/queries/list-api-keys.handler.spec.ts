@@ -43,7 +43,7 @@ describe('ListApiKeysHandler', () => {
     const result = await handler.execute(new ListApiKeysQuery(TENANT_ID))
 
     expect(result).toEqual(fakeApiKeys)
-    expect(result[0].keyLastFour).toBe('9789')
+    expect(result[0]!.keyLastFour).toBe('9789')
     expect(result[0]).not.toHaveProperty('keyHash')
   })
 

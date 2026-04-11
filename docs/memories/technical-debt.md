@@ -18,7 +18,7 @@ Append durable debt that future agent or developer work should pay down or avoid
 - `Area:` docs
 - `Context:` Critical decisions and repeat issues had a home, but known shortcuts and deferred cleanup did not.
 - `Issue:` Technical debt around agent workflow or documentation could be lost between sessions or mixed into the wrong log.
-- `Action:` Added `docs/agents/technical-debt.md` and referenced it from `AGENTS.md` and the agent memory README.
+- `Action:` Added `docs/memories/technical-debt.md` and referenced it from `AGENTS.md` and the agent memory README.
 
 ### 2026-04-11 — Cross-module domain imports and shared base class
 

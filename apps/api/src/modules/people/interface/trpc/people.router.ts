@@ -40,7 +40,7 @@ export function createPeopleRouter(
   return router({
     getProfile: permissionProtectedProcedure
       .meta({ permission: 'people:profile:read' })
-      .input(z.object({ actorId: z.string().uuid() }))
+      .input(z.object({ actorId: z.uuid() }))
       .query(({ ctx, input }) => {
         const { actorId: _actorId, tenantId } = ctx as unknown as AuthCtx
         return peopleFacade.getProfile(input.actorId, tenantId)
@@ -55,7 +55,7 @@ export function createPeopleRouter(
 
     updateProfile: permissionProtectedProcedure
       .meta({ permission: 'people:profile:update' })
-      .input(z.object({ actorId: z.string().uuid(), displayName: z.string().optional() }))
+      .input(z.object({ actorId: z.uuid(), displayName: z.string().optional() }))
       .mutation(async ({ ctx, input }) => {
         const { actorId, tenantId } = ctx as unknown as AuthCtx
         const profile = await peopleFacade.getProfile(input.actorId, tenantId)
@@ -77,13 +77,13 @@ export const peopleRouter = router({
   // ── Queries ────────────────────────────────────────────────────────────
 
   getProfile: publicProcedure
-    .input(z.object({ actorId: z.string().uuid(), tenantId: z.string().uuid() }))
+    .input(z.object({ actorId: z.uuid(), tenantId: z.uuid() }))
     .query(({ input }) => svc().query(new GetProfileQuery(input.actorId, input.tenantId))),
 
   listEmployees: publicProcedure
     .input(
       z.object({
-        tenantId: z.string().uuid(),
+        tenantId: z.uuid(),
         limit: z.number().int().min(1).max(100).default(20),
         offset: z.number().int().min(0).default(0),
       }),
@@ -93,29 +93,29 @@ export const peopleRouter = router({
     ),
 
   listProfileChangeRequests: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid() }))
+    .input(z.object({ tenantId: z.uuid() }))
     .query(({ input }) => svc().query(new ListProfileChangeRequestsQuery(input.tenantId))),
 
   listOnboardingTasks: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid(), caseId: z.string().uuid() }))
+    .input(z.object({ tenantId: z.uuid(), caseId: z.uuid() }))
     .query(({ input }) => svc().query(new ListOnboardingTasksQuery(input.tenantId, input.caseId))),
 
   listOnboardingTemplates: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid() }))
+    .input(z.object({ tenantId: z.uuid() }))
     .query(({ input }) => svc().query(new ListTemplatesQuery(input.tenantId, 'onboarding'))),
 
   listOffboardingTemplates: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid() }))
+    .input(z.object({ tenantId: z.uuid() }))
     .query(({ input }) => svc().query(new ListTemplatesQuery(input.tenantId, 'offboarding'))),
 
   listContractVersions: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid(), profileId: z.string().uuid() }))
+    .input(z.object({ tenantId: z.uuid(), profileId: z.uuid() }))
     .query(({ input }) =>
       svc().query(new ListContractVersionsQuery(input.tenantId, input.profileId)),
     ),
 
   listPeriodicReviews: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid() }))
+    .input(z.object({ tenantId: z.uuid() }))
     .query(({ input }) => svc().query(new ListPeriodicReviewsQuery(input.tenantId))),
 
   // ── Profile mutations ──────────────────────────────────────────────────
@@ -123,14 +123,14 @@ export const peopleRouter = router({
   createProfile: publicProcedure
     .input(
       z.object({
-        tenantId: z.string().uuid(),
-        actorId: z.string().uuid(),
+        tenantId: z.uuid(),
+        actorId: z.uuid(),
         employeeCode: z.string().nullable(),
         companyEmail: z.string().nullable(),
         employmentType: z.enum(['permanent', 'fixed_term', 'contractor', 'intern']),
         hireDate: z.coerce.date(),
         jobTitle: z.string().nullable(),
-        createdBy: z.string().uuid(),
+        createdBy: z.uuid(),
         jobLevel: z.string().optional(),
         costCenter: z.string().optional(),
         workArrangement: z.enum(['onsite', 'hybrid', 'remote']).optional(),
@@ -157,9 +157,9 @@ export const peopleRouter = router({
   updateProfileDirect: publicProcedure
     .input(
       z.object({
-        tenantId: z.string().uuid(),
-        profileId: z.string().uuid(),
-        updatedBy: z.string().uuid(),
+        tenantId: z.uuid(),
+        profileId: z.uuid(),
+        updatedBy: z.uuid(),
         fields: z.record(z.string(), z.unknown()),
       }),
     )
@@ -177,9 +177,9 @@ export const peopleRouter = router({
   requestProfileChange: publicProcedure
     .input(
       z.object({
-        tenantId: z.string().uuid(),
-        profileId: z.string().uuid(),
-        requestedBy: z.string().uuid(),
+        tenantId: z.uuid(),
+        profileId: z.uuid(),
+        requestedBy: z.uuid(),
         fieldPath: z.string(),
         oldValue: z.unknown(),
         newValue: z.unknown(),
@@ -201,9 +201,9 @@ export const peopleRouter = router({
   approveProfileChange: publicProcedure
     .input(
       z.object({
-        tenantId: z.string().uuid(),
-        changeRequestId: z.string().uuid(),
-        approvedBy: z.string().uuid(),
+        tenantId: z.uuid(),
+        changeRequestId: z.uuid(),
+        approvedBy: z.uuid(),
       }),
     )
     .mutation(({ input }) =>
@@ -215,9 +215,9 @@ export const peopleRouter = router({
   rejectProfileChange: publicProcedure
     .input(
       z.object({
-        tenantId: z.string().uuid(),
-        changeRequestId: z.string().uuid(),
-        rejectedBy: z.string().uuid(),
+        tenantId: z.uuid(),
+        changeRequestId: z.uuid(),
+        rejectedBy: z.uuid(),
         comment: z.string(),
       }),
     )
@@ -237,13 +237,13 @@ export const peopleRouter = router({
   triggerOffboarding: publicProcedure
     .input(
       z.object({
-        tenantId: z.string().uuid(),
-        profileId: z.string().uuid(),
+        tenantId: z.uuid(),
+        profileId: z.uuid(),
         reason: z.string(),
         reasonCategory: z
           .enum(['voluntary', 'involuntary', 'redundancy', 'end_of_contract'])
           .nullable(),
-        requestedBy: z.string().uuid(),
+        requestedBy: z.uuid(),
       }),
     )
     .mutation(({ input }) =>
@@ -261,9 +261,9 @@ export const peopleRouter = router({
   approveOffboarding: publicProcedure
     .input(
       z.object({
-        tenantId: z.string().uuid(),
-        offboardingCaseId: z.string().uuid(),
-        approvedBy: z.string().uuid(),
+        tenantId: z.uuid(),
+        offboardingCaseId: z.uuid(),
+        approvedBy: z.uuid(),
       }),
     )
     .mutation(({ input }) =>
@@ -275,9 +275,9 @@ export const peopleRouter = router({
   rejectOffboarding: publicProcedure
     .input(
       z.object({
-        tenantId: z.string().uuid(),
-        offboardingCaseId: z.string().uuid(),
-        rejectedBy: z.string().uuid(),
+        tenantId: z.uuid(),
+        offboardingCaseId: z.uuid(),
+        rejectedBy: z.uuid(),
         comment: z.string(),
       }),
     )
@@ -295,9 +295,9 @@ export const peopleRouter = router({
   completeOffboarding: publicProcedure
     .input(
       z.object({
-        tenantId: z.string().uuid(),
-        offboardingCaseId: z.string().uuid(),
-        completedBy: z.string().uuid(),
+        tenantId: z.uuid(),
+        offboardingCaseId: z.uuid(),
+        completedBy: z.uuid(),
       }),
     )
     .mutation(({ input }) =>
@@ -311,10 +311,10 @@ export const peopleRouter = router({
   completeTask: publicProcedure
     .input(
       z.object({
-        tenantId: z.string().uuid(),
-        taskId: z.string().uuid(),
+        tenantId: z.uuid(),
+        taskId: z.uuid(),
         taskType: z.enum(['onboarding', 'offboarding']),
-        completedBy: z.string().uuid(),
+        completedBy: z.uuid(),
         evidenceUrl: z.string().nullable(),
       }),
     )

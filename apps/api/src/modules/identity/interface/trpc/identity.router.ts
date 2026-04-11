@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import type { TrpcContext } from '../../../../common/trpc/trpc-init'
+import { globalPermissionProtectedProcedure } from '../../../../common/trpc/create-protected-procedures'
 import { IdentityTrpcService } from './identity-trpc.service'
 import { ConfigureIdentityProviderCommand } from '../../application/commands/configure-identity-provider.command'
 import { TestIdpConnectionCommand } from '../../application/commands/test-idp-connection.command'
@@ -269,5 +270,6 @@ export function createIdentityRouter(
   })
 }
 
-// Placeholder — populated during final router wiring
-export const identityRouter = router({})
+// Identity admin router — uses globalPermissionProtectedProcedure which is lazily
+// initialized by KernelModule.onModuleInit() before any request is handled.
+export const identityAdminRouter = createIdentityRouter(globalPermissionProtectedProcedure)

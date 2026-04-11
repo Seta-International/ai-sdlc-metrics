@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { TRPCError } from '@trpc/server'
-import { createKernelRouter } from './kernel.router'
+import { createKernelRouter, initKernelRouterFacade } from './kernel.router'
 import { router } from '../../../../common/trpc/trpc-init'
 import type { KernelQueryFacade } from '../../application/facades/kernel-query.facade'
 import type { IAuditEventRepository } from '../../domain/repositories/audit-event.repository.port'
@@ -23,10 +23,9 @@ describe('kernelRouter', () => {
       kernelFacade as unknown as KernelQueryFacade,
       auditRepo as unknown as IAuditEventRepository,
     )
-    const kernelRouter = createKernelRouter(
-      permissionProtectedProcedure,
-      kernelFacade as unknown as KernelQueryFacade,
-    )
+    // Initialize the lazy facade singleton used by the router handlers
+    initKernelRouterFacade(kernelFacade as unknown as KernelQueryFacade)
+    const kernelRouter = createKernelRouter(permissionProtectedProcedure)
     return { kernelRouter, kernelFacade, auditRepo }
   }
 

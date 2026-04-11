@@ -110,11 +110,11 @@ Lives in `modules/agents` inside the NestJS monolith.
 
 ## Agent Decision Memory
 
-AGENTS.md holds standing rules. Durable lessons belong in `docs/agents/`.
+AGENTS.md holds standing rules. Durable lessons belong in `docs/memories/`.
 
-- Log critical agent decisions in `docs/agents/critical-decisions.md`.
-- Log recurring failures or repeated confusion in `docs/agents/repeat-issues.md`.
-- Log durable technical debt in `docs/agents/technical-debt.md`.
+- Log critical agent decisions in `docs/memories/critical-decisions.md`.
+- Log recurring failures or repeated confusion in `docs/memories/repeat-issues.md`.
+- Log durable technical debt in `docs/memories/technical-debt.md`.
 - Before changing agent workflow or governance, scan all three files first.
 - Keep entries short: `Area`, `Context`, `Decision` or `Issue`, `Action`.
 - Skip one-off noise unless it is clearly repo-specific and likely to recur.

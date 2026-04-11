@@ -3,6 +3,8 @@ import { CommandBus, CqrsModule } from '@nestjs/cqrs'
 import { JWT_SERVICE } from '../../common/auth/auth.module'
 import type { JwtService } from '../../common/auth/jwt.service'
 import { setIdentityCommandBus, setIdentityJwtService } from './interface/trpc/identity.router'
+import { initKernelRouterFacade } from './interface/trpc/kernel.router'
+import { initGlobalPermissionProcedure } from '../../common/trpc/create-protected-procedures'
 import { ACTOR_REPOSITORY } from './domain/repositories/actor.repository.port'
 import { DEPARTMENT_REPOSITORY } from './domain/repositories/department.repository.port'
 import { DECISION_CASE_REPOSITORY } from './domain/repositories/decision-case.repository.port'
@@ -95,10 +97,18 @@ export class KernelModule implements OnModuleInit {
   constructor(
     private readonly commandBus: CommandBus,
     @Inject(JWT_SERVICE) private readonly jwtService: JwtService,
+    private readonly kernelQueryFacade: KernelQueryFacade,
+    private readonly kernelAuditService: KernelAuditService,
   ) {}
 
   onModuleInit() {
     setIdentityCommandBus(this.commandBus)
     setIdentityJwtService(this.jwtService)
+    // Wire the global permission-protected procedure used by static router exports
+    initGlobalPermissionProcedure(this.kernelQueryFacade, {
+      insert: (data) => this.kernelAuditService.log(data),
+    })
+    // Wire the kernel query facade for the kernel router's lazy singleton
+    initKernelRouterFacade(this.kernelQueryFacade)
   }
 }

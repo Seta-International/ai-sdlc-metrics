@@ -12,19 +12,19 @@ import {
 const resolveLoginInput = z.object({
   provider: z.enum(['microsoft', 'google', 'magic_link']),
   ssoSubject: z.string().min(1),
-  email: z.string().email(),
+  email: z.email(),
   displayName: z.string().min(1),
-  tenantId: z.string().uuid(),
+  tenantId: z.uuid(),
 })
 
 const requestMagicLinkInput = z.object({
-  email: z.string().email(),
-  tenantId: z.string().uuid(),
+  email: z.email(),
+  tenantId: z.uuid(),
 })
 
 const validateMagicLinkInput = z.object({
   token: z.string().min(1),
-  tenantId: z.string().uuid(),
+  tenantId: z.uuid(),
 })
 
 /**

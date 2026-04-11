@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import type { TrpcContext } from '../../../../common/trpc/trpc-init'
+import { globalPermissionProtectedProcedure } from '../../../../common/trpc/create-protected-procedures'
 import { AdminTrpcService } from './admin-trpc.service'
 import { ListRolesQuery } from '../../application/queries/list-roles.query'
 import { GetRolePermissionsQuery } from '../../application/queries/get-role-permissions.query'
@@ -14,16 +15,14 @@ type AuthCtx = TrpcContext & { actorId: string; tenantId: string }
 const svc = () => AdminTrpcService.getInstance()
 
 const auditLogFilterInput = z.object({
-  actorId: z.string().uuid().optional(),
+  actorId: z.uuid().optional(),
   eventType: z.string().max(100).optional(),
   module: z.string().max(50).optional(),
-  dateFrom: z
-    .string()
+  dateFrom: z.iso
     .datetime()
     .optional()
     .transform((v) => (v ? new Date(v) : undefined)),
-  dateTo: z
-    .string()
+  dateTo: z.iso
     .datetime()
     .optional()
     .transform((v) => (v ? new Date(v) : undefined)),
@@ -32,16 +31,14 @@ const auditLogFilterInput = z.object({
 })
 
 const auditLogExportInput = z.object({
-  actorId: z.string().uuid().optional(),
+  actorId: z.uuid().optional(),
   eventType: z.string().max(100).optional(),
   module: z.string().max(50).optional(),
-  dateFrom: z
-    .string()
+  dateFrom: z.iso
     .datetime()
     .optional()
     .transform((v) => (v ? new Date(v) : undefined)),
-  dateTo: z
-    .string()
+  dateTo: z.iso
     .datetime()
     .optional()
     .transform((v) => (v ? new Date(v) : undefined)),
@@ -156,5 +153,6 @@ export function createAdminRouter(
   })
 }
 
-// Empty placeholder — will be populated in Task 8 final wiring
-export const adminRouter = router({})
+// Admin router — uses globalPermissionProtectedProcedure which is lazily
+// initialized by KernelModule.onModuleInit() before any request is handled.
+export const adminRouter = createAdminRouter(globalPermissionProtectedProcedure)
