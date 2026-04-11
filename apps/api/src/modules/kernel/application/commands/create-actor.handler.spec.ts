@@ -44,6 +44,7 @@ describe('CreateActorHandler', () => {
     actorRepo = {
       findById: vi.fn(),
       insert: vi.fn(),
+      updateStatus: vi.fn(),
     }
     handler = new CreateActorHandler(tenantRepo, actorRepo)
   })
