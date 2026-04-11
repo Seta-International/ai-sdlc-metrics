@@ -10,6 +10,7 @@ const t = initTRPC.context<TrpcContext>().create()
 
 export const router = t.router
 export const publicProcedure = t.procedure
+export const createCallerFactory = t.createCallerFactory
 
 /**
  * Create a protectedProcedure that requires a valid session JWT.
