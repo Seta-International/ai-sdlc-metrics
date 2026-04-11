@@ -8,6 +8,8 @@
 
 **Tech Stack:** Bun 1.3, Turborepo 2.9, TypeScript 6, NestJS 11, Next.js 16, Drizzle 0.45, tRPC 11, Vitest 4, Playwright 1.59
 
+**Status:** implemented
+
 ---
 
 ## File Map

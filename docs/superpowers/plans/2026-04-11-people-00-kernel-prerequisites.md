@@ -8,6 +8,8 @@
 
 **Tech Stack:** NestJS 11, @nestjs/cqrs, Drizzle ORM, vitest, uuidv7
 
+**Status:** implemented
+
 **Spec:** `docs/superpowers/specs/2026-04-11-people-projects-design.md` (Kernel Schema Changes section)
 
 **Why this is needed:** The People module's profile-change-approval and offboarding workflows dispatch kernel commands via `CommandBus`. These commands do not exist yet — only `CreateActorCommand`, `CreateUserIdentityCommand`, and `GrantRoleCommand` exist today.

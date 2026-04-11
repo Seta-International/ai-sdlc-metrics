@@ -8,6 +8,8 @@
 
 **Tech Stack:** NestJS 11, `@nestjs/cqrs`, Drizzle ORM 0.45, PostgreSQL 16, nestjs-cls 6, `uuidv7`, Vitest 4, Bun
 
+**Status:** implemented
+
 ---
 
 ## File Map
