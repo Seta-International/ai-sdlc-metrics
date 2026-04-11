@@ -1,5 +1,11 @@
 import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/node-postgres'
+import {
+  identityProvider,
+  idpGroupMapping,
+  magicLinkToken,
+  apiKey,
+} from '../../../../apps/api/src/modules/identity/infrastructure/schema/index'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { Pool } from 'pg'
 import path from 'path'
@@ -147,14 +153,10 @@ export async function seedEmploymentProfile(
 }
 
 export async function truncateIdentitySchema(db: Db): Promise<void> {
-  await db.execute(
-    sql`TRUNCATE
-      identity.api_key,
-      identity.magic_link_token,
-      identity.idp_group_mapping,
-      identity.identity_provider
-    RESTART IDENTITY CASCADE`,
-  )
+  await db.delete(apiKey)
+  await db.delete(magicLinkToken)
+  await db.delete(idpGroupMapping)
+  await db.delete(identityProvider)
 }
 
 export async function seedIdentityProvider(
@@ -170,21 +172,21 @@ export async function seedIdentityProvider(
     syncEnabled?: boolean
   },
 ): Promise<{ id: string }> {
-  const id = uuidv7()
-  const providerType = overrides.providerType ?? 'microsoft'
-  const displayName = overrides.displayName ?? 'Test IdP'
-  const clientId = overrides.clientId ?? 'test-client-id'
-  const clientSecretRef =
-    overrides.clientSecretRef ?? 'arn:aws:secretsmanager:ap-southeast-1:123456789:secret:test'
-  const directoryId = overrides.directoryId ?? 'test-directory-id'
-  const isPrimary = overrides.isPrimary ?? false
-  const syncEnabled = overrides.syncEnabled ?? false
-
-  await db.execute(
-    sql`INSERT INTO identity.identity_provider
-      (id, tenant_id, provider_type, display_name, client_id, client_secret_ref, directory_id, is_primary, sync_enabled, created_at, updated_at)
-      VALUES (${id}, ${overrides.tenantId}, ${providerType}, ${displayName}, ${clientId}, ${clientSecretRef}, ${directoryId}, ${isPrimary}, ${syncEnabled}, NOW(), NOW())`,
-  )
-
-  return { id }
+  const rows = await db
+    .insert(identityProvider)
+    .values({
+      tenantId: overrides.tenantId,
+      providerType: overrides.providerType ?? 'microsoft',
+      displayName: overrides.displayName ?? 'Test IdP',
+      clientId: overrides.clientId ?? 'test-client-id',
+      clientSecretRef:
+        overrides.clientSecretRef ?? 'arn:aws:secretsmanager:ap-southeast-1:123456789:secret:test',
+      directoryId: overrides.directoryId ?? 'test-directory-id',
+      isPrimary: overrides.isPrimary ?? false,
+      syncEnabled: overrides.syncEnabled ?? false,
+    })
+    .returning({ id: identityProvider.id })
+  const row = rows[0]
+  if (!row) throw new Error('seedIdentityProvider: insert returned no rows')
+  return row
 }
