@@ -11,11 +11,11 @@ export class OnCandidateHiredHandler implements IEventHandler<CandidateHiredEven
       new CreateEmploymentProfileCommand(
         event.tenantId,
         event.actorId,
-        '', // employeeCode — generated later
-        '', // companyEmail — generated later
+        null, // employeeCode — assigned later during onboarding
+        null, // companyEmail — assigned later during onboarding
         'permanent', // default — can be extended when Hiring module passes employment type
         new Date(event.startDate),
-        '', // jobTitle — to be filled on profile update
+        null, // jobTitle — to be filled on profile update
         event.actorId, // createdBy — system actor from the event
       ),
     )

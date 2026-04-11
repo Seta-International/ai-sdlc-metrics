@@ -6,14 +6,14 @@ export interface EmploymentProfile {
   id: string
   tenantId: string
   actorId: string
-  employeeCode: string
-  companyEmail: string
+  employeeCode: string | null
+  companyEmail: string | null
   employmentType: EmploymentType
   employmentStatus: EmploymentStatus
   workArrangement: WorkArrangement
   hireDate: Date
   terminationDate: Date | null
-  jobTitle: string
+  jobTitle: string | null
   jobLevel: string | null
   costCenter: string | null
   createdAt: Date
