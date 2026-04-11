@@ -12,7 +12,7 @@ describe('DrizzleOutboxEventRepository', () => {
     db = {
       insert: vi.fn().mockReturnValue({ values: valuesMock }),
     }
-    repo = new DrizzleOutboxEventRepository(db as any)
+    repo = new DrizzleOutboxEventRepository(db as unknown as import('@future/db').Db)
   })
 
   it('calls db.insert(...).values(...) with correct data', async () => {
