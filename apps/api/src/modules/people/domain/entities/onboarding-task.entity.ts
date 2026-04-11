@@ -10,6 +10,7 @@ export interface OnboardingTask {
   assigneeRole: OnboardingAssigneeRole
   assigneeActorId: string | null
   dueDate: Date | null
+  isRequired: boolean
   status: OnboardingTaskStatus
   completedAt: Date | null
   evidenceUrl: string | null

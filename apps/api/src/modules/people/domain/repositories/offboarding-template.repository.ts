@@ -13,6 +13,11 @@ export interface IOffboardingTemplateRepository {
     reasonCategory: OffboardingReasonCategory,
     tenantId: string,
   ): Promise<OffboardingTemplate | null>
+  findMatch(
+    employmentType: string,
+    reasonCategory: string,
+    tenantId: string,
+  ): Promise<OffboardingTemplate | null>
   findDefault(tenantId: string): Promise<OffboardingTemplate | null>
   listByTenant(tenantId: string): Promise<OffboardingTemplate[]>
   insert(data: Omit<OffboardingTemplate, 'id'>): Promise<OffboardingTemplate>
@@ -21,4 +26,19 @@ export interface IOffboardingTemplateRepository {
     tenantId: string,
     data: Partial<Omit<OffboardingTemplate, 'id' | 'tenantId'>>,
   ): Promise<OffboardingTemplate>
+  getTaskTemplates(
+    templateId: string,
+    tenantId: string,
+  ): Promise<
+    Array<{
+      id: string
+      tenantId: string
+      templateId: string
+      title: string
+      description: string | null
+      assigneeRole: string
+      dueDaysAfterTrigger: number
+      isRequired: boolean
+    }>
+  >
 }

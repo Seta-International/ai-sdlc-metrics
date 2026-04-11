@@ -17,4 +17,19 @@ export interface IOnboardingTemplateRepository {
     tenantId: string,
     data: Partial<Omit<OnboardingTemplate, 'id' | 'tenantId'>>,
   ): Promise<OnboardingTemplate>
+  getTaskTemplates(
+    templateId: string,
+    tenantId: string,
+  ): Promise<
+    Array<{
+      id: string
+      tenantId: string
+      templateId: string
+      title: string
+      description: string | null
+      assigneeRole: string
+      dueDaysAfterHire: number
+      isRequired: boolean
+    }>
+  >
 }

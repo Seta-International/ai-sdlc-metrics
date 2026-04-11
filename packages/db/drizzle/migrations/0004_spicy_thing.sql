@@ -1,0 +1,2 @@
+ALTER TABLE "people"."offboarding_task" ADD COLUMN "is_required" boolean DEFAULT true NOT NULL;--> statement-breakpoint
+ALTER TABLE "people"."onboarding_task" ADD COLUMN "is_required" boolean DEFAULT true NOT NULL;

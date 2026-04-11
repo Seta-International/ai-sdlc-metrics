@@ -164,6 +164,7 @@ export const onboardingTask = peopleSchema.table('onboarding_task', {
   }).notNull(),
   assigneeActorId: uuid('assignee_actor_id'),
   dueDate: timestamp('due_date'),
+  isRequired: boolean('is_required').notNull().default(true),
   status: text('status', {
     enum: ['pending', 'completed', 'skipped'],
   })
@@ -238,6 +239,7 @@ export const offboardingTask = peopleSchema.table('offboarding_task', {
   }).notNull(),
   assigneeActorId: uuid('assignee_actor_id'),
   dueDate: timestamp('due_date'),
+  isRequired: boolean('is_required').notNull().default(true),
   status: text('status', {
     enum: ['pending', 'completed', 'skipped'],
   })

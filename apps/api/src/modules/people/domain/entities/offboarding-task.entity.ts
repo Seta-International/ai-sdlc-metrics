@@ -10,6 +10,7 @@ export interface OffboardingTask {
   assigneeRole: OffboardingAssigneeRole
   assigneeActorId: string | null
   dueDate: Date | null
+  isRequired: boolean
   status: OffboardingTaskStatus
   completedAt: Date | null
   evidenceUrl: string | null
