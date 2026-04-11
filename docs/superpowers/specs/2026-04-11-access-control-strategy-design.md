@@ -477,25 +477,167 @@ Via `web-admin`: Settings -> Access Audit Log.
 ## Module Dependencies
 
 ```
-identity module
+identity module (new — 'identity' schema)
   -> reads: KernelQueryFacade (actor lookup, role checks)
   -> writes: kernel command bus (CreateActor, GrantRole, RevokeRole)
   -> publishes: UserProvisionedFromIdpEvent, UserDeactivatedFromIdpEvent, etc.
+  -> tables: identity_provider, idp_group_mapping, magic_link_token, api_key
   -> infra: Microsoft Graph API, Google Directory API, AWS SES, AWS Secrets Manager, pg-boss
 
-kernel module (authz additions)
+kernel module (authz additions to 'core' schema)
   -> new table: role_permission
   -> new column: role_grant.source
   -> new facade methods: canDo(), getEffectivePermissions()
 
+agents module (MCP guard integration)
+  -> new guards: McpAuthGuard, ExposureContractGuard, ToolPermissionGuard
+  -> uses: KernelQueryFacade.canDo() for every tool invocation
+  -> uses: identity module's api_key validation for system-to-system auth
+
 web-shell (auth flows)
   -> OIDC flows for Entra + Google
   -> Magic link request/validation
-  -> Session cookie management
+  -> Session cookie management (IdP-agnostic JWT)
 
 web-admin (configuration UI)
-  -> IdP setup, group mapping, permission management, local accounts, sync monitoring, audit log
+  -> IdP setup, group mapping, permission management, local accounts
+  -> Sync monitoring, audit log
+  -> Agent access: system actors, API keys, exposure contracts
 ```
+
+---
+
+## 6. Agent Access to Backend Services
+
+Two distinct patterns depending on where the agent runs.
+
+### 6.1 Internal Agents (Command Bus — Inside the Monolith)
+
+Agents in `modules/agents/` live inside the NestJS process. They have access to the DI container and call domain services directly — no MCP overhead.
+
+```
+User sends message via WebSocket / Teams / Slack
+  -> Agent gateway resolves actorId from user session
+  -> Agent reasons, selects a tool/action
+  -> Before execution: canDo(actorId, permission, context)
+  -> If allowed: CommandBus.execute(new SubmitLeaveRequestCommand(...))
+  -> audit_event { actor_id: userId, event_type: 'agent.tool_call', payload: { tool, args, result } }
+```
+
+**Key principle:** the agent acts **on behalf of a user**. It inherits the user's `actorId` and can never do more than the user's roles + delegations allow. `canDo()` is the same check used by tRPC procedures — no special agent code path.
+
+**Internal agent auth flow:**
+
+1. User authenticates via SSO/magic link (standard session)
+2. Agent session starts — `actorId` + `tenantId` extracted from session JWT
+3. Every tool invocation calls `canDo(actorId, toolPermission, { tenantId, scopeType, scopeId })`
+4. `exposure_contract` check is optional for internal agents (they use the same permissions as the user)
+5. `audit_event` records every tool call with `via: 'agent'` in payload
+
+### 6.2 External Agents (MCP over HTTP+SSE — Remote Clients)
+
+External AI agents, partner integrations, and third-party MCP clients connect via `@rekog/mcp-nest` at `/mcp/{module}`. MCP is the right protocol here:
+
+- Standard protocol any AI client can speak
+- `@rekog/mcp-nest` supports NestJS guards natively
+- Tool-level guards via `@ToolGuards()` control per-tool access
+- Tools hidden from `tools/list` for unauthorized actors — deny-by-default
+
+**Two authentication modes for external agents:**
+
+| Mode                 | Token Type                | Resolves To                   | Use Case                                                    |
+| -------------------- | ------------------------- | ----------------------------- | ----------------------------------------------------------- |
+| **Delegated**        | Bearer JWT (user session) | `actorId` of the human user   | AI assistant acting on behalf of a logged-in user           |
+| **System-to-system** | API key                   | `actorId` of a `system` actor | Automated integrations, scheduled agent tasks, partner bots |
+
+**System actors (`actor.type = 'system'`):**
+
+External integrations get a `system` actor with their own `role_grant` entries. This means:
+
+- Permissions are scoped like human users (global, department, project)
+- `canDo()` works identically — no special code path
+- `exposure_contract` adds an extra deny-by-default layer for external consumers
+- `audit_event` traces every action back to the system actor
+- Revoking access = deactivate the actor or revoke role_grants
+
+**API key management:**
+
+```
+api_key (in identity schema)
+  id              UUID v7 PRIMARY KEY
+  tenant_id
+  actor_id        -> system actor
+  key_hash        SHA-256 of the API key (never store plaintext)
+  name            display name for admin UI
+  last_used_at
+  expires_at      -> null = no expiry; recommended: 1 year rotation
+  revoked_at
+  created_at
+```
+
+API keys are created by `tenant_admin` via `web-admin`, associated with a system actor. The plaintext key is shown once at creation and never stored.
+
+**MCP guard stack (applied in order):**
+
+```
+MCP request arrives at /mcp/{module}
+  -> McpAuthGuard: validate bearer JWT or API key -> resolve actorId
+  -> ExposureContractGuard: check exposure_contract for this consumer + tool
+  -> ToolPermissionGuard: call canDo(actorId, toolPermission, context)
+  -> If all pass: execute tool, write audit_event
+  -> If any fail: tool not visible in tools/list, or FORBIDDEN
+```
+
+```ts
+// MCP module registration with guard stack
+@Module({
+  imports: [
+    McpModule.forRoot({
+      name: 'future-mcp-server',
+      version: '1.0.0',
+      guards: [McpAuthGuard], // global auth on all MCP endpoints
+      streamableHttp: {
+        enableJsonResponse: false,
+        sessionIdGenerator: () => uuidv7(),
+      },
+    }),
+  ],
+})
+// Per-tool guards for fine-grained access control
+@Injectable()
+export class PeopleMcpTools {
+  @Tool({
+    name: 'people_get_employment_profile',
+    description: 'Get employment profile for an actor',
+    parameters: z.object({ actorId: z.string().uuid() }),
+  })
+  @ToolGuards([ExposureContractGuard, ToolPermissionGuard])
+  async getEmploymentProfile({ actorId }) {
+    // Guard already verified: exposure_contract + canDo('people:profile:read')
+    return this.peopleQueryFacade.getEmploymentProfile(actorId, this.tenantId)
+  }
+}
+```
+
+### 6.3 Agent Permission Patterns
+
+| Scenario                                | Auth                                   | Authz                                             | Example                                |
+| --------------------------------------- | -------------------------------------- | ------------------------------------------------- | -------------------------------------- |
+| User chats with AI assistant in web app | Session JWT (user)                     | `canDo(userId, ...)`                              | "Show me my leave balance"             |
+| User asks AI to perform action          | Session JWT (user)                     | `canDo(userId, ...)`                              | "Submit leave request for next Monday" |
+| Scheduled agent runs nightly report     | API key (system actor)                 | `canDo(systemActorId, ...)` + `exposure_contract` | Nightly staffing report generation     |
+| Partner bot reads project status        | API key (system actor)                 | `canDo(systemActorId, ...)` + `exposure_contract` | Client dashboard integration           |
+| Teams/Slack bot relays user command     | Session JWT (user via channel adapter) | `canDo(userId, ...)`                              | "Approve leave request #123" via Teams |
+
+### 6.4 Admin Configuration for Agent Access
+
+Via `web-admin`: Settings -> Agent Access.
+
+- **System actors:** create/manage system actors for integrations
+- **API keys:** generate, view (last 4 chars only), rotate, revoke
+- **Exposure contracts:** per-tool access control for system actors (deny-by-default)
+- **Role assignment:** assign roles + scopes to system actors (same UI as human role management)
+- **Audit trail:** filter audit log by `via: 'agent'` to see all agent actions
 
 ---
 
@@ -525,3 +667,7 @@ This ensures there is always a way to access the system even before IdP integrat
 - **Audit immutability** unchanged; INSERT-only with REVOKE + trigger guard
 - **Locked permissions** prevent admin self-lockout
 - **Sync source separation** prevents sync from overriding manual grants
+- **Agent least-privilege** — internal agents inherit user permissions only; external agents get explicit role_grants + exposure_contracts
+- **API keys** stored as SHA-256 hash; plaintext shown once at creation, never stored
+- **MCP tool visibility** — unauthorized tools hidden from `tools/list`, not just blocked on execution
+- **Agent audit trail** — every tool call recorded with `via: 'agent'` and the originating actorId (human or system)
