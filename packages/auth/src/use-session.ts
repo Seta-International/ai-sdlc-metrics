@@ -7,7 +7,7 @@ export interface Session {
   tenantId: string
   roles: string[]
   displayName: string
-  email: string
+  email?: string
   provider: string
 }
 
