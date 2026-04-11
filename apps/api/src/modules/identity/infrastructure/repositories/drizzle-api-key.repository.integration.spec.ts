@@ -40,6 +40,7 @@ describe('DrizzleApiKeyRepository', () => {
         tenantId: TENANT,
         actorId,
         keyHash: 'sha256-api-key-hash-001',
+        keyLastFour: 'h001',
         name: 'CI/CD Pipeline',
         expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
       })
@@ -67,6 +68,7 @@ describe('DrizzleApiKeyRepository', () => {
         tenantId: TENANT,
         actorId,
         keyHash: 'sha256-api-key-hash-revoke-001',
+        keyLastFour: 'r001',
         name: 'Revoke Test',
         expiresAt: null,
       })
@@ -79,20 +81,21 @@ describe('DrizzleApiKeyRepository', () => {
     })
   })
 
-  describe('updateLastUsed', () => {
+  describe('updateLastUsedAt', () => {
     it('updates the lastUsedAt timestamp', async () => {
       await setTenantContext(db, TENANT)
       const key = await repo.insert({
         tenantId: TENANT,
         actorId,
         keyHash: 'sha256-api-key-hash-used-001',
+        keyLastFour: 'u001',
         name: 'Last Used Test',
         expiresAt: null,
       })
 
       expect(key.lastUsedAt).toBeNull()
 
-      await repo.updateLastUsed(key.id, TENANT)
+      await repo.updateLastUsedAt(key.id, TENANT)
 
       const found = await repo.findByKeyHash('sha256-api-key-hash-used-001', TENANT)
       expect(found?.lastUsedAt).not.toBeNull()

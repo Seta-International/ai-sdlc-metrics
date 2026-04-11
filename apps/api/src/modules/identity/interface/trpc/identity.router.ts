@@ -15,6 +15,10 @@ import { ListLocalUsersQuery } from '../../application/queries/list-local-users.
 import { GetSyncStatusQuery } from '../../application/queries/get-sync-status.query'
 import { GetSyncHistoryQuery } from '../../application/queries/get-sync-history.query'
 import { TriggerDirectorySyncCommand } from '../../application/commands/trigger-directory-sync.command'
+import { CreateSystemActorCommand } from '../../application/commands/create-system-actor.command'
+import { CreateApiKeyCommand } from '../../application/commands/create-api-key.command'
+import { RevokeApiKeyCommand } from '../../application/commands/revoke-api-key.command'
+import { ListApiKeysQuery } from '../../application/queries/list-api-keys.query'
 
 type AuthCtx = TrpcContext & { actorId: string; tenantId: string }
 const svc = () => IdentityTrpcService.getInstance()
@@ -35,7 +39,7 @@ export function createIdentityRouter(
           directoryId: z.string().min(1).max(255).optional(),
           isPrimary: z.boolean(),
           syncEnabled: z.boolean(),
-          existingProviderId: z.string().uuid().optional(),
+          existingProviderId: z.uuid().optional(),
         }),
       )
       .mutation(async ({ ctx, input }) => {
@@ -65,7 +69,7 @@ export function createIdentityRouter(
 
     testConnection: permissionProtectedProcedure
       .meta({ permission: 'admin:tenant:manage' })
-      .input(z.object({ providerId: z.string().uuid() }))
+      .input(z.object({ providerId: z.uuid() }))
       .mutation(async ({ ctx, input }) => {
         const { actorId, tenantId } = ctx as unknown as AuthCtx
         return svc().command(new TestIdpConnectionCommand(tenantId, input.providerId, actorId))
@@ -89,7 +93,7 @@ export function createIdentityRouter(
       .meta({ permission: 'admin:role:manage' })
       .input(
         z.object({
-          identityProviderId: z.string().uuid(),
+          identityProviderId: z.uuid(),
           externalGroupId: z.string().min(1).max(255),
           externalGroupName: z.string().min(1).max(255),
           roleKey: z.enum([
@@ -106,7 +110,7 @@ export function createIdentityRouter(
             'tenant_admin',
           ]),
           scopeType: z.enum(['global', 'department', 'project', 'account']),
-          scopeId: z.string().uuid().nullable(),
+          scopeId: z.uuid().nullable(),
         }),
       )
       .mutation(async ({ ctx, input }) => {
@@ -128,7 +132,7 @@ export function createIdentityRouter(
 
     removeGroupMapping: permissionProtectedProcedure
       .meta({ permission: 'admin:role:manage' })
-      .input(z.object({ mappingId: z.string().uuid() }))
+      .input(z.object({ mappingId: z.uuid() }))
       .mutation(async ({ ctx, input }) => {
         const { actorId, tenantId } = ctx as unknown as AuthCtx
         await svc().command(new RemoveGroupMappingCommand(tenantId, input.mappingId, actorId))
@@ -139,7 +143,7 @@ export function createIdentityRouter(
       .meta({ permission: 'admin:tenant:manage' })
       .input(
         z.object({
-          email: z.string().email(),
+          email: z.email(),
           displayName: z.string().min(1).max(200),
           roleAssignments: z
             .array(
@@ -158,7 +162,7 @@ export function createIdentityRouter(
                   'tenant_admin',
                 ]),
                 scopeType: z.enum(['global', 'department', 'project', 'account']),
-                scopeId: z.string().uuid().nullable(),
+                scopeId: z.uuid().nullable(),
               }),
             )
             .min(1),
@@ -186,7 +190,7 @@ export function createIdentityRouter(
 
     deactivateLocalUser: permissionProtectedProcedure
       .meta({ permission: 'admin:tenant:manage' })
-      .input(z.object({ actorId: z.string().uuid() }))
+      .input(z.object({ actorId: z.uuid() }))
       .mutation(async ({ ctx, input }) => {
         const { actorId, tenantId } = ctx as unknown as AuthCtx
         await svc().command(new DeactivateLocalUserCommand(tenantId, input.actorId, actorId))
@@ -217,6 +221,50 @@ export function createIdentityRouter(
       .mutation(async ({ ctx }) => {
         const { actorId, tenantId } = ctx as unknown as AuthCtx
         return svc().command(new TriggerDirectorySyncCommand(tenantId, actorId))
+      }),
+
+    createSystemActor: permissionProtectedProcedure
+      .meta({ permission: 'admin:agent:manage' })
+      .input(z.object({ displayName: z.string().min(1).max(200) }))
+      .mutation(async ({ ctx, input }) => {
+        const { actorId, tenantId } = ctx as unknown as AuthCtx
+        return svc().command(new CreateSystemActorCommand(tenantId, input.displayName, actorId))
+      }),
+
+    createApiKey: permissionProtectedProcedure
+      .meta({ permission: 'admin:agent:manage' })
+      .input(
+        z.object({
+          actorId: z.uuid(),
+          name: z.string().min(1).max(200),
+          expiresAt: z
+            .string()
+            .datetime()
+            .nullable()
+            .transform((v) => (v ? new Date(v) : null)),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { actorId, tenantId } = ctx as unknown as AuthCtx
+        return svc().command(
+          new CreateApiKeyCommand(tenantId, input.actorId, input.name, input.expiresAt, actorId),
+        )
+      }),
+
+    listApiKeys: permissionProtectedProcedure
+      .meta({ permission: 'admin:agent:manage' })
+      .query(async ({ ctx }) => {
+        const { tenantId } = ctx as unknown as AuthCtx
+        return svc().query(new ListApiKeysQuery(tenantId))
+      }),
+
+    revokeApiKey: permissionProtectedProcedure
+      .meta({ permission: 'admin:agent:manage' })
+      .input(z.object({ apiKeyId: z.uuid() }))
+      .mutation(async ({ ctx, input }) => {
+        const { actorId, tenantId } = ctx as unknown as AuthCtx
+        await svc().command(new RevokeApiKeyCommand(tenantId, input.apiKeyId, actorId))
+        return { success: true }
       }),
   })
 }

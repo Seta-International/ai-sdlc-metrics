@@ -1,87 +1,96 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CreateApiKeyCommand } from './create-api-key.command'
 import { CreateApiKeyHandler } from './create-api-key.handler'
-import type { IApiKeyRepository } from '../../domain/repositories/api-key.repository'
-import type { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
+import type { IApiKeyRepository } from '../../domain/repositories/api-key.repository.port'
+import type { ICryptoProvider } from '../../domain/ports/crypto-provider.port'
+import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import type { ApiKey } from '../../domain/entities/api-key.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
-const ACTOR_ID = '01900000-0000-7000-8000-000000000002'
-const CREATED_BY = '01900000-0000-7000-8000-000000000003'
-const KEY_ID = '01900000-0000-7000-8000-000000000004'
+const SYSTEM_ACTOR_ID = '01900000-0000-7000-8000-000000000080'
+const API_KEY_ID = '01900000-0000-7000-8000-000000000090'
+const ADMIN_ACTOR_ID = '01900000-0000-7000-8000-000000000005'
+
+const fakeApiKey: ApiKey = {
+  id: API_KEY_ID,
+  tenantId: TENANT_ID,
+  actorId: SYSTEM_ACTOR_ID,
+  keyHash: 'sha256-hash-of-key',
+  keyLastFour: '9789',
+  name: 'CI/CD Integration',
+  lastUsedAt: null,
+  expiresAt: new Date('2027-04-11T00:00:00Z'),
+  revokedAt: null,
+  createdAt: new Date(),
+}
 
 describe('CreateApiKeyHandler', () => {
   let handler: CreateApiKeyHandler
   let apiKeyRepo: IApiKeyRepository
-  let auditService: KernelAuditService
+  let cryptoProvider: ICryptoProvider
+  let auditRepo: IAuditEventRepository
 
   beforeEach(() => {
     apiKeyRepo = {
+      findById: vi.fn(),
       findByKeyHash: vi.fn(),
+      listByTenantId: vi.fn(),
       insert: vi.fn(),
       revoke: vi.fn(),
-      updateLastUsed: vi.fn(),
+      updateLastUsedAt: vi.fn(),
     }
-    auditService = { log: vi.fn() } as unknown as KernelAuditService
-    handler = new CreateApiKeyHandler(apiKeyRepo, auditService)
+    cryptoProvider = {
+      generateApiKey: vi.fn(),
+      hashApiKey: vi.fn(),
+    }
+    auditRepo = {
+      insert: vi.fn(),
+    }
+    handler = new CreateApiKeyHandler(apiKeyRepo, cryptoProvider, auditRepo)
   })
 
-  it('creates an API key and returns the plaintext key once', async () => {
-    vi.mocked(apiKeyRepo.insert).mockResolvedValue({
-      id: KEY_ID,
-      tenantId: TENANT_ID,
-      actorId: ACTOR_ID,
-      keyHash: 'sha256-of-key',
-      name: 'CI Pipeline',
-      lastUsedAt: null,
-      expiresAt: null,
-      revokedAt: null,
-      createdAt: new Date(),
+  it('generates an API key, stores the hash, and returns the plaintext once', async () => {
+    vi.mocked(cryptoProvider.generateApiKey).mockReturnValue({
+      plaintext: 'fut_live_abc123xyz789',
+      hash: 'sha256-hash-of-key',
+      lastFour: '9789',
     })
+    vi.mocked(apiKeyRepo.insert).mockResolvedValue(fakeApiKey)
+    vi.mocked(auditRepo.insert).mockResolvedValue(undefined)
 
     const result = await handler.execute(
-      new CreateApiKeyCommand(TENANT_ID, ACTOR_ID, 'CI Pipeline', null, CREATED_BY),
+      new CreateApiKeyCommand(
+        TENANT_ID,
+        SYSTEM_ACTOR_ID,
+        'CI/CD Integration',
+        new Date('2027-04-11T00:00:00Z'),
+        ADMIN_ACTOR_ID,
+      ),
     )
 
-    expect(result.id).toBe(KEY_ID)
-    expect(result.plaintextKey).toBeDefined()
-    expect(result.plaintextKey.length).toBeGreaterThanOrEqual(32)
-
-    const storedCall = vi.mocked(apiKeyRepo.insert).mock.calls[0]?.[0]
-    if (!storedCall) {
-      throw new Error('Expected apiKeyRepo.insert to be called')
-    }
-    expect(storedCall.keyHash).not.toBe(result.plaintextKey)
-
-    expect(auditService.log).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventType: 'api_key_created',
-        module: 'identity',
-      }),
-    )
-  })
-
-  it('passes expiresAt when provided', async () => {
-    const expiresAt = new Date('2027-01-01')
-    vi.mocked(apiKeyRepo.insert).mockResolvedValue({
-      id: KEY_ID,
-      tenantId: TENANT_ID,
-      actorId: ACTOR_ID,
-      keyHash: 'sha256-of-key',
-      name: 'Temp Key',
-      lastUsedAt: null,
-      expiresAt,
-      revokedAt: null,
-      createdAt: new Date(),
+    expect(result).toEqual({
+      apiKeyId: API_KEY_ID,
+      plaintext: 'fut_live_abc123xyz789',
     })
-
-    await handler.execute(
-      new CreateApiKeyCommand(TENANT_ID, ACTOR_ID, 'Temp Key', expiresAt, CREATED_BY),
-    )
-
-    expect(apiKeyRepo.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        expiresAt,
-      }),
-    )
+    expect(apiKeyRepo.insert).toHaveBeenCalledWith({
+      tenantId: TENANT_ID,
+      actorId: SYSTEM_ACTOR_ID,
+      keyHash: 'sha256-hash-of-key',
+      keyLastFour: '9789',
+      name: 'CI/CD Integration',
+      expiresAt: new Date('2027-04-11T00:00:00Z'),
+    })
+    expect(auditRepo.insert).toHaveBeenCalledWith({
+      tenantId: TENANT_ID,
+      actorId: ADMIN_ACTOR_ID,
+      eventType: 'api_key.created',
+      module: 'identity',
+      subjectId: API_KEY_ID,
+      payload: {
+        name: 'CI/CD Integration',
+        systemActorId: SYSTEM_ACTOR_ID,
+        keyLastFour: '9789',
+      },
+    })
   })
 })

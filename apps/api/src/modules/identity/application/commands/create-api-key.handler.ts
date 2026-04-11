@@ -1,16 +1,19 @@
 import { Inject } from '@nestjs/common'
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
-import { randomBytes, createHash } from 'node:crypto'
+import {
+  AUDIT_EVENT_REPOSITORY,
+  type IAuditEventRepository,
+} from '../../../kernel/domain/repositories/audit-event.repository.port'
 import {
   API_KEY_REPOSITORY,
   type IApiKeyRepository,
-} from '../../domain/repositories/api-key.repository'
-import { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
+} from '../../domain/repositories/api-key.repository.port'
+import { CRYPTO_PROVIDER, type ICryptoProvider } from '../../domain/ports/crypto-provider.port'
 import { CreateApiKeyCommand } from './create-api-key.command'
 
 export interface CreateApiKeyResult {
-  id: string
-  plaintextKey: string
+  apiKeyId: string
+  plaintext: string
 }
 
 @CommandHandler(CreateApiKeyCommand)
@@ -21,30 +24,37 @@ export class CreateApiKeyHandler implements ICommandHandler<
   constructor(
     @Inject(API_KEY_REPOSITORY)
     private readonly apiKeyRepo: IApiKeyRepository,
-    private readonly auditService: KernelAuditService,
+    @Inject(CRYPTO_PROVIDER)
+    private readonly cryptoProvider: ICryptoProvider,
+    @Inject(AUDIT_EVENT_REPOSITORY)
+    private readonly auditRepo: IAuditEventRepository,
   ) {}
 
   async execute(command: CreateApiKeyCommand): Promise<CreateApiKeyResult> {
-    const plaintextKey = randomBytes(32).toString('hex')
-    const keyHash = createHash('sha256').update(plaintextKey).digest('hex')
+    const { plaintext, hash, lastFour } = this.cryptoProvider.generateApiKey()
 
     const apiKey = await this.apiKeyRepo.insert({
       tenantId: command.tenantId,
       actorId: command.actorId,
-      keyHash,
+      keyHash: hash,
+      keyLastFour: lastFour,
       name: command.name,
       expiresAt: command.expiresAt,
     })
 
-    await this.auditService.log({
+    await this.auditRepo.insert({
       tenantId: command.tenantId,
       actorId: command.createdBy,
-      eventType: 'api_key_created',
+      eventType: 'api_key.created',
       module: 'identity',
       subjectId: apiKey.id,
-      payload: { name: command.name, actorId: command.actorId },
+      payload: {
+        name: command.name,
+        systemActorId: command.actorId,
+        keyLastFour: lastFour,
+      },
     })
 
-    return { id: apiKey.id, plaintextKey }
+    return { apiKeyId: apiKey.id, plaintext }
   }
 }

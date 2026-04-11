@@ -3,7 +3,7 @@ import { QueryHandler, type IQueryHandler } from '@nestjs/cqrs'
 import {
   API_KEY_REPOSITORY,
   type IApiKeyRepository,
-} from '../../domain/repositories/api-key.repository'
+} from '../../domain/repositories/api-key.repository.port'
 import { ValidateApiKeyQuery } from './validate-api-key.query'
 
 export interface ValidateApiKeyResult {
@@ -37,7 +37,7 @@ export class ValidateApiKeyHandler implements IQueryHandler<
       return { valid: false, actorId: null, tenantId: null }
     }
 
-    void this.apiKeyRepo.updateLastUsed(key.id, key.tenantId)
+    void this.apiKeyRepo.updateLastUsedAt(key.id, key.tenantId, new Date())
 
     return { valid: true, actorId: key.actorId, tenantId: key.tenantId }
   }

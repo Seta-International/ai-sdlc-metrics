@@ -6,11 +6,12 @@ import { KernelModule } from '../kernel/kernel.module'
 import { IDENTITY_PROVIDER_REPOSITORY } from './domain/repositories/identity-provider.repository'
 import { IDP_GROUP_MAPPING_REPOSITORY } from './domain/repositories/idp-group-mapping.repository'
 import { MAGIC_LINK_TOKEN_REPOSITORY } from './domain/repositories/magic-link-token.repository'
-import { API_KEY_REPOSITORY } from './domain/repositories/api-key.repository'
+import { API_KEY_REPOSITORY } from './domain/repositories/api-key.repository.port'
 
 // Port symbols
 import { MAGIC_LINK_SENDER } from './domain/ports/magic-link-sender.port'
 import { LOCAL_USER_QUERY_PORT } from './domain/ports/local-user-query.port'
+import { CRYPTO_PROVIDER } from './domain/ports/crypto-provider.port'
 
 // Stub implementations
 import { MagicLinkSenderStub } from './infrastructure/magic-link-sender.stub'
@@ -35,6 +36,8 @@ import { RemoveGroupMappingHandler } from './application/commands/remove-group-m
 import { RequestMagicLinkHandler } from './application/commands/request-magic-link.handler'
 import { ValidateMagicLinkHandler } from './application/commands/validate-magic-link.handler'
 import { CreateApiKeyHandler } from './application/commands/create-api-key.handler'
+import { CreateSystemActorHandler } from './application/commands/create-system-actor.handler'
+import { RevokeApiKeyHandler } from './application/commands/revoke-api-key.handler'
 import { RunDirectorySyncHandler } from './application/commands/run-directory-sync.handler'
 import { TestIdpConnectionHandler } from './application/commands/test-idp-connection.handler'
 import { InviteLocalUserHandler } from './application/commands/invite-local-user.handler'
@@ -48,6 +51,7 @@ import { GetSyncStatusHandler } from './application/queries/get-sync-status.hand
 import { GetSyncHistoryHandler } from './application/queries/get-sync-history.handler'
 import { ValidateApiKeyHandler } from './application/queries/validate-api-key.handler'
 import { ListLocalUsersHandler } from './application/queries/list-local-users.handler'
+import { ListApiKeysHandler } from './application/queries/list-api-keys.handler'
 
 import { TriggerDirectorySyncHandler } from './application/commands/trigger-directory-sync.handler'
 
@@ -60,6 +64,8 @@ import { IdentityQueryFacade } from './application/facades/identity-query.facade
 
 // tRPC interface
 import { IdentityTrpcService } from './interface/trpc/identity-trpc.service'
+
+import { randomBytes, createHash } from 'node:crypto'
 
 @Module({
   imports: [CqrsModule, KernelModule],
@@ -78,6 +84,19 @@ import { IdentityTrpcService } from './interface/trpc/identity-trpc.service'
     { provide: DIRECTORY_PROVIDER_FACTORY, useClass: DirectoryProviderFactory },
     { provide: MAGIC_LINK_SENDER, useClass: MagicLinkSenderStub },
     { provide: LOCAL_USER_QUERY_PORT, useClass: LocalUserQueryStub },
+    // Crypto provider
+    {
+      provide: CRYPTO_PROVIDER,
+      useValue: {
+        generateApiKey: () => {
+          const plaintext = `fut_live_${randomBytes(24).toString('hex')}`
+          const hash = createHash('sha256').update(plaintext).digest('hex')
+          const lastFour = plaintext.slice(-4)
+          return { plaintext, hash, lastFour }
+        },
+        hashApiKey: (p: string) => createHash('sha256').update(p).digest('hex'),
+      },
+    },
     // Stub ports (until real implementations are built)
     {
       provide: JOB_SCHEDULER,
@@ -95,6 +114,8 @@ import { IdentityTrpcService } from './interface/trpc/identity-trpc.service'
     RequestMagicLinkHandler,
     ValidateMagicLinkHandler,
     CreateApiKeyHandler,
+    CreateSystemActorHandler,
+    RevokeApiKeyHandler,
     RunDirectorySyncHandler,
     TestIdpConnectionHandler,
     InviteLocalUserHandler,
@@ -108,6 +129,7 @@ import { IdentityTrpcService } from './interface/trpc/identity-trpc.service'
     GetSyncHistoryHandler,
     ValidateApiKeyHandler,
     ListLocalUsersHandler,
+    ListApiKeysHandler,
     // Facade
     IdentityQueryFacade,
     // tRPC interface

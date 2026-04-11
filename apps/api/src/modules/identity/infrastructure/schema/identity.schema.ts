@@ -92,6 +92,7 @@ export const apiKey = identitySchema.table('api_key', {
   tenantId: uuid('tenant_id').notNull(),
   actorId: uuid('actor_id').notNull(),
   keyHash: text('key_hash').notNull(),
+  keyLastFour: text('key_last_four').notNull(),
   name: text('name').notNull(),
   lastUsedAt: timestamp('last_used_at'),
   expiresAt: timestamp('expires_at'),
