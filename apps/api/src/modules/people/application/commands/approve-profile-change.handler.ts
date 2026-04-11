@@ -1,6 +1,9 @@
 import { Inject } from '@nestjs/common'
 import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
-import { ProfileChangeRequestNotFoundException } from '../../domain/exceptions/people.exceptions'
+import {
+  ProfileChangeRequestNotFoundException,
+  ProfileChangeRequestNotPendingException,
+} from '../../domain/exceptions/people.exceptions'
 import {
   PROFILE_CHANGE_REQUEST_REPOSITORY,
   type IProfileChangeRequestRepository,
@@ -34,6 +37,9 @@ export class ApproveProfileChangeHandler implements ICommandHandler<
   async execute(command: ApproveProfileChangeCommand): Promise<void> {
     const request = await this.changeRequestRepo.findById(command.changeRequestId, command.tenantId)
     if (!request) throw new ProfileChangeRequestNotFoundException(command.changeRequestId)
+    if (request.status !== 'pending') {
+      throw new ProfileChangeRequestNotPendingException(command.changeRequestId)
+    }
 
     // Extract field name from path (e.g. "detail.bankAccountNumber" → "bankAccountNumber")
     const fieldName = request.fieldPath.replace(/^detail\./, '')

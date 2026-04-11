@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CommandBus } from '@nestjs/cqrs'
 import { RejectProfileChangeCommand } from './reject-profile-change.command'
 import { RejectProfileChangeHandler } from './reject-profile-change.handler'
-import { ProfileChangeRequestNotFoundException } from '../../domain/exceptions/people.exceptions'
+import {
+  ProfileChangeRequestNotFoundException,
+  ProfileChangeRequestNotPendingException,
+} from '../../domain/exceptions/people.exceptions'
 import { ResolveDecisionCaseCommand } from '../../../kernel/application/commands/resolve-decision-case.command'
 import type { IProfileChangeRequestRepository } from '../../domain/repositories/profile-change-request.repository'
 import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
@@ -95,5 +98,25 @@ describe('RejectProfileChangeHandler', () => {
     await expect(
       handler.execute(new RejectProfileChangeCommand(TENANT_ID, REQUEST_ID, REJECTOR_ID, COMMENT)),
     ).rejects.toThrow(ProfileChangeRequestNotFoundException)
+  })
+
+  it('throws ProfileChangeRequestNotPendingException when request is not pending', async () => {
+    vi.mocked(changeRequestRepo.findById).mockResolvedValue({
+      id: REQUEST_ID,
+      tenantId: TENANT_ID,
+      profileId: PROFILE_ID,
+      fieldPath: 'detail.bankAccountNumber',
+      oldValue: '1234',
+      newValue: '5678',
+      status: 'approved',
+      decisionCaseId: CASE_ID,
+      requestedBy: 'req-actor',
+      reviewedBy: REJECTOR_ID,
+      createdAt: new Date(),
+    })
+
+    await expect(
+      handler.execute(new RejectProfileChangeCommand(TENANT_ID, REQUEST_ID, REJECTOR_ID, COMMENT)),
+    ).rejects.toThrow(ProfileChangeRequestNotPendingException)
   })
 })

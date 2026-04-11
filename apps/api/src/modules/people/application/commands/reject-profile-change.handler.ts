@@ -1,6 +1,9 @@
 import { Inject } from '@nestjs/common'
 import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
-import { ProfileChangeRequestNotFoundException } from '../../domain/exceptions/people.exceptions'
+import {
+  ProfileChangeRequestNotFoundException,
+  ProfileChangeRequestNotPendingException,
+} from '../../domain/exceptions/people.exceptions'
 import {
   PROFILE_CHANGE_REQUEST_REPOSITORY,
   type IProfileChangeRequestRepository,
@@ -28,6 +31,9 @@ export class RejectProfileChangeHandler implements ICommandHandler<
   async execute(command: RejectProfileChangeCommand): Promise<void> {
     const request = await this.changeRequestRepo.findById(command.changeRequestId, command.tenantId)
     if (!request) throw new ProfileChangeRequestNotFoundException(command.changeRequestId)
+    if (request.status !== 'pending') {
+      throw new ProfileChangeRequestNotPendingException(command.changeRequestId)
+    }
 
     // Mark request as rejected
     await this.changeRequestRepo.updateStatus(
