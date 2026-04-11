@@ -3,7 +3,7 @@ import { publicProcedure, router } from '../../../../common/trpc/trpc-init'
 import type { TrpcContext } from '../../../../common/trpc/trpc-init'
 import { checkPermission } from '../../../../common/auth/check-permission'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import type { IAuditLogger } from '../../../../common/auth/audit-logger.interface'
 import type { PeopleQueryFacade } from '../../application/facades/people-query.facade'
 import { CreateEmploymentProfileCommand } from '../../application/commands/create-employment-profile.command'
 import { UpdateProfileDirectCommand } from '../../application/commands/update-profile-direct.command'
@@ -33,7 +33,7 @@ export function createPeopleRouter(
   permissionProtectedProcedure: ReturnType<typeof publicProcedure.use>,
   peopleFacade: PeopleQueryFacade,
   kernelFacade: KernelQueryFacade,
-  auditRepo: IAuditEventRepository,
+  auditRepo: IAuditLogger,
 ) {
   type AuthCtx = TrpcContext & { actorId: string; tenantId: string }
 

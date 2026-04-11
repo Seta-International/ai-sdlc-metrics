@@ -10,6 +10,14 @@ import { idpGroupMapping } from '../schema/index'
 export class DrizzleIdpGroupMappingRepository implements IIdpGroupMappingRepository {
   constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
+  async findById(id: string, tenantId: string): Promise<IdpGroupMapping | null> {
+    const rows = await this.db
+      .select()
+      .from(idpGroupMapping)
+      .where(and(eq(idpGroupMapping.id, id), eq(idpGroupMapping.tenantId, tenantId)))
+    return (rows[0] as IdpGroupMapping) ?? null
+  }
+
   async findByProviderId(identityProviderId: string, tenantId: string): Promise<IdpGroupMapping[]> {
     const rows = await this.db
       .select()
@@ -29,6 +37,10 @@ export class DrizzleIdpGroupMappingRepository implements IIdpGroupMappingReposit
       .from(idpGroupMapping)
       .where(eq(idpGroupMapping.tenantId, tenantId))
     return rows as IdpGroupMapping[]
+  }
+
+  async listByTenantId(tenantId: string): Promise<IdpGroupMapping[]> {
+    return this.findByTenantId(tenantId)
   }
 
   async upsert(data: {

@@ -59,8 +59,10 @@ describe('RunDirectorySyncHandler', () => {
       update: vi.fn(),
     }
     mappingRepo = {
+      findById: vi.fn(),
       findByProviderId: vi.fn(),
       findByTenantId: vi.fn(),
+      listByTenantId: vi.fn(),
       upsert: vi.fn(),
       remove: vi.fn(),
     }

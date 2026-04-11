@@ -1,11 +1,11 @@
 import { TRPCError } from '@trpc/server'
 import type { KernelQueryFacade } from '../../modules/kernel/application/facades/kernel-query.facade'
-import type { IAuditEventRepository } from '../../modules/kernel/domain/repositories/audit-event.repository.port'
+import type { IAuditLogger } from '../auth/audit-logger.interface'
 import type { TrpcMeta } from './trpc-init'
 
 export function createPermissionMiddleware(
   kernelFacade: KernelQueryFacade,
-  auditRepo: IAuditEventRepository,
+  auditRepo: IAuditLogger,
 ) {
   return async function permissionMiddleware(opts: {
     ctx: { actorId: string; tenantId: string }

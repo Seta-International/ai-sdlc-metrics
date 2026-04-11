@@ -21,6 +21,9 @@ import { DirectoryProviderFactory } from './infrastructure/providers/directory-p
 // Command handlers
 import { ConfigureIdentityProviderHandler } from './application/commands/configure-identity-provider.handler'
 import { UpdateIdpGroupMappingHandler } from './application/commands/update-idp-group-mapping.handler'
+import { SyncIdpGroupsHandler } from './application/commands/sync-idp-groups.handler'
+import { UpsertGroupMappingHandler } from './application/commands/upsert-group-mapping.handler'
+import { RemoveGroupMappingHandler } from './application/commands/remove-group-mapping.handler'
 import { RequestMagicLinkHandler } from './application/commands/request-magic-link.handler'
 import { ValidateMagicLinkHandler } from './application/commands/validate-magic-link.handler'
 import { CreateApiKeyHandler } from './application/commands/create-api-key.handler'
@@ -30,6 +33,7 @@ import { TestIdpConnectionHandler } from './application/commands/test-idp-connec
 // Query handlers
 import { GetIdentityProviderHandler } from './application/queries/get-identity-provider.handler'
 import { GetIdpGroupMappingsHandler } from './application/queries/get-idp-group-mappings.handler'
+import { ListGroupMappingsHandler } from './application/queries/list-group-mappings.handler'
 import { GetSyncStatusHandler } from './application/queries/get-sync-status.handler'
 import { ValidateApiKeyHandler } from './application/queries/validate-api-key.handler'
 
@@ -52,6 +56,9 @@ import { IdentityTrpcService } from './interface/trpc/identity-trpc.service'
     // Command handlers
     ConfigureIdentityProviderHandler,
     UpdateIdpGroupMappingHandler,
+    SyncIdpGroupsHandler,
+    UpsertGroupMappingHandler,
+    RemoveGroupMappingHandler,
     RequestMagicLinkHandler,
     ValidateMagicLinkHandler,
     CreateApiKeyHandler,
@@ -60,6 +67,7 @@ import { IdentityTrpcService } from './interface/trpc/identity-trpc.service'
     // Query handlers
     GetIdentityProviderHandler,
     GetIdpGroupMappingsHandler,
+    ListGroupMappingsHandler,
     GetSyncStatusHandler,
     ValidateApiKeyHandler,
     // Facade

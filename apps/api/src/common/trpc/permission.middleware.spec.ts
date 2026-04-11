@@ -2,14 +2,14 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { TRPCError } from '@trpc/server'
 import { createPermissionMiddleware } from './permission.middleware'
 import type { KernelQueryFacade } from '../../modules/kernel/application/facades/kernel-query.facade'
-import type { IAuditEventRepository } from '../../modules/kernel/domain/repositories/audit-event.repository.port'
+import type { IAuditLogger } from '../auth/audit-logger.interface'
 
 const ACTOR_ID = '01900000-0000-7000-8000-000000000001'
 const TENANT_ID = '01900000-0000-7000-8000-000000000002'
 
 describe('permissionMiddleware', () => {
   let kernelFacade: { canDo: ReturnType<typeof vi.fn> }
-  let auditRepo: { insert: ReturnType<typeof vi.fn> }
+  let auditRepo: IAuditLogger & { insert: ReturnType<typeof vi.fn> }
   let nextFn: ReturnType<typeof vi.fn>
 
   beforeEach(() => {

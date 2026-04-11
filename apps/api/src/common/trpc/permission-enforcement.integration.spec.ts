@@ -3,7 +3,7 @@ import { TRPCError } from '@trpc/server'
 import { router, publicProcedure } from './trpc-init'
 import { createProtectedProcedures } from './create-protected-procedures'
 import type { KernelQueryFacade } from '../../modules/kernel/application/facades/kernel-query.facade'
-import type { IAuditEventRepository } from '../../modules/kernel/domain/repositories/audit-event.repository.port'
+import type { IAuditLogger } from '../auth/audit-logger.interface'
 import type { TrpcContext } from './trpc-init'
 
 const ACTOR_ID = '01900000-0000-7000-8000-000000000001'
@@ -13,7 +13,7 @@ const makeCtx = () => ({ actorId: ACTOR_ID, tenantId: TENANT_ID }) as unknown as
 
 describe('permission enforcement integration', () => {
   let kernelFacade: { canDo: ReturnType<typeof vi.fn> }
-  let auditRepo: { insert: ReturnType<typeof vi.fn> }
+  let auditRepo: IAuditLogger & { insert: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     kernelFacade = { canDo: vi.fn() }

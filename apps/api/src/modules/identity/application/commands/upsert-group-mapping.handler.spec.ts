@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { UpdateIdpGroupMappingCommand } from './update-idp-group-mapping.command'
-import { UpdateIdpGroupMappingHandler } from './update-idp-group-mapping.handler'
-import { IdentityProviderNotFoundException } from '../../domain/exceptions/identity.exceptions'
-import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
+import { UpsertGroupMappingCommand } from './upsert-group-mapping.command'
+import { UpsertGroupMappingHandler } from './upsert-group-mapping.handler'
+import { DomainException } from '../../../kernel/domain/exceptions/domain.exception'
 import type { IIdpGroupMappingRepository } from '../../domain/repositories/idp-group-mapping.repository'
 import type { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
 
@@ -11,20 +10,12 @@ const PROVIDER_ID = '01900000-0000-7000-8000-000000000002'
 const ACTOR_ID = '01900000-0000-7000-8000-000000000003'
 const MAPPING_ID = '01900000-0000-7000-8000-000000000004'
 
-describe('UpdateIdpGroupMappingHandler', () => {
-  let handler: UpdateIdpGroupMappingHandler
-  let providerRepo: IIdentityProviderRepository
+describe('UpsertGroupMappingHandler', () => {
+  let handler: UpsertGroupMappingHandler
   let mappingRepo: IIdpGroupMappingRepository
   let auditService: KernelAuditService
 
   beforeEach(() => {
-    providerRepo = {
-      findById: vi.fn(),
-      findByTenantId: vi.fn(),
-      findPrimary: vi.fn(),
-      insert: vi.fn(),
-      update: vi.fn(),
-    }
     mappingRepo = {
       findById: vi.fn(),
       findByProviderId: vi.fn(),
@@ -34,30 +25,16 @@ describe('UpdateIdpGroupMappingHandler', () => {
       remove: vi.fn(),
     }
     auditService = { log: vi.fn() } as unknown as KernelAuditService
-    handler = new UpdateIdpGroupMappingHandler(providerRepo, mappingRepo, auditService)
+
+    handler = new UpsertGroupMappingHandler(mappingRepo, auditService)
   })
 
-  it('upserts a group mapping when provider exists', async () => {
-    vi.mocked(providerRepo.findById).mockResolvedValue({
-      id: PROVIDER_ID,
-      tenantId: TENANT_ID,
-      providerType: 'microsoft',
-      displayName: 'Test',
-      clientId: 'c',
-      clientSecretRef: 'arn:aws:secretsmanager:ap-southeast-1:123456789:secret:test',
-      directoryId: null,
-      isPrimary: true,
-      syncEnabled: false,
-      lastSyncAt: null,
-      syncStatus: 'idle',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })
+  it('upserts a group mapping and returns its id', async () => {
     vi.mocked(mappingRepo.upsert).mockResolvedValue({
       id: MAPPING_ID,
       tenantId: TENANT_ID,
       identityProviderId: PROVIDER_ID,
-      externalGroupId: 'aad-group-123',
+      externalGroupId: 'aad-group-001',
       externalGroupName: 'Engineering',
       roleKey: 'employee',
       scopeType: 'global',
@@ -67,10 +44,10 @@ describe('UpdateIdpGroupMappingHandler', () => {
     })
 
     const result = await handler.execute(
-      new UpdateIdpGroupMappingCommand(
+      new UpsertGroupMappingCommand(
         TENANT_ID,
         PROVIDER_ID,
-        'aad-group-123',
+        'aad-group-001',
         'Engineering',
         'employee',
         'global',
@@ -79,39 +56,58 @@ describe('UpdateIdpGroupMappingHandler', () => {
       ),
     )
 
-    expect(result.id).toBe(MAPPING_ID)
+    expect(result).toBe(MAPPING_ID)
     expect(mappingRepo.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        externalGroupId: 'aad-group-123',
+        tenantId: TENANT_ID,
+        identityProviderId: PROVIDER_ID,
+        externalGroupId: 'aad-group-001',
         roleKey: 'employee',
+        scopeType: 'global',
       }),
     )
     expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({
-        eventType: 'idp_group_mapping_updated',
+        eventType: 'group_mapping.upserted',
         module: 'identity',
+        subjectId: MAPPING_ID,
       }),
     )
   })
 
-  it('throws IdentityProviderNotFoundException when provider does not exist', async () => {
-    vi.mocked(providerRepo.findById).mockResolvedValue(null)
-
+  it('throws DomainException when non-global scope has null scopeId', async () => {
     await expect(
       handler.execute(
-        new UpdateIdpGroupMappingCommand(
+        new UpsertGroupMappingCommand(
           TENANT_ID,
           PROVIDER_ID,
-          'aad-group-123',
+          'aad-group-001',
           'Engineering',
           'employee',
-          'global',
+          'department',
           null,
           ACTOR_ID,
         ),
       ),
-    ).rejects.toThrow(IdentityProviderNotFoundException)
+    ).rejects.toThrow(DomainException)
 
     expect(mappingRepo.upsert).not.toHaveBeenCalled()
+  })
+
+  it('throws with correct message when non-global scope has null scopeId', async () => {
+    await expect(
+      handler.execute(
+        new UpsertGroupMappingCommand(
+          TENANT_ID,
+          PROVIDER_ID,
+          'aad-group-001',
+          'Engineering',
+          'employee',
+          'project',
+          null,
+          ACTOR_ID,
+        ),
+      ),
+    ).rejects.toThrow('scopeId is required when scopeType is not global')
   })
 })

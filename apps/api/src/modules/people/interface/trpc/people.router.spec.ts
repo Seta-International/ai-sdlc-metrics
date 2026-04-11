@@ -3,7 +3,7 @@ import { TRPCError } from '@trpc/server'
 import { createPeopleRouter } from './people.router'
 import { router } from '../../../../common/trpc/trpc-init'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import type { IAuditLogger } from '../../../../common/auth/audit-logger.interface'
 import type { PeopleQueryFacade } from '../../application/facades/people-query.facade'
 import { createProtectedProcedures } from '../../../../common/trpc/create-protected-procedures'
 import type { TrpcContext } from '../../../../common/trpc/trpc-init'
@@ -15,7 +15,7 @@ const DEPARTMENT_ID = '01900000-0000-7000-8000-000000000004'
 
 describe('peopleRouter', () => {
   let kernelFacade: { canDo: ReturnType<typeof vi.fn> }
-  let auditRepo: { insert: ReturnType<typeof vi.fn> }
+  let auditRepo: IAuditLogger & { insert: ReturnType<typeof vi.fn> }
   let peopleFacade: {
     getProfile: ReturnType<typeof vi.fn>
     getOwnProfile: ReturnType<typeof vi.fn>
@@ -37,13 +37,13 @@ describe('peopleRouter', () => {
   function createRouter() {
     const { permissionProtectedProcedure } = createProtectedProcedures(
       kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
+      auditRepo,
     )
     return createPeopleRouter(
       permissionProtectedProcedure,
       peopleFacade as unknown as PeopleQueryFacade,
       kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
+      auditRepo,
     )
   }
 

@@ -4,7 +4,11 @@ import type { TrpcContext } from '../../../../common/trpc/trpc-init'
 import { IdentityTrpcService } from './identity-trpc.service'
 import { ConfigureIdentityProviderCommand } from '../../application/commands/configure-identity-provider.command'
 import { TestIdpConnectionCommand } from '../../application/commands/test-idp-connection.command'
+import { SyncIdpGroupsCommand } from '../../application/commands/sync-idp-groups.command'
+import { UpsertGroupMappingCommand } from '../../application/commands/upsert-group-mapping.command'
+import { RemoveGroupMappingCommand } from '../../application/commands/remove-group-mapping.command'
 import { GetIdentityProviderQuery } from '../../application/queries/get-identity-provider.query'
+import { ListGroupMappingsQuery } from '../../application/queries/list-group-mappings.query'
 
 type AuthCtx = TrpcContext & { actorId: string; tenantId: string }
 const svc = () => IdentityTrpcService.getInstance()
@@ -59,6 +63,70 @@ export function createIdentityRouter(
       .mutation(async ({ ctx, input }) => {
         const { actorId, tenantId } = ctx as unknown as AuthCtx
         return svc().command(new TestIdpConnectionCommand(tenantId, input.providerId, actorId))
+      }),
+
+    syncGroups: permissionProtectedProcedure
+      .meta({ permission: 'admin:role:manage' })
+      .mutation(async ({ ctx }) => {
+        const { actorId, tenantId } = ctx as unknown as AuthCtx
+        return svc().command(new SyncIdpGroupsCommand(tenantId, actorId))
+      }),
+
+    listGroupMappings: permissionProtectedProcedure
+      .meta({ permission: 'admin:role:manage' })
+      .query(async ({ ctx }) => {
+        const { tenantId } = ctx as unknown as AuthCtx
+        return svc().query(new ListGroupMappingsQuery(tenantId))
+      }),
+
+    upsertGroupMapping: permissionProtectedProcedure
+      .meta({ permission: 'admin:role:manage' })
+      .input(
+        z.object({
+          identityProviderId: z.string().uuid(),
+          externalGroupId: z.string().min(1).max(255),
+          externalGroupName: z.string().min(1).max(255),
+          roleKey: z.enum([
+            'hr_ops',
+            'line_manager',
+            'project_manager',
+            'staffing_owner',
+            'account_manager',
+            'finance_operator',
+            'executive',
+            'employee',
+            'review_operator',
+            'recruiter',
+            'tenant_admin',
+          ]),
+          scopeType: z.enum(['global', 'department', 'project', 'account']),
+          scopeId: z.string().uuid().nullable(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { actorId, tenantId } = ctx as unknown as AuthCtx
+        const mappingId = await svc().command(
+          new UpsertGroupMappingCommand(
+            tenantId,
+            input.identityProviderId,
+            input.externalGroupId,
+            input.externalGroupName,
+            input.roleKey,
+            input.scopeType,
+            input.scopeId,
+            actorId,
+          ),
+        )
+        return { mappingId }
+      }),
+
+    removeGroupMapping: permissionProtectedProcedure
+      .meta({ permission: 'admin:role:manage' })
+      .input(z.object({ mappingId: z.string().uuid() }))
+      .mutation(async ({ ctx, input }) => {
+        const { actorId, tenantId } = ctx as unknown as AuthCtx
+        await svc().command(new RemoveGroupMappingCommand(tenantId, input.mappingId, actorId))
+        return { success: true }
       }),
   })
 }
