@@ -149,7 +149,7 @@ interface WidgetSpec {
 | ---------------- | -------------------- | ---------------------------------------------------------------------- |
 | `id`             | UUID v7 PK           |                                                                        |
 | `tenant_id`      | UUID                 | null = system-wide template                                            |
-| `slug`           | TEXT NOT NULL UNIQUE |                                                                        |
+| `slug`           | TEXT NOT NULL        | UNIQUE per (tenant_id, slug) — composite unique constraint             |
 | `title`          | TEXT NOT NULL        |                                                                        |
 | `description`    | TEXT                 |                                                                        |
 | `category`       | TEXT NOT NULL        | `'people' \| 'time' \| 'hiring' \| 'finance' \| 'goals' \| 'projects'` |
