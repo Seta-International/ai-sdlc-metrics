@@ -87,7 +87,7 @@ export class CompleteOffboardingHandler implements ICommandHandler<
       tenantId: command.tenantId,
       eventName: EMPLOYEE_TERMINATED_EVENT,
       payload: {
-        actorId: profile!.actorId,
+        actorId: profile.actorId,
         tenantId: command.tenantId,
         terminationDate: now.toISOString(),
       },
