@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Grid2X2, Search, X, ChevronDown } from 'lucide-react'
+import { Grid2X2, ChevronDown } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 // ─── App Registry ───────────────────────────────────────────────────────────
