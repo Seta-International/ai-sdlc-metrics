@@ -36,7 +36,7 @@ export class DrizzleRolePermissionRepository implements IRolePermissionRepositor
     roleKey: RoleKeyValue
     permissionKey: string
     isLocked: boolean
-  }): Promise<RolePermission> {
+  }): Promise<RolePermission | null> {
     const rows = await this.db
       .insert(rolePermission)
       .values({
@@ -45,9 +45,10 @@ export class DrizzleRolePermissionRepository implements IRolePermissionRepositor
         permissionKey: data.permissionKey,
         isLocked: data.isLocked,
       })
+      .onConflictDoNothing()
       .returning()
 
-    return rows[0] as RolePermission
+    return (rows[0] as RolePermission) ?? null
   }
 
   async remove(tenantId: string, roleKey: RoleKeyValue, permissionKey: string): Promise<void> {

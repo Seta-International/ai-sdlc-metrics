@@ -37,10 +37,11 @@ describe('DrizzleRolePermissionRepository', () => {
       isLocked: true,
     })
 
-    expect(inserted.id).toBeDefined()
-    expect(inserted.roleKey).toBe('employee')
-    expect(inserted.permissionKey).toBe('people:profile:self:read')
-    expect(inserted.isLocked).toBe(true)
+    expect(inserted).not.toBeNull()
+    expect(inserted!.id).toBeDefined()
+    expect(inserted!.roleKey).toBe('employee')
+    expect(inserted!.permissionKey).toBe('people:profile:self:read')
+    expect(inserted!.isLocked).toBe(true)
 
     const results = await repo.findByRoleKey('employee', TENANT_A)
     expect(results).toHaveLength(1)

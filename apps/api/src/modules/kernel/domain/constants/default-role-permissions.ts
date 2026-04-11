@@ -43,8 +43,7 @@ const ALL_PERMISSIONS: DefaultPermissionEntry[] = [
   { permissionKey: 'projects:assignment:manage', isLocked: false },
   { permissionKey: 'projects:staffing:read', isLocked: false },
   { permissionKey: 'planner:task:self:manage', isLocked: false },
-  { permissionKey: 'admin:role:manage', isLocked: false },
-  { permissionKey: 'admin:tenant:read', isLocked: false },
+  // admin:role:manage and admin:tenant:read omitted here; added as locked via TENANT_ADMIN_LOCKED
   { permissionKey: 'admin:tenant:manage', isLocked: false },
 ]
 

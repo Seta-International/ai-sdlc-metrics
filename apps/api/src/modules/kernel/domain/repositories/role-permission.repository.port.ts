@@ -11,7 +11,7 @@ export interface IRolePermissionRepository {
     roleKey: RoleKeyValue
     permissionKey: string
     isLocked: boolean
-  }): Promise<RolePermission>
+  }): Promise<RolePermission | null>
   remove(tenantId: string, roleKey: RoleKeyValue, permissionKey: string): Promise<void>
   findAll(tenantId: string): Promise<RolePermission[]>
 }
