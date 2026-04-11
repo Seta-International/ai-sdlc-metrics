@@ -1,5 +1,10 @@
 import { z } from 'zod'
 import { publicProcedure, router } from '../../../../common/trpc/trpc-init'
+import type { TrpcContext } from '../../../../common/trpc/trpc-init'
+import { checkPermission } from '../../../../common/auth/check-permission'
+import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
+import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import type { PeopleQueryFacade } from '../../application/facades/people-query.facade'
 import { CreateEmploymentProfileCommand } from '../../application/commands/create-employment-profile.command'
 import { UpdateProfileDirectCommand } from '../../application/commands/update-profile-direct.command'
 import { RequestProfileChangeCommand } from '../../application/commands/request-profile-change.command'
@@ -18,6 +23,53 @@ import { ListTemplatesQuery } from '../../application/queries/list-templates.que
 import { ListContractVersionsQuery } from '../../application/queries/list-contract-versions.query'
 import { ListPeriodicReviewsQuery } from '../../application/queries/list-periodic-reviews.query'
 import { PeopleTrpcService } from './people-trpc.service'
+
+/**
+ * Factory creating permission-aware people procedures.
+ * Demonstrates middleware-level (getProfile, getOwnProfile) and handler-level (updateProfile) checks.
+ * The existing peopleRouter export is kept for backward compatibility.
+ */
+export function createPeopleRouter(
+  permissionProtectedProcedure: ReturnType<typeof publicProcedure.use>,
+  peopleFacade: PeopleQueryFacade,
+  kernelFacade: KernelQueryFacade,
+  auditRepo: IAuditEventRepository,
+) {
+  type AuthCtx = TrpcContext & { actorId: string; tenantId: string }
+
+  return router({
+    getProfile: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:read' })
+      .input(z.object({ actorId: z.string().uuid() }))
+      .query(({ ctx, input }) => {
+        const { actorId: _actorId, tenantId } = ctx as unknown as AuthCtx
+        return peopleFacade.getProfile(input.actorId, tenantId)
+      }),
+
+    getOwnProfile: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:self:read' })
+      .query(({ ctx }) => {
+        const { actorId, tenantId } = ctx as unknown as AuthCtx
+        return peopleFacade.getOwnProfile(actorId, tenantId)
+      }),
+
+    updateProfile: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:update' })
+      .input(z.object({ actorId: z.string().uuid(), displayName: z.string().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const { actorId, tenantId } = ctx as unknown as AuthCtx
+        const profile = await peopleFacade.getProfile(input.actorId, tenantId)
+        await checkPermission(kernelFacade, auditRepo, {
+          actorId,
+          tenantId,
+          permission: 'people:profile:update',
+          scopeType: 'department',
+          scopeId: (profile as unknown as { departmentId: string }).departmentId,
+        })
+        return { success: true }
+      }),
+  })
+}
 
 const svc = () => PeopleTrpcService.getInstance()
 
