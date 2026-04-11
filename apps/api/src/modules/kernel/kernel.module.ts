@@ -1,5 +1,8 @@
-import { Module } from '@nestjs/common'
-import { CqrsModule } from '@nestjs/cqrs'
+import { Inject, Module, type OnModuleInit } from '@nestjs/common'
+import { CommandBus, CqrsModule } from '@nestjs/cqrs'
+import { JWT_SERVICE } from '../../common/auth/auth.module'
+import type { JwtService } from '../../common/auth/jwt.service'
+import { setIdentityCommandBus, setIdentityJwtService } from './interface/trpc/identity.router'
 import { ACTOR_REPOSITORY } from './domain/repositories/actor.repository.port'
 import { DEPARTMENT_REPOSITORY } from './domain/repositories/department.repository.port'
 import { DECISION_CASE_REPOSITORY } from './domain/repositories/decision-case.repository.port'
@@ -71,4 +74,14 @@ import { DrizzleOutboxEventRepository } from './infrastructure/repositories/driz
   ],
   exports: [KernelQueryFacade, AUDIT_EVENT_REPOSITORY, OUTBOX_EVENT_REPOSITORY],
 })
-export class KernelModule {}
+export class KernelModule implements OnModuleInit {
+  constructor(
+    private readonly commandBus: CommandBus,
+    @Inject(JWT_SERVICE) private readonly jwtService: JwtService,
+  ) {}
+
+  onModuleInit() {
+    setIdentityCommandBus(this.commandBus)
+    setIdentityJwtService(this.jwtService)
+  }
+}

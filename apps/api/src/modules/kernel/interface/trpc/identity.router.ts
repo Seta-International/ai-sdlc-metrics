@@ -2,6 +2,7 @@ import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { CommandBus } from '@nestjs/cqrs'
+import type { JwtService } from '../../../../common/auth/jwt.service'
 import {
   ResolveLoginCommand,
   type ResolveLoginResult,
@@ -30,7 +31,8 @@ const validateMagicLinkInput = z.object({
  * Identity router — all procedures are public because they are called
  * during the authentication flow, before a session exists.
  *
- * The CommandBus is injected at module bootstrap time via setIdentityCommandBus().
+ * The CommandBus and JwtService are injected at module bootstrap time via
+ * setIdentityCommandBus() and setIdentityJwtService().
  */
 let commandBus: CommandBus | null = null
 
@@ -45,12 +47,25 @@ function getCommandBus(): CommandBus {
   return commandBus
 }
 
+let jwtService: JwtService | null = null
+
+export function setIdentityJwtService(service: JwtService): void {
+  jwtService = service
+}
+
+function getJwtService(): JwtService {
+  if (!jwtService) {
+    throw new Error('Identity router JwtService not initialized')
+  }
+  return jwtService
+}
+
 export const identityRouter = router({
   resolveLogin: publicProcedure
     .input(resolveLoginInput)
-    .mutation(async ({ input }): Promise<ResolveLoginResult> => {
+    .mutation(async ({ input }): Promise<{ sessionToken: string }> => {
       try {
-        return await getCommandBus().execute(
+        const result: ResolveLoginResult = await getCommandBus().execute(
           new ResolveLoginCommand(
             input.provider,
             input.ssoSubject,
@@ -59,6 +74,13 @@ export const identityRouter = router({
             input.tenantId,
           ),
         )
+        const sessionToken = await getJwtService().sign({
+          sub: result.actorId,
+          tid: result.tenantId,
+          roles: result.roles,
+          provider: result.provider,
+        })
+        return { sessionToken }
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Login failed'
         if (message.includes('suspended')) {
