@@ -1,6 +1,9 @@
 import { Inject } from '@nestjs/common'
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
-import { ActorNotFoundException } from '../../domain/exceptions/actor.exceptions'
+import {
+  ActorArchivedException,
+  ActorNotFoundException,
+} from '../../domain/exceptions/actor.exceptions'
 import {
   ACTOR_REPOSITORY,
   type IActorRepository,
@@ -15,6 +18,9 @@ export class UpdateActorStatusHandler implements ICommandHandler<UpdateActorStat
     const actor = await this.actorRepo.findById(command.actorId, command.tenantId)
     if (!actor) {
       throw new ActorNotFoundException(command.actorId)
+    }
+    if (actor.status === 'archived') {
+      throw new ActorArchivedException(actor.id)
     }
     await this.actorRepo.updateStatus(command.actorId, command.tenantId, command.status)
   }

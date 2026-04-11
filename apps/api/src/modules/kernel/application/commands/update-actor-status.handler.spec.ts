@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { UpdateActorStatusCommand } from './update-actor-status.command'
 import { UpdateActorStatusHandler } from './update-actor-status.handler'
-import { ActorNotFoundException } from '../../domain/exceptions/actor.exceptions'
+import {
+  ActorArchivedException,
+  ActorNotFoundException,
+} from '../../domain/exceptions/actor.exceptions'
 import type { Actor } from '../../domain/entities/actor.entity'
 import type { IActorRepository } from '../../domain/repositories/actor.repository.port'
 
@@ -47,6 +50,19 @@ describe('UpdateActorStatusHandler', () => {
     await expect(
       handler.execute(new UpdateActorStatusCommand(TENANT_ID, ACTOR_ID, 'inactive')),
     ).rejects.toThrow(ActorNotFoundException)
+
+    expect(actorRepo.updateStatus).not.toHaveBeenCalled()
+  })
+
+  it('throws ActorArchivedException when actor is archived', async () => {
+    vi.mocked(actorRepo.findById).mockResolvedValue({
+      ...fakeActor,
+      status: 'archived',
+    })
+
+    await expect(
+      handler.execute(new UpdateActorStatusCommand(TENANT_ID, ACTOR_ID, 'active')),
+    ).rejects.toThrow(ActorArchivedException)
 
     expect(actorRepo.updateStatus).not.toHaveBeenCalled()
   })
