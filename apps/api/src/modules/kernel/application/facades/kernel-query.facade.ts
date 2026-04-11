@@ -8,6 +8,8 @@ import { GetActorQuery } from '../queries/get-actor.query'
 import { GetRoleGrantsQuery } from '../queries/get-role-grants.query'
 import { GetTenantQuery } from '../queries/get-tenant.query'
 import { GetUserIdentityBySsoSubjectQuery } from '../queries/get-user-identity-by-sso-subject.query'
+import { CanDoQuery, type CanDoContext } from '../queries/can-do.query'
+import { GetEffectivePermissionsQuery } from '../queries/get-effective-permissions.query'
 
 /**
  * KernelQueryFacade is the only cross-module import allowed from the kernel.
@@ -45,5 +47,13 @@ export class KernelQueryFacade {
 
   getUserIdentityBySsoSubject(ssoSubject: string, tenantId: string): Promise<UserIdentity | null> {
     return this.queryBus.execute(new GetUserIdentityBySsoSubjectQuery(ssoSubject, tenantId))
+  }
+
+  canDo(actorId: string, permission: string, context: CanDoContext): Promise<boolean> {
+    return this.queryBus.execute(new CanDoQuery(actorId, permission, context))
+  }
+
+  getEffectivePermissions(actorId: string, tenantId: string): Promise<string[]> {
+    return this.queryBus.execute(new GetEffectivePermissionsQuery(actorId, tenantId))
   }
 }
