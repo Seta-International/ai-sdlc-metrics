@@ -12,7 +12,6 @@ import {
   DELEGATION_REPOSITORY,
   type IDelegationRepository,
 } from '../../domain/repositories/delegation.repository.port'
-import type { RoleKeyValue } from '../../domain/entities/role-grant.entity'
 import { CanDoQuery } from './can-do.query'
 
 @QueryHandler(CanDoQuery)
@@ -38,7 +37,7 @@ export class CanDoHandler implements IQueryHandler<CanDoQuery, boolean> {
 
     // Step 3: Collect all unique role keys from grants + delegations
     const roleKeysFromGrants = grants.map((g) => g.roleKey)
-    const roleKeysFromDelegations = delegations.map((d) => d.role as RoleKeyValue)
+    const roleKeysFromDelegations = delegations.map((d) => d.role)
     const allRoleKeys = [...new Set([...roleKeysFromGrants, ...roleKeysFromDelegations])]
 
     if (allRoleKeys.length === 0) {
