@@ -3,6 +3,7 @@ import { CommandBus } from '@nestjs/cqrs'
 import { ApproveProfileChangeCommand } from './approve-profile-change.command'
 import { ApproveProfileChangeHandler } from './approve-profile-change.handler'
 import { ProfileChangeRequestNotFoundException } from '../../domain/exceptions/people.exceptions'
+import { ResolveDecisionCaseCommand } from '../../../kernel/application/commands/resolve-decision-case.command'
 import type { IProfileChangeRequestRepository } from '../../domain/repositories/profile-change-request.repository'
 import type { IEmploymentProfileDetailRepository } from '../../domain/repositories/employment-profile-detail.repository'
 import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
@@ -67,13 +68,33 @@ describe('ApproveProfileChangeHandler', () => {
       'approved',
       APPROVER_ID,
     )
-    expect(commandBus.execute).toHaveBeenCalled() // ResolveDecisionCaseCommand
+    expect(commandBus.execute).toHaveBeenCalledWith(expect.any(ResolveDecisionCaseCommand))
     expect(auditRepo.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'profile_change_approved',
         module: 'people',
       }),
     )
+  })
+
+  it('does not dispatch ResolveDecisionCaseCommand when decisionCaseId is null', async () => {
+    vi.mocked(changeRequestRepo.findById).mockResolvedValue({
+      id: REQUEST_ID,
+      tenantId: TENANT_ID,
+      profileId: PROFILE_ID,
+      fieldPath: 'detail.bankAccountNumber',
+      oldValue: '1234',
+      newValue: '5678',
+      status: 'pending',
+      decisionCaseId: null,
+      requestedBy: 'req-actor',
+      reviewedBy: null,
+      createdAt: new Date(),
+    })
+
+    await handler.execute(new ApproveProfileChangeCommand(TENANT_ID, REQUEST_ID, APPROVER_ID))
+
+    expect(commandBus.execute).not.toHaveBeenCalled()
   })
 
   it('throws ProfileChangeRequestNotFoundException when not found', async () => {
