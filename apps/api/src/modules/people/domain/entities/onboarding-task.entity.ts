@@ -1,3 +1,5 @@
+import { OnboardingAssigneeRole } from './onboarding-task-template.entity'
+
 export type OnboardingTaskStatus = 'pending' | 'completed' | 'skipped'
 
 export interface OnboardingTask {
@@ -5,7 +7,7 @@ export interface OnboardingTask {
   tenantId: string
   caseId: string
   title: string
-  assigneeRole: string
+  assigneeRole: OnboardingAssigneeRole
   assigneeActorId: string | null
   dueDate: Date | null
   status: OnboardingTaskStatus

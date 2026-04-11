@@ -1,5 +1,8 @@
-export interface OffboardingStartedEvent {
-  actorId: string
-  tenantId: string
-  expectedLastDay: string // ISO date string
+export class OffboardingStartedEvent {
+  static readonly eventName = 'people.offboarding-started'
+  constructor(
+    public readonly tenantId: string,
+    public readonly actorId: string,
+    public readonly expectedLastDay: string,
+  ) {}
 }
