@@ -31,7 +31,7 @@ describe('permissionMiddleware', () => {
       path: 'people.getProfile',
       input: undefined,
       rawInput: undefined,
-    } as any)
+    } as unknown as Parameters<ReturnType<typeof createPermissionMiddleware>>[0])
   }
 
   it('should pass through when no meta is set', async () => {
