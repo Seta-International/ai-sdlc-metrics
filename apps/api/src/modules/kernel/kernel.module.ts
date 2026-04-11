@@ -9,8 +9,11 @@ import { USER_IDENTITY_REPOSITORY } from './domain/repositories/user-identity.re
 import { CreateActorHandler } from './application/commands/create-actor.handler'
 import { CreateDecisionCaseHandler } from './application/commands/create-decision-case.handler'
 import { CreateUserIdentityHandler } from './application/commands/create-user-identity.handler'
+import { DeprovisionUserIdentityHandler } from './application/commands/deprovision-user-identity.handler'
 import { GrantRoleHandler } from './application/commands/grant-role.handler'
 import { ResolveDecisionCaseHandler } from './application/commands/resolve-decision-case.handler'
+import { RevokeAllRoleGrantsHandler } from './application/commands/revoke-all-role-grants.handler'
+import { UpdateActorStatusHandler } from './application/commands/update-actor-status.handler'
 import { KernelQueryFacade } from './application/facades/kernel-query.facade'
 import { GetActorHandler } from './application/queries/get-actor.handler'
 import { GetRoleGrantsHandler } from './application/queries/get-role-grants.handler'
@@ -35,8 +38,11 @@ import { DrizzleUserIdentityRepository } from './infrastructure/repositories/dri
     CreateActorHandler,
     CreateDecisionCaseHandler,
     CreateUserIdentityHandler,
+    DeprovisionUserIdentityHandler,
     GrantRoleHandler,
     ResolveDecisionCaseHandler,
+    RevokeAllRoleGrantsHandler,
+    UpdateActorStatusHandler,
     GetActorHandler,
     GetTenantHandler,
     GetRoleGrantsHandler,

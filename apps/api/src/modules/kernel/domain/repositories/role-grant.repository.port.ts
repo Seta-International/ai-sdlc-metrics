@@ -12,4 +12,5 @@ export interface IRoleGrantRepository {
     scopeId: string | null
     grantedBy: string
   }): Promise<RoleGrant>
+  revokeAllForActor(actorId: string, tenantId: string, revokedAt: Date): Promise<void>
 }

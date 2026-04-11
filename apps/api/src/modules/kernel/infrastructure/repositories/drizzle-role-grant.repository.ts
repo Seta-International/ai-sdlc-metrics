@@ -47,4 +47,17 @@ export class DrizzleRoleGrantRepository implements IRoleGrantRepository {
       .returning()
     return rows[0] as RoleGrant
   }
+
+  async revokeAllForActor(actorId: string, tenantId: string, revokedAt: Date): Promise<void> {
+    await this.db
+      .update(roleGrant)
+      .set({ validUntil: revokedAt })
+      .where(
+        and(
+          eq(roleGrant.actorId, actorId),
+          eq(roleGrant.tenantId, tenantId),
+          isNull(roleGrant.validUntil),
+        ),
+      )
+  }
 }

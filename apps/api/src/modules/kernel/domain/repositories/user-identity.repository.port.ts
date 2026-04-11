@@ -12,4 +12,5 @@ export interface IUserIdentityRepository {
     ssoSubject: string
     provider: UserIdentity['provider']
   }): Promise<UserIdentity>
+  deprovisionByActorId(actorId: string, tenantId: string): Promise<void>
 }
