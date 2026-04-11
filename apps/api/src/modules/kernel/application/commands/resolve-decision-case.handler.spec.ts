@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  DecisionCaseAlreadyResolvedException,
+  DecisionCaseNotFoundException,
+} from '../../domain/exceptions/decision-case.exceptions'
 import { ResolveDecisionCaseCommand } from './resolve-decision-case.command'
 import { ResolveDecisionCaseHandler } from './resolve-decision-case.handler'
 import type {
+  DecisionCase,
   DecisionOutcome,
   IDecisionCaseRepository,
 } from '../../domain/repositories/decision-case.repository.port'
@@ -10,6 +15,16 @@ const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const CASE_ID = '01900000-0000-7000-8000-000000000002'
 const DECIDED_BY = '01900000-0000-7000-8000-000000000003'
 const OUTCOME_ID = '01900000-0000-7000-8000-000000000004'
+
+const fakePendingCase = (): DecisionCase => ({
+  id: CASE_ID,
+  tenantId: TENANT_ID,
+  module: 'people',
+  subjectId: '01900000-0000-7000-8000-000000000010',
+  requestedBy: DECIDED_BY,
+  status: 'pending',
+  createdAt: new Date(),
+})
 
 const fakeOutcome = (
   finalAction: 'approved' | 'rejected',
@@ -39,6 +54,7 @@ describe('ResolveDecisionCaseHandler', () => {
   })
 
   it('approves a decision case and creates an outcome', async () => {
+    vi.mocked(repo.findById).mockResolvedValue(fakePendingCase())
     vi.mocked(repo.updateStatus).mockResolvedValue(undefined)
     vi.mocked(repo.insertOutcome).mockResolvedValue(fakeOutcome('approved', null))
 
@@ -58,6 +74,7 @@ describe('ResolveDecisionCaseHandler', () => {
 
   it('rejects a decision case with a comment', async () => {
     const comment = 'Missing documentation'
+    vi.mocked(repo.findById).mockResolvedValue(fakePendingCase())
     vi.mocked(repo.updateStatus).mockResolvedValue(undefined)
     vi.mocked(repo.insertOutcome).mockResolvedValue(fakeOutcome('rejected', comment))
 
@@ -73,5 +90,31 @@ describe('ResolveDecisionCaseHandler', () => {
       decidedBy: DECIDED_BY,
       comment,
     })
+  })
+
+  it('throws DecisionCaseNotFoundException when case does not exist', async () => {
+    vi.mocked(repo.findById).mockResolvedValue(null)
+
+    await expect(
+      handler.execute(
+        new ResolveDecisionCaseCommand(TENANT_ID, CASE_ID, 'approved', DECIDED_BY, null),
+      ),
+    ).rejects.toThrow(DecisionCaseNotFoundException)
+
+    expect(repo.updateStatus).not.toHaveBeenCalled()
+    expect(repo.insertOutcome).not.toHaveBeenCalled()
+  })
+
+  it('throws DecisionCaseAlreadyResolvedException when case is already resolved', async () => {
+    vi.mocked(repo.findById).mockResolvedValue({ ...fakePendingCase(), status: 'approved' })
+
+    await expect(
+      handler.execute(
+        new ResolveDecisionCaseCommand(TENANT_ID, CASE_ID, 'approved', DECIDED_BY, null),
+      ),
+    ).rejects.toThrow(DecisionCaseAlreadyResolvedException)
+
+    expect(repo.updateStatus).not.toHaveBeenCalled()
+    expect(repo.insertOutcome).not.toHaveBeenCalled()
   })
 })

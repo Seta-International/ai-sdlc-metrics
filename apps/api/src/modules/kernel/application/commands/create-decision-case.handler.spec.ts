@@ -50,4 +50,12 @@ describe('CreateDecisionCaseHandler', () => {
       requestedBy: REQUESTED_BY,
     })
   })
+
+  it('propagates repository errors', async () => {
+    vi.mocked(repo.insert).mockRejectedValue(new Error('DB down'))
+
+    await expect(
+      handler.execute(new CreateDecisionCaseCommand(TENANT_ID, 'people', SUBJECT_ID, REQUESTED_BY)),
+    ).rejects.toThrow('DB down')
+  })
 })
