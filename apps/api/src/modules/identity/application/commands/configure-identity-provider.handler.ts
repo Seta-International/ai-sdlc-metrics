@@ -3,6 +3,7 @@ import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import {
   PrimaryProviderAlreadyExistsException,
   InvalidClientSecretRefException,
+  IdentityProviderNotFoundException,
 } from '../../domain/exceptions/identity.exceptions'
 import {
   IDENTITY_PROVIDER_REPOSITORY,
@@ -30,9 +31,45 @@ export class ConfigureIdentityProviderHandler implements ICommandHandler<
       throw new InvalidClientSecretRefException(command.clientSecretRef)
     }
 
+    // Update path
+    if (command.existingProviderId) {
+      const existing = await this.providerRepo.findById(
+        command.existingProviderId,
+        command.tenantId,
+      )
+      if (!existing) {
+        throw new IdentityProviderNotFoundException(command.existingProviderId)
+      }
+
+      const updated = await this.providerRepo.update(command.existingProviderId, command.tenantId, {
+        displayName: command.displayName,
+        clientId: command.clientId,
+        clientSecretRef: command.clientSecretRef,
+        directoryId: command.directoryId,
+        isPrimary: command.isPrimary,
+        syncEnabled: command.syncEnabled,
+      })
+
+      await this.auditService.log({
+        tenantId: command.tenantId,
+        actorId: command.configuredBy,
+        eventType: 'identity_provider_configured',
+        module: 'identity',
+        subjectId: updated.id,
+        payload: {
+          providerType: command.providerType,
+          isPrimary: command.isPrimary,
+          action: 'update',
+        },
+      })
+
+      return updated
+    }
+
+    // Create path
     if (command.isPrimary) {
-      const existing = await this.providerRepo.findPrimary(command.tenantId)
-      if (existing) {
+      const existingPrimary = await this.providerRepo.findPrimary(command.tenantId)
+      if (existingPrimary) {
         throw new PrimaryProviderAlreadyExistsException(command.tenantId)
       }
     }
@@ -57,6 +94,7 @@ export class ConfigureIdentityProviderHandler implements ICommandHandler<
       payload: {
         providerType: command.providerType,
         isPrimary: command.isPrimary,
+        action: 'create',
       },
     })
 

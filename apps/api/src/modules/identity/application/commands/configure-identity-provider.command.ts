@@ -9,5 +9,6 @@ export class ConfigureIdentityProviderCommand {
     readonly isPrimary: boolean,
     readonly syncEnabled: boolean,
     readonly configuredBy: string,
+    readonly existingProviderId?: string,
   ) {}
 }

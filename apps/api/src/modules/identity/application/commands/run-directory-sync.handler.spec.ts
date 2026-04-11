@@ -76,6 +76,7 @@ describe('RunDirectorySyncHandler', () => {
     directoryProvider = {
       listUsers: vi.fn(),
       listGroupsWithMembers: vi.fn(),
+      testConnection: vi.fn(),
     }
     directoryProviderFactory = { create: vi.fn().mockReturnValue(directoryProvider) }
 

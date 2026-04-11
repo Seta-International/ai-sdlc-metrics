@@ -19,4 +19,9 @@ export class MicrosoftGraphProvider implements IDirectoryProvider {
     )
     return []
   }
+
+  async testConnection(): Promise<{ success: boolean; error?: string; userCount?: number }> {
+    this.logger.warn('MicrosoftGraphProvider.testConnection() is a stub — not yet implemented')
+    return { success: true, userCount: 0 }
+  }
 }

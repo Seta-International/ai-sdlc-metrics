@@ -25,6 +25,7 @@ import { RequestMagicLinkHandler } from './application/commands/request-magic-li
 import { ValidateMagicLinkHandler } from './application/commands/validate-magic-link.handler'
 import { CreateApiKeyHandler } from './application/commands/create-api-key.handler'
 import { RunDirectorySyncHandler } from './application/commands/run-directory-sync.handler'
+import { TestIdpConnectionHandler } from './application/commands/test-idp-connection.handler'
 
 // Query handlers
 import { GetIdentityProviderHandler } from './application/queries/get-identity-provider.handler'
@@ -34,6 +35,9 @@ import { ValidateApiKeyHandler } from './application/queries/validate-api-key.ha
 
 // Facade
 import { IdentityQueryFacade } from './application/facades/identity-query.facade'
+
+// tRPC interface
+import { IdentityTrpcService } from './interface/trpc/identity-trpc.service'
 
 @Module({
   imports: [CqrsModule, KernelModule],
@@ -52,6 +56,7 @@ import { IdentityQueryFacade } from './application/facades/identity-query.facade
     ValidateMagicLinkHandler,
     CreateApiKeyHandler,
     RunDirectorySyncHandler,
+    TestIdpConnectionHandler,
     // Query handlers
     GetIdentityProviderHandler,
     GetIdpGroupMappingsHandler,
@@ -59,6 +64,8 @@ import { IdentityQueryFacade } from './application/facades/identity-query.facade
     ValidateApiKeyHandler,
     // Facade
     IdentityQueryFacade,
+    // tRPC interface
+    IdentityTrpcService,
   ],
   exports: [IdentityQueryFacade],
 })

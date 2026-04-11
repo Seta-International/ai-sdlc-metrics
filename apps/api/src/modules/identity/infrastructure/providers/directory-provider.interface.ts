@@ -18,6 +18,7 @@ export interface IdpGroup {
 export interface IDirectoryProvider {
   listUsers(): Promise<IdpUser[]>
   listGroupsWithMembers(): Promise<IdpGroup[]>
+  testConnection(): Promise<{ success: boolean; error?: string; userCount?: number }>
 }
 
 export interface IDirectoryProviderFactory {

@@ -19,4 +19,9 @@ export class GoogleDirectoryProvider implements IDirectoryProvider {
     )
     return []
   }
+
+  async testConnection(): Promise<{ success: boolean; error?: string; userCount?: number }> {
+    this.logger.warn('GoogleDirectoryProvider.testConnection() is a stub — not yet implemented')
+    return { success: true, userCount: 0 }
+  }
 }

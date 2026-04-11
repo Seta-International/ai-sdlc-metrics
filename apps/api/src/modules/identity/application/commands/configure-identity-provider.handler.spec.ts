@@ -4,6 +4,7 @@ import { ConfigureIdentityProviderHandler } from './configure-identity-provider.
 import {
   PrimaryProviderAlreadyExistsException,
   InvalidClientSecretRefException,
+  IdentityProviderNotFoundException,
 } from '../../domain/exceptions/identity.exceptions'
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
 import type { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
@@ -178,5 +179,78 @@ describe('ConfigureIdentityProviderHandler', () => {
         ),
       ),
     ).rejects.toThrow(InvalidClientSecretRefException)
+  })
+
+  it('updates an existing identity provider when existingProviderId is provided', async () => {
+    const existingProvider = {
+      id: PROVIDER_ID,
+      tenantId: TENANT_ID,
+      providerType: 'microsoft' as const,
+      displayName: 'Old Name',
+      clientId: 'old-client',
+      clientSecretRef: 'arn:aws:secretsmanager:ap-southeast-1:123456789:secret:old',
+      directoryId: null,
+      isPrimary: true,
+      syncEnabled: false,
+      lastSyncAt: null,
+      syncStatus: 'idle' as const,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+    const updatedProvider = {
+      ...existingProvider,
+      displayName: 'New Name',
+      clientId: 'new-client',
+      clientSecretRef: 'arn:aws:secretsmanager:ap-southeast-1:123456789:secret:new',
+    }
+    vi.mocked(providerRepo.findById).mockResolvedValue(existingProvider)
+    vi.mocked(providerRepo.update).mockResolvedValue(updatedProvider)
+
+    const result = await handler.execute(
+      new ConfigureIdentityProviderCommand(
+        TENANT_ID,
+        'microsoft',
+        'New Name',
+        'new-client',
+        'arn:aws:secretsmanager:ap-southeast-1:123456789:secret:new',
+        null,
+        true,
+        false,
+        ACTOR_ID,
+        PROVIDER_ID,
+      ),
+    )
+
+    expect(result.id).toBe(PROVIDER_ID)
+    expect(result.displayName).toBe('New Name')
+    expect(providerRepo.update).toHaveBeenCalledWith(
+      PROVIDER_ID,
+      TENANT_ID,
+      expect.objectContaining({ displayName: 'New Name', clientId: 'new-client' }),
+    )
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({ eventType: 'identity_provider_configured', module: 'identity' }),
+    )
+  })
+
+  it('throws IdentityProviderNotFoundException when updating a non-existent provider', async () => {
+    vi.mocked(providerRepo.findById).mockResolvedValue(null)
+
+    await expect(
+      handler.execute(
+        new ConfigureIdentityProviderCommand(
+          TENANT_ID,
+          'microsoft',
+          'Name',
+          'client-123',
+          'arn:aws:secretsmanager:ap-southeast-1:123456789:secret:test',
+          null,
+          true,
+          false,
+          ACTOR_ID,
+          'non-existent-id',
+        ),
+      ),
+    ).rejects.toThrow(IdentityProviderNotFoundException)
   })
 })
