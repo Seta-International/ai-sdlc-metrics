@@ -75,7 +75,7 @@ describe('authMiddleware', () => {
         rawInput: undefined,
         meta: undefined,
       }),
-    ).rejects.toThrow(TRPCError)
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
   })
 
   it('throws UNAUTHORIZED when token is expired or invalid', async () => {
@@ -92,6 +92,6 @@ describe('authMiddleware', () => {
         rawInput: undefined,
         meta: undefined,
       }),
-    ).rejects.toThrow(TRPCError)
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
   })
 })
