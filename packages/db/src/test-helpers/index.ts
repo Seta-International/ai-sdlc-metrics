@@ -145,3 +145,133 @@ export async function seedEmploymentProfile(
 
   return { id, tenantId, actorId }
 }
+
+export async function truncateProjectsSchema(db: Db): Promise<void> {
+  await db.execute(
+    sql`TRUNCATE
+      projects.allocation,
+      projects.project_role,
+      projects.project,
+      projects.account
+    RESTART IDENTITY CASCADE`,
+  )
+}
+
+export async function seedAccount(
+  db: Db,
+  overrides: Partial<{
+    id: string
+    tenantId: string
+    name: string
+    clientCompany: string
+    status: string
+  }> = {},
+): Promise<{ id: string; tenantId: string }> {
+  const id = overrides.id ?? uuidv7()
+  const tenantId = overrides.tenantId ?? uuidv7()
+  const name = overrides.name ?? `Test Account ${id.slice(0, 8)}`
+  const clientCompany = overrides.clientCompany ?? 'Test Client'
+  const status = overrides.status ?? 'active'
+
+  await db.execute(
+    sql`INSERT INTO projects.account
+        (id, tenant_id, name, client_company, status, created_at, updated_at)
+        VALUES (${id}, ${tenantId}, ${name}, ${clientCompany}, ${status}, NOW(), NOW())`,
+  )
+
+  return { id, tenantId }
+}
+
+export async function seedProject(
+  db: Db,
+  overrides: Partial<{
+    id: string
+    tenantId: string
+    accountId: string
+    name: string
+    code: string
+    status: string
+  }> = {},
+): Promise<{ id: string; tenantId: string; accountId: string }> {
+  const id = overrides.id ?? uuidv7()
+  const tenantId = overrides.tenantId ?? uuidv7()
+  const accountId = overrides.accountId ?? uuidv7()
+  const name = overrides.name ?? `Test Project ${id.slice(0, 8)}`
+  const code = overrides.code ?? `PRJ-${id.slice(0, 4)}`
+  const status = overrides.status ?? 'active'
+
+  await db.execute(
+    sql`INSERT INTO projects.project
+        (id, tenant_id, account_id, name, code, status, created_at, updated_at)
+        VALUES (${id}, ${tenantId}, ${accountId}, ${name}, ${code}, ${status}, NOW(), NOW())`,
+  )
+
+  return { id, tenantId, accountId }
+}
+
+export async function seedProjectRole(
+  db: Db,
+  overrides: Partial<{
+    id: string
+    tenantId: string
+    projectId: string
+    roleName: string
+    headcount: number
+    status: string
+  }> = {},
+): Promise<{ id: string; tenantId: string; projectId: string }> {
+  const id = overrides.id ?? uuidv7()
+  const tenantId = overrides.tenantId ?? uuidv7()
+  const projectId = overrides.projectId ?? uuidv7()
+  const roleName = overrides.roleName ?? 'Developer'
+  const headcount = overrides.headcount ?? 1
+  const status = overrides.status ?? 'open'
+
+  await db.execute(
+    sql`INSERT INTO projects.project_role
+        (id, tenant_id, project_id, role_name, headcount, status, created_at)
+        VALUES (${id}, ${tenantId}, ${projectId}, ${roleName}, ${headcount}, ${status}, NOW())`,
+  )
+
+  return { id, tenantId, projectId }
+}
+
+export async function seedAllocation(
+  db: Db,
+  overrides: Partial<{
+    id: string
+    tenantId: string
+    projectId: string
+    projectRoleId: string
+    actorId: string | null
+    hoursPerDay: string
+    billingType: string
+    memberType: string
+    status: string
+    startedAt: Date
+    endedAt: Date | null
+  }> = {},
+): Promise<{ id: string; tenantId: string }> {
+  const id = overrides.id ?? uuidv7()
+  const tenantId = overrides.tenantId ?? uuidv7()
+  const projectId = overrides.projectId ?? uuidv7()
+  const projectRoleId = overrides.projectRoleId ?? uuidv7()
+  const actorId = overrides.actorId ?? null
+  const hoursPerDay = overrides.hoursPerDay ?? '8.00'
+  const billingType = overrides.billingType ?? 'billable'
+  const memberType = overrides.memberType ?? 'core'
+  const status = overrides.status ?? 'tentative'
+  const startedAt = overrides.startedAt ?? new Date()
+  const endedAt = overrides.endedAt ?? null
+
+  await db.execute(
+    sql`INSERT INTO projects.allocation
+        (id, tenant_id, project_id, project_role_id, actor_id, hours_per_day,
+         billing_type, member_type, status, started_at, ended_at, created_at, updated_at)
+        VALUES (${id}, ${tenantId}, ${projectId}, ${projectRoleId}, ${actorId},
+                ${hoursPerDay}, ${billingType}, ${memberType}, ${status},
+                ${startedAt}, ${endedAt}, NOW(), NOW())`,
+  )
+
+  return { id, tenantId }
+}
