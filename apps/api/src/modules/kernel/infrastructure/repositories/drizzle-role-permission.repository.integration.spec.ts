@@ -108,6 +108,14 @@ describe('DrizzleRolePermissionRepository', () => {
 
   it('findAll returns all permissions for a tenant', async () => {
     await setTenantContext(db, TENANT_A)
+
+    await repo.insert({
+      tenantId: TENANT_A,
+      roleKey: 'executive',
+      permissionKey: 'finance:budget:manage',
+      isLocked: false,
+    })
+
     const results = await repo.findAll(TENANT_A)
     expect(results.length).toBeGreaterThan(0)
     expect(results.every((r) => r.tenantId === TENANT_A)).toBe(true)
