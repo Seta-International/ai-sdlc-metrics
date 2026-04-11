@@ -64,4 +64,27 @@ describe('JwtService', () => {
     const result = await service.verify(token)
     expect(result).toBeNull()
   })
+
+  it('verify rejects tokens with alg:none or mismatched algorithm', async () => {
+    // Craft a token with alg:none manually
+    const header = btoa(JSON.stringify({ alg: 'none' }))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '')
+    const body = btoa(
+      JSON.stringify({
+        sub: VALID_PAYLOAD.sub,
+        tid: VALID_PAYLOAD.tid,
+        roles: VALID_PAYLOAD.roles,
+        provider: VALID_PAYLOAD.provider,
+      }),
+    )
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '')
+    const noneToken = `${header}.${body}.`
+
+    const result = await service.verify(noneToken)
+    expect(result).toBeNull()
+  })
 })

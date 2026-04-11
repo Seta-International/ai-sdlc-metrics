@@ -16,11 +16,7 @@ export class JwtService {
 
   async sign(payload: Omit<SessionPayload, 'iat' | 'exp'>): Promise<string> {
     const now = Math.floor(Date.now() / 1000)
-    return new SignJWT({
-      ...payload,
-      iat: now,
-      exp: now + this.ttlSeconds,
-    })
+    return new SignJWT({ ...payload })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt(now)
       .setExpirationTime(now + this.ttlSeconds)
@@ -32,11 +28,20 @@ export class JwtService {
       const { payload } = await jwtVerify(token, this.secret, {
         algorithms: ['HS256'],
       })
+      const p = payload as Record<string, unknown>
+      if (
+        typeof p['sub'] !== 'string' ||
+        typeof p['tid'] !== 'string' ||
+        !Array.isArray(p['roles']) ||
+        typeof p['provider'] !== 'string'
+      ) {
+        return null
+      }
       return {
-        sub: payload.sub as string,
-        tid: payload['tid'] as string,
-        roles: payload['roles'] as string[],
-        provider: payload['provider'] as string,
+        sub: p['sub'],
+        tid: p['tid'] as string,
+        roles: p['roles'] as string[],
+        provider: p['provider'] as string,
         iat: payload.iat as number,
         exp: payload.exp as number,
       }
