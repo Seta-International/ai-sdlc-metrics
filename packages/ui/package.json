@@ -6,6 +6,10 @@
     ".": {
       "import": "./src/index.ts",
       "types": "./src/index.ts"
+    },
+    "./fonts": {
+      "import": "./src/lib/fonts.ts",
+      "types": "./src/lib/fonts.ts"
     }
   },
   "scripts": {
@@ -15,7 +19,8 @@
   },
   "peerDependencies": {
     "react": "^19",
-    "react-dom": "^19"
+    "react-dom": "^19",
+    "next": "16.2.3"
   },
   "devDependencies": {
     "@future/eslint-config": "workspace:*",

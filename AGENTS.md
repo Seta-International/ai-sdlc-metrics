@@ -195,3 +195,22 @@ Command handler → DB write + outbox_event INSERT (same tx)
 | Analytics sync            | Hourly Glue ETL batch — no real-time CDC                                                         |
 | RDS                       | Single-AZ + PITR — no Multi-AZ until enterprise SLA                                              |
 | AI config                 | Resolved at runtime via `AdminQueryFacade.getResolvedAiConfig()` — never hardcode models or keys |
+
+---
+
+## Design System
+
+Always read `DESIGN.md` before making any visual or UI decision.
+All font choices, colors, spacing, radii, motion, and component rules are defined there.
+Do not deviate without explicit user approval.
+In QA mode, flag any code that does not match `DESIGN.md`.
+
+Key rules (full spec in `DESIGN.md`):
+
+- Font: **Geist** (body/UI) + **Geist Mono** (data/code). Never Inter, Roboto, Arial, or system-ui as primary.
+- Accent color: `#1D4ED8` (authority blue). Never purple, violet, or gradient accents.
+- Sidebar background: `#0F1B2D` (deep navy). Always.
+- Dark mode page bg: `#0A0F1E` (deep navy). Not gray.
+- Spacing: 4px base grid, defined tokens only — no raw pixel values.
+- Every new list/table/card view must include an empty state and skeleton loader.
+- Error messages must be specific and actionable — never "Something went wrong."

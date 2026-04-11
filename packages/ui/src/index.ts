@@ -1,5 +1,14 @@
 // Custom components
-export { GlobalNav } from './components/global-nav'
+export { GlobalNav, AgentStrip } from './components/global-nav'
+export type { GlobalNavProps, AgentStripProps } from './components/global-nav'
+export { AppLauncher, AppLauncherTrigger, AppChip, FUTURE_APPS } from './components/app-launcher'
+export type {
+  AppDefinition,
+  AppLauncherProps,
+  AppLauncherTriggerProps,
+  AppChipProps,
+} from './components/app-launcher'
+export { ThemeProvider } from './components/theme-provider'
 
 // shadcn/ui components
 export * from './components/ui/accordion'
