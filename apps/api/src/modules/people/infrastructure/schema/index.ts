@@ -1,0 +1,18 @@
+export {
+  peopleSchema,
+  employmentProfile,
+  employmentProfileDetail,
+  profileSection,
+  profileChangeRequest,
+  periodicProfileReview,
+  onboardingTemplate,
+  onboardingTaskTemplate,
+  onboardingCase,
+  onboardingTask,
+  offboardingTemplate,
+  offboardingTaskTemplate,
+  offboardingCase,
+  offboardingTask,
+  accountMembership,
+  contractVersion,
+} from './people.schema'
