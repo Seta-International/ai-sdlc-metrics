@@ -1,4 +1,4 @@
-import { CommandHandler, type ICommandHandler, CommandBus } from '@nestjs/cqrs'
+import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import { Inject } from '@nestjs/common'
 import { RunDirectorySyncCommand } from './run-directory-sync.command'
 import {
@@ -13,19 +13,12 @@ import {
   IDP_GROUP_MAPPING_REPOSITORY,
   type IIdpGroupMappingRepository,
 } from '../../domain/repositories/idp-group-mapping.repository'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
+import { KernelActorService } from '../../../kernel/application/facades/kernel-actor.service'
 import {
   DIRECTORY_PROVIDER_FACTORY,
   type IDirectoryProviderFactory,
 } from '../../infrastructure/providers/directory-provider.interface'
-import { CreateActorCommand } from '../../../kernel/application/commands/create-actor.command'
-import { CreateUserIdentityCommand } from '../../../kernel/application/commands/create-user-identity.command'
-import { UpdateActorStatusCommand } from '../../../kernel/application/commands/update-actor-status.command'
-import { DeprovisionUserIdentityCommand } from '../../../kernel/application/commands/deprovision-user-identity.command'
-import { GrantRoleCommand } from '../../../kernel/application/commands/grant-role.command'
 import type {
   RoleKeyValue,
   ScopeTypeValue,
@@ -39,9 +32,8 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
     private readonly providerRepo: IIdentityProviderRepository,
     @Inject(IDP_GROUP_MAPPING_REPOSITORY)
     private readonly mappingRepo: IIdpGroupMappingRepository,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
-    private readonly commandBus: CommandBus,
+    private readonly auditService: KernelAuditService,
+    private readonly actorService: KernelActorService,
     @Inject(DIRECTORY_PROVIDER_FACTORY)
     private readonly directoryProviderFactory: IDirectoryProviderFactory,
   ) {}
@@ -71,29 +63,23 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
       // Provision / deprovision users
       for (const idpUser of idpUsers) {
         if (idpUser.isActive) {
-          const actorId = await this.commandBus.execute<CreateActorCommand, string>(
-            new CreateActorCommand(tenantId, 'person', idpUser.displayName),
+          const actorId = await this.actorService.createActor(
+            tenantId,
+            'person',
+            idpUser.displayName,
           )
           const idpType = provider.providerType === 'microsoft' ? 'microsoft' : 'google'
-          await this.commandBus.execute<CreateUserIdentityCommand, string>(
-            new CreateUserIdentityCommand(
-              tenantId,
-              actorId,
-              idpUser.email,
-              idpUser.externalId,
-              idpType as IdentityProvider,
-            ),
+          await this.actorService.createUserIdentity(
+            tenantId,
+            actorId,
+            idpUser.email,
+            idpUser.externalId,
+            idpType as IdentityProvider,
           )
         } else {
           // Inactive users — deprovision
-          // We need actorId to deprovision; in a real scenario we'd look up the actor by externalId
-          // For now, dispatch UpdateActorStatus + DeprovisionUserIdentity using the externalId as actorId placeholder
-          await this.commandBus.execute(
-            new UpdateActorStatusCommand(tenantId, idpUser.externalId, 'inactive'),
-          )
-          await this.commandBus.execute(
-            new DeprovisionUserIdentityCommand(tenantId, idpUser.externalId),
-          )
+          await this.actorService.updateActorStatus(tenantId, idpUser.externalId, 'inactive')
+          await this.actorService.deprovisionUserIdentity(tenantId, idpUser.externalId)
         }
       }
 
@@ -105,16 +91,14 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
         if (!mapping) continue
 
         for (const memberExternalId of idpGroup.memberExternalIds) {
-          await this.commandBus.execute(
-            new GrantRoleCommand(
-              tenantId,
-              memberExternalId,
-              mapping.roleKey as RoleKeyValue,
-              mapping.scopeType as ScopeTypeValue,
-              mapping.scopeId,
-              'system',
-              'idp_sync',
-            ),
+          await this.actorService.grantRole(
+            tenantId,
+            memberExternalId,
+            mapping.roleKey as RoleKeyValue,
+            mapping.scopeType as ScopeTypeValue,
+            mapping.scopeId,
+            'system',
+            'idp_sync',
           )
         }
       }
@@ -124,7 +108,7 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
         lastSyncAt: new Date(),
       })
 
-      await this.auditRepo.insert({
+      await this.auditService.log({
         tenantId,
         actorId: 'system',
         eventType: 'directory_sync_completed',

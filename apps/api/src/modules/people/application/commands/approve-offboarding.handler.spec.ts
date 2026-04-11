@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CommandBus } from '@nestjs/cqrs'
 import { ApproveOffboardingCommand } from './approve-offboarding.command'
 import { ApproveOffboardingHandler } from './approve-offboarding.handler'
 import {
@@ -11,7 +10,8 @@ import type {
   IOffboardingTemplateRepository,
   IOffboardingCaseRepository,
 } from '../../domain/repositories/offboarding.repository.port'
-import type { IOutboxEventRepository } from '../../../kernel/domain/repositories/outbox-event.repository.port'
+import type { KernelOutboxService } from '../../../kernel/application/facades/kernel-outbox.service'
+import type { KernelWorkflowService } from '../../../kernel/application/facades/kernel-workflow.service'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const CASE_ID = '01900000-0000-7000-8000-000000000030'
@@ -24,8 +24,8 @@ describe('ApproveOffboardingHandler', () => {
   let profileRepo: IEmploymentProfileRepository
   let templateRepo: IOffboardingTemplateRepository
   let caseRepo: IOffboardingCaseRepository
-  let outboxRepo: IOutboxEventRepository
-  let commandBus: CommandBus
+  let outboxService: KernelOutboxService
+  let workflowService: KernelWorkflowService
 
   beforeEach(() => {
     profileRepo = {
@@ -97,14 +97,14 @@ describe('ApproveOffboardingHandler', () => {
       updateTaskStatus: vi.fn(),
       findTaskById: vi.fn(),
     } as unknown as IOffboardingCaseRepository
-    outboxRepo = { insert: vi.fn() } as unknown as IOutboxEventRepository
-    commandBus = { execute: vi.fn() } as unknown as CommandBus
+    outboxService = { publish: vi.fn() } as unknown as KernelOutboxService
+    workflowService = { resolveDecisionCase: vi.fn() } as unknown as KernelWorkflowService
     handler = new ApproveOffboardingHandler(
       profileRepo,
       templateRepo,
       caseRepo,
-      outboxRepo,
-      commandBus,
+      outboxService,
+      workflowService,
     )
   })
 
@@ -126,19 +126,19 @@ describe('ApproveOffboardingHandler', () => {
     )
 
     // Verify outbox event
-    expect(outboxRepo.insert).toHaveBeenCalledWith(
+    expect(outboxService.publish).toHaveBeenCalledWith(
       expect.objectContaining({
         eventName: 'people.offboarding-started',
       }),
     )
 
     // Verify decision case resolved
-    expect(commandBus.execute).toHaveBeenCalledWith(
-      expect.objectContaining({
-        caseId: 'dc-1',
-        finalAction: 'approved',
-        decidedBy: APPROVER_ID,
-      }),
+    expect(workflowService.resolveDecisionCase).toHaveBeenCalledWith(
+      TENANT_ID,
+      'dc-1',
+      'approved',
+      APPROVER_ID,
+      null,
     )
   })
 
@@ -193,6 +193,6 @@ describe('ApproveOffboardingHandler', () => {
 
     await handler.execute(new ApproveOffboardingCommand(TENANT_ID, CASE_ID, APPROVER_ID))
 
-    expect(commandBus.execute).not.toHaveBeenCalled()
+    expect(workflowService.resolveDecisionCase).not.toHaveBeenCalled()
   })
 })

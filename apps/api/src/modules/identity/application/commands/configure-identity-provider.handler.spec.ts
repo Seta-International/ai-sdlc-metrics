@@ -6,7 +6,7 @@ import {
   InvalidClientSecretRefException,
 } from '../../domain/exceptions/identity.exceptions'
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import type { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const ACTOR_ID = '01900000-0000-7000-8000-000000000002'
@@ -15,7 +15,7 @@ const PROVIDER_ID = '01900000-0000-7000-8000-000000000003'
 describe('ConfigureIdentityProviderHandler', () => {
   let handler: ConfigureIdentityProviderHandler
   let providerRepo: IIdentityProviderRepository
-  let auditRepo: IAuditEventRepository
+  let auditService: KernelAuditService
 
   beforeEach(() => {
     providerRepo = {
@@ -25,8 +25,8 @@ describe('ConfigureIdentityProviderHandler', () => {
       insert: vi.fn(),
       update: vi.fn(),
     }
-    auditRepo = { insert: vi.fn() }
-    handler = new ConfigureIdentityProviderHandler(providerRepo, auditRepo)
+    auditService = { log: vi.fn() } as unknown as KernelAuditService
+    handler = new ConfigureIdentityProviderHandler(providerRepo, auditService)
   })
 
   it('creates a new identity provider', async () => {
@@ -69,7 +69,7 @@ describe('ConfigureIdentityProviderHandler', () => {
         isPrimary: true,
       }),
     )
-    expect(auditRepo.insert).toHaveBeenCalledWith(
+    expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'identity_provider_configured',
         module: 'identity',

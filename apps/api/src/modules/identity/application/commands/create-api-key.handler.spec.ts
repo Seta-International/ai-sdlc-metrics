@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CreateApiKeyCommand } from './create-api-key.command'
 import { CreateApiKeyHandler } from './create-api-key.handler'
 import type { IApiKeyRepository } from '../../domain/repositories/api-key.repository'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import type { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const ACTOR_ID = '01900000-0000-7000-8000-000000000002'
@@ -12,7 +12,7 @@ const KEY_ID = '01900000-0000-7000-8000-000000000004'
 describe('CreateApiKeyHandler', () => {
   let handler: CreateApiKeyHandler
   let apiKeyRepo: IApiKeyRepository
-  let auditRepo: IAuditEventRepository
+  let auditService: KernelAuditService
 
   beforeEach(() => {
     apiKeyRepo = {
@@ -21,8 +21,8 @@ describe('CreateApiKeyHandler', () => {
       revoke: vi.fn(),
       updateLastUsed: vi.fn(),
     }
-    auditRepo = { insert: vi.fn() }
-    handler = new CreateApiKeyHandler(apiKeyRepo, auditRepo)
+    auditService = { log: vi.fn() } as unknown as KernelAuditService
+    handler = new CreateApiKeyHandler(apiKeyRepo, auditService)
   })
 
   it('creates an API key and returns the plaintext key once', async () => {
@@ -52,7 +52,7 @@ describe('CreateApiKeyHandler', () => {
     }
     expect(storedCall.keyHash).not.toBe(result.plaintextKey)
 
-    expect(auditRepo.insert).toHaveBeenCalledWith(
+    expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'api_key_created',
         module: 'identity',

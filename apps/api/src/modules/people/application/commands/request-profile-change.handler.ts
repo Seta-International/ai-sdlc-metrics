@@ -1,5 +1,5 @@
 import { Inject } from '@nestjs/common'
-import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import { EmploymentProfileNotFoundException } from '../../domain/exceptions/people.exceptions'
 import {
   EMPLOYMENT_PROFILE_REPOSITORY,
@@ -9,11 +9,8 @@ import {
   PROFILE_CHANGE_REQUEST_REPOSITORY,
   type IProfileChangeRequestRepository,
 } from '../../domain/repositories/profile-change-request.repository'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
-import { CreateDecisionCaseCommand } from '../../../kernel/application/commands/create-decision-case.command'
+import { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
+import { KernelWorkflowService } from '../../../kernel/application/facades/kernel-workflow.service'
 import type { ProfileChangeRequest } from '../../domain/entities/profile-change-request.entity'
 import { RequestProfileChangeCommand } from './request-profile-change.command'
 
@@ -27,9 +24,8 @@ export class RequestProfileChangeHandler implements ICommandHandler<
     private readonly profileRepo: IEmploymentProfileRepository,
     @Inject(PROFILE_CHANGE_REQUEST_REPOSITORY)
     private readonly changeRequestRepo: IProfileChangeRequestRepository,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
-    private readonly commandBus: CommandBus,
+    private readonly auditService: KernelAuditService,
+    private readonly workflowService: KernelWorkflowService,
   ) {}
 
   async execute(command: RequestProfileChangeCommand): Promise<ProfileChangeRequest> {
@@ -50,18 +46,16 @@ export class RequestProfileChangeHandler implements ICommandHandler<
       reviewedBy: null,
     })
 
-    // Dispatch kernel decision case
-    const decisionCase = await this.commandBus.execute(
-      new CreateDecisionCaseCommand(
-        command.tenantId,
-        'people',
-        changeRequest.id,
-        command.requestedBy,
-      ),
+    // Create kernel decision case
+    const decisionCaseId = await this.workflowService.createDecisionCase(
+      command.tenantId,
+      'people',
+      changeRequest.id,
+      command.requestedBy,
     )
 
     // Audit log
-    await this.auditRepo.insert({
+    await this.auditService.log({
       tenantId: command.tenantId,
       actorId: command.requestedBy,
       eventType: 'profile_change_requested',
@@ -70,7 +64,7 @@ export class RequestProfileChangeHandler implements ICommandHandler<
       payload: {
         changeRequestId: changeRequest.id,
         fieldPath: command.fieldPath,
-        decisionCaseId: decisionCase?.id ?? null,
+        decisionCaseId: decisionCaseId ?? null,
       },
     })
 

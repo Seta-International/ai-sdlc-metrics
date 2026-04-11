@@ -1,5 +1,5 @@
 import { Inject } from '@nestjs/common'
-import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import {
   EmploymentProfileNotFoundException,
   OffboardingCaseNotFoundException,
@@ -14,11 +14,8 @@ import {
   type IOffboardingTemplateRepository,
   type IOffboardingCaseRepository,
 } from '../../domain/repositories/offboarding.repository.port'
-import {
-  OUTBOX_EVENT_REPOSITORY,
-  type IOutboxEventRepository,
-} from '../../../kernel/domain/repositories/outbox-event.repository.port'
-import { ResolveDecisionCaseCommand } from '../../../kernel/application/commands/resolve-decision-case.command'
+import { KernelOutboxService } from '../../../kernel/application/facades/kernel-outbox.service'
+import { KernelWorkflowService } from '../../../kernel/application/facades/kernel-workflow.service'
 import { ApproveOffboardingCommand } from './approve-offboarding.command'
 
 const OFFBOARDING_STARTED_EVENT = 'people.offboarding-started'
@@ -32,9 +29,8 @@ export class ApproveOffboardingHandler implements ICommandHandler<ApproveOffboar
     private readonly templateRepo: IOffboardingTemplateRepository,
     @Inject(OFFBOARDING_CASE_REPOSITORY)
     private readonly caseRepo: IOffboardingCaseRepository,
-    @Inject(OUTBOX_EVENT_REPOSITORY)
-    private readonly outboxRepo: IOutboxEventRepository,
-    private readonly commandBus: CommandBus,
+    private readonly outboxService: KernelOutboxService,
+    private readonly workflowService: KernelWorkflowService,
   ) {}
 
   async execute(command: ApproveOffboardingCommand): Promise<void> {
@@ -90,19 +86,17 @@ export class ApproveOffboardingHandler implements ICommandHandler<ApproveOffboar
 
     // 6. Resolve decision case
     if (offboardingCase.decisionCaseId) {
-      await this.commandBus.execute(
-        new ResolveDecisionCaseCommand(
-          command.tenantId,
-          offboardingCase.decisionCaseId,
-          'approved',
-          command.approvedBy,
-          null,
-        ),
+      await this.workflowService.resolveDecisionCase(
+        command.tenantId,
+        offboardingCase.decisionCaseId,
+        'approved',
+        command.approvedBy,
+        null,
       )
     }
 
     // 7. Emit outbox event
-    await this.outboxRepo.insert({
+    await this.outboxService.publish({
       tenantId: command.tenantId,
       eventName: OFFBOARDING_STARTED_EVENT,
       payload: { actorId: profile.actorId, tenantId: command.tenantId, expectedLastDay: null },

@@ -1,4 +1,4 @@
-import { DomainException } from '../../../kernel/domain/exceptions/domain.exception'
+import { DomainException } from '../../../kernel'
 
 export class EmploymentProfileNotFoundException extends DomainException {
   readonly code = 'EMPLOYMENT_PROFILE_NOT_FOUND'

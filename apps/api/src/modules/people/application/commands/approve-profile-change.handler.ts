@@ -1,5 +1,5 @@
 import { Inject } from '@nestjs/common'
-import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import {
   ProfileChangeRequestNotFoundException,
   ProfileChangeRequestNotPendingException,
@@ -12,11 +12,8 @@ import {
   EMPLOYMENT_PROFILE_DETAIL_REPOSITORY,
   type IEmploymentProfileDetailRepository,
 } from '../../domain/repositories/employment-profile-detail.repository'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
-import { ResolveDecisionCaseCommand } from '../../../kernel/application/commands/resolve-decision-case.command'
+import { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
+import { KernelWorkflowService } from '../../../kernel/application/facades/kernel-workflow.service'
 import { ApproveProfileChangeCommand } from './approve-profile-change.command'
 
 @CommandHandler(ApproveProfileChangeCommand)
@@ -29,9 +26,8 @@ export class ApproveProfileChangeHandler implements ICommandHandler<
     private readonly changeRequestRepo: IProfileChangeRequestRepository,
     @Inject(EMPLOYMENT_PROFILE_DETAIL_REPOSITORY)
     private readonly detailRepo: IEmploymentProfileDetailRepository,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
-    private readonly commandBus: CommandBus,
+    private readonly auditService: KernelAuditService,
+    private readonly workflowService: KernelWorkflowService,
   ) {}
 
   async execute(command: ApproveProfileChangeCommand): Promise<void> {
@@ -62,19 +58,17 @@ export class ApproveProfileChangeHandler implements ICommandHandler<
 
     // Resolve the kernel decision case
     if (request.decisionCaseId) {
-      await this.commandBus.execute(
-        new ResolveDecisionCaseCommand(
-          command.tenantId,
-          request.decisionCaseId,
-          'approved',
-          command.approvedBy,
-          null,
-        ),
+      await this.workflowService.resolveDecisionCase(
+        command.tenantId,
+        request.decisionCaseId,
+        'approved',
+        command.approvedBy,
+        null,
       )
     }
 
     // Audit log
-    await this.auditRepo.insert({
+    await this.auditService.log({
       tenantId: command.tenantId,
       actorId: command.approvedBy,
       eventType: 'profile_change_approved',

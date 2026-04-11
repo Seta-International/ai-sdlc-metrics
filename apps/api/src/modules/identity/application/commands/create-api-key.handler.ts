@@ -5,10 +5,7 @@ import {
   API_KEY_REPOSITORY,
   type IApiKeyRepository,
 } from '../../domain/repositories/api-key.repository'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
 import { CreateApiKeyCommand } from './create-api-key.command'
 
 export interface CreateApiKeyResult {
@@ -24,8 +21,7 @@ export class CreateApiKeyHandler implements ICommandHandler<
   constructor(
     @Inject(API_KEY_REPOSITORY)
     private readonly apiKeyRepo: IApiKeyRepository,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
+    private readonly auditService: KernelAuditService,
   ) {}
 
   async execute(command: CreateApiKeyCommand): Promise<CreateApiKeyResult> {
@@ -40,7 +36,7 @@ export class CreateApiKeyHandler implements ICommandHandler<
       expiresAt: command.expiresAt,
     })
 
-    await this.auditRepo.insert({
+    await this.auditService.log({
       tenantId: command.tenantId,
       actorId: command.createdBy,
       eventType: 'api_key_created',

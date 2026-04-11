@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CommandBus } from '@nestjs/cqrs'
 import { RequestProfileChangeCommand } from './request-profile-change.command'
 import { RequestProfileChangeHandler } from './request-profile-change.handler'
 import { EmploymentProfileNotFoundException } from '../../domain/exceptions/people.exceptions'
 import type { IProfileChangeRequestRepository } from '../../domain/repositories/profile-change-request.repository'
 import type { IEmploymentProfileRepository } from '../../domain/repositories/employment-profile.repository'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import type { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
+import type { KernelWorkflowService } from '../../../kernel/application/facades/kernel-workflow.service'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const PROFILE_ID = '01900000-0000-7000-8000-000000000003'
@@ -35,8 +35,8 @@ describe('RequestProfileChangeHandler', () => {
   let handler: RequestProfileChangeHandler
   let profileRepo: IEmploymentProfileRepository
   let changeRequestRepo: IProfileChangeRequestRepository
-  let auditRepo: IAuditEventRepository
-  let commandBus: CommandBus
+  let auditService: KernelAuditService
+  let workflowService: KernelWorkflowService
 
   beforeEach(() => {
     profileRepo = {
@@ -55,9 +55,17 @@ describe('RequestProfileChangeHandler', () => {
       updateStatus: vi.fn(),
       listByProfile: vi.fn(),
     }
-    auditRepo = { insert: vi.fn() }
-    commandBus = { execute: vi.fn().mockResolvedValue({ id: CASE_ID }) } as unknown as CommandBus
-    handler = new RequestProfileChangeHandler(profileRepo, changeRequestRepo, auditRepo, commandBus)
+    auditService = { log: vi.fn() } as unknown as KernelAuditService
+    workflowService = {
+      createDecisionCase: vi.fn().mockResolvedValue(CASE_ID),
+      resolveDecisionCase: vi.fn(),
+    } as unknown as KernelWorkflowService
+    handler = new RequestProfileChangeHandler(
+      profileRepo,
+      changeRequestRepo,
+      auditService,
+      workflowService,
+    )
   })
 
   it('creates a change request and dispatches CreateDecisionCaseCommand', async () => {
@@ -98,8 +106,13 @@ describe('RequestProfileChangeHandler', () => {
         requestedBy: REQUESTER_ID,
       }),
     )
-    expect(commandBus.execute).toHaveBeenCalled() // CreateDecisionCaseCommand
-    expect(auditRepo.insert).toHaveBeenCalledWith(
+    expect(workflowService.createDecisionCase).toHaveBeenCalledWith(
+      TENANT_ID,
+      'people',
+      REQUEST_ID,
+      REQUESTER_ID,
+    )
+    expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'profile_change_requested',
         module: 'people',

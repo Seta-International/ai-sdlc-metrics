@@ -1,14 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CommandBus } from '@nestjs/cqrs'
 import { RejectProfileChangeCommand } from './reject-profile-change.command'
 import { RejectProfileChangeHandler } from './reject-profile-change.handler'
 import {
   ProfileChangeRequestNotFoundException,
   ProfileChangeRequestNotPendingException,
 } from '../../domain/exceptions/people.exceptions'
-import { ResolveDecisionCaseCommand } from '../../../kernel/application/commands/resolve-decision-case.command'
 import type { IProfileChangeRequestRepository } from '../../domain/repositories/profile-change-request.repository'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import type { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
+import type { KernelWorkflowService } from '../../../kernel/application/facades/kernel-workflow.service'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const REQUEST_ID = '01900000-0000-7000-8000-000000000010'
@@ -20,8 +19,8 @@ const COMMENT = 'Does not meet policy requirements'
 describe('RejectProfileChangeHandler', () => {
   let handler: RejectProfileChangeHandler
   let changeRequestRepo: IProfileChangeRequestRepository
-  let auditRepo: IAuditEventRepository
-  let commandBus: CommandBus
+  let auditService: KernelAuditService
+  let workflowService: KernelWorkflowService
 
   beforeEach(() => {
     changeRequestRepo = {
@@ -31,9 +30,12 @@ describe('RejectProfileChangeHandler', () => {
       updateStatus: vi.fn(),
       listByProfile: vi.fn(),
     }
-    auditRepo = { insert: vi.fn() }
-    commandBus = { execute: vi.fn() } as unknown as CommandBus
-    handler = new RejectProfileChangeHandler(changeRequestRepo, auditRepo, commandBus)
+    auditService = { log: vi.fn() } as unknown as KernelAuditService
+    workflowService = {
+      createDecisionCase: vi.fn(),
+      resolveDecisionCase: vi.fn(),
+    } as unknown as KernelWorkflowService
+    handler = new RejectProfileChangeHandler(changeRequestRepo, auditService, workflowService)
   })
 
   it('rejects the request and resolves the decision case with comment', async () => {
@@ -61,8 +63,14 @@ describe('RejectProfileChangeHandler', () => {
       'rejected',
       REJECTOR_ID,
     )
-    expect(commandBus.execute).toHaveBeenCalledWith(expect.any(ResolveDecisionCaseCommand))
-    expect(auditRepo.insert).toHaveBeenCalledWith(
+    expect(workflowService.resolveDecisionCase).toHaveBeenCalledWith(
+      TENANT_ID,
+      CASE_ID,
+      'rejected',
+      REJECTOR_ID,
+      COMMENT,
+    )
+    expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'profile_change_rejected',
         module: 'people',
@@ -89,7 +97,7 @@ describe('RejectProfileChangeHandler', () => {
       new RejectProfileChangeCommand(TENANT_ID, REQUEST_ID, REJECTOR_ID, COMMENT),
     )
 
-    expect(commandBus.execute).not.toHaveBeenCalled()
+    expect(workflowService.resolveDecisionCase).not.toHaveBeenCalled()
   })
 
   it('throws ProfileChangeRequestNotFoundException when not found', async () => {

@@ -1,11 +1,11 @@
 import { Inject } from '@nestjs/common'
-import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import { OffboardingCaseNotFoundException } from '../../domain/exceptions/people.exceptions'
 import {
   OFFBOARDING_CASE_REPOSITORY,
   type IOffboardingCaseRepository,
 } from '../../domain/repositories/offboarding.repository.port'
-import { ResolveDecisionCaseCommand } from '../../../kernel/application/commands/resolve-decision-case.command'
+import { KernelWorkflowService } from '../../../kernel/application/facades/kernel-workflow.service'
 import { RejectOffboardingCommand } from './reject-offboarding.command'
 
 @CommandHandler(RejectOffboardingCommand)
@@ -13,7 +13,7 @@ export class RejectOffboardingHandler implements ICommandHandler<RejectOffboardi
   constructor(
     @Inject(OFFBOARDING_CASE_REPOSITORY)
     private readonly caseRepo: IOffboardingCaseRepository,
-    private readonly commandBus: CommandBus,
+    private readonly workflowService: KernelWorkflowService,
   ) {}
 
   async execute(command: RejectOffboardingCommand): Promise<void> {
@@ -28,14 +28,12 @@ export class RejectOffboardingHandler implements ICommandHandler<RejectOffboardi
 
     // 2. Resolve decision case
     if (offboardingCase.decisionCaseId) {
-      await this.commandBus.execute(
-        new ResolveDecisionCaseCommand(
-          command.tenantId,
-          offboardingCase.decisionCaseId,
-          'rejected',
-          command.rejectedBy,
-          command.comment,
-        ),
+      await this.workflowService.resolveDecisionCase(
+        command.tenantId,
+        offboardingCase.decisionCaseId,
+        'rejected',
+        command.rejectedBy,
+        command.comment,
       )
     }
   }

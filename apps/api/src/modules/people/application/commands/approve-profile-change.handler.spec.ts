@@ -1,15 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CommandBus } from '@nestjs/cqrs'
 import { ApproveProfileChangeCommand } from './approve-profile-change.command'
 import { ApproveProfileChangeHandler } from './approve-profile-change.handler'
 import {
   ProfileChangeRequestNotFoundException,
   ProfileChangeRequestNotPendingException,
 } from '../../domain/exceptions/people.exceptions'
-import { ResolveDecisionCaseCommand } from '../../../kernel/application/commands/resolve-decision-case.command'
 import type { IProfileChangeRequestRepository } from '../../domain/repositories/profile-change-request.repository'
 import type { IEmploymentProfileDetailRepository } from '../../domain/repositories/employment-profile-detail.repository'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import type { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
+import type { KernelWorkflowService } from '../../../kernel/application/facades/kernel-workflow.service'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const REQUEST_ID = '01900000-0000-7000-8000-000000000010'
@@ -21,8 +20,8 @@ describe('ApproveProfileChangeHandler', () => {
   let handler: ApproveProfileChangeHandler
   let changeRequestRepo: IProfileChangeRequestRepository
   let detailRepo: IEmploymentProfileDetailRepository
-  let auditRepo: IAuditEventRepository
-  let commandBus: CommandBus
+  let auditService: KernelAuditService
+  let workflowService: KernelWorkflowService
 
   beforeEach(() => {
     changeRequestRepo = {
@@ -37,9 +36,17 @@ describe('ApproveProfileChangeHandler', () => {
       upsert: vi.fn(),
       updateField: vi.fn(),
     }
-    auditRepo = { insert: vi.fn() }
-    commandBus = { execute: vi.fn() } as unknown as CommandBus
-    handler = new ApproveProfileChangeHandler(changeRequestRepo, detailRepo, auditRepo, commandBus)
+    auditService = { log: vi.fn() } as unknown as KernelAuditService
+    workflowService = {
+      createDecisionCase: vi.fn(),
+      resolveDecisionCase: vi.fn(),
+    } as unknown as KernelWorkflowService
+    handler = new ApproveProfileChangeHandler(
+      changeRequestRepo,
+      detailRepo,
+      auditService,
+      workflowService,
+    )
   })
 
   it('applies the change and resolves the decision case', async () => {
@@ -71,8 +78,14 @@ describe('ApproveProfileChangeHandler', () => {
       'approved',
       APPROVER_ID,
     )
-    expect(commandBus.execute).toHaveBeenCalledWith(expect.any(ResolveDecisionCaseCommand))
-    expect(auditRepo.insert).toHaveBeenCalledWith(
+    expect(workflowService.resolveDecisionCase).toHaveBeenCalledWith(
+      TENANT_ID,
+      CASE_ID,
+      'approved',
+      APPROVER_ID,
+      null,
+    )
+    expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'profile_change_approved',
         module: 'people',
@@ -97,7 +110,7 @@ describe('ApproveProfileChangeHandler', () => {
 
     await handler.execute(new ApproveProfileChangeCommand(TENANT_ID, REQUEST_ID, APPROVER_ID))
 
-    expect(commandBus.execute).not.toHaveBeenCalled()
+    expect(workflowService.resolveDecisionCase).not.toHaveBeenCalled()
   })
 
   it('throws ProfileChangeRequestNotFoundException when not found', async () => {

@@ -9,10 +9,7 @@ import {
   EMPLOYMENT_PROFILE_DETAIL_REPOSITORY,
   type IEmploymentProfileDetailRepository,
 } from '../../domain/repositories/employment-profile-detail.repository'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
 import { UpdateProfileDirectCommand } from './update-profile-direct.command'
 import type { EmploymentProfile } from '../../domain/entities/employment-profile.entity'
 
@@ -39,8 +36,7 @@ export class UpdateProfileDirectHandler implements ICommandHandler<
     private readonly profileRepo: IEmploymentProfileRepository,
     @Inject(EMPLOYMENT_PROFILE_DETAIL_REPOSITORY)
     private readonly detailRepo: IEmploymentProfileDetailRepository,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
+    private readonly auditService: KernelAuditService,
   ) {}
 
   async execute(command: UpdateProfileDirectCommand): Promise<void> {
@@ -74,7 +70,7 @@ export class UpdateProfileDirectHandler implements ICommandHandler<
     }
 
     // Audit log
-    await this.auditRepo.insert({
+    await this.auditService.log({
       tenantId: command.tenantId,
       actorId: command.updatedBy,
       eventType: 'profile_updated_direct',

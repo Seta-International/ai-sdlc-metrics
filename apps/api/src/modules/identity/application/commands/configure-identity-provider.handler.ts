@@ -8,10 +8,7 @@ import {
   IDENTITY_PROVIDER_REPOSITORY,
   type IIdentityProviderRepository,
 } from '../../domain/repositories/identity-provider.repository'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
 import type { IdentityProviderEntity } from '../../domain/entities/identity-provider.entity'
 import { ConfigureIdentityProviderCommand } from './configure-identity-provider.command'
 
@@ -25,8 +22,7 @@ export class ConfigureIdentityProviderHandler implements ICommandHandler<
   constructor(
     @Inject(IDENTITY_PROVIDER_REPOSITORY)
     private readonly providerRepo: IIdentityProviderRepository,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
+    private readonly auditService: KernelAuditService,
   ) {}
 
   async execute(command: ConfigureIdentityProviderCommand): Promise<IdentityProviderEntity> {
@@ -52,7 +48,7 @@ export class ConfigureIdentityProviderHandler implements ICommandHandler<
       syncEnabled: command.syncEnabled,
     })
 
-    await this.auditRepo.insert({
+    await this.auditService.log({
       tenantId: command.tenantId,
       actorId: command.configuredBy,
       eventType: 'identity_provider_configured',

@@ -1,5 +1,5 @@
 import { Inject } from '@nestjs/common'
-import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import {
   EmploymentProfileNotFoundException,
   OffboardingCaseNotFoundException,
@@ -17,13 +17,8 @@ import {
   ACCOUNT_MEMBERSHIP_REPOSITORY,
   type IAccountMembershipRepository,
 } from '../../domain/repositories/account-membership.repository'
-import {
-  OUTBOX_EVENT_REPOSITORY,
-  type IOutboxEventRepository,
-} from '../../../kernel/domain/repositories/outbox-event.repository.port'
-import { UpdateActorStatusCommand } from '../../../kernel/application/commands/update-actor-status.command'
-import { DeprovisionUserIdentityCommand } from '../../../kernel/application/commands/deprovision-user-identity.command'
-import { RevokeAllRoleGrantsCommand } from '../../../kernel/application/commands/revoke-all-role-grants.command'
+import { KernelOutboxService } from '../../../kernel/application/facades/kernel-outbox.service'
+import { KernelActorService } from '../../../kernel/application/facades/kernel-actor.service'
 import { CompleteOffboardingCommand } from './complete-offboarding.command'
 
 const EMPLOYEE_TERMINATED_EVENT = 'people.employee-terminated'
@@ -40,9 +35,8 @@ export class CompleteOffboardingHandler implements ICommandHandler<
     private readonly caseRepo: IOffboardingCaseRepository,
     @Inject(ACCOUNT_MEMBERSHIP_REPOSITORY)
     private readonly accountMembershipRepo: IAccountMembershipRepository,
-    @Inject(OUTBOX_EVENT_REPOSITORY)
-    private readonly outboxRepo: IOutboxEventRepository,
-    private readonly commandBus: CommandBus,
+    private readonly outboxService: KernelOutboxService,
+    private readonly actorService: KernelActorService,
   ) {}
 
   async execute(command: CompleteOffboardingCommand): Promise<void> {
@@ -73,17 +67,13 @@ export class CompleteOffboardingHandler implements ICommandHandler<
     // 6. Close all account memberships
     await this.accountMembershipRepo.closeAllForActor(profile.actorId, command.tenantId, now)
 
-    // 7. Dispatch kernel commands
-    await this.commandBus.execute(
-      new UpdateActorStatusCommand(command.tenantId, profile.actorId, 'inactive'),
-    )
-    await this.commandBus.execute(
-      new DeprovisionUserIdentityCommand(command.tenantId, profile.actorId),
-    )
-    await this.commandBus.execute(new RevokeAllRoleGrantsCommand(command.tenantId, profile.actorId))
+    // 7. Deprovision via kernel actor service
+    await this.actorService.updateActorStatus(command.tenantId, profile.actorId, 'inactive')
+    await this.actorService.deprovisionUserIdentity(command.tenantId, profile.actorId)
+    await this.actorService.revokeAllRoleGrants(command.tenantId, profile.actorId)
 
     // 8. Emit outbox event
-    await this.outboxRepo.insert({
+    await this.outboxService.publish({
       tenantId: command.tenantId,
       eventName: EMPLOYEE_TERMINATED_EVENT,
       payload: {

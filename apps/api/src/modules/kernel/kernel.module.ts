@@ -22,6 +22,10 @@ import { UpdateActorStatusHandler } from './application/commands/update-actor-st
 import { SeedRolePermissionsHandler } from './application/commands/seed-role-permissions.handler'
 import { ResolveLoginHandler } from './application/commands/resolve-login.handler'
 import { KernelQueryFacade } from './application/facades/kernel-query.facade'
+import { KernelAuditService } from './application/facades/kernel-audit.service'
+import { KernelOutboxService } from './application/facades/kernel-outbox.service'
+import { KernelWorkflowService } from './application/facades/kernel-workflow.service'
+import { KernelActorService } from './application/facades/kernel-actor.service'
 import { GetActorHandler } from './application/queries/get-actor.handler'
 import { GetRoleGrantsHandler } from './application/queries/get-role-grants.handler'
 import { GetTenantHandler } from './application/queries/get-tenant.handler'
@@ -71,8 +75,18 @@ import { DrizzleOutboxEventRepository } from './infrastructure/repositories/driz
     CanDoHandler,
     GetEffectivePermissionsHandler,
     KernelQueryFacade,
+    KernelAuditService,
+    KernelOutboxService,
+    KernelWorkflowService,
+    KernelActorService,
   ],
-  exports: [KernelQueryFacade, AUDIT_EVENT_REPOSITORY, OUTBOX_EVENT_REPOSITORY],
+  exports: [
+    KernelQueryFacade,
+    KernelAuditService,
+    KernelOutboxService,
+    KernelWorkflowService,
+    KernelActorService,
+  ],
 })
 export class KernelModule implements OnModuleInit {
   constructor(

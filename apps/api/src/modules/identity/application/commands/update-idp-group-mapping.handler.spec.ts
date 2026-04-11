@@ -4,7 +4,7 @@ import { UpdateIdpGroupMappingHandler } from './update-idp-group-mapping.handler
 import { IdentityProviderNotFoundException } from '../../domain/exceptions/identity.exceptions'
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
 import type { IIdpGroupMappingRepository } from '../../domain/repositories/idp-group-mapping.repository'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import type { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const PROVIDER_ID = '01900000-0000-7000-8000-000000000002'
@@ -15,7 +15,7 @@ describe('UpdateIdpGroupMappingHandler', () => {
   let handler: UpdateIdpGroupMappingHandler
   let providerRepo: IIdentityProviderRepository
   let mappingRepo: IIdpGroupMappingRepository
-  let auditRepo: IAuditEventRepository
+  let auditService: KernelAuditService
 
   beforeEach(() => {
     providerRepo = {
@@ -31,8 +31,8 @@ describe('UpdateIdpGroupMappingHandler', () => {
       upsert: vi.fn(),
       remove: vi.fn(),
     }
-    auditRepo = { insert: vi.fn() }
-    handler = new UpdateIdpGroupMappingHandler(providerRepo, mappingRepo, auditRepo)
+    auditService = { log: vi.fn() } as unknown as KernelAuditService
+    handler = new UpdateIdpGroupMappingHandler(providerRepo, mappingRepo, auditService)
   })
 
   it('upserts a group mapping when provider exists', async () => {
@@ -84,7 +84,7 @@ describe('UpdateIdpGroupMappingHandler', () => {
         roleKey: 'employee',
       }),
     )
-    expect(auditRepo.insert).toHaveBeenCalledWith(
+    expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'idp_group_mapping_updated',
         module: 'identity',

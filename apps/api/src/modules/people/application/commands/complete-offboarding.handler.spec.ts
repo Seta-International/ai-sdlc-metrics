@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CommandBus } from '@nestjs/cqrs'
 import { CompleteOffboardingCommand } from './complete-offboarding.command'
 import { CompleteOffboardingHandler } from './complete-offboarding.handler'
 import {
@@ -9,10 +8,8 @@ import {
 import type { IEmploymentProfileRepository } from '../../domain/repositories/employment-profile.repository'
 import type { IOffboardingCaseRepository } from '../../domain/repositories/offboarding-case.repository'
 import type { IAccountMembershipRepository } from '../../domain/repositories/account-membership.repository'
-import type { IOutboxEventRepository } from '../../../kernel/domain/repositories/outbox-event.repository.port'
-import { UpdateActorStatusCommand } from '../../../kernel/application/commands/update-actor-status.command'
-import { DeprovisionUserIdentityCommand } from '../../../kernel/application/commands/deprovision-user-identity.command'
-import { RevokeAllRoleGrantsCommand } from '../../../kernel/application/commands/revoke-all-role-grants.command'
+import type { KernelOutboxService } from '../../../kernel/application/facades/kernel-outbox.service'
+import type { KernelActorService } from '../../../kernel/application/facades/kernel-actor.service'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const CASE_ID = '01900000-0000-7000-8000-000000000030'
@@ -24,8 +21,8 @@ describe('CompleteOffboardingHandler', () => {
   let profileRepo: IEmploymentProfileRepository
   let caseRepo: IOffboardingCaseRepository
   let accountMembershipRepo: IAccountMembershipRepository
-  let outboxRepo: IOutboxEventRepository
-  let commandBus: CommandBus
+  let outboxService: KernelOutboxService
+  let actorService: KernelActorService
 
   beforeEach(() => {
     profileRepo = {
@@ -72,15 +69,19 @@ describe('CompleteOffboardingHandler', () => {
       remove: vi.fn(),
     } as unknown as IAccountMembershipRepository
 
-    outboxRepo = { insert: vi.fn() } as unknown as IOutboxEventRepository
-    commandBus = { execute: vi.fn() } as unknown as CommandBus
+    outboxService = { publish: vi.fn() } as unknown as KernelOutboxService
+    actorService = {
+      updateActorStatus: vi.fn(),
+      deprovisionUserIdentity: vi.fn(),
+      revokeAllRoleGrants: vi.fn(),
+    } as unknown as KernelActorService
 
     handler = new CompleteOffboardingHandler(
       profileRepo,
       caseRepo,
       accountMembershipRepo,
-      outboxRepo,
-      commandBus,
+      outboxService,
+      actorService,
     )
   })
 
@@ -100,24 +101,21 @@ describe('CompleteOffboardingHandler', () => {
       expect.any(Date),
     )
 
-    expect(commandBus.execute).toHaveBeenCalledTimes(3)
-    expect(commandBus.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ actorId: 'actor-1', status: 'inactive' }),
-    )
-    expect(commandBus.execute).toHaveBeenCalledWith(expect.objectContaining({ actorId: 'actor-1' }))
+    expect(actorService.updateActorStatus).toHaveBeenCalledWith(TENANT_ID, 'actor-1', 'inactive')
+    expect(actorService.deprovisionUserIdentity).toHaveBeenCalledWith(TENANT_ID, 'actor-1')
+    expect(actorService.revokeAllRoleGrants).toHaveBeenCalledWith(TENANT_ID, 'actor-1')
 
-    expect(outboxRepo.insert).toHaveBeenCalledWith(
+    expect(outboxService.publish).toHaveBeenCalledWith(
       expect.objectContaining({ eventName: 'people.employee-terminated' }),
     )
   })
 
-  it('dispatches UpdateActorStatusCommand, DeprovisionUserIdentityCommand, RevokeAllRoleGrantsCommand', async () => {
+  it('deprovisions actor and emits terminated event', async () => {
     await handler.execute(new CompleteOffboardingCommand(TENANT_ID, CASE_ID, COMPLETED_BY))
 
-    const calls = vi.mocked(commandBus.execute).mock.calls.map(([cmd]) => cmd)
-    expect(calls.some((c) => c instanceof UpdateActorStatusCommand)).toBe(true)
-    expect(calls.some((c) => c instanceof DeprovisionUserIdentityCommand)).toBe(true)
-    expect(calls.some((c) => c instanceof RevokeAllRoleGrantsCommand)).toBe(true)
+    expect(actorService.updateActorStatus).toHaveBeenCalledTimes(1)
+    expect(actorService.deprovisionUserIdentity).toHaveBeenCalledTimes(1)
+    expect(actorService.revokeAllRoleGrants).toHaveBeenCalledTimes(1)
   })
 
   it('throws OffboardingCaseNotFoundException when case not found', async () => {

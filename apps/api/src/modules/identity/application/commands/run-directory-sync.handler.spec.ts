@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CommandBus } from '@nestjs/cqrs'
 import { RunDirectorySyncCommand } from './run-directory-sync.command'
 import { RunDirectorySyncHandler } from './run-directory-sync.handler'
 import {
@@ -9,7 +8,8 @@ import {
 import type { IdentityProviderEntity } from '../../domain/entities/identity-provider.entity'
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
 import type { IIdpGroupMappingRepository } from '../../domain/repositories/idp-group-mapping.repository'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import type { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
+import type { KernelActorService } from '../../../kernel/application/facades/kernel-actor.service'
 import type {
   IDirectoryProvider,
   IdpUser,
@@ -45,8 +45,8 @@ describe('RunDirectorySyncHandler', () => {
   let handler: RunDirectorySyncHandler
   let providerRepo: IIdentityProviderRepository
   let mappingRepo: IIdpGroupMappingRepository
-  let auditRepo: IAuditEventRepository
-  let commandBus: CommandBus
+  let auditService: KernelAuditService
+  let actorService: KernelActorService
   let directoryProvider: IDirectoryProvider
   let directoryProviderFactory: { create: ReturnType<typeof vi.fn> }
 
@@ -64,8 +64,15 @@ describe('RunDirectorySyncHandler', () => {
       upsert: vi.fn(),
       remove: vi.fn(),
     }
-    auditRepo = { insert: vi.fn() }
-    commandBus = { execute: vi.fn() } as unknown as CommandBus
+    auditService = { log: vi.fn() } as unknown as KernelAuditService
+    actorService = {
+      createActor: vi.fn(),
+      createUserIdentity: vi.fn(),
+      updateActorStatus: vi.fn(),
+      deprovisionUserIdentity: vi.fn(),
+      grantRole: vi.fn(),
+      revokeAllRoleGrants: vi.fn(),
+    } as unknown as KernelActorService
     directoryProvider = {
       listUsers: vi.fn(),
       listGroupsWithMembers: vi.fn(),
@@ -75,8 +82,8 @@ describe('RunDirectorySyncHandler', () => {
     handler = new RunDirectorySyncHandler(
       providerRepo,
       mappingRepo,
-      auditRepo,
-      commandBus,
+      auditService,
+      actorService,
       directoryProviderFactory as never,
     )
   })
@@ -112,14 +119,13 @@ describe('RunDirectorySyncHandler', () => {
     vi.mocked(directoryProvider.listUsers).mockResolvedValue(idpUsers)
     vi.mocked(directoryProvider.listGroupsWithMembers).mockResolvedValue([])
     vi.mocked(mappingRepo.findByProviderId).mockResolvedValue([])
-
-    vi.mocked(commandBus.execute)
-      .mockResolvedValueOnce({ id: 'new-actor-001' })
-      .mockResolvedValueOnce({ id: 'new-ui-001' })
+    vi.mocked(actorService.createActor).mockResolvedValue('new-actor-001')
+    vi.mocked(actorService.createUserIdentity).mockResolvedValue('new-ui-001')
 
     await handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID))
 
-    expect(commandBus.execute).toHaveBeenCalledTimes(2)
+    expect(actorService.createActor).toHaveBeenCalledTimes(1)
+    expect(actorService.createUserIdentity).toHaveBeenCalledTimes(1)
     expect(providerRepo.update).toHaveBeenCalledWith(
       PROVIDER_ID,
       TENANT_ID,
