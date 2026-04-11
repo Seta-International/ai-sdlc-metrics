@@ -32,6 +32,7 @@ const fakeGrant: RoleGrant = {
   scopeType: 'global',
   scopeId: null,
   grantedBy: GRANTER_ID,
+  source: 'manual',
   validFrom: new Date(),
   validUntil: null,
 }
