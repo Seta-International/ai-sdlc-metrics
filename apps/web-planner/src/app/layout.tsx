@@ -1,15 +1,18 @@
 import type { Metadata } from 'next'
-import { GlobalNav } from '@future/ui'
+import { GlobalNav, ThemeProvider } from '@future/ui'
+import { fontVariables } from '@future/ui/fonts'
 import './globals.css'
 
 export const metadata: Metadata = { title: 'Planner — Future' }
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={fontVariables} data-density="compact" suppressHydrationWarning>
       <body>
-        <GlobalNav currentApp="planner" />
-        {children}
+        <ThemeProvider>
+          <GlobalNav currentApp="planner" />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   )

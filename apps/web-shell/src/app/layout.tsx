@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { ThemeProvider } from '@future/ui'
+import { fontVariables } from '@future/ui/fonts'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -8,8 +10,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" className={fontVariables} data-density="compact" suppressHydrationWarning>
+      <body>
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   )
 }
