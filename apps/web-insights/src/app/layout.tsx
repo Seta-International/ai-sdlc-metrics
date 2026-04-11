@@ -8,7 +8,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <GlobalNav />
+        <GlobalNav currentApp="insights" />
         {children}
       </body>
     </html>
