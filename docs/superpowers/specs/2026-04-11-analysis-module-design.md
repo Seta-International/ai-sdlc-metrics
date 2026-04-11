@@ -464,3 +464,60 @@ Architecture supports future BI copilot without code changes:
 | `chart-type-registry.ts` | Copilot uses metadata to pick chart types for query results               |
 
 **Deferred:** Agent topic, MCP tool definitions, NL→Cube translation, inline chat charts.
+
+---
+
+## Implementation Plan Decomposition
+
+Six sequential plans, each independently shippable:
+
+### Plan 1: Chart Foundation
+
+- Remove Recharts from `packages/ui`
+- Create `packages/charts` workspace
+- `EChart.tsx` wrapper, `echarts-setup.ts`, `theme.ts` (DESIGN.md)
+- `chart-type-registry.ts` — metadata for all 20+ chart types
+- `types.ts` — WidgetSpec, WidgetData, ChartConfig shared types
+- Verification: all chart types render correctly
+
+### Plan 2: Insights Backend — Schema & CRUD
+
+- Drizzle schema for 4 tables (dashboard, widget, widget_template, dashboard_share)
+- Domain entities, value objects, repository ports
+- Drizzle repository implementations
+- Command handlers: dashboard CRUD, widget save/remove, layout save, share/revoke
+- Query handlers: get-dashboard, list-dashboards, list-templates
+- `InsightsQueryFacade` stub
+- tRPC router wiring
+
+### Plan 3: Cube.js Query Integration
+
+- `cube-query.client.ts` port + `cube-rest.client.ts` infrastructure
+- `cube-query.mapper.ts` — dataSource to Cube query JSON with tenant injection
+- `get-widget-data` query handler
+- `data-to-option.ts` mapper in `packages/charts`
+- `InsightsQueryFacade.getWidgetData()` implementation
+- Integration tests against Cube.js
+
+### Plan 4: Dashboard Frontend — Viewer & List
+
+- `packages/charts`: WidgetRenderer, WidgetCard, GlobalFilterBar, hooks
+- `web-insights`: dashboard list page (tabs, search, cards)
+- `web-insights`: dashboard viewer page (read-only grid, global filters, auto-refresh)
+- `DashboardGrid.tsx` (React-Grid-Layout, read-only mode)
+
+### Plan 5: Dashboard Editor & Templates
+
+- `packages/charts`: WidgetConfigPanel, TemplateGallery, useDashboardLayout
+- `DashboardGrid.tsx` edit mode (drag-drop, resize, external drop)
+- `web-insights`: editor, create dashboard, template browsing pages
+- Seed system widget templates (one per cube model category)
+
+### Plan 6: Sharing, Access Control & Cross-Zone Embedding
+
+- `web-insights`: share management page
+- Access control enforcement in all handlers (role_grant via KernelQueryFacade)
+- `list-dashboards` filtering by ownership + shares + system
+- Cross-zone embedding pattern: document and test from another zone
+
+**Dependency order:** 1 → 2 → 3 → 4 → 5 → 6
