@@ -25,6 +25,10 @@ import { DrizzleDepartmentRepository } from './infrastructure/repositories/drizz
 import { DrizzleRoleGrantRepository } from './infrastructure/repositories/drizzle-role-grant.repository'
 import { DrizzleTenantRepository } from './infrastructure/repositories/drizzle-tenant.repository'
 import { DrizzleUserIdentityRepository } from './infrastructure/repositories/drizzle-user-identity.repository'
+import { AUDIT_EVENT_REPOSITORY } from './domain/repositories/audit-event.repository.port'
+import { OUTBOX_EVENT_REPOSITORY } from './domain/repositories/outbox-event.repository.port'
+import { DrizzleAuditEventRepository } from './infrastructure/repositories/drizzle-audit-event.repository'
+import { DrizzleOutboxEventRepository } from './infrastructure/repositories/drizzle-outbox-event.repository'
 
 @Module({
   imports: [CqrsModule],
@@ -35,6 +39,8 @@ import { DrizzleUserIdentityRepository } from './infrastructure/repositories/dri
     { provide: ROLE_GRANT_REPOSITORY, useClass: DrizzleRoleGrantRepository },
     { provide: DEPARTMENT_REPOSITORY, useClass: DrizzleDepartmentRepository },
     { provide: DECISION_CASE_REPOSITORY, useClass: DrizzleDecisionCaseRepository },
+    { provide: AUDIT_EVENT_REPOSITORY, useClass: DrizzleAuditEventRepository },
+    { provide: OUTBOX_EVENT_REPOSITORY, useClass: DrizzleOutboxEventRepository },
     CreateActorHandler,
     CreateDecisionCaseHandler,
     CreateUserIdentityHandler,
@@ -49,6 +55,6 @@ import { DrizzleUserIdentityRepository } from './infrastructure/repositories/dri
     GetUserIdentityBySsoSubjectHandler,
     KernelQueryFacade,
   ],
-  exports: [KernelQueryFacade],
+  exports: [KernelQueryFacade, AUDIT_EVENT_REPOSITORY, OUTBOX_EVENT_REPOSITORY],
 })
 export class KernelModule {}
