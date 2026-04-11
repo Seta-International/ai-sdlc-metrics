@@ -15,7 +15,7 @@ import { DrizzleMagicLinkTokenRepository } from './infrastructure/repositories/d
 import { DrizzleApiKeyRepository } from './infrastructure/repositories/drizzle-api-key.repository'
 
 // Provider factory
-import { DIRECTORY_PROVIDER_FACTORY } from './infrastructure/providers/directory-provider.interface'
+import { DIRECTORY_PROVIDER_FACTORY } from './domain/ports/directory-provider.factory.port'
 import { DirectoryProviderFactory } from './infrastructure/providers/directory-provider.factory'
 
 // Command handlers

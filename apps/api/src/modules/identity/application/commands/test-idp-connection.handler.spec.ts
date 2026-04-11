@@ -3,10 +3,8 @@ import { TestIdpConnectionCommand } from './test-idp-connection.command'
 import { TestIdpConnectionHandler } from './test-idp-connection.handler'
 import { IdentityProviderNotFoundException } from '../../domain/exceptions/identity.exceptions'
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
-import type {
-  IDirectoryProviderFactory,
-  IDirectoryProvider,
-} from '../../infrastructure/providers/directory-provider.interface'
+import type { IDirectoryProviderFactory } from '../../domain/ports/directory-provider.factory.port'
+import type { IDirectoryProvider } from '../../infrastructure/providers/directory-provider.interface'
 import type { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'

@@ -7,7 +7,7 @@ import {
 import {
   DIRECTORY_PROVIDER_FACTORY,
   type IDirectoryProviderFactory,
-} from '../../infrastructure/providers/directory-provider.interface'
+} from '../../domain/ports/directory-provider.factory.port'
 import { KernelAuditService } from '../../../kernel/application/facades/kernel-audit.service'
 import { IdentityProviderNotFoundException } from '../../domain/exceptions/identity.exceptions'
 import { TestIdpConnectionCommand } from './test-idp-connection.command'

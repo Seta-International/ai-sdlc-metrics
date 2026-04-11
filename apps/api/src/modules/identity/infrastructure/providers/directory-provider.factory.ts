@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import type { IdentityProviderEntity } from '../../domain/entities/identity-provider.entity'
-import type { IDirectoryProvider, IDirectoryProviderFactory } from './directory-provider.interface'
+import type { IDirectoryProviderFactory } from '../../domain/ports/directory-provider.factory.port'
+import type { IDirectoryProvider } from './directory-provider.interface'
 import { MicrosoftGraphProvider } from './microsoft-graph.provider'
 import { GoogleDirectoryProvider } from './google-directory.provider'
 

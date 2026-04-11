@@ -18,12 +18,8 @@ import { KernelActorService } from '../../../kernel/application/facades/kernel-a
 import {
   DIRECTORY_PROVIDER_FACTORY,
   type IDirectoryProviderFactory,
-} from '../../infrastructure/providers/directory-provider.interface'
-import type {
-  RoleKeyValue,
-  ScopeTypeValue,
-} from '../../../kernel/domain/entities/role-grant.entity'
-import type { IdentityProvider } from '../../../kernel/domain/entities/user-identity.entity'
+} from '../../domain/ports/directory-provider.factory.port'
+import type { RoleKeyValue, ScopeTypeValue, IdentityProvider } from '../../../kernel'
 
 @CommandHandler(RunDirectorySyncCommand)
 export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySyncCommand> {

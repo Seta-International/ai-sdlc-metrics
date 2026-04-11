@@ -72,7 +72,7 @@ describe('ConfigureIdentityProviderHandler', () => {
     )
     expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({
-        eventType: 'identity_provider_configured',
+        eventType: 'identity_provider.configured',
         module: 'identity',
       }),
     )
@@ -229,7 +229,7 @@ describe('ConfigureIdentityProviderHandler', () => {
       expect.objectContaining({ displayName: 'New Name', clientId: 'new-client' }),
     )
     expect(auditService.log).toHaveBeenCalledWith(
-      expect.objectContaining({ eventType: 'identity_provider_configured', module: 'identity' }),
+      expect.objectContaining({ eventType: 'identity_provider.configured', module: 'identity' }),
     )
   })
 

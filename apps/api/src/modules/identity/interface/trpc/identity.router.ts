@@ -63,5 +63,5 @@ export function createIdentityRouter(
   })
 }
 
-// Backward-compatible export (used in app-router)
+// Empty placeholder — will be populated in Task 8 final wiring
 export const identityRouter = router({})

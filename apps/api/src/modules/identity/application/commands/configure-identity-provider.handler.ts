@@ -53,7 +53,7 @@ export class ConfigureIdentityProviderHandler implements ICommandHandler<
       await this.auditService.log({
         tenantId: command.tenantId,
         actorId: command.configuredBy,
-        eventType: 'identity_provider_configured',
+        eventType: 'identity_provider.configured',
         module: 'identity',
         subjectId: updated.id,
         payload: {
@@ -88,7 +88,7 @@ export class ConfigureIdentityProviderHandler implements ICommandHandler<
     await this.auditService.log({
       tenantId: command.tenantId,
       actorId: command.configuredBy,
-      eventType: 'identity_provider_configured',
+      eventType: 'identity_provider.configured',
       module: 'identity',
       subjectId: provider.id,
       payload: {
