@@ -59,7 +59,8 @@ export async function seedTenant(
 
   await db.execute(
     sql`INSERT INTO core.tenant (id, name, slug, status, plan_tier, created_at, updated_at)
-        VALUES (${id}, ${name}, ${slug}, 'active', ${planTier}, NOW(), NOW())`,
+        VALUES (${id}, ${name}, ${slug}, 'active', ${planTier}, NOW(), NOW())
+        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, slug = EXCLUDED.slug, updated_at = NOW()`,
   )
 
   return { id, name, slug }

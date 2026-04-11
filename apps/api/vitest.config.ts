@@ -26,6 +26,7 @@ export default defineConfig({
           name: 'integration',
           include: ['src/**/*.integration.spec.ts'],
           setupFiles: ['src/test-setup.integration.ts'],
+          fileParallelism: false,
           env: {
             TEST_DATABASE_URL:
               process.env['TEST_DATABASE_URL'] ??
