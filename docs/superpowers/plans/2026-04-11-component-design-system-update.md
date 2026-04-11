@@ -8,6 +8,8 @@
 
 **Tech Stack:** Tailwind v4, shadcn/ui (Radix + CVA), next-themes, next/font/google, Geist + Geist Mono
 
+**Status:** implemented
+
 ---
 
 ## File Map

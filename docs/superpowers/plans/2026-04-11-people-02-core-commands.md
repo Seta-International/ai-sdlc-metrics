@@ -8,6 +8,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-04-11-people-projects-design.md`
 
+**Status:** implemented
+
 ---
 
 ## Task 1: Drizzle Repository — Employment Profile + Detail + Profile Section

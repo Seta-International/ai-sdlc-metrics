@@ -8,6 +8,8 @@
 
 **Tech Stack:** `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`, `@aws-sdk/lib-dynamodb`, `@aws-sdk/client-sesv2`, `nodemailer`, `mjml`, `handlebars`, `pdf-parse`, `puppeteer-core`, `@sparticuz/chromium`, `exceljs`, `ioredis` (SSE pub/sub)
 
+**Status:** implemented
+
 **Spec:** `docs/superpowers/specs/2026-04-11-platform-services-design.md`
 
 ---

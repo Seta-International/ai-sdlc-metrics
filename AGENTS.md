@@ -8,19 +8,19 @@ Full docs: `docs/` — architecture, engineering rules, roadmaps, legacy specs.
 
 ## Stack
 
-| Layer         | Technology                                                                                   |
-| ------------- | -------------------------------------------------------------------------------------------- |
-| Frontend      | Next.js Multi-Zones (11 zones + shell)                                                       |
-| Backend       | NestJS modular monolith (Turborepo)                                                          |
-| API           | tRPC (end-to-end type-safe)                                                                  |
-| Database      | PostgreSQL 16 — Drizzle ORM, schema-per-module, RLS                                          |
-| Jobs          | pg-boss                                                                                      |
-| Events        | `outbox_event` + polling relay                                                               |
-| Analytics     | Glue ETL → S3 Parquet → Iceberg → Athena → Cube.js                                           |
-| AI            | Vercel AI SDK + OpenAI (`gpt-5.4-nano` classify, `gpt-5.4` reason, `text-embedding-3-small`) |
-| Observability | Langfuse (self-hosted ECS)                                                                   |
-| Infra         | AWS ECS Fargate Graviton ARM64, Terraform, ap-southeast-1                                    |
-| Auth          | Microsoft Entra OIDC (MSAL)                                                                  |
+| Layer         | Technology                                                                                                                                           |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend      | Next.js Multi-Zones (11 zones + shell)                                                                                                               |
+| Backend       | NestJS modular monolith (Turborepo)                                                                                                                  |
+| API           | tRPC (end-to-end type-safe)                                                                                                                          |
+| Database      | PostgreSQL 16 — Drizzle ORM, schema-per-module, RLS                                                                                                  |
+| Jobs          | pg-boss                                                                                                                                              |
+| Events        | `outbox_event` + polling relay                                                                                                                       |
+| Analytics     | Glue ETL → S3 Parquet → Iceberg → Athena → Cube.js                                                                                                   |
+| AI            | Vercel AI SDK + OpenAI (`gpt-5.4-nano` classify, `gpt-5.4` reason, `text-embedding-3-small`)                                                         |
+| Observability | Langfuse (self-hosted ECS)                                                                                                                           |
+| Infra         | AWS ECS Fargate Graviton ARM64, Terraform, ap-southeast-1                                                                                            |
+| Auth          | Microsoft Entra ID or Google Workspace OIDC + magic link (local accounts). See `docs/superpowers/specs/2026-04-11-access-control-strategy-design.md` |
 
 ---
 
@@ -28,42 +28,44 @@ Full docs: `docs/` — architecture, engineering rules, roadmaps, legacy specs.
 
 Single source of truth for all modules, agents, and integrations.
 
-| Table                        | Purpose                                                                                     |
-| ---------------------------- | ------------------------------------------------------------------------------------------- |
-| `actor`                      | Canonical identity — `person \| organization \| system`                                     |
-| `user_identity`              | Login record + Entra OID (`sso_subject`)                                                    |
-| `external_identity_map`      | Legacy ID bridges (EMS, biometric, Slack, Teams). Join key: `actor_id` — never external IDs |
-| `department`                 | Kernel-owned org dimension. People writes; all modules reference                            |
-| `role_grant`                 | Permissions scoped to `global \| department \| project \| account`                          |
-| `delegation`                 | Time-bounded authority transfer. Auto-expires. Checked before `role_grant`                  |
-| `org_placement`              | Temporal org history. Current: `effective_until IS NULL`                                    |
-| `decision_case/step/outcome` | Shared approval envelope for all workflows                                                  |
-| `audit_event`                | Immutable INSERT-only log. Never deleted                                                    |
-| `outbox_event`               | Transactional delivery queue. Pruned after 7 days                                           |
-| `exposure_contract`          | Deny-by-default agent access control. Every tool call requires one                          |
+| Table                        | Purpose                                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `actor`                      | Canonical identity — `person \| organization \| system`                                                             |
+| `user_identity`              | Login record — `sso_subject` for SSO (Entra/Google), `provider: 'local'` for magic link                             |
+| `external_identity_map`      | Legacy ID bridges (EMS, biometric, Slack, Teams). Join key: `actor_id` — never external IDs                         |
+| `department`                 | Kernel-owned org dimension. People writes; all modules reference                                                    |
+| `role_grant`                 | Role assignments scoped to `global \| department \| project \| account`. `source: manual \| idp_sync \| delegation` |
+| `role_permission`            | DB-configurable role-to-permission mapping. `is_locked` prevents admin self-lockout                                 |
+| `delegation`                 | Time-bounded authority transfer. Auto-expires. Checked before `role_grant`                                          |
+| `org_placement`              | Temporal org history. Current: `effective_until IS NULL`                                                            |
+| `decision_case/step/outcome` | Shared approval envelope for all workflows                                                                          |
+| `audit_event`                | Immutable INSERT-only log. Never deleted                                                                            |
+| `outbox_event`               | Transactional delivery queue. Pruned after 7 days                                                                   |
+| `exposure_contract`          | Deny-by-default agent access control. Every tool call requires one                                                  |
 
 - All tables have `tenant_id`. RLS enforced via `set_config('app.tenant_id', id, false)` (always `false`).
 - All IDs: UUID v7 — `$defaultFn(() => uuidv7())`.
-- `KernelQueryFacade` is the only cross-module kernel import.
+- `KernelQueryFacade` is the only cross-module kernel import. `canDo(actorId, permission, context)` is the single permission check — all modules use it.
 
 ---
 
 ## Domain Modules
 
-| Module        | Schema        | Owns                                             |
-| ------------- | ------------- | ------------------------------------------------ |
-| `kernel`      | `core`        | Identity, authority, decisions, events, exposure |
-| `people`      | `people`      | Employment profiles, org placements, offboarding |
-| `time`        | `time`        | Attendance, leave, OT, timesheets                |
-| `hiring`      | `hiring`      | Recruitment, pipeline, interviews, offers        |
-| `performance` | `performance` | Review cycles, evaluations, feedback             |
-| `projects`    | `projects`    | Staffing, assignments, delivery                  |
-| `finance`     | `finance`     | Invoices, payroll, budget                        |
-| `goals`       | `goals`       | OKRs, KPIs, objectives                           |
-| `insights`    | `insights`    | Analytics proxy to Cube.js — no tables           |
-| `agents`      | `agents`      | Agent configs, sessions, messages, tools         |
-| `planner`     | `planner`     | Task tracking, AI reminders, KPI linkage         |
-| `admin`       | `admin`       | Tenant settings, AI config, module toggles       |
+| Module        | Schema        | Owns                                                                             |
+| ------------- | ------------- | -------------------------------------------------------------------------------- |
+| `kernel`      | `core`        | Authority (role_grant, role_permission, delegation), decisions, events, exposure |
+| `identity`    | `identity`    | Authentication (SSO, magic link), IdP config, directory sync, user provisioning  |
+| `people`      | `people`      | Employment profiles, org placements, offboarding                                 |
+| `time`        | `time`        | Attendance, leave, OT, timesheets                                                |
+| `hiring`      | `hiring`      | Recruitment, pipeline, interviews, offers                                        |
+| `performance` | `performance` | Review cycles, evaluations, feedback                                             |
+| `projects`    | `projects`    | Staffing, assignments, delivery                                                  |
+| `finance`     | `finance`     | Invoices, payroll, budget                                                        |
+| `goals`       | `goals`       | OKRs, KPIs, objectives                                                           |
+| `insights`    | `insights`    | Analytics proxy to Cube.js — no tables                                           |
+| `agents`      | `agents`      | Agent configs, sessions, messages, tools                                         |
+| `planner`     | `planner`     | Task tracking, AI reminders, KPI linkage                                         |
+| `admin`       | `admin`       | Tenant settings, AI config, module toggles                                       |
 
 ### Module layout (Hexagonal + DDD)
 
@@ -88,7 +90,7 @@ No FK constraints across schema boundaries. No imports from another module's `do
 ## Frontend (Next.js Multi-Zones)
 
 - 11 independent zones + `web-shell`. Each has its own ECS service, ECR repo, CI pipeline.
-- `web-shell` owns MSAL SSO. Outage does not affect users inside module zones.
+- `web-shell` owns SSO (Entra or Google, based on tenant's primary IdP) + magic link flow. Outage does not affect users inside module zones.
 - `web-admin` — tenant self-service (AI config, module toggles). `platform_admin` = SETA operator view.
 - Zones are fully autonomous: session from httpOnly cookie, `<GlobalNav />` from `packages/ui`.
 - Cross-zone navigation = hard `<a>` reload. No Next.js `<Link>` across zones.
@@ -101,7 +103,7 @@ Lives in `modules/agents` inside the NestJS monolith.
 
 - **Gateway** — SessionManager → TopicRouter → McpToolRegistry → guardrails.
 - **Channels** — WebSocket, Teams, Slack, event triggers. One adapter class per channel.
-- **Every tool call** checks `exposure_contract` + `role_grant`, writes `audit_event`.
+- **Every tool call** checks `exposure_contract` + `canDo()` permission check, writes `audit_event`.
 - **MCP tools** — `@rekog/mcp-nest`, HTTP+SSE at `/mcp/{module}`. Naming: `{module}_{action}`.
 - **Sessions** stored in `agents.agent_session` (PostgreSQL, auditable).
 - **Agent memory** — pgvector HNSW in `agents` schema.

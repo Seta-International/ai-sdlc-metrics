@@ -202,12 +202,32 @@ role_grant
                 tenant_admin | platform_admin
   scope_type    global | department | project | account
   scope_id      → specific department/project/account (null if global)
+  source        manual | idp_sync | delegation  → who created this grant
   granted_by    → actor_id who granted this
   valid_from
   valid_until   → null means permanent until explicitly revoked
 ```
 
+**`source` field:** directory sync only touches `idp_sync` grants. Manual grants (`source: 'manual'`) are never modified by sync. This prevents sync from overriding admin decisions.
+
 **role_key is extensible:** new domain modules register new role_keys. The kernel enforces the grant/revoke lifecycle; modules define what the key unlocks.
+
+#### role_permission — what each role can do (per-tenant, DB-configurable)
+
+```sql
+role_permission
+  id              UUID v7 PRIMARY KEY
+  tenant_id
+  role_key        → matches role_grant.role_key
+  permission_key  → e.g., 'people:profile:read', 'time:leave:approve'
+  is_locked       boolean → true = cannot be removed by tenant admin
+  created_at
+  UNIQUE: (tenant_id, role_key, permission_key)
+```
+
+**Permission key convention:** `{module}:{resource}:{action}` or `{module}:{resource}:{scope_qualifier}:{action}`. The `self` qualifier means the check compares `actorId` against the resource owner.
+
+Seeded with defaults on tenant creation. Admin can add/remove non-locked entries. Locked permissions prevent self-lockout (e.g., `tenant_admin` always has `admin:role:manage`).
 
 #### delegation — time-bounded authority transfer
 
@@ -530,12 +550,13 @@ module_entitlement
 Tenant (root container — tenant_id on every table, RLS enforced)
   │
   ├── actor                       person | organization | system
-  │     ├── user_identity         login + Microsoft SSO link
+  │     ├── user_identity         login + SSO link (Entra/Google/local)
   │     └── external_identity_map legacy + external system bridges
   │
   ├── department                  canonical org dimension (kernel-owned)
   │
-  ├── role_grant                  what each actor can do
+  ├── role_grant                  what each actor can do (source: manual | idp_sync | delegation)
+  ├── role_permission             DB-configurable role-to-permission mapping (is_locked for core perms)
   ├── delegation                  time-bounded authority transfer
   ├── org_placement               where each person sits (full temporal history)
   │
@@ -582,6 +603,19 @@ export interface KernelQueryFacade {
   // Role grants
   getRoleGrants(actorId: string, tenantId: string): Promise<RoleGrant[]>
   hasRole(actorId: string, roleKey: string, tenantId: string): Promise<boolean>
+
+  // Permission checks — the single authorization gate for all modules
+  canDo(
+    actorId: string,
+    permission: string,
+    context: {
+      tenantId: string
+      scopeType?: 'global' | 'department' | 'project' | 'account'
+      scopeId?: string
+      resourceOwnerId?: string // for 'self' permission checks
+    },
+  ): Promise<boolean>
+  getEffectivePermissions(actorId: string, tenantId: string): Promise<string[]>
 
   // Delegation
   getActiveDelegations(actorId: string, tenantId: string): Promise<Delegation[]>

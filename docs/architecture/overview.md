@@ -45,7 +45,8 @@ flowchart TB
     API["API surface<br/>tRPC and agent endpoints"]
     Modules["Domain modules<br/>People, Time, Hiring, Projects,<br/>Performance, Finance, Goals"]
     Outbox["Durable event transport<br/>outbox_event and pg-boss"]
-    Kernel["Kernel<br/>identity, authority, decisions,<br/>exposure contracts, audit_event"]
+    Kernel["Kernel<br/>authority (role_grant, role_permission, canDo),<br/>decisions, exposure contracts, audit_event"]
+    Identity["Identity module<br/>SSO (Entra/Google), magic link,<br/>directory sync, user provisioning"]
     Agents["Agent platform<br/>runtime, guardrails, MCP actions,<br/>pgvector memory"]
     Replica["RDS read replica"]
     Glue["AWS Glue ETL<br/>(hourly batch)"]
@@ -58,6 +59,7 @@ flowchart TB
     Users --> API --> Modules
     Users --> Agents
 
+    Identity -->|provisions users, syncs roles via command bus| Kernel
     Modules -->|writes decisions and audit trail| Kernel
     Modules -->|emit domain events| Outbox
     Outbox -->|module-to-module handlers| Modules

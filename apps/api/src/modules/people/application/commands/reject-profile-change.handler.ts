@@ -1,0 +1,73 @@
+import { Inject } from '@nestjs/common'
+import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import {
+  ProfileChangeRequestNotFoundException,
+  ProfileChangeRequestNotPendingException,
+} from '../../domain/exceptions/people.exceptions'
+import {
+  PROFILE_CHANGE_REQUEST_REPOSITORY,
+  type IProfileChangeRequestRepository,
+} from '../../domain/repositories/profile-change-request.repository'
+import {
+  AUDIT_EVENT_REPOSITORY,
+  type IAuditEventRepository,
+} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { ResolveDecisionCaseCommand } from '../../../kernel/application/commands/resolve-decision-case.command'
+import { RejectProfileChangeCommand } from './reject-profile-change.command'
+
+@CommandHandler(RejectProfileChangeCommand)
+export class RejectProfileChangeHandler implements ICommandHandler<
+  RejectProfileChangeCommand,
+  void
+> {
+  constructor(
+    @Inject(PROFILE_CHANGE_REQUEST_REPOSITORY)
+    private readonly changeRequestRepo: IProfileChangeRequestRepository,
+    @Inject(AUDIT_EVENT_REPOSITORY)
+    private readonly auditRepo: IAuditEventRepository,
+    private readonly commandBus: CommandBus,
+  ) {}
+
+  async execute(command: RejectProfileChangeCommand): Promise<void> {
+    const request = await this.changeRequestRepo.findById(command.changeRequestId, command.tenantId)
+    if (!request) throw new ProfileChangeRequestNotFoundException(command.changeRequestId)
+    if (request.status !== 'pending') {
+      throw new ProfileChangeRequestNotPendingException(command.changeRequestId)
+    }
+
+    // Mark request as rejected
+    await this.changeRequestRepo.updateStatus(
+      command.changeRequestId,
+      command.tenantId,
+      'rejected',
+      command.rejectedBy,
+    )
+
+    // Resolve the kernel decision case with rejection + comment
+    if (request.decisionCaseId) {
+      await this.commandBus.execute(
+        new ResolveDecisionCaseCommand(
+          command.tenantId,
+          request.decisionCaseId,
+          'rejected',
+          command.rejectedBy,
+          command.comment,
+        ),
+      )
+    }
+
+    // Audit log
+    await this.auditRepo.insert({
+      tenantId: command.tenantId,
+      actorId: command.rejectedBy,
+      eventType: 'profile_change_rejected',
+      module: 'people',
+      subjectId: request.profileId,
+      payload: {
+        changeRequestId: request.id,
+        fieldPath: request.fieldPath,
+        comment: command.comment,
+      },
+    })
+  }
+}

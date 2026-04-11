@@ -51,7 +51,7 @@ packages/
   api-client/        → tRPC type export only — zero runtime code for frontend
   event-contracts/   → domain event classes — zero NestJS/Drizzle deps
   ui/                → shared React components — purely presentational, no API calls
-  auth/              → MSAL helpers, useSession hook, token parsing — no React dep
+  auth/              → SSO helpers (Entra + Google OIDC), useSession hook, JWT parsing — no React dep
   db/                → Drizzle schema definitions + migration runner
   eslint-config/
   tsconfig/
@@ -96,7 +96,8 @@ infra/               → Terraform IaC
 
 ```
 modules/
-  kernel/            → core schema — kernel owns nothing it doesn't need to
+  kernel/            → core schema — authority, decisions, events, exposure
+  identity/          → authentication, IdP config, directory sync, magic link
   people/
   time/
   hiring/
@@ -164,12 +165,13 @@ The `tenantId` column is on every table. RLS policy is set at the DB level. `set
 
 ### tRPC
 
-| Item            | Choice                                                                                   |
-| --------------- | ---------------------------------------------------------------------------------------- |
-| Version         | `^11.x` (current: 11.16.0)                                                               |
-| Assembly        | `apps/api/src/common/trpc/app-router.ts` — merges all module routers                     |
-| Frontend client | `packages/api-client` re-exports the `AppRouter` type only — `import type { AppRouter }` |
-| Auth            | tRPC middleware checks session cookie, injects `tenantId` + `actorId` into context       |
+| Item            | Choice                                                                                                                |
+| --------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Version         | `^11.x` (current: 11.16.0)                                                                                            |
+| Assembly        | `apps/api/src/common/trpc/app-router.ts` — merges all module routers                                                  |
+| Frontend client | `packages/api-client` re-exports the `AppRouter` type only — `import type { AppRouter }`                              |
+| Auth            | tRPC middleware verifies IdP-agnostic JWT from httpOnly cookie, injects `tenantId` + `actorId` + `roles` into context |
+| Permission      | `permissionMiddleware` calls `KernelQueryFacade.canDo()` per procedure via `.meta({ permission })`                    |
 
 Each zone creates its own typed client:
 
@@ -290,7 +292,7 @@ No `@tailwind base/components/utilities` directives. No `tailwind.config.js` unl
 **Every MCP tool call must:**
 
 1. Check `exposure_contract` (deny-by-default access control)
-2. Check `role_grant` (actor permissions)
+2. Check `canDo()` (role → permission with scope enforcement)
 3. Write an `audit_event` after execution
 
 ---

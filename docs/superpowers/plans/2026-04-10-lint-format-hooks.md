@@ -8,6 +8,8 @@
 
 **Tech Stack:** ESLint 9, typescript-eslint 8, eslint-plugin-boundaries 4, eslint-config-prettier, Prettier 3, Lefthook, `@eslint/eslintrc` (FlatCompat for Next.js plugin bridging)
 
+**Status:** implemented
+
 ---
 
 ## File Map

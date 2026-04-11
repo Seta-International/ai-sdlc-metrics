@@ -21,7 +21,7 @@ This document captures the agreed application architecture for Future — how do
 - **Published Language for events** — all cross-module event contracts live in `packages/event-contracts`. Zero NestJS dependencies. Extracting a module to a separate service requires only a transport swap, no domain code changes.
 - **Soft references across modules** — no FK constraints across module schemas. Application layer enforces integrity via facades. Each module's DB is independently extractable.
 - **Multi-Zones from day one** — each domain module is an independent Next.js app with its own ECS service and release pipeline. No module deployment ever impacts another module. Deployment isolation is a first-class requirement for an enterprise AaaS product.
-- **Shell is routing + auth only** — `web-shell` owns Microsoft SSO (MSAL) and zone routing. Each zone is fully autonomous: renders its own nav chrome, fetches its own session context. No zone has a runtime dependency on `web-shell`.
+- **Shell is routing + auth only** — `web-shell` owns SSO (Microsoft Entra or Google Workspace, per tenant's primary IdP) + magic link flow for local accounts, and zone routing. Each zone is fully autonomous: renders its own nav chrome, fetches its own session context. No zone has a runtime dependency on `web-shell`.
 
 ---
 
@@ -31,7 +31,8 @@ Names are chosen to match industry-standard HR/AaaS product naming — what cust
 
 | Module      | Canonical Name | Domain Responsibility                                                                                                |
 | ----------- | -------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Core        | `core`         | Kernel primitives — Actor, Identity, Role, Org, Decision, Audit, Exposure                                            |
+| Core        | `core`         | Kernel primitives — Actor, Authority (role_grant, role_permission), Org, Decision, Audit, Exposure                   |
+| Identity    | `identity`     | Authentication (SSO, magic link), IdP config, directory sync, user provisioning                                      |
 | People      | `people`       | Employee profiles, employment terms, org placements, offboarding                                                     |
 | Time        | `time`         | Attendance, leave, overtime, timesheets                                                                              |
 | Hiring      | `hiring`       | Recruitment requests, candidate pipeline, interviews, offers                                                         |
@@ -93,7 +94,7 @@ export default {
 `web-shell` is the **navigation hub** — the home users return to between modules — and owns auth. Four responsibilities:
 
 1. **Navigation hub (`/`)** — authenticated home: module tiles, org switcher, waffle menu, global notification bell. The Microsoft 365 `office.com` equivalent.
-2. **Microsoft SSO (MSAL)** — owns the Entra OIDC flow, sets httpOnly session cookie, redirects back to the originally requested zone post-login.
+2. **SSO + Magic Link** — owns the OIDC flow (Entra or Google, based on tenant's primary IdP) + magic link auth for local accounts. Sets IdP-agnostic httpOnly session cookie (JWT), redirects back to the originally requested zone post-login.
 3. **Global search** (future) — cross-module search lives here, not inside any zone.
 4. **Global fallback** — ALB `/*` catch-all for any unmatched path.
 
@@ -120,7 +121,7 @@ Zone boots (e.g. web-finance)
 ```
 packages/
   ui/                 → shadcn/ui base design system (overridable per brand direction)
-  auth/               → MSAL helpers, useSession hook, token parsing — no React dep
+  auth/               → SSO helpers (Entra + Google OIDC), useSession hook, JWT parsing — no React dep
   api-client/         → AppRouter type (re-export only) + tRPC client factory
   event-contracts/    → Cross-module domain event classes (Published Language) — no NestJS dep
   db/                 → Drizzle schema definitions + migration runner
@@ -133,7 +134,7 @@ packages/
 - `packages/ui` — no API calls, no auth, pure presentational only
 - `packages/api-client` — no React, no UI; type + factory only
 - `packages/event-contracts` — no NestJS, no Drizzle; plain TS classes only
-- `packages/auth` — no React, no UI; MSAL helpers and session parsing only
+- `packages/auth` — no React, no UI; SSO helpers (Entra + Google OIDC), JWT session parsing only
 - No Tailwind JS config packages — Tailwind v4 is CSS-first; shared tokens go in a shared CSS file imported into each zone's `globals.css`
 - Domain-specific types stay inside their module. No `packages/kernel-types` — shared kernel types live in `packages/api-client`
 
@@ -190,6 +191,7 @@ apps/
       app.module.ts   → Imports all domain modules
       modules/
         kernel/
+        identity/
         people/
         time/
         hiring/
@@ -319,6 +321,12 @@ packages/event-contracts/
 
   kernel/
     DecisionCaseResolvedEvent { tenantId, caseId, finalAction, decidedBy }
+
+  identity/
+    UserProvisionedFromIdpEvent   { tenantId, actorId, provider, ssoSubject }
+    UserDeactivatedFromIdpEvent   { tenantId, actorId, provider, reason }
+    RoleGrantSyncedEvent          { tenantId, actorId, roleKey, action: 'granted' | 'revoked', source: 'idp_sync' }
+    DirectorySyncCompletedEvent   { tenantId, providerId, usersCreated, usersDeactivated, rolesChanged }
 ```
 
 ### Event Flow
@@ -441,10 +449,11 @@ One PostgreSQL instance. Each module owns its own schema. No cross-schema foreig
 ```
 PostgreSQL (single RDS instance)
   Schema: core         → tenant, actor, user_identity, external_identity_map,
-                          department, role_grant, delegation, org_placement,
-                          decision_case, decision_step, decision_outcome,
-                          audit_event, outbox_event,
+                          department, role_grant, role_permission, delegation,
+                          org_placement, decision_case, decision_step,
+                          decision_outcome, audit_event, outbox_event,
                           visibility_scope, exposure_contract
+  Schema: identity     → identity_provider, idp_group_mapping, magic_link_token
   Schema: people       → person_profile, employment_term, emergency_contact, ...
   Schema: time         → attendance_record, leave_request, overtime_entry, ...
   Schema: hiring       → recruitment, candidate, application, interview_schedule, ...
@@ -541,7 +550,8 @@ future/                          (Turborepo root)
     api/                        → NestJS modular monolith
       src/
         modules/
-          kernel/               → tenant, actor, identity, role, delegation, org, decision, outbox
+          kernel/               → tenant, actor, authority (role_grant, role_permission), delegation, org, decision, outbox
+          identity/             → IdP config, directory sync, magic link auth, user provisioning
           people/               → employment, profiles, departments
           time/                 → attendance, leave, OT
           hiring/               → jobs, candidates, pipeline
@@ -623,6 +633,7 @@ Independent zone deployment: `turbo build --filter=web-finance` builds only Fina
 | Admin zone                    | `web-admin` at `admin.seta-international.com` — self-service portal for tenant admins; platform_admin role unlocks all-tenant view                                                                                                 |
 | AdminQueryFacade              | Cross-module read interface for AI config resolution and module entitlement checks                                                                                                                                                 |
 | Event handler idempotency key | `outbox_event.id` — universal dedup key checked against `core.processed_events(event_id, handler_name)` before every cross-module handler                                                                                          |
+| Identity module               | Separate module from kernel — owns authentication (SSO, magic link), IdP config, directory sync. Writes to kernel via command bus. Kernel owns authorization (role_grant, role_permission, canDo)                                  |
 | Frontend zone routing         | Subdomain-per-zone on `*.seta-international.com`. Cookie: `Domain=.seta-international.com; HttpOnly; Secure; SameSite=Lax`                                                                                                         |
 | Drizzle migration strategy    | Hybrid: single `drizzle.config.ts` in `packages/db`; migrations organized by schema in `drizzle/migrations/{schema}/`; `_metadata.json` defines dependency graph; NestJS `MigrationRunner` applies in topological order at startup |
 

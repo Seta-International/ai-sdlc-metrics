@@ -266,7 +266,10 @@ PR requirements: CI green + one reviewer approval.
 - Never log secrets or credentials.
 - Ignore client-provided `tenantId`. Always derive it from the server-side session.
 - Never interpolate unsanitized input into `sql` template literals. Use Drizzle's parameterized API.
-- All MCP tool calls require a valid `exposure_contract` for the actor in that tenant.
+- All MCP tool calls require a valid `exposure_contract` + `canDo()` permission check for the actor in that tenant.
+- All tRPC mutations and sensitive queries must declare `.meta({ permission: '...' })` and use `protectedProcedure`.
+- Directory sync only touches `role_grant` entries with `source = 'idp_sync'`. Manual grants are never modified by sync.
+- Identity module writes to kernel tables via command bus only — never direct DB access across module boundaries.
 - Never use a hardcoded OpenAI API key. Resolve via `AdminQueryFacade.getResolvedAiConfig()` — tenant BYO key takes precedence over platform default.
 - `tenant_admin` role gates `web-admin` access. `platform_admin` is a SETA-internal role — never assign to tenant actors.
 
@@ -311,8 +314,9 @@ const results = await db
 - [ ] Drizzle schema updated, migration generated (`bun run db:generate`)
 - [ ] Repository implements the domain port from `domain/`
 - [ ] Domain event emitted for any state change other modules may care about
-- [ ] tRPC route in `interface/trpc/`
-- [ ] Unit tests: handler happy path + each error path
+- [ ] tRPC route in `interface/trpc/` with `.meta({ permission })` on protected procedures
+- [ ] Permission check: `canDo()` in middleware (simple) or handler (scope-dependent)
+- [ ] Unit tests: handler happy path + each error path + permission denial
 - [ ] Integration test: repository + tenant RLS isolation
 - [ ] `audit_event` written for compliance-significant actions
 - [ ] If agent-accessible: MCP tool with `exposure_contract` check
