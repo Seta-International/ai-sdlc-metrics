@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CommandBus } from '@nestjs/cqrs'
 import { ApproveOffboardingCommand } from './approve-offboarding.command'
 import { ApproveOffboardingHandler } from './approve-offboarding.handler'
-import { OffboardingCaseNotFoundException } from '../../domain/exceptions/people.exceptions'
+import {
+  EmploymentProfileNotFoundException,
+  OffboardingCaseNotFoundException,
+} from '../../domain/exceptions/people.exceptions'
 import type { IEmploymentProfileRepository } from '../../domain/repositories/employment-profile.repository'
 import type {
   IOffboardingTemplateRepository,
@@ -74,8 +77,6 @@ describe('ApproveOffboardingHandler', () => {
         },
       ]),
       insert: vi.fn(),
-      insertTaskTemplate: vi.fn(),
-      list: vi.fn(),
     } as unknown as IOffboardingTemplateRepository
     caseRepo = {
       insert: vi.fn(),
@@ -133,7 +134,13 @@ describe('ApproveOffboardingHandler', () => {
     )
 
     // Verify decision case resolved
-    expect(commandBus.execute).toHaveBeenCalled()
+    expect(commandBus.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        caseId: 'dc-1',
+        finalAction: 'approved',
+        decidedBy: APPROVER_ID,
+      }),
+    )
   })
 
   it('throws OffboardingCaseNotFoundException when case not found', async () => {
@@ -142,6 +149,14 @@ describe('ApproveOffboardingHandler', () => {
     await expect(
       handler.execute(new ApproveOffboardingCommand(TENANT_ID, CASE_ID, APPROVER_ID)),
     ).rejects.toThrow(OffboardingCaseNotFoundException)
+  })
+
+  it('throws EmploymentProfileNotFoundException when profile not found', async () => {
+    vi.mocked(profileRepo.findById).mockResolvedValue(null)
+
+    await expect(
+      handler.execute(new ApproveOffboardingCommand(TENANT_ID, CASE_ID, APPROVER_ID)),
+    ).rejects.toThrow(EmploymentProfileNotFoundException)
   })
 
   it('falls back to default template when no match for employment_type + reason_category', async () => {

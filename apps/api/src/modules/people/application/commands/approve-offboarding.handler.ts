@@ -1,6 +1,9 @@
 import { Inject } from '@nestjs/common'
 import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
-import { OffboardingCaseNotFoundException } from '../../domain/exceptions/people.exceptions'
+import {
+  EmploymentProfileNotFoundException,
+  OffboardingCaseNotFoundException,
+} from '../../domain/exceptions/people.exceptions'
 import {
   EMPLOYMENT_PROFILE_REPOSITORY,
   type IEmploymentProfileRepository,
@@ -42,7 +45,7 @@ export class ApproveOffboardingHandler implements ICommandHandler<ApproveOffboar
     if (!offboardingCase) throw new OffboardingCaseNotFoundException(command.offboardingCaseId)
 
     const profile = await this.profileRepo.findById(offboardingCase.profileId, command.tenantId)
-    if (!profile) throw new OffboardingCaseNotFoundException(command.offboardingCaseId)
+    if (!profile) throw new EmploymentProfileNotFoundException(offboardingCase.profileId)
 
     // 1. Transition employment status to offboarding
     await this.profileRepo.updateStatus(profile.id, command.tenantId, 'offboarding')
