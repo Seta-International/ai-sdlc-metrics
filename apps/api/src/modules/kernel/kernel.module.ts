@@ -88,6 +88,7 @@ import { DrizzleOutboxEventRepository } from './infrastructure/repositories/driz
     KernelActorService,
     ROLE_PERMISSION_REPOSITORY,
     AUDIT_EVENT_REPOSITORY,
+    USER_IDENTITY_REPOSITORY,
   ],
 })
 export class KernelModule implements OnModuleInit {

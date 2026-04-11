@@ -8,6 +8,14 @@ import { IDP_GROUP_MAPPING_REPOSITORY } from './domain/repositories/idp-group-ma
 import { MAGIC_LINK_TOKEN_REPOSITORY } from './domain/repositories/magic-link-token.repository'
 import { API_KEY_REPOSITORY } from './domain/repositories/api-key.repository'
 
+// Port symbols
+import { MAGIC_LINK_SENDER } from './domain/ports/magic-link-sender.port'
+import { LOCAL_USER_QUERY_PORT } from './domain/ports/local-user-query.port'
+
+// Stub implementations
+import { MagicLinkSenderStub } from './infrastructure/magic-link-sender.stub'
+import { LocalUserQueryStub } from './infrastructure/local-user-query.stub'
+
 // Repository adapters
 import { DrizzleIdentityProviderRepository } from './infrastructure/repositories/drizzle-identity-provider.repository'
 import { DrizzleIdpGroupMappingRepository } from './infrastructure/repositories/drizzle-idp-group-mapping.repository'
@@ -29,6 +37,8 @@ import { ValidateMagicLinkHandler } from './application/commands/validate-magic-
 import { CreateApiKeyHandler } from './application/commands/create-api-key.handler'
 import { RunDirectorySyncHandler } from './application/commands/run-directory-sync.handler'
 import { TestIdpConnectionHandler } from './application/commands/test-idp-connection.handler'
+import { InviteLocalUserHandler } from './application/commands/invite-local-user.handler'
+import { DeactivateLocalUserHandler } from './application/commands/deactivate-local-user.handler'
 
 // Query handlers
 import { GetIdentityProviderHandler } from './application/queries/get-identity-provider.handler'
@@ -36,6 +46,7 @@ import { GetIdpGroupMappingsHandler } from './application/queries/get-idp-group-
 import { ListGroupMappingsHandler } from './application/queries/list-group-mappings.handler'
 import { GetSyncStatusHandler } from './application/queries/get-sync-status.handler'
 import { ValidateApiKeyHandler } from './application/queries/validate-api-key.handler'
+import { ListLocalUsersHandler } from './application/queries/list-local-users.handler'
 
 // Facade
 import { IdentityQueryFacade } from './application/facades/identity-query.facade'
@@ -53,6 +64,8 @@ import { IdentityTrpcService } from './interface/trpc/identity-trpc.service'
     { provide: API_KEY_REPOSITORY, useClass: DrizzleApiKeyRepository },
     // Providers
     { provide: DIRECTORY_PROVIDER_FACTORY, useClass: DirectoryProviderFactory },
+    { provide: MAGIC_LINK_SENDER, useClass: MagicLinkSenderStub },
+    { provide: LOCAL_USER_QUERY_PORT, useClass: LocalUserQueryStub },
     // Command handlers
     ConfigureIdentityProviderHandler,
     UpdateIdpGroupMappingHandler,
@@ -64,12 +77,15 @@ import { IdentityTrpcService } from './interface/trpc/identity-trpc.service'
     CreateApiKeyHandler,
     RunDirectorySyncHandler,
     TestIdpConnectionHandler,
+    InviteLocalUserHandler,
+    DeactivateLocalUserHandler,
     // Query handlers
     GetIdentityProviderHandler,
     GetIdpGroupMappingsHandler,
     ListGroupMappingsHandler,
     GetSyncStatusHandler,
     ValidateApiKeyHandler,
+    ListLocalUsersHandler,
     // Facade
     IdentityQueryFacade,
     // tRPC interface

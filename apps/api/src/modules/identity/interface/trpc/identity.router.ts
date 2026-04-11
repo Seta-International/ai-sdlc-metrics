@@ -9,6 +9,9 @@ import { UpsertGroupMappingCommand } from '../../application/commands/upsert-gro
 import { RemoveGroupMappingCommand } from '../../application/commands/remove-group-mapping.command'
 import { GetIdentityProviderQuery } from '../../application/queries/get-identity-provider.query'
 import { ListGroupMappingsQuery } from '../../application/queries/list-group-mappings.query'
+import { InviteLocalUserCommand } from '../../application/commands/invite-local-user.command'
+import { DeactivateLocalUserCommand } from '../../application/commands/deactivate-local-user.command'
+import { ListLocalUsersQuery } from '../../application/queries/list-local-users.query'
 
 type AuthCtx = TrpcContext & { actorId: string; tenantId: string }
 const svc = () => IdentityTrpcService.getInstance()
@@ -126,6 +129,64 @@ export function createIdentityRouter(
       .mutation(async ({ ctx, input }) => {
         const { actorId, tenantId } = ctx as unknown as AuthCtx
         await svc().command(new RemoveGroupMappingCommand(tenantId, input.mappingId, actorId))
+        return { success: true }
+      }),
+
+    inviteLocalUser: permissionProtectedProcedure
+      .meta({ permission: 'admin:tenant:manage' })
+      .input(
+        z.object({
+          email: z.string().email(),
+          displayName: z.string().min(1).max(200),
+          roleAssignments: z
+            .array(
+              z.object({
+                roleKey: z.enum([
+                  'hr_ops',
+                  'line_manager',
+                  'project_manager',
+                  'staffing_owner',
+                  'account_manager',
+                  'finance_operator',
+                  'executive',
+                  'employee',
+                  'review_operator',
+                  'recruiter',
+                  'tenant_admin',
+                ]),
+                scopeType: z.enum(['global', 'department', 'project', 'account']),
+                scopeId: z.string().uuid().nullable(),
+              }),
+            )
+            .min(1),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { actorId, tenantId } = ctx as unknown as AuthCtx
+        return svc().command(
+          new InviteLocalUserCommand(
+            tenantId,
+            input.email,
+            input.displayName,
+            input.roleAssignments,
+            actorId,
+          ),
+        )
+      }),
+
+    listLocalUsers: permissionProtectedProcedure
+      .meta({ permission: 'admin:tenant:manage' })
+      .query(async ({ ctx }) => {
+        const { tenantId } = ctx as unknown as AuthCtx
+        return svc().query(new ListLocalUsersQuery(tenantId))
+      }),
+
+    deactivateLocalUser: permissionProtectedProcedure
+      .meta({ permission: 'admin:tenant:manage' })
+      .input(z.object({ actorId: z.string().uuid() }))
+      .mutation(async ({ ctx, input }) => {
+        const { actorId, tenantId } = ctx as unknown as AuthCtx
+        await svc().command(new DeactivateLocalUserCommand(tenantId, input.actorId, actorId))
         return { success: true }
       }),
   })
