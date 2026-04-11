@@ -6,17 +6,23 @@ export interface TrpcContext {
   req: { headers: { cookie?: string } }
 }
 
-const t = initTRPC.context<TrpcContext>().create()
+export interface TrpcMeta {
+  permission?: string
+}
+
+const t = initTRPC.meta<TrpcMeta>().context<TrpcContext>().create()
 
 export const router = t.router
 export const publicProcedure = t.procedure
 export const createCallerFactory = t.createCallerFactory
+export const middleware = t.middleware
 
 /**
  * Create a protectedProcedure that requires a valid session JWT.
  * Must be initialized with the JwtService at app bootstrap.
  */
-let _protectedProcedure: typeof t.procedure | null = null
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _protectedProcedure: any | null = null
 
 export function initProtectedProcedure(jwtService: JwtService): void {
   const authMiddleware = createAuthMiddleware(jwtService)
