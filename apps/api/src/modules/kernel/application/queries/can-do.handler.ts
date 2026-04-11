@@ -26,14 +26,11 @@ export class CanDoHandler implements IQueryHandler<CanDoQuery, boolean> {
   async execute(query: CanDoQuery): Promise<boolean> {
     const { actorId, permission, context } = query
 
-    // Step 1: Get active role grants for actor
-    const grants = await this.roleGrantRepo.findByActorId(actorId, context.tenantId)
-
-    // Step 2: Get active delegations where actor is delegatee
-    const delegations = await this.delegationRepo.findActiveDelegationsForDelegatee(
-      actorId,
-      context.tenantId,
-    )
+    // Step 1+2: Fetch grants and delegations in parallel
+    const [grants, delegations] = await Promise.all([
+      this.roleGrantRepo.findByActorId(actorId, context.tenantId),
+      this.delegationRepo.findActiveDelegationsForDelegatee(actorId, context.tenantId),
+    ])
 
     // Step 3: Collect all unique role keys from grants + delegations
     const roleKeysFromGrants = grants.map((g) => g.roleKey)
