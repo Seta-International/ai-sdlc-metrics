@@ -22,6 +22,13 @@
       "when": 1775840496976,
       "tag": "0002_abnormal_peter_quill",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1775902904756,
+      "tag": "0003_remarkable_squadron_sinister",
+      "breakpoints": true
     }
   ]
 }
