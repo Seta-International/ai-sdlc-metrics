@@ -159,7 +159,9 @@ export const onboardingTask = peopleSchema.table('onboarding_task', {
   tenantId: uuid('tenant_id').notNull(),
   caseId: uuid('case_id').notNull(),
   title: text('title').notNull(),
-  assigneeRole: text('assignee_role').notNull(),
+  assigneeRole: text('assignee_role', {
+    enum: ['hr', 'it', 'project_manager', 'employee'],
+  }).notNull(),
   assigneeActorId: uuid('assignee_actor_id'),
   dueDate: timestamp('due_date'),
   status: text('status', {
@@ -231,7 +233,9 @@ export const offboardingTask = peopleSchema.table('offboarding_task', {
   tenantId: uuid('tenant_id').notNull(),
   caseId: uuid('case_id').notNull(),
   title: text('title').notNull(),
-  assigneeRole: text('assignee_role').notNull(),
+  assigneeRole: text('assignee_role', {
+    enum: ['hr', 'it', 'project_manager', 'employee', 'account_manager'],
+  }).notNull(),
   assigneeActorId: uuid('assignee_actor_id'),
   dueDate: timestamp('due_date'),
   status: text('status', {
