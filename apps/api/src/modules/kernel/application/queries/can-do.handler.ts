@@ -87,13 +87,15 @@ export class CanDoHandler implements IQueryHandler<CanDoQuery, boolean> {
         }
       }
 
-      // Delegated roles pass with global scope (delegation is authority transfer)
+      // Delegated roles: treated as global scope (authority transfer).
+      // TODO(access-control-02): For scoped delegation, consult delegator's own grants
+      // to restrict scope. Tracked in access-control-strategy-design.md §1.
       if (delegatedForRole.length > 0) {
         if (!context.scopeType) {
           return true
         }
-        // For scoped checks, look at the delegator's grants
-        // Simplified: delegations grant global scope for the delegated role
+        // Delegation grants global scope for the delegated role until scoped
+        // delegation is implemented (see TODO above).
         return true
       }
     }

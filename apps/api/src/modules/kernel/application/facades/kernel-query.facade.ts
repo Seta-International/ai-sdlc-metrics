@@ -9,6 +9,7 @@ import { GetRoleGrantsQuery } from '../queries/get-role-grants.query'
 import { GetTenantQuery } from '../queries/get-tenant.query'
 import { GetUserIdentityBySsoSubjectQuery } from '../queries/get-user-identity-by-sso-subject.query'
 import { CanDoQuery, type CanDoContext } from '../queries/can-do.query'
+export type { CanDoContext } from '../queries/can-do.query'
 import { GetEffectivePermissionsQuery } from '../queries/get-effective-permissions.query'
 
 /**
