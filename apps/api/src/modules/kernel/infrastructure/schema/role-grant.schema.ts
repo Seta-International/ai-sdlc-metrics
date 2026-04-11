@@ -12,6 +12,7 @@ export const roleGrant = coreSchema.table('role_grant', {
     enum: [
       'hr_ops',
       'line_manager',
+      'project_manager',
       'staffing_owner',
       'account_manager',
       'finance_operator',

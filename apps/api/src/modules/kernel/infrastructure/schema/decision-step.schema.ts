@@ -13,5 +13,6 @@ export const decisionStep = coreSchema.table('decision_step', {
   status: text('status', { enum: ['pending', 'approved', 'rejected'] })
     .notNull()
     .default('pending'),
+  comment: text('comment'), // rejection reason or approval note
   decidedAt: timestamp('decided_at'),
 })

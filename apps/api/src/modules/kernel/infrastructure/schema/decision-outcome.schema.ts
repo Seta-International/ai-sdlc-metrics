@@ -11,4 +11,5 @@ export const decisionOutcome = coreSchema.table('decision_outcome', {
   finalAction: text('final_action', { enum: ['approved', 'rejected'] }).notNull(),
   decidedBy: uuid('decided_by').notNull(),
   decidedAt: timestamp('decided_at').defaultNow().notNull(),
+  comment: text('comment'), // rejection reason or approval note
 })
