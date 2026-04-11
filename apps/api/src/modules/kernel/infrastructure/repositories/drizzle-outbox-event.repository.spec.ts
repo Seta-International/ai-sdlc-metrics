@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { DrizzleOutboxEventRepository } from './drizzle-outbox-event.repository'
+import { outboxEvent } from '../schema/index'
 
 describe('DrizzleOutboxEventRepository', () => {
   let repo: DrizzleOutboxEventRepository
@@ -24,6 +25,7 @@ describe('DrizzleOutboxEventRepository', () => {
     await repo.insert(data)
 
     expect(db.insert).toHaveBeenCalledOnce()
+    expect(db.insert).toHaveBeenCalledWith(outboxEvent)
     expect(valuesMock).toHaveBeenCalledOnce()
     expect(valuesMock).toHaveBeenCalledWith({
       tenantId: data.tenantId,
@@ -40,5 +42,16 @@ describe('DrizzleOutboxEventRepository', () => {
     })
 
     expect(result).toBeUndefined()
+  })
+
+  it('propagates db errors', async () => {
+    valuesMock.mockRejectedValue(new Error('DB connection lost'))
+    await expect(
+      repo.insert({
+        tenantId: 'tenant-1',
+        eventName: 'actor.offboarded',
+        payload: { actorId: 'actor-1' },
+      }),
+    ).rejects.toThrow('DB connection lost')
   })
 })

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { DrizzleAuditEventRepository } from './drizzle-audit-event.repository'
+import { auditEvent } from '../schema/index'
 
 describe('DrizzleAuditEventRepository', () => {
   let repo: DrizzleAuditEventRepository
@@ -27,6 +28,7 @@ describe('DrizzleAuditEventRepository', () => {
     await repo.insert(data)
 
     expect(db.insert).toHaveBeenCalledOnce()
+    expect(db.insert).toHaveBeenCalledWith(auditEvent)
     expect(valuesMock).toHaveBeenCalledOnce()
     expect(valuesMock).toHaveBeenCalledWith({
       tenantId: data.tenantId,
@@ -49,5 +51,19 @@ describe('DrizzleAuditEventRepository', () => {
     })
 
     expect(result).toBeUndefined()
+  })
+
+  it('propagates db errors', async () => {
+    valuesMock.mockRejectedValue(new Error('DB connection lost'))
+    await expect(
+      repo.insert({
+        tenantId: 'tenant-1',
+        actorId: 'actor-1',
+        eventType: 'actor.created',
+        module: 'kernel',
+        subjectId: 'actor-1',
+        payload: { foo: 'bar' },
+      }),
+    ).rejects.toThrow('DB connection lost')
   })
 })
