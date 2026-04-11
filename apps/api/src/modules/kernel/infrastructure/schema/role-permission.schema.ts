@@ -29,11 +29,11 @@ export const rolePermission = coreSchema.table(
     isLocked: boolean('is_locked').notNull().default(false),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
-  (table) => ({
-    tenantRolePermissionUnique: uniqueIndex('uq_role_permission_tenant_role_perm').on(
+  (table) => [
+    uniqueIndex('uq_role_permission_tenant_role_perm').on(
       table.tenantId,
       table.roleKey,
       table.permissionKey,
     ),
-  }),
+  ],
 )
