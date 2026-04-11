@@ -453,6 +453,7 @@
         "typescript": "^6.0.2",
       },
       "peerDependencies": {
+        "next": "16.2.3",
         "react": "^19",
         "react-dom": "^19",
       },
