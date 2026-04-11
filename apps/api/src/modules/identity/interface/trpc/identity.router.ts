@@ -12,6 +12,9 @@ import { ListGroupMappingsQuery } from '../../application/queries/list-group-map
 import { InviteLocalUserCommand } from '../../application/commands/invite-local-user.command'
 import { DeactivateLocalUserCommand } from '../../application/commands/deactivate-local-user.command'
 import { ListLocalUsersQuery } from '../../application/queries/list-local-users.query'
+import { GetSyncStatusQuery } from '../../application/queries/get-sync-status.query'
+import { GetSyncHistoryQuery } from '../../application/queries/get-sync-history.query'
+import { TriggerDirectorySyncCommand } from '../../application/commands/trigger-directory-sync.command'
 
 type AuthCtx = TrpcContext & { actorId: string; tenantId: string }
 const svc = () => IdentityTrpcService.getInstance()
@@ -189,8 +192,34 @@ export function createIdentityRouter(
         await svc().command(new DeactivateLocalUserCommand(tenantId, input.actorId, actorId))
         return { success: true }
       }),
+
+    getSyncStatus: permissionProtectedProcedure
+      .meta({ permission: 'admin:tenant:manage' })
+      .query(async ({ ctx }) => {
+        const { tenantId } = ctx as unknown as AuthCtx
+        return svc().query(new GetSyncStatusQuery(tenantId))
+      }),
+
+    getSyncHistory: permissionProtectedProcedure
+      .meta({ permission: 'admin:tenant:manage' })
+      .input(
+        z.object({
+          limit: z.number().int().min(1).max(100).default(20),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const { tenantId } = ctx as unknown as AuthCtx
+        return svc().query(new GetSyncHistoryQuery(tenantId, input.limit))
+      }),
+
+    triggerSync: permissionProtectedProcedure
+      .meta({ permission: 'admin:tenant:manage' })
+      .mutation(async ({ ctx }) => {
+        const { actorId, tenantId } = ctx as unknown as AuthCtx
+        return svc().command(new TriggerDirectorySyncCommand(tenantId, actorId))
+      }),
   })
 }
 
-// Empty placeholder — will be populated in Task 8 final wiring
+// Placeholder — populated during final router wiring
 export const identityRouter = router({})

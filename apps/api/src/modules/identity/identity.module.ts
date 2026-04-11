@@ -45,8 +45,15 @@ import { GetIdentityProviderHandler } from './application/queries/get-identity-p
 import { GetIdpGroupMappingsHandler } from './application/queries/get-idp-group-mappings.handler'
 import { ListGroupMappingsHandler } from './application/queries/list-group-mappings.handler'
 import { GetSyncStatusHandler } from './application/queries/get-sync-status.handler'
+import { GetSyncHistoryHandler } from './application/queries/get-sync-history.handler'
 import { ValidateApiKeyHandler } from './application/queries/validate-api-key.handler'
 import { ListLocalUsersHandler } from './application/queries/list-local-users.handler'
+
+import { TriggerDirectorySyncHandler } from './application/commands/trigger-directory-sync.handler'
+
+// Sync monitoring ports
+import { JOB_SCHEDULER } from './domain/ports/job-scheduler.port'
+import { SYNC_HISTORY_REPOSITORY } from './domain/repositories/sync-history.repository.port'
 
 // Facade
 import { IdentityQueryFacade } from './application/facades/identity-query.facade'
@@ -62,10 +69,23 @@ import { IdentityTrpcService } from './interface/trpc/identity-trpc.service'
     { provide: IDP_GROUP_MAPPING_REPOSITORY, useClass: DrizzleIdpGroupMappingRepository },
     { provide: MAGIC_LINK_TOKEN_REPOSITORY, useClass: DrizzleMagicLinkTokenRepository },
     { provide: API_KEY_REPOSITORY, useClass: DrizzleApiKeyRepository },
+    // Stub repositories (until real Drizzle repos are built)
+    {
+      provide: SYNC_HISTORY_REPOSITORY,
+      useValue: { findLatestByTenantId: async () => [], insert: async (d: unknown) => d },
+    },
     // Providers
     { provide: DIRECTORY_PROVIDER_FACTORY, useClass: DirectoryProviderFactory },
     { provide: MAGIC_LINK_SENDER, useClass: MagicLinkSenderStub },
     { provide: LOCAL_USER_QUERY_PORT, useClass: LocalUserQueryStub },
+    // Stub ports (until real implementations are built)
+    {
+      provide: JOB_SCHEDULER,
+      useValue: {
+        enqueueDirectorySync: async () => 'stub-job',
+        getNextScheduledSync: async () => null,
+      },
+    },
     // Command handlers
     ConfigureIdentityProviderHandler,
     UpdateIdpGroupMappingHandler,
@@ -79,11 +99,13 @@ import { IdentityTrpcService } from './interface/trpc/identity-trpc.service'
     TestIdpConnectionHandler,
     InviteLocalUserHandler,
     DeactivateLocalUserHandler,
+    TriggerDirectorySyncHandler,
     // Query handlers
     GetIdentityProviderHandler,
     GetIdpGroupMappingsHandler,
     ListGroupMappingsHandler,
     GetSyncStatusHandler,
+    GetSyncHistoryHandler,
     ValidateApiKeyHandler,
     ListLocalUsersHandler,
     // Facade
