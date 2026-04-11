@@ -177,6 +177,7 @@ Command handler → DB write + outbox_event INSERT (same tx)
 - Use CLI: `bun add <pkg>`, `bun add -d <pkg>`, `bun remove <pkg>`.
 - New workspace: `turbo gen workspace`. Never create manually.
 - NestJS components: `bunx nest generate module|controller|service|resource <name> --no-spec` from `apps/api`.
+- Before adding app-local UI or utilities, check `packages/` first. Prefer shared packages such as `packages/ui` when the code is reusable across zones or modules.
 
 ### Git
 

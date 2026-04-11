@@ -1,3 +1,6 @@
+import { Button } from '@future/ui'
+import { Input } from '@future/ui'
+import { Label } from '@future/ui'
 import { MICROSOFT_CONFIG, GOOGLE_CONFIG } from '../../../lib/auth-config'
 
 function buildMicrosoftAuthUrl(state: string): string {
@@ -38,19 +41,13 @@ export default function LoginPage() {
         </div>
 
         <div className="space-y-3">
-          <a
-            href={microsoftUrl}
-            className="flex w-full items-center justify-center gap-2 rounded-md bg-[#1D4ED8] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#1E40AF]"
-          >
-            Sign in with Microsoft
-          </a>
+          <Button asChild size="lg" className="w-full bg-[#1D4ED8] hover:bg-[#1E40AF]">
+            <a href={microsoftUrl}>Sign in with Microsoft</a>
+          </Button>
 
-          <a
-            href={googleUrl}
-            className="flex w-full items-center justify-center gap-2 rounded-md border border-white/20 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/5"
-          >
-            Sign in with Google
-          </a>
+          <Button asChild size="lg" variant="outline" className="w-full">
+            <a href={googleUrl}>Sign in with Google</a>
+          </Button>
         </div>
 
         <div className="relative">
@@ -62,24 +59,16 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <form action="/api/auth/magic-link" method="POST">
-          <label htmlFor="email" className="block text-sm font-medium text-white/80">
-            Email address
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            required
-            placeholder="you@company.com"
-            className="mt-1 w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/30 focus:border-[#1D4ED8] focus:outline-none focus:ring-1 focus:ring-[#1D4ED8]"
-          />
-          <button
-            type="submit"
-            className="mt-3 w-full rounded-md border border-white/20 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/5"
-          >
+        <form action="/api/auth/magic-link" method="POST" className="space-y-3">
+          <div className="space-y-1">
+            <Label htmlFor="email" className="text-white/80">
+              Email address
+            </Label>
+            <Input id="email" name="email" type="email" required placeholder="you@company.com" />
+          </div>
+          <Button type="submit" variant="outline" size="lg" className="w-full">
             Send magic link
-          </button>
+          </Button>
         </form>
       </div>
     </div>
