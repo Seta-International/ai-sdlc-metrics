@@ -10,6 +10,7 @@ export type RoleKeyValue =
   | 'recruiter'
   | 'tenant_admin'
   | 'platform_admin'
+  | 'project_manager'
 
 export type ScopeTypeValue = 'global' | 'department' | 'project' | 'account'
 
