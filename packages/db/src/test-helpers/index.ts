@@ -145,3 +145,46 @@ export async function seedEmploymentProfile(
 
   return { id, tenantId, actorId }
 }
+
+export async function truncateIdentitySchema(db: Db): Promise<void> {
+  await db.execute(
+    sql`TRUNCATE
+      identity.api_key,
+      identity.magic_link_token,
+      identity.idp_group_mapping,
+      identity.identity_provider
+    RESTART IDENTITY CASCADE`,
+  )
+}
+
+export async function seedIdentityProvider(
+  db: Db,
+  overrides: {
+    tenantId: string
+    providerType?: 'microsoft' | 'google'
+    displayName?: string
+    clientId?: string
+    clientSecretRef?: string
+    directoryId?: string
+    isPrimary?: boolean
+    syncEnabled?: boolean
+  },
+): Promise<{ id: string }> {
+  const id = uuidv7()
+  const providerType = overrides.providerType ?? 'microsoft'
+  const displayName = overrides.displayName ?? 'Test IdP'
+  const clientId = overrides.clientId ?? 'test-client-id'
+  const clientSecretRef =
+    overrides.clientSecretRef ?? 'arn:aws:secretsmanager:ap-southeast-1:123456789:secret:test'
+  const directoryId = overrides.directoryId ?? 'test-directory-id'
+  const isPrimary = overrides.isPrimary ?? false
+  const syncEnabled = overrides.syncEnabled ?? false
+
+  await db.execute(
+    sql`INSERT INTO identity.identity_provider
+      (id, tenant_id, provider_type, display_name, client_id, client_secret_ref, directory_id, is_primary, sync_enabled, created_at, updated_at)
+      VALUES (${id}, ${overrides.tenantId}, ${providerType}, ${displayName}, ${clientId}, ${clientSecretRef}, ${directoryId}, ${isPrimary}, ${syncEnabled}, NOW(), NOW())`,
+  )
+
+  return { id }
+}
