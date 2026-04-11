@@ -10,7 +10,7 @@ export function createPermissionMiddleware(
   return async function permissionMiddleware(opts: {
     ctx: { actorId: string; tenantId: string }
     meta: TrpcMeta | undefined
-    next: (opts: { ctx: { actorId: string; tenantId: string } }) => Promise<any>
+    next: (opts: { ctx: { actorId: string; tenantId: string } }) => Promise<unknown>
     path: string
     type: string
     input: unknown

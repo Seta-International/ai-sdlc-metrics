@@ -15,7 +15,10 @@ export function createProtectedProcedures(
 ) {
   const permissionMw = middleware(async (opts) => {
     const mw = createPermissionMiddleware(kernelFacade, auditRepo)
-    return mw(opts as unknown as Parameters<ReturnType<typeof createPermissionMiddleware>>[0])
+    const result = await mw(
+      opts as unknown as Parameters<ReturnType<typeof createPermissionMiddleware>>[0],
+    )
+    return result as Awaited<ReturnType<typeof opts.next>>
   })
 
   const permissionProtectedProcedure = publicProcedure.use(permissionMw)
