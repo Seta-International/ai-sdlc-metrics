@@ -10,23 +10,30 @@ import {
 import { CreateDecisionCaseCommand } from '../../../kernel/application/commands/create-decision-case.command'
 import type { IEmploymentProfileRepository } from '../../domain/repositories/employment-profile.repository'
 import type { IOffboardingCaseRepository } from '../../domain/repositories/offboarding-case.repository'
+import type {
+  EmploymentProfile,
+  EmploymentStatus,
+} from '../../domain/entities/employment-profile.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const PROFILE_ID = '01900000-0000-7000-8000-000000000003'
 const REQUESTER_ID = '01900000-0000-7000-8000-000000000005'
 const DECISION_CASE_ID = 'dc-123'
 
-const makeProfile = (status: string) => ({
+const makeProfile = (status: EmploymentStatus): EmploymentProfile => ({
   id: PROFILE_ID,
   tenantId: TENANT_ID,
   actorId: '01900000-0000-7000-8000-000000000010',
+  employeeCode: 'EMP-001',
+  companyEmail: 'engineer@example.com',
   employmentStatus: status,
-  employmentType: 'full_time',
-  startDate: new Date('2024-01-01'),
-  endDate: null,
-  positionTitle: 'Engineer',
-  departmentId: null,
-  managerId: null,
+  employmentType: 'permanent',
+  workArrangement: 'onsite',
+  hireDate: new Date('2024-01-01'),
+  terminationDate: null,
+  jobTitle: 'Engineer',
+  jobLevel: null,
+  costCenter: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 })
@@ -65,7 +72,7 @@ describe('TriggerOffboardingHandler', () => {
   })
 
   it('creates a decision case and inserts an offboarding case with status pending', async () => {
-    vi.mocked(profileRepo.findById).mockResolvedValue(makeProfile('active') as any)
+    vi.mocked(profileRepo.findById).mockResolvedValue(makeProfile('active'))
     vi.mocked(offboardingCaseRepo.findActiveByProfileId).mockResolvedValue(null)
     vi.mocked(offboardingCaseRepo.insert).mockResolvedValue({
       id: 'case-001',
@@ -115,7 +122,7 @@ describe('TriggerOffboardingHandler', () => {
   })
 
   it('throws InvalidEmploymentStatusTransitionException for terminated status', async () => {
-    vi.mocked(profileRepo.findById).mockResolvedValue(makeProfile('terminated') as any)
+    vi.mocked(profileRepo.findById).mockResolvedValue(makeProfile('terminated'))
 
     await expect(
       handler.execute(
@@ -131,7 +138,7 @@ describe('TriggerOffboardingHandler', () => {
   })
 
   it('throws OffboardingCaseAlreadyActiveException when active case already exists', async () => {
-    vi.mocked(profileRepo.findById).mockResolvedValue(makeProfile('active') as any)
+    vi.mocked(profileRepo.findById).mockResolvedValue(makeProfile('active'))
     vi.mocked(offboardingCaseRepo.findActiveByProfileId).mockResolvedValue({
       id: 'existing-case',
       tenantId: TENANT_ID,
@@ -156,5 +163,35 @@ describe('TriggerOffboardingHandler', () => {
         ),
       ),
     ).rejects.toThrow(OffboardingCaseAlreadyActiveException)
+  })
+
+  it('offboards an employee with on_leave status successfully', async () => {
+    vi.mocked(profileRepo.findById).mockResolvedValue(makeProfile('on_leave'))
+    vi.mocked(offboardingCaseRepo.findActiveByProfileId).mockResolvedValue(null)
+    vi.mocked(offboardingCaseRepo.insert).mockResolvedValue({
+      id: 'case-002',
+      tenantId: TENANT_ID,
+      profileId: PROFILE_ID,
+      templateId: null,
+      reason: 'Medical leave ending',
+      reasonCategory: 'voluntary',
+      decisionCaseId: DECISION_CASE_ID,
+      status: 'pending',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
+    await handler.execute(
+      new TriggerOffboardingCommand(
+        TENANT_ID,
+        PROFILE_ID,
+        'Medical leave ending',
+        'voluntary',
+        REQUESTER_ID,
+      ),
+    )
+
+    expect(commandBus.execute).toHaveBeenCalledWith(expect.any(CreateDecisionCaseCommand))
+    expect(profileRepo.updateStatus).toHaveBeenCalledWith(PROFILE_ID, TENANT_ID, 'offboarding')
   })
 })
