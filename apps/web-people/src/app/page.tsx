@@ -1,8 +1,10 @@
-export default function PeoplePage() {
+import { PeopleDirectoryTable } from '../components/people-directory-table'
+
+export default function HomePage() {
   return (
-    <main className="p-8">
-      <h1 className="text-2xl font-bold">People</h1>
-      <p className="mt-2 text-gray-500">Coming soon.</p>
+    <main className="container mx-auto py-8">
+      <h1 className="text-2xl font-semibold mb-6">People Directory</h1>
+      <PeopleDirectoryTable resourceKey="people.directory" />
     </main>
   )
 }
