@@ -41,13 +41,13 @@ describe('ExposureContractGuard', () => {
       )
       const result = await guard.canActivate(context)
       expect(result).toBe(true)
-      expect(kernelFacade.resolveExposureContract).not.toHaveBeenCalled()
+      expect((kernelFacade as any).resolveExposureContract).not.toHaveBeenCalled()
     })
   })
 
   describe('system actor (API key auth)', () => {
     it('should pass when exposure contract exists for the tool', async () => {
-      vi.mocked(kernelFacade.resolveExposureContract as any).mockResolvedValue({
+      vi.mocked((kernelFacade as any).resolveExposureContract).mockResolvedValue({
         id: '01900000-0000-7000-8000-000000000099',
         toolName: 'people_get_employment_profile',
         scopeId: SYSTEM_ACTOR_ID,
@@ -64,7 +64,7 @@ describe('ExposureContractGuard', () => {
       )
       const result = await guard.canActivate(context)
       expect(result).toBe(true)
-      expect(kernelFacade.resolveExposureContract).toHaveBeenCalledWith(
+      expect((kernelFacade as any).resolveExposureContract).toHaveBeenCalledWith(
         SYSTEM_ACTOR_ID,
         'people_get_employment_profile',
         null,
@@ -73,7 +73,7 @@ describe('ExposureContractGuard', () => {
     })
 
     it('should deny when no exposure contract exists (deny-by-default)', async () => {
-      vi.mocked(kernelFacade.resolveExposureContract as any).mockResolvedValue(null)
+      vi.mocked((kernelFacade as any).resolveExposureContract).mockResolvedValue(null)
       const context = createMockContext(
         {
           actorId: SYSTEM_ACTOR_ID,

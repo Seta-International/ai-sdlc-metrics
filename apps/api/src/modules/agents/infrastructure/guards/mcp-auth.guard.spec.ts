@@ -90,7 +90,7 @@ describe('McpAuthGuard', () => {
 
   describe('API key authentication', () => {
     it('should pass with valid API key and resolve system actorId', async () => {
-      vi.mocked(kernelFacade.validateApiKey as any).mockResolvedValue({
+      vi.mocked((kernelFacade as any).validateApiKey).mockResolvedValue({
         actorId: SYSTEM_ACTOR_ID,
         tenantId: TENANT_ID,
       })
@@ -119,7 +119,7 @@ describe('McpAuthGuard', () => {
     })
 
     it('should reject when API key is invalid', async () => {
-      vi.mocked(kernelFacade.validateApiKey as any).mockResolvedValue(null)
+      vi.mocked((kernelFacade as any).validateApiKey).mockResolvedValue(null)
       const context = createMockContext({
         'x-api-key': 'fk_live_invalid',
         'x-tenant-id': TENANT_ID,
