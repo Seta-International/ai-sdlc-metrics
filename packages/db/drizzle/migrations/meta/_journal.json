@@ -120,6 +120,13 @@
       "when": 1775991494338,
       "tag": "0016_tiresome_otto_octavius",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1776009530417,
+      "tag": "0017_tan_white_queen",
+      "breakpoints": true
     }
   ]
 }
