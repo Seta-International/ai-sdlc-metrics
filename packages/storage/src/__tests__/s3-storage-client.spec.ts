@@ -3,6 +3,22 @@ import { S3StorageClient } from '../s3-storage-client'
 
 const mockSend = vi.fn()
 
+// Hoist the mock exception class so it is available inside vi.mock factory
+// (vi.mock is hoisted above regular imports/declarations by vitest).
+const { MockS3ServiceException } = vi.hoisted(() => {
+  class MockS3ServiceException extends Error {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    $metadata: any
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    constructor(message: string, metadata: any) {
+      super(message)
+      this.$metadata = metadata
+    }
+  }
+  return { MockS3ServiceException }
+})
+
 // Mock the AWS SDK modules
 vi.mock('@aws-sdk/client-s3', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -11,6 +27,7 @@ vi.mock('@aws-sdk/client-s3', () => {
   }
   return {
     S3Client: MockS3Client,
+    S3ServiceException: MockS3ServiceException,
     PutObjectCommand: vi.fn(),
     GetObjectCommand: vi.fn(),
     DeleteObjectCommand: vi.fn(),
@@ -50,7 +67,7 @@ describe('S3StorageClient', () => {
   })
 
   it('headObject returns null when object does not exist', async () => {
-    mockSend.mockRejectedValue(Object.assign(new Error('Not Found'), { name: 'NotFound' }))
+    mockSend.mockRejectedValue(new MockS3ServiceException('Not Found', { httpStatusCode: 404 }))
 
     const result = await client.headObject('tenant/missing.pdf')
 
@@ -72,5 +89,18 @@ describe('S3StorageClient', () => {
       contentType: 'application/pdf',
       lastModified: new Date('2026-04-11T00:00:00Z'),
     })
+  })
+
+  it('headObject rethrows non-404 errors', async () => {
+    mockSend.mockRejectedValue(new MockS3ServiceException('Access Denied', { httpStatusCode: 403 }))
+    await expect(client.headObject('tenant/file.pdf')).rejects.toThrow('Access Denied')
+  })
+
+  it('deleteObject calls send with correct bucket and key', async () => {
+    mockSend.mockResolvedValue({})
+
+    await client.deleteObject('tenant/file.pdf')
+
+    expect(mockSend).toHaveBeenCalledOnce()
   })
 })

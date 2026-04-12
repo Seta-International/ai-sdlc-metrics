@@ -1,5 +1,6 @@
 import {
   S3Client,
+  S3ServiceException,
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
@@ -21,6 +22,8 @@ export class S3StorageClient implements StorageClient {
 
   async getUploadUrl(key: string, opts: UploadOpts): Promise<PresignedUrl> {
     const expiresIn = opts.expiresIn ?? DEFAULT_EXPIRES_IN
+    // Note: maxSizeBytes cannot be enforced via presigned PUT URLs.
+    // Enforcement must happen client-side before uploading.
     const command = new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
@@ -69,7 +72,7 @@ export class S3StorageClient implements StorageClient {
         lastModified: result.LastModified ?? new Date(),
       }
     } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'NotFound') return null
+      if (err instanceof S3ServiceException && err.$metadata.httpStatusCode === 404) return null
       throw err
     }
   }

@@ -11,6 +11,8 @@ export interface KeyParts {
 
 export function buildKey(parts: KeyParts): string {
   const ext = extname(parts.fileName)
+  // UUID v4 intentional: random prefixes avoid S3 hot-shard partitioning.
+  // S3 keys are not DB identifiers; the repo's UUID v7 rule does not apply here.
   const id = randomUUID()
   const segments = [parts.tenantId, parts.category]
 
