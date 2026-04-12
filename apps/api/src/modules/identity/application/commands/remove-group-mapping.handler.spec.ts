@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RemoveGroupMappingCommand } from './remove-group-mapping.command'
 import { RemoveGroupMappingHandler } from './remove-group-mapping.handler'
-import type { IIdpGroupMappingRepository } from '../../domain/repositories/idp-group-mapping.repository.port'
+import type { IIdpGroupMappingRepository } from '../../domain/repositories/idp-group-mapping.repository'
 import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
 import type { IdpGroupMapping } from '../../domain/entities/idp-group-mapping.entity'
 
@@ -31,6 +31,7 @@ describe('RemoveGroupMappingHandler', () => {
     mappingRepo = {
       findById: vi.fn(),
       findByProviderId: vi.fn(),
+      findByTenantId: vi.fn(),
       listByTenantId: vi.fn(),
       upsert: vi.fn(),
       remove: vi.fn(),

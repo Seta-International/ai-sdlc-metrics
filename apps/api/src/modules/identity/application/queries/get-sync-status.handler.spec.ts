@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GetSyncStatusQuery } from './get-sync-status.query'
 import { GetSyncStatusHandler } from './get-sync-status.handler'
-import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository.port'
-import type { ISyncHistoryRepository } from '../../domain/repositories/sync-history.repository.port'
+import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
+import type { ISyncHistoryRepository } from '../../domain/repositories/sync-history.repository'
 import type { IJobScheduler } from '../../domain/ports/job-scheduler.port'
-import type { IdentityProvider } from '../../domain/repositories/identity-provider.repository.port'
+import type { IdentityProviderEntity } from '../../domain/entities/identity-provider.entity'
 import type { SyncHistory } from '../../domain/entities/sync-history.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const PROVIDER_ID = '01900000-0000-7000-8000-000000000010'
 
-const fakeProvider: IdentityProvider = {
+const fakeProvider: IdentityProviderEntity = {
   id: PROVIDER_ID,
   tenantId: TENANT_ID,
   providerType: 'microsoft',
@@ -48,6 +48,8 @@ describe('GetSyncStatusHandler', () => {
   beforeEach(() => {
     providerRepo = {
       findById: vi.fn(),
+      findByTenantId: vi.fn(),
+      findPrimary: vi.fn(),
       findPrimaryByTenantId: vi.fn(),
       insert: vi.fn(),
       update: vi.fn(),

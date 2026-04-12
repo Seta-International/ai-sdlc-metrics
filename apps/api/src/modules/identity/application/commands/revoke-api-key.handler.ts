@@ -7,7 +7,7 @@ import {
 import {
   API_KEY_REPOSITORY,
   type IApiKeyRepository,
-} from '../../domain/repositories/api-key.repository.port'
+} from '../../domain/repositories/api-key.repository'
 import { RevokeApiKeyCommand } from './revoke-api-key.command'
 import { DomainException } from '../../../kernel/domain/exceptions/domain.exception'
 
@@ -44,7 +44,7 @@ export class RevokeApiKeyHandler implements ICommandHandler<RevokeApiKeyCommand,
       throw new ApiKeyAlreadyRevokedException(command.apiKeyId)
     }
 
-    await this.apiKeyRepo.revoke(command.apiKeyId, command.tenantId, new Date())
+    await this.apiKeyRepo.revoke(command.apiKeyId, command.tenantId)
 
     await this.auditRepo.insert({
       tenantId: command.tenantId,

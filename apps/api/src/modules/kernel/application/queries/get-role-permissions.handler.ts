@@ -3,7 +3,7 @@ import { QueryHandler, type IQueryHandler } from '@nestjs/cqrs'
 import {
   ROLE_PERMISSION_REPOSITORY,
   type IRolePermissionRepository,
-} from '../../../kernel/domain/repositories/role-permission.repository.port'
+} from '../../domain/repositories/role-permission.repository.port'
 import { GetRolePermissionsQuery } from './get-role-permissions.query'
 
 export interface PermissionDto {

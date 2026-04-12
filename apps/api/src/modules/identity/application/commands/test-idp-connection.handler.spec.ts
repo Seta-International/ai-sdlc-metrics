@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { TestIdpConnectionCommand } from './test-idp-connection.command'
 import { TestIdpConnectionHandler } from './test-idp-connection.handler'
-import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository.port'
+import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
 import type { IDirectoryProvider } from '../../domain/ports/directory-provider.port'
 import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
-import type { IdentityProvider } from '../../domain/repositories/identity-provider.repository.port'
+import type { IdentityProviderEntity } from '../../domain/entities/identity-provider.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const PROVIDER_ID = '01900000-0000-7000-8000-000000000010'
 const ACTOR_ID = '01900000-0000-7000-8000-000000000005'
 
-const fakeProvider: IdentityProvider = {
+const fakeProvider: IdentityProviderEntity = {
   id: PROVIDER_ID,
   tenantId: TENANT_ID,
   providerType: 'microsoft',
@@ -35,6 +35,8 @@ describe('TestIdpConnectionHandler', () => {
   beforeEach(() => {
     providerRepo = {
       findById: vi.fn(),
+      findByTenantId: vi.fn(),
+      findPrimary: vi.fn(),
       findPrimaryByTenantId: vi.fn(),
       insert: vi.fn(),
       update: vi.fn(),

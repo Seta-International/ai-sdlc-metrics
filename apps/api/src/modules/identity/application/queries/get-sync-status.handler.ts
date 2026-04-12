@@ -3,11 +3,11 @@ import { QueryHandler, type IQueryHandler } from '@nestjs/cqrs'
 import {
   IDENTITY_PROVIDER_REPOSITORY,
   type IIdentityProviderRepository,
-} from '../../domain/repositories/identity-provider.repository.port'
+} from '../../domain/repositories/identity-provider.repository'
 import {
   SYNC_HISTORY_REPOSITORY,
   type ISyncHistoryRepository,
-} from '../../domain/repositories/sync-history.repository.port'
+} from '../../domain/repositories/sync-history.repository'
 import { JOB_SCHEDULER, type IJobScheduler } from '../../domain/ports/job-scheduler.port'
 import { GetSyncStatusQuery } from './get-sync-status.query'
 

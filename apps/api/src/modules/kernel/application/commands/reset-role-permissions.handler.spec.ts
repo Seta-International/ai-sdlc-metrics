@@ -4,8 +4,8 @@ import {
   ResetRolePermissionsHandler,
   DEFAULT_ROLE_PERMISSIONS,
 } from './reset-role-permissions.handler'
-import type { IRolePermissionRepository } from '../../../kernel/domain/repositories/role-permission.repository.port'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import type { IRolePermissionRepository } from '../../domain/repositories/role-permission.repository.port'
+import type { IAuditEventRepository } from '../../domain/repositories/audit-event.repository.port'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const ACTOR_ID = '01900000-0000-7000-8000-000000000005'

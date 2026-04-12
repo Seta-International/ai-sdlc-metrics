@@ -1,4 +1,4 @@
-import { Inject, Module, type OnModuleInit } from '@nestjs/common'
+import { Inject, Module, OnModuleInit } from '@nestjs/common'
 import { JWT_SERVICE } from '../auth/auth.module'
 import type { JwtService } from '../auth/jwt.service'
 import { initProtectedProcedure } from './trpc-init'

@@ -13,9 +13,13 @@ async function bootstrap() {
   const adapter = new FastifyAdapter()
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter)
 
+  // Initialize all modules (calls onModuleInit lifecycle hooks)
+  // before registering the tRPC plugin which needs the initialized router.
+  await app.init()
+
   // Mount tRPC on the raw Fastify instance before listen.
-  // NestFactory.create initializes all modules (including TrpcModule.onModuleInit),
-  // so getAppRouter() returns the permission-wired router at this point.
+  // app.init() above has called TrpcModule.onModuleInit, so getAppRouter() returns
+  // the permission-wired router at this point.
   const fastify = adapter.getInstance()
   await fastify.register(fastifyTRPCPlugin, {
     prefix: '/trpc',

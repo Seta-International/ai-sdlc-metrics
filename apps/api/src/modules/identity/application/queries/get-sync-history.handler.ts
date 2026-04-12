@@ -3,7 +3,7 @@ import { QueryHandler, type IQueryHandler } from '@nestjs/cqrs'
 import {
   SYNC_HISTORY_REPOSITORY,
   type ISyncHistoryRepository,
-} from '../../domain/repositories/sync-history.repository.port'
+} from '../../domain/repositories/sync-history.repository'
 import type { SyncHistory } from '../../domain/entities/sync-history.entity'
 import { GetSyncHistoryQuery } from './get-sync-history.query'
 

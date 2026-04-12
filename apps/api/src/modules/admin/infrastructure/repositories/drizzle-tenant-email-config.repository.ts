@@ -1,13 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { eq } from 'drizzle-orm'
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
+import type { Db } from '@future/db'
+import { DB_TOKEN } from '../../../../common/db/db.module'
 import { tenantEmailConfig } from '../schema/admin.schema'
 import type { ITenantEmailConfigRepository } from '../../domain/repositories/tenant-email-config.repository.port'
 import type { TenantEmailConfig } from '../../domain/entities/tenant-email-config.entity'
 
 @Injectable()
 export class DrizzleTenantEmailConfigRepository implements ITenantEmailConfigRepository {
-  constructor(@Inject('DRIZZLE_DB') private readonly db: NodePgDatabase) {}
+  constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
   async findByTenantId(tenantId: string): Promise<TenantEmailConfig | null> {
     const rows = await this.db

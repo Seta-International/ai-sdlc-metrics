@@ -4,7 +4,7 @@ import {
   API_KEY_REPOSITORY,
   type IApiKeyRepository,
   type ApiKeyListItem,
-} from '../../domain/repositories/api-key.repository.port'
+} from '../../domain/repositories/api-key.repository'
 import { ListApiKeysQuery } from './list-api-keys.query'
 
 @QueryHandler(ListApiKeysQuery)

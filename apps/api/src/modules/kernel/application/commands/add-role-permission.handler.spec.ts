@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AddRolePermissionCommand } from './add-role-permission.command'
 import { AddRolePermissionHandler } from './add-role-permission.handler'
-import type { IRolePermissionRepository } from '../../../kernel/domain/repositories/role-permission.repository.port'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import type { IRolePermissionRepository } from '../../domain/repositories/role-permission.repository.port'
+import type { IAuditEventRepository } from '../../domain/repositories/audit-event.repository.port'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const PERMISSION_ID = '01900000-0000-7000-8000-000000000040'

@@ -1,21 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CreateApiKeyCommand } from './create-api-key.command'
 import { CreateApiKeyHandler } from './create-api-key.handler'
-import type { IApiKeyRepository } from '../../domain/repositories/api-key.repository.port'
+import type { IApiKeyRepository } from '../../domain/repositories/api-key.repository'
 import type { ICryptoProvider } from '../../domain/ports/crypto-provider.port'
 import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
-import type { ApiKey } from '../../domain/entities/api-key.entity'
+import type { ApiKeyEntity } from '../../domain/entities/api-key.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const SYSTEM_ACTOR_ID = '01900000-0000-7000-8000-000000000080'
 const API_KEY_ID = '01900000-0000-7000-8000-000000000090'
 const ADMIN_ACTOR_ID = '01900000-0000-7000-8000-000000000005'
 
-const fakeApiKey: ApiKey = {
+const fakeApiKey: ApiKeyEntity = {
   id: API_KEY_ID,
   tenantId: TENANT_ID,
   actorId: SYSTEM_ACTOR_ID,
   keyHash: 'sha256-hash-of-key',
+  keyLastFour: '9789',
   name: 'CI/CD Integration',
   lastUsedAt: null,
   expiresAt: new Date('2027-04-11T00:00:00Z'),
@@ -36,7 +37,7 @@ describe('CreateApiKeyHandler', () => {
       listByTenantId: vi.fn(),
       insert: vi.fn(),
       revoke: vi.fn(),
-      updateLastUsedAt: vi.fn(),
+      updateLastUsed: vi.fn(),
     }
     cryptoProvider = {
       generateApiKey: vi.fn(),
@@ -75,6 +76,7 @@ describe('CreateApiKeyHandler', () => {
       tenantId: TENANT_ID,
       actorId: SYSTEM_ACTOR_ID,
       keyHash: 'sha256-hash-of-key',
+      keyLastFour: '9789',
       name: 'CI/CD Integration',
       expiresAt: new Date('2027-04-11T00:00:00Z'),
     })

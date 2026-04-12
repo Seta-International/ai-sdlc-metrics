@@ -12,7 +12,7 @@ import {
 import {
   IDENTITY_PROVIDER_REPOSITORY,
   type IIdentityProviderRepository,
-} from '../../domain/repositories/identity-provider.repository.port'
+} from '../../domain/repositories/identity-provider.repository'
 import { SyncIdpGroupsCommand } from './sync-idp-groups.command'
 import { DomainException } from '../../../kernel/domain/exceptions/domain.exception'
 
@@ -52,7 +52,7 @@ export class SyncIdpGroupsHandler implements ICommandHandler<
       provider.providerType,
       provider.clientId,
       provider.clientSecretRef,
-      provider.directoryId,
+      provider.directoryId ?? '',
     )
 
     await this.auditRepo.insert({

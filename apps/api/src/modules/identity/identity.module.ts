@@ -1,19 +1,32 @@
 import { Module } from '@nestjs/common'
 import { CqrsModule } from '@nestjs/cqrs'
 import { KernelModule } from '../kernel/kernel.module'
+import { AdminModule } from '../admin/admin.module'
 
 import { IDENTITY_PROVIDER_REPOSITORY } from './domain/repositories/identity-provider.repository'
 import { IDP_GROUP_MAPPING_REPOSITORY } from './domain/repositories/idp-group-mapping.repository'
 import { MAGIC_LINK_TOKEN_REPOSITORY } from './domain/repositories/magic-link-token.repository'
 import { API_KEY_REPOSITORY } from './domain/repositories/api-key.repository'
+import { SYNC_HISTORY_REPOSITORY } from './domain/repositories/sync-history.repository'
+import { CRYPTO_PROVIDER } from './domain/ports/crypto-provider.port'
+import { JOB_SCHEDULER } from './domain/ports/job-scheduler.port'
+import { MAGIC_LINK_SENDER } from './domain/ports/magic-link-sender.port'
+import { LOCAL_USER_QUERY_PORT } from './domain/ports/local-user-query.port'
 
 import { DrizzleIdentityProviderRepository } from './infrastructure/repositories/drizzle-identity-provider.repository'
 import { DrizzleIdpGroupMappingRepository } from './infrastructure/repositories/drizzle-idp-group-mapping.repository'
 import { DrizzleMagicLinkTokenRepository } from './infrastructure/repositories/drizzle-magic-link-token.repository'
 import { DrizzleApiKeyRepository } from './infrastructure/repositories/drizzle-api-key.repository'
+import { DrizzleSyncHistoryRepository } from './infrastructure/repositories/drizzle-sync-history.repository'
 
 import { DIRECTORY_PROVIDER_FACTORY } from './infrastructure/providers/directory-provider.interface'
 import { DirectoryProviderFactory } from './infrastructure/providers/directory-provider.factory'
+import { DIRECTORY_PROVIDER } from './domain/ports/directory-provider.port'
+import { DirectoryConnectionService } from './infrastructure/providers/directory-connection.service'
+import { NodeCryptoProvider } from './infrastructure/providers/node-crypto.provider'
+import { StubJobScheduler } from './infrastructure/jobs/stub-job-scheduler'
+import { MailMagicLinkSender } from './infrastructure/mailers/mail-magic-link.sender'
+import { DrizzleLocalUserQueryService } from './infrastructure/queries/drizzle-local-user-query.service'
 
 import { ConfigureIdentityProviderHandler } from './application/commands/configure-identity-provider.handler'
 import { TestIdpConnectionHandler } from './application/commands/test-idp-connection.handler'
@@ -73,13 +86,19 @@ const QueryHandlers = [
 ]
 
 @Module({
-  imports: [CqrsModule, KernelModule],
+  imports: [CqrsModule, KernelModule, AdminModule],
   providers: [
     { provide: IDENTITY_PROVIDER_REPOSITORY, useClass: DrizzleIdentityProviderRepository },
     { provide: IDP_GROUP_MAPPING_REPOSITORY, useClass: DrizzleIdpGroupMappingRepository },
     { provide: MAGIC_LINK_TOKEN_REPOSITORY, useClass: DrizzleMagicLinkTokenRepository },
     { provide: API_KEY_REPOSITORY, useClass: DrizzleApiKeyRepository },
+    { provide: SYNC_HISTORY_REPOSITORY, useClass: DrizzleSyncHistoryRepository },
     { provide: DIRECTORY_PROVIDER_FACTORY, useClass: DirectoryProviderFactory },
+    { provide: DIRECTORY_PROVIDER, useClass: DirectoryConnectionService },
+    { provide: CRYPTO_PROVIDER, useClass: NodeCryptoProvider },
+    { provide: JOB_SCHEDULER, useClass: StubJobScheduler },
+    { provide: MAGIC_LINK_SENDER, useClass: MailMagicLinkSender },
+    { provide: LOCAL_USER_QUERY_PORT, useClass: DrizzleLocalUserQueryService },
     ...CommandHandlers,
     ...QueryHandlers,
     IdentityQueryFacade,

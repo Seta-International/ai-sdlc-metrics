@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GetSyncHistoryQuery } from './get-sync-history.query'
 import { GetSyncHistoryHandler } from './get-sync-history.handler'
-import type { ISyncHistoryRepository } from '../../domain/repositories/sync-history.repository.port'
+import type { ISyncHistoryRepository } from '../../domain/repositories/sync-history.repository'
 import type { SyncHistory } from '../../domain/entities/sync-history.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
