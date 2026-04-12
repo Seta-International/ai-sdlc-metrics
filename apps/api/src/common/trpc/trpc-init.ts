@@ -2,14 +2,19 @@ import { initTRPC } from '@trpc/server'
 import { createAuthMiddleware, type AuthContext } from './auth-middleware'
 import type { JwtService } from '../auth/jwt.service'
 
+export interface TrpcMeta {
+  permission?: string
+}
+
 export interface TrpcContext {
   req: { headers: { cookie?: string } }
 }
 
-const t = initTRPC.context<TrpcContext>().create()
+const t = initTRPC.meta<TrpcMeta>().context<TrpcContext>().create()
 
 export const router = t.router
 export const publicProcedure = t.procedure
+export const middleware = t.middleware
 
 let _protectedProcedure: typeof t.procedure | null = null
 
@@ -25,5 +30,4 @@ export function getProtectedProcedure() {
   return _protectedProcedure
 }
 
-// Re-export AuthContext for use in procedures
 export type { AuthContext }
