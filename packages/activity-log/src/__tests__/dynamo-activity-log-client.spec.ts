@@ -98,4 +98,69 @@ describe('DynamoActivityLogClient', () => {
     const queryInput = mockSend.mock.calls[0]![0].input
     expect(queryInput.IndexName).toBe('gsi2-resource')
   })
+
+  it('writeBatch() sends BatchWriteCommand with chunked entries', async () => {
+    mockSend.mockResolvedValue({ UnprocessedItems: {} })
+    const entries = [entry, { ...entry, actorId: 'actor-2' }]
+
+    await client.writeBatch(entries)
+
+    expect(mockSend).toHaveBeenCalledOnce()
+    const batchInput = mockSend.mock.calls[0]![0].input
+    expect(batchInput.RequestItems['test-activity-log']).toHaveLength(2)
+  })
+
+  it('writeBatch() throws when DynamoDB returns UnprocessedItems', async () => {
+    mockSend.mockResolvedValue({
+      UnprocessedItems: { 'test-activity-log': [{ PutRequest: { Item: {} } }] },
+    })
+
+    await expect(client.writeBatch([entry])).rejects.toThrow(
+      'DynamoDB batch write partially failed',
+    )
+  })
+
+  it('queryByTenant() returns items with mapped fields', async () => {
+    mockSend.mockResolvedValue({
+      Items: [
+        {
+          tenantId: 'tenant-1',
+          actorId: 'actor-1',
+          actorName: 'Canh Ta',
+          action: 'leave.approved',
+          resourceType: 'leave_request',
+          resourceId: 'lr-1',
+          summary: 'test',
+          metadata: { key: 'value' },
+          timestamp: '2026-04-11T10:00:00.000Z',
+        },
+      ],
+      LastEvaluatedKey: { tenantId: 'tenant-1', sortKey: 'abc' },
+    })
+
+    const result = await client.queryByTenant('tenant-1')
+
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0]!.actorId).toBe('actor-1')
+    expect(result.items[0]!.timestamp).toBeInstanceOf(Date)
+    expect(result.cursor).toBeDefined()
+    expect(typeof result.cursor).toBe('string')
+  })
+
+  it('queryByTenant() passes cursor as ExclusiveStartKey', async () => {
+    const lastKey = { tenantId: 'tenant-1', sortKey: 'abc' }
+    const cursor = Buffer.from(JSON.stringify(lastKey)).toString('base64url')
+    mockSend.mockResolvedValue({ Items: [], LastEvaluatedKey: undefined })
+
+    await client.queryByTenant('tenant-1', { cursor })
+
+    const queryInput = mockSend.mock.calls[0]![0].input
+    expect(queryInput.ExclusiveStartKey).toEqual(lastKey)
+  })
+
+  it('query() throws on invalid cursor', async () => {
+    await expect(
+      client.queryByTenant('tenant-1', { cursor: 'not-valid-base64url-json!!!' }),
+    ).rejects.toThrow('Invalid pagination cursor')
+  })
 })

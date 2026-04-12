@@ -91,11 +91,17 @@ export class DynamoActivityLogClient implements ActivityLogClient {
         }
       })
 
-      await this.docClient.send(
+      const response = await this.docClient.send(
         new BatchWriteCommand({
           RequestItems: { [this.tableName]: requests },
         }),
       )
+
+      if (response.UnprocessedItems && Object.keys(response.UnprocessedItems).length > 0) {
+        throw new Error(
+          `DynamoDB batch write partially failed: ${JSON.stringify(Object.keys(response.UnprocessedItems))} items unprocessed`,
+        )
+      }
     }
   }
 
@@ -164,7 +170,13 @@ export class DynamoActivityLogClient implements ActivityLogClient {
         Limit: params.opts.limit ?? DEFAULT_LIMIT,
         ScanIndexForward: false, // newest first
         ExclusiveStartKey: params.opts.cursor
-          ? JSON.parse(Buffer.from(params.opts.cursor, 'base64url').toString())
+          ? (() => {
+              try {
+                return JSON.parse(Buffer.from(params.opts.cursor, 'base64url').toString())
+              } catch {
+                throw new Error('Invalid pagination cursor')
+              }
+            })()
           : undefined,
       }),
     )
