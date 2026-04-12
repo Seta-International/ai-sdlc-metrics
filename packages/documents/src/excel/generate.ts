@@ -19,6 +19,13 @@ export interface ExcelGenerateOpts {
   branding?: TenantBranding
 }
 
+const NUM_FMT_MAP: Record<string, string> = {
+  text: '@',
+  number: '#,##0.##',
+  date: 'yyyy-mm-dd',
+  currency: '#,##0.00',
+}
+
 export async function generateExcel(opts: ExcelGenerateOpts): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook()
 
@@ -34,6 +41,7 @@ export async function generateExcel(opts: ExcelGenerateOpts): Promise<Buffer> {
       header: col.header,
       key: col.key,
       width: col.width ?? 15,
+      style: col.format ? { numFmt: NUM_FMT_MAP[col.format] } : undefined,
     }))
 
     worksheet.addRows(sheet.rows)

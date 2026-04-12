@@ -45,4 +45,20 @@ describe('generateExcel', () => {
     expect(Buffer.isBuffer(result)).toBe(true)
     expect(result.length).toBeGreaterThan(0)
   })
+
+  it('sets workbook creator from branding', async () => {
+    const result = await generateExcel({
+      sheets: [
+        {
+          name: 'Report',
+          columns: [{ header: 'Value', key: 'v', format: 'number' }],
+          rows: [{ v: 42 }],
+        },
+      ],
+      branding: { companyName: 'SETA Inc.' },
+    })
+
+    expect(Buffer.isBuffer(result)).toBe(true)
+    expect(result.length).toBeGreaterThan(0)
+  })
 })
