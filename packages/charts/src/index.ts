@@ -26,3 +26,7 @@ export {
   listChartTypesByCategory,
 } from './core/chart-type-registry'
 export type { ChartTypeMeta } from './core/chart-type-registry'
+
+// Components
+export { EChart } from './components/EChart'
+export type { EChartProps } from './components/EChart'
