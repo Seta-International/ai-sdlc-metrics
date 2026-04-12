@@ -5,6 +5,7 @@ import Redis from 'ioredis'
 export class RedisService implements OnApplicationShutdown {
   private readonly publisher: Redis
   private readonly subscriber: Redis
+  private readonly listeners = new Map<string, (ch: string, msg: string) => void>()
 
   constructor(private readonly redisUrl: string) {
     this.publisher = new Redis(redisUrl)
@@ -21,13 +22,20 @@ export class RedisService implements OnApplicationShutdown {
   }
 
   async subscribe(channel: string, handler: (message: string) => void): Promise<void> {
-    await this.subscriber.subscribe(channel)
-    this.subscriber.on('message', (ch: string, msg: string) => {
+    const listener = (ch: string, msg: string) => {
       if (ch === channel) handler(msg)
-    })
+    }
+    this.listeners.set(channel, listener)
+    this.subscriber.on('message', listener)
+    await this.subscriber.subscribe(channel)
   }
 
   async unsubscribe(channel: string): Promise<void> {
+    const listener = this.listeners.get(channel)
+    if (listener) {
+      this.subscriber.removeListener('message', listener)
+      this.listeners.delete(channel)
+    }
     await this.subscriber.unsubscribe(channel)
   }
 }
