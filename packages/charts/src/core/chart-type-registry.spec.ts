@@ -4,7 +4,6 @@ import {
   getChartTypeMeta,
   listChartTypes,
   listChartTypesByCategory,
-  type ChartTypeMeta,
 } from './chart-type-registry'
 
 /** All 22 ECharts series types that must be in the registry. */

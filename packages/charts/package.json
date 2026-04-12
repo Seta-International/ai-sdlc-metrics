@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "peerDependencies": {
@@ -26,11 +27,13 @@
   "devDependencies": {
     "@future/eslint-config": "workspace:*",
     "@future/tsconfig": "*",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.4",
     "eslint": "^10.2.0",
     "happy-dom": "^18.0.1",
     "typescript": "^6.0.2",
-    "vitest": "^3.2.1"
+    "vitest": "^4.1.4"
   }
 }
