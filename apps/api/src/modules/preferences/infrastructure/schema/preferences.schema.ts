@@ -1,4 +1,13 @@
-import { pgSchema, uuid, text, boolean, jsonb, timestamp, index, unique } from 'drizzle-orm/pg-core'
+import {
+  pgSchema,
+  uuid,
+  text,
+  boolean,
+  jsonb,
+  timestamp,
+  index,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 import { sql } from 'drizzle-orm'
 
@@ -27,7 +36,7 @@ export const savedView = preferencesSchema.table(
     ),
     // Partial unique index: only one default per (tenant, actor, resource)
     // Using a raw SQL index since drizzle-kit supports it via sql tag
-    index('saved_view_unique_default_idx')
+    uniqueIndex('saved_view_unique_default_idx')
       .on(table.tenantId, table.actorId, table.resourceKey)
       .where(sql`is_default = true`),
   ],

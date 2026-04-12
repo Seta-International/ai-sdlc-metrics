@@ -1,0 +1,2 @@
+DROP INDEX "preferences"."saved_view_unique_default_idx";--> statement-breakpoint
+CREATE UNIQUE INDEX "saved_view_unique_default_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key") WHERE is_default = true;

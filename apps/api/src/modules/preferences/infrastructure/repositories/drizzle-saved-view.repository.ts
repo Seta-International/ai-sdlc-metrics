@@ -87,18 +87,34 @@ export class DrizzleSavedViewRepository implements ISavedViewRepository {
     const normalizedState = normalizeSavedViewState(data.stateJson)
 
     if (data.isDefault) {
-      // Clear existing default for this actor+resource
-      await this.db
-        .update(savedView)
-        .set({ isDefault: false, updatedAt: new Date() })
-        .where(
-          and(
-            eq(savedView.tenantId, data.tenantId),
-            eq(savedView.actorId, data.actorId),
-            eq(savedView.resourceKey, data.resourceKey),
-            eq(savedView.isDefault, true),
-          ),
-        )
+      return this.db.transaction(async (tx) => {
+        // Clear existing default for this actor+resource
+        await tx
+          .update(savedView)
+          .set({ isDefault: false, updatedAt: new Date() })
+          .where(
+            and(
+              eq(savedView.tenantId, data.tenantId),
+              eq(savedView.actorId, data.actorId),
+              eq(savedView.resourceKey, data.resourceKey),
+              eq(savedView.isDefault, true),
+            ),
+          )
+
+        const rows = await tx
+          .insert(savedView)
+          .values({
+            tenantId: data.tenantId,
+            actorId: data.actorId,
+            resourceKey: data.resourceKey,
+            name: data.name,
+            isDefault: data.isDefault,
+            stateJson: normalizedState,
+          })
+          .returning()
+
+        return rowToEntity(rows[0]!)
+      })
     }
 
     const rows = await this.db
@@ -163,25 +179,31 @@ export class DrizzleSavedViewRepository implements ISavedViewRepository {
     actorId: string,
     resourceKey: string,
   ): Promise<void> {
-    // Clear existing default
-    await this.db
-      .update(savedView)
-      .set({ isDefault: false, updatedAt: new Date() })
-      .where(
-        and(
-          eq(savedView.tenantId, tenantId),
-          eq(savedView.actorId, actorId),
-          eq(savedView.resourceKey, resourceKey),
-          eq(savedView.isDefault, true),
-        ),
-      )
+    await this.db.transaction(async (tx) => {
+      // Clear existing default
+      await tx
+        .update(savedView)
+        .set({ isDefault: false, updatedAt: new Date() })
+        .where(
+          and(
+            eq(savedView.tenantId, tenantId),
+            eq(savedView.actorId, actorId),
+            eq(savedView.resourceKey, resourceKey),
+            eq(savedView.isDefault, true),
+          ),
+        )
 
-    // Set new default
-    await this.db
-      .update(savedView)
-      .set({ isDefault: true, updatedAt: new Date() })
-      .where(
-        and(eq(savedView.id, id), eq(savedView.tenantId, tenantId), eq(savedView.actorId, actorId)),
-      )
+      // Set new default
+      await tx
+        .update(savedView)
+        .set({ isDefault: true, updatedAt: new Date() })
+        .where(
+          and(
+            eq(savedView.id, id),
+            eq(savedView.tenantId, tenantId),
+            eq(savedView.actorId, actorId),
+          ),
+        )
+    })
   }
 }
