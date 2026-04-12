@@ -1,5 +1,5 @@
 import { Injectable, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common'
-import PgBoss from 'pg-boss'
+import { PgBoss, type SendOptions } from 'pg-boss'
 
 export const JOB_DOCUMENTS_GENERATE = 'documents.generate'
 export const JOB_NOTIFICATIONS_SEND_EMAIL = 'notifications.send-email'
@@ -23,7 +23,7 @@ export class PgBossService implements OnApplicationBootstrap, OnApplicationShutd
   async enqueue<T extends object>(
     jobName: string,
     data: T,
-    opts: PgBoss.SendOptions = {},
+    opts: SendOptions = {},
   ): Promise<string> {
     const id = await this.boss.send(jobName, data, opts)
     return id ?? ''
@@ -31,7 +31,8 @@ export class PgBossService implements OnApplicationBootstrap, OnApplicationShutd
 
   registerWorker<T extends object>(
     jobName: string,
-    handler: (job: PgBoss.Job<T>) => Promise<void>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: (job: any) => Promise<void>,
   ): void {
     void this.boss.work<T>(jobName, handler)
   }

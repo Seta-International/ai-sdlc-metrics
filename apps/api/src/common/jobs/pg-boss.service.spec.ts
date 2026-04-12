@@ -22,7 +22,7 @@ vi.mock('pg-boss', () => {
   }
 
   return {
-    default: MockPgBoss,
+    PgBoss: MockPgBoss,
   }
 })
 
