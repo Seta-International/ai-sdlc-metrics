@@ -55,13 +55,12 @@ export const idpGroupMapping = identitySchema.table(
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex('uq_idp_group_mapping_role_scope').on(
-      table.tenantId,
-      table.externalGroupId,
-      table.roleKey,
-      table.scopeType,
-      table.scopeId,
-    ),
+    uniqueIndex('uq_idp_group_mapping_role_scope_scoped')
+      .on(table.tenantId, table.externalGroupId, table.roleKey, table.scopeType, table.scopeId)
+      .where(sql`${table.scopeId} IS NOT NULL`),
+    uniqueIndex('uq_idp_group_mapping_role_scope_global')
+      .on(table.tenantId, table.externalGroupId, table.roleKey, table.scopeType)
+      .where(sql`${table.scopeId} IS NULL`),
   ],
 )
 
