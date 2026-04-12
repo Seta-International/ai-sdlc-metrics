@@ -25,6 +25,7 @@ describe('ToolPermissionGuard', () => {
   function createMockContext(
     mcpContext: Record<string, unknown>,
     toolName: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: () => any = () => {},
   ) {
     const request = { mcpContext }
@@ -33,17 +34,19 @@ describe('ToolPermissionGuard', () => {
       getHandler: () => handler,
       getClass: () => ({}),
       getArgs: () => [{ params: { name: toolName, arguments: { actorId: ACTOR_ID } } }],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any
   }
 
   describe('when tool has @ToolPermission metadata', () => {
     it('should allow when canDo() returns true and write granted audit event', async () => {
       const handler = () => {}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vi.spyOn(reflector, 'get').mockImplementation((key: any) => {
         if (key === TOOL_PERMISSION_KEY) return 'people:profile:read'
         return undefined
       })
-      vi.mocked(kernelFacade.canDo as any).mockResolvedValue(true)
+      vi.mocked(kernelFacade.canDo).mockResolvedValue(true)
 
       const context = createMockContext(
         { actorId: ACTOR_ID, tenantId: TENANT_ID, authMethod: 'jwt', actorType: 'person' },
@@ -74,11 +77,12 @@ describe('ToolPermissionGuard', () => {
     })
 
     it('should deny when canDo() returns false and write denied audit event', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vi.spyOn(reflector, 'get').mockImplementation((key: any) => {
         if (key === TOOL_PERMISSION_KEY) return 'people:profile:update'
         return undefined
       })
-      vi.mocked(kernelFacade.canDo as any).mockResolvedValue(false)
+      vi.mocked(kernelFacade.canDo).mockResolvedValue(false)
 
       const context = createMockContext(
         { actorId: ACTOR_ID, tenantId: TENANT_ID, authMethod: 'jwt', actorType: 'person' },
@@ -126,12 +130,13 @@ describe('ToolPermissionGuard', () => {
 
   describe('scope-aware permission check', () => {
     it('should pass scope metadata to canDo() when present', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vi.spyOn(reflector, 'get').mockImplementation((key: any) => {
         if (key === TOOL_PERMISSION_KEY) return 'people:profile:read'
         if (key === `${TOOL_PERMISSION_KEY}_scope`) return { scopeType: 'department' }
         return undefined
       })
-      vi.mocked(kernelFacade.canDo as any).mockResolvedValue(true)
+      vi.mocked(kernelFacade.canDo).mockResolvedValue(true)
 
       const context = createMockContext(
         { actorId: ACTOR_ID, tenantId: TENANT_ID, authMethod: 'api_key', actorType: 'system' },

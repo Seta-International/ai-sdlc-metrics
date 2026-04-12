@@ -49,8 +49,8 @@ export function setAdminRouter(r: any): void {
 
 function buildAppRouter() {
   // Merge auth procedures from identityRouter with the admin sub-router.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const identityWithAdmin = router({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...(identityRouter._def.procedures as any),
     admin: _identityAdminRouter,
   })

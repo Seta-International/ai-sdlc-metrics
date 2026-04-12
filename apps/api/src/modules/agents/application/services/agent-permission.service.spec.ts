@@ -19,7 +19,7 @@ describe('AgentPermissionService', () => {
 
   describe('checkToolPermission', () => {
     it('should return true and write granted audit when canDo() allows', async () => {
-      vi.mocked(kernelFacade.canDo as any).mockResolvedValue(true)
+      vi.mocked(kernelFacade.canDo).mockResolvedValue(true)
 
       const result = await service.checkToolPermission({
         actorId: ACTOR_ID,
@@ -51,7 +51,7 @@ describe('AgentPermissionService', () => {
     })
 
     it('should return false and write denied audit when canDo() rejects', async () => {
-      vi.mocked(kernelFacade.canDo as any).mockResolvedValue(false)
+      vi.mocked(kernelFacade.canDo).mockResolvedValue(false)
 
       const result = await service.checkToolPermission({
         actorId: ACTOR_ID,
@@ -73,7 +73,7 @@ describe('AgentPermissionService', () => {
     })
 
     it('should pass scope context to canDo() when provided', async () => {
-      vi.mocked(kernelFacade.canDo as any).mockResolvedValue(true)
+      vi.mocked(kernelFacade.canDo).mockResolvedValue(true)
       const SCOPE_ID = '01900000-0000-7000-8000-000000000099'
 
       await service.checkToolPermission({
@@ -93,7 +93,7 @@ describe('AgentPermissionService', () => {
     })
 
     it('should include sanitized args in audit when provided', async () => {
-      vi.mocked(kernelFacade.canDo as any).mockResolvedValue(true)
+      vi.mocked(kernelFacade.canDo).mockResolvedValue(true)
 
       await service.checkToolPermission({
         actorId: ACTOR_ID,
@@ -111,7 +111,7 @@ describe('AgentPermissionService', () => {
     })
 
     it('should redact sensitive fields from args in audit', async () => {
-      vi.mocked(kernelFacade.canDo as any).mockResolvedValue(true)
+      vi.mocked(kernelFacade.canDo).mockResolvedValue(true)
 
       await service.checkToolPermission({
         actorId: ACTOR_ID,

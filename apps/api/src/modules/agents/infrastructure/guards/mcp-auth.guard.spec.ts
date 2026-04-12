@@ -30,6 +30,7 @@ describe('McpAuthGuard', () => {
     }
     return {
       switchToHttp: () => ({ getRequest: () => request }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any
   }
 
@@ -90,6 +91,7 @@ describe('McpAuthGuard', () => {
 
   describe('API key authentication', () => {
     it('should pass with valid API key and resolve system actorId', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vi.mocked((kernelFacade as any).validateApiKey).mockResolvedValue({
         actorId: SYSTEM_ACTOR_ID,
         tenantId: TENANT_ID,
@@ -119,6 +121,7 @@ describe('McpAuthGuard', () => {
     })
 
     it('should reject when API key is invalid', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vi.mocked((kernelFacade as any).validateApiKey).mockResolvedValue(null)
       const context = createMockContext({
         'x-api-key': 'fk_live_invalid',

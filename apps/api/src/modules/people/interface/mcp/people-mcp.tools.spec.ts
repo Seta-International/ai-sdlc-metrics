@@ -36,6 +36,7 @@ describe('PeopleMcpTools', () => {
         employeeCode: 'EMP001',
         status: 'active',
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vi.mocked(peopleFacade.getEmploymentProfile).mockResolvedValue(mockProfile as any)
 
       const result = await tools.getEmploymentProfile({ actorId: ACTOR_ID, tenantId: TENANT_ID })

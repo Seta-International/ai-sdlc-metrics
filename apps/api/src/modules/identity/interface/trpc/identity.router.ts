@@ -40,8 +40,8 @@ const roleKeyEnum = z.enum([
 
 const scopeTypeEnum = z.enum(['global', 'department', 'project', 'account'])
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createIdentityAdminRouter(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   permissionProtectedProcedure: any,
   _svc?: IdentityRouterService,
 ) {
@@ -60,6 +60,7 @@ export function createIdentityAdminRouter(
           existingProviderId: z.string().uuid().optional(),
         }),
       )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
         svc().command(
           new ConfigureIdentityProviderCommand(
@@ -90,6 +91,7 @@ export function createIdentityAdminRouter(
           providerId: z.string().uuid(),
         }),
       )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
         svc().command(new TestIdpConnectionCommand(ctx.tenantId, input.providerId, ctx.actorId)),
       ),
@@ -121,6 +123,7 @@ export function createIdentityAdminRouter(
           scopeId: z.string().uuid().nullable(),
         }),
       )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
         svc().command(
           new UpsertGroupMappingCommand(
@@ -143,6 +146,7 @@ export function createIdentityAdminRouter(
           mappingId: z.string().uuid(),
         }),
       )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
         svc().command(new RemoveGroupMappingCommand(ctx.tenantId, input.mappingId, ctx.actorId)),
       ),
@@ -165,6 +169,7 @@ export function createIdentityAdminRouter(
             .min(1),
         }),
       )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
         svc().command(
           new InviteLocalUserCommand(
@@ -189,6 +194,7 @@ export function createIdentityAdminRouter(
           targetActorId: z.string().uuid(),
         }),
       )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
         svc().command(
           new DeactivateLocalUserCommand(ctx.tenantId, input.targetActorId, ctx.actorId),
@@ -209,6 +215,7 @@ export function createIdentityAdminRouter(
           offset: z.number().int().min(0).default(0),
         }),
       )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .query(({ ctx, input }: { ctx: AuthContext; input: any }) =>
         svc().query(new GetSyncHistoryQuery(ctx.tenantId, input.limit, input.offset)),
       ),
@@ -228,6 +235,7 @@ export function createIdentityAdminRouter(
           displayName: z.string().min(1).max(200),
         }),
       )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
         svc().command(new CreateSystemActorCommand(ctx.tenantId, input.displayName, ctx.actorId)),
       ),
@@ -245,6 +253,7 @@ export function createIdentityAdminRouter(
             .transform((v) => (v ? new Date(v) : null)),
         }),
       )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
         svc().command(
           new CreateApiKeyCommand(
@@ -269,6 +278,7 @@ export function createIdentityAdminRouter(
           apiKeyId: z.string().uuid(),
         }),
       )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
         svc().command(new RevokeApiKeyCommand(ctx.tenantId, input.apiKeyId, ctx.actorId)),
       ),

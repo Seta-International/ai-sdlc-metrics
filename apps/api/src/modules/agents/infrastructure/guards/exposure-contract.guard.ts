@@ -25,6 +25,7 @@ export class ExposureContractGuard implements CanActivate {
     }
 
     const toolName = this.extractToolName(context)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const contract = await (this.kernelFacade as any).resolveExposureContract(
       mcpCtx.actorId,
       toolName,

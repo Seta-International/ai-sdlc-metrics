@@ -25,6 +25,7 @@ describe('ExposureContractGuard', () => {
       switchToRpc: () => ({ getData: () => ({ method: { name: toolName } }) }),
       getArgByIndex: () => ({ params: { name: toolName } }),
       getArgs: () => [{ params: { name: toolName } }],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any
   }
 
@@ -41,12 +42,14 @@ describe('ExposureContractGuard', () => {
       )
       const result = await guard.canActivate(context)
       expect(result).toBe(true)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((kernelFacade as any).resolveExposureContract).not.toHaveBeenCalled()
     })
   })
 
   describe('system actor (API key auth)', () => {
     it('should pass when exposure contract exists for the tool', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vi.mocked((kernelFacade as any).resolveExposureContract).mockResolvedValue({
         id: '01900000-0000-7000-8000-000000000099',
         toolName: 'people_get_employment_profile',
@@ -64,6 +67,7 @@ describe('ExposureContractGuard', () => {
       )
       const result = await guard.canActivate(context)
       expect(result).toBe(true)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((kernelFacade as any).resolveExposureContract).toHaveBeenCalledWith(
         SYSTEM_ACTOR_ID,
         'people_get_employment_profile',
@@ -73,6 +77,7 @@ describe('ExposureContractGuard', () => {
     })
 
     it('should deny when no exposure contract exists (deny-by-default)', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vi.mocked((kernelFacade as any).resolveExposureContract).mockResolvedValue(null)
       const context = createMockContext(
         {

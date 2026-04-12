@@ -45,6 +45,7 @@ export class McpAuthGuard implements CanActivate {
     )
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async authenticateJwt(request: any, token: string): Promise<boolean> {
     let payload: JwtPayload
     try {
@@ -69,11 +70,13 @@ export class McpAuthGuard implements CanActivate {
   }
 
   private async authenticateApiKey(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     request: any,
     apiKey: string,
     tenantId: string,
   ): Promise<boolean> {
     const keyHash = createHash('sha256').update(apiKey).digest('hex')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await (this.kernelFacade as any).validateApiKey(keyHash, tenantId)
 
     if (!result) {

@@ -42,6 +42,7 @@ export function createAdminRolesRouter(permissionProtectedProcedure: any) {
     getPermissions: permissionProtectedProcedure
       .meta({ permission: 'admin:role:read' })
       .input(z.object({ roleKey: roleKeyEnum }))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .query(({ ctx, input }: { ctx: AuthContext; input: any }) =>
         svc().query(new GetRolePermissionsQuery(ctx.tenantId, input.roleKey)),
       ),
@@ -54,6 +55,7 @@ export function createAdminRolesRouter(permissionProtectedProcedure: any) {
           permissionKey: z.string().min(1).max(255).regex(permissionKeyRegex),
         }),
       )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
         svc().command(
           new AddRolePermissionCommand(
@@ -73,6 +75,7 @@ export function createAdminRolesRouter(permissionProtectedProcedure: any) {
           permissionKey: z.string().min(1).max(255),
         }),
       )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
         svc().command(
           new RemoveRolePermissionCommand(
@@ -91,6 +94,7 @@ export function createAdminRolesRouter(permissionProtectedProcedure: any) {
           roleKey: roleKeyEnum,
         }),
       )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
         svc().command(new ResetRolePermissionsCommand(ctx.tenantId, input.roleKey, ctx.actorId)),
       ),
@@ -121,6 +125,7 @@ export function createAdminAuditLogRouter(permissionProtectedProcedure: any) {
           offset: z.number().int().min(0).default(0),
         }),
       )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .query(({ ctx, input }: { ctx: AuthContext; input: any }) =>
         svc().query(
           new QueryAuditLogQuery(
@@ -155,6 +160,7 @@ export function createAdminAuditLogRouter(permissionProtectedProcedure: any) {
             .transform((v: string | undefined) => (v ? new Date(v) : undefined)),
         }),
       )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .query(async ({ ctx, input }: { ctx: AuthContext; input: any }) => {
         const csv = await svc().query(
           new ExportAuditLogQuery(
