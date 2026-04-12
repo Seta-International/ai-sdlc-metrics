@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import type { Db } from '@future/db'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type { UserIdentity } from '../../domain/entities/user-identity.entity'
 import type { IUserIdentityRepository } from '../../domain/repositories/user-identity.repository.port'
 import { DB_TOKEN } from '../../../../common/db/db.module'
@@ -53,5 +53,12 @@ export class DrizzleUserIdentityRepository implements IUserIdentityRepository {
       .update(userIdentity)
       .set({ status: 'deprovisioned' })
       .where(and(eq(userIdentity.actorId, actorId), eq(userIdentity.tenantId, tenantId)))
+  }
+
+  async updateLastLogin(id: string): Promise<void> {
+    await this.db
+      .update(userIdentity)
+      .set({ lastLoginAt: sql`NOW()` })
+      .where(eq(userIdentity.id, id))
   }
 }

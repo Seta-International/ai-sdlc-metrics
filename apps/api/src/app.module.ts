@@ -3,9 +3,11 @@ import { ConfigModule } from '@nestjs/config'
 import { AppClsModule } from './common/cls/cls.module'
 import { DbModule } from './common/db/db.module'
 import { TrpcModule } from './common/trpc/trpc.module'
+import { AuthModule } from './common/auth/auth.module'
 import { HealthController } from './common/health/health.controller'
 import { RlsMiddleware } from './common/rls/rls.middleware'
 import { KernelModule } from './modules/kernel/kernel.module'
+import { IdentityModule } from './modules/identity/identity.module'
 import { PeopleModule } from './modules/people/people.module'
 import { TimeModule } from './modules/time/time.module'
 import { HiringModule } from './modules/hiring/hiring.module'
@@ -23,8 +25,10 @@ import { AdminModule } from './modules/admin/admin.module'
     ConfigModule.forRoot({ isGlobal: true }),
     DbModule,
     AppClsModule,
+    AuthModule,
     TrpcModule,
     KernelModule,
+    IdentityModule,
     PeopleModule,
     TimeModule,
     HiringModule,

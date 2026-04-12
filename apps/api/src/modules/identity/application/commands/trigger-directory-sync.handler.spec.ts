@@ -1,0 +1,82 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { TriggerDirectorySyncCommand } from './trigger-directory-sync.command'
+import { TriggerDirectorySyncHandler } from './trigger-directory-sync.handler'
+import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository.port'
+import type { IJobScheduler } from '../../domain/ports/job-scheduler.port'
+import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import type { IdentityProvider } from '../../domain/repositories/identity-provider.repository.port'
+
+const TENANT_ID = '01900000-0000-7000-8000-000000000001'
+const PROVIDER_ID = '01900000-0000-7000-8000-000000000010'
+const ACTOR_ID = '01900000-0000-7000-8000-000000000005'
+const JOB_ID = 'job-12345'
+
+const fakeProvider: IdentityProvider = {
+  id: PROVIDER_ID,
+  tenantId: TENANT_ID,
+  providerType: 'microsoft',
+  displayName: 'SETA Entra',
+  clientId: 'client-id-123',
+  clientSecretRef: 'arn:aws:secretsmanager:ap-southeast-1:123:secret:entra-client-secret',
+  directoryId: 'directory-id-456',
+  isPrimary: true,
+  syncEnabled: true,
+  lastSyncAt: null,
+  syncStatus: 'idle',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+}
+
+describe('TriggerDirectorySyncHandler', () => {
+  let handler: TriggerDirectorySyncHandler
+  let providerRepo: IIdentityProviderRepository
+  let jobScheduler: IJobScheduler
+  let auditRepo: IAuditEventRepository
+
+  beforeEach(() => {
+    providerRepo = {
+      findById: vi.fn(),
+      findPrimaryByTenantId: vi.fn(),
+      insert: vi.fn(),
+      update: vi.fn(),
+    }
+    jobScheduler = {
+      enqueueDirectorySync: vi.fn(),
+      getNextScheduledSync: vi.fn(),
+    }
+    auditRepo = {
+      insert: vi.fn(),
+    }
+    handler = new TriggerDirectorySyncHandler(providerRepo, jobScheduler, auditRepo)
+  })
+
+  it('enqueues a sync job and returns job id', async () => {
+    vi.mocked(providerRepo.findPrimaryByTenantId).mockResolvedValue(fakeProvider)
+    vi.mocked(jobScheduler.enqueueDirectorySync).mockResolvedValue(JOB_ID)
+    vi.mocked(auditRepo.insert).mockResolvedValue(undefined)
+
+    const result = await handler.execute(new TriggerDirectorySyncCommand(TENANT_ID, ACTOR_ID))
+
+    expect(result).toEqual({ jobId: JOB_ID })
+    expect(jobScheduler.enqueueDirectorySync).toHaveBeenCalledWith(TENANT_ID)
+  })
+
+  it('throws when no provider configured', async () => {
+    vi.mocked(providerRepo.findPrimaryByTenantId).mockResolvedValue(null)
+
+    await expect(
+      handler.execute(new TriggerDirectorySyncCommand(TENANT_ID, ACTOR_ID)),
+    ).rejects.toThrow('No identity provider configured')
+  })
+
+  it('throws when sync is already running', async () => {
+    vi.mocked(providerRepo.findPrimaryByTenantId).mockResolvedValue({
+      ...fakeProvider,
+      syncStatus: 'running',
+    })
+
+    await expect(
+      handler.execute(new TriggerDirectorySyncCommand(TENANT_ID, ACTOR_ID)),
+    ).rejects.toThrow('Sync is already running')
+  })
+})

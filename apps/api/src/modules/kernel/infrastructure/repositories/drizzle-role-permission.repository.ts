@@ -11,11 +11,16 @@ import { rolePermission } from '../schema/index'
 export class DrizzleRolePermissionRepository implements IRolePermissionRepository {
   constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
-  async findByRoleKey(roleKey: RoleKeyValue, tenantId: string): Promise<RolePermission[]> {
+  async findByRoleKey(roleKey: RoleKeyValue | string, tenantId: string): Promise<RolePermission[]> {
     const rows = await this.db
       .select()
       .from(rolePermission)
-      .where(and(eq(rolePermission.roleKey, roleKey), eq(rolePermission.tenantId, tenantId)))
+      .where(
+        and(
+          eq(rolePermission.roleKey, roleKey as RoleKeyValue),
+          eq(rolePermission.tenantId, tenantId),
+        ),
+      )
 
     return rows as RolePermission[]
   }
@@ -31,38 +36,6 @@ export class DrizzleRolePermissionRepository implements IRolePermissionRepositor
     return rows as RolePermission[]
   }
 
-  async insert(data: {
-    tenantId: string
-    roleKey: RoleKeyValue
-    permissionKey: string
-    isLocked: boolean
-  }): Promise<RolePermission | null> {
-    const rows = await this.db
-      .insert(rolePermission)
-      .values({
-        tenantId: data.tenantId,
-        roleKey: data.roleKey,
-        permissionKey: data.permissionKey,
-        isLocked: data.isLocked,
-      })
-      .onConflictDoNothing()
-      .returning()
-
-    return (rows[0] as RolePermission) ?? null
-  }
-
-  async remove(tenantId: string, roleKey: RoleKeyValue, permissionKey: string): Promise<void> {
-    await this.db
-      .delete(rolePermission)
-      .where(
-        and(
-          eq(rolePermission.tenantId, tenantId),
-          eq(rolePermission.roleKey, roleKey),
-          eq(rolePermission.permissionKey, permissionKey),
-        ),
-      )
-  }
-
   async findAll(tenantId: string): Promise<RolePermission[]> {
     const rows = await this.db
       .select()
@@ -70,5 +43,92 @@ export class DrizzleRolePermissionRepository implements IRolePermissionRepositor
       .where(eq(rolePermission.tenantId, tenantId))
 
     return rows as RolePermission[]
+  }
+
+  async findByTenantId(tenantId: string): Promise<RolePermission[]> {
+    return this.findAll(tenantId)
+  }
+
+  async findByRoleKeyAndPermissionKey(
+    roleKey: string,
+    permissionKey: string,
+    tenantId: string,
+  ): Promise<RolePermission | null> {
+    const rows = await this.db
+      .select()
+      .from(rolePermission)
+      .where(
+        and(
+          eq(rolePermission.roleKey, roleKey as RoleKeyValue),
+          eq(rolePermission.permissionKey, permissionKey),
+          eq(rolePermission.tenantId, tenantId),
+        ),
+      )
+      .limit(1)
+
+    return (rows[0] as RolePermission | undefined) ?? null
+  }
+
+  async insert(data: {
+    tenantId: string
+    roleKey: RoleKeyValue | string
+    permissionKey: string
+    isLocked: boolean
+  }): Promise<RolePermission> {
+    const rows = await this.db
+      .insert(rolePermission)
+      .values({
+        tenantId: data.tenantId,
+        roleKey: data.roleKey as RoleKeyValue,
+        permissionKey: data.permissionKey,
+        isLocked: data.isLocked,
+      })
+      .onConflictDoNothing()
+      .returning()
+
+    const row = rows[0] as RolePermission | undefined
+    if (!row) {
+      // Row already exists — fetch and return it
+      const existing = await this.findByRoleKeyAndPermissionKey(
+        data.roleKey,
+        data.permissionKey,
+        data.tenantId,
+      )
+      if (!existing) throw new Error('Failed to insert or find role permission')
+      return existing
+    }
+    return row
+  }
+
+  async remove(id: string, tenantId: string): Promise<void> {
+    await this.db
+      .delete(rolePermission)
+      .where(and(eq(rolePermission.id, id), eq(rolePermission.tenantId, tenantId)))
+  }
+
+  async removeAllForRole(roleKey: string, tenantId: string): Promise<void> {
+    await this.db
+      .delete(rolePermission)
+      .where(
+        and(
+          eq(rolePermission.roleKey, roleKey as RoleKeyValue),
+          eq(rolePermission.tenantId, tenantId),
+        ),
+      )
+  }
+
+  async insertMany(
+    data: Array<{
+      tenantId: string
+      roleKey: string
+      permissionKey: string
+      isLocked: boolean
+    }>,
+  ): Promise<void> {
+    if (data.length === 0) return
+    await this.db
+      .insert(rolePermission)
+      .values(data.map((d) => ({ ...d, roleKey: d.roleKey as RoleKeyValue })))
+      .onConflictDoNothing()
   }
 }

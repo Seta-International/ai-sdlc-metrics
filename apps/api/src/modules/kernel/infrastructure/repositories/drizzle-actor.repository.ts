@@ -23,6 +23,7 @@ export class DrizzleActorRepository implements IActorRepository {
     tenantId: string
     type: Actor['type']
     displayName: string
+    status?: Actor['status']
   }): Promise<Actor> {
     const rows = await this.db
       .insert(actor)
@@ -30,6 +31,7 @@ export class DrizzleActorRepository implements IActorRepository {
         tenantId: data.tenantId,
         type: data.type,
         displayName: data.displayName,
+        ...(data.status !== undefined ? { status: data.status } : {}),
       })
       .returning()
     return rows[0] as Actor

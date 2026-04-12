@@ -1,5 +1,7 @@
-import { Module } from '@nestjs/common'
+import { Module, OnModuleInit } from '@nestjs/common'
 import { CqrsModule } from '@nestjs/cqrs'
+import { CommandBus } from '@nestjs/cqrs'
+import { setIdentityCommandBus } from './interface/trpc/identity.router'
 import { ACTOR_REPOSITORY } from './domain/repositories/actor.repository.port'
 import { DEPARTMENT_REPOSITORY } from './domain/repositories/department.repository.port'
 import { DECISION_CASE_REPOSITORY } from './domain/repositories/decision-case.repository.port'
@@ -17,6 +19,7 @@ import { ResolveDecisionCaseHandler } from './application/commands/resolve-decis
 import { RevokeAllRoleGrantsHandler } from './application/commands/revoke-all-role-grants.handler'
 import { UpdateActorStatusHandler } from './application/commands/update-actor-status.handler'
 import { SeedRolePermissionsHandler } from './application/commands/seed-role-permissions.handler'
+import { ResolveLoginHandler } from './application/commands/resolve-login.handler'
 import { KernelQueryFacade } from './application/facades/kernel-query.facade'
 import { GetActorHandler } from './application/queries/get-actor.handler'
 import { GetRoleGrantsHandler } from './application/queries/get-role-grants.handler'
@@ -59,6 +62,7 @@ import { DrizzleOutboxEventRepository } from './infrastructure/repositories/driz
     RevokeAllRoleGrantsHandler,
     UpdateActorStatusHandler,
     SeedRolePermissionsHandler,
+    ResolveLoginHandler,
     GetActorHandler,
     GetTenantHandler,
     GetRoleGrantsHandler,
@@ -69,4 +73,10 @@ import { DrizzleOutboxEventRepository } from './infrastructure/repositories/driz
   ],
   exports: [KernelQueryFacade, AUDIT_EVENT_REPOSITORY, OUTBOX_EVENT_REPOSITORY],
 })
-export class KernelModule {}
+export class KernelModule implements OnModuleInit {
+  constructor(private readonly commandBus: CommandBus) {}
+
+  onModuleInit() {
+    setIdentityCommandBus(this.commandBus)
+  }
+}

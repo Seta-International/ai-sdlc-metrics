@@ -50,6 +50,7 @@ describe('CreateUserIdentityHandler', () => {
       findBySsoSubject: vi.fn(),
       insert: vi.fn(),
       deprovisionByActorId: vi.fn(),
+      updateLastLogin: vi.fn(),
     }
     handler = new CreateUserIdentityHandler(actorRepo, identityRepo)
   })

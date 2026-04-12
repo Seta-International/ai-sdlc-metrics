@@ -1,13 +1,30 @@
 export interface FutureTokenClaims {
-  oid: string // Entra Object ID → maps to actor.sso_subject
-  tid: string // Entra Tenant ID
-  preferred_username: string
-  name: string
+  actorId: string
+  tenantId: string
   roles: string[]
+  provider: string
+  displayName: string
+  email?: string
 }
 
-export function parseToken(_idToken: string): FutureTokenClaims {
-  // TODO: decode the Entra OIDC JWT and extract claims
-  // For now, return a stub — real implementation uses MSAL token claims
-  throw new Error('parseToken: not yet implemented')
+export function parseToken(token: string): FutureTokenClaims | null {
+  try {
+    if (!token || !token.includes('.')) return null
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const payload = parts[1]!
+    const padded = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const json = atob(padded)
+    const claims = JSON.parse(json) as Record<string, unknown>
+    return {
+      actorId: claims['sub'] as string,
+      tenantId: claims['tid'] as string,
+      roles: (claims['roles'] as string[]) ?? [],
+      provider: (claims['provider'] as string) ?? 'unknown',
+      displayName: (claims['displayName'] as string) ?? '',
+      email: claims['email'] as string | undefined,
+    }
+  } catch {
+    return null
+  }
 }
