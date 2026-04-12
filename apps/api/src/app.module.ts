@@ -19,6 +19,7 @@ import { InsightsModule } from './modules/insights/insights.module'
 import { AgentsModule } from './modules/agents/agents.module'
 import { PlannerModule } from './modules/planner/planner.module'
 import { AdminModule } from './modules/admin/admin.module'
+import { NotificationsModule } from './modules/notifications/notifications.module'
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { AdminModule } from './modules/admin/admin.module'
     AgentsModule,
     PlannerModule,
     AdminModule,
+    NotificationsModule,
   ],
   controllers: [HealthController],
   providers: [RlsMiddleware],
