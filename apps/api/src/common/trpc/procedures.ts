@@ -20,8 +20,8 @@ export const devProtectedProcedure = publicProcedure.use(({ ctx, next }) => {
   return next({
     ctx: {
       ...ctx,
-      tenantId: ctx.tenantId,
-      actorId: ctx.actorId,
+      tenantId: ctx.tenantId as string,
+      actorId: ctx.actorId as string,
     },
   })
 })

@@ -23,7 +23,10 @@ async function bootstrap() {
       router: getAppRouter(),
       createContext: ({ req }) => ({
         req: { headers: { cookie: req.headers.cookie } },
-        ...buildRequestIdentity({ headers: req.headers as Record<string, unknown> }),
+        ...buildRequestIdentity({
+          headers: req.headers as Record<string, unknown>,
+          environment: process.env['NODE_ENV'],
+        }),
       }),
       onError({ path, error }) {
         console.error(`tRPC error on '${path}':`, error)
