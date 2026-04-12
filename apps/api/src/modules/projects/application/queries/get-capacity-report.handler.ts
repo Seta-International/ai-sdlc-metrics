@@ -27,7 +27,7 @@ export class GetCapacityReportHandler implements IQueryHandler<
 > {
   constructor(@Inject(ALLOCATION_REPOSITORY) private readonly allocRepo: IAllocationRepository) {}
 
-  async execute(query: GetCapacityReportQuery): Promise<GetCapacityReportResult> {
+  async execute(_query: GetCapacityReportQuery): Promise<GetCapacityReportResult> {
     // NOTE: Full implementation requires PeopleQueryFacade.listActiveActors().
     // For each actor, calls sumConfirmedHoursPerDay(actorId, tenantId, startDate, endDate)
     // with the report's date range, then classifies:

@@ -24,7 +24,7 @@ export class GetStaffingOverviewHandler implements IQueryHandler<
 > {
   constructor(@Inject(ALLOCATION_REPOSITORY) private readonly allocRepo: IAllocationRepository) {}
 
-  async execute(query: GetStaffingOverviewQuery): Promise<GetStaffingOverviewResult> {
+  async execute(_query: GetStaffingOverviewQuery): Promise<GetStaffingOverviewResult> {
     // NOTE: In a full implementation, this would iterate over all active actors
     // from PeopleQueryFacade, then call sumConfirmedHoursPerDay for each.
     // Standard hours default to 8h (or from TimeQueryFacade when available).

@@ -104,7 +104,7 @@ export const projectsRouter = router({
   // --- Account Memberships (delegated to People module) ---
   listAccountMembers: publicProcedure
     .input(z.object({ accountId: z.string().uuid(), tenantId: z.string().uuid() }))
-    .query(({ input }) => {
+    .query(({ input: _input }) => {
       // Delegates to PeopleQueryFacade.listAccountMembers().
       // The account_membership table lives in the people schema.
       // PeopleQueryFacade must expose this method.
@@ -123,7 +123,7 @@ export const projectsRouter = router({
         roleKey: z.enum(['account_manager', 'staffing_owner', 'member']),
       }),
     )
-    .mutation(({ input }) => {
+    .mutation(({ input: _input }) => {
       // Dispatches AddAccountMemberCommand to People module's CommandBus.
       // The account_membership table lives in the people schema.
       // Implementation: svc().command(new AddAccountMemberCommand(...))
@@ -139,7 +139,7 @@ export const projectsRouter = router({
         actorId: z.string().uuid(),
       }),
     )
-    .mutation(({ input }) => {
+    .mutation(({ input: _input }) => {
       // Dispatches RemoveAccountMemberCommand to People module's CommandBus.
       // Implementation: svc().command(new RemoveAccountMemberCommand(...))
       return { success: true }
