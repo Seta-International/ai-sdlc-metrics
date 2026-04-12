@@ -15,6 +15,12 @@ import { TenantContextService } from './tenant-context.service'
           if (tenantId) {
             cls.set('tenantId', tenantId)
           }
+
+          const rawActorId = req.headers?.['x-future-actor-id']
+          const actorId = Array.isArray(rawActorId) ? rawActorId[0] : rawActorId
+          if (actorId) {
+            cls.set('actorId', actorId)
+          }
         },
       },
     }),

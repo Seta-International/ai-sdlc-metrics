@@ -8,6 +8,8 @@ export interface TrpcMeta {
 
 export interface TrpcContext {
   req: { headers: { cookie?: string } }
+  tenantId: string | null
+  actorId: string | null
 }
 
 const t = initTRPC.meta<TrpcMeta>().context<TrpcContext>().create()
