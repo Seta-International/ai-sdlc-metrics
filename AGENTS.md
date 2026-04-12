@@ -98,7 +98,7 @@ No FK constraints across schema boundaries. No imports from another module's `do
 
 - Never push to `main`. All changes via PR. CI green + one approval to merge.
 - Branch: `feat/{ticket}` or `fix/{ticket}` off `main`.
-- No `git worktree`. No `--force`. No `git reset --hard` on shared branches.
+- No `--force`. No `git reset --hard` on shared branches.
 
 ### DDD Module Boundaries
 
