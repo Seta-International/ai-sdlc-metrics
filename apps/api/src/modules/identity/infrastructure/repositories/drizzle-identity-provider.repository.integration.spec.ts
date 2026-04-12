@@ -96,7 +96,8 @@ describe('DrizzleIdentityProviderRepository', () => {
     it('updates provider fields', async () => {
       await setTenantContext(db, TENANT_A)
       const providers = await repo.findByTenantId(TENANT_A)
-      const provider = providers[0]
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const provider = providers[0]!
 
       const updated = await repo.update(provider.id, TENANT_A, {
         displayName: 'Updated Name',
@@ -110,7 +111,8 @@ describe('DrizzleIdentityProviderRepository', () => {
     it('updates sync status and last_sync_at', async () => {
       await setTenantContext(db, TENANT_A)
       const providers = await repo.findByTenantId(TENANT_A)
-      const provider = providers[0]
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const provider = providers[0]!
       const now = new Date()
 
       const updated = await repo.update(provider.id, TENANT_A, {
@@ -127,7 +129,8 @@ describe('DrizzleIdentityProviderRepository', () => {
     it('returns null for provider in different tenant', async () => {
       await setTenantContext(db, TENANT_A)
       const providers = await repo.findByTenantId(TENANT_A)
-      const provider = providers[0]
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const provider = providers[0]!
 
       await setTenantContext(db, TENANT_B)
       const found = await repo.findById(provider.id, TENANT_B)
