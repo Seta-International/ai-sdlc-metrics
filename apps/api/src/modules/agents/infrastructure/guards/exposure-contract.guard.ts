@@ -1,4 +1,11 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common'
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common'
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import type { McpRequestContext } from './mcp-auth.guard'
 
@@ -8,7 +15,10 @@ export class ExposureContractGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest()
-    const mcpCtx = request.mcpContext as McpRequestContext
+    const mcpCtx = request.mcpContext as McpRequestContext | undefined
+    if (!mcpCtx) {
+      throw new UnauthorizedException('MCP context is missing; McpAuthGuard must run first')
+    }
 
     if (mcpCtx.actorType !== 'system') {
       return true
@@ -50,6 +60,6 @@ export class ExposureContractGuard implements CanActivate {
       // fallback
     }
 
-    throw new ForbiddenException('Unable to determine tool name from MCP context')
+    throw new InternalServerErrorException('Unable to determine tool name from MCP context')
   }
 }

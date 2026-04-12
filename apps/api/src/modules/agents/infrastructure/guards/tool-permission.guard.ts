@@ -4,9 +4,11 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
+import type { CanDoContext } from '../../../kernel/application/queries/can-do.query'
 import {
   AUDIT_EVENT_REPOSITORY,
   type IAuditEventRepository,
@@ -25,7 +27,11 @@ export class ToolPermissionGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest()
-    const mcpCtx = request.mcpContext as McpRequestContext
+    const mcpCtx = request.mcpContext as McpRequestContext | undefined
+    if (!mcpCtx) {
+      throw new UnauthorizedException('MCP context is missing; McpAuthGuard must run first')
+    }
+
     const toolName = this.extractToolName(context)
     const handler = context.getHandler()
 
@@ -38,19 +44,19 @@ export class ToolPermissionGuard implements CanActivate {
     let result: 'granted' | 'denied' = 'granted'
 
     if (permission) {
-      const canDoContext: Record<string, unknown> = { tenantId: mcpCtx.tenantId }
+      const canDoContext: CanDoContext = { tenantId: mcpCtx.tenantId }
       if (scopeMeta?.scopeType) canDoContext.scopeType = scopeMeta.scopeType
       if (scopeMeta?.scopeId) canDoContext.scopeId = scopeMeta.scopeId
 
-      const allowed = await (this.kernelFacade as any).canDo(
-        mcpCtx.actorId,
-        permission,
-        canDoContext,
-      )
+      const allowed = await this.kernelFacade.canDo(mcpCtx.actorId, permission, canDoContext)
       if (!allowed) result = 'denied'
     }
 
-    await this.writeAuditEvent(mcpCtx, toolName, permission ?? null, result, context)
+    try {
+      await this.writeAuditEvent(mcpCtx, toolName, permission ?? null, result, context)
+    } catch {
+      // Audit failure must not mask the permission decision
+    }
 
     if (result === 'denied') {
       throw new ForbiddenException(`Permission '${permission}' denied for tool '${toolName}'`)

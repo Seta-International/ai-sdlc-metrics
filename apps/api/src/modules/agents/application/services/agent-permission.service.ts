@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
+import type { CanDoContext } from '../../../kernel/application/queries/can-do.query'
 import {
   AUDIT_EVENT_REPOSITORY,
   type IAuditEventRepository,
@@ -28,29 +29,33 @@ export class AgentPermissionService {
     const { actorId, tenantId, toolName, permission, scopeType, scopeId, resourceOwnerId, args } =
       params
 
-    const canDoContext: Record<string, unknown> = { tenantId }
+    const canDoContext: CanDoContext = { tenantId }
     if (scopeType) canDoContext.scopeType = scopeType
     if (scopeId) canDoContext.scopeId = scopeId
     if (resourceOwnerId) canDoContext.resourceOwnerId = resourceOwnerId
 
-    const allowed = await (this.kernelFacade as any).canDo(actorId, permission, canDoContext)
+    const allowed = await this.kernelFacade.canDo(actorId, permission, canDoContext)
     const result = allowed ? 'granted' : 'denied'
 
-    await this.auditRepo.insert({
-      tenantId,
-      actorId,
-      eventType: 'agent.tool_call',
-      module: 'agents',
-      subjectId: actorId,
-      payload: {
-        tool: toolName,
-        permission,
-        result,
-        via: 'agent',
-        authMethod: 'session',
-        args: args ? this.sanitizeArgs(args) : undefined,
-      },
-    })
+    try {
+      await this.auditRepo.insert({
+        tenantId,
+        actorId,
+        eventType: 'agent.tool_call',
+        module: 'agents',
+        subjectId: actorId,
+        payload: {
+          tool: toolName,
+          permission,
+          result,
+          via: 'agent',
+          authMethod: 'session',
+          args: args ? this.sanitizeArgs(args) : undefined,
+        },
+      })
+    } catch {
+      // Audit failure must not mask the permission result
+    }
 
     return allowed
   }
