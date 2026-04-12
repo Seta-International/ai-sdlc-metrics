@@ -5,13 +5,13 @@
     "": {
       "name": "future",
       "devDependencies": {
-        "eslint": "^10.2.0",
-        "future": "^2.3.1",
-        "jiti": "^2.6.1",
-        "lefthook": "^2.1.5",
-        "prettier": "^3.8.2",
-        "turbo": "^2.9.6",
-        "typescript": "^6.0.2",
+        "eslint": "latest",
+        "future": "latest",
+        "jiti": "latest",
+        "lefthook": "latest",
+        "prettier": "latest",
+        "turbo": "latest",
+        "typescript": "latest",
       },
     },
     "apps/api": {
@@ -72,6 +72,7 @@
         "react-dom": "^19",
       },
       "devDependencies": {
+        "@future/eslint-config": "workspace:*",
         "@future/tsconfig": "workspace:*",
         "@types/node": "^25.6.0",
         "@types/react": "^19",
@@ -95,6 +96,7 @@
         "react-dom": "^19",
       },
       "devDependencies": {
+        "@future/eslint-config": "workspace:*",
         "@future/tsconfig": "workspace:*",
         "@types/node": "^25.6.0",
         "@types/react": "^19",
@@ -118,6 +120,7 @@
         "react-dom": "^19",
       },
       "devDependencies": {
+        "@future/eslint-config": "workspace:*",
         "@future/tsconfig": "workspace:*",
         "@types/node": "^25.6.0",
         "@types/react": "^19",
@@ -141,6 +144,7 @@
         "react-dom": "^19",
       },
       "devDependencies": {
+        "@future/eslint-config": "workspace:*",
         "@future/tsconfig": "workspace:*",
         "@types/node": "^25.6.0",
         "@types/react": "^19",
@@ -164,6 +168,7 @@
         "react-dom": "^19",
       },
       "devDependencies": {
+        "@future/eslint-config": "workspace:*",
         "@future/tsconfig": "workspace:*",
         "@types/node": "^25.6.0",
         "@types/react": "^19",
@@ -187,6 +192,7 @@
         "react-dom": "^19",
       },
       "devDependencies": {
+        "@future/eslint-config": "workspace:*",
         "@future/tsconfig": "workspace:*",
         "@types/node": "^25.6.0",
         "@types/react": "^19",
@@ -211,6 +217,7 @@
         "react-dom": "^19",
       },
       "devDependencies": {
+        "@future/eslint-config": "workspace:*",
         "@future/tsconfig": "workspace:*",
         "@types/node": "^25.6.0",
         "@types/react": "^19",
@@ -234,6 +241,7 @@
         "react-dom": "^19",
       },
       "devDependencies": {
+        "@future/eslint-config": "workspace:*",
         "@future/tsconfig": "workspace:*",
         "@types/node": "^25.6.0",
         "@types/react": "^19",
@@ -257,6 +265,7 @@
         "react-dom": "^19",
       },
       "devDependencies": {
+        "@future/eslint-config": "workspace:*",
         "@future/tsconfig": "workspace:*",
         "@types/node": "^25.6.0",
         "@types/react": "^19",
@@ -280,6 +289,7 @@
         "react-dom": "^19",
       },
       "devDependencies": {
+        "@future/eslint-config": "workspace:*",
         "@future/tsconfig": "workspace:*",
         "@types/node": "^25.6.0",
         "@types/react": "^19",
@@ -302,6 +312,7 @@
         "react-dom": "^19",
       },
       "devDependencies": {
+        "@future/eslint-config": "workspace:*",
         "@future/tsconfig": "workspace:*",
         "@types/node": "^25.6.0",
         "@types/react": "^19",
@@ -325,6 +336,7 @@
         "react-dom": "^19",
       },
       "devDependencies": {
+        "@future/eslint-config": "workspace:*",
         "@future/tsconfig": "workspace:*",
         "@types/node": "^25.6.0",
         "@types/react": "^19",

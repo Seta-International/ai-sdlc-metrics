@@ -19,6 +19,7 @@ export default defineConfig({
           name: 'unit',
           include: ['src/**/*.spec.ts'],
           exclude: ['src/**/*.integration.spec.ts'],
+          setupFiles: ['src/test-setup.unit.ts'],
         },
       },
       {

@@ -50,7 +50,7 @@ describe('RedisService', () => {
   it('dispatches message to handler when channel matches', async () => {
     const handler = vi.fn()
     await service.subscribe('test-channel', handler)
-    const listener = mockOn.mock.calls[0][1] as (ch: string, msg: string) => void
+    const listener = mockOn.mock.calls[0]![1] as (ch: string, msg: string) => void
     listener('test-channel', 'hello')
     expect(handler).toHaveBeenCalledWith('hello')
   })
@@ -58,7 +58,7 @@ describe('RedisService', () => {
   it('does not dispatch message when channel does not match', async () => {
     const handler = vi.fn()
     await service.subscribe('test-channel', handler)
-    const listener = mockOn.mock.calls[0][1] as (ch: string, msg: string) => void
+    const listener = mockOn.mock.calls[0]![1] as (ch: string, msg: string) => void
     listener('other-channel', 'hello')
     expect(handler).not.toHaveBeenCalled()
   })

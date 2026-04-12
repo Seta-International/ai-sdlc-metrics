@@ -80,7 +80,7 @@ No FK constraints across schema boundaries. No imports from another module's `do
 - Command handlers: unit test happy path + every error path.
 - Cross-module interactions: integration test against real DB.
 - Critical user flows: E2E Playwright test.
-- Tests co-located: `foo.handler.spec.ts` next to `foo.handler.ts`.
+- Tests co-located: `foo.handler.spec.ts` next to `foo.handler.ts`. **Never use `__tests__/` directories.** Jest convention — banned in this repo.
 
 ### TypeScript Imports
 

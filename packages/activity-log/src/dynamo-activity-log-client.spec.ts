@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { DynamoActivityLogClient } from '../dynamo-activity-log-client'
-import type { ActivityEntry } from '../types'
+import { DynamoActivityLogClient } from './dynamo-activity-log-client'
+import type { ActivityEntry } from './types'
 
 const mockSend = vi.fn()
 

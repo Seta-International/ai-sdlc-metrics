@@ -118,7 +118,6 @@ export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps)
     const requestedActiveViewId =
       new URLSearchParams(window.location.search).get('activeViewId') ?? null
 
-    setIsViewsLoading(true)
     ;(
       anyTrpc.preferences.savedView.resolve.query({
         resourceKey,
@@ -167,34 +166,32 @@ export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps)
   React.useEffect(() => {
     if (isViewsLoading) return
 
-    setIsLoading(true)
-    setError(undefined)
-    ;(
-      anyTrpc.people.directory.list.query({
-        resourceKey,
-        search: tableState.search,
-        filters: tableState.filters,
-        sorting: tableState.sorting,
-        pagination: tableState.pagination,
-      }) as Promise<{
-        rows: PeopleDirectoryRow[]
-        totalCount: number
-        pageCount: number
-        pageIndex: number
-        pageSize: number
-      }>
-    )
-      .then((result) => {
+    void (async () => {
+      setIsLoading(true)
+      setError(undefined)
+      try {
+        const result = await (anyTrpc.people.directory.list.query({
+          resourceKey,
+          search: tableState.search,
+          filters: tableState.filters,
+          sorting: tableState.sorting,
+          pagination: tableState.pagination,
+        }) as Promise<{
+          rows: PeopleDirectoryRow[]
+          totalCount: number
+          pageCount: number
+          pageIndex: number
+          pageSize: number
+        }>)
         setRows(result.rows)
         setTotalCount(result.totalCount)
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         console.error('Failed to load directory:', err)
         setError(err instanceof Error ? err.message : 'Failed to load data')
-      })
-      .finally(() => {
+      } finally {
         setIsLoading(false)
-      })
+      }
+    })()
   }, [tableState, resourceKey, isViewsLoading])
 
   // Handle state changes from the table

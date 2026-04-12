@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { renderMjmlTemplate } from '../template'
+import { renderMjmlTemplate } from './template'
 
 describe('renderMjmlTemplate', () => {
   it('renders MJML with Handlebars variables to HTML', () => {

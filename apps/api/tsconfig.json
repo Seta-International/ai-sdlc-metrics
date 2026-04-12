@@ -11,5 +11,6 @@
     "emitDecoratorMetadata": true,
     "types": ["vitest/globals"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/**/*.spec.ts", "src/**/*.integration.spec.ts"]
 }

@@ -14,7 +14,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
-    "test": "vitest run"
+    "test:unit": "vitest run"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3",

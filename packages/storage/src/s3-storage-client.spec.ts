@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { S3StorageClient } from '../s3-storage-client'
+import { S3StorageClient } from './s3-storage-client'
 
 const mockSend = vi.fn()
 

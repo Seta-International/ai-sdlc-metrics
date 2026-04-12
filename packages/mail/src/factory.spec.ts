@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { createMailTransport } from '../index'
-import { SesTransport } from '../transports/ses-transport'
-import { SmtpTransport } from '../transports/smtp-transport'
+import { createMailTransport } from './index'
+import { SesTransport } from './transports/ses-transport'
+import { SmtpTransport } from './transports/smtp-transport'
 
 describe('createMailTransport', () => {
   it('returns SesTransport for ses provider', () => {

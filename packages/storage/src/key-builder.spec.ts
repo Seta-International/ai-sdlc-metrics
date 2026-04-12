@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildKey } from '../key-builder'
+import { buildKey } from './key-builder'
 
 describe('buildKey', () => {
   it('builds an avatar key', () => {

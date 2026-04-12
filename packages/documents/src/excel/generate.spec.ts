@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { generateExcel } from '../excel/generate'
+import { generateExcel } from './generate'
 
 describe('generateExcel', () => {
   it('generates a valid xlsx buffer with one sheet', async () => {

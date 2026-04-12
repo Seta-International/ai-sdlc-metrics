@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { generatePdf } from '../pdf/generate'
+import { generatePdf } from './generate'
 
 const mockPdf = vi.fn()
 const mockSetContent = vi.fn()

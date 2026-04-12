@@ -1,0 +1,12 @@
+[test]
+# bun test (bun's native runner) is NOT used in this repo.
+#
+# Correct commands:
+#   bun run test:unit        — unit tests via vitest (turbo, all packages)
+#   bun run test:integration — integration tests via vitest (requires DB)
+#   bun run test:e2e         — end-to-end tests via Playwright
+#
+# Exclude all test files from bun's native runner to prevent false failures.
+# Unit tests use vitest globals (vi.mocked etc.) and e2e tests use Playwright —
+# neither is compatible with bun test.
+pathIgnorePatterns = ["apps/**", "packages/**"]
