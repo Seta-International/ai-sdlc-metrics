@@ -8,7 +8,6 @@ export function renderMjmlTemplate(mjmlTemplate: string, data: Record<string, un
   const result = mjml2html(mjmlString, {
     validationLevel: 'strict',
     keepComments: false,
-    minify: true,
   })
 
   if (result.errors.length > 0) {

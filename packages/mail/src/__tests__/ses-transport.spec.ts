@@ -63,4 +63,11 @@ describe('SesTransport', () => {
 
     expect(result.accepted).toEqual(['a@example.com', 'b@example.com'])
   })
+
+  it('propagates SES client errors', async () => {
+    mockSend.mockRejectedValue(new Error('SES throttled'))
+    await expect(transport.send({ to: 'a@b.com', subject: 'Test', html: '<p/>' })).rejects.toThrow(
+      'SES throttled',
+    )
+  })
 })

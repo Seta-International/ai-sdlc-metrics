@@ -58,4 +58,11 @@ describe('SmtpTransport', () => {
     expect(callArgs.attachments).toHaveLength(1)
     expect(callArgs.attachments[0].filename).toBe('report.pdf')
   })
+
+  it('propagates nodemailer errors', async () => {
+    mockSendMail.mockRejectedValue(new Error('SMTP auth failed'))
+    await expect(transport.send({ to: 'a@b.com', subject: 'Test', html: '<p/>' })).rejects.toThrow(
+      'SMTP auth failed',
+    )
+  })
 })
