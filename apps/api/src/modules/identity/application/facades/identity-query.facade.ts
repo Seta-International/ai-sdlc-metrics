@@ -6,7 +6,7 @@ import { GetIdentityProviderQuery } from '../queries/get-identity-provider.query
 import { GetIdpGroupMappingsQuery } from '../queries/get-idp-group-mappings.query'
 import { GetSyncStatusQuery } from '../queries/get-sync-status.query'
 import { ValidateApiKeyQuery } from '../queries/validate-api-key.query'
-import type { SyncStatusResult } from '../queries/get-sync-status.handler'
+import type { SyncStatusDto as SyncStatusResult } from '../queries/get-sync-status.handler'
 import type { ValidateApiKeyResult } from '../queries/validate-api-key.handler'
 
 @Injectable()

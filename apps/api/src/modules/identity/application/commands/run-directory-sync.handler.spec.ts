@@ -49,12 +49,15 @@ describe('RunDirectorySyncHandler', () => {
       findById: vi.fn(),
       findByTenantId: vi.fn(),
       findPrimary: vi.fn(),
+      findPrimaryByTenantId: vi.fn(),
       insert: vi.fn(),
       update: vi.fn(),
     }
     mappingRepo = {
+      findById: vi.fn(),
       findByProviderId: vi.fn(),
       findByTenantId: vi.fn(),
+      listByTenantId: vi.fn(),
       upsert: vi.fn(),
       remove: vi.fn(),
     }
@@ -87,7 +90,7 @@ describe('RunDirectorySyncHandler', () => {
 
   it('provisions new users from IdP via kernel command bus', async () => {
     vi.mocked(providerRepo.findById).mockResolvedValue(makeProvider())
-    vi.mocked(providerRepo.update).mockResolvedValue(makeProvider({ syncStatus: 'running' }))
+    vi.mocked(providerRepo.update).mockResolvedValue(undefined)
     const idpUsers: IdpUser[] = [
       { externalId: 'ext-user-001', email: 'alice@seta.vn', displayName: 'Alice', isActive: true },
     ]
@@ -108,7 +111,7 @@ describe('RunDirectorySyncHandler', () => {
 
   it('deactivates users disabled in IdP', async () => {
     vi.mocked(providerRepo.findById).mockResolvedValue(makeProvider())
-    vi.mocked(providerRepo.update).mockResolvedValue(makeProvider({ syncStatus: 'running' }))
+    vi.mocked(providerRepo.update).mockResolvedValue(undefined)
     const idpUsers: IdpUser[] = [
       {
         externalId: 'ext-user-disabled',
@@ -127,7 +130,7 @@ describe('RunDirectorySyncHandler', () => {
 
   it('syncs group-to-role mappings via GrantRoleCommand', async () => {
     vi.mocked(providerRepo.findById).mockResolvedValue(makeProvider())
-    vi.mocked(providerRepo.update).mockResolvedValue(makeProvider({ syncStatus: 'running' }))
+    vi.mocked(providerRepo.update).mockResolvedValue(undefined)
     vi.mocked(directoryProvider.listUsers).mockResolvedValue([])
     const idpGroups: IdpGroup[] = [
       {
@@ -158,7 +161,7 @@ describe('RunDirectorySyncHandler', () => {
 
   it('sets sync status to failed on error and rethrows', async () => {
     vi.mocked(providerRepo.findById).mockResolvedValue(makeProvider())
-    vi.mocked(providerRepo.update).mockResolvedValue(makeProvider({ syncStatus: 'running' }))
+    vi.mocked(providerRepo.update).mockResolvedValue(undefined)
     vi.mocked(directoryProvider.listUsers).mockRejectedValue(new Error('Graph API error'))
     await expect(
       handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID)),

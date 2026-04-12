@@ -6,6 +6,8 @@ export interface IIdentityProviderRepository {
   findById(id: string, tenantId: string): Promise<IdentityProviderEntity | null>
   findByTenantId(tenantId: string): Promise<IdentityProviderEntity[]>
   findPrimary(tenantId: string): Promise<IdentityProviderEntity | null>
+  /** Alias for findPrimary — used by Plan 05 handlers */
+  findPrimaryByTenantId(tenantId: string): Promise<IdentityProviderEntity | null>
   insert(data: {
     tenantId: string
     providerType: IdentityProviderEntity['providerType']
@@ -32,5 +34,5 @@ export interface IIdentityProviderRepository {
         | 'syncStatus'
       >
     >,
-  ): Promise<IdentityProviderEntity>
+  ): Promise<void>
 }

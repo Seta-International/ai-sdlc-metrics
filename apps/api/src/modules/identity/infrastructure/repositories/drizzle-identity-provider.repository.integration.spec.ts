@@ -99,13 +99,14 @@ describe('DrizzleIdentityProviderRepository', () => {
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const provider = providers[0]!
 
-      const updated = await repo.update(provider.id, TENANT_A, {
+      await repo.update(provider.id, TENANT_A, {
         displayName: 'Updated Name',
         syncEnabled: true,
       })
 
-      expect(updated.displayName).toBe('Updated Name')
-      expect(updated.syncEnabled).toBe(true)
+      const updated = await repo.findById(provider.id, TENANT_A)
+      expect(updated?.displayName).toBe('Updated Name')
+      expect(updated?.syncEnabled).toBe(true)
     })
 
     it('updates sync status and last_sync_at', async () => {
@@ -115,13 +116,14 @@ describe('DrizzleIdentityProviderRepository', () => {
       const provider = providers[0]!
       const now = new Date()
 
-      const updated = await repo.update(provider.id, TENANT_A, {
+      await repo.update(provider.id, TENANT_A, {
         syncStatus: 'running',
         lastSyncAt: now,
       })
 
-      expect(updated.syncStatus).toBe('running')
-      expect(updated.lastSyncAt).not.toBeNull()
+      const updated = await repo.findById(provider.id, TENANT_A)
+      expect(updated?.syncStatus).toBe('running')
+      expect(updated?.lastSyncAt).not.toBeNull()
     })
   })
 

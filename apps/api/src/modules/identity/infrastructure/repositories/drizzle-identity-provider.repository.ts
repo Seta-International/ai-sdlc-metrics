@@ -36,6 +36,10 @@ export class DrizzleIdentityProviderRepository implements IIdentityProviderRepos
     return (rows[0] as IdentityProviderEntity | undefined) ?? null
   }
 
+  async findPrimaryByTenantId(tenantId: string): Promise<IdentityProviderEntity | null> {
+    return this.findPrimary(tenantId)
+  }
+
   async insert(data: {
     tenantId: string
     providerType: IdentityProviderEntity['providerType']
@@ -78,12 +82,10 @@ export class DrizzleIdentityProviderRepository implements IIdentityProviderRepos
         | 'syncStatus'
       >
     >,
-  ): Promise<IdentityProviderEntity> {
-    const rows = await this.db
+  ): Promise<void> {
+    await this.db
       .update(identityProvider)
       .set({ ...data, updatedAt: new Date() } as Record<string, unknown>)
       .where(and(eq(identityProvider.id, id), eq(identityProvider.tenantId, tenantId)))
-      .returning()
-    return rows[0] as IdentityProviderEntity
   }
 }

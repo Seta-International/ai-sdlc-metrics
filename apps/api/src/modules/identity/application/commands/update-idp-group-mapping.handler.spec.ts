@@ -22,12 +22,15 @@ describe('UpdateIdpGroupMappingHandler', () => {
       findById: vi.fn(),
       findByTenantId: vi.fn(),
       findPrimary: vi.fn(),
+      findPrimaryByTenantId: vi.fn(),
       insert: vi.fn(),
       update: vi.fn(),
     }
     mappingRepo = {
+      findById: vi.fn(),
       findByProviderId: vi.fn(),
       findByTenantId: vi.fn(),
+      listByTenantId: vi.fn(),
       upsert: vi.fn(),
       remove: vi.fn(),
     }

@@ -71,8 +71,12 @@ describe('GetEffectivePermissionsHandler', () => {
     rolePermissionRepo = {
       findByRoleKey: vi.fn(),
       findByRoleKeys: vi.fn().mockResolvedValue([]),
+      findByTenantId: vi.fn(),
+      findByRoleKeyAndPermissionKey: vi.fn(),
       insert: vi.fn(),
       remove: vi.fn(),
+      removeAllForRole: vi.fn(),
+      insertMany: vi.fn(),
       findAll: vi.fn(),
     }
     delegationRepo = {

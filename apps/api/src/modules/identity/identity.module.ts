@@ -16,18 +16,60 @@ import { DIRECTORY_PROVIDER_FACTORY } from './infrastructure/providers/directory
 import { DirectoryProviderFactory } from './infrastructure/providers/directory-provider.factory'
 
 import { ConfigureIdentityProviderHandler } from './application/commands/configure-identity-provider.handler'
+import { TestIdpConnectionHandler } from './application/commands/test-idp-connection.handler'
+import { SyncIdpGroupsHandler } from './application/commands/sync-idp-groups.handler'
+import { UpsertGroupMappingHandler } from './application/commands/upsert-group-mapping.handler'
+import { RemoveGroupMappingHandler } from './application/commands/remove-group-mapping.handler'
+import { InviteLocalUserHandler } from './application/commands/invite-local-user.handler'
+import { DeactivateLocalUserHandler } from './application/commands/deactivate-local-user.handler'
+import { TriggerDirectorySyncHandler } from './application/commands/trigger-directory-sync.handler'
+import { CreateSystemActorHandler } from './application/commands/create-system-actor.handler'
+import { CreateApiKeyHandler } from './application/commands/create-api-key.handler'
+import { RevokeApiKeyHandler } from './application/commands/revoke-api-key.handler'
 import { UpdateIdpGroupMappingHandler } from './application/commands/update-idp-group-mapping.handler'
 import { RequestMagicLinkHandler } from './application/commands/request-magic-link.handler'
 import { ValidateMagicLinkHandler } from './application/commands/validate-magic-link.handler'
-import { CreateApiKeyHandler } from './application/commands/create-api-key.handler'
 import { RunDirectorySyncHandler } from './application/commands/run-directory-sync.handler'
 
 import { GetIdentityProviderHandler } from './application/queries/get-identity-provider.handler'
-import { GetIdpGroupMappingsHandler } from './application/queries/get-idp-group-mappings.handler'
+import { ListGroupMappingsHandler } from './application/queries/list-group-mappings.handler'
+import { ListLocalUsersHandler } from './application/queries/list-local-users.handler'
 import { GetSyncStatusHandler } from './application/queries/get-sync-status.handler'
+import { GetSyncHistoryHandler } from './application/queries/get-sync-history.handler'
+import { ListApiKeysHandler } from './application/queries/list-api-keys.handler'
+import { GetIdpGroupMappingsHandler } from './application/queries/get-idp-group-mappings.handler'
 import { ValidateApiKeyHandler } from './application/queries/validate-api-key.handler'
 
 import { IdentityQueryFacade } from './application/facades/identity-query.facade'
+
+const CommandHandlers = [
+  ConfigureIdentityProviderHandler,
+  TestIdpConnectionHandler,
+  SyncIdpGroupsHandler,
+  UpsertGroupMappingHandler,
+  RemoveGroupMappingHandler,
+  InviteLocalUserHandler,
+  DeactivateLocalUserHandler,
+  TriggerDirectorySyncHandler,
+  CreateSystemActorHandler,
+  CreateApiKeyHandler,
+  RevokeApiKeyHandler,
+  UpdateIdpGroupMappingHandler,
+  RequestMagicLinkHandler,
+  ValidateMagicLinkHandler,
+  RunDirectorySyncHandler,
+]
+
+const QueryHandlers = [
+  GetIdentityProviderHandler,
+  ListGroupMappingsHandler,
+  ListLocalUsersHandler,
+  GetSyncStatusHandler,
+  GetSyncHistoryHandler,
+  ListApiKeysHandler,
+  GetIdpGroupMappingsHandler,
+  ValidateApiKeyHandler,
+]
 
 @Module({
   imports: [CqrsModule, KernelModule],
@@ -37,16 +79,8 @@ import { IdentityQueryFacade } from './application/facades/identity-query.facade
     { provide: MAGIC_LINK_TOKEN_REPOSITORY, useClass: DrizzleMagicLinkTokenRepository },
     { provide: API_KEY_REPOSITORY, useClass: DrizzleApiKeyRepository },
     { provide: DIRECTORY_PROVIDER_FACTORY, useClass: DirectoryProviderFactory },
-    ConfigureIdentityProviderHandler,
-    UpdateIdpGroupMappingHandler,
-    RequestMagicLinkHandler,
-    ValidateMagicLinkHandler,
-    CreateApiKeyHandler,
-    RunDirectorySyncHandler,
-    GetIdentityProviderHandler,
-    GetIdpGroupMappingsHandler,
-    GetSyncStatusHandler,
-    ValidateApiKeyHandler,
+    ...CommandHandlers,
+    ...QueryHandlers,
     IdentityQueryFacade,
   ],
   exports: [IdentityQueryFacade],

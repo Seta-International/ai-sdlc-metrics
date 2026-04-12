@@ -75,14 +75,14 @@ describe('DrizzleRolePermissionRepository', () => {
   it('remove deletes a permission entry', async () => {
     await setTenantContext(db, TENANT_A)
 
-    await repo.insert({
+    const inserted = await repo.insert({
       tenantId: TENANT_A,
       roleKey: 'recruiter',
       permissionKey: 'hiring:candidate:create',
       isLocked: false,
     })
 
-    await repo.remove(TENANT_A, 'recruiter', 'hiring:candidate:create')
+    await repo.remove(inserted.id, TENANT_A)
     const results = await repo.findByRoleKey('recruiter', TENANT_A)
     const match = results.find((r) => r.permissionKey === 'hiring:candidate:create')
     expect(match).toBeUndefined()

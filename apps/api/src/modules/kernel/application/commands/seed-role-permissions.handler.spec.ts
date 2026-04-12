@@ -14,6 +14,8 @@ describe('SeedRolePermissionsHandler', () => {
     rolePermissionRepo = {
       findByRoleKey: vi.fn(),
       findByRoleKeys: vi.fn(),
+      findByTenantId: vi.fn(),
+      findByRoleKeyAndPermissionKey: vi.fn(),
       insert: vi.fn().mockImplementation(async (data) => ({
         id: '01900000-0000-7000-8000-000000000050',
         tenantId: data.tenantId,
@@ -23,6 +25,8 @@ describe('SeedRolePermissionsHandler', () => {
         createdAt: new Date(),
       })),
       remove: vi.fn(),
+      removeAllForRole: vi.fn(),
+      insertMany: vi.fn(),
       findAll: vi.fn(),
     }
     handler = new SeedRolePermissionsHandler(rolePermissionRepo)
