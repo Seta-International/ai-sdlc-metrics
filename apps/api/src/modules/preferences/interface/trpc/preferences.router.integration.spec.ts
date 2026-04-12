@@ -395,6 +395,8 @@ describe('preferences tRPC router', () => {
       actorId: null,
     })
 
-    await expect(caller.savedView.list({ resourceKey: 'people.employees' })).rejects.toThrow()
+    await expect(caller.savedView.list({ resourceKey: 'people.employees' })).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    })
   })
 })
