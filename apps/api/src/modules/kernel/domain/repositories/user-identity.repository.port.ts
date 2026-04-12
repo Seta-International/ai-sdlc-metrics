@@ -13,4 +13,5 @@ export interface IUserIdentityRepository {
     provider: UserIdentity['provider']
   }): Promise<UserIdentity>
   deprovisionByActorId(actorId: string, tenantId: string): Promise<void>
+  updateLastLogin(id: string): Promise<void>
 }

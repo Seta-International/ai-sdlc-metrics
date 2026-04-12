@@ -15,3 +15,11 @@ export class ActorArchivedException extends DomainException {
     super(`Actor is archived and cannot be modified: ${actorId}`)
   }
 }
+
+export class AccountSuspendedException extends DomainException {
+  readonly code = 'ACCOUNT_SUSPENDED'
+
+  constructor() {
+    super('Account is suspended')
+  }
+}
