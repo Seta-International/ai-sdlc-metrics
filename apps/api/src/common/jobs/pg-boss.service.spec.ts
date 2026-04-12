@@ -52,6 +52,13 @@ describe('PgBossService', () => {
     expect(id).toBe('test-job-id')
   })
 
+  it('returns empty string when boss.send returns null', async () => {
+    mockBoss.send.mockResolvedValueOnce(null)
+    await service.onApplicationBootstrap()
+    const id = await service.enqueue('documents.generate', { jobId: 'abc' })
+    expect(id).toBe('')
+  })
+
   it('registers a worker', async () => {
     await service.onApplicationBootstrap()
     const handler = vi.fn()
