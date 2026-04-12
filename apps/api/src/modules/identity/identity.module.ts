@@ -41,6 +41,7 @@ import { GetIdpGroupMappingsHandler } from './application/queries/get-idp-group-
 import { ValidateApiKeyHandler } from './application/queries/validate-api-key.handler'
 
 import { IdentityQueryFacade } from './application/facades/identity-query.facade'
+import { IdentityRouterService } from './interface/trpc/identity-router.service'
 
 const CommandHandlers = [
   ConfigureIdentityProviderHandler,
@@ -82,6 +83,7 @@ const QueryHandlers = [
     ...CommandHandlers,
     ...QueryHandlers,
     IdentityQueryFacade,
+    IdentityRouterService,
   ],
   exports: [IdentityQueryFacade],
 })

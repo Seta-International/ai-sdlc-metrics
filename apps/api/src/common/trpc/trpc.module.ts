@@ -11,12 +11,22 @@ import {
 } from '../../modules/kernel/domain/repositories/audit-event.repository.port'
 import { PeopleModule } from '../../modules/people/people.module'
 import { PeopleQueryFacade } from '../../modules/people/application/facades/people-query.facade'
+import { IdentityModule } from '../../modules/identity/identity.module'
+import { AdminModule } from '../../modules/admin/admin.module'
 import { createKernelRouter } from '../../modules/kernel/interface/trpc/kernel.router'
 import { createPeopleRouter } from '../../modules/people/interface/trpc/people.router'
-import { setKernelRouter, setPeopleRouter, initAppRouter } from './app-router'
+import { createIdentityAdminRouter } from '../../modules/identity/interface/trpc/identity.router'
+import { createAdminRouter } from '../../modules/admin/interface/trpc/admin.router'
+import {
+  setKernelRouter,
+  setPeopleRouter,
+  setIdentityAdminRouter,
+  setAdminRouter,
+  initAppRouter,
+} from './app-router'
 
 @Module({
-  imports: [KernelModule, PeopleModule],
+  imports: [KernelModule, PeopleModule, IdentityModule, AdminModule],
 })
 export class TrpcModule implements OnModuleInit {
   constructor(
@@ -43,6 +53,8 @@ export class TrpcModule implements OnModuleInit {
         this.auditRepo,
       ),
     )
+    setIdentityAdminRouter(createIdentityAdminRouter(permissionProtectedProcedure))
+    setAdminRouter(createAdminRouter(permissionProtectedProcedure))
 
     initAppRouter()
   }

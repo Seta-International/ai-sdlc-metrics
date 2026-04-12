@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common'
 import { CqrsModule } from '@nestjs/cqrs'
+import { KernelModule } from '../kernel/kernel.module'
 import { AdminQueryFacade } from './application/facades/admin-query.facade'
+import { AdminRouterService } from './interface/trpc/admin-router.service'
 import { AddRolePermissionHandler } from './application/commands/add-role-permission.handler'
 import { RemoveRolePermissionHandler } from './application/commands/remove-role-permission.handler'
 import { ResetRolePermissionsHandler } from './application/commands/reset-role-permissions.handler'
@@ -23,9 +25,10 @@ const QueryHandlers = [
 ]
 
 @Module({
-  imports: [CqrsModule],
+  imports: [CqrsModule, KernelModule],
   providers: [
     AdminQueryFacade,
+    AdminRouterService,
     ...CommandHandlers,
     ...QueryHandlers,
     // Infrastructure providers registered here when infra layer is implemented

@@ -14,13 +14,18 @@ import { goalsRouter } from '../../modules/goals/interface/trpc/goals.router'
 import { insightsRouter } from '../../modules/insights/interface/trpc/insights.router'
 import { agentsRouter } from '../../modules/agents/interface/trpc/agents.router'
 import { plannerRouter } from '../../modules/planner/interface/trpc/planner.router'
-import { adminRouter } from '../../modules/admin/interface/trpc/admin.router'
+import { adminRouter as defaultAdminRouter } from '../../modules/admin/interface/trpc/admin.router'
+import { identityAdminRouter as defaultIdentityAdminRouter } from '../../modules/identity/interface/trpc/identity.router'
 
 // Mutable references replaced by TrpcModule.onModuleInit with permission-enforcing versions.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _kernelRouter: any = defaultKernelRouter
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _peopleRouter: any = defaultPeopleRouter
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _identityAdminRouter: any = defaultIdentityAdminRouter
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _adminRouter: any = defaultAdminRouter
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function setKernelRouter(r: any): void {
@@ -32,10 +37,27 @@ export function setPeopleRouter(r: any): void {
   _peopleRouter = r
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function setIdentityAdminRouter(r: any): void {
+  _identityAdminRouter = r
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function setAdminRouter(r: any): void {
+  _adminRouter = r
+}
+
 function buildAppRouter() {
+  // Merge auth procedures from identityRouter with the admin sub-router.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const identityWithAdmin = router({
+    ...(identityRouter._def.procedures as any),
+    admin: _identityAdminRouter,
+  })
+
   return router({
     kernel: _kernelRouter,
-    identity: identityRouter,
+    identity: identityWithAdmin,
     people: _peopleRouter,
     time: timeRouter,
     hiring: hiringRouter,
@@ -46,7 +68,7 @@ function buildAppRouter() {
     insights: insightsRouter,
     agents: agentsRouter,
     planner: plannerRouter,
-    admin: adminRouter,
+    admin: _adminRouter,
   })
 }
 

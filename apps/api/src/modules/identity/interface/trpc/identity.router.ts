@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
+import type { AuthContext } from '../../../../common/trpc/auth-middleware'
 import { IdentityRouterService } from './identity-router.service'
 import { ConfigureIdentityProviderCommand } from '../../application/commands/configure-identity-provider.command'
 import { TestIdpConnectionCommand } from '../../application/commands/test-idp-connection.command'
@@ -39,229 +40,258 @@ const roleKeyEnum = z.enum([
 
 const scopeTypeEnum = z.enum(['global', 'department', 'project', 'account'])
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createIdentityAdminRouter(
+  permissionProtectedProcedure: any,
+  _svc?: IdentityRouterService,
+) {
+  return router({
+    // --- IdP Configuration ---
+    configureProvider: permissionProtectedProcedure
+      .meta({ permission: 'admin:idp:configure' })
+      .input(
+        z.object({
+          providerType: z.enum(['microsoft', 'google']),
+          displayName: z.string().min(1).max(100),
+          clientId: z.string().min(1).max(255),
+          clientSecretRef: z.string().min(1).max(512).startsWith('arn:aws:secretsmanager:'),
+          directoryId: z.string().min(1).max(255),
+          syncEnabled: z.boolean(),
+          existingProviderId: z.string().uuid().optional(),
+        }),
+      )
+      .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
+        svc().command(
+          new ConfigureIdentityProviderCommand(
+            ctx.tenantId,
+            input.providerType,
+            input.displayName,
+            input.clientId,
+            input.clientSecretRef,
+            input.directoryId,
+            input.syncEnabled,
+            ctx.actorId,
+            input.existingProviderId,
+          ),
+        ),
+      ),
+
+    getProvider: permissionProtectedProcedure
+      .meta({ permission: 'admin:idp:read' })
+      .input(z.object({}))
+      .query(({ ctx }: { ctx: AuthContext }) =>
+        svc().query(new GetIdentityProviderQuery(ctx.tenantId)),
+      ),
+
+    testConnection: permissionProtectedProcedure
+      .meta({ permission: 'admin:idp:configure' })
+      .input(
+        z.object({
+          providerId: z.string().uuid(),
+        }),
+      )
+      .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
+        svc().command(new TestIdpConnectionCommand(ctx.tenantId, input.providerId, ctx.actorId)),
+      ),
+
+    // --- Group Mappings ---
+    syncGroups: permissionProtectedProcedure
+      .meta({ permission: 'admin:idp:sync' })
+      .input(z.object({}))
+      .mutation(({ ctx }: { ctx: AuthContext }) =>
+        svc().command(new SyncIdpGroupsCommand(ctx.tenantId, ctx.actorId)),
+      ),
+
+    listGroupMappings: permissionProtectedProcedure
+      .meta({ permission: 'admin:idp:read' })
+      .input(z.object({}))
+      .query(({ ctx }: { ctx: AuthContext }) =>
+        svc().query(new ListGroupMappingsQuery(ctx.tenantId)),
+      ),
+
+    upsertGroupMapping: permissionProtectedProcedure
+      .meta({ permission: 'admin:idp:sync' })
+      .input(
+        z.object({
+          identityProviderId: z.string().uuid(),
+          externalGroupId: z.string().min(1).max(255),
+          externalGroupName: z.string().min(1).max(255),
+          roleKey: roleKeyEnum,
+          scopeType: scopeTypeEnum,
+          scopeId: z.string().uuid().nullable(),
+        }),
+      )
+      .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
+        svc().command(
+          new UpsertGroupMappingCommand(
+            ctx.tenantId,
+            input.identityProviderId,
+            input.externalGroupId,
+            input.externalGroupName,
+            input.roleKey,
+            input.scopeType,
+            input.scopeId,
+            ctx.actorId,
+          ),
+        ),
+      ),
+
+    removeGroupMapping: permissionProtectedProcedure
+      .meta({ permission: 'admin:idp:sync' })
+      .input(
+        z.object({
+          mappingId: z.string().uuid(),
+        }),
+      )
+      .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
+        svc().command(new RemoveGroupMappingCommand(ctx.tenantId, input.mappingId, ctx.actorId)),
+      ),
+
+    // --- Local Accounts ---
+    inviteLocalUser: permissionProtectedProcedure
+      .meta({ permission: 'admin:user:manage' })
+      .input(
+        z.object({
+          email: z.string().email(),
+          displayName: z.string().min(1).max(200),
+          roleAssignments: z
+            .array(
+              z.object({
+                roleKey: roleKeyEnum,
+                scopeType: scopeTypeEnum,
+                scopeId: z.string().uuid().nullable(),
+              }),
+            )
+            .min(1),
+        }),
+      )
+      .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
+        svc().command(
+          new InviteLocalUserCommand(
+            ctx.tenantId,
+            input.email,
+            input.displayName,
+            input.roleAssignments,
+            ctx.actorId,
+          ),
+        ),
+      ),
+
+    listLocalUsers: permissionProtectedProcedure
+      .meta({ permission: 'admin:user:read' })
+      .input(z.object({}))
+      .query(({ ctx }: { ctx: AuthContext }) => svc().query(new ListLocalUsersQuery(ctx.tenantId))),
+
+    deactivateLocalUser: permissionProtectedProcedure
+      .meta({ permission: 'admin:user:manage' })
+      .input(
+        z.object({
+          targetActorId: z.string().uuid(),
+        }),
+      )
+      .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
+        svc().command(
+          new DeactivateLocalUserCommand(ctx.tenantId, input.targetActorId, ctx.actorId),
+        ),
+      ),
+
+    // --- Sync Monitoring ---
+    getSyncStatus: permissionProtectedProcedure
+      .meta({ permission: 'admin:idp:read' })
+      .input(z.object({}))
+      .query(({ ctx }: { ctx: AuthContext }) => svc().query(new GetSyncStatusQuery(ctx.tenantId))),
+
+    getSyncHistory: permissionProtectedProcedure
+      .meta({ permission: 'admin:idp:read' })
+      .input(
+        z.object({
+          limit: z.number().int().min(1).max(100).default(20),
+          offset: z.number().int().min(0).default(0),
+        }),
+      )
+      .query(({ ctx, input }: { ctx: AuthContext; input: any }) =>
+        svc().query(new GetSyncHistoryQuery(ctx.tenantId, input.limit, input.offset)),
+      ),
+
+    triggerSync: permissionProtectedProcedure
+      .meta({ permission: 'admin:idp:sync' })
+      .input(z.object({}))
+      .mutation(({ ctx }: { ctx: AuthContext }) =>
+        svc().command(new TriggerDirectorySyncCommand(ctx.tenantId, ctx.actorId)),
+      ),
+
+    // --- Agent Access ---
+    createSystemActor: permissionProtectedProcedure
+      .meta({ permission: 'admin:agent:manage' })
+      .input(
+        z.object({
+          displayName: z.string().min(1).max(200),
+        }),
+      )
+      .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
+        svc().command(new CreateSystemActorCommand(ctx.tenantId, input.displayName, ctx.actorId)),
+      ),
+
+    createApiKey: permissionProtectedProcedure
+      .meta({ permission: 'admin:agent:manage' })
+      .input(
+        z.object({
+          systemActorId: z.string().uuid(),
+          name: z.string().min(1).max(200),
+          expiresAt: z
+            .string()
+            .datetime()
+            .nullable()
+            .transform((v) => (v ? new Date(v) : null)),
+        }),
+      )
+      .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
+        svc().command(
+          new CreateApiKeyCommand(
+            ctx.tenantId,
+            input.systemActorId,
+            input.name,
+            input.expiresAt,
+            ctx.actorId,
+          ),
+        ),
+      ),
+
+    listApiKeys: permissionProtectedProcedure
+      .meta({ permission: 'admin:agent:read' })
+      .input(z.object({}))
+      .query(({ ctx }: { ctx: AuthContext }) => svc().query(new ListApiKeysQuery(ctx.tenantId))),
+
+    revokeApiKey: permissionProtectedProcedure
+      .meta({ permission: 'admin:agent:manage' })
+      .input(
+        z.object({
+          apiKeyId: z.string().uuid(),
+        }),
+      )
+      .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
+        svc().command(new RevokeApiKeyCommand(ctx.tenantId, input.apiKeyId, ctx.actorId)),
+      ),
+  })
+}
+
+// Backward-compatible export — replaced at runtime by TrpcModule with permission-enforcing version
 export const identityAdminRouter = router({
-  // --- IdP Configuration ---
-  configureProvider: publicProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        actorId: z.string().uuid(),
-        providerType: z.enum(['microsoft', 'google']),
-        displayName: z.string().min(1).max(100),
-        clientId: z.string().min(1).max(255),
-        clientSecretRef: z.string().min(1).max(512).startsWith('arn:aws:secretsmanager:'),
-        directoryId: z.string().min(1).max(255),
-        syncEnabled: z.boolean(),
-        existingProviderId: z.string().uuid().optional(),
-      }),
-    )
-    .mutation(({ input }) =>
-      svc().command(
-        new ConfigureIdentityProviderCommand(
-          input.tenantId,
-          input.providerType,
-          input.displayName,
-          input.clientId,
-          input.clientSecretRef,
-          input.directoryId,
-          input.syncEnabled,
-          input.actorId,
-          input.existingProviderId,
-        ),
-      ),
-    ),
-
-  getProvider: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid() }))
-    .query(({ input }) => svc().query(new GetIdentityProviderQuery(input.tenantId))),
-
-  testConnection: publicProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        actorId: z.string().uuid(),
-        providerId: z.string().uuid(),
-      }),
-    )
-    .mutation(({ input }) =>
-      svc().command(new TestIdpConnectionCommand(input.tenantId, input.providerId, input.actorId)),
-    ),
-
-  // --- Group Mappings ---
-  syncGroups: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid(), actorId: z.string().uuid() }))
-    .mutation(({ input }) =>
-      svc().command(new SyncIdpGroupsCommand(input.tenantId, input.actorId)),
-    ),
-
-  listGroupMappings: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid() }))
-    .query(({ input }) => svc().query(new ListGroupMappingsQuery(input.tenantId))),
-
-  upsertGroupMapping: publicProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        actorId: z.string().uuid(),
-        identityProviderId: z.string().uuid(),
-        externalGroupId: z.string().min(1).max(255),
-        externalGroupName: z.string().min(1).max(255),
-        roleKey: roleKeyEnum,
-        scopeType: scopeTypeEnum,
-        scopeId: z.string().uuid().nullable(),
-      }),
-    )
-    .mutation(({ input }) =>
-      svc().command(
-        new UpsertGroupMappingCommand(
-          input.tenantId,
-          input.identityProviderId,
-          input.externalGroupId,
-          input.externalGroupName,
-          input.roleKey,
-          input.scopeType,
-          input.scopeId,
-          input.actorId,
-        ),
-      ),
-    ),
-
-  removeGroupMapping: publicProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        actorId: z.string().uuid(),
-        mappingId: z.string().uuid(),
-      }),
-    )
-    .mutation(({ input }) =>
-      svc().command(new RemoveGroupMappingCommand(input.tenantId, input.mappingId, input.actorId)),
-    ),
-
-  // --- Local Accounts ---
-  inviteLocalUser: publicProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        actorId: z.string().uuid(),
-        email: z.string().email(),
-        displayName: z.string().min(1).max(200),
-        roleAssignments: z
-          .array(
-            z.object({
-              roleKey: roleKeyEnum,
-              scopeType: scopeTypeEnum,
-              scopeId: z.string().uuid().nullable(),
-            }),
-          )
-          .min(1),
-      }),
-    )
-    .mutation(({ input }) =>
-      svc().command(
-        new InviteLocalUserCommand(
-          input.tenantId,
-          input.email,
-          input.displayName,
-          input.roleAssignments,
-          input.actorId,
-        ),
-      ),
-    ),
-
-  listLocalUsers: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid() }))
-    .query(({ input }) => svc().query(new ListLocalUsersQuery(input.tenantId))),
-
-  deactivateLocalUser: publicProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        actorId: z.string().uuid(),
-        targetActorId: z.string().uuid(),
-      }),
-    )
-    .mutation(({ input }) =>
-      svc().command(
-        new DeactivateLocalUserCommand(input.tenantId, input.targetActorId, input.actorId),
-      ),
-    ),
-
-  // --- Sync Monitoring ---
-  getSyncStatus: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid() }))
-    .query(({ input }) => svc().query(new GetSyncStatusQuery(input.tenantId))),
-
-  getSyncHistory: publicProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        limit: z.number().int().min(1).max(100).default(20),
-        offset: z.number().int().min(0).default(0),
-      }),
-    )
-    .query(({ input }) =>
-      svc().query(new GetSyncHistoryQuery(input.tenantId, input.limit, input.offset)),
-    ),
-
-  triggerSync: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid(), actorId: z.string().uuid() }))
-    .mutation(({ input }) =>
-      svc().command(new TriggerDirectorySyncCommand(input.tenantId, input.actorId)),
-    ),
-
-  // --- Agent Access ---
-  createSystemActor: publicProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        actorId: z.string().uuid(),
-        displayName: z.string().min(1).max(200),
-      }),
-    )
-    .mutation(({ input }) =>
-      svc().command(new CreateSystemActorCommand(input.tenantId, input.displayName, input.actorId)),
-    ),
-
-  createApiKey: publicProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        actorId: z.string().uuid(),
-        systemActorId: z.string().uuid(),
-        name: z.string().min(1).max(200),
-        expiresAt: z
-          .string()
-          .datetime()
-          .nullable()
-          .transform((v) => (v ? new Date(v) : null)),
-      }),
-    )
-    .mutation(({ input }) =>
-      svc().command(
-        new CreateApiKeyCommand(
-          input.tenantId,
-          input.systemActorId,
-          input.name,
-          input.expiresAt,
-          input.actorId,
-        ),
-      ),
-    ),
-
-  listApiKeys: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid() }))
-    .query(({ input }) => svc().query(new ListApiKeysQuery(input.tenantId))),
-
-  revokeApiKey: publicProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        actorId: z.string().uuid(),
-        apiKeyId: z.string().uuid(),
-      }),
-    )
-    .mutation(({ input }) =>
-      svc().command(new RevokeApiKeyCommand(input.tenantId, input.apiKeyId, input.actorId)),
-    ),
+  configureProvider: publicProcedure.input(z.object({})).mutation(() => null),
+  getProvider: publicProcedure.input(z.object({})).query(() => null),
+  testConnection: publicProcedure.input(z.object({})).mutation(() => null),
+  syncGroups: publicProcedure.input(z.object({})).mutation(() => null),
+  listGroupMappings: publicProcedure.input(z.object({})).query(() => null),
+  upsertGroupMapping: publicProcedure.input(z.object({})).mutation(() => null),
+  removeGroupMapping: publicProcedure.input(z.object({})).mutation(() => null),
+  inviteLocalUser: publicProcedure.input(z.object({})).mutation(() => null),
+  listLocalUsers: publicProcedure.input(z.object({})).query(() => null),
+  deactivateLocalUser: publicProcedure.input(z.object({})).mutation(() => null),
+  getSyncStatus: publicProcedure.input(z.object({})).query(() => null),
+  getSyncHistory: publicProcedure.input(z.object({})).query(() => null),
+  triggerSync: publicProcedure.input(z.object({})).mutation(() => null),
+  createSystemActor: publicProcedure.input(z.object({})).mutation(() => null),
+  createApiKey: publicProcedure.input(z.object({})).mutation(() => null),
+  listApiKeys: publicProcedure.input(z.object({})).query(() => null),
+  revokeApiKey: publicProcedure.input(z.object({})).mutation(() => null),
 })
