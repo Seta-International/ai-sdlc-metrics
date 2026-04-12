@@ -13,6 +13,11 @@ import { PeopleModule } from '../../modules/people/people.module'
 import { PeopleQueryFacade } from '../../modules/people/application/facades/people-query.facade'
 import { IdentityModule } from '../../modules/identity/identity.module'
 import { AdminModule } from '../../modules/admin/admin.module'
+import { PreferencesModule } from '../../modules/preferences/preferences.module'
+import {
+  SAVED_VIEW_REPOSITORY,
+  type ISavedViewRepository,
+} from '../../modules/preferences/domain/repositories/saved-view.repository'
 import { createKernelRouter } from '../../modules/kernel/interface/trpc/kernel.router'
 import { createPeopleRouter } from '../../modules/people/interface/trpc/people.router'
 import { createIdentityAdminRouter } from '../../modules/identity/interface/trpc/identity.router'
@@ -22,11 +27,13 @@ import {
   setPeopleRouter,
   setIdentityAdminRouter,
   setAdminRouter,
+  setPreferencesRouter,
+  createPreferencesRouter,
   initAppRouter,
 } from './app-router'
 
 @Module({
-  imports: [KernelModule, PeopleModule, IdentityModule, AdminModule],
+  imports: [KernelModule, PeopleModule, IdentityModule, AdminModule, PreferencesModule],
 })
 export class TrpcModule implements OnModuleInit {
   constructor(
@@ -34,6 +41,7 @@ export class TrpcModule implements OnModuleInit {
     private readonly kernelFacade: KernelQueryFacade,
     @Inject(AUDIT_EVENT_REPOSITORY) private readonly auditRepo: IAuditEventRepository,
     private readonly peopleFacade: PeopleQueryFacade,
+    @Inject(SAVED_VIEW_REPOSITORY) private readonly savedViewRepo: ISavedViewRepository,
   ) {}
 
   onModuleInit() {
@@ -55,6 +63,7 @@ export class TrpcModule implements OnModuleInit {
     )
     setIdentityAdminRouter(createIdentityAdminRouter(permissionProtectedProcedure))
     setAdminRouter(createAdminRouter(permissionProtectedProcedure))
+    setPreferencesRouter(createPreferencesRouter(this.savedViewRepo))
 
     initAppRouter()
   }

@@ -16,6 +16,10 @@ import { agentsRouter } from '../../modules/agents/interface/trpc/agents.router'
 import { plannerRouter } from '../../modules/planner/interface/trpc/planner.router'
 import { adminRouter as defaultAdminRouter } from '../../modules/admin/interface/trpc/admin.router'
 import { identityAdminRouter as defaultIdentityAdminRouter } from '../../modules/identity/interface/trpc/identity.router'
+import {
+  preferencesRouter as defaultPreferencesRouter,
+  createPreferencesRouter,
+} from '../../modules/preferences/interface/trpc/preferences.router'
 
 // Mutable references replaced by TrpcModule.onModuleInit with permission-enforcing versions.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -26,6 +30,8 @@ let _peopleRouter: any = defaultPeopleRouter
 let _identityAdminRouter: any = defaultIdentityAdminRouter
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _adminRouter: any = defaultAdminRouter
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _preferencesRouter: any = defaultPreferencesRouter
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function setKernelRouter(r: any): void {
@@ -46,6 +52,13 @@ export function setIdentityAdminRouter(r: any): void {
 export function setAdminRouter(r: any): void {
   _adminRouter = r
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function setPreferencesRouter(r: any): void {
+  _preferencesRouter = r
+}
+
+export { createPreferencesRouter }
 
 function buildAppRouter() {
   // Merge auth procedures from identityRouter with the admin sub-router.
@@ -69,6 +82,7 @@ function buildAppRouter() {
     agents: agentsRouter,
     planner: plannerRouter,
     admin: _adminRouter,
+    preferences: _preferencesRouter,
   })
 }
 

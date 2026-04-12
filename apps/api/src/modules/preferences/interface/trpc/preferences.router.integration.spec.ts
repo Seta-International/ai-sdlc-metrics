@@ -11,6 +11,7 @@ import { sql } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DrizzleSavedViewRepository } from '../../infrastructure/repositories/drizzle-saved-view.repository'
 import type { SavedViewState } from '../../domain/entities/saved-view.entity'
+import { createPreferencesRouter } from './preferences.router'
 
 const TENANT_A = '01900000-0000-7fff-8000-000000000101'
 const ACTOR_A = '01900000-0000-7fff-8000-000000000201'
@@ -201,5 +202,199 @@ describe('DrizzleSavedViewRepository — resolve logic', () => {
     expect(result.views).toHaveLength(0)
     expect(result.activeView).toBeNull()
     expect(result.defaultViewId).toBeNull()
+  })
+})
+
+describe('preferences tRPC router', () => {
+  const db = createTestDb()
+  let repo: DrizzleSavedViewRepository
+
+  const makeCtx = () => ({
+    req: { headers: {} },
+    tenantId: TENANT_A,
+    actorId: ACTOR_A,
+  })
+
+  beforeAll(async () => {
+    await migrateForTest()
+    await truncateCoreSchema(db)
+    await truncatePreferencesSchema(db)
+    await seedTenant(db, { id: TENANT_A, slug: 'tenant-pref-router' })
+    await seedActor(db, { id: ACTOR_A, tenantId: TENANT_A })
+    await seedActor(db, { id: ACTOR_B, tenantId: TENANT_A })
+    repo = new DrizzleSavedViewRepository(db as never)
+  })
+
+  afterAll(async () => {
+    await truncatePreferencesSchema(db)
+    await truncateCoreSchema(db)
+  })
+
+  beforeAll(async () => {
+    await setTenantContext(db, TENANT_A)
+  })
+
+  it('savedView.list — returns views for current actor', async () => {
+    const preferencesRouter = createPreferencesRouter(repo)
+    const caller = preferencesRouter.createCaller(makeCtx())
+
+    const created = await repo.create({
+      tenantId: TENANT_A,
+      actorId: ACTOR_A,
+      resourceKey: 'hiring.jobs',
+      name: 'My View',
+      isDefault: false,
+      stateJson: DEFAULT_STATE,
+    })
+
+    const views = await caller.savedView.list({ resourceKey: 'hiring.jobs' })
+    expect(views.some((v) => v.id === created.id)).toBe(true)
+    expect(views.every((v) => v.actorId === ACTOR_A)).toBe(true)
+
+    await repo.delete(created.id, TENANT_A, ACTOR_A)
+  })
+
+  it('savedView.resolve — returns views, activeView, defaultViewId', async () => {
+    const preferencesRouter = createPreferencesRouter(repo)
+    const caller = preferencesRouter.createCaller(makeCtx())
+
+    const defaultView = await repo.create({
+      tenantId: TENANT_A,
+      actorId: ACTOR_A,
+      resourceKey: 'time.timesheets',
+      name: 'Default',
+      isDefault: true,
+      stateJson: DEFAULT_STATE,
+    })
+
+    const activeView = await repo.create({
+      tenantId: TENANT_A,
+      actorId: ACTOR_A,
+      resourceKey: 'time.timesheets',
+      name: 'Active',
+      isDefault: false,
+      stateJson: DEFAULT_STATE,
+    })
+
+    const result = await caller.savedView.resolve({
+      resourceKey: 'time.timesheets',
+      activeViewId: activeView.id,
+    })
+
+    expect(result.views).toHaveLength(2)
+    expect(result.defaultViewId).toBe(defaultView.id)
+    expect(result.activeView?.id).toBe(activeView.id)
+
+    await repo.delete(defaultView.id, TENANT_A, ACTOR_A)
+    await repo.delete(activeView.id, TENANT_A, ACTOR_A)
+  })
+
+  it('savedView.create — creates a new saved view', async () => {
+    const preferencesRouter = createPreferencesRouter(repo)
+    const caller = preferencesRouter.createCaller(makeCtx())
+
+    const created = await caller.savedView.create({
+      resourceKey: 'projects.list',
+      name: 'My Project View',
+      stateJson: DEFAULT_STATE,
+      isDefault: false,
+    })
+
+    expect(created.id).toBeDefined()
+    expect(created.name).toBe('My Project View')
+    expect(created.actorId).toBe(ACTOR_A)
+    expect(created.tenantId).toBe(TENANT_A)
+    expect(created.resourceKey).toBe('projects.list')
+
+    await repo.delete(created.id, TENANT_A, ACTOR_A)
+  })
+
+  it('savedView.update — updates name and stateJson', async () => {
+    const preferencesRouter = createPreferencesRouter(repo)
+    const caller = preferencesRouter.createCaller(makeCtx())
+
+    const created = await repo.create({
+      tenantId: TENANT_A,
+      actorId: ACTOR_A,
+      resourceKey: 'finance.invoices',
+      name: 'Original Name',
+      isDefault: false,
+      stateJson: DEFAULT_STATE,
+    })
+
+    const updated = await caller.savedView.update({
+      id: created.id,
+      name: 'Updated Name',
+    })
+
+    expect(updated.name).toBe('Updated Name')
+    expect(updated.id).toBe(created.id)
+
+    await repo.delete(created.id, TENANT_A, ACTOR_A)
+  })
+
+  it('savedView.delete — removes a view', async () => {
+    const preferencesRouter = createPreferencesRouter(repo)
+    const caller = preferencesRouter.createCaller(makeCtx())
+
+    const created = await repo.create({
+      tenantId: TENANT_A,
+      actorId: ACTOR_A,
+      resourceKey: 'goals.okrs',
+      name: 'To Delete',
+      isDefault: false,
+      stateJson: DEFAULT_STATE,
+    })
+
+    await caller.savedView.delete({ id: created.id })
+
+    const found = await repo.findById(created.id, TENANT_A, ACTOR_A)
+    expect(found).toBeNull()
+  })
+
+  it('savedView.setDefault — marks a view as default', async () => {
+    const preferencesRouter = createPreferencesRouter(repo)
+    const caller = preferencesRouter.createCaller(makeCtx())
+
+    const view1 = await repo.create({
+      tenantId: TENANT_A,
+      actorId: ACTOR_A,
+      resourceKey: 'performance.reviews',
+      name: 'View 1',
+      isDefault: true,
+      stateJson: DEFAULT_STATE,
+    })
+
+    const view2 = await repo.create({
+      tenantId: TENANT_A,
+      actorId: ACTOR_A,
+      resourceKey: 'performance.reviews',
+      name: 'View 2',
+      isDefault: false,
+      stateJson: DEFAULT_STATE,
+    })
+
+    await caller.savedView.setDefault({ id: view2.id, resourceKey: 'performance.reviews' })
+
+    const views = await repo.listByResource(TENANT_A, ACTOR_A, 'performance.reviews')
+    const newDefault = views.find((v) => v.id === view2.id)
+    const oldDefault = views.find((v) => v.id === view1.id)
+
+    expect(newDefault?.isDefault).toBe(true)
+    expect(oldDefault?.isDefault).toBe(false)
+
+    await repo.delete(view1.id, TENANT_A, ACTOR_A)
+    await repo.delete(view2.id, TENANT_A, ACTOR_A)
+  })
+
+  it('savedView.list — throws UNAUTHORIZED when no tenantId/actorId in ctx', async () => {
+    const preferencesRouter = createPreferencesRouter(repo)
+    const caller = preferencesRouter.createCaller({
+      req: { headers: {} },
+      tenantId: null,
+      actorId: null,
+    })
+
+    await expect(caller.savedView.list({ resourceKey: 'people.employees' })).rejects.toThrow()
   })
 })
