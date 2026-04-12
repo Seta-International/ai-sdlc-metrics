@@ -67,5 +67,8 @@ export * from './components/ui/toggle'
 export * from './components/ui/toggle-group'
 export * from './components/ui/tooltip'
 
+// Data table
+export * from './components/data-table/table-state'
+
 // Utilities
 export { cn } from './lib/utils'
