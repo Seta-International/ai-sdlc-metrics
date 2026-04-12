@@ -5,10 +5,7 @@ import {
   EMPLOYMENT_PROFILE_REPOSITORY,
   type IEmploymentProfileRepository,
 } from '../../domain/repositories/employment-profile.repository'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { EmploymentProfile } from '../../domain/entities/employment-profile.entity'
 import { CreateEmploymentProfileCommand } from './create-employment-profile.command'
 
@@ -20,8 +17,7 @@ export class CreateEmploymentProfileHandler implements ICommandHandler<
   constructor(
     @Inject(EMPLOYMENT_PROFILE_REPOSITORY)
     private readonly profileRepo: IEmploymentProfileRepository,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
   ) {}
 
   async execute(command: CreateEmploymentProfileCommand): Promise<EmploymentProfile> {
@@ -48,7 +44,7 @@ export class CreateEmploymentProfileHandler implements ICommandHandler<
     })
 
     // Audit log
-    await this.auditRepo.insert({
+    await this.auditFacade.recordEvent({
       tenantId: command.tenantId,
       actorId: command.createdBy,
       eventType: 'employment_profile_created',

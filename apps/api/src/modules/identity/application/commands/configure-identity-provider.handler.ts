@@ -1,9 +1,6 @@
 import { Inject } from '@nestjs/common'
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import {
   IDENTITY_PROVIDER_REPOSITORY,
   type IIdentityProviderRepository,
@@ -26,8 +23,7 @@ export class ConfigureIdentityProviderHandler implements ICommandHandler<
   constructor(
     @Inject(IDENTITY_PROVIDER_REPOSITORY)
     private readonly providerRepo: IIdentityProviderRepository,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
   ) {}
 
   async execute(command: ConfigureIdentityProviderCommand): Promise<string> {
@@ -48,7 +44,7 @@ export class ConfigureIdentityProviderHandler implements ICommandHandler<
         syncEnabled: command.syncEnabled,
       })
 
-      await this.auditRepo.insert({
+      await this.auditFacade.recordEvent({
         tenantId: command.tenantId,
         actorId: command.configuredBy,
         eventType: 'identity_provider.configured',
@@ -71,7 +67,7 @@ export class ConfigureIdentityProviderHandler implements ICommandHandler<
       syncEnabled: command.syncEnabled,
     })
 
-    await this.auditRepo.insert({
+    await this.auditFacade.recordEvent({
       tenantId: command.tenantId,
       actorId: command.configuredBy,
       eventType: 'identity_provider.configured',

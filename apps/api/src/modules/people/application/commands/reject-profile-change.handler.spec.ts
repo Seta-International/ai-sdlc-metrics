@@ -8,7 +8,7 @@ import {
 } from '../../domain/exceptions/people.exceptions'
 import { ResolveDecisionCaseCommand } from '../../../kernel/application/commands/resolve-decision-case.command'
 import type { IProfileChangeRequestRepository } from '../../domain/repositories/profile-change-request.repository'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const REQUEST_ID = '01900000-0000-7000-8000-000000000010'
@@ -20,7 +20,7 @@ const COMMENT = 'Does not meet policy requirements'
 describe('RejectProfileChangeHandler', () => {
   let handler: RejectProfileChangeHandler
   let changeRequestRepo: IProfileChangeRequestRepository
-  let auditRepo: IAuditEventRepository
+  let auditFacade: KernelAuditFacade
   let commandBus: CommandBus
 
   beforeEach(() => {
@@ -31,9 +31,12 @@ describe('RejectProfileChangeHandler', () => {
       updateStatus: vi.fn(),
       listByProfile: vi.fn(),
     }
-    auditRepo = { insert: vi.fn() }
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
     commandBus = { execute: vi.fn() } as unknown as CommandBus
-    handler = new RejectProfileChangeHandler(changeRequestRepo, auditRepo, commandBus)
+    handler = new RejectProfileChangeHandler(changeRequestRepo, auditFacade, commandBus)
   })
 
   it('rejects the request and resolves the decision case with comment', async () => {
@@ -62,7 +65,7 @@ describe('RejectProfileChangeHandler', () => {
       REJECTOR_ID,
     )
     expect(commandBus.execute).toHaveBeenCalledWith(expect.any(ResolveDecisionCaseCommand))
-    expect(auditRepo.insert).toHaveBeenCalledWith(
+    expect(auditFacade.recordEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'profile_change_rejected',
         module: 'people',

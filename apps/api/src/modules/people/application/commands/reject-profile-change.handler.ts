@@ -8,10 +8,7 @@ import {
   PROFILE_CHANGE_REQUEST_REPOSITORY,
   type IProfileChangeRequestRepository,
 } from '../../domain/repositories/profile-change-request.repository'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { ResolveDecisionCaseCommand } from '../../../kernel/application/commands/resolve-decision-case.command'
 import { RejectProfileChangeCommand } from './reject-profile-change.command'
 
@@ -23,8 +20,7 @@ export class RejectProfileChangeHandler implements ICommandHandler<
   constructor(
     @Inject(PROFILE_CHANGE_REQUEST_REPOSITORY)
     private readonly changeRequestRepo: IProfileChangeRequestRepository,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
     private readonly commandBus: CommandBus,
   ) {}
 
@@ -57,7 +53,7 @@ export class RejectProfileChangeHandler implements ICommandHandler<
     }
 
     // Audit log
-    await this.auditRepo.insert({
+    await this.auditFacade.recordEvent({
       tenantId: command.tenantId,
       actorId: command.rejectedBy,
       eventType: 'profile_change_rejected',

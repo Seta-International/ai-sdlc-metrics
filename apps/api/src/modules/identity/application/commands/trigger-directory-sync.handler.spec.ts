@@ -3,7 +3,7 @@ import { TriggerDirectorySyncCommand } from './trigger-directory-sync.command'
 import { TriggerDirectorySyncHandler } from './trigger-directory-sync.handler'
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
 import type { IJobScheduler } from '../../domain/ports/job-scheduler.port'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { IdentityProviderEntity } from '../../domain/entities/identity-provider.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
@@ -31,7 +31,7 @@ describe('TriggerDirectorySyncHandler', () => {
   let handler: TriggerDirectorySyncHandler
   let providerRepo: IIdentityProviderRepository
   let jobScheduler: IJobScheduler
-  let auditRepo: IAuditEventRepository
+  let auditFacade: KernelAuditFacade
 
   beforeEach(() => {
     providerRepo = {
@@ -46,16 +46,17 @@ describe('TriggerDirectorySyncHandler', () => {
       enqueueDirectorySync: vi.fn(),
       getNextScheduledSync: vi.fn(),
     }
-    auditRepo = {
-      insert: vi.fn(),
-    }
-    handler = new TriggerDirectorySyncHandler(providerRepo, jobScheduler, auditRepo)
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
+    handler = new TriggerDirectorySyncHandler(providerRepo, jobScheduler, auditFacade)
   })
 
   it('enqueues a sync job and returns job id', async () => {
     vi.mocked(providerRepo.findPrimaryByTenantId).mockResolvedValue(fakeProvider)
     vi.mocked(jobScheduler.enqueueDirectorySync).mockResolvedValue(JOB_ID)
-    vi.mocked(auditRepo.insert).mockResolvedValue(undefined)
+    vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
 
     const result = await handler.execute(new TriggerDirectorySyncCommand(TENANT_ID, ACTOR_ID))
 

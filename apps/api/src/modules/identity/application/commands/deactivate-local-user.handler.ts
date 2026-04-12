@@ -1,9 +1,5 @@
-import { Inject } from '@nestjs/common'
 import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { DeprovisionUserIdentityCommand } from '../../../kernel/application/commands/deprovision-user-identity.command'
 import { RevokeAllRoleGrantsCommand } from '../../../kernel/application/commands/revoke-all-role-grants.command'
 import { UpdateActorStatusCommand } from '../../../kernel/application/commands/update-actor-status.command'
@@ -16,8 +12,7 @@ export class DeactivateLocalUserHandler implements ICommandHandler<
 > {
   constructor(
     private readonly commandBus: CommandBus,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
   ) {}
 
   async execute(command: DeactivateLocalUserCommand): Promise<void> {
@@ -35,7 +30,7 @@ export class DeactivateLocalUserHandler implements ICommandHandler<
     )
 
     // 4. Audit
-    await this.auditRepo.insert({
+    await this.auditFacade.recordEvent({
       tenantId: command.tenantId,
       actorId: command.deactivatedBy,
       eventType: 'local_user.deactivated',

@@ -33,11 +33,8 @@ export async function parsePdf(input: Buffer): Promise<ParsedPdf> {
     pages,
     pageCount: textResult.total,
     metadata: {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       title: infoResult.info?.Title as string | undefined,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       author: infoResult.info?.Author as string | undefined,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       createdAt: infoResult.info?.CreationDate as string | undefined,
     },
   }

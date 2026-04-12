@@ -12,10 +12,7 @@ import {
   EMPLOYMENT_PROFILE_DETAIL_REPOSITORY,
   type IEmploymentProfileDetailRepository,
 } from '../../domain/repositories/employment-profile-detail.repository'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { ResolveDecisionCaseCommand } from '../../../kernel/application/commands/resolve-decision-case.command'
 import { ApproveProfileChangeCommand } from './approve-profile-change.command'
 
@@ -29,8 +26,7 @@ export class ApproveProfileChangeHandler implements ICommandHandler<
     private readonly changeRequestRepo: IProfileChangeRequestRepository,
     @Inject(EMPLOYMENT_PROFILE_DETAIL_REPOSITORY)
     private readonly detailRepo: IEmploymentProfileDetailRepository,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
     private readonly commandBus: CommandBus,
   ) {}
 
@@ -74,7 +70,7 @@ export class ApproveProfileChangeHandler implements ICommandHandler<
     }
 
     // Audit log
-    await this.auditRepo.insert({
+    await this.auditFacade.recordEvent({
       tenantId: command.tenantId,
       actorId: command.approvedBy,
       eventType: 'profile_change_approved',

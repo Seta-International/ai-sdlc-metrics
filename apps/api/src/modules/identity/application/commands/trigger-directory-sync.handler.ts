@@ -1,9 +1,6 @@
 import { Inject } from '@nestjs/common'
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import {
   IDENTITY_PROVIDER_REPOSITORY,
   type IIdentityProviderRepository,
@@ -36,8 +33,7 @@ export class TriggerDirectorySyncHandler implements ICommandHandler<
     private readonly providerRepo: IIdentityProviderRepository,
     @Inject(JOB_SCHEDULER)
     private readonly jobScheduler: IJobScheduler,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
   ) {}
 
   async execute(command: TriggerDirectorySyncCommand): Promise<{ jobId: string }> {
@@ -52,7 +48,7 @@ export class TriggerDirectorySyncHandler implements ICommandHandler<
 
     const jobId = await this.jobScheduler.enqueueDirectorySync(command.tenantId)
 
-    await this.auditRepo.insert({
+    await this.auditFacade.recordEvent({
       tenantId: command.tenantId,
       actorId: command.triggeredBy,
       eventType: 'directory_sync.triggered',

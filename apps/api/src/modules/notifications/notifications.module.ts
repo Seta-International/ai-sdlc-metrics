@@ -17,14 +17,29 @@ import { NOTIFICATION_PUBLISHER } from './infrastructure/redis/notification-publ
     MarkAllReadHandler,
     UnreadCountHandler,
     ListNotificationsHandler,
-    // TODO: Wire real Drizzle repository and Redis publisher when infra is ready
+    // TODO: Replace with real Drizzle repository when infra is ready
     {
       provide: NOTIFICATION_REPOSITORY,
-      useValue: {},
+      useValue: new Proxy(
+        {},
+        {
+          get(_, key) {
+            throw new Error(`NOTIFICATION_REPOSITORY not implemented: ${String(key)}`)
+          },
+        },
+      ),
     },
+    // TODO: Replace with real Redis publisher when infra is ready
     {
       provide: NOTIFICATION_PUBLISHER,
-      useValue: { publish: async () => {} },
+      useValue: new Proxy(
+        {},
+        {
+          get(_, key) {
+            throw new Error(`NOTIFICATION_PUBLISHER not implemented: ${String(key)}`)
+          },
+        },
+      ),
     },
   ],
   exports: [NotificationsQueryFacade],

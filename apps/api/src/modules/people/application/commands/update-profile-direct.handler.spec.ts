@@ -4,7 +4,7 @@ import { UpdateProfileDirectHandler } from './update-profile-direct.handler'
 import { EmploymentProfileNotFoundException } from '../../domain/exceptions/people.exceptions'
 import type { IEmploymentProfileRepository } from '../../domain/repositories/employment-profile.repository'
 import type { IEmploymentProfileDetailRepository } from '../../domain/repositories/employment-profile-detail.repository'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const PROFILE_ID = '01900000-0000-7000-8000-000000000003'
@@ -32,7 +32,7 @@ describe('UpdateProfileDirectHandler', () => {
   let handler: UpdateProfileDirectHandler
   let profileRepo: IEmploymentProfileRepository
   let detailRepo: IEmploymentProfileDetailRepository
-  let auditRepo: IAuditEventRepository
+  let auditFacade: KernelAuditFacade
 
   beforeEach(() => {
     profileRepo = {
@@ -49,8 +49,11 @@ describe('UpdateProfileDirectHandler', () => {
       upsert: vi.fn(),
       updateField: vi.fn(),
     }
-    auditRepo = { insert: vi.fn() }
-    handler = new UpdateProfileDirectHandler(profileRepo, detailRepo, auditRepo)
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
+    handler = new UpdateProfileDirectHandler(profileRepo, detailRepo, auditFacade)
   })
 
   it('updates non-sensitive profile fields directly', async () => {
@@ -73,7 +76,7 @@ describe('UpdateProfileDirectHandler', () => {
       'currentAddress',
       '123 Main St',
     )
-    expect(auditRepo.insert).toHaveBeenCalledWith(
+    expect(auditFacade.recordEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'profile_updated_direct',
         module: 'people',

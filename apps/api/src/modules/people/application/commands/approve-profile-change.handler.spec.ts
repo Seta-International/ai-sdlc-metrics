@@ -9,7 +9,7 @@ import {
 import { ResolveDecisionCaseCommand } from '../../../kernel/application/commands/resolve-decision-case.command'
 import type { IProfileChangeRequestRepository } from '../../domain/repositories/profile-change-request.repository'
 import type { IEmploymentProfileDetailRepository } from '../../domain/repositories/employment-profile-detail.repository'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const REQUEST_ID = '01900000-0000-7000-8000-000000000010'
@@ -21,7 +21,7 @@ describe('ApproveProfileChangeHandler', () => {
   let handler: ApproveProfileChangeHandler
   let changeRequestRepo: IProfileChangeRequestRepository
   let detailRepo: IEmploymentProfileDetailRepository
-  let auditRepo: IAuditEventRepository
+  let auditFacade: KernelAuditFacade
   let commandBus: CommandBus
 
   beforeEach(() => {
@@ -37,9 +37,17 @@ describe('ApproveProfileChangeHandler', () => {
       upsert: vi.fn(),
       updateField: vi.fn(),
     }
-    auditRepo = { insert: vi.fn() }
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
     commandBus = { execute: vi.fn() } as unknown as CommandBus
-    handler = new ApproveProfileChangeHandler(changeRequestRepo, detailRepo, auditRepo, commandBus)
+    handler = new ApproveProfileChangeHandler(
+      changeRequestRepo,
+      detailRepo,
+      auditFacade,
+      commandBus,
+    )
   })
 
   it('applies the change and resolves the decision case', async () => {
@@ -72,7 +80,7 @@ describe('ApproveProfileChangeHandler', () => {
       APPROVER_ID,
     )
     expect(commandBus.execute).toHaveBeenCalledWith(expect.any(ResolveDecisionCaseCommand))
-    expect(auditRepo.insert).toHaveBeenCalledWith(
+    expect(auditFacade.recordEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'profile_change_approved',
         module: 'people',

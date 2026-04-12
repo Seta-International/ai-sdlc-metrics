@@ -6,6 +6,7 @@ pre-commit:
       run: bunx prettier --check {staged_files}
 
 pre-push:
+  parallel: true
   commands:
     lint:
       run: bun turbo lint

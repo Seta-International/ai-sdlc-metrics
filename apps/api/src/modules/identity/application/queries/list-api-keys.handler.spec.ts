@@ -43,10 +43,8 @@ describe('ListApiKeysHandler', () => {
     const result = await handler.execute(new ListApiKeysQuery(TENANT_ID))
 
     expect(result).toEqual(fakeApiKeys)
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     expect(result[0]!.keyLastFour).toBe('9789')
     // Ensure no full key hash is returned
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     expect(result[0]!).not.toHaveProperty('keyHash')
   })
 

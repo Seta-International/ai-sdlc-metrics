@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RemoveGroupMappingCommand } from './remove-group-mapping.command'
 import { RemoveGroupMappingHandler } from './remove-group-mapping.handler'
 import type { IIdpGroupMappingRepository } from '../../domain/repositories/idp-group-mapping.repository'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { IdpGroupMapping } from '../../domain/entities/idp-group-mapping.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
@@ -25,7 +25,7 @@ const fakeMapping: IdpGroupMapping = {
 describe('RemoveGroupMappingHandler', () => {
   let handler: RemoveGroupMappingHandler
   let mappingRepo: IIdpGroupMappingRepository
-  let auditRepo: IAuditEventRepository
+  let auditFacade: KernelAuditFacade
 
   beforeEach(() => {
     mappingRepo = {
@@ -36,21 +36,22 @@ describe('RemoveGroupMappingHandler', () => {
       upsert: vi.fn(),
       remove: vi.fn(),
     }
-    auditRepo = {
-      insert: vi.fn(),
-    }
-    handler = new RemoveGroupMappingHandler(mappingRepo, auditRepo)
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
+    handler = new RemoveGroupMappingHandler(mappingRepo, auditFacade)
   })
 
   it('removes a group mapping', async () => {
     vi.mocked(mappingRepo.findById).mockResolvedValue(fakeMapping)
     vi.mocked(mappingRepo.remove).mockResolvedValue(undefined)
-    vi.mocked(auditRepo.insert).mockResolvedValue(undefined)
+    vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
 
     await handler.execute(new RemoveGroupMappingCommand(TENANT_ID, MAPPING_ID, ACTOR_ID))
 
     expect(mappingRepo.remove).toHaveBeenCalledWith(MAPPING_ID, TENANT_ID)
-    expect(auditRepo.insert).toHaveBeenCalledWith({
+    expect(auditFacade.recordEvent).toHaveBeenCalledWith({
       tenantId: TENANT_ID,
       actorId: ACTOR_ID,
       eventType: 'group_mapping.removed',

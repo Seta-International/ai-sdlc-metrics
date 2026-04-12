@@ -2,17 +2,13 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
-  Inject,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import type { CanDoContext } from '../../../kernel/application/queries/can-do.query'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { TOOL_PERMISSION_KEY, type ToolPermissionScopeMeta } from './tool-permission.decorator'
 import type { McpRequestContext } from './mcp-auth.guard'
 
@@ -21,8 +17,7 @@ export class ToolPermissionGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly kernelFacade: KernelQueryFacade,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -73,7 +68,7 @@ export class ToolPermissionGuard implements CanActivate {
     context: ExecutionContext,
   ): Promise<void> {
     const args = this.extractSanitizedArgs(context)
-    await this.auditRepo.insert({
+    await this.auditFacade.recordEvent({
       tenantId: mcpCtx.tenantId,
       actorId: mcpCtx.actorId,
       eventType: 'agent.tool_call',

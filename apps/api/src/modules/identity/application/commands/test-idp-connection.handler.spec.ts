@@ -3,7 +3,7 @@ import { TestIdpConnectionCommand } from './test-idp-connection.command'
 import { TestIdpConnectionHandler } from './test-idp-connection.handler'
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
 import type { IDirectoryProvider } from '../../domain/ports/directory-provider.port'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { IdentityProviderEntity } from '../../domain/entities/identity-provider.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
@@ -30,7 +30,7 @@ describe('TestIdpConnectionHandler', () => {
   let handler: TestIdpConnectionHandler
   let providerRepo: IIdentityProviderRepository
   let directoryProvider: IDirectoryProvider
-  let auditRepo: IAuditEventRepository
+  let auditFacade: KernelAuditFacade
 
   beforeEach(() => {
     providerRepo = {
@@ -46,10 +46,11 @@ describe('TestIdpConnectionHandler', () => {
       listGroups: vi.fn(),
       listUsers: vi.fn(),
     }
-    auditRepo = {
-      insert: vi.fn(),
-    }
-    handler = new TestIdpConnectionHandler(providerRepo, directoryProvider, auditRepo)
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
+    handler = new TestIdpConnectionHandler(providerRepo, directoryProvider, auditFacade)
   })
 
   it('returns success when connection test passes', async () => {
@@ -58,7 +59,7 @@ describe('TestIdpConnectionHandler', () => {
       success: true,
       userCount: 312,
     })
-    vi.mocked(auditRepo.insert).mockResolvedValue(undefined)
+    vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
 
     const result = await handler.execute(
       new TestIdpConnectionCommand(TENANT_ID, PROVIDER_ID, ACTOR_ID),
@@ -79,7 +80,7 @@ describe('TestIdpConnectionHandler', () => {
       success: false,
       error: 'Invalid client credentials',
     })
-    vi.mocked(auditRepo.insert).mockResolvedValue(undefined)
+    vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
 
     const result = await handler.execute(
       new TestIdpConnectionCommand(TENANT_ID, PROVIDER_ID, ACTOR_ID),

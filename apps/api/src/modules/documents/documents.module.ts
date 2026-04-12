@@ -10,14 +10,28 @@ import { GENERATION_JOB_REPOSITORY } from './domain/repositories/generation-job.
   providers: [
     DocumentsQueryFacade,
     GenerateDocumentHandler,
-    // TODO: Wire real Drizzle repositories when infra is ready
+    // TODO: Replace with real Drizzle repositories when infra is ready
     {
       provide: TEMPLATE_REPOSITORY,
-      useValue: {},
+      useValue: new Proxy(
+        {},
+        {
+          get(_, key) {
+            throw new Error(`TEMPLATE_REPOSITORY not implemented: ${String(key)}`)
+          },
+        },
+      ),
     },
     {
       provide: GENERATION_JOB_REPOSITORY,
-      useValue: {},
+      useValue: new Proxy(
+        {},
+        {
+          get(_, key) {
+            throw new Error(`GENERATION_JOB_REPOSITORY not implemented: ${String(key)}`)
+          },
+        },
+      ),
     },
   ],
   exports: [DocumentsQueryFacade],

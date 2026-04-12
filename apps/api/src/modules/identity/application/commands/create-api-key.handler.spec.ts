@@ -3,7 +3,7 @@ import { CreateApiKeyCommand } from './create-api-key.command'
 import { CreateApiKeyHandler } from './create-api-key.handler'
 import type { IApiKeyRepository } from '../../domain/repositories/api-key.repository'
 import type { ICryptoProvider } from '../../domain/ports/crypto-provider.port'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { ApiKeyEntity } from '../../domain/entities/api-key.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
@@ -28,7 +28,7 @@ describe('CreateApiKeyHandler', () => {
   let handler: CreateApiKeyHandler
   let apiKeyRepo: IApiKeyRepository
   let cryptoProvider: ICryptoProvider
-  let auditRepo: IAuditEventRepository
+  let auditFacade: KernelAuditFacade
 
   beforeEach(() => {
     apiKeyRepo = {
@@ -43,10 +43,11 @@ describe('CreateApiKeyHandler', () => {
       generateApiKey: vi.fn(),
       hashApiKey: vi.fn(),
     }
-    auditRepo = {
-      insert: vi.fn(),
-    }
-    handler = new CreateApiKeyHandler(apiKeyRepo, cryptoProvider, auditRepo)
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
+    handler = new CreateApiKeyHandler(apiKeyRepo, cryptoProvider, auditFacade)
   })
 
   it('generates an API key, stores the hash, and returns the plaintext once', async () => {
@@ -56,7 +57,7 @@ describe('CreateApiKeyHandler', () => {
       lastFour: '9789',
     })
     vi.mocked(apiKeyRepo.insert).mockResolvedValue(fakeApiKey)
-    vi.mocked(auditRepo.insert).mockResolvedValue(undefined)
+    vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
 
     const result = await handler.execute(
       new CreateApiKeyCommand(
@@ -80,7 +81,7 @@ describe('CreateApiKeyHandler', () => {
       name: 'CI/CD Integration',
       expiresAt: new Date('2027-04-11T00:00:00Z'),
     })
-    expect(auditRepo.insert).toHaveBeenCalledWith({
+    expect(auditFacade.recordEvent).toHaveBeenCalledWith({
       tenantId: TENANT_ID,
       actorId: ADMIN_ACTOR_ID,
       eventType: 'api_key.created',

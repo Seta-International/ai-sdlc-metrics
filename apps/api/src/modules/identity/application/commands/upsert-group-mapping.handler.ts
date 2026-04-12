@@ -1,9 +1,6 @@
 import { Inject } from '@nestjs/common'
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import {
   IDP_GROUP_MAPPING_REPOSITORY,
   type IIdpGroupMappingRepository,
@@ -26,8 +23,7 @@ export class UpsertGroupMappingHandler implements ICommandHandler<
   constructor(
     @Inject(IDP_GROUP_MAPPING_REPOSITORY)
     private readonly mappingRepo: IIdpGroupMappingRepository,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
   ) {}
 
   async execute(command: UpsertGroupMappingCommand): Promise<string> {
@@ -45,7 +41,7 @@ export class UpsertGroupMappingHandler implements ICommandHandler<
       scopeId: command.scopeId,
     })
 
-    await this.auditRepo.insert({
+    await this.auditFacade.recordEvent({
       tenantId: command.tenantId,
       actorId: command.updatedBy,
       eventType: 'group_mapping.upserted',

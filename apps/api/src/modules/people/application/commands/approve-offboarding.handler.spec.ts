@@ -11,7 +11,7 @@ import type {
   IOffboardingTemplateRepository,
   IOffboardingCaseRepository,
 } from '../../domain/repositories/offboarding.repository.port'
-import type { IOutboxEventRepository } from '../../../kernel/domain/repositories/outbox-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const CASE_ID = '01900000-0000-7000-8000-000000000030'
@@ -24,7 +24,7 @@ describe('ApproveOffboardingHandler', () => {
   let profileRepo: IEmploymentProfileRepository
   let templateRepo: IOffboardingTemplateRepository
   let caseRepo: IOffboardingCaseRepository
-  let outboxRepo: IOutboxEventRepository
+  let auditFacade: KernelAuditFacade
   let commandBus: CommandBus
 
   beforeEach(() => {
@@ -97,13 +97,16 @@ describe('ApproveOffboardingHandler', () => {
       updateTaskStatus: vi.fn(),
       findTaskById: vi.fn(),
     } as unknown as IOffboardingCaseRepository
-    outboxRepo = { insert: vi.fn() } as unknown as IOutboxEventRepository
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
     commandBus = { execute: vi.fn() } as unknown as CommandBus
     handler = new ApproveOffboardingHandler(
       profileRepo,
       templateRepo,
       caseRepo,
-      outboxRepo,
+      auditFacade,
       commandBus,
     )
   })
@@ -126,7 +129,7 @@ describe('ApproveOffboardingHandler', () => {
     )
 
     // Verify outbox event
-    expect(outboxRepo.insert).toHaveBeenCalledWith(
+    expect(auditFacade.publishOutboxEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         eventName: 'people.offboarding-started',
       }),

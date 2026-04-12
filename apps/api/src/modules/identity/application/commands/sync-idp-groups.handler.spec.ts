@@ -3,7 +3,7 @@ import { SyncIdpGroupsCommand } from './sync-idp-groups.command'
 import { SyncIdpGroupsHandler } from './sync-idp-groups.handler'
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
 import type { IDirectoryProvider, DirectoryGroup } from '../../domain/ports/directory-provider.port'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { IdentityProviderEntity } from '../../domain/entities/identity-provider.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
@@ -35,7 +35,7 @@ describe('SyncIdpGroupsHandler', () => {
   let handler: SyncIdpGroupsHandler
   let providerRepo: IIdentityProviderRepository
   let directoryProvider: IDirectoryProvider
-  let auditRepo: IAuditEventRepository
+  let auditFacade: KernelAuditFacade
 
   beforeEach(() => {
     providerRepo = {
@@ -51,16 +51,17 @@ describe('SyncIdpGroupsHandler', () => {
       listGroups: vi.fn(),
       listUsers: vi.fn(),
     }
-    auditRepo = {
-      insert: vi.fn(),
-    }
-    handler = new SyncIdpGroupsHandler(providerRepo, directoryProvider, auditRepo)
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
+    handler = new SyncIdpGroupsHandler(providerRepo, directoryProvider, auditFacade)
   })
 
   it('fetches groups from IdP and returns them', async () => {
     vi.mocked(providerRepo.findPrimaryByTenantId).mockResolvedValue(fakeProvider)
     vi.mocked(directoryProvider.listGroups).mockResolvedValue(fakeGroups)
-    vi.mocked(auditRepo.insert).mockResolvedValue(undefined)
+    vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
 
     const result = await handler.execute(new SyncIdpGroupsCommand(TENANT_ID, ACTOR_ID))
 

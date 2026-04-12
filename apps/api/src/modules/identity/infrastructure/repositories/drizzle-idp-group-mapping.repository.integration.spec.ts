@@ -84,7 +84,6 @@ describe('DrizzleIdpGroupMappingRepository', () => {
   describe('remove', () => {
     it('deletes the mapping by id', async () => {
       const mappings = await repo.findByProviderId(providerId, TENANT)
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const toRemove = mappings[0]!
 
       await repo.remove(toRemove.id, TENANT)

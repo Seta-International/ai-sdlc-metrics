@@ -1,9 +1,6 @@
 import { Inject } from '@nestjs/common'
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import {
   DIRECTORY_PROVIDER,
   type IDirectoryProvider,
@@ -38,8 +35,7 @@ export class TestIdpConnectionHandler implements ICommandHandler<
     private readonly providerRepo: IIdentityProviderRepository,
     @Inject(DIRECTORY_PROVIDER)
     private readonly directoryProvider: IDirectoryProvider,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
   ) {}
 
   async execute(command: TestIdpConnectionCommand): Promise<TestConnectionResult> {
@@ -55,7 +51,7 @@ export class TestIdpConnectionHandler implements ICommandHandler<
       provider.directoryId ?? '',
     )
 
-    await this.auditRepo.insert({
+    await this.auditFacade.recordEvent({
       tenantId: command.tenantId,
       actorId: command.testedBy,
       eventType: 'identity_provider.connection_tested',

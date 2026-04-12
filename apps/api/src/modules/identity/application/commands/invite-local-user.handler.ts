@@ -1,9 +1,6 @@
 import { Inject } from '@nestjs/common'
 import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { CreateActorCommand } from '../../../kernel/application/commands/create-actor.command'
 import { CreateUserIdentityCommand } from '../../../kernel/application/commands/create-user-identity.command'
 import { GrantRoleCommand } from '../../../kernel/application/commands/grant-role.command'
@@ -22,8 +19,7 @@ export class InviteLocalUserHandler implements ICommandHandler<
 > {
   constructor(
     private readonly commandBus: CommandBus,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
     @Inject(MAGIC_LINK_SENDER)
     private readonly magicLinkSender: IMagicLinkSender,
   ) {}
@@ -71,7 +67,7 @@ export class InviteLocalUserHandler implements ICommandHandler<
     })
 
     // 5. Audit
-    await this.auditRepo.insert({
+    await this.auditFacade.recordEvent({
       tenantId: command.tenantId,
       actorId: command.invitedBy,
       eventType: 'local_user.invited',

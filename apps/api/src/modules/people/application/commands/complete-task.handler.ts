@@ -16,10 +16,7 @@ import {
   EMPLOYMENT_PROFILE_REPOSITORY,
   type IEmploymentProfileRepository,
 } from '../../domain/repositories/employment-profile.repository'
-import {
-  OUTBOX_EVENT_REPOSITORY,
-  type IOutboxEventRepository,
-} from '../../../kernel/domain/repositories/outbox-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { CompleteTaskCommand } from './complete-task.command'
 
 const EMPLOYEE_ACTIVATED_EVENT = 'people.employee-activated'
@@ -33,8 +30,7 @@ export class CompleteTaskHandler implements ICommandHandler<CompleteTaskCommand,
     private readonly offboardingCaseRepo: IOffboardingCaseRepository,
     @Inject(EMPLOYMENT_PROFILE_REPOSITORY)
     private readonly profileRepo: IEmploymentProfileRepository,
-    @Inject(OUTBOX_EVENT_REPOSITORY)
-    private readonly outboxRepo: IOutboxEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
   ) {}
 
   async execute(command: CompleteTaskCommand): Promise<void> {
@@ -69,7 +65,7 @@ export class CompleteTaskHandler implements ICommandHandler<CompleteTaskCommand,
         const profile = await this.profileRepo.findById(onboardingCase.profileId, tenantId)
         if (profile) {
           await this.profileRepo.updateStatus(profile.id, tenantId, 'active')
-          await this.outboxRepo.insert({
+          await this.auditFacade.publishOutboxEvent({
             tenantId,
             eventName: EMPLOYEE_ACTIVATED_EVENT,
             payload: {

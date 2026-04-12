@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { UpsertGroupMappingCommand } from './upsert-group-mapping.command'
 import { UpsertGroupMappingHandler } from './upsert-group-mapping.handler'
 import type { IIdpGroupMappingRepository } from '../../domain/repositories/idp-group-mapping.repository'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { IdpGroupMapping } from '../../domain/entities/idp-group-mapping.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
@@ -26,7 +26,7 @@ const fakeMapping: IdpGroupMapping = {
 describe('UpsertGroupMappingHandler', () => {
   let handler: UpsertGroupMappingHandler
   let mappingRepo: IIdpGroupMappingRepository
-  let auditRepo: IAuditEventRepository
+  let auditFacade: KernelAuditFacade
 
   beforeEach(() => {
     mappingRepo = {
@@ -37,15 +37,16 @@ describe('UpsertGroupMappingHandler', () => {
       upsert: vi.fn(),
       remove: vi.fn(),
     }
-    auditRepo = {
-      insert: vi.fn(),
-    }
-    handler = new UpsertGroupMappingHandler(mappingRepo, auditRepo)
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
+    handler = new UpsertGroupMappingHandler(mappingRepo, auditFacade)
   })
 
   it('upserts a group mapping and returns its id', async () => {
     vi.mocked(mappingRepo.upsert).mockResolvedValue(fakeMapping)
-    vi.mocked(auditRepo.insert).mockResolvedValue(undefined)
+    vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
 
     const result = await handler.execute(
       new UpsertGroupMappingCommand(
@@ -70,7 +71,7 @@ describe('UpsertGroupMappingHandler', () => {
       scopeType: 'global',
       scopeId: null,
     })
-    expect(auditRepo.insert).toHaveBeenCalledWith({
+    expect(auditFacade.recordEvent).toHaveBeenCalledWith({
       tenantId: TENANT_ID,
       actorId: ACTOR_ID,
       eventType: 'group_mapping.upserted',

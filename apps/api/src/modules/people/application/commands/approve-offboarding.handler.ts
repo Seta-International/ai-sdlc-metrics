@@ -14,10 +14,7 @@ import {
   type IOffboardingTemplateRepository,
   type IOffboardingCaseRepository,
 } from '../../domain/repositories/offboarding.repository.port'
-import {
-  OUTBOX_EVENT_REPOSITORY,
-  type IOutboxEventRepository,
-} from '../../../kernel/domain/repositories/outbox-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { ResolveDecisionCaseCommand } from '../../../kernel/application/commands/resolve-decision-case.command'
 import { ApproveOffboardingCommand } from './approve-offboarding.command'
 
@@ -32,8 +29,7 @@ export class ApproveOffboardingHandler implements ICommandHandler<ApproveOffboar
     private readonly templateRepo: IOffboardingTemplateRepository,
     @Inject(OFFBOARDING_CASE_REPOSITORY)
     private readonly caseRepo: IOffboardingCaseRepository,
-    @Inject(OUTBOX_EVENT_REPOSITORY)
-    private readonly outboxRepo: IOutboxEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
     private readonly commandBus: CommandBus,
   ) {}
 
@@ -102,7 +98,7 @@ export class ApproveOffboardingHandler implements ICommandHandler<ApproveOffboar
     }
 
     // 7. Emit outbox event
-    await this.outboxRepo.insert({
+    await this.auditFacade.publishOutboxEvent({
       tenantId: command.tenantId,
       eventName: OFFBOARDING_STARTED_EVENT,
       payload: { actorId: profile.actorId, tenantId: command.tenantId, expectedLastDay: null },

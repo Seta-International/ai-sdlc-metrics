@@ -1,9 +1,6 @@
 import { Inject } from '@nestjs/common'
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import {
   API_KEY_REPOSITORY,
   type IApiKeyRepository,
@@ -26,8 +23,7 @@ export class CreateApiKeyHandler implements ICommandHandler<
     private readonly apiKeyRepo: IApiKeyRepository,
     @Inject(CRYPTO_PROVIDER)
     private readonly cryptoProvider: ICryptoProvider,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
   ) {}
 
   async execute(command: CreateApiKeyCommand): Promise<CreateApiKeyResult> {
@@ -42,7 +38,7 @@ export class CreateApiKeyHandler implements ICommandHandler<
       expiresAt: command.expiresAt,
     })
 
-    await this.auditRepo.insert({
+    await this.auditFacade.recordEvent({
       tenantId: command.tenantId,
       actorId: command.createdBy,
       eventType: 'api_key.created',

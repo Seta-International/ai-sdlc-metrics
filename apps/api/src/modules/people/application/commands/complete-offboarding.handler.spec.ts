@@ -9,7 +9,7 @@ import {
 import type { IEmploymentProfileRepository } from '../../domain/repositories/employment-profile.repository'
 import type { IOffboardingCaseRepository } from '../../domain/repositories/offboarding-case.repository'
 import type { IAccountMembershipRepository } from '../../domain/repositories/account-membership.repository'
-import type { IOutboxEventRepository } from '../../../kernel/domain/repositories/outbox-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { UpdateActorStatusCommand } from '../../../kernel/application/commands/update-actor-status.command'
 import { DeprovisionUserIdentityCommand } from '../../../kernel/application/commands/deprovision-user-identity.command'
 import { RevokeAllRoleGrantsCommand } from '../../../kernel/application/commands/revoke-all-role-grants.command'
@@ -24,7 +24,7 @@ describe('CompleteOffboardingHandler', () => {
   let profileRepo: IEmploymentProfileRepository
   let caseRepo: IOffboardingCaseRepository
   let accountMembershipRepo: IAccountMembershipRepository
-  let outboxRepo: IOutboxEventRepository
+  let auditFacade: KernelAuditFacade
   let commandBus: CommandBus
 
   beforeEach(() => {
@@ -72,14 +72,17 @@ describe('CompleteOffboardingHandler', () => {
       remove: vi.fn(),
     } as unknown as IAccountMembershipRepository
 
-    outboxRepo = { insert: vi.fn() } as unknown as IOutboxEventRepository
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
     commandBus = { execute: vi.fn() } as unknown as CommandBus
 
     handler = new CompleteOffboardingHandler(
       profileRepo,
       caseRepo,
       accountMembershipRepo,
-      outboxRepo,
+      auditFacade,
       commandBus,
     )
   })
@@ -106,7 +109,7 @@ describe('CompleteOffboardingHandler', () => {
     )
     expect(commandBus.execute).toHaveBeenCalledWith(expect.objectContaining({ actorId: 'actor-1' }))
 
-    expect(outboxRepo.insert).toHaveBeenCalledWith(
+    expect(auditFacade.publishOutboxEvent).toHaveBeenCalledWith(
       expect.objectContaining({ eventName: 'people.employee-terminated' }),
     )
   })
