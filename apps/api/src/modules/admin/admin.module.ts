@@ -10,6 +10,8 @@ import { ListRolesHandler } from './application/queries/list-roles.handler'
 import { GetRolePermissionsHandler } from './application/queries/get-role-permissions.handler'
 import { QueryAuditLogHandler } from './application/queries/query-audit-log.handler'
 import { ExportAuditLogHandler } from './application/queries/export-audit-log.handler'
+import { DrizzleTenantEmailConfigRepository } from './infrastructure/repositories/drizzle-tenant-email-config.repository'
+import { TENANT_EMAIL_CONFIG_REPOSITORY } from './domain/repositories/tenant-email-config.repository.port'
 
 const CommandHandlers = [
   AddRolePermissionHandler,
@@ -31,7 +33,10 @@ const QueryHandlers = [
     AdminRouterService,
     ...CommandHandlers,
     ...QueryHandlers,
-    // Infrastructure providers registered here when infra layer is implemented
+    {
+      provide: TENANT_EMAIL_CONFIG_REPOSITORY,
+      useClass: DrizzleTenantEmailConfigRepository,
+    },
   ],
   exports: [AdminQueryFacade],
 })
