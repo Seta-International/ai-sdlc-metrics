@@ -11,7 +11,7 @@
 **Depends on:** Plan 02 (Identity Module) — needs `resolveLogin`, `requestMagicLink`, `validateMagicLink` query/command infrastructure in the kernel
 **Blocks:** Plan 04 (Permission Enforcement) — needs `protectedProcedure` and auth context (`actorId`, `tenantId`, `roles`)
 
-**Status:** planned
+**Status:** implemented
 
 ---
 

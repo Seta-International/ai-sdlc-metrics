@@ -13,7 +13,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-04-11-access-control-strategy-design.md` — Section 5
 
-**Status:** pending
+**Status:** implemented
 
 ---
 

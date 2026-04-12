@@ -11,7 +11,7 @@
 **Depends on:** Plan 01 (Kernel Authorization Layer) — needs `role_grant.source` and `GrantRoleCommand` with source param
 **Blocks:** Plan 03 (Authentication Flow), Plan 06 (Agent Access)
 
-**Status:** not started
+**Status:** implemented
 
 ---
 
