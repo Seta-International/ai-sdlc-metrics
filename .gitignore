@@ -28,3 +28,4 @@ test-results/
 # OS
 .DS_Store
 .gstack/
+.worktrees/
