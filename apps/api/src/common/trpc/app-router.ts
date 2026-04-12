@@ -1,5 +1,6 @@
 import { router } from './trpc-init'
 import { kernelRouter } from '../../modules/kernel/interface/trpc/kernel.router'
+import { identityRouter } from '../../modules/kernel/interface/trpc/identity.router'
 import { peopleRouter } from '../../modules/people/interface/trpc/people.router'
 import { timeRouter } from '../../modules/time/interface/trpc/time.router'
 import { hiringRouter } from '../../modules/hiring/interface/trpc/hiring.router'
@@ -14,6 +15,7 @@ import { adminRouter } from '../../modules/admin/interface/trpc/admin.router'
 
 export const appRouter = router({
   kernel: kernelRouter,
+  identity: identityRouter,
   people: peopleRouter,
   time: timeRouter,
   hiring: hiringRouter,
