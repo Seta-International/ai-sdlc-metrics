@@ -1,0 +1,1 @@
+ALTER TABLE "identity"."api_key" ADD COLUMN "key_last_four" text NOT NULL;
