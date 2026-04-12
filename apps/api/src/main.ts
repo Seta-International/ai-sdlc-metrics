@@ -4,7 +4,7 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/adapters/fastify'
 import { runMigrations } from '@future/db/migrate'
 import { AppModule } from './app.module'
-import { appRouter, type AppRouter } from './common/trpc/app-router'
+import { getAppRouter, type AppRouter } from './common/trpc/app-router'
 
 async function bootstrap() {
   await runMigrations()
@@ -12,12 +12,14 @@ async function bootstrap() {
   const adapter = new FastifyAdapter()
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter)
 
-  // Mount tRPC on the raw Fastify instance before listen
+  // Mount tRPC on the raw Fastify instance before listen.
+  // NestFactory.create initializes all modules (including TrpcModule.onModuleInit),
+  // so getAppRouter() returns the permission-wired router at this point.
   const fastify = adapter.getInstance()
   await fastify.register(fastifyTRPCPlugin, {
     prefix: '/trpc',
     trpcOptions: {
-      router: appRouter,
+      router: getAppRouter(),
       createContext: ({ req }) => ({ req: { headers: { cookie: req.headers.cookie } } }),
       onError({ path, error }) {
         console.error(`tRPC error on '${path}':`, error)

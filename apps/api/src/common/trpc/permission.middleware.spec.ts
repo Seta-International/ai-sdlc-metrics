@@ -59,13 +59,12 @@ describe('permissionMiddleware', () => {
 
   it('should throw FORBIDDEN when permission is denied', async () => {
     kernelFacade.canDo.mockResolvedValue(false)
-    await expect(callMiddleware({ permission: 'people:profile:update' })).rejects.toThrow(TRPCError)
-    try {
-      await callMiddleware({ permission: 'people:profile:update' })
-    } catch (error) {
-      expect(error).toBeInstanceOf(TRPCError)
-      expect((error as TRPCError).code).toBe('FORBIDDEN')
-    }
+
+    const error = await callMiddleware({ permission: 'people:profile:update' }).catch(
+      (e: unknown) => e,
+    )
+    expect(error).toBeInstanceOf(TRPCError)
+    expect((error as TRPCError).code).toBe('FORBIDDEN')
     expect(nextFn).not.toHaveBeenCalled()
   })
 

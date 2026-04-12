@@ -1,7 +1,7 @@
 import { router } from './trpc-init'
-import { kernelRouter } from '../../modules/kernel/interface/trpc/kernel.router'
+import { kernelRouter as defaultKernelRouter } from '../../modules/kernel/interface/trpc/kernel.router'
 import { identityRouter } from '../../modules/kernel/interface/trpc/identity.router'
-import { peopleRouter } from '../../modules/people/interface/trpc/people.router'
+import { peopleRouter as defaultPeopleRouter } from '../../modules/people/interface/trpc/people.router'
 import { timeRouter } from '../../modules/time/interface/trpc/time.router'
 import { hiringRouter } from '../../modules/hiring/interface/trpc/hiring.router'
 import { performanceRouter } from '../../modules/performance/interface/trpc/performance.router'
@@ -13,20 +13,53 @@ import { agentsRouter } from '../../modules/agents/interface/trpc/agents.router'
 import { plannerRouter } from '../../modules/planner/interface/trpc/planner.router'
 import { adminRouter } from '../../modules/admin/interface/trpc/admin.router'
 
-export const appRouter = router({
-  kernel: kernelRouter,
-  identity: identityRouter,
-  people: peopleRouter,
-  time: timeRouter,
-  hiring: hiringRouter,
-  performance: performanceRouter,
-  projects: projectsRouter,
-  finance: financeRouter,
-  goals: goalsRouter,
-  insights: insightsRouter,
-  agents: agentsRouter,
-  planner: plannerRouter,
-  admin: adminRouter,
-})
+// Mutable references replaced by TrpcModule.onModuleInit with permission-enforcing versions.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _kernelRouter: any = defaultKernelRouter
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _peopleRouter: any = defaultPeopleRouter
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function setKernelRouter(r: any): void {
+  _kernelRouter = r
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function setPeopleRouter(r: any): void {
+  _peopleRouter = r
+}
+
+function buildAppRouter() {
+  return router({
+    kernel: _kernelRouter,
+    identity: identityRouter,
+    people: _peopleRouter,
+    time: timeRouter,
+    hiring: hiringRouter,
+    performance: performanceRouter,
+    projects: projectsRouter,
+    finance: financeRouter,
+    goals: goalsRouter,
+    insights: insightsRouter,
+    agents: agentsRouter,
+    planner: plannerRouter,
+    admin: adminRouter,
+  })
+}
+
+// Static type anchor — derived from default routers so AppRouter type is always stable
+export const appRouter = buildAppRouter()
 export type AppRouter = typeof appRouter
+
+let _initializedAppRouter: ReturnType<typeof buildAppRouter> | null = null
+
+export function initAppRouter(): void {
+  _initializedAppRouter = buildAppRouter()
+}
+
+export function getAppRouter(): ReturnType<typeof buildAppRouter> {
+  if (!_initializedAppRouter) {
+    throw new Error('appRouter not initialized. Call initAppRouter() from TrpcModule.onModuleInit.')
+  }
+  return _initializedAppRouter
+}
