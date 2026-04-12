@@ -59,7 +59,7 @@ export class AgentPermissionService {
     const sanitized = { ...args }
     const sensitiveKeys = ['password', 'secret', 'token', 'apiKey', 'api_key', 'credential']
     for (const key of Object.keys(sanitized)) {
-      if (sensitiveKeys.some((s) => key.toLowerCase().includes(s))) {
+      if (sensitiveKeys.some((s) => key.toLowerCase().includes(s.toLowerCase()))) {
         sanitized[key] = '[REDACTED]'
       }
     }

@@ -20,4 +20,8 @@ export class PeopleQueryFacade {
   getOwnProfile(actorId: string, tenantId: string): Promise<ProfileResult | null> {
     return this.queryBus.execute(new GetProfileQuery(actorId, tenantId))
   }
+
+  getEmploymentProfile(actorId: string, tenantId: string): Promise<ProfileResult | null> {
+    return this.getProfile(actorId, tenantId)
+  }
 }

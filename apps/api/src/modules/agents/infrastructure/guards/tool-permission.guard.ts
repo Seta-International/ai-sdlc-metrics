@@ -102,7 +102,7 @@ export class ToolPermissionGuard implements CanActivate {
       const sanitized = { ...toolArgs }
       const sensitiveKeys = ['password', 'secret', 'token', 'apiKey', 'api_key', 'credential']
       for (const key of Object.keys(sanitized)) {
-        if (sensitiveKeys.some((s) => key.toLowerCase().includes(s))) {
+        if (sensitiveKeys.some((s) => key.toLowerCase().includes(s.toLowerCase()))) {
           sanitized[key] = '[REDACTED]'
         }
       }
