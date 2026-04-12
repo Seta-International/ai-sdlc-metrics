@@ -14,3 +14,6 @@ export type {
 
 // ECharts configured instance
 export { echarts } from './core/echarts-setup'
+
+// Themes
+export { SETA_LIGHT_THEME, SETA_DARK_THEME, registerSetaThemes } from './core/theme'
