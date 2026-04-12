@@ -29,6 +29,11 @@ export const roleGrant = coreSchema.table('role_grant', {
   }).notNull(),
   scopeId: uuid('scope_id'),
   grantedBy: uuid('granted_by').notNull(),
+  source: text('source', {
+    enum: ['manual', 'idp_sync', 'delegation'],
+  })
+    .notNull()
+    .default('manual'),
   validFrom: timestamp('valid_from').defaultNow().notNull(),
   validUntil: timestamp('valid_until'),
 })

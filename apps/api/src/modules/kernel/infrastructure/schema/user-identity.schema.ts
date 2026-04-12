@@ -19,10 +19,7 @@ export const userIdentity = coreSchema.table(
     lastLoginAt: timestamp('last_login_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
-  (table) => ({
-    tenantSsoSubjectUnique: uniqueIndex('uq_user_identity_tenant_sso_subject').on(
-      table.tenantId,
-      table.ssoSubject,
-    ),
-  }),
+  (table) => [
+    uniqueIndex('uq_user_identity_tenant_sso_subject').on(table.tenantId, table.ssoSubject),
+  ],
 )

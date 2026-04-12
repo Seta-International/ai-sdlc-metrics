@@ -43,6 +43,34 @@
       "when": 1775912908962,
       "tag": "0005_add_missing_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775913259657,
+      "tag": "0006_vengeful_white_queen",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1775913701106,
+      "tag": "0007_optimal_rumiko_fujikawa",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1775928389407,
+      "tag": "0008_spooky_magdalene",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1775928900000,
+      "tag": "0009_projects_rls_fix",
+      "breakpoints": true
     }
   ]
 }

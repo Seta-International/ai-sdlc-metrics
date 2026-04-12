@@ -1,3 +1,7 @@
+/**
+ * @deprecated Use AllocationConfirmedEvent or StaffingRequestCreatedEvent instead.
+ * This event will be removed once all consumers are migrated.
+ */
 export class AssignmentChangedEvent {
   static readonly eventName = 'projects.assignment-changed'
   constructor(

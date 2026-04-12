@@ -11,8 +11,8 @@ import {
 } from '@future/db/test-helpers'
 import { DrizzleEmploymentProfileRepository } from './drizzle-employment-profile.repository'
 
-const TENANT_A = '01900000-0000-7fff-8000-000000000010'
-const TENANT_B = '01900000-0000-7fff-8000-000000000011'
+const TENANT_A = '01900000-0000-7fff-8000-000000000040'
+const TENANT_B = '01900000-0000-7fff-8000-000000000041'
 
 describe('DrizzleEmploymentProfileRepository', () => {
   const db = createTestDb()

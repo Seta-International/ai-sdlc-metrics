@@ -15,6 +15,7 @@ describe('RevokeAllRoleGrantsHandler', () => {
       findByActorId: vi.fn(),
       insert: vi.fn(),
       revokeAllForActor: vi.fn(),
+      revokeBySource: vi.fn(),
     }
     handler = new RevokeAllRoleGrantsHandler(roleGrantRepo)
   })

@@ -14,6 +14,8 @@ export type RoleKeyValue =
 
 export type ScopeTypeValue = 'global' | 'department' | 'project' | 'account'
 
+export type RoleGrantSourceValue = 'manual' | 'idp_sync' | 'delegation'
+
 export interface RoleGrant {
   id: string
   tenantId: string
@@ -22,6 +24,7 @@ export interface RoleGrant {
   scopeType: ScopeTypeValue
   scopeId: string | null
   grantedBy: string
+  source: RoleGrantSourceValue
   validFrom: Date
   validUntil: Date | null
 }

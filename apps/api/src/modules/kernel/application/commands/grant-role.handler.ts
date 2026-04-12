@@ -44,6 +44,7 @@ export class GrantRoleHandler implements ICommandHandler<GrantRoleCommand, strin
       scopeType: command.scopeType,
       scopeId: command.scopeId,
       grantedBy: command.grantedBy,
+      source: command.source,
     })
 
     return grant.id
