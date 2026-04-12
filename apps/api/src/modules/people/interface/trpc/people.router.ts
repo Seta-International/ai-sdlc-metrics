@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { publicProcedure, router } from '../../../../common/trpc/trpc-init'
+import { devProtectedProcedure } from '../../../../common/trpc/procedures'
 import type { AuthContext } from '../../../../common/trpc/auth-middleware'
 import { checkPermission } from '../../../../common/auth/check-permission'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
@@ -23,6 +24,12 @@ import { ListTemplatesQuery } from '../../application/queries/list-templates.que
 import { ListContractVersionsQuery } from '../../application/queries/list-contract-versions.query'
 import { ListPeriodicReviewsQuery } from '../../application/queries/list-periodic-reviews.query'
 import { PeopleTrpcService } from './people-trpc.service'
+import {
+  futureListQuerySchema,
+  futureExportQuerySchema,
+} from '../../../../common/list/future-list.contract'
+import { listPeopleDirectory } from '../../application/queries/list-people-directory.query'
+import { exportPeopleDirectory } from '../../application/queries/export-people-directory.query'
 
 const svc = () => PeopleTrpcService.getInstance()
 
@@ -329,4 +336,15 @@ export const peopleRouter = router({
         ),
       ),
     ),
+
+  // ── Directory ─────────────────────────────────────────────────────────
+
+  directory: router({
+    list: devProtectedProcedure
+      .input(futureListQuerySchema)
+      .query(({ input }) => listPeopleDirectory(input)),
+    export: devProtectedProcedure
+      .input(futureExportQuerySchema)
+      .query(({ input }) => exportPeopleDirectory(input)),
+  }),
 })
