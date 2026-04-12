@@ -26,6 +26,10 @@ export default defineConfig({
           name: 'integration',
           include: ['src/**/*.integration.spec.ts'],
           setupFiles: ['src/test-setup.integration.ts'],
+          // Run test files sequentially to prevent TRUNCATE in one file's
+          // beforeAll from destroying seed data inserted by another file's beforeAll.
+          // Each file's beforeAll → tests → afterAll fully completes before the next starts.
+          fileParallelism: false,
           env: {
             TEST_DATABASE_URL:
               process.env['TEST_DATABASE_URL'] ??
