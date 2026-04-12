@@ -46,7 +46,7 @@ describe('CreateApiKeyHandler', () => {
     expect(result.id).toBe(KEY_ID)
     expect(result.plaintextKey).toBeDefined()
     expect(result.plaintextKey.length).toBeGreaterThanOrEqual(32)
-    const storedCall = vi.mocked(apiKeyRepo.insert).mock.calls[0][0]
+    const storedCall = vi.mocked(apiKeyRepo.insert).mock.calls[0]![0]!
     expect(storedCall.keyHash).not.toBe(result.plaintextKey)
     expect(auditRepo.insert).toHaveBeenCalledWith(
       expect.objectContaining({ eventType: 'api_key_created', module: 'identity' }),
