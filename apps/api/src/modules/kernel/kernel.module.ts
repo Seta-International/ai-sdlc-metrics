@@ -1,5 +1,7 @@
-import { Module } from '@nestjs/common'
+import { Module, OnModuleInit } from '@nestjs/common'
 import { CqrsModule } from '@nestjs/cqrs'
+import { CommandBus } from '@nestjs/cqrs'
+import { setIdentityCommandBus } from './interface/trpc/identity.router'
 import { ACTOR_REPOSITORY } from './domain/repositories/actor.repository.port'
 import { DEPARTMENT_REPOSITORY } from './domain/repositories/department.repository.port'
 import { DECISION_CASE_REPOSITORY } from './domain/repositories/decision-case.repository.port'
@@ -71,4 +73,10 @@ import { DrizzleOutboxEventRepository } from './infrastructure/repositories/driz
   ],
   exports: [KernelQueryFacade, AUDIT_EVENT_REPOSITORY, OUTBOX_EVENT_REPOSITORY],
 })
-export class KernelModule {}
+export class KernelModule implements OnModuleInit {
+  constructor(private readonly commandBus: CommandBus) {}
+
+  onModuleInit() {
+    setIdentityCommandBus(this.commandBus)
+  }
+}

@@ -18,6 +18,7 @@ async function bootstrap() {
     prefix: '/trpc',
     trpcOptions: {
       router: appRouter,
+      createContext: ({ req }) => ({ req: { headers: { cookie: req.headers.cookie } } }),
       onError({ path, error }) {
         console.error(`tRPC error on '${path}':`, error)
       },
