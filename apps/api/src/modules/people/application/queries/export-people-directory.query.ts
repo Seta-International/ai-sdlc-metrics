@@ -14,6 +14,7 @@ type ExportLimitExceeded = { code: 'EXPORT_LIMIT_EXCEEDED'; limit: 1000; message
 
 export function exportPeopleDirectory(
   input: FutureExportQuery,
+  _rows: PeopleDirectoryRow[] = PEOPLE_DIRECTORY_FIXTURE,
 ): ExportSuccess | ExportLimitExceeded {
   // Validate sort fields
   for (const sort of input.sorting) {
@@ -36,7 +37,7 @@ export function exportPeopleDirectory(
   }
 
   // 1. Apply same search + filter + sort as list (no pagination)
-  let rows: PeopleDirectoryRow[] = [...PEOPLE_DIRECTORY_FIXTURE]
+  let rows: PeopleDirectoryRow[] = [..._rows]
 
   // Apply search
   if (input.search.trim()) {
