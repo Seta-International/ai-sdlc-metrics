@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status:** not started
+
 **Goal:** Build the first shippable version of the Future platform-standard table, including the shared `@future/ui` table kit, the `preferences` saved-view module, typed list contracts in `apps/api`, synchronous CSV export for small result sets, and one real `web-people` reference page.
 
 **Architecture:** This work stays inside one delivery slice. `@future/ui` owns controlled table state, rendering, stories, and component tests. `apps/api` adds a typed tRPC request context, a new `preferences` module for actor-scoped saved views, and a fixture-backed `people.directory` endpoint that exercises the standardized query contract. Export in this slice is intentionally limited to synchronous CSV for `<=1000` rows; the async `>1000` export job path is a follow-up workstream. Because auth/session extraction is not implemented yet, the API will temporarily derive tenant/actor identity from dev/test request headers, then swap that adapter later without changing router signatures.
