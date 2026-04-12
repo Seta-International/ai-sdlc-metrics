@@ -11,3 +11,6 @@ export type {
   WidgetData,
   ChartConfig,
 } from './core/types'
+
+// ECharts configured instance
+export { echarts } from './core/echarts-setup'
