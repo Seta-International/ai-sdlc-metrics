@@ -1,5 +1,6 @@
 'use client'
 
+import type { EChartsType } from 'echarts'
 import ReactEChartsCore from 'echarts-for-react/lib/core'
 import { echarts } from '../core/echarts-setup'
 import { registerSetaThemes } from '../core/theme'
@@ -21,7 +22,7 @@ export interface EChartProps {
   /** When true, chart update is deferred until next render cycle. */
   lazyUpdate?: boolean
   /** Callback fired when the chart instance is ready. */
-  onChartReady?: (instance: ReturnType<typeof echarts.init>) => void
+  onChartReady?: (instance: EChartsType) => void
   /** Map of ECharts event names to handlers. */
   onEvents?: Record<string, (params: unknown) => void>
 }
