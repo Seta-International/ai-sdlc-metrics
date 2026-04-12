@@ -16,4 +16,8 @@ export class PeopleQueryFacade {
   listEmployees(tenantId: string, limit: number, offset: number): Promise<ListEmployeesResult> {
     return this.queryBus.execute(new ListEmployeesQuery(tenantId, limit, offset))
   }
+
+  getOwnProfile(actorId: string, tenantId: string): Promise<ProfileResult | null> {
+    return this.queryBus.execute(new GetProfileQuery(actorId, tenantId))
+  }
 }

@@ -1,5 +1,10 @@
 import { z } from 'zod'
 import { publicProcedure, router } from '../../../../common/trpc/trpc-init'
+import type { AuthContext } from '../../../../common/trpc/auth-middleware'
+import { checkPermission } from '../../../../common/auth/check-permission'
+import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
+import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import type { PeopleQueryFacade } from '../../application/facades/people-query.facade'
 import { CreateEmploymentProfileCommand } from '../../application/commands/create-employment-profile.command'
 import { UpdateProfileDirectCommand } from '../../application/commands/update-profile-direct.command'
 import { RequestProfileChangeCommand } from '../../application/commands/request-profile-change.command'
@@ -20,6 +25,51 @@ import { ListPeriodicReviewsQuery } from '../../application/queries/list-periodi
 import { PeopleTrpcService } from './people-trpc.service'
 
 const svc = () => PeopleTrpcService.getInstance()
+
+export function createPeopleRouter(
+  permissionProtectedProcedure: any,
+  peopleFacade: PeopleQueryFacade,
+  kernelFacade: KernelQueryFacade,
+  auditRepo: IAuditEventRepository,
+) {
+  return router({
+    getProfile: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:read' })
+      .input(z.object({ actorId: z.string().uuid() }))
+      .query(async ({ ctx, input }: { ctx: AuthContext; input: { actorId: string } }) => {
+        return peopleFacade.getProfile(input.actorId, ctx.tenantId)
+      }),
+
+    getOwnProfile: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:self:read' })
+      .query(async ({ ctx }: { ctx: AuthContext }) => {
+        return peopleFacade.getOwnProfile(ctx.actorId, ctx.tenantId)
+      }),
+
+    updateProfile: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:update' })
+      .input(z.object({ actorId: z.string().uuid(), displayName: z.string().optional() }))
+      .mutation(
+        async ({
+          ctx,
+          input,
+        }: {
+          ctx: AuthContext
+          input: { actorId: string; displayName?: string }
+        }) => {
+          const profile = await peopleFacade.getProfile(input.actorId, ctx.tenantId)
+          await checkPermission(kernelFacade, auditRepo, {
+            actorId: ctx.actorId,
+            tenantId: ctx.tenantId,
+            permission: 'people:profile:update',
+            scopeType: 'department',
+            scopeId: (profile as any)?.departmentId,
+          })
+          return { success: true }
+        },
+      ),
+  })
+}
 
 export const peopleRouter = router({
   // ── Queries ────────────────────────────────────────────────────────────
