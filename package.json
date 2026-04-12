@@ -25,7 +25,10 @@
     "db:down": "docker compose -f docker-compose.local.yml down",
     "db:logs": "docker compose -f docker-compose.local.yml logs -f postgres",
     "test:unit": "bun run --cwd apps/api test",
-    "test:integration": "bun run --cwd apps/api test:integration"
+    "test:integration": "bun run --cwd apps/api test:integration",
+    "upgrade": "bun scripts/upgrade.ts",
+    "upgrade:check": "bun scripts/upgrade.ts --check",
+    "upgrade:audit": "bun scripts/upgrade.ts --audit"
   },
   "devDependencies": {
     "eslint": "^10.2.0",
@@ -33,7 +36,7 @@
     "jiti": "^2.6.1",
     "lefthook": "^2.1.5",
     "prettier": "^3.8.2",
-    "turbo": "^2.9.5",
+    "turbo": "^2.9.6",
     "typescript": "^6.0.2"
   }
 }
