@@ -10,6 +10,7 @@ dist/
 
 # TypeScript
 *.tsbuildinfo
+next-env.d.ts
 
 # Environment files
 .env
