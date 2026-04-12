@@ -69,6 +69,18 @@ export * from './components/ui/tooltip'
 
 // Data table
 export * from './components/data-table/table-state'
+export * from './components/data-table/data-table'
+export * from './components/data-table/data-table-column-header'
+export * from './components/data-table/data-table-search'
+export * from './components/data-table/data-table-filters'
+export * from './components/data-table/data-table-view-options'
+export * from './components/data-table/data-table-pagination'
+export * from './components/data-table/data-table-bulk-actions'
+export * from './components/data-table/data-table-expanded-row'
+export * from './components/data-table/data-table-empty'
+export * from './components/data-table/data-table-loading'
+export * from './components/data-table/data-table-error'
+export * from './components/data-table/data-table-toolbar'
 
 // Utilities
 export { cn } from './lib/utils'
