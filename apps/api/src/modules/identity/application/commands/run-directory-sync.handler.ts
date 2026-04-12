@@ -23,6 +23,7 @@ import {
 import { CreateActorCommand } from '../../../kernel/application/commands/create-actor.command'
 import { CreateUserIdentityCommand } from '../../../kernel/application/commands/create-user-identity.command'
 import { UpdateActorStatusCommand } from '../../../kernel/application/commands/update-actor-status.command'
+import { DeprovisionUserIdentityCommand } from '../../../kernel/application/commands/deprovision-user-identity.command'
 import { GrantRoleCommand } from '../../../kernel/application/commands/grant-role.command'
 import { RunDirectorySyncCommand } from './run-directory-sync.command'
 import type {
@@ -85,6 +86,9 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
         } else {
           await this.commandBus.execute(
             new UpdateActorStatusCommand(command.tenantId, user.externalId, 'inactive'),
+          )
+          await this.commandBus.execute(
+            new DeprovisionUserIdentityCommand(command.tenantId, user.externalId),
           )
         }
       }

@@ -122,7 +122,7 @@ describe('RunDirectorySyncHandler', () => {
     vi.mocked(mappingRepo.findByProviderId).mockResolvedValue([])
     vi.mocked(commandBus.execute).mockResolvedValue(undefined)
     await handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID))
-    expect(commandBus.execute).toHaveBeenCalled()
+    expect(commandBus.execute).toHaveBeenCalledTimes(2)
   })
 
   it('syncs group-to-role mappings via GrantRoleCommand', async () => {
