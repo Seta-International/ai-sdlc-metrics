@@ -1,4 +1,7 @@
 import { router } from './trpc-init'
+// Re-export types that appear in AppRouter's inferred type so api-client can name them
+export type { TrpcContext, TrpcMeta } from './trpc-init'
+export type { ResolveLoginResult } from '../../modules/kernel/application/commands/resolve-login.command'
 import { kernelRouter as defaultKernelRouter } from '../../modules/kernel/interface/trpc/kernel.router'
 import { identityRouter } from '../../modules/kernel/interface/trpc/identity.router'
 import { peopleRouter as defaultPeopleRouter } from '../../modules/people/interface/trpc/people.router'

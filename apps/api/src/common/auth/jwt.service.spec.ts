@@ -42,7 +42,10 @@ describe('JwtService', () => {
   it('verify returns null for tampered token', async () => {
     const token = await service.sign(VALID_PAYLOAD)
     const parts = token.split('.')
-    parts[2] = parts[2]!.slice(0, -1) + (parts[2]!.endsWith('A') ? 'B' : 'A')
+    // Change a character from the start of the signature (not the last char,
+    // which only encodes padding bits for HS256's 32-byte output)
+    const sig = parts[2]!
+    parts[2] = (sig[0] === 'A' ? 'B' : 'A') + sig.slice(1)
     const result = await service.verify(parts.join('.'))
     expect(result).toBeNull()
   })
