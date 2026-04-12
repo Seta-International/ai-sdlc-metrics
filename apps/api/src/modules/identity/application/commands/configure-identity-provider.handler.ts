@@ -7,7 +7,7 @@ import {
 import {
   IDENTITY_PROVIDER_REPOSITORY,
   type IIdentityProviderRepository,
-} from '../../domain/repositories/identity-provider.repository.port'
+} from '../../domain/repositories/identity-provider.repository'
 import { ConfigureIdentityProviderCommand } from './configure-identity-provider.command'
 import { DomainException } from '../../../kernel/domain/exceptions/domain.exception'
 

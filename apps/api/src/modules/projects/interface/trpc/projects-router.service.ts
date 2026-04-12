@@ -1,4 +1,4 @@
-import { Injectable, type OnModuleInit } from '@nestjs/common'
+import { Injectable, OnModuleInit } from '@nestjs/common'
 import { CommandBus, QueryBus } from '@nestjs/cqrs'
 
 let instance: ProjectsRouterService | null = null

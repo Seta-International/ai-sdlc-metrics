@@ -7,7 +7,7 @@ import {
 import {
   API_KEY_REPOSITORY,
   type IApiKeyRepository,
-} from '../../domain/repositories/api-key.repository.port'
+} from '../../domain/repositories/api-key.repository'
 import { CRYPTO_PROVIDER, type ICryptoProvider } from '../../domain/ports/crypto-provider.port'
 import { CreateApiKeyCommand } from './create-api-key.command'
 
@@ -37,6 +37,7 @@ export class CreateApiKeyHandler implements ICommandHandler<
       tenantId: command.tenantId,
       actorId: command.actorId,
       keyHash: hash,
+      keyLastFour: lastFour,
       name: command.name,
       expiresAt: command.expiresAt,
     })

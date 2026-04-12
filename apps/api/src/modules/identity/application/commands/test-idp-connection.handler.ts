@@ -11,7 +11,7 @@ import {
 import {
   IDENTITY_PROVIDER_REPOSITORY,
   type IIdentityProviderRepository,
-} from '../../domain/repositories/identity-provider.repository.port'
+} from '../../domain/repositories/identity-provider.repository'
 import { TestIdpConnectionCommand } from './test-idp-connection.command'
 import { DomainException } from '../../../kernel/domain/exceptions/domain.exception'
 
@@ -52,7 +52,7 @@ export class TestIdpConnectionHandler implements ICommandHandler<
       provider.providerType,
       provider.clientId,
       provider.clientSecretRef,
-      provider.directoryId,
+      provider.directoryId ?? '',
     )
 
     await this.auditRepo.insert({

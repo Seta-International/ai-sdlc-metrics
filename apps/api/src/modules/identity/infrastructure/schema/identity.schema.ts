@@ -1,4 +1,13 @@
-import { pgSchema, uuid, text, timestamp, boolean, uniqueIndex, index } from 'drizzle-orm/pg-core'
+import {
+  pgSchema,
+  uuid,
+  text,
+  timestamp,
+  boolean,
+  uniqueIndex,
+  index,
+  integer,
+} from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import { uuidv7 } from 'uuidv7'
 
@@ -82,6 +91,25 @@ export const magicLinkToken = identitySchema.table(
       .on(table.tokenHash)
       .where(sql`${table.usedAt} IS NULL`),
   ],
+)
+
+export const syncHistory = identitySchema.table(
+  'sync_history',
+  {
+    id: uuid('id')
+      .$defaultFn(() => uuidv7())
+      .primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    identityProviderId: uuid('identity_provider_id').notNull(),
+    status: text('status', { enum: ['completed', 'failed'] }).notNull(),
+    usersCreated: integer('users_created').notNull().default(0),
+    usersDeactivated: integer('users_deactivated').notNull().default(0),
+    rolesChanged: integer('roles_changed').notNull().default(0),
+    errorMessage: text('error_message'),
+    startedAt: timestamp('started_at').notNull(),
+    completedAt: timestamp('completed_at').notNull(),
+  },
+  (table) => [index('idx_sync_history_tenant_started').on(table.tenantId, table.startedAt)],
 )
 
 export const apiKey = identitySchema.table('api_key', {

@@ -20,6 +20,9 @@ import { RevokeAllRoleGrantsHandler } from './application/commands/revoke-all-ro
 import { UpdateActorStatusHandler } from './application/commands/update-actor-status.handler'
 import { SeedRolePermissionsHandler } from './application/commands/seed-role-permissions.handler'
 import { ResolveLoginHandler } from './application/commands/resolve-login.handler'
+import { AddRolePermissionHandler } from './application/commands/add-role-permission.handler'
+import { RemoveRolePermissionHandler } from './application/commands/remove-role-permission.handler'
+import { ResetRolePermissionsHandler } from './application/commands/reset-role-permissions.handler'
 import { KernelQueryFacade } from './application/facades/kernel-query.facade'
 import { GetActorHandler } from './application/queries/get-actor.handler'
 import { GetRoleGrantsHandler } from './application/queries/get-role-grants.handler'
@@ -27,6 +30,8 @@ import { GetTenantHandler } from './application/queries/get-tenant.handler'
 import { GetUserIdentityBySsoSubjectHandler } from './application/queries/get-user-identity-by-sso-subject.handler'
 import { CanDoHandler } from './application/queries/can-do.handler'
 import { GetEffectivePermissionsHandler } from './application/queries/get-effective-permissions.handler'
+import { GetRolePermissionsHandler } from './application/queries/get-role-permissions.handler'
+import { ListRolesHandler } from './application/queries/list-roles.handler'
 import { DrizzleActorRepository } from './infrastructure/repositories/drizzle-actor.repository'
 import { DrizzleDecisionCaseRepository } from './infrastructure/repositories/drizzle-decision-case.repository'
 import { DrizzleDepartmentRepository } from './infrastructure/repositories/drizzle-department.repository'
@@ -36,8 +41,10 @@ import { DrizzleDelegationRepository } from './infrastructure/repositories/drizz
 import { DrizzleTenantRepository } from './infrastructure/repositories/drizzle-tenant.repository'
 import { DrizzleUserIdentityRepository } from './infrastructure/repositories/drizzle-user-identity.repository'
 import { AUDIT_EVENT_REPOSITORY } from './domain/repositories/audit-event.repository.port'
+import { AUDIT_EVENT_QUERY_REPOSITORY } from './domain/repositories/audit-event-query.repository.port'
 import { OUTBOX_EVENT_REPOSITORY } from './domain/repositories/outbox-event.repository.port'
 import { DrizzleAuditEventRepository } from './infrastructure/repositories/drizzle-audit-event.repository'
+import { DrizzleAuditEventQueryRepository } from './infrastructure/repositories/drizzle-audit-event-query.repository'
 import { DrizzleOutboxEventRepository } from './infrastructure/repositories/drizzle-outbox-event.repository'
 
 @Module({
@@ -52,6 +59,7 @@ import { DrizzleOutboxEventRepository } from './infrastructure/repositories/driz
     { provide: DEPARTMENT_REPOSITORY, useClass: DrizzleDepartmentRepository },
     { provide: DECISION_CASE_REPOSITORY, useClass: DrizzleDecisionCaseRepository },
     { provide: AUDIT_EVENT_REPOSITORY, useClass: DrizzleAuditEventRepository },
+    { provide: AUDIT_EVENT_QUERY_REPOSITORY, useClass: DrizzleAuditEventQueryRepository },
     { provide: OUTBOX_EVENT_REPOSITORY, useClass: DrizzleOutboxEventRepository },
     CreateActorHandler,
     CreateDecisionCaseHandler,
@@ -63,15 +71,25 @@ import { DrizzleOutboxEventRepository } from './infrastructure/repositories/driz
     UpdateActorStatusHandler,
     SeedRolePermissionsHandler,
     ResolveLoginHandler,
+    AddRolePermissionHandler,
+    RemoveRolePermissionHandler,
+    ResetRolePermissionsHandler,
     GetActorHandler,
     GetTenantHandler,
     GetRoleGrantsHandler,
     GetUserIdentityBySsoSubjectHandler,
     CanDoHandler,
     GetEffectivePermissionsHandler,
+    GetRolePermissionsHandler,
+    ListRolesHandler,
     KernelQueryFacade,
   ],
-  exports: [KernelQueryFacade, AUDIT_EVENT_REPOSITORY, OUTBOX_EVENT_REPOSITORY],
+  exports: [
+    KernelQueryFacade,
+    AUDIT_EVENT_REPOSITORY,
+    AUDIT_EVENT_QUERY_REPOSITORY,
+    OUTBOX_EVENT_REPOSITORY,
+  ],
 })
 export class KernelModule implements OnModuleInit {
   constructor(private readonly commandBus: CommandBus) {}

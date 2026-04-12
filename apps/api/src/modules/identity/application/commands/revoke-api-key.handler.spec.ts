@@ -1,19 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RevokeApiKeyCommand } from './revoke-api-key.command'
 import { RevokeApiKeyHandler } from './revoke-api-key.handler'
-import type { IApiKeyRepository } from '../../domain/repositories/api-key.repository.port'
+import type { IApiKeyRepository } from '../../domain/repositories/api-key.repository'
 import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
-import type { ApiKey } from '../../domain/entities/api-key.entity'
+import type { ApiKeyEntity } from '../../domain/entities/api-key.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const API_KEY_ID = '01900000-0000-7000-8000-000000000090'
 const ADMIN_ACTOR_ID = '01900000-0000-7000-8000-000000000005'
 
-const fakeApiKey: ApiKey = {
+const fakeApiKey: ApiKeyEntity = {
   id: API_KEY_ID,
   tenantId: TENANT_ID,
   actorId: '01900000-0000-7000-8000-000000000080',
   keyHash: 'sha256-hash',
+  keyLastFour: '1234',
   name: 'CI/CD Integration',
   lastUsedAt: null,
   expiresAt: null,
@@ -33,7 +34,7 @@ describe('RevokeApiKeyHandler', () => {
       listByTenantId: vi.fn(),
       insert: vi.fn(),
       revoke: vi.fn(),
-      updateLastUsedAt: vi.fn(),
+      updateLastUsed: vi.fn(),
     }
     auditRepo = {
       insert: vi.fn(),
@@ -48,7 +49,7 @@ describe('RevokeApiKeyHandler', () => {
 
     await handler.execute(new RevokeApiKeyCommand(TENANT_ID, API_KEY_ID, ADMIN_ACTOR_ID))
 
-    expect(apiKeyRepo.revoke).toHaveBeenCalledWith(API_KEY_ID, TENANT_ID, expect.any(Date))
+    expect(apiKeyRepo.revoke).toHaveBeenCalledWith(API_KEY_ID, TENANT_ID)
     expect(auditRepo.insert).toHaveBeenCalledWith({
       tenantId: TENANT_ID,
       actorId: ADMIN_ACTOR_ID,

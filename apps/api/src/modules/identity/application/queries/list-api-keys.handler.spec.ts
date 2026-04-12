@@ -4,7 +4,7 @@ import { ListApiKeysHandler } from './list-api-keys.handler'
 import type {
   IApiKeyRepository,
   ApiKeyListItem,
-} from '../../domain/repositories/api-key.repository.port'
+} from '../../domain/repositories/api-key.repository'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 
@@ -32,7 +32,7 @@ describe('ListApiKeysHandler', () => {
       listByTenantId: vi.fn(),
       insert: vi.fn(),
       revoke: vi.fn(),
-      updateLastUsedAt: vi.fn(),
+      updateLastUsed: vi.fn(),
     }
     handler = new ListApiKeysHandler(apiKeyRepo)
   })

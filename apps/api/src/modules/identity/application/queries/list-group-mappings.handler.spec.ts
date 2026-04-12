@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ListGroupMappingsQuery } from './list-group-mappings.query'
 import { ListGroupMappingsHandler } from './list-group-mappings.handler'
-import type { IIdpGroupMappingRepository } from '../../domain/repositories/idp-group-mapping.repository.port'
+import type { IIdpGroupMappingRepository } from '../../domain/repositories/idp-group-mapping.repository'
 import type { IdpGroupMapping } from '../../domain/entities/idp-group-mapping.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
@@ -41,6 +41,7 @@ describe('ListGroupMappingsHandler', () => {
     mappingRepo = {
       findById: vi.fn(),
       findByProviderId: vi.fn(),
+      findByTenantId: vi.fn(),
       listByTenantId: vi.fn(),
       upsert: vi.fn(),
       remove: vi.fn(),

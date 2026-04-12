@@ -7,7 +7,7 @@ import {
 import {
   IDENTITY_PROVIDER_REPOSITORY,
   type IIdentityProviderRepository,
-} from '../../domain/repositories/identity-provider.repository.port'
+} from '../../domain/repositories/identity-provider.repository'
 import { JOB_SCHEDULER, type IJobScheduler } from '../../domain/ports/job-scheduler.port'
 import { TriggerDirectorySyncCommand } from './trigger-directory-sync.command'
 import { DomainException } from '../../../kernel/domain/exceptions/domain.exception'

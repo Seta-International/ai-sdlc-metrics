@@ -7,7 +7,7 @@ import {
 import {
   IDP_GROUP_MAPPING_REPOSITORY,
   type IIdpGroupMappingRepository,
-} from '../../domain/repositories/idp-group-mapping.repository.port'
+} from '../../domain/repositories/idp-group-mapping.repository'
 import { RemoveGroupMappingCommand } from './remove-group-mapping.command'
 import { DomainException } from '../../../kernel/domain/exceptions/domain.exception'
 

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ListRolesQuery } from './list-roles.query'
 import { ListRolesHandler } from './list-roles.handler'
-import type { IRolePermissionRepository } from '../../../kernel/domain/repositories/role-permission.repository.port'
-import type { RolePermission } from '../../../kernel/domain/entities/role-permission.entity'
+import type { IRolePermissionRepository } from '../../domain/repositories/role-permission.repository.port'
+import type { RolePermission } from '../../domain/entities/role-permission.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 

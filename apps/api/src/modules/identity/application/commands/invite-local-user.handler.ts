@@ -4,13 +4,11 @@ import {
   AUDIT_EVENT_REPOSITORY,
   type IAuditEventRepository,
 } from '../../../kernel/domain/repositories/audit-event.repository.port'
-import {
-  USER_IDENTITY_REPOSITORY,
-  type IUserIdentityRepository,
-} from '../../../kernel/domain/repositories/user-identity.repository.port'
 import { CreateActorCommand } from '../../../kernel/application/commands/create-actor.command'
+import { CreateUserIdentityCommand } from '../../../kernel/application/commands/create-user-identity.command'
 import { GrantRoleCommand } from '../../../kernel/application/commands/grant-role.command'
 import { MAGIC_LINK_SENDER, type IMagicLinkSender } from '../../domain/ports/magic-link-sender.port'
+import { RequestMagicLinkCommand } from './request-magic-link.command'
 import { InviteLocalUserCommand } from './invite-local-user.command'
 import type {
   RoleKeyValue,
@@ -24,8 +22,6 @@ export class InviteLocalUserHandler implements ICommandHandler<
 > {
   constructor(
     private readonly commandBus: CommandBus,
-    @Inject(USER_IDENTITY_REPOSITORY)
-    private readonly userIdentityRepo: IUserIdentityRepository,
     @Inject(AUDIT_EVENT_REPOSITORY)
     private readonly auditRepo: IAuditEventRepository,
     @Inject(MAGIC_LINK_SENDER)
@@ -38,14 +34,16 @@ export class InviteLocalUserHandler implements ICommandHandler<
       new CreateActorCommand(command.tenantId, 'person', command.displayName),
     )
 
-    // 2. Create user_identity with provider='local'
-    await this.userIdentityRepo.insert({
-      tenantId: command.tenantId,
-      actorId,
-      email: command.email,
-      ssoSubject: `local:${command.email}`,
-      provider: 'local',
-    })
+    // 2. Create user_identity with provider='local' via kernel command bus
+    await this.commandBus.execute(
+      new CreateUserIdentityCommand(
+        command.tenantId,
+        actorId,
+        command.email,
+        `local:${command.email}`,
+        'local',
+      ),
+    )
 
     // 3. Grant roles via kernel command bus
     for (const role of command.roleAssignments) {
@@ -61,12 +59,15 @@ export class InviteLocalUserHandler implements ICommandHandler<
       )
     }
 
-    // 4. Send magic link invitation
+    // 4. Generate magic link token, then send invitation email
+    const { plaintextToken } = await this.commandBus.execute(
+      new RequestMagicLinkCommand(command.tenantId, command.email),
+    )
     await this.magicLinkSender.sendInvitation({
       email: command.email,
       displayName: command.displayName,
-      tenantSlug: command.tenantId, // resolved to slug in infra layer
-      token: '', // token generated in infra layer
+      tenantSlug: command.tenantId,
+      token: plaintextToken,
     })
 
     // 5. Audit

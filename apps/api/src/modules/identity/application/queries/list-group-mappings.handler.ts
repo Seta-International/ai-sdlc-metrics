@@ -4,7 +4,7 @@ import type { IdpGroupMapping } from '../../domain/entities/idp-group-mapping.en
 import {
   IDP_GROUP_MAPPING_REPOSITORY,
   type IIdpGroupMappingRepository,
-} from '../../domain/repositories/idp-group-mapping.repository.port'
+} from '../../domain/repositories/idp-group-mapping.repository'
 import { ListGroupMappingsQuery } from './list-group-mappings.query'
 
 @QueryHandler(ListGroupMappingsQuery)

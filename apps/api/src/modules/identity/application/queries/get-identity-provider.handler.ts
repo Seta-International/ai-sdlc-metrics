@@ -3,7 +3,7 @@ import { QueryHandler, type IQueryHandler } from '@nestjs/cqrs'
 import {
   IDENTITY_PROVIDER_REPOSITORY,
   type IIdentityProviderRepository,
-} from '../../domain/repositories/identity-provider.repository.port'
+} from '../../domain/repositories/identity-provider.repository'
 import { GetIdentityProviderQuery } from './get-identity-provider.query'
 
 export interface IdentityProviderDto {
@@ -11,7 +11,7 @@ export interface IdentityProviderDto {
   providerType: string
   displayName: string
   clientId: string
-  directoryId: string
+  directoryId: string | null
   isPrimary: boolean
   syncEnabled: boolean
   lastSyncAt: string | null

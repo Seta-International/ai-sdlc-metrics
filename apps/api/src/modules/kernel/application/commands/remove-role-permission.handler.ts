@@ -1,15 +1,15 @@
 import { Inject } from '@nestjs/common'
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
-import {
   ROLE_PERMISSION_REPOSITORY,
   type IRolePermissionRepository,
-} from '../../../kernel/domain/repositories/role-permission.repository.port'
+} from '../../domain/repositories/role-permission.repository.port'
+import {
+  AUDIT_EVENT_REPOSITORY,
+  type IAuditEventRepository,
+} from '../../domain/repositories/audit-event.repository.port'
+import { DomainException } from '../../domain/exceptions/domain.exception'
 import { RemoveRolePermissionCommand } from './remove-role-permission.command'
-import { DomainException } from '../../../kernel/domain/exceptions/domain.exception'
 
 class PermissionNotFoundException extends DomainException {
   readonly code = 'PERMISSION_NOT_FOUND'
