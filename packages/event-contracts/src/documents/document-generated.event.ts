@@ -6,5 +6,6 @@ export class DocumentGeneratedEvent {
     public readonly templateSlug: string,
     public readonly format: string,
     public readonly outputFileKey: string,
+    public readonly requestedBy: string,
   ) {}
 }
