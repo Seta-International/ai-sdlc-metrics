@@ -113,6 +113,20 @@ No FK constraints across schema boundaries. No imports from another module's `do
 - Ambiguous requirement → ask before implementing.
 - Meaningful tradeoff → surface it, don't silently pick one.
 
+## Workspace Package Builds
+
+Workspace packages (`@future/db`, `@future/event-contracts`, `@future/storage`, etc.) export from `./dist/` and must be built before tests run. If you see `Failed to resolve entry for package "@future/..."`, run:
+
+```bash
+bun run --filter @future/<package-name> build
+```
+
+In a fresh worktree or after `bun install`, always pre-build all workspace packages before running `test:unit`:
+
+```bash
+bun run --filter "@future/*" build
+```
+
 ## Design System
 
 Always read `DESIGN.md` before making any visual or UI decision.
