@@ -3,6 +3,7 @@ export interface ApiKeyEntity {
   tenantId: string
   actorId: string
   keyHash: string
+  keyLastFour: string
   name: string
   lastUsedAt: Date | null
   expiresAt: Date | null
