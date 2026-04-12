@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status:** not started
+
 **Goal:** Replace Recharts with Apache ECharts as the sole charting engine, establishing `packages/charts` as the shared chart package for the analysis module and cross-zone embedding.
 
 **Architecture:** New `@future/charts` package owns all charting: ECharts core setup with tree-shaking, SETA-themed light/dark themes matching DESIGN.md, a chart type registry with metadata for all 22 ECharts types, shared TypeScript types (WidgetSpec, WidgetData, ChartConfig), and a base `<EChart />` React wrapper. Recharts is fully removed from `@future/ui`.
