@@ -1,9 +1,4 @@
-import { Inject } from '@nestjs/common'
 import { QueryHandler, type IQueryHandler } from '@nestjs/cqrs'
-import {
-  ALLOCATION_REPOSITORY,
-  type IAllocationRepository,
-} from '../../domain/repositories/allocation.repository.port'
 import { GetCapacityReportQuery } from './get-capacity-report.query'
 
 export interface CapacityEntry {
@@ -25,8 +20,6 @@ export class GetCapacityReportHandler implements IQueryHandler<
   GetCapacityReportQuery,
   GetCapacityReportResult
 > {
-  constructor(@Inject(ALLOCATION_REPOSITORY) private readonly allocRepo: IAllocationRepository) {}
-
   async execute(_query: GetCapacityReportQuery): Promise<GetCapacityReportResult> {
     // NOTE: Full implementation requires PeopleQueryFacade.listActiveActors().
     // For each actor, calls sumConfirmedHoursPerDay(actorId, tenantId, startDate, endDate)

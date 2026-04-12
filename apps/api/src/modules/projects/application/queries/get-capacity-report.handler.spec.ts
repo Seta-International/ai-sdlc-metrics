@@ -1,31 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { GetCapacityReportQuery } from './get-capacity-report.query'
 import { GetCapacityReportHandler } from './get-capacity-report.handler'
-import type { IAllocationRepository } from '../../domain/repositories/allocation.repository.port'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 
 describe('GetCapacityReportHandler', () => {
   let handler: GetCapacityReportHandler
-  let allocRepo: IAllocationRepository
 
   beforeEach(() => {
-    allocRepo = {
-      findById: vi.fn(),
-      findByActorId: vi.fn(),
-      findActiveByActorId: vi.fn(),
-      findConfirmedByActorId: vi.fn(),
-      findByProjectRoleId: vi.fn(),
-      findByAccountId: vi.fn(),
-      insert: vi.fn(),
-      update: vi.fn(),
-      updateStatus: vi.fn(),
-      close: vi.fn(),
-      closeAllForActor: vi.fn(),
-      flagTentativeForActor: vi.fn(),
-      sumConfirmedHoursPerDay: vi.fn(),
-    }
-    handler = new GetCapacityReportHandler(allocRepo)
+    handler = new GetCapacityReportHandler()
   })
 
   it('returns capacity report with date-range-aware data', async () => {

@@ -1,9 +1,4 @@
-import { Inject } from '@nestjs/common'
 import { QueryHandler, type IQueryHandler } from '@nestjs/cqrs'
-import {
-  ALLOCATION_REPOSITORY,
-  type IAllocationRepository,
-} from '../../domain/repositories/allocation.repository.port'
 import { GetStaffingOverviewQuery } from './get-staffing-overview.query'
 
 export interface StaffingOverviewEntry {
@@ -22,8 +17,6 @@ export class GetStaffingOverviewHandler implements IQueryHandler<
   GetStaffingOverviewQuery,
   GetStaffingOverviewResult
 > {
-  constructor(@Inject(ALLOCATION_REPOSITORY) private readonly allocRepo: IAllocationRepository) {}
-
   async execute(_query: GetStaffingOverviewQuery): Promise<GetStaffingOverviewResult> {
     // NOTE: In a full implementation, this would iterate over all active actors
     // from PeopleQueryFacade, then call sumConfirmedHoursPerDay for each.
