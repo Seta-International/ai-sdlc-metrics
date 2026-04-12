@@ -3,6 +3,7 @@ import { SendNotificationCommand } from './send-notification.command'
 import { SendNotificationHandler } from './send-notification.handler'
 import type { INotificationRepository } from '../../domain/repositories/notification.repository.port'
 import type { Notification } from '../../domain/entities/notification.entity'
+import type { NotificationPublisher } from '../../infrastructure/redis/notification-publisher'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 
@@ -25,7 +26,7 @@ const fakeNotification: Notification = {
 describe('SendNotificationHandler', () => {
   let handler: SendNotificationHandler
   let repo: INotificationRepository
-  let publisher: { publish: ReturnType<typeof vi.fn> }
+  let publisher: NotificationPublisher
 
   beforeEach(() => {
     repo = {
@@ -37,7 +38,7 @@ describe('SendNotificationHandler', () => {
       archive: vi.fn(),
       getPreference: vi.fn().mockResolvedValue(null), // default: no custom prefs
     }
-    publisher = { publish: vi.fn() }
+    publisher = { publish: vi.fn().mockResolvedValue(undefined) } as NotificationPublisher
     handler = new SendNotificationHandler(repo, publisher)
   })
 
