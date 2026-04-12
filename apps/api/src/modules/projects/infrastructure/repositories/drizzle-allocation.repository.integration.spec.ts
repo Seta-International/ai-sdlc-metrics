@@ -13,8 +13,8 @@ import {
 } from '@future/db/test-helpers'
 import { DrizzleAllocationRepository } from './drizzle-allocation.repository'
 
-const TENANT_A = '01900000-0000-7fff-8000-000000000001'
-const TENANT_B = '01900000-0000-7fff-8000-000000000002'
+const TENANT_A = '01900000-0000-7fff-8000-000000000030'
+const TENANT_B = '01900000-0000-7fff-8000-000000000031'
 
 describe('DrizzleAllocationRepository', () => {
   const db = createTestDb()
