@@ -259,6 +259,14 @@ No `@tailwind base/components/utilities` directives. No `tailwind.config.js` unl
 - Exports: React components + Tailwind class utilities.
 - Storybook lives here for component development in isolation.
 
+**Shared UI stack:**
+
+| Library        | Version | Purpose                                                                |
+| -------------- | ------- | ---------------------------------------------------------------------- |
+| TanStack Table | `^8.x`  | Headless table primitives — sorting, filtering, pagination, row expand |
+| shadcn/ui      | latest  | Accessible component primitives built on Radix UI + Tailwind           |
+| Radix UI       | `^1.x`  | Unstyled, accessible component primitives                              |
+
 ---
 
 ## AI and Agent Platform

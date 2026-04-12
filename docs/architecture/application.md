@@ -44,6 +44,7 @@ Names are chosen to match industry-standard HR/AaaS product naming — what cust
 | Agents      | `agents`       | AI agent configs, execution logs, tool registry                                                                      |
 | Planner     | `planner`      | Org-wide task and action tracking, AI-powered reminders, meeting action item extraction (read.ai-style), KPI linkage |
 | Admin       | `admin`        | Tenant settings, AI provider config, module entitlements                                                             |
+| Preferences | `preferences`  | Saved views, actor-scoped table state                                                                                |
 
 ---
 

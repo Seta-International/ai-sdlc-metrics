@@ -21,6 +21,7 @@ import { PlannerModule } from './modules/planner/planner.module'
 import { AdminModule } from './modules/admin/admin.module'
 import { NotificationsModule } from './modules/notifications/notifications.module'
 import { DocumentsModule } from './modules/documents/documents.module'
+import { PreferencesModule } from './modules/preferences/preferences.module'
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { DocumentsModule } from './modules/documents/documents.module'
     AdminModule,
     NotificationsModule,
     DocumentsModule,
+    PreferencesModule,
   ],
   controllers: [HealthController],
   providers: [RlsMiddleware],

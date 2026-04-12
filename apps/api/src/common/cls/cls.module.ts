@@ -10,10 +10,16 @@ import { TenantContextService } from './tenant-context.service'
       middleware: {
         mount: true,
         setup: (cls, req) => {
-          const rawTenantId = req.headers?.['x-tenant-id']
+          const rawTenantId = req.headers?.['x-future-tenant-id']
           const tenantId = Array.isArray(rawTenantId) ? rawTenantId[0] : rawTenantId
           if (tenantId) {
             cls.set('tenantId', tenantId)
+          }
+
+          const rawActorId = req.headers?.['x-future-actor-id']
+          const actorId = Array.isArray(rawActorId) ? rawActorId[0] : rawActorId
+          if (actorId) {
+            cls.set('actorId', actorId)
           }
         },
       },

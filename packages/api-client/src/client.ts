@@ -1,9 +1,20 @@
 import { createTRPCProxyClient, httpBatchLink } from '@trpc/client'
 import type { AppRouter } from './index'
 
-export function createTRPCClient(apiUrl: string) {
+export type TRPCClientOptions = {
+  apiUrl: string
+  headers?: Record<string, string> | (() => Record<string, string>)
+}
+
+export function createTRPCClient(options: TRPCClientOptions) {
+  const { apiUrl, headers } = options
   return createTRPCProxyClient<AppRouter>({
-    links: [httpBatchLink({ url: `${apiUrl}/trpc` })],
+    links: [
+      httpBatchLink({
+        url: `${apiUrl}/trpc`,
+        headers: headers ?? {},
+      }),
+    ],
   })
 }
 
