@@ -4,9 +4,6 @@ import type { KernelQueryFacade } from '../../modules/kernel/application/facades
 import type { IAuditEventRepository } from '../../modules/kernel/domain/repositories/audit-event.repository.port'
 import { router } from './trpc-init'
 
-const ACTOR_ID = '01900000-0000-7000-8000-000000000001'
-const TENANT_ID = '01900000-0000-7000-8000-000000000002'
-
 describe('createProtectedProcedures', () => {
   let kernelFacade: { canDo: ReturnType<typeof vi.fn> }
   let auditRepo: { insert: ReturnType<typeof vi.fn> }

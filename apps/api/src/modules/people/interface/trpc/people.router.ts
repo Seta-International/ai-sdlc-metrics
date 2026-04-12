@@ -27,6 +27,7 @@ import { PeopleTrpcService } from './people-trpc.service'
 const svc = () => PeopleTrpcService.getInstance()
 
 export function createPeopleRouter(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   permissionProtectedProcedure: any,
   peopleFacade: PeopleQueryFacade,
   kernelFacade: KernelQueryFacade,
@@ -63,6 +64,7 @@ export function createPeopleRouter(
             tenantId: ctx.tenantId,
             permission: 'people:profile:update',
             scopeType: 'department',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             scopeId: (profile as any)?.departmentId,
           })
           return { success: true }

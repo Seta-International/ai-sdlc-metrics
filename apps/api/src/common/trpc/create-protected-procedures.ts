@@ -10,7 +10,6 @@ export function createProtectedProcedures(
   const permMwFn = createPermissionMiddleware(kernelFacade, auditRepo)
 
   const permissionMw = middleware(async (opts) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return permMwFn(opts as unknown as Parameters<typeof permMwFn>[0]) as ReturnType<
       typeof opts.next
     >

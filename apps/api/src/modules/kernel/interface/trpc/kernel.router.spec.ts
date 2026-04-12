@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, vi } from 'vitest'
 import { TRPCError } from '@trpc/server'
 import { createKernelRouter } from './kernel.router'

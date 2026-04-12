@@ -3,6 +3,7 @@ import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import type { KernelQueryFacade } from '../../application/facades/kernel-query.facade'
 
 export function createKernelRouter(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   permissionProtectedProcedure: any,
   kernelFacade?: KernelQueryFacade,
 ) {
