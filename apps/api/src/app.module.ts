@@ -2,6 +2,8 @@ import { MiddlewareConsumer, Module, type NestModule } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { AppClsModule } from './common/cls/cls.module'
 import { DbModule } from './common/db/db.module'
+import { PgBossModule } from './common/jobs/pg-boss.module'
+import { RedisModule } from './common/redis/redis.module'
 import { TrpcModule } from './common/trpc/trpc.module'
 import { AuthModule } from './common/auth/auth.module'
 import { HealthController } from './common/health/health.controller'
@@ -27,6 +29,8 @@ import { PreferencesModule } from './modules/preferences/preferences.module'
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DbModule,
+    PgBossModule,
+    RedisModule,
     AppClsModule,
     AuthModule,
     TrpcModule,

@@ -48,6 +48,17 @@ export class S3StorageClient implements StorageClient {
     }
   }
 
+  async putObject(key: string, body: Buffer, contentType: string): Promise<void> {
+    await this.s3.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+      }),
+    )
+  }
+
   async deleteObject(key: string): Promise<void> {
     await this.s3.send(
       new DeleteObjectCommand({
