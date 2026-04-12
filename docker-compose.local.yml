@@ -2,7 +2,8 @@ services:
   postgres:
     image: postgres:16
     container_name: future-postgres
-    restart: unless-stopped
+    restart: on-failure
+    shm_size: 256mb
     environment:
       POSTGRES_USER: future
       POSTGRES_PASSWORD: future
@@ -17,6 +18,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 30s
 
 volumes:
   future-postgres-data:

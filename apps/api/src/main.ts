@@ -1,5 +1,6 @@
 import 'reflect-metadata'
 import { NestFactory } from '@nestjs/core'
+import { Logger } from '@nestjs/common'
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify'
 import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/adapters/fastify'
 import { runMigrations } from '@future/db/migrate'
@@ -7,11 +8,15 @@ import { AppModule } from './app.module'
 import { getAppRouter, type AppRouter } from './common/trpc/app-router'
 import { buildRequestIdentity } from './common/trpc/context'
 
+const logger = new Logger('Bootstrap')
+
 async function bootstrap() {
   await runMigrations()
 
   const adapter = new FastifyAdapter()
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter)
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter, {
+    logger: ['error', 'warn', 'log', 'debug'],
+  })
 
   // Initialize all modules (calls onModuleInit lifecycle hooks)
   // before registering the tRPC plugin which needs the initialized router.
@@ -33,17 +38,17 @@ async function bootstrap() {
         }),
       }),
       onError({ path, error }) {
-        console.error(`tRPC error on '${path}':`, error)
+        logger.error(`tRPC error on '${path}': ${error.message}`, error.stack)
       },
     } satisfies FastifyTRPCPluginOptions<AppRouter>['trpcOptions'],
   })
 
   const port = parseInt(process.env['PORT'] ?? '4000', 10)
   await app.listen(port, '0.0.0.0')
-  console.log(`API listening on :${port}`)
+  logger.log(`API listening on :${port}`)
 }
 
-bootstrap().catch((err) => {
-  console.error('Bootstrap failed:', err)
+bootstrap().catch((err: unknown) => {
+  logger.error('Bootstrap failed', err instanceof Error ? err.stack : String(err))
   process.exit(1)
 })
