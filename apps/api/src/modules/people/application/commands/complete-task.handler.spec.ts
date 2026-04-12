@@ -8,7 +8,7 @@ import {
 import type { IOnboardingCaseRepository } from '../../domain/repositories/onboarding-case.repository'
 import type { IOffboardingCaseRepository } from '../../domain/repositories/offboarding-case.repository'
 import type { IEmploymentProfileRepository } from '../../domain/repositories/employment-profile.repository'
-import type { IOutboxEventRepository } from '../../../kernel/domain/repositories/outbox-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 const EMPLOYEE_ACTIVATED_EVENT = 'people.employee-activated'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
@@ -49,7 +49,7 @@ describe('CompleteTaskHandler', () => {
   let onboardingCaseRepo: IOnboardingCaseRepository
   let offboardingCaseRepo: IOffboardingCaseRepository
   let profileRepo: IEmploymentProfileRepository
-  let outboxRepo: IOutboxEventRepository
+  let auditFacade: KernelAuditFacade
 
   beforeEach(() => {
     onboardingCaseRepo = {
@@ -85,13 +85,16 @@ describe('CompleteTaskHandler', () => {
       listByTenant: vi.fn(),
     } as unknown as IEmploymentProfileRepository
 
-    outboxRepo = { insert: vi.fn() } as unknown as IOutboxEventRepository
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
 
     handler = new CompleteTaskHandler(
       onboardingCaseRepo,
       offboardingCaseRepo,
       profileRepo,
-      outboxRepo,
+      auditFacade,
     )
   })
 
@@ -129,7 +132,7 @@ describe('CompleteTaskHandler', () => {
       expect(onboardingCaseRepo.updateStatus).toHaveBeenCalledWith(CASE_ID, TENANT_ID, 'completed')
       expect(profileRepo.findById).toHaveBeenCalledWith(PROFILE_ID, TENANT_ID)
       expect(profileRepo.updateStatus).toHaveBeenCalledWith(PROFILE_ID, TENANT_ID, 'active')
-      expect(outboxRepo.insert).toHaveBeenCalledWith(
+      expect(auditFacade.publishOutboxEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           tenantId: TENANT_ID,
           eventName: EMPLOYEE_ACTIVATED_EVENT,
@@ -168,7 +171,7 @@ describe('CompleteTaskHandler', () => {
       )
       expect(onboardingCaseRepo.updateStatus).not.toHaveBeenCalled()
       expect(profileRepo.updateStatus).not.toHaveBeenCalled()
-      expect(outboxRepo.insert).not.toHaveBeenCalled()
+      expect(auditFacade.publishOutboxEvent).not.toHaveBeenCalled()
     })
   })
 
@@ -192,7 +195,7 @@ describe('CompleteTaskHandler', () => {
       )
       expect(offboardingCaseRepo.updateStatus).not.toHaveBeenCalled()
       expect(profileRepo.updateStatus).not.toHaveBeenCalled()
-      expect(outboxRepo.insert).not.toHaveBeenCalled()
+      expect(auditFacade.publishOutboxEvent).not.toHaveBeenCalled()
     })
   })
 

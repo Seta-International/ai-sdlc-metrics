@@ -1,9 +1,5 @@
-import { Inject } from '@nestjs/common'
 import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { CreateActorCommand } from '../../../kernel/application/commands/create-actor.command'
 import { CreateSystemActorCommand } from './create-system-actor.command'
 
@@ -14,8 +10,7 @@ export class CreateSystemActorHandler implements ICommandHandler<
 > {
   constructor(
     private readonly commandBus: CommandBus,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
   ) {}
 
   async execute(command: CreateSystemActorCommand): Promise<{ actorId: string }> {
@@ -23,7 +18,7 @@ export class CreateSystemActorHandler implements ICommandHandler<
       new CreateActorCommand(command.tenantId, 'system', command.displayName),
     )
 
-    await this.auditRepo.insert({
+    await this.auditFacade.recordEvent({
       tenantId: command.tenantId,
       actorId: command.createdBy,
       eventType: 'system_actor.created',

@@ -5,7 +5,7 @@ import { RequestProfileChangeHandler } from './request-profile-change.handler'
 import { EmploymentProfileNotFoundException } from '../../domain/exceptions/people.exceptions'
 import type { IProfileChangeRequestRepository } from '../../domain/repositories/profile-change-request.repository'
 import type { IEmploymentProfileRepository } from '../../domain/repositories/employment-profile.repository'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const PROFILE_ID = '01900000-0000-7000-8000-000000000003'
@@ -35,7 +35,7 @@ describe('RequestProfileChangeHandler', () => {
   let handler: RequestProfileChangeHandler
   let profileRepo: IEmploymentProfileRepository
   let changeRequestRepo: IProfileChangeRequestRepository
-  let auditRepo: IAuditEventRepository
+  let auditFacade: KernelAuditFacade
   let commandBus: CommandBus
 
   beforeEach(() => {
@@ -55,9 +55,17 @@ describe('RequestProfileChangeHandler', () => {
       updateStatus: vi.fn(),
       listByProfile: vi.fn(),
     }
-    auditRepo = { insert: vi.fn() }
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
     commandBus = { execute: vi.fn().mockResolvedValue({ id: CASE_ID }) } as unknown as CommandBus
-    handler = new RequestProfileChangeHandler(profileRepo, changeRequestRepo, auditRepo, commandBus)
+    handler = new RequestProfileChangeHandler(
+      profileRepo,
+      changeRequestRepo,
+      auditFacade,
+      commandBus,
+    )
   })
 
   it('creates a change request and dispatches CreateDecisionCaseCommand', async () => {
@@ -99,7 +107,7 @@ describe('RequestProfileChangeHandler', () => {
       }),
     )
     expect(commandBus.execute).toHaveBeenCalled() // CreateDecisionCaseCommand
-    expect(auditRepo.insert).toHaveBeenCalledWith(
+    expect(auditFacade.recordEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'profile_change_requested',
         module: 'people',

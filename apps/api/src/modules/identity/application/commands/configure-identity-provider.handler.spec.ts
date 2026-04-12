@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConfigureIdentityProviderCommand } from './configure-identity-provider.command'
 import { ConfigureIdentityProviderHandler } from './configure-identity-provider.handler'
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { IdentityProviderEntity } from '../../domain/entities/identity-provider.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
@@ -28,7 +28,7 @@ const fakeProvider: IdentityProviderEntity = {
 describe('ConfigureIdentityProviderHandler', () => {
   let handler: ConfigureIdentityProviderHandler
   let providerRepo: IIdentityProviderRepository
-  let auditRepo: IAuditEventRepository
+  let auditFacade: KernelAuditFacade
 
   beforeEach(() => {
     providerRepo = {
@@ -39,15 +39,16 @@ describe('ConfigureIdentityProviderHandler', () => {
       insert: vi.fn(),
       update: vi.fn(),
     }
-    auditRepo = {
-      insert: vi.fn(),
-    }
-    handler = new ConfigureIdentityProviderHandler(providerRepo, auditRepo)
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
+    handler = new ConfigureIdentityProviderHandler(providerRepo, auditFacade)
   })
 
   it('creates a new identity provider when no existingProviderId', async () => {
     vi.mocked(providerRepo.insert).mockResolvedValue(fakeProvider)
-    vi.mocked(auditRepo.insert).mockResolvedValue(undefined)
+    vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
 
     const result = await handler.execute(
       new ConfigureIdentityProviderCommand(
@@ -73,7 +74,7 @@ describe('ConfigureIdentityProviderHandler', () => {
       isPrimary: true,
       syncEnabled: true,
     })
-    expect(auditRepo.insert).toHaveBeenCalledWith({
+    expect(auditFacade.recordEvent).toHaveBeenCalledWith({
       tenantId: TENANT_ID,
       actorId: ACTOR_ID,
       eventType: 'identity_provider.configured',
@@ -86,7 +87,7 @@ describe('ConfigureIdentityProviderHandler', () => {
   it('updates an existing identity provider when existingProviderId is set', async () => {
     vi.mocked(providerRepo.findById).mockResolvedValue(fakeProvider)
     vi.mocked(providerRepo.update).mockResolvedValue(undefined)
-    vi.mocked(auditRepo.insert).mockResolvedValue(undefined)
+    vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
 
     const result = await handler.execute(
       new ConfigureIdentityProviderCommand(

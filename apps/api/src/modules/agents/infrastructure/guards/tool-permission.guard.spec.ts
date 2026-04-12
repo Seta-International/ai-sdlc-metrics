@@ -4,7 +4,7 @@ import { ForbiddenException } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { TOOL_PERMISSION_KEY } from './tool-permission.decorator'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const ACTOR_ID = '01900000-0000-7000-8000-000000000002'
@@ -13,13 +13,16 @@ describe('ToolPermissionGuard', () => {
   let guard: ToolPermissionGuard
   let reflector: Reflector
   let kernelFacade: KernelQueryFacade
-  let auditRepo: IAuditEventRepository
+  let auditFacade: KernelAuditFacade
 
   beforeEach(() => {
     reflector = new Reflector()
     kernelFacade = { canDo: vi.fn() } as unknown as KernelQueryFacade
-    auditRepo = { insert: vi.fn().mockResolvedValue(undefined) } as unknown as IAuditEventRepository
-    guard = new ToolPermissionGuard(reflector, kernelFacade, auditRepo)
+    auditFacade = {
+      recordEvent: vi.fn().mockResolvedValue(undefined),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
+    guard = new ToolPermissionGuard(reflector, kernelFacade, auditFacade)
   })
 
   function createMockContext(
@@ -59,7 +62,7 @@ describe('ToolPermissionGuard', () => {
       expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'people:profile:read', {
         tenantId: TENANT_ID,
       })
-      expect(auditRepo.insert).toHaveBeenCalledWith(
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           tenantId: TENANT_ID,
           actorId: ACTOR_ID,
@@ -89,7 +92,7 @@ describe('ToolPermissionGuard', () => {
         'people_update_employment_profile',
       )
       await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException)
-      expect(auditRepo.insert).toHaveBeenCalledWith(
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           eventType: 'agent.tool_call',
           payload: expect.objectContaining({
@@ -115,7 +118,7 @@ describe('ToolPermissionGuard', () => {
 
       expect(result).toBe(true)
       expect(kernelFacade.canDo).not.toHaveBeenCalled()
-      expect(auditRepo.insert).toHaveBeenCalledWith(
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           eventType: 'agent.tool_call',
           payload: expect.objectContaining({

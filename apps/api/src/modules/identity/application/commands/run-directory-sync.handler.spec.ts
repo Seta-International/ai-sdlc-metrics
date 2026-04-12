@@ -8,7 +8,7 @@ import {
 } from '../../domain/exceptions/identity.exceptions'
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
 import type { IIdpGroupMappingRepository } from '../../domain/repositories/idp-group-mapping.repository'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type {
   IDirectoryProvider,
   IdpUser,
@@ -39,7 +39,7 @@ describe('RunDirectorySyncHandler', () => {
   let handler: RunDirectorySyncHandler
   let providerRepo: IIdentityProviderRepository
   let mappingRepo: IIdpGroupMappingRepository
-  let auditRepo: IAuditEventRepository
+  let auditFacade: KernelAuditFacade
   let commandBus: CommandBus
   let directoryProvider: IDirectoryProvider
   let directoryProviderFactory: { create: ReturnType<typeof vi.fn> }
@@ -61,14 +61,17 @@ describe('RunDirectorySyncHandler', () => {
       upsert: vi.fn(),
       remove: vi.fn(),
     }
-    auditRepo = { insert: vi.fn() }
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
     commandBus = { execute: vi.fn() } as unknown as CommandBus
     directoryProvider = { listUsers: vi.fn(), listGroupsWithMembers: vi.fn() }
     directoryProviderFactory = { create: vi.fn().mockReturnValue(directoryProvider) }
     handler = new RunDirectorySyncHandler(
       providerRepo,
       mappingRepo,
-      auditRepo,
+      auditFacade,
       commandBus,
       directoryProviderFactory as never,
     )

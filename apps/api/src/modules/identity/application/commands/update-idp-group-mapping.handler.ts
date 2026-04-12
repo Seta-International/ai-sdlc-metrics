@@ -9,10 +9,7 @@ import {
   IDP_GROUP_MAPPING_REPOSITORY,
   type IIdpGroupMappingRepository,
 } from '../../domain/repositories/idp-group-mapping.repository'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { IdpGroupMapping } from '../../domain/entities/idp-group-mapping.entity'
 import { UpdateIdpGroupMappingCommand } from './update-idp-group-mapping.command'
 
@@ -25,7 +22,7 @@ export class UpdateIdpGroupMappingHandler implements ICommandHandler<
     @Inject(IDENTITY_PROVIDER_REPOSITORY)
     private readonly providerRepo: IIdentityProviderRepository,
     @Inject(IDP_GROUP_MAPPING_REPOSITORY) private readonly mappingRepo: IIdpGroupMappingRepository,
-    @Inject(AUDIT_EVENT_REPOSITORY) private readonly auditRepo: IAuditEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
   ) {}
 
   async execute(command: UpdateIdpGroupMappingCommand): Promise<IdpGroupMapping> {
@@ -42,7 +39,7 @@ export class UpdateIdpGroupMappingHandler implements ICommandHandler<
       scopeId: command.scopeId,
     })
 
-    await this.auditRepo.insert({
+    await this.auditFacade.recordEvent({
       tenantId: command.tenantId,
       actorId: command.updatedBy,
       eventType: 'idp_group_mapping_updated',

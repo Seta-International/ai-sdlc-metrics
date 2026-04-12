@@ -3,7 +3,7 @@ import { CreateEmploymentProfileCommand } from './create-employment-profile.comm
 import { CreateEmploymentProfileHandler } from './create-employment-profile.handler'
 import { EmploymentProfileAlreadyExistsException } from '../../domain/exceptions/people.exceptions'
 import type { IEmploymentProfileRepository } from '../../domain/repositories/employment-profile.repository'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const ACTOR_ID = '01900000-0000-7000-8000-000000000002'
@@ -13,7 +13,7 @@ const CREATOR_ID = '01900000-0000-7000-8000-000000000004'
 describe('CreateEmploymentProfileHandler', () => {
   let handler: CreateEmploymentProfileHandler
   let profileRepo: IEmploymentProfileRepository
-  let auditRepo: IAuditEventRepository
+  let auditFacade: KernelAuditFacade
 
   beforeEach(() => {
     profileRepo = {
@@ -25,8 +25,11 @@ describe('CreateEmploymentProfileHandler', () => {
       update: vi.fn(),
       listByTenant: vi.fn(),
     }
-    auditRepo = { insert: vi.fn() }
-    handler = new CreateEmploymentProfileHandler(profileRepo, auditRepo)
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
+    handler = new CreateEmploymentProfileHandler(profileRepo, auditFacade)
   })
 
   it('creates a profile and writes an audit event', async () => {
@@ -70,7 +73,7 @@ describe('CreateEmploymentProfileHandler', () => {
         employmentStatus: 'pre_hire',
       }),
     )
-    expect(auditRepo.insert).toHaveBeenCalledWith(
+    expect(auditFacade.recordEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'employment_profile_created',
         module: 'people',

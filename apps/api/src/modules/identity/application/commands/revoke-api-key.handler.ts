@@ -1,9 +1,6 @@
 import { Inject } from '@nestjs/common'
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import {
   API_KEY_REPOSITORY,
   type IApiKeyRepository,
@@ -30,8 +27,7 @@ export class RevokeApiKeyHandler implements ICommandHandler<RevokeApiKeyCommand,
   constructor(
     @Inject(API_KEY_REPOSITORY)
     private readonly apiKeyRepo: IApiKeyRepository,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
   ) {}
 
   async execute(command: RevokeApiKeyCommand): Promise<void> {
@@ -46,7 +42,7 @@ export class RevokeApiKeyHandler implements ICommandHandler<RevokeApiKeyCommand,
 
     await this.apiKeyRepo.revoke(command.apiKeyId, command.tenantId)
 
-    await this.auditRepo.insert({
+    await this.auditFacade.recordEvent({
       tenantId: command.tenantId,
       actorId: command.revokedBy,
       eventType: 'api_key.revoked',

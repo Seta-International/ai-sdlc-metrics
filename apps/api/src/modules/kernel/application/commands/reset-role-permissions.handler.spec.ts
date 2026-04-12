@@ -42,7 +42,6 @@ describe('ResetRolePermissionsHandler', () => {
 
     expect(permissionRepo.removeAllForRole).toHaveBeenCalledWith('employee', TENANT_ID)
     expect(permissionRepo.insertMany).toHaveBeenCalledWith(
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       DEFAULT_ROLE_PERMISSIONS['employee']!.map((p) => ({
         tenantId: TENANT_ID,
         roleKey: 'employee',

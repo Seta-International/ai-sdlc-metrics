@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AgentPermissionService } from './agent-permission.service'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const ACTOR_ID = '01900000-0000-7000-8000-000000000002'
@@ -9,12 +9,15 @@ const ACTOR_ID = '01900000-0000-7000-8000-000000000002'
 describe('AgentPermissionService', () => {
   let service: AgentPermissionService
   let kernelFacade: KernelQueryFacade
-  let auditRepo: IAuditEventRepository
+  let auditFacade: KernelAuditFacade
 
   beforeEach(() => {
     kernelFacade = { canDo: vi.fn() } as unknown as KernelQueryFacade
-    auditRepo = { insert: vi.fn().mockResolvedValue(undefined) } as unknown as IAuditEventRepository
-    service = new AgentPermissionService(kernelFacade, auditRepo)
+    auditFacade = {
+      recordEvent: vi.fn().mockResolvedValue(undefined),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
+    service = new AgentPermissionService(kernelFacade, auditFacade)
   })
 
   describe('checkToolPermission', () => {
@@ -32,7 +35,7 @@ describe('AgentPermissionService', () => {
       expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'people:profile:read', {
         tenantId: TENANT_ID,
       })
-      expect(auditRepo.insert).toHaveBeenCalledWith(
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           tenantId: TENANT_ID,
           actorId: ACTOR_ID,
@@ -61,7 +64,7 @@ describe('AgentPermissionService', () => {
       })
 
       expect(result).toBe(false)
-      expect(auditRepo.insert).toHaveBeenCalledWith(
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           payload: expect.objectContaining({
             tool: 'people_update_employment_profile',
@@ -103,7 +106,7 @@ describe('AgentPermissionService', () => {
         args: { actorId: ACTOR_ID, someField: 'value' },
       })
 
-      expect(auditRepo.insert).toHaveBeenCalledWith(
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           payload: expect.objectContaining({ args: { actorId: ACTOR_ID, someField: 'value' } }),
         }),
@@ -121,7 +124,7 @@ describe('AgentPermissionService', () => {
         args: { name: 'test', password: 'secret123', apiKey: 'key123' },
       })
 
-      expect(auditRepo.insert).toHaveBeenCalledWith(
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           payload: expect.objectContaining({
             args: { name: 'test', password: '[REDACTED]', apiKey: '[REDACTED]' },

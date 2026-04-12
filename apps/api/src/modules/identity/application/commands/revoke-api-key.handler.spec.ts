@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RevokeApiKeyCommand } from './revoke-api-key.command'
 import { RevokeApiKeyHandler } from './revoke-api-key.handler'
 import type { IApiKeyRepository } from '../../domain/repositories/api-key.repository'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { ApiKeyEntity } from '../../domain/entities/api-key.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
@@ -25,7 +25,7 @@ const fakeApiKey: ApiKeyEntity = {
 describe('RevokeApiKeyHandler', () => {
   let handler: RevokeApiKeyHandler
   let apiKeyRepo: IApiKeyRepository
-  let auditRepo: IAuditEventRepository
+  let auditFacade: KernelAuditFacade
 
   beforeEach(() => {
     apiKeyRepo = {
@@ -36,21 +36,22 @@ describe('RevokeApiKeyHandler', () => {
       revoke: vi.fn(),
       updateLastUsed: vi.fn(),
     }
-    auditRepo = {
-      insert: vi.fn(),
-    }
-    handler = new RevokeApiKeyHandler(apiKeyRepo, auditRepo)
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
+    handler = new RevokeApiKeyHandler(apiKeyRepo, auditFacade)
   })
 
   it('revokes an API key', async () => {
     vi.mocked(apiKeyRepo.findById).mockResolvedValue(fakeApiKey)
     vi.mocked(apiKeyRepo.revoke).mockResolvedValue(undefined)
-    vi.mocked(auditRepo.insert).mockResolvedValue(undefined)
+    vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
 
     await handler.execute(new RevokeApiKeyCommand(TENANT_ID, API_KEY_ID, ADMIN_ACTOR_ID))
 
     expect(apiKeyRepo.revoke).toHaveBeenCalledWith(API_KEY_ID, TENANT_ID)
-    expect(auditRepo.insert).toHaveBeenCalledWith({
+    expect(auditFacade.recordEvent).toHaveBeenCalledWith({
       tenantId: TENANT_ID,
       actorId: ADMIN_ACTOR_ID,
       eventType: 'api_key.revoked',

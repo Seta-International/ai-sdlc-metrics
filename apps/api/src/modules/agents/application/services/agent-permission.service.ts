@@ -1,10 +1,7 @@
-import { Inject, Injectable } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import type { CanDoContext } from '../../../kernel/application/queries/can-do.query'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 
 export interface CheckToolPermissionParams {
   actorId: string
@@ -21,8 +18,7 @@ export interface CheckToolPermissionParams {
 export class AgentPermissionService {
   constructor(
     private readonly kernelFacade: KernelQueryFacade,
-    @Inject(AUDIT_EVENT_REPOSITORY)
-    private readonly auditRepo: IAuditEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
   ) {}
 
   async checkToolPermission(params: CheckToolPermissionParams): Promise<boolean> {
@@ -38,7 +34,7 @@ export class AgentPermissionService {
     const result = allowed ? 'granted' : 'denied'
 
     try {
-      await this.auditRepo.insert({
+      await this.auditFacade.recordEvent({
         tenantId,
         actorId,
         eventType: 'agent.tool_call',

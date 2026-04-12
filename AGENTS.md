@@ -1,53 +1,19 @@
-# Future — Agent Instructions
-
-**Future** is an agent-native enterprise OS by SETA, replacing EMS / Timesheet / Hiring / Resource Insight with a unified platform. SETA is customer zero (300+ people). Target: Vietnamese SMEs + global.
-
-Full docs: `docs/` — architecture, engineering rules, roadmaps, legacy specs.
-
----
+# Future — Agent as a Service
 
 ## Stack
 
-| Layer         | Technology                                                                                                                                           |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend      | Next.js Multi-Zones (11 zones + shell)                                                                                                               |
-| Backend       | NestJS modular monolith (Turborepo)                                                                                                                  |
-| API           | tRPC (end-to-end type-safe)                                                                                                                          |
-| Database      | PostgreSQL 16 — Drizzle ORM, schema-per-module, RLS                                                                                                  |
-| Jobs          | pg-boss                                                                                                                                              |
-| Events        | `outbox_event` + polling relay                                                                                                                       |
-| Analytics     | Glue ETL → S3 Parquet → Iceberg → Athena → Cube.js                                                                                                   |
-| AI            | Vercel AI SDK + OpenAI (`gpt-5.4-nano` classify, `gpt-5.4` reason, `text-embedding-3-small`)                                                         |
-| Observability | Langfuse (self-hosted ECS)                                                                                                                           |
-| Infra         | AWS ECS Fargate Graviton ARM64, Terraform, ap-southeast-1                                                                                            |
-| Auth          | Microsoft Entra ID or Google Workspace OIDC + magic link (local accounts). See `docs/superpowers/specs/2026-04-11-access-control-strategy-design.md` |
-
----
-
-## Process Kernel (`core` schema)
-
-Single source of truth for all modules, agents, and integrations.
-
-| Table                        | Purpose                                                                                                             |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `actor`                      | Canonical identity — `person \| organization \| system`                                                             |
-| `user_identity`              | Login record — `sso_subject` for SSO (Entra/Google), `provider: 'local'` for magic link                             |
-| `external_identity_map`      | Legacy ID bridges (EMS, biometric, Slack, Teams). Join key: `actor_id` — never external IDs                         |
-| `department`                 | Kernel-owned org dimension. People writes; all modules reference                                                    |
-| `role_grant`                 | Role assignments scoped to `global \| department \| project \| account`. `source: manual \| idp_sync \| delegation` |
-| `role_permission`            | DB-configurable role-to-permission mapping. `is_locked` prevents admin self-lockout                                 |
-| `delegation`                 | Time-bounded authority transfer. Auto-expires. Checked before `role_grant`                                          |
-| `org_placement`              | Temporal org history. Current: `effective_until IS NULL`                                                            |
-| `decision_case/step/outcome` | Shared approval envelope for all workflows                                                                          |
-| `audit_event`                | Immutable INSERT-only log. Never deleted                                                                            |
-| `outbox_event`               | Transactional delivery queue. Pruned after 7 days                                                                   |
-| `exposure_contract`          | Deny-by-default agent access control. Every tool call requires one                                                  |
-
-- All tables have `tenant_id`. RLS enforced via `set_config('app.tenant_id', id, false)` (always `false`).
-- All IDs: UUID v7 — `$defaultFn(() => uuidv7())`.
-- `KernelQueryFacade` is the only cross-module kernel import. `canDo(actorId, permission, context)` is the single permission check — all modules use it.
-
----
+| Layer         | Technology                                                                                   |
+| ------------- | -------------------------------------------------------------------------------------------- |
+| Frontend      | Next.js Multi-Zones (11 zones + shell)                                                       |
+| Backend       | NestJS modular monolith (Turborepo)                                                          |
+| API           | tRPC (end-to-end type-safe)                                                                  |
+| Database      | PostgreSQL 16 — Drizzle ORM, schema-per-module, RLS                                          |
+| Jobs          | pg-boss                                                                                      |
+| Events        | `outbox_event` + polling relay                                                               |
+| Analytics     | Glue ETL → S3 Parquet → Iceberg → Athena → Cube.js                                           |
+| AI            | Vercel AI SDK + OpenAI (`gpt-5.4-nano` classify, `gpt-5.4` reason, `text-embedding-3-small`) |
+| Observability | Langfuse (self-hosted ECS)                                                                   |
+| Infra         | AWS ECS Fargate Graviton ARM64, Terraform, ap-southeast-1                                    |
 
 ## Domain Modules
 
@@ -85,8 +51,6 @@ Cross-module communication:
 
 No FK constraints across schema boundaries. No imports from another module's `domain/` or `infrastructure/`.
 
----
-
 ## Frontend (Next.js Multi-Zones)
 
 - 11 independent zones + `web-shell`. Each has its own ECS service, ECR repo, CI pipeline.
@@ -94,53 +58,6 @@ No FK constraints across schema boundaries. No imports from another module's `do
 - `web-admin` — tenant self-service (AI config, module toggles). `platform_admin` = SETA operator view.
 - Zones are fully autonomous: session from httpOnly cookie, `<GlobalNav />` from `packages/ui`.
 - Cross-zone navigation = hard `<a>` reload. No Next.js `<Link>` across zones.
-
----
-
-## Agent Runtime
-
-Lives in `modules/agents` inside the NestJS monolith.
-
-- **Gateway** — SessionManager → TopicRouter → McpToolRegistry → guardrails.
-- **Channels** — WebSocket, Teams, Slack, event triggers. One adapter class per channel.
-- **Every tool call** checks `exposure_contract` + `canDo()` permission check, writes `audit_event`.
-- **MCP tools** — `@rekog/mcp-nest`, HTTP+SSE at `/mcp/{module}`. Naming: `{module}_{action}`.
-- **Sessions** stored in `agents.agent_session` (PostgreSQL, auditable).
-- **Agent memory** — pgvector HNSW in `agents` schema.
-
-## Agent Decision Memory
-
-AGENTS.md holds standing rules. Durable lessons belong in `docs/agents/`.
-
-- Log critical agent decisions in `docs/agents/critical-decisions.md`.
-- Log recurring failures or repeated confusion in `docs/agents/repeat-issues.md`.
-- Before changing agent workflow or governance, scan both files first.
-- Keep entries short: `Area`, `Context`, `Decision` or `Issue`, `Action`.
-- Skip one-off noise unless it is clearly repo-specific and likely to recur.
-
----
-
-## Data Platform
-
-```
-RDS → Read Replica → Cube.js (last 30 days)
-RDS → Glue ETL (hourly) → S3 Bronze → S3 Gold (Iceberg) → Athena → Cube.js (historical)
-                                                                        ↓
-                                                          trpc.insights.* (never call Cube.js directly from zones)
-```
-
----
-
-## Event Flow
-
-```
-Command handler → DB write + outbox_event INSERT (same tx)
-  → NestJS EventBus (in-process, sync)
-  → Outbox relay every 5s (FOR UPDATE SKIP LOCKED)
-  → pg-boss (emails, notifications, scheduled tasks)
-```
-
----
 
 ## Hard Rules
 
@@ -183,32 +100,18 @@ Command handler → DB write + outbox_event INSERT (same tx)
 - Branch: `feat/{ticket}` or `fix/{ticket}` off `main`.
 - No `git worktree`. No `--force`. No `git reset --hard` on shared branches.
 
+### DDD Module Boundaries
+
+- **Never import from another module's `domain/` or `infrastructure/` path.** The only permitted cross-module imports are the module's exported facades.
+- **Each module exports facades only.** The `exports` array contains `*QueryFacade` and `*AuditFacade` classes — never raw repository tokens or domain entities.
+- **Cross-module reads go through `QueryFacade`.** Cross-module writes go through a dedicated write facade (e.g. `KernelAuditFacade`). No module ever injects a repository token owned by another module.
+- **Ports belong in `domain/ports/`.** Repository interfaces belong in `domain/repositories/` (no `.port` suffix). Never mix the two directories.
+- **No silent stubs in production paths.** `useValue: {}` or any `Stub*` class wired into a module is a temporary placeholder only — it must be replaced before the feature ships. Stubs that silently swallow calls are bugs waiting to happen.
+
 ### When in Doubt, Ask
 
 - Ambiguous requirement → ask before implementing.
 - Meaningful tradeoff → surface it, don't silently pick one.
-
----
-
-## Key Design Decisions
-
-| Decision                  | Rule                                                                                             |
-| ------------------------- | ------------------------------------------------------------------------------------------------ |
-| IDs                       | UUID v7 everywhere — not v4, not serial                                                          |
-| ORM                       | Drizzle — not Prisma                                                                             |
-| Cross-schema FK           | Soft references only — no `.references()` across modules                                         |
-| `audit_event`             | INSERT-only — no UPDATE or DELETE                                                                |
-| `outbox_event` vs pg-boss | Outbox = transactional events. pg-boss = background jobs                                         |
-| Cross-zone nav            | `<a>` tags — no Next.js `<Link>` across zones                                                    |
-| `event-contracts`         | Zero NestJS/Drizzle deps — plain TS only                                                         |
-| `packages/ui`             | Purely presentational — no API calls, no auth                                                    |
-| AI provider               | OpenAI directly — not Bedrock, not Anthropic                                                     |
-| Slack tokens              | Secrets Manager only — `bot_token_ref` holds the ARN                                             |
-| Analytics sync            | Hourly Glue ETL batch — no real-time CDC                                                         |
-| RDS                       | Single-AZ + PITR — no Multi-AZ until enterprise SLA                                              |
-| AI config                 | Resolved at runtime via `AdminQueryFacade.getResolvedAiConfig()` — never hardcode models or keys |
-
----
 
 ## Design System
 

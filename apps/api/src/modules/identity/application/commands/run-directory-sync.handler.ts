@@ -12,10 +12,7 @@ import {
   IDP_GROUP_MAPPING_REPOSITORY,
   type IIdpGroupMappingRepository,
 } from '../../domain/repositories/idp-group-mapping.repository'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import {
   DIRECTORY_PROVIDER_FACTORY,
   type IDirectoryProviderFactory,
@@ -39,7 +36,7 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
     @Inject(IDENTITY_PROVIDER_REPOSITORY)
     private readonly providerRepo: IIdentityProviderRepository,
     @Inject(IDP_GROUP_MAPPING_REPOSITORY) private readonly mappingRepo: IIdpGroupMappingRepository,
-    @Inject(AUDIT_EVENT_REPOSITORY) private readonly auditRepo: IAuditEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
     private readonly commandBus: CommandBus,
     @Inject(DIRECTORY_PROVIDER_FACTORY)
     private readonly directoryProviderFactory: IDirectoryProviderFactory,
@@ -118,7 +115,7 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
         lastSyncAt: new Date(),
       })
 
-      await this.auditRepo.insert({
+      await this.auditFacade.recordEvent({
         tenantId: command.tenantId,
         actorId: SYSTEM_ACTOR_ID,
         eventType: 'directory_sync_completed',

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CommandBus } from '@nestjs/cqrs'
 import { InviteLocalUserCommand } from './invite-local-user.command'
 import { InviteLocalUserHandler } from './invite-local-user.handler'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { IMagicLinkSender } from '../../domain/ports/magic-link-sender.port'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
@@ -14,7 +14,7 @@ const PLAINTEXT_TOKEN = 'abc123token'
 describe('InviteLocalUserHandler', () => {
   let handler: InviteLocalUserHandler
   let commandBus: CommandBus
-  let auditRepo: IAuditEventRepository
+  let auditFacade: KernelAuditFacade
   let magicLinkSender: IMagicLinkSender
 
   beforeEach(() => {
@@ -22,13 +22,14 @@ describe('InviteLocalUserHandler', () => {
       execute: vi.fn(),
     } as unknown as CommandBus
 
-    auditRepo = {
-      insert: vi.fn(),
-    }
+    auditFacade = {
+      recordEvent: vi.fn(),
+      publishOutboxEvent: vi.fn(),
+    } as unknown as KernelAuditFacade
     magicLinkSender = {
       sendInvitation: vi.fn(),
     }
-    handler = new InviteLocalUserHandler(commandBus, auditRepo, magicLinkSender)
+    handler = new InviteLocalUserHandler(commandBus, auditFacade, magicLinkSender)
   })
 
   it('creates actor, identity, role grants, and sends magic link', async () => {
@@ -37,7 +38,7 @@ describe('InviteLocalUserHandler', () => {
       .mockResolvedValueOnce(undefined) // CreateUserIdentityCommand
       .mockResolvedValueOnce(ROLE_GRANT_ID) // GrantRoleCommand
       .mockResolvedValueOnce({ plaintextToken: PLAINTEXT_TOKEN }) // RequestMagicLinkCommand
-    vi.mocked(auditRepo.insert).mockResolvedValue(undefined)
+    vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
     vi.mocked(magicLinkSender.sendInvitation).mockResolvedValue(undefined)
 
     const result = await handler.execute(
@@ -60,7 +61,7 @@ describe('InviteLocalUserHandler', () => {
         token: PLAINTEXT_TOKEN,
       }),
     )
-    expect(auditRepo.insert).toHaveBeenCalled()
+    expect(auditFacade.recordEvent).toHaveBeenCalled()
   })
 
   it('creates multiple role grants when multiple roles provided', async () => {
@@ -70,7 +71,7 @@ describe('InviteLocalUserHandler', () => {
       .mockResolvedValueOnce(ROLE_GRANT_ID) // GrantRoleCommand #1
       .mockResolvedValueOnce(ROLE_GRANT_ID) // GrantRoleCommand #2
       .mockResolvedValueOnce({ plaintextToken: PLAINTEXT_TOKEN }) // RequestMagicLinkCommand
-    vi.mocked(auditRepo.insert).mockResolvedValue(undefined)
+    vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
     vi.mocked(magicLinkSender.sendInvitation).mockResolvedValue(undefined)
 
     await handler.execute(

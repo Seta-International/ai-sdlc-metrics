@@ -24,6 +24,7 @@ import { AddRolePermissionHandler } from './application/commands/add-role-permis
 import { RemoveRolePermissionHandler } from './application/commands/remove-role-permission.handler'
 import { ResetRolePermissionsHandler } from './application/commands/reset-role-permissions.handler'
 import { KernelQueryFacade } from './application/facades/kernel-query.facade'
+import { KernelAuditFacade } from './application/facades/kernel-audit.facade'
 import { GetActorHandler } from './application/queries/get-actor.handler'
 import { GetRoleGrantsHandler } from './application/queries/get-role-grants.handler'
 import { GetTenantHandler } from './application/queries/get-tenant.handler'
@@ -83,13 +84,9 @@ import { DrizzleOutboxEventRepository } from './infrastructure/repositories/driz
     GetRolePermissionsHandler,
     ListRolesHandler,
     KernelQueryFacade,
+    KernelAuditFacade,
   ],
-  exports: [
-    KernelQueryFacade,
-    AUDIT_EVENT_REPOSITORY,
-    AUDIT_EVENT_QUERY_REPOSITORY,
-    OUTBOX_EVENT_REPOSITORY,
-  ],
+  exports: [KernelQueryFacade, KernelAuditFacade, AUDIT_EVENT_QUERY_REPOSITORY],
 })
 export class KernelModule implements OnModuleInit {
   constructor(private readonly commandBus: CommandBus) {}

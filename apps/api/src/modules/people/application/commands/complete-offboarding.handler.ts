@@ -17,10 +17,7 @@ import {
   ACCOUNT_MEMBERSHIP_REPOSITORY,
   type IAccountMembershipRepository,
 } from '../../domain/repositories/account-membership.repository'
-import {
-  OUTBOX_EVENT_REPOSITORY,
-  type IOutboxEventRepository,
-} from '../../../kernel/domain/repositories/outbox-event.repository.port'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { UpdateActorStatusCommand } from '../../../kernel/application/commands/update-actor-status.command'
 import { DeprovisionUserIdentityCommand } from '../../../kernel/application/commands/deprovision-user-identity.command'
 import { RevokeAllRoleGrantsCommand } from '../../../kernel/application/commands/revoke-all-role-grants.command'
@@ -40,8 +37,7 @@ export class CompleteOffboardingHandler implements ICommandHandler<
     private readonly caseRepo: IOffboardingCaseRepository,
     @Inject(ACCOUNT_MEMBERSHIP_REPOSITORY)
     private readonly accountMembershipRepo: IAccountMembershipRepository,
-    @Inject(OUTBOX_EVENT_REPOSITORY)
-    private readonly outboxRepo: IOutboxEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
     private readonly commandBus: CommandBus,
   ) {}
 
@@ -83,7 +79,7 @@ export class CompleteOffboardingHandler implements ICommandHandler<
     await this.commandBus.execute(new RevokeAllRoleGrantsCommand(command.tenantId, profile.actorId))
 
     // 8. Emit outbox event
-    await this.outboxRepo.insert({
+    await this.auditFacade.publishOutboxEvent({
       tenantId: command.tenantId,
       eventName: EMPLOYEE_TERMINATED_EVENT,
       payload: {
