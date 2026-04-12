@@ -275,3 +275,44 @@ export async function seedAllocation(
 
   return { id, tenantId }
 }
+
+export async function truncateIdentitySchema(db: Db): Promise<void> {
+  await db.execute(
+    sql`TRUNCATE identity.api_key, identity.magic_link_token, identity.idp_group_mapping, identity.identity_provider RESTART IDENTITY CASCADE`,
+  )
+}
+
+export async function seedIdentityProvider(
+  db: Db,
+  overrides: {
+    tenantId: string
+    providerType?: 'microsoft' | 'google'
+    displayName?: string
+    clientId?: string
+    clientSecretRef?: string
+    directoryId?: string | null
+    isPrimary?: boolean
+    syncEnabled?: boolean
+  },
+): Promise<{ id: string }> {
+  const id = uuidv7()
+  await db.execute(
+    sql`INSERT INTO identity.identity_provider
+      (id, tenant_id, provider_type, display_name, client_id, client_secret_ref, directory_id, is_primary, sync_enabled, sync_status, created_at, updated_at)
+      VALUES (
+        ${id},
+        ${overrides.tenantId},
+        ${overrides.providerType ?? 'microsoft'},
+        ${overrides.displayName ?? 'Test IdP'},
+        ${overrides.clientId ?? 'test-client-id'},
+        ${overrides.clientSecretRef ?? 'arn:aws:secretsmanager:ap-southeast-1:123456789:secret:test-abc123'},
+        ${overrides.directoryId ?? null},
+        ${overrides.isPrimary ?? false},
+        ${overrides.syncEnabled ?? false},
+        'idle',
+        NOW(),
+        NOW()
+      )`,
+  )
+  return { id }
+}
