@@ -20,3 +20,5 @@ export { UserProvisionedFromIdpEvent } from './identity/user-provisioned-from-id
 export { UserDeactivatedFromIdpEvent } from './identity/user-deactivated-from-idp.event'
 export { RoleGrantSyncedEvent } from './identity/role-grant-synced.event'
 export { DirectorySyncCompletedEvent } from './identity/directory-sync-completed.event'
+export { DocumentGeneratedEvent } from './documents/document-generated.event'
+export { NotificationSentEvent } from './notifications/notification-sent.event'

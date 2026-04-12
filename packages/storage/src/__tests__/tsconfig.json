@@ -1,0 +1,8 @@
+{
+  "extends": "@future/tsconfig/base.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true
+  },
+  "include": ["./**/*.spec.ts", "../**/*.ts"]
+}

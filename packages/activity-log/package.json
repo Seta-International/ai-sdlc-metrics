@@ -1,0 +1,32 @@
+{
+  "name": "@future/activity-log",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "default": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3",
+    "@aws-sdk/lib-dynamodb": "^3",
+    "uuidv7": "^1"
+  },
+  "devDependencies": {
+    "@future/eslint-config": "workspace:*",
+    "@future/tsconfig": "*",
+    "@types/node": "^25.6.0",
+    "eslint": "^10.2.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4"
+  }
+}

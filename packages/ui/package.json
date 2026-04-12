@@ -10,7 +10,8 @@
     "./fonts": {
       "import": "./src/lib/fonts.ts",
       "types": "./src/lib/fonts.ts"
-    }
+    },
+    "./src/styles/globals.css": "./src/styles/globals.css"
   },
   "scripts": {
     "build": "tsc",

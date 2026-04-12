@@ -1,0 +1,33 @@
+{
+  "name": "@future/documents",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "default": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "^147.0.0",
+    "exceljs": "^4.4.0",
+    "handlebars": "^4.7.9",
+    "pdf-parse": "^2.4.5",
+    "puppeteer-core": "^24.40.0"
+  },
+  "devDependencies": {
+    "@future/eslint-config": "workspace:*",
+    "@future/tsconfig": "*",
+    "eslint": "^10.2.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
+  }
+}

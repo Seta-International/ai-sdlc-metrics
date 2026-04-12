@@ -1,6 +1,18 @@
-import { pgSchema } from 'drizzle-orm/pg-core'
+import { pgSchema, uuid, text, integer, timestamp } from 'drizzle-orm/pg-core'
+import { uuidv7 } from 'uuidv7'
 
 export const adminSchema = pgSchema('admin')
 
-// TODO: define tables for admin module
-// All tables must have: id (uuid v7), tenant_id (uuid, notNull)
+export const tenantEmailConfig = adminSchema.table('tenant_email_config', {
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull().unique(),
+  provider: text('provider', { enum: ['ses', 'smtp'] }).notNull(),
+  fromAddress: text('from_address').notNull(),
+  smtpHost: text('smtp_host'),
+  smtpPort: integer('smtp_port'),
+  credentialRef: text('credential_ref').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})

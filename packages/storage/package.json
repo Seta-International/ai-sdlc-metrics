@@ -1,0 +1,31 @@
+{
+  "name": "@future/storage",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "default": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3",
+    "@aws-sdk/s3-request-presigner": "^3"
+  },
+  "devDependencies": {
+    "@future/eslint-config": "workspace:*",
+    "@future/tsconfig": "*",
+    "@types/node": "^25.6.0",
+    "eslint": "^10.2.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4"
+  }
+}

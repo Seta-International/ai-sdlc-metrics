@@ -1,0 +1,33 @@
+{
+  "name": "@future/mail",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "default": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.1029.0",
+    "handlebars": "^4.7.9",
+    "mjml": "^4.18.0",
+    "nodemailer": "^8.0.5"
+  },
+  "devDependencies": {
+    "@future/eslint-config": "workspace:*",
+    "@future/tsconfig": "*",
+    "@types/nodemailer": "^8.0.0",
+    "eslint": "^10.2.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
+  }
+}
