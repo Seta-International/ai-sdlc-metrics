@@ -22,6 +22,7 @@ import {
 import { PgBossService, JOB_NOTIFICATIONS_SEND_EMAIL } from '../../common/jobs/pg-boss.service'
 import { PeopleModule } from '../people/people.module'
 import { AdminModule } from '../admin/admin.module'
+import { NotificationsRouterService } from './interface/trpc/notifications-router.service'
 
 @Module({
   imports: [CqrsModule, PeopleModule, AdminModule],
@@ -37,6 +38,7 @@ import { AdminModule } from '../admin/admin.module'
     GetPreferencesHandler,
     OnLeaveApprovedHandler,
     OnDocumentGeneratedHandler,
+    NotificationsRouterService,
     NotificationSseController,
     SendNotificationEmailWorker,
     { provide: NOTIFICATION_REPOSITORY, useClass: DrizzleNotificationRepository },
