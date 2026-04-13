@@ -3,8 +3,6 @@ import { GetPreferencesHandler } from './get-preferences.handler'
 import { GetPreferencesQuery } from './get-preferences.query'
 import type { INotificationRepository } from '../../domain/repositories/notification.repository.port'
 
-const categories = ['approval', 'mention', 'assignment', 'system'] as const
-
 const mockRepo = {
   getPreferences: vi.fn().mockResolvedValue([
     {
