@@ -20,6 +20,8 @@ export interface INotificationRepository {
     actorId: string,
     category: NotificationCategory,
   ): Promise<NotificationPreference | null>
+  upsertPreference(data: Omit<NotificationPreference, 'id'>): Promise<NotificationPreference>
+  getPreferences(tenantId: string, actorId: string): Promise<NotificationPreference[]>
 }
 
 export const NOTIFICATION_REPOSITORY = Symbol('INotificationRepository')
