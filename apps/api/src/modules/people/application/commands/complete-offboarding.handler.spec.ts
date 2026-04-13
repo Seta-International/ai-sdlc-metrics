@@ -10,9 +10,8 @@ import type { IEmploymentProfileRepository } from '../../domain/repositories/emp
 import type { IOffboardingCaseRepository } from '../../domain/repositories/offboarding-case.repository'
 import type { IAccountMembershipRepository } from '../../domain/repositories/account-membership.repository'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
-import { UpdateActorStatusCommand } from '../../../kernel/application/commands/update-actor-status.command'
+import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
 import { DeprovisionUserIdentityCommand } from '../../../kernel/application/commands/deprovision-user-identity.command'
-import { RevokeAllRoleGrantsCommand } from '../../../kernel/application/commands/revoke-all-role-grants.command'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const CASE_ID = '01900000-0000-7000-8000-000000000030'
@@ -25,6 +24,7 @@ describe('CompleteOffboardingHandler', () => {
   let caseRepo: IOffboardingCaseRepository
   let accountMembershipRepo: IAccountMembershipRepository
   let auditFacade: KernelAuditFacade
+  let actorFacade: KernelActorFacade
   let commandBus: CommandBus
 
   beforeEach(() => {
@@ -76,6 +76,10 @@ describe('CompleteOffboardingHandler', () => {
       recordEvent: vi.fn(),
       publishOutboxEvent: vi.fn(),
     } as unknown as KernelAuditFacade
+    actorFacade = {
+      deactivateActor: vi.fn(),
+      revokeAllRoles: vi.fn(),
+    } as unknown as KernelActorFacade
     commandBus = { execute: vi.fn() } as unknown as CommandBus
 
     handler = new CompleteOffboardingHandler(
@@ -83,6 +87,7 @@ describe('CompleteOffboardingHandler', () => {
       caseRepo,
       accountMembershipRepo,
       auditFacade,
+      actorFacade,
       commandBus,
     )
   })
@@ -103,10 +108,9 @@ describe('CompleteOffboardingHandler', () => {
       expect.any(Date),
     )
 
-    expect(commandBus.execute).toHaveBeenCalledTimes(3)
-    expect(commandBus.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ actorId: 'actor-1', status: 'inactive' }),
-    )
+    expect(actorFacade.deactivateActor).toHaveBeenCalledWith('actor-1', TENANT_ID)
+    expect(actorFacade.revokeAllRoles).toHaveBeenCalledWith('actor-1', TENANT_ID)
+    expect(commandBus.execute).toHaveBeenCalledTimes(1)
     expect(commandBus.execute).toHaveBeenCalledWith(expect.objectContaining({ actorId: 'actor-1' }))
 
     expect(auditFacade.publishOutboxEvent).toHaveBeenCalledWith(
@@ -114,13 +118,13 @@ describe('CompleteOffboardingHandler', () => {
     )
   })
 
-  it('dispatches UpdateActorStatusCommand, DeprovisionUserIdentityCommand, RevokeAllRoleGrantsCommand', async () => {
+  it('deactivates actor via facade, dispatches DeprovisionUserIdentityCommand, revokes roles via facade', async () => {
     await handler.execute(new CompleteOffboardingCommand(TENANT_ID, CASE_ID, COMPLETED_BY))
 
+    expect(actorFacade.deactivateActor).toHaveBeenCalledWith('actor-1', TENANT_ID)
+    expect(actorFacade.revokeAllRoles).toHaveBeenCalledWith('actor-1', TENANT_ID)
     const calls = vi.mocked(commandBus.execute).mock.calls.map(([cmd]) => cmd)
-    expect(calls.some((c) => c instanceof UpdateActorStatusCommand)).toBe(true)
     expect(calls.some((c) => c instanceof DeprovisionUserIdentityCommand)).toBe(true)
-    expect(calls.some((c) => c instanceof RevokeAllRoleGrantsCommand)).toBe(true)
   })
 
   it('throws OffboardingCaseNotFoundException when case not found', async () => {

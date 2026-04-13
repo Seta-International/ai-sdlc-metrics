@@ -18,9 +18,8 @@ import {
   type IAccountMembershipRepository,
 } from '../../domain/repositories/account-membership.repository'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
-import { UpdateActorStatusCommand } from '../../../kernel/application/commands/update-actor-status.command'
+import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
 import { DeprovisionUserIdentityCommand } from '../../../kernel/application/commands/deprovision-user-identity.command'
-import { RevokeAllRoleGrantsCommand } from '../../../kernel/application/commands/revoke-all-role-grants.command'
 import { CompleteOffboardingCommand } from './complete-offboarding.command'
 
 const EMPLOYEE_TERMINATED_EVENT = 'people.employee-terminated'
@@ -38,6 +37,7 @@ export class CompleteOffboardingHandler implements ICommandHandler<
     @Inject(ACCOUNT_MEMBERSHIP_REPOSITORY)
     private readonly accountMembershipRepo: IAccountMembershipRepository,
     private readonly auditFacade: KernelAuditFacade,
+    private readonly actorFacade: KernelActorFacade,
     private readonly commandBus: CommandBus,
   ) {}
 
@@ -70,13 +70,11 @@ export class CompleteOffboardingHandler implements ICommandHandler<
     await this.accountMembershipRepo.closeAllForActor(profile.actorId, command.tenantId, now)
 
     // 7. Dispatch kernel commands
-    await this.commandBus.execute(
-      new UpdateActorStatusCommand(command.tenantId, profile.actorId, 'inactive'),
-    )
+    await this.actorFacade.deactivateActor(profile.actorId, command.tenantId)
     await this.commandBus.execute(
       new DeprovisionUserIdentityCommand(command.tenantId, profile.actorId),
     )
-    await this.commandBus.execute(new RevokeAllRoleGrantsCommand(command.tenantId, profile.actorId))
+    await this.actorFacade.revokeAllRoles(profile.actorId, command.tenantId)
 
     // 8. Emit outbox event
     await this.auditFacade.publishOutboxEvent({
