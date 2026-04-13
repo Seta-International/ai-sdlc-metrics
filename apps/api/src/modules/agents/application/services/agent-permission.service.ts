@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
-import type { CanDoContext } from '../../../kernel/application/queries/can-do.query'
+import type { CanDoContext } from '../../../kernel/application/facades/kernel-query.facade'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 
 export interface CheckToolPermissionParams {

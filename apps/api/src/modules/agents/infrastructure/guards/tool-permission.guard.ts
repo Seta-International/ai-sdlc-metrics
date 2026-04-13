@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
-import type { CanDoContext } from '../../../kernel/application/queries/can-do.query'
+import type { CanDoContext } from '../../../kernel/application/facades/kernel-query.facade'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { TOOL_PERMISSION_KEY, type ToolPermissionScopeMeta } from './tool-permission.decorator'
 import type { McpRequestContext } from './mcp-auth.guard'
