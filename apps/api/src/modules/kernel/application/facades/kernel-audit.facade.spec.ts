@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { KernelAuditFacade } from './kernel-audit.facade'
+import type { IAuditEventRepository } from '../../domain/repositories/audit-event.repository.port'
+import type { IOutboxEventRepository } from '../../domain/repositories/outbox-event.repository.port'
 
 describe('KernelAuditFacade', () => {
   let facade: KernelAuditFacade
@@ -13,7 +15,10 @@ describe('KernelAuditFacade', () => {
   beforeEach(() => {
     auditRepo = { insert: vi.fn(), query: vi.fn(), queryAll: vi.fn() }
     outboxRepo = { insert: vi.fn() }
-    facade = new KernelAuditFacade(auditRepo as any, outboxRepo as any)
+    facade = new KernelAuditFacade(
+      auditRepo as unknown as IAuditEventRepository,
+      outboxRepo as unknown as IOutboxEventRepository,
+    )
   })
 
   describe('queryAuditLog', () => {

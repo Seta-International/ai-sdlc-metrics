@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import {
-  GetLocalUsersWithActorsHandler,
-  type LocalUserWithActorDto,
-} from './get-local-users-with-actors.handler'
+import type { Db } from '@future/db'
+import { GetLocalUsersWithActorsHandler } from './get-local-users-with-actors.handler'
 import { GetLocalUsersWithActorsQuery } from './get-local-users-with-actors.query'
 
 describe('GetLocalUsersWithActorsHandler', () => {
@@ -30,7 +28,7 @@ describe('GetLocalUsersWithActorsHandler', () => {
         }),
       }),
     }
-    handler = new GetLocalUsersWithActorsHandler(db as any)
+    handler = new GetLocalUsersWithActorsHandler(db as unknown as Db)
   })
 
   it('returns local users with actor details', async () => {

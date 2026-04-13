@@ -47,13 +47,22 @@ export class KernelAuditFacade {
       actorId?: string
       eventType?: string
       module?: string
-      dateFrom?: string
-      dateTo?: string
+      dateFrom?: Date
+      dateTo?: Date
       limit?: number
       offset?: number
     },
   ): Promise<{ items: AuditEventRow[]; total: number }> {
-    return this.auditRepo.query({ tenantId, ...filters } as any)
+    return this.auditRepo.query({
+      tenantId,
+      actorId: filters.actorId,
+      eventType: filters.eventType,
+      module: filters.module,
+      dateFrom: filters.dateFrom,
+      dateTo: filters.dateTo,
+      limit: filters.limit ?? 50,
+      offset: filters.offset ?? 0,
+    })
   }
 
   exportAuditLog(
@@ -62,10 +71,17 @@ export class KernelAuditFacade {
       actorId?: string
       eventType?: string
       module?: string
-      dateFrom?: string
-      dateTo?: string
+      dateFrom?: Date
+      dateTo?: Date
     },
   ): Promise<AuditEventRow[]> {
-    return this.auditRepo.queryAll({ tenantId, ...filters } as any)
+    return this.auditRepo.queryAll({
+      tenantId,
+      actorId: filters.actorId,
+      eventType: filters.eventType,
+      module: filters.module,
+      dateFrom: filters.dateFrom,
+      dateTo: filters.dateTo,
+    })
   }
 }
