@@ -10,6 +10,10 @@ export interface IGenerationJobRepository {
     outputFileKey?: string,
     errorMessage?: string,
   ): Promise<void>
+  listByTenant(
+    tenantId: string,
+    filters?: { status?: JobStatus; limit?: number; offset?: number },
+  ): Promise<GenerationJob[]>
 }
 
 export const GENERATION_JOB_REPOSITORY = Symbol('IGenerationJobRepository')
