@@ -3,18 +3,19 @@ import { CommandBus } from '@nestjs/cqrs'
 import { InviteLocalUserCommand } from './invite-local-user.command'
 import { InviteLocalUserHandler } from './invite-local-user.handler'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
+import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
 import type { IMagicLinkSender } from '../../domain/ports/magic-link-sender.port'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const ACTOR_ID = '01900000-0000-7000-8000-000000000005'
 const NEW_ACTOR_ID = '01900000-0000-7000-8000-000000000050'
-const ROLE_GRANT_ID = '01900000-0000-7000-8000-000000000052'
 const PLAINTEXT_TOKEN = 'abc123token'
 
 describe('InviteLocalUserHandler', () => {
   let handler: InviteLocalUserHandler
   let commandBus: CommandBus
   let auditFacade: KernelAuditFacade
+  let actorFacade: KernelActorFacade
   let magicLinkSender: IMagicLinkSender
 
   beforeEach(() => {
@@ -26,17 +27,25 @@ describe('InviteLocalUserHandler', () => {
       recordEvent: vi.fn(),
       publishOutboxEvent: vi.fn(),
     } as unknown as KernelAuditFacade
+
+    actorFacade = {
+      createActor: vi.fn(),
+      deactivateActor: vi.fn(),
+      grantRole: vi.fn(),
+      revokeAllRoles: vi.fn(),
+    } as unknown as KernelActorFacade
+
     magicLinkSender = {
       sendInvitation: vi.fn(),
     }
-    handler = new InviteLocalUserHandler(commandBus, auditFacade, magicLinkSender)
+    handler = new InviteLocalUserHandler(commandBus, auditFacade, magicLinkSender, actorFacade)
   })
 
   it('creates actor, identity, role grants, and sends magic link', async () => {
+    vi.mocked(actorFacade.createActor).mockResolvedValue(NEW_ACTOR_ID)
+    vi.mocked(actorFacade.grantRole).mockResolvedValue(undefined)
     vi.mocked(commandBus.execute)
-      .mockResolvedValueOnce(NEW_ACTOR_ID) // CreateActorCommand
       .mockResolvedValueOnce(undefined) // CreateUserIdentityCommand
-      .mockResolvedValueOnce(ROLE_GRANT_ID) // GrantRoleCommand
       .mockResolvedValueOnce({ plaintextToken: PLAINTEXT_TOKEN }) // RequestMagicLinkCommand
     vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
     vi.mocked(magicLinkSender.sendInvitation).mockResolvedValue(undefined)
@@ -52,8 +61,15 @@ describe('InviteLocalUserHandler', () => {
     )
 
     expect(result).toEqual({ actorId: NEW_ACTOR_ID })
-    // CreateActor + CreateUserIdentity + 1 GrantRole + RequestMagicLink = 4 calls
-    expect(commandBus.execute).toHaveBeenCalledTimes(4)
+    expect(actorFacade.createActor).toHaveBeenCalledWith(
+      TENANT_ID,
+      'person',
+      'John Contractor',
+      ACTOR_ID,
+    )
+    expect(actorFacade.grantRole).toHaveBeenCalledTimes(1)
+    // CreateUserIdentity + RequestMagicLink = 2 commandBus calls
+    expect(commandBus.execute).toHaveBeenCalledTimes(2)
     expect(magicLinkSender.sendInvitation).toHaveBeenCalledWith(
       expect.objectContaining({
         email: 'contractor@example.com',
@@ -65,11 +81,10 @@ describe('InviteLocalUserHandler', () => {
   })
 
   it('creates multiple role grants when multiple roles provided', async () => {
+    vi.mocked(actorFacade.createActor).mockResolvedValue(NEW_ACTOR_ID)
+    vi.mocked(actorFacade.grantRole).mockResolvedValue(undefined)
     vi.mocked(commandBus.execute)
-      .mockResolvedValueOnce(NEW_ACTOR_ID) // CreateActorCommand
       .mockResolvedValueOnce(undefined) // CreateUserIdentityCommand
-      .mockResolvedValueOnce(ROLE_GRANT_ID) // GrantRoleCommand #1
-      .mockResolvedValueOnce(ROLE_GRANT_ID) // GrantRoleCommand #2
       .mockResolvedValueOnce({ plaintextToken: PLAINTEXT_TOKEN }) // RequestMagicLinkCommand
     vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
     vi.mocked(magicLinkSender.sendInvitation).mockResolvedValue(undefined)
@@ -87,7 +102,9 @@ describe('InviteLocalUserHandler', () => {
       ),
     )
 
-    // CreateActor + CreateUserIdentity + 2 GrantRole + RequestMagicLink = 5
-    expect(commandBus.execute).toHaveBeenCalledTimes(5)
+    // 2 GrantRole calls via facade
+    expect(actorFacade.grantRole).toHaveBeenCalledTimes(2)
+    // CreateUserIdentity + RequestMagicLink = 2 commandBus calls
+    expect(commandBus.execute).toHaveBeenCalledTimes(2)
   })
 })

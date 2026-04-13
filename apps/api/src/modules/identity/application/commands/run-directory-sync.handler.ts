@@ -13,15 +13,13 @@ import {
   type IIdpGroupMappingRepository,
 } from '../../domain/repositories/idp-group-mapping.repository'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
+import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
 import {
   DIRECTORY_PROVIDER_FACTORY,
   type IDirectoryProviderFactory,
 } from '../../infrastructure/providers/directory-provider.interface'
-import { CreateActorCommand } from '../../../kernel/application/commands/create-actor.command'
 import { CreateUserIdentityCommand } from '../../../kernel/application/commands/create-user-identity.command'
-import { UpdateActorStatusCommand } from '../../../kernel/application/commands/update-actor-status.command'
 import { DeprovisionUserIdentityCommand } from '../../../kernel/application/commands/deprovision-user-identity.command'
-import { GrantRoleCommand } from '../../../kernel/application/commands/grant-role.command'
 import { RunDirectorySyncCommand } from './run-directory-sync.command'
 import type { RoleKeyValue, ScopeTypeValue } from '@future/core'
 
@@ -37,6 +35,7 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
     private readonly commandBus: CommandBus,
     @Inject(DIRECTORY_PROVIDER_FACTORY)
     private readonly directoryProviderFactory: IDirectoryProviderFactory,
+    private readonly actorFacade: KernelActorFacade,
   ) {}
 
   async execute(command: RunDirectorySyncCommand): Promise<void> {
@@ -65,22 +64,23 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
       // Provision / deactivate users
       for (const user of idpUsers) {
         if (user.isActive) {
-          const actor = await this.commandBus.execute(
-            new CreateActorCommand(command.tenantId, 'person', user.displayName),
+          const actorId = await this.actorFacade.createActor(
+            command.tenantId,
+            'person',
+            user.displayName,
+            SYSTEM_ACTOR_ID,
           )
           await this.commandBus.execute(
             new CreateUserIdentityCommand(
               command.tenantId,
-              actor.id,
+              actorId,
               user.email,
               user.externalId,
               provider.providerType,
             ),
           )
         } else {
-          await this.commandBus.execute(
-            new UpdateActorStatusCommand(command.tenantId, user.externalId, 'inactive'),
-          )
+          await this.actorFacade.deactivateActor(user.externalId, command.tenantId)
           await this.commandBus.execute(
             new DeprovisionUserIdentityCommand(command.tenantId, user.externalId),
           )
@@ -93,16 +93,13 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
         if (!mapping) continue
 
         for (const memberExternalId of group.memberExternalIds) {
-          await this.commandBus.execute(
-            new GrantRoleCommand(
-              command.tenantId,
-              memberExternalId,
-              mapping.roleKey as RoleKeyValue,
-              mapping.scopeType as ScopeTypeValue,
-              mapping.scopeId,
-              SYSTEM_ACTOR_ID,
-              'idp_sync',
-            ),
+          await this.actorFacade.grantRole(
+            memberExternalId,
+            mapping.roleKey as RoleKeyValue,
+            mapping.scopeType as ScopeTypeValue,
+            mapping.scopeId,
+            command.tenantId,
+            SYSTEM_ACTOR_ID,
           )
         }
       }

@@ -9,6 +9,7 @@ import {
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
 import type { IIdpGroupMappingRepository } from '../../domain/repositories/idp-group-mapping.repository'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
+import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
 import type {
   IDirectoryProvider,
   IdpUser,
@@ -41,6 +42,7 @@ describe('RunDirectorySyncHandler', () => {
   let mappingRepo: IIdpGroupMappingRepository
   let auditFacade: KernelAuditFacade
   let commandBus: CommandBus
+  let actorFacade: KernelActorFacade
   let directoryProvider: IDirectoryProvider
   let directoryProviderFactory: { create: ReturnType<typeof vi.fn> }
 
@@ -66,6 +68,12 @@ describe('RunDirectorySyncHandler', () => {
       publishOutboxEvent: vi.fn(),
     } as unknown as KernelAuditFacade
     commandBus = { execute: vi.fn() } as unknown as CommandBus
+    actorFacade = {
+      createActor: vi.fn(),
+      deactivateActor: vi.fn(),
+      grantRole: vi.fn(),
+      revokeAllRoles: vi.fn(),
+    } as unknown as KernelActorFacade
     directoryProvider = { listUsers: vi.fn(), listGroupsWithMembers: vi.fn() }
     directoryProviderFactory = { create: vi.fn().mockReturnValue(directoryProvider) }
     handler = new RunDirectorySyncHandler(
@@ -74,6 +82,7 @@ describe('RunDirectorySyncHandler', () => {
       auditFacade,
       commandBus,
       directoryProviderFactory as never,
+      actorFacade,
     )
   })
 
@@ -91,7 +100,7 @@ describe('RunDirectorySyncHandler', () => {
     ).rejects.toThrow(DirectorySyncAlreadyRunningException)
   })
 
-  it('provisions new users from IdP via kernel command bus', async () => {
+  it('provisions new users from IdP via KernelActorFacade', async () => {
     vi.mocked(providerRepo.findById).mockResolvedValue(makeProvider())
     vi.mocked(providerRepo.update).mockResolvedValue(undefined)
     const idpUsers: IdpUser[] = [
@@ -100,11 +109,11 @@ describe('RunDirectorySyncHandler', () => {
     vi.mocked(directoryProvider.listUsers).mockResolvedValue(idpUsers)
     vi.mocked(directoryProvider.listGroupsWithMembers).mockResolvedValue([])
     vi.mocked(mappingRepo.findByProviderId).mockResolvedValue([])
-    vi.mocked(commandBus.execute)
-      .mockResolvedValueOnce({ id: 'new-actor-001' })
-      .mockResolvedValueOnce({ id: 'new-ui-001' })
+    vi.mocked(actorFacade.createActor).mockResolvedValue('new-actor-001')
+    vi.mocked(commandBus.execute).mockResolvedValue(undefined) // CreateUserIdentityCommand
     await handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID))
-    expect(commandBus.execute).toHaveBeenCalledTimes(2)
+    expect(actorFacade.createActor).toHaveBeenCalledTimes(1)
+    expect(commandBus.execute).toHaveBeenCalledTimes(1) // CreateUserIdentityCommand only
     expect(providerRepo.update).toHaveBeenCalledWith(
       PROVIDER_ID,
       TENANT_ID,
@@ -126,12 +135,14 @@ describe('RunDirectorySyncHandler', () => {
     vi.mocked(directoryProvider.listUsers).mockResolvedValue(idpUsers)
     vi.mocked(directoryProvider.listGroupsWithMembers).mockResolvedValue([])
     vi.mocked(mappingRepo.findByProviderId).mockResolvedValue([])
-    vi.mocked(commandBus.execute).mockResolvedValue(undefined)
+    vi.mocked(actorFacade.deactivateActor).mockResolvedValue(undefined)
+    vi.mocked(commandBus.execute).mockResolvedValue(undefined) // DeprovisionUserIdentityCommand
     await handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID))
-    expect(commandBus.execute).toHaveBeenCalledTimes(2)
+    expect(actorFacade.deactivateActor).toHaveBeenCalledTimes(1)
+    expect(commandBus.execute).toHaveBeenCalledTimes(1) // DeprovisionUserIdentityCommand only
   })
 
-  it('syncs group-to-role mappings via GrantRoleCommand', async () => {
+  it('syncs group-to-role mappings via KernelActorFacade.grantRole', async () => {
     vi.mocked(providerRepo.findById).mockResolvedValue(makeProvider())
     vi.mocked(providerRepo.update).mockResolvedValue(undefined)
     vi.mocked(directoryProvider.listUsers).mockResolvedValue([])
@@ -157,9 +168,9 @@ describe('RunDirectorySyncHandler', () => {
         updatedAt: new Date(),
       },
     ])
-    vi.mocked(commandBus.execute).mockResolvedValue('grant-id-001')
+    vi.mocked(actorFacade.grantRole).mockResolvedValue(undefined)
     await handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID))
-    expect(commandBus.execute).toHaveBeenCalled()
+    expect(actorFacade.grantRole).toHaveBeenCalledTimes(1)
   })
 
   it('sets sync status to failed on error and rethrows', async () => {

@@ -1,9 +1,8 @@
 import { Inject } from '@nestjs/common'
 import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
-import { CreateActorCommand } from '../../../kernel/application/commands/create-actor.command'
+import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
 import { CreateUserIdentityCommand } from '../../../kernel/application/commands/create-user-identity.command'
-import { GrantRoleCommand } from '../../../kernel/application/commands/grant-role.command'
 import { MAGIC_LINK_SENDER, type IMagicLinkSender } from '../../domain/ports/magic-link-sender.port'
 import { RequestMagicLinkCommand } from './request-magic-link.command'
 import { InviteLocalUserCommand } from './invite-local-user.command'
@@ -19,12 +18,16 @@ export class InviteLocalUserHandler implements ICommandHandler<
     private readonly auditFacade: KernelAuditFacade,
     @Inject(MAGIC_LINK_SENDER)
     private readonly magicLinkSender: IMagicLinkSender,
+    private readonly actorFacade: KernelActorFacade,
   ) {}
 
   async execute(command: InviteLocalUserCommand): Promise<{ actorId: string }> {
-    // 1. Create actor via kernel command bus
-    const actorId = await this.commandBus.execute(
-      new CreateActorCommand(command.tenantId, 'person', command.displayName),
+    // 1. Create actor via facade
+    const actorId = await this.actorFacade.createActor(
+      command.tenantId,
+      'person',
+      command.displayName,
+      command.invitedBy,
     )
 
     // 2. Create user_identity with provider='local' via kernel command bus
@@ -38,17 +41,15 @@ export class InviteLocalUserHandler implements ICommandHandler<
       ),
     )
 
-    // 3. Grant roles via kernel command bus
+    // 3. Grant roles via facade
     for (const role of command.roleAssignments) {
-      await this.commandBus.execute(
-        new GrantRoleCommand(
-          command.tenantId,
-          actorId,
-          role.roleKey as RoleKeyValue,
-          role.scopeType as ScopeTypeValue,
-          role.scopeId,
-          command.invitedBy,
-        ),
+      await this.actorFacade.grantRole(
+        actorId,
+        role.roleKey as RoleKeyValue,
+        role.scopeType as ScopeTypeValue,
+        role.scopeId,
+        command.tenantId,
+        command.invitedBy,
       )
     }
 
