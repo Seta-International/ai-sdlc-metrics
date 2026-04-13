@@ -1,13 +1,13 @@
 import type { KernelQueryFacade } from '../../modules/kernel/application/facades/kernel-query.facade'
-import type { IAuditEventRepository } from '../../modules/kernel/domain/repositories/audit-event.repository.port'
+import type { KernelAuditFacade } from '../../modules/kernel/application/facades/kernel-audit.facade'
 import { createPermissionMiddleware } from './permission.middleware'
 import { middleware, publicProcedure } from './trpc-init'
 
 export function createProtectedProcedures(
   kernelFacade: KernelQueryFacade,
-  auditRepo: IAuditEventRepository,
+  auditFacade: KernelAuditFacade,
 ) {
-  const permMwFn = createPermissionMiddleware(kernelFacade, auditRepo)
+  const permMwFn = createPermissionMiddleware(kernelFacade, auditFacade)
 
   const permissionMw = middleware(async (opts) => {
     return permMwFn(opts as unknown as Parameters<typeof permMwFn>[0]) as ReturnType<

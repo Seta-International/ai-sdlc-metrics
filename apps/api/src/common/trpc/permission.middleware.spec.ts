@@ -3,26 +3,26 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { TRPCError } from '@trpc/server'
 import { createPermissionMiddleware } from './permission.middleware'
 import type { KernelQueryFacade } from '../../modules/kernel/application/facades/kernel-query.facade'
-import type { IAuditEventRepository } from '../../modules/kernel/domain/repositories/audit-event.repository.port'
+import type { KernelAuditFacade } from '../../modules/kernel/application/facades/kernel-audit.facade'
 
 const ACTOR_ID = '01900000-0000-7000-8000-000000000001'
 const TENANT_ID = '01900000-0000-7000-8000-000000000002'
 
 describe('permissionMiddleware', () => {
   let kernelFacade: { canDo: ReturnType<typeof vi.fn> }
-  let auditRepo: { insert: ReturnType<typeof vi.fn> }
+  let auditFacade: { recordEvent: ReturnType<typeof vi.fn> }
   let nextFn: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     kernelFacade = { canDo: vi.fn() }
-    auditRepo = { insert: vi.fn().mockResolvedValue(undefined) }
+    auditFacade = { recordEvent: vi.fn().mockResolvedValue(undefined) }
     nextFn = vi.fn().mockResolvedValue({ ok: true })
   })
 
   function callMiddleware(meta: { permission?: string } | undefined) {
     const mw = createPermissionMiddleware(
       kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
+      auditFacade as unknown as KernelAuditFacade,
     )
     return mw({
       ctx: { actorId: ACTOR_ID, tenantId: TENANT_ID, roles: [] },
@@ -54,7 +54,7 @@ describe('permissionMiddleware', () => {
       tenantId: TENANT_ID,
     })
     expect(nextFn).toHaveBeenCalled()
-    expect(auditRepo.insert).not.toHaveBeenCalled()
+    expect(auditFacade.recordEvent).not.toHaveBeenCalled()
   })
 
   it('should throw FORBIDDEN when permission is denied', async () => {
@@ -75,7 +75,7 @@ describe('permissionMiddleware', () => {
     } catch {
       /* expected */
     }
-    expect(auditRepo.insert).toHaveBeenCalledWith({
+    expect(auditFacade.recordEvent).toHaveBeenCalledWith({
       tenantId: TENANT_ID,
       actorId: ACTOR_ID,
       eventType: 'permission_denied',
@@ -88,7 +88,7 @@ describe('permissionMiddleware', () => {
   it('should not write audit_event on success', async () => {
     kernelFacade.canDo.mockResolvedValue(true)
     await callMiddleware({ permission: 'people:profile:read' })
-    expect(auditRepo.insert).not.toHaveBeenCalled()
+    expect(auditFacade.recordEvent).not.toHaveBeenCalled()
   })
 
   it('should not call next when permission is denied', async () => {

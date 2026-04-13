@@ -4,7 +4,7 @@ import { devProtectedProcedure } from '../../../../common/trpc/procedures'
 import type { AuthContext } from '../../../../common/trpc/auth-middleware'
 import { checkPermission } from '../../../../common/auth/check-permission'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { PeopleQueryFacade } from '../../application/facades/people-query.facade'
 import { CreateEmploymentProfileCommand } from '../../application/commands/create-employment-profile.command'
 import { UpdateProfileDirectCommand } from '../../application/commands/update-profile-direct.command'
@@ -38,7 +38,7 @@ export function createPeopleRouter(
   permissionProtectedProcedure: any,
   peopleFacade: PeopleQueryFacade,
   kernelFacade: KernelQueryFacade,
-  auditRepo: IAuditEventRepository,
+  auditFacade: KernelAuditFacade,
 ) {
   return router({
     getProfile: permissionProtectedProcedure
@@ -66,7 +66,7 @@ export function createPeopleRouter(
           input: { actorId: string; displayName?: string }
         }) => {
           const profile = await peopleFacade.getProfile(input.actorId, ctx.tenantId)
-          await checkPermission(kernelFacade, auditRepo, {
+          await checkPermission(kernelFacade, auditFacade, {
             actorId: ctx.actorId,
             tenantId: ctx.tenantId,
             permission: 'people:profile:update',

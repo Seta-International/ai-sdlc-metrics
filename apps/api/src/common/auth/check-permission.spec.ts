@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { TRPCError } from '@trpc/server'
 import { checkPermission } from './check-permission'
 import type { KernelQueryFacade } from '../../modules/kernel/application/facades/kernel-query.facade'
-import type { IAuditEventRepository } from '../../modules/kernel/domain/repositories/audit-event.repository.port'
+import type { KernelAuditFacade } from '../../modules/kernel/application/facades/kernel-audit.facade'
 
 const ACTOR_ID = '01900000-0000-7000-8000-000000000001'
 const TENANT_ID = '01900000-0000-7000-8000-000000000002'
@@ -10,11 +10,11 @@ const DEPT_ID = '01900000-0000-7000-8000-000000000003'
 
 describe('checkPermission', () => {
   let kernelFacade: { canDo: ReturnType<typeof vi.fn> }
-  let auditRepo: { insert: ReturnType<typeof vi.fn> }
+  let auditFacade: { recordEvent: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     kernelFacade = { canDo: vi.fn() }
-    auditRepo = { insert: vi.fn().mockResolvedValue(undefined) }
+    auditFacade = { recordEvent: vi.fn().mockResolvedValue(undefined) }
   })
 
   it('resolves when permission is granted (with scopeType/scopeId in canDo call)', async () => {
@@ -22,7 +22,7 @@ describe('checkPermission', () => {
     await expect(
       checkPermission(
         kernelFacade as unknown as KernelQueryFacade,
-        auditRepo as unknown as IAuditEventRepository,
+        auditFacade as unknown as KernelAuditFacade,
         {
           actorId: ACTOR_ID,
           tenantId: TENANT_ID,
@@ -44,7 +44,7 @@ describe('checkPermission', () => {
     await expect(
       checkPermission(
         kernelFacade as unknown as KernelQueryFacade,
-        auditRepo as unknown as IAuditEventRepository,
+        auditFacade as unknown as KernelAuditFacade,
         { actorId: ACTOR_ID, tenantId: TENANT_ID, permission: 'people:profile:update' },
       ),
     ).rejects.toThrow(TRPCError)
@@ -55,7 +55,7 @@ describe('checkPermission', () => {
     try {
       await checkPermission(
         kernelFacade as unknown as KernelQueryFacade,
-        auditRepo as unknown as IAuditEventRepository,
+        auditFacade as unknown as KernelAuditFacade,
         { actorId: ACTOR_ID, tenantId: TENANT_ID, permission: 'people:profile:update' },
       )
     } catch (error) {
@@ -69,7 +69,7 @@ describe('checkPermission', () => {
     try {
       await checkPermission(
         kernelFacade as unknown as KernelQueryFacade,
-        auditRepo as unknown as IAuditEventRepository,
+        auditFacade as unknown as KernelAuditFacade,
         {
           actorId: ACTOR_ID,
           tenantId: TENANT_ID,
@@ -81,7 +81,7 @@ describe('checkPermission', () => {
     } catch {
       /* expected */
     }
-    expect(auditRepo.insert).toHaveBeenCalledWith({
+    expect(auditFacade.recordEvent).toHaveBeenCalledWith({
       tenantId: TENANT_ID,
       actorId: ACTOR_ID,
       eventType: 'permission_denied',
@@ -100,17 +100,17 @@ describe('checkPermission', () => {
     kernelFacade.canDo.mockResolvedValue(true)
     await checkPermission(
       kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
+      auditFacade as unknown as KernelAuditFacade,
       { actorId: ACTOR_ID, tenantId: TENANT_ID, permission: 'people:profile:read' },
     )
-    expect(auditRepo.insert).not.toHaveBeenCalled()
+    expect(auditFacade.recordEvent).not.toHaveBeenCalled()
   })
 
   it('passes resourceOwnerId for self-permission checks', async () => {
     kernelFacade.canDo.mockResolvedValue(true)
     await checkPermission(
       kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
+      auditFacade as unknown as KernelAuditFacade,
       {
         actorId: ACTOR_ID,
         tenantId: TENANT_ID,
@@ -129,7 +129,7 @@ describe('checkPermission', () => {
     await expect(
       checkPermission(
         kernelFacade as unknown as KernelQueryFacade,
-        auditRepo as unknown as IAuditEventRepository,
+        auditFacade as unknown as KernelAuditFacade,
         { actorId: ACTOR_ID, tenantId: TENANT_ID, permission: 'people:profile:read' },
       ),
     ).resolves.toBeUndefined()

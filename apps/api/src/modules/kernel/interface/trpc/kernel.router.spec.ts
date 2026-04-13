@@ -4,7 +4,7 @@ import { TRPCError } from '@trpc/server'
 import { createKernelRouter } from './kernel.router'
 import { router } from '../../../../common/trpc/trpc-init'
 import type { KernelQueryFacade } from '../../application/facades/kernel-query.facade'
-import type { IAuditEventRepository } from '../../domain/repositories/audit-event.repository.port'
+import type { KernelAuditFacade } from '../../application/facades/kernel-audit.facade'
 import { createProtectedProcedures } from '../../../../common/trpc/create-protected-procedures'
 
 const ACTOR_ID = '01900000-0000-7000-8000-000000000001'
@@ -17,16 +17,16 @@ describe('kernelRouter', () => {
       getRoleGrants: vi.fn().mockResolvedValue([]),
       getActor: vi.fn().mockResolvedValue(null),
     }
-    const auditRepo = { insert: vi.fn().mockResolvedValue(undefined) }
+    const auditFacade = { recordEvent: vi.fn().mockResolvedValue(undefined) }
     const { permissionProtectedProcedure } = createProtectedProcedures(
       kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
+      auditFacade as unknown as KernelAuditFacade,
     )
     const kernelRouter = createKernelRouter(
       permissionProtectedProcedure,
       kernelFacade as unknown as KernelQueryFacade,
     )
-    return { kernelRouter, kernelFacade, auditRepo }
+    return { kernelRouter, kernelFacade, auditFacade }
   }
 
   it('should have a health endpoint that works without auth', async () => {

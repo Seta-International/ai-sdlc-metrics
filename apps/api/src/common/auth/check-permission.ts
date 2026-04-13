@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server'
 import type { KernelQueryFacade } from '../../modules/kernel/application/facades/kernel-query.facade'
-import type { IAuditEventRepository } from '../../modules/kernel/domain/repositories/audit-event.repository.port'
+import type { KernelAuditFacade } from '../../modules/kernel/application/facades/kernel-audit.facade'
 
 export interface CheckPermissionParams {
   actorId: string
@@ -13,7 +13,7 @@ export interface CheckPermissionParams {
 
 export async function checkPermission(
   kernelFacade: KernelQueryFacade,
-  auditRepo: IAuditEventRepository,
+  auditFacade: KernelAuditFacade,
   params: CheckPermissionParams,
 ): Promise<void> {
   const { actorId, tenantId, permission, scopeType, scopeId, resourceOwnerId } = params
@@ -31,7 +31,7 @@ export async function checkPermission(
   const allowed = await kernelFacade.canDo(actorId, permission, context)
 
   if (!allowed) {
-    await auditRepo.insert({
+    await auditFacade.recordEvent({
       tenantId,
       actorId,
       eventType: 'permission_denied',

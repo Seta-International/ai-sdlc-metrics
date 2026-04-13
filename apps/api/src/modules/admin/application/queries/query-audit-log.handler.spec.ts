@@ -1,10 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryAuditLogQuery } from './query-audit-log.query'
 import { QueryAuditLogHandler } from './query-audit-log.handler'
-import type {
-  IAuditEventQueryRepository,
-  AuditEventRow,
-} from '../../../kernel/domain/repositories/audit-event-query.repository.port'
+import type { AuditEventRow } from '../../../kernel/domain/repositories/audit-event-query.repository.port'
+import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 
@@ -23,17 +21,17 @@ const fakeEvents: AuditEventRow[] = [
 
 describe('QueryAuditLogHandler', () => {
   let handler: QueryAuditLogHandler
-  let auditQueryRepo: IAuditEventQueryRepository
+  let auditFacade: Pick<KernelAuditFacade, 'queryAuditLog'>
 
   beforeEach(() => {
-    auditQueryRepo = {
-      query: vi.fn(),
+    auditFacade = {
+      queryAuditLog: vi.fn(),
     }
-    handler = new QueryAuditLogHandler(auditQueryRepo)
+    handler = new QueryAuditLogHandler(auditFacade as unknown as KernelAuditFacade)
   })
 
   it('returns paginated audit events matching filters', async () => {
-    vi.mocked(auditQueryRepo.query).mockResolvedValue({
+    vi.mocked(auditFacade.queryAuditLog).mockResolvedValue({
       items: fakeEvents,
       total: 1,
     })
@@ -43,8 +41,7 @@ describe('QueryAuditLogHandler', () => {
     )
 
     expect(result).toEqual({ items: fakeEvents, total: 1 })
-    expect(auditQueryRepo.query).toHaveBeenCalledWith({
-      tenantId: TENANT_ID,
+    expect(auditFacade.queryAuditLog).toHaveBeenCalledWith(TENANT_ID, {
       actorId: undefined,
       eventType: 'permission_check',
       module: 'kernel',
@@ -56,7 +53,7 @@ describe('QueryAuditLogHandler', () => {
   })
 
   it('returns empty results when no events match', async () => {
-    vi.mocked(auditQueryRepo.query).mockResolvedValue({ items: [], total: 0 })
+    vi.mocked(auditFacade.queryAuditLog).mockResolvedValue({ items: [], total: 0 })
 
     const result = await handler.execute(new QueryAuditLogQuery(TENANT_ID))
 

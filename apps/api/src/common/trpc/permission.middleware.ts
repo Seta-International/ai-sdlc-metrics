@@ -1,12 +1,12 @@
 import { TRPCError } from '@trpc/server'
 import type { KernelQueryFacade } from '../../modules/kernel/application/facades/kernel-query.facade'
-import type { IAuditEventRepository } from '../../modules/kernel/domain/repositories/audit-event.repository.port'
+import type { KernelAuditFacade } from '../../modules/kernel/application/facades/kernel-audit.facade'
 import type { AuthContext } from './auth-middleware'
 import type { TrpcMeta } from './trpc-init'
 
 export function createPermissionMiddleware(
   kernelFacade: KernelQueryFacade,
-  auditRepo: IAuditEventRepository,
+  auditFacade: KernelAuditFacade,
 ) {
   return async function permissionMiddleware(opts: {
     ctx: AuthContext & Record<string, unknown>
@@ -28,7 +28,7 @@ export function createPermissionMiddleware(
     })
 
     if (!allowed) {
-      await auditRepo.insert({
+      await auditFacade.recordEvent({
         tenantId: ctx.tenantId,
         actorId: ctx.actorId,
         eventType: 'permission_denied',
