@@ -16,8 +16,8 @@ export class QueryAuditLogHandler implements IQueryHandler<QueryAuditLogQuery, A
       actorId: query.actorId,
       eventType: query.eventType,
       module: query.module,
-      dateFrom: query.dateFrom as unknown as string,
-      dateTo: query.dateTo as unknown as string,
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
       limit: query.limit,
       offset: query.offset,
     })

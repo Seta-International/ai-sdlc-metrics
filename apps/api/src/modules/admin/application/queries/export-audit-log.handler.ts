@@ -13,8 +13,8 @@ export class ExportAuditLogHandler implements IQueryHandler<ExportAuditLogQuery,
       actorId: query.actorId,
       eventType: query.eventType,
       module: query.module,
-      dateFrom: query.dateFrom as unknown as string,
-      dateTo: query.dateTo as unknown as string,
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
     })
 
     if (items.length === 0) return CSV_HEADER
