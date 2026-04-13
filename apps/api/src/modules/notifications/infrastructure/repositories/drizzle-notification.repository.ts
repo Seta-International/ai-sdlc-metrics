@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { and, eq, isNull, inArray } from 'drizzle-orm'
+import { and, eq, isNull, inArray, count } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { INotificationRepository } from '../../domain/repositories/notification.repository.port'
@@ -55,8 +55,8 @@ export class DrizzleNotificationRepository implements INotificationRepository {
   }
 
   async countUnread(tenantId: string, recipientId: string): Promise<number> {
-    const rows = await this.db
-      .select()
+    const result = await this.db
+      .select({ value: count() })
       .from(notification)
       .where(
         and(
@@ -66,7 +66,7 @@ export class DrizzleNotificationRepository implements INotificationRepository {
           isNull(notification.archivedAt),
         ),
       )
-    return rows.length
+    return Number(result[0]?.value ?? 0)
   }
 
   async markRead(tenantId: string, ids: string[]): Promise<void> {

@@ -24,6 +24,10 @@ beforeAll(async () => {
   const a = await seedActor(db, { tenantId })
   actorId = a.id
   await setTenantContext(db, tenantId)
+  // Ensure clean slate
+  await db.execute(
+    sql`TRUNCATE notifications.notification, notifications.notification_preference CASCADE`,
+  )
 })
 
 afterAll(async () => {
@@ -122,5 +126,60 @@ describe('DrizzleNotificationRepository', () => {
     })
     const prefs = await repo.getPreferences(tenantId, actorId)
     expect(prefs.length).toBeGreaterThanOrEqual(2)
+    expect(prefs.every((p) => p.actorId === actorId)).toBe(true)
+  })
+
+  it('archive sets archivedAt on specified ids', async () => {
+    const n = await repo.insert({
+      tenantId,
+      recipientId: actorId,
+      senderId: null,
+      category: 'system',
+      title: 'To be archived',
+      body: null,
+      resourceType: null,
+      resourceId: null,
+      resourceUrl: null,
+    })
+
+    await repo.archive(tenantId, [n.id])
+
+    const results = await repo.findByRecipient(tenantId, actorId, { limit: 50, offset: 0 })
+    // archived notifications are excluded by findByRecipient (isNull archivedAt filter)
+    expect(results.some((x) => x.id === n.id)).toBe(false)
+  })
+
+  it('markAllRead marks all unread notifications for recipient', async () => {
+    // insert 2 unread notifications
+    const n1 = await repo.insert({
+      tenantId,
+      recipientId: actorId,
+      senderId: null,
+      category: 'mention',
+      title: 'Mention 1',
+      body: null,
+      resourceType: null,
+      resourceId: null,
+      resourceUrl: null,
+    })
+    const n2 = await repo.insert({
+      tenantId,
+      recipientId: actorId,
+      senderId: null,
+      category: 'mention',
+      title: 'Mention 2',
+      body: null,
+      resourceType: null,
+      resourceId: null,
+      resourceUrl: null,
+    })
+
+    await repo.markAllRead(tenantId, actorId)
+
+    const results = await repo.findByRecipient(tenantId, actorId, { limit: 100, offset: 0 })
+    const r1 = results.find((x) => x.id === n1.id)
+    const r2 = results.find((x) => x.id === n2.id)
+    expect(r1?.readAt).not.toBeNull()
+    expect(r2?.readAt).not.toBeNull()
   })
 })
