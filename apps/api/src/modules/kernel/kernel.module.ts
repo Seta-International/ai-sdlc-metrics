@@ -25,6 +25,11 @@ import { RemoveRolePermissionHandler } from './application/commands/remove-role-
 import { ResetRolePermissionsHandler } from './application/commands/reset-role-permissions.handler'
 import { KernelQueryFacade } from './application/facades/kernel-query.facade'
 import { KernelAuditFacade } from './application/facades/kernel-audit.facade'
+import { KernelActorFacade } from './application/facades/kernel-actor.facade'
+import { KernelUserIdentityFacade } from './application/facades/kernel-user-identity.facade'
+import { KernelDecisionFacade } from './application/facades/kernel-decision.facade'
+import { KernelPermissionFacade } from './application/facades/kernel-permission.facade'
+import { GetLocalUsersWithActorsHandler } from './application/queries/get-local-users-with-actors.handler'
 import { GetActorHandler } from './application/queries/get-actor.handler'
 import { GetRoleGrantsHandler } from './application/queries/get-role-grants.handler'
 import { GetTenantHandler } from './application/queries/get-tenant.handler'
@@ -83,10 +88,22 @@ import { DrizzleOutboxEventRepository } from './infrastructure/repositories/driz
     GetEffectivePermissionsHandler,
     GetRolePermissionsHandler,
     ListRolesHandler,
+    GetLocalUsersWithActorsHandler,
     KernelQueryFacade,
     KernelAuditFacade,
+    KernelActorFacade,
+    KernelUserIdentityFacade,
+    KernelDecisionFacade,
+    KernelPermissionFacade,
   ],
-  exports: [KernelQueryFacade, KernelAuditFacade, AUDIT_EVENT_QUERY_REPOSITORY],
+  exports: [
+    KernelQueryFacade,
+    KernelAuditFacade,
+    KernelActorFacade,
+    KernelUserIdentityFacade,
+    KernelDecisionFacade,
+    KernelPermissionFacade,
+  ],
 })
 export class KernelModule implements OnModuleInit {
   constructor(private readonly commandBus: CommandBus) {}

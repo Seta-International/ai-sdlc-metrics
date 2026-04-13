@@ -17,6 +17,7 @@
     "test:integration": "vitest run --project integration"
   },
   "dependencies": {
+    "@future/core": "workspace:*",
     "@future/db": "workspace:*",
     "@future/documents": "workspace:*",
     "@future/event-contracts": "workspace:*",

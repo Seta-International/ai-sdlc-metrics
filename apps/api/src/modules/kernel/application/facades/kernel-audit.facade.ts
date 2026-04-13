@@ -3,6 +3,7 @@ import {
   AUDIT_EVENT_REPOSITORY,
   type IAuditEventRepository,
 } from '../../domain/repositories/audit-event.repository.port'
+import type { AuditEventRow } from '../../domain/repositories/audit-event-query.repository.port'
 import {
   OUTBOX_EVENT_REPOSITORY,
   type IOutboxEventRepository,
@@ -38,5 +39,49 @@ export class KernelAuditFacade {
     payload: unknown
   }): Promise<void> {
     return this.outboxRepo.insert(data)
+  }
+
+  queryAuditLog(
+    tenantId: string,
+    filters: {
+      actorId?: string
+      eventType?: string
+      module?: string
+      dateFrom?: Date
+      dateTo?: Date
+      limit?: number
+      offset?: number
+    },
+  ): Promise<{ items: AuditEventRow[]; total: number }> {
+    return this.auditRepo.query({
+      tenantId,
+      actorId: filters.actorId,
+      eventType: filters.eventType,
+      module: filters.module,
+      dateFrom: filters.dateFrom,
+      dateTo: filters.dateTo,
+      limit: filters.limit ?? 50,
+      offset: filters.offset ?? 0,
+    })
+  }
+
+  exportAuditLog(
+    tenantId: string,
+    filters: {
+      actorId?: string
+      eventType?: string
+      module?: string
+      dateFrom?: Date
+      dateTo?: Date
+    },
+  ): Promise<AuditEventRow[]> {
+    return this.auditRepo.queryAll({
+      tenantId,
+      actorId: filters.actorId,
+      eventType: filters.eventType,
+      module: filters.module,
+      dateFrom: filters.dateFrom,
+      dateTo: filters.dateTo,
+    })
   }
 }

@@ -6,7 +6,7 @@ import {
   type IIdpGroupMappingRepository,
 } from '../../domain/repositories/idp-group-mapping.repository'
 import { RemoveGroupMappingCommand } from './remove-group-mapping.command'
-import { DomainException } from '../../../kernel/domain/exceptions/domain.exception'
+import { DomainException } from '@future/core'
 
 class GroupMappingNotFoundException extends DomainException {
   readonly code = 'GROUP_MAPPING_NOT_FOUND'

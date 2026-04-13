@@ -1,5 +1,5 @@
 import { Inject } from '@nestjs/common'
-import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import {
   EmploymentProfileNotFoundException,
   OffboardingCaseNotFoundException,
@@ -15,7 +15,7 @@ import {
   type IOffboardingCaseRepository,
 } from '../../domain/repositories/offboarding.repository.port'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
-import { ResolveDecisionCaseCommand } from '../../../kernel/application/commands/resolve-decision-case.command'
+import { KernelDecisionFacade } from '../../../kernel/application/facades/kernel-decision.facade'
 import { ApproveOffboardingCommand } from './approve-offboarding.command'
 
 const OFFBOARDING_STARTED_EVENT = 'people.offboarding-started'
@@ -30,7 +30,7 @@ export class ApproveOffboardingHandler implements ICommandHandler<ApproveOffboar
     @Inject(OFFBOARDING_CASE_REPOSITORY)
     private readonly caseRepo: IOffboardingCaseRepository,
     private readonly auditFacade: KernelAuditFacade,
-    private readonly commandBus: CommandBus,
+    private readonly decisionFacade: KernelDecisionFacade,
   ) {}
 
   async execute(command: ApproveOffboardingCommand): Promise<void> {
@@ -86,14 +86,12 @@ export class ApproveOffboardingHandler implements ICommandHandler<ApproveOffboar
 
     // 6. Resolve decision case
     if (offboardingCase.decisionCaseId) {
-      await this.commandBus.execute(
-        new ResolveDecisionCaseCommand(
-          command.tenantId,
-          offboardingCase.decisionCaseId,
-          'approved',
-          command.approvedBy,
-          null,
-        ),
+      await this.decisionFacade.resolveDecisionCase(
+        command.tenantId,
+        offboardingCase.decisionCaseId,
+        'approved',
+        command.approvedBy,
+        null,
       )
     }
 

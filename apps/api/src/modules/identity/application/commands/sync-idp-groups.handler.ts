@@ -11,7 +11,7 @@ import {
   type IIdentityProviderRepository,
 } from '../../domain/repositories/identity-provider.repository'
 import { SyncIdpGroupsCommand } from './sync-idp-groups.command'
-import { DomainException } from '../../../kernel/domain/exceptions/domain.exception'
+import { DomainException } from '@future/core'
 
 class NoIdentityProviderConfiguredException extends DomainException {
   readonly code = 'NO_IDENTITY_PROVIDER_CONFIGURED'

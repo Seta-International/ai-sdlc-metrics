@@ -1,5 +1,5 @@
 import { Inject } from '@nestjs/common'
-import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import {
   EmploymentProfileNotFoundException,
   InvalidEmploymentStatusTransitionException,
@@ -13,7 +13,7 @@ import {
   OFFBOARDING_CASE_REPOSITORY,
   type IOffboardingCaseRepository,
 } from '../../domain/repositories/offboarding-case.repository'
-import { CreateDecisionCaseCommand } from '../../../kernel/application/commands/create-decision-case.command'
+import { KernelDecisionFacade } from '../../../kernel/application/facades/kernel-decision.facade'
 import { TriggerOffboardingCommand } from './trigger-offboarding.command'
 
 const OFFBOARDABLE_STATUSES = ['active', 'on_leave'] as const
@@ -25,7 +25,7 @@ export class TriggerOffboardingHandler implements ICommandHandler<TriggerOffboar
     private readonly profileRepo: IEmploymentProfileRepository,
     @Inject(OFFBOARDING_CASE_REPOSITORY)
     private readonly offboardingCaseRepo: IOffboardingCaseRepository,
-    private readonly commandBus: CommandBus,
+    private readonly decisionFacade: KernelDecisionFacade,
   ) {}
 
   async execute(command: TriggerOffboardingCommand): Promise<void> {
@@ -44,9 +44,12 @@ export class TriggerOffboardingHandler implements ICommandHandler<TriggerOffboar
     const existing = await this.offboardingCaseRepo.findActiveByProfileId(profileId, tenantId)
     if (existing) throw new OffboardingCaseAlreadyActiveException(profileId)
 
-    // 4. Create decision case via commandBus
-    const decisionCaseId = await this.commandBus.execute(
-      new CreateDecisionCaseCommand(tenantId, 'people', profileId, requestedBy),
+    // 4. Create decision case via facade
+    const decisionCaseId = await this.decisionFacade.createDecisionCase(
+      tenantId,
+      'people',
+      profileId,
+      requestedBy,
     )
 
     // 5. Insert offboarding case

@@ -1,15 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CommandBus } from '@nestjs/cqrs'
 import { ApproveProfileChangeCommand } from './approve-profile-change.command'
 import { ApproveProfileChangeHandler } from './approve-profile-change.handler'
 import {
   ProfileChangeRequestNotFoundException,
   ProfileChangeRequestNotPendingException,
 } from '../../domain/exceptions/people.exceptions'
-import { ResolveDecisionCaseCommand } from '../../../kernel/application/commands/resolve-decision-case.command'
 import type { IProfileChangeRequestRepository } from '../../domain/repositories/profile-change-request.repository'
 import type { IEmploymentProfileDetailRepository } from '../../domain/repositories/employment-profile-detail.repository'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
+import { KernelDecisionFacade } from '../../../kernel/application/facades/kernel-decision.facade'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const REQUEST_ID = '01900000-0000-7000-8000-000000000010'
@@ -22,7 +21,7 @@ describe('ApproveProfileChangeHandler', () => {
   let changeRequestRepo: IProfileChangeRequestRepository
   let detailRepo: IEmploymentProfileDetailRepository
   let auditFacade: KernelAuditFacade
-  let commandBus: CommandBus
+  let decisionFacade: KernelDecisionFacade
 
   beforeEach(() => {
     changeRequestRepo = {
@@ -41,12 +40,15 @@ describe('ApproveProfileChangeHandler', () => {
       recordEvent: vi.fn(),
       publishOutboxEvent: vi.fn(),
     } as unknown as KernelAuditFacade
-    commandBus = { execute: vi.fn() } as unknown as CommandBus
+    decisionFacade = {
+      createDecisionCase: vi.fn(),
+      resolveDecisionCase: vi.fn(),
+    } as unknown as KernelDecisionFacade
     handler = new ApproveProfileChangeHandler(
       changeRequestRepo,
       detailRepo,
       auditFacade,
-      commandBus,
+      decisionFacade,
     )
   })
 
@@ -79,7 +81,13 @@ describe('ApproveProfileChangeHandler', () => {
       'approved',
       APPROVER_ID,
     )
-    expect(commandBus.execute).toHaveBeenCalledWith(expect.any(ResolveDecisionCaseCommand))
+    expect(decisionFacade.resolveDecisionCase).toHaveBeenCalledWith(
+      TENANT_ID,
+      CASE_ID,
+      'approved',
+      APPROVER_ID,
+      null,
+    )
     expect(auditFacade.recordEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'profile_change_approved',
@@ -105,7 +113,7 @@ describe('ApproveProfileChangeHandler', () => {
 
     await handler.execute(new ApproveProfileChangeCommand(TENANT_ID, REQUEST_ID, APPROVER_ID))
 
-    expect(commandBus.execute).not.toHaveBeenCalled()
+    expect(decisionFacade.resolveDecisionCase).not.toHaveBeenCalled()
   })
 
   it('throws ProfileChangeRequestNotFoundException when not found', async () => {

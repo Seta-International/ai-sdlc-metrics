@@ -1,5 +1,5 @@
 import { Inject } from '@nestjs/common'
-import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import {
   ProfileChangeRequestNotFoundException,
   ProfileChangeRequestNotPendingException,
@@ -9,7 +9,7 @@ import {
   type IProfileChangeRequestRepository,
 } from '../../domain/repositories/profile-change-request.repository'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
-import { ResolveDecisionCaseCommand } from '../../../kernel/application/commands/resolve-decision-case.command'
+import { KernelDecisionFacade } from '../../../kernel/application/facades/kernel-decision.facade'
 import { RejectProfileChangeCommand } from './reject-profile-change.command'
 
 @CommandHandler(RejectProfileChangeCommand)
@@ -21,7 +21,7 @@ export class RejectProfileChangeHandler implements ICommandHandler<
     @Inject(PROFILE_CHANGE_REQUEST_REPOSITORY)
     private readonly changeRequestRepo: IProfileChangeRequestRepository,
     private readonly auditFacade: KernelAuditFacade,
-    private readonly commandBus: CommandBus,
+    private readonly decisionFacade: KernelDecisionFacade,
   ) {}
 
   async execute(command: RejectProfileChangeCommand): Promise<void> {
@@ -39,16 +39,14 @@ export class RejectProfileChangeHandler implements ICommandHandler<
       command.rejectedBy,
     )
 
-    // Resolve the kernel decision case with rejection + comment
+    // Resolve the kernel decision case with rejection + comment via facade
     if (request.decisionCaseId) {
-      await this.commandBus.execute(
-        new ResolveDecisionCaseCommand(
-          command.tenantId,
-          request.decisionCaseId,
-          'rejected',
-          command.rejectedBy,
-          command.comment,
-        ),
+      await this.decisionFacade.resolveDecisionCase(
+        command.tenantId,
+        request.decisionCaseId,
+        'rejected',
+        command.rejectedBy,
+        command.comment,
       )
     }
 

@@ -6,7 +6,7 @@ import {
   type IIdpGroupMappingRepository,
 } from '../../domain/repositories/idp-group-mapping.repository'
 import { UpsertGroupMappingCommand } from './upsert-group-mapping.command'
-import { DomainException } from '../../../kernel/domain/exceptions/domain.exception'
+import { DomainException } from '@future/core'
 
 class MissingScopeIdException extends DomainException {
   readonly code = 'MISSING_SCOPE_ID'

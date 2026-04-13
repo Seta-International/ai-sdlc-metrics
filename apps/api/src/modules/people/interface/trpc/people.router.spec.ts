@@ -4,7 +4,7 @@ import { TRPCError } from '@trpc/server'
 import { createPeopleRouter } from './people.router'
 import { router } from '../../../../common/trpc/trpc-init'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
-import type { IAuditEventRepository } from '../../../kernel/domain/repositories/audit-event.repository.port'
+import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { PeopleQueryFacade } from '../../application/facades/people-query.facade'
 import { createProtectedProcedures } from '../../../../common/trpc/create-protected-procedures'
 
@@ -16,22 +16,22 @@ describe('createPeopleRouter', () => {
     const kernelFacade = {
       canDo: vi.fn().mockResolvedValue(canDo),
     }
-    const auditRepo = { insert: vi.fn().mockResolvedValue(undefined) }
+    const auditFacade = { recordEvent: vi.fn().mockResolvedValue(undefined) }
     const peopleFacade = {
       getProfile: vi.fn().mockResolvedValue(profileResult),
       getOwnProfile: vi.fn().mockResolvedValue(profileResult),
     }
     const { permissionProtectedProcedure } = createProtectedProcedures(
       kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
+      auditFacade as unknown as KernelAuditFacade,
     )
     const peopleRouter = createPeopleRouter(
       permissionProtectedProcedure,
       peopleFacade as unknown as PeopleQueryFacade,
       kernelFacade as unknown as KernelQueryFacade,
-      auditRepo as unknown as IAuditEventRepository,
+      auditFacade as unknown as KernelAuditFacade,
     )
-    return { peopleRouter, kernelFacade, auditRepo, peopleFacade }
+    return { peopleRouter, kernelFacade, auditFacade, peopleFacade }
   }
 
   it('should create a router with getProfile protected by people:profile:read', async () => {

@@ -10,7 +10,7 @@ import {
   type IIdentityProviderRepository,
 } from '../../domain/repositories/identity-provider.repository'
 import { TestIdpConnectionCommand } from './test-idp-connection.command'
-import { DomainException } from '../../../kernel/domain/exceptions/domain.exception'
+import { DomainException } from '@future/core'
 
 class IdentityProviderNotFoundException extends DomainException {
   readonly code = 'IDENTITY_PROVIDER_NOT_FOUND'

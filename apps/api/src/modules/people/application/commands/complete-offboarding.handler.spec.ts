@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CommandBus } from '@nestjs/cqrs'
 import { CompleteOffboardingCommand } from './complete-offboarding.command'
 import { CompleteOffboardingHandler } from './complete-offboarding.handler'
 import {
@@ -10,9 +9,8 @@ import type { IEmploymentProfileRepository } from '../../domain/repositories/emp
 import type { IOffboardingCaseRepository } from '../../domain/repositories/offboarding-case.repository'
 import type { IAccountMembershipRepository } from '../../domain/repositories/account-membership.repository'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
-import { UpdateActorStatusCommand } from '../../../kernel/application/commands/update-actor-status.command'
-import { DeprovisionUserIdentityCommand } from '../../../kernel/application/commands/deprovision-user-identity.command'
-import { RevokeAllRoleGrantsCommand } from '../../../kernel/application/commands/revoke-all-role-grants.command'
+import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
+import { KernelUserIdentityFacade } from '../../../kernel/application/facades/kernel-user-identity.facade'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const CASE_ID = '01900000-0000-7000-8000-000000000030'
@@ -25,7 +23,8 @@ describe('CompleteOffboardingHandler', () => {
   let caseRepo: IOffboardingCaseRepository
   let accountMembershipRepo: IAccountMembershipRepository
   let auditFacade: KernelAuditFacade
-  let commandBus: CommandBus
+  let actorFacade: KernelActorFacade
+  let userIdentityFacade: KernelUserIdentityFacade
 
   beforeEach(() => {
     profileRepo = {
@@ -76,14 +75,22 @@ describe('CompleteOffboardingHandler', () => {
       recordEvent: vi.fn(),
       publishOutboxEvent: vi.fn(),
     } as unknown as KernelAuditFacade
-    commandBus = { execute: vi.fn() } as unknown as CommandBus
+    actorFacade = {
+      deactivateActor: vi.fn(),
+      revokeAllRoles: vi.fn(),
+    } as unknown as KernelActorFacade
+    userIdentityFacade = {
+      createUserIdentity: vi.fn(),
+      deprovisionUserIdentity: vi.fn(),
+    } as unknown as KernelUserIdentityFacade
 
     handler = new CompleteOffboardingHandler(
       profileRepo,
       caseRepo,
       accountMembershipRepo,
       auditFacade,
-      commandBus,
+      actorFacade,
+      userIdentityFacade,
     )
   })
 
@@ -103,24 +110,21 @@ describe('CompleteOffboardingHandler', () => {
       expect.any(Date),
     )
 
-    expect(commandBus.execute).toHaveBeenCalledTimes(3)
-    expect(commandBus.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ actorId: 'actor-1', status: 'inactive' }),
-    )
-    expect(commandBus.execute).toHaveBeenCalledWith(expect.objectContaining({ actorId: 'actor-1' }))
+    expect(actorFacade.deactivateActor).toHaveBeenCalledWith('actor-1', TENANT_ID)
+    expect(actorFacade.revokeAllRoles).toHaveBeenCalledWith('actor-1', TENANT_ID)
+    expect(userIdentityFacade.deprovisionUserIdentity).toHaveBeenCalledWith(TENANT_ID, 'actor-1')
 
     expect(auditFacade.publishOutboxEvent).toHaveBeenCalledWith(
       expect.objectContaining({ eventName: 'people.employee-terminated' }),
     )
   })
 
-  it('dispatches UpdateActorStatusCommand, DeprovisionUserIdentityCommand, RevokeAllRoleGrantsCommand', async () => {
+  it('deactivates actor via facade, deprovisions identity via facade, revokes roles via facade', async () => {
     await handler.execute(new CompleteOffboardingCommand(TENANT_ID, CASE_ID, COMPLETED_BY))
 
-    const calls = vi.mocked(commandBus.execute).mock.calls.map(([cmd]) => cmd)
-    expect(calls.some((c) => c instanceof UpdateActorStatusCommand)).toBe(true)
-    expect(calls.some((c) => c instanceof DeprovisionUserIdentityCommand)).toBe(true)
-    expect(calls.some((c) => c instanceof RevokeAllRoleGrantsCommand)).toBe(true)
+    expect(actorFacade.deactivateActor).toHaveBeenCalledWith('actor-1', TENANT_ID)
+    expect(actorFacade.revokeAllRoles).toHaveBeenCalledWith('actor-1', TENANT_ID)
+    expect(userIdentityFacade.deprovisionUserIdentity).toHaveBeenCalledWith(TENANT_ID, 'actor-1')
   })
 
   it('throws OffboardingCaseNotFoundException when case not found', async () => {

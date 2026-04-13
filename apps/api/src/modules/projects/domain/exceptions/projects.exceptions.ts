@@ -1,7 +1,4 @@
-// NOTE: DomainException is imported cross-module from kernel. This is intentional —
-// it is the shared base class for all domain exceptions across the application.
-// No other kernel domain internals should be imported by other modules.
-import { DomainException } from '../../../kernel/domain/exceptions/domain.exception'
+import { DomainException } from '@future/core'
 
 export class AccountNotFoundException extends DomainException {
   readonly code = 'ACCOUNT_NOT_FOUND'

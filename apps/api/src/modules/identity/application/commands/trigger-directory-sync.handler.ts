@@ -7,7 +7,7 @@ import {
 } from '../../domain/repositories/identity-provider.repository'
 import { JOB_SCHEDULER, type IJobScheduler } from '../../domain/ports/job-scheduler.port'
 import { TriggerDirectorySyncCommand } from './trigger-directory-sync.command'
-import { DomainException } from '../../../kernel/domain/exceptions/domain.exception'
+import { DomainException } from '@future/core'
 
 class NoIdentityProviderConfiguredException extends DomainException {
   readonly code = 'NO_IDENTITY_PROVIDER_CONFIGURED'

@@ -5,6 +5,7 @@ import { DB_TOKEN } from '../../../../common/db/db.module'
 import type {
   IAuditEventQueryRepository,
   AuditEventFilter,
+  AuditEventExportFilter,
   AuditEventRow,
 } from '../../domain/repositories/audit-event-query.repository.port'
 import { auditEvent } from '../schema/index'
@@ -48,5 +49,32 @@ export class DrizzleAuditEventQueryRepository implements IAuditEventQueryReposit
       })),
       total: Number(countResult[0]?.value ?? 0),
     }
+  }
+
+  async queryAll(filter: AuditEventExportFilter): Promise<AuditEventRow[]> {
+    const conditions = [eq(auditEvent.tenantId, filter.tenantId)]
+
+    if (filter.actorId) conditions.push(eq(auditEvent.actorId, filter.actorId))
+    if (filter.eventType) conditions.push(eq(auditEvent.eventType, filter.eventType))
+    if (filter.module) conditions.push(eq(auditEvent.module, filter.module))
+    if (filter.dateFrom) conditions.push(gte(auditEvent.createdAt, filter.dateFrom))
+    if (filter.dateTo) conditions.push(lte(auditEvent.createdAt, filter.dateTo))
+
+    const rows = await this.db
+      .select()
+      .from(auditEvent)
+      .where(and(...conditions))
+      .orderBy(auditEvent.createdAt)
+
+    return rows.map((row) => ({
+      id: row.id,
+      tenantId: row.tenantId,
+      actorId: row.actorId,
+      eventType: row.eventType,
+      module: row.module,
+      subjectId: row.subjectId,
+      payload: row.payload,
+      createdAt: row.createdAt,
+    }))
   }
 }

@@ -1,8 +1,7 @@
-import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
-import { DeprovisionUserIdentityCommand } from '../../../kernel/application/commands/deprovision-user-identity.command'
-import { RevokeAllRoleGrantsCommand } from '../../../kernel/application/commands/revoke-all-role-grants.command'
-import { UpdateActorStatusCommand } from '../../../kernel/application/commands/update-actor-status.command'
+import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
+import { KernelUserIdentityFacade } from '../../../kernel/application/facades/kernel-user-identity.facade'
 import { DeactivateLocalUserCommand } from './deactivate-local-user.command'
 
 @CommandHandler(DeactivateLocalUserCommand)
@@ -11,23 +10,20 @@ export class DeactivateLocalUserHandler implements ICommandHandler<
   void
 > {
   constructor(
-    private readonly commandBus: CommandBus,
     private readonly auditFacade: KernelAuditFacade,
+    private readonly actorFacade: KernelActorFacade,
+    private readonly userIdentityFacade: KernelUserIdentityFacade,
   ) {}
 
   async execute(command: DeactivateLocalUserCommand): Promise<void> {
     // 1. Deprovision user identity
-    await this.commandBus.execute(
-      new DeprovisionUserIdentityCommand(command.tenantId, command.actorId),
-    )
+    await this.userIdentityFacade.deprovisionUserIdentity(command.tenantId, command.actorId)
 
     // 2. Revoke all role grants
-    await this.commandBus.execute(new RevokeAllRoleGrantsCommand(command.tenantId, command.actorId))
+    await this.actorFacade.revokeAllRoles(command.actorId, command.tenantId)
 
     // 3. Update actor status to inactive
-    await this.commandBus.execute(
-      new UpdateActorStatusCommand(command.tenantId, command.actorId, 'inactive'),
-    )
+    await this.actorFacade.deactivateActor(command.actorId, command.tenantId)
 
     // 4. Audit
     await this.auditFacade.recordEvent({

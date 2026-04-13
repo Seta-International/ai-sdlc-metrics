@@ -5,10 +5,7 @@ import { initProtectedProcedure } from './trpc-init'
 import { createProtectedProcedures } from './create-protected-procedures'
 import { KernelModule } from '../../modules/kernel/kernel.module'
 import { KernelQueryFacade } from '../../modules/kernel/application/facades/kernel-query.facade'
-import {
-  AUDIT_EVENT_REPOSITORY,
-  type IAuditEventRepository,
-} from '../../modules/kernel/domain/repositories/audit-event.repository.port'
+import { KernelAuditFacade } from '../../modules/kernel/application/facades/kernel-audit.facade'
 import { PeopleModule } from '../../modules/people/people.module'
 import { PeopleQueryFacade } from '../../modules/people/application/facades/people-query.facade'
 import { IdentityModule } from '../../modules/identity/identity.module'
@@ -53,7 +50,7 @@ export class TrpcModule implements OnModuleInit {
   constructor(
     @Inject(JWT_SERVICE) private readonly jwtService: JwtService,
     private readonly kernelFacade: KernelQueryFacade,
-    @Inject(AUDIT_EVENT_REPOSITORY) private readonly auditRepo: IAuditEventRepository,
+    private readonly auditFacade: KernelAuditFacade,
     private readonly peopleFacade: PeopleQueryFacade,
     @Inject(SAVED_VIEW_REPOSITORY) private readonly savedViewRepo: ISavedViewRepository,
   ) {}
@@ -63,7 +60,7 @@ export class TrpcModule implements OnModuleInit {
 
     const { permissionProtectedProcedure } = createProtectedProcedures(
       this.kernelFacade,
-      this.auditRepo,
+      this.auditFacade,
     )
 
     setKernelRouter(createKernelRouter(permissionProtectedProcedure, this.kernelFacade))
@@ -72,7 +69,7 @@ export class TrpcModule implements OnModuleInit {
         permissionProtectedProcedure,
         this.peopleFacade,
         this.kernelFacade,
-        this.auditRepo,
+        this.auditFacade,
       ),
     )
     setIdentityAdminRouter(createIdentityAdminRouter(permissionProtectedProcedure))

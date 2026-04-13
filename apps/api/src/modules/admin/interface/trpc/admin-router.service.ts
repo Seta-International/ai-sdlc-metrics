@@ -1,5 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common'
 import { CommandBus, QueryBus } from '@nestjs/cqrs'
+import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
+import { KernelPermissionFacade } from '../../../kernel/application/facades/kernel-permission.facade'
 
 let instance: AdminRouterService | null = null
 
@@ -8,6 +10,8 @@ export class AdminRouterService implements OnModuleInit {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
+    readonly kernelQuery: KernelQueryFacade,
+    readonly kernelPermission: KernelPermissionFacade,
   ) {}
 
   onModuleInit() {

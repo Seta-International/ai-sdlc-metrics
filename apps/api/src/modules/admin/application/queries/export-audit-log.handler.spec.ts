@@ -1,10 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ExportAuditLogQuery } from './export-audit-log.query'
 import { ExportAuditLogHandler } from './export-audit-log.handler'
-import type {
-  IAuditEventQueryRepository,
-  AuditEventRow,
-} from '../../../kernel/domain/repositories/audit-event-query.repository.port'
+import type { AuditEventRow } from '../../../kernel/domain/repositories/audit-event-query.repository.port'
+import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 
@@ -23,20 +21,17 @@ const fakeEvents: AuditEventRow[] = [
 
 describe('ExportAuditLogHandler', () => {
   let handler: ExportAuditLogHandler
-  let auditQueryRepo: IAuditEventQueryRepository
+  let auditFacade: Pick<KernelAuditFacade, 'exportAuditLog'>
 
   beforeEach(() => {
-    auditQueryRepo = {
-      query: vi.fn(),
+    auditFacade = {
+      exportAuditLog: vi.fn(),
     }
-    handler = new ExportAuditLogHandler(auditQueryRepo)
+    handler = new ExportAuditLogHandler(auditFacade as unknown as KernelAuditFacade)
   })
 
   it('returns CSV string with headers and data rows', async () => {
-    vi.mocked(auditQueryRepo.query).mockResolvedValue({
-      items: fakeEvents,
-      total: 1,
-    })
+    vi.mocked(auditFacade.exportAuditLog).mockResolvedValue(fakeEvents)
 
     const result = await handler.execute(new ExportAuditLogQuery(TENANT_ID))
 
@@ -47,7 +42,7 @@ describe('ExportAuditLogHandler', () => {
   })
 
   it('returns only headers when no events match', async () => {
-    vi.mocked(auditQueryRepo.query).mockResolvedValue({ items: [], total: 0 })
+    vi.mocked(auditFacade.exportAuditLog).mockResolvedValue([])
 
     const result = await handler.execute(new ExportAuditLogQuery(TENANT_ID))
 

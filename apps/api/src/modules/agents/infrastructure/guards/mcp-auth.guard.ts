@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { createHash } from 'node:crypto'
+import type { ActorType } from '@future/core'
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 
 interface JwtPayload {
@@ -13,7 +14,7 @@ export interface McpRequestContext {
   actorId: string
   tenantId: string
   authMethod: 'jwt' | 'api_key'
-  actorType: 'person' | 'organization' | 'system'
+  actorType: ActorType
 }
 
 @Injectable()

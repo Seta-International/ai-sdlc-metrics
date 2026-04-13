@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CommandBus } from '@nestjs/cqrs'
 import { RejectOffboardingCommand } from './reject-offboarding.command'
 import { RejectOffboardingHandler } from './reject-offboarding.handler'
 import { OffboardingCaseNotFoundException } from '../../domain/exceptions/people.exceptions'
 import type { IOffboardingCaseRepository } from '../../domain/repositories/offboarding.repository.port'
+import { KernelDecisionFacade } from '../../../kernel/application/facades/kernel-decision.facade'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const CASE_ID = '01900000-0000-7000-8000-000000000030'
@@ -12,7 +12,7 @@ const REJECTOR_ID = '01900000-0000-7000-8000-000000000005'
 describe('RejectOffboardingHandler', () => {
   let handler: RejectOffboardingHandler
   let caseRepo: IOffboardingCaseRepository
-  let commandBus: CommandBus
+  let decisionFacade: KernelDecisionFacade
 
   beforeEach(() => {
     caseRepo = {
@@ -35,8 +35,11 @@ describe('RejectOffboardingHandler', () => {
       updateTaskStatus: vi.fn(),
       findTaskById: vi.fn(),
     } as unknown as IOffboardingCaseRepository
-    commandBus = { execute: vi.fn() } as unknown as CommandBus
-    handler = new RejectOffboardingHandler(caseRepo, commandBus)
+    decisionFacade = {
+      createDecisionCase: vi.fn(),
+      resolveDecisionCase: vi.fn(),
+    } as unknown as KernelDecisionFacade
+    handler = new RejectOffboardingHandler(caseRepo, decisionFacade)
   })
 
   it('sets case status to rejected and resolves decision case', async () => {
@@ -45,13 +48,12 @@ describe('RejectOffboardingHandler', () => {
     )
 
     expect(caseRepo.updateStatus).toHaveBeenCalledWith(CASE_ID, TENANT_ID, 'rejected')
-    expect(commandBus.execute).toHaveBeenCalledWith(
-      expect.objectContaining({
-        caseId: 'dc-1',
-        finalAction: 'rejected',
-        decidedBy: REJECTOR_ID,
-        comment: 'Employee withdrew',
-      }),
+    expect(decisionFacade.resolveDecisionCase).toHaveBeenCalledWith(
+      TENANT_ID,
+      'dc-1',
+      'rejected',
+      REJECTOR_ID,
+      'Employee withdrew',
     )
   })
 
@@ -84,6 +86,6 @@ describe('RejectOffboardingHandler', () => {
     )
 
     expect(caseRepo.updateStatus).toHaveBeenCalledWith(CASE_ID, TENANT_ID, 'rejected')
-    expect(commandBus.execute).not.toHaveBeenCalled()
+    expect(decisionFacade.resolveDecisionCase).not.toHaveBeenCalled()
   })
 })

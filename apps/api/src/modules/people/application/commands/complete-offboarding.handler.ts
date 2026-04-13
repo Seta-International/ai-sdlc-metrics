@@ -1,5 +1,5 @@
 import { Inject } from '@nestjs/common'
-import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import {
   EmploymentProfileNotFoundException,
   OffboardingCaseNotFoundException,
@@ -18,9 +18,8 @@ import {
   type IAccountMembershipRepository,
 } from '../../domain/repositories/account-membership.repository'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
-import { UpdateActorStatusCommand } from '../../../kernel/application/commands/update-actor-status.command'
-import { DeprovisionUserIdentityCommand } from '../../../kernel/application/commands/deprovision-user-identity.command'
-import { RevokeAllRoleGrantsCommand } from '../../../kernel/application/commands/revoke-all-role-grants.command'
+import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
+import { KernelUserIdentityFacade } from '../../../kernel/application/facades/kernel-user-identity.facade'
 import { CompleteOffboardingCommand } from './complete-offboarding.command'
 
 const EMPLOYEE_TERMINATED_EVENT = 'people.employee-terminated'
@@ -38,7 +37,8 @@ export class CompleteOffboardingHandler implements ICommandHandler<
     @Inject(ACCOUNT_MEMBERSHIP_REPOSITORY)
     private readonly accountMembershipRepo: IAccountMembershipRepository,
     private readonly auditFacade: KernelAuditFacade,
-    private readonly commandBus: CommandBus,
+    private readonly actorFacade: KernelActorFacade,
+    private readonly userIdentityFacade: KernelUserIdentityFacade,
   ) {}
 
   async execute(command: CompleteOffboardingCommand): Promise<void> {
@@ -70,13 +70,9 @@ export class CompleteOffboardingHandler implements ICommandHandler<
     await this.accountMembershipRepo.closeAllForActor(profile.actorId, command.tenantId, now)
 
     // 7. Dispatch kernel commands
-    await this.commandBus.execute(
-      new UpdateActorStatusCommand(command.tenantId, profile.actorId, 'inactive'),
-    )
-    await this.commandBus.execute(
-      new DeprovisionUserIdentityCommand(command.tenantId, profile.actorId),
-    )
-    await this.commandBus.execute(new RevokeAllRoleGrantsCommand(command.tenantId, profile.actorId))
+    await this.actorFacade.deactivateActor(profile.actorId, command.tenantId)
+    await this.userIdentityFacade.deprovisionUserIdentity(command.tenantId, profile.actorId)
+    await this.actorFacade.revokeAllRoles(profile.actorId, command.tenantId)
 
     // 8. Emit outbox event
     await this.auditFacade.publishOutboxEvent({

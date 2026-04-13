@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CommandBus } from '@nestjs/cqrs'
 import { ApproveOffboardingCommand } from './approve-offboarding.command'
 import { ApproveOffboardingHandler } from './approve-offboarding.handler'
 import {
@@ -12,6 +11,7 @@ import type {
   IOffboardingCaseRepository,
 } from '../../domain/repositories/offboarding.repository.port'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
+import { KernelDecisionFacade } from '../../../kernel/application/facades/kernel-decision.facade'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const CASE_ID = '01900000-0000-7000-8000-000000000030'
@@ -25,7 +25,7 @@ describe('ApproveOffboardingHandler', () => {
   let templateRepo: IOffboardingTemplateRepository
   let caseRepo: IOffboardingCaseRepository
   let auditFacade: KernelAuditFacade
-  let commandBus: CommandBus
+  let decisionFacade: KernelDecisionFacade
 
   beforeEach(() => {
     profileRepo = {
@@ -101,13 +101,16 @@ describe('ApproveOffboardingHandler', () => {
       recordEvent: vi.fn(),
       publishOutboxEvent: vi.fn(),
     } as unknown as KernelAuditFacade
-    commandBus = { execute: vi.fn() } as unknown as CommandBus
+    decisionFacade = {
+      createDecisionCase: vi.fn(),
+      resolveDecisionCase: vi.fn(),
+    } as unknown as KernelDecisionFacade
     handler = new ApproveOffboardingHandler(
       profileRepo,
       templateRepo,
       caseRepo,
       auditFacade,
-      commandBus,
+      decisionFacade,
     )
   })
 
@@ -136,12 +139,12 @@ describe('ApproveOffboardingHandler', () => {
     )
 
     // Verify decision case resolved
-    expect(commandBus.execute).toHaveBeenCalledWith(
-      expect.objectContaining({
-        caseId: 'dc-1',
-        finalAction: 'approved',
-        decidedBy: APPROVER_ID,
-      }),
+    expect(decisionFacade.resolveDecisionCase).toHaveBeenCalledWith(
+      TENANT_ID,
+      'dc-1',
+      'approved',
+      APPROVER_ID,
+      null,
     )
   })
 
@@ -196,6 +199,6 @@ describe('ApproveOffboardingHandler', () => {
 
     await handler.execute(new ApproveOffboardingCommand(TENANT_ID, CASE_ID, APPROVER_ID))
 
-    expect(commandBus.execute).not.toHaveBeenCalled()
+    expect(decisionFacade.resolveDecisionCase).not.toHaveBeenCalled()
   })
 })
