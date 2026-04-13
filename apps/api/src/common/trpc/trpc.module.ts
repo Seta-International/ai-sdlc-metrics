@@ -14,6 +14,8 @@ import { PeopleQueryFacade } from '../../modules/people/application/facades/peop
 import { IdentityModule } from '../../modules/identity/identity.module'
 import { AdminModule } from '../../modules/admin/admin.module'
 import { PreferencesModule } from '../../modules/preferences/preferences.module'
+import { DocumentsModule } from '../../modules/documents/documents.module'
+import { DocumentsRouterService } from '../../modules/documents/interface/trpc/documents-router.service'
 import {
   SAVED_VIEW_REPOSITORY,
   type ISavedViewRepository,
@@ -29,11 +31,20 @@ import {
   setAdminRouter,
   setPreferencesRouter,
   createPreferencesRouter,
+  setDocumentsRouter,
+  createDocumentsRouter,
   initAppRouter,
 } from './app-router'
 
 @Module({
-  imports: [KernelModule, PeopleModule, IdentityModule, AdminModule, PreferencesModule],
+  imports: [
+    KernelModule,
+    PeopleModule,
+    IdentityModule,
+    AdminModule,
+    PreferencesModule,
+    DocumentsModule,
+  ],
 })
 export class TrpcModule implements OnModuleInit {
   constructor(
@@ -64,6 +75,7 @@ export class TrpcModule implements OnModuleInit {
     setIdentityAdminRouter(createIdentityAdminRouter(permissionProtectedProcedure))
     setAdminRouter(createAdminRouter(permissionProtectedProcedure))
     setPreferencesRouter(createPreferencesRouter(this.savedViewRepo))
+    setDocumentsRouter(createDocumentsRouter(permissionProtectedProcedure))
 
     initAppRouter()
   }

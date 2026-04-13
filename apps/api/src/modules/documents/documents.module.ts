@@ -13,6 +13,8 @@ import {
   GetJobDownloadUrlHandler,
   STORAGE_CLIENT,
 } from './application/queries/get-job-download-url.handler'
+import { GetTemplateByIdHandler } from './application/queries/get-template-by-id.handler'
+import { GetBrandingHandler } from './application/queries/get-branding.handler'
 import { TEMPLATE_REPOSITORY } from './domain/repositories/template.repository.port'
 import { GENERATION_JOB_REPOSITORY } from './domain/repositories/generation-job.repository.port'
 import { TENANT_BRANDING_REPOSITORY } from './domain/repositories/tenant-branding.repository.port'
@@ -37,6 +39,8 @@ import { DocumentsRouterService } from './interface/trpc/documents-router.servic
     ListGenerationJobsHandler,
     GetGenerationJobHandler,
     GetJobDownloadUrlHandler,
+    GetTemplateByIdHandler,
+    GetBrandingHandler,
     DocumentsRouterService,
     DocumentGenerateWorker,
     { provide: TEMPLATE_REPOSITORY, useClass: DrizzleTemplateRepository },
