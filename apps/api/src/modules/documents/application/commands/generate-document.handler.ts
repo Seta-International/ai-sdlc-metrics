@@ -5,6 +5,7 @@ import type { ITemplateRepository } from '../../domain/repositories/template.rep
 import { TEMPLATE_REPOSITORY } from '../../domain/repositories/template.repository.port'
 import type { IGenerationJobRepository } from '../../domain/repositories/generation-job.repository.port'
 import { GENERATION_JOB_REPOSITORY } from '../../domain/repositories/generation-job.repository.port'
+import { PgBossService, JOB_DOCUMENTS_GENERATE } from '../../../../common/jobs/pg-boss.service'
 
 @CommandHandler(GenerateDocumentCommand)
 @Injectable()
@@ -12,6 +13,7 @@ export class GenerateDocumentHandler implements ICommandHandler<GenerateDocument
   constructor(
     @Inject(TEMPLATE_REPOSITORY) private readonly templateRepo: ITemplateRepository,
     @Inject(GENERATION_JOB_REPOSITORY) private readonly jobRepo: IGenerationJobRepository,
+    private readonly pgBoss: PgBossService,
   ) {}
 
   async execute(command: GenerateDocumentCommand): Promise<string> {
@@ -34,7 +36,10 @@ export class GenerateDocumentHandler implements ICommandHandler<GenerateDocument
       errorMessage: null,
     })
 
-    // TODO: enqueue pg-boss job 'documents.generate' with job.id
+    await this.pgBoss.enqueue(JOB_DOCUMENTS_GENERATE, {
+      jobId: job.id,
+      tenantId: command.tenantId,
+    })
 
     return job.id
   }

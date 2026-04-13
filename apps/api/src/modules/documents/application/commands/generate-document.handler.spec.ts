@@ -5,6 +5,7 @@ import type { ITemplateRepository } from '../../domain/repositories/template.rep
 import type { IGenerationJobRepository } from '../../domain/repositories/generation-job.repository.port'
 import type { Template } from '../../domain/entities/template.entity'
 import type { GenerationJob } from '../../domain/entities/generation-job.entity'
+import { PgBossService, JOB_DOCUMENTS_GENERATE } from '../../../../common/jobs/pg-boss.service'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 
@@ -35,23 +36,33 @@ const fakeJob: GenerationJob = {
   completedAt: null,
 }
 
+const mockPgBoss = { enqueue: vi.fn().mockResolvedValue('boss-job-id') }
+
 describe('GenerateDocumentHandler', () => {
   let handler: GenerateDocumentHandler
   let templateRepo: ITemplateRepository
   let jobRepo: IGenerationJobRepository
 
   beforeEach(() => {
+    vi.clearAllMocks()
     templateRepo = {
       findBySlugAndTenant: vi.fn().mockResolvedValue(fakeTemplate),
+      findById: vi.fn(),
       findByTenant: vi.fn(),
+      listByTenant: vi.fn(),
       insert: vi.fn(),
     }
     jobRepo = {
       insert: vi.fn().mockResolvedValue(fakeJob),
       findById: vi.fn(),
       updateStatus: vi.fn(),
+      listByTenant: vi.fn(),
     }
-    handler = new GenerateDocumentHandler(templateRepo, jobRepo)
+    handler = new GenerateDocumentHandler(
+      templateRepo,
+      jobRepo,
+      mockPgBoss as unknown as PgBossService,
+    )
   })
 
   it('creates a generation job when template exists', async () => {
@@ -70,6 +81,10 @@ describe('GenerateDocumentHandler', () => {
         inputData: { month: 'April' },
       }),
     )
+    expect(mockPgBoss.enqueue).toHaveBeenCalledWith(JOB_DOCUMENTS_GENERATE, {
+      jobId: 'job-1',
+      tenantId: TENANT_ID,
+    })
   })
 
   it('throws when template is not found', async () => {
