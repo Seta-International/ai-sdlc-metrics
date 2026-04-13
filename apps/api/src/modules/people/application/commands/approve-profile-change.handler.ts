@@ -1,5 +1,5 @@
 import { Inject } from '@nestjs/common'
-import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import {
   ProfileChangeRequestNotFoundException,
   ProfileChangeRequestNotPendingException,
@@ -13,7 +13,7 @@ import {
   type IEmploymentProfileDetailRepository,
 } from '../../domain/repositories/employment-profile-detail.repository'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
-import { ResolveDecisionCaseCommand } from '../../../kernel/application/commands/resolve-decision-case.command'
+import { KernelDecisionFacade } from '../../../kernel/application/facades/kernel-decision.facade'
 import { ApproveProfileChangeCommand } from './approve-profile-change.command'
 
 @CommandHandler(ApproveProfileChangeCommand)
@@ -27,7 +27,7 @@ export class ApproveProfileChangeHandler implements ICommandHandler<
     @Inject(EMPLOYMENT_PROFILE_DETAIL_REPOSITORY)
     private readonly detailRepo: IEmploymentProfileDetailRepository,
     private readonly auditFacade: KernelAuditFacade,
-    private readonly commandBus: CommandBus,
+    private readonly decisionFacade: KernelDecisionFacade,
   ) {}
 
   async execute(command: ApproveProfileChangeCommand): Promise<void> {
@@ -56,16 +56,14 @@ export class ApproveProfileChangeHandler implements ICommandHandler<
       command.approvedBy,
     )
 
-    // Resolve the kernel decision case
+    // Resolve the kernel decision case via facade
     if (request.decisionCaseId) {
-      await this.commandBus.execute(
-        new ResolveDecisionCaseCommand(
-          command.tenantId,
-          request.decisionCaseId,
-          'approved',
-          command.approvedBy,
-          null,
-        ),
+      await this.decisionFacade.resolveDecisionCase(
+        command.tenantId,
+        request.decisionCaseId,
+        'approved',
+        command.approvedBy,
+        null,
       )
     }
 

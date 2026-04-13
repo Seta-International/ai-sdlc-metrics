@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CommandBus } from '@nestjs/cqrs'
 import { RequestProfileChangeCommand } from './request-profile-change.command'
 import { RequestProfileChangeHandler } from './request-profile-change.handler'
 import { EmploymentProfileNotFoundException } from '../../domain/exceptions/people.exceptions'
 import type { IProfileChangeRequestRepository } from '../../domain/repositories/profile-change-request.repository'
 import type { IEmploymentProfileRepository } from '../../domain/repositories/employment-profile.repository'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
+import { KernelDecisionFacade } from '../../../kernel/application/facades/kernel-decision.facade'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const PROFILE_ID = '01900000-0000-7000-8000-000000000003'
@@ -36,7 +36,7 @@ describe('RequestProfileChangeHandler', () => {
   let profileRepo: IEmploymentProfileRepository
   let changeRequestRepo: IProfileChangeRequestRepository
   let auditFacade: KernelAuditFacade
-  let commandBus: CommandBus
+  let decisionFacade: KernelDecisionFacade
 
   beforeEach(() => {
     profileRepo = {
@@ -59,12 +59,15 @@ describe('RequestProfileChangeHandler', () => {
       recordEvent: vi.fn(),
       publishOutboxEvent: vi.fn(),
     } as unknown as KernelAuditFacade
-    commandBus = { execute: vi.fn().mockResolvedValue({ id: CASE_ID }) } as unknown as CommandBus
+    decisionFacade = {
+      createDecisionCase: vi.fn().mockResolvedValue(CASE_ID),
+      resolveDecisionCase: vi.fn(),
+    } as unknown as KernelDecisionFacade
     handler = new RequestProfileChangeHandler(
       profileRepo,
       changeRequestRepo,
       auditFacade,
-      commandBus,
+      decisionFacade,
     )
   })
 
@@ -106,7 +109,12 @@ describe('RequestProfileChangeHandler', () => {
         requestedBy: REQUESTER_ID,
       }),
     )
-    expect(commandBus.execute).toHaveBeenCalled() // CreateDecisionCaseCommand
+    expect(decisionFacade.createDecisionCase).toHaveBeenCalledWith(
+      TENANT_ID,
+      'people',
+      REQUEST_ID,
+      REQUESTER_ID,
+    )
     expect(auditFacade.recordEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'profile_change_requested',

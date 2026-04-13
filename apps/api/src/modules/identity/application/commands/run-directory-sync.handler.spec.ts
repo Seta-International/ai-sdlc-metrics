@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CommandBus } from '@nestjs/cqrs'
 import { RunDirectorySyncCommand } from './run-directory-sync.command'
 import { RunDirectorySyncHandler } from './run-directory-sync.handler'
 import {
@@ -10,6 +9,7 @@ import type { IIdentityProviderRepository } from '../../domain/repositories/iden
 import type { IIdpGroupMappingRepository } from '../../domain/repositories/idp-group-mapping.repository'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
+import { KernelUserIdentityFacade } from '../../../kernel/application/facades/kernel-user-identity.facade'
 import type {
   IDirectoryProvider,
   IdpUser,
@@ -41,8 +41,8 @@ describe('RunDirectorySyncHandler', () => {
   let providerRepo: IIdentityProviderRepository
   let mappingRepo: IIdpGroupMappingRepository
   let auditFacade: KernelAuditFacade
-  let commandBus: CommandBus
   let actorFacade: KernelActorFacade
+  let userIdentityFacade: KernelUserIdentityFacade
   let directoryProvider: IDirectoryProvider
   let directoryProviderFactory: { create: ReturnType<typeof vi.fn> }
 
@@ -67,22 +67,25 @@ describe('RunDirectorySyncHandler', () => {
       recordEvent: vi.fn(),
       publishOutboxEvent: vi.fn(),
     } as unknown as KernelAuditFacade
-    commandBus = { execute: vi.fn() } as unknown as CommandBus
     actorFacade = {
       createActor: vi.fn(),
       deactivateActor: vi.fn(),
       grantRole: vi.fn(),
       revokeAllRoles: vi.fn(),
     } as unknown as KernelActorFacade
+    userIdentityFacade = {
+      createUserIdentity: vi.fn(),
+      deprovisionUserIdentity: vi.fn(),
+    } as unknown as KernelUserIdentityFacade
     directoryProvider = { listUsers: vi.fn(), listGroupsWithMembers: vi.fn() }
     directoryProviderFactory = { create: vi.fn().mockReturnValue(directoryProvider) }
     handler = new RunDirectorySyncHandler(
       providerRepo,
       mappingRepo,
       auditFacade,
-      commandBus,
       directoryProviderFactory as never,
       actorFacade,
+      userIdentityFacade,
     )
   })
 
@@ -110,10 +113,10 @@ describe('RunDirectorySyncHandler', () => {
     vi.mocked(directoryProvider.listGroupsWithMembers).mockResolvedValue([])
     vi.mocked(mappingRepo.findByProviderId).mockResolvedValue([])
     vi.mocked(actorFacade.createActor).mockResolvedValue('new-actor-001')
-    vi.mocked(commandBus.execute).mockResolvedValue(undefined) // CreateUserIdentityCommand
+    vi.mocked(userIdentityFacade.createUserIdentity).mockResolvedValue(undefined)
     await handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID))
     expect(actorFacade.createActor).toHaveBeenCalledTimes(1)
-    expect(commandBus.execute).toHaveBeenCalledTimes(1) // CreateUserIdentityCommand only
+    expect(userIdentityFacade.createUserIdentity).toHaveBeenCalledTimes(1)
     expect(providerRepo.update).toHaveBeenCalledWith(
       PROVIDER_ID,
       TENANT_ID,
@@ -136,10 +139,10 @@ describe('RunDirectorySyncHandler', () => {
     vi.mocked(directoryProvider.listGroupsWithMembers).mockResolvedValue([])
     vi.mocked(mappingRepo.findByProviderId).mockResolvedValue([])
     vi.mocked(actorFacade.deactivateActor).mockResolvedValue(undefined)
-    vi.mocked(commandBus.execute).mockResolvedValue(undefined) // DeprovisionUserIdentityCommand
+    vi.mocked(userIdentityFacade.deprovisionUserIdentity).mockResolvedValue(undefined)
     await handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID))
     expect(actorFacade.deactivateActor).toHaveBeenCalledTimes(1)
-    expect(commandBus.execute).toHaveBeenCalledTimes(1) // DeprovisionUserIdentityCommand only
+    expect(userIdentityFacade.deprovisionUserIdentity).toHaveBeenCalledTimes(1)
   })
 
   it('syncs group-to-role mappings via KernelActorFacade.grantRole', async () => {

@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CommandBus } from '@nestjs/cqrs'
 import { TriggerOffboardingCommand } from './trigger-offboarding.command'
 import { TriggerOffboardingHandler } from './trigger-offboarding.handler'
 import {
@@ -7,7 +6,7 @@ import {
   InvalidEmploymentStatusTransitionException,
   OffboardingCaseAlreadyActiveException,
 } from '../../domain/exceptions/people.exceptions'
-import { CreateDecisionCaseCommand } from '../../../kernel/application/commands/create-decision-case.command'
+import { KernelDecisionFacade } from '../../../kernel/application/facades/kernel-decision.facade'
 import type { IEmploymentProfileRepository } from '../../domain/repositories/employment-profile.repository'
 import type { IOffboardingCaseRepository } from '../../domain/repositories/offboarding-case.repository'
 import type {
@@ -42,7 +41,7 @@ describe('TriggerOffboardingHandler', () => {
   let handler: TriggerOffboardingHandler
   let profileRepo: IEmploymentProfileRepository
   let offboardingCaseRepo: IOffboardingCaseRepository
-  let commandBus: CommandBus
+  let decisionFacade: KernelDecisionFacade
 
   beforeEach(() => {
     profileRepo = {
@@ -66,9 +65,12 @@ describe('TriggerOffboardingHandler', () => {
       findTaskById: vi.fn(),
     } as unknown as IOffboardingCaseRepository
 
-    commandBus = { execute: vi.fn().mockResolvedValue(DECISION_CASE_ID) } as unknown as CommandBus
+    decisionFacade = {
+      createDecisionCase: vi.fn().mockResolvedValue(DECISION_CASE_ID),
+      resolveDecisionCase: vi.fn(),
+    } as unknown as KernelDecisionFacade
 
-    handler = new TriggerOffboardingHandler(profileRepo, offboardingCaseRepo, commandBus)
+    handler = new TriggerOffboardingHandler(profileRepo, offboardingCaseRepo, decisionFacade)
   })
 
   it('creates a decision case and inserts an offboarding case with status pending', async () => {
@@ -91,7 +93,12 @@ describe('TriggerOffboardingHandler', () => {
       new TriggerOffboardingCommand(TENANT_ID, PROFILE_ID, 'Moving on', 'voluntary', REQUESTER_ID),
     )
 
-    expect(commandBus.execute).toHaveBeenCalledWith(expect.any(CreateDecisionCaseCommand))
+    expect(decisionFacade.createDecisionCase).toHaveBeenCalledWith(
+      TENANT_ID,
+      'people',
+      PROFILE_ID,
+      REQUESTER_ID,
+    )
     expect(offboardingCaseRepo.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         tenantId: TENANT_ID,
@@ -191,7 +198,7 @@ describe('TriggerOffboardingHandler', () => {
       ),
     )
 
-    expect(commandBus.execute).toHaveBeenCalledWith(expect.any(CreateDecisionCaseCommand))
+    expect(decisionFacade.createDecisionCase).toHaveBeenCalled()
     expect(profileRepo.updateStatus).toHaveBeenCalledWith(PROFILE_ID, TENANT_ID, 'offboarding')
   })
 })

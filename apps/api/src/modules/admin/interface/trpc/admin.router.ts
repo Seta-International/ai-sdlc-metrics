@@ -2,11 +2,6 @@ import { z } from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import type { AuthContext } from '../../../../common/trpc/auth-middleware'
 import { AdminRouterService } from './admin-router.service'
-import { ListRolesQuery } from '../../../kernel/application/queries/list-roles.query'
-import { GetRolePermissionsQuery } from '../../../kernel/application/queries/get-role-permissions.query'
-import { AddRolePermissionCommand } from '../../../kernel/application/commands/add-role-permission.command'
-import { RemoveRolePermissionCommand } from '../../../kernel/application/commands/remove-role-permission.command'
-import { ResetRolePermissionsCommand } from '../../../kernel/application/commands/reset-role-permissions.command'
 import { QueryAuditLogQuery } from '../../application/queries/query-audit-log.query'
 import { ExportAuditLogQuery } from '../../application/queries/export-audit-log.query'
 
@@ -37,14 +32,14 @@ export function createAdminRolesRouter(permissionProtectedProcedure: any) {
     list: permissionProtectedProcedure
       .meta({ permission: 'admin:role:read' })
       .input(z.object({}))
-      .query(({ ctx }: { ctx: AuthContext }) => svc().query(new ListRolesQuery(ctx.tenantId))),
+      .query(({ ctx }: { ctx: AuthContext }) => svc().kernelQuery.listRoles(ctx.tenantId)),
 
     getPermissions: permissionProtectedProcedure
       .meta({ permission: 'admin:role:read' })
       .input(z.object({ roleKey: roleKeyEnum }))
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .query(({ ctx, input }: { ctx: AuthContext; input: any }) =>
-        svc().query(new GetRolePermissionsQuery(ctx.tenantId, input.roleKey)),
+        svc().kernelQuery.getRolePermissions(input.roleKey, ctx.tenantId),
       ),
 
     addPermission: permissionProtectedProcedure
@@ -57,13 +52,11 @@ export function createAdminRolesRouter(permissionProtectedProcedure: any) {
       )
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
-        svc().command(
-          new AddRolePermissionCommand(
-            ctx.tenantId,
-            input.roleKey,
-            input.permissionKey,
-            ctx.actorId,
-          ),
+        svc().kernelPermission.addRolePermission(
+          ctx.tenantId,
+          input.roleKey,
+          input.permissionKey,
+          ctx.actorId,
         ),
       ),
 
@@ -77,13 +70,11 @@ export function createAdminRolesRouter(permissionProtectedProcedure: any) {
       )
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
-        svc().command(
-          new RemoveRolePermissionCommand(
-            ctx.tenantId,
-            input.roleKey,
-            input.permissionKey,
-            ctx.actorId,
-          ),
+        svc().kernelPermission.removeRolePermission(
+          ctx.tenantId,
+          input.roleKey,
+          input.permissionKey,
+          ctx.actorId,
         ),
       ),
 
@@ -96,7 +87,7 @@ export function createAdminRolesRouter(permissionProtectedProcedure: any) {
       )
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
-        svc().command(new ResetRolePermissionsCommand(ctx.tenantId, input.roleKey, ctx.actorId)),
+        svc().kernelPermission.resetRolePermissions(ctx.tenantId, input.roleKey, ctx.actorId),
       ),
   })
 }

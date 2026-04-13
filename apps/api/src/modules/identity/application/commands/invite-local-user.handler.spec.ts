@@ -4,6 +4,7 @@ import { InviteLocalUserCommand } from './invite-local-user.command'
 import { InviteLocalUserHandler } from './invite-local-user.handler'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
+import { KernelUserIdentityFacade } from '../../../kernel/application/facades/kernel-user-identity.facade'
 import type { IMagicLinkSender } from '../../domain/ports/magic-link-sender.port'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
@@ -16,6 +17,7 @@ describe('InviteLocalUserHandler', () => {
   let commandBus: CommandBus
   let auditFacade: KernelAuditFacade
   let actorFacade: KernelActorFacade
+  let userIdentityFacade: KernelUserIdentityFacade
   let magicLinkSender: IMagicLinkSender
 
   beforeEach(() => {
@@ -35,18 +37,28 @@ describe('InviteLocalUserHandler', () => {
       revokeAllRoles: vi.fn(),
     } as unknown as KernelActorFacade
 
+    userIdentityFacade = {
+      createUserIdentity: vi.fn(),
+      deprovisionUserIdentity: vi.fn(),
+    } as unknown as KernelUserIdentityFacade
+
     magicLinkSender = {
       sendInvitation: vi.fn(),
     }
-    handler = new InviteLocalUserHandler(commandBus, auditFacade, magicLinkSender, actorFacade)
+    handler = new InviteLocalUserHandler(
+      commandBus,
+      auditFacade,
+      magicLinkSender,
+      actorFacade,
+      userIdentityFacade,
+    )
   })
 
   it('creates actor, identity, role grants, and sends magic link', async () => {
     vi.mocked(actorFacade.createActor).mockResolvedValue(NEW_ACTOR_ID)
     vi.mocked(actorFacade.grantRole).mockResolvedValue(undefined)
-    vi.mocked(commandBus.execute)
-      .mockResolvedValueOnce(undefined) // CreateUserIdentityCommand
-      .mockResolvedValueOnce({ plaintextToken: PLAINTEXT_TOKEN }) // RequestMagicLinkCommand
+    vi.mocked(userIdentityFacade.createUserIdentity).mockResolvedValue(undefined)
+    vi.mocked(commandBus.execute).mockResolvedValueOnce({ plaintextToken: PLAINTEXT_TOKEN }) // RequestMagicLinkCommand
     vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
     vi.mocked(magicLinkSender.sendInvitation).mockResolvedValue(undefined)
 
@@ -67,9 +79,16 @@ describe('InviteLocalUserHandler', () => {
       'John Contractor',
       ACTOR_ID,
     )
+    expect(userIdentityFacade.createUserIdentity).toHaveBeenCalledWith(
+      TENANT_ID,
+      NEW_ACTOR_ID,
+      'contractor@example.com',
+      'local:contractor@example.com',
+      'local',
+    )
     expect(actorFacade.grantRole).toHaveBeenCalledTimes(1)
-    // CreateUserIdentity + RequestMagicLink = 2 commandBus calls
-    expect(commandBus.execute).toHaveBeenCalledTimes(2)
+    // Only RequestMagicLink goes through commandBus now
+    expect(commandBus.execute).toHaveBeenCalledTimes(1)
     expect(magicLinkSender.sendInvitation).toHaveBeenCalledWith(
       expect.objectContaining({
         email: 'contractor@example.com',
@@ -83,9 +102,8 @@ describe('InviteLocalUserHandler', () => {
   it('creates multiple role grants when multiple roles provided', async () => {
     vi.mocked(actorFacade.createActor).mockResolvedValue(NEW_ACTOR_ID)
     vi.mocked(actorFacade.grantRole).mockResolvedValue(undefined)
-    vi.mocked(commandBus.execute)
-      .mockResolvedValueOnce(undefined) // CreateUserIdentityCommand
-      .mockResolvedValueOnce({ plaintextToken: PLAINTEXT_TOKEN }) // RequestMagicLinkCommand
+    vi.mocked(userIdentityFacade.createUserIdentity).mockResolvedValue(undefined)
+    vi.mocked(commandBus.execute).mockResolvedValueOnce({ plaintextToken: PLAINTEXT_TOKEN }) // RequestMagicLinkCommand
     vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
     vi.mocked(magicLinkSender.sendInvitation).mockResolvedValue(undefined)
 
@@ -104,7 +122,7 @@ describe('InviteLocalUserHandler', () => {
 
     // 2 GrantRole calls via facade
     expect(actorFacade.grantRole).toHaveBeenCalledTimes(2)
-    // CreateUserIdentity + RequestMagicLink = 2 commandBus calls
-    expect(commandBus.execute).toHaveBeenCalledTimes(2)
+    // Only RequestMagicLink goes through commandBus now
+    expect(commandBus.execute).toHaveBeenCalledTimes(1)
   })
 })

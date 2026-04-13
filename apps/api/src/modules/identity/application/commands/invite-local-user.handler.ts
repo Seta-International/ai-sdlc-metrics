@@ -2,7 +2,7 @@ import { Inject } from '@nestjs/common'
 import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
-import { CreateUserIdentityCommand } from '../../../kernel/application/commands/create-user-identity.command'
+import { KernelUserIdentityFacade } from '../../../kernel/application/facades/kernel-user-identity.facade'
 import { MAGIC_LINK_SENDER, type IMagicLinkSender } from '../../domain/ports/magic-link-sender.port'
 import { RequestMagicLinkCommand } from './request-magic-link.command'
 import { InviteLocalUserCommand } from './invite-local-user.command'
@@ -19,6 +19,7 @@ export class InviteLocalUserHandler implements ICommandHandler<
     @Inject(MAGIC_LINK_SENDER)
     private readonly magicLinkSender: IMagicLinkSender,
     private readonly actorFacade: KernelActorFacade,
+    private readonly userIdentityFacade: KernelUserIdentityFacade,
   ) {}
 
   async execute(command: InviteLocalUserCommand): Promise<{ actorId: string }> {
@@ -30,15 +31,13 @@ export class InviteLocalUserHandler implements ICommandHandler<
       command.invitedBy,
     )
 
-    // 2. Create user_identity with provider='local' via kernel command bus
-    await this.commandBus.execute(
-      new CreateUserIdentityCommand(
-        command.tenantId,
-        actorId,
-        command.email,
-        `local:${command.email}`,
-        'local',
-      ),
+    // 2. Create user_identity with provider='local' via facade
+    await this.userIdentityFacade.createUserIdentity(
+      command.tenantId,
+      actorId,
+      command.email,
+      `local:${command.email}`,
+      'local',
     )
 
     // 3. Grant roles via facade

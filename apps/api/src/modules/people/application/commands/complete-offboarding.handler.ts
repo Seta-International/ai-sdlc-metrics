@@ -1,5 +1,5 @@
 import { Inject } from '@nestjs/common'
-import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import {
   EmploymentProfileNotFoundException,
   OffboardingCaseNotFoundException,
@@ -19,7 +19,7 @@ import {
 } from '../../domain/repositories/account-membership.repository'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
-import { DeprovisionUserIdentityCommand } from '../../../kernel/application/commands/deprovision-user-identity.command'
+import { KernelUserIdentityFacade } from '../../../kernel/application/facades/kernel-user-identity.facade'
 import { CompleteOffboardingCommand } from './complete-offboarding.command'
 
 const EMPLOYEE_TERMINATED_EVENT = 'people.employee-terminated'
@@ -38,7 +38,7 @@ export class CompleteOffboardingHandler implements ICommandHandler<
     private readonly accountMembershipRepo: IAccountMembershipRepository,
     private readonly auditFacade: KernelAuditFacade,
     private readonly actorFacade: KernelActorFacade,
-    private readonly commandBus: CommandBus,
+    private readonly userIdentityFacade: KernelUserIdentityFacade,
   ) {}
 
   async execute(command: CompleteOffboardingCommand): Promise<void> {
@@ -71,9 +71,7 @@ export class CompleteOffboardingHandler implements ICommandHandler<
 
     // 7. Dispatch kernel commands
     await this.actorFacade.deactivateActor(profile.actorId, command.tenantId)
-    await this.commandBus.execute(
-      new DeprovisionUserIdentityCommand(command.tenantId, profile.actorId),
-    )
+    await this.userIdentityFacade.deprovisionUserIdentity(command.tenantId, profile.actorId)
     await this.actorFacade.revokeAllRoles(profile.actorId, command.tenantId)
 
     // 8. Emit outbox event

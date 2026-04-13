@@ -1,5 +1,5 @@
 import { Inject } from '@nestjs/common'
-import { CommandHandler, CommandBus, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import {
   IdentityProviderNotFoundException,
   DirectorySyncAlreadyRunningException,
@@ -14,12 +14,11 @@ import {
 } from '../../domain/repositories/idp-group-mapping.repository'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
+import { KernelUserIdentityFacade } from '../../../kernel/application/facades/kernel-user-identity.facade'
 import {
   DIRECTORY_PROVIDER_FACTORY,
   type IDirectoryProviderFactory,
 } from '../../infrastructure/providers/directory-provider.interface'
-import { CreateUserIdentityCommand } from '../../../kernel/application/commands/create-user-identity.command'
-import { DeprovisionUserIdentityCommand } from '../../../kernel/application/commands/deprovision-user-identity.command'
 import { RunDirectorySyncCommand } from './run-directory-sync.command'
 import type { RoleKeyValue, ScopeTypeValue } from '@future/core'
 
@@ -32,10 +31,10 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
     private readonly providerRepo: IIdentityProviderRepository,
     @Inject(IDP_GROUP_MAPPING_REPOSITORY) private readonly mappingRepo: IIdpGroupMappingRepository,
     private readonly auditFacade: KernelAuditFacade,
-    private readonly commandBus: CommandBus,
     @Inject(DIRECTORY_PROVIDER_FACTORY)
     private readonly directoryProviderFactory: IDirectoryProviderFactory,
     private readonly actorFacade: KernelActorFacade,
+    private readonly userIdentityFacade: KernelUserIdentityFacade,
   ) {}
 
   async execute(command: RunDirectorySyncCommand): Promise<void> {
@@ -70,20 +69,16 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
             user.displayName,
             SYSTEM_ACTOR_ID,
           )
-          await this.commandBus.execute(
-            new CreateUserIdentityCommand(
-              command.tenantId,
-              actorId,
-              user.email,
-              user.externalId,
-              provider.providerType,
-            ),
+          await this.userIdentityFacade.createUserIdentity(
+            command.tenantId,
+            actorId,
+            user.email,
+            user.externalId,
+            provider.providerType,
           )
         } else {
           await this.actorFacade.deactivateActor(user.externalId, command.tenantId)
-          await this.commandBus.execute(
-            new DeprovisionUserIdentityCommand(command.tenantId, user.externalId),
-          )
+          await this.userIdentityFacade.deprovisionUserIdentity(command.tenantId, user.externalId)
         }
       }
 

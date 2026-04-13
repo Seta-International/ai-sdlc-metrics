@@ -1,5 +1,5 @@
 import { Inject } from '@nestjs/common'
-import { CommandBus, CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import { EmploymentProfileNotFoundException } from '../../domain/exceptions/people.exceptions'
 import {
   EMPLOYMENT_PROFILE_REPOSITORY,
@@ -10,7 +10,7 @@ import {
   type IProfileChangeRequestRepository,
 } from '../../domain/repositories/profile-change-request.repository'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
-import { CreateDecisionCaseCommand } from '../../../kernel/application/commands/create-decision-case.command'
+import { KernelDecisionFacade } from '../../../kernel/application/facades/kernel-decision.facade'
 import type { ProfileChangeRequest } from '../../domain/entities/profile-change-request.entity'
 import { RequestProfileChangeCommand } from './request-profile-change.command'
 
@@ -25,7 +25,7 @@ export class RequestProfileChangeHandler implements ICommandHandler<
     @Inject(PROFILE_CHANGE_REQUEST_REPOSITORY)
     private readonly changeRequestRepo: IProfileChangeRequestRepository,
     private readonly auditFacade: KernelAuditFacade,
-    private readonly commandBus: CommandBus,
+    private readonly decisionFacade: KernelDecisionFacade,
   ) {}
 
   async execute(command: RequestProfileChangeCommand): Promise<ProfileChangeRequest> {
@@ -46,14 +46,12 @@ export class RequestProfileChangeHandler implements ICommandHandler<
       reviewedBy: null,
     })
 
-    // Dispatch kernel decision case
-    const decisionCase = await this.commandBus.execute(
-      new CreateDecisionCaseCommand(
-        command.tenantId,
-        'people',
-        changeRequest.id,
-        command.requestedBy,
-      ),
+    // Dispatch kernel decision case via facade
+    const decisionCase = await this.decisionFacade.createDecisionCase(
+      command.tenantId,
+      'people',
+      changeRequest.id,
+      command.requestedBy,
     )
 
     // Audit log
@@ -66,7 +64,7 @@ export class RequestProfileChangeHandler implements ICommandHandler<
       payload: {
         changeRequestId: changeRequest.id,
         fieldPath: command.fieldPath,
-        decisionCaseId: decisionCase?.id ?? null,
+        decisionCaseId: decisionCase ?? null,
       },
     })
 
