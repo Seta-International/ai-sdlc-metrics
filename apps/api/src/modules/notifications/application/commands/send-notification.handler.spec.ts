@@ -3,7 +3,7 @@ import { SendNotificationCommand } from './send-notification.command'
 import { SendNotificationHandler } from './send-notification.handler'
 import type { INotificationRepository } from '../../domain/repositories/notification.repository.port'
 import type { Notification } from '../../domain/entities/notification.entity'
-import type { NotificationPublisher } from '../../infrastructure/redis/notification-publisher'
+import type { NotificationPublisher } from '../../domain/ports/notification-publisher'
 import { JOB_NOTIFICATIONS_SEND_EMAIL } from '../../../../common/jobs/pg-boss.service'
 import type { PgBossService } from '../../../../common/jobs/pg-boss.service'
 

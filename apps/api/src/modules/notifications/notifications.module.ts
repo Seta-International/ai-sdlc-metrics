@@ -11,7 +11,7 @@ import { GetPreferencesHandler } from './application/queries/get-preferences.han
 import { OnLeaveApprovedHandler } from './application/event-handlers/on-leave-approved.handler'
 import { OnDocumentGeneratedHandler } from './application/event-handlers/on-document-generated.handler'
 import { NOTIFICATION_REPOSITORY } from './domain/repositories/notification.repository.port'
-import { NOTIFICATION_PUBLISHER } from './infrastructure/redis/notification-publisher'
+import { NOTIFICATION_PUBLISHER } from './domain/ports/notification-publisher'
 import { DrizzleNotificationRepository } from './infrastructure/repositories/drizzle-notification.repository'
 import { RedisNotificationPublisher } from './infrastructure/redis/redis-notification-publisher'
 import { NotificationSseController } from './infrastructure/sse/notification-sse.controller'
@@ -39,7 +39,6 @@ import { NotificationsRouterService } from './interface/trpc/notifications-route
     OnLeaveApprovedHandler,
     OnDocumentGeneratedHandler,
     NotificationsRouterService,
-    NotificationSseController,
     SendNotificationEmailWorker,
     { provide: NOTIFICATION_REPOSITORY, useClass: DrizzleNotificationRepository },
     { provide: NOTIFICATION_PUBLISHER, useClass: RedisNotificationPublisher },

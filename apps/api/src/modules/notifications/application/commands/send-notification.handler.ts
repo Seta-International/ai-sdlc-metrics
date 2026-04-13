@@ -3,8 +3,8 @@ import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import { SendNotificationCommand } from './send-notification.command'
 import type { INotificationRepository } from '../../domain/repositories/notification.repository.port'
 import { NOTIFICATION_REPOSITORY } from '../../domain/repositories/notification.repository.port'
-import type { NotificationPublisher } from '../../infrastructure/redis/notification-publisher'
-import { NOTIFICATION_PUBLISHER } from '../../infrastructure/redis/notification-publisher'
+import type { NotificationPublisher } from '../../domain/ports/notification-publisher'
+import { NOTIFICATION_PUBLISHER } from '../../domain/ports/notification-publisher'
 import {
   PgBossService,
   JOB_NOTIFICATIONS_SEND_EMAIL,

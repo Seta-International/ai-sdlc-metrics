@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { RedisService } from '../../../../common/redis/redis.service'
-import type { NotificationPublisher } from './notification-publisher'
+import type { NotificationPublisher } from '../../domain/ports/notification-publisher'
 import type { Notification } from '../../domain/entities/notification.entity'
 
 @Injectable()
