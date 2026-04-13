@@ -18,6 +18,7 @@
       "name": "@future/api",
       "version": "0.0.1",
       "dependencies": {
+        "@future/core": "workspace:*",
         "@future/db": "workspace:*",
         "@future/documents": "workspace:*",
         "@future/event-contracts": "workspace:*",

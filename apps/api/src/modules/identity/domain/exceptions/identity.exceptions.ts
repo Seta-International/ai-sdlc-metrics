@@ -1,4 +1,4 @@
-import { DomainException } from '../../../kernel/domain/exceptions/domain.exception'
+import { DomainException } from '@future/core'
 
 export class IdentityProviderNotFoundException extends DomainException {
   readonly code = 'IDENTITY_PROVIDER_NOT_FOUND'

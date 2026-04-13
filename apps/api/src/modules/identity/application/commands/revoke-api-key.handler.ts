@@ -6,7 +6,7 @@ import {
   type IApiKeyRepository,
 } from '../../domain/repositories/api-key.repository'
 import { RevokeApiKeyCommand } from './revoke-api-key.command'
-import { DomainException } from '../../../kernel/domain/exceptions/domain.exception'
+import { DomainException } from '@future/core'
 
 class ApiKeyNotFoundException extends DomainException {
   readonly code = 'API_KEY_NOT_FOUND'
