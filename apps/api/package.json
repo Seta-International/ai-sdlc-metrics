@@ -18,8 +18,10 @@
   },
   "dependencies": {
     "@future/db": "workspace:*",
+    "@future/documents": "workspace:*",
     "@future/event-contracts": "workspace:*",
     "@future/mail": "workspace:*",
+    "@future/storage": "workspace:*",
     "@nestjs/common": "^11",
     "@nestjs/config": "^4",
     "@nestjs/core": "^11",
