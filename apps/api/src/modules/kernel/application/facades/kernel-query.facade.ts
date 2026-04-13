@@ -15,6 +15,8 @@ import { GetRolePermissionsQuery } from '../queries/get-role-permissions.query'
 import type { RolePermissionsDto } from '../queries/get-role-permissions.handler'
 import { ListRolesQuery } from '../queries/list-roles.query'
 import type { RoleSummaryDto } from '../queries/list-roles.handler'
+import { GetLocalUsersWithActorsQuery } from '../queries/get-local-users-with-actors.query'
+import type { LocalUserWithActorDto } from '../queries/get-local-users-with-actors.handler'
 
 /**
  * KernelQueryFacade is the only cross-module import allowed from the kernel.
@@ -68,5 +70,9 @@ export class KernelQueryFacade {
 
   listRoles(tenantId: string): Promise<RoleSummaryDto[]> {
     return this.queryBus.execute(new ListRolesQuery(tenantId))
+  }
+
+  getLocalUsersWithActors(tenantId: string): Promise<LocalUserWithActorDto[]> {
+    return this.queryBus.execute(new GetLocalUsersWithActorsQuery(tenantId))
   }
 }
