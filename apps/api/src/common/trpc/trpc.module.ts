@@ -15,7 +15,7 @@ import { IdentityModule } from '../../modules/identity/identity.module'
 import { AdminModule } from '../../modules/admin/admin.module'
 import { PreferencesModule } from '../../modules/preferences/preferences.module'
 import { DocumentsModule } from '../../modules/documents/documents.module'
-import { DocumentsRouterService } from '../../modules/documents/interface/trpc/documents-router.service'
+import { NotificationsModule } from '../../modules/notifications/notifications.module'
 import {
   SAVED_VIEW_REPOSITORY,
   type ISavedViewRepository,
@@ -33,6 +33,8 @@ import {
   createPreferencesRouter,
   setDocumentsRouter,
   createDocumentsRouter,
+  setNotificationsRouter,
+  createNotificationsRouter,
   initAppRouter,
 } from './app-router'
 
@@ -44,6 +46,7 @@ import {
     AdminModule,
     PreferencesModule,
     DocumentsModule,
+    NotificationsModule,
   ],
 })
 export class TrpcModule implements OnModuleInit {
@@ -76,6 +79,7 @@ export class TrpcModule implements OnModuleInit {
     setAdminRouter(createAdminRouter(permissionProtectedProcedure))
     setPreferencesRouter(createPreferencesRouter(this.savedViewRepo))
     setDocumentsRouter(createDocumentsRouter(permissionProtectedProcedure))
+    setNotificationsRouter(createNotificationsRouter(permissionProtectedProcedure))
 
     initAppRouter()
   }

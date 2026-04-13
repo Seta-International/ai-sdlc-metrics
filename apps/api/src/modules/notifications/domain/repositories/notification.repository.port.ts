@@ -6,6 +6,7 @@ export interface INotificationRepository {
   insert(
     notification: Omit<Notification, 'id' | 'readAt' | 'archivedAt' | 'createdAt'>,
   ): Promise<Notification>
+  findById(tenantId: string, id: string): Promise<Notification | null>
   findByRecipient(
     tenantId: string,
     recipientId: string,
@@ -20,6 +21,8 @@ export interface INotificationRepository {
     actorId: string,
     category: NotificationCategory,
   ): Promise<NotificationPreference | null>
+  upsertPreference(data: Omit<NotificationPreference, 'id'>): Promise<NotificationPreference>
+  getPreferences(tenantId: string, actorId: string): Promise<NotificationPreference[]>
 }
 
 export const NOTIFICATION_REPOSITORY = Symbol('INotificationRepository')

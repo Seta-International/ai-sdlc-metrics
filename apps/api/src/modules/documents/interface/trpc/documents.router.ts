@@ -7,7 +7,6 @@ import { CreateTemplateCommand } from '../../application/commands/create-templat
 import { UpdateBrandingCommand } from '../../application/commands/update-branding.command'
 import { ListTemplatesQuery } from '../../application/queries/list-templates.query'
 import { ListGenerationJobsQuery } from '../../application/queries/list-generation-jobs.query'
-import { GetGenerationJobQuery } from '../../application/queries/get-generation-job.query'
 import { GetJobDownloadUrlQuery } from '../../application/queries/get-job-download-url.query'
 import { GetTemplateByIdQuery } from '../../application/queries/get-template-by-id.query'
 import { GetBrandingQuery } from '../../application/queries/get-branding.query'

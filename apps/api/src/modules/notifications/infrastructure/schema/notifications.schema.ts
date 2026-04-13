@@ -1,4 +1,4 @@
-import { pgSchema, uuid, text, timestamp, boolean } from 'drizzle-orm/pg-core'
+import { pgSchema, uuid, text, timestamp, boolean, uniqueIndex } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const notificationsSchema = pgSchema('notifications')
@@ -21,13 +21,19 @@ export const notification = notificationsSchema.table('notification', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
-export const notificationPreference = notificationsSchema.table('notification_preference', {
-  id: uuid('id')
-    .$defaultFn(() => uuidv7())
-    .primaryKey(),
-  tenantId: uuid('tenant_id').notNull(),
-  actorId: uuid('actor_id').notNull(),
-  category: text('category', { enum: ['approval', 'mention', 'assignment', 'system'] }).notNull(),
-  inApp: boolean('in_app').notNull().default(true),
-  email: boolean('email').notNull().default(true),
-})
+export const notificationPreference = notificationsSchema.table(
+  'notification_preference',
+  {
+    id: uuid('id')
+      .$defaultFn(() => uuidv7())
+      .primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    actorId: uuid('actor_id').notNull(),
+    category: text('category', {
+      enum: ['approval', 'mention', 'assignment', 'system'],
+    }).notNull(),
+    inApp: boolean('in_app').notNull().default(true),
+    email: boolean('email').notNull().default(true),
+  },
+  (t) => [uniqueIndex('uq_notification_preference').on(t.tenantId, t.actorId, t.category)],
+)

@@ -24,6 +24,10 @@ import {
   documentsRouter as defaultDocumentsRouter,
   createDocumentsRouter,
 } from '../../modules/documents/interface/trpc/documents.router'
+import {
+  notificationsRouter as defaultNotificationsRouter,
+  createNotificationsRouter,
+} from '../../modules/notifications/interface/trpc/notifications.router'
 
 // Mutable references replaced by TrpcModule.onModuleInit with permission-enforcing versions.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -38,6 +42,8 @@ let _adminRouter: any = defaultAdminRouter
 let _preferencesRouter: any = defaultPreferencesRouter
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _documentsRouter: any = defaultDocumentsRouter
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _notificationsRouter: any = defaultNotificationsRouter
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function setKernelRouter(r: any): void {
@@ -69,7 +75,12 @@ export function setDocumentsRouter(r: any): void {
   _documentsRouter = r
 }
 
-export { createPreferencesRouter, createDocumentsRouter }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function setNotificationsRouter(r: any): void {
+  _notificationsRouter = r
+}
+
+export { createPreferencesRouter, createDocumentsRouter, createNotificationsRouter }
 
 function buildAppRouter() {
   // Merge auth procedures from identityRouter with the admin sub-router.
@@ -95,6 +106,7 @@ function buildAppRouter() {
     admin: _adminRouter,
     preferences: _preferencesRouter,
     documents: _documentsRouter,
+    notifications: _notificationsRouter,
   })
 }
 
