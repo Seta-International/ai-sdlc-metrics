@@ -5,6 +5,10 @@ import type { INotificationRepository } from '../../domain/repositories/notifica
 import { NOTIFICATION_REPOSITORY } from '../../domain/repositories/notification.repository.port'
 import type { NotificationPublisher } from '../../infrastructure/redis/notification-publisher'
 import { NOTIFICATION_PUBLISHER } from '../../infrastructure/redis/notification-publisher'
+import {
+  PgBossService,
+  JOB_NOTIFICATIONS_SEND_EMAIL,
+} from '../../../../common/jobs/pg-boss.service'
 
 @CommandHandler(SendNotificationCommand)
 @Injectable()
@@ -12,6 +16,7 @@ export class SendNotificationHandler implements ICommandHandler<SendNotification
   constructor(
     @Inject(NOTIFICATION_REPOSITORY) private readonly repo: INotificationRepository,
     @Inject(NOTIFICATION_PUBLISHER) private readonly publisher: NotificationPublisher,
+    private readonly pgBoss: PgBossService,
   ) {}
 
   async execute(command: SendNotificationCommand): Promise<string> {
@@ -27,17 +32,25 @@ export class SendNotificationHandler implements ICommandHandler<SendNotification
       resourceUrl: command.resourceUrl,
     })
 
-    // Check preference
     const pref = await this.repo.getPreference(
       command.tenantId,
       command.recipientId,
       command.category,
     )
 
-    const inAppEnabled = pref?.inApp ?? true // default enabled
+    const inAppEnabled = pref?.inApp ?? true
+    const emailEnabled = pref?.email ?? true
 
     if (inAppEnabled) {
       await this.publisher.publish(command.tenantId, command.recipientId, notification)
+    }
+
+    if (emailEnabled) {
+      await this.pgBoss.enqueue(JOB_NOTIFICATIONS_SEND_EMAIL, {
+        notificationId: notification.id,
+        tenantId: command.tenantId,
+        recipientId: command.recipientId,
+      })
     }
 
     return notification.id
