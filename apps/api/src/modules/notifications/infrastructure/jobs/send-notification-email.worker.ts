@@ -29,11 +29,7 @@ export class SendNotificationEmailWorker {
   async handle(job: PgBoss.Job<SendEmailJobData>): Promise<void> {
     const { notificationId, tenantId, recipientId } = job.data
 
-    const notifications = await this.notifRepo.findByRecipient(tenantId, recipientId, {
-      limit: 1,
-      offset: 0,
-    })
-    const notification = notifications.find((n) => n.id === notificationId)
+    const notification = await this.notifRepo.findById(tenantId, notificationId)
 
     if (!notification) {
       this.logger.warn(`Notification not found for email: ${notificationId}`)

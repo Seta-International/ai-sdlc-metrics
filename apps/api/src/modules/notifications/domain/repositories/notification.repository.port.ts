@@ -6,6 +6,7 @@ export interface INotificationRepository {
   insert(
     notification: Omit<Notification, 'id' | 'readAt' | 'archivedAt' | 'createdAt'>,
   ): Promise<Notification>
+  findById(tenantId: string, id: string): Promise<Notification | null>
   findByRecipient(
     tenantId: string,
     recipientId: string,

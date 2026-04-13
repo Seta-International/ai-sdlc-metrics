@@ -32,6 +32,15 @@ export class DrizzleNotificationRepository implements INotificationRepository {
     return rows[0] as Notification
   }
 
+  async findById(tenantId: string, id: string): Promise<Notification | null> {
+    const rows = await this.db
+      .select()
+      .from(notification)
+      .where(and(eq(notification.tenantId, tenantId), eq(notification.id, id)))
+      .limit(1)
+    return (rows[0] as Notification | undefined) ?? null
+  }
+
   async findByRecipient(
     tenantId: string,
     recipientId: string,

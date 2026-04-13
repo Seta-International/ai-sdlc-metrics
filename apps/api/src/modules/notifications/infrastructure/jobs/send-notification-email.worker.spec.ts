@@ -14,6 +14,7 @@ vi.mock('@future/mail', () => ({
 const mockNotifRepo: INotificationRepository = {
   insert: vi.fn(),
   findByRecipient: vi.fn(),
+  findById: vi.fn(),
   countUnread: vi.fn(),
   markRead: vi.fn(),
   markAllRead: vi.fn(),
@@ -46,23 +47,21 @@ describe('SendNotificationEmailWorker', () => {
   })
 
   it('loads notification, gets recipient email, and sends email', async () => {
-    vi.mocked(mockNotifRepo.findByRecipient).mockResolvedValue([
-      {
-        id: 'n-1',
-        tenantId: 'tenant-1',
-        recipientId: 'actor-1',
-        senderId: null,
-        category: 'approval',
-        title: 'Leave approved',
-        body: 'Your leave was approved',
-        resourceType: null,
-        resourceId: null,
-        resourceUrl: '/time/leave/123',
-        readAt: null,
-        archivedAt: null,
-        createdAt: new Date(),
-      },
-    ])
+    vi.mocked(mockNotifRepo.findById).mockResolvedValue({
+      id: 'n-1',
+      tenantId: 'tenant-1',
+      recipientId: 'actor-1',
+      senderId: null,
+      category: 'approval',
+      title: 'Leave approved',
+      body: 'Your leave was approved',
+      resourceType: null,
+      resourceId: null,
+      resourceUrl: '/time/leave/123',
+      readAt: null,
+      archivedAt: null,
+      createdAt: new Date(),
+    })
 
     await worker.handle({
       data: { notificationId: 'n-1', tenantId: 'tenant-1', recipientId: 'actor-1' },
@@ -73,7 +72,7 @@ describe('SendNotificationEmailWorker', () => {
   })
 
   it('skips gracefully if notification not found', async () => {
-    vi.mocked(mockNotifRepo.findByRecipient).mockResolvedValue([])
+    vi.mocked(mockNotifRepo.findById).mockResolvedValue(null)
 
     // Should not throw
     await worker.handle({
@@ -82,23 +81,21 @@ describe('SendNotificationEmailWorker', () => {
   })
 
   it('skips gracefully if profile has no email', async () => {
-    vi.mocked(mockNotifRepo.findByRecipient).mockResolvedValue([
-      {
-        id: 'n-2',
-        tenantId: 'tenant-1',
-        recipientId: 'actor-1',
-        senderId: null,
-        category: 'approval',
-        title: 'Test',
-        body: 'Test body',
-        resourceType: null,
-        resourceId: null,
-        resourceUrl: null,
-        readAt: null,
-        archivedAt: null,
-        createdAt: new Date(),
-      },
-    ])
+    vi.mocked(mockNotifRepo.findById).mockResolvedValue({
+      id: 'n-2',
+      tenantId: 'tenant-1',
+      recipientId: 'actor-1',
+      senderId: null,
+      category: 'approval',
+      title: 'Test',
+      body: 'Test body',
+      resourceType: null,
+      resourceId: null,
+      resourceUrl: null,
+      readAt: null,
+      archivedAt: null,
+      createdAt: new Date(),
+    })
     vi.mocked(mockPeopleFacade.getProfile).mockResolvedValueOnce({
       profile: { companyEmail: null, actorId: 'actor-1' } as never,
       detail: null,
@@ -115,23 +112,21 @@ describe('SendNotificationEmailWorker', () => {
   })
 
   it('skips gracefully if profile not found', async () => {
-    vi.mocked(mockNotifRepo.findByRecipient).mockResolvedValue([
-      {
-        id: 'n-3',
-        tenantId: 'tenant-1',
-        recipientId: 'actor-1',
-        senderId: null,
-        category: 'approval',
-        title: 'Test',
-        body: 'Test body',
-        resourceType: null,
-        resourceId: null,
-        resourceUrl: null,
-        readAt: null,
-        archivedAt: null,
-        createdAt: new Date(),
-      },
-    ])
+    vi.mocked(mockNotifRepo.findById).mockResolvedValue({
+      id: 'n-3',
+      tenantId: 'tenant-1',
+      recipientId: 'actor-1',
+      senderId: null,
+      category: 'approval',
+      title: 'Test',
+      body: 'Test body',
+      resourceType: null,
+      resourceId: null,
+      resourceUrl: null,
+      readAt: null,
+      archivedAt: null,
+      createdAt: new Date(),
+    })
     vi.mocked(mockPeopleFacade.getProfile).mockResolvedValueOnce(null)
 
     // Should not throw
@@ -141,23 +136,21 @@ describe('SendNotificationEmailWorker', () => {
   })
 
   it('uses tenant email config when available', async () => {
-    vi.mocked(mockNotifRepo.findByRecipient).mockResolvedValue([
-      {
-        id: 'n-4',
-        tenantId: 'tenant-1',
-        recipientId: 'actor-1',
-        senderId: null,
-        category: 'approval',
-        title: 'Leave approved',
-        body: 'Your leave was approved',
-        resourceType: null,
-        resourceId: null,
-        resourceUrl: '/time/leave/456',
-        readAt: null,
-        archivedAt: null,
-        createdAt: new Date(),
-      },
-    ])
+    vi.mocked(mockNotifRepo.findById).mockResolvedValue({
+      id: 'n-4',
+      tenantId: 'tenant-1',
+      recipientId: 'actor-1',
+      senderId: null,
+      category: 'approval',
+      title: 'Leave approved',
+      body: 'Your leave was approved',
+      resourceType: null,
+      resourceId: null,
+      resourceUrl: '/time/leave/456',
+      readAt: null,
+      archivedAt: null,
+      createdAt: new Date(),
+    })
     vi.mocked(mockAdminFacade.getEmailConfig).mockResolvedValueOnce({
       id: 'cfg-1',
       tenantId: 'tenant-1',
@@ -181,23 +174,21 @@ describe('SendNotificationEmailWorker', () => {
   })
 
   it('rethrows transport errors so pg-boss can retry', async () => {
-    vi.mocked(mockNotifRepo.findByRecipient).mockResolvedValue([
-      {
-        id: 'n-5',
-        tenantId: 'tenant-1',
-        recipientId: 'actor-1',
-        senderId: null,
-        category: 'approval',
-        title: 'Test',
-        body: 'body',
-        resourceType: null,
-        resourceId: null,
-        resourceUrl: null,
-        readAt: null,
-        archivedAt: null,
-        createdAt: new Date(),
-      },
-    ])
+    vi.mocked(mockNotifRepo.findById).mockResolvedValue({
+      id: 'n-5',
+      tenantId: 'tenant-1',
+      recipientId: 'actor-1',
+      senderId: null,
+      category: 'approval',
+      title: 'Test',
+      body: 'body',
+      resourceType: null,
+      resourceId: null,
+      resourceUrl: null,
+      readAt: null,
+      archivedAt: null,
+      createdAt: new Date(),
+    })
     const { createMailTransport } = await import('@future/mail')
     vi.mocked(createMailTransport).mockReturnValueOnce({
       send: vi.fn().mockRejectedValue(new Error('SES error')),
