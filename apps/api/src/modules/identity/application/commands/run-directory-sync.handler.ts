@@ -23,10 +23,7 @@ import { UpdateActorStatusCommand } from '../../../kernel/application/commands/u
 import { DeprovisionUserIdentityCommand } from '../../../kernel/application/commands/deprovision-user-identity.command'
 import { GrantRoleCommand } from '../../../kernel/application/commands/grant-role.command'
 import { RunDirectorySyncCommand } from './run-directory-sync.command'
-import type {
-  RoleKeyValue,
-  ScopeTypeValue,
-} from '../../../kernel/domain/entities/role-grant.entity'
+import type { RoleKeyValue, ScopeTypeValue } from '@future/core'
 
 const SYSTEM_ACTOR_ID = '00000000-0000-7000-8000-000000000000'
 

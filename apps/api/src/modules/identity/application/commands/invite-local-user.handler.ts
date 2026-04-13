@@ -7,10 +7,7 @@ import { GrantRoleCommand } from '../../../kernel/application/commands/grant-rol
 import { MAGIC_LINK_SENDER, type IMagicLinkSender } from '../../domain/ports/magic-link-sender.port'
 import { RequestMagicLinkCommand } from './request-magic-link.command'
 import { InviteLocalUserCommand } from './invite-local-user.command'
-import type {
-  RoleKeyValue,
-  ScopeTypeValue,
-} from '../../../kernel/domain/entities/role-grant.entity'
+import type { RoleKeyValue, ScopeTypeValue } from '@future/core'
 
 @CommandHandler(InviteLocalUserCommand)
 export class InviteLocalUserHandler implements ICommandHandler<

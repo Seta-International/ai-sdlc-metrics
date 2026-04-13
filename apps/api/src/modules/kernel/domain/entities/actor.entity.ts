@@ -1,5 +1,5 @@
-export type ActorType = 'person' | 'organization' | 'system'
-export type ActorStatus = 'invited' | 'active' | 'inactive' | 'suspended' | 'archived'
+import type { ActorType, ActorStatus } from '@future/core'
+export type { ActorType, ActorStatus } from '@future/core'
 
 export interface Actor {
   id: string
