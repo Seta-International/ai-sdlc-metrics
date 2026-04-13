@@ -5,13 +5,13 @@
     "": {
       "name": "future",
       "devDependencies": {
-        "eslint": "latest",
-        "future": "latest",
-        "jiti": "latest",
-        "lefthook": "latest",
-        "prettier": "latest",
-        "turbo": "latest",
-        "typescript": "latest",
+        "eslint": "^10.2.0",
+        "future": "^2.3.1",
+        "jiti": "^2.6.1",
+        "lefthook": "^2.1.5",
+        "prettier": "^3.8.2",
+        "turbo": "^2.9.6",
+        "typescript": "^6.0.2",
       },
     },
     "apps/api": {
@@ -19,8 +19,10 @@
       "version": "0.0.1",
       "dependencies": {
         "@future/db": "workspace:*",
+        "@future/documents": "workspace:*",
         "@future/event-contracts": "workspace:*",
         "@future/mail": "workspace:*",
+        "@future/storage": "workspace:*",
         "@nestjs/common": "^11",
         "@nestjs/config": "^4",
         "@nestjs/core": "^11",
