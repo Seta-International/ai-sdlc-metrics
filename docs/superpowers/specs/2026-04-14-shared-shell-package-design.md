@@ -1,4 +1,4 @@
-# Shared Shell Package (`packages/shell`)
+# Shared App Layout Package (`packages/app-layout`)
 
 **Date:** 2026-04-14
 **Status:** Draft
@@ -17,18 +17,18 @@ The 11 Next.js zones each wire up their own GlobalNav with no sidebar navigation
 | Navbar customization  | Zone title + breadcrumbs + optional action   | Global elements (search, notifications, avatar, app launcher) stay consistent |
 | Permission fetching   | Eager load on mount, cached in React context | One API call per zone load; cross-zone navigation refreshes naturally         |
 | Mobile behavior       | Sidebar collapses to drawer                  | ERP standard; existing sidebar component already supports this                |
-| Package name          | `packages/shell`                             | Created via `turbo gen workspace`                                             |
+| Package name          | `packages/app-layout`                        | Created via `turbo gen workspace`                                             |
 
 ## Architecture
 
 ### Package Structure
 
 ```
-packages/shell/
+packages/app-layout/
   src/
     index.ts                  → public exports
     types.ts                  → NavigationConfig, NavItem, NavGroup, NavbarConfig
-    shell.tsx                 → <Shell config={...}>{children}</Shell>
+    app-layout.tsx                 → <AppLayout config={...}>{children}</AppLayout>
     permission-provider.tsx   → fetches & caches effective permissions in context
     use-can-access.ts         → useCanAccess(permissionKey?) → boolean
     sidebar/
@@ -73,12 +73,12 @@ interface NavigationConfig {
 
 ### Zone Usage
 
-Each zone provides a `navigation.ts` config file and wraps its layout with `<Shell>`:
+Each zone provides a `navigation.ts` config file and wraps its layout with `<AppLayout>`:
 
 ```typescript
 // apps/web-people/src/navigation.ts
 import { Users, Network, UserMinus } from 'lucide-react'
-import type { NavigationConfig } from '@future/shell'
+import type { NavigationConfig } from '@future/app-layout'
 
 export const peopleNavConfig: NavigationConfig = {
   navbar: {
@@ -111,13 +111,13 @@ export const peopleNavConfig: NavigationConfig = {
 
 ```tsx
 // apps/web-people/src/app/layout.tsx
-import { Shell } from '@future/shell'
+import { AppLayout } from '@future/app-layout'
 import { peopleNavConfig } from '../navigation'
 
 export default function RootLayout({ children }) {
   return (
     <ThemeProvider>
-      <Shell config={peopleNavConfig}>{children}</Shell>
+      <AppLayout config={peopleNavConfig}>{children}</AppLayout>
     </ThemeProvider>
   )
 }
@@ -135,15 +135,15 @@ interface PermissionContext {
 
 **Flow:**
 
-1. `<Shell>` mounts `<PermissionProvider>`
+1. `<AppLayout>` mounts `<PermissionProvider>`
 2. Provider calls `kernel.getEffectivePermissions()` via tRPC
 3. Response stored as `Set<string>` in React context
 4. `useCanAccess(key)` reads from context: undefined key = true, key in set = true, else false
 
-### Shell Component
+### AppLayout Component
 
 ```tsx
-function Shell({ config, children }: ShellProps) {
+function AppLayout({ config, children }: AppLayoutProps) {
   return (
     <PermissionProvider>
       <SidebarProvider>
@@ -182,21 +182,21 @@ Automatic based on current URL path segments matched against sidebar config. For
 ## Dependency Graph
 
 ```
-apps/web-people  ──→  @future/shell  ──→  @future/ui (sidebar components, icons)
-apps/web-time    ──→  @future/shell  ──→  @future/auth (useSession, roles)
-apps/web-hiring  ──→  @future/shell  ──→  @future/api-client (tRPC for permissions)
+apps/web-people  ──→  @future/app-layout  ──→  @future/ui (sidebar components, icons)
+apps/web-time    ──→  @future/app-layout  ──→  @future/auth (useSession, roles)
+apps/web-hiring  ──→  @future/app-layout  ──→  @future/api-client (tRPC for permissions)
 ...
 ```
 
-`web-shell` (auth zone) does NOT use `<Shell>` — it handles login/SSO flows only.
+`web-shell` (auth zone) does NOT use `<AppLayout>` — it handles login/SSO flows only.
 
 ## What Happens to Existing GlobalNav
 
-The standalone `GlobalNav` component in `packages/ui` remains available for backward compatibility during migration. Its internal pieces (app launcher trigger, search, notifications, avatar) are extracted and reused inside `packages/shell`'s navbar renderer. Once all zones migrate to `<Shell>`, the standalone `GlobalNav` can be removed.
+The standalone `GlobalNav` component in `packages/ui` remains available for backward compatibility during migration. Its internal pieces (app launcher trigger, search, notifications, avatar) are extracted and reused inside `packages/app-layout`'s navbar renderer. Once all zones migrate to `<AppLayout>`, the standalone `GlobalNav` can be removed.
 
 ## Testing
 
-### Unit Tests (co-located in `packages/shell/src/`)
+### Unit Tests (co-located in `packages/app-layout/src/`)
 
 - `use-can-access.spec.ts` — true when permission present, false when absent, true when key undefined
 - `sidebar-renderer.spec.ts` — renders items, hides unauthorized items, hides empty groups, renders nested children
@@ -205,7 +205,7 @@ The standalone `GlobalNav` component in `packages/ui` remains available for back
 
 ### Integration Tests
 
-- Shell renders correctly with full `NavigationConfig` and mocked permission set
+- AppLayout renders correctly with full `NavigationConfig` and mocked permission set
 - Sidebar collapse/expand persists cookie state
 - Mobile drawer opens/closes
 
