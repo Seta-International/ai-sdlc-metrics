@@ -164,27 +164,34 @@ Each task file includes:
 - Dependencies on other tasks
 - Acceptance criteria as `- [ ]` checklist
 
-### Update inventory
+### Update PROGRESS.md
 
-Set the module's status to `refined` in the inventory file.
+In `docs/clones/{source-name}/PROGRESS.md`:
+
+- Change module from `pending-refinement` → `refined, 0/{n} tasks done`
+- Add each task as a `- [ ] {date}-{seq}-{name} — pending` checkbox under the module
+- Update Summary table refined count and Updated date
+
+Task files are specs only — do not track status inside them.
 
 ## Handoff
 
-When a module's brief and tasks are written, update the inventory and end the session with:
+When a module's brief, tasks, and PROGRESS.md are updated, end the session with:
 
 ```
 Module "{module-name}" refined.
   Brief: docs/clones/{source}/modules/{module-name}/{date}-000-brief.md
   Tasks: {n} tasks created
+  PROGRESS.md updated ✓
 
 Remaining unrefined modules: {list or "none"}
 
 Next steps:
 - Run /clone-refine to refine the next module: {next-module-name}
 - Run /clone-implement to start implementing tasks from this module
-- Run /clone-plan to see the full migration status dashboard
+- Run /clone to see quick status and next recommended command
 
-To resume in a future session, start with /clone-plan.
+To resume in a future session, start with /clone.
 ```
 
 If the user wants to continue refining more modules in the same session, ask:

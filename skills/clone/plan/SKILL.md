@@ -116,13 +116,9 @@ All output files follow: `{YYYY-MM-DD}-{sequence}-{descriptive-name}.md`
 
 ## Resuming Across Sessions
 
-`clone-plan` is the canonical home base. Any time a session ends mid-migration, the next session should start here:
+Use `/clone` for quick session start — it reads `PROGRESS.md` and gives a one-line recommendation.
 
-```
-/clone-plan
-```
-
-It reads `docs/clones/` and tells you exactly where you left off and what to run next.
+Use `/clone-plan` when you want the full status dashboard with all counts and checklists.
 
 ## This Skill Does NOT
 

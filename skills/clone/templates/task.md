@@ -2,8 +2,6 @@
 module: { module-name }
 task: { task-name }
 created: { date }
-updated: { date }
-status: pending | ready-to-implement | in-progress | done | verified | needs-revision
 depends-on: []
 ---
 

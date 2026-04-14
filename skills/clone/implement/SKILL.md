@@ -119,17 +119,19 @@ Ask the user:
 ### Context Mode (A)
 
 - Update the task file in-place with the enriched content
-- Set status to `ready-to-implement`
+- In `PROGRESS.md`: mark task as `ready-to-implement`
 - Done — another agent or session picks it up later
 
 ### Execute Mode (B or C)
 
+- Before starting: in `PROGRESS.md` mark task as `in-progress ← CURRENT`
 - Implement the code following the enriched task context
-- After implementation:
-  - Set task status to `done`
-  - Update inventory checklist
-  - If all tasks for the module are done, mark module as `completed`
-  - Proactively offer: "Implementation complete. Want to run `/clone-verify` to validate against the source?"
+- After implementation: in `PROGRESS.md` mark task as `done`
+- If all tasks for the module are done, mark module as `in-progress, {n}/{t} tasks done`
+- Update Summary table counts and Updated date
+- Proactively offer: "Implementation complete. Want to run `/clone-verify` to validate against the source?"
+
+Task files are specs only — do not add status fields to them.
 
 ## Handoff
 
@@ -138,6 +140,7 @@ After a task is completed (context-only or executed), end the session with:
 ```
 Task "{task-name}" — {status: enriched / implemented}
   File: docs/clones/{source}/modules/{module}/tasks/{date}-{seq}-{name}.md
+  PROGRESS.md updated ✓
 
 Remaining tasks in this module: {n} ({list next 2-3})
 Unrefined modules: {n}
@@ -145,9 +148,9 @@ Unrefined modules: {n}
 Next steps:
 - Run /clone-verify to verify this task against the source  ← recommended if implemented
 - Run /clone-implement to pick up the next task: {next-task-name}
-- Run /clone-plan to see the full migration status dashboard
+- Run /clone to see quick status and next recommended command
 
-To resume in a future session, start with /clone-plan.
+To resume in a future session, start with /clone.
 ```
 
 If verification was offered and declined, still show the full next-steps block — don't end silently.

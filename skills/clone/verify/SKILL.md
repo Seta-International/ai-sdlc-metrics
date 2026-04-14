@@ -132,15 +132,21 @@ result: verified | needs-revision
 
 ### If verified
 
-- Update task status to `verified`
-- Update inventory
-- If all tasks in module are verified, mark module as `completed`
+In `PROGRESS.md`:
+
+- Mark task as `verified`
+- If all tasks in the module are verified, mark module as `completed`
+- Update Summary table verified count and Updated date
 
 ### If needs-revision
 
-- Update task status to `needs-revision`
-- The verification report's gaps and recommendations become input for the next `/clone-implement` run on this task
-- Guide user: "Run `/clone-implement` on this task again — the verification findings are included as context"
+In `PROGRESS.md`:
+
+- Mark task as `needs-revision`
+- The verification report's gaps become context for the next `/clone-implement` run
+- Guide user: "Run `/clone-implement` on this task again — verification findings are included as context"
+
+Task files are specs only — do not add status fields to them.
 
 ## Invocation Modes
 
@@ -169,12 +175,13 @@ After the verification report is written, end the session with:
 ```
 Task "{task-name}" — VERIFIED ✓
   Report: docs/clones/{source}/modules/{module}/tasks/{date}-{seq}-{name}-verify.md
+  PROGRESS.md updated ✓
 
 Next steps:
 - Run /clone-implement to pick up the next task: {next-task-name}
-- Run /clone-plan to see the full migration status dashboard
+- Run /clone to see quick status and next recommended command
 
-To resume in a future session, start with /clone-plan.
+To resume in a future session, start with /clone.
 ```
 
 **If needs revision:**
@@ -183,12 +190,13 @@ To resume in a future session, start with /clone-plan.
 Task "{task-name}" — NEEDS REVISION
   Report: docs/clones/{source}/modules/{module}/tasks/{date}-{seq}-{name}-verify.md
   Gaps: {count} issues found (see report for details)
+  PROGRESS.md updated ✓
 
 Next steps:
 - Run /clone-implement on this task again — verification findings are included as context
-- Run /clone-plan to see the full migration status dashboard
+- Run /clone to see quick status and next recommended command
 
-To resume in a future session, start with /clone-plan.
+To resume in a future session, start with /clone.
 ```
 
 ## Important

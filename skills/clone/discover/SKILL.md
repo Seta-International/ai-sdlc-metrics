@@ -116,18 +116,29 @@ Write `docs/clones/{source-name}/{date}-000-inventory.md` using the template fro
 
 These are rough guides for the refine phase, not hard rules.
 
+## Step 5: Create PROGRESS.md
+
+Create `docs/clones/{source-name}/PROGRESS.md` using the template from `skills/clone/templates/progress.md`.
+
+- List all discovered modules as `pending-refinement`
+- Fill the Summary table with discovered counts
+- Set Updated date
+
+`PROGRESS.md` is the single source of truth for all task and module status. Task files are specs only — do not track status inside them.
+
 ## Handoff
 
-When the inventory is written, end the session with this prompt:
+When the inventory and PROGRESS.md are written, end the session with:
 
 ```
 Inventory written to docs/clones/{source-name}/{date}-000-inventory.md
+PROGRESS.md created at docs/clones/{source-name}/PROGRESS.md
 
 Next steps:
 - Run /clone-refine to start refining the first module (suggested: highest priority)
-- Run /clone-plan to see the full migration status dashboard
+- Run /clone to see quick status and next recommended command
 
-To resume this migration in a future session, always start with /clone-plan.
+To resume this migration in a future session, start with /clone.
 ```
 
 ## Important
