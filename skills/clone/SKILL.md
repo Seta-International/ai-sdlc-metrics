@@ -96,13 +96,17 @@ docs/clones/{source-name}/PROGRESS.md
 
 It is created by `clone-discover` and updated by every sub-skill after completing work. Format is defined in `skills/clone/templates/progress.md`.
 
+**Task status values:** `pending` | `ready-to-implement` | `in-progress` | `done` | `verified` | `needs-revision`
+
+**Module status values:** `pending-refinement` | `refined` | `in-progress` | `completed`
+
 **Update rules per skill:**
 
-| Skill             | Update                                                                            |
-| ----------------- | --------------------------------------------------------------------------------- |
-| `clone-discover`  | Create PROGRESS.md, list all modules as `pending-refinement`                      |
-| `clone-refine`    | Module → `refined`, add task checkboxes as `pending`                              |
-| `clone-implement` | Task → `in-progress` when started, `done` when finished; mark `← CURRENT`         |
-| `clone-verify`    | Task → `verified` or `needs-revision`; module → `completed` if all tasks verified |
+| Skill             | Module update                                      | Task update                                  |
+| ----------------- | -------------------------------------------------- | -------------------------------------------- |
+| `clone-discover`  | Add module as `pending-refinement`                 | —                                            |
+| `clone-refine`    | `pending-refinement` → `refined \| 0/n tasks done` | Add each task as `pending`                   |
+| `clone-implement` | `refined` → `in-progress \| n/t tasks done`        | `pending` → `in-progress ← CURRENT` → `done` |
+| `clone-verify`    | `in-progress` → `completed` when all verified      | `done` → `verified` or `needs-revision`      |
 
 Every skill that modifies PROGRESS.md must also update the **Summary** table counts and the **Updated** date at the top.

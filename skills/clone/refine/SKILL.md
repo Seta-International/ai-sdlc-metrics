@@ -168,8 +168,8 @@ Each task file includes:
 
 In `docs/clones/{source-name}/PROGRESS.md`:
 
-- Change module from `pending-refinement` → `refined, 0/{n} tasks done`
-- Add each task as a `- [ ] {date}-{seq}-{name} — pending` checkbox under the module
+- Change module from `pending-refinement` → `refined | 0/{n} tasks done`
+- Add each task as a `  - {date}-{seq}-{name} — pending` line under the module (no checkbox — tasks use explicit status labels)
 - Update Summary table refined count and Updated date
 
 Task files are specs only — do not track status inside them.
