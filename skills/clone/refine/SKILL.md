@@ -29,24 +29,26 @@ digraph refine {
     "Read inventory" [shape=box];
     "Pick module" [shape=box];
     "Deep-read source module" [shape=box];
+    "Map business flows by role" [shape=box];
     "Check target conventions" [shape=box];
     "Brainstorm with user" [shape=box];
     "Decide: keep/reimagine/skip" [shape=box];
     "Break into tasks" [shape=box];
     "Write brief + task files" [shape=box];
-    "Update inventory" [shape=box];
+    "Update PROGRESS.md" [shape=box];
     "More modules?" [shape=diamond];
     "Done" [shape=doublecircle];
 
     "Read inventory" -> "Pick module";
     "Pick module" -> "Deep-read source module";
-    "Deep-read source module" -> "Check target conventions";
+    "Deep-read source module" -> "Map business flows by role";
+    "Map business flows by role" -> "Check target conventions";
     "Check target conventions" -> "Brainstorm with user";
     "Brainstorm with user" -> "Decide: keep/reimagine/skip";
     "Decide: keep/reimagine/skip" -> "Break into tasks";
     "Break into tasks" -> "Write brief + task files";
-    "Write brief + task files" -> "Update inventory";
-    "Update inventory" -> "More modules?";
+    "Write brief + task files" -> "Update PROGRESS.md";
+    "Update PROGRESS.md" -> "More modules?";
     "More modules?" -> "Pick module" [label="yes"];
     "More modules?" -> "Done" [label="no"];
 }
@@ -69,7 +71,29 @@ Read the source module thoroughly:
 - External integrations (third-party APIs, services)
 - Edge cases visible in error handling
 
-## Step 3: Check Target Conventions
+## Step 3: Map Business Flows by Role
+
+Before making any design decisions, understand what the module does for each role. Look for role definitions in:
+
+- Auth middleware, guards, decorators (`@Roles`, `@Permission`, `hasRole`, etc.)
+- Route-level or controller-level access control
+- Conditional logic branching on user role/permission
+- UI visibility rules (show/hide based on role)
+- Separate endpoints or actions per role
+
+For each discovered role, describe its complete flow through this module:
+
+| Role   | Can Do            | Cannot Do      | Notes        |
+| ------ | ----------------- | -------------- | ------------ |
+| {role} | {list of actions} | {restrictions} | {any nuance} |
+
+If the system has no roles or a single role, note that explicitly — it simplifies the migration.
+
+**Ask the user:** "Does this role mapping look complete? Are there roles in the new project that don't exist in the source, or source roles that map differently here?"
+
+This step is the foundation for brainstorming — every keep/reimagine/skip decision should reference a specific role and flow.
+
+## Step 4: Check Target Conventions
 
 Read the target project to understand:
 
@@ -78,18 +102,20 @@ Read the target project to understand:
 - How similar features are structured
 - What shared utilities/libraries exist
 - Any partial work already done for this module
+- Whether the target has the same roles or a different role model
 
-## Step 4: Brainstorm with User
+## Step 5: Brainstorm with User
 
-Ask questions **one at a time**. Cover these areas:
+Ask questions **one at a time**. Ground every question in a specific role or flow from Step 3.
 
-1. **Business value** — "What does this module actually solve? Is this still needed?"
-2. **Quality assessment** — "I see {pattern}. This looks {good/problematic} because {reason}. Keep or fix?"
-3. **Tech debt** — "These parts look like workarounds: {list}. Should we drop them?"
-4. **Missing features** — "The old version doesn't handle {case}. Should the new one?"
-5. **Architecture fit** — "The source uses {pattern}, the target uses {pattern}. Here's how I'd map it."
-6. **Dependencies** — "This module depends on {other modules}. Are those migrated yet?"
-7. **Integration points** — "This talks to {external services}. Same in the new project?"
+1. **Business value** — "What does this module solve for {role}? Is that still needed in the new project?"
+2. **Role coverage** — "The source has flows for {roles}. The new project has {roles}. Should we map them 1:1 or merge/split?"
+3. **Quality assessment** — "I see {pattern} in the {role} flow. This looks {good/problematic} because {reason}. Keep or fix?"
+4. **Tech debt** — "These parts of the {role} flow look like workarounds: {list}. Should we drop them?"
+5. **Missing flows** — "The {role} flow doesn't handle {case}. Should the new one?"
+6. **Architecture fit** — "The source uses {pattern} for {role} access control, the target uses {pattern}. Here's how I'd map it."
+7. **Dependencies** — "This module depends on {other modules} for {role} authorization. Are those migrated yet?"
+8. **Integration points** — "This talks to {external services}. Same in the new project?"
 
 Flag anything that smells bad:
 
@@ -99,7 +125,7 @@ Flag anything that smells bad:
 - Security concerns
 - Performance anti-patterns
 
-## Step 5: Decide Per Feature
+## Step 6: Decide Per Feature
 
 For each feature/sub-feature within the module, record a decision:
 
@@ -111,7 +137,7 @@ For each feature/sub-feature within the module, record a decision:
 
 Every decision must have a rationale. "Keep because it works" is not enough. "Keep because the approval workflow matches current business rules and has good test coverage" is.
 
-## Step 6: Break Into Tasks
+## Step 7: Break Into Tasks
 
 Split the module into execution tasks. For each task, define:
 
@@ -148,7 +174,7 @@ digraph sizing {
 - Isolated nodes (no edges) mean fully independent tasks
 - The diagram is the implementation strategy — no separate strategy field needed
 
-## Step 7: Write Outputs
+## Step 8: Write Outputs
 
 ### Brief file
 

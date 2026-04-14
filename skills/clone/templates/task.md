@@ -12,6 +12,12 @@ depends-on: []
 
 {What to build — concrete and bounded}
 
+## Roles Covered
+
+<!-- Which roles and flows this task addresses — reference the brief's Business Flows by Role table -->
+
+- **{role}:** {which actions/flows this task implements for this role}
+
 ## Business Context
 
 {Why this matters}
