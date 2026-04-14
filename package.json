@@ -24,10 +24,7 @@
     "db:down": "docker compose -f docker-compose.local.yml down",
     "db:logs": "docker compose -f docker-compose.local.yml logs -f postgres",
     "test:unit": "turbo test:unit",
-    "test:integration": "turbo test:integration",
-    "upgrade": "bun scripts/upgrade.ts",
-    "upgrade:check": "bun scripts/upgrade.ts --check",
-    "upgrade:audit": "bun scripts/upgrade.ts --audit"
+    "test:integration": "turbo test:integration"
   },
   "devDependencies": {
     "eslint": "^10.2.0",

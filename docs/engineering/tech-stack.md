@@ -45,7 +45,6 @@ agents/
   evals/             → LLM eval harness (test prompts → expected tool calls)
   channels/          → Teams, Slack, WebSocket channel adapters
 data-platform/
-  cubejs/            → Cube.js semantic layer (ECS service, own ECR repo)
   glue/              → AWS Glue ETL Python scripts (hourly batch, not a container)
 packages/
   api-client/        → tRPC type export only — zero runtime code for frontend
@@ -105,7 +104,7 @@ modules/
   projects/
   finance/
   goals/
-  insights/          → proxy to Cube.js only, no persistent tables
+  insights/          → proxy to Athena via tRPC only, no persistent tables
   agents/
   planner/
   admin/
@@ -310,19 +309,17 @@ No `@tailwind base/components/utilities` directives. No `tailwind.config.js` unl
 ```
 RDS Primary
   → (hourly batch) → AWS Glue ETL → S3 Bronze (Parquet) → S3 Gold (Iceberg) → Athena
-  → (sync replica)  → RDS Read Replica → Cube.js (operational, last 30 days)
+  → (sync replica)  → RDS Read Replica (operational reads, last 30 days)
 
-Cube.js semantic layer → apps/api trpc.insights.* router → frontend zones
-                         (zones never call Cube.js directly)
+Athena → apps/api trpc.insights.* router → frontend zones
+         (zones never query directly)
 ```
 
-| Item           | Choice                                                                  |
-| -------------- | ----------------------------------------------------------------------- |
-| ETL            | AWS Glue (Python shell job, hourly, ~$2/month)                          |
-| Storage format | Apache Parquet (Bronze) + Apache Iceberg (Gold)                         |
-| Query engine   | Amazon Athena (ad-hoc, serverless)                                      |
-| Semantic layer | Cube.js `^1.6` (current: 1.6.x) — defines metrics, dimensions, measures |
-| Cache          | ElastiCache Redis (Cube.js query cache only)                            |
+| Item           | Choice                                          |
+| -------------- | ----------------------------------------------- |
+| ETL            | AWS Glue (Python shell job, hourly, ~$2/month)  |
+| Storage format | Apache Parquet (Bronze) + Apache Iceberg (Gold) |
+| Query engine   | Amazon Athena (ad-hoc, serverless)              |
 
 **No real-time CDC.** Hourly batch is sufficient and intentional. Operational reads (last 30 days) go through the read replica. Historical cross-module analytics go through Athena.
 

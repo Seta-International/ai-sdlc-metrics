@@ -290,7 +290,7 @@ const results = await db
 
 **Current org placement:** always include `isNull(orgPlacementTable.effectiveUntil)` to hit the partial index `idx_org_placement_actor_current`.
 
-**Analytics queries** go through `trpc.insights.*` → Cube.js. Never run aggregates directly against the OLTP DB or read replica.
+**Analytics queries** go through `trpc.insights.*` → Athena. Never run aggregates directly against the OLTP DB or read replica.
 
 ---
 
