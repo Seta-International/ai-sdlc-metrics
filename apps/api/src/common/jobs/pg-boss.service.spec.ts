@@ -7,6 +7,7 @@ const { mockBoss } = vi.hoisted(() => {
       start: vi.fn().mockResolvedValue(undefined),
       stop: vi.fn().mockResolvedValue(undefined),
       send: vi.fn().mockResolvedValue('test-job-id'),
+      createQueue: vi.fn().mockResolvedValue(undefined),
       work: vi.fn().mockResolvedValue(undefined),
     },
   }
@@ -18,6 +19,7 @@ vi.mock('pg-boss', () => {
     start = mockBoss.start
     stop = mockBoss.stop
     send = mockBoss.send
+    createQueue = mockBoss.createQueue
     work = mockBoss.work
   }
 
@@ -63,6 +65,9 @@ describe('PgBossService', () => {
     await service.onApplicationBootstrap()
     const handler = vi.fn()
     service.registerWorker('documents.generate', handler)
+    await vi.runAllTimersAsync().catch(() => undefined)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(mockBoss.createQueue).toHaveBeenCalledWith('documents.generate')
     expect(mockBoss.work).toHaveBeenCalledWith('documents.generate', handler)
   })
 })
