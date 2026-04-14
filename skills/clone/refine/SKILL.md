@@ -56,7 +56,19 @@ digraph refine {
 
 ## Step 1: Pick Module
 
-Read inventory, find modules with status `pending-refinement`. Ask the user which to refine, or suggest the next one by priority.
+Read inventory, find all modules with status `pending-refinement`. Present them as a numbered list with priority and size:
+
+```
+Modules pending refinement:
+
+  1. {module-name} — {description} [high | {size}]
+  2. {module-name} — {description} [medium | {size}]
+  3. {module-name} — {description} [low | {size}]
+
+Which module should we refine first? (enter number, name, or "all" to go in priority order)
+```
+
+Wait for the user's answer before proceeding. If they say "all", refine modules one at a time in priority order, looping automatically after each.
 
 ## Step 2: Deep-Read Source Module
 
@@ -210,27 +222,47 @@ Task files are specs only — do not track status inside them.
 
 ## Handoff
 
-When a module's brief, tasks, and PROGRESS.md are updated, end the session with:
+When a module's brief, tasks, and PROGRESS.md are updated, show a completion block:
 
 ```
 Module "{module-name}" refined.
   Brief: docs/clones/{source}/modules/{module-name}/{date}-000-brief.md
   Tasks: {n} tasks created
   PROGRESS.md updated ✓
+```
 
-Remaining unrefined modules: {list or "none"}
+Then immediately show remaining modules and ask what to do next:
+
+```
+Remaining unrefined modules ({n}):
+
+  1. {module-name} — {description} [high | {size}]   ← suggested next
+  2. {module-name} — {description} [medium | {size}]
+  3. {module-name} — {description} [low | {size}]
+
+What next?
+  A) Continue with {next-module-name} (suggested)
+  B) Pick a different module (enter number or name)
+  C) Stop here — I'll run /clone-implement to start building
+```
+
+- If **A** or user entered "all" earlier: loop back to Step 2 with the next module automatically.
+- If **B**: user picks from the list, loop back to Step 2 with that module.
+- If **C** or no modules remain: show the final summary and stop.
+
+**Final summary (when all modules refined or user stops):**
+
+```
+Refinement complete.
+  Refined: {n}/{t} modules
+  PROGRESS.md updated ✓
 
 Next steps:
-- Run /clone-refine to refine the next module: {next-module-name}
-- Run /clone-implement to start implementing tasks from this module
-- Run /clone to see quick status and next recommended command
+- Run /clone-implement to start implementing tasks
+- Run /clone to see full status
 
 To resume in a future session, start with /clone.
 ```
-
-If the user wants to continue refining more modules in the same session, ask:
-
-> "Refine next module ({module-name}) now, or stop here?"
 
 ## Important
 
@@ -238,5 +270,6 @@ If the user wants to continue refining more modules in the same session, ask:
 - **Be opinionated** — flag bad patterns proactively, don't wait for the user to notice
 - **No blind cloning** — every feature must pass through the keep/reimagine/skip filter
 - **Balanced tasks** — not so large they overflow context, not so small they create micro-loops
-- **Refine one module per session** — don't try to batch all modules at once
+- **Always write docs before moving on** — never loop to the next module without completing brief, tasks, and PROGRESS.md for the current one
+- **Always show remaining modules after each** — give the user clear options: continue, pick different, or stop
 - **Always end with the handoff block** — never finish silently
