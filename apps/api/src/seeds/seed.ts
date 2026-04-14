@@ -58,7 +58,7 @@ const TENANTS = [
 const SKIP_DOMAINS = ['yopmail', 'gmail']
 
 const ROLE_OVERRIDES: Record<string, string[]> = {
-  'canh.ta@seta-international.vn': ['tenant_admin'],
+  'canh.ta@seta-international.vn': ['tenant_admin', 'line_manager'],
 }
 
 function getEmailDomain(email: string): string | null {
