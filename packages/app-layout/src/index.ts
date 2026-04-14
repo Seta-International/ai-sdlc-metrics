@@ -5,3 +5,5 @@ export type { PermissionContextValue, PermissionProviderProps } from './permissi
 export { useCanAccess } from './use-can-access'
 export { SidebarRenderer } from './sidebar/sidebar-renderer'
 export type { SidebarRendererProps } from './sidebar/sidebar-renderer'
+export { NavbarRenderer } from './navbar/navbar-renderer'
+export type { NavbarRendererProps } from './navbar/navbar-renderer'
