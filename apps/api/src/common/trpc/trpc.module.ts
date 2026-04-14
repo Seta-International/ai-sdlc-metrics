@@ -21,6 +21,7 @@ import { createKernelRouter } from '../../modules/kernel/interface/trpc/kernel.r
 import { createPeopleRouter } from '../../modules/people/interface/trpc/people.router'
 import { createIdentityAdminRouter } from '../../modules/identity/interface/trpc/identity.router'
 import { createAdminRouter } from '../../modules/admin/interface/trpc/admin.router'
+import { setIdentityJwtService } from '../../modules/kernel/interface/trpc/identity.router'
 import {
   setKernelRouter,
   setPeopleRouter,
@@ -57,6 +58,7 @@ export class TrpcModule implements OnModuleInit {
 
   onModuleInit() {
     initProtectedProcedure(this.jwtService)
+    setIdentityJwtService(this.jwtService)
 
     const { permissionProtectedProcedure } = createProtectedProcedures(
       this.kernelFacade,

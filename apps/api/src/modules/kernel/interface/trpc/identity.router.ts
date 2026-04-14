@@ -8,6 +8,8 @@ import {
 } from '../../application/commands/resolve-login.command'
 import { RequestMagicLinkCommand } from '../../../identity/application/commands/request-magic-link.command'
 import { ValidateMagicLinkCommand } from '../../../identity/application/commands/validate-magic-link.command'
+import { DevLoginCommand } from '../../application/commands/dev-login.command'
+import type { JwtService } from '../../../../common/auth/jwt.service'
 
 const resolveLoginInput = z.object({
   provider: z.enum(['microsoft', 'google', 'magic_link']),
@@ -38,26 +40,42 @@ function getCommandBus(): CommandBus {
   return commandBus
 }
 
+let jwtService: JwtService | null = null
+
+export function setIdentityJwtService(svc: JwtService): void {
+  jwtService = svc
+}
+
+function getJwtService(): JwtService {
+  if (!jwtService) throw new Error('Identity router JwtService not initialized')
+  return jwtService
+}
+
 export const identityRouter = router({
-  resolveLogin: publicProcedure
-    .input(resolveLoginInput)
-    .mutation(async ({ input }): Promise<ResolveLoginResult> => {
-      try {
-        return await getCommandBus().execute(
-          new ResolveLoginCommand(
-            input.provider,
-            input.ssoSubject,
-            input.email,
-            input.displayName,
-            input.tenantId,
-          ),
-        )
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Login failed'
-        if (message.includes('suspended')) throw new TRPCError({ code: 'FORBIDDEN', message })
-        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message })
-      }
-    }),
+  resolveLogin: publicProcedure.input(resolveLoginInput).mutation(async ({ input }) => {
+    try {
+      const result: ResolveLoginResult = await getCommandBus().execute(
+        new ResolveLoginCommand(
+          input.provider,
+          input.ssoSubject,
+          input.email,
+          input.displayName,
+          input.tenantId,
+        ),
+      )
+      const token = await getJwtService().sign({
+        sub: result.actorId,
+        tid: result.tenantId,
+        roles: result.roles,
+        provider: result.provider,
+      })
+      return { token }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Login failed'
+      if (message.includes('suspended')) throw new TRPCError({ code: 'FORBIDDEN', message })
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message })
+    }
+  }),
 
   requestMagicLink: publicProcedure.input(requestMagicLinkInput).mutation(async ({ input }) => {
     await getCommandBus().execute(new RequestMagicLinkCommand(input.tenantId, input.email))
@@ -65,9 +83,37 @@ export const identityRouter = router({
   }),
 
   validateMagicLink: publicProcedure.input(validateMagicLinkInput).mutation(async ({ input }) => {
-    const result: ResolveLoginResult = await getCommandBus().execute(
+    const { email, tenantId } = await getCommandBus().execute(
       new ValidateMagicLinkCommand(input.token),
     )
-    return result
+    const result: ResolveLoginResult = await getCommandBus().execute(
+      new ResolveLoginCommand('magic_link', email, email, email, tenantId),
+    )
+    const token = await getJwtService().sign({
+      sub: result.actorId,
+      tid: result.tenantId,
+      roles: result.roles,
+      provider: result.provider,
+    })
+    return { token }
   }),
+
+  ...(process.env['LOCAL_DEV'] === '1'
+    ? {
+        devLogin: publicProcedure
+          .input(z.object({ email: z.string().email() }))
+          .mutation(async ({ input }) => {
+            const result: ResolveLoginResult = await getCommandBus().execute(
+              new DevLoginCommand(input.email),
+            )
+            const token = await getJwtService().sign({
+              sub: result.actorId,
+              tid: result.tenantId,
+              roles: result.roles,
+              provider: result.provider,
+            })
+            return { token }
+          }),
+      }
+    : {}),
 })
