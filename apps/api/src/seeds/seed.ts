@@ -57,6 +57,10 @@ const TENANTS = [
 
 const SKIP_DOMAINS = ['yopmail', 'gmail']
 
+const ROLE_OVERRIDES: Record<string, string[]> = {
+  'canh.ta@seta-international.vn': ['tenant_admin'],
+}
+
 function getEmailDomain(email: string): string | null {
   const atIdx = email.indexOf('@')
   if (atIdx === -1) return null
@@ -128,11 +132,9 @@ async function main() {
       const actorId = deterministicUuid('actor:' + emp.email)
       const identityId = deterministicUuid('identity:' + emp.email)
 
-      const roles: string[] = emp.is_admin
-        ? ['tenant_admin']
-        : emp.is_pm
-          ? ['line_manager']
-          : ['employee']
+      const roles: string[] =
+        ROLE_OVERRIDES[emp.email] ??
+        (emp.is_admin ? ['tenant_admin'] : emp.is_pm ? ['line_manager'] : ['employee'])
 
       await db
         .insert(actor)
