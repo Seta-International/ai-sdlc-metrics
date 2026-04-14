@@ -1,13 +1,20 @@
 'use client'
 
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { MICROSOFT_CONFIG, GOOGLE_CONFIG } from '../../../lib/auth-config'
+
+const PEOPLE_APP_URL =
+  process.env['NEXT_PUBLIC_LOCAL_DEV'] === 'true'
+    ? 'http://localhost:3001'
+    : 'https://people.future.seta.vn'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const searchParams = useSearchParams()
 
   async function handleMagicLink(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -25,7 +32,8 @@ export default function LoginPage() {
       } else {
         const data = (await res.json()) as { ok?: boolean; dev?: boolean }
         if (data.dev) {
-          window.location.href = '/'
+          const redirectTo = searchParams.get('redirectTo') ?? PEOPLE_APP_URL
+          window.location.href = redirectTo
         } else {
           setSent(true)
         }
@@ -45,8 +53,8 @@ export default function LoginPage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Check your email</h1>
-          <p className="text-gray-600">
+          <h1 className="text-h2 mb-4">Check your email</h1>
+          <p className="text-muted-foreground">
             We sent a magic link to <strong>{email}</strong>. Click the link to sign in.
           </p>
         </div>
@@ -57,19 +65,19 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center">
       <div className="w-full max-w-md space-y-6 p-8">
-        <h1 className="text-3xl font-bold text-center">Sign in to Future</h1>
+        <h1 className="text-h1 text-center">Sign in to Future</h1>
 
         <div className="space-y-3">
           <a
             href={msLoginUrl}
-            className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="flex w-full items-center justify-center gap-3 rounded-md border border-border bg-card px-4 py-3 text-sm font-[510] text-foreground transition-colors hover:bg-secondary"
           >
             <span>Continue with Microsoft</span>
           </a>
 
           <a
             href={googleLoginUrl}
-            className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="flex w-full items-center justify-center gap-3 rounded-md border border-border bg-card px-4 py-3 text-sm font-[510] text-foreground transition-colors hover:bg-secondary"
           >
             <span>Continue with Google</span>
           </a>
@@ -77,27 +85,31 @@ export default function LoginPage() {
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300" />
+            <div className="w-full border-t border-border" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="bg-white px-2 text-gray-500">Or continue with email</span>
+            <span className="bg-background px-2 text-muted-foreground">Or continue with email</span>
           </div>
         </div>
 
         <form onSubmit={handleMagicLink} className="space-y-4">
-          {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+          {error && (
+            <div className="rounded-md border border-[var(--color-border-danger)] bg-[var(--color-bg-danger)] p-3 text-sm text-[var(--color-text-danger)]">
+              {error}
+            </div>
+          )}
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@company.com"
             required
-            className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none"
+            className="w-full rounded-md border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-[#5e6ad2] focus:outline-none"
           />
           <button
             type="submit"
             disabled={loading || !email}
-            className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="w-full rounded-md bg-[#5e6ad2] px-4 py-3 text-sm font-[510] text-white transition-colors hover:bg-[#828fff] disabled:opacity-50"
           >
             {loading ? 'Sending…' : 'Send magic link'}
           </button>
