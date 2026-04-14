@@ -168,8 +168,8 @@ Each task file includes:
 
 In `docs/clones/{source-name}/PROGRESS.md`:
 
-- Change module from `pending-refinement` → `refined | 0/{n} tasks done`
-- Add each task as a `  - {date}-{seq}-{name} — pending` line under the module (no checkbox — tasks use explicit status labels)
+- Modules table: change module status from `pending-refinement` → `refined`, tasks count → `0/{n}`
+- Tasks section: add a new `### {module-name}` table with each task as a row, status `pending`
 - Update Summary table refined count and Updated date
 
 Task files are specs only — do not track status inside them.

@@ -120,9 +120,10 @@ These are rough guides for the refine phase, not hard rules.
 
 Create `docs/clones/{source-name}/PROGRESS.md` using the template from `skills/clone/templates/progress.md`.
 
-- List all discovered modules as `pending-refinement`
-- Fill the Summary table with discovered counts
-- Set Updated date
+- Modules table: add each discovered module with status `pending-refinement` and its priority
+- Tasks section: empty (tasks are added by `clone-refine` per module)
+- Fill Summary table: Discovered = {n} modules, all others = 0
+- Set Started and Updated dates
 
 `PROGRESS.md` is the single source of truth for all task and module status. Task files are specs only — do not track status inside them.
 

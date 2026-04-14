@@ -119,16 +119,16 @@ Ask the user:
 ### Context Mode (A)
 
 - Update the task file in-place with the enriched content
-- In `PROGRESS.md`: mark task as `ready-to-implement`
+- In `PROGRESS.md` Tasks table: update task row status → `ready-to-implement`
 - Done — another agent or session picks it up later
 
 ### Execute Mode (B or C)
 
-- Before starting: in `PROGRESS.md` mark task as `in-progress ← CURRENT`
+- Before starting: in `PROGRESS.md` Tasks table update task row → `in-progress ← CURRENT`
 - Implement the code following the enriched task context
-- After implementation: in `PROGRESS.md` mark task as `done`
-- If all tasks for the module are done, mark module as `in-progress, {n}/{t} tasks done`
-- Update Summary table counts and Updated date
+- After implementation: update task row → `done`
+- In Modules table: update module status → `in-progress`, tasks count → `{n}/{t} tasks done`
+- Update Summary table implemented count and Updated date
 - Proactively offer: "Implementation complete. Want to run `/clone-verify` to validate against the source?"
 
 Task files are specs only — do not add status fields to them.

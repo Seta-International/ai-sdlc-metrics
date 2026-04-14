@@ -134,15 +134,15 @@ result: verified | needs-revision
 
 In `PROGRESS.md`:
 
-- Mark task as `verified`
-- If all tasks in the module are verified, mark module as `completed`
+- Tasks table: update task row status → `verified`
+- If all tasks in the module are `verified`: Modules table → module status `completed`, tasks count `{n}/{n}`
 - Update Summary table verified count and Updated date
 
 ### If needs-revision
 
 In `PROGRESS.md`:
 
-- Mark task as `needs-revision`
+- Tasks table: update task row status → `needs-revision`
 - The verification report's gaps become context for the next `/clone-implement` run
 - Guide user: "Run `/clone-implement` on this task again — verification findings are included as context"
 
