@@ -1,7 +1,7 @@
 # UI Design System Refactor — Design Spec
 
 **Date:** 2026-04-14  
-**Scope:** `packages/ui` — complete refactor of design tokens, typography, and component styling to match DESIGN.md (Linear-inspired aesthetic)  
+**Scope:** `packages/ui` — complete refactor of design tokens, typography, and component styling to match DESIGN.md  
 **Out of scope (Phase 2):** `data-table/` system (11 files)
 
 ---
@@ -82,7 +82,7 @@ Define in `globals.css` as reusable classes:
 
 CSS variable names are **unchanged** (no breakage in 13 web apps). Values are replaced.
 
-### Dark Mode (`.dark` class — full DESIGN.md treatment)
+### Dark Mode (`.dark` class)
 
 | Variable                   | Value                    | Role                              |
 | -------------------------- | ------------------------ | --------------------------------- |
@@ -110,7 +110,7 @@ CSS variable names are **unchanged** (no breakage in 13 web apps). Values are re
 | `--sidebar-primary`        | `#5e6ad2`                | Sidebar accent                    |
 | `--sidebar-border`         | `rgba(255,255,255,0.05)` | Sidebar dividers                  |
 
-### Light Mode (`:root` — DESIGN.md light neutrals)
+### Light Mode (`:root`)
 
 | Variable                   | Value     | Role                        |
 | -------------------------- | --------- | --------------------------- |
@@ -146,7 +146,7 @@ Components that rely on `bg-background`, `border`, `text-foreground`, `text-mute
 
 ### `button.tsx`
 
-CVA variants rebuilt to DESIGN.md specs. All sizes use 6px radius (`rounded-md`).
+CVA variants rebuilt per the agreed spec. All sizes use 6px radius (`rounded-md`).
 
 | Variant              | Background               | Text      | Border                   | Hover                         |
 | -------------------- | ------------------------ | --------- | ------------------------ | ----------------------------- |
@@ -200,7 +200,7 @@ Popover, dropdown-menu, context-menu, dialog, alert-dialog, tooltip, hover-card,
 
 ## Border Radius Reference
 
-Per DESIGN.md:
+Border radius scale:
 
 | Scale       | Value  | Use                            |
 | ----------- | ------ | ------------------------------ |
@@ -239,11 +239,11 @@ Per DESIGN.md:
 
 ## Success Criteria
 
-- `packages/ui/src/styles/globals.css` tokens match DESIGN.md palette exactly
+- `packages/ui/src/styles/globals.css` tokens match the agreed color palette exactly
 - `packages/ui/src/lib/fonts.ts` uses Inter Variable + IBM Plex Mono from Google Fonts
 - `font-feature-settings: "cv01", "ss03"` applied globally on `body`
 - Typography utility classes defined and usable from any web app
-- `button.tsx`, `badge.tsx`, `card.tsx`, `input.tsx`, `textarea.tsx`, `global-nav.tsx` match DESIGN.md component specs
+- `button.tsx`, `badge.tsx`, `card.tsx`, `input.tsx`, `textarea.tsx`, `global-nav.tsx` match the agreed component specs
 - All other components inherit correct appearance via CSS variable updates
-- Light mode renders correctly (sensible light variant, same brand indigo)
+- Light mode renders correctly (same brand indigo accent, sensible light neutrals)
 - `data-table/` untouched

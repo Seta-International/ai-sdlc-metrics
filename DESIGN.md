@@ -1,12 +1,12 @@
-# Design System Inspired by Linear
+# Future Design System
 
 ## 1. Visual Theme & Atmosphere
 
-Linear's website is a masterclass in dark-mode-first product design — a near-black canvas (`#08090a`) where content emerges from darkness like starlight. The overall impression is one of extreme precision engineering: every element exists in a carefully calibrated hierarchy of luminance, from barely-visible borders (`rgba(255,255,255,0.05)`) to soft, luminous text (`#f7f8f8`). This is not a dark theme applied to a light design — it is darkness as the native medium, where information density is managed through subtle gradations of white opacity rather than color variation.
+This design system is dark-mode-first — a near-black canvas (`#08090a`) where content emerges from darkness. Every element exists in a carefully calibrated hierarchy of luminance, from barely-visible borders (`rgba(255,255,255,0.05)`) to soft, luminous text (`#f7f8f8`). This is not a dark theme applied to a light design — it is darkness as the native medium, where information density is managed through subtle gradations of white opacity rather than color variation.
 
-The typography system is built entirely on Inter Variable with OpenType features `"cv01"` and `"ss03"` enabled globally, giving the typeface a cleaner, more geometric character. Inter is used at a remarkable range of weights — from 300 (light body) through 510 (medium, Linear's signature weight) to 590 (semibold emphasis). The 510 weight is particularly distinctive: it sits between regular and medium, creating a subtle emphasis that doesn't shout. At display sizes (72px, 64px, 48px), Inter uses aggressive negative letter-spacing (-1.584px to -1.056px), creating compressed, authoritative headlines that feel engineered rather than designed. Berkeley Mono serves as the monospace companion for code and technical labels, with fallbacks to ui-monospace, SF Mono, and Menlo.
+The typography system is built on Inter Variable with OpenType features `"cv01"` and `"ss03"` enabled globally, giving the typeface a cleaner, more geometric character. Inter is used at a range of weights — from 300 (light body) through 510 (our signature emphasis weight) to 590 (semibold). The 510 weight is particularly distinctive: it sits between regular and medium, creating a subtle emphasis that doesn't shout. At display sizes (72px, 64px, 48px), Inter uses aggressive negative letter-spacing (-1.584px to -1.056px), creating compressed, authoritative headlines. IBM Plex Mono serves as the monospace companion for code and technical labels.
 
-The color system is almost entirely achromatic — dark backgrounds with white/gray text — punctuated by a single brand accent: Linear's signature indigo-violet (`#5e6ad2` for backgrounds, `#7170ff` for interactive accents). This accent color is used sparingly and intentionally, appearing only on CTAs, active states, and brand elements. The border system uses ultra-thin, semi-transparent white borders (`rgba(255,255,255,0.05)` to `rgba(255,255,255,0.08)`) that create structure without visual noise, like wireframes drawn in moonlight.
+The color system is almost entirely achromatic — dark backgrounds with white/gray text — punctuated by a single brand accent: indigo-violet (`#5e6ad2` for backgrounds, `#7170ff` for interactive accents). This accent color is used sparingly and intentionally, appearing only on CTAs, active states, and brand elements. The border system uses ultra-thin, semi-transparent white borders (`rgba(255,255,255,0.05)` to `rgba(255,255,255,0.08)`) that create structure without visual noise.
 
 **Key Characteristics:**
 
@@ -76,7 +76,7 @@ The color system is almost entirely achromatic — dark backgrounds with white/g
 ### Font Family
 
 - **Primary**: `Inter Variable`, with fallbacks: `SF Pro Display, -apple-system, system-ui, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, Open Sans, Helvetica Neue`
-- **Monospace**: `Berkeley Mono`, with fallbacks: `ui-monospace, SF Mono, Menlo`
+- **Monospace**: `IBM Plex Mono`, with fallbacks: `ui-monospace, SF Mono, Menlo, monospace`
 - **OpenType Features**: `"cv01", "ss03"` enabled globally — cv01 provides an alternate lowercase 'a' (single-story), ss03 adjusts specific letterforms for a cleaner geometric appearance.
 
 ### Hierarchy
@@ -107,15 +107,15 @@ The color system is almost entirely achromatic — dark backgrounds with white/g
 | Link Medium    | Inter Variable | 15px (0.94rem) | 510     | 2.67           | normal         | Spaced navigation links                  |
 | Link Small     | Inter Variable | 14px (0.88rem) | 510     | 1.50           | normal         | Compact links                            |
 | Link Caption   | Inter Variable | 13px (0.81rem) | 400–510 | 1.50           | -0.13px        | Footer, metadata links                   |
-| Mono Body      | Berkeley Mono  | 14px (0.88rem) | 400     | 1.50           | normal         | Code blocks                              |
-| Mono Caption   | Berkeley Mono  | 13px (0.81rem) | 400     | 1.50           | normal         | Code labels                              |
-| Mono Label     | Berkeley Mono  | 12px (0.75rem) | 400     | 1.40           | normal         | Code metadata, sometimes uppercase       |
+| Mono Body      | IBM Plex Mono  | 14px (0.88rem) | 400     | 1.50           | normal         | Code blocks                              |
+| Mono Caption   | IBM Plex Mono  | 13px (0.81rem) | 400     | 1.50           | normal         | Code labels                              |
+| Mono Label     | IBM Plex Mono  | 12px (0.75rem) | 400     | 1.40           | normal         | Code metadata, sometimes uppercase       |
 
 ### Principles
 
-- **510 is the signature weight**: Linear uses Inter Variable's 510 weight (between regular 400 and medium 500) as its default emphasis weight. This creates a subtly bolded feel without the heaviness of traditional medium or semibold.
+- **510 is the signature weight**: Inter Variable's 510 weight (between regular 400 and medium 500) is our default emphasis weight. This creates a subtly bolded feel without the heaviness of traditional medium or semibold.
 - **Compression at scale**: Display sizes use progressively tighter letter-spacing — -1.584px at 72px, -1.408px at 64px, -1.056px at 48px, -0.704px at 32px. Below 24px, spacing relaxes toward normal.
-- **OpenType as identity**: `"cv01", "ss03"` aren't decorative — they transform Inter into Linear's distinctive typeface, giving it a more geometric, purposeful character.
+- **OpenType as identity**: `"cv01", "ss03"` aren't decorative — they transform Inter into our distinctive typeface, giving it a more geometric, purposeful character.
 - **Three-tier weight system**: 400 (reading), 510 (emphasis/UI), 590 (strong emphasis). The 300 weight appears only in deliberately de-emphasized contexts.
 
 ## 4. Component Stylings
@@ -241,7 +241,7 @@ The color system is almost entirely achromatic — dark backgrounds with white/g
 ### Navigation
 
 - Dark sticky header on near-black background
-- Linear logomark left-aligned (SVG icon)
+- App logomark left-aligned (SVG icon)
 - Links: Inter Variable 13–14px weight 510, `#d0d6e0` text
 - Active/hover: text lightens to `#f7f8f8`
 - CTA: Brand indigo button or ghost button
@@ -274,7 +274,7 @@ The color system is almost entirely achromatic — dark backgrounds with white/g
 
 ### Whitespace Philosophy
 
-- **Darkness as space**: On Linear's dark canvas, empty space isn't white — it's absence. The near-black background IS the whitespace, and content emerges from it.
+- **Darkness as space**: On our dark canvas, empty space isn't white — it's absence. The near-black background IS the whitespace, and content emerges from it.
 - **Compressed headlines, expanded surroundings**: Display text at 72px with -1.584px tracking is dense and compressed, but sits within vast dark padding. The contrast between typographic density and spatial generosity creates tension.
 - **Section isolation**: Each feature section is separated by generous vertical padding (80px+) with no visible dividers — the dark background provides natural separation.
 
@@ -302,14 +302,14 @@ The color system is almost entirely achromatic — dark backgrounds with white/g
 | Dialog (Level 5)   | Multi-layer stack: `rgba(0,0,0,0) 0px 8px 2px, rgba(0,0,0,0.01) 0px 5px 2px, rgba(0,0,0,0.04) 0px 3px 2px, rgba(0,0,0,0.07) 0px 1px 1px, rgba(0,0,0,0.08) 0px 0px 1px` | Popovers, command palette, modals      |
 | Focus              | `rgba(0,0,0,0.1) 0px 4px 12px` + additional layers                                                                                                                     | Keyboard focus on interactive elements |
 
-**Shadow Philosophy**: On dark surfaces, traditional shadows (dark on dark) are nearly invisible. Linear solves this by using semi-transparent white borders as the primary depth indicator. Elevation isn't communicated through shadow darkness but through background luminance steps — each level slightly increases the white opacity of the surface background (`0.02` → `0.04` → `0.05`), creating a subtle stacking effect. The inset shadow technique (`rgba(0,0,0,0.2) 0px 0px 12px 0px inset`) creates a unique "sunken" effect for recessed panels, adding dimensional depth that traditional dark themes lack.
+**Shadow Philosophy**: On dark surfaces, traditional shadows (dark on dark) are nearly invisible. We solve this by using semi-transparent white borders as the primary depth indicator. Elevation isn't communicated through shadow darkness but through background luminance steps — each level slightly increases the white opacity of the surface background (`0.02` → `0.04` → `0.05`), creating a subtle stacking effect. The inset shadow technique (`rgba(0,0,0,0.2) 0px 0px 12px 0px inset`) creates a unique "sunken" effect for recessed panels, adding dimensional depth that traditional dark themes lack.
 
 ## 7. Do's and Don'ts
 
 ### Do
 
-- Use Inter Variable with `"cv01", "ss03"` on ALL text — these features are fundamental to Linear's typeface identity
-- Use weight 510 as your default emphasis weight — it's Linear's signature between-weight
+- Use Inter Variable with `"cv01", "ss03"` on ALL text — these features are fundamental to our typeface identity
+- Use weight 510 as your default emphasis weight — it's our signature between-weight
 - Apply aggressive negative letter-spacing at display sizes (-1.584px at 72px, -1.056px at 48px)
 - Build on near-black backgrounds: `#08090a` for marketing, `#0f1011` for panels, `#191a1b` for elevated surfaces
 - Use semi-transparent white borders (`rgba(255,255,255,0.05)` to `rgba(255,255,255,0.08)`) instead of solid dark borders
@@ -325,8 +325,8 @@ The color system is almost entirely achromatic — dark backgrounds with white/g
 - Don't apply the brand indigo decoratively — it's reserved for interactive/CTA elements only
 - Don't use positive letter-spacing on display text — Inter at large sizes always runs negative
 - Don't use visible/opaque borders on dark backgrounds — borders should be whisper-thin semi-transparent white
-- Don't skip the OpenType features (`"cv01", "ss03"`) — without them, it's generic Inter, not Linear's Inter
-- Don't use weight 700 (bold) — Linear's maximum weight is 590, with 510 as the workhorse
+- Don't skip the OpenType features (`"cv01", "ss03"`) — without them, it's generic Inter, not our Inter
+- Don't use weight 700 (bold) — our maximum weight is 590, with 510 as the workhorse
 - Don't introduce warm colors into the UI chrome — the palette is cool gray with blue-violet accent only
 - Don't use drop shadows for elevation on dark surfaces — use background luminance stepping instead
 
@@ -396,10 +396,10 @@ The color system is almost entirely achromatic — dark backgrounds with white/g
 
 ### Iteration Guide
 
-1. Always set font-feature-settings `"cv01", "ss03"` on all Inter text — this is non-negotiable for Linear's look
+1. Always set font-feature-settings `"cv01", "ss03"` on all Inter text — this is non-negotiable for our design identity
 2. Letter-spacing scales with font size: -1.584px at 72px, -1.056px at 48px, -0.704px at 32px, normal below 16px
 3. Three weights: 400 (read), 510 (emphasize/navigate), 590 (announce)
 4. Surface elevation via background opacity: `rgba(255,255,255, 0.02 → 0.04 → 0.05)` — never solid backgrounds on dark
 5. Brand indigo (`#5e6ad2` / `#7170ff`) is the only chromatic color — everything else is grayscale
 6. Borders are always semi-transparent white, never solid dark colors on dark backgrounds
-7. Berkeley Mono for any code or technical content, Inter Variable for everything else
+7. IBM Plex Mono for any code or technical content, Inter Variable for everything else
