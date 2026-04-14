@@ -13,6 +13,10 @@ description: |
 
 The critical filter between "what exists" and "what gets built." For each module, brainstorm with the user to decide what's worth keeping, what needs reimagining, and what should be dropped. No blind cloning.
 
+## Resuming
+
+If you're starting a new session mid-migration, run `/clone-plan` first — it shows full status and tells you which modules still need refinement.
+
 ## Prerequisites
 
 - Inventory file must exist at `docs/clones/{source-name}/{date}-000-inventory.md`
@@ -164,6 +168,29 @@ Each task file includes:
 
 Set the module's status to `refined` in the inventory file.
 
+## Handoff
+
+When a module's brief and tasks are written, update the inventory and end the session with:
+
+```
+Module "{module-name}" refined.
+  Brief: docs/clones/{source}/modules/{module-name}/{date}-000-brief.md
+  Tasks: {n} tasks created
+
+Remaining unrefined modules: {list or "none"}
+
+Next steps:
+- Run /clone-refine to refine the next module: {next-module-name}
+- Run /clone-implement to start implementing tasks from this module
+- Run /clone-plan to see the full migration status dashboard
+
+To resume in a future session, start with /clone-plan.
+```
+
+If the user wants to continue refining more modules in the same session, ask:
+
+> "Refine next module ({module-name}) now, or stop here?"
+
 ## Important
 
 - **One question at a time** — don't overwhelm the user with a wall of questions
@@ -171,3 +198,4 @@ Set the module's status to `refined` in the inventory file.
 - **No blind cloning** — every feature must pass through the keep/reimagine/skip filter
 - **Balanced tasks** — not so large they overflow context, not so small they create micro-loops
 - **Refine one module per session** — don't try to batch all modules at once
+- **Always end with the handoff block** — never finish silently

@@ -114,6 +114,16 @@ All output files follow: `{YYYY-MM-DD}-{sequence}-{descriptive-name}.md`
 - `001`+ — tasks, ordered by execution/dependency sequence
 - Verification reports: same name as task, suffixed with `-verify`
 
+## Resuming Across Sessions
+
+`clone-plan` is the canonical home base. Any time a session ends mid-migration, the next session should start here:
+
+```
+/clone-plan
+```
+
+It reads `docs/clones/` and tells you exactly where you left off and what to run next.
+
 ## This Skill Does NOT
 
 - Scan or analyze code (that's `clone-discover`)

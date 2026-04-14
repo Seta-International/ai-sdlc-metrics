@@ -13,6 +13,10 @@ description: |
 
 Scan source and target projects to produce a migration inventory. Stack-agnostic — observes and describes what it finds without assuming any specific framework or architecture.
 
+## Resuming
+
+Already ran discovery before? Run `/clone-plan` instead — it shows current status and routes you to the right next step.
+
 ## Process
 
 ```dot
@@ -112,9 +116,24 @@ Write `docs/clones/{source-name}/{date}-000-inventory.md` using the template fro
 
 These are rough guides for the refine phase, not hard rules.
 
+## Handoff
+
+When the inventory is written, end the session with this prompt:
+
+```
+Inventory written to docs/clones/{source-name}/{date}-000-inventory.md
+
+Next steps:
+- Run /clone-refine to start refining the first module (suggested: highest priority)
+- Run /clone-plan to see the full migration status dashboard
+
+To resume this migration in a future session, always start with /clone-plan.
+```
+
 ## Important
 
 - **No assumptions** about any specific stack, framework, or architecture. Observe and describe.
 - **Don't over-scan** — structure and spot-checks, not line-by-line reads.
 - **Let the user correct you** — you will misidentify boundaries. That's fine. The confirmation step exists for this reason.
 - **Create the docs/clones directory** if it doesn't exist.
+- **Always end with the handoff block** — never finish silently.

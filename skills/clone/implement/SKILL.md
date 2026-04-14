@@ -12,6 +12,10 @@ description: |
 
 Takes a single refined task and produces everything needed to implement it — or implements it directly.
 
+## Resuming
+
+If you're starting a new session mid-migration, run `/clone-plan` first — it shows full status and tells you which tasks are ready to implement.
+
 ## Prerequisites
 
 - Brief and task files must exist under `docs/clones/{source-name}/modules/{module-name}/`
@@ -127,10 +131,32 @@ Ask the user:
   - If all tasks for the module are done, mark module as `completed`
   - Proactively offer: "Implementation complete. Want to run `/clone-verify` to validate against the source?"
 
+## Handoff
+
+After a task is completed (context-only or executed), end the session with:
+
+```
+Task "{task-name}" — {status: enriched / implemented}
+  File: docs/clones/{source}/modules/{module}/tasks/{date}-{seq}-{name}.md
+
+Remaining tasks in this module: {n} ({list next 2-3})
+Unrefined modules: {n}
+
+Next steps:
+- Run /clone-verify to verify this task against the source  ← recommended if implemented
+- Run /clone-implement to pick up the next task: {next-task-name}
+- Run /clone-plan to see the full migration status dashboard
+
+To resume in a future session, start with /clone-plan.
+```
+
+If verification was offered and declined, still show the full next-steps block — don't end silently.
+
 ## Important
 
 - **One task at a time** — don't batch multiple tasks
 - **Respect dependencies** — if task 002 depends on 001, don't start 002 until 001 is done
 - **Explain, don't just list** — "this file validates approval chains by checking manager hierarchy" not just "approval.service.ts"
 - **Follow target conventions** — the goal is code that looks like it was always part of the target project
-- **Offer verification** — always ask about `/clone-verify` after implementation
+- **Always offer verification** — ask about `/clone-verify` after implementation
+- **Always end with the handoff block** — never finish silently, even if verify was skipped

@@ -13,6 +13,10 @@ description: |
 
 Compares the implemented code against the source and the design decisions from the brief. Catches gaps, missed edge cases, and deviations from the plan.
 
+## Resuming
+
+If you're starting a new session mid-migration, run `/clone-plan` first — it shows which tasks are implemented but unverified.
+
 ## Prerequisites
 
 - Task file must exist with status `done` or `in-progress`
@@ -156,9 +160,41 @@ Can also verify all tasks in a module at once:
 
 Produces one report per task.
 
+## Handoff
+
+After the verification report is written, end the session with:
+
+**If verified:**
+
+```
+Task "{task-name}" — VERIFIED ✓
+  Report: docs/clones/{source}/modules/{module}/tasks/{date}-{seq}-{name}-verify.md
+
+Next steps:
+- Run /clone-implement to pick up the next task: {next-task-name}
+- Run /clone-plan to see the full migration status dashboard
+
+To resume in a future session, start with /clone-plan.
+```
+
+**If needs revision:**
+
+```
+Task "{task-name}" — NEEDS REVISION
+  Report: docs/clones/{source}/modules/{module}/tasks/{date}-{seq}-{name}-verify.md
+  Gaps: {count} issues found (see report for details)
+
+Next steps:
+- Run /clone-implement on this task again — verification findings are included as context
+- Run /clone-plan to see the full migration status dashboard
+
+To resume in a future session, start with /clone-plan.
+```
+
 ## Important
 
 - **Read the actual code** — don't just check file existence. Compare logic.
 - **Be specific about gaps** — "missing validation for negative amounts in refund flow" not "some validation might be missing"
 - **Don't nitpick style** — if the target follows its own conventions, that's correct. Only flag logic gaps.
 - **Respect reimagine decisions** — different implementation is expected. Verify the outcome, not the approach.
+- **Always end with the handoff block** — never finish silently.
