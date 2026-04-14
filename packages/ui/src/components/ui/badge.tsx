@@ -5,24 +5,25 @@ import { Slot } from 'radix-ui'
 import { cn } from '../../lib/utils'
 
 const badgeVariants = cva(
-  'inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-[color,box-shadow] duration-100 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3',
+  'inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden whitespace-nowrap transition-[color,box-shadow] duration-100 focus-visible:ring-2 focus-visible:ring-ring/50',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground [a&]:hover:bg-primary/90',
-        secondary: 'bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90',
-        destructive:
-          'bg-destructive text-white focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90',
-        outline:
-          'border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground',
-        ghost: '[a&]:hover:bg-accent [a&]:hover:text-accent-foreground',
-        link: 'text-primary underline-offset-4 [a&]:hover:underline',
+        // Neutral pill — default tag/filter chip
+        default:
+          'rounded-full border border-[#23252a] bg-transparent px-[10px] py-0 text-[12px] font-[510] text-[#d0d6e0]',
+        // Success — green status pill
         success:
-          'bg-(--color-bg-success) text-(--color-text-success) border-(--color-border-success)',
+          'rounded-full border-transparent bg-[#10b981] px-[10px] py-0 text-[10px] font-[510] text-[#f7f8f8]',
+        // Subtle — inline label, version tag
+        subtle:
+          'rounded-[2px] border border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.05)] px-2 py-0 text-[10px] font-[510] text-[#f7f8f8]',
+        // Status variants (use CSS vars from globals.css)
+        destructive:
+          'rounded-full border border-transparent bg-(--color-bg-danger) px-[10px] py-0 text-[11px] font-medium text-(--color-text-danger)',
         warning:
-          'bg-(--color-bg-warning) text-(--color-text-warning) border-(--color-border-warning)',
-        danger: 'bg-(--color-bg-danger) text-(--color-text-danger) border-(--color-border-danger)',
-        info: 'bg-(--color-bg-info) text-(--color-text-info)',
+          'rounded-full border border-transparent bg-(--color-bg-warning) px-[10px] py-0 text-[11px] font-medium text-(--color-text-warning)',
+        info: 'rounded-full border border-transparent bg-(--color-bg-info) px-[10px] py-0 text-[11px] font-medium text-(--color-text-info)',
       },
     },
     defaultVariants: {
