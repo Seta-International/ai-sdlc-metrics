@@ -101,7 +101,7 @@ export const identityRouter = router({
   ...(process.env['LOCAL_DEV'] === '1'
     ? {
         devLogin: publicProcedure
-          .input(z.object({ email: z.string().email() }))
+          .input(z.object({ email: requestMagicLinkInput.shape.email }))
           .mutation(async ({ input }) => {
             const result: ResolveLoginResult = await getCommandBus().execute(
               new DevLoginCommand(input.email),
