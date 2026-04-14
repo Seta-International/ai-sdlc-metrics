@@ -18,6 +18,14 @@ async function bootstrap() {
     logger: ['error', 'warn', 'log', 'debug'],
   })
 
+  // Allow cross-origin requests from web zones (ports 3000-3011 in dev,
+  // configurable via CORS_ORIGIN in production).
+  const allowedOrigin = process.env['CORS_ORIGIN'] ?? /^https?:\/\/localhost:\d+$/
+  app.enableCors({
+    origin: allowedOrigin,
+    credentials: true,
+  })
+
   // Initialize all modules (calls onModuleInit lifecycle hooks)
   // before registering the tRPC plugin which needs the initialized router.
   await app.init()

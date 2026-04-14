@@ -77,6 +77,15 @@ export function createPeopleRouter(
           return { success: true }
         },
       ),
+
+    directory: router({
+      list: devProtectedProcedure
+        .input(futureListQuerySchema)
+        .query(({ input }) => listPeopleDirectory(input)),
+      export: devProtectedProcedure
+        .input(futureExportQuerySchema)
+        .query(({ input }) => exportPeopleDirectory(input)),
+    }),
   })
 }
 

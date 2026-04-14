@@ -106,8 +106,8 @@ export const LOCAL_FUTURE_APPS: AppDefinition[] = [
   { id: 'goals', name: 'Goals', href: 'http://localhost:3007' },
   { id: 'insights', name: 'Insights', href: 'http://localhost:3008' },
   { id: 'agents', name: 'Agents', href: 'http://localhost:3009' },
-  { id: 'planner', name: 'Planner', href: 'http://localhost:3010' },
-  { id: 'admin', name: 'Admin', href: 'http://localhost:3011' },
+  { id: 'admin', name: 'Admin', href: 'http://localhost:3010' },
+  { id: 'planner', name: 'Planner', href: 'http://localhost:3011' },
 ]
 
 export const FUTURE_APPS: AppDefinition[] = [
