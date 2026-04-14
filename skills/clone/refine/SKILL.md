@@ -1,0 +1,173 @@
+---
+name: clone-refine
+description: |
+  Use when a migration inventory exists and modules need design decisions before
+  implementation. Brainstorms with the user per module: what to keep, reimagine,
+  or skip. Identifies tech debt, bad patterns, and missing features. Produces
+  a brief and sized execution tasks.
+  Use when asked to "refine a module", "design the migration", "what should we keep",
+  "review before cloning", or "brainstorm the migration".
+---
+
+# Clone Refine — Per-Module Design Brainstorming
+
+The critical filter between "what exists" and "what gets built." For each module, brainstorm with the user to decide what's worth keeping, what needs reimagining, and what should be dropped. No blind cloning.
+
+## Prerequisites
+
+- Inventory file must exist at `docs/clones/{source-name}/{date}-000-inventory.md`
+- If not, guide the user to run `/clone-discover` first
+
+## Process
+
+```dot
+digraph refine {
+    "Read inventory" [shape=box];
+    "Pick module" [shape=box];
+    "Deep-read source module" [shape=box];
+    "Check target conventions" [shape=box];
+    "Brainstorm with user" [shape=box];
+    "Decide: keep/reimagine/skip" [shape=box];
+    "Break into tasks" [shape=box];
+    "Write brief + task files" [shape=box];
+    "Update inventory" [shape=box];
+    "More modules?" [shape=diamond];
+    "Done" [shape=doublecircle];
+
+    "Read inventory" -> "Pick module";
+    "Pick module" -> "Deep-read source module";
+    "Deep-read source module" -> "Check target conventions";
+    "Check target conventions" -> "Brainstorm with user";
+    "Brainstorm with user" -> "Decide: keep/reimagine/skip";
+    "Decide: keep/reimagine/skip" -> "Break into tasks";
+    "Break into tasks" -> "Write brief + task files";
+    "Write brief + task files" -> "Update inventory";
+    "Update inventory" -> "More modules?";
+    "More modules?" -> "Pick module" [label="yes"];
+    "More modules?" -> "Done" [label="no"];
+}
+```
+
+## Step 1: Pick Module
+
+Read inventory, find modules with status `pending-refinement`. Ask the user which to refine, or suggest the next one by priority.
+
+## Step 2: Deep-Read Source Module
+
+Read the source module thoroughly:
+
+- Business logic and core workflows
+- Data model (schemas, migrations, relationships)
+- API surface (routes, endpoints, RPCs)
+- UI components (if any)
+- Tests (what's covered, what's not)
+- Configuration and environment dependencies
+- External integrations (third-party APIs, services)
+- Edge cases visible in error handling
+
+## Step 3: Check Target Conventions
+
+Read the target project to understand:
+
+- Architecture patterns in use
+- Naming conventions
+- How similar features are structured
+- What shared utilities/libraries exist
+- Any partial work already done for this module
+
+## Step 4: Brainstorm with User
+
+Ask questions **one at a time**. Cover these areas:
+
+1. **Business value** — "What does this module actually solve? Is this still needed?"
+2. **Quality assessment** — "I see {pattern}. This looks {good/problematic} because {reason}. Keep or fix?"
+3. **Tech debt** — "These parts look like workarounds: {list}. Should we drop them?"
+4. **Missing features** — "The old version doesn't handle {case}. Should the new one?"
+5. **Architecture fit** — "The source uses {pattern}, the target uses {pattern}. Here's how I'd map it."
+6. **Dependencies** — "This module depends on {other modules}. Are those migrated yet?"
+7. **Integration points** — "This talks to {external services}. Same in the new project?"
+
+Flag anything that smells bad:
+
+- Copy-pasted code
+- Overly complex logic with no tests
+- Hardcoded values
+- Security concerns
+- Performance anti-patterns
+
+## Step 5: Decide Per Feature
+
+For each feature/sub-feature within the module, record a decision:
+
+| Decision      | Meaning                                                        |
+| ------------- | -------------------------------------------------------------- |
+| **keep**      | Port faithfully — same behavior, adapted to target conventions |
+| **reimagine** | Use as reference but redesign for the new system               |
+| **skip**      | Drop entirely — not worth migrating                            |
+
+Every decision must have a rationale. "Keep because it works" is not enough. "Keep because the approval workflow matches current business rules and has good test coverage" is.
+
+## Step 6: Break Into Tasks
+
+Split the module into execution tasks. Each task must be:
+
+- **Self-contained** — reading just the task file gives enough context to implement
+- **Implementable in one session** — fits in an AI agent's context window
+- **Dependency-aware** — if task B needs task A's output, say so explicitly
+
+**Sizing guidance:**
+
+```dot
+digraph sizing {
+    "Module size?" [shape=diamond];
+    "Small (< 10 files)" [shape=box];
+    "Medium (10-50 files)" [shape=box];
+    "Large (50+ files)" [shape=box];
+    "1 task, full feature" [shape=box];
+    "2-5 tasks by sub-feature" [shape=box];
+    "Decompose into sub-modules first" [shape=box];
+
+    "Module size?" -> "Small (< 10 files)";
+    "Module size?" -> "Medium (10-50 files)";
+    "Module size?" -> "Large (50+ files)";
+    "Small (< 10 files)" -> "1 task, full feature";
+    "Medium (10-50 files)" -> "2-5 tasks by sub-feature";
+    "Large (50+ files)" -> "Decompose into sub-modules first";
+}
+```
+
+**Prefer grouping by feature** (schema + service + API + UI for one feature) over splitting by layer (all schemas, then all services). Unless the module is so large that a single feature still overflows context.
+
+## Step 7: Write Outputs
+
+### Brief file
+
+Write `docs/clones/{source-name}/modules/{module-name}/{date}-000-brief.md` using the template from `skills/clone/templates/brief.md`.
+
+### Task files
+
+Write one file per task: `docs/clones/{source-name}/modules/{module-name}/tasks/{date}-{sequence}-{feature-name}.md` using the template from `skills/clone/templates/task.md`.
+
+Each task file includes:
+
+- Scope (what to build)
+- Business context (why it matters)
+- Source reference (where to look)
+- Target location (where it goes)
+- Data model changes
+- Interface contract
+- Edge cases
+- Dependencies on other tasks
+- Acceptance criteria as `- [ ]` checklist
+
+### Update inventory
+
+Set the module's status to `refined` in the inventory file.
+
+## Important
+
+- **One question at a time** — don't overwhelm the user with a wall of questions
+- **Be opinionated** — flag bad patterns proactively, don't wait for the user to notice
+- **No blind cloning** — every feature must pass through the keep/reimagine/skip filter
+- **Balanced tasks** — not so large they overflow context, not so small they create micro-loops
+- **Refine one module per session** — don't try to batch all modules at once
