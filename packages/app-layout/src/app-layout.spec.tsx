@@ -13,28 +13,33 @@ vi.mock('next-themes', () => ({
   useTheme: () => ({ resolvedTheme: 'light', setTheme: vi.fn() }),
 }))
 
-vi.mock('@future/ui', () => ({
-  cn: (...args: string[]) => args.filter(Boolean).join(' '),
-  AppLauncher: () => null,
-  AppLauncherTrigger: ({ onClick }: any) => <button onClick={onClick}>launcher</button>,
-  SidebarTrigger: () => <button>sidebar</button>,
-  FUTURE_APPS: [],
-  LOCAL_FUTURE_APPS: [],
-  SidebarProvider: ({ children }: any) => <div>{children}</div>,
-  SidebarInset: ({ children }: any) => <div>{children}</div>,
-  Sidebar: ({ children }: any) => <nav>{children}</nav>,
-  SidebarContent: ({ children }: any) => <div>{children}</div>,
-  SidebarGroup: ({ children }: any) => <div>{children}</div>,
-  SidebarGroupLabel: ({ children }: any) => <span>{children}</span>,
-  SidebarGroupContent: ({ children }: any) => <div>{children}</div>,
-  SidebarMenu: ({ children }: any) => <ul>{children}</ul>,
-  SidebarMenuItem: ({ children }: any) => <li>{children}</li>,
-  SidebarMenuButton: ({ children, asChild, ...props }: any) => <div {...props}>{children}</div>,
-  SidebarMenuSub: ({ children }: any) => <ul>{children}</ul>,
-  SidebarMenuSubItem: ({ children }: any) => <li>{children}</li>,
-  SidebarMenuSubButton: ({ children, asChild, ...props }: any) => <div {...props}>{children}</div>,
-  SidebarMenuBadge: ({ children }: any) => <span>{children}</span>,
-}))
+/* eslint-disable @typescript-eslint/no-explicit-any */
+vi.mock('@future/ui', () => {
+  const D = ({ children }: any) => <div>{children}</div>
+  return {
+    cn: (...args: any[]) => args.filter(Boolean).join(' '),
+    AppLauncher: () => null,
+    AppLauncherTrigger: ({ onClick }: any) => <button onClick={onClick}>launcher</button>,
+    SidebarTrigger: () => <button>sidebar</button>,
+    FUTURE_APPS: [],
+    LOCAL_FUTURE_APPS: [],
+    SidebarProvider: D,
+    SidebarInset: D,
+    Sidebar: ({ children }: any) => <nav>{children}</nav>,
+    SidebarContent: D,
+    SidebarGroup: D,
+    SidebarGroupLabel: ({ children }: any) => <span>{children}</span>,
+    SidebarGroupContent: D,
+    SidebarMenu: ({ children }: any) => <ul>{children}</ul>,
+    SidebarMenuItem: ({ children }: any) => <li>{children}</li>,
+    SidebarMenuButton: D,
+    SidebarMenuSub: ({ children }: any) => <ul>{children}</ul>,
+    SidebarMenuSubItem: ({ children }: any) => <li>{children}</li>,
+    SidebarMenuSubButton: D,
+    SidebarMenuBadge: ({ children }: any) => <span>{children}</span>,
+  }
+})
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 const testConfig: NavigationConfig = {
   navbar: {
