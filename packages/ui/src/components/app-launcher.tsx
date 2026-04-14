@@ -1,7 +1,22 @@
 'use client'
 
 import * as React from 'react'
-import { Grid2X2, ChevronDown } from 'lucide-react'
+import {
+  Grid2X2,
+  ChevronDown,
+  Users,
+  Clock,
+  Briefcase,
+  TrendingUp,
+  FolderOpen,
+  DollarSign,
+  Target,
+  BarChart2,
+  Bot,
+  ListTodo,
+  Settings,
+  type LucideIcon,
+} from 'lucide-react'
 import { cn } from '../lib/utils'
 
 // ─── App Registry ───────────────────────────────────────────────────────────
@@ -10,177 +25,110 @@ export interface AppDefinition {
   id: string
   name: string
   href: string
-  /** Emoji or single character icon */
-  icon: string
-  /** CSS gradient string */
-  color: string
+  /**
+   * Lucide icon component for the app tile.
+   * Falls back to Grid2X2 if not provided.
+   */
+  Icon?: LucideIcon
+  /**
+   * Accent color class for icon background (e.g. 'bg-blue-500/15 text-blue-400').
+   * Used in both light and dark modes with opacity.
+   */
+  accent?: string
+}
+
+/** Icon + accent palette per app — consistent, DESIGN.md-aligned */
+const APP_ICONS: Record<string, { Icon: LucideIcon; accent: string }> = {
+  people: {
+    Icon: Users,
+    accent:
+      'bg-[rgba(37,99,235,0.15)] text-[#60a5fa] dark:bg-[rgba(37,99,235,0.15)] dark:text-[#60a5fa]',
+  },
+  time: {
+    Icon: Clock,
+    accent:
+      'bg-[rgba(8,145,178,0.15)] text-[#22d3ee] dark:bg-[rgba(8,145,178,0.15)] dark:text-[#22d3ee]',
+  },
+  hiring: {
+    Icon: Briefcase,
+    accent:
+      'bg-[rgba(124,58,237,0.15)] text-[#a78bfa] dark:bg-[rgba(124,58,237,0.15)] dark:text-[#a78bfa]',
+  },
+  performance: {
+    Icon: TrendingUp,
+    accent:
+      'bg-[rgba(217,119,6,0.15)] text-[#fbbf24] dark:bg-[rgba(217,119,6,0.15)] dark:text-[#fbbf24]',
+  },
+  projects: {
+    Icon: FolderOpen,
+    accent:
+      'bg-[rgba(5,150,105,0.15)] text-[#34d399] dark:bg-[rgba(5,150,105,0.15)] dark:text-[#34d399]',
+  },
+  finance: {
+    Icon: DollarSign,
+    accent:
+      'bg-[rgba(220,38,38,0.15)] text-[#fca5a5] dark:bg-[rgba(220,38,38,0.15)] dark:text-[#fca5a5]',
+  },
+  goals: {
+    Icon: Target,
+    accent:
+      'bg-[rgba(190,24,93,0.15)] text-[#f9a8d4] dark:bg-[rgba(190,24,93,0.15)] dark:text-[#f9a8d4]',
+  },
+  insights: {
+    Icon: BarChart2,
+    accent:
+      'bg-[rgba(29,78,216,0.15)] text-[#93c5fd] dark:bg-[rgba(29,78,216,0.15)] dark:text-[#93c5fd]',
+  },
+  agents: {
+    Icon: Bot,
+    accent:
+      'bg-[rgba(94,106,210,0.12)] text-[#7170ff] dark:bg-[rgba(94,106,210,0.12)] dark:text-[#7170ff]',
+  },
+  planner: {
+    Icon: ListTodo,
+    accent:
+      'bg-[rgba(15,118,110,0.15)] text-[#2dd4bf] dark:bg-[rgba(15,118,110,0.15)] dark:text-[#2dd4bf]',
+  },
+  admin: {
+    Icon: Settings,
+    accent:
+      'bg-[rgba(255,255,255,0.06)] text-[#8a8f98] dark:bg-[rgba(255,255,255,0.06)] dark:text-[#8a8f98]',
+  },
 }
 
 export const LOCAL_FUTURE_APPS: AppDefinition[] = [
-  {
-    id: 'people',
-    name: 'People',
-    href: 'http://localhost:3001',
-    icon: '👥',
-    color: 'linear-gradient(135deg,#2563EB,#3B82F6)',
-  },
-  {
-    id: 'time',
-    name: 'Time',
-    href: 'http://localhost:3002',
-    icon: '⏱',
-    color: 'linear-gradient(135deg,#0891B2,#06B6D4)',
-  },
-  {
-    id: 'hiring',
-    name: 'Hiring',
-    href: 'http://localhost:3003',
-    icon: '💼',
-    color: 'linear-gradient(135deg,#7C3AED,#8B5CF6)',
-  },
-  {
-    id: 'performance',
-    name: 'Performance',
-    href: 'http://localhost:3004',
-    icon: '🏆',
-    color: 'linear-gradient(135deg,#D97706,#F59E0B)',
-  },
-  {
-    id: 'projects',
-    name: 'Projects',
-    href: 'http://localhost:3005',
-    icon: '📁',
-    color: 'linear-gradient(135deg,#059669,#10B981)',
-  },
-  {
-    id: 'finance',
-    name: 'Finance',
-    href: 'http://localhost:3006',
-    icon: '💰',
-    color: 'linear-gradient(135deg,#DC2626,#EF4444)',
-  },
-  {
-    id: 'goals',
-    name: 'Goals',
-    href: 'http://localhost:3007',
-    icon: '🎯',
-    color: 'linear-gradient(135deg,#BE185D,#EC4899)',
-  },
-  {
-    id: 'insights',
-    name: 'Insights',
-    href: 'http://localhost:3008',
-    icon: '📊',
-    color: 'linear-gradient(135deg,#1D4ED8,#60A5FA)',
-  },
-  {
-    id: 'agents',
-    name: 'Agents',
-    href: 'http://localhost:3009',
-    icon: '🤖',
-    color: 'linear-gradient(135deg,#374151,#6B7280)',
-  },
-  {
-    id: 'planner',
-    name: 'Planner',
-    href: 'http://localhost:3010',
-    icon: '📋',
-    color: 'linear-gradient(135deg,#0F766E,#14B8A6)',
-  },
-  {
-    id: 'admin',
-    name: 'Admin',
-    href: 'http://localhost:3011',
-    icon: '⚙',
-    color: 'linear-gradient(135deg,#475569,#94A3B8)',
-  },
+  { id: 'people', name: 'People', href: 'http://localhost:3001' },
+  { id: 'time', name: 'Time', href: 'http://localhost:3002' },
+  { id: 'hiring', name: 'Hiring', href: 'http://localhost:3003' },
+  { id: 'performance', name: 'Performance', href: 'http://localhost:3004' },
+  { id: 'projects', name: 'Projects', href: 'http://localhost:3005' },
+  { id: 'finance', name: 'Finance', href: 'http://localhost:3006' },
+  { id: 'goals', name: 'Goals', href: 'http://localhost:3007' },
+  { id: 'insights', name: 'Insights', href: 'http://localhost:3008' },
+  { id: 'agents', name: 'Agents', href: 'http://localhost:3009' },
+  { id: 'planner', name: 'Planner', href: 'http://localhost:3010' },
+  { id: 'admin', name: 'Admin', href: 'http://localhost:3011' },
 ]
 
 export const FUTURE_APPS: AppDefinition[] = [
-  {
-    id: 'people',
-    name: 'People',
-    href: 'https://people.future.seta.vn',
-    icon: '👥',
-    color: 'linear-gradient(135deg,#2563EB,#3B82F6)',
-  },
-  {
-    id: 'time',
-    name: 'Time',
-    href: 'https://time.future.seta.vn',
-    icon: '⏱',
-    color: 'linear-gradient(135deg,#0891B2,#06B6D4)',
-  },
-  {
-    id: 'hiring',
-    name: 'Hiring',
-    href: 'https://hiring.future.seta.vn',
-    icon: '💼',
-    color: 'linear-gradient(135deg,#7C3AED,#8B5CF6)',
-  },
-  {
-    id: 'performance',
-    name: 'Performance',
-    href: 'https://performance.future.seta.vn',
-    icon: '🏆',
-    color: 'linear-gradient(135deg,#D97706,#F59E0B)',
-  },
-  {
-    id: 'projects',
-    name: 'Projects',
-    href: 'https://projects.future.seta.vn',
-    icon: '📁',
-    color: 'linear-gradient(135deg,#059669,#10B981)',
-  },
-  {
-    id: 'finance',
-    name: 'Finance',
-    href: 'https://finance.future.seta.vn',
-    icon: '💰',
-    color: 'linear-gradient(135deg,#DC2626,#EF4444)',
-  },
-  {
-    id: 'goals',
-    name: 'Goals',
-    href: 'https://goals.future.seta.vn',
-    icon: '🎯',
-    color: 'linear-gradient(135deg,#BE185D,#EC4899)',
-  },
-  {
-    id: 'insights',
-    name: 'Insights',
-    href: 'https://insights.future.seta.vn',
-    icon: '📊',
-    color: 'linear-gradient(135deg,#1D4ED8,#60A5FA)',
-  },
-  {
-    id: 'agents',
-    name: 'Agents',
-    href: 'https://agents.future.seta.vn',
-    icon: '🤖',
-    color: 'linear-gradient(135deg,#374151,#6B7280)',
-  },
-  {
-    id: 'planner',
-    name: 'Planner',
-    href: 'https://planner.future.seta.vn',
-    icon: '📋',
-    color: 'linear-gradient(135deg,#0F766E,#14B8A6)',
-  },
-  {
-    id: 'admin',
-    name: 'Admin',
-    href: 'https://admin.future.seta.vn',
-    icon: '⚙',
-    color: 'linear-gradient(135deg,#475569,#94A3B8)',
-  },
+  { id: 'people', name: 'People', href: 'https://people.future.seta.vn' },
+  { id: 'time', name: 'Time', href: 'https://time.future.seta.vn' },
+  { id: 'hiring', name: 'Hiring', href: 'https://hiring.future.seta.vn' },
+  { id: 'performance', name: 'Performance', href: 'https://performance.future.seta.vn' },
+  { id: 'projects', name: 'Projects', href: 'https://projects.future.seta.vn' },
+  { id: 'finance', name: 'Finance', href: 'https://finance.future.seta.vn' },
+  { id: 'goals', name: 'Goals', href: 'https://goals.future.seta.vn' },
+  { id: 'insights', name: 'Insights', href: 'https://insights.future.seta.vn' },
+  { id: 'agents', name: 'Agents', href: 'https://agents.future.seta.vn' },
+  { id: 'planner', name: 'Planner', href: 'https://planner.future.seta.vn' },
+  { id: 'admin', name: 'Admin', href: 'https://admin.future.seta.vn' },
 ]
 
 // ─── Keyboard shortcut hint ──────────────────────────────────────────────────
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center rounded-[3px] border border-white/15 bg-white/8 px-1.5 py-px font-mono text-[10px] text-white/40">
+    <span className="inline-flex items-center rounded-[3px] border border-border bg-secondary px-1.5 py-px font-mono text-[10px] text-muted-foreground">
       {children}
     </span>
   )
@@ -312,29 +260,28 @@ export function AppLauncher({
       <div
         className={cn(
           'relative z-10 w-full max-w-[600px] mx-4',
-          'rounded-xl border border-white/10',
-          'bg-[rgba(25,26,27,0.97)] backdrop-blur-2xl',
-          'shadow-2xl',
+          'rounded-xl border border-border',
+          'bg-popover shadow-xl',
           'animate-in fade-in slide-in-from-top-2 duration-200',
           'overflow-hidden',
         )}
       >
-        {/* Radial glow */}
+        {/* Radial glow — brand indigo tint at top */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              'radial-gradient(ellipse at 50% 0%,rgba(94,106,210,0.12) 0%,transparent 60%)',
+              'radial-gradient(ellipse at 50% 0%,rgba(94,106,210,0.10) 0%,transparent 60%)',
           }}
           aria-hidden="true"
         />
 
         {/* Search bar */}
-        <div className="flex items-center gap-3 border-b border-white/8 px-4 py-3.5">
-          <Grid2X2 className="h-4 w-4 flex-shrink-0 text-white/40" aria-hidden="true" />
+        <div className="flex items-center gap-3 border-b border-border px-4 py-3.5">
+          <Grid2X2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
           <input
             ref={inputRef}
-            className="flex-1 bg-transparent text-sm text-[#f7f8f8] outline-none placeholder:text-white/30"
+            className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
             placeholder="Search Future apps or anything…"
             value={query}
             onChange={(e) => {
@@ -348,7 +295,7 @@ export function AppLauncher({
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-white/8 px-4" role="tablist">
+        <div className="flex border-b border-border px-4" role="tablist">
           {(['apps', 'search', 'recent'] as Tab[]).map((t) => (
             <button
               key={t}
@@ -356,11 +303,11 @@ export function AppLauncher({
               aria-selected={tab === t}
               onClick={() => setTab(t)}
               className={cn(
-                'px-3 py-2 text-xs font-medium capitalize transition-all',
+                'px-3 py-2 text-xs font-[510] capitalize transition-all',
                 'border-b-2 -mb-px',
                 tab === t
                   ? 'border-[#7170ff] text-[#7170ff]'
-                  : 'border-transparent text-white/40 hover:text-white/70',
+                  : 'border-transparent text-muted-foreground hover:text-foreground',
               )}
             >
               {t}
@@ -371,12 +318,12 @@ export function AppLauncher({
         {/* App grid */}
         <div className="p-5">
           {displayApps.length === 0 ? (
-            <p className="text-center text-xs text-white/30 py-8">
+            <p className="py-8 text-center text-xs text-muted-foreground">
               {tab === 'recent' ? 'No recently visited apps.' : 'No apps found.'}
             </p>
           ) : (
             <>
-              <div className="mb-3 text-[10px] font-[510] uppercase tracking-widest text-white/30">
+              <div className="mb-3 text-[10px] font-[510] uppercase tracking-widest text-muted-foreground">
                 {tab === 'recent' ? 'Recently visited' : 'Your apps'}
               </div>
               <div
@@ -386,6 +333,10 @@ export function AppLauncher({
               >
                 {displayApps.map((app, idx) => {
                   const isCurrent = app.id === currentApp
+                  const appIcon = APP_ICONS[app.id]
+                  const IconComponent = app.Icon ?? appIcon?.Icon ?? Grid2X2
+                  const accentClass = app.accent ?? appIcon?.accent ?? ''
+
                   return (
                     <a
                       key={app.id}
@@ -398,27 +349,29 @@ export function AppLauncher({
                       onFocus={() => setFocusedIndex(idx)}
                       className={cn(
                         'relative flex flex-col items-center gap-2 rounded-lg border px-2 pb-3.5 pt-4',
-                        'cursor-pointer text-decoration-none transition-all focus:outline-none',
-                        'focus:ring-2 focus:ring-[#7170ff] focus:ring-offset-2 focus:ring-offset-[#191a1b]',
+                        'cursor-pointer no-underline transition-all focus:outline-none',
+                        'focus:ring-2 focus:ring-[#7170ff] focus:ring-offset-2 focus:ring-offset-popover',
                         isCurrent
-                          ? 'border-[#7170ff]/35 bg-[#7170ff]/15'
-                          : 'border-transparent hover:border-white/10 hover:bg-white/6',
+                          ? 'border-[#7170ff]/35 bg-[#7170ff]/10'
+                          : 'border-transparent hover:border-border hover:bg-secondary',
                       )}
                     >
                       {/* Icon */}
                       <div
-                        className="flex h-11 w-11 items-center justify-center rounded-[10px] text-[22px] shadow-md flex-shrink-0"
-                        style={{ background: app.color }}
+                        className={cn(
+                          'flex h-11 w-11 items-center justify-center rounded-[10px] flex-shrink-0',
+                          accentClass,
+                        )}
                         aria-hidden="true"
                       >
-                        {app.icon}
+                        <IconComponent className="h-5 w-5" />
                       </div>
 
                       {/* Name */}
                       <span
                         className={cn(
-                          'text-center text-[11px] font-medium leading-tight',
-                          isCurrent ? 'text-[#828fff]' : 'text-white/75',
+                          'text-center text-[11px] font-[510] leading-tight',
+                          isCurrent ? 'text-[#7170ff]' : 'text-foreground/80',
                         )}
                       >
                         {app.name}
@@ -427,7 +380,7 @@ export function AppLauncher({
                       {/* Current badge */}
                       {isCurrent && (
                         <span
-                          className="absolute right-2 top-2 h-[7px] w-[7px] rounded-full bg-[#27a644] ring-[1.5px] ring-[#191a1b]"
+                          className="absolute right-2 top-2 h-[7px] w-[7px] rounded-full bg-[#27a644] ring-[1.5px] ring-popover"
                           aria-label="Currently open"
                         />
                       )}
@@ -440,12 +393,12 @@ export function AppLauncher({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-white/6 bg-black/20 px-4 py-2.5">
-          <span className="text-[11px] text-white/35">
+        <div className="flex items-center justify-between border-t border-border bg-muted/40 px-4 py-2.5">
+          <span className="text-[11px] text-muted-foreground">
             {currentApp ? (
               <>
                 Currently in:{' '}
-                <strong className="text-white/60">
+                <strong className="text-foreground/70">
                   {apps.find((a) => a.id === currentApp)?.name ?? currentApp}
                 </strong>
               </>
@@ -453,7 +406,7 @@ export function AppLauncher({
               'Future OS'
             )}
           </span>
-          <div className="flex items-center gap-2 text-[11px] text-white/30">
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
             <Kbd>↑↓←→</Kbd> navigate
             <Kbd>↵</Kbd> open
             <Kbd>ESC</Kbd> close
@@ -482,7 +435,7 @@ export function AppLauncherTrigger({ onClick, className }: AppLauncherTriggerPro
         'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded',
         'bg-[#5e6ad2] text-white text-xs font-[510]',
         'transition-all hover:bg-[#828fff] hover:scale-[1.06]',
-        'focus:outline-none focus:ring-2 focus:ring-[#7170ff] focus:ring-offset-1',
+        'focus:outline-none focus:ring-2 focus:ring-[#7170ff] focus:ring-offset-1 focus:ring-offset-background',
         className,
       )}
     >
@@ -500,6 +453,9 @@ export interface AppChipProps {
 }
 
 export function AppChip({ app, onClick, className }: AppChipProps) {
+  const appIcon = app ? APP_ICONS[app.id] : undefined
+  const IconComponent = app?.Icon ?? appIcon?.Icon
+
   return (
     <button
       type="button"
@@ -508,17 +464,15 @@ export function AppChip({ app, onClick, className }: AppChipProps) {
       className={cn(
         'flex items-center gap-1.5 rounded-full border px-2 py-0.5',
         'border-border bg-secondary text-[11px] font-[510] text-secondary-foreground',
-        'transition-all hover:border-[#5e6ad2]/40 hover:bg-secondary hover:text-[#5e6ad2]',
+        'transition-all hover:border-[#5e6ad2]/40 hover:text-[#5e6ad2]',
         'focus:outline-none focus:ring-2 focus:ring-[#7170ff]',
         'dark:border-[rgba(255,255,255,0.08)] dark:bg-[rgba(255,255,255,0.04)] dark:text-[#d0d6e0]',
         'dark:hover:border-[#7170ff]/40 dark:hover:text-[#7170ff]',
         className,
       )}
     >
-      {app && (
-        <span className="text-[13px]" aria-hidden="true">
-          {app.icon}
-        </span>
+      {IconComponent && (
+        <IconComponent className="h-3 w-3 opacity-70 flex-shrink-0" aria-hidden="true" />
       )}
       <span>{app?.name ?? 'Apps'}</span>
       <ChevronDown className="h-2.5 w-2.5 text-muted-foreground" aria-hidden="true" />
