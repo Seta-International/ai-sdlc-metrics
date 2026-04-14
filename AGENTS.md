@@ -10,7 +10,7 @@
 | Database      | PostgreSQL 16 — Drizzle ORM, schema-per-module, RLS                                          |
 | Jobs          | pg-boss                                                                                      |
 | Events        | `outbox_event` + polling relay                                                               |
-| Analytics     | Glue ETL → S3 Parquet → Iceberg → Athena → Cube.js                                           |
+| Analytics     | Glue ETL → S3 Parquet → Iceberg → Athena                                                     |
 | AI            | Vercel AI SDK + OpenAI (`gpt-5.4-nano` classify, `gpt-5.4` reason, `text-embedding-3-small`) |
 | Observability | Langfuse (self-hosted ECS)                                                                   |
 | Infra         | AWS ECS Fargate Graviton ARM64, Terraform, ap-southeast-1                                    |
@@ -28,7 +28,7 @@
 | `projects`    | `projects`    | Staffing, assignments, delivery                                                  |
 | `finance`     | `finance`     | Invoices, payroll, budget                                                        |
 | `goals`       | `goals`       | OKRs, KPIs, objectives                                                           |
-| `insights`    | `insights`    | Analytics proxy to Cube.js — no tables                                           |
+| `insights`    | `insights`    | Analytics proxy to Athena — no tables                                            |
 | `agents`      | `agents`      | Agent configs, sessions, messages, tools                                         |
 | `planner`     | `planner`     | Task tracking, AI reminders, KPI linkage                                         |
 | `admin`       | `admin`       | Tenant settings, AI config, module toggles                                       |
