@@ -1,11 +1,9 @@
-import { GlobalNav, LOCAL_FUTURE_APPS } from '@future/ui'
-
-const isLocalDev = process.env['NEXT_PUBLIC_LOCAL_DEV'] === 'true'
+import { GlobalNav } from '@future/ui'
 
 export default function HomePage() {
   return (
     <div>
-      <GlobalNav agentStrip={false} apps={isLocalDev ? LOCAL_FUTURE_APPS : undefined} />
+      <GlobalNav agentStrip={false} />
       <main className="p-8">
         <h1 className="text-2xl font-bold">Future</h1>
         <p className="mt-2 text-gray-600">

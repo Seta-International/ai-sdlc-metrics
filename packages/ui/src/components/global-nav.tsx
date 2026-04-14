@@ -1,13 +1,15 @@
 'use client'
 
 import * as React from 'react'
-import { Bell, Bot, Search } from 'lucide-react'
+import { Bell, Bot, Search, Sun, Moon } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import { cn } from '../lib/utils'
 import {
   AppLauncher,
   AppLauncherTrigger,
   AppChip,
   FUTURE_APPS,
+  LOCAL_FUTURE_APPS,
   type AppDefinition,
 } from './app-launcher'
 
@@ -94,10 +96,11 @@ export function GlobalNav({
   onSearchClick,
   onProfileClick,
   agentStrip,
-  apps = FUTURE_APPS,
+  apps = process.env['NEXT_PUBLIC_LOCAL_DEV'] === 'true' ? LOCAL_FUTURE_APPS : FUTURE_APPS,
   className,
 }: GlobalNavProps) {
   const [launcherOpen, setLauncherOpen] = React.useState(false)
+  const { resolvedTheme, setTheme } = useTheme()
 
   // ⌘K / Ctrl+K opens the launcher
   React.useEffect(() => {
@@ -180,6 +183,20 @@ export function GlobalNav({
             )}
           >
             <Bell className="h-4 w-4" />
+          </button>
+
+          {/* Theme toggle */}
+          <button
+            type="button"
+            onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+            aria-label={resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            className={cn(
+              'flex h-7.5 w-7.5 items-center justify-center rounded-md',
+              'text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
+              'focus:outline-none focus:ring-2 focus:ring-ring/50',
+            )}
+          >
+            {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
 
           {/* Avatar */}
