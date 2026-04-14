@@ -1,0 +1,38 @@
+{
+  "name": "@future/app-layout",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "test:unit": "vitest run"
+  },
+  "devDependencies": {
+    "@future/eslint-config": "workspace:*",
+    "@future/tsconfig": "*",
+    "@types/react": "^19.2.14",
+    "eslint": "^10.2.0",
+    "react": "^19.2.5",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "jsdom": "^29.0.2"
+  },
+  "dependencies": {
+    "@future/api-client": "workspace:*",
+    "@future/auth": "workspace:*",
+    "@future/ui": "workspace:*",
+    "lucide-react": "^1.8.0",
+    "next": "^16.2.3"
+  }
+}
