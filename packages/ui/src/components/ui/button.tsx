@@ -5,17 +5,31 @@ import { Slot } from 'radix-ui'
 import { cn } from '../../lib/utils'
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-xs font-medium whitespace-nowrap transition-all duration-100 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-xs whitespace-nowrap transition-all duration-100 outline-none disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-        destructive:
-          'bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40',
+        // Ghost button — default interactive element
+        default:
+          'border border-(--btn-ghost-border) bg-(--btn-ghost-bg) text-foreground font-[510] hover:bg-(--btn-ghost-bg-hover) focus-visible:ring-2 focus-visible:ring-ring/50',
+        // Primary CTA — brand indigo, use sparingly
+        primary:
+          'bg-[#5e6ad2] text-white font-[510] hover:bg-[#828fff] focus-visible:ring-2 focus-visible:ring-[#5e6ad2]/50',
+        // Subtle — toolbar actions, slightly visible bg
+        secondary:
+          'bg-(--btn-subtle-bg) text-foreground font-[510] hover:bg-(--btn-subtle-bg-hover) focus-visible:ring-2 focus-visible:ring-ring/50',
+        // Outline — explicit border, transparent bg
         outline:
-          'border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-        ghost: 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
+          'border border-border bg-transparent text-foreground font-[510] hover:bg-(--btn-ghost-bg) focus-visible:ring-2 focus-visible:ring-ring/50',
+        // Ghost — no border, no bg
+        ghost:
+          'text-muted-foreground font-[510] hover:bg-(--btn-ghost-bg) hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
+        // Destructive
+        destructive:
+          'bg-destructive text-white font-[510] hover:bg-destructive/90 focus-visible:ring-2 focus-visible:ring-destructive/50',
+        // Icon — circular icon button
+        icon: 'rounded-full border border-(--btn-ghost-border) bg-[rgba(255,255,255,0.03)] text-foreground hover:bg-(--btn-ghost-bg-hover) focus-visible:ring-2 focus-visible:ring-ring/50',
+        // Link
         link: 'text-primary underline-offset-4 hover:underline',
       },
       size: {
