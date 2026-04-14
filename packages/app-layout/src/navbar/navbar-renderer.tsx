@@ -63,7 +63,7 @@ export function NavbarRenderer({
           {/* Zone title */}
           <div className="flex items-center gap-2">
             <config.icon className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">{config.title}</span>
+            <span className="text-[13px] font-[510]">{config.title}</span>
           </div>
 
           {/* Action button */}
@@ -72,7 +72,7 @@ export function NavbarRenderer({
               href={config.action.href}
               className={cn(
                 'ml-2 flex items-center gap-1.5 rounded-md px-2.5 py-1.5',
-                'bg-[#5e6ad2] text-white text-xs font-medium',
+                'bg-[#5e6ad2] text-white text-xs font-[510]',
                 'transition-all hover:bg-[#828fff]',
                 'focus:outline-none focus:ring-2 focus:ring-[#5e6ad2]/50',
               )}
