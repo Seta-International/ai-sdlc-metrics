@@ -96,31 +96,32 @@ const APP_ICONS: Record<string, { Icon: LucideIcon; accent: string }> = {
   },
 }
 
+// Order: employee lifecycle → delivery → strategic → AI → ops → admin
 export const LOCAL_FUTURE_APPS: AppDefinition[] = [
   { id: 'people', name: 'People', href: 'http://localhost:3001' },
-  { id: 'time', name: 'Time', href: 'http://localhost:3002' },
   { id: 'hiring', name: 'Hiring', href: 'http://localhost:3003' },
+  { id: 'time', name: 'Time', href: 'http://localhost:3002' },
   { id: 'performance', name: 'Performance', href: 'http://localhost:3004' },
+  { id: 'goals', name: 'Goals', href: 'http://localhost:3007' },
   { id: 'projects', name: 'Projects', href: 'http://localhost:3005' },
   { id: 'finance', name: 'Finance', href: 'http://localhost:3006' },
-  { id: 'goals', name: 'Goals', href: 'http://localhost:3007' },
+  { id: 'planner', name: 'Planner', href: 'http://localhost:3011' },
   { id: 'insights', name: 'Insights', href: 'http://localhost:3008' },
   { id: 'agents', name: 'Agents', href: 'http://localhost:3009' },
   { id: 'admin', name: 'Admin', href: 'http://localhost:3010' },
-  { id: 'planner', name: 'Planner', href: 'http://localhost:3011' },
 ]
 
 export const FUTURE_APPS: AppDefinition[] = [
   { id: 'people', name: 'People', href: 'https://people.future.seta.vn' },
-  { id: 'time', name: 'Time', href: 'https://time.future.seta.vn' },
   { id: 'hiring', name: 'Hiring', href: 'https://hiring.future.seta.vn' },
+  { id: 'time', name: 'Time', href: 'https://time.future.seta.vn' },
   { id: 'performance', name: 'Performance', href: 'https://performance.future.seta.vn' },
+  { id: 'goals', name: 'Goals', href: 'https://goals.future.seta.vn' },
   { id: 'projects', name: 'Projects', href: 'https://projects.future.seta.vn' },
   { id: 'finance', name: 'Finance', href: 'https://finance.future.seta.vn' },
-  { id: 'goals', name: 'Goals', href: 'https://goals.future.seta.vn' },
+  { id: 'planner', name: 'Planner', href: 'https://planner.future.seta.vn' },
   { id: 'insights', name: 'Insights', href: 'https://insights.future.seta.vn' },
   { id: 'agents', name: 'Agents', href: 'https://agents.future.seta.vn' },
-  { id: 'planner', name: 'Planner', href: 'https://planner.future.seta.vn' },
   { id: 'admin', name: 'Admin', href: 'https://admin.future.seta.vn' },
 ]
 

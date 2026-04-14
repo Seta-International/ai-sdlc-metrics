@@ -333,32 +333,24 @@ export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps)
         search: tableState.search,
         filters: tableState.filters,
         sorting: tableState.sorting,
-      }) as Promise<{ rows: Record<string, unknown>[] }>)
+      }) as Promise<
+        | { filename: string; csv: string }
+        | { code: 'EXPORT_LIMIT_EXCEEDED'; limit: number; message: string }
+      >)
 
-      const exportRows = result.rows
-      if (exportRows.length === 0) return
+      if ('code' in result && result.code === 'EXPORT_LIMIT_EXCEEDED') {
+        console.error('Export failed:', result.message)
+        return
+      }
 
-      const headers = Object.keys(exportRows[0] ?? {})
-      const csvLines = [
-        headers.join(','),
-        ...exportRows.map((row) =>
-          headers
-            .map((h) => {
-              const val = row[h]
-              const str = val == null ? '' : String(val)
-              return str.includes(',') || str.includes('"') || str.includes('\n')
-                ? `"${str.replace(/"/g, '""')}"`
-                : str
-            })
-            .join(','),
-        ),
-      ]
-      const csvContent = csvLines.join('\n')
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const { filename, csv } = result as { filename: string; csv: string }
+      if (!csv) return
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = 'people-directory.csv'
+      link.download = filename
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
