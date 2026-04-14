@@ -16,6 +16,12 @@ export function createKernelRouter(
         if (!kernelFacade) return []
         return kernelFacade.getRoleGrants(input.actorId, ctx.tenantId)
       }),
+    getMyPermissions: permissionProtectedProcedure.query(
+      async ({ ctx }: { ctx: { actorId: string; tenantId: string } }) => {
+        if (!kernelFacade) return []
+        return kernelFacade.getEffectivePermissions(ctx.actorId, ctx.tenantId)
+      },
+    ),
   })
 }
 

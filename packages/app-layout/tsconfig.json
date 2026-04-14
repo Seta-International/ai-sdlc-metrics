@@ -1,0 +1,12 @@
+{
+  "extends": "@future/tsconfig/base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "lib": ["dom", "esnext"],
+    "jsx": "react-jsx",
+    "types": ["react", "react-dom", "node"]
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.spec.ts", "src/**/*.spec.tsx"]
+}

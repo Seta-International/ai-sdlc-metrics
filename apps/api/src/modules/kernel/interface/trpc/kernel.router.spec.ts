@@ -62,4 +62,54 @@ describe('kernelRouter', () => {
       TRPCError,
     )
   })
+
+  describe('getMyPermissions', () => {
+    it('returns effective permissions for the calling actor', async () => {
+      const mockFacade = {
+        canDo: vi.fn().mockResolvedValue(true),
+        getRoleGrants: vi.fn().mockResolvedValue([]),
+        getActor: vi.fn().mockResolvedValue(null),
+        getEffectivePermissions: vi
+          .fn()
+          .mockResolvedValue(['people:profile:read', 'time:leave:self:submit']),
+      } as unknown as KernelQueryFacade
+      const auditFacade = { recordEvent: vi.fn().mockResolvedValue(undefined) }
+      const { permissionProtectedProcedure } = createProtectedProcedures(
+        mockFacade,
+        auditFacade as unknown as KernelAuditFacade,
+      )
+      const kernelRouter = createKernelRouter(permissionProtectedProcedure, mockFacade)
+      const caller = router({ kernel: kernelRouter }).createCaller({
+        actorId: ACTOR_ID,
+        tenantId: TENANT_ID,
+      } as any)
+
+      const result = await (caller.kernel as any).getMyPermissions()
+
+      expect(result).toEqual(['people:profile:read', 'time:leave:self:submit'])
+      expect(mockFacade.getEffectivePermissions).toHaveBeenCalledWith(ACTOR_ID, TENANT_ID)
+    })
+
+    it('returns empty array when no facade is provided', async () => {
+      const mockFacade = {
+        canDo: vi.fn().mockResolvedValue(true),
+        getRoleGrants: vi.fn().mockResolvedValue([]),
+        getActor: vi.fn().mockResolvedValue(null),
+      } as unknown as KernelQueryFacade
+      const auditFacade = { recordEvent: vi.fn().mockResolvedValue(undefined) }
+      const { permissionProtectedProcedure } = createProtectedProcedures(
+        mockFacade,
+        auditFacade as unknown as KernelAuditFacade,
+      )
+      const kernelRouter = createKernelRouter(permissionProtectedProcedure, undefined)
+      const caller = router({ kernel: kernelRouter }).createCaller({
+        actorId: ACTOR_ID,
+        tenantId: TENANT_ID,
+      } as any)
+
+      const result = await (caller.kernel as any).getMyPermissions()
+
+      expect(result).toEqual([])
+    })
+  })
 })
