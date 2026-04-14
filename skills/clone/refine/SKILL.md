@@ -142,12 +142,11 @@ digraph sizing {
 
 **Prefer grouping by feature** (schema + service + API + UI for one feature) over splitting by layer. Unless the module is too large for one task.
 
-**After listing all tasks, compute execution phases:**
+**After listing all tasks, draw the dependency diagram:**
 
-- Group tasks with no dependencies (or only completed dependencies) into Phase 1
-- Tasks that depend only on Phase 1 form Phase 2, and so on
-- Within a phase, tasks with no shared dependencies can run in parallel
-- Note the module-level strategy: `sequential` (each task blocks the next), `parallel` (all independent), or `hybrid`
+- Use a mermaid `graph LR` diagram — one node per task (use sequence number + short name), edges for blockers
+- Isolated nodes (no edges) mean fully independent tasks
+- The diagram is the implementation strategy — no separate strategy field needed
 
 ## Step 7: Write Outputs
 
@@ -175,10 +174,10 @@ Each task file includes:
 
 In `docs/clones/{source-name}/PROGRESS.md`:
 
-- Modules table: change module status → `refined`, tasks count → `0/{n}`, strategy → computed value
+- Modules table: change module status → `refined`, tasks count → `0/{n}`
 - Tasks section: add a new `### {module-name}` block with:
-  - **Execution phases** table (phase number, tasks in that phase, parallelizable yes/no)
-  - **Task details** table (task name, status `pending`, priority, depends-on)
+  - A mermaid `graph LR` diagram showing task dependencies (nodes = tasks, edges = blocked-by)
+  - A task details table: task name | status `pending` | priority | blocked-by
 - Update Summary table refined count and Updated date
 
 Task files are specs only — do not track status inside them.

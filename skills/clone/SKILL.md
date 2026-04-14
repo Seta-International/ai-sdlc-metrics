@@ -105,7 +105,7 @@ It is created by `clone-discover` and updated by every sub-skill after completin
 | Skill             | Module update                                      | Task update                                  |
 | ----------------- | -------------------------------------------------- | -------------------------------------------- |
 | `clone-discover`  | Add module as `pending-refinement`                 | —                                            |
-| `clone-refine`    | `pending-refinement` → `refined \| 0/n tasks done` | Add each task as `pending`                   |
+| `clone-refine`    | `pending-refinement` → `refined \| 0/n tasks done` | Add mermaid diagram + task table (`pending`) |
 | `clone-implement` | `refined` → `in-progress \| n/t tasks done`        | `pending` → `in-progress ← CURRENT` → `done` |
 | `clone-verify`    | `in-progress` → `completed` when all verified      | `done` → `verified` or `needs-revision`      |
 
