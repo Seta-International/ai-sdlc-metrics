@@ -1,5 +1,10 @@
 @import 'tailwindcss';
 
+@theme {
+  --font-weight-medium-plus: 510;
+  --font-weight-semibold-minus: 590;
+}
+
 @layer base {
   :root {
     /* shadcn vars mapped to DESIGN.md light mode */
@@ -59,8 +64,9 @@
     --motion-slow: 250ms;
 
     /* Font (vars set by next/font on html) */
-    --font-family-body: var(--font-geist, 'Geist'), -apple-system, system-ui, sans-serif;
-    --font-family-mono: var(--font-geist-mono, 'Geist Mono'), 'Fira Code', monospace;
+    --font-family-body: var(--font-inter, 'Inter'), -apple-system, system-ui, sans-serif;
+    --font-family-mono:
+      var(--font-ibm-plex-mono, 'IBM Plex Mono'), ui-monospace, 'SF Mono', Menlo, monospace;
   }
 
   .dark {
@@ -108,6 +114,7 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-family-body);
+    font-feature-settings: 'cv01', 'ss03';
   }
   code,
   pre,
