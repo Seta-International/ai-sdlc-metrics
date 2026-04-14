@@ -10,9 +10,11 @@
   },
   "dependencies": {
     "@future/api-client": "workspace:*",
+    "@future/app-layout": "workspace:*",
     "@future/auth": "workspace:*",
     "@future/ui": "workspace:*",
     "@tanstack/react-table": "^8.21.3",
+    "lucide-react": "^1.8.0",
     "next": "16.2.3",
     "react": "^19",
     "react-dom": "^19"
