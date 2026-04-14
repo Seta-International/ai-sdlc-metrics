@@ -33,8 +33,8 @@ export function AgentStrip({
     <div
       className={cn(
         'flex h-7 flex-shrink-0 items-center gap-4 px-4 text-[11px]',
-        'bg-blue-600/5 border-b border-blue-600/20 text-blue-700',
-        'dark:bg-blue-500/6 dark:border-blue-500/15 dark:text-blue-400',
+        'bg-[rgba(94,106,210,0.05)] border-b border-[rgba(94,106,210,0.2)] text-[#5e6ad2]',
+        'dark:bg-[rgba(113,112,255,0.06)] dark:border-[rgba(113,112,255,0.15)] dark:text-[#7170ff]',
       )}
       role="status"
       aria-live="polite"
@@ -43,17 +43,17 @@ export function AgentStrip({
         <span className="h-1.5 w-1.5 rounded-full bg-green-600 flex-shrink-0" aria-hidden="true" />
         {agentName}
       </span>
-      <span className="text-slate-400" aria-hidden="true">
+      <span className="text-muted-foreground" aria-hidden="true">
         ·
       </span>
       <span>Data: {dataStatus}</span>
-      <span className="text-slate-400" aria-hidden="true">
+      <span className="text-muted-foreground" aria-hidden="true">
         ·
       </span>
       <span>{scope}</span>
       <a
         href={auditLogHref}
-        className="ml-auto text-[11px] text-blue-700 underline dark:text-blue-400"
+        className="ml-auto text-[11px] text-[#5e6ad2] underline dark:text-[#7170ff]"
       >
         View audit log
       </a>
@@ -127,8 +127,8 @@ export function GlobalNav({
         <div
           className={cn(
             'flex h-12 items-center gap-3 px-4',
-            'bg-white border-b border-slate-200',
-            'dark:bg-slate-900 dark:border-slate-800',
+            'bg-card border-b border-border',
+            'dark:bg-[#0f1011] dark:border-[rgba(255,255,255,0.05)]',
           )}
         >
           {/* Launcher trigger */}
@@ -144,11 +144,9 @@ export function GlobalNav({
             aria-label="Search or ask an agent"
             className={cn(
               'ml-auto flex max-w-[260px] flex-1 items-center gap-2 rounded-md border px-3 py-1.5',
-              'border-slate-200 bg-slate-100 text-xs text-slate-500',
-              'transition-all hover:border-blue-400 hover:bg-blue-50',
-              'dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400',
-              'dark:hover:border-blue-700 dark:hover:bg-blue-950',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500',
+              'border-border bg-(--btn-ghost-bg) text-xs text-muted-foreground',
+              'transition-all hover:bg-(--btn-ghost-bg-hover) hover:border-[#5e6ad2]',
+              'focus:outline-none focus:ring-2 focus:ring-ring/50',
             )}
           >
             <Search className="h-3 w-3 flex-shrink-0 opacity-50" aria-hidden="true" />
@@ -163,9 +161,8 @@ export function GlobalNav({
             aria-label="Open agent panel"
             className={cn(
               'flex h-7.5 w-7.5 items-center justify-center rounded-md',
-              'text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-800',
-              'dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500',
+              'text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
+              'focus:outline-none focus:ring-2 focus:ring-ring/50',
             )}
           >
             <Bot className="h-4 w-4" />
@@ -178,9 +175,8 @@ export function GlobalNav({
             aria-label="Notifications"
             className={cn(
               'flex h-7.5 w-7.5 items-center justify-center rounded-md',
-              'text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-800',
-              'dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500',
+              'text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
+              'focus:outline-none focus:ring-2 focus:ring-ring/50',
             )}
           >
             <Bell className="h-4 w-4" />
@@ -193,9 +189,9 @@ export function GlobalNav({
             aria-label={`User menu (${userInitials})`}
             className={cn(
               'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full',
-              'bg-[#1D4ED8] text-[11px] font-semibold text-white',
-              'transition-all hover:bg-[#2563EB]',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1',
+              'bg-[#5e6ad2] text-[11px] font-[510] text-white',
+              'transition-all hover:bg-[#828fff]',
+              'focus:outline-none focus:ring-2 focus:ring-[#5e6ad2]/50',
             )}
           >
             {userInitials.slice(0, 2).toUpperCase()}
