@@ -2,21 +2,21 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { PermissionProvider } from './permission-provider'
 import { useCanAccess } from './use-can-access'
-import type { TRPCClient } from '@future/api-client'
+import type { PermissionTrpcClient } from './permission-provider'
 
 function TestConsumer({ permission }: { permission?: string }) {
   const canAccess = useCanAccess(permission)
   return <div data-testid="result">{String(canAccess)}</div>
 }
 
-function createMockTrpc(permissions: string[]): TRPCClient {
+function createMockTrpc(permissions: string[]): PermissionTrpcClient {
   return {
     kernel: {
       getMyPermissions: {
         query: vi.fn().mockResolvedValue(permissions),
       },
     },
-  } as unknown as TRPCClient
+  } as unknown as PermissionTrpcClient
 }
 
 describe('PermissionProvider', () => {
@@ -55,7 +55,7 @@ describe('PermissionProvider', () => {
           query: vi.fn().mockRejectedValue(new Error('Network error')),
         },
       },
-    } as unknown as TRPCClient
+    } as unknown as PermissionTrpcClient
 
     render(
       <PermissionProvider trpc={mockTrpc}>

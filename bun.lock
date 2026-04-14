@@ -433,7 +433,6 @@
       "name": "@future/app-layout",
       "version": "0.0.1",
       "dependencies": {
-        "@future/api-client": "workspace:*",
         "@future/auth": "workspace:*",
         "@future/ui": "workspace:*",
         "lucide-react": "^1.8.0",

@@ -1,7 +1,6 @@
 'use client'
 
 import { createContext, useState, useEffect, type ReactNode } from 'react'
-import type { TRPCClient } from '@future/api-client'
 
 export interface PermissionContextValue {
   permissions: Set<string>
@@ -15,8 +14,17 @@ export const PermissionContext = createContext<PermissionContextValue>({
   isLoading: true,
 })
 
+/** Minimal tRPC client shape needed by PermissionProvider */
+export interface PermissionTrpcClient {
+  kernel: {
+    getMyPermissions: {
+      query: () => Promise<string[]>
+    }
+  }
+}
+
 export interface PermissionProviderProps {
-  trpc: TRPCClient
+  trpc: PermissionTrpcClient
   children: ReactNode
 }
 
@@ -32,7 +40,7 @@ export function PermissionProvider({ trpc, children }: PermissionProviderProps) 
 
     trpc.kernel.getMyPermissions
       .query()
-      .then((permissions: string[]) => {
+      .then((permissions) => {
         if (!cancelled) {
           setState({
             permissions: new Set(permissions),

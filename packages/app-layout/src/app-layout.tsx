@@ -2,15 +2,14 @@
 
 import type { ReactNode } from 'react'
 import { SidebarProvider, SidebarInset } from '@future/ui'
-import type { TRPCClient } from '@future/api-client'
-import { PermissionProvider } from './permission-provider'
+import { PermissionProvider, type PermissionTrpcClient } from './permission-provider'
 import { NavbarRenderer, type NavbarRendererProps } from './navbar/navbar-renderer'
 import { SidebarRenderer } from './sidebar/sidebar-renderer'
 import type { NavigationConfig } from './types'
 
 export interface AppLayoutProps extends Omit<NavbarRendererProps, 'config'> {
   config: NavigationConfig
-  trpc: TRPCClient
+  trpc: PermissionTrpcClient
   children: ReactNode
 }
 

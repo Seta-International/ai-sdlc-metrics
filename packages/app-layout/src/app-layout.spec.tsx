@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { AppLayout } from './app-layout'
 import type { NavigationConfig } from './types'
 import { Users, Clock } from 'lucide-react'
-import type { TRPCClient } from '@future/api-client'
+import type { PermissionTrpcClient } from './permission-provider'
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/employees',
@@ -57,14 +57,14 @@ const testConfig: NavigationConfig = {
   ],
 }
 
-function createMockTrpc(permissions: string[]): TRPCClient {
+function createMockTrpc(permissions: string[]): PermissionTrpcClient {
   return {
     kernel: {
       getMyPermissions: {
         query: vi.fn().mockResolvedValue(permissions),
       },
     },
-  } as unknown as TRPCClient
+  } as unknown as PermissionTrpcClient
 }
 
 describe('AppLayout', () => {

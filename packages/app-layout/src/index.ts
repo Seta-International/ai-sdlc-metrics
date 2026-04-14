@@ -7,7 +7,11 @@ export type { NavbarRendererProps } from './navbar/navbar-renderer'
 
 // Permission
 export { PermissionProvider, PermissionContext } from './permission-provider'
-export type { PermissionContextValue, PermissionProviderProps } from './permission-provider'
+export type {
+  PermissionContextValue,
+  PermissionProviderProps,
+  PermissionTrpcClient,
+} from './permission-provider'
 export { useCanAccess } from './use-can-access'
 
 // Types
