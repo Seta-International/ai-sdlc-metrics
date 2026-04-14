@@ -1,9 +1,14 @@
-// @future/app-layout — shared app layout with RBAC-aware navigation
-export type { NavigationConfig, NavItem, NavGroup, NavbarConfig } from './types'
+// Components
+export { AppLayout } from './app-layout'
+export type { AppLayoutProps } from './app-layout'
+export { SidebarRenderer } from './sidebar/sidebar-renderer'
+export { NavbarRenderer } from './navbar/navbar-renderer'
+export type { NavbarRendererProps } from './navbar/navbar-renderer'
+
+// Permission
 export { PermissionProvider, PermissionContext } from './permission-provider'
 export type { PermissionContextValue, PermissionProviderProps } from './permission-provider'
 export { useCanAccess } from './use-can-access'
-export { SidebarRenderer } from './sidebar/sidebar-renderer'
-export type { SidebarRendererProps } from './sidebar/sidebar-renderer'
-export { NavbarRenderer } from './navbar/navbar-renderer'
-export type { NavbarRendererProps } from './navbar/navbar-renderer'
+
+// Types
+export type { NavigationConfig, NavItem, NavGroup, NavbarConfig } from './types'
