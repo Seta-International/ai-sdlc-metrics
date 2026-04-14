@@ -1,15 +1,17 @@
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Inter, IBM_Plex_Mono } from 'next/font/google'
 
-export const geist = Geist({
+export const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-geist',
+  weight: 'variable',
+  variable: '--font-inter',
   display: 'swap',
 })
 
-export const geistMono = Geist_Mono({
+export const ibmPlexMono = IBM_Plex_Mono({
   subsets: ['latin'],
-  variable: '--font-geist-mono',
+  weight: ['400', '500'],
+  variable: '--font-ibm-plex-mono',
   display: 'swap',
 })
 
-export const fontVariables = `${geist.variable} ${geistMono.variable}`
+export const fontVariables = `${inter.variable} ${ibmPlexMono.variable}`
