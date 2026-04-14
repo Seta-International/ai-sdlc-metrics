@@ -113,11 +113,11 @@ Every decision must have a rationale. "Keep because it works" is not enough. "Ke
 
 ## Step 6: Break Into Tasks
 
-Split the module into execution tasks. Each task must be:
+Split the module into execution tasks. For each task, define:
 
-- **Self-contained** — reading just the task file gives enough context to implement
-- **Implementable in one session** — fits in an AI agent's context window
-- **Dependency-aware** — if task B needs task A's output, say so explicitly
+- **Scope** — what it covers (self-contained, fits one session)
+- **Priority** — high / medium / low based on business value and blocking others
+- **Depends on** — which other tasks must complete first (task sequence numbers)
 
 **Sizing guidance:**
 
@@ -140,7 +140,14 @@ digraph sizing {
 }
 ```
 
-**Prefer grouping by feature** (schema + service + API + UI for one feature) over splitting by layer (all schemas, then all services). Unless the module is so large that a single feature still overflows context.
+**Prefer grouping by feature** (schema + service + API + UI for one feature) over splitting by layer. Unless the module is too large for one task.
+
+**After listing all tasks, compute execution phases:**
+
+- Group tasks with no dependencies (or only completed dependencies) into Phase 1
+- Tasks that depend only on Phase 1 form Phase 2, and so on
+- Within a phase, tasks with no shared dependencies can run in parallel
+- Note the module-level strategy: `sequential` (each task blocks the next), `parallel` (all independent), or `hybrid`
 
 ## Step 7: Write Outputs
 
@@ -168,8 +175,10 @@ Each task file includes:
 
 In `docs/clones/{source-name}/PROGRESS.md`:
 
-- Modules table: change module status from `pending-refinement` → `refined`, tasks count → `0/{n}`
-- Tasks section: add a new `### {module-name}` table with each task as a row, status `pending`
+- Modules table: change module status → `refined`, tasks count → `0/{n}`, strategy → computed value
+- Tasks section: add a new `### {module-name}` block with:
+  - **Execution phases** table (phase number, tasks in that phase, parallelizable yes/no)
+  - **Task details** table (task name, status `pending`, priority, depends-on)
 - Update Summary table refined count and Updated date
 
 Task files are specs only — do not track status inside them.

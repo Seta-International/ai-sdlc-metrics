@@ -2,6 +2,7 @@
 module: { module-name }
 task: { task-name }
 created: { date }
+priority: high | medium | low
 depends-on: []
 ---
 
