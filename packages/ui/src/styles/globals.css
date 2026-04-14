@@ -220,3 +220,116 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ─── Typography Scale ───────────────────────────────────────────────────── */
+
+@layer utilities {
+  .text-display-xl {
+    font-size: 72px;
+    font-weight: 510;
+    line-height: 1;
+    letter-spacing: -1.584px;
+  }
+  .text-display-lg {
+    font-size: 64px;
+    font-weight: 510;
+    line-height: 1;
+    letter-spacing: -1.408px;
+  }
+  .text-display {
+    font-size: 48px;
+    font-weight: 510;
+    line-height: 1;
+    letter-spacing: -1.056px;
+  }
+  .text-h1 {
+    font-size: 32px;
+    font-weight: 400;
+    line-height: 1.13;
+    letter-spacing: -0.704px;
+  }
+  .text-h2 {
+    font-size: 24px;
+    font-weight: 400;
+    line-height: 1.33;
+    letter-spacing: -0.288px;
+  }
+  .text-h3 {
+    font-size: 20px;
+    font-weight: 590;
+    line-height: 1.33;
+    letter-spacing: -0.24px;
+  }
+  .text-body-lg {
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 1.6;
+    letter-spacing: -0.165px;
+  }
+  .text-body {
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: normal;
+  }
+  .text-body-medium {
+    font-size: 16px;
+    font-weight: 510;
+    line-height: 1.5;
+    letter-spacing: normal;
+  }
+  .text-small {
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.6;
+    letter-spacing: -0.165px;
+  }
+  .text-small-medium {
+    font-size: 15px;
+    font-weight: 510;
+    line-height: 1.6;
+    letter-spacing: -0.165px;
+  }
+  .text-caption-lg {
+    font-size: 14px;
+    font-weight: 510;
+    line-height: 1.5;
+    letter-spacing: -0.182px;
+  }
+  .text-caption {
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: -0.13px;
+  }
+  .text-label {
+    font-size: 12px;
+    font-weight: 510;
+    line-height: 1.4;
+    letter-spacing: normal;
+  }
+  .text-micro {
+    font-size: 11px;
+    font-weight: 510;
+    line-height: 1.4;
+    letter-spacing: normal;
+  }
+  .text-mono {
+    font-family: var(--font-family-mono);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+  .text-mono-caption {
+    font-family: var(--font-family-mono);
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+  .text-mono-label {
+    font-family: var(--font-family-mono);
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+}
