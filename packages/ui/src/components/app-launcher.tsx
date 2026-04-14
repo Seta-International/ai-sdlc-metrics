@@ -313,7 +313,7 @@ export function AppLauncher({
         className={cn(
           'relative z-10 w-full max-w-[600px] mx-4',
           'rounded-xl border border-white/10',
-          'bg-[rgba(17,24,39,0.96)] backdrop-blur-2xl',
+          'bg-[rgba(25,26,27,0.97)] backdrop-blur-2xl',
           'shadow-2xl',
           'animate-in fade-in slide-in-from-top-2 duration-200',
           'overflow-hidden',
@@ -324,7 +324,7 @@ export function AppLauncher({
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              'radial-gradient(ellipse at 50% 0%,rgba(59,130,246,.12) 0%,transparent 60%)',
+              'radial-gradient(ellipse at 50% 0%,rgba(94,106,210,0.12) 0%,transparent 60%)',
           }}
           aria-hidden="true"
         />
@@ -334,7 +334,7 @@ export function AppLauncher({
           <Grid2X2 className="h-4 w-4 flex-shrink-0 text-white/40" aria-hidden="true" />
           <input
             ref={inputRef}
-            className="flex-1 bg-transparent text-sm text-slate-100 outline-none placeholder:text-white/30"
+            className="flex-1 bg-transparent text-sm text-[#f7f8f8] outline-none placeholder:text-white/30"
             placeholder="Search Future apps or anything…"
             value={query}
             onChange={(e) => {
@@ -359,7 +359,7 @@ export function AppLauncher({
                 'px-3 py-2 text-xs font-medium capitalize transition-all',
                 'border-b-2 -mb-px',
                 tab === t
-                  ? 'border-blue-500 text-blue-300'
+                  ? 'border-[#7170ff] text-[#7170ff]'
                   : 'border-transparent text-white/40 hover:text-white/70',
               )}
             >
@@ -376,7 +376,7 @@ export function AppLauncher({
             </p>
           ) : (
             <>
-              <div className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-white/30">
+              <div className="mb-3 text-[10px] font-[510] uppercase tracking-widest text-white/30">
                 {tab === 'recent' ? 'Recently visited' : 'Your apps'}
               </div>
               <div
@@ -399,9 +399,9 @@ export function AppLauncher({
                       className={cn(
                         'relative flex flex-col items-center gap-2 rounded-lg border px-2 pb-3.5 pt-4',
                         'cursor-pointer text-decoration-none transition-all focus:outline-none',
-                        'focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-[#111827]',
+                        'focus:ring-2 focus:ring-[#7170ff] focus:ring-offset-2 focus:ring-offset-[#191a1b]',
                         isCurrent
-                          ? 'border-blue-500/35 bg-blue-500/15'
+                          ? 'border-[#7170ff]/35 bg-[#7170ff]/15'
                           : 'border-transparent hover:border-white/10 hover:bg-white/6',
                       )}
                     >
@@ -418,7 +418,7 @@ export function AppLauncher({
                       <span
                         className={cn(
                           'text-center text-[11px] font-medium leading-tight',
-                          isCurrent ? 'text-blue-300' : 'text-white/75',
+                          isCurrent ? 'text-[#828fff]' : 'text-white/75',
                         )}
                       >
                         {app.name}
@@ -427,7 +427,7 @@ export function AppLauncher({
                       {/* Current badge */}
                       {isCurrent && (
                         <span
-                          className="absolute right-2 top-2 h-[7px] w-[7px] rounded-full bg-green-600 ring-[1.5px] ring-[#111827]"
+                          className="absolute right-2 top-2 h-[7px] w-[7px] rounded-full bg-[#27a644] ring-[1.5px] ring-[#191a1b]"
                           aria-label="Currently open"
                         />
                       )}
@@ -480,9 +480,9 @@ export function AppLauncherTrigger({ onClick, className }: AppLauncherTriggerPro
       title="Open app launcher (⌘K)"
       className={cn(
         'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded',
-        'bg-[#1D4ED8] text-white text-xs font-bold',
-        'transition-all hover:bg-[#2563EB] hover:scale-[1.06]',
-        'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1',
+        'bg-[#5e6ad2] text-white text-xs font-[510]',
+        'transition-all hover:bg-[#828fff] hover:scale-[1.06]',
+        'focus:outline-none focus:ring-2 focus:ring-[#7170ff] focus:ring-offset-1',
         className,
       )}
     >
@@ -506,12 +506,12 @@ export function AppChip({ app, onClick, className }: AppChipProps) {
       onClick={onClick}
       aria-label={app ? `Currently in ${app.name} — click to switch app` : 'Switch app'}
       className={cn(
-        'flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5',
-        'text-[11px] font-medium text-slate-700',
-        'transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700',
-        'focus:outline-none focus:ring-2 focus:ring-blue-500',
-        'dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300',
-        'dark:hover:border-blue-800 dark:hover:bg-blue-950 dark:hover:text-blue-400',
+        'flex items-center gap-1.5 rounded-full border px-2 py-0.5',
+        'border-border bg-secondary text-[11px] font-[510] text-secondary-foreground',
+        'transition-all hover:border-[#5e6ad2]/40 hover:bg-secondary hover:text-[#5e6ad2]',
+        'focus:outline-none focus:ring-2 focus:ring-[#7170ff]',
+        'dark:border-[rgba(255,255,255,0.08)] dark:bg-[rgba(255,255,255,0.04)] dark:text-[#d0d6e0]',
+        'dark:hover:border-[#7170ff]/40 dark:hover:text-[#7170ff]',
         className,
       )}
     >
@@ -521,7 +521,7 @@ export function AppChip({ app, onClick, className }: AppChipProps) {
         </span>
       )}
       <span>{app?.name ?? 'Apps'}</span>
-      <ChevronDown className="h-2.5 w-2.5 text-slate-400" aria-hidden="true" />
+      <ChevronDown className="h-2.5 w-2.5 text-muted-foreground" aria-hidden="true" />
     </button>
   )
 }
