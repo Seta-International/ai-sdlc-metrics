@@ -33,6 +33,6 @@ export class PgBossService implements OnApplicationBootstrap, OnApplicationShutd
     jobName: string,
     handler: (jobs: Job<T>[]) => Promise<void>,
   ): void {
-    void this.boss.work<T>(jobName, handler)
+    void this.boss.createQueue(jobName).then(() => this.boss.work<T>(jobName, handler))
   }
 }
