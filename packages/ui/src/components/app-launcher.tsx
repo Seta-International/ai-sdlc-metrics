@@ -16,6 +16,86 @@ export interface AppDefinition {
   color: string
 }
 
+export const LOCAL_FUTURE_APPS: AppDefinition[] = [
+  {
+    id: 'people',
+    name: 'People',
+    href: 'http://localhost:3001',
+    icon: '👥',
+    color: 'linear-gradient(135deg,#2563EB,#3B82F6)',
+  },
+  {
+    id: 'time',
+    name: 'Time',
+    href: 'http://localhost:3002',
+    icon: '⏱',
+    color: 'linear-gradient(135deg,#0891B2,#06B6D4)',
+  },
+  {
+    id: 'hiring',
+    name: 'Hiring',
+    href: 'http://localhost:3003',
+    icon: '💼',
+    color: 'linear-gradient(135deg,#7C3AED,#8B5CF6)',
+  },
+  {
+    id: 'performance',
+    name: 'Performance',
+    href: 'http://localhost:3004',
+    icon: '🏆',
+    color: 'linear-gradient(135deg,#D97706,#F59E0B)',
+  },
+  {
+    id: 'projects',
+    name: 'Projects',
+    href: 'http://localhost:3005',
+    icon: '📁',
+    color: 'linear-gradient(135deg,#059669,#10B981)',
+  },
+  {
+    id: 'finance',
+    name: 'Finance',
+    href: 'http://localhost:3006',
+    icon: '💰',
+    color: 'linear-gradient(135deg,#DC2626,#EF4444)',
+  },
+  {
+    id: 'goals',
+    name: 'Goals',
+    href: 'http://localhost:3007',
+    icon: '🎯',
+    color: 'linear-gradient(135deg,#BE185D,#EC4899)',
+  },
+  {
+    id: 'insights',
+    name: 'Insights',
+    href: 'http://localhost:3008',
+    icon: '📊',
+    color: 'linear-gradient(135deg,#1D4ED8,#60A5FA)',
+  },
+  {
+    id: 'agents',
+    name: 'Agents',
+    href: 'http://localhost:3009',
+    icon: '🤖',
+    color: 'linear-gradient(135deg,#374151,#6B7280)',
+  },
+  {
+    id: 'planner',
+    name: 'Planner',
+    href: 'http://localhost:3010',
+    icon: '📋',
+    color: 'linear-gradient(135deg,#0F766E,#14B8A6)',
+  },
+  {
+    id: 'admin',
+    name: 'Admin',
+    href: 'http://localhost:3011',
+    icon: '⚙',
+    color: 'linear-gradient(135deg,#475569,#94A3B8)',
+  },
+]
+
 export const FUTURE_APPS: AppDefinition[] = [
   {
     id: 'people',

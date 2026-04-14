@@ -1,7 +1,13 @@
 // Custom components
 export { GlobalNav, AgentStrip } from './components/global-nav'
 export type { GlobalNavProps, AgentStripProps } from './components/global-nav'
-export { AppLauncher, AppLauncherTrigger, AppChip, FUTURE_APPS } from './components/app-launcher'
+export {
+  AppLauncher,
+  AppLauncherTrigger,
+  AppChip,
+  FUTURE_APPS,
+  LOCAL_FUTURE_APPS,
+} from './components/app-launcher'
 export type {
   AppDefinition,
   AppLauncherProps,
