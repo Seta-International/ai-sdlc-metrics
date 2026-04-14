@@ -23,7 +23,12 @@ export default function LoginPage() {
         const data = (await res.json()) as { error?: string }
         setError(data.error ?? 'Failed to send magic link')
       } else {
-        setSent(true)
+        const data = (await res.json()) as { ok?: boolean; dev?: boolean }
+        if (data.dev) {
+          window.location.href = '/'
+        } else {
+          setSent(true)
+        }
       }
     } catch {
       setError('Network error. Please try again.')
