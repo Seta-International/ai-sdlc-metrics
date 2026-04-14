@@ -20,6 +20,7 @@ import { RevokeAllRoleGrantsHandler } from './application/commands/revoke-all-ro
 import { UpdateActorStatusHandler } from './application/commands/update-actor-status.handler'
 import { SeedRolePermissionsHandler } from './application/commands/seed-role-permissions.handler'
 import { ResolveLoginHandler } from './application/commands/resolve-login.handler'
+import { DevLoginHandler } from './application/commands/dev-login.handler'
 import { AddRolePermissionHandler } from './application/commands/add-role-permission.handler'
 import { RemoveRolePermissionHandler } from './application/commands/remove-role-permission.handler'
 import { ResetRolePermissionsHandler } from './application/commands/reset-role-permissions.handler'
@@ -77,6 +78,7 @@ import { DrizzleOutboxEventRepository } from './infrastructure/repositories/driz
     UpdateActorStatusHandler,
     SeedRolePermissionsHandler,
     ResolveLoginHandler,
+    DevLoginHandler,
     AddRolePermissionHandler,
     RemoveRolePermissionHandler,
     ResetRolePermissionsHandler,
