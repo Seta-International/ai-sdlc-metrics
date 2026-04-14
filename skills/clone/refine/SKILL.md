@@ -56,7 +56,19 @@ digraph refine {
 
 ## Step 1: Pick Module
 
-Read inventory, find modules with status `pending-refinement`. Ask the user which to refine, or suggest the next one by priority.
+Read inventory, find all modules with status `pending-refinement`. Present them as a numbered list with priority and size:
+
+```
+Modules pending refinement:
+
+  1. {module-name} — {description} [high | {size}]
+  2. {module-name} — {description} [medium | {size}]
+  3. {module-name} — {description} [low | {size}]
+
+Which module should we refine first? (enter number, name, or "all" to go in priority order)
+```
+
+Wait for the user's answer before proceeding. If they say "all", refine modules one at a time in priority order, looping automatically after each.
 
 ## Step 2: Deep-Read Source Module
 
@@ -106,24 +118,60 @@ Read the target project to understand:
 
 ## Step 5: Brainstorm with User
 
-Ask questions **one at a time**. Ground every question in a specific role or flow from Step 3.
+**Before asking anything**, synthesize what you found in Steps 2–4 into a prepared agenda. Every question must carry your recommendation — the user confirms, adjusts, or overrides; they should never be answering from scratch.
 
-1. **Business value** — "What does this module solve for {role}? Is that still needed in the new project?"
-2. **Role coverage** — "The source has flows for {roles}. The new project has {roles}. Should we map them 1:1 or merge/split?"
-3. **Quality assessment** — "I see {pattern} in the {role} flow. This looks {good/problematic} because {reason}. Keep or fix?"
-4. **Tech debt** — "These parts of the {role} flow look like workarounds: {list}. Should we drop them?"
-5. **Missing flows** — "The {role} flow doesn't handle {case}. Should the new one?"
-6. **Architecture fit** — "The source uses {pattern} for {role} access control, the target uses {pattern}. Here's how I'd map it."
-7. **Dependencies** — "This module depends on {other modules} for {role} authorization. Are those migrated yet?"
-8. **Integration points** — "This talks to {external services}. Same in the new project?"
+### 5a: Prepare the Agenda
 
-Flag anything that smells bad:
+Internally build a list of questions from these categories. Only include categories where you found something worth discussing:
 
-- Copy-pasted code
-- Overly complex logic with no tests
-- Hardcoded values
-- Security concerns
+| Category               | Ask when you found…                                                     | Example recommendation format                                                                                                                   |
+| ---------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Business value**     | The module solves a problem that may or may not apply to the new system | "This module handles X for {role}. The new project already has Y which covers part of it. I recommend reimagining rather than porting — agree?" |
+| **Role coverage**      | Source and target have different role models                            | "Source has {roles}, target has {roles}. I recommend mapping {source-role} → {target-role} because {reason}. Does that match?"                  |
+| **Quality assessment** | A pattern that is clearly good or clearly bad                           | "The {flow} for {role} uses {pattern}. This is a problem because {reason}. I recommend we fix it during migration. Agree?"                      |
+| **Tech debt**          | Workarounds, duplication, or hacks                                      | "I see {specific code smell} in the {role} flow — looks like a workaround. I recommend dropping it. Keep or skip?"                              |
+| **Missing flows**      | A gap in the source that the new system should fill                     | "The {role} flow has no handling for {case}. I recommend adding it because {reason}. Include or skip?"                                          |
+| **Architecture fit**   | A mismatch between source pattern and target conventions                | "Source uses {pattern}, target uses {pattern}. I recommend mapping it as {approach}. Does that work?"                                           |
+| **Dependencies**       | This module depends on another that may not be migrated yet             | "This depends on {module} for {reason}. That module is {status}. I recommend {sequencing suggestion}."                                          |
+| **Integration points** | External services, APIs, or jobs                                        | "This talks to {service} for {purpose}. Assuming same in the new project — is that right?"                                                      |
+
+Flag anything that smells bad proactively — don't wait for the user to notice:
+
+- Copy-pasted logic across role paths
+- Overly complex flows with no test coverage
+- Hardcoded values or environment assumptions
+- Security concerns (missing auth checks, insecure data handling)
 - Performance anti-patterns
+
+### 5b: Present the Agenda
+
+Show the user the full list before diving in:
+
+```
+I've analyzed the {module-name} module and have {n} questions before we make decisions.
+I'll go through them one at a time with my recommendation — just confirm, adjust, or override.
+
+  1. Role mapping — how to handle {source-role} in the new system
+  2. Tech debt — {specific smell} in the {role} flow
+  3. Architecture fit — {source-pattern} vs target conventions
+  ... (all topics, one line each)
+
+Ready? I'll start with #1.
+```
+
+### 5c: Ask One at a Time
+
+Go through the agenda sequentially. For each item:
+
+1. State what you found (concrete — file, function, or flow name)
+2. Give your recommendation with a reason
+3. Ask for confirmation
+
+Example:
+
+> "In `leave.service.ts:142`, the approval flow for `manager` runs the same validation twice — once on submit and once on approve. This looks like a copy-paste leftover from an earlier version. **I recommend dropping the duplicate check and keeping only the approve-time validation.** Agree, or should we keep both?"
+
+Wait for the user's response before moving to the next question. Capture their answer — it feeds directly into Step 6 decisions.
 
 ## Step 6: Decide Per Feature
 
@@ -210,27 +258,47 @@ Task files are specs only — do not track status inside them.
 
 ## Handoff
 
-When a module's brief, tasks, and PROGRESS.md are updated, end the session with:
+When a module's brief, tasks, and PROGRESS.md are updated, show a completion block:
 
 ```
 Module "{module-name}" refined.
   Brief: docs/clones/{source}/modules/{module-name}/{date}-000-brief.md
   Tasks: {n} tasks created
   PROGRESS.md updated ✓
+```
 
-Remaining unrefined modules: {list or "none"}
+Then immediately show remaining modules and ask what to do next:
+
+```
+Remaining unrefined modules ({n}):
+
+  1. {module-name} — {description} [high | {size}]   ← suggested next
+  2. {module-name} — {description} [medium | {size}]
+  3. {module-name} — {description} [low | {size}]
+
+What next?
+  A) Continue with {next-module-name} (suggested)
+  B) Pick a different module (enter number or name)
+  C) Stop here — I'll run /clone-implement to start building
+```
+
+- If **A** or user entered "all" earlier: loop back to Step 2 with the next module automatically.
+- If **B**: user picks from the list, loop back to Step 2 with that module.
+- If **C** or no modules remain: show the final summary and stop.
+
+**Final summary (when all modules refined or user stops):**
+
+```
+Refinement complete.
+  Refined: {n}/{t} modules
+  PROGRESS.md updated ✓
 
 Next steps:
-- Run /clone-refine to refine the next module: {next-module-name}
-- Run /clone-implement to start implementing tasks from this module
-- Run /clone to see quick status and next recommended command
+- Run /clone-implement to start implementing tasks
+- Run /clone to see full status
 
 To resume in a future session, start with /clone.
 ```
-
-If the user wants to continue refining more modules in the same session, ask:
-
-> "Refine next module ({module-name}) now, or stop here?"
 
 ## Important
 
@@ -238,5 +306,6 @@ If the user wants to continue refining more modules in the same session, ask:
 - **Be opinionated** — flag bad patterns proactively, don't wait for the user to notice
 - **No blind cloning** — every feature must pass through the keep/reimagine/skip filter
 - **Balanced tasks** — not so large they overflow context, not so small they create micro-loops
-- **Refine one module per session** — don't try to batch all modules at once
+- **Always write docs before moving on** — never loop to the next module without completing brief, tasks, and PROGRESS.md for the current one
+- **Always show remaining modules after each** — give the user clear options: continue, pick different, or stop
 - **Always end with the handoff block** — never finish silently
