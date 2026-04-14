@@ -55,17 +55,11 @@ const TENANTS = [
   },
 ]
 
-const DEMO_ROLES = [
-  'hr_ops',
-  'recruiter',
-  'finance_operator',
-  'executive',
-  'staffing_owner',
-  'account_manager',
-  'review_operator',
-] as const
-
 const SKIP_DOMAINS = ['yopmail', 'gmail']
+
+const ROLE_OVERRIDES: Record<string, string[]> = {
+  'canh.ta@seta-international.vn': ['tenant_admin', 'line_manager'],
+}
 
 function getEmailDomain(email: string): string | null {
   const atIdx = email.indexOf('@')
@@ -138,11 +132,9 @@ async function main() {
       const actorId = deterministicUuid('actor:' + emp.email)
       const identityId = deterministicUuid('identity:' + emp.email)
 
-      const roles: string[] = emp.is_admin
-        ? ['tenant_admin']
-        : emp.is_pm
-          ? ['line_manager']
-          : ['employee']
+      const roles: string[] =
+        ROLE_OVERRIDES[emp.email] ??
+        (emp.is_admin ? ['tenant_admin'] : emp.is_pm ? ['line_manager'] : ['employee'])
 
       await db
         .insert(actor)
@@ -187,103 +179,6 @@ async function main() {
           })
           .onConflictDoNothing()
       }
-    }
-
-    for (const role of DEMO_ROLES) {
-      const email = `demo.${role}@${tenantCfg.domain}`
-      const actorId = deterministicUuid('actor:' + email)
-      const identityId = deterministicUuid('identity:' + email)
-      const displayName = `Demo ${role.replace('_', ' ')} (${tenantCfg.slug.toUpperCase()})`
-
-      await db
-        .insert(actor)
-        .values({
-          id: actorId,
-          tenantId,
-          type: 'person',
-          displayName,
-          status: 'active',
-          createdAt: now,
-          updatedAt: now,
-        })
-        .onConflictDoNothing()
-
-      await db
-        .insert(userIdentity)
-        .values({
-          id: identityId,
-          tenantId,
-          actorId,
-          email,
-          ssoSubject: email,
-          provider: 'local',
-          status: 'active',
-          createdAt: now,
-        })
-        .onConflictDoNothing()
-
-      await db
-        .insert(roleGrant)
-        .values({
-          id: deterministicUuid('grant:' + email + ':' + role),
-          tenantId,
-          actorId,
-          roleKey: role as (typeof roleGrant.$inferInsert)['roleKey'],
-          scopeType: 'global',
-          scopeId: null,
-          grantedBy: systemActorId,
-          source: 'manual',
-          validFrom: now,
-        })
-        .onConflictDoNothing()
-    }
-
-    if (tenantCfg.slug === 'seta') {
-      const paEmail = `demo.platform_admin@${tenantCfg.domain}`
-      const paActorId = deterministicUuid('actor:' + paEmail)
-      const paIdentityId = deterministicUuid('identity:' + paEmail)
-
-      await db
-        .insert(actor)
-        .values({
-          id: paActorId,
-          tenantId,
-          type: 'person',
-          displayName: `Demo platform admin (SETA)`,
-          status: 'active',
-          createdAt: now,
-          updatedAt: now,
-        })
-        .onConflictDoNothing()
-
-      await db
-        .insert(userIdentity)
-        .values({
-          id: paIdentityId,
-          tenantId,
-          actorId: paActorId,
-          email: paEmail,
-          ssoSubject: paEmail,
-          provider: 'local',
-          status: 'active',
-          createdAt: now,
-        })
-        .onConflictDoNothing()
-
-      await db
-        .insert(roleGrant)
-        .values({
-          id: deterministicUuid('grant:' + paEmail + ':platform_admin'),
-          tenantId,
-          actorId: paActorId,
-          roleKey: 'platform_admin',
-          scopeType: 'global',
-          scopeId: null,
-          grantedBy: systemActorId,
-          source: 'manual',
-          validFrom: now,
-        })
-        .onConflictDoNothing()
     }
 
     for (const [roleKey, entries] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
