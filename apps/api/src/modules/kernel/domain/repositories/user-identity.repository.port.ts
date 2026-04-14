@@ -12,6 +12,7 @@ export interface IUserIdentityRepository {
     ssoSubject: string
     provider: UserIdentity['provider']
   }): Promise<UserIdentity>
+  findByEmail(email: string): Promise<UserIdentity | null>
   deprovisionByActorId(actorId: string, tenantId: string): Promise<void>
   updateLastLogin(id: string): Promise<void>
 }

@@ -21,6 +21,7 @@ describe('ResolveLoginHandler', () => {
     userIdentityRepo = {
       findById: vi.fn(),
       findBySsoSubject: vi.fn(),
+      findByEmail: vi.fn(),
       insert: vi.fn(),
       deprovisionByActorId: vi.fn(),
       updateLastLogin: vi.fn(),

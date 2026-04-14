@@ -55,6 +55,15 @@ export class DrizzleUserIdentityRepository implements IUserIdentityRepository {
       .where(and(eq(userIdentity.actorId, actorId), eq(userIdentity.tenantId, tenantId)))
   }
 
+  async findByEmail(email: string): Promise<UserIdentity | null> {
+    const rows = await this.db
+      .select()
+      .from(userIdentity)
+      .where(and(eq(userIdentity.email, email), eq(userIdentity.status, 'active')))
+      .limit(1)
+    return (rows[0] as UserIdentity | undefined) ?? null
+  }
+
   async updateLastLogin(id: string): Promise<void> {
     await this.db
       .update(userIdentity)
