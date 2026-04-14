@@ -163,7 +163,7 @@ export function GlobalNav({
             onClick={onAgentClick}
             aria-label="Open agent panel"
             className={cn(
-              'flex h-7.5 w-7.5 items-center justify-center rounded-md',
+              'flex h-11 w-11 items-center justify-center rounded-md',
               'text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
               'focus:outline-none focus:ring-2 focus:ring-ring/50',
             )}
@@ -177,7 +177,7 @@ export function GlobalNav({
             onClick={onNotificationsClick}
             aria-label="Notifications"
             className={cn(
-              'flex h-7.5 w-7.5 items-center justify-center rounded-md',
+              'flex h-11 w-11 items-center justify-center rounded-md',
               'text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
               'focus:outline-none focus:ring-2 focus:ring-ring/50',
             )}
@@ -191,7 +191,7 @@ export function GlobalNav({
             onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
             aria-label={resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             className={cn(
-              'flex h-7.5 w-7.5 items-center justify-center rounded-md',
+              'flex h-11 w-11 items-center justify-center rounded-md',
               'text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
               'focus:outline-none focus:ring-2 focus:ring-ring/50',
             )}
