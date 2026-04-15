@@ -36,8 +36,10 @@ export class SendNotificationEmailWorker {
       return
     }
 
-    const profileResult = await this.peopleFacade.getProfile(recipientId, tenantId)
-    if (!profileResult?.profile.companyEmail) {
+    const profileResult = await this.peopleFacade.getPersonProfile(recipientId, tenantId)
+    const companyEmail = profileResult?.employments.find((e) => e.employment.companyEmail)
+      ?.employment.companyEmail
+    if (!companyEmail) {
       this.logger.warn(`No email for actor ${recipientId} — skipping email notification`)
       return
     }
@@ -71,7 +73,7 @@ export class SendNotificationEmailWorker {
 
     try {
       await transport.send({
-        to: profileResult.profile.companyEmail,
+        to: companyEmail,
         subject: notification.title,
         html,
       })

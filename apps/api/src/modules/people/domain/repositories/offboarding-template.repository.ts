@@ -2,7 +2,7 @@ import {
   OffboardingTemplate,
   OffboardingReasonCategory,
 } from '../entities/offboarding-template.entity'
-import { EmploymentType } from '../entities/employment-profile.entity'
+import type { EmploymentType } from '../value-objects/employment-status'
 
 export const OFFBOARDING_TEMPLATE_REPOSITORY = Symbol('IOffboardingTemplateRepository')
 

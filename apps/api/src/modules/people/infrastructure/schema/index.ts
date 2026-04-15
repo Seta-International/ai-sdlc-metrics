@@ -1,10 +1,13 @@
 export {
   peopleSchema,
-  employmentProfile,
-  employmentProfileDetail,
+  personProfile,
+  employment,
+  jobAssignment,
+  employmentDetail,
+  jobFamily,
+  jobProfile,
   profileSection,
   profileChangeRequest,
-  periodicProfileReview,
   onboardingTemplate,
   onboardingTaskTemplate,
   onboardingCase,
@@ -13,6 +16,5 @@ export {
   offboardingTaskTemplate,
   offboardingCase,
   offboardingTask,
-  accountMembership,
   contractVersion,
 } from './people.schema'

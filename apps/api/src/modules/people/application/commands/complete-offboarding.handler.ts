@@ -1,88 +1,19 @@
-import { Inject } from '@nestjs/common'
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
-import {
-  EmploymentProfileNotFoundException,
-  OffboardingCaseNotFoundException,
-  OffboardingNotInProcessingException,
-} from '../../domain/exceptions/people.exceptions'
-import {
-  EMPLOYMENT_PROFILE_REPOSITORY,
-  type IEmploymentProfileRepository,
-} from '../../domain/repositories/employment-profile.repository'
-import {
-  OFFBOARDING_CASE_REPOSITORY,
-  type IOffboardingCaseRepository,
-} from '../../domain/repositories/offboarding-case.repository'
-import {
-  ACCOUNT_MEMBERSHIP_REPOSITORY,
-  type IAccountMembershipRepository,
-} from '../../domain/repositories/account-membership.repository'
-import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
-import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
-import { KernelUserIdentityFacade } from '../../../kernel/application/facades/kernel-user-identity.facade'
 import { CompleteOffboardingCommand } from './complete-offboarding.command'
 
-const EMPLOYEE_TERMINATED_EVENT = 'people.employee-terminated'
+// TODO: Plan 06 — rewrite for new domain model
+// Old implementation referenced deleted employment-profile.repository and account-membership.repository
 
 @CommandHandler(CompleteOffboardingCommand)
 export class CompleteOffboardingHandler implements ICommandHandler<
   CompleteOffboardingCommand,
   void
 > {
-  constructor(
-    @Inject(EMPLOYMENT_PROFILE_REPOSITORY)
-    private readonly profileRepo: IEmploymentProfileRepository,
-    @Inject(OFFBOARDING_CASE_REPOSITORY)
-    private readonly caseRepo: IOffboardingCaseRepository,
-    @Inject(ACCOUNT_MEMBERSHIP_REPOSITORY)
-    private readonly accountMembershipRepo: IAccountMembershipRepository,
-    private readonly auditFacade: KernelAuditFacade,
-    private readonly actorFacade: KernelActorFacade,
-    private readonly userIdentityFacade: KernelUserIdentityFacade,
-  ) {}
+  // eslint-disable-next-line @typescript-eslint/no-useless-constructor
+  constructor() {}
 
-  async execute(command: CompleteOffboardingCommand): Promise<void> {
-    // 1. Find offboarding case
-    const offboardingCase = await this.caseRepo.findById(
-      command.offboardingCaseId,
-      command.tenantId,
-    )
-    if (!offboardingCase) throw new OffboardingCaseNotFoundException(command.offboardingCaseId)
-
-    // 2. Verify case is in processing state
-    if (offboardingCase.status !== 'processing') {
-      throw new OffboardingNotInProcessingException(command.offboardingCaseId)
-    }
-
-    // 3. Find employment profile
-    const profile = await this.profileRepo.findById(offboardingCase.profileId, command.tenantId)
-    if (!profile) throw new EmploymentProfileNotFoundException(offboardingCase.profileId)
-
-    const now = new Date()
-
-    // 4. Mark profile as terminated
-    await this.profileRepo.updateStatus(profile.id, command.tenantId, 'terminated', now)
-
-    // 5. Mark offboarding case as completed
-    await this.caseRepo.updateStatus(command.offboardingCaseId, command.tenantId, 'completed')
-
-    // 6. Close all account memberships
-    await this.accountMembershipRepo.closeAllForActor(profile.actorId, command.tenantId, now)
-
-    // 7. Dispatch kernel commands
-    await this.actorFacade.deactivateActor(profile.actorId, command.tenantId)
-    await this.userIdentityFacade.deprovisionUserIdentity(command.tenantId, profile.actorId)
-    await this.actorFacade.revokeAllRoles(profile.actorId, command.tenantId)
-
-    // 8. Emit outbox event
-    await this.auditFacade.publishOutboxEvent({
-      tenantId: command.tenantId,
-      eventName: EMPLOYEE_TERMINATED_EVENT,
-      payload: {
-        actorId: profile.actorId,
-        tenantId: command.tenantId,
-        terminationDate: now.toISOString(),
-      },
-    })
+  async execute(_command: CompleteOffboardingCommand): Promise<void> {
+    // TODO: Plan 06 — implement using Employment + OffboardingCase repositories
+    throw new Error('Not implemented: CompleteOffboardingHandler needs Plan 06 rewrite')
   }
 }

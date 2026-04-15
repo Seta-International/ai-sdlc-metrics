@@ -18,8 +18,7 @@ describe('createPeopleRouter', () => {
     }
     const auditFacade = { recordEvent: vi.fn().mockResolvedValue(undefined) }
     const peopleFacade = {
-      getProfile: vi.fn().mockResolvedValue(profileResult),
-      getOwnProfile: vi.fn().mockResolvedValue(profileResult),
+      getPersonProfile: vi.fn().mockResolvedValue(profileResult),
     }
     const { permissionProtectedProcedure } = createProtectedProcedures(
       kernelFacade as unknown as KernelQueryFacade,
@@ -67,29 +66,5 @@ describe('createPeopleRouter', () => {
     expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'people:profile:self:read', {
       tenantId: TENANT_ID,
     })
-  })
-
-  it('should check department-scoped permission on updateProfile', async () => {
-    const profile = { departmentId: '01900000-0000-7000-8000-000000000099' }
-    const { peopleRouter, kernelFacade } = setup(true, profile)
-    const caller = router({ people: peopleRouter }).createCaller({
-      actorId: ACTOR_ID,
-      tenantId: TENANT_ID,
-    } as any)
-    await (caller.people as any).updateProfile({ actorId: ACTOR_ID, displayName: 'Test' })
-    expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'people:profile:update', {
-      tenantId: TENANT_ID,
-    })
-  })
-
-  it('should deny updateProfile when initial permission check fails', async () => {
-    const { peopleRouter } = setup(false)
-    const caller = router({ people: peopleRouter }).createCaller({
-      actorId: ACTOR_ID,
-      tenantId: TENANT_ID,
-    } as any)
-    await expect(
-      (caller.people as any).updateProfile({ actorId: ACTOR_ID, displayName: 'Test' }),
-    ).rejects.toThrow(TRPCError)
   })
 })

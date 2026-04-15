@@ -1,16 +1,23 @@
 import { DomainException } from '@future/core'
 
-export class EmploymentProfileNotFoundException extends DomainException {
-  readonly code = 'EMPLOYMENT_PROFILE_NOT_FOUND'
+export class PersonProfileNotFoundException extends DomainException {
+  readonly code = 'PERSON_PROFILE_NOT_FOUND'
   constructor(id: string) {
-    super(`Employment profile not found: ${id}`)
+    super(`Person profile not found: ${id}`)
   }
 }
 
-export class EmploymentProfileAlreadyExistsException extends DomainException {
-  readonly code = 'EMPLOYMENT_PROFILE_ALREADY_EXISTS'
+export class PersonProfileAlreadyExistsException extends DomainException {
+  readonly code = 'PERSON_PROFILE_ALREADY_EXISTS'
   constructor(actorId: string) {
-    super(`Employment profile already exists for actor: ${actorId}`)
+    super(`Person profile already exists for actor: ${actorId}`)
+  }
+}
+
+export class EmploymentNotFoundException extends DomainException {
+  readonly code = 'EMPLOYMENT_NOT_FOUND'
+  constructor(id: string) {
+    super(`Employment not found: ${id}`)
   }
 }
 
@@ -21,17 +28,31 @@ export class InvalidEmploymentStatusTransitionException extends DomainException 
   }
 }
 
-export class ProfileChangeRequestNotFoundException extends DomainException {
-  readonly code = 'PROFILE_CHANGE_REQUEST_NOT_FOUND'
+export class JobAssignmentNotFoundException extends DomainException {
+  readonly code = 'JOB_ASSIGNMENT_NOT_FOUND'
   constructor(id: string) {
-    super(`Profile change request not found: ${id}`)
+    super(`Job assignment not found: ${id}`)
   }
 }
 
-export class ProfileChangeRequestNotPendingException extends DomainException {
-  readonly code = 'PROFILE_CHANGE_REQUEST_NOT_PENDING'
+export class JobProfileNotFoundException extends DomainException {
+  readonly code = 'JOB_PROFILE_NOT_FOUND'
   constructor(id: string) {
-    super(`Profile change request is not in pending state: ${id}`)
+    super(`Job profile not found: ${id}`)
+  }
+}
+
+export class JobFamilyNotFoundException extends DomainException {
+  readonly code = 'JOB_FAMILY_NOT_FOUND'
+  constructor(id: string) {
+    super(`Job family not found: ${id}`)
+  }
+}
+
+export class DuplicateCompanyEmailException extends DomainException {
+  readonly code = 'DUPLICATE_COMPANY_EMAIL'
+  constructor(email: string) {
+    super(`Company email already in use: ${email}`)
   }
 }
 
@@ -49,10 +70,10 @@ export class OnboardingTaskNotFoundException extends DomainException {
   }
 }
 
-export class OffboardingTaskNotFoundException extends DomainException {
-  readonly code = 'OFFBOARDING_TASK_NOT_FOUND'
+export class OnboardingTemplateNotFoundException extends DomainException {
+  readonly code = 'ONBOARDING_TEMPLATE_NOT_FOUND'
   constructor(id: string) {
-    super(`Offboarding task not found: ${id}`)
+    super(`Onboarding template not found: ${id}`)
   }
 }
 
@@ -63,10 +84,24 @@ export class OffboardingCaseNotFoundException extends DomainException {
   }
 }
 
+export class OffboardingTaskNotFoundException extends DomainException {
+  readonly code = 'OFFBOARDING_TASK_NOT_FOUND'
+  constructor(id: string) {
+    super(`Offboarding task not found: ${id}`)
+  }
+}
+
+export class OffboardingTemplateNotFoundException extends DomainException {
+  readonly code = 'OFFBOARDING_TEMPLATE_NOT_FOUND'
+  constructor(id: string) {
+    super(`Offboarding template not found: ${id}`)
+  }
+}
+
 export class OffboardingCaseAlreadyActiveException extends DomainException {
   readonly code = 'OFFBOARDING_CASE_ALREADY_ACTIVE'
   constructor(profileId: string) {
-    super(`An active offboarding case already exists for profile: ${profileId}`)
+    super(`An offboarding case is already active for profile: ${profileId}`)
   }
 }
 
@@ -77,16 +112,37 @@ export class OffboardingNotInProcessingException extends DomainException {
   }
 }
 
-export class OnboardingTemplateNotFoundException extends DomainException {
-  readonly code = 'ONBOARDING_TEMPLATE_NOT_FOUND'
+export class ProfileChangeRequestNotFoundException extends DomainException {
+  readonly code = 'PROFILE_CHANGE_REQUEST_NOT_FOUND'
   constructor(id: string) {
-    super(`Onboarding template not found: ${id}`)
+    super(`Profile change request not found: ${id}`)
   }
 }
 
-export class OffboardingTemplateNotFoundException extends DomainException {
-  readonly code = 'OFFBOARDING_TEMPLATE_NOT_FOUND'
+export class ProfileChangeRequestNotPendingException extends DomainException {
+  readonly code = 'PROFILE_CHANGE_REQUEST_NOT_PENDING'
   constructor(id: string) {
-    super(`Offboarding template not found: ${id}`)
+    super(`Profile change request is not in pending state: ${id}`)
+  }
+}
+
+export class ProbationRecordNotFoundException extends DomainException {
+  readonly code = 'PROBATION_RECORD_NOT_FOUND'
+  constructor(employmentId: string) {
+    super(`Probation record not found for employment: ${employmentId}`)
+  }
+}
+
+export class ProbationExtensionNotAllowedException extends DomainException {
+  readonly code = 'PROBATION_EXTENSION_NOT_ALLOWED'
+  constructor(reason: string) {
+    super(`Probation extension not allowed: ${reason}`)
+  }
+}
+
+export class InvalidProbationStatusException extends DomainException {
+  readonly code = 'INVALID_PROBATION_STATUS'
+  constructor(status: string, action: string) {
+    super(`Cannot ${action} probation in status: ${status}`)
   }
 }

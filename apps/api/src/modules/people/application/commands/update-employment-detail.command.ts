@@ -1,0 +1,27 @@
+export class UpdateEmploymentDetailCommand {
+  constructor(
+    readonly tenantId: string,
+    readonly employmentId: string,
+    readonly updatedBy: string,
+    readonly nationalId?: string | null,
+    readonly nationalIdType?: string | null,
+    readonly nationalIdIssuedDate?: Date | null,
+    readonly nationalIdExpiryDate?: Date | null,
+    readonly taxId?: string | null,
+    readonly socialInsuranceId?: string | null,
+    readonly passportNumber?: string | null,
+    readonly passportExpiryDate?: Date | null,
+    readonly bankAccountNumber?: string | null,
+    readonly bankName?: string | null,
+    readonly bankBranch?: string | null,
+    readonly bankAccountHolder?: string | null,
+    readonly bankSwiftCode?: string | null,
+    readonly personalEmail?: string | null,
+    readonly personalPhone?: string | null,
+    readonly permanentAddress?: Record<string, unknown> | null,
+    readonly currentAddress?: Record<string, unknown> | null,
+    readonly emergencyContacts?: Array<Record<string, unknown>> | null,
+    readonly countryData?: Record<string, unknown> | null,
+    readonly customFields?: Record<string, unknown> | null,
+  ) {}
+}
