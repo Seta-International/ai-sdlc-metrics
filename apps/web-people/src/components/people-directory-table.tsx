@@ -1,37 +1,38 @@
 'use client'
 
 import * as React from 'react'
+import { useRouter } from 'next/navigation'
 import type { ColumnDef, CellContext } from '@tanstack/react-table'
-import {
-  DataTable,
-  type FutureTableState,
-  type PersistedSavedViewState,
-  defaultTableState,
-  isSavedViewDirty,
-} from '@future/ui'
+import { DataTable, type FutureTableState, defaultTableState, Button } from '@future/ui'
+import { LayoutGrid, LayoutList, Download } from 'lucide-react'
 import { trpc } from '../lib/trpc'
-import {
-  getTableStateFromUrl,
-  pushTableStateToUrl,
-  replaceTableStateInUrl,
-  resolveHydratedTableState,
-} from '../lib/table-url-state'
+import { getTableStateFromUrl, pushTableStateToUrl } from '../lib/table-url-state'
+import { AvatarNameCell } from './avatar-name-cell'
+import { StatusBadge } from './status-badge'
+import { FilterPanel, emptyFilters, type FilterValues } from './filter-panel'
+import { CardGridView } from './card-grid-view'
+import type { DirectoryRow, EmploymentStatus } from '../lib/types'
 
-type PeopleDirectoryRow = {
-  id: string
-  fullName: string
-  department: string
-  jobTitle: string
-  status: 'active' | 'inactive' | 'on_leave'
-  employmentType: 'permanent' | 'fixed_term' | 'contractor' | 'intern'
-  detailPanel?: Record<string, unknown>
-}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const anyTrpc = trpc as any
 
-// Column definitions for the people directory
-const columns: ColumnDef<PeopleDirectoryRow>[] = [
+const columns: ColumnDef<DirectoryRow>[] = [
   {
     accessorKey: 'fullName',
-    header: 'Full Name',
+    header: 'Name',
+    enableSorting: true,
+    cell: ({ row }: CellContext<DirectoryRow, unknown>) => (
+      <AvatarNameCell
+        fullName={row.original.fullName}
+        preferredName={row.original.preferredName}
+        avatarUrl={row.original.avatarUrl}
+        subtitle={row.original.companyEmail}
+      />
+    ),
+  },
+  {
+    accessorKey: 'jobTitle',
+    header: 'Job Title',
     enableSorting: true,
   },
   {
@@ -40,132 +41,74 @@ const columns: ColumnDef<PeopleDirectoryRow>[] = [
     enableSorting: true,
   },
   {
-    accessorKey: 'jobTitle',
-    header: 'Job Title',
+    accessorKey: 'location',
+    header: 'Location',
     enableSorting: true,
-  },
-  {
-    accessorKey: 'status',
-    header: 'Status',
-    enableSorting: true,
-    cell: ({ getValue }: CellContext<PeopleDirectoryRow, unknown>) => {
-      const status = getValue() as string
-      const labels: Record<string, string> = {
-        active: 'Active',
-        inactive: 'Inactive',
-        on_leave: 'On Leave',
-      }
-      return labels[status] ?? status
+    cell: ({ getValue }: CellContext<DirectoryRow, unknown>) => {
+      const val = getValue() as string | null
+      return val ?? <span className="text-[#62666d]">--</span>
     },
   },
   {
-    accessorKey: 'employmentType',
-    header: 'Employment Type',
-    enableSorting: false,
-    cell: ({ getValue }: CellContext<PeopleDirectoryRow, unknown>) => {
-      const type = getValue() as string
-      const labels: Record<string, string> = {
-        permanent: 'Permanent',
-        fixed_term: 'Fixed Term',
-        contractor: 'Contractor',
-        intern: 'Intern',
-      }
-      return labels[type] ?? type
+    accessorKey: 'employmentStatus',
+    header: 'Status',
+    enableSorting: true,
+    cell: ({ getValue }: CellContext<DirectoryRow, unknown>) => (
+      <StatusBadge status={getValue() as EmploymentStatus} />
+    ),
+  },
+  {
+    accessorKey: 'countryCode',
+    header: 'Country',
+    enableSorting: true,
+    cell: ({ getValue }: CellContext<DirectoryRow, unknown>) => {
+      const code = getValue() as string
+      return <span className="text-xs text-[#d0d6e0]">{code.toUpperCase()}</span>
     },
   },
 ]
 
-type SavedViewEntry = {
-  id: string
-  name: string
-  isDefault: boolean
-  stateJson: PersistedSavedViewState
-}
+type ViewMode = 'list' | 'card'
 
-type ResolveResult = {
-  views: SavedViewEntry[]
-  activeView: SavedViewEntry | null
-  defaultViewId: string | null
+type Facets = {
+  departments: Array<{ value: string; label: string; count?: number }>
+  jobFamilies: Array<{ value: string; label: string; count?: number }>
+  countries: Array<{ value: string; label: string; count?: number }>
+  locations: Array<{ value: string; label: string; count?: number }>
 }
-
-// The AppRouter type has `people` and `preferences` typed as `any` because of the
-// mutable router pattern (runtime injection). We cast through unknown to access them.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const anyTrpc = trpc as any
 
 export interface PeopleDirectoryTableProps {
   resourceKey: string
 }
 
 export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps) {
+  const router = useRouter()
   const [tableState, setTableState] = React.useState<FutureTableState>(defaultTableState)
-  const [activeViewId, setActiveViewId] = React.useState<string | null>(null)
-  const [viewsData, setViewsData] = React.useState<ResolveResult>({
-    views: [],
-    activeView: null,
-    defaultViewId: null,
-  })
-  const [rows, setRows] = React.useState<PeopleDirectoryRow[]>([])
+  const [viewMode, setViewMode] = React.useState<ViewMode>('list')
+  const [rows, setRows] = React.useState<DirectoryRow[]>([])
   const [totalCount, setTotalCount] = React.useState(0)
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | undefined>()
-  const [isViewsLoading, setIsViewsLoading] = React.useState(true)
-  const [isSaving, setIsSaving] = React.useState(false)
 
-  // On mount: resolve saved view state and initialize table state
+  const [facets, setFacets] = React.useState<Facets>({
+    departments: [],
+    jobFamilies: [],
+    countries: [],
+    locations: [],
+  })
+
+  const [filterValues, setFilterValues] = React.useState<FilterValues>(emptyFilters)
+
+  // On mount: restore state from URL
   React.useEffect(() => {
     const urlState = getTableStateFromUrl()
-    const requestedActiveViewId =
-      new URLSearchParams(window.location.search).get('activeViewId') ?? null
+    const urlViewMode = new URLSearchParams(window.location.search).get('view')
+    if (urlViewMode === 'card' || urlViewMode === 'list') setViewMode(urlViewMode)
+    setTableState(urlState)
+  }, [])
 
-    ;(
-      anyTrpc.preferences.savedView.resolve.query({
-        resourceKey,
-        activeViewId: requestedActiveViewId,
-      }) as Promise<ResolveResult>
-    )
-      .then((result) => {
-        const activeView: PersistedSavedViewState | null = result.activeView
-          ? result.activeView.stateJson
-          : null
-
-        const defaultViewEntry = result.defaultViewId
-          ? result.views.find((v) => v.id === result.defaultViewId)
-          : null
-        const defaultView: PersistedSavedViewState | null = defaultViewEntry
-          ? defaultViewEntry.stateJson
-          : null
-
-        const { nextState, nextActiveViewId, replaceUrl } = resolveHydratedTableState({
-          urlState,
-          activeView,
-          defaultView,
-          requestedActiveViewId,
-        })
-
-        setViewsData(result)
-        setActiveViewId(nextActiveViewId)
-        setTableState(nextState)
-
-        if (replaceUrl) {
-          replaceTableStateInUrl(nextState, nextActiveViewId)
-        }
-      })
-      .catch((err: unknown) => {
-        console.error('Failed to load saved views:', err)
-        // Fall back to URL state
-        setTableState(urlState)
-      })
-      .finally(() => {
-        setIsViewsLoading(false)
-      })
-    // intentionally only run on mount (resourceKey is stable)
-  }, [resourceKey])
-
-  // Load data whenever table state changes (after initial view resolution)
+  // Load data + facets whenever state changes
   React.useEffect(() => {
-    if (isViewsLoading) return
-
     void (async () => {
       setIsLoading(true)
       setError(undefined)
@@ -173,184 +116,51 @@ export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps)
         const result = await (anyTrpc.people.directory.list.query({
           resourceKey,
           search: tableState.search,
-          filters: tableState.filters,
+          filters: {
+            ...tableState.filters,
+            ...filterValues,
+          },
           sorting: tableState.sorting,
           pagination: tableState.pagination,
         }) as Promise<{
-          rows: PeopleDirectoryRow[]
+          rows: DirectoryRow[]
           totalCount: number
-          pageCount: number
-          pageIndex: number
-          pageSize: number
+          facets: Facets
         }>)
         setRows(result.rows)
         setTotalCount(result.totalCount)
+        if (result.facets) setFacets(result.facets)
       } catch (err: unknown) {
-        console.error('Failed to load directory:', err)
         setError(err instanceof Error ? err.message : 'Failed to load data')
       } finally {
         setIsLoading(false)
       }
     })()
-  }, [tableState, resourceKey, isViewsLoading])
+  }, [tableState, filterValues, resourceKey])
 
-  // Handle state changes from the table
   function handleStateChange(next: FutureTableState) {
     setTableState(next)
     pushTableStateToUrl(next)
   }
 
-  // Handle view selection
-  function handleSelectView(viewId: string | null) {
-    if (!viewId) {
-      setActiveViewId(null)
-      const next = { ...defaultTableState }
-      setTableState(next)
-      replaceTableStateInUrl(next, null)
-      return
-    }
-
-    const view = viewsData.views.find((v) => v.id === viewId)
-    if (!view) return
-
-    const next: FutureTableState = {
-      ...defaultTableState,
-      ...view.stateJson,
-      pagination: { pageIndex: 0, pageSize: view.stateJson.pagination.pageSize },
-    }
-    setActiveViewId(viewId)
-    setTableState(next)
-    replaceTableStateInUrl(next, viewId)
+  function handleRowClick(row: DirectoryRow) {
+    router.push(`/profile/${row.id}`)
   }
 
-  // Handle saving current state to active view
-  async function handleSaveView() {
-    if (!activeViewId) return
-
-    setIsSaving(true)
-    try {
-      const stateJson: PersistedSavedViewState = {
-        search: tableState.search,
-        filters: tableState.filters,
-        sorting: tableState.sorting,
-        pagination: { pageSize: tableState.pagination.pageSize },
-        columnVisibility: tableState.columnVisibility,
-        columnPinning: tableState.columnPinning,
-        density: tableState.density,
-      }
-      await (anyTrpc.preferences.savedView.update.mutate({
-        id: activeViewId,
-        stateJson,
-      }) as Promise<SavedViewEntry>)
-      const updated = await (anyTrpc.preferences.savedView.resolve.query({
-        resourceKey,
-        activeViewId,
-      }) as Promise<ResolveResult>)
-      setViewsData(updated)
-    } catch (err) {
-      console.error('Failed to save view:', err)
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  // Handle creating a new saved view
-  async function handleCreateView(name: string) {
-    const stateJson: PersistedSavedViewState = {
-      search: tableState.search,
-      filters: tableState.filters,
-      sorting: tableState.sorting,
-      pagination: { pageSize: tableState.pagination.pageSize },
-      columnVisibility: tableState.columnVisibility,
-      columnPinning: tableState.columnPinning,
-      density: tableState.density,
-    }
-    try {
-      const newView = await (anyTrpc.preferences.savedView.create.mutate({
-        resourceKey,
-        name,
-        stateJson,
-        isDefault: false,
-      }) as Promise<SavedViewEntry>)
-      setActiveViewId(newView.id)
-      replaceTableStateInUrl(tableState, newView.id)
-      const updated = await (anyTrpc.preferences.savedView.resolve.query({
-        resourceKey,
-        activeViewId: newView.id,
-      }) as Promise<ResolveResult>)
-      setViewsData(updated)
-    } catch (err) {
-      console.error('Failed to create view:', err)
-    }
-  }
-
-  // Handle deleting a saved view
-  async function handleDeleteView(viewId: string) {
-    try {
-      await (anyTrpc.preferences.savedView.delete.mutate({ id: viewId }) as Promise<void>)
-      const nextActiveViewId = activeViewId === viewId ? null : activeViewId
-      if (activeViewId === viewId) {
-        setActiveViewId(null)
-        replaceTableStateInUrl(tableState, null)
-      }
-      const updated = await (anyTrpc.preferences.savedView.resolve.query({
-        resourceKey,
-        activeViewId: nextActiveViewId,
-      }) as Promise<ResolveResult>)
-      setViewsData(updated)
-    } catch (err) {
-      console.error('Failed to delete view:', err)
-    }
-  }
-
-  // Handle setting a view as default
-  async function handleSetDefaultView(viewId: string) {
-    try {
-      await (anyTrpc.preferences.savedView.setDefault.mutate({
-        id: viewId,
-        resourceKey,
-      }) as Promise<void>)
-      const updated = await (anyTrpc.preferences.savedView.resolve.query({
-        resourceKey,
-        activeViewId,
-      }) as Promise<ResolveResult>)
-      setViewsData(updated)
-    } catch (err) {
-      console.error('Failed to set default view:', err)
-    }
-  }
-
-  // Compute if the active view is dirty
-  const currentActiveView = activeViewId ? viewsData.views.find((v) => v.id === activeViewId) : null
-  const isViewDirty =
-    currentActiveView != null && isSavedViewDirty(currentActiveView.stateJson, tableState)
-
-  // Handle export: download as CSV
-  async function handleExport() {
+  async function handleExport(format: 'csv' | 'xlsx' = 'csv') {
     try {
       const result = await (anyTrpc.people.directory.export.query({
         resourceKey,
         search: tableState.search,
-        filters: tableState.filters,
+        filters: { ...tableState.filters, ...filterValues },
         sorting: tableState.sorting,
-      }) as Promise<
-        | { filename: string; csv: string }
-        | { code: 'EXPORT_LIMIT_EXCEEDED'; limit: number; message: string }
-      >)
-
-      if ('code' in result && result.code === 'EXPORT_LIMIT_EXCEEDED') {
-        console.error('Export failed:', result.message)
-        return
-      }
-
-      const { filename, csv } = result as { filename: string; csv: string }
-      if (!csv) return
-
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+        format,
+      }) as Promise<{ filename: string; csv: string }>)
+      const blob = new Blob([result.csv], { type: 'text/csv;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = filename
+      link.download = result.filename
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -360,162 +170,94 @@ export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps)
     }
   }
 
-  // Render expanded row detail panel
-  function renderExpandedRow(row: PeopleDirectoryRow) {
+  // Render expanded row: navigate to profile on click
+  function renderExpandedRow(row: DirectoryRow) {
     return (
-      <div data-testid="expanded-row" className="px-4 py-3 text-sm">
-        <div className="font-medium mb-2">{row.fullName} — Details</div>
-        {row.detailPanel ? (
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
-            {Object.entries(row.detailPanel).map(([key, val]) => (
-              <React.Fragment key={key}>
-                <dt className="text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</dt>
-                <dd>{val == null ? '—' : String(val)}</dd>
-              </React.Fragment>
-            ))}
-          </dl>
-        ) : (
-          <p className="text-muted-foreground">No additional details available.</p>
-        )}
-      </div>
+      <button
+        type="button"
+        className="w-full text-left px-4 py-3 text-sm hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+        onClick={() => handleRowClick(row)}
+      >
+        <span className="text-[#62666d]">View profile →</span>
+      </button>
     )
   }
 
   return (
-    <div className="space-y-3">
-      {/* Saved views toolbar */}
-      {viewsData.views.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-muted-foreground">Views:</span>
-          <button
-            type="button"
-            onClick={() => handleSelectView(null)}
-            className={`px-2 py-1 text-xs rounded border ${
-              activeViewId == null
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'border-border hover:bg-muted'
-            }`}
-          >
-            Default
-          </button>
-          {viewsData.views.map((view) => (
-            <div key={view.id} className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => handleSelectView(view.id)}
-                className={`px-2 py-1 text-xs rounded border ${
-                  activeViewId === view.id
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'border-border hover:bg-muted'
-                }`}
-              >
-                {view.name}
-                {view.isDefault && <span className="ml-1 text-xs opacity-60">(default)</span>}
-              </button>
-              {activeViewId === view.id && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => void handleSetDefaultView(view.id)}
-                    className="px-1.5 py-1 text-xs rounded border border-border hover:bg-muted"
-                    title="Set as default"
-                  >
-                    ★
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteView(view.id)}
-                    className="px-1.5 py-1 text-xs rounded border border-border hover:bg-muted text-destructive"
-                    title="Delete view"
-                  >
-                    ✕
-                  </button>
-                </>
-              )}
-            </div>
-          ))}
-          {/* Save button when view is dirty */}
-          {isViewDirty && (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 flex-1">
+          <FilterPanel
+            filters={filterValues}
+            onFiltersChange={setFilterValues}
+            departments={facets.departments}
+            jobFamilies={facets.jobFamilies}
+            countries={facets.countries}
+            locations={facets.locations}
+          />
+          {totalCount > 0 && <span className="text-xs text-[#62666d]">{totalCount} employees</span>}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex items-center rounded-md border border-[rgba(255,255,255,0.08)]">
             <button
               type="button"
-              onClick={() => void handleSaveView()}
-              disabled={isSaving}
-              className="px-2 py-1 text-xs rounded border border-primary bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              onClick={() => setViewMode('list')}
+              className={`rounded-l-md p-1.5 ${
+                viewMode === 'list'
+                  ? 'bg-[rgba(255,255,255,0.08)] text-[#f7f8f8]'
+                  : 'text-[#62666d] hover:text-[#8a8f98]'
+              }`}
+              aria-label="List view"
             >
-              {isSaving ? 'Saving…' : 'Save'}
+              <LayoutList className="h-4 w-4" />
             </button>
-          )}
+            <button
+              type="button"
+              onClick={() => setViewMode('card')}
+              className={`rounded-r-md p-1.5 ${
+                viewMode === 'card'
+                  ? 'bg-[rgba(255,255,255,0.08)] text-[#f7f8f8]'
+                  : 'text-[#62666d] hover:text-[#8a8f98]'
+              }`}
+              aria-label="Card view"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Export */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleExport('csv')}
+            className="gap-1"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export
+          </Button>
         </div>
+      </div>
+
+      {/* Content */}
+      {viewMode === 'list' ? (
+        <DataTable
+          columns={columns}
+          rows={rows}
+          state={tableState}
+          totalCount={totalCount}
+          onStateChange={handleStateChange}
+          renderExpandedRow={renderExpandedRow}
+          onExport={() => void handleExport('csv')}
+          isLoading={isLoading}
+          error={error}
+          onRetry={() => setTableState({ ...tableState })}
+        />
+      ) : (
+        <CardGridView employees={rows} />
       )}
-
-      {/* Create new view */}
-      <CreateViewForm onCreate={(name) => void handleCreateView(name)} />
-
-      {/* Main data table */}
-      <DataTable
-        columns={columns}
-        rows={rows}
-        state={tableState}
-        totalCount={totalCount}
-        onStateChange={handleStateChange}
-        renderExpandedRow={renderExpandedRow}
-        onExport={() => void handleExport()}
-        isLoading={isLoading}
-        error={error}
-        onRetry={() => setTableState({ ...tableState })}
-      />
     </div>
-  )
-}
-
-// Simple inline create-view form
-function CreateViewForm({ onCreate }: { onCreate: (name: string) => void }) {
-  const [open, setOpen] = React.useState(false)
-  const [name, setName] = React.useState('')
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!name.trim()) return
-    onCreate(name.trim())
-    setName('')
-    setOpen(false)
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
-      >
-        + Save current view
-      </button>
-    )
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="flex items-center gap-2">
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="View name…"
-        className="h-7 text-xs px-2 rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-        autoFocus
-      />
-      <button
-        type="submit"
-        className="px-2 h-7 text-xs rounded border border-primary bg-primary text-primary-foreground hover:bg-primary/90"
-      >
-        Save
-      </button>
-      <button
-        type="button"
-        onClick={() => setOpen(false)}
-        className="px-2 h-7 text-xs rounded border border-border hover:bg-muted"
-      >
-        Cancel
-      </button>
-    </form>
   )
 }
