@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { OnEmployeeTerminatedHandler } from './on-employee-terminated.handler'
-import { EmployeeTerminatedEvent } from '@future/event-contracts'
+import { EmploymentTerminatedEvent } from '@future/event-contracts'
 import type { IAllocationRepository } from '../../domain/repositories/allocation.repository.port'
 import type { IProjectRoleRepository } from '../../domain/repositories/project-role.repository.port'
 
@@ -72,7 +72,15 @@ describe('OnEmployeeTerminatedHandler', () => {
       createdAt: new Date(),
     })
 
-    await handler.handle(new EmployeeTerminatedEvent(TENANT_ID, ACTOR_ID, '2026-05-01'))
+    await handler.handle(
+      new EmploymentTerminatedEvent(
+        TENANT_ID,
+        ACTOR_ID,
+        'hr-actor-id',
+        'resigned',
+        new Date('2026-05-01'),
+      ),
+    )
 
     expect(allocRepo.closeAllForActor).toHaveBeenCalledWith(
       ACTOR_ID,
@@ -115,7 +123,15 @@ describe('OnEmployeeTerminatedHandler', () => {
       createdAt: new Date(),
     })
 
-    await handler.handle(new EmployeeTerminatedEvent(TENANT_ID, ACTOR_ID, '2026-05-01'))
+    await handler.handle(
+      new EmploymentTerminatedEvent(
+        TENANT_ID,
+        ACTOR_ID,
+        'hr-actor-id',
+        'resigned',
+        new Date('2026-05-01'),
+      ),
+    )
 
     expect(allocRepo.closeAllForActor).toHaveBeenCalled()
     // Role should NOT be reopened because remaining allocations >= headcount
@@ -155,7 +171,15 @@ describe('OnEmployeeTerminatedHandler', () => {
       createdAt: new Date(),
     })
 
-    await handler.handle(new EmployeeTerminatedEvent(TENANT_ID, ACTOR_ID, '2026-05-01'))
+    await handler.handle(
+      new EmploymentTerminatedEvent(
+        TENANT_ID,
+        ACTOR_ID,
+        'hr-actor-id',
+        'resigned',
+        new Date('2026-05-01'),
+      ),
+    )
 
     // Role should be reopened because remaining (1) < headcount (3)
     expect(roleRepo.updateStatus).toHaveBeenCalledWith('role-1', TENANT_ID, 'open')
