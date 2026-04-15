@@ -20,7 +20,7 @@ describe('RejectOffboardingHandler', () => {
       findById: vi.fn().mockResolvedValue({
         id: CASE_ID,
         tenantId: TENANT_ID,
-        profileId: '01900000-0000-7000-8000-000000000003',
+        employmentId: '01900000-0000-7000-8000-000000000003',
         status: 'pending',
         reason: 'Resignation',
         reasonCategory: 'voluntary',
@@ -28,7 +28,7 @@ describe('RejectOffboardingHandler', () => {
         decisionCaseId: 'dc-1',
         createdAt: new Date(),
       }),
-      findActiveByProfileId: vi.fn(),
+      findActiveByEmploymentId: vi.fn(),
       updateStatus: vi.fn(),
       insertTask: vi.fn(),
       getRequiredTasks: vi.fn(),

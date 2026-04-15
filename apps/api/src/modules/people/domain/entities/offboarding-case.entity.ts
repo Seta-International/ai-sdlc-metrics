@@ -5,7 +5,7 @@ export type OffboardingCaseStatus = 'pending' | 'approved' | 'processing' | 'com
 export interface OffboardingCase {
   id: string
   tenantId: string
-  profileId: string
+  employmentId: string
   templateId: string | null
   reason: string
   reasonCategory: OffboardingReasonCategory | null

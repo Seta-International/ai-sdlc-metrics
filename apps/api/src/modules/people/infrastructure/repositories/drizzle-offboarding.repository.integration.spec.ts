@@ -22,7 +22,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
   let caseRepo: DrizzleOffboardingCaseRepository
   let _templateRepo: DrizzleOffboardingTemplateRepository
 
-  let profileIdA: string
+  let employmentIdA: string
 
   beforeAll(async () => {
     await migrateForTest()
@@ -40,7 +40,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
       actorId,
       employeeCode: 'SETA-OFFBOARD-001',
     })
-    profileIdA = profile.id
+    employmentIdA = profile.id
   })
 
   afterAll(async () => {
@@ -54,7 +54,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
 
       const inserted = await caseRepo.insert({
         tenantId: TENANT_A,
-        profileId: profileIdA,
+        employmentId: employmentIdA,
         templateId: null,
         reason: 'Personal reasons',
         reasonCategory: 'voluntary',
@@ -64,7 +64,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
 
       expect(inserted.id).toBeDefined()
       expect(inserted.tenantId).toBe(TENANT_A)
-      expect(inserted.profileId).toBe(profileIdA)
+      expect(inserted.employmentId).toBe(employmentIdA)
       expect(inserted.reason).toBe('Personal reasons')
       expect(inserted.status).toBe('pending')
       expect(inserted.createdAt).toBeDefined()
@@ -79,7 +79,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
       await setTenantContext(db, TENANT_A)
       const inserted = await caseRepo.insert({
         tenantId: TENANT_A,
-        profileId: profileIdA,
+        employmentId: employmentIdA,
         templateId: null,
         reason: 'Another reason',
         reasonCategory: null,
@@ -93,11 +93,11 @@ describe('DrizzleOffboardingCaseRepository', () => {
     })
   })
 
-  describe('findActiveByProfileId', () => {
-    it('finds active case by profile id', async () => {
+  describe('findActiveByEmploymentId', () => {
+    it('finds active case by employment id', async () => {
       await setTenantContext(db, TENANT_A)
       const { id: actorId } = await seedActor(db, { tenantId: TENANT_A })
-      const { id: profileId } = await seedEmploymentProfile(db, {
+      const { id: employmentId } = await seedEmploymentProfile(db, {
         tenantId: TENANT_A,
         actorId,
         employeeCode: 'SETA-OFFBOARD-ACTIVE-001',
@@ -105,7 +105,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
 
       await caseRepo.insert({
         tenantId: TENANT_A,
-        profileId,
+        employmentId,
         templateId: null,
         reason: 'Active case',
         reasonCategory: null,
@@ -113,15 +113,15 @@ describe('DrizzleOffboardingCaseRepository', () => {
         status: 'pending',
       })
 
-      const found = await caseRepo.findActiveByProfileId(profileId, TENANT_A)
+      const found = await caseRepo.findActiveByEmploymentId(employmentId, TENANT_A)
       expect(found).not.toBeNull()
-      expect(found?.profileId).toBe(profileId)
+      expect(found?.employmentId).toBe(employmentId)
     })
 
     it('does NOT return completed or rejected cases', async () => {
       await setTenantContext(db, TENANT_A)
       const { id: actorId } = await seedActor(db, { tenantId: TENANT_A })
-      const { id: profileId } = await seedEmploymentProfile(db, {
+      const { id: employmentId } = await seedEmploymentProfile(db, {
         tenantId: TENANT_A,
         actorId,
         employeeCode: 'SETA-OFFBOARD-COMPLETED-001',
@@ -129,7 +129,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
 
       const completedCase = await caseRepo.insert({
         tenantId: TENANT_A,
-        profileId,
+        employmentId,
         templateId: null,
         reason: 'Completed case',
         reasonCategory: null,
@@ -138,14 +138,14 @@ describe('DrizzleOffboardingCaseRepository', () => {
       })
       await caseRepo.updateStatus(completedCase.id, TENANT_A, 'completed')
 
-      const found = await caseRepo.findActiveByProfileId(profileId, TENANT_A)
+      const found = await caseRepo.findActiveByEmploymentId(employmentId, TENANT_A)
       expect(found).toBeNull()
     })
 
     it('does NOT return rejected cases', async () => {
       await setTenantContext(db, TENANT_A)
       const { id: actorId } = await seedActor(db, { tenantId: TENANT_A })
-      const { id: profileId } = await seedEmploymentProfile(db, {
+      const { id: employmentId } = await seedEmploymentProfile(db, {
         tenantId: TENANT_A,
         actorId,
         employeeCode: 'SETA-OFFBOARD-REJECTED-001',
@@ -153,7 +153,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
 
       const rejectedCase = await caseRepo.insert({
         tenantId: TENANT_A,
-        profileId,
+        employmentId,
         templateId: null,
         reason: 'Rejected case',
         reasonCategory: null,
@@ -162,7 +162,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
       })
       await caseRepo.updateStatus(rejectedCase.id, TENANT_A, 'rejected')
 
-      const found = await caseRepo.findActiveByProfileId(profileId, TENANT_A)
+      const found = await caseRepo.findActiveByEmploymentId(employmentId, TENANT_A)
       expect(found).toBeNull()
     })
   })
@@ -171,7 +171,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
     it('updates the status of a case', async () => {
       await setTenantContext(db, TENANT_A)
       const { id: actorId } = await seedActor(db, { tenantId: TENANT_A })
-      const { id: profileId } = await seedEmploymentProfile(db, {
+      const { id: employmentId } = await seedEmploymentProfile(db, {
         tenantId: TENANT_A,
         actorId,
         employeeCode: 'SETA-OFFBOARD-STATUS-001',
@@ -179,7 +179,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
 
       const created = await caseRepo.insert({
         tenantId: TENANT_A,
-        profileId,
+        employmentId,
         templateId: null,
         reason: 'Status update test',
         reasonCategory: null,
@@ -198,7 +198,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
     it('updates partial fields of a case', async () => {
       await setTenantContext(db, TENANT_A)
       const { id: actorId } = await seedActor(db, { tenantId: TENANT_A })
-      const { id: profileId } = await seedEmploymentProfile(db, {
+      const { id: employmentId } = await seedEmploymentProfile(db, {
         tenantId: TENANT_A,
         actorId,
         employeeCode: 'SETA-OFFBOARD-UPDATE-001',
@@ -206,7 +206,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
 
       const created = await caseRepo.insert({
         tenantId: TENANT_A,
-        profileId,
+        employmentId,
         templateId: null,
         reason: 'Update test',
         reasonCategory: null,
@@ -225,7 +225,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
     it('inserts a task and retrieves it', async () => {
       await setTenantContext(db, TENANT_A)
       const { id: actorId } = await seedActor(db, { tenantId: TENANT_A })
-      const { id: profileId } = await seedEmploymentProfile(db, {
+      const { id: employmentId } = await seedEmploymentProfile(db, {
         tenantId: TENANT_A,
         actorId,
         employeeCode: 'SETA-OFFBOARD-TASK-001',
@@ -233,7 +233,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
 
       const offCase = await caseRepo.insert({
         tenantId: TENANT_A,
-        profileId,
+        employmentId,
         templateId: null,
         reason: 'Task test',
         reasonCategory: null,
@@ -267,7 +267,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
     it('updates task status', async () => {
       await setTenantContext(db, TENANT_A)
       const { id: actorId } = await seedActor(db, { tenantId: TENANT_A })
-      const { id: profileId } = await seedEmploymentProfile(db, {
+      const { id: employmentId } = await seedEmploymentProfile(db, {
         tenantId: TENANT_A,
         actorId,
         employeeCode: 'SETA-OFFBOARD-TASK-STATUS-001',
@@ -275,7 +275,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
 
       const offCase = await caseRepo.insert({
         tenantId: TENANT_A,
-        profileId,
+        employmentId,
         templateId: null,
         reason: 'Task status test',
         reasonCategory: null,

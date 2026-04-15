@@ -13,7 +13,7 @@ describe('ListOnboardingTasksHandler', () => {
   beforeEach(() => {
     onboardingCaseRepo = {
       findById: vi.fn(),
-      findByProfileId: vi.fn(),
+      findByEmploymentId: vi.fn(),
       insert: vi.fn(),
       updateStatus: vi.fn(),
       insertTask: vi.fn(),

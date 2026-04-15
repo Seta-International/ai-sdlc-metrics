@@ -288,7 +288,7 @@ export const onboardingCase = peopleSchema.table('onboarding_case', {
     .$defaultFn(() => uuidv7())
     .primaryKey(),
   tenantId: uuid('tenant_id').notNull(),
-  profileId: uuid('profile_id').notNull(),
+  employmentId: uuid('employment_id').notNull(),
   templateId: uuid('template_id'),
   status: text('status', {
     enum: ['in_progress', 'completed'],
@@ -377,7 +377,7 @@ export const offboardingCase = peopleSchema.table('offboarding_case', {
     .$defaultFn(() => uuidv7())
     .primaryKey(),
   tenantId: uuid('tenant_id').notNull(),
-  profileId: uuid('profile_id').notNull(),
+  employmentId: uuid('employment_id').notNull(),
   templateId: uuid('template_id'),
   reason: text('reason').notNull(),
   reasonCategory: text('reason_category', {
