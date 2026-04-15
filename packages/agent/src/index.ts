@@ -1,2 +1,12 @@
-// @future/agent — embedded agent package
-// Exports added as components are implemented
+// Types
+export type {
+  ModuleKey,
+  AgentContext,
+  AgentInsight,
+  AgentInlineActionConfig,
+  AgentSessionStatus,
+  AgentMessageRole,
+  AgentMessage,
+  AgentSession,
+  AgentPanelState,
+} from './types'
