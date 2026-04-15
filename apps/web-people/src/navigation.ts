@@ -1,4 +1,14 @@
-import { Users, Network, UserMinus, Building2 } from 'lucide-react'
+// apps/web-people/src/navigation.ts
+import {
+  Users,
+  Network,
+  User,
+  UserPlus,
+  UserMinus,
+  FileCheck,
+  BarChart3,
+  Settings,
+} from 'lucide-react'
 import type { NavigationConfig } from '@future/app-layout'
 
 export const peopleNavConfig: NavigationConfig = {
@@ -13,12 +23,12 @@ export const peopleNavConfig: NavigationConfig = {
   },
   sidebar: [
     {
-      label: 'Directory',
+      label: 'People',
       items: [
         {
-          label: 'Employees',
+          label: 'Directory',
           icon: Users,
-          href: '/employees',
+          href: '/',
           permission: 'people:profile:read',
         },
         {
@@ -28,21 +38,54 @@ export const peopleNavConfig: NavigationConfig = {
           permission: 'people:org:read',
         },
         {
-          label: 'Departments',
-          icon: Building2,
-          href: '/departments',
-          permission: 'people:department:read',
+          label: 'My Profile',
+          icon: User,
+          href: '/me',
         },
       ],
     },
     {
-      label: 'Admin',
+      label: 'Workflows',
       items: [
+        {
+          label: 'Onboarding',
+          icon: UserPlus,
+          href: '/onboarding',
+          permission: 'people:onboard:manage',
+        },
         {
           label: 'Offboarding',
           icon: UserMinus,
           href: '/offboarding',
           permission: 'people:offboard:manage',
+        },
+        {
+          label: 'Change Requests',
+          icon: FileCheck,
+          href: '/change-requests',
+          permission: 'people:changes:review',
+        },
+      ],
+    },
+    {
+      label: 'Analytics',
+      items: [
+        {
+          label: 'Reports',
+          icon: BarChart3,
+          href: '/reports',
+          permission: 'people:reports:read',
+        },
+      ],
+    },
+    {
+      label: 'Configuration',
+      items: [
+        {
+          label: 'Settings',
+          icon: Settings,
+          href: '/settings',
+          permission: 'people:settings:manage',
         },
       ],
     },
