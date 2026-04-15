@@ -133,4 +133,15 @@ describe('AppLayout', () => {
 
     expect(screen.getByTestId('agent-panel')).toBeDefined()
   })
+
+  it('renders without agent state (null state from useOptionalAgentState)', () => {
+    vi.mocked(useOptionalAgentState).mockReturnValueOnce(null)
+    render(
+      <AppLayout config={testConfig} trpc={createMockTrpc([])}>
+        <div>content</div>
+      </AppLayout>,
+    )
+    expect(screen.queryByTestId('agent-panel')).toBeNull()
+    expect(screen.getByText('content')).toBeDefined()
+  })
 })

@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { AgentBadge } from './agent-badge'
 import { AgentStateProvider, useAgentState } from '../hooks/use-agent-state'
 import { AgentContextProvider } from '../context/agent-context-provider'
 import type { AgentInsight } from '../types'
+import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 
 const insights: AgentInsight[] = [
@@ -31,7 +32,9 @@ const insights: AgentInsight[] = [
 
 function InsightSeeder({ children }: { children: ReactNode }) {
   const { setInsights } = useAgentState()
-  setInsights(insights)
+  useEffect(() => {
+    setInsights(insights)
+  }, [])
   return <>{children}</>
 }
 
@@ -60,9 +63,11 @@ function noMatchWrapper({ children }: { children: ReactNode }) {
 }
 
 describe('AgentBadge', () => {
-  it('shows count for matching entity insights', () => {
+  it('shows count for matching entity insights', async () => {
     render(<AgentBadge />, { wrapper })
-    expect(screen.getByText('1')).toBeDefined()
+    await waitFor(() => {
+      expect(screen.getByText('1')).toBeDefined()
+    })
   })
 
   it('renders nothing when no matching insights', () => {

@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { AgentBanner } from './agent-banner'
 import { AgentStateProvider, useAgentState } from '../hooks/use-agent-state'
 import { AgentContextProvider } from '../context/agent-context-provider'
 import type { AgentInsight } from '../types'
+import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 
 const insights: AgentInsight[] = [
@@ -23,7 +24,9 @@ const insights: AgentInsight[] = [
 
 function InsightSeeder({ children }: { children: ReactNode }) {
   const { setInsights } = useAgentState()
-  setInsights(insights)
+  useEffect(() => {
+    setInsights(insights)
+  }, [])
   return <>{children}</>
 }
 
@@ -40,19 +43,26 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 describe('AgentBanner', () => {
-  it('shows the highest severity insight for current entity', () => {
+  it('shows the highest severity insight for current entity', async () => {
     render(<AgentBanner />, { wrapper })
-    expect(screen.getByText('Visa expiring soon')).toBeDefined()
-    expect(screen.getByText(/visa expires in 30 days/i)).toBeDefined()
+    await waitFor(() => {
+      expect(screen.getByText('Visa expiring soon')).toBeDefined()
+      expect(screen.getByText(/visa expires in 30 days/i)).toBeDefined()
+    })
   })
 
-  it('shows action link when available', () => {
+  it('shows action link when available', async () => {
     render(<AgentBanner />, { wrapper })
-    expect(screen.getByText('Draft renewal')).toBeDefined()
+    await waitFor(() => {
+      expect(screen.getByText('Draft renewal')).toBeDefined()
+    })
   })
 
-  it('can be dismissed', () => {
+  it('can be dismissed', async () => {
     render(<AgentBanner />, { wrapper })
+    await waitFor(() => {
+      expect(screen.getByText('Visa expiring soon')).toBeDefined()
+    })
     const dismissButton = screen.getByRole('button')
     fireEvent.click(dismissButton)
     expect(screen.queryByText('Visa expiring soon')).toBeNull()

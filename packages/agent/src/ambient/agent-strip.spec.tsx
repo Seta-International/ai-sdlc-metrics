@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { AgentStrip } from './agent-strip'
 import { AgentStateProvider, useAgentState } from '../hooks/use-agent-state'
 import type { AgentInsight } from '../types'
+import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 
 const mockInsights: AgentInsight[] = [
@@ -40,7 +41,9 @@ const mockInsights: AgentInsight[] = [
 
 function InsightSeeder({ insights, children }: { insights: AgentInsight[]; children: ReactNode }) {
   const { setInsights } = useAgentState()
-  setInsights(insights)
+  useEffect(() => {
+    setInsights(insights)
+  }, [])
   return <>{children}</>
 }
 
@@ -57,15 +60,19 @@ function emptyWrapper({ children }: { children: ReactNode }) {
 }
 
 describe('AgentStrip', () => {
-  it('shows total insight count', () => {
+  it('shows total insight count', async () => {
     render(<AgentStrip />, { wrapper })
-    expect(screen.getByText(/3 insights/)).toBeDefined()
+    await waitFor(() => {
+      expect(screen.getByText(/3 insights/)).toBeDefined()
+    })
   })
 
-  it('groups insights by module', () => {
+  it('groups insights by module', async () => {
     render(<AgentStrip />, { wrapper })
-    expect(screen.getByText(/People/)).toBeDefined()
-    expect(screen.getByText(/Projects/)).toBeDefined()
+    await waitFor(() => {
+      expect(screen.getByText(/People/)).toBeDefined()
+      expect(screen.getByText(/Projects/)).toBeDefined()
+    })
   })
 
   it('renders nothing when no insights', () => {
