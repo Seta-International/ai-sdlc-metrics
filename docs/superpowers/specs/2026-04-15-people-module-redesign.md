@@ -1028,3 +1028,471 @@ Operational: `directory_search_index`, `bulk_operation`, `import_job`
 Retained (enhanced): `onboarding_template`, `onboarding_task_template`, `onboarding_case`, `onboarding_task`, `offboarding_template`, `offboarding_task_template`, `offboarding_case`, `offboarding_task`
 
 **Total: ~30 tables** (22 new/redesigned + 8 retained with enhancements)
+
+---
+
+## 20. UI/UX Design — Page Inventory
+
+### 20.1 Navigation Structure
+
+The `web-people` zone has a sidebar with the following top-level sections:
+
+```
+People (sidebar)
+├── Directory                    -- employee directory with search/filter
+├── Org Chart                    -- visual org hierarchy
+├── My Profile                   -- self-service profile view/edit
+├── Onboarding                   -- onboarding case management
+├── Offboarding                  -- offboarding case management
+├── Change Requests              -- pending approvals queue
+├── Reports                      -- headcount, completeness, expiry dashboards
+└── Settings (HR only)           -- job catalog, policies, templates, field config
+```
+
+### 20.2 Page Details
+
+---
+
+#### P1. Directory (`/`)
+
+The main landing page. Full employee directory with search, filtering, and multiple views.
+
+**Layout:** Toolbar at top (search bar + filters + view toggle + export button), content below.
+
+**Components:**
+
+- **Search bar** — full-text search with debounce (300ms). Searches across name, email, title, department, skills. Vietnamese diacritic-insensitive. Uses `Input` with search icon.
+- **Filter panel** — collapsible sidebar or dropdown panel. Faceted filters:
+  - Department (tree select with hierarchy)
+  - Job family / Job profile
+  - Job level
+  - Employment status (default: excludes terminated)
+  - Employment type / Worker type
+  - Work arrangement
+  - Location
+  - Country
+  - Hire date range
+  - Manager
+  - Custom filterable fields
+  - Each filter shows count badge
+- **View toggle** — switch between list view and card grid view. Uses `Toggle-Group`.
+- **List view** — `DataTable` with columns: Avatar+Name, Job Title, Department, Location, Email, Status. Sortable headers. Row click → profile detail. Checkbox column for bulk select.
+- **Card view** — responsive grid (3-4 columns desktop, 2 tablet, 1 mobile). Each card: Avatar, name, title, department, location, work arrangement badge. Click → profile detail.
+- **Bulk actions bar** — appears when rows selected. Actions: Change Department, Change Manager, Export Selected. Uses `DataTableBulkActions`.
+- **Export button** — dropdown: CSV, XLSX. Respects field visibility. Large exports show progress toast.
+- **Pagination** — bottom of table. Page size selector (25/50/100). Uses `DataTablePagination`.
+- **Empty state** — when no results: illustration + "No employees match your filters" + clear filters button.
+- **URL state** — all filters, search, sort, page, view mode persisted in URL params (existing `table-url-state` pattern).
+
+**Permissions:** `people:profile:read` to view. Bulk actions require `people:profile:update`.
+
+---
+
+#### P2. Org Chart (`/org-chart`)
+
+Interactive organizational hierarchy visualization.
+
+**Layout:** Full-width canvas with toolbar at top.
+
+**Components:**
+
+- **Toolbar** — search (find person in tree), department filter dropdown, zoom controls (+/-/fit), expand/collapse all toggle.
+- **Tree view** — hierarchical nodes connected by lines. Each node is a `Card` showing: Avatar, name, title, department, direct report count badge. Click node → expand/collapse children. Double-click → navigate to profile.
+- **Two view modes** via toggle:
+  - **Manager hierarchy** — tree by reporting line (`job_assignment.manager_id`)
+  - **Department hierarchy** — tree by department structure (kernel departments)
+- **Person locator** — search for a name, tree auto-scrolls and highlights the node with a pulsing ring.
+- **Node detail popover** — hover/click on a node shows `Hover-Card` with: name, title, email, department, location, phone, "View Profile" link.
+- **Vacant positions** — if position management is used in future, shown as dashed-border nodes.
+
+**Permissions:** `people:org:read`.
+
+---
+
+#### P3. Employee Profile (`/profile/:employmentId`)
+
+The core employee profile page. Tabbed layout, content filtered by viewer's access tier.
+
+**Layout:** Header section (always visible) + tabbed content below.
+
+**Header:**
+
+- Left: Large `Avatar` (96px) with edit overlay (self/HR only)
+- Center: Full name (text-h1), preferred name in parentheses if set, job title, department, location badges. Employment status `Badge` (color-coded: green=active, amber=on_leave, red=terminated, blue=pre_hire, gray=suspended, orange=notice_period).
+- Right: Action buttons — "Edit Profile" (if permitted), "Share Profile" (generates link), "More" dropdown (Download PDF, View Job History, Start Offboarding). `Dropdown-Menu`.
+- Below header: Profile completeness bar (`Progress` component) with percentage and "Complete your profile" link if < 100%.
+- Probation banner: if active probation, show `Alert` with "Probation ends in X days" + status.
+
+**Tabs:**
+
+**Tab 1: Overview**
+
+- **Personal Information** section — `Card` with two-column grid: DOB, gender, nationality, marital status, personal email, personal phone. Edit button (per field edit policy).
+- **Employment Information** section — `Card`: employee code, company email, worker type, employment type, work arrangement, hire date, country. Read-only (HR only fields).
+- **Current Job** section — `Card`: job title, job level, job family, department, location, cost center, manager (clickable → their profile). "View History" link → Job History tab.
+- **Emergency Contacts** section — `Card` with list: name, relationship, phone, email per contact. Add/edit/remove buttons (self-service).
+- **Addresses** section — `Card` with permanent + current address. Edit buttons.
+- **Country-Specific Fields** section — dynamically rendered from `country_field_config`. Grouped by `field_group`. Field labels from `label_locale`. Edit per `field_edit_policy`.
+- **Custom Fields** section — dynamically rendered from `custom_field_definition`. Grouped by `field_group`. Edit per policy.
+- **Bank Details** section — `Card` (confidential tier): account number (masked by default, click to reveal for self/HR), bank name, branch, holder name, SWIFT. Edit requires HR approval.
+
+Fields not visible to the viewer are hidden entirely (no "restricted" placeholder).
+
+**Tab 2: Job History**
+
+- Timeline view — vertical timeline (`Separator` + nodes). Each entry: date, event type `Badge` (promotion=green, lateral=blue, demotion=amber, hire=indigo, reorg=gray), job title, department, manager, reason.
+- Most recent at top. Scrollable.
+- Each entry expandable to show full before/after diff.
+- "Current" entry highlighted with accent border.
+- Future-dated entries shown with dashed border + "Scheduled" badge.
+
+**Tab 3: Documents**
+
+- Document list — `DataTable` with columns: Title, Category `Badge`, Upload Date, Expiry Date (red if < 30 days, amber if < 90 days), Status, Actions.
+- **Upload button** → `Dialog` with: file drop zone, category select, title input, expiry date picker (optional), confidentiality toggle.
+- **Document requirements checklist** — `Card` at top showing required documents for this employee's country+type. Checkmarks for submitted, warning icons for missing, clock icons for approaching deadline.
+- **Expiring soon section** — filtered view of documents expiring within 90 days. Alert styling.
+- **Policy acknowledgments** — separate section listing policies requiring acknowledgment. "Acknowledge" button for unacknowledged.
+- Confidential documents only visible to self + HR.
+
+**Tab 4: Contracts**
+
+- Contract history list — cards stacked vertically, most recent first. Each card: contract type `Badge`, status `Badge`, date range, base salary (confidential — visible to self+HR only), signed date.
+- **Active contract** highlighted with accent border.
+- "View Contract" button → opens document via documents module.
+- Expiring contracts show alert banner.
+- "New Contract" button (HR only) → Contract creation dialog.
+
+**Tab 5: Sections** (Education, Skills, Certifications, etc.)
+
+- Sub-tabs or accordion for each section type: Education, Work Experience, Certifications, Skills, Languages, Social Links, Dependents.
+- Each section: list of entries. Each entry is a `Card` with relevant fields.
+- Add/edit/remove buttons per entry (respects edit policy — some self-service, some require approval).
+- "Import from LinkedIn" button at top (if LinkedIn integration configured). Opens OAuth flow.
+- Skills section: `Badge` list view (compact). Add via `Combobox` with suggestions.
+
+**Tab 6: Change Requests**
+
+- Pending changes — list of `profile_change_request` for this employee. Shows: field, old→new value, requested by, date, status `Badge`.
+- If viewer is approver: "Approve" / "Reject" buttons per request, or "Approve All" / "Reject All" for batch.
+- History — completed/rejected requests, filterable by date range.
+- Scheduled changes — future-dated approved changes with effective date and "Cancel" button.
+
+**Tab 7: Probation** (shown only if probation record exists)
+
+- Status card — large status display: "In Probation — X days remaining" or "Passed" or "Failed".
+- Timeline: start date, original end date, extensions (if any), outcome.
+- Action buttons (HR/manager): "Confirm", "Extend" (if policy allows), "Fail".
+- Salary info: probation percentage, difference from full salary.
+- Reminder log: when reminders were sent.
+
+---
+
+#### P4. My Profile (`/me`)
+
+Self-service profile view. Same layout as P3 but always shows the current user's profile with self-service edit capabilities.
+
+**Differences from P3:**
+
+- No "Start Offboarding" or management actions
+- Edit buttons appear for all self-service fields
+- Bank details visible (confidential but it's self)
+- Profile completeness prominently displayed with action items
+- "Share My Profile" button to generate external link
+
+---
+
+#### P5. Onboarding (`/onboarding`)
+
+Onboarding case management dashboard.
+
+**Layout:** Tabs for different views.
+
+**Tab: Active Cases**
+
+- `DataTable`: Employee name, template used, start date, progress (X/Y tasks), status `Badge`. Row click → case detail.
+- Filter by: department, template, status, date range.
+
+**Tab: My Tasks** (for any user with assigned onboarding tasks)
+
+- Task list: employee name, task title, due date (red if overdue), status. "Complete" button with evidence upload option.
+
+**Case Detail page** (`/onboarding/:caseId`):
+
+- Header: employee name + avatar, template name, status, progress bar.
+- Task list grouped by assignee role (HR tasks, IT tasks, Employee tasks, PM tasks). Each task: title, assignee, due date, status, evidence link. "Complete" / "Skip" buttons for assigned tasks.
+- Document requirements integration: tasks linked to document_requirement show status of document upload.
+
+**Permissions:** `people:onboard:manage` for full view. Individual users see their assigned tasks.
+
+---
+
+#### P6. Offboarding (`/offboarding`)
+
+Same structure as onboarding with offboarding-specific context.
+
+**Tab: Active Cases**
+
+- `DataTable`: Employee name, reason category `Badge`, last working day, progress, status.
+- Additional column: termination reason.
+
+**Tab: My Tasks**
+
+- Same as onboarding but for offboarding tasks (equipment return, access revocation, etc.).
+
+**Case Detail page** (`/offboarding/:caseId`):
+
+- Header: employee name, termination reason, last working day, status.
+- Approval status (if pending approval): "Approve" / "Reject" buttons.
+- Task list same structure as onboarding.
+
+**Permissions:** `people:offboard:manage`.
+
+---
+
+#### P7. Change Requests (`/change-requests`)
+
+Approval queue for profile changes. Primary view for HR and managers.
+
+**Layout:** Filtered list with bulk actions.
+
+**Components:**
+
+- **Filter tabs** — "Pending My Review", "All Pending", "Recently Decided" (last 30 days).
+- **Request list** — `DataTable` with: Employee name, field changed, old→new value preview, requested by, requested date, effective date (if future-dated), status. Checkbox column.
+- **Batch actions** — "Approve Selected", "Reject Selected" buttons. Confirmation `Alert-Dialog` before executing.
+- **Request detail** — expandable row or side `Drawer`: full field details, old/new values with diff highlighting, requester info, edit policy that triggered the approval, approve/reject with optional note.
+- **Stats bar** at top — pending count, approved today, rejected today, oldest pending age.
+
+**Permissions:** Manager sees requests for their reports. HR sees all.
+
+---
+
+#### P8. Reports (`/reports`)
+
+Dashboard with HR analytics and compliance tracking.
+
+**Sub-pages:**
+
+**P8a. Headcount (`/reports/headcount`)**
+
+- Summary cards row: Total Active, New Hires (this month), Terminations (this month), Net Change.
+- Chart: headcount trend over time (line chart, 12 months).
+- Breakdown table: by department, by country, by employment type, by work arrangement. Drill-down on click.
+
+**P8b. Profile Completeness (`/reports/completeness`)**
+
+- Summary: average completeness score, count below threshold.
+- `DataTable`: employee name, department, score (color-coded: red < 50%, amber < 80%, green >= 80%), missing items count, days since hire. Sortable by score.
+- Filter: department, country, below score threshold, overdue only.
+- "Send Reminders" bulk action for selected employees.
+
+**P8c. Document Compliance (`/reports/documents`)**
+
+- Expiring documents: `DataTable` with employee name, document title, category, expiry date, days remaining (color-coded).
+- Missing documents: employees with incomplete document requirements. Shows required vs submitted.
+- Filter: country, category, expiry window (30/60/90 days).
+
+**P8d. Probation Tracker (`/reports/probation`)**
+
+- Active probations: `DataTable` with employee name, start date, end date, days remaining, status.
+- Upcoming endings (next 30 days): highlighted section.
+- Overdue: probations past end date with no outcome recorded.
+
+**P8e. Contract Expiry (`/reports/contracts`)**
+
+- Expiring contracts: `DataTable` with employee name, contract type, end date, days remaining.
+- Filter: country, contract type, expiry window.
+
+**Permissions:** `people:reports:read` (typically HR + executives).
+
+---
+
+#### P9. Settings (`/settings`)
+
+HR administration pages for configuring the people module.
+
+**Sub-pages:**
+
+**P9a. Job Catalog (`/settings/job-catalog`)**
+
+- **Job Families** — tree view of job families (collapsible). Add/edit/deactivate family. Drag to reorder.
+- **Job Profiles** — `DataTable` within selected family: title, level, status `Badge`. Add/edit/deactivate profile. Cannot delete if referenced by active job assignments (show count).
+
+**P9b. Onboarding Templates (`/settings/onboarding-templates`)**
+
+- Template list: name, country scope, employment type scope, task count, is_default toggle.
+- Template editor: drag-and-drop task reordering. Each task: title, description, assignee role select, due days input, is_required toggle, linked document requirement select.
+- "Duplicate Template" action for creating country variants.
+
+**P9c. Offboarding Templates (`/settings/offboarding-templates`)**
+
+- Same structure as onboarding templates with termination reason/category scope.
+
+**P9d. Country Configuration (`/settings/countries`)**
+
+- Country list: code, name, configured field count, probation policy count, document requirement count.
+- Country detail page:
+  - **Fields tab** — `DataTable` of `country_field_config`: field key, label, type, group, required toggle. Add/edit/remove. Drag to reorder.
+  - **Probation Policies tab** — table of policies per job level category: duration, max duration, allow extension, min salary %, auto-confirm. Edit inline.
+  - **Document Requirements tab** — table: category, title, required toggle, deadline days. Add/edit/remove.
+  - **Contract Policies tab** — max fixed-term months, max renewals, force indefinite toggle, probation contract toggle. Edit inline.
+
+**P9e. Custom Fields (`/settings/custom-fields`)**
+
+- `DataTable`: field key, label, type, group, required, searchable, filterable, visibility tier, active status.
+- Add field `Dialog`: key (auto-generated from label, editable before first save), label, type select (text/number/date/boolean/select/multi_select), validation rules (conditional on type), options editor (for select types), visibility tier, group, required/searchable/filterable toggles.
+- Edit: all fields except key. Deactivate with confirmation (preserves data).
+
+**P9f. Field Edit Policies (`/settings/edit-policies`)**
+
+- Grouped by section (personal, employment, bank, etc.).
+- Each field: field path display, current edit mode `Badge`. Click to change: dropdown with self_service / manager_approval / hr_approval / hr_only.
+- Bulk mode: select multiple fields, set same policy.
+
+**P9g. Field Visibility (`/settings/visibility`)**
+
+- Same structure as edit policies. Each field: path, current tier `Badge` (public=green, restricted=amber, confidential=red). Click to change.
+
+**P9h. Email Configuration (`/settings/email`)**
+
+- Single form: domain input, pattern select (with preview: "an.nguyen@domain"), transliteration mode.
+- Test generator: enter a sample Vietnamese name, see generated email candidates.
+
+**P9i. Completeness Rules (`/settings/completeness`)**
+
+- `DataTable`: field path, label, section, weight, required toggle, country scope, deadline days.
+- Add/edit/remove. Drag to reorder within sections.
+- Preview: "Test score" — select an employee, see their computed score with this ruleset.
+
+**P9j. Import/Export (`/settings/import`)**
+
+- **Import section:**
+  - "New Import" button → step wizard:
+    - Step 1: File upload (drag-and-drop zone, CSV/XLSX, max 10MB)
+    - Step 2: Column mapping — two-column layout: detected headers on left, system field select on right. Fuzzy auto-suggestions. Save/load mapping profile.
+    - Step 3: Validation results — summary cards (valid/error/warning counts). Expandable error table: row number, field, message, severity `Badge`. Download error report button.
+    - Step 4: Preview — sample of first 10 valid rows rendered as a table. Confirm/cancel buttons.
+    - Step 5: Processing — progress bar for async jobs. Completion summary: created/updated/skipped/errored.
+  - Import history: `DataTable` of past imports with status, counts, date, user.
+- **Export section:**
+  - Column picker: checkbox list of all available fields (grouped by section). Respects visibility — only shows fields the user can export.
+  - Format select: CSV / XLSX.
+  - Filter: reuse directory filters to scope the export.
+  - "Export" button → async for large sets, download link via toast notification.
+
+**Permissions:** `people:settings:manage` (typically HR admin + super admin).
+
+---
+
+#### P10. Shared Profile (`/shared/profile/:token`)
+
+Public-facing profile view for external parties. No authentication required.
+
+**Layout:** Minimal, clean single-page layout. No sidebar, no navigation. Company branding at top.
+
+**Content:**
+
+- Avatar + full name (text-h1)
+- Job title, department, company name
+- Company email
+- Work arrangement, location
+- Skills (as `Badge` list)
+- Education entries (if in public tier)
+- Certifications (if in public tier)
+- Social links
+
+**Restrictions:**
+
+- Public tier fields only — no personal email, phone, DOB, address, bank, national ID
+- No country-specific data, no custom fields
+- Token expiry shown if close to expiring
+- "This profile was shared by [Company Name]" footer
+
+---
+
+#### P11. Bulk Operations (`/bulk`)
+
+Dedicated page for bulk employee updates.
+
+**Layout:** Step wizard.
+
+**Steps:**
+
+1. **Select operation** — card grid: "Change Department", "Change Manager", "Change Status". Each card with icon, title, description.
+2. **Select employees** — reuse directory `DataTable` with checkbox selection. Or paste employee codes. Shows selected count.
+3. **Configure change** — form specific to operation type:
+   - Department: department tree select + effective date picker
+   - Manager: employee search/select for new manager + effective date
+   - Status: status select (only valid transitions shown)
+4. **Preview** — table showing each employee + what will change (old→new). Validation errors highlighted in red.
+5. **Confirm** — summary card + "Execute" button. Progress bar for async processing. Results: success/failure counts with error details expandable.
+
+**Permissions:** `people:profile:update` + specific operation permissions.
+
+---
+
+### 20.3 Shared Patterns
+
+**Across all pages:**
+
+- **Responsive:** all pages work on desktop (1024px+) and tablet (768px+). Mobile (< 768px) for self-service pages only (My Profile, My Tasks).
+- **URL state:** filters, search, sort, pagination, active tab all persisted in URL params. Back button works.
+- **Loading states:** `Skeleton` components matching content layout. Never blank screens.
+- **Error states:** `Alert` with retry button. Network errors show toast via `Sonner`.
+- **Empty states:** illustration + message + primary action button (contextual).
+- **Keyboard navigation:** all interactive elements focusable. `Command` palette (Cmd+K) for quick employee search across the zone.
+- **Density:** compact mode toggle in toolbar for data-heavy views (directory, reports). Sets `data-density="compact"` on container.
+- **Breadcrumbs:** `Breadcrumb` component on all sub-pages. Directory → Profile → Tab pattern.
+
+**Data table pattern:**
+
+- All tables use the shared `DataTable` component with: `DataTableToolbar` (search + filters), `DataTableColumnHeader` (sortable), `DataTablePagination`, `DataTableBulkActions` (when applicable), `DataTableEmpty`/`DataTableLoading`/`DataTableError` states.
+
+**Form pattern:**
+
+- All forms use React Hook Form + Zod validation.
+- Inline validation with error messages below fields.
+- Submit button disabled until form is valid.
+- Changes that require approval show info banner: "This change requires [manager/HR] approval."
+
+**Dialog pattern:**
+
+- Create/edit forms open in `Dialog` (small forms) or full-page (complex forms like import wizard).
+- Destructive actions use `Alert-Dialog` with confirmation.
+- Side detail views use `Drawer` (slide from right).
+
+### 20.4 Page Count Summary
+
+| #   | Page                  | Route                             | Permissions              |
+| --- | --------------------- | --------------------------------- | ------------------------ |
+| P1  | Directory             | `/`                               | `people:profile:read`    |
+| P2  | Org Chart             | `/org-chart`                      | `people:org:read`        |
+| P3  | Employee Profile      | `/profile/:employmentId`          | `people:profile:read`    |
+| P4  | My Profile            | `/me`                             | authenticated            |
+| P5  | Onboarding            | `/onboarding`                     | `people:onboard:manage`  |
+| P5a | Onboarding Case       | `/onboarding/:caseId`             | `people:onboard:manage`  |
+| P6  | Offboarding           | `/offboarding`                    | `people:offboard:manage` |
+| P6a | Offboarding Case      | `/offboarding/:caseId`            | `people:offboard:manage` |
+| P7  | Change Requests       | `/change-requests`                | manager or HR            |
+| P8  | Reports               | `/reports`                        | `people:reports:read`    |
+| P8a | Headcount             | `/reports/headcount`              | `people:reports:read`    |
+| P8b | Completeness          | `/reports/completeness`           | `people:reports:read`    |
+| P8c | Documents             | `/reports/documents`              | `people:reports:read`    |
+| P8d | Probation             | `/reports/probation`              | `people:reports:read`    |
+| P8e | Contracts             | `/reports/contracts`              | `people:reports:read`    |
+| P9  | Settings              | `/settings`                       | `people:settings:manage` |
+| P9a | Job Catalog           | `/settings/job-catalog`           | `people:settings:manage` |
+| P9b | Onboarding Templates  | `/settings/onboarding-templates`  | `people:settings:manage` |
+| P9c | Offboarding Templates | `/settings/offboarding-templates` | `people:settings:manage` |
+| P9d | Country Config        | `/settings/countries`             | `people:settings:manage` |
+| P9e | Custom Fields         | `/settings/custom-fields`         | `people:settings:manage` |
+| P9f | Edit Policies         | `/settings/edit-policies`         | `people:settings:manage` |
+| P9g | Field Visibility      | `/settings/visibility`            | `people:settings:manage` |
+| P9h | Email Config          | `/settings/email`                 | `people:settings:manage` |
+| P9i | Completeness Rules    | `/settings/completeness`          | `people:settings:manage` |
+| P9j | Import/Export         | `/settings/import`                | `people:settings:manage` |
+| P10 | Shared Profile        | `/shared/profile/:token`          | none (public)            |
+| P11 | Bulk Operations       | `/bulk`                           | `people:profile:update`  |
+
+**Total: 28 pages/views across 11 top-level routes.**
