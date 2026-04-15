@@ -14,68 +14,76 @@ const anyTrpc = trpc as any
 
 const caseStatusConfig: Record<
   string,
-  { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }
+  { label: string; variant: 'default' | 'subtle' | 'destructive' }
 > = {
-  pending_approval: { label: 'Pending Approval', variant: 'outline' },
+  pending_approval: { label: 'Pending Approval', variant: 'subtle' },
   in_progress: { label: 'In Progress', variant: 'default' },
-  completed: { label: 'Completed', variant: 'secondary' },
+  completed: { label: 'Completed', variant: 'subtle' },
   cancelled: { label: 'Cancelled', variant: 'destructive' },
 }
 
-const columns: ColumnDef<OffboardingCase>[] = [
-  {
-    accessorKey: 'employeeName',
-    header: 'Employee',
-    enableSorting: true,
-    cell: ({ row }: CellContext<OffboardingCase, unknown>) => (
-      <AvatarNameCell fullName={row.original.employeeName} avatarUrl={row.original.avatarUrl} />
-    ),
-  },
-  {
-    accessorKey: 'reasonCategory',
-    header: 'Reason',
-    enableSorting: true,
-    cell: ({ getValue }: CellContext<OffboardingCase, unknown>) => {
-      const reason = getValue() as string
-      return <Badge variant="outline">{reason.replace(/_/g, ' ')}</Badge>
+function buildColumns(onNavigate: (id: string) => void): ColumnDef<OffboardingCase>[] {
+  return [
+    {
+      accessorKey: 'employeeName',
+      header: 'Employee',
+      enableSorting: true,
+      cell: ({ row }: CellContext<OffboardingCase, unknown>) => (
+        <button
+          type="button"
+          className="text-left hover:underline"
+          onClick={() => onNavigate(row.original.id)}
+        >
+          <AvatarNameCell fullName={row.original.employeeName} avatarUrl={row.original.avatarUrl} />
+        </button>
+      ),
     },
-  },
-  {
-    accessorKey: 'lastWorkingDay',
-    header: 'Last Day',
-    enableSorting: true,
-    cell: ({ getValue }: CellContext<OffboardingCase, unknown>) =>
-      new Date(getValue() as string).toLocaleDateString('en-GB'),
-  },
-  {
-    id: 'progress',
-    header: 'Progress',
-    cell: ({ row }: CellContext<OffboardingCase, unknown>) => {
-      const pct =
-        row.original.tasksTotal > 0
-          ? Math.round((row.original.tasksCompleted / row.original.tasksTotal) * 100)
-          : 0
-      return (
-        <div className="flex items-center gap-2 min-w-[120px]">
-          <Progress value={pct} className="h-1.5 flex-1" />
-          <span className="text-xs text-[#8a8f98] whitespace-nowrap">
-            {row.original.tasksCompleted}/{row.original.tasksTotal}
-          </span>
-        </div>
-      )
+    {
+      accessorKey: 'reasonCategory',
+      header: 'Reason',
+      enableSorting: true,
+      cell: ({ getValue }: CellContext<OffboardingCase, unknown>) => {
+        const reason = getValue() as string
+        return <Badge variant="subtle">{reason.replace(/_/g, ' ')}</Badge>
+      },
     },
-  },
-  {
-    accessorKey: 'status',
-    header: 'Status',
-    enableSorting: true,
-    cell: ({ getValue }: CellContext<OffboardingCase, unknown>) => {
-      const status = getValue() as string
-      const cfg = caseStatusConfig[status] ?? { label: status, variant: 'secondary' as const }
-      return <Badge variant={cfg.variant}>{cfg.label}</Badge>
+    {
+      accessorKey: 'lastWorkingDay',
+      header: 'Last Day',
+      enableSorting: true,
+      cell: ({ getValue }: CellContext<OffboardingCase, unknown>) =>
+        new Date(getValue() as string).toLocaleDateString('en-GB'),
     },
-  },
-]
+    {
+      id: 'progress',
+      header: 'Progress',
+      cell: ({ row }: CellContext<OffboardingCase, unknown>) => {
+        const pct =
+          row.original.tasksTotal > 0
+            ? Math.round((row.original.tasksCompleted / row.original.tasksTotal) * 100)
+            : 0
+        return (
+          <div className="flex items-center gap-2 min-w-[120px]">
+            <Progress value={pct} className="h-1.5 flex-1" />
+            <span className="text-xs text-[#8a8f98] whitespace-nowrap">
+              {row.original.tasksCompleted}/{row.original.tasksTotal}
+            </span>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      enableSorting: true,
+      cell: ({ getValue }: CellContext<OffboardingCase, unknown>) => {
+        const status = getValue() as string
+        const cfg = caseStatusConfig[status] ?? { label: status, variant: 'subtle' as const }
+        return <Badge variant={cfg.variant}>{cfg.label}</Badge>
+      },
+    },
+  ]
+}
 
 export function OffboardingCasesTable() {
   const router = useRouter()
@@ -83,6 +91,11 @@ export function OffboardingCasesTable() {
   const [totalCount, setTotalCount] = React.useState(0)
   const [tableState, setTableState] = React.useState<FutureTableState>(defaultTableState)
   const [isLoading, setIsLoading] = React.useState(true)
+
+  const columns = React.useMemo(
+    () => buildColumns((id) => router.push(`/offboarding/${id}`)),
+    [router],
+  )
 
   React.useEffect(() => {
     void (async () => {
@@ -106,7 +119,6 @@ export function OffboardingCasesTable() {
       state={tableState}
       totalCount={totalCount}
       onStateChange={setTableState}
-      onRowClick={(row) => router.push(`/offboarding/${row.id}`)}
       isLoading={isLoading}
     />
   )

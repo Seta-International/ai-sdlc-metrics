@@ -30,7 +30,7 @@ const profileColumns: ColumnDef<JobProfileRow>[] = [
     accessorKey: 'isActive',
     header: 'Status',
     cell: ({ getValue }: CellContext<JobProfileRow, unknown>) => (
-      <Badge variant={getValue() ? 'default' : 'secondary'}>
+      <Badge variant={getValue() ? 'default' : 'subtle'}>
         {getValue() ? 'Active' : 'Inactive'}
       </Badge>
     ),
@@ -118,7 +118,7 @@ export function JobCatalogEditor() {
               <FolderOpen className="h-3.5 w-3.5 shrink-0 text-[#62666d]" />
             )}
             <span className="truncate">{family.name}</span>
-            <Badge variant="secondary" className="ml-auto h-4 px-1 text-[10px]">
+            <Badge variant="subtle" className="ml-auto h-4 px-1 text-[10px]">
               {family.profileCount}
             </Badge>
           </button>

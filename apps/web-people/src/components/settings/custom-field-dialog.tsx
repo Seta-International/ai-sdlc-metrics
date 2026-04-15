@@ -93,7 +93,7 @@ export function CustomFieldDialog({ open, onOpenChange, field, onSave }: CustomF
           </div>
           <div className="space-y-1">
             <label className="text-xs font-[510] text-[#8a8f98]">Type</label>
-            <Select value={type} onValueChange={setType}>
+            <Select value={type} onValueChange={setType as (value: string) => void}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -127,7 +127,10 @@ export function CustomFieldDialog({ open, onOpenChange, field, onSave }: CustomF
           </div>
           <div className="space-y-1">
             <label className="text-xs font-[510] text-[#8a8f98]">Visibility Tier</label>
-            <Select value={visibilityTier} onValueChange={setVisibilityTier}>
+            <Select
+              value={visibilityTier}
+              onValueChange={setVisibilityTier as (value: string) => void}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
