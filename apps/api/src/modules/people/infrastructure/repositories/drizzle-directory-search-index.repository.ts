@@ -61,6 +61,9 @@ export class DrizzleDirectorySearchIndexRepository implements IDirectorySearchIn
       )
     }
 
+    if (filters.employmentId) {
+      conditions.push(eq(directorySearchIndex.employmentId, filters.employmentId))
+    }
     if (filters.employmentStatus) {
       conditions.push(eq(directorySearchIndex.employmentStatus, filters.employmentStatus))
     } else {
