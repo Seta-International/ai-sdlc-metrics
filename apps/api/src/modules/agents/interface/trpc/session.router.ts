@@ -1,17 +1,17 @@
 import { z } from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
-import type { CreateSessionHandler } from '../../application/commands/create-session.handler'
-import type { ListSessionsHandler } from '../../application/queries/list-sessions.handler'
-import type { SendMessageHandler } from '../../application/commands/send-message.handler'
 
-let createSessionHandler: CreateSessionHandler
-let listSessionsHandler: ListSessionsHandler
-let sendMessageHandler: SendMessageHandler
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let createSessionHandler: any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let listSessionsHandler: any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let sendMessageHandler: any
 
 export function setAgentSessionHandlers(handlers: {
-  createSession: CreateSessionHandler
-  listSessions: ListSessionsHandler
-  sendMessage: SendMessageHandler
+  createSession: any
+  listSessions: any
+  sendMessage: any
 }) {
   createSessionHandler = handlers.createSession
   listSessionsHandler = handlers.listSessions

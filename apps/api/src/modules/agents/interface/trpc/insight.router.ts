@@ -1,15 +1,12 @@
 import { z } from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
-import type { ListInsightsHandler } from '../../application/queries/list-insights.handler'
-import type { DismissInsightHandler } from '../../application/commands/dismiss-insight.handler'
 
-let listInsightsHandler: ListInsightsHandler
-let dismissInsightHandler: DismissInsightHandler
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let listInsightsHandler: any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let dismissInsightHandler: any
 
-export function setAgentInsightHandlers(handlers: {
-  listInsights: ListInsightsHandler
-  dismissInsight: DismissInsightHandler
-}) {
+export function setAgentInsightHandlers(handlers: { listInsights: any; dismissInsight: any }) {
   listInsightsHandler = handlers.listInsights
   dismissInsightHandler = handlers.dismissInsight
 }
