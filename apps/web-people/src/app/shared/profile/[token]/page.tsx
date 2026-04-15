@@ -163,18 +163,16 @@ export default function SharedProfilePage() {
         )}
 
         {profile.expiresAt &&
-          (() => {
-            const daysLeft = Math.ceil(
-              (new Date(profile.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-            )
-            if (daysLeft <= 7)
-              return (
-                <div className="text-xs text-amber-400 text-center mt-4">
-                  This profile link expires in {daysLeft} day(s).
-                </div>
-              )
-            return null
-          })()}
+          Math.ceil((new Date(profile.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) <=
+            7 && (
+            <div className="text-xs text-amber-400 text-center mt-4">
+              This profile link expires in{' '}
+              {Math.ceil(
+                (new Date(profile.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+              )}{' '}
+              day(s).
+            </div>
+          )}
       </Card>
       <div className="mt-6 text-xs text-[#62666d]">
         This profile was shared by {profile.companyName}

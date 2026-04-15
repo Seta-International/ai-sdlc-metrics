@@ -32,7 +32,7 @@ vi.mock('../../lib/trpc', () => ({
 }))
 
 // Capture columns passed to DataTable so we can assert on them
-let capturedColumns: ColumnDef<unknown>[] = []
+let _capturedColumns: ColumnDef<unknown>[] = []
 
 // Mock @future/ui with simple passthrough components
 vi.mock('@future/ui', () => {
@@ -57,7 +57,7 @@ vi.mock('@future/ui', () => {
     totalCount?: number
     onStateChange?: (s: unknown) => void
   }) {
-    capturedColumns = columns
+    _capturedColumns = columns
     if (isLoading) return <div data-testid="data-table-loading">Loading...</div>
     return (
       <div data-testid="data-table">
@@ -110,7 +110,7 @@ vi.mock('@future/ui', () => {
 
   function AlertDialogTrigger({
     children,
-    asChild,
+    asChild: _asChild,
   }: {
     children: React.ReactNode
     asChild?: boolean
@@ -149,7 +149,7 @@ vi.mock('@future/ui', () => {
   function Tabs({
     children,
     value,
-    onValueChange,
+    onValueChange: _onValueChange,
   }: {
     children: React.ReactNode
     value?: string
@@ -209,7 +209,7 @@ import { ChangeRequestQueue } from './change-request-queue'
 
 describe('ChangeRequestQueue', () => {
   beforeEach(() => {
-    capturedColumns = []
+    _capturedColumns = []
     mockListQuery.mockResolvedValue({
       requests: [],
       totalCount: 0,

@@ -2,7 +2,7 @@
 'use client'
 
 import * as React from 'react'
-import { Card, Badge, Button } from '@future/ui'
+import { Card, Button } from '@future/ui'
 import { CheckCircle2, Clock, AlertTriangle, Upload } from 'lucide-react'
 import type { WorkflowTask } from '../../lib/types-workflows'
 import { trpc } from '../../lib/trpc'
