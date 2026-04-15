@@ -88,13 +88,10 @@ export class DrizzleProfileChangeRequestRepository implements IProfileChangeRequ
   async insertMany(
     data: Omit<ProfileChangeRequest, 'id' | 'createdAt'>[],
   ): Promise<ProfileChangeRequest[]> {
-    return (
-      (await this.db
-        .insert(profileChangeRequest)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .values(data as any)
-        .returning()) as ProfileChangeRequest[]
-    )
+    return (await this.db
+      .insert(profileChangeRequest)
+      .values(data as Record<string, unknown>[])
+      .returning()) as ProfileChangeRequest[]
   }
 
   async updateStatus(

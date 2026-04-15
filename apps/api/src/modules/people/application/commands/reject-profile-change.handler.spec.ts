@@ -72,6 +72,7 @@ describe('RejectProfileChangeHandler', () => {
       TENANT_ID,
       'rejected',
       REJECTOR_ID,
+      COMMENT,
     )
     expect(decisionFacade.resolveDecisionCase).toHaveBeenCalledWith(
       TENANT_ID,
