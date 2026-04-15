@@ -1,4 +1,4 @@
-import { Settings, Cpu, ToggleRight, Shield } from 'lucide-react'
+import { Settings, Cpu, ToggleRight, Shield, Bot } from 'lucide-react'
 import type { NavigationConfig } from '@future/app-layout'
 
 export const adminNavConfig: NavigationConfig = {
@@ -25,6 +25,13 @@ export const adminNavConfig: NavigationConfig = {
           href: '/roles',
           permission: 'admin:role:read',
         },
+      ],
+    },
+    {
+      label: 'Agents',
+      items: [
+        { label: 'Agent Definitions', icon: Bot, href: '/agents', permission: 'admin:agents:read' },
+        { label: 'Sessions', icon: Bot, href: '/agents/sessions', permission: 'admin:agents:read' },
       ],
     },
   ],
