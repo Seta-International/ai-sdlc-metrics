@@ -27,6 +27,9 @@ import { ExtendProbationCommand } from '../../application/commands/extend-probat
 import { FailProbationCommand } from '../../application/commands/fail-probation.command'
 // Contract commands
 import { CreateContractVersionCommand } from '../../application/commands/create-contract-version.command'
+// Settings commands
+import { CreateCustomFieldDefinitionCommand } from '../../application/commands/create-custom-field-definition.command'
+import { UpdateCustomFieldDefinitionCommand } from '../../application/commands/update-custom-field-definition.command'
 // Legacy commands (still functional)
 import { RequestProfileChangeCommand } from '../../application/commands/request-profile-change.command'
 import { ApproveProfileChangeCommand } from '../../application/commands/approve-profile-change.command'
@@ -488,6 +491,151 @@ export function createPeopleRouter(
       export: devProtectedProcedure
         .input(futureExportQuerySchema)
         .query(({ input }) => exportPeopleDirectory(input)),
+    }),
+
+    // ── Settings ──────────────────────────────────────────────────────────
+    settings: router({
+      getCountryFieldConfigs: permissionProtectedProcedure
+        .meta({ permission: 'people:settings:read' })
+        .input(z.object({ countryCode: z.string().length(2) }))
+        .query(async ({ input }: { ctx: AuthContext; input: { countryCode: string } }) => {
+          return peopleFacade.getCountryFieldConfigs(input.countryCode)
+        }),
+
+      listCustomFieldDefinitions: permissionProtectedProcedure
+        .meta({ permission: 'people:settings:read' })
+        .query(async ({ ctx }: { ctx: AuthContext }) => {
+          return peopleFacade.listCustomFieldDefinitions(ctx.tenantId)
+        }),
+
+      createCustomFieldDefinition: permissionProtectedProcedure
+        .meta({ permission: 'people:settings:write' })
+        .input(
+          z.object({
+            fieldKey: z.string().regex(/^[a-z][a-z0-9_]*$/),
+            label: z.string().min(1),
+            fieldType: z.enum(['text', 'number', 'date', 'boolean', 'select', 'multi_select']),
+            fieldGroup: z.string().optional(),
+            isRequired: z.boolean().default(false),
+            isSearchable: z.boolean().default(false),
+            isFilterable: z.boolean().default(false),
+            sortOrder: z.number().int().default(0),
+            validation: z.record(z.unknown()).optional(),
+            options: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
+            visibilityTier: z.enum(['public', 'restricted', 'confidential']).default('public'),
+          }),
+        )
+        .mutation(
+          async ({
+            ctx,
+            input,
+          }: {
+            ctx: AuthContext
+            input: {
+              fieldKey: string
+              label: string
+              fieldType: 'text' | 'number' | 'date' | 'boolean' | 'select' | 'multi_select'
+              fieldGroup?: string
+              isRequired: boolean
+              isSearchable: boolean
+              isFilterable: boolean
+              sortOrder: number
+              validation?: Record<string, unknown>
+              options?: Array<{ value: string; label: string }>
+              visibilityTier: 'public' | 'restricted' | 'confidential'
+            }
+          }) => {
+            return svc().command(
+              new CreateCustomFieldDefinitionCommand(
+                ctx.tenantId,
+                input.fieldKey,
+                input.label,
+                input.fieldType,
+                ctx.actorId,
+                input.fieldGroup,
+                input.isRequired,
+                input.isSearchable,
+                input.isFilterable,
+                input.sortOrder,
+                input.validation,
+                input.options,
+                input.visibilityTier,
+              ),
+            )
+          },
+        ),
+
+      updateCustomFieldDefinition: permissionProtectedProcedure
+        .meta({ permission: 'people:settings:write' })
+        .input(
+          z.object({
+            id: z.string().uuid(),
+            label: z.string().optional(),
+            fieldGroup: z.string().nullable().optional(),
+            isRequired: z.boolean().optional(),
+            isSearchable: z.boolean().optional(),
+            isFilterable: z.boolean().optional(),
+            sortOrder: z.number().int().optional(),
+            validation: z.record(z.unknown()).nullable().optional(),
+            options: z
+              .array(z.object({ value: z.string(), label: z.string() }))
+              .nullable()
+              .optional(),
+            visibilityTier: z.enum(['public', 'restricted', 'confidential']).optional(),
+            isActive: z.boolean().optional(),
+          }),
+        )
+        .mutation(
+          async ({
+            ctx,
+            input,
+          }: {
+            ctx: AuthContext
+            input: {
+              id: string
+              label?: string
+              fieldGroup?: string | null
+              isRequired?: boolean
+              isSearchable?: boolean
+              isFilterable?: boolean
+              sortOrder?: number
+              validation?: Record<string, unknown> | null
+              options?: Array<{ value: string; label: string }> | null
+              visibilityTier?: 'public' | 'restricted' | 'confidential'
+              isActive?: boolean
+            }
+          }) => {
+            return svc().command(
+              new UpdateCustomFieldDefinitionCommand(
+                ctx.tenantId,
+                input.id,
+                ctx.actorId,
+                input.label,
+                input.fieldGroup,
+                input.isRequired,
+                input.isSearchable,
+                input.isFilterable,
+                input.sortOrder,
+                input.validation,
+                input.options,
+                input.visibilityTier,
+                input.isActive,
+              ),
+            )
+          },
+        ),
+
+      listFieldVisibilityConfigs: permissionProtectedProcedure
+        .meta({ permission: 'people:settings:read' })
+        .query(async ({ ctx }: { ctx: AuthContext }) => {
+          return peopleFacade.listFieldVisibilityConfigs(ctx.tenantId)
+        }),
+
+      listFieldEditPolicies: permissionProtectedProcedure
+        .meta({ permission: 'people:settings:read' })
+        .query(async ({ ctx }: { ctx: AuthContext }) => {
+          return peopleFacade.listFieldEditPolicies(ctx.tenantId)
+        }),
     }),
   })
 }

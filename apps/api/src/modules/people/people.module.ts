@@ -14,6 +14,10 @@ import { DrizzleProbationPolicyRepository } from './infrastructure/repositories/
 import { DrizzleProbationRecordRepository } from './infrastructure/repositories/drizzle-probation-record.repository'
 import { DrizzleContractVersionRepository } from './infrastructure/repositories/drizzle-contract-version.repository'
 import { DrizzleContractPolicyRepository } from './infrastructure/repositories/drizzle-contract-policy.repository'
+import { DrizzleCountryFieldConfigRepository } from './infrastructure/repositories/drizzle-country-field-config.repository'
+import { DrizzleCustomFieldDefinitionRepository } from './infrastructure/repositories/drizzle-custom-field-definition.repository'
+import { DrizzleFieldVisibilityConfigRepository } from './infrastructure/repositories/drizzle-field-visibility-config.repository'
+import { DrizzleFieldEditPolicyRepository } from './infrastructure/repositories/drizzle-field-edit-policy.repository'
 import { PERSON_PROFILE_REPOSITORY } from './domain/repositories/person-profile.repository'
 import { EMPLOYMENT_REPOSITORY } from './domain/repositories/employment.repository'
 import { JOB_ASSIGNMENT_REPOSITORY } from './domain/repositories/job-assignment.repository'
@@ -24,6 +28,10 @@ import { PROBATION_POLICY_REPOSITORY } from './domain/repositories/probation-pol
 import { PROBATION_RECORD_REPOSITORY } from './domain/repositories/probation-record.repository'
 import { CONTRACT_VERSION_REPOSITORY } from './domain/repositories/contract-version.repository'
 import { CONTRACT_POLICY_REPOSITORY } from './domain/repositories/contract-policy.repository'
+import { COUNTRY_FIELD_CONFIG_REPOSITORY } from './domain/repositories/country-field-config.repository'
+import { CUSTOM_FIELD_DEFINITION_REPOSITORY } from './domain/repositories/custom-field-definition.repository'
+import { FIELD_VISIBILITY_CONFIG_REPOSITORY } from './domain/repositories/field-visibility-config.repository'
+import { FIELD_EDIT_POLICY_REPOSITORY } from './domain/repositories/field-edit-policy.repository'
 
 // ── Legacy repositories (still functional) ────────────────────────────────
 import { DrizzleProfileSectionRepository } from './infrastructure/repositories/drizzle-profile-section.repository'
@@ -63,6 +71,14 @@ import { ReinstateSuspensionHandler } from './application/commands/reinstate-sus
 import { GiveNoticeHandler } from './application/commands/give-notice.handler'
 import { CompleteTerminationHandler } from './application/commands/complete-termination.handler'
 import { CreateContractVersionHandler } from './application/commands/create-contract-version.handler'
+import { CreateCustomFieldDefinitionHandler } from './application/commands/create-custom-field-definition.handler'
+import { UpdateCustomFieldDefinitionHandler } from './application/commands/update-custom-field-definition.handler'
+
+// ── Services ───────────────────────────────────────────────────────────────
+import { CountryFieldValidationService } from './application/services/country-field-validation.service'
+import { CustomFieldValidationService } from './application/services/custom-field-validation.service'
+import { FieldVisibilityFilterService } from './application/services/field-visibility-filter.service'
+import { EditPolicyService } from './application/services/edit-policy.service'
 
 // ── Legacy command handlers that still compile ─────────────────────────────
 // NOTE: Handlers that reference EMPLOYMENT_PROFILE_REPOSITORY (deleted) are
@@ -114,6 +130,16 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     { provide: PROBATION_RECORD_REPOSITORY, useClass: DrizzleProbationRecordRepository },
     { provide: CONTRACT_VERSION_REPOSITORY, useClass: DrizzleContractVersionRepository },
     { provide: CONTRACT_POLICY_REPOSITORY, useClass: DrizzleContractPolicyRepository },
+    { provide: COUNTRY_FIELD_CONFIG_REPOSITORY, useClass: DrizzleCountryFieldConfigRepository },
+    {
+      provide: CUSTOM_FIELD_DEFINITION_REPOSITORY,
+      useClass: DrizzleCustomFieldDefinitionRepository,
+    },
+    {
+      provide: FIELD_VISIBILITY_CONFIG_REPOSITORY,
+      useClass: DrizzleFieldVisibilityConfigRepository,
+    },
+    { provide: FIELD_EDIT_POLICY_REPOSITORY, useClass: DrizzleFieldEditPolicyRepository },
 
     // ── Legacy repositories (still functional) ───────────────────────────
     { provide: PROFILE_SECTION_REPOSITORY, useClass: DrizzleProfileSectionRepository },
@@ -143,6 +169,14 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     GiveNoticeHandler,
     CompleteTerminationHandler,
     CreateContractVersionHandler,
+    CreateCustomFieldDefinitionHandler,
+    UpdateCustomFieldDefinitionHandler,
+
+    // ── Services ─────────────────────────────────────────────────────────
+    CountryFieldValidationService,
+    CustomFieldValidationService,
+    FieldVisibilityFilterService,
+    EditPolicyService,
 
     // ── Legacy command handlers ──────────────────────────────────────────
     RejectProfileChangeHandler,
