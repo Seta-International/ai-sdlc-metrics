@@ -204,7 +204,7 @@ export class DrizzleOffboardingTemplateRepository implements IOffboardingTemplat
           eq(offboardingTemplate.tenantId, tenantId),
           eq(
             offboardingTemplate.employmentType,
-            employmentType as 'permanent' | 'fixed_term' | 'contractor' | 'intern',
+            employmentType as 'permanent' | 'fixed_term' | 'intern',
           ),
           eq(
             offboardingTemplate.reasonCategory,
