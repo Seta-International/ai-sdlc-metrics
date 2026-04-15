@@ -9,13 +9,13 @@ describe('OnboardingTemplateSelectorService', () => {
 
   beforeEach(() => {
     templateRepo = {
-      findActiveByTenant: vi.fn(),
+      listByTenant: vi.fn(),
     }
     service = new OnboardingTemplateSelectorService(templateRepo)
   })
 
   it('selects template matching country + worker_type + employment_type', async () => {
-    vi.mocked(templateRepo.findActiveByTenant).mockResolvedValue([
+    vi.mocked(templateRepo.listByTenant).mockResolvedValue([
       {
         id: 't1',
         name: 'Global Default',
@@ -23,6 +23,7 @@ describe('OnboardingTemplateSelectorService', () => {
         workerType: null,
         employmentType: null,
         isDefault: true,
+        isActive: true,
       },
       {
         id: 't2',
@@ -31,6 +32,7 @@ describe('OnboardingTemplateSelectorService', () => {
         workerType: 'employee',
         employmentType: 'permanent',
         isDefault: false,
+        isActive: true,
       },
       {
         id: 't3',
@@ -39,6 +41,7 @@ describe('OnboardingTemplateSelectorService', () => {
         workerType: null,
         employmentType: 'intern',
         isDefault: false,
+        isActive: true,
       },
     ])
 
@@ -48,7 +51,7 @@ describe('OnboardingTemplateSelectorService', () => {
   })
 
   it('falls back to country-only match when exact match not found', async () => {
-    vi.mocked(templateRepo.findActiveByTenant).mockResolvedValue([
+    vi.mocked(templateRepo.listByTenant).mockResolvedValue([
       {
         id: 't1',
         name: 'Global Default',
@@ -56,6 +59,7 @@ describe('OnboardingTemplateSelectorService', () => {
         workerType: null,
         employmentType: null,
         isDefault: true,
+        isActive: true,
       },
       {
         id: 't2',
@@ -64,6 +68,7 @@ describe('OnboardingTemplateSelectorService', () => {
         workerType: null,
         employmentType: null,
         isDefault: false,
+        isActive: true,
       },
     ])
 
@@ -73,7 +78,7 @@ describe('OnboardingTemplateSelectorService', () => {
   })
 
   it('falls back to global default when no country match', async () => {
-    vi.mocked(templateRepo.findActiveByTenant).mockResolvedValue([
+    vi.mocked(templateRepo.listByTenant).mockResolvedValue([
       {
         id: 't1',
         name: 'Global Default',
@@ -81,6 +86,7 @@ describe('OnboardingTemplateSelectorService', () => {
         workerType: null,
         employmentType: null,
         isDefault: true,
+        isActive: true,
       },
       {
         id: 't2',
@@ -89,6 +95,7 @@ describe('OnboardingTemplateSelectorService', () => {
         workerType: null,
         employmentType: null,
         isDefault: false,
+        isActive: true,
       },
     ])
 
@@ -98,7 +105,7 @@ describe('OnboardingTemplateSelectorService', () => {
   })
 
   it('returns null when no templates exist', async () => {
-    vi.mocked(templateRepo.findActiveByTenant).mockResolvedValue([])
+    vi.mocked(templateRepo.listByTenant).mockResolvedValue([])
 
     const result = await service.selectTemplate(TENANT_ID, 'VN', 'employee', 'permanent')
 

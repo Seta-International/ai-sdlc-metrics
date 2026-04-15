@@ -118,17 +118,18 @@ export class PeopleQueryFacade {
   }
 
   async listEmploymentsByDepartment(
-    tenantId: string,
+    _tenantId: string,
     _departmentId: string,
   ): Promise<Employment[]> {
-    return this.employmentRepo.listByTenant(tenantId, {}) as Promise<Employment[]>
+    // TODO: requires repo filter support — tracked for follow-up
+    throw new Error('listEmploymentsByDepartment: departmentId filter not yet implemented in repo')
   }
 
   async listEmploymentsByManager(
-    tenantId: string,
+    _tenantId: string,
     _managerEmploymentId: string,
   ): Promise<Employment[]> {
-    return this.employmentRepo.listByTenant(tenantId, {}) as Promise<Employment[]>
+    throw new Error('listEmploymentsByManager: managerId filter not yet implemented in repo')
   }
 
   async getHeadcount(

@@ -1,3 +1,6 @@
+export { PersonHiredEvent } from './person-hired.event'
+export { PersonOffboardedEvent } from './person-offboarded.event'
+export { OffboardingStartedEvent } from './offboarding-started.event'
 export { EmploymentActivatedEvent } from './employment-activated.event'
 export { EmploymentTerminatedEvent } from './employment-terminated.event'
 export { JobAssignmentChangedEvent } from './job-assignment-changed.event'
