@@ -34,12 +34,10 @@ export class GetSharedProfileHandler implements IQueryHandler<
 
     const { items } = await this.searchIndexRepo.list(
       link.tenantId,
-      { employmentStatus: undefined },
+      { employmentId: link.employmentId },
       1,
       0,
     )
-
-    const profile = items.find((i) => i.employmentId === link.employmentId)
-    return profile ?? null
+    return items[0] ?? null
   }
 }

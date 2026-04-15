@@ -3,6 +3,7 @@ import type { DirectorySearchIndex } from '../entities/directory-search-index.en
 export const DIRECTORY_SEARCH_INDEX_REPOSITORY = Symbol('IDirectorySearchIndexRepository')
 
 export interface DirectorySearchIndexFilters {
+  employmentId?: string
   departmentId?: string
   jobProfileId?: string
   jobFamilyId?: string

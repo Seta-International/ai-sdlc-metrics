@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RevokeShareLinkCommand } from './revoke-share-link.command'
 import { RevokeShareLinkHandler } from './revoke-share-link.handler'
 import type { IProfileShareLinkRepository } from '../../domain/repositories/profile-share-link.repository'
+import { ShareLinkNotFoundException } from '../../domain/exceptions/people.exceptions'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const SHARE_LINK_ID = '01900000-0000-7000-8000-000000000002'
@@ -40,6 +41,6 @@ describe('RevokeShareLinkHandler', () => {
 
     await expect(
       handler.execute(new RevokeShareLinkCommand(TENANT_ID, SHARE_LINK_ID, ACTOR_ID)),
-    ).rejects.toThrow()
+    ).rejects.toThrow(ShareLinkNotFoundException)
   })
 })

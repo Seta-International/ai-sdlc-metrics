@@ -146,3 +146,10 @@ export class InvalidProbationStatusException extends DomainException {
     super(`Cannot ${action} probation in status: ${status}`)
   }
 }
+
+export class ShareLinkNotFoundException extends DomainException {
+  readonly code = 'SHARE_LINK_NOT_FOUND'
+  constructor(id: string) {
+    super(`Share link not found: ${id}`)
+  }
+}

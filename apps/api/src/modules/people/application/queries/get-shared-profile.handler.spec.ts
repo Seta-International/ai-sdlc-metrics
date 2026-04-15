@@ -73,6 +73,12 @@ describe('GetSharedProfileHandler', () => {
     expect(result).not.toBeNull()
     expect(result!.fullName).toBe('Nguyễn Văn An')
     expect(shareLinkRepo.incrementViewCount).toHaveBeenCalledWith('share-1')
+    expect(searchIndexRepo.list).toHaveBeenCalledWith(
+      'tenant-1',
+      expect.objectContaining({ employmentId: 'emp-1' }),
+      1,
+      0,
+    )
   })
 
   it('returns null for expired token', async () => {
