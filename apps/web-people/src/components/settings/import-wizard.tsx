@@ -12,7 +12,7 @@ import {
   SelectValue,
   Progress,
 } from '@future/ui'
-import { Upload, Download, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
+import { Upload, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
 
 type WizardStep = 'upload' | 'mapping' | 'validation' | 'preview' | 'processing'
 
@@ -28,13 +28,13 @@ export function ImportWizard() {
   const [step, setStep] = React.useState<WizardStep>('upload')
   const [file, setFile] = React.useState<File | null>(null)
   const [mappings, setMappings] = React.useState<ColumnMapping[]>([])
-  const [validationResult, setValidationResult] = React.useState<{
+  const [validationResult] = React.useState<{
     valid: number
     errors: number
     warnings: number
     errorRows: Array<{ row: number; field: string; message: string; severity: 'error' | 'warning' }>
   } | null>(null)
-  const [progress, setProgress] = React.useState(0)
+  const [progress] = React.useState(0)
 
   return (
     <div className="space-y-6">
@@ -102,7 +102,7 @@ export function ImportWizard() {
           <p className="text-xs text-[#8a8f98] mb-4">Map detected headers to system fields.</p>
           <div className="space-y-2">
             {mappings.map((mapping, i) => (
-              <div key={i} className="flex items-center gap-4">
+              <div key={mapping.sourceHeader ?? i} className="flex items-center gap-4">
                 <div className="w-48 text-sm text-[#d0d6e0] truncate">{mapping.sourceHeader}</div>
                 <span className="text-[#62666d]">-&gt;</span>
                 <Select

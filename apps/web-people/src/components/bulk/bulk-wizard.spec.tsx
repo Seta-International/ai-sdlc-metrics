@@ -110,7 +110,7 @@ vi.mock('@future/ui', () => {
   }
 
   function DataTable({
-    columns,
+    _columns,
     isLoading,
   }: {
     columns: unknown[]
