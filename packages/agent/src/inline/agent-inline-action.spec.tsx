@@ -45,4 +45,10 @@ describe('AgentInlineAction', () => {
     const { container } = render(<AgentInlineAction actions={[]} />, { wrapper })
     expect(container.firstElementChild?.children.length ?? 0).toBe(0)
   })
+
+  it('uses Sparkles icon as fallback when no icon provided', () => {
+    render(<AgentInlineAction actions={[{ key: 'test', label: 'Test' }]} />, { wrapper })
+    const button = screen.getByText('Test').closest('button')
+    expect(button?.querySelector('svg')).not.toBeNull()
+  })
 })

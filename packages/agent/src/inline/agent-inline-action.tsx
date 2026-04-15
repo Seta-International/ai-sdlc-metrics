@@ -10,7 +10,7 @@ export interface AgentInlineActionProps {
 export function AgentInlineAction({ actions, onAction }: AgentInlineActionProps) {
   const ctx = useAgentContext()
 
-  if (actions.length === 0) return <div />
+  if (actions.length === 0) return null
 
   const handleClick = (actionKey: string) => {
     if (ctx && onAction) {
