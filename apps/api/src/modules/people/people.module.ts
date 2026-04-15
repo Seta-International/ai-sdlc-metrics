@@ -33,6 +33,14 @@ import { CUSTOM_FIELD_DEFINITION_REPOSITORY } from './domain/repositories/custom
 import { FIELD_VISIBILITY_CONFIG_REPOSITORY } from './domain/repositories/field-visibility-config.repository'
 import { FIELD_EDIT_POLICY_REPOSITORY } from './domain/repositories/field-edit-policy.repository'
 
+// ── Plan 04 repositories ───────────────────────────────────────────────────
+import { DrizzleEmployeeDocumentRepository } from './infrastructure/repositories/drizzle-employee-document.repository'
+import { DrizzleDocumentRequirementRepository } from './infrastructure/repositories/drizzle-document-requirement.repository'
+import { DrizzleCompletenessRuleRepository } from './infrastructure/repositories/drizzle-completeness-rule.repository'
+import { EMPLOYEE_DOCUMENT_REPOSITORY } from './domain/repositories/employee-document.repository'
+import { DOCUMENT_REQUIREMENT_REPOSITORY } from './domain/repositories/document-requirement.repository'
+import { COMPLETENESS_RULE_REPOSITORY } from './domain/repositories/completeness-rule.repository'
+
 // ── Legacy repositories (still functional) ────────────────────────────────
 import { DrizzleProfileSectionRepository } from './infrastructure/repositories/drizzle-profile-section.repository'
 import { DrizzleProfileChangeRequestRepository } from './infrastructure/repositories/drizzle-profile-change-request.repository'
@@ -73,6 +81,26 @@ import { CompleteTerminationHandler } from './application/commands/complete-term
 import { CreateContractVersionHandler } from './application/commands/create-contract-version.handler'
 import { CreateCustomFieldDefinitionHandler } from './application/commands/create-custom-field-definition.handler'
 import { UpdateCustomFieldDefinitionHandler } from './application/commands/update-custom-field-definition.handler'
+
+// ── Plan 04 command handlers ───────────────────────────────────────────────
+import { RequestProfileChangesHandler } from './application/commands/request-profile-changes.handler'
+import { BatchApproveChangesHandler } from './application/commands/batch-approve-changes.handler'
+import { BatchRejectChangesHandler } from './application/commands/batch-reject-changes.handler'
+import { UploadEmployeeDocumentHandler } from './application/commands/upload-employee-document.handler'
+import { AcknowledgePolicyHandler } from './application/commands/acknowledge-policy.handler'
+
+// ── Plan 04 query handlers ─────────────────────────────────────────────────
+import { ListExpiringDocumentsHandler } from './application/queries/list-expiring-documents.handler'
+import { GetProfileCompletenessHandler } from './application/queries/get-profile-completeness.handler'
+import { ListIncompleteProfilesHandler } from './application/queries/list-incomplete-profiles.handler'
+
+// ── Plan 04 services ───────────────────────────────────────────────────────
+import { DuplicateValidationService } from './application/services/duplicate-validation.service'
+
+// ── Plan 04 jobs ───────────────────────────────────────────────────────────
+import { ApplyScheduledChangesJob } from './infrastructure/jobs/apply-scheduled-changes.job'
+import { CheckDocumentExpiryJob } from './infrastructure/jobs/check-document-expiry.job'
+import { CompletenessReminderJob } from './infrastructure/jobs/completeness-reminder.job'
 
 // ── Services ───────────────────────────────────────────────────────────────
 import { CountryFieldValidationService } from './application/services/country-field-validation.service'
@@ -149,6 +177,11 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     { provide: ONBOARDING_CASE_REPOSITORY, useClass: DrizzleOnboardingCaseRepository },
     { provide: ONBOARDING_TEMPLATE_REPOSITORY, useClass: DrizzleOnboardingTemplateRepository },
 
+    // ── Plan 04 repositories ─────────────────────────────────────────────
+    { provide: EMPLOYEE_DOCUMENT_REPOSITORY, useClass: DrizzleEmployeeDocumentRepository },
+    { provide: DOCUMENT_REQUIREMENT_REPOSITORY, useClass: DrizzleDocumentRequirementRepository },
+    { provide: COMPLETENESS_RULE_REPOSITORY, useClass: DrizzleCompletenessRuleRepository },
+
     // ── New command handlers ─────────────────────────────────────────────
     CreatePersonProfileHandler,
     CreateEmploymentHandler,
@@ -172,11 +205,24 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     CreateCustomFieldDefinitionHandler,
     UpdateCustomFieldDefinitionHandler,
 
+    // ── Plan 04 command handlers ─────────────────────────────────────────
+    RequestProfileChangesHandler,
+    BatchApproveChangesHandler,
+    BatchRejectChangesHandler,
+    UploadEmployeeDocumentHandler,
+    AcknowledgePolicyHandler,
+
     // ── Services ─────────────────────────────────────────────────────────
     CountryFieldValidationService,
     CustomFieldValidationService,
     FieldVisibilityFilterService,
     EditPolicyService,
+    DuplicateValidationService,
+
+    // ── Plan 04 jobs ─────────────────────────────────────────────────────
+    ApplyScheduledChangesJob,
+    CheckDocumentExpiryJob,
+    CompletenessReminderJob,
 
     // ── Legacy command handlers ──────────────────────────────────────────
     RejectProfileChangeHandler,
@@ -189,6 +235,11 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     ListEmploymentsHandler,
     ListJobProfilesHandler,
     GetProbationRecordHandler,
+
+    // ── Plan 04 query handlers ───────────────────────────────────────────
+    ListExpiringDocumentsHandler,
+    GetProfileCompletenessHandler,
+    ListIncompleteProfilesHandler,
 
     // ── Legacy query handlers ────────────────────────────────────────────
     ListOnboardingTasksHandler,
