@@ -1,0 +1,87 @@
+import { Inject, Injectable } from '@nestjs/common'
+import type { Db } from '@future/db'
+import { and, desc, eq, gt, isNull, lte, or } from 'drizzle-orm'
+import type { JobAssignment } from '../../domain/entities/job-assignment.entity'
+import type { IJobAssignmentRepository } from '../../domain/repositories/job-assignment.repository'
+import { DB_TOKEN } from '../../../../common/db/db.module'
+import { jobAssignment } from '../schema/people.schema'
+
+@Injectable()
+export class DrizzleJobAssignmentRepository implements IJobAssignmentRepository {
+  constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
+
+  async findById(id: string, tenantId: string): Promise<JobAssignment | null> {
+    const rows = await this.db
+      .select()
+      .from(jobAssignment)
+      .where(and(eq(jobAssignment.id, id), eq(jobAssignment.tenantId, tenantId)))
+      .limit(1)
+    return (rows[0] as JobAssignment | undefined) ?? null
+  }
+
+  async findCurrent(employmentId: string, tenantId: string): Promise<JobAssignment | null> {
+    const rows = await this.db
+      .select()
+      .from(jobAssignment)
+      .where(
+        and(
+          eq(jobAssignment.employmentId, employmentId),
+          eq(jobAssignment.tenantId, tenantId),
+          isNull(jobAssignment.effectiveTo),
+        ),
+      )
+      .limit(1)
+    return (rows[0] as JobAssignment | undefined) ?? null
+  }
+
+  async findAsOf(
+    employmentId: string,
+    tenantId: string,
+    asOfDate: Date,
+  ): Promise<JobAssignment | null> {
+    const rows = await this.db
+      .select()
+      .from(jobAssignment)
+      .where(
+        and(
+          eq(jobAssignment.employmentId, employmentId),
+          eq(jobAssignment.tenantId, tenantId),
+          lte(jobAssignment.effectiveFrom, asOfDate),
+          or(isNull(jobAssignment.effectiveTo), gt(jobAssignment.effectiveTo, asOfDate)),
+        ),
+      )
+      .limit(1)
+    return (rows[0] as JobAssignment | undefined) ?? null
+  }
+
+  async findHistory(employmentId: string, tenantId: string): Promise<JobAssignment[]> {
+    return (await this.db
+      .select()
+      .from(jobAssignment)
+      .where(
+        and(eq(jobAssignment.employmentId, employmentId), eq(jobAssignment.tenantId, tenantId)),
+      )
+      .orderBy(desc(jobAssignment.effectiveFrom))) as JobAssignment[]
+  }
+
+  async insert(data: Omit<JobAssignment, 'id' | 'createdAt'>): Promise<JobAssignment> {
+    const rows = await this.db
+      .insert(jobAssignment)
+      .values(data as Record<string, unknown>)
+      .returning()
+    return rows[0] as JobAssignment
+  }
+
+  async closeAssignment(id: string, tenantId: string, effectiveTo: Date): Promise<void> {
+    await this.db
+      .update(jobAssignment)
+      .set({ effectiveTo } as Record<string, unknown>)
+      .where(and(eq(jobAssignment.id, id), eq(jobAssignment.tenantId, tenantId)))
+  }
+
+  async delete(id: string, tenantId: string): Promise<void> {
+    await this.db
+      .delete(jobAssignment)
+      .where(and(eq(jobAssignment.id, id), eq(jobAssignment.tenantId, tenantId)))
+  }
+}
