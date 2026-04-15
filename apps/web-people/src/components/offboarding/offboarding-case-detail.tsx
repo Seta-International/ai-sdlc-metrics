@@ -63,10 +63,10 @@ export function OffboardingCaseDetail({ caseId }: OffboardingCaseDetailProps) {
     <div className="space-y-6">
       {/* Pending Approval Section */}
       {caseData.status === 'pending_approval' && (
-        <Card className="border-amber-500/30 bg-amber-500/5 p-4">
+        <Card className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-4">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm font-[510] text-amber-300">Pending Approval</div>
+              <div className="text-sm font-[510] text-[#f7f8f8]">Pending Approval</div>
               <div className="text-xs text-[#8a8f98] mt-0.5">
                 This offboarding requires manager approval to proceed.
               </div>
