@@ -69,6 +69,17 @@ import {
 import { NAME_DISPLAY_ORDER_VALUES } from '../../domain/value-objects/name-display-order'
 // Probation queries
 import { GetProbationRecordQuery } from '../../application/queries/get-probation-record.query'
+// Plan 04 — change request commands
+import { RequestProfileChangesCommand } from '../../application/commands/request-profile-changes.command'
+import { BatchApproveChangesCommand } from '../../application/commands/batch-approve-changes.command'
+import { BatchRejectChangesCommand } from '../../application/commands/batch-reject-changes.command'
+// Plan 04 — document commands
+import { UploadEmployeeDocumentCommand } from '../../application/commands/upload-employee-document.command'
+import { AcknowledgePolicyCommand } from '../../application/commands/acknowledge-policy.command'
+// Plan 04 — document & completeness queries
+import { ListExpiringDocumentsQuery } from '../../application/queries/list-expiring-documents.query'
+import { GetProfileCompletenessQuery } from '../../application/queries/get-profile-completeness.query'
+import { ListIncompleteProfilesQuery } from '../../application/queries/list-incomplete-profiles.query'
 
 const svc = () => PeopleTrpcService.getInstance()
 
@@ -1372,4 +1383,163 @@ export const peopleRouter = router({
       .input(futureExportQuerySchema)
       .query(({ input }) => exportPeopleDirectory(input)),
   }),
+
+  // ── Change requests ────────────────────────────────────────────────────
+
+  requestProfileChanges: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        employmentId: z.string().uuid(),
+        changes: z.array(
+          z.object({
+            fieldPath: z.string(),
+            oldValue: z.unknown().nullable(),
+            newValue: z.unknown(),
+            effectiveDate: z.coerce.date().optional(),
+          }),
+        ),
+        requestedBy: z.string().uuid(),
+      }),
+    )
+    .mutation(({ input }) =>
+      svc().command(
+        new RequestProfileChangesCommand(
+          input.tenantId,
+          input.employmentId,
+          input.changes,
+          input.requestedBy,
+        ),
+      ),
+    ),
+
+  batchApproveChanges: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        batchId: z.string().uuid(),
+        approvedBy: z.string().uuid(),
+        note: z.string().optional(),
+      }),
+    )
+    .mutation(({ input }) =>
+      svc().command(
+        new BatchApproveChangesCommand(input.tenantId, input.batchId, input.approvedBy, input.note),
+      ),
+    ),
+
+  batchRejectChanges: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        batchId: z.string().uuid(),
+        rejectedBy: z.string().uuid(),
+        note: z.string().optional(),
+      }),
+    )
+    .mutation(({ input }) =>
+      svc().command(
+        new BatchRejectChangesCommand(input.tenantId, input.batchId, input.rejectedBy, input.note),
+      ),
+    ),
+
+  // ── Documents ──────────────────────────────────────────────────────────
+
+  uploadEmployeeDocument: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        employmentId: z.string().uuid(),
+        documentId: z.string().uuid(),
+        category: z.enum([
+          'identity',
+          'contract',
+          'tax',
+          'insurance',
+          'certificate',
+          'visa',
+          'policy_ack',
+          'health_check',
+          'background_check',
+          'other',
+        ]),
+        title: z.string().min(1),
+        uploadedBy: z.string().uuid(),
+        subcategory: z.string().optional(),
+        expiryDate: z.coerce.date().optional(),
+        isConfidential: z.boolean().default(false),
+        requiresAcknowledgment: z.boolean().default(false),
+        parentDocumentId: z.string().uuid().optional(),
+      }),
+    )
+    .mutation(({ input }) =>
+      svc().command(
+        new UploadEmployeeDocumentCommand(
+          input.tenantId,
+          input.employmentId,
+          input.documentId,
+          input.category,
+          input.title,
+          input.uploadedBy,
+          input.subcategory,
+          input.expiryDate,
+          input.isConfidential,
+          input.requiresAcknowledgment,
+          input.parentDocumentId,
+        ),
+      ),
+    ),
+
+  acknowledgePolicy: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        employeeDocumentId: z.string().uuid(),
+        acknowledgedBy: z.string().uuid(),
+      }),
+    )
+    .mutation(({ input }) =>
+      svc().command(
+        new AcknowledgePolicyCommand(
+          input.tenantId,
+          input.employeeDocumentId,
+          input.acknowledgedBy,
+        ),
+      ),
+    ),
+
+  listExpiringDocuments: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        daysAhead: z.number().int().default(30),
+      }),
+    )
+    .query(({ input }) =>
+      svc().query(new ListExpiringDocumentsQuery(input.tenantId, input.daysAhead)),
+    ),
+
+  // ── Completeness ───────────────────────────────────────────────────────
+
+  getProfileCompleteness: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        employmentId: z.string().uuid(),
+      }),
+    )
+    .query(({ input }) =>
+      svc().query(new GetProfileCompletenessQuery(input.tenantId, input.employmentId)),
+    ),
+
+  listIncompleteProfiles: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        threshold: z.number().default(80),
+      }),
+    )
+    .query(({ input }) =>
+      svc().query(new ListIncompleteProfilesQuery(input.tenantId, input.threshold)),
+    ),
 })
