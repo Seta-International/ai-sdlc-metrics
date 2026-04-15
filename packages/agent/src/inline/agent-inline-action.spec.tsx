@@ -1,19 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { createElement, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { AgentInlineAction } from './agent-inline-action'
 import { AgentContextProvider } from '../context/agent-context-provider'
-import { AgentStateProvider } from '../hooks/use-agent-state'
 
 function wrapper({ children }: { children: ReactNode }) {
-  return createElement(
-    AgentStateProvider,
-    null,
-    createElement(
-      AgentContextProvider,
-      { module: 'people', entity: 'employee', id: 'emp-1' },
-      children,
-    ),
+  return (
+    <AgentContextProvider module="people" entity="employee" id="emp-1">
+      {children}
+    </AgentContextProvider>
   )
 }
 
@@ -43,7 +38,7 @@ describe('AgentInlineAction', () => {
 
   it('renders nothing when no actions provided', () => {
     const { container } = render(<AgentInlineAction actions={[]} />, { wrapper })
-    expect(container.firstElementChild?.children.length ?? 0).toBe(0)
+    expect(container.firstChild).toBeNull()
   })
 
   it('uses Sparkles icon as fallback when no icon provided', () => {
