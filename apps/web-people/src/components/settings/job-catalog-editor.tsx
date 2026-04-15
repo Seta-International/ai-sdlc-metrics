@@ -47,8 +47,9 @@ const profileColumns: ColumnDef<JobProfileRow>[] = [
 export function JobCatalogEditor() {
   const [families, setFamilies] = React.useState<JobFamily[]>([])
   const [selectedFamilyId, setSelectedFamilyId] = React.useState<string | null>(null)
-  const [profiles, setProfiles] = React.useState<JobProfileRow[]>([])
-  const [expandedIds, setExpandedIds] = React.useState<Set<string>>(new Set())
+  const [loadedProfiles, setLoadedProfiles] = React.useState<JobProfileRow[]>([])
+  const profiles = selectedFamilyId ? loadedProfiles : []
+  const [expandedIds, setExpandedIds] = React.useState<Set<string>>(() => new Set())
   const [tableState, setTableState] = React.useState<FutureTableState>(defaultTableState)
   const [isLoading, setIsLoading] = React.useState(true)
 
@@ -67,18 +68,15 @@ export function JobCatalogEditor() {
   }, [])
 
   React.useEffect(() => {
-    if (!selectedFamilyId) {
-      setProfiles([])
-      return
-    }
+    if (!selectedFamilyId) return
     void (async () => {
       try {
         const result = await (anyTrpc.people.settings.jobProfiles.list.query({
           familyId: selectedFamilyId,
         }) as Promise<{ profiles: JobProfileRow[] }>)
-        setProfiles(result.profiles)
+        setLoadedProfiles(result.profiles)
       } catch {
-        setProfiles([])
+        setLoadedProfiles([])
       }
     })()
   }, [selectedFamilyId])

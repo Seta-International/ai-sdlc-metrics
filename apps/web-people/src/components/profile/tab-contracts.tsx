@@ -38,8 +38,8 @@ export function TabContracts({
   if (isLoading) {
     return (
       <div className="space-y-4">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <Skeleton key={i} className="h-32 w-full" />
+        {(['a', 'b'] as const).map((k) => (
+          <Skeleton key={k} className="h-32 w-full" />
         ))}
       </div>
     )

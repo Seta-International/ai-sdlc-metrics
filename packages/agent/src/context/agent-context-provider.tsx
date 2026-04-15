@@ -1,3 +1,5 @@
+'use client'
+
 import type { ReactNode } from 'react'
 import type { AgentContext, ModuleKey } from '../types'
 import { AgentContextContext } from './use-agent-context'

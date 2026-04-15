@@ -1,3 +1,5 @@
+'use client'
+
 import { useAgentContext } from '../context/use-agent-context'
 
 export function AgentContextPills() {

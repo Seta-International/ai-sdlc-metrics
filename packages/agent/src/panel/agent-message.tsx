@@ -1,3 +1,5 @@
+'use client'
+
 import { cn } from '@future/ui'
 import type { AgentMessage as AgentMessageType } from '../types'
 

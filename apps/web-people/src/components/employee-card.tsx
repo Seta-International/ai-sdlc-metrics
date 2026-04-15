@@ -1,6 +1,7 @@
 'use client'
 
 import { Card } from '@future/ui'
+import Image from 'next/image'
 import { MapPin, Building2 } from 'lucide-react'
 import { StatusBadge } from './status-badge'
 import type { DirectoryRow } from '../lib/types'
@@ -27,9 +28,11 @@ export function EmployeeCard({ employee, onClick }: EmployeeCardProps) {
         {/* Avatar */}
         <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(255,255,255,0.05)] text-lg font-[510] text-[#d0d6e0]">
           {employee.avatarUrl ? (
-            <img
+            <Image
               src={employee.avatarUrl}
               alt={employee.fullName}
+              width={64}
+              height={64}
               className="h-full w-full rounded-full object-cover"
             />
           ) : (

@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useCallback } from 'react'
 import { X, MessageSquare } from 'lucide-react'
 import type { AgentMessage as AgentMessageType } from '../types'

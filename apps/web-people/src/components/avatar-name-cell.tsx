@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { Avatar } from '@future/ui'
 
 interface AvatarNameCellProps {
@@ -26,7 +27,13 @@ export function AvatarNameCell({
     <div className="flex items-center gap-3">
       <Avatar className="h-8 w-8 shrink-0">
         {avatarUrl ? (
-          <img src={avatarUrl} alt={fullName} className="h-full w-full rounded-full object-cover" />
+          <Image
+            src={avatarUrl}
+            alt={fullName}
+            width={32}
+            height={32}
+            className="h-full w-full rounded-full object-cover"
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center rounded-full bg-[rgba(255,255,255,0.05)] text-xs font-[510] text-[#d0d6e0]">
             {initials}

@@ -1,3 +1,5 @@
+'use client'
+
 import type { ReactNode } from 'react'
 import { AgentStateProvider } from './hooks/use-agent-state'
 

@@ -30,8 +30,8 @@ export function TabJobHistory({ employmentId }: { employmentId: string }) {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full" />
+        {(['a', 'b', 'c'] as const).map((k) => (
+          <Skeleton key={k} className="h-24 w-full" />
         ))}
       </div>
     )

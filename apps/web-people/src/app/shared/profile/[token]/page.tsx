@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useParams } from 'next/navigation'
+import Image from 'next/image'
 import { Card, Badge, Skeleton } from '@future/ui'
 import { trpc } from '../../../../lib/trpc'
 
@@ -47,6 +48,14 @@ export default function SharedProfilePage() {
     })()
   }, [token])
 
+  const daysUntilExpiry = React.useMemo(
+    () =>
+      profile?.expiresAt
+        ? Math.ceil((new Date(profile.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        : null,
+    [profile?.expiresAt],
+  )
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -79,9 +88,11 @@ export default function SharedProfilePage() {
         <div className="flex flex-col items-center text-center mb-6">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[rgba(255,255,255,0.05)] text-xl font-[510] text-[#d0d6e0] mb-4">
             {profile.avatarUrl ? (
-              <img
+              <Image
                 src={profile.avatarUrl}
                 alt={profile.fullName}
+                width={80}
+                height={80}
                 className="h-full w-full rounded-full object-cover"
               />
             ) : (
@@ -120,8 +131,8 @@ export default function SharedProfilePage() {
         {profile.education.length > 0 && (
           <div className="mb-6">
             <div className="text-xs text-[#62666d] uppercase font-[510] mb-2">Education</div>
-            {profile.education.map((edu, i) => (
-              <div key={i} className="mb-2">
+            {profile.education.map((edu) => (
+              <div key={`${edu.institution}-${edu.degree}`} className="mb-2">
                 <div className="text-sm text-[#d0d6e0]">{edu.degree}</div>
                 <div className="text-xs text-[#8a8f98]">
                   {edu.institution}, {edu.year}
@@ -134,8 +145,8 @@ export default function SharedProfilePage() {
         {profile.certifications.length > 0 && (
           <div className="mb-6">
             <div className="text-xs text-[#62666d] uppercase font-[510] mb-2">Certifications</div>
-            {profile.certifications.map((cert, i) => (
-              <div key={i} className="mb-2">
+            {profile.certifications.map((cert) => (
+              <div key={`${cert.name}-${cert.issuer}`} className="mb-2">
                 <div className="text-sm text-[#d0d6e0]">{cert.name}</div>
                 <div className="text-xs text-[#8a8f98]">
                   {cert.issuer}, {cert.year}
@@ -148,9 +159,9 @@ export default function SharedProfilePage() {
         {profile.socialLinks.length > 0 && (
           <div className="mb-6">
             <div className="text-xs text-[#62666d] uppercase font-[510] mb-2">Links</div>
-            {profile.socialLinks.map((link, i) => (
+            {profile.socialLinks.map((link) => (
               <a
-                key={i}
+                key={link.url}
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -162,17 +173,11 @@ export default function SharedProfilePage() {
           </div>
         )}
 
-        {profile.expiresAt &&
-          Math.ceil((new Date(profile.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) <=
-            7 && (
-            <div className="text-xs text-amber-400 text-center mt-4">
-              This profile link expires in{' '}
-              {Math.ceil(
-                (new Date(profile.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-              )}{' '}
-              day(s).
-            </div>
-          )}
+        {daysUntilExpiry !== null && daysUntilExpiry <= 7 && (
+          <div className="text-xs text-amber-400 text-center mt-4">
+            This profile link expires in {daysUntilExpiry} day(s).
+          </div>
+        )}
       </Card>
       <div className="mt-6 text-xs text-[#62666d]">
         This profile was shared by {profile.companyName}

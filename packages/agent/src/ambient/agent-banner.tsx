@@ -1,3 +1,5 @@
+'use client'
+
 import { useState } from 'react'
 import { AlertTriangle, Info, AlertCircle, X } from 'lucide-react'
 import { useAgentState } from '../hooks/use-agent-state'
