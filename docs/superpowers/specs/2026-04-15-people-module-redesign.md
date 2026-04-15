@@ -23,9 +23,70 @@ Core HRM lifecycle management from pre-hire to termination/rehire, replacing the
 
 ---
 
-## 2. Core Domain Model
+## 2. Module Boundaries — Single Source of Truth
 
-### 2.1 Entity Relationship Overview
+This section defines what the people module owns and what it does NOT own, ensuring no duplication with other modules.
+
+### 2.1 What People Owns (Source of Truth)
+
+| Domain Concept                                                     | People Owns                                    | Other Modules React Via                 |
+| ------------------------------------------------------------------ | ---------------------------------------------- | --------------------------------------- |
+| **Person identity** (name, DOB, gender, nationality)               | `person_profile`                               | Facade reads                            |
+| **Employment relationship** (hire, status, termination)            | `employment`                                   | Events                                  |
+| **Org structure** (who reports to whom, department assignment)     | `job_assignment` (effective-dated)             | `JobAssignmentChangedEvent`             |
+| **Job history** (promotions, transfers, role changes)              | `job_assignment` timeline                      | Events + facade reads                   |
+| **Employment details** (national ID, bank, contacts, country data) | `employment_detail`                            | Events                                  |
+| **Contract terms** (type, salary, duration)                        | `contract_version`                             | `ContractVersionCreatedEvent` → finance |
+| **Probation tracking**                                             | `probation_record` + `probation_policy`        | Events → finance, notifications         |
+| **Employee document metadata** (category, expiry, acknowledgment)  | `employee_document`                            | Facade reads                            |
+| **Profile sections** (education, skills, certifications)           | `profile_section`                              | Facade reads                            |
+| **Profile change approval workflow**                               | `profile_change_request` + `field_edit_policy` | Events                                  |
+| **Onboarding/offboarding workflows**                               | `onboarding_*`, `offboarding_*` tables         | Events                                  |
+| **Field access control** (who sees what fields)                    | `field_visibility_config`                      | Applied at query layer                  |
+| **Custom fields**                                                  | `custom_field_definition` + JSONB values       | N/A                                     |
+| **Company email generation**                                       | `email_generation_config` + algorithm          | N/A                                     |
+| **Directory search**                                               | `directory_search_index`                       | N/A                                     |
+
+### 2.2 What People Does NOT Own
+
+| Domain Concept                                     | Owned By      | People's Relationship                                                                                                |
+| -------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Authentication** (SSO, magic link, IdP)          | identity      | People references `actorId` from kernel/identity. Never stores credentials.                                          |
+| **Departments** (hierarchy, cost centers)          | kernel        | People references `department_id` in job_assignment. Validates via `KernelQueryFacade`.                              |
+| **Permissions & role grants**                      | kernel        | People uses kernel's `role_permission` for access checks. Never creates its own permission system.                   |
+| **Actor lifecycle** (invited, active, inactive)    | kernel        | People emits `EmploymentTerminatedEvent` → kernel listens and deactivates actor. People never writes to actor table. |
+| **Candidates, offers, interviews**                 | hiring        | People only listens to `CandidateHiredEvent`. Never manages pre-hire pipeline.                                       |
+| **Project staffing & allocations**                 | projects      | People emits `JobAssignmentChangedEvent` → projects adjusts allocations. People never writes to project tables.      |
+| **Account membership** (project/account teams)     | projects      | Projects owns `allocation` and `account.accountManagerId`. People does not track account teams.                      |
+| **Payroll execution** (calculations, disbursement) | finance       | People stores contractual terms on `contract_version`. Finance handles actual payroll runs.                          |
+| **Leave accrual & policy**                         | time          | People tracks employment status (`on_leave`). Time owns leave balances, requests, policies.                          |
+| **Performance evaluations**                        | performance   | People does not own periodic reviews. Completeness reminders handled via `completeness_rule`.                        |
+| **Task management** (generic to-dos, KPIs)         | planner       | People owns domain-specific onboarding/offboarding tasks only. Generic task tracking is planner.                     |
+| **File storage** (S3, signed URLs, retention)      | documents     | People stores metadata (`employee_document`). Documents handles storage, URLs, retention.                            |
+| **Notification delivery** (email, SMS, in-app)     | notifications | People emits domain events. Notifications consumes and delivers.                                                     |
+
+### 2.3 Kernel org_placement Resolution
+
+Kernel currently has `org_placement` (maps actor → department with manager and effective dates). With the people redesign:
+
+- **People's `job_assignment`** becomes the authoritative source for org structure (who reports to whom, which department, effective dates).
+- **Kernel's `org_placement`** becomes a read-only projection, updated by kernel listening to `JobAssignmentChangedEvent`. Kernel never writes to org_placement directly from user actions — it derives from people events.
+- **Why:** Job assignment is inherently an employment/HR concept (promotions, transfers, reorgs). Kernel's role is authority/permissions, not org management. The org_placement projection lets kernel resolve "who are the subordinates of actor X?" without cross-module queries.
+
+### 2.4 Entities Removed from People Module
+
+These entities exist in the current people module but are removed in the redesign:
+
+| Entity                    | Reason                                                         | Replacement                                               |
+| ------------------------- | -------------------------------------------------------------- | --------------------------------------------------------- |
+| `account_membership`      | Account/project team composition is a projects concern         | Projects owns `allocation` + `account.accountManagerId`   |
+| `periodic_profile_review` | Confuses profile data completeness with performance evaluation | `completeness_rule` + `completeness-reminder` pg-boss job |
+
+---
+
+## 3. Core Domain Model
+
+### 3.1 Entity Relationship Overview
 
 ```
 Reference Tables
@@ -50,7 +111,7 @@ Operational Tables
   directory_search_index, bulk_operation, import_job, custom_field_definition
 ```
 
-### 2.2 Person Profile
+### 3.2 Person Profile
 
 One per person per tenant. Owns identity-level data that doesn't change across employments.
 
@@ -91,7 +152,7 @@ person_profile:
 - `given_first`: full_name = given_name + middle_name + family_name (Western)
 - `full_name_unaccented`: NFC normalize, strip diacritics/tone marks, Vietnamese-specific (D->d), lowercase. Used for search indexing and email generation.
 
-### 2.3 Employment
+### 3.3 Employment
 
 The employment relationship. One per legal entity per person. Owns the state machine.
 
@@ -123,7 +184,7 @@ employment:
   UNIQUE (tenant_id, company_email) WHERE employment_status != 'terminated'
 ```
 
-### 2.4 Job Assignment (Effective-Dated)
+### 3.4 Job Assignment (Effective-Dated)
 
 Every change to role, department, manager, or location creates a new row. Current assignment has `effective_to IS NULL`.
 
@@ -170,7 +231,7 @@ job_assignment:
 - `pg-boss` job `apply-scheduled-assignments` runs daily to close current / activate scheduled
 - Future changes can be cancelled (delete row, reopen current assignment)
 
-### 2.5 Employment Detail
+### 3.5 Employment Detail
 
 1:1 with employment. Universal typed columns + country JSONB + custom fields JSONB.
 
@@ -217,7 +278,7 @@ employment_detail:
   UNIQUE (tenant_id, employment_id)
 ```
 
-### 2.6 Job Profile Catalog
+### 3.6 Job Profile Catalog
 
 Managed reference data. No free-text titles.
 
@@ -957,21 +1018,21 @@ Tasks complete → CompleteTermination → employment terminated
 
 ### 17.1 Events Emitted by People Module
 
-| Event                            | Consumers                                                                                                                                                                       |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `EmploymentActivatedEvent`       | time (start accruals), projects (available for staffing), kernel (activate grants)                                                                                              |
-| `EmploymentTerminatedEvent`      | time (stop accruals), projects (flag assignments), finance (final pay), kernel (revoke grants), identity (disable SSO), agents (deactivate), goals (reassign OKRs)              |
-| `JobAssignmentChangedEvent`      | projects (staffing impact), finance (comp review trigger), time (accrual policy change), performance (reviewer change), goals (ownership shift), kernel (role grant evaluation) |
-| `EmployeeOnLeaveEvent`           | time, projects (temporary backfill)                                                                                                                                             |
-| `EmployeeSuspendedEvent`         | projects (remove from active work)                                                                                                                                              |
-| `EmployeeReturnedFromLeaveEvent` | time, projects                                                                                                                                                                  |
-| `ProfileChangeAppliedEvent`      | finance (bank account change), notifications                                                                                                                                    |
-| `ContractVersionCreatedEvent`    | finance (payroll terms)                                                                                                                                                         |
-| `ContractExpiringEvent`          | notifications                                                                                                                                                                   |
-| `ProbationConfirmedEvent`        | finance (salary adjustment)                                                                                                                                                     |
-| `ProbationEndingEvent`           | notifications                                                                                                                                                                   |
-| `DocumentExpiringEvent`          | notifications                                                                                                                                                                   |
-| `ProfileIncompleteEvent`         | notifications                                                                                                                                                                   |
+| Event                            | Consumers                                                                                                                                                                                                         |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EmploymentActivatedEvent`       | time (start accruals), projects (available for staffing), kernel (activate grants)                                                                                                                                |
+| `EmploymentTerminatedEvent`      | time (stop accruals), projects (flag assignments), finance (final pay), kernel (revoke grants), identity (disable SSO), agents (deactivate), goals (reassign OKRs)                                                |
+| `JobAssignmentChangedEvent`      | kernel (update org_placement projection + role grant evaluation), projects (staffing impact), finance (comp review trigger), time (accrual policy change), performance (reviewer change), goals (ownership shift) |
+| `EmployeeOnLeaveEvent`           | time, projects (temporary backfill)                                                                                                                                                                               |
+| `EmployeeSuspendedEvent`         | projects (remove from active work)                                                                                                                                                                                |
+| `EmployeeReturnedFromLeaveEvent` | time, projects                                                                                                                                                                                                    |
+| `ProfileChangeAppliedEvent`      | finance (bank account change), notifications                                                                                                                                                                      |
+| `ContractVersionCreatedEvent`    | finance (payroll terms)                                                                                                                                                                                           |
+| `ContractExpiringEvent`          | notifications                                                                                                                                                                                                     |
+| `ProbationConfirmedEvent`        | finance (salary adjustment)                                                                                                                                                                                       |
+| `ProbationEndingEvent`           | notifications                                                                                                                                                                                                     |
+| `DocumentExpiringEvent`          | notifications                                                                                                                                                                                                     |
+| `ProfileIncompleteEvent`         | notifications                                                                                                                                                                                                     |
 
 ### 17.2 Events Consumed by People Module
 
@@ -993,9 +1054,25 @@ getHeadcount(tenantId, filters)
 isActiveEmployee(tenantId, actorId)
 ```
 
-### 17.4 Integration Principle
+### 17.4 Integration Principle — Single Source of Truth
 
-People module is the source of truth for who works where and in what role. It emits events for state changes. It never calls projects/finance/time — those modules react to people events. People only queries kernel (department/authority validation) and documents (file storage).
+People module is the **single source of truth** for:
+
+- Who is employed (employment status, hire/termination dates)
+- Who reports to whom (job_assignment.manager_id)
+- What role someone holds (job_assignment → job_profile)
+- Which department someone sits in (job_assignment.department_id)
+- Employment details (personal data, bank, country-specific fields)
+- Contract terms (type, salary, duration)
+
+**No other module duplicates this data.** Other modules maintain derived projections updated via events:
+
+- Kernel's `org_placement` is a read-only projection rebuilt from `JobAssignmentChangedEvent`
+- Projects' `allocation` tracks project staffing (a different concept from org assignment)
+- Finance's payroll records derive from `ContractVersionCreatedEvent`
+- Time's leave balances react to `EmployeeOnLeaveEvent` / `EmployeeReturnedFromLeaveEvent`
+
+**Data flow is one-directional:** People emits events → other modules react. People never calls projects/finance/time/performance/goals. People only queries kernel (department validation, permission checks) and documents (file storage).
 
 ---
 
