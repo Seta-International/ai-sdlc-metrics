@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EmploymentActivatedEvent } from '@future/event-contracts'
 import {
   EmploymentNotFoundException,
   InvalidEmploymentStatusTransitionException,
@@ -36,6 +37,7 @@ function makeEmployment(overrides: Partial<Employment> = {}): Employment {
 describe('ActivateEmploymentHandler', () => {
   let handler: ActivateEmploymentHandler
   let employmentRepo: IEmploymentRepository
+  let eventBus: { publish: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     employmentRepo = {
@@ -49,13 +51,16 @@ describe('ActivateEmploymentHandler', () => {
       countByTenant: vi.fn(),
     } as unknown as IEmploymentRepository
 
-    handler = new ActivateEmploymentHandler(employmentRepo)
+    eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
+
+    handler = new ActivateEmploymentHandler(employmentRepo, eventBus as any)
   })
 
   it('activates a pre_hire employment successfully', async () => {
     await handler.execute(new ActivateEmploymentCommand(TENANT_ID, EMPLOYMENT_ID, ACTIVATED_BY))
 
     expect(employmentRepo.updateStatus).toHaveBeenCalledWith(EMPLOYMENT_ID, TENANT_ID, 'active')
+    expect(eventBus.publish).toHaveBeenCalledWith(expect.any(EmploymentActivatedEvent))
   })
 
   it('throws EmploymentNotFoundException when employment does not exist', async () => {

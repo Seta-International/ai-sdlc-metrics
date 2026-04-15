@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EmployeeNoticeGivenEvent } from '@future/event-contracts'
 import {
   EmploymentNotFoundException,
   InvalidEmploymentStatusTransitionException,
@@ -36,6 +37,7 @@ function makeEmployment(overrides: Partial<Employment> = {}): Employment {
 describe('GiveNoticeHandler', () => {
   let handler: GiveNoticeHandler
   let employmentRepo: IEmploymentRepository
+  let eventBus: { publish: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     employmentRepo = {
@@ -49,7 +51,9 @@ describe('GiveNoticeHandler', () => {
       countByTenant: vi.fn(),
     } as unknown as IEmploymentRepository
 
-    handler = new GiveNoticeHandler(employmentRepo)
+    eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
+
+    handler = new GiveNoticeHandler(employmentRepo, eventBus as any)
   })
 
   it('transitions active employment to notice_period (resignation)', async () => {
@@ -68,6 +72,7 @@ describe('GiveNoticeHandler', () => {
       TENANT_ID,
       'notice_period',
     )
+    expect(eventBus.publish).toHaveBeenCalledWith(expect.any(EmployeeNoticeGivenEvent))
   })
 
   it('transitions active employment to notice_period (employer-initiated)', async () => {

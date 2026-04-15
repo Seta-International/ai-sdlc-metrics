@@ -1,5 +1,6 @@
 import { Inject } from '@nestjs/common'
-import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, EventBus, type ICommandHandler } from '@nestjs/cqrs'
+import { ContractVersionCreatedEvent } from '@future/event-contracts'
 import { EmploymentNotFoundException } from '../../domain/exceptions/people.exceptions'
 import {
   EMPLOYMENT_REPOSITORY,
@@ -22,6 +23,7 @@ export class CreateContractVersionHandler implements ICommandHandler<
     private readonly employmentRepo: IEmploymentRepository,
     @Inject(CONTRACT_VERSION_REPOSITORY)
     private readonly contractVersionRepo: IContractVersionRepository,
+    private readonly eventBus: EventBus,
   ) {}
 
   async execute(command: CreateContractVersionCommand): Promise<ContractVersion> {
@@ -39,7 +41,7 @@ export class CreateContractVersionHandler implements ICommandHandler<
       })
     }
 
-    return this.contractVersionRepo.insert({
+    const contractVersion = await this.contractVersionRepo.insert({
       tenantId: command.tenantId,
       employmentId: command.employmentId,
       contractType: command.contractType,
@@ -58,5 +60,20 @@ export class CreateContractVersionHandler implements ICommandHandler<
       signedAt: null,
       signedBy: null,
     })
+
+    await this.eventBus.publish(
+      new ContractVersionCreatedEvent(
+        command.tenantId,
+        command.employmentId,
+        contractVersion.id,
+        command.contractType,
+        command.startDate,
+        command.endDate ?? null,
+        contractVersion.baseSalary != null ? Number(contractVersion.baseSalary) : null,
+        command.salaryCurrency ?? null,
+      ),
+    )
+
+    return contractVersion
   }
 }

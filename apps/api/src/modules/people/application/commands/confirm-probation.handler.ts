@@ -1,5 +1,6 @@
 import { Inject } from '@nestjs/common'
-import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, EventBus, type ICommandHandler } from '@nestjs/cqrs'
+import { ProbationConfirmedEvent } from '@future/event-contracts'
 import {
   ProbationRecordNotFoundException,
   InvalidProbationStatusException,
@@ -15,6 +16,7 @@ export class ConfirmProbationHandler implements ICommandHandler<ConfirmProbation
   constructor(
     @Inject(PROBATION_RECORD_REPOSITORY)
     private readonly probationRecordRepo: IProbationRecordRepository,
+    private readonly eventBus: EventBus,
   ) {}
 
   async execute(command: ConfirmProbationCommand): Promise<void> {
@@ -29,11 +31,17 @@ export class ConfirmProbationHandler implements ICommandHandler<ConfirmProbation
       throw new InvalidProbationStatusException(record.status, 'confirm')
     }
 
+    const outcomeDate = new Date()
+
     await this.probationRecordRepo.update(record.id, command.tenantId, {
       status: 'passed',
-      outcomeDate: new Date(),
+      outcomeDate,
       outcomeBy: command.confirmedBy,
       outcomeNote: command.note ?? null,
     })
+
+    await this.eventBus.publish(
+      new ProbationConfirmedEvent(command.tenantId, command.employmentId, outcomeDate),
+    )
   }
 }

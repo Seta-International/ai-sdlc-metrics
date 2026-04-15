@@ -1,5 +1,6 @@
 import { Inject } from '@nestjs/common'
-import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, EventBus, type ICommandHandler } from '@nestjs/cqrs'
+import { EmployeeReturnedFromLeaveEvent } from '@future/event-contracts'
 import {
   EmploymentNotFoundException,
   InvalidEmploymentStatusTransitionException,
@@ -15,6 +16,7 @@ export class ReturnFromLeaveHandler implements ICommandHandler<ReturnFromLeaveCo
   constructor(
     @Inject(EMPLOYMENT_REPOSITORY)
     private readonly employmentRepo: IEmploymentRepository,
+    private readonly eventBus: EventBus,
   ) {}
 
   async execute(command: ReturnFromLeaveCommand): Promise<void> {
@@ -26,5 +28,13 @@ export class ReturnFromLeaveHandler implements ICommandHandler<ReturnFromLeaveCo
     }
 
     await this.employmentRepo.updateStatus(command.employmentId, command.tenantId, 'active')
+
+    await this.eventBus.publish(
+      new EmployeeReturnedFromLeaveEvent(
+        command.tenantId,
+        command.employmentId,
+        command.actualReturnDate,
+      ),
+    )
   }
 }

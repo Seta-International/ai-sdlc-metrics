@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { JobAssignmentChangedEvent } from '@future/event-contracts'
 import { CreateJobAssignmentCommand } from './create-job-assignment.command'
 import { CreateJobAssignmentHandler } from './create-job-assignment.handler'
 import {
@@ -79,6 +80,7 @@ describe('CreateJobAssignmentHandler', () => {
   let employmentRepo: IEmploymentRepository
   let jobProfileRepo: IJobProfileRepository
   let jobAssignmentRepo: IJobAssignmentRepository
+  let eventBus: { publish: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     employmentRepo = {
@@ -110,7 +112,14 @@ describe('CreateJobAssignmentHandler', () => {
       delete: vi.fn(),
     } as unknown as IJobAssignmentRepository
 
-    handler = new CreateJobAssignmentHandler(employmentRepo, jobProfileRepo, jobAssignmentRepo)
+    eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
+
+    handler = new CreateJobAssignmentHandler(
+      employmentRepo,
+      jobProfileRepo,
+      jobAssignmentRepo,
+      eventBus as any,
+    )
   })
 
   it('creates first assignment (hire) without closing previous', async () => {
@@ -139,6 +148,7 @@ describe('CreateJobAssignmentHandler', () => {
       }),
     )
     expect(result.eventType).toBe('hire')
+    expect(eventBus.publish).toHaveBeenCalledWith(expect.any(JobAssignmentChangedEvent))
   })
 
   it('creates promotion assignment and closes previous with effectiveTo = day before', async () => {

@@ -1,5 +1,6 @@
 import { Inject } from '@nestjs/common'
-import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, EventBus, type ICommandHandler } from '@nestjs/cqrs'
+import { EmployeeNoticeGivenEvent } from '@future/event-contracts'
 import { EmploymentNotFoundException } from '../../domain/exceptions/people.exceptions'
 import {
   EMPLOYMENT_REPOSITORY,
@@ -13,6 +14,7 @@ export class GiveNoticeHandler implements ICommandHandler<GiveNoticeCommand, voi
   constructor(
     @Inject(EMPLOYMENT_REPOSITORY)
     private readonly employmentRepo: IEmploymentRepository,
+    private readonly eventBus: EventBus,
   ) {}
 
   async execute(command: GiveNoticeCommand): Promise<void> {
@@ -22,5 +24,14 @@ export class GiveNoticeHandler implements ICommandHandler<GiveNoticeCommand, voi
     assertValidTransition(employment.employmentStatus, 'notice_period')
 
     await this.employmentRepo.updateStatus(command.employmentId, command.tenantId, 'notice_period')
+
+    await this.eventBus.publish(
+      new EmployeeNoticeGivenEvent(
+        command.tenantId,
+        command.employmentId,
+        command.lastWorkingDay,
+        command.noticeType,
+      ),
+    )
   }
 }
