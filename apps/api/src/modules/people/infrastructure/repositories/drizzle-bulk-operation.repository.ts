@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { and, eq } from 'drizzle-orm'
-import { DB_TOKEN, type Db } from '@future/db'
+import type { Db } from '@future/db'
+import { DB_TOKEN } from '../../../../common/db/db.module'
 import type {
   BulkOperation,
   BulkOperationStatus,
@@ -24,7 +25,7 @@ export class DrizzleBulkOperationRepository implements IBulkOperationRepository 
   async insert(data: Omit<BulkOperation, 'id'>): Promise<BulkOperation> {
     const rows = await this.db
       .insert(bulkOperation)
-      .values(data as Record<string, unknown>)
+      .values(data as unknown as typeof bulkOperation.$inferInsert)
       .returning()
     return rows[0] as BulkOperation
   }

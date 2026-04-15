@@ -13,7 +13,7 @@ describe('RebuildSearchIndexJob', () => {
     rebuildService = {
       rebuildForEmployment: vi.fn(),
       rebuildAllForTenant: vi.fn(),
-    } as any
+    } as never
     job = new RebuildSearchIndexJob(rebuildService)
   })
 

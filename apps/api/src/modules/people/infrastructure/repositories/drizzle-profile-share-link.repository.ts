@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { and, eq, sql } from 'drizzle-orm'
-import { DB_TOKEN, type Db } from '@future/db'
+import type { Db } from '@future/db'
+import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { ProfileShareLink } from '../../domain/entities/profile-share-link.entity'
 import type { IProfileShareLinkRepository } from '../../domain/repositories/profile-share-link.repository'
 import { profileShareLink } from '../schema/people.schema'
@@ -43,7 +44,7 @@ export class DrizzleProfileShareLinkRepository implements IProfileShareLinkRepos
   async insert(data: Omit<ProfileShareLink, 'id'>): Promise<ProfileShareLink> {
     const rows = await this.db
       .insert(profileShareLink)
-      .values(data as Record<string, unknown>)
+      .values(data as unknown as typeof profileShareLink.$inferInsert)
       .returning()
     return rows[0] as ProfileShareLink
   }

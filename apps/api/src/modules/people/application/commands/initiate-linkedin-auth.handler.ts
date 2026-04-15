@@ -12,7 +12,7 @@ export class InitiateLinkedInAuthHandler implements ICommandHandler<
   LinkedInAuthResult
 > {
   // TODO: inject LinkedIn OAuth config from admin module once available
-  async execute(command: InitiateLinkedInAuthCommand): Promise<LinkedInAuthResult> {
+  async execute(_command: InitiateLinkedInAuthCommand): Promise<LinkedInAuthResult> {
     // TODO: implement LinkedIn OAuth redirect URL generation
     throw new Error('LinkedIn OAuth integration not yet implemented')
   }

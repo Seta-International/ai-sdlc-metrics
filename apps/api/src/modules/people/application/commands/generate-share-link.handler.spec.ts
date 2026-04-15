@@ -40,9 +40,9 @@ describe('GenerateShareLinkHandler', () => {
     vi.mocked(employmentRepo.findById).mockResolvedValue({
       id: EMPLOYMENT_ID,
       tenantId: TENANT_ID,
-    } as any)
+    } as never)
     vi.mocked(shareLinkRepo.insert).mockImplementation(
-      async (data) => ({ id: 'share-1', ...data }) as any,
+      async (data) => ({ id: 'share-1', ...data }) as never,
     )
 
     const result = await handler.execute(
@@ -75,9 +75,9 @@ describe('GenerateShareLinkHandler', () => {
     vi.mocked(employmentRepo.findById).mockResolvedValue({
       id: EMPLOYMENT_ID,
       tenantId: TENANT_ID,
-    } as any)
+    } as never)
     vi.mocked(shareLinkRepo.insert).mockImplementation(
-      async (data) => ({ id: 'share-1', ...data }) as any,
+      async (data) => ({ id: 'share-1', ...data }) as never,
     )
 
     await handler.execute(new GenerateShareLinkCommand(TENANT_ID, EMPLOYMENT_ID, ACTOR_ID, 365))

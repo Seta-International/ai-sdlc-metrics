@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { and, eq } from 'drizzle-orm'
-import { DB_TOKEN, type Db } from '@future/db'
+import type { Db } from '@future/db'
+import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { ImportJob, ImportJobStatus } from '../../domain/entities/import-job.entity'
 import type { IImportJobRepository } from '../../domain/repositories/import-job.repository'
 import { importJob } from '../schema/people.schema'
@@ -21,7 +22,7 @@ export class DrizzleImportJobRepository implements IImportJobRepository {
   async insert(data: Omit<ImportJob, 'id'>): Promise<ImportJob> {
     const rows = await this.db
       .insert(importJob)
-      .values(data as Record<string, unknown>)
+      .values(data as unknown as typeof importJob.$inferInsert)
       .returning()
     return rows[0] as ImportJob
   }

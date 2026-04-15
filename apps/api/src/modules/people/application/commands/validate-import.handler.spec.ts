@@ -27,7 +27,7 @@ describe('ValidateImportHandler', () => {
       id: JOB_ID,
       status: 'mapped',
       rowCount: 50,
-    } as any)
+    } as never)
     vi.mocked(importJobRepo.updateValidation).mockResolvedValue(undefined)
 
     await handler.execute(new ValidateImportCommand(TENANT_ID, JOB_ID))
@@ -43,7 +43,7 @@ describe('ValidateImportHandler', () => {
   })
 
   it('throws when job not in mapped status', async () => {
-    vi.mocked(importJobRepo.findById).mockResolvedValue({ id: JOB_ID, status: 'uploaded' } as any)
+    vi.mocked(importJobRepo.findById).mockResolvedValue({ id: JOB_ID, status: 'uploaded' } as never)
 
     await expect(handler.execute(new ValidateImportCommand(TENANT_ID, JOB_ID))).rejects.toThrow()
   })

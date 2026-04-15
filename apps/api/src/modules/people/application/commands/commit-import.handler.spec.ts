@@ -28,7 +28,7 @@ describe('CommitImportHandler', () => {
       id: JOB_ID,
       status: 'validated',
       rowCount: 10,
-    } as any)
+    } as never)
     vi.mocked(importJobRepo.updateStatus).mockResolvedValue(undefined)
 
     await handler.execute(new CommitImportCommand(TENANT_ID, JOB_ID, ACTOR_ID))
@@ -37,7 +37,7 @@ describe('CommitImportHandler', () => {
   })
 
   it('throws when job not in validated/previewed status', async () => {
-    vi.mocked(importJobRepo.findById).mockResolvedValue({ id: JOB_ID, status: 'uploaded' } as any)
+    vi.mocked(importJobRepo.findById).mockResolvedValue({ id: JOB_ID, status: 'uploaded' } as never)
 
     await expect(
       handler.execute(new CommitImportCommand(TENANT_ID, JOB_ID, ACTOR_ID)),

@@ -23,7 +23,7 @@ describe('MapImportColumnsHandler', () => {
   })
 
   it('applies column mapping to the import job', async () => {
-    vi.mocked(importJobRepo.findById).mockResolvedValue({ id: JOB_ID, status: 'uploaded' } as any)
+    vi.mocked(importJobRepo.findById).mockResolvedValue({ id: JOB_ID, status: 'uploaded' } as never)
     vi.mocked(importJobRepo.updateMapping).mockResolvedValue(undefined)
 
     const mapping = { 'Full Name': 'person_profile.full_name', Email: 'employment.company_email' }

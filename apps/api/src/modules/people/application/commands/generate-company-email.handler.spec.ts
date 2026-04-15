@@ -35,7 +35,7 @@ describe('GenerateCompanyEmailHandler', () => {
     }
     emailService = {
       generateCandidates: vi.fn(),
-    } as any
+    } as never
     handler = new GenerateCompanyEmailHandler(employmentRepo, profileRepo, emailService)
   })
 
@@ -45,13 +45,13 @@ describe('GenerateCompanyEmailHandler', () => {
       tenantId: TENANT_ID,
       personProfileId: PROFILE_ID,
       companyEmail: null,
-    } as any)
+    } as never)
     vi.mocked(profileRepo.findById).mockResolvedValue({
       id: PROFILE_ID,
       familyName: 'Nguyễn',
       givenName: 'An',
       middleName: 'Văn',
-    } as any)
+    } as never)
     vi.mocked(emailService.generateCandidates).mockResolvedValue([
       'an.nguyen@seta.vn',
       'an.nguyenvan@seta.vn',
@@ -59,7 +59,7 @@ describe('GenerateCompanyEmailHandler', () => {
     vi.mocked(employmentRepo.update).mockResolvedValue({
       id: EMPLOYMENT_ID,
       companyEmail: 'an.nguyen@seta.vn',
-    } as any)
+    } as never)
 
     const result = await handler.execute(new GenerateCompanyEmailCommand(TENANT_ID, EMPLOYMENT_ID))
 
@@ -77,11 +77,11 @@ describe('GenerateCompanyEmailHandler', () => {
       tenantId: TENANT_ID,
       personProfileId: PROFILE_ID,
       companyEmail: null,
-    } as any)
+    } as never)
     vi.mocked(employmentRepo.update).mockResolvedValue({
       id: EMPLOYMENT_ID,
       companyEmail: 'custom@seta.vn',
-    } as any)
+    } as never)
 
     await handler.execute(
       new GenerateCompanyEmailCommand(TENANT_ID, EMPLOYMENT_ID, 'custom@seta.vn'),
