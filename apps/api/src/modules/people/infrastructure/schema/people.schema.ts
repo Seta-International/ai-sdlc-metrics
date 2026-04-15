@@ -496,3 +496,75 @@ export const profileShareLink = peopleSchema.table('profile_share_link', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   revokedAt: timestamp('revoked_at'),
 })
+
+// ─── Bulk Operation ────────────────────────────────────────────────────────────
+
+export const bulkOperation = peopleSchema.table('bulk_operation', {
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  operationType: text('operation_type', {
+    enum: ['department_transfer', 'status_change', 'manager_reassign'],
+  }).notNull(),
+  employmentIds: uuid('employment_ids').array().notNull(),
+  payload: jsonb('payload').notNull(),
+  status: text('status', {
+    enum: [
+      'pending',
+      'validating',
+      'previewed',
+      'processing',
+      'completed',
+      'partially_completed',
+      'failed',
+    ],
+  })
+    .notNull()
+    .default('pending'),
+  totalCount: integer('total_count').notNull(),
+  successCount: integer('success_count').notNull().default(0),
+  failureCount: integer('failure_count').notNull().default(0),
+  errors: jsonb('errors'),
+  requestedBy: uuid('requested_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  completedAt: timestamp('completed_at'),
+})
+
+// ─── Import Job ────────────────────────────────────────────────────────────────
+
+export const importJob = peopleSchema.table('import_job', {
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  fileDocumentId: uuid('file_document_id').notNull(),
+  fileName: text('file_name').notNull(),
+  rowCount: integer('row_count').notNull(),
+  columnMapping: jsonb('column_mapping'),
+  mappingProfile: text('mapping_profile'),
+  status: text('status', {
+    enum: [
+      'uploaded',
+      'mapped',
+      'validated',
+      'previewed',
+      'committed',
+      'partially_committed',
+      'failed',
+    ],
+  })
+    .notNull()
+    .default('uploaded'),
+  validCount: integer('valid_count'),
+  errorCount: integer('error_count'),
+  warningCount: integer('warning_count'),
+  validationReport: jsonb('validation_report'),
+  createdCount: integer('created_count'),
+  updatedCount: integer('updated_count'),
+  skippedCount: integer('skipped_count'),
+  errorDetails: jsonb('error_details'),
+  requestedBy: uuid('requested_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  completedAt: timestamp('completed_at'),
+})
