@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EventBus } from '@nestjs/cqrs'
 import { ContractVersionCreatedEvent } from '@future/event-contracts'
 import { EmploymentNotFoundException } from '../../domain/exceptions/people.exceptions'
 import type { IEmploymentRepository } from '../../domain/repositories/employment.repository'
@@ -88,7 +89,11 @@ describe('CreateContractVersionHandler', () => {
 
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
 
-    handler = new CreateContractVersionHandler(employmentRepo, contractVersionRepo, eventBus as any)
+    handler = new CreateContractVersionHandler(
+      employmentRepo,
+      contractVersionRepo,
+      eventBus as unknown as EventBus,
+    )
   })
 
   it('creates first contract for employment with status active', async () => {

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EventBus } from '@nestjs/cqrs'
 import { EmployeeReinstatedEvent } from '@future/event-contracts'
 import {
   EmploymentNotFoundException,
@@ -53,7 +54,7 @@ describe('ReinstateSuspensionHandler', () => {
 
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
 
-    handler = new ReinstateSuspensionHandler(employmentRepo, eventBus as any)
+    handler = new ReinstateSuspensionHandler(employmentRepo, eventBus as unknown as EventBus)
   })
 
   it('transitions suspended employment back to active', async () => {

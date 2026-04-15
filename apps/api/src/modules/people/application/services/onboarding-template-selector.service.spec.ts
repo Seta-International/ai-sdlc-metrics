@@ -1,17 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { OnboardingTemplateSelectorService } from './onboarding-template-selector.service'
+import type { IOnboardingTemplateRepository } from '../../domain/repositories/onboarding-template.repository'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 
 describe('OnboardingTemplateSelectorService', () => {
   let service: OnboardingTemplateSelectorService
-  let templateRepo: any
+  let templateRepo: { listByTenant: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     templateRepo = {
       listByTenant: vi.fn(),
     }
-    service = new OnboardingTemplateSelectorService(templateRepo)
+    service = new OnboardingTemplateSelectorService(
+      templateRepo as unknown as IOnboardingTemplateRepository,
+    )
   })
 
   it('selects template matching country + worker_type + employment_type', async () => {

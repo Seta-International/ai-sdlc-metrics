@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EventBus } from '@nestjs/cqrs'
 import { EmployeeNoticeGivenEvent } from '@future/event-contracts'
 import {
   EmploymentNotFoundException,
@@ -53,7 +54,7 @@ describe('GiveNoticeHandler', () => {
 
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
 
-    handler = new GiveNoticeHandler(employmentRepo, eventBus as any)
+    handler = new GiveNoticeHandler(employmentRepo, eventBus as unknown as EventBus)
   })
 
   it('transitions active employment to notice_period (resignation)', async () => {

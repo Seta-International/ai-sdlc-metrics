@@ -1073,7 +1073,7 @@ export const peopleRouter = router({
     getCase: publicProcedure
       .input(z.object({ tenantId: z.string().uuid(), employmentId: z.string().uuid() }))
       // No GetOnboardingCaseByEmploymentIdQuery handler yet; returns null until implemented.
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
       .query((_ctx) => null),
   }),
 
@@ -1081,7 +1081,7 @@ export const peopleRouter = router({
     getCase: publicProcedure
       .input(z.object({ tenantId: z.string().uuid(), employmentId: z.string().uuid() }))
       // No GetOffboardingCaseByEmploymentIdQuery handler yet; returns null until implemented.
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
       .query((_ctx) => null),
   }),
 

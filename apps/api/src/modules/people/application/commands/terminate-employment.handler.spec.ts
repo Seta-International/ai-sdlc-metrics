@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EventBus } from '@nestjs/cqrs'
 import { EmploymentTerminatedEvent } from '@future/event-contracts'
 import {
   EmploymentNotFoundException,
@@ -7,6 +8,7 @@ import {
 import type { IEmploymentRepository } from '../../domain/repositories/employment.repository'
 import type { IOffboardingCaseRepository } from '../../domain/repositories/offboarding-case.repository'
 import type { Employment } from '../../domain/entities/employment.entity'
+import type { OffboardingTemplateSelectorService } from '../services/offboarding-template-selector.service'
 import { TerminateEmploymentCommand } from './terminate-employment.command'
 import { TerminateEmploymentHandler } from './terminate-employment.handler'
 
@@ -73,8 +75,8 @@ describe('TerminateEmploymentHandler', () => {
     handler = new TerminateEmploymentHandler(
       employmentRepo,
       offboardingCaseRepo,
-      offboardingTemplateSelector as any,
-      eventBus as any,
+      offboardingTemplateSelector as unknown as OffboardingTemplateSelectorService,
+      eventBus as unknown as EventBus,
     )
   })
 

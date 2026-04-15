@@ -10,7 +10,6 @@ export class ListProfileChangeRequestsHandler implements IQueryHandler<
   ListProfileChangeRequestsQuery,
   ProfileChangeRequest[]
 > {
-  // eslint-disable-next-line @typescript-eslint/no-useless-constructor
   constructor() {}
 
   async execute(_query: ListProfileChangeRequestsQuery): Promise<ProfileChangeRequest[]> {

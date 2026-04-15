@@ -4,6 +4,16 @@ import {
   type IOffboardingTemplateRepository,
 } from '../../domain/repositories/offboarding-template.repository'
 
+interface TemplateRow {
+  id: string
+  name: string
+  countryCode: string | null
+  terminationReason: string | null
+  reasonCategory: string | null
+  isDefault: boolean
+  isActive: boolean
+}
+
 const REASON_TO_CATEGORY: Record<string, string> = {
   voluntary_resignation: 'voluntary',
   involuntary_performance: 'involuntary',
@@ -31,24 +41,24 @@ export class OffboardingTemplateSelectorService {
     terminationReason: string,
   ): Promise<{ id: string; name: string } | null> {
     const all = await this.templateRepo.listByTenant(tenantId)
-    const templates = all.filter((t) => t.isActive)
+    const templates = all.filter((t) => t.isActive) as TemplateRow[]
     if (templates.length === 0) return null
 
     const reasonCategory = REASON_TO_CATEGORY[terminationReason] ?? 'involuntary'
 
-    const scored = templates.map((t: any) => ({
+    const scored = templates.map((t: TemplateRow) => ({
       template: t,
       score: this.scoreMatch(t, countryCode, terminationReason, reasonCategory),
     }))
 
-    scored.sort((a: any, b: any) => b.score - a.score)
+    scored.sort((a, b) => b.score - a.score)
 
     const top = scored[0]
     return top && top.score > 0 ? top.template : null
   }
 
   private scoreMatch(
-    template: any,
+    template: TemplateRow,
     countryCode: string,
     terminationReason: string,
     reasonCategory: string,

@@ -5,6 +5,11 @@ import {
   EmploymentTerminatedEvent,
   JobAssignmentChangedEvent,
 } from '@future/event-contracts'
+import type { IEmploymentRepository } from '../../domain/repositories/employment.repository'
+import type { IOffboardingCaseRepository } from '../../domain/repositories/offboarding-case.repository'
+import type { IJobProfileRepository } from '../../domain/repositories/job-profile.repository'
+import type { IJobAssignmentRepository } from '../../domain/repositories/job-assignment.repository'
+import type { OffboardingTemplateSelectorService } from '../services/offboarding-template-selector.service'
 
 /**
  * These tests verify that command handlers correctly emit domain events.
@@ -22,7 +27,7 @@ describe('Event Emission Integration', () => {
     eventBus = {
       publish: vi.fn(),
       publishAll: vi.fn(),
-    } as any
+    } as unknown as EventBus
   })
 
   describe('ActivateEmploymentHandler', () => {
@@ -47,7 +52,10 @@ describe('Event Emission Integration', () => {
       }
 
       // Constructor: employmentRepo, eventBus
-      const handler = new ActivateEmploymentHandler(employmentRepo as any, eventBus as any)
+      const handler = new ActivateEmploymentHandler(
+        employmentRepo as unknown as IEmploymentRepository,
+        eventBus,
+      )
 
       await handler.execute(new ActivateEmploymentCommand(TENANT_ID, EMPLOYMENT_ID, ACTOR_ID))
 
@@ -90,10 +98,10 @@ describe('Event Emission Integration', () => {
 
       // Constructor: employmentRepo, offboardingCaseRepo, offboardingTemplateSelector, eventBus
       const handler = new TerminateEmploymentHandler(
-        employmentRepo as any,
-        offboardingCaseRepo as any,
-        offboardingTemplateSelector as any,
-        eventBus as any,
+        employmentRepo as unknown as IEmploymentRepository,
+        offboardingCaseRepo as unknown as IOffboardingCaseRepository,
+        offboardingTemplateSelector as unknown as OffboardingTemplateSelectorService,
+        eventBus,
       )
 
       // Command: tenantId, employmentId, terminationReason, terminationDate, initiatedBy
@@ -163,10 +171,10 @@ describe('Event Emission Integration', () => {
 
       // Constructor: employmentRepo, jobProfileRepo, jobAssignmentRepo, eventBus
       const handler = new CreateJobAssignmentHandler(
-        employmentRepo as any,
-        jobProfileRepo as any,
-        assignmentRepo as any,
-        eventBus as any,
+        employmentRepo as unknown as IEmploymentRepository,
+        jobProfileRepo as unknown as IJobProfileRepository,
+        assignmentRepo as unknown as IJobAssignmentRepository,
+        eventBus,
       )
 
       // Command: tenantId, employmentId, jobProfileId, effectiveFrom, eventType, createdBy, departmentId?

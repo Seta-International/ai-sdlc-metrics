@@ -1,15 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { OffboardingTemplateSelectorService } from './offboarding-template-selector.service'
+import type { IOffboardingTemplateRepository } from '../../domain/repositories/offboarding-template.repository'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 
 describe('OffboardingTemplateSelectorService', () => {
   let service: OffboardingTemplateSelectorService
-  let templateRepo: any
+  let templateRepo: { listByTenant: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     templateRepo = { listByTenant: vi.fn() }
-    service = new OffboardingTemplateSelectorService(templateRepo)
+    service = new OffboardingTemplateSelectorService(
+      templateRepo as unknown as IOffboardingTemplateRepository,
+    )
   })
 
   it('selects template matching termination_reason + country', async () => {

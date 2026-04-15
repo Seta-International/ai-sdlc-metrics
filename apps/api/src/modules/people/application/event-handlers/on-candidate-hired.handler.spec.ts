@@ -4,6 +4,11 @@ import type { IPersonProfileRepository } from '../../domain/repositories/person-
 import type { IEmploymentRepository } from '../../domain/repositories/employment.repository'
 import type { IEmploymentDetailRepository } from '../../domain/repositories/employment-detail.repository'
 import type { IJobAssignmentRepository } from '../../domain/repositories/job-assignment.repository'
+import type { PersonProfile } from '../../domain/entities/person-profile.entity'
+import type { Employment } from '../../domain/entities/employment.entity'
+import type { EmploymentDetail } from '../../domain/entities/employment-detail.entity'
+import type { JobAssignment } from '../../domain/entities/job-assignment.entity'
+import type { CandidateHiredEvent } from '@future/event-contracts'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const ACTOR_ID = '01900000-0000-7000-8000-000000000002'
@@ -16,8 +21,11 @@ describe('OnCandidateHiredHandler', () => {
   let employmentRepo: IEmploymentRepository
   let detailRepo: IEmploymentDetailRepository
   let assignmentRepo: IJobAssignmentRepository
-  let templateSelector: any
-  let onboardingCaseRepo: any
+  let templateSelector: { selectTemplate: ReturnType<typeof vi.fn> }
+  let onboardingCaseRepo: {
+    findByEmploymentId: ReturnType<typeof vi.fn>
+    insert: ReturnType<typeof vi.fn>
+  }
 
   beforeEach(() => {
     profileRepo = {
@@ -74,20 +82,20 @@ describe('OnCandidateHiredHandler', () => {
       id: PROFILE_ID,
       tenantId: TENANT_ID,
       actorId: ACTOR_ID,
-    } as any)
+    } as unknown as PersonProfile)
     vi.mocked(employmentRepo.insert).mockResolvedValue({
       id: EMPLOYMENT_ID,
       tenantId: TENANT_ID,
       personProfileId: PROFILE_ID,
       employmentStatus: 'pre_hire',
-    } as any)
-    vi.mocked(detailRepo.insert).mockResolvedValue({} as any)
-    vi.mocked(assignmentRepo.insert).mockResolvedValue({} as any)
+    } as unknown as Employment)
+    vi.mocked(detailRepo.insert).mockResolvedValue({} as unknown as EmploymentDetail)
+    vi.mocked(assignmentRepo.insert).mockResolvedValue({} as unknown as JobAssignment)
     vi.mocked(templateSelector.selectTemplate).mockResolvedValue({
       id: 'template-1',
       name: 'VN Employee Onboarding',
     })
-    vi.mocked(onboardingCaseRepo.insert).mockResolvedValue({} as any)
+    vi.mocked(onboardingCaseRepo.insert).mockResolvedValue({})
 
     await handler.handle({
       tenantId: TENANT_ID,
@@ -101,7 +109,7 @@ describe('OnCandidateHiredHandler', () => {
       hireDate: new Date('2026-06-01'),
       jobProfileId: 'job-profile-1',
       departmentId: 'dept-1',
-    } as any)
+    } as unknown as CandidateHiredEvent)
 
     expect(profileRepo.insert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -149,13 +157,13 @@ describe('OnCandidateHiredHandler', () => {
       id: PROFILE_ID,
       tenantId: TENANT_ID,
       actorId: ACTOR_ID,
-    } as any)
+    } as unknown as PersonProfile)
     vi.mocked(employmentRepo.insert).mockResolvedValue({
       id: EMPLOYMENT_ID,
       personProfileId: PROFILE_ID,
-    } as any)
-    vi.mocked(detailRepo.insert).mockResolvedValue({} as any)
-    vi.mocked(assignmentRepo.insert).mockResolvedValue({} as any)
+    } as unknown as Employment)
+    vi.mocked(detailRepo.insert).mockResolvedValue({} as unknown as EmploymentDetail)
+    vi.mocked(assignmentRepo.insert).mockResolvedValue({} as unknown as JobAssignment)
     vi.mocked(templateSelector.selectTemplate).mockResolvedValue(null)
 
     await handler.handle({
@@ -170,7 +178,7 @@ describe('OnCandidateHiredHandler', () => {
       hireDate: new Date('2026-06-01'),
       jobProfileId: 'job-profile-1',
       departmentId: 'dept-1',
-    } as any)
+    } as unknown as CandidateHiredEvent)
 
     expect(profileRepo.insert).not.toHaveBeenCalled()
     expect(employmentRepo.insert).toHaveBeenCalledWith(

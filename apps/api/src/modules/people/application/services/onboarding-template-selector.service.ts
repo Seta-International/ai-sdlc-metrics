@@ -4,6 +4,16 @@ import {
   type IOnboardingTemplateRepository,
 } from '../../domain/repositories/onboarding-template.repository'
 
+interface TemplateRow {
+  id: string
+  name: string
+  countryCode: string | null
+  workerType: string | null
+  employmentType: string | null
+  isDefault: boolean
+  isActive: boolean
+}
+
 @Injectable()
 export class OnboardingTemplateSelectorService {
   constructor(
@@ -18,22 +28,22 @@ export class OnboardingTemplateSelectorService {
     employmentType: string,
   ): Promise<{ id: string; name: string } | null> {
     const all = await this.templateRepo.listByTenant(tenantId)
-    const templates = all.filter((t) => t.isActive)
+    const templates = all.filter((t) => t.isActive) as TemplateRow[]
     if (templates.length === 0) return null
 
-    const scored = templates.map((t: any) => ({
+    const scored = templates.map((t: TemplateRow) => ({
       template: t,
       score: this.scoreMatch(t, countryCode, workerType, employmentType),
     }))
 
-    scored.sort((a: any, b: any) => b.score - a.score)
+    scored.sort((a, b) => b.score - a.score)
 
     const top = scored[0]
     return top && top.score > 0 ? top.template : null
   }
 
   private scoreMatch(
-    template: any,
+    template: TemplateRow,
     countryCode: string,
     workerType: string,
     employmentType: string,
