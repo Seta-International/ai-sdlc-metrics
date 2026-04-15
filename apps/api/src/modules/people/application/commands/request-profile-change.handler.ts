@@ -10,7 +10,6 @@ export class RequestProfileChangeHandler implements ICommandHandler<
   RequestProfileChangeCommand,
   ProfileChangeRequest
 > {
-  // eslint-disable-next-line @typescript-eslint/no-useless-constructor
   constructor() {}
 
   async execute(_command: RequestProfileChangeCommand): Promise<ProfileChangeRequest> {

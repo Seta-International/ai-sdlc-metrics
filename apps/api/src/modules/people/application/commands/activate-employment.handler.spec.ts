@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EventBus } from '@nestjs/cqrs'
 import { EmploymentActivatedEvent } from '@future/event-contracts'
 import {
   EmploymentNotFoundException,
@@ -53,7 +54,7 @@ describe('ActivateEmploymentHandler', () => {
 
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
 
-    handler = new ActivateEmploymentHandler(employmentRepo, eventBus as any)
+    handler = new ActivateEmploymentHandler(employmentRepo, eventBus as unknown as EventBus)
   })
 
   it('activates a pre_hire employment successfully', async () => {

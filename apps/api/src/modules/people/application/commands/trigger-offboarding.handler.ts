@@ -6,7 +6,6 @@ import { TriggerOffboardingCommand } from './trigger-offboarding.command'
 
 @CommandHandler(TriggerOffboardingCommand)
 export class TriggerOffboardingHandler implements ICommandHandler<TriggerOffboardingCommand, void> {
-  // eslint-disable-next-line @typescript-eslint/no-useless-constructor
   constructor() {}
 
   async execute(_command: TriggerOffboardingCommand): Promise<void> {

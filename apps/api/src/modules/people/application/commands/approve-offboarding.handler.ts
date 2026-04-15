@@ -6,7 +6,6 @@ import { ApproveOffboardingCommand } from './approve-offboarding.command'
 
 @CommandHandler(ApproveOffboardingCommand)
 export class ApproveOffboardingHandler implements ICommandHandler<ApproveOffboardingCommand, void> {
-  // eslint-disable-next-line @typescript-eslint/no-useless-constructor
   constructor() {}
 
   async execute(_command: ApproveOffboardingCommand): Promise<void> {

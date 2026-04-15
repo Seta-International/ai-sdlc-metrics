@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EventBus } from '@nestjs/cqrs'
 import { JobAssignmentChangedEvent } from '@future/event-contracts'
 import { CreateJobAssignmentCommand } from './create-job-assignment.command'
 import { CreateJobAssignmentHandler } from './create-job-assignment.handler'
@@ -118,7 +119,7 @@ describe('CreateJobAssignmentHandler', () => {
       employmentRepo,
       jobProfileRepo,
       jobAssignmentRepo,
-      eventBus as any,
+      eventBus as unknown as EventBus,
     )
   })
 

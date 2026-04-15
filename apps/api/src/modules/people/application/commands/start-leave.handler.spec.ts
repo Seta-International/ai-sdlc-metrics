@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EventBus } from '@nestjs/cqrs'
 import { EmployeeOnLeaveEvent } from '@future/event-contracts'
 import {
   EmploymentNotFoundException,
@@ -53,7 +54,7 @@ describe('StartLeaveHandler', () => {
 
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
 
-    handler = new StartLeaveHandler(employmentRepo, eventBus as any)
+    handler = new StartLeaveHandler(employmentRepo, eventBus as unknown as EventBus)
   })
 
   it('transitions active employment to on_leave', async () => {

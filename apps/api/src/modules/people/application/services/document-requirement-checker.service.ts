@@ -9,9 +9,9 @@ export class DocumentRequirementCheckerService {
    * Called when EmployeeDocumentCreatedEvent is received.
    */
   async checkAndAutoComplete(
-    tenantId: string,
-    employmentId: string,
-    documentCategory: string,
+    _tenantId: string,
+    _employmentId: string,
+    _documentCategory: string,
   ): Promise<void> {
     // 1. Find active onboarding case for this employment
     // 2. Find task templates with documentRequirementId matching the category

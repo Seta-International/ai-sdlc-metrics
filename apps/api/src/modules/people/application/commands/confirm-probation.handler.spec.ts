@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EventBus } from '@nestjs/cqrs'
 import { ProbationConfirmedEvent } from '@future/event-contracts'
 import {
   ProbationRecordNotFoundException,
@@ -50,7 +51,7 @@ describe('ConfirmProbationHandler', () => {
 
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
 
-    handler = new ConfirmProbationHandler(probationRecordRepo, eventBus as any)
+    handler = new ConfirmProbationHandler(probationRecordRepo, eventBus as unknown as EventBus)
   })
 
   it('confirms an active probation record', async () => {

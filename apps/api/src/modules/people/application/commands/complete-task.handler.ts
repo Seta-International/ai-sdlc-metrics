@@ -6,7 +6,6 @@ import { CompleteTaskCommand } from './complete-task.command'
 
 @CommandHandler(CompleteTaskCommand)
 export class CompleteTaskHandler implements ICommandHandler<CompleteTaskCommand, void> {
-  // eslint-disable-next-line @typescript-eslint/no-useless-constructor
   constructor() {}
 
   async execute(_command: CompleteTaskCommand): Promise<void> {

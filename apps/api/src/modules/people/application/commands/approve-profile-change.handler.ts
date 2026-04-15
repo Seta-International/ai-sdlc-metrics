@@ -9,7 +9,6 @@ export class ApproveProfileChangeHandler implements ICommandHandler<
   ApproveProfileChangeCommand,
   void
 > {
-  // eslint-disable-next-line @typescript-eslint/no-useless-constructor
   constructor() {}
 
   async execute(_command: ApproveProfileChangeCommand): Promise<void> {
