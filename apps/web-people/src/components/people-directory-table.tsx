@@ -83,8 +83,15 @@ export interface PeopleDirectoryTableProps {
 
 export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps) {
   const router = useRouter()
-  const [tableState, setTableState] = React.useState<FutureTableState>(defaultTableState)
-  const [viewMode, setViewMode] = React.useState<ViewMode>('list')
+  const [tableState, setTableState] = React.useState<FutureTableState>(() => {
+    if (typeof window === 'undefined') return defaultTableState
+    return getTableStateFromUrl()
+  })
+  const [viewMode, setViewMode] = React.useState<ViewMode>(() => {
+    if (typeof window === 'undefined') return 'list'
+    const v = new URLSearchParams(window.location.search).get('view')
+    return v === 'card' || v === 'list' ? v : 'list'
+  })
   const [rows, setRows] = React.useState<DirectoryRow[]>([])
   const [totalCount, setTotalCount] = React.useState(0)
   const [isLoading, setIsLoading] = React.useState(true)
@@ -98,14 +105,6 @@ export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps)
   })
 
   const [filterValues, setFilterValues] = React.useState<FilterValues>(emptyFilters)
-
-  // On mount: restore state from URL
-  React.useEffect(() => {
-    const urlState = getTableStateFromUrl()
-    const urlViewMode = new URLSearchParams(window.location.search).get('view')
-    if (urlViewMode === 'card' || urlViewMode === 'list') setViewMode(urlViewMode)
-    setTableState(urlState)
-  }, [])
 
   // Load data + facets whenever state changes
   React.useEffect(() => {

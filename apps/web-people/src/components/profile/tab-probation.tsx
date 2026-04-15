@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { Card, Button, Separator } from '@future/ui'
 import { CheckCircle2, Clock, AlertTriangle, XCircle } from 'lucide-react'
 import type { ProbationRecord } from '../../lib/types'
@@ -25,8 +26,9 @@ export function TabProbation({
     color: 'text-amber-400',
   }
   const Icon = config.icon
-  const daysRemaining = Math.ceil(
-    (new Date(probation.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+  const daysRemaining = React.useMemo(
+    () => Math.ceil((new Date(probation.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+    [probation.endDate],
   )
 
   return (
@@ -84,9 +86,9 @@ export function TabProbation({
         <Card className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-5">
           <h3 className="text-sm font-[590] text-[#f7f8f8] mb-3">Extensions</h3>
           <div className="space-y-2">
-            {probation.extensions.map((ext, i) => (
+            {probation.extensions.map((ext) => (
               <div
-                key={i}
+                key={`${ext.extendedDate}-${ext.reason}`}
                 className="flex items-center justify-between text-sm rounded border border-[rgba(255,255,255,0.05)] p-3"
               >
                 <div>

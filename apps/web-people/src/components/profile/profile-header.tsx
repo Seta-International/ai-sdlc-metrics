@@ -1,5 +1,7 @@
 'use client'
 
+import * as React from 'react'
+import Image from 'next/image'
 import {
   Button,
   Badge,
@@ -49,17 +51,21 @@ export function ProfileHeader({
     .slice(0, 2)
     .toUpperCase()
 
+  const probationDaysLeft = React.useMemo(
+    () =>
+      probation
+        ? Math.ceil((new Date(probation.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        : null,
+    [probation],
+  )
+
   return (
     <div className="space-y-4">
       {probation && probation.status === 'in_progress' && (
         <Alert className="border-amber-500/30 bg-amber-500/5">
           <Clock className="h-4 w-4 text-amber-400" />
           <div className="text-sm text-amber-200">
-            Probation ends in{' '}
-            {Math.ceil(
-              (new Date(probation.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-            )}{' '}
-            days
+            Probation ends in {probationDaysLeft} days
             <span className="ml-2 text-xs text-amber-300/60">
               ({new Date(probation.endDate).toLocaleDateString('en-GB')})
             </span>
@@ -71,9 +77,11 @@ export function ProfileHeader({
         <div className="relative shrink-0">
           <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[rgba(255,255,255,0.05)] text-2xl font-[510] text-[#d0d6e0]">
             {personProfile.photoUrl ? (
-              <img
+              <Image
                 src={personProfile.photoUrl}
                 alt={personProfile.fullName}
+                width={96}
+                height={96}
                 className="h-full w-full rounded-full object-cover"
               />
             ) : (

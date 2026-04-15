@@ -35,16 +35,19 @@ export function CustomFieldDialog({ open, onOpenChange, field, onSave }: CustomF
   const [visibilityTier, setVisibilityTier] = React.useState(field?.visibilityTier ?? 'restricted')
   const [options, setOptions] = React.useState(field?.options?.join(', ') ?? '')
 
-  React.useEffect(() => {
-    if (!isEdit && label) {
-      setFieldKey(
-        label
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '_')
-          .replace(/^_|_$/g, ''),
-      )
+  function deriveFieldKey(value: string) {
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_|_$/g, '')
+  }
+
+  function handleLabelChange(value: string) {
+    setLabel(value)
+    if (!isEdit) {
+      setFieldKey(deriveFieldKey(value))
     }
-  }, [label, isEdit])
+  }
 
   function handleSubmit() {
     onSave({
@@ -78,7 +81,7 @@ export function CustomFieldDialog({ open, onOpenChange, field, onSave }: CustomF
             <label className="text-xs font-[510] text-[#8a8f98]">Label</label>
             <Input
               value={label}
-              onChange={(e) => setLabel(e.target.value)}
+              onChange={(e) => handleLabelChange(e.target.value)}
               placeholder="e.g., T-Shirt Size"
             />
           </div>

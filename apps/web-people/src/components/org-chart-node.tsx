@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Card, Badge, HoverCard, HoverCardContent, HoverCardTrigger } from '@future/ui'
+import Image from 'next/image'
 import { ChevronDown, ChevronRight, Users } from 'lucide-react'
 import type { OrgChartNode as OrgChartNodeType } from '../lib/types'
 
@@ -46,9 +47,11 @@ export function OrgChartNodeComponent({
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[rgba(255,255,255,0.05)] text-sm font-[510] text-[#d0d6e0]">
                 {node.avatarUrl ? (
-                  <img
+                  <Image
                     src={node.avatarUrl}
                     alt={node.fullName}
+                    width={40}
+                    height={40}
                     className="h-full w-full rounded-full object-cover"
                   />
                 ) : (

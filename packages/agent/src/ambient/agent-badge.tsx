@@ -1,3 +1,5 @@
+'use client'
+
 import { Sparkles } from 'lucide-react'
 import { useAgentState } from '../hooks/use-agent-state'
 import { useAgentContext } from '../context/use-agent-context'

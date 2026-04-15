@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useCallback, type KeyboardEvent } from 'react'
 import { Send } from 'lucide-react'
 import { cn } from '@future/ui'

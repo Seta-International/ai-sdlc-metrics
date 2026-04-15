@@ -18,7 +18,7 @@ export function OrgChartTree() {
   const [viewMode, setViewMode] = React.useState<ViewMode>('manager')
   const [search, setSearch] = React.useState('')
   const [tree, setTree] = React.useState<OrgChartNode[]>([])
-  const [expandedIds, setExpandedIds] = React.useState<Set<string>>(new Set())
+  const [expandedIds, setExpandedIds] = React.useState<Set<string>>(() => new Set())
   const [highlightedId, setHighlightedId] = React.useState<string | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const [zoom, setZoom] = React.useState(1)

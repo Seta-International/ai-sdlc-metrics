@@ -132,7 +132,7 @@ export function ChangeRequestQueue() {
   })
   const [tableState, setTableState] = React.useState<FutureTableState>(defaultTableState)
   const [isLoading, setIsLoading] = React.useState(true)
-  const [selectedIds, _setSelectedIds] = React.useState<string[]>([])
+  const [selectedIds] = React.useState<string[]>([])
 
   React.useEffect(() => {
     void (async () => {
