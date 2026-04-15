@@ -1,5 +1,6 @@
 import { Inject } from '@nestjs/common'
-import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, EventBus, type ICommandHandler } from '@nestjs/cqrs'
+import { EmployeeSuspendedEvent } from '@future/event-contracts'
 import { EmploymentNotFoundException } from '../../domain/exceptions/people.exceptions'
 import {
   EMPLOYMENT_REPOSITORY,
@@ -13,6 +14,7 @@ export class SuspendEmploymentHandler implements ICommandHandler<SuspendEmployme
   constructor(
     @Inject(EMPLOYMENT_REPOSITORY)
     private readonly employmentRepo: IEmploymentRepository,
+    private readonly eventBus: EventBus,
   ) {}
 
   async execute(command: SuspendEmploymentCommand): Promise<void> {
@@ -22,5 +24,14 @@ export class SuspendEmploymentHandler implements ICommandHandler<SuspendEmployme
     assertValidTransition(employment.employmentStatus, 'suspended')
 
     await this.employmentRepo.updateStatus(command.employmentId, command.tenantId, 'suspended')
+
+    await this.eventBus.publish(
+      new EmployeeSuspendedEvent(
+        command.tenantId,
+        command.employmentId,
+        command.reason,
+        command.reviewDate,
+      ),
+    )
   }
 }

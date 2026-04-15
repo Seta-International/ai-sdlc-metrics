@@ -1,5 +1,6 @@
 import { Inject } from '@nestjs/common'
-import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, EventBus, type ICommandHandler } from '@nestjs/cqrs'
+import { JobAssignmentChangedEvent, type JobAssignmentChanges } from '@future/event-contracts'
 import {
   EmploymentNotFoundException,
   JobProfileNotFoundException,
@@ -31,6 +32,7 @@ export class CreateJobAssignmentHandler implements ICommandHandler<
     private readonly jobProfileRepo: IJobProfileRepository,
     @Inject(JOB_ASSIGNMENT_REPOSITORY)
     private readonly jobAssignmentRepo: IJobAssignmentRepository,
+    private readonly eventBus: EventBus,
   ) {}
 
   async execute(command: CreateJobAssignmentCommand): Promise<JobAssignment> {
@@ -40,14 +42,17 @@ export class CreateJobAssignmentHandler implements ICommandHandler<
     const jobProfile = await this.jobProfileRepo.findById(command.jobProfileId, command.tenantId)
     if (!jobProfile) throw new JobProfileNotFoundException(command.jobProfileId)
 
-    const current = await this.jobAssignmentRepo.findCurrent(command.employmentId, command.tenantId)
-    if (current) {
+    const previous = await this.jobAssignmentRepo.findCurrent(
+      command.employmentId,
+      command.tenantId,
+    )
+    if (previous) {
       const effectiveTo = new Date(command.effectiveFrom)
       effectiveTo.setDate(effectiveTo.getDate() - 1)
-      await this.jobAssignmentRepo.closeAssignment(current.id, command.tenantId, effectiveTo)
+      await this.jobAssignmentRepo.closeAssignment(previous.id, command.tenantId, effectiveTo)
     }
 
-    return this.jobAssignmentRepo.insert({
+    const newAssignment = await this.jobAssignmentRepo.insert({
       tenantId: command.tenantId,
       employmentId: command.employmentId,
       jobProfileId: command.jobProfileId,
@@ -62,5 +67,28 @@ export class CreateJobAssignmentHandler implements ICommandHandler<
       reason: command.reason ?? null,
       createdBy: command.createdBy,
     })
+
+    const changes: JobAssignmentChanges = {}
+    if (previous) {
+      changes.jobProfileId = { old: previous.jobProfileId, new: command.jobProfileId }
+      changes.departmentId = {
+        old: previous.departmentId ?? null,
+        new: command.departmentId ?? null,
+      }
+      changes.managerId = { old: previous.managerId ?? null, new: command.managerId ?? null }
+    }
+
+    await this.eventBus.publish(
+      new JobAssignmentChangedEvent(
+        command.tenantId,
+        command.employmentId,
+        command.createdBy,
+        command.eventType,
+        command.effectiveFrom,
+        changes,
+      ),
+    )
+
+    return newAssignment
   }
 }

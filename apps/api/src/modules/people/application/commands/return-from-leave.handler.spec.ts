@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EmployeeReturnedFromLeaveEvent } from '@future/event-contracts'
 import {
   EmploymentNotFoundException,
   InvalidEmploymentStatusTransitionException,
@@ -36,6 +37,7 @@ function makeEmployment(overrides: Partial<Employment> = {}): Employment {
 describe('ReturnFromLeaveHandler', () => {
   let handler: ReturnFromLeaveHandler
   let employmentRepo: IEmploymentRepository
+  let eventBus: { publish: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     employmentRepo = {
@@ -49,7 +51,9 @@ describe('ReturnFromLeaveHandler', () => {
       countByTenant: vi.fn(),
     } as unknown as IEmploymentRepository
 
-    handler = new ReturnFromLeaveHandler(employmentRepo)
+    eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
+
+    handler = new ReturnFromLeaveHandler(employmentRepo, eventBus as any)
   })
 
   it('transitions on_leave employment back to active', async () => {
@@ -58,6 +62,7 @@ describe('ReturnFromLeaveHandler', () => {
     )
 
     expect(employmentRepo.updateStatus).toHaveBeenCalledWith(EMPLOYMENT_ID, TENANT_ID, 'active')
+    expect(eventBus.publish).toHaveBeenCalledWith(expect.any(EmployeeReturnedFromLeaveEvent))
   })
 
   it('throws EmploymentNotFoundException when employment does not exist', async () => {

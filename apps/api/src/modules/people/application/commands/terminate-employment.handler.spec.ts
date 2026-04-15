@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EmploymentTerminatedEvent } from '@future/event-contracts'
 import {
   EmploymentNotFoundException,
   InvalidEmploymentStatusTransitionException,
 } from '../../domain/exceptions/people.exceptions'
 import type { IEmploymentRepository } from '../../domain/repositories/employment.repository'
+import type { IOffboardingCaseRepository } from '../../domain/repositories/offboarding-case.repository'
 import type { Employment } from '../../domain/entities/employment.entity'
 import { TerminateEmploymentCommand } from './terminate-employment.command'
 import { TerminateEmploymentHandler } from './terminate-employment.handler'
@@ -37,6 +39,9 @@ function makeEmployment(overrides: Partial<Employment> = {}): Employment {
 describe('TerminateEmploymentHandler', () => {
   let handler: TerminateEmploymentHandler
   let employmentRepo: IEmploymentRepository
+  let offboardingCaseRepo: IOffboardingCaseRepository
+  let offboardingTemplateSelector: { selectTemplate: ReturnType<typeof vi.fn> }
+  let eventBus: { publish: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     employmentRepo = {
@@ -50,7 +55,27 @@ describe('TerminateEmploymentHandler', () => {
       countByTenant: vi.fn(),
     } as unknown as IEmploymentRepository
 
-    handler = new TerminateEmploymentHandler(employmentRepo)
+    offboardingCaseRepo = {
+      findById: vi.fn(),
+      findActiveByEmploymentId: vi.fn(),
+      insert: vi.fn().mockResolvedValue({}),
+      updateStatus: vi.fn(),
+      update: vi.fn(),
+      insertTask: vi.fn(),
+      getRequiredTasks: vi.fn(),
+      updateTaskStatus: vi.fn(),
+      findTaskById: vi.fn(),
+    } as unknown as IOffboardingCaseRepository
+
+    offboardingTemplateSelector = { selectTemplate: vi.fn().mockResolvedValue(null) }
+    eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
+
+    handler = new TerminateEmploymentHandler(
+      employmentRepo,
+      offboardingCaseRepo,
+      offboardingTemplateSelector as any,
+      eventBus as any,
+    )
   })
 
   it('terminates active employment with reason and date', async () => {
@@ -71,6 +96,7 @@ describe('TerminateEmploymentHandler', () => {
       TERMINATION_DATE,
       'voluntary_resignation',
     )
+    expect(eventBus.publish).toHaveBeenCalledWith(expect.any(EmploymentTerminatedEvent))
   })
 
   it('terminates suspended employment (investigation concluded)', async () => {
@@ -181,5 +207,51 @@ describe('TerminateEmploymentHandler', () => {
     ).rejects.toThrow(InvalidEmploymentStatusTransitionException)
 
     expect(employmentRepo.updateStatus).not.toHaveBeenCalled()
+  })
+
+  it('auto-creates offboarding case when template is found', async () => {
+    const template = { id: 'template-001', name: 'VN Resignation Offboarding' }
+    offboardingTemplateSelector.selectTemplate.mockResolvedValue(template)
+
+    await handler.execute(
+      new TerminateEmploymentCommand(
+        TENANT_ID,
+        EMPLOYMENT_ID,
+        'voluntary_resignation',
+        TERMINATION_DATE,
+        INITIATED_BY,
+      ),
+    )
+
+    expect(offboardingTemplateSelector.selectTemplate).toHaveBeenCalledWith(
+      TENANT_ID,
+      'VN',
+      'voluntary_resignation',
+    )
+    expect(offboardingCaseRepo.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: TENANT_ID,
+        employmentId: EMPLOYMENT_ID,
+        templateId: template.id,
+        reason: 'voluntary_resignation',
+        status: 'pending',
+      }),
+    )
+  })
+
+  it('does not create offboarding case when no template found', async () => {
+    offboardingTemplateSelector.selectTemplate.mockResolvedValue(null)
+
+    await handler.execute(
+      new TerminateEmploymentCommand(
+        TENANT_ID,
+        EMPLOYMENT_ID,
+        'voluntary_resignation',
+        TERMINATION_DATE,
+        INITIATED_BY,
+      ),
+    )
+
+    expect(offboardingCaseRepo.insert).not.toHaveBeenCalled()
   })
 })

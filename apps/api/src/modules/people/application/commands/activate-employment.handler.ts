@@ -1,5 +1,6 @@
 import { Inject } from '@nestjs/common'
-import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, EventBus, type ICommandHandler } from '@nestjs/cqrs'
+import { EmploymentActivatedEvent } from '@future/event-contracts'
 import { EmploymentNotFoundException } from '../../domain/exceptions/people.exceptions'
 import {
   EMPLOYMENT_REPOSITORY,
@@ -13,6 +14,7 @@ export class ActivateEmploymentHandler implements ICommandHandler<ActivateEmploy
   constructor(
     @Inject(EMPLOYMENT_REPOSITORY)
     private readonly employmentRepo: IEmploymentRepository,
+    private readonly eventBus: EventBus,
   ) {}
 
   async execute(command: ActivateEmploymentCommand): Promise<void> {
@@ -22,5 +24,14 @@ export class ActivateEmploymentHandler implements ICommandHandler<ActivateEmploy
     assertValidTransition(employment.employmentStatus, 'active')
 
     await this.employmentRepo.updateStatus(command.employmentId, command.tenantId, 'active')
+
+    await this.eventBus.publish(
+      new EmploymentActivatedEvent(
+        command.tenantId,
+        command.employmentId,
+        command.activatedBy,
+        new Date(),
+      ),
+    )
   }
 }

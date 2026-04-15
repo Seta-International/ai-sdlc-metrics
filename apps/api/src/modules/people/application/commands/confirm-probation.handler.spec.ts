@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ProbationConfirmedEvent } from '@future/event-contracts'
 import {
   ProbationRecordNotFoundException,
   InvalidProbationStatusException,
@@ -37,6 +38,7 @@ function makeRecord(overrides: Partial<ProbationRecord> = {}): ProbationRecord {
 describe('ConfirmProbationHandler', () => {
   let handler: ConfirmProbationHandler
   let probationRecordRepo: IProbationRecordRepository
+  let eventBus: { publish: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     probationRecordRepo = {
@@ -46,7 +48,9 @@ describe('ConfirmProbationHandler', () => {
       update: vi.fn().mockResolvedValue({}),
     } as unknown as IProbationRecordRepository
 
-    handler = new ConfirmProbationHandler(probationRecordRepo)
+    eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
+
+    handler = new ConfirmProbationHandler(probationRecordRepo, eventBus as any)
   })
 
   it('confirms an active probation record', async () => {
@@ -63,6 +67,7 @@ describe('ConfirmProbationHandler', () => {
         outcomeNote: 'Great performance',
       }),
     )
+    expect(eventBus.publish).toHaveBeenCalledWith(expect.any(ProbationConfirmedEvent))
   })
 
   it('confirms an extended probation record', async () => {

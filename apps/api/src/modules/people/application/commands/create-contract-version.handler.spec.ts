@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ContractVersionCreatedEvent } from '@future/event-contracts'
 import { EmploymentNotFoundException } from '../../domain/exceptions/people.exceptions'
 import type { IEmploymentRepository } from '../../domain/repositories/employment.repository'
 import type { IContractVersionRepository } from '../../domain/repositories/contract-version.repository'
@@ -62,6 +63,7 @@ describe('CreateContractVersionHandler', () => {
   let handler: CreateContractVersionHandler
   let employmentRepo: IEmploymentRepository
   let contractVersionRepo: IContractVersionRepository
+  let eventBus: { publish: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     employmentRepo = {
@@ -84,7 +86,9 @@ describe('CreateContractVersionHandler', () => {
       countExpiringBefore: vi.fn(),
     } as unknown as IContractVersionRepository
 
-    handler = new CreateContractVersionHandler(employmentRepo, contractVersionRepo)
+    eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
+
+    handler = new CreateContractVersionHandler(employmentRepo, contractVersionRepo, eventBus as any)
   })
 
   it('creates first contract for employment with status active', async () => {
@@ -114,6 +118,7 @@ describe('CreateContractVersionHandler', () => {
       }),
     )
     expect(result).toMatchObject({ id: CONTRACT_ID, status: 'active' })
+    expect(eventBus.publish).toHaveBeenCalledWith(expect.any(ContractVersionCreatedEvent))
   })
 
   it('supersedes existing active contract when creating a new one', async () => {
