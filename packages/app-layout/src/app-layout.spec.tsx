@@ -13,6 +13,12 @@ vi.mock('next-themes', () => ({
   useTheme: () => ({ resolvedTheme: 'light', setTheme: vi.fn() }),
 }))
 
+vi.mock('@future/agent', () => ({
+  useAgentState: () => ({ panelOpen: false, togglePanel: vi.fn() }),
+  AgentPanel: () => null,
+  AgentStrip: () => null,
+}))
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 vi.mock('@future/ui', () => {
   const D = ({ children }: any) => <div>{children}</div>
