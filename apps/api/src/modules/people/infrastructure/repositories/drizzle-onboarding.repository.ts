@@ -30,11 +30,13 @@ export class DrizzleOnboardingCaseRepository implements IOnboardingCaseRepositor
     return (rows[0] as OnboardingCase | undefined) ?? null
   }
 
-  async findByProfileId(profileId: string, tenantId: string): Promise<OnboardingCase | null> {
+  async findByEmploymentId(employmentId: string, tenantId: string): Promise<OnboardingCase | null> {
     const rows = await this.db
       .select()
       .from(onboardingCase)
-      .where(and(eq(onboardingCase.profileId, profileId), eq(onboardingCase.tenantId, tenantId)))
+      .where(
+        and(eq(onboardingCase.employmentId, employmentId), eq(onboardingCase.tenantId, tenantId)),
+      )
       .limit(1)
     return (rows[0] as OnboardingCase | undefined) ?? null
   }
@@ -46,7 +48,7 @@ export class DrizzleOnboardingCaseRepository implements IOnboardingCaseRepositor
       .insert(onboardingCase)
       .values({
         tenantId: data.tenantId,
-        profileId: data.profileId,
+        employmentId: data.employmentId,
         templateId: data.templateId ?? undefined,
         status: data.status,
       })

@@ -1333,7 +1333,7 @@ export const peopleRouter = router({
     .input(
       z.object({
         tenantId: z.string().uuid(),
-        profileId: z.string().uuid(),
+        employmentId: z.string().uuid(),
         reason: z.string(),
         reasonCategory: z
           .enum(['voluntary', 'involuntary', 'redundancy', 'end_of_contract'])
@@ -1345,7 +1345,7 @@ export const peopleRouter = router({
       svc().command(
         new TriggerOffboardingCommand(
           input.tenantId,
-          input.profileId,
+          input.employmentId,
           input.reason,
           input.reasonCategory,
           input.requestedBy,

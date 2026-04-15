@@ -29,8 +29,8 @@ export class DrizzleOffboardingCaseRepository implements IOffboardingCaseReposit
     return (rows[0] as OffboardingCase | undefined) ?? null
   }
 
-  async findActiveByProfileId(
-    profileId: string,
+  async findActiveByEmploymentId(
+    employmentId: string,
     tenantId: string,
   ): Promise<OffboardingCase | null> {
     const rows = await this.db
@@ -38,7 +38,7 @@ export class DrizzleOffboardingCaseRepository implements IOffboardingCaseReposit
       .from(offboardingCase)
       .where(
         and(
-          eq(offboardingCase.profileId, profileId),
+          eq(offboardingCase.employmentId, employmentId),
           eq(offboardingCase.tenantId, tenantId),
           notInArray(offboardingCase.status, ['completed', 'rejected']),
         ),
@@ -54,7 +54,7 @@ export class DrizzleOffboardingCaseRepository implements IOffboardingCaseReposit
       .insert(offboardingCase)
       .values({
         tenantId: data.tenantId,
-        profileId: data.profileId,
+        employmentId: data.employmentId,
         templateId: data.templateId ?? undefined,
         reason: data.reason,
         reasonCategory: data.reasonCategory ?? undefined,
