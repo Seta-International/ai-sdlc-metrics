@@ -465,3 +465,14 @@ export const directorySearchIndex = peopleSchema.table(
     uniqueIndex('uq_directory_search_index_employment').on(table.tenantId, table.employmentId),
   ],
 )
+
+// ─── Email Generation Config ───────────────────────────────────────────────────
+
+export const emailGenerationConfig = peopleSchema.table('email_generation_config', {
+  tenantId: uuid('tenant_id').primaryKey(),
+  domain: text('domain').notNull(),
+  pattern: text('pattern').notNull(),
+  transliteration: text('transliteration', {
+    enum: ['strip_diacritics', 'custom_map'],
+  }).notNull(),
+})
