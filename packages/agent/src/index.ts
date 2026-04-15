@@ -19,3 +19,7 @@ export { useAgentContext } from './context/use-agent-context'
 // State
 export { AgentStateProvider, useAgentState } from './hooks/use-agent-state'
 export type { AgentStateContextValue } from './hooks/use-agent-state'
+
+// Provider
+export { AgentProvider } from './agent-provider'
+export type { AgentProviderProps } from './agent-provider'
