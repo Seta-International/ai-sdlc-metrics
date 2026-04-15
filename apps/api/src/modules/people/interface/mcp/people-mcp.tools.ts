@@ -11,7 +11,7 @@ export class PeopleMcpTools {
     actorId: string
     tenantId: string
   }): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
-    const profile = await this.peopleFacade.getEmploymentProfile(params.actorId, params.tenantId)
+    const profile = await this.peopleFacade.getPersonProfile(params.actorId, params.tenantId)
 
     if (!profile) {
       return {
