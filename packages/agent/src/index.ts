@@ -10,3 +10,8 @@ export type {
   AgentSession,
   AgentPanelState,
 } from './types'
+
+// Context
+export { AgentContextProvider } from './context/agent-context-provider'
+export type { AgentContextProviderProps } from './context/agent-context-provider'
+export { useAgentContext } from './context/use-agent-context'
