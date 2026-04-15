@@ -8,6 +8,7 @@ export const countryFieldConfig = peopleSchema.table(
     id: uuid('id')
       .$defaultFn(() => uuidv7())
       .primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
     countryCode: text('country_code').notNull(),
     fieldKey: text('field_key').notNull(),
     label: text('label').notNull(),
@@ -24,7 +25,11 @@ export const countryFieldConfig = peopleSchema.table(
     options: jsonb('options'),
   },
   (table) => [
-    uniqueIndex('country_field_config_country_key_uidx').on(table.countryCode, table.fieldKey),
+    uniqueIndex('country_field_config_country_key_uidx').on(
+      table.tenantId,
+      table.countryCode,
+      table.fieldKey,
+    ),
   ],
 )
 

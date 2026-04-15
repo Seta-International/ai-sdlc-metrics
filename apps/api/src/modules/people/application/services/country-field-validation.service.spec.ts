@@ -21,6 +21,7 @@ describe('CountryFieldValidationService', () => {
     vi.mocked(configRepo.findByCountryCode).mockResolvedValue([
       {
         id: '1',
+        tenantId: 't1',
         countryCode: 'VN',
         fieldKey: 'citizen_id',
         label: 'Citizen ID',
@@ -34,7 +35,7 @@ describe('CountryFieldValidationService', () => {
       },
     ])
 
-    const errors = await service.validate('VN', { citizen_id: '012345678901' })
+    const errors = await service.validate('VN', { citizen_id: '012345678901' }, 't1')
     expect(errors).toEqual([])
   })
 
@@ -42,6 +43,7 @@ describe('CountryFieldValidationService', () => {
     vi.mocked(configRepo.findByCountryCode).mockResolvedValue([
       {
         id: '1',
+        tenantId: 't1',
         countryCode: 'VN',
         fieldKey: 'citizen_id',
         label: 'Citizen ID',
@@ -55,7 +57,7 @@ describe('CountryFieldValidationService', () => {
       },
     ])
 
-    const errors = await service.validate('VN', {})
+    const errors = await service.validate('VN', {}, 't1')
     expect(errors).toHaveLength(1)
     expect(errors[0]).toEqual(
       expect.objectContaining({
@@ -69,6 +71,7 @@ describe('CountryFieldValidationService', () => {
     vi.mocked(configRepo.findByCountryCode).mockResolvedValue([
       {
         id: '1',
+        tenantId: 't1',
         countryCode: 'VN',
         fieldKey: 'citizen_id',
         label: 'Citizen ID',
@@ -82,7 +85,7 @@ describe('CountryFieldValidationService', () => {
       },
     ])
 
-    const errors = await service.validate('VN', { citizen_id: 'INVALID' })
+    const errors = await service.validate('VN', { citizen_id: 'INVALID' }, 't1')
     expect(errors).toHaveLength(1)
     expect(errors[0].fieldKey).toBe('citizen_id')
   })
@@ -91,6 +94,7 @@ describe('CountryFieldValidationService', () => {
     vi.mocked(configRepo.findByCountryCode).mockResolvedValue([
       {
         id: '1',
+        tenantId: 't1',
         countryCode: 'VN',
         fieldKey: 'vehicle_type',
         label: 'Vehicle Type',
@@ -107,14 +111,14 @@ describe('CountryFieldValidationService', () => {
       },
     ])
 
-    const errors = await service.validate('VN', { vehicle_type: 'truck' })
+    const errors = await service.validate('VN', { vehicle_type: 'truck' }, 't1')
     expect(errors).toHaveLength(1)
     expect(errors[0].message).toContain('invalid option')
   })
 
   it('returns empty array for unknown country', async () => {
     vi.mocked(configRepo.findByCountryCode).mockResolvedValue([])
-    const errors = await service.validate('XX', { any_field: 'value' })
+    const errors = await service.validate('XX', { any_field: 'value' }, 't1')
     expect(errors).toEqual([])
   })
 })

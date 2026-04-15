@@ -1,5 +1,6 @@
 export interface CountryFieldConfig {
   id: string
+  tenantId: string
   countryCode: string
   fieldKey: string
   label: string

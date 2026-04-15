@@ -80,8 +80,8 @@ export class PeopleQueryFacade {
     return result.employments.some((e) => e.employment.employmentStatus === 'active')
   }
 
-  getCountryFieldConfigs(countryCode: string): Promise<CountryFieldConfig[]> {
-    return this.countryFieldConfigRepo.findByCountryCode(countryCode)
+  getCountryFieldConfigs(countryCode: string, tenantId: string): Promise<CountryFieldConfig[]> {
+    return this.countryFieldConfigRepo.findByCountryCode(countryCode, tenantId)
   }
 
   listCustomFieldDefinitions(tenantId: string): Promise<CustomFieldDefinition[]> {

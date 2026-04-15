@@ -9,26 +9,32 @@ import { countryFieldConfig } from '../schema/extensibility.schema'
 export class DrizzleCountryFieldConfigRepository implements ICountryFieldConfigRepository {
   constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
-  async findById(id: string): Promise<CountryFieldConfig | null> {
+  async findById(id: string, tenantId: string): Promise<CountryFieldConfig | null> {
     const rows = await this.db
       .select()
       .from(countryFieldConfig)
-      .where(eq(countryFieldConfig.id, id))
+      .where(and(eq(countryFieldConfig.id, id), eq(countryFieldConfig.tenantId, tenantId)))
       .limit(1)
     return (rows[0] as CountryFieldConfig | undefined) ?? null
   }
 
-  async findByCountryCode(countryCode: string): Promise<CountryFieldConfig[]> {
+  async findByCountryCode(countryCode: string, tenantId: string): Promise<CountryFieldConfig[]> {
     return (await this.db
       .select()
       .from(countryFieldConfig)
-      .where(eq(countryFieldConfig.countryCode, countryCode))
+      .where(
+        and(
+          eq(countryFieldConfig.countryCode, countryCode),
+          eq(countryFieldConfig.tenantId, tenantId),
+        ),
+      )
       .orderBy(countryFieldConfig.sortOrder)) as CountryFieldConfig[]
   }
 
   async findByCountryAndKey(
     countryCode: string,
     fieldKey: string,
+    tenantId: string,
   ): Promise<CountryFieldConfig | null> {
     const rows = await this.db
       .select()
@@ -37,28 +43,34 @@ export class DrizzleCountryFieldConfigRepository implements ICountryFieldConfigR
         and(
           eq(countryFieldConfig.countryCode, countryCode),
           eq(countryFieldConfig.fieldKey, fieldKey),
+          eq(countryFieldConfig.tenantId, tenantId),
         ),
       )
       .limit(1)
     return (rows[0] as CountryFieldConfig | undefined) ?? null
   }
 
-  async insertMany(data: Omit<CountryFieldConfig, 'id'>[]): Promise<CountryFieldConfig[]> {
+  async insertMany(
+    tenantId: string,
+    data: Omit<CountryFieldConfig, 'id'>[],
+  ): Promise<CountryFieldConfig[]> {
     return (await this.db
       .insert(countryFieldConfig)
-      .values(data as Record<string, unknown>[])
+      .values(data.map((d) => ({ ...d, tenantId })) as Record<string, unknown>[])
       .returning()) as CountryFieldConfig[]
   }
 
   async update(
     id: string,
-    data: Partial<Omit<CountryFieldConfig, 'id' | 'countryCode' | 'fieldKey'>>,
+    tenantId: string,
+    data: Partial<Omit<CountryFieldConfig, 'id' | 'tenantId' | 'countryCode' | 'fieldKey'>>,
   ): Promise<CountryFieldConfig> {
     const rows = await this.db
       .update(countryFieldConfig)
       .set(data as Record<string, unknown>)
-      .where(eq(countryFieldConfig.id, id))
+      .where(and(eq(countryFieldConfig.id, id), eq(countryFieldConfig.tenantId, tenantId)))
       .returning()
+    if (!rows[0]) throw new Error(`CountryFieldConfig not found: ${id}`)
     return rows[0] as CountryFieldConfig
   }
 }

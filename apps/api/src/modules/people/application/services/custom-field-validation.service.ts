@@ -38,13 +38,26 @@ export class CustomFieldValidationService {
 
       if (def.fieldType === 'text' && typeof value === 'string') {
         if (def.validation?.regex) {
-          const regex = new RegExp(def.validation.regex)
-          if (!regex.test(value)) {
+          try {
+            const regex = new RegExp(def.validation.regex)
+            if (!regex.test(value)) {
+              errors.push({
+                fieldKey: def.fieldKey,
+                message: `${def.label} does not match required format`,
+              })
+            }
+          } catch {
             errors.push({
               fieldKey: def.fieldKey,
-              message: `${def.label} does not match required format`,
+              message: `${def.label} has invalid validation pattern`,
             })
           }
+        }
+        if (def.validation?.minLength && value.length < def.validation.minLength) {
+          errors.push({
+            fieldKey: def.fieldKey,
+            message: `${def.label} must be at least ${def.validation.minLength} characters`,
+          })
         }
         if (def.validation?.maxLength && value.length > def.validation.maxLength) {
           errors.push({

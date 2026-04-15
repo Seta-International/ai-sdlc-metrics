@@ -498,8 +498,8 @@ export function createPeopleRouter(
       getCountryFieldConfigs: permissionProtectedProcedure
         .meta({ permission: 'people:settings:read' })
         .input(z.object({ countryCode: z.string().length(2) }))
-        .query(async ({ input }: { ctx: AuthContext; input: { countryCode: string } }) => {
-          return peopleFacade.getCountryFieldConfigs(input.countryCode)
+        .query(async ({ ctx, input }: { ctx: AuthContext; input: { countryCode: string } }) => {
+          return peopleFacade.getCountryFieldConfigs(input.countryCode, ctx.tenantId)
         }),
 
       listCustomFieldDefinitions: permissionProtectedProcedure

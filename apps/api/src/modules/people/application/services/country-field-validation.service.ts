@@ -19,8 +19,9 @@ export class CountryFieldValidationService {
   async validate(
     countryCode: string,
     countryData: Record<string, unknown>,
+    tenantId: string,
   ): Promise<FieldValidationError[]> {
-    const configs = await this.configRepo.findByCountryCode(countryCode)
+    const configs = await this.configRepo.findByCountryCode(countryCode, tenantId)
     if (configs.length === 0) return []
 
     const errors: FieldValidationError[] = []
@@ -40,11 +41,18 @@ export class CountryFieldValidationService {
 
       if (config.fieldType === 'text' && typeof value === 'string') {
         if (config.validation?.regex) {
-          const regex = new RegExp(config.validation.regex)
-          if (!regex.test(value)) {
+          try {
+            const regex = new RegExp(config.validation.regex)
+            if (!regex.test(value)) {
+              errors.push({
+                fieldKey: config.fieldKey,
+                message: `${config.label} does not match required format`,
+              })
+            }
+          } catch {
             errors.push({
               fieldKey: config.fieldKey,
-              message: `${config.label} does not match required format`,
+              message: `${config.label} has invalid validation pattern`,
             })
           }
         }
