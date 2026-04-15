@@ -8,6 +8,7 @@ import { ListJobProfilesQuery } from '../queries/list-job-profiles.query'
 import type { PersonProfileResult } from '../queries/get-person-profile.handler'
 import type { EmploymentResult } from '../queries/get-employment.handler'
 import type { JobAssignment } from '../../domain/entities/job-assignment.entity'
+import type { Employment } from '../../domain/entities/employment.entity'
 import type { ListEmploymentsResult } from '../queries/list-employments.handler'
 import type { JobProfile } from '../../domain/entities/job-profile.entity'
 import type { EmploymentStatus } from '../../domain/value-objects/employment-status'
@@ -27,6 +28,14 @@ import {
   FIELD_EDIT_POLICY_REPOSITORY,
   type IFieldEditPolicyRepository,
 } from '../../domain/repositories/field-edit-policy.repository'
+import {
+  JOB_ASSIGNMENT_REPOSITORY,
+  type IJobAssignmentRepository,
+} from '../../domain/repositories/job-assignment.repository'
+import {
+  EMPLOYMENT_REPOSITORY,
+  type IEmploymentRepository,
+} from '../../domain/repositories/employment.repository'
 import type { CountryFieldConfig } from '../../domain/entities/country-field-config.entity'
 import type { CustomFieldDefinition } from '../../domain/entities/custom-field-definition.entity'
 import type { FieldVisibilityConfig } from '../../domain/entities/field-visibility-config.entity'
@@ -44,6 +53,10 @@ export class PeopleQueryFacade {
     private readonly fieldVisibilityConfigRepo: IFieldVisibilityConfigRepository,
     @Inject(FIELD_EDIT_POLICY_REPOSITORY)
     private readonly fieldEditPolicyRepo: IFieldEditPolicyRepository,
+    @Inject(JOB_ASSIGNMENT_REPOSITORY)
+    private readonly assignmentRepo: IJobAssignmentRepository,
+    @Inject(EMPLOYMENT_REPOSITORY)
+    private readonly employmentRepo: IEmploymentRepository,
   ) {}
 
   getPersonProfile(actorId: string, tenantId: string): Promise<PersonProfileResult> {
@@ -94,5 +107,42 @@ export class PeopleQueryFacade {
 
   listFieldEditPolicies(tenantId: string): Promise<FieldEditPolicy[]> {
     return this.fieldEditPolicyRepo.findByTenant(tenantId)
+  }
+
+  async getJobAssignmentAsOf(
+    tenantId: string,
+    employmentId: string,
+    date: Date,
+  ): Promise<JobAssignment | null> {
+    return this.assignmentRepo.findAsOf(employmentId, tenantId, date)
+  }
+
+  async listEmploymentsByDepartment(
+    tenantId: string,
+    _departmentId: string,
+  ): Promise<Employment[]> {
+    return this.employmentRepo.listByTenant(tenantId, {}) as Promise<Employment[]>
+  }
+
+  async listEmploymentsByManager(
+    tenantId: string,
+    _managerEmploymentId: string,
+  ): Promise<Employment[]> {
+    return this.employmentRepo.listByTenant(tenantId, {}) as Promise<Employment[]>
+  }
+
+  async getHeadcount(
+    tenantId: string,
+    filters?: {
+      departmentId?: string
+      countryCode?: string
+      employmentStatus?: string
+      workerType?: string
+    },
+  ): Promise<number> {
+    return this.employmentRepo.countByTenant(tenantId, {
+      status: filters?.employmentStatus as EmploymentStatus | undefined,
+      countryCode: filters?.countryCode,
+    })
   }
 }
