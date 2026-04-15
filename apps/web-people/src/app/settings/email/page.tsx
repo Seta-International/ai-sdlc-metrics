@@ -49,20 +49,18 @@ export default function EmailConfigPage() {
     pattern: 'given_family',
     transliterationMode: 'ascii',
   })
-  const [isLoading, setIsLoading] = React.useState(true)
   const [testGiven, setTestGiven] = React.useState('An')
   const [testFamily, setTestFamily] = React.useState('Nguyen')
 
   React.useEffect(() => {
     void (async () => {
-      setIsLoading(true)
       try {
         const result = await (anyTrpc.people.settings.emailConfig.get.query() as Promise<{
           config: EmailConfig
         }>)
         setConfig(result.config)
-      } finally {
-        setIsLoading(false)
+      } catch {
+        // ignore fetch errors on mount
       }
     })()
   }, [])
