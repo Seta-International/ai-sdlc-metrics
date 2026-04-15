@@ -245,26 +245,6 @@ export const profileSection = peopleSchema.table('profile_section', {
   displayOrder: integer('display_order').notNull().default(0),
 })
 
-export const profileChangeRequest = peopleSchema.table('profile_change_request', {
-  id: uuid('id')
-    .$defaultFn(() => uuidv7())
-    .primaryKey(),
-  tenantId: uuid('tenant_id').notNull(),
-  profileId: uuid('profile_id').notNull(),
-  fieldPath: text('field_path').notNull(),
-  oldValue: jsonb('old_value'),
-  newValue: jsonb('new_value').notNull(),
-  status: text('status', {
-    enum: ['pending', 'approved', 'rejected', 'superseded'],
-  })
-    .notNull()
-    .default('pending'),
-  decisionCaseId: uuid('decision_case_id'),
-  requestedBy: uuid('requested_by').notNull(),
-  reviewedBy: uuid('reviewed_by'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-})
-
 export const onboardingTemplate = peopleSchema.table('onboarding_template', {
   id: uuid('id')
     .$defaultFn(() => uuidv7())

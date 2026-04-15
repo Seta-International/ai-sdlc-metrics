@@ -7,7 +7,6 @@ export {
   jobFamily,
   jobProfile,
   profileSection,
-  profileChangeRequest,
   onboardingTemplate,
   onboardingTaskTemplate,
   onboardingCase,
@@ -18,3 +17,4 @@ export {
   offboardingTask,
   contractVersion,
 } from './people.schema'
+export { profileChangeRequest } from './change-requests.schema'
