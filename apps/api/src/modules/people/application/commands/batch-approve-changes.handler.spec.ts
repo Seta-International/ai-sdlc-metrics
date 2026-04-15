@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BatchApproveChangesCommand } from './batch-approve-changes.command'
 import { BatchApproveChangesHandler } from './batch-approve-changes.handler'
 import type { IProfileChangeRequestRepository } from '../../domain/repositories/profile-change-request.repository'
+import type { EventBus } from '@nestjs/cqrs'
+import type { ProfileChangeRequest } from '../../domain/entities/profile-change-request.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const BATCH_ID = '01900000-0000-7000-8000-000000000002'
@@ -24,7 +26,7 @@ describe('BatchApproveChangesHandler', () => {
       updateStatusByBatchId: vi.fn(),
     }
     eventBus = { publish: vi.fn() }
-    handler = new BatchApproveChangesHandler(changeRepo, eventBus as any)
+    handler = new BatchApproveChangesHandler(changeRepo, eventBus as unknown as EventBus)
   })
 
   it('approves all pending changes in batch atomically', async () => {
@@ -37,7 +39,7 @@ describe('BatchApproveChangesHandler', () => {
         employmentId: 'emp-1',
         oldValue: 'Old',
         newValue: 'New',
-      } as any,
+      } as unknown as ProfileChangeRequest,
       {
         id: 'cr-2',
         status: 'pending',
@@ -46,7 +48,7 @@ describe('BatchApproveChangesHandler', () => {
         employmentId: 'emp-1',
         oldValue: 'OldGiven',
         newValue: 'NewGiven',
-      } as any,
+      } as unknown as ProfileChangeRequest,
     ])
 
     await handler.execute(
@@ -65,7 +67,7 @@ describe('BatchApproveChangesHandler', () => {
 
   it('throws when batch has no pending changes', async () => {
     vi.mocked(changeRepo.findByBatchId).mockResolvedValue([
-      { id: 'cr-1', status: 'applied' } as any,
+      { id: 'cr-1', status: 'applied' } as unknown as ProfileChangeRequest,
     ])
 
     await expect(
@@ -83,7 +85,7 @@ describe('BatchApproveChangesHandler', () => {
         employmentId: 'emp-1',
         oldValue: 'A',
         newValue: 'B',
-      } as any,
+      } as unknown as ProfileChangeRequest,
     ])
 
     await handler.execute(new BatchApproveChangesCommand(TENANT_ID, BATCH_ID, ACTOR_ID))

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AcknowledgePolicyCommand } from './acknowledge-policy.command'
 import { AcknowledgePolicyHandler } from './acknowledge-policy.handler'
 import type { IEmployeeDocumentRepository } from '../../domain/repositories/employee-document.repository'
+import type { EmployeeDocument } from '../../domain/entities/employee-document.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const DOC_ID = '01900000-0000-7000-8000-000000000002'
@@ -29,8 +30,8 @@ describe('AcknowledgePolicyHandler', () => {
       tenantId: TENANT_ID,
       requiresAcknowledgment: true,
       acknowledgedAt: null,
-    } as any)
-    vi.mocked(docRepo.update).mockResolvedValue({} as any)
+    } as unknown as EmployeeDocument)
+    vi.mocked(docRepo.update).mockResolvedValue({} as unknown as EmployeeDocument)
 
     await handler.execute(new AcknowledgePolicyCommand(TENANT_ID, DOC_ID, ACTOR_ID))
 
@@ -58,7 +59,7 @@ describe('AcknowledgePolicyHandler', () => {
       tenantId: TENANT_ID,
       requiresAcknowledgment: false,
       acknowledgedAt: null,
-    } as any)
+    } as unknown as EmployeeDocument)
 
     await expect(
       handler.execute(new AcknowledgePolicyCommand(TENANT_ID, DOC_ID, ACTOR_ID)),
@@ -71,7 +72,7 @@ describe('AcknowledgePolicyHandler', () => {
       tenantId: TENANT_ID,
       requiresAcknowledgment: true,
       acknowledgedAt: new Date('2026-01-01'),
-    } as any)
+    } as unknown as EmployeeDocument)
 
     await expect(
       handler.execute(new AcknowledgePolicyCommand(TENANT_ID, DOC_ID, ACTOR_ID)),

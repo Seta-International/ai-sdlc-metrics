@@ -3,6 +3,8 @@ import { UploadEmployeeDocumentCommand } from './upload-employee-document.comman
 import { UploadEmployeeDocumentHandler } from './upload-employee-document.handler'
 import type { IEmployeeDocumentRepository } from '../../domain/repositories/employee-document.repository'
 import type { IEmploymentRepository } from '../../domain/repositories/employment.repository'
+import type { Employment } from '../../domain/entities/employment.entity'
+import type { EmployeeDocument } from '../../domain/entities/employee-document.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const EMPLOYMENT_ID = '01900000-0000-7000-8000-000000000002'
@@ -41,7 +43,7 @@ describe('UploadEmployeeDocumentHandler', () => {
     vi.mocked(employmentRepo.findById).mockResolvedValue({
       id: EMPLOYMENT_ID,
       tenantId: TENANT_ID,
-    } as any)
+    } as unknown as Employment)
     vi.mocked(docRepo.insert).mockResolvedValue({
       id: EMPLOYEE_DOC_ID,
       tenantId: TENANT_ID,
@@ -51,7 +53,7 @@ describe('UploadEmployeeDocumentHandler', () => {
       title: 'Citizen ID',
       version: 1,
       status: 'active',
-    } as any)
+    } as unknown as EmployeeDocument)
 
     const result = await handler.execute(
       new UploadEmployeeDocumentCommand(
@@ -95,13 +97,18 @@ describe('UploadEmployeeDocumentHandler', () => {
   })
 
   it('increments version when parent document provided', async () => {
-    vi.mocked(employmentRepo.findById).mockResolvedValue({ id: EMPLOYMENT_ID } as any)
+    vi.mocked(employmentRepo.findById).mockResolvedValue({
+      id: EMPLOYMENT_ID,
+    } as unknown as Employment)
     vi.mocked(docRepo.findById).mockResolvedValue({
       id: 'parent-doc',
       version: 2,
-    } as any)
-    vi.mocked(docRepo.update).mockResolvedValue({} as any)
-    vi.mocked(docRepo.insert).mockResolvedValue({ id: EMPLOYEE_DOC_ID, version: 3 } as any)
+    } as unknown as EmployeeDocument)
+    vi.mocked(docRepo.update).mockResolvedValue({} as unknown as EmployeeDocument)
+    vi.mocked(docRepo.insert).mockResolvedValue({
+      id: EMPLOYEE_DOC_ID,
+      version: 3,
+    } as unknown as EmployeeDocument)
 
     await handler.execute(
       new UploadEmployeeDocumentCommand(

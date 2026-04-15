@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DuplicateValidationService } from './duplicate-validation.service'
 import type { IEmploymentRepository } from '../../domain/repositories/employment.repository'
 import type { IEmploymentDetailRepository } from '../../domain/repositories/employment-detail.repository'
+import type { Employment } from '../../domain/entities/employment.entity'
+import type { EmploymentDetail } from '../../domain/entities/employment-detail.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const EMPLOYMENT_ID = '01900000-0000-7000-8000-000000000002'
@@ -47,7 +49,7 @@ describe('DuplicateValidationService', () => {
         id: 'other-emp',
         companyEmail: 'john@company.com',
         employmentStatus: 'active',
-      } as any,
+      } as unknown as Employment,
     ])
 
     const warnings = await service.checkDuplicates(TENANT_ID, EMPLOYMENT_ID, {
@@ -65,11 +67,11 @@ describe('DuplicateValidationService', () => {
 
   it('returns warning for duplicate national ID (acknowledgeable)', async () => {
     vi.mocked(employmentRepo.listByTenant).mockResolvedValue([
-      { id: 'other-emp', employmentStatus: 'active' } as any,
+      { id: 'other-emp', employmentStatus: 'active' } as unknown as Employment,
     ])
     vi.mocked(detailRepo.findByEmploymentId).mockResolvedValue({
       nationalId: '012345678901',
-    } as any)
+    } as unknown as EmploymentDetail)
 
     const warnings = await service.checkDuplicates(TENANT_ID, EMPLOYMENT_ID, {
       nationalId: '012345678901',

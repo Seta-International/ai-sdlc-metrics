@@ -6,6 +6,10 @@ import type { IEmploymentRepository } from '../../domain/repositories/employment
 import type { IPersonProfileRepository } from '../../domain/repositories/person-profile.repository'
 import type { IEmploymentDetailRepository } from '../../domain/repositories/employment-detail.repository'
 import type { IEmployeeDocumentRepository } from '../../domain/repositories/employee-document.repository'
+import type { Employment } from '../../domain/entities/employment.entity'
+import type { PersonProfile } from '../../domain/entities/person-profile.entity'
+import type { EmploymentDetail } from '../../domain/entities/employment-detail.entity'
+import type { EmployeeDocument } from '../../domain/entities/employee-document.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const EMPLOYMENT_ID = '01900000-0000-7000-8000-000000000002'
@@ -70,15 +74,17 @@ describe('GetProfileCompletenessHandler', () => {
       personProfileId: PROFILE_ID,
       countryCode: 'VN',
       employmentType: 'permanent',
-    } as any)
+    } as unknown as Employment)
     vi.mocked(profileRepo.findById).mockResolvedValue({
       id: PROFILE_ID,
       dateOfBirth: new Date('1990-01-01'),
-    } as any)
+    } as unknown as PersonProfile)
     vi.mocked(detailRepo.findByEmploymentId).mockResolvedValue({
       nationalId: '012345678901',
-    } as any)
-    vi.mocked(docRepo.findByCategory).mockResolvedValue([{ id: 'doc-1' } as any])
+    } as unknown as EmploymentDetail)
+    vi.mocked(docRepo.findByCategory).mockResolvedValue([
+      { id: 'doc-1' } as unknown as EmployeeDocument,
+    ])
     vi.mocked(ruleRepo.findApplicable).mockResolvedValue([
       {
         id: 'r1',
@@ -122,14 +128,14 @@ describe('GetProfileCompletenessHandler', () => {
       personProfileId: PROFILE_ID,
       countryCode: 'VN',
       employmentType: 'permanent',
-    } as any)
+    } as unknown as Employment)
     vi.mocked(profileRepo.findById).mockResolvedValue({
       id: PROFILE_ID,
       dateOfBirth: new Date('1990-01-01'),
-    } as any)
+    } as unknown as PersonProfile)
     vi.mocked(detailRepo.findByEmploymentId).mockResolvedValue({
       nationalId: null,
-    } as any)
+    } as unknown as EmploymentDetail)
     vi.mocked(docRepo.findByCategory).mockResolvedValue([])
     vi.mocked(ruleRepo.findApplicable).mockResolvedValue([
       {
