@@ -35,6 +35,8 @@ export interface IDirectorySearchIndexRepository {
     limit: number,
     offset: number,
   ): Promise<{ items: DirectorySearchIndex[]; total: number }>
+  /** Returns all non-null company emails for a tenant. Used for uniqueness checks during email generation. */
+  listCompanyEmails(tenantId: string): Promise<string[]>
   rebuildAll(tenantId: string): Promise<void>
   countByTenant(tenantId: string): Promise<number>
 }

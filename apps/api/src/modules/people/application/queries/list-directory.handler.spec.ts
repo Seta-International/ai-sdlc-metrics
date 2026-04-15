@@ -17,6 +17,7 @@ describe('ListDirectoryHandler', () => {
       list: vi.fn(),
       rebuildAll: vi.fn(),
       countByTenant: vi.fn(),
+      listCompanyEmails: vi.fn(),
     }
     handler = new ListDirectoryHandler(searchRepo)
   })

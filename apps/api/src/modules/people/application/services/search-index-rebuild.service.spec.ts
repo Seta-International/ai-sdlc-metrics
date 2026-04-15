@@ -27,6 +27,7 @@ describe('SearchIndexRebuildService', () => {
       list: vi.fn(),
       rebuildAll: vi.fn(),
       countByTenant: vi.fn(),
+      listCompanyEmails: vi.fn(),
     }
     employmentRepo = {
       findById: vi.fn(),
@@ -37,6 +38,7 @@ describe('SearchIndexRebuildService', () => {
       update: vi.fn(),
       listByTenant: vi.fn(),
       countByTenant: vi.fn(),
+      listCompanyEmails: vi.fn(),
     }
     profileRepo = {
       findById: vi.fn(),
