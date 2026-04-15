@@ -1,0 +1,47 @@
+'use client'
+
+import { Avatar } from '@future/ui'
+
+interface AvatarNameCellProps {
+  fullName: string
+  preferredName?: string | null
+  avatarUrl?: string | null
+  subtitle?: string | null
+}
+
+export function AvatarNameCell({
+  fullName,
+  preferredName,
+  avatarUrl,
+  subtitle,
+}: AvatarNameCellProps) {
+  const initials = fullName
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+
+  return (
+    <div className="flex items-center gap-3">
+      <Avatar className="h-8 w-8 shrink-0">
+        {avatarUrl ? (
+          <img src={avatarUrl} alt={fullName} className="h-full w-full rounded-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center rounded-full bg-[rgba(255,255,255,0.05)] text-xs font-[510] text-[#d0d6e0]">
+            {initials}
+          </div>
+        )}
+      </Avatar>
+      <div className="min-w-0">
+        <div className="truncate text-sm font-[510] text-[#f7f8f8]">
+          {fullName}
+          {preferredName && (
+            <span className="ml-1 text-[#8a8f98] font-normal">({preferredName})</span>
+          )}
+        </div>
+        {subtitle && <div className="truncate text-xs text-[#8a8f98]">{subtitle}</div>}
+      </div>
+    </div>
+  )
+}
