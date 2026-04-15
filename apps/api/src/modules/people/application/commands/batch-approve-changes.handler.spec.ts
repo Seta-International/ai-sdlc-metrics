@@ -73,7 +73,7 @@ describe('BatchApproveChangesHandler', () => {
     ).rejects.toThrow()
   })
 
-  it('sets future-dated changes to scheduled instead of applied', async () => {
+  it('does not emit events for future-dated changes', async () => {
     vi.mocked(changeRepo.findByBatchId).mockResolvedValue([
       {
         id: 'cr-1',
@@ -89,5 +89,6 @@ describe('BatchApproveChangesHandler', () => {
     await handler.execute(new BatchApproveChangesCommand(TENANT_ID, BATCH_ID, ACTOR_ID))
 
     expect(changeRepo.updateStatusByBatchId).toHaveBeenCalled()
+    expect(eventBus.publish).not.toHaveBeenCalled()
   })
 })
