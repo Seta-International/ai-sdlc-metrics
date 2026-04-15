@@ -9,14 +9,14 @@ import {
   truncateCoreSchema,
   truncatePeopleSchema,
 } from '@future/db/test-helpers'
-import { DrizzleEmploymentProfileRepository } from './drizzle-employment-profile.repository'
+import { DrizzleEmploymentRepository } from './drizzle-employment.repository'
 
 const TENANT_A = '01900000-0000-7fff-8000-000000000040'
 const TENANT_B = '01900000-0000-7fff-8000-000000000041'
 
-describe('DrizzleEmploymentProfileRepository', () => {
+describe('DrizzleEmploymentRepository', () => {
   const db = createTestDb()
-  let repo: DrizzleEmploymentProfileRepository
+  let repo: DrizzleEmploymentRepository
 
   beforeAll(async () => {
     await migrateForTest()
@@ -24,7 +24,7 @@ describe('DrizzleEmploymentProfileRepository', () => {
     await truncatePeopleSchema(db)
     await seedTenant(db, { id: TENANT_A, slug: 'ep-tenant-a' })
     await seedTenant(db, { id: TENANT_B, slug: 'ep-tenant-b' })
-    repo = new DrizzleEmploymentProfileRepository(db as never)
+    repo = new DrizzleEmploymentRepository(db as never)
   })
 
   afterAll(async () => {
