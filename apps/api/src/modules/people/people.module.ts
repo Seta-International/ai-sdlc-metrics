@@ -179,10 +179,13 @@ import { ListOnboardingTasksHandler } from './application/queries/list-onboardin
 import { ListTemplatesHandler } from './application/queries/list-templates.handler'
 import { ListContractVersionsHandler } from './application/queries/list-contract-versions.handler'
 
+// ── Plan 06 services ───────────────────────────────────────────────────────
+import { OnboardingTemplateSelectorService } from './application/services/onboarding-template-selector.service'
+import { OffboardingTemplateSelectorService } from './application/services/offboarding-template-selector.service'
+import { DocumentRequirementCheckerService } from './application/services/document-requirement-checker.service'
+
 // ── Event handlers ─────────────────────────────────────────────────────────
-// TODO(Plan 06): OnCandidateHiredHandler references CreateEmploymentProfileCommand (deleted).
-// Re-implement to use CreatePersonProfileCommand + CreateEmploymentCommand.
-// import { OnCandidateHiredHandler } from './application/event-handlers/on-candidate-hired.handler'
+import { OnCandidateHiredHandler } from './application/event-handlers/on-candidate-hired.handler'
 
 // ── tRPC service ───────────────────────────────────────────────────────────
 import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
@@ -329,6 +332,18 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     ListOnboardingTasksHandler,
     ListTemplatesHandler,
     ListContractVersionsHandler,
+
+    // ── Plan 06 services ─────────────────────────────────────────────────
+    OnboardingTemplateSelectorService,
+    OffboardingTemplateSelectorService,
+    DocumentRequirementCheckerService,
+    {
+      provide: 'ONBOARDING_TEMPLATE_SELECTOR',
+      useExisting: OnboardingTemplateSelectorService,
+    },
+
+    // ── Event handlers ────────────────────────────────────────────────────
+    OnCandidateHiredHandler,
 
     // ── Facades & services ───────────────────────────────────────────────
     PeopleQueryFacade,
