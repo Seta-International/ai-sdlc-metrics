@@ -1,18 +1,15 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { z } from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
+import { CreateSessionCommand } from '../../application/commands/create-session.command'
+import { SendMessageCommand } from '../../application/commands/send-message.command'
+import { ListSessionsQuery } from '../../application/queries/list-sessions.query'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let createSessionHandler: any
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let listSessionsHandler: any
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let sendMessageHandler: any
 
-export function setAgentSessionHandlers(handlers: {
-  createSession: any
-  listSessions: any
-  sendMessage: any
-}) {
+export function setAgentSessionHandlers(handlers: Record<string, any>) {
   createSessionHandler = handlers.createSession
   listSessionsHandler = handlers.listSessions
   sendMessageHandler = handlers.sendMessage
@@ -31,7 +28,6 @@ export const sessionRouter = router({
       }),
     )
     .mutation(({ input }) => {
-      const { CreateSessionCommand } = require('../../application/commands/create-session.command')
       return createSessionHandler.execute(
         new CreateSessionCommand(
           input.tenantId,
@@ -53,7 +49,6 @@ export const sessionRouter = router({
       }),
     )
     .query(({ input }) => {
-      const { ListSessionsQuery } = require('../../application/queries/list-sessions.query')
       return listSessionsHandler.execute(
         new ListSessionsQuery(input.actorId, input.tenantId, input.limit),
       )
@@ -74,7 +69,6 @@ export const sessionRouter = router({
       }),
     )
     .mutation(({ input }) => {
-      const { SendMessageCommand } = require('../../application/commands/send-message.command')
       return sendMessageHandler.execute(
         new SendMessageCommand(
           input.tenantId,
