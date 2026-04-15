@@ -102,6 +102,49 @@ import { ApplyScheduledChangesJob } from './infrastructure/jobs/apply-scheduled-
 import { CheckDocumentExpiryJob } from './infrastructure/jobs/check-document-expiry.job'
 import { CompletenessReminderJob } from './infrastructure/jobs/completeness-reminder.job'
 
+// ── Plan 05 repositories ───────────────────────────────────────────────────
+import { DrizzleDirectorySearchIndexRepository } from './infrastructure/repositories/drizzle-directory-search-index.repository'
+import { DrizzleEmailGenerationConfigRepository } from './infrastructure/repositories/drizzle-email-generation-config.repository'
+import { DrizzleProfileShareLinkRepository } from './infrastructure/repositories/drizzle-profile-share-link.repository'
+import { DrizzleBulkOperationRepository } from './infrastructure/repositories/drizzle-bulk-operation.repository'
+import { DrizzleImportJobRepository } from './infrastructure/repositories/drizzle-import-job.repository'
+import { DIRECTORY_SEARCH_INDEX_REPOSITORY } from './domain/repositories/directory-search-index.repository'
+import { EMAIL_GENERATION_CONFIG_REPOSITORY } from './domain/repositories/email-generation-config.repository'
+import { PROFILE_SHARE_LINK_REPOSITORY } from './domain/repositories/profile-share-link.repository'
+import { BULK_OPERATION_REPOSITORY } from './domain/repositories/bulk-operation.repository'
+import { IMPORT_JOB_REPOSITORY } from './domain/repositories/import-job.repository'
+
+// ── Plan 05 services ───────────────────────────────────────────────────────
+import { SearchIndexRebuildService } from './application/services/search-index-rebuild.service'
+import { EmailGenerationService } from './application/services/email-generation.service'
+
+// ── Plan 05 command handlers ───────────────────────────────────────────────
+import { GenerateCompanyEmailHandler } from './application/commands/generate-company-email.handler'
+import { GenerateShareLinkHandler } from './application/commands/generate-share-link.handler'
+import { RevokeShareLinkHandler } from './application/commands/revoke-share-link.handler'
+import { BulkUpdateDepartmentHandler } from './application/commands/bulk-update-department.handler'
+import { UploadImportFileHandler } from './application/commands/upload-import-file.handler'
+import { MapImportColumnsHandler } from './application/commands/map-import-columns.handler'
+import { ValidateImportHandler } from './application/commands/validate-import.handler'
+import { CommitImportHandler } from './application/commands/commit-import.handler'
+import { InitiateLinkedInAuthHandler } from './application/commands/initiate-linkedin-auth.handler'
+import { ImportLinkedInProfileHandler } from './application/commands/import-linkedin-profile.handler'
+import { ConfirmLinkedInImportHandler } from './application/commands/confirm-linkedin-import.handler'
+
+// ── Plan 05 query handlers ─────────────────────────────────────────────────
+import { SearchDirectoryHandler } from './application/queries/search-directory.handler'
+import { ListDirectoryHandler } from './application/queries/list-directory.handler'
+import { ExportDirectoryHandler } from './application/queries/export-directory.handler'
+import { GetSharedProfileHandler } from './application/queries/get-shared-profile.handler'
+
+// ── Plan 05 event handlers ─────────────────────────────────────────────────
+import { OnSearchIndexUpdateHandler } from './application/event-handlers/on-search-index-update.handler'
+
+// ── Plan 05 jobs ───────────────────────────────────────────────────────────
+import { RebuildSearchIndexJob } from './infrastructure/jobs/rebuild-search-index.job'
+import { ProcessBulkOperationJob } from './infrastructure/jobs/process-bulk-operation.job'
+import { ProcessImportJob } from './infrastructure/jobs/process-import.job'
+
 // ── Services ───────────────────────────────────────────────────────────────
 import { CountryFieldValidationService } from './application/services/country-field-validation.service'
 import { CustomFieldValidationService } from './application/services/custom-field-validation.service'
@@ -223,6 +266,47 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     ApplyScheduledChangesJob,
     CheckDocumentExpiryJob,
     CompletenessReminderJob,
+
+    // ── Plan 05 repositories ─────────────────────────────────────────────
+    { provide: DIRECTORY_SEARCH_INDEX_REPOSITORY, useClass: DrizzleDirectorySearchIndexRepository },
+    {
+      provide: EMAIL_GENERATION_CONFIG_REPOSITORY,
+      useClass: DrizzleEmailGenerationConfigRepository,
+    },
+    { provide: PROFILE_SHARE_LINK_REPOSITORY, useClass: DrizzleProfileShareLinkRepository },
+    { provide: BULK_OPERATION_REPOSITORY, useClass: DrizzleBulkOperationRepository },
+    { provide: IMPORT_JOB_REPOSITORY, useClass: DrizzleImportJobRepository },
+
+    // ── Plan 05 services ─────────────────────────────────────────────────
+    SearchIndexRebuildService,
+    EmailGenerationService,
+
+    // ── Plan 05 command handlers ─────────────────────────────────────────
+    GenerateCompanyEmailHandler,
+    GenerateShareLinkHandler,
+    RevokeShareLinkHandler,
+    BulkUpdateDepartmentHandler,
+    UploadImportFileHandler,
+    MapImportColumnsHandler,
+    ValidateImportHandler,
+    CommitImportHandler,
+    InitiateLinkedInAuthHandler,
+    ImportLinkedInProfileHandler,
+    ConfirmLinkedInImportHandler,
+
+    // ── Plan 05 query handlers ───────────────────────────────────────────
+    SearchDirectoryHandler,
+    ListDirectoryHandler,
+    ExportDirectoryHandler,
+    GetSharedProfileHandler,
+
+    // ── Plan 05 event handlers ───────────────────────────────────────────
+    OnSearchIndexUpdateHandler,
+
+    // ── Plan 05 jobs ─────────────────────────────────────────────────────
+    RebuildSearchIndexJob,
+    ProcessBulkOperationJob,
+    ProcessImportJob,
 
     // ── Legacy command handlers ──────────────────────────────────────────
     RejectProfileChangeHandler,
