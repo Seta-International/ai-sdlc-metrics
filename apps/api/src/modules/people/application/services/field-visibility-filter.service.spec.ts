@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FieldVisibilityFilterService } from './field-visibility-filter.service'
 import type { IFieldVisibilityConfigRepository } from '../../domain/repositories/field-visibility-config.repository'
+import type { JobAssignment } from '../../domain/entities/job-assignment.entity'
 import type { IJobAssignmentRepository } from '../../domain/repositories/job-assignment.repository'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
@@ -75,7 +76,7 @@ describe('FieldVisibilityFilterService', () => {
   it('returns restricted for direct manager', async () => {
     vi.mocked(assignmentRepo.findCurrent).mockResolvedValue({
       managerId: VIEWER_ID,
-    } as any)
+    } as JobAssignment)
 
     const maxTier = await service.resolveMaxTier(
       TENANT_ID,

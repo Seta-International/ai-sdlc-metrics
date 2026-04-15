@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CreateCustomFieldDefinitionCommand } from './create-custom-field-definition.command'
 import { CreateCustomFieldDefinitionHandler } from './create-custom-field-definition.handler'
 import type { ICustomFieldDefinitionRepository } from '../../domain/repositories/custom-field-definition.repository'
+import type { CustomFieldDefinition } from '../../domain/entities/custom-field-definition.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const ACTOR_ID = '01900000-0000-7000-8000-000000000002'
@@ -66,7 +67,7 @@ describe('CreateCustomFieldDefinitionHandler', () => {
   })
 
   it('throws when field key already exists for tenant', async () => {
-    vi.mocked(defRepo.findByFieldKey).mockResolvedValue({ id: 'existing' } as any)
+    vi.mocked(defRepo.findByFieldKey).mockResolvedValue({ id: 'existing' } as CustomFieldDefinition)
 
     await expect(
       handler.execute(
