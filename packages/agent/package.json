@@ -18,6 +18,7 @@
   "dependencies": {
     "@future/api-client": "workspace:*",
     "@future/core": "workspace:*",
+    "@future/ui": "workspace:*",
     "lucide-react": "^1.8.0"
   },
   "devDependencies": {
