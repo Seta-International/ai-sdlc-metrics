@@ -12,7 +12,6 @@ import {
   DollarSign,
   Target,
   BarChart2,
-  Bot,
   ListTodo,
   Settings,
   type LucideIcon,
