@@ -26,10 +26,20 @@ export type { AgentProviderProps } from './agent-provider'
 
 // Panel
 export { AgentPanel } from './panel/agent-panel'
-export { AgentMessage } from './panel/agent-message'
 export type { AgentMessageProps } from './panel/agent-message'
 export { AgentToolTrace } from './panel/agent-tool-trace'
 export type { AgentToolTraceProps } from './panel/agent-tool-trace'
 export { AgentContextPills } from './panel/agent-context-pills'
 export { AgentMessageInput } from './panel/agent-message-input'
 export type { AgentMessageInputProps } from './panel/agent-message-input'
+
+// Inline
+export { AgentInlineAction } from './inline/agent-inline-action'
+export type { AgentInlineActionProps } from './inline/agent-inline-action'
+export { AgentInlineResponse } from './inline/agent-inline-response'
+export type { AgentInlineResponseProps } from './inline/agent-inline-response'
+
+// Ambient
+export { AgentStrip } from './ambient/agent-strip'
+export { AgentBadge } from './ambient/agent-badge'
+export { AgentBanner } from './ambient/agent-banner'
