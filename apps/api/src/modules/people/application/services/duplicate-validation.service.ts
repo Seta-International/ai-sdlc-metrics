@@ -48,7 +48,7 @@ export class DuplicateValidationService {
     // Hard block: company email must be unique
     if (input.companyEmail) {
       for (const emp of otherEmployments) {
-        if ((emp as any).companyEmail === input.companyEmail) {
+        if (emp.companyEmail === input.companyEmail) {
           warnings.push({
             field: 'companyEmail',
             severity: 'error',
@@ -76,7 +76,7 @@ export class DuplicateValidationService {
 
       for (const { inputKey, detailKey } of detailFields) {
         const inputValue = input[inputKey]
-        const existingValue = (detail as Record<string, unknown>)[detailKey]
+        const existingValue = (detail as unknown as Record<string, unknown>)[detailKey]
         if (inputValue && existingValue && inputValue === existingValue) {
           warnings.push({
             field: inputKey,

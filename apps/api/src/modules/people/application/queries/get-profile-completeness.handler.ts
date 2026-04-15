@@ -56,12 +56,12 @@ export class GetProfileCompletenessHandler implements IQueryHandler<
     }
 
     const [profile, detail, rules] = await Promise.all([
-      this.profileRepo.findById((employment as any).personProfileId, query.tenantId),
+      this.profileRepo.findById(employment.personProfileId, query.tenantId),
       this.detailRepo.findByEmploymentId(query.employmentId, query.tenantId),
       this.ruleRepo.findApplicable(
         query.tenantId,
-        (employment as any).countryCode ?? '',
-        (employment as any).employmentType ?? '',
+        employment.countryCode,
+        employment.employmentType,
       ),
     ])
 
@@ -72,16 +72,18 @@ export class GetProfileCompletenessHandler implements IQueryHandler<
 
     for (const rule of rules) {
       totalWeight += rule.weight
-      const [prefix, fieldName] = rule.fieldPath.split('.')
+      const parts = rule.fieldPath.split('.')
+      const prefix = parts[0]
+      const fieldName = parts[1]
       let isFilled = false
 
-      if (prefix === 'person_profile' && profile) {
+      if (prefix === 'person_profile' && fieldName && profile) {
         const camelField = toCamelCase(fieldName)
-        isFilled = isFieldFilled((profile as Record<string, unknown>)[camelField])
-      } else if (prefix === 'employment_detail' && detail) {
+        isFilled = isFieldFilled((profile as unknown as Record<string, unknown>)[camelField])
+      } else if (prefix === 'employment_detail' && fieldName && detail) {
         const camelField = toCamelCase(fieldName)
-        isFilled = isFieldFilled((detail as Record<string, unknown>)[camelField])
-      } else if (prefix === 'document') {
+        isFilled = isFieldFilled((detail as unknown as Record<string, unknown>)[camelField])
+      } else if (prefix === 'document' && fieldName) {
         const docs = await this.docRepo.findByCategory(
           query.employmentId,
           fieldName,
