@@ -1,10 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common'
+import {
+  ONBOARDING_TEMPLATE_REPOSITORY,
+  type IOnboardingTemplateRepository,
+} from '../../domain/repositories/onboarding-template.repository'
 
 @Injectable()
 export class OnboardingTemplateSelectorService {
   constructor(
-    @Inject('ONBOARDING_TEMPLATE_REPOSITORY')
-    private readonly templateRepo: any,
+    @Inject(ONBOARDING_TEMPLATE_REPOSITORY)
+    private readonly templateRepo: IOnboardingTemplateRepository,
   ) {}
 
   async selectTemplate(
@@ -13,7 +17,8 @@ export class OnboardingTemplateSelectorService {
     workerType: string,
     employmentType: string,
   ): Promise<{ id: string; name: string } | null> {
-    const templates = await this.templateRepo.findActiveByTenant(tenantId)
+    const all = await this.templateRepo.listByTenant(tenantId)
+    const templates = all.filter((t) => t.isActive)
     if (templates.length === 0) return null
 
     const scored = templates.map((t: any) => ({

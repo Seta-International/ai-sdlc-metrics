@@ -1,4 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common'
+import {
+  OFFBOARDING_TEMPLATE_REPOSITORY,
+  type IOffboardingTemplateRepository,
+} from '../../domain/repositories/offboarding-template.repository'
 
 const REASON_TO_CATEGORY: Record<string, string> = {
   voluntary_resignation: 'voluntary',
@@ -17,8 +21,8 @@ const REASON_TO_CATEGORY: Record<string, string> = {
 @Injectable()
 export class OffboardingTemplateSelectorService {
   constructor(
-    @Inject('OFFBOARDING_TEMPLATE_REPOSITORY')
-    private readonly templateRepo: any,
+    @Inject(OFFBOARDING_TEMPLATE_REPOSITORY)
+    private readonly templateRepo: IOffboardingTemplateRepository,
   ) {}
 
   async selectTemplate(
@@ -26,7 +30,8 @@ export class OffboardingTemplateSelectorService {
     countryCode: string,
     terminationReason: string,
   ): Promise<{ id: string; name: string } | null> {
-    const templates = await this.templateRepo.findActiveByTenant(tenantId)
+    const all = await this.templateRepo.listByTenant(tenantId)
+    const templates = all.filter((t) => t.isActive)
     if (templates.length === 0) return null
 
     const reasonCategory = REASON_TO_CATEGORY[terminationReason] ?? 'involuntary'

@@ -182,7 +182,6 @@ import { ListContractVersionsHandler } from './application/queries/list-contract
 // ── Plan 06 services ───────────────────────────────────────────────────────
 import { OnboardingTemplateSelectorService } from './application/services/onboarding-template-selector.service'
 import { OffboardingTemplateSelectorService } from './application/services/offboarding-template-selector.service'
-import { DocumentRequirementCheckerService } from './application/services/document-requirement-checker.service'
 
 // ── Event handlers ─────────────────────────────────────────────────────────
 import { OnCandidateHiredHandler } from './application/event-handlers/on-candidate-hired.handler'
@@ -336,7 +335,6 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     // ── Plan 06 services ─────────────────────────────────────────────────
     OnboardingTemplateSelectorService,
     OffboardingTemplateSelectorService,
-    DocumentRequirementCheckerService,
     {
       provide: 'ONBOARDING_TEMPLATE_SELECTOR',
       useExisting: OnboardingTemplateSelectorService,

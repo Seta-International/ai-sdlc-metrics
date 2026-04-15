@@ -8,12 +8,12 @@ describe('OffboardingTemplateSelectorService', () => {
   let templateRepo: any
 
   beforeEach(() => {
-    templateRepo = { findActiveByTenant: vi.fn() }
+    templateRepo = { listByTenant: vi.fn() }
     service = new OffboardingTemplateSelectorService(templateRepo)
   })
 
   it('selects template matching termination_reason + country', async () => {
-    vi.mocked(templateRepo.findActiveByTenant).mockResolvedValue([
+    vi.mocked(templateRepo.listByTenant).mockResolvedValue([
       {
         id: 't1',
         name: 'Default',
@@ -21,6 +21,7 @@ describe('OffboardingTemplateSelectorService', () => {
         terminationReason: null,
         reasonCategory: null,
         isDefault: true,
+        isActive: true,
       },
       {
         id: 't2',
@@ -29,6 +30,7 @@ describe('OffboardingTemplateSelectorService', () => {
         terminationReason: 'voluntary_resignation',
         reasonCategory: 'voluntary',
         isDefault: false,
+        isActive: true,
       },
     ])
 
@@ -37,7 +39,7 @@ describe('OffboardingTemplateSelectorService', () => {
   })
 
   it('falls back to country + reason_category when exact reason not found', async () => {
-    vi.mocked(templateRepo.findActiveByTenant).mockResolvedValue([
+    vi.mocked(templateRepo.listByTenant).mockResolvedValue([
       {
         id: 't1',
         name: 'Default',
@@ -45,6 +47,7 @@ describe('OffboardingTemplateSelectorService', () => {
         terminationReason: null,
         reasonCategory: null,
         isDefault: true,
+        isActive: true,
       },
       {
         id: 't2',
@@ -53,6 +56,7 @@ describe('OffboardingTemplateSelectorService', () => {
         terminationReason: null,
         reasonCategory: 'voluntary',
         isDefault: false,
+        isActive: true,
       },
     ])
 
