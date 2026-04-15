@@ -23,7 +23,7 @@ export function AgentToolTrace({ toolCall, toolResult }: AgentToolTraceProps) {
         <div className="border-t border-[rgba(255,255,255,0.08)] px-3 py-2">
           {toolCall.toolArgs && (
             <div className="mb-2">
-              <div className="mb-1 font-semibold text-[#8a8f98]">Args</div>
+              <div className="mb-1 font-[590] text-[#8a8f98]">Args</div>
               <pre className="overflow-x-auto rounded bg-[rgba(255,255,255,0.02)] p-2 font-mono text-[#d0d6e0]">
                 {JSON.stringify(toolCall.toolArgs, null, 2)}
               </pre>
@@ -31,7 +31,7 @@ export function AgentToolTrace({ toolCall, toolResult }: AgentToolTraceProps) {
           )}
           {toolResult && (
             <div>
-              <div className="mb-1 font-semibold text-[#8a8f98]">Result</div>
+              <div className="mb-1 font-[590] text-[#8a8f98]">Result</div>
               <pre className="overflow-x-auto rounded bg-[rgba(255,255,255,0.02)] p-2 font-mono text-[#d0d6e0]">
                 {toolResult.content}
               </pre>

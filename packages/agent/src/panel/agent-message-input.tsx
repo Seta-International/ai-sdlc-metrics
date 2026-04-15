@@ -36,7 +36,7 @@ export function AgentMessageInput({ onSend, disabled }: AgentMessageInputProps) 
         onKeyDown={handleKeyDown}
         placeholder="Ask the agent..."
         disabled={disabled}
-        className="flex-1 rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-3 py-1.5 text-sm text-[#f7f8f8] placeholder:text-[#62666d] outline-none focus:ring-1 focus:ring-[rgba(255,255,255,0.2)] disabled:opacity-50"
+        className="flex-1 rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-3 py-1.5 text-sm text-[#f7f8f8] placeholder:text-[#62666d] outline-none focus:outline-none focus:shadow-[0px_4px_12px_rgba(0,0,0,0.1)] disabled:opacity-50"
       />
       <button
         onClick={handleSend}
