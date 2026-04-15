@@ -10,12 +10,16 @@ import { DrizzleJobAssignmentRepository } from './infrastructure/repositories/dr
 import { DrizzleJobFamilyRepository } from './infrastructure/repositories/drizzle-job-family.repository'
 import { DrizzleJobProfileRepository } from './infrastructure/repositories/drizzle-job-profile.repository'
 import { DrizzleEmploymentDetailRepository } from './infrastructure/repositories/drizzle-employment-detail.repository'
+import { DrizzleProbationPolicyRepository } from './infrastructure/repositories/drizzle-probation-policy.repository'
+import { DrizzleProbationRecordRepository } from './infrastructure/repositories/drizzle-probation-record.repository'
 import { PERSON_PROFILE_REPOSITORY } from './domain/repositories/person-profile.repository'
 import { EMPLOYMENT_REPOSITORY } from './domain/repositories/employment.repository'
 import { JOB_ASSIGNMENT_REPOSITORY } from './domain/repositories/job-assignment.repository'
 import { JOB_FAMILY_REPOSITORY } from './domain/repositories/job-family.repository'
 import { JOB_PROFILE_REPOSITORY } from './domain/repositories/job-profile.repository'
 import { EMPLOYMENT_DETAIL_REPOSITORY } from './domain/repositories/employment-detail.repository'
+import { PROBATION_POLICY_REPOSITORY } from './domain/repositories/probation-policy.repository'
+import { PROBATION_RECORD_REPOSITORY } from './domain/repositories/probation-record.repository'
 
 // ── Legacy repositories (still functional) ────────────────────────────────
 import { DrizzleProfileSectionRepository } from './infrastructure/repositories/drizzle-profile-section.repository'
@@ -42,6 +46,11 @@ import { CreateJobAssignmentHandler } from './application/commands/create-job-as
 import { CreateJobFamilyHandler } from './application/commands/create-job-family.handler'
 import { CreateJobProfileHandler } from './application/commands/create-job-profile.handler'
 import { UpdateEmploymentDetailHandler } from './application/commands/update-employment-detail.handler'
+import { SetProbationHandler } from './application/commands/set-probation.handler'
+import { ConfirmProbationHandler } from './application/commands/confirm-probation.handler'
+import { ExtendProbationHandler } from './application/commands/extend-probation.handler'
+import { FailProbationHandler } from './application/commands/fail-probation.handler'
+import { TerminateEmploymentHandler } from './application/commands/terminate-employment.handler'
 
 // ── Legacy command handlers that still compile ─────────────────────────────
 // NOTE: Handlers that reference EMPLOYMENT_PROFILE_REPOSITORY (deleted) are
@@ -88,6 +97,8 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     { provide: JOB_FAMILY_REPOSITORY, useClass: DrizzleJobFamilyRepository },
     { provide: JOB_PROFILE_REPOSITORY, useClass: DrizzleJobProfileRepository },
     { provide: EMPLOYMENT_DETAIL_REPOSITORY, useClass: DrizzleEmploymentDetailRepository },
+    { provide: PROBATION_POLICY_REPOSITORY, useClass: DrizzleProbationPolicyRepository },
+    { provide: PROBATION_RECORD_REPOSITORY, useClass: DrizzleProbationRecordRepository },
 
     // ── Legacy repositories (still functional) ───────────────────────────
     { provide: PROFILE_SECTION_REPOSITORY, useClass: DrizzleProfileSectionRepository },
@@ -104,6 +115,11 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     CreateJobFamilyHandler,
     CreateJobProfileHandler,
     UpdateEmploymentDetailHandler,
+    TerminateEmploymentHandler,
+    SetProbationHandler,
+    ConfirmProbationHandler,
+    ExtendProbationHandler,
+    FailProbationHandler,
 
     // ── Legacy command handlers ──────────────────────────────────────────
     RejectProfileChangeHandler,

@@ -8,6 +8,7 @@ import {
   jsonb,
   date,
   uniqueIndex,
+  numeric,
 } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
@@ -181,6 +182,50 @@ export const jobProfile = peopleSchema.table('job_profile', {
   level: text('level'),
   description: text('description'),
   isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+// ─── Probation Tables ─────────────────────────────────────────────────────────
+
+export const probationPolicy = peopleSchema.table('probation_policy', {
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  countryCode: text('country_code').notNull(),
+  jobLevelCategory: text('job_level_category', {
+    enum: ['executive', 'professional', 'technical', 'general'],
+  }).notNull(),
+  defaultDurationDays: integer('default_duration_days').notNull(),
+  maxDurationDays: integer('max_duration_days').notNull(),
+  allowExtension: boolean('allow_extension').notNull(),
+  maxExtensions: integer('max_extensions').notNull().default(0),
+  extensionDays: integer('extension_days'),
+  minSalaryPercentage: numeric('min_salary_percentage').notNull().default('100'),
+  autoConfirm: boolean('auto_confirm').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const probationRecord = peopleSchema.table('probation_record', {
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  employmentId: uuid('employment_id').notNull(),
+  startDate: date('start_date', { mode: 'date' }).notNull(),
+  originalEndDate: date('original_end_date', { mode: 'date' }).notNull(),
+  currentEndDate: date('current_end_date', { mode: 'date' }).notNull(),
+  extensionCount: integer('extension_count').notNull().default(0),
+  status: text('status', {
+    enum: ['active', 'passed', 'failed', 'extended', 'not_applicable'],
+  }).notNull(),
+  outcomeDate: date('outcome_date', { mode: 'date' }),
+  outcomeBy: uuid('outcome_by'),
+  outcomeNote: text('outcome_note'),
+  probationPolicyId: uuid('probation_policy_id').notNull(),
+  salaryPercentage: numeric('salary_percentage').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })

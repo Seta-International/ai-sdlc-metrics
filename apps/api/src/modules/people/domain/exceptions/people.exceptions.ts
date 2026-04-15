@@ -125,3 +125,24 @@ export class ProfileChangeRequestNotPendingException extends DomainException {
     super(`Profile change request is not in pending state: ${id}`)
   }
 }
+
+export class ProbationRecordNotFoundException extends DomainException {
+  readonly code = 'PROBATION_RECORD_NOT_FOUND'
+  constructor(employmentId: string) {
+    super(`Probation record not found for employment: ${employmentId}`)
+  }
+}
+
+export class ProbationExtensionNotAllowedException extends DomainException {
+  readonly code = 'PROBATION_EXTENSION_NOT_ALLOWED'
+  constructor(reason: string) {
+    super(`Probation extension not allowed: ${reason}`)
+  }
+}
+
+export class InvalidProbationStatusException extends DomainException {
+  readonly code = 'INVALID_PROBATION_STATUS'
+  constructor(status: string, action: string) {
+    super(`Cannot ${action} probation in status: ${status}`)
+  }
+}
