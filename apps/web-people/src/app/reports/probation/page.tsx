@@ -42,12 +42,8 @@ const columns: ColumnDef<ProbationRow>[] = [
     header: 'Status',
     cell: ({ getValue }: CellContext<ProbationRow, unknown>) => {
       const status = getValue() as string
-      const v = status === 'overdue' ? 'destructive' : status === 'extended' ? 'outline' : 'default'
-      return (
-        <Badge variant={v as 'default' | 'destructive' | 'outline'}>
-          {status.replace('_', ' ')}
-        </Badge>
-      )
+      const v = status === 'overdue' ? 'destructive' : status === 'extended' ? 'subtle' : 'default'
+      return <Badge variant={v}>{status.replace('_', ' ')}</Badge>
     },
   },
 ]

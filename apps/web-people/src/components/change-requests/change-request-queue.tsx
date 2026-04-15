@@ -105,16 +105,14 @@ const columns: ColumnDef<ChangeRequestRow>[] = [
     header: 'Status',
     cell: ({ getValue }: CellContext<ChangeRequestRow, unknown>) => {
       const status = getValue() as string
-      const cfg: Record<
-        string,
-        { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }
-      > = {
-        pending: { label: 'Pending', variant: 'outline' },
-        approved: { label: 'Approved', variant: 'default' },
-        rejected: { label: 'Rejected', variant: 'destructive' },
-        cancelled: { label: 'Cancelled', variant: 'secondary' },
-      }
-      const c = cfg[status] ?? { label: status, variant: 'secondary' as const }
+      const cfg: Record<string, { label: string; variant: 'default' | 'subtle' | 'destructive' }> =
+        {
+          pending: { label: 'Pending', variant: 'subtle' },
+          approved: { label: 'Approved', variant: 'default' },
+          rejected: { label: 'Rejected', variant: 'destructive' },
+          cancelled: { label: 'Cancelled', variant: 'subtle' },
+        }
+      const c = cfg[status] ?? { label: status, variant: 'subtle' as const }
       return <Badge variant={c.variant}>{c.label}</Badge>
     },
   },

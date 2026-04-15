@@ -58,8 +58,8 @@ vi.mock('@future/ui', () => {
 
   function Select({
     children,
-    _value,
-    _onValueChange,
+    value: _value,
+    onValueChange: _onValueChange,
   }: {
     children: React.ReactNode
     value?: string

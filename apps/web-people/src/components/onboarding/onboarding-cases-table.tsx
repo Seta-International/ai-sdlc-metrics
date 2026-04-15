@@ -14,68 +14,76 @@ const anyTrpc = trpc as any
 
 const caseStatusConfig: Record<
   string,
-  { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }
+  { label: string; variant: 'default' | 'subtle' | 'destructive' }
 > = {
-  pending: { label: 'Pending', variant: 'outline' },
+  pending: { label: 'Pending', variant: 'subtle' },
   in_progress: { label: 'In Progress', variant: 'default' },
-  completed: { label: 'Completed', variant: 'secondary' },
+  completed: { label: 'Completed', variant: 'subtle' },
   cancelled: { label: 'Cancelled', variant: 'destructive' },
 }
 
-const columns: ColumnDef<OnboardingCase>[] = [
-  {
-    accessorKey: 'employeeName',
-    header: 'Employee',
-    enableSorting: true,
-    cell: ({ row }: CellContext<OnboardingCase, unknown>) => (
-      <AvatarNameCell
-        fullName={row.original.employeeName}
-        avatarUrl={row.original.avatarUrl}
-        subtitle={row.original.department}
-      />
-    ),
-  },
-  {
-    accessorKey: 'templateName',
-    header: 'Template',
-    enableSorting: true,
-  },
-  {
-    accessorKey: 'startDate',
-    header: 'Start Date',
-    enableSorting: true,
-    cell: ({ getValue }: CellContext<OnboardingCase, unknown>) =>
-      new Date(getValue() as string).toLocaleDateString('en-GB'),
-  },
-  {
-    id: 'progress',
-    header: 'Progress',
-    cell: ({ row }: CellContext<OnboardingCase, unknown>) => {
-      const pct =
-        row.original.tasksTotal > 0
-          ? Math.round((row.original.tasksCompleted / row.original.tasksTotal) * 100)
-          : 0
-      return (
-        <div className="flex items-center gap-2 min-w-[120px]">
-          <Progress value={pct} className="h-1.5 flex-1" />
-          <span className="text-xs text-[#8a8f98] whitespace-nowrap">
-            {row.original.tasksCompleted}/{row.original.tasksTotal}
-          </span>
-        </div>
-      )
+function buildColumns(onNavigate: (id: string) => void): ColumnDef<OnboardingCase>[] {
+  return [
+    {
+      accessorKey: 'employeeName',
+      header: 'Employee',
+      enableSorting: true,
+      cell: ({ row }: CellContext<OnboardingCase, unknown>) => (
+        <button
+          type="button"
+          className="text-left hover:underline"
+          onClick={() => onNavigate(row.original.id)}
+        >
+          <AvatarNameCell
+            fullName={row.original.employeeName}
+            avatarUrl={row.original.avatarUrl}
+            subtitle={row.original.department}
+          />
+        </button>
+      ),
     },
-  },
-  {
-    accessorKey: 'status',
-    header: 'Status',
-    enableSorting: true,
-    cell: ({ getValue }: CellContext<OnboardingCase, unknown>) => {
-      const status = getValue() as string
-      const cfg = caseStatusConfig[status] ?? { label: status, variant: 'secondary' as const }
-      return <Badge variant={cfg.variant}>{cfg.label}</Badge>
+    {
+      accessorKey: 'templateName',
+      header: 'Template',
+      enableSorting: true,
     },
-  },
-]
+    {
+      accessorKey: 'startDate',
+      header: 'Start Date',
+      enableSorting: true,
+      cell: ({ getValue }: CellContext<OnboardingCase, unknown>) =>
+        new Date(getValue() as string).toLocaleDateString('en-GB'),
+    },
+    {
+      id: 'progress',
+      header: 'Progress',
+      cell: ({ row }: CellContext<OnboardingCase, unknown>) => {
+        const pct =
+          row.original.tasksTotal > 0
+            ? Math.round((row.original.tasksCompleted / row.original.tasksTotal) * 100)
+            : 0
+        return (
+          <div className="flex items-center gap-2 min-w-[120px]">
+            <Progress value={pct} className="h-1.5 flex-1" />
+            <span className="text-xs text-[#8a8f98] whitespace-nowrap">
+              {row.original.tasksCompleted}/{row.original.tasksTotal}
+            </span>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      enableSorting: true,
+      cell: ({ getValue }: CellContext<OnboardingCase, unknown>) => {
+        const status = getValue() as string
+        const cfg = caseStatusConfig[status] ?? { label: status, variant: 'subtle' as const }
+        return <Badge variant={cfg.variant}>{cfg.label}</Badge>
+      },
+    },
+  ]
+}
 
 export function OnboardingCasesTable() {
   const router = useRouter()
@@ -83,6 +91,11 @@ export function OnboardingCasesTable() {
   const [totalCount, setTotalCount] = React.useState(0)
   const [tableState, setTableState] = React.useState<FutureTableState>(defaultTableState)
   const [isLoading, setIsLoading] = React.useState(true)
+
+  const columns = React.useMemo(
+    () => buildColumns((id) => router.push(`/onboarding/${id}`)),
+    [router],
+  )
 
   React.useEffect(() => {
     void (async () => {
@@ -106,7 +119,6 @@ export function OnboardingCasesTable() {
       state={tableState}
       totalCount={totalCount}
       onStateChange={setTableState}
-      onRowClick={(row) => router.push(`/onboarding/${row.id}`)}
       isLoading={isLoading}
     />
   )

@@ -8,20 +8,20 @@ type VisibilityTier = 'public' | 'restricted' | 'confidential'
 
 const editModeConfig: Record<
   EditPolicyMode,
-  { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }
+  { label: string; variant: 'default' | 'subtle' | 'destructive' }
 > = {
   self_service: { label: 'Self-service', variant: 'default' },
-  manager_approval: { label: 'Manager Approval', variant: 'outline' },
-  hr_approval: { label: 'HR Approval', variant: 'secondary' },
+  manager_approval: { label: 'Manager Approval', variant: 'subtle' },
+  hr_approval: { label: 'HR Approval', variant: 'subtle' },
   hr_only: { label: 'HR Only', variant: 'destructive' },
 }
 
 const tierConfig: Record<
   VisibilityTier,
-  { label: string; variant: 'default' | 'outline' | 'destructive' }
+  { label: string; variant: 'default' | 'subtle' | 'destructive' }
 > = {
   public: { label: 'Public', variant: 'default' },
-  restricted: { label: 'Restricted', variant: 'outline' },
+  restricted: { label: 'Restricted', variant: 'subtle' },
   confidential: { label: 'Confidential', variant: 'destructive' },
 }
 

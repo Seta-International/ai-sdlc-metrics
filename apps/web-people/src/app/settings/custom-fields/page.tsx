@@ -52,11 +52,7 @@ export default function CustomFieldsPage() {
         return (
           <Badge
             variant={
-              tier === 'confidential'
-                ? 'destructive'
-                : tier === 'restricted'
-                  ? 'outline'
-                  : 'default'
+              tier === 'confidential' ? 'destructive' : tier === 'restricted' ? 'subtle' : 'default'
             }
           >
             {tier}
