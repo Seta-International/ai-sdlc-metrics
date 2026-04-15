@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { and, eq, sql } from 'drizzle-orm'
-import { DB_TOKEN, type Db } from '@future/db'
+import type { Db } from '@future/db'
+import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { FieldVisibilityConfig } from '../../domain/entities/field-visibility-config.entity'
 import type { IFieldVisibilityConfigRepository } from '../../domain/repositories/field-visibility-config.repository'
 import { fieldVisibilityConfig } from '../schema/extensibility.schema'
@@ -36,7 +37,7 @@ export class DrizzleFieldVisibilityConfigRepository implements IFieldVisibilityC
   async upsert(data: Omit<FieldVisibilityConfig, 'id'>): Promise<FieldVisibilityConfig> {
     const rows = await this.db
       .insert(fieldVisibilityConfig)
-      .values(data as Record<string, unknown>)
+      .values(data as typeof fieldVisibilityConfig.$inferInsert)
       .onConflictDoUpdate({
         target: [fieldVisibilityConfig.tenantId, fieldVisibilityConfig.fieldPath],
         set: { visibilityTier: sql`excluded.visibility_tier` },
@@ -48,7 +49,7 @@ export class DrizzleFieldVisibilityConfigRepository implements IFieldVisibilityC
   async upsertMany(data: Omit<FieldVisibilityConfig, 'id'>[]): Promise<FieldVisibilityConfig[]> {
     return (await this.db
       .insert(fieldVisibilityConfig)
-      .values(data as Record<string, unknown>[])
+      .values(data as (typeof fieldVisibilityConfig.$inferInsert)[])
       .onConflictDoUpdate({
         target: [fieldVisibilityConfig.tenantId, fieldVisibilityConfig.fieldPath],
         set: { visibilityTier: sql`excluded.visibility_tier` },

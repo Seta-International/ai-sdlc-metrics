@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { and, eq, sql } from 'drizzle-orm'
-import { DB_TOKEN, type Db } from '@future/db'
+import type { Db } from '@future/db'
+import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { FieldEditPolicy } from '../../domain/entities/field-edit-policy.entity'
 import type { IFieldEditPolicyRepository } from '../../domain/repositories/field-edit-policy.repository'
 import { fieldEditPolicy } from '../schema/extensibility.schema'
@@ -28,7 +29,7 @@ export class DrizzleFieldEditPolicyRepository implements IFieldEditPolicyReposit
   async upsert(data: Omit<FieldEditPolicy, 'id'>): Promise<FieldEditPolicy> {
     const rows = await this.db
       .insert(fieldEditPolicy)
-      .values(data as Record<string, unknown>)
+      .values(data as typeof fieldEditPolicy.$inferInsert)
       .onConflictDoUpdate({
         target: [fieldEditPolicy.tenantId, fieldEditPolicy.fieldPath],
         set: { editMode: sql`excluded.edit_mode` },
@@ -40,7 +41,7 @@ export class DrizzleFieldEditPolicyRepository implements IFieldEditPolicyReposit
   async upsertMany(data: Omit<FieldEditPolicy, 'id'>[]): Promise<FieldEditPolicy[]> {
     return (await this.db
       .insert(fieldEditPolicy)
-      .values(data as Record<string, unknown>[])
+      .values(data as (typeof fieldEditPolicy.$inferInsert)[])
       .onConflictDoUpdate({
         target: [fieldEditPolicy.tenantId, fieldEditPolicy.fieldPath],
         set: { editMode: sql`excluded.edit_mode` },

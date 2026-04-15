@@ -520,7 +520,7 @@ export function createPeopleRouter(
             isSearchable: z.boolean().default(false),
             isFilterable: z.boolean().default(false),
             sortOrder: z.number().int().default(0),
-            validation: z.record(z.unknown()).optional(),
+            validation: z.record(z.string(), z.unknown()).optional(),
             options: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
             visibilityTier: z.enum(['public', 'restricted', 'confidential']).default('public'),
           }),
@@ -576,7 +576,7 @@ export function createPeopleRouter(
             isSearchable: z.boolean().optional(),
             isFilterable: z.boolean().optional(),
             sortOrder: z.number().int().optional(),
-            validation: z.record(z.unknown()).nullable().optional(),
+            validation: z.record(z.string(), z.unknown()).nullable().optional(),
             options: z
               .array(z.object({ value: z.string(), label: z.string() }))
               .nullable()

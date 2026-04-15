@@ -20,6 +20,7 @@ export interface CustomFieldDefinition {
 export interface CustomFieldValidation {
   min?: number
   max?: number
+  minLength?: number
   maxLength?: number
   regex?: string
 }

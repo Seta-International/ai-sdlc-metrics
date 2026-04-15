@@ -1,6 +1,6 @@
 import type { CountryFieldConfig } from '../../domain/entities/country-field-config.entity'
 
-export const VIETNAM_COUNTRY_FIELDS: Omit<CountryFieldConfig, 'id'>[] = [
+export const VIETNAM_COUNTRY_FIELDS: Omit<CountryFieldConfig, 'id' | 'tenantId'>[] = [
   {
     countryCode: 'VN',
     fieldKey: 'citizen_id',

@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { and, asc, eq } from 'drizzle-orm'
-import { DB_TOKEN, type Db } from '@future/db'
+import type { Db } from '@future/db'
+import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { CustomFieldDefinition } from '../../domain/entities/custom-field-definition.entity'
 import type { ICustomFieldDefinitionRepository } from '../../domain/repositories/custom-field-definition.repository'
 import { customFieldDefinition } from '../schema/extensibility.schema'
@@ -49,7 +50,7 @@ export class DrizzleCustomFieldDefinitionRepository implements ICustomFieldDefin
   ): Promise<CustomFieldDefinition> {
     const rows = await this.db
       .insert(customFieldDefinition)
-      .values(data as Record<string, unknown>)
+      .values(data as typeof customFieldDefinition.$inferInsert)
       .returning()
     return rows[0] as CustomFieldDefinition
   }

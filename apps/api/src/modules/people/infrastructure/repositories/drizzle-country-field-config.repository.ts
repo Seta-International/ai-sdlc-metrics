@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { and, eq } from 'drizzle-orm'
-import { DB_TOKEN, type Db } from '@future/db'
+import type { Db } from '@future/db'
+import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { CountryFieldConfig } from '../../domain/entities/country-field-config.entity'
 import type { ICountryFieldConfigRepository } from '../../domain/repositories/country-field-config.repository'
 import { countryFieldConfig } from '../schema/extensibility.schema'
@@ -56,7 +57,7 @@ export class DrizzleCountryFieldConfigRepository implements ICountryFieldConfigR
   ): Promise<CountryFieldConfig[]> {
     return (await this.db
       .insert(countryFieldConfig)
-      .values(data.map((d) => ({ ...d, tenantId })) as Record<string, unknown>[])
+      .values(data.map((d) => ({ ...d, tenantId })) as (typeof countryFieldConfig.$inferInsert)[])
       .returning()) as CountryFieldConfig[]
   }
 
