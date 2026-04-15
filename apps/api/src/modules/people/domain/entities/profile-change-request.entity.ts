@@ -1,15 +1,25 @@
-export type ProfileChangeStatus = 'pending' | 'approved' | 'rejected' | 'superseded'
+export type ChangeRequestStatus =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'superseded'
+  | 'scheduled'
+  | 'applied'
 
 export interface ProfileChangeRequest {
   id: string
   tenantId: string
-  profileId: string
+  employmentId: string
+  batchId: string | null
   fieldPath: string
   oldValue: unknown | null
   newValue: unknown
-  status: ProfileChangeStatus
-  decisionCaseId: string | null
+  effectiveDate: Date | null
+  status: ChangeRequestStatus
   requestedBy: string
   reviewedBy: string | null
+  reviewedAt: Date | null
+  reviewNote: string | null
+  decisionCaseId: string | null
   createdAt: Date
 }

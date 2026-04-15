@@ -11,7 +11,7 @@ import { KernelDecisionFacade } from '../../../kernel/application/facades/kernel
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const REQUEST_ID = '01900000-0000-7000-8000-000000000010'
-const PROFILE_ID = '01900000-0000-7000-8000-000000000003'
+const EMPLOYMENT_ID = '01900000-0000-7000-8000-000000000003'
 const REJECTOR_ID = '01900000-0000-7000-8000-000000000005'
 const CASE_ID = '01900000-0000-7000-8000-000000000020'
 const COMMENT = 'Does not meet policy requirements'
@@ -25,10 +25,13 @@ describe('RejectProfileChangeHandler', () => {
   beforeEach(() => {
     changeRequestRepo = {
       findById: vi.fn(),
-      findPendingByProfileAndField: vi.fn(),
-      insert: vi.fn(),
+      findByBatchId: vi.fn(),
+      findByEmploymentId: vi.fn(),
+      findPendingByFieldPath: vi.fn(),
+      findScheduledBeforeDate: vi.fn(),
+      insertMany: vi.fn(),
       updateStatus: vi.fn(),
-      listByProfile: vi.fn(),
+      updateStatusByBatchId: vi.fn(),
     }
     auditFacade = {
       recordEvent: vi.fn(),
@@ -45,14 +48,18 @@ describe('RejectProfileChangeHandler', () => {
     vi.mocked(changeRequestRepo.findById).mockResolvedValue({
       id: REQUEST_ID,
       tenantId: TENANT_ID,
-      profileId: PROFILE_ID,
+      employmentId: EMPLOYMENT_ID,
+      batchId: null,
       fieldPath: 'detail.bankAccountNumber',
       oldValue: '1234',
       newValue: '5678',
+      effectiveDate: null,
       status: 'pending',
       decisionCaseId: CASE_ID,
       requestedBy: 'req-actor',
       reviewedBy: null,
+      reviewedAt: null,
+      reviewNote: null,
       createdAt: new Date(),
     })
 
@@ -85,14 +92,18 @@ describe('RejectProfileChangeHandler', () => {
     vi.mocked(changeRequestRepo.findById).mockResolvedValue({
       id: REQUEST_ID,
       tenantId: TENANT_ID,
-      profileId: PROFILE_ID,
+      employmentId: EMPLOYMENT_ID,
+      batchId: null,
       fieldPath: 'detail.bankAccountNumber',
       oldValue: '1234',
       newValue: '5678',
+      effectiveDate: null,
       status: 'pending',
       decisionCaseId: null,
       requestedBy: 'req-actor',
       reviewedBy: null,
+      reviewedAt: null,
+      reviewNote: null,
       createdAt: new Date(),
     })
 
@@ -115,14 +126,18 @@ describe('RejectProfileChangeHandler', () => {
     vi.mocked(changeRequestRepo.findById).mockResolvedValue({
       id: REQUEST_ID,
       tenantId: TENANT_ID,
-      profileId: PROFILE_ID,
+      employmentId: EMPLOYMENT_ID,
+      batchId: null,
       fieldPath: 'detail.bankAccountNumber',
       oldValue: '1234',
       newValue: '5678',
+      effectiveDate: null,
       status: 'approved',
       decisionCaseId: CASE_ID,
       requestedBy: 'req-actor',
       reviewedBy: REJECTOR_ID,
+      reviewedAt: new Date(),
+      reviewNote: null,
       createdAt: new Date(),
     })
 

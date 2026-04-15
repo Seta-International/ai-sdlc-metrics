@@ -56,7 +56,7 @@ export class RejectProfileChangeHandler implements ICommandHandler<
       actorId: command.rejectedBy,
       eventType: 'profile_change_rejected',
       module: 'people',
-      subjectId: request.profileId,
+      subjectId: request.employmentId,
       payload: {
         changeRequestId: request.id,
         fieldPath: request.fieldPath,

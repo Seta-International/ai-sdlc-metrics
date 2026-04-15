@@ -1,10 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common'
+import { and, eq, lte } from 'drizzle-orm'
 import type { Db } from '@future/db'
-import { and, eq } from 'drizzle-orm'
-import type { ProfileChangeRequest } from '../../domain/entities/profile-change-request.entity'
-import type { IProfileChangeRequestRepository } from '../../domain/repositories/profile-change-request.repository'
 import { DB_TOKEN } from '../../../../common/db/db.module'
-import { profileChangeRequest } from '../schema/index'
+import type {
+  ChangeRequestStatus,
+  ProfileChangeRequest,
+} from '../../domain/entities/profile-change-request.entity'
+import type { IProfileChangeRequestRepository } from '../../domain/repositories/profile-change-request.repository'
+import { profileChangeRequest } from '../schema/change-requests.schema'
 
 @Injectable()
 export class DrizzleProfileChangeRequestRepository implements IProfileChangeRequestRepository {
@@ -19,8 +22,35 @@ export class DrizzleProfileChangeRequestRepository implements IProfileChangeRequ
     return (rows[0] as ProfileChangeRequest | undefined) ?? null
   }
 
-  async findPendingByProfileAndField(
-    profileId: string,
+  async findByBatchId(batchId: string, tenantId: string): Promise<ProfileChangeRequest[]> {
+    return (await this.db
+      .select()
+      .from(profileChangeRequest)
+      .where(
+        and(eq(profileChangeRequest.batchId, batchId), eq(profileChangeRequest.tenantId, tenantId)),
+      )) as ProfileChangeRequest[]
+  }
+
+  async findByEmploymentId(
+    employmentId: string,
+    tenantId: string,
+    status?: ChangeRequestStatus,
+  ): Promise<ProfileChangeRequest[]> {
+    const conditions = [
+      eq(profileChangeRequest.employmentId, employmentId),
+      eq(profileChangeRequest.tenantId, tenantId),
+    ]
+    if (status) {
+      conditions.push(eq(profileChangeRequest.status, status))
+    }
+    return (await this.db
+      .select()
+      .from(profileChangeRequest)
+      .where(and(...conditions))) as ProfileChangeRequest[]
+  }
+
+  async findPendingByFieldPath(
+    employmentId: string,
     fieldPath: string,
     tenantId: string,
   ): Promise<ProfileChangeRequest | null> {
@@ -29,7 +59,7 @@ export class DrizzleProfileChangeRequestRepository implements IProfileChangeRequ
       .from(profileChangeRequest)
       .where(
         and(
-          eq(profileChangeRequest.profileId, profileId),
+          eq(profileChangeRequest.employmentId, employmentId),
           eq(profileChangeRequest.fieldPath, fieldPath),
           eq(profileChangeRequest.tenantId, tenantId),
           eq(profileChangeRequest.status, 'pending'),
@@ -39,48 +69,73 @@ export class DrizzleProfileChangeRequestRepository implements IProfileChangeRequ
     return (rows[0] as ProfileChangeRequest | undefined) ?? null
   }
 
-  async insert(
-    data: Omit<ProfileChangeRequest, 'id' | 'createdAt'>,
-  ): Promise<ProfileChangeRequest> {
-    const rows = await this.db
-      .insert(profileChangeRequest)
-      .values({
-        tenantId: data.tenantId,
-        profileId: data.profileId,
-        fieldPath: data.fieldPath,
-        oldValue: data.oldValue,
-        newValue: data.newValue,
-        status: data.status,
-        decisionCaseId: data.decisionCaseId ?? undefined,
-        requestedBy: data.requestedBy,
-        reviewedBy: data.reviewedBy ?? undefined,
-      })
-      .returning()
-    return rows[0] as ProfileChangeRequest
+  async findScheduledBeforeDate(
+    tenantId: string,
+    beforeDate: Date,
+  ): Promise<ProfileChangeRequest[]> {
+    return (await this.db
+      .select()
+      .from(profileChangeRequest)
+      .where(
+        and(
+          eq(profileChangeRequest.tenantId, tenantId),
+          eq(profileChangeRequest.status, 'scheduled'),
+          lte(profileChangeRequest.effectiveDate, beforeDate),
+        ),
+      )) as ProfileChangeRequest[]
+  }
+
+  async insertMany(
+    data: Omit<ProfileChangeRequest, 'id' | 'createdAt'>[],
+  ): Promise<ProfileChangeRequest[]> {
+    return (
+      (await this.db
+        .insert(profileChangeRequest)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .values(data as any)
+        .returning()) as ProfileChangeRequest[]
+    )
   }
 
   async updateStatus(
     id: string,
     tenantId: string,
-    status: ProfileChangeRequest['status'],
+    status: ChangeRequestStatus,
     reviewedBy?: string,
+    reviewNote?: string,
   ): Promise<void> {
     await this.db
       .update(profileChangeRequest)
-      .set({ status, reviewedBy: reviewedBy ?? null })
+      .set({
+        status,
+        reviewedBy: reviewedBy ?? null,
+        reviewedAt: reviewedBy ? new Date() : null,
+        reviewNote: reviewNote ?? null,
+      } as Record<string, unknown>)
       .where(and(eq(profileChangeRequest.id, id), eq(profileChangeRequest.tenantId, tenantId)))
   }
 
-  async listByProfile(profileId: string, tenantId: string): Promise<ProfileChangeRequest[]> {
-    const rows = await this.db
-      .select()
-      .from(profileChangeRequest)
+  async updateStatusByBatchId(
+    batchId: string,
+    tenantId: string,
+    status: ChangeRequestStatus,
+    reviewedBy: string,
+    reviewNote?: string,
+  ): Promise<void> {
+    await this.db
+      .update(profileChangeRequest)
+      .set({
+        status,
+        reviewedBy,
+        reviewedAt: new Date(),
+        reviewNote: reviewNote ?? null,
+      } as Record<string, unknown>)
       .where(
         and(
-          eq(profileChangeRequest.profileId, profileId),
+          eq(profileChangeRequest.batchId, batchId),
           eq(profileChangeRequest.tenantId, tenantId),
+          eq(profileChangeRequest.status, 'pending'),
         ),
       )
-    return rows as ProfileChangeRequest[]
   }
 }
