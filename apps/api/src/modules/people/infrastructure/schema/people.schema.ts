@@ -251,8 +251,15 @@ export const onboardingTemplate = peopleSchema.table('onboarding_template', {
     .primaryKey(),
   tenantId: uuid('tenant_id').notNull(),
   name: text('name').notNull(),
+  // NEW: country scoping
+  countryCode: text('country_code'), // NULL = global
+  // NEW: worker type scoping
+  workerType: text('worker_type', {
+    enum: ['employee', 'contingent'],
+  }),
+  // EXISTING: employment type (updated enum to match new model)
   employmentType: text('employment_type', {
-    enum: ['permanent', 'fixed_term', 'contractor', 'intern'],
+    enum: ['permanent', 'fixed_term', 'intern'],
   }),
   isDefault: boolean('is_default').notNull().default(false),
   isActive: boolean('is_active').notNull().default(true),
@@ -272,6 +279,8 @@ export const onboardingTaskTemplate = peopleSchema.table('onboarding_task_templa
   dueDaysAfterHire: integer('due_days_after_hire').notNull().default(0),
   isRequired: boolean('is_required').notNull().default(true),
   displayOrder: integer('display_order').notNull().default(0),
+  // NEW: link to document requirement for auto-complete
+  documentRequirementId: uuid('document_requirement_id'),
 })
 
 export const onboardingCase = peopleSchema.table('onboarding_case', {
