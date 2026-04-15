@@ -4,6 +4,8 @@ import { RequestProfileChangesHandler } from './request-profile-changes.handler'
 import type { IProfileChangeRequestRepository } from '../../domain/repositories/profile-change-request.repository'
 import type { IEmploymentRepository } from '../../domain/repositories/employment.repository'
 import type { EditPolicyService } from '../services/edit-policy.service'
+import type { Employment } from '../../domain/entities/employment.entity'
+import type { ProfileChangeRequest } from '../../domain/entities/profile-change-request.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const EMPLOYMENT_ID = '01900000-0000-7000-8000-000000000002'
@@ -38,7 +40,7 @@ describe('RequestProfileChangesHandler', () => {
     }
     editPolicyService = {
       resolveEditMode: vi.fn(),
-    } as any
+    } as unknown as EditPolicyService
     handler = new RequestProfileChangesHandler(changeRepo, employmentRepo, editPolicyService)
   })
 
@@ -46,7 +48,7 @@ describe('RequestProfileChangesHandler', () => {
     vi.mocked(employmentRepo.findById).mockResolvedValue({
       id: EMPLOYMENT_ID,
       tenantId: TENANT_ID,
-    } as any)
+    } as unknown as Employment)
     vi.mocked(editPolicyService.resolveEditMode).mockResolvedValue({
       editMode: 'self_service',
       requiresApproval: false,
@@ -73,7 +75,7 @@ describe('RequestProfileChangesHandler', () => {
       },
     ])
 
-    const result = await handler.execute(
+    await handler.execute(
       new RequestProfileChangesCommand(
         TENANT_ID,
         EMPLOYMENT_ID,
@@ -94,7 +96,7 @@ describe('RequestProfileChangesHandler', () => {
     vi.mocked(employmentRepo.findById).mockResolvedValue({
       id: EMPLOYMENT_ID,
       tenantId: TENANT_ID,
-    } as any)
+    } as unknown as Employment)
     vi.mocked(editPolicyService.resolveEditMode).mockResolvedValue({
       editMode: 'hr_approval',
       requiresApproval: true,
@@ -105,7 +107,7 @@ describe('RequestProfileChangesHandler', () => {
       {
         id: 'cr-1',
         status: 'pending',
-      } as any,
+      } as unknown as ProfileChangeRequest,
     ])
 
     await handler.execute(
@@ -132,7 +134,7 @@ describe('RequestProfileChangesHandler', () => {
     vi.mocked(employmentRepo.findById).mockResolvedValue({
       id: EMPLOYMENT_ID,
       tenantId: TENANT_ID,
-    } as any)
+    } as unknown as Employment)
     vi.mocked(editPolicyService.resolveEditMode).mockResolvedValue({
       editMode: 'hr_approval',
       requiresApproval: true,
@@ -141,8 +143,10 @@ describe('RequestProfileChangesHandler', () => {
     vi.mocked(changeRepo.findPendingByFieldPath).mockResolvedValue({
       id: 'old-cr',
       status: 'pending',
-    } as any)
-    vi.mocked(changeRepo.insertMany).mockResolvedValue([{ id: 'new-cr' } as any])
+    } as unknown as ProfileChangeRequest)
+    vi.mocked(changeRepo.insertMany).mockResolvedValue([
+      { id: 'new-cr' } as unknown as ProfileChangeRequest,
+    ])
 
     await handler.execute(
       new RequestProfileChangesCommand(
@@ -166,7 +170,7 @@ describe('RequestProfileChangesHandler', () => {
     vi.mocked(employmentRepo.findById).mockResolvedValue({
       id: EMPLOYMENT_ID,
       tenantId: TENANT_ID,
-    } as any)
+    } as unknown as Employment)
     vi.mocked(editPolicyService.resolveEditMode).mockResolvedValue({
       editMode: 'hr_only',
       requiresApproval: false,
@@ -189,7 +193,7 @@ describe('RequestProfileChangesHandler', () => {
     vi.mocked(employmentRepo.findById).mockResolvedValue({
       id: EMPLOYMENT_ID,
       tenantId: TENANT_ID,
-    } as any)
+    } as unknown as Employment)
     vi.mocked(editPolicyService.resolveEditMode).mockResolvedValue({
       editMode: 'self_service',
       requiresApproval: false,
@@ -200,7 +204,7 @@ describe('RequestProfileChangesHandler', () => {
       {
         id: 'cr-1',
         status: 'scheduled',
-      } as any,
+      } as unknown as ProfileChangeRequest,
     ])
 
     await handler.execute(

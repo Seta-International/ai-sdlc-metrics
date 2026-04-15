@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BatchRejectChangesCommand } from './batch-reject-changes.command'
 import { BatchRejectChangesHandler } from './batch-reject-changes.handler'
 import type { IProfileChangeRequestRepository } from '../../domain/repositories/profile-change-request.repository'
+import type { ProfileChangeRequest } from '../../domain/entities/profile-change-request.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const BATCH_ID = '01900000-0000-7000-8000-000000000002'
@@ -27,8 +28,8 @@ describe('BatchRejectChangesHandler', () => {
 
   it('rejects all pending changes in batch atomically', async () => {
     vi.mocked(changeRepo.findByBatchId).mockResolvedValue([
-      { id: 'cr-1', status: 'pending' } as any,
-      { id: 'cr-2', status: 'pending' } as any,
+      { id: 'cr-1', status: 'pending' } as unknown as ProfileChangeRequest,
+      { id: 'cr-2', status: 'pending' } as unknown as ProfileChangeRequest,
     ])
 
     await handler.execute(
@@ -46,7 +47,7 @@ describe('BatchRejectChangesHandler', () => {
 
   it('throws when batch has no pending changes', async () => {
     vi.mocked(changeRepo.findByBatchId).mockResolvedValue([
-      { id: 'cr-1', status: 'approved' } as any,
+      { id: 'cr-1', status: 'approved' } as unknown as ProfileChangeRequest,
     ])
 
     await expect(
