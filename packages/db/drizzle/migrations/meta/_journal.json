@@ -148,6 +148,13 @@
       "when": 1776144000000,
       "tag": "0020_people_directory_search_utilities",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1776150000000,
+      "tag": "0021_people_onboarding_events",
+      "breakpoints": true
     }
   ]
 }
