@@ -1,7 +1,6 @@
 import * as React from 'react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 
 // Mock @future/ui with simple passthrough components
 vi.mock('@future/ui', () => {
@@ -59,8 +58,8 @@ vi.mock('@future/ui', () => {
 
   function Select({
     children,
-    value,
-    onValueChange,
+    _value,
+    _onValueChange,
   }: {
     children: React.ReactNode
     value?: string
