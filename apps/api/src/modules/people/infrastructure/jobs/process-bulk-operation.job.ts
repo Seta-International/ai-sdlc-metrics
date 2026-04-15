@@ -4,6 +4,10 @@ import {
   BULK_OPERATION_REPOSITORY,
   type IBulkOperationRepository,
 } from '../../domain/repositories/bulk-operation.repository'
+import {
+  JOB_ASSIGNMENT_REPOSITORY,
+  type IJobAssignmentRepository,
+} from '../../domain/repositories/job-assignment.repository'
 import { CreateJobAssignmentCommand } from '../../application/commands/create-job-assignment.command'
 
 export const PROCESS_BULK_OPERATION_JOB = 'people.process-bulk-operation'
@@ -15,6 +19,8 @@ export class ProcessBulkOperationJob {
   constructor(
     @Inject(BULK_OPERATION_REPOSITORY)
     private readonly bulkOpRepo: IBulkOperationRepository,
+    @Inject(JOB_ASSIGNMENT_REPOSITORY)
+    private readonly jobAssignmentRepo: IJobAssignmentRepository,
     private readonly commandBus: CommandBus,
   ) {}
 
@@ -31,11 +37,20 @@ export class ProcessBulkOperationJob {
     for (const employmentId of op.employmentIds) {
       try {
         if (op.operationType === 'department_transfer') {
+          // Look up current job assignment to carry forward the job profile
+          const currentAssignment = await this.jobAssignmentRepo.findCurrent(
+            employmentId,
+            payload.tenantId,
+          )
+          if (!currentAssignment) {
+            throw new Error(`No current job assignment found for employment ${employmentId}`)
+          }
+
           await this.commandBus.execute(
             new CreateJobAssignmentCommand(
               payload.tenantId,
               employmentId,
-              op.payload.jobProfileId as string,
+              currentAssignment.jobProfileId,
               op.payload.effectiveFrom as Date,
               'reorg',
               op.requestedBy,
