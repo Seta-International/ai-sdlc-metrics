@@ -28,7 +28,8 @@ export class OnboardingTemplateSelectorService {
 
     scored.sort((a: any, b: any) => b.score - a.score)
 
-    return scored[0].score > 0 ? scored[0].template : null
+    const top = scored[0]
+    return top && top.score > 0 ? top.template : null
   }
 
   private scoreMatch(
