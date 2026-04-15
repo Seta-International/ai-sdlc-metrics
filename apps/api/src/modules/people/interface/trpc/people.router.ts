@@ -686,10 +686,9 @@ export function createPeopleRouter(
             ),
         ),
 
-      getShared: permissionProtectedProcedure
-        .meta({ permission: 'people:shareLink:read' })
+      getShared: publicProcedure
         .input(z.object({ token: z.string() }))
-        .query(({ input }: { input: { token: string }; ctx: AuthContext }) =>
+        .query(({ input }: { input: { token: string } }) =>
           svc().query(new GetSharedProfileQuery(input.token)),
         ),
 
@@ -802,7 +801,7 @@ export function createPeopleRouter(
         .input(
           z.object({
             importJobId: z.string().uuid(),
-            columnMapping: z.record(z.string()),
+            columnMapping: z.record(z.string(), z.string()),
             saveMappingProfile: z.string().optional(),
           }),
         )
