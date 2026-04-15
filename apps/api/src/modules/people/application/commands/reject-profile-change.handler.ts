@@ -37,6 +37,7 @@ export class RejectProfileChangeHandler implements ICommandHandler<
       command.tenantId,
       'rejected',
       command.rejectedBy,
+      command.comment,
     )
 
     // Resolve the kernel decision case with rejection + comment via facade
