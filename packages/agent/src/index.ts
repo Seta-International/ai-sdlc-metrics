@@ -6,7 +6,6 @@ export type {
   AgentInlineActionConfig,
   AgentSessionStatus,
   AgentMessageRole,
-  AgentMessage,
   AgentSession,
   AgentPanelState,
 } from './types'
@@ -26,6 +25,7 @@ export type { AgentProviderProps } from './agent-provider'
 
 // Panel
 export { AgentPanel } from './panel/agent-panel'
+export { AgentMessage } from './panel/agent-message'
 export type { AgentMessageProps } from './panel/agent-message'
 export { AgentToolTrace } from './panel/agent-tool-trace'
 export type { AgentToolTraceProps } from './panel/agent-tool-trace'
