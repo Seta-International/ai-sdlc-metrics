@@ -19,7 +19,11 @@ export function TabProbation({
   probation: ProbationRecord
   canManage: boolean
 }) {
-  const config = probationStatusConfig[probation.status] ?? probationStatusConfig.in_progress
+  const config = probationStatusConfig[probation.status] ?? {
+    label: 'In Probation',
+    icon: Clock,
+    color: 'text-amber-400',
+  }
   const Icon = config.icon
   const daysRemaining = Math.ceil(
     (new Date(probation.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24),

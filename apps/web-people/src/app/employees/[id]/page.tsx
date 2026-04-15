@@ -1,3 +1,5 @@
+'use client'
+
 import { AgentContextProvider, AgentBadge, AgentInlineAction, AgentBanner } from '@future/agent'
 import { Sparkles, UserMinus } from 'lucide-react'
 

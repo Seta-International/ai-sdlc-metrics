@@ -53,7 +53,7 @@ function renderReadOnlyValue(value: unknown, type: FieldType): React.ReactNode {
       return (
         <div className="flex flex-wrap gap-1">
           {(value as string[]).map((v) => (
-            <Badge key={v} variant="secondary">
+            <Badge key={v} variant="subtle">
               {v}
             </Badge>
           ))}

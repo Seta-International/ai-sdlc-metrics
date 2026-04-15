@@ -119,7 +119,7 @@ export function ProfileHeader({
               <div className="mt-2 flex items-center gap-2">
                 <StatusBadge status={employment.employmentStatus} />
                 {employment.workerType === 'contingent' && (
-                  <Badge variant="outline">Contingent</Badge>
+                  <Badge variant="subtle">Contingent</Badge>
                 )}
               </div>
             </div>

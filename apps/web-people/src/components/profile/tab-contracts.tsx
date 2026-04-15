@@ -61,16 +61,16 @@ export function TabContracts({
         contracts.map((contract) => {
           const statusCfg: Record<
             string,
-            { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }
+            { label: string; variant: 'default' | 'subtle' | 'destructive' | 'info' | 'warning' }
           > = {
             active: { label: 'Active', variant: 'default' },
-            expired: { label: 'Expired', variant: 'secondary' },
-            superseded: { label: 'Superseded', variant: 'outline' },
-            draft: { label: 'Draft', variant: 'outline' },
+            expired: { label: 'Expired', variant: 'subtle' },
+            superseded: { label: 'Superseded', variant: 'subtle' },
+            draft: { label: 'Draft', variant: 'info' },
           }
           const cfg = statusCfg[contract.status] ?? {
             label: contract.status,
-            variant: 'secondary' as const,
+            variant: 'subtle' as const,
           }
           const isExpiringSoon =
             contract.endDate &&
@@ -91,7 +91,7 @@ export function TabContracts({
               <div className="flex items-start justify-between">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{contract.contractType.replace('_', ' ')}</Badge>
+                    <Badge variant="subtle">{contract.contractType.replace('_', ' ')}</Badge>
                     <Badge variant={cfg.variant}>{cfg.label}</Badge>
                   </div>
                   <div className="text-sm text-[#d0d6e0]">

@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger, Card, Badge, Button, Skeleton } from '@future/ui'
-import { Plus, Edit, Trash2, Linkedin } from 'lucide-react'
+import { Plus, Edit, Trash2, Link } from 'lucide-react'
 import type { ProfileSection } from '../../lib/types'
 import { trpc } from '../../lib/trpc'
 
@@ -41,7 +41,7 @@ export function TabSections({ employmentId, canEdit }: { employmentId: string; c
 
   const grouped = sections.reduce<Record<string, ProfileSection[]>>((acc, s) => {
     if (!acc[s.sectionType]) acc[s.sectionType] = []
-    acc[s.sectionType].push(s)
+    ;(acc[s.sectionType] as ProfileSection[]).push(s)
     return acc
   }, {})
 
@@ -52,7 +52,7 @@ export function TabSections({ employmentId, canEdit }: { employmentId: string; c
       {canEdit && (
         <div className="flex justify-end">
           <Button variant="outline" size="sm" className="gap-1">
-            <Linkedin className="h-3.5 w-3.5" />
+            <Link className="h-3.5 w-3.5" />
             Import from LinkedIn
           </Button>
         </div>
@@ -63,7 +63,7 @@ export function TabSections({ employmentId, canEdit }: { employmentId: string; c
             <TabsTrigger key={type} value={type} className="text-xs gap-1">
               {sectionLabels[type]}
               {grouped[type] && (
-                <Badge variant="secondary" className="h-4 px-1 text-[10px] ml-1">
+                <Badge variant="subtle" className="h-4 px-1 text-[10px] ml-1">
                   {grouped[type].length}
                 </Badge>
               )}
@@ -154,7 +154,7 @@ function SkillsView({ entries, canEdit }: { entries: ProfileSection[]; canEdit: 
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
         {entries.map((entry) => (
-          <Badge key={entry.id} variant="secondary" className="gap-1">
+          <Badge key={entry.id} variant="subtle" className="gap-1">
             {String(entry.data.name ?? entry.data.skill ?? '')}
             {canEdit && (
               <button type="button" className="ml-1 text-[#62666d] hover:text-red-400">

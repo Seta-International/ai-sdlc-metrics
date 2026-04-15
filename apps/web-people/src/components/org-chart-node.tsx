@@ -62,7 +62,7 @@ export function OrgChartNodeComponent({
               </div>
               {hasChildren && (
                 <div className="flex items-center gap-1 shrink-0">
-                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                  <Badge variant="subtle" className="h-5 px-1.5 text-[10px]">
                     <Users className="mr-0.5 h-2.5 w-2.5" />
                     {node.directReportCount}
                   </Badge>

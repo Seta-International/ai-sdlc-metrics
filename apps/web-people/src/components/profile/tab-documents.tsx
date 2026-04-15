@@ -34,7 +34,7 @@ const documentColumns: ColumnDef<EmployeeDocument>[] = [
     accessorKey: 'category',
     header: 'Category',
     cell: ({ getValue }: CellContext<EmployeeDocument, unknown>) => (
-      <Badge variant="secondary">{getValue() as string}</Badge>
+      <Badge variant="subtle">{getValue() as string}</Badge>
     ),
   },
   {
@@ -75,14 +75,14 @@ const documentColumns: ColumnDef<EmployeeDocument>[] = [
       const status = getValue() as string
       const config: Record<
         string,
-        { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }
+        { label: string; variant: 'default' | 'subtle' | 'destructive' | 'warning' | 'info' }
       > = {
         valid: { label: 'Valid', variant: 'default' },
-        expiring_soon: { label: 'Expiring Soon', variant: 'outline' },
+        expiring_soon: { label: 'Expiring Soon', variant: 'warning' },
         expired: { label: 'Expired', variant: 'destructive' },
-        pending_review: { label: 'Pending Review', variant: 'secondary' },
+        pending_review: { label: 'Pending Review', variant: 'info' },
       }
-      const c = config[status] ?? { label: status, variant: 'secondary' as const }
+      const c = config[status] ?? { label: status, variant: 'subtle' as const }
       return <Badge variant={c.variant}>{c.label}</Badge>
     },
   },
