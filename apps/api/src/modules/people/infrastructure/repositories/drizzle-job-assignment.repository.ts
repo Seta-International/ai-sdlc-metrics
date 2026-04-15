@@ -67,7 +67,7 @@ export class DrizzleJobAssignmentRepository implements IJobAssignmentRepository 
   async insert(data: Omit<JobAssignment, 'id' | 'createdAt'>): Promise<JobAssignment> {
     const rows = await this.db
       .insert(jobAssignment)
-      .values(data as Record<string, unknown>)
+      .values(data as typeof jobAssignment.$inferInsert)
       .returning()
     return rows[0] as JobAssignment
   }
@@ -75,7 +75,7 @@ export class DrizzleJobAssignmentRepository implements IJobAssignmentRepository 
   async closeAssignment(id: string, tenantId: string, effectiveTo: Date): Promise<void> {
     await this.db
       .update(jobAssignment)
-      .set({ effectiveTo } as Record<string, unknown>)
+      .set({ effectiveTo } as typeof jobAssignment.$inferInsert)
       .where(and(eq(jobAssignment.id, id), eq(jobAssignment.tenantId, tenantId)))
   }
 

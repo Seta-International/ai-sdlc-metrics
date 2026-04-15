@@ -50,7 +50,7 @@ export class DrizzleContractVersionRepository implements IContractVersionReposit
   async insert(data: Omit<ContractVersion, 'id' | 'createdAt'>): Promise<ContractVersion> {
     const rows = await this.db
       .insert(contractVersion)
-      .values(data as Record<string, unknown>)
+      .values(data as typeof contractVersion.$inferInsert)
       .returning()
     return rows[0] as ContractVersion
   }
@@ -64,7 +64,7 @@ export class DrizzleContractVersionRepository implements IContractVersionReposit
   ): Promise<ContractVersion> {
     const rows = await this.db
       .update(contractVersion)
-      .set(data as Record<string, unknown>)
+      .set(data as typeof contractVersion.$inferInsert)
       .where(and(eq(contractVersion.id, id), eq(contractVersion.tenantId, tenantId)))
       .returning()
     return rows[0] as ContractVersion

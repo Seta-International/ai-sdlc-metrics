@@ -16,7 +16,7 @@ export class DrizzleProbationPolicyRepository implements IProbationPolicyReposit
       .from(probationPolicy)
       .where(and(eq(probationPolicy.id, id), eq(probationPolicy.tenantId, tenantId)))
       .limit(1)
-    return (rows[0] as ProbationPolicy | undefined) ?? null
+    return (rows[0] as unknown as ProbationPolicy | undefined) ?? null
   }
 
   async findByCountryAndLevel(
@@ -38,7 +38,7 @@ export class DrizzleProbationPolicyRepository implements IProbationPolicyReposit
         ),
       )
       .limit(1)
-    return (rows[0] as ProbationPolicy | undefined) ?? null
+    return (rows[0] as unknown as ProbationPolicy | undefined) ?? null
   }
 
   async listByTenant(tenantId: string): Promise<ProbationPolicy[]> {
@@ -46,7 +46,7 @@ export class DrizzleProbationPolicyRepository implements IProbationPolicyReposit
       .select()
       .from(probationPolicy)
       .where(eq(probationPolicy.tenantId, tenantId))
-    return rows as ProbationPolicy[]
+    return rows as unknown as ProbationPolicy[]
   }
 
   async insert(
@@ -54,9 +54,9 @@ export class DrizzleProbationPolicyRepository implements IProbationPolicyReposit
   ): Promise<ProbationPolicy> {
     const rows = await this.db
       .insert(probationPolicy)
-      .values(data as Record<string, unknown>)
+      .values(data as unknown as typeof probationPolicy.$inferInsert)
       .returning()
-    return rows[0] as ProbationPolicy
+    return rows[0] as unknown as ProbationPolicy
   }
 
   async update(
@@ -66,9 +66,9 @@ export class DrizzleProbationPolicyRepository implements IProbationPolicyReposit
   ): Promise<ProbationPolicy> {
     const rows = await this.db
       .update(probationPolicy)
-      .set({ ...data, updatedAt: new Date() } as Record<string, unknown>)
+      .set({ ...data, updatedAt: new Date() } as typeof probationPolicy.$inferInsert)
       .where(and(eq(probationPolicy.id, id), eq(probationPolicy.tenantId, tenantId)))
       .returning()
-    return rows[0] as ProbationPolicy
+    return rows[0] as unknown as ProbationPolicy
   }
 }

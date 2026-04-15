@@ -47,7 +47,7 @@ import { ListProfileChangeRequestsQuery } from '../../application/queries/list-p
 import { ListOnboardingTasksQuery } from '../../application/queries/list-onboarding-tasks.query'
 import { ListTemplatesQuery } from '../../application/queries/list-templates.query'
 import { ListContractVersionsQuery } from '../../application/queries/list-contract-versions.query'
-import { ListPeriodicReviewsQuery } from '../../application/queries/list-periodic-reviews.query'
+
 import { PeopleTrpcService } from './people-trpc.service'
 import {
   futureListQuerySchema,
@@ -559,9 +559,7 @@ export const peopleRouter = router({
     .input(z.object({ tenantId: z.string().uuid() }))
     .query(({ input }) => svc().query(new ListTemplatesQuery(input.tenantId, 'offboarding'))),
 
-  listPeriodicReviews: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid() }))
-    .query(({ input }) => svc().query(new ListPeriodicReviewsQuery(input.tenantId))),
+  // listPeriodicReviews: removed — periodic reviews feature removed per spec (Plan 06)
 
   // ── Profile mutations ──────────────────────────────────────────────────
 

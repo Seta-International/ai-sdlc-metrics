@@ -30,7 +30,7 @@ export class DrizzleEmploymentDetailRepository implements IEmploymentDetailRepos
   async insert(data: Omit<EmploymentDetail, 'id'>): Promise<EmploymentDetail> {
     const rows = await this.db
       .insert(employmentDetail)
-      .values(data as Record<string, unknown>)
+      .values(data as typeof employmentDetail.$inferInsert)
       .returning()
     return rows[0] as EmploymentDetail
   }
@@ -42,7 +42,7 @@ export class DrizzleEmploymentDetailRepository implements IEmploymentDetailRepos
   ): Promise<EmploymentDetail> {
     const rows = await this.db
       .update(employmentDetail)
-      .set(data as Record<string, unknown>)
+      .set(data as typeof employmentDetail.$inferInsert)
       .where(
         and(
           eq(employmentDetail.employmentId, employmentId),

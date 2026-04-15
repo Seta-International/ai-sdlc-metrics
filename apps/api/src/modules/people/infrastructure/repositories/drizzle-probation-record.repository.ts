@@ -21,7 +21,7 @@ export class DrizzleProbationRecordRepository implements IProbationRecordReposit
         and(eq(probationRecord.employmentId, employmentId), eq(probationRecord.tenantId, tenantId)),
       )
       .limit(1)
-    return (rows[0] as ProbationRecord | undefined) ?? null
+    return (rows[0] as unknown as ProbationRecord | undefined) ?? null
   }
 
   async findActiveByTenant(tenantId: string): Promise<ProbationRecord[]> {
@@ -29,7 +29,7 @@ export class DrizzleProbationRecordRepository implements IProbationRecordReposit
       .select()
       .from(probationRecord)
       .where(and(eq(probationRecord.tenantId, tenantId), eq(probationRecord.status, 'active')))
-    return rows as ProbationRecord[]
+    return rows as unknown as ProbationRecord[]
   }
 
   async insert(
@@ -37,9 +37,9 @@ export class DrizzleProbationRecordRepository implements IProbationRecordReposit
   ): Promise<ProbationRecord> {
     const rows = await this.db
       .insert(probationRecord)
-      .values(data as Record<string, unknown>)
+      .values(data as unknown as typeof probationRecord.$inferInsert)
       .returning()
-    return rows[0] as ProbationRecord
+    return rows[0] as unknown as ProbationRecord
   }
 
   async update(
@@ -49,9 +49,9 @@ export class DrizzleProbationRecordRepository implements IProbationRecordReposit
   ): Promise<ProbationRecord> {
     const rows = await this.db
       .update(probationRecord)
-      .set({ ...data, updatedAt: new Date() } as Record<string, unknown>)
+      .set({ ...data, updatedAt: new Date() } as unknown as typeof probationRecord.$inferInsert)
       .where(and(eq(probationRecord.id, id), eq(probationRecord.tenantId, tenantId)))
       .returning()
-    return rows[0] as ProbationRecord
+    return rows[0] as unknown as ProbationRecord
   }
 }

@@ -6,7 +6,7 @@ import type {
   OnboardingCaseStatus,
 } from '../../domain/entities/onboarding-case.entity'
 import type { OnboardingTemplate } from '../../domain/entities/onboarding-template.entity'
-import type { EmploymentType } from '../../domain/entities/employment-profile.entity'
+import type { EmploymentType } from '../../domain/value-objects/employment-status'
 import type { IOnboardingCaseRepository } from '../../domain/repositories/onboarding-case.repository'
 import type { IOnboardingTemplateRepository } from '../../domain/repositories/onboarding-template.repository'
 import { DB_TOKEN } from '../../../../common/db/db.module'

@@ -1,4 +1,4 @@
-import { EmploymentType } from './employment-profile.entity'
+import type { EmploymentType } from '../value-objects/employment-status'
 
 export interface OnboardingTemplate {
   id: string

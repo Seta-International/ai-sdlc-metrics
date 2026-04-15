@@ -49,7 +49,7 @@ export class DrizzleEmploymentRepository implements IEmploymentRepository {
   async insert(data: Omit<Employment, 'id' | 'createdAt' | 'updatedAt'>): Promise<Employment> {
     const rows = await this.db
       .insert(employment)
-      .values(data as Record<string, unknown>)
+      .values(data as typeof employment.$inferInsert)
       .returning()
     return rows[0] as Employment
   }
@@ -68,7 +68,7 @@ export class DrizzleEmploymentRepository implements IEmploymentRepository {
         terminationDate: terminationDate ?? null,
         terminationReason: terminationReason ?? null,
         updatedAt: new Date(),
-      } as Record<string, unknown>)
+      } as typeof employment.$inferInsert)
       .where(and(eq(employment.id, id), eq(employment.tenantId, tenantId)))
   }
 
@@ -79,7 +79,7 @@ export class DrizzleEmploymentRepository implements IEmploymentRepository {
   ): Promise<Employment> {
     const rows = await this.db
       .update(employment)
-      .set({ ...data, updatedAt: new Date() } as Record<string, unknown>)
+      .set({ ...data, updatedAt: new Date() } as typeof employment.$inferInsert)
       .where(and(eq(employment.id, id), eq(employment.tenantId, tenantId)))
       .returning()
     return rows[0] as Employment

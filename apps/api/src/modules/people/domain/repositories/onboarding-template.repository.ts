@@ -1,5 +1,5 @@
 import { OnboardingTemplate } from '../entities/onboarding-template.entity'
-import { EmploymentType } from '../entities/employment-profile.entity'
+import type { EmploymentType } from '../value-objects/employment-status'
 
 export const ONBOARDING_TEMPLATE_REPOSITORY = Symbol('IOnboardingTemplateRepository')
 

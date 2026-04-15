@@ -37,7 +37,7 @@ export class DrizzleJobProfileRepository implements IJobProfileRepository {
   async insert(data: Omit<JobProfile, 'id' | 'createdAt' | 'updatedAt'>): Promise<JobProfile> {
     const rows = await this.db
       .insert(jobProfile)
-      .values(data as Record<string, unknown>)
+      .values(data as typeof jobProfile.$inferInsert)
       .returning()
     return rows[0] as JobProfile
   }
@@ -49,7 +49,7 @@ export class DrizzleJobProfileRepository implements IJobProfileRepository {
   ): Promise<JobProfile> {
     const rows = await this.db
       .update(jobProfile)
-      .set({ ...data, updatedAt: new Date() } as Record<string, unknown>)
+      .set({ ...data, updatedAt: new Date() } as typeof jobProfile.$inferInsert)
       .where(and(eq(jobProfile.id, id), eq(jobProfile.tenantId, tenantId)))
       .returning()
     return rows[0] as JobProfile

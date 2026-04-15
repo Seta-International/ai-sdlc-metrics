@@ -27,7 +27,7 @@ export class DrizzleJobFamilyRepository implements IJobFamilyRepository {
   async insert(data: Omit<JobFamily, 'id' | 'createdAt'>): Promise<JobFamily> {
     const rows = await this.db
       .insert(jobFamily)
-      .values(data as Record<string, unknown>)
+      .values(data as typeof jobFamily.$inferInsert)
       .returning()
     return rows[0] as JobFamily
   }
@@ -39,7 +39,7 @@ export class DrizzleJobFamilyRepository implements IJobFamilyRepository {
   ): Promise<JobFamily> {
     const rows = await this.db
       .update(jobFamily)
-      .set(data as Record<string, unknown>)
+      .set(data as typeof jobFamily.$inferInsert)
       .where(and(eq(jobFamily.id, id), eq(jobFamily.tenantId, tenantId)))
       .returning()
     return rows[0] as JobFamily

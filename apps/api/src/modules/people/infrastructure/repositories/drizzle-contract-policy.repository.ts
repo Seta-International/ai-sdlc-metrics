@@ -34,7 +34,7 @@ export class DrizzleContractPolicyRepository implements IContractPolicyRepositor
   ): Promise<ContractPolicy> {
     const rows = await this.db
       .insert(contractPolicy)
-      .values(data as Record<string, unknown>)
+      .values(data as typeof contractPolicy.$inferInsert)
       .returning()
     return rows[0] as ContractPolicy
   }
@@ -54,7 +54,7 @@ export class DrizzleContractPolicyRepository implements IContractPolicyRepositor
   ): Promise<ContractPolicy> {
     const rows = await this.db
       .update(contractPolicy)
-      .set({ ...data, updatedAt: new Date() } as Record<string, unknown>)
+      .set({ ...data, updatedAt: new Date() } as typeof contractPolicy.$inferInsert)
       .where(and(eq(contractPolicy.id, id), eq(contractPolicy.tenantId, tenantId)))
       .returning()
     return rows[0] as ContractPolicy

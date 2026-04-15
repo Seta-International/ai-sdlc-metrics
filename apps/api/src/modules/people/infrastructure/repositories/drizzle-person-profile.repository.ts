@@ -33,7 +33,7 @@ export class DrizzlePersonProfileRepository implements IPersonProfileRepository 
   ): Promise<PersonProfile> {
     const rows = await this.db
       .insert(personProfile)
-      .values(data as Record<string, unknown>)
+      .values(data as typeof personProfile.$inferInsert)
       .returning()
     return rows[0] as PersonProfile
   }
@@ -45,7 +45,7 @@ export class DrizzlePersonProfileRepository implements IPersonProfileRepository 
   ): Promise<PersonProfile> {
     const rows = await this.db
       .update(personProfile)
-      .set({ ...data, updatedAt: new Date() } as Record<string, unknown>)
+      .set({ ...data, updatedAt: new Date() } as typeof personProfile.$inferInsert)
       .where(and(eq(personProfile.id, id), eq(personProfile.tenantId, tenantId)))
       .returning()
     return rows[0] as PersonProfile
