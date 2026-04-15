@@ -9,6 +9,7 @@
     "lint": "eslint src/"
   },
   "dependencies": {
+    "@future/agent": "workspace:*",
     "@future/api-client": "workspace:*",
     "@future/app-layout": "workspace:*",
     "@future/auth": "workspace:*",

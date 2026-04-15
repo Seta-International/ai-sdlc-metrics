@@ -68,6 +68,7 @@
       "name": "@future/web-admin",
       "version": "0.0.1",
       "dependencies": {
+        "@future/agent": "workspace:*",
         "@future/api-client": "workspace:*",
         "@future/app-layout": "workspace:*",
         "@future/auth": "workspace:*",
@@ -124,6 +125,7 @@
       "name": "@future/web-finance",
       "version": "0.0.1",
       "dependencies": {
+        "@future/agent": "workspace:*",
         "@future/api-client": "workspace:*",
         "@future/app-layout": "workspace:*",
         "@future/auth": "workspace:*",
@@ -152,6 +154,7 @@
       "name": "@future/web-goals",
       "version": "0.0.1",
       "dependencies": {
+        "@future/agent": "workspace:*",
         "@future/api-client": "workspace:*",
         "@future/app-layout": "workspace:*",
         "@future/auth": "workspace:*",
@@ -180,6 +183,7 @@
       "name": "@future/web-hiring",
       "version": "0.0.1",
       "dependencies": {
+        "@future/agent": "workspace:*",
         "@future/api-client": "workspace:*",
         "@future/app-layout": "workspace:*",
         "@future/auth": "workspace:*",
@@ -208,6 +212,7 @@
       "name": "@future/web-insights",
       "version": "0.0.1",
       "dependencies": {
+        "@future/agent": "workspace:*",
         "@future/api-client": "workspace:*",
         "@future/app-layout": "workspace:*",
         "@future/auth": "workspace:*",
@@ -236,6 +241,7 @@
       "name": "@future/web-people",
       "version": "0.0.1",
       "dependencies": {
+        "@future/agent": "workspace:*",
         "@future/api-client": "workspace:*",
         "@future/app-layout": "workspace:*",
         "@future/auth": "workspace:*",
@@ -265,6 +271,7 @@
       "name": "@future/web-performance",
       "version": "0.0.1",
       "dependencies": {
+        "@future/agent": "workspace:*",
         "@future/api-client": "workspace:*",
         "@future/app-layout": "workspace:*",
         "@future/auth": "workspace:*",
@@ -293,6 +300,7 @@
       "name": "@future/web-planner",
       "version": "0.0.1",
       "dependencies": {
+        "@future/agent": "workspace:*",
         "@future/api-client": "workspace:*",
         "@future/app-layout": "workspace:*",
         "@future/auth": "workspace:*",
@@ -321,6 +329,7 @@
       "name": "@future/web-projects",
       "version": "0.0.1",
       "dependencies": {
+        "@future/agent": "workspace:*",
         "@future/api-client": "workspace:*",
         "@future/app-layout": "workspace:*",
         "@future/auth": "workspace:*",
@@ -374,6 +383,7 @@
       "name": "@future/web-time",
       "version": "0.0.1",
       "dependencies": {
+        "@future/agent": "workspace:*",
         "@future/api-client": "workspace:*",
         "@future/app-layout": "workspace:*",
         "@future/auth": "workspace:*",
