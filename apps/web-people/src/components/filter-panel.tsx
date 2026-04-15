@@ -77,7 +77,7 @@ export function FilterPanel({
             <Filter className="h-3.5 w-3.5" />
             Filters
             {activeCount > 0 && (
-              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+              <Badge variant="subtle" className="ml-1 h-5 px-1.5 text-[10px]">
                 {activeCount}
               </Badge>
             )}
@@ -215,7 +215,7 @@ function FilterSection({
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-[510] text-[#8a8f98]">{title}</span>
         {selected.length > 0 && (
-          <Badge variant="secondary" className="h-4 px-1 text-[10px]">
+          <Badge variant="subtle" className="h-4 px-1 text-[10px]">
             {selected.length}
           </Badge>
         )}

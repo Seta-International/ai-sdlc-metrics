@@ -6,13 +6,13 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 
 const eventTypeConfig: Record<
   string,
-  { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }
+  { label: string; variant: 'default' | 'subtle' | 'destructive' | 'warning' | 'info' }
 > = {
   hire: { label: 'Hired', variant: 'default' },
   promotion: { label: 'Promotion', variant: 'default' },
-  lateral: { label: 'Lateral Move', variant: 'secondary' },
-  demotion: { label: 'Demotion', variant: 'outline' },
-  reorg: { label: 'Reorganization', variant: 'secondary' },
+  lateral: { label: 'Lateral Move', variant: 'subtle' },
+  demotion: { label: 'Demotion', variant: 'warning' },
+  reorg: { label: 'Reorganization', variant: 'subtle' },
   termination: { label: 'Termination', variant: 'destructive' },
 }
 
@@ -40,7 +40,7 @@ export function TimelineEntry({
   after,
 }: TimelineEntryProps) {
   const [expanded, setExpanded] = React.useState(false)
-  const config = eventTypeConfig[eventType] ?? { label: eventType, variant: 'secondary' as const }
+  const config = eventTypeConfig[eventType] ?? { label: eventType, variant: 'subtle' as const }
   const hasDiff = before != null && after != null
 
   return (
@@ -71,7 +71,7 @@ export function TimelineEntry({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Badge variant={config.variant}>{config.label}</Badge>
-              {isFuture && <Badge variant="outline">Scheduled</Badge>}
+              {isFuture && <Badge variant="info">Scheduled</Badge>}
               <span className="text-xs text-[#8a8f98]">
                 {new Date(effectiveDate).toLocaleDateString('en-GB', {
                   day: 'numeric',

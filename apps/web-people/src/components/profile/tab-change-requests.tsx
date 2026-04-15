@@ -45,7 +45,7 @@ export function TabChangeRequests({
           <h3 className="text-sm font-[590] text-[#f7f8f8]">
             Pending Changes
             {pending.length > 0 && (
-              <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-[10px]">
+              <Badge variant="subtle" className="ml-2 h-5 px-1.5 text-[10px]">
                 {pending.length}
               </Badge>
             )}
@@ -114,15 +114,15 @@ export function TabChangeRequests({
             {decided.map((req) => {
               const statusCfg: Record<
                 string,
-                { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }
+                { label: string; variant: 'default' | 'subtle' | 'destructive' | 'info' }
               > = {
                 approved: { label: 'Approved', variant: 'default' },
                 rejected: { label: 'Rejected', variant: 'destructive' },
-                cancelled: { label: 'Cancelled', variant: 'secondary' },
+                cancelled: { label: 'Cancelled', variant: 'subtle' },
               }
               const cfg = statusCfg[req.status] ?? {
                 label: req.status,
-                variant: 'secondary' as const,
+                variant: 'subtle' as const,
               }
               return (
                 <Card

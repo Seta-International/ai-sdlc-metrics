@@ -5,13 +5,13 @@ import type { EmploymentStatus } from '../lib/types'
 
 const statusConfig: Record<
   EmploymentStatus,
-  { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }
+  { label: string; variant: 'default' | 'subtle' | 'destructive' | 'info' | 'warning' }
 > = {
   active: { label: 'Active', variant: 'default' },
-  pre_hire: { label: 'Pre-hire', variant: 'secondary' },
-  on_leave: { label: 'On Leave', variant: 'outline' },
-  suspended: { label: 'Suspended', variant: 'secondary' },
-  notice_period: { label: 'Notice Period', variant: 'outline' },
+  pre_hire: { label: 'Pre-hire', variant: 'info' },
+  on_leave: { label: 'On Leave', variant: 'warning' },
+  suspended: { label: 'Suspended', variant: 'subtle' },
+  notice_period: { label: 'Notice Period', variant: 'warning' },
   terminated: { label: 'Terminated', variant: 'destructive' },
 }
 
