@@ -111,7 +111,7 @@ describe('ProfileHeader', () => {
         id: 'prob-1',
         status: 'in_progress',
         startDate: '2024-01-01',
-        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!,
         originalEndDate: '2024-06-30',
         extensions: [],
         salaryPercentage: 85,
