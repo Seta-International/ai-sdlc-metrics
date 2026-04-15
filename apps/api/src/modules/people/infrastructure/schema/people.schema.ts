@@ -329,10 +329,28 @@ export const offboardingTemplate = peopleSchema.table('offboarding_template', {
   tenantId: uuid('tenant_id').notNull(),
   name: text('name').notNull(),
   employmentType: text('employment_type', {
-    enum: ['permanent', 'fixed_term', 'contractor', 'intern'],
+    enum: ['permanent', 'fixed_term', 'intern'],
   }),
   reasonCategory: text('reason_category', {
     enum: ['voluntary', 'involuntary', 'redundancy', 'end_of_contract'],
+  }),
+  // NEW: country scoping
+  countryCode: text('country_code'),
+  // NEW: specific termination reason matching
+  terminationReason: text('termination_reason', {
+    enum: [
+      'voluntary_resignation',
+      'involuntary_performance',
+      'involuntary_misconduct',
+      'redundancy',
+      'end_of_contract',
+      'mutual_agreement',
+      'retirement',
+      'deceased',
+      'failed_probation',
+      'no_show',
+      'company_closure',
+    ],
   }),
   isDefault: boolean('is_default').notNull().default(false),
   isActive: boolean('is_active').notNull().default(true),
