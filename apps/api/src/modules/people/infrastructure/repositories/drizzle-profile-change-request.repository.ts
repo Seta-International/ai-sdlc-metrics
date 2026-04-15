@@ -90,7 +90,7 @@ export class DrizzleProfileChangeRequestRepository implements IProfileChangeRequ
   ): Promise<ProfileChangeRequest[]> {
     return (await this.db
       .insert(profileChangeRequest)
-      .values(data as Record<string, unknown>[])
+      .values(data as unknown as (typeof profileChangeRequest.$inferInsert)[])
       .returning()) as ProfileChangeRequest[]
   }
 

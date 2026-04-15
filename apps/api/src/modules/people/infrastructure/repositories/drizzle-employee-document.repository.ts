@@ -73,7 +73,7 @@ export class DrizzleEmployeeDocumentRepository implements IEmployeeDocumentRepos
   async insert(data: Omit<EmployeeDocument, 'id' | 'createdAt'>): Promise<EmployeeDocument> {
     const rows = await this.db
       .insert(employeeDocument)
-      .values(data as Record<string, unknown>)
+      .values(data as unknown as typeof employeeDocument.$inferInsert)
       .returning()
     return rows[0] as EmployeeDocument
   }
@@ -85,7 +85,7 @@ export class DrizzleEmployeeDocumentRepository implements IEmployeeDocumentRepos
   ): Promise<EmployeeDocument> {
     const rows = await this.db
       .update(employeeDocument)
-      .set(data as Record<string, unknown>)
+      .set(data as unknown as typeof employeeDocument.$inferInsert)
       .where(and(eq(employeeDocument.id, id), eq(employeeDocument.tenantId, tenantId)))
       .returning()
     return rows[0] as EmployeeDocument
