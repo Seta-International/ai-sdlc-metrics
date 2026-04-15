@@ -71,7 +71,7 @@ export function TemplateEditor({ type }: TemplateEditorProps) {
               <div className="truncate">
                 {tmpl.name}
                 {tmpl.isDefault && (
-                  <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
+                  <Badge variant="subtle" className="ml-1 h-4 px-1 text-[10px]">
                     Default
                   </Badge>
                 )}
@@ -89,12 +89,12 @@ export function TemplateEditor({ type }: TemplateEditorProps) {
                 <h3 className="text-sm font-[590] text-[#f7f8f8]">{selectedTemplate.name}</h3>
                 <div className="flex gap-2 mt-1">
                   {selectedTemplate.countryScope && (
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="subtle" className="text-xs">
                       {selectedTemplate.countryScope}
                     </Badge>
                   )}
                   {selectedTemplate.employmentTypeScope && (
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="subtle" className="text-xs">
                       {selectedTemplate.employmentTypeScope}
                     </Badge>
                   )}
