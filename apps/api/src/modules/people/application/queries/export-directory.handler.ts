@@ -41,7 +41,8 @@ export class ExportDirectoryHandler implements IQueryHandler<ExportDirectoryQuer
             const value = (item as Record<string, unknown>)[col]
             if (value === null || value === undefined) return ''
             const str = String(value)
-            return str.includes(',') ? `"${str}"` : str
+            const needsQuoting = str.includes(',') || str.includes('"') || str.includes('\n')
+            return needsQuoting ? `"${str.replace(/"/g, '""')}"` : str
           })
           .join(','),
       )
