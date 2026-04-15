@@ -12,6 +12,8 @@ import { DrizzleJobProfileRepository } from './infrastructure/repositories/drizz
 import { DrizzleEmploymentDetailRepository } from './infrastructure/repositories/drizzle-employment-detail.repository'
 import { DrizzleProbationPolicyRepository } from './infrastructure/repositories/drizzle-probation-policy.repository'
 import { DrizzleProbationRecordRepository } from './infrastructure/repositories/drizzle-probation-record.repository'
+import { DrizzleContractVersionRepository } from './infrastructure/repositories/drizzle-contract-version.repository'
+import { DrizzleContractPolicyRepository } from './infrastructure/repositories/drizzle-contract-policy.repository'
 import { PERSON_PROFILE_REPOSITORY } from './domain/repositories/person-profile.repository'
 import { EMPLOYMENT_REPOSITORY } from './domain/repositories/employment.repository'
 import { JOB_ASSIGNMENT_REPOSITORY } from './domain/repositories/job-assignment.repository'
@@ -20,6 +22,8 @@ import { JOB_PROFILE_REPOSITORY } from './domain/repositories/job-profile.reposi
 import { EMPLOYMENT_DETAIL_REPOSITORY } from './domain/repositories/employment-detail.repository'
 import { PROBATION_POLICY_REPOSITORY } from './domain/repositories/probation-policy.repository'
 import { PROBATION_RECORD_REPOSITORY } from './domain/repositories/probation-record.repository'
+import { CONTRACT_VERSION_REPOSITORY } from './domain/repositories/contract-version.repository'
+import { CONTRACT_POLICY_REPOSITORY } from './domain/repositories/contract-policy.repository'
 
 // ── Legacy repositories (still functional) ────────────────────────────────
 import { DrizzleProfileSectionRepository } from './infrastructure/repositories/drizzle-profile-section.repository'
@@ -51,6 +55,14 @@ import { ConfirmProbationHandler } from './application/commands/confirm-probatio
 import { ExtendProbationHandler } from './application/commands/extend-probation.handler'
 import { FailProbationHandler } from './application/commands/fail-probation.handler'
 import { TerminateEmploymentHandler } from './application/commands/terminate-employment.handler'
+import { ActivateEmploymentHandler } from './application/commands/activate-employment.handler'
+import { StartLeaveHandler } from './application/commands/start-leave.handler'
+import { ReturnFromLeaveHandler } from './application/commands/return-from-leave.handler'
+import { SuspendEmploymentHandler } from './application/commands/suspend-employment.handler'
+import { ReinstateSuspensionHandler } from './application/commands/reinstate-suspension.handler'
+import { GiveNoticeHandler } from './application/commands/give-notice.handler'
+import { CompleteTerminationHandler } from './application/commands/complete-termination.handler'
+import { CreateContractVersionHandler } from './application/commands/create-contract-version.handler'
 
 // ── Legacy command handlers that still compile ─────────────────────────────
 // NOTE: Handlers that reference EMPLOYMENT_PROFILE_REPOSITORY (deleted) are
@@ -70,6 +82,7 @@ import { GetEmploymentHandler } from './application/queries/get-employment.handl
 import { GetCurrentJobAssignmentHandler } from './application/queries/get-current-job-assignment.handler'
 import { ListEmploymentsHandler } from './application/queries/list-employments.handler'
 import { ListJobProfilesHandler } from './application/queries/list-job-profiles.handler'
+import { GetProbationRecordHandler } from './application/queries/get-probation-record.handler'
 
 // ── Legacy query handlers that still compile ───────────────────────────────
 // NOTE: Handlers that reference EMPLOYMENT_PROFILE_REPOSITORY (deleted) are excluded:
@@ -99,6 +112,8 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     { provide: EMPLOYMENT_DETAIL_REPOSITORY, useClass: DrizzleEmploymentDetailRepository },
     { provide: PROBATION_POLICY_REPOSITORY, useClass: DrizzleProbationPolicyRepository },
     { provide: PROBATION_RECORD_REPOSITORY, useClass: DrizzleProbationRecordRepository },
+    { provide: CONTRACT_VERSION_REPOSITORY, useClass: DrizzleContractVersionRepository },
+    { provide: CONTRACT_POLICY_REPOSITORY, useClass: DrizzleContractPolicyRepository },
 
     // ── Legacy repositories (still functional) ───────────────────────────
     { provide: PROFILE_SECTION_REPOSITORY, useClass: DrizzleProfileSectionRepository },
@@ -120,6 +135,14 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     ConfirmProbationHandler,
     ExtendProbationHandler,
     FailProbationHandler,
+    ActivateEmploymentHandler,
+    StartLeaveHandler,
+    ReturnFromLeaveHandler,
+    SuspendEmploymentHandler,
+    ReinstateSuspensionHandler,
+    GiveNoticeHandler,
+    CompleteTerminationHandler,
+    CreateContractVersionHandler,
 
     // ── Legacy command handlers ──────────────────────────────────────────
     RejectProfileChangeHandler,
@@ -131,6 +154,7 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     GetCurrentJobAssignmentHandler,
     ListEmploymentsHandler,
     ListJobProfilesHandler,
+    GetProbationRecordHandler,
 
     // ── Legacy query handlers ────────────────────────────────────────────
     ListOnboardingTasksHandler,

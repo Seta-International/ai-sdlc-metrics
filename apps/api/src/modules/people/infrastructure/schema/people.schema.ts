@@ -414,16 +414,43 @@ export const contractVersion = peopleSchema.table('contract_version', {
     .$defaultFn(() => uuidv7())
     .primaryKey(),
   tenantId: uuid('tenant_id').notNull(),
-  profileId: uuid('profile_id').notNull(),
-  contractType: text('contract_type').notNull(),
+  employmentId: uuid('employment_id').notNull(),
+  contractType: text('contract_type', {
+    enum: ['indefinite', 'fixed_term', 'seasonal', 'probation', 'internship', 'consultancy'],
+  }).notNull(),
+  startDate: date('start_date', { mode: 'date' }).notNull(),
+  endDate: date('end_date', { mode: 'date' }),
   status: text('status', {
-    enum: ['draft', 'active', 'expired', 'terminated'],
+    enum: ['draft', 'active', 'expired', 'terminated', 'superseded'],
   })
     .notNull()
     .default('draft'),
-  startedAt: timestamp('started_at').notNull(),
-  endedAt: timestamp('ended_at'),
-  probationEndDate: timestamp('probation_end_date'),
+  probationEndDate: date('probation_end_date', { mode: 'date' }),
+  noticePeriodDays: integer('notice_period_days'),
+  workHoursPerWeek: numeric('work_hours_per_week'),
+  baseSalary: numeric('base_salary'),
+  salaryCurrency: text('salary_currency'),
+  salaryFrequency: text('salary_frequency', {
+    enum: ['monthly', 'biweekly', 'weekly', 'annual'],
+  }),
+  documentId: uuid('document_id'),
   note: text('note'),
+  createdBy: uuid('created_by').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+  signedAt: timestamp('signed_at'),
+  signedBy: uuid('signed_by'),
+})
+
+export const contractPolicy = peopleSchema.table('contract_policy', {
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  countryCode: text('country_code').notNull(),
+  maxFixedTermMonths: integer('max_fixed_term_months'),
+  maxFixedTermRenewals: integer('max_fixed_term_renewals'),
+  forceIndefiniteAfter: boolean('force_indefinite_after').notNull().default(false),
+  probationRequiresContract: boolean('probation_requires_contract').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })

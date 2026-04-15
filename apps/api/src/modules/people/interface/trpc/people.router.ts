@@ -12,6 +12,21 @@ import { CreateJobAssignmentCommand } from '../../application/commands/create-jo
 import { CreateJobFamilyCommand } from '../../application/commands/create-job-family.command'
 import { CreateJobProfileCommand } from '../../application/commands/create-job-profile.command'
 import { UpdateEmploymentDetailCommand } from '../../application/commands/update-employment-detail.command'
+// Lifecycle commands
+import { ActivateEmploymentCommand } from '../../application/commands/activate-employment.command'
+import { StartLeaveCommand } from '../../application/commands/start-leave.command'
+import { ReturnFromLeaveCommand } from '../../application/commands/return-from-leave.command'
+import { SuspendEmploymentCommand } from '../../application/commands/suspend-employment.command'
+import { ReinstateSuspensionCommand } from '../../application/commands/reinstate-suspension.command'
+import { GiveNoticeCommand } from '../../application/commands/give-notice.command'
+import { TerminateEmploymentCommand } from '../../application/commands/terminate-employment.command'
+import { CompleteTerminationCommand } from '../../application/commands/complete-termination.command'
+// Probation commands
+import { ConfirmProbationCommand } from '../../application/commands/confirm-probation.command'
+import { ExtendProbationCommand } from '../../application/commands/extend-probation.command'
+import { FailProbationCommand } from '../../application/commands/fail-probation.command'
+// Contract commands
+import { CreateContractVersionCommand } from '../../application/commands/create-contract-version.command'
 // Legacy commands (still functional)
 import { RequestProfileChangeCommand } from '../../application/commands/request-profile-change.command'
 import { ApproveProfileChangeCommand } from '../../application/commands/approve-profile-change.command'
@@ -46,8 +61,11 @@ import {
   EMPLOYMENT_TYPE_VALUES,
   WORK_ARRANGEMENT_VALUES,
   JOB_ASSIGNMENT_EVENT_TYPE_VALUES,
+  TERMINATION_REASON_VALUES,
 } from '../../domain/value-objects/employment-status'
 import { NAME_DISPLAY_ORDER_VALUES } from '../../domain/value-objects/name-display-order'
+// Probation queries
+import { GetProbationRecordQuery } from '../../application/queries/get-probation-record.query'
 
 const svc = () => PeopleTrpcService.getInstance()
 
@@ -541,12 +559,6 @@ export const peopleRouter = router({
     .input(z.object({ tenantId: z.string().uuid() }))
     .query(({ input }) => svc().query(new ListTemplatesQuery(input.tenantId, 'offboarding'))),
 
-  listContractVersions: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid(), profileId: z.string().uuid() }))
-    .query(({ input }) =>
-      svc().query(new ListContractVersionsQuery(input.tenantId, input.profileId)),
-    ),
-
   listPeriodicReviews: publicProcedure
     .input(z.object({ tenantId: z.string().uuid() }))
     .query(({ input }) => svc().query(new ListPeriodicReviewsQuery(input.tenantId))),
@@ -916,6 +928,292 @@ export const peopleRouter = router({
           input.evidenceUrl,
         ),
       ),
+    ),
+
+  // ── Lifecycle mutations ────────────────────────────────────────────────
+
+  activateEmployment: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        employmentId: z.string().uuid(),
+        activatedBy: z.string().uuid(),
+      }),
+    )
+    .mutation(({ input }) =>
+      svc().command(
+        new ActivateEmploymentCommand(input.tenantId, input.employmentId, input.activatedBy),
+      ),
+    ),
+
+  startLeave: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        employmentId: z.string().uuid(),
+        leaveType: z.string(),
+        expectedReturnDate: z.coerce.date(),
+        initiatedBy: z.string().uuid(),
+      }),
+    )
+    .mutation(({ input }) =>
+      svc().command(
+        new StartLeaveCommand(
+          input.tenantId,
+          input.employmentId,
+          input.leaveType,
+          input.expectedReturnDate,
+          input.initiatedBy,
+        ),
+      ),
+    ),
+
+  returnFromLeave: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        employmentId: z.string().uuid(),
+        actualReturnDate: z.coerce.date(),
+        initiatedBy: z.string().uuid(),
+      }),
+    )
+    .mutation(({ input }) =>
+      svc().command(
+        new ReturnFromLeaveCommand(
+          input.tenantId,
+          input.employmentId,
+          input.actualReturnDate,
+          input.initiatedBy,
+        ),
+      ),
+    ),
+
+  suspendEmployment: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        employmentId: z.string().uuid(),
+        reason: z.string(),
+        reviewDate: z.coerce.date(),
+        initiatedBy: z.string().uuid(),
+      }),
+    )
+    .mutation(({ input }) =>
+      svc().command(
+        new SuspendEmploymentCommand(
+          input.tenantId,
+          input.employmentId,
+          input.reason,
+          input.reviewDate,
+          input.initiatedBy,
+        ),
+      ),
+    ),
+
+  reinstateSuspension: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        employmentId: z.string().uuid(),
+        reason: z.string(),
+        initiatedBy: z.string().uuid(),
+      }),
+    )
+    .mutation(({ input }) =>
+      svc().command(
+        new ReinstateSuspensionCommand(
+          input.tenantId,
+          input.employmentId,
+          input.reason,
+          input.initiatedBy,
+        ),
+      ),
+    ),
+
+  giveNotice: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        employmentId: z.string().uuid(),
+        lastWorkingDay: z.coerce.date(),
+        noticeType: z.enum(['resignation', 'employer']),
+        initiatedBy: z.string().uuid(),
+      }),
+    )
+    .mutation(({ input }) =>
+      svc().command(
+        new GiveNoticeCommand(
+          input.tenantId,
+          input.employmentId,
+          input.lastWorkingDay,
+          input.noticeType,
+          input.initiatedBy,
+        ),
+      ),
+    ),
+
+  terminateEmployment: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        employmentId: z.string().uuid(),
+        terminationReason: z.enum(TERMINATION_REASON_VALUES as [string, ...string[]]),
+        terminationDate: z.coerce.date(),
+        initiatedBy: z.string().uuid(),
+      }),
+    )
+    .mutation(({ input }) =>
+      svc().command(
+        new TerminateEmploymentCommand(
+          input.tenantId,
+          input.employmentId,
+          input.terminationReason as never,
+          input.terminationDate,
+          input.initiatedBy,
+        ),
+      ),
+    ),
+
+  completeTermination: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        employmentId: z.string().uuid(),
+        terminationDate: z.coerce.date(),
+        initiatedBy: z.string().uuid(),
+      }),
+    )
+    .mutation(({ input }) =>
+      svc().command(
+        new CompleteTerminationCommand(
+          input.tenantId,
+          input.employmentId,
+          input.terminationDate,
+          input.initiatedBy,
+        ),
+      ),
+    ),
+
+  // ── Probation mutations ────────────────────────────────────────────────
+
+  confirmProbation: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        employmentId: z.string().uuid(),
+        confirmedBy: z.string().uuid(),
+        note: z.string().optional(),
+      }),
+    )
+    .mutation(({ input }) =>
+      svc().command(
+        new ConfirmProbationCommand(
+          input.tenantId,
+          input.employmentId,
+          input.confirmedBy,
+          input.note,
+        ),
+      ),
+    ),
+
+  extendProbation: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        employmentId: z.string().uuid(),
+        newEndDate: z.coerce.date(),
+        extendedBy: z.string().uuid(),
+        note: z.string().optional(),
+      }),
+    )
+    .mutation(({ input }) =>
+      svc().command(
+        new ExtendProbationCommand(
+          input.tenantId,
+          input.employmentId,
+          input.newEndDate,
+          input.extendedBy,
+          input.note,
+        ),
+      ),
+    ),
+
+  failProbation: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        employmentId: z.string().uuid(),
+        failedBy: z.string().uuid(),
+        note: z.string().optional(),
+      }),
+    )
+    .mutation(({ input }) =>
+      svc().command(
+        new FailProbationCommand(input.tenantId, input.employmentId, input.failedBy, input.note),
+      ),
+    ),
+
+  // ── Probation queries ──────────────────────────────────────────────────
+
+  getProbationRecord: publicProcedure
+    .input(z.object({ tenantId: z.string().uuid(), employmentId: z.string().uuid() }))
+    .query(({ input }) =>
+      svc().query(new GetProbationRecordQuery(input.tenantId, input.employmentId)),
+    ),
+
+  // ── Contract mutations ─────────────────────────────────────────────────
+
+  createContractVersion: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        employmentId: z.string().uuid(),
+        contractType: z.enum([
+          'indefinite',
+          'fixed_term',
+          'seasonal',
+          'probation',
+          'internship',
+          'consultancy',
+        ]),
+        startDate: z.coerce.date(),
+        createdBy: z.string().uuid(),
+        endDate: z.coerce.date().nullable().optional(),
+        baseSalary: z.string().nullable().optional(),
+        salaryCurrency: z.string().nullable().optional(),
+        salaryFrequency: z.enum(['monthly', 'biweekly', 'weekly', 'annual']).nullable().optional(),
+        noticePeriodDays: z.number().int().nullable().optional(),
+        workHoursPerWeek: z.string().nullable().optional(),
+        probationEndDate: z.coerce.date().nullable().optional(),
+        note: z.string().nullable().optional(),
+      }),
+    )
+    .mutation(({ input }) =>
+      svc().command(
+        new CreateContractVersionCommand(
+          input.tenantId,
+          input.employmentId,
+          input.contractType,
+          input.startDate,
+          input.createdBy,
+          input.endDate,
+          input.baseSalary,
+          input.salaryCurrency,
+          input.salaryFrequency as never,
+          input.noticePeriodDays,
+          input.workHoursPerWeek,
+          input.probationEndDate,
+          input.note,
+        ),
+      ),
+    ),
+
+  // ── Contract queries ───────────────────────────────────────────────────
+
+  listContractVersions: publicProcedure
+    .input(z.object({ tenantId: z.string().uuid(), employmentId: z.string().uuid() }))
+    .query(({ input }) =>
+      svc().query(new ListContractVersionsQuery(input.tenantId, input.employmentId)),
     ),
 
   // ── Directory ─────────────────────────────────────────────────────────
