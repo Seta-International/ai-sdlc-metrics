@@ -27,7 +27,7 @@ export const sessionRouter = router({
         contextModule: z.string().optional(),
         contextEntity: z.string().optional(),
         contextEntityId: z.string().optional(),
-        contextMetadata: z.record(z.unknown()).optional(),
+        contextMetadata: z.record(z.string(), z.unknown()).optional(),
       }),
     )
     .mutation(({ input }) => {
@@ -67,7 +67,7 @@ export const sessionRouter = router({
         role: z.enum(['user', 'assistant', 'tool_call', 'tool_result']),
         content: z.string(),
         toolName: z.string().optional(),
-        toolArgs: z.record(z.unknown()).optional(),
+        toolArgs: z.record(z.string(), z.unknown()).optional(),
         modelUsed: z.string().optional(),
         tokensUsed: z.number().int().optional(),
         isError: z.boolean().optional(),
