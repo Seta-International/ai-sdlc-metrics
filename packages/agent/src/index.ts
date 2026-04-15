@@ -6,7 +6,6 @@ export type {
   AgentInlineActionConfig,
   AgentSessionStatus,
   AgentMessageRole,
-  AgentMessage,
   AgentSession,
   AgentPanelState,
 } from './types'
@@ -17,7 +16,7 @@ export type { AgentContextProviderProps } from './context/agent-context-provider
 export { useAgentContext } from './context/use-agent-context'
 
 // State
-export { AgentStateProvider, useAgentState } from './hooks/use-agent-state'
+export { AgentStateProvider, useAgentState, useOptionalAgentState } from './hooks/use-agent-state'
 export type { AgentStateContextValue } from './hooks/use-agent-state'
 
 // Provider
@@ -33,3 +32,14 @@ export type { AgentToolTraceProps } from './panel/agent-tool-trace'
 export { AgentContextPills } from './panel/agent-context-pills'
 export { AgentMessageInput } from './panel/agent-message-input'
 export type { AgentMessageInputProps } from './panel/agent-message-input'
+
+// Inline
+export { AgentInlineAction } from './inline/agent-inline-action'
+export type { AgentInlineActionProps } from './inline/agent-inline-action'
+export { AgentInlineResponse } from './inline/agent-inline-response'
+export type { AgentInlineResponseProps } from './inline/agent-inline-response'
+
+// Ambient
+export { AgentStrip } from './ambient/agent-strip'
+export { AgentBadge } from './ambient/agent-badge'
+export { AgentBanner } from './ambient/agent-banner'

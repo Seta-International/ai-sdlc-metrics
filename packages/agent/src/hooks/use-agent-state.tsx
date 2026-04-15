@@ -54,3 +54,7 @@ export function useAgentState(): AgentStateContextValue {
   if (!ctx) throw new Error('useAgentState must be used within AgentStateProvider')
   return ctx
 }
+
+export function useOptionalAgentState(): AgentStateContextValue | null {
+  return useContext(AgentStateContext)
+}

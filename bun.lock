@@ -427,6 +427,7 @@
       "devDependencies": {
         "@future/tsconfig": "workspace:*",
         "@testing-library/react": "^16.3.0",
+        "@types/node": "^25.6.0",
         "@types/react": "^19.2.14",
         "@types/react-dom": "^19.2.3",
         "jsdom": "^26.1.0",
@@ -459,6 +460,7 @@
       "name": "@future/app-layout",
       "version": "0.0.1",
       "dependencies": {
+        "@future/agent": "workspace:*",
         "@future/auth": "workspace:*",
         "@future/ui": "workspace:*",
         "lucide-react": "^1.8.0",
