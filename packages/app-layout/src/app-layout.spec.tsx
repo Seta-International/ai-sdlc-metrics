@@ -4,6 +4,7 @@ import { AppLayout } from './app-layout'
 import type { NavigationConfig } from './types'
 import { Users, Clock } from 'lucide-react'
 import type { PermissionTrpcClient } from './permission-provider'
+import { useOptionalAgentState } from '@future/agent'
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/employees',
@@ -14,9 +15,9 @@ vi.mock('next-themes', () => ({
 }))
 
 vi.mock('@future/agent', () => ({
-  useAgentState: () => ({ panelOpen: false, togglePanel: vi.fn() }),
-  AgentPanel: () => null,
-  AgentStrip: () => null,
+  useOptionalAgentState: vi.fn(() => ({ panelOpen: false, togglePanel: vi.fn() })),
+  AgentPanel: () => <div data-testid="agent-panel" />,
+  AgentStrip: () => <div data-testid="agent-strip" />,
 }))
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -99,5 +100,37 @@ describe('AppLayout', () => {
     await waitFor(() => {
       expect(screen.getByText('Hello World')).toBeInTheDocument()
     })
+  })
+
+  it('renders AgentStrip in the layout', () => {
+    render(
+      <AppLayout config={testConfig} trpc={createMockTrpc([])}>
+        <div>content</div>
+      </AppLayout>,
+    )
+
+    expect(screen.getByTestId('agent-strip')).toBeDefined()
+  })
+
+  it('renders AgentPanel when panelOpen is true', () => {
+    vi.mocked(useOptionalAgentState).mockReturnValueOnce({
+      panelOpen: true,
+      togglePanel: vi.fn(),
+      setPanelOpen: vi.fn(),
+      activeSessionId: null,
+      setActiveSessionId: vi.fn(),
+      insights: [],
+      setInsights: vi.fn(),
+      addInsight: vi.fn(),
+      dismissInsight: vi.fn(),
+    })
+
+    render(
+      <AppLayout config={testConfig} trpc={createMockTrpc([])}>
+        <div>content</div>
+      </AppLayout>,
+    )
+
+    expect(screen.getByTestId('agent-panel')).toBeDefined()
   })
 })

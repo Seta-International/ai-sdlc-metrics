@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { cn, SidebarProvider, SidebarInset } from '@future/ui'
-import { useAgentState, AgentPanel, AgentStrip } from '@future/agent'
+import { useOptionalAgentState, AgentPanel, AgentStrip } from '@future/agent'
 import { PermissionProvider, type PermissionTrpcClient } from './permission-provider'
 import { NavbarRenderer, type NavbarRendererProps } from './navbar/navbar-renderer'
 import { SidebarRenderer } from './sidebar/sidebar-renderer'
@@ -15,15 +15,9 @@ export interface AppLayoutProps extends Omit<NavbarRendererProps, 'config'> {
 }
 
 export function AppLayout({ config, trpc, children, ...navbarProps }: AppLayoutProps) {
-  let panelOpen = false
-  let togglePanel = () => {}
-  try {
-    const agentState = useAgentState()
-    panelOpen = agentState.panelOpen
-    togglePanel = agentState.togglePanel
-  } catch {
-    // AgentProvider not mounted — agent features disabled
-  }
+  const agentState = useOptionalAgentState()
+  const panelOpen = agentState?.panelOpen ?? false
+  const togglePanel = agentState?.togglePanel ?? (() => {})
 
   return (
     <PermissionProvider trpc={trpc}>
