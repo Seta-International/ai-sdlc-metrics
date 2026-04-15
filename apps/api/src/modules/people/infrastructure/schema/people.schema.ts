@@ -1,63 +1,191 @@
-import { pgSchema, uuid, text, timestamp, boolean, integer, jsonb, date } from 'drizzle-orm/pg-core'
+import {
+  pgSchema,
+  uuid,
+  text,
+  timestamp,
+  boolean,
+  integer,
+  jsonb,
+  date,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const peopleSchema = pgSchema('people')
 
-export const employmentProfile = peopleSchema.table('employment_profile', {
+// ─── New Core Tables ───────────────────────────────────────────────────────────
+
+export const personProfile = peopleSchema.table(
+  'person_profile',
+  {
+    id: uuid('id')
+      .$defaultFn(() => uuidv7())
+      .primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    actorId: uuid('actor_id').notNull(),
+    familyName: text('family_name'),
+    middleName: text('middle_name'),
+    givenName: text('given_name'),
+    fullName: text('full_name'),
+    fullNameUnaccented: text('full_name_unaccented'),
+    preferredName: text('preferred_name'),
+    nameDisplayOrder: text('name_display_order', {
+      enum: ['family_first', 'given_first'],
+    })
+      .notNull()
+      .default('given_first'),
+    dateOfBirth: date('date_of_birth', { mode: 'date' }),
+    gender: text('gender', {
+      enum: ['male', 'female', 'non_binary', 'prefer_not_to_say'],
+    }),
+    nationality: text('nationality'),
+    maritalStatus: text('marital_status', {
+      enum: ['single', 'married', 'divorced', 'widowed', 'separated'],
+    }),
+    photoDocumentId: uuid('photo_document_id'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex('person_profile_tenant_actor_uidx').on(table.tenantId, table.actorId)],
+)
+
+export const employment = peopleSchema.table('employment', {
   id: uuid('id')
     .$defaultFn(() => uuidv7())
     .primaryKey(),
   tenantId: uuid('tenant_id').notNull(),
-  actorId: uuid('actor_id').notNull(),
+  personProfileId: uuid('person_profile_id').notNull(),
   employeeCode: text('employee_code'),
   companyEmail: text('company_email'),
-  employmentType: text('employment_type', {
-    enum: ['permanent', 'fixed_term', 'contractor', 'intern'],
+  workerType: text('worker_type', {
+    enum: ['employee', 'contingent'],
   }).notNull(),
+  employmentType: text('employment_type', {
+    enum: ['permanent', 'fixed_term', 'intern'],
+  }).notNull(),
+  countryCode: text('country_code'),
   employmentStatus: text('employment_status', {
-    enum: ['pre_hire', 'active', 'on_leave', 'offboarding', 'terminated'],
+    enum: ['pre_hire', 'active', 'on_leave', 'suspended', 'notice_period', 'terminated'],
   })
     .notNull()
     .default('pre_hire'),
+  terminationDate: date('termination_date', { mode: 'date' }),
+  terminationReason: text('termination_reason', {
+    enum: [
+      'resignation',
+      'dismissal',
+      'redundancy',
+      'end_of_contract',
+      'retirement',
+      'death',
+      'abandonment',
+      'mutual_agreement',
+      'transfer',
+      'probation_failure',
+      'other',
+    ],
+  }),
+  hireDate: date('hire_date', { mode: 'date' }).notNull(),
+  originalHireDate: date('original_hire_date', { mode: 'date' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const jobAssignment = peopleSchema.table('job_assignment', {
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  employmentId: uuid('employment_id').notNull(),
+  effectiveFrom: date('effective_from', { mode: 'date' }).notNull(),
+  effectiveTo: date('effective_to', { mode: 'date' }),
+  jobProfileId: uuid('job_profile_id'),
+  departmentId: uuid('department_id'),
+  locationId: uuid('location_id'),
+  costCenterId: uuid('cost_center_id'),
   workArrangement: text('work_arrangement', {
     enum: ['onsite', 'hybrid', 'remote'],
   })
     .notNull()
     .default('onsite'),
-  hireDate: timestamp('hire_date').notNull(),
-  terminationDate: timestamp('termination_date'),
-  jobTitle: text('job_title'),
-  jobLevel: text('job_level'),
-  costCenter: text('cost_center'),
+  managerId: uuid('manager_id'),
+  eventType: text('event_type', {
+    enum: [
+      'hire',
+      'promotion',
+      'lateral_transfer',
+      'demotion',
+      'reorg',
+      'location_change',
+      'correction',
+    ],
+  }).notNull(),
+  reason: text('reason'),
+  createdBy: uuid('created_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+export const employmentDetail = peopleSchema.table(
+  'employment_detail',
+  {
+    id: uuid('id')
+      .$defaultFn(() => uuidv7())
+      .primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    employmentId: uuid('employment_id').notNull(),
+    nationalId: text('national_id'),
+    nationalIdType: text('national_id_type'),
+    nationalIdIssuedDate: date('national_id_issued_date', { mode: 'date' }),
+    nationalIdExpiryDate: date('national_id_expiry_date', { mode: 'date' }),
+    taxId: text('tax_id'),
+    socialInsuranceId: text('social_insurance_id'),
+    passportNumber: text('passport_number'),
+    passportExpiryDate: date('passport_expiry_date', { mode: 'date' }),
+    bankAccountNumber: text('bank_account_number'),
+    bankName: text('bank_name'),
+    bankBranch: text('bank_branch'),
+    bankAccountHolder: text('bank_account_holder'),
+    bankSwiftCode: text('bank_swift_code'),
+    personalEmail: text('personal_email'),
+    personalPhone: text('personal_phone'),
+    permanentAddress: jsonb('permanent_address'),
+    currentAddress: jsonb('current_address'),
+    emergencyContacts: jsonb('emergency_contacts'),
+    countryData: jsonb('country_data'),
+    customFields: jsonb('custom_fields'),
+  },
+  (table) => [
+    uniqueIndex('employment_detail_tenant_employment_uidx').on(table.tenantId, table.employmentId),
+  ],
+)
+
+export const jobFamily = peopleSchema.table('job_family', {
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  parentId: uuid('parent_id'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+export const jobProfile = peopleSchema.table('job_profile', {
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  jobFamilyId: uuid('job_family_id'),
+  title: text('title').notNull(),
+  level: text('level'),
+  description: text('description'),
+  isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
-export const employmentProfileDetail = peopleSchema.table('employment_profile_detail', {
-  profileId: uuid('profile_id').primaryKey(),
-  tenantId: uuid('tenant_id').notNull(),
-  nationalId: text('national_id'),
-  nationalIdIssuedDate: date('national_id_issued_date'),
-  nationalIdIssuedPlace: text('national_id_issued_place'),
-  oldNationalId: text('old_national_id'),
-  oldNationalIdIssuedDate: date('old_national_id_issued_date'),
-  oldNationalIdIssuedPlace: text('old_national_id_issued_place'),
-  taxId: text('tax_id'),
-  socialInsuranceNumber: text('social_insurance_number'),
-  bankAccountNumber: text('bank_account_number'),
-  bankName: text('bank_name'),
-  bankBranch: text('bank_branch'),
-  dob: date('dob'),
-  gender: text('gender'),
-  maritalStatus: text('marital_status'),
-  permanentAddress: text('permanent_address'),
-  currentAddress: text('current_address'),
-  personalPhone: text('personal_phone'),
-  personalEmail: text('personal_email'),
-  emergencyContactName: text('emergency_contact_name'),
-  emergencyContactPhone: text('emergency_contact_phone'),
-  motorbikePlate: text('motorbike_plate'),
-})
+// ─── Retained Tables ───────────────────────────────────────────────────────────
 
 export const profileSection = peopleSchema.table('profile_section', {
   id: uuid('id')
@@ -90,21 +218,6 @@ export const profileChangeRequest = peopleSchema.table('profile_change_request',
   requestedBy: uuid('requested_by').notNull(),
   reviewedBy: uuid('reviewed_by'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-})
-
-export const periodicProfileReview = peopleSchema.table('periodic_profile_review', {
-  id: uuid('id')
-    .$defaultFn(() => uuidv7())
-    .primaryKey(),
-  tenantId: uuid('tenant_id').notNull(),
-  profileId: uuid('profile_id').notNull(),
-  dueDate: timestamp('due_date').notNull(),
-  status: text('status', {
-    enum: ['pending', 'completed', 'skipped'],
-  })
-    .notNull()
-    .default('pending'),
-  completedAt: timestamp('completed_at'),
 })
 
 export const onboardingTemplate = peopleSchema.table('onboarding_template', {
@@ -249,20 +362,6 @@ export const offboardingTask = peopleSchema.table('offboarding_task', {
     .default('pending'),
   completedAt: timestamp('completed_at'),
   evidenceUrl: text('evidence_url'),
-})
-
-export const accountMembership = peopleSchema.table('account_membership', {
-  id: uuid('id')
-    .$defaultFn(() => uuidv7())
-    .primaryKey(),
-  tenantId: uuid('tenant_id').notNull(),
-  accountId: uuid('account_id').notNull(),
-  actorId: uuid('actor_id').notNull(),
-  roleKey: text('role_key', {
-    enum: ['account_manager', 'staffing_owner', 'member'],
-  }).notNull(),
-  joinedAt: timestamp('joined_at').defaultNow().notNull(),
-  leftAt: timestamp('left_at'),
 })
 
 export const contractVersion = peopleSchema.table('contract_version', {
