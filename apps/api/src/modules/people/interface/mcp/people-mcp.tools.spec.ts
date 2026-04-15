@@ -13,7 +13,7 @@ describe('PeopleMcpTools', () => {
   const reflector = new Reflector()
 
   beforeEach(() => {
-    peopleFacade = { getEmploymentProfile: vi.fn() } as unknown as PeopleQueryFacade
+    peopleFacade = { getPersonProfile: vi.fn() } as unknown as PeopleQueryFacade
     tools = new PeopleMcpTools(peopleFacade)
   })
 
@@ -37,18 +37,18 @@ describe('PeopleMcpTools', () => {
         status: 'active',
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      vi.mocked(peopleFacade.getEmploymentProfile).mockResolvedValue(mockProfile as any)
+      vi.mocked(peopleFacade.getPersonProfile).mockResolvedValue(mockProfile as any)
 
       const result = await tools.getEmploymentProfile({ actorId: ACTOR_ID, tenantId: TENANT_ID })
 
-      expect(peopleFacade.getEmploymentProfile).toHaveBeenCalledWith(ACTOR_ID, TENANT_ID)
+      expect(peopleFacade.getPersonProfile).toHaveBeenCalledWith(ACTOR_ID, TENANT_ID)
       expect(result).toEqual({
         content: [{ type: 'text', text: JSON.stringify(mockProfile, null, 2) }],
       })
     })
 
     it('should return not found message when profile does not exist', async () => {
-      vi.mocked(peopleFacade.getEmploymentProfile).mockResolvedValue(null)
+      vi.mocked(peopleFacade.getPersonProfile).mockResolvedValue(null)
 
       const result = await tools.getEmploymentProfile({ actorId: ACTOR_ID, tenantId: TENANT_ID })
 

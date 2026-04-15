@@ -24,13 +24,10 @@ const mockNotifRepo: INotificationRepository = {
   getPreferences: vi.fn(),
 }
 
-// ProfileResult is { profile: EmploymentProfile, detail: ..., sections: [] } | null
-// EmploymentProfile has companyEmail: string | null
+// PersonProfileResult has employments[].employment.companyEmail
 const mockPeopleFacade = {
-  getProfile: vi.fn().mockResolvedValue({
-    profile: { companyEmail: 'employee@company.com', actorId: 'actor-1' },
-    detail: null,
-    sections: [],
+  getPersonProfile: vi.fn().mockResolvedValue({
+    employments: [{ employment: { companyEmail: 'employee@company.com' } }],
   }),
 } as unknown as PeopleQueryFacade
 
@@ -96,11 +93,9 @@ describe('SendNotificationEmailWorker', () => {
       archivedAt: null,
       createdAt: new Date(),
     })
-    vi.mocked(mockPeopleFacade.getProfile).mockResolvedValueOnce({
-      profile: { companyEmail: null, actorId: 'actor-1' } as never,
-      detail: null,
-      sections: [],
-    })
+    vi.mocked(mockPeopleFacade.getPersonProfile).mockResolvedValueOnce({
+      employments: [{ employment: { companyEmail: null } }],
+    } as never)
 
     // Should not throw
     await worker.handle({
@@ -127,7 +122,7 @@ describe('SendNotificationEmailWorker', () => {
       archivedAt: null,
       createdAt: new Date(),
     })
-    vi.mocked(mockPeopleFacade.getProfile).mockResolvedValueOnce(null)
+    vi.mocked(mockPeopleFacade.getPersonProfile).mockResolvedValueOnce(null)
 
     // Should not throw
     await worker.handle({
