@@ -87,12 +87,20 @@ export class SearchIndexRebuildService {
   async rebuildAllForTenant(tenantId: string): Promise<void> {
     await this.searchIndexRepo.rebuildAll(tenantId)
 
-    const employments = await this.employmentRepo.listByTenant(tenantId, {
-      limit: 10000,
-      offset: 0,
-    })
-    for (const employment of employments) {
-      await this.rebuildForEmployment(employment.id, tenantId)
+    const PAGE_SIZE = 500
+    let offset = 0
+    let hasMore = true
+
+    while (hasMore) {
+      const employments = await this.employmentRepo.listByTenant(tenantId, {
+        limit: PAGE_SIZE,
+        offset,
+      })
+      for (const employment of employments) {
+        await this.rebuildForEmployment(employment.id, tenantId)
+      }
+      hasMore = employments.length === PAGE_SIZE
+      offset += employments.length
     }
   }
 }
