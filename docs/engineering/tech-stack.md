@@ -34,7 +34,6 @@ apps/
   web-finance/
   web-goals/
   web-insights/
-  web-agents/
   web-planner/       → Next.js Planner zone
   web-admin/         → Next.js admin zone (tenant_admin + platform_admin portal)
   e2e/               → Playwright E2E (runs against staging only)

@@ -34,13 +34,13 @@ The result is an enterprise-grade, multi-tenant agent platform where each tenant
 
 ```
 ┌───────────────────────────────────────────────────────┐
-│  Agent Builder  (apps/web-agents zone)                 │
+│  Agent Builder  (apps/web-admin → /agents)             │
 │  No-code UI: agents, topics, actions, guardrails       │
 └───────────────────────────────────────────────────────┘
           ↓
 ┌───────────────────────────────────────────────────────┐
 │  Channel Layer  (transport abstraction)                │
-│  ├── WebSocketChannel   → web chat (apps/web-agents)   │
+│  ├── WebSocketChannel   → embedded panel (@future/agent) │
 │  ├── TeamsChannel       → Microsoft Teams Bot          │
 │  ├── SlackChannel       → Slack workspace bot          │
 │  ├── EventChannel       → event-triggered agents       │
@@ -116,7 +116,7 @@ modules/agents/
       agents.schema.ts
   interface/
     trpc/
-      agents.router.ts              ← web-agents connects via tRPC (non-streaming)
+      agents.router.ts              ← zone panels connect via tRPC (non-streaming)
     ws/
       agents.gateway.ts             ← WebSocket streaming (NestJS @WebSocketGateway)
   agents.module.ts
@@ -127,7 +127,7 @@ modules/agents/
 ## Agent Gateway — Core Flow
 
 ```
-Message arrives (WebSocket from web-agents)
+Message arrives (WebSocket from embedded AgentPanel in any zone)
   → AgentGateway.handle(message, channelContext)
       1. SessionManager.getOrCreate(tenantId, actorId, agentId)
          → load session history from agents.agent_session
@@ -146,7 +146,7 @@ Message arrives (WebSocket from web-agents)
          → audit_event written per action (inside loop, before streaming)
          → stopWhen: task complete or max 10 tool calls
          → ON MID-STREAM FAILURE: jump to ERROR HANDLER with partial=true
-      7. Stream response → WebSocket → web-agents
+      7. Stream response → WebSocket → embedded AgentPanel
       8. SessionManager.append(message, response)
          → write agent_message with role=assistant, content=full response
       9. If session ends: summarise → pgvector (long-term memory)

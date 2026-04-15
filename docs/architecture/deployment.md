@@ -47,7 +47,6 @@ ap-southeast-1 (Singapore)
 │     ├── finance.seta-international.com    → web-finance ECS service
 │     ├── goals.seta-international.com      → web-goals ECS service
 │     ├── insights.seta-international.com   → web-insights ECS service
-│     ├── agents.seta-international.com     → web-agents ECS service
 │     ├── planner.seta-international.com    → web-planner ECS service
 │     ├── admin.seta-international.com      → web-admin ECS service (tenant admin + platform admin portal)
 │     └── shell.seta-international.com      → web-shell ECS service (navigation, auth, landing)
@@ -63,7 +62,6 @@ ap-southeast-1 (Singapore)
 │     ├── web-finance      0.25 vCPU / 0.5GB — Spot
 │     ├── web-goals        0.25 vCPU / 0.5GB — Spot
 │     ├── web-insights     0.5 vCPU / 1GB    — Spot (Cube.js integration)
-│     ├── web-agents       0.5 vCPU / 1GB    — Spot (SSE streaming)
 │     ├── web-planner      0.25 vCPU / 0.5GB — Spot
 │     ├── cubejs           1 vCPU / 2GB      — On-Demand
 │     ├── web-admin        0.25 vCPU / 0.5GB — On-Demand (admin portal, low traffic)
@@ -79,7 +77,7 @@ ap-southeast-1 (Singapore)
 ├── ElastiCache Redis (cache.t4g.small)  → Cube.js query cache only
 │                                          (agent sessions stored in PostgreSQL agents.agent_session)
 │
-├── ECR                → one repo per service (16 repos: api + web-shell + 11 zones + cubejs + langfuse)
+├── ECR                → one repo per service (15 repos: api + web-shell + 10 zones + cubejs + langfuse)
 ├── S3
 │     ├── future-tf-state-{env}     → Terraform state (versioned)
 │     └── future-lakehouse-{env}    → bronze/ + gold/ (Parquet + Iceberg)
@@ -112,26 +110,26 @@ Each zone is an independent ECS service, ECR repo, and GitHub Actions deployment
 
 ### Production
 
-| Resource                                                                  | Spec                                   | Monthly         |
-| ------------------------------------------------------------------------- | -------------------------------------- | --------------- |
-| ECS api                                                                   | 1 vCPU / 2GB, Graviton, mixed Spot     | ~$30            |
-| ECS web-shell                                                             | 0.25 vCPU / 0.5GB, Graviton, On-Demand | ~$8             |
-| ECS web-admin                                                             | 0.25 vCPU / 0.5GB, Graviton, On-Demand | ~$8             |
-| ECS 7 domain zones (people, time, hiring, perf, projects, finance, goals) | 0.25 vCPU / 0.5GB, Graviton, Spot      | ~$28            |
-| ECS web-insights + web-agents                                             | 0.5 vCPU / 1GB, Graviton, Spot         | ~$16            |
-| ECS cubejs                                                                | 1 vCPU / 2GB, Graviton, On-Demand      | ~$30            |
-| ECS langfuse                                                              | 0.5 vCPU / 1GB, Graviton, On-Demand    | ~$17            |
-| RDS OLTP (db.t4g.medium)                                                  | PostgreSQL 16, single-AZ, Graviton     | ~$55            |
-| RDS Read Replica (db.t4g.medium)                                          | Cube.js direct connection              | ~$55            |
-| RDS Langfuse (db.t4g.micro)                                               | Isolated trace storage, single-AZ      | ~$15            |
-| RDS Proxy                                                                 | NestJS API connection pooling + RLS    | ~$22            |
-| ElastiCache (cache.t4g.small)                                             | Cube.js query cache only               | ~$20            |
-| ALB                                                                       |                                        | ~$20            |
-| AWS Glue ETL (hourly batch)                                               | ~2 DPU × 5min × 24 runs/day            | ~$2             |
-| S3 lakehouse (bronze + gold, ~100GB)                                      |                                        | ~$3             |
-| Amazon Athena (ad-hoc, 10 tenants)                                        |                                        | ~$5             |
-| ECR + CloudWatch + misc                                                   |                                        | ~$15            |
-| **Total production**                                                      |                                        | **~$349/month** |
+| Resource                                                                           | Spec                                   | Monthly         |
+| ---------------------------------------------------------------------------------- | -------------------------------------- | --------------- |
+| ECS api                                                                            | 1 vCPU / 2GB, Graviton, mixed Spot     | ~$30            |
+| ECS web-shell                                                                      | 0.25 vCPU / 0.5GB, Graviton, On-Demand | ~$8             |
+| ECS web-admin                                                                      | 0.25 vCPU / 0.5GB, Graviton, On-Demand | ~$8             |
+| ECS 8 domain zones (people, time, hiring, perf, projects, finance, goals, planner) | 0.25 vCPU / 0.5GB, Graviton, Spot      | ~$32            |
+| ECS web-insights                                                                   | 0.5 vCPU / 1GB, Graviton, Spot         | ~$8             |
+| ECS cubejs                                                                         | 1 vCPU / 2GB, Graviton, On-Demand      | ~$30            |
+| ECS langfuse                                                                       | 0.5 vCPU / 1GB, Graviton, On-Demand    | ~$17            |
+| RDS OLTP (db.t4g.medium)                                                           | PostgreSQL 16, single-AZ, Graviton     | ~$55            |
+| RDS Read Replica (db.t4g.medium)                                                   | Cube.js direct connection              | ~$55            |
+| RDS Langfuse (db.t4g.micro)                                                        | Isolated trace storage, single-AZ      | ~$15            |
+| RDS Proxy                                                                          | NestJS API connection pooling + RLS    | ~$22            |
+| ElastiCache (cache.t4g.small)                                                      | Cube.js query cache only               | ~$20            |
+| ALB                                                                                |                                        | ~$20            |
+| AWS Glue ETL (hourly batch)                                                        | ~2 DPU × 5min × 24 runs/day            | ~$2             |
+| S3 lakehouse (bronze + gold, ~100GB)                                               |                                        | ~$3             |
+| Amazon Athena (ad-hoc, 10 tenants)                                                 |                                        | ~$5             |
+| ECR + CloudWatch + misc                                                            |                                        | ~$15            |
+| **Total production**                                                               |                                        | **~$349/month** |
 
 ### Staging
 

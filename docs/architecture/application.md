@@ -65,7 +65,6 @@ apps/
   web-finance/     → Finance module — finance.seta-international.com
   web-goals/       → Goals module — goals.seta-international.com
   web-insights/    → Insights module — insights.seta-international.com
-  web-agents/      → Agents module — agents.seta-international.com
   web-planner/     → Planner module — planner.seta-international.com
   web-admin/       → Admin zone — admin.seta-international.com
 ```
@@ -576,7 +575,6 @@ future/                          (Turborepo root)
     web-finance/                → basePath: /finance
     web-goals/                  → basePath: /goals
     web-insights/               → basePath: /insights
-    web-agents/                 → agents.seta-international.com
     web-planner/                → planner.seta-international.com
     web-admin/                  → admin.seta-international.com (tenant_admin + platform_admin)
   packages/
