@@ -12,8 +12,8 @@ export interface DirectorySearchIndex {
   managerName: string | null
   workArrangement: string
   employmentStatus: string
-  hireDate: Date
-  skills: string[]
+  hireDate: Date | null
+  skills: string[] | null
   countryCode: string
   updatedAt: Date
 }

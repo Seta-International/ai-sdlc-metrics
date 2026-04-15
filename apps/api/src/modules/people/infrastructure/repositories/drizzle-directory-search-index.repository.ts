@@ -49,13 +49,14 @@ export class DrizzleDirectorySearchIndexRepository implements IDirectorySearchIn
 
     if (query) {
       const normalizedQuery = query.trim().toLowerCase()
+      const escapedQuery = normalizedQuery.replace(/[%_]/g, '\\$&')
       conditions.push(
         or(
-          ilike(directorySearchIndex.fullName, `%${normalizedQuery}%`),
-          ilike(directorySearchIndex.fullNameUnaccented, `%${normalizedQuery}%`),
-          ilike(directorySearchIndex.companyEmail, `%${normalizedQuery}%`),
-          ilike(directorySearchIndex.jobTitle, `%${normalizedQuery}%`),
-          ilike(directorySearchIndex.departmentName, `%${normalizedQuery}%`),
+          ilike(directorySearchIndex.fullName, `%${escapedQuery}%`),
+          ilike(directorySearchIndex.fullNameUnaccented, `%${escapedQuery}%`),
+          ilike(directorySearchIndex.companyEmail, `%${escapedQuery}%`),
+          ilike(directorySearchIndex.jobTitle, `%${escapedQuery}%`),
+          ilike(directorySearchIndex.departmentName, `%${escapedQuery}%`),
         )!,
       )
     }
