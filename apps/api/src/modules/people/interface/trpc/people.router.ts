@@ -1049,12 +1049,41 @@ export const peopleRouter = router({
     .query(({ input }) => svc().query(new ListOnboardingTasksQuery(input.tenantId, input.caseId))),
 
   listOnboardingTemplates: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid() }))
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        countryCode: z.string().optional(),
+        workerType: z.enum(WORKER_TYPE_VALUES as [string, ...string[]]).optional(),
+        employmentType: z.enum(EMPLOYMENT_TYPE_VALUES as [string, ...string[]]).optional(),
+      }),
+    )
     .query(({ input }) => svc().query(new ListTemplatesQuery(input.tenantId, 'onboarding'))),
 
   listOffboardingTemplates: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid() }))
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        countryCode: z.string().optional(),
+        terminationReason: z.enum(TERMINATION_REASON_VALUES as [string, ...string[]]).optional(),
+      }),
+    )
     .query(({ input }) => svc().query(new ListTemplatesQuery(input.tenantId, 'offboarding'))),
+
+  onboarding: router({
+    getCase: publicProcedure
+      .input(z.object({ tenantId: z.string().uuid(), employmentId: z.string().uuid() }))
+      // No GetOnboardingCaseByEmploymentIdQuery handler yet; returns null until implemented.
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      .query((_ctx) => null),
+  }),
+
+  offboarding: router({
+    getCase: publicProcedure
+      .input(z.object({ tenantId: z.string().uuid(), employmentId: z.string().uuid() }))
+      // No GetOffboardingCaseByEmploymentIdQuery handler yet; returns null until implemented.
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      .query((_ctx) => null),
+  }),
 
   // listPeriodicReviews: removed — periodic reviews feature removed per spec (Plan 06)
 
