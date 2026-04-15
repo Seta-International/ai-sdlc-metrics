@@ -80,6 +80,20 @@ import { AcknowledgePolicyCommand } from '../../application/commands/acknowledge
 import { ListExpiringDocumentsQuery } from '../../application/queries/list-expiring-documents.query'
 import { GetProfileCompletenessQuery } from '../../application/queries/get-profile-completeness.query'
 import { ListIncompleteProfilesQuery } from '../../application/queries/list-incomplete-profiles.query'
+// Plan 05 — directory queries
+import { SearchDirectoryQuery } from '../../application/queries/search-directory.query'
+import { ListDirectoryQuery } from '../../application/queries/list-directory.query'
+import { ExportDirectoryQuery } from '../../application/queries/export-directory.query'
+import { GetSharedProfileQuery } from '../../application/queries/get-shared-profile.query'
+// Plan 05 — directory & utility commands
+import { GenerateCompanyEmailCommand } from '../../application/commands/generate-company-email.command'
+import { GenerateShareLinkCommand } from '../../application/commands/generate-share-link.command'
+import { RevokeShareLinkCommand } from '../../application/commands/revoke-share-link.command'
+import { BulkUpdateDepartmentCommand } from '../../application/commands/bulk-update-department.command'
+import { UploadImportFileCommand } from '../../application/commands/upload-import-file.command'
+import { MapImportColumnsCommand } from '../../application/commands/map-import-columns.command'
+import { ValidateImportCommand } from '../../application/commands/validate-import.command'
+import { CommitImportCommand } from '../../application/commands/commit-import.command'
 
 const svc = () => PeopleTrpcService.getInstance()
 
@@ -502,6 +516,331 @@ export function createPeopleRouter(
       export: devProtectedProcedure
         .input(futureExportQuerySchema)
         .query(({ input }) => exportPeopleDirectory(input)),
+
+      // ── Plan 05: new CQRS-backed directory endpoints ─────────────────
+      search: permissionProtectedProcedure
+        .meta({ permission: 'people:directory:read' })
+        .input(
+          z.object({
+            query: z.string(),
+            filters: z
+              .object({
+                departmentId: z.string().uuid().optional(),
+                jobProfileId: z.string().uuid().optional(),
+                jobFamilyId: z.string().uuid().optional(),
+                jobLevel: z.string().optional(),
+                managerId: z.string().uuid().optional(),
+                employmentStatus: z.string().optional(),
+                employmentType: z.string().optional(),
+                workerType: z.string().optional(),
+                workArrangement: z.string().optional(),
+                locationId: z.string().uuid().optional(),
+                countryCode: z.string().optional(),
+                hiredAfter: z.date().optional(),
+                hiredBefore: z.date().optional(),
+              })
+              .default({}),
+            limit: z.number().int().min(1).max(100).default(25),
+            offset: z.number().int().min(0).default(0),
+          }),
+        )
+        .query(
+          ({
+            input,
+            ctx,
+          }: {
+            input: {
+              query: string
+              filters: Record<string, unknown>
+              limit: number
+              offset: number
+            }
+            ctx: AuthContext
+          }) =>
+            svc().query(
+              new SearchDirectoryQuery(
+                ctx.tenantId,
+                input.query,
+                input.filters as never,
+                input.limit,
+                input.offset,
+              ),
+            ),
+        ),
+
+      listDirectory: permissionProtectedProcedure
+        .meta({ permission: 'people:directory:read' })
+        .input(
+          z.object({
+            filters: z
+              .object({
+                departmentId: z.string().uuid().optional(),
+                jobProfileId: z.string().uuid().optional(),
+                jobFamilyId: z.string().uuid().optional(),
+                jobLevel: z.string().optional(),
+                managerId: z.string().uuid().optional(),
+                employmentStatus: z.string().optional(),
+                employmentType: z.string().optional(),
+                workerType: z.string().optional(),
+                workArrangement: z.string().optional(),
+                locationId: z.string().uuid().optional(),
+                countryCode: z.string().optional(),
+                hiredAfter: z.date().optional(),
+                hiredBefore: z.date().optional(),
+              })
+              .default({}),
+            limit: z.number().int().min(1).max(100).default(25),
+            offset: z.number().int().min(0).default(0),
+          }),
+        )
+        .query(
+          ({
+            input,
+            ctx,
+          }: {
+            input: { filters: Record<string, unknown>; limit: number; offset: number }
+            ctx: AuthContext
+          }) =>
+            svc().query(
+              new ListDirectoryQuery(
+                ctx.tenantId,
+                input.filters as never,
+                input.limit,
+                input.offset,
+              ),
+            ),
+        ),
+
+      exportDirectory: permissionProtectedProcedure
+        .meta({ permission: 'people:directory:export' })
+        .input(
+          z.object({
+            filters: z
+              .object({
+                departmentId: z.string().uuid().optional(),
+                jobProfileId: z.string().uuid().optional(),
+                jobFamilyId: z.string().uuid().optional(),
+                jobLevel: z.string().optional(),
+                managerId: z.string().uuid().optional(),
+                employmentStatus: z.string().optional(),
+                employmentType: z.string().optional(),
+                workerType: z.string().optional(),
+                workArrangement: z.string().optional(),
+                locationId: z.string().uuid().optional(),
+                countryCode: z.string().optional(),
+                hiredAfter: z.date().optional(),
+                hiredBefore: z.date().optional(),
+              })
+              .default({}),
+            format: z.enum(['csv', 'xlsx']).default('csv'),
+            columns: z.array(z.string()).optional(),
+          }),
+        )
+        .mutation(
+          ({
+            input,
+            ctx,
+          }: {
+            input: { filters: Record<string, unknown>; format: 'csv' | 'xlsx'; columns?: string[] }
+            ctx: AuthContext
+          }) =>
+            svc().query(
+              new ExportDirectoryQuery(
+                ctx.tenantId,
+                ctx.actorId,
+                input.filters as never,
+                input.format,
+                input.columns,
+              ),
+            ),
+        ),
+    }),
+
+    // ── Share Links ────────────────────────────────────────────────────────
+    shareLink: router({
+      generate: permissionProtectedProcedure
+        .meta({ permission: 'people:shareLink:create' })
+        .input(
+          z.object({
+            employmentId: z.string().uuid(),
+            expiresInDays: z.number().int().min(1).max(90).default(7),
+            maxViews: z.number().int().min(1).optional(),
+          }),
+        )
+        .mutation(
+          ({
+            input,
+            ctx,
+          }: {
+            input: { employmentId: string; expiresInDays: number; maxViews?: number }
+            ctx: AuthContext
+          }) =>
+            svc().command(
+              new GenerateShareLinkCommand(
+                ctx.tenantId,
+                input.employmentId,
+                ctx.actorId,
+                input.expiresInDays,
+                input.maxViews,
+              ),
+            ),
+        ),
+
+      getShared: permissionProtectedProcedure
+        .meta({ permission: 'people:shareLink:read' })
+        .input(z.object({ token: z.string() }))
+        .query(({ input }: { input: { token: string }; ctx: AuthContext }) =>
+          svc().query(new GetSharedProfileQuery(input.token)),
+        ),
+
+      revoke: permissionProtectedProcedure
+        .meta({ permission: 'people:shareLink:revoke' })
+        .input(z.object({ shareLinkId: z.string().uuid() }))
+        .mutation(({ input, ctx }: { input: { shareLinkId: string }; ctx: AuthContext }) =>
+          svc().command(new RevokeShareLinkCommand(ctx.tenantId, input.shareLinkId, ctx.actorId)),
+        ),
+    }),
+
+    // ── Email Generation ───────────────────────────────────────────────────
+    email: router({
+      generate: permissionProtectedProcedure
+        .meta({ permission: 'people:email:generate' })
+        .input(
+          z.object({
+            employmentId: z.string().uuid(),
+            overrideEmail: z.string().email().optional(),
+          }),
+        )
+        .mutation(
+          ({
+            input,
+            ctx,
+          }: {
+            input: { employmentId: string; overrideEmail?: string }
+            ctx: AuthContext
+          }) =>
+            svc().command(
+              new GenerateCompanyEmailCommand(
+                ctx.tenantId,
+                input.employmentId,
+                input.overrideEmail,
+              ),
+            ),
+        ),
+    }),
+
+    // ── Bulk Operations ────────────────────────────────────────────────────
+    bulk: router({
+      updateDepartment: permissionProtectedProcedure
+        .meta({ permission: 'people:bulk:write' })
+        .input(
+          z.object({
+            employmentIds: z.array(z.string().uuid()).min(1),
+            newDepartmentId: z.string().uuid(),
+            effectiveFrom: z.date(),
+            reason: z.string(),
+          }),
+        )
+        .mutation(
+          ({
+            input,
+            ctx,
+          }: {
+            input: {
+              employmentIds: string[]
+              newDepartmentId: string
+              effectiveFrom: Date
+              reason: string
+            }
+            ctx: AuthContext
+          }) =>
+            svc().command(
+              new BulkUpdateDepartmentCommand(
+                ctx.tenantId,
+                input.employmentIds,
+                input.newDepartmentId,
+                input.effectiveFrom,
+                input.reason,
+                ctx.actorId,
+              ),
+            ),
+        ),
+    }),
+
+    // ── Import ─────────────────────────────────────────────────────────────
+    import: router({
+      upload: permissionProtectedProcedure
+        .meta({ permission: 'people:import:write' })
+        .input(
+          z.object({
+            fileDocumentId: z.string().uuid(),
+            fileName: z.string(),
+            rowCount: z.number().int().positive(),
+          }),
+        )
+        .mutation(
+          ({
+            input,
+            ctx,
+          }: {
+            input: { fileDocumentId: string; fileName: string; rowCount: number }
+            ctx: AuthContext
+          }) =>
+            svc().command(
+              new UploadImportFileCommand(
+                ctx.tenantId,
+                input.fileDocumentId,
+                input.fileName,
+                input.rowCount,
+                ctx.actorId,
+              ),
+            ),
+        ),
+
+      mapColumns: permissionProtectedProcedure
+        .meta({ permission: 'people:import:write' })
+        .input(
+          z.object({
+            importJobId: z.string().uuid(),
+            columnMapping: z.record(z.string()),
+            saveMappingProfile: z.string().optional(),
+          }),
+        )
+        .mutation(
+          ({
+            input,
+            ctx,
+          }: {
+            input: {
+              importJobId: string
+              columnMapping: Record<string, string>
+              saveMappingProfile?: string
+            }
+            ctx: AuthContext
+          }) =>
+            svc().command(
+              new MapImportColumnsCommand(
+                ctx.tenantId,
+                input.importJobId,
+                input.columnMapping,
+                input.saveMappingProfile,
+              ),
+            ),
+        ),
+
+      validate: permissionProtectedProcedure
+        .meta({ permission: 'people:import:write' })
+        .input(z.object({ importJobId: z.string().uuid() }))
+        .mutation(({ input, ctx }: { input: { importJobId: string }; ctx: AuthContext }) =>
+          svc().command(new ValidateImportCommand(ctx.tenantId, input.importJobId)),
+        ),
+
+      commit: permissionProtectedProcedure
+        .meta({ permission: 'people:import:write' })
+        .input(z.object({ importJobId: z.string().uuid() }))
+        .mutation(({ input, ctx }: { input: { importJobId: string }; ctx: AuthContext }) =>
+          svc().command(new CommitImportCommand(ctx.tenantId, input.importJobId, ctx.actorId)),
+        ),
     }),
 
     // ── Settings ──────────────────────────────────────────────────────────
