@@ -212,4 +212,50 @@ describe('SearchIndexRebuildService', () => {
       }),
     )
   })
+
+  it('deletes index entry when profile is not found', async () => {
+    vi.mocked(employmentRepo.findById).mockResolvedValue({
+      id: EMPLOYMENT_ID,
+      tenantId: TENANT_ID,
+      personProfileId: PROFILE_ID,
+      companyEmail: null,
+      employmentStatus: 'active',
+      hireDate: new Date('2025-01-15'),
+      workerType: 'employee',
+      employmentType: 'permanent',
+      countryCode: 'VN',
+      employeeCode: null,
+      terminationDate: null,
+      terminationReason: null,
+      originalHireDate: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    vi.mocked(profileRepo.findById).mockResolvedValue(null)
+
+    await service.rebuildForEmployment(EMPLOYMENT_ID, TENANT_ID)
+
+    expect(searchIndexRepo.deleteByEmploymentId).toHaveBeenCalledWith(EMPLOYMENT_ID, TENANT_ID)
+    expect(searchIndexRepo.upsert).not.toHaveBeenCalled()
+  })
+
+  it('rebuildAllForTenant truncates then rebuilds per employment', async () => {
+    const employments = [
+      { id: 'emp-1', tenantId: TENANT_ID },
+      { id: 'emp-2', tenantId: TENANT_ID },
+    ]
+    vi.mocked(employmentRepo.listByTenant).mockResolvedValue(employments as any)
+    vi.mocked(searchIndexRepo.rebuildAll).mockResolvedValue(undefined)
+    // rebuildForEmployment will be called - make findById return null so it just calls delete
+    vi.mocked(employmentRepo.findById).mockResolvedValue(null)
+
+    await service.rebuildAllForTenant(TENANT_ID)
+
+    expect(searchIndexRepo.rebuildAll).toHaveBeenCalledWith(TENANT_ID)
+    expect(employmentRepo.listByTenant).toHaveBeenCalledWith(
+      TENANT_ID,
+      expect.objectContaining({ limit: expect.any(Number), offset: 0 }),
+    )
+    expect(searchIndexRepo.deleteByEmploymentId).toHaveBeenCalledTimes(2)
+  })
 })
