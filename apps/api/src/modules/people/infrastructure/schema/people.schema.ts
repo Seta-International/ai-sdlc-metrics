@@ -434,3 +434,34 @@ export const contractPolicy = peopleSchema.table('contract_policy', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
+
+// ─── Directory Search Index ────────────────────────────────────────────────────
+
+export const directorySearchIndex = peopleSchema.table(
+  'directory_search_index',
+  {
+    id: uuid('id')
+      .$defaultFn(() => uuidv7())
+      .primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    employmentId: uuid('employment_id').notNull(),
+    fullName: text('full_name'),
+    fullNameUnaccented: text('full_name_unaccented'),
+    companyEmail: text('company_email'),
+    jobTitle: text('job_title'),
+    jobLevel: text('job_level'),
+    departmentName: text('department_name'),
+    locationName: text('location_name'),
+    managerName: text('manager_name'),
+    workArrangement: text('work_arrangement'),
+    employmentStatus: text('employment_status'),
+    hireDate: date('hire_date', { mode: 'date' }),
+    skills: text('skills').array(),
+    countryCode: text('country_code'),
+    searchVector: text('search_vector'), // tsvector managed via raw SQL trigger
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('uq_directory_search_index_employment').on(table.tenantId, table.employmentId),
+  ],
+)
