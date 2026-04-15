@@ -30,6 +30,14 @@ describe('AgentMessage', () => {
     createdAt: new Date('2026-04-15T10:00:02Z'),
   }
 
+  const toolResultMessage: AgentMessageType = {
+    id: 'msg-4',
+    sessionId: 'session-1',
+    role: 'tool_result',
+    content: '{"name":"John Doe","department":"Engineering"}',
+    createdAt: new Date('2026-04-15T10:00:03Z'),
+  }
+
   it('renders user message with content', () => {
     render(<AgentMessage message={userMessage} />)
     expect(screen.getByText('Summarize this employee')).toBeDefined()
@@ -45,11 +53,15 @@ describe('AgentMessage', () => {
     expect(screen.getByText('people_get_employment_profile')).toBeDefined()
   })
 
+  it('renders tool result content', () => {
+    render(<AgentMessage message={toolResultMessage} />)
+    expect(screen.getByText('{"name":"John Doe","department":"Engineering"}')).toBeDefined()
+  })
+
   it('applies different styling for user vs assistant', () => {
     const { container: userContainer } = render(<AgentMessage message={userMessage} />)
     const { container: assistantContainer } = render(<AgentMessage message={assistantMessage} />)
-    const userDiv = userContainer.firstElementChild
-    const assistantDiv = assistantContainer.firstElementChild
-    expect(userDiv?.className).not.toBe(assistantDiv?.className)
+    expect(userContainer.firstElementChild?.className).toContain('justify-end')
+    expect(assistantContainer.firstElementChild?.className).toContain('justify-start')
   })
 })

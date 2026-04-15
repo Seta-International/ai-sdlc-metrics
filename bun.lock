@@ -420,11 +420,14 @@
       "dependencies": {
         "@future/api-client": "workspace:*",
         "@future/core": "workspace:*",
+        "@future/ui": "workspace:*",
         "lucide-react": "^1.8.0",
       },
       "devDependencies": {
         "@future/tsconfig": "workspace:*",
         "@testing-library/react": "^16.3.0",
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
         "jsdom": "^26.1.0",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
