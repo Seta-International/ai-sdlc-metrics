@@ -14,7 +14,7 @@ interface TabOverviewProps {
 export function TabOverview({
   profile,
   canEditPersonal,
-  canEditEmployment,
+  canEditEmployment: _canEditEmployment,
   canEditBank,
 }: TabOverviewProps) {
   const {
