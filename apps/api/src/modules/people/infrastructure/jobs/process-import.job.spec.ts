@@ -34,7 +34,7 @@ describe('ProcessImportJob', () => {
       id: JOB_ID,
       tenantId: TENANT_ID,
       rowCount: 50,
-    } as any)
+    } as never)
     vi.mocked(importJobRepo.updateStatus).mockResolvedValue(undefined)
     vi.mocked(importJobRepo.updateResults).mockResolvedValue(undefined)
 

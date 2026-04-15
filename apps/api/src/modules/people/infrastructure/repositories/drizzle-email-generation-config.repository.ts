@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { eq } from 'drizzle-orm'
-import { DB_TOKEN, type Db } from '@future/db'
+import type { Db } from '@future/db'
+import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { EmailGenerationConfig } from '../../domain/entities/email-generation-config.entity'
 import type { IEmailGenerationConfigRepository } from '../../domain/repositories/email-generation-config.repository'
 import { emailGenerationConfig } from '../schema/people.schema'
@@ -21,14 +22,14 @@ export class DrizzleEmailGenerationConfigRepository implements IEmailGenerationC
   async upsert(data: EmailGenerationConfig): Promise<EmailGenerationConfig> {
     const rows = await this.db
       .insert(emailGenerationConfig)
-      .values(data as Record<string, unknown>)
+      .values(data as unknown as typeof emailGenerationConfig.$inferInsert)
       .onConflictDoUpdate({
         target: emailGenerationConfig.tenantId,
         set: {
           domain: data.domain,
           pattern: data.pattern,
           transliteration: data.transliteration,
-        } as Record<string, unknown>,
+        } as unknown as typeof emailGenerationConfig.$inferInsert,
       })
       .returning()
     return rows[0] as EmailGenerationConfig

@@ -22,10 +22,10 @@ describe('BulkUpdateDepartmentHandler', () => {
 
   it('creates a bulk operation record for async processing', async () => {
     vi.mocked(bulkOpRepo.insert).mockImplementation(
-      async (data) => ({ id: 'bulk-1', ...data }) as any,
+      async (data) => ({ id: 'bulk-1', ...data }) as never,
     )
 
-    const result = await handler.execute(
+    await handler.execute(
       new BulkUpdateDepartmentCommand(
         TENANT_ID,
         ['emp-1', 'emp-2', 'emp-3'],

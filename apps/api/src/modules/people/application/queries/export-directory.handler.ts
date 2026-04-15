@@ -38,7 +38,7 @@ export class ExportDirectoryHandler implements IQueryHandler<ExportDirectoryQuer
       const rows = items.map((item) =>
         columns
           .map((col) => {
-            const value = (item as Record<string, unknown>)[col]
+            const value = (item as unknown as Record<string, unknown>)[col]
             if (value === null || value === undefined) return ''
             const str = String(value)
             const needsQuoting = str.includes(',') || str.includes('"') || str.includes('\n')

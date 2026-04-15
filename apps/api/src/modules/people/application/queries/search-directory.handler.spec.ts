@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SearchDirectoryQuery } from './search-directory.query'
 import { SearchDirectoryHandler } from './search-directory.handler'
 import type { IDirectorySearchIndexRepository } from '../../domain/repositories/directory-search-index.repository'
-import { computeFullNameUnaccented } from '../../domain/value-objects/name-display-order'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 

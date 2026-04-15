@@ -24,7 +24,7 @@ describe('UploadImportFileHandler', () => {
 
   it('creates import job with uploaded status', async () => {
     vi.mocked(importJobRepo.insert).mockImplementation(
-      async (data) => ({ id: 'job-1', ...data }) as any,
+      async (data) => ({ id: 'job-1', ...data }) as never,
     )
 
     const result = await handler.execute(

@@ -56,7 +56,7 @@ export class GenerateCompanyEmailHandler implements ICommandHandler<
         throw new Error('No email candidates available. Configure email generation settings.')
       }
 
-      email = candidates[0]
+      email = candidates[0]!
     }
 
     return this.employmentRepo.update(command.employmentId, command.tenantId, {

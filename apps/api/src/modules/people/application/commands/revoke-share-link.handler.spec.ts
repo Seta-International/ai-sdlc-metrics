@@ -29,7 +29,7 @@ describe('RevokeShareLinkHandler', () => {
       id: SHARE_LINK_ID,
       tenantId: TENANT_ID,
       status: 'active',
-    } as any)
+    } as never)
 
     await handler.execute(new RevokeShareLinkCommand(TENANT_ID, SHARE_LINK_ID, ACTOR_ID))
 

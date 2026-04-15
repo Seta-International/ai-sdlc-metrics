@@ -13,7 +13,7 @@ describe('OnSearchIndexUpdateHandler', () => {
     rebuildService = {
       rebuildForEmployment: vi.fn(),
       rebuildAllForTenant: vi.fn(),
-    } as any
+    } as never
     handler = new OnSearchIndexUpdateHandler(rebuildService)
   })
 
@@ -25,7 +25,7 @@ describe('OnSearchIndexUpdateHandler', () => {
       eventType: 'promotion',
       effectiveFrom: new Date(),
       changes: {},
-    } as any)
+    } as never)
 
     expect(rebuildService.rebuildForEmployment).toHaveBeenCalledWith(EMPLOYMENT_ID, TENANT_ID)
   })
@@ -36,7 +36,7 @@ describe('OnSearchIndexUpdateHandler', () => {
       employmentId: EMPLOYMENT_ID,
       actorId: 'actor-1',
       effectiveDate: new Date(),
-    } as any)
+    } as never)
 
     expect(rebuildService.rebuildForEmployment).toHaveBeenCalledWith(EMPLOYMENT_ID, TENANT_ID)
   })
@@ -48,7 +48,7 @@ describe('OnSearchIndexUpdateHandler', () => {
       actorId: 'actor-1',
       terminationReason: 'voluntary_resignation',
       terminationDate: new Date(),
-    } as any)
+    } as never)
 
     expect(rebuildService.rebuildForEmployment).toHaveBeenCalledWith(EMPLOYMENT_ID, TENANT_ID)
   })
@@ -61,7 +61,7 @@ describe('OnSearchIndexUpdateHandler', () => {
       oldValue: 'Old',
       newValue: 'New',
       effectiveDate: new Date(),
-    } as any)
+    } as never)
 
     expect(rebuildService.rebuildForEmployment).toHaveBeenCalledWith(EMPLOYMENT_ID, TENANT_ID)
   })

@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { and, eq, gte, isNotNull, lte, or, sql, ilike } from 'drizzle-orm'
-import { DB_TOKEN, type Db } from '@future/db'
+import type { Db } from '@future/db'
+import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { DirectorySearchIndex } from '../../domain/entities/directory-search-index.entity'
 import type {
   IDirectorySearchIndexRepository,
@@ -15,13 +16,13 @@ export class DrizzleDirectorySearchIndexRepository implements IDirectorySearchIn
   async upsert(data: Omit<DirectorySearchIndex, 'id'>): Promise<DirectorySearchIndex> {
     const rows = await this.db
       .insert(directorySearchIndex)
-      .values(data as Record<string, unknown>)
+      .values(data as unknown as typeof directorySearchIndex.$inferInsert)
       .onConflictDoUpdate({
         target: [directorySearchIndex.tenantId, directorySearchIndex.employmentId],
         set: {
           ...data,
           updatedAt: new Date(),
-        } as Record<string, unknown>,
+        } as unknown as typeof directorySearchIndex.$inferInsert,
       })
       .returning()
     return rows[0] as DirectorySearchIndex

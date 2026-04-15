@@ -246,7 +246,7 @@ describe('SearchIndexRebuildService', () => {
       { id: 'emp-1', tenantId: TENANT_ID },
       { id: 'emp-2', tenantId: TENANT_ID },
     ]
-    vi.mocked(employmentRepo.listByTenant).mockResolvedValue(employments as any)
+    vi.mocked(employmentRepo.listByTenant).mockResolvedValue(employments as never)
     vi.mocked(searchIndexRepo.rebuildAll).mockResolvedValue(undefined)
     // rebuildForEmployment will be called - make findById return null so it just calls delete
     vi.mocked(employmentRepo.findById).mockResolvedValue(null)
