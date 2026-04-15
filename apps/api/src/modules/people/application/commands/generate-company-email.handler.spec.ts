@@ -102,4 +102,24 @@ describe('GenerateCompanyEmailHandler', () => {
       handler.execute(new GenerateCompanyEmailCommand(TENANT_ID, EMPLOYMENT_ID)),
     ).rejects.toThrow(EmploymentNotFoundException)
   })
+
+  it('throws when no email candidates available', async () => {
+    vi.mocked(employmentRepo.findById).mockResolvedValue({
+      id: EMPLOYMENT_ID,
+      tenantId: TENANT_ID,
+      personProfileId: PROFILE_ID,
+      companyEmail: null,
+    } as never)
+    vi.mocked(profileRepo.findById).mockResolvedValue({
+      id: PROFILE_ID,
+      familyName: 'Smith',
+      givenName: 'John',
+      middleName: null,
+    } as never)
+    vi.mocked(emailService.generateCandidates).mockResolvedValue([])
+
+    await expect(
+      handler.execute(new GenerateCompanyEmailCommand(TENANT_ID, EMPLOYMENT_ID)),
+    ).rejects.toThrow('No email candidates available')
+  })
 })

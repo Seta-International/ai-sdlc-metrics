@@ -16,7 +16,6 @@ CREATE TABLE "people"."directory_search_index" (
 	"hire_date" date,
 	"skills" text[],
 	"country_code" text NOT NULL,
-	"search_vector" text,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint

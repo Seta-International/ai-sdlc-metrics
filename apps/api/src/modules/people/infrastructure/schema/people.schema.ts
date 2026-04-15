@@ -458,7 +458,6 @@ export const directorySearchIndex = peopleSchema.table(
     hireDate: date('hire_date', { mode: 'date' }),
     skills: text('skills').array(),
     countryCode: text('country_code').notNull(),
-    searchVector: text('search_vector'), // tsvector managed via raw SQL trigger
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (table) => [

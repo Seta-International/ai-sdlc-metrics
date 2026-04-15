@@ -1,31 +1,30 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { EmailGenerationService } from './email-generation.service'
 import type { IEmailGenerationConfigRepository } from '../../domain/repositories/email-generation-config.repository'
-import type { IEmploymentRepository } from '../../domain/repositories/employment.repository'
+import type { IDirectorySearchIndexRepository } from '../../domain/repositories/directory-search-index.repository'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 
 describe('EmailGenerationService', () => {
   let service: EmailGenerationService
   let configRepo: IEmailGenerationConfigRepository
-  let employmentRepo: IEmploymentRepository
+  let searchIndexRepo: IDirectorySearchIndexRepository
 
   beforeEach(() => {
     configRepo = {
       findByTenantId: vi.fn(),
       upsert: vi.fn(),
     }
-    employmentRepo = {
-      findById: vi.fn(),
-      findByPersonProfileId: vi.fn(),
-      findActiveByActorId: vi.fn(),
-      insert: vi.fn(),
-      updateStatus: vi.fn(),
-      update: vi.fn(),
-      listByTenant: vi.fn(),
+    searchIndexRepo = {
+      upsert: vi.fn(),
+      deleteByEmploymentId: vi.fn(),
+      search: vi.fn(),
+      list: vi.fn(),
+      listCompanyEmails: vi.fn(),
+      rebuildAll: vi.fn(),
       countByTenant: vi.fn(),
     }
-    service = new EmailGenerationService(configRepo, employmentRepo)
+    service = new EmailGenerationService(configRepo, searchIndexRepo)
   })
 
   it('generates email from Vietnamese name with diacritic stripping', async () => {
@@ -35,7 +34,7 @@ describe('EmailGenerationService', () => {
       pattern: '{given}.{family}',
       transliteration: 'strip_diacritics',
     })
-    vi.mocked(employmentRepo.listByTenant).mockResolvedValue([])
+    vi.mocked(searchIndexRepo.listCompanyEmails).mockResolvedValue([])
 
     const result = await service.generateCandidates(
       TENANT_ID,
@@ -54,10 +53,7 @@ describe('EmailGenerationService', () => {
       pattern: '{given}.{family}',
       transliteration: 'strip_diacritics',
     })
-    // Simulate first candidate already taken
-    vi.mocked(employmentRepo.listByTenant).mockResolvedValue([
-      { companyEmail: 'an.nguyen@seta.vn' } as any,
-    ])
+    vi.mocked(searchIndexRepo.listCompanyEmails).mockResolvedValue(['an.nguyen@seta.vn'])
 
     const result = await service.generateCandidates(TENANT_ID, 'Nguyễn', 'An', 'Văn')
 
@@ -73,7 +69,7 @@ describe('EmailGenerationService', () => {
       pattern: '{given}.{family}',
       transliteration: 'strip_diacritics',
     })
-    vi.mocked(employmentRepo.listByTenant).mockResolvedValue([])
+    vi.mocked(searchIndexRepo.listCompanyEmails).mockResolvedValue([])
 
     const result = await service.generateCandidates(TENANT_ID, 'Smith', 'John', null)
 

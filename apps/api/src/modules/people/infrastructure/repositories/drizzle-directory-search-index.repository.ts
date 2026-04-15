@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { and, eq, sql, ilike, or } from 'drizzle-orm'
+import { and, eq, gte, isNotNull, lte, or, sql, ilike } from 'drizzle-orm'
 import { DB_TOKEN, type Db } from '@future/db'
 import type { DirectorySearchIndex } from '../../domain/entities/directory-search-index.entity'
 import type {
@@ -38,28 +38,8 @@ export class DrizzleDirectorySearchIndexRepository implements IDirectorySearchIn
       )
   }
 
-  async search(
-    tenantId: string,
-    query: string,
-    filters: DirectorySearchIndexFilters,
-    limit: number,
-    offset: number,
-  ): Promise<{ items: DirectorySearchIndex[]; total: number }> {
+  private buildFilterConditions(tenantId: string, filters: DirectorySearchIndexFilters) {
     const conditions = [eq(directorySearchIndex.tenantId, tenantId)]
-
-    if (query) {
-      const normalizedQuery = query.trim().toLowerCase()
-      const escapedQuery = normalizedQuery.replace(/[%_]/g, '\\$&')
-      conditions.push(
-        or(
-          ilike(directorySearchIndex.fullName, `%${escapedQuery}%`),
-          ilike(directorySearchIndex.fullNameUnaccented, `%${escapedQuery}%`),
-          ilike(directorySearchIndex.companyEmail, `%${escapedQuery}%`),
-          ilike(directorySearchIndex.jobTitle, `%${escapedQuery}%`),
-          ilike(directorySearchIndex.departmentName, `%${escapedQuery}%`),
-        )!,
-      )
-    }
 
     if (filters.employmentId) {
       conditions.push(eq(directorySearchIndex.employmentId, filters.employmentId))
@@ -74,6 +54,44 @@ export class DrizzleDirectorySearchIndexRepository implements IDirectorySearchIn
     }
     if (filters.workArrangement) {
       conditions.push(eq(directorySearchIndex.workArrangement, filters.workArrangement))
+    }
+    if (filters.jobLevel) {
+      conditions.push(eq(directorySearchIndex.jobLevel, filters.jobLevel))
+    }
+    if (filters.hiredAfter) {
+      conditions.push(gte(directorySearchIndex.hireDate, filters.hiredAfter))
+    }
+    if (filters.hiredBefore) {
+      conditions.push(lte(directorySearchIndex.hireDate, filters.hiredBefore))
+    }
+    // Note: departmentId, jobProfileId, jobFamilyId, managerId, locationId, workerType,
+    // employmentType are not columns in the directory_search_index table and cannot be
+    // filtered here. These are intentionally ignored.
+
+    return conditions
+  }
+
+  async search(
+    tenantId: string,
+    query: string,
+    filters: DirectorySearchIndexFilters,
+    limit: number,
+    offset: number,
+  ): Promise<{ items: DirectorySearchIndex[]; total: number }> {
+    const conditions = this.buildFilterConditions(tenantId, filters)
+
+    if (query) {
+      const normalizedQuery = query.trim().toLowerCase()
+      const escapedQuery = normalizedQuery.replace(/[%_]/g, '\\$&')
+      conditions.push(
+        or(
+          ilike(directorySearchIndex.fullName, `%${escapedQuery}%`),
+          ilike(directorySearchIndex.fullNameUnaccented, `%${escapedQuery}%`),
+          ilike(directorySearchIndex.companyEmail, `%${escapedQuery}%`),
+          ilike(directorySearchIndex.jobTitle, `%${escapedQuery}%`),
+          ilike(directorySearchIndex.departmentName, `%${escapedQuery}%`),
+        )!,
+      )
     }
 
     const where = and(...conditions)
@@ -105,6 +123,19 @@ export class DrizzleDirectorySearchIndexRepository implements IDirectorySearchIn
     offset: number,
   ): Promise<{ items: DirectorySearchIndex[]; total: number }> {
     return this.search(tenantId, '', filters, limit, offset)
+  }
+
+  async listCompanyEmails(tenantId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ companyEmail: directorySearchIndex.companyEmail })
+      .from(directorySearchIndex)
+      .where(
+        and(
+          eq(directorySearchIndex.tenantId, tenantId),
+          isNotNull(directorySearchIndex.companyEmail),
+        ),
+      )
+    return rows.map((r) => r.companyEmail as string)
   }
 
   async rebuildAll(tenantId: string): Promise<void> {
