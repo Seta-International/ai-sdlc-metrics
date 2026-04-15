@@ -41,6 +41,78 @@ describe('useAgentState', () => {
     expect(result.current.insights).toEqual([])
   })
 
+  it('adds insight to the front of the list', () => {
+    const { result } = renderHook(() => useAgentState(), { wrapper })
+    const insight1 = {
+      id: 'i-1',
+      module: 'people' as const,
+      entity: 'employee',
+      entityId: 'emp-1',
+      severity: 'warning' as const,
+      title: 'Visa expiring',
+      description: 'Visa expires in 30 days',
+      createdAt: new Date(),
+    }
+    const insight2 = {
+      id: 'i-2',
+      module: 'projects' as const,
+      entity: 'project',
+      entityId: 'proj-1',
+      severity: 'info' as const,
+      title: 'Staffing gap',
+      description: 'Project understaffed',
+      createdAt: new Date(),
+    }
+    act(() => result.current.addInsight(insight1))
+    expect(result.current.insights).toHaveLength(1)
+    expect(result.current.insights[0].id).toBe('i-1')
+
+    act(() => result.current.addInsight(insight2))
+    expect(result.current.insights).toHaveLength(2)
+    expect(result.current.insights[0].id).toBe('i-2') // prepended
+  })
+
+  it('dismisses insight by id', () => {
+    const { result } = renderHook(() => useAgentState(), { wrapper })
+    const insight = {
+      id: 'i-1',
+      module: 'people' as const,
+      entity: 'employee',
+      entityId: 'emp-1',
+      severity: 'warning' as const,
+      title: 'Visa expiring',
+      description: 'Visa expires in 30 days',
+      createdAt: new Date(),
+    }
+    act(() => result.current.addInsight(insight))
+    expect(result.current.insights).toHaveLength(1)
+
+    act(() => result.current.dismissInsight('i-1'))
+    expect(result.current.insights).toHaveLength(0)
+  })
+
+  it('replaces insights with setInsights', () => {
+    const { result } = renderHook(() => useAgentState(), { wrapper })
+    const insights = [
+      {
+        id: 'i-1',
+        module: 'people' as const,
+        entity: 'employee',
+        entityId: 'emp-1',
+        severity: 'info' as const,
+        title: 'Test',
+        description: 'Test desc',
+        createdAt: new Date(),
+      },
+    ]
+    act(() => result.current.setInsights(insights))
+    expect(result.current.insights).toHaveLength(1)
+    expect(result.current.insights[0].id).toBe('i-1')
+
+    act(() => result.current.setInsights([]))
+    expect(result.current.insights).toHaveLength(0)
+  })
+
   it('throws when used outside provider', () => {
     expect(() => {
       renderHook(() => useAgentState())
