@@ -73,7 +73,15 @@ Kernel currently has `org_placement` (maps actor → department with manager and
 - **Kernel's `org_placement`** becomes a read-only projection, updated by kernel listening to `JobAssignmentChangedEvent`. Kernel never writes to org_placement directly from user actions — it derives from people events.
 - **Why:** Job assignment is inherently an employment/HR concept (promotions, transfers, reorgs). Kernel's role is authority/permissions, not org management. The org_placement projection lets kernel resolve "who are the subordinates of actor X?" without cross-module queries.
 
-### 2.4 Entities Removed from People Module
+### 2.4 Kernel actor.displayName Resolution
+
+Kernel's `actor` table stores `displayName`. People's `person_profile` stores structured names + computed `full_name`.
+
+- **People's `person_profile`** is the authoritative source for employee names (structured: family_name, given_name, middle_name; computed: full_name, full_name_unaccented).
+- **Kernel's `actor.displayName`** becomes a denormalized cache. When people emits `ProfileChangeAppliedEvent` for a name field change, kernel listens and updates `actor.displayName` to match `person_profile.full_name`.
+- **Kernel never writes `displayName` directly** for employee-type actors. It derives from people events. For non-employee actors (system actors, API keys), kernel still owns displayName directly.
+
+### 2.5 Entities Removed from People Module
 
 These entities exist in the current people module but are removed in the redesign:
 
@@ -81,6 +89,22 @@ These entities exist in the current people module but are removed in the redesig
 | ------------------------- | -------------------------------------------------------------- | --------------------------------------------------------- |
 | `account_membership`      | Account/project team composition is a projects concern         | Projects owns `allocation` + `account.accountManagerId`   |
 | `periodic_profile_review` | Confuses profile data completeness with performance evaluation | `completeness_rule` + `completeness-reminder` pg-boss job |
+
+### 2.6 Cross-Zone UI Boundaries
+
+Multiple frontend zones display employee data. Rules for single source of truth in the UI:
+
+| Zone              | What it shows                           | Data source                                         | Behavior                                                                                                       |
+| ----------------- | --------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `web-people`      | Full employee management (28 pages)     | People tRPC endpoints (authoritative)               | Owns all employee CRUD, profiles, settings                                                                     |
+| `web-projects`    | Employee cards in staffing views        | `PeopleQueryFacade` via projects tRPC               | Read-only display. Links to `web-people/profile/:employmentId` for details. Never duplicates employee editing. |
+| `web-performance` | Employee name/title in review context   | `PeopleQueryFacade` via performance tRPC            | Read-only display. No employee profile editing.                                                                |
+| `web-hiring`      | Candidate → employee transition         | Hiring emits `CandidateHiredEvent`                  | Hiring never writes to people tables directly. Event-driven handoff only.                                      |
+| `web-time`        | Employee name/status in leave context   | `PeopleQueryFacade` via time tRPC                   | Read-only display of employment status.                                                                        |
+| `web-finance`     | Employee name/salary in payroll context | `PeopleQueryFacade` + `ContractVersionCreatedEvent` | Reads contract terms from people. Owns payroll execution.                                                      |
+| `web-admin`       | Tenant settings (AI, modules, roles)    | Admin tRPC endpoints                                | No overlap with people's HR settings. Separate zone, separate domain.                                          |
+
+**Rule:** Any zone outside `web-people` that needs employee data calls people's tRPC endpoints or facades. No zone stores, caches, or edits employee data independently. Employee profile links always point to `web-people`.
 
 ---
 
@@ -1026,7 +1050,7 @@ Tasks complete → CompleteTermination → employment terminated
 | `EmployeeOnLeaveEvent`           | time, projects (temporary backfill)                                                                                                                                                                               |
 | `EmployeeSuspendedEvent`         | projects (remove from active work)                                                                                                                                                                                |
 | `EmployeeReturnedFromLeaveEvent` | time, projects                                                                                                                                                                                                    |
-| `ProfileChangeAppliedEvent`      | finance (bank account change), notifications                                                                                                                                                                      |
+| `ProfileChangeAppliedEvent`      | kernel (sync actor.displayName on name change), finance (bank account change), notifications                                                                                                                      |
 | `ContractVersionCreatedEvent`    | finance (payroll terms)                                                                                                                                                                                           |
 | `ContractExpiringEvent`          | notifications                                                                                                                                                                                                     |
 | `ProbationConfirmedEvent`        | finance (salary adjustment)                                                                                                                                                                                       |
