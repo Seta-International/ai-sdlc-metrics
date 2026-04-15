@@ -476,3 +476,23 @@ export const emailGenerationConfig = peopleSchema.table('email_generation_config
     enum: ['strip_diacritics', 'custom_map'],
   }).notNull(),
 })
+
+// ─── Profile Share Link ────────────────────────────────────────────────────────
+
+export const profileShareLink = peopleSchema.table('profile_share_link', {
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  employmentId: uuid('employment_id').notNull(),
+  token: text('token').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  maxViews: integer('max_views'),
+  viewCount: integer('view_count').notNull().default(0),
+  status: text('status', { enum: ['active', 'revoked'] })
+    .notNull()
+    .default('active'),
+  createdBy: uuid('created_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  revokedAt: timestamp('revoked_at'),
+})
