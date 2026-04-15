@@ -79,11 +79,6 @@ const APP_ICONS: Record<string, { Icon: LucideIcon; accent: string }> = {
     accent:
       'bg-[rgba(29,78,216,0.15)] text-[#93c5fd] dark:bg-[rgba(29,78,216,0.15)] dark:text-[#93c5fd]',
   },
-  agents: {
-    Icon: Bot,
-    accent:
-      'bg-[rgba(94,106,210,0.12)] text-[#7170ff] dark:bg-[rgba(94,106,210,0.12)] dark:text-[#7170ff]',
-  },
   planner: {
     Icon: ListTodo,
     accent:
@@ -107,7 +102,6 @@ export const LOCAL_FUTURE_APPS: AppDefinition[] = [
   { id: 'finance', name: 'Finance', href: 'http://localhost:3006' },
   { id: 'planner', name: 'Planner', href: 'http://localhost:3011' },
   { id: 'insights', name: 'Insights', href: 'http://localhost:3008' },
-  { id: 'agents', name: 'Agents', href: 'http://localhost:3009' },
   { id: 'admin', name: 'Admin', href: 'http://localhost:3010' },
 ]
 
@@ -121,7 +115,6 @@ export const FUTURE_APPS: AppDefinition[] = [
   { id: 'finance', name: 'Finance', href: 'https://finance.future.seta.vn' },
   { id: 'planner', name: 'Planner', href: 'https://planner.future.seta.vn' },
   { id: 'insights', name: 'Insights', href: 'https://insights.future.seta.vn' },
-  { id: 'agents', name: 'Agents', href: 'https://agents.future.seta.vn' },
   { id: 'admin', name: 'Admin', href: 'https://admin.future.seta.vn' },
 ]
 
