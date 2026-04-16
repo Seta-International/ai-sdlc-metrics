@@ -37,13 +37,13 @@ export default function VisibilityPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-510 text-[#f7f8f8]">Field Visibility</h2>
+        <h2 className="text-lg font-510 text-fg-primary">Field Visibility</h2>
         <Button variant="default" size="sm">
           Save Changes
         </Button>
       </div>
       {isLoading ? (
-        <div className="text-sm text-[#8a8f98]">Loading...</div>
+        <div className="text-sm text-fg-muted">Loading...</div>
       ) : (
         <FieldPolicyList mode="visibility" entries={entries} onChange={handleChange} />
       )}

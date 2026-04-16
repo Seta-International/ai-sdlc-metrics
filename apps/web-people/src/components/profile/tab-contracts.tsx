@@ -83,7 +83,7 @@ export function TabContracts({
           return (
             <Card
               key={contract.id}
-              className={`border p-5 ${contract.status === 'active' ? 'border-accent/30 bg-[rgba(113,112,255,0.04)]' : 'border-border-border bg-bg-card'}`}
+              className={`border p-5 ${contract.status === 'active' ? 'border-accent/30 bg-accent/4' : 'border-border-border bg-bg-card'}`}
             >
               {isExpiringSoon && (
                 <Alert className="mb-3 border-amber-500/30 bg-amber-500/5 text-sm text-amber-200">

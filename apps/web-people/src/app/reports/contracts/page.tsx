@@ -24,7 +24,7 @@ const columns: ColumnDef<ExpiringContractRow>[] = [
     enableSorting: true,
     cell: ({ getValue }: CellContext<ExpiringContractRow, unknown>) => {
       const days = getValue() as number
-      const color = days <= 7 ? 'text-red-400' : days <= 30 ? 'text-amber-400' : 'text-[#d0d6e0]'
+      const color = days <= 7 ? 'text-red-400' : days <= 30 ? 'text-amber-400' : 'text-fg-secondary'
       return <span className={`text-sm font-510 ${color}`}>{days}d</span>
     },
   },
@@ -55,7 +55,7 @@ export default function ContractsReportPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-510 text-[#f7f8f8]">Contract Expiry</h2>
+      <h2 className="text-lg font-510 text-fg-primary">Contract Expiry</h2>
       <DataTable
         columns={columns}
         rows={rows}

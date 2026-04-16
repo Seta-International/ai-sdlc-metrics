@@ -76,11 +76,11 @@ export default function EmailConfigPage() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <h2 className="text-lg font-510 text-[#f7f8f8]">Email Configuration</h2>
+      <h2 className="text-lg font-510 text-fg-primary">Email Configuration</h2>
 
-      <Card className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-6 space-y-4">
+      <Card className="border-overlay/8 bg-overlay/2 p-6 space-y-4">
         <div className="space-y-1">
-          <label className="text-xs font-510 text-[#8a8f98]">Email Domain</label>
+          <label className="text-xs font-510 text-fg-muted">Email Domain</label>
           <Input
             value={config.domain}
             onChange={(e) => setConfig({ ...config, domain: e.target.value })}
@@ -88,7 +88,7 @@ export default function EmailConfigPage() {
           />
         </div>
         <div className="space-y-1">
-          <label className="text-xs font-510 text-[#8a8f98]">Email Pattern</label>
+          <label className="text-xs font-510 text-fg-muted">Email Pattern</label>
           <Select
             value={config.pattern}
             onValueChange={(v) => setConfig({ ...config, pattern: v as EmailConfig['pattern'] })}
@@ -106,7 +106,7 @@ export default function EmailConfigPage() {
           </Select>
         </div>
         <div className="space-y-1">
-          <label className="text-xs font-510 text-[#8a8f98]">Transliteration Mode</label>
+          <label className="text-xs font-510 text-fg-muted">Transliteration Mode</label>
           <Select
             value={config.transliterationMode}
             onValueChange={(v) =>
@@ -126,9 +126,9 @@ export default function EmailConfigPage() {
         </div>
 
         {previewEmail && (
-          <div className="rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-3">
-            <div className="text-xs text-[#8a8f98] mb-1">Preview</div>
-            <div className="text-sm font-mono text-[#7170ff]">{previewEmail}</div>
+          <div className="rounded-md border border-overlay/8 bg-overlay/4 px-4 py-3">
+            <div className="text-xs text-fg-muted mb-1">Preview</div>
+            <div className="text-sm font-mono text-accent">{previewEmail}</div>
           </div>
         )}
 
@@ -137,21 +137,21 @@ export default function EmailConfigPage() {
         </Button>
       </Card>
 
-      <Card className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-6 space-y-4">
-        <h3 className="text-sm font-590 text-[#f7f8f8]">Test Generator</h3>
+      <Card className="border-overlay/8 bg-overlay/2 p-6 space-y-4">
+        <h3 className="text-sm font-590 text-fg-primary">Test Generator</h3>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-510 text-[#8a8f98]">Given Name</label>
+            <label className="text-xs font-510 text-fg-muted">Given Name</label>
             <Input value={testGiven} onChange={(e) => setTestGiven(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-510 text-[#8a8f98]">Family Name</label>
+            <label className="text-xs font-510 text-fg-muted">Family Name</label>
             <Input value={testFamily} onChange={(e) => setTestFamily(e.target.value)} />
           </div>
         </div>
-        <div className="rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-3">
-          <div className="text-xs text-[#8a8f98] mb-1">Generated Email</div>
-          <div className="text-sm font-mono text-[#10b981]">{previewEmail}</div>
+        <div className="rounded-md border border-overlay/8 bg-overlay/4 px-4 py-3">
+          <div className="text-xs text-fg-muted mb-1">Generated Email</div>
+          <div className="text-sm font-mono text-emerald">{previewEmail}</div>
         </div>
       </Card>
     </div>

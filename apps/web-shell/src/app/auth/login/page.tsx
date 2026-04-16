@@ -94,7 +94,7 @@ export default function LoginPage() {
 
         <form onSubmit={handleMagicLink} className="space-y-4">
           {error && (
-            <div className="rounded-md border border-[var(--color-border-danger)] bg-[var(--color-bg-danger)] p-3 text-sm text-[var(--color-text-danger)]">
+            <div className="rounded-md border border-status-border-danger bg-status-bg-danger p-3 text-sm text-status-text-danger">
               {error}
             </div>
           )}
@@ -104,12 +104,12 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@company.com"
             required
-            className="w-full rounded-md border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-[#5e6ad2] focus:outline-none"
+            className="w-full rounded-md border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none"
           />
           <button
             type="submit"
             disabled={loading || !email}
-            className="w-full rounded-md bg-[#5e6ad2] px-4 py-3 text-sm font-510 text-white transition-colors hover:bg-[#828fff] disabled:opacity-50"
+            className="w-full rounded-md bg-brand px-4 py-3 text-sm font-510 text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
           >
             {loading ? 'Sending…' : 'Send magic link'}
           </button>

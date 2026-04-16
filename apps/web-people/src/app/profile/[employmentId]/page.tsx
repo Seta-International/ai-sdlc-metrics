@@ -84,7 +84,7 @@ export default function EmployeeProfilePage() {
   if (!profile) {
     return (
       <main className="container mx-auto py-8">
-        <p className="text-sm text-[#8a8f98]">Employee not found.</p>
+        <p className="text-sm text-fg-muted">Employee not found.</p>
       </main>
     )
   }

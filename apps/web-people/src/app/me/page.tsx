@@ -55,7 +55,7 @@ export default function MyProfilePage() {
   if (!profile || !employmentId) {
     return (
       <main className="container mx-auto py-8">
-        <p className="text-sm text-[#8a8f98]">Your profile could not be loaded.</p>
+        <p className="text-sm text-fg-muted">Your profile could not be loaded.</p>
       </main>
     )
   }
@@ -63,7 +63,7 @@ export default function MyProfilePage() {
   return (
     <main className="container mx-auto p-3 space-y-6">
       <div>
-        <h1 className="text-2xl font-510 tracking-[-0.288px] text-[#f7f8f8]">My Profile</h1>
+        <h1 className="text-2xl font-510 tracking-h2 text-fg-primary">My Profile</h1>
       </div>
 
       <ProfileHeader

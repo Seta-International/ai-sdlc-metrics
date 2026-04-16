@@ -101,7 +101,7 @@ export function ProfileHeader({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-510 tracking-[-0.288px] text-foreground">
+              <h1 className="text-2xl font-510 tracking-h2 text-foreground">
                 {personProfile.fullName}
                 {personProfile.preferredName && (
                   <span className="ml-2 text-lg font-normal text-muted-foreground">

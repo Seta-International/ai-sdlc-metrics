@@ -150,7 +150,7 @@ export function OrgChartTree() {
       </div>
 
       {/* Tree canvas */}
-      <div className="overflow-auto rounded-lg border border-border bg-[rgba(255,255,255,0.01)] p-8 min-h-content-lg">
+      <div className="overflow-auto rounded-lg border border-border bg-overlay/1 p-8 min-h-content-lg">
         <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}>
           {isLoading ? (
             <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">

@@ -6,7 +6,7 @@ import { ImportWizard } from '../../../components/settings/import-wizard'
 export default function ImportExportPage() {
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-510 text-[#f7f8f8]">Import / Export</h2>
+      <h2 className="text-lg font-510 text-fg-primary">Import / Export</h2>
       <Tabs defaultValue="import">
         <TabsList>
           <TabsTrigger value="import">Import</TabsTrigger>
@@ -16,7 +16,7 @@ export default function ImportExportPage() {
           <ImportWizard />
         </TabsContent>
         <TabsContent value="export" className="mt-4">
-          <div className="text-sm text-[#8a8f98]">Export functionality coming soon.</div>
+          <div className="text-sm text-fg-muted">Export functionality coming soon.</div>
         </TabsContent>
       </Tabs>
     </div>

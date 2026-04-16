@@ -122,10 +122,7 @@ export function TabChangeRequests({
                 variant: 'subtle' as const,
               }
               return (
-                <Card
-                  key={req.id}
-                  className="border-sidebar-border bg-[rgba(255,255,255,0.01)] p-3"
-                >
+                <Card key={req.id} className="border-sidebar-border bg-overlay/1 p-3">
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">

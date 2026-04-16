@@ -26,6 +26,19 @@ const config = {
         security: 'var(--color-security)',
         'success-ds': 'var(--color-success-ds)',
         emerald: 'var(--color-emerald)',
+        accent: 'var(--color-accent)',
+        // Status tokens for alert/error states
+        'status-bg-success': 'var(--color-bg-success)',
+        'status-text-success': 'var(--color-text-success)',
+        'status-border-success': 'var(--color-border-success)',
+        'status-bg-warning': 'var(--color-bg-warning)',
+        'status-text-warning': 'var(--color-text-warning)',
+        'status-border-warning': 'var(--color-border-warning)',
+        'status-bg-danger': 'var(--color-bg-danger)',
+        'status-text-danger': 'var(--color-text-danger)',
+        'status-border-danger': 'var(--color-border-danger)',
+        'status-bg-info': 'var(--color-bg-info)',
+        'status-text-info': 'var(--color-text-info)',
       },
       fontWeight: {
         /**
@@ -69,6 +82,16 @@ const config = {
          * Minimum heights for layout containers
          */
         'content-lg': '500px',
+      },
+      // Letter-spacing values from DESIGN.md typography scale.
+      // Named per heading level for use alongside text-size and font-weight utilities.
+      letterSpacing: {
+        h1: '-0.704px',
+        h2: '-0.288px',
+        h3: '-0.24px',
+        body: '-0.165px',
+        caption: '-0.182px',
+        'caption-sm': '-0.13px',
       },
     },
   },

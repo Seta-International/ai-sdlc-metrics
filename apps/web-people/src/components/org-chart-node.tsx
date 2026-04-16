@@ -103,17 +103,17 @@ export function OrgChartNodeComponent({
       {/* Children */}
       {isExpanded && node.children && node.children.length > 0 && (
         <div className="mt-4">
-          <div className="mx-auto h-4 w-px bg-[rgba(255,255,255,0.1)]" />
+          <div className="mx-auto h-4 w-px bg-overlay/10" />
           {node.children.length > 1 && (
             <div
-              className="mx-auto h-px bg-[rgba(255,255,255,0.1)]"
+              className="mx-auto h-px bg-overlay/10"
               style={{ width: `${(node.children.length - 1) * 240}px` }}
             />
           )}
           <div className="flex gap-6 justify-center">
             {node.children.map((child) => (
               <div key={child.employmentId} className="flex flex-col items-center">
-                <div className="h-4 w-px bg-[rgba(255,255,255,0.1)]" />
+                <div className="h-4 w-px bg-overlay/10" />
                 <OrgChartNodeComponent
                   node={child}
                   isHighlighted={false}

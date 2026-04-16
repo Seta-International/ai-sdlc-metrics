@@ -61,7 +61,7 @@ export default function CompletenessRulesPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-510 text-[#f7f8f8]">Completeness Rules</h2>
+        <h2 className="text-lg font-510 text-fg-primary">Completeness Rules</h2>
         <Button variant="default" size="sm" className="gap-1">
           <Plus className="h-3.5 w-3.5" />
           Add Rule

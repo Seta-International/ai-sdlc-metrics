@@ -40,48 +40,39 @@ export interface AppDefinition {
 const APP_ICONS: Record<string, { Icon: LucideIcon; accent: string }> = {
   people: {
     Icon: Users,
-    accent:
-      'bg-[rgba(37,99,235,0.15)] text-blue-400 dark:bg-[rgba(37,99,235,0.15)] dark:text-blue-400',
+    accent: 'bg-blue-600/15 text-blue-400 dark:bg-blue-600/15 dark:text-blue-400',
   },
   time: {
     Icon: Clock,
-    accent:
-      'bg-[rgba(8,145,178,0.15)] text-cyan-400 dark:bg-[rgba(8,145,178,0.15)] dark:text-cyan-400',
+    accent: 'bg-cyan-500/15 text-cyan-400 dark:bg-cyan-500/15 dark:text-cyan-400',
   },
   hiring: {
     Icon: Briefcase,
-    accent:
-      'bg-[rgba(124,58,237,0.15)] text-violet-400 dark:bg-[rgba(124,58,237,0.15)] dark:text-violet-400',
+    accent: 'bg-violet-600/15 text-violet-400 dark:bg-violet-600/15 dark:text-violet-400',
   },
   performance: {
     Icon: TrendingUp,
-    accent:
-      'bg-[rgba(217,119,6,0.15)] text-amber-400 dark:bg-[rgba(217,119,6,0.15)] dark:text-amber-400',
+    accent: 'bg-amber-600/15 text-amber-400 dark:bg-amber-600/15 dark:text-amber-400',
   },
   projects: {
     Icon: FolderOpen,
-    accent:
-      'bg-[rgba(5,150,105,0.15)] text-emerald-400 dark:bg-[rgba(5,150,105,0.15)] dark:text-emerald-400',
+    accent: 'bg-emerald-600/15 text-emerald-400 dark:bg-emerald-600/15 dark:text-emerald-400',
   },
   finance: {
     Icon: DollarSign,
-    accent:
-      'bg-[rgba(220,38,38,0.15)] text-red-300 dark:bg-[rgba(220,38,38,0.15)] dark:text-red-300',
+    accent: 'bg-red-600/15 text-red-300 dark:bg-red-600/15 dark:text-red-300',
   },
   goals: {
     Icon: Target,
-    accent:
-      'bg-[rgba(190,24,93,0.15)] text-pink-300 dark:bg-[rgba(190,24,93,0.15)] dark:text-pink-300',
+    accent: 'bg-pink-700/15 text-pink-300 dark:bg-pink-700/15 dark:text-pink-300',
   },
   insights: {
     Icon: BarChart2,
-    accent:
-      'bg-[rgba(29,78,216,0.15)] text-blue-300 dark:bg-[rgba(29,78,216,0.15)] dark:text-blue-300',
+    accent: 'bg-blue-700/15 text-blue-300 dark:bg-blue-700/15 dark:text-blue-300',
   },
   planner: {
     Icon: ListTodo,
-    accent:
-      'bg-[rgba(15,118,110,0.15)] text-teal-400 dark:bg-[rgba(15,118,110,0.15)] dark:text-teal-400',
+    accent: 'bg-teal-600/15 text-teal-400 dark:bg-teal-600/15 dark:text-teal-400',
   },
   admin: {
     Icon: Settings,

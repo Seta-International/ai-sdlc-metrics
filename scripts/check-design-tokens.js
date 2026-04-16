@@ -7,7 +7,10 @@ import { readFileSync } from 'node:fs'
 const PATTERNS = [
   { regex: /\[#[0-9a-fA-F]{3,8}\]/g, desc: 'arbitrary hex color' },
   { regex: /\[rgba?\(/g, desc: 'arbitrary rgba/rgb color' },
-  { regex: /\[\d+(\.\d+)?px\]/g, desc: 'arbitrary px value' },
+  // Matches arbitrary px values used inside utility classes.
+  // Excludes responsive-breakpoint variants like max-[500px]: and min-[768px]:
+  // (those are valid Tailwind responsive modifiers, not hardcoded values).
+  { regex: /\[\d+(?:\.\d+)?px\](?!:)/g, desc: 'arbitrary px value' },
 ]
 
 const files = process.argv.slice(2).filter((f) => /\.(tsx?|jsx?)$/.test(f))
