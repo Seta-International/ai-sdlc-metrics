@@ -4,6 +4,9 @@ pre-commit:
     format-check:
       glob: '*.{ts,tsx,js,mjs,json,md}'
       run: bunx prettier --check {staged_files}
+    design-tokens:
+      glob: '*.{ts,tsx,js,jsx}'
+      run: node scripts/check-design-tokens.js {staged_files}
 
 pre-push:
   parallel: true
