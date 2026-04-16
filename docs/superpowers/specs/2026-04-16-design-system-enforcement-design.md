@@ -1,341 +1,262 @@
-# Design System Enforcement & Migration
+# Design System Token Enforcement
 
-**Date:** 2026-04-16  
-**Scope:** Enforce design system compliance across the codebase by formalizing DESIGN.md into Tailwind config, disabling arbitrary values, and migrating all existing hardcoded colors/spacing/radius/shadows to design tokens.
+**Date:** 2026-04-16
+**Status:** Approved
 
----
+## Goal
 
-## 1. Overview
+Eliminate all hardcoded color and spacing values from the codebase. Every color and non-standard spacing value must reference a named design token. Violations are caught at commit time (pre-commit script) and at lint time (ESLint rule), making it impossible to introduce new hardcoded values. All existing violations are migrated in one sweep via a migration script.
 
-### Problem
+## Scope
 
-The codebase contains scattered hardcoded colors, spacing, and border radii (e.g., `text-[#f7f8f8]`, `bg-[rgba(255,255,255,0.05)]`, `p-[12px]`) despite DESIGN.md defining the complete system. This leads to:
-
-- Inconsistent styling and visual drift from the design system
-- Difficult maintenance when design tokens change
-- Onboarding friction for developers who must manually reference DESIGN.md
-
-### Solution
-
-1. **Formalize design tokens** in `tailwind.config.ts` — extract all colors, spacing, border radii, and shadows from DESIGN.md
-2. **Enforce via Tailwind** — disable arbitrary values so invalid tokens cannot be used
-3. **Enforce via ESLint** — catch violations during development with actionable messages
-4. **Migrate in one shot** — replace all existing hardcoded values with tokens in a single commit
-
-### Success Criteria
-
-- ✓ All colors from DESIGN.md defined in `tailwind.config.ts`
-- ✓ All spacing values (8px scale) defined in `tailwind.config.ts`
-- ✓ All border radii variants defined in `tailwind.config.ts`
-- ✓ All shadows defined in `tailwind.config.ts`
-- ✓ ESLint rule catches arbitrary color/spacing/radius/shadow values in className
-- ✓ Tailwind `corePlugins` disables arbitrary values as a hard constraint
-- ✓ Zero hardcoded values remaining in source files (`.tsx`, `.ts`)
-- ✓ All `.tsx` files use only defined design tokens
-- ✓ CI/CD lint gate enforces compliance on PRs
+- All files in `apps/*/src/**/*.{tsx,ts,jsx,js}` and `packages/*/src/**/*.{tsx,ts,jsx,js}`
+- Tailwind arbitrary value syntax (`[#...]`, `[rgba(...)]`, `[12px]`, etc.) — all banned, not just colors
+- Applies to new code going forward and all existing code (full migration)
 
 ---
 
-## 2. Tailwind Config Extension
+## Architecture
 
-### 2.1 Color Organization (Semantic, from DESIGN.md)
+### Layer 1 — CSS Custom Properties (`packages/ui/src/styles/tokens.css`)
 
-All colors mapped directly from DESIGN.md sections 2 & 9:
+Semantic color tokens are defined as CSS variables with RGB channel values (no commas), enabling Tailwind opacity modifiers (`bg-canvas/50`) to work correctly. `:root` defines light mode defaults; `.dark` overrides for dark mode.
 
-**Background Surfaces**
+```css
+:root {
+  /* Backgrounds */
+  --color-canvas: 247 248 248; /* #f7f8f8 */
+  --color-panel: 243 244 245; /* #f3f4f5 */
+  --color-surface: 255 255 255; /* #ffffff */
+  --color-elevated: 245 246 247; /* #f5f6f7 */
 
-- `bg-marketing-black`: `#010102` / `#08090a`
-- `bg-panel-dark`: `#0f1011`
-- `bg-surface-level-3`: `#191a1b`
-- `bg-secondary-surface`: `#28282c`
+  /* Foreground / text */
+  --color-fg-primary: 15 16 17; /* ~#0f1011 */
+  --color-fg-secondary: 60 70 85;
+  --color-fg-muted: 100 110 120;
+  --color-fg-subtle: 140 145 152;
 
-**Text & Content**
+  /* Dividers */
+  --color-divider: 230 230 230; /* #e6e6e6 */
+  --color-divider-md: 214 214 214;
+  --color-divider-lg: 200 200 200;
+  --color-line-tint: 240 241 242;
+  --color-line: 238 239 240;
 
-- `text-primary-text`: `#f7f8f8`
-- `text-secondary-text`: `#d0d6e0`
-- `text-tertiary-text`: `#8a8f98`
-- `text-quaternary-text`: `#62666d`
+  /* Overlay base (black in light, white in dark) */
+  --color-overlay: 0 0 0;
+}
 
-**Brand & Accent**
+.dark {
+  /* Backgrounds */
+  --color-canvas: 8 9 10; /* #08090a */
+  --color-panel: 15 16 17; /* #0f1011 */
+  --color-surface: 25 26 27; /* #191a1b */
+  --color-elevated: 40 40 44; /* #28282c */
 
-- `text-brand-indigo`: `#5e6ad2` (for brand mark text, if needed)
-- `bg-brand-indigo`: `#5e6ad2` (primary CTA background)
-- `text-accent-violet`: `#7170ff` (interactive accents)
-- `text-accent-hover`: `#828fff` (hover states on accent)
-- `text-security-lavender`: `#7a7fad` (security-specific elements)
+  /* Foreground / text */
+  --color-fg-primary: 247 248 248; /* #f7f8f8 */
+  --color-fg-secondary: 208 214 224; /* #d0d6e0 */
+  --color-fg-muted: 138 143 152; /* #8a8f98 */
+  --color-fg-subtle: 98 102 109; /* #62666d */
 
-**Status Colors**
+  /* Dividers */
+  --color-divider: 35 37 42; /* #23252a */
+  --color-divider-md: 52 52 58; /* #34343a */
+  --color-divider-lg: 62 62 68; /* #3e3e44 */
+  --color-line-tint: 20 21 22; /* #141516 */
+  --color-line: 24 25 26; /* #18191a */
 
-- `bg-status-green`: `#27a644` (in-progress indicator)
-- `bg-status-emerald`: `#10b981` (completion/success)
-
-**Borders & Dividers**
-
-- `border-primary`: `#23252a`
-- `border-secondary`: `#34343a`
-- `border-tertiary`: `#3e3e44`
-- `border-subtle`: `rgba(255, 255, 255, 0.05)` (default)
-- `border-standard`: `rgba(255, 255, 255, 0.08)` (cards, inputs)
-- `border-line-tint`: `#141516`
-- `border-line-tertiary`: `#18191a`
-
-**Light Mode (for light theme contexts)**
-
-- `bg-light`: `#f7f8f8`
-- `bg-light-surface`: `#f3f4f5` / `#f5f6f7`
-- `border-light`: `#d0d6e0`
-- `border-light-alt`: `#e6e6e6`
-- `bg-white`: `#ffffff`
-
-**Overlay**
-
-- `bg-overlay-primary`: `rgba(0, 0, 0, 0.85)`
-
-### 2.2 Spacing System (8px Base Unit)
-
-Extend Tailwind's default spacing with DESIGN.md's scale:
-
-```ts
-spacing: {
-  1: '4px',
-  2: '8px',
-  3: '12px',
-  4: '16px',
-  5: '20px',
-  6: '24px',
-  7: '28px',
-  8: '32px',
-  9: '35px',  // Optical adjustment
-  10: '36px',
-  11: '40px',
-  12: '44px',
-  13: '48px',
-  // ... extend as needed
+  /* Overlay base */
+  --color-overlay: 255 255 255;
 }
 ```
 
-Use Tailwind's default scale (4, 8, 12, 16, etc.) as the base; add custom values (7, 9, 11) for DESIGN.md's micro-adjustments.
+**Static tokens** (same in both themes — brand, accent, status) are hardcoded in `tailwind.config.ts` directly, no CSS variable needed.
 
-### 2.3 Border Radius Scale
+**Import:** `tokens.css` is imported once in each zone's root layout (`apps/*/src/app/layout.tsx`).
 
-From DESIGN.md section 5:
+---
+
+### Layer 2 — Tailwind Config (`tailwind.config.ts`)
+
+```typescript
+const config = {
+  content: ['./apps/*/src/**/*.{js,ts,jsx,tsx,mdx}', './packages/*/src/**/*.{js,ts,jsx,tsx,mdx}'],
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        // Semantic theme-aware tokens (CSS variables)
+        canvas: 'rgb(var(--color-canvas) / <alpha-value>)',
+        panel: 'rgb(var(--color-panel) / <alpha-value>)',
+        surface: 'rgb(var(--color-surface) / <alpha-value>)',
+        elevated: 'rgb(var(--color-elevated) / <alpha-value>)',
+
+        'fg-primary': 'rgb(var(--color-fg-primary) / <alpha-value>)',
+        'fg-secondary': 'rgb(var(--color-fg-secondary) / <alpha-value>)',
+        'fg-muted': 'rgb(var(--color-fg-muted) / <alpha-value>)',
+        'fg-subtle': 'rgb(var(--color-fg-subtle) / <alpha-value>)',
+
+        divider: 'rgb(var(--color-divider) / <alpha-value>)',
+        'divider-md': 'rgb(var(--color-divider-md) / <alpha-value>)',
+        'divider-lg': 'rgb(var(--color-divider-lg) / <alpha-value>)',
+        'line-tint': 'rgb(var(--color-line-tint) / <alpha-value>)',
+        line: 'rgb(var(--color-line) / <alpha-value>)',
+
+        // Overlay: bg-overlay/5 = rgba(white or black, 0.05) depending on theme
+        overlay: 'rgb(var(--color-overlay) / <alpha-value>)',
+
+        // Static brand & accent (same in both themes)
+        brand: '#5e6ad2',
+        accent: '#7170ff',
+        'accent-hover': '#828fff',
+        security: '#7a7fad',
+
+        // Static status
+        success: '#27a644',
+        emerald: '#10b981',
+
+        // Light mode surfaces (used explicitly in light-only contexts)
+        'light-bg': '#f7f8f8',
+        'light-surface': '#f3f4f5',
+        'light-border': '#d0d6e0',
+        'light-border-alt': '#e6e6e6',
+      },
+
+      fontWeight: {
+        510: '510',
+        590: '590',
+      },
+
+      fontSize: {
+        tiny: ['10px', { lineHeight: '1.4', letterSpacing: 'normal' }],
+        micro: ['11px', { lineHeight: '1.4', letterSpacing: 'normal' }],
+      },
+
+      // Non-standard spacing values from DESIGN.md
+      spacing: {
+        '1.75': '7px', // optical micro-gap
+        '2.75': '11px', // optical micro-gap
+        '4.75': '19px',
+        '5.5': '22px',
+        '8.75': '35px',
+      },
+
+      maxHeight: {
+        'content-lg': '500px',
+        'content-md': '300px',
+      },
+      minHeight: {
+        'content-lg': '500px',
+      },
+    },
+  },
+  plugins: [],
+}
+
+export default config
+```
+
+### rgba Migration Map
+
+Existing arbitrary rgba values convert to Tailwind opacity modifier syntax:
+
+| Old arbitrary value        | New syntax   |
+| -------------------------- | ------------ |
+| `[rgba(255,255,255,0.01)]` | `overlay/1`  |
+| `[rgba(255,255,255,0.02)]` | `overlay/2`  |
+| `[rgba(255,255,255,0.03)]` | `overlay/3`  |
+| `[rgba(255,255,255,0.04)]` | `overlay/4`  |
+| `[rgba(255,255,255,0.05)]` | `overlay/5`  |
+| `[rgba(255,255,255,0.08)]` | `overlay/8`  |
+| `[rgba(255,255,255,0.1)]`  | `overlay/10` |
+| `[rgba(113,112,255,0.04)]` | `accent/4`   |
+| `[rgba(0,0,0,0.2)]`        | `black/20`   |
+| `[rgba(0,0,0,0.4)]`        | `black/40`   |
+| `[rgba(0,0,0,0.85)]`       | `black/85`   |
+
+### Hex Color Migration Map
+
+| Old arbitrary value | New token      |
+| ------------------- | -------------- |
+| `[#08090a]`         | `canvas`       |
+| `[#0f1011]`         | `panel`        |
+| `[#191a1b]`         | `surface`      |
+| `[#28282c]`         | `elevated`     |
+| `[#f7f8f8]`         | `fg-primary`   |
+| `[#d0d6e0]`         | `fg-secondary` |
+| `[#8a8f98]`         | `fg-muted`     |
+| `[#62666d]`         | `fg-subtle`    |
+| `[#5e6ad2]`         | `brand`        |
+| `[#7170ff]`         | `accent`       |
+| `[#828fff]`         | `accent-hover` |
+| `[#7a7fad]`         | `security`     |
+| `[#27a644]`         | `success`      |
+| `[#10b981]`         | `emerald`      |
+| `[#23252a]`         | `divider`      |
+| `[#34343a]`         | `divider-md`   |
+| `[#3e3e44]`         | `divider-lg`   |
+| `[#141516]`         | `line-tint`    |
+| `[#18191a]`         | `line`         |
+| `[#e2e4e7]`         | `fg-secondary` |
+
+---
+
+## Enforcement
+
+### ESLint Rule (`packages/eslint-config`)
+
+Add `eslint-plugin-tailwindcss` with `tailwindcss/no-arbitrary-value: 'error'` to the shared config. Bans **all** arbitrary values — colors, spacing, sizing — not just colors. Surfaces violations in IDE immediately.
 
 ```ts
-borderRadius: {
-  'micro': '2px',
-  'standard': '4px',
-  'comfortable': '6px',
-  'card': '8px',
-  'panel': '12px',
-  'large': '22px',
-  'pill': '9999px',
-  'circle': '50%',
-}
+// packages/eslint-config/nextjs.ts
+import tailwindcss from 'eslint-plugin-tailwindcss'
+
+export default [
+  ...tailwindcss.configs['flat/recommended'],
+  {
+    settings: {
+      tailwindcss: { config: '<rootDir>/tailwind.config.ts' },
+    },
+    rules: {
+      'tailwindcss/no-arbitrary-value': 'error',
+    },
+  },
+]
 ```
 
-Usage: `rounded-micro`, `rounded-comfortable`, `rounded-pill`, etc.
+### Lefthook Pre-commit Script (`scripts/check-design-tokens.js`)
 
-### 2.4 Shadows (Complete Stack)
+Runs on staged files only. Greps for:
 
-From DESIGN.md section 6 (Depth & Elevation):
+- `\[#[0-9a-fA-F]{3,8}\]` — arbitrary hex
+- `\[rgba?\(` — arbitrary rgba/rgb
+- `\[\d+(\.\d+)?px\]` — arbitrary px values
 
-```ts
-boxShadow: {
-  'flat': 'none',
-  'subtle': 'rgba(0, 0, 0, 0.03) 0px 1.2px 0px',
-  'surface': 'rgba(255, 255, 255, 0.05) 0px 0px 0px 0px inset',
-  'inset': 'rgba(0, 0, 0, 0.2) 0px 0px 12px 0px inset',
-  'ring': 'rgba(0, 0, 0, 0.2) 0px 0px 0px 1px',
-  'elevated': 'rgba(0, 0, 0, 0.4) 0px 2px 4px',
-  'dialog': '
-    rgba(0, 0, 0, 0) 0px 8px 2px,
-    rgba(0, 0, 0, 0.01) 0px 5px 2px,
-    rgba(0, 0, 0, 0.04) 0px 3px 2px,
-    rgba(0, 0, 0, 0.07) 0px 1px 1px,
-    rgba(0, 0, 0, 0.08) 0px 0px 1px
-  ',
-  'focus': 'rgba(0, 0, 0, 0.1) 0px 4px 12px',
-}
-```
-
-Usage: `shadow-subtle`, `shadow-elevated`, `shadow-dialog`, etc.
-
-### 2.5 Disable Arbitrary Values
-
-In `tailwind.config.ts`, add:
-
-```ts
-corePlugins: {
-  // Prevent: text-[#f7f8f8], bg-[rgba(...)], p-[12px], etc.
-  arbitrary: false,
-}
-```
-
-Or selectively disable by category:
-
-```ts
-corePlugins: {
-  // Don't allow arbitrary color values
-  textOpacity: false,
-  backgroundOpacity: false,
-  // ... others as needed
-}
-```
-
-This ensures that if a developer tries to use `text-[#f00]` or `bg-[arbitrary]`, Tailwind will not generate the class, failing at build time.
+Exits non-zero on any match with file path + line number. Added to `lefthook.yml` pre-commit alongside the existing prettier check.
 
 ---
 
-## 3. ESLint Enforcement
+## Migration
 
-### 3.1 Rule Configuration
+### One-shot migration script (`scripts/migrate-design-tokens.js`)
 
-Use `eslint-plugin-tailwindcss` or create a custom rule to detect and report:
+- Walks all `apps/*/src/**/*.{tsx,ts,jsx,js}` and `packages/*/src/**/*.{tsx,ts,jsx,js}`
+- Applies hex and rgba replacement maps (see tables above)
+- Applies non-standard spacing replacements: `[7px]` → `1.75`, `[11px]` → `2.75`, etc.
+- Writes files in-place
+- Prints a report of any unrecognized arbitrary values that need manual review
 
-**Patterns to catch:**
-
-- `className="text-[#...]"` or `className="text-[rgb(...)]"` → suggest `text-primary-text` or appropriate token
-- `className="bg-[#...]"` → suggest `bg-surface-level-3` or token
-- `className="border-[#...]"` → suggest `border-subtle` or token
-- `className="p-[12px]"` → suggest `p-3` (from spacing scale)
-- `className="m-[24px]"` → suggest `m-6`
-- `className="rounded-[8px]"` → suggest `rounded-card`
-- `className="shadow-[...]"` → suggest `shadow-subtle`, `shadow-elevated`, etc.
-
-### 3.2 Error Message Template
-
-```
-Arbitrary Tailwind value detected: 'text-[#f7f8f8]'
-Use design system token instead: 'text-primary-text'
-See DESIGN.md section 2 for color reference or tailwind.config.ts for valid values.
-```
-
-### 3.3 Rule Application
-
-- Apply to all `.tsx` and `.jsx` files
-- Scope: className attributes only (standard practice)
-- Severity: `error` (fail lint, block PR)
+**After running:** delete the migration script, commit migrated files + deletion together.
 
 ---
 
-## 4. Migration Strategy
+## Delivery Order
 
-### 4.1 Scope
-
-All `.tsx` and `.ts` files in `apps/*/src` and `packages/*/src`.
-
-### 4.2 Approach
-
-1. Create a migration script that:
-   - Finds all instances of `text-[#...]`, `bg-[...]`, `p-[...]`, etc.
-   - Maps to nearest design token using DESIGN.md color names and spacing scale
-   - Performs safe string replacement with validation
-
-2. Manual fixes for edge cases:
-   - Custom rgba values that don't map to a standard token → add to config first
-   - Inline `style` attributes (not in scope, but flag for review)
-
-3. One-commit migration:
-   - Run the script
-   - Review the diff
-   - Commit with message: `refactor: migrate all hardcoded values to design system tokens`
-
-### 4.3 Mapping Examples
-
-| Hardcoded                         | Design Token           | Reason                                    |
-| --------------------------------- | ---------------------- | ----------------------------------------- |
-| `text-[#f7f8f8]`                  | `text-primary-text`    | Primary heading/text color from DESIGN.md |
-| `text-[#d0d6e0]`                  | `text-secondary-text`  | Body text color                           |
-| `text-[#8a8f98]`                  | `text-tertiary-text`   | Muted/placeholder color                   |
-| `bg-[rgba(255,255,255,0.05)]`     | `bg-surface-secondary` | Near-transparent surface                  |
-| `border-[rgba(255,255,255,0.08)]` | `border-standard`      | Standard card/input border                |
-| `p-[12px]`                        | `p-3`                  | 12px = 1.5 × 8px scale                    |
-| `rounded-[8px]`                   | `rounded-card`         | Card radius from DESIGN.md                |
-
----
-
-## 5. Implementation Plan (High-Level)
-
-1. **Update `tailwind.config.ts`**
-   - Add `colors`, `spacing`, `borderRadius`, `boxShadow` extensions
-   - Disable arbitrary values via `corePlugins`
-
-2. **Configure ESLint**
-   - Add rule to detect arbitrary Tailwind values
-   - Set to error severity
-
-3. **Run migration script**
-   - Scan all source files
-   - Replace hardcoded values with tokens
-   - Generate diff for review
-
-4. **Test**
-   - Run `bun run build` to ensure no build errors
-   - Run ESLint to confirm no violations remain
-   - Spot-check visual consistency in running app
-
-5. **Commit**
-   - Single commit: "refactor: migrate all hardcoded values to design system tokens"
-
-6. **CI/CD Gate**
-   - Ensure ESLint fails on PRs with arbitrary values
-   - Document in CLAUDE.md that design tokens are mandatory
-
----
-
-## 6. Edge Cases & Considerations
-
-### 6.1 Dynamic Styling
-
-If components need dynamic colors (e.g., status-dependent), use CSS-in-JS or pass token names as props:
-
-```tsx
-// Good
-const statusColor = status === 'active' ? 'bg-status-green' : 'bg-tertiary-text';
-<div className={statusColor} />
-
-// Avoid
-<div style={{ backgroundColor: status === 'active' ? '#27a644' : '#8a8f98' }} />
-```
-
-### 6.2 Custom Components
-
-If a base component (e.g., from `packages/ui`) uses a hardcoded color, it should be updated as part of this migration.
-
-### 6.3 Third-Party Components
-
-If a third-party component (Radix UI, etc.) has hardcoded styling, wrap it with a design-compliant layer rather than duplicating tokens.
-
----
-
-## 7. Rollout & Enforcement
-
-### Immediate (This Sprint)
-
-- Update `tailwind.config.ts` with all tokens
-- Configure ESLint rule
-- Run migration script
-- Commit all changes
-
-### Ongoing
-
-- ESLint rule blocks any new arbitrary values
-- Tailwind config prevents build-time violations
-- Code review enforces design system during PR review
-
-### Documentation
-
-- Update CLAUDE.md with:
-  - Design system is mandatory (no exceptions)
-  - Color/spacing/radius reference (link to DESIGN.md + config)
-  - How to add new tokens (rare, requires design sign-off)
-
----
-
-## 8. Success Metrics
-
-- ✅ Zero hardcoded colors/spacing/radius/shadows in source files
-- ✅ ESLint lint passes with no violations
-- ✅ `bun run build` succeeds without errors
-- ✅ Visual regression test shows no unintended changes
-- ✅ New PRs are blocked if they contain arbitrary Tailwind values
+1. Add `tokens.css` to `packages/ui/src/styles/`
+2. Update `tailwind.config.ts` with all new tokens
+3. Import `tokens.css` in each zone's root layout
+4. Add `eslint-plugin-tailwindcss` to `packages/eslint-config`
+5. Add `check-design-tokens.js` script and update `lefthook.yml`
+6. Write and run `migrate-design-tokens.js`
+7. Delete migration script, verify lint passes, commit
