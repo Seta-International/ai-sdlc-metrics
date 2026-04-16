@@ -39,6 +39,26 @@
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
+  /* Design system tokens */
+  --color-canvas: var(--canvas);
+  --color-panel: var(--panel);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-fg-primary: var(--fg-primary);
+  --color-fg-secondary: var(--fg-secondary);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-divider: var(--divider);
+  --color-divider-md: var(--divider-md);
+  --color-divider-lg: var(--divider-lg);
+  --color-line-tint: var(--line-tint);
+  --color-line: var(--line);
+  --color-overlay: var(--overlay);
+  --color-brand: var(--brand);
+  --color-accent-hover: var(--accent-hover);
+  --color-security: var(--security);
+  --color-success-ds: var(--success-ds);
+  --color-emerald: var(--emerald);
 }
 
 @layer base {
@@ -118,6 +138,28 @@
     --font-family-body: var(--font-inter, 'Inter'), -apple-system, system-ui, sans-serif;
     --font-family-mono:
       var(--font-ibm-plex-mono, 'IBM Plex Mono'), ui-monospace, 'SF Mono', Menlo, monospace;
+
+    /* Design system tokens — light mode */
+    --canvas: #f7f8f8;
+    --panel: #f3f4f5;
+    --surface: #ffffff;
+    --elevated: #f5f6f7;
+    --fg-primary: #0f1011;
+    --fg-secondary: #3c4655;
+    --fg-muted: #646e78;
+    --fg-subtle: #8c9198;
+    --divider: #e6e6e6;
+    --divider-md: #d6d6d6;
+    --divider-lg: #c8c8c8;
+    --line-tint: #f0f1f2;
+    --line: #eeeef0;
+    --overlay: #000000;
+    /* Static design tokens — same in both themes, defined once in :root */
+    --brand: #5e6ad2;
+    --accent-hover: #828fff;
+    --security: #7a7fad;
+    --success-ds: #27a644;
+    --emerald: #10b981;
   }
 
   .dark {
@@ -186,6 +228,24 @@
 
     /* Dark sidebar bg (legacy alias kept) */
     --color-sidebar-bg: #0f1011;
+
+    /* Design system tokens — dark mode overrides */
+    --canvas: #08090a;
+    --panel: #0f1011;
+    --surface: #191a1b;
+    --elevated: #28282c;
+    --fg-primary: #f7f8f8;
+    --fg-secondary: #d0d6e0;
+    --fg-muted: #8a8f98;
+    --fg-subtle: #62666d;
+    --divider: #23252a;
+    --divider-md: #34343a;
+    --divider-lg: #3e3e44;
+    --line-tint: #141516;
+    --line: #18191a;
+    --overlay: #ffffff;
+    /* Static tokens (brand, accent-hover, security, success-ds, emerald) are NOT
+       overridden here — they inherit the :root values in both themes. */
   }
 }
 
