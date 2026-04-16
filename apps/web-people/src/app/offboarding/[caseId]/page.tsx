@@ -7,7 +7,7 @@ import { OffboardingCaseDetail } from '../../../components/offboarding/offboardi
 export default function OffboardingCaseDetailPage() {
   const params = useParams()
   return (
-    <main className="container mx-auto py-8 space-y-6">
+    <main className="container mx-auto p-3 space-y-6">
       <OffboardingCaseDetail caseId={params.caseId as string} />
     </main>
   )

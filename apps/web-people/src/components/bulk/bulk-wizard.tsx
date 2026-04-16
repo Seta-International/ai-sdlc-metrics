@@ -67,16 +67,16 @@ export function BulkWizard() {
         {STEPS.map((s, i) => (
           <React.Fragment key={s}>
             <div
-              className={`flex items-center gap-1 text-xs font-[510] ${step === s ? 'text-[#7170ff]' : i < STEPS.indexOf(step) ? 'text-[#10b981]' : 'text-[#62666d]'}`}
+              className={`flex items-center gap-1 text-xs font-510 ${step === s ? 'text-accent' : i < STEPS.indexOf(step) ? 'text-emerald-500' : 'text-secondary-foreground/60'}`}
             >
               <div
-                className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] ${step === s ? 'bg-[#5e6ad2] text-white' : i < STEPS.indexOf(step) ? 'bg-[#10b981]/20 text-[#10b981]' : 'bg-[rgba(255,255,255,0.05)] text-[#62666d]'}`}
+                className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${step === s ? 'bg-primary text-white' : i < STEPS.indexOf(step) ? 'bg-emerald-500/20 text-emerald-500' : 'bg-secondary/50 text-secondary-foreground/60'}`}
               >
                 {i + 1}
               </div>
               {s.charAt(0).toUpperCase() + s.slice(1)}
             </div>
-            {i < 4 && <div className="h-px w-8 bg-[rgba(255,255,255,0.08)]" />}
+            {i < 4 && <div className="h-px w-8 bg-border" />}
           </React.Fragment>
         ))}
       </div>
@@ -89,12 +89,12 @@ export function BulkWizard() {
             return (
               <Card
                 key={op.type}
-                className={`cursor-pointer border p-6 text-center transition-colors ${operation === op.type ? 'border-[#7170ff] bg-[rgba(113,112,255,0.04)]' : 'border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.04)]'}`}
+                className={`cursor-pointer border p-6 text-center transition-colors ${operation === op.type ? 'border-accent bg-accent/5' : 'border-border bg-card hover:bg-secondary'}`}
                 onClick={() => setOperation(op.type)}
               >
-                <Icon className="mx-auto h-8 w-8 text-[#8a8f98] mb-3" />
-                <div className="text-sm font-[510] text-[#f7f8f8]">{op.title}</div>
-                <div className="text-xs text-[#62666d] mt-1">{op.description}</div>
+                <Icon className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
+                <div className="text-sm font-510 text-foreground">{op.title}</div>
+                <div className="text-xs text-secondary-foreground/60 mt-1">{op.description}</div>
               </Card>
             )
           })}
@@ -108,14 +108,14 @@ export function BulkWizard() {
 
       {/* Step 3: Configure */}
       {step === 'configure' && operation && (
-        <Card className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-6 max-w-md">
-          <h3 className="text-sm font-[590] text-[#f7f8f8] mb-4">
+        <Card className="border-border bg-card p-6 max-w-md">
+          <h3 className="text-sm font-590 text-foreground mb-4">
             Configure: {operations.find((o) => o.type === operation)?.title}
           </h3>
           {operation === 'change_department' && (
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="text-xs font-[510] text-[#8a8f98]">New Department</label>
+                <label className="text-xs font-510 text-muted-foreground">New Department</label>
                 <Select onValueChange={(val) => setConfig({ ...config, departmentId: val })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select department..." />
@@ -128,7 +128,7 @@ export function BulkWizard() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-[510] text-[#8a8f98]">Effective Date</label>
+                <label className="text-xs font-510 text-muted-foreground">Effective Date</label>
                 <Input
                   type="date"
                   onChange={(e) => setConfig({ ...config, effectiveDate: e.target.value })}
@@ -139,14 +139,14 @@ export function BulkWizard() {
           {operation === 'change_manager' && (
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="text-xs font-[510] text-[#8a8f98]">New Manager</label>
+                <label className="text-xs font-510 text-muted-foreground">New Manager</label>
                 <Input
                   placeholder="Search by name..."
                   onChange={(e) => setConfig({ ...config, managerId: e.target.value })}
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-[510] text-[#8a8f98]">Effective Date</label>
+                <label className="text-xs font-510 text-muted-foreground">Effective Date</label>
                 <Input
                   type="date"
                   onChange={(e) => setConfig({ ...config, effectiveDate: e.target.value })}
@@ -156,7 +156,7 @@ export function BulkWizard() {
           )}
           {operation === 'change_status' && (
             <div className="space-y-1">
-              <label className="text-xs font-[510] text-[#8a8f98]">New Status</label>
+              <label className="text-xs font-510 text-muted-foreground">New Status</label>
               <Select onValueChange={(val) => setConfig({ ...config, status: val })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select status..." />
@@ -177,17 +177,17 @@ export function BulkWizard() {
 
       {/* Step 5: Confirm */}
       {step === 'confirm' && (
-        <Card className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-8 text-center max-w-md mx-auto">
+        <Card className="border-border bg-card p-8 text-center max-w-md mx-auto">
           {isProcessing ? (
             <div className="space-y-4">
-              <h3 className="text-sm font-[590] text-[#f7f8f8]">Processing</h3>
+              <h3 className="text-sm font-590 text-foreground">Processing</h3>
               <Progress value={progress} className="h-2" />
-              <p className="text-xs text-[#8a8f98]">{progress}% complete</p>
+              <p className="text-xs text-muted-foreground">{progress}% complete</p>
             </div>
           ) : (
             <div className="space-y-4">
-              <h3 className="text-sm font-[590] text-[#f7f8f8]">Ready to Execute</h3>
-              <p className="text-sm text-[#8a8f98]">
+              <h3 className="text-sm font-590 text-foreground">Ready to Execute</h3>
+              <p className="text-sm text-muted-foreground">
                 {selectedIds.length} employees will be updated.
               </p>
               <Button variant="default" onClick={() => setIsProcessing(true)}>

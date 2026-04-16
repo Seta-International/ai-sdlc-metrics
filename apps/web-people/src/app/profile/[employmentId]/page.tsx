@@ -73,7 +73,7 @@ export default function EmployeeProfilePage() {
 
   if (isLoading) {
     return (
-      <main className="container mx-auto py-8 space-y-6">
+      <main className="container mx-auto p-3 space-y-6">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-40 w-full" />
         <Skeleton className="h-96 w-full" />
@@ -90,7 +90,7 @@ export default function EmployeeProfilePage() {
   }
 
   return (
-    <main className="container mx-auto py-8 space-y-6">
+    <main className="container mx-auto p-3 space-y-6">
       <ProfileHeader
         profile={profile}
         canEdit={permissions.canEdit}

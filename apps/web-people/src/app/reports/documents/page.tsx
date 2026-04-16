@@ -34,7 +34,7 @@ const expiringColumns: ColumnDef<ExpiringDocumentRow>[] = [
     cell: ({ getValue }: CellContext<ExpiringDocumentRow, unknown>) => {
       const days = getValue() as number
       const color = days <= 7 ? 'text-red-400' : days <= 30 ? 'text-amber-400' : 'text-[#10b981]'
-      return <span className={`text-sm font-[510] ${color}`}>{days}d</span>
+      return <span className={`text-sm font-510 ${color}`}>{days}d</span>
     },
   },
 ]
@@ -62,7 +62,7 @@ export default function DocumentsReportPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-[510] text-[#f7f8f8]">Document Compliance</h2>
+      <h2 className="text-lg font-510 text-[#f7f8f8]">Document Compliance</h2>
       <Tabs defaultValue="expiring">
         <TabsList>
           <TabsTrigger value="expiring">Expiring Documents</TabsTrigger>

@@ -63,7 +63,7 @@ export function TabSections({ employmentId, canEdit }: { employmentId: string; c
             <TabsTrigger key={type} value={type} className="text-xs gap-1">
               {sectionLabels[type]}
               {grouped[type] && (
-                <Badge variant="subtle" className="h-4 px-1 text-[10px] ml-1">
+                <Badge variant="subtle" className="h-4 px-1 text-xs ml-1">
                   {grouped[type].length}
                 </Badge>
               )}
@@ -96,7 +96,7 @@ function SectionList({
   if (entries.length === 0) {
     return (
       <div className="py-8 text-center">
-        <p className="text-sm text-[#62666d]">
+        <p className="text-sm text-secondary-foreground/60">
           No {sectionLabels[sectionType]?.toLowerCase()} entries yet.
         </p>
         {canEdit && (
@@ -119,16 +119,17 @@ function SectionList({
         </div>
       )}
       {entries.map((entry) => (
-        <Card
-          key={entry.id}
-          className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-4"
-        >
+        <Card key={entry.id} className="border-border bg-card p-4">
           <div className="flex items-start justify-between">
             <div className="space-y-1">
               {Object.entries(entry.data).map(([key, val]) => (
                 <div key={key} className="text-sm">
-                  <span className="text-[#8a8f98] capitalize">{key.replace(/_/g, ' ')}: </span>
-                  <span className="text-[#d0d6e0]">{val == null ? '--' : String(val)}</span>
+                  <span className="text-muted-foreground capitalize">
+                    {key.replace(/_/g, ' ')}:{' '}
+                  </span>
+                  <span className="text-secondary-foreground">
+                    {val == null ? '--' : String(val)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -157,7 +158,10 @@ function SkillsView({ entries, canEdit }: { entries: ProfileSection[]; canEdit: 
           <Badge key={entry.id} variant="subtle" className="gap-1">
             {String(entry.data.name ?? entry.data.skill ?? '')}
             {canEdit && (
-              <button type="button" className="ml-1 text-[#62666d] hover:text-red-400">
+              <button
+                type="button"
+                className="ml-1 text-secondary-foreground/60 hover:text-red-400"
+              >
                 x
               </button>
             )}

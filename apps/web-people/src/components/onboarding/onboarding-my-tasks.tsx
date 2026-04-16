@@ -29,35 +29,36 @@ export function OnboardingMyTasks() {
   }, [])
 
   if (isLoading) {
-    return <div className="text-sm text-[#8a8f98] py-8 text-center">Loading tasks...</div>
+    return <div className="text-sm text-muted-foreground py-8 text-center">Loading tasks...</div>
   }
 
   if (tasks.length === 0) {
-    return <div className="text-sm text-[#62666d] py-8 text-center">No tasks assigned to you.</div>
+    return (
+      <div className="text-sm text-secondary-foreground/60 py-8 text-center">
+        No tasks assigned to you.
+      </div>
+    )
   }
 
   return (
     <div className="space-y-2">
       {tasks.map((task) => (
-        <Card
-          key={task.id}
-          className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-4"
-        >
+        <Card key={task.id} className="border-border bg-card p-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3 min-w-0">
               {task.status === 'completed' ? (
-                <CheckCircle2 className="h-5 w-5 text-[#10b981] mt-0.5 shrink-0" />
+                <CheckCircle2 className="h-5 w-5 text-emerald-500 mt-0.5 shrink-0" />
               ) : task.isOverdue ? (
                 <AlertTriangle className="h-5 w-5 text-red-400 mt-0.5 shrink-0" />
               ) : (
-                <Clock className="h-5 w-5 text-[#8a8f98] mt-0.5 shrink-0" />
+                <Clock className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
               )}
               <div className="min-w-0">
-                <div className="text-sm font-[510] text-[#f7f8f8]">{task.title}</div>
-                <div className="text-xs text-[#8a8f98] mt-0.5">For: {task.employeeName}</div>
+                <div className="text-sm font-510 text-foreground">{task.title}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">For: {task.employeeName}</div>
                 {task.dueDate && (
                   <div
-                    className={`text-xs mt-0.5 ${task.isOverdue ? 'text-red-400' : 'text-[#62666d]'}`}
+                    className={`text-xs mt-0.5 ${task.isOverdue ? 'text-red-400' : 'text-secondary-foreground/60'}`}
                   >
                     Due: {new Date(task.dueDate).toLocaleDateString('en-GB')}
                     {task.isOverdue && ' (overdue)'}

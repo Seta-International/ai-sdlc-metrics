@@ -37,7 +37,7 @@ export default function EditPoliciesPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-[510] text-[#f7f8f8]">Edit Policies</h2>
+        <h2 className="text-lg font-510 text-[#f7f8f8]">Edit Policies</h2>
         <Button variant="default" size="sm">
           Save Changes
         </Button>

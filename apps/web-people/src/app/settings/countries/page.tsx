@@ -80,7 +80,7 @@ export default function CountriesPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-[510] text-[#f7f8f8]">Country Configuration</h2>
+      <h2 className="text-lg font-510 text-[#f7f8f8]">Country Configuration</h2>
       <CountriesTable
         rows={rows}
         totalCount={totalCount}

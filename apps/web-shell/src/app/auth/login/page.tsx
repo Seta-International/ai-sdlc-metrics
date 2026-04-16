@@ -70,14 +70,14 @@ export default function LoginPage() {
         <div className="space-y-3">
           <a
             href={msLoginUrl}
-            className="flex w-full items-center justify-center gap-3 rounded-md border border-border bg-card px-4 py-3 text-sm font-[510] text-foreground transition-colors hover:bg-secondary"
+            className="flex w-full items-center justify-center gap-3 rounded-md border border-border bg-card px-4 py-3 text-sm font-510 text-foreground transition-colors hover:bg-secondary"
           >
             <span>Continue with Microsoft</span>
           </a>
 
           <a
             href={googleLoginUrl}
-            className="flex w-full items-center justify-center gap-3 rounded-md border border-border bg-card px-4 py-3 text-sm font-[510] text-foreground transition-colors hover:bg-secondary"
+            className="flex w-full items-center justify-center gap-3 rounded-md border border-border bg-card px-4 py-3 text-sm font-510 text-foreground transition-colors hover:bg-secondary"
           >
             <span>Continue with Google</span>
           </a>
@@ -109,7 +109,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading || !email}
-            className="w-full rounded-md bg-[#5e6ad2] px-4 py-3 text-sm font-[510] text-white transition-colors hover:bg-[#828fff] disabled:opacity-50"
+            className="w-full rounded-md bg-[#5e6ad2] px-4 py-3 text-sm font-510 text-white transition-colors hover:bg-[#828fff] disabled:opacity-50"
           >
             {loading ? 'Sending…' : 'Send magic link'}
           </button>

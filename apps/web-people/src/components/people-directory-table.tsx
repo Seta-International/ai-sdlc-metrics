@@ -69,7 +69,7 @@ const columns: ColumnDef<DirectoryRow>[] = [
     enableSorting: true,
     cell: ({ getValue }: CellContext<DirectoryRow, unknown>) => {
       const val = getValue() as string | null
-      return val ?? <span className="text-[#62666d]">--</span>
+      return val ?? <span className="text-secondary-foreground/60">--</span>
     },
   },
   {
@@ -87,9 +87,9 @@ const columns: ColumnDef<DirectoryRow>[] = [
     cell: ({ getValue }: CellContext<DirectoryRow, unknown>) => {
       const code = getValue() as string | null
       return code ? (
-        <span className="text-xs text-[#d0d6e0]">{code.toUpperCase()}</span>
+        <span className="text-xs text-secondary-foreground">{code.toUpperCase()}</span>
       ) : (
-        <span className="text-[#62666d]">--</span>
+        <span className="text-secondary-foreground/60">--</span>
       )
     },
   },
@@ -198,10 +198,10 @@ export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps)
     return (
       <button
         type="button"
-        className="w-full text-left px-4 py-3 text-sm hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+        className="w-full text-left px-4 py-3 text-sm hover:bg-secondary transition-colors"
         onClick={() => handleRowClick(row)}
       >
-        <span className="text-[#62666d]">View profile →</span>
+        <span className="text-secondary-foreground/60">View profile →</span>
       </button>
     )
   }
@@ -219,19 +219,21 @@ export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps)
             countries={facets.countries}
             locations={facets.locations}
           />
-          {totalCount > 0 && <span className="text-xs text-[#62666d]">{totalCount} employees</span>}
+          {totalCount > 0 && (
+            <span className="text-xs text-secondary-foreground/60">{totalCount} employees</span>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
           {/* View toggle */}
-          <div className="flex items-center rounded-md border border-[rgba(255,255,255,0.08)]">
+          <div className="flex items-center rounded-md border border-border">
             <button
               type="button"
               onClick={() => setViewMode('list')}
               className={`rounded-l-md p-1.5 ${
                 viewMode === 'list'
-                  ? 'bg-[rgba(255,255,255,0.08)] text-[#f7f8f8]'
-                  : 'text-[#62666d] hover:text-[#8a8f98]'
+                  ? 'bg-border text-foreground'
+                  : 'text-secondary-foreground/60 hover:text-muted-foreground'
               }`}
               aria-label="List view"
             >
@@ -242,8 +244,8 @@ export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps)
               onClick={() => setViewMode('card')}
               className={`rounded-r-md p-1.5 ${
                 viewMode === 'card'
-                  ? 'bg-[rgba(255,255,255,0.08)] text-[#f7f8f8]'
-                  : 'text-[#62666d] hover:text-[#8a8f98]'
+                  ? 'bg-border text-foreground'
+                  : 'text-secondary-foreground/60 hover:text-muted-foreground'
               }`}
               aria-label="Card view"
             >

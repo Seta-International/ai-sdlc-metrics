@@ -83,10 +83,10 @@ export default function SharedProfilePage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center py-12 px-4">
-      <div className="text-sm font-[510] text-[#8a8f98] mb-8">{profile.companyName}</div>
+      <div className="text-sm font-510 text-[#8a8f98] mb-8">{profile.companyName}</div>
       <Card className="w-full max-w-lg border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-8">
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[rgba(255,255,255,0.05)] text-xl font-[510] text-[#d0d6e0] mb-4">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[rgba(255,255,255,0.05)] text-xl font-510 text-[#d0d6e0] mb-4">
             {profile.avatarUrl ? (
               <Image
                 src={profile.avatarUrl}
@@ -99,7 +99,7 @@ export default function SharedProfilePage() {
               initials
             )}
           </div>
-          <h1 className="text-2xl font-[510] tracking-[-0.288px] text-[#f7f8f8]">
+          <h1 className="text-2xl font-510 tracking-[-0.288px] text-[#f7f8f8]">
             {profile.fullName}
           </h1>
           <div className="text-sm text-[#8a8f98] mt-1">{profile.jobTitle}</div>
@@ -107,7 +107,7 @@ export default function SharedProfilePage() {
         </div>
 
         <div className="space-y-2 mb-6">
-          <div className="text-xs text-[#62666d] uppercase font-[510]">Contact</div>
+          <div className="text-xs text-[#62666d] uppercase font-510">Contact</div>
           <div className="text-sm text-[#d0d6e0]">{profile.companyEmail}</div>
           {profile.location && <div className="text-sm text-[#8a8f98]">{profile.location}</div>}
           {profile.workArrangement && (
@@ -117,7 +117,7 @@ export default function SharedProfilePage() {
 
         {profile.skills.length > 0 && (
           <div className="mb-6">
-            <div className="text-xs text-[#62666d] uppercase font-[510] mb-2">Skills</div>
+            <div className="text-xs text-[#62666d] uppercase font-510 mb-2">Skills</div>
             <div className="flex flex-wrap gap-1">
               {profile.skills.map((skill) => (
                 <Badge key={skill} variant="subtle">
@@ -130,7 +130,7 @@ export default function SharedProfilePage() {
 
         {profile.education.length > 0 && (
           <div className="mb-6">
-            <div className="text-xs text-[#62666d] uppercase font-[510] mb-2">Education</div>
+            <div className="text-xs text-[#62666d] uppercase font-510 mb-2">Education</div>
             {profile.education.map((edu) => (
               <div key={`${edu.institution}-${edu.degree}`} className="mb-2">
                 <div className="text-sm text-[#d0d6e0]">{edu.degree}</div>
@@ -144,7 +144,7 @@ export default function SharedProfilePage() {
 
         {profile.certifications.length > 0 && (
           <div className="mb-6">
-            <div className="text-xs text-[#62666d] uppercase font-[510] mb-2">Certifications</div>
+            <div className="text-xs text-[#62666d] uppercase font-510 mb-2">Certifications</div>
             {profile.certifications.map((cert) => (
               <div key={`${cert.name}-${cert.issuer}`} className="mb-2">
                 <div className="text-sm text-[#d0d6e0]">{cert.name}</div>
@@ -158,7 +158,7 @@ export default function SharedProfilePage() {
 
         {profile.socialLinks.length > 0 && (
           <div className="mb-6">
-            <div className="text-xs text-[#62666d] uppercase font-[510] mb-2">Links</div>
+            <div className="text-xs text-[#62666d] uppercase font-510 mb-2">Links</div>
             {profile.socialLinks.map((link) => (
               <a
                 key={link.url}

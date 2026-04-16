@@ -68,18 +68,17 @@ export function TabOverview({
 
       <InfoCard title="Emergency Contacts" editable={canEditPersonal}>
         {emergencyContacts.length === 0 ? (
-          <p className="text-sm text-[#62666d]">No emergency contacts added.</p>
+          <p className="text-sm text-secondary-foreground/60">No emergency contacts added.</p>
         ) : (
           <div className="space-y-3">
             {emergencyContacts.map((contact) => (
-              <div
-                key={contact.id}
-                className="rounded-md border border-[rgba(255,255,255,0.05)] p-3"
-              >
-                <div className="text-sm font-[510] text-[#f7f8f8]">{contact.name}</div>
-                <div className="text-xs text-[#8a8f98]">{contact.relationship}</div>
-                <div className="mt-1 text-xs text-[#d0d6e0]">{contact.phone}</div>
-                {contact.email && <div className="text-xs text-[#d0d6e0]">{contact.email}</div>}
+              <div key={contact.id} className="rounded-md border border-sidebar-border p-3">
+                <div className="text-sm font-510 text-foreground">{contact.name}</div>
+                <div className="text-xs text-muted-foreground">{contact.relationship}</div>
+                <div className="mt-1 text-xs text-secondary-foreground">{contact.phone}</div>
+                {contact.email && (
+                  <div className="text-xs text-secondary-foreground">{contact.email}</div>
+                )}
               </div>
             ))}
           </div>
@@ -88,13 +87,15 @@ export function TabOverview({
 
       <InfoCard title="Addresses" editable={canEditPersonal}>
         {addresses.length === 0 ? (
-          <p className="text-sm text-[#62666d]">No addresses added.</p>
+          <p className="text-sm text-secondary-foreground/60">No addresses added.</p>
         ) : (
           <div className="space-y-3">
             {addresses.map((addr) => (
-              <div key={addr.id} className="rounded-md border border-[rgba(255,255,255,0.05)] p-3">
-                <div className="text-xs font-[510] text-[#8a8f98] uppercase mb-1">{addr.type}</div>
-                <div className="text-sm text-[#d0d6e0]">
+              <div key={addr.id} className="rounded-md border border-sidebar-border p-3">
+                <div className="text-xs font-510 text-muted-foreground uppercase mb-1">
+                  {addr.type}
+                </div>
+                <div className="text-sm text-secondary-foreground">
                   {addr.line1}
                   {addr.line2 && <>, {addr.line2}</>}
                   <br />

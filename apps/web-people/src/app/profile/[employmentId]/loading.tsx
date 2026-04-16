@@ -2,7 +2,7 @@ import { Skeleton } from '@future/ui'
 
 export default function ProfileLoading() {
   return (
-    <main className="container mx-auto py-8 space-y-6">
+    <main className="container mx-auto p-3 space-y-6">
       <Skeleton className="h-8 w-48" />
       <div className="flex gap-6">
         <Skeleton className="h-24 w-24 rounded-full shrink-0" />

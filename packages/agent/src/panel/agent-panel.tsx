@@ -27,29 +27,30 @@ export function AgentPanel() {
   return (
     <div
       data-testid="agent-panel"
-      className="flex h-full w-[400px] flex-shrink-0 flex-col border-l border-[rgba(255,255,255,0.08)] bg-[#0f1011] shadow-lg"
+      className="dark flex h-full min-h-0 w-96 flex-shrink-0 flex-col border-l border-sidebar-border bg-sidebar shadow-lg"
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.08)] px-3 py-2">
-        <div className="flex items-center gap-2 text-sm font-medium text-[#f7f8f8]">
+      <div className="flex items-center justify-between border-b border-sidebar-border px-3 py-2">
+        <div className="flex items-center gap-2 text-sm font-medium text-sidebar-foreground">
           <MessageSquare className="h-4 w-4" />
           Agent
         </div>
         <button
           onClick={() => setPanelOpen(false)}
-          className="rounded-md p-1 text-[#8a8f98] hover:bg-[rgba(255,255,255,0.05)]"
+          aria-label="Close agent panel"
+          className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-secondary/30 text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
         >
-          <X className="h-4 w-4" />
+          <X className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {/* Context pills */}
       <AgentContextPills />
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto py-2">
+      {/* Messages — only this area scrolls */}
+      <div className="min-h-0 flex-1 overflow-y-auto py-2">
         {messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-[#62666d]">
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
             <MessageSquare className="h-8 w-8 opacity-40" />
             <p className="text-sm">Start a conversation</p>
           </div>
@@ -58,7 +59,7 @@ export function AgentPanel() {
         )}
       </div>
 
-      {/* Input */}
+      {/* Input — pinned to bottom */}
       <AgentMessageInput onSend={handleSend} />
     </div>
   )

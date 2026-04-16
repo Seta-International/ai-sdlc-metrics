@@ -63,9 +63,9 @@ function buildColumns(onNavigate: (id: string) => void): ColumnDef<OnboardingCas
             ? Math.round((row.original.tasksCompleted / row.original.tasksTotal) * 100)
             : 0
         return (
-          <div className="flex items-center gap-2 min-w-[120px]">
+          <div className="flex items-center gap-2 min-w-32">
             <Progress value={pct} className="h-1.5 flex-1" />
-            <span className="text-xs text-[#8a8f98] whitespace-nowrap">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">
               {row.original.tasksCompleted}/{row.original.tasksTotal}
             </span>
           </div>

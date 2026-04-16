@@ -48,7 +48,7 @@ const documentColumns: ColumnDef<EmployeeDocument>[] = [
     header: 'Expiry',
     cell: ({ getValue }: CellContext<EmployeeDocument, unknown>) => {
       const date = getValue() as string | null
-      if (!date) return <span className="text-[#62666d]">--</span>
+      if (!date) return <span className="text-secondary-foreground/60">--</span>
       const daysRemaining = Math.ceil(
         (new Date(date).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
       )
@@ -59,7 +59,7 @@ const documentColumns: ColumnDef<EmployeeDocument>[] = [
             ? 'text-red-400'
             : daysRemaining < 90
               ? 'text-amber-400'
-              : 'text-[#d0d6e0]'
+              : 'text-secondary-foreground'
       return (
         <span className={color}>
           {new Date(date).toLocaleDateString('en-GB')}
@@ -119,23 +119,25 @@ export function TabDocuments({
   return (
     <div className="space-y-6">
       {requirements.length > 0 && (
-        <Card className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-4">
-          <h3 className="text-sm font-[590] text-[#f7f8f8] mb-3">Required Documents</h3>
+        <Card className="border-border bg-card p-4">
+          <h3 className="text-sm font-590 text-foreground mb-3">Required Documents</h3>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {requirements.map((req) => (
               <div key={req.category + req.title} className="flex items-center gap-2 text-sm">
                 {req.submitted ? (
-                  <CheckCircle2 className="h-4 w-4 text-[#10b981]" />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 ) : req.required ? (
                   <AlertTriangle className="h-4 w-4 text-amber-400" />
                 ) : (
-                  <Clock className="h-4 w-4 text-[#62666d]" />
+                  <Clock className="h-4 w-4 text-secondary-foreground/60" />
                 )}
-                <span className={req.submitted ? 'text-[#d0d6e0]' : 'text-[#8a8f98]'}>
+                <span
+                  className={req.submitted ? 'text-secondary-foreground' : 'text-muted-foreground'}
+                >
                   {req.title}
                 </span>
                 {req.required && !req.submitted && (
-                  <Badge variant="destructive" className="text-[10px] h-4 px-1">
+                  <Badge variant="destructive" className="text-tiny h-4 px-1">
                     Required
                   </Badge>
                 )}
@@ -146,7 +148,7 @@ export function TabDocuments({
       )}
 
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-[590] text-[#f7f8f8]">Documents</h3>
+        <h3 className="text-sm font-590 text-foreground">Documents</h3>
         {canUpload && (
           <Dialog>
             <DialogTrigger asChild>
@@ -160,9 +162,11 @@ export function TabDocuments({
                 <DialogTitle>Upload Document</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                <div className="rounded-lg border-2 border-dashed border-[rgba(255,255,255,0.08)] p-8 text-center">
-                  <Upload className="mx-auto h-8 w-8 text-[#62666d] mb-2" />
-                  <p className="text-sm text-[#8a8f98]">Drop files here or click to browse</p>
+                <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
+                  <Upload className="mx-auto h-8 w-8 text-secondary-foreground/60 mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    Drop files here or click to browse
+                  </p>
                   <input type="file" className="hidden" />
                 </div>
                 <div className="space-y-3">

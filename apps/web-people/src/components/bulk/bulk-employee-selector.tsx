@@ -87,7 +87,7 @@ export function BulkEmployeeSelector({
 
   return (
     <div className="space-y-3">
-      <div className="text-xs text-[#8a8f98]">{selectedIds.length} employee(s) selected</div>
+      <div className="text-xs text-muted-foreground">{selectedIds.length} employee(s) selected</div>
       <DataTable
         columns={columns}
         rows={rows}

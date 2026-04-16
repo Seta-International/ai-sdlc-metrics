@@ -7,7 +7,7 @@ import { OnboardingCaseDetail } from '../../../components/onboarding/onboarding-
 export default function OnboardingCaseDetailPage() {
   const params = useParams()
   return (
-    <main className="container mx-auto py-8 space-y-6">
+    <main className="container mx-auto p-3 space-y-6">
       <OnboardingCaseDetail caseId={params.caseId as string} />
     </main>
   )

@@ -42,10 +42,10 @@ export function TabChangeRequests({
     <div className="space-y-6">
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-[590] text-[#f7f8f8]">
+          <h3 className="text-sm font-590 text-foreground">
             Pending Changes
             {pending.length > 0 && (
-              <Badge variant="subtle" className="ml-2 h-5 px-1.5 text-[10px]">
+              <Badge variant="subtle" className="ml-2 h-5 px-1.5 text-tiny">
                 {pending.length}
               </Badge>
             )}
@@ -64,23 +64,20 @@ export function TabChangeRequests({
           )}
         </div>
         {pending.length === 0 ? (
-          <p className="text-sm text-[#62666d]">No pending changes.</p>
+          <p className="text-sm text-secondary-foreground/60">No pending changes.</p>
         ) : (
           <div className="space-y-2">
             {pending.map((req) => (
-              <Card
-                key={req.id}
-                className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-4"
-              >
+              <Card key={req.id} className="border-border bg-card p-4">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
-                    <div className="text-sm font-[510] text-[#f7f8f8]">{req.fieldLabel}</div>
+                    <div className="text-sm font-510 text-foreground">{req.fieldLabel}</div>
                     <div className="flex items-center gap-2 text-xs">
-                      <span className="text-[#8a8f98] line-through">{req.oldValue}</span>
-                      <span className="text-[#62666d]">-&gt;</span>
-                      <span className="text-[#10b981] font-[510]">{req.newValue}</span>
+                      <span className="text-muted-foreground line-through">{req.oldValue}</span>
+                      <span className="text-secondary-foreground/60">-&gt;</span>
+                      <span className="text-emerald-500 font-510">{req.newValue}</span>
                     </div>
-                    <div className="text-xs text-[#62666d]">
+                    <div className="text-xs text-secondary-foreground/60">
                       By {req.requestedByName} on{' '}
                       {new Date(req.requestedAt).toLocaleDateString('en-GB')}
                       {req.effectiveDate && (
@@ -109,7 +106,7 @@ export function TabChangeRequests({
 
       {decided.length > 0 && (
         <div>
-          <h3 className="text-sm font-[590] text-[#f7f8f8] mb-3">History</h3>
+          <h3 className="text-sm font-590 text-foreground mb-3">History</h3>
           <div className="space-y-2">
             {decided.map((req) => {
               const statusCfg: Record<
@@ -127,19 +124,19 @@ export function TabChangeRequests({
               return (
                 <Card
                   key={req.id}
-                  className="border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.01)] p-3"
+                  className="border-sidebar-border bg-[rgba(255,255,255,0.01)] p-3"
                 >
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-[#d0d6e0]">{req.fieldLabel}</span>
+                        <span className="text-sm text-secondary-foreground">{req.fieldLabel}</span>
                         <Badge variant={cfg.variant}>{cfg.label}</Badge>
                       </div>
-                      <div className="text-xs text-[#62666d]">
+                      <div className="text-xs text-secondary-foreground/60">
                         {req.oldValue} -&gt; {req.newValue}
                       </div>
                     </div>
-                    <div className="text-xs text-[#62666d]">
+                    <div className="text-xs text-secondary-foreground/60">
                       {req.reviewedAt && new Date(req.reviewedAt).toLocaleDateString('en-GB')}
                     </div>
                   </div>

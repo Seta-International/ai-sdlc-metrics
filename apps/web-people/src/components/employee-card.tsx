@@ -21,12 +21,12 @@ export function EmployeeCard({ employee, onClick }: EmployeeCardProps) {
 
   return (
     <Card
-      className="cursor-pointer border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-4 transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+      className="cursor-pointer border-border bg-card p-4 transition-colors hover:bg-secondary/50"
       onClick={() => onClick(employee.id)}
     >
       <div className="flex flex-col items-center text-center">
         {/* Avatar */}
-        <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(255,255,255,0.05)] text-lg font-[510] text-[#d0d6e0]">
+        <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-secondary/50 text-lg font-510 text-secondary-foreground">
           {employee.avatarUrl ? (
             <Image
               src={employee.avatarUrl}
@@ -41,13 +41,15 @@ export function EmployeeCard({ employee, onClick }: EmployeeCardProps) {
         </div>
 
         {/* Name + Title */}
-        <div className="mb-1 text-sm font-[510] text-[#f7f8f8] truncate max-w-full">
+        <div className="mb-1 text-sm font-510 text-foreground truncate max-w-full">
           {employee.fullName}
         </div>
-        <div className="mb-3 text-xs text-[#8a8f98] truncate max-w-full">{employee.jobTitle}</div>
+        <div className="mb-3 text-xs text-muted-foreground truncate max-w-full">
+          {employee.jobTitle}
+        </div>
 
         {/* Department + Location */}
-        <div className="flex flex-col gap-1 text-xs text-[#62666d] w-full">
+        <div className="flex flex-col gap-1 text-xs text-secondary-foreground/60 w-full">
           <div className="flex items-center justify-center gap-1 truncate">
             <Building2 className="h-3 w-3 shrink-0" />
             <span className="truncate">{employee.department}</span>
@@ -64,7 +66,7 @@ export function EmployeeCard({ employee, onClick }: EmployeeCardProps) {
         <div className="mt-3 flex items-center gap-2">
           <StatusBadge status={employee.employmentStatus} />
           {employee.workArrangement && (
-            <span className="rounded-full border border-[#23252a] px-2 py-0.5 text-[10px] font-[510] text-[#d0d6e0]">
+            <span className="rounded-full border border-border px-2 py-0.5 text-xs font-510 text-secondary-foreground">
               {employee.workArrangement.replace('_', ' ')}
             </span>
           )}

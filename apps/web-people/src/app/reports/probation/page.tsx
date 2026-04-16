@@ -72,7 +72,7 @@ export default function ProbationReportPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-[510] text-[#f7f8f8]">Probation Tracker</h2>
+      <h2 className="text-lg font-510 text-[#f7f8f8]">Probation Tracker</h2>
       <DataTable
         columns={columns}
         rows={rows}

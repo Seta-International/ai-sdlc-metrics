@@ -71,13 +71,11 @@ const columns: ColumnDef<ChangeRequestRow>[] = [
     header: 'Change',
     cell: ({ row }: CellContext<ChangeRequestRow, unknown>) => (
       <div className="flex items-center gap-1 text-xs">
-        <span className="text-[#8a8f98] line-through truncate max-w-[100px]">
+        <span className="text-muted-foreground line-through truncate max-w-24">
           {row.original.oldValue}
         </span>
-        <span className="text-[#62666d]">-&gt;</span>
-        <span className="text-[#10b981] font-[510] truncate max-w-[100px]">
-          {row.original.newValue}
-        </span>
+        <span className="text-secondary-foreground/60">-&gt;</span>
+        <span className="text-emerald-500 font-510 truncate max-w-24">{row.original.newValue}</span>
       </div>
     ),
   },
@@ -159,21 +157,21 @@ export function ChangeRequestQueue() {
     <div className="space-y-4">
       {/* Stats bar */}
       <div className="grid grid-cols-4 gap-4">
-        <Card className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-4 text-center">
-          <div className="text-2xl font-[510] text-[#f7f8f8]">{stats.pending}</div>
-          <div className="text-xs text-[#8a8f98]">Pending</div>
+        <Card className="border-border bg-card p-4 text-center">
+          <div className="text-2xl font-510 text-foreground">{stats.pending}</div>
+          <div className="text-xs text-muted-foreground">Pending</div>
         </Card>
-        <Card className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-4 text-center">
-          <div className="text-2xl font-[510] text-[#10b981]">{stats.approvedToday}</div>
-          <div className="text-xs text-[#8a8f98]">Approved Today</div>
+        <Card className="border-border bg-card p-4 text-center">
+          <div className="text-2xl font-510 text-emerald-500">{stats.approvedToday}</div>
+          <div className="text-xs text-muted-foreground">Approved Today</div>
         </Card>
-        <Card className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-4 text-center">
-          <div className="text-2xl font-[510] text-red-400">{stats.rejectedToday}</div>
-          <div className="text-xs text-[#8a8f98]">Rejected Today</div>
+        <Card className="border-border bg-card p-4 text-center">
+          <div className="text-2xl font-510 text-red-400">{stats.rejectedToday}</div>
+          <div className="text-xs text-muted-foreground">Rejected Today</div>
         </Card>
-        <Card className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-4 text-center">
-          <div className="text-2xl font-[510] text-amber-400">{stats.oldestDays}d</div>
-          <div className="text-xs text-[#8a8f98]">Oldest Pending</div>
+        <Card className="border-border bg-card p-4 text-center">
+          <div className="text-2xl font-510 text-amber-400">{stats.oldestDays}d</div>
+          <div className="text-xs text-muted-foreground">Oldest Pending</div>
         </Card>
       </div>
 

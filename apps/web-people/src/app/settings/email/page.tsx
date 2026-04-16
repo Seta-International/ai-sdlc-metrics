@@ -76,11 +76,11 @@ export default function EmailConfigPage() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <h2 className="text-lg font-[510] text-[#f7f8f8]">Email Configuration</h2>
+      <h2 className="text-lg font-510 text-[#f7f8f8]">Email Configuration</h2>
 
       <Card className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-6 space-y-4">
         <div className="space-y-1">
-          <label className="text-xs font-[510] text-[#8a8f98]">Email Domain</label>
+          <label className="text-xs font-510 text-[#8a8f98]">Email Domain</label>
           <Input
             value={config.domain}
             onChange={(e) => setConfig({ ...config, domain: e.target.value })}
@@ -88,7 +88,7 @@ export default function EmailConfigPage() {
           />
         </div>
         <div className="space-y-1">
-          <label className="text-xs font-[510] text-[#8a8f98]">Email Pattern</label>
+          <label className="text-xs font-510 text-[#8a8f98]">Email Pattern</label>
           <Select
             value={config.pattern}
             onValueChange={(v) => setConfig({ ...config, pattern: v as EmailConfig['pattern'] })}
@@ -106,7 +106,7 @@ export default function EmailConfigPage() {
           </Select>
         </div>
         <div className="space-y-1">
-          <label className="text-xs font-[510] text-[#8a8f98]">Transliteration Mode</label>
+          <label className="text-xs font-510 text-[#8a8f98]">Transliteration Mode</label>
           <Select
             value={config.transliterationMode}
             onValueChange={(v) =>
@@ -138,14 +138,14 @@ export default function EmailConfigPage() {
       </Card>
 
       <Card className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-6 space-y-4">
-        <h3 className="text-sm font-[590] text-[#f7f8f8]">Test Generator</h3>
+        <h3 className="text-sm font-590 text-[#f7f8f8]">Test Generator</h3>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-[510] text-[#8a8f98]">Given Name</label>
+            <label className="text-xs font-510 text-[#8a8f98]">Given Name</label>
             <Input value={testGiven} onChange={(e) => setTestGiven(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-[510] text-[#8a8f98]">Family Name</label>
+            <label className="text-xs font-510 text-[#8a8f98]">Family Name</label>
             <Input value={testFamily} onChange={(e) => setTestFamily(e.target.value)} />
           </div>
         </div>
