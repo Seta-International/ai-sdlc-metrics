@@ -25,42 +25,41 @@ export function AgentPanel() {
   }, [])
 
   return (
-    <div
-      data-testid="agent-panel"
-      className="dark flex h-full min-h-0 w-96 flex-shrink-0 flex-col border-l border-sidebar-border bg-sidebar shadow-lg"
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-sidebar-border px-3 py-2">
-        <div className="flex items-center gap-2 text-sm font-medium text-sidebar-foreground">
-          <MessageSquare className="h-4 w-4" />
-          Agent
-        </div>
-        <button
-          onClick={() => setPanelOpen(false)}
-          aria-label="Close agent panel"
-          className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-secondary/30 text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-
-      {/* Context pills */}
-      <AgentContextPills />
-
-      {/* Messages — only this area scrolls */}
-      <div className="min-h-0 flex-1 overflow-y-auto py-2">
-        {messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
-            <MessageSquare className="h-8 w-8 opacity-40" />
-            <p className="text-sm">Start a conversation</p>
+    <div data-testid="agent-panel" className="h-full w-96 flex-shrink-0 border-l border-border">
+      <div className="dark flex h-full min-h-0 flex-col bg-sidebar shadow-lg">
+        {/* Header */}
+        <div className="flex h-12 items-center justify-between border-b border-sidebar-border px-4">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-510">Agent</span>
           </div>
-        ) : (
-          messages.map((msg) => <AgentMessage key={msg.id} message={msg} />)
-        )}
-      </div>
+          <button
+            onClick={() => setPanelOpen(false)}
+            aria-label="Close agent panel"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-muted-foreground transition-all hover:border-border hover:bg-(--btn-ghost-bg) hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
 
-      {/* Input — pinned to bottom */}
-      <AgentMessageInput onSend={handleSend} />
+        {/* Context pills */}
+        <AgentContextPills />
+
+        {/* Messages — only this area scrolls */}
+        <div className="min-h-0 flex-1 overflow-y-auto py-2">
+          {messages.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+              <MessageSquare className="h-8 w-8 opacity-40" />
+              <p className="text-sm">Start a conversation</p>
+            </div>
+          ) : (
+            messages.map((msg) => <AgentMessage key={msg.id} message={msg} />)
+          )}
+        </div>
+
+        {/* Input — pinned to bottom */}
+        <AgentMessageInput onSend={handleSend} />
+      </div>
     </div>
   )
 }
