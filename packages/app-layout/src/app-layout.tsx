@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { cn, SidebarProvider, SidebarInset } from '@future/ui'
+import { SidebarProvider, SidebarInset } from '@future/ui'
 import { useOptionalAgentState, AgentPanel, AgentStrip } from '@future/agent'
 import { PermissionProvider, type PermissionTrpcClient } from './permission-provider'
 import { NavbarRenderer, type NavbarRendererProps } from './navbar/navbar-renderer'
@@ -27,9 +27,7 @@ export function AppLayout({ config, trpc, children, ...navbarProps }: AppLayoutP
           <NavbarRenderer config={config.navbar} {...navbarProps} onAgentClick={togglePanel} />
           <AgentStrip />
           <div className="flex flex-1 overflow-hidden">
-            <main className={cn('flex-1 overflow-auto', panelOpen && 'mr-[400px]')}>
-              {children}
-            </main>
+            <main className="flex-1 overflow-auto">{children}</main>
             {panelOpen && <AgentPanel />}
           </div>
         </SidebarInset>

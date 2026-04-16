@@ -25,10 +25,10 @@
     "db:logs": "docker compose -f docker-compose.local.yml logs -f postgres",
     "test:unit": "turbo test:unit",
     "test:integration": "turbo test:integration",
-    "deps:outdated": "bun outdated -r",
-    "deps:update": "bun update -r",
-    "deps:update:interactive": "bun update -r -i",
-    "deps:update:latest": "bun update -r --latest"
+    "deps:outdated": "sh scripts/deps-workspaces.sh outdated",
+    "deps:update": "sh scripts/deps-workspaces.sh update",
+    "deps:update:interactive": "sh scripts/deps-workspaces.sh update:interactive",
+    "deps:update:latest": "sh scripts/deps-workspaces.sh update:latest"
   },
   "devDependencies": {
     "eslint": "^10.2.0",

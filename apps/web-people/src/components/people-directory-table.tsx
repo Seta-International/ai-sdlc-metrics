@@ -12,9 +12,32 @@ import { StatusBadge } from './status-badge'
 import { FilterPanel, emptyFilters, type FilterValues } from './filter-panel'
 import { CardGridView } from './card-grid-view'
 import type { DirectoryRow, EmploymentStatus } from '../lib/types'
+import type { TableFilter } from '@future/ui'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const anyTrpc = trpc as any
+
+function toFilterArray(tableFilters: TableFilter[], panelFilters: FilterValues): TableFilter[] {
+  const out: TableFilter[] = [...tableFilters]
+  const add = (field: string, operator: TableFilter['operator'], value: unknown) =>
+    out.push({ field, operator, value } as TableFilter)
+
+  if (panelFilters.departmentIds.length) add('departmentId', 'in', panelFilters.departmentIds)
+  if (panelFilters.jobFamilyIds.length) add('jobFamilyId', 'in', panelFilters.jobFamilyIds)
+  if (panelFilters.jobProfileIds.length) add('jobProfileId', 'in', panelFilters.jobProfileIds)
+  if (panelFilters.employmentStatus.length)
+    add('employmentStatus', 'in', panelFilters.employmentStatus)
+  if (panelFilters.employmentType.length) add('employmentType', 'in', panelFilters.employmentType)
+  if (panelFilters.workerType.length) add('workerType', 'in', panelFilters.workerType)
+  if (panelFilters.workArrangement.length)
+    add('workArrangement', 'in', panelFilters.workArrangement)
+  if (panelFilters.countryCode.length) add('countryCode', 'in', panelFilters.countryCode)
+  if (panelFilters.location.length) add('locationId', 'in', panelFilters.location)
+  if (panelFilters.managerId) add('managerId', 'eq', panelFilters.managerId)
+  if (panelFilters.hireDateFrom) add('hiredAfter', 'gte', panelFilters.hireDateFrom)
+  if (panelFilters.hireDateTo) add('hireDateTo', 'lte', panelFilters.hireDateTo)
+  return out
+}
 
 const columns: ColumnDef<DirectoryRow>[] = [
   {
@@ -62,8 +85,12 @@ const columns: ColumnDef<DirectoryRow>[] = [
     header: 'Country',
     enableSorting: true,
     cell: ({ getValue }: CellContext<DirectoryRow, unknown>) => {
-      const code = getValue() as string
-      return <span className="text-xs text-[#d0d6e0]">{code.toUpperCase()}</span>
+      const code = getValue() as string | null
+      return code ? (
+        <span className="text-xs text-[#d0d6e0]">{code.toUpperCase()}</span>
+      ) : (
+        <span className="text-[#62666d]">--</span>
+      )
     },
   },
 ]
@@ -115,10 +142,7 @@ export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps)
         const result = await (anyTrpc.people.directory.list.query({
           resourceKey,
           search: tableState.search,
-          filters: {
-            ...tableState.filters,
-            ...filterValues,
-          },
+          filters: toFilterArray(tableState.filters, filterValues),
           sorting: tableState.sorting,
           pagination: tableState.pagination,
         }) as Promise<{
@@ -151,7 +175,7 @@ export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps)
       const result = await (anyTrpc.people.directory.export.query({
         resourceKey,
         search: tableState.search,
-        filters: { ...tableState.filters, ...filterValues },
+        filters: toFilterArray(tableState.filters, filterValues),
         sorting: tableState.sorting,
         format,
       }) as Promise<{ filename: string; csv: string }>)

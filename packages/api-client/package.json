@@ -16,13 +16,13 @@
     "lint": "eslint src/"
   },
   "dependencies": {
-    "@trpc/client": "^11"
+    "@trpc/client": "^11.16.0"
   },
   "devDependencies": {
     "@future/api": "workspace:*",
     "@future/eslint-config": "workspace:*",
-    "@future/tsconfig": "*",
-    "@trpc/server": "^11",
+    "@future/tsconfig": "workspace:*",
+    "@trpc/server": "^11.16.0",
     "eslint": "^10.2.0",
     "typescript": "^6.0.2"
   }

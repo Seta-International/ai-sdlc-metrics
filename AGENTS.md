@@ -91,6 +91,8 @@ No FK constraints across schema boundaries. No imports from another module's `do
 
 - Never manually edit `package.json`, `bun.lock`, or any lockfile.
 - Use CLI: `bun add <pkg>`, `bun add -d <pkg>`, `bun remove <pkg>`.
+- To audit dependency updates, run `bun run deps:outdated` from the repo root. It scans `apps/*` and `packages/*` directly.
+- To update those folders, use `bun run deps:update`, `bun run deps:update:interactive`, or `bun run deps:update:latest` from the repo root.
 - New workspace: `turbo gen workspace`. Never create manually.
 - NestJS components: `bunx nest generate module|controller|service|resource <name> --no-spec` from `apps/api`.
 

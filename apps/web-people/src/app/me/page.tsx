@@ -24,7 +24,7 @@ export default function MyProfilePage() {
     void (async () => {
       setIsLoading(true)
       try {
-        const result = await (anyTrpc.people.profile.me.query() as Promise<{
+        const result = await (anyTrpc.people.getOwnProfile.query() as Promise<{
           profile: EmployeeProfile
           employmentId: string
         }>)

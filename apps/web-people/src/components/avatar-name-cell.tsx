@@ -35,19 +35,19 @@ export function AvatarNameCell({
             className="h-full w-full rounded-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center rounded-full bg-[rgba(255,255,255,0.05)] text-xs font-[510] text-[#d0d6e0]">
+          <div className="flex h-full w-full items-center justify-center rounded-full bg-muted text-xs font-[510] text-muted-foreground">
             {initials}
           </div>
         )}
       </Avatar>
       <div className="min-w-0">
-        <div className="truncate text-sm font-[510] text-[#f7f8f8]">
+        <div className="truncate text-sm font-[510] text-foreground">
           {fullName}
           {preferredName && (
-            <span className="ml-1 text-[#8a8f98] font-normal">({preferredName})</span>
+            <span className="ml-1 text-muted-foreground font-normal">({preferredName})</span>
           )}
         </div>
-        {subtitle && <div className="truncate text-xs text-[#8a8f98]">{subtitle}</div>}
+        {subtitle && <div className="truncate text-xs text-muted-foreground">{subtitle}</div>}
       </div>
     </div>
   )

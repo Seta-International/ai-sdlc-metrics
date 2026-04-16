@@ -27,7 +27,7 @@ export function AgentPanel() {
   return (
     <div
       data-testid="agent-panel"
-      className="fixed right-0 top-0 flex h-full w-[400px] flex-col border-l border-[rgba(255,255,255,0.08)] bg-[#0f1011] shadow-lg"
+      className="flex h-full w-[400px] flex-shrink-0 flex-col border-l border-[rgba(255,255,255,0.08)] bg-[#0f1011] shadow-lg"
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.08)] px-3 py-2">

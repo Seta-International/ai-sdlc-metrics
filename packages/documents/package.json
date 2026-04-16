@@ -21,11 +21,11 @@
     "exceljs": "^4.4.0",
     "handlebars": "^4.7.9",
     "pdf-parse": "^2.4.5",
-    "puppeteer-core": "^24.40.0"
+    "puppeteer-core": "^24.41.0"
   },
   "devDependencies": {
     "@future/eslint-config": "workspace:*",
-    "@future/tsconfig": "*",
+    "@future/tsconfig": "workspace:*",
     "eslint": "^10.2.0",
     "typescript": "^6.0.2",
     "vitest": "^4.1.4"

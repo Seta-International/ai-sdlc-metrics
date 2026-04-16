@@ -256,6 +256,8 @@ PR requirements: CI green + one reviewer approval.
 
 - **Never manually edit `package.json`, `bun.lock`, or any lockfile.**
 - Install dependencies via CLI: `bun add <pkg>`, `bun add -d <pkg>`, `bun add <pkg>@<version>`, `bun remove <pkg>`.
+- Audit dependency updates under `apps/*` and `packages/*` via the repo root command `bun run deps:outdated`.
+- Update those folders via `bun run deps:update`, `bun run deps:update:interactive`, or `bun run deps:update:latest`.
 - Add a new app or package to the monorepo via Turborepo CLI: `turbo gen workspace` — never create the directory and `package.json` by hand.
 - Add a workspace dependency between packages: `bun add <pkg> --filter <workspace>`.
 

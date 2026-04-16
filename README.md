@@ -34,6 +34,22 @@ bun run test:integration
 
 # E2E (requires staging)
 bun run test:e2e
+
+# Check outdated dependencies by scanning apps/* and packages/*
+# Run from repo root
+bun run deps:outdated
+
+# Update apps/* and packages/* within existing semver ranges
+# Run from repo root
+bun run deps:update
+
+# Interactively choose dependency updates while walking apps/* and packages/*
+# Run from repo root
+bun run deps:update:interactive
+
+# Upgrade apps/* and packages/* to latest published versions
+# Run from repo root
+bun run deps:update:latest
 ```
 
 When you're done with local development, stop the database with `bun run db:down`.

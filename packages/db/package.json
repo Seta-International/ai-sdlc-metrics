@@ -26,15 +26,15 @@
     "migrate": "bun run src/migrate.ts"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45",
-    "pg": "^8",
-    "uuidv7": "^1"
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.20.0",
+    "uuidv7": "^1.2.1"
   },
   "devDependencies": {
     "@future/eslint-config": "workspace:*",
-    "@future/tsconfig": "*",
+    "@future/tsconfig": "workspace:*",
     "@types/node": "^25.6.0",
-    "@types/pg": "^8",
+    "@types/pg": "^8.20.0",
     "drizzle-kit": "^0.31.10",
     "eslint": "^10.2.0",
     "typescript": "^6.0.2"
