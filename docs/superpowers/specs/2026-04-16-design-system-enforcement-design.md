@@ -29,11 +29,13 @@ Semantic color tokens are defined as CSS variables with RGB channel values (no c
   --color-surface: 255 255 255; /* #ffffff */
   --color-elevated: 245 246 247; /* #f5f6f7 */
 
-  /* Foreground / text */
-  --color-fg-primary: 15 16 17; /* ~#0f1011 */
-  --color-fg-secondary: 60 70 85;
-  --color-fg-muted: 100 110 120;
-  --color-fg-subtle: 140 145 152;
+  /* Foreground / text — DESIGN.md does not define light mode text colors.
+     Values below are derived inverses of the dark palette; adjust if a
+     formal light mode typography spec is added to DESIGN.md. */
+  --color-fg-primary: 15 16 17; /* #0f1011 — dark panel color inverted */
+  --color-fg-secondary: 60 70 85; /* approximate */
+  --color-fg-muted: 100 110 120; /* approximate */
+  --color-fg-subtle: 140 145 152; /* approximate */
 
   /* Dividers */
   --color-divider: 230 230 230; /* #e6e6e6 */
@@ -116,7 +118,10 @@ const config = {
         success: '#27a644',
         emerald: '#10b981',
 
-        // Light mode surfaces (used explicitly in light-only contexts)
+        // Light mode surfaces — use ONLY for components that are always
+        // light regardless of theme (e.g. a modal that is always white).
+        // For theme-aware surfaces, use the semantic tokens above (canvas,
+        // panel, surface) which switch automatically via CSS variables.
         'light-bg': '#f7f8f8',
         'light-surface': '#f3f4f5',
         'light-border': '#d0d6e0',
@@ -216,7 +221,9 @@ export default [
   ...tailwindcss.configs['flat/recommended'],
   {
     settings: {
-      tailwindcss: { config: '<rootDir>/tailwind.config.ts' },
+      // Path is relative to each app's eslint.config.ts; use path.resolve
+      // with import.meta.dirname to point at the repo-root tailwind.config.ts
+      tailwindcss: { config: path.resolve(import.meta.dirname, '../../tailwind.config.ts') },
     },
     rules: {
       'tailwindcss/no-arbitrary-value': 'error',
