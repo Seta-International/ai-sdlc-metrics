@@ -43,14 +43,14 @@ export function FieldPolicyList({ mode, entries, onChange }: FieldPolicyListProp
     <div className="space-y-6">
       {Object.entries(grouped).map(([section, sectionEntries]) => (
         <div key={section}>
-          <h3 className="text-sm font-[590] text-[#f7f8f8] mb-3 capitalize">{section}</h3>
+          <h3 className="text-sm font-590 text-foreground mb-3 capitalize">{section}</h3>
           <div className="space-y-1">
             {sectionEntries.map((entry) => (
               <div
                 key={entry.fieldPath}
-                className="flex items-center justify-between rounded-md border border-[rgba(255,255,255,0.05)] px-3 py-2"
+                className="flex items-center justify-between rounded-md border border-border-sidebar-border px-3 py-2"
               >
-                <div className="text-sm text-[#d0d6e0]">{entry.fieldLabel}</div>
+                <div className="text-sm text-secondary-foreground">{entry.fieldLabel}</div>
                 {mode === 'edit_policy' ? (
                   <Select
                     value={(entry as FieldPolicyEntry).editMode}

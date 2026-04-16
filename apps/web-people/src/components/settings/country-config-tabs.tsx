@@ -65,7 +65,7 @@ export function CountryConfigTabs({ countryCode, countryName }: CountryConfigTab
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-[510] text-[#f7f8f8]">
+      <h2 className="text-lg font-510 text-foreground">
         {countryName} ({countryCode.toUpperCase()})
       </h2>
       <Tabs defaultValue="fields">
@@ -92,15 +92,15 @@ export function CountryConfigTabs({ countryCode, countryName }: CountryConfigTab
           />
         </TabsContent>
         <TabsContent value="probation" className="mt-4">
-          <p className="text-sm text-[#8a8f98]">
+          <p className="text-sm text-muted-foreground">
             Probation policies for {countryName} — edit inline.
           </p>
         </TabsContent>
         <TabsContent value="documents" className="mt-4">
-          <p className="text-sm text-[#8a8f98]">Document requirements for {countryName}.</p>
+          <p className="text-sm text-muted-foreground">Document requirements for {countryName}.</p>
         </TabsContent>
         <TabsContent value="contracts" className="mt-4">
-          <p className="text-sm text-[#8a8f98]">Contract policies for {countryName}.</p>
+          <p className="text-sm text-muted-foreground">Contract policies for {countryName}.</p>
         </TabsContent>
       </Tabs>
     </div>

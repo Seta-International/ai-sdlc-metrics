@@ -10,7 +10,7 @@ const columns: ColumnDef<BulkPreviewRow>[] = [
     accessorKey: 'newValue',
     header: 'New Value',
     cell: ({ row, getValue }: CellContext<BulkPreviewRow, unknown>) => (
-      <span className={row.original.isValid ? 'text-[#10b981]' : 'text-red-400'}>
+      <span className={row.original.isValid ? 'text-emerald-500' : 'text-red-400'}>
         {getValue() as string}
       </span>
     ),

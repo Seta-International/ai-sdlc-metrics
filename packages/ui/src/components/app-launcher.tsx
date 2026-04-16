@@ -40,53 +40,43 @@ export interface AppDefinition {
 const APP_ICONS: Record<string, { Icon: LucideIcon; accent: string }> = {
   people: {
     Icon: Users,
-    accent:
-      'bg-[rgba(37,99,235,0.15)] text-[#60a5fa] dark:bg-[rgba(37,99,235,0.15)] dark:text-[#60a5fa]',
+    accent: 'bg-blue-600/15 text-blue-400 dark:bg-blue-600/15 dark:text-blue-400',
   },
   time: {
     Icon: Clock,
-    accent:
-      'bg-[rgba(8,145,178,0.15)] text-[#22d3ee] dark:bg-[rgba(8,145,178,0.15)] dark:text-[#22d3ee]',
+    accent: 'bg-cyan-500/15 text-cyan-400 dark:bg-cyan-500/15 dark:text-cyan-400',
   },
   hiring: {
     Icon: Briefcase,
-    accent:
-      'bg-[rgba(124,58,237,0.15)] text-[#a78bfa] dark:bg-[rgba(124,58,237,0.15)] dark:text-[#a78bfa]',
+    accent: 'bg-violet-600/15 text-violet-400 dark:bg-violet-600/15 dark:text-violet-400',
   },
   performance: {
     Icon: TrendingUp,
-    accent:
-      'bg-[rgba(217,119,6,0.15)] text-[#fbbf24] dark:bg-[rgba(217,119,6,0.15)] dark:text-[#fbbf24]',
+    accent: 'bg-amber-600/15 text-amber-400 dark:bg-amber-600/15 dark:text-amber-400',
   },
   projects: {
     Icon: FolderOpen,
-    accent:
-      'bg-[rgba(5,150,105,0.15)] text-[#34d399] dark:bg-[rgba(5,150,105,0.15)] dark:text-[#34d399]',
+    accent: 'bg-emerald-600/15 text-emerald-400 dark:bg-emerald-600/15 dark:text-emerald-400',
   },
   finance: {
     Icon: DollarSign,
-    accent:
-      'bg-[rgba(220,38,38,0.15)] text-[#fca5a5] dark:bg-[rgba(220,38,38,0.15)] dark:text-[#fca5a5]',
+    accent: 'bg-red-600/15 text-red-300 dark:bg-red-600/15 dark:text-red-300',
   },
   goals: {
     Icon: Target,
-    accent:
-      'bg-[rgba(190,24,93,0.15)] text-[#f9a8d4] dark:bg-[rgba(190,24,93,0.15)] dark:text-[#f9a8d4]',
+    accent: 'bg-pink-700/15 text-pink-300 dark:bg-pink-700/15 dark:text-pink-300',
   },
   insights: {
     Icon: BarChart2,
-    accent:
-      'bg-[rgba(29,78,216,0.15)] text-[#93c5fd] dark:bg-[rgba(29,78,216,0.15)] dark:text-[#93c5fd]',
+    accent: 'bg-blue-700/15 text-blue-300 dark:bg-blue-700/15 dark:text-blue-300',
   },
   planner: {
     Icon: ListTodo,
-    accent:
-      'bg-[rgba(15,118,110,0.15)] text-[#2dd4bf] dark:bg-[rgba(15,118,110,0.15)] dark:text-[#2dd4bf]',
+    accent: 'bg-teal-600/15 text-teal-400 dark:bg-teal-600/15 dark:text-teal-400',
   },
   admin: {
     Icon: Settings,
-    accent:
-      'bg-[rgba(255,255,255,0.06)] text-[#8a8f98] dark:bg-[rgba(255,255,255,0.06)] dark:text-[#8a8f98]',
+    accent: 'bg-secondary text-muted-foreground dark:bg-secondary dark:text-muted-foreground',
   },
 }
 
@@ -121,7 +111,7 @@ export const FUTURE_APPS: AppDefinition[] = [
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center rounded-[3px] border border-border bg-secondary px-1.5 py-px font-mono text-[10px] text-muted-foreground">
+    <span className="inline-flex items-center rounded-sm border border-border bg-secondary px-1.5 py-px font-mono text-xs text-muted-foreground">
       {children}
     </span>
   )
@@ -252,7 +242,7 @@ export function AppLauncher({
       {/* Modal */}
       <div
         className={cn(
-          'relative z-10 w-full max-w-[600px] mx-4',
+          'relative z-10 w-full max-w-2xl mx-4',
           'rounded-xl border border-border',
           'bg-popover shadow-xl',
           'animate-in fade-in slide-in-from-top-2 duration-200',
@@ -296,10 +286,10 @@ export function AppLauncher({
               aria-selected={tab === t}
               onClick={() => setTab(t)}
               className={cn(
-                'px-3 py-2 text-xs font-[510] capitalize transition-all',
+                'px-3 py-2 text-xs font-510 capitalize transition-all',
                 'border-b-2 -mb-px',
                 tab === t
-                  ? 'border-[#7170ff] text-[#7170ff]'
+                  ? 'border-accent text-accent'
                   : 'border-transparent text-muted-foreground hover:text-foreground',
               )}
             >
@@ -316,7 +306,7 @@ export function AppLauncher({
             </p>
           ) : (
             <>
-              <div className="mb-3 text-[10px] font-[510] uppercase tracking-widest text-muted-foreground">
+              <div className="mb-3 text-xs font-510 uppercase tracking-widest text-muted-foreground">
                 {tab === 'recent' ? 'Recently visited' : 'Your apps'}
               </div>
               <div
@@ -343,16 +333,16 @@ export function AppLauncher({
                       className={cn(
                         'relative flex flex-col items-center gap-2 rounded-lg border px-2 pb-3.5 pt-4',
                         'cursor-pointer no-underline transition-all focus:outline-none',
-                        'focus:ring-2 focus:ring-[#7170ff] focus:ring-offset-2 focus:ring-offset-popover',
+                        'focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-popover',
                         isCurrent
-                          ? 'border-[#7170ff]/35 bg-[#7170ff]/10'
+                          ? 'border-accent/35 bg-accent/10'
                           : 'border-transparent hover:border-border hover:bg-secondary',
                       )}
                     >
                       {/* Icon */}
                       <div
                         className={cn(
-                          'flex h-11 w-11 items-center justify-center rounded-[10px] flex-shrink-0',
+                          'flex h-11 w-11 items-center justify-center rounded-lg flex-shrink-0',
                           accentClass,
                         )}
                         aria-hidden="true"
@@ -363,8 +353,8 @@ export function AppLauncher({
                       {/* Name */}
                       <span
                         className={cn(
-                          'text-center text-[11px] font-[510] leading-tight',
-                          isCurrent ? 'text-[#7170ff]' : 'text-foreground/80',
+                          'text-center text-micro font-510 leading-tight',
+                          isCurrent ? 'text-accent' : 'text-foreground/80',
                         )}
                       >
                         {app.name}
@@ -373,7 +363,7 @@ export function AppLauncher({
                       {/* Current badge */}
                       {isCurrent && (
                         <span
-                          className="absolute right-2 top-2 h-[7px] w-[7px] rounded-full bg-[#27a644] ring-[1.5px] ring-popover"
+                          className="absolute right-2 top-2 size-1.5 rounded-full bg-emerald-500 ring-1 ring-popover"
                           aria-label="Currently open"
                         />
                       )}
@@ -387,7 +377,7 @@ export function AppLauncher({
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-border bg-muted/40 px-4 py-2.5">
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-micro text-muted-foreground">
             {currentApp ? (
               <>
                 Currently in:{' '}
@@ -399,7 +389,7 @@ export function AppLauncher({
               'Future OS'
             )}
           </span>
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-2 text-micro text-muted-foreground">
             <Kbd>↑↓←→</Kbd> navigate
             <Kbd>↵</Kbd> open
             <Kbd>ESC</Kbd> close
@@ -426,9 +416,9 @@ export function AppLauncherTrigger({ onClick, className }: AppLauncherTriggerPro
       title="Open app launcher (⌘K)"
       className={cn(
         'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded',
-        'bg-[#5e6ad2] text-white text-xs font-[510]',
-        'transition-all hover:bg-[#828fff] hover:scale-[1.06]',
-        'focus:outline-none focus:ring-2 focus:ring-[#7170ff] focus:ring-offset-1 focus:ring-offset-background',
+        'bg-primary text-primary-foreground text-xs font-510',
+        'transition-all hover:bg-primary/90 hover:scale-[1.06]',
+        'focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1 focus:ring-offset-background',
         className,
       )}
     >
@@ -456,11 +446,11 @@ export function AppChip({ app, onClick, className }: AppChipProps) {
       aria-label={app ? `Currently in ${app.name} — click to switch app` : 'Switch app'}
       className={cn(
         'flex items-center gap-1.5 rounded-full border px-2 py-0.5',
-        'border-border bg-secondary text-[11px] font-[510] text-secondary-foreground',
-        'transition-all hover:border-[#5e6ad2]/40 hover:text-[#5e6ad2]',
-        'focus:outline-none focus:ring-2 focus:ring-[#7170ff]',
-        'dark:border-[rgba(255,255,255,0.08)] dark:bg-[rgba(255,255,255,0.04)] dark:text-[#d0d6e0]',
-        'dark:hover:border-[#7170ff]/40 dark:hover:text-[#7170ff]',
+        'border-border bg-secondary text-micro font-510 text-secondary-foreground',
+        'transition-all hover:border-primary/40 hover:text-primary',
+        'focus:outline-none focus:ring-2 focus:ring-accent',
+        'dark:border-border dark:bg-secondary dark:text-secondary-foreground',
+        'dark:hover:border-accent/40 dark:hover:text-accent',
         className,
       )}
     >

@@ -21,14 +21,24 @@ export function AppLayout({ config, trpc, children, ...navbarProps }: AppLayoutP
 
   return (
     <PermissionProvider trpc={trpc}>
-      <SidebarProvider>
+      <SidebarProvider className="h-svh">
         <SidebarRenderer groups={config.sidebar} />
-        <SidebarInset>
-          <NavbarRenderer config={config.navbar} {...navbarProps} onAgentClick={togglePanel} />
+        <SidebarInset className="overflow-hidden">
+          <NavbarRenderer
+            config={config.navbar}
+            {...navbarProps}
+            onAgentClick={togglePanel}
+            agentPanelOpen={panelOpen}
+          />
           <AgentStrip />
-          <div className="flex flex-1 overflow-hidden">
-            <main className="flex-1 overflow-auto">{children}</main>
-            {panelOpen && <AgentPanel />}
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <main className="min-w-0 flex-1 overflow-auto">{children}</main>
+            <div
+              className="flex-shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out"
+              style={{ width: panelOpen ? 400 : 0 }}
+            >
+              <AgentPanel />
+            </div>
           </div>
         </SidebarInset>
       </SidebarProvider>

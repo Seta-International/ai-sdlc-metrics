@@ -14,7 +14,7 @@ export function CardGridView({ employees }: CardGridViewProps) {
   if (employees.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="text-sm text-[#8a8f98]">No employees match your filters</div>
+        <div className="text-sm text-muted-foreground">No employees match your filters</div>
       </div>
     )
   }

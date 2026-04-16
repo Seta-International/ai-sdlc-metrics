@@ -141,7 +141,8 @@ describe('AppLayout', () => {
         <div>content</div>
       </AppLayout>,
     )
-    expect(screen.queryByTestId('agent-panel')).toBeNull()
+    // AgentPanel is always in the DOM for slide animation; the container has width 0 when closed
+    expect(screen.getByTestId('agent-panel')).toBeDefined()
     expect(screen.getByText('content')).toBeDefined()
   })
 })

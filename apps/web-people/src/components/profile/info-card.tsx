@@ -12,9 +12,9 @@ interface InfoCardProps {
 
 export function InfoCard({ title, children, editable, onEdit }: InfoCardProps) {
   return (
-    <Card className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-5">
+    <Card className="border-border bg-card p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-[590] text-[#f7f8f8]">{title}</h3>
+        <h3 className="text-sm font-590 text-foreground">{title}</h3>
         {editable && (
           <Button variant="ghost" size="sm" onClick={onEdit} className="h-7 gap-1 text-xs">
             <Edit className="h-3 w-3" />

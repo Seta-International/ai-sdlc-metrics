@@ -56,7 +56,7 @@ export default function HeadcountReportPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-[510] text-[#f7f8f8]">Headcount</h2>
+      <h2 className="text-lg font-510 text-foreground">Headcount</h2>
       <SummaryCardsRow
         cards={[
           { label: 'Total Active', value: data.totalActive },
@@ -80,19 +80,18 @@ export default function HeadcountReportPage() {
           },
         ]}
       />
-      <Card className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-5">
-        <h3 className="text-sm font-[590] text-[#f7f8f8] mb-4">12-Month Trend</h3>
+      <Card className="border-border bg-card p-5">
+        <h3 className="text-sm font-590 text-foreground mb-4">12-Month Trend</h3>
         <div className="h-48 flex items-end gap-1">
           {data.trend.map((point) => {
             const maxCount = Math.max(...data.trend.map((p) => p.count), 1)
             const height = (point.count / maxCount) * 100
             return (
               <div key={point.month} className="flex-1 flex flex-col items-center gap-1">
-                <div
-                  className="w-full rounded-t bg-[#5e6ad2]/60"
-                  style={{ height: `${height}%` }}
-                />
-                <span className="text-[10px] text-[#62666d]">{point.month.slice(5)}</span>
+                <div className="w-full rounded-t bg-primary/60" style={{ height: `${height}%` }} />
+                <span className="text-tiny text-secondary-foreground/60">
+                  {point.month.slice(5)}
+                </span>
               </div>
             )
           })}
@@ -100,13 +99,13 @@ export default function HeadcountReportPage() {
       </Card>
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-sm font-[510] text-[#f7f8f8]">Breakdown by</span>
+          <span className="text-sm font-510 text-foreground">Breakdown by</span>
           {(['department', 'country', 'type'] as const).map((view) => (
             <button
               key={view}
               type="button"
               onClick={() => setBreakdownView(view)}
-              className={`px-2 py-1 text-xs rounded ${breakdownView === view ? 'bg-[rgba(255,255,255,0.08)] text-[#f7f8f8] font-[510]' : 'text-[#8a8f98] hover:text-[#d0d6e0]'}`}
+              className={`px-2 py-1 text-xs rounded ${breakdownView === view ? 'bg-secondary text-foreground font-510' : 'text-muted-foreground hover:text-secondary-foreground'}`}
             >
               {view.charAt(0).toUpperCase() + view.slice(1)}
             </button>

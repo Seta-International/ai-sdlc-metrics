@@ -53,9 +53,9 @@ export function TemplateEditor({ type }: TemplateEditorProps) {
 
   return (
     <div className="flex gap-6">
-      <Card className="w-64 shrink-0 border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-3">
+      <Card className="w-64 shrink-0 border-border bg-card p-3">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-[590] text-[#f7f8f8]">Templates</h3>
+          <h3 className="text-sm font-590 text-foreground">Templates</h3>
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
             <Plus className="h-3.5 w-3.5" />
           </Button>
@@ -66,17 +66,17 @@ export function TemplateEditor({ type }: TemplateEditorProps) {
               key={tmpl.id}
               type="button"
               onClick={() => setSelectedId(tmpl.id)}
-              className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-sm ${selectedId === tmpl.id ? 'bg-[rgba(255,255,255,0.08)] text-[#f7f8f8] font-[510]' : 'text-[#d0d6e0] hover:bg-[rgba(255,255,255,0.04)]'}`}
+              className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-sm ${selectedId === tmpl.id ? 'bg-border text-foreground font-510' : 'text-secondary-foreground hover:bg-secondary'}`}
             >
               <div className="truncate">
                 {tmpl.name}
                 {tmpl.isDefault && (
-                  <Badge variant="subtle" className="ml-1 h-4 px-1 text-[10px]">
+                  <Badge variant="subtle" className="ml-1 h-4 px-1 text-tiny">
                     Default
                   </Badge>
                 )}
               </div>
-              <span className="text-xs text-[#62666d]">{tmpl.taskCount}</span>
+              <span className="text-xs text-secondary-foreground/60">{tmpl.taskCount}</span>
             </button>
           ))}
         </div>
@@ -86,7 +86,7 @@ export function TemplateEditor({ type }: TemplateEditorProps) {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-[590] text-[#f7f8f8]">{selectedTemplate.name}</h3>
+                <h3 className="text-sm font-590 text-foreground">{selectedTemplate.name}</h3>
                 <div className="flex gap-2 mt-1">
                   {selectedTemplate.countryScope && (
                     <Badge variant="subtle" className="text-xs">
@@ -132,7 +132,7 @@ export function TemplateEditor({ type }: TemplateEditorProps) {
                       </Select>
                       <Input type="number" placeholder="Due days after start" />
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-[#d0d6e0]">Required</span>
+                        <span className="text-sm text-secondary-foreground">Required</span>
                         <Switch />
                       </div>
                       <Button className="w-full">Add Task</Button>
@@ -143,22 +143,19 @@ export function TemplateEditor({ type }: TemplateEditorProps) {
             </div>
             <div className="space-y-2">
               {selectedTemplate.tasks.map((task) => (
-                <Card
-                  key={task.id}
-                  className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-3"
-                >
+                <Card key={task.id} className="border-border bg-card p-3">
                   <div className="flex items-center gap-3">
-                    <GripVertical className="h-4 w-4 text-[#62666d] cursor-grab shrink-0" />
+                    <GripVertical className="h-4 w-4 text-secondary-foreground/60 cursor-grab shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-[#d0d6e0]">{task.title}</span>
+                        <span className="text-sm text-secondary-foreground">{task.title}</span>
                         {task.isRequired && (
-                          <Badge variant="destructive" className="h-4 px-1 text-[10px]">
+                          <Badge variant="destructive" className="h-4 px-1 text-tiny">
                             Required
                           </Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-[#62666d] mt-0.5">
+                      <div className="flex items-center gap-3 text-xs text-secondary-foreground/60 mt-0.5">
                         <span>{task.assigneeRole}</span>
                         <span>Due: +{task.dueDays} days</span>
                       </div>
@@ -172,7 +169,7 @@ export function TemplateEditor({ type }: TemplateEditorProps) {
             </div>
           </div>
         ) : (
-          <div className="text-sm text-[#62666d] py-16 text-center">
+          <div className="text-sm text-secondary-foreground/60 py-16 text-center">
             {isLoading ? 'Loading...' : 'Select a template to edit'}
           </div>
         )}

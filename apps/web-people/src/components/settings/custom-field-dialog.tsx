@@ -78,7 +78,7 @@ export function CustomFieldDialog({ open, onOpenChange, field, onSave }: CustomF
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs font-[510] text-[#8a8f98]">Label</label>
+            <label className="text-xs font-510 text-muted-foreground">Label</label>
             <Input
               value={label}
               onChange={(e) => handleLabelChange(e.target.value)}
@@ -86,7 +86,7 @@ export function CustomFieldDialog({ open, onOpenChange, field, onSave }: CustomF
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-[510] text-[#8a8f98]">Field Key</label>
+            <label className="text-xs font-510 text-muted-foreground">Field Key</label>
             <Input
               value={fieldKey}
               onChange={(e) => setFieldKey(e.target.value)}
@@ -95,7 +95,7 @@ export function CustomFieldDialog({ open, onOpenChange, field, onSave }: CustomF
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-[510] text-[#8a8f98]">Type</label>
+            <label className="text-xs font-510 text-muted-foreground">Type</label>
             <Select value={type} onValueChange={setType as (value: string) => void}>
               <SelectTrigger>
                 <SelectValue />
@@ -112,7 +112,9 @@ export function CustomFieldDialog({ open, onOpenChange, field, onSave }: CustomF
           </div>
           {(type === 'select' || type === 'multi_select') && (
             <div className="space-y-1">
-              <label className="text-xs font-[510] text-[#8a8f98]">Options (comma-separated)</label>
+              <label className="text-xs font-510 text-muted-foreground">
+                Options (comma-separated)
+              </label>
               <Input
                 value={options}
                 onChange={(e) => setOptions(e.target.value)}
@@ -121,7 +123,7 @@ export function CustomFieldDialog({ open, onOpenChange, field, onSave }: CustomF
             </div>
           )}
           <div className="space-y-1">
-            <label className="text-xs font-[510] text-[#8a8f98]">Group</label>
+            <label className="text-xs font-510 text-muted-foreground">Group</label>
             <Input
               value={group}
               onChange={(e) => setGroup(e.target.value)}
@@ -129,7 +131,7 @@ export function CustomFieldDialog({ open, onOpenChange, field, onSave }: CustomF
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-[510] text-[#8a8f98]">Visibility Tier</label>
+            <label className="text-xs font-510 text-muted-foreground">Visibility Tier</label>
             <Select
               value={visibilityTier}
               onValueChange={setVisibilityTier as (value: string) => void}
@@ -146,15 +148,15 @@ export function CustomFieldDialog({ open, onOpenChange, field, onSave }: CustomF
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[#d0d6e0]">Required</span>
+              <span className="text-sm text-secondary-foreground">Required</span>
               <Switch checked={isRequired} onCheckedChange={setIsRequired} />
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[#d0d6e0]">Searchable</span>
+              <span className="text-sm text-secondary-foreground">Searchable</span>
               <Switch checked={isSearchable} onCheckedChange={setIsSearchable} />
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[#d0d6e0]">Filterable</span>
+              <span className="text-sm text-secondary-foreground">Filterable</span>
               <Switch checked={isFilterable} onCheckedChange={setIsFilterable} />
             </div>
           </div>

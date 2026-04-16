@@ -30,7 +30,9 @@ const columns: ColumnDef<ProbationRow>[] = [
       const days = getValue() as number
       return (
         <span
-          className={days < 0 ? 'text-red-400' : days <= 14 ? 'text-amber-400' : 'text-[#d0d6e0]'}
+          className={
+            days < 0 ? 'text-red-400' : days <= 14 ? 'text-amber-400' : 'text-fg-secondary'
+          }
         >
           {days < 0 ? `${Math.abs(days)}d overdue` : `${days}d`}
         </span>
@@ -72,7 +74,7 @@ export default function ProbationReportPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-[510] text-[#f7f8f8]">Probation Tracker</h2>
+      <h2 className="text-lg font-510 text-fg-primary">Probation Tracker</h2>
       <DataTable
         columns={columns}
         rows={rows}

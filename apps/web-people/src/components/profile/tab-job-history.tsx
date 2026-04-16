@@ -38,7 +38,11 @@ export function TabJobHistory({ employmentId }: { employmentId: string }) {
   }
 
   if (entries.length === 0) {
-    return <p className="text-sm text-[#62666d] py-8 text-center">No job history recorded.</p>
+    return (
+      <p className="text-sm text-secondary-foreground/60 py-8 text-center">
+        No job history recorded.
+      </p>
+    )
   }
 
   return (

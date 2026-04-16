@@ -67,8 +67,8 @@ export default function SharedProfilePage() {
   if (error || !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Card className="border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-8 text-center max-w-md">
-          <p className="text-sm text-[#8a8f98]">{error ?? 'Profile not found'}</p>
+        <Card className="border-overlay/8 bg-overlay/2 p-8 text-center max-w-md">
+          <p className="text-sm text-fg-muted">{error ?? 'Profile not found'}</p>
         </Card>
       </div>
     )
@@ -83,10 +83,10 @@ export default function SharedProfilePage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center py-12 px-4">
-      <div className="text-sm font-[510] text-[#8a8f98] mb-8">{profile.companyName}</div>
-      <Card className="w-full max-w-lg border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-8">
+      <div className="text-sm font-510 text-fg-muted mb-8">{profile.companyName}</div>
+      <Card className="w-full max-w-lg border-overlay/8 bg-overlay/2 p-8">
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[rgba(255,255,255,0.05)] text-xl font-[510] text-[#d0d6e0] mb-4">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-overlay/5 text-xl font-510 text-fg-secondary mb-4">
             {profile.avatarUrl ? (
               <Image
                 src={profile.avatarUrl}
@@ -99,17 +99,15 @@ export default function SharedProfilePage() {
               initials
             )}
           </div>
-          <h1 className="text-2xl font-[510] tracking-[-0.288px] text-[#f7f8f8]">
-            {profile.fullName}
-          </h1>
-          <div className="text-sm text-[#8a8f98] mt-1">{profile.jobTitle}</div>
-          <div className="text-sm text-[#62666d]">{profile.department}</div>
+          <h1 className="text-2xl font-510 tracking-h2 text-fg-primary">{profile.fullName}</h1>
+          <div className="text-sm text-fg-muted mt-1">{profile.jobTitle}</div>
+          <div className="text-sm text-fg-subtle">{profile.department}</div>
         </div>
 
         <div className="space-y-2 mb-6">
-          <div className="text-xs text-[#62666d] uppercase font-[510]">Contact</div>
-          <div className="text-sm text-[#d0d6e0]">{profile.companyEmail}</div>
-          {profile.location && <div className="text-sm text-[#8a8f98]">{profile.location}</div>}
+          <div className="text-xs text-fg-subtle uppercase font-510">Contact</div>
+          <div className="text-sm text-fg-secondary">{profile.companyEmail}</div>
+          {profile.location && <div className="text-sm text-fg-muted">{profile.location}</div>}
           {profile.workArrangement && (
             <Badge variant="subtle">{profile.workArrangement.replace('_', ' ')}</Badge>
           )}
@@ -117,7 +115,7 @@ export default function SharedProfilePage() {
 
         {profile.skills.length > 0 && (
           <div className="mb-6">
-            <div className="text-xs text-[#62666d] uppercase font-[510] mb-2">Skills</div>
+            <div className="text-xs text-fg-subtle uppercase font-510 mb-2">Skills</div>
             <div className="flex flex-wrap gap-1">
               {profile.skills.map((skill) => (
                 <Badge key={skill} variant="subtle">
@@ -130,11 +128,11 @@ export default function SharedProfilePage() {
 
         {profile.education.length > 0 && (
           <div className="mb-6">
-            <div className="text-xs text-[#62666d] uppercase font-[510] mb-2">Education</div>
+            <div className="text-xs text-fg-subtle uppercase font-510 mb-2">Education</div>
             {profile.education.map((edu) => (
               <div key={`${edu.institution}-${edu.degree}`} className="mb-2">
-                <div className="text-sm text-[#d0d6e0]">{edu.degree}</div>
-                <div className="text-xs text-[#8a8f98]">
+                <div className="text-sm text-fg-secondary">{edu.degree}</div>
+                <div className="text-xs text-fg-muted">
                   {edu.institution}, {edu.year}
                 </div>
               </div>
@@ -144,11 +142,11 @@ export default function SharedProfilePage() {
 
         {profile.certifications.length > 0 && (
           <div className="mb-6">
-            <div className="text-xs text-[#62666d] uppercase font-[510] mb-2">Certifications</div>
+            <div className="text-xs text-fg-subtle uppercase font-510 mb-2">Certifications</div>
             {profile.certifications.map((cert) => (
               <div key={`${cert.name}-${cert.issuer}`} className="mb-2">
-                <div className="text-sm text-[#d0d6e0]">{cert.name}</div>
-                <div className="text-xs text-[#8a8f98]">
+                <div className="text-sm text-fg-secondary">{cert.name}</div>
+                <div className="text-xs text-fg-muted">
                   {cert.issuer}, {cert.year}
                 </div>
               </div>
@@ -158,14 +156,14 @@ export default function SharedProfilePage() {
 
         {profile.socialLinks.length > 0 && (
           <div className="mb-6">
-            <div className="text-xs text-[#62666d] uppercase font-[510] mb-2">Links</div>
+            <div className="text-xs text-fg-subtle uppercase font-510 mb-2">Links</div>
             {profile.socialLinks.map((link) => (
               <a
                 key={link.url}
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block text-sm text-[#7170ff] hover:text-[#828fff] mb-1"
+                className="block text-sm text-accent hover:text-accent-hover mb-1"
               >
                 {link.platform}
               </a>
@@ -179,7 +177,7 @@ export default function SharedProfilePage() {
           </div>
         )}
       </Card>
-      <div className="mt-6 text-xs text-[#62666d]">
+      <div className="mt-6 text-xs text-fg-subtle">
         This profile was shared by {profile.companyName}
       </div>
     </div>

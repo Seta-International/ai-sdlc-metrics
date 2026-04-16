@@ -38,7 +38,7 @@ export function SettingsSidebar() {
           <Link
             key={link.href}
             href={link.href}
-            className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ${isActive ? 'bg-[rgba(255,255,255,0.08)] text-[#f7f8f8] font-[510]' : 'text-[#8a8f98] hover:bg-[rgba(255,255,255,0.04)] hover:text-[#d0d6e0]'}`}
+            className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ${isActive ? 'bg-overlay/8 text-foreground font-510' : 'text-muted-foreground hover:bg-overlay/4 hover:text-secondary-foreground'}`}
           >
             <Icon className="h-4 w-4 shrink-0" />
             {link.label}

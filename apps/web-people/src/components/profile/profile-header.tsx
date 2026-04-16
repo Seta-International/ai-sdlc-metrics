@@ -75,7 +75,7 @@ export function ProfileHeader({
 
       <div className="flex items-start gap-6">
         <div className="relative shrink-0">
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[rgba(255,255,255,0.05)] text-2xl font-[510] text-[#d0d6e0]">
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-secondary/50 text-2xl font-510 text-secondary-foreground">
             {personProfile.photoUrl ? (
               <Image
                 src={personProfile.photoUrl}
@@ -91,7 +91,7 @@ export function ProfileHeader({
           {(isSelf || canEdit) && (
             <button
               type="button"
-              className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border border-[rgba(255,255,255,0.08)] bg-[#191a1b] text-[#8a8f98] hover:text-[#f7f8f8]"
+              className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground hover:text-foreground"
             >
               <Edit className="h-3 w-3" />
             </button>
@@ -101,10 +101,10 @@ export function ProfileHeader({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-[510] tracking-[-0.288px] text-[#f7f8f8]">
+              <h1 className="text-2xl font-510 tracking-h2 text-foreground">
                 {personProfile.fullName}
                 {personProfile.preferredName && (
-                  <span className="ml-2 text-lg font-normal text-[#8a8f98]">
+                  <span className="ml-2 text-lg font-normal text-muted-foreground">
                     ({personProfile.preferredName})
                   </span>
                 )}
@@ -112,15 +112,17 @@ export function ProfileHeader({
               <div className="mt-1 flex items-center gap-2 flex-wrap">
                 {currentJob && (
                   <>
-                    <span className="text-sm text-[#d0d6e0]">{currentJob.jobTitle}</span>
-                    <span className="text-[#62666d]">/</span>
-                    <span className="text-sm text-[#8a8f98]">{currentJob.departmentName}</span>
+                    <span className="text-sm text-secondary-foreground">{currentJob.jobTitle}</span>
+                    <span className="text-secondary-foreground/60">/</span>
+                    <span className="text-sm text-muted-foreground">
+                      {currentJob.departmentName}
+                    </span>
                   </>
                 )}
                 {currentJob?.locationName && (
                   <>
-                    <span className="text-[#62666d]">/</span>
-                    <span className="text-sm text-[#8a8f98]">{currentJob.locationName}</span>
+                    <span className="text-secondary-foreground/60">/</span>
+                    <span className="text-sm text-muted-foreground">{currentJob.locationName}</span>
                   </>
                 )}
               </div>

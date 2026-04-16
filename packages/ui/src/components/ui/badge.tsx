@@ -11,19 +11,19 @@ const badgeVariants = cva(
       variant: {
         // Neutral pill — default tag/filter chip
         default:
-          'rounded-full border border-[#23252a] bg-transparent px-[10px] py-0 text-[12px] font-[510] text-[#d0d6e0]',
+          'rounded-full border border-border bg-transparent px-2.5 py-0 text-xs font-510 text-secondary-foreground',
         // Success — green status pill
         success:
-          'rounded-full border-transparent bg-[#10b981] px-[10px] py-0 text-[10px] font-[510] text-[#f7f8f8]',
+          'rounded-full border-transparent bg-emerald-500 px-2.5 py-0 text-xs font-510 text-foreground',
         // Subtle — inline label, version tag
         subtle:
-          'rounded-[2px] border border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.05)] px-2 py-0 text-[10px] font-[510] text-[#f7f8f8]',
+          'rounded-sm border border-secondary/50 bg-secondary/50 px-2 py-0 text-xs font-510 text-foreground',
         // Status variants (use CSS vars from globals.css)
         destructive:
-          'rounded-full border border-transparent bg-(--color-bg-danger) px-[10px] py-0 text-[11px] font-medium text-(--color-text-danger)',
+          'rounded-full border border-transparent bg-(--color-bg-danger) px-2.5 py-0 text-micro font-medium text-(--color-text-danger)',
         warning:
-          'rounded-full border border-transparent bg-(--color-bg-warning) px-[10px] py-0 text-[11px] font-medium text-(--color-text-warning)',
-        info: 'rounded-full border border-transparent bg-(--color-bg-info) px-[10px] py-0 text-[11px] font-medium text-(--color-text-info)',
+          'rounded-full border border-transparent bg-(--color-bg-warning) px-2.5 py-0 text-micro font-medium text-(--color-text-warning)',
+        info: 'rounded-full border border-transparent bg-(--color-bg-info) px-2.5 py-0 text-micro font-medium text-(--color-text-info)',
       },
     },
     defaultVariants: {

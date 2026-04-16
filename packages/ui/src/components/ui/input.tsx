@@ -13,9 +13,9 @@ function Input({ className, type, ...props }: React.ComponentProps<'input'>) {
         'selection:bg-primary selection:text-primary-foreground',
         'file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground',
         'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
-        'dark:bg-[rgba(255,255,255,0.02)]',
-        'focus-visible:outline-none focus-visible:shadow-[0_0_0_1px_rgba(113,112,255,0.3),_0_0_0_3px_rgba(113,112,255,0.1)]',
-        'aria-invalid:border-destructive aria-invalid:shadow-[0_0_0_1px_rgba(239,68,68,0.3),_0_0_0_3px_rgba(239,68,68,0.1)]',
+        'dark:bg-card',
+        'focus-visible:outline-none focus-visible:shadow-none ring-1 ring-accent/30',
+        'aria-invalid:border-destructive aria-invalid:shadow-none ring-1 ring-red-500/30',
         className,
       )}
       {...props}

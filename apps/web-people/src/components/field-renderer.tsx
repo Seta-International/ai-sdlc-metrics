@@ -23,22 +23,24 @@ export function FieldRenderer({
   if (!editable) {
     return (
       <div className="space-y-1">
-        <dt className="text-xs font-[510] text-[#8a8f98] uppercase tracking-wide">{label}</dt>
-        <dd className="text-sm text-[#d0d6e0]">{renderReadOnlyValue(value, type)}</dd>
+        <dt className="text-xs font-510 text-muted-foreground uppercase tracking-wide">{label}</dt>
+        <dd className="text-sm text-secondary-foreground">{renderReadOnlyValue(value, type)}</dd>
       </div>
     )
   }
 
   return (
     <div className="space-y-1">
-      <label className="text-xs font-[510] text-[#8a8f98] uppercase tracking-wide">{label}</label>
+      <label className="text-xs font-510 text-muted-foreground uppercase tracking-wide">
+        {label}
+      </label>
       {renderEditableField(value, type, onChange)}
     </div>
   )
 }
 
 function renderReadOnlyValue(value: unknown, type: FieldType): React.ReactNode {
-  if (value == null || value === '') return <span className="text-[#62666d]">--</span>
+  if (value == null || value === '') return <span className="text-secondary-foreground/60">--</span>
 
   switch (type) {
     case 'boolean':
@@ -79,7 +81,7 @@ function renderEditableField(
         <textarea
           value={String(value ?? '')}
           onChange={(e) => onChange?.(e.target.value)}
-          className="w-full rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-3 py-2 text-sm text-[#d0d6e0]"
+          className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-secondary-foreground"
           rows={3}
         />
       )
@@ -117,7 +119,7 @@ export function FieldGroupRenderer({
     <div className="space-y-6">
       {Object.entries(groups).map(([groupName, groupFields]) => (
         <div key={groupName}>
-          <h4 className="text-sm font-[590] text-[#f7f8f8] mb-3">{groupName}</h4>
+          <h4 className="text-sm font-590 text-foreground mb-3">{groupName}</h4>
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {groupFields.map((field) => (
               <FieldRenderer

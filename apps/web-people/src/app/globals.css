@@ -1,3 +1,4 @@
 @import 'tailwindcss';
 @source "../../**/*.{tsx,ts,jsx,js}";
+@config '../../../../tailwind.config.ts';
 @import '@future/ui/src/styles/globals.css';

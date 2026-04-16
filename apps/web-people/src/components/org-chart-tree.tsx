@@ -83,7 +83,7 @@ export function OrgChartTree() {
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#62666d]" />
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-secondary-foreground/60" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -93,14 +93,14 @@ export function OrgChartTree() {
             />
           </div>
 
-          <div className="flex items-center rounded-md border border-[rgba(255,255,255,0.08)]">
+          <div className="flex items-center rounded-md border border-border">
             <button
               type="button"
               onClick={() => setViewMode('manager')}
               className={`rounded-l-md px-3 py-1.5 text-xs ${
                 viewMode === 'manager'
-                  ? 'bg-[rgba(255,255,255,0.08)] text-[#f7f8f8]'
-                  : 'text-[#62666d] hover:text-[#8a8f98]'
+                  ? 'bg-border text-foreground'
+                  : 'text-secondary-foreground/60 hover:text-muted-foreground'
               }`}
             >
               By Manager
@@ -110,8 +110,8 @@ export function OrgChartTree() {
               onClick={() => setViewMode('department')}
               className={`rounded-r-md px-3 py-1.5 text-xs ${
                 viewMode === 'department'
-                  ? 'bg-[rgba(255,255,255,0.08)] text-[#f7f8f8]'
-                  : 'text-[#62666d] hover:text-[#8a8f98]'
+                  ? 'bg-border text-foreground'
+                  : 'text-secondary-foreground/60 hover:text-muted-foreground'
               }`}
             >
               By Department
@@ -127,7 +127,9 @@ export function OrgChartTree() {
           >
             <Minus className="h-3.5 w-3.5" />
           </Button>
-          <span className="w-12 text-center text-xs text-[#8a8f98]">{Math.round(zoom * 100)}%</span>
+          <span className="w-12 text-center text-xs text-muted-foreground">
+            {Math.round(zoom * 100)}%
+          </span>
           <Button
             variant="outline"
             size="sm"
@@ -148,10 +150,10 @@ export function OrgChartTree() {
       </div>
 
       {/* Tree canvas */}
-      <div className="overflow-auto rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.01)] p-8 min-h-[500px]">
+      <div className="overflow-auto rounded-lg border border-border bg-overlay/1 p-8 min-h-content-lg">
         <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}>
           {isLoading ? (
-            <div className="flex items-center justify-center py-16 text-sm text-[#8a8f98]">
+            <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
               Loading org chart...
             </div>
           ) : (

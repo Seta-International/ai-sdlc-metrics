@@ -56,7 +56,9 @@ export function TabContracts({
         </div>
       )}
       {contracts.length === 0 ? (
-        <p className="text-sm text-[#62666d] py-8 text-center">No contracts recorded.</p>
+        <p className="text-sm text-secondary-foreground/60 py-8 text-center">
+          No contracts recorded.
+        </p>
       ) : (
         contracts.map((contract) => {
           const statusCfg: Record<
@@ -81,7 +83,7 @@ export function TabContracts({
           return (
             <Card
               key={contract.id}
-              className={`border p-5 ${contract.status === 'active' ? 'border-[#7170ff]/30 bg-[rgba(113,112,255,0.04)]' : 'border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)]'}`}
+              className={`border p-5 ${contract.status === 'active' ? 'border-accent/30 bg-accent/4' : 'border-border-border bg-bg-card'}`}
             >
               {isExpiringSoon && (
                 <Alert className="mb-3 border-amber-500/30 bg-amber-500/5 text-sm text-amber-200">
@@ -94,19 +96,19 @@ export function TabContracts({
                     <Badge variant="subtle">{contract.contractType.replace('_', ' ')}</Badge>
                     <Badge variant={cfg.variant}>{cfg.label}</Badge>
                   </div>
-                  <div className="text-sm text-[#d0d6e0]">
+                  <div className="text-sm text-secondary-foreground">
                     {new Date(contract.startDate).toLocaleDateString('en-GB')}
                     {contract.endDate &&
                       ` - ${new Date(contract.endDate).toLocaleDateString('en-GB')}`}
                     {!contract.endDate && ' - Indefinite'}
                   </div>
                   {canViewSalary && contract.baseSalary != null && (
-                    <div className="text-sm text-[#8a8f98]">
+                    <div className="text-sm text-muted-foreground">
                       Base salary: {contract.currency} {contract.baseSalary.toLocaleString()}
                     </div>
                   )}
                   {contract.signedDate && (
-                    <div className="text-xs text-[#62666d]">
+                    <div className="text-xs text-secondary-foreground/60">
                       Signed: {new Date(contract.signedDate).toLocaleDateString('en-GB')}
                     </div>
                   )}

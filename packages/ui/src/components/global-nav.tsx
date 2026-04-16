@@ -34,9 +34,9 @@ export function AgentStrip({
   return (
     <div
       className={cn(
-        'flex h-7 flex-shrink-0 items-center gap-4 px-4 text-[11px]',
-        'bg-[rgba(94,106,210,0.05)] border-b border-[rgba(94,106,210,0.2)] text-[#5e6ad2]',
-        'dark:bg-[rgba(113,112,255,0.06)] dark:border-[rgba(113,112,255,0.15)] dark:text-[#7170ff]',
+        'flex h-7 flex-shrink-0 items-center gap-4 px-4 text-micro',
+        'bg-primary/5 border-b border-primary/20 text-primary',
+        'dark:bg-accent/5 dark:border-accent/20 dark:text-accent',
       )}
       role="status"
       aria-live="polite"
@@ -53,10 +53,7 @@ export function AgentStrip({
         ·
       </span>
       <span>{scope}</span>
-      <a
-        href={auditLogHref}
-        className="ml-auto text-[11px] text-[#5e6ad2] underline dark:text-[#7170ff]"
-      >
+      <a href={auditLogHref} className="ml-auto text-micro text-primary underline dark:text-accent">
         View audit log
       </a>
     </div>
@@ -131,7 +128,7 @@ export function GlobalNav({
           className={cn(
             'flex h-12 items-center gap-3 px-4',
             'bg-card border-b border-border',
-            'dark:bg-[#0f1011] dark:border-[rgba(255,255,255,0.05)]',
+            'dark:bg-sidebar-background dark:border-sidebar-border',
           )}
         >
           {/* Launcher trigger */}
@@ -146,15 +143,15 @@ export function GlobalNav({
             onClick={onSearchClick}
             aria-label="Search or ask an agent"
             className={cn(
-              'ml-auto flex max-w-[260px] flex-1 items-center gap-2 rounded-md border px-3 py-1.5',
+              'ml-auto flex max-w-xs flex-1 items-center gap-2 rounded-md border px-3 py-1.5',
               'border-border bg-(--btn-ghost-bg) text-xs text-muted-foreground',
-              'transition-all hover:bg-(--btn-ghost-bg-hover) hover:border-[#5e6ad2]',
+              'transition-all hover:bg-(--btn-ghost-bg-hover) hover:border-primary',
               'focus:outline-none focus:ring-2 focus:ring-ring/50',
             )}
           >
             <Search className="h-3 w-3 flex-shrink-0 opacity-50" aria-hidden="true" />
             <span>Search or ask…</span>
-            <span className="ml-auto font-mono text-[10px] opacity-50">⌘K</span>
+            <span className="ml-auto font-mono text-tiny opacity-50">⌘K</span>
           </button>
 
           {/* Agent toggle */}
@@ -206,9 +203,9 @@ export function GlobalNav({
             aria-label={`User menu (${userInitials})`}
             className={cn(
               'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full',
-              'bg-[#5e6ad2] text-[11px] font-[510] text-white',
-              'transition-all hover:bg-[#828fff]',
-              'focus:outline-none focus:ring-2 focus:ring-[#5e6ad2]/50',
+              'bg-primary text-micro font-510 text-primary-foreground',
+              'transition-all hover:bg-primary/90',
+              'focus:outline-none focus:ring-2 focus:ring-primary/50',
             )}
           >
             {userInitials.slice(0, 2).toUpperCase()}

@@ -17,8 +17,8 @@ const columns: ColumnDef<CompletenessRow>[] = [
     enableSorting: true,
     cell: ({ getValue }: CellContext<CompletenessRow, unknown>) => {
       const score = getValue() as number
-      const color = score >= 80 ? 'text-[#10b981]' : score >= 60 ? 'text-amber-400' : 'text-red-400'
-      return <span className={`text-sm font-[510] ${color}`}>{score}%</span>
+      const color = score >= 80 ? 'text-emerald' : score >= 60 ? 'text-amber-400' : 'text-red-400'
+      return <span className={`text-sm font-510 ${color}`}>{score}%</span>
     },
   },
   { accessorKey: 'missingCount', header: 'Missing Fields', enableSorting: true },
@@ -49,7 +49,7 @@ export default function CompletenessReportPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-[510] text-[#f7f8f8]">Profile Completeness</h2>
+        <h2 className="text-lg font-510 text-fg-primary">Profile Completeness</h2>
         <Button variant="outline" size="sm">
           Send Reminders
         </Button>

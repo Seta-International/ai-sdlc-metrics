@@ -37,13 +37,13 @@ export default function EditPoliciesPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-[510] text-[#f7f8f8]">Edit Policies</h2>
+        <h2 className="text-lg font-510 text-fg-primary">Edit Policies</h2>
         <Button variant="default" size="sm">
           Save Changes
         </Button>
       </div>
       {isLoading ? (
-        <div className="text-sm text-[#8a8f98]">Loading...</div>
+        <div className="text-sm text-fg-muted">Loading...</div>
       ) : (
         <FieldPolicyList mode="edit_policy" entries={entries} onChange={handleChange} />
       )}

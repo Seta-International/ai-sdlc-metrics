@@ -30,7 +30,7 @@ export function AgentMessageInput({ onSend, disabled }: AgentMessageInputProps) 
   )
 
   return (
-    <div className="flex items-center gap-2 border-t border-[rgba(255,255,255,0.08)] px-3 py-2">
+    <div className="flex items-center gap-2 border-t border-border px-3 py-2">
       <input
         type="text"
         value={value}
@@ -38,13 +38,13 @@ export function AgentMessageInput({ onSend, disabled }: AgentMessageInputProps) 
         onKeyDown={handleKeyDown}
         placeholder="Ask the agent..."
         disabled={disabled}
-        className="flex-1 rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-3 py-1.5 text-sm text-[#f7f8f8] placeholder:text-[#62666d] outline-none focus:outline-none focus:shadow-[0px_4px_12px_rgba(0,0,0,0.1)] disabled:opacity-50"
+        className="flex-1 rounded-md border border-border bg-secondary/20 px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:outline-none focus:ring-2 focus:ring-ring/50 disabled:opacity-50"
       />
       <button
         onClick={handleSend}
         disabled={disabled || !value.trim()}
         className={cn(
-          'rounded-md p-1.5 text-[#8a8f98] hover:bg-[rgba(255,255,255,0.05)] disabled:opacity-50',
+          'rounded-md p-1.5 text-muted-foreground hover:bg-secondary/50 disabled:opacity-50',
         )}
       >
         <Send className="h-4 w-4" />

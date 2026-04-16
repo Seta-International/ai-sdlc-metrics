@@ -39,7 +39,7 @@ const profileColumns: ColumnDef<JobProfileRow>[] = [
     accessorKey: 'assignmentCount',
     header: 'Assignments',
     cell: ({ getValue }: CellContext<JobProfileRow, unknown>) => (
-      <span className="text-xs text-[#8a8f98]">{getValue() as number}</span>
+      <span className="text-xs text-muted-foreground">{getValue() as number}</span>
     ),
   },
 ]
@@ -103,7 +103,7 @@ export function JobCatalogEditor() {
               setSelectedFamilyId(family.id)
               if (hasChildren) toggleExpand(family.id)
             }}
-            className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm ${isSelected ? 'bg-[rgba(255,255,255,0.08)] text-[#f7f8f8] font-[510]' : 'text-[#d0d6e0] hover:bg-[rgba(255,255,255,0.04)]'}`}
+            className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm ${isSelected ? 'bg-border text-foreground font-510' : 'text-secondary-foreground hover:bg-secondary'}`}
             style={{ paddingLeft: `${depth * 16 + 8}px` }}
           >
             {hasChildren ? (
@@ -113,10 +113,10 @@ export function JobCatalogEditor() {
                 <ChevronRight className="h-3.5 w-3.5 shrink-0" />
               )
             ) : (
-              <FolderOpen className="h-3.5 w-3.5 shrink-0 text-[#62666d]" />
+              <FolderOpen className="h-3.5 w-3.5 shrink-0 text-secondary-foreground/60" />
             )}
             <span className="truncate">{family.name}</span>
-            <Badge variant="subtle" className="ml-auto h-4 px-1 text-[10px]">
+            <Badge variant="subtle" className="ml-auto h-4 px-1 text-xs">
               {family.profileCount}
             </Badge>
           </button>
@@ -128,16 +128,16 @@ export function JobCatalogEditor() {
 
   return (
     <div className="flex gap-6">
-      <Card className="w-64 shrink-0 border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-3">
+      <Card className="w-64 shrink-0 border-border bg-card p-3">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-[590] text-[#f7f8f8]">Job Families</h3>
+          <h3 className="text-sm font-590 text-foreground">Job Families</h3>
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
             <Plus className="h-3.5 w-3.5" />
           </Button>
         </div>
-        <div className="space-y-0.5 max-h-[500px] overflow-y-auto">
+        <div className="space-y-0.5 max-h-content-lg overflow-y-auto">
           {isLoading ? (
-            <div className="text-xs text-[#62666d] py-4 text-center">Loading...</div>
+            <div className="text-xs text-secondary-foreground/60 py-4 text-center">Loading...</div>
           ) : (
             renderFamilyTree(families)
           )}
@@ -147,7 +147,7 @@ export function JobCatalogEditor() {
         {selectedFamilyId ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-[590] text-[#f7f8f8]">Job Profiles</h3>
+              <h3 className="text-sm font-590 text-foreground">Job Profiles</h3>
               <Dialog>
                 <DialogTrigger asChild>
                   <Button variant="default" size="sm" className="gap-1">
@@ -177,7 +177,7 @@ export function JobCatalogEditor() {
             />
           </div>
         ) : (
-          <div className="flex items-center justify-center py-16 text-sm text-[#62666d]">
+          <div className="flex items-center justify-center py-16 text-sm text-secondary-foreground/60">
             Select a job family to view profiles
           </div>
         )}

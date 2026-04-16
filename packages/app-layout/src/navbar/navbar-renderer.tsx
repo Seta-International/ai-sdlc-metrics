@@ -15,6 +15,7 @@ export interface NavbarRendererProps {
   onAgentClick?: () => void
   onSearchClick?: () => void
   onProfileClick?: () => void
+  agentPanelOpen?: boolean
 }
 
 export function NavbarRenderer({
@@ -24,6 +25,7 @@ export function NavbarRenderer({
   onAgentClick,
   onSearchClick,
   onProfileClick,
+  agentPanelOpen = false,
 }: NavbarRendererProps) {
   const [launcherOpen, setLauncherOpen] = React.useState(false)
   const { resolvedTheme, setTheme } = useTheme()
@@ -46,12 +48,12 @@ export function NavbarRenderer({
     <>
       <AppLauncher open={launcherOpen} onOpenChange={setLauncherOpen} apps={apps} />
 
-      <header className={cn('flex flex-col flex-shrink-0')}>
+      <header className={cn('flex flex-shrink-0 flex-col')}>
         <div
           className={cn(
             'flex h-12 items-center gap-3 px-4',
             'bg-card border-b border-border',
-            'dark:bg-[#0f1011] dark:border-[rgba(255,255,255,0.05)]',
+            'dark:bg-sidebar-background dark:border-sidebar-border',
           )}
         >
           {/* Sidebar toggle (mobile hamburger / desktop collapse) */}
@@ -63,7 +65,7 @@ export function NavbarRenderer({
           {/* Zone title */}
           <div className="flex items-center gap-2">
             <config.icon className="h-4 w-4 text-muted-foreground" />
-            <span className="text-[13px] font-[510]">{config.title}</span>
+            <span className="text-sm font-510">{config.title}</span>
           </div>
 
           {/* Action button */}
@@ -72,9 +74,9 @@ export function NavbarRenderer({
               href={config.action.href}
               className={cn(
                 'ml-2 flex items-center gap-1.5 rounded-md px-2.5 py-1.5',
-                'bg-[#5e6ad2] text-white text-xs font-[510]',
-                'transition-all hover:bg-[#828fff]',
-                'focus:outline-none focus:ring-2 focus:ring-[#5e6ad2]/50',
+                'bg-primary text-primary-foreground text-xs font-510',
+                'transition-all hover:bg-primary/90',
+                'focus:outline-none focus:ring-2 focus:ring-primary/50',
               )}
             >
               <Plus className="h-3 w-3" />
@@ -88,26 +90,28 @@ export function NavbarRenderer({
             onClick={onSearchClick}
             aria-label="Search or ask an agent"
             className={cn(
-              'ml-auto flex max-w-[260px] flex-1 items-center gap-2 rounded-md border px-3 py-1.5',
+              'ml-auto flex max-w-xs flex-1 items-center gap-2 rounded-md border px-3 py-1.5',
               'border-border bg-(--btn-ghost-bg) text-xs text-muted-foreground',
-              'transition-all hover:bg-(--btn-ghost-bg-hover) hover:border-[#5e6ad2]',
+              'transition-all hover:bg-(--btn-ghost-bg-hover) hover:border-primary',
               'focus:outline-none focus:ring-2 focus:ring-ring/50',
             )}
           >
             <Search className="h-3 w-3 flex-shrink-0 opacity-50" aria-hidden="true" />
             <span>Search or ask...</span>
-            <span className="ml-auto font-mono text-[10px] opacity-50">⌘K</span>
+            <span className="ml-auto font-mono text-tiny opacity-50">⌘K</span>
           </button>
 
           {/* Agent toggle */}
           <button
             type="button"
             onClick={onAgentClick}
-            aria-label="Open agent panel"
+            aria-label={agentPanelOpen ? 'Close agent panel' : 'Open agent panel'}
             className={cn(
-              'flex h-11 w-11 items-center justify-center rounded-md',
-              'text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
+              'flex h-8 w-8 items-center justify-center rounded-full border transition-all',
               'focus:outline-none focus:ring-2 focus:ring-ring/50',
+              agentPanelOpen
+                ? 'border-border bg-primary text-primary-foreground'
+                : 'border-transparent text-muted-foreground hover:border-border hover:bg-(--btn-ghost-bg) hover:text-foreground',
             )}
           >
             <Bot className="h-4 w-4" />
@@ -148,9 +152,9 @@ export function NavbarRenderer({
             aria-label={`User menu (${userInitials})`}
             className={cn(
               'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full',
-              'bg-[#5e6ad2] text-[11px] font-[510] text-white',
-              'transition-all hover:bg-[#828fff]',
-              'focus:outline-none focus:ring-2 focus:ring-[#5e6ad2]/50',
+              'bg-primary text-micro font-510 text-primary-foreground',
+              'transition-all hover:bg-primary/90',
+              'focus:outline-none focus:ring-2 focus:ring-primary/50',
             )}
           >
             {userInitials.slice(0, 2).toUpperCase()}

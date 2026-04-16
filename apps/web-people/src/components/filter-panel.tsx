@@ -77,7 +77,7 @@ export function FilterPanel({
             <Filter className="h-3.5 w-3.5" />
             Filters
             {activeCount > 0 && (
-              <Badge variant="subtle" className="ml-1 h-5 px-1.5 text-[10px]">
+              <Badge variant="subtle" className="ml-1 h-5 px-1.5 text-xs">
                 {activeCount}
               </Badge>
             )}
@@ -143,7 +143,7 @@ export function FilterPanel({
             />
             <Separator />
             <div>
-              <div className="text-xs font-[510] text-[#8a8f98] mb-2">Hire Date</div>
+              <div className="text-xs font-510 text-muted-foreground mb-2">Hire Date</div>
               <div className="flex gap-2">
                 <Input
                   type="date"
@@ -167,7 +167,7 @@ export function FilterPanel({
             </div>
           </div>
           {activeCount > 0 && (
-            <div className="border-t border-[rgba(255,255,255,0.05)] p-2">
+            <div className="border-t border-sidebar-border p-2">
               <Button
                 variant="ghost"
                 size="sm"
@@ -187,7 +187,7 @@ export function FilterPanel({
           variant="ghost"
           size="sm"
           onClick={() => onFiltersChange(emptyFilters)}
-          className="text-xs text-[#8a8f98]"
+          className="text-xs text-muted-foreground"
         >
           Clear all
         </Button>
@@ -213,9 +213,9 @@ function FilterSection({
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-[510] text-[#8a8f98]">{title}</span>
+        <span className="text-xs font-510 text-muted-foreground">{title}</span>
         {selected.length > 0 && (
-          <Badge variant="subtle" className="h-4 px-1 text-[10px]">
+          <Badge variant="subtle" className="h-4 px-1 text-xs">
             {selected.length}
           </Badge>
         )}
@@ -232,7 +232,7 @@ function FilterSection({
         {filtered.map((option) => (
           <label
             key={option.value}
-            className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-[rgba(255,255,255,0.04)] cursor-pointer"
+            className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-secondary cursor-pointer"
           >
             <Checkbox
               checked={selected.includes(option.value)}
@@ -245,8 +245,10 @@ function FilterSection({
               }}
               className="h-3.5 w-3.5"
             />
-            <span className="text-[#d0d6e0] flex-1">{option.label}</span>
-            {option.count != null && <span className="text-[#62666d]">{option.count}</span>}
+            <span className="text-secondary-foreground flex-1">{option.label}</span>
+            {option.count != null && (
+              <span className="text-secondary-foreground/60">{option.count}</span>
+            )}
           </label>
         ))}
       </div>
