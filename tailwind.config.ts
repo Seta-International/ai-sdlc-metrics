@@ -92,6 +92,7 @@ const config = {
         body: '-0.165px',
         caption: '-0.182px',
         'caption-sm': '-0.13px',
+        'table-head': '0.05em',
       },
     },
   },
