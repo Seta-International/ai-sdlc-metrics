@@ -6,7 +6,7 @@ pre-commit:
       run: bunx prettier --check {staged_files}
     design-tokens:
       glob: '*.{ts,tsx,js,jsx}'
-      run: node scripts/check-design-tokens.js {staged_files}
+      run: bun scripts/check-design-tokens.ts {staged_files}
 
 pre-push:
   parallel: true

@@ -1,10 +1,14 @@
-#!/usr/bin/env node
 // Pre-commit hook: rejects staged files containing Tailwind arbitrary color
 // or spacing values. Invoked by lefthook with staged file paths as arguments.
 
 import { readFileSync } from 'node:fs'
 
-const PATTERNS = [
+interface Pattern {
+  regex: RegExp
+  desc: string
+}
+
+const PATTERNS: Pattern[] = [
   { regex: /\[#[0-9a-fA-F]{3,8}\]/g, desc: 'arbitrary hex color' },
   { regex: /\[rgba?\(/g, desc: 'arbitrary rgba/rgb color' },
   // Matches arbitrary px values used inside utility classes.
@@ -17,7 +21,7 @@ const files = process.argv.slice(2).filter((f) => /\.(tsx?|jsx?)$/.test(f))
 let hasViolations = false
 
 for (const file of files) {
-  let content
+  let content: string
   try {
     content = readFileSync(file, 'utf-8')
   } catch {
