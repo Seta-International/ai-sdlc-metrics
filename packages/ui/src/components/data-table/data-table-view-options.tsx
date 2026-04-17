@@ -57,7 +57,7 @@ export function DataTableViewOptions({
       </Button>
       {open && (
         <div className="absolute right-0 top-full z-50 mt-1 min-w-40 rounded-md border border-border bg-popover p-1 shadow-md">
-          <p className="px-2 py-1 text-tiny font-semibold uppercase tracking-widest text-muted-foreground">
+          <p className="px-2 py-1 text-tiny font-590 uppercase tracking-table-head text-muted-foreground">
             Toggle columns
           </p>
           {columns.map((col) => {
