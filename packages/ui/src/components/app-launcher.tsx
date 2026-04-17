@@ -333,7 +333,7 @@ export function AppLauncher({
                       className={cn(
                         'relative flex flex-col items-center gap-2 rounded-lg border px-2 pb-3.5 pt-4',
                         'cursor-pointer no-underline transition-all focus:outline-none',
-                        'focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-popover',
+                        'focus:ring-3 focus:ring-ring/50',
                         isCurrent
                           ? 'border-accent/35 bg-accent/10'
                           : 'border-transparent hover:border-border hover:bg-secondary',
@@ -418,7 +418,7 @@ export function AppLauncherTrigger({ onClick, className }: AppLauncherTriggerPro
         'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded',
         'bg-primary text-primary-foreground text-xs font-510',
         'transition-all hover:bg-primary/90 hover:scale-[1.06]',
-        'focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1 focus:ring-offset-background',
+        'focus:outline-none focus:ring-3 focus:ring-ring/50',
         className,
       )}
     >
@@ -448,7 +448,7 @@ export function AppChip({ app, onClick, className }: AppChipProps) {
         'flex items-center gap-1.5 rounded-full border px-2 py-0.5',
         'border-border bg-secondary text-micro font-510 text-secondary-foreground',
         'transition-all hover:border-primary/40 hover:text-primary',
-        'focus:outline-none focus:ring-2 focus:ring-accent',
+        'focus:outline-none focus:ring-3 focus:ring-ring/50',
         'dark:border-border dark:bg-secondary dark:text-secondary-foreground',
         'dark:hover:border-accent/40 dark:hover:text-accent',
         className,
