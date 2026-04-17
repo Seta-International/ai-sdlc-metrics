@@ -11,13 +11,13 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/employees',
 }))
 
-function createWrapper(permissions: string[]) {
+function createWrapper(permissions: string[], defaultOpen = true) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
       <PermissionContext.Provider
         value={{ permissions: new Set(permissions), roles: [], isLoading: false }}
       >
-        <SidebarProvider defaultOpen={true}>{children}</SidebarProvider>
+        <SidebarProvider defaultOpen={defaultOpen}>{children}</SidebarProvider>
       </PermissionContext.Provider>
     )
   }
@@ -84,5 +84,29 @@ describe('SidebarRenderer', () => {
     })
 
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
+  })
+
+  it('renders Sidebar in icon-collapsible mode', () => {
+    const { container } = render(<SidebarRenderer groups={testGroups} />, {
+      wrapper: createWrapper(['people:profile:read', 'time:attendance:read'], false),
+    })
+
+    const sidebarRoot = container.querySelector('[data-slot="sidebar"]')
+    expect(sidebarRoot).not.toBeNull()
+    expect(sidebarRoot?.getAttribute('data-collapsible')).toBe('icon')
+  })
+
+  it('wires a tooltip on every top-level menu button', () => {
+    const { container } = render(<SidebarRenderer groups={testGroups} />, {
+      wrapper: createWrapper(['people:profile:read', 'time:attendance:read']),
+    })
+
+    const menuButtons = container.querySelectorAll('[data-slot="sidebar-menu-button"]')
+    expect(menuButtons.length).toBeGreaterThan(0)
+    for (const button of menuButtons) {
+      // Radix Tooltip's TooltipTrigger (with asChild) emits data-state on the wrapped element.
+      // Its presence proves the SidebarMenuButton received a tooltip prop.
+      expect(button.getAttribute('data-state')).toBe('closed')
+    }
   })
 })

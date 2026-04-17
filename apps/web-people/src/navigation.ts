@@ -1,14 +1,5 @@
 // apps/web-people/src/navigation.ts
-import {
-  Users,
-  Network,
-  User,
-  UserPlus,
-  UserMinus,
-  FileCheck,
-  BarChart3,
-  Settings,
-} from 'lucide-react'
+import { Users, Network, UserPlus, UserMinus, FileCheck, BarChart3, Settings } from 'lucide-react'
 import type { NavigationConfig } from '@future/app-layout'
 
 export const peopleNavConfig: NavigationConfig = {
@@ -36,11 +27,6 @@ export const peopleNavConfig: NavigationConfig = {
           icon: Network,
           href: '/org-chart',
           permission: 'people:org:read',
-        },
-        {
-          label: 'My Profile',
-          icon: User,
-          href: '/me',
         },
       ],
     },
