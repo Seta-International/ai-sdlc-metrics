@@ -60,9 +60,9 @@ export function NotificationsPopover({
       type="button"
       aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
       className={cn(
-        'relative flex h-11 w-11 items-center justify-center rounded-md',
-        'text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
-        'focus:outline-none focus:ring-2 focus:ring-ring/50',
+        'relative flex h-11 w-11 items-center justify-center rounded-md border',
+        'border-border text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
+        'focus:outline-none focus:ring-3 focus:ring-ring/50',
       )}
     >
       <Bell className="h-4 w-4" />
@@ -84,14 +84,14 @@ export function NotificationsPopover({
   const body = (
     <>
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <span className="text-sm font-510 text-foreground">Notifications</span>
+        <span className="text-caption-lg font-510 text-foreground">Notifications</span>
         <button
           type="button"
           disabled={disableMarkAll}
           onClick={onReadAll}
           className={cn(
-            'text-xs text-accent transition-opacity',
-            'hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring/50',
+            'text-label text-accent transition-opacity',
+            'hover:opacity-80 focus:outline-none focus:ring-3 focus:ring-ring/50',
             'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50',
           )}
         >
@@ -100,7 +100,7 @@ export function NotificationsPopover({
       </div>
 
       {showEmpty ? (
-        <div className="flex items-center justify-center px-4 py-10 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center px-4 py-10 text-small text-muted-foreground">
           {emptyStateHint ?? DEFAULT_EMPTY_HINT}
         </div>
       ) : null}
@@ -140,7 +140,7 @@ export function NotificationsPopover({
           <button
             type="button"
             onClick={onOpenAll}
-            className="text-xs text-accent hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring/50"
+            className="text-label text-accent hover:opacity-80 focus:outline-none focus:ring-3 focus:ring-ring/50"
           >
             See all →
           </button>
@@ -202,7 +202,7 @@ function NotificationRow({ item, onRead }: NotificationRowProps) {
       onClick={handleClick}
       className={cn(
         'flex w-full min-h-11 items-start gap-3 border-b border-border/40 px-4 py-3 text-left',
-        'transition-colors hover:bg-overlay/5 focus:outline-none focus:ring-2 focus:ring-ring/50',
+        'transition-colors hover:bg-overlay/5 focus:outline-none focus:ring-3 focus:ring-ring/50',
       )}
     >
       <span
@@ -215,14 +215,14 @@ function NotificationRow({ item, onRead }: NotificationRowProps) {
       <div className="flex flex-1 flex-col gap-1 min-w-0">
         <span
           className={cn(
-            'text-sm font-510 truncate',
+            'text-caption-lg font-510 truncate',
             item.read ? 'text-muted-foreground' : 'text-foreground',
           )}
         >
           {item.title}
         </span>
         {item.body ? (
-          <span className="text-xs text-muted-foreground line-clamp-2">{item.body}</span>
+          <span className="text-caption text-muted-foreground line-clamp-2">{item.body}</span>
         ) : null}
       </div>
       {pillSeverity ? <SeverityPill severity={pillSeverity} /> : null}
@@ -238,7 +238,7 @@ function SeverityPill({ severity }: SeverityPillProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-sm bg-overlay/5 px-2 text-label font-510',
+        'inline-flex items-center rounded-xs bg-overlay/5 px-2 text-label font-510',
         severity === 'critical' ? 'text-destructive' : 'text-(--color-text-warning)',
       )}
     >
