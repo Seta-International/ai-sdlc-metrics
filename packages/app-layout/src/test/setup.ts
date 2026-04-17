@@ -16,6 +16,15 @@ if (typeof window.matchMedia === 'undefined') {
   })
 }
 
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  globalThis.ResizeObserver = ResizeObserver as typeof globalThis.ResizeObserver
+}
+
 if (typeof PointerEvent === 'undefined') {
   class PointerEvent extends MouseEvent {
     pointerType: string
