@@ -72,7 +72,7 @@ export function NotificationsPopover({
           aria-hidden="true"
           className={cn(
             'absolute top-1 right-1 inline-flex min-w-4 items-center justify-center rounded-full',
-            'bg-destructive px-1 text-tiny font-510 text-destructive-foreground',
+            'bg-destructive px-1 text-label font-510 text-destructive-foreground',
           )}
         >
           {badgeLabel}
@@ -215,14 +215,14 @@ function NotificationRow({ item, onRead }: NotificationRowProps) {
       <div className="flex flex-1 flex-col gap-1 min-w-0">
         <span
           className={cn(
-            'text-caption-lg font-510 truncate',
+            'text-caption font-510 truncate',
             item.read ? 'text-muted-foreground' : 'text-foreground',
           )}
         >
           {item.title}
         </span>
         {item.body ? (
-          <span className="text-caption text-muted-foreground line-clamp-2">{item.body}</span>
+          <span className="text-label text-muted-foreground line-clamp-2">{item.body}</span>
         ) : null}
       </div>
       {pillSeverity ? <SeverityPill severity={pillSeverity} /> : null}
