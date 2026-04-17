@@ -20,10 +20,10 @@ const badgeVariants = cva(
           'rounded-sm border border-secondary/50 bg-secondary/50 px-2 py-0 text-xs font-510 text-foreground',
         // Status variants (use CSS vars from globals.css)
         destructive:
-          'rounded-full border border-transparent bg-(--color-bg-danger) px-2.5 py-0 text-micro font-medium text-(--color-text-danger)',
+          'rounded-full border border-transparent bg-(--color-bg-danger) px-2.5 py-0 text-micro font-510 text-(--color-text-danger)',
         warning:
-          'rounded-full border border-transparent bg-(--color-bg-warning) px-2.5 py-0 text-micro font-medium text-(--color-text-warning)',
-        info: 'rounded-full border border-transparent bg-(--color-bg-info) px-2.5 py-0 text-micro font-medium text-(--color-text-info)',
+          'rounded-full border border-transparent bg-(--color-bg-warning) px-2.5 py-0 text-micro font-510 text-(--color-text-warning)',
+        info: 'rounded-full border border-transparent bg-(--color-bg-info) px-2.5 py-0 text-micro font-510 text-(--color-text-info)',
       },
     },
     defaultVariants: {

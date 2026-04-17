@@ -5,6 +5,7 @@
 @theme {
   --font-weight-medium-plus: 510;
   --font-weight-semibold-minus: 590;
+  --ring-width-3: 3px;
 }
 
 @theme inline {

@@ -28,7 +28,7 @@ export function DataTableBulkActions({
       )}
       data-slot="data-table-bulk-actions"
     >
-      <span className="text-xs font-medium text-accent-foreground">{selectedCount} selected</span>
+      <span className="text-xs font-510 text-accent-foreground">{selectedCount} selected</span>
       {children}
       <Button
         variant="ghost"
