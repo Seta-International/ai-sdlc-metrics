@@ -65,7 +65,7 @@ export class SendNotificationEmailWorker {
             }
 
     const transport = createMailTransport(mailConfig)
-    const html = renderMjmlTemplate('notification', {
+    const html = await renderMjmlTemplate('notification', {
       title: notification.title,
       body: notification.body ?? '',
       resourceUrl: notification.resourceUrl ?? '',

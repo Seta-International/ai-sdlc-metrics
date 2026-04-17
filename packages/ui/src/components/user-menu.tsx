@@ -65,40 +65,49 @@ export function UserMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
+        {/* h-9 w-9 wrapper provides the 36px touch target; visual avatar is h-7 w-7 */}
         <button
           type="button"
           aria-label={`User menu for ${user.displayName}`}
           className={cn(
-            'flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-full',
-            'bg-primary text-micro font-510 text-primary-foreground',
-            'transition-all hover:bg-primary/90',
-            'focus:outline-none focus:ring-2 focus:ring-primary/50',
+            'flex h-9 w-9 flex-shrink-0 items-center justify-center',
+            'focus:outline-none focus:ring-3 focus:ring-ring/50',
           )}
         >
-          {user.avatarUrl ? (
-            <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            user.initials
-          )}
+          <span
+            className={cn(
+              'flex h-7 w-7 items-center justify-center overflow-hidden rounded-full',
+              'border border-border bg-elevated text-micro font-510 text-fg-primary',
+              'transition-opacity hover:opacity-80',
+            )}
+          >
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              user.initials
+            )}
+          </span>
         </button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-64">
         <div className="flex flex-col gap-0.5 px-2 py-1.5">
-          <span className="text-caption font-510 text-muted-foreground truncate">
+          <span className="text-label font-510 text-muted-foreground truncate">
             {user.tenantName}
           </span>
-          <span className="text-sm font-510 text-foreground truncate">{user.displayName}</span>
-          <span className="text-xs text-muted-foreground truncate">{user.email}</span>
+          <span className="text-caption-lg font-510 text-foreground truncate">
+            {user.displayName}
+          </span>
+          <span className="text-caption text-muted-foreground truncate">{user.email}</span>
         </div>
 
         {firstRole ? (
           <div className="flex items-center gap-1.5 px-2 pb-1.5">
-            <span className="inline-flex items-center rounded-full border border-border px-2 text-label font-510 text-secondary-foreground">
+            <span className="inline-flex items-center rounded-full border border-border pl-1.25 pr-2.5 text-label font-510 text-secondary-foreground">
               {firstRole}
             </span>
             {extraRoles > 0 ? (
-              <span className="inline-flex items-center rounded-full border border-border px-2 text-label font-510 text-secondary-foreground">
+              <span className="inline-flex items-center rounded-full border border-border pl-1.25 pr-2.5 text-label font-510 text-secondary-foreground">
                 +{extraRoles}
               </span>
             ) : null}

@@ -53,6 +53,7 @@ const config = {
       // Non-standard spacing values from DESIGN.md optical micro-adjustments.
       // Standard Tailwind spacing (p-1=4px, p-2=8px, p-3=12px, p-4=16px, etc.) is unchanged.
       spacing: {
+        '1.25': '5px',
         '1.75': '7px',
         '2.75': '11px',
         '4.75': '19px',

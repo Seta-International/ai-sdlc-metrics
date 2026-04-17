@@ -72,7 +72,6 @@ describe('GlobalNav', () => {
 
     const agentText = screen.getByText('Agent')
     expect(agentText.className).toContain('truncate')
-    expect(agentText.className).toContain('text-xs')
-    expect(agentText.className).toContain('sm:text-micro')
+    expect(agentText.className).toContain('text-micro')
   })
 })

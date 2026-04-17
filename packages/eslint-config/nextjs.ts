@@ -16,8 +16,11 @@ const config: Linter.Config[] = [
   {
     settings: {
       tailwindcss: {
-        // Plugin auto-discovers tailwind.config.ts walking up from eslint config dir
-        tailwindVersion: '4',
+        // eslint-plugin-tailwindcss uses tailwindcss/lib/util/resolveConfigPath to
+        // auto-discover the config, but that module doesn't exist in Tailwind v4.
+        // Setting config: {} passes an already-resolved object to the plugin,
+        // which skips both the console.warn and the broken v4 config loader.
+        config: {},
       },
     },
     rules: {
@@ -26,6 +29,9 @@ const config: Linter.Config[] = [
       'tailwindcss/classnames-order': 'off',
       // Crashes on ESLint 10 (uses removed context.getSourceCode() API) — disable until plugin is fixed
       'tailwindcss/enforces-shorthand': 'off',
+      // Tailwind v4 uses CSS-based @theme config — plugin cannot read it, so all design tokens
+      // are flagged as unknown. Disable until eslint-plugin-tailwindcss adds v4 CSS config support.
+      'tailwindcss/no-custom-classname': 'off',
     },
   },
   prettier,

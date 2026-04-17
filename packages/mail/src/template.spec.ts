@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { renderMjmlTemplate } from './template'
 
 describe('renderMjmlTemplate', () => {
-  it('renders MJML with Handlebars variables to HTML', () => {
+  it('renders MJML with Handlebars variables to HTML', async () => {
     const mjml = `
       <mjml>
         <mj-body>
@@ -14,7 +14,7 @@ describe('renderMjmlTemplate', () => {
         </mj-body>
       </mjml>
     `
-    const html = renderMjmlTemplate(mjml, { name: 'Nguyen', from: 'Apr 14', to: 'Apr 18' })
+    const html = await renderMjmlTemplate(mjml, { name: 'Nguyen', from: 'Apr 14', to: 'Apr 18' })
 
     expect(html).toContain('Hello Nguyen')
     expect(html).toContain('Apr 14')
@@ -22,9 +22,9 @@ describe('renderMjmlTemplate', () => {
     expect(html).toContain('<!doctype html>')
   })
 
-  it('throws on invalid MJML with strict validation', () => {
+  it('throws on invalid MJML with strict validation', async () => {
     const invalidMjml = '<mjml><mj-body><mj-invalid /></mj-body></mjml>'
 
-    expect(() => renderMjmlTemplate(invalidMjml, {})).toThrow()
+    await expect(renderMjmlTemplate(invalidMjml, {})).rejects.toThrow()
   })
 })
