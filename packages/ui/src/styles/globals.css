@@ -458,4 +458,44 @@
     font-weight: 400;
     line-height: 1.4;
   }
+
+  /* Compact UI sizes — must be explicit because @theme font-size tokens are not
+     emitted as utilities when @config (v3 compat) is active. */
+  .text-body-lg {
+    font-size: 1.125rem;
+    line-height: 1.6;
+    letter-spacing: -0.165px;
+  }
+  .text-body-em {
+    font-size: 1.0625rem;
+    line-height: 1.6;
+  }
+  .text-small {
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    letter-spacing: -0.165px;
+  }
+  .text-caption-lg {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    letter-spacing: -0.182px;
+  }
+  .text-caption {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    letter-spacing: -0.13px;
+  }
+  .text-label {
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }
+  .text-micro {
+    font-size: 0.6875rem;
+    line-height: 1.4;
+  }
+  .text-tiny {
+    font-size: 0.625rem;
+    line-height: 1.5;
+    letter-spacing: -0.15px;
+  }
 }
