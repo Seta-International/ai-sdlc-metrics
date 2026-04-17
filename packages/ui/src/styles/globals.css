@@ -6,6 +6,72 @@
   --font-weight-medium-plus: 510;
   --font-weight-semibold-minus: 590;
   --ring-width-3: 3px;
+
+  /* ─── Typography sizes ──────────────────────────────────────────────────── */
+  /* All custom sizes live here as Tailwind v4 tokens. Each generates a        */
+  /* text-{name} utility with font-size + line-height + letter-spacing.        */
+  /* Font-weight is intentionally excluded — apply font-{weight} separately.  */
+  /* Display/heading roles (text-display-*, text-h*) re-add the canonical      */
+  /* weight via @layer utilities below.                                         */
+
+  /* Display */
+  --font-size-display-xl: 4.5rem;
+  --font-size-display-xl--line-height: 1;
+  --font-size-display-xl--letter-spacing: -1.584px;
+
+  --font-size-display-lg: 4rem;
+  --font-size-display-lg--line-height: 1;
+  --font-size-display-lg--letter-spacing: -1.408px;
+
+  --font-size-display: 3rem;
+  --font-size-display--line-height: 1;
+  --font-size-display--letter-spacing: -1.056px;
+
+  /* Headings */
+  --font-size-h1: 2rem;
+  --font-size-h1--line-height: 1.13;
+  --font-size-h1--letter-spacing: -0.704px;
+
+  --font-size-h2: 1.5rem;
+  --font-size-h2--line-height: 1.33;
+  --font-size-h2--letter-spacing: -0.288px;
+
+  --font-size-h3: 1.25rem;
+  --font-size-h3--line-height: 1.33;
+  --font-size-h3--letter-spacing: -0.24px;
+
+  /* Body */
+  --font-size-body-lg: 1.125rem;
+  --font-size-body-lg--line-height: 1.6;
+  --font-size-body-lg--letter-spacing: -0.165px;
+
+  --font-size-body-em: 1.0625rem;
+  --font-size-body-em--line-height: 1.6;
+
+  /* 16px body = text-base (Tailwind native) */
+
+  --font-size-small: 0.9375rem;
+  --font-size-small--line-height: 1.6;
+  --font-size-small--letter-spacing: -0.165px;
+
+  /* UI / utility sizes */
+  --font-size-caption-lg: 0.875rem;
+  --font-size-caption-lg--line-height: 1.5;
+  --font-size-caption-lg--letter-spacing: -0.182px;
+
+  --font-size-caption: 0.8125rem;
+  --font-size-caption--line-height: 1.5;
+  --font-size-caption--letter-spacing: -0.13px;
+
+  --font-size-label: 0.75rem;
+  --font-size-label--line-height: 1.4;
+
+  --font-size-micro: 0.6875rem;
+  --font-size-micro--line-height: 1.4;
+
+  --font-size-tiny: 0.625rem;
+  --font-size-tiny--line-height: 1.5;
+  --font-size-tiny--letter-spacing: -0.15px;
 }
 
 @theme inline {
@@ -319,8 +385,20 @@
 }
 
 /* ─── Typography Scale ───────────────────────────────────────────────────── */
+/*                                                                              */
+/* SIZES  → @theme above. Every custom size is a Tailwind v4 token that        */
+/*           generates text-{name} with size + line-height + letter-spacing.   */
+/*           Font-weight is NOT included — specify font-{weight} alongside.    */
+/*                                                                              */
+/* ROLES  → @layer utilities below, for display/heading roles whose weight is  */
+/*           always the same (display=510, h1/h2=400, h3=590). Mono classes    */
+/*           also live here because they override font-family.                  */
+/*                                                                              */
+/* BODY   → Use Tailwind's text-base (16px) + font-{weight} for body text.     */
+/*           Use text-small (15px from @theme) + font-{weight} for small text. */
 
 @layer utilities {
+  /* Display roles — weight 510 is canonical for all display sizes */
   .text-display-xl {
     font-size: 72px;
     font-weight: 510;
@@ -339,6 +417,8 @@
     line-height: 1;
     letter-spacing: -1.056px;
   }
+
+  /* Heading roles — weight is part of the heading contract */
   .text-h1 {
     font-size: 32px;
     font-weight: 400;
@@ -357,60 +437,8 @@
     line-height: 1.33;
     letter-spacing: -0.24px;
   }
-  .text-body-lg {
-    font-size: 18px;
-    font-weight: 400;
-    line-height: 1.6;
-    letter-spacing: -0.165px;
-  }
-  .text-body {
-    font-size: 16px;
-    font-weight: 400;
-    line-height: 1.5;
-    letter-spacing: normal;
-  }
-  .text-body-medium {
-    font-size: 16px;
-    font-weight: 510;
-    line-height: 1.5;
-    letter-spacing: normal;
-  }
-  .text-small {
-    font-size: 15px;
-    font-weight: 400;
-    line-height: 1.6;
-    letter-spacing: -0.165px;
-  }
-  .text-small-medium {
-    font-size: 15px;
-    font-weight: 510;
-    line-height: 1.6;
-    letter-spacing: -0.165px;
-  }
-  .text-caption-lg {
-    font-size: 14px;
-    font-weight: 510;
-    line-height: 1.5;
-    letter-spacing: -0.182px;
-  }
-  .text-caption {
-    font-size: 13px;
-    font-weight: 400;
-    line-height: 1.5;
-    letter-spacing: -0.13px;
-  }
-  .text-label {
-    font-size: 12px;
-    font-weight: 510;
-    line-height: 1.4;
-    letter-spacing: normal;
-  }
-  .text-micro {
-    font-size: 11px;
-    font-weight: 510;
-    line-height: 1.4;
-    letter-spacing: normal;
-  }
+
+  /* Mono variants — must set font-family, which @theme font-size tokens cannot */
   .text-mono {
     font-family: var(--font-family-mono);
     font-size: 14px;

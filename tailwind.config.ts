@@ -50,16 +50,6 @@ const config = {
         510: '510',
         590: '590',
       },
-      fontSize: {
-        /**
-         * Custom text sizes:
-         * tiny - 10px (for minimal UI elements)
-         * micro - 11px (for badges, labels, footnotes)
-         * Complements standard Tailwind sizes (xs: 12px, sm: 14px, base: 16px, etc.)
-         */
-        tiny: ['10px', { lineHeight: '1.4', letterSpacing: 'normal' }],
-        micro: ['11px', { lineHeight: '1.4', letterSpacing: 'normal' }],
-      },
       // Non-standard spacing values from DESIGN.md optical micro-adjustments.
       // Standard Tailwind spacing (p-1=4px, p-2=8px, p-3=12px, p-4=16px, etc.) is unchanged.
       spacing: {
