@@ -24,7 +24,7 @@ export function DataTableFilters({ filters, onRemoveFilter, className }: DataTab
       {filters.map((filter) => (
         <span
           key={filter.field}
-          className="inline-flex items-center gap-1 rounded-full border border-border bg-accent px-2 py-0.5 text-micro font-medium text-accent-foreground"
+          className="inline-flex items-center gap-1 rounded-full border border-border bg-accent px-2 py-0.5 text-micro font-510 text-accent-foreground"
         >
           {formatFilterLabel(filter)}
           <button

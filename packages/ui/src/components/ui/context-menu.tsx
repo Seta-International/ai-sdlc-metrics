@@ -176,7 +176,7 @@ function ContextMenuLabel({
     <ContextMenuPrimitive.Label
       data-slot="context-menu-label"
       data-inset={inset}
-      className={cn('px-2 py-1.5 text-sm font-medium text-foreground data-[inset]:pl-8', className)}
+      className={cn('px-2 py-1.5 text-sm font-510 text-foreground data-[inset]:pl-8', className)}
       {...props}
     />
   )
