@@ -18,7 +18,7 @@ export { useCanAccess } from './use-can-access'
 export type { NavigationConfig, NavItem, NavGroup, NavbarConfig } from './types'
 
 // Session + data wrappers
-export { ZONE_ROUTES } from './zone-routes'
+export { getZoneRoutes } from './zone-routes'
 export { SessionUserMenu } from './session-user-menu'
 export type { SessionUserMenuProps } from './session-user-menu'
 export { StubNotificationsPopover } from './stub-notifications-popover'

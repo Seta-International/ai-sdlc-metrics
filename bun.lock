@@ -481,6 +481,7 @@
         "@future/tsconfig": "workspace:*",
         "@types/react": "^19.2.14",
         "eslint": "^10.2.0",
+        "next": "^16.2.4",
         "react": "^19.2.5",
         "typescript": "^6.0.2",
         "vitest": "^4.1.4",

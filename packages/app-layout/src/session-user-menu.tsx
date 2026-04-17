@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { UserMenu, type UserMenuUser } from '@future/ui'
-import { ZONE_ROUTES } from './zone-routes'
+import { getZoneRoutes } from './zone-routes'
 
 export interface SessionUserMenuProps {
   profileHref?: string
@@ -87,9 +87,10 @@ export function SessionUserMenu(props: SessionUserMenuProps): React.JSX.Element 
     }
   }, [])
 
-  const resolvedProfileHref = profileHref ?? ZONE_ROUTES.profile
-  const resolvedSettingsHref = settingsHref ?? ZONE_ROUTES.accountSettings
-  const resolvedPlatformAdminHref = platformAdminHref ?? ZONE_ROUTES.platformAdmin
+  const zoneRoutes = React.useMemo(() => getZoneRoutes(), [])
+  const resolvedProfileHref = profileHref ?? zoneRoutes.profile
+  const resolvedSettingsHref = settingsHref ?? zoneRoutes.accountSettings
+  const resolvedPlatformAdminHref = platformAdminHref ?? zoneRoutes.platformAdmin
 
   if (state.kind === 'redirecting') {
     return null

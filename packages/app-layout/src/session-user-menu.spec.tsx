@@ -116,7 +116,7 @@ describe('SessionUserMenu', () => {
     await openMenu('Jane Doe')
     const anchor = screen.getByRole('menuitem', { name: /Platform admin/ })
     expect(anchor.tagName).toBe('A')
-    expect(anchor.getAttribute('href')).toBe('/admin')
+    expect(anchor.getAttribute('href')).toBe('https://admin.future.seta.vn')
   })
 
   it('does not show Platform admin when roles lack platform_admin', async () => {
@@ -126,16 +126,33 @@ describe('SessionUserMenu', () => {
     expect(screen.queryByRole('menuitem', { name: /Platform admin/ })).not.toBeInTheDocument()
   })
 
-  it('defaults profileHref to /people/me and platformAdminHref to /admin', async () => {
+  it('defaults profileHref to production people zone and platformAdminHref to admin zone', async () => {
     globalThis.fetch = mockFetchOk(
       baseClaims({ roles: ['platform_admin'] }),
     ) as unknown as typeof fetch
     render(<SessionUserMenu />)
     await openMenu('Jane Doe')
     const profileAnchor = screen.getByRole('menuitem', { name: /My profile/ })
-    expect(profileAnchor.getAttribute('href')).toBe('/people/me')
+    expect(profileAnchor.getAttribute('href')).toBe('https://people.future.seta.vn/me')
     const adminAnchor = screen.getByRole('menuitem', { name: /Platform admin/ })
-    expect(adminAnchor.getAttribute('href')).toBe('/admin')
+    expect(adminAnchor.getAttribute('href')).toBe('https://admin.future.seta.vn')
+  })
+
+  it('uses localhost zone URLs when NEXT_PUBLIC_LOCAL_DEV is true', async () => {
+    vi.stubEnv('NEXT_PUBLIC_LOCAL_DEV', 'true')
+    try {
+      globalThis.fetch = mockFetchOk(
+        baseClaims({ roles: ['platform_admin'] }),
+      ) as unknown as typeof fetch
+      render(<SessionUserMenu />)
+      await openMenu('Jane Doe')
+      const profileAnchor = screen.getByRole('menuitem', { name: /My profile/ })
+      expect(profileAnchor.getAttribute('href')).toBe('http://localhost:3001/me')
+      const adminAnchor = screen.getByRole('menuitem', { name: /Platform admin/ })
+      expect(adminAnchor.getAttribute('href')).toBe('http://localhost:3010')
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it('respects profileHref, settingsHref, platformAdminHref overrides', async () => {
