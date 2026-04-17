@@ -1,9 +1,16 @@
 import { initTRPC } from '@trpc/server'
 import { createAuthMiddleware, type AuthContext } from './auth-middleware'
 import type { JwtService } from '../auth/jwt.service'
+import type { PermissionKey } from '../auth/permissions'
 
 export interface TrpcMeta {
-  permission?: string
+  /**
+   * Typed against the central PERMISSIONS registry: any new route literal
+   * here must exist in `apps/api/src/common/auth/permissions.ts`. TypeScript
+   * fails the build on drift, so admins never silently lose access to a
+   * freshly-added route.
+   */
+  permission?: PermissionKey
 }
 
 export interface TrpcContext {
@@ -18,18 +25,16 @@ export const router = t.router
 export const publicProcedure = t.procedure
 export const middleware = t.middleware
 
-let _protectedProcedure: typeof t.procedure | null = null
-
-export function initProtectedProcedure(jwtService: JwtService): void {
-  const authMiddleware = createAuthMiddleware(jwtService)
-  _protectedProcedure = t.procedure.use(authMiddleware as Parameters<typeof t.procedure.use>[0])
-}
-
-export function getProtectedProcedure() {
-  if (!_protectedProcedure) {
-    throw new Error('protectedProcedure not initialized. Call initProtectedProcedure() at startup.')
-  }
-  return _protectedProcedure
+/**
+ * Wraps publicProcedure with the JWT auth middleware. Downstream handlers
+ * receive a non-null `actorId` / `tenantId` resolved from the session cookie.
+ *
+ * Pure factory — no module-global state. The TrpcModule constructs this once
+ * at startup and composes it with createProtectedProcedures.
+ */
+export function createAuthenticatedProcedure(jwtService: JwtService) {
+  const authMw = createAuthMiddleware(jwtService)
+  return publicProcedure.use(authMw as Parameters<typeof publicProcedure.use>[0])
 }
 
 export type { AuthContext }

@@ -4,7 +4,7 @@ import {
   migrateForTest,
   seedActor,
   seedTenant,
-  seedEmploymentProfile,
+  seedEmployment,
   setTenantContext,
   truncateCoreSchema,
   truncatePeopleSchema,
@@ -35,7 +35,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
 
     await setTenantContext(db, TENANT_A)
     const { id: actorId } = await seedActor(db, { tenantId: TENANT_A })
-    const profile = await seedEmploymentProfile(db, {
+    const profile = await seedEmployment(db, {
       tenantId: TENANT_A,
       actorId,
       employeeCode: 'SETA-OFFBOARD-001',
@@ -97,7 +97,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
     it('finds active case by employment id', async () => {
       await setTenantContext(db, TENANT_A)
       const { id: actorId } = await seedActor(db, { tenantId: TENANT_A })
-      const { id: employmentId } = await seedEmploymentProfile(db, {
+      const { id: employmentId } = await seedEmployment(db, {
         tenantId: TENANT_A,
         actorId,
         employeeCode: 'SETA-OFFBOARD-ACTIVE-001',
@@ -121,7 +121,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
     it('does NOT return completed or rejected cases', async () => {
       await setTenantContext(db, TENANT_A)
       const { id: actorId } = await seedActor(db, { tenantId: TENANT_A })
-      const { id: employmentId } = await seedEmploymentProfile(db, {
+      const { id: employmentId } = await seedEmployment(db, {
         tenantId: TENANT_A,
         actorId,
         employeeCode: 'SETA-OFFBOARD-COMPLETED-001',
@@ -145,7 +145,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
     it('does NOT return rejected cases', async () => {
       await setTenantContext(db, TENANT_A)
       const { id: actorId } = await seedActor(db, { tenantId: TENANT_A })
-      const { id: employmentId } = await seedEmploymentProfile(db, {
+      const { id: employmentId } = await seedEmployment(db, {
         tenantId: TENANT_A,
         actorId,
         employeeCode: 'SETA-OFFBOARD-REJECTED-001',
@@ -171,7 +171,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
     it('updates the status of a case', async () => {
       await setTenantContext(db, TENANT_A)
       const { id: actorId } = await seedActor(db, { tenantId: TENANT_A })
-      const { id: employmentId } = await seedEmploymentProfile(db, {
+      const { id: employmentId } = await seedEmployment(db, {
         tenantId: TENANT_A,
         actorId,
         employeeCode: 'SETA-OFFBOARD-STATUS-001',
@@ -198,7 +198,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
     it('updates partial fields of a case', async () => {
       await setTenantContext(db, TENANT_A)
       const { id: actorId } = await seedActor(db, { tenantId: TENANT_A })
-      const { id: employmentId } = await seedEmploymentProfile(db, {
+      const { id: employmentId } = await seedEmployment(db, {
         tenantId: TENANT_A,
         actorId,
         employeeCode: 'SETA-OFFBOARD-UPDATE-001',
@@ -225,7 +225,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
     it('inserts a task and retrieves it', async () => {
       await setTenantContext(db, TENANT_A)
       const { id: actorId } = await seedActor(db, { tenantId: TENANT_A })
-      const { id: employmentId } = await seedEmploymentProfile(db, {
+      const { id: employmentId } = await seedEmployment(db, {
         tenantId: TENANT_A,
         actorId,
         employeeCode: 'SETA-OFFBOARD-TASK-001',
@@ -267,7 +267,7 @@ describe('DrizzleOffboardingCaseRepository', () => {
     it('updates task status', async () => {
       await setTenantContext(db, TENANT_A)
       const { id: actorId } = await seedActor(db, { tenantId: TENANT_A })
-      const { id: employmentId } = await seedEmploymentProfile(db, {
+      const { id: employmentId } = await seedEmployment(db, {
         tenantId: TENANT_A,
         actorId,
         employeeCode: 'SETA-OFFBOARD-TASK-STATUS-001',
@@ -334,6 +334,8 @@ describe('DrizzleOffboardingTemplateRepository', () => {
       const inserted = await templateRepo.insert({
         tenantId: TENANT_A,
         name: 'Default Offboarding',
+        countryCode: null,
+        terminationReason: null,
         employmentType: 'permanent',
         reasonCategory: 'voluntary',
         isDefault: true,
@@ -356,16 +358,18 @@ describe('DrizzleOffboardingTemplateRepository', () => {
 
       await templateRepo.insert({
         tenantId: TENANT_A,
-        name: 'Contractor Voluntary Offboarding',
-        employmentType: 'contractor',
+        name: 'Fixed-term Voluntary Offboarding',
+        countryCode: null,
+        terminationReason: null,
+        employmentType: 'fixed_term',
         reasonCategory: 'voluntary',
         isDefault: false,
         isActive: true,
       })
 
-      const found = await templateRepo.findMatch('contractor', 'voluntary', TENANT_A)
+      const found = await templateRepo.findMatch('fixed_term', 'voluntary', TENANT_A)
       expect(found).not.toBeNull()
-      expect(found?.employmentType).toBe('contractor')
+      expect(found?.employmentType).toBe('fixed_term')
       expect(found?.reasonCategory).toBe('voluntary')
     })
 
@@ -400,6 +404,8 @@ describe('DrizzleOffboardingTemplateRepository', () => {
       const inserted = await templateRepo.insert({
         tenantId: TENANT_A,
         name: 'Old Name',
+        countryCode: null,
+        terminationReason: null,
         employmentType: null,
         reasonCategory: null,
         isDefault: false,
@@ -423,6 +429,8 @@ describe('DrizzleOffboardingTemplateRepository', () => {
       const template = await templateRepo.insert({
         tenantId: TENANT_A,
         name: 'No Tasks Template',
+        countryCode: null,
+        terminationReason: null,
         employmentType: null,
         reasonCategory: null,
         isDefault: false,

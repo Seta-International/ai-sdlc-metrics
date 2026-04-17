@@ -5,155 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1775837283942,
-      "tag": "0000_core_schema",
+      "when": 1776443044609,
+      "tag": "0000_flowery_the_order",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1775837400000,
-      "tag": "0001_rls_policies",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1775840496976,
-      "tag": "0002_abnormal_peter_quill",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1775902904756,
-      "tag": "0003_remarkable_squadron_sinister",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1775906583676,
-      "tag": "0004_spicy_thing",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1775912908962,
-      "tag": "0005_add_missing_columns",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1775913259657,
-      "tag": "0006_vengeful_white_queen",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1775913701106,
-      "tag": "0007_optimal_rumiko_fujikawa",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1775928389407,
-      "tag": "0008_spooky_magdalene",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1775928900000,
-      "tag": "0009_projects_rls_fix",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1775963195982,
-      "tag": "0010_concerned_wendell_rand",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1775967672625,
-      "tag": "0011_medical_rhodey",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1775983096608,
-      "tag": "0012_swift_komodo",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "7",
-      "when": 1775983396411,
-      "tag": "0013_funny_cannonball",
-      "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "7",
-      "when": 1775983827296,
-      "tag": "0014_nebulous_madelyne_pryor",
-      "breakpoints": true
-    },
-    {
-      "idx": 15,
-      "version": "7",
-      "when": 1775991270676,
-      "tag": "0015_flimsy_george_stacy",
-      "breakpoints": true
-    },
-    {
-      "idx": 16,
-      "version": "7",
-      "when": 1775991494338,
-      "tag": "0016_tiresome_otto_octavius",
-      "breakpoints": true
-    },
-    {
-      "idx": 17,
-      "version": "7",
-      "when": 1776009530417,
-      "tag": "0017_tan_white_queen",
-      "breakpoints": true
-    },
-    {
-      "idx": 18,
-      "version": "7",
-      "when": 1776045180357,
-      "tag": "0018_fix_idp_group_mapping_partial_indexes",
-      "breakpoints": true
-    },
-    {
-      "idx": 19,
-      "version": "7",
-      "when": 1776100000000,
-      "tag": "0019_notification_preference_unique",
-      "breakpoints": true
-    },
-    {
-      "idx": 20,
-      "version": "7",
-      "when": 1776144000000,
-      "tag": "0020_people_directory_search_utilities",
-      "breakpoints": true
-    },
-    {
-      "idx": 21,
-      "version": "7",
-      "when": 1776150000000,
-      "tag": "0021_people_onboarding_events",
+      "when": 1776443044610,
+      "tag": "0001_rls_and_extras",
       "breakpoints": true
     }
   ]

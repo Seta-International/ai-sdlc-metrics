@@ -36,6 +36,11 @@ export interface UserMenuProps {
   profileHref: string
   settingsHref?: string
   platformAdminHref?: string
+  /**
+   * Absolute URL to the shell's logout endpoint. The auth/logout route lives
+   * on web-shell only — relative URLs would 404 in any other zone.
+   */
+  logoutHref?: string
   onSwitchTenant?: (tenantId: string) => void
   onLogout?: () => void
 }
@@ -47,6 +52,7 @@ export function UserMenu({
   profileHref,
   settingsHref,
   platformAdminHref = '/admin',
+  logoutHref = '/auth/logout',
   onSwitchTenant,
   onLogout,
 }: UserMenuProps) {
@@ -59,7 +65,7 @@ export function UserMenu({
       onLogout()
       return
     }
-    window.location.href = '/auth/logout'
+    window.location.href = logoutHref
   }
 
   return (

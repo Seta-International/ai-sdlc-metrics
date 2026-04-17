@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { TRPCError } from '@trpc/server'
 import { createKernelRouter } from './kernel.router'
-import { router } from '../../../../common/trpc/trpc-init'
+import { publicProcedure, router } from '../../../../common/trpc/trpc-init'
 import type { KernelQueryFacade } from '../../application/facades/kernel-query.facade'
 import type { KernelAuditFacade } from '../../application/facades/kernel-audit.facade'
 import { createProtectedProcedures } from '../../../../common/trpc/create-protected-procedures'
@@ -19,6 +19,7 @@ describe('kernelRouter', () => {
     }
     const auditFacade = { recordEvent: vi.fn().mockResolvedValue(undefined) }
     const { permissionProtectedProcedure } = createProtectedProcedures(
+      publicProcedure,
       kernelFacade as unknown as KernelQueryFacade,
       auditFacade as unknown as KernelAuditFacade,
     )
@@ -75,6 +76,7 @@ describe('kernelRouter', () => {
       } as unknown as KernelQueryFacade
       const auditFacade = { recordEvent: vi.fn().mockResolvedValue(undefined) }
       const { permissionProtectedProcedure } = createProtectedProcedures(
+        publicProcedure,
         mockFacade,
         auditFacade as unknown as KernelAuditFacade,
       )
@@ -98,6 +100,7 @@ describe('kernelRouter', () => {
       } as unknown as KernelQueryFacade
       const auditFacade = { recordEvent: vi.fn().mockResolvedValue(undefined) }
       const { permissionProtectedProcedure } = createProtectedProcedures(
+        publicProcedure,
         mockFacade,
         auditFacade as unknown as KernelAuditFacade,
       )

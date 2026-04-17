@@ -1,117 +1,123 @@
 import type { RoleKeyValue } from '../entities/role-grant.entity'
+import {
+  ALL_PERMISSION_KEYS,
+  PERMISSIONS,
+  type PermissionKey,
+} from '../../../../common/auth/permissions'
 
 export interface DefaultPermissionEntry {
-  permissionKey: string
+  permissionKey: PermissionKey
   isLocked: boolean
 }
 
 export type DefaultRolePermissionMap = Record<RoleKeyValue, DefaultPermissionEntry[]>
 
+/**
+ * Baseline employee capabilities: every role inherits these because every
+ * authenticated user can read their own profile and submit their own time.
+ * Locked = a tenant admin cannot revoke them via the role-permission UI.
+ */
 const EMPLOYEE_LOCKED: DefaultPermissionEntry[] = [
-  { permissionKey: 'people:profile:self:read', isLocked: true },
-  { permissionKey: 'time:leave:self:submit', isLocked: true },
-  { permissionKey: 'time:attendance:self:read', isLocked: true },
+  { permissionKey: PERMISSIONS.PEOPLE_PROFILE_SELF_READ, isLocked: true },
+  { permissionKey: PERMISSIONS.TIME_LEAVE_SELF_SUBMIT, isLocked: true },
+  { permissionKey: PERMISSIONS.TIME_ATTENDANCE_SELF_READ, isLocked: true },
 ]
 
 const EMPLOYEE_DEFAULTS: DefaultPermissionEntry[] = [
-  { permissionKey: 'planner:task:self:manage', isLocked: false },
+  { permissionKey: PERMISSIONS.PLANNER_TASK_SELF_MANAGE, isLocked: false },
 ]
 
-const TENANT_ADMIN_LOCKED: DefaultPermissionEntry[] = [
-  { permissionKey: 'admin:role:manage', isLocked: true },
-  { permissionKey: 'admin:tenant:read', isLocked: true },
+/**
+ * Permissions that should always belong to whoever owns the tenant. Locked
+ * because removing them would brick admin access to their own admin surfaces.
+ */
+const TENANT_ADMIN_LOCKED_KEYS: readonly PermissionKey[] = [
+  PERMISSIONS.ADMIN_ROLE_MANAGE,
+  PERMISSIONS.ADMIN_TENANT_READ,
 ]
 
-const ALL_PERMISSIONS: DefaultPermissionEntry[] = [
-  { permissionKey: 'people:profile:read', isLocked: false },
-  { permissionKey: 'people:profile:update', isLocked: false },
-  { permissionKey: 'people:profile:self:read', isLocked: false },
-  { permissionKey: 'people:profile:team:read', isLocked: false },
-  { permissionKey: 'time:leave:self:submit', isLocked: false },
-  { permissionKey: 'time:leave:read', isLocked: false },
-  { permissionKey: 'time:leave:approve', isLocked: false },
-  { permissionKey: 'time:attendance:self:read', isLocked: false },
-  { permissionKey: 'time:attendance:read', isLocked: false },
-  { permissionKey: 'hiring:candidate:read', isLocked: false },
-  { permissionKey: 'hiring:candidate:create', isLocked: false },
-  { permissionKey: 'hiring:pipeline:manage', isLocked: false },
-  { permissionKey: 'performance:review:submit', isLocked: false },
-  { permissionKey: 'performance:review:read', isLocked: false },
-  { permissionKey: 'finance:invoice:read', isLocked: false },
-  { permissionKey: 'finance:payroll:read', isLocked: false },
-  { permissionKey: 'finance:budget:manage', isLocked: false },
-  { permissionKey: 'projects:assignment:manage', isLocked: false },
-  { permissionKey: 'projects:staffing:read', isLocked: false },
-  { permissionKey: 'planner:task:self:manage', isLocked: false },
-  // admin:role:manage and admin:tenant:read omitted here; added as locked via TENANT_ADMIN_LOCKED
-  { permissionKey: 'admin:tenant:manage', isLocked: false },
-]
+const TENANT_ADMIN_LOCKED_SET = new Set<PermissionKey>(TENANT_ADMIN_LOCKED_KEYS)
+
+/**
+ * tenant_admin and platform_admin receive every key in the registry.
+ * Adding a new permission to PERMISSIONS automatically grants it to admins —
+ * no manual sync, no missing-permission denials when shipping a new route.
+ */
+const ALL_AS_ADMIN_ENTRIES: DefaultPermissionEntry[] = ALL_PERMISSION_KEYS.map((key) => ({
+  permissionKey: key,
+  isLocked: TENANT_ADMIN_LOCKED_SET.has(key),
+}))
 
 export const DEFAULT_ROLE_PERMISSIONS: DefaultRolePermissionMap = {
   employee: [...EMPLOYEE_LOCKED, ...EMPLOYEE_DEFAULTS],
 
   line_manager: [
     ...EMPLOYEE_LOCKED,
-    { permissionKey: 'people:profile:team:read', isLocked: true },
-    { permissionKey: 'time:leave:approve', isLocked: false },
-    { permissionKey: 'performance:review:submit', isLocked: false },
+    { permissionKey: PERMISSIONS.PEOPLE_PROFILE_TEAM_READ, isLocked: true },
+    { permissionKey: PERMISSIONS.PEOPLE_DIRECTORY_READ, isLocked: false },
+    { permissionKey: PERMISSIONS.TIME_LEAVE_APPROVE, isLocked: false },
+    { permissionKey: PERMISSIONS.PERFORMANCE_REVIEW_SUBMIT, isLocked: false },
   ],
 
   hr_ops: [
     ...EMPLOYEE_LOCKED,
-    { permissionKey: 'people:profile:read', isLocked: false },
-    { permissionKey: 'people:profile:update', isLocked: false },
-    { permissionKey: 'time:leave:read', isLocked: false },
-    { permissionKey: 'hiring:candidate:read', isLocked: false },
+    { permissionKey: PERMISSIONS.PEOPLE_PROFILE_READ, isLocked: false },
+    { permissionKey: PERMISSIONS.PEOPLE_PROFILE_UPDATE, isLocked: false },
+    { permissionKey: PERMISSIONS.PEOPLE_DIRECTORY_READ, isLocked: false },
+    { permissionKey: PERMISSIONS.PEOPLE_DIRECTORY_EXPORT, isLocked: false },
+    { permissionKey: PERMISSIONS.PEOPLE_SETTINGS_READ, isLocked: false },
+    { permissionKey: PERMISSIONS.TIME_LEAVE_READ, isLocked: false },
+    { permissionKey: PERMISSIONS.HIRING_CANDIDATE_READ, isLocked: false },
   ],
 
-  tenant_admin: [...TENANT_ADMIN_LOCKED, ...ALL_PERMISSIONS],
+  tenant_admin: ALL_AS_ADMIN_ENTRIES,
 
   recruiter: [
     ...EMPLOYEE_LOCKED,
-    { permissionKey: 'hiring:candidate:read', isLocked: false },
-    { permissionKey: 'hiring:candidate:create', isLocked: false },
-    { permissionKey: 'hiring:pipeline:manage', isLocked: false },
+    { permissionKey: PERMISSIONS.HIRING_CANDIDATE_READ, isLocked: false },
+    { permissionKey: PERMISSIONS.HIRING_CANDIDATE_CREATE, isLocked: false },
+    { permissionKey: PERMISSIONS.HIRING_PIPELINE_MANAGE, isLocked: false },
   ],
 
   finance_operator: [
     ...EMPLOYEE_LOCKED,
-    { permissionKey: 'finance:invoice:read', isLocked: false },
-    { permissionKey: 'finance:payroll:read', isLocked: false },
-    { permissionKey: 'finance:budget:manage', isLocked: false },
+    { permissionKey: PERMISSIONS.FINANCE_INVOICE_READ, isLocked: false },
+    { permissionKey: PERMISSIONS.FINANCE_PAYROLL_READ, isLocked: false },
+    { permissionKey: PERMISSIONS.FINANCE_BUDGET_MANAGE, isLocked: false },
   ],
 
   project_manager: [
     ...EMPLOYEE_LOCKED,
-    { permissionKey: 'projects:assignment:manage', isLocked: false },
-    { permissionKey: 'projects:staffing:read', isLocked: false },
+    { permissionKey: PERMISSIONS.PROJECTS_ASSIGNMENT_MANAGE, isLocked: false },
+    { permissionKey: PERMISSIONS.PROJECTS_STAFFING_READ, isLocked: false },
   ],
 
-  platform_admin: [...TENANT_ADMIN_LOCKED, ...ALL_PERMISSIONS],
+  platform_admin: ALL_AS_ADMIN_ENTRIES,
 
   executive: [
     ...EMPLOYEE_LOCKED,
-    { permissionKey: 'people:profile:read', isLocked: false },
-    { permissionKey: 'finance:invoice:read', isLocked: false },
-    { permissionKey: 'finance:budget:manage', isLocked: false },
-    { permissionKey: 'projects:staffing:read', isLocked: false },
+    { permissionKey: PERMISSIONS.PEOPLE_PROFILE_READ, isLocked: false },
+    { permissionKey: PERMISSIONS.PEOPLE_DIRECTORY_READ, isLocked: false },
+    { permissionKey: PERMISSIONS.FINANCE_INVOICE_READ, isLocked: false },
+    { permissionKey: PERMISSIONS.FINANCE_BUDGET_MANAGE, isLocked: false },
+    { permissionKey: PERMISSIONS.PROJECTS_STAFFING_READ, isLocked: false },
   ],
 
   staffing_owner: [
     ...EMPLOYEE_LOCKED,
-    { permissionKey: 'projects:assignment:manage', isLocked: false },
-    { permissionKey: 'projects:staffing:read', isLocked: false },
+    { permissionKey: PERMISSIONS.PROJECTS_ASSIGNMENT_MANAGE, isLocked: false },
+    { permissionKey: PERMISSIONS.PROJECTS_STAFFING_READ, isLocked: false },
   ],
 
   account_manager: [
     ...EMPLOYEE_LOCKED,
-    { permissionKey: 'projects:staffing:read', isLocked: false },
-    { permissionKey: 'finance:invoice:read', isLocked: false },
+    { permissionKey: PERMISSIONS.PROJECTS_STAFFING_READ, isLocked: false },
+    { permissionKey: PERMISSIONS.FINANCE_INVOICE_READ, isLocked: false },
   ],
 
   review_operator: [
     ...EMPLOYEE_LOCKED,
-    { permissionKey: 'performance:review:submit', isLocked: false },
-    { permissionKey: 'performance:review:read', isLocked: false },
+    { permissionKey: PERMISSIONS.PERFORMANCE_REVIEW_SUBMIT, isLocked: false },
+    { permissionKey: PERMISSIONS.PERFORMANCE_REVIEW_READ, isLocked: false },
   ],
 }

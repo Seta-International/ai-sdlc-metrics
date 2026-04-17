@@ -11,6 +11,61 @@ import { trpc } from '../../lib/trpc'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const anyTrpc = trpc as any
 
+/**
+ * The API returns raw entities (`{ profile, employments[] }`) while the UI
+ * expects a denormalized view model (`EmployeeProfile`). Map at the edge so
+ * components downstream don't have to second-guess shape. Anything not yet
+ * sourced from the API gets a safe default — the UI is null-tolerant for
+ * those fields.
+ */
+function toEmployeeProfile(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  raw: any,
+): EmployeeProfile | null {
+  if (!raw?.profile) return null
+  const employment = raw.employments?.[0]?.employment
+  if (!employment) return null
+  return {
+    personProfile: {
+      id: raw.profile.id,
+      actorId: raw.profile.actorId,
+      familyName: raw.profile.familyName ?? '',
+      givenName: raw.profile.givenName ?? '',
+      middleName: raw.profile.middleName ?? null,
+      fullName: raw.profile.fullName ?? '',
+      preferredName: raw.profile.preferredName ?? null,
+      nameDisplayOrder: raw.profile.nameDisplayOrder ?? 'given_first',
+      dateOfBirth: raw.profile.dateOfBirth ?? null,
+      gender: raw.profile.gender ?? null,
+      nationality: raw.profile.nationality ?? null,
+      maritalStatus: raw.profile.maritalStatus ?? null,
+      photoUrl: null,
+    },
+    employment: {
+      id: employment.id,
+      employeeCode: employment.employeeCode ?? null,
+      companyEmail: employment.companyEmail ?? null,
+      workerType: employment.workerType,
+      employmentType: employment.employmentType,
+      countryCode: employment.countryCode ?? '',
+      employmentStatus: employment.employmentStatus,
+      hireDate: employment.hireDate,
+      terminationDate: employment.terminationDate ?? null,
+      terminationReason: employment.terminationReason ?? null,
+      workArrangement: null,
+    },
+    currentJob: null,
+    emergencyContacts: [],
+    addresses: [],
+    countryFields: [],
+    customFields: [],
+    bankDetails: null,
+    probation: null,
+    completenessScore: 0,
+    completenessMissing: [],
+  }
+}
+
 export default function MyProfilePage() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -24,12 +79,15 @@ export default function MyProfilePage() {
     void (async () => {
       setIsLoading(true)
       try {
-        const result = await (anyTrpc.people.getOwnProfile.query() as Promise<{
-          profile: EmployeeProfile
-          employmentId: string
-        }>)
-        setProfile(result.profile)
-        setEmploymentId(result.employmentId)
+        const result = await anyTrpc.people.getOwnProfile.query()
+        const mapped = toEmployeeProfile(result)
+        if (!mapped) {
+          setProfile(null)
+          setEmploymentId(null)
+          return
+        }
+        setProfile(mapped)
+        setEmploymentId(mapped.employment.id)
       } finally {
         setIsLoading(false)
       }

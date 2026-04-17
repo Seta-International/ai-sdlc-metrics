@@ -1,7 +1,7 @@
 import { Inject, Module, OnModuleInit } from '@nestjs/common'
 import { JWT_SERVICE } from '../auth/auth.module'
 import type { JwtService } from '../auth/jwt.service'
-import { initProtectedProcedure } from './trpc-init'
+import { createAuthenticatedProcedure } from './trpc-init'
 import { createProtectedProcedures } from './create-protected-procedures'
 import { KernelModule } from '../../modules/kernel/kernel.module'
 import { KernelQueryFacade } from '../../modules/kernel/application/facades/kernel-query.facade'
@@ -57,10 +57,11 @@ export class TrpcModule implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    initProtectedProcedure(this.jwtService)
     setIdentityJwtService(this.jwtService)
 
+    const authenticatedProcedure = createAuthenticatedProcedure(this.jwtService)
     const { permissionProtectedProcedure } = createProtectedProcedures(
+      authenticatedProcedure,
       this.kernelFacade,
       this.auditFacade,
     )
@@ -76,7 +77,7 @@ export class TrpcModule implements OnModuleInit {
     )
     setIdentityAdminRouter(createIdentityAdminRouter(permissionProtectedProcedure))
     setAdminRouter(createAdminRouter(permissionProtectedProcedure))
-    setPreferencesRouter(createPreferencesRouter(this.savedViewRepo))
+    setPreferencesRouter(createPreferencesRouter(permissionProtectedProcedure, this.savedViewRepo))
     setDocumentsRouter(createDocumentsRouter(permissionProtectedProcedure))
     setNotificationsRouter(createNotificationsRouter(permissionProtectedProcedure))
 

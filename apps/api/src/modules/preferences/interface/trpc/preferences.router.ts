@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
-import { router } from '../../../../common/trpc/trpc-init'
-import { devProtectedProcedure } from '../../../../common/trpc/procedures'
+import { publicProcedure, router } from '../../../../common/trpc/trpc-init'
+import type { AuthContext } from '../../../../common/trpc/auth-middleware'
 import type { ISavedViewRepository } from '../../domain/repositories/saved-view.repository'
 
 const savedViewStateSchema = z.object({
@@ -22,32 +22,44 @@ const savedViewStateSchema = z.object({
   density: z.enum(['compact', 'default', 'comfortable']),
 })
 
-export function createPreferencesRouter(savedViewRepo: ISavedViewRepository) {
+export function createPreferencesRouter(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  permissionProtectedProcedure: any,
+  savedViewRepo: ISavedViewRepository,
+) {
   return router({
     savedView: router({
-      list: devProtectedProcedure
+      list: permissionProtectedProcedure
         .input(z.object({ resourceKey: z.string() }))
-        .query(async ({ ctx, input }) => {
+        .query(async ({ ctx, input }: { ctx: AuthContext; input: { resourceKey: string } }) => {
           return savedViewRepo.listByResource(ctx.tenantId, ctx.actorId, input.resourceKey)
         }),
 
-      resolve: devProtectedProcedure
+      resolve: permissionProtectedProcedure
         .input(
           z.object({
             resourceKey: z.string(),
             activeViewId: z.string().uuid().nullable(),
           }),
         )
-        .query(async ({ ctx, input }) => {
-          return savedViewRepo.resolve(
-            ctx.tenantId,
-            ctx.actorId,
-            input.resourceKey,
-            input.activeViewId,
-          )
-        }),
+        .query(
+          async ({
+            ctx,
+            input,
+          }: {
+            ctx: AuthContext
+            input: { resourceKey: string; activeViewId: string | null }
+          }) => {
+            return savedViewRepo.resolve(
+              ctx.tenantId,
+              ctx.actorId,
+              input.resourceKey,
+              input.activeViewId,
+            )
+          },
+        ),
 
-      create: devProtectedProcedure
+      create: permissionProtectedProcedure
         .input(
           z.object({
             resourceKey: z.string(),
@@ -56,18 +68,31 @@ export function createPreferencesRouter(savedViewRepo: ISavedViewRepository) {
             isDefault: z.boolean().default(false),
           }),
         )
-        .mutation(async ({ ctx, input }) => {
-          return savedViewRepo.create({
-            tenantId: ctx.tenantId,
-            actorId: ctx.actorId,
-            resourceKey: input.resourceKey,
-            name: input.name,
-            isDefault: input.isDefault,
-            stateJson: input.stateJson,
-          })
-        }),
+        .mutation(
+          async ({
+            ctx,
+            input,
+          }: {
+            ctx: AuthContext
+            input: {
+              resourceKey: string
+              name: string
+              stateJson: z.infer<typeof savedViewStateSchema>
+              isDefault: boolean
+            }
+          }) => {
+            return savedViewRepo.create({
+              tenantId: ctx.tenantId,
+              actorId: ctx.actorId,
+              resourceKey: input.resourceKey,
+              name: input.name,
+              isDefault: input.isDefault,
+              stateJson: input.stateJson,
+            })
+          },
+        ),
 
-      update: devProtectedProcedure
+      update: permissionProtectedProcedure
         .input(
           z.object({
             id: z.string().uuid(),
@@ -75,40 +100,63 @@ export function createPreferencesRouter(savedViewRepo: ISavedViewRepository) {
             stateJson: savedViewStateSchema.optional(),
           }),
         )
-        .mutation(async ({ ctx, input }) => {
-          const { id, ...data } = input
-          try {
-            return await savedViewRepo.update(id, ctx.tenantId, ctx.actorId, data)
-          } catch {
-            throw new TRPCError({
-              code: 'NOT_FOUND',
-              message: `SavedView ${id} not found or not owned by current actor`,
-            })
-          }
-        }),
+        .mutation(
+          async ({
+            ctx,
+            input,
+          }: {
+            ctx: AuthContext
+            input: {
+              id: string
+              name?: string
+              stateJson?: z.infer<typeof savedViewStateSchema>
+            }
+          }) => {
+            const { id, ...data } = input
+            try {
+              return await savedViewRepo.update(id, ctx.tenantId, ctx.actorId, data)
+            } catch {
+              throw new TRPCError({
+                code: 'NOT_FOUND',
+                message: `SavedView ${id} not found or not owned by current actor`,
+              })
+            }
+          },
+        ),
 
-      delete: devProtectedProcedure
+      delete: permissionProtectedProcedure
         .input(z.object({ id: z.string().uuid() }))
-        .mutation(async ({ ctx, input }) => {
+        .mutation(async ({ ctx, input }: { ctx: AuthContext; input: { id: string } }) => {
           await savedViewRepo.delete(input.id, ctx.tenantId, ctx.actorId)
         }),
 
-      setDefault: devProtectedProcedure
+      setDefault: permissionProtectedProcedure
         .input(
           z.object({
             id: z.string().uuid(),
             resourceKey: z.string(),
           }),
         )
-        .mutation(async ({ ctx, input }) => {
-          await savedViewRepo.setDefault(input.id, ctx.tenantId, ctx.actorId, input.resourceKey)
-        }),
+        .mutation(
+          async ({
+            ctx,
+            input,
+          }: {
+            ctx: AuthContext
+            input: { id: string; resourceKey: string }
+          }) => {
+            await savedViewRepo.setDefault(input.id, ctx.tenantId, ctx.actorId, input.resourceKey)
+          },
+        ),
     }),
   })
 }
 
-// Default export for static type anchoring in app-router.ts
-// Instantiated with a no-op stub; real instance injected via setPreferencesRouter()
+// Default export for static type anchoring in app-router.ts.
+// The TrpcModule.onModuleInit replaces this with a permission-checked,
+// repo-bound instance via setPreferencesRouter(). Routes here are typed
+// against publicProcedure purely so AppRouter type stays stable; runtime
+// never hits these.
 const _stubRepo: ISavedViewRepository = {
   listByResource: async () => [],
   findById: async () => null,
@@ -127,4 +175,4 @@ const _stubRepo: ISavedViewRepository = {
   },
 }
 
-export const preferencesRouter = createPreferencesRouter(_stubRepo)
+export const preferencesRouter = createPreferencesRouter(publicProcedure, _stubRepo)

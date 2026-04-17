@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { TRPCError } from '@trpc/server'
-import { router } from './trpc-init'
+import { publicProcedure, router, createAuthenticatedProcedure } from './trpc-init'
 import { createProtectedProcedures } from './create-protected-procedures'
+import { JwtService } from '../auth/jwt.service'
 import type { KernelQueryFacade } from '../../modules/kernel/application/facades/kernel-query.facade'
 import type { KernelAuditFacade } from '../../modules/kernel/application/facades/kernel-audit.facade'
 
@@ -21,6 +22,7 @@ describe('Permission Enforcement Integration', () => {
   function buildRouter(canDo: boolean) {
     kernelFacade.canDo.mockResolvedValue(canDo)
     const { permissionProtectedProcedure } = createProtectedProcedures(
+      publicProcedure,
       kernelFacade as unknown as KernelQueryFacade,
       auditFacade as unknown as KernelAuditFacade,
     )
@@ -94,5 +96,60 @@ describe('Permission Enforcement Integration', () => {
     const caller = testRouter.createCaller({ actorId: ACTOR_ID, tenantId: TENANT_ID } as any)
     await (caller as any).publicResource()
     expect(kernelFacade.canDo).not.toHaveBeenCalled()
+  })
+
+  describe('production wiring (auth -> permission)', () => {
+    function buildProductionRouter() {
+      const jwtService = new JwtService('test-secret-at-least-32-bytes-long-please-aaaaa', 60)
+      const authenticatedProcedure = createAuthenticatedProcedure(jwtService)
+      kernelFacade.canDo.mockResolvedValue(true)
+      const { permissionProtectedProcedure } = createProtectedProcedures(
+        authenticatedProcedure,
+        kernelFacade as unknown as KernelQueryFacade,
+        auditFacade as unknown as KernelAuditFacade,
+      )
+      return {
+        jwtService,
+        testRouter: router({
+          readResource: permissionProtectedProcedure
+            .meta({ permission: 'resource:read' })
+            .query(({ ctx }: any) => ({ actorId: ctx.actorId, tenantId: ctx.tenantId })),
+        }),
+      }
+    }
+
+    it('rejects requests without a session cookie as UNAUTHORIZED', async () => {
+      const { testRouter } = buildProductionRouter()
+      const caller = testRouter.createCaller({
+        req: { headers: { cookie: '' } },
+        actorId: null,
+        tenantId: null,
+      } as any)
+      await expect((caller as any).readResource()).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+      expect(kernelFacade.canDo).not.toHaveBeenCalled()
+    })
+
+    it('populates ctx.actorId and ctx.tenantId from the JWT cookie', async () => {
+      const { jwtService, testRouter } = buildProductionRouter()
+      const token = await jwtService.sign({
+        sub: ACTOR_ID,
+        tid: TENANT_ID,
+        tenantName: 'Acme',
+        displayName: 'Test User',
+        email: 'test@example.com',
+        roles: ['employee'],
+        provider: 'magic_link',
+      })
+      const caller = testRouter.createCaller({
+        req: { headers: { cookie: `_future_session=${token}` } },
+        actorId: null,
+        tenantId: null,
+      } as any)
+      const result = await (caller as any).readResource()
+      expect(result).toEqual({ actorId: ACTOR_ID, tenantId: TENANT_ID })
+      expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'resource:read', {
+        tenantId: TENANT_ID,
+      })
+    })
   })
 })

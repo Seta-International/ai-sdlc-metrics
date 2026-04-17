@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { TRPCError } from '@trpc/server'
 import { createPeopleRouter } from './people.router'
-import { router } from '../../../../common/trpc/trpc-init'
+import { publicProcedure, router } from '../../../../common/trpc/trpc-init'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { PeopleQueryFacade } from '../../application/facades/people-query.facade'
@@ -21,6 +21,7 @@ describe('createPeopleRouter', () => {
       getPersonProfile: vi.fn().mockResolvedValue(profileResult),
     }
     const { permissionProtectedProcedure } = createProtectedProcedures(
+      publicProcedure,
       kernelFacade as unknown as KernelQueryFacade,
       auditFacade as unknown as KernelAuditFacade,
     )

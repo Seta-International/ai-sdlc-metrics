@@ -11,7 +11,7 @@ import {
 import { uuidv7 } from 'uuidv7'
 import { sql } from 'drizzle-orm'
 
-const preferencesSchema = pgSchema('preferences')
+export const preferencesSchema = pgSchema('preferences')
 
 export const savedView = preferencesSchema.table(
   'saved_view',

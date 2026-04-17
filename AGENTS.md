@@ -110,6 +110,11 @@ No FK constraints across schema boundaries. No imports from another module's `do
 - **Ports belong in `domain/ports/`.** Repository interfaces belong in `domain/repositories/` (no `.port` suffix). Never mix the two directories.
 - **No silent stubs in production paths.** `useValue: {}` or any `Stub*` class wired into a module is a temporary placeholder only — it must be replaced before the feature ships. Stubs that silently swallow calls are bugs waiting to happen.
 
+### Database Queries in Handlers
+
+- **Never use `Promise.all` for DB queries inside command/query handlers.** The request-bound DB (`DB_TOKEN`) uses a single `pg.PoolClient` per request (checked out by `RlsMiddleware` for RLS session isolation). A single client cannot execute concurrent queries — `pg@8` queues them with a deprecation warning; `pg@9` will throw. Always `await` queries sequentially.
+- Exception: `Promise.all` is fine for non-DB async work (external API calls, in-memory computation).
+
 ### When in Doubt, Ask
 
 - Ambiguous requirement → ask before implementing.

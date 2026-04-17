@@ -92,11 +92,12 @@ export async function seedActor(
 export async function truncatePeopleSchema(db: Db): Promise<void> {
   await db.execute(
     sql`TRUNCATE
-      people.employment_profile,
-      people.employment_profile_detail,
+      people.employment_detail,
+      people.job_assignment,
+      people.employment,
+      people.person_profile,
       people.profile_section,
       people.profile_change_request,
-      people.periodic_profile_review,
       people.onboarding_template,
       people.onboarding_task_template,
       people.onboarding_case,
@@ -105,45 +106,58 @@ export async function truncatePeopleSchema(db: Db): Promise<void> {
       people.offboarding_task_template,
       people.offboarding_case,
       people.offboarding_task,
-      people.account_membership,
       people.contract_version
     RESTART IDENTITY CASCADE`,
   )
 }
 
-export async function seedEmploymentProfile(
+export async function seedEmployment(
   db: Db,
   overrides: Partial<{
     id: string
     tenantId: string
     actorId: string
+    personProfileId: string
     employeeCode: string
     companyEmail: string
-    employmentType: string
-    employmentStatus: string
-    workArrangement: string
+    workerType: 'employee' | 'contingent'
+    employmentType: 'permanent' | 'fixed_term' | 'intern'
+    employmentStatus:
+      | 'pre_hire'
+      | 'active'
+      | 'on_leave'
+      | 'suspended'
+      | 'notice_period'
+      | 'terminated'
     hireDate: string
-    jobTitle: string
+    countryCode: string
   }> = {},
-): Promise<{ id: string; tenantId: string; actorId: string }> {
+): Promise<{ id: string; tenantId: string; actorId: string; personProfileId: string }> {
   const id = overrides.id ?? uuidv7()
   const tenantId = overrides.tenantId ?? uuidv7()
   const actorId = overrides.actorId ?? uuidv7()
+  const personProfileId = overrides.personProfileId ?? uuidv7()
   const employeeCode = overrides.employeeCode ?? `SETA-${id.slice(0, 8).toUpperCase()}`
   const companyEmail = overrides.companyEmail ?? `employee-${id.slice(0, 8)}@seta-international.vn`
+  const workerType = overrides.workerType ?? 'employee'
   const employmentType = overrides.employmentType ?? 'permanent'
   const employmentStatus = overrides.employmentStatus ?? 'active'
-  const workArrangement = overrides.workArrangement ?? 'onsite'
-  const hireDate = overrides.hireDate ?? new Date().toISOString()
-  const jobTitle = overrides.jobTitle ?? 'Software Engineer'
+  const hireDate = overrides.hireDate ?? new Date().toISOString().slice(0, 10)
+  const countryCode = overrides.countryCode ?? 'VN'
 
   await db.execute(
-    sql`INSERT INTO people.employment_profile
-      (id, tenant_id, actor_id, employee_code, company_email, employment_type, employment_status, work_arrangement, hire_date, job_title, created_at, updated_at)
-      VALUES (${id}, ${tenantId}, ${actorId}, ${employeeCode}, ${companyEmail}, ${employmentType}, ${employmentStatus}, ${workArrangement}, ${hireDate}, ${jobTitle}, NOW(), NOW())`,
+    sql`INSERT INTO people.person_profile
+      (id, tenant_id, actor_id, full_name, name_display_order, created_at, updated_at)
+      VALUES (${personProfileId}, ${tenantId}, ${actorId}, ${`Test Person ${actorId.slice(0, 8)}`}, 'given_first', NOW(), NOW())`,
   )
 
-  return { id, tenantId, actorId }
+  await db.execute(
+    sql`INSERT INTO people.employment
+      (id, tenant_id, person_profile_id, employee_code, company_email, worker_type, employment_type, country_code, employment_status, hire_date, created_at, updated_at)
+      VALUES (${id}, ${tenantId}, ${personProfileId}, ${employeeCode}, ${companyEmail}, ${workerType}, ${employmentType}, ${countryCode}, ${employmentStatus}, ${hireDate}, NOW(), NOW())`,
+  )
+
+  return { id, tenantId, actorId, personProfileId }
 }
 
 export async function truncateProjectsSchema(db: Db): Promise<void> {

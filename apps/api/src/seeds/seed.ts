@@ -8,6 +8,8 @@ import { userIdentity } from '../modules/kernel/infrastructure/schema/user-ident
 import { roleGrant } from '../modules/kernel/infrastructure/schema/role-grant.schema'
 import { rolePermission } from '../modules/kernel/infrastructure/schema/role-permission.schema'
 import { DEFAULT_ROLE_PERMISSIONS } from '../modules/kernel/domain/constants/default-role-permissions'
+import { PLACEHOLDER_SSO_SUBJECT_PREFIX } from '../modules/kernel/domain/repositories/user-identity.repository.port'
+import { personProfile, employment } from '../modules/people/infrastructure/schema/people.schema'
 
 function deterministicUuid(seed: string): string {
   const hash = createHash('sha256')
@@ -28,6 +30,47 @@ interface RawEmployee {
   company: string | null
   name: string
   direct_manager_id: string | null
+  employee_type?: string | null
+  techline?: string | null
+  created_at?: string | null
+}
+
+/**
+ * Vietnamese names follow family-given order (e.g. "Tạ Cao Cảnh" → family
+ * "Tạ", given "Cảnh"). For Latin names, fall back to given-family order.
+ */
+function splitName(
+  fullName: string,
+  domain: string | null,
+): {
+  familyName: string | null
+  givenName: string | null
+  nameDisplayOrder: 'family_first' | 'given_first'
+} {
+  const parts = fullName.trim().split(/\s+/)
+  if (parts.length === 0)
+    return { familyName: null, givenName: null, nameDisplayOrder: 'given_first' }
+  if (parts.length === 1)
+    return { familyName: null, givenName: parts[0]!, nameDisplayOrder: 'given_first' }
+  // Heuristic: any seed-international employee uses family-first ordering;
+  // others fall back to given-first.
+  const isVietnamese = domain === 'seta-international.vn'
+  if (isVietnamese) {
+    return {
+      familyName: parts[0]!,
+      givenName: parts.slice(1).join(' '),
+      nameDisplayOrder: 'family_first',
+    }
+  }
+  return {
+    familyName: parts.slice(-1)[0]!,
+    givenName: parts.slice(0, -1).join(' '),
+    nameDisplayOrder: 'given_first',
+  }
+}
+
+function stripDiacritics(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }
 
 interface RawData {
@@ -152,6 +195,8 @@ async function main() {
         })
         .onConflictDoNothing()
 
+      // sso_subject is a placeholder; resolveLogin auto-claims it on first
+      // real SSO login by matching email and binding to the real claims.oid.
       await db
         .insert(userIdentity)
         .values({
@@ -159,7 +204,7 @@ async function main() {
           tenantId,
           actorId,
           email: emp.email,
-          ssoSubject: emp.email,
+          ssoSubject: PLACEHOLDER_SSO_SUBJECT_PREFIX + actorId,
           provider: 'local',
           status: 'active',
           createdAt: now,
@@ -182,6 +227,52 @@ async function main() {
           })
           .onConflictDoNothing()
       }
+
+      // ── people module: profile + employment ─────────────────────────────
+      // Mocked from the limited fields in employees-raw.json. Hire date is
+      // synthesised from `created_at` (record-creation timestamp; close enough
+      // for dev fixtures) and worker/employment type defaults to permanent
+      // full-time staff. Company email mirrors the SSO email.
+      const personProfileId = deterministicUuid('person_profile:' + emp.email)
+      const employmentId = deterministicUuid('employment:' + emp.email)
+      const { familyName, givenName, nameDisplayOrder } = splitName(emp.name, tenantCfg.domain)
+      const hireDate = emp.created_at ? new Date(emp.created_at) : new Date('2020-01-01')
+      const employmentStatus: (typeof employment.$inferInsert)['employmentStatus'] = emp.is_active
+        ? 'active'
+        : 'terminated'
+
+      await db
+        .insert(personProfile)
+        .values({
+          id: personProfileId,
+          tenantId,
+          actorId,
+          familyName,
+          givenName,
+          fullName: emp.name,
+          fullNameUnaccented: stripDiacritics(emp.name),
+          nameDisplayOrder,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoNothing()
+
+      await db
+        .insert(employment)
+        .values({
+          id: employmentId,
+          tenantId,
+          personProfileId,
+          companyEmail: emp.email,
+          workerType: 'employee',
+          employmentType: 'permanent',
+          employmentStatus,
+          hireDate,
+          countryCode: tenantCfg.domain === 'seta-international.vn' ? 'VN' : null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoNothing()
     }
 
     for (const [roleKey, entries] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {

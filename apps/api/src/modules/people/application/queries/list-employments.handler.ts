@@ -30,13 +30,11 @@ export class ListEmploymentsHandler implements IQueryHandler<
       offset: query.offset,
     }
 
-    const [items, total] = await Promise.all([
-      this.employmentRepo.listByTenant(query.tenantId, filters),
-      this.employmentRepo.countByTenant(query.tenantId, {
-        status: query.status,
-        countryCode: query.countryCode,
-      }),
-    ])
+    const items = await this.employmentRepo.listByTenant(query.tenantId, filters)
+    const total = await this.employmentRepo.countByTenant(query.tenantId, {
+      status: query.status,
+      countryCode: query.countryCode,
+    })
 
     return { items, total }
   }

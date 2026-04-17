@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import { publicProcedure, router } from '../../../../common/trpc/trpc-init'
-import { devProtectedProcedure } from '../../../../common/trpc/procedures'
 import type { AuthContext } from '../../../../common/trpc/auth-middleware'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
@@ -510,12 +509,18 @@ export function createPeopleRouter(
 
     // ── Directory ─────────────────────────────────────────────────────────
     directory: router({
-      list: devProtectedProcedure
+      list: permissionProtectedProcedure
+        .meta({ permission: 'people:directory:read' })
         .input(futureListQuerySchema)
-        .query(({ input }) => listPeopleDirectory(input)),
-      export: devProtectedProcedure
+        .query(({ input }: { input: Parameters<typeof listPeopleDirectory>[0] }) =>
+          listPeopleDirectory(input),
+        ),
+      export: permissionProtectedProcedure
+        .meta({ permission: 'people:directory:read' })
         .input(futureExportQuerySchema)
-        .query(({ input }) => exportPeopleDirectory(input)),
+        .query(({ input }: { input: Parameters<typeof exportPeopleDirectory>[0] }) =>
+          exportPeopleDirectory(input),
+        ),
 
       // ── Plan 05: new CQRS-backed directory endpoints ─────────────────
       search: permissionProtectedProcedure
@@ -1741,12 +1746,13 @@ export const peopleRouter = router({
     ),
 
   // ── Directory ─────────────────────────────────────────────────────────
-
+  // Type-anchor only; the real, permission-checked implementations live in
+  // createPeopleRouter() and are wired by TrpcModule.onModuleInit().
   directory: router({
-    list: devProtectedProcedure
+    list: publicProcedure
       .input(futureListQuerySchema)
       .query(({ input }) => listPeopleDirectory(input)),
-    export: devProtectedProcedure
+    export: publicProcedure
       .input(futureExportQuerySchema)
       .query(({ input }) => exportPeopleDirectory(input)),
   }),

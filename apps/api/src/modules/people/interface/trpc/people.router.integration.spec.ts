@@ -161,15 +161,6 @@ describe('people.directory tRPC sub-router', () => {
     expect(Array.isArray(result.availableFilters?.['department'])).toBe(true)
   })
 
-  it('list — throws UNAUTHORIZED when no tenantId/actorId in ctx', async () => {
-    const caller = peopleRouter.createCaller({
-      req: { headers: {} },
-      tenantId: null,
-      actorId: null,
-    })
-    await expect(caller.directory.list(baseQuery)).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
-  })
-
   it('export — returns CSV for filtered result set (ignoring pagination)', async () => {
     const caller = peopleRouter.createCaller(makeCtx())
     const result = await caller.directory.export({

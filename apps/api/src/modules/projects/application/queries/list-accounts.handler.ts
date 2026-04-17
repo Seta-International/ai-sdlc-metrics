@@ -17,10 +17,11 @@ export class ListAccountsHandler implements IQueryHandler<ListAccountsQuery, Lis
   constructor(@Inject(ACCOUNT_REPOSITORY) private readonly accountRepo: IAccountRepository) {}
 
   async execute(query: ListAccountsQuery): Promise<ListAccountsResult> {
-    const [items, total] = await Promise.all([
-      this.accountRepo.list(query.tenantId, { limit: query.limit, offset: query.offset }),
-      this.accountRepo.count(query.tenantId),
-    ])
+    const items = await this.accountRepo.list(query.tenantId, {
+      limit: query.limit,
+      offset: query.offset,
+    })
+    const total = await this.accountRepo.count(query.tenantId)
 
     return { items, total }
   }

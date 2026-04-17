@@ -3,7 +3,18 @@ import type { KernelAuditFacade } from '../../modules/kernel/application/facades
 import { createPermissionMiddleware } from './permission.middleware'
 import { middleware, publicProcedure } from './trpc-init'
 
+/**
+ * Composes the permission middleware on top of a base procedure.
+ *
+ * Production wiring (via TrpcModule):
+ *   publicProcedure -> createAuthenticatedProcedure(jwt) -> createProtectedProcedures(...)
+ * Final chain on each request:
+ *   auth (verify JWT cookie, populate ctx.actorId/tenantId) -> permission (canDo) -> handler
+ *
+ * Tests can pass `publicProcedure` as the base and supply ctx directly via createCaller.
+ */
 export function createProtectedProcedures(
+  baseProcedure: typeof publicProcedure,
   kernelFacade: KernelQueryFacade,
   auditFacade: KernelAuditFacade,
 ) {
@@ -15,11 +26,7 @@ export function createProtectedProcedures(
     >
   })
 
-  // Uses publicProcedure here because in unit tests there's no JwtService available.
-  // In production, the TrpcModule wires getProtectedProcedure().use(permissionMw)
-  // so the chain is: auth -> permission -> handler.
-  // The createProtectedProcedures factory is for DI-independent testing.
-  const permissionProtectedProcedure = publicProcedure.use(permissionMw)
+  const permissionProtectedProcedure = baseProcedure.use(permissionMw)
 
   return { permissionProtectedProcedure }
 }

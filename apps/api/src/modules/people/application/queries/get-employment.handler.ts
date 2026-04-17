@@ -57,12 +57,19 @@ export class GetEmploymentHandler implements IQueryHandler<GetEmploymentQuery, E
       return null
     }
 
-    const [personProfile, currentAssignment, detail, sections] = await Promise.all([
-      this.personProfileRepo.findById(employment.personProfileId, query.tenantId),
-      this.jobAssignmentRepo.findCurrent(employment.id, query.tenantId),
-      this.employmentDetailRepo.findByEmploymentId(employment.id, query.tenantId),
-      this.profileSectionRepo.findByProfileId(employment.personProfileId, query.tenantId),
-    ])
+    const personProfile = await this.personProfileRepo.findById(
+      employment.personProfileId,
+      query.tenantId,
+    )
+    const currentAssignment = await this.jobAssignmentRepo.findCurrent(
+      employment.id,
+      query.tenantId,
+    )
+    const detail = await this.employmentDetailRepo.findByEmploymentId(employment.id, query.tenantId)
+    const sections = await this.profileSectionRepo.findByProfileId(
+      employment.personProfileId,
+      query.tenantId,
+    )
 
     return {
       employment,
