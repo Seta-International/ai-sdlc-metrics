@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Bell, Bot, Search, Sun, Moon, Plus } from 'lucide-react'
+import { Bot, Search, Sun, Moon, Plus } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { cn, AppLauncher, AppLauncherTrigger, FUTURE_APPS, LOCAL_FUTURE_APPS } from '@future/ui'
 import { SidebarTrigger } from '@future/ui'
@@ -10,21 +10,21 @@ import type { NavbarConfig } from '../types'
 
 export interface NavbarRendererProps {
   config: NavbarConfig
-  userInitials?: string
-  onNotificationsClick?: () => void
+  /** Slot for the user-menu trigger (e.g. SessionUserMenu). When absent, nothing renders. */
+  userMenuSlot?: React.ReactNode
+  /** Slot for the notifications trigger (e.g. StubNotificationsPopover). When absent, nothing renders. */
+  notificationsSlot?: React.ReactNode
   onAgentClick?: () => void
   onSearchClick?: () => void
-  onProfileClick?: () => void
   agentPanelOpen?: boolean
 }
 
 export function NavbarRenderer({
   config,
-  userInitials = 'U',
-  onNotificationsClick,
+  userMenuSlot,
+  notificationsSlot,
   onAgentClick,
   onSearchClick,
-  onProfileClick,
   agentPanelOpen = false,
 }: NavbarRendererProps) {
   const [launcherOpen, setLauncherOpen] = React.useState(false)
@@ -68,10 +68,11 @@ export function NavbarRenderer({
             <span className="text-sm font-510">{config.title}</span>
           </div>
 
-          {/* Action button */}
+          {/* Action button (label hidden on <md, icon kept) */}
           {config.action && canDoAction && (
             <a
               href={config.action.href}
+              aria-label={config.action.label}
               className={cn(
                 'ml-2 flex items-center gap-1.5 rounded-md px-2.5 py-1.5',
                 'bg-primary text-primary-foreground text-xs font-510',
@@ -80,17 +81,17 @@ export function NavbarRenderer({
               )}
             >
               <Plus className="h-3 w-3" />
-              {config.action.label}
+              <span className="hidden md:inline">{config.action.label}</span>
             </a>
           )}
 
-          {/* Search */}
+          {/* Search (expanded, sm+) */}
           <button
             type="button"
             onClick={onSearchClick}
             aria-label="Search or ask an agent"
             className={cn(
-              'ml-auto flex max-w-xs flex-1 items-center gap-2 rounded-md border px-3 py-1.5',
+              'ml-auto hidden max-w-xs flex-1 items-center gap-2 rounded-md border px-3 py-1.5 sm:flex',
               'border-border bg-(--btn-ghost-bg) text-xs text-muted-foreground',
               'transition-all hover:bg-(--btn-ghost-bg-hover) hover:border-primary',
               'focus:outline-none focus:ring-2 focus:ring-ring/50',
@@ -99,6 +100,20 @@ export function NavbarRenderer({
             <Search className="h-3 w-3 flex-shrink-0 opacity-50" aria-hidden="true" />
             <span>Search or ask...</span>
             <span className="ml-auto font-mono text-tiny opacity-50">⌘K</span>
+          </button>
+
+          {/* Search (icon-only, <sm) */}
+          <button
+            type="button"
+            onClick={onSearchClick}
+            aria-label="Search or ask an agent"
+            className={cn(
+              'ml-auto flex h-11 w-11 items-center justify-center rounded-md sm:hidden',
+              'text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
+              'focus:outline-none focus:ring-2 focus:ring-ring/50',
+            )}
+          >
+            <Search className="h-4 w-4" />
           </button>
 
           {/* Agent toggle */}
@@ -117,19 +132,8 @@ export function NavbarRenderer({
             <Bot className="h-4 w-4" />
           </button>
 
-          {/* Notifications */}
-          <button
-            type="button"
-            onClick={onNotificationsClick}
-            aria-label="Notifications"
-            className={cn(
-              'flex h-11 w-11 items-center justify-center rounded-md',
-              'text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
-              'focus:outline-none focus:ring-2 focus:ring-ring/50',
-            )}
-          >
-            <Bell className="h-4 w-4" />
-          </button>
+          {/* Notifications slot */}
+          {notificationsSlot}
 
           {/* Theme toggle */}
           <button
@@ -145,20 +149,8 @@ export function NavbarRenderer({
             {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
 
-          {/* Avatar */}
-          <button
-            type="button"
-            onClick={onProfileClick}
-            aria-label={`User menu (${userInitials})`}
-            className={cn(
-              'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full',
-              'bg-primary text-micro font-510 text-primary-foreground',
-              'transition-all hover:bg-primary/90',
-              'focus:outline-none focus:ring-2 focus:ring-primary/50',
-            )}
-          >
-            {userInitials.slice(0, 2).toUpperCase()}
-          </button>
+          {/* User menu slot */}
+          {userMenuSlot}
         </div>
       </header>
     </>

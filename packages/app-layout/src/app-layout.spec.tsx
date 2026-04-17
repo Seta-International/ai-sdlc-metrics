@@ -20,6 +20,14 @@ vi.mock('@future/agent', () => ({
   AgentStrip: () => <div data-testid="agent-strip" />,
 }))
 
+vi.mock('./session-user-menu', () => ({
+  SessionUserMenu: () => <div data-testid="session-user-menu" />,
+}))
+
+vi.mock('./stub-notifications-popover', () => ({
+  StubNotificationsPopover: () => <div data-testid="stub-notifications-popover" />,
+}))
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 vi.mock('@future/ui', () => {
   const D = ({ children }: any) => <div>{children}</div>
@@ -132,6 +140,19 @@ describe('AppLayout', () => {
     )
 
     expect(screen.getByTestId('agent-panel')).toBeDefined()
+  })
+
+  it('mounts SessionUserMenu and StubNotificationsPopover as navbar slots', async () => {
+    render(
+      <AppLayout config={testConfig} trpc={createMockTrpc([])}>
+        <div>content</div>
+      </AppLayout>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('session-user-menu')).toBeInTheDocument()
+      expect(screen.getByTestId('stub-notifications-popover')).toBeInTheDocument()
+    })
   })
 
   it('renders without agent state (null state from useOptionalAgentState)', () => {

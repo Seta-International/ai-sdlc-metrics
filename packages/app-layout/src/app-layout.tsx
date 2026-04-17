@@ -6,9 +6,14 @@ import { useOptionalAgentState, AgentPanel, AgentStrip } from '@future/agent'
 import { PermissionProvider, type PermissionTrpcClient } from './permission-provider'
 import { NavbarRenderer, type NavbarRendererProps } from './navbar/navbar-renderer'
 import { SidebarRenderer } from './sidebar/sidebar-renderer'
+import { SessionUserMenu } from './session-user-menu'
+import { StubNotificationsPopover } from './stub-notifications-popover'
 import type { NavigationConfig } from './types'
 
-export interface AppLayoutProps extends Omit<NavbarRendererProps, 'config'> {
+export interface AppLayoutProps extends Omit<
+  NavbarRendererProps,
+  'config' | 'userMenuSlot' | 'notificationsSlot'
+> {
   config: NavigationConfig
   trpc: PermissionTrpcClient
   children: ReactNode
@@ -27,6 +32,8 @@ export function AppLayout({ config, trpc, children, ...navbarProps }: AppLayoutP
           <NavbarRenderer
             config={config.navbar}
             {...navbarProps}
+            userMenuSlot={<SessionUserMenu />}
+            notificationsSlot={<StubNotificationsPopover />}
             onAgentClick={togglePanel}
             agentPanelOpen={panelOpen}
           />
