@@ -12,3 +12,13 @@ if (typeof PointerEvent === 'undefined') {
   // @ts-expect-error — polyfilling global
   global.PointerEvent = PointerEvent
 }
+
+// jsdom doesn't define ResizeObserver — Radix ScrollArea requires it
+if (typeof ResizeObserver === 'undefined') {
+  class ResizeObserverPolyfill {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  global.ResizeObserver = ResizeObserverPolyfill as unknown as typeof ResizeObserver
+}

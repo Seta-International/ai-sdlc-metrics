@@ -17,6 +17,11 @@ export type {
 export { ThemeProvider } from './components/theme-provider'
 export { UserMenu } from './components/user-menu'
 export type { UserMenuProps, UserMenuUser, TenantOption } from './components/user-menu'
+export { NotificationsPopover } from './components/notifications-popover'
+export type {
+  NotificationsPopoverProps,
+  NotificationItem,
+} from './components/notifications-popover'
 
 // shadcn/ui components
 export * from './components/ui/accordion'
