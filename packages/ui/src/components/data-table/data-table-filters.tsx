@@ -30,7 +30,7 @@ export function DataTableFilters({ filters, onRemoveFilter, className }: DataTab
           <button
             type="button"
             onClick={() => onRemoveFilter(filter.field)}
-            className="ml-0.5 rounded-full hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="ml-0.5 rounded-full hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
             aria-label={`Remove filter ${filter.field}`}
           >
             <XIcon className="size-3" />
