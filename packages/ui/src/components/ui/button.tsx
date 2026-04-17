@@ -11,24 +11,24 @@ const buttonVariants = cva(
       variant: {
         // Ghost button — default interactive element
         default:
-          'border border-(--btn-ghost-border) bg-(--btn-ghost-bg) text-foreground font-510 hover:bg-(--btn-ghost-bg-hover) focus-visible:ring-2 focus-visible:ring-ring/50',
+          'border border-(--btn-ghost-border) bg-(--btn-ghost-bg) text-foreground font-510 hover:bg-(--btn-ghost-bg-hover) focus-visible:ring-3 focus-visible:ring-ring/50',
         // Primary CTA — brand indigo, use sparingly
         primary:
-          'bg-primary text-primary-foreground font-510 hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-primary/50',
+          'bg-primary text-primary-foreground font-510 hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-primary/50',
         // Subtle — toolbar actions, slightly visible bg
         secondary:
-          'bg-(--btn-subtle-bg) text-foreground font-510 hover:bg-(--btn-subtle-bg-hover) focus-visible:ring-2 focus-visible:ring-ring/50',
+          'bg-(--btn-subtle-bg) text-foreground font-510 hover:bg-(--btn-subtle-bg-hover) focus-visible:ring-3 focus-visible:ring-ring/50',
         // Outline — explicit border, transparent bg
         outline:
-          'border border-border bg-transparent text-foreground font-510 hover:bg-(--btn-ghost-bg) focus-visible:ring-2 focus-visible:ring-ring/50',
+          'border border-border bg-transparent text-foreground font-510 hover:bg-(--btn-ghost-bg) focus-visible:ring-3 focus-visible:ring-ring/50',
         // Ghost — no border, no bg
         ghost:
-          'text-muted-foreground font-510 hover:bg-(--btn-ghost-bg) hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
+          'text-muted-foreground font-510 hover:bg-(--btn-ghost-bg) hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
         // Destructive
         destructive:
-          'bg-destructive text-white font-510 hover:bg-destructive/90 focus-visible:ring-2 focus-visible:ring-destructive/50',
+          'bg-destructive text-white font-510 hover:bg-destructive/90 focus-visible:ring-3 focus-visible:ring-destructive/50',
         // Icon — circular icon button
-        icon: 'rounded-full border border-(--btn-ghost-border) bg-secondary/75 text-foreground hover:bg-(--btn-ghost-bg-hover) focus-visible:ring-2 focus-visible:ring-ring/50',
+        icon: 'rounded-full border border-(--btn-ghost-border) bg-secondary/75 text-foreground hover:bg-(--btn-ghost-bg-hover) focus-visible:ring-3 focus-visible:ring-ring/50',
         // Link
         link: 'text-primary underline-offset-4 hover:underline',
       },
