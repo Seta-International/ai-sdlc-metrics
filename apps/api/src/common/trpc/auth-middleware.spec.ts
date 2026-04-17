@@ -7,6 +7,9 @@ import type { SessionPayload } from '../auth/session-payload'
 const VALID_PAYLOAD: SessionPayload = {
   sub: '01900000-0000-7000-8000-000000000001',
   tid: '01900000-0000-7000-8000-000000000002',
+  tenantName: 'Acme Corp',
+  displayName: 'Alice',
+  email: 'alice@seta.vn',
   roles: ['employee'],
   provider: 'microsoft',
   iat: Math.floor(Date.now() / 1000),

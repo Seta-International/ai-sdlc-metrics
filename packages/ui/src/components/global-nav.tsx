@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Bell, Bot, Search, Sun, Moon } from 'lucide-react'
+import { Bot, Search, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { cn } from '../lib/utils'
 import {
@@ -41,19 +41,22 @@ export function AgentStrip({
       role="status"
       aria-live="polite"
     >
-      <span className="flex items-center gap-1">
+      <span className="flex items-center gap-1 truncate text-xs sm:text-micro">
         <span className="h-1.5 w-1.5 rounded-full bg-green-600 flex-shrink-0" aria-hidden="true" />
         {agentName}
       </span>
       <span className="text-muted-foreground" aria-hidden="true">
         ·
       </span>
-      <span>Data: {dataStatus}</span>
+      <span className="truncate text-xs sm:text-micro">Data: {dataStatus}</span>
       <span className="text-muted-foreground" aria-hidden="true">
         ·
       </span>
-      <span>{scope}</span>
-      <a href={auditLogHref} className="ml-auto text-micro text-primary underline dark:text-accent">
+      <span className="truncate text-xs sm:text-micro">{scope}</span>
+      <a
+        href={auditLogHref}
+        className="ml-auto truncate text-xs text-primary underline sm:text-micro dark:text-accent"
+      >
         View audit log
       </a>
     </div>
@@ -68,16 +71,14 @@ export interface GlobalNavProps {
    * Controls the App Chip label and the current-app badge in the launcher.
    */
   currentApp?: string
-  /** Initials or name for the avatar button */
-  userInitials?: string
-  /** Called when the user clicks the notification bell */
-  onNotificationsClick?: () => void
+  /** Slot for the user-menu trigger (e.g. SessionUserMenu). When absent, nothing renders. */
+  userMenuSlot?: React.ReactNode
+  /** Slot for the notifications trigger (e.g. StubNotificationsPopover). When absent, nothing renders. */
+  notificationsSlot?: React.ReactNode
   /** Called when the user clicks the agent/bot icon */
   onAgentClick?: () => void
   /** Called when the user clicks the search bar */
   onSearchClick?: () => void
-  /** Called when the user clicks the avatar */
-  onProfileClick?: () => void
   /** Agent strip props — omit to hide the strip */
   agentStrip?: AgentStripProps | false
   /** Custom app list passed down to the launcher */
@@ -87,11 +88,10 @@ export interface GlobalNavProps {
 
 export function GlobalNav({
   currentApp,
-  userInitials = 'U',
-  onNotificationsClick,
+  userMenuSlot,
+  notificationsSlot,
   onAgentClick,
   onSearchClick,
-  onProfileClick,
   agentStrip,
   apps = process.env['NEXT_PUBLIC_LOCAL_DEV'] === 'true' ? LOCAL_FUTURE_APPS : FUTURE_APPS,
   className,
@@ -137,13 +137,13 @@ export function GlobalNav({
           {/* Current app chip */}
           <AppChip app={currentAppDef} onClick={() => setLauncherOpen(true)} />
 
-          {/* Search */}
+          {/* Search (expanded, sm+) */}
           <button
             type="button"
             onClick={onSearchClick}
             aria-label="Search or ask an agent"
             className={cn(
-              'ml-auto flex max-w-xs flex-1 items-center gap-2 rounded-md border px-3 py-1.5',
+              'ml-auto hidden max-w-xs flex-1 items-center gap-2 rounded-md border px-3 py-1.5 sm:flex',
               'border-border bg-(--btn-ghost-bg) text-xs text-muted-foreground',
               'transition-all hover:bg-(--btn-ghost-bg-hover) hover:border-primary',
               'focus:outline-none focus:ring-2 focus:ring-ring/50',
@@ -152,6 +152,20 @@ export function GlobalNav({
             <Search className="h-3 w-3 flex-shrink-0 opacity-50" aria-hidden="true" />
             <span>Search or ask…</span>
             <span className="ml-auto font-mono text-tiny opacity-50">⌘K</span>
+          </button>
+
+          {/* Search (icon-only, <sm) */}
+          <button
+            type="button"
+            onClick={onSearchClick}
+            aria-label="Search or ask an agent"
+            className={cn(
+              'ml-auto flex h-11 w-11 items-center justify-center rounded-md sm:hidden',
+              'text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
+              'focus:outline-none focus:ring-2 focus:ring-ring/50',
+            )}
+          >
+            <Search className="h-4 w-4" />
           </button>
 
           {/* Agent toggle */}
@@ -168,19 +182,8 @@ export function GlobalNav({
             <Bot className="h-4 w-4" />
           </button>
 
-          {/* Notifications */}
-          <button
-            type="button"
-            onClick={onNotificationsClick}
-            aria-label="Notifications"
-            className={cn(
-              'flex h-11 w-11 items-center justify-center rounded-md',
-              'text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
-              'focus:outline-none focus:ring-2 focus:ring-ring/50',
-            )}
-          >
-            <Bell className="h-4 w-4" />
-          </button>
+          {/* Notifications slot */}
+          {notificationsSlot}
 
           {/* Theme toggle */}
           <button
@@ -196,20 +199,8 @@ export function GlobalNav({
             {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
 
-          {/* Avatar */}
-          <button
-            type="button"
-            onClick={onProfileClick}
-            aria-label={`User menu (${userInitials})`}
-            className={cn(
-              'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full',
-              'bg-primary text-micro font-510 text-primary-foreground',
-              'transition-all hover:bg-primary/90',
-              'focus:outline-none focus:ring-2 focus:ring-primary/50',
-            )}
-          >
-            {userInitials.slice(0, 2).toUpperCase()}
-          </button>
+          {/* User menu slot */}
+          {userMenuSlot}
         </div>
 
         {/* Agent strip */}

@@ -28,4 +28,10 @@ describe('peopleNavConfig', () => {
     expect(directoryItem).toBeDefined()
     expect(directoryItem?.href).toBe('/')
   })
+
+  it('should not include a My Profile item', () => {
+    const allItems = peopleNavConfig.sidebar.flatMap((g: NavGroup) => g.items)
+    const labels = allItems.map((item: NavItem) => item.label)
+    expect(labels).not.toContain('My Profile')
+  })
 })

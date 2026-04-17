@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     actorId: claims.actorId,
     tenantId: claims.tenantId,
+    tenantName: claims.tenantName,
     roles: claims.roles,
     displayName: claims.displayName,
     email: claims.email ?? '',

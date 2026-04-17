@@ -1,6 +1,9 @@
 export interface SessionPayload {
   sub: string
   tid: string
+  tenantName: string
+  displayName: string
+  email: string
   roles: string[]
   provider: string
   iat: number

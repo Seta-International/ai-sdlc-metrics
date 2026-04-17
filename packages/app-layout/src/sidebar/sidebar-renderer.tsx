@@ -33,7 +33,7 @@ function SidebarNavItem({ item }: { item: NavItem }) {
   if (visibleChildren.length > 0) {
     return (
       <SidebarMenuItem>
-        <SidebarMenuButton isActive={isActive} asChild>
+        <SidebarMenuButton isActive={isActive} tooltip={item.label} asChild>
           <a href={item.href}>
             <item.icon />
             <span>{item.label}</span>
@@ -51,7 +51,7 @@ function SidebarNavItem({ item }: { item: NavItem }) {
 
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton isActive={isActive} asChild>
+      <SidebarMenuButton isActive={isActive} tooltip={item.label} asChild>
         <a href={item.href}>
           <item.icon />
           <span>{item.label}</span>
@@ -83,7 +83,7 @@ export interface SidebarRendererProps {
 
 export function SidebarRenderer({ groups }: SidebarRendererProps) {
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarContent>
         {groups.map((group, index) => (
           <SidebarNavGroup key={group.label ?? index} group={group} />

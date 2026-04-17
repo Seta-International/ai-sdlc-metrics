@@ -10,14 +10,14 @@ export const COOKIE_OPTIONS = {
 }
 
 export const MICROSOFT_CONFIG = {
-  clientId: process.env['MICROSOFT_CLIENT_ID'] ?? '',
+  clientId: process.env['NEXT_PUBLIC_MICROSOFT_CLIENT_ID'] ?? '',
   clientSecret: process.env['MICROSOFT_CLIENT_SECRET'] ?? '',
-  tenantId: process.env['MICROSOFT_TENANT_ID'] ?? 'common',
+  tenantId: process.env['NEXT_PUBLIC_MICROSOFT_TENANT_ID'] ?? 'common',
   redirectUri:
     process.env['MICROSOFT_REDIRECT_URI'] ?? 'http://localhost:3000/auth/callback/microsoft',
   scope: 'openid profile email',
-  authorizationEndpoint: `https://login.microsoftonline.com/${process.env['MICROSOFT_TENANT_ID'] ?? 'common'}/oauth2/v2.0/authorize`,
-  tokenEndpoint: `https://login.microsoftonline.com/${process.env['MICROSOFT_TENANT_ID'] ?? 'common'}/oauth2/v2.0/token`,
+  authorizationEndpoint: `https://login.microsoftonline.com/${process.env['NEXT_PUBLIC_MICROSOFT_TENANT_ID'] ?? 'common'}/oauth2/v2.0/authorize`,
+  tokenEndpoint: `https://login.microsoftonline.com/${process.env['NEXT_PUBLIC_MICROSOFT_TENANT_ID'] ?? 'common'}/oauth2/v2.0/token`,
 }
 
 export const GOOGLE_CONFIG = {

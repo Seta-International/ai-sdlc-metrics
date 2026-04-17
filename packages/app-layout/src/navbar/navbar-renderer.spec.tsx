@@ -93,16 +93,63 @@ describe('NavbarRenderer', () => {
     expect(screen.getByText('Settings')).toBeInTheDocument()
   })
 
-  it('renders search, agent, notifications, and avatar elements', () => {
-    render(<NavbarRenderer config={baseConfig} userInitials="CT" />, {
+  it('renders search and agent elements', () => {
+    render(<NavbarRenderer config={baseConfig} />, {
       wrapper: createWrapper([]),
     })
 
-    expect(screen.getByLabelText('Search or ask an agent')).toBeInTheDocument()
+    expect(screen.getAllByLabelText('Search or ask an agent').length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Open agent panel')).toBeInTheDocument()
-    expect(screen.getByLabelText('Notifications')).toBeInTheDocument()
-    expect(screen.getByLabelText('User menu (CT)')).toBeInTheDocument()
-    expect(screen.getByText('CT')).toBeInTheDocument()
+  })
+
+  it('renders provided user-menu and notifications slots', () => {
+    render(
+      <NavbarRenderer
+        config={baseConfig}
+        userMenuSlot={<button>user-menu-slot</button>}
+        notificationsSlot={<button>notifications-slot</button>}
+      />,
+      { wrapper: createWrapper([]) },
+    )
+
+    expect(screen.getByText('user-menu-slot')).toBeInTheDocument()
+    expect(screen.getByText('notifications-slot')).toBeInTheDocument()
+  })
+
+  it('renders nothing in slot positions when slots are undefined', () => {
+    render(<NavbarRenderer config={baseConfig} />, {
+      wrapper: createWrapper([]),
+    })
+
+    expect(screen.queryByText('user-menu-slot')).not.toBeInTheDocument()
+    expect(screen.queryByText('notifications-slot')).not.toBeInTheDocument()
+  })
+
+  it('exposes search in both expanded (sm:flex) and icon-only (sm:hidden) forms', () => {
+    render(<NavbarRenderer config={baseConfig} />, {
+      wrapper: createWrapper([]),
+    })
+
+    const searchButtons = screen.getAllByLabelText('Search or ask an agent')
+    expect(searchButtons).toHaveLength(2)
+    const classes = searchButtons.map((b) => b.className)
+    expect(classes.some((c) => c.includes('sm:flex'))).toBe(true)
+    expect(classes.some((c) => c.includes('sm:hidden'))).toBe(true)
+  })
+
+  it('collapses zone action label to icon-only on <md', () => {
+    const config: NavbarConfig = {
+      ...baseConfig,
+      action: { label: 'Add Employee', href: '/new' },
+    }
+
+    render(<NavbarRenderer config={config} />, {
+      wrapper: createWrapper([]),
+    })
+
+    const label = screen.getByText('Add Employee')
+    expect(label.className).toContain('hidden')
+    expect(label.className).toContain('md:inline')
   })
 
   it('renders light mode theme toggle label when in light mode', () => {
@@ -140,29 +187,17 @@ describe('NavbarRenderer', () => {
   it('calls callback handlers when buttons are clicked', () => {
     const onSearch = vi.fn()
     const onAgent = vi.fn()
-    const onNotifications = vi.fn()
-    const onProfile = vi.fn()
 
-    render(
-      <NavbarRenderer
-        config={baseConfig}
-        onSearchClick={onSearch}
-        onAgentClick={onAgent}
-        onNotificationsClick={onNotifications}
-        onProfileClick={onProfile}
-      />,
-      { wrapper: createWrapper([]) },
-    )
+    render(<NavbarRenderer config={baseConfig} onSearchClick={onSearch} onAgentClick={onAgent} />, {
+      wrapper: createWrapper([]),
+    })
 
-    fireEvent.click(screen.getByLabelText('Search or ask an agent'))
+    const searchButtons = screen.getAllByLabelText('Search or ask an agent')
+    fireEvent.click(searchButtons[0]!)
     fireEvent.click(screen.getByLabelText('Open agent panel'))
-    fireEvent.click(screen.getByLabelText('Notifications'))
-    fireEvent.click(screen.getByLabelText('User menu (U)'))
 
     expect(onSearch).toHaveBeenCalledOnce()
     expect(onAgent).toHaveBeenCalledOnce()
-    expect(onNotifications).toHaveBeenCalledOnce()
-    expect(onProfile).toHaveBeenCalledOnce()
   })
 
   it('toggles app launcher via Cmd+K keyboard shortcut', () => {

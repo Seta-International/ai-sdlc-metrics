@@ -11,6 +11,9 @@ export class ResolveLoginCommand {
 export interface ResolveLoginResult {
   actorId: string
   tenantId: string
+  tenantName: string
+  displayName: string
+  email: string
   roles: string[]
   provider: string
 }
