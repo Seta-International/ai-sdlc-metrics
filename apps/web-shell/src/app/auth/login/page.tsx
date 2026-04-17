@@ -45,7 +45,8 @@ export default function LoginPage() {
     }
   }
 
-  const msLoginUrl = `${MICROSOFT_CONFIG.authorizationEndpoint}?client_id=${MICROSOFT_CONFIG.clientId}&response_type=code&redirect_uri=${encodeURIComponent(MICROSOFT_CONFIG.redirectUri)}&scope=${encodeURIComponent(MICROSOFT_CONFIG.scope)}&response_mode=query`
+  const futureTenantId = process.env['NEXT_PUBLIC_TENANT_ID'] ?? ''
+  const msLoginUrl = `${MICROSOFT_CONFIG.authorizationEndpoint}?client_id=${MICROSOFT_CONFIG.clientId}&response_type=code&redirect_uri=${encodeURIComponent(MICROSOFT_CONFIG.redirectUri)}&scope=${encodeURIComponent(MICROSOFT_CONFIG.scope)}&response_mode=query&state=${encodeURIComponent(futureTenantId)}`
 
   const googleLoginUrl = `${GOOGLE_CONFIG.authorizationEndpoint}?client_id=${GOOGLE_CONFIG.clientId}&response_type=code&redirect_uri=${encodeURIComponent(GOOGLE_CONFIG.redirectUri)}&scope=${encodeURIComponent(GOOGLE_CONFIG.scope)}`
 

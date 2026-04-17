@@ -62,13 +62,11 @@ export async function GET(request: NextRequest) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        json: {
-          provider: 'microsoft',
-          ssoSubject: claims.oid,
-          email: claims.preferred_username,
-          displayName: claims.name,
-          tenantId,
-        },
+        provider: 'microsoft',
+        ssoSubject: claims.oid,
+        email: claims.preferred_username,
+        displayName: claims.name,
+        tenantId,
       }),
     })
 
@@ -77,7 +75,7 @@ export async function GET(request: NextRequest) {
     }
 
     const apiData = (await apiRes.json()) as {
-      result?: { data?: { json?: { token?: string } } }
+      result?: { data?: { token?: string } }
       error?: unknown
     }
 
@@ -85,7 +83,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/auth/login?error=account_error', request.url))
     }
 
-    const sessionToken = apiData.result?.data?.json?.token
+    const sessionToken = apiData.result?.data?.token
 
     if (!sessionToken) {
       return NextResponse.redirect(new URL('/auth/login?error=no_token', request.url))
