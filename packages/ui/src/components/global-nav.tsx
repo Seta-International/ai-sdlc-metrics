@@ -41,21 +41,21 @@ export function AgentStrip({
       role="status"
       aria-live="polite"
     >
-      <span className="flex items-center gap-1 truncate text-xs sm:text-micro">
+      <span className="flex items-center gap-1 truncate text-micro">
         <span className="h-1.5 w-1.5 rounded-full bg-green-600 flex-shrink-0" aria-hidden="true" />
         {agentName}
       </span>
       <span className="text-muted-foreground" aria-hidden="true">
         ·
       </span>
-      <span className="truncate text-xs sm:text-micro">Data: {dataStatus}</span>
+      <span className="truncate text-micro">Data: {dataStatus}</span>
       <span className="text-muted-foreground" aria-hidden="true">
         ·
       </span>
-      <span className="truncate text-xs sm:text-micro">{scope}</span>
+      <span className="truncate text-micro">{scope}</span>
       <a
         href={auditLogHref}
-        className="ml-auto truncate text-xs text-primary underline sm:text-micro dark:text-accent"
+        className="ml-auto truncate text-micro text-primary underline dark:text-accent"
       >
         View audit log
       </a>
@@ -144,9 +144,9 @@ export function GlobalNav({
             aria-label="Search or ask an agent"
             className={cn(
               'ml-auto hidden max-w-xs flex-1 items-center gap-2 rounded-md border px-3 py-1.5 sm:flex',
-              'border-border bg-(--btn-ghost-bg) text-xs text-muted-foreground',
+              'border-border bg-(--btn-ghost-bg) text-caption text-muted-foreground',
               'transition-all hover:bg-(--btn-ghost-bg-hover) hover:border-primary',
-              'focus:outline-none focus:ring-2 focus:ring-ring/50',
+              'focus:outline-none focus:ring-3 focus:ring-ring/50',
             )}
           >
             <Search className="h-3 w-3 flex-shrink-0 opacity-50" aria-hidden="true" />
@@ -160,9 +160,9 @@ export function GlobalNav({
             onClick={onSearchClick}
             aria-label="Search or ask an agent"
             className={cn(
-              'ml-auto flex h-11 w-11 items-center justify-center rounded-md sm:hidden',
-              'text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
-              'focus:outline-none focus:ring-2 focus:ring-ring/50',
+              'ml-auto flex h-11 w-11 items-center justify-center rounded-md border sm:hidden',
+              'border-border text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
+              'focus:outline-none focus:ring-3 focus:ring-ring/50',
             )}
           >
             <Search className="h-4 w-4" />
@@ -174,9 +174,9 @@ export function GlobalNav({
             onClick={onAgentClick}
             aria-label="Open agent panel"
             className={cn(
-              'flex h-11 w-11 items-center justify-center rounded-md',
-              'text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
-              'focus:outline-none focus:ring-2 focus:ring-ring/50',
+              'flex h-11 w-11 items-center justify-center rounded-md border',
+              'border-border text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
+              'focus:outline-none focus:ring-3 focus:ring-ring/50',
             )}
           >
             <Bot className="h-4 w-4" />
@@ -191,9 +191,9 @@ export function GlobalNav({
             onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
             aria-label={resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             className={cn(
-              'flex h-11 w-11 items-center justify-center rounded-md',
-              'text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
-              'focus:outline-none focus:ring-2 focus:ring-ring/50',
+              'flex h-11 w-11 items-center justify-center rounded-md border',
+              'border-border text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
+              'focus:outline-none focus:ring-3 focus:ring-ring/50',
             )}
           >
             {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
