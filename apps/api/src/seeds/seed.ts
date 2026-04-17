@@ -14,7 +14,7 @@ function deterministicUuid(seed: string): string {
     .update('future-seed-v1:' + seed)
     .digest('hex')
   const p3 = '5' + hash.slice(13, 16) // version 5
-  const variant = ((parseInt(hash[16], 16) & 0x3) | 0x8).toString(16) // variant 10xx
+  const variant = ((parseInt(hash.charAt(16), 16) & 0x3) | 0x8).toString(16) // variant 10xx
   const p4 = variant + hash.slice(17, 20)
   return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${p3}-${p4}-${hash.slice(20, 32)}`
 }
