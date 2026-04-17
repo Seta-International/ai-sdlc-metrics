@@ -26,10 +26,14 @@ export class JwtService {
   async verify(token: string): Promise<SessionPayload | null> {
     try {
       const { payload } = await jwtVerify(token, this.secret, { algorithms: ['HS256'] })
+      const tenantName = payload['tenantName']
+      if (typeof tenantName !== 'string' || tenantName.length === 0) {
+        return null
+      }
       return {
         sub: payload.sub as string,
         tid: payload['tid'] as string,
-        tenantName: payload['tenantName'] as string,
+        tenantName,
         displayName: payload['displayName'] as string,
         email: payload['email'] as string,
         roles: payload['roles'] as string[],

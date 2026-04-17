@@ -40,7 +40,7 @@ describe('ResolveLoginHandler', () => {
       revokeAllForActor: vi.fn(),
       revokeBySource: vi.fn(),
     }
-    auditRepo = { insert: vi.fn() }
+    auditRepo = { insert: vi.fn(), query: vi.fn(), queryAll: vi.fn() }
     tenantRepo = {
       findById: vi.fn().mockResolvedValue({
         id: TENANT_ID,

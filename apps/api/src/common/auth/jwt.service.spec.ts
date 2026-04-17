@@ -1,3 +1,4 @@
+import { SignJWT } from 'jose'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { JwtService } from './jwt.service'
 import type { SessionPayload } from './session-payload'
@@ -64,6 +65,27 @@ describe('JwtService', () => {
   it('verify returns null for token signed with different secret', async () => {
     const otherService = new JwtService('other-secret-key-that-is-at-least-32-bytes!')
     const token = await otherService.sign(VALID_PAYLOAD)
+    const result = await service.verify(token)
+    expect(result).toBeNull()
+  })
+
+  it('verify returns null for legitimately-signed token missing tenantName', async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const secret = new TextEncoder().encode(TEST_SECRET)
+    const token = await new SignJWT({
+      sub: VALID_PAYLOAD.sub,
+      tid: VALID_PAYLOAD.tid,
+      displayName: VALID_PAYLOAD.displayName,
+      email: VALID_PAYLOAD.email,
+      roles: VALID_PAYLOAD.roles,
+      provider: VALID_PAYLOAD.provider,
+      iat: now,
+      exp: now + 3600,
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt(now)
+      .setExpirationTime(now + 3600)
+      .sign(secret)
     const result = await service.verify(token)
     expect(result).toBeNull()
   })
