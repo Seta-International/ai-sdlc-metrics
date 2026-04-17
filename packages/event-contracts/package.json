@@ -19,6 +19,6 @@
     "@future/eslint-config": "workspace:*",
     "@future/tsconfig": "workspace:*",
     "eslint": "^10.2.0",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.3"
   }
 }

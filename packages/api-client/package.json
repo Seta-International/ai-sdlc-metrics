@@ -24,6 +24,6 @@
     "@future/tsconfig": "workspace:*",
     "@trpc/server": "^11.16.0",
     "eslint": "^10.2.0",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.3"
   }
 }

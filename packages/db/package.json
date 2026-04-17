@@ -37,6 +37,6 @@
     "@types/pg": "^8.20.0",
     "drizzle-kit": "^0.31.10",
     "eslint": "^10.2.0",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.3"
   }
 }
