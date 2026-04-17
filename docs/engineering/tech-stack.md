@@ -42,7 +42,7 @@ agents/
   mcp-tools/         → Per-module MCP tool contracts (people, time, hiring, etc.)
   prompts/           → Versioned system prompts, topic configs, guardrail rules
   evals/             → LLM eval harness (test prompts → expected tool calls)
-  channels/          → Teams, Slack, WebSocket channel adapters
+  channels/          → Teams, Slack, SSE channel adapters
 data-platform/
   glue/              → AWS Glue ETL Python scripts (hourly batch, not a container)
 packages/

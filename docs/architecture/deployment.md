@@ -23,7 +23,7 @@ This document captures the agreed deployment infrastructure for Future — AWS r
 - **No Multi-AZ** — RDS single-AZ with automated backups + point-in-time recovery. Enable Multi-AZ only when first enterprise tenant requires written SLA commitments.
 - **OIDC for CI/CD** — GitHub Actions assumes scoped IAM roles via OIDC. No static AWS credentials stored anywhere.
 - **ECS auto-heals** — container crashes restart automatically. No server management, no SSH, no OS patching. The 2-4 person team focuses on product, not infrastructure ops.
-- **Full platform from day one** — lakehouse (S3 + Glue + Iceberg + Athena), agent runtime (Teams + Slack + WebSocket), and observability (Langfuse) all operational from initial deployment.
+- **Full platform from day one** — lakehouse (S3 + Glue + Iceberg + Athena), agent runtime (Teams + Slack + SSE), and observability (Langfuse) all operational from initial deployment.
 
 ---
 

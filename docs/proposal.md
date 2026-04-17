@@ -422,7 +422,7 @@ gantt
 
 **Agent/Orchestrator Direction**
 
-A governed execution layer for workforce operations — not a chatbot. Single control plane (Agent Gateway: SessionManager → TopicRouter → McpToolRegistry) with channel adapters for WebSocket, Teams, Slack, and event triggers. Every agent action goes through kernel governance: `exposure_contract` check, `role_grant` validation, and `audit_event` write. Agents operate inside the same authority model as human users.
+A governed execution layer for workforce operations — not a chatbot. Single control plane (Agent Gateway: SessionManager → TopicRouter → McpToolRegistry) with channel adapters for SSE, Teams, Slack, and event triggers. Every agent action goes through kernel governance: `exposure_contract` check, `role_grant` validation, and `audit_event` write. Agents operate inside the same authority model as human users.
 
 **Capability Gating (Tiers A–D)**
 

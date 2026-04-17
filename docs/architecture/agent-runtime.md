@@ -21,7 +21,7 @@ The result is an enterprise-grade, multi-tenant agent platform where each tenant
 ## Core Principles
 
 - **Gateway as single control plane** — all agent interactions (web chat, event triggers, future channels) flow through the Agent Gateway. Session management, routing, and MCP tool registry live here.
-- **Channel abstraction** — agent logic is channel-agnostic. Adding Zalo, Slack, or Teams later = one new channel adapter. Zero changes to gateway or domain logic.
+- **Channel abstraction** — agent logic is channel-agnostic. Adding new channels later = one new channel adapter. Zero changes to gateway or domain logic.
 - **Topics as intent classification** — user intent is classified into a Topic, each with its own instructions and allowed actions.
 - **Actions as registered catalog** — every domain capability is a registered Action via MCP. Topics declare which actions they may execute.
 - **Guardrails as first-class** — tenant-defined rules + platform-managed safety, enforced at every step of the reasoning loop.
@@ -40,11 +40,10 @@ The result is an enterprise-grade, multi-tenant agent platform where each tenant
           ↓
 ┌───────────────────────────────────────────────────────┐
 │  Channel Layer  (transport abstraction)                │
-│  ├── WebSocketChannel   → embedded panel (@future/agent) │
+│  ├── SseChannel          → embedded panel (@future/agent) │
 │  ├── TeamsChannel       → Microsoft Teams Bot          │
 │  ├── SlackChannel       → Slack workspace bot          │
-│  ├── EventChannel       → event-triggered agents       │
-│  └── [ZaloChannel]      → future adapter               │
+│  └── EventChannel       → event-triggered agents       │
 └───────────────────────────────────────────────────────┘
           ↓
 ┌───────────────────────────────────────────────────────┐
@@ -105,11 +104,10 @@ modules/agents/
       agents-query.facade.ts        ← exposed to other modules
   infrastructure/
     channels/                       ← channel abstraction (OpenClaw pattern)
-      websocket.channel.ts          ← web chat: NestJS @WebSocketGateway
+      sse.channel.ts                ← web chat: NestJS SSE (HTTP streaming)
       teams.channel.ts              ← Microsoft Teams: botbuilder SDK, POST /api/messages
       slack.channel.ts              ← Slack: nest-slack-bolt, OAuth per workspace
       event.channel.ts              ← event-triggered agent entry point
-      zalo.channel.ts               ← future: one adapter class
     repositories/
       drizzle-agent.repository.ts
     schema/
@@ -117,8 +115,8 @@ modules/agents/
   interface/
     trpc/
       agents.router.ts              ← zone panels connect via tRPC (non-streaming)
-    ws/
-      agents.gateway.ts             ← WebSocket streaming (NestJS @WebSocketGateway)
+    sse/
+      agents.sse.ts                 ← SSE streaming (NestJS @Sse)
   agents.module.ts
 ```
 
@@ -127,7 +125,7 @@ modules/agents/
 ## Agent Gateway — Core Flow
 
 ```
-Message arrives (WebSocket from embedded AgentPanel in any zone)
+Message arrives (SSE from embedded AgentPanel in any zone)
   → AgentGateway.handle(message, channelContext)
       1. SessionManager.getOrCreate(tenantId, actorId, agentId)
          → load session history from agents.agent_session
@@ -146,7 +144,7 @@ Message arrives (WebSocket from embedded AgentPanel in any zone)
          → audit_event written per action (inside loop, before streaming)
          → stopWhen: task complete or max 10 tool calls
          → ON MID-STREAM FAILURE: jump to ERROR HANDLER with partial=true
-      7. Stream response → WebSocket → embedded AgentPanel
+      7. Stream response → SSE → embedded AgentPanel
       8. SessionManager.append(message, response)
          → write agent_message with role=assistant, content=full response
       9. If session ends: summarise → pgvector (long-term memory)
@@ -158,7 +156,7 @@ Message arrives (WebSocket from embedded AgentPanel in any zone)
       → write agent_message with role=assistant, content=error message, error=true
       → update agent_session.status = 'error'
       → write audit_event with event_type=agent.error, payload includes error details
-      → close WebSocket stream gracefully
+      → close SSE stream gracefully
 ```
 
 **Error handling contract:**
@@ -502,8 +500,8 @@ export class ChannelTokenCacheService {
 | ------------------------ | ----------------------------------------------------------------------------------- |
 | Gateway pattern          | Adopted from OpenClaw/GoClaw — implemented inside NestJS agents module              |
 | Gateway deployment       | Not a separate service — lives inside NestJS monolith. Extract when needed.         |
-| Channel abstraction      | Infrastructure adapters per channel — WebSocket (now), Slack/Zalo (future)          |
-| Current channels         | Web chat (WebSocket) + Microsoft Teams + Slack + event triggers                     |
+| Channel abstraction      | Infrastructure adapters per channel — SSE (now), Slack (now), Teams (now)           |
+| Current channels         | Web chat (SSE) + Microsoft Teams + Slack + event triggers                           |
 | Teams bot registration   | Single-tenant Azure Bot Service (SETA's Azure AD) + admin-approved sideload         |
 | Teams tenant mapping     | `external_identity_map` system_name: `microsoft_teams` → Future tenant_id           |
 | Slack integration        | `nest-slack-bolt`, OAuth per workspace, `agents.slack_installation` table           |
