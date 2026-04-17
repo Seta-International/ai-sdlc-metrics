@@ -230,5 +230,19 @@ describe('UserMenu', () => {
       await user.click(screen.getByRole('menuitem', { name: /Logout/ }))
       expect(window.location.href).toBe('/auth/logout')
     })
+
+    it('navigates to logoutHref when provided (cross-zone shell URL)', async () => {
+      const user = userEvent.setup()
+      render(
+        <UserMenu
+          user={baseUser}
+          profileHref="/people/me"
+          logoutHref="http://localhost:3000/auth/logout"
+        />,
+      )
+      await user.click(screen.getByRole('button', { name: 'User menu for Ada Lovelace' }))
+      await user.click(screen.getByRole('menuitem', { name: /Logout/ }))
+      expect(window.location.href).toBe('http://localhost:3000/auth/logout')
+    })
   })
 })

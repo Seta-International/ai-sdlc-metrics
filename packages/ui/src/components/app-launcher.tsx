@@ -95,16 +95,20 @@ export const LOCAL_FUTURE_APPS: AppDefinition[] = [
 ]
 
 export const FUTURE_APPS: AppDefinition[] = [
-  { id: 'people', name: 'People', href: 'https://people.future.seta.vn' },
-  { id: 'hiring', name: 'Hiring', href: 'https://hiring.future.seta.vn' },
-  { id: 'time', name: 'Time', href: 'https://time.future.seta.vn' },
-  { id: 'performance', name: 'Performance', href: 'https://performance.future.seta.vn' },
-  { id: 'goals', name: 'Goals', href: 'https://goals.future.seta.vn' },
-  { id: 'projects', name: 'Projects', href: 'https://projects.future.seta.vn' },
-  { id: 'finance', name: 'Finance', href: 'https://finance.future.seta.vn' },
-  { id: 'planner', name: 'Planner', href: 'https://planner.future.seta.vn' },
-  { id: 'insights', name: 'Insights', href: 'https://insights.future.seta.vn' },
-  { id: 'admin', name: 'Admin', href: 'https://admin.future.seta.vn' },
+  { id: 'people', name: 'People', href: 'https://people.future.seta-international.vn' },
+  { id: 'hiring', name: 'Hiring', href: 'https://hiring.future.seta-international.vn' },
+  { id: 'time', name: 'Time', href: 'https://time.future.seta-international.vn' },
+  {
+    id: 'performance',
+    name: 'Performance',
+    href: 'https://performance.future.seta-international.vn',
+  },
+  { id: 'goals', name: 'Goals', href: 'https://goals.future.seta-international.vn' },
+  { id: 'projects', name: 'Projects', href: 'https://projects.future.seta-international.vn' },
+  { id: 'finance', name: 'Finance', href: 'https://finance.future.seta-international.vn' },
+  { id: 'planner', name: 'Planner', href: 'https://planner.future.seta-international.vn' },
+  { id: 'insights', name: 'Insights', href: 'https://insights.future.seta-international.vn' },
+  { id: 'admin', name: 'Admin', href: 'https://admin.future.seta-international.vn' },
 ]
 
 // ─── Keyboard shortcut hint ──────────────────────────────────────────────────

@@ -8,6 +8,7 @@ export interface SessionUserMenuProps {
   profileHref?: string
   settingsHref?: string
   platformAdminHref?: string
+  logoutHref?: string
 }
 
 interface SessionClaims {
@@ -38,7 +39,7 @@ function deriveInitials(displayName: string): string {
 }
 
 export function SessionUserMenu(props: SessionUserMenuProps): React.JSX.Element | null {
-  const { profileHref, settingsHref, platformAdminHref } = props
+  const { profileHref, settingsHref, platformAdminHref, logoutHref } = props
   const [state, setState] = React.useState<FetchState>({ kind: 'loading' })
 
   React.useEffect(() => {
@@ -91,6 +92,7 @@ export function SessionUserMenu(props: SessionUserMenuProps): React.JSX.Element 
   const resolvedProfileHref = profileHref ?? zoneRoutes.profile
   const resolvedSettingsHref = settingsHref ?? zoneRoutes.accountSettings
   const resolvedPlatformAdminHref = platformAdminHref ?? zoneRoutes.platformAdmin
+  const resolvedLogoutHref = logoutHref ?? zoneRoutes.logout
 
   if (state.kind === 'redirecting') {
     return null
@@ -110,6 +112,7 @@ export function SessionUserMenu(props: SessionUserMenuProps): React.JSX.Element 
         user={placeholderUser}
         profileHref={resolvedProfileHref}
         platformAdminHref={resolvedPlatformAdminHref}
+        logoutHref={resolvedLogoutHref}
       />
     )
   }
@@ -128,6 +131,7 @@ export function SessionUserMenu(props: SessionUserMenuProps): React.JSX.Element 
         user={fallbackUser}
         profileHref={resolvedProfileHref}
         platformAdminHref={resolvedPlatformAdminHref}
+        logoutHref={resolvedLogoutHref}
       />
     )
   }
@@ -139,6 +143,7 @@ export function SessionUserMenu(props: SessionUserMenuProps): React.JSX.Element 
       profileHref={resolvedProfileHref}
       settingsHref={resolvedSettingsHref}
       platformAdminHref={resolvedPlatformAdminHref}
+      logoutHref={resolvedLogoutHref}
     />
   )
 }

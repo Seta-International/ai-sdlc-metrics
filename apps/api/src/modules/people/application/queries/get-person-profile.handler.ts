@@ -56,15 +56,22 @@ export class GetPersonProfileHandler implements IQueryHandler<
 
     const employments = await this.employmentRepo.findByPersonProfileId(profile.id, query.tenantId)
 
-    const employmentResults = await Promise.all(
-      employments.map(async (employment) => {
-        const [currentAssignment, detail] = await Promise.all([
-          this.jobAssignmentRepo.findCurrent(employment.id, query.tenantId),
-          this.employmentDetailRepo.findByEmploymentId(employment.id, query.tenantId),
-        ])
-        return { employment, currentAssignment, detail }
-      }),
-    )
+    const employmentResults: Array<{
+      employment: Employment
+      currentAssignment: JobAssignment | null
+      detail: EmploymentDetail | null
+    }> = []
+    for (const employment of employments) {
+      const currentAssignment = await this.jobAssignmentRepo.findCurrent(
+        employment.id,
+        query.tenantId,
+      )
+      const detail = await this.employmentDetailRepo.findByEmploymentId(
+        employment.id,
+        query.tenantId,
+      )
+      employmentResults.push({ employment, currentAssignment, detail })
+    }
 
     return { profile, employments: employmentResults }
   }

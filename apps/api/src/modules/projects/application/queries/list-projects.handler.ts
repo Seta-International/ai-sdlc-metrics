@@ -22,10 +22,8 @@ export class ListProjectsHandler implements IQueryHandler<ListProjectsQuery, Lis
       offset: query.offset,
       accountId: query.accountId,
     }
-    const [items, total] = await Promise.all([
-      this.projectRepo.list(query.tenantId, options),
-      this.projectRepo.count(query.tenantId, { accountId: query.accountId }),
-    ])
+    const items = await this.projectRepo.list(query.tenantId, options)
+    const total = await this.projectRepo.count(query.tenantId, { accountId: query.accountId })
 
     return { items, total }
   }

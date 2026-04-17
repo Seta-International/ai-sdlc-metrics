@@ -29,11 +29,12 @@ export class GetEffectivePermissionsHandler implements IQueryHandler<
   async execute(query: GetEffectivePermissionsQuery): Promise<string[]> {
     const { actorId, tenantId } = query
 
-    // Step 1+2: Fetch grants and delegations in parallel
-    const [grants, delegations] = await Promise.all([
-      this.roleGrantRepo.findByActorId(actorId, tenantId),
-      this.delegationRepo.findActiveDelegationsForDelegatee(actorId, tenantId),
-    ])
+    // Step 1+2: Fetch grants and delegations
+    const grants = await this.roleGrantRepo.findByActorId(actorId, tenantId)
+    const delegations = await this.delegationRepo.findActiveDelegationsForDelegatee(
+      actorId,
+      tenantId,
+    )
 
     // Step 3: Collect unique role keys
     const roleKeysFromGrants = grants.map((g) => g.roleKey)

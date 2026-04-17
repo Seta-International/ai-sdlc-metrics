@@ -116,7 +116,7 @@ describe('SessionUserMenu', () => {
     await openMenu('Jane Doe')
     const anchor = screen.getByRole('menuitem', { name: /Platform admin/ })
     expect(anchor.tagName).toBe('A')
-    expect(anchor.getAttribute('href')).toBe('https://admin.future.seta.vn')
+    expect(anchor.getAttribute('href')).toBe('https://admin.future.seta-international.vn')
   })
 
   it('does not show Platform admin when roles lack platform_admin', async () => {
@@ -133,9 +133,11 @@ describe('SessionUserMenu', () => {
     render(<SessionUserMenu />)
     await openMenu('Jane Doe')
     const profileAnchor = screen.getByRole('menuitem', { name: /My profile/ })
-    expect(profileAnchor.getAttribute('href')).toBe('https://people.future.seta.vn/me')
+    expect(profileAnchor.getAttribute('href')).toBe(
+      'https://people.future.seta-international.vn/me',
+    )
     const adminAnchor = screen.getByRole('menuitem', { name: /Platform admin/ })
-    expect(adminAnchor.getAttribute('href')).toBe('https://admin.future.seta.vn')
+    expect(adminAnchor.getAttribute('href')).toBe('https://admin.future.seta-international.vn')
   })
 
   it('uses localhost zone URLs when NEXT_PUBLIC_LOCAL_DEV is true', async () => {

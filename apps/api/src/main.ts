@@ -6,7 +6,6 @@ import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/a
 import { runMigrations } from '@future/db/migrate'
 import { AppModule } from './app.module'
 import { getAppRouter, type AppRouter } from './common/trpc/app-router'
-import { buildRequestIdentity } from './common/trpc/context'
 
 const logger = new Logger('Bootstrap')
 
@@ -40,13 +39,14 @@ async function bootstrap() {
       router: getAppRouter(),
       createContext: ({ req }) => ({
         req: { headers: { cookie: req.headers.cookie } },
-        ...buildRequestIdentity({
-          headers: req.headers as Record<string, unknown>,
-          environment: process.env['NODE_ENV'],
-        }),
+        actorId: null,
+        tenantId: null,
       }),
       onError({ path, error }) {
-        logger.error(`tRPC error on '${path}': ${error.message}`, error.stack)
+        const cause = error.cause
+        const causeMessage = cause instanceof Error ? cause.message : undefined
+        const message = causeMessage ? `${error.message}\ncause: ${causeMessage}` : error.message
+        logger.error(`tRPC error on '${path}': ${message}`, error.stack)
       },
     } satisfies FastifyTRPCPluginOptions<AppRouter>['trpcOptions'],
   })

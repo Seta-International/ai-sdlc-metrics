@@ -7,7 +7,7 @@ import { MICROSOFT_CONFIG, GOOGLE_CONFIG } from '../../../lib/auth-config'
 const PEOPLE_APP_URL =
   process.env['NEXT_PUBLIC_LOCAL_DEV'] === 'true'
     ? 'http://localhost:3001'
-    : 'https://people.future.seta.vn'
+    : 'https://people.future.seta-international.vn'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')

@@ -11,6 +11,7 @@ import { sql } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DrizzleSavedViewRepository } from '../../infrastructure/repositories/drizzle-saved-view.repository'
 import type { SavedViewState } from '../../domain/entities/saved-view.entity'
+import { publicProcedure } from '../../../../common/trpc/trpc-init'
 import { createPreferencesRouter } from './preferences.router'
 
 const TENANT_A = '01900000-0000-7fff-8000-000000000101'
@@ -235,7 +236,7 @@ describe('preferences tRPC router', () => {
   })
 
   it('savedView.list — returns views for current actor', async () => {
-    const preferencesRouter = createPreferencesRouter(repo)
+    const preferencesRouter = createPreferencesRouter(publicProcedure, repo)
     const caller = preferencesRouter.createCaller(makeCtx())
 
     const created = await repo.create({
@@ -255,7 +256,7 @@ describe('preferences tRPC router', () => {
   })
 
   it('savedView.resolve — returns views, activeView, defaultViewId', async () => {
-    const preferencesRouter = createPreferencesRouter(repo)
+    const preferencesRouter = createPreferencesRouter(publicProcedure, repo)
     const caller = preferencesRouter.createCaller(makeCtx())
 
     const defaultView = await repo.create({
@@ -290,7 +291,7 @@ describe('preferences tRPC router', () => {
   })
 
   it('savedView.create — creates a new saved view', async () => {
-    const preferencesRouter = createPreferencesRouter(repo)
+    const preferencesRouter = createPreferencesRouter(publicProcedure, repo)
     const caller = preferencesRouter.createCaller(makeCtx())
 
     const created = await caller.savedView.create({
@@ -310,7 +311,7 @@ describe('preferences tRPC router', () => {
   })
 
   it('savedView.update — updates name and stateJson', async () => {
-    const preferencesRouter = createPreferencesRouter(repo)
+    const preferencesRouter = createPreferencesRouter(publicProcedure, repo)
     const caller = preferencesRouter.createCaller(makeCtx())
 
     const created = await repo.create({
@@ -334,7 +335,7 @@ describe('preferences tRPC router', () => {
   })
 
   it('savedView.delete — removes a view', async () => {
-    const preferencesRouter = createPreferencesRouter(repo)
+    const preferencesRouter = createPreferencesRouter(publicProcedure, repo)
     const caller = preferencesRouter.createCaller(makeCtx())
 
     const created = await repo.create({
@@ -353,7 +354,7 @@ describe('preferences tRPC router', () => {
   })
 
   it('savedView.setDefault — marks a view as default', async () => {
-    const preferencesRouter = createPreferencesRouter(repo)
+    const preferencesRouter = createPreferencesRouter(publicProcedure, repo)
     const caller = preferencesRouter.createCaller(makeCtx())
 
     const view1 = await repo.create({
@@ -385,18 +386,5 @@ describe('preferences tRPC router', () => {
 
     await repo.delete(view1.id, TENANT_A, ACTOR_A)
     await repo.delete(view2.id, TENANT_A, ACTOR_A)
-  })
-
-  it('savedView.list — throws UNAUTHORIZED when no tenantId/actorId in ctx', async () => {
-    const preferencesRouter = createPreferencesRouter(repo)
-    const caller = preferencesRouter.createCaller({
-      req: { headers: {} },
-      tenantId: null,
-      actorId: null,
-    })
-
-    await expect(caller.savedView.list({ resourceKey: 'people.employees' })).rejects.toMatchObject({
-      code: 'UNAUTHORIZED',
-    })
   })
 })

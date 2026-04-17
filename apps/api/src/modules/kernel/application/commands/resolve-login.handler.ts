@@ -7,6 +7,7 @@ import {
 } from '../../domain/repositories/actor.repository.port'
 import {
   USER_IDENTITY_REPOSITORY,
+  PLACEHOLDER_SSO_SUBJECT_PREFIX,
   type IUserIdentityRepository,
 } from '../../domain/repositories/user-identity.repository.port'
 import {
@@ -47,6 +48,9 @@ export class ResolveLoginHandler implements ICommandHandler<
     let actorId: string
     let identityId: string
 
+    // Map magic_link -> local for DB storage
+    const dbProvider = provider === 'magic_link' ? 'local' : provider
+
     const existingIdentity = await this.userIdentityRepo.findBySsoSubject(ssoSubject, tenantId)
 
     if (existingIdentity) {
@@ -64,26 +68,53 @@ export class ResolveLoginHandler implements ICommandHandler<
 
       await this.userIdentityRepo.updateLastLogin(identityId)
     } else {
-      // JIT provisioning — create actor + user_identity
-      const newActor = await this.actorRepo.insert({
-        tenantId,
-        type: 'person',
-        displayName,
-        status: 'active',
-      })
-      actorId = newActor.id
+      // Auto-claim path: a pre-provisioned identity (e.g. seeded admin) carries
+      // a placeholder sso_subject like `pending-sso-…`. On the user's first real
+      // SSO login we bind the placeholder to the actual claims.oid so they
+      // inherit the seeded actor + role grants instead of getting a fresh JIT
+      // actor with no permissions.
+      const placeholder = await this.userIdentityRepo.findByEmailAndTenant(email, tenantId)
 
-      // Map magic_link -> local for DB storage
-      const dbProvider = provider === 'magic_link' ? 'local' : provider
+      if (placeholder?.ssoSubject.startsWith(PLACEHOLDER_SSO_SUBJECT_PREFIX)) {
+        if (placeholder.status === 'suspended') {
+          throw new AccountSuspendedException()
+        }
 
-      const newIdentity = await this.userIdentityRepo.insert({
-        tenantId,
-        actorId,
-        email,
-        ssoSubject,
-        provider: dbProvider,
-      })
-      identityId = newIdentity.id
+        const actor = await this.actorRepo.findById(placeholder.actorId, tenantId)
+        if (actor?.status === 'suspended') {
+          throw new AccountSuspendedException()
+        }
+
+        await this.userIdentityRepo.claimSsoSubject(
+          placeholder.id,
+          tenantId,
+          ssoSubject,
+          dbProvider,
+        )
+
+        actorId = placeholder.actorId
+        identityId = placeholder.id
+
+        await this.userIdentityRepo.updateLastLogin(identityId)
+      } else {
+        // JIT provisioning — create actor + user_identity
+        const newActor = await this.actorRepo.insert({
+          tenantId,
+          type: 'person',
+          displayName,
+          status: 'active',
+        })
+        actorId = newActor.id
+
+        const newIdentity = await this.userIdentityRepo.insert({
+          tenantId,
+          actorId,
+          email,
+          ssoSubject,
+          provider: dbProvider,
+        })
+        identityId = newIdentity.id
+      }
     }
 
     const roleGrants = await this.roleGrantRepo.findByActorId(actorId, tenantId)

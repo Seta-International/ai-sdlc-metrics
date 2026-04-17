@@ -13,5 +13,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // Skip /api/auth/* so endpoints like /api/auth/me can return 401 JSON to
+  // SessionUserMenu instead of being redirected to the login page.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/auth).*)'],
 }

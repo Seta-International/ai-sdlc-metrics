@@ -55,15 +55,13 @@ export class GetProfileCompletenessHandler implements IQueryHandler<
       return { score: 0, filled: 0, total: 0, missing: [] }
     }
 
-    const [profile, detail, rules] = await Promise.all([
-      this.profileRepo.findById(employment.personProfileId, query.tenantId),
-      this.detailRepo.findByEmploymentId(query.employmentId, query.tenantId),
-      this.ruleRepo.findApplicable(
-        query.tenantId,
-        employment.countryCode,
-        employment.employmentType,
-      ),
-    ])
+    const profile = await this.profileRepo.findById(employment.personProfileId, query.tenantId)
+    const detail = await this.detailRepo.findByEmploymentId(query.employmentId, query.tenantId)
+    const rules = await this.ruleRepo.findApplicable(
+      query.tenantId,
+      employment.countryCode,
+      employment.employmentType,
+    )
 
     let totalWeight = 0
     let filledWeight = 0

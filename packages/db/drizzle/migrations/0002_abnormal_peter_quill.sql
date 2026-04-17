@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX "uq_user_identity_tenant_sso_subject" ON "core"."user_identity" USING btree ("tenant_id","sso_subject");

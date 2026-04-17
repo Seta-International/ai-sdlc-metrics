@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { createProtectedProcedures } from './create-protected-procedures'
 import type { KernelQueryFacade } from '../../modules/kernel/application/facades/kernel-query.facade'
 import type { KernelAuditFacade } from '../../modules/kernel/application/facades/kernel-audit.facade'
-import { router } from './trpc-init'
+import { publicProcedure, router } from './trpc-init'
 
 describe('createProtectedProcedures', () => {
   let kernelFacade: { canDo: ReturnType<typeof vi.fn> }
@@ -15,6 +15,7 @@ describe('createProtectedProcedures', () => {
 
   it('should create permissionProtectedProcedure that checks permissions', () => {
     const { permissionProtectedProcedure } = createProtectedProcedures(
+      publicProcedure,
       kernelFacade as unknown as KernelQueryFacade,
       auditFacade as unknown as KernelAuditFacade,
     )
@@ -23,6 +24,7 @@ describe('createProtectedProcedures', () => {
 
   it('should allow building a router with permission meta', () => {
     const { permissionProtectedProcedure } = createProtectedProcedures(
+      publicProcedure,
       kernelFacade as unknown as KernelQueryFacade,
       auditFacade as unknown as KernelAuditFacade,
     )
@@ -36,6 +38,7 @@ describe('createProtectedProcedures', () => {
 
   it('should allow building a router without permission meta', () => {
     const { permissionProtectedProcedure } = createProtectedProcedures(
+      publicProcedure,
       kernelFacade as unknown as KernelQueryFacade,
       auditFacade as unknown as KernelAuditFacade,
     )
