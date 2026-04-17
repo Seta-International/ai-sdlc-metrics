@@ -15,6 +15,8 @@ export type {
   AppChipProps,
 } from './components/app-launcher'
 export { ThemeProvider } from './components/theme-provider'
+export { UserMenu } from './components/user-menu'
+export type { UserMenuProps, UserMenuUser, TenantOption } from './components/user-menu'
 
 // shadcn/ui components
 export * from './components/ui/accordion'
