@@ -17,6 +17,10 @@ import {
   AUDIT_EVENT_REPOSITORY,
   type IAuditEventRepository,
 } from '../../domain/repositories/audit-event.repository.port'
+import {
+  TENANT_REPOSITORY,
+  type ITenantRepository,
+} from '../../domain/repositories/tenant.repository.port'
 import { AccountSuspendedException } from '../../domain/exceptions/actor.exceptions'
 
 @CommandHandler(ResolveLoginCommand)
@@ -29,10 +33,16 @@ export class ResolveLoginHandler implements ICommandHandler<
     @Inject(ACTOR_REPOSITORY) private readonly actorRepo: IActorRepository,
     @Inject(ROLE_GRANT_REPOSITORY) private readonly roleGrantRepo: IRoleGrantRepository,
     @Inject(AUDIT_EVENT_REPOSITORY) private readonly auditRepo: IAuditEventRepository,
+    @Inject(TENANT_REPOSITORY) private readonly tenantRepo: ITenantRepository,
   ) {}
 
   async execute(command: ResolveLoginCommand): Promise<ResolveLoginResult> {
     const { provider, ssoSubject, email, displayName, tenantId } = command
+
+    const tenant = await this.tenantRepo.findById(tenantId)
+    if (!tenant) {
+      throw new Error(`Tenant ${tenantId} not found; cannot resolve login`)
+    }
 
     let actorId: string
     let identityId: string
@@ -91,6 +101,9 @@ export class ResolveLoginHandler implements ICommandHandler<
     return {
       actorId,
       tenantId,
+      tenantName: tenant.name,
+      displayName,
+      email,
       roles,
       provider,
     }

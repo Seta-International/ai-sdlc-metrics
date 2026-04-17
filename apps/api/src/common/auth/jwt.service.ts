@@ -29,6 +29,9 @@ export class JwtService {
       return {
         sub: payload.sub as string,
         tid: payload['tid'] as string,
+        tenantName: payload['tenantName'] as string,
+        displayName: payload['displayName'] as string,
+        email: payload['email'] as string,
         roles: payload['roles'] as string[],
         provider: payload['provider'] as string,
         iat: payload.iat as number,

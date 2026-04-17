@@ -7,6 +7,9 @@ const TEST_SECRET = 'test-secret-key-that-is-at-least-32-bytes-long!'
 const VALID_PAYLOAD: Omit<SessionPayload, 'iat' | 'exp'> = {
   sub: '01900000-0000-7000-8000-000000000001',
   tid: '01900000-0000-7000-8000-000000000002',
+  tenantName: 'Acme Corp',
+  displayName: 'Alice Example',
+  email: 'alice@seta.vn',
   roles: ['employee', 'line_manager'],
   provider: 'microsoft',
 }
@@ -25,6 +28,9 @@ describe('JwtService', () => {
     expect(result).not.toBeNull()
     expect(result!.sub).toBe(VALID_PAYLOAD.sub)
     expect(result!.tid).toBe(VALID_PAYLOAD.tid)
+    expect(result!.tenantName).toBe(VALID_PAYLOAD.tenantName)
+    expect(result!.displayName).toBe(VALID_PAYLOAD.displayName)
+    expect(result!.email).toBe(VALID_PAYLOAD.email)
     expect(result!.roles).toEqual(VALID_PAYLOAD.roles)
     expect(result!.provider).toBe(VALID_PAYLOAD.provider)
     expect(result!.iat).toBeTypeOf('number')

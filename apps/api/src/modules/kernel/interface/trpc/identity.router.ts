@@ -66,6 +66,9 @@ export const identityRouter = router({
       const token = await getJwtService().sign({
         sub: result.actorId,
         tid: result.tenantId,
+        tenantName: result.tenantName,
+        displayName: result.displayName,
+        email: result.email,
         roles: result.roles,
         provider: result.provider,
       })
@@ -92,6 +95,9 @@ export const identityRouter = router({
     const token = await getJwtService().sign({
       sub: result.actorId,
       tid: result.tenantId,
+      tenantName: result.tenantName,
+      displayName: result.displayName,
+      email: result.email,
       roles: result.roles,
       provider: result.provider,
     })
@@ -109,6 +115,9 @@ export const identityRouter = router({
             const token = await getJwtService().sign({
               sub: result.actorId,
               tid: result.tenantId,
+              tenantName: result.tenantName,
+              displayName: result.displayName,
+              email: result.email,
               roles: result.roles,
               provider: result.provider,
             })

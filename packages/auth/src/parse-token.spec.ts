@@ -18,6 +18,7 @@ describe('parseToken', () => {
     const token = createFakeJwt({
       sub: '01900000-0000-7000-8000-000000000001',
       tid: '01900000-0000-7000-8000-000000000002',
+      tenantName: 'Acme Corp',
       roles: ['employee', 'line_manager'],
       provider: 'microsoft',
       displayName: 'Alice',
@@ -26,9 +27,23 @@ describe('parseToken', () => {
     const claims = parseToken(token)
     expect(claims!.actorId).toBe('01900000-0000-7000-8000-000000000001')
     expect(claims!.tenantId).toBe('01900000-0000-7000-8000-000000000002')
+    expect(claims!.tenantName).toBe('Acme Corp')
     expect(claims!.roles).toEqual(['employee', 'line_manager'])
     expect(claims!.provider).toBe('microsoft')
     expect(claims!.displayName).toBe('Alice')
+    expect(claims!.email).toBe('alice@seta.vn')
+  })
+
+  it('returns null when tenantName is missing', () => {
+    const token = createFakeJwt({
+      sub: '01900000-0000-7000-8000-000000000001',
+      tid: '01900000-0000-7000-8000-000000000002',
+      roles: ['employee'],
+      provider: 'microsoft',
+      displayName: 'Alice',
+      email: 'alice@seta.vn',
+    })
+    expect(parseToken(token)).toBeNull()
   })
 
   it('returns null for malformed token', () => {
