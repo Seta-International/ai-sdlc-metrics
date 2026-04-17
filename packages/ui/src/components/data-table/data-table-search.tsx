@@ -42,7 +42,7 @@ export function DataTableSearch({
         value={localValue}
         onChange={(e) => setLocalValue(e.target.value)}
         placeholder={placeholder}
-        className="h-7 w-48 rounded-md border border-input bg-background pl-8 pr-3 text-xs shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="h-7 w-48 rounded-md border border-input bg-background pl-8 pr-3 text-xs shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         aria-label="Search"
       />
     </div>
