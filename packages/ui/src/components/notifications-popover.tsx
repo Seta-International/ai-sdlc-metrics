@@ -90,7 +90,7 @@ export function NotificationsPopover({
           disabled={disableMarkAll}
           onClick={onReadAll}
           className={cn(
-            'text-label text-accent transition-opacity',
+            'text-micro text-accent transition-opacity',
             'hover:opacity-80 focus:outline-none focus:ring-3 focus:ring-ring/50',
             'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50',
           )}
@@ -140,7 +140,7 @@ export function NotificationsPopover({
           <button
             type="button"
             onClick={onOpenAll}
-            className="text-label text-accent hover:opacity-80 focus:outline-none focus:ring-3 focus:ring-ring/50"
+            className="text-micro text-accent hover:opacity-80 focus:outline-none focus:ring-3 focus:ring-ring/50"
           >
             See all →
           </button>
@@ -238,7 +238,7 @@ function SeverityPill({ severity }: SeverityPillProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-xs bg-overlay/5 px-2 text-label font-510',
+        'inline-flex items-center rounded-xs bg-overlay/5 px-1.5 text-micro font-510',
         severity === 'critical' ? 'text-destructive' : 'text-(--color-text-warning)',
       )}
     >
