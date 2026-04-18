@@ -1,5 +1,5 @@
-export abstract class MsPlannerClientPort {
-  syncPlan(_planId: string): Promise<void> {
-    throw new Error('MS Planner sync not enabled in Phase 1')
-  }
+export const MS_PLANNER_CLIENT = Symbol('MsPlannerClientPort')
+
+export interface MsPlannerClientPort {
+  syncPlan(planId: string): Promise<void>
 }

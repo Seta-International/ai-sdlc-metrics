@@ -45,7 +45,7 @@ const config: Linter.Config[] = [
           patterns: [
             {
               regex:
-                '.*[/\\\\]planner[/\\\\](domain|infrastructure|application[/\\\\](commands|queries|event-handlers|services))[/\\\\].*',
+                '.*[/\\\\]planner[/\\\\](domain|infrastructure|application[/\\\\](commands|queries|event-handlers|services))(/.*)?$',
               message:
                 'Do not import planner internals from outside the planner module. Only import from planner.module or application/facades/planner-query.facade.',
             },
