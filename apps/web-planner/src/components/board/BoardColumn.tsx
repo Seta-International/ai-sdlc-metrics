@@ -10,6 +10,22 @@ import type { BoardBucketSnapshot, PlanLabel, BoardSnapshot } from '../../lib/bo
 import type { Progress } from '../primitives/ProgressIcon'
 import { TaskCard } from './TaskCard'
 import { QuickAddTask } from './QuickAddTask'
+import {
+  Button,
+  Input,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@future/ui'
 
 interface BoardColumnProps {
   bucket: BoardBucketSnapshot
@@ -43,11 +59,9 @@ export function BoardColumn({
 
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState(bucket.name)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const renameInputRef = useRef<HTMLInputElement>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
   const queryKey = ['tasks.getBoard', planId, actorId, tenantId] as const
 
@@ -57,19 +71,6 @@ export function BoardColumn({
   useEffect(() => {
     if (renaming) renameInputRef.current?.select()
   }, [renaming])
-
-  // Close menu on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
-      }
-    }
-    if (menuOpen) {
-      document.addEventListener('mousedown', handleClick)
-      return () => document.removeEventListener('mousedown', handleClick)
-    }
-  }, [menuOpen])
 
   async function commitRename() {
     const name = renameValue.trim()
@@ -115,8 +116,7 @@ export function BoardColumn({
   }
 
   async function handleDelete() {
-    setDeleteConfirm(false)
-    setMenuOpen(false)
+    setShowDeleteConfirm(false)
 
     const snapshot = queryClient.getQueryData<BoardSnapshot>(queryKey)
     if (snapshot) {
@@ -159,12 +159,13 @@ export function BoardColumn({
       <div className="flex items-center justify-between px-1 pb-2">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {/* Drag handle for column reorder */}
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             {...colAttributes}
             {...colListeners}
             aria-label={`Drag to reorder ${bucket.name}`}
-            className="flex-shrink-0 cursor-grab active:cursor-grabbing text-fg-subtle opacity-0 group-hover:opacity-100 hover:text-fg-secondary transition-opacity"
             data-testid="column-drag-handle"
           >
             <svg viewBox="0 0 12 12" fill="currentColor" className="size-3" aria-hidden>
@@ -175,33 +176,35 @@ export function BoardColumn({
               <circle cx={8} cy={6} r={1} />
               <circle cx={8} cy={9} r={1} />
             </svg>
-          </button>
+          </Button>
 
           {renaming ? (
-            <input
+            <Input
               ref={renameInputRef}
               type="text"
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value.slice(0, 255))}
               onKeyDown={handleRenameKeyDown}
               onBlur={() => void commitRename()}
-              className="flex-1 min-w-0 bg-transparent text-caption-lg font-590 text-fg-primary tracking-h3 outline-none border-b border-accent"
+              autoFocus
+              maxLength={255}
               aria-label="Rename bucket"
               data-testid="column-rename-input"
             />
           ) : (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 setRenameValue(bucket.name)
                 setRenaming(true)
               }}
-              className="text-caption-lg font-590 text-fg-primary tracking-h3 truncate text-left hover:text-accent transition-colors"
               aria-label={`Rename ${bucket.name}`}
               data-testid="column-name-btn"
             >
               {bucket.name}
-            </button>
+            </Button>
           )}
 
           {/* Count badge — 18px height, 4px radius */}
@@ -211,86 +214,66 @@ export function BoardColumn({
         </div>
 
         {/* Column menu — three dots */}
-        <div className="relative" ref={menuRef}>
-          <button
-            type="button"
-            aria-label={`Column options for ${bucket.name}`}
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((v) => !v)}
-            className="flex size-6 items-center justify-center rounded-md text-fg-subtle hover:bg-elevated hover:text-fg-secondary transition-colors"
-            data-testid="column-menu-btn"
-          >
-            <svg viewBox="0 0 16 16" fill="currentColor" className="size-3.5" aria-hidden>
-              <circle cx={8} cy={3.5} r={1.25} />
-              <circle cx={8} cy={8} r={1.25} />
-              <circle cx={8} cy={12.5} r={1.25} />
-            </svg>
-          </button>
-
-          {menuOpen && !deleteConfirm && (
-            <div
-              className="absolute right-0 top-7 z-50 w-44 rounded-lg border border-white/8 bg-surface py-1 shadow-dialog"
-              data-testid="column-menu"
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Column options"
+              data-testid="column-menu-btn"
             >
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false)
-                  setRenameValue(bucket.name)
-                  setRenaming(true)
-                }}
-                className="flex w-full items-center px-3 py-1.5 text-small font-510 text-fg-secondary hover:bg-elevated hover:text-fg-primary transition-colors"
-                data-testid="column-menu-rename"
-              >
-                Rename
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false)
-                  setDeleteConfirm(true)
-                }}
-                className="flex w-full items-center px-3 py-1.5 text-small font-510 text-status-text-danger hover:bg-elevated transition-colors"
-                data-testid="column-menu-delete"
-              >
-                Delete bucket
-              </button>
-            </div>
-          )}
-        </div>
+              <svg viewBox="0 0 16 16" fill="currentColor" className="size-3.5" aria-hidden>
+                <circle cx={8} cy={3.5} r={1.25} />
+                <circle cx={8} cy={8} r={1.25} />
+                <circle cx={8} cy={12.5} r={1.25} />
+              </svg>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent data-testid="column-menu" align="end">
+            <DropdownMenuItem
+              data-testid="column-menu-rename"
+              onClick={() => {
+                setRenameValue(bucket.name)
+                setRenaming(true)
+              }}
+            >
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              data-testid="column-menu-delete"
+              variant="destructive"
+              onClick={() => {
+                setShowDeleteConfirm(true)
+              }}
+            >
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Delete confirmation dialog */}
-      {deleteConfirm && (
-        <div
-          className="mb-2 rounded-lg border border-white/8 bg-surface p-3"
-          data-testid="delete-confirm-dialog"
-        >
-          <p className="mb-3 text-small font-400 text-fg-secondary">
-            {bucket.tasks.length > 0
-              ? `${bucket.tasks.length} task${bucket.tasks.length === 1 ? '' : 's'} will be deleted. Continue?`
-              : 'Delete this bucket?'}
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void handleDelete()}
-              className="rounded bg-status-bg-danger px-3 py-1 text-caption font-510 text-status-text-danger hover:opacity-80 transition-opacity"
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent data-testid="delete-confirm-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete bucket?</AlertDialogTitle>
+            <AlertDialogDescription>
+              All tasks in this bucket will also be deleted. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="delete-cancel-btn">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
               data-testid="delete-confirm-btn"
+              onClick={() => void handleDelete()}
             >
               Delete
-            </button>
-            <button
-              type="button"
-              onClick={() => setDeleteConfirm(false)}
-              className="rounded px-3 py-1 text-caption font-510 text-fg-muted hover:bg-elevated hover:text-fg-secondary transition-colors"
-              data-testid="delete-cancel-btn"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* QuickAddTask at top */}
       <div className="pb-2">
