@@ -6,7 +6,8 @@
     "build": "next build",
     "dev": "next dev --port 3011",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "test:unit": "vitest run"
   },
   "dependencies": {
     "@future/agent": "workspace:*",
@@ -31,6 +32,7 @@
     "eslint-config-prettier": "^10.1.8",
     "postcss": "^8.5.10",
     "tailwindcss": "^4.2.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.4"
   }
 }
