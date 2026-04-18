@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { PlusIcon, UsersIcon } from 'lucide-react'
 import { useSession } from '@future/auth'
+import { Button, Card, Skeleton } from '@future/ui'
 import { trpc } from '../../lib/trpc'
 
 interface PlanSummary {
@@ -28,7 +29,7 @@ export default function PlansPage() {
   if (!session || isLoading) {
     return (
       <main className="p-8">
-        <div className="h-6 w-32 bg-white/5 rounded animate-pulse" />
+        <Skeleton className="h-6 w-32" />
       </main>
     )
   }
@@ -37,25 +38,25 @@ export default function PlansPage() {
     <main className="p-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-normal tracking-h2 text-fg-primary">Plans</h1>
-        <a
-          href="/plans/new"
-          className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-brand hover:bg-accent-hover text-fg-primary text-sm transition-colors"
-        >
-          <PlusIcon size={14} />
-          New plan
-        </a>
+        <Button asChild>
+          <a href="/plans/new">
+            <PlusIcon size={14} />
+            New plan
+          </a>
+        </Button>
       </div>
 
       {plans.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-32 text-center">
           <p className="text-fg-muted text-sm">Create your first plan.</p>
-          <a
-            href="/plans/new"
-            className="mt-4 flex items-center gap-2 px-3 py-1.5 rounded-md bg-brand hover:bg-accent-hover text-fg-primary text-sm transition-colors"
-          >
-            <PlusIcon size={14} />
-            New plan
-          </a>
+          <div className="mt-4">
+            <Button asChild>
+              <a href="/plans/new">
+                <PlusIcon size={14} />
+                New plan
+              </a>
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -63,16 +64,18 @@ export default function PlansPage() {
             <a
               key={plan.id}
               href={`/plans/${plan.id}/board`}
-              className="block p-4 rounded-lg border border-overlay/8 bg-surface hover:bg-elevated transition-colors"
+              className="block hover:opacity-90 transition-opacity"
             >
-              <h2 className="text-sm font-510 text-fg-primary truncate">{plan.name}</h2>
-              <div className="flex items-center gap-1.5 mt-2 text-xs text-fg-muted">
-                <UsersIcon size={12} />
-                <span>{plan.memberCount}</span>
-                {plan.myRole && (
-                  <span className="ml-1 capitalize text-fg-subtle">{plan.myRole}</span>
-                )}
-              </div>
+              <Card className="p-4 cursor-pointer hover:bg-elevated transition-colors">
+                <h2 className="text-sm font-510 text-fg-primary truncate">{plan.name}</h2>
+                <div className="flex items-center gap-1.5 mt-2 text-xs text-fg-muted">
+                  <UsersIcon size={12} />
+                  <span>{plan.memberCount}</span>
+                  {plan.myRole && (
+                    <span className="ml-1 capitalize text-fg-subtle">{plan.myRole}</span>
+                  )}
+                </div>
+              </Card>
             </a>
           ))}
         </div>
