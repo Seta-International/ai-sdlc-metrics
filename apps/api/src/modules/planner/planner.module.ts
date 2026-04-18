@@ -20,6 +20,8 @@ import { AddPlanMemberHandler } from './application/commands/plans/add-plan-memb
 import { RemovePlanMemberHandler } from './application/commands/plans/remove-plan-member.handler'
 import { RenamePlanLabelHandler } from './application/commands/plans/rename-plan-label.handler'
 import { RecolorPlanLabelHandler } from './application/commands/plans/recolor-plan-label.handler'
+import { ListPlansForActorHandler } from './application/queries/plans/list-plans-for-actor.handler'
+import { GetPlanHandler } from './application/queries/plans/get-plan.handler'
 
 @Module({
   imports: [CqrsModule, KernelModule],
@@ -37,6 +39,8 @@ import { RecolorPlanLabelHandler } from './application/commands/plans/recolor-pl
     RemovePlanMemberHandler,
     RenamePlanLabelHandler,
     RecolorPlanLabelHandler,
+    ListPlansForActorHandler,
+    GetPlanHandler,
     PlannerQueryFacade,
   ],
   exports: [PlannerQueryFacade],

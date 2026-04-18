@@ -1,6 +1,24 @@
 import { Injectable } from '@nestjs/common'
+import { QueryBus } from '@nestjs/cqrs'
+import type { Plan } from '../../domain/entities/plan.entity'
+import { ListPlansForActorQuery } from '../queries/plans/list-plans-for-actor.query'
+import type { PlanSummary } from '../queries/plans/list-plans-for-actor.handler'
+import { GetPlanQuery } from '../queries/plans/get-plan.query'
 
 @Injectable()
 export class PlannerQueryFacade {
-  // TODO: implement queries for planner module
+  constructor(private readonly queryBus: QueryBus) {}
+
+  listPlansForActor(actorId: string, tenantId: string): Promise<PlanSummary[]> {
+    return this.queryBus.execute(new ListPlansForActorQuery(actorId, tenantId))
+  }
+
+  countOpenTasksForActor(_actorId: string, _tenantId: string): Promise<number> {
+    // Stub: task counts implemented in Plan 02
+    return Promise.resolve(0)
+  }
+
+  getPlan(actorId: string, planId: string, tenantId: string): Promise<Plan | null> {
+    return this.queryBus.execute(new GetPlanQuery(actorId, planId, tenantId))
+  }
 }
