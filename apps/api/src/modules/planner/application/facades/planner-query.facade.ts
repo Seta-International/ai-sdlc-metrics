@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common'
 import { QueryBus } from '@nestjs/cqrs'
-import type { Plan } from '../../domain/entities/plan.entity'
 import { ListPlansForActorQuery } from '../queries/plans/list-plans-for-actor.query'
 import type { PlanSummary } from '../queries/plans/list-plans-for-actor.handler'
 import { GetPlanQuery } from '../queries/plans/get-plan.query'
+import type { PlanDetail } from '../queries/plans/get-plan.handler'
 
 @Injectable()
 export class PlannerQueryFacade {
@@ -18,7 +18,7 @@ export class PlannerQueryFacade {
     return Promise.resolve(0)
   }
 
-  getPlan(actorId: string, planId: string, tenantId: string): Promise<Plan | null> {
+  getPlan(actorId: string, planId: string, tenantId: string): Promise<PlanDetail | null> {
     return this.queryBus.execute(new GetPlanQuery(actorId, planId, tenantId))
   }
 }

@@ -13,6 +13,8 @@ import { EventBus } from '@nestjs/cqrs'
 import { TRPCError } from '@trpc/server'
 import { DrizzlePlanRepository } from '../../infrastructure/repositories/drizzle-plan.repository'
 import { DrizzleBucketRepository } from '../../infrastructure/repositories/drizzle-bucket.repository'
+import { DrizzlePlanMemberRepository } from '../../infrastructure/repositories/drizzle-plan-member.repository'
+import { DrizzlePlanLabelRepository } from '../../infrastructure/repositories/drizzle-plan-label.repository'
 import { PlanAuthorizationService } from '../../application/services/plan-authorization.service'
 import { CreatePlanHandler } from '../../application/commands/plans/create-plan.handler'
 import { CreatePlanCommand } from '../../application/commands/plans/create-plan.command'
@@ -67,7 +69,12 @@ function makePermissiveAuthSvc(): PlanAuthorizationService {
  * Build a minimal CommandBus/QueryBus that dispatches to real handlers.
  * We bypass NestJS DI entirely — handlers are wired manually.
  */
-function buildBuses(planRepo: DrizzlePlanRepository, bucketRepo: DrizzleBucketRepository) {
+function buildBuses(
+  planRepo: DrizzlePlanRepository,
+  bucketRepo: DrizzleBucketRepository,
+  memberRepo: DrizzlePlanMemberRepository,
+  labelRepo: DrizzlePlanLabelRepository,
+) {
   const eventBus = makeEventBus()
   const authSvc = makePermissiveAuthSvc()
 
@@ -82,10 +89,30 @@ function buildBuses(planRepo: DrizzlePlanRepository, bucketRepo: DrizzleBucketRe
   )
   const renameHandler = new RenamePlanHandler(planRepo as never, authSvc, eventBus)
   const deleteHandler = new DeletePlanHandler(planRepo as never, authSvc, eventBus)
-  const addMemberHandler = new AddPlanMemberHandler(planRepo as never, authSvc, eventBus)
-  const removeMemberHandler = new RemovePlanMemberHandler(planRepo as never, authSvc, eventBus)
-  const renameLabelHandler = new RenamePlanLabelHandler(planRepo as never, authSvc, eventBus)
-  const recolorLabelHandler = new RecolorPlanLabelHandler(planRepo as never, authSvc, eventBus)
+  const addMemberHandler = new AddPlanMemberHandler(
+    planRepo as never,
+    memberRepo as never,
+    authSvc,
+    eventBus,
+  )
+  const removeMemberHandler = new RemovePlanMemberHandler(
+    planRepo as never,
+    memberRepo as never,
+    authSvc,
+    eventBus,
+  )
+  const renameLabelHandler = new RenamePlanLabelHandler(
+    planRepo as never,
+    labelRepo as never,
+    authSvc,
+    eventBus,
+  )
+  const recolorLabelHandler = new RecolorPlanLabelHandler(
+    planRepo as never,
+    labelRepo as never,
+    authSvc,
+    eventBus,
+  )
 
   commandHandlers.set('CreatePlanCommand', (cmd) => createHandler.execute(cmd as CreatePlanCommand))
   commandHandlers.set('RenamePlanCommand', (cmd) => renameHandler.execute(cmd as RenamePlanCommand))
@@ -137,6 +164,8 @@ describe('plannerRouter — tRPC integration', () => {
   const db = createTestDb() as Db
   let planRepo: DrizzlePlanRepository
   let bucketRepo: DrizzleBucketRepository
+  let memberRepo: DrizzlePlanMemberRepository
+  let labelRepo: DrizzlePlanLabelRepository
 
   beforeAll(async () => {
     await migrateForTest()
@@ -147,8 +176,10 @@ describe('plannerRouter — tRPC integration', () => {
 
     planRepo = new DrizzlePlanRepository(db as never)
     bucketRepo = new DrizzleBucketRepository(db as never)
+    memberRepo = new DrizzlePlanMemberRepository(db as never)
+    labelRepo = new DrizzlePlanLabelRepository(db as never)
 
-    const { commandBus, queryBus } = buildBuses(planRepo, bucketRepo)
+    const { commandBus, queryBus } = buildBuses(planRepo, bucketRepo, memberRepo, labelRepo)
 
     // Stub AdminQueryFacade — planner is always enabled for this test suite
     const adminQueryFacade: Pick<AdminQueryFacade, 'isPlannerEnabled'> = {

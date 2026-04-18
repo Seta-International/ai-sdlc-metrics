@@ -36,16 +36,21 @@ describe('GetPlanHandler', () => {
     )
   })
 
-  it('returns the plan entity when actor is authorized', async () => {
-    const plan = makePlan()
-    planRepo.findById.mockResolvedValue(plan)
+  it('returns a PlanDetail DTO when actor is authorized', async () => {
+    planRepo.findById.mockResolvedValue(makePlan())
 
     const result = await handler.execute(new GetPlanQuery(ACTOR_ID, PLAN_ID, TENANT_ID))
 
-    expect(result).toBe(plan)
+    expect(result).not.toBeNull()
+    expect(result!.id).toBe(PLAN_ID)
+    expect(result!.name).toBe('Test Plan')
+    expect(result!.members).toHaveLength(1)
+    expect(result!.members[0].actorId).toBe(ACTOR_ID)
+    expect(result!.members[0].role).toBe('owner')
+    expect(result!.labels).toHaveLength(0)
   })
 
-  it('calls assertCanReadPlan before returning the plan', async () => {
+  it('calls assertCanReadPlan before findById', async () => {
     const callOrder: string[] = []
     authSvc.assertCanReadPlan.mockImplementation(async () => {
       callOrder.push('auth')

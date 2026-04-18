@@ -14,6 +14,8 @@ import { PlanContainer } from '../../../domain/value-objects/plan-container.vo'
 import { LabelSlot } from '../../../domain/value-objects/label-slot.vo'
 import { DrizzlePlanRepository } from '../../../infrastructure/repositories/drizzle-plan.repository'
 import { DrizzleBucketRepository } from '../../../infrastructure/repositories/drizzle-bucket.repository'
+import { DrizzlePlanMemberRepository } from '../../../infrastructure/repositories/drizzle-plan-member.repository'
+import { DrizzlePlanLabelRepository } from '../../../infrastructure/repositories/drizzle-plan-label.repository'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 import { CreatePlanHandler } from './create-plan.handler'
 import { CreatePlanCommand } from './create-plan.command'
@@ -52,6 +54,8 @@ describe('Plan command handlers — integration', () => {
   const db = createTestDb() as Db
   let planRepo: DrizzlePlanRepository
   let bucketRepo: DrizzleBucketRepository
+  let memberRepo: DrizzlePlanMemberRepository
+  let labelRepo: DrizzlePlanLabelRepository
 
   beforeAll(async () => {
     await migrateForTest()
@@ -60,6 +64,8 @@ describe('Plan command handlers — integration', () => {
     await seedTenant(db, { id: TENANT_ID, slug: 'plan-cmd-handlers-tenant' })
     planRepo = new DrizzlePlanRepository(db as never)
     bucketRepo = new DrizzleBucketRepository(db as never)
+    memberRepo = new DrizzlePlanMemberRepository(db as never)
+    labelRepo = new DrizzlePlanLabelRepository(db as never)
     await setTenantContext(db, TENANT_ID)
   })
 
@@ -153,7 +159,7 @@ describe('Plan command handlers — integration', () => {
         ),
       )
 
-      const handler = new AddPlanMemberHandler(planRepo, makeAuthSvc(), makeEventBus())
+      const handler = new AddPlanMemberHandler(planRepo, memberRepo, makeAuthSvc(), makeEventBus())
       await handler.execute(
         new AddPlanMemberCommand(TENANT_ID, planId, ACTOR_ID, OTHER_ACTOR_ID, 'editor'),
       )
@@ -182,12 +188,22 @@ describe('Plan command handlers — integration', () => {
         ),
       )
 
-      const addHandler = new AddPlanMemberHandler(planRepo, makeAuthSvc(), makeEventBus())
+      const addHandler = new AddPlanMemberHandler(
+        planRepo,
+        memberRepo,
+        makeAuthSvc(),
+        makeEventBus(),
+      )
       await addHandler.execute(
         new AddPlanMemberCommand(TENANT_ID, planId, ACTOR_ID, OTHER_ACTOR_ID, 'editor'),
       )
 
-      const removeHandler = new RemovePlanMemberHandler(planRepo, makeAuthSvc(), makeEventBus())
+      const removeHandler = new RemovePlanMemberHandler(
+        planRepo,
+        memberRepo,
+        makeAuthSvc(),
+        makeEventBus(),
+      )
       await removeHandler.execute(
         new RemovePlanMemberCommand(TENANT_ID, planId, ACTOR_ID, OTHER_ACTOR_ID),
       )
@@ -206,7 +222,7 @@ describe('Plan command handlers — integration', () => {
         new CreatePlanCommand(TENANT_ID, planId, 'Label Plan', null, CONTAINER, ACTOR_ID, bucketId),
       )
 
-      const handler = new RenamePlanLabelHandler(planRepo, makeAuthSvc(), makeEventBus())
+      const handler = new RenamePlanLabelHandler(planRepo, labelRepo, makeAuthSvc(), makeEventBus())
       const slot = LabelSlot.of('category1')
       await handler.execute(
         new RenamePlanLabelCommand(TENANT_ID, planId, ACTOR_ID, slot, 'High Priority'),
@@ -237,7 +253,12 @@ describe('Plan command handlers — integration', () => {
         ),
       )
 
-      const handler = new RecolorPlanLabelHandler(planRepo, makeAuthSvc(), makeEventBus())
+      const handler = new RecolorPlanLabelHandler(
+        planRepo,
+        labelRepo,
+        makeAuthSvc(),
+        makeEventBus(),
+      )
       const slot = LabelSlot.of('category2')
       await handler.execute(
         new RecolorPlanLabelCommand(TENANT_ID, planId, ACTOR_ID, slot, 'Critical', '#EF4444'),
