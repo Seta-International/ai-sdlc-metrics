@@ -7,6 +7,11 @@ import { ConcurrentModificationException } from '../../domain/exceptions/concurr
 import { LastOwnerRemovalException } from '../../domain/exceptions/last-owner-removal.exception'
 import { DescriptionTooLongException } from '../../domain/exceptions/description-too-long.exception'
 import { LabelLimitReachedException } from '../../domain/exceptions/label-limit-reached.exception'
+import { TaskNotFoundException } from '../../domain/exceptions/task-not-found.exception'
+import { AssigneeLimitReachedException } from '../../domain/exceptions/assignee-limit-reached.exception'
+import { LabelSlotNotDefinedException } from '../../domain/exceptions/label-slot-not-defined.exception'
+import { TitleRequiredException } from '../../domain/exceptions/title-required.exception'
+import { TitleTooLongException } from '../../domain/exceptions/title-too-long.exception'
 
 export function toPlannerTrpcError(error: unknown): TRPCError {
   if (error instanceof UnauthorizedPlanAccessException)
@@ -14,6 +19,8 @@ export function toPlannerTrpcError(error: unknown): TRPCError {
   if (error instanceof PlanNotFoundException)
     return new TRPCError({ code: 'NOT_FOUND', message: error.message })
   if (error instanceof BucketNotFoundException)
+    return new TRPCError({ code: 'NOT_FOUND', message: error.message })
+  if (error instanceof TaskNotFoundException)
     return new TRPCError({ code: 'NOT_FOUND', message: error.message })
   if (error instanceof PlanConflictException)
     return new TRPCError({ code: 'CONFLICT', message: error.message })
@@ -24,6 +31,14 @@ export function toPlannerTrpcError(error: unknown): TRPCError {
   if (error instanceof DescriptionTooLongException)
     return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
   if (error instanceof LabelLimitReachedException)
+    return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
+  if (error instanceof AssigneeLimitReachedException)
+    return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
+  if (error instanceof LabelSlotNotDefinedException)
+    return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
+  if (error instanceof TitleRequiredException)
+    return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
+  if (error instanceof TitleTooLongException)
     return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
   const msg = error instanceof Error ? error.message : 'Internal error'
   return new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: msg })

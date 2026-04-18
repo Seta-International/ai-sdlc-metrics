@@ -28,6 +28,17 @@ import { CreateBucketHandler } from './application/commands/buckets/create-bucke
 import { RenameBucketHandler } from './application/commands/buckets/rename-bucket.handler'
 import { ReorderBucketHandler } from './application/commands/buckets/reorder-bucket.handler'
 import { DeleteBucketHandler } from './application/commands/buckets/delete-bucket.handler'
+import { CreateTaskHandler } from './application/commands/tasks/create-task.handler'
+import { UpdateTaskHandler } from './application/commands/tasks/update-task.handler'
+import { MoveTaskHandler } from './application/commands/tasks/move-task.handler'
+import { SetTaskProgressHandler } from './application/commands/tasks/set-task-progress.handler'
+import { SetTaskPriorityHandler } from './application/commands/tasks/set-task-priority.handler'
+import { SetTaskDatesHandler } from './application/commands/tasks/set-task-dates.handler'
+import { AssignTaskHandler } from './application/commands/tasks/assign-task.handler'
+import { UnassignTaskHandler } from './application/commands/tasks/unassign-task.handler'
+import { ApplyLabelHandler } from './application/commands/tasks/apply-label.handler'
+import { RemoveLabelHandler } from './application/commands/tasks/remove-label.handler'
+import { DeleteTaskHandler } from './application/commands/tasks/delete-task.handler'
 import { ListPlansForActorHandler } from './application/queries/plans/list-plans-for-actor.handler'
 import { GetPlanHandler } from './application/queries/plans/get-plan.handler'
 import { GetBoardHandler } from './application/queries/tasks/get-board.handler'
@@ -53,6 +64,17 @@ import { GetBoardHandler } from './application/queries/tasks/get-board.handler'
     RenameBucketHandler,
     ReorderBucketHandler,
     DeleteBucketHandler,
+    CreateTaskHandler,
+    UpdateTaskHandler,
+    MoveTaskHandler,
+    SetTaskProgressHandler,
+    SetTaskPriorityHandler,
+    SetTaskDatesHandler,
+    AssignTaskHandler,
+    UnassignTaskHandler,
+    ApplyLabelHandler,
+    RemoveLabelHandler,
+    DeleteTaskHandler,
     ListPlansForActorHandler,
     GetPlanHandler,
     GetBoardHandler,
