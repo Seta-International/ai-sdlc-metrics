@@ -88,6 +88,7 @@ function buildBuses(
   const createPlanHandler = new CreatePlanHandler(
     planRepo as never,
     bucketRepo as never,
+    memberRepo as never,
     authSvc,
     eventBus,
   )

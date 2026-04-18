@@ -27,33 +27,45 @@ describe('CreatePlanHandler', () => {
   let handler: CreatePlanHandler
   let planRepo: { save: ReturnType<typeof vi.fn>; findById: ReturnType<typeof vi.fn> }
   let bucketRepo: { save: ReturnType<typeof vi.fn> }
+  let planMemberRepo: { upsert: ReturnType<typeof vi.fn> }
   let authSvc: { assertCanCreatePlan: ReturnType<typeof vi.fn> }
   let eventBus: { publish: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     planRepo = { save: vi.fn().mockResolvedValue(undefined), findById: vi.fn() }
     bucketRepo = { save: vi.fn().mockResolvedValue(undefined) }
+    planMemberRepo = { upsert: vi.fn().mockResolvedValue(undefined) }
     authSvc = { assertCanCreatePlan: vi.fn().mockResolvedValue(undefined) }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
     handler = new CreatePlanHandler(
       planRepo as any,
       bucketRepo as any,
+      planMemberRepo as any,
       authSvc as any,
       eventBus as unknown as EventBus,
     )
   })
 
-  it('creates plan, seeds "To do" bucket, saves both, and emits PlanCreatedEvent', async () => {
+  it('creates plan, seeds "To do" bucket, saves both, persists creator member, and emits PlanCreatedEvent', async () => {
     await handler.execute(makeCommand())
 
     expect(authSvc.assertCanCreatePlan).toHaveBeenCalledWith(ACTOR_ID, TENANT_ID)
-    expect(bucketRepo.save).toHaveBeenCalledOnce()
     expect(planRepo.save).toHaveBeenCalledOnce()
     const savedPlan = planRepo.save.mock.calls[0][0]
     expect(savedPlan.id).toBe(PLAN_ID)
     expect(savedPlan.name).toBe('My Plan')
     expect(savedPlan.buckets).toHaveLength(1)
     expect(savedPlan.buckets[0].name).toBe('To do')
+    expect(planMemberRepo.upsert).toHaveBeenCalledOnce()
+    expect(planMemberRepo.upsert).toHaveBeenCalledWith(
+      PLAN_ID,
+      TENANT_ID,
+      expect.objectContaining({
+        actorId: ACTOR_ID,
+        role: 'owner',
+      }),
+    )
+    expect(bucketRepo.save).toHaveBeenCalledOnce()
     expect(eventBus.publish).toHaveBeenCalledWith(expect.any(PlanCreatedEvent))
     const event: PlanCreatedEvent = eventBus.publish.mock.calls[0][0]
     expect(event.planId).toBe(PLAN_ID)
@@ -83,6 +95,7 @@ describe('CreatePlanHandler', () => {
 
     await expect(handler.execute(makeCommand())).rejects.toThrow(UnauthorizedPlanAccessException)
     expect(planRepo.save).not.toHaveBeenCalled()
+    expect(planMemberRepo.upsert).not.toHaveBeenCalled()
     expect(bucketRepo.save).not.toHaveBeenCalled()
     expect(eventBus.publish).not.toHaveBeenCalled()
   })

@@ -84,6 +84,7 @@ function buildBuses(
   const createHandler = new CreatePlanHandler(
     planRepo as never,
     bucketRepo as never,
+    memberRepo as never,
     authSvc,
     eventBus,
   )
@@ -432,10 +433,9 @@ describe('plannerRouter — tRPC integration', () => {
       ).resolves.not.toThrow()
     })
 
-    it('removeMember on non-member throws BAD_REQUEST (LastOwnerRemovalException mapped)', async () => {
+    it('removeMember on last owner throws BAD_REQUEST (LastOwnerRemovalException mapped)', async () => {
       const planId = uuidv7()
       const bucketId = uuidv7()
-      const targetActorId = uuidv7()
       const caller = plannerRouter.createCaller(makeCtx())
 
       await caller.plans.create({
@@ -447,15 +447,14 @@ describe('plannerRouter — tRPC integration', () => {
         description: null,
       })
 
-      // The plan has no DB-persisted members (member persistence handled by PlanMemberRepository).
-      // Removing a non-existent member empties the members array, which has no owner,
-      // causing LastOwnerRemovalException → mapped to BAD_REQUEST by toPlannerTrpcError.
+      // The plan's creator (ACTOR_ID) is persisted as the only owner.
+      // Attempting to remove the creator (the last owner) throws LastOwnerRemovalException → mapped to BAD_REQUEST.
       await expect(
         caller.plans.removeMember({
           actorId: ACTOR_ID,
           tenantId: TENANT_ID,
           planId,
-          targetActorId,
+          targetActorId: ACTOR_ID,
         }),
       ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
     })

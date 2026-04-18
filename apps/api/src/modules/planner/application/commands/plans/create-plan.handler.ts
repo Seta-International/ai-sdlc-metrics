@@ -7,6 +7,10 @@ import {
   BUCKET_REPOSITORY,
   type IBucketRepository,
 } from '../../../domain/repositories/bucket.repository'
+import {
+  PLAN_MEMBER_REPOSITORY,
+  type IPlanMemberRepository,
+} from '../../../domain/repositories/plan-member.repository'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 import { CreatePlanCommand } from './create-plan.command'
 
@@ -15,6 +19,7 @@ export class CreatePlanHandler implements ICommandHandler<CreatePlanCommand> {
   constructor(
     @Inject(PLAN_REPOSITORY) private readonly planRepo: IPlanRepository,
     @Inject(BUCKET_REPOSITORY) private readonly bucketRepo: IBucketRepository,
+    @Inject(PLAN_MEMBER_REPOSITORY) private readonly planMemberRepo: IPlanMemberRepository,
     private readonly authSvc: PlanAuthorizationService,
     private readonly eventBus: EventBus,
   ) {}
@@ -34,7 +39,9 @@ export class CreatePlanHandler implements ICommandHandler<CreatePlanCommand> {
 
     plan.addBucket(command.bucketId, 'To do', '!')
     const bucket = plan.buckets[plan.buckets.length - 1]
+    const creatorMember = (plan.members as any)[0]
     await this.planRepo.save(plan)
+    await this.planMemberRepo.upsert(command.id, command.tenantId, creatorMember)
     await this.bucketRepo.save(bucket)
 
     await this.eventBus.publish(

@@ -78,7 +78,13 @@ describe('Plan command handlers — integration', () => {
     it('persists plan and "To do" bucket in DB', async () => {
       const planId = uuidv7()
       const bucketId = uuidv7()
-      const handler = new CreatePlanHandler(planRepo, bucketRepo, makeAuthSvc(), makeEventBus())
+      const handler = new CreatePlanHandler(
+        planRepo,
+        bucketRepo,
+        memberRepo,
+        makeAuthSvc(),
+        makeEventBus(),
+      )
 
       await handler.execute(
         new CreatePlanCommand(
@@ -104,7 +110,13 @@ describe('Plan command handlers — integration', () => {
     it('persists new name in DB', async () => {
       const planId = uuidv7()
       const bucketId = uuidv7()
-      const create = new CreatePlanHandler(planRepo, bucketRepo, makeAuthSvc(), makeEventBus())
+      const create = new CreatePlanHandler(
+        planRepo,
+        bucketRepo,
+        memberRepo,
+        makeAuthSvc(),
+        makeEventBus(),
+      )
       await create.execute(
         new CreatePlanCommand(
           TENANT_ID,
@@ -129,7 +141,13 @@ describe('Plan command handlers — integration', () => {
     it('soft deletes plan — findById returns null', async () => {
       const planId = uuidv7()
       const bucketId = uuidv7()
-      const create = new CreatePlanHandler(planRepo, bucketRepo, makeAuthSvc(), makeEventBus())
+      const create = new CreatePlanHandler(
+        planRepo,
+        bucketRepo,
+        memberRepo,
+        makeAuthSvc(),
+        makeEventBus(),
+      )
       await create.execute(
         new CreatePlanCommand(TENANT_ID, planId, 'To Delete', null, CONTAINER, ACTOR_ID, bucketId),
       )
@@ -146,7 +164,13 @@ describe('Plan command handlers — integration', () => {
     it('persists new member in DB', async () => {
       const planId = uuidv7()
       const bucketId = uuidv7()
-      const create = new CreatePlanHandler(planRepo, bucketRepo, makeAuthSvc(), makeEventBus())
+      const create = new CreatePlanHandler(
+        planRepo,
+        bucketRepo,
+        memberRepo,
+        makeAuthSvc(),
+        makeEventBus(),
+      )
       await create.execute(
         new CreatePlanCommand(
           TENANT_ID,
@@ -175,7 +199,13 @@ describe('Plan command handlers — integration', () => {
     it('removes member from DB', async () => {
       const planId = uuidv7()
       const bucketId = uuidv7()
-      const create = new CreatePlanHandler(planRepo, bucketRepo, makeAuthSvc(), makeEventBus())
+      const create = new CreatePlanHandler(
+        planRepo,
+        bucketRepo,
+        memberRepo,
+        makeAuthSvc(),
+        makeEventBus(),
+      )
       await create.execute(
         new CreatePlanCommand(
           TENANT_ID,
@@ -217,7 +247,13 @@ describe('Plan command handlers — integration', () => {
     it('persists label rename in DB', async () => {
       const planId = uuidv7()
       const bucketId = uuidv7()
-      const create = new CreatePlanHandler(planRepo, bucketRepo, makeAuthSvc(), makeEventBus())
+      const create = new CreatePlanHandler(
+        planRepo,
+        bucketRepo,
+        memberRepo,
+        makeAuthSvc(),
+        makeEventBus(),
+      )
       await create.execute(
         new CreatePlanCommand(TENANT_ID, planId, 'Label Plan', null, CONTAINER, ACTOR_ID, bucketId),
       )
@@ -240,7 +276,13 @@ describe('Plan command handlers — integration', () => {
     it('persists label color change in DB', async () => {
       const planId = uuidv7()
       const bucketId = uuidv7()
-      const create = new CreatePlanHandler(planRepo, bucketRepo, makeAuthSvc(), makeEventBus())
+      const create = new CreatePlanHandler(
+        planRepo,
+        bucketRepo,
+        memberRepo,
+        makeAuthSvc(),
+        makeEventBus(),
+      )
       await create.execute(
         new CreatePlanCommand(
           TENANT_ID,
