@@ -1,7 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common'
 import type { Db } from '@future/db'
-import { and, eq, isNull } from 'drizzle-orm'
-import { sql } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { IPlanRepository } from '../../domain/repositories/plan.repository'
 import type { Plan } from '../../domain/entities/plan.entity'
@@ -136,7 +135,7 @@ export class DrizzlePlanRepository implements IPlanRepository {
           msRosterId: row.msRosterId ?? undefined,
           msPlanId: row.msPlanId ?? undefined,
           msPlanEtag: row.msPlanEtag ?? undefined,
-          updatedAt: new Date(),
+          updatedAt: sql`NOW()`,
         },
       })
   }
@@ -145,6 +144,12 @@ export class DrizzlePlanRepository implements IPlanRepository {
     await this.db
       .update(plannerPlan)
       .set({ deletedAt: sql`NOW()` })
-      .where(and(eq(plannerPlan.id, id), eq(plannerPlan.tenantId, tenantId)))
+      .where(
+        and(
+          eq(plannerPlan.id, id),
+          eq(plannerPlan.tenantId, tenantId),
+          isNull(plannerPlan.deletedAt),
+        ),
+      )
   }
 }

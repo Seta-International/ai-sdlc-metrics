@@ -1,5 +1,5 @@
 import type { IPlanRepository } from '../../domain/repositories/plan.repository'
-import type { Plan } from '../../domain/entities/plan.entity'
+import { Plan } from '../../domain/entities/plan.entity'
 
 export class InMemoryPlanRepository implements IPlanRepository {
   private readonly store = new Map<string, Plan>()
@@ -19,8 +19,26 @@ export class InMemoryPlanRepository implements IPlanRepository {
 
   async softDelete(id: string, tenantId: string): Promise<void> {
     const plan = this.store.get(id)
-    if (plan && plan.tenantId === tenantId) {
-      this.store.delete(id)
+    if (plan && plan.tenantId === tenantId && !plan.deletedAt) {
+      this.store.set(
+        id,
+        Plan.reconstitute({
+          id: plan.id,
+          tenantId: plan.tenantId,
+          name: plan.name,
+          description: plan.description,
+          container: plan.container,
+          createdBy: plan.createdBy,
+          createdAt: plan.createdAt,
+          updatedAt: new Date(),
+          deletedAt: new Date(),
+          msPlanId: plan.msPlanId,
+          msPlanEtag: plan.msPlanEtag,
+          buckets: [...plan.buckets],
+          labels: [...plan.labels],
+          members: [...plan.members],
+        }),
+      )
     }
   }
 

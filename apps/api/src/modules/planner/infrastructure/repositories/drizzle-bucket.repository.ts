@@ -65,7 +65,7 @@ export class DrizzleBucketRepository implements IBucketRepository {
           orderHint: row.orderHint,
           msBucketId: row.msBucketId ?? undefined,
           msBucketEtag: row.msBucketEtag ?? undefined,
-          updatedAt: new Date(),
+          updatedAt: sql`NOW()`,
         },
       })
   }
@@ -74,6 +74,12 @@ export class DrizzleBucketRepository implements IBucketRepository {
     await this.db
       .update(plannerBucket)
       .set({ deletedAt: sql`NOW()` })
-      .where(and(eq(plannerBucket.id, id), eq(plannerBucket.tenantId, tenantId)))
+      .where(
+        and(
+          eq(plannerBucket.id, id),
+          eq(plannerBucket.tenantId, tenantId),
+          isNull(plannerBucket.deletedAt),
+        ),
+      )
   }
 }

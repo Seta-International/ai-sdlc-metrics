@@ -1,5 +1,5 @@
 import type { IBucketRepository } from '../../domain/repositories/bucket.repository'
-import type { Bucket } from '../../domain/entities/bucket.entity'
+import { Bucket } from '../../domain/entities/bucket.entity'
 
 export class InMemoryBucketRepository implements IBucketRepository {
   private readonly store = new Map<string, Bucket>()
@@ -21,8 +21,21 @@ export class InMemoryBucketRepository implements IBucketRepository {
 
   async softDelete(id: string, tenantId: string): Promise<void> {
     const bucket = this.store.get(id)
-    if (bucket && bucket.tenantId === tenantId) {
-      this.store.delete(id)
+    if (bucket && bucket.tenantId === tenantId && !bucket.deletedAt) {
+      this.store.set(
+        id,
+        Bucket.reconstitute({
+          id: bucket.id,
+          tenantId: bucket.tenantId,
+          planId: bucket.planId,
+          name: bucket.name,
+          orderHint: bucket.orderHint,
+          msBucketId: bucket.msBucketId,
+          msBucketEtag: bucket.msBucketEtag,
+          createdAt: bucket.createdAt,
+          deletedAt: new Date(),
+        }),
+      )
     }
   }
 
