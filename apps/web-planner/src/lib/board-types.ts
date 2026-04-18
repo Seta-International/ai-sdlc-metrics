@@ -63,6 +63,13 @@ export interface BoardSnapshot {
   buckets: BoardBucketSnapshot[]
 }
 
+export interface ChecklistItemSnapshot {
+  id: string
+  title: string
+  isChecked: boolean
+  orderHint: string
+}
+
 export interface TaskDetailSnapshot {
   id: string
   planId: string
@@ -86,4 +93,5 @@ export interface TaskDetailSnapshot {
   coverAttachmentId: string | null
   appliedLabels: string[]
   assignees: BoardAssignee[]
+  checklist: ChecklistItemSnapshot[]
 }

@@ -27,6 +27,7 @@ function makeConflict(overrides: Partial<TaskDetailSnapshot> = {}): TaskDetailSn
     coverAttachmentId: null,
     appliedLabels: [],
     assignees: [],
+    checklist: [],
     ...overrides,
   }
 }

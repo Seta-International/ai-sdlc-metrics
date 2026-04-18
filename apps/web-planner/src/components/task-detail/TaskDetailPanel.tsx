@@ -101,7 +101,7 @@ export function TaskDetailPanel({ taskId, planId }: Props) {
 
             <Separator />
 
-            <TaskChecklist />
+            <TaskChecklist taskId={taskId} planId={planId} />
 
             <Separator />
 

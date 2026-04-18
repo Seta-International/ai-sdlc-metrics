@@ -59,6 +59,7 @@ function makeTask(overrides: Partial<TaskDetailSnapshot> = {}): TaskDetailSnapsh
     coverAttachmentId: null,
     appliedLabels: [],
     assignees: [],
+    checklist: [],
     ...overrides,
   }
 }
