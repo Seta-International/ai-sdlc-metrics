@@ -7,6 +7,8 @@ import { AssigneeLimitReachedException } from '../exceptions/assignee-limit-reac
 import { TitleRequiredException } from '../exceptions/title-required.exception'
 import { TitleTooLongException } from '../exceptions/title-too-long.exception'
 import { TaskAssignee } from './task-assignee.value-object'
+import { ChecklistItem } from './checklist-item.value-object'
+import { MsOrderHint } from '../value-objects/ms-order-hint.vo'
 
 const MAX_DESCRIPTION_LENGTH = 32_000
 const MAX_TITLE_LENGTH = 255
@@ -33,6 +35,7 @@ interface TaskProps {
   deletedAt: Date | null
   checklistItemCount: number
   checklistCheckedCount: number
+  checklistItems: ChecklistItem[]
   assignees: TaskAssignee[]
   appliedLabels: LabelSlot[]
   coverAttachmentId: string | null
@@ -57,6 +60,7 @@ export class Task {
   private _deletedAt: Date | null
   private _checklistItemCount: number
   private _checklistCheckedCount: number
+  private _checklistItems: ChecklistItem[]
   private _assignees: TaskAssignee[]
   private _appliedLabels: LabelSlot[]
 
@@ -91,6 +95,7 @@ export class Task {
     this._deletedAt = props.deletedAt
     this._checklistItemCount = props.checklistItemCount
     this._checklistCheckedCount = props.checklistCheckedCount
+    this._checklistItems = props.checklistItems
     this._assignees = props.assignees
     this._appliedLabels = props.appliedLabels
     this.coverAttachmentId = props.coverAttachmentId
@@ -158,6 +163,10 @@ export class Task {
     return this._checklistCheckedCount
   }
 
+  get checklistItems(): readonly ChecklistItem[] {
+    return this._checklistItems
+  }
+
   get assignees(): readonly TaskAssignee[] {
     return this._assignees
   }
@@ -200,6 +209,7 @@ export class Task {
       deletedAt: null,
       checklistItemCount: 0,
       checklistCheckedCount: 0,
+      checklistItems: [],
       assignees: [],
       appliedLabels: [],
       coverAttachmentId: null,
@@ -230,6 +240,7 @@ export class Task {
     deletedAt: Date | null
     checklistItemCount: number
     checklistCheckedCount: number
+    checklistItems?: ChecklistItem[]
     assignees: TaskAssignee[]
     appliedLabels: LabelSlot[]
     coverAttachmentId: string | null
@@ -258,6 +269,7 @@ export class Task {
       deletedAt: props.deletedAt,
       checklistItemCount: props.checklistItemCount,
       checklistCheckedCount: props.checklistCheckedCount,
+      checklistItems: props.checklistItems ?? [],
       assignees: props.assignees,
       appliedLabels: props.appliedLabels,
       coverAttachmentId: props.coverAttachmentId,
@@ -358,15 +370,74 @@ export class Task {
   }
 
   /**
-   * Increments the denormalized checklist item counter.
-   * The actual ChecklistItem entity is persisted separately and loaded
-   * via the repository. This counter mirrors the DB check constraint (≤20).
+   * Adds a ChecklistItem to the in-memory collection and increments
+   * the denormalized counter. The counter mirrors the DB check constraint (≤20).
    */
-  addChecklistItem(): void {
+  addChecklistItem(item: ChecklistItem): void {
     if (this._checklistItemCount >= MAX_CHECKLIST_ITEMS) {
       throw new ChecklistLimitReachedException(this.id)
     }
+    this._checklistItems = [...this._checklistItems, item]
     this._checklistItemCount++
+    this._updatedAt = new Date()
+  }
+
+  toggleChecklistItem(id: string): void {
+    const index = this._checklistItems.findIndex((ci) => ci.id === id)
+    if (index === -1) return
+
+    const item = this._checklistItems[index]
+    const toggled = item.withChecked(!item.isChecked)
+    this._checklistItems = [
+      ...this._checklistItems.slice(0, index),
+      toggled,
+      ...this._checklistItems.slice(index + 1),
+    ]
+    if (toggled.isChecked) {
+      this._checklistCheckedCount++
+    } else {
+      this._checklistCheckedCount--
+    }
+    this._updatedAt = new Date()
+  }
+
+  updateChecklistItem(id: string, title: string): void {
+    const index = this._checklistItems.findIndex((ci) => ci.id === id)
+    if (index === -1) return
+
+    const updated = this._checklistItems[index].withTitle(title)
+    this._checklistItems = [
+      ...this._checklistItems.slice(0, index),
+      updated,
+      ...this._checklistItems.slice(index + 1),
+    ]
+    this._updatedAt = new Date()
+  }
+
+  removeChecklistItem(id: string): void {
+    const index = this._checklistItems.findIndex((ci) => ci.id === id)
+    if (index === -1) return
+
+    const item = this._checklistItems[index]
+    this._checklistItems = this._checklistItems.filter((ci) => ci.id !== id)
+    this._checklistItemCount--
+    if (item.isChecked) {
+      this._checklistCheckedCount--
+    }
+    this._updatedAt = new Date()
+  }
+
+  reorderChecklistItem(id: string, hintAfter?: string, hintBefore?: string): void {
+    const index = this._checklistItems.findIndex((ci) => ci.id === id)
+    if (index === -1) return
+
+    const newHint = MsOrderHint.between(hintAfter, hintBefore)
+    const reordered = this._checklistItems[index].withOrderHint(newHint)
+    this._checklistItems = [
+      ...this._checklistItems.slice(0, index),
+      reordered,
+      ...this._checklistItems.slice(index + 1),
+    ]
     this._updatedAt = new Date()
   }
 
