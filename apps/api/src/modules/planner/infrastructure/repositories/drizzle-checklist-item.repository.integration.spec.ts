@@ -196,6 +196,31 @@ describe('DrizzleChecklistItemRepository', () => {
     })
   })
 
+  describe('toggleItem() concurrent', () => {
+    it('5 concurrent toggles settle with correct checklist_checked_count', async () => {
+      await setTenantContext(db, TENANT_A)
+
+      const items: ChecklistItem[] = []
+      for (let i = 0; i < 5; i++) {
+        const item = ChecklistItem.create({
+          id: uuidv7(),
+          title: `Concurrent ${i}`,
+          orderHint: `2|${i}:`,
+        })
+        await repo.addItem(taskId, TENANT_A, item, uuidv7())
+        items.push(item)
+      }
+
+      // Toggle all 5 to checked concurrently — at the test-orchestrator level, not inside a handler
+      await Promise.all(items.map((item) => repo.toggleItem(taskId, TENANT_A, item.id, true)))
+
+      const counters = await getTaskCounters(db, taskId)
+      const allItems = await repo.listByTask(taskId, TENANT_A)
+      const actualChecked = allItems.filter((i) => i.isChecked).length
+      expect(counters.checkedCount).toBe(actualChecked)
+    })
+  })
+
   describe('removeItem()', () => {
     it('removes unchecked item, decrements item count only', async () => {
       await setTenantContext(db, TENANT_A)

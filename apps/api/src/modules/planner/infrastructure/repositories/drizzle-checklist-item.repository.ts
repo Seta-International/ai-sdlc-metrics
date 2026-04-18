@@ -69,19 +69,21 @@ export class DrizzleChecklistItemRepository implements IChecklistItemRepository 
   }
 
   async updateItem(taskId: string, tenantId: string, itemId: string, title: string): Promise<void> {
-    await this.db
-      .update(plannerTaskChecklistItem)
-      .set({
-        title,
-        updatedAt: sql`NOW()`,
-      })
-      .where(
-        and(
-          eq(plannerTaskChecklistItem.id, itemId),
-          eq(plannerTaskChecklistItem.taskId, taskId),
-          eq(plannerTaskChecklistItem.tenantId, tenantId),
-        ),
-      )
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(plannerTaskChecklistItem)
+        .set({
+          title,
+          updatedAt: sql`NOW()`,
+        })
+        .where(
+          and(
+            eq(plannerTaskChecklistItem.id, itemId),
+            eq(plannerTaskChecklistItem.taskId, taskId),
+            eq(plannerTaskChecklistItem.tenantId, tenantId),
+          ),
+        )
+    })
   }
 
   async removeItem(taskId: string, tenantId: string, itemId: string): Promise<void> {
@@ -132,19 +134,21 @@ export class DrizzleChecklistItemRepository implements IChecklistItemRepository 
     itemId: string,
     orderHint: string,
   ): Promise<void> {
-    await this.db
-      .update(plannerTaskChecklistItem)
-      .set({
-        orderHint,
-        updatedAt: sql`NOW()`,
-      })
-      .where(
-        and(
-          eq(plannerTaskChecklistItem.id, itemId),
-          eq(plannerTaskChecklistItem.taskId, taskId),
-          eq(plannerTaskChecklistItem.tenantId, tenantId),
-        ),
-      )
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(plannerTaskChecklistItem)
+        .set({
+          orderHint,
+          updatedAt: sql`NOW()`,
+        })
+        .where(
+          and(
+            eq(plannerTaskChecklistItem.id, itemId),
+            eq(plannerTaskChecklistItem.taskId, taskId),
+            eq(plannerTaskChecklistItem.tenantId, tenantId),
+          ),
+        )
+    })
   }
 
   async listByTask(taskId: string, tenantId: string): Promise<ChecklistItem[]> {
