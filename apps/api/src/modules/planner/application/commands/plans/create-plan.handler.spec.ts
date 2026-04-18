@@ -5,6 +5,10 @@ import { CreatePlanCommand } from './create-plan.command'
 import { PlanContainer } from '../../../domain/value-objects/plan-container.vo'
 import { PlanCreatedEvent } from '@future/event-contracts'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
+import type { IPlanRepository } from '../../../domain/repositories/plan.repository'
+import type { IBucketRepository } from '../../../domain/repositories/bucket.repository'
+import type { IPlanMemberRepository } from '../../../domain/repositories/plan-member.repository'
+import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 
 const TENANT_ID = 'tenant-1'
 const PLAN_ID = 'plan-1'
@@ -38,10 +42,10 @@ describe('CreatePlanHandler', () => {
     authSvc = { assertCanCreatePlan: vi.fn().mockResolvedValue(undefined) }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
     handler = new CreatePlanHandler(
-      planRepo as any,
-      bucketRepo as any,
-      planMemberRepo as any,
-      authSvc as any,
+      planRepo as unknown as IPlanRepository,
+      bucketRepo as unknown as IBucketRepository,
+      planMemberRepo as unknown as IPlanMemberRepository,
+      authSvc as unknown as PlanAuthorizationService,
       eventBus as unknown as EventBus,
     )
   })

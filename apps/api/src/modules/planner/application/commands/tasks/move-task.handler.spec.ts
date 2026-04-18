@@ -6,6 +6,8 @@ import { Task } from '../../../domain/entities/task.entity'
 import { TaskMovedEvent } from '@future/event-contracts'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
 import { TaskNotFoundException } from '../../../domain/exceptions/task-not-found.exception'
+import type { ITaskRepository } from '../../../domain/repositories/task.repository'
+import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 
 const TENANT_ID = 'tenant-1'
 const PLAN_ID = 'plan-1'
@@ -45,7 +47,11 @@ describe('MoveTaskHandler', () => {
     }
     authSvc = { assertCanEditPlan: vi.fn().mockResolvedValue(undefined) }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
-    handler = new MoveTaskHandler(taskRepo as any, authSvc as any, eventBus as unknown as EventBus)
+    handler = new MoveTaskHandler(
+      taskRepo as unknown as ITaskRepository,
+      authSvc as unknown as PlanAuthorizationService,
+      eventBus as unknown as EventBus,
+    )
   })
 
   it('moves task to a different bucket (cross-bucket move) and emits TaskMovedEvent', async () => {

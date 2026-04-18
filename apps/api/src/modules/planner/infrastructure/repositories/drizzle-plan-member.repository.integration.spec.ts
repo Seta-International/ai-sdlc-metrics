@@ -39,7 +39,7 @@ describe('DrizzlePlanMemberRepository', () => {
   const db = createTestDb() as Db
   let repo: DrizzlePlanMemberRepository
   let planIdA: string
-  let planIdB: string
+  let _planIdB: string
 
   beforeAll(async () => {
     await migrateForTest()
@@ -48,7 +48,7 @@ describe('DrizzlePlanMemberRepository', () => {
     await seedTenant(db, { id: TENANT_A, slug: 'member-repo-tenant-a' })
     await seedTenant(db, { id: TENANT_B, slug: 'member-repo-tenant-b' })
     planIdA = await seedPlan(db, TENANT_A)
-    planIdB = await seedPlan(db, TENANT_B)
+    _planIdB = await seedPlan(db, TENANT_B)
     repo = new DrizzlePlanMemberRepository(db as never)
   })
 

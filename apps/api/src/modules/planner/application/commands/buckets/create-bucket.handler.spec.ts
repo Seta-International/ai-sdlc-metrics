@@ -5,6 +5,8 @@ import { CreateBucketCommand } from './create-bucket.command'
 import { Bucket } from '../../../domain/entities/bucket.entity'
 import { BucketCreatedEvent } from '@future/event-contracts'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
+import type { IBucketRepository } from '../../../domain/repositories/bucket.repository'
+import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 
 const TENANT_ID = 'tenant-1'
 const PLAN_ID = 'plan-1'
@@ -12,7 +14,7 @@ const BUCKET_ID = 'bucket-1'
 const ACTOR_ID = 'actor-1'
 
 function makeCommand(
-  overrides: Partial<ConstructorParameters<typeof CreateBucketCommand>[0]> = {},
+  _overrides: Partial<ConstructorParameters<typeof CreateBucketCommand>[0]> = {},
 ) {
   return new CreateBucketCommand(TENANT_ID, PLAN_ID, BUCKET_ID, 'New Bucket', ACTOR_ID)
 }
@@ -44,8 +46,8 @@ describe('CreateBucketHandler', () => {
     authSvc = { assertCanEditPlan: vi.fn().mockResolvedValue(undefined) }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
     handler = new CreateBucketHandler(
-      bucketRepo as any,
-      authSvc as any,
+      bucketRepo as unknown as IBucketRepository,
+      authSvc as unknown as PlanAuthorizationService,
       eventBus as unknown as EventBus,
     )
   })

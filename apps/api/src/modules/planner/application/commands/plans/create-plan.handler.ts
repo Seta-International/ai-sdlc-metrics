@@ -39,7 +39,7 @@ export class CreatePlanHandler implements ICommandHandler<CreatePlanCommand> {
 
     plan.addBucket(command.bucketId, 'To do', '!')
     const bucket = plan.buckets[plan.buckets.length - 1]
-    const creatorMember = (plan.members as any)[0]
+    const creatorMember = plan.members[0]
     await this.planRepo.save(plan)
     await this.planMemberRepo.upsert(command.id, command.tenantId, creatorMember)
     await this.bucketRepo.save(bucket)

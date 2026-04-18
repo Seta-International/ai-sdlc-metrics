@@ -8,6 +8,9 @@ import { LabelSlot } from '../../../domain/value-objects/label-slot.vo'
 import { PlanLabelUpdatedEvent } from '@future/event-contracts'
 import { PlanNotFoundException } from '../../../domain/exceptions/plan-not-found.exception'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
+import type { IPlanRepository } from '../../../domain/repositories/plan.repository'
+import type { IPlanLabelRepository } from '../../../domain/repositories/plan-label.repository'
+import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 
 const TENANT_ID = 'tenant-1'
 const PLAN_ID = 'plan-1'
@@ -47,9 +50,9 @@ describe('RenamePlanLabelHandler', () => {
     authSvc = { assertCanEditPlan: vi.fn().mockResolvedValue(undefined) }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
     handler = new RenamePlanLabelHandler(
-      planRepo as any,
-      planLabelRepo as any,
-      authSvc as any,
+      planRepo as unknown as IPlanRepository,
+      planLabelRepo as unknown as IPlanLabelRepository,
+      authSvc as unknown as PlanAuthorizationService,
       eventBus as unknown as EventBus,
     )
   })

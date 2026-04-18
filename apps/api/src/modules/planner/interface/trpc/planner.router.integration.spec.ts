@@ -10,7 +10,7 @@ import {
 } from '@future/db/test-helpers'
 import type { Db } from '@future/db'
 import { EventBus } from '@nestjs/cqrs'
-import { TRPCError } from '@trpc/server'
+import { TRPCError as _TRPCError } from '@trpc/server'
 import { DrizzlePlanRepository } from '../../infrastructure/repositories/drizzle-plan.repository'
 import { DrizzleBucketRepository } from '../../infrastructure/repositories/drizzle-bucket.repository'
 import { DrizzlePlanMemberRepository } from '../../infrastructure/repositories/drizzle-plan-member.repository'

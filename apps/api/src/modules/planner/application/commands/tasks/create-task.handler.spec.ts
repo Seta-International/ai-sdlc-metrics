@@ -5,6 +5,8 @@ import { CreateTaskCommand } from './create-task.command'
 import { Task } from '../../../domain/entities/task.entity'
 import { TaskCreatedEvent } from '@future/event-contracts'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
+import type { ITaskRepository } from '../../../domain/repositories/task.repository'
+import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 
 const TENANT_ID = 'tenant-1'
 const PLAN_ID = 'plan-1'
@@ -29,8 +31,8 @@ describe('CreateTaskHandler', () => {
     authSvc = { assertCanEditPlan: vi.fn().mockResolvedValue(undefined) }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
     handler = new CreateTaskHandler(
-      taskRepo as any,
-      authSvc as any,
+      taskRepo as unknown as ITaskRepository,
+      authSvc as unknown as PlanAuthorizationService,
       eventBus as unknown as EventBus,
     )
   })

@@ -7,6 +7,9 @@ import { Task } from '../../../domain/entities/task.entity'
 import { BucketDeletedEvent, TaskDeletedEvent } from '@future/event-contracts'
 import { BucketNotFoundException } from '../../../domain/exceptions/bucket-not-found.exception'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
+import type { IBucketRepository } from '../../../domain/repositories/bucket.repository'
+import type { ITaskRepository } from '../../../domain/repositories/task.repository'
+import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 
 const TENANT_ID = 'tenant-1'
 const PLAN_ID = 'plan-1'
@@ -58,9 +61,9 @@ describe('DeleteBucketHandler', () => {
     authSvc = { assertCanEditPlan: vi.fn().mockResolvedValue(undefined) }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
     handler = new DeleteBucketHandler(
-      bucketRepo as any,
-      taskRepo as any,
-      authSvc as any,
+      bucketRepo as unknown as IBucketRepository,
+      taskRepo as unknown as ITaskRepository,
+      authSvc as unknown as PlanAuthorizationService,
       eventBus as unknown as EventBus,
     )
   })

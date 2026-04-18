@@ -10,6 +10,9 @@ import { TaskLabelRemovedEvent } from '@future/event-contracts'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
 import { TaskNotFoundException } from '../../../domain/exceptions/task-not-found.exception'
 import { PlanNotFoundException } from '../../../domain/exceptions/plan-not-found.exception'
+import type { ITaskRepository } from '../../../domain/repositories/task.repository'
+import type { IPlanRepository } from '../../../domain/repositories/plan.repository'
+import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 
 const TENANT_ID = 'tenant-1'
 const PLAN_ID = 'plan-1'
@@ -71,9 +74,9 @@ describe('RemoveLabelHandler', () => {
     authSvc = { assertCanEditPlan: vi.fn().mockResolvedValue(undefined) }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
     handler = new RemoveLabelHandler(
-      taskRepo as any,
-      planRepo as any,
-      authSvc as any,
+      taskRepo as unknown as ITaskRepository,
+      planRepo as unknown as IPlanRepository,
+      authSvc as unknown as PlanAuthorizationService,
       eventBus as unknown as EventBus,
     )
   })
@@ -93,8 +96,8 @@ describe('RemoveLabelHandler', () => {
     await handler.execute(command)
 
     expect(authSvc.assertCanEditPlan).toHaveBeenCalledWith(ACTOR_ID, PLAN_ID, TENANT_ID)
-    const [updatedTask] = taskRepo.update.mock.calls[0]
-    expect(updatedTask.appliedLabels.some((l: any) => l.value === 'category1')).toBe(false)
+    const [updatedTask] = taskRepo.update.mock.calls[0] as [Task, ...unknown[]]
+    expect(updatedTask.appliedLabels.some((l) => l.value === 'category1')).toBe(false)
     expect(eventBus.publish).toHaveBeenCalledWith(expect.any(TaskLabelRemovedEvent))
     const event: TaskLabelRemovedEvent = eventBus.publish.mock.calls[0][0]
     expect(event.slot).toBe('category1')

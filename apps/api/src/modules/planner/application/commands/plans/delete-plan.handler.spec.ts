@@ -7,6 +7,8 @@ import { PlanContainer } from '../../../domain/value-objects/plan-container.vo'
 import { PlanDeletedEvent } from '@future/event-contracts'
 import { PlanNotFoundException } from '../../../domain/exceptions/plan-not-found.exception'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
+import type { IPlanRepository } from '../../../domain/repositories/plan.repository'
+import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 
 const TENANT_ID = 'tenant-1'
 const PLAN_ID = 'plan-1'
@@ -40,8 +42,8 @@ describe('DeletePlanHandler', () => {
     authSvc = { assertCanAdminPlan: vi.fn().mockResolvedValue(undefined) }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
     handler = new DeletePlanHandler(
-      planRepo as any,
-      authSvc as any,
+      planRepo as unknown as IPlanRepository,
+      authSvc as unknown as PlanAuthorizationService,
       eventBus as unknown as EventBus,
     )
   })

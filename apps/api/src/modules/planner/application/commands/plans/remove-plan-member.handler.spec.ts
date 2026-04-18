@@ -8,6 +8,9 @@ import { PlanMemberRemovedEvent } from '@future/event-contracts'
 import { PlanNotFoundException } from '../../../domain/exceptions/plan-not-found.exception'
 import { LastOwnerRemovalException } from '../../../domain/exceptions/last-owner-removal.exception'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
+import type { IPlanRepository } from '../../../domain/repositories/plan.repository'
+import type { IPlanMemberRepository } from '../../../domain/repositories/plan-member.repository'
+import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 
 const TENANT_ID = 'tenant-1'
 const PLAN_ID = 'plan-1'
@@ -43,9 +46,9 @@ describe('RemovePlanMemberHandler', () => {
     authSvc = { assertCanManageMembers: vi.fn().mockResolvedValue(undefined) }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
     handler = new RemovePlanMemberHandler(
-      planRepo as any,
-      planMemberRepo as any,
-      authSvc as any,
+      planRepo as unknown as IPlanRepository,
+      planMemberRepo as unknown as IPlanMemberRepository,
+      authSvc as unknown as PlanAuthorizationService,
       eventBus as unknown as EventBus,
     )
   })
