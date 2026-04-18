@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Button, Input } from '@future/ui'
 
 interface LabelSlot {
   slot: string
@@ -46,7 +47,7 @@ export function LabelEditor({ labels, onRename, onRecolor }: LabelEditorProps) {
         return (
           <div
             key={slot}
-            data-slot={slot}
+            data-label-slot={slot}
             className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-overlay/5"
           >
             <input
@@ -58,9 +59,8 @@ export function LabelEditor({ labels, onRename, onRecolor }: LabelEditorProps) {
               aria-label={`color for ${slot}`}
             />
             {isEditing ? (
-              <input
+              <Input
                 autoFocus
-                type="text"
                 data-testid="label-rename-input"
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
@@ -69,19 +69,21 @@ export function LabelEditor({ labels, onRename, onRecolor }: LabelEditorProps) {
                   if (e.key === 'Enter') commitRename(slot)
                   if (e.key === 'Escape') setEditing(null)
                 }}
-                className="flex-1 bg-transparent border-b border-overlay/20 text-sm text-fg-primary outline-none py-0.5"
+                className="flex-1"
               />
             ) : (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 onClick={() => {
                   setEditing(slot)
                   setEditValue(label.name)
                 }}
-                className="flex-1 text-left text-sm text-fg-secondary hover:text-fg-primary truncate"
+                className="flex-1 justify-start text-fg-secondary hover:text-fg-primary truncate"
               >
                 {label.name}
-              </button>
+              </Button>
             )}
           </div>
         )

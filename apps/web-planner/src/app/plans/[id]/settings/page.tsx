@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@future/ui'
 import { trpc } from '../../../../lib/trpc'
-import { LabelEditor } from '../../../../components/label-editor'
+import { LabelEditor } from '../../../../components/LabelEditor'
 
 interface PlanDetail {
   id: string
