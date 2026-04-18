@@ -15,6 +15,13 @@
       "when": 1776443044610,
       "tag": "0001_rls_and_extras",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776512538614,
+      "tag": "0002_eager_firedrake",
+      "breakpoints": true
     }
   ]
 }
