@@ -8,6 +8,6 @@ import { PreferencesQueryFacade } from './application/facades/preferences-query.
     { provide: SAVED_VIEW_REPOSITORY, useClass: DrizzleSavedViewRepository },
     PreferencesQueryFacade,
   ],
-  exports: [PreferencesQueryFacade, SAVED_VIEW_REPOSITORY],
+  exports: [PreferencesQueryFacade],
 })
 export class PreferencesModule {}

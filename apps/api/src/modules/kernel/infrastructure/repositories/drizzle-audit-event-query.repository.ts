@@ -25,16 +25,15 @@ export class DrizzleAuditEventQueryRepository implements IAuditEventQueryReposit
 
     const where = and(...conditions)
 
-    const [items, countResult] = await Promise.all([
-      this.db
-        .select()
-        .from(auditEvent)
-        .where(where)
-        .orderBy(auditEvent.createdAt)
-        .limit(filter.limit)
-        .offset(filter.offset),
-      this.db.select({ value: count() }).from(auditEvent).where(where),
-    ])
+    const items = await this.db
+      .select()
+      .from(auditEvent)
+      .where(where)
+      .orderBy(auditEvent.createdAt)
+      .limit(filter.limit)
+      .offset(filter.offset)
+
+    const countResult = await this.db.select({ value: count() }).from(auditEvent).where(where)
 
     return {
       items: items.map((row) => ({
