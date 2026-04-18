@@ -3,6 +3,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { useSession } from '@future/auth'
+import {
+  Button,
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbSeparator,
+  BreadcrumbPage,
+} from '@future/ui'
 import { trpc } from '../../../lib/trpc'
 
 interface PlanHeader {
@@ -40,43 +49,30 @@ export default function PlanLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="flex flex-col min-h-0">
       {/* Plan sub-navigation bar */}
-      <nav
-        className="flex items-center gap-1 px-6 py-2 border-b border-overlay/5 bg-panel"
-        style={{ fontFeatureSettings: '"cv01", "ss03"' }}
-      >
-        <a
-          href="/plans"
-          className="text-xs text-fg-subtle hover:text-fg-muted transition-colors mr-2"
-        >
-          Plans
-        </a>
-        <span className="text-divider-lg text-xs select-none">/</span>
+      <nav className="flex items-center gap-1 px-6 py-2 border-b border-overlay/5 bg-panel">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/plans">Plans</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              {plan ? (
+                <BreadcrumbPage>{plan.name}</BreadcrumbPage>
+              ) : (
+                <span className="mx-2 h-3 w-24 rounded bg-overlay/5 animate-pulse inline-block" />
+              )}
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
 
-        {plan ? (
-          <span className="text-xs font-510 text-fg-secondary mx-2 truncate max-w-44">
-            {plan.name}
-          </span>
-        ) : (
-          <span className="mx-2 h-3 w-24 rounded bg-overlay/5 animate-pulse inline-block" />
-        )}
-
-        <span className="text-divider-lg text-xs select-none mr-2">/</span>
-
-        <div className="flex items-center gap-0.5">
-          <a
-            href={`/plans/${planId}/board`}
-            className="px-2 py-1 rounded text-xs font-510 text-fg-muted hover:text-fg-primary hover:bg-overlay/4 transition-colors"
-            style={{ fontFeatureSettings: '"cv01", "ss03"' }}
-          >
-            Board
-          </a>
-          <a
-            href={`/plans/${planId}/settings`}
-            className="px-2 py-1 rounded text-xs font-510 text-fg-muted hover:text-fg-primary hover:bg-overlay/4 transition-colors"
-            style={{ fontFeatureSettings: '"cv01", "ss03"' }}
-          >
-            Settings
-          </a>
+        <div className="flex items-center gap-0.5 ml-2">
+          <Button variant="ghost" size="sm" asChild>
+            <a href={`/plans/${planId}/board`}>Board</a>
+          </Button>
+          <Button variant="ghost" size="sm" asChild>
+            <a href={`/plans/${planId}/settings`}>Settings</a>
+          </Button>
         </div>
       </nav>
 

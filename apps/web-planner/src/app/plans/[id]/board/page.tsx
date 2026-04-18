@@ -2,6 +2,7 @@
 
 import { useParams } from 'next/navigation'
 import { useSession } from '@future/auth'
+import { Button, Skeleton } from '@future/ui'
 import { useBoardSnapshot } from '../../../../lib/hooks/useBoardSnapshot'
 import { useOptimisticMove } from '../../../../lib/hooks/useOptimisticMove'
 import { BoardDragContext } from '../../../../components/board/BoardDragContext'
@@ -16,22 +17,18 @@ import type { Progress } from '../../../../components/primitives/ProgressIcon'
 
 function BoardColumnSkeleton() {
   return (
-    <div
-      className="flex w-72 flex-shrink-0 flex-col gap-2"
-      aria-hidden
-      style={{ fontFeatureSettings: '"cv01", "ss03"' }}
-    >
+    <div className="flex w-72 flex-shrink-0 flex-col gap-2" aria-hidden>
       {/* Column header skeleton */}
       <div className="flex items-center gap-2 px-1 pb-2">
-        <div className="h-3.5 w-3.5 rounded bg-white/5 animate-pulse" />
-        <div className="h-3.5 w-24 rounded bg-white/5 animate-pulse" />
-        <div className="ml-auto h-3 w-4 rounded bg-white/5 animate-pulse" />
+        <Skeleton className="h-3.5 w-3.5 rounded" />
+        <Skeleton className="h-3.5 w-24 rounded" />
+        <Skeleton className="ml-auto h-3 w-4 rounded" />
       </div>
       {/* Task card skeletons */}
       {[80, 60, 72].map((w, i) => (
-        <div
+        <Skeleton
           key={i}
-          className="h-16 rounded-lg border border-white/5 bg-white/2 animate-pulse"
+          className="h-16 rounded-lg"
           style={{ width: '100%', opacity: 1 - i * 0.15 }}
         />
       ))}
@@ -53,18 +50,11 @@ function BoardLoadingSkeleton() {
 
 function BoardError({ onRetry }: { onRetry: () => void }) {
   return (
-    <div
-      className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-16"
-      style={{ fontFeatureSettings: '"cv01", "ss03"' }}
-    >
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-16">
       <p className="text-small font-400 text-fg-muted">Failed to load board.</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="rounded-md bg-white/5 border border-white/8 px-4 py-2 text-caption-lg font-510 text-fg-secondary transition-colors hover:bg-white/8 hover:text-fg-primary"
-      >
+      <Button variant="outline" onClick={onRetry}>
         Try again
-      </button>
+      </Button>
     </div>
   )
 }
@@ -81,10 +71,7 @@ function BoardEmpty({
   tenantId: string
 }) {
   return (
-    <div
-      className="flex flex-1 flex-col items-start gap-4 px-6 py-4 overflow-x-auto"
-      style={{ fontFeatureSettings: '"cv01", "ss03"' }}
-    >
+    <div className="flex flex-1 flex-col items-start gap-4 px-6 py-4 overflow-x-auto">
       <div className="flex gap-4 items-start">
         <div className="flex w-72 flex-shrink-0 flex-col items-center justify-center gap-3 rounded-lg border border-white/5 bg-white/2 px-4 py-10">
           <p className="text-small font-400 text-fg-muted text-center">
@@ -174,11 +161,7 @@ function BoardInner({ snapshot, planId, actorId, tenantId }: BoardInnerProps) {
       taskIndex={taskIndex}
       bucketTaskLists={bucketTaskLists}
     >
-      <div
-        className="flex gap-4 px-6 py-4 overflow-x-auto h-full"
-        style={{ fontFeatureSettings: '"cv01", "ss03"' }}
-        data-testid="board-columns"
-      >
+      <div className="flex gap-4 px-6 py-4 overflow-x-auto h-full" data-testid="board-columns">
         {snapshot.buckets.map((bucket) => (
           <BoardColumn
             key={bucket.id}
@@ -223,11 +206,7 @@ export default function PlanBoardPage() {
   }
 
   return (
-    <div
-      className="flex flex-1 min-h-0"
-      style={{ fontFeatureSettings: '"cv01", "ss03"' }}
-      data-testid="board-page"
-    >
+    <div className="flex flex-1 min-h-0" data-testid="board-page">
       <BoardInner snapshot={data} planId={planId} actorId={actorId} tenantId={tenantId} />
     </div>
   )
