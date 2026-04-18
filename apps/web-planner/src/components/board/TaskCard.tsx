@@ -205,6 +205,7 @@ export function TaskCard({
               progress === 100 ? 'line-through text-fg-muted' : 'text-fg-primary'
             }`}
             onPointerDown={(e) => e.stopPropagation()}
+            data-testid="task-title-link"
           >
             {task.title}
           </Link>

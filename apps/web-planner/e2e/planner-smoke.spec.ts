@@ -403,3 +403,128 @@ test.describe('Board flows', () => {
     expect(page.url()).toContain(planId)
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task detail flows — Plan 03 Task 11
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function openTaskDetailPanel(
+  page: Parameters<Parameters<typeof test>[1]>[0]['page'],
+  planId: string,
+  taskTitle: string,
+): Promise<void> {
+  const taskCard = page.locator('[data-testid="task-card"]').filter({ hasText: taskTitle }).first()
+  await taskCard.getByTestId('task-title-link').click()
+  await page.waitForSelector('[data-testid="task-detail-panel"]')
+}
+
+test.describe('Task detail flows — Plan 03', () => {
+  test('Flow 1: edit title → blur → refresh → persisted', async ({ page, context }) => {
+    const planId = await createPlan(page, context, 'Detail Flow 1 Plan')
+    await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
+    const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
+    if (!hasBoardPage) await addBucket(page, 'To do')
+    await addTaskToFirstColumn(page, 'Title Before Edit')
+
+    await openTaskDetailPanel(page, planId, 'Title Before Edit')
+
+    const titleInput = page.getByTestId('task-detail-title-input')
+    await titleInput.clear()
+    await titleInput.fill('Title After Edit')
+    await titleInput.blur()
+
+    await page
+      .waitForSelector('[data-testid="task-detail-saving"]', { state: 'hidden', timeout: 5000 })
+      .catch(() => {})
+
+    await page.keyboard.press('Escape')
+    await page.reload()
+    await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
+
+    await expect(
+      page.locator('[data-testid="task-card"]').filter({ hasText: 'Title After Edit' }),
+    ).toBeVisible()
+  })
+
+  test('Flow 2: paste rich text → toast shown → description is plain', async ({
+    page,
+    context,
+  }) => {
+    const planId = await createPlan(page, context, 'Detail Flow 2 Plan')
+    await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
+    const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
+    if (!hasBoardPage) await addBucket(page, 'To do')
+    await addTaskToFirstColumn(page, 'Paste Test Task')
+
+    await openTaskDetailPanel(page, planId, 'Paste Test Task')
+
+    const descTextarea = page.getByTestId('task-detail-description')
+    await descTextarea.focus()
+
+    await page.evaluate(() => {
+      const dt = new DataTransfer()
+      dt.setData('text/plain', 'bold text')
+      dt.setData('text/html', '<b>bold text</b>')
+      const textarea = document.querySelector(
+        '[data-testid="task-detail-description"]',
+      ) as HTMLTextAreaElement
+      textarea?.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }))
+    })
+
+    await expect(page.getByText('Rich text is not supported')).toBeVisible()
+
+    await expect(descTextarea).toHaveValue('bold text')
+  })
+
+  test('Flow 3: add 20 checklist items → 21st is blocked', async ({ page, context }) => {
+    const planId = await createPlan(page, context, 'Detail Flow 3 Plan')
+    await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
+    const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
+    if (!hasBoardPage) await addBucket(page, 'To do')
+    await addTaskToFirstColumn(page, 'Checklist Cap Task')
+
+    await openTaskDetailPanel(page, planId, 'Checklist Cap Task')
+
+    const addInput = page.getByTestId('checklist-add-input')
+
+    for (let i = 1; i <= 20; i++) {
+      await addInput.fill(`Item ${i}`)
+      await addInput.press('Enter')
+      await page.waitForTimeout(100)
+    }
+
+    await expect(addInput).toBeDisabled()
+
+    await expect(page.getByText('Maximum 20 items reached')).toBeVisible()
+  })
+
+  test('Flow 4: check 3 items → counter shows 3/N', async ({ page, context }) => {
+    const planId = await createPlan(page, context, 'Detail Flow 4 Plan')
+    await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
+    const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
+    if (!hasBoardPage) await addBucket(page, 'To do')
+    await addTaskToFirstColumn(page, 'Counter Task')
+
+    await openTaskDetailPanel(page, planId, 'Counter Task')
+
+    const addInput = page.getByTestId('checklist-add-input')
+
+    for (let i = 1; i <= 5; i++) {
+      await addInput.fill(`Item ${i}`)
+      await addInput.press('Enter')
+      await page.waitForTimeout(100)
+    }
+
+    const checkboxes = page.locator('[data-testid^="checklist-item-checkbox-"]')
+    for (let i = 0; i < 3; i++) {
+      await checkboxes.nth(i).click()
+      await page.waitForTimeout(100)
+    }
+
+    await expect(page.getByTestId('checklist-counter')).toContainText('3')
+  })
+
+  test.skip('Flow 5: conflict resolver UI', async () => {
+    // Requires two concurrent browser sessions — covered by integration tests
+  })
+})

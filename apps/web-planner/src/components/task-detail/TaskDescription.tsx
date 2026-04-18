@@ -42,6 +42,7 @@ export function TaskDescription({ value, onChange }: Props) {
         className="resize-none w-full"
         onBlur={(e) => onChange(e.target.value)}
         onPaste={handlePaste}
+        data-testid="task-detail-description"
       />
     </div>
   )

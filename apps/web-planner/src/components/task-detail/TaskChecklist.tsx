@@ -71,7 +71,11 @@ function SortableItem({ item, onToggle, onEdit, onRemove }: SortableItemProps) {
         <GripVertical className="size-4" />
       </span>
 
-      <Checkbox checked={item.isChecked} onCheckedChange={(v) => onToggle(item, !!v)} />
+      <Checkbox
+        checked={item.isChecked}
+        onCheckedChange={(v) => onToggle(item, !!v)}
+        data-testid={`checklist-item-checkbox-${item.id}`}
+      />
 
       <div className="min-w-0 flex-1">
         {editing ? (
@@ -307,7 +311,11 @@ export function TaskChecklist({ taskId, planId }: TaskChecklistProps) {
     <div className="flex flex-col gap-2 px-4 py-3">
       <div className="flex items-center gap-2">
         <h3 className="text-sm font-medium">
-          Checklist ({checklistCheckedCount} / {checklistItemCount})
+          Checklist (
+          <span data-testid="checklist-counter">
+            {checklistCheckedCount} / {checklistItemCount}
+          </span>
+          )
         </h3>
         {isMutating && <Spinner className="size-3" />}
       </div>
@@ -338,6 +346,7 @@ export function TaskChecklist({ taskId, planId }: TaskChecklistProps) {
             onChange={(e) => setAddValue(e.target.value)}
             onKeyDown={handleAddKeyDown}
             className="h-7 text-sm"
+            data-testid="checklist-add-input"
           />
         </div>
         {checklistItemCount >= 20 && (

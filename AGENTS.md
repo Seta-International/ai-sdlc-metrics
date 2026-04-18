@@ -141,56 +141,21 @@ All font choices, colors, spacing, radii, motion, and component rules are define
 Do not deviate without explicit user approval.
 In QA mode, flag any code that does not match `DESIGN.md`.
 
-### UI/UX Consistency — Always Use Design System Components
+### UI/UX Consistency
 
-**Every interactive element must use the shared design system for consistency.** The goal is a uniform look and feel across all pages and components.
+**Rule: always use design system components. Never use raw HTML for interactive elements.**
 
-#### Interactive elements — use `@future/ui`
+| Instead of…              | Use                                                                   |
+| ------------------------ | --------------------------------------------------------------------- |
+| `<button>`               | `<Button>` from `@future/ui`                                          |
+| `<input>`                | `<Input>` from `@future/ui`                                           |
+| `<textarea>`             | `<Textarea>` from `@future/ui`                                        |
+| `×` `✕` `←` `→` `+` icons | `<X>` `<ArrowLeft>` `<ArrowRight>` `<Plus>` from `lucide-react`     |
+| `<a href="...">` (same zone) | `<Button variant="ghost" size="sm" asChild><Link href="/path">` |
+| `animate-pulse` div      | `<Skeleton />` from `@future/ui`                                      |
+| `<div className="text-red-...">` | `<Alert variant="destructive"><AlertDescription>…`          |
 
-| Raw HTML     | Use instead                    |
-| ------------ | ------------------------------ |
-| `<button>`   | `<Button>` from `@future/ui`   |
-| `<input>`    | `<Input>` from `@future/ui`    |
-| `<textarea>` | `<Textarea>` from `@future/ui` |
-
-Layout and structural elements (`<div>`, `<span>`, `<p>`, `<h1>`–`<h6>`, `<ul>`, `<li>`, `<form>`, `<label>`) are fine as raw HTML.
-
-#### Icons — always use `lucide-react`
-
-Never use raw text characters as icons. Use `lucide-react` components instead:
-
-| Text character | Use instead                          |
-| -------------- | ------------------------------------ |
-| `×` or `✕`     | `<X />` from `lucide-react`          |
-| `←`            | `<ArrowLeft />` from `lucide-react`  |
-| `→`            | `<ArrowRight />` from `lucide-react` |
-| `+` as icon    | `<Plus />` from `lucide-react`       |
-
-Note: data-driven overflow counters like `+{n}` are text content, not icons — leave them as-is.
-
-#### Internal navigation — use `next/link` + `Button asChild`
-
-Never use raw `<a href="...">` for within-zone navigation. Use:
-
-```tsx
-<Button variant="ghost" size="sm" asChild>
-  <Link href="/path">Label</Link>
-</Button>
-```
-
-Cross-zone navigation (different Next.js zone) must use a plain `<a>` hard reload — that is the one exception.
-
-#### Loading states — use `Skeleton` and `Spinner`
-
-- Skeleton loaders: use `<Skeleton />` from `@future/ui`, never hand-rolled `animate-pulse` divs.
+- Layout/structural HTML (`div`, `span`, `p`, `h1`–`h6`, `ul`, `li`, `form`, `label`) is fine as-is.
+- Data-driven counters like `+{n}` are text, not icons — leave them as-is.
+- Cross-zone navigation (different Next.js zone) must use a plain `<a>` hard reload.
 - Pending buttons: add `<Spinner className="size-4" />` inside the button alongside the label.
-
-#### Error states — use `Alert`
-
-Never raw `<div className="text-red-...">`. Use:
-
-```tsx
-<Alert variant="destructive">
-  <AlertDescription>Error message</AlertDescription>
-</Alert>
-```

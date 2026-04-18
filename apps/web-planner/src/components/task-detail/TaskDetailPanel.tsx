@@ -60,7 +60,7 @@ export function TaskDetailPanel({ taskId, planId }: Props) {
   }, [router])
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col" data-testid="task-detail-panel">
       <TaskPanelHeader title={task?.title ?? ''} isSaving={saving} onClose={() => router.back()} />
 
       <ConflictBanner
