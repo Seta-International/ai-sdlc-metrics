@@ -140,3 +140,15 @@ Always read `DESIGN.md` before making any visual or UI decision.
 All font choices, colors, spacing, radii, motion, and component rules are defined there.
 Do not deviate without explicit user approval.
 In QA mode, flag any code that does not match `DESIGN.md`.
+
+### UI Components — No Raw HTML Interactive Elements
+
+**Never use raw HTML interactive elements in frontend pages or components.** Use the design system equivalents from `@future/ui` instead:
+
+| Raw HTML     | Use instead                    |
+| ------------ | ------------------------------ |
+| `<button>`   | `<Button>` from `@future/ui`   |
+| `<input>`    | `<Input>` from `@future/ui`    |
+| `<textarea>` | `<Textarea>` from `@future/ui` |
+
+Layout and structural elements (`<div>`, `<span>`, `<p>`, `<h1>`–`<h6>`, `<ul>`, `<li>`, `<form>`, `<label>`) are fine as raw HTML.
