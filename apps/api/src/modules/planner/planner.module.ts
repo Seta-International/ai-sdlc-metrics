@@ -49,6 +49,7 @@ import { DrizzleChecklistItemRepository } from './infrastructure/repositories/dr
 import { ListPlansForActorHandler } from './application/queries/plans/list-plans-for-actor.handler'
 import { GetPlanHandler } from './application/queries/plans/get-plan.handler'
 import { GetBoardHandler } from './application/queries/tasks/get-board.handler'
+import { GetTaskDetailHandler } from './application/queries/tasks/get-task-detail.handler'
 
 @Module({
   imports: [CqrsModule, KernelModule, AdminModule],
@@ -91,6 +92,7 @@ import { GetBoardHandler } from './application/queries/tasks/get-board.handler'
     ListPlansForActorHandler,
     GetPlanHandler,
     GetBoardHandler,
+    GetTaskDetailHandler,
     PlannerQueryFacade,
     PlannerRouterService,
   ],
