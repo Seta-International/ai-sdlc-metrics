@@ -32,6 +32,7 @@ export class ToggleChecklistItemHandler implements ICommandHandler<ToggleCheckli
       command.tenantId,
       command.itemId,
       command.isChecked,
+      command.expectedVersion,
     )
 
     await this.eventBus.publish(

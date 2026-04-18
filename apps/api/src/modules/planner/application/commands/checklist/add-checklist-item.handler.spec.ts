@@ -7,6 +7,7 @@ import { ChecklistItem } from '../../../domain/entities/checklist-item.value-obj
 import { ChecklistItemAddedEvent } from '@future/event-contracts'
 import { ChecklistLimitReachedException } from '../../../domain/exceptions/checklist-limit-reached.exception'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
+import { ConcurrentModificationException } from '../../../domain/exceptions/concurrent-modification.exception'
 import type { ITaskRepository } from '../../../domain/repositories/task.repository'
 import type { IChecklistItemRepository } from '../../../domain/repositories/checklist-item.repository'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
@@ -64,13 +65,14 @@ describe('AddChecklistItemHandler', () => {
   it('adds checklist item and emits ChecklistItemAddedEvent', async () => {
     const task = makeTask()
     taskRepo.findById.mockResolvedValue(task)
+    const expectedVersion = task.updatedAt.toISOString()
     const command = new AddChecklistItemCommand(
       TENANT_ID,
       PLAN_ID,
       TASK_ID,
       ITEM_ID,
       ACTOR_ID,
-      task.updatedAt.toISOString(),
+      expectedVersion,
       'Do something',
     )
 
@@ -78,12 +80,14 @@ describe('AddChecklistItemHandler', () => {
 
     expect(authSvc.assertCanEditPlan).toHaveBeenCalledWith(ACTOR_ID, PLAN_ID, TENANT_ID)
     expect(checklistRepo.addItem).toHaveBeenCalledOnce()
-    const [callTaskId, callTenantId, item, callActorId] = checklistRepo.addItem.mock.calls[0]
+    const [callTaskId, callTenantId, item, callActorId, callExpectedVersion] =
+      checklistRepo.addItem.mock.calls[0]
     expect(callTaskId).toBe(TASK_ID)
     expect(callTenantId).toBe(TENANT_ID)
     expect(item.id).toBe(ITEM_ID)
     expect(item.title).toBe('Do something')
     expect(callActorId).toBe(ACTOR_ID)
+    expect(callExpectedVersion).toBe(expectedVersion)
     expect(eventBus.publish).toHaveBeenCalledWith(expect.any(ChecklistItemAddedEvent))
     const event: ChecklistItemAddedEvent = eventBus.publish.mock.calls[0][0]
     expect(event.itemId).toBe(ITEM_ID)
@@ -126,6 +130,24 @@ describe('AddChecklistItemHandler', () => {
 
     await expect(handler.execute(command)).rejects.toThrow(UnauthorizedPlanAccessException)
     expect(checklistRepo.addItem).not.toHaveBeenCalled()
+    expect(eventBus.publish).not.toHaveBeenCalled()
+  })
+
+  it('throws ConcurrentModificationException when task version has changed', async () => {
+    const task = makeTask()
+    taskRepo.findById.mockResolvedValue(task)
+    vi.spyOn(checklistRepo, 'addItem').mockRejectedValueOnce(new ConcurrentModificationException())
+    const command = new AddChecklistItemCommand(
+      TENANT_ID,
+      PLAN_ID,
+      TASK_ID,
+      ITEM_ID,
+      ACTOR_ID,
+      'stale-version',
+      'Do something',
+    )
+
+    await expect(handler.execute(command)).rejects.toThrow(ConcurrentModificationException)
     expect(eventBus.publish).not.toHaveBeenCalled()
   })
 })

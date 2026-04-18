@@ -5,6 +5,7 @@ import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { IChecklistItemRepository } from '../../domain/repositories/checklist-item.repository'
 import { ChecklistItem } from '../../domain/entities/checklist-item.value-object'
 import { plannerTask, plannerTaskChecklistItem } from '../schema/planner.schema'
+import { ConcurrentModificationException } from '../../domain/exceptions/concurrent-modification.exception'
 
 @Injectable()
 export class DrizzleChecklistItemRepository implements IChecklistItemRepository {
@@ -15,6 +16,7 @@ export class DrizzleChecklistItemRepository implements IChecklistItemRepository 
     tenantId: string,
     item: ChecklistItem,
     createdBy: string,
+    expectedVersion?: string,
   ): Promise<void> {
     await this.db.transaction(async (tx) => {
       await tx.insert(plannerTaskChecklistItem).values({
@@ -27,13 +29,24 @@ export class DrizzleChecklistItemRepository implements IChecklistItemRepository 
         createdBy,
       })
 
-      await tx
+      const updated = await tx
         .update(plannerTask)
         .set({
           checklistItemCount: sql`${plannerTask.checklistItemCount} + 1`,
           updatedAt: sql`NOW()`,
         })
-        .where(and(eq(plannerTask.id, taskId), eq(plannerTask.tenantId, tenantId)))
+        .where(
+          and(
+            eq(plannerTask.id, taskId),
+            eq(plannerTask.tenantId, tenantId),
+            expectedVersion ? eq(plannerTask.updatedAt, new Date(expectedVersion)) : sql`TRUE`,
+          ),
+        )
+        .returning({ id: plannerTask.id })
+
+      if (updated.length === 0) {
+        throw new ConcurrentModificationException()
+      }
     })
   }
 
@@ -42,6 +55,7 @@ export class DrizzleChecklistItemRepository implements IChecklistItemRepository 
     tenantId: string,
     itemId: string,
     isChecked: boolean,
+    expectedVersion?: string,
   ): Promise<void> {
     await this.db.transaction(async (tx) => {
       await tx
@@ -58,18 +72,51 @@ export class DrizzleChecklistItemRepository implements IChecklistItemRepository 
           ),
         )
 
-      await tx
+      const updated = await tx
         .update(plannerTask)
         .set({
           checklistCheckedCount: sql`${plannerTask.checklistCheckedCount} + ${isChecked ? 1 : -1}`,
           updatedAt: sql`NOW()`,
         })
-        .where(and(eq(plannerTask.id, taskId), eq(plannerTask.tenantId, tenantId)))
+        .where(
+          and(
+            eq(plannerTask.id, taskId),
+            eq(plannerTask.tenantId, tenantId),
+            expectedVersion ? eq(plannerTask.updatedAt, new Date(expectedVersion)) : sql`TRUE`,
+          ),
+        )
+        .returning({ id: plannerTask.id })
+
+      if (updated.length === 0) {
+        throw new ConcurrentModificationException()
+      }
     })
   }
 
-  async updateItem(taskId: string, tenantId: string, itemId: string, title: string): Promise<void> {
+  async updateItem(
+    taskId: string,
+    tenantId: string,
+    itemId: string,
+    title: string,
+    expectedVersion?: string,
+  ): Promise<void> {
     await this.db.transaction(async (tx) => {
+      const updated = await tx
+        .update(plannerTask)
+        .set({ updatedAt: sql`NOW()` })
+        .where(
+          and(
+            eq(plannerTask.id, taskId),
+            eq(plannerTask.tenantId, tenantId),
+            expectedVersion ? eq(plannerTask.updatedAt, new Date(expectedVersion)) : sql`TRUE`,
+          ),
+        )
+        .returning({ id: plannerTask.id })
+
+      if (updated.length === 0) {
+        throw new ConcurrentModificationException()
+      }
+
       await tx
         .update(plannerTaskChecklistItem)
         .set({
@@ -86,7 +133,12 @@ export class DrizzleChecklistItemRepository implements IChecklistItemRepository 
     })
   }
 
-  async removeItem(taskId: string, tenantId: string, itemId: string): Promise<void> {
+  async removeItem(
+    taskId: string,
+    tenantId: string,
+    itemId: string,
+    expectedVersion?: string,
+  ): Promise<void> {
     await this.db.transaction(async (tx) => {
       // Fetch current isChecked state before deleting
       const rows = await tx
@@ -115,7 +167,7 @@ export class DrizzleChecklistItemRepository implements IChecklistItemRepository 
           ),
         )
 
-      await tx
+      const updated = await tx
         .update(plannerTask)
         .set({
           checklistItemCount: sql`${plannerTask.checklistItemCount} - 1`,
@@ -124,7 +176,18 @@ export class DrizzleChecklistItemRepository implements IChecklistItemRepository 
             : plannerTask.checklistCheckedCount,
           updatedAt: sql`NOW()`,
         })
-        .where(and(eq(plannerTask.id, taskId), eq(plannerTask.tenantId, tenantId)))
+        .where(
+          and(
+            eq(plannerTask.id, taskId),
+            eq(plannerTask.tenantId, tenantId),
+            expectedVersion ? eq(plannerTask.updatedAt, new Date(expectedVersion)) : sql`TRUE`,
+          ),
+        )
+        .returning({ id: plannerTask.id })
+
+      if (updated.length === 0) {
+        throw new ConcurrentModificationException()
+      }
     })
   }
 

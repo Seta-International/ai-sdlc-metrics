@@ -6,6 +6,7 @@ import { Task } from '../../../domain/entities/task.entity'
 import { ChecklistItem } from '../../../domain/entities/checklist-item.value-object'
 import { ChecklistItemRemovedEvent } from '@future/event-contracts'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
+import { ConcurrentModificationException } from '../../../domain/exceptions/concurrent-modification.exception'
 import type { ITaskRepository } from '../../../domain/repositories/task.repository'
 import type { IChecklistItemRepository } from '../../../domain/repositories/checklist-item.repository'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
@@ -58,19 +59,25 @@ describe('RemoveChecklistItemHandler', () => {
   it('removes checklist item and emits ChecklistItemRemovedEvent', async () => {
     const task = makeTask()
     taskRepo.findById.mockResolvedValue(task)
+    const expectedVersion = task.updatedAt.toISOString()
     const command = new RemoveChecklistItemCommand(
       TENANT_ID,
       PLAN_ID,
       TASK_ID,
       ITEM_ID,
       ACTOR_ID,
-      task.updatedAt.toISOString(),
+      expectedVersion,
     )
 
     await handler.execute(command)
 
     expect(authSvc.assertCanEditPlan).toHaveBeenCalledWith(ACTOR_ID, PLAN_ID, TENANT_ID)
-    expect(checklistRepo.removeItem).toHaveBeenCalledWith(TASK_ID, TENANT_ID, ITEM_ID)
+    expect(checklistRepo.removeItem).toHaveBeenCalledWith(
+      TASK_ID,
+      TENANT_ID,
+      ITEM_ID,
+      expectedVersion,
+    )
     expect(eventBus.publish).toHaveBeenCalledWith(expect.any(ChecklistItemRemovedEvent))
     const event: ChecklistItemRemovedEvent = eventBus.publish.mock.calls[0][0]
     expect(event.itemId).toBe(ITEM_ID)
@@ -93,6 +100,25 @@ describe('RemoveChecklistItemHandler', () => {
 
     await expect(handler.execute(command)).rejects.toThrow(UnauthorizedPlanAccessException)
     expect(checklistRepo.removeItem).not.toHaveBeenCalled()
+    expect(eventBus.publish).not.toHaveBeenCalled()
+  })
+
+  it('throws ConcurrentModificationException when task version has changed', async () => {
+    const task = makeTask()
+    taskRepo.findById.mockResolvedValue(task)
+    vi.spyOn(checklistRepo, 'removeItem').mockRejectedValueOnce(
+      new ConcurrentModificationException(),
+    )
+    const command = new RemoveChecklistItemCommand(
+      TENANT_ID,
+      PLAN_ID,
+      TASK_ID,
+      ITEM_ID,
+      ACTOR_ID,
+      'stale-version',
+    )
+
+    await expect(handler.execute(command)).rejects.toThrow(ConcurrentModificationException)
     expect(eventBus.publish).not.toHaveBeenCalled()
   })
 })

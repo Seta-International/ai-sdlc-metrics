@@ -36,7 +36,13 @@ export class AddChecklistItemHandler implements ICommandHandler<AddChecklistItem
 
     task.addChecklistItem(item)
 
-    await this.checklistRepo.addItem(command.taskId, command.tenantId, item, command.actorId)
+    await this.checklistRepo.addItem(
+      command.taskId,
+      command.tenantId,
+      item,
+      command.actorId,
+      command.expectedVersion,
+    )
 
     await this.eventBus.publish(
       new ChecklistItemAddedEvent(

@@ -32,6 +32,7 @@ export class UpdateChecklistItemHandler implements ICommandHandler<UpdateCheckli
       command.tenantId,
       command.itemId,
       command.title,
+      command.expectedVersion,
     )
 
     await this.eventBus.publish(

@@ -27,7 +27,12 @@ export class RemoveChecklistItemHandler implements ICommandHandler<RemoveCheckli
 
     task.removeChecklistItem(command.itemId)
 
-    await this.checklistRepo.removeItem(command.taskId, command.tenantId, command.itemId)
+    await this.checklistRepo.removeItem(
+      command.taskId,
+      command.tenantId,
+      command.itemId,
+      command.expectedVersion,
+    )
 
     await this.eventBus.publish(
       new ChecklistItemRemovedEvent(
