@@ -549,7 +549,6 @@ describe('Task aggregate', () => {
       const hint1 = MsOrderHint.between()
       const item = makeChecklistItem({ id: 'ci-1', orderHint: hint1 })
       task.addChecklistItem(item)
-      const hint2 = MsOrderHint.between(hint1, undefined)
       task.reorderChecklistItem('ci-1', hint1, undefined)
       expect(task.checklistItems[0].orderHint).toBe(MsOrderHint.between(hint1, undefined))
     })

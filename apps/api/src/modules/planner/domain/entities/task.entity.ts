@@ -369,10 +369,6 @@ export class Task {
     }
   }
 
-  /**
-   * Adds a ChecklistItem to the in-memory collection and increments
-   * the denormalized counter. The counter mirrors the DB check constraint (≤20).
-   */
   addChecklistItem(item: ChecklistItem): void {
     if (this._checklistItemCount >= MAX_CHECKLIST_ITEMS) {
       throw new ChecklistLimitReachedException(this.id)

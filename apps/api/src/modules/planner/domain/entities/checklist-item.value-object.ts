@@ -4,7 +4,7 @@ import { TitleTooLongException } from '../exceptions/title-too-long.exception'
 const MAX_TITLE_LENGTH = 255
 
 function validateTitle(title: string): void {
-  if (!title || title.length === 0) {
+  if (title.length === 0) {
     throw new TitleRequiredException()
   }
   if (title.length > MAX_TITLE_LENGTH) {

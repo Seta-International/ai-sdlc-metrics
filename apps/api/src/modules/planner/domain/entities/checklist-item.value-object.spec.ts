@@ -6,10 +6,6 @@ import { MsOrderHint } from '../value-objects/ms-order-hint.vo'
 
 const ORDER_HINT = MsOrderHint.between()
 
-// ────────────────────────────────────────────────────────────────────────────
-// ChecklistItem value object
-// ────────────────────────────────────────────────────────────────────────────
-
 describe('ChecklistItem value object', () => {
   describe('create()', () => {
     it('creates item with correct defaults', () => {
@@ -71,9 +67,6 @@ describe('ChecklistItem value object', () => {
         title: 'Do something',
         orderHint: ORDER_HINT,
       })
-      // TypeScript enforces this at compile time; runtime check via Object.getOwnPropertyDescriptor
-      const idDescriptor = Object.getOwnPropertyDescriptor(item, 'id')
-      // 'readonly' in TS means the property exists but is not writable
       expect(() => {
         ;(item as Record<string, unknown>)['id'] = 'hacked'
       }).toThrow()
