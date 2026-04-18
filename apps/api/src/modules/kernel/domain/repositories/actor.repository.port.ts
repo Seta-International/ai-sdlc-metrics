@@ -4,6 +4,7 @@ export const ACTOR_REPOSITORY = Symbol('IActorRepository')
 
 export interface IActorRepository {
   findById(id: string, tenantId: string): Promise<Actor | null>
+  findManyByIds(ids: string[], tenantId: string): Promise<Actor[]>
   insert(data: {
     tenantId: string
     type: Actor['type']

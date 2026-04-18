@@ -1,6 +1,10 @@
-import { Injectable } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { QueryBus } from '@nestjs/cqrs'
 import type { Actor } from '../../domain/entities/actor.entity'
+import {
+  ACTOR_REPOSITORY,
+  type IActorRepository,
+} from '../../domain/repositories/actor.repository.port'
 import type { RoleGrant } from '../../domain/entities/role-grant.entity'
 import type { Tenant } from '../../domain/entities/tenant.entity'
 import type { UserIdentity } from '../../domain/entities/user-identity.entity'
@@ -25,7 +29,10 @@ import { GetUserIdentityByActorIdQuery } from '../queries/get-user-identity-by-a
  */
 @Injectable()
 export class KernelQueryFacade {
-  constructor(private readonly queryBus: QueryBus) {}
+  constructor(
+    private readonly queryBus: QueryBus,
+    @Inject(ACTOR_REPOSITORY) private readonly actorRepo: IActorRepository,
+  ) {}
 
   getActor(actorId: string, tenantId: string): Promise<Actor | null> {
     return this.queryBus.execute(new GetActorQuery(actorId, tenantId))
@@ -75,6 +82,19 @@ export class KernelQueryFacade {
 
   getLocalUsersWithActors(tenantId: string): Promise<LocalUserWithActorDto[]> {
     return this.queryBus.execute(new GetLocalUsersWithActorsQuery(tenantId))
+  }
+
+  /**
+   * Batch-fetch actors by IDs. Used by board/snapshot queries to enrich assignee display info.
+   * Returns a map of actorId → { displayName }. Missing actors are omitted.
+   */
+  async getActorsByIds(
+    ids: string[],
+    tenantId: string,
+  ): Promise<Map<string, { displayName: string }>> {
+    if (ids.length === 0) return new Map()
+    const actors = await this.actorRepo.findManyByIds(ids, tenantId)
+    return new Map(actors.map((a) => [a.id, { displayName: a.displayName }]))
   }
 
   /**

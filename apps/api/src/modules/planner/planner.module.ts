@@ -30,6 +30,7 @@ import { ReorderBucketHandler } from './application/commands/buckets/reorder-buc
 import { DeleteBucketHandler } from './application/commands/buckets/delete-bucket.handler'
 import { ListPlansForActorHandler } from './application/queries/plans/list-plans-for-actor.handler'
 import { GetPlanHandler } from './application/queries/plans/get-plan.handler'
+import { GetBoardHandler } from './application/queries/tasks/get-board.handler'
 
 @Module({
   imports: [CqrsModule, KernelModule, AdminModule],
@@ -54,6 +55,7 @@ import { GetPlanHandler } from './application/queries/plans/get-plan.handler'
     DeleteBucketHandler,
     ListPlansForActorHandler,
     GetPlanHandler,
+    GetBoardHandler,
     PlannerQueryFacade,
     PlannerRouterService,
   ],
