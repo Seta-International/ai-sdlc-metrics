@@ -65,11 +65,11 @@ describe('planner schema — RLS, tenant isolation, CHECK constraints', () => {
   describe('tenant isolation on planner.plan', () => {
     let planId: string
 
-    it('insert as tenant A bypassing RLS, then invisible to tenant B', async () => {
+    it('insert as tenant A, then invisible to tenant B', async () => {
       planId = uuidv7()
       const createdBy = uuidv7()
 
-      // Insert bypassing RLS using superuser/bypass via SET LOCAL inside a transaction
+      await setTenantContext(db, TENANT_A)
       await db.execute(
         sql`INSERT INTO planner.plan
             (id, tenant_id, name, description, created_by, created_at, updated_at)
@@ -100,11 +100,11 @@ describe('planner schema — RLS, tenant isolation, CHECK constraints', () => {
     let bucketId: string
 
     beforeAll(async () => {
-      // Set up a valid plan and bucket to attach tasks to
       planId = uuidv7()
       bucketId = uuidv7()
       const createdBy = uuidv7()
 
+      await setTenantContext(db, TENANT_A)
       await db.execute(
         sql`INSERT INTO planner.plan
             (id, tenant_id, name, description, created_by, created_at, updated_at)
@@ -185,7 +185,6 @@ describe('planner schema — RLS, tenant isolation, CHECK constraints', () => {
       const taskId = uuidv7()
       const submittedBy = uuidv7()
 
-      // Create a valid task
       await db.execute(
         sql`INSERT INTO planner.task
             (id, tenant_id, plan_id, bucket_id, title, description, progress, priority, order_hint, created_by, created_at, updated_at)
@@ -197,6 +196,107 @@ describe('planner schema — RLS, tenant isolation, CHECK constraints', () => {
           sql`INSERT INTO planner.task_evidence
               (id, task_id, submitted_by, submitted_at, kind, body, caption, tenant_id)
               VALUES (${evidenceId}, ${taskId}, ${submittedBy}, NOW(), 'note', NULL, '', ${TENANT_A})`,
+        ),
+      ).rejects.toThrow()
+    })
+
+    it('rejects priority = 2 on planner.task (not in {1,3,5,9})', async () => {
+      await setTenantContext(db, TENANT_A)
+      const taskId = uuidv7()
+      const createdBy = uuidv7()
+
+      await expect(
+        db.execute(
+          sql`INSERT INTO planner.task
+              (id, tenant_id, plan_id, bucket_id, title, description, progress, priority, order_hint, created_by, created_at, updated_at)
+              VALUES (${taskId}, ${TENANT_A}, ${planId}, ${bucketId}, 'Bad priority', '', 0, 2, '1|d:', ${createdBy}, NOW(), NOW())`,
+        ),
+      ).rejects.toThrow()
+    })
+
+    it('rejects description longer than 32000 chars on planner.task', async () => {
+      await setTenantContext(db, TENANT_A)
+      const longDesc = 'x'.repeat(32001)
+      const taskId = uuidv7()
+      const createdBy = uuidv7()
+
+      await expect(
+        db.execute(
+          sql`INSERT INTO planner.task
+              (id, tenant_id, plan_id, bucket_id, title, description, progress, priority, order_hint, created_by, created_at, updated_at)
+              VALUES (${taskId}, ${TENANT_A}, ${planId}, ${bucketId}, 'Task', ${longDesc}, 0, 5, '1|e:', ${createdBy}, NOW(), NOW())`,
+        ),
+      ).rejects.toThrow()
+    })
+
+    it('rejects progress=100 with completed_at NULL (completion consistency)', async () => {
+      await setTenantContext(db, TENANT_A)
+      const taskId = uuidv7()
+      const createdBy = uuidv7()
+
+      await expect(
+        db.execute(
+          sql`INSERT INTO planner.task
+              (id, tenant_id, plan_id, bucket_id, title, description, progress, priority, order_hint, created_by, created_at, updated_at, completed_at)
+              VALUES (${taskId}, ${TENANT_A}, ${planId}, ${bucketId}, 'Complete no ts', '', 100, 5, '1|f:', ${createdBy}, NOW(), NOW(), NULL)`,
+        ),
+      ).rejects.toThrow()
+    })
+
+    it('rejects progress<100 with completed_at set (completion consistency)', async () => {
+      await setTenantContext(db, TENANT_A)
+      const taskId = uuidv7()
+      const createdBy = uuidv7()
+
+      await expect(
+        db.execute(
+          sql`INSERT INTO planner.task
+              (id, tenant_id, plan_id, bucket_id, title, description, progress, priority, order_hint, created_by, created_at, updated_at, completed_at)
+              VALUES (${taskId}, ${TENANT_A}, ${planId}, ${bucketId}, 'Incomplete with ts', '', 0, 5, '1|g:', ${createdBy}, NOW(), NOW(), NOW())`,
+        ),
+      ).rejects.toThrow()
+    })
+
+    it('rejects task_comment body longer than 4000 chars', async () => {
+      await setTenantContext(db, TENANT_A)
+      const taskId = uuidv7()
+      const createdBy = uuidv7()
+      const commentId = uuidv7()
+      const longBody = 'x'.repeat(4001)
+
+      await db.execute(
+        sql`INSERT INTO planner.task
+            (id, tenant_id, plan_id, bucket_id, title, description, progress, priority, order_hint, created_by, created_at, updated_at)
+            VALUES (${taskId}, ${TENANT_A}, ${planId}, ${bucketId}, 'Task for comment', '', 0, 5, '1|h:', ${createdBy}, NOW(), NOW())`,
+      )
+
+      await expect(
+        db.execute(
+          sql`INSERT INTO planner.task_comment
+              (id, task_id, author_actor_id, body, posted_at, tenant_id)
+              VALUES (${commentId}, ${taskId}, ${createdBy}, ${longBody}, NOW(), ${TENANT_A})`,
+        ),
+      ).rejects.toThrow()
+    })
+
+    it('rejects task_evidence caption longer than 500 chars', async () => {
+      await setTenantContext(db, TENANT_A)
+      const taskId = uuidv7()
+      const submittedBy = uuidv7()
+      const evidenceId = uuidv7()
+      const longCaption = 'x'.repeat(501)
+
+      await db.execute(
+        sql`INSERT INTO planner.task
+            (id, tenant_id, plan_id, bucket_id, title, description, progress, priority, order_hint, created_by, created_at, updated_at)
+            VALUES (${taskId}, ${TENANT_A}, ${planId}, ${bucketId}, 'Task for ev caption', '', 0, 5, '1|i:', ${submittedBy}, NOW(), NOW())`,
+      )
+
+      await expect(
+        db.execute(
+          sql`INSERT INTO planner.task_evidence
+              (id, task_id, submitted_by, submitted_at, kind, url, caption, tenant_id)
+              VALUES (${evidenceId}, ${taskId}, ${submittedBy}, NOW(), 'link', 'https://example.com', ${longCaption}, ${TENANT_A})`,
         ),
       ).rejects.toThrow()
     })
