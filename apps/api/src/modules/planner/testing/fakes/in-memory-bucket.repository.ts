@@ -33,6 +33,7 @@ export class InMemoryBucketRepository implements IBucketRepository {
           msBucketId: bucket.msBucketId,
           msBucketEtag: bucket.msBucketEtag,
           createdAt: bucket.createdAt,
+          updatedAt: new Date(),
           deletedAt: new Date(),
         }),
       )

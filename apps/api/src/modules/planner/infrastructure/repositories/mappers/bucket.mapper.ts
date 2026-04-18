@@ -9,6 +9,7 @@ export interface BucketRow {
   msBucketId: string | null
   msBucketEtag: string | null
   createdAt: Date
+  updatedAt: Date
   deletedAt: Date | null
 }
 
@@ -22,6 +23,7 @@ export function bucketRowToEntity(row: BucketRow): Bucket {
     msBucketId: row.msBucketId,
     msBucketEtag: row.msBucketEtag,
     createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
     deletedAt: row.deletedAt,
   })
 }
@@ -35,6 +37,7 @@ export function bucketEntityToRow(bucket: Bucket): {
   msBucketId: string | null
   msBucketEtag: string | null
   createdAt: Date
+  updatedAt: Date
   deletedAt: Date | null
 } {
   return {
@@ -46,6 +49,7 @@ export function bucketEntityToRow(bucket: Bucket): {
     msBucketId: bucket.msBucketId,
     msBucketEtag: bucket.msBucketEtag,
     createdAt: bucket.createdAt,
+    updatedAt: bucket.updatedAt,
     deletedAt: bucket.deletedAt,
   }
 }

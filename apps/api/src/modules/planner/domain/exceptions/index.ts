@@ -1,4 +1,5 @@
 export * from './plan-not-found.exception'
+export * from './bucket-not-found.exception'
 export * from './plan-conflict.exception'
 export * from './task-not-found.exception'
 export * from './bucket-limit-reached.exception'

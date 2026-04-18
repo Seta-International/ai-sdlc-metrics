@@ -8,6 +8,7 @@ export class Bucket {
     readonly msBucketId: string | null,
     readonly msBucketEtag: string | null,
     readonly createdAt: Date,
+    private _updatedAt: Date,
     readonly deletedAt: Date | null,
   ) {}
 
@@ -19,6 +20,10 @@ export class Bucket {
     return this._orderHint
   }
 
+  get updatedAt(): Date {
+    return this._updatedAt
+  }
+
   static create(props: {
     id: string
     tenantId: string
@@ -26,6 +31,7 @@ export class Bucket {
     name: string
     orderHint: string
   }): Bucket {
+    const now = new Date()
     return new Bucket(
       props.id,
       props.tenantId,
@@ -34,7 +40,8 @@ export class Bucket {
       props.orderHint,
       null,
       null,
-      new Date(),
+      now,
+      now,
       null,
     )
   }
@@ -48,6 +55,7 @@ export class Bucket {
     msBucketId: string | null
     msBucketEtag: string | null
     createdAt: Date
+    updatedAt: Date
     deletedAt: Date | null
   }): Bucket {
     return new Bucket(
@@ -59,15 +67,18 @@ export class Bucket {
       props.msBucketId,
       props.msBucketEtag,
       props.createdAt,
+      props.updatedAt,
       props.deletedAt,
     )
   }
 
   rename(newName: string): void {
     this._name = newName
+    this._updatedAt = new Date()
   }
 
   reorder(newOrderHint: string): void {
     this._orderHint = newOrderHint
+    this._updatedAt = new Date()
   }
 }
