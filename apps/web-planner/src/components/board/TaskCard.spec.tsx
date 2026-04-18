@@ -1,0 +1,149 @@
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { render, screen, cleanup } from '@testing-library/react'
+import { TaskCard } from './TaskCard'
+import type { BoardTaskSnapshot, PlanLabel } from '../../lib/board-types'
+
+// dnd-kit requires a full DndContext to use useSortable.
+// We mock useSortable to avoid the need for a DndContext in unit tests.
+vi.mock('@dnd-kit/sortable', () => ({
+  useSortable: () => ({
+    attributes: {},
+    listeners: {},
+    setNodeRef: () => {},
+    transform: null,
+    transition: undefined,
+    isDragging: false,
+  }),
+  verticalListSortingStrategy: {},
+  SortableContext: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}))
+
+vi.mock('@dnd-kit/utilities', () => ({
+  CSS: {
+    Transform: {
+      toString: () => undefined,
+    },
+  },
+}))
+
+function makeTask(overrides: Partial<BoardTaskSnapshot> = {}): BoardTaskSnapshot {
+  return {
+    id: 'task-1',
+    title: 'Default task title',
+    description: '',
+    progress: 0,
+    priority: 3,
+    startDate: null,
+    dueDate: null,
+    orderHint: 'a0',
+    completedAt: null,
+    completedBy: null,
+    checklistItemCount: 0,
+    checklistCheckedCount: 0,
+    attachmentCount: 0,
+    commentCount: 0,
+    evidenceCount: 0,
+    coverAttachmentId: null,
+    appliedLabels: [],
+    assignees: [],
+    updatedAt: new Date(),
+    ...overrides,
+  }
+}
+
+const emptyLabels: PlanLabel[] = []
+
+const planLabels: PlanLabel[] = [
+  { slot: 'category1', name: 'Urgent', color: '#ef4444' },
+  { slot: 'category2', name: 'Design', color: '#5e6ad2' },
+  { slot: 'category3', name: 'Backend', color: '#10b981' },
+  { slot: 'category4', name: 'Frontend', color: '#f59e0b' },
+  { slot: 'category5', name: 'Infra', color: '#8b5cf6' },
+]
+
+afterEach(() => {
+  cleanup()
+})
+
+describe('TaskCard', () => {
+  it('renders task title', () => {
+    render(<TaskCard task={makeTask({ title: 'My feature task' })} planLabels={emptyLabels} />)
+    expect(screen.getByText('My feature task')).toBeDefined()
+  })
+
+  it('shows overdue DueBadge when dueDate is yesterday', () => {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    render(<TaskCard task={makeTask({ dueDate: yesterday })} planLabels={emptyLabels} />)
+
+    // DueBadge renders with an aria-label containing "(overdue)"
+    const badge = screen.getByLabelText(/overdue/i)
+    expect(badge).toBeDefined()
+  })
+
+  it('shows priority icon when priority is 9 (urgent)', () => {
+    render(<TaskCard task={makeTask({ priority: 9 })} planLabels={emptyLabels} />)
+
+    // PriorityIcon renders with aria-label "Priority 9"
+    const icon = screen.getByRole('img', { name: /priority 9/i })
+    expect(icon).toBeDefined()
+  })
+
+  it('does NOT show priority icon when priority is not 9', () => {
+    render(<TaskCard task={makeTask({ priority: 5 })} planLabels={emptyLabels} />)
+    expect(screen.queryByRole('img', { name: /priority/i })).toBeNull()
+  })
+
+  it('shows checklist badge when checklistItemCount > 0', () => {
+    render(
+      <TaskCard
+        task={makeTask({ checklistItemCount: 5, checklistCheckedCount: 2 })}
+        planLabels={emptyLabels}
+      />,
+    )
+
+    // aria-label is "2 of 5 checklist items done"
+    const badge = screen.getByLabelText(/2 of 5 checklist items done/i)
+    expect(badge).toBeDefined()
+  })
+
+  it('does NOT show checklist badge when checklistItemCount is 0', () => {
+    render(<TaskCard task={makeTask({ checklistItemCount: 0 })} planLabels={emptyLabels} />)
+    // The "N/M" text should not appear
+    expect(screen.queryByLabelText(/checklist items done/i)).toBeNull()
+  })
+
+  it('shows +N label overflow when more than 4 labels are applied', () => {
+    const task = makeTask({
+      appliedLabels: ['category1', 'category2', 'category3', 'category4', 'category5'],
+    })
+
+    render(<TaskCard task={task} planLabels={planLabels} />)
+
+    // 4 pills visible + "+1" overflow
+    expect(screen.getByText('+1')).toBeDefined()
+    expect(screen.getByText('Urgent')).toBeDefined()
+    expect(screen.getByText('Design')).toBeDefined()
+    expect(screen.getByText('Backend')).toBeDefined()
+    expect(screen.getByText('Frontend')).toBeDefined()
+    // 'Infra' (5th) should NOT be visible
+    expect(screen.queryByText('Infra')).toBeNull()
+  })
+
+  it('calls onToggleComplete with next progress when checkmark is clicked', async () => {
+    const onToggleComplete = vi.fn()
+    const { container } = render(
+      <TaskCard
+        task={makeTask({ progress: 0 })}
+        planLabels={emptyLabels}
+        onToggleComplete={onToggleComplete}
+      />,
+    )
+
+    const btn = container.querySelector('button[aria-label="Mark complete"]') as HTMLButtonElement
+    btn.click()
+
+    expect(onToggleComplete).toHaveBeenCalledWith('task-1', 100)
+  })
+})
