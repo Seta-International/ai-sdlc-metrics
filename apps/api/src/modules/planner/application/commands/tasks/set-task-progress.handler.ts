@@ -31,7 +31,6 @@ export class SetTaskProgressHandler implements ICommandHandler<SetTaskProgressCo
     )
 
     const wasCompleted = task.progress === 100
-    const prevProgress = task.progress
 
     if (command.progress === 100) {
       task.markCompleted(command.actorId, new Date())
@@ -65,7 +64,5 @@ export class SetTaskProgressHandler implements ICommandHandler<SetTaskProgressCo
         new TaskReopenedEvent(command.tenantId, command.actorId, command.taskId, command.planId),
       )
     }
-
-    void prevProgress
   }
 }

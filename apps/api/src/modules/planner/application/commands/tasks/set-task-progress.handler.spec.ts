@@ -176,4 +176,45 @@ describe('SetTaskProgressHandler', () => {
     await expect(handler.execute(command)).rejects.toThrow(UnauthorizedPlanAccessException)
     expect(taskRepo.update).not.toHaveBeenCalled()
   })
+
+  it('reopens task when progress set to < 100 on a previously completed task', async () => {
+    const task = makeTask([ACTOR_ID])
+    task.markCompleted(ACTOR_ID, new Date())
+    taskRepo.findById.mockResolvedValue(task)
+    const command = new SetTaskProgressCommand(
+      TENANT_ID,
+      PLAN_ID,
+      TASK_ID,
+      ACTOR_ID,
+      task.updatedAt.toISOString(),
+      50,
+    )
+
+    await handler.execute(command)
+
+    const [updatedTask] = taskRepo.update.mock.calls[0]
+    expect(updatedTask.progress).toBe(50)
+    expect(updatedTask.completedAt).toBeNull()
+    const events = eventBus.publish.mock.calls.map((c: any[]) => c[0])
+    expect(events.some((e: any) => e instanceof TaskReopenedEvent)).toBe(true)
+  })
+
+  it('viewer-non-assignee cannot change progress', async () => {
+    const task = makeTask([ACTOR_ID])
+    taskRepo.findById.mockResolvedValue(task)
+    authSvc.assertCanUpdateOwnTaskProgress.mockRejectedValue(
+      new UnauthorizedPlanAccessException(VIEWER_ID, PLAN_ID),
+    )
+    const command = new SetTaskProgressCommand(
+      TENANT_ID,
+      PLAN_ID,
+      TASK_ID,
+      VIEWER_ID,
+      task.updatedAt.toISOString(),
+      50,
+    )
+
+    await expect(handler.execute(command)).rejects.toThrow(UnauthorizedPlanAccessException)
+    expect(taskRepo.update).not.toHaveBeenCalled()
+  })
 })
