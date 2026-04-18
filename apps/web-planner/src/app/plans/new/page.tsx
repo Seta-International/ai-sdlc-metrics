@@ -4,6 +4,17 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { useSession } from '@future/auth'
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
+  Textarea,
+} from '@future/ui'
 import { trpc } from '../../../lib/trpc'
 
 export default function NewPlanPage() {
@@ -30,22 +41,28 @@ export default function NewPlanPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!session || !name.trim()) return
-
     const planId = crypto.randomUUID()
     const bucketId = crypto.randomUUID()
     createMutation.mutate({ planId, bucketId })
   }
 
   return (
-    <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50">
-      <div className="bg-surface border border-overlay/8 rounded-xl p-6 w-full max-w-md shadow-2xl">
-        <h2 className="text-lg font-510 text-fg-primary mb-4">New plan</h2>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) router.push('/plans')
+      }}
+    >
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>New plan</DialogTitle>
+        </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-fg-muted mb-1.5" htmlFor="plan-name">
+            <Label htmlFor="plan-name" className="mb-1.5">
               Name
-            </label>
-            <input
+            </Label>
+            <Input
               id="plan-name"
               autoFocus
               type="text"
@@ -54,20 +71,18 @@ export default function NewPlanPage() {
               placeholder="My plan"
               maxLength={255}
               required
-              className="w-full px-3 py-2 rounded-md bg-black/40 border border-overlay/8 text-sm text-fg-primary placeholder:text-fg-subtle outline-none focus:border-brand transition-colors"
             />
           </div>
           <div>
-            <label className="block text-sm text-fg-muted mb-1.5" htmlFor="plan-description">
+            <Label htmlFor="plan-description" className="mb-1.5">
               Description <span className="text-fg-subtle">(optional)</span>
-            </label>
-            <textarea
+            </Label>
+            <Textarea
               id="plan-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What is this plan for?"
               rows={3}
-              className="w-full px-3 py-2 rounded-md bg-black/40 border border-overlay/8 text-sm text-fg-primary placeholder:text-fg-subtle outline-none focus:border-brand transition-colors resize-none"
             />
           </div>
           {createMutation.isError && (
@@ -75,23 +90,16 @@ export default function NewPlanPage() {
               Failed to create plan. Please try again.
             </p>
           )}
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <a
-              href="/plans"
-              className="px-3 py-1.5 rounded-md text-sm text-fg-muted hover:text-fg-primary hover:bg-overlay/5 transition-colors"
-            >
-              Cancel
-            </a>
-            <button
-              type="submit"
-              disabled={createMutation.isPending || !name.trim()}
-              className="px-4 py-1.5 rounded-md bg-brand hover:bg-accent-hover text-fg-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
+          <DialogFooter className="flex items-center justify-end gap-3 pt-2">
+            <Button variant="ghost" asChild>
+              <a href="/plans">Cancel</a>
+            </Button>
+            <Button type="submit" disabled={createMutation.isPending || !name.trim()}>
               {createMutation.isPending ? 'Creating…' : 'Create plan'}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
