@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import React from 'react'
 import { TaskCard } from './TaskCard'
 import type { BoardTaskSnapshot, PlanLabel } from '../../lib/board-types'
 
@@ -22,6 +24,22 @@ vi.mock('@dnd-kit/utilities', () => ({
   CSS: {
     Transform: {
       toString: () => undefined,
+    },
+  },
+}))
+
+// Mock trpc for picker mutations (unused in these tests but needed for import)
+vi.mock('../../lib/trpc', () => ({
+  trpc: {
+    planner: {
+      tasks: {
+        setPriority: { mutate: vi.fn() },
+        setDates: { mutate: vi.fn() },
+        assign: { mutate: vi.fn() },
+        unassign: { mutate: vi.fn() },
+        applyLabel: { mutate: vi.fn() },
+        removeLabel: { mutate: vi.fn() },
+      },
     },
   },
 }))
@@ -61,13 +79,33 @@ const planLabels: PlanLabel[] = [
   { slot: 'category5', name: 'Infra', color: '#8b5cf6' },
 ]
 
+const TASK_PROPS = {
+  planId: 'plan-1',
+  actorId: 'actor-1',
+  tenantId: 'tenant-1',
+}
+
+function createWrapper() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(QueryClientProvider, { client }, children)
+  }
+}
+
 afterEach(() => {
   cleanup()
 })
 
 describe('TaskCard', () => {
   it('renders task title', () => {
-    render(<TaskCard task={makeTask({ title: 'My feature task' })} planLabels={emptyLabels} />)
+    render(
+      <TaskCard
+        task={makeTask({ title: 'My feature task' })}
+        planLabels={emptyLabels}
+        {...TASK_PROPS}
+      />,
+      { wrapper: createWrapper() },
+    )
     expect(screen.getByText('My feature task')).toBeDefined()
   })
 
@@ -75,7 +113,10 @@ describe('TaskCard', () => {
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
 
-    render(<TaskCard task={makeTask({ dueDate: yesterday })} planLabels={emptyLabels} />)
+    render(
+      <TaskCard task={makeTask({ dueDate: yesterday })} planLabels={emptyLabels} {...TASK_PROPS} />,
+      { wrapper: createWrapper() },
+    )
 
     // DueBadge renders with an aria-label containing "(overdue)"
     const badge = screen.getByLabelText(/overdue/i)
@@ -83,7 +124,9 @@ describe('TaskCard', () => {
   })
 
   it('shows priority icon when priority is 9 (urgent)', () => {
-    render(<TaskCard task={makeTask({ priority: 9 })} planLabels={emptyLabels} />)
+    render(<TaskCard task={makeTask({ priority: 9 })} planLabels={emptyLabels} {...TASK_PROPS} />, {
+      wrapper: createWrapper(),
+    })
 
     // PriorityIcon renders with aria-label "Priority 9"
     const icon = screen.getByRole('img', { name: /priority 9/i })
@@ -91,7 +134,9 @@ describe('TaskCard', () => {
   })
 
   it('does NOT show priority icon when priority is not 9', () => {
-    render(<TaskCard task={makeTask({ priority: 5 })} planLabels={emptyLabels} />)
+    render(<TaskCard task={makeTask({ priority: 5 })} planLabels={emptyLabels} {...TASK_PROPS} />, {
+      wrapper: createWrapper(),
+    })
     expect(screen.queryByRole('img', { name: /priority/i })).toBeNull()
   })
 
@@ -100,7 +145,9 @@ describe('TaskCard', () => {
       <TaskCard
         task={makeTask({ checklistItemCount: 5, checklistCheckedCount: 2 })}
         planLabels={emptyLabels}
+        {...TASK_PROPS}
       />,
+      { wrapper: createWrapper() },
     )
 
     // aria-label is "2 of 5 checklist items done"
@@ -109,7 +156,14 @@ describe('TaskCard', () => {
   })
 
   it('does NOT show checklist badge when checklistItemCount is 0', () => {
-    render(<TaskCard task={makeTask({ checklistItemCount: 0 })} planLabels={emptyLabels} />)
+    render(
+      <TaskCard
+        task={makeTask({ checklistItemCount: 0 })}
+        planLabels={emptyLabels}
+        {...TASK_PROPS}
+      />,
+      { wrapper: createWrapper() },
+    )
     // The "N/M" text should not appear
     expect(screen.queryByLabelText(/checklist items done/i)).toBeNull()
   })
@@ -119,7 +173,9 @@ describe('TaskCard', () => {
       appliedLabels: ['category1', 'category2', 'category3', 'category4', 'category5'],
     })
 
-    render(<TaskCard task={task} planLabels={planLabels} />)
+    render(<TaskCard task={task} planLabels={planLabels} {...TASK_PROPS} />, {
+      wrapper: createWrapper(),
+    })
 
     // 4 pills visible + "+1" overflow
     expect(screen.getByText('+1')).toBeDefined()
@@ -138,7 +194,9 @@ describe('TaskCard', () => {
         task={makeTask({ progress: 0 })}
         planLabels={emptyLabels}
         onToggleComplete={onToggleComplete}
+        {...TASK_PROPS}
       />,
+      { wrapper: createWrapper() },
     )
 
     const btn = container.querySelector('button[aria-label="Mark complete"]') as HTMLButtonElement
