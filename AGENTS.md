@@ -141,9 +141,11 @@ All font choices, colors, spacing, radii, motion, and component rules are define
 Do not deviate without explicit user approval.
 In QA mode, flag any code that does not match `DESIGN.md`.
 
-### UI Components — No Raw HTML Interactive Elements
+### UI/UX Consistency — Always Use Design System Components
 
-**Never use raw HTML interactive elements in frontend pages or components.** Use the design system equivalents from `@future/ui` instead:
+**Every interactive element must use the shared design system for consistency.** The goal is a uniform look and feel across all pages and components.
+
+#### Interactive elements — use `@future/ui`
 
 | Raw HTML     | Use instead                    |
 | ------------ | ------------------------------ |
@@ -152,3 +154,43 @@ In QA mode, flag any code that does not match `DESIGN.md`.
 | `<textarea>` | `<Textarea>` from `@future/ui` |
 
 Layout and structural elements (`<div>`, `<span>`, `<p>`, `<h1>`–`<h6>`, `<ul>`, `<li>`, `<form>`, `<label>`) are fine as raw HTML.
+
+#### Icons — always use `lucide-react`
+
+Never use raw text characters as icons. Use `lucide-react` components instead:
+
+| Text character | Use instead                          |
+| -------------- | ------------------------------------ |
+| `×` or `✕`     | `<X />` from `lucide-react`          |
+| `←`            | `<ArrowLeft />` from `lucide-react`  |
+| `→`            | `<ArrowRight />` from `lucide-react` |
+| `+` as icon    | `<Plus />` from `lucide-react`       |
+
+Note: data-driven overflow counters like `+{n}` are text content, not icons — leave them as-is.
+
+#### Internal navigation — use `next/link` + `Button asChild`
+
+Never use raw `<a href="...">` for within-zone navigation. Use:
+
+```tsx
+<Button variant="ghost" size="sm" asChild>
+  <Link href="/path">Label</Link>
+</Button>
+```
+
+Cross-zone navigation (different Next.js zone) must use a plain `<a>` hard reload — that is the one exception.
+
+#### Loading states — use `Skeleton` and `Spinner`
+
+- Skeleton loaders: use `<Skeleton />` from `@future/ui`, never hand-rolled `animate-pulse` divs.
+- Pending buttons: add `<Spinner className="size-4" />` inside the button alongside the label.
+
+#### Error states — use `Alert`
+
+Never raw `<div className="text-red-...">`. Use:
+
+```tsx
+<Alert variant="destructive">
+  <AlertDescription>Error message</AlertDescription>
+</Alert>
+```
