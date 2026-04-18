@@ -253,21 +253,23 @@ export default function PlanSettingsPage() {
 
       <div className="flex gap-1 mb-6 border-b border-overlay/8">
         {tabs.map((tab) => (
-          <button
+          <Button
             key={tab.key}
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => {
               setActiveTab(tab.key)
               setMutationError(null)
             }}
-            className={`px-4 py-2 text-sm transition-colors border-b-2 -mb-px ${
+            className={`px-4 py-2 border-b-2 -mb-px rounded-none ${
               activeTab === tab.key
                 ? 'border-brand text-fg-primary'
                 : 'border-transparent text-fg-muted hover:text-fg-secondary'
             }`}
           >
             {tab.label}
-          </button>
+          </Button>
         ))}
       </div>
 
