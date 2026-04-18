@@ -34,7 +34,8 @@ async function injectSession(context: BrowserContext): Promise<void> {
   if (!token) {
     throw new Error(
       'E2E_SESSION_TOKEN is not set. ' +
-        'Run the seed script or set the env var to a valid session JWT.',
+        'Run the seed script (apps/api/scripts/seed-e2e-session.ts) in CI, ' +
+        'or set it to a valid JWT from a magic-link login for local runs.',
     )
   }
 
@@ -60,7 +61,12 @@ async function injectSession(context: BrowserContext): Promise<void> {
 
 function requiredEnv(name: string): string {
   const value = process.env[name]
-  if (!value) throw new Error(`Required env var ${name} is not set`)
+  if (!value) {
+    throw new Error(
+      `Required env var ${name} is not set. ` +
+        'See apps/web-planner/e2e/README.md for setup instructions.',
+    )
+  }
   return value
 }
 
@@ -119,7 +125,7 @@ test.describe('Planner smoke', () => {
     await page.getByPlaceholder('Actor ID (UUID)').fill(memberActorId)
     await page.getByRole('button', { name: 'Add' }).click()
 
-    // The member row appears in the list
+    // Wait for the member row to appear in the list
     await expect(page.getByText(memberActorId)).toBeVisible()
 
     // -----------------------------------------------------------------------
@@ -131,13 +137,14 @@ test.describe('Planner smoke', () => {
     const firstLabel = page.getByRole('button', { name: 'Label 1' }).first()
     await firstLabel.click()
 
-    // An inline text input appears
-    const labelInput = page.locator('input[type="text"]').last()
+    // An inline text input appears — assert it is focused
+    const labelInput = page.getByTestId('label-rename-input')
+    await expect(labelInput).toBeFocused()
     await labelInput.clear()
     await labelInput.fill('Priority')
     await labelInput.press('Enter')
 
-    // The button now shows the new name
+    // Wait for the button to show the new name before navigating away
     await expect(page.getByRole('button', { name: 'Priority' })).toBeVisible()
 
     // -----------------------------------------------------------------------
@@ -146,8 +153,10 @@ test.describe('Planner smoke', () => {
     await page.getByRole('button', { name: 'Details' }).click()
 
     // Accept the confirm() dialog that the delete handler triggers
-    page.once('dialog', (dialog) => dialog.accept())
+    const dialogPromise = page.waitForEvent('dialog')
     await page.getByRole('button', { name: 'Delete plan' }).click()
+    const dialog = await dialogPromise
+    await dialog.accept()
 
     // After deletion the router pushes back to /plans
     await expect(page).toHaveURL(/\/plans$/)

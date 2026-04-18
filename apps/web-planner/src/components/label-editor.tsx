@@ -61,6 +61,7 @@ export function LabelEditor({ labels, onRename, onRecolor }: LabelEditorProps) {
               <input
                 autoFocus
                 type="text"
+                data-testid="label-rename-input"
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
                 onBlur={() => commitRename(slot)}
