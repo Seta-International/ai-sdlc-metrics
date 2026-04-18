@@ -54,5 +54,28 @@ describe('orderHintBetween (client-side mirror of MsOrderHint)', () => {
     it('throws TypeError when first argument is null', () => {
       expect(() => orderHintBetween(null as unknown as string, undefined)).toThrow(TypeError)
     })
+
+    it('throws TypeError when second argument is null', () => {
+      expect(() => orderHintBetween(undefined, null as unknown as string)).toThrow(TypeError)
+    })
+
+    it('throws TypeError when first argument is empty string', () => {
+      expect(() => orderHintBetween('', undefined)).toThrow(TypeError)
+    })
+
+    it('throws TypeError when second argument is empty string', () => {
+      expect(() => orderHintBetween(undefined, '')).toThrow(TypeError)
+    })
+  })
+
+  describe('monotonic invariant — repeated insertions in same gap', () => {
+    it('repeated insertions in same gap stay strictly monotonic', () => {
+      const h1 = orderHintBetween(undefined, undefined)
+      const h2 = orderHintBetween(h1, undefined)
+      const h3 = orderHintBetween(h1, h2)
+      const h4 = orderHintBetween(h3, h2)
+      expect(h4 > h3).toBe(true)
+      expect(h4 < h2).toBe(true)
+    })
   })
 })

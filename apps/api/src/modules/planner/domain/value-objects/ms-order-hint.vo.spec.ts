@@ -124,6 +124,14 @@ describe('MsOrderHint', () => {
       expect(() => MsOrderHint.between(undefined, null as unknown as string)).toThrow(TypeError)
     })
 
+    it('throws TypeError when first argument is empty string', () => {
+      expect(() => MsOrderHint.between('', undefined)).toThrow(TypeError)
+    })
+
+    it('throws TypeError when second argument is empty string', () => {
+      expect(() => MsOrderHint.between(undefined, '')).toThrow(TypeError)
+    })
+
     it('throws TypeError when first argument is an object', () => {
       expect(() => MsOrderHint.between({} as unknown as string, undefined)).toThrow(TypeError)
     })
@@ -134,6 +142,17 @@ describe('MsOrderHint', () => {
 
     it('does NOT throw when args are valid strings', () => {
       expect(() => MsOrderHint.between(' !', ' ! !')).not.toThrow()
+    })
+  })
+
+  describe('monotonic invariant — repeated insertions in same gap', () => {
+    it('repeated insertions in same gap stay strictly monotonic', () => {
+      const h1 = MsOrderHint.between(undefined, undefined)
+      const h2 = MsOrderHint.between(h1, undefined)
+      const h3 = MsOrderHint.between(h1, h2)
+      const h4 = MsOrderHint.between(h3, h2)
+      expect(h4 > h3).toBe(true)
+      expect(h4 < h2).toBe(true)
     })
   })
 })

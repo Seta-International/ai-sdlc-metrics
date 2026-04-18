@@ -19,6 +19,7 @@ export function orderHintBetween(a?: string, b?: string): string {
   if (b !== undefined && typeof b !== 'string') {
     throw new TypeError(`orderHintBetween: b must be a string or undefined, got ${typeof b}`)
   }
+  if (a === '' || b === '') throw new TypeError('order hint cannot be empty string')
 
   if (!a && !b) return ' !'
 
@@ -47,9 +48,11 @@ export function orderHintBetween(a?: string, b?: string): string {
       return a.slice(0, i) + String.fromCharCode(Math.floor((ca + cb) / 2))
     }
 
-    // Adjacent chars: build prefix up to position i (including virtual spaces for padding)
-    const prefix = i < a.length ? a.slice(0, i + 1) : a + ' '.repeat(i - a.length + 1)
-    return prefix + ' '
+    // Adjacent chars: extend a (never truncate) with virtual spaces up to position i,
+    // then append a trailing space to create a value that slots strictly between a and b.
+    if (i < a.length) return a + ' '
+    const padding = ' '.repeat(i - a.length + 1)
+    return a + padding + ' '
   }
 
   // Fallback (should not be reached for valid a < b)

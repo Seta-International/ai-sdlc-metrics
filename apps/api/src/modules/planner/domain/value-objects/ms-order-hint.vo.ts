@@ -20,6 +20,7 @@ export class MsOrderHint {
     if (b !== undefined && typeof b !== 'string') {
       throw new TypeError(`MsOrderHint.between: b must be a string or undefined, got ${typeof b}`)
     }
+    if (a === '' || b === '') throw new TypeError('order hint cannot be empty string')
 
     if (!a && !b) return ' !'
 
@@ -49,10 +50,11 @@ export class MsOrderHint {
       }
 
       // Characters are adjacent (cb - ca === 1).
-      // Build the a-side prefix up to position i (including virtual spaces for padding),
-      // then append a space to create a value that slots in between.
-      const prefix = i < a.length ? a.slice(0, i + 1) : a + ' '.repeat(i - a.length + 1)
-      return prefix + ' '
+      // Extend a (never truncate) with virtual spaces up to position i, then append a
+      // trailing space to create a value that slots strictly between a and b.
+      if (i < a.length) return a + ' '
+      const padding = ' '.repeat(i - a.length + 1)
+      return a + padding + ' '
     }
 
     // Fallback (should not be reached for valid a < b)
