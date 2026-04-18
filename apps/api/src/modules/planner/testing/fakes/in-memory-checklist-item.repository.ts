@@ -22,6 +22,7 @@ export class InMemoryChecklistItemRepository implements IChecklistItemRepository
     _tenantId: string,
     item: ChecklistItem,
     _createdBy: string,
+    _expectedVersion?: string,
   ): Promise<void> {
     const existing = this.items.get(taskId) ?? []
     this.items.set(taskId, [...existing, item])
@@ -34,6 +35,7 @@ export class InMemoryChecklistItemRepository implements IChecklistItemRepository
     _tenantId: string,
     itemId: string,
     isChecked: boolean,
+    _expectedVersion?: string,
   ): Promise<void> {
     const list = this.items.get(taskId) ?? []
     const updated = list.map((i) => (i.id === itemId ? i.withChecked(isChecked) : i))
@@ -51,6 +53,7 @@ export class InMemoryChecklistItemRepository implements IChecklistItemRepository
     _tenantId: string,
     itemId: string,
     title: string,
+    _expectedVersion?: string,
   ): Promise<void> {
     const list = this.items.get(taskId) ?? []
     this.items.set(
@@ -59,7 +62,12 @@ export class InMemoryChecklistItemRepository implements IChecklistItemRepository
     )
   }
 
-  async removeItem(taskId: string, _tenantId: string, itemId: string): Promise<void> {
+  async removeItem(
+    taskId: string,
+    _tenantId: string,
+    itemId: string,
+    _expectedVersion?: string,
+  ): Promise<void> {
     const list = this.items.get(taskId) ?? []
     const item = list.find((i) => i.id === itemId)
     if (!item) return

@@ -7,6 +7,7 @@ import { ChecklistItem } from '../../../domain/entities/checklist-item.value-obj
 import { ChecklistItemRemovedEvent } from '@future/event-contracts'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
 import { ConcurrentModificationException } from '../../../domain/exceptions/concurrent-modification.exception'
+import { TaskNotFoundException } from '../../../domain/exceptions/task-not-found.exception'
 import type { ITaskRepository } from '../../../domain/repositories/task.repository'
 import type { IChecklistItemRepository } from '../../../domain/repositories/checklist-item.repository'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
@@ -119,6 +120,22 @@ describe('RemoveChecklistItemHandler', () => {
     )
 
     await expect(handler.execute(command)).rejects.toThrow(ConcurrentModificationException)
+    expect(eventBus.publish).not.toHaveBeenCalled()
+  })
+
+  it('throws TaskNotFoundException when task does not exist', async () => {
+    taskRepo.findById.mockResolvedValue(null)
+    const command = new RemoveChecklistItemCommand(
+      TENANT_ID,
+      PLAN_ID,
+      TASK_ID,
+      ITEM_ID,
+      ACTOR_ID,
+      'version',
+    )
+
+    await expect(handler.execute(command)).rejects.toThrow(TaskNotFoundException)
+    expect(checklistRepo.removeItem).not.toHaveBeenCalled()
     expect(eventBus.publish).not.toHaveBeenCalled()
   })
 })
