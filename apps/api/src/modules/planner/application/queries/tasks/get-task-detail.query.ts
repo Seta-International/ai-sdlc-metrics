@@ -39,7 +39,7 @@ export interface TaskDetailSnapshot {
     avatarUrl?: string
   }>
   appliedLabels: string[]
-  attachments: []
-  comments: []
-  evidence: []
+  attachments: never[]
+  comments: never[]
+  evidence: never[]
 }

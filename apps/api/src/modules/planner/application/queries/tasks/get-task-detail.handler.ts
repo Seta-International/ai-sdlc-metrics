@@ -133,7 +133,7 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
       return {
         actorId: r.actor_id,
         assignedBy: r.assigned_by,
-        assignedAt: new Date(r.assigned_at as unknown as string),
+        assignedAt: r.assigned_at,
         name: actorInfo?.displayName,
         avatarUrl: undefined as string | undefined,
       }
@@ -153,11 +153,9 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
       dueDate: taskRow.due_date ? new Date(taskRow.due_date) : null,
       orderHint: taskRow.order_hint,
       createdBy: taskRow.created_by,
-      createdAt: new Date(taskRow.created_at as unknown as string),
-      updatedAt: new Date(taskRow.updated_at as unknown as string),
-      completedAt: taskRow.completed_at
-        ? new Date(taskRow.completed_at as unknown as string)
-        : null,
+      createdAt: taskRow.created_at,
+      updatedAt: taskRow.updated_at,
+      completedAt: taskRow.completed_at ?? null,
       completedBy: taskRow.completed_by ?? null,
       checklistItemCount: Number(taskRow.checklist_item_count),
       checklistCheckedCount: Number(taskRow.checklist_checked_count),
