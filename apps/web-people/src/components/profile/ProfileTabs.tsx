@@ -1,13 +1,13 @@
 'use client'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@future/ui'
-import { TabOverview } from './tab-overview'
-import { TabJobHistory } from './tab-job-history'
-import { TabDocuments } from './tab-documents'
-import { TabContracts } from './tab-contracts'
-import { TabSections } from './tab-sections'
-import { TabChangeRequests } from './tab-change-requests'
-import { TabProbation } from './tab-probation'
+import { TabOverview } from './TabOverview'
+import { TabJobHistory } from './TabJobHistory'
+import { TabDocuments } from './TabDocuments'
+import { TabContracts } from './TabContracts'
+import { TabSections } from './TabSections'
+import { TabChangeRequests } from './TabChangeRequests'
+import { TabProbation } from './TabProbation'
 import type { EmployeeProfile } from '../../lib/types'
 
 interface ProfileTabsProps {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
-import { EmployeeCard } from './employee-card'
+import { EmployeeCard } from './EmployeeCard'
 import type { DirectoryRow } from '../lib/types'
 
 afterEach(() => {

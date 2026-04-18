@@ -205,7 +205,7 @@ vi.mock('../avatar-name-cell', () => ({
   ),
 }))
 
-import { ChangeRequestQueue } from './change-request-queue'
+import { ChangeRequestQueue } from './ChangeRequestQueue'
 
 describe('ChangeRequestQueue', () => {
   beforeEach(() => {

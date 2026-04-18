@@ -1,7 +1,7 @@
 'use client'
 
-import { InfoCard } from './info-card'
-import { FieldRenderer, FieldGroupRenderer } from '../field-renderer'
+import { InfoCard } from './InfoCard'
+import { FieldRenderer, FieldGroupRenderer } from '../FieldRenderer'
 import type { EmployeeProfile } from '../../lib/types'
 
 interface TabOverviewProps {

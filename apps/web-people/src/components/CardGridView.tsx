@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { EmployeeCard } from './employee-card'
+import { EmployeeCard } from './EmployeeCard'
 import type { DirectoryRow } from '../lib/types'
 
 interface CardGridViewProps {

@@ -1,5 +1,5 @@
 // apps/web-people/src/app/change-requests/page.tsx
-import { ChangeRequestQueue } from '../../components/change-requests/change-request-queue'
+import { ChangeRequestQueue } from '../../components/change-requests/ChangeRequestQueue'
 
 export default function ChangeRequestsPage() {
   return (

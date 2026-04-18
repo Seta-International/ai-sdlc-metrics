@@ -2,8 +2,8 @@
 'use client'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@future/ui'
-import { OnboardingCasesTable } from '../../components/onboarding/onboarding-cases-table'
-import { OnboardingMyTasks } from '../../components/onboarding/onboarding-my-tasks'
+import { OnboardingCasesTable } from '../../components/onboarding/OnboardingCasesTable'
+import { OnboardingMyTasks } from '../../components/onboarding/OnboardingMyTasks'
 
 export default function OnboardingPage() {
   return (

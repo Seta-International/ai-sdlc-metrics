@@ -3,7 +3,7 @@ import * as React from 'react'
 import type { ColumnDef, CellContext } from '@tanstack/react-table'
 import { DataTable, Badge, Button, type FutureTableState, defaultTableState } from '@future/ui'
 import { Plus, Pencil } from 'lucide-react'
-import { CustomFieldDialog } from '../../../components/settings/custom-field-dialog'
+import { CustomFieldDialog } from '../../../components/settings/CustomFieldDialog'
 import type { CustomFieldDefinition } from '../../../lib/types-workflows'
 import { trpc } from '../../../lib/trpc'
 

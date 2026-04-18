@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
-import { ProfileHeader } from './profile-header'
+import { ProfileHeader } from './ProfileHeader'
 import type { EmployeeProfile } from '../../lib/types'
 
 afterEach(() => {

@@ -1,12 +1,12 @@
-// apps/web-people/src/components/offboarding/offboarding-cases-table.tsx
+// apps/web-people/src/components/onboarding/onboarding-cases-table.tsx
 'use client'
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import type { ColumnDef, CellContext } from '@tanstack/react-table'
 import { DataTable, Badge, Progress, type FutureTableState, defaultTableState } from '@future/ui'
-import { AvatarNameCell } from '../avatar-name-cell'
-import type { OffboardingCase } from '../../lib/types-workflows'
+import { AvatarNameCell } from '../AvatarNameCell'
+import type { OnboardingCase } from '../../lib/types-workflows'
 import { trpc } from '../../lib/trpc'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -16,48 +16,48 @@ const caseStatusConfig: Record<
   string,
   { label: string; variant: 'default' | 'subtle' | 'destructive' }
 > = {
-  pending_approval: { label: 'Pending Approval', variant: 'subtle' },
+  pending: { label: 'Pending', variant: 'subtle' },
   in_progress: { label: 'In Progress', variant: 'default' },
   completed: { label: 'Completed', variant: 'subtle' },
   cancelled: { label: 'Cancelled', variant: 'destructive' },
 }
 
-function buildColumns(onNavigate: (id: string) => void): ColumnDef<OffboardingCase>[] {
+function buildColumns(onNavigate: (id: string) => void): ColumnDef<OnboardingCase>[] {
   return [
     {
       accessorKey: 'employeeName',
       header: 'Employee',
       enableSorting: true,
-      cell: ({ row }: CellContext<OffboardingCase, unknown>) => (
+      cell: ({ row }: CellContext<OnboardingCase, unknown>) => (
         <button
           type="button"
           className="text-left hover:underline"
           onClick={() => onNavigate(row.original.id)}
         >
-          <AvatarNameCell fullName={row.original.employeeName} avatarUrl={row.original.avatarUrl} />
+          <AvatarNameCell
+            fullName={row.original.employeeName}
+            avatarUrl={row.original.avatarUrl}
+            subtitle={row.original.department}
+          />
         </button>
       ),
     },
     {
-      accessorKey: 'reasonCategory',
-      header: 'Reason',
+      accessorKey: 'templateName',
+      header: 'Template',
       enableSorting: true,
-      cell: ({ getValue }: CellContext<OffboardingCase, unknown>) => {
-        const reason = getValue() as string
-        return <Badge variant="subtle">{reason.replace(/_/g, ' ')}</Badge>
-      },
     },
     {
-      accessorKey: 'lastWorkingDay',
-      header: 'Last Day',
+      accessorKey: 'startDate',
+      header: 'Start Date',
       enableSorting: true,
-      cell: ({ getValue }: CellContext<OffboardingCase, unknown>) =>
+      cell: ({ getValue }: CellContext<OnboardingCase, unknown>) =>
         new Date(getValue() as string).toLocaleDateString('en-GB'),
     },
     {
       id: 'progress',
       header: 'Progress',
-      cell: ({ row }: CellContext<OffboardingCase, unknown>) => {
+      cell: ({ row }: CellContext<OnboardingCase, unknown>) => {
         const pct =
           row.original.tasksTotal > 0
             ? Math.round((row.original.tasksCompleted / row.original.tasksTotal) * 100)
@@ -76,7 +76,7 @@ function buildColumns(onNavigate: (id: string) => void): ColumnDef<OffboardingCa
       accessorKey: 'status',
       header: 'Status',
       enableSorting: true,
-      cell: ({ getValue }: CellContext<OffboardingCase, unknown>) => {
+      cell: ({ getValue }: CellContext<OnboardingCase, unknown>) => {
         const status = getValue() as string
         const cfg = caseStatusConfig[status] ?? { label: status, variant: 'subtle' as const }
         return <Badge variant={cfg.variant}>{cfg.label}</Badge>
@@ -85,15 +85,15 @@ function buildColumns(onNavigate: (id: string) => void): ColumnDef<OffboardingCa
   ]
 }
 
-export function OffboardingCasesTable() {
+export function OnboardingCasesTable() {
   const router = useRouter()
-  const [cases, setCases] = React.useState<OffboardingCase[]>([])
+  const [cases, setCases] = React.useState<OnboardingCase[]>([])
   const [totalCount, setTotalCount] = React.useState(0)
   const [tableState, setTableState] = React.useState<FutureTableState>(defaultTableState)
   const [isLoading, setIsLoading] = React.useState(true)
 
   const columns = React.useMemo(
-    () => buildColumns((id) => router.push(`/offboarding/${id}`)),
+    () => buildColumns((id) => router.push(`/onboarding/${id}`)),
     [router],
   )
 
@@ -101,9 +101,9 @@ export function OffboardingCasesTable() {
     void (async () => {
       setIsLoading(true)
       try {
-        const result = await (anyTrpc.people.offboarding.listCases.query({
+        const result = await (anyTrpc.people.onboarding.listCases.query({
           ...tableState,
-        }) as Promise<{ cases: OffboardingCase[]; totalCount: number }>)
+        }) as Promise<{ cases: OnboardingCase[]; totalCount: number }>)
         setCases(result.cases)
         setTotalCount(result.totalCount)
       } finally {

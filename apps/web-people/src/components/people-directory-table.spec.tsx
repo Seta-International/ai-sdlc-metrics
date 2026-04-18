@@ -87,7 +87,7 @@ vi.mock('@future/ui', async () => {
   }
 })
 
-import { PeopleDirectoryTable } from './people-directory-table'
+import { PeopleDirectoryTable } from './PeopleDirectoryTable'
 
 describe('PeopleDirectoryTable', () => {
   beforeEach(() => {

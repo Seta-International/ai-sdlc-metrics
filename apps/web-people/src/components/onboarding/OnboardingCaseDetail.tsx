@@ -1,22 +1,22 @@
-// apps/web-people/src/components/offboarding/offboarding-case-detail.tsx
+// apps/web-people/src/components/onboarding/onboarding-case-detail.tsx
 'use client'
 
 import * as React from 'react'
 import { Card, Badge, Button, Progress, Separator, Skeleton } from '@future/ui'
 import { CheckCircle2, Clock, SkipForward } from 'lucide-react'
-import { AvatarNameCell } from '../avatar-name-cell'
-import type { OffboardingCase, WorkflowTask } from '../../lib/types-workflows'
+import { AvatarNameCell } from '../AvatarNameCell'
+import type { OnboardingCase, WorkflowTask } from '../../lib/types-workflows'
 import { trpc } from '../../lib/trpc'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const anyTrpc = trpc as any
 
-interface OffboardingCaseDetailProps {
+interface OnboardingCaseDetailProps {
   caseId: string
 }
 
-export function OffboardingCaseDetail({ caseId }: OffboardingCaseDetailProps) {
-  const [caseData, setCaseData] = React.useState<OffboardingCase | null>(null)
+export function OnboardingCaseDetail({ caseId }: OnboardingCaseDetailProps) {
+  const [caseData, setCaseData] = React.useState<OnboardingCase | null>(null)
   const [tasks, setTasks] = React.useState<WorkflowTask[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
 
@@ -24,9 +24,9 @@ export function OffboardingCaseDetail({ caseId }: OffboardingCaseDetailProps) {
     void (async () => {
       setIsLoading(true)
       try {
-        const result = await (anyTrpc.people.offboarding.getCase.query({
+        const result = await (anyTrpc.people.onboarding.getCase.query({
           caseId,
-        }) as Promise<{ caseData: OffboardingCase; tasks: WorkflowTask[] }>)
+        }) as Promise<{ caseData: OnboardingCase; tasks: WorkflowTask[] }>)
         setCaseData(result.caseData)
         setTasks(result.tasks)
       } finally {
@@ -61,37 +61,15 @@ export function OffboardingCaseDetail({ caseId }: OffboardingCaseDetailProps) {
 
   return (
     <div className="space-y-6">
-      {/* Pending Approval Section */}
-      {caseData.status === 'pending_approval' && (
-        <Card className="border-border bg-card p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-510 text-foreground">Pending Approval</div>
-              <div className="text-xs text-muted-foreground mt-0.5">
-                This offboarding requires manager approval to proceed.
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="default" size="sm">
-                Approve
-              </Button>
-              <Button variant="outline" size="sm">
-                Reject
-              </Button>
-            </div>
-          </div>
-        </Card>
-      )}
-
       {/* Header */}
       <Card className="border-border bg-card p-5">
         <div className="flex items-center justify-between">
           <AvatarNameCell
             fullName={caseData.employeeName}
             avatarUrl={caseData.avatarUrl}
-            subtitle={caseData.reasonCategory.replace(/_/g, ' ')}
+            subtitle={caseData.templateName}
           />
-          <Badge variant="default">{caseData.status.replace(/_/g, ' ')}</Badge>
+          <Badge variant="default">{caseData.status.replace('_', ' ')}</Badge>
         </div>
         <div className="mt-4 flex items-center gap-3">
           <Progress value={pct} className="h-2 flex-1" />
@@ -106,7 +84,7 @@ export function OffboardingCaseDetail({ caseId }: OffboardingCaseDetailProps) {
       {Object.entries(grouped).map(([role, roleTasks]) => (
         <div key={role}>
           <h3 className="text-sm font-590 text-foreground mb-3 capitalize">
-            {role.replace(/_/g, ' ')} Tasks
+            {role.replace('_', ' ')} Tasks
           </h3>
           <div className="space-y-2">
             {roleTasks.map((task) => (

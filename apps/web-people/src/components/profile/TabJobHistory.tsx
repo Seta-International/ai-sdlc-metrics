@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Skeleton } from '@future/ui'
-import { TimelineEntry } from '../timeline-entry'
+import { TimelineEntry } from '../TimelineEntry'
 import type { JobHistoryEntry } from '../../lib/types'
 import { trpc } from '../../lib/trpc'
 

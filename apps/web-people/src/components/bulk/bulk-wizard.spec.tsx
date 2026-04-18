@@ -159,7 +159,7 @@ vi.mock('../avatar-name-cell', () => ({
   }) => <div data-testid="avatar-name-cell">{fullName}</div>,
 }))
 
-import { BulkWizard } from './bulk-wizard'
+import { BulkWizard } from './BulkWizard'
 
 describe('BulkWizard', () => {
   afterEach(() => {

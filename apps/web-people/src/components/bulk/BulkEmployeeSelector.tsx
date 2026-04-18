@@ -2,7 +2,7 @@
 import * as React from 'react'
 import type { ColumnDef, CellContext } from '@tanstack/react-table'
 import { DataTable, type FutureTableState, defaultTableState } from '@future/ui'
-import { AvatarNameCell } from '../avatar-name-cell'
+import { AvatarNameCell } from '../AvatarNameCell'
 import { trpc } from '../../lib/trpc'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

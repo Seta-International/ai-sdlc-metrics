@@ -1,4 +1,4 @@
-import { SettingsSidebar } from '../../components/settings/settings-sidebar'
+import { SettingsSidebar } from '../../components/settings/SettingsSidebar'
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   return (

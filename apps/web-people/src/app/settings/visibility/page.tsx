@@ -1,7 +1,7 @@
 'use client'
 import * as React from 'react'
 import { Button } from '@future/ui'
-import { FieldPolicyList } from '../../../components/settings/field-policy-list'
+import { FieldPolicyList } from '../../../components/settings/FieldPolicyList'
 import type { FieldVisibilityEntry } from '../../../lib/types-workflows'
 import { trpc } from '../../../lib/trpc'
 

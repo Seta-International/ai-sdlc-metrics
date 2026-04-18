@@ -1,4 +1,4 @@
-import { PeopleDirectoryTable } from '../components/people-directory-table'
+import { PeopleDirectoryTable } from '../components/PeopleDirectoryTable'
 
 export default function DirectoryPage() {
   return (

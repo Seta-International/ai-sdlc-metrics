@@ -106,7 +106,7 @@ vi.mock('../avatar-name-cell', () => ({
   ),
 }))
 
-import { OnboardingCasesTable } from './onboarding-cases-table'
+import { OnboardingCasesTable } from './OnboardingCasesTable'
 
 describe('OnboardingCasesTable', () => {
   beforeEach(() => {

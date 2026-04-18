@@ -1,7 +1,7 @@
 'use client'
 import * as React from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@future/ui'
-import { ImportWizard } from '../../../components/settings/import-wizard'
+import { ImportWizard } from '../../../components/settings/ImportWizard'
 
 export default function ImportExportPage() {
   return (

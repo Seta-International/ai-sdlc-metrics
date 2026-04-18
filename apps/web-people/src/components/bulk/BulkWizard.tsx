@@ -12,8 +12,8 @@ import {
   Input,
 } from '@future/ui'
 import { Building2, Users, ToggleLeft, ArrowRight } from 'lucide-react'
-import { BulkEmployeeSelector } from './bulk-employee-selector'
-import { BulkPreviewTable } from './bulk-preview-table'
+import { BulkEmployeeSelector } from './BulkEmployeeSelector'
+import { BulkPreviewTable } from './BulkPreviewTable'
 import type { BulkOperationType, BulkPreviewRow } from '../../lib/types-workflows'
 
 type WizardStep = 'operation' | 'employees' | 'configure' | 'preview' | 'confirm'

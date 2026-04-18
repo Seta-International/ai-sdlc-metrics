@@ -115,7 +115,7 @@ vi.mock('@future/ui', () => {
   }
 })
 
-import { ImportWizard } from './import-wizard'
+import { ImportWizard } from './ImportWizard'
 
 describe('ImportWizard', () => {
   afterEach(() => {

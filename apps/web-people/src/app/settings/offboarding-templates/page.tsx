@@ -1,4 +1,4 @@
-import { TemplateEditor } from '../../../components/settings/template-editor'
+import { TemplateEditor } from '../../../components/settings/TemplateEditor'
 export default function OffboardingTemplatesPage() {
   return (
     <div>

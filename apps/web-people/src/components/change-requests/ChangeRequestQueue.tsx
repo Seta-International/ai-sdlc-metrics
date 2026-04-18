@@ -25,7 +25,7 @@ import {
   defaultTableState,
 } from '@future/ui'
 import { Check, X } from 'lucide-react'
-import { AvatarNameCell } from '../avatar-name-cell'
+import { AvatarNameCell } from '../AvatarNameCell'
 import type { ChangeRequestRow } from '../../lib/types-workflows'
 import { trpc } from '../../lib/trpc'
 

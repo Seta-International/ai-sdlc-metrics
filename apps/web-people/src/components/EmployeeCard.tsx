@@ -3,7 +3,7 @@
 import { Card } from '@future/ui'
 import Image from 'next/image'
 import { MapPin, Building2 } from 'lucide-react'
-import { StatusBadge } from './status-badge'
+import { StatusBadge } from './StatusBadge'
 import type { DirectoryRow } from '../lib/types'
 
 interface EmployeeCardProps {

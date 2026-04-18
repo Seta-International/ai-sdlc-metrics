@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { trpc } from '../trpc'
 import type { DirectoryRow } from '../types'
-import type { FilterValues } from '../../components/filter-panel'
+import type { FilterValues } from '../../components/FilterPanel'
 import { defaultTableState, type FutureTableState, type TableFilter } from '@future/ui'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

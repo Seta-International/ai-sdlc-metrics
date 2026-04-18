@@ -1,4 +1,4 @@
-import { JobCatalogEditor } from '../../../components/settings/job-catalog-editor'
+import { JobCatalogEditor } from '../../../components/settings/JobCatalogEditor'
 export default function JobCatalogPage() {
   return (
     <div>

@@ -2,7 +2,7 @@
 'use client'
 
 import { useParams } from 'next/navigation'
-import { OnboardingCaseDetail } from '../../../components/onboarding/onboarding-case-detail'
+import { OnboardingCaseDetail } from '../../../components/onboarding/OnboardingCaseDetail'
 
 export default function OnboardingCaseDetailPage() {
   const params = useParams()

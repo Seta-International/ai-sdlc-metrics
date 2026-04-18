@@ -2,8 +2,8 @@
 'use client'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@future/ui'
-import { OffboardingCasesTable } from '../../components/offboarding/offboarding-cases-table'
-import { OffboardingMyTasks } from '../../components/offboarding/offboarding-my-tasks'
+import { OffboardingCasesTable } from '../../components/offboarding/OffboardingCasesTable'
+import { OffboardingMyTasks } from '../../components/offboarding/OffboardingMyTasks'
 
 export default function OffboardingPage() {
   return (

@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
-import { TabOverview } from './tab-overview'
+import { TabOverview } from './TabOverview'
 import type { EmployeeProfile } from '../../lib/types'
 
 afterEach(() => {

@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { Input, Button } from '@future/ui'
 import { Search, Minus, Plus, Maximize2 } from 'lucide-react'
-import { OrgChartNodeComponent } from './org-chart-node'
+import { OrgChartNodeComponent } from './OrgChartNode'
 import type { OrgChartNode } from '../lib/types'
 import { trpc } from '../lib/trpc'
 

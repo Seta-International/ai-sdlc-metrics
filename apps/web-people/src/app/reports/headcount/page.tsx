@@ -3,7 +3,7 @@
 import * as React from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTable, Card, type FutureTableState, defaultTableState, Skeleton } from '@future/ui'
-import { SummaryCardsRow } from '../../../components/reports/summary-cards'
+import { SummaryCardsRow } from '../../../components/reports/SummaryCards'
 import type { HeadcountSummary } from '../../../lib/types-workflows'
 import { trpc } from '../../../lib/trpc'
 
