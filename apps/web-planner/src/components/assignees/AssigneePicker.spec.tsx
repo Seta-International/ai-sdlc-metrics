@@ -85,10 +85,10 @@ function makeSnapshot(members = true): BoardSnapshot {
   }
 }
 
-function createWrapper(client: QueryClient) {
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(QueryClientProvider, { client }, children)
-  }
+let _queryClientRef: QueryClient
+
+function Wrapper({ children }: { children: React.ReactNode }) {
+  return React.createElement(QueryClientProvider, { client: _queryClientRef }, children)
 }
 
 const PROPS = {
@@ -104,31 +104,29 @@ afterEach(() => {
 })
 
 describe('AssigneePicker', () => {
-  let queryClient: QueryClient
-
   beforeEach(() => {
-    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    _queryClientRef = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   })
 
   it('renders plan members', () => {
-    queryClient.setQueryData(QUERY_KEY, makeSnapshot())
-    render(<AssigneePicker task={makeTask()} {...PROPS} />, { wrapper: createWrapper(queryClient) })
+    _queryClientRef.setQueryData(QUERY_KEY, makeSnapshot())
+    render(<AssigneePicker task={makeTask()} {...PROPS} />, { wrapper: Wrapper })
 
     expect(screen.getByText('Alice Smith')).toBeDefined()
     expect(screen.getByText('Bob Jones')).toBeDefined()
   })
 
   it('shows "No members" when plan has no members', () => {
-    queryClient.setQueryData(QUERY_KEY, makeSnapshot(false))
-    render(<AssigneePicker task={makeTask()} {...PROPS} />, { wrapper: createWrapper(queryClient) })
+    _queryClientRef.setQueryData(QUERY_KEY, makeSnapshot(false))
+    render(<AssigneePicker task={makeTask()} {...PROPS} />, { wrapper: Wrapper })
 
     expect(screen.getByText('No members')).toBeDefined()
   })
 
   it('calls assign mutation when clicking unassigned member', async () => {
     mockAssign.mockResolvedValue(undefined)
-    queryClient.setQueryData(QUERY_KEY, makeSnapshot())
-    render(<AssigneePicker task={makeTask()} {...PROPS} />, { wrapper: createWrapper(queryClient) })
+    _queryClientRef.setQueryData(QUERY_KEY, makeSnapshot())
+    render(<AssigneePicker task={makeTask()} {...PROPS} />, { wrapper: Wrapper })
 
     await userEvent.click(screen.getByTestId('assignee-option-member-1'))
 
@@ -146,8 +144,8 @@ describe('AssigneePicker', () => {
   it('calls unassign mutation when clicking already assigned member', async () => {
     mockUnassign.mockResolvedValue(undefined)
     const task = makeTask({ assignees: [{ actorId: 'member-1', name: 'Alice Smith' }] })
-    queryClient.setQueryData(QUERY_KEY, makeSnapshot())
-    render(<AssigneePicker task={task} {...PROPS} />, { wrapper: createWrapper(queryClient) })
+    _queryClientRef.setQueryData(QUERY_KEY, makeSnapshot())
+    render(<AssigneePicker task={task} {...PROPS} />, { wrapper: Wrapper })
 
     await userEvent.click(screen.getByTestId('assignee-option-member-1'))
 
@@ -164,8 +162,8 @@ describe('AssigneePicker', () => {
 
   it('shows checkmark for assigned members', () => {
     const task = makeTask({ assignees: [{ actorId: 'member-1', name: 'Alice Smith' }] })
-    queryClient.setQueryData(QUERY_KEY, makeSnapshot())
-    render(<AssigneePicker task={task} {...PROPS} />, { wrapper: createWrapper(queryClient) })
+    _queryClientRef.setQueryData(QUERY_KEY, makeSnapshot())
+    render(<AssigneePicker task={task} {...PROPS} />, { wrapper: Wrapper })
 
     const btn = screen.getByTestId('assignee-option-member-1')
     expect(btn.getAttribute('aria-pressed')).toBe('true')

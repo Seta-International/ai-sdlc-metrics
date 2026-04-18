@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { trpc } from '../../lib/trpc'
 import type { BoardSnapshot, PlanMember, BoardTaskSnapshot } from '../../lib/board-types'

@@ -85,15 +85,15 @@ const TASK_PROPS = {
   tenantId: 'tenant-1',
 }
 
-function createWrapper() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(QueryClientProvider, { client }, children)
-  }
+let _queryClientRef = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+function Wrapper({ children }: { children: React.ReactNode }) {
+  return React.createElement(QueryClientProvider, { client: _queryClientRef }, children)
 }
 
 afterEach(() => {
   cleanup()
+  _queryClientRef = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 })
 
 describe('TaskCard', () => {
@@ -104,7 +104,7 @@ describe('TaskCard', () => {
         planLabels={emptyLabels}
         {...TASK_PROPS}
       />,
-      { wrapper: createWrapper() },
+      { wrapper: Wrapper },
     )
     expect(screen.getByText('My feature task')).toBeDefined()
   })
@@ -115,7 +115,7 @@ describe('TaskCard', () => {
 
     render(
       <TaskCard task={makeTask({ dueDate: yesterday })} planLabels={emptyLabels} {...TASK_PROPS} />,
-      { wrapper: createWrapper() },
+      { wrapper: Wrapper },
     )
 
     // DueBadge renders with an aria-label containing "(overdue)"
@@ -125,7 +125,7 @@ describe('TaskCard', () => {
 
   it('shows priority icon when priority is 9 (urgent)', () => {
     render(<TaskCard task={makeTask({ priority: 9 })} planLabels={emptyLabels} {...TASK_PROPS} />, {
-      wrapper: createWrapper(),
+      wrapper: Wrapper,
     })
 
     // PriorityIcon renders with aria-label "Priority 9"
@@ -135,7 +135,7 @@ describe('TaskCard', () => {
 
   it('does NOT show priority icon when priority is not 9', () => {
     render(<TaskCard task={makeTask({ priority: 5 })} planLabels={emptyLabels} {...TASK_PROPS} />, {
-      wrapper: createWrapper(),
+      wrapper: Wrapper,
     })
     expect(screen.queryByRole('img', { name: /priority/i })).toBeNull()
   })
@@ -147,7 +147,7 @@ describe('TaskCard', () => {
         planLabels={emptyLabels}
         {...TASK_PROPS}
       />,
-      { wrapper: createWrapper() },
+      { wrapper: Wrapper },
     )
 
     // aria-label is "2 of 5 checklist items done"
@@ -162,7 +162,7 @@ describe('TaskCard', () => {
         planLabels={emptyLabels}
         {...TASK_PROPS}
       />,
-      { wrapper: createWrapper() },
+      { wrapper: Wrapper },
     )
     // The "N/M" text should not appear
     expect(screen.queryByLabelText(/checklist items done/i)).toBeNull()
@@ -174,7 +174,7 @@ describe('TaskCard', () => {
     })
 
     render(<TaskCard task={task} planLabels={planLabels} {...TASK_PROPS} />, {
-      wrapper: createWrapper(),
+      wrapper: Wrapper,
     })
 
     // 4 pills visible + "+1" overflow
@@ -196,7 +196,7 @@ describe('TaskCard', () => {
         onToggleComplete={onToggleComplete}
         {...TASK_PROPS}
       />,
-      { wrapper: createWrapper() },
+      { wrapper: Wrapper },
     )
 
     const btn = container.querySelector('button[aria-label="Mark complete"]') as HTMLButtonElement

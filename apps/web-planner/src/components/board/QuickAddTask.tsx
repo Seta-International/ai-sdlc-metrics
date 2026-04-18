@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useSession } from '@future/auth'
 import { trpc } from '../../lib/trpc'
 
 const TITLE_MAX = 255
@@ -143,7 +142,8 @@ export function QuickAddTask({ bucketId, planId, actorId, tenantId }: QuickAddTa
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
           aria-label="Due date"
-          className="w-full rounded bg-transparent text-caption font-400 text-fg-secondary outline-none [color-scheme:dark]"
+          className="w-full rounded bg-transparent text-caption font-400 text-fg-secondary outline-none"
+          style={{ colorScheme: 'dark' }}
           data-testid="quick-add-task-due-date"
         />
       )}

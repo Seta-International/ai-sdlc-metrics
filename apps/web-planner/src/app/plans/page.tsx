@@ -36,7 +36,7 @@ export default function PlansPage() {
   return (
     <main className="p-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-[400] tracking-h2 text-fg-primary">Plans</h1>
+        <h1 className="text-2xl font-normal tracking-h2 text-fg-primary">Plans</h1>
         <a
           href="/plans/new"
           className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-brand hover:bg-accent-hover text-fg-primary text-sm transition-colors"

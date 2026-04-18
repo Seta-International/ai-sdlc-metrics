@@ -350,7 +350,8 @@ export function TaskCard({
                   defaultValue={task.dueDate ? task.dueDate.toISOString().slice(0, 10) : ''}
                   onPointerDown={(e) => e.stopPropagation()}
                   onChange={(e) => void handleSetDueDate(e.target.value || null)}
-                  className="w-full rounded bg-white/5 px-2 py-1 text-caption font-400 text-fg-primary outline-none [color-scheme:dark]"
+                  className="w-full rounded bg-white/5 px-2 py-1 text-caption font-400 text-fg-primary outline-none"
+                  style={{ colorScheme: 'dark' }}
                   aria-label="Due date input"
                 />
                 {task.dueDate && (

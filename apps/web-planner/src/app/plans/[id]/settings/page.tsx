@@ -235,7 +235,7 @@ export default function PlanSettingsPage() {
   return (
     <main className="p-8 max-w-2xl">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-[400] tracking-h2 text-fg-primary">{plan.name} — Settings</h1>
+        <h1 className="text-2xl font-normal tracking-h2 text-fg-primary">{plan.name} — Settings</h1>
         <a
           href={`/plans/${planId}/board`}
           className="text-sm text-fg-muted hover:text-fg-primary transition-colors"

@@ -72,18 +72,16 @@ function makeSnapshot(): BoardSnapshot {
   }
 }
 
-function createWrapper(client: QueryClient) {
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(QueryClientProvider, { client }, children)
-  }
+let queryClient: QueryClient
+
+function Wrapper({ children }: { children: React.ReactNode }) {
+  return React.createElement(QueryClientProvider, { client: queryClient }, children)
 }
 
 const INPUT = { planId: 'plan-1', actorId: 'actor-1', tenantId: 'tenant-1' }
 const QUERY_KEY = ['tasks.getBoard', 'plan-1', 'actor-1', 'tenant-1'] as const
 
 describe('useOptimisticMove', () => {
-  let queryClient: QueryClient
-
   beforeEach(() => {
     queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     vi.clearAllMocks()
@@ -99,7 +97,7 @@ describe('useOptimisticMove', () => {
     mockMutate.mockResolvedValue({ orderHint: 'b0', updatedAt: new Date('2026-01-02T00:00:00Z') })
 
     const { result } = renderHook(() => useOptimisticMove(INPUT), {
-      wrapper: createWrapper(queryClient),
+      wrapper: Wrapper,
     })
 
     await act(async () => {
@@ -132,7 +130,7 @@ describe('useOptimisticMove', () => {
     mockMutate.mockRejectedValue(new Error('Network failure'))
 
     const { result } = renderHook(() => useOptimisticMove(INPUT), {
-      wrapper: createWrapper(queryClient),
+      wrapper: Wrapper,
     })
 
     await act(async () => {
@@ -158,7 +156,7 @@ describe('useOptimisticMove', () => {
     const refetchSpy = vi.spyOn(queryClient, 'refetchQueries').mockResolvedValue()
 
     const { result } = renderHook(() => useOptimisticMove(INPUT), {
-      wrapper: createWrapper(queryClient),
+      wrapper: Wrapper,
     })
 
     await act(async () => {
@@ -177,7 +175,7 @@ describe('useOptimisticMove', () => {
   it('does nothing when no snapshot in cache', async () => {
     // No data in cache
     const { result } = renderHook(() => useOptimisticMove(INPUT), {
-      wrapper: createWrapper(queryClient),
+      wrapper: Wrapper,
     })
 
     await act(async () => {

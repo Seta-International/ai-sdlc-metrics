@@ -97,10 +97,10 @@ function makeBucket(overrides: Partial<BoardBucketSnapshot> = {}): BoardBucketSn
   }
 }
 
-function createWrapper(client: QueryClient) {
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(QueryClientProvider, { client }, children)
-  }
+let _queryClientRef: QueryClient
+
+function Wrapper({ children }: { children: React.ReactNode }) {
+  return React.createElement(QueryClientProvider, { client: _queryClientRef }, children)
 }
 
 afterEach(() => {
@@ -109,11 +109,9 @@ afterEach(() => {
 })
 
 describe('BoardColumn', () => {
-  let queryClient: QueryClient
-
   beforeEach(() => {
-    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    queryClient.setQueryData(QUERY_KEY, makeEmptySnapshot())
+    _queryClientRef = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    _queryClientRef.setQueryData(QUERY_KEY, makeEmptySnapshot())
   })
 
   it('renders the column name', () => {
@@ -123,7 +121,7 @@ describe('BoardColumn', () => {
         planLabels={emptyLabels}
         {...PROPS}
       />,
-      { wrapper: createWrapper(queryClient) },
+      { wrapper: Wrapper },
     )
     expect(screen.getByText('In Review')).toBeDefined()
   })
@@ -175,7 +173,7 @@ describe('BoardColumn', () => {
     ]
 
     render(<BoardColumn bucket={makeBucket({ tasks })} planLabels={emptyLabels} {...PROPS} />, {
-      wrapper: createWrapper(queryClient),
+      wrapper: Wrapper,
     })
     expect(screen.getByText('2')).toBeDefined()
   })
@@ -187,7 +185,7 @@ describe('BoardColumn', () => {
         planLabels={emptyLabels}
         {...PROPS}
       />,
-      { wrapper: createWrapper(queryClient) },
+      { wrapper: Wrapper },
     )
     expect(screen.getAllByText('0').length).toBeGreaterThan(0)
   })
@@ -218,7 +216,7 @@ describe('BoardColumn', () => {
     ]
 
     render(<BoardColumn bucket={makeBucket({ tasks })} planLabels={emptyLabels} {...PROPS} />, {
-      wrapper: createWrapper(queryClient),
+      wrapper: Wrapper,
     })
     expect(screen.getByText('Fix the bug')).toBeDefined()
   })
@@ -228,7 +226,7 @@ describe('BoardColumn', () => {
     mockRename.mockResolvedValue(undefined)
     render(
       <BoardColumn bucket={makeBucket({ name: 'To Do' })} planLabels={emptyLabels} {...PROPS} />,
-      { wrapper: createWrapper(queryClient) },
+      { wrapper: Wrapper },
     )
 
     await userEvent.click(screen.getByTestId('column-name-btn'))
@@ -254,7 +252,7 @@ describe('BoardColumn', () => {
   it('cancels rename on Escape', async () => {
     render(
       <BoardColumn bucket={makeBucket({ name: 'To Do' })} planLabels={emptyLabels} {...PROPS} />,
-      { wrapper: createWrapper(queryClient) },
+      { wrapper: Wrapper },
     )
 
     await userEvent.click(screen.getByTestId('column-name-btn'))
@@ -277,7 +275,7 @@ describe('BoardColumn', () => {
         planLabels={emptyLabels}
         {...PROPS}
       />,
-      { wrapper: createWrapper(queryClient) },
+      { wrapper: Wrapper },
     )
 
     await userEvent.click(screen.getByTestId('column-menu-btn'))
@@ -302,7 +300,7 @@ describe('BoardColumn', () => {
   it('cancels delete on Cancel button', async () => {
     render(
       <BoardColumn bucket={makeBucket({ name: 'To Do' })} planLabels={emptyLabels} {...PROPS} />,
-      { wrapper: createWrapper(queryClient) },
+      { wrapper: Wrapper },
     )
 
     await userEvent.click(screen.getByTestId('column-menu-btn'))

@@ -76,10 +76,10 @@ function makeSnapshot(): BoardSnapshot {
   }
 }
 
-function createWrapper(client: QueryClient) {
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(QueryClientProvider, { client }, children)
-  }
+let _queryClientRef: QueryClient
+
+function Wrapper({ children }: { children: React.ReactNode }) {
+  return React.createElement(QueryClientProvider, { client: _queryClientRef }, children)
 }
 
 const PROPS = {
@@ -95,15 +95,13 @@ afterEach(() => {
 })
 
 describe('LabelPicker', () => {
-  let queryClient: QueryClient
-
   beforeEach(() => {
-    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    _queryClientRef = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   })
 
   it('renders all 25 label slots', () => {
-    queryClient.setQueryData(QUERY_KEY, makeSnapshot())
-    render(<LabelPicker task={makeTask()} {...PROPS} />, { wrapper: createWrapper(queryClient) })
+    _queryClientRef.setQueryData(QUERY_KEY, makeSnapshot())
+    render(<LabelPicker task={makeTask()} {...PROPS} />, { wrapper: Wrapper })
 
     // Named labels
     expect(screen.getByText('Urgent')).toBeDefined()
@@ -123,8 +121,8 @@ describe('LabelPicker', () => {
 
   it('calls applyLabel when toggling an unset label', async () => {
     mockApply.mockResolvedValue(undefined)
-    queryClient.setQueryData(QUERY_KEY, makeSnapshot())
-    render(<LabelPicker task={makeTask()} {...PROPS} />, { wrapper: createWrapper(queryClient) })
+    _queryClientRef.setQueryData(QUERY_KEY, makeSnapshot())
+    render(<LabelPicker task={makeTask()} {...PROPS} />, { wrapper: Wrapper })
 
     await userEvent.click(screen.getByTestId('label-option-category1'))
 
@@ -142,8 +140,8 @@ describe('LabelPicker', () => {
   it('calls removeLabel when toggling an already-set label', async () => {
     mockRemove.mockResolvedValue(undefined)
     const task = makeTask({ appliedLabels: ['category1'] })
-    queryClient.setQueryData(QUERY_KEY, makeSnapshot())
-    render(<LabelPicker task={task} {...PROPS} />, { wrapper: createWrapper(queryClient) })
+    _queryClientRef.setQueryData(QUERY_KEY, makeSnapshot())
+    render(<LabelPicker task={task} {...PROPS} />, { wrapper: Wrapper })
 
     await userEvent.click(screen.getByTestId('label-option-category1'))
 
@@ -160,8 +158,8 @@ describe('LabelPicker', () => {
 
   it('shows checkmark for applied labels', () => {
     const task = makeTask({ appliedLabels: ['category2'] })
-    queryClient.setQueryData(QUERY_KEY, makeSnapshot())
-    render(<LabelPicker task={task} {...PROPS} />, { wrapper: createWrapper(queryClient) })
+    _queryClientRef.setQueryData(QUERY_KEY, makeSnapshot())
+    render(<LabelPicker task={task} {...PROPS} />, { wrapper: Wrapper })
 
     const btn = screen.getByTestId('label-option-category2')
     expect(btn.getAttribute('aria-pressed')).toBe('true')

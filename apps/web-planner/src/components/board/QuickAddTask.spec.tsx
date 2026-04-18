@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -34,11 +34,10 @@ const mockCreate = vi.mocked(
   (trpc.planner.tasks.create as { mutate: ReturnType<typeof vi.fn> }).mutate,
 )
 
-function createWrapper() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(QueryClientProvider, { client }, children)
-  }
+let _queryClientRef = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+function Wrapper({ children }: { children: React.ReactNode }) {
+  return React.createElement(QueryClientProvider, { client: _queryClientRef }, children)
 }
 
 const PROPS = {
@@ -51,22 +50,23 @@ const PROPS = {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  _queryClientRef = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 })
 
 describe('QuickAddTask', () => {
   it('renders Add task button initially', () => {
-    render(<QuickAddTask {...PROPS} />, { wrapper: createWrapper() })
+    render(<QuickAddTask {...PROPS} />, { wrapper: Wrapper })
     expect(screen.getByRole('button', { name: /add task/i })).toBeDefined()
   })
 
   it('opens input on button click', async () => {
-    render(<QuickAddTask {...PROPS} />, { wrapper: createWrapper() })
+    render(<QuickAddTask {...PROPS} />, { wrapper: Wrapper })
     await userEvent.click(screen.getByRole('button', { name: /add task/i }))
     expect(screen.getByTestId('quick-add-task-input')).toBeDefined()
   })
 
   it('closes on Escape', async () => {
-    render(<QuickAddTask {...PROPS} />, { wrapper: createWrapper() })
+    render(<QuickAddTask {...PROPS} />, { wrapper: Wrapper })
     await userEvent.click(screen.getByRole('button', { name: /add task/i }))
     const input = screen.getByTestId('quick-add-task-input')
     fireEvent.keyDown(input, { key: 'Escape' })
@@ -75,7 +75,7 @@ describe('QuickAddTask', () => {
 
   it('creates task on Enter and keeps input open for rapid entry', async () => {
     mockCreate.mockResolvedValue(undefined)
-    render(<QuickAddTask {...PROPS} />, { wrapper: createWrapper() })
+    render(<QuickAddTask {...PROPS} />, { wrapper: Wrapper })
 
     await userEvent.click(screen.getByRole('button', { name: /add task/i }))
     const input = screen.getByTestId('quick-add-task-input') as HTMLInputElement
@@ -104,7 +104,7 @@ describe('QuickAddTask', () => {
   })
 
   it('shows date field on Shift+Enter', async () => {
-    render(<QuickAddTask {...PROPS} />, { wrapper: createWrapper() })
+    render(<QuickAddTask {...PROPS} />, { wrapper: Wrapper })
     await userEvent.click(screen.getByRole('button', { name: /add task/i }))
     const input = screen.getByTestId('quick-add-task-input')
 
@@ -114,7 +114,7 @@ describe('QuickAddTask', () => {
   })
 
   it('shows character counter at 240+ characters', async () => {
-    render(<QuickAddTask {...PROPS} />, { wrapper: createWrapper() })
+    render(<QuickAddTask {...PROPS} />, { wrapper: Wrapper })
     await userEvent.click(screen.getByRole('button', { name: /add task/i }))
     const input = screen.getByTestId('quick-add-task-input')
 
@@ -127,7 +127,7 @@ describe('QuickAddTask', () => {
   })
 
   it('does NOT show counter below 240 characters', async () => {
-    render(<QuickAddTask {...PROPS} />, { wrapper: createWrapper() })
+    render(<QuickAddTask {...PROPS} />, { wrapper: Wrapper })
     await userEvent.click(screen.getByRole('button', { name: /add task/i }))
     const input = screen.getByTestId('quick-add-task-input')
 
@@ -137,7 +137,7 @@ describe('QuickAddTask', () => {
   })
 
   it('does not create task when title is empty', async () => {
-    render(<QuickAddTask {...PROPS} />, { wrapper: createWrapper() })
+    render(<QuickAddTask {...PROPS} />, { wrapper: Wrapper })
     await userEvent.click(screen.getByRole('button', { name: /add task/i }))
     const input = screen.getByTestId('quick-add-task-input')
 
