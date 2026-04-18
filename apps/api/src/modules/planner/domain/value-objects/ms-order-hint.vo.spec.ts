@@ -154,5 +154,16 @@ describe('MsOrderHint', () => {
       expect(h4 > h3).toBe(true)
       expect(h4 < h2).toBe(true)
     })
+
+    it('frozen-fixture regression: between(" !   ", " ! !") is strictly between both', () => {
+      // Exact values that triggered the truncation bug: ' !   ' (space excl 3×space)
+      // and ' ! !' — inserting in this gap previously returned ' !   ' again
+      const a = ' !   '
+      const b = ' ! !'
+      const result = MsOrderHint.between(a, b)
+      expect(result).not.toBe(a)
+      expect(result > a).toBe(true)
+      expect(result < b).toBe(true)
+    })
   })
 })

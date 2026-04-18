@@ -77,5 +77,28 @@ describe('orderHintBetween (client-side mirror of MsOrderHint)', () => {
       expect(h4 > h3).toBe(true)
       expect(h4 < h2).toBe(true)
     })
+
+    it('frozen-fixture regression: between(" !   ", " ! !") is strictly between both', () => {
+      const a = ' !   '
+      const b = ' ! !'
+      const result = orderHintBetween(a, b)
+      expect(result).not.toBe(a)
+      expect(result > a).toBe(true)
+      expect(result < b).toBe(true)
+    })
+  })
+
+  describe('length ceiling', () => {
+    it('interleaving 1000 between calls keeps length ≤ 50 chars', () => {
+      let items = [orderHintBetween(undefined, undefined)]
+      items.push(orderHintBetween(items[0], undefined))
+      for (let i = 0; i < 998; i++) {
+        const newHint = orderHintBetween(items[0], items[1])
+        items = [items[0], newHint, ...items.slice(1)]
+        if (items.length > 3) items = [items[0], items[1], items[2]]
+      }
+      const maxLen = Math.max(...items.map((h) => h.length))
+      expect(maxLen).toBeLessThanOrEqual(50)
+    })
   })
 })
