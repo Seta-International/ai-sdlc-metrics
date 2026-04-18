@@ -3,8 +3,8 @@
 import * as React from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Skeleton } from '@future/ui'
-import { ProfileHeader } from '../../components/profile/profile-header'
-import { ProfileTabs } from '../../components/profile/profile-tabs'
+import { ProfileHeader } from '../../components/profile/ProfileHeader'
+import { ProfileTabs } from '../../components/profile/ProfileTabs'
 import type { EmployeeProfile } from '../../lib/types'
 import { trpc } from '../../lib/trpc'
 

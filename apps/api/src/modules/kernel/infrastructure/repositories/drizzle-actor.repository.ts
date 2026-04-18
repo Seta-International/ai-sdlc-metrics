@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import type { Db } from '@future/db'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import type { Actor } from '../../domain/entities/actor.entity'
 import type { IActorRepository } from '../../domain/repositories/actor.repository.port'
 import { DB_TOKEN } from '../../../../common/db/db.module'
@@ -17,6 +17,15 @@ export class DrizzleActorRepository implements IActorRepository {
       .where(and(eq(actor.id, id), eq(actor.tenantId, tenantId)))
       .limit(1)
     return (rows[0] as Actor | undefined) ?? null
+  }
+
+  async findManyByIds(ids: string[], tenantId: string): Promise<Actor[]> {
+    if (ids.length === 0) return []
+    const rows = await this.db
+      .select()
+      .from(actor)
+      .where(and(inArray(actor.id, ids), eq(actor.tenantId, tenantId)))
+    return rows as Actor[]
   }
 
   async insert(data: {

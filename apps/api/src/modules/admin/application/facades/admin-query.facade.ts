@@ -1,16 +1,23 @@
 import { Inject, Injectable } from '@nestjs/common'
+import { QueryBus } from '@nestjs/cqrs'
 import type { ITenantEmailConfigRepository } from '../../domain/repositories/tenant-email-config.repository.port'
 import { TENANT_EMAIL_CONFIG_REPOSITORY } from '../../domain/repositories/tenant-email-config.repository.port'
 import type { TenantEmailConfig } from '../../domain/entities/tenant-email-config.entity'
+import { IsPlannerEnabledQuery } from '../queries/is-planner-enabled.query'
 
 @Injectable()
 export class AdminQueryFacade {
   constructor(
     @Inject(TENANT_EMAIL_CONFIG_REPOSITORY)
     private readonly emailConfigRepo: ITenantEmailConfigRepository,
+    private readonly queryBus: QueryBus,
   ) {}
 
   async getEmailConfig(tenantId: string): Promise<TenantEmailConfig | null> {
     return this.emailConfigRepo.findByTenantId(tenantId)
+  }
+
+  async isPlannerEnabled(tenantId: string): Promise<boolean> {
+    return this.queryBus.execute(new IsPlannerEnabledQuery(tenantId))
   }
 }

@@ -1,4 +1,4 @@
-import { ReportsSidebar } from '../../components/reports/reports-sidebar'
+import { ReportsSidebar } from '../../components/reports/ReportsSidebar'
 
 export default function ReportsLayout({ children }: { children: React.ReactNode }) {
   return (

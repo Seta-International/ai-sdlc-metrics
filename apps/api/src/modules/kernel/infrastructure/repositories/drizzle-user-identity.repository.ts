@@ -19,6 +19,15 @@ export class DrizzleUserIdentityRepository implements IUserIdentityRepository {
     return (rows[0] as UserIdentity | undefined) ?? null
   }
 
+  async findByActorId(actorId: string, tenantId: string): Promise<UserIdentity | null> {
+    const rows = await this.db
+      .select()
+      .from(userIdentity)
+      .where(and(eq(userIdentity.actorId, actorId), eq(userIdentity.tenantId, tenantId)))
+      .limit(1)
+    return (rows[0] as UserIdentity | undefined) ?? null
+  }
+
   async findBySsoSubject(ssoSubject: string, tenantId: string): Promise<UserIdentity | null> {
     const rows = await this.db
       .select()

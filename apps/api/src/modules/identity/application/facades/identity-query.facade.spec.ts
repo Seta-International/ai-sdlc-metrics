@@ -1,16 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryBus } from '@nestjs/cqrs'
+import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import { IdentityQueryFacade } from './identity-query.facade'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
+const ACTOR_ID = '01900000-0000-7000-8000-000000000002'
+const AAD_OID = 'aad-oid-abc123'
 
 describe('IdentityQueryFacade', () => {
   let facade: IdentityQueryFacade
   let queryBus: QueryBus
+  let kernelQueryFacade: KernelQueryFacade
 
   beforeEach(() => {
     queryBus = { execute: vi.fn() } as unknown as QueryBus
-    facade = new IdentityQueryFacade(queryBus)
+    kernelQueryFacade = {
+      getExternalUserId: vi.fn(),
+      getUserIdentityBySsoSubject: vi.fn(),
+    } as unknown as KernelQueryFacade
+    facade = new IdentityQueryFacade(queryBus, kernelQueryFacade)
   })
 
   it('getIdentityProvider delegates to query bus', async () => {
@@ -40,5 +48,45 @@ describe('IdentityQueryFacade', () => {
     vi.mocked(queryBus.execute).mockResolvedValue(expected)
     const result = await facade.validateApiKey('hash-123', TENANT_ID)
     expect(result).toBe(expected)
+  })
+
+  describe('getExternalUserId', () => {
+    it('returns ssoSubject when user identity exists', async () => {
+      vi.mocked(kernelQueryFacade.getExternalUserId).mockResolvedValue(AAD_OID)
+      const result = await facade.getExternalUserId(ACTOR_ID, TENANT_ID)
+      expect(result).toBe(AAD_OID)
+      expect(kernelQueryFacade.getExternalUserId).toHaveBeenCalledWith(ACTOR_ID, TENANT_ID)
+    })
+
+    it('returns null when no user identity exists', async () => {
+      vi.mocked(kernelQueryFacade.getExternalUserId).mockResolvedValue(null)
+      const result = await facade.getExternalUserId(ACTOR_ID, TENANT_ID)
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('getActorIdByExternalUserId', () => {
+    it('returns actorId when user identity is found by sso subject', async () => {
+      vi.mocked(kernelQueryFacade.getUserIdentityBySsoSubject).mockResolvedValue({
+        id: 'identity-1',
+        tenantId: TENANT_ID,
+        actorId: ACTOR_ID,
+        email: 'user@example.com',
+        ssoSubject: AAD_OID,
+        provider: 'microsoft',
+        status: 'active',
+        lastLoginAt: null,
+        createdAt: new Date(),
+      })
+      const result = await facade.getActorIdByExternalUserId(AAD_OID, TENANT_ID)
+      expect(result).toBe(ACTOR_ID)
+      expect(kernelQueryFacade.getUserIdentityBySsoSubject).toHaveBeenCalledWith(AAD_OID, TENANT_ID)
+    })
+
+    it('returns null when no user identity is found', async () => {
+      vi.mocked(kernelQueryFacade.getUserIdentityBySsoSubject).mockResolvedValue(null)
+      const result = await facade.getActorIdByExternalUserId('unknown-oid', TENANT_ID)
+      expect(result).toBeNull()
+    })
   })
 })

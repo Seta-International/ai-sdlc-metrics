@@ -70,6 +70,11 @@ export const PERMISSIONS = {
 
   // ── planner (personal task tracking) ──────────────────────────────────
   PLANNER_TASK_SELF_MANAGE: 'planner:task:self:manage',
+  PLANNER_PLAN_CREATE: 'planner:plan:create',
+  PLANNER_PLAN_DELETE_ANY: 'planner:plan:delete-any',
+  PLANNER_PLAN_READ_ANY: 'planner:plan:read-any',
+  PLANNER_PLAN_MANAGE_MEMBERS_ANY: 'planner:plan:manage-members-any',
+  PLANNER_TASK_COMPLETE_ANY: 'planner:task:complete-any',
 } as const
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

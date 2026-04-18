@@ -31,6 +31,7 @@ import { KernelUserIdentityFacade } from './application/facades/kernel-user-iden
 import { KernelDecisionFacade } from './application/facades/kernel-decision.facade'
 import { KernelPermissionFacade } from './application/facades/kernel-permission.facade'
 import { GetLocalUsersWithActorsHandler } from './application/queries/get-local-users-with-actors.handler'
+import { GetUserIdentityByActorIdHandler } from './application/queries/get-user-identity-by-actor-id.handler'
 import { GetActorHandler } from './application/queries/get-actor.handler'
 import { GetRoleGrantsHandler } from './application/queries/get-role-grants.handler'
 import { GetTenantHandler } from './application/queries/get-tenant.handler'
@@ -91,6 +92,7 @@ import { DrizzleOutboxEventRepository } from './infrastructure/repositories/driz
     GetRolePermissionsHandler,
     ListRolesHandler,
     GetLocalUsersWithActorsHandler,
+    GetUserIdentityByActorIdHandler,
     KernelQueryFacade,
     KernelAuditFacade,
     KernelActorFacade,

@@ -1,6 +1,10 @@
-import { Injectable } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { QueryBus } from '@nestjs/cqrs'
 import type { Actor } from '../../domain/entities/actor.entity'
+import {
+  ACTOR_REPOSITORY,
+  type IActorRepository,
+} from '../../domain/repositories/actor.repository.port'
 import type { RoleGrant } from '../../domain/entities/role-grant.entity'
 import type { Tenant } from '../../domain/entities/tenant.entity'
 import type { UserIdentity } from '../../domain/entities/user-identity.entity'
@@ -17,6 +21,7 @@ import { ListRolesQuery } from '../queries/list-roles.query'
 import type { RoleSummaryDto } from '../queries/list-roles.handler'
 import { GetLocalUsersWithActorsQuery } from '../queries/get-local-users-with-actors.query'
 import type { LocalUserWithActorDto } from '../queries/get-local-users-with-actors.handler'
+import { GetUserIdentityByActorIdQuery } from '../queries/get-user-identity-by-actor-id.query'
 
 /**
  * KernelQueryFacade is the only cross-module import allowed from the kernel.
@@ -24,7 +29,10 @@ import type { LocalUserWithActorDto } from '../queries/get-local-users-with-acto
  */
 @Injectable()
 export class KernelQueryFacade {
-  constructor(private readonly queryBus: QueryBus) {}
+  constructor(
+    private readonly queryBus: QueryBus,
+    @Inject(ACTOR_REPOSITORY) private readonly actorRepo: IActorRepository,
+  ) {}
 
   getActor(actorId: string, tenantId: string): Promise<Actor | null> {
     return this.queryBus.execute(new GetActorQuery(actorId, tenantId))
@@ -74,5 +82,29 @@ export class KernelQueryFacade {
 
   getLocalUsersWithActors(tenantId: string): Promise<LocalUserWithActorDto[]> {
     return this.queryBus.execute(new GetLocalUsersWithActorsQuery(tenantId))
+  }
+
+  /**
+   * Batch-fetch actors by IDs. Used by board/snapshot queries to enrich assignee display info.
+   * Returns a map of actorId → { displayName }. Missing actors are omitted.
+   */
+  async getActorsByIds(
+    ids: string[],
+    tenantId: string,
+  ): Promise<Map<string, { displayName: string }>> {
+    if (ids.length === 0) return new Map()
+    const actors = await this.actorRepo.findManyByIds(ids, tenantId)
+    return new Map(actors.map((a) => [a.id, { displayName: a.displayName }]))
+  }
+
+  /**
+   * Returns the SSO subject (e.g. Microsoft Entra OID) for a given actor.
+   * Returns null if no user identity exists for that actor.
+   */
+  async getExternalUserId(actorId: string, tenantId: string): Promise<string | null> {
+    const identity: UserIdentity | null = await this.queryBus.execute(
+      new GetUserIdentityByActorIdQuery(actorId, tenantId),
+    )
+    return identity?.ssoSubject ?? null
   }
 }

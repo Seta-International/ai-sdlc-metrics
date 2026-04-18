@@ -1,4 +1,4 @@
-import { OrgChartTree } from '../../components/org-chart-tree'
+import { OrgChartTree } from '../../components/OrgChartTree'
 
 export default function OrgChartPage() {
   return (

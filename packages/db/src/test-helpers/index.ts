@@ -290,6 +290,24 @@ export async function seedAllocation(
   return { id, tenantId }
 }
 
+export async function truncatePlannerSchema(db: Db): Promise<void> {
+  await db.execute(
+    sql`TRUNCATE
+      planner.task_evidence,
+      planner.task_comment,
+      planner.task_attachment,
+      planner.task_checklist_item,
+      planner.task_applied_label,
+      planner.task_assignee,
+      planner.task,
+      planner.bucket,
+      planner.plan_member,
+      planner.plan_label,
+      planner.plan
+    RESTART IDENTITY CASCADE`,
+  )
+}
+
 export async function truncateIdentitySchema(db: Db): Promise<void> {
   await db.execute(
     sql`TRUNCATE identity.api_key, identity.magic_link_token, identity.idp_group_mapping, identity.identity_provider RESTART IDENTITY CASCADE`,

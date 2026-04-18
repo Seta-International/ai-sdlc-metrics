@@ -1,6 +1,6 @@
 'use client'
 import { useParams } from 'next/navigation'
-import { CountryConfigTabs } from '../../../../components/settings/country-config-tabs'
+import { CountryConfigTabs } from '../../../../components/settings/CountryConfigTabs'
 
 export default function CountryConfigPage() {
   const params = useParams()

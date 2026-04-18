@@ -59,14 +59,7 @@ import { setAgentInsightHandlers } from './interface/trpc/insight.router'
     ExposureContractGuard,
     ToolPermissionGuard,
   ],
-  exports: [
-    AgentsQueryFacade,
-    AgentPermissionService,
-    AgentToolExecutor,
-    McpAuthGuard,
-    ExposureContractGuard,
-    ToolPermissionGuard,
-  ],
+  exports: [AgentsQueryFacade],
 })
 export class AgentsModule implements OnModuleInit {
   constructor(

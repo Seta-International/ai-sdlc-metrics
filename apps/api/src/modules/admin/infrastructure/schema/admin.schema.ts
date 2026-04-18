@@ -1,4 +1,4 @@
-import { pgSchema, uuid, text, integer, timestamp } from 'drizzle-orm/pg-core'
+import { pgSchema, uuid, text, integer, timestamp, boolean } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const adminSchema = pgSchema('admin')
@@ -13,6 +13,16 @@ export const tenantEmailConfig = adminSchema.table('tenant_email_config', {
   smtpHost: text('smtp_host'),
   smtpPort: integer('smtp_port'),
   credentialRef: text('credential_ref').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const tenantSettings = adminSchema.table('tenant_settings', {
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull().unique(),
+  plannerCoreEnabled: boolean('planner_core_enabled').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })

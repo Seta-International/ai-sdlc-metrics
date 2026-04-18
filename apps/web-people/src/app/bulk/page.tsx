@@ -1,4 +1,4 @@
-import { BulkWizard } from '../../components/bulk/bulk-wizard'
+import { BulkWizard } from '../../components/bulk/BulkWizard'
 
 export default function BulkOperationsPage() {
   return (

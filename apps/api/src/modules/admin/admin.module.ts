@@ -5,6 +5,7 @@ import { AdminQueryFacade } from './application/facades/admin-query.facade'
 import { AdminRouterService } from './interface/trpc/admin-router.service'
 import { QueryAuditLogHandler } from './application/queries/query-audit-log.handler'
 import { ExportAuditLogHandler } from './application/queries/export-audit-log.handler'
+import { IsPlannerEnabledHandler } from './application/queries/is-planner-enabled.handler'
 import { DrizzleTenantEmailConfigRepository } from './infrastructure/repositories/drizzle-tenant-email-config.repository'
 import { TENANT_EMAIL_CONFIG_REPOSITORY } from './domain/repositories/tenant-email-config.repository.port'
 
@@ -15,6 +16,7 @@ import { TENANT_EMAIL_CONFIG_REPOSITORY } from './domain/repositories/tenant-ema
     AdminRouterService,
     QueryAuditLogHandler,
     ExportAuditLogHandler,
+    IsPlannerEnabledHandler,
     {
       provide: TENANT_EMAIL_CONFIG_REPOSITORY,
       useClass: DrizzleTenantEmailConfigRepository,

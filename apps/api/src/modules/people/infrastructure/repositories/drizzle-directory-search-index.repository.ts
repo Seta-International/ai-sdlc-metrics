@@ -97,19 +97,18 @@ export class DrizzleDirectorySearchIndexRepository implements IDirectorySearchIn
 
     const where = and(...conditions)
 
-    const [items, countResult] = await Promise.all([
-      this.db
-        .select()
-        .from(directorySearchIndex)
-        .where(where)
-        .limit(limit)
-        .offset(offset)
-        .orderBy(directorySearchIndex.fullNameUnaccented),
-      this.db
-        .select({ count: sql<number>`count(*)` })
-        .from(directorySearchIndex)
-        .where(where),
-    ])
+    const items = await this.db
+      .select()
+      .from(directorySearchIndex)
+      .where(where)
+      .limit(limit)
+      .offset(offset)
+      .orderBy(directorySearchIndex.fullNameUnaccented)
+
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(directorySearchIndex)
+      .where(where)
 
     return {
       items: items as DirectorySearchIndex[],
