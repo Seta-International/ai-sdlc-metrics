@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useMutation } from '@tanstack/react-query'
 import { useSession } from '@future/auth'
 import {
@@ -13,6 +14,7 @@ import {
   DialogTitle,
   Input,
   Label,
+  Spinner,
   Textarea,
 } from '@future/ui'
 import { trpc } from '../../../lib/trpc'
@@ -92,9 +94,10 @@ export default function NewPlanPage() {
           )}
           <DialogFooter className="flex items-center justify-end gap-3 pt-2">
             <Button variant="ghost" asChild>
-              <a href="/plans">Cancel</a>
+              <Link href="/plans">Cancel</Link>
             </Button>
             <Button type="submit" disabled={createMutation.isPending || !name.trim()}>
+              {createMutation.isPending && <Spinner className="size-4" />}
               {createMutation.isPending ? 'Creating…' : 'Create plan'}
             </Button>
           </DialogFooter>

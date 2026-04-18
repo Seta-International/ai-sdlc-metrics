@@ -2,6 +2,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@future/ui'
+import { X } from 'lucide-react'
 
 interface Props {
   taskId: string
@@ -28,7 +29,7 @@ export function TaskDetailPanel({ taskId, planId }: Props) {
           onClick={() => router.back()}
           aria-label="Close panel"
         >
-          ×
+          <X className="size-4" />
         </Button>
       </div>
       <div className="p-4 text-sm text-neutral-500">

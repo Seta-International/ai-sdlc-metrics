@@ -1,5 +1,5 @@
 import { AgentContextProvider, AgentBadge, AgentInlineAction, AgentBanner } from '@future/agent'
-import { ArrowUpCircle, Link } from 'lucide-react'
+import { ArrowUpCircle, Link as LinkIcon } from 'lucide-react'
 
 export default function TaskPage({ params }: { params: { id: string } }) {
   return (
@@ -14,7 +14,7 @@ export default function TaskPage({ params }: { params: { id: string } }) {
           <AgentInlineAction
             actions={[
               { key: 'prioritize', label: 'Prioritize', icon: ArrowUpCircle },
-              { key: 'link-to-kpi', label: 'Link to KPI', icon: Link },
+              { key: 'link-to-kpi', label: 'Link to KPI', icon: LinkIcon },
             ]}
           />
         </div>

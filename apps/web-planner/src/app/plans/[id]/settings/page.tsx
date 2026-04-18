@@ -2,13 +2,15 @@
 
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { UserPlusIcon, TrashIcon, XIcon } from 'lucide-react'
+import { UserPlusIcon, TrashIcon, XIcon, ArrowLeft } from 'lucide-react'
 import { useSession } from '@future/auth'
 import {
   Button,
   Input,
   Skeleton,
+  Spinner,
   Select,
   SelectContent,
   SelectItem,
@@ -229,9 +231,12 @@ export default function PlanSettingsPage() {
     return (
       <main className="p-8">
         <p className="text-fg-muted text-sm">Plan not found.</p>
-        <a href="/plans" className="mt-2 inline-block text-sm text-brand hover:text-accent-hover">
-          ← Back to plans
-        </a>
+        <Button variant="ghost" size="sm" asChild className="mt-2">
+          <Link href="/plans">
+            <ArrowLeft className="size-4" />
+            Back to plans
+          </Link>
+        </Button>
       </main>
     )
   }
@@ -246,8 +251,11 @@ export default function PlanSettingsPage() {
     <main className="p-8 max-w-2xl">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-normal tracking-h2 text-fg-primary">{plan.name} — Settings</h1>
-        <Button variant="ghost" asChild>
-          <a href={`/plans/${planId}/board`}>← Board</a>
+        <Button variant="ghost" size="sm" asChild>
+          <Link href={`/plans/${planId}/board`}>
+            <ArrowLeft className="size-4" />
+            Board
+          </Link>
         </Button>
       </div>
 
@@ -294,6 +302,7 @@ export default function PlanSettingsPage() {
                   renameMutation.isPending || !planName.trim() || planName.trim() === plan.name
                 }
               >
+                {renameMutation.isPending && <Spinner className="size-4" />}
                 {renameMutation.isPending ? 'Saving…' : 'Save'}
               </Button>
             </div>
@@ -310,7 +319,7 @@ export default function PlanSettingsPage() {
               onClick={handleDeletePlan}
               disabled={deleteMutation.isPending}
             >
-              <TrashIcon size={14} />
+              {deleteMutation.isPending ? <Spinner className="size-4" /> : <TrashIcon size={14} />}
               {deleteMutation.isPending ? 'Deleting…' : 'Delete plan'}
             </Button>
             {deleteError && <p className="mt-2 text-status-text-danger text-xs">{deleteError}</p>}

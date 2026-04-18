@@ -1,10 +1,12 @@
 'use client'
 
+import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { useSession } from '@future/auth'
 import {
   Button,
+  Skeleton,
   Breadcrumb,
   BreadcrumbList,
   BreadcrumbItem,
@@ -60,7 +62,7 @@ export default function PlanLayout({ children }: { children: React.ReactNode }) 
               {plan ? (
                 <BreadcrumbPage>{plan.name}</BreadcrumbPage>
               ) : (
-                <span className="mx-2 h-3 w-24 rounded bg-overlay/5 animate-pulse inline-block" />
+                <Skeleton className="mx-2 h-3 w-24" />
               )}
             </BreadcrumbItem>
           </BreadcrumbList>
@@ -68,10 +70,10 @@ export default function PlanLayout({ children }: { children: React.ReactNode }) 
 
         <div className="flex items-center gap-0.5 ml-2">
           <Button variant="ghost" size="sm" asChild>
-            <a href={`/plans/${planId}/board`}>Board</a>
+            <Link href={`/plans/${planId}/board`}>Board</Link>
           </Button>
           <Button variant="ghost" size="sm" asChild>
-            <a href={`/plans/${planId}/settings`}>Settings</a>
+            <Link href={`/plans/${planId}/settings`}>Settings</Link>
           </Button>
         </div>
       </nav>
