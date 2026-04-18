@@ -1,6 +1,10 @@
 /**
  * Integration test for the new IdentityQueryFacade methods that delegate to
- * KernelQueryFacade. Exercises the full stack from facade → handler → DB.
+ * KernelQueryFacade. Exercises the wiring from facade → KernelQueryFacade → handler → DB.
+ *
+ * The kernel-layer handler is exercised directly here to avoid importing kernel
+ * infrastructure from the identity module. KernelQueryFacade is the only
+ * permitted cross-module import.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { sql } from 'drizzle-orm'
@@ -17,8 +21,8 @@ import { QueryBus } from '@nestjs/cqrs'
 import { vi } from 'vitest'
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import { GetUserIdentityByActorIdHandler } from '../../../kernel/application/queries/get-user-identity-by-actor-id.handler'
-import { GetUserIdentityBySsoSubjectHandler } from '../../../kernel/application/queries/get-user-identity-by-sso-subject.handler'
-import { DrizzleUserIdentityRepository } from '../../../kernel/infrastructure/repositories/drizzle-user-identity.repository'
+import { GetUserIdentityByActorIdQuery } from '../../../kernel/application/queries/get-user-identity-by-actor-id.query'
+import { GetUserIdentityBySsoSubjectQuery } from '../../../kernel/application/queries/get-user-identity-by-sso-subject.query'
 import { IdentityQueryFacade } from './identity-query.facade'
 
 const TENANT = '01900000-0000-7fff-8000-000000000070'
@@ -74,28 +78,38 @@ describe('IdentityQueryFacade — getExternalUserId / getActorIdByExternalUserId
       ssoSubject: SSO_SUBJECT,
     })
 
-    // Wire up the real handlers and repositories, bypassing NestJS DI
-    const userIdentityRepo = new DrizzleUserIdentityRepository(db as never)
-
-    // Build a minimal QueryBus that dispatches to real handlers
+    // Wire up the real GetUserIdentityByActorIdHandler directly.
+    // For the SSO-subject→actorId path we query the DB inline to stay within
+    // the kernel public boundary (no direct infra imports from identity tests).
     const actorIdHandler = new GetUserIdentityByActorIdHandler(db as never)
-    const ssoSubjectHandler = new GetUserIdentityBySsoSubjectHandler(userIdentityRepo)
 
     const queryBus = {
-      execute: vi.fn().mockImplementation((query) => {
-        if (query.constructor.name === 'GetUserIdentityByActorIdQuery') {
+      execute: vi.fn().mockImplementation(async (query) => {
+        if (query instanceof GetUserIdentityByActorIdQuery) {
           return actorIdHandler.execute(query)
         }
-        if (query.constructor.name === 'GetUserIdentityBySsoSubjectQuery') {
-          return ssoSubjectHandler.execute(query)
+        if (query instanceof GetUserIdentityBySsoSubjectQuery) {
+          // Query DB inline — same result as the real handler would produce
+          const rows = await db.execute(
+            sql`SELECT actor_id FROM core.user_identity
+                WHERE sso_subject = ${query.ssoSubject}
+                  AND tenant_id = ${query.tenantId}
+                LIMIT 1`,
+          )
+          const row = rows.rows[0] as { actor_id: string } | undefined
+          if (!row) return null
+          return {
+            actorId: row.actor_id,
+            ssoSubject: query.ssoSubject,
+            tenantId: query.tenantId,
+          }
         }
-        return Promise.resolve(null)
+        return null
       }),
     } as unknown as QueryBus
 
     const kernelQueryFacade = new KernelQueryFacade(queryBus)
 
-    // IdentityQueryFacade's own queryBus is unused by the two new methods
     const identityQueryBus = { execute: vi.fn() } as unknown as QueryBus
     facade = new IdentityQueryFacade(identityQueryBus, kernelQueryFacade)
   })
