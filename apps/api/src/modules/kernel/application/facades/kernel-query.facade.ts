@@ -81,7 +81,10 @@ export class KernelQueryFacade {
    * Returns the SSO subject (e.g. Microsoft Entra OID) for a given actor.
    * Returns null if no user identity exists for that actor.
    */
-  getExternalUserId(actorId: string, tenantId: string): Promise<string | null> {
-    return this.queryBus.execute(new GetUserIdentityByActorIdQuery(actorId, tenantId))
+  async getExternalUserId(actorId: string, tenantId: string): Promise<string | null> {
+    const identity: UserIdentity | null = await this.queryBus.execute(
+      new GetUserIdentityByActorIdQuery(actorId, tenantId),
+    )
+    return identity?.ssoSubject ?? null
   }
 }

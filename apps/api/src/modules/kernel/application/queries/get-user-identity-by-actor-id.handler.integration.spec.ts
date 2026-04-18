@@ -9,6 +9,7 @@ import {
   truncateCoreSchema,
 } from '@future/db/test-helpers'
 import { uuidv7 } from 'uuidv7'
+import { DrizzleUserIdentityRepository } from '../../infrastructure/repositories/drizzle-user-identity.repository'
 import { GetUserIdentityByActorIdHandler } from './get-user-identity-by-actor-id.handler'
 import { GetUserIdentityByActorIdQuery } from './get-user-identity-by-actor-id.query'
 
@@ -62,17 +63,21 @@ describe('GetUserIdentityByActorIdHandler (integration)', () => {
       email: 'test@example.com',
       ssoSubject: SSO_SUBJECT,
     })
-    handler = new GetUserIdentityByActorIdHandler(db as never)
+    const repo = new DrizzleUserIdentityRepository(db as never)
+    handler = new GetUserIdentityByActorIdHandler(repo)
   })
 
   afterAll(async () => {
     await truncateCoreSchema(db)
   })
 
-  it('returns the ssoSubject for a known actorId', async () => {
+  it('returns the UserIdentity for a known actorId', async () => {
     await setTenantContext(db, TENANT)
     const result = await handler.execute(new GetUserIdentityByActorIdQuery(actorId, TENANT))
-    expect(result).toBe(SSO_SUBJECT)
+    expect(result).not.toBeNull()
+    expect(result?.ssoSubject).toBe(SSO_SUBJECT)
+    expect(result?.actorId).toBe(actorId)
+    expect(result?.tenantId).toBe(TENANT)
   })
 
   it('returns null for an unknown actorId', async () => {

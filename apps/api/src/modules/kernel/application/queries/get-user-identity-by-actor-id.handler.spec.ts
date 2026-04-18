@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { Db } from '@future/db'
+import type { IUserIdentityRepository } from '../../domain/repositories/user-identity.repository.port'
+import type { UserIdentity } from '../../domain/entities/user-identity.entity'
 import { GetUserIdentityByActorIdHandler } from './get-user-identity-by-actor-id.handler'
 import { GetUserIdentityByActorIdQuery } from './get-user-identity-by-actor-id.query'
 
 describe('GetUserIdentityByActorIdHandler', () => {
   let handler: GetUserIdentityByActorIdHandler
-  let db: { select: ReturnType<typeof vi.fn> }
+  let identityRepo: { findByActorId: ReturnType<typeof vi.fn> }
 
-  const mockRow = {
+  const mockIdentity: UserIdentity = {
     id: 'identity-1',
     tenantId: 'tenant-1',
     actorId: 'actor-1',
@@ -20,33 +21,26 @@ describe('GetUserIdentityByActorIdHandler', () => {
   }
 
   beforeEach(() => {
-    db = {
-      select: vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([mockRow]),
-          }),
-        }),
-      }),
+    identityRepo = {
+      findByActorId: vi.fn().mockResolvedValue(mockIdentity),
     }
-    handler = new GetUserIdentityByActorIdHandler(db as unknown as Db)
+    handler = new GetUserIdentityByActorIdHandler(
+      identityRepo as unknown as IUserIdentityRepository,
+    )
   })
 
-  it('returns ssoSubject when user identity is found', async () => {
+  it('returns UserIdentity when user identity is found', async () => {
     const query = new GetUserIdentityByActorIdQuery('actor-1', 'tenant-1')
     const result = await handler.execute(query)
-    expect(result).toBe('aad-oid-abc123')
+    expect(result).toEqual(mockIdentity)
+    expect(identityRepo.findByActorId).toHaveBeenCalledWith('actor-1', 'tenant-1')
   })
 
   it('returns null when user identity is not found', async () => {
-    db.select = vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue([]),
-        }),
-      }),
-    })
-    handler = new GetUserIdentityByActorIdHandler(db as unknown as Db)
+    identityRepo.findByActorId = vi.fn().mockResolvedValue(null)
+    handler = new GetUserIdentityByActorIdHandler(
+      identityRepo as unknown as IUserIdentityRepository,
+    )
 
     const query = new GetUserIdentityByActorIdQuery('unknown-actor', 'tenant-1')
     const result = await handler.execute(query)
