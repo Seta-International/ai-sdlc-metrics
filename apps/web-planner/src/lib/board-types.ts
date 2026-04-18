@@ -62,3 +62,28 @@ export interface BoardSnapshot {
   }
   buckets: BoardBucketSnapshot[]
 }
+
+export interface TaskDetailSnapshot {
+  id: string
+  planId: string
+  title: string
+  description: string
+  progress: number
+  priority: number
+  startDate: Date | null
+  dueDate: Date | null
+  updatedAt: Date
+  bucketId: string
+  bucketName: string
+  orderHint: string
+  completedAt: Date | null
+  completedBy: string | null
+  checklistItemCount: number
+  checklistCheckedCount: number
+  attachmentCount: number
+  commentCount: number
+  evidenceCount: number
+  coverAttachmentId: string | null
+  appliedLabels: string[]
+  assignees: BoardAssignee[]
+}
