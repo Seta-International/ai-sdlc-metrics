@@ -93,9 +93,9 @@ describe('orderHintBetween (client-side mirror of MsOrderHint)', () => {
       let items = [orderHintBetween(undefined, undefined)]
       items.push(orderHintBetween(items[0], undefined))
       for (let i = 0; i < 998; i++) {
-        const newHint = orderHintBetween(items[0], items[1])
-        items = [items[0], newHint, ...items.slice(1)]
-        if (items.length > 3) items = [items[0], items[1], items[2]]
+        const newHint = orderHintBetween(items[0]!, items[1])
+        items = [items[0]!, newHint, ...items.slice(1)]
+        if (items.length > 3) items = [items[0]!, items[1]!, items[2]!]
       }
       const maxLen = Math.max(...items.map((h) => h.length))
       expect(maxLen).toBeLessThanOrEqual(50)

@@ -121,7 +121,7 @@ describe('useOptimisticMove', () => {
     const bucketB = after?.buckets.find((b) => b.id === 'bucket-b')
     expect(bucketA?.tasks).toHaveLength(0)
     expect(bucketB?.tasks).toHaveLength(1)
-    expect(bucketB?.tasks[0].orderHint).toBe('b0')
+    expect(bucketB?.tasks[0]?.orderHint).toBe('b0')
   })
 
   it('reverts cache on network error', async () => {
