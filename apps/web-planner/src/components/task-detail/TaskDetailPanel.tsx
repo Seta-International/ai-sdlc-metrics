@@ -1,13 +1,16 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Separator, Skeleton } from '@future/ui'
 import { TaskPanelHeader } from './TaskPanelHeader'
 import { TaskPropertyStrip } from './TaskPropertyStrip'
 import { TaskDescription } from './TaskDescription'
 import { TaskChecklist } from './TaskChecklist'
+import { ConflictBanner } from './ConflictBanner'
 import { useTaskDetail } from '@/lib/hooks/useTaskDetail'
+import { useConflictResolver } from '@/lib/hooks/useConflictResolver'
+import type { TaskPatch } from '@/lib/hooks/useTaskDetail'
 
 interface Props {
   taskId: string
@@ -30,7 +33,23 @@ function PlaceholderSection({ title, phase }: PlaceholderSectionProps) {
 
 export function TaskDetailPanel({ taskId, planId }: Props) {
   const router = useRouter()
-  const { task, isLoading, saving, update } = useTaskDetail({ taskId, planId })
+  const { task, isLoading, saving, update, conflict, clearConflict } = useTaskDetail({
+    taskId,
+    planId,
+  })
+  const [localPatch, setLocalPatch] = useState<TaskPatch | null>(null)
+
+  function handleUpdate(patch: TaskPatch): void {
+    setLocalPatch(patch)
+    update(patch)
+  }
+
+  const { conflictingField, myValue, theirValue, keepMine, keepTheirs } = useConflictResolver({
+    conflict,
+    localPatch,
+    update,
+    clearConflict,
+  })
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -43,6 +62,14 @@ export function TaskDetailPanel({ taskId, planId }: Props) {
   return (
     <div className="flex h-full flex-col">
       <TaskPanelHeader title={task?.title ?? ''} isSaving={saving} onClose={() => router.back()} />
+
+      <ConflictBanner
+        conflictingField={conflictingField}
+        myValue={myValue}
+        theirValue={theirValue}
+        onKeepMine={keepMine}
+        onKeepTheirs={keepTheirs}
+      />
 
       <div className="flex-1 overflow-y-auto">
         {isLoading || !task ? (
@@ -69,7 +96,7 @@ export function TaskDetailPanel({ taskId, planId }: Props) {
 
             <TaskDescription
               value={task.description}
-              onChange={(v) => update({ description: v })}
+              onChange={(v) => handleUpdate({ description: v })}
             />
 
             <Separator />
