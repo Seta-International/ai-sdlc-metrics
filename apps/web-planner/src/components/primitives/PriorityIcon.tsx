@@ -51,7 +51,7 @@ export function PriorityIcon({ priority, className = 'size-3.5' }: PriorityIconP
         const barH = 12 - y
         return (
           <rect
-            key={i}
+            key={y}
             x={i * 3}
             y={y}
             width={2}

@@ -27,7 +27,7 @@ function BoardColumnSkeleton() {
       {/* Task card skeletons */}
       {[80, 60, 72].map((w, i) => (
         <Skeleton
-          key={i}
+          key={w}
           className="h-16 rounded-lg"
           style={{ width: '100%', opacity: 1 - i * 0.15 }}
         />
