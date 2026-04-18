@@ -5,6 +5,16 @@ import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { UserPlusIcon, TrashIcon, XIcon } from 'lucide-react'
 import { useSession } from '@future/auth'
+import {
+  Button,
+  Input,
+  Skeleton,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@future/ui'
 import { trpc } from '../../../../lib/trpc'
 import { LabelEditor } from '../../../../components/label-editor'
 
@@ -210,7 +220,7 @@ export default function PlanSettingsPage() {
   if (!session || isLoading) {
     return (
       <main className="p-8">
-        <div className="h-6 w-48 bg-overlay/5 rounded animate-pulse" />
+        <Skeleton className="h-6 w-48" />
       </main>
     )
   }
@@ -236,12 +246,9 @@ export default function PlanSettingsPage() {
     <main className="p-8 max-w-2xl">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-normal tracking-h2 text-fg-primary">{plan.name} — Settings</h1>
-        <a
-          href={`/plans/${planId}/board`}
-          className="text-sm text-fg-muted hover:text-fg-primary transition-colors"
-        >
-          ← Board
-        </a>
+        <Button variant="ghost" asChild>
+          <a href={`/plans/${planId}/board`}>← Board</a>
+        </Button>
       </div>
 
       <div className="flex gap-1 mb-6 border-b border-overlay/8">
@@ -271,24 +278,22 @@ export default function PlanSettingsPage() {
               Name
             </label>
             <div className="flex gap-2">
-              <input
+              <Input
                 id="settings-plan-name"
-                type="text"
                 value={planName}
                 onChange={(e) => setPlanName(e.target.value)}
                 maxLength={255}
                 required
-                className="flex-1 px-3 py-2 rounded-md bg-black/40 border border-overlay/8 text-sm text-fg-primary outline-none focus:border-brand transition-colors"
+                className="flex-1"
               />
-              <button
+              <Button
                 type="submit"
                 disabled={
                   renameMutation.isPending || !planName.trim() || planName.trim() === plan.name
                 }
-                className="px-3 py-2 rounded-md bg-brand hover:bg-accent-hover text-fg-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {renameMutation.isPending ? 'Saving…' : 'Save'}
-              </button>
+              </Button>
             </div>
             {nameError && <p className="text-status-text-danger text-xs">{nameError}</p>}
           </form>
@@ -297,15 +302,15 @@ export default function PlanSettingsPage() {
 
           <div>
             <p className="text-sm text-fg-muted mb-3">Danger zone</p>
-            <button
+            <Button
+              variant="destructive"
               type="button"
               onClick={handleDeletePlan}
               disabled={deleteMutation.isPending}
-              className="flex items-center gap-2 px-3 py-2 rounded-md border border-status-border-danger text-status-text-danger hover:bg-status-bg-danger text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <TrashIcon size={14} />
               {deleteMutation.isPending ? 'Deleting…' : 'Delete plan'}
-            </button>
+            </Button>
             {deleteError && <p className="mt-2 text-status-text-danger text-xs">{deleteError}</p>}
           </div>
         </div>
@@ -324,14 +329,15 @@ export default function PlanSettingsPage() {
                   <span className="ml-2 text-xs text-fg-subtle capitalize">{m.role}</span>
                 </div>
                 {m.actorId !== session.actorId && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     type="button"
                     onClick={() => removeMemberMutation.mutate(m.actorId)}
-                    className="p-1 rounded text-fg-subtle hover:text-status-text-danger hover:bg-status-bg-danger transition-colors"
                     aria-label="Remove member"
                   >
                     <XIcon size={14} />
-                  </button>
+                  </Button>
                 )}
               </li>
             ))}
@@ -340,30 +346,32 @@ export default function PlanSettingsPage() {
           <form onSubmit={handleAddMember} className="pt-2 space-y-3">
             <p className="text-sm text-fg-muted">Add member</p>
             <div className="flex gap-2">
-              <input
-                type="text"
+              <Input
                 value={newMemberActorId}
                 onChange={(e) => setNewMemberActorId(e.target.value)}
                 placeholder="Actor ID (UUID)"
-                className="flex-1 px-3 py-2 rounded-md bg-black/40 border border-overlay/8 text-sm text-fg-primary placeholder:text-fg-subtle outline-none focus:border-brand transition-colors font-mono"
+                className="flex-1"
               />
-              <select
+              <Select
                 value={newMemberRole}
-                onChange={(e) => setNewMemberRole(e.target.value as 'owner' | 'editor' | 'viewer')}
-                className="px-3 py-2 rounded-md bg-black/40 border border-overlay/8 text-sm text-fg-primary outline-none focus:border-brand transition-colors"
+                onValueChange={(v) => setNewMemberRole(v as 'owner' | 'editor' | 'viewer')}
               >
-                <option value="viewer">Viewer</option>
-                <option value="editor">Editor</option>
-                <option value="owner">Owner</option>
-              </select>
-              <button
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                  <SelectItem value="editor">Editor</SelectItem>
+                  <SelectItem value="owner">Owner</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
                 type="submit"
                 disabled={addMemberMutation.isPending || !newMemberActorId.trim()}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-brand hover:bg-accent-hover text-fg-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <UserPlusIcon size={14} />
                 Add
-              </button>
+              </Button>
             </div>
             {memberError && <p className="text-status-text-danger text-xs">{memberError}</p>}
             {mutationError && <p className="text-status-text-danger text-xs">{mutationError}</p>}
