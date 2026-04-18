@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { PlusIcon, UsersIcon } from 'lucide-react'
 import { useSession } from '@future/auth'
 import { trpc } from '../../lib/trpc'
@@ -15,19 +15,17 @@ interface PlanSummary {
 
 export default function PlansPage() {
   const session = useSession()
-  const [plans, setPlans] = useState<PlanSummary[]>([])
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (!session) return
-    trpc.planner.plans.list
-      .query({ actorId: session.actorId, tenantId: session.tenantId })
-      .then((data) => setPlans(data as unknown as PlanSummary[]))
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [session])
+  const { data: plans = [], isLoading } = useQuery({
+    queryKey: ['plans.list', session?.actorId, session?.tenantId],
+    queryFn: () =>
+      trpc.planner.plans.list
+        .query({ actorId: session!.actorId, tenantId: session!.tenantId })
+        .then((data) => data as unknown as PlanSummary[]),
+    enabled: !!session,
+  })
 
-  if (!session || loading) {
+  if (!session || isLoading) {
     return (
       <main className="p-8">
         <div className="h-6 w-32 bg-white/5 rounded animate-pulse" />

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { useSession } from '@future/auth'
 import { trpc } from '../../../lib/trpc'
@@ -23,22 +23,19 @@ interface PlanHeader {
 export default function PlanLayout({ children }: { children: React.ReactNode }) {
   const { id: planId } = useParams<{ id: string }>()
   const session = useSession()
-  const [plan, setPlan] = useState<PlanHeader | null>(null)
 
-  useEffect(() => {
-    if (!session || !planId) return
-    trpc.planner.plans.get
-      .query({ actorId: session.actorId, tenantId: session.tenantId, planId })
-      .then((data) => {
-        if (data) {
+  const { data: plan } = useQuery({
+    queryKey: ['plans.get', planId, session?.actorId, session?.tenantId],
+    queryFn: () =>
+      trpc.planner.plans.get
+        .query({ actorId: session!.actorId, tenantId: session!.tenantId, planId })
+        .then((data) => {
+          if (!data) return null
           const p = data as { id: string; name: string }
-          setPlan({ id: p.id, name: p.name })
-        }
-      })
-      .catch(() => {
-        /* non-fatal — children will handle missing plan */
-      })
-  }, [session, planId])
+          return { id: p.id, name: p.name } as PlanHeader
+        }),
+    enabled: !!session && !!planId,
+  })
 
   return (
     <div className="flex flex-col min-h-0">

@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { UserPlusIcon, TrashIcon, XIcon } from 'lucide-react'
 import { useSession } from '@future/auth'
 import { trpc } from '../../../../lib/trpc'
@@ -22,134 +23,117 @@ export default function PlanSettingsPage() {
   const { id: planId } = useParams<{ id: string }>()
   const router = useRouter()
   const session = useSession()
+  const queryClient = useQueryClient()
 
-  const [plan, setPlan] = useState<PlanDetail | null>(null)
-  const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('details')
-
-  // Details tab state
   const [planName, setPlanName] = useState('')
-  const [savingName, setSavingName] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
-  const [deleting, setDeleting] = useState(false)
-
-  // Members tab state
   const [newMemberActorId, setNewMemberActorId] = useState('')
   const [newMemberRole, setNewMemberRole] = useState<'owner' | 'editor' | 'viewer'>('editor')
-  const [addingMember, setAddingMember] = useState(false)
   const [memberError, setMemberError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!session || !planId) return
-    trpc.planner.plans.get
-      .query({ actorId: session.actorId, tenantId: session.tenantId, planId })
-      .then((data) => {
-        const detail = data as unknown as PlanDetail | null
-        if (detail) {
-          setPlan(detail)
-          setPlanName(detail.name)
-        }
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [session, planId])
+  const planQueryKey = ['plans.get', planId, session?.actorId, session?.tenantId]
 
-  async function handleRenamePlan(e: React.FormEvent) {
-    e.preventDefault()
-    if (!session || !planName.trim() || !planId) return
-    setSavingName(true)
-    setNameError(null)
-    try {
-      await trpc.planner.plans.rename.mutate({
-        actorId: session.actorId,
-        tenantId: session.tenantId,
-        planId,
-        name: planName.trim(),
-      })
-      setPlan((prev) => (prev ? { ...prev, name: planName.trim() } : prev))
-    } catch {
-      setNameError('Failed to rename plan.')
-    } finally {
-      setSavingName(false)
-    }
-  }
+  const { data: plan, isLoading } = useQuery({
+    queryKey: planQueryKey,
+    queryFn: () =>
+      trpc.planner.plans.get
+        .query({ actorId: session!.actorId, tenantId: session!.tenantId, planId })
+        .then((data) => {
+          const detail = data as unknown as PlanDetail | null
+          if (detail) setPlanName(detail.name)
+          return detail
+        }),
+    enabled: !!session && !!planId,
+  })
 
-  async function handleDeletePlan() {
-    if (!session || !planId) return
-    if (!confirm('Delete this plan? This cannot be undone.')) return
-    setDeleting(true)
-    try {
-      await trpc.planner.plans.delete.mutate({
-        actorId: session.actorId,
-        tenantId: session.tenantId,
+  const renameMutation = useMutation({
+    mutationFn: (name: string) =>
+      trpc.planner.plans.rename.mutate({
+        actorId: session!.actorId,
+        tenantId: session!.tenantId,
         planId,
-      })
-      router.push('/plans')
-    } catch {
-      setDeleting(false)
-    }
-  }
+        name,
+      }),
+    onSuccess: (_data, name) => {
+      queryClient.setQueryData<PlanDetail | null>(planQueryKey, (prev) =>
+        prev ? { ...prev, name } : prev,
+      )
+      setNameError(null)
+    },
+    onError: () => setNameError('Failed to rename plan.'),
+  })
 
-  async function handleAddMember(e: React.FormEvent) {
-    e.preventDefault()
-    if (!session || !newMemberActorId.trim() || !planId) return
-    setAddingMember(true)
-    setMemberError(null)
-    try {
-      await trpc.planner.plans.addMember.mutate({
-        actorId: session.actorId,
-        tenantId: session.tenantId,
+  const deleteMutation = useMutation({
+    mutationFn: () =>
+      trpc.planner.plans.delete.mutate({
+        actorId: session!.actorId,
+        tenantId: session!.tenantId,
         planId,
-        targetActorId: newMemberActorId.trim(),
-        role: newMemberRole,
-      })
-      setPlan((prev) =>
+      }),
+    onSuccess: () => router.push('/plans'),
+  })
+
+  const addMemberMutation = useMutation({
+    mutationFn: ({
+      targetActorId,
+      role,
+    }: {
+      targetActorId: string
+      role: 'owner' | 'editor' | 'viewer'
+    }) =>
+      trpc.planner.plans.addMember.mutate({
+        actorId: session!.actorId,
+        tenantId: session!.tenantId,
+        planId,
+        targetActorId,
+        role,
+      }),
+    onSuccess: (_data, { targetActorId, role }) => {
+      queryClient.setQueryData<PlanDetail | null>(planQueryKey, (prev) =>
         prev
           ? {
               ...prev,
               members: [
-                ...prev.members.filter((m) => m.actorId !== newMemberActorId.trim()),
-                { actorId: newMemberActorId.trim(), role: newMemberRole },
+                ...prev.members.filter((m) => m.actorId !== targetActorId),
+                { actorId: targetActorId, role },
               ],
             }
           : prev,
       )
       setNewMemberActorId('')
-    } catch {
-      setMemberError('Failed to add member. Check the actor ID and try again.')
-    } finally {
-      setAddingMember(false)
-    }
-  }
+      setMemberError(null)
+    },
+    onError: () => setMemberError('Failed to add member. Check the actor ID and try again.'),
+  })
 
-  async function handleRemoveMember(targetActorId: string) {
-    if (!session || !planId) return
-    try {
-      await trpc.planner.plans.removeMember.mutate({
-        actorId: session.actorId,
-        tenantId: session.tenantId,
+  const removeMemberMutation = useMutation({
+    mutationFn: (targetActorId: string) =>
+      trpc.planner.plans.removeMember.mutate({
+        actorId: session!.actorId,
+        tenantId: session!.tenantId,
         planId,
         targetActorId,
-      })
-      setPlan((prev) =>
+      }),
+    onSuccess: (_data, targetActorId) => {
+      queryClient.setQueryData<PlanDetail | null>(planQueryKey, (prev) =>
         prev ? { ...prev, members: prev.members.filter((m) => m.actorId !== targetActorId) } : prev,
       )
-    } catch (err) {
-      console.error('Failed to remove member', err)
-    }
-  }
+    },
+    onError: (err) => console.error('Failed to remove member', err),
+  })
 
-  async function handleRenameLabel(slot: string, name: string) {
-    if (!session || !planId) return
-    try {
-      await trpc.planner.labels.rename.mutate({
-        actorId: session.actorId,
-        tenantId: session.tenantId,
+  const renameLabelMutation = useMutation({
+    mutationFn: ({ slot, name }: { slot: string; name: string }) =>
+      trpc.planner.labels.rename.mutate({
+        actorId: session!.actorId,
+        tenantId: session!.tenantId,
         planId,
         slot,
         name,
-      })
-      setPlan((prev) =>
+      }),
+    onSuccess: (_data, { slot, name }) => {
+      queryClient.setQueryData<PlanDetail | null>(planQueryKey, (prev) =>
         prev
           ? {
               ...prev,
@@ -160,23 +144,22 @@ export default function PlanSettingsPage() {
             }
           : prev,
       )
-    } catch (err) {
-      console.error('Failed to rename label', err)
-    }
-  }
+    },
+    onError: (err) => console.error('Failed to rename label', err),
+  })
 
-  async function handleRecolorLabel(slot: string, name: string, color: string) {
-    if (!session || !planId) return
-    try {
-      await trpc.planner.labels.recolor.mutate({
-        actorId: session.actorId,
-        tenantId: session.tenantId,
+  const recolorLabelMutation = useMutation({
+    mutationFn: ({ slot, name, color }: { slot: string; name: string; color: string }) =>
+      trpc.planner.labels.recolor.mutate({
+        actorId: session!.actorId,
+        tenantId: session!.tenantId,
         planId,
         slot,
         name,
         color,
-      })
-      setPlan((prev) =>
+      }),
+    onSuccess: (_data, { slot, name, color }) => {
+      queryClient.setQueryData<PlanDetail | null>(planQueryKey, (prev) =>
         prev
           ? {
               ...prev,
@@ -184,12 +167,39 @@ export default function PlanSettingsPage() {
             }
           : prev,
       )
-    } catch (err) {
-      console.error('Failed to recolor label', err)
-    }
+    },
+    onError: (err) => console.error('Failed to recolor label', err),
+  })
+
+  function handleRenamePlan(e: React.FormEvent) {
+    e.preventDefault()
+    if (!session || !planName.trim() || !planId) return
+    renameMutation.mutate(planName.trim())
   }
 
-  if (!session || loading) {
+  function handleDeletePlan() {
+    if (!session || !planId) return
+    if (!confirm('Delete this plan? This cannot be undone.')) return
+    deleteMutation.mutate()
+  }
+
+  function handleAddMember(e: React.FormEvent) {
+    e.preventDefault()
+    if (!session || !newMemberActorId.trim() || !planId) return
+    addMemberMutation.mutate({ targetActorId: newMemberActorId.trim(), role: newMemberRole })
+  }
+
+  function handleRenameLabel(slot: string, name: string) {
+    if (!session || !planId) return
+    renameLabelMutation.mutate({ slot, name })
+  }
+
+  function handleRecolorLabel(slot: string, name: string, color: string) {
+    if (!session || !planId) return
+    recolorLabelMutation.mutate({ slot, name, color })
+  }
+
+  if (!session || isLoading) {
     return (
       <main className="p-8">
         <div className="h-6 w-48 bg-overlay/5 rounded animate-pulse" />
@@ -261,10 +271,12 @@ export default function PlanSettingsPage() {
               />
               <button
                 type="submit"
-                disabled={savingName || !planName.trim() || planName.trim() === plan.name}
+                disabled={
+                  renameMutation.isPending || !planName.trim() || planName.trim() === plan.name
+                }
                 className="px-3 py-2 rounded-md bg-brand hover:bg-accent-hover text-fg-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {savingName ? 'Saving…' : 'Save'}
+                {renameMutation.isPending ? 'Saving…' : 'Save'}
               </button>
             </div>
             {nameError && <p className="text-red-400 text-xs">{nameError}</p>}
@@ -277,11 +289,11 @@ export default function PlanSettingsPage() {
             <button
               type="button"
               onClick={handleDeletePlan}
-              disabled={deleting}
+              disabled={deleteMutation.isPending}
               className="flex items-center gap-2 px-3 py-2 rounded-md border border-red-800/60 text-red-400 hover:bg-red-900/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <TrashIcon size={14} />
-              {deleting ? 'Deleting…' : 'Delete plan'}
+              {deleteMutation.isPending ? 'Deleting…' : 'Delete plan'}
             </button>
           </div>
         </div>
@@ -302,7 +314,7 @@ export default function PlanSettingsPage() {
                 {m.actorId !== session.actorId && (
                   <button
                     type="button"
-                    onClick={() => handleRemoveMember(m.actorId)}
+                    onClick={() => removeMemberMutation.mutate(m.actorId)}
                     className="p-1 rounded text-fg-subtle hover:text-red-400 hover:bg-red-900/20 transition-colors"
                     aria-label="Remove member"
                   >
@@ -334,7 +346,7 @@ export default function PlanSettingsPage() {
               </select>
               <button
                 type="submit"
-                disabled={addingMember || !newMemberActorId.trim()}
+                disabled={addMemberMutation.isPending || !newMemberActorId.trim()}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-brand hover:bg-accent-hover text-fg-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <UserPlusIcon size={14} />

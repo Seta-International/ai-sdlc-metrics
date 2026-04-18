@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useMutation } from '@tanstack/react-query'
 import { useSession } from '@future/auth'
 import { trpc } from '../../../lib/trpc'
 
@@ -10,33 +11,29 @@ export default function NewPlanPage() {
   const session = useSession()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!session || !name.trim()) return
-
-    setSubmitting(true)
-    setError(null)
-
-    const planId = crypto.randomUUID()
-    const bucketId = crypto.randomUUID()
-
-    try {
-      await trpc.planner.plans.create.mutate({
-        actorId: session.actorId,
-        tenantId: session.tenantId,
+  const createMutation = useMutation({
+    mutationFn: ({ planId, bucketId }: { planId: string; bucketId: string }) =>
+      trpc.planner.plans.create.mutate({
+        actorId: session!.actorId,
+        tenantId: session!.tenantId,
         id: planId,
         bucketId,
         name: name.trim(),
         description: description.trim() || null,
-      })
+      }),
+    onSuccess: (_data, { planId }) => {
       router.push(`/plans/${planId}/board`)
-    } catch {
-      setError('Failed to create plan. Please try again.')
-      setSubmitting(false)
-    }
+    },
+  })
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!session || !name.trim()) return
+
+    const planId = crypto.randomUUID()
+    const bucketId = crypto.randomUUID()
+    createMutation.mutate({ planId, bucketId })
   }
 
   return (
@@ -73,7 +70,9 @@ export default function NewPlanPage() {
               className="w-full px-3 py-2 rounded-md bg-black/40 border border-overlay/8 text-sm text-fg-primary placeholder:text-fg-subtle outline-none focus:border-brand transition-colors resize-none"
             />
           </div>
-          {error && <p className="text-red-400 text-sm">{error}</p>}
+          {createMutation.isError && (
+            <p className="text-red-400 text-sm">Failed to create plan. Please try again.</p>
+          )}
           <div className="flex items-center justify-end gap-3 pt-2">
             <a
               href="/plans"
@@ -83,10 +82,10 @@ export default function NewPlanPage() {
             </a>
             <button
               type="submit"
-              disabled={submitting || !name.trim()}
+              disabled={createMutation.isPending || !name.trim()}
               className="px-4 py-1.5 rounded-md bg-brand hover:bg-accent-hover text-fg-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {submitting ? 'Creating…' : 'Create plan'}
+              {createMutation.isPending ? 'Creating…' : 'Create plan'}
             </button>
           </div>
         </form>
