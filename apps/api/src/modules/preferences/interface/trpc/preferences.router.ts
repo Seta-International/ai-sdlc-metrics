@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { publicProcedure, router } from '../../../../common/trpc/trpc-init'
 import type { AuthContext } from '../../../../common/trpc/auth-middleware'
-import type { ISavedViewRepository } from '../../domain/repositories/saved-view.repository'
+import type { PreferencesQueryFacade } from '../../application/facades/preferences-query.facade'
 
 const savedViewStateSchema = z.object({
   search: z.string(),
@@ -25,14 +25,14 @@ const savedViewStateSchema = z.object({
 export function createPreferencesRouter(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   permissionProtectedProcedure: any,
-  savedViewRepo: ISavedViewRepository,
+  preferencesFacade: PreferencesQueryFacade,
 ) {
   return router({
     savedView: router({
       list: permissionProtectedProcedure
         .input(z.object({ resourceKey: z.string() }))
         .query(async ({ ctx, input }: { ctx: AuthContext; input: { resourceKey: string } }) => {
-          return savedViewRepo.listByResource(ctx.tenantId, ctx.actorId, input.resourceKey)
+          return preferencesFacade.list(ctx.tenantId, ctx.actorId, input.resourceKey)
         }),
 
       resolve: permissionProtectedProcedure
@@ -50,7 +50,7 @@ export function createPreferencesRouter(
             ctx: AuthContext
             input: { resourceKey: string; activeViewId: string | null }
           }) => {
-            return savedViewRepo.resolve(
+            return preferencesFacade.resolve(
               ctx.tenantId,
               ctx.actorId,
               input.resourceKey,
@@ -81,7 +81,7 @@ export function createPreferencesRouter(
               isDefault: boolean
             }
           }) => {
-            return savedViewRepo.create({
+            return preferencesFacade.create({
               tenantId: ctx.tenantId,
               actorId: ctx.actorId,
               resourceKey: input.resourceKey,
@@ -114,7 +114,7 @@ export function createPreferencesRouter(
           }) => {
             const { id, ...data } = input
             try {
-              return await savedViewRepo.update(id, ctx.tenantId, ctx.actorId, data)
+              return await preferencesFacade.update(id, ctx.tenantId, ctx.actorId, data)
             } catch {
               throw new TRPCError({
                 code: 'NOT_FOUND',
@@ -127,7 +127,7 @@ export function createPreferencesRouter(
       delete: permissionProtectedProcedure
         .input(z.object({ id: z.string().uuid() }))
         .mutation(async ({ ctx, input }: { ctx: AuthContext; input: { id: string } }) => {
-          await savedViewRepo.delete(input.id, ctx.tenantId, ctx.actorId)
+          await preferencesFacade.delete(input.id, ctx.tenantId, ctx.actorId)
         }),
 
       setDefault: permissionProtectedProcedure
@@ -145,7 +145,12 @@ export function createPreferencesRouter(
             ctx: AuthContext
             input: { id: string; resourceKey: string }
           }) => {
-            await savedViewRepo.setDefault(input.id, ctx.tenantId, ctx.actorId, input.resourceKey)
+            await preferencesFacade.setDefault(
+              input.id,
+              ctx.tenantId,
+              ctx.actorId,
+              input.resourceKey,
+            )
           },
         ),
     }),
@@ -154,12 +159,11 @@ export function createPreferencesRouter(
 
 // Default export for static type anchoring in app-router.ts.
 // The TrpcModule.onModuleInit replaces this with a permission-checked,
-// repo-bound instance via setPreferencesRouter(). Routes here are typed
+// facade-bound instance via setPreferencesRouter(). Routes here are typed
 // against publicProcedure purely so AppRouter type stays stable; runtime
 // never hits these.
-const _stubRepo: ISavedViewRepository = {
-  listByResource: async () => [],
-  findById: async () => null,
+const _stubFacade = {
+  list: async () => [],
   resolve: async () => ({ views: [], activeView: null, defaultViewId: null }),
   create: async () => {
     throw new Error('not initialized')
@@ -173,6 +177,6 @@ const _stubRepo: ISavedViewRepository = {
   setDefault: async () => {
     throw new Error('not initialized')
   },
-}
+} as unknown as PreferencesQueryFacade
 
-export const preferencesRouter = createPreferencesRouter(publicProcedure, _stubRepo)
+export const preferencesRouter = createPreferencesRouter(publicProcedure, _stubFacade)

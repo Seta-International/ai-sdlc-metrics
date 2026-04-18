@@ -11,12 +11,9 @@ import { PeopleQueryFacade } from '../../modules/people/application/facades/peop
 import { IdentityModule } from '../../modules/identity/identity.module'
 import { AdminModule } from '../../modules/admin/admin.module'
 import { PreferencesModule } from '../../modules/preferences/preferences.module'
+import { PreferencesQueryFacade } from '../../modules/preferences/application/facades/preferences-query.facade'
 import { DocumentsModule } from '../../modules/documents/documents.module'
 import { NotificationsModule } from '../../modules/notifications/notifications.module'
-import {
-  SAVED_VIEW_REPOSITORY,
-  type ISavedViewRepository,
-} from '../../modules/preferences/domain/repositories/saved-view.repository'
 import { createKernelRouter } from '../../modules/kernel/interface/trpc/kernel.router'
 import { createPeopleRouter } from '../../modules/people/interface/trpc/people.router'
 import { createIdentityAdminRouter } from '../../modules/identity/interface/trpc/identity.router'
@@ -53,7 +50,7 @@ export class TrpcModule implements OnModuleInit {
     private readonly kernelFacade: KernelQueryFacade,
     private readonly auditFacade: KernelAuditFacade,
     private readonly peopleFacade: PeopleQueryFacade,
-    @Inject(SAVED_VIEW_REPOSITORY) private readonly savedViewRepo: ISavedViewRepository,
+    private readonly preferencesFacade: PreferencesQueryFacade,
   ) {}
 
   onModuleInit() {
@@ -77,7 +74,9 @@ export class TrpcModule implements OnModuleInit {
     )
     setIdentityAdminRouter(createIdentityAdminRouter(permissionProtectedProcedure))
     setAdminRouter(createAdminRouter(permissionProtectedProcedure))
-    setPreferencesRouter(createPreferencesRouter(permissionProtectedProcedure, this.savedViewRepo))
+    setPreferencesRouter(
+      createPreferencesRouter(permissionProtectedProcedure, this.preferencesFacade),
+    )
     setDocumentsRouter(createDocumentsRouter(permissionProtectedProcedure))
     setNotificationsRouter(createNotificationsRouter(permissionProtectedProcedure))
 
