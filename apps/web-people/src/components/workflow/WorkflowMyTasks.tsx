@@ -1,4 +1,3 @@
-// apps/web-people/src/components/offboarding/offboarding-my-tasks.tsx
 'use client'
 
 import * as React from 'react'
@@ -10,7 +9,11 @@ import { trpc } from '../../lib/trpc'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const anyTrpc = trpc as any
 
-export function OffboardingMyTasks() {
+interface WorkflowMyTasksProps {
+  type: 'onboarding' | 'offboarding'
+}
+
+export function WorkflowMyTasks({ type }: WorkflowMyTasksProps) {
   const [tasks, setTasks] = React.useState<WorkflowTask[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
 
@@ -18,7 +21,7 @@ export function OffboardingMyTasks() {
     void (async () => {
       setIsLoading(true)
       try {
-        const result = await (anyTrpc.people.offboarding.myTasks.query() as Promise<{
+        const result = await (anyTrpc.people[type].myTasks.query() as Promise<{
           tasks: WorkflowTask[]
         }>)
         setTasks(result.tasks)
@@ -26,7 +29,7 @@ export function OffboardingMyTasks() {
         setIsLoading(false)
       }
     })()
-  }, [])
+  }, [type])
 
   if (isLoading) {
     return <div className="text-sm text-muted-foreground py-8 text-center">Loading tasks...</div>

@@ -90,7 +90,7 @@ vi.mock('@future/ui', () => {
 })
 
 // Mock avatar-name-cell
-vi.mock('../avatar-name-cell', () => ({
+vi.mock('../AvatarNameCell', () => ({
   AvatarNameCell: ({
     fullName,
     subtitle,
@@ -106,9 +106,9 @@ vi.mock('../avatar-name-cell', () => ({
   ),
 }))
 
-import { OnboardingCasesTable } from './OnboardingCasesTable'
+import { WorkflowCasesTable } from './WorkflowCasesTable'
 
-describe('OnboardingCasesTable', () => {
+describe('WorkflowCasesTable (onboarding)', () => {
   beforeEach(() => {
     capturedColumns = []
     mockListCasesQuery.mockResolvedValue({ cases: [], totalCount: 0 })
@@ -119,7 +119,7 @@ describe('OnboardingCasesTable', () => {
   })
 
   it('renders without crashing (smoke test)', async () => {
-    const { container } = render(<OnboardingCasesTable />)
+    const { container } = render(<WorkflowCasesTable type="onboarding" />)
     expect(container).toBeTruthy()
     await act(async () => {
       await Promise.resolve()
@@ -127,13 +127,13 @@ describe('OnboardingCasesTable', () => {
   })
 
   it('renders DataTable in loading state initially', () => {
-    render(<OnboardingCasesTable />)
+    render(<WorkflowCasesTable type="onboarding" />)
     expect(screen.getByTestId('data-table-loading')).toBeInTheDocument()
   })
 
   it('passes correct column headers to DataTable', async () => {
     await act(async () => {
-      render(<OnboardingCasesTable />)
+      render(<WorkflowCasesTable type="onboarding" />)
       await Promise.resolve()
     })
 
@@ -147,7 +147,7 @@ describe('OnboardingCasesTable', () => {
 
   it('passes 5 columns to DataTable', async () => {
     await act(async () => {
-      render(<OnboardingCasesTable />)
+      render(<WorkflowCasesTable type="onboarding" />)
       await Promise.resolve()
     })
     expect(capturedColumns).toHaveLength(5)

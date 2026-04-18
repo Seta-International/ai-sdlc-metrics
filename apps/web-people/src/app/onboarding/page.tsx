@@ -1,9 +1,8 @@
-// apps/web-people/src/app/onboarding/page.tsx
 'use client'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@future/ui'
-import { OnboardingCasesTable } from '../../components/onboarding/OnboardingCasesTable'
-import { OnboardingMyTasks } from '../../components/onboarding/OnboardingMyTasks'
+import { WorkflowCasesTable } from '../../components/workflow/WorkflowCasesTable'
+import { WorkflowMyTasks } from '../../components/workflow/WorkflowMyTasks'
 
 export default function OnboardingPage() {
   return (
@@ -19,10 +18,10 @@ export default function OnboardingPage() {
           <TabsTrigger value="my-tasks">My Tasks</TabsTrigger>
         </TabsList>
         <TabsContent value="cases" className="mt-4">
-          <OnboardingCasesTable />
+          <WorkflowCasesTable type="onboarding" />
         </TabsContent>
         <TabsContent value="my-tasks" className="mt-4">
-          <OnboardingMyTasks />
+          <WorkflowMyTasks type="onboarding" />
         </TabsContent>
       </Tabs>
     </main>

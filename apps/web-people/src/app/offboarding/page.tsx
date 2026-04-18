@@ -1,9 +1,8 @@
-// apps/web-people/src/app/offboarding/page.tsx
 'use client'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@future/ui'
-import { OffboardingCasesTable } from '../../components/offboarding/OffboardingCasesTable'
-import { OffboardingMyTasks } from '../../components/offboarding/OffboardingMyTasks'
+import { WorkflowCasesTable } from '../../components/workflow/WorkflowCasesTable'
+import { WorkflowMyTasks } from '../../components/workflow/WorkflowMyTasks'
 
 export default function OffboardingPage() {
   return (
@@ -19,10 +18,10 @@ export default function OffboardingPage() {
           <TabsTrigger value="my-tasks">My Tasks</TabsTrigger>
         </TabsList>
         <TabsContent value="cases" className="mt-4">
-          <OffboardingCasesTable />
+          <WorkflowCasesTable type="offboarding" />
         </TabsContent>
         <TabsContent value="my-tasks" className="mt-4">
-          <OffboardingMyTasks />
+          <WorkflowMyTasks type="offboarding" />
         </TabsContent>
       </Tabs>
     </main>

@@ -1,22 +1,22 @@
-// apps/web-people/src/components/offboarding/offboarding-case-detail.tsx
 'use client'
 
 import * as React from 'react'
 import { Card, Badge, Button, Progress, Separator, Skeleton } from '@future/ui'
 import { CheckCircle2, Clock, SkipForward } from 'lucide-react'
 import { AvatarNameCell } from '../AvatarNameCell'
-import type { OffboardingCase, WorkflowTask } from '../../lib/types-workflows'
+import type { OnboardingCase, OffboardingCase, WorkflowTask } from '../../lib/types-workflows'
 import { trpc } from '../../lib/trpc'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const anyTrpc = trpc as any
 
-interface OffboardingCaseDetailProps {
+interface WorkflowCaseDetailProps {
+  type: 'onboarding' | 'offboarding'
   caseId: string
 }
 
-export function OffboardingCaseDetail({ caseId }: OffboardingCaseDetailProps) {
-  const [caseData, setCaseData] = React.useState<OffboardingCase | null>(null)
+export function WorkflowCaseDetail({ type, caseId }: WorkflowCaseDetailProps) {
+  const [caseData, setCaseData] = React.useState<OnboardingCase | OffboardingCase | null>(null)
   const [tasks, setTasks] = React.useState<WorkflowTask[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
 
@@ -24,16 +24,16 @@ export function OffboardingCaseDetail({ caseId }: OffboardingCaseDetailProps) {
     void (async () => {
       setIsLoading(true)
       try {
-        const result = await (anyTrpc.people.offboarding.getCase.query({
+        const result = await (anyTrpc.people[type].getCase.query({
           caseId,
-        }) as Promise<{ caseData: OffboardingCase; tasks: WorkflowTask[] }>)
+        }) as Promise<{ caseData: OnboardingCase | OffboardingCase; tasks: WorkflowTask[] }>)
         setCaseData(result.caseData)
         setTasks(result.tasks)
       } finally {
         setIsLoading(false)
       }
     })()
-  }, [caseId])
+  }, [type, caseId])
 
   if (isLoading) {
     return (
@@ -51,6 +51,11 @@ export function OffboardingCaseDetail({ caseId }: OffboardingCaseDetailProps) {
   const pct =
     caseData.tasksTotal > 0 ? Math.round((caseData.tasksCompleted / caseData.tasksTotal) * 100) : 0
 
+  const subtitle =
+    type === 'onboarding'
+      ? (caseData as OnboardingCase).templateName
+      : (caseData as OffboardingCase).reasonCategory.replace(/_/g, ' ')
+
   // Group tasks by assignee role
   const grouped = tasks.reduce<Record<string, WorkflowTask[]>>((acc, t) => {
     const role = t.assigneeRole || 'Unassigned'
@@ -61,8 +66,8 @@ export function OffboardingCaseDetail({ caseId }: OffboardingCaseDetailProps) {
 
   return (
     <div className="space-y-6">
-      {/* Pending Approval Section */}
-      {caseData.status === 'pending_approval' && (
+      {/* Offboarding-only: pending approval card */}
+      {type === 'offboarding' && caseData.status === 'pending_approval' && (
         <Card className="border-border bg-card p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -89,7 +94,7 @@ export function OffboardingCaseDetail({ caseId }: OffboardingCaseDetailProps) {
           <AvatarNameCell
             fullName={caseData.employeeName}
             avatarUrl={caseData.avatarUrl}
-            subtitle={caseData.reasonCategory.replace(/_/g, ' ')}
+            subtitle={subtitle}
           />
           <Badge variant="default">{caseData.status.replace(/_/g, ' ')}</Badge>
         </div>
