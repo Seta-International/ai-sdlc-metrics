@@ -17,6 +17,7 @@ import { ListRolesQuery } from '../queries/list-roles.query'
 import type { RoleSummaryDto } from '../queries/list-roles.handler'
 import { GetLocalUsersWithActorsQuery } from '../queries/get-local-users-with-actors.query'
 import type { LocalUserWithActorDto } from '../queries/get-local-users-with-actors.handler'
+import { GetUserIdentityByActorIdQuery } from '../queries/get-user-identity-by-actor-id.query'
 
 /**
  * KernelQueryFacade is the only cross-module import allowed from the kernel.
@@ -74,5 +75,13 @@ export class KernelQueryFacade {
 
   getLocalUsersWithActors(tenantId: string): Promise<LocalUserWithActorDto[]> {
     return this.queryBus.execute(new GetLocalUsersWithActorsQuery(tenantId))
+  }
+
+  /**
+   * Returns the SSO subject (e.g. Microsoft Entra OID) for a given actor.
+   * Returns null if no user identity exists for that actor.
+   */
+  getExternalUserId(actorId: string, tenantId: string): Promise<string | null> {
+    return this.queryBus.execute(new GetUserIdentityByActorIdQuery(actorId, tenantId))
   }
 }
