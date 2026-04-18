@@ -4,26 +4,14 @@ import type { Priority } from '../value-objects/priority.vo'
 import { DescriptionTooLongException } from '../exceptions/description-too-long.exception'
 import { ChecklistLimitReachedException } from '../exceptions/checklist-limit-reached.exception'
 import { AssigneeLimitReachedException } from '../exceptions/assignee-limit-reached.exception'
+import { TitleRequiredException } from '../exceptions/title-required.exception'
+import { TitleTooLongException } from '../exceptions/title-too-long.exception'
 import { TaskAssignee } from './task-assignee.value-object'
 
 const MAX_DESCRIPTION_LENGTH = 32_000
 const MAX_TITLE_LENGTH = 255
 const MAX_ASSIGNEES = 20
 const MAX_CHECKLIST_ITEMS = 20
-
-class TitleRequiredException extends Error {
-  constructor() {
-    super('Task title is required')
-    this.name = 'TitleRequiredException'
-  }
-}
-
-class TitleTooLongException extends Error {
-  constructor(max: number) {
-    super(`Task title exceeds maximum length of ${max} characters`)
-    this.name = 'TitleTooLongException'
-  }
-}
 
 interface TaskProps {
   id: string
