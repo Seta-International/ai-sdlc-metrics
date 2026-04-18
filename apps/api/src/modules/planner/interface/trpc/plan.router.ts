@@ -18,13 +18,14 @@ function svc() {
 export const planRouter = router({
   list: publicProcedure
     .input(z.object({ actorId: z.string().uuid(), tenantId: z.string().uuid() }))
-    .query(({ input }) =>
-      svc()
+    .query(async ({ input }) => {
+      await svc().assertPlannerEnabled(input.tenantId)
+      return svc()
         .query(new ListPlansForActorQuery(input.actorId, input.tenantId))
         .catch((e) => {
           throw toPlannerTrpcError(e)
-        }),
-    ),
+        })
+    }),
 
   get: publicProcedure
     .input(
@@ -34,13 +35,14 @@ export const planRouter = router({
         planId: z.string().uuid(),
       }),
     )
-    .query(({ input }) =>
-      svc()
+    .query(async ({ input }) => {
+      await svc().assertPlannerEnabled(input.tenantId)
+      return svc()
         .query(new GetPlanQuery(input.actorId, input.planId, input.tenantId))
         .catch((e) => {
           throw toPlannerTrpcError(e)
-        }),
-    ),
+        })
+    }),
 
   create: publicProcedure
     .input(
@@ -53,8 +55,9 @@ export const planRouter = router({
         description: z.string().max(32000).nullable().default(null),
       }),
     )
-    .mutation(({ input }) =>
-      svc()
+    .mutation(async ({ input }) => {
+      await svc().assertPlannerEnabled(input.tenantId)
+      return svc()
         .command(
           new CreatePlanCommand(
             input.tenantId,
@@ -68,8 +71,8 @@ export const planRouter = router({
         )
         .catch((e) => {
           throw toPlannerTrpcError(e)
-        }),
-    ),
+        })
+    }),
 
   rename: publicProcedure
     .input(
@@ -81,8 +84,9 @@ export const planRouter = router({
         expectedVersion: z.date().optional(),
       }),
     )
-    .mutation(({ input }) =>
-      svc()
+    .mutation(async ({ input }) => {
+      await svc().assertPlannerEnabled(input.tenantId)
+      return svc()
         .command(
           new RenamePlanCommand(
             input.tenantId,
@@ -94,8 +98,8 @@ export const planRouter = router({
         )
         .catch((e) => {
           throw toPlannerTrpcError(e)
-        }),
-    ),
+        })
+    }),
 
   delete: publicProcedure
     .input(
@@ -105,13 +109,14 @@ export const planRouter = router({
         planId: z.string().uuid(),
       }),
     )
-    .mutation(({ input }) =>
-      svc()
+    .mutation(async ({ input }) => {
+      await svc().assertPlannerEnabled(input.tenantId)
+      return svc()
         .command(new DeletePlanCommand(input.tenantId, input.planId, input.actorId))
         .catch((e) => {
           throw toPlannerTrpcError(e)
-        }),
-    ),
+        })
+    }),
 
   addMember: publicProcedure
     .input(
@@ -123,8 +128,9 @@ export const planRouter = router({
         role: z.enum(['owner', 'editor', 'viewer']),
       }),
     )
-    .mutation(({ input }) =>
-      svc()
+    .mutation(async ({ input }) => {
+      await svc().assertPlannerEnabled(input.tenantId)
+      return svc()
         .command(
           new AddPlanMemberCommand(
             input.tenantId,
@@ -136,8 +142,8 @@ export const planRouter = router({
         )
         .catch((e) => {
           throw toPlannerTrpcError(e)
-        }),
-    ),
+        })
+    }),
 
   removeMember: publicProcedure
     .input(
@@ -148,8 +154,9 @@ export const planRouter = router({
         targetActorId: z.string().uuid(),
       }),
     )
-    .mutation(({ input }) =>
-      svc()
+    .mutation(async ({ input }) => {
+      await svc().assertPlannerEnabled(input.tenantId)
+      return svc()
         .command(
           new RemovePlanMemberCommand(
             input.tenantId,
@@ -160,6 +167,6 @@ export const planRouter = router({
         )
         .catch((e) => {
           throw toPlannerTrpcError(e)
-        }),
-    ),
+        })
+    }),
 })

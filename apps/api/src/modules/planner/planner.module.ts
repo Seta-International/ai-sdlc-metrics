@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { CqrsModule } from '@nestjs/cqrs'
 import { KernelModule } from '../kernel/kernel.module'
+import { AdminModule } from '../admin/admin.module'
 import { PlannerQueryFacade } from './application/facades/planner-query.facade'
 import { PlannerRouterService } from './interface/trpc/planner-router.service'
 import { MS_PLANNER_CLIENT } from './domain/ports/ms-planner-client.port'
@@ -25,7 +26,7 @@ import { ListPlansForActorHandler } from './application/queries/plans/list-plans
 import { GetPlanHandler } from './application/queries/plans/get-plan.handler'
 
 @Module({
-  imports: [CqrsModule, KernelModule],
+  imports: [CqrsModule, KernelModule, AdminModule],
   providers: [
     { provide: MS_PLANNER_CLIENT, useClass: Phase1MsPlannerClientAdapter },
     { provide: PLAN_REPOSITORY, useClass: DrizzlePlanRepository },

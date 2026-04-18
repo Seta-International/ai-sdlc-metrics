@@ -35,6 +35,7 @@ import { GetPlanQuery } from '../../application/queries/plans/get-plan.query'
 import { PlannerRouterService } from './planner-router.service'
 import { plannerRouter } from './planner.router'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
+import type { AdminQueryFacade } from '../../../admin/application/facades/admin-query.facade'
 
 const TENANT_ID = '01900000-0000-7fff-8000-000000002000'
 const ACTOR_ID = uuidv7()
@@ -149,8 +150,17 @@ describe('plannerRouter — tRPC integration', () => {
 
     const { commandBus, queryBus } = buildBuses(planRepo, bucketRepo)
 
+    // Stub AdminQueryFacade — planner is always enabled for this test suite
+    const adminQueryFacade: Pick<AdminQueryFacade, 'isPlannerEnabled'> = {
+      isPlannerEnabled: vi.fn().mockResolvedValue(true),
+    }
+
     // Initialize the PlannerRouterService singleton with real buses
-    const svc = new PlannerRouterService(commandBus as never, queryBus as never)
+    const svc = new PlannerRouterService(
+      commandBus as never,
+      queryBus as never,
+      adminQueryFacade as AdminQueryFacade,
+    )
     svc.onModuleInit()
   })
 
@@ -432,7 +442,12 @@ describe('PlannerRouterService unit', () => {
   it('command delegates to commandBus.execute', async () => {
     const commandBus = { execute: vi.fn().mockResolvedValue('cmd-result') }
     const queryBus = { execute: vi.fn() }
-    const svc = new PlannerRouterService(commandBus as never, queryBus as never)
+    const adminQueryFacade = { isPlannerEnabled: vi.fn().mockResolvedValue(true) }
+    const svc = new PlannerRouterService(
+      commandBus as never,
+      queryBus as never,
+      adminQueryFacade as never,
+    )
     svc.onModuleInit()
 
     const result = await svc.command({ type: 'FakeCommand' })
@@ -444,7 +459,12 @@ describe('PlannerRouterService unit', () => {
   it('query delegates to queryBus.execute', async () => {
     const commandBus = { execute: vi.fn() }
     const queryBus = { execute: vi.fn().mockResolvedValue('query-result') }
-    const svc = new PlannerRouterService(commandBus as never, queryBus as never)
+    const adminQueryFacade = { isPlannerEnabled: vi.fn().mockResolvedValue(true) }
+    const svc = new PlannerRouterService(
+      commandBus as never,
+      queryBus as never,
+      adminQueryFacade as never,
+    )
     svc.onModuleInit()
 
     const result = await svc.query({ type: 'FakeQuery' })

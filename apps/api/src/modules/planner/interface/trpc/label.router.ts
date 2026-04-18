@@ -21,8 +21,9 @@ export const labelRouter = router({
         name: z.string().min(1).max(50),
       }),
     )
-    .mutation(({ input }) =>
-      svc()
+    .mutation(async ({ input }) => {
+      await svc().assertPlannerEnabled(input.tenantId)
+      return svc()
         .command(
           new RenamePlanLabelCommand(
             input.tenantId,
@@ -34,8 +35,8 @@ export const labelRouter = router({
         )
         .catch((e) => {
           throw toPlannerTrpcError(e)
-        }),
-    ),
+        })
+    }),
 
   recolor: publicProcedure
     .input(
@@ -48,8 +49,9 @@ export const labelRouter = router({
         color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
       }),
     )
-    .mutation(({ input }) =>
-      svc()
+    .mutation(async ({ input }) => {
+      await svc().assertPlannerEnabled(input.tenantId)
+      return svc()
         .command(
           new RecolorPlanLabelCommand(
             input.tenantId,
@@ -62,6 +64,6 @@ export const labelRouter = router({
         )
         .catch((e) => {
           throw toPlannerTrpcError(e)
-        }),
-    ),
+        })
+    }),
 })

@@ -10,6 +10,7 @@ import { rolePermission } from '../modules/kernel/infrastructure/schema/role-per
 import { DEFAULT_ROLE_PERMISSIONS } from '../modules/kernel/domain/constants/default-role-permissions'
 import { PLACEHOLDER_SSO_SUBJECT_PREFIX } from '../modules/kernel/domain/repositories/user-identity.repository.port'
 import { personProfile, employment } from '../modules/people/infrastructure/schema/people.schema'
+import { tenantSettings } from '../modules/admin/infrastructure/schema/admin.schema'
 
 function deterministicUuid(seed: string): string {
   const hash = createHash('sha256')
@@ -293,6 +294,17 @@ async function main() {
       }
     }
   }
+
+  // Enable planner for SETA internal tenant
+  const SETA_TENANT_ID = deterministicUuid('tenant:seta')
+  await db
+    .insert(tenantSettings)
+    .values({
+      id: deterministicUuid('tenant-settings:seta'),
+      tenantId: SETA_TENANT_ID,
+      plannerCoreEnabled: true,
+    })
+    .onConflictDoNothing()
 
   console.log('Seed complete')
   process.exit(0)
