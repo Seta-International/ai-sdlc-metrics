@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import type { TaskDetailSnapshot } from '../board-types'
 import type { TaskPatch } from './useTaskDetail'
 
@@ -27,7 +28,7 @@ export function useConflictResolver({
 }: UseConflictResolverInput): UseConflictResolverResult {
   const isActive = conflict !== null
 
-  function findConflictingField(): keyof TaskPatch | null {
+  const conflictingField = useMemo<keyof TaskPatch | null>(() => {
     if (!conflict || !localPatch) return null
     const keys = Object.keys(localPatch) as (keyof TaskPatch)[]
     for (const key of keys) {
@@ -40,9 +41,8 @@ export function useConflictResolver({
       }
     }
     return null
-  }
+  }, [conflict, localPatch])
 
-  const conflictingField = findConflictingField()
   const myValue = conflictingField != null ? localPatch?.[conflictingField] : undefined
   const theirValue = conflictingField != null ? conflict?.[conflictingField] : undefined
 
