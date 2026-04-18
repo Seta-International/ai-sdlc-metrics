@@ -75,6 +75,37 @@ export class PlanAuthorizationService {
     }
   }
 
+  /**
+   * A viewer who is assigned to the task may update their own progress.
+   * Editors and owners always pass. Non-member viewers are rejected.
+   */
+  async assertCanUpdateOwnTaskProgress(
+    actorId: string,
+    planId: string,
+    tenantId: string,
+    taskAssigneeIds: readonly string[],
+  ): Promise<void> {
+    const plan = await this.planRepo.findById(planId, tenantId)
+    if (!plan) {
+      throw new UnauthorizedPlanAccessException(actorId, planId)
+    }
+    if (this.hasMemberRole(plan, actorId, ['owner', 'editor'])) {
+      return
+    }
+    // Viewer path: must be assigned to the task
+    if (this.hasMemberRole(plan, actorId, ['viewer']) && taskAssigneeIds.includes(actorId)) {
+      return
+    }
+    throw new UnauthorizedPlanAccessException(actorId, planId)
+  }
+
+  /**
+   * Owner members or editors can delete a task.
+   */
+  async assertCanDeleteTask(actorId: string, planId: string, tenantId: string): Promise<void> {
+    return this.assertCanEditPlan(actorId, planId, tenantId)
+  }
+
   private isMember(plan: Plan, actorId: string): boolean {
     return plan.members.some((m) => m.actorId === actorId)
   }

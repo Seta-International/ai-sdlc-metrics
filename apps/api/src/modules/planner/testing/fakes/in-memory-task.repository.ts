@@ -1,3 +1,4 @@
+import { ConcurrentModificationException } from '../../domain/exceptions/concurrent-modification.exception'
 import type { ITaskRepository } from '../../domain/repositories/task.repository'
 import type { Task } from '../../domain/entities/task.entity'
 
@@ -17,6 +18,26 @@ export class InMemoryTaskRepository implements ITaskRepository {
     return [...this.store.values()].filter(
       (t) => t.bucketId === bucketId && t.tenantId === tenantId && !t.deletedAt,
     )
+  }
+
+  async save(task: Task): Promise<void> {
+    this.store.set(task.id, task)
+  }
+
+  async update(task: Task, expectedVersion: string): Promise<void> {
+    const existing = this.store.get(task.id)
+    if (!existing || existing.updatedAt.toISOString() !== expectedVersion) {
+      throw new ConcurrentModificationException()
+    }
+    this.store.set(task.id, task)
+  }
+
+  async softDelete(id: string, tenantId: string): Promise<void> {
+    const task = this.store.get(id)
+    if (task && task.tenantId === tenantId && !task.deletedAt) {
+      task.softDelete('system')
+      this.store.set(id, task)
+    }
   }
 
   async softDeleteMany(bucketId: string, tenantId: string): Promise<string[]> {
