@@ -1,6 +1,7 @@
 import { LabelSlot } from '../value-objects/label-slot.vo'
 import { PlanContainer } from '../value-objects/plan-container.vo'
 import { DescriptionTooLongException } from '../exceptions/description-too-long.exception'
+import { LabelLimitReachedException } from '../exceptions/label-limit-reached.exception'
 import { LastOwnerRemovalException } from '../exceptions/last-owner-removal.exception'
 import { Bucket } from './bucket.entity'
 
@@ -108,12 +109,17 @@ export class Plan {
     this._updatedAt = new Date()
   }
 
-  setLabel(slot: LabelSlot, name: string, color: string): void {
+  // Upserts a label slot. Throws LabelLimitReachedException as a defensive guard if somehow
+  // all 25 slots are filled and a new (non-existing) slot is attempted — structurally
+  // unreachable through LabelSlot.of() which enforces only category1..category25.
+  recolorLabel(slot: LabelSlot, name: string, color: string): void {
     const existingIndex = this._labels.findIndex((l) => l.slot.value === slot.value)
     if (existingIndex !== -1) {
-      // Update in place
       this._labels[existingIndex] = { slot, name, color }
     } else {
+      if (this._labels.length >= 25) {
+        throw new LabelLimitReachedException(this.id)
+      }
       this._labels.push({ slot, name, color })
     }
     this._updatedAt = new Date()
@@ -131,7 +137,12 @@ export class Plan {
       addedBy,
       addedAt: new Date(),
     }
-    this._members.push(member)
+    const existingIndex = this._members.findIndex((m) => m.actorId === actorId)
+    if (existingIndex !== -1) {
+      this._members[existingIndex] = member
+    } else {
+      this._members.push(member)
+    }
     this._updatedAt = new Date()
   }
 
