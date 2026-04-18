@@ -32,6 +32,28 @@ const config: Linter.Config[] = [
       ],
     },
   },
+  // Planner module boundary: prevent external code from accessing planner internals.
+  // The planner's public surface is limited to planner.module.ts and
+  // application/facades/planner-query.facade.ts.
+  {
+    files: ['**/modules/**/*.ts'],
+    ignores: ['**/modules/planner/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex:
+                '.*[/\\\\]planner[/\\\\](domain|infrastructure|application[/\\\\](commands|queries|event-handlers|services))[/\\\\].*',
+              message:
+                'Do not import planner internals from outside the planner module. Only import from planner.module or application/facades/planner-query.facade.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   prettier,
 ]
 
