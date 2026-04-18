@@ -96,6 +96,40 @@ export class Plan {
     )
   }
 
+  static reconstitute(props: {
+    id: string
+    tenantId: string
+    name: string
+    description: string
+    container: PlanContainer
+    createdBy: string
+    createdAt: Date
+    updatedAt: Date
+    deletedAt: Date | null
+    msPlanId: string | null
+    msPlanEtag: string | null
+    buckets: Bucket[]
+    labels: Label[]
+    members: PlanMember[]
+  }): Plan {
+    return new Plan(
+      props.id,
+      props.tenantId,
+      props.name,
+      props.description,
+      props.container,
+      props.createdBy,
+      props.createdAt,
+      props.updatedAt,
+      props.deletedAt,
+      props.msPlanId,
+      props.msPlanEtag,
+      props.buckets,
+      props.labels,
+      props.members,
+    )
+  }
+
   renameTo(name: string): void {
     this._name = name
     this._updatedAt = new Date()

@@ -39,6 +39,30 @@ export class Bucket {
     )
   }
 
+  static reconstitute(props: {
+    id: string
+    tenantId: string
+    planId: string
+    name: string
+    orderHint: string
+    msBucketId: string | null
+    msBucketEtag: string | null
+    createdAt: Date
+    deletedAt: Date | null
+  }): Bucket {
+    return new Bucket(
+      props.id,
+      props.tenantId,
+      props.planId,
+      props.name,
+      props.orderHint,
+      props.msBucketId,
+      props.msBucketEtag,
+      props.createdAt,
+      props.deletedAt,
+    )
+  }
+
   rename(newName: string): void {
     this._name = newName
   }
