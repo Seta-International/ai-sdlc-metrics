@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { Button, Input } from '@future/ui'
 import { trpc } from '../../lib/trpc'
 
 const TITLE_MAX = 255
@@ -96,17 +97,12 @@ export function QuickAddTask({ bucketId, planId, actorId, tenantId }: QuickAddTa
 
   if (!open) {
     return (
-      <button
-        type="button"
-        onClick={handleOpen}
-        className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-caption font-510 text-fg-muted transition-colors hover:bg-elevated hover:text-fg-secondary"
-        aria-label="Add task"
-      >
+      <Button type="button" variant="ghost" size="sm" onClick={handleOpen} aria-label="Add task">
         <svg viewBox="0 0 12 12" fill="none" className="size-3 flex-shrink-0" aria-hidden>
           <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
         </svg>
         Add task
-      </button>
+      </Button>
     )
   }
 
@@ -116,9 +112,8 @@ export function QuickAddTask({ bucketId, planId, actorId, tenantId }: QuickAddTa
       data-testid="quick-add-task-form"
     >
       <div className="flex items-center gap-1">
-        <input
+        <Input
           ref={inputRef}
-          type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))}
           onKeyDown={handleKeyDown}
@@ -126,8 +121,8 @@ export function QuickAddTask({ bucketId, planId, actorId, tenantId }: QuickAddTa
           maxLength={TITLE_MAX}
           disabled={submitting}
           aria-label="Task title"
-          className="flex-1 rounded bg-transparent text-small font-510 text-fg-primary placeholder:text-fg-subtle outline-none"
           data-testid="quick-add-task-input"
+          autoFocus
         />
         {showCounter && (
           <span className="flex-shrink-0 text-tiny font-510 text-fg-muted" aria-live="polite">
@@ -137,12 +132,11 @@ export function QuickAddTask({ bucketId, planId, actorId, tenantId }: QuickAddTa
       </div>
 
       {showDateField && (
-        <input
+        <Input
           type="date"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
           aria-label="Due date"
-          className="w-full rounded bg-transparent text-caption font-400 text-fg-secondary outline-none"
           style={{ colorScheme: 'dark' }}
           data-testid="quick-add-task-due-date"
         />
@@ -153,21 +147,17 @@ export function QuickAddTask({ bucketId, planId, actorId, tenantId }: QuickAddTa
           Enter to add · Shift+Enter for date · Esc to cancel
         </span>
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={handleClose}
-            className="rounded px-2 py-0.5 text-caption font-510 text-fg-muted transition-colors hover:bg-elevated hover:text-fg-secondary"
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={handleClose}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            size="sm"
             onClick={() => void handleSubmit()}
             disabled={!title.trim() || submitting}
-            className="rounded bg-brand px-2 py-0.5 text-caption font-510 text-white transition-opacity disabled:opacity-40"
           >
             Add
-          </button>
+          </Button>
         </div>
       </div>
     </div>
