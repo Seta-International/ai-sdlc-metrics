@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useSession } from '@future/auth'
 import { trpc } from '../trpc'
 
@@ -26,48 +26,38 @@ const NOT_MEMBER: PlanMembership = {
 
 /**
  * Returns the current actor's membership role in the given plan.
- * Reads plan details via tRPC and derives permission flags from the members list.
+ * Uses React Query with the same cache key as layout.tsx and settings/page.tsx
+ * so the request deduplicates — no extra network round-trip.
  */
 export function usePlanMembership(planId: string | null | undefined): PlanMembership {
   const session = useSession()
-  const [role, setRole] = useState<PlanRole | null>(null)
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (!session || !planId) {
-      setLoading(false)
-      return
-    }
-
-    setLoading(true)
-    trpc.planner.plans.get
-      .query({ actorId: session.actorId, tenantId: session.tenantId, planId })
-      .then((data) => {
-        if (!data) {
-          setRole(null)
-          return
-        }
-        const plan = data as {
-          members: Array<{ actorId: string; role: 'owner' | 'editor' | 'viewer' }>
-        }
-        const member = plan.members.find((m) => m.actorId === session.actorId)
-        setRole(member?.role ?? null)
-      })
-      .catch(() => {
-        setRole(null)
-      })
-      .finally(() => {
-        setLoading(false)
-      })
-  }, [session, planId])
+  const { data, isLoading } = useQuery({
+    queryKey: ['plans.get', planId, session?.actorId, session?.tenantId],
+    queryFn: () =>
+      trpc.planner.plans.get.query({
+        actorId: session!.actorId,
+        tenantId: session!.tenantId,
+        planId: planId!,
+      }),
+    enabled: !!session && !!planId,
+  })
 
   if (!session || !planId) {
     return NOT_MEMBER
   }
 
+  if (isLoading) {
+    return { role: null, loading: true, canEdit: false, isOwner: false }
+  }
+
+  const plan = data as { members: Array<{ actorId: string; role: PlanRole }> } | null | undefined
+  const member = plan?.members.find((m) => m.actorId === session.actorId)
+  const role = member?.role ?? null
+
   return {
     role,
-    loading,
+    loading: false,
     canEdit: role === 'owner' || role === 'editor',
     isOwner: role === 'owner',
   }

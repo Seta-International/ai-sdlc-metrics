@@ -71,7 +71,9 @@ export default function NewPlanPage() {
             />
           </div>
           {createMutation.isError && (
-            <p className="text-red-400 text-sm">Failed to create plan. Please try again.</p>
+            <p className="text-status-text-danger text-sm">
+              Failed to create plan. Please try again.
+            </p>
           )}
           <div className="flex items-center justify-end gap-3 pt-2">
             <a

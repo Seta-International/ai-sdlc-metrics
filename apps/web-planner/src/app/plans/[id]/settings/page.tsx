@@ -28,9 +28,11 @@ export default function PlanSettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('details')
   const [planName, setPlanName] = useState('')
   const [nameError, setNameError] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [newMemberActorId, setNewMemberActorId] = useState('')
   const [newMemberRole, setNewMemberRole] = useState<'owner' | 'editor' | 'viewer'>('editor')
   const [memberError, setMemberError] = useState<string | null>(null)
+  const [mutationError, setMutationError] = useState<string | null>(null)
 
   const planQueryKey = ['plans.get', planId, session?.actorId, session?.tenantId]
 
@@ -72,6 +74,7 @@ export default function PlanSettingsPage() {
         planId,
       }),
     onSuccess: () => router.push('/plans'),
+    onError: () => setDeleteError('Failed to delete plan. Please try again.'),
   })
 
   const addMemberMutation = useMutation({
@@ -120,7 +123,7 @@ export default function PlanSettingsPage() {
         prev ? { ...prev, members: prev.members.filter((m) => m.actorId !== targetActorId) } : prev,
       )
     },
-    onError: (err) => console.error('Failed to remove member', err),
+    onError: () => setMutationError('Failed to remove member. Please try again.'),
   })
 
   const renameLabelMutation = useMutation({
@@ -139,13 +142,18 @@ export default function PlanSettingsPage() {
               ...prev,
               labels: [
                 ...prev.labels.filter((l) => l.slot !== slot),
-                { slot, name, color: prev.labels.find((l) => l.slot === slot)?.color ?? '#6B7280' },
+                {
+                  slot,
+                  name,
+                  color:
+                    prev.labels.find((l) => l.slot === slot)?.color ?? 'var(--color-fg-subtle)',
+                },
               ],
             }
           : prev,
       )
     },
-    onError: (err) => console.error('Failed to rename label', err),
+    onError: () => setMutationError('Failed to rename label. Please try again.'),
   })
 
   const recolorLabelMutation = useMutation({
@@ -168,7 +176,7 @@ export default function PlanSettingsPage() {
           : prev,
       )
     },
-    onError: (err) => console.error('Failed to recolor label', err),
+    onError: () => setMutationError('Failed to recolor label. Please try again.'),
   })
 
   function handleRenamePlan(e: React.FormEvent) {
@@ -241,7 +249,10 @@ export default function PlanSettingsPage() {
           <button
             key={tab.key}
             type="button"
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => {
+              setActiveTab(tab.key)
+              setMutationError(null)
+            }}
             className={`px-4 py-2 text-sm transition-colors border-b-2 -mb-px ${
               activeTab === tab.key
                 ? 'border-brand text-fg-primary'
@@ -279,7 +290,7 @@ export default function PlanSettingsPage() {
                 {renameMutation.isPending ? 'Saving…' : 'Save'}
               </button>
             </div>
-            {nameError && <p className="text-red-400 text-xs">{nameError}</p>}
+            {nameError && <p className="text-status-text-danger text-xs">{nameError}</p>}
           </form>
 
           <hr className="border-overlay/5" />
@@ -290,11 +301,12 @@ export default function PlanSettingsPage() {
               type="button"
               onClick={handleDeletePlan}
               disabled={deleteMutation.isPending}
-              className="flex items-center gap-2 px-3 py-2 rounded-md border border-red-800/60 text-red-400 hover:bg-red-900/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 px-3 py-2 rounded-md border border-status-border-danger text-status-text-danger hover:bg-status-bg-danger text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <TrashIcon size={14} />
               {deleteMutation.isPending ? 'Deleting…' : 'Delete plan'}
             </button>
+            {deleteError && <p className="mt-2 text-status-text-danger text-xs">{deleteError}</p>}
           </div>
         </div>
       )}
@@ -315,7 +327,7 @@ export default function PlanSettingsPage() {
                   <button
                     type="button"
                     onClick={() => removeMemberMutation.mutate(m.actorId)}
-                    className="p-1 rounded text-fg-subtle hover:text-red-400 hover:bg-red-900/20 transition-colors"
+                    className="p-1 rounded text-fg-subtle hover:text-status-text-danger hover:bg-status-bg-danger transition-colors"
                     aria-label="Remove member"
                   >
                     <XIcon size={14} />
@@ -353,17 +365,21 @@ export default function PlanSettingsPage() {
                 Add
               </button>
             </div>
-            {memberError && <p className="text-red-400 text-xs">{memberError}</p>}
+            {memberError && <p className="text-status-text-danger text-xs">{memberError}</p>}
+            {mutationError && <p className="text-status-text-danger text-xs">{mutationError}</p>}
           </form>
         </div>
       )}
 
       {activeTab === 'labels' && (
-        <LabelEditor
-          labels={plan.labels}
-          onRename={handleRenameLabel}
-          onRecolor={handleRecolorLabel}
-        />
+        <div className="space-y-3">
+          {mutationError && <p className="text-status-text-danger text-xs">{mutationError}</p>}
+          <LabelEditor
+            labels={plan.labels}
+            onRename={handleRenameLabel}
+            onRecolor={handleRecolorLabel}
+          />
+        </div>
       )}
     </main>
   )

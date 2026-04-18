@@ -14,7 +14,7 @@ interface LabelEditorProps {
   onRecolor: (slot: string, name: string, color: string) => void
 }
 
-const DEFAULT_COLOR = '#6B7280'
+const DEFAULT_COLOR = 'var(--color-fg-subtle)'
 const ALL_SLOTS = Array.from({ length: 25 }, (_, i) => `category${i + 1}`)
 
 export function LabelEditor({ labels, onRename, onRecolor }: LabelEditorProps) {
