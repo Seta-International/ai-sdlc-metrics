@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { CqrsModule } from '@nestjs/cqrs'
 import { KernelModule } from '../kernel/kernel.module'
 import { PlannerQueryFacade } from './application/facades/planner-query.facade'
+import { PlannerRouterService } from './interface/trpc/planner-router.service'
 import { MS_PLANNER_CLIENT } from './domain/ports/ms-planner-client.port'
 import { Phase1MsPlannerClientAdapter } from './infrastructure/ms-graph/phase1-ms-planner-client.adapter'
 import { PLAN_REPOSITORY } from './domain/repositories/plan.repository'
@@ -42,6 +43,7 @@ import { GetPlanHandler } from './application/queries/plans/get-plan.handler'
     ListPlansForActorHandler,
     GetPlanHandler,
     PlannerQueryFacade,
+    PlannerRouterService,
   ],
   exports: [PlannerQueryFacade],
 })

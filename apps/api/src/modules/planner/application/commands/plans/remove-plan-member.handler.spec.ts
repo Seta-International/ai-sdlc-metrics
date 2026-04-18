@@ -30,6 +30,7 @@ function makePlanWithTwoMembers() {
 describe('RemovePlanMemberHandler', () => {
   let handler: RemovePlanMemberHandler
   let planRepo: { findById: ReturnType<typeof vi.fn>; save: ReturnType<typeof vi.fn> }
+  let planMemberRepo: { delete: ReturnType<typeof vi.fn> }
   let authSvc: { assertCanManageMembers: ReturnType<typeof vi.fn> }
   let eventBus: { publish: ReturnType<typeof vi.fn> }
 
@@ -38,10 +39,12 @@ describe('RemovePlanMemberHandler', () => {
       findById: vi.fn().mockResolvedValue(makePlanWithTwoMembers()),
       save: vi.fn().mockResolvedValue(undefined),
     }
+    planMemberRepo = { delete: vi.fn().mockResolvedValue(undefined) }
     authSvc = { assertCanManageMembers: vi.fn().mockResolvedValue(undefined) }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
     handler = new RemovePlanMemberHandler(
       planRepo as any,
+      planMemberRepo as any,
       authSvc as any,
       eventBus as unknown as EventBus,
     )

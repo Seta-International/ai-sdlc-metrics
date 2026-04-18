@@ -2,6 +2,10 @@ import { Inject } from '@nestjs/common'
 import { CommandHandler, EventBus, type ICommandHandler } from '@nestjs/cqrs'
 import { PlanLabelUpdatedEvent } from '@future/event-contracts'
 import { PLAN_REPOSITORY, type IPlanRepository } from '../../../domain/repositories/plan.repository'
+import {
+  PLAN_LABEL_REPOSITORY,
+  type IPlanLabelRepository,
+} from '../../../domain/repositories/plan-label.repository'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 import { PlanNotFoundException } from '../../../domain/exceptions/plan-not-found.exception'
 import { RecolorPlanLabelCommand } from './recolor-plan-label.command'
@@ -10,6 +14,7 @@ import { RecolorPlanLabelCommand } from './recolor-plan-label.command'
 export class RecolorPlanLabelHandler implements ICommandHandler<RecolorPlanLabelCommand> {
   constructor(
     @Inject(PLAN_REPOSITORY) private readonly planRepo: IPlanRepository,
+    @Inject(PLAN_LABEL_REPOSITORY) private readonly planLabelRepo: IPlanLabelRepository,
     private readonly authSvc: PlanAuthorizationService,
     private readonly eventBus: EventBus,
   ) {}
@@ -21,7 +26,9 @@ export class RecolorPlanLabelHandler implements ICommandHandler<RecolorPlanLabel
     await this.authSvc.assertCanEditPlan(command.actorId, command.planId, command.tenantId)
 
     plan.recolorLabel(command.slot, command.name, command.color)
+    const label = plan.labels.find((l) => l.slot.value === command.slot.value)!
     await this.planRepo.save(plan)
+    await this.planLabelRepo.upsert(command.planId, command.tenantId, label)
 
     await this.eventBus.publish(
       new PlanLabelUpdatedEvent(

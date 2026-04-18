@@ -2,6 +2,10 @@ import { Inject } from '@nestjs/common'
 import { CommandHandler, EventBus, type ICommandHandler } from '@nestjs/cqrs'
 import { PlanMemberAddedEvent } from '@future/event-contracts'
 import { PLAN_REPOSITORY, type IPlanRepository } from '../../../domain/repositories/plan.repository'
+import {
+  PLAN_MEMBER_REPOSITORY,
+  type IPlanMemberRepository,
+} from '../../../domain/repositories/plan-member.repository'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 import { PlanNotFoundException } from '../../../domain/exceptions/plan-not-found.exception'
 import { AddPlanMemberCommand } from './add-plan-member.command'
@@ -10,6 +14,7 @@ import { AddPlanMemberCommand } from './add-plan-member.command'
 export class AddPlanMemberHandler implements ICommandHandler<AddPlanMemberCommand> {
   constructor(
     @Inject(PLAN_REPOSITORY) private readonly planRepo: IPlanRepository,
+    @Inject(PLAN_MEMBER_REPOSITORY) private readonly planMemberRepo: IPlanMemberRepository,
     private readonly authSvc: PlanAuthorizationService,
     private readonly eventBus: EventBus,
   ) {}
@@ -21,7 +26,9 @@ export class AddPlanMemberHandler implements ICommandHandler<AddPlanMemberComman
     await this.authSvc.assertCanManageMembers(command.actorId, command.planId, command.tenantId)
 
     plan.addMember(command.targetActorId, command.role, command.actorId)
+    const member = plan.members.find((m) => m.actorId === command.targetActorId)!
     await this.planRepo.save(plan)
+    await this.planMemberRepo.upsert(command.planId, command.tenantId, member)
 
     await this.eventBus.publish(
       new PlanMemberAddedEvent(

@@ -27,6 +27,7 @@ function makePlan() {
 describe('AddPlanMemberHandler', () => {
   let handler: AddPlanMemberHandler
   let planRepo: { findById: ReturnType<typeof vi.fn>; save: ReturnType<typeof vi.fn> }
+  let planMemberRepo: { upsert: ReturnType<typeof vi.fn> }
   let authSvc: { assertCanManageMembers: ReturnType<typeof vi.fn> }
   let eventBus: { publish: ReturnType<typeof vi.fn> }
 
@@ -35,10 +36,12 @@ describe('AddPlanMemberHandler', () => {
       findById: vi.fn().mockResolvedValue(makePlan()),
       save: vi.fn().mockResolvedValue(undefined),
     }
+    planMemberRepo = { upsert: vi.fn().mockResolvedValue(undefined) }
     authSvc = { assertCanManageMembers: vi.fn().mockResolvedValue(undefined) }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
     handler = new AddPlanMemberHandler(
       planRepo as any,
+      planMemberRepo as any,
       authSvc as any,
       eventBus as unknown as EventBus,
     )

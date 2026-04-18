@@ -34,6 +34,7 @@ function makePlanWithLabel() {
 describe('RenamePlanLabelHandler', () => {
   let handler: RenamePlanLabelHandler
   let planRepo: { findById: ReturnType<typeof vi.fn>; save: ReturnType<typeof vi.fn> }
+  let planLabelRepo: { upsert: ReturnType<typeof vi.fn> }
   let authSvc: { assertCanEditPlan: ReturnType<typeof vi.fn> }
   let eventBus: { publish: ReturnType<typeof vi.fn> }
 
@@ -42,10 +43,12 @@ describe('RenamePlanLabelHandler', () => {
       findById: vi.fn().mockResolvedValue(makePlan()),
       save: vi.fn().mockResolvedValue(undefined),
     }
+    planLabelRepo = { upsert: vi.fn().mockResolvedValue(undefined) }
     authSvc = { assertCanEditPlan: vi.fn().mockResolvedValue(undefined) }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
     handler = new RenamePlanLabelHandler(
       planRepo as any,
+      planLabelRepo as any,
       authSvc as any,
       eventBus as unknown as EventBus,
     )
