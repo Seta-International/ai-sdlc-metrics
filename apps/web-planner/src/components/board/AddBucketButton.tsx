@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
+import { useState, useRef, type KeyboardEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { Button, Input } from '@future/ui'
+import { PlusIcon } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 
 interface AddBucketButtonProps {
@@ -21,10 +23,6 @@ export function AddBucketButton({ planId, actorId, tenantId }: AddBucketButtonPr
   const inputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
   const queryKey = ['tasks.getBoard', planId, actorId, tenantId] as const
-
-  useEffect(() => {
-    if (open) inputRef.current?.focus()
-  }, [open])
 
   function handleClose() {
     setOpen(false)
@@ -66,18 +64,17 @@ export function AddBucketButton({ planId, actorId, tenantId }: AddBucketButtonPr
   if (!open) {
     return (
       <div className="w-72 flex-shrink-0">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setOpen(true)}
-          className="flex w-full items-center gap-2 rounded-lg border border-divider bg-transparent px-3 py-2.5 text-caption-lg font-510 text-fg-muted transition-colors hover:border-divider-md hover:bg-elevated hover:text-fg-secondary"
+          className="w-full justify-start"
           aria-label="Add bucket"
           data-testid="add-bucket-btn"
         >
-          <svg viewBox="0 0 12 12" fill="none" className="size-3.5 flex-shrink-0" aria-hidden>
-            <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
-          </svg>
+          <PlusIcon size={14} />
           Add bucket
-        </button>
+        </Button>
       </div>
     )
   }
@@ -88,37 +85,31 @@ export function AddBucketButton({ planId, actorId, tenantId }: AddBucketButtonPr
         className="flex flex-col gap-2 rounded-lg border border-white/8 bg-white/2 p-3"
         data-testid="add-bucket-form"
       >
-        <input
+        <Input
           ref={inputRef}
-          type="text"
           value={name}
           onChange={(e) => setName(e.target.value.slice(0, 255))}
           onKeyDown={handleKeyDown}
-          placeholder="Bucket name…"
+          placeholder="Bucket name"
           maxLength={255}
           disabled={submitting}
           aria-label="Bucket name"
-          className="bg-transparent text-small font-510 text-fg-primary placeholder:text-fg-subtle outline-none"
           data-testid="add-bucket-input"
+          autoFocus
         />
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <Button
+            variant="default"
+            size="sm"
             onClick={() => void handleSubmit()}
             disabled={!name.trim() || submitting}
-            className="rounded bg-brand px-3 py-1 text-caption font-510 text-white transition-opacity disabled:opacity-40"
             data-testid="add-bucket-submit"
           >
             Add
-          </button>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="rounded px-2 py-1 text-caption font-510 text-fg-muted transition-colors hover:bg-elevated hover:text-fg-secondary"
-            data-testid="add-bucket-cancel"
-          >
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleClose} data-testid="add-bucket-cancel">
             Cancel
-          </button>
+          </Button>
         </div>
       </div>
     </div>
