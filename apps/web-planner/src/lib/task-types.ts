@@ -23,8 +23,8 @@ export interface TaskFlat {
   title: string
   progress: TaskProgress
   priority: TaskPriority
-  startDate: string | null // ISO date string
-  dueDate: string | null // ISO date string
+  startDate: string | null
+  dueDate: string | null
   assignees: TaskAssignee[]
   labels: TaskLabel[]
   orderHint: string

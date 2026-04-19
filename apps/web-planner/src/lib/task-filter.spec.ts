@@ -33,12 +33,6 @@ describe('applyTaskFilter', () => {
     vi.useRealTimers()
   })
 
-  // Sunday 2026-04-19 (UTC)
-  // ISO week: Mon=week start. Week of Apr 19 = Apr 13–Apr 19 (Sun).
-  // "this-week" = from todayStart (Apr 19 00:00) to end of ISO week.
-  // Actually the plan uses a simpler definition: "this week" = todayStart to todayStart+7days.
-  // Let's use: late=<today, today=Apr19, tomorrow=Apr20, this-week=[today,today+7), next-week=[today+7,today+14), future=>=today+14, none=null
-
   const tasks: TaskFlat[] = [
     mkTask({ id: '1', dueDate: '2026-04-10T00:00:00Z', priority: 'urgent' }), // late + urgent
     mkTask({ id: '2', dueDate: '2026-04-19T00:00:00Z', priority: 'medium' }), // today
