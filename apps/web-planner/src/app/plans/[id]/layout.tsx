@@ -71,7 +71,7 @@ export default function PlanLayout({ children }: { children: React.ReactNode }) 
     : 'board'
 
   const flags = {
-    views: viewFlags?.viewsEnabled ?? true,
+    views: viewFlags?.viewsEnabled ?? false,
     grid: viewFlags?.gridEnabled ?? false,
     schedule: viewFlags?.scheduleEnabled ?? false,
     charts: viewFlags?.chartsEnabled ?? false,
