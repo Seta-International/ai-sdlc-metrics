@@ -1,0 +1,35 @@
+/* packages/schedule/src/schedule-theme.css */
+.fc {
+  --fc-border-color: var(--border);
+  --fc-page-bg-color: var(--background);
+  --fc-neutral-bg-color: var(--muted);
+  --fc-today-bg-color: color-mix(in oklch, var(--primary) 8%, var(--background));
+  --fc-event-bg-color: var(--primary);
+  --fc-event-border-color: transparent;
+  --fc-event-text-color: var(--primary-foreground);
+  --fc-highlight-color: color-mix(in oklch, var(--primary) 20%, transparent);
+  font-family: inherit;
+}
+
+.fc .fc-daygrid-day-number {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+.fc .fc-col-header-cell-cushion {
+  font-weight: 500;
+  font-size: 0.75rem;
+}
+.fc .fc-event {
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+}
+.fc .fc-event:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+/* keyboard focus on unscheduled panel items */
+.fcx-unscheduled li:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}

@@ -1,0 +1,13 @@
+{
+  "extends": "@future/tsconfig/nextjs.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "jsx": "react-jsx",
+    "types": ["react", "react-dom"],
+    "ignoreDeprecations": "6.0",
+    "baseUrl": "."
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.spec.ts", "src/**/*.spec.tsx"]
+}
