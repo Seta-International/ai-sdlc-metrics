@@ -39,7 +39,17 @@ export interface TaskDetailSnapshot {
     avatarUrl?: string
   }>
   appliedLabels: string[]
-  attachments: never[]
+  attachments: Array<{
+    id: string
+    kind: 'file' | 'link'
+    filename?: string
+    contentType?: string
+    sizeBytes?: number
+    url?: string
+    linkTitle?: string
+    createdBy: string
+    createdAt: Date
+  }>
   comments: never[]
   evidence: never[]
 }

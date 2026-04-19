@@ -6,6 +6,7 @@ import { DB_TOKEN } from '../../../../../common/db/db.module'
 import { KernelQueryFacade } from '../../../../kernel/application/facades/kernel-query.facade'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
 import { TaskNotFoundException } from '../../../domain/exceptions/task-not-found.exception'
+import { STORAGE_CLIENT, type StorageClient } from '../../../domain/ports/storage-client.port'
 import { GetTaskDetailQuery, type TaskDetailSnapshot } from './get-task-detail.query'
 
 @QueryHandler(GetTaskDetailQuery)
@@ -13,6 +14,7 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
   constructor(
     @Inject(DB_TOKEN) private readonly db: Db,
     private readonly kernelQueryFacade: KernelQueryFacade,
+    @Inject(STORAGE_CLIENT) private readonly storageClient: StorageClient,
   ) {}
 
   async execute(query: GetTaskDetailQuery): Promise<TaskDetailSnapshot> {
@@ -116,6 +118,26 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
             AND tenant_id = ${tenantId}`,
     )
 
+    // ── Query 5: Attachments ──────────────────────────────────────────────────
+    const attachmentResult = await this.db.execute<{
+      id: string
+      kind: string
+      storage_key: string | null
+      filename: string | null
+      content_type: string | null
+      size_bytes: number | null
+      url: string | null
+      link_title: string | null
+      created_by: string
+      created_at: Date
+    }>(
+      sql`SELECT id, kind, storage_key, filename, content_type, size_bytes, url, link_title, created_by, created_at
+          FROM planner.task_attachment
+          WHERE task_id = ${taskId}
+            AND tenant_id = ${tenantId}
+          ORDER BY created_at ASC`,
+    )
+
     // ── Resolve actor display info (one batch — not a planner DB query) ───────
     const assigneeIds = assigneeResult.rows.map((r) => r.actor_id)
     const actorMap = await this.kernelQueryFacade.getActorsByIds(assigneeIds, tenantId)
@@ -141,6 +163,29 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
 
     const appliedLabels = labelResult.rows.map((r) => r.slot)
 
+    // ── Resolve presigned GET URLs for file attachments (sequential — single DB client) ──
+    const attachments: TaskDetailSnapshot['attachments'] = []
+    for (const row of attachmentResult.rows) {
+      let resolvedUrl: string | undefined = undefined
+      if (row.kind === 'file' && row.storage_key) {
+        const presigned = await this.storageClient.getDownloadUrl(row.storage_key, 900)
+        resolvedUrl = presigned.url
+      } else if (row.kind === 'link' && row.url) {
+        resolvedUrl = row.url
+      }
+      attachments.push({
+        id: row.id,
+        kind: row.kind as 'file' | 'link',
+        filename: row.filename ?? undefined,
+        contentType: row.content_type ?? undefined,
+        sizeBytes: row.size_bytes ?? undefined,
+        url: resolvedUrl,
+        linkTitle: row.link_title ?? undefined,
+        createdBy: row.created_by,
+        createdAt: row.created_at,
+      })
+    }
+
     return {
       id: taskRow.id,
       planId: taskRow.plan_id,
@@ -162,7 +207,7 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
       checklist,
       assignees,
       appliedLabels,
-      attachments: [],
+      attachments,
       comments: [],
       evidence: [],
     }

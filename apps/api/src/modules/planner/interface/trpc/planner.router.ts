@@ -4,6 +4,7 @@ import { labelRouter } from './label.router'
 import { bucketRouter } from './bucket.router'
 import { taskRouter } from './task.router'
 import { checklistRouter } from './checklist.router'
+import { attachmentRouter } from './attachment.router'
 
 export const plannerRouter = router({
   plans: planRouter,
@@ -11,4 +12,5 @@ export const plannerRouter = router({
   buckets: bucketRouter,
   tasks: taskRouter,
   checklist: checklistRouter,
+  attachments: attachmentRouter,
 })
