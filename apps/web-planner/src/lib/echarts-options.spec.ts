@@ -21,7 +21,8 @@ describe('progressDonutOption', () => {
 
   it('hides slices with zero value to avoid empty legend entries', () => {
     const opt = progressDonutOption({ 'not-started': 0, 'in-progress': 5, completed: 0 })
-    expect(opt.series?.[0].data.filter((d: any) => d.value > 0)).toHaveLength(1)
+    expect(opt.series?.[0].data).toHaveLength(1)
+    expect(opt.series?.[0].data[0]).toMatchObject({ name: 'In progress', value: 5 })
   })
 })
 

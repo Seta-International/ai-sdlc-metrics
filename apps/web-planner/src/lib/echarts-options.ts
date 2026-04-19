@@ -8,7 +8,7 @@ export function progressDonutOption(counts: ProgressCounts): Record<string, unkn
     ['completed', 'Completed'],
   ]
   return {
-    color: entries.map(([k]) => chartTokens.progress[k]),
+    color: entries.filter(([k]) => counts[k] > 0).map(([k]) => chartTokens.progress[k]),
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
     legend: { show: false },
     series: [
@@ -18,7 +18,9 @@ export function progressDonutOption(counts: ProgressCounts): Record<string, unkn
         avoidLabelOverlap: false,
         label: { show: false },
         emphasis: { label: { show: false } },
-        data: entries.map(([k, name]) => ({ name, value: counts[k] })),
+        data: entries
+          .filter(([k]) => counts[k] > 0)
+          .map(([k, name]) => ({ name, value: counts[k] })),
       },
     ],
   }
@@ -47,7 +49,6 @@ export function priorityBarOption(counts: PriorityCounts): Record<string, unknow
 
 export function bucketBarOption(buckets: BucketRow[]): Record<string, unknown> {
   return {
-    color: chartTokens.bucket,
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     xAxis: { type: 'value', minInterval: 1 },
     yAxis: { type: 'category', data: buckets.map((b) => b.bucketName) },
