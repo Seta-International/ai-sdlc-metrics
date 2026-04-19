@@ -178,6 +178,7 @@ export function TaskCard({
       {...listeners}
       data-testid="task-card"
       data-task-id={task.id}
+      data-dragging={isDragging ? '' : undefined}
       className="group relative flex flex-col rounded-lg border border-white/8 bg-white/2 cursor-grab active:cursor-grabbing hover:bg-white/4 transition-colors select-none"
     >
       {/* Cover image — only when coverUrl is provided */}
