@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Check } from 'lucide-react'
 import { useSession } from '@future/auth'
 import { Popover, PopoverContent, PopoverTrigger, Button } from '@future/ui'
 import type { TaskFlat } from '@future/api-client/planner'
@@ -115,20 +116,7 @@ export function LabelsCell({ task, planLabels }: LabelsCellProps) {
                     />
                     <span className="flex-1 truncate text-sm">{label.name}</span>
                     {isApplied && (
-                      <svg
-                        viewBox="0 0 12 12"
-                        fill="none"
-                        className="size-3 flex-shrink-0 text-accent"
-                        aria-hidden
-                      >
-                        <path
-                          d="M2 6l3 3 5-5"
-                          stroke="currentColor"
-                          strokeWidth={1.5}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
+                      <Check className="size-3 flex-shrink-0 text-accent" aria-hidden />
                     )}
                   </Button>
                 </li>

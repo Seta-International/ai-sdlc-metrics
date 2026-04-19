@@ -94,6 +94,7 @@ describe('DueCell', () => {
         planId: 'plan-1',
         taskId: 'task-1',
         actorId: 'actor-1',
+        expectedVersion: '2026-01-01T00:00:00.000Z',
         startDate: null,
       }),
     )
@@ -113,6 +114,8 @@ describe('DueCell', () => {
     render(<DueCell task={task} />)
     await user.click(screen.getByRole('button', { name: /change due date/i }))
     await user.click(screen.getByTestId('due-date-clear'))
-    expect(mockMutate).toHaveBeenCalledWith(expect.objectContaining({ dueDate: null }))
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ dueDate: null, expectedVersion: '2026-01-01T00:00:00.000Z' }),
+    )
   })
 })

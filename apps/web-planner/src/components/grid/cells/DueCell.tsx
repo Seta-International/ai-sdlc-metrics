@@ -57,8 +57,9 @@ export function DueCell({ task }: { task: TaskFlat }) {
       <PopoverContent align="start" className="w-52 p-3" data-testid="due-date-popover">
         <p className="mb-2 text-xs font-510 text-fg-muted">Due date</p>
         <Input
+          key={currentDateStr ?? ''}
           type="date"
-          defaultValue={currentDateStr ? currentDateStr.slice(0, 10) : ''}
+          value={currentDateStr ? currentDateStr.slice(0, 10) : ''}
           onChange={(e) => void handleChange(e.target.value || null)}
           style={{ colorScheme: 'dark' }}
           aria-label="Due date input"
