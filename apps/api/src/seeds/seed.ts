@@ -295,16 +295,21 @@ async function main() {
     }
   }
 
-  // Enable planner for SETA internal tenant
-  const SETA_TENANT_ID = deterministicUuid('tenant:seta')
-  await db
-    .insert(tenantSettings)
-    .values({
-      id: deterministicUuid('tenant-settings:seta'),
-      tenantId: SETA_TENANT_ID,
-      plannerCoreEnabled: true,
-    })
-    .onConflictDoNothing()
+  // Enable planner for all dev tenants
+  for (const tenantCfg of TENANTS) {
+    const tenantId = deterministicUuid('tenant:' + tenantCfg.slug)
+    await db
+      .insert(tenantSettings)
+      .values({
+        id: deterministicUuid('tenant-settings:' + tenantCfg.slug),
+        tenantId,
+        plannerCoreEnabled: true,
+      })
+      .onConflictDoUpdate({
+        target: tenantSettings.tenantId,
+        set: { plannerCoreEnabled: true },
+      })
+  }
 
   console.log('Seed complete')
   process.exit(0)

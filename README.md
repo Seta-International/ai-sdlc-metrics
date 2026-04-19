@@ -17,7 +17,7 @@ bun run db:up
 bun run db:logs
 
 # API + one zone (most common)
-bun run dev --filter=@future/api --filter=@future/web-people --filter=@future/web-shell --filter=@future/web-projects
+bun run dev --filter=@future/api --filter=@future/web-people --filter=@future/web-shell --filter=@future/web-projects --filter=@future/web-planner
 
 # Type-check everything
 bun run typecheck
