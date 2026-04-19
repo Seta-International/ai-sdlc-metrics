@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeAll, afterAll, vi } from 'vitest'
 import { applyTaskFilter } from './task-filter'
 import type { TaskFlat } from './task-types'
+import type { DueBucket } from './view-state'
 
 const mkTask = (partial: Partial<TaskFlat>): TaskFlat => ({
   id: 't1',
@@ -53,7 +54,7 @@ describe('applyTaskFilter', () => {
     ['none', ['7']],
   ])('filters by due=%s', (due, ids) => {
     const out = applyTaskFilter(tasks, {
-      due: due as any,
+      due: due as DueBucket,
       priority: [],
       labels: [],
       buckets: [],

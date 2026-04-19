@@ -47,7 +47,7 @@ export function useViewState({ planId }: { planId: string }) {
       const encoded = serializeViewStateToSearch(state)
       if (encoded.length > 0) router.replace(`${pathname}?${encoded}`, { scroll: false })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line @eslint-react/exhaustive-deps
   }, [])
 
   const lsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
