@@ -19,14 +19,15 @@ export function PriorityBar({
         option={option}
         style={{ height: 220 }}
         onEvents={{
-          click: (p: { name: string }) => {
+          click: (p: unknown) => {
+            const name = (p as { name: string }).name
             const map: Record<string, TaskFlat['priority']> = {
               Urgent: 'urgent',
               Important: 'important',
               Medium: 'medium',
               Low: 'low',
             }
-            const v = map[p.name]
+            const v = map[name]
             if (v) onDrill({ field: 'priority', value: v })
           },
         }}

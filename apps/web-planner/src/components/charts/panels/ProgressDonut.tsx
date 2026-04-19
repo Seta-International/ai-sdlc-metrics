@@ -19,13 +19,14 @@ export function ProgressDonut({
         option={option}
         style={{ height: 260 }}
         onEvents={{
-          click: (p: { name: string }) => {
+          click: (p: unknown) => {
+            const name = (p as { name: string }).name
             const map: Record<string, TaskFlat['progress']> = {
               'Not started': 'not-started',
               'In progress': 'in-progress',
               Completed: 'completed',
             }
-            const v = map[p.name]
+            const v = map[name]
             if (v) onDrill({ field: 'progress', value: v })
           },
         }}
