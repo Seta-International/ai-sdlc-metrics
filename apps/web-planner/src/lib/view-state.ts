@@ -1,3 +1,5 @@
+// Server-safe: no React hooks, no browser APIs. Import freely from server components.
+
 export const VIEW_KEYS = ['board', 'grid', 'schedule', 'charts'] as const
 export const GROUP_KEYS = ['bucket', 'progress', 'due', 'priority', 'assignee', 'label'] as const
 export const PRIORITIES = ['urgent', 'important', 'medium', 'low'] as const

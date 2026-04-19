@@ -24,7 +24,14 @@ export function useViewState({ planId }: { planId: string }) {
     if (typeof window !== 'undefined') {
       try {
         const raw = localStorage.getItem(LS_PREFIX + planId)
-        if (raw) return { ...DEFAULT_VIEW_STATE, ...JSON.parse(raw) }
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          return {
+            ...DEFAULT_VIEW_STATE,
+            ...parsed,
+            filter: { ...DEFAULT_VIEW_STATE.filter, ...(parsed.filter ?? {}) },
+          }
+        }
       } catch {
         /* corrupt — ignore */
       }
