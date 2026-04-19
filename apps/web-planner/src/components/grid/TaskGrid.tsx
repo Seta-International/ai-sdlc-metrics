@@ -205,7 +205,6 @@ export function TaskGrid({
         <BulkActionsBar
           selectedTasks={selectedRows}
           onClearSelection={() => table.resetRowSelection()}
-          planId={planId}
           planMembers={context.members}
           planLabels={context.labels}
         />

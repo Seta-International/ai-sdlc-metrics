@@ -33,7 +33,6 @@ import { useBulkExecutor } from './useBulkExecutor'
 export type BulkActionsBarProps = {
   selectedTasks: TaskFlat[]
   onClearSelection: () => void
-  planId: string
   planMembers: { actorId: string; displayName: string }[]
   planLabels: { id: string; name: string; color: string }[]
 }
@@ -128,8 +127,8 @@ function BulkProgressButton({
   const { status, successCount, total, start } = useBulkExecutor<TaskFlat>({ run })
 
   async function handleClick() {
-    await start(selectedTasks)
-    onDone()
+    const { status: result } = await start(selectedTasks)
+    if (result === 'done') onDone()
   }
 
   return (
@@ -220,8 +219,8 @@ function BulkPriorityButton({
   const { status, successCount, total, start } = useBulkExecutor<TaskFlat>({ run })
 
   async function handleClick() {
-    await start(selectedTasks)
-    onDone()
+    const { status: result } = await start(selectedTasks)
+    if (result === 'done') onDone()
   }
 
   return (
@@ -309,8 +308,8 @@ function SetDueDateAction({ selectedTasks }: { selectedTasks: TaskFlat[] }) {
   const { status, successCount, total, start } = useBulkExecutor<TaskFlat>({ run })
 
   async function handleApply() {
-    await start(selectedTasks)
-    setOpen(false)
+    const { status: result } = await start(selectedTasks)
+    if (result === 'done') setOpen(false)
   }
 
   return (
@@ -396,8 +395,8 @@ function AssignAction({
 
   async function handleMemberClick(memberId: string) {
     chosenMemberRef.current = memberId
-    await start(selectedTasks)
-    setOpen(false)
+    const { status: result } = await start(selectedTasks)
+    if (result === 'done') setOpen(false)
   }
 
   return (
@@ -507,8 +506,8 @@ function LabelAction({
   async function handleLabelClick(labelId: string, apply: boolean) {
     chosenLabelRef.current = labelId
     applyModeRef.current = apply
-    await start(selectedTasks)
-    setOpen(false)
+    const { status: result } = await start(selectedTasks)
+    if (result === 'done') setOpen(false)
   }
 
   return (
@@ -612,8 +611,8 @@ function DeleteAction({
   const { status, successCount, total, start } = useBulkExecutor<TaskFlat>({ run })
 
   async function handleConfirm() {
-    await start(selectedTasks)
-    onClearSelection()
+    const { status: result } = await start(selectedTasks)
+    if (result === 'done') onClearSelection()
   }
 
   const count = selectedTasks.length

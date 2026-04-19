@@ -340,7 +340,7 @@ describe('TaskGrid', () => {
     await user.click(screen.getByTestId('bulk-progress-option-completed'))
 
     expect(mockTrpc.planner.tasks.setProgress.mutate).toHaveBeenCalledWith(
-      expect.objectContaining({ progress: 100 }),
+      expect.objectContaining({ progress: 100, expectedVersion: expect.any(String) }),
     )
   })
 

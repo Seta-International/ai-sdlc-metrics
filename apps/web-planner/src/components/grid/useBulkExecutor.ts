@@ -23,8 +23,8 @@ export function useBulkExecutor<T>({ run }: { run: (item: T) => Promise<RunResul
   const isRunningRef = useRef(false)
 
   const execute = useCallback(
-    async (items: T[]) => {
-      if (isRunningRef.current) return
+    async (items: T[]): Promise<{ status: 'done' | 'error' }> => {
+      if (isRunningRef.current) return { status: 'error' }
       isRunningRef.current = true
 
       setState({
@@ -51,7 +51,7 @@ export function useBulkExecutor<T>({ run }: { run: (item: T) => Promise<RunResul
             currentIndex: i,
           }))
           isRunningRef.current = false
-          return
+          return { status: 'error' }
         }
         successCount++
         i++
@@ -60,12 +60,16 @@ export function useBulkExecutor<T>({ run }: { run: (item: T) => Promise<RunResul
       failedInputsRef.current = []
       setState((prev) => ({ ...prev, status: 'done', successCount, failedInputs: [] }))
       isRunningRef.current = false
+      return { status: 'done' }
     },
     [run],
   )
 
-  const start = useCallback((items: T[]) => execute(items), [execute])
-  const retryFailed = useCallback(() => {
+  const start = useCallback(
+    (items: T[]): Promise<{ status: 'done' | 'error' }> => execute(items),
+    [execute],
+  )
+  const retryFailed = useCallback((): Promise<{ status: 'done' | 'error' }> => {
     return execute(failedInputsRef.current)
   }, [execute])
 
