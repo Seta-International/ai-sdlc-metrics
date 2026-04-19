@@ -50,7 +50,7 @@ function formatDate(date: Date | null): string {
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-const PROPERTY_LABEL_CLASS = 'min-w-[4.5rem] text-xs text-muted-foreground'
+const PROPERTY_LABEL_CLASS = 'min-w-[4.5rem] text-xs text-fg-muted'
 
 export function TaskPropertyStrip({
   bucketName,
@@ -96,7 +96,7 @@ export function TaskPropertyStrip({
         <span className={PROPERTY_LABEL_CLASS}>Labels</span>
         <div className="flex flex-wrap items-center gap-1">
           {resolvedLabels.length === 0 ? (
-            <span className="text-xs text-muted-foreground">None</span>
+            <span className="text-xs text-fg-muted">None</span>
           ) : (
             resolvedLabels.map((label) => (
               <Badge key={label.slot} variant="subtle">

@@ -29,7 +29,7 @@ export function ConflictBanner({
     <Alert variant="destructive" className="mx-4 my-2">
       <AlertDescription>
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2 font-medium">
+          <div className="flex items-center gap-2 font-510">
             <AlertTriangle className="size-4" />
             <span>Conflict on &quot;{conflictingField}&quot;</span>
           </div>

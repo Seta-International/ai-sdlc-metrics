@@ -15,14 +15,14 @@ export function TaskPanelHeader({ title, isSaving, onClose }: Props) {
       <div className="flex items-center gap-2">
         <Input
           defaultValue={title}
-          className="h-auto flex-1 border-0 bg-transparent px-0 text-xl font-semibold shadow-none ring-0 focus-visible:ring-0"
+          className="h-auto flex-1 border-0 bg-transparent px-0 text-xl font-510 shadow-none ring-0 focus-visible:ring-0"
           aria-label="Task title"
           data-testid="task-detail-title-input"
         />
         <div className="flex shrink-0 items-center gap-1">
           {isSaving && (
             <span
-              className="flex items-center gap-1 text-xs text-muted-foreground"
+              className="flex items-center gap-1 text-xs text-fg-muted"
               data-testid="task-detail-saving"
             >
               <Spinner className="size-3" />
