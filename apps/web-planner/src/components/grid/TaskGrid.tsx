@@ -1,12 +1,12 @@
 'use client'
 
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
-  getSortedRowModel,
   flexRender,
   type Row,
+  type RowSelectionState,
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
@@ -22,6 +22,7 @@ import { buildColumns } from './columns'
 import { useViewState } from '@/lib/hooks/useViewState'
 import type { TaskFlat } from '@future/api-client/planner'
 import type { TaskGroup } from '@/lib/task-group'
+import type { SortField } from '@/lib/view-state'
 
 type Member = { actorId: string; displayName: string }
 type Label = { id: string; name: string; color: string }
@@ -42,6 +43,7 @@ export function TaskGrid({
   context: { members: Member[]; labels: Label[] }
 }) {
   const { state, patch } = useViewState({ planId })
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
 
   const columns = useMemo(
     () =>
@@ -58,25 +60,13 @@ export function TaskGrid({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     manualSorting: true,
+    enableRowSelection: true,
     state: {
       sorting: state.sort ? [{ id: state.sort.field, desc: state.sort.dir === 'desc' }] : [],
+      rowSelection,
     },
-    onSortingChange: (updater) => {
-      const next = typeof updater === 'function' ? updater(table.getState().sorting) : updater
-      if (next.length === 0) {
-        patch({ sort: undefined })
-      } else {
-        const [first] = next
-        patch({
-          sort: {
-            field: first!.id as import('@/lib/view-state').SortField,
-            dir: first!.desc ? 'desc' : 'asc',
-          },
-        })
-      }
-    },
+    onRowSelectionChange: setRowSelection,
   })
 
   const virtualRows = useMemo<VirtualRow[]>(() => {
@@ -136,7 +126,7 @@ export function TaskGrid({
                           } else {
                             patch({
                               sort: {
-                                field: columnId as import('@/lib/view-state').SortField,
+                                field: columnId as SortField,
                                 dir: next,
                               },
                             })
@@ -163,19 +153,19 @@ export function TaskGrid({
 
             if (vr.kind === 'header') {
               return (
-                <tr
+                <TableRow
                   key={virtualItem.key}
                   data-index={virtualItem.index}
                   style={{ height: virtualItem.size }}
-                  className="bg-muted/30"
+                  className="bg-muted/50 hover:bg-muted/50"
                 >
-                  <td
-                    colSpan={table.getAllColumns().length}
-                    className="px-3 py-2 text-sm font-590 text-muted-foreground"
+                  <TableCell
+                    colSpan={table.getVisibleLeafColumns().length}
+                    className="py-2 font-medium text-muted-foreground text-xs uppercase tracking-wide"
                   >
                     {vr.label}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )
             }
 
