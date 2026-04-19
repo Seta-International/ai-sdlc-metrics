@@ -15,6 +15,7 @@ import { TaskCardCover } from './TaskCardCover'
 import { AssigneePicker } from '../assignees/AssigneePicker'
 import { LabelPicker } from '../labels/LabelPicker'
 import { trpc } from '../../lib/trpc'
+import { Paperclip, MessageSquare, ShieldCheck } from 'lucide-react'
 import {
   Button,
   Input,
@@ -405,6 +406,39 @@ export function TaskCard({
                   />
                 </svg>
                 {task.checklistCheckedCount}/{task.checklistItemCount}
+              </span>
+            )}
+
+            {/* Attachment count badge */}
+            {task.attachmentCount > 0 && (
+              <span
+                className="flex items-center gap-0.5 text-label font-510 text-fg-muted"
+                aria-label={`${task.attachmentCount} attachment${task.attachmentCount === 1 ? '' : 's'}`}
+              >
+                <Paperclip className="size-3" aria-hidden />
+                {task.attachmentCount}
+              </span>
+            )}
+
+            {/* Comment count badge */}
+            {task.commentCount > 0 && (
+              <span
+                className="flex items-center gap-0.5 text-label font-510 text-fg-muted"
+                aria-label={`${task.commentCount} comment${task.commentCount === 1 ? '' : 's'}`}
+              >
+                <MessageSquare className="size-3" aria-hidden />
+                {task.commentCount}
+              </span>
+            )}
+
+            {/* Evidence count badge */}
+            {task.evidenceCount > 0 && (
+              <span
+                className="flex items-center gap-0.5 text-label font-510 text-fg-muted"
+                aria-label={`${task.evidenceCount} evidence item${task.evidenceCount === 1 ? '' : 's'}`}
+              >
+                <ShieldCheck className="size-3" aria-hidden />
+                {task.evidenceCount}
               </span>
             )}
 

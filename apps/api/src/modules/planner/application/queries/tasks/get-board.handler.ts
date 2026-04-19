@@ -94,6 +94,9 @@ export class GetBoardHandler implements IQueryHandler<GetBoardQuery, BoardSnapsh
     const { taskRows, assigneeRows, appliedLabelRows } =
       await this.fetchTasksWithAssigneesAndLabels(planId, tenantId)
 
+    // ── Query 4: Batch counts for attachments, comments, evidence ─────────────
+    const taskCountMap = await this.fetchTaskCounts(planId, tenantId)
+
     // ── Resolve actor display info (one batch call — not a planner DB query) ──
     const allAssigneeIds = [...new Set(assigneeRows.map((a) => a.actorId))]
     const actorMap = await this.kernelQueryFacade.getActorsByIds(allAssigneeIds, tenantId)
@@ -141,10 +144,9 @@ export class GetBoardHandler implements IQueryHandler<GetBoardQuery, BoardSnapsh
         completedBy: taskRow.completedBy,
         checklistItemCount: taskRow.checklistItemCount,
         checklistCheckedCount: taskRow.checklistCheckedCount,
-        // Plan 03/04 will add attachment, comment, evidence tables; stub as 0 for now
-        attachmentCount: 0,
-        commentCount: 0,
-        evidenceCount: 0,
+        attachmentCount: taskCountMap.get(taskRow.id)?.attachment ?? 0,
+        commentCount: taskCountMap.get(taskRow.id)?.comment ?? 0,
+        evidenceCount: taskCountMap.get(taskRow.id)?.evidence ?? 0,
         coverAttachmentId: taskRow.coverAttachmentId,
         appliedLabels: labelsByTaskId.get(taskRow.id) ?? [],
         assignees,
@@ -438,5 +440,59 @@ export class GetBoardHandler implements IQueryHandler<GetBoardQuery, BoardSnapsh
     }
 
     return { taskRows, assigneeRows, appliedLabelRows }
+  }
+
+  /**
+   * Query 4: Batch-count attachments, comments, and evidence for all tasks in a plan.
+   * Returns a Map keyed by taskId with per-category counts.
+   */
+  private async fetchTaskCounts(
+    planId: string,
+    tenantId: string,
+  ): Promise<Map<string, { attachment: number; comment: number; evidence: number }>> {
+    const result = await this.db.execute<{
+      task_id: string
+      kind: string
+      cnt: number
+    }>(
+      sql`WITH task_ids AS (
+            SELECT id FROM planner.task
+            WHERE plan_id = ${planId}
+              AND tenant_id = ${tenantId}
+              AND deleted_at IS NULL
+          )
+          SELECT task_id, 'attachment' AS kind, COUNT(*)::int AS cnt
+          FROM planner.task_attachment
+          WHERE task_id IN (SELECT id FROM task_ids)
+            AND tenant_id = ${tenantId}
+          GROUP BY task_id
+
+          UNION ALL
+
+          SELECT task_id, 'comment' AS kind, COUNT(*)::int AS cnt
+          FROM planner.task_comment
+          WHERE task_id IN (SELECT id FROM task_ids)
+            AND tenant_id = ${tenantId}
+            AND deleted_at IS NULL
+          GROUP BY task_id
+
+          UNION ALL
+
+          SELECT task_id, 'evidence' AS kind, COUNT(*)::int AS cnt
+          FROM planner.task_evidence
+          WHERE task_id IN (SELECT id FROM task_ids)
+            AND tenant_id = ${tenantId}
+          GROUP BY task_id`,
+    )
+
+    const map = new Map<string, { attachment: number; comment: number; evidence: number }>()
+    for (const row of result.rows) {
+      const entry = map.get(row.task_id) ?? { attachment: 0, comment: 0, evidence: 0 }
+      if (row.kind === 'attachment') entry.attachment = Number(row.cnt)
+      else if (row.kind === 'comment') entry.comment = Number(row.cnt)
+      else if (row.kind === 'evidence') entry.evidence = Number(row.cnt)
+      map.set(row.task_id, entry)
+    }
+    return map
   }
 }
