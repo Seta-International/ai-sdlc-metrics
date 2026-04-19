@@ -1,5 +1,5 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { emit as emitEvent } from '../telemetry'
 
 export type ViewRenderedEvent = {
@@ -14,11 +14,16 @@ export function useViewRenderedTelemetry(
   payload: ViewRenderedEvent,
   opts?: { emit?: (name: string, data: unknown) => void },
 ) {
-  const emit = opts?.emit ?? emitEvent
   const { view, planId, taskCount, filterKeys, groupBy } = payload
+  const emitRef = useRef(opts?.emit ?? emitEvent)
+
+  // Keep ref current on every render so the effect always sees the latest emit function
+  useEffect(() => {
+    emitRef.current = opts?.emit ?? emitEvent
+  })
 
   useEffect(() => {
-    emit('planner.view.rendered', {
+    emitRef.current('planner.view.rendered', {
       zone: 'web-planner',
       view,
       planId,
@@ -26,6 +31,5 @@ export function useViewRenderedTelemetry(
       filterKeys: [...filterKeys].sort(),
       groupBy,
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, planId, taskCount, groupBy, filterKeys.join(',')])
 }

@@ -21,6 +21,7 @@ import { useViewState } from '../../../../lib/hooks/useViewState'
 import { useViewRenderedTelemetry } from '../../../../lib/hooks/useViewRenderedTelemetry'
 import { applyTaskFilter } from '../../../../lib/task-filter'
 import { sortTasks } from '../../../../lib/task-sort'
+import { DEFAULT_VIEW_STATE } from '../../../../lib/view-state'
 
 // ─── Loading skeleton ─────────────────────────────────────────────────────────
 
@@ -158,12 +159,13 @@ function BoardInner({ snapshot, planId, actorId, tenantId }: BoardInnerProps) {
   const sorted = state.sort ? sortTasks(filtered, state.sort) : filtered
   const filteredIds = new Set(sorted.map((t) => t.id))
 
-  const activeFilterKeys = Object.entries(state.filter)
-    .filter(([, v]) => {
+  const activeFilterKeys = (Object.keys(state.filter) as Array<keyof typeof state.filter>).filter(
+    (k) => {
+      const v = state.filter[k]
       if (Array.isArray(v)) return v.length > 0
-      return v !== null && v !== undefined
-    })
-    .map(([k]) => k)
+      return v !== DEFAULT_VIEW_STATE.filter[k]
+    },
+  )
 
   useViewRenderedTelemetry({
     view: 'board',

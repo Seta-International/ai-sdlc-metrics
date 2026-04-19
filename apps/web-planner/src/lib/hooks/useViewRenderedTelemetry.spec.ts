@@ -61,4 +61,45 @@ describe('useViewRenderedTelemetry', () => {
     })
     expect(emit).toHaveBeenCalledTimes(2)
   })
+
+  it('re-emits when filterKeys change', () => {
+    const emit = vi.fn()
+    const { rerender } = renderHook((p) => useViewRenderedTelemetry(p, { emit }), {
+      initialProps: {
+        view: 'board' as const,
+        planId: 'p1',
+        taskCount: 5,
+        filterKeys: [] as string[],
+        groupBy: 'bucket',
+      },
+    })
+    rerender({
+      view: 'board' as const,
+      planId: 'p1',
+      taskCount: 5,
+      filterKeys: ['priority'],
+      groupBy: 'bucket',
+    })
+    expect(emit).toHaveBeenCalledTimes(2)
+  })
+
+  it('emits filterKeys sorted regardless of input order', () => {
+    const emit = vi.fn()
+    renderHook(() =>
+      useViewRenderedTelemetry(
+        {
+          view: 'board',
+          planId: 'p1',
+          taskCount: 1,
+          filterKeys: ['priority', 'due'],
+          groupBy: 'bucket',
+        },
+        { emit },
+      ),
+    )
+    expect(emit).toHaveBeenCalledWith(
+      'planner.view.rendered',
+      expect.objectContaining({ filterKeys: ['due', 'priority'] }),
+    )
+  })
 })
