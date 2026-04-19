@@ -2,7 +2,7 @@
 
 Living document. Update the checklist as each phase completes; link the PR that shipped it.
 
-Last updated: 2026-04-18
+Last updated: 2026-04-19
 
 ## Phase breakdown
 
@@ -96,12 +96,12 @@ Last updated: 2026-04-18
   - [ ] `TaskEvidenceSubmittedEvent` (verify event reserved)
   - [ ] Composer + list + disabled Verify button with Phase 5 tooltip
 
-- [ ] **Phase 1.9 — Notifications & polish** · [PR #___]
-  - [ ] `OnTaskAssignedHandler` → notification email
-  - [ ] Performance integration tests green
-  - [ ] Empty states + loading skeletons
-  - [ ] Keyboard a11y audit
-  - [ ] Playwright 8 flows green
-  - [ ] Design review against DESIGN.md
-  - [ ] CLAUDE.md domain-modules table updated (remove "AI reminders, KPI linkage" from `planner`)
-  - [ ] Feature flag `planner.core.enabled` flipped on for internal tenant
+- [x] **Phase 1.9 — Notifications & polish** · [Plan 05]
+  - [x] `OnTaskAssignedHandler` → notification email
+  - [x] Performance integration tests green
+  - [x] Empty states + loading skeletons
+  - [x] Keyboard a11y audit
+  - [x] Playwright 8 flows green
+  - [x] Design review against DESIGN.md
+  - [x] CLAUDE.md domain-modules table updated (remove "AI reminders, KPI linkage" from `planner`)
+  - [x] Feature flag `planner.core.enabled` flipped on for internal tenant (seed.ts)
