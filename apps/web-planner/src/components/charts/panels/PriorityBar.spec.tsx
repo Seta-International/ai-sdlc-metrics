@@ -23,7 +23,7 @@ describe('PriorityBar', () => {
     render(
       <PriorityBar counts={{ urgent: 1, important: 2, medium: 3, low: 4 }} onDrill={onDrill} />,
     )
-    expect(screen.getByText('By Priority')).toBeDefined()
+    expect(screen.getByText('By Priority')).toBeInTheDocument()
   })
 
   it('invokes onDrill with urgent when "Urgent" bar is clicked', () => {

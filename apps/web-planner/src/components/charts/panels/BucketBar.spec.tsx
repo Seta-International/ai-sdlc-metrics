@@ -27,7 +27,7 @@ describe('BucketBar', () => {
   it('renders the title', () => {
     const onDrill = vi.fn()
     render(<BucketBar data={buckets} onDrill={onDrill} />)
-    expect(screen.getByText('By Bucket')).toBeDefined()
+    expect(screen.getByText('By Bucket')).toBeInTheDocument()
   })
 
   it('invokes onDrill with the bucketId (not bucketName) when a bar is clicked', () => {

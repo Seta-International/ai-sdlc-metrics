@@ -1,7 +1,7 @@
 'use client'
 import { EChart } from '@future/charts'
 import { workloadBarOption } from '@/lib/echarts-options'
-import type { WorkloadRow, PriorityCounts } from '@/lib/charts-data'
+import type { WorkloadRow } from '@/lib/charts-data'
 import type { TaskFlat } from '@future/api-client/planner'
 
 const PRIORITY_LABEL_MAP: Record<string, TaskFlat['priority']> = {

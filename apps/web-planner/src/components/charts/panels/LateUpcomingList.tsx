@@ -1,5 +1,6 @@
 'use client'
 import { AlertTriangle, Clock } from 'lucide-react'
+import { Button } from '@future/ui'
 import { reduceLateUpcoming } from '@/lib/charts-data'
 import type { TaskFlat } from '@future/api-client/planner'
 
@@ -24,13 +25,14 @@ function Section({
       <ul className="space-y-1">
         {items.map((t) => (
           <li key={t.id}>
-            <button
-              className="w-full truncate text-left text-sm hover:text-primary"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start truncate"
               onClick={() => onOpen(t.id)}
-              type="button"
             >
               {t.title}
-            </button>
+            </Button>
           </li>
         ))}
       </ul>

@@ -78,25 +78,25 @@ describe('LateUpcomingList', () => {
   it('renders "Late" section title when there are late tasks', () => {
     const onOpen = vi.fn()
     render(<LateUpcomingList tasks={[lateTask]} onOpen={onOpen} />)
-    expect(screen.getByText('Late')).toBeDefined()
+    expect(screen.getByText('Late')).toBeInTheDocument()
   })
 
   it('renders "Upcoming (next 7 days)" section title when there are upcoming tasks', () => {
     const onOpen = vi.fn()
     render(<LateUpcomingList tasks={[upcomingTask]} onOpen={onOpen} />)
-    expect(screen.getByText('Upcoming (next 7 days)')).toBeDefined()
+    expect(screen.getByText('Upcoming (next 7 days)')).toBeInTheDocument()
   })
 
   it('renders late task title', () => {
     const onOpen = vi.fn()
     render(<LateUpcomingList tasks={[lateTask]} onOpen={onOpen} />)
-    expect(screen.getByText('Overdue Task')).toBeDefined()
+    expect(screen.getByText('Overdue Task')).toBeInTheDocument()
   })
 
   it('renders upcoming task title', () => {
     const onOpen = vi.fn()
     render(<LateUpcomingList tasks={[upcomingTask]} onOpen={onOpen} />)
-    expect(screen.getByText('Upcoming Task')).toBeDefined()
+    expect(screen.getByText('Upcoming Task')).toBeInTheDocument()
   })
 
   it('calls onOpen with the correct task id when a late task is clicked', () => {
@@ -142,9 +142,9 @@ describe('LateUpcomingList', () => {
   it('renders both sections when both late and upcoming tasks exist', () => {
     const onOpen = vi.fn()
     render(<LateUpcomingList tasks={[lateTask, upcomingTask]} onOpen={onOpen} />)
-    expect(screen.getByText('Late')).toBeDefined()
-    expect(screen.getByText('Upcoming (next 7 days)')).toBeDefined()
-    expect(screen.getByText('Overdue Task')).toBeDefined()
-    expect(screen.getByText('Upcoming Task')).toBeDefined()
+    expect(screen.getByText('Late')).toBeInTheDocument()
+    expect(screen.getByText('Upcoming (next 7 days)')).toBeInTheDocument()
+    expect(screen.getByText('Overdue Task')).toBeInTheDocument()
+    expect(screen.getByText('Upcoming Task')).toBeInTheDocument()
   })
 })

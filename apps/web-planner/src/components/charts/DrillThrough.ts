@@ -2,6 +2,7 @@ import { serializeViewStateToSearch, DEFAULT_VIEW_STATE } from '@/lib/view-state
 import type { TaskFlat } from '@future/api-client/planner'
 
 export type DrillPayload =
+  | { field: 'progress'; value: TaskFlat['progress'] }
   | { field: 'priority'; value: TaskFlat['priority'] }
   | { field: 'bucket'; value: string }
   | { field: 'workload'; assigneeId: string; priority: TaskFlat['priority'] }
@@ -14,6 +15,9 @@ export function buildDrillThroughUrl(planId: string, payload: DrillPayload): str
   let filter = { ...base.filter }
 
   switch (payload.field) {
+    case 'progress':
+      // progress is not a ViewState filter yet — navigates to Grid without filtering
+      break
     case 'priority':
       filter = { ...filter, priority: [payload.value] }
       break

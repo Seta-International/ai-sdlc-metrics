@@ -28,4 +28,10 @@ describe('buildDrillThroughUrl', () => {
       '/plans/abc/grid?view=grid&filter.buckets=bucket-1',
     )
   })
+
+  it('progress drill: navigates to /plans/:id/grid without a filter.progress param', () => {
+    const url = buildDrillThroughUrl('abc', { field: 'progress', value: 'in-progress' })
+    expect(url).toBe('/plans/abc/grid?view=grid')
+    expect(url).not.toContain('filter.progress')
+  })
 })

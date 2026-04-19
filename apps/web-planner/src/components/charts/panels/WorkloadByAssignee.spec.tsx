@@ -39,7 +39,7 @@ describe('WorkloadByAssignee', () => {
   it('renders the title', () => {
     const onDrill = vi.fn()
     render(<WorkloadByAssignee rows={rows} onDrill={onDrill} />)
-    expect(screen.getByText('Workload by Assignee')).toBeDefined()
+    expect(screen.getByText('Workload by Assignee')).toBeInTheDocument()
   })
 
   it('invokes onDrill with assigneeId and priority when a stacked bar segment is clicked', () => {

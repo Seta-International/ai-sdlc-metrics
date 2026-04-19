@@ -26,7 +26,7 @@ describe('ProgressDonut', () => {
         onDrill={onDrill}
       />,
     )
-    expect(screen.getByText('By Progress')).toBeDefined()
+    expect(screen.getByText('By Progress')).toBeInTheDocument()
   })
 
   it('invokes onDrill with not-started when "Not started" slice is clicked', () => {
