@@ -1,6 +1,16 @@
-// Placeholder — full implementation comes in Task 7
 import type { TaskFlat } from '@future/api-client/planner'
 
-export function StartCell(_props: { task: TaskFlat }) {
-  return null
+function formatDate(isoStr: string): string {
+  return new Date(isoStr).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+export function StartCell({ task }: { task: TaskFlat }) {
+  if (!task.startDate) {
+    return <span className="text-xs text-fg-muted">—</span>
+  }
+  return <span className="text-xs">{formatDate(task.startDate)}</span>
 }
