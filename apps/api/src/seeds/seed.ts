@@ -304,10 +304,18 @@ async function main() {
         id: deterministicUuid('tenant-settings:' + tenantCfg.slug),
         tenantId,
         plannerCoreEnabled: true,
+        plannerViewsEnabled: true,
+        // plannerGridEnabled, plannerScheduleEnabled, plannerChartsEnabled default to false
       })
       .onConflictDoUpdate({
         target: tenantSettings.tenantId,
-        set: { plannerCoreEnabled: true },
+        set: {
+          plannerCoreEnabled: true,
+          plannerViewsEnabled: true,
+          plannerGridEnabled: false,
+          plannerScheduleEnabled: false,
+          plannerChartsEnabled: false,
+        },
       })
   }
 

@@ -169,4 +169,9 @@ export const planRouter = router({
           throw toPlannerTrpcError(e)
         })
     }),
+
+  // No assertPlannerEnabled guard — flags are needed before planner feature-gate is known
+  getViewFlags: publicProcedure
+    .input(z.object({ tenantId: z.string().uuid() }))
+    .query(({ input }) => svc().getPlannerViewFlags(input.tenantId)),
 })

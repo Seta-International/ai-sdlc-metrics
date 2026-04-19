@@ -4,6 +4,8 @@ import type { ITenantEmailConfigRepository } from '../../domain/repositories/ten
 import { TENANT_EMAIL_CONFIG_REPOSITORY } from '../../domain/repositories/tenant-email-config.repository.port'
 import type { TenantEmailConfig } from '../../domain/entities/tenant-email-config.entity'
 import { IsPlannerEnabledQuery } from '../queries/is-planner-enabled.query'
+import { GetPlannerViewFlagsQuery } from '../queries/get-planner-view-flags.query'
+import type { PlannerViewFlags } from '../queries/planner-view-flags.types'
 
 @Injectable()
 export class AdminQueryFacade {
@@ -19,5 +21,9 @@ export class AdminQueryFacade {
 
   async isPlannerEnabled(tenantId: string): Promise<boolean> {
     return this.queryBus.execute(new IsPlannerEnabledQuery(tenantId))
+  }
+
+  async getPlannerViewFlags(tenantId: string): Promise<PlannerViewFlags> {
+    return this.queryBus.execute(new GetPlannerViewFlagsQuery(tenantId))
   }
 }

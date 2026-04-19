@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common'
 import { CommandBus, QueryBus } from '@nestjs/cqrs'
 import { TRPCError } from '@trpc/server'
 import { AdminQueryFacade } from '../../../admin/application/facades/admin-query.facade'
+import type { PlannerViewFlags } from '../../../admin/application/queries/planner-view-flags.types'
 
 let instance: PlannerRouterService | null = null
 
@@ -31,6 +32,10 @@ export class PlannerRouterService implements OnModuleInit {
         message: 'Planner is not enabled for this tenant',
       })
     }
+  }
+
+  getPlannerViewFlags(tenantId: string): Promise<PlannerViewFlags> {
+    return this.adminQueryFacade.getPlannerViewFlags(tenantId)
   }
 
   command<T>(command: T): Promise<unknown> {
