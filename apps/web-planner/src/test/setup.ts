@@ -12,3 +12,17 @@ if (typeof PointerEvent === 'undefined') {
   // @ts-expect-error — polyfilling global
   global.PointerEvent = PointerEvent
 }
+
+// Polyfill HTMLElement.hasPointerCapture for Radix UI Select in tests
+if (typeof HTMLElement.prototype.hasPointerCapture === 'undefined') {
+  HTMLElement.prototype.hasPointerCapture = function () {
+    return false
+  }
+}
+
+// Polyfill Element.scrollIntoView for Radix UI Select in tests
+if (typeof Element.prototype.scrollIntoView === 'undefined') {
+  Element.prototype.scrollIntoView = function () {
+    // no-op
+  }
+}
