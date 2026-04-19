@@ -52,6 +52,9 @@ function formatRelativeTime(date: Date): string {
 
 function getInitials(name?: string): string {
   if (!name) return '?'
+  // If the name looks like an actor ID (no spaces, no short form), take first 6 chars
+  // TODO: Phase 2 — fetch display name from people module via QueryFacade
+  if (!name.includes(' ') && name.length > 6) return name.slice(0, 6).toUpperCase()
   return name
     .split(' ')
     .map((n) => n[0] ?? '')
@@ -187,9 +190,10 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
   }, [tenantId, planId, taskId, actorId])
 
   useEffect(() => {
+    if (!actorId || !tenantId) return
     setLoading(true)
     void loadItems()
-  }, [loadItems])
+  }, [loadItems, actorId, tenantId])
 
   function resetComposer() {
     setCaption('')
@@ -206,27 +210,34 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
 
     setSubmitting(true)
 
+    // Capture all values before resetComposer clears state
+    const kind = activeKind
+    const trimmedBody = body.trim()
+    const trimmedUrl = linkUrl.trim()
+    const trimmedCaptionFinal = trimmedCaption
+    const currentFile = file
+
     const tempId = `optimistic-${crypto.randomUUID()}`
     const now = new Date()
 
     let optimistic: OptimisticEvidenceItem
 
-    if (activeKind === 'note') {
+    if (kind === 'note') {
       optimistic = {
         id: tempId,
         kind: 'note',
-        caption: trimmedCaption,
-        body: body.trim(),
+        caption: trimmedCaptionFinal,
+        body: trimmedBody,
         submittedBy: actorId,
         submittedAt: now,
         pending: true,
       }
-    } else if (activeKind === 'link') {
+    } else if (kind === 'link') {
       optimistic = {
         id: tempId,
         kind: 'link',
-        caption: trimmedCaption,
-        url: linkUrl.trim(),
+        caption: trimmedCaptionFinal,
+        url: trimmedUrl,
         submittedBy: actorId,
         submittedAt: now,
         pending: true,
@@ -235,8 +246,8 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
       optimistic = {
         id: tempId,
         kind: 'file',
-        caption: trimmedCaption,
-        filename: file?.name,
+        caption: trimmedCaptionFinal,
+        filename: currentFile?.name,
         submittedBy: actorId,
         submittedAt: now,
         pending: true,
@@ -249,35 +260,35 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
     try {
       const evidenceId = crypto.randomUUID()
 
-      if (activeKind === 'note') {
+      if (kind === 'note') {
         await trpc.planner.evidence.createNote.mutate({
           tenantId,
           planId,
           taskId,
           evidenceId,
           actorId,
-          body: body.trim(),
-          caption: trimmedCaption,
+          body: trimmedBody,
+          caption: trimmedCaptionFinal,
         })
-      } else if (activeKind === 'link') {
+      } else if (kind === 'link') {
         await trpc.planner.evidence.createLink.mutate({
           tenantId,
           planId,
           taskId,
           evidenceId,
           actorId,
-          url: linkUrl.trim(),
-          caption: trimmedCaption,
+          url: trimmedUrl,
+          caption: trimmedCaptionFinal,
         })
-      } else if (activeKind === 'file' && file) {
+      } else if (kind === 'file' && currentFile) {
         const { uploadUrl, storageKey } = await trpc.planner.evidence.requestUpload.mutate({
           tenantId,
           planId,
           taskId,
           actorId,
-          filename: file.name,
-          contentType: file.type,
-          sizeBytes: file.size,
+          filename: currentFile.name,
+          contentType: currentFile.type,
+          sizeBytes: currentFile.size,
         })
 
         await new Promise<void>((resolve, reject) => {
@@ -291,8 +302,8 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
           }
           xhr.onerror = () => reject(new Error('Upload failed'))
           xhr.open('PUT', uploadUrl)
-          xhr.setRequestHeader('Content-Type', file.type)
-          xhr.send(file)
+          xhr.setRequestHeader('Content-Type', currentFile.type)
+          xhr.send(currentFile)
         })
 
         await trpc.planner.evidence.finalizeUpload.mutate({
@@ -302,10 +313,10 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
           evidenceId,
           actorId,
           storageKey,
-          filename: file.name,
-          contentType: file.type,
-          sizeBytes: file.size,
-          caption: trimmedCaption,
+          filename: currentFile.name,
+          contentType: currentFile.type,
+          sizeBytes: currentFile.size,
+          caption: trimmedCaptionFinal,
         })
       }
 
@@ -324,6 +335,7 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
     const original = items.find((it) => it.id === evidenceId)
     if (!original) return
 
+    const originalIndex = items.findIndex((it) => it.id === evidenceId)
     setItems((prev) => prev.filter((it) => it.id !== evidenceId))
 
     void trpc.planner.evidence.remove
@@ -338,7 +350,11 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
         void loadItems()
       })
       .catch((err: unknown) => {
-        setItems((prev) => [original, ...prev])
+        setItems((prev) => {
+          const next = [...prev]
+          next.splice(originalIndex, 0, original)
+          return next
+        })
         const message = err instanceof Error ? err.message : 'Failed to remove evidence'
         toast.error(message)
       })
@@ -364,7 +380,7 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
       {showComposer && (
         <div className="flex flex-col gap-3 rounded-md border border-white/8 bg-elevated p-3">
           <div className="flex gap-1">
-            {(['Note', 'Link', 'File'] as const).map((kind) => (
+            {(['File', 'Link', 'Note'] as const).map((kind) => (
               <Button
                 key={kind}
                 variant={activeKind === kind.toLowerCase() ? 'secondary' : 'ghost'}
@@ -382,7 +398,7 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
               value={body}
               onChange={(e) => setBody(e.target.value.slice(0, MAX_BODY))}
               rows={3}
-              className="resize-none text-sm"
+              className="resize-none"
             />
           )}
 
@@ -392,7 +408,6 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
               placeholder="https://…"
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
-              className="text-sm"
             />
           )}
 
@@ -416,11 +431,15 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
             placeholder="What does this prove?"
             value={caption}
             onChange={(e) => setCaption(e.target.value.slice(0, MAX_CAPTION))}
-            className="text-sm"
           />
 
           <div className="flex gap-2">
-            <Button size="sm" onClick={() => void handleSubmit()} disabled={!canSubmit}>
+            <Button
+              size="sm"
+              onClick={() => void handleSubmit()}
+              disabled={!canSubmit}
+              data-testid="composer-submit"
+            >
               Add evidence
             </Button>
             <Button variant="ghost" size="sm" onClick={resetComposer}>
@@ -434,6 +453,9 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
         <div className="py-2 text-caption text-fg-subtle">Loading…</div>
       ) : (
         <div className="flex flex-col gap-2">
+          {items.length === 0 && (
+            <p className="text-caption text-fg-muted py-4 text-center">No evidence added yet.</p>
+          )}
           {items.map((item) => (
             <EvidenceCard
               key={item.id}
