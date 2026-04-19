@@ -19,6 +19,7 @@
     "@future/api-client": "workspace:*",
     "@future/app-layout": "workspace:*",
     "@future/auth": "workspace:*",
+    "@future/charts": "workspace:*",
     "@future/schedule": "workspace:*",
     "@future/ui": "workspace:*",
     "@tanstack/react-query": "^5.99.0",
