@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { sortTasks } from './task-sort'
-import type { TaskFlat } from './task-types'
+import type { TaskFlat } from '@future/api-client/planner'
 
 const mkTask = (partial: Partial<TaskFlat>): TaskFlat => ({
   id: 't1',

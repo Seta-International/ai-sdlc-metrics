@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll, vi } from 'vitest'
 import { applyTaskFilter } from './task-filter'
-import type { TaskFlat } from './task-types'
+import type { TaskFlat } from '@future/api-client/planner'
 import type { DueBucket } from './view-state'
 
 const mkTask = (partial: Partial<TaskFlat>): TaskFlat => ({
@@ -105,7 +105,12 @@ describe('applyTaskFilter', () => {
   })
 
   it('assignee filter matches actorId', () => {
-    const t = [mkTask({ id: 'c', assignees: [{ actorId: 'a1' }] })]
+    const t = [
+      mkTask({
+        id: 'c',
+        assignees: [{ actorId: 'a1', displayName: 'Alice', avatarUrl: null }],
+      }),
+    ]
     expect(
       applyTaskFilter(t, { priority: [], labels: [], buckets: [], assignees: ['a1'] }),
     ).toHaveLength(1)

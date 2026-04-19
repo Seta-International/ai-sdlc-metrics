@@ -16,7 +16,7 @@ import type {
   BoardBucketSnapshot,
 } from '../../../../lib/board-types'
 import type { Progress } from '../../../../components/primitives/ProgressIcon'
-import type { TaskFlat } from '../../../../lib/task-types'
+import type { TaskFlat } from '@future/api-client/planner'
 import { useViewState } from '../../../../lib/hooks/useViewState'
 import { useViewRenderedTelemetry } from '../../../../lib/hooks/useViewRenderedTelemetry'
 import { applyTaskFilter } from '../../../../lib/task-filter'
@@ -125,8 +125,8 @@ function toTaskFlat(t: BoardTaskSnapshot, bucket: BoardBucketSnapshot, planId: s
     dueDate: t.dueDate ? t.dueDate.toISOString() : null,
     assignees: t.assignees.map((a) => ({
       actorId: a.actorId,
-      name: a.name,
-      avatarUrl: a.avatarUrl,
+      displayName: a.name ?? '',
+      avatarUrl: a.avatarUrl ?? null,
     })),
     labels: t.appliedLabels.map((id) => ({ id, name: id, color: '#888' })),
     orderHint: t.orderHint,

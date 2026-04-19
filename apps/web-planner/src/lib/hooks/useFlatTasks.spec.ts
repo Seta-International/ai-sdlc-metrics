@@ -22,7 +22,14 @@ vi.mock('../trpc', () => ({
 }))
 
 vi.mock('@future/auth', () => ({
-  useSession: vi.fn(() => ({ actorId: 'actor-1', tenantId: 'tenant-1' })),
+  useSession: vi.fn(() => ({
+    actorId: 'actor-1',
+    tenantId: 'tenant-1',
+    roles: [],
+    displayName: 'Test User',
+    email: 'test@example.com',
+    provider: 'test',
+  })),
 }))
 
 const mockUseSearchParams = vi.fn(() => new URLSearchParams(''))
@@ -112,7 +119,14 @@ describe('useFlatTasks', () => {
     vi.clearAllMocks()
     // Reset per-test overrides to defaults
     mockUseSearchParams.mockReturnValue(new URLSearchParams(''))
-    mockUseSession.mockReturnValue({ actorId: 'actor-1', tenantId: 'tenant-1' })
+    mockUseSession.mockReturnValue({
+      actorId: 'actor-1',
+      tenantId: 'tenant-1',
+      roles: [],
+      displayName: 'Test User',
+      email: 'test@example.com',
+      provider: 'test',
+    })
   })
 
   afterEach(() => {
