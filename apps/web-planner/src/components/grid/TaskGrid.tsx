@@ -23,6 +23,7 @@ import { useViewState } from '@/lib/hooks/useViewState'
 import type { TaskFlat } from '@future/api-client/planner'
 import type { TaskGroup } from '@/lib/task-group'
 import type { SortField } from '@/lib/view-state'
+import { BulkActionsBar } from './BulkActionsBar'
 
 type Member = { actorId: string; displayName: string }
 type Label = { id: string; name: string; color: string }
@@ -100,102 +101,115 @@ export function TaskGrid({
   const virtualItems = rowVirtualizer.getVirtualItems()
   const totalSize = rowVirtualizer.getTotalSize()
 
-  return (
-    <div ref={parentRef} className="h-full overflow-auto">
-      <Table>
-        <TableHeader className="sticky top-0 z-10 bg-background">
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => {
-                const isSortable = header.column.getCanSort()
-                const sortDir = header.column.getIsSorted()
-                return (
-                  <TableHead
-                    key={header.id}
-                    style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}
-                  >
-                    {header.isPlaceholder ? null : isSortable ? (
-                      <DataTableColumnHeader
-                        label={flexRender(header.column.columnDef.header, header.getContext())}
-                        columnId={header.column.id}
-                        sortDirection={sortDir === false ? undefined : sortDir}
-                        enableSorting={true}
-                        onSort={(columnId, next) => {
-                          if (next === null) {
-                            patch({ sort: undefined })
-                          } else {
-                            patch({
-                              sort: {
-                                field: columnId as SortField,
-                                dir: next,
-                              },
-                            })
-                          }
-                        }}
-                      />
-                    ) : (
-                      flexRender(header.column.columnDef.header, header.getContext())
-                    )}
-                  </TableHead>
-                )
-              })}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {/* spacer for items above the virtual window */}
-          {virtualItems.length > 0 && virtualItems[0]!.start > 0 && (
-            <tr style={{ height: virtualItems[0]!.start }} aria-hidden="true" />
-          )}
-          {virtualItems.map((virtualItem) => {
-            const vr = virtualRows[virtualItem.index]
-            if (!vr) return null
+  const selectedRows = table.getSelectedRowModel().rows.map((r) => r.original)
 
-            if (vr.kind === 'header') {
+  return (
+    <div className="relative h-full">
+      <div ref={parentRef} className="h-full overflow-auto">
+        <Table>
+          <TableHeader className="sticky top-0 z-10 bg-background">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => {
+                  const isSortable = header.column.getCanSort()
+                  const sortDir = header.column.getIsSorted()
+                  return (
+                    <TableHead
+                      key={header.id}
+                      style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}
+                    >
+                      {header.isPlaceholder ? null : isSortable ? (
+                        <DataTableColumnHeader
+                          label={flexRender(header.column.columnDef.header, header.getContext())}
+                          columnId={header.column.id}
+                          sortDirection={sortDir === false ? undefined : sortDir}
+                          enableSorting={true}
+                          onSort={(columnId, next) => {
+                            if (next === null) {
+                              patch({ sort: undefined })
+                            } else {
+                              patch({
+                                sort: {
+                                  field: columnId as SortField,
+                                  dir: next,
+                                },
+                              })
+                            }
+                          }}
+                        />
+                      ) : (
+                        flexRender(header.column.columnDef.header, header.getContext())
+                      )}
+                    </TableHead>
+                  )
+                })}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {/* spacer for items above the virtual window */}
+            {virtualItems.length > 0 && virtualItems[0]!.start > 0 && (
+              <tr style={{ height: virtualItems[0]!.start }} aria-hidden="true" />
+            )}
+            {virtualItems.map((virtualItem) => {
+              const vr = virtualRows[virtualItem.index]
+              if (!vr) return null
+
+              if (vr.kind === 'header') {
+                return (
+                  <TableRow
+                    key={virtualItem.key}
+                    data-index={virtualItem.index}
+                    style={{ height: virtualItem.size }}
+                    className="bg-muted/50 hover:bg-muted/50"
+                  >
+                    <TableCell
+                      colSpan={table.getVisibleLeafColumns().length}
+                      className="py-2 font-medium text-muted-foreground text-xs uppercase tracking-wide"
+                    >
+                      {vr.label}
+                    </TableCell>
+                  </TableRow>
+                )
+              }
+
+              const { row } = vr
               return (
                 <TableRow
                   key={virtualItem.key}
                   data-index={virtualItem.index}
+                  data-state={row.getIsSelected() ? 'selected' : undefined}
                   style={{ height: virtualItem.size }}
-                  className="bg-muted/50 hover:bg-muted/50"
                 >
-                  <TableCell
-                    colSpan={table.getVisibleLeafColumns().length}
-                    className="py-2 font-medium text-muted-foreground text-xs uppercase tracking-wide"
-                  >
-                    {vr.label}
-                  </TableCell>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
                 </TableRow>
               )
-            }
-
-            const { row } = vr
-            return (
-              <TableRow
-                key={virtualItem.key}
-                data-index={virtualItem.index}
-                data-state={row.getIsSelected() ? 'selected' : undefined}
-                style={{ height: virtualItem.size }}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            )
-          })}
-          {/* spacer for items below the virtual window */}
-          {virtualItems.length > 0 &&
-            (() => {
-              const lastItem = virtualItems[virtualItems.length - 1]!
-              const bottomSpace = totalSize - lastItem.end
-              return bottomSpace > 0 ? (
-                <tr style={{ height: bottomSpace }} aria-hidden="true" />
-              ) : null
-            })()}
-        </TableBody>
-      </Table>
+            })}
+            {/* spacer for items below the virtual window */}
+            {virtualItems.length > 0 &&
+              (() => {
+                const lastItem = virtualItems[virtualItems.length - 1]!
+                const bottomSpace = totalSize - lastItem.end
+                return bottomSpace > 0 ? (
+                  <tr style={{ height: bottomSpace }} aria-hidden="true" />
+                ) : null
+              })()}
+          </TableBody>
+        </Table>
+      </div>
+      {selectedRows.length > 0 && (
+        <BulkActionsBar
+          selectedTasks={selectedRows}
+          onClearSelection={() => table.resetRowSelection()}
+          planId={planId}
+          planMembers={context.members}
+          planLabels={context.labels}
+        />
+      )}
     </div>
   )
 }

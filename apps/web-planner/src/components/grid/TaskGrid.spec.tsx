@@ -7,6 +7,33 @@ import type { TaskGroup } from '@/lib/task-group'
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
+vi.mock('@future/auth', () => ({
+  useSession: () => ({
+    actorId: 'actor-1',
+    tenantId: 'tenant-1',
+    roles: [],
+    displayName: 'Test User',
+    email: 'test@example.com',
+    provider: 'google',
+  }),
+}))
+
+const mockTrpc = vi.hoisted(() => ({
+  planner: {
+    tasks: {
+      setProgress: { mutate: vi.fn().mockResolvedValue(undefined) },
+      setPriority: { mutate: vi.fn().mockResolvedValue(undefined) },
+      setDates: { mutate: vi.fn().mockResolvedValue(undefined) },
+      assign: { mutate: vi.fn().mockResolvedValue(undefined) },
+      applyLabel: { mutate: vi.fn().mockResolvedValue(undefined) },
+      removeLabel: { mutate: vi.fn().mockResolvedValue(undefined) },
+      delete: { mutate: vi.fn().mockResolvedValue(undefined) },
+    },
+  },
+}))
+
+vi.mock('../../lib/trpc', () => ({ trpc: mockTrpc }))
+
 const mockPatch = vi.fn()
 const mockState: {
   view: 'grid'
@@ -227,5 +254,120 @@ describe('TaskGrid', () => {
     // Only the header row should be present
     const rows = screen.getAllByRole('row')
     expect(rows).toHaveLength(1)
+  })
+
+  // ── BulkActionsBar integration ────────────────────────────────────────────
+
+  it('does not show BulkActionsBar when no rows are selected', () => {
+    render(
+      <TaskGrid
+        planId="abc"
+        data={fixture10}
+        groups={undefined}
+        context={{ members: [], labels: [] }}
+      />,
+    )
+    expect(screen.queryByTestId('bulk-set-progress')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('bulk-delete')).not.toBeInTheDocument()
+  })
+
+  it('shows BulkActionsBar with correct count when a row checkbox is checked', async () => {
+    const user = userEvent.setup()
+    render(
+      <TaskGrid
+        planId="abc"
+        data={fixture10}
+        groups={undefined}
+        context={{ members: [], labels: [] }}
+      />,
+    )
+
+    // Check first row checkbox
+    const checkboxes = screen.getAllByRole('checkbox')
+    // First checkbox is the "select all" in the header; second is first data row
+    const firstRowCheckbox = checkboxes[1]!
+    await user.click(firstRowCheckbox)
+
+    expect(screen.getByTestId('bulk-set-progress')).toBeInTheDocument()
+    expect(screen.getByTestId('bulk-delete')).toBeInTheDocument()
+    expect(screen.getByText('1 selected')).toBeInTheDocument()
+  })
+
+  it('clears BulkActionsBar when clear selection button is clicked', async () => {
+    const user = userEvent.setup()
+    render(
+      <TaskGrid
+        planId="abc"
+        data={fixture10}
+        groups={undefined}
+        context={{ members: [], labels: [] }}
+      />,
+    )
+
+    const checkboxes = screen.getAllByRole('checkbox')
+    await user.click(checkboxes[1]!)
+
+    // BulkActionsBar is visible
+    expect(screen.getByTestId('bulk-set-progress')).toBeInTheDocument()
+
+    // Click the X / clear button in DataTableBulkActions
+    const clearBtn = screen.getByRole('button', { name: /clear selection/i })
+    await user.click(clearBtn)
+
+    // Bar disappears
+    expect(screen.queryByTestId('bulk-set-progress')).not.toBeInTheDocument()
+  })
+
+  it('opens progress popover and calls setProgress mutation for selected task', async () => {
+    const user = userEvent.setup()
+    render(
+      <TaskGrid
+        planId="abc"
+        data={fixture10}
+        groups={undefined}
+        context={{ members: [], labels: [] }}
+      />,
+    )
+
+    const checkboxes = screen.getAllByRole('checkbox')
+    await user.click(checkboxes[1]!)
+
+    // Open progress popover
+    await user.click(screen.getByTestId('bulk-set-progress'))
+    expect(screen.getByTestId('bulk-progress-popover')).toBeInTheDocument()
+
+    // Click "Completed"
+    await user.click(screen.getByTestId('bulk-progress-option-completed'))
+
+    expect(mockTrpc.planner.tasks.setProgress.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ progress: 100 }),
+    )
+  })
+
+  it('shows delete confirmation dialog and calls delete mutation', async () => {
+    const user = userEvent.setup()
+    render(
+      <TaskGrid
+        planId="abc"
+        data={fixture10}
+        groups={undefined}
+        context={{ members: [], labels: [] }}
+      />,
+    )
+
+    const checkboxes = screen.getAllByRole('checkbox')
+    await user.click(checkboxes[1]!)
+
+    await user.click(screen.getByTestId('bulk-delete'))
+
+    // Confirmation dialog appears
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    expect(screen.getByText(/delete 1 task/i)).toBeInTheDocument()
+
+    await user.click(screen.getByTestId('bulk-delete-confirm'))
+
+    expect(mockTrpc.planner.tasks.delete.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ planId: 'plan-abc' }),
+    )
   })
 })
