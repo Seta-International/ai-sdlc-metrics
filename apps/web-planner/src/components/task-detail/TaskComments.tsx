@@ -264,10 +264,10 @@ export function TaskComments({ taskId, planId }: TaskCommentsProps) {
   const showCounter = charCount >= COUNTER_THRESHOLD
 
   return (
-    <div className="flex flex-col gap-2 px-4 py-3">
+    <div className="flex flex-col gap-2 px-4 py-3" data-testid="comments-section">
       <h3 className="text-small font-510 text-fg-primary">Comments</h3>
 
-      <div className="flex flex-col">
+      <div className="flex flex-col" data-testid="comment-list">
         {loadingInitial ? (
           <div className="flex flex-col gap-2 py-2">
             <div className="flex items-start gap-2">
@@ -303,10 +303,11 @@ export function TaskComments({ taskId, planId }: TaskCommentsProps) {
         </Button>
       )}
 
-      <div className="mt-1 flex flex-col gap-1">
+      <div className="mt-1 flex flex-col gap-1" data-testid="comment-composer">
         <div className="flex items-end gap-2">
           <Textarea
             ref={textareaRef}
+            data-testid="comment-textarea"
             placeholder="Add a comment… (Enter to post, Shift+Enter for newline)"
             value={body}
             rows={1}

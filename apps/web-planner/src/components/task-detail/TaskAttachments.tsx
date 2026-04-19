@@ -53,7 +53,10 @@ function AttachmentRow({
     attachment.kind === 'link' ? (attachment.linkTitle ?? attachment.url) : attachment.filename
 
   return (
-    <div className="group flex items-center gap-2 rounded-md px-1 py-1.5 hover:bg-muted/50">
+    <div
+      className="group flex items-center gap-2 rounded-md px-1 py-1.5 hover:bg-muted/50"
+      data-testid={`attachment-row-${attachment.id}`}
+    >
       {attachment.kind === 'link' ? (
         <Link className="size-4 shrink-0 text-muted-foreground" />
       ) : (
@@ -244,7 +247,7 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
   const attachments = task?.attachments ?? []
 
   return (
-    <div className="flex flex-col gap-2 px-4 py-3">
+    <div className="flex flex-col gap-2 px-4 py-3" data-testid="attachments-section">
       <div className="flex items-center gap-2">
         <h3 className="flex-1 text-sm font-medium">Attachments</h3>
         <Button
@@ -252,6 +255,7 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
           size="sm"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploadState.uploading}
+          data-testid="attach-file-btn"
         >
           Attach file
         </Button>
@@ -263,6 +267,7 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
             setLinkUrl('')
             setLinkTitle('')
           }}
+          data-testid="attach-link-btn"
         >
           Attach link
         </Button>
@@ -351,7 +356,7 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
           </div>
         )}
         {attachments.length > 0 && (
-          <div className="flex flex-col">
+          <div className="flex flex-col" data-testid="attachment-list">
             {attachments.map((att) => (
               <AttachmentRow
                 key={att.id}

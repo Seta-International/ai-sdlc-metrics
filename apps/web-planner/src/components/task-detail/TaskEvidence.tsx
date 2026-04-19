@@ -363,7 +363,7 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
   const canSubmit = caption.trim().length > 0 && !submitting
 
   return (
-    <div className="flex flex-col gap-2 px-4 py-3">
+    <div className="flex flex-col gap-2 px-4 py-3" data-testid="evidence-section">
       <div className="flex items-center gap-2">
         <h3 className="flex-1 text-small font-510 text-fg-primary">Evidence</h3>
         <Button
@@ -371,6 +371,7 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
           size="sm"
           onClick={() => setShowComposer((v) => !v)}
           aria-label="Add evidence"
+          data-testid="add-evidence-btn"
         >
           <Plus className="mr-1 size-4" />
           Add evidence
@@ -386,6 +387,7 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
                 variant={activeKind === kind.toLowerCase() ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => setActiveKind(kind.toLowerCase() as EvidenceKind)}
+                data-testid={`evidence-kind-${kind.toLowerCase()}`}
               >
                 {kind}
               </Button>
@@ -419,6 +421,7 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
                 className="hidden"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 aria-label="Choose file"
+                data-testid="evidence-file-input"
               />
               <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
                 Choose file
