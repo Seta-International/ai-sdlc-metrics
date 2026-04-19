@@ -79,7 +79,6 @@ function CommentRow({ comment, currentActorId, onDelete }: CommentRowProps) {
         data-testid="comment-item"
         data-comment-id={comment.id}
       >
-        <div className="size-7 shrink-0 rounded-full bg-muted/30" />
         <span className="text-small italic text-fg-subtle">Comment deleted</span>
       </div>
     )
@@ -197,7 +196,7 @@ export function TaskComments({ taskId, planId }: TaskCommentsProps) {
     const optimistic: OptimisticComment = {
       id: tempId,
       authorActorId: actorId,
-      authorName: session?.actorId,
+      authorName: session?.displayName ?? 'You',
       body: trimmed,
       createdAt: new Date(),
       deletedAt: null,
@@ -303,14 +302,20 @@ export function TaskComments({ taskId, planId }: TaskCommentsProps) {
           <Textarea
             placeholder="Add a comment… (Enter to post, Shift+Enter for newline)"
             value={body}
+            rows={1}
             onChange={(e) => {
               if (e.target.value.length <= MAX_BODY) {
                 setBody(e.target.value)
               }
             }}
+            onInput={(e: React.FormEvent<HTMLTextAreaElement>) => {
+              const el = e.currentTarget
+              el.style.height = 'auto'
+              el.style.height = `${el.scrollHeight}px`
+            }}
             onKeyDown={handleKeyDown}
             disabled={submitting}
-            className="flex-1 resize-none text-sm"
+            className="flex-1 resize-none overflow-hidden text-sm"
             maxLength={MAX_BODY}
           />
           <Button
