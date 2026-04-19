@@ -211,7 +211,7 @@ describe('attachmentRouter — unit (mocked command bus)', () => {
 
   describe('tasks.getDetail — attachments in response', () => {
     it('includes file attachment with presigned URL from storage client', async () => {
-      const storageKey = 'tenants/t1/planner/task-1/report.pdf'
+      const _storageKey = 'tenants/t1/planner/task-1/report.pdf'
       const presignedUrl = 'https://s3.example.com/presigned/report.pdf?token=abc'
       const fileAttachmentId = uuidv7()
       const createdAt = new Date('2026-01-01T00:00:00Z')
