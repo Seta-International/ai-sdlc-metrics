@@ -174,34 +174,22 @@ test.describe('Grid view — Plan 02 Task 13', () => {
     await page.goto(`/plans/${planId}/board?filter.priority=urgent`)
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
 
-    // Assert filter chip is present on board
+    // Assert filter chip is present on board — confirms the board loaded with the filter active
     await expect(page.getByRole('button', { name: /priority:\s*urgent/i })).toBeVisible()
 
-    // Navigate to grid view — handle case where tab may be disabled (navigate directly via URL)
-    const gridTab = page.getByRole('tab', { name: /^grid$/i })
-    const gridTabVisible = await gridTab.isVisible().catch(() => false)
+    // Navigate directly to grid WITHOUT the filter in the URL.
+    // The shared view state should carry the filter param across views.
+    await page.goto(`/plans/${planId}/grid`)
 
-    if (gridTabVisible) {
-      await gridTab.click()
-    } else {
-      // Grid tab not available — navigate directly to URL preserving filter param
-      await page.goto(`/plans/${planId}/grid?filter.priority=urgent`)
-    }
-
-    // Assert URL contains filter.priority=urgent on grid
+    // Assert the grid URL now contains filter.priority=urgent — proves param carry-over,
+    // NOT a trivial pass from embedding the filter in the URL above.
     await expect(page).toHaveURL(/filter\.priority=urgent/)
 
-    // Navigate back to board — try tab click, fall back to direct navigation
-    const boardTab = page.getByRole('tab', { name: /^board$/i })
-    const boardTabVisible = await boardTab.isVisible().catch(() => false)
+    // Navigate back to board — direct navigation without embedding the filter param.
+    await page.goto(`/plans/${planId}/board`)
 
-    if (boardTabVisible) {
-      await boardTab.click()
-    } else {
-      await page.goto(`/plans/${planId}/board?filter.priority=urgent`)
-    }
-
-    // Assert URL still contains filter.priority=urgent on board
+    // Assert the board URL still contains filter.priority=urgent — proves persistence
+    // survives a round-trip through the grid view.
     await expect(page).toHaveURL(/filter\.priority=urgent/)
 
     // Assert board page is rendered
