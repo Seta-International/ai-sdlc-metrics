@@ -140,3 +140,22 @@ Always read `DESIGN.md` before making any visual or UI decision.
 All font choices, colors, spacing, radii, motion, and component rules are defined there.
 Do not deviate without explicit user approval.
 In QA mode, flag any code that does not match `DESIGN.md`.
+
+### UI/UX Consistency
+
+**Rule: always use design system components. Never use raw HTML for interactive elements.**
+
+| Instead of…              | Use                                                                   |
+| ------------------------ | --------------------------------------------------------------------- |
+| `<button>`               | `<Button>` from `@future/ui`                                          |
+| `<input>`                | `<Input>` from `@future/ui`                                           |
+| `<textarea>`             | `<Textarea>` from `@future/ui`                                        |
+| `×` `✕` `←` `→` `+` icons | `<X>` `<ArrowLeft>` `<ArrowRight>` `<Plus>` from `lucide-react`     |
+| `<a href="...">` (same zone) | `<Button variant="ghost" size="sm" asChild><Link href="/path">` |
+| `animate-pulse` div      | `<Skeleton />` from `@future/ui`                                      |
+| `<div className="text-red-...">` | `<Alert variant="destructive"><AlertDescription>…`          |
+
+- Layout/structural HTML (`div`, `span`, `p`, `h1`–`h6`, `ul`, `li`, `form`, `label`) is fine as-is.
+- Data-driven counters like `+{n}` are text, not icons — leave them as-is.
+- Cross-zone navigation (different Next.js zone) must use a plain `<a>` hard reload.
+- Pending buttons: add `<Spinner className="size-4" />` inside the button alongside the label.

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import Link from 'next/link'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useQueryClient } from '@tanstack/react-query'
@@ -198,13 +199,16 @@ export function TaskCard({
             <ProgressIcon progress={progress} className="size-3.5" />
           </Button>
 
-          <span
+          <Link
+            href={`/plans/${planId}/board/tasks/${task.id}`}
             className={`flex-1 text-small font-510 leading-snug ${
               progress === 100 ? 'line-through text-fg-muted' : 'text-fg-primary'
             }`}
+            onPointerDown={(e) => e.stopPropagation()}
+            data-testid="task-title-link"
           >
             {task.title}
-          </span>
+          </Link>
 
           {isHighPriority && (
             <PriorityIcon

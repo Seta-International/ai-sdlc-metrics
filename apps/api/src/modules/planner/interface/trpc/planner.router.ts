@@ -3,10 +3,12 @@ import { planRouter } from './plan.router'
 import { labelRouter } from './label.router'
 import { bucketRouter } from './bucket.router'
 import { taskRouter } from './task.router'
+import { checklistRouter } from './checklist.router'
 
 export const plannerRouter = router({
   plans: planRouter,
   labels: labelRouter,
   buckets: bucketRouter,
   tasks: taskRouter,
+  checklist: checklistRouter,
 })

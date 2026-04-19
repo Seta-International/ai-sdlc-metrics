@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { uuidv7 } from 'uuidv7'
 import { Task } from './task.entity'
 import { TaskAssignee } from './task-assignee.value-object'
+import { ChecklistItem } from './checklist-item.value-object'
 import { LabelSlot } from '../value-objects/label-slot.vo'
 import { MsOrderHint } from '../value-objects/ms-order-hint.vo'
 import { Progress } from '../value-objects/progress.vo'
@@ -9,6 +10,8 @@ import { Priority } from '../value-objects/priority.vo'
 import { ChecklistLimitReachedException } from '../exceptions/checklist-limit-reached.exception'
 import { AssigneeLimitReachedException } from '../exceptions/assignee-limit-reached.exception'
 import { DescriptionTooLongException } from '../exceptions/description-too-long.exception'
+import { TitleRequiredException } from '../exceptions/title-required.exception'
+import { TitleTooLongException } from '../exceptions/title-too-long.exception'
 
 const TENANT_ID = uuidv7()
 const PLAN_ID = uuidv7()
@@ -391,17 +394,35 @@ describe('Task aggregate', () => {
   // addChecklistItem()
   // ──────────────────────────────────────────────────────────────────────────
 
+  function makeChecklistItem(
+    overrides?: Partial<{ id: string; title: string; orderHint: string }>,
+  ): ChecklistItem {
+    return ChecklistItem.create({
+      id: overrides?.id ?? uuidv7(),
+      title: overrides?.title ?? 'Checklist item',
+      orderHint: overrides?.orderHint ?? MsOrderHint.between(),
+    })
+  }
+
   describe('addChecklistItem()', () => {
     it('increments checklistItemCount', () => {
       const task = makeTask()
-      task.addChecklistItem()
+      task.addChecklistItem(makeChecklistItem())
       expect(task.checklistItemCount).toBe(1)
+    })
+
+    it('stores the item in checklistItems', () => {
+      const task = makeTask()
+      const item = makeChecklistItem({ id: 'ci-1', title: 'Step 1' })
+      task.addChecklistItem(item)
+      expect(task.checklistItems).toHaveLength(1)
+      expect(task.checklistItems[0].id).toBe('ci-1')
     })
 
     it('can add up to 20 checklist items', () => {
       const task = makeTask()
       for (let i = 0; i < 20; i++) {
-        task.addChecklistItem()
+        task.addChecklistItem(makeChecklistItem())
       }
       expect(task.checklistItemCount).toBe(20)
     })
@@ -409,9 +430,143 @@ describe('Task aggregate', () => {
     it('throws ChecklistLimitReachedException on 21st item', () => {
       const task = makeTask()
       for (let i = 0; i < 20; i++) {
-        task.addChecklistItem()
+        task.addChecklistItem(makeChecklistItem())
       }
-      expect(() => task.addChecklistItem()).toThrow(ChecklistLimitReachedException)
+      expect(() => task.addChecklistItem(makeChecklistItem())).toThrow(
+        ChecklistLimitReachedException,
+      )
+    })
+  })
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // toggleChecklistItem()
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe('toggleChecklistItem()', () => {
+    it('increments checklistCheckedCount when checking (isChecked: false → true)', () => {
+      const task = makeTask()
+      const item = makeChecklistItem({ id: 'ci-1' })
+      task.addChecklistItem(item)
+      expect(task.checklistCheckedCount).toBe(0)
+      task.toggleChecklistItem('ci-1')
+      expect(task.checklistCheckedCount).toBe(1)
+    })
+
+    it('decrements checklistCheckedCount when unchecking (isChecked: true → false)', () => {
+      const task = makeTask()
+      const item = makeChecklistItem({ id: 'ci-1' })
+      task.addChecklistItem(item)
+      task.toggleChecklistItem('ci-1') // check
+      expect(task.checklistCheckedCount).toBe(1)
+      task.toggleChecklistItem('ci-1') // uncheck
+      expect(task.checklistCheckedCount).toBe(0)
+    })
+
+    it('silently no-ops if id not found', () => {
+      const task = makeTask()
+      expect(() => task.toggleChecklistItem('nonexistent')).not.toThrow()
+      expect(task.checklistCheckedCount).toBe(0)
+    })
+  })
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // updateChecklistItem()
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe('updateChecklistItem()', () => {
+    it('mutates the title of the matching item', () => {
+      const task = makeTask()
+      const item = makeChecklistItem({ id: 'ci-1', title: 'Original' })
+      task.addChecklistItem(item)
+      task.updateChecklistItem('ci-1', 'Updated')
+      expect(task.checklistItems[0].title).toBe('Updated')
+    })
+
+    it('throws TitleRequiredException on empty title', () => {
+      const task = makeTask()
+      task.addChecklistItem(makeChecklistItem({ id: 'ci-1' }))
+      expect(() => task.updateChecklistItem('ci-1', '')).toThrow(TitleRequiredException)
+    })
+
+    it('throws TitleTooLongException when title exceeds 255 chars', () => {
+      const task = makeTask()
+      task.addChecklistItem(makeChecklistItem({ id: 'ci-1' }))
+      expect(() => task.updateChecklistItem('ci-1', 'x'.repeat(256))).toThrow(TitleTooLongException)
+    })
+
+    it('silently no-ops if id not found', () => {
+      const task = makeTask()
+      expect(() => task.updateChecklistItem('nonexistent', 'New title')).not.toThrow()
+    })
+  })
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // removeChecklistItem()
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe('removeChecklistItem()', () => {
+    it('decrements checklistItemCount', () => {
+      const task = makeTask()
+      task.addChecklistItem(makeChecklistItem({ id: 'ci-1' }))
+      expect(task.checklistItemCount).toBe(1)
+      task.removeChecklistItem('ci-1')
+      expect(task.checklistItemCount).toBe(0)
+    })
+
+    it('decrements checklistCheckedCount if the removed item was checked', () => {
+      const task = makeTask()
+      task.addChecklistItem(makeChecklistItem({ id: 'ci-1' }))
+      task.toggleChecklistItem('ci-1') // mark checked
+      expect(task.checklistCheckedCount).toBe(1)
+      task.removeChecklistItem('ci-1')
+      expect(task.checklistCheckedCount).toBe(0)
+    })
+
+    it('does not decrement checklistCheckedCount if the removed item was not checked', () => {
+      const task = makeTask()
+      task.addChecklistItem(makeChecklistItem({ id: 'ci-1' }))
+      task.addChecklistItem(makeChecklistItem({ id: 'ci-2' }))
+      task.toggleChecklistItem('ci-2') // only ci-2 is checked
+      task.removeChecklistItem('ci-1') // remove unchecked item
+      expect(task.checklistCheckedCount).toBe(1)
+      expect(task.checklistItemCount).toBe(1)
+    })
+
+    it('silently no-ops if id not found', () => {
+      const task = makeTask()
+      expect(() => task.removeChecklistItem('nonexistent')).not.toThrow()
+      expect(task.checklistItemCount).toBe(0)
+    })
+  })
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // reorderChecklistItem()
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe('reorderChecklistItem()', () => {
+    it('updates the orderHint of the matching item', () => {
+      const task = makeTask()
+      const hint1 = MsOrderHint.between()
+      const item = makeChecklistItem({ id: 'ci-1', orderHint: hint1 })
+      task.addChecklistItem(item)
+      task.reorderChecklistItem('ci-1', hint1, undefined)
+      expect(task.checklistItems[0].orderHint).toBe(MsOrderHint.between(hint1, undefined))
+    })
+
+    it('uses MsOrderHint.between(hintAfter, hintBefore) to compute new hint', () => {
+      const task = makeTask()
+      const hintA = MsOrderHint.between()
+      const hintC = MsOrderHint.between(hintA, undefined)
+      const item = makeChecklistItem({ id: 'ci-1', orderHint: hintC })
+      task.addChecklistItem(item)
+      task.reorderChecklistItem('ci-1', hintA, hintC)
+      const expected = MsOrderHint.between(hintA, hintC)
+      expect(task.checklistItems[0].orderHint).toBe(expected)
+    })
+
+    it('silently no-ops if id not found', () => {
+      const task = makeTask()
+      expect(() => task.reorderChecklistItem('nonexistent', undefined, undefined)).not.toThrow()
     })
   })
 

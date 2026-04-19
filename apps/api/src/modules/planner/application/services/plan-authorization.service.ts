@@ -106,6 +106,20 @@ export class PlanAuthorizationService {
     return this.assertCanEditPlan(actorId, planId, tenantId)
   }
 
+  /**
+   * Any plan member (owner, editor, or viewer) can perform this action.
+   * Used for toggle checklist — spec allows all members to toggle.
+   */
+  async assertIsPlanMember(actorId: string, planId: string, tenantId: string): Promise<void> {
+    const plan = await this.planRepo.findById(planId, tenantId)
+    if (!plan) {
+      throw new UnauthorizedPlanAccessException(actorId, planId)
+    }
+    if (!this.isMember(plan, actorId)) {
+      throw new UnauthorizedPlanAccessException(actorId, planId)
+    }
+  }
+
   private isMember(plan: Plan, actorId: string): boolean {
     return plan.members.some((m) => m.actorId === actorId)
   }

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { PlusIcon, UsersIcon } from 'lucide-react'
 import { useSession } from '@future/auth'
@@ -39,10 +40,10 @@ export default function PlansPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-normal tracking-h2 text-fg-primary">Plans</h1>
         <Button asChild>
-          <a href="/plans/new">
+          <Link href="/plans/new">
             <PlusIcon size={14} />
             New plan
-          </a>
+          </Link>
         </Button>
       </div>
 
@@ -51,17 +52,17 @@ export default function PlansPage() {
           <p className="text-fg-muted text-sm">Create your first plan.</p>
           <div className="mt-4">
             <Button asChild>
-              <a href="/plans/new">
+              <Link href="/plans/new">
                 <PlusIcon size={14} />
                 New plan
-              </a>
+              </Link>
             </Button>
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {plans.map((plan) => (
-            <a
+            <Link
               key={plan.id}
               href={`/plans/${plan.id}/board`}
               className="block hover:opacity-90 transition-opacity"
@@ -76,7 +77,7 @@ export default function PlansPage() {
                   )}
                 </div>
               </Card>
-            </a>
+            </Link>
           ))}
         </div>
       )}

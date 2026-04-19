@@ -50,7 +50,7 @@ export function LabelEditor({ labels, onRename, onRecolor }: LabelEditorProps) {
             data-label-slot={slot}
             className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-overlay/5"
           >
-            <input
+            <Input
               type="color"
               value={label.color}
               onChange={(e) => onRecolor(slot, label.name, e.target.value)}

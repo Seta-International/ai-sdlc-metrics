@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button, Input } from '@future/ui'
+import { PlusIcon } from 'lucide-react'
 import { trpc } from '../../lib/trpc'
 
 const TITLE_MAX = 255
@@ -98,9 +99,7 @@ export function QuickAddTask({ bucketId, planId, actorId, tenantId }: QuickAddTa
   if (!open) {
     return (
       <Button type="button" variant="ghost" size="sm" onClick={handleOpen} aria-label="Add task">
-        <svg viewBox="0 0 12 12" fill="none" className="size-3 flex-shrink-0" aria-hidden>
-          <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
-        </svg>
+        <PlusIcon className="size-3 flex-shrink-0" />
         Add task
       </Button>
     )

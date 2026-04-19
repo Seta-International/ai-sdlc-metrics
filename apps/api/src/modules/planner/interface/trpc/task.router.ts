@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import { PlannerRouterService } from './planner-router.service'
 import { GetBoardQuery } from '../../application/queries/tasks/get-board.query'
+import { GetTaskDetailQuery } from '../../application/queries/tasks/get-task-detail.query'
 import { CreateTaskCommand } from '../../application/commands/tasks/create-task.command'
 import { UpdateTaskCommand } from '../../application/commands/tasks/update-task.command'
 import { MoveTaskCommand } from '../../application/commands/tasks/move-task.command'
@@ -37,9 +38,6 @@ export const taskRouter = router({
         })
     }),
 
-  /**
-   * Stub — Plan 03 will add full task detail with checklist, attachments, comments, evidence.
-   */
   getDetail: publicProcedure
     .input(
       z.object({
@@ -51,9 +49,11 @@ export const taskRouter = router({
     )
     .query(async ({ input }) => {
       await svc().assertPlannerEnabled(input.tenantId)
-      // Plan 03 implementation
-      void input
-      return null
+      return svc()
+        .query(new GetTaskDetailQuery(input.planId, input.taskId, input.actorId, input.tenantId))
+        .catch((e) => {
+          throw toPlannerTrpcError(e)
+        })
     }),
 
   create: publicProcedure

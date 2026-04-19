@@ -39,9 +39,17 @@ import { UnassignTaskHandler } from './application/commands/tasks/unassign-task.
 import { ApplyLabelHandler } from './application/commands/tasks/apply-label.handler'
 import { RemoveLabelHandler } from './application/commands/tasks/remove-label.handler'
 import { DeleteTaskHandler } from './application/commands/tasks/delete-task.handler'
+import { AddChecklistItemHandler } from './application/commands/checklist/add-checklist-item.handler'
+import { ToggleChecklistItemHandler } from './application/commands/checklist/toggle-checklist-item.handler'
+import { UpdateChecklistItemHandler } from './application/commands/checklist/update-checklist-item.handler'
+import { RemoveChecklistItemHandler } from './application/commands/checklist/remove-checklist-item.handler'
+import { ReorderChecklistItemHandler } from './application/commands/checklist/reorder-checklist-item.handler'
+import { CHECKLIST_ITEM_REPOSITORY } from './domain/repositories/checklist-item.repository'
+import { DrizzleChecklistItemRepository } from './infrastructure/repositories/drizzle-checklist-item.repository'
 import { ListPlansForActorHandler } from './application/queries/plans/list-plans-for-actor.handler'
 import { GetPlanHandler } from './application/queries/plans/get-plan.handler'
 import { GetBoardHandler } from './application/queries/tasks/get-board.handler'
+import { GetTaskDetailHandler } from './application/queries/tasks/get-task-detail.handler'
 
 @Module({
   imports: [CqrsModule, KernelModule, AdminModule],
@@ -52,6 +60,7 @@ import { GetBoardHandler } from './application/queries/tasks/get-board.handler'
     { provide: TASK_REPOSITORY, useClass: DrizzleTaskRepository },
     { provide: PLAN_LABEL_REPOSITORY, useClass: DrizzlePlanLabelRepository },
     { provide: PLAN_MEMBER_REPOSITORY, useClass: DrizzlePlanMemberRepository },
+    { provide: CHECKLIST_ITEM_REPOSITORY, useClass: DrizzleChecklistItemRepository },
     PlanAuthorizationService,
     CreatePlanHandler,
     RenamePlanHandler,
@@ -75,9 +84,15 @@ import { GetBoardHandler } from './application/queries/tasks/get-board.handler'
     ApplyLabelHandler,
     RemoveLabelHandler,
     DeleteTaskHandler,
+    AddChecklistItemHandler,
+    ToggleChecklistItemHandler,
+    UpdateChecklistItemHandler,
+    RemoveChecklistItemHandler,
+    ReorderChecklistItemHandler,
     ListPlansForActorHandler,
     GetPlanHandler,
     GetBoardHandler,
+    GetTaskDetailHandler,
     PlannerQueryFacade,
     PlannerRouterService,
   ],
