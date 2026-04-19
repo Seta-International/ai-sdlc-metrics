@@ -36,16 +36,21 @@ function formatDate(date: Date): string {
 interface AttachmentRowProps {
   attachment: AttachmentSnapshot
   isCover: boolean
+  mutating: boolean
   onSetCover: (id: string) => void
   onRemove: (id: string) => void
 }
 
-function AttachmentRow({ attachment, isCover, onSetCover, onRemove }: AttachmentRowProps) {
-  const isImage = attachment.kind === 'file' && attachment.contentType?.startsWith('image/')
+function AttachmentRow({
+  attachment,
+  isCover,
+  mutating,
+  onSetCover,
+  onRemove,
+}: AttachmentRowProps) {
+  const isImage = attachment.kind === 'file' && attachment.contentType.startsWith('image/')
   const label =
-    attachment.kind === 'link'
-      ? (attachment.linkTitle ?? attachment.url ?? '')
-      : (attachment.filename ?? '')
+    attachment.kind === 'link' ? (attachment.linkTitle ?? attachment.url) : attachment.filename
 
   return (
     <div className="group flex items-center gap-2 rounded-md px-1 py-1.5 hover:bg-muted/50">
@@ -58,9 +63,7 @@ function AttachmentRow({ attachment, isCover, onSetCover, onRemove }: Attachment
       <div className="min-w-0 flex-1">
         <span className="block truncate text-sm">{label}</span>
         <span className="text-xs text-muted-foreground">
-          {attachment.kind === 'file' && attachment.sizeBytes != null
-            ? `${formatBytes(attachment.sizeBytes)} · `
-            : ''}
+          {attachment.kind === 'file' ? `${formatBytes(attachment.sizeBytes)} · ` : ''}
           {formatDate(attachment.createdAt)}
         </span>
       </div>
@@ -71,13 +74,14 @@ function AttachmentRow({ attachment, isCover, onSetCover, onRemove }: Attachment
             variant="ghost"
             size="icon-xs"
             className="invisible group-hover:visible"
-            aria-label={`Options for ${attachment.id}`}
+            aria-label={`Options for ${label}`}
+            disabled={mutating}
           >
             <MoreHorizontal className="size-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          {attachment.kind === 'file' && attachment.url && (
+          {attachment.kind === 'file' && (
             <DropdownMenuItem
               onSelect={() => window.open(attachment.url, '_blank', 'noopener,noreferrer')}
             >
@@ -91,25 +95,12 @@ function AttachmentRow({ attachment, isCover, onSetCover, onRemove }: Attachment
               Set as cover
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem
-            onSelect={() => onRemove(attachment.id)}
-            aria-label={`Remove ${attachment.id}`}
-          >
+          <DropdownMenuItem onSelect={() => onRemove(attachment.id)}>
             <Trash2 className="mr-2 size-4" />
             Remove
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        className="invisible group-hover:visible"
-        onClick={() => onRemove(attachment.id)}
-        aria-label={`Remove ${attachment.id}`}
-      >
-        <Trash2 className="size-3" />
-      </Button>
     </div>
   )
 }
@@ -123,6 +114,7 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
   const { task } = useTaskDetail({ taskId, planId })
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const dropZoneRef = useRef<HTMLDivElement>(null)
   const [showLinkForm, setShowLinkForm] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [linkTitle, setLinkTitle] = useState('')
@@ -140,12 +132,7 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
     if (!files || files.length === 0) return
     e.target.value = ''
     for (const file of Array.from(files)) {
-      try {
-        await uploadFile(file)
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Upload failed'
-        toast.error(message)
-      }
+      await uploadFile(file)
     }
   }
 
@@ -164,7 +151,9 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
   function handleDragLeave(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault()
     e.stopPropagation()
-    setIsDragOver(false)
+    if (!dropZoneRef.current?.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false)
+    }
   }
 
   async function handleDrop(e: React.DragEvent<HTMLDivElement>) {
@@ -174,12 +163,7 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
     const files = e.dataTransfer.files
     if (!files || files.length === 0) return
     for (const file of Array.from(files)) {
-      try {
-        await uploadFile(file)
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Upload failed'
-        toast.error(message)
-      }
+      await uploadFile(file)
     }
   }
 
@@ -210,7 +194,8 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
   }
 
   function handleSetCover(attachmentId: string) {
-    if (!task) return
+    if (!task || mutating) return
+    setMutating(true)
     trpc.planner.attachments.setCover
       .mutate({
         tenantId,
@@ -227,10 +212,14 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
         const message = err instanceof Error ? err.message : 'Failed to set cover'
         toast.error(message)
       })
+      .finally(() => {
+        setMutating(false)
+      })
   }
 
   function handleRemove(attachmentId: string) {
-    if (!task) return
+    if (!task || mutating) return
+    setMutating(true)
     trpc.planner.attachments.remove
       .mutate({
         tenantId,
@@ -246,6 +235,9 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
       .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : 'Failed to remove attachment'
         toast.error(message)
+      })
+      .finally(() => {
+        setMutating(false)
       })
   }
 
@@ -345,6 +337,7 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
       )}
 
       <div
+        ref={dropZoneRef}
         className={`rounded-md transition-colors ${isDragOver ? 'ring-2 ring-primary bg-primary/5' : ''}`}
         onDragOver={handleDragOver}
         onDragEnter={handleDragEnter}
@@ -364,6 +357,7 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
                 key={att.id}
                 attachment={att}
                 isCover={task?.coverAttachmentId === att.id}
+                mutating={mutating}
                 onSetCover={handleSetCover}
                 onRemove={handleRemove}
               />

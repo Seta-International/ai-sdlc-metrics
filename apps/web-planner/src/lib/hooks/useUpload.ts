@@ -38,6 +38,12 @@ export function useUpload({ taskId, planId }: UseUploadOptions): {
     const actorId = session?.actorId ?? ''
     const tenantId = session?.tenantId ?? ''
 
+    if (!actorId || !tenantId) {
+      setUploadState({ uploading: false, progress: 0, error: 'Not authenticated' })
+      toast.error('Not authenticated')
+      return
+    }
+
     setUploadState({ uploading: true, progress: 0, error: null })
 
     let uploadUrl: string
@@ -61,7 +67,7 @@ export function useUpload({ taskId, planId }: UseUploadOptions): {
       return
     }
 
-    await new Promise<void>((resolve, reject) => {
+    const xhrOk = await new Promise<boolean>((resolve) => {
       const xhr = new XMLHttpRequest()
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
@@ -73,21 +79,25 @@ export function useUpload({ taskId, planId }: UseUploadOptions): {
       }
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          resolve()
+          resolve(true)
         } else {
-          reject(new Error(`Upload failed with status ${xhr.status}`))
+          const message = `Upload failed with status ${xhr.status}`
+          setUploadState({ uploading: false, progress: 0, error: message })
+          toast.error(message)
+          resolve(false)
         }
       }
-      xhr.onerror = () => reject(new Error('Upload failed'))
+      xhr.onerror = () => {
+        const message = 'Upload failed'
+        setUploadState({ uploading: false, progress: 0, error: message })
+        toast.error(message)
+        resolve(false)
+      }
       xhr.open('PUT', uploadUrl)
       xhr.setRequestHeader('Content-Type', file.type)
       xhr.send(file)
-    }).catch((err: unknown) => {
-      const message = err instanceof Error ? err.message : 'Upload failed'
-      setUploadState({ uploading: false, progress: 0, error: message })
-      toast.error(message)
-      throw err
     })
+    if (!xhrOk) return
 
     const attachmentId = crypto.randomUUID()
     try {

@@ -70,17 +70,25 @@ export interface ChecklistItemSnapshot {
   orderHint: string
 }
 
-export interface AttachmentSnapshot {
-  id: string
-  kind: 'file' | 'link'
-  filename?: string
-  contentType?: string
-  sizeBytes?: number
-  url?: string
-  linkTitle?: string
-  createdBy: string
-  createdAt: Date
-}
+export type AttachmentSnapshot =
+  | {
+      kind: 'file'
+      id: string
+      filename: string
+      contentType: string
+      sizeBytes: number
+      url: string
+      createdBy: string
+      createdAt: Date
+    }
+  | {
+      kind: 'link'
+      id: string
+      url: string
+      linkTitle?: string
+      createdBy: string
+      createdAt: Date
+    }
 
 export interface TaskDetailSnapshot {
   id: string

@@ -47,7 +47,9 @@ vi.mock('@/lib/hooks/useTaskDetail', () => ({
 
 const BASE_DATE = new Date('2026-01-01T00:00:00Z')
 
-function makeAttachment(overrides: Partial<AttachmentSnapshot> = {}): AttachmentSnapshot {
+function makeFileAttachment(
+  overrides: Partial<Extract<AttachmentSnapshot, { kind: 'file' }>> = {},
+): AttachmentSnapshot {
   return {
     id: 'att-1',
     kind: 'file',
@@ -55,6 +57,19 @@ function makeAttachment(overrides: Partial<AttachmentSnapshot> = {}): Attachment
     contentType: 'application/pdf',
     sizeBytes: 102400,
     url: 'https://example.com/presigned/report.pdf',
+    createdBy: 'actor-1',
+    createdAt: BASE_DATE,
+    ...overrides,
+  }
+}
+
+function makeLinkAttachment(
+  overrides: Partial<Extract<AttachmentSnapshot, { kind: 'link' }>> = {},
+): AttachmentSnapshot {
+  return {
+    id: 'att-2',
+    kind: 'link',
+    url: 'https://example.com',
     createdBy: 'actor-1',
     createdAt: BASE_DATE,
     ...overrides,
@@ -88,6 +103,26 @@ function makeTask(overrides: Partial<TaskDetailSnapshot> = {}): TaskDetailSnapsh
     checklist: [],
     attachments: [],
     ...overrides,
+  }
+}
+
+// Reusable XHR mock — resolves onload with status 200
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
+class XHRMock {
+  static lastInstance: XHRMock | null = null
+  upload = { onprogress: null as ((e: ProgressEvent) => void) | null }
+  onload: (() => void) | null = null
+  onerror: (() => void) | null = null
+  status = 200
+  open = vi.fn()
+  setRequestHeader = vi.fn()
+  send = vi.fn().mockImplementation(() => {
+    Promise.resolve().then(() => {
+      if (this.onload) this.onload()
+    })
+  })
+  constructor() {
+    XHRMock.lastInstance = this
   }
 }
 
@@ -133,12 +168,7 @@ describe('TaskAttachments', () => {
   })
 
   it('renders file attachment with filename and formatted size', () => {
-    const att = makeAttachment({
-      id: 'att-1',
-      kind: 'file',
-      filename: 'report.pdf',
-      sizeBytes: 102400,
-    })
+    const att = makeFileAttachment({ id: 'att-1', filename: 'report.pdf', sizeBytes: 102400 })
     mockTask = makeTask({ attachments: [att] })
 
     render(
@@ -152,12 +182,8 @@ describe('TaskAttachments', () => {
   })
 
   it('renders link attachment with linkTitle', () => {
-    const att = makeAttachment({
+    const att = makeLinkAttachment({
       id: 'att-2',
-      kind: 'link',
-      filename: undefined,
-      contentType: undefined,
-      sizeBytes: undefined,
       url: 'https://example.com',
       linkTitle: 'Example Site',
     })
@@ -173,14 +199,9 @@ describe('TaskAttachments', () => {
   })
 
   it('renders link attachment url when no linkTitle', () => {
-    const att = makeAttachment({
+    const att = makeLinkAttachment({
       id: 'att-3',
-      kind: 'link',
-      filename: undefined,
-      contentType: undefined,
-      sizeBytes: undefined,
       url: 'https://example.com/page',
-      linkTitle: undefined,
     })
     mockTask = makeTask({ attachments: [att] })
 
@@ -227,8 +248,8 @@ describe('TaskAttachments', () => {
     )
   })
 
-  it('remove: calls remove.mutate with correct attachmentId', async () => {
-    const att = makeAttachment({ id: 'att-1', kind: 'file', filename: 'doc.pdf' })
+  it('remove: opens dropdown and clicks Remove, calls remove.mutate', async () => {
+    const att = makeFileAttachment({ id: 'att-1', filename: 'doc.pdf' })
     mockTask = makeTask({ attachments: [att] })
 
     render(
@@ -237,9 +258,14 @@ describe('TaskAttachments', () => {
       </Wrapper>,
     )
 
-    const removeBtn = screen.getByRole('button', { name: /remove att-1/i })
+    const optionsBtn = screen.getByRole('button', { name: /options for doc\.pdf/i })
     await act(async () => {
-      await userEvent.click(removeBtn)
+      await userEvent.click(optionsBtn)
+    })
+
+    const removeItem = await screen.findByText('Remove')
+    await act(async () => {
+      await userEvent.click(removeItem)
     })
 
     expect(mockRemoveMutate).toHaveBeenCalledOnce()
@@ -256,26 +282,6 @@ describe('TaskAttachments', () => {
 
   it('upload flow: file input change calls requestUpload and finalizeUpload', async () => {
     mockTask = makeTask({ attachments: [] })
-
-    // Use a class-based XHR mock so `new XMLHttpRequest()` works
-    // eslint-disable-next-line @typescript-eslint/no-extraneous-class
-    class XHRMock {
-      static lastInstance: XHRMock | null = null
-      upload = { onprogress: null as ((e: ProgressEvent) => void) | null }
-      onload: (() => void) | null = null
-      onerror: (() => void) | null = null
-      status = 200
-      open = vi.fn()
-      setRequestHeader = vi.fn()
-      send = vi.fn().mockImplementation(() => {
-        Promise.resolve().then(() => {
-          if (this.onload) this.onload()
-        })
-      })
-      constructor() {
-        XHRMock.lastInstance = this
-      }
-    }
 
     const OriginalXHR = globalThis.XMLHttpRequest
     globalThis.XMLHttpRequest = XHRMock as unknown as typeof XMLHttpRequest
@@ -326,21 +332,6 @@ describe('TaskAttachments', () => {
 
   it('upload flow: supports multiple file selection', async () => {
     mockTask = makeTask({ attachments: [] })
-
-    // eslint-disable-next-line @typescript-eslint/no-extraneous-class
-    class XHRMock {
-      upload = { onprogress: null as ((e: ProgressEvent) => void) | null }
-      onload: (() => void) | null = null
-      onerror: (() => void) | null = null
-      status = 200
-      open = vi.fn()
-      setRequestHeader = vi.fn()
-      send = vi.fn().mockImplementation(() => {
-        Promise.resolve().then(() => {
-          if (this.onload) this.onload()
-        })
-      })
-    }
 
     const OriginalXHR = globalThis.XMLHttpRequest
     globalThis.XMLHttpRequest = XHRMock as unknown as typeof XMLHttpRequest
