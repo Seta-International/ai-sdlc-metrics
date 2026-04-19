@@ -113,18 +113,17 @@ export function parseViewStateFromSearch(params: URLSearchParams): ViewState {
 }
 
 export function serializeViewStateToSearch(state: ViewState): string {
-  const parts: string[] = []
-  const add = (key: string, value: string) => parts.push(`${key}=${value}`)
-
-  if (state.view !== DEFAULT_VIEW_STATE.view) add('view', state.view)
-  if (state.groupBy !== DEFAULT_VIEW_STATE.groupBy) add('group', state.groupBy)
-  if (state.sort) add('sort', `${state.sort.field}:${state.sort.dir}`)
-  if (state.filter.due) add('filter.due', state.filter.due)
-  if (state.filter.priority.length > 0) add('filter.priority', state.filter.priority.join(','))
-  if (state.filter.labels.length > 0) add('filter.labels', state.filter.labels.join(','))
-  if (state.filter.buckets.length > 0) add('filter.buckets', state.filter.buckets.join(','))
-  if (state.filter.assignees.length > 0) add('filter.assignees', state.filter.assignees.join(','))
-  if (state.scale) add('scale', state.scale)
-  if (state.trendRange) add('trendRange', state.trendRange)
-  return parts.join('&')
+  const p = new URLSearchParams()
+  if (state.view !== DEFAULT_VIEW_STATE.view) p.set('view', state.view)
+  if (state.groupBy !== DEFAULT_VIEW_STATE.groupBy) p.set('group', state.groupBy)
+  if (state.sort) p.set('sort', `${state.sort.field}:${state.sort.dir}`)
+  if (state.filter.due) p.set('filter.due', state.filter.due)
+  if (state.filter.priority.length > 0) p.set('filter.priority', state.filter.priority.join(','))
+  if (state.filter.labels.length > 0) p.set('filter.labels', state.filter.labels.join(','))
+  if (state.filter.buckets.length > 0) p.set('filter.buckets', state.filter.buckets.join(','))
+  if (state.filter.assignees.length > 0) p.set('filter.assignees', state.filter.assignees.join(','))
+  if (state.scale) p.set('scale', state.scale)
+  if (state.trendRange) p.set('trendRange', state.trendRange)
+  // Decode : and , since they're safe unencoded in query strings and improve readability
+  return p.toString().replaceAll('%3A', ':').replaceAll('%2C', ',')
 }

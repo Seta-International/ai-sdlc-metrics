@@ -45,4 +45,9 @@ describe('view-state URL codec', () => {
     const parsed = parseViewStateFromSearch(new URLSearchParams('filter.due=late,today'))
     expect(parsed.filter.due).toBeUndefined()
   })
+
+  it('rejects unknown sort field with valid format', () => {
+    const parsed = parseViewStateFromSearch(new URLSearchParams('sort=nonexistent:asc'))
+    expect(parsed.sort).toBeUndefined()
+  })
 })
