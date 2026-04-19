@@ -165,6 +165,7 @@ export class DrizzleTaskRepository implements ITaskRepository {
         completedAt: task.completedAt,
         deletedAt: task.deletedAt,
         pendingMsAssignments: task.pendingMsAssignments,
+        coverAttachmentId: task.coverAttachmentId,
       })
       .where(
         and(

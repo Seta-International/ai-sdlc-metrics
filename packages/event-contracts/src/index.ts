@@ -53,6 +53,8 @@ export { ChecklistItemToggledEvent } from './planner/checklist-item-toggled.even
 export { ChecklistItemUpdatedEvent } from './planner/checklist-item-updated.event'
 export { ChecklistItemRemovedEvent } from './planner/checklist-item-removed.event'
 export { ChecklistItemReorderedEvent } from './planner/checklist-item-reordered.event'
+export { AttachmentAddedEvent } from './planner/attachment-added.event'
+export { AttachmentRemovedEvent } from './planner/attachment-removed.event'
 export { UserProvisionedFromIdpEvent } from './identity/user-provisioned-from-idp.event'
 export { UserDeactivatedFromIdpEvent } from './identity/user-deactivated-from-idp.event'
 export { RoleGrantSyncedEvent } from './identity/role-grant-synced.event'

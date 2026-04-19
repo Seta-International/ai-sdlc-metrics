@@ -63,13 +63,13 @@ export class Task {
   private _checklistItems: ChecklistItem[]
   private _assignees: TaskAssignee[]
   private _appliedLabels: LabelSlot[]
+  private _coverAttachmentId: string | null
 
   readonly id: string
   readonly tenantId: string
   readonly planId: string
   readonly createdBy: string
   readonly createdAt: Date
-  readonly coverAttachmentId: string | null
   readonly msTaskId: string | null
   readonly msTaskEtag: string | null
   readonly msTaskDetailsEtag: string | null
@@ -98,7 +98,7 @@ export class Task {
     this._checklistItems = props.checklistItems
     this._assignees = props.assignees
     this._appliedLabels = props.appliedLabels
-    this.coverAttachmentId = props.coverAttachmentId
+    this._coverAttachmentId = props.coverAttachmentId
     this.msTaskId = props.msTaskId
     this.msTaskEtag = props.msTaskEtag
     this.msTaskDetailsEtag = props.msTaskDetailsEtag
@@ -173,6 +173,10 @@ export class Task {
 
   get appliedLabels(): readonly LabelSlot[] {
     return this._appliedLabels
+  }
+
+  get coverAttachmentId(): string | null {
+    return this._coverAttachmentId
   }
 
   // ─── Factory methods ──────────────────────────────────────────────────────
@@ -448,6 +452,11 @@ export class Task {
     this._completedBy = null
     this._completedAt = null
     this._progress = 0
+    this._updatedAt = new Date()
+  }
+
+  setCoverAttachment(attachmentId: string | null): void {
+    this._coverAttachmentId = attachmentId
     this._updatedAt = new Date()
   }
 
