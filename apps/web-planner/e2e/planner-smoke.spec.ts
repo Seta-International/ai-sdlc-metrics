@@ -317,7 +317,7 @@ test.describe('Board flows', () => {
 // Task detail flows — Plan 03 Task 11
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function openTaskDetailPanel(page: Page, planId: string, taskTitle: string): Promise<void> {
+async function openTaskDetailPanel(page: Page, _planId: string, taskTitle: string): Promise<void> {
   const taskCard = page.locator('[data-testid="task-card"]').filter({ hasText: taskTitle }).first()
   await taskCard.getByTestId('task-title-link').click()
   await page.waitForSelector('[data-testid="task-detail-panel"]')
