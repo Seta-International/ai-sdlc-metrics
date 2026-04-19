@@ -52,8 +52,9 @@ describe('ListTaskCommentsHandler', () => {
       cursor: undefined,
       limit: 20,
     })
-    expect(result).toHaveLength(2)
-    expect(result[0]).toMatchObject({
+    expect(result.items).toHaveLength(2)
+    expect(result.nextCursor).toBeNull()
+    expect(result.items[0]).toMatchObject({
       id: 'c1',
       taskId: TASK_ID,
       tenantId: TENANT_ID,
@@ -61,7 +62,7 @@ describe('ListTaskCommentsHandler', () => {
       body: 'Comment c1',
       deleted: false,
     })
-    expect(result[0]!.postedAt).toBeInstanceOf(Date)
+    expect(result.items[0]!.postedAt).toBeInstanceOf(Date)
   })
 
   it('includes tombstoned comments with deleted: true', async () => {
@@ -72,9 +73,9 @@ describe('ListTaskCommentsHandler', () => {
     const query = new ListTaskCommentsQuery(TENANT_ID, PLAN_ID, TASK_ID, ACTOR_ID, undefined, 20)
     const result = await handler.execute(query)
 
-    expect(result).toHaveLength(2)
-    const deleted = result.find((c) => c.id === 'c-deleted')
-    const active = result.find((c) => c.id === 'c-active')
+    expect(result.items).toHaveLength(2)
+    const deleted = result.items.find((c) => c.id === 'c-deleted')
+    const active = result.items.find((c) => c.id === 'c-active')
     expect(deleted!.deleted).toBe(true)
     expect(active!.deleted).toBe(false)
   })
@@ -89,11 +90,23 @@ describe('ListTaskCommentsHandler', () => {
     })
   })
 
-  it('returns empty array when no comments exist', async () => {
+  it('returns empty items and null nextCursor when no comments exist', async () => {
     commentRepo.listByTask.mockResolvedValue([])
     const query = new ListTaskCommentsQuery(TENANT_ID, PLAN_ID, TASK_ID, ACTOR_ID, undefined, 20)
     const result = await handler.execute(query)
-    expect(result).toEqual([])
+    expect(result).toEqual({ items: [], nextCursor: null })
+  })
+
+  it('sets nextCursor when repo returns limit+1 rows', async () => {
+    // repo returns 3 rows for limit=2 → hasMore=true, nextCursor = rows[1].id = 'c2'
+    const comments = [makeComment('c1'), makeComment('c2'), makeComment('c3')]
+    commentRepo.listByTask.mockResolvedValue(comments)
+
+    const query = new ListTaskCommentsQuery(TENANT_ID, PLAN_ID, TASK_ID, ACTOR_ID, undefined, 2)
+    const result = await handler.execute(query)
+
+    expect(result.items).toHaveLength(2)
+    expect(result.nextCursor).toBe('c2')
   })
 
   it('throws UnauthorizedPlanAccessException when actor lacks plan access', async () => {

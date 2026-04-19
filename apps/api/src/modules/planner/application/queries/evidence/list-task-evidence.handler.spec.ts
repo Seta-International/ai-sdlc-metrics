@@ -47,13 +47,13 @@ describe('ListTaskEvidenceHandler', () => {
     )
   })
 
-  it('returns empty array when no evidence exists', async () => {
+  it('returns empty items array when no evidence exists', async () => {
     const query = new ListTaskEvidenceQuery(TENANT_ID, PLAN_ID, TASK_ID, ACTOR_ID)
 
     const result = await handler.execute(query)
 
     expect(authSvc.assertCanEditPlan).toHaveBeenCalledWith(ACTOR_ID, PLAN_ID, TENANT_ID)
-    expect(result).toEqual([])
+    expect(result).toEqual({ items: [] })
   })
 
   it('returns mapped DTOs for all evidence', async () => {
@@ -64,13 +64,13 @@ describe('ListTaskEvidenceHandler', () => {
     const query = new ListTaskEvidenceQuery(TENANT_ID, PLAN_ID, TASK_ID, ACTOR_ID)
     const result = await handler.execute(query)
 
-    expect(result).toHaveLength(2)
-    expect(result[0].id).toBe('ev-1')
-    expect(result[0].kind).toBe('note')
-    expect(result[0].body).toBe('Body for ev-1')
-    expect(result[1].id).toBe('ev-2')
-    expect(result[1].kind).toBe('link')
-    expect(result[1].url).toBe('https://example.com')
+    expect(result.items).toHaveLength(2)
+    expect(result.items[0].id).toBe('ev-1')
+    expect(result.items[0].kind).toBe('note')
+    expect(result.items[0].body).toBe('Body for ev-1')
+    expect(result.items[1].id).toBe('ev-2')
+    expect(result.items[1].kind).toBe('link')
+    expect(result.items[1].url).toBe('https://example.com')
   })
 
   it('queries by correct taskId and tenantId', async () => {

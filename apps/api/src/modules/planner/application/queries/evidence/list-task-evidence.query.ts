@@ -7,6 +7,10 @@ export class ListTaskEvidenceQuery {
   ) {}
 }
 
+export interface ListTaskEvidenceResult {
+  items: TaskEvidenceDto[]
+}
+
 export interface TaskEvidenceDto {
   id: string
   taskId: string

@@ -5,12 +5,16 @@ import {
   type ITaskCommentRepository,
 } from '../../../domain/repositories/task-comment.repository'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
-import { ListTaskCommentsQuery, type TaskCommentDto } from './list-task-comments.query'
+import {
+  ListTaskCommentsQuery,
+  type TaskCommentDto,
+  type ListTaskCommentsResult,
+} from './list-task-comments.query'
 
 @QueryHandler(ListTaskCommentsQuery)
 export class ListTaskCommentsHandler implements IQueryHandler<
   ListTaskCommentsQuery,
-  TaskCommentDto[]
+  ListTaskCommentsResult
 > {
   constructor(
     @Inject(TASK_COMMENT_REPOSITORY)
@@ -18,15 +22,19 @@ export class ListTaskCommentsHandler implements IQueryHandler<
     private readonly authSvc: PlanAuthorizationService,
   ) {}
 
-  async execute(query: ListTaskCommentsQuery): Promise<TaskCommentDto[]> {
+  async execute(query: ListTaskCommentsQuery): Promise<ListTaskCommentsResult> {
     await this.authSvc.assertCanEditPlan(query.actorId, query.planId, query.tenantId)
 
-    const comments = await this.commentRepo.listByTask(query.taskId, query.tenantId, {
+    const rows = await this.commentRepo.listByTask(query.taskId, query.tenantId, {
       cursor: query.cursor,
       limit: query.limit,
     })
 
-    return comments.map((comment) => ({
+    const hasMore = rows.length > query.limit
+    const pageRows = hasMore ? rows.slice(0, query.limit) : rows
+    const nextCursor: string | null = hasMore ? (rows[query.limit - 1]?.id ?? null) : null
+
+    const items: TaskCommentDto[] = pageRows.map((comment) => ({
       id: comment.id,
       taskId: comment.taskId,
       tenantId: comment.tenantId,
@@ -35,5 +43,7 @@ export class ListTaskCommentsHandler implements IQueryHandler<
       postedAt: comment.postedAt,
       deleted: comment.isDeleted,
     }))
+
+    return { items, nextCursor }
   }
 }

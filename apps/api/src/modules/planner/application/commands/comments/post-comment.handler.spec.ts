@@ -3,10 +3,13 @@ import { EventBus } from '@nestjs/cqrs'
 import { PostCommentHandler } from './post-comment.handler'
 import { PostCommentCommand } from './post-comment.command'
 import { TaskComment } from '../../../domain/entities/task-comment.entity'
+import { Task } from '../../../domain/entities/task.entity'
 import { TaskCommentPostedEvent } from '@future/event-contracts'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
 import { CommentBodyTooLongException } from '../../../domain/exceptions/comment-body-too-long.exception'
+import { TaskNotFoundException } from '../../../domain/exceptions/task-not-found.exception'
 import type { ITaskCommentRepository } from '../../../domain/repositories/task-comment.repository'
+import type { ITaskRepository } from '../../../domain/repositories/task.repository'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 
 const TENANT_ID = 'tenant-1'
@@ -18,15 +21,18 @@ const COMMENT_ID = 'comment-1'
 describe('PostCommentHandler', () => {
   let handler: PostCommentHandler
   let commentRepo: { add: ReturnType<typeof vi.fn> }
+  let taskRepo: { findById: ReturnType<typeof vi.fn> }
   let authSvc: { assertCanEditPlan: ReturnType<typeof vi.fn> }
   let eventBus: { publish: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     commentRepo = { add: vi.fn().mockResolvedValue(undefined) }
+    taskRepo = { findById: vi.fn().mockResolvedValue({} as Task) }
     authSvc = { assertCanEditPlan: vi.fn().mockResolvedValue(undefined) }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
     handler = new PostCommentHandler(
       commentRepo as unknown as ITaskCommentRepository,
+      taskRepo as unknown as ITaskRepository,
       authSvc as unknown as PlanAuthorizationService,
       eventBus as unknown as EventBus,
     )
@@ -45,6 +51,7 @@ describe('PostCommentHandler', () => {
     await handler.execute(command)
 
     expect(authSvc.assertCanEditPlan).toHaveBeenCalledWith(ACTOR_ID, PLAN_ID, TENANT_ID)
+    expect(taskRepo.findById).toHaveBeenCalledWith(TASK_ID, TENANT_ID)
     expect(commentRepo.add).toHaveBeenCalledOnce()
     const saved: TaskComment = commentRepo.add.mock.calls[0][0]
     expect(saved.id).toBe(COMMENT_ID)
@@ -59,6 +66,22 @@ describe('PostCommentHandler', () => {
     expect(event.commentId).toBe(COMMENT_ID)
     expect(event.taskId).toBe(TASK_ID)
     expect(event.body).toBe('Hello world')
+  })
+
+  it('throws TaskNotFoundException when task does not exist', async () => {
+    taskRepo.findById.mockResolvedValue(null)
+    const command = new PostCommentCommand(
+      TENANT_ID,
+      PLAN_ID,
+      TASK_ID,
+      COMMENT_ID,
+      ACTOR_ID,
+      'Hello',
+    )
+
+    await expect(handler.execute(command)).rejects.toThrow(TaskNotFoundException)
+    expect(commentRepo.add).not.toHaveBeenCalled()
+    expect(eventBus.publish).not.toHaveBeenCalled()
   })
 
   it('throws CommentBodyTooLongException when body exceeds 4000 characters', async () => {

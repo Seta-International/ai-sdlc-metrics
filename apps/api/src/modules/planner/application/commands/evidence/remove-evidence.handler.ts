@@ -22,6 +22,8 @@ export class RemoveEvidenceHandler implements ICommandHandler<RemoveEvidenceComm
   ) {}
 
   async execute(command: RemoveEvidenceCommand): Promise<void> {
+    // TODO(security): fetching evidence before auth check leaks existence info to unauthorized callers.
+    // Phase 1 accepts this — add assertPlannerEnabled + early auth check in Phase 2.
     const task = await this.taskRepo.findById(command.taskId, command.tenantId)
     if (!task) throw new TaskNotFoundException(command.taskId)
 

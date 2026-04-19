@@ -25,6 +25,7 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
       id: string
       plan_id: string
       bucket_id: string
+      cover_attachment_id: string | null
       title: string
       description: string
       progress: number
@@ -45,6 +46,7 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
             t.id,
             t.plan_id,
             t.bucket_id,
+            t.cover_attachment_id,
             t.title,
             t.description,
             t.progress,
@@ -139,6 +141,23 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
           ORDER BY created_at ASC`,
     )
 
+    // ── Query 6: Comment count ────────────────────────────────────────────────
+    const commentCountResult = await this.db.execute<{ count: string }>(
+      sql`SELECT COUNT(*) AS count
+          FROM planner.task_comment
+          WHERE task_id = ${taskId}
+            AND tenant_id = ${tenantId}
+            AND deleted_at IS NULL`,
+    )
+
+    // ── Query 7: Evidence count ───────────────────────────────────────────────
+    const evidenceCountResult = await this.db.execute<{ count: string }>(
+      sql`SELECT COUNT(*) AS count
+          FROM planner.task_evidence
+          WHERE task_id = ${taskId}
+            AND tenant_id = ${tenantId}`,
+    )
+
     // ── Resolve actor display info (one batch — not a planner DB query) ───────
     const assigneeIds = assigneeResult.rows.map((r) => r.actor_id)
     const actorMap = await this.kernelQueryFacade.getActorsByIds(assigneeIds, tenantId)
@@ -191,6 +210,7 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
       id: taskRow.id,
       planId: taskRow.plan_id,
       bucketId: taskRow.bucket_id,
+      coverAttachmentId: taskRow.cover_attachment_id ?? null,
       title: taskRow.title,
       description: taskRow.description,
       progress: Number(taskRow.progress),
@@ -205,12 +225,13 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
       completedBy: taskRow.completed_by ?? null,
       checklistItemCount: Number(taskRow.checklist_item_count),
       checklistCheckedCount: Number(taskRow.checklist_checked_count),
+      attachmentCount: attachmentResult.rows.length,
+      commentCount: Number(commentCountResult.rows[0]?.count ?? 0),
+      evidenceCount: Number(evidenceCountResult.rows[0]?.count ?? 0),
       checklist,
       assignees,
       appliedLabels,
       attachments,
-      comments: [],
-      evidence: [],
     }
   }
 }

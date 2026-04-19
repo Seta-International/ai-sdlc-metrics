@@ -18,3 +18,8 @@ export interface TaskCommentDto {
   postedAt: Date
   deleted: boolean
 }
+
+export interface ListTaskCommentsResult {
+  items: TaskCommentDto[]
+  nextCursor: string | null
+}

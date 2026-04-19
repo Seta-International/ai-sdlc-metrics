@@ -11,6 +11,7 @@ export interface TaskDetailSnapshot {
   id: string
   planId: string
   bucketId: string
+  coverAttachmentId: string | null
   title: string
   description: string
   progress: number
@@ -25,6 +26,9 @@ export interface TaskDetailSnapshot {
   completedBy: string | null
   checklistItemCount: number
   checklistCheckedCount: number
+  attachmentCount: number
+  commentCount: number
+  evidenceCount: number
   checklist: Array<{
     id: string
     title: string
@@ -50,6 +54,4 @@ export interface TaskDetailSnapshot {
     createdBy: string
     createdAt: Date
   }>
-  comments: never[]
-  evidence: never[]
 }

@@ -218,6 +218,7 @@ export function TaskComments({ taskId, planId }: TaskCommentsProps) {
         planId,
         taskId,
         actorId,
+        commentId: crypto.randomUUID(),
         body: trimmed,
       })
       setComments((prev) => prev.map((c) => (c.id === tempId ? { ...c, pending: false } : c)))

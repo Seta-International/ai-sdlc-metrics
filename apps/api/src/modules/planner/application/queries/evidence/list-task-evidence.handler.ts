@@ -5,12 +5,16 @@ import {
   type ITaskEvidenceRepository,
 } from '../../../domain/repositories/task-evidence.repository'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
-import { ListTaskEvidenceQuery, type TaskEvidenceDto } from './list-task-evidence.query'
+import {
+  ListTaskEvidenceQuery,
+  type TaskEvidenceDto,
+  type ListTaskEvidenceResult,
+} from './list-task-evidence.query'
 
 @QueryHandler(ListTaskEvidenceQuery)
 export class ListTaskEvidenceHandler implements IQueryHandler<
   ListTaskEvidenceQuery,
-  TaskEvidenceDto[]
+  ListTaskEvidenceResult
 > {
   constructor(
     @Inject(TASK_EVIDENCE_REPOSITORY)
@@ -18,12 +22,12 @@ export class ListTaskEvidenceHandler implements IQueryHandler<
     private readonly authSvc: PlanAuthorizationService,
   ) {}
 
-  async execute(query: ListTaskEvidenceQuery): Promise<TaskEvidenceDto[]> {
+  async execute(query: ListTaskEvidenceQuery): Promise<ListTaskEvidenceResult> {
     await this.authSvc.assertCanEditPlan(query.actorId, query.planId, query.tenantId)
 
     const evidenceList = await this.evidenceRepo.listByTask(query.taskId, query.tenantId)
 
-    return evidenceList.map((ev) => ({
+    const items: TaskEvidenceDto[] = evidenceList.map((ev) => ({
       id: ev.id,
       taskId: ev.taskId,
       tenantId: ev.tenantId,
@@ -42,5 +46,7 @@ export class ListTaskEvidenceHandler implements IQueryHandler<
       verifiedAt: ev.verifiedAt,
       verificationNote: ev.verificationNote,
     }))
+
+    return { items }
   }
 }
