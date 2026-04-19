@@ -8,10 +8,10 @@ interface FileAttachmentProps {
   tenantId: string
   createdBy: string
   kind: 'file'
-  storageKey: string | undefined
-  filename: string | undefined
-  contentType: string | undefined
-  sizeBytes: number | undefined
+  storageKey: string
+  filename: string
+  contentType: string
+  sizeBytes: number
   url: undefined
   linkTitle: undefined
   previewType: string | undefined
@@ -28,7 +28,7 @@ interface LinkAttachmentProps {
   filename: undefined
   contentType: undefined
   sizeBytes: undefined
-  url: string | undefined
+  url: string
   linkTitle: string | undefined
   previewType: string | undefined
   createdAt: Date
@@ -80,16 +80,16 @@ export class TaskAttachment {
     previewType?: string
   }): TaskAttachment {
     if (!input.storageKey) {
-      throw new AttachmentKindViolationException('File attachment requires a non-empty storageKey')
+      throw new AttachmentKindViolationException('storageKey')
     }
     if (!input.filename) {
-      throw new AttachmentKindViolationException('File attachment requires a non-empty filename')
+      throw new AttachmentKindViolationException('filename')
     }
     if (!input.contentType) {
-      throw new AttachmentKindViolationException('File attachment requires a non-empty contentType')
+      throw new AttachmentKindViolationException('contentType')
     }
     if (input.sizeBytes <= 0) {
-      throw new AttachmentKindViolationException('File attachment requires sizeBytes > 0')
+      throw new AttachmentKindViolationException('sizeBytes')
     }
 
     return new TaskAttachment({
@@ -119,7 +119,7 @@ export class TaskAttachment {
     previewType?: string
   }): TaskAttachment {
     if (!input.url) {
-      throw new AttachmentKindViolationException('Link attachment requires a non-empty url')
+      throw new AttachmentKindViolationException('url')
     }
 
     return new TaskAttachment({
@@ -155,6 +155,9 @@ export class TaskAttachment {
     createdAt: Date
   }): TaskAttachment {
     const kind = props.kind as AttachmentKind
+    if (kind !== 'file' && kind !== 'link') {
+      throw new AttachmentKindViolationException(String(props.kind))
+    }
     if (kind === 'file') {
       return new TaskAttachment({
         id: props.id,
@@ -162,10 +165,10 @@ export class TaskAttachment {
         tenantId: props.tenantId,
         createdBy: props.createdBy,
         kind: 'file',
-        storageKey: props.storageKey ?? undefined,
-        filename: props.filename ?? undefined,
-        contentType: props.contentType ?? undefined,
-        sizeBytes: props.sizeBytes ?? undefined,
+        storageKey: (props.storageKey ?? '') as string,
+        filename: (props.filename ?? '') as string,
+        contentType: (props.contentType ?? '') as string,
+        sizeBytes: (props.sizeBytes ?? 0) as number,
         url: undefined,
         linkTitle: undefined,
         previewType: props.previewType ?? undefined,
@@ -183,7 +186,7 @@ export class TaskAttachment {
       filename: undefined,
       contentType: undefined,
       sizeBytes: undefined,
-      url: props.url ?? undefined,
+      url: (props.url ?? '') as string,
       linkTitle: props.linkTitle ?? undefined,
       previewType: props.previewType ?? undefined,
       createdAt: props.createdAt,

@@ -77,7 +77,7 @@ describe('TaskAttachment entity', () => {
       ).toThrow(AttachmentKindViolationException)
     })
 
-    it('throws AttachmentKindViolationException when sizeBytes is not positive', () => {
+    it('throws AttachmentKindViolationException when sizeBytes is 0', () => {
       expect(() =>
         TaskAttachment.createFile({
           id: 'attach-1',
@@ -88,6 +88,21 @@ describe('TaskAttachment entity', () => {
           filename: 'file.pdf',
           contentType: 'application/pdf',
           sizeBytes: 0,
+        }),
+      ).toThrow(AttachmentKindViolationException)
+    })
+
+    it('throws AttachmentKindViolationException when sizeBytes is negative', () => {
+      expect(() =>
+        TaskAttachment.createFile({
+          id: 'attach-1',
+          taskId: TASK_ID,
+          tenantId: TENANT_ID,
+          createdBy: CREATED_BY,
+          storageKey: 'uploads/file.pdf',
+          filename: 'file.pdf',
+          contentType: 'application/pdf',
+          sizeBytes: -1,
         }),
       ).toThrow(AttachmentKindViolationException)
     })

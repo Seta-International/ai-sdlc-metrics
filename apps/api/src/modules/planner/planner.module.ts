@@ -46,6 +46,8 @@ import { RemoveChecklistItemHandler } from './application/commands/checklist/rem
 import { ReorderChecklistItemHandler } from './application/commands/checklist/reorder-checklist-item.handler'
 import { CHECKLIST_ITEM_REPOSITORY } from './domain/repositories/checklist-item.repository'
 import { DrizzleChecklistItemRepository } from './infrastructure/repositories/drizzle-checklist-item.repository'
+import { TASK_ATTACHMENT_REPOSITORY } from './domain/repositories/task-attachment.repository'
+import { DrizzleTaskAttachmentRepository } from './infrastructure/repositories/drizzle-task-attachment.repository'
 import { ListPlansForActorHandler } from './application/queries/plans/list-plans-for-actor.handler'
 import { GetPlanHandler } from './application/queries/plans/get-plan.handler'
 import { GetBoardHandler } from './application/queries/tasks/get-board.handler'
@@ -61,6 +63,7 @@ import { GetTaskDetailHandler } from './application/queries/tasks/get-task-detai
     { provide: PLAN_LABEL_REPOSITORY, useClass: DrizzlePlanLabelRepository },
     { provide: PLAN_MEMBER_REPOSITORY, useClass: DrizzlePlanMemberRepository },
     { provide: CHECKLIST_ITEM_REPOSITORY, useClass: DrizzleChecklistItemRepository },
+    { provide: TASK_ATTACHMENT_REPOSITORY, useClass: DrizzleTaskAttachmentRepository },
     PlanAuthorizationService,
     CreatePlanHandler,
     RenamePlanHandler,
