@@ -14,7 +14,7 @@
  *   playwright test --config apps/web-planner/e2e/playwright.config.ts
  */
 
-import { test, expect, type BrowserContext } from '@playwright/test'
+import { test, expect, type BrowserContext, type Page } from '@playwright/test'
 
 // ---------------------------------------------------------------------------
 // Session injection
@@ -176,11 +176,7 @@ test.describe('Planner smoke', () => {
  * Helper: create a plan via the UI and return its planId.
  * After creation the router lands on /plans/<id>/board.
  */
-async function createPlan(
-  page: Parameters<Parameters<typeof test>[1]>[0]['page'],
-  context: BrowserContext,
-  name: string,
-): Promise<string> {
+async function createPlan(page: Page, context: BrowserContext, name: string): Promise<string> {
   await injectSession(context)
   await page.goto('/plans/new')
   await expect(page.getByRole('heading', { name: 'New plan' })).toBeVisible()
@@ -195,10 +191,7 @@ async function createPlan(
 /**
  * Helper: add a bucket via the AddBucketButton in the board page.
  */
-async function addBucket(
-  page: Parameters<Parameters<typeof test>[1]>[0]['page'],
-  bucketName: string,
-): Promise<void> {
+async function addBucket(page: Page, bucketName: string): Promise<void> {
   await page.getByTestId('add-bucket-btn').click()
   await page.getByTestId('add-bucket-input').fill(bucketName)
   await page.getByTestId('add-bucket-submit').click()
@@ -214,10 +207,7 @@ async function addBucket(
  * Helper: add a task via QuickAddTask inside the first board column.
  * QuickAddTask uses aria-label="Add task" (no data-testid on the open button).
  */
-async function addTaskToFirstColumn(
-  page: Parameters<Parameters<typeof test>[1]>[0]['page'],
-  taskTitle: string,
-): Promise<void> {
+async function addTaskToFirstColumn(page: Page, taskTitle: string): Promise<void> {
   const firstColumn = page.locator('[data-testid="board-column"]').first()
   // The QuickAddTask open button has aria-label="Add task"
   await firstColumn.getByRole('button', { name: 'Add task' }).click()
@@ -408,11 +398,7 @@ test.describe('Board flows', () => {
 // Task detail flows — Plan 03 Task 11
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function openTaskDetailPanel(
-  page: Parameters<Parameters<typeof test>[1]>[0]['page'],
-  planId: string,
-  taskTitle: string,
-): Promise<void> {
+async function openTaskDetailPanel(page: Page, planId: string, taskTitle: string): Promise<void> {
   const taskCard = page.locator('[data-testid="task-card"]').filter({ hasText: taskTitle }).first()
   await taskCard.getByTestId('task-title-link').click()
   await page.waitForSelector('[data-testid="task-detail-panel"]')
