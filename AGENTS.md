@@ -17,21 +17,21 @@
 
 ## Domain Modules
 
-| Module        | Schema        | Owns                                                                             |
-| ------------- | ------------- | -------------------------------------------------------------------------------- |
-| `kernel`      | `core`        | Authority (role_grant, role_permission, delegation), decisions, events, exposure |
-| `identity`    | `identity`    | Authentication (SSO, magic link), IdP config, directory sync, user provisioning  |
-| `people`      | `people`      | Employment profiles, org placements, offboarding                                 |
-| `time`        | `time`        | Attendance, leave, OT, timesheets                                                |
-| `hiring`      | `hiring`      | Recruitment, pipeline, interviews, offers                                        |
-| `performance` | `performance` | Review cycles, evaluations, feedback                                             |
-| `projects`    | `projects`    | Staffing, assignments, delivery                                                  |
-| `finance`     | `finance`     | Invoices, payroll, budget                                                        |
-| `goals`       | `goals`       | OKRs, KPIs, objectives                                                           |
-| `insights`    | `insights`    | Analytics proxy to Athena — no tables                                            |
-| `agents`      | `agents`      | Agent configs, sessions, messages, tools                                         |
-| `planner`     | `planner`     | Task tracking, AI reminders, KPI linkage                                         |
-| `admin`       | `admin`       | Tenant settings, AI config, module toggles                                       |
+| Module        | Schema        | Owns                                                                                                                                                                                   |
+| ------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kernel`      | `core`        | Authority (role_grant, role_permission, delegation), decisions, events, exposure                                                                                                       |
+| `identity`    | `identity`    | Authentication (SSO, magic link), IdP config, directory sync, user provisioning                                                                                                        |
+| `people`      | `people`      | Employment profiles, org placements, offboarding                                                                                                                                       |
+| `time`        | `time`        | Attendance, leave, OT, timesheets                                                                                                                                                      |
+| `hiring`      | `hiring`      | Recruitment, pipeline, interviews, offers                                                                                                                                              |
+| `performance` | `performance` | Review cycles, evaluations, feedback                                                                                                                                                   |
+| `projects`    | `projects`    | Staffing, assignments, delivery                                                                                                                                                        |
+| `finance`     | `finance`     | Invoices, payroll, budget                                                                                                                                                              |
+| `goals`       | `goals`       | OKRs, KPIs, objectives                                                                                                                                                                 |
+| `insights`    | `insights`    | Analytics proxy to Athena — no tables                                                                                                                                                  |
+| `agents`      | `agents`      | Agent configs, sessions, messages, tools                                                                                                                                               |
+| `planner`     | `planner`     | Task tracking, evidence capture. (Bidirectional sync with MS 365 Planner lives in this module; AI reminders + KPI linkage are layered by goals/agents modules in a later sub-project.) |
+| `admin`       | `admin`       | Tenant settings, AI config, module toggles                                                                                                                                             |
 
 ### Module layout (Hexagonal + DDD)
 
@@ -145,15 +145,15 @@ In QA mode, flag any code that does not match `DESIGN.md`.
 
 **Rule: always use design system components. Never use raw HTML for interactive elements.**
 
-| Instead of…              | Use                                                                   |
-| ------------------------ | --------------------------------------------------------------------- |
-| `<button>`               | `<Button>` from `@future/ui`                                          |
-| `<input>`                | `<Input>` from `@future/ui`                                           |
-| `<textarea>`             | `<Textarea>` from `@future/ui`                                        |
-| `×` `✕` `←` `→` `+` icons | `<X>` `<ArrowLeft>` `<ArrowRight>` `<Plus>` from `lucide-react`     |
-| `<a href="...">` (same zone) | `<Button variant="ghost" size="sm" asChild><Link href="/path">` |
-| `animate-pulse` div      | `<Skeleton />` from `@future/ui`                                      |
-| `<div className="text-red-...">` | `<Alert variant="destructive"><AlertDescription>…`          |
+| Instead of…                      | Use                                                             |
+| -------------------------------- | --------------------------------------------------------------- |
+| `<button>`                       | `<Button>` from `@future/ui`                                    |
+| `<input>`                        | `<Input>` from `@future/ui`                                     |
+| `<textarea>`                     | `<Textarea>` from `@future/ui`                                  |
+| `×` `✕` `←` `→` `+` icons        | `<X>` `<ArrowLeft>` `<ArrowRight>` `<Plus>` from `lucide-react` |
+| `<a href="...">` (same zone)     | `<Button variant="ghost" size="sm" asChild><Link href="/path">` |
+| `animate-pulse` div              | `<Skeleton />` from `@future/ui`                                |
+| `<div className="text-red-...">` | `<Alert variant="destructive"><AlertDescription>…`              |
 
 - Layout/structural HTML (`div`, `span`, `p`, `h1`–`h6`, `ul`, `li`, `form`, `label`) is fine as-is.
 - Data-driven counters like `+{n}` are text, not icons — leave them as-is.
