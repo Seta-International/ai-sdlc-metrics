@@ -63,6 +63,7 @@ import { RemoveAttachmentHandler } from './application/commands/attachments/remo
 import { ListPlansForActorHandler } from './application/queries/plans/list-plans-for-actor.handler'
 import { GetPlanHandler } from './application/queries/plans/get-plan.handler'
 import { GetBoardHandler } from './application/queries/tasks/get-board.handler'
+import { GetFlatTasksHandler } from './application/queries/tasks/get-flat.handler'
 import { GetTaskDetailHandler } from './application/queries/tasks/get-task-detail.handler'
 import { PostCommentHandler } from './application/commands/comments/post-comment.handler'
 import { DeleteCommentHandler } from './application/commands/comments/delete-comment.handler'
@@ -134,6 +135,7 @@ import { OnTaskAssignedHandler } from './application/event-handlers/on-task-assi
     ListPlansForActorHandler,
     GetPlanHandler,
     GetBoardHandler,
+    GetFlatTasksHandler,
     GetTaskDetailHandler,
     PostCommentHandler,
     DeleteCommentHandler,
