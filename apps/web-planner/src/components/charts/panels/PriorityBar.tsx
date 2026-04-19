@@ -19,7 +19,7 @@ export function PriorityBar({
         option={option}
         style={{ height: 220 }}
         onEvents={{
-          click: (p: any) => {
+          click: (p: { name: string }) => {
             const map: Record<string, TaskFlat['priority']> = {
               Urgent: 'urgent',
               Important: 'important',

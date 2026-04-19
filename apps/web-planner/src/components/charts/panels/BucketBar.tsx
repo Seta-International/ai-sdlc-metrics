@@ -18,7 +18,7 @@ export function BucketBar({
         option={option}
         style={{ height: Math.max(160, data.length * 40) }}
         onEvents={{
-          click: (p: any) => {
+          click: (p: { name: string }) => {
             const row = data.find((b) => b.bucketName === p.name)
             if (row) onDrill({ field: 'bucket', value: row.bucketId })
           },

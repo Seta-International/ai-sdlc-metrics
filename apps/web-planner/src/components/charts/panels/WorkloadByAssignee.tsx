@@ -26,7 +26,7 @@ export function WorkloadByAssignee({
         option={option}
         style={{ height: Math.max(200, rows.length * 48) }}
         onEvents={{
-          click: (p: any) => {
+          click: (p: { name: string; seriesName: string }) => {
             const priority = PRIORITY_LABEL_MAP[p.seriesName]
             const row = rows.find((r) => r.displayName === p.name)
             if (priority && row) {

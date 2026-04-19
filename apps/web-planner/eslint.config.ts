@@ -12,6 +12,14 @@ const config: Linter.Config[] = [
     },
   },
   {
+    // Test files legitimately use `any` for mocking and type-unsafe assertions
+    files: ['**/*.spec.ts', '**/*.spec.tsx', '**/*.test.ts', '**/*.test.tsx'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+    },
+  },
+  {
     languageOptions: {
       parserOptions: {
         tsconfigRootDir: import.meta.dirname,

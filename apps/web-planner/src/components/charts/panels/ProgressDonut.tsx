@@ -19,7 +19,7 @@ export function ProgressDonut({
         option={option}
         style={{ height: 260 }}
         onEvents={{
-          click: (p: any) => {
+          click: (p: { name: string }) => {
             const map: Record<string, TaskFlat['progress']> = {
               'Not started': 'not-started',
               'In progress': 'in-progress',
