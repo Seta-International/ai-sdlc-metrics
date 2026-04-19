@@ -103,6 +103,9 @@ export function TaskGrid({
 
   const selectedRows = table.getSelectedRowModel().rows.map((r) => r.original)
 
+  const lastVirtualItem = virtualItems[virtualItems.length - 1]
+  const bottomSpace = lastVirtualItem ? totalSize - lastVirtualItem.end : 0
+
   return (
     <div className="relative h-full">
       <div ref={parentRef} className="h-full overflow-auto">
@@ -190,14 +193,7 @@ export function TaskGrid({
               )
             })}
             {/* spacer for items below the virtual window */}
-            {virtualItems.length > 0 &&
-              (() => {
-                const lastItem = virtualItems[virtualItems.length - 1]!
-                const bottomSpace = totalSize - lastItem.end
-                return bottomSpace > 0 ? (
-                  <tr style={{ height: bottomSpace }} aria-hidden="true" />
-                ) : null
-              })()}
+            {bottomSpace > 0 && <tr style={{ height: bottomSpace }} aria-hidden="true" />}
           </TableBody>
         </Table>
       </div>
