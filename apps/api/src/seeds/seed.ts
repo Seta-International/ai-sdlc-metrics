@@ -309,7 +309,13 @@ async function main() {
       })
       .onConflictDoUpdate({
         target: tenantSettings.tenantId,
-        set: { plannerCoreEnabled: true, plannerViewsEnabled: true },
+        set: {
+          plannerCoreEnabled: true,
+          plannerViewsEnabled: true,
+          plannerGridEnabled: false,
+          plannerScheduleEnabled: false,
+          plannerChartsEnabled: false,
+        },
       })
   }
 

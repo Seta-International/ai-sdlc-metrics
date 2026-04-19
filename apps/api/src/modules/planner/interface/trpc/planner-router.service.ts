@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common'
 import { CommandBus, QueryBus } from '@nestjs/cqrs'
 import { TRPCError } from '@trpc/server'
 import { AdminQueryFacade } from '../../../admin/application/facades/admin-query.facade'
+import type { PlannerViewFlags } from '../../../admin/application/queries/planner-view-flags.types'
 
 let instance: PlannerRouterService | null = null
 
@@ -10,7 +11,7 @@ export class PlannerRouterService implements OnModuleInit {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
-    readonly adminQuery: AdminQueryFacade,
+    private readonly adminQueryFacade: AdminQueryFacade,
   ) {}
 
   onModuleInit() {
@@ -24,13 +25,17 @@ export class PlannerRouterService implements OnModuleInit {
   }
 
   async assertPlannerEnabled(tenantId: string): Promise<void> {
-    const enabled = await this.adminQuery.isPlannerEnabled(tenantId)
+    const enabled = await this.adminQueryFacade.isPlannerEnabled(tenantId)
     if (!enabled) {
       throw new TRPCError({
         code: 'FORBIDDEN',
         message: 'Planner is not enabled for this tenant',
       })
     }
+  }
+
+  getPlannerViewFlags(tenantId: string): Promise<PlannerViewFlags> {
+    return this.adminQueryFacade.getPlannerViewFlags(tenantId)
   }
 
   command<T>(command: T): Promise<unknown> {

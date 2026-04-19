@@ -170,7 +170,8 @@ export const planRouter = router({
         })
     }),
 
+  // No assertPlannerEnabled guard — flags are needed before planner feature-gate is known
   getViewFlags: publicProcedure
     .input(z.object({ tenantId: z.string().uuid() }))
-    .query(({ input }) => svc().adminQuery.getPlannerViewFlags(input.tenantId)),
+    .query(({ input }) => svc().getPlannerViewFlags(input.tenantId)),
 })

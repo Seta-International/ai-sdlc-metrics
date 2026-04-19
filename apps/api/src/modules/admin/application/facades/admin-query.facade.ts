@@ -5,7 +5,7 @@ import { TENANT_EMAIL_CONFIG_REPOSITORY } from '../../domain/repositories/tenant
 import type { TenantEmailConfig } from '../../domain/entities/tenant-email-config.entity'
 import { IsPlannerEnabledQuery } from '../queries/is-planner-enabled.query'
 import { GetPlannerViewFlagsQuery } from '../queries/get-planner-view-flags.query'
-import type { PlannerViewFlags } from '../queries/get-planner-view-flags.handler'
+import type { PlannerViewFlags } from '../queries/planner-view-flags.types'
 
 @Injectable()
 export class AdminQueryFacade {

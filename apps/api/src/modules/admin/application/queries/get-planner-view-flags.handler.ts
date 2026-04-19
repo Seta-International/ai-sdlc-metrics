@@ -5,13 +5,9 @@ import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { tenantSettings } from '../../infrastructure/schema/admin.schema'
 import { GetPlannerViewFlagsQuery } from './get-planner-view-flags.query'
+import type { PlannerViewFlags } from './planner-view-flags.types'
 
-export interface PlannerViewFlags {
-  viewsEnabled: boolean
-  gridEnabled: boolean
-  scheduleEnabled: boolean
-  chartsEnabled: boolean
-}
+export type { PlannerViewFlags }
 
 @Injectable()
 @QueryHandler(GetPlannerViewFlagsQuery)
