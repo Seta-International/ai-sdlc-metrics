@@ -15,6 +15,11 @@ import { TitleTooLongException } from '../../domain/exceptions/title-too-long.ex
 import { ChecklistLimitReachedException } from '../../domain/exceptions/checklist-limit-reached.exception'
 import { CommentNotFoundException } from '../../domain/exceptions/comment-not-found.exception'
 import { CommentBodyTooLongException } from '../../domain/exceptions/comment-body-too-long.exception'
+import { EvidenceNotFoundException } from '../../domain/exceptions/evidence-not-found.exception'
+import { CaptionRequiredException } from '../../domain/exceptions/caption-required.exception'
+import { CaptionTooLongException } from '../../domain/exceptions/caption-too-long.exception'
+import { EvidenceBodyRequiredException } from '../../domain/exceptions/evidence-body-required.exception'
+import { EvidenceBodyTooLongException } from '../../domain/exceptions/evidence-body-too-long.exception'
 
 export function toPlannerTrpcError(error: unknown): TRPCError {
   if (error instanceof UnauthorizedPlanAccessException)
@@ -48,6 +53,16 @@ export function toPlannerTrpcError(error: unknown): TRPCError {
   if (error instanceof CommentNotFoundException)
     return new TRPCError({ code: 'NOT_FOUND', message: error.message })
   if (error instanceof CommentBodyTooLongException)
+    return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
+  if (error instanceof EvidenceNotFoundException)
+    return new TRPCError({ code: 'NOT_FOUND', message: error.message })
+  if (error instanceof CaptionRequiredException)
+    return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
+  if (error instanceof CaptionTooLongException)
+    return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
+  if (error instanceof EvidenceBodyRequiredException)
+    return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
+  if (error instanceof EvidenceBodyTooLongException)
     return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
   const msg = error instanceof Error ? error.message : 'Internal error'
   return new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: msg })

@@ -52,6 +52,8 @@ import { TASK_ATTACHMENT_REPOSITORY } from './domain/repositories/task-attachmen
 import { DrizzleTaskAttachmentRepository } from './infrastructure/repositories/drizzle-task-attachment.repository'
 import { TASK_COMMENT_REPOSITORY } from './domain/repositories/task-comment.repository'
 import { DrizzleTaskCommentRepository } from './infrastructure/repositories/drizzle-task-comment.repository'
+import { TASK_EVIDENCE_REPOSITORY } from './domain/repositories/task-evidence.repository'
+import { DrizzleTaskEvidenceRepository } from './infrastructure/repositories/drizzle-task-evidence.repository'
 import { STORAGE_CLIENT } from './domain/ports/storage-client.port'
 import { RequestUploadHandler } from './application/commands/attachments/request-upload.handler'
 import { FinalizeUploadHandler } from './application/commands/attachments/finalize-upload.handler'
@@ -65,6 +67,12 @@ import { GetTaskDetailHandler } from './application/queries/tasks/get-task-detai
 import { PostCommentHandler } from './application/commands/comments/post-comment.handler'
 import { DeleteCommentHandler } from './application/commands/comments/delete-comment.handler'
 import { ListTaskCommentsHandler } from './application/queries/comments/list-task-comments.handler'
+import { RequestEvidenceUploadHandler } from './application/commands/evidence/request-upload.handler'
+import { FinalizeEvidenceUploadHandler } from './application/commands/evidence/finalize-upload.handler'
+import { CreateEvidenceLinkHandler } from './application/commands/evidence/create-link.handler'
+import { CreateEvidenceNoteHandler } from './application/commands/evidence/create-note.handler'
+import { RemoveEvidenceHandler } from './application/commands/evidence/remove-evidence.handler'
+import { ListTaskEvidenceHandler } from './application/queries/evidence/list-task-evidence.handler'
 
 @Module({
   imports: [CqrsModule, KernelModule, AdminModule],
@@ -78,6 +86,7 @@ import { ListTaskCommentsHandler } from './application/queries/comments/list-tas
     { provide: CHECKLIST_ITEM_REPOSITORY, useClass: DrizzleChecklistItemRepository },
     { provide: TASK_ATTACHMENT_REPOSITORY, useClass: DrizzleTaskAttachmentRepository },
     { provide: TASK_COMMENT_REPOSITORY, useClass: DrizzleTaskCommentRepository },
+    { provide: TASK_EVIDENCE_REPOSITORY, useClass: DrizzleTaskEvidenceRepository },
     {
       provide: STORAGE_CLIENT,
       inject: [ConfigService],
@@ -127,6 +136,12 @@ import { ListTaskCommentsHandler } from './application/queries/comments/list-tas
     PostCommentHandler,
     DeleteCommentHandler,
     ListTaskCommentsHandler,
+    RequestEvidenceUploadHandler,
+    FinalizeEvidenceUploadHandler,
+    CreateEvidenceLinkHandler,
+    CreateEvidenceNoteHandler,
+    RemoveEvidenceHandler,
+    ListTaskEvidenceHandler,
     PlannerQueryFacade,
     PlannerRouterService,
   ],

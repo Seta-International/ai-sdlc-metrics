@@ -6,6 +6,7 @@ import { taskRouter } from './task.router'
 import { checklistRouter } from './checklist.router'
 import { attachmentRouter } from './attachment.router'
 import { commentRouter } from './comment.router'
+import { evidenceRouter } from './evidence.router'
 
 export const plannerRouter = router({
   plans: planRouter,
@@ -15,4 +16,5 @@ export const plannerRouter = router({
   checklist: checklistRouter,
   attachments: attachmentRouter,
   comments: commentRouter,
+  evidence: evidenceRouter,
 })
