@@ -65,6 +65,7 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
             ON pm.plan_id = t.plan_id
             AND pm.tenant_id = t.tenant_id
           WHERE t.id = ${taskId}
+            AND t.plan_id = ${planId}
             AND t.tenant_id = ${tenantId}
             AND t.deleted_at IS NULL`,
     )
