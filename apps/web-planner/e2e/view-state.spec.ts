@@ -189,7 +189,7 @@ test.describe('View state — filter + group-by + view switch + URL/LS restore',
 
   // ─── Test 6: Grid tab → ComingSoon ───────────────────────────────────────
 
-  test('clicking Grid tab navigates to /grid and shows coming-soon placeholder', async ({
+  test('clicking Grid tab navigates to /grid and renders the task grid', async ({
     page,
     context,
   }) => {
@@ -205,8 +205,8 @@ test.describe('View state — filter + group-by + view switch + URL/LS restore',
     // Assert: URL changes to /plans/<id>/grid
     await expect(page).toHaveURL(/\/plans\/[0-9a-f-]+\/grid/)
 
-    // Assert: ComingSoon component is rendered
-    await expect(page.getByText(/grid view coming soon/i)).toBeVisible()
+    // Assert: real grid table is rendered
+    await expect(page.locator('table')).toBeVisible()
 
     expect(page.url()).toContain(planId)
   })
