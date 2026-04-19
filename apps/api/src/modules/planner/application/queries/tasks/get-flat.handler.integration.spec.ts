@@ -83,6 +83,8 @@ async function seedTask(
     id?: string
     title?: string
     orderHint?: string
+    progress?: number
+    priority?: number
     checklistItemCount?: number
     checklistCheckedCount?: number
   } = {},
@@ -96,7 +98,7 @@ async function seedTask(
          created_by, created_at, updated_at)
         VALUES (
           ${taskId}, ${tenantId}, ${planId}, ${bucketId},
-          ${overrides.title ?? 'Task'}, '', 0, 5,
+          ${overrides.title ?? 'Task'}, '', ${overrides.progress ?? 0}, ${overrides.priority ?? 5},
           ${overrides.orderHint ?? '1|a:'},
           ${overrides.checklistItemCount ?? 0},
           ${overrides.checklistCheckedCount ?? 0},
@@ -306,6 +308,68 @@ describe('GetFlatTasksHandler — integration', () => {
         expect(task.commentCount).toBe(0)
         expect(task.attachmentCount).toBe(0)
       }
+    })
+
+    it('maps all progress and priority enum variants correctly', async () => {
+      // Seed a dedicated plan + bucket for this test to keep it isolated
+      const mappingPlanId = await seedPlan(rawDb, TENANT_ID, { name: 'Mapping Test Plan' })
+      await seedMember(rawDb, mappingPlanId, TENANT_ID, memberActorId, 'owner')
+      const mappingBucketId = await seedBucket(rawDb, mappingPlanId, TENANT_ID, {
+        name: 'Mapping Bucket',
+        orderHint: '1|a:',
+      })
+
+      // Progress variants
+      const completedId = await seedTask(rawDb, mappingPlanId, mappingBucketId, TENANT_ID, {
+        title: 'Completed Task',
+        progress: 100,
+        orderHint: '1|a:',
+      })
+      const inProgressId = await seedTask(rawDb, mappingPlanId, mappingBucketId, TENANT_ID, {
+        title: 'In-Progress Task',
+        progress: 50,
+        orderHint: '1|b:',
+      })
+      const notStartedId = await seedTask(rawDb, mappingPlanId, mappingBucketId, TENANT_ID, {
+        title: 'Not-Started Task',
+        progress: 0,
+        orderHint: '1|c:',
+      })
+
+      // Priority variants
+      const urgentId = await seedTask(rawDb, mappingPlanId, mappingBucketId, TENANT_ID, {
+        title: 'Urgent Task',
+        priority: 1,
+        orderHint: '1|d:',
+      })
+      const importantId = await seedTask(rawDb, mappingPlanId, mappingBucketId, TENANT_ID, {
+        title: 'Important Task',
+        priority: 3,
+        orderHint: '1|e:',
+      })
+      const lowId = await seedTask(rawDb, mappingPlanId, mappingBucketId, TENANT_ID, {
+        title: 'Low Task',
+        priority: 9,
+        orderHint: '1|f:',
+      })
+
+      const kernelFacade = makeKernelFacade()
+      const handler = new GetFlatTasksHandler(rawDb, kernelFacade)
+      const result = await handler.execute(
+        new GetFlatTasksQuery(mappingPlanId, memberActorId, TENANT_ID),
+      )
+
+      const byId = new Map(result.map((t) => [t.id, t]))
+
+      // Progress assertions
+      expect(byId.get(completedId)?.progress).toBe('completed')
+      expect(byId.get(inProgressId)?.progress).toBe('in-progress')
+      expect(byId.get(notStartedId)?.progress).toBe('not-started')
+
+      // Priority assertions
+      expect(byId.get(urgentId)?.priority).toBe('urgent')
+      expect(byId.get(importantId)?.priority).toBe('important')
+      expect(byId.get(lowId)?.priority).toBe('low')
     })
   })
 

@@ -302,6 +302,9 @@ export class GetFlatTasksHandler implements IQueryHandler<GetFlatTasksQuery, Tas
         return {
           actorId: id,
           displayName: actor?.displayName ?? '',
+          // TODO: KernelQueryFacade.getActorsByIds does not currently return avatarUrl.
+          // avatarUrl is typed as string | null in TaskFlat — null is a valid interim value.
+          // Populate this field once the facade exposes avatar data.
           avatarUrl: null,
         }
       })
