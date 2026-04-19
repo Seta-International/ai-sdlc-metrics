@@ -228,6 +228,33 @@
     --security: #7a7fad;
     --success-ds: #27a644;
     --emerald: #10b981;
+
+    /* Chart palette — light mode */
+    --chart-progress-not-started: #8c9198;
+    --chart-progress-in-progress: #5e6ad2;
+    --chart-progress-completed: #27a644;
+    --chart-priority-urgent: #ef4444;
+    --chart-priority-important: #d97706;
+    --chart-priority-medium: #5e6ad2;
+    --chart-priority-low: #8c9198;
+    --chart-bucket-1: #1d4ed8;
+    --chart-bucket-2: #16a34a;
+    --chart-bucket-3: #d97706;
+    --chart-bucket-4: #dc2626;
+    --chart-bucket-5: #2563eb;
+    --chart-bucket-6: #15803d;
+    --chart-tint-1: hsl(235, 65%, 60%);
+    --chart-tint-2: hsl(265, 65%, 60%);
+    --chart-tint-3: hsl(295, 65%, 58%);
+    --chart-tint-4: hsl(325, 65%, 58%);
+    --chart-tint-5: hsl(355, 65%, 60%);
+    --chart-tint-6: hsl(25, 65%, 58%);
+    --chart-tint-7: hsl(55, 65%, 55%);
+    --chart-tint-8: hsl(85, 65%, 55%);
+    --chart-tint-9: hsl(115, 65%, 55%);
+    --chart-tint-10: hsl(145, 65%, 55%);
+    --chart-tint-11: hsl(175, 65%, 55%);
+    --chart-tint-12: hsl(205, 65%, 58%);
   }
 
   .dark {
@@ -314,6 +341,33 @@
     --overlay: #ffffff;
     /* Static tokens (brand, accent-hover, security, success-ds, emerald) are NOT
        overridden here — they inherit the :root values in both themes. */
+
+    /* Chart palette — dark mode overrides */
+    --chart-progress-not-started: #62666d;
+    --chart-progress-in-progress: #7170ff;
+    --chart-progress-completed: #4ade80;
+    --chart-priority-urgent: #ef4444;
+    --chart-priority-important: #fcd34d;
+    --chart-priority-medium: #7170ff;
+    --chart-priority-low: #62666d;
+    --chart-bucket-1: #3b82f6;
+    --chart-bucket-2: #4ade80;
+    --chart-bucket-3: #fcd34d;
+    --chart-bucket-4: #fca5a5;
+    --chart-bucket-5: #60a5fa;
+    --chart-bucket-6: #34d399;
+    --chart-tint-1: hsl(235, 70%, 68%);
+    --chart-tint-2: hsl(265, 70%, 68%);
+    --chart-tint-3: hsl(295, 70%, 66%);
+    --chart-tint-4: hsl(325, 70%, 66%);
+    --chart-tint-5: hsl(355, 70%, 68%);
+    --chart-tint-6: hsl(25, 70%, 66%);
+    --chart-tint-7: hsl(55, 70%, 63%);
+    --chart-tint-8: hsl(85, 70%, 63%);
+    --chart-tint-9: hsl(115, 70%, 63%);
+    --chart-tint-10: hsl(145, 70%, 63%);
+    --chart-tint-11: hsl(175, 70%, 63%);
+    --chart-tint-12: hsl(205, 70%, 66%);
   }
 }
 
