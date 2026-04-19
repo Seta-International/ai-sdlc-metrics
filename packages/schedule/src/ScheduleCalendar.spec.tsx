@@ -121,6 +121,37 @@ describe('ScheduleCalendar', () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ kind: 'bar' }))
   })
 
+  it('external drop fires onChange with kind=unscheduled-drop', () => {
+    const onChange = vi.fn()
+    render(
+      <ScheduleCalendar
+        items={[baseItem]}
+        view="dayGridWeek"
+        onViewChange={vi.fn()}
+        onChange={onChange}
+      />,
+    )
+    // Simulate FC external drop callback
+    const draggedEl = document.createElement('div')
+    draggedEl.setAttribute(
+      'data-event',
+      JSON.stringify({
+        extendedProps: { itemId: 'task-1', kind: 'unscheduled-drop', version: 'v1' },
+      }),
+    )
+    capturedFcProps.drop({
+      date: new Date('2026-04-20T00:00Z'),
+      draggedEl,
+    })
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'task-1',
+        kind: 'unscheduled-drop',
+        next: { startDate: '2026-04-20', dueDate: '2026-04-20' },
+      }),
+    )
+  })
+
   it('readOnly disables editable and droppable', () => {
     render(
       <ScheduleCalendar
