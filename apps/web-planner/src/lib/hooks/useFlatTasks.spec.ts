@@ -3,7 +3,7 @@ import { renderHook } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 import { useFlatTasks } from './useFlatTasks'
-import type { TaskFlat } from '../task-types'
+import type { TaskFlat } from '@future/api-client/planner'
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -22,12 +22,14 @@ vi.mock('../trpc', () => ({
 }))
 
 vi.mock('@future/auth', () => ({
-  useSession: () => ({ actorId: 'actor-1', tenantId: 'tenant-1' }),
+  useSession: vi.fn(() => ({ actorId: 'actor-1', tenantId: 'tenant-1' })),
 }))
+
+const mockUseSearchParams = vi.fn(() => new URLSearchParams(''))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(''),
+  useSearchParams: () => mockUseSearchParams(),
   usePathname: () => '/plans/plan-1/grid',
 }))
 
@@ -51,6 +53,7 @@ vi.mock('../task-group', async (importOriginal) => {
 // ---------------------------------------------------------------------------
 
 import { trpc } from '../trpc'
+import { useSession } from '@future/auth'
 import { applyTaskFilter } from '../task-filter'
 import { sortTasks } from '../task-sort'
 import { groupTasks } from '../task-group'
@@ -58,6 +61,7 @@ import { groupTasks } from '../task-group'
 const mockGetFlat = vi.mocked(
   (trpc.planner.tasks.getFlat as { query: ReturnType<typeof vi.fn> }).query,
 )
+const mockUseSession = vi.mocked(useSession)
 const mockApplyTaskFilter = vi.mocked(applyTaskFilter)
 const mockSortTasks = vi.mocked(sortTasks)
 const mockGroupTasks = vi.mocked(groupTasks)
@@ -106,6 +110,9 @@ describe('useFlatTasks', () => {
   beforeEach(() => {
     queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     vi.clearAllMocks()
+    // Reset per-test overrides to defaults
+    mockUseSearchParams.mockReturnValue(new URLSearchParams(''))
+    mockUseSession.mockReturnValue({ actorId: 'actor-1', tenantId: 'tenant-1' })
   })
 
   afterEach(() => {
@@ -184,24 +191,19 @@ describe('useFlatTasks', () => {
   })
 
   it('calls sortTasks when URL carries a sort param', () => {
-    vi.resetModules()
-    // Provide a URL with a sort parameter
-    vi.doMock('next/navigation', () => ({
-      useRouter: () => ({ replace: vi.fn() }),
-      useSearchParams: () => new URLSearchParams('sort=title:asc'),
-      usePathname: () => '/plans/plan-1/grid',
-    }))
+    // Override useSearchParams to return a URL with a sort parameter
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('sort=title:asc'))
 
     const tasks = [makeTask({ id: 'a', title: 'Banana' }), makeTask({ id: 'b', title: 'Apple' })]
     queryClient.setQueryData(QUERY_KEY, tasks)
 
-    // We verify indirectly: sorted rows in the rendered result should be Apple first
-    // Use the real sortTasks (spy passes through) so we can check ordering
     const { result } = renderHook(() => useFlatTasks({ planId: 'plan-1' }), { wrapper: Wrapper })
 
-    // Without explicit sort in the hook's state (mock returns empty URL),
-    // sortTasks is not called — the test below is the memoization test.
-    expect(result.current.processed).toBeDefined()
+    // sortTasks should be called because state.sort is set from the URL
+    expect(mockSortTasks).toHaveBeenCalledOnce()
+    expect(mockSortTasks).toHaveBeenCalledWith(tasks, { field: 'title', dir: 'asc' })
+    // The real sortTasks (spy passes through) sorts alphabetically — Apple comes first
+    expect(result.current.processed?.rows[0]?.title).toBe('Apple')
   })
 
   // -------------------------------------------------------------------------
@@ -240,16 +242,16 @@ describe('useFlatTasks', () => {
     expect(result.current.data).toHaveLength(1)
   })
 
-  it('returns undefined processed and isLoading false when no session actorId/tenantId', async () => {
-    // Override session to simulate missing credentials
-    vi.doMock('@future/auth', () => ({
-      useSession: () => null,
-    }))
+  it('returns undefined processed and isLoading false when session is missing', () => {
+    // Override session to simulate missing credentials — actorId/tenantId → '' → enabled = false
+    mockUseSession.mockReturnValue(null)
 
-    // With enabled: false the query never fires — isLoading stays false
+    // With enabled: false the query never fires — isLoading stays false and processed is undefined
     const { result } = renderHook(() => useFlatTasks({ planId: 'plan-1' }), { wrapper: Wrapper })
 
-    // When session is null, actorId/tenantId default to '' → enabled = false
+    expect(result.current.isLoading).toBe(false)
     expect(result.current.processed).toBeUndefined()
+    // Confirm the query was never invoked
+    expect(mockGetFlat).not.toHaveBeenCalled()
   })
 })

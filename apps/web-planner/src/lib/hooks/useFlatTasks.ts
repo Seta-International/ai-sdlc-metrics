@@ -8,7 +8,7 @@ import { applyTaskFilter } from '../task-filter'
 import { sortTasks } from '../task-sort'
 import { groupTasks } from '../task-group'
 import { useViewState } from './useViewState'
-import type { TaskFlat } from '../task-types'
+import type { TaskFlat } from '@future/api-client/planner'
 import type { TaskGroup } from '../task-group'
 
 export interface FlatTasksProcessed {
