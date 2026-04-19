@@ -1,5 +1,5 @@
 'use client'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import {
   Button,
@@ -10,10 +10,8 @@ import {
 } from '@future/ui'
 import { FilterChip } from './FilterChip'
 import { useViewState } from '@/lib/hooks/useViewState'
-import type { PlanContext } from './types'
+import type { PlanContext, FilterField } from './types'
 import type { ViewState } from '@/lib/view-state'
-
-type FilterField = 'due' | 'priority' | 'labels' | 'buckets' | 'assignees'
 
 const FILTER_LABEL: Record<FilterField, string> = {
   due: 'Due date',
@@ -23,13 +21,13 @@ const FILTER_LABEL: Record<FilterField, string> = {
   assignees: 'Assignees',
 }
 
-function computeActiveFields(filter: ViewState['filter']): FilterField[] {
+function computeActiveFields(filter: ViewState['filter'], pinned: Set<FilterField>): FilterField[] {
   const fields: FilterField[] = []
   if (filter.due !== undefined) fields.push('due')
   if (filter.priority.length > 0) fields.push('priority')
-  if (filter.labels.length > 0) fields.push('labels')
-  if (filter.buckets.length > 0) fields.push('buckets')
-  if (filter.assignees.length > 0) fields.push('assignees')
+  if (filter.labels.length > 0 || pinned.has('labels')) fields.push('labels')
+  if (filter.buckets.length > 0 || pinned.has('buckets')) fields.push('buckets')
+  if (filter.assignees.length > 0 || pinned.has('assignees')) fields.push('assignees')
   return fields
 }
 
@@ -50,7 +48,8 @@ function addFilterDefault(filter: ViewState['filter'], field: FilterField): View
 
 export function FilterBar({ planId, context }: { planId: string; context: PlanContext }) {
   const { state, patch } = useViewState({ planId })
-  const active = useMemo(() => computeActiveFields(state.filter), [state.filter])
+  const [pinned, setPinned] = useState<Set<FilterField>>(new Set())
+  const active = useMemo(() => computeActiveFields(state.filter, pinned), [state.filter, pinned])
   const available = (['due', 'priority', 'labels', 'buckets', 'assignees'] as FilterField[]).filter(
     (k) => !active.includes(k),
   )
@@ -58,7 +57,19 @@ export function FilterBar({ planId, context }: { planId: string; context: PlanCo
   return (
     <div className="flex flex-wrap items-center gap-2">
       {active.map((field) => (
-        <FilterChip key={field} planId={planId} field={field} context={context} />
+        <FilterChip
+          key={field}
+          planId={planId}
+          field={field}
+          context={context}
+          onRemove={() =>
+            setPinned((p) => {
+              const n = new Set(p)
+              n.delete(field)
+              return n
+            })
+          }
+        />
       ))}
       {available.length > 0 && (
         <DropdownMenu>
@@ -72,7 +83,14 @@ export function FilterBar({ planId, context }: { planId: string; context: PlanCo
             {available.map((f) => (
               <DropdownMenuItem
                 key={f}
-                onSelect={() => patch({ filter: addFilterDefault(state.filter, f) })}
+                onSelect={() => {
+                  setPinned((p) => {
+                    const n = new Set(p)
+                    n.add(f)
+                    return n
+                  })
+                  patch({ filter: addFilterDefault(state.filter, f) })
+                }}
               >
                 {FILTER_LABEL[f]}
               </DropdownMenuItem>

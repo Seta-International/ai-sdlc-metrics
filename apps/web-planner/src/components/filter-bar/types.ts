@@ -1,3 +1,5 @@
+export type FilterField = 'due' | 'priority' | 'labels' | 'buckets' | 'assignees'
+
 export interface PlanLabel {
   id: string
   name: string

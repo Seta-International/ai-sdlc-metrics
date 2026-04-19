@@ -3,10 +3,8 @@ import { X } from 'lucide-react'
 import { Button } from '@future/ui'
 import { FilterPopover } from './FilterPopover'
 import { useViewState } from '@/lib/hooks/useViewState'
-import type { PlanContext } from './types'
+import type { PlanContext, FilterField } from './types'
 import type { ViewState } from '@/lib/view-state'
-
-type FilterField = 'due' | 'priority' | 'labels' | 'buckets' | 'assignees'
 
 function chipLabel(field: FilterField, filter: ViewState['filter']): string {
   switch (field) {
@@ -42,34 +40,36 @@ export function FilterChip({
   planId,
   field,
   context,
+  onRemove,
 }: {
   planId: string
   field: FilterField
   context: PlanContext
+  onRemove?: () => void
 }) {
   const { state, patch } = useViewState({ planId })
 
+  function handleClear() {
+    patch({ filter: clearFilter(field, state.filter) })
+    onRemove?.()
+  }
+
   return (
-    <FilterPopover
-      planId={planId}
-      field={field}
-      context={context}
-      trigger={
-        <Button variant="outline" size="sm" className="gap-1">
+    <div className="flex items-center rounded-md border border-input shadow-sm">
+      <FilterPopover planId={planId} field={field} context={context}>
+        <Button variant="ghost" size="sm" className="rounded-r-none border-r-0 h-8">
           {chipLabel(field, state.filter)}
-          <span
-            role="button"
-            aria-label="Clear filter"
-            className="ml-1 rounded hover:bg-muted"
-            onClick={(e) => {
-              e.stopPropagation()
-              patch({ filter: clearFilter(field, state.filter) })
-            }}
-          >
-            <X className="size-3" aria-hidden={true} />
-          </span>
         </Button>
-      }
-    />
+      </FilterPopover>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-8 rounded-l-none"
+        aria-label="Clear filter"
+        onClick={handleClear}
+      >
+        <X className="size-3" aria-hidden={true} />
+      </Button>
+    </div>
   )
 }
