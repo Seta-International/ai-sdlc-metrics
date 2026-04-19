@@ -75,8 +75,8 @@ describe('usePlannerSchedule', () => {
       expect.objectContaining({
         taskId: 'task-1',
         planId: 'plan-1',
-        startDate: '2026-04-14',
-        dueDate: '2026-04-15',
+        startDate: new Date('2026-04-14'),
+        dueDate: new Date('2026-04-15'),
         expectedVersion: '2026-04-01T00:00Z',
       }),
     )
