@@ -73,6 +73,9 @@ test.describe('View state — filter + group-by + view switch + URL/LS restore',
     await addTaskToFirstColumn(page, `Task One ${RUN_ID}`)
     await addTaskToFirstColumn(page, `Task Two ${RUN_ID}`)
 
+    // Assert: without any filter both task cards are visible
+    await expect(page.locator('[data-testid="task-card"]')).toHaveCount(2)
+
     // Act: open "Add filter" dropdown and pick Priority
     const addFilterBtn = page.getByRole('button', { name: /add filter/i })
     await expect(addFilterBtn).toBeVisible()
@@ -95,6 +98,13 @@ test.describe('View state — filter + group-by + view switch + URL/LS restore',
     // Assert: task cards count = 0 (all seeded tasks are medium, filter is urgent)
     await expect(page.locator('[data-testid="task-card"]')).toHaveCount(0)
 
+    // Act: clear the priority filter chip — count should return to 2
+    await page.getByRole('button', { name: /clear filter/i }).click()
+
+    // Assert: filter chip is gone and both tasks are visible again (bidirectional proof)
+    await expect(page.getByRole('button', { name: /priority:/i })).not.toBeVisible()
+    await expect(page.locator('[data-testid="task-card"]')).toHaveCount(2)
+
     expect(page.url()).toContain(planId)
   })
 
@@ -113,6 +123,9 @@ test.describe('View state — filter + group-by + view switch + URL/LS restore',
       await addBucket(page, 'To do')
     }
 
+    // Seed a task so a board column is visible
+    await addTaskToFirstColumn(page, `Group Task ${RUN_ID}`)
+
     // Act: open the GroupByPicker via stable testid
     const groupByTrigger = page.getByTestId('group-by-trigger')
     await expect(groupByTrigger).toBeVisible()
@@ -128,6 +141,11 @@ test.describe('View state — filter + group-by + view switch + URL/LS restore',
 
     // Assert: trigger now shows "Assignee"
     await expect(page.getByTestId('group-by-trigger')).toContainText(/assignee/i)
+
+    // Assert: the board still renders columns — the seeded task's bucket column remains
+    // visible (board currently groups by bucket; group-by state is used for telemetry
+    // and future re-grouping; at minimum one column must be present)
+    await expect(page.locator('[data-testid="board-column"]').first()).toBeVisible()
 
     expect(page.url()).toContain(planId)
   })
