@@ -10,13 +10,8 @@ import {
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
-import type {
-  EventInput,
-  EventApi,
-  DropArg,
-  EventDropArg,
-  EventResizeDoneArg,
-} from '@fullcalendar/core'
+import type { EventInput, EventApi, EventDropArg } from '@fullcalendar/core'
+import type { DropArg, EventResizeDoneArg } from '@fullcalendar/interaction'
 import { partitionItems } from './schedule-render'
 import { itemToFcEvent } from './item-to-fc-event'
 import { resolveFcChange } from './fc-event-to-dates'
@@ -177,7 +172,7 @@ export const ScheduleCalendar = forwardRef(function ScheduleCalendar<TPayload>(
       </div>
       {!hideUnscheduledPanel && (
         <UnscheduledPanel<TPayload>
-          items={unscheduled}
+          items={unscheduled as ScheduleItem<TPayload>[]}
           title={unscheduledPanelTitle}
           renderItem={renderUnscheduledItem}
         />
