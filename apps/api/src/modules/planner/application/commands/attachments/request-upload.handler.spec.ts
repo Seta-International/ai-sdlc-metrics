@@ -4,6 +4,8 @@ import { RequestUploadCommand } from './request-upload.command'
 import { Task } from '../../../domain/entities/task.entity'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
 import { TaskNotFoundException } from '../../../domain/exceptions/task-not-found.exception'
+import { UnsafeFileTypeException } from '../../../domain/exceptions/unsafe-file-type.exception'
+import { FileTooLargeException } from '../../../domain/exceptions/file-too-large.exception'
 import type { ITaskRepository } from '../../../domain/repositories/task.repository'
 import type { StorageClient } from '@future/storage'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
@@ -98,7 +100,7 @@ describe('RequestUploadHandler', () => {
       51 * 1024 * 1024,
     )
 
-    await expect(handler.execute(command)).rejects.toThrow('50 MB')
+    await expect(handler.execute(command)).rejects.toThrow(FileTooLargeException)
     expect(storageClient.getUploadUrl).not.toHaveBeenCalled()
   })
 
@@ -115,7 +117,7 @@ describe('RequestUploadHandler', () => {
         1024,
       )
 
-      await expect(handler.execute(command)).rejects.toThrow('Unsafe file type')
+      await expect(handler.execute(command)).rejects.toThrow(UnsafeFileTypeException)
       expect(storageClient.getUploadUrl).not.toHaveBeenCalled()
     },
   )

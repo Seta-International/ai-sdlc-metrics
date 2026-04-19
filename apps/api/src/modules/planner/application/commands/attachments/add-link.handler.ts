@@ -9,6 +9,7 @@ import {
 import { TaskAttachment } from '../../../domain/entities/task-attachment.entity'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 import { TaskNotFoundException } from '../../../domain/exceptions/task-not-found.exception'
+import { InvalidAttachmentUrlException } from '../../../domain/exceptions/invalid-attachment-url.exception'
 import { AddLinkCommand } from './add-link.command'
 
 @CommandHandler(AddLinkCommand)
@@ -31,11 +32,11 @@ export class AddLinkHandler implements ICommandHandler<AddLinkCommand> {
     try {
       url = new URL(command.url)
     } catch {
-      throw new Error(`Invalid URL: ${command.url}`)
+      throw new InvalidAttachmentUrlException(command.url)
     }
 
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-      throw new Error(`URL must use http or https protocol`)
+      throw new InvalidAttachmentUrlException(command.url)
     }
 
     const attachment = TaskAttachment.createLink({

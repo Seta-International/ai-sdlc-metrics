@@ -50,10 +50,8 @@ import { CHECKLIST_ITEM_REPOSITORY } from './domain/repositories/checklist-item.
 import { DrizzleChecklistItemRepository } from './infrastructure/repositories/drizzle-checklist-item.repository'
 import { TASK_ATTACHMENT_REPOSITORY } from './domain/repositories/task-attachment.repository'
 import { DrizzleTaskAttachmentRepository } from './infrastructure/repositories/drizzle-task-attachment.repository'
-import {
-  RequestUploadHandler,
-  STORAGE_CLIENT,
-} from './application/commands/attachments/request-upload.handler'
+import { STORAGE_CLIENT } from './domain/ports/storage-client.port'
+import { RequestUploadHandler } from './application/commands/attachments/request-upload.handler'
 import { FinalizeUploadHandler } from './application/commands/attachments/finalize-upload.handler'
 import { AddLinkHandler } from './application/commands/attachments/add-link.handler'
 import { SetCoverHandler } from './application/commands/attachments/set-cover.handler'

@@ -7,6 +7,8 @@ import { TaskAttachment } from '../../../domain/entities/task-attachment.entity'
 import { AttachmentAddedEvent } from '@future/event-contracts'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
 import { TaskNotFoundException } from '../../../domain/exceptions/task-not-found.exception'
+import { InvalidStorageKeyException } from '../../../domain/exceptions/invalid-storage-key.exception'
+import { StorageKeyNotFoundException } from '../../../domain/exceptions/storage-key-not-found.exception'
 import type { ITaskRepository } from '../../../domain/repositories/task.repository'
 import type { ITaskAttachmentRepository } from '../../../domain/repositories/task-attachment.repository'
 import type { StorageClient } from '@future/storage'
@@ -97,6 +99,13 @@ describe('FinalizeUploadHandler', () => {
   it('sets task cover when setAsCover=true and contentType is image', async () => {
     const task = makeTask()
     taskRepo.findById.mockResolvedValue(task)
+    const callOrder: string[] = []
+    taskRepo.update.mockImplementation(async () => {
+      callOrder.push('taskRepo.update')
+    })
+    attachmentRepo.add.mockImplementation(async () => {
+      callOrder.push('attachmentRepo.add')
+    })
     const command = new FinalizeUploadCommand(
       TENANT_ID,
       PLAN_ID,
@@ -115,6 +124,8 @@ describe('FinalizeUploadHandler', () => {
     expect(taskRepo.update).toHaveBeenCalledOnce()
     const [updatedTask] = taskRepo.update.mock.calls[0]
     expect(updatedTask.coverAttachmentId).toBe(ATTACHMENT_ID)
+    // Cover update must happen before attachment row is created (fail-fast ordering)
+    expect(callOrder).toEqual(['taskRepo.update', 'attachmentRepo.add'])
     expect(eventBus.publish).toHaveBeenCalledWith(expect.any(AttachmentAddedEvent))
   })
 
@@ -150,7 +161,8 @@ describe('FinalizeUploadHandler', () => {
       1024,
     )
 
-    await expect(handler.execute(command)).rejects.toThrow('Invalid storage key')
+    await expect(handler.execute(command)).rejects.toThrow(InvalidStorageKeyException)
+    expect(storageClient.headObject).not.toHaveBeenCalled()
     expect(attachmentRepo.add).not.toHaveBeenCalled()
   })
 
@@ -168,7 +180,7 @@ describe('FinalizeUploadHandler', () => {
       1024,
     )
 
-    await expect(handler.execute(command)).rejects.toThrow('Storage key not found')
+    await expect(handler.execute(command)).rejects.toThrow(StorageKeyNotFoundException)
     expect(attachmentRepo.add).not.toHaveBeenCalled()
   })
 

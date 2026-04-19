@@ -7,6 +7,7 @@ import { TaskAttachment } from '../../../domain/entities/task-attachment.entity'
 import { AttachmentAddedEvent } from '@future/event-contracts'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
 import { TaskNotFoundException } from '../../../domain/exceptions/task-not-found.exception'
+import { InvalidAttachmentUrlException } from '../../../domain/exceptions/invalid-attachment-url.exception'
 import type { ITaskRepository } from '../../../domain/repositories/task.repository'
 import type { ITaskAttachmentRepository } from '../../../domain/repositories/task-attachment.repository'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
@@ -101,7 +102,7 @@ describe('AddLinkHandler', () => {
       'not-a-url',
     )
 
-    await expect(handler.execute(command)).rejects.toThrow('Invalid URL')
+    await expect(handler.execute(command)).rejects.toThrow(InvalidAttachmentUrlException)
     expect(attachmentRepo.add).not.toHaveBeenCalled()
     expect(eventBus.publish).not.toHaveBeenCalled()
   })
@@ -116,7 +117,7 @@ describe('AddLinkHandler', () => {
       'ftp://files.example.com/doc',
     )
 
-    await expect(handler.execute(command)).rejects.toThrow('http or https')
+    await expect(handler.execute(command)).rejects.toThrow(InvalidAttachmentUrlException)
     expect(attachmentRepo.add).not.toHaveBeenCalled()
   })
 

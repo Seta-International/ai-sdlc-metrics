@@ -32,12 +32,9 @@ export class RemoveAttachmentHandler implements ICommandHandler<RemoveAttachment
       throw new AttachmentNotFoundException(command.attachmentId)
     }
 
-    let expectedVersion = command.expectedVersion
-
     if (task.coverAttachmentId === command.attachmentId) {
       task.setCoverAttachment(null)
-      await this.taskRepo.update(task, expectedVersion)
-      expectedVersion = task.updatedAt.toISOString()
+      await this.taskRepo.update(task, command.expectedVersion)
     }
 
     await this.attachmentRepo.remove(command.attachmentId, command.tenantId)

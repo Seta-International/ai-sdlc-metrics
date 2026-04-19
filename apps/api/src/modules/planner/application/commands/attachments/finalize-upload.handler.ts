@@ -1,7 +1,6 @@
 import { Inject } from '@nestjs/common'
 import { CommandHandler, EventBus, type ICommandHandler } from '@nestjs/cqrs'
 import { AttachmentAddedEvent } from '@future/event-contracts'
-import { type StorageClient } from '@future/storage'
 import { TASK_REPOSITORY, type ITaskRepository } from '../../../domain/repositories/task.repository'
 import {
   TASK_ATTACHMENT_REPOSITORY,
@@ -10,7 +9,10 @@ import {
 import { TaskAttachment } from '../../../domain/entities/task-attachment.entity'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 import { TaskNotFoundException } from '../../../domain/exceptions/task-not-found.exception'
-import { STORAGE_CLIENT } from './request-upload.handler'
+import { InvalidStorageKeyException } from '../../../domain/exceptions/invalid-storage-key.exception'
+import { StorageKeyNotFoundException } from '../../../domain/exceptions/storage-key-not-found.exception'
+import { STORAGE_CLIENT, type StorageClient } from '../../../domain/ports/storage-client.port'
+import { buildAttachmentKeyPrefix } from './attachment-key'
 import { FinalizeUploadCommand } from './finalize-upload.command'
 
 @CommandHandler(FinalizeUploadCommand)
@@ -30,14 +32,21 @@ export class FinalizeUploadHandler implements ICommandHandler<FinalizeUploadComm
     const task = await this.taskRepo.findById(command.taskId, command.tenantId)
     if (!task) throw new TaskNotFoundException(command.taskId)
 
-    const expectedPrefix = `${command.tenantId}/documents/planner/${command.taskId}/`
+    const expectedPrefix = buildAttachmentKeyPrefix(command.tenantId, command.taskId)
     if (!command.storageKey.startsWith(expectedPrefix)) {
-      throw new Error(`Invalid storage key: key does not belong to this task`)
+      throw new InvalidStorageKeyException(command.storageKey)
     }
 
     const meta = await this.storageClient.headObject(command.storageKey)
     if (!meta) {
-      throw new Error(`Storage key not found: ${command.storageKey}`)
+      throw new StorageKeyNotFoundException(command.storageKey)
+    }
+
+    // Fail fast: update cover before creating attachment row so orphaned rows can't occur
+    if (command.setAsCover && command.contentType.startsWith('image/')) {
+      const expectedVersion = task.updatedAt.toISOString()
+      task.setCoverAttachment(command.attachmentId)
+      await this.taskRepo.update(task, expectedVersion)
     }
 
     const attachment = TaskAttachment.createFile({
@@ -52,12 +61,6 @@ export class FinalizeUploadHandler implements ICommandHandler<FinalizeUploadComm
     })
 
     await this.attachmentRepo.add(attachment)
-
-    if (command.setAsCover && command.contentType.startsWith('image/')) {
-      const expectedVersion = task.updatedAt.toISOString()
-      task.setCoverAttachment(command.attachmentId)
-      await this.taskRepo.update(task, expectedVersion)
-    }
 
     await this.eventBus.publish(
       new AttachmentAddedEvent(

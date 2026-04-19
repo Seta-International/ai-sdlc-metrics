@@ -1,13 +1,14 @@
 import { Inject } from '@nestjs/common'
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import { extname } from 'node:path'
-import { buildKey, type StorageClient } from '@future/storage'
+import { buildKey } from '@future/storage'
 import { TASK_REPOSITORY, type ITaskRepository } from '../../../domain/repositories/task.repository'
+import { STORAGE_CLIENT, type StorageClient } from '../../../domain/ports/storage-client.port'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 import { TaskNotFoundException } from '../../../domain/exceptions/task-not-found.exception'
+import { UnsafeFileTypeException } from '../../../domain/exceptions/unsafe-file-type.exception'
+import { FileTooLargeException } from '../../../domain/exceptions/file-too-large.exception'
 import { RequestUploadCommand } from './request-upload.command'
-
-export const STORAGE_CLIENT = 'PLANNER_STORAGE_CLIENT'
 
 const MAX_SIZE_BYTES = 50 * 1024 * 1024 // 50 MB
 
@@ -35,11 +36,11 @@ export class RequestUploadHandler implements ICommandHandler<RequestUploadComman
 
     const ext = extname(command.filename).toLowerCase()
     if (BLOCKED_EXTENSIONS.has(ext)) {
-      throw new Error(`Unsafe file type not allowed: ${ext}`)
+      throw new UnsafeFileTypeException(ext)
     }
 
     if (command.sizeBytes > MAX_SIZE_BYTES) {
-      throw new Error(`File size exceeds maximum allowed size of 50 MB`)
+      throw new FileTooLargeException(command.sizeBytes, MAX_SIZE_BYTES)
     }
 
     const storageKey = buildKey({
