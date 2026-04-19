@@ -1,4 +1,6 @@
 // Placeholder — full implementation comes in Task 7
-export function PriorityCell() {
+import type { TaskFlat } from '@future/api-client/planner'
+
+export function PriorityCell(_props: { task: TaskFlat }) {
   return null
 }

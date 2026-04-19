@@ -1,4 +1,6 @@
 // Placeholder — full implementation comes in Task 7
-export function DueCell() {
+import type { TaskFlat } from '@future/api-client/planner'
+
+export function DueCell(_props: { task: TaskFlat }) {
   return null
 }

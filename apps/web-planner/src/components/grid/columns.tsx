@@ -3,6 +3,8 @@
 import * as React from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { TaskFlat } from '@future/api-client/planner'
+import { TitleCell } from './cells/TitleCell'
+import { BucketCell } from './cells/BucketCell'
 import { ProgressCell } from './cells/ProgressCell'
 import { PriorityCell } from './cells/PriorityCell'
 import { StartCell } from './cells/StartCell'
@@ -12,7 +14,7 @@ import { LabelsCell } from './cells/LabelsCell'
 import { ActionsCell } from './cells/ActionsCell'
 
 export type BuildColumnsOptions = {
-  editable: boolean
+  editable: boolean // consumed by cell components in Task 7 — cells render read-only when false
   onOpen: (taskId: string) => void
   planMembers: { actorId: string; displayName: string }[]
   planLabels: { id: string; name: string; color: string }[]
@@ -57,15 +59,7 @@ export function buildColumns(opts: BuildColumnsOptions): ColumnDef<TaskFlat>[] {
       accessorKey: 'title',
       header: 'Title',
       enableSorting: true,
-      cell: ({ row }) => (
-        <button
-          type="button"
-          className="text-left hover:underline focus-visible:underline focus-visible:outline-none"
-          onClick={() => onOpen(row.original.id)}
-        >
-          {row.original.title}
-        </button>
-      ),
+      cell: ({ row }) => <TitleCell task={row.original} onOpen={onOpen} />,
     },
 
     // ── Bucket ──────────────────────────────────────────────────────────────
@@ -74,9 +68,7 @@ export function buildColumns(opts: BuildColumnsOptions): ColumnDef<TaskFlat>[] {
       id: 'bucket',
       enableSorting: false,
       header: 'Bucket',
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{row.original.bucketName}</span>
-      ),
+      cell: ({ row }) => <BucketCell task={row.original} />,
     },
 
     // ── Progress ────────────────────────────────────────────────────────────
