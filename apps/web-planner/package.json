@@ -28,6 +28,7 @@
     "sonner": "^2.0.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.2",
     "@future/eslint-config": "workspace:*",
     "@future/tsconfig": "workspace:*",
     "@playwright/test": "^1.59.1",
