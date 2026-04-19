@@ -62,7 +62,11 @@ export function TaskDetailPanel({ taskId, planId }: Props) {
 
       <div className="flex-1 overflow-y-auto">
         {isLoading || !task ? (
-          <div className="flex flex-col gap-3 px-4 py-4">
+          <div
+            className="flex flex-col gap-3 px-4 py-4"
+            data-testid="task-detail-loading-skeleton"
+            aria-label="Loading task…"
+          >
             <Skeleton className="h-4 w-1/3" />
             <Skeleton className="h-4 w-2/3" />
             <Skeleton className="h-4 w-1/2" />

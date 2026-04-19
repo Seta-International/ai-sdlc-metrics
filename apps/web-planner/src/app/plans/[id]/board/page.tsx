@@ -38,7 +38,11 @@ function BoardColumnSkeleton() {
 
 function BoardLoadingSkeleton() {
   return (
-    <div className="flex gap-4 px-6 py-4 overflow-x-auto" aria-label="Loading board…">
+    <div
+      className="flex gap-4 px-6 py-4 overflow-x-auto"
+      aria-label="Loading board…"
+      data-testid="board-loading-skeleton"
+    >
       {[1, 2, 3].map((i) => (
         <BoardColumnSkeleton key={i} />
       ))}

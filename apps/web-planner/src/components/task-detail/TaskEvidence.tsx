@@ -456,9 +456,6 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
         <div className="py-2 text-caption text-fg-subtle">Loading…</div>
       ) : (
         <div className="flex flex-col gap-2">
-          {items.length === 0 && (
-            <p className="text-caption text-fg-muted py-4 text-center">No evidence added yet.</p>
-          )}
           {items.map((item) => (
             <EvidenceCard
               key={item.id}
