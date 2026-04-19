@@ -73,9 +73,11 @@ import { CreateEvidenceLinkHandler } from './application/commands/evidence/creat
 import { CreateEvidenceNoteHandler } from './application/commands/evidence/create-note.handler'
 import { RemoveEvidenceHandler } from './application/commands/evidence/remove-evidence.handler'
 import { ListTaskEvidenceHandler } from './application/queries/evidence/list-task-evidence.handler'
+import { NotificationsModule } from '../notifications/notifications.module'
+import { OnTaskAssignedHandler } from './application/event-handlers/on-task-assigned.handler'
 
 @Module({
-  imports: [CqrsModule, KernelModule, AdminModule],
+  imports: [CqrsModule, KernelModule, AdminModule, NotificationsModule],
   providers: [
     { provide: MS_PLANNER_CLIENT, useClass: Phase1MsPlannerClientAdapter },
     { provide: PLAN_REPOSITORY, useClass: DrizzlePlanRepository },
@@ -142,6 +144,7 @@ import { ListTaskEvidenceHandler } from './application/queries/evidence/list-tas
     CreateEvidenceNoteHandler,
     RemoveEvidenceHandler,
     ListTaskEvidenceHandler,
+    OnTaskAssignedHandler,
     PlannerQueryFacade,
     PlannerRouterService,
   ],
