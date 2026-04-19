@@ -1,5 +1,6 @@
 import type { TaskFlat } from './task-types'
 import type { GroupKey } from './view-state'
+import { startOfDay, addDays } from './date-utils'
 
 export type TaskGroup = { key: string; label: string; tasks: TaskFlat[] }
 
@@ -83,6 +84,8 @@ const DUE_LABELS: Record<string, string> = {
   none: 'No date',
 }
 
+// Groups are mutually exclusive: today/tomorrow are separate from this-week.
+// The filter's this-week is intentionally inclusive (matches today + tomorrow too).
 function groupByDue(tasks: TaskFlat[], now: Date): TaskGroup[] {
   const todayStart = startOfDay(now)
   const boundaries = {
@@ -126,7 +129,11 @@ function groupByAssignee(tasks: TaskFlat[]): TaskGroup[] {
       }
     }
   }
-  return [...byId.entries()].map(([key, v]) => ({ key, label: v.name, tasks: v.tasks }))
+  return [...byId.entries()]
+    .map(([key, v]) => ({ key, label: v.name, tasks: v.tasks }))
+    .sort((a, b) =>
+      a.key === '__unassigned' ? 1 : b.key === '__unassigned' ? -1 : a.label.localeCompare(b.label),
+    )
 }
 
 function groupByLabel(tasks: TaskFlat[]): TaskGroup[] {
@@ -147,13 +154,9 @@ function groupByLabel(tasks: TaskFlat[]): TaskGroup[] {
       }
     }
   }
-  return [...byId.entries()].map(([key, v]) => ({ key, label: v.name, tasks: v.tasks }))
-}
-
-function startOfDay(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
-}
-
-function addDays(d: Date, n: number): Date {
-  return new Date(d.getTime() + n * 86_400_000)
+  return [...byId.entries()]
+    .map(([key, v]) => ({ key, label: v.name, tasks: v.tasks }))
+    .sort((a, b) =>
+      a.key === '__nolabel' ? 1 : b.key === '__nolabel' ? -1 : a.label.localeCompare(b.label),
+    )
 }

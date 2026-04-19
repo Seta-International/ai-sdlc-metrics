@@ -1,5 +1,6 @@
 import type { TaskFlat } from './task-types'
 import type { ViewState } from './view-state'
+import { startOfDay, addDays } from './date-utils'
 
 export type FilterInput = ViewState['filter']
 
@@ -57,12 +58,4 @@ function buildDueMatcher(
         return false
     }
   }
-}
-
-function startOfDay(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
-}
-
-function addDays(d: Date, n: number): Date {
-  return new Date(d.getTime() + n * 86_400_000)
 }
