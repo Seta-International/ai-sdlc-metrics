@@ -176,6 +176,7 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loadItems = useCallback(async () => {
+    setLoading(true)
     try {
       const result = (await trpc.planner.evidence.list.query({
         tenantId,
@@ -191,7 +192,6 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
 
   useEffect(() => {
     if (!actorId || !tenantId) return
-    setLoading(true)
     void loadItems()
   }, [loadItems, actorId, tenantId])
 

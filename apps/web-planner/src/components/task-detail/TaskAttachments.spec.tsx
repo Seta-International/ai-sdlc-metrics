@@ -107,7 +107,6 @@ function makeTask(overrides: Partial<TaskDetailSnapshot> = {}): TaskDetailSnapsh
 }
 
 // Reusable XHR mock — resolves onload with status 200
-// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 class XHRMock {
   static lastInstance: XHRMock | null = null
   upload = { onprogress: null as ((e: ProgressEvent) => void) | null }
