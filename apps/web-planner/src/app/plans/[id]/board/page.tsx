@@ -10,8 +10,16 @@ import { BoardColumn } from '../../../../components/board/BoardColumn'
 import { AddBucketButton } from '../../../../components/board/AddBucketButton'
 import { useQueryClient } from '@tanstack/react-query'
 import { trpc } from '../../../../lib/trpc'
-import type { BoardSnapshot } from '../../../../lib/board-types'
+import type {
+  BoardSnapshot,
+  BoardTaskSnapshot,
+  BoardBucketSnapshot,
+} from '../../../../lib/board-types'
 import type { Progress } from '../../../../components/primitives/ProgressIcon'
+import type { TaskFlat } from '../../../../lib/task-types'
+import { useViewState } from '../../../../lib/hooks/useViewState'
+import { applyTaskFilter } from '../../../../lib/task-filter'
+import { sortTasks } from '../../../../lib/task-sort'
 
 // ─── Loading skeleton ─────────────────────────────────────────────────────────
 
@@ -88,6 +96,46 @@ function BoardEmpty({
   )
 }
 
+// ─── Conversion helper ────────────────────────────────────────────────────────
+
+function toTaskFlat(t: BoardTaskSnapshot, bucket: BoardBucketSnapshot, planId: string): TaskFlat {
+  const priorityMap: Record<number, TaskFlat['priority']> = {
+    1: 'low',
+    3: 'medium',
+    5: 'important',
+    9: 'urgent',
+  }
+  const progressMap: Record<number, TaskFlat['progress']> = {
+    0: 'not-started',
+    50: 'in-progress',
+    100: 'completed',
+  }
+  return {
+    id: t.id,
+    planId,
+    bucketId: bucket.id,
+    bucketName: bucket.name,
+    bucketOrderHint: bucket.orderHint,
+    title: t.title,
+    progress: progressMap[t.progress] ?? 'not-started',
+    priority: priorityMap[t.priority] ?? 'medium',
+    startDate: t.startDate ? t.startDate.toISOString() : null,
+    dueDate: t.dueDate ? t.dueDate.toISOString() : null,
+    assignees: t.assignees.map((a) => ({
+      actorId: a.actorId,
+      name: a.name,
+      avatarUrl: a.avatarUrl,
+    })),
+    labels: t.appliedLabels.map((id) => ({ id, name: id, color: '#888' })),
+    orderHint: t.orderHint,
+    commentCount: t.commentCount,
+    checklistCount: { total: t.checklistItemCount, completed: t.checklistCheckedCount },
+    attachmentCount: t.attachmentCount,
+    createdAt: t.updatedAt.toISOString(),
+    updatedAt: t.updatedAt.toISOString(),
+  }
+}
+
 // ─── Board inner ──────────────────────────────────────────────────────────────
 
 interface BoardInnerProps {
@@ -101,12 +149,27 @@ function BoardInner({ snapshot, planId, actorId, tenantId }: BoardInnerProps) {
   const queryClient = useQueryClient()
   const queryKey = ['tasks.getBoard', planId, actorId, tenantId] as const
   const { move } = useOptimisticMove({ planId, actorId, tenantId })
+  const { state } = useViewState({ planId })
+
+  // Flatten → filter → sort, then reconstruct filtered snapshot for group-by-bucket
+  const allFlat = snapshot.buckets.flatMap((b) => b.tasks.map((t) => toTaskFlat(t, b, planId)))
+  const filtered = applyTaskFilter(allFlat, state.filter)
+  const sorted = state.sort ? sortTasks(filtered, state.sort) : filtered
+  const filteredIds = new Set(sorted.map((t) => t.id))
+
+  const displaySnapshot: BoardSnapshot = {
+    ...snapshot,
+    buckets: snapshot.buckets.map((b) => ({
+      ...b,
+      tasks: b.tasks.filter((t) => filteredIds.has(t.id)),
+    })),
+  }
 
   // Build lookup structures for BoardDragContext
   const taskIndex = new Map<string, { bucketId: string; orderHint: string }>()
   const bucketTaskLists = new Map<string, Array<{ id: string; orderHint: string }>>()
 
-  for (const bucket of snapshot.buckets) {
+  for (const bucket of displaySnapshot.buckets) {
     bucketTaskLists.set(
       bucket.id,
       bucket.tasks.map((t) => ({ id: t.id, orderHint: t.orderHint })),
@@ -166,11 +229,11 @@ function BoardInner({ snapshot, planId, actorId, tenantId }: BoardInnerProps) {
       bucketTaskLists={bucketTaskLists}
     >
       <div className="flex gap-4 px-6 py-4 overflow-x-auto h-full" data-testid="board-columns">
-        {snapshot.buckets.map((bucket) => (
+        {displaySnapshot.buckets.map((bucket) => (
           <BoardColumn
             key={bucket.id}
             bucket={bucket}
-            planLabels={snapshot.plan.labels}
+            planLabels={displaySnapshot.plan.labels}
             planId={planId}
             actorId={actorId}
             tenantId={tenantId}
