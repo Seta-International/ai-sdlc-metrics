@@ -7,6 +7,7 @@ import { TaskPanelHeader } from './TaskPanelHeader'
 import { TaskPropertyStrip } from './TaskPropertyStrip'
 import { TaskDescription } from './TaskDescription'
 import { TaskChecklist } from './TaskChecklist'
+import { TaskAttachments } from './TaskAttachments'
 import { ConflictBanner } from './ConflictBanner'
 import { useTaskDetail } from '@/lib/hooks/useTaskDetail'
 import { useConflictResolver } from '@/lib/hooks/useConflictResolver'
@@ -105,7 +106,7 @@ export function TaskDetailPanel({ taskId, planId }: Props) {
 
             <Separator />
 
-            <PlaceholderSection title="Attachments" phase="Phase 1.6" />
+            <TaskAttachments taskId={taskId} planId={planId} />
 
             <Separator />
 

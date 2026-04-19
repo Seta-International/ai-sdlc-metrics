@@ -28,6 +28,7 @@ function makeConflict(overrides: Partial<TaskDetailSnapshot> = {}): TaskDetailSn
     appliedLabels: [],
     assignees: [],
     checklist: [],
+    attachments: [],
     ...overrides,
   }
 }
