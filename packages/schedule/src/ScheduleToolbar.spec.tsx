@@ -1,10 +1,8 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createRef } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type FullCalendar from '@fullcalendar/react'
 import { ScheduleToolbar } from './ScheduleToolbar'
-import type { ScheduleView } from './types'
 
 // Mock FullCalendar API
 function makeMockRef() {
@@ -15,13 +13,14 @@ function makeMockRef() {
 
   const ref: React.RefObject<FullCalendar> = {
     current: {
-      getApi: () => ({
-        prev: mockPrev,
-        next: mockNext,
-        today: mockToday,
-        changeView: mockChangeView,
-      }),
-    } as any,
+      getApi: () =>
+        ({
+          prev: mockPrev,
+          next: mockNext,
+          today: mockToday,
+          changeView: mockChangeView,
+        }) as ReturnType<FullCalendar['getApi']>,
+    } as unknown as FullCalendar,
   }
   return { ref, mockPrev, mockNext, mockToday, mockChangeView }
 }
@@ -66,7 +65,7 @@ describe('ScheduleToolbar', () => {
       <ScheduleToolbar
         view="dayGridMonth"
         onViewChange={vi.fn()}
-        calendarRef={{ current: null } as any}
+        calendarRef={{ current: null } as React.RefObject<FullCalendar>}
       />,
     )
     expect(screen.getByRole('tab', { name: 'Month' })).toHaveAttribute('aria-selected', 'true')
@@ -78,7 +77,7 @@ describe('ScheduleToolbar', () => {
       <ScheduleToolbar
         view="dayGridWeek"
         onViewChange={vi.fn()}
-        calendarRef={{ current: null } as any}
+        calendarRef={{ current: null } as React.RefObject<FullCalendar>}
       />,
     )
     expect(screen.getByRole('tab', { name: 'Week' })).toHaveAttribute('aria-selected', 'true')
@@ -90,7 +89,7 @@ describe('ScheduleToolbar', () => {
       <ScheduleToolbar
         view="dayGridMonth"
         onViewChange={vi.fn()}
-        calendarRef={{ current: null } as any}
+        calendarRef={{ current: null } as React.RefObject<FullCalendar>}
         views={['dayGridDay', 'dayGridMonth']}
       />,
     )

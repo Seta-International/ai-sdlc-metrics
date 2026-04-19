@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 
 // Capture last rendered FC props
-let capturedFcProps: any = null
+let capturedFcProps: Record<string, unknown> = {}
 
 vi.mock('@fullcalendar/react', () => ({
   default: vi.fn((props) => {
