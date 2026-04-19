@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 
 type RunResult = { ok: true } | { ok: false; error: Error }
 
@@ -19,8 +19,14 @@ export function useBulkExecutor<T>({ run }: { run: (item: T) => Promise<RunResul
     total: 0,
   })
 
+  const failedInputsRef = useRef<T[]>([])
+  const isRunning = useRef(false)
+
   const execute = useCallback(
     async (items: T[]) => {
+      if (isRunning.current) return
+      isRunning.current = true
+
       setState({
         status: 'running',
         successCount: 0,
@@ -35,29 +41,33 @@ export function useBulkExecutor<T>({ run }: { run: (item: T) => Promise<RunResul
         const result = await run(item)
         if (!result.ok) {
           // Stop on first error — remaining items also go to failedInputs
+          const failed = items.slice(i)
+          failedInputsRef.current = failed
           setState((prev) => ({
             ...prev,
             status: 'error',
             successCount,
-            failedInputs: items.slice(i),
+            failedInputs: failed,
             currentIndex: i,
           }))
+          isRunning.current = false
           return
         }
         successCount++
         i++
         setState((prev) => ({ ...prev, successCount, currentIndex: i }))
       }
+      failedInputsRef.current = []
       setState((prev) => ({ ...prev, status: 'done', successCount, failedInputs: [] }))
+      isRunning.current = false
     },
     [run],
   )
 
   const start = useCallback((items: T[]) => execute(items), [execute])
   const retryFailed = useCallback(() => {
-    const toRetry = state.failedInputs
-    return execute(toRetry)
-  }, [execute, state.failedInputs])
+    return execute(failedInputsRef.current)
+  }, [execute])
 
   return { ...state, start, retryFailed }
 }

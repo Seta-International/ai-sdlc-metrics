@@ -32,6 +32,7 @@ describe('useBulkExecutor', () => {
       await result.current.start([1, 2, 3])
     })
     expect(result.current.status).toBe('error')
+    expect(result.current.successCount).toBe(1)
     expect(result.current.failedInputs).toEqual([2, 3])
   })
 
