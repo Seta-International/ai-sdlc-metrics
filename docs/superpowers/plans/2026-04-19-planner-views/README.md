@@ -12,13 +12,13 @@ Implementation plans for **Sub-project #2** (Planner — Grid / Schedule / Chart
 
 ## Plans
 
-| Plan                                                         | Covers spec                | Feature flag                                                 | Ships                                                                              |
-| ------------------------------------------------------------ | -------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| [01-filter-bar-foundation.md](./01-filter-bar-foundation.md) | Plan 2.1 — foundation      | `planner.views.enabled`                                      | `useViewState`, ViewPicker, FilterBar, GroupByPicker, Board wired to new controls  |
-| [02-grid-view.md](./02-grid-view.md)                         | Plan 2.2 — Grid            | `planner.grid.enabled` (+ `planner.views.enabled`)           | `tasks.getFlat`, Grid page, virtualization, inline-edit, bulk ops                  |
-| [03-schedule-view.md](./03-schedule-view.md)                 | Plan 2.3 — Schedule        | `planner.schedule.enabled` (+ `planner.views.enabled`)       | Week/Month calendar, MS-exact rendering, drag-to-date, Unscheduled panel           |
-| [04-charts-snapshot.md](./04-charts-snapshot.md)             | Plan 2.4 — Charts snapshot | `planner.charts.enabled` (+ `planner.views.enabled`)         | 5 snapshot panels via `@future/charts` + drill-through                             |
-| [05-charts-trends.md](./05-charts-trends.md)                 | Plan 2.5 — Charts trends   | `planner.charts.trends.enabled` (+ `planner.charts.enabled`) | `task_daily_snapshot` table, nightly job, `tasks.getTrends`, Burndown + Throughput |
+| Plan                                                         | Covers spec                | Feature flag                                                 | Ships                                                                                               |
+| ------------------------------------------------------------ | -------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| [01-filter-bar-foundation.md](./01-filter-bar-foundation.md) | Plan 2.1 — foundation      | `planner.views.enabled`                                      | `useViewState`, ViewPicker, FilterBar, GroupByPicker, Board wired to new controls                   |
+| [02-grid-view.md](./02-grid-view.md)                         | Plan 2.2 — Grid            | `planner.grid.enabled` (+ `planner.views.enabled`)           | `tasks.getFlat`, Grid page, virtualization, inline-edit, bulk ops                                   |
+| [03-schedule-view.md](./03-schedule-view.md)                 | Plan 2.3 — Schedule        | `planner.schedule.enabled` (+ `planner.views.enabled`)       | **New `@future/schedule` package** (FullCalendar-based, MIT-only) + planner adapter + Schedule page |
+| [04-charts-snapshot.md](./04-charts-snapshot.md)             | Plan 2.4 — Charts snapshot | `planner.charts.enabled` (+ `planner.views.enabled`)         | 5 snapshot panels via `@future/charts` + drill-through                                              |
+| [05-charts-trends.md](./05-charts-trends.md)                 | Plan 2.5 — Charts trends   | `planner.charts.trends.enabled` (+ `planner.charts.enabled`) | `task_daily_snapshot` table, nightly job, `tasks.getTrends`, Burndown + Throughput                  |
 
 ## Shared rules across all plans
 
@@ -40,11 +40,13 @@ Repeat of CLAUDE.md rules — not negotiable:
 Files touched across multiple plans; each plan adds/modifies its share:
 
 - `apps/web-planner/src/app/plans/[id]/**` — per-view pages + shared plan layout
-- `apps/web-planner/src/components/{view-picker,filter-bar,group-by,grid,schedule,charts}/**` — view-specific components
+- `apps/web-planner/src/components/{view-picker,filter-bar,group-by,grid,charts}/**` — view-specific components (Schedule is extracted into `@future/schedule` in Plan 03)
 - `apps/web-planner/src/lib/{view-state,task-filter,task-group,task-sort,charts-data}.ts` — pure helpers (added in 01, extended in 02–05)
+- `apps/web-planner/src/lib/hooks/usePlannerSchedule.ts` — adapter hook over `@future/schedule` (new in Plan 03)
 - `apps/api/src/modules/planner/interface/trpc/task.router.ts` — `getFlat` (Plan 02) + `getTrends` (Plan 05) procedures
 - `apps/api/src/modules/planner/application/queries/tasks/**` — new query handlers
 - `packages/ui/src/tokens/chart.ts` — chart palette tokens (new in Plan 04)
+- `packages/schedule/**` — new reusable day-granular calendar package (new in Plan 03). First consumer is planner; later consumers may include `hiring` interviews, `time` leave/OT, `projects` milestones, `performance` cycles.
 
 ## Zone route layout after all 5 plans merged
 
