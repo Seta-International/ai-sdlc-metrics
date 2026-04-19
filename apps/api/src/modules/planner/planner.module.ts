@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common'
 import { CqrsModule } from '@nestjs/cqrs'
+import { ConfigService } from '@nestjs/config'
+import { S3StorageClient } from '@future/storage'
 import { KernelModule } from '../kernel/kernel.module'
 import { AdminModule } from '../admin/admin.module'
 import { PlannerQueryFacade } from './application/facades/planner-query.facade'
@@ -46,10 +48,31 @@ import { RemoveChecklistItemHandler } from './application/commands/checklist/rem
 import { ReorderChecklistItemHandler } from './application/commands/checklist/reorder-checklist-item.handler'
 import { CHECKLIST_ITEM_REPOSITORY } from './domain/repositories/checklist-item.repository'
 import { DrizzleChecklistItemRepository } from './infrastructure/repositories/drizzle-checklist-item.repository'
+import { TASK_ATTACHMENT_REPOSITORY } from './domain/repositories/task-attachment.repository'
+import { DrizzleTaskAttachmentRepository } from './infrastructure/repositories/drizzle-task-attachment.repository'
+import { TASK_COMMENT_REPOSITORY } from './domain/repositories/task-comment.repository'
+import { DrizzleTaskCommentRepository } from './infrastructure/repositories/drizzle-task-comment.repository'
+import { TASK_EVIDENCE_REPOSITORY } from './domain/repositories/task-evidence.repository'
+import { DrizzleTaskEvidenceRepository } from './infrastructure/repositories/drizzle-task-evidence.repository'
+import { STORAGE_CLIENT } from './domain/ports/storage-client.port'
+import { RequestUploadHandler } from './application/commands/attachments/request-upload.handler'
+import { FinalizeUploadHandler } from './application/commands/attachments/finalize-upload.handler'
+import { AddLinkHandler } from './application/commands/attachments/add-link.handler'
+import { SetCoverHandler } from './application/commands/attachments/set-cover.handler'
+import { RemoveAttachmentHandler } from './application/commands/attachments/remove.handler'
 import { ListPlansForActorHandler } from './application/queries/plans/list-plans-for-actor.handler'
 import { GetPlanHandler } from './application/queries/plans/get-plan.handler'
 import { GetBoardHandler } from './application/queries/tasks/get-board.handler'
 import { GetTaskDetailHandler } from './application/queries/tasks/get-task-detail.handler'
+import { PostCommentHandler } from './application/commands/comments/post-comment.handler'
+import { DeleteCommentHandler } from './application/commands/comments/delete-comment.handler'
+import { ListTaskCommentsHandler } from './application/queries/comments/list-task-comments.handler'
+import { RequestEvidenceUploadHandler } from './application/commands/evidence/request-upload.handler'
+import { FinalizeEvidenceUploadHandler } from './application/commands/evidence/finalize-upload.handler'
+import { CreateEvidenceLinkHandler } from './application/commands/evidence/create-link.handler'
+import { CreateEvidenceNoteHandler } from './application/commands/evidence/create-note.handler'
+import { RemoveEvidenceHandler } from './application/commands/evidence/remove-evidence.handler'
+import { ListTaskEvidenceHandler } from './application/queries/evidence/list-task-evidence.handler'
 
 @Module({
   imports: [CqrsModule, KernelModule, AdminModule],
@@ -61,6 +84,18 @@ import { GetTaskDetailHandler } from './application/queries/tasks/get-task-detai
     { provide: PLAN_LABEL_REPOSITORY, useClass: DrizzlePlanLabelRepository },
     { provide: PLAN_MEMBER_REPOSITORY, useClass: DrizzlePlanMemberRepository },
     { provide: CHECKLIST_ITEM_REPOSITORY, useClass: DrizzleChecklistItemRepository },
+    { provide: TASK_ATTACHMENT_REPOSITORY, useClass: DrizzleTaskAttachmentRepository },
+    { provide: TASK_COMMENT_REPOSITORY, useClass: DrizzleTaskCommentRepository },
+    { provide: TASK_EVIDENCE_REPOSITORY, useClass: DrizzleTaskEvidenceRepository },
+    {
+      provide: STORAGE_CLIENT,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) =>
+        new S3StorageClient({
+          bucket: config.getOrThrow<string>('S3_BUCKET'),
+          region: config.getOrThrow<string>('S3_REGION'),
+        }),
+    },
     PlanAuthorizationService,
     CreatePlanHandler,
     RenamePlanHandler,
@@ -89,10 +124,24 @@ import { GetTaskDetailHandler } from './application/queries/tasks/get-task-detai
     UpdateChecklistItemHandler,
     RemoveChecklistItemHandler,
     ReorderChecklistItemHandler,
+    RequestUploadHandler,
+    FinalizeUploadHandler,
+    AddLinkHandler,
+    SetCoverHandler,
+    RemoveAttachmentHandler,
     ListPlansForActorHandler,
     GetPlanHandler,
     GetBoardHandler,
     GetTaskDetailHandler,
+    PostCommentHandler,
+    DeleteCommentHandler,
+    ListTaskCommentsHandler,
+    RequestEvidenceUploadHandler,
+    FinalizeEvidenceUploadHandler,
+    CreateEvidenceLinkHandler,
+    CreateEvidenceNoteHandler,
+    RemoveEvidenceHandler,
+    ListTaskEvidenceHandler,
     PlannerQueryFacade,
     PlannerRouterService,
   ],

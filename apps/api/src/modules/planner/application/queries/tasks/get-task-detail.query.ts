@@ -11,6 +11,7 @@ export interface TaskDetailSnapshot {
   id: string
   planId: string
   bucketId: string
+  coverAttachmentId: string | null
   title: string
   description: string
   progress: number
@@ -25,6 +26,9 @@ export interface TaskDetailSnapshot {
   completedBy: string | null
   checklistItemCount: number
   checklistCheckedCount: number
+  attachmentCount: number
+  commentCount: number
+  evidenceCount: number
   checklist: Array<{
     id: string
     title: string
@@ -39,7 +43,15 @@ export interface TaskDetailSnapshot {
     avatarUrl?: string
   }>
   appliedLabels: string[]
-  attachments: never[]
-  comments: never[]
-  evidence: never[]
+  attachments: Array<{
+    id: string
+    kind: 'file' | 'link'
+    filename?: string
+    contentType?: string
+    sizeBytes?: number
+    url?: string
+    linkTitle?: string
+    createdBy: string
+    createdAt: Date
+  }>
 }

@@ -316,7 +316,7 @@ describe('GetTaskDetailHandler — integration', () => {
       expect(result.appliedLabels).toContain('category1')
     })
 
-    it('returns empty arrays for attachments, comments, evidence', async () => {
+    it('returns empty array for attachments and zero counts for comments/evidence', async () => {
       const kernelFacade = makeKernelFacade()
       const handler = new GetTaskDetailHandler(rawDb, kernelFacade)
       const result = await handler.execute(
@@ -324,8 +324,9 @@ describe('GetTaskDetailHandler — integration', () => {
       )
 
       expect(result.attachments).toEqual([])
-      expect(result.comments).toEqual([])
-      expect(result.evidence).toEqual([])
+      expect(result.attachmentCount).toBe(0)
+      expect(result.commentCount).toBe(0)
+      expect(result.evidenceCount).toBe(0)
     })
   })
 })

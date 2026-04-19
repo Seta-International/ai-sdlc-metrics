@@ -7,6 +7,9 @@ import { TaskPanelHeader } from './TaskPanelHeader'
 import { TaskPropertyStrip } from './TaskPropertyStrip'
 import { TaskDescription } from './TaskDescription'
 import { TaskChecklist } from './TaskChecklist'
+import { TaskAttachments } from './TaskAttachments'
+import { TaskComments } from './TaskComments'
+import { TaskEvidence } from './TaskEvidence'
 import { ConflictBanner } from './ConflictBanner'
 import { useTaskDetail } from '@/lib/hooks/useTaskDetail'
 import { useConflictResolver } from '@/lib/hooks/useConflictResolver'
@@ -15,20 +18,6 @@ import type { TaskPatch } from '@/lib/hooks/useTaskDetail'
 interface Props {
   taskId: string
   planId: string
-}
-
-interface PlaceholderSectionProps {
-  title: string
-  phase: string
-}
-
-function PlaceholderSection({ title, phase }: PlaceholderSectionProps) {
-  return (
-    <div className="flex items-center justify-between px-4 py-3">
-      <h3 className="text-sm font-medium">{title}</h3>
-      <span className="text-xs text-muted-foreground">Coming in {phase}</span>
-    </div>
-  )
 }
 
 export function TaskDetailPanel({ taskId, planId }: Props) {
@@ -105,15 +94,15 @@ export function TaskDetailPanel({ taskId, planId }: Props) {
 
             <Separator />
 
-            <PlaceholderSection title="Attachments" phase="Phase 1.6" />
+            <TaskAttachments taskId={taskId} planId={planId} />
 
             <Separator />
 
-            <PlaceholderSection title="Comments" phase="Phase 1.7" />
+            <TaskComments taskId={taskId} planId={planId} />
 
             <Separator />
 
-            <PlaceholderSection title="Evidence" phase="Phase 1.8" />
+            <TaskEvidence taskId={taskId} planId={planId} />
           </>
         )}
       </div>

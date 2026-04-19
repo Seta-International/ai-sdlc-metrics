@@ -70,6 +70,26 @@ export interface ChecklistItemSnapshot {
   orderHint: string
 }
 
+export type AttachmentSnapshot =
+  | {
+      kind: 'file'
+      id: string
+      filename: string
+      contentType: string
+      sizeBytes: number
+      url: string
+      createdBy: string
+      createdAt: Date
+    }
+  | {
+      kind: 'link'
+      id: string
+      url: string
+      linkTitle?: string
+      createdBy: string
+      createdAt: Date
+    }
+
 export interface TaskDetailSnapshot {
   id: string
   planId: string
@@ -94,4 +114,5 @@ export interface TaskDetailSnapshot {
   appliedLabels: string[]
   assignees: BoardAssignee[]
   checklist: ChecklistItemSnapshot[]
+  attachments: AttachmentSnapshot[]
 }
