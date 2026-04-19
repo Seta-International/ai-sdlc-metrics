@@ -49,7 +49,7 @@ export function useUpload({ taskId, planId }: UseUploadOptions): {
     let uploadUrl: string
     let storageKey: string
     try {
-      const result = await trpc.planner.attachments.requestUpload.mutate({
+      const result = (await trpc.planner.attachments.requestUpload.mutate({
         tenantId,
         planId,
         taskId,
@@ -57,7 +57,7 @@ export function useUpload({ taskId, planId }: UseUploadOptions): {
         filename: file.name,
         contentType: file.type,
         sizeBytes: file.size,
-      })
+      })) as { uploadUrl: string; storageKey: string; expiresAt: Date }
       uploadUrl = result.uploadUrl
       storageKey = result.storageKey
     } catch (err) {

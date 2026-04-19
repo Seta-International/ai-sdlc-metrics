@@ -177,13 +177,13 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
 
   const loadItems = useCallback(async () => {
     try {
-      const result = await trpc.planner.evidence.list.query({
+      const result = (await trpc.planner.evidence.list.query({
         tenantId,
         planId,
         taskId,
         actorId,
-      })
-      setItems(result.items as OptimisticEvidenceItem[])
+      })) as { items: OptimisticEvidenceItem[] }
+      setItems(result.items)
     } finally {
       setLoading(false)
     }
@@ -281,7 +281,7 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
           caption: trimmedCaptionFinal,
         })
       } else if (kind === 'file' && currentFile) {
-        const { uploadUrl, storageKey } = await trpc.planner.evidence.requestUpload.mutate({
+        const { uploadUrl, storageKey } = (await trpc.planner.evidence.requestUpload.mutate({
           tenantId,
           planId,
           taskId,
@@ -289,7 +289,7 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
           filename: currentFile.name,
           contentType: currentFile.type,
           sizeBytes: currentFile.size,
-        })
+        })) as { uploadUrl: string; storageKey: string; expiresAt: Date }
 
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest()

@@ -147,25 +147,25 @@ export function TaskComments({ taskId, planId }: TaskCommentsProps) {
 
   const loadComments = useCallback(
     async (cursor?: string) => {
-      const result = await trpc.planner.comments.list.query({
+      const result = (await trpc.planner.comments.list.query({
         tenantId,
         planId,
         taskId,
         actorId,
         ...(cursor ? { cursor } : {}),
         limit: PAGE_SIZE,
-      })
+      })) as { items: OptimisticComment[]; nextCursor: string | null }
       return result
     },
     [tenantId, planId, taskId, actorId],
   )
 
   useEffect(() => {
-    setLoadingInitial(true)
     void (async () => {
+      setLoadingInitial(true)
       try {
         const result = await loadComments()
-        setComments(result.items as OptimisticComment[])
+        setComments(result.items)
         setNextCursor(result.nextCursor)
       } finally {
         setLoadingInitial(false)
@@ -184,7 +184,7 @@ export function TaskComments({ taskId, planId }: TaskCommentsProps) {
     setLoadingMore(true)
     try {
       const result = await loadComments(nextCursor)
-      setComments((prev) => [...prev, ...(result.items as OptimisticComment[])])
+      setComments((prev) => [...prev, ...result.items])
       setNextCursor(result.nextCursor)
     } finally {
       setLoadingMore(false)
@@ -315,7 +315,7 @@ export function TaskComments({ taskId, planId }: TaskCommentsProps) {
             onChange={(e) => {
               setBody(e.target.value)
             }}
-            onInput={(e: React.FormEvent<HTMLTextAreaElement>) => {
+            onInput={(e: React.SyntheticEvent<HTMLTextAreaElement>) => {
               const el = e.currentTarget
               el.style.height = 'auto'
               el.style.height = `${el.scrollHeight}px`
