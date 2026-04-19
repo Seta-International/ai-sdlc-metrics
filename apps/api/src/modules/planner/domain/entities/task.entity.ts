@@ -386,7 +386,7 @@ export class Task {
     const index = this._checklistItems.findIndex((ci) => ci.id === id)
     if (index === -1) return
 
-    const item = this._checklistItems[index]
+    const item = this._checklistItems[index]!
     const toggled = item.withChecked(!item.isChecked)
     this._checklistItems = [
       ...this._checklistItems.slice(0, index),
@@ -405,7 +405,7 @@ export class Task {
     const index = this._checklistItems.findIndex((ci) => ci.id === id)
     if (index === -1) return
 
-    const updated = this._checklistItems[index].withTitle(title)
+    const updated = this._checklistItems[index]!.withTitle(title)
     this._checklistItems = [
       ...this._checklistItems.slice(0, index),
       updated,
@@ -418,7 +418,7 @@ export class Task {
     const index = this._checklistItems.findIndex((ci) => ci.id === id)
     if (index === -1) return
 
-    const item = this._checklistItems[index]
+    const item = this._checklistItems[index]!
     this._checklistItems = this._checklistItems.filter((ci) => ci.id !== id)
     this._checklistItemCount--
     if (item.isChecked) {
@@ -432,7 +432,7 @@ export class Task {
     if (index === -1) return
 
     const newHint = MsOrderHint.between(hintAfter, hintBefore)
-    const reordered = this._checklistItems[index].withOrderHint(newHint)
+    const reordered = this._checklistItems[index]!.withOrderHint(newHint)
     this._checklistItems = [
       ...this._checklistItems.slice(0, index),
       reordered,
