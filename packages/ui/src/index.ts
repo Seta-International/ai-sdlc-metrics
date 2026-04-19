@@ -97,3 +97,7 @@ export * from './components/data-table/data-table-toolbar'
 
 // Utilities
 export { cn } from './lib/utils'
+
+// Tokens
+export { chartTokens } from './tokens/chart'
+export type { ChartTokens } from './tokens/chart'
