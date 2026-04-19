@@ -8,6 +8,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./planner": {
+      "import": "./dist/planner/index.js",
+      "types": "./dist/planner/index.d.ts"
     }
   },
   "scripts": {
