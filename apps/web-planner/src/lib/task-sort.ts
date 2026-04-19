@@ -1,7 +1,10 @@
-import type { TaskFlat, TaskPriority, TaskProgress } from './task-types'
+import type { TaskFlat } from '@future/api-client/planner'
 import type { SortField } from './view-state'
 
 export type SortInput = { field: SortField; dir: 'asc' | 'desc' }
+
+type TaskPriority = TaskFlat['priority']
+type TaskProgress = TaskFlat['progress']
 
 const PRIORITY_RANK: Record<TaskPriority, number> = {
   urgent: 0,

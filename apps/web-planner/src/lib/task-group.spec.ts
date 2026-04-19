@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { groupTasks } from './task-group'
-import type { TaskFlat } from './task-types'
+import type { TaskFlat } from '@future/api-client/planner'
 
 const mkTask = (partial: Partial<TaskFlat>): TaskFlat => ({
   id: 't1',
@@ -71,7 +71,15 @@ describe('groupTasks', () => {
 
   it('group-by-assignee: task assigned to multiple people appears in each group', () => {
     const groups = groupTasks(
-      [mkTask({ id: '1', assignees: [{ actorId: 'a1' }, { actorId: 'a2' }] })],
+      [
+        mkTask({
+          id: '1',
+          assignees: [
+            { actorId: 'a1', displayName: 'Alice', avatarUrl: null },
+            { actorId: 'a2', displayName: 'Bob', avatarUrl: null },
+          ],
+        }),
+      ],
       'assignee',
     )
     expect(groups.flatMap((g) => g.tasks.map((t) => t.id))).toEqual(['1', '1'])

@@ -44,8 +44,11 @@ import { ApplyLabelHandler } from '../../application/commands/tasks/apply-label.
 import { ApplyLabelCommand } from '../../application/commands/tasks/apply-label.command'
 import { RemoveLabelHandler } from '../../application/commands/tasks/remove-label.handler'
 import { RemoveLabelCommand } from '../../application/commands/tasks/remove-label.command'
+import { GetFlatTasksHandler } from '../../application/queries/tasks/get-flat.handler'
+import { GetFlatTasksQuery } from '../../application/queries/tasks/get-flat.query'
 import { PlannerRouterService } from './planner-router.service'
 import { plannerRouter } from './planner.router'
+import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import type { AdminQueryFacade } from '../../../admin/application/facades/admin-query.facade'
 
 const TENANT_ID = '01900000-0000-7fff-8000-000000003000'
@@ -72,12 +75,19 @@ function makePermissiveAuthSvc(): PlanAuthorizationService {
   } as unknown as PlanAuthorizationService
 }
 
+function makeKernelFacade(): KernelQueryFacade {
+  return {
+    getActorsByIds: vi.fn().mockResolvedValue(new Map()),
+  } as unknown as KernelQueryFacade
+}
+
 function buildBuses(
   planRepo: DrizzlePlanRepository,
   bucketRepo: DrizzleBucketRepository,
   memberRepo: DrizzlePlanMemberRepository,
   labelRepo: DrizzlePlanLabelRepository,
   taskRepo: DrizzleTaskRepository,
+  db?: Db,
 ) {
   const eventBus = makeEventBus()
   const authSvc = makePermissiveAuthSvc()
@@ -173,9 +183,19 @@ function buildBuses(
     },
   }
 
+  const queryHandlers = new Map<string, (q: unknown) => Promise<unknown>>()
+
+  if (db) {
+    const getFlatHandler = new GetFlatTasksHandler(db as never, makeKernelFacade())
+    queryHandlers.set('GetFlatTasksQuery', (q) => getFlatHandler.execute(q as GetFlatTasksQuery))
+  }
+
   const queryBus = {
-    execute(_q: unknown) {
-      throw new Error('QueryBus not wired in task router integration test')
+    execute(q: unknown) {
+      const name = (q as object).constructor.name
+      const handler = queryHandlers.get(name)
+      if (!handler) throw new Error(`QueryBus: no handler for query: ${name}`)
+      return handler(q)
     },
   }
 
@@ -209,6 +229,7 @@ describe('taskRouter — tRPC integration', () => {
       memberRepo,
       labelRepo,
       taskRepo,
+      db,
     )
 
     const adminQueryFacade: Pick<AdminQueryFacade, 'isPlannerEnabled'> = {
@@ -506,6 +527,60 @@ describe('taskRouter — tRPC integration', () => {
 
       const taskV3 = await taskRepo.findById(taskId, TENANT_ID)
       expect(taskV3!.assignees.some((a) => a.actorId === assigneeId)).toBe(false)
+    })
+  })
+
+  describe('tasks.getFlat', () => {
+    it('returns flat task list for plan member', async () => {
+      const { planId, bucketIdA } = await setupPlanWithBuckets()
+      const taskId = uuidv7()
+      const caller = plannerRouter.createCaller(makeCtx())
+
+      await caller.tasks.create({
+        tenantId: TENANT_ID,
+        planId,
+        bucketId: bucketIdA,
+        taskId,
+        title: 'Flat Task',
+        actorId: ACTOR_ID,
+      })
+
+      const result = await caller.tasks.getFlat({
+        planId,
+        actorId: ACTOR_ID,
+        tenantId: TENANT_ID,
+      })
+
+      expect(Array.isArray(result)).toBe(true)
+      const tasks = result as Array<{ id: string; planId: string; title: string }>
+      expect(tasks.some((t) => t.id === taskId)).toBe(true)
+      expect(tasks.every((t) => t.planId === planId)).toBe(true)
+    })
+
+    it('throws FORBIDDEN for non-member actor', async () => {
+      const { planId } = await setupPlanWithBuckets()
+      const nonMemberActorId = uuidv7()
+      const caller = plannerRouter.createCaller(makeCtx())
+
+      await expect(
+        caller.tasks.getFlat({
+          planId,
+          actorId: nonMemberActorId,
+          tenantId: TENANT_ID,
+        }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    })
+
+    it('rejects non-UUID planId with input validation error', async () => {
+      const caller = plannerRouter.createCaller(makeCtx())
+
+      await expect(
+        caller.tasks.getFlat({
+          planId: 'not-a-uuid',
+          actorId: ACTOR_ID,
+          tenantId: TENANT_ID,
+        }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
     })
   })
 })

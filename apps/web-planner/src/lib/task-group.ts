@@ -1,4 +1,4 @@
-import type { TaskFlat } from './task-types'
+import type { TaskFlat } from '@future/api-client/planner'
 import type { GroupKey } from './view-state'
 import { startOfDay, addDays } from './date-utils'
 
@@ -125,7 +125,7 @@ function groupByAssignee(tasks: TaskFlat[]): TaskGroup[] {
       if (existing) {
         existing.tasks.push(t)
       } else {
-        byId.set(a.actorId, { name: a.name ?? 'Unknown', tasks: [t] })
+        byId.set(a.actorId, { name: a.displayName, tasks: [t] })
       }
     }
   }

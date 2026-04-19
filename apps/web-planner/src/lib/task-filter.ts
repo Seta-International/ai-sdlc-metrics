@@ -1,4 +1,4 @@
-import type { TaskFlat } from './task-types'
+import type { TaskFlat } from '@future/api-client/planner'
 import type { ViewState } from './view-state'
 import { startOfDay, addDays } from './date-utils'
 

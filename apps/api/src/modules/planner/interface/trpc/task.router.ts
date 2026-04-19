@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import { PlannerRouterService } from './planner-router.service'
 import { GetBoardQuery } from '../../application/queries/tasks/get-board.query'
+import { GetFlatTasksQuery } from '../../application/queries/tasks/get-flat.query'
 import { GetTaskDetailQuery } from '../../application/queries/tasks/get-task-detail.query'
 import { CreateTaskCommand } from '../../application/commands/tasks/create-task.command'
 import { UpdateTaskCommand } from '../../application/commands/tasks/update-task.command'
@@ -33,6 +34,23 @@ export const taskRouter = router({
       await svc().assertPlannerEnabled(input.tenantId)
       return svc()
         .query(new GetBoardQuery(input.planId, input.actorId, input.tenantId))
+        .catch((e) => {
+          throw toPlannerTrpcError(e)
+        })
+    }),
+
+  getFlat: publicProcedure
+    .input(
+      z.object({
+        planId: z.string().uuid(),
+        actorId: z.string().uuid(),
+        tenantId: z.string().uuid(),
+      }),
+    )
+    .query(async ({ input }) => {
+      await svc().assertPlannerEnabled(input.tenantId)
+      return svc()
+        .query(new GetFlatTasksQuery(input.planId, input.actorId, input.tenantId))
         .catch((e) => {
           throw toPlannerTrpcError(e)
         })
