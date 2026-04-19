@@ -1,3 +1,5 @@
+// Chart palette tokens. Values reference DESIGN.md theme variables.
+// All values must be resolvable to a computed color via CSS var lookup.
 export const chartTokens = {
   progress: {
     'not-started': 'var(--chart-progress-not-started)',
