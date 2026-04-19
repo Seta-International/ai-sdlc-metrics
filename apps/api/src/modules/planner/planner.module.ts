@@ -50,6 +50,8 @@ import { CHECKLIST_ITEM_REPOSITORY } from './domain/repositories/checklist-item.
 import { DrizzleChecklistItemRepository } from './infrastructure/repositories/drizzle-checklist-item.repository'
 import { TASK_ATTACHMENT_REPOSITORY } from './domain/repositories/task-attachment.repository'
 import { DrizzleTaskAttachmentRepository } from './infrastructure/repositories/drizzle-task-attachment.repository'
+import { TASK_COMMENT_REPOSITORY } from './domain/repositories/task-comment.repository'
+import { DrizzleTaskCommentRepository } from './infrastructure/repositories/drizzle-task-comment.repository'
 import { STORAGE_CLIENT } from './domain/ports/storage-client.port'
 import { RequestUploadHandler } from './application/commands/attachments/request-upload.handler'
 import { FinalizeUploadHandler } from './application/commands/attachments/finalize-upload.handler'
@@ -60,6 +62,9 @@ import { ListPlansForActorHandler } from './application/queries/plans/list-plans
 import { GetPlanHandler } from './application/queries/plans/get-plan.handler'
 import { GetBoardHandler } from './application/queries/tasks/get-board.handler'
 import { GetTaskDetailHandler } from './application/queries/tasks/get-task-detail.handler'
+import { PostCommentHandler } from './application/commands/comments/post-comment.handler'
+import { DeleteCommentHandler } from './application/commands/comments/delete-comment.handler'
+import { ListTaskCommentsHandler } from './application/queries/comments/list-task-comments.handler'
 
 @Module({
   imports: [CqrsModule, KernelModule, AdminModule],
@@ -72,6 +77,7 @@ import { GetTaskDetailHandler } from './application/queries/tasks/get-task-detai
     { provide: PLAN_MEMBER_REPOSITORY, useClass: DrizzlePlanMemberRepository },
     { provide: CHECKLIST_ITEM_REPOSITORY, useClass: DrizzleChecklistItemRepository },
     { provide: TASK_ATTACHMENT_REPOSITORY, useClass: DrizzleTaskAttachmentRepository },
+    { provide: TASK_COMMENT_REPOSITORY, useClass: DrizzleTaskCommentRepository },
     {
       provide: STORAGE_CLIENT,
       inject: [ConfigService],
@@ -118,6 +124,9 @@ import { GetTaskDetailHandler } from './application/queries/tasks/get-task-detai
     GetPlanHandler,
     GetBoardHandler,
     GetTaskDetailHandler,
+    PostCommentHandler,
+    DeleteCommentHandler,
+    ListTaskCommentsHandler,
     PlannerQueryFacade,
     PlannerRouterService,
   ],

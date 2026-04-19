@@ -55,6 +55,8 @@ export { ChecklistItemRemovedEvent } from './planner/checklist-item-removed.even
 export { ChecklistItemReorderedEvent } from './planner/checklist-item-reordered.event'
 export { AttachmentAddedEvent } from './planner/attachment-added.event'
 export { AttachmentRemovedEvent } from './planner/attachment-removed.event'
+export { TaskCommentPostedEvent } from './planner/task-comment-posted.event'
+export { TaskCommentDeletedEvent } from './planner/task-comment-deleted.event'
 export { UserProvisionedFromIdpEvent } from './identity/user-provisioned-from-idp.event'
 export { UserDeactivatedFromIdpEvent } from './identity/user-deactivated-from-idp.event'
 export { RoleGrantSyncedEvent } from './identity/role-grant-synced.event'

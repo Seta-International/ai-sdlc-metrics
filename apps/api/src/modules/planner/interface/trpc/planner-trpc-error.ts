@@ -13,6 +13,8 @@ import { LabelSlotNotDefinedException } from '../../domain/exceptions/label-slot
 import { TitleRequiredException } from '../../domain/exceptions/title-required.exception'
 import { TitleTooLongException } from '../../domain/exceptions/title-too-long.exception'
 import { ChecklistLimitReachedException } from '../../domain/exceptions/checklist-limit-reached.exception'
+import { CommentNotFoundException } from '../../domain/exceptions/comment-not-found.exception'
+import { CommentBodyTooLongException } from '../../domain/exceptions/comment-body-too-long.exception'
 
 export function toPlannerTrpcError(error: unknown): TRPCError {
   if (error instanceof UnauthorizedPlanAccessException)
@@ -42,6 +44,10 @@ export function toPlannerTrpcError(error: unknown): TRPCError {
   if (error instanceof TitleTooLongException)
     return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
   if (error instanceof ChecklistLimitReachedException)
+    return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
+  if (error instanceof CommentNotFoundException)
+    return new TRPCError({ code: 'NOT_FOUND', message: error.message })
+  if (error instanceof CommentBodyTooLongException)
     return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
   const msg = error instanceof Error ? error.message : 'Internal error'
   return new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: msg })
