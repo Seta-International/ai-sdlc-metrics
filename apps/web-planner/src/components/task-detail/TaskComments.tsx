@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useSession } from '@future/auth'
 import {
   Button,
@@ -92,7 +92,7 @@ function CommentRow({ comment, currentActorId, onDelete }: CommentRowProps) {
       data-testid="comment-item"
       data-comment-id={comment.id}
     >
-      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-caption font-510 text-fg-muted">
+      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-elevated text-caption font-510 text-fg-muted">
         {getInitials(comment.authorName)}
       </div>
 
@@ -101,7 +101,7 @@ function CommentRow({ comment, currentActorId, onDelete }: CommentRowProps) {
           <span className="text-small font-510 text-fg-primary">
             {comment.authorName ?? 'Unknown'}
           </span>
-          <span className="text-caption text-fg-subtle">
+          <span className="text-caption text-fg-muted">
             {formatRelativeTime(comment.createdAt)}
           </span>
           {comment.pending && <Spinner className="size-3" />}
@@ -115,7 +115,7 @@ function CommentRow({ comment, currentActorId, onDelete }: CommentRowProps) {
             <Button
               variant="ghost"
               size="icon-xs"
-              className="invisible shrink-0 group-hover:visible"
+              className="shrink-0"
               aria-label="Comment options"
             >
               <MoreHorizontal className="size-4" />
@@ -143,6 +143,7 @@ export function TaskComments({ taskId, planId }: TaskCommentsProps) {
   const [loadingMore, setLoadingMore] = useState(false)
   const [body, setBody] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const loadComments = useCallback(
     async (cursor?: string) => {
@@ -159,9 +160,8 @@ export function TaskComments({ taskId, planId }: TaskCommentsProps) {
     [tenantId, planId, taskId, actorId],
   )
 
-  const [initialized, setInitialized] = useState(false)
-  if (!initialized && actorId && tenantId) {
-    setInitialized(true)
+  useEffect(() => {
+    setLoadingInitial(true)
     void (async () => {
       try {
         const result = await loadComments()
@@ -171,7 +171,13 @@ export function TaskComments({ taskId, planId }: TaskCommentsProps) {
         setLoadingInitial(false)
       }
     })()
-  }
+  }, [loadComments])
+
+  useEffect(() => {
+    if (!body && textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
+  }, [body])
 
   async function handleLoadMore() {
     if (!nextCursor || loadingMore) return
@@ -259,20 +265,7 @@ export function TaskComments({ taskId, planId }: TaskCommentsProps) {
 
   return (
     <div className="flex flex-col gap-2 px-4 py-3">
-      <h3 className="text-sm font-medium">Comments</h3>
-
-      {nextCursor && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => void handleLoadMore()}
-          disabled={loadingMore}
-          className="self-start"
-        >
-          {loadingMore ? <Spinner className="mr-2 size-3" /> : null}
-          Load more
-        </Button>
-      )}
+      <h3 className="text-small font-510 text-fg-primary">Comments</h3>
 
       <div className="flex flex-col">
         {loadingInitial ? (
@@ -297,16 +290,28 @@ export function TaskComments({ taskId, planId }: TaskCommentsProps) {
         )}
       </div>
 
+      {nextCursor && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => void handleLoadMore()}
+          disabled={loadingMore}
+          className="self-start"
+        >
+          {loadingMore ? <Spinner className="mr-2 size-3" /> : null}
+          Load more
+        </Button>
+      )}
+
       <div className="mt-1 flex flex-col gap-1">
         <div className="flex items-end gap-2">
           <Textarea
+            ref={textareaRef}
             placeholder="Add a comment… (Enter to post, Shift+Enter for newline)"
             value={body}
             rows={1}
             onChange={(e) => {
-              if (e.target.value.length <= MAX_BODY) {
-                setBody(e.target.value)
-              }
+              setBody(e.target.value)
             }}
             onInput={(e: React.FormEvent<HTMLTextAreaElement>) => {
               const el = e.currentTarget

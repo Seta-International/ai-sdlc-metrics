@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import React from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { TaskComments } from './TaskComments'
 
 vi.mock('@future/auth', () => ({
@@ -52,21 +51,13 @@ function makeComment(overrides: Partial<CommentItem> = {}): CommentItem {
   }
 }
 
-let queryClient: QueryClient
-
-function Wrapper({ children }: { children: React.ReactNode }) {
-  return React.createElement(QueryClientProvider, { client: queryClient }, children)
-}
-
 beforeEach(() => {
-  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   vi.clearAllMocks()
   mockPostMutate.mockResolvedValue(undefined)
   mockDeleteMutate.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
-  queryClient.clear()
   cleanup()
 })
 
@@ -75,11 +66,7 @@ describe('TaskComments', () => {
     mockListQuery.mockResolvedValue({ items: [], nextCursor: null })
 
     await act(async () => {
-      render(
-        <Wrapper>
-          <TaskComments taskId="task-1" planId="plan-1" />
-        </Wrapper>,
-      )
+      render(<TaskComments taskId="task-1" planId="plan-1" />)
     })
 
     expect(screen.getByPlaceholderText(/Add a comment/i)).toBeDefined()
@@ -91,11 +78,7 @@ describe('TaskComments', () => {
     mockListQuery.mockResolvedValue({ items: [comment], nextCursor: null })
 
     await act(async () => {
-      render(
-        <Wrapper>
-          <TaskComments taskId="task-1" planId="plan-1" />
-        </Wrapper>,
-      )
+      render(<TaskComments taskId="task-1" planId="plan-1" />)
     })
 
     expect(screen.getByText('Alice')).toBeDefined()
@@ -112,11 +95,7 @@ describe('TaskComments', () => {
     mockListQuery.mockResolvedValue({ items: [comment], nextCursor: null })
 
     await act(async () => {
-      render(
-        <Wrapper>
-          <TaskComments taskId="task-1" planId="plan-1" />
-        </Wrapper>,
-      )
+      render(<TaskComments taskId="task-1" planId="plan-1" />)
     })
 
     expect(screen.getByText('Comment deleted')).toBeDefined()
@@ -134,11 +113,7 @@ describe('TaskComments', () => {
     )
 
     await act(async () => {
-      render(
-        <Wrapper>
-          <TaskComments taskId="task-1" planId="plan-1" />
-        </Wrapper>,
-      )
+      render(<TaskComments taskId="task-1" planId="plan-1" />)
     })
 
     const textarea = screen.getByPlaceholderText(/Add a comment/i)
@@ -161,7 +136,9 @@ describe('TaskComments', () => {
     )
     expect(screen.getByText('My new comment')).toBeDefined()
 
-    resolvePost()
+    await act(async () => {
+      resolvePost()
+    })
   })
 
   it('opens delete menu on own comment and calls delete.mutate, shows tombstone optimistically', async () => {
@@ -176,11 +153,7 @@ describe('TaskComments', () => {
     )
 
     await act(async () => {
-      render(
-        <Wrapper>
-          <TaskComments taskId="task-1" planId="plan-1" />
-        </Wrapper>,
-      )
+      render(<TaskComments taskId="task-1" planId="plan-1" />)
     })
 
     const menuBtn = screen.getByRole('button', { name: /comment options/i })
@@ -213,11 +186,7 @@ describe('TaskComments', () => {
     mockListQuery.mockResolvedValueOnce({ items: [comment], nextCursor: 'cursor-abc' })
 
     await act(async () => {
-      render(
-        <Wrapper>
-          <TaskComments taskId="task-1" planId="plan-1" />
-        </Wrapper>,
-      )
+      render(<TaskComments taskId="task-1" planId="plan-1" />)
     })
 
     expect(screen.getByRole('button', { name: /load more/i })).toBeDefined()
