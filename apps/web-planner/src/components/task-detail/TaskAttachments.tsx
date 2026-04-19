@@ -14,8 +14,9 @@ import {
 import { Paperclip, Link, MoreHorizontal, Download, ImageIcon, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpc } from '@/lib/trpc'
-import type { AttachmentSnapshot, TaskDetailSnapshot } from '@/lib/board-types'
+import type { AttachmentSnapshot } from '@/lib/board-types'
 import { useUpload } from '@/lib/hooks/useUpload'
+import { useTaskDetail } from '@/lib/hooks/useTaskDetail'
 
 interface TaskAttachmentsProps {
   taskId: string
@@ -119,14 +120,14 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
   const actorId = session?.actorId ?? ''
   const tenantId = session?.tenantId ?? ''
 
-  const queryKey = ['tasks.getDetail', taskId, actorId, tenantId] as const
-  const task = queryClient.getQueryData<TaskDetailSnapshot>(queryKey)
+  const { task } = useTaskDetail({ taskId, planId })
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [showLinkForm, setShowLinkForm] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [linkTitle, setLinkTitle] = useState('')
   const [mutating, setMutating] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
 
   const { uploadState, uploadFile } = useUpload({ taskId, planId })
 
@@ -134,14 +135,52 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
     void queryClient.invalidateQueries({ queryKey: ['tasks.getDetail', taskId] })
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!files || files.length === 0) return
     e.target.value = ''
-    uploadFile(file).catch((err: unknown) => {
-      const message = err instanceof Error ? err.message : 'Upload failed'
-      toast(message)
-    })
+    for (const file of Array.from(files)) {
+      try {
+        await uploadFile(file)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Upload failed'
+        toast.error(message)
+      }
+    }
+  }
+
+  function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(true)
+  }
+
+  function handleDragEnter(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(true)
+  }
+
+  function handleDragLeave(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+  }
+
+  async function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+    const files = e.dataTransfer.files
+    if (!files || files.length === 0) return
+    for (const file of Array.from(files)) {
+      try {
+        await uploadFile(file)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Upload failed'
+        toast.error(message)
+      }
+    }
   }
 
   async function handleAddLink() {
@@ -164,7 +203,7 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
       setLinkTitle('')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to add link'
-      toast(message)
+      toast.error(message)
     } finally {
       setMutating(false)
     }
@@ -186,7 +225,7 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
       })
       .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : 'Failed to set cover'
-        toast(message)
+        toast.error(message)
       })
   }
 
@@ -206,7 +245,7 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
       })
       .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : 'Failed to remove attachment'
-        toast(message)
+        toast.error(message)
       })
   }
 
@@ -238,6 +277,7 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
         <input
           ref={fileInputRef}
           type="file"
+          multiple
           className="hidden"
           onChange={handleFileChange}
           aria-label="File upload input"
@@ -304,19 +344,38 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
         </div>
       )}
 
-      {attachments.length > 0 && (
-        <div className="flex flex-col">
-          {attachments.map((att) => (
-            <AttachmentRow
-              key={att.id}
-              attachment={att}
-              isCover={task?.coverAttachmentId === att.id}
-              onSetCover={handleSetCover}
-              onRemove={handleRemove}
-            />
-          ))}
-        </div>
-      )}
+      <div
+        className={`rounded-md transition-colors ${isDragOver ? 'ring-2 ring-primary bg-primary/5' : ''}`}
+        onDragOver={handleDragOver}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        data-testid="drop-zone"
+      >
+        {isDragOver && attachments.length === 0 && (
+          <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+            Drop files here
+          </div>
+        )}
+        {attachments.length > 0 && (
+          <div className="flex flex-col">
+            {attachments.map((att) => (
+              <AttachmentRow
+                key={att.id}
+                attachment={att}
+                isCover={task?.coverAttachmentId === att.id}
+                onSetCover={handleSetCover}
+                onRemove={handleRemove}
+              />
+            ))}
+          </div>
+        )}
+        {isDragOver && attachments.length > 0 && (
+          <div className="flex items-center justify-center py-2 text-xs text-primary">
+            Drop to attach
+          </div>
+        )}
+      </div>
     </div>
   )
 }

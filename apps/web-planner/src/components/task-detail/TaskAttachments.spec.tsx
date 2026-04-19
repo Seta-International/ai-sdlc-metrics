@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, act } from '@testing-library/react'
+import { render, screen, cleanup, act, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import React from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -28,6 +28,21 @@ vi.mock('@/lib/trpc', () => ({
       },
     },
   },
+}))
+
+// Mock useTaskDetail so TaskAttachments gets task data without a real query
+let mockTask: TaskDetailSnapshot | null | undefined = null
+
+vi.mock('@/lib/hooks/useTaskDetail', () => ({
+  useTaskDetail: () => ({
+    task: mockTask,
+    isLoading: false,
+    saving: false,
+    lastError: null,
+    conflict: null,
+    update: vi.fn(),
+    clearConflict: vi.fn(),
+  }),
 }))
 
 const BASE_DATE = new Date('2026-01-01T00:00:00Z')
@@ -82,11 +97,10 @@ function Wrapper({ children }: { children: React.ReactNode }) {
   return React.createElement(QueryClientProvider, { client: queryClient }, children)
 }
 
-const QUERY_KEY = ['tasks.getDetail', 'task-1', 'actor-1', 'tenant-1'] as const
-
 beforeEach(() => {
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   vi.clearAllMocks()
+  mockTask = null
   mockRequestUploadMutate.mockResolvedValue({
     uploadUrl: 'https://s3.example.com/upload',
     storageKey: 'tenants/t1/tasks/task-1/file.pdf',
@@ -105,8 +119,7 @@ afterEach(() => {
 
 describe('TaskAttachments', () => {
   it('renders empty state when no attachments', () => {
-    const task = makeTask({ attachments: [] })
-    queryClient.setQueryData(QUERY_KEY, task)
+    mockTask = makeTask({ attachments: [] })
 
     render(
       <Wrapper>
@@ -126,8 +139,7 @@ describe('TaskAttachments', () => {
       filename: 'report.pdf',
       sizeBytes: 102400,
     })
-    const task = makeTask({ attachments: [att] })
-    queryClient.setQueryData(QUERY_KEY, task)
+    mockTask = makeTask({ attachments: [att] })
 
     render(
       <Wrapper>
@@ -149,8 +161,7 @@ describe('TaskAttachments', () => {
       url: 'https://example.com',
       linkTitle: 'Example Site',
     })
-    const task = makeTask({ attachments: [att] })
-    queryClient.setQueryData(QUERY_KEY, task)
+    mockTask = makeTask({ attachments: [att] })
 
     render(
       <Wrapper>
@@ -171,8 +182,7 @@ describe('TaskAttachments', () => {
       url: 'https://example.com/page',
       linkTitle: undefined,
     })
-    const task = makeTask({ attachments: [att] })
-    queryClient.setQueryData(QUERY_KEY, task)
+    mockTask = makeTask({ attachments: [att] })
 
     render(
       <Wrapper>
@@ -184,8 +194,7 @@ describe('TaskAttachments', () => {
   })
 
   it('attach link: fills URL and submits, calls addLink.mutate', async () => {
-    const task = makeTask({ attachments: [] })
-    queryClient.setQueryData(QUERY_KEY, task)
+    mockTask = makeTask({ attachments: [] })
 
     render(
       <Wrapper>
@@ -220,8 +229,7 @@ describe('TaskAttachments', () => {
 
   it('remove: calls remove.mutate with correct attachmentId', async () => {
     const att = makeAttachment({ id: 'att-1', kind: 'file', filename: 'doc.pdf' })
-    const task = makeTask({ attachments: [att] })
-    queryClient.setQueryData(QUERY_KEY, task)
+    mockTask = makeTask({ attachments: [att] })
 
     render(
       <Wrapper>
@@ -244,5 +252,119 @@ describe('TaskAttachments', () => {
         tenantId: 'tenant-1',
       }),
     )
+  })
+
+  it('upload flow: file input change calls requestUpload and finalizeUpload', async () => {
+    mockTask = makeTask({ attachments: [] })
+
+    // Use a class-based XHR mock so `new XMLHttpRequest()` works
+    // eslint-disable-next-line @typescript-eslint/no-extraneous-class
+    class XHRMock {
+      static lastInstance: XHRMock | null = null
+      upload = { onprogress: null as ((e: ProgressEvent) => void) | null }
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      status = 200
+      open = vi.fn()
+      setRequestHeader = vi.fn()
+      send = vi.fn().mockImplementation(() => {
+        Promise.resolve().then(() => {
+          if (this.onload) this.onload()
+        })
+      })
+      constructor() {
+        XHRMock.lastInstance = this
+      }
+    }
+
+    const OriginalXHR = globalThis.XMLHttpRequest
+    globalThis.XMLHttpRequest = XHRMock as unknown as typeof XMLHttpRequest
+
+    render(
+      <Wrapper>
+        <TaskAttachments taskId="task-1" planId="plan-1" />
+      </Wrapper>,
+    )
+
+    const fileInput = screen.getByLabelText('File upload input')
+    const fakeFile = new File(['hello'], 'test.pdf', { type: 'application/pdf' })
+
+    await act(async () => {
+      await userEvent.upload(fileInput, fakeFile)
+    })
+
+    await waitFor(() => {
+      expect(mockFinalizeUploadMutate).toHaveBeenCalledOnce()
+    })
+
+    expect(mockRequestUploadMutate).toHaveBeenCalledOnce()
+    expect(mockRequestUploadMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filename: 'test.pdf',
+        contentType: 'application/pdf',
+        taskId: 'task-1',
+        planId: 'plan-1',
+        actorId: 'actor-1',
+        tenantId: 'tenant-1',
+      }),
+    )
+
+    expect(mockFinalizeUploadMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storageKey: 'tenants/t1/tasks/task-1/file.pdf',
+        filename: 'test.pdf',
+        contentType: 'application/pdf',
+        taskId: 'task-1',
+        planId: 'plan-1',
+        actorId: 'actor-1',
+        tenantId: 'tenant-1',
+      }),
+    )
+
+    globalThis.XMLHttpRequest = OriginalXHR
+  })
+
+  it('upload flow: supports multiple file selection', async () => {
+    mockTask = makeTask({ attachments: [] })
+
+    // eslint-disable-next-line @typescript-eslint/no-extraneous-class
+    class XHRMock {
+      upload = { onprogress: null as ((e: ProgressEvent) => void) | null }
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      status = 200
+      open = vi.fn()
+      setRequestHeader = vi.fn()
+      send = vi.fn().mockImplementation(() => {
+        Promise.resolve().then(() => {
+          if (this.onload) this.onload()
+        })
+      })
+    }
+
+    const OriginalXHR = globalThis.XMLHttpRequest
+    globalThis.XMLHttpRequest = XHRMock as unknown as typeof XMLHttpRequest
+
+    render(
+      <Wrapper>
+        <TaskAttachments taskId="task-1" planId="plan-1" />
+      </Wrapper>,
+    )
+
+    const fileInput = screen.getByLabelText('File upload input')
+    const file1 = new File(['a'], 'a.pdf', { type: 'application/pdf' })
+    const file2 = new File(['b'], 'b.pdf', { type: 'application/pdf' })
+
+    await act(async () => {
+      await userEvent.upload(fileInput, [file1, file2])
+    })
+
+    await waitFor(() => {
+      expect(mockFinalizeUploadMutate).toHaveBeenCalledTimes(2)
+    })
+
+    expect(mockRequestUploadMutate).toHaveBeenCalledTimes(2)
+
+    globalThis.XMLHttpRequest = OriginalXHR
   })
 })

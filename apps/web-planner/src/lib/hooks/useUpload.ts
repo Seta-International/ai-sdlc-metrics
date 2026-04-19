@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSession } from '@future/auth'
+import { toast } from 'sonner'
 import { trpc } from '../trpc'
 
 interface UseUploadOptions {
@@ -56,6 +57,7 @@ export function useUpload({ taskId, planId }: UseUploadOptions): {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Upload failed'
       setUploadState({ uploading: false, progress: 0, error: message })
+      toast.error(message)
       return
     }
 
@@ -83,6 +85,7 @@ export function useUpload({ taskId, planId }: UseUploadOptions): {
     }).catch((err: unknown) => {
       const message = err instanceof Error ? err.message : 'Upload failed'
       setUploadState({ uploading: false, progress: 0, error: message })
+      toast.error(message)
       throw err
     })
 
@@ -103,6 +106,7 @@ export function useUpload({ taskId, planId }: UseUploadOptions): {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Finalize failed'
       setUploadState({ uploading: false, progress: 0, error: message })
+      toast.error(message)
       return
     }
 
