@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { PlusIcon, UsersIcon } from 'lucide-react'
+import { PlusIcon, UsersIcon, LayoutGridIcon } from 'lucide-react'
 import { useSession } from '@future/auth'
 import { Button, Card, Skeleton } from '@future/ui'
 import { trpc } from '../../lib/trpc'
@@ -13,6 +13,22 @@ interface PlanSummary {
   memberCount: number
   myRole: 'owner' | 'editor' | 'viewer' | null
   updatedAt: string
+}
+
+function PlansLoadingSkeleton() {
+  return (
+    <main className="p-8" aria-label="Loading plans" data-testid="plans-loading-skeleton">
+      <div className="flex items-center justify-between mb-6">
+        <Skeleton className="h-6 w-24 rounded" />
+        <Skeleton className="h-8 w-24 rounded" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-20 rounded-lg" style={{ opacity: 1 - (i - 1) * 0.2 }} />
+        ))}
+      </div>
+    </main>
+  )
 }
 
 export default function PlansPage() {
@@ -28,11 +44,7 @@ export default function PlansPage() {
   })
 
   if (!session || isLoading) {
-    return (
-      <main className="p-8">
-        <Skeleton className="h-6 w-32" />
-      </main>
-    )
+    return <PlansLoadingSkeleton />
   }
 
   return (
@@ -48,19 +60,25 @@ export default function PlansPage() {
       </div>
 
       {plans.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-32 text-center">
-          <p className="text-fg-muted text-sm">Create your first plan.</p>
-          <div className="mt-4">
-            <Button asChild>
-              <Link href="/plans/new">
-                <PlusIcon size={14} />
-                New plan
-              </Link>
-            </Button>
-          </div>
+        <div
+          className="flex flex-col items-center justify-center py-32 text-center"
+          data-testid="plans-empty-state"
+        >
+          <LayoutGridIcon size={32} className="text-fg-subtle mb-4 opacity-40" />
+          <p className="text-fg-muted text-sm font-450">No plans yet</p>
+          <p className="text-fg-subtle text-xs mt-1 mb-4">Create your first plan to get started</p>
+          <Button asChild>
+            <Link href="/plans/new">
+              <PlusIcon size={14} />
+              New plan
+            </Link>
+          </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          data-testid="plans-grid"
+        >
           {plans.map((plan) => (
             <Link
               key={plan.id}

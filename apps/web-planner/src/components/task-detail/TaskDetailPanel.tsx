@@ -42,11 +42,19 @@ export function TaskDetailPanel({ taskId, planId }: Props) {
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') router.back()
+      if (e.key === 'Escape') {
+        // The board is still mounted behind this intercepting-route panel.
+        // Look up the task card link by task ID to restore focus reliably.
+        const taskLink = document.querySelector<HTMLElement>(
+          `[data-task-id="${taskId}"] [data-testid="task-title-link"]`,
+        )
+        taskLink?.focus()
+        router.back()
+      }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [router])
+  }, [router, taskId])
 
   return (
     <div className="flex h-full flex-col" data-testid="task-detail-panel">
@@ -62,7 +70,11 @@ export function TaskDetailPanel({ taskId, planId }: Props) {
 
       <div className="flex-1 overflow-y-auto">
         {isLoading || !task ? (
-          <div className="flex flex-col gap-3 px-4 py-4">
+          <div
+            className="flex flex-col gap-3 px-4 py-4"
+            data-testid="task-detail-loading-skeleton"
+            aria-label="Loading task…"
+          >
             <Skeleton className="h-4 w-1/3" />
             <Skeleton className="h-4 w-2/3" />
             <Skeleton className="h-4 w-1/2" />

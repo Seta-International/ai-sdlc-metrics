@@ -2,3 +2,17 @@
 @source "../../**/*.{tsx,ts,jsx,js}";
 @config '../../../../tailwind.config.ts';
 @import '@future/ui/src/styles/globals.css';
+
+/* ─── Reduced-motion accessibility ───────────────────────────────────────── */
+/* Disable slide + drag animations for users who prefer reduced motion        */
+@media (prefers-reduced-motion: reduce) {
+  /* Task detail panel slide animation */
+  [data-testid='task-detail-panel'] {
+    transition: none !important;
+    animation: none !important;
+  }
+  /* DnD Kit drag animations — target the attribute set by TaskCard when isDragging===true */
+  [data-dragging] {
+    transition: none !important;
+  }
+}

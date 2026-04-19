@@ -14,46 +14,13 @@
  *   playwright test --config apps/web-planner/e2e/playwright.config.ts
  */
 
-import { test, expect, type BrowserContext, type Page } from '@playwright/test'
-
-// ---------------------------------------------------------------------------
-// Session injection
-// ---------------------------------------------------------------------------
-
-/**
- * Injects a pre-issued JWT as the `_future_session` httpOnly-equivalent cookie
- * so the test actor is recognised as signed-in by every `/api/auth/me` call.
- *
- * In CI the token is minted by the seed script:
- *   apps/api/scripts/seed-e2e-session.ts
- *
- * Locally, set E2E_SESSION_TOKEN to a token from a magic-link login.
- */
-async function injectSession(context: BrowserContext): Promise<void> {
-  const token = process.env['E2E_SESSION_TOKEN']
-  if (!token) {
-    throw new Error(
-      'E2E_SESSION_TOKEN is not set. ' +
-        'Run the seed script (apps/api/scripts/seed-e2e-session.ts) in CI, ' +
-        'or set it to a valid JWT from a magic-link login for local runs.',
-    )
-  }
-
-  const baseURL = process.env['PLAYWRIGHT_BASE_URL'] ?? 'http://localhost:3011'
-  const url = new URL(baseURL)
-
-  await context.addCookies([
-    {
-      name: '_future_session',
-      value: token,
-      domain: url.hostname,
-      path: '/',
-      httpOnly: true,
-      secure: url.protocol === 'https:',
-      sameSite: 'Lax',
-    },
-  ])
-}
+import { test, expect, type Page } from '@playwright/test'
+import {
+  injectSession,
+  createPlanAndGoToBoard,
+  addBucket,
+  addTaskToFirstColumn,
+} from './helpers/session'
 
 // ---------------------------------------------------------------------------
 // Test IDs read from environment so the suite works against any tenant/actor
@@ -172,59 +139,11 @@ test.describe('Planner smoke', () => {
 // Board flows — Plan 02 Task 14
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Helper: create a plan via the UI and return its planId.
- * After creation the router lands on /plans/<id>/board.
- */
-async function createPlan(page: Page, context: BrowserContext, name: string): Promise<string> {
-  await injectSession(context)
-  await page.goto('/plans/new')
-  await expect(page.getByRole('heading', { name: 'New plan' })).toBeVisible()
-  await page.getByLabel('Name').fill(name)
-  await page.getByRole('button', { name: 'Create plan' }).click()
-  await expect(page).toHaveURL(/\/plans\/[0-9a-f-]+\/board/)
-  const planId = page.url().match(/\/plans\/([0-9a-f-]+)\/board/)?.[1]
-  expect(planId).toBeTruthy()
-  return planId!
-}
-
-/**
- * Helper: add a bucket via the AddBucketButton in the board page.
- */
-async function addBucket(page: Page, bucketName: string): Promise<void> {
-  await page.getByTestId('add-bucket-btn').click()
-  await page.getByTestId('add-bucket-input').fill(bucketName)
-  await page.getByTestId('add-bucket-submit').click()
-  // Wait for the new column to appear in the board
-  await expect(
-    page.locator('[data-testid="board-column"]').filter({
-      has: page.getByTestId('column-name-btn').filter({ hasText: bucketName }),
-    }),
-  ).toBeVisible()
-}
-
-/**
- * Helper: add a task via QuickAddTask inside the first board column.
- * QuickAddTask uses aria-label="Add task" (no data-testid on the open button).
- */
-async function addTaskToFirstColumn(page: Page, taskTitle: string): Promise<void> {
-  const firstColumn = page.locator('[data-testid="board-column"]').first()
-  // The QuickAddTask open button has aria-label="Add task"
-  await firstColumn.getByRole('button', { name: 'Add task' }).click()
-  await firstColumn.getByTestId('quick-add-task-input').fill(taskTitle)
-  // Press Enter to add
-  await firstColumn.getByTestId('quick-add-task-input').press('Enter')
-  // Wait for the task card to appear
-  await expect(
-    page.locator('[data-testid="task-card"]').filter({ hasText: taskTitle }),
-  ).toBeVisible()
-}
-
 test.describe('Board flows', () => {
   // ─── Flow 1: Create plan → buckets → tasks → move (via keyboard drag) → persist
 
   test('Flow 1: task move persists after page refresh', async ({ page, context }) => {
-    const planId = await createPlan(page, context, 'Board Flow 1 Plan')
+    const planId = await createPlanAndGoToBoard(page, context, 'Board Flow 1 Plan')
 
     // Wait for the board page to render (or empty state)
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
@@ -304,7 +223,7 @@ test.describe('Board flows', () => {
     page,
     context,
   }) => {
-    const planId = await createPlan(page, context, 'Board Flow 2 Plan')
+    const planId = await createPlanAndGoToBoard(page, context, 'Board Flow 2 Plan')
 
     // Wait for board or empty state
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
@@ -338,7 +257,7 @@ test.describe('Board flows', () => {
   // ─── Flow 3: Assign teammate → avatar appears on card ─────────────────────
 
   test('Flow 3: assign a plan member and avatar appears on card', async ({ page, context }) => {
-    const planId = await createPlan(page, context, 'Board Flow 3 Plan')
+    const planId = await createPlanAndGoToBoard(page, context, 'Board Flow 3 Plan')
 
     // Wait for board or empty state
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
@@ -392,13 +311,79 @@ test.describe('Board flows', () => {
     // Confirm planId is still in URL
     expect(page.url()).toContain(planId)
   })
+
+  // ─── Flow 5 (MailHog): Assign teammate → notification email arrives ────────
+
+  test('Flow 5 (MailHog): assign teammate → notification email arrives', async ({
+    page,
+    context,
+    request,
+  }) => {
+    const mailhogUrl = process.env['MAILHOG_BASE_URL']
+    if (!mailhogUrl) {
+      test.skip(true, 'MAILHOG_BASE_URL not set — skipping MailHog check (CI only)')
+      return
+    }
+
+    const planId = await createPlanAndGoToBoard(page, context, 'MailHog Flow 5 Plan')
+    await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
+
+    const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
+    if (!hasBoardPage) {
+      await addBucket(page, 'To do')
+    }
+
+    await addTaskToFirstColumn(page, 'Assign MailHog Task')
+
+    const taskCard = page
+      .locator('[data-testid="task-card"]')
+      .filter({ hasText: 'Assign MailHog Task' })
+      .first()
+    await taskCard.hover()
+    await taskCard.getByTestId('task-card-menu-btn').click()
+    await page.getByTestId('task-menu-assignees').click()
+
+    const assigneePicker = page.getByTestId('assignee-picker')
+    await expect(assigneePicker).toBeVisible()
+
+    const options = assigneePicker.locator('button[data-testid^="assignee-option-"]')
+    const count = await options.count()
+    if (count === 0) {
+      test.skip(true, 'No plan members available — skipping MailHog assignment check')
+      return
+    }
+
+    await options.first().click()
+    await page.keyboard.press('Escape')
+
+    // Poll MailHog for the notification email (up to 10 seconds)
+    const deadline = Date.now() + 10_000
+    let found = false
+    while (Date.now() < deadline) {
+      const response = await request.get(`${mailhogUrl}/api/v2/messages`)
+      if (response.ok()) {
+        const body = (await response.json()) as {
+          items: Array<{ Content: { Headers: { Subject: string[] } } }>
+        }
+        found = body.items.some((msg) =>
+          msg.Content.Headers.Subject?.some((s) => s.includes('assigned you to')),
+        )
+        if (found) break
+      }
+      await page.waitForTimeout(1000)
+    }
+
+    expect(found, 'Expected notification email in MailHog within 10 seconds').toBe(true)
+
+    expect(page.url()).toContain(planId)
+  })
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Task detail flows — Plan 03 Task 11
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function openTaskDetailPanel(page: Page, planId: string, taskTitle: string): Promise<void> {
+async function openTaskDetailPanel(page: Page, _planId: string, taskTitle: string): Promise<void> {
   const taskCard = page.locator('[data-testid="task-card"]').filter({ hasText: taskTitle }).first()
   await taskCard.getByTestId('task-title-link').click()
   await page.waitForSelector('[data-testid="task-detail-panel"]')
@@ -406,7 +391,7 @@ async function openTaskDetailPanel(page: Page, planId: string, taskTitle: string
 
 test.describe('Task detail flows — Plan 03', () => {
   test('Flow 1: edit title → blur → refresh → persisted', async ({ page, context }) => {
-    const planId = await createPlan(page, context, 'Detail Flow 1 Plan')
+    const planId = await createPlanAndGoToBoard(page, context, 'Detail Flow 1 Plan')
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
     const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
     if (!hasBoardPage) await addBucket(page, 'To do')
@@ -436,7 +421,7 @@ test.describe('Task detail flows — Plan 03', () => {
     page,
     context,
   }) => {
-    const planId = await createPlan(page, context, 'Detail Flow 2 Plan')
+    const planId = await createPlanAndGoToBoard(page, context, 'Detail Flow 2 Plan')
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
     const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
     if (!hasBoardPage) await addBucket(page, 'To do')
@@ -463,7 +448,7 @@ test.describe('Task detail flows — Plan 03', () => {
   })
 
   test('Flow 3: add 20 checklist items → 21st is blocked', async ({ page, context }) => {
-    const planId = await createPlan(page, context, 'Detail Flow 3 Plan')
+    const planId = await createPlanAndGoToBoard(page, context, 'Detail Flow 3 Plan')
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
     const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
     if (!hasBoardPage) await addBucket(page, 'To do')
@@ -485,7 +470,7 @@ test.describe('Task detail flows — Plan 03', () => {
   })
 
   test('Flow 4: check 3 items → counter shows 3/N', async ({ page, context }) => {
-    const planId = await createPlan(page, context, 'Detail Flow 4 Plan')
+    const planId = await createPlanAndGoToBoard(page, context, 'Detail Flow 4 Plan')
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
     const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
     if (!hasBoardPage) await addBucket(page, 'To do')
@@ -535,7 +520,7 @@ test.describe('Attachment, Comment, Evidence flows — Plan 04', () => {
     page,
     context,
   }) => {
-    const planId = await createPlan(page, context, 'Attachment Flow 1 Plan')
+    const planId = await createPlanAndGoToBoard(page, context, 'Attachment Flow 1 Plan')
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
     const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
     if (!hasBoardPage) await addBucket(page, 'To do')
@@ -594,7 +579,7 @@ test.describe('Attachment, Comment, Evidence flows — Plan 04', () => {
     page,
     context,
   }) => {
-    const planId = await createPlan(page, context, 'Attachment Flow 2 Plan')
+    const planId = await createPlanAndGoToBoard(page, context, 'Attachment Flow 2 Plan')
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
     const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
     if (!hasBoardPage) await addBucket(page, 'To do')
@@ -637,7 +622,7 @@ test.describe('Attachment, Comment, Evidence flows — Plan 04', () => {
   // ─── Flow 3: Post a comment → appears → delete own comment → tombstone ────
 
   test('Flow 3: post comment → delete own comment → tombstone shown', async ({ page, context }) => {
-    const planId = await createPlan(page, context, 'Comment Flow 3 Plan')
+    const planId = await createPlanAndGoToBoard(page, context, 'Comment Flow 3 Plan')
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
     const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
     if (!hasBoardPage) await addBucket(page, 'To do')
@@ -683,7 +668,7 @@ test.describe('Attachment, Comment, Evidence flows — Plan 04', () => {
     page,
     context,
   }) => {
-    const planId = await createPlan(page, context, 'Evidence Flow 4 Plan')
+    const planId = await createPlanAndGoToBoard(page, context, 'Evidence Flow 4 Plan')
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
     const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
     if (!hasBoardPage) await addBucket(page, 'To do')
@@ -730,7 +715,7 @@ test.describe('Attachment, Comment, Evidence flows — Plan 04', () => {
     page,
     context,
   }) => {
-    const planId = await createPlan(page, context, 'Evidence Flow 5 Plan')
+    const planId = await createPlanAndGoToBoard(page, context, 'Evidence Flow 5 Plan')
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
     const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
     if (!hasBoardPage) await addBucket(page, 'To do')

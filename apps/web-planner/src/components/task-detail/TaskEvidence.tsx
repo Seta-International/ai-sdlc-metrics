@@ -176,6 +176,7 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loadItems = useCallback(async () => {
+    setLoading(true)
     try {
       const result = (await trpc.planner.evidence.list.query({
         tenantId,
@@ -191,7 +192,6 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
 
   useEffect(() => {
     if (!actorId || !tenantId) return
-    setLoading(true)
     void loadItems()
   }, [loadItems, actorId, tenantId])
 
@@ -456,9 +456,6 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
         <div className="py-2 text-caption text-fg-subtle">Loading…</div>
       ) : (
         <div className="flex flex-col gap-2">
-          {items.length === 0 && (
-            <p className="text-caption text-fg-muted py-4 text-center">No evidence added yet.</p>
-          )}
           {items.map((item) => (
             <EvidenceCard
               key={item.id}

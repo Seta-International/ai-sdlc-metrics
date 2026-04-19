@@ -84,13 +84,13 @@ describe('TaskEvidence', () => {
     expect(screen.getByRole('button', { name: 'Add evidence' })).toBeDefined()
   })
 
-  it('shows empty state message when no items', async () => {
+  it('shows empty list (no placeholder text) when no items', async () => {
     mockListQuery.mockResolvedValue({ items: [] })
 
     render(<TaskEvidence taskId="task-1" planId="plan-1" />)
 
     await waitFor(() => {
-      expect(screen.getByText('No evidence added yet.')).toBeDefined()
+      expect(screen.queryByTestId('evidence-card')).toBeNull()
     })
   })
 

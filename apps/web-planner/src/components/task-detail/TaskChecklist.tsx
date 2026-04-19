@@ -65,9 +65,9 @@ function SortableItem({ item, onToggle, onEdit, onRemove }: SortableItemProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className="group flex items-center gap-2 rounded-md px-1 py-1 hover:bg-muted/50"
+      className="group flex items-center gap-2 rounded-md px-1 py-1 hover:bg-white/4"
     >
-      <span className="cursor-grab text-muted-foreground" {...attributes} {...listeners}>
+      <span className="cursor-grab text-fg-muted" {...attributes} {...listeners}>
         <GripVertical className="size-4" />
       </span>
 
@@ -95,10 +95,7 @@ function SortableItem({ item, onToggle, onEdit, onRemove }: SortableItemProps) {
           />
         ) : (
           <span
-            className={cn(
-              'cursor-pointer text-sm',
-              item.isChecked && 'line-through text-muted-foreground',
-            )}
+            className={cn('cursor-pointer text-sm', item.isChecked && 'line-through text-fg-muted')}
             onClick={() => {
               setEditTitle(item.title)
               setEditing(true)
@@ -310,7 +307,7 @@ export function TaskChecklist({ taskId, planId }: TaskChecklistProps) {
   return (
     <div className="flex flex-col gap-2 px-4 py-3">
       <div className="flex items-center gap-2">
-        <h3 className="text-sm font-medium">
+        <h3 className="text-sm font-510">
           Checklist (
           <span data-testid="checklist-counter">
             {checklistCheckedCount} / {checklistItemCount}
@@ -338,7 +335,7 @@ export function TaskChecklist({ taskId, planId }: TaskChecklistProps) {
 
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
-          <Plus className="size-4 shrink-0 text-muted-foreground" />
+          <Plus className="size-4 shrink-0 text-fg-muted" />
           <Input
             placeholder="Add an item…"
             disabled={checklistItemCount >= 20}
@@ -350,7 +347,7 @@ export function TaskChecklist({ taskId, planId }: TaskChecklistProps) {
           />
         </div>
         {checklistItemCount >= 20 && (
-          <span className="text-xs text-muted-foreground">Maximum 20 items reached</span>
+          <span className="text-xs text-fg-muted">Maximum 20 items reached</span>
         )}
       </div>
     </div>

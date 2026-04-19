@@ -54,18 +54,18 @@ function AttachmentRow({
 
   return (
     <div
-      className="group flex items-center gap-2 rounded-md px-1 py-1.5 hover:bg-muted/50"
+      className="group flex items-center gap-2 rounded-md px-1 py-1.5 hover:bg-white/4"
       data-testid={`attachment-row-${attachment.id}`}
     >
       {attachment.kind === 'link' ? (
-        <Link className="size-4 shrink-0 text-muted-foreground" />
+        <Link className="size-4 shrink-0 text-fg-muted" />
       ) : (
-        <Paperclip className="size-4 shrink-0 text-muted-foreground" />
+        <Paperclip className="size-4 shrink-0 text-fg-muted" />
       )}
 
       <div className="min-w-0 flex-1">
         <span className="block truncate text-sm">{label}</span>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-fg-muted">
           {attachment.kind === 'file' ? `${formatBytes(attachment.sizeBytes)} · ` : ''}
           {formatDate(attachment.createdAt)}
         </span>
@@ -249,7 +249,7 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
   return (
     <div className="flex flex-col gap-2 px-4 py-3" data-testid="attachments-section">
       <div className="flex items-center gap-2">
-        <h3 className="flex-1 text-sm font-medium">Attachments</h3>
+        <h3 className="flex-1 text-sm font-510">Attachments</h3>
         <Button
           variant="ghost"
           size="sm"
@@ -283,13 +283,13 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
 
       {uploadState.uploading && (
         <div className="flex flex-col gap-1">
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface">
             <div
               className="h-full bg-primary transition-all"
               style={{ width: `${uploadState.progress}%` }}
             />
           </div>
-          <span className="text-xs text-muted-foreground">{uploadState.progress}%</span>
+          <span className="text-xs text-fg-muted">{uploadState.progress}%</span>
         </div>
       )}
 
@@ -351,7 +351,7 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
         data-testid="drop-zone"
       >
         {isDragOver && attachments.length === 0 && (
-          <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center py-4 text-sm text-fg-muted">
             Drop files here
           </div>
         )}
