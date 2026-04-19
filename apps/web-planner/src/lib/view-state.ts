@@ -95,9 +95,10 @@ export function parseViewStateFromSearch(params: URLSearchParams): ViewState {
 
   return {
     view: (VIEW_KEYS as readonly string[]).includes(view ?? '') ? (view as ViewKey) : 'board',
-    groupBy: (GROUP_KEYS as readonly string[]).includes(group ?? '')
-      ? (group as GroupKey)
-      : 'bucket',
+    groupBy:
+      (GROUP_KEYS as readonly string[]).includes(group ?? '') && group !== 'plan'
+        ? (group as GroupKey)
+        : 'bucket',
     sort: sortField ? { field: sortField, dir: sortMatch![2] as 'asc' | 'desc' } : undefined,
     filter: {
       due: dueValue,
