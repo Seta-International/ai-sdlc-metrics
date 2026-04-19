@@ -175,6 +175,11 @@ describe('reduceWorkloadByAssignee', () => {
     ]
     expect(reduceWorkloadByAssignee(tasks)).toEqual([])
   })
+
+  it('ignores tasks with no assignees', () => {
+    const tasks = [mkTask({ assignees: [], progress: 'in-progress' })]
+    expect(reduceWorkloadByAssignee(tasks)).toEqual([])
+  })
 })
 
 describe('reduceLateUpcoming', () => {

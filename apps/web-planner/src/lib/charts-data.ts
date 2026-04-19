@@ -15,9 +15,9 @@ export function reducePriority(tasks: TaskFlat[]): PriorityCounts {
   return out
 }
 
-export function reduceBucket(
-  tasks: TaskFlat[],
-): { bucketId: string; bucketName: string; count: number; hint: string }[] {
+export type BucketRow = { bucketId: string; bucketName: string; count: number; hint: string }
+
+export function reduceBucket(tasks: TaskFlat[]): BucketRow[] {
   const byId = new Map<string, { bucketName: string; count: number; hint: string }>()
   for (const t of tasks) {
     const e = byId.get(t.bucketId)
@@ -26,7 +26,7 @@ export function reduceBucket(
   }
   return [...byId.entries()]
     .map(([bucketId, v]) => ({ bucketId, ...v }))
-    .sort((a, b) => a.hint.localeCompare(b.hint))
+    .sort((a, b) => (a.hint < b.hint ? -1 : a.hint > b.hint ? 1 : 0))
 }
 
 export type WorkloadRow = {
@@ -74,13 +74,11 @@ export function reduceLateUpcoming(
     .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
     .slice(0, 5)
   const upcoming = tasks
-    .filter(
-      (t) =>
-        t.dueDate &&
-        new Date(t.dueDate).getTime() >= today &&
-        new Date(t.dueDate).getTime() <= weekOut &&
-        t.progress !== 'completed',
-    )
+    .filter((t) => {
+      if (!t.dueDate || t.progress === 'completed') return false
+      const ms = new Date(t.dueDate).getTime()
+      return ms >= today && ms <= weekOut
+    })
     .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
     .slice(0, 5)
   return { late, upcoming }
