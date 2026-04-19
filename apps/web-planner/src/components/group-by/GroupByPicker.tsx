@@ -17,7 +17,7 @@ export function GroupByPicker({ planId }: { planId: string }) {
 
   return (
     <Select value={state.groupBy} onValueChange={(v) => patch({ groupBy: v as GroupKey })}>
-      <SelectTrigger className="w-40">
+      <SelectTrigger className="w-40" data-testid="group-by-trigger">
         <SelectValue placeholder="Group by…" />
       </SelectTrigger>
       <SelectContent>

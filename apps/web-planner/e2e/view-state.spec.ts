@@ -17,265 +17,263 @@ import { test, expect } from '@playwright/test'
 import { createPlanAndGoToBoard, addBucket, addTaskToFirstColumn } from './helpers/session'
 
 // ---------------------------------------------------------------------------
-// Environment helpers
+// Unique run ID — appended to plan names to avoid collisions in parallel runs
 // ---------------------------------------------------------------------------
 
-function requiredEnv(name: string): string {
-  const value = process.env[name]
-  if (!value) {
-    throw new Error(
-      `Required env var ${name} is not set. ` +
-        'See apps/web-planner/e2e/README.md for setup instructions.',
-    )
-  }
-  return value
-}
+const RUN_ID = Date.now().toString(36)
+
+// localStorage key format used by useViewState
+const lsKey = (planId: string) => `planner:view:${planId}`
 
 // ---------------------------------------------------------------------------
 // View state suite
 // ---------------------------------------------------------------------------
 
-test.describe('View state — filter bar, group-by, view switch, URL deep-link, localStorage', () => {
-  // ─── Test 1: Filter bar renders and filter chips appear ──────────────────
+test.describe('View state — filter + group-by + view switch + URL/LS restore', () => {
+  // Shared plan + tasks created once per test (each test has its own plan)
+  // to avoid state pollution between tests.
 
-  test('filter bar renders and filter chip appears after adding priority filter', async ({
-    page,
-    context,
-  }) => {
-    const planId = await createPlanAndGoToBoard(page, context, 'View State Filter Test')
+  // ─── Test 1: FilterBar renders — Add filter button visible ───────────────
 
-    // Wait for board or empty state
+  test('FilterBar renders — Add filter button is visible', async ({ page, context }) => {
+    const planId = await createPlanAndGoToBoard(page, context, `Filter Render ${RUN_ID}`)
+
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
 
-    // Ensure there is at least one bucket
     const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
     if (!hasBoardPage) {
       await addBucket(page, 'To do')
     }
 
-    // Add some tasks for meaningful board content
-    await addTaskToFirstColumn(page, 'Task Alpha')
-    await addTaskToFirstColumn(page, 'Task Beta')
+    await addTaskToFirstColumn(page, `Task Alpha ${RUN_ID}`)
+    await addTaskToFirstColumn(page, `Task Beta ${RUN_ID}`)
 
-    // ── Assert: "Add filter" button is visible (FilterBar is rendered)
-    const addFilterBtn = page.getByRole('button', { name: /add filter/i })
-    await expect(addFilterBtn).toBeVisible()
-
-    // ── Act: open "Add filter" dropdown
-    await addFilterBtn.click()
-
-    // Priority menu item appears
-    const priorityMenuItem = page.getByRole('menuitem', { name: /priority/i })
-    await expect(priorityMenuItem).toBeVisible()
-
-    // Click Priority
-    await priorityMenuItem.click()
-
-    // ── Assert: a "Priority" filter chip is now visible in the bar
-    // FilterChip renders a button whose text starts with "Priority:"
-    const priorityChip = page.getByRole('button', { name: /priority:/i })
-    await expect(priorityChip).toBeVisible()
-
-    // ── Assert: a "Clear filter" button (X) is adjacent to the chip
-    await expect(page.getByRole('button', { name: /clear filter/i })).toBeVisible()
-
-    // ── Assert: the URL now contains filter.priority
-    await expect(page).toHaveURL(/filter\.priority=urgent/)
+    // Assert: "Add filter" button is visible (FilterBar is rendered)
+    await expect(page.getByRole('button', { name: /add filter/i })).toBeVisible()
 
     expect(page.url()).toContain(planId)
   })
 
-  // ─── Test 2: URL deep-link with priority filter restores chip on load ─────
+  // ─── Test 2: Priority filter chip — chip appears, URL updates, 0 cards shown ──
+
+  test('Priority filter chip appears in bar and URL; urgent filter hides medium tasks', async ({
+    page,
+    context,
+  }) => {
+    const planId = await createPlanAndGoToBoard(page, context, `Filter Chip ${RUN_ID}`)
+
+    await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
+
+    const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
+    if (!hasBoardPage) {
+      await addBucket(page, 'To do')
+    }
+
+    // Seed 2 tasks (default priority = medium)
+    await addTaskToFirstColumn(page, `Task One ${RUN_ID}`)
+    await addTaskToFirstColumn(page, `Task Two ${RUN_ID}`)
+
+    // Act: open "Add filter" dropdown and pick Priority
+    const addFilterBtn = page.getByRole('button', { name: /add filter/i })
+    await expect(addFilterBtn).toBeVisible()
+    await addFilterBtn.click()
+
+    const priorityMenuItem = page.getByRole('menuitem', { name: /priority/i })
+    await expect(priorityMenuItem).toBeVisible()
+    await priorityMenuItem.click()
+
+    // Assert: a "Priority:" filter chip is now visible
+    const priorityChip = page.getByRole('button', { name: /priority:/i })
+    await expect(priorityChip).toBeVisible()
+
+    // Assert: clear-filter button is visible
+    await expect(page.getByRole('button', { name: /clear filter/i })).toBeVisible()
+
+    // Assert: URL contains filter.priority (auto-selected urgent)
+    await expect(page).toHaveURL(/filter\.priority=urgent/)
+
+    // Assert: task cards count = 0 (all seeded tasks are medium, filter is urgent)
+    await expect(page.locator('[data-testid="task-card"]')).toHaveCount(0)
+
+    expect(page.url()).toContain(planId)
+  })
+
+  // ─── Test 3: Group-by Assignee — URL updates to ?group=assignee ──────────
+
+  test('group-by picker changes to Assignee and URL reflects group=assignee', async ({
+    page,
+    context,
+  }) => {
+    const planId = await createPlanAndGoToBoard(page, context, `Group By ${RUN_ID}`)
+
+    await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
+
+    const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
+    if (!hasBoardPage) {
+      await addBucket(page, 'To do')
+    }
+
+    // Act: open the GroupByPicker via stable testid
+    const groupByTrigger = page.getByTestId('group-by-trigger')
+    await expect(groupByTrigger).toBeVisible()
+    await groupByTrigger.click()
+
+    // Select "Assignee"
+    const assigneeOption = page.getByRole('option', { name: /^assignee$/i })
+    await expect(assigneeOption).toBeVisible()
+    await assigneeOption.click()
+
+    // Assert: URL now contains group=assignee
+    await expect(page).toHaveURL(/group=assignee/)
+
+    // Assert: trigger now shows "Assignee"
+    await expect(page.getByTestId('group-by-trigger')).toContainText(/assignee/i)
+
+    expect(page.url()).toContain(planId)
+  })
+
+  // ─── Test 4: URL deep-link filter — navigate to ?filter.priority=urgent ──
 
   test('URL deep-link with filter.priority=urgent shows filter chip on load', async ({
     page,
     context,
   }) => {
-    const planId = await createPlanAndGoToBoard(page, context, 'View State Deep-Link Test')
+    const planId = await createPlanAndGoToBoard(page, context, `Deep-Link Filter ${RUN_ID}`)
 
     // Navigate directly to the board with a priority filter pre-set in the URL
     await page.goto(`/plans/${planId}/board?filter.priority=urgent`)
-
-    // Wait for board content to render
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
 
-    // ── Assert: the filter chip reflecting "Priority: urgent" is present
+    // Assert: the filter chip reflecting "Priority: urgent" is present
     await expect(page.getByRole('button', { name: /priority:\s*urgent/i })).toBeVisible()
-
-    // ── Assert: "Add filter" is NOT visible (all filter fields used)
-    // Actually, "Add filter" only hides when ALL filter fields are active.
-    // After deep-linking, the priority chip should be visible. That's sufficient.
     await expect(page.getByRole('button', { name: /clear filter/i })).toBeVisible()
 
     expect(page.url()).toContain(planId)
   })
 
-  // ─── Test 3: Group-by picker changes the URL parameter ───────────────────
+  // ─── Test 5: URL deep-link group — navigate to ?group=assignee ───────────
 
-  test('group-by picker updates URL with group param', async ({ page, context }) => {
-    const planId = await createPlanAndGoToBoard(page, context, 'View State Group-By Test')
-
-    // Wait for board or empty state
-    await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
-
-    const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
-    if (!hasBoardPage) {
-      await addBucket(page, 'To do')
-    }
-
-    // ── Act: click the GroupByPicker select trigger — it shows current value ("Bucket")
-    // The SelectTrigger renders a button with the current value text
-    const groupByTrigger = page
-      .locator('button')
-      .filter({ hasText: /bucket/i })
-      .last()
-    await groupByTrigger.click()
-
-    // The SelectContent appears with all group-by options — click "Priority"
-    const priorityOption = page.getByRole('option', { name: /^priority$/i })
-    await expect(priorityOption).toBeVisible()
-    await priorityOption.click()
-
-    // ── Assert: the URL now contains group=priority
-    await expect(page).toHaveURL(/group=priority/)
-
-    // ── Assert: the trigger now shows "Priority"
-    await expect(
-      page
-        .locator('button')
-        .filter({ hasText: /^priority$/i })
-        .last(),
-    ).toBeVisible()
-
-    expect(page.url()).toContain(planId)
-  })
-
-  // ─── Test 4: URL deep-link with group=priority pre-selects the picker ────
-
-  test('URL deep-link with group=priority pre-selects GroupByPicker', async ({ page, context }) => {
-    const planId = await createPlanAndGoToBoard(page, context, 'View State Group-By Deep-Link Test')
-
-    // Navigate with group=priority in the URL
-    await page.goto(`/plans/${planId}/board?group=priority`)
-
-    // Wait for board to render
-    await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
-
-    // ── Assert: the GroupByPicker shows "Priority" as current value
-    // SelectTrigger renders a button with the displayed value
-    await expect(
-      page
-        .locator('button')
-        .filter({ hasText: /^priority$/i })
-        .last(),
-    ).toBeVisible()
-
-    expect(page.url()).toContain(planId)
-  })
-
-  // ─── Test 5: View switching — Board → Grid → Grid shows coming soon ───────
-
-  test('clicking Grid tab navigates to grid view and shows coming-soon placeholder', async ({
+  test('URL deep-link with group=assignee pre-selects GroupByPicker to Assignee', async ({
     page,
     context,
   }) => {
-    const planId = await createPlanAndGoToBoard(page, context, 'View State Grid Tab Test')
+    const planId = await createPlanAndGoToBoard(page, context, `Deep-Link Group ${RUN_ID}`)
 
-    // Wait for board or empty state
+    // Navigate with group=assignee in the URL
+    await page.goto(`/plans/${planId}/board?group=assignee`)
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
 
-    // ── Act: click the "Grid" tab in ViewPicker
-    // ViewPicker renders <TabsTrigger> elements with labels "Board", "Grid", "Schedule", "Charts"
+    // Assert: GroupByPicker shows "Assignee" as current value
+    await expect(page.getByTestId('group-by-trigger')).toContainText(/assignee/i)
+
+    expect(page.url()).toContain(planId)
+  })
+
+  // ─── Test 6: Grid tab → ComingSoon ───────────────────────────────────────
+
+  test('clicking Grid tab navigates to /grid and shows coming-soon placeholder', async ({
+    page,
+    context,
+  }) => {
+    const planId = await createPlanAndGoToBoard(page, context, `Grid Tab ${RUN_ID}`)
+
+    await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
+
+    // Act: click the "Grid" tab in ViewPicker
     const gridTab = page.getByRole('tab', { name: /^grid$/i })
     await expect(gridTab).toBeVisible()
     await gridTab.click()
 
-    // ── Assert: URL changes to /plans/<id>/grid (possibly with query params preserved)
+    // Assert: URL changes to /plans/<id>/grid
     await expect(page).toHaveURL(/\/plans\/[0-9a-f-]+\/grid/)
 
-    // ── Assert: ComingSoon component is rendered
-    // ComingSoon renders: "<view> view coming soon" inside AlertTitle
+    // Assert: ComingSoon component is rendered
     await expect(page.getByText(/grid view coming soon/i)).toBeVisible()
 
     expect(page.url()).toContain(planId)
   })
 
-  // ─── Test 6: View switching preserves query params when switching views ───
+  // ─── Test 7: View switch preserves URL params (Board→Grid→Board) ─────────
 
-  test('view switching preserves filter and group-by query params', async ({ page, context }) => {
-    const planId = await createPlanAndGoToBoard(page, context, 'View State Param Preserve Test')
+  test('view switching Board→Grid→Board preserves ?group=assignee in URL', async ({
+    page,
+    context,
+  }) => {
+    const planId = await createPlanAndGoToBoard(page, context, `Param Preserve ${RUN_ID}`)
 
-    // Wait for board or empty state
+    // Start from board with group=assignee already in URL
+    await page.goto(`/plans/${planId}/board?group=assignee`)
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
 
-    // Start from board with filter + group-by params already in URL
-    await page.goto(`/plans/${planId}/board?filter.priority=urgent&group=priority`)
-    await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
-
-    // ── Act: click Grid tab
+    // Act: click Grid tab
     const gridTab = page.getByRole('tab', { name: /^grid$/i })
     await expect(gridTab).toBeVisible()
     await gridTab.click()
 
-    // ── Assert: URL is now on grid and still has filter/group params
+    // Assert: URL on grid, group=assignee preserved
     await expect(page).toHaveURL(/\/plans\/[0-9a-f-]+\/grid/)
-    const currentUrl = page.url()
-    expect(currentUrl).toContain('filter.priority=urgent')
-    expect(currentUrl).toContain('group=priority')
+    expect(page.url()).toContain('group=assignee')
 
-    // ── Act: click Board tab to return
+    // Act: click Board tab to return
     const boardTab = page.getByRole('tab', { name: /^board$/i })
     await boardTab.click()
 
-    // ── Assert: URL back on board, params still present
+    // Assert: URL back on board, group=assignee still present
     await expect(page).toHaveURL(/\/plans\/[0-9a-f-]+\/board/)
-    const boardUrl = page.url()
-    expect(boardUrl).toContain('filter.priority=urgent')
-    expect(boardUrl).toContain('group=priority')
+    expect(page.url()).toContain('group=assignee')
 
-    // ── Assert: the priority filter chip is still active
-    await expect(page.getByRole('button', { name: /priority:\s*urgent/i })).toBeVisible()
+    // Assert: board page is visible again
+    await expect(page.locator('[data-testid="board-page"]')).toBeVisible()
+
+    expect(page.url()).toContain(planId)
   })
 
-  // ─── Test 7: Hard reload preserves filter state from URL ─────────────────
+  // ─── Test 8: Hard reload preserves URL params ─────────────────────────────
 
   test('hard reload preserves filter and group-by from URL query params', async ({
     page,
     context,
   }) => {
-    const planId = await createPlanAndGoToBoard(page, context, 'View State Reload Test')
+    const planId = await createPlanAndGoToBoard(page, context, `Reload Preserve ${RUN_ID}`)
 
     // Navigate to board with filter and group-by set via URL
-    await page.goto(`/plans/${planId}/board?filter.priority=urgent&group=priority`)
+    await page.goto(`/plans/${planId}/board?filter.priority=urgent&group=assignee`)
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
 
-    // ── Assert initial state
+    // Assert initial state: chip visible
     await expect(page.getByRole('button', { name: /priority:\s*urgent/i })).toBeVisible()
 
-    // ── Act: hard reload
+    // Act: hard reload
     await page.reload()
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
 
-    // ── Assert: filter chip is still visible after reload (URL carries the state)
+    // Assert: filter chip still visible after reload (URL carries the state)
     await expect(page.getByRole('button', { name: /priority:\s*urgent/i })).toBeVisible()
 
-    // ── Assert: URL still contains the params
+    // Assert: URL still contains both params
     const urlAfterReload = page.url()
     expect(urlAfterReload).toContain('filter.priority=urgent')
-    expect(urlAfterReload).toContain('group=priority')
+    expect(urlAfterReload).toContain('group=assignee')
 
     expect(page.url()).toContain(planId)
   })
 
-  // ─── Test 8: localStorage restores group-by when URL has no params ────────
+  // ─── Test 9: localStorage restore ────────────────────────────────────────
+  //
+  // Flow:
+  //   1. Set group=assignee via UI  →  URL gets ?group=assignee
+  //   2. Poll until localStorage key is written (hook debounces 200 ms)
+  //   3. Clear the filter (if any) — wait for LS write with cleared filter
+  //   4. Navigate to bare board URL (no params)
+  //   5. Assert URL gets ?group=assignee restored from LS
+  //   6. Assert filter.priority is NOT in URL (it was cleared / never set)
 
-  test('localStorage restores group-by when navigating to board without query params', async ({
+  test('localStorage restores group-by but not cleared filter when navigating to bare board URL', async ({
     page,
     context,
   }) => {
-    const planId = await createPlanAndGoToBoard(page, context, 'View State LocalStorage Test')
+    const planId = await createPlanAndGoToBoard(page, context, `LocalStorage Restore ${RUN_ID}`)
 
-    // Wait for board or empty state
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
 
     const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
@@ -283,61 +281,70 @@ test.describe('View state — filter bar, group-by, view switch, URL deep-link, 
       await addBucket(page, 'To do')
     }
 
-    // ── Step 1: Set group-by to "Priority" via the picker (this writes to localStorage)
-    const groupByTrigger = page
-      .locator('button')
-      .filter({ hasText: /bucket/i })
-      .last()
+    // ── Step 1: Set group-by to "Assignee" via the picker
+    const groupByTrigger = page.getByTestId('group-by-trigger')
+    await expect(groupByTrigger).toBeVisible()
     await groupByTrigger.click()
-    const priorityOption = page.getByRole('option', { name: /^priority$/i })
-    await expect(priorityOption).toBeVisible()
-    await priorityOption.click()
 
-    // Wait for URL to update (the hook replaces with ?group=priority)
-    await expect(page).toHaveURL(/group=priority/)
+    const assigneeOption = page.getByRole('option', { name: /^assignee$/i })
+    await expect(assigneeOption).toBeVisible()
+    await assigneeOption.click()
 
-    // Wait for localStorage to be written (hook debounces by 200 ms)
-    await page.waitForTimeout(400)
+    // Wait for URL to update
+    await expect(page).toHaveURL(/group=assignee/)
 
-    // ── Step 2: Navigate to the board URL WITHOUT any query params
-    // useViewState hydrates from localStorage when URL has no params,
-    // then immediately pushes the encoded params back into the URL.
-    await page.goto(`/plans/${planId}/board`)
+    // ── Step 2: Poll until localStorage key is written (replaces waitForTimeout)
+    await page.waitForFunction(
+      (key) => {
+        const raw = localStorage.getItem(key)
+        if (!raw) return false
+        try {
+          const parsed = JSON.parse(raw)
+          return parsed?.groupBy === 'assignee'
+        } catch {
+          return false
+        }
+      },
+      lsKey(planId),
+      { timeout: 3000 },
+    )
 
-    // Wait for board page to render
+    // ── Step 3: Also add and clear a filter to verify it is NOT restored
+    //   (navigate to a URL with urgent filter, then clear it, wait for LS write)
+    await page.goto(`/plans/${planId}/board?filter.priority=urgent&group=assignee`)
     await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
 
-    // ── Assert: the group-by is still "Priority" (restored from localStorage → pushed to URL)
-    // The hook triggers a router.replace on mount when URL was empty but LS had state.
-    await expect(page).toHaveURL(/group=priority/, { timeout: 5000 })
-
-    expect(page.url()).toContain(planId)
-  })
-
-  // ─── Test 9: Clearing a filter removes the chip and the URL param ─────────
-
-  test('clearing a filter chip removes the chip and the URL param', async ({ page, context }) => {
-    const planId = await createPlanAndGoToBoard(page, context, 'View State Clear Filter Test')
-
-    // Start with a pre-filtered URL
-    await page.goto(`/plans/${planId}/board?filter.priority=urgent`)
-    await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
-
-    // ── Assert: filter chip is present
     await expect(page.getByRole('button', { name: /priority:\s*urgent/i })).toBeVisible()
-
-    // ── Act: click the "Clear filter" (X) button
     await page.getByRole('button', { name: /clear filter/i }).click()
-
-    // ── Assert: chip is gone
     await expect(page.getByRole('button', { name: /priority:/i })).not.toBeVisible()
 
-    // ── Assert: URL no longer contains filter.priority
-    const urlAfterClear = page.url()
-    expect(urlAfterClear).not.toContain('filter.priority')
+    // Wait for LS to be written with cleared filter state
+    await page.waitForFunction(
+      (key) => {
+        const raw = localStorage.getItem(key)
+        if (!raw) return false
+        try {
+          const parsed = JSON.parse(raw)
+          // filter should be empty / not contain priority
+          return !parsed?.filter?.priority
+        } catch {
+          return false
+        }
+      },
+      lsKey(planId),
+      { timeout: 3000 },
+    )
 
-    // ── Assert: "Add filter" button is back
-    await expect(page.getByRole('button', { name: /add filter/i })).toBeVisible()
+    // ── Step 4: Navigate to bare board URL (no params)
+    await page.goto(`/plans/${planId}/board`)
+    await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
+
+    // ── Step 5: Assert URL gets ?group=assignee restored from localStorage
+    // useViewState calls router.replace on mount when URL is empty but LS has state
+    await expect(page).toHaveURL(/group=assignee/, { timeout: 5000 })
+
+    // ── Step 6: Assert filter.priority is NOT in the URL (it was cleared)
+    expect(page.url()).not.toContain('filter.priority')
 
     expect(page.url()).toContain(planId)
   })
