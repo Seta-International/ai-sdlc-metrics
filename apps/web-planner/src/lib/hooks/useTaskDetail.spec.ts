@@ -26,7 +26,7 @@ vi.mock('@future/auth', () => ({
 
 import { trpc } from '../trpc'
 
-const mockQuery = vi.mocked(
+const _mockQuery = vi.mocked(
   (trpc.planner.tasks.getDetail as { query: ReturnType<typeof vi.fn> }).query,
 )
 const mockMutate = vi.mocked(
