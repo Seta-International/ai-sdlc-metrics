@@ -29,4 +29,4 @@ test-results/
 .DS_Store
 .gstack/
 .worktrees/
-.playwright-mcp/
+.playwright-mcp/.worktrees/
