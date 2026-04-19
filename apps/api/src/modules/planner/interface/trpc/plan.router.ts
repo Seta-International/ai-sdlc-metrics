@@ -169,4 +169,8 @@ export const planRouter = router({
           throw toPlannerTrpcError(e)
         })
     }),
+
+  getViewFlags: publicProcedure
+    .input(z.object({ tenantId: z.string().uuid() }))
+    .query(({ input }) => svc().adminQuery.getPlannerViewFlags(input.tenantId)),
 })

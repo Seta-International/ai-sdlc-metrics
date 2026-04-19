@@ -56,6 +56,12 @@ export default function PlanLayout({ children }: { children: React.ReactNode }) 
     enabled: !!session && !!planId,
   })
 
+  const { data: viewFlags } = useQuery({
+    queryKey: ['planner.plans.getViewFlags', session?.tenantId],
+    queryFn: () => trpc.planner.plans.getViewFlags.query({ tenantId: session!.tenantId }),
+    enabled: !!session,
+  })
+
   // Derive current view from pathname segment (e.g. '/plans/abc/board' → 'board')
   const currentView = (pathname.split('/')[3] ?? 'board') as ViewKey
   const safeView: ViewKey = (['board', 'grid', 'schedule', 'charts'] as const).includes(
@@ -64,8 +70,12 @@ export default function PlanLayout({ children }: { children: React.ReactNode }) 
     ? currentView
     : 'board'
 
-  // Feature flags — all enabled; Task 12 will wire real flags
-  const flags = { views: true, grid: true, schedule: true, charts: true }
+  const flags = {
+    views: viewFlags?.viewsEnabled ?? true,
+    grid: viewFlags?.gridEnabled ?? false,
+    schedule: viewFlags?.scheduleEnabled ?? false,
+    charts: viewFlags?.chartsEnabled ?? false,
+  }
 
   // Empty plan context — Task 11 will populate from board snapshot
   const planContext = useMemo<PlanContext>(

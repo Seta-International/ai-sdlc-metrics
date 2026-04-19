@@ -10,7 +10,7 @@ export class PlannerRouterService implements OnModuleInit {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
-    private readonly adminQueryFacade: AdminQueryFacade,
+    readonly adminQuery: AdminQueryFacade,
   ) {}
 
   onModuleInit() {
@@ -24,7 +24,7 @@ export class PlannerRouterService implements OnModuleInit {
   }
 
   async assertPlannerEnabled(tenantId: string): Promise<void> {
-    const enabled = await this.adminQueryFacade.isPlannerEnabled(tenantId)
+    const enabled = await this.adminQuery.isPlannerEnabled(tenantId)
     if (!enabled) {
       throw new TRPCError({
         code: 'FORBIDDEN',
