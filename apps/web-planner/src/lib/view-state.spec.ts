@@ -3,6 +3,7 @@ import {
   parseViewStateFromSearch,
   serializeViewStateToSearch,
   DEFAULT_VIEW_STATE,
+  type Priority,
 } from './view-state'
 
 describe('view-state URL codec', () => {
@@ -16,12 +17,12 @@ describe('view-state URL codec', () => {
     const state = {
       view: 'grid' as const,
       groupBy: 'priority' as const,
-      sort: { field: 'due', dir: 'asc' as const },
+      sort: { field: 'due' as const, dir: 'asc' as const },
       filter: {
         due: 'today' as const,
-        priority: ['urgent', 'important'],
+        priority: ['urgent', 'important'] as Priority[],
         labels: ['l_1', 'l_2'],
-        buckets: [],
+        buckets: [] as string[],
         assignees: ['a_7'],
       },
       scale: undefined,

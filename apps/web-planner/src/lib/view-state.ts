@@ -68,7 +68,7 @@ export function parseViewStateFromSearch(params: URLSearchParams): ViewState {
 
   const sortMatch = sortRaw?.match(SORT_RE)
   const sortField =
-    sortMatch && (SORT_FIELDS as readonly string[]).includes(sortMatch[1])
+    sortMatch && (SORT_FIELDS as readonly string[]).includes(sortMatch[1] ?? '')
       ? (sortMatch[1] as SortField)
       : undefined
 

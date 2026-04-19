@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react'
-import { useViewRenderedTelemetry } from './useViewRenderedTelemetry'
+import { useViewRenderedTelemetry, type ViewRenderedEvent } from './useViewRenderedTelemetry'
 
 describe('useViewRenderedTelemetry', () => {
   it('emits exactly one event on mount with the provided payload', () => {
@@ -43,15 +43,18 @@ describe('useViewRenderedTelemetry', () => {
 
   it('re-emits when view, planId, taskCount, or groupBy change', () => {
     const emit = vi.fn()
-    const { rerender } = renderHook((p) => useViewRenderedTelemetry(p, { emit }), {
-      initialProps: {
-        view: 'board' as const,
-        planId: 'p1',
-        taskCount: 5,
-        filterKeys: [] as string[],
-        groupBy: 'bucket',
+    const { rerender } = renderHook<void, ViewRenderedEvent>(
+      (p) => useViewRenderedTelemetry(p, { emit }),
+      {
+        initialProps: {
+          view: 'board' as const,
+          planId: 'p1',
+          taskCount: 5,
+          filterKeys: [] as string[],
+          groupBy: 'bucket',
+        },
       },
-    })
+    )
     rerender({
       view: 'grid' as const,
       planId: 'p1',

@@ -34,8 +34,8 @@ describe('groupTasks', () => {
       'bucket',
     )
     expect(groups.map((g) => g.key)).toEqual(['b1', 'b2'])
-    expect(groups[0].label).toBe('A')
-    expect(groups[1].label).toBe('B')
+    expect(groups[0]!.label).toBe('A')
+    expect(groups[1]!.label).toBe('B')
   })
 
   it('group-by-label places a task in every label group it owns', () => {
@@ -59,14 +59,14 @@ describe('groupTasks', () => {
   it('group-by-label: tasks with no labels get __nolabel group', () => {
     const groups = groupTasks([mkTask({ id: '1', labels: [] })], 'label')
     expect(groups).toHaveLength(1)
-    expect(groups[0].key).toBe('__nolabel')
-    expect(groups[0].label).toBe('No label')
+    expect(groups[0]!.key).toBe('__nolabel')
+    expect(groups[0]!.label).toBe('No label')
   })
 
   it('group-by-assignee: unassigned tasks get __unassigned group', () => {
     const groups = groupTasks([mkTask({ id: '1', assignees: [] })], 'assignee')
     expect(groups).toHaveLength(1)
-    expect(groups[0].key).toBe('__unassigned')
+    expect(groups[0]!.key).toBe('__unassigned')
   })
 
   it('group-by-assignee: task assigned to multiple people appears in each group', () => {
@@ -87,9 +87,9 @@ describe('groupTasks', () => {
       'progress',
     )
     expect(groups.map((g) => g.key)).toEqual(['not-started', 'in-progress', 'completed'])
-    expect(groups[0].tasks.map((t) => t.id)).toEqual(['2'])
-    expect(groups[1].tasks.map((t) => t.id)).toEqual(['3'])
-    expect(groups[2].tasks.map((t) => t.id)).toEqual(['1'])
+    expect(groups[0]!.tasks.map((t) => t.id)).toEqual(['2'])
+    expect(groups[1]!.tasks.map((t) => t.id)).toEqual(['3'])
+    expect(groups[2]!.tasks.map((t) => t.id)).toEqual(['1'])
   })
 
   it('group-by-priority follows fixed order: urgent, important, medium, low', () => {

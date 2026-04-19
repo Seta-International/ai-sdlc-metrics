@@ -72,7 +72,7 @@ export function useViewState({ planId }: { planId: string }) {
   )
 
   const patch = useCallback(
-    (partial: Partial<ViewState> & { filter?: Partial<ViewState['filter']> }) => {
+    (partial: Omit<Partial<ViewState>, 'filter'> & { filter?: Partial<ViewState['filter']> }) => {
       commit({
         ...state,
         ...partial,

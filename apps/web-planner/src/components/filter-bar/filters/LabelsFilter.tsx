@@ -28,7 +28,7 @@ export function LabelsFilter({ planId, context }: { planId: string; context: Pla
         <CommandGroup>
           {context.labels.map((l) => (
             <CommandItem key={l.id} value={l.name} onSelect={() => toggle(l.id)}>
-              <Checkbox checked={state.filter.labels.includes(l.id)} readOnly className="mr-2" />
+              <Checkbox checked={state.filter.labels.includes(l.id)} className="mr-2" />
               {l.name}
             </CommandItem>
           ))}

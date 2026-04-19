@@ -32,11 +32,7 @@ export function AssigneesFilter({ planId, context }: { planId: string; context: 
               value={m.name ?? m.actorId}
               onSelect={() => toggle(m.actorId)}
             >
-              <Checkbox
-                checked={state.filter.assignees.includes(m.actorId)}
-                readOnly
-                className="mr-2"
-              />
+              <Checkbox checked={state.filter.assignees.includes(m.actorId)} className="mr-2" />
               {m.name ?? m.actorId}
             </CommandItem>
           ))}

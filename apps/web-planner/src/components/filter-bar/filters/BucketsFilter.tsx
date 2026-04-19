@@ -28,7 +28,7 @@ export function BucketsFilter({ planId, context }: { planId: string; context: Pl
         <CommandGroup>
           {context.buckets.map((b) => (
             <CommandItem key={b.id} value={b.name} onSelect={() => toggle(b.id)}>
-              <Checkbox checked={state.filter.buckets.includes(b.id)} readOnly className="mr-2" />
+              <Checkbox checked={state.filter.buckets.includes(b.id)} className="mr-2" />
               {b.name}
             </CommandItem>
           ))}

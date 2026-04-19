@@ -52,7 +52,7 @@ const PROGRESS_LABELS: Record<string, string> = {
 function groupByProgress(tasks: TaskFlat[]): TaskGroup[] {
   return PROGRESS_ORDER.map((p) => ({
     key: p,
-    label: PROGRESS_LABELS[p],
+    label: PROGRESS_LABELS[p]!,
     tasks: tasks.filter((t) => t.progress === p),
   }))
 }
@@ -68,7 +68,7 @@ const PRIORITY_LABELS: Record<string, string> = {
 function groupByPriority(tasks: TaskFlat[]): TaskGroup[] {
   return PRIORITY_ORDER.map((p) => ({
     key: p,
-    label: PRIORITY_LABELS[p],
+    label: PRIORITY_LABELS[p]!,
     tasks: tasks.filter((t) => t.priority === p),
   }))
 }
@@ -108,7 +108,7 @@ function groupByDue(tasks: TaskFlat[], now: Date): TaskGroup[] {
 
   const byBucket = new Map<string, TaskFlat[]>(DUE_ORDER.map((k) => [k, []]))
   for (const t of tasks) byBucket.get(bucketFor(t))!.push(t)
-  return DUE_ORDER.map((k) => ({ key: k, label: DUE_LABELS[k], tasks: byBucket.get(k)! }))
+  return DUE_ORDER.map((k) => ({ key: k, label: DUE_LABELS[k]!, tasks: byBucket.get(k)! }))
 }
 
 function groupByAssignee(tasks: TaskFlat[]): TaskGroup[] {
