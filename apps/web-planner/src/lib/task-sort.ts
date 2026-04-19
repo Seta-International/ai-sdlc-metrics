@@ -1,16 +1,16 @@
-import type { TaskFlat } from './task-types'
+import type { TaskFlat, TaskPriority, TaskProgress } from './task-types'
 import type { SortField } from './view-state'
 
 export type SortInput = { field: SortField; dir: 'asc' | 'desc' }
 
-const PRIORITY_RANK: Record<string, number> = {
+const PRIORITY_RANK: Record<TaskPriority, number> = {
   urgent: 0,
   important: 1,
   medium: 2,
   low: 3,
 }
 
-const PROGRESS_RANK: Record<string, number> = {
+const PROGRESS_RANK: Record<TaskProgress, number> = {
   'not-started': 0,
   'in-progress': 1,
   completed: 2,

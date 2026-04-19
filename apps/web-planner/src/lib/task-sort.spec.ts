@@ -104,4 +104,14 @@ describe('sortTasks', () => {
     const out = sortTasks(tasks, { field: 'progress', dir: 'asc' })
     expect(out.map((t) => t.progress)).toEqual(['not-started', 'in-progress', 'completed'])
   })
+
+  it('sorts by updated desc: most recently updated first', () => {
+    const tasks = [
+      mkTask({ id: '1', updatedAt: '2026-01-01T00:00Z', orderHint: 'a' }),
+      mkTask({ id: '2', updatedAt: '2026-04-19T00:00Z', orderHint: 'b' }),
+      mkTask({ id: '3', updatedAt: '2026-03-01T00:00Z', orderHint: 'c' }),
+    ]
+    const out = sortTasks(tasks, { field: 'updated', dir: 'desc' })
+    expect(out.map((t) => t.id)).toEqual(['2', '3', '1'])
+  })
 })
