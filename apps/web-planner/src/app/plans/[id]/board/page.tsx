@@ -18,6 +18,7 @@ import type {
 import type { Progress } from '../../../../components/primitives/ProgressIcon'
 import type { TaskFlat } from '../../../../lib/task-types'
 import { useViewState } from '../../../../lib/hooks/useViewState'
+import { useViewRenderedTelemetry } from '../../../../lib/hooks/useViewRenderedTelemetry'
 import { applyTaskFilter } from '../../../../lib/task-filter'
 import { sortTasks } from '../../../../lib/task-sort'
 
@@ -156,6 +157,21 @@ function BoardInner({ snapshot, planId, actorId, tenantId }: BoardInnerProps) {
   const filtered = applyTaskFilter(allFlat, state.filter)
   const sorted = state.sort ? sortTasks(filtered, state.sort) : filtered
   const filteredIds = new Set(sorted.map((t) => t.id))
+
+  const activeFilterKeys = Object.entries(state.filter)
+    .filter(([, v]) => {
+      if (Array.isArray(v)) return v.length > 0
+      return v !== null && v !== undefined
+    })
+    .map(([k]) => k)
+
+  useViewRenderedTelemetry({
+    view: 'board',
+    planId,
+    taskCount: sorted.length,
+    filterKeys: activeFilterKeys,
+    groupBy: state.groupBy,
+  })
 
   const displaySnapshot: BoardSnapshot = {
     ...snapshot,
