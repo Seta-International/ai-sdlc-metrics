@@ -30,8 +30,9 @@ export function useBulkExecutor<T>({ run }: { run: (item: T) => Promise<RunResul
       })
 
       let successCount = 0
-      for (let i = 0; i < items.length; i++) {
-        const result = await run(items[i])
+      let i = 0
+      for (const item of items) {
+        const result = await run(item)
         if (!result.ok) {
           // Stop on first error — remaining items also go to failedInputs
           setState((prev) => ({
@@ -44,7 +45,8 @@ export function useBulkExecutor<T>({ run }: { run: (item: T) => Promise<RunResul
           return
         }
         successCount++
-        setState((prev) => ({ ...prev, successCount, currentIndex: i + 1 }))
+        i++
+        setState((prev) => ({ ...prev, successCount, currentIndex: i }))
       }
       setState((prev) => ({ ...prev, status: 'done', successCount, failedInputs: [] }))
     },

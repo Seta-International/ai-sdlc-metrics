@@ -8,9 +8,22 @@ import type { TaskGroup } from '@/lib/task-group'
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
 const mockPatch = vi.fn()
-const mockState = {
-  view: 'grid' as const,
-  groupBy: 'bucket' as const,
+const mockState: {
+  view: 'grid'
+  groupBy: 'bucket'
+  sort: { field: string; dir: 'asc' | 'desc' } | undefined
+  filter: {
+    due: undefined
+    priority: never[]
+    labels: never[]
+    buckets: never[]
+    assignees: never[]
+  }
+  scale: undefined
+  trendRange: undefined
+} = {
+  view: 'grid',
+  groupBy: 'bucket',
   sort: undefined,
   filter: { due: undefined, priority: [], labels: [], buckets: [], assignees: [] },
   scale: undefined,
