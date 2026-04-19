@@ -311,6 +311,72 @@ test.describe('Board flows', () => {
     // Confirm planId is still in URL
     expect(page.url()).toContain(planId)
   })
+
+  // ─── Flow 5 (MailHog): Assign teammate → notification email arrives ────────
+
+  test('Flow 5 (MailHog): assign teammate → notification email arrives', async ({
+    page,
+    context,
+    request,
+  }) => {
+    const mailhogUrl = process.env['MAILHOG_BASE_URL']
+    if (!mailhogUrl) {
+      test.skip(true, 'MAILHOG_BASE_URL not set — skipping MailHog check (CI only)')
+      return
+    }
+
+    const planId = await createPlanAndGoToBoard(page, context, 'MailHog Flow 5 Plan')
+    await page.waitForSelector('[data-testid="board-page"], [data-testid="add-bucket-btn"]')
+
+    const hasBoardPage = await page.locator('[data-testid="board-page"]').isVisible()
+    if (!hasBoardPage) {
+      await addBucket(page, 'To do')
+    }
+
+    await addTaskToFirstColumn(page, 'Assign MailHog Task')
+
+    const taskCard = page
+      .locator('[data-testid="task-card"]')
+      .filter({ hasText: 'Assign MailHog Task' })
+      .first()
+    await taskCard.hover()
+    await taskCard.getByTestId('task-card-menu-btn').click()
+    await page.getByTestId('task-menu-assignees').click()
+
+    const assigneePicker = page.getByTestId('assignee-picker')
+    await expect(assigneePicker).toBeVisible()
+
+    const options = assigneePicker.locator('button[data-testid^="assignee-option-"]')
+    const count = await options.count()
+    if (count === 0) {
+      test.skip(true, 'No plan members available — skipping MailHog assignment check')
+      return
+    }
+
+    await options.first().click()
+    await page.keyboard.press('Escape')
+
+    // Poll MailHog for the notification email (up to 10 seconds)
+    const deadline = Date.now() + 10_000
+    let found = false
+    while (Date.now() < deadline) {
+      const response = await request.get(`${mailhogUrl}/api/v2/messages`)
+      if (response.ok()) {
+        const body = (await response.json()) as {
+          items: Array<{ Content: { Headers: { Subject: string[] } } }>
+        }
+        found = body.items.some((msg) =>
+          msg.Content.Headers.Subject?.some((s) => s.includes('assigned you to')),
+        )
+        if (found) break
+      }
+      await page.waitForTimeout(1000)
+    }
+
+    expect(found, 'Expected notification email in MailHog within 10 seconds').toBe(true)
+
+    expect(page.url()).toContain(planId)
+  })
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
