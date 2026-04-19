@@ -55,7 +55,7 @@ const makeTask = (overrides: Partial<TaskFlat> = {}): TaskFlat => ({
 describe('usePlannerSchedule', () => {
   it('maps TaskFlat priority to a color when groupBy=priority', () => {
     const { result } = renderHook(() => usePlannerSchedule('plan-1', [makeTask()]))
-    const item = result.current.items[0]
+    const item = result.current.items[0]!
     expect(item.id).toBe('task-1')
     expect(item.color).toBe('var(--chart-priority-urgent)')
     expect(item.version).toBe('2026-04-01T00:00Z')

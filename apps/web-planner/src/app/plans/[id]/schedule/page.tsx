@@ -44,7 +44,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     groupBy: state.groupBy,
   })
 
-  if (isLoading) return <Skeleton className="h-[60vh]" />
+  if (isLoading) return <Skeleton className="h-96 w-full" />
   if (error)
     return (
       <Alert variant="destructive">
@@ -54,7 +54,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
 
   return (
     <>
-      <div className="h-[calc(100vh-11rem)]">
+      <div className="flex flex-1 min-h-0">
         <ScheduleCalendar
           items={items}
           view={view}

@@ -36,8 +36,8 @@ export function usePlannerSchedule(planId: string, tasks: TaskFlat[]) {
         planId,
         taskId: ev.id,
         actorId,
-        startDate: ev.next.startDate,
-        dueDate: ev.next.dueDate,
+        startDate: ev.next.startDate ? new Date(ev.next.startDate) : null,
+        dueDate: new Date(ev.next.dueDate),
         expectedVersion: ev.version ?? '',
       })
     },
