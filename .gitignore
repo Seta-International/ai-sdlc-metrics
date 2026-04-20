@@ -30,3 +30,6 @@ test-results/
 .gstack/
 .worktrees/
 .playwright-mcp/.worktrees/
+
+# Git worktrees
+.worktrees/
