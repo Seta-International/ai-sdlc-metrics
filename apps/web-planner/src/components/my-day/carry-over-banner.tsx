@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Sunrise } from 'lucide-react'
 import { Alert, AlertDescription, Button, Spinner } from '@future/ui'
 import { useCarryOver, useMyDayCarryOverCandidates } from '../../lib/hooks/use-carry-over'
@@ -10,7 +10,7 @@ interface Props {
   today: string
 }
 
-function yesterdayUtc(today: string): string {
+function previousCalendarDate(today: string): string {
   const d = new Date(`${today}T00:00:00Z`)
   d.setUTCDate(d.getUTCDate() - 1)
   const y = d.getUTCFullYear()
@@ -23,22 +23,22 @@ function dismissKey(today: string): string {
   return `myDay.carryOver.dismissed.${today}`
 }
 
+function readDismissed(today: string): boolean {
+  if (typeof window === 'undefined') return false
+  return window.localStorage.getItem(dismissKey(today)) === '1'
+}
+
 export function CarryOverBanner({ today }: Props) {
   const { data, isLoading } = useMyDayCarryOverCandidates(today)
   const carryOver = useCarryOver()
-  const [dismissed, setDismissed] = useState(false)
+  const [dismissed, setDismissed] = useState(() => readDismissed(today))
   const [pickerOpen, setPickerOpen] = useState(false)
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    setDismissed(window.localStorage.getItem(dismissKey(today)) === '1')
-  }, [today])
 
   if (isLoading) return null
   if (!data || data.length === 0) return null
   if (dismissed) return null
 
-  const yesterday = yesterdayUtc(today)
+  const yesterday = previousCalendarDate(today)
   const count = data.length
 
   const onCarryOverAll = async () => {
