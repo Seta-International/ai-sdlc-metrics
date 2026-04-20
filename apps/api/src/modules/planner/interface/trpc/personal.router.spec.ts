@@ -3,6 +3,8 @@ import { uuidv7 } from 'uuidv7'
 import { PlannerRouterService } from './planner-router.service'
 import { personalRouter } from './personal.router'
 import { ListPlansForActorQuery } from '../../application/queries/plans/list-plans-for-actor.query'
+import { ListTasksForActorQuery } from '../../application/queries/personal/list-tasks-for-actor.query'
+import { GetPersonalChartsQuery } from '../../application/queries/personal/get-personal-charts.query'
 import type { AdminQueryFacade } from '../../../admin/application/facades/admin-query.facade'
 import type { PlannerViewFlags } from '../../../admin/application/queries/planner-view-flags.types'
 
@@ -93,6 +95,82 @@ describe('personalRouter — unit (mocked query bus)', () => {
       ).rejects.toMatchObject({ code: 'FORBIDDEN' })
 
       expect(queryBus.execute).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('listTasks', () => {
+    it('returns tasks from queryBus when personalEnabled is on', async () => {
+      getPlannerViewFlags.mockResolvedValue(allEnabledFlags())
+      const tasks = [
+        {
+          id: 't1',
+          planId: 'p1',
+          planName: 'Alpha',
+          planKind: 'team',
+        },
+      ]
+      queryBus.execute.mockResolvedValue(tasks)
+
+      const caller = personalRouter.createCaller(makeCtx())
+      const result = await caller.listTasks({
+        actorId: ACTOR_ID,
+        tenantId: TENANT_ID,
+        includeCompleted: false,
+      })
+      expect(result).toEqual(tasks)
+      const dispatched = queryBus.execute.mock.calls[0][0] as ListTasksForActorQuery
+      expect(dispatched).toBeInstanceOf(ListTasksForActorQuery)
+      expect(dispatched.actorId).toBe(ACTOR_ID)
+      expect(dispatched.tenantId).toBe(TENANT_ID)
+      expect(dispatched.options.includeCompleted).toBe(false)
+    })
+
+    it('defaults includeCompleted to false when omitted', async () => {
+      getPlannerViewFlags.mockResolvedValue(allEnabledFlags())
+      queryBus.execute.mockResolvedValue([])
+      const caller = personalRouter.createCaller(makeCtx())
+      await caller.listTasks({ actorId: ACTOR_ID, tenantId: TENANT_ID })
+      const dispatched = queryBus.execute.mock.calls[0][0] as ListTasksForActorQuery
+      expect(dispatched.options.includeCompleted).toBe(false)
+    })
+
+    it('rejects with FORBIDDEN when personalEnabled flag is off', async () => {
+      getPlannerViewFlags.mockResolvedValue({ ...allEnabledFlags(), personalEnabled: false })
+      const caller = personalRouter.createCaller(makeCtx())
+      await expect(
+        caller.listTasks({ actorId: ACTOR_ID, tenantId: TENANT_ID, includeCompleted: false }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+      expect(queryBus.execute).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('getCharts', () => {
+    it('returns PlannerChartsData from queryBus when personalEnabled is on', async () => {
+      getPlannerViewFlags.mockResolvedValue(allEnabledFlags())
+      const payload = {
+        progress: { 'not-started': 0, 'in-progress': 1, completed: 0 },
+        priority: { urgent: 1, important: 0, medium: 0, low: 0 },
+        bucket: [],
+        workload: [],
+        lateUpcoming: { late: [], upcoming: [] },
+      }
+      queryBus.execute.mockResolvedValue(payload)
+
+      const caller = personalRouter.createCaller(makeCtx())
+      const result = await caller.getCharts({ actorId: ACTOR_ID, tenantId: TENANT_ID })
+      expect(result).toEqual(payload)
+      const dispatched = queryBus.execute.mock.calls[0][0] as GetPersonalChartsQuery
+      expect(dispatched).toBeInstanceOf(GetPersonalChartsQuery)
+      expect(dispatched.actorId).toBe(ACTOR_ID)
+      expect(dispatched.tenantId).toBe(TENANT_ID)
+    })
+
+    it('rejects with FORBIDDEN when personalEnabled flag is off', async () => {
+      getPlannerViewFlags.mockResolvedValue({ ...allEnabledFlags(), personalEnabled: false })
+      const caller = personalRouter.createCaller(makeCtx())
+      await expect(
+        caller.getCharts({ actorId: ACTOR_ID, tenantId: TENANT_ID }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' })
     })
   })
 })
