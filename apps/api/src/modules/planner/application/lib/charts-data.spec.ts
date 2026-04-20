@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { TaskFlatWithPlan } from '@future/api-client/planner'
+import type { TaskFlatWithPlan } from './task-flat.types'
 import { computePlannerChartsData } from './charts-data'
 
 function task(overrides: Partial<TaskFlatWithPlan> = {}): TaskFlatWithPlan {

@@ -5,7 +5,7 @@ import type {
   PriorityCounts,
   BucketRow,
   WorkloadRow,
-} from '@future/api-client/planner'
+} from './task-flat.types'
 
 export function computePlannerChartsData(
   tasks: TaskFlatWithPlan[],

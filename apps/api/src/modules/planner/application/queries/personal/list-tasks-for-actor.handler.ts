@@ -1,7 +1,7 @@
 import { Inject } from '@nestjs/common'
 import { QueryHandler, type IQueryHandler } from '@nestjs/cqrs'
 import type { Db } from '@future/db'
-import type { TaskFlatWithPlan } from '@future/api-client/planner'
+import type { TaskFlatWithPlan } from '../../lib/task-flat.types'
 import { sql } from 'drizzle-orm'
 import { DB_TOKEN } from '../../../../../common/db/db.module'
 import { KernelQueryFacade } from '../../../../kernel/application/facades/kernel-query.facade'

@@ -1,5 +1,5 @@
 import { QueryBus, QueryHandler, type IQueryHandler } from '@nestjs/cqrs'
-import type { PlannerChartsData, TaskFlatWithPlan } from '@future/api-client/planner'
+import type { PlannerChartsData, TaskFlatWithPlan } from '../../lib/task-flat.types'
 import { computePlannerChartsData } from '../../lib/charts-data'
 import { ListTasksForActorQuery } from './list-tasks-for-actor.query'
 import { GetPersonalChartsQuery } from './get-personal-charts.query'
