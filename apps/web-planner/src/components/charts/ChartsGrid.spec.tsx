@@ -8,6 +8,8 @@ import type { TaskFlat } from '@future/api-client/planner'
 const mockReplace = vi.fn()
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace, push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(''),
+  usePathname: () => '/plans/abc/charts',
 }))
 
 // Mock @future/charts (EChart doesn't work in jsdom)
@@ -16,6 +18,16 @@ vi.mock('@future/charts', () => ({
     // ChartsGrid spec doesn't need to fire ECharts events — just check panels render
     return <canvas data-testid="echart" />
   },
+}))
+
+// Mock TrendsSection to avoid deep hook dependencies
+vi.mock('./TrendsSection', () => ({
+  TrendsSection: ({ enabled }: { planId: string; enabled: boolean }) =>
+    enabled ? (
+      <section>
+        <h2>Trends</h2>
+      </section>
+    ) : null,
 }))
 
 beforeEach(() => {
@@ -81,5 +93,21 @@ describe('ChartsGrid', () => {
   it('shows empty state alert when tasks array is empty', () => {
     render(<ChartsGrid planId="abc" tasks={[]} />)
     expect(screen.getByRole('alert')).toHaveTextContent(/no tasks match/i)
+  })
+
+  it('does not render TrendsSection when trendsEnabled is false', () => {
+    render(<ChartsGrid planId="abc" tasks={fixture} trendsEnabled={false} />)
+    expect(screen.queryByText('Trends')).not.toBeInTheDocument()
+  })
+
+  it('renders TrendsSection heading when trendsEnabled is true', () => {
+    render(<ChartsGrid planId="abc" tasks={fixture} trendsEnabled={true} />)
+    expect(screen.getByText('Trends')).toBeInTheDocument()
+  })
+
+  it('renders TrendsSection even when tasks array is empty and trendsEnabled is true', () => {
+    render(<ChartsGrid planId="abc" tasks={[]} trendsEnabled={true} />)
+    expect(screen.getByRole('alert')).toHaveTextContent(/no tasks match/i)
+    expect(screen.getByText('Trends')).toBeInTheDocument()
   })
 })

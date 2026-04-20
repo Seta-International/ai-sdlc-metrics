@@ -75,6 +75,7 @@ export default function PlanLayout({ children }: { children: React.ReactNode }) 
     grid: viewFlags?.gridEnabled ?? false,
     schedule: viewFlags?.scheduleEnabled ?? false,
     charts: viewFlags?.chartsEnabled ?? false,
+    trends: viewFlags?.trendsEnabled ?? false,
   }
 
   // Empty plan context — Task 11 will populate from board snapshot

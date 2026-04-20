@@ -1,11 +1,23 @@
 'use client'
 
+import { useQuery } from '@tanstack/react-query'
 import { Alert, AlertDescription, Skeleton } from '@future/ui'
+import { useSession } from '@future/auth'
+import { trpc } from '../../../../lib/trpc'
 import { useFlatTasks } from '@/lib/hooks/useFlatTasks'
 import { ChartsGrid } from '@/components/charts/ChartsGrid'
 
 export default function ChartsPage({ params }: { params: { id: string } }) {
+  const session = useSession()
   const { processed, isLoading, error } = useFlatTasks({ planId: params.id })
+
+  const { data: viewFlags } = useQuery({
+    queryKey: ['planner.plans.getViewFlags', session?.tenantId],
+    queryFn: () => trpc.planner.plans.getViewFlags.query({ tenantId: session!.tenantId }),
+    enabled: !!session,
+  })
+
+  const trendsEnabled = viewFlags?.trendsEnabled ?? false
 
   if (isLoading) {
     return (
@@ -25,5 +37,7 @@ export default function ChartsPage({ params }: { params: { id: string } }) {
     )
   }
 
-  return <ChartsGrid planId={params.id} tasks={processed?.rows ?? []} />
+  return (
+    <ChartsGrid planId={params.id} tasks={processed?.rows ?? []} trendsEnabled={trendsEnabled} />
+  )
 }
