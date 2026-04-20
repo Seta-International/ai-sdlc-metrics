@@ -25,7 +25,8 @@
 **Explicitly rejected:**
 
 - **Mastra.** Without Studio, its incremental value over AI SDK v7 is suspend-UX + workflow scaffolding. Suspend-UX conflicts with §10 (approval re-enters Mastra's LLM loop; spec wants direct domain-command execution). Memory shape (thread/working/semantic-recall) doesn't map to L1–L4. Net negative.
-- **AI SDK Flows / Vercel Workflow.** pg-boss already committed; second durable runtime is duplication.
+- **AI SDK v7 `WorkflowAgent`.** Depends on Vercel Workflows as its durable runtime — not used in this stack. pg-boss is the committed durable runtime for async work and approval execution (§10, §11). Independent of that, `WorkflowAgent`'s `needsApproval` flag suspends and resumes the agent loop with LLM re-entry, which conflicts with the spec's turn-ends-at-draft model.
+- **AI SDK v7 memory providers** (Letta, Mem0, Supermemory, Hindsight, Anthropic Memory Tool). All are tool-based agent-invoked memory interfaces; §5 L3 deliberately rejects agent-proposed writes for v1 on prompt-injection grounds. Custom Postgres + RLS per L1–L4 per CLAUDE.md.
 - **`useChat` / AI SDK UIMessage for the SSE transport.** §15.3 ordering invariants (refusal before answer, draft.proposed after answer.complete, exactly-one turn.ended) are stronger than UIMessage's type story. Custom schema wins.
 
 ---
@@ -565,6 +566,182 @@ These do not block Phase 1 start and are carried forward explicitly:
 
 ---
 
+## 14. Flexible data access — beyond curated tools
+
+Users want to ask novel questions that don't map cleanly onto curated tools — _"show me tasks from projects owned by Alice's team where the assignee is in engineering and the due date is past 7 days"_, or _"what's our PTO carry-over policy"_, or _"list revenue by region last quarter"_. Adding a curated tool per combination is unbounded. Adding unfettered SQL access is a security hole. This section walks through the tiered surface that closes the gap safely.
+
+Spec §7 defines three tiers; this section makes them concrete, adds MCP as a fourth, and pins down the guardrails per tier.
+
+### 14.1 Four tiers of data access
+
+| Tier                                | What it is                                                                   | Expressiveness                                             | When the router picks it                                     | Cost of abuse                         |
+| ----------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------- |
+| **1 — Curated tools**               | tRPC procedures with `.meta({ agent })`                                      | Narrow, per-operation                                      | Intent matches a named tool (90%+ of queries)                | Low — tool authored with intent       |
+| **2 — Structured query per domain** | Generic `<domain>.query({ where, select, orderBy, limit })` tool             | Medium — any filter within one domain's whitelisted schema | Novel filter combination inside one domain                   | Medium — bounded by schema            |
+| **3 — Analyst escape hatch**        | Parameterized SQL against read-replica views                                 | High — any read within allowed views                       | Cross-domain complex read; `canDo('agent.analyst')` required | High — must be constrained at DB role |
+| **4 — MCP external sources**        | Remote MCP servers exposing tools (Notion, Confluence, internal wikis, etc.) | Variable — shaped by the server                            | User asks about data not in your domain tables               | High — external trust boundary        |
+
+All four flow through the same `ToolGateway.execute` path. Same `canDo` + RLS + audit + abort-check + taint handling. **A tool's tier does not affect its enforcement envelope** — only its declaration and its guardrail surface.
+
+### 14.2 Tier 2 — Structured query per domain (Phase 3)
+
+**Shape.** One tool per domain, declared exactly like any other tool via `.meta({ agent })`:
+
+```ts
+// modules/planner/interface/trpc/planner.router.ts
+export const plannerRouter = router({
+  query: protectedProcedure
+    .meta({
+      permission: 'planner:task:read',
+      agent: {
+        whenToUse:
+          'Answer novel planner questions where no curated tool fits: complex filter combinations, custom sort orders, cross-project rollups within the planner domain.',
+        whenNotToUse:
+          'Cross-domain queries (use analyst escape hatch). Writes (drafts only via curated draft tools).',
+        examples: [
+          {
+            input: 'tasks due this week for Project X',
+            callArgs: {
+              where: { projectId: '...', dueAt: { lte: '2026-04-27' } },
+              orderBy: { dueAt: 'asc' },
+              limit: 50,
+            },
+          },
+          {
+            input: 'tasks with no assignee in Open projects',
+            callArgs: { where: { assigneeId: null, project: { status: 'Open' } }, limit: 100 },
+          },
+        ],
+        compositionSensitive: { minGroupSize: 5 },
+        ceilings: { bytesScanned: 50_000_000, wallclockMs: 3_000 },
+      },
+    })
+    .input(plannerQuerySchema) // zod — see guardrails below
+    .query(async ({ input, ctx }) => {
+      /* ... */
+    }),
+})
+```
+
+**Guardrails baked into `plannerQuerySchema`:**
+
+- **Field whitelist.** `select` may only include declared-safe columns. Private fields (internal IDs, PII, financial) never appear in the whitelist. Drift test: every whitelisted field must have a CODEOWNERS sign-off tag.
+- **Filter operator whitelist.** `=`, `!=`, `<`, `<=`, `>`, `>=`, `IN`, `NOT IN`, `LIKE '%...%'`. No raw expressions, no `OR` across unrelated fields, no subqueries.
+- **Row ceiling.** `limit` max 500, default 50. Cannot be overridden by input.
+- **Join ceiling.** Joins only to domain-local tables (planner → planner). Cross-domain joins require tier 3.
+- **`compositionSensitive.minGroupSize` enforcement.** For aggregate queries (`count`, `sum`, `avg`), the domain implementation applies k-anonymity: any bucket with fewer than `minGroupSize` rows is dropped or merged into "Other."
+- **Bytes-scanned ceiling** per query via the gateway's `ceilings` (§7). Enforced by issuing `EXPLAIN (FORMAT JSON)` first; if estimated rows × avg row size > ceiling, return a distinct error to the model ("query too expensive — refine filters").
+- **RLS enforces everything** underneath. The structured query tool runs against tenant-scoped tables; the `app.tenant_id` session GUC is set by middleware. No row from another tenant is reachable.
+
+**Declaration on the sub-agent:**
+
+```ts
+toolScope: {
+  domains: ['planner'],
+  structuredQueryEnabled: true,        // includes planner.query in the menu
+  roleFilter: 'inherit-caller',
+},
+```
+
+Sub-agents opt in. By default `structuredQueryEnabled: false` — the curated tool surface is all they see.
+
+### 14.3 Tier 3 — Analyst escape hatch (v1.5)
+
+**Deferred per spec §16**, but the architecture is pinned here so Phase 7 doesn't accidentally make it harder.
+
+**Shape.** `analyst.query({ sql, params })` — parameterized SQL, read-only, route-gated by `canDo('agent.analyst')`.
+
+**Stack of guardrails** (defense in depth):
+
+1. **Read-only Postgres role** at the connection level. `ALTER ROLE analyst_agent SET default_transaction_read_only = on;` Revoke all INSERT/UPDATE/DELETE/TRUNCATE. Even if the LLM generates a write statement, the DB refuses.
+2. **Read replica only.** Separate physical replica; no contention on primary; writes are physically impossible from this path.
+3. **Schema allowlist at the role level.** The `analyst_agent` role sees only a dedicated `analytics` schema containing **views**, not raw tables. Raw tables are `GRANT`-denied at the Postgres level.
+4. **Per-role views with column + row filtering.** Views like `analytics.manager_view_tasks`, `analytics.ic_view_projects` — each selects only safe columns, applies RLS predicates (`WHERE tenant_id = current_setting('app.tenant_id')`), and bakes in k-anonymity on aggregates (`HAVING count(*) >= 5`). View definitions are code-reviewed like schemas.
+5. **Parameterized SQL only.** Tool input:
+
+   ```ts
+   analyst.query({
+     sql: 'SELECT project_id, count(*) FROM analytics.manager_view_tasks WHERE status = $1 GROUP BY project_id HAVING count(*) >= $2',
+     params: ['Open', 5],
+   })
+   ```
+
+   The LLM is forbidden from concatenating strings into `sql`; zod validates that `sql` contains `$n` placeholders matching `params.length` and contains no `;`, no `--`, no multi-statement markers.
+
+6. **Explain-before-execute.** Gateway runs `EXPLAIN (FORMAT JSON, BUFFERS false)` on every tier-3 query before dispatching. Rejects with distinct error if estimated cost > threshold OR estimated rows > 10,000.
+7. **Hard timeout.** `SET statement_timeout = '5s'; SET work_mem = '64MB';` at session level. A runaway query dies, not the app.
+8. **100% trace capture.** Every tier-3 invocation fires `analyst_query_executed` in trace metadata — not sampled at 1%. Langfuse retention rule keeps them indefinitely.
+9. **Audit event shape.** `agent.analyst_query_executed` with `{ tenant_id, caller_user_id, trace_id, sql_template_hash, params, row_count, duration_ms, bytes_scanned }`. The SQL template is hashed for audit deduplication; params are kept in the clear (they're already audit-loggable).
+10. **Route-gated in the router.** `analyst` sub-agent only visible when `canDo('agent.analyst')` and the query was not resolvable by tier-1 or tier-2 tools. Default off for most roles.
+
+**What tier 3 does NOT grant:** write access (role-prevented), cross-tenant access (RLS + view predicate), PII access (view column whitelist), or aggregate-disclosure attacks (k-anonymity in views). Tier 3 is strictly "more expressive READ," not "more privileged."
+
+### 14.4 Tier 4 — MCP external sources (v1.5+)
+
+**Rationale.** Some data legitimately lives outside your Postgres — company wiki, Confluence, Notion, Salesforce, Google Drive. Rebuilding those as curated tools is impractical. MCP is the industry-standard protocol for exposing external tools to agents (now Linux-Foundation-owned).
+
+**Shape.** Tenant admin registers an MCP server URL in `web-admin` → server capabilities discovered and registered under `agent.external.<server_id>.<tool>` permissions → granted to roles per tenant policy.
+
+**Critical invariants (security posture):**
+
+- **Gateway wraps every MCP call identically to tRPC calls.** Permission check, audit event, abort check, taint handling. MCP tools are not a backdoor — they ride the same rails.
+- **Taint-by-default.** External tool output is treated as `tenantAuthoredFreeText` unless the MCP server marks specific fields as structured-safe. A wiki search result that contains _"ignore previous instructions"_ doesn't reach the prompt unwrapped.
+- **Admin-approved registration.** Tenant admins register MCP servers through a curated flow in `web-admin`. Self-service would create a DoS vector (malicious MCP server slowing every turn) and an exfiltration vector (data leaks through attacker-controlled MCP).
+- **Rate limit per MCP server.** Separate from per-user rate limits. A misbehaving server cannot starve the agent for other tenants.
+- **Permission separation.** `agent.external.*` is a distinct permission class; role authors grant it explicitly, not by default.
+- **Read-only classification.** For v1.5 launch, only MCP `read` tools are enabled. MCP `write` tools require a second explicit admin grant (`agent.external.<server>.writes-allowed`) and route through the same §10 approval flow. No unattended external writes.
+- **Payload size ceiling.** MCP responses capped at 100KB or configurable — the LLM doesn't consume a 50MB PDF dump.
+
+**Not a Phase 1 deliverable.** v1 surface is tRPC `.meta({ agent })` only. Tier 4 enters in a dedicated phase after v1.
+
+### 14.5 How the router picks a tier
+
+The router's `planSchema` includes a `selectedTier` field per sub-agent directive:
+
+```ts
+const planSchema = z.object({
+  phase1: z
+    .array(
+      z.object({
+        subAgent: subAgentKeySchema,
+        directive: directiveSchema,
+        selectedTier: z.enum(['curated', 'structured-query', 'analyst']),
+      }),
+    )
+    .max(3),
+  phase2: z
+    .object({
+      /* ... */
+    })
+    .optional(),
+  disambiguate: z.object({ question: z.string() }).optional(),
+})
+```
+
+Router prompt guidance (excerpt):
+
+```
+When a user question matches a curated tool's whenToUse, pick 'curated'.
+When the question is a filter combination inside one domain that no curated tool covers, pick 'structured-query' for that domain's sub-agent.
+When the question requires cross-domain joins or SQL-expressive filtering, AND the caller has 'agent.analyst', route the analyst sub-agent with 'analyst'.
+When external data is needed (wiki, Confluence), route a sub-agent with 'curated' and menu including external MCP tools (if enabled for the tenant).
+```
+
+**Escalation path.** If tier-2 returns `escalation_hint: { needs_info: 'requires cross-domain join' }`, the router's one-bounded re-plan may escalate to tier-3 (if the caller has `agent.analyst`). If still no fit, disambiguation question back to the user.
+
+### 14.6 UX — what the user sees
+
+- **Tier 1 / 2 transparent.** Message stream feels identical. Phase stepper shows domain names, not tier.
+- **Tier 3 visible.** _"Running a custom analysis — may take a few seconds"_ progress message. Optionally shows the parameterized template (not the values) for transparency. Dev mode exposes the full query + explain output via deep-link.
+- **Tier 4 cited.** External MCP results cite the source (_"from Confluence: …"_) and carry the taint wrapper visibly if the field is free-text. Operators can tell at a glance when an answer traversed the external boundary.
+
+### 14.7 Phase alignment
+
+- **Phase 3** ships tier 2 (structured query tools on planner, people, projects) alongside the router.
+- **Phase 7 (post-v1)** ships tier 3 (analyst escape hatch) and tier 4 (MCP ingestion). Not blocking Phase 1–6; architectural hooks are present so adding them does not retrofit the gateway.
+
+---
+
 ## 15. Context compaction
 
 Compaction is **split by scope.** The spec's §6 γ window is cross-turn; in-turn compaction inside a single ReAct loop is not in the spec and ships as an AI SDK built-in.
@@ -799,6 +976,19 @@ export function serializeAgentCard(cfg: SubAgentConfig): AgentCard {
 **19.7 Outbound A2A — not in v1**
 
 Exposing sub-agents to external orgs via A2A (partner agents calling YOUR planner agent) is a product decision, not a runtime decision. When that becomes a requirement: the Agent Card serializer (§19.5) + an A2A HTTP/JSON-RPC endpoint off `apps/api` wired to the same `TurnOrchestrator`. Still gated by `canDo`, tenant-scoped, audited. No runtime rewrite required.
+
+**19.8 Mapping to AI SDK v7 primitives**
+
+Concretely how this design renders in AI SDK v7 code, confirmed against [v7 subagents doc](https://ai-sdk.dev/v7/docs/agents/subagents), [v7 workflow patterns](https://ai-sdk.dev/v7/docs/agents/workflows), and [v7 memory](https://ai-sdk.dev/v7/docs/agents/memory).
+
+- **No dedicated `Subagent` class in v7.** Per the v7 subagents doc: _"subagents are regular agents invoked through tools."_ Each of our sub-agents is a `ToolLoopAgent` instance parametrized by its `SubAgentConfig`. The router does not invoke them as tool calls (see next bullet), but the underlying primitive is the same one the docs describe.
+- **`toModelOutput` maps directly to sanitized-summary.** V7's subagent-as-tool pattern uses `toModelOutput` to decouple what the user sees from what the model consumes — _"the subagent might use 100,000 tokens exploring and reasoning, but the main agent only consumes the summary."_ This is spec §3 sanitization in AI SDK terminology. Phase 2 and the synthesizer consume `projectToSchema()` output; the effect is identical to `toModelOutput` at the subagent-as-tool boundary.
+- **Router is a classifier, not a `ToolLoopAgent` with subagent tools.** The v7 doc demonstrates a pattern where a parent agent holds subagent tools and the ReAct loop picks them dynamically. We deliberately **do not** use this pattern for the router because:
+  1. Dynamic subagent selection inside a ReAct loop cannot enforce the §3 two-phase bounded invariant at the type level — a ReAct loop is free to invoke a fourth sub-agent call in a fifth step.
+  2. An explicit `planSchema` output from `generateText({ output: ... })` gives us a structured plan we can audit, attach to the trace, and feed to the PhaseExecutor deterministically. The LLM decides _which_ sub-agents; the code decides _how many_ and _in what shape_.
+  3. Cost: a classifier is one LLM call; a ToolLoopAgent-as-router is potentially many. For the router step, the extra expressiveness doesn't pay.
+- **`WorkflowAgent` not used** — rejected in §1.
+- **No native memory providers used** — rejected in §1. Memory stays custom on Postgres + RLS.
 
 ---
 
