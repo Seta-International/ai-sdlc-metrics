@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbPage } from '@future/ui'
 import { ViewPicker } from '@/components/view-picker/ViewPicker'
 import { useTenantTimezone } from '@/lib/hooks/useTenantTimezone'
+import { CarryOverBanner } from '@/components/my-day/carry-over-banner'
 import { MyDayContext } from './my-day-context'
 
 function todayInTz(tz: string): string {
@@ -63,6 +64,10 @@ export default function MyDayLayout({ children }: { children: React.ReactNode })
             <ViewPicker scope="my-day" currentView={currentView} basePath="/personal/today" />
           </div>
         </header>
+
+        <div className="px-6 pt-4">
+          <CarryOverBanner today={date} />
+        </div>
 
         <div className="flex-1 min-h-0">{children}</div>
       </div>
