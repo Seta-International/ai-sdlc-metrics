@@ -48,7 +48,7 @@ function addFilterDefault(filter: ViewState['filter'], field: FilterField): View
 
 export function FilterBar({ planId, context }: { planId: string; context: PlanContext }) {
   const { state, patch } = useViewState({ planId })
-  const [pinned, setPinned] = useState<Set<FilterField>>(new Set())
+  const [pinned, setPinned] = useState<Set<FilterField>>(() => new Set())
   const active = useMemo(() => computeActiveFields(state.filter, pinned), [state.filter, pinned])
   const available = (['due', 'priority', 'labels', 'buckets', 'assignees'] as FilterField[]).filter(
     (k) => !active.includes(k),

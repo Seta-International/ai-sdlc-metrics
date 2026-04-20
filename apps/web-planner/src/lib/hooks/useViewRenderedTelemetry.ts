@@ -22,14 +22,16 @@ export function useViewRenderedTelemetry(
     emitRef.current = opts?.emit ?? emitEvent
   })
 
+  const filterKeysSignature = filterKeys.join(',')
+
   useEffect(() => {
     emitRef.current('planner.view.rendered', {
       zone: 'web-planner',
       view,
       planId,
       taskCount,
-      filterKeys: [...filterKeys].sort(),
+      filterKeys: filterKeysSignature.length > 0 ? filterKeysSignature.split(',').sort() : [],
       groupBy,
     })
-  }, [view, planId, taskCount, groupBy, filterKeys.join(',')])
+  }, [view, planId, taskCount, groupBy, filterKeysSignature])
 }
