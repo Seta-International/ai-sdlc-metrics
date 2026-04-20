@@ -91,6 +91,66 @@ export class DrizzleTaskRepository implements ITaskRepository {
     return rows.map(taskRowToEntity)
   }
 
+  async listByPlanIncludingCompleted(planId: string, tenantId: string): Promise<Task[]> {
+    const rows = await this.db
+      .select()
+      .from(plannerTask)
+      .where(
+        and(
+          eq(plannerTask.planId, planId),
+          eq(plannerTask.tenantId, tenantId),
+          isNull(plannerTask.deletedAt),
+        ),
+      )
+
+    const tasks: Task[] = []
+    for (const row of rows) {
+      const assigneeRows = await this.db
+        .select()
+        .from(plannerTaskAssignee)
+        .where(
+          and(eq(plannerTaskAssignee.taskId, row.id), eq(plannerTaskAssignee.tenantId, tenantId)),
+        )
+
+      tasks.push(
+        Task.reconstitute({
+          id: row.id,
+          tenantId: row.tenantId,
+          planId: row.planId,
+          bucketId: row.bucketId,
+          title: row.title,
+          description: row.description,
+          progress: row.progress as 0 | 50 | 100,
+          priority: row.priority as 1 | 3 | 5 | 9,
+          startDate: row.startDate ? new Date(row.startDate) : null,
+          dueDate: row.dueDate ? new Date(row.dueDate) : null,
+          orderHint: row.orderHint,
+          createdBy: row.createdBy,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+          completedBy: row.completedBy ?? null,
+          completedAt: row.completedAt ?? null,
+          deletedAt: row.deletedAt ?? null,
+          checklistItemCount: row.checklistItemCount,
+          checklistCheckedCount: row.checklistCheckedCount,
+          coverAttachmentId: row.coverAttachmentId ?? null,
+          msTaskId: row.msTaskId ?? null,
+          msTaskEtag: row.msTaskEtag ?? null,
+          msTaskDetailsEtag: row.msTaskDetailsEtag ?? null,
+          pendingMsAssignments: Array.isArray(row.pendingMsAssignments)
+            ? (row.pendingMsAssignments as string[])
+            : [],
+          assignees: assigneeRows.map((a) =>
+            TaskAssignee.create(a.actorId, a.assignedBy, a.assignedAt),
+          ),
+          appliedLabels: [],
+        }),
+      )
+    }
+
+    return tasks
+  }
+
   async save(task: Task): Promise<void> {
     await this.db
       .insert(plannerTask)

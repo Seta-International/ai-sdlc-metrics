@@ -65,6 +65,7 @@ import { GetPlanHandler } from './application/queries/plans/get-plan.handler'
 import { GetBoardHandler } from './application/queries/tasks/get-board.handler'
 import { GetFlatTasksHandler } from './application/queries/tasks/get-flat.handler'
 import { GetTaskDetailHandler } from './application/queries/tasks/get-task-detail.handler'
+import { GetTaskTrendsHandler } from './application/queries/tasks/get-trends.handler'
 import { PostCommentHandler } from './application/commands/comments/post-comment.handler'
 import { DeleteCommentHandler } from './application/commands/comments/delete-comment.handler'
 import { ListTaskCommentsHandler } from './application/queries/comments/list-task-comments.handler'
@@ -76,6 +77,10 @@ import { RemoveEvidenceHandler } from './application/commands/evidence/remove-ev
 import { ListTaskEvidenceHandler } from './application/queries/evidence/list-task-evidence.handler'
 import { NotificationsModule } from '../notifications/notifications.module'
 import { OnTaskAssignedHandler } from './application/event-handlers/on-task-assigned.handler'
+import { TASK_DAILY_SNAPSHOT_REPOSITORY } from './domain/repositories/task-daily-snapshot.repository'
+import { DrizzleTaskDailySnapshotRepository } from './infrastructure/repositories/drizzle-task-daily-snapshot.repository'
+import { TaskDailySnapshotWorker } from './infrastructure/jobs/task-daily-snapshot.worker'
+import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-snapshot.scheduler'
 
 @Module({
   imports: [CqrsModule, KernelModule, AdminModule, NotificationsModule],
@@ -137,6 +142,7 @@ import { OnTaskAssignedHandler } from './application/event-handlers/on-task-assi
     GetBoardHandler,
     GetFlatTasksHandler,
     GetTaskDetailHandler,
+    GetTaskTrendsHandler,
     PostCommentHandler,
     DeleteCommentHandler,
     ListTaskCommentsHandler,
@@ -147,6 +153,9 @@ import { OnTaskAssignedHandler } from './application/event-handlers/on-task-assi
     RemoveEvidenceHandler,
     ListTaskEvidenceHandler,
     OnTaskAssignedHandler,
+    { provide: TASK_DAILY_SNAPSHOT_REPOSITORY, useClass: DrizzleTaskDailySnapshotRepository },
+    TaskDailySnapshotWorker,
+    TaskDailySnapshotScheduler,
     PlannerQueryFacade,
     PlannerRouterService,
   ],

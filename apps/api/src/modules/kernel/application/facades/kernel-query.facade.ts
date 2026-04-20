@@ -5,6 +5,10 @@ import {
   ACTOR_REPOSITORY,
   type IActorRepository,
 } from '../../domain/repositories/actor.repository.port'
+import {
+  TENANT_REPOSITORY,
+  type ITenantRepository,
+} from '../../domain/repositories/tenant.repository.port'
 import type { RoleGrant } from '../../domain/entities/role-grant.entity'
 import type { Tenant } from '../../domain/entities/tenant.entity'
 import type { UserIdentity } from '../../domain/entities/user-identity.entity'
@@ -32,6 +36,7 @@ export class KernelQueryFacade {
   constructor(
     private readonly queryBus: QueryBus,
     @Inject(ACTOR_REPOSITORY) private readonly actorRepo: IActorRepository,
+    @Inject(TENANT_REPOSITORY) private readonly tenantRepo: ITenantRepository,
   ) {}
 
   getActor(actorId: string, tenantId: string): Promise<Actor | null> {
@@ -106,5 +111,15 @@ export class KernelQueryFacade {
       new GetUserIdentityByActorIdQuery(actorId, tenantId),
     )
     return identity?.ssoSubject ?? null
+  }
+
+  /**
+   * Returns all tenant IDs in the system. Used by scheduled fanout workers that must
+   * iterate over every tenant (e.g. task-daily-snapshot). The tenant table has no RLS
+   * so this is safe to call without a request context.
+   */
+  async listAllTenantIds(): Promise<string[]> {
+    const tenants = await this.tenantRepo.findAll()
+    return tenants.map((t) => t.id)
   }
 }

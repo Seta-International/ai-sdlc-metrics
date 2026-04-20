@@ -3,4 +3,5 @@ export interface PlannerViewFlags {
   gridEnabled: boolean
   scheduleEnabled: boolean
   chartsEnabled: boolean
+  trendsEnabled: boolean
 }

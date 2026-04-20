@@ -13,6 +13,12 @@ export class InMemoryPlanRepository implements IPlanRepository {
     return [...this.store.values()].filter((p) => p.tenantId === tenantId && !p.deletedAt)
   }
 
+  async listAllIds(tenantId: string): Promise<string[]> {
+    return [...this.store.values()]
+      .filter((p) => p.tenantId === tenantId && !p.deletedAt)
+      .map((p) => p.id)
+  }
+
   async save(plan: Plan): Promise<void> {
     this.store.set(plan.id, plan)
   }
