@@ -449,9 +449,9 @@ experimental_telemetry: {
 
 ## 12. Phased implementation sequence
 
-Full v1 spec delivered across 7 phases over ~13–14 weeks for a senior engineer, with intermediate demos. Sequencing favors: security boundary first, observability from Day 1, write surface after reads, async last.
+Full v1 spec delivered across 7 phases. **Honest estimate: 18–22 weeks for one senior engineer, or ~10–12 weeks for a team of three with parallel tracks.** Phases have intermediate demos. Sequencing favors: security boundary first, observability from Day 1, write surface after reads, async late, content moderation + eval CI in Phase 6.
 
-### Phase 1 — Runtime foundation (weeks 1–3)
+### Phase 1 — Runtime foundation (weeks 1–4)
 
 **Ships:** the gateway, one sub-agent (planner, read-only), end-to-end security boundary, Langfuse wired.
 
@@ -469,7 +469,7 @@ Full v1 spec delivered across 7 phases over ~13–14 weeks for a senior engineer
 
 **Exit criterion:** a user in web-chat can ask "what's overdue on Project X?" and the planner sub-agent answers, with `canDo` + RLS verified by security test, Langfuse trace captured, kernel audit events emitted.
 
-### Phase 2 — Streaming contract + synthesizer (weeks 4–5)
+### Phase 2 — Streaming contract + synthesizer (weeks 5–7)
 
 **Ships:** §15.3 SSE event schema complete, synthesizer with all five shapes, citations.
 
@@ -481,7 +481,7 @@ Full v1 spec delivered across 7 phases over ~13–14 weeks for a senior engineer
 
 **Exit criterion:** a partial-answer ceiling-hit turn renders "partial — limit reached" with correct shape; refusal renders as distinct state; cancel mid-stream leaves zero drafted writes.
 
-### Phase 3 — Router + multi-sub-agent (weeks 6–7)
+### Phase 3 — Router + multi-sub-agent + Tier 2 structured-query (weeks 8–10)
 
 **Ships:** full §3 routing topology with people + projects sub-agents.
 
@@ -494,7 +494,7 @@ Full v1 spec delivered across 7 phases over ~13–14 weeks for a senior engineer
 
 **Exit criterion:** "Who's on Project X with overdue tasks?" fans out to 3 sub-agents and synthesizes a coherent answer with citations to 3 distinct domains.
 
-### Phase 4 — Writes, approvals, drafts (weeks 8–9)
+### Phase 4 — Writes, approvals, drafts (weeks 11–13)
 
 **Ships:** §10 end-to-end — draft proposal, permission envelope, taint bump, approval inbox, execute-approved-draft.
 
@@ -511,7 +511,7 @@ Full v1 spec delivered across 7 phases over ~13–14 weeks for a senior engineer
 
 **Exit criterion:** drafting a task from a tainted turn produces an approval-required draft; manager approves; job executes against live data via domain command; all audit events present; permission widening (tested by synthetic scenario) emits audit event without blocking.
 
-### Phase 5 — Async agents (weeks 10–11)
+### Phase 5 — Async agents (weeks 14–15)
 
 **Ships:** §11 — personal schedules + tenant-wide schedules + full delegation lifecycle (mint + revoke already live from Phase 4).
 
@@ -525,9 +525,9 @@ Full v1 spec delivered across 7 phases over ~13–14 weeks for a senior engineer
 
 **Exit criterion:** a scheduled personal agent runs weekly, drafts to inbox under the delegator's authority, pauses when delegation expires, and fails gracefully when per-delegation cost ceiling trips.
 
-### Phase 6 — Cost control, canary, eval (weeks 12–13)
+### Phase 6 — Cost control, canary, eval, content moderation (weeks 16–19)
 
-**Ships:** §13 full cost control + §12 canary + §14 eval CI gate.
+**Ships:** §13 full cost control + §12 canary + §14 eval CI gate + §18 content moderation.
 
 - `CostMeter` — dollar denomination with cached-token accounting; pre-turn refusal with minimum-balance check; mid-turn abort on ceiling; distinct `turn.ended.reason` for `refused` vs `budget`.
 - Tenant tiered degradation: 80% pauses async, 95% drops to nano, 100% hard refuse. Admin notifications rate-limited.
@@ -536,22 +536,24 @@ Full v1 spec delivered across 7 phases over ~13–14 weeks for a senior engineer
 - `QualityCanaryService` — rolling probe per tier, canary queries rotated quarterly from production, frozen fixture tenant, degraded-flag, budget-independent fallback, both-tiers fallback with elevated notice.
 - Per-turn anomaly dashboards: validation-error rate spike, iteration-count distribution anomaly.
 - Golden-trace CI gate: Langfuse Datasets + Experiments; small hand-curated set; adversarial sanitization-projection subset.
+- **Content moderation (§18):** `OutputModerator` port + `OpenAIModerationAdapter`; wired on input (pre-router) and output (pre-stream-complete); `turn.ended.reason = 'moderation'` when flagged; content-hash caching within a turn.
 - L3 memory (`user-initiated writes only`); CRUD endpoints; tRPC mutations deliberately omit `.meta({ agent })`.
 
-**Exit criterion:** CI gate blocks a PR that regresses on the golden trace set; quality-canary catches a synthetic model degradation and fails over to the other tier; tenant hitting 95% silently drops to nano-only with visible user banner.
+**Exit criterion:** CI gate blocks a PR that regresses on the golden trace set; quality-canary catches a synthetic model degradation and fails over to the other tier; tenant hitting 95% silently drops to nano-only with visible user banner; moderation flags a synthetic harmful utterance and fires `turn.ended.reason = 'moderation'`.
 
-### Phase 7 — Replay, GDPR, polish (week 14)
+### Phase 7 — Replay, GDPR, polish, nightly consistency check (weeks 20–22)
 
-**Ships:** replay harness, GDPR erasure, dev-mode affordances, remaining polish.
+**Ships:** replay harness, GDPR erasure, nightly consistency check, dev-mode affordances, remaining polish.
 
 - `ReplayHarness` — CLI tool + HTTP endpoint for dev users; given `trace_id`, reconstructs full message array via hash stores; errors-on-miss with no silent fallback.
+- **Nightly prompt-hash consistency check (§6)** — Inngest daily function asserts that every `content_hash` referenced by a Langfuse trace in the last 24h exists in `agents.prompt_store` / `agents.narrative_store`. Mismatch → kernel audit event `agent.prompt_hash_missing` + page on-call.
 - `erasure-pipeline.service` — transactional DB hard-delete + Langfuse `purgeByUserId` + L3 delete; compensating action on partial failure logs compliance incident.
 - Dev-mode UI deep-linking: conversation message → Langfuse trace + replay tool for 100%-captured turns.
 - End-user deep-link to redacted-safe audit-trail summary.
 - L4 lazy fetch pattern finalized (`AdminQueryFacade.getCurrencyPreference` etc.).
 - Documentation pass; runbook for common incidents; alert playbook.
 
-**Exit criterion:** right-to-erasure request completes end-to-end; a replay of a production trace_id reconstructs the exact message array; dev-mode deep-link lands on the Langfuse trace.
+**Exit criterion:** right-to-erasure request completes end-to-end; a replay of a production trace_id reconstructs the exact message array; dev-mode deep-link lands on the Langfuse trace; nightly consistency check runs without mismatches on a seeded-inconsistency test.
 
 ---
 
@@ -560,9 +562,11 @@ Full v1 spec delivered across 7 phases over ~13–14 weeks for a senior engineer
 These do not block Phase 1 start and are carried forward explicitly:
 
 - **Confidence rule table refinement (§17 item 6).** Default table ships in §7 above; observed regressions will inform adjustments. Tracked in a `docs/runbooks/confidence-rules.md` log post-v1.
-- **Analyst tier (§3 ambiguity ladder item 3).** Deferred to v1.5 per spec §16. Parameterized SQL on read replica, `canDo('agent.analyst')` gated.
+- **Confidence feedback loop.** Post-v1: pipeline from Langfuse thumbs-down Scores + trace postmortem → proposed rule-table refinements. Human-gated review before rule changes; avoid closed-loop that self-biases. Trigger: two consecutive quarters with >5% thumbs-down on `high`-confidence answers.
+- **Analyst tier (§3 ambiguity ladder item 3).** Replaced by embedded BI via Metabase + Cube — see §14.3. LLM-generated parameterized SQL removed from the design (previous plan deferred to v1.5; current plan defers indefinitely in favor of semantic-layer BI).
 - **Shadow-mode traffic.** Gateway is shadow-ready from Phase 1 via `mode: 'execute' | 'dry-run'`; traffic routing deferred to v1.5.
 - **Sub-agent governance machinery** (declared review process, example-query gates). Trigger-based adoption per §16; not in v1 unless sustained router-accuracy regression fires or sub-agent headcount passes ~7.
+- **Sub-agent ownership distribution.** Currently sub-agents live in `modules/agents/application/sub-agents/*` — owned by the runtime team. If domain teams eventually own their sub-agent prompts (more natural once domain headcount grows), the factory-in-module-layout needs a split: keep `SubAgentRunner` + registry in agents module, move per-domain configs to `modules/<domain>/agent/*.sub-agent.ts`. Escape hatch documented here; not blocking v1.
 
 ---
 
@@ -836,36 +840,53 @@ Seven layers, each with an explicit invalidation rule. Previously scattered; pin
 
 ## 18. Guardrails
 
-**Structural defenses already in spec (not labeled "guardrails" but functionally are):** taint model (§2), structural prompt delimiters (§8), gateway `canDo` + RLS, `tenantAuthoredFreeText` delimiter wrapping + trace redaction, approval-required drafts on tainted turns. These cover injection-shaped attacks and unauthorized-write abuse.
+Guardrails split by layer: **structural defenses ship Phase 1–2** (they _are_ the security boundary); **content moderation ships Phase 6** alongside cost control and eval CI.
 
-**Additional guardrails this doc adds:**
+**18.1 Structural defenses — Phase 1–2 (the defense you can't buy)**
 
-**18.1 Input moderation (Phase 1)**
+Taint model (§2), structural prompt delimiters (§8), gateway `canDo` + RLS, `tenantAuthoredFreeText` delimiter wrapping + trace redaction, approval-required drafts on tainted turns, zod-validated synthesizer output shapes (§9), zod-validated tool inputs via AI SDK `tool({ inputSchema })`. These cover prompt-injection-shaped attacks, unauthorized-write abuse, and hallucinated-structure responses. Part of runtime core; not gated on a moderation ship.
 
-- `OpenAIModerationService` — stateless pre-LLM classifier on the user utterance. TS-native, free, sub-100ms.
-- On flag: emit `refusal.started { reason: 'content_policy' }` (§15 SSE schema), skip router entirely, log trace with tag `refused: moderation`.
-- Moderation flagging does **not** poison the conversation. User may rephrase; next turn runs normally. No "persistent strikes" counter.
+**18.2 Content moderation port — Phase 6**
 
-**18.2 Output moderation (Phase 1)**
+```ts
+// application/guardrails/moderation.port.ts
+export interface OutputModerator {
+  check(
+    text: string,
+    direction: 'input' | 'output',
+  ): Promise<{ flagged: boolean; categories: string[]; provider: string }>
+}
+```
 
-- Run OpenAI moderation on synthesizer final output before streaming the last token. Buffer the last chunk; release only if moderation clears.
-- Partial-answer stream is allowed through but labeled if any earlier tool output was flagged — operator signal, not user-visible.
+Port lives in `domain/ports/`. Adapters live in `infrastructure/moderation/`. Port-based abstraction means replacing OpenAI Moderation with Llama Guard in v1.5 is a routing change via the AI Gateway, not a code change in the orchestrator.
 
-**18.3 Structured output validation (Phase 1–2)**
+**18.3 Phase 6 adapter: `OpenAIModerationAdapter`**
 
-- **Synthesizer output validates via zod before emission.** The five shapes (§9) each have a strict zod schema. A hallucinated-shape response (model claims `table` but returns narrative, or declares columns that don't match row keys) fails validation and fires `error`, not `answer.complete`. Caller retries with `shape: 'narrative'` fallback.
-- Tool input validation is already zod-enforced by AI SDK v7 `tool({ inputSchema })`. An invalid tool call returns `tool validation error` per §4 and counts toward the circuit breaker.
+- One HTTP call per direction per turn: **input pre-router**, **output pre-stream-complete**. Stateless, sub-100ms, free.
+- Results cached by content hash within a turn.
+- Categories covered: hate, violence, sexual, self-harm.
 
-**18.4 Explicit non-goals (Tenets #8, #9)**
+**Flow integration:**
+
+- **Input flagged** → `turn.ended.reason = 'moderation'`, refusal event with distinct reason, no router invocation, audit event, trace tag `refused: moderation`.
+- **Output flagged** → synthesizer output replaced with safe fallback; audit event; stream already released is labeled for operators only (not user-visible).
+- No persistent strikes counter. Users rephrase; next turn runs cleanly.
+
+**18.4 v1.5 upgrade path — Llama Guard / Lakera Guard**
+
+- Add `LlamaGuardAdapter` implementing `OutputModerator`. Host behind the AI Gateway so swapping per-tenant is a routing change, not a code change.
+- Feature flag per tenant selects adapter. Test on one tenant before broadening rollout.
+- Gated on observed abuse data from v1 — not speculative infrastructure.
+
+**18.5 Explicit non-goals (Tenets #8, #9)**
 
 - **No intent detection** — agents do not attempt to classify "is this user trying to misuse the system?" Intent detection is unwinnable at this layer (Tenet #9). Infrastructure defense is observability + rate limiting.
 - **No composition-disclosure detection** — k-anonymity / small-group suppression is a tool-authoring responsibility (Tenet #8), enforced at the domain via `compositionSensitive` declarations; the runtime does not attempt to detect composed-disclosure attacks in real time.
 - **No DSL-based guardrail framework** — NeMo Guardrails (Colang) and Guardrails AI (Python) add a dependency axis and do not materially beat zod + OpenAI Moderation for this stack. Revisit only if observed abuse data demonstrates a gap zod + moderation cannot close.
 
-**18.5 Deferred to post-v1**
+**18.6 Why Phase 6, not Phase 1, for content moderation**
 
-- **Model-based jailbreak classifier** (Llama Guard, Lakera Guard) — gated on observed abuse patterns. Not speculative.
-- **Adversarial sanitization-projection fuzzer** in the golden-trace suite — already in Phase 6 (§14 spec); mentioned here for completeness.
+Structural defenses (§18.1) are the security boundary and must be in Phase 1. OpenAI Moderation is one HTTP call per direction — cheap to add when "production hardening" is already being built in Phase 6, trivial to retrofit if abuse data arrives earlier. Shipping Llama Guard in Phase 6 would trade 3 weeks of model-hosting infra for 85% of what OpenAI Moderation already delivers. Defer model-based moderation until production data justifies it.
 
 ---
 
