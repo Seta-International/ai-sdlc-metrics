@@ -43,6 +43,13 @@
       "when": 1776643200000,
       "tag": "0005_planner_task_daily_snapshot",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776729600000,
+      "tag": "0006_planner_charts_trends_flag",
+      "breakpoints": true
     }
   ]
 }

@@ -13,6 +13,7 @@ function makeDb(
     plannerGridEnabled: boolean
     plannerScheduleEnabled: boolean
     plannerChartsEnabled: boolean
+    plannerChartsTrendsEnabled: boolean
   }>,
 ): Db {
   const selectFn = vi.fn().mockReturnValue({
@@ -40,6 +41,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         gridEnabled: false,
         scheduleEnabled: false,
         chartsEnabled: false,
+        trendsEnabled: false,
       })
     })
   })
@@ -53,6 +55,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerGridEnabled: false,
             plannerScheduleEnabled: false,
             plannerChartsEnabled: false,
+            plannerChartsTrendsEnabled: false,
           },
         ]),
       )
@@ -65,6 +68,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         gridEnabled: false,
         scheduleEnabled: false,
         chartsEnabled: false,
+        trendsEnabled: false,
       })
     })
   })
@@ -78,6 +82,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerGridEnabled: true,
             plannerScheduleEnabled: true,
             plannerChartsEnabled: true,
+            plannerChartsTrendsEnabled: true,
           },
         ]),
       )
@@ -90,6 +95,34 @@ describe('GetPlannerViewFlagsHandler', () => {
         gridEnabled: true,
         scheduleEnabled: true,
         chartsEnabled: true,
+        trendsEnabled: true,
+      })
+    })
+  })
+
+  describe('when row exists with trendsEnabled = true only', () => {
+    beforeEach(() => {
+      handler = new GetPlannerViewFlagsHandler(
+        makeDb([
+          {
+            plannerViewsEnabled: false,
+            plannerGridEnabled: false,
+            plannerScheduleEnabled: false,
+            plannerChartsEnabled: false,
+            plannerChartsTrendsEnabled: true,
+          },
+        ]),
+      )
+    })
+
+    it('returns trendsEnabled = true and others = false', async () => {
+      const result = await handler.execute(new GetPlannerViewFlagsQuery(TENANT_ID))
+      expect(result).toEqual({
+        viewsEnabled: false,
+        gridEnabled: false,
+        scheduleEnabled: false,
+        chartsEnabled: false,
+        trendsEnabled: true,
       })
     })
   })

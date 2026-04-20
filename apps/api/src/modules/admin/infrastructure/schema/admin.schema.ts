@@ -27,6 +27,7 @@ export const tenantSettings = adminSchema.table('tenant_settings', {
   plannerGridEnabled: boolean('planner_grid_enabled').notNull().default(false),
   plannerScheduleEnabled: boolean('planner_schedule_enabled').notNull().default(false),
   plannerChartsEnabled: boolean('planner_charts_enabled').notNull().default(false),
+  plannerChartsTrendsEnabled: boolean('planner_charts_trends_enabled').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })

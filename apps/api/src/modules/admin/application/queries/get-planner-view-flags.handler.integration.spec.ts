@@ -40,8 +40,8 @@ describe('GetPlannerViewFlagsHandler — integration', () => {
   describe('when tenant_settings row exists with planner_views_enabled = true', () => {
     it('returns viewsEnabled=true and all other view flags false', async () => {
       await db.execute(
-        sql`INSERT INTO admin.tenant_settings (id, tenant_id, planner_core_enabled, planner_views_enabled, planner_grid_enabled, planner_schedule_enabled, planner_charts_enabled, created_at, updated_at)
-            VALUES (${uuidv7()}, ${TENANT_ID}, false, true, false, false, false, NOW(), NOW())`,
+        sql`INSERT INTO admin.tenant_settings (id, tenant_id, planner_core_enabled, planner_views_enabled, planner_grid_enabled, planner_schedule_enabled, planner_charts_enabled, planner_charts_trends_enabled, created_at, updated_at)
+            VALUES (${uuidv7()}, ${TENANT_ID}, false, true, false, false, false, false, NOW(), NOW())`,
       )
 
       const result = await handler.execute(new GetPlannerViewFlagsQuery(TENANT_ID))
@@ -50,6 +50,7 @@ describe('GetPlannerViewFlagsHandler — integration', () => {
       expect(result.gridEnabled).toBe(false)
       expect(result.scheduleEnabled).toBe(false)
       expect(result.chartsEnabled).toBe(false)
+      expect(result.trendsEnabled).toBe(false)
     })
   })
 
@@ -61,6 +62,7 @@ describe('GetPlannerViewFlagsHandler — integration', () => {
       expect(result.gridEnabled).toBe(false)
       expect(result.scheduleEnabled).toBe(false)
       expect(result.chartsEnabled).toBe(false)
+      expect(result.trendsEnabled).toBe(false)
     })
   })
 })
