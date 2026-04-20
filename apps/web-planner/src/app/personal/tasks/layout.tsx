@@ -50,9 +50,9 @@ export default function PersonalTasksLayout({ children }: { children: React.Reac
         </div>
       </header>
 
-      <PersonalTasksContext.Provider value={{ includeCompleted }}>
+      <PersonalTasksContext value={{ includeCompleted }}>
         <div className="flex-1 min-h-0">{children}</div>
-      </PersonalTasksContext.Provider>
+      </PersonalTasksContext>
     </div>
   )
 }

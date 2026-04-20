@@ -26,8 +26,8 @@ export default function PersonalChartsPage() {
   if (isLoading) {
     return (
       <div className="grid gap-4 p-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-64 w-full rounded-lg" />
+        {['sk-0', 'sk-1', 'sk-2', 'sk-3', 'sk-4'].map((k) => (
+          <Skeleton key={k} className="h-64 w-full rounded-lg" />
         ))}
       </div>
     )

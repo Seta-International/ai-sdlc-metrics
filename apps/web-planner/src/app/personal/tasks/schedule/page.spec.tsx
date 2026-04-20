@@ -34,9 +34,7 @@ function Wrapper({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return (
     <QueryClientProvider client={qc}>
-      <PersonalTasksContext.Provider value={{ includeCompleted: false }}>
-        {children}
-      </PersonalTasksContext.Provider>
+      <PersonalTasksContext value={{ includeCompleted: false }}>{children}</PersonalTasksContext>
     </QueryClientProvider>
   )
 }

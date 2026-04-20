@@ -10,8 +10,8 @@ export default function PersonalBoardPage() {
   if (isLoading) {
     return (
       <div className="flex gap-4 p-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-96 w-72" />
+        {['sk-0', 'sk-1', 'sk-2'].map((k) => (
+          <Skeleton key={k} className="h-96 w-72" />
         ))}
       </div>
     )

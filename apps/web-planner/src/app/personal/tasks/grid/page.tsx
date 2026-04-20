@@ -14,8 +14,8 @@ export default function PersonalGridPage() {
   if (isLoading) {
     return (
       <div className="space-y-2 p-4">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-10 w-full" />
+        {['sk-0', 'sk-1', 'sk-2', 'sk-3', 'sk-4'].map((k) => (
+          <Skeleton key={k} className="h-10 w-full" />
         ))}
       </div>
     )

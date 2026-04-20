@@ -42,7 +42,7 @@ export default function MyDayLayout({ children }: { children: React.ReactNode })
   const value = useMemo(() => ({ date, timezone }), [date, timezone])
 
   return (
-    <MyDayContext.Provider value={value}>
+    <MyDayContext value={value}>
       <div className="flex flex-col min-h-0">
         <header className="border-b border-overlay/5 bg-panel">
           <div className="flex items-center gap-1 px-6 py-2">
@@ -66,6 +66,6 @@ export default function MyDayLayout({ children }: { children: React.ReactNode })
 
         <div className="flex-1 min-h-0">{children}</div>
       </div>
-    </MyDayContext.Provider>
+    </MyDayContext>
   )
 }

@@ -1,8 +1,8 @@
 'use client'
-import { createContext, useContext } from 'react'
+import { createContext, use } from 'react'
 
 export const PersonalTasksContext = createContext<{ includeCompleted: boolean }>({
   includeCompleted: false,
 })
 
-export const usePersonalTasksCtx = () => useContext(PersonalTasksContext)
+export const usePersonalTasksCtx = () => use(PersonalTasksContext)
