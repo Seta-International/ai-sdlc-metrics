@@ -1,6 +1,7 @@
 'use client'
 
 import { X } from 'lucide-react'
+import { Button } from '@future/ui'
 
 export interface AgentInlineResponseProps {
   content: string
@@ -24,17 +25,25 @@ export function AgentInlineResponse({
             <span className="ml-1 inline-block h-3 w-1 animate-pulse bg-foreground" />
           )}
         </div>
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Dismiss"
           onClick={onDismiss}
-          className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted"
+          className="h-6 w-6 shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted"
         >
           <X className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       </div>
       {onContinueInPanel && !isStreaming && (
-        <button onClick={onContinueInPanel} className="mt-2 text-xs text-primary hover:underline">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onContinueInPanel}
+          className="mt-2 h-auto p-0 text-xs text-primary hover:underline"
+        >
           Continue in panel →
-        </button>
+        </Button>
       )}
     </div>
   )

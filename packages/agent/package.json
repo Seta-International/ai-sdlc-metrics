@@ -16,10 +16,13 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@assistant-ui/react": "^0.12.25",
     "@future/api-client": "workspace:*",
     "@future/core": "workspace:*",
     "@future/ui": "workspace:*",
-    "lucide-react": "^1.8.0"
+    "@microsoft/fetch-event-source": "^2.0.1",
+    "lucide-react": "^1.8.0",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@future/tsconfig": "workspace:*",

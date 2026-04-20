@@ -12,9 +12,7 @@ describe('AgentInlineResponse', () => {
     const { container } = render(
       <AgentInlineResponse content="Loading..." isStreaming onDismiss={vi.fn()} />,
     )
-    // The streaming cursor is a span with animate-pulse
-    const cursor = container.querySelector('.animate-pulse')
-    expect(cursor).not.toBeNull()
+    expect(container.querySelector('.animate-pulse')).not.toBeNull()
   })
 
   it('does not show streaming cursor when isStreaming is false', () => {
@@ -27,7 +25,7 @@ describe('AgentInlineResponse', () => {
   it('calls onDismiss when dismiss button is clicked', () => {
     const onDismiss = vi.fn()
     render(<AgentInlineResponse content="Hello" onDismiss={onDismiss} />)
-    fireEvent.click(screen.getByRole('button'))
+    fireEvent.click(screen.getByRole('button', { name: /dismiss/i }))
     expect(onDismiss).toHaveBeenCalledOnce()
   })
 

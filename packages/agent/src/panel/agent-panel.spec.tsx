@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
 import { AgentPanel } from './agent-panel'
@@ -9,18 +9,23 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 describe('AgentPanel', () => {
-  it('renders panel with data-testid', () => {
+  it('renders panel container', () => {
     const { container } = render(<AgentPanel />, { wrapper })
     expect(container.querySelector('[data-testid="agent-panel"]')).toBeDefined()
   })
 
-  it('renders message input', () => {
+  it('renders the composer textarea', () => {
     render(<AgentPanel />, { wrapper })
-    expect(screen.getByPlaceholderText('Ask the agent...')).toBeDefined()
+    expect(screen.getByRole('textbox')).toBeDefined()
   })
 
-  it('shows empty state when no messages', () => {
+  it('renders the send button', () => {
     render(<AgentPanel />, { wrapper })
-    expect(screen.getByText(/start a conversation/i)).toBeDefined()
+    expect(screen.getByRole('button', { name: /send/i })).toBeDefined()
+  })
+
+  it('shows empty state when no messages', async () => {
+    render(<AgentPanel />, { wrapper })
+    expect(await screen.findByTestId('agent-thread-empty')).toBeDefined()
   })
 })

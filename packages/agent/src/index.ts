@@ -23,15 +23,21 @@ export type { AgentStateContextValue } from './hooks/use-agent-state'
 export { AgentProvider } from './agent-provider'
 export type { AgentProviderProps } from './agent-provider'
 
+// Runtime
+export { createAgentChatAdapter } from './runtime/agent-chat-adapter'
+export type { AgentChatAdapterOptions } from './runtime/agent-chat-adapter'
+export { createAgentTurnStore } from './runtime/agent-turn-store'
+export type { AgentTurnStore, AgentTurnState } from './runtime/agent-turn-store'
+export { sseEventSchema } from './runtime/sse-event-schema'
+export type { SseEvent, TurnEndReason, DraftPayload } from './runtime/sse-event-schema'
+
+// Thread
+export { AgentThread } from './thread/agent-thread'
+export { AgentComposer } from './thread/agent-composer'
+
 // Panel
 export { AgentPanel } from './panel/agent-panel'
-export { AgentMessage } from './panel/agent-message'
-export type { AgentMessageProps } from './panel/agent-message'
-export { AgentToolTrace } from './panel/agent-tool-trace'
-export type { AgentToolTraceProps } from './panel/agent-tool-trace'
-export { AgentContextPills } from './panel/agent-context-pills'
-export { AgentMessageInput } from './panel/agent-message-input'
-export type { AgentMessageInputProps } from './panel/agent-message-input'
+export type { AgentPanelProps } from './panel/agent-panel'
 
 // Inline
 export { AgentInlineAction } from './inline/agent-inline-action'
