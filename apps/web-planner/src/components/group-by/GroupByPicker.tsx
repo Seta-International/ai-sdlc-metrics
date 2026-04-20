@@ -10,10 +10,20 @@ const GROUP_LABELS: Record<GroupKey, string> = {
   priority: 'Priority',
   assignee: 'Assignee',
   label: 'Label',
+  plan: 'Plan',
 }
 
-export function GroupByPicker({ planId }: { planId: string }) {
+const DEFAULT_KEYS = GROUP_KEYS.filter((k) => k !== 'plan')
+
+export function GroupByPicker({
+  planId,
+  availableKeys,
+}: {
+  planId: string
+  availableKeys?: GroupKey[]
+}) {
   const { state, patch } = useViewState({ planId })
+  const keys = availableKeys ?? DEFAULT_KEYS
 
   return (
     <Select value={state.groupBy} onValueChange={(v) => patch({ groupBy: v as GroupKey })}>
@@ -21,7 +31,7 @@ export function GroupByPicker({ planId }: { planId: string }) {
         <SelectValue placeholder="Group by…" />
       </SelectTrigger>
       <SelectContent>
-        {GROUP_KEYS.map((key) => (
+        {keys.map((key) => (
           <SelectItem key={key} value={key}>
             {GROUP_LABELS[key]}
           </SelectItem>

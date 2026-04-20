@@ -18,3 +18,8 @@ export type TaskFlat = {
   createdAt: string
   updatedAt: string
 }
+
+export type TaskFlatWithPlan = TaskFlat & {
+  planName: string
+  planKind: 'team' | 'personal'
+}

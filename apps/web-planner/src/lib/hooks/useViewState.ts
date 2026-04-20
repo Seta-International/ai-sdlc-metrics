@@ -12,7 +12,10 @@ import type { ViewState } from '../view-state'
 const LS_PREFIX = 'planner:view:'
 const LS_DEBOUNCE_MS = 200
 
-export function useViewState({ planId }: { planId: string }) {
+export type ViewStateOptions = { planId: string } | { scope: 'personal' }
+
+export function useViewState(opts: ViewStateOptions) {
+  const storageKey = 'planId' in opts ? opts.planId : opts.scope
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -23,7 +26,7 @@ export function useViewState({ planId }: { planId: string }) {
     if (!isUrlEmpty) return fromUrl
     if (typeof window !== 'undefined') {
       try {
-        const raw = localStorage.getItem(LS_PREFIX + planId)
+        const raw = localStorage.getItem(LS_PREFIX + storageKey)
         if (raw) {
           const parsed = JSON.parse(raw)
           return {
@@ -37,7 +40,7 @@ export function useViewState({ planId }: { planId: string }) {
       }
     }
     return DEFAULT_VIEW_STATE
-  }, [planId, searchParams])
+  }, [storageKey, searchParams])
 
   const [state, setState] = useState<ViewState>(hydrate)
 
@@ -61,14 +64,14 @@ export function useViewState({ planId }: { planId: string }) {
       lsTimerRef.current = setTimeout(() => {
         if (typeof window !== 'undefined') {
           try {
-            localStorage.setItem(LS_PREFIX + planId, JSON.stringify(next))
+            localStorage.setItem(LS_PREFIX + storageKey, JSON.stringify(next))
           } catch {
             /* quota */
           }
         }
       }, LS_DEBOUNCE_MS)
     },
-    [pathname, planId, router],
+    [pathname, storageKey, router],
   )
 
   const patch = useCallback(

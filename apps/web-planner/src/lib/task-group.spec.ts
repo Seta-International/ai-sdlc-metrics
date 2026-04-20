@@ -124,4 +124,34 @@ describe('groupTasks', () => {
       'none',
     ])
   })
+
+  it('groups tasks by plan — personal first, then teams alphabetically', () => {
+    const tasks = [
+      mkTask({
+        id: 't1',
+        planId: 'team-b',
+        ...({ planName: 'Beta', planKind: 'team' } as Partial<TaskFlat>),
+      }),
+      mkTask({
+        id: 't2',
+        planId: 'team-a',
+        ...({ planName: 'Alpha', planKind: 'team' } as Partial<TaskFlat>),
+      }),
+      mkTask({
+        id: 't3',
+        planId: 'personal',
+        ...({ planName: 'Personal', planKind: 'personal' } as Partial<TaskFlat>),
+      }),
+    ]
+    const groups = groupTasks(tasks, 'plan')
+    expect(groups.map((g) => g.key)).toEqual(['personal', 'team-a', 'team-b'])
+    expect(groups.map((g) => g.label)).toEqual(['Personal', 'Alpha', 'Beta'])
+  })
+
+  it('gracefully handles TaskFlat (no planName) — label falls back to planId', () => {
+    const tasks = [mkTask({ id: 't1', planId: 'p1' })]
+    const groups = groupTasks(tasks, 'plan')
+    expect(groups).toHaveLength(1)
+    expect(groups[0]!.label).toBe('p1')
+  })
 })

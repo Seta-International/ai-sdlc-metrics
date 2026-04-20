@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { vi } from 'vitest'
 import { FilterBar } from './FilterBar'
 
 vi.mock('next/navigation', () => ({
@@ -37,5 +38,17 @@ describe('FilterBar', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /priority/i })).toBeInTheDocument()
     })
+  })
+
+  it('renders IncludeCompletedChip in personal mode', async () => {
+    render(
+      <FilterBar
+        context={context}
+        mode="personal"
+        includeCompleted={false}
+        onIncludeCompletedChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByText(/show completed/i)).toBeInTheDocument()
   })
 })

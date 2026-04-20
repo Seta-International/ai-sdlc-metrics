@@ -204,4 +204,19 @@ describe('TaskCard', () => {
 
     expect(onToggleComplete).toHaveBeenCalledWith('task-1', 100)
   })
+
+  it('renders the PersonalPlanBadge when task.planName is present', () => {
+    const taskWithPlan = { ...makeTask(), planName: 'Alpha', planKind: 'team' } as BoardTaskSnapshot
+    render(<TaskCard task={taskWithPlan} planLabels={emptyLabels} {...TASK_PROPS} />, {
+      wrapper: Wrapper,
+    })
+    expect(screen.getByText('Alpha')).toBeDefined()
+  })
+
+  it('does NOT render a badge when planName is absent (single-plan page)', () => {
+    render(<TaskCard task={makeTask()} planLabels={emptyLabels} {...TASK_PROPS} />, {
+      wrapper: Wrapper,
+    })
+    expect(screen.queryByLabelText(/team plan|personal plan/i)).toBeNull()
+  })
 })

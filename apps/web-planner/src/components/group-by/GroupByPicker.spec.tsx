@@ -50,4 +50,14 @@ describe('GroupByPicker', () => {
       expect(optionTexts).toContain('Label')
     })
   })
+
+  it('renders only the supplied keys when availableKeys is provided', async () => {
+    render(<GroupByPicker planId="abc" availableKeys={['plan', 'progress', 'due']} />)
+    await userEvent.click(screen.getByRole('combobox'))
+    await waitFor(() => {
+      expect(screen.getByText('Plan')).toBeInTheDocument()
+      expect(screen.getByText('Progress')).toBeInTheDocument()
+      expect(screen.queryByText('Bucket')).not.toBeInTheDocument()
+    })
+  })
 })

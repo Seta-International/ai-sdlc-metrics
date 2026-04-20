@@ -9,10 +9,17 @@ import {
   Checkbox,
 } from '@future/ui'
 import { useViewState } from '@/lib/hooks/useViewState'
+import type { ViewStateOptions } from '@/lib/hooks/useViewState'
 import type { PlanContext } from '../types'
 
-export function AssigneesFilter({ planId, context }: { planId: string; context: PlanContext }) {
-  const { state, patch } = useViewState({ planId })
+export function AssigneesFilter({
+  viewStateOpts,
+  context,
+}: {
+  viewStateOpts: ViewStateOptions
+  context: PlanContext
+}) {
+  const { state, patch } = useViewState(viewStateOpts)
 
   function toggle(actorId: string) {
     const cur = state.filter.assignees

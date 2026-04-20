@@ -12,6 +12,7 @@ import { DueBadge } from '../primitives/DueBadge'
 import { AssigneeAvatarStack } from '../primitives/AssigneeAvatarStack'
 import { LabelPill } from '../primitives/LabelPill'
 import { TaskCardCover } from './TaskCardCover'
+import { PersonalPlanBadge } from '../personal-plan-badge'
 import { AssigneePicker } from '../assignees/AssigneePicker'
 import { LabelPicker } from '../labels/LabelPicker'
 import { trpc } from '../../lib/trpc'
@@ -186,6 +187,14 @@ export function TaskCard({
 
       {/* Card body */}
       <div className="flex flex-col gap-2 p-3">
+        {/* Cross-plan badge — only rendered when task carries planName (My Tasks page) */}
+        {'planName' in task && (task as { planName?: string }).planName ? (
+          <PersonalPlanBadge
+            planName={(task as { planName: string }).planName}
+            planKind={(task as { planKind?: 'team' | 'personal' }).planKind ?? 'team'}
+          />
+        ) : null}
+
         {/* Title row with completion toggle */}
         <div className="flex items-start gap-2">
           {/* Completion toggle — hidden until hover */}

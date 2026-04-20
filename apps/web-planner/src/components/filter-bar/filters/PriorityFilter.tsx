@@ -1,6 +1,7 @@
 'use client'
 import { Checkbox, Label } from '@future/ui'
 import { useViewState } from '@/lib/hooks/useViewState'
+import type { ViewStateOptions } from '@/lib/hooks/useViewState'
 import type { Priority } from '@/lib/view-state'
 
 const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
@@ -10,8 +11,8 @@ const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
   { value: 'low', label: 'Low' },
 ]
 
-export function PriorityFilter({ planId }: { planId: string }) {
-  const { state, patch } = useViewState({ planId })
+export function PriorityFilter({ viewStateOpts }: { viewStateOpts: ViewStateOptions }) {
+  const { state, patch } = useViewState(viewStateOpts)
 
   function toggle(value: Priority) {
     const cur = state.filter.priority

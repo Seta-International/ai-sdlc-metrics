@@ -1,3 +1,5 @@
+export type FilterMode = 'plan' | 'personal'
+
 export type FilterField = 'due' | 'priority' | 'labels' | 'buckets' | 'assignees'
 
 export interface PlanLabel {

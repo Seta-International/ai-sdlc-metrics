@@ -20,6 +20,7 @@ import {
 } from '@future/ui'
 import { buildColumns } from './columns'
 import { useViewState } from '@/lib/hooks/useViewState'
+import type { ViewStateOptions } from '@/lib/hooks/useViewState'
 import type { TaskFlat } from '@future/api-client/planner'
 import type { TaskGroup } from '@/lib/task-group'
 import type { SortField } from '@/lib/view-state'
@@ -38,12 +39,13 @@ export function TaskGrid({
   groups,
   context,
 }: {
-  planId: string
+  planId: string | null
   data: TaskFlat[]
   groups: TaskGroup[] | undefined
   context: { members: Member[]; labels: Label[] }
 }) {
-  const { state, patch } = useViewState({ planId })
+  const stateOpts: ViewStateOptions = planId ? { planId } : { scope: 'personal' }
+  const { state, patch } = useViewState(stateOpts)
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
 
   const columns = useMemo(

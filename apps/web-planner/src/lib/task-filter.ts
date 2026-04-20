@@ -4,11 +4,19 @@ import { startOfDay, addDays } from './date-utils'
 
 export type FilterInput = ViewState['filter']
 
-export function applyTaskFilter(
-  tasks: TaskFlat[],
+export interface ApplyFilterOptions {
+  includeCompleted?: boolean
+  now?: Date
+}
+
+export function applyTaskFilter<T extends TaskFlat>(
+  tasks: T[],
   filter: FilterInput,
-  now: Date = new Date(),
-): TaskFlat[] {
+  options: ApplyFilterOptions = {},
+): T[] {
+  const includeCompleted = options.includeCompleted ?? true
+  const now = options.now ?? new Date()
+
   const hasPriority = filter.priority.length > 0
   const hasLabels = filter.labels.length > 0
   const hasBuckets = filter.buckets.length > 0
@@ -16,7 +24,12 @@ export function applyTaskFilter(
 
   const dueMatches = buildDueMatcher(filter.due, now)
 
-  return tasks.filter((t) => {
+  let out: T[] = tasks
+  if (!includeCompleted) {
+    out = out.filter((t) => t.progress !== 'completed')
+  }
+
+  return out.filter((t) => {
     if (dueMatches && !dueMatches(t.dueDate)) return false
     if (hasPriority && !filter.priority.includes(t.priority)) return false
     if (hasLabels && !t.labels.some((l) => filter.labels.includes(l.id))) return false
