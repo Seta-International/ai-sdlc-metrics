@@ -4,6 +4,8 @@ import type { AuthContext } from '../../../../common/trpc/auth-middleware'
 import { AdminRouterService } from './admin-router.service'
 import { QueryAuditLogQuery } from '../../application/queries/query-audit-log.query'
 import { ExportAuditLogQuery } from '../../application/queries/export-audit-log.query'
+import { GetTenantTimezoneQuery } from '../../application/queries/get-tenant-timezone.query'
+import { UpdateTenantTimezoneCommand } from '../../application/commands/update-tenant-timezone.command'
 
 function svc() {
   return AdminRouterService.getInstance()
@@ -173,6 +175,21 @@ export function createAdminRouter(permissionProtectedProcedure: any) {
   return router({
     roles: createAdminRolesRouter(permissionProtectedProcedure),
     auditLog: createAdminAuditLogRouter(permissionProtectedProcedure),
+
+    getTenantTimezone: permissionProtectedProcedure
+      .meta({ permission: 'admin:tenant:read' })
+      .input(z.object({}))
+      .query(async ({ ctx }: { ctx: AuthContext }) => {
+        const timezone = await svc().query(new GetTenantTimezoneQuery(ctx.tenantId))
+        return { timezone: timezone as string }
+      }),
+
+    updateTimezone: permissionProtectedProcedure
+      .meta({ permission: 'admin:tenant:timezone:update' })
+      .input(z.object({ timezone: z.string().min(1).max(64) }))
+      .mutation(async ({ ctx, input }: { ctx: AuthContext; input: { timezone: string } }) => {
+        await svc().command(new UpdateTenantTimezoneCommand(ctx.tenantId, input.timezone))
+      }),
   })
 }
 
@@ -193,4 +210,6 @@ export const adminAuditLogRouter = router({
 export const adminRouter = router({
   roles: adminRolesRouter,
   auditLog: adminAuditLogRouter,
+  getTenantTimezone: publicProcedure.input(z.object({})).query(() => ({ timezone: '' })),
+  updateTimezone: publicProcedure.input(z.object({ timezone: z.string() })).mutation(() => null),
 })
