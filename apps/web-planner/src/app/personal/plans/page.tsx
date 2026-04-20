@@ -66,7 +66,7 @@ export default function MyPlansPage() {
     )
   }
 
-  const onlyPersonal = data.length === 1 && data[0].ownerActorId === session.actorId
+  const onlyPersonal = data.length === 1 && data[0]?.ownerActorId === session.actorId
 
   return (
     <main className="p-8">
