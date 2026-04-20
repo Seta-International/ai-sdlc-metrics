@@ -14,6 +14,7 @@ function makeDb(
     plannerScheduleEnabled: boolean
     plannerChartsEnabled: boolean
     plannerChartsTrendsEnabled: boolean
+    plannerPersonalEnabled: boolean
   }>,
 ): Db {
   const selectFn = vi.fn().mockReturnValue({
@@ -42,6 +43,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         scheduleEnabled: false,
         chartsEnabled: false,
         trendsEnabled: false,
+        personalEnabled: false,
       })
     })
   })
@@ -56,6 +58,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerScheduleEnabled: false,
             plannerChartsEnabled: false,
             plannerChartsTrendsEnabled: false,
+            plannerPersonalEnabled: false,
           },
         ]),
       )
@@ -69,6 +72,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         scheduleEnabled: false,
         chartsEnabled: false,
         trendsEnabled: false,
+        personalEnabled: false,
       })
     })
   })
@@ -83,6 +87,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerScheduleEnabled: true,
             plannerChartsEnabled: true,
             plannerChartsTrendsEnabled: true,
+            plannerPersonalEnabled: true,
           },
         ]),
       )
@@ -96,6 +101,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         scheduleEnabled: true,
         chartsEnabled: true,
         trendsEnabled: true,
+        personalEnabled: true,
       })
     })
   })
@@ -110,6 +116,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerScheduleEnabled: false,
             plannerChartsEnabled: false,
             plannerChartsTrendsEnabled: true,
+            plannerPersonalEnabled: false,
           },
         ]),
       )
@@ -123,6 +130,36 @@ describe('GetPlannerViewFlagsHandler', () => {
         scheduleEnabled: false,
         chartsEnabled: false,
         trendsEnabled: true,
+        personalEnabled: false,
+      })
+    })
+  })
+
+  describe('when row exists with plannerPersonalEnabled = true only', () => {
+    beforeEach(() => {
+      handler = new GetPlannerViewFlagsHandler(
+        makeDb([
+          {
+            plannerViewsEnabled: false,
+            plannerGridEnabled: false,
+            plannerScheduleEnabled: false,
+            plannerChartsEnabled: false,
+            plannerChartsTrendsEnabled: false,
+            plannerPersonalEnabled: true,
+          },
+        ]),
+      )
+    })
+
+    it('returns personalEnabled = true and others = false', async () => {
+      const result = await handler.execute(new GetPlannerViewFlagsQuery(TENANT_ID))
+      expect(result).toEqual({
+        viewsEnabled: false,
+        gridEnabled: false,
+        scheduleEnabled: false,
+        chartsEnabled: false,
+        trendsEnabled: false,
+        personalEnabled: true,
       })
     })
   })

@@ -4,4 +4,5 @@ export interface PlannerViewFlags {
   scheduleEnabled: boolean
   chartsEnabled: boolean
   trendsEnabled: boolean
+  personalEnabled: boolean
 }
