@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
 
 export default function PlannerPage() {
-  redirect('/plans')
+  redirect('/personal/tasks/board')
 }

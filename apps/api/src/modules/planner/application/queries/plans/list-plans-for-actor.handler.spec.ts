@@ -129,6 +129,8 @@ describe('ListPlansForActorHandler', () => {
     expect(summary.memberCount).toBe(2)
     expect(summary.myRole).toBe('owner')
     expect(summary.updatedAt).toBeInstanceOf(Date)
+    // Team plans expose ownerActorId as null — only personal plans set it.
+    expect(summary.ownerActorId).toBeNull()
   })
 
   it('returns empty array when tenant has no plans', async () => {
@@ -185,6 +187,12 @@ describe('ListPlansForActorHandler', () => {
       expect(ids).toContain('team-1')
       expect(ids).toContain('personal-me')
       expect(ids).not.toContain('personal-other')
+
+      // ownerActorId distinguishes personal plans (set) from team plans (null) so the
+      // sidebar/card components can pick the right icon without a second fetch.
+      const byId = Object.fromEntries(result.map((p) => [p.id, p]))
+      expect(byId['team-1'].ownerActorId).toBeNull()
+      expect(byId['personal-me'].ownerActorId).toBe(ACTOR_ID)
     })
 
     it("does not leak another actor's personal plan to read-any admin", async () => {

@@ -34,6 +34,16 @@ export class PlannerRouterService implements OnModuleInit {
     }
   }
 
+  async assertPersonalEnabled(tenantId: string): Promise<void> {
+    const flags = await this.adminQueryFacade.getPlannerViewFlags(tenantId)
+    if (!flags.personalEnabled) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Personal Hubs is not enabled for this tenant',
+      })
+    }
+  }
+
   getPlannerViewFlags(tenantId: string): Promise<PlannerViewFlags> {
     return this.adminQueryFacade.getPlannerViewFlags(tenantId)
   }

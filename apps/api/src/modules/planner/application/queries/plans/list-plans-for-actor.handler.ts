@@ -12,6 +12,7 @@ export interface PlanSummary {
   memberCount: number
   myRole: 'owner' | 'editor' | 'viewer' | null
   updatedAt: Date
+  ownerActorId: string | null
 }
 
 @QueryHandler(ListPlansForActorQuery)
@@ -55,6 +56,7 @@ export class ListPlansForActorHandler implements IQueryHandler<
       memberCount: plan.members.length,
       myRole: member?.role ?? null,
       updatedAt: plan.updatedAt,
+      ownerActorId: plan.ownerActorId,
     }
   }
 }
