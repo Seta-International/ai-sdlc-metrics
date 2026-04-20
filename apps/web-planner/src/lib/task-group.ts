@@ -22,6 +22,8 @@ export function groupTasks(
       return groupByAssignee(tasks)
     case 'label':
       return groupByLabel(tasks)
+    case 'plan':
+      return groupByPlan(tasks)
   }
 }
 
@@ -159,4 +161,27 @@ function groupByLabel(tasks: TaskFlat[]): TaskGroup[] {
     .sort((a, b) =>
       a.key === '__nolabel' ? 1 : b.key === '__nolabel' ? -1 : a.label.localeCompare(b.label),
     )
+}
+
+function groupByPlan(tasks: TaskFlat[]): TaskGroup[] {
+  const byId = new Map<
+    string,
+    { name: string; kind: 'team' | 'personal' | 'unknown'; tasks: TaskFlat[] }
+  >()
+  for (const t of tasks) {
+    const withPlan = t as TaskFlat & { planName?: string; planKind?: 'team' | 'personal' }
+    const name = withPlan.planName ?? t.planId
+    const kind = withPlan.planKind ?? 'unknown'
+    const existing = byId.get(t.planId)
+    if (existing) existing.tasks.push(t)
+    else byId.set(t.planId, { name, kind, tasks: [t] })
+  }
+  return [...byId.entries()]
+    .map(([key, v]) => ({ key, label: v.name, kind: v.kind, tasks: v.tasks }))
+    .sort((a, b) => {
+      if (a.kind === 'personal' && b.kind !== 'personal') return -1
+      if (b.kind === 'personal' && a.kind !== 'personal') return 1
+      return a.label.localeCompare(b.label)
+    })
+    .map(({ key, label, tasks }) => ({ key, label, tasks }))
 }
