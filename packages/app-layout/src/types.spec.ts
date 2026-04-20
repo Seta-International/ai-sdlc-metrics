@@ -1,7 +1,14 @@
 import { describe, it, expectTypeOf } from 'vitest'
-import type { NavigationConfig, NavItem, NavGroup, NavbarConfig } from './types'
+import type {
+  NavigationConfig,
+  NavItem,
+  NavGroup,
+  NavGroupStatic,
+  NavGroupDynamic,
+  NavbarConfig,
+} from './types'
 import type { LucideIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 
 describe('NavigationConfig types', () => {
   it('NavItem has required label, icon, href', () => {
@@ -22,8 +29,34 @@ describe('NavigationConfig types', () => {
     expectTypeOf<NavItem['badge']>().toEqualTypeOf<(() => ReactNode) | undefined>()
   })
 
-  it('NavGroup.label is optional', () => {
-    expectTypeOf<NavGroup['label']>().toEqualTypeOf<string | undefined>()
+  it('NavGroupStatic.label is optional', () => {
+    expectTypeOf<NavGroupStatic['label']>().toEqualTypeOf<string | undefined>()
+  })
+
+  it('NavGroupStatic has items', () => {
+    expectTypeOf<NavGroupStatic['items']>().toEqualTypeOf<NavItem[]>()
+  })
+
+  it('NavGroupDynamic has render returning ReactElement', () => {
+    expectTypeOf<NavGroupDynamic['render']>().toEqualTypeOf<() => ReactElement>()
+  })
+
+  it('NavGroup union accepts static branch', () => {
+    const staticGroup: NavGroup = { label: 'x', items: [] }
+    expectTypeOf(staticGroup).toMatchTypeOf<NavGroup>()
+  })
+
+  it('NavGroup union accepts dynamic branch', () => {
+    const DynamicNode: () => ReactElement = () => null as unknown as ReactElement
+    const dynamicGroup: NavGroup = { label: 'y', render: DynamicNode }
+    expectTypeOf(dynamicGroup).toMatchTypeOf<NavGroup>()
+  })
+
+  it('TypeScript rejects a NavGroup with BOTH items and render', () => {
+    // @ts-expect-error — NavGroup is a strict union; cannot carry both discriminants
+    const invalid: NavGroup = { items: [], render: () => null as unknown as ReactElement }
+    // Reference to suppress unused-var lint
+    void invalid
   })
 
   it('NavbarConfig has title and icon', () => {

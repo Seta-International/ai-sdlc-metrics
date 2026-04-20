@@ -17,7 +17,7 @@ import {
 } from '@future/ui'
 import { useContext } from 'react'
 import { PermissionContext } from '../permission-provider'
-import type { NavGroup, NavItem } from '../types'
+import type { NavGroup, NavGroupStatic, NavItem } from '../types'
 
 function useFilteredItems(items: NavItem[]): NavItem[] {
   const { permissions, isLoading } = useContext(PermissionContext)
@@ -94,6 +94,19 @@ export function SidebarRenderer({ groups }: SidebarRendererProps) {
 }
 
 function SidebarNavGroup({ group }: { group: NavGroup }) {
+  if ('render' in group) {
+    return (
+      <SidebarGroup>
+        {group.label && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}
+        <SidebarGroupContent>{group.render()}</SidebarGroupContent>
+      </SidebarGroup>
+    )
+  }
+
+  return <StaticSidebarNavGroup group={group} />
+}
+
+function StaticSidebarNavGroup({ group }: { group: NavGroupStatic }) {
   const visibleItems = useFilteredItems(group.items)
 
   if (visibleItems.length === 0) return null

@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 
 export interface NavItem {
   label: string
@@ -13,11 +13,19 @@ export interface NavItem {
   badge?: () => ReactNode
 }
 
-export interface NavGroup {
+export interface NavGroupStatic {
   /** Optional section header label */
   label?: string
   items: NavItem[]
 }
+
+export interface NavGroupDynamic {
+  /** Optional section header label */
+  label?: string
+  render: () => ReactElement
+}
+
+export type NavGroup = NavGroupStatic | NavGroupDynamic
 
 export interface NavbarConfig {
   /** Zone display name, e.g. "People" */
