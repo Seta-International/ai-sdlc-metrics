@@ -7,6 +7,8 @@ import { MsOrderHint } from '../value-objects/ms-order-hint.vo'
 import { DescriptionTooLongException } from '../exceptions/description-too-long.exception'
 import { LabelLimitReachedException } from '../exceptions/label-limit-reached.exception'
 import { LastOwnerRemovalException } from '../exceptions/last-owner-removal.exception'
+import { PersonalPlanMemberAdditionException } from '../exceptions/personal-plan-member-addition.exception'
+import { PersonalPlanDeletionForbiddenException } from '../exceptions/personal-plan-deletion-forbidden.exception'
 
 const makePlan = () => {
   const ownerActorId = uuidv7()
@@ -222,7 +224,7 @@ describe('Plan aggregate', () => {
 
     it('assertCanAddMember throws on a personal plan', () => {
       const { plan } = makePersonal()
-      expect(() => plan.assertCanAddMember()).toThrow(/personal/i)
+      expect(() => plan.assertCanAddMember()).toThrow(PersonalPlanMemberAdditionException)
     })
 
     it('assertCanAddMember is a no-op on a team plan', () => {
@@ -232,7 +234,7 @@ describe('Plan aggregate', () => {
 
     it('assertCanDelete throws when a non-owner tries to delete a personal plan', () => {
       const { plan } = makePersonal()
-      expect(() => plan.assertCanDelete(uuidv7())).toThrow(/personal/i)
+      expect(() => plan.assertCanDelete(uuidv7())).toThrow(PersonalPlanDeletionForbiddenException)
     })
 
     it('assertCanDelete allows the owner to delete their personal plan', () => {

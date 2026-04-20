@@ -3,6 +3,8 @@ import { PlanContainer } from '../value-objects/plan-container.vo'
 import { DescriptionTooLongException } from '../exceptions/description-too-long.exception'
 import { LabelLimitReachedException } from '../exceptions/label-limit-reached.exception'
 import { LastOwnerRemovalException } from '../exceptions/last-owner-removal.exception'
+import { PersonalPlanMemberAdditionException } from '../exceptions/personal-plan-member-addition.exception'
+import { PersonalPlanDeletionForbiddenException } from '../exceptions/personal-plan-deletion-forbidden.exception'
 import { Bucket } from './bucket.entity'
 
 export interface Label {
@@ -178,13 +180,13 @@ export class Plan {
 
   assertCanAddMember(): void {
     if (this.isPersonal) {
-      throw new Error('Cannot add members to a personal plan')
+      throw new PersonalPlanMemberAdditionException(this.id)
     }
   }
 
   assertCanDelete(actorId: string): void {
     if (this.isPersonal && this.ownerActorId !== actorId) {
-      throw new Error('Only the owner can delete a personal plan')
+      throw new PersonalPlanDeletionForbiddenException(this.id, actorId)
     }
   }
 
