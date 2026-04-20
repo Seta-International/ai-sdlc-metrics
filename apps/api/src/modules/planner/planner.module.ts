@@ -63,6 +63,7 @@ import { AddLinkHandler } from './application/commands/attachments/add-link.hand
 import { SetCoverHandler } from './application/commands/attachments/set-cover.handler'
 import { RemoveAttachmentHandler } from './application/commands/attachments/remove.handler'
 import { ListPlansForActorHandler } from './application/queries/plans/list-plans-for-actor.handler'
+import { ListTasksForActorHandler } from './application/queries/personal/list-tasks-for-actor.handler'
 import { GetPlanHandler } from './application/queries/plans/get-plan.handler'
 import { GetBoardHandler } from './application/queries/tasks/get-board.handler'
 import { GetFlatTasksHandler } from './application/queries/tasks/get-flat.handler'
@@ -142,6 +143,7 @@ import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-sna
     SetCoverHandler,
     RemoveAttachmentHandler,
     ListPlansForActorHandler,
+    ListTasksForActorHandler,
     GetPlanHandler,
     GetBoardHandler,
     GetFlatTasksHandler,
