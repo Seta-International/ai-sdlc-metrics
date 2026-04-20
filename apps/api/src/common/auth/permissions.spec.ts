@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { PERMISSION_KEY_SET, ALL_PERMISSION_KEYS } from './permissions'
+import { PERMISSION_KEY_SET, ALL_PERMISSION_KEYS, PERMISSIONS } from './permissions'
 
 const MODULES_DIR = join(__dirname, '../../modules')
 const META_PERMISSION_RE = /\.meta\(\s*\{\s*permission:\s*['"]([^'"]+)['"]/g
@@ -54,5 +54,19 @@ describe('permission registry — drift guard', () => {
       seen.add(k)
     }
     expect(dupes).toEqual([])
+  })
+})
+
+describe('PERMISSIONS — personal-hubs + timezone keys', () => {
+  it('exposes planner:personal:read', () => {
+    expect(PERMISSIONS.PLANNER_PERSONAL_READ).toBe('planner:personal:read')
+  })
+
+  it('exposes planner:personal:write', () => {
+    expect(PERMISSIONS.PLANNER_PERSONAL_WRITE).toBe('planner:personal:write')
+  })
+
+  it('exposes admin:tenant:timezone:update', () => {
+    expect(PERMISSIONS.ADMIN_TENANT_TIMEZONE_UPDATE).toBe('admin:tenant:timezone:update')
   })
 })

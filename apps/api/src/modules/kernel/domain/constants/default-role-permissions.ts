@@ -26,6 +26,8 @@ const EMPLOYEE_LOCKED: DefaultPermissionEntry[] = [
 const EMPLOYEE_DEFAULTS: DefaultPermissionEntry[] = [
   { permissionKey: PERMISSIONS.PLANNER_TASK_SELF_MANAGE, isLocked: false },
   { permissionKey: PERMISSIONS.PLANNER_PLAN_CREATE, isLocked: false },
+  { permissionKey: PERMISSIONS.PLANNER_PERSONAL_READ, isLocked: false },
+  { permissionKey: PERMISSIONS.PLANNER_PERSONAL_WRITE, isLocked: false },
 ]
 
 /**
