@@ -188,6 +188,64 @@ describe('Plan aggregate', () => {
     })
   })
 
+  describe('personal plan invariants', () => {
+    const makePersonal = () => {
+      const ownerActorId = uuidv7()
+      const tenantId = uuidv7()
+      return {
+        ownerActorId,
+        tenantId,
+        plan: Plan.createPersonal({ id: uuidv7(), tenantId, ownerActorId, name: 'Personal' }),
+      }
+    }
+
+    it('createPersonal sets ownerActorId and syncEnabled=false', () => {
+      const { plan, ownerActorId } = makePersonal()
+      expect(plan.ownerActorId).toBe(ownerActorId)
+      expect(plan.syncEnabled).toBe(false)
+      expect(plan.isPersonal).toBe(true)
+    })
+
+    it('createPersonal bootstraps the owner as a member', () => {
+      const { plan, ownerActorId } = makePersonal()
+      expect(plan.members).toHaveLength(1)
+      expect(plan.members[0].actorId).toBe(ownerActorId)
+      expect(plan.members[0].role).toBe('owner')
+    })
+
+    it('team plans created via Plan.create() default to ownerActorId=null, syncEnabled=true, isPersonal=false', () => {
+      const { plan } = makePlan()
+      expect(plan.ownerActorId).toBeNull()
+      expect(plan.syncEnabled).toBe(true)
+      expect(plan.isPersonal).toBe(false)
+    })
+
+    it('assertCanAddMember throws on a personal plan', () => {
+      const { plan } = makePersonal()
+      expect(() => plan.assertCanAddMember()).toThrow(/personal/i)
+    })
+
+    it('assertCanAddMember is a no-op on a team plan', () => {
+      const { plan } = makePlan()
+      expect(() => plan.assertCanAddMember()).not.toThrow()
+    })
+
+    it('assertCanDelete throws when a non-owner tries to delete a personal plan', () => {
+      const { plan } = makePersonal()
+      expect(() => plan.assertCanDelete(uuidv7())).toThrow(/personal/i)
+    })
+
+    it('assertCanDelete allows the owner to delete their personal plan', () => {
+      const { plan, ownerActorId } = makePersonal()
+      expect(() => plan.assertCanDelete(ownerActorId)).not.toThrow()
+    })
+
+    it('assertCanDelete is a no-op on a team plan (no ownership check)', () => {
+      const { plan } = makePlan()
+      expect(() => plan.assertCanDelete(uuidv7())).not.toThrow()
+    })
+  })
+
   describe('reorderBucket()', () => {
     it('updates the bucket orderHint and buckets sort lexicographically in expected order', () => {
       const { plan } = makePlan()

@@ -17,6 +17,8 @@ export interface PlanRow {
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
+  ownerActorId: string | null
+  syncEnabled: boolean
 }
 
 export function planRowToEntity(
@@ -48,6 +50,8 @@ export function planRowToEntity(
     buckets,
     labels,
     members,
+    ownerActorId: row.ownerActorId,
+    syncEnabled: row.syncEnabled,
   })
 }
 
@@ -65,6 +69,8 @@ export function planEntityToRow(plan: Plan): {
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
+  ownerActorId: string | null
+  syncEnabled: boolean
 } {
   const containerType = plan.container.type === 'none' ? null : plan.container.type
   const msGroupId =
@@ -90,5 +96,7 @@ export function planEntityToRow(plan: Plan): {
     createdAt: plan.createdAt,
     updatedAt: plan.updatedAt,
     deletedAt: plan.deletedAt,
+    ownerActorId: plan.ownerActorId,
+    syncEnabled: plan.syncEnabled,
   }
 }

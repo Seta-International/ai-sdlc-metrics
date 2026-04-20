@@ -43,6 +43,8 @@ export class InMemoryPlanRepository implements IPlanRepository {
           buckets: [...plan.buckets],
           labels: [...plan.labels],
           members: [...plan.members],
+          ownerActorId: plan.ownerActorId,
+          syncEnabled: plan.syncEnabled,
         }),
       )
     }

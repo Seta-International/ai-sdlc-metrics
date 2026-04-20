@@ -36,6 +36,8 @@ export class Plan {
     private _buckets: Bucket[],
     private _labels: Label[],
     private _members: PlanMember[],
+    readonly ownerActorId: string | null,
+    readonly syncEnabled: boolean,
   ) {}
 
   get name(): string {
@@ -60,6 +62,10 @@ export class Plan {
 
   get members(): readonly PlanMember[] {
     return this._members
+  }
+
+  get isPersonal(): boolean {
+    return this.ownerActorId !== null
   }
 
   static create(props: {
@@ -93,6 +99,42 @@ export class Plan {
       [],
       [],
       [ownerMember],
+      null,
+      true,
+    )
+  }
+
+  static createPersonal(props: {
+    id: string
+    tenantId: string
+    ownerActorId: string
+    name: string
+    description?: string
+  }): Plan {
+    const now = new Date()
+    const ownerMember: PlanMember = {
+      actorId: props.ownerActorId,
+      role: 'owner',
+      addedBy: props.ownerActorId,
+      addedAt: now,
+    }
+    return new Plan(
+      props.id,
+      props.tenantId,
+      props.name,
+      props.description ?? '',
+      PlanContainer.of({ type: 'none' }),
+      props.ownerActorId,
+      now,
+      now,
+      null,
+      null,
+      null,
+      [],
+      [],
+      [ownerMember],
+      props.ownerActorId,
+      false,
     )
   }
 
@@ -111,6 +153,8 @@ export class Plan {
     buckets: Bucket[]
     labels: Label[]
     members: PlanMember[]
+    ownerActorId: string | null
+    syncEnabled: boolean
   }): Plan {
     return new Plan(
       props.id,
@@ -127,7 +171,21 @@ export class Plan {
       props.buckets,
       props.labels,
       props.members,
+      props.ownerActorId,
+      props.syncEnabled,
     )
+  }
+
+  assertCanAddMember(): void {
+    if (this.isPersonal) {
+      throw new Error('Cannot add members to a personal plan')
+    }
+  }
+
+  assertCanDelete(actorId: string): void {
+    if (this.isPersonal && this.ownerActorId !== actorId) {
+      throw new Error('Only the owner can delete a personal plan')
+    }
   }
 
   renameTo(name: string): void {

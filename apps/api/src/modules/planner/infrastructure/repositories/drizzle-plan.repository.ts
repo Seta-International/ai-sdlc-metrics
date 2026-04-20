@@ -124,9 +124,13 @@ export class DrizzlePlanRepository implements IPlanRepository {
         createdBy: row.createdBy,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
+        ownerActorId: row.ownerActorId ?? undefined,
+        syncEnabled: row.syncEnabled,
       })
       .onConflictDoUpdate({
         target: plannerPlan.id,
+        // ownerActorId + syncEnabled are set at create time and shouldn't flip on update,
+        // so they are intentionally omitted from this SET block.
         set: {
           name: row.name,
           description: row.description,
