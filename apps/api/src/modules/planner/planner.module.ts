@@ -19,6 +19,7 @@ import { DrizzleTaskRepository } from './infrastructure/repositories/drizzle-tas
 import { DrizzlePlanLabelRepository } from './infrastructure/repositories/drizzle-plan-label.repository'
 import { DrizzlePlanMemberRepository } from './infrastructure/repositories/drizzle-plan-member.repository'
 import { PlanAuthorizationService } from './application/services/plan-authorization.service'
+import { EnsurePersonalPlanService } from './application/services/ensure-personal-plan.service'
 import { CreatePlanHandler } from './application/commands/plans/create-plan.handler'
 import { CreatePersonalPlanHandler } from './application/commands/plans/create-personal-plan.handler'
 import { RenamePlanHandler } from './application/commands/plans/rename-plan.handler'
@@ -106,6 +107,7 @@ import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-sna
         }),
     },
     PlanAuthorizationService,
+    EnsurePersonalPlanService,
     CreatePlanHandler,
     CreatePersonalPlanHandler,
     RenamePlanHandler,
@@ -161,6 +163,6 @@ import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-sna
     PlannerQueryFacade,
     PlannerRouterService,
   ],
-  exports: [PlannerQueryFacade],
+  exports: [PlannerQueryFacade, EnsurePersonalPlanService],
 })
 export class PlannerModule {}
