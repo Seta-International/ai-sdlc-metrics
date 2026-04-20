@@ -54,7 +54,7 @@
     {
       "idx": 7,
       "version": "7",
-      "when": 1776656603287,
+      "when": 1776816000000,
       "tag": "0007_tenant_settings_personal_hubs",
       "breakpoints": true
     }
