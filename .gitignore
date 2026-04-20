@@ -28,7 +28,6 @@ test-results/
 # OS
 .DS_Store
 .gstack/
-.worktrees/
 .playwright-mcp/.worktrees/
 
 # Git worktrees
