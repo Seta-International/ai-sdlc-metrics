@@ -161,4 +161,45 @@ describe('ListPlansForActorHandler', () => {
       { tenantId: TENANT_ID },
     )
   })
+
+  describe('personal plan visibility (leak-prevention)', () => {
+    function makePersonal(id: string, ownerActorId: string): Plan {
+      return Plan.createPersonal({
+        id,
+        tenantId: TENANT_ID,
+        ownerActorId,
+        name: `Personal of ${ownerActorId}`,
+      })
+    }
+
+    it("does not leak another actor's personal plan to non-admin actor", async () => {
+      const teamPlan = makePlan('team-1', OTHER_ID, [{ actorId: ACTOR_ID, role: 'editor' }])
+      const myPersonal = makePersonal('personal-me', ACTOR_ID)
+      const otherPersonal = makePersonal('personal-other', OTHER_ID)
+
+      planRepo.findByTenantId.mockResolvedValue([teamPlan, myPersonal, otherPersonal])
+      kernelFacade.canDo.mockResolvedValue(false) // no read-any
+
+      const result = await handler.execute(new ListPlansForActorQuery(ACTOR_ID, TENANT_ID))
+      const ids = result.map((p) => p.id)
+      expect(ids).toContain('team-1')
+      expect(ids).toContain('personal-me')
+      expect(ids).not.toContain('personal-other')
+    })
+
+    it("does not leak another actor's personal plan to read-any admin", async () => {
+      const teamPlan = makePlan('team-1', OTHER_ID)
+      const myPersonal = makePersonal('personal-me', ACTOR_ID)
+      const otherPersonal = makePersonal('personal-other', OTHER_ID)
+
+      planRepo.findByTenantId.mockResolvedValue([teamPlan, myPersonal, otherPersonal])
+      kernelFacade.canDo.mockResolvedValue(true) // admin with read-any
+
+      const result = await handler.execute(new ListPlansForActorQuery(ACTOR_ID, TENANT_ID))
+      const ids = result.map((p) => p.id)
+      expect(ids).toContain('team-1')
+      expect(ids).toContain('personal-me')
+      expect(ids).not.toContain('personal-other') // key assertion
+    })
+  })
 })

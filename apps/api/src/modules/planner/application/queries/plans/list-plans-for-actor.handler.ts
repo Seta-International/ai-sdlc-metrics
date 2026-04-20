@@ -34,9 +34,15 @@ export class ListPlansForActorHandler implements IQueryHandler<
       { tenantId },
     )
 
-    const visiblePlans = hasReadAny
-      ? allPlans
-      : allPlans.filter((plan) => plan.members.some((m) => m.actorId === actorId))
+    // Personal plans are private to their owner — privacy supersedes admin visibility,
+    // so even a read-any admin cannot see another actor's personal plan.
+    const isVisibleToActor = (plan: Plan): boolean => {
+      if (plan.isPersonal) return plan.ownerActorId === actorId
+      if (hasReadAny) return true
+      return plan.members.some((m) => m.actorId === actorId)
+    }
+
+    const visiblePlans = allPlans.filter(isVisibleToActor)
 
     return visiblePlans.map((plan) => this.toSummary(plan, actorId))
   }
