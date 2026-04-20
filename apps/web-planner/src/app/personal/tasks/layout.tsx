@@ -17,9 +17,11 @@ export default function PersonalTasksLayout({ children }: { children: React.Reac
   const [includeCompleted, setIncludeCompleted] = useState(false)
 
   const segment = pathname.split('/')[3] ?? 'board'
-  const currentView = (['board', 'grid', 'schedule', 'charts'] as const).includes(segment as any)
-    ? (segment as 'board' | 'grid' | 'schedule' | 'charts')
-    : ('board' as const)
+  const VIEWS = ['board', 'grid', 'schedule', 'charts'] as const
+  type View = (typeof VIEWS)[number]
+  const currentView: View = (VIEWS as ReadonlyArray<string>).includes(segment)
+    ? (segment as View)
+    : 'board'
 
   return (
     <div className="flex flex-col min-h-0">

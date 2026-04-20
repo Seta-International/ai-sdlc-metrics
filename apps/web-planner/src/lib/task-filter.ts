@@ -9,11 +9,11 @@ export interface ApplyFilterOptions {
   now?: Date
 }
 
-export function applyTaskFilter(
-  tasks: TaskFlat[],
+export function applyTaskFilter<T extends TaskFlat>(
+  tasks: T[],
   filter: FilterInput,
   options: ApplyFilterOptions = {},
-): TaskFlat[] {
+): T[] {
   const includeCompleted = options.includeCompleted ?? true
   const now = options.now ?? new Date()
 
@@ -24,7 +24,7 @@ export function applyTaskFilter(
 
   const dueMatches = buildDueMatcher(filter.due, now)
 
-  let out = tasks
+  let out: T[] = tasks
   if (!includeCompleted) {
     out = out.filter((t) => t.progress !== 'completed')
   }

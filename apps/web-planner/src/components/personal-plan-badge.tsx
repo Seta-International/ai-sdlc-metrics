@@ -13,7 +13,7 @@ export function PersonalPlanBadge({
   return (
     <Badge variant="subtle" className="gap-1" aria-label={label}>
       <Icon className="size-3" aria-hidden={true} />
-      <span className="max-w-[10ch] truncate">{planName}</span>
+      <span className="max-w-24 truncate">{planName}</span>
     </Badge>
   )
 }

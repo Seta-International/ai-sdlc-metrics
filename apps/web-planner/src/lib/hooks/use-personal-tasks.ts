@@ -52,14 +52,10 @@ export function usePersonalTasks({
 
   const processed = useMemo<{ rows: TaskFlatWithPlan[]; groups: TaskGroup[] } | undefined>(() => {
     if (!query.data) return undefined
-    // applyTaskFilter accepts TaskFlat[] — TaskFlatWithPlan extends TaskFlat so the cast is safe
-    const filtered = applyTaskFilter(query.data as any, state.filter, {
-      includeCompleted,
-    }) as unknown as TaskFlatWithPlan[]
-    const sorted = state.sort
-      ? (sortTasks(filtered as any, state.sort) as unknown as TaskFlatWithPlan[])
-      : filtered
-    const groups = groupTasks(sorted as any, state.groupBy)
+    // applyTaskFilter / sortTasks are generic (T extends TaskFlat) — no cast needed
+    const filtered = applyTaskFilter(query.data, state.filter, { includeCompleted })
+    const sorted = state.sort ? sortTasks(filtered, state.sort) : filtered
+    const groups = groupTasks(sorted, state.groupBy)
     return { rows: sorted, groups }
   }, [query.data, state.filter, state.sort, state.groupBy, includeCompleted])
 

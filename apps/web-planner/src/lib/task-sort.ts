@@ -19,7 +19,7 @@ const PROGRESS_RANK: Record<TaskProgress, number> = {
   completed: 2,
 }
 
-export function sortTasks(tasks: TaskFlat[], sort: SortInput): TaskFlat[] {
+export function sortTasks<T extends TaskFlat>(tasks: T[], sort: SortInput): T[] {
   const sign = sort.dir === 'asc' ? 1 : -1
 
   return [...tasks].sort((a, b) => {
