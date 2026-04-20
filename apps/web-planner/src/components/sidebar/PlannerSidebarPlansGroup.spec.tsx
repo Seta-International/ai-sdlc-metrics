@@ -91,9 +91,9 @@ describe('PlannerSidebarPlansGroup', () => {
       '/plans/ta/board',
       '/plans/tb/board',
     ])
-    expect(within(links[0]).getByText('Personal')).toBeInTheDocument()
-    expect(within(links[1]).getByText('Alpha')).toBeInTheDocument()
-    expect(within(links[2]).getByText('Beta')).toBeInTheDocument()
+    expect(within(links[0]!).getByText('Personal')).toBeInTheDocument()
+    expect(within(links[1]!).getByText('Alpha')).toBeInTheDocument()
+    expect(within(links[2]!).getByText('Beta')).toBeInTheDocument()
   })
 
   it('marks active plan with aria-current="page"', () => {

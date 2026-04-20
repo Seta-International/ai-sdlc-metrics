@@ -22,7 +22,8 @@ import { trpc } from '../trpc'
 import { useTenantTimezone } from './useTenantTimezone'
 
 const mockQuery = vi.mocked(
-  (trpc.admin.getTenantTimezone as { query: ReturnType<typeof vi.fn> }).query,
+  (trpc.admin as unknown as { getTenantTimezone: { query: ReturnType<typeof vi.fn> } })
+    .getTenantTimezone.query,
 )
 
 let queryClient: QueryClient
