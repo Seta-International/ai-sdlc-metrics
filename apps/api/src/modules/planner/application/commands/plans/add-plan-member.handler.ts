@@ -23,6 +23,8 @@ export class AddPlanMemberHandler implements ICommandHandler<AddPlanMemberComman
     const plan = await this.planRepo.findById(command.planId, command.tenantId)
     if (!plan) throw new PlanNotFoundException(command.planId)
 
+    plan.assertCanAddMember()
+
     await this.authSvc.assertCanManageMembers(command.actorId, command.planId, command.tenantId)
 
     plan.addMember(command.targetActorId, command.role, command.actorId)

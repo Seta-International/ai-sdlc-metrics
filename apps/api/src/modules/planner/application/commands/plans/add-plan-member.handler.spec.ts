@@ -6,6 +6,7 @@ import { Plan } from '../../../domain/entities/plan.entity'
 import { PlanContainer } from '../../../domain/value-objects/plan-container.vo'
 import { PlanMemberAddedEvent } from '@future/event-contracts'
 import { PlanNotFoundException } from '../../../domain/exceptions/plan-not-found.exception'
+import { PersonalPlanMemberAdditionException } from '../../../domain/exceptions/personal-plan-member-addition.exception'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
 import type { IPlanRepository } from '../../../domain/repositories/plan.repository'
 import type { IPlanMemberRepository } from '../../../domain/repositories/plan-member.repository'
@@ -99,5 +100,24 @@ describe('AddPlanMemberHandler', () => {
       handler.execute(new AddPlanMemberCommand(TENANT_ID, PLAN_ID, ACTOR_ID, TARGET_ID, 'viewer')),
     ).rejects.toThrow(UnauthorizedPlanAccessException)
     expect(planRepo.save).not.toHaveBeenCalled()
+  })
+
+  describe('when adding a member to a personal plan', () => {
+    it('rejects with PersonalPlanMemberAdditionException', async () => {
+      const OWNER_ID = 'owner-actor'
+      const personalPlan = Plan.createPersonal({
+        id: PLAN_ID,
+        tenantId: TENANT_ID,
+        ownerActorId: OWNER_ID,
+        name: 'Personal',
+      })
+      planRepo.findById.mockResolvedValue(personalPlan)
+      await expect(
+        handler.execute(
+          new AddPlanMemberCommand(TENANT_ID, PLAN_ID, OWNER_ID, 'target-actor', 'editor'),
+        ),
+      ).rejects.toBeInstanceOf(PersonalPlanMemberAdditionException)
+      expect(planMemberRepo.upsert).not.toHaveBeenCalled()
+    })
   })
 })

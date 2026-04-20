@@ -18,6 +18,8 @@ export class DeletePlanHandler implements ICommandHandler<DeletePlanCommand> {
     const plan = await this.planRepo.findById(command.planId, command.tenantId)
     if (!plan) throw new PlanNotFoundException(command.planId)
 
+    plan.assertCanDelete(command.actorId)
+
     await this.authSvc.assertCanAdminPlan(command.actorId, command.planId, command.tenantId)
 
     await this.planRepo.softDelete(command.planId, command.tenantId)

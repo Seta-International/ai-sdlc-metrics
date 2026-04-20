@@ -50,6 +50,20 @@
       "when": 1776729600000,
       "tag": "0006_planner_charts_trends_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1776816000000,
+      "tag": "0007_tenant_settings_personal_hubs",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776902400000,
+      "tag": "0008_planner_personal_hubs",
+      "breakpoints": true
     }
   ]
 }

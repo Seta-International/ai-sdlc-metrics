@@ -7,6 +7,8 @@ import { MsOrderHint } from '../value-objects/ms-order-hint.vo'
 import { DescriptionTooLongException } from '../exceptions/description-too-long.exception'
 import { LabelLimitReachedException } from '../exceptions/label-limit-reached.exception'
 import { LastOwnerRemovalException } from '../exceptions/last-owner-removal.exception'
+import { PersonalPlanMemberAdditionException } from '../exceptions/personal-plan-member-addition.exception'
+import { PersonalPlanDeletionForbiddenException } from '../exceptions/personal-plan-deletion-forbidden.exception'
 
 const makePlan = () => {
   const ownerActorId = uuidv7()
@@ -185,6 +187,64 @@ describe('Plan aggregate', () => {
       expect(plan.buckets[0].id).toBe(bucketId)
       expect(plan.buckets[0].name).toBe('Todo')
       expect(plan.buckets[0].orderHint).toBe(' !')
+    })
+  })
+
+  describe('personal plan invariants', () => {
+    const makePersonal = () => {
+      const ownerActorId = uuidv7()
+      const tenantId = uuidv7()
+      return {
+        ownerActorId,
+        tenantId,
+        plan: Plan.createPersonal({ id: uuidv7(), tenantId, ownerActorId, name: 'Personal' }),
+      }
+    }
+
+    it('createPersonal sets ownerActorId and syncEnabled=false', () => {
+      const { plan, ownerActorId } = makePersonal()
+      expect(plan.ownerActorId).toBe(ownerActorId)
+      expect(plan.syncEnabled).toBe(false)
+      expect(plan.isPersonal).toBe(true)
+    })
+
+    it('createPersonal bootstraps the owner as a member', () => {
+      const { plan, ownerActorId } = makePersonal()
+      expect(plan.members).toHaveLength(1)
+      expect(plan.members[0].actorId).toBe(ownerActorId)
+      expect(plan.members[0].role).toBe('owner')
+    })
+
+    it('team plans created via Plan.create() default to ownerActorId=null, syncEnabled=true, isPersonal=false', () => {
+      const { plan } = makePlan()
+      expect(plan.ownerActorId).toBeNull()
+      expect(plan.syncEnabled).toBe(true)
+      expect(plan.isPersonal).toBe(false)
+    })
+
+    it('assertCanAddMember throws on a personal plan', () => {
+      const { plan } = makePersonal()
+      expect(() => plan.assertCanAddMember()).toThrow(PersonalPlanMemberAdditionException)
+    })
+
+    it('assertCanAddMember is a no-op on a team plan', () => {
+      const { plan } = makePlan()
+      expect(() => plan.assertCanAddMember()).not.toThrow()
+    })
+
+    it('assertCanDelete throws when a non-owner tries to delete a personal plan', () => {
+      const { plan } = makePersonal()
+      expect(() => plan.assertCanDelete(uuidv7())).toThrow(PersonalPlanDeletionForbiddenException)
+    })
+
+    it('assertCanDelete allows the owner to delete their personal plan', () => {
+      const { plan, ownerActorId } = makePersonal()
+      expect(() => plan.assertCanDelete(ownerActorId)).not.toThrow()
+    })
+
+    it('assertCanDelete is a no-op on a team plan (no ownership check)', () => {
+      const { plan } = makePlan()
+      expect(() => plan.assertCanDelete(uuidv7())).not.toThrow()
     })
   })
 

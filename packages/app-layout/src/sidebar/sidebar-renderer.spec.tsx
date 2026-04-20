@@ -96,6 +96,16 @@ describe('SidebarRenderer', () => {
     expect(sidebarRoot?.getAttribute('data-collapsible')).toBe('icon')
   })
 
+  it('renders dynamic group content via NavGroup.render', () => {
+    const DynamicContent = () => <div data-testid="dynamic-content">Hub body</div>
+    const dynamicGroups: NavGroup[] = [{ label: 'Dynamic', render: () => <DynamicContent /> }]
+    render(<SidebarRenderer groups={dynamicGroups} />, {
+      wrapper: createWrapper([]),
+    })
+    expect(screen.getByTestId('dynamic-content')).toBeInTheDocument()
+    expect(screen.getByText('Dynamic')).toBeInTheDocument() // the group label
+  })
+
   it('wires a tooltip on every top-level menu button', () => {
     const { container } = render(<SidebarRenderer groups={testGroups} />, {
       wrapper: createWrapper(['people:profile:read', 'time:attendance:read']),

@@ -17,6 +17,7 @@ export const PERMISSIONS = {
   ADMIN_ROLE_MANAGE: 'admin:role:manage',
   ADMIN_TENANT_READ: 'admin:tenant:read',
   ADMIN_TENANT_MANAGE: 'admin:tenant:manage',
+  ADMIN_TENANT_TIMEZONE_UPDATE: 'admin:tenant:timezone:update',
   ADMIN_AUDIT_READ: 'admin:audit:read',
   ADMIN_IDP_READ: 'admin:idp:read',
   ADMIN_IDP_CONFIGURE: 'admin:idp:configure',
@@ -75,6 +76,8 @@ export const PERMISSIONS = {
   PLANNER_PLAN_READ_ANY: 'planner:plan:read-any',
   PLANNER_PLAN_MANAGE_MEMBERS_ANY: 'planner:plan:manage-members-any',
   PLANNER_TASK_COMPLETE_ANY: 'planner:task:complete-any',
+  PLANNER_PERSONAL_READ: 'planner:personal:read',
+  PLANNER_PERSONAL_WRITE: 'planner:personal:write',
 } as const
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

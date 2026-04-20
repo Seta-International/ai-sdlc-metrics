@@ -2,14 +2,13 @@ import { describe, it, expect } from 'vitest'
 import type { NavGroup, NavItem } from '@future/app-layout'
 import { peopleNavConfig } from './navigation'
 
+function staticItems(group: NavGroup): NavItem[] {
+  return group.render ? [] : group.items
+}
+
 describe('peopleNavConfig', () => {
   it('should have no duplicate href values across sidebar items', () => {
-    const hrefs: string[] = []
-    for (const group of peopleNavConfig.sidebar as NavGroup[]) {
-      for (const item of group.items as NavItem[]) {
-        hrefs.push(item.href)
-      }
-    }
+    const hrefs = peopleNavConfig.sidebar.flatMap(staticItems).map((item) => item.href)
     const uniqueHrefs = new Set(hrefs)
     expect(uniqueHrefs.size).toBe(hrefs.length)
   })
@@ -23,15 +22,15 @@ describe('peopleNavConfig', () => {
   })
 
   it('should include a Directory item with href /', () => {
-    const allItems = peopleNavConfig.sidebar.flatMap((g: NavGroup) => g.items)
-    const directoryItem = allItems.find((item: NavItem) => item.label === 'Directory')
+    const allItems = peopleNavConfig.sidebar.flatMap(staticItems)
+    const directoryItem = allItems.find((item) => item.label === 'Directory')
     expect(directoryItem).toBeDefined()
     expect(directoryItem?.href).toBe('/')
   })
 
   it('should not include a My Profile item', () => {
-    const allItems = peopleNavConfig.sidebar.flatMap((g: NavGroup) => g.items)
-    const labels = allItems.map((item: NavItem) => item.label)
+    const allItems = peopleNavConfig.sidebar.flatMap(staticItems)
+    const labels = allItems.map((item) => item.label)
     expect(labels).not.toContain('My Profile')
   })
 })

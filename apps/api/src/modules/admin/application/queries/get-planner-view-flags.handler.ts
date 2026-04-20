@@ -25,6 +25,7 @@ export class GetPlannerViewFlagsHandler implements IQueryHandler<
         plannerScheduleEnabled: tenantSettings.plannerScheduleEnabled,
         plannerChartsEnabled: tenantSettings.plannerChartsEnabled,
         plannerChartsTrendsEnabled: tenantSettings.plannerChartsTrendsEnabled,
+        plannerPersonalEnabled: tenantSettings.plannerPersonalEnabled,
       })
       .from(tenantSettings)
       .where(eq(tenantSettings.tenantId, query.tenantId))
@@ -37,6 +38,7 @@ export class GetPlannerViewFlagsHandler implements IQueryHandler<
       scheduleEnabled: row?.plannerScheduleEnabled ?? false,
       chartsEnabled: row?.plannerChartsEnabled ?? false,
       trendsEnabled: row?.plannerChartsTrendsEnabled ?? false,
+      personalEnabled: row?.plannerPersonalEnabled ?? false,
     }
   }
 }

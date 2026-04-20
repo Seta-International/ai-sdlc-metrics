@@ -6,6 +6,7 @@ import { Plan } from '../../../domain/entities/plan.entity'
 import { PlanContainer } from '../../../domain/value-objects/plan-container.vo'
 import { PlanDeletedEvent } from '@future/event-contracts'
 import { PlanNotFoundException } from '../../../domain/exceptions/plan-not-found.exception'
+import { PersonalPlanDeletionForbiddenException } from '../../../domain/exceptions/personal-plan-deletion-forbidden.exception'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
 import type { IPlanRepository } from '../../../domain/repositories/plan.repository'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
@@ -92,5 +93,33 @@ describe('DeletePlanHandler', () => {
       handler.execute(new DeletePlanCommand(TENANT_ID, PLAN_ID, ACTOR_ID)),
     ).rejects.toThrow(UnauthorizedPlanAccessException)
     expect(planRepo.softDelete).not.toHaveBeenCalled()
+  })
+
+  describe('when deleting a personal plan', () => {
+    const OWNER_ID = 'owner-actor'
+    const OTHER_ID = 'other-actor'
+
+    function makePersonalPlan() {
+      return Plan.createPersonal({
+        id: PLAN_ID,
+        tenantId: TENANT_ID,
+        ownerActorId: OWNER_ID,
+        name: 'Personal',
+      })
+    }
+
+    it('rejects delete when a non-owner tries to delete a personal plan', async () => {
+      planRepo.findById.mockResolvedValue(makePersonalPlan())
+      await expect(
+        handler.execute(new DeletePlanCommand(TENANT_ID, PLAN_ID, OTHER_ID)),
+      ).rejects.toBeInstanceOf(PersonalPlanDeletionForbiddenException)
+      expect(planRepo.softDelete).not.toHaveBeenCalled()
+    })
+
+    it('allows the owner to delete their personal plan', async () => {
+      planRepo.findById.mockResolvedValue(makePersonalPlan())
+      await handler.execute(new DeletePlanCommand(TENANT_ID, PLAN_ID, OWNER_ID))
+      expect(planRepo.softDelete).toHaveBeenCalledWith(PLAN_ID, TENANT_ID)
+    })
   })
 })
