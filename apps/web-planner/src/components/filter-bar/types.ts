@@ -1,4 +1,12 @@
-export type FilterField = 'due' | 'priority' | 'labels' | 'buckets' | 'assignees'
+export type FilterMode = 'plan' | 'personal'
+
+export type FilterField =
+  | 'due'
+  | 'priority'
+  | 'labels'
+  | 'buckets'
+  | 'assignees'
+  | 'includeCompleted'
 
 export interface PlanLabel {
   id: string

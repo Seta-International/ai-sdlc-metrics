@@ -18,6 +18,8 @@ function chipLabel(field: FilterField, filter: ViewState['filter']): string {
       return `Buckets${filter.buckets.length > 0 ? ` (${filter.buckets.length})` : ''}`
     case 'assignees':
       return `Assignees${filter.assignees.length > 0 ? ` (${filter.assignees.length})` : ''}`
+    case 'includeCompleted':
+      return 'Include completed'
   }
 }
 
@@ -33,6 +35,8 @@ function clearFilter(field: FilterField, filter: ViewState['filter']): ViewState
       return { ...filter, buckets: [] }
     case 'assignees':
       return { ...filter, assignees: [] }
+    case 'includeCompleted':
+      return filter
   }
 }
 

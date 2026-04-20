@@ -9,8 +9,9 @@ import {
   DropdownMenuItem,
 } from '@future/ui'
 import { FilterChip } from './FilterChip'
+import { IncludeCompletedChip } from './filters/IncludeCompletedChip'
 import { useViewState } from '@/lib/hooks/useViewState'
-import type { PlanContext, FilterField } from './types'
+import type { PlanContext, FilterField, FilterMode } from './types'
 import type { ViewState } from '@/lib/view-state'
 
 const FILTER_LABEL: Record<FilterField, string> = {
@@ -19,6 +20,7 @@ const FILTER_LABEL: Record<FilterField, string> = {
   labels: 'Labels',
   buckets: 'Buckets',
   assignees: 'Assignees',
+  includeCompleted: 'Include completed',
 }
 
 function computeActiveFields(filter: ViewState['filter'], pinned: Set<FilterField>): FilterField[] {
@@ -43,11 +45,26 @@ function addFilterDefault(filter: ViewState['filter'], field: FilterField): View
       return { ...filter, buckets: [] }
     case 'assignees':
       return { ...filter, assignees: [] }
+    case 'includeCompleted':
+      return filter
   }
 }
 
-export function FilterBar({ planId, context }: { planId: string; context: PlanContext }) {
-  const { state, patch } = useViewState({ planId })
+export function FilterBar({
+  planId,
+  context,
+  mode = 'plan',
+  includeCompleted,
+  onIncludeCompletedChange,
+}: {
+  planId?: string
+  context: PlanContext
+  mode?: FilterMode
+  includeCompleted?: boolean
+  onIncludeCompletedChange?: (next: boolean) => void
+}) {
+  const stateOpts = planId ? { planId } : { scope: 'personal' as const }
+  const { state, patch } = useViewState(stateOpts)
   const [pinned, setPinned] = useState<Set<FilterField>>(() => new Set())
   const active = useMemo(() => computeActiveFields(state.filter, pinned), [state.filter, pinned])
   const available = (['due', 'priority', 'labels', 'buckets', 'assignees'] as FilterField[]).filter(
@@ -59,7 +76,7 @@ export function FilterBar({ planId, context }: { planId: string; context: PlanCo
       {active.map((field) => (
         <FilterChip
           key={field}
-          planId={planId}
+          planId={planId ?? ''}
           field={field}
           context={context}
           onRemove={() =>
@@ -98,6 +115,12 @@ export function FilterBar({ planId, context }: { planId: string; context: PlanCo
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+      {mode === 'personal' && onIncludeCompletedChange != null ? (
+        <IncludeCompletedChip
+          value={includeCompleted ?? false}
+          onChange={onIncludeCompletedChange}
+        />
+      ) : null}
     </div>
   )
 }
