@@ -24,7 +24,10 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from '@future/ui'
+import type { TaskFlatWithPlan } from '@future/api-client/planner'
+import { AddToMyDayButton } from '../my-day/add-to-my-day-button'
 
 const MAX_LABELS = 4
 
@@ -40,6 +43,12 @@ interface TaskCardProps {
   onToggleComplete?: (taskId: string, nextProgress: Progress) => void
   /** Optional cover URL resolved from coverAttachmentId */
   coverUrl?: string
+  /** Whether this task is already in the actor's My Day list */
+  inMyDay?: boolean
+  /** Plan name for the My Day stub (defaults to empty string) */
+  planName?: string
+  /** Plan kind for the My Day stub (defaults to 'team') */
+  planKind?: 'team' | 'personal'
 }
 
 const PRIORITY_OPTIONS: { value: 1 | 3 | 5 | 9; label: string }[] = [
@@ -57,6 +66,9 @@ export function TaskCard({
   tenantId,
   onToggleComplete,
   coverUrl,
+  inMyDay = false,
+  planName,
+  planKind,
 }: TaskCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
@@ -97,6 +109,41 @@ export function TaskCard({
 
   const isHighPriority = task.priority === 9
   const progress = task.progress as Progress
+
+  const taskFlatStub: TaskFlatWithPlan = {
+    id: task.id,
+    planId,
+    planName: planName ?? '',
+    planKind: planKind ?? 'team',
+    bucketId: '',
+    bucketName: '',
+    bucketOrderHint: '',
+    title: task.title,
+    progress:
+      task.progress === 100 ? 'completed' : task.progress === 50 ? 'in-progress' : 'not-started',
+    priority:
+      task.priority === 1
+        ? 'urgent'
+        : task.priority === 3
+          ? 'important'
+          : task.priority === 9
+            ? 'low'
+            : 'medium',
+    startDate: task.startDate ? task.startDate.toISOString() : null,
+    dueDate: task.dueDate ? task.dueDate.toISOString() : null,
+    assignees: task.assignees.map((a) => ({
+      actorId: a.actorId,
+      displayName: a.name ?? '',
+      avatarUrl: a.avatarUrl ?? null,
+    })),
+    labels: [],
+    orderHint: task.orderHint,
+    commentCount: task.commentCount,
+    checklistCount: { total: task.checklistItemCount, completed: task.checklistCheckedCount },
+    attachmentCount: task.attachmentCount,
+    createdAt: task.updatedAt.toISOString(),
+    updatedAt: task.updatedAt.toISOString(),
+  }
 
   function handleToggleComplete(e: React.MouseEvent) {
     e.stopPropagation()
@@ -250,6 +297,8 @@ export function TaskCard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" data-testid="task-card-menu">
+                <AddToMyDayButton task={taskFlatStub} inMyDay={inMyDay} mode="menu-item" />
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onPointerDown={(e) => e.stopPropagation()}
                   onSelect={(e) => {

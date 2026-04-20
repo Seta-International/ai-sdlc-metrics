@@ -5,6 +5,9 @@ import { personalRouter } from './personal.router'
 import { ListPlansForActorQuery } from '../../application/queries/plans/list-plans-for-actor.query'
 import { ListTasksForActorQuery } from '../../application/queries/personal/list-tasks-for-actor.query'
 import { GetPersonalChartsQuery } from '../../application/queries/personal/get-personal-charts.query'
+import { GetMyDayQuery } from '../../application/queries/personal/get-my-day.query'
+import { AddToMyDayCommand } from '../../application/commands/my-day/add-to-my-day.command'
+import { RemoveFromMyDayCommand } from '../../application/commands/my-day/remove-from-my-day.command'
 import type { AdminQueryFacade } from '../../../admin/application/facades/admin-query.facade'
 import type { PlannerViewFlags } from '../../../admin/application/queries/planner-view-flags.types'
 
@@ -170,6 +173,130 @@ describe('personalRouter — unit (mocked query bus)', () => {
       const caller = personalRouter.createCaller(makeCtx())
       await expect(
         caller.getCharts({ actorId: ACTOR_ID, tenantId: TENANT_ID }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    })
+  })
+
+  describe('myDay.get', () => {
+    it('dispatches GetMyDayQuery and returns rows', async () => {
+      getPlannerViewFlags.mockResolvedValue(allEnabledFlags())
+      const rows = [{ id: 't1', myDay: { addedAt: '2026-04-20T01:00:00.000Z', completedAt: null } }]
+      queryBus.execute.mockResolvedValue(rows)
+
+      const caller = personalRouter.createCaller(makeCtx())
+      const result = await caller.myDay.get({
+        actorId: ACTOR_ID,
+        tenantId: TENANT_ID,
+        date: '2026-04-20',
+      })
+
+      expect(result).toEqual(rows)
+      const dispatched = queryBus.execute.mock.calls[0][0] as GetMyDayQuery
+      expect(dispatched).toBeInstanceOf(GetMyDayQuery)
+      expect(dispatched.actorId).toBe(ACTOR_ID)
+      expect(dispatched.tenantId).toBe(TENANT_ID)
+      expect(dispatched.date).toBe('2026-04-20')
+    })
+
+    it('rejects invalid date format with BAD_REQUEST', async () => {
+      getPlannerViewFlags.mockResolvedValue(allEnabledFlags())
+      const caller = personalRouter.createCaller(makeCtx())
+      await expect(
+        caller.myDay.get({ actorId: ACTOR_ID, tenantId: TENANT_ID, date: 'not-a-date' }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+      expect(queryBus.execute).not.toHaveBeenCalled()
+    })
+
+    it('rejects with FORBIDDEN when personalEnabled is off', async () => {
+      getPlannerViewFlags.mockResolvedValue({ ...allEnabledFlags(), personalEnabled: false })
+      const caller = personalRouter.createCaller(makeCtx())
+      await expect(
+        caller.myDay.get({ actorId: ACTOR_ID, tenantId: TENANT_ID, date: '2026-04-20' }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    })
+  })
+
+  describe('myDay.add', () => {
+    it('dispatches AddToMyDayCommand', async () => {
+      getPlannerViewFlags.mockResolvedValue(allEnabledFlags())
+      commandBus.execute.mockResolvedValue(undefined)
+
+      const taskId = uuidv7()
+      const caller = personalRouter.createCaller(makeCtx())
+      await caller.myDay.add({
+        actorId: ACTOR_ID,
+        tenantId: TENANT_ID,
+        taskId,
+        date: '2026-04-20',
+      })
+
+      const dispatched = commandBus.execute.mock.calls[0][0] as AddToMyDayCommand
+      expect(dispatched).toBeInstanceOf(AddToMyDayCommand)
+      expect(dispatched.actorId).toBe(ACTOR_ID)
+      expect(dispatched.tenantId).toBe(TENANT_ID)
+      expect(dispatched.taskId).toBe(taskId)
+      expect(dispatched.date).toBe('2026-04-20')
+    })
+
+    it('rejects invalid taskId with BAD_REQUEST', async () => {
+      getPlannerViewFlags.mockResolvedValue(allEnabledFlags())
+      const caller = personalRouter.createCaller(makeCtx())
+      await expect(
+        caller.myDay.add({
+          actorId: ACTOR_ID,
+          tenantId: TENANT_ID,
+          taskId: 'not-a-uuid',
+          date: '2026-04-20',
+        }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+      expect(commandBus.execute).not.toHaveBeenCalled()
+    })
+
+    it('rejects with FORBIDDEN when personalEnabled is off', async () => {
+      getPlannerViewFlags.mockResolvedValue({ ...allEnabledFlags(), personalEnabled: false })
+      const caller = personalRouter.createCaller(makeCtx())
+      await expect(
+        caller.myDay.add({
+          actorId: ACTOR_ID,
+          tenantId: TENANT_ID,
+          taskId: uuidv7(),
+          date: '2026-04-20',
+        }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    })
+  })
+
+  describe('myDay.remove', () => {
+    it('dispatches RemoveFromMyDayCommand', async () => {
+      getPlannerViewFlags.mockResolvedValue(allEnabledFlags())
+      commandBus.execute.mockResolvedValue(undefined)
+
+      const taskId = uuidv7()
+      const caller = personalRouter.createCaller(makeCtx())
+      await caller.myDay.remove({
+        actorId: ACTOR_ID,
+        tenantId: TENANT_ID,
+        taskId,
+        date: '2026-04-20',
+      })
+
+      const dispatched = commandBus.execute.mock.calls[0][0] as RemoveFromMyDayCommand
+      expect(dispatched).toBeInstanceOf(RemoveFromMyDayCommand)
+      expect(dispatched.actorId).toBe(ACTOR_ID)
+      expect(dispatched.taskId).toBe(taskId)
+      expect(dispatched.date).toBe('2026-04-20')
+    })
+
+    it('rejects with FORBIDDEN when personalEnabled is off', async () => {
+      getPlannerViewFlags.mockResolvedValue({ ...allEnabledFlags(), personalEnabled: false })
+      const caller = personalRouter.createCaller(makeCtx())
+      await expect(
+        caller.myDay.remove({
+          actorId: ACTOR_ID,
+          tenantId: TENANT_ID,
+          taskId: uuidv7(),
+          date: '2026-04-20',
+        }),
       ).rejects.toMatchObject({ code: 'FORBIDDEN' })
     })
   })

@@ -8,7 +8,7 @@ export type ViewPickerFlags = { views: boolean; grid: boolean; schedule: boolean
 
 type ViewPickerProps =
   | { planId: string; currentView: ViewKey; flags: ViewPickerFlags }
-  | { scope: 'personal'; currentView: ViewKey; basePath: string }
+  | { scope: 'personal' | 'my-day'; currentView: ViewKey; basePath: string }
 
 const VIEWS: {
   key: ViewKey
@@ -27,11 +27,11 @@ export function ViewPicker(props: ViewPickerProps) {
   const sp = useSearchParams()
   const qs = sp.toString()
 
-  const isPersonal = 'scope' in props && props.scope === 'personal'
+  const isScoped = 'scope' in props
 
   function buildUrl(v: string): string {
-    if (isPersonal) {
-      const basePath = (props as { scope: 'personal'; basePath: string }).basePath
+    if (isScoped) {
+      const basePath = (props as { scope: 'personal' | 'my-day'; basePath: string }).basePath
       return `${basePath}/${v}${qs ? '?' + qs : ''}`
     }
     const planId = (props as { planId: string }).planId
@@ -48,7 +48,7 @@ export function ViewPicker(props: ViewPickerProps) {
           <TabsTrigger
             key={key}
             value={key}
-            disabled={isPersonal ? false : !(props as { flags: ViewPickerFlags }).flags[flag]}
+            disabled={isScoped ? false : !(props as { flags: ViewPickerFlags }).flags[flag]}
           >
             <Icon className="size-4" aria-hidden={true} />
             {label}

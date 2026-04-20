@@ -1,28 +1,24 @@
 import { Inject } from '@nestjs/common'
 import { QueryHandler, type IQueryHandler } from '@nestjs/cqrs'
 import type { Db } from '@future/db'
-import type { TaskFlatWithPlan } from '../../lib/task-flat.types'
 import { sql } from 'drizzle-orm'
 import { DB_TOKEN } from '../../../../../common/db/db.module'
 import { KernelQueryFacade } from '../../../../kernel/application/facades/kernel-query.facade'
-import { ListTasksForActorQuery } from './list-tasks-for-actor.query'
+import { GetMyDayQuery } from './get-my-day.query'
+import type { MyDayTask } from './my-day-task.types'
 import { mapProgress, mapPriority } from './task-flat-mappers'
 
-@QueryHandler(ListTasksForActorQuery)
-export class ListTasksForActorHandler implements IQueryHandler<
-  ListTasksForActorQuery,
-  TaskFlatWithPlan[]
-> {
+@QueryHandler(GetMyDayQuery)
+export class GetMyDayHandler implements IQueryHandler<GetMyDayQuery, MyDayTask[]> {
   constructor(
     @Inject(DB_TOKEN) private readonly db: Db,
     private readonly kernelQueryFacade: KernelQueryFacade,
   ) {}
 
-  async execute(query: ListTasksForActorQuery): Promise<TaskFlatWithPlan[]> {
-    const { actorId, tenantId, options } = query
-    const progressFilter = options.includeCompleted ? sql`TRUE` : sql`t.progress < 100`
+  async execute(query: GetMyDayQuery): Promise<MyDayTask[]> {
+    const { actorId, tenantId, date } = query
 
-    // Query 1: Tasks joined to plan + bucket, filtered by assignee + visibility
+    // Query 1: my_day_entry → task → plan [→ bucket], filtered by actor + date
     const taskResult = await this.db.execute<{
       task_id: string
       plan_id: string
@@ -43,6 +39,8 @@ export class ListTasksForActorHandler implements IQueryHandler<
       comment_count: number
       created_at: Date | string
       updated_at: Date | string
+      added_at: Date | string
+      completed_at: Date | string | null
     }>(
       sql`SELECT
             t.id                                AS task_id,
@@ -66,11 +64,14 @@ export class ListTasksForActorHandler implements IQueryHandler<
               WHERE tc.task_id = t.id AND tc.tenant_id = ${tenantId}
                 AND tc.deleted_at IS NULL) AS comment_count,
             t.created_at,
-            t.updated_at
-          FROM planner.task t
-          JOIN planner.task_assignee ta
-            ON ta.task_id = t.id
-            AND ta.tenant_id = t.tenant_id
+            t.updated_at,
+            m.added_at,
+            m.completed_at
+          FROM planner.my_day_entry m
+          JOIN planner.task t
+            ON t.id = m.task_id
+            AND t.tenant_id = m.tenant_id
+            AND t.deleted_at IS NULL
           JOIN planner.plan p
             ON p.id = t.plan_id
             AND p.tenant_id = t.tenant_id
@@ -79,15 +80,14 @@ export class ListTasksForActorHandler implements IQueryHandler<
             ON b.id = t.bucket_id
             AND b.tenant_id = t.tenant_id
             AND b.deleted_at IS NULL
-          WHERE ta.actor_id = ${actorId}
-            AND t.tenant_id = ${tenantId}
-            AND t.deleted_at IS NULL
-            AND (p.owner_actor_id IS NULL OR p.owner_actor_id = ${actorId})
-            AND ${progressFilter}
-          ORDER BY p.name ASC, b.order_hint NULLS LAST, t.order_hint NULLS LAST`,
+          WHERE m.tenant_id = ${tenantId}
+            AND m.actor_id = ${actorId}
+            AND m.added_date = ${date}
+          ORDER BY m.added_at ASC`,
     )
 
     if (taskResult.rows.length === 0) return []
+
     const taskIds = taskResult.rows.map((r) => r.task_id)
     const taskIdList = sql.join(
       taskIds.map((id) => sql`${id}::uuid`),
@@ -136,7 +136,7 @@ export class ListTasksForActorHandler implements IQueryHandler<
     const allActorIds = Array.from(new Set([...assigneesByTaskId.values()].flat()))
     const actorMap = await this.kernelQueryFacade.getActorsByIds(allActorIds, tenantId)
 
-    return taskResult.rows.map<TaskFlatWithPlan>((r) => {
+    return taskResult.rows.map<MyDayTask>((r) => {
       const actorIds = assigneesByTaskId.get(r.task_id) ?? []
       const assignees = actorIds.map((id) => {
         const actor = actorMap.get(id)
@@ -171,6 +171,10 @@ export class ListTasksForActorHandler implements IQueryHandler<
         attachmentCount: Number(r.attachment_count),
         createdAt: new Date(r.created_at).toISOString(),
         updatedAt: new Date(r.updated_at).toISOString(),
+        myDay: {
+          addedAt: new Date(r.added_at).toISOString(),
+          completedAt: r.completed_at ? new Date(r.completed_at).toISOString() : null,
+        },
       }
     })
   }

@@ -64,6 +64,15 @@ import { SetCoverHandler } from './application/commands/attachments/set-cover.ha
 import { RemoveAttachmentHandler } from './application/commands/attachments/remove.handler'
 import { ListPlansForActorHandler } from './application/queries/plans/list-plans-for-actor.handler'
 import { ListTasksForActorHandler } from './application/queries/personal/list-tasks-for-actor.handler'
+import { GetMyDayHandler } from './application/queries/personal/get-my-day.handler'
+import { MY_DAY_REPOSITORY } from './domain/repositories/my-day.repository'
+import { DrizzleMyDayRepository } from './infrastructure/repositories/drizzle-my-day.repository'
+import { AddToMyDayHandler } from './application/commands/my-day/add-to-my-day.handler'
+import { RemoveFromMyDayHandler } from './application/commands/my-day/remove-from-my-day.handler'
+import {
+  TASK_VISIBILITY_SERVICE,
+  DrizzleTaskVisibilityService,
+} from './application/lib/task-visibility'
 import { GetPersonalChartsHandler } from './application/queries/personal/get-personal-charts.handler'
 import { GetPlanHandler } from './application/queries/plans/get-plan.handler'
 import { GetBoardHandler } from './application/queries/tasks/get-board.handler'
@@ -81,6 +90,7 @@ import { RemoveEvidenceHandler } from './application/commands/evidence/remove-ev
 import { ListTaskEvidenceHandler } from './application/queries/evidence/list-task-evidence.handler'
 import { NotificationsModule } from '../notifications/notifications.module'
 import { OnTaskAssignedHandler } from './application/event-handlers/on-task-assigned.handler'
+import { OnTaskProgressCompletedHandler } from './application/event-handlers/on-task-progress-completed.handler'
 import { TASK_DAILY_SNAPSHOT_REPOSITORY } from './domain/repositories/task-daily-snapshot.repository'
 import { DrizzleTaskDailySnapshotRepository } from './infrastructure/repositories/drizzle-task-daily-snapshot.repository'
 import { TaskDailySnapshotWorker } from './infrastructure/jobs/task-daily-snapshot.worker'
@@ -145,7 +155,12 @@ import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-sna
     RemoveAttachmentHandler,
     ListPlansForActorHandler,
     ListTasksForActorHandler,
+    GetMyDayHandler,
     GetPersonalChartsHandler,
+    { provide: MY_DAY_REPOSITORY, useClass: DrizzleMyDayRepository },
+    AddToMyDayHandler,
+    RemoveFromMyDayHandler,
+    { provide: TASK_VISIBILITY_SERVICE, useClass: DrizzleTaskVisibilityService },
     GetPlanHandler,
     GetBoardHandler,
     GetFlatTasksHandler,
@@ -161,6 +176,7 @@ import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-sna
     RemoveEvidenceHandler,
     ListTaskEvidenceHandler,
     OnTaskAssignedHandler,
+    OnTaskProgressCompletedHandler,
     { provide: TASK_DAILY_SNAPSHOT_REPOSITORY, useClass: DrizzleTaskDailySnapshotRepository },
     TaskDailySnapshotWorker,
     TaskDailySnapshotScheduler,

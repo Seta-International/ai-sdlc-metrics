@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 import { TaskCard } from './TaskCard'
@@ -40,8 +41,33 @@ vi.mock('../../lib/trpc', () => ({
         applyLabel: { mutate: vi.fn() },
         removeLabel: { mutate: vi.fn() },
       },
+      personal: {
+        myDay: {
+          add: { mutate: vi.fn() },
+          remove: { mutate: vi.fn() },
+        },
+      },
+      admin: {
+        getTenantTimezone: { query: vi.fn() },
+      },
     },
   },
+}))
+
+vi.mock('@future/auth', () => ({
+  useSession: () => ({ actorId: 'actor-1', tenantId: 'tenant-1' }),
+}))
+
+vi.mock('../../lib/hooks/useTenantTimezone', () => ({
+  useTenantTimezone: () => ({ timezone: 'Asia/Ho_Chi_Minh', isLoading: false }),
+}))
+
+vi.mock('../../lib/hooks/use-add-to-my-day', () => ({
+  useAddToMyDay: () => ({ mutate: vi.fn(), isPending: false }),
+}))
+
+vi.mock('../../lib/hooks/use-remove-from-my-day', () => ({
+  useRemoveFromMyDay: () => ({ mutate: vi.fn(), isPending: false }),
 }))
 
 function makeTask(overrides: Partial<BoardTaskSnapshot> = {}): BoardTaskSnapshot {
@@ -218,5 +244,17 @@ describe('TaskCard', () => {
       wrapper: Wrapper,
     })
     expect(screen.queryByLabelText(/team plan|personal plan/i)).toBeNull()
+  })
+
+  it('renders the Focus today menu item in the kebab', async () => {
+    const user = userEvent.setup()
+
+    render(<TaskCard task={makeTask()} planLabels={emptyLabels} {...TASK_PROPS} />, {
+      wrapper: Wrapper,
+    })
+
+    await user.click(screen.getByTestId('task-card-menu-btn'))
+
+    expect(screen.getByText('Focus today')).toBeDefined()
   })
 })

@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Separator, Skeleton } from '@future/ui'
+import type { TaskFlatWithPlan } from '@future/api-client/planner'
+import { AddToMyDayButton } from '../my-day/add-to-my-day-button'
 import { TaskPanelHeader } from './TaskPanelHeader'
 import { TaskPropertyStrip } from './TaskPropertyStrip'
 import { TaskDescription } from './TaskDescription'
@@ -56,9 +58,56 @@ export function TaskDetailPanel({ taskId, planId }: Props) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [router, taskId])
 
+  const taskFlatStub: TaskFlatWithPlan | null = task
+    ? {
+        id: task.id,
+        planId: task.planId,
+        planName: '',
+        planKind: 'team',
+        bucketId: task.bucketId,
+        bucketName: task.bucketName,
+        bucketOrderHint: '',
+        title: task.title,
+        progress:
+          task.progress === 100
+            ? 'completed'
+            : task.progress === 50
+              ? 'in-progress'
+              : 'not-started',
+        priority:
+          task.priority === 1
+            ? 'urgent'
+            : task.priority === 3
+              ? 'important'
+              : task.priority === 9
+                ? 'low'
+                : 'medium',
+        startDate: task.startDate ? task.startDate.toISOString() : null,
+        dueDate: task.dueDate ? task.dueDate.toISOString() : null,
+        assignees: task.assignees.map((a) => ({
+          actorId: a.actorId,
+          displayName: a.name ?? '',
+          avatarUrl: a.avatarUrl ?? null,
+        })),
+        labels: [],
+        orderHint: task.orderHint,
+        commentCount: task.commentCount,
+        checklistCount: { total: task.checklistItemCount, completed: task.checklistCheckedCount },
+        attachmentCount: task.attachmentCount,
+        createdAt: task.updatedAt.toISOString(),
+        updatedAt: task.updatedAt.toISOString(),
+      }
+    : null
+
   return (
     <div className="flex h-full flex-col" data-testid="task-detail-panel">
       <TaskPanelHeader title={task?.title ?? ''} isSaving={saving} onClose={() => router.back()} />
+
+      {taskFlatStub ? (
+        <div className="flex items-center justify-end border-b px-4 py-2">
+          <AddToMyDayButton task={taskFlatStub} inMyDay={false} mode="button" />
+        </div>
+      ) : null}
 
       <ConflictBanner
         conflictingField={conflictingField}
