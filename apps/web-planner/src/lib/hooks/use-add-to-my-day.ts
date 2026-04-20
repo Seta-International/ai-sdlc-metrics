@@ -1,0 +1,55 @@
+'use client'
+
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useSession } from '@future/auth'
+import type { UseMutationResult } from '@tanstack/react-query'
+import type { MyDayTask } from '@future/api-client/planner'
+import { trpc } from '../trpc'
+import { myDayQueryKey } from './use-my-day'
+
+export interface AddVariables {
+  taskId: string
+  /** Pre-fetched task shape to render optimistically. Supplied from the caller's task row. */
+  taskStub: Omit<MyDayTask, 'myDay'>
+}
+
+export function useAddToMyDay(date: string): UseMutationResult<void, Error, AddVariables> {
+  const queryClient = useQueryClient()
+  const session = useSession()
+  const actorId = session?.actorId ?? ''
+  const tenantId = session?.tenantId ?? ''
+
+  return useMutation<void, Error, AddVariables>({
+    mutationFn: ({ taskId }) =>
+      trpc.planner.personal.myDay.add.mutate({ actorId, tenantId, taskId, date }) as Promise<void>,
+
+    onMutate: async ({ taskStub }) => {
+      const qk = myDayQueryKey(actorId, tenantId, date)
+      await queryClient.cancelQueries({ queryKey: qk })
+
+      const previous = queryClient.getQueryData<MyDayTask[]>(qk)
+
+      const optimistic: MyDayTask = {
+        ...taskStub,
+        myDay: { addedAt: new Date().toISOString(), completedAt: null },
+      }
+
+      queryClient.setQueryData<MyDayTask[]>(qk, (old) => [optimistic, ...(old ?? [])])
+
+      return { previous }
+    },
+
+    onError: (_e, _v, ctx) => {
+      const context = ctx as { previous: MyDayTask[] | undefined } | undefined
+      if (context?.previous !== undefined) {
+        const qk = myDayQueryKey(actorId, tenantId, date)
+        queryClient.setQueryData<MyDayTask[]>(qk, context.previous)
+      }
+    },
+
+    onSettled: () => {
+      const qk = myDayQueryKey(actorId, tenantId, date)
+      queryClient.invalidateQueries({ queryKey: qk })
+    },
+  })
+}
