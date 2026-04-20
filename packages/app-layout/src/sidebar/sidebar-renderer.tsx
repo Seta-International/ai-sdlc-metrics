@@ -94,7 +94,7 @@ export function SidebarRenderer({ groups }: SidebarRendererProps) {
 }
 
 function SidebarNavGroup({ group }: { group: NavGroup }) {
-  if ('render' in group) {
+  if (group.render) {
     return (
       <SidebarGroup>
         {group.label && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}

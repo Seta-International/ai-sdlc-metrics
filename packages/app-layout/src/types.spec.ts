@@ -52,10 +52,17 @@ describe('NavigationConfig types', () => {
     expectTypeOf(dynamicGroup).toMatchTypeOf<NavGroup>()
   })
 
-  it('TypeScript rejects a NavGroup with BOTH items and render', () => {
+  it('TypeScript rejects a NavGroup with BOTH items and render (inline literal)', () => {
     // @ts-expect-error — NavGroup is a strict union; cannot carry both discriminants
     const invalid: NavGroup = { items: [], render: () => null as unknown as ReactElement }
-    // Reference to suppress unused-var lint
+    void invalid
+  })
+
+  it('TypeScript rejects a NavGroup with BOTH items and render (via variable — items?: never / render?: never enforces this structurally)', () => {
+    const raw = { items: [] as NavItem[], render: () => null as unknown as ReactElement }
+    // @ts-expect-error — `render?: never` on NavGroupStatic and `items?: never` on NavGroupDynamic
+    // make the two branches structurally incompatible, so the assembled object matches neither.
+    const invalid: NavGroup = raw
     void invalid
   })
 
