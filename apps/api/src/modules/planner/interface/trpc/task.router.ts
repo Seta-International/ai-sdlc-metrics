@@ -4,6 +4,7 @@ import { PlannerRouterService } from './planner-router.service'
 import { GetBoardQuery } from '../../application/queries/tasks/get-board.query'
 import { GetFlatTasksQuery } from '../../application/queries/tasks/get-flat.query'
 import { GetTaskDetailQuery } from '../../application/queries/tasks/get-task-detail.query'
+import { GetTaskTrendsQuery } from '../../application/queries/tasks/get-trends.query'
 import { CreateTaskCommand } from '../../application/commands/tasks/create-task.command'
 import { UpdateTaskCommand } from '../../application/commands/tasks/update-task.command'
 import { MoveTaskCommand } from '../../application/commands/tasks/move-task.command'
@@ -51,6 +52,24 @@ export const taskRouter = router({
       await svc().assertPlannerEnabled(input.tenantId)
       return svc()
         .query(new GetFlatTasksQuery(input.planId, input.actorId, input.tenantId))
+        .catch((e) => {
+          throw toPlannerTrpcError(e)
+        })
+    }),
+
+  getTrends: publicProcedure
+    .input(
+      z.object({
+        planId: z.string().uuid(),
+        actorId: z.string().uuid(),
+        tenantId: z.string().uuid(),
+        range: z.enum(['7d', '30d', '90d']),
+      }),
+    )
+    .query(async ({ input }) => {
+      await svc().assertPlannerEnabled(input.tenantId)
+      return svc()
+        .query(new GetTaskTrendsQuery(input.planId, input.actorId, input.tenantId, input.range))
         .catch((e) => {
           throw toPlannerTrpcError(e)
         })

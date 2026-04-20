@@ -65,6 +65,7 @@ import { GetPlanHandler } from './application/queries/plans/get-plan.handler'
 import { GetBoardHandler } from './application/queries/tasks/get-board.handler'
 import { GetFlatTasksHandler } from './application/queries/tasks/get-flat.handler'
 import { GetTaskDetailHandler } from './application/queries/tasks/get-task-detail.handler'
+import { GetTaskTrendsHandler } from './application/queries/tasks/get-trends.handler'
 import { PostCommentHandler } from './application/commands/comments/post-comment.handler'
 import { DeleteCommentHandler } from './application/commands/comments/delete-comment.handler'
 import { ListTaskCommentsHandler } from './application/queries/comments/list-task-comments.handler'
@@ -141,6 +142,7 @@ import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-sna
     GetBoardHandler,
     GetFlatTasksHandler,
     GetTaskDetailHandler,
+    GetTaskTrendsHandler,
     PostCommentHandler,
     DeleteCommentHandler,
     ListTaskCommentsHandler,
