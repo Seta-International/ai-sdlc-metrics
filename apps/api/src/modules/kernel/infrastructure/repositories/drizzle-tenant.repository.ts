@@ -20,6 +20,11 @@ export class DrizzleTenantRepository implements ITenantRepository {
     return (rows[0] as Tenant | undefined) ?? null
   }
 
+  async findAll(): Promise<Tenant[]> {
+    const rows = await this.db.select().from(tenant)
+    return rows as Tenant[]
+  }
+
   async insert(data: {
     name: string
     slug: string

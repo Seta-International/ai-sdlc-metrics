@@ -140,6 +140,14 @@ export class DrizzlePlanRepository implements IPlanRepository {
       })
   }
 
+  async listAllIds(tenantId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ id: plannerPlan.id })
+      .from(plannerPlan)
+      .where(and(eq(plannerPlan.tenantId, tenantId), isNull(plannerPlan.deletedAt)))
+    return rows.map((r) => r.id)
+  }
+
   async softDelete(id: string, tenantId: string): Promise<void> {
     await this.db
       .update(plannerPlan)

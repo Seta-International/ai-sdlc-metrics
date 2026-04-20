@@ -76,6 +76,10 @@ import { RemoveEvidenceHandler } from './application/commands/evidence/remove-ev
 import { ListTaskEvidenceHandler } from './application/queries/evidence/list-task-evidence.handler'
 import { NotificationsModule } from '../notifications/notifications.module'
 import { OnTaskAssignedHandler } from './application/event-handlers/on-task-assigned.handler'
+import { TASK_DAILY_SNAPSHOT_REPOSITORY } from './domain/repositories/task-daily-snapshot.repository'
+import { DrizzleTaskDailySnapshotRepository } from './infrastructure/repositories/drizzle-task-daily-snapshot.repository'
+import { TaskDailySnapshotWorker } from './infrastructure/jobs/task-daily-snapshot.worker'
+import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-snapshot.scheduler'
 
 @Module({
   imports: [CqrsModule, KernelModule, AdminModule, NotificationsModule],
@@ -147,6 +151,9 @@ import { OnTaskAssignedHandler } from './application/event-handlers/on-task-assi
     RemoveEvidenceHandler,
     ListTaskEvidenceHandler,
     OnTaskAssignedHandler,
+    { provide: TASK_DAILY_SNAPSHOT_REPOSITORY, useClass: DrizzleTaskDailySnapshotRepository },
+    TaskDailySnapshotWorker,
+    TaskDailySnapshotScheduler,
     PlannerQueryFacade,
     PlannerRouterService,
   ],
