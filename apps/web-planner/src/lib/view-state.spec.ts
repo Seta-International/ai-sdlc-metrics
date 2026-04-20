@@ -51,4 +51,17 @@ describe('view-state URL codec', () => {
     const parsed = parseViewStateFromSearch(new URLSearchParams('sort=nonexistent:asc'))
     expect(parsed.sort).toBeUndefined()
   })
+
+  it('parses group=plan into ViewState.groupBy', () => {
+    const state = parseViewStateFromSearch(new URLSearchParams('group=plan'))
+    expect(state.groupBy).toBe('plan')
+  })
+
+  it('serializes groupBy=plan back into ?group=plan', () => {
+    const s = serializeViewStateToSearch({
+      ...DEFAULT_VIEW_STATE,
+      groupBy: 'plan',
+    })
+    expect(s).toContain('group=plan')
+  })
 })

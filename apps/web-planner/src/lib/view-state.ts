@@ -1,7 +1,15 @@
 // Server-safe: no React hooks, no browser APIs. Import freely from server components.
 
 export const VIEW_KEYS = ['board', 'grid', 'schedule', 'charts'] as const
-export const GROUP_KEYS = ['bucket', 'progress', 'due', 'priority', 'assignee', 'label'] as const
+export const GROUP_KEYS = [
+  'bucket',
+  'progress',
+  'due',
+  'priority',
+  'assignee',
+  'label',
+  'plan',
+] as const
 export const PRIORITIES = ['urgent', 'important', 'medium', 'low'] as const
 export const DUE_BUCKETS = [
   'late',
@@ -97,10 +105,9 @@ export function parseViewStateFromSearch(params: URLSearchParams): ViewState {
 
   return {
     view: (VIEW_KEYS as readonly string[]).includes(view ?? '') ? (view as ViewKey) : 'board',
-    groupBy:
-      (GROUP_KEYS as readonly string[]).includes(group ?? '') && group !== 'plan'
-        ? (group as GroupKey)
-        : 'bucket',
+    groupBy: (GROUP_KEYS as readonly string[]).includes(group ?? '')
+      ? (group as GroupKey)
+      : 'bucket',
     sort: sortField ? { field: sortField, dir: sortMatch![2] as 'asc' | 'desc' } : undefined,
     filter: {
       due: dueValue,
