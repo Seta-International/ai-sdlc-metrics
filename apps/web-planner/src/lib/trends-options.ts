@@ -3,23 +3,21 @@ import type { TaskTrends } from '@future/api-client/planner'
 
 /**
  * OLS linear regression helper.
- * Fits a line to (i, y[i]) and projects horizonDays into the future.
- * Slope is clamped to <= 0 (no burn-up projection).
- * Projected values are clamped to >= 0.
+ * Fits a line to (i, y[i]), clamps slope to <= 0 (no burn-up projection),
+ * then anchors the projection at the last actual value so the dashed line
+ * starts exactly where the actual line ends.
  *
  * Returns:
- * - `overlapValue`: regression value at the last actual index (for the join point)
- * - `values`: array of horizonDays projected values (future only)
+ * - `values`: array of horizonDays projected values (future only), each clamped >= 0
  * - `futureDates`: ISO date strings for each future point
  */
 function linearProjection(
   y: number[],
   horizonDays: number,
   lastDate: string,
-): { overlapValue: number; values: number[]; futureDates: string[] } {
+): { values: number[]; futureDates: string[] } {
   const n = y.length
 
-  // OLS over (i, y[i])
   let sumX = 0
   let sumY = 0
   let sumXX = 0
@@ -33,18 +31,11 @@ function linearProjection(
   }
   const denom = n * sumXX - sumX * sumX
   let slope = denom === 0 ? 0 : (n * sumXY - sumX * sumY) / denom
-  const intercept = denom === 0 ? sumY / n : (sumY - slope * sumX) / n
+  if (slope >= 0) slope = 0
 
-  // Clamp: if work is not burning down, make projection flat
-  if (slope >= 0) {
-    slope = 0
-  }
+  const anchor = y[n - 1] ?? 0
 
-  // Overlap value: the regression prediction at the last actual index
-  const overlapValue = Math.max(0, intercept + slope * (n - 1))
-
-  // Generate future dates and projected values
-  const baseDate = new Date(lastDate)
+  const baseDate = new Date(lastDate + 'T00:00:00Z')
   const futureDates: string[] = []
   const values: number[] = []
 
@@ -52,12 +43,10 @@ function linearProjection(
     const d = new Date(baseDate)
     d.setUTCDate(d.getUTCDate() + i)
     futureDates.push(d.toISOString().slice(0, 10))
-
-    const projected = intercept + slope * (n - 1 + i)
-    values.push(Math.max(0, projected))
+    values.push(Math.max(0, anchor + slope * i))
   }
 
-  return { overlapValue, values, futureDates }
+  return { values, futureDates }
 }
 
 export function burndownOption(trends: TaskTrends): Record<string, unknown> {
@@ -68,24 +57,20 @@ export function burndownOption(trends: TaskTrends): Record<string, unknown> {
   const actualDates = trends.series.map((s) => s.date)
   const actualValues = trends.series.map((s) => s.openCount)
   const lastDate = actualDates[actualDates.length - 1] as string
+  const anchor = actualValues[actualValues.length - 1] ?? 0
   const horizonDays = Math.max(7, trends.series.length)
 
-  const {
-    overlapValue,
-    values: projValues,
-    futureDates,
-  } = linearProjection(actualValues, horizonDays, lastDate)
+  const { values: projValues, futureDates } = linearProjection(actualValues, horizonDays, lastDate)
 
   const xAxisData = [...actualDates, ...futureDates]
 
-  // Actual series data: real values for actual range, null for future
   const actualSeriesData = [...actualValues, ...new Array(futureDates.length).fill(null)]
 
-  // Projection series data: null for all actual points except the last (overlap at join
-  // using regression-predicted value), then future projected values.
+  // Projection series: null for the actual range except the last point, where it
+  // anchors at the real last value so the dashed line joins the solid line exactly.
   const projSeriesData: (number | null)[] = [
     ...new Array(actualValues.length - 1).fill(null),
-    overlapValue, // overlap point at join using regression value
+    anchor,
     ...projValues,
   ]
 
