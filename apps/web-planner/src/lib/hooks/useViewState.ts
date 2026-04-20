@@ -12,7 +12,7 @@ import type { ViewState } from '../view-state'
 const LS_PREFIX = 'planner:view:'
 const LS_DEBOUNCE_MS = 200
 
-export type ViewStateOptions = { planId: string } | { scope: 'personal' }
+export type ViewStateOptions = { planId: string } | { scope: 'personal' | 'my-day' }
 
 export function useViewState(opts: ViewStateOptions) {
   const storageKey = 'planId' in opts ? opts.planId : opts.scope
