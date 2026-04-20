@@ -67,6 +67,11 @@ import { ListTasksForActorHandler } from './application/queries/personal/list-ta
 import { GetMyDayHandler } from './application/queries/personal/get-my-day.handler'
 import { MY_DAY_REPOSITORY } from './domain/repositories/my-day.repository'
 import { DrizzleMyDayRepository } from './infrastructure/repositories/drizzle-my-day.repository'
+import { AddToMyDayHandler } from './application/commands/my-day/add-to-my-day.handler'
+import {
+  TASK_VISIBILITY_SERVICE,
+  DrizzleTaskVisibilityService,
+} from './application/lib/task-visibility'
 import { GetPersonalChartsHandler } from './application/queries/personal/get-personal-charts.handler'
 import { GetPlanHandler } from './application/queries/plans/get-plan.handler'
 import { GetBoardHandler } from './application/queries/tasks/get-board.handler'
@@ -151,6 +156,8 @@ import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-sna
     GetMyDayHandler,
     GetPersonalChartsHandler,
     { provide: MY_DAY_REPOSITORY, useClass: DrizzleMyDayRepository },
+    AddToMyDayHandler,
+    { provide: TASK_VISIBILITY_SERVICE, useClass: DrizzleTaskVisibilityService },
     GetPlanHandler,
     GetBoardHandler,
     GetFlatTasksHandler,
