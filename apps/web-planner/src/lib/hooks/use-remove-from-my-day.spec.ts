@@ -34,7 +34,7 @@ import { myDayQueryKey } from './use-my-day'
 import type { MyDayTask } from '@future/api-client/planner'
 
 const mockMutate = vi.mocked(
-  (trpc.planner.personal.myDay.remove as { mutate: ReturnType<typeof vi.fn> }).mutate,
+  (trpc.planner.personal.myDay.remove as unknown as { mutate: ReturnType<typeof vi.fn> }).mutate,
 )
 const mockUseSession = vi.mocked(useSession)
 

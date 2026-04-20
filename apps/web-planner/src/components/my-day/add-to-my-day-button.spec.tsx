@@ -30,10 +30,12 @@ import { trpc } from '../../lib/trpc'
 import { AddToMyDayButton } from './add-to-my-day-button'
 
 const mockAdd = vi.mocked(
-  (trpc.planner.personal.myDay as { add: { mutate: ReturnType<typeof vi.fn> } }).add.mutate,
+  (trpc.planner.personal.myDay as unknown as { add: { mutate: ReturnType<typeof vi.fn> } }).add
+    .mutate,
 )
 const mockRemove = vi.mocked(
-  (trpc.planner.personal.myDay as { remove: { mutate: ReturnType<typeof vi.fn> } }).remove.mutate,
+  (trpc.planner.personal.myDay as unknown as { remove: { mutate: ReturnType<typeof vi.fn> } })
+    .remove.mutate,
 )
 
 function makeTask(): TaskFlatWithPlan {
@@ -84,7 +86,7 @@ describe('AddToMyDayButton', () => {
     wrap(<AddToMyDayButton task={makeTask()} inMyDay={false} mode="button" />)
     await userEvent.click(screen.getByRole('button', { name: /focus today/i }))
     await waitFor(() => expect(mockAdd).toHaveBeenCalled())
-    const callArg = mockAdd.mock.calls[0][0] as { taskId: string }
+    const callArg = mockAdd.mock.calls[0]?.[0] as { taskId: string }
     expect(callArg.taskId).toBe('task-1')
   })
 

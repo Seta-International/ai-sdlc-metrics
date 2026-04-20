@@ -23,7 +23,8 @@ import { trpc } from '../trpc'
 import { useMyDay, myDayQueryKey } from './use-my-day'
 
 const mockGet = vi.mocked(
-  (trpc.planner.personal.myDay as { get: { query: ReturnType<typeof vi.fn> } }).get.query,
+  (trpc.planner.personal.myDay as unknown as { get: { query: ReturnType<typeof vi.fn> } }).get
+    .query,
 )
 
 function wrapper({ children }: { children: React.ReactNode }) {
