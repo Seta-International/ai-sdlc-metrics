@@ -20,6 +20,15 @@ const SIDEBAR_WIDTH = '220px'
 const SIDEBAR_WIDTH_MOBILE = '18rem'
 const SIDEBAR_WIDTH_ICON = '3rem'
 const SIDEBAR_KEYBOARD_SHORTCUT = 'b'
+const SIDEBAR_SKELETON_WIDTHS = ['53%', '58%', '63%', '67%', '74%', '81%', '88%'] as const
+
+function getDeterministicSkeletonWidth(seed: string): (typeof SIDEBAR_SKELETON_WIDTHS)[number] {
+  let hash = 0
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) | 0
+  }
+  return SIDEBAR_SKELETON_WIDTHS[Math.abs(hash) % SIDEBAR_SKELETON_WIDTHS.length]!
+}
 
 type SidebarContextProps = {
   state: 'expanded' | 'collapsed'
@@ -576,10 +585,8 @@ function SidebarMenuSkeleton({
 }: React.ComponentProps<'div'> & {
   showIcon?: boolean
 }) {
-  // Random width between 50 to 90%.
-  const width = React.useMemo(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`
-  }, [])
+  const id = React.useId()
+  const width = React.useMemo(() => getDeterministicSkeletonWidth(id), [id])
 
   return (
     <div

@@ -308,6 +308,8 @@ async function main() {
         plannerGridEnabled: true,
         plannerScheduleEnabled: true,
         plannerChartsEnabled: true,
+        plannerChartsTrendsEnabled: true,
+        plannerPersonalEnabled: true,
       })
       .onConflictDoUpdate({
         target: tenantSettings.tenantId,
@@ -317,6 +319,8 @@ async function main() {
           plannerGridEnabled: true,
           plannerScheduleEnabled: true,
           plannerChartsEnabled: true,
+          plannerChartsTrendsEnabled: true,
+          plannerPersonalEnabled: true,
         },
       })
   }

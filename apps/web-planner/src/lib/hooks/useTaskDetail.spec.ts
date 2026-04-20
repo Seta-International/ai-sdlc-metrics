@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 import { useTaskDetail } from './useTaskDetail'
@@ -92,6 +92,40 @@ describe('useTaskDetail', () => {
 
     expect(result.current.task).toEqual(fixture)
     expect(result.current.isLoading).toBe(false)
+  })
+
+  it('normalizes date fields from API strings to Date objects', async () => {
+    _mockQuery.mockResolvedValue({
+      ...makeTask(),
+      startDate: '2026-01-03T00:00:00.000Z',
+      dueDate: '2026-01-04T00:00:00.000Z',
+      updatedAt: '2026-01-05T00:00:00.000Z',
+      completedAt: '2026-01-06T00:00:00.000Z',
+      attachments: [
+        {
+          kind: 'file',
+          id: 'att-1',
+          filename: 'doc.txt',
+          contentType: 'text/plain',
+          sizeBytes: 10,
+          url: 'https://example.com/doc.txt',
+          createdBy: 'actor-1',
+          createdAt: '2026-01-07T00:00:00.000Z',
+        },
+      ],
+    } as unknown as TaskDetailSnapshot)
+
+    const { result } = renderHook(() => useTaskDetail(INPUT), { wrapper: Wrapper })
+
+    await waitFor(() => {
+      expect(result.current.task).toBeDefined()
+    })
+
+    expect(result.current.task?.startDate).toBeInstanceOf(Date)
+    expect(result.current.task?.dueDate).toBeInstanceOf(Date)
+    expect(result.current.task?.updatedAt).toBeInstanceOf(Date)
+    expect(result.current.task?.completedAt).toBeInstanceOf(Date)
+    expect(result.current.task?.attachments[0]?.createdAt).toBeInstanceOf(Date)
   })
 
   it('calls update mutation with correct args including expectedVersion', async () => {

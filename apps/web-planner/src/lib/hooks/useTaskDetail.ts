@@ -6,6 +6,70 @@ import { useSession } from '@future/auth'
 import { trpc } from '../trpc'
 import type { TaskDetailSnapshot } from '../board-types'
 
+type DateLike = Date | string | null | undefined
+
+interface RawAttachmentFile {
+  kind: 'file'
+  id: string
+  filename: string
+  contentType: string
+  sizeBytes: number
+  url: string
+  createdBy: string
+  createdAt: Date | string
+}
+
+interface RawAttachmentLink {
+  kind: 'link'
+  id: string
+  url: string
+  linkTitle?: string
+  createdBy: string
+  createdAt: Date | string
+}
+
+type RawAttachmentSnapshot = RawAttachmentFile | RawAttachmentLink
+
+interface RawTaskDetailSnapshot extends Omit<
+  TaskDetailSnapshot,
+  'startDate' | 'dueDate' | 'updatedAt' | 'completedAt' | 'attachments'
+> {
+  startDate: DateLike
+  dueDate: DateLike
+  updatedAt: Date | string
+  completedAt: DateLike
+  attachments: RawAttachmentSnapshot[]
+}
+
+function toDateOrNull(value: DateLike): Date | null {
+  if (!value) return null
+  const date = value instanceof Date ? value : new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function toDate(value: Date | string): Date {
+  const date = value instanceof Date ? value : new Date(value)
+  return Number.isNaN(date.getTime()) ? new Date(0) : date
+}
+
+function toISOStringSafe(value: Date | string): string {
+  return toDate(value).toISOString()
+}
+
+function normalizeTaskDetail(raw: RawTaskDetailSnapshot): TaskDetailSnapshot {
+  return {
+    ...raw,
+    startDate: toDateOrNull(raw.startDate),
+    dueDate: toDateOrNull(raw.dueDate),
+    updatedAt: toDate(raw.updatedAt),
+    completedAt: toDateOrNull(raw.completedAt),
+    attachments: raw.attachments.map((attachment) => ({
+      ...attachment,
+      createdAt: toDate(attachment.createdAt),
+    })),
+  }
+}
+
 export type TaskPatch = {
   title?: string
   description?: string
@@ -41,13 +105,15 @@ export function useTaskDetail({ taskId, planId }: UseTaskDetailInput): UseTaskDe
 
   const query = useQuery({
     queryKey,
-    queryFn: () =>
-      trpc.planner.tasks.getDetail.query({
-        planId,
-        taskId,
-        actorId,
-        tenantId,
-      }) as Promise<TaskDetailSnapshot>,
+    queryFn: async () =>
+      normalizeTaskDetail(
+        (await trpc.planner.tasks.getDetail.query({
+          planId,
+          taskId,
+          actorId,
+          tenantId,
+        })) as RawTaskDetailSnapshot,
+      ),
     enabled: Boolean(taskId && planId && actorId && tenantId),
   })
 
@@ -85,7 +151,7 @@ export function useTaskDetail({ taskId, planId }: UseTaskDetailInput): UseTaskDe
     setSaving(true)
     setLastError(null)
 
-    runUpdate(patch, task.updatedAt.toISOString())
+    runUpdate(patch, toISOStringSafe(task.updatedAt))
       .then(() => {
         void queryClient.invalidateQueries({ queryKey: ['tasks.getDetail', taskId] as const })
         setSaving(false)
@@ -108,7 +174,7 @@ export function useTaskDetail({ taskId, planId }: UseTaskDetailInput): UseTaskDe
                 setConflict(fresh)
                 setSaving(false)
               } else {
-                runUpdate(patch, fresh.updatedAt.toISOString())
+                runUpdate(patch, toISOStringSafe(fresh.updatedAt))
                   .then(() => {
                     void queryClient.invalidateQueries({
                       queryKey: ['tasks.getDetail', taskId] as const,

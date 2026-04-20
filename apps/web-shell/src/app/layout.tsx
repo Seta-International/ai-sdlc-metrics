@@ -13,7 +13,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const theme = (await cookies()).get('future-theme')?.value
   return (
     <html lang="en" className={fontVariables} data-density="compact" suppressHydrationWarning>
-      <body>
+      <body suppressHydrationWarning>
         <ThemeProvider defaultTheme={theme ?? 'system'} enableSystem={!theme}>
           {children}
         </ThemeProvider>
