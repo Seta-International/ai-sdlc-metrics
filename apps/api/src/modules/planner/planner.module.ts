@@ -70,6 +70,7 @@ import { MY_DAY_REPOSITORY } from './domain/repositories/my-day.repository'
 import { DrizzleMyDayRepository } from './infrastructure/repositories/drizzle-my-day.repository'
 import { AddToMyDayHandler } from './application/commands/my-day/add-to-my-day.handler'
 import { RemoveFromMyDayHandler } from './application/commands/my-day/remove-from-my-day.handler'
+import { CarryOverMyDayHandler } from './application/commands/my-day/carry-over.handler'
 import {
   TASK_VISIBILITY_SERVICE,
   DrizzleTaskVisibilityService,
@@ -162,6 +163,7 @@ import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-sna
     { provide: MY_DAY_REPOSITORY, useClass: DrizzleMyDayRepository },
     AddToMyDayHandler,
     RemoveFromMyDayHandler,
+    CarryOverMyDayHandler,
     { provide: TASK_VISIBILITY_SERVICE, useClass: DrizzleTaskVisibilityService },
     GetPlanHandler,
     GetBoardHandler,

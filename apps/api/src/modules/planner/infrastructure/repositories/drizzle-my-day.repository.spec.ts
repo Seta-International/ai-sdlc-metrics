@@ -23,6 +23,15 @@ function makeInsertChain() {
   return stub
 }
 
+function makeInsertManyChain(returning: unknown[] = []) {
+  const stub = {
+    values: vi.fn().mockReturnThis(),
+    onConflictDoNothing: vi.fn().mockReturnThis(),
+    returning: vi.fn().mockResolvedValue(returning),
+  }
+  return stub
+}
+
 function makeDeleteChain() {
   const stub = {
     where: vi.fn().mockResolvedValue(undefined),
@@ -125,5 +134,36 @@ describe('DrizzleMyDayRepository', () => {
     await repo.markTaskCompleted(TASK_ID, TENANT_ID)
 
     expect(updateSpy).toHaveBeenCalledOnce()
+  })
+
+  describe('insertMany', () => {
+    it('returns 0 immediately when given an empty array (no DB call)', async () => {
+      const result = await repo.insertMany([])
+
+      expect(result).toBe(0)
+      expect(insertSpy).not.toHaveBeenCalled()
+    })
+
+    it('returns the number of rows the RETURNING clause yielded', async () => {
+      insertSpy.mockReturnValue(makeInsertManyChain([{ taskId: 't1' }, { taskId: 't2' }]))
+
+      const result = await repo.insertMany([
+        { actorId: ACTOR_ID, tenantId: TENANT_ID, taskId: 't1', addedDate: DATE },
+        { actorId: ACTOR_ID, tenantId: TENANT_ID, taskId: 't2', addedDate: DATE },
+      ])
+
+      expect(insertSpy).toHaveBeenCalledOnce()
+      expect(result).toBe(2)
+    })
+
+    it('returns 0 when ON CONFLICT DO NOTHING skipped every row', async () => {
+      insertSpy.mockReturnValue(makeInsertManyChain([]))
+
+      const result = await repo.insertMany([
+        { actorId: ACTOR_ID, tenantId: TENANT_ID, taskId: 't1', addedDate: DATE },
+      ])
+
+      expect(result).toBe(0)
+    })
   })
 })

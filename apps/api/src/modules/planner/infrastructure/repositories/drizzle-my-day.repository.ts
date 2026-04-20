@@ -4,7 +4,7 @@ import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { plannerMyDayEntry } from '../schema/planner.schema'
 import { MyDayEntry } from '../../domain/entities/my-day-entry.entity'
-import type { IMyDayRepository } from '../../domain/repositories/my-day.repository'
+import type { IMyDayRepository, MyDayInsertRow } from '../../domain/repositories/my-day.repository'
 
 @Injectable()
 export class DrizzleMyDayRepository implements IMyDayRepository {
@@ -61,6 +61,27 @@ export class DrizzleMyDayRepository implements IMyDayRepository {
           eq(plannerMyDayEntry.addedDate, date),
         ),
       )
+  }
+
+  async insertMany(rows: MyDayInsertRow[]): Promise<number> {
+    if (rows.length === 0) return 0
+    const now = new Date()
+    const values = rows.map((r) => ({
+      actorId: r.actorId,
+      taskId: r.taskId,
+      addedDate: r.addedDate,
+      addedAt: now,
+      completedAt: null,
+      tenantId: r.tenantId,
+    }))
+    const result = await this.db
+      .insert(plannerMyDayEntry)
+      .values(values)
+      .onConflictDoNothing({
+        target: [plannerMyDayEntry.actorId, plannerMyDayEntry.taskId, plannerMyDayEntry.addedDate],
+      })
+      .returning({ taskId: plannerMyDayEntry.taskId })
+    return result.length
   }
 
   async markTaskCompleted(taskId: string, tenantId: string): Promise<void> {
