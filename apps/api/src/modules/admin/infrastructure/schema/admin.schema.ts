@@ -28,6 +28,8 @@ export const tenantSettings = adminSchema.table('tenant_settings', {
   plannerScheduleEnabled: boolean('planner_schedule_enabled').notNull().default(false),
   plannerChartsEnabled: boolean('planner_charts_enabled').notNull().default(false),
   plannerChartsTrendsEnabled: boolean('planner_charts_trends_enabled').notNull().default(false),
+  plannerPersonalEnabled: boolean('planner_personal_enabled').notNull().default(false),
+  timezone: text('timezone').notNull().default('Asia/Ho_Chi_Minh'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
