@@ -7,6 +7,7 @@ import { checklistRouter } from './checklist.router'
 import { attachmentRouter } from './attachment.router'
 import { commentRouter } from './comment.router'
 import { evidenceRouter } from './evidence.router'
+import { personalRouter } from './personal.router'
 
 export const plannerRouter = router({
   plans: planRouter,
@@ -17,4 +18,5 @@ export const plannerRouter = router({
   attachments: attachmentRouter,
   comments: commentRouter,
   evidence: evidenceRouter,
+  personal: personalRouter,
 })
