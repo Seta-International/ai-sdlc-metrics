@@ -15,8 +15,8 @@ function isValidIanaZone(tz: string): boolean {
   }
 }
 
-@Injectable()
 @CommandHandler(UpdateTenantTimezoneCommand)
+@Injectable()
 export class UpdateTenantTimezoneHandler implements ICommandHandler<
   UpdateTenantTimezoneCommand,
   void
