@@ -52,4 +52,20 @@ describe('ViewPicker', () => {
     )
     expect(screen.getByRole('tab', { name: /grid/i })).toBeDisabled()
   })
+
+  it('renders 4 view tabs for personal scope', () => {
+    render(<ViewPicker scope="personal" currentView="board" basePath="/personal/tasks" />)
+    expect(screen.getByRole('tab', { name: /board/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /grid/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /schedule/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /charts/i })).toBeInTheDocument()
+  })
+
+  it('navigates to basePath/view when a tab is clicked (personal scope)', async () => {
+    render(<ViewPicker scope="personal" currentView="board" basePath="/personal/tasks" />)
+    await userEvent.click(screen.getByRole('tab', { name: /grid/i }))
+    expect(mockReplace).toHaveBeenCalledWith('/personal/tasks/grid?group=priority', {
+      scroll: false,
+    })
+  })
 })
