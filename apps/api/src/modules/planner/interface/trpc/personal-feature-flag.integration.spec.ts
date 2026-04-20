@@ -10,7 +10,6 @@ import {
 } from '@future/db/test-helpers'
 import { sql } from 'drizzle-orm'
 import type { Db } from '@future/db'
-import { EventBus } from '@nestjs/cqrs'
 import { DrizzlePlanRepository } from '../../infrastructure/repositories/drizzle-plan.repository'
 import { ListPlansForActorHandler } from '../../application/queries/plans/list-plans-for-actor.handler'
 import { ListPlansForActorQuery } from '../../application/queries/plans/list-plans-for-actor.query'
@@ -25,18 +24,11 @@ const ENABLED_TENANT_ID = '01900000-ff02-7fff-8000-000000002001'
 const DISABLED_TENANT_ID = '01900000-ff02-7fff-8000-000000002002'
 const ACTOR_ID = uuidv7()
 
-function makeEventBus(): EventBus {
-  return { publish: vi.fn().mockResolvedValue(undefined) } as unknown as EventBus
-}
-
 function makeKernelFacade(canDo = true): KernelQueryFacade {
   return { canDo: vi.fn().mockResolvedValue(canDo) } as unknown as KernelQueryFacade
 }
 
 function buildBuses(planRepo: DrizzlePlanRepository) {
-  // Keep event bus reference for future expansion; unused for query-only wiring.
-  void makeEventBus()
-
   const queryHandlers = new Map<string, (q: unknown) => Promise<unknown>>()
 
   const kernelFacade = makeKernelFacade(true)
