@@ -53,8 +53,8 @@ export class ListTasksForActorHandler implements IQueryHandler<
       checklist_checked_count: number
       attachment_count: number
       comment_count: number
-      created_at: Date
-      updated_at: Date
+      created_at: Date | string
+      updated_at: Date | string
     }>(
       sql`SELECT
             t.id                                AS task_id,
@@ -101,13 +101,17 @@ export class ListTasksForActorHandler implements IQueryHandler<
 
     if (taskResult.rows.length === 0) return []
     const taskIds = taskResult.rows.map((r) => r.task_id)
+    const taskIdList = sql.join(
+      taskIds.map((id) => sql`${id}::uuid`),
+      sql`, `,
+    )
 
     // Query 2: Co-assignees for returned tasks
     const assigneeResult = await this.db.execute<{ task_id: string; actor_id: string }>(
       sql`SELECT ta.task_id, ta.actor_id
           FROM planner.task_assignee ta
           WHERE ta.tenant_id = ${tenantId}
-            AND ta.task_id = ANY(${taskIds}::uuid[])`,
+            AND ta.task_id = ANY(ARRAY[${taskIdList}])`,
     )
 
     // Query 3: Labels for returned tasks
@@ -124,7 +128,7 @@ export class ListTasksForActorHandler implements IQueryHandler<
             AND pl.slot = al.slot
             AND pl.tenant_id = al.tenant_id
           WHERE al.tenant_id = ${tenantId}
-            AND al.task_id = ANY(${taskIds}::uuid[])`,
+            AND al.task_id = ANY(ARRAY[${taskIdList}])`,
     )
 
     const assigneesByTaskId = new Map<string, string[]>()
@@ -177,8 +181,8 @@ export class ListTasksForActorHandler implements IQueryHandler<
           completed: Number(r.checklist_checked_count),
         },
         attachmentCount: Number(r.attachment_count),
-        createdAt: r.created_at.toISOString(),
-        updatedAt: r.updated_at.toISOString(),
+        createdAt: new Date(r.created_at).toISOString(),
+        updatedAt: new Date(r.updated_at).toISOString(),
       }
     })
   }

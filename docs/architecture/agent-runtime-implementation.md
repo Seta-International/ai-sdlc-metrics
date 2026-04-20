@@ -565,7 +565,244 @@ These do not block Phase 1 start and are carried forward explicitly:
 
 ---
 
-## 14. Success criteria (v1 exit)
+## 15. Context compaction
+
+Compaction is **split by scope.** The spec's §6 γ window is cross-turn; in-turn compaction inside a single ReAct loop is not in the spec and ships as an AI SDK built-in.
+
+**In-turn (within one sub-agent's ReAct loop):**
+
+- Use AI SDK v7 `pruneMessages()` inside `prepareStep` callback to drop older reasoning and intermediate tool calls as the message array grows.
+- Default pruning: `toolCalls: 'before-last-2-messages'`, `reasoning: 'before-last-message'`, `emptyMessages: 'remove'`. Preserve the last two tool exchanges verbatim; summarize older ones if the sub-agent exceeds ~15 messages.
+- Heavy tool results (large table rows) get per-result compression in `prepareStep` — keep schema + row count + representative rows; drop the full payload from prior iterations.
+
+```ts
+// sub-agent-runner.service.ts (sketch)
+const agent = new ToolLoopAgent({
+  model,
+  tools,
+  stopWhen: stepCountIs(cfg.budgets.maxIterations),
+  prepareStep: async ({ messages, stepNumber }) => {
+    const pruned = pruneMessages({
+      messages,
+      reasoning: 'before-last-message',
+      toolCalls: 'before-last-2-messages',
+      emptyMessages: 'remove',
+    });
+    if (pruned.length > 15) {
+      const summary = await nanoSummarize(pruned.slice(0, -6), tenantId);
+      return { messages: [pruned[0], { role: 'system', content: `[prior context]\n${summary}` }, ...pruned.slice(-6)] };
+    }
+    return { messages: pruned };
+  },
+  experimental_telemetry: { isEnabled: true, metadata: {...} },
+});
+```
+
+**Provider-side compaction (belt-and-suspenders):**
+
+- **Anthropic:** `providerOptions.anthropic.contextManagement` — native context management, already wired in `@ai-sdk/anthropic`. Enable for sub-agents that may run hot with large tool outputs.
+- **OpenAI:** [server-side compaction (Feb 2026)](https://developers.openai.com/api/docs/guides/compaction) via Responses API. Enable when `@ai-sdk/openai` exposes it (tracked in vercel/ai#12486).
+
+**Cross-turn (conversation):**
+
+Unchanged from spec §6 — γ window (3 verbatim + 10 compressed + rolling summary) for global chat, α for inline. Computed post-turn by async nano summarizer via pg-boss (`cross-turn-summary.worker`).
+
+**Never compact:** taint-tripped tool results within the same turn until taint is consumed by the synthesizer. Compacting away the taint source erases the audit chain.
+
+**Phase:** in-turn ships in Phase 1 alongside `SubAgentRunner`. Cross-turn summary worker is already in Phase 3.
+
+---
+
+## 16. Knowledge retrieval (RAG) — deferred, not blocked
+
+**Scope statement:** planner / people / projects sub-agents have **no RAG requirement**. Domain data is structured; answers come from tools, not retrieval.
+
+**Spec §5 softening (proposal for a follow-up PR on `agent-runtime.md`):** the current language _"vector indexes shared across tenants are a cross-tenant leak vector"_ is weaker than the kernel invariant would enforce. Industry consensus in 2026 (Timescale, Nile, AWS Aurora, pgvector guide) is that **single shared table + `tenant_id` column + RLS + HNSW** is the multi-tenant RAG pattern that matches your existing invariants exactly. Recommend softening §5 to: _"No embeddings in v1 — recency + L3 suffice for expected session lengths. FAQ / policy / onboarding-doc RAG is out of scope for v1 but is not architecturally blocked; a tenant-scoped pgvector table with RLS fits the existing multi-tenant invariants."_
+
+**When RAG enters the stack (v1.5+ sketch):**
+
+| Decision             | Pick                                                                                                              |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Extension            | `pgvector` on existing Postgres                                                                                   |
+| Schema               | `admin` (owns the corpus)                                                                                         |
+| Table                | `admin.knowledge_chunk(tenant_id, doc_id, chunk_id, content, embedding vector(1536), metadata jsonb, updated_at)` |
+| Index                | HNSW on `embedding` with `WHERE tenant_id = current_setting('app.tenant_id')` via RLS                             |
+| Isolation            | `tenant_id` column + `relforcerowsecurity=true` (existing pattern per CLAUDE.md)                                  |
+| Embedding model      | `text-embedding-3-small` (already in stack)                                                                       |
+| Chunking             | Markdown-aware, 500–800 tokens, 50-token overlap                                                                  |
+| Admin sub-agent tool | `admin.knowledge.search({ query, topK })` — read-only, respects RLS                                               |
+| Cost guard           | Per-tenant daily embed budget; reindex throttled                                                                  |
+
+**Non-goals remain:** no embeddings over L2 conversation history (spec §5 stands on this — L2 has no k-anonymity model, per Tenet #8). RAG is for authored corpora, not conversation recall.
+
+---
+
+## 17. Caching layers
+
+Seven layers, each with an explicit invalidation rule. Previously scattered; pinned here so the surface is reviewable.
+
+| #   | Layer                      | Scope                             | Key                                                        | Invalidation                                        | Location                               | Phase |
+| --- | -------------------------- | --------------------------------- | ---------------------------------------------------------- | --------------------------------------------------- | -------------------------------------- | ----- |
+| 1   | **OpenAI prompt cache**    | 5-min TTL at provider             | Prefix match on stable content                             | Automatic; passive                                  | N/A — rely on §8 ordering              | P1    |
+| 2   | **Anthropic prompt cache** | Persistent while ref'd            | Explicit `cacheControl: { type: 'ephemeral' }` breakpoints | On content change                                   | Set on system + tool catalog blocks    | P1    |
+| 3   | **`narrative_store`**      | Persistent                        | `(tenant_id, role_id) → content_hash → content`            | On role change; old hash remains for replay         | `agents.narrative_store` + index table | P1    |
+| 4   | **`prompt_store`**         | Persistent                        | `(tenant_id, content_hash) → content`                      | **Never** (append-only by construction)             | `agents.prompt_store`                  | P1    |
+| 5   | **L1 read cache**          | Turn-scoped                       | `(tool_name, args_canonical_hash) → result`                | On same-domain mutation in same sub-agent; turn-end | Request-scoped NestJS provider         | P1    |
+| 6   | **Tool catalog cache**     | Boot + per (tenant, role, screen) | Menu-scoping output                                        | 5-min TTL OR on `tool_meta_version` bump            | In-memory + version watcher            | P1    |
+| 7   | **Compiled prompt cache**  | Per (sub_agent_key, version)      | System prompt rendered with stable tenant context          | On config version bump                              | In-memory, boot-warmed                 | P1    |
+
+**Anthropic `cacheControl` matters.** Unlike OpenAI's opaque 5-min cache, Anthropic's prompt cache requires explicit breakpoint markers and pays up to 90% off cached tokens. For any sub-agent using a Claude model, mark the system prompt and static tool catalog as ephemeral. Without the markers, cache hit rate is ~zero.
+
+**Cross-cache consistency:** a `tool_meta_version` bump invalidates tool catalog cache (#6) and evicts any compiled prompt (#7) whose tool catalog slice no longer matches. Narrative/prompt stores (#3/#4) are hash-keyed so they do not require invalidation — old hashes remain reachable for replay even after new content supersedes them.
+
+---
+
+## 18. Guardrails
+
+**Structural defenses already in spec (not labeled "guardrails" but functionally are):** taint model (§2), structural prompt delimiters (§8), gateway `canDo` + RLS, `tenantAuthoredFreeText` delimiter wrapping + trace redaction, approval-required drafts on tainted turns. These cover injection-shaped attacks and unauthorized-write abuse.
+
+**Additional guardrails this doc adds:**
+
+**18.1 Input moderation (Phase 1)**
+
+- `OpenAIModerationService` — stateless pre-LLM classifier on the user utterance. TS-native, free, sub-100ms.
+- On flag: emit `refusal.started { reason: 'content_policy' }` (§15 SSE schema), skip router entirely, log trace with tag `refused: moderation`.
+- Moderation flagging does **not** poison the conversation. User may rephrase; next turn runs normally. No "persistent strikes" counter.
+
+**18.2 Output moderation (Phase 1)**
+
+- Run OpenAI moderation on synthesizer final output before streaming the last token. Buffer the last chunk; release only if moderation clears.
+- Partial-answer stream is allowed through but labeled if any earlier tool output was flagged — operator signal, not user-visible.
+
+**18.3 Structured output validation (Phase 1–2)**
+
+- **Synthesizer output validates via zod before emission.** The five shapes (§9) each have a strict zod schema. A hallucinated-shape response (model claims `table` but returns narrative, or declares columns that don't match row keys) fails validation and fires `error`, not `answer.complete`. Caller retries with `shape: 'narrative'` fallback.
+- Tool input validation is already zod-enforced by AI SDK v7 `tool({ inputSchema })`. An invalid tool call returns `tool validation error` per §4 and counts toward the circuit breaker.
+
+**18.4 Explicit non-goals (Tenets #8, #9)**
+
+- **No intent detection** — agents do not attempt to classify "is this user trying to misuse the system?" Intent detection is unwinnable at this layer (Tenet #9). Infrastructure defense is observability + rate limiting.
+- **No composition-disclosure detection** — k-anonymity / small-group suppression is a tool-authoring responsibility (Tenet #8), enforced at the domain via `compositionSensitive` declarations; the runtime does not attempt to detect composed-disclosure attacks in real time.
+- **No DSL-based guardrail framework** — NeMo Guardrails (Colang) and Guardrails AI (Python) add a dependency axis and do not materially beat zod + OpenAI Moderation for this stack. Revisit only if observed abuse data demonstrates a gap zod + moderation cannot close.
+
+**18.5 Deferred to post-v1**
+
+- **Model-based jailbreak classifier** (Llama Guard, Lakera Guard) — gated on observed abuse patterns. Not speculative.
+- **Adversarial sanitization-projection fuzzer** in the golden-trace suite — already in Phase 6 (§14 spec); mentioned here for completeness.
+
+---
+
+## 19. Inter-agent communication
+
+This section formalizes the patterns the spec already implies, documents the deliberate non-supports, and sketches the v1.5+ expansion surface.
+
+**19.1 Internal topology — the supervisor pattern**
+
+The spec's Router → ≤3 sub-agents → optional Phase 2 → Synthesizer is the **supervisor pattern** (2026 industry-standard term for what LangGraph, OpenAI Agents SDK, LlamaIndex, and the AI SDK v7 workflow patterns all converge on). Compared to alternatives:
+
+| Pattern                                                 | Used here?                | Reason                                                                                                                                                                                               |
+| ------------------------------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Supervisor (router-mediated)**                        | **Yes**                   | Central audit, bounded topology, analyzable security boundary. Matches §3 two-phase bounded invariant.                                                                                               |
+| **Dynamic handoff (agents pick peers at runtime)**      | **No**                    | Unbounded topology; router loses authoritative plan view; audit trail fragments. Violates §3.                                                                                                        |
+| **Peer-to-peer (phase-1 sub-agents talking directly)**  | **No**                    | Would leak one sub-agent's context into another, violating §3 sanitization contract. If a real cross-sub-agent data dependency exists, the answer is Phase 2 with sanitized handoff, not peer calls. |
+| **Swarm / self-organizing**                             | **No**                    | Same as dynamic handoff + no central planner for ambiguity resolution.                                                                                                                               |
+| **Hierarchical (sub-agents with their own sub-agents)** | **No in v1, not blocked** | Would re-introduce the planning depth that §3's two-phase bound explicitly caps. Revisit only if router-accuracy regression data suggests necessity.                                                 |
+
+The industry-observed failure modes of dynamic / swarm topologies — context drift, re-asking for resolved info, fragmented audit — are precisely what the spec's supervisor-with-sanitized-handoff structure was designed to avoid.
+
+**19.2 Handoff contract — typed, not freeform**
+
+The router-to-sub-agent handoff is a strictly typed payload, never concatenated prose:
+
+```ts
+// directive.schema.ts (shared)
+export const directiveSchema = z.object({
+  goal: z.string(),
+  constraints: z.array(z.string()),
+  expected_output_shape: shapeSchema,
+  quote: z.string(), // router-selected narrow slice of user utterance
+})
+
+// sub-agent-result.schema.ts (shared)
+export const subAgentResultSchema = z.object({
+  summary: z.string(),
+  semantics: z.string(),
+  confidence: z.enum(['high', 'med', 'low']),
+  source_tool_provenance: z.array(toolCallSchema),
+  escalation_hint: z
+    .object({
+      // NEW — see §19.4
+      needs_domain: z.string().optional(),
+      needs_info: z.string().optional(),
+    })
+    .optional(),
+})
+```
+
+Industry practice (LangGraph "typed state channels", OpenAI Agents SDK "handoff tools") validates this design: typed handoff + reducer is materially more reliable than freeform message-passing.
+
+**Why `quote` is a narrow slice, not the raw utterance:** raw user input is a prompt-injection surface. A full-text forward lets a ticket comment embedded in an earlier turn reach a sub-agent that would otherwise never see it. The router controls the slice; sanitization becomes authorship rather than filtering.
+
+**19.3 Inter-phase sanitization — a reducer, not a pipe**
+
+Phase-1 results fan into the synthesizer; Phase-2 input is derived from Phase-1 output. Both paths run through `projectToSchema()`, which is a **pure field-drop reducer** over zod schemas. No value transformation. No coercion. Mismatch → one re-plan, then disambiguation.
+
+This matches LangGraph's reducer pattern but narrower by construction: you cannot write a reducer that invents fields or rewrites values, because the function is pure field-drop only. The surface area for "creative" merges that leak data is zero.
+
+**Synthesizer as a weighted reducer:** the synthesizer is itself a reducer over sibling sub-agent results — its job is to merge `SubAgentResult[]` into a single shaped answer. Cross-sibling semantic divergence demotes confidence (§7), never promotes. Contradictions render as definitional clarity (§9), never as "disagreement."
+
+**19.4 Escalation hint (new minor enhancement)**
+
+Current spec: a sub-agent that concludes it cannot satisfy the directive signals via the `sub-agent-returns-empty-handoff` observability signal (§12). This is a router-accuracy dashboard input, not a runtime re-plan input.
+
+**Addition:** sub-agents may include an optional `escalation_hint` in their result. Fields:
+
+- `needs_domain` — the domain whose tools would be needed to complete the directive (e.g., `'people'` when planner sub-agent realizes it needs a user-id resolution).
+- `needs_info` — a freeform description of what's missing.
+
+**Runtime use:** when Phase-1 includes an `escalation_hint`, the router's one-bounded-replan opportunity (§3) may use the hint to compose the Phase-2 sub-agent selection and directive. This is cheaper than blindly disambiguating back to the user. If still unresolved after one re-plan, disambiguation fires as today.
+
+**Boundary:** the hint is **advisory**, not directive. Router retains planning authority; sub-agents cannot force cross-domain calls. Preserves the supervisor pattern.
+
+**19.5 Agent Card — formalize for future A2A compatibility**
+
+The `defineSubAgent` config **is** an agent card in A2A terms. In Phase 1 ship a serializer:
+
+```ts
+// application/sub-agents/base/serialize-agent-card.ts
+export function serializeAgentCard(cfg: SubAgentConfig): AgentCard {
+  return {
+    name: cfg.key,
+    domain: cfg.domain,
+    version: cfg.version,
+    capabilities: describeTools(cfg.toolScope),
+    inputModes: ['application/json+directive/v1'],
+    outputModes: ['application/json+sub-agent-result/v1'],
+    constraints: {
+      maxIterations: cfg.budgets.maxIterations,
+      costUsd: cfg.budgets.costUsd,
+    },
+  }
+}
+```
+
+**Not exposed publicly in v1.** Emitted to Langfuse trace metadata + logged at boot. This buys: (a) an audit-friendly capability surface for security review, (b) a cheap path to [A2A protocol v1.0](https://a2a-protocol.org/latest/) compatibility later — expose `/.well-known/agent-card.json` off `apps/api` when cross-org agent integration becomes a requirement (not in v1 scope).
+
+**19.6 MCP tool ingestion — v1.5 seam**
+
+[MCP (Model Context Protocol)](https://modelcontextprotocol.io/) is now Linux Foundation-owned and increasingly the standard for exposing external tools to agents. AI SDK v7 has first-class MCP client support.
+
+**Not in v1.** Your tool surface is tRPC `.meta({ agent })` — internal, typed, permission-colocated. MCP ingestion would add external tools that do not go through your `canDo`/RLS/audit chain; that is a security-posture expansion requiring explicit policy. Not a v1 concern.
+
+**v1.5+ seam:** if MCP ingestion is added, it must route through the same `ToolGateway` — wrapped, audited, `canDo`-gated against a new `agent.external.<server>.<tool>` permission class. External tools never bypass the gateway.
+
+**19.7 Outbound A2A — not in v1**
+
+Exposing sub-agents to external orgs via A2A (partner agents calling YOUR planner agent) is a product decision, not a runtime decision. When that becomes a requirement: the Agent Card serializer (§19.5) + an A2A HTTP/JSON-RPC endpoint off `apps/api` wired to the same `TurnOrchestrator`. Still gated by `canDo`, tenant-scoped, audited. No runtime rewrite required.
+
+---
+
+## 20. Success criteria (v1 exit)
 
 The v1 runtime is complete when all of the following hold:
 
