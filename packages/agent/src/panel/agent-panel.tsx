@@ -2,6 +2,7 @@
 
 import { X, MessageSquare } from 'lucide-react'
 import { AssistantRuntimeProvider, useLocalRuntime } from '@assistant-ui/react'
+import { Button } from '@future/ui'
 import { useAgentState } from '../hooks/use-agent-state'
 import { useAgentContext } from '../context/use-agent-context'
 import { AgentContextPills } from './agent-context-pills'
@@ -53,13 +54,15 @@ function PanelHeader({ onClose }: { onClose: () => void }) {
         <MessageSquare className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm font-510">Agent</span>
       </div>
-      <button
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={onClose}
         aria-label="Close agent panel"
-        className="flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-muted-foreground transition-all hover:border-border hover:bg-(--btn-ghost-bg) hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
+        className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
       >
         <X className="h-3.5 w-3.5" />
-      </button>
+      </Button>
     </div>
   )
 }

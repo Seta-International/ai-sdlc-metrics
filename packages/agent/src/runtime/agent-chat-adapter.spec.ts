@@ -183,6 +183,28 @@ describe('AgentChatAdapter', () => {
     expect(store.getState().activeSubAgents).toEqual([])
   })
 
+  it('propagates errors from onerror to the generator consumer', async () => {
+    const networkError = new Error('Network failure')
+    mockFetchEventSource.mockImplementation(async (_url, opts) => {
+      opts?.onerror?.(networkError)
+      // fetchEventSource would reject after onerror throws
+      throw networkError
+    })
+
+    const adapter = createAgentChatAdapter({ endpoint: '/agent/turn', surface: 'panel', store })
+    const gen = adapter.run({
+      messages: [] as any,
+      abortSignal: new AbortController().signal,
+      context: {} as any,
+    })
+
+    await expect(async () => {
+      for await (const _ of gen as AsyncGenerator<any>) {
+        /* drain */
+      }
+    }).rejects.toThrow('Network failure')
+  })
+
   it('passes abortSignal to fetchEventSource', async () => {
     mockFetchEventSource.mockImplementation(async (_url, opts) => {
       opts?.onmessage?.({

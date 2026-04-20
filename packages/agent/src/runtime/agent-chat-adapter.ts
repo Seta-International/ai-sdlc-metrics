@@ -20,6 +20,7 @@ export function createAgentChatAdapter(opts: AgentChatAdapterOptions): ChatModel
       const chunks: Array<{ content: [{ type: 'text'; text: string }] }> = []
       let resolveChunk: (() => void) | null = null
       let done = false
+      let capturedError: unknown = null
 
       const body = JSON.stringify({
         messages: messages.map((m) => ({
@@ -56,16 +57,21 @@ export function createAgentChatAdapter(opts: AgentChatAdapterOptions): ChatModel
           resolveChunk = null
         },
         onerror(err) {
+          capturedError = err
           done = true
           resolveChunk?.()
           resolveChunk = null
           throw err
         },
-      }).then(() => {
-        done = true
-        resolveChunk?.()
-        resolveChunk = null
       })
+        .then(() => {
+          done = true
+          resolveChunk?.()
+          resolveChunk = null
+        })
+        .catch(() => {
+          // onerror already set capturedError and done; .catch() prevents unhandled rejection
+        })
 
       while (!done || chunks.length > 0) {
         if (chunks.length === 0) {
@@ -77,6 +83,8 @@ export function createAgentChatAdapter(opts: AgentChatAdapterOptions): ChatModel
           yield chunks.shift()!
         }
       }
+
+      if (capturedError) throw capturedError
     },
   }
 }
