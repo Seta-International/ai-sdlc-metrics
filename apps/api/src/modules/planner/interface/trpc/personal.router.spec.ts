@@ -6,8 +6,10 @@ import { ListPlansForActorQuery } from '../../application/queries/plans/list-pla
 import { ListTasksForActorQuery } from '../../application/queries/personal/list-tasks-for-actor.query'
 import { GetPersonalChartsQuery } from '../../application/queries/personal/get-personal-charts.query'
 import { GetMyDayQuery } from '../../application/queries/personal/get-my-day.query'
+import { GetCarryOverCandidatesQuery } from '../../application/queries/personal/get-carry-over-candidates.query'
 import { AddToMyDayCommand } from '../../application/commands/my-day/add-to-my-day.command'
 import { RemoveFromMyDayCommand } from '../../application/commands/my-day/remove-from-my-day.command'
+import { CarryOverMyDayCommand } from '../../application/commands/my-day/carry-over.command'
 import type { AdminQueryFacade } from '../../../admin/application/facades/admin-query.facade'
 import type { PlannerViewFlags } from '../../../admin/application/queries/planner-view-flags.types'
 
@@ -298,6 +300,142 @@ describe('personalRouter — unit (mocked query bus)', () => {
           date: '2026-04-20',
         }),
       ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    })
+  })
+
+  describe('myDay.getCarryOverCandidates', () => {
+    it('dispatches GetCarryOverCandidatesQuery and returns rows', async () => {
+      getPlannerViewFlags.mockResolvedValue(allEnabledFlags())
+      const rows = [{ id: 't1', myDay: { addedAt: '2026-04-19T01:00:00.000Z', completedAt: null } }]
+      queryBus.execute.mockResolvedValue(rows)
+
+      const caller = personalRouter.createCaller(makeCtx())
+      const result = await caller.myDay.getCarryOverCandidates({
+        actorId: ACTOR_ID,
+        tenantId: TENANT_ID,
+        date: '2026-04-20',
+      })
+
+      expect(result).toEqual(rows)
+      const dispatched = queryBus.execute.mock.calls[0][0] as GetCarryOverCandidatesQuery
+      expect(dispatched).toBeInstanceOf(GetCarryOverCandidatesQuery)
+      expect(dispatched.actorId).toBe(ACTOR_ID)
+      expect(dispatched.tenantId).toBe(TENANT_ID)
+      expect(dispatched.today).toBe('2026-04-20')
+    })
+
+    it('rejects invalid date format with BAD_REQUEST', async () => {
+      getPlannerViewFlags.mockResolvedValue(allEnabledFlags())
+      const caller = personalRouter.createCaller(makeCtx())
+      await expect(
+        caller.myDay.getCarryOverCandidates({
+          actorId: ACTOR_ID,
+          tenantId: TENANT_ID,
+          date: 'not-a-date',
+        }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+      expect(queryBus.execute).not.toHaveBeenCalled()
+    })
+
+    it('rejects with FORBIDDEN when personalEnabled is off', async () => {
+      getPlannerViewFlags.mockResolvedValue({ ...allEnabledFlags(), personalEnabled: false })
+      const caller = personalRouter.createCaller(makeCtx())
+      await expect(
+        caller.myDay.getCarryOverCandidates({
+          actorId: ACTOR_ID,
+          tenantId: TENANT_ID,
+          date: '2026-04-20',
+        }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+      expect(queryBus.execute).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('myDay.carryOver', () => {
+    it('dispatches CarryOverMyDayCommand and forwards its result', async () => {
+      getPlannerViewFlags.mockResolvedValue(allEnabledFlags())
+      commandBus.execute.mockResolvedValue({ carriedCount: 2 })
+
+      const t1 = uuidv7()
+      const t2 = uuidv7()
+      const caller = personalRouter.createCaller(makeCtx())
+      const result = await caller.myDay.carryOver({
+        actorId: ACTOR_ID,
+        tenantId: TENANT_ID,
+        fromDate: '2026-04-19',
+        toDate: '2026-04-20',
+        taskIds: [t1, t2],
+      })
+
+      expect(result).toEqual({ carriedCount: 2 })
+      const dispatched = commandBus.execute.mock.calls[0][0] as CarryOverMyDayCommand
+      expect(dispatched).toBeInstanceOf(CarryOverMyDayCommand)
+      expect(dispatched.actorId).toBe(ACTOR_ID)
+      expect(dispatched.tenantId).toBe(TENANT_ID)
+      expect(dispatched.fromDate).toBe('2026-04-19')
+      expect(dispatched.toDate).toBe('2026-04-20')
+      expect(dispatched.taskIds).toEqual([t1, t2])
+    })
+
+    it('rejects non-uuid taskIds with BAD_REQUEST', async () => {
+      getPlannerViewFlags.mockResolvedValue(allEnabledFlags())
+      const caller = personalRouter.createCaller(makeCtx())
+      await expect(
+        caller.myDay.carryOver({
+          actorId: ACTOR_ID,
+          tenantId: TENANT_ID,
+          fromDate: '2026-04-19',
+          toDate: '2026-04-20',
+          taskIds: ['not-a-uuid'],
+        }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+      expect(commandBus.execute).not.toHaveBeenCalled()
+    })
+
+    it('rejects invalid date format with BAD_REQUEST', async () => {
+      getPlannerViewFlags.mockResolvedValue(allEnabledFlags())
+      const caller = personalRouter.createCaller(makeCtx())
+      await expect(
+        caller.myDay.carryOver({
+          actorId: ACTOR_ID,
+          tenantId: TENANT_ID,
+          fromDate: 'bad',
+          toDate: '2026-04-20',
+          taskIds: [uuidv7()],
+        }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+      expect(commandBus.execute).not.toHaveBeenCalled()
+    })
+
+    it('rejects more than 200 taskIds with BAD_REQUEST', async () => {
+      getPlannerViewFlags.mockResolvedValue(allEnabledFlags())
+      const caller = personalRouter.createCaller(makeCtx())
+      const tooMany = Array.from({ length: 201 }, () => uuidv7())
+      await expect(
+        caller.myDay.carryOver({
+          actorId: ACTOR_ID,
+          tenantId: TENANT_ID,
+          fromDate: '2026-04-19',
+          toDate: '2026-04-20',
+          taskIds: tooMany,
+        }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+      expect(commandBus.execute).not.toHaveBeenCalled()
+    })
+
+    it('rejects with FORBIDDEN when personalEnabled is off', async () => {
+      getPlannerViewFlags.mockResolvedValue({ ...allEnabledFlags(), personalEnabled: false })
+      const caller = personalRouter.createCaller(makeCtx())
+      await expect(
+        caller.myDay.carryOver({
+          actorId: ACTOR_ID,
+          tenantId: TENANT_ID,
+          fromDate: '2026-04-19',
+          toDate: '2026-04-20',
+          taskIds: [uuidv7()],
+        }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+      expect(commandBus.execute).not.toHaveBeenCalled()
     })
   })
 })

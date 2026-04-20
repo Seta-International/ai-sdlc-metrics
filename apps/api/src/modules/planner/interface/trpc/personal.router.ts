@@ -5,8 +5,10 @@ import { ListPlansForActorQuery } from '../../application/queries/plans/list-pla
 import { ListTasksForActorQuery } from '../../application/queries/personal/list-tasks-for-actor.query'
 import { GetPersonalChartsQuery } from '../../application/queries/personal/get-personal-charts.query'
 import { GetMyDayQuery } from '../../application/queries/personal/get-my-day.query'
+import { GetCarryOverCandidatesQuery } from '../../application/queries/personal/get-carry-over-candidates.query'
 import { AddToMyDayCommand } from '../../application/commands/my-day/add-to-my-day.command'
 import { RemoveFromMyDayCommand } from '../../application/commands/my-day/remove-from-my-day.command'
+import { CarryOverMyDayCommand } from '../../application/commands/my-day/carry-over.command'
 import { toPlannerTrpcError } from './planner-trpc-error'
 
 function svc() {
@@ -65,6 +67,50 @@ const myDayRouter = router({
       await svc()
         .command(
           new RemoveFromMyDayCommand(input.actorId, input.tenantId, input.taskId, input.date),
+        )
+        .catch((e) => {
+          throw toPlannerTrpcError(e)
+        })
+    }),
+
+  getCarryOverCandidates: publicProcedure
+    .input(
+      z.object({
+        actorId: z.string().uuid(),
+        tenantId: z.string().uuid(),
+        date: dateOnly,
+      }),
+    )
+    .query(async ({ input }) => {
+      await svc().assertPersonalEnabled(input.tenantId)
+      return svc()
+        .query(new GetCarryOverCandidatesQuery(input.actorId, input.tenantId, input.date))
+        .catch((e) => {
+          throw toPlannerTrpcError(e)
+        })
+    }),
+
+  carryOver: publicProcedure
+    .input(
+      z.object({
+        actorId: z.string().uuid(),
+        tenantId: z.string().uuid(),
+        fromDate: dateOnly,
+        toDate: dateOnly,
+        taskIds: z.array(z.string().uuid()).max(200),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      await svc().assertPersonalEnabled(input.tenantId)
+      return svc()
+        .command(
+          new CarryOverMyDayCommand(
+            input.actorId,
+            input.tenantId,
+            input.fromDate,
+            input.toDate,
+            input.taskIds,
+          ),
         )
         .catch((e) => {
           throw toPlannerTrpcError(e)

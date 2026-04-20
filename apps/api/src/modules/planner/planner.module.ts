@@ -65,10 +65,12 @@ import { RemoveAttachmentHandler } from './application/commands/attachments/remo
 import { ListPlansForActorHandler } from './application/queries/plans/list-plans-for-actor.handler'
 import { ListTasksForActorHandler } from './application/queries/personal/list-tasks-for-actor.handler'
 import { GetMyDayHandler } from './application/queries/personal/get-my-day.handler'
+import { GetCarryOverCandidatesHandler } from './application/queries/personal/get-carry-over-candidates.handler'
 import { MY_DAY_REPOSITORY } from './domain/repositories/my-day.repository'
 import { DrizzleMyDayRepository } from './infrastructure/repositories/drizzle-my-day.repository'
 import { AddToMyDayHandler } from './application/commands/my-day/add-to-my-day.handler'
 import { RemoveFromMyDayHandler } from './application/commands/my-day/remove-from-my-day.handler'
+import { CarryOverMyDayHandler } from './application/commands/my-day/carry-over.handler'
 import {
   TASK_VISIBILITY_SERVICE,
   DrizzleTaskVisibilityService,
@@ -95,6 +97,8 @@ import { TASK_DAILY_SNAPSHOT_REPOSITORY } from './domain/repositories/task-daily
 import { DrizzleTaskDailySnapshotRepository } from './infrastructure/repositories/drizzle-task-daily-snapshot.repository'
 import { TaskDailySnapshotWorker } from './infrastructure/jobs/task-daily-snapshot.worker'
 import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-snapshot.scheduler'
+import { MyDayOrphanSweepJob } from './infrastructure/jobs/my-day-orphan-sweep.job'
+import { MyDayOrphanSweepScheduler } from './infrastructure/jobs/my-day-orphan-sweep.scheduler'
 
 @Module({
   imports: [CqrsModule, KernelModule, AdminModule, NotificationsModule],
@@ -156,10 +160,12 @@ import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-sna
     ListPlansForActorHandler,
     ListTasksForActorHandler,
     GetMyDayHandler,
+    GetCarryOverCandidatesHandler,
     GetPersonalChartsHandler,
     { provide: MY_DAY_REPOSITORY, useClass: DrizzleMyDayRepository },
     AddToMyDayHandler,
     RemoveFromMyDayHandler,
+    CarryOverMyDayHandler,
     { provide: TASK_VISIBILITY_SERVICE, useClass: DrizzleTaskVisibilityService },
     GetPlanHandler,
     GetBoardHandler,
@@ -180,6 +186,8 @@ import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-sna
     { provide: TASK_DAILY_SNAPSHOT_REPOSITORY, useClass: DrizzleTaskDailySnapshotRepository },
     TaskDailySnapshotWorker,
     TaskDailySnapshotScheduler,
+    MyDayOrphanSweepJob,
+    MyDayOrphanSweepScheduler,
     PlannerQueryFacade,
     PlannerRouterService,
   ],
