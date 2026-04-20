@@ -65,6 +65,7 @@ import { RemoveAttachmentHandler } from './application/commands/attachments/remo
 import { ListPlansForActorHandler } from './application/queries/plans/list-plans-for-actor.handler'
 import { ListTasksForActorHandler } from './application/queries/personal/list-tasks-for-actor.handler'
 import { GetMyDayHandler } from './application/queries/personal/get-my-day.handler'
+import { GetCarryOverCandidatesHandler } from './application/queries/personal/get-carry-over-candidates.handler'
 import { MY_DAY_REPOSITORY } from './domain/repositories/my-day.repository'
 import { DrizzleMyDayRepository } from './infrastructure/repositories/drizzle-my-day.repository'
 import { AddToMyDayHandler } from './application/commands/my-day/add-to-my-day.handler'
@@ -156,6 +157,7 @@ import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-sna
     ListPlansForActorHandler,
     ListTasksForActorHandler,
     GetMyDayHandler,
+    GetCarryOverCandidatesHandler,
     GetPersonalChartsHandler,
     { provide: MY_DAY_REPOSITORY, useClass: DrizzleMyDayRepository },
     AddToMyDayHandler,
