@@ -21,12 +21,12 @@ export function AgentComposer() {
         </ComposerPrimitive.Send>
       </ThreadPrimitive.If>
       <ThreadPrimitive.If running>
-        <ComposerPrimitive.Stop
-          aria-label="Stop"
+        <ComposerPrimitive.Cancel
+          aria-label="Cancel"
           className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary/50"
         >
           <Square className="h-4 w-4" />
-        </ComposerPrimitive.Stop>
+        </ComposerPrimitive.Cancel>
       </ThreadPrimitive.If>
     </ComposerPrimitive.Root>
   )

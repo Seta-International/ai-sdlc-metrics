@@ -1,11 +1,6 @@
 'use client'
 
-import {
-  ThreadPrimitive,
-  MessagePrimitive,
-  UserMessagePrimitive,
-  AssistantMessagePrimitive,
-} from '@assistant-ui/react'
+import { ThreadPrimitive, MessagePrimitive } from '@assistant-ui/react'
 
 export function AgentThread() {
   return (
@@ -34,7 +29,7 @@ function AgentUserMessage() {
   return (
     <MessagePrimitive.Root className="flex justify-end px-3 py-1">
       <div className="max-w-[85%] rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">
-        <UserMessagePrimitive.Content />
+        <MessagePrimitive.Content />
       </div>
     </MessagePrimitive.Root>
   )
@@ -44,7 +39,7 @@ function AgentAssistantMessage() {
   return (
     <MessagePrimitive.Root className="flex justify-start px-3 py-1">
       <div className="max-w-[85%] rounded-lg bg-secondary/50 px-3 py-2 text-sm text-foreground">
-        <AssistantMessagePrimitive.Content />
+        <MessagePrimitive.Content />
       </div>
     </MessagePrimitive.Root>
   )
