@@ -4,15 +4,8 @@ import { Alert, AlertDescription, Skeleton } from '@future/ui'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@future/ui'
 import { usePersonalTasks } from '@/lib/hooks/use-personal-tasks'
 import { usePersonalTasksCtx } from '../personal-tasks-context'
+import { PersonalPlanBadge } from '@/components/personal-plan-badge'
 import type { TaskFlatWithPlan } from '@future/api-client/planner'
-
-function PlanBadge({ name }: { name: string }) {
-  return (
-    <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
-      {name}
-    </span>
-  )
-}
 
 export default function PersonalGridPage() {
   const { includeCompleted } = usePersonalTasksCtx()
@@ -66,7 +59,7 @@ export default function PersonalGridPage() {
             <TableRow key={task.id}>
               <TableCell className="font-medium">{task.title}</TableCell>
               <TableCell>
-                <PlanBadge name={task.planName} />
+                <PersonalPlanBadge planName={task.planName} planKind={task.planKind} />
               </TableCell>
               <TableCell>{task.progress}</TableCell>
               <TableCell>{task.priority}</TableCell>
