@@ -90,6 +90,7 @@ import { RemoveEvidenceHandler } from './application/commands/evidence/remove-ev
 import { ListTaskEvidenceHandler } from './application/queries/evidence/list-task-evidence.handler'
 import { NotificationsModule } from '../notifications/notifications.module'
 import { OnTaskAssignedHandler } from './application/event-handlers/on-task-assigned.handler'
+import { OnTaskProgressCompletedHandler } from './application/event-handlers/on-task-progress-completed.handler'
 import { TASK_DAILY_SNAPSHOT_REPOSITORY } from './domain/repositories/task-daily-snapshot.repository'
 import { DrizzleTaskDailySnapshotRepository } from './infrastructure/repositories/drizzle-task-daily-snapshot.repository'
 import { TaskDailySnapshotWorker } from './infrastructure/jobs/task-daily-snapshot.worker'
@@ -175,6 +176,7 @@ import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-sna
     RemoveEvidenceHandler,
     ListTaskEvidenceHandler,
     OnTaskAssignedHandler,
+    OnTaskProgressCompletedHandler,
     { provide: TASK_DAILY_SNAPSHOT_REPOSITORY, useClass: DrizzleTaskDailySnapshotRepository },
     TaskDailySnapshotWorker,
     TaskDailySnapshotScheduler,
