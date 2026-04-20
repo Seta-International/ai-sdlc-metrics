@@ -39,7 +39,7 @@ export function TimezoneForm({ initial, onSave }: TimezoneFormProps) {
     <div className="space-y-2">
       <div className="flex items-center gap-3">
         <Select value={value} onValueChange={setValue} disabled={pending}>
-          <SelectTrigger className="w-80">
+          <SelectTrigger className="w-80" aria-label="Tenant timezone">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

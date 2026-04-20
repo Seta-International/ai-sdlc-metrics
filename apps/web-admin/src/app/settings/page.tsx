@@ -47,8 +47,10 @@ export default function SettingsPage() {
         <h1 className="text-h2">Tenant Settings</h1>
       </header>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Timezone</h2>
+      <section className="space-y-2" aria-labelledby="settings-timezone-heading">
+        <h2 id="settings-timezone-heading" className="text-lg font-semibold">
+          Timezone
+        </h2>
         <p className="text-sm text-muted-foreground">
           All date math in the planner (including My Day boundaries) uses this timezone.
         </p>
