@@ -23,10 +23,7 @@ vi.mock('@/lib/trpc', () => ({
   },
 }))
 
-const mockListTasks = vi.mocked(
-  // @ts-expect-error mock
-  trpc.planner.personal.listTasks.query as ReturnType<typeof vi.fn>,
-)
+const mockListTasks = vi.mocked(trpc.planner.personal.listTasks.query as ReturnType<typeof vi.fn>)
 
 function Wrapper({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })

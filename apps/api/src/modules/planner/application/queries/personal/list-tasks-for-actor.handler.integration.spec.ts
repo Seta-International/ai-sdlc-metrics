@@ -48,19 +48,6 @@ async function seedPersonalPlan(
   return planId
 }
 
-async function seedMember(
-  db: Db,
-  planId: string,
-  tenantId: string,
-  actorId: string,
-  role: string,
-): Promise<void> {
-  await db.execute(
-    sql`INSERT INTO planner.plan_member (plan_id, actor_id, role, added_by, added_at, tenant_id)
-        VALUES (${planId}, ${actorId}, ${role}, ${actorId}, NOW(), ${tenantId})`,
-  )
-}
-
 async function seedBucket(
   db: Db,
   planId: string,
@@ -132,24 +119,6 @@ async function softDeletePlan(db: Db, planId: string, tenantId: string): Promise
   await db.execute(
     sql`UPDATE planner.plan SET deleted_at = NOW() WHERE id = ${planId} AND tenant_id = ${tenantId}`,
   )
-}
-
-async function setTaskProgress(
-  db: Db,
-  taskId: string,
-  progress: number,
-  tenantId: string,
-): Promise<void> {
-  // chk_task_completion_consistency: progress=100 requires completed_at IS NOT NULL
-  if (progress === 100) {
-    await db.execute(
-      sql`UPDATE planner.task SET progress = ${progress}, completed_at = NOW() WHERE id = ${taskId} AND tenant_id = ${tenantId}`,
-    )
-  } else {
-    await db.execute(
-      sql`UPDATE planner.task SET progress = ${progress}, completed_at = NULL, completed_by = NULL WHERE id = ${taskId} AND tenant_id = ${tenantId}`,
-    )
-  }
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
