@@ -77,6 +77,7 @@ No FK constraints across schema boundaries. No imports from another module's `do
 
 - The sidebar is owned by `@future/app-layout`, rendered once via `<AppLayout>`. Never build a zone-local sidebar.
 - A `NavGroup` has **exactly one** of `items` (static) or `render` (dynamic React component using hooks / tRPC). Never both, no fallback logic, no dual-shape shims.
+- **Personal Hubs** — every zone's sidebar config may contribute a dynamic `render` group for Personal Hubs (My Day / My Tasks / My Plans). Render components must use React Query, respect `PermissionContext`, and render only `@future/ui` sidebar primitives.
 
 ### Testing (TDD — No Exceptions)
 

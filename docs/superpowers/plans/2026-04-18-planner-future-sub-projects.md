@@ -191,6 +191,17 @@ These are the open questions for the Sub-project #2 brainstorm session:
 - Phase 3.4: My Day with ephemeral-vs-hybrid decision ratified.
 - Phase 3.5: Carry-over UX + polish.
 
+## Sub-project #3 — Personal Hubs — **SHIPPED**
+
+- Shipped date: 2026-04-20 (fill final date at merge of Plan 3.5 PR).
+- PRs: Plan 3.1 #59, Plan 3.2 #60, Plan 3.3 #61, Plan 3.4 #63, Plan 3.5 (this PR).
+- Feature flag: `planner.personal.enabled` (via `getPlannerViewFlags.personalEnabled`) — on for SETA internal tenant since Plan 3.2. No other tenant rolled out yet.
+- Out-of-scope deferred items: global sidebar rollout (Sub-project #3b), MS sync of personal plans (Sub-project #4), per-user timezone override, cross-device dismissal memory for the carry-over banner (locked decision 9).
+- Known follow-ups flagged during Plan 3.5:
+  - UI affordances expected by the E2E spec (per-card "Mark complete" button, kebab "Focus today" menu item on the My Tasks grid) need to be surfaced for the Playwright flow to run green against the live stack.
+  - Orphan-sweep job currently logs only a count; a future hardening PR will log the deleted `task_id` set (capped) for forensics.
+  - Carry-over bypasses the `canActorSeeTask` check that `AddToMyDayCommand` runs. Acceptable today because candidates are filtered server-side to the actor's own yesterday entries; tighten if a direct-API abuse vector materializes.
+
 ---
 
 # Sub-Project #4 — MS 365 Two-Way Sync Engine
