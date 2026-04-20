@@ -51,6 +51,7 @@ export default function MyDaySchedulePage() {
       <ScheduleCalendar
         items={items}
         view="dayGridWeek"
+        onViewChange={() => {}}
         onChange={() => {}}
         readOnly
         availableViews={['dayGridWeek', 'dayGridMonth']}
