@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import React from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ChartsPage from './page'
 
 // Mock useFlatTasks
@@ -10,12 +11,33 @@ vi.mock('@/lib/hooks/useFlatTasks', () => ({
 import { useFlatTasks } from '@/lib/hooks/useFlatTasks'
 const mockUseFlatTasks = vi.mocked(useFlatTasks)
 
+// Mock session so the useQuery for view flags runs without blowing up
+vi.mock('@future/auth', () => ({
+  useSession: () => ({ actorId: 'actor-1', tenantId: 'tenant-1' }),
+}))
+
+// Mock the tRPC client so we don't hit a network
+vi.mock('../../../../lib/trpc', () => ({
+  trpc: {
+    planner: {
+      plans: {
+        getViewFlags: { query: vi.fn().mockResolvedValue({ trendsEnabled: false }) },
+      },
+    },
+  },
+}))
+
 // Mock ChartsGrid (already tested separately)
 vi.mock('@/components/charts/ChartsGrid', () => ({
   ChartsGrid: ({ planId, tasks }: any) => (
     <div data-testid="charts-grid" data-plan-id={planId} data-task-count={tasks.length} />
   ),
 }))
+
+function renderWithClient(ui: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+}
 
 describe('ChartsPage', () => {
   it('shows skeleton while loading', () => {
@@ -26,7 +48,7 @@ describe('ChartsPage', () => {
       refetch: vi.fn(),
       processed: undefined,
     })
-    render(<ChartsPage params={{ id: 'plan-1' }} />)
+    renderWithClient(<ChartsPage params={{ id: 'plan-1' }} />)
     // Skeleton grid renders without ChartsGrid
     expect(screen.queryByTestId('charts-grid')).not.toBeInTheDocument()
   })
@@ -39,7 +61,7 @@ describe('ChartsPage', () => {
       refetch: vi.fn(),
       processed: undefined,
     })
-    render(<ChartsPage params={{ id: 'plan-1' }} />)
+    renderWithClient(<ChartsPage params={{ id: 'plan-1' }} />)
     expect(screen.getByRole('alert')).toHaveTextContent(/failed to load/i)
   })
 
@@ -51,7 +73,7 @@ describe('ChartsPage', () => {
       refetch: vi.fn(),
       processed: { rows: [], groups: [] },
     })
-    render(<ChartsPage params={{ id: 'plan-1' }} />)
+    renderWithClient(<ChartsPage params={{ id: 'plan-1' }} />)
     expect(screen.getByTestId('charts-grid')).toBeInTheDocument()
     expect(screen.getByTestId('charts-grid')).toHaveAttribute('data-plan-id', 'plan-1')
   })
