@@ -13,6 +13,16 @@ export class InMemoryPlanRepository implements IPlanRepository {
     return [...this.store.values()].filter((p) => p.tenantId === tenantId && !p.deletedAt)
   }
 
+  async findPersonalByOwner(
+    tenantId: string,
+    ownerActorId: string,
+  ): Promise<{ id: string } | null> {
+    const plan = [...this.store.values()].find(
+      (p) => p.tenantId === tenantId && p.ownerActorId === ownerActorId && !p.deletedAt,
+    )
+    return plan ? { id: plan.id } : null
+  }
+
   async listAllIds(tenantId: string): Promise<string[]> {
     return [...this.store.values()]
       .filter((p) => p.tenantId === tenantId && !p.deletedAt)

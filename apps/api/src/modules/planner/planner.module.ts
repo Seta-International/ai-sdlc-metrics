@@ -20,6 +20,7 @@ import { DrizzlePlanLabelRepository } from './infrastructure/repositories/drizzl
 import { DrizzlePlanMemberRepository } from './infrastructure/repositories/drizzle-plan-member.repository'
 import { PlanAuthorizationService } from './application/services/plan-authorization.service'
 import { CreatePlanHandler } from './application/commands/plans/create-plan.handler'
+import { CreatePersonalPlanHandler } from './application/commands/plans/create-personal-plan.handler'
 import { RenamePlanHandler } from './application/commands/plans/rename-plan.handler'
 import { DeletePlanHandler } from './application/commands/plans/delete-plan.handler'
 import { AddPlanMemberHandler } from './application/commands/plans/add-plan-member.handler'
@@ -106,6 +107,7 @@ import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-sna
     },
     PlanAuthorizationService,
     CreatePlanHandler,
+    CreatePersonalPlanHandler,
     RenamePlanHandler,
     DeletePlanHandler,
     AddPlanMemberHandler,

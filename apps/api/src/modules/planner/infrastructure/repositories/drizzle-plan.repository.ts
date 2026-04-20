@@ -144,6 +144,24 @@ export class DrizzlePlanRepository implements IPlanRepository {
       })
   }
 
+  async findPersonalByOwner(
+    tenantId: string,
+    ownerActorId: string,
+  ): Promise<{ id: string } | null> {
+    const rows = await this.db
+      .select({ id: plannerPlan.id })
+      .from(plannerPlan)
+      .where(
+        and(
+          eq(plannerPlan.tenantId, tenantId),
+          eq(plannerPlan.ownerActorId, ownerActorId),
+          isNull(plannerPlan.deletedAt),
+        ),
+      )
+      .limit(1)
+    return rows[0] ?? null
+  }
+
   async listAllIds(tenantId: string): Promise<string[]> {
     const rows = await this.db
       .select({ id: plannerPlan.id })
