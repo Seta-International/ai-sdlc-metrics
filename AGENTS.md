@@ -73,6 +73,11 @@ No FK constraints across schema boundaries. No imports from another module's `do
 
 - No shims, no deprecated aliases. Update callers; never preserve old interfaces.
 
+### Navigation / Sidebar
+
+- The sidebar is owned by `@future/app-layout`, rendered once via `<AppLayout>`. Never build a zone-local sidebar.
+- A `NavGroup` has **exactly one** of `items` (static) or `render` (dynamic React component using hooks / tRPC). Never both, no fallback logic, no dual-shape shims.
+
 ### Testing (TDD — No Exceptions)
 
 - **Write the test first.** No test = feature not started. Test not passing = not done.
