@@ -1,8 +1,9 @@
-import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common'
-import { sql } from 'drizzle-orm'
-import type { Db } from '@future/db'
+import { Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common'
+import { createDb, type Db } from '@future/db'
+import { ClsService } from 'nestjs-cls'
 import { PgBossService } from '../../../../common/jobs/pg-boss.service'
-import { DB_TOKEN } from '../../../../common/db/db.module'
+import { BASE_DB_TOKEN } from '../../../../common/db/db.module'
+import { RequestDbContextService } from '../../../../common/db/request-db-context.service'
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import type { IPlanRepository } from '../../domain/repositories/plan.repository'
 import { PLAN_REPOSITORY } from '../../domain/repositories/plan.repository'
@@ -18,18 +19,20 @@ const BATCH_SIZE = 50
 const BATCH_DELAY_MS = 500
 
 @Injectable()
-export class TaskDailySnapshotScheduler implements OnModuleInit {
+export class TaskDailySnapshotScheduler implements OnApplicationBootstrap {
   private readonly logger = new Logger(TaskDailySnapshotScheduler.name)
 
   constructor(
     private readonly pgBoss: PgBossService,
-    @Inject(DB_TOKEN) private readonly db: Db,
+    @Inject(BASE_DB_TOKEN) private readonly baseDb: Db,
+    private readonly requestDbContext: RequestDbContextService,
+    private readonly cls: ClsService,
     private readonly kernelQueryFacade: KernelQueryFacade,
     @Inject(PLAN_REPOSITORY) private readonly plans: IPlanRepository,
     private readonly worker: TaskDailySnapshotWorker,
   ) {}
 
-  async onModuleInit(): Promise<void> {
+  async onApplicationBootstrap(): Promise<void> {
     // Idempotent: pg-boss schedule() upserts by name.
     await this.pgBoss.schedule(FANOUT_JOB, '15 0 * * *')
 
@@ -41,10 +44,28 @@ export class TaskDailySnapshotScheduler implements OnModuleInit {
       PER_PLAN_JOB,
       async (jobs) => {
         for (const job of jobs) {
-          await this.db.execute(
-            sql`SELECT set_config('app.tenant_id', ${job.data.tenantId}, false)`,
-          )
-          await this.worker.handle(job)
+          await this.cls.run(async () => {
+            const client = await this.baseDb.$client.connect()
+            try {
+              await client.query("SELECT set_config('app.tenant_id', $1, false)", [
+                job.data.tenantId,
+              ])
+              this.requestDbContext.setDb(createDb(client))
+              try {
+                await this.worker.handle(job)
+              } finally {
+                await client.query('RESET app.tenant_id')
+              }
+            } catch (err) {
+              this.logger.error(
+                `snapshot job failed for tenant=${job.data.tenantId} plan=${job.data.planId}`,
+                err,
+              )
+              throw err
+            } finally {
+              client.release()
+            }
+          })
         }
       },
       { localConcurrency: 3 },
