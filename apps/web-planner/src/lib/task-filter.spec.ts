@@ -27,8 +27,9 @@ const mkTask = (partial: Partial<TaskFlat>): TaskFlat => ({
 
 describe('applyTaskFilter', () => {
   beforeAll(() => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-04-19T12:00:00Z'))
+    vi.useFakeTimers({
+      now: new Date('2026-04-19T12:00:00Z'),
+    })
   })
   afterAll(() => {
     vi.useRealTimers()
@@ -117,5 +118,33 @@ describe('applyTaskFilter', () => {
     expect(
       applyTaskFilter(t, { priority: [], labels: [], buckets: [], assignees: ['a99'] }),
     ).toHaveLength(0)
+  })
+
+  describe('includeCompleted option', () => {
+    const filter = { priority: [], labels: [], buckets: [], assignees: [] }
+
+    it('hides completed tasks when includeCompleted=false', () => {
+      const tasks: TaskFlat[] = [
+        mkTask({ id: 'a', progress: 'in-progress' }),
+        mkTask({ id: 'b', progress: 'completed' }),
+      ]
+      const result = applyTaskFilter(tasks, filter, { includeCompleted: false })
+      expect(result.map((t) => t.id)).toEqual(['a'])
+    })
+
+    it('keeps completed tasks when includeCompleted=true', () => {
+      const tasks: TaskFlat[] = [
+        mkTask({ id: 'a', progress: 'in-progress' }),
+        mkTask({ id: 'b', progress: 'completed' }),
+      ]
+      const result = applyTaskFilter(tasks, filter, { includeCompleted: true })
+      expect(result.map((t) => t.id).sort()).toEqual(['a', 'b'])
+    })
+
+    it('defaults includeCompleted to true when the option is not passed', () => {
+      const tasks: TaskFlat[] = [mkTask({ id: 'a', progress: 'completed' })]
+      const result = applyTaskFilter(tasks, filter)
+      expect(result.map((t) => t.id)).toEqual(['a'])
+    })
   })
 })
