@@ -97,6 +97,7 @@ import { TASK_DAILY_SNAPSHOT_REPOSITORY } from './domain/repositories/task-daily
 import { DrizzleTaskDailySnapshotRepository } from './infrastructure/repositories/drizzle-task-daily-snapshot.repository'
 import { TaskDailySnapshotWorker } from './infrastructure/jobs/task-daily-snapshot.worker'
 import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-snapshot.scheduler'
+import { MyDayOrphanSweepJob } from './infrastructure/jobs/my-day-orphan-sweep.job'
 
 @Module({
   imports: [CqrsModule, KernelModule, AdminModule, NotificationsModule],
@@ -184,6 +185,7 @@ import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-sna
     { provide: TASK_DAILY_SNAPSHOT_REPOSITORY, useClass: DrizzleTaskDailySnapshotRepository },
     TaskDailySnapshotWorker,
     TaskDailySnapshotScheduler,
+    MyDayOrphanSweepJob,
     PlannerQueryFacade,
     PlannerRouterService,
   ],
