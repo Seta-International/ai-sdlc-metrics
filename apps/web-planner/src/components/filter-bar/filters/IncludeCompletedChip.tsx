@@ -9,8 +9,8 @@ export function IncludeCompletedChip({
   value: boolean
   onChange: (next: boolean) => void
 }) {
-  const Icon = value ? Check : EyeOff
-  const label = value ? 'Show completed' : 'Hide completed'
+  const Icon = value ? EyeOff : Check
+  const label = value ? 'Hide completed' : 'Show completed'
   return (
     <Button variant={value ? 'default' : 'ghost'} size="sm" onClick={() => onChange(!value)}>
       <Icon className="size-4" aria-hidden={true} />

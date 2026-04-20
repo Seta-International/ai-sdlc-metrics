@@ -1,6 +1,7 @@
 'use client'
 import { RadioGroup, RadioGroupItem, Label } from '@future/ui'
 import { useViewState } from '@/lib/hooks/useViewState'
+import type { ViewStateOptions } from '@/lib/hooks/useViewState'
 import type { DueBucket } from '@/lib/view-state'
 
 const DUE_OPTIONS: { value: DueBucket; label: string }[] = [
@@ -13,8 +14,8 @@ const DUE_OPTIONS: { value: DueBucket; label: string }[] = [
   { value: 'none', label: 'No date' },
 ]
 
-export function DueFilter({ planId }: { planId: string }) {
-  const { state, patch } = useViewState({ planId })
+export function DueFilter({ viewStateOpts }: { viewStateOpts: ViewStateOptions }) {
+  const { state, patch } = useViewState(viewStateOpts)
 
   return (
     <RadioGroup

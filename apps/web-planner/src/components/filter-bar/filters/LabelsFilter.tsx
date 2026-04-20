@@ -9,10 +9,17 @@ import {
   Checkbox,
 } from '@future/ui'
 import { useViewState } from '@/lib/hooks/useViewState'
+import type { ViewStateOptions } from '@/lib/hooks/useViewState'
 import type { PlanContext } from '../types'
 
-export function LabelsFilter({ planId, context }: { planId: string; context: PlanContext }) {
-  const { state, patch } = useViewState({ planId })
+export function LabelsFilter({
+  viewStateOpts,
+  context,
+}: {
+  viewStateOpts: ViewStateOptions
+  context: PlanContext
+}) {
+  const { state, patch } = useViewState(viewStateOpts)
 
   function toggle(id: string) {
     const cur = state.filter.labels

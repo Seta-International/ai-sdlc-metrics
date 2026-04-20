@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { Button } from '@future/ui'
 import { FilterPopover } from './FilterPopover'
 import { useViewState } from '@/lib/hooks/useViewState'
+import type { ViewStateOptions } from '@/lib/hooks/useViewState'
 import type { PlanContext, FilterField } from './types'
 import type { ViewState } from '@/lib/view-state'
 
@@ -18,8 +19,6 @@ function chipLabel(field: FilterField, filter: ViewState['filter']): string {
       return `Buckets${filter.buckets.length > 0 ? ` (${filter.buckets.length})` : ''}`
     case 'assignees':
       return `Assignees${filter.assignees.length > 0 ? ` (${filter.assignees.length})` : ''}`
-    case 'includeCompleted':
-      return 'Include completed'
   }
 }
 
@@ -35,23 +34,21 @@ function clearFilter(field: FilterField, filter: ViewState['filter']): ViewState
       return { ...filter, buckets: [] }
     case 'assignees':
       return { ...filter, assignees: [] }
-    case 'includeCompleted':
-      return filter
   }
 }
 
 export function FilterChip({
-  planId,
+  viewStateOpts,
   field,
   context,
   onRemove,
 }: {
-  planId: string
+  viewStateOpts: ViewStateOptions
   field: FilterField
   context: PlanContext
   onRemove?: () => void
 }) {
-  const { state, patch } = useViewState({ planId })
+  const { state, patch } = useViewState(viewStateOpts)
 
   function handleClear() {
     patch({ filter: clearFilter(field, state.filter) })
@@ -60,7 +57,7 @@ export function FilterChip({
 
   return (
     <div className="flex items-center rounded-md border border-input shadow-sm">
-      <FilterPopover planId={planId} field={field} context={context}>
+      <FilterPopover viewStateOpts={viewStateOpts} field={field} context={context}>
         <Button variant="ghost" size="sm" className="rounded-r-none border-r-0 h-8">
           {chipLabel(field, state.filter)}
         </Button>

@@ -11,6 +11,7 @@ import {
 import { FilterChip } from './FilterChip'
 import { IncludeCompletedChip } from './filters/IncludeCompletedChip'
 import { useViewState } from '@/lib/hooks/useViewState'
+import type { ViewStateOptions } from '@/lib/hooks/useViewState'
 import type { PlanContext, FilterField, FilterMode } from './types'
 import type { ViewState } from '@/lib/view-state'
 
@@ -20,7 +21,6 @@ const FILTER_LABEL: Record<FilterField, string> = {
   labels: 'Labels',
   buckets: 'Buckets',
   assignees: 'Assignees',
-  includeCompleted: 'Include completed',
 }
 
 function computeActiveFields(filter: ViewState['filter'], pinned: Set<FilterField>): FilterField[] {
@@ -45,8 +45,6 @@ function addFilterDefault(filter: ViewState['filter'], field: FilterField): View
       return { ...filter, buckets: [] }
     case 'assignees':
       return { ...filter, assignees: [] }
-    case 'includeCompleted':
-      return filter
   }
 }
 
@@ -63,7 +61,7 @@ export function FilterBar({
   includeCompleted?: boolean
   onIncludeCompletedChange?: (next: boolean) => void
 }) {
-  const stateOpts = planId ? { planId } : { scope: 'personal' as const }
+  const stateOpts: ViewStateOptions = planId ? { planId } : { scope: 'personal' }
   const { state, patch } = useViewState(stateOpts)
   const [pinned, setPinned] = useState<Set<FilterField>>(() => new Set())
   const active = useMemo(() => computeActiveFields(state.filter, pinned), [state.filter, pinned])
@@ -76,7 +74,7 @@ export function FilterBar({
       {active.map((field) => (
         <FilterChip
           key={field}
-          planId={planId ?? ''}
+          viewStateOpts={stateOpts}
           field={field}
           context={context}
           onRemove={() =>

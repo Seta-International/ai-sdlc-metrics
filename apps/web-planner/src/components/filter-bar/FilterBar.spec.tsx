@@ -49,6 +49,6 @@ describe('FilterBar', () => {
         onIncludeCompletedChange={vi.fn()}
       />,
     )
-    expect(screen.getByText(/hide completed/i)).toBeInTheDocument()
+    expect(screen.getByText(/show completed/i)).toBeInTheDocument()
   })
 })
