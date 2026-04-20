@@ -449,7 +449,9 @@ experimental_telemetry: {
 
 ## 12. Phased implementation sequence
 
-Full v1 spec delivered across 7 phases. **Honest estimate: 18–22 weeks for one senior engineer, or ~10–12 weeks for a team of three with parallel tracks.** Phases have intermediate demos. Sequencing favors: security boundary first, observability from Day 1, write surface after reads, async late, content moderation + eval CI in Phase 6.
+Full v1 spec delivered across 7 phases. **Honest estimate: 19–23 weeks for one senior engineer, or ~11–13 weeks for a team of three with parallel tracks.** Phases have intermediate demos. Sequencing favors: security boundary first, observability Day 1, writes after reads, compliance (GDPR) before cost/eval work, async and moderation late, replay last.
+
+**Production access is internal/pilot-only through Phase 6.** Full external GA requires Phase 7 (content moderation).
 
 ### Phase 1 — Runtime foundation (weeks 1–4)
 
@@ -494,9 +496,9 @@ Full v1 spec delivered across 7 phases. **Honest estimate: 18–22 weeks for one
 
 **Exit criterion:** "Who's on Project X with overdue tasks?" fans out to 3 sub-agents and synthesizes a coherent answer with citations to 3 distinct domains.
 
-### Phase 4 — Writes, approvals, drafts (weeks 11–13)
+### Phase 4 — Writes, approvals, drafts, L3 memory (weeks 11–14)
 
-**Ships:** §10 end-to-end — draft proposal, permission envelope, taint bump, approval inbox, execute-approved-draft.
+**Ships:** §10 end-to-end (draft proposal, permission envelope, taint bump, approval inbox, execute-approved-draft) + §5 L3 memory.
 
 - `DraftService` — draft creation, permission envelope at draft time, provenance assembly, taint → approval-tier bump enforced at gateway (independent of model narrative).
 - Draft TTL: 72h default, per-tool override via `approvalTtl`.
@@ -508,13 +510,18 @@ Full v1 spec delivered across 7 phases. **Honest estimate: 18–22 weeks for one
 - Draft provenance presenter component in `@future/ui`; web-chat renders via it.
 - `permission_widened_between_draft_and_execute` audit event; strict widening detection.
 - `planner.tasks.draftCreate` + `draftUpdate` tools go live.
+- **L3 memory** — user-initiated CRUD endpoints; tRPC mutations deliberately omit `.meta({ agent })` (enforced invariant, not convention).
 
-**Exit criterion:** drafting a task from a tainted turn produces an approval-required draft; manager approves; job executes against live data via domain command; all audit events present; permission widening (tested by synthetic scenario) emits audit event without blocking.
+**Exit criterion:** drafting a task from a tainted turn produces an approval-required draft; manager approves; job executes against live data via domain command; all audit events present; permission widening (tested by synthetic scenario) emits audit event without blocking; L3 preference read and written via user-initiated API.
 
-### Phase 5 — Async agents (weeks 14–15)
+### Phase 5 — GDPR erasure + async agents (weeks 15–17)
 
-**Ships:** §11 — personal schedules + tenant-wide schedules + full delegation lifecycle (mint + revoke already live from Phase 4).
+**Ships:** §6 right-to-erasure pipeline + §11 async agents (personal + tenant-wide schedules, full delegation lifecycle).
 
+**Why GDPR here:** data paths that erasure touches (L3, agent_message content, Langfuse traces) all exist by end of Phase 4. Shipping erasure before async keeps compliance ahead of any production access.
+
+- `erasure-pipeline.service` — transactional DB hard-delete (content fields only; structural shell survives) + Langfuse `purgeByUserId` + L3 delete; compensating action on partial failure logs compliance incident.
+- Erasure drift test: every table holding user-origin content has a deletion path covered by the pipeline.
 - `DelegationLimitsService` — max 10 active default; 180d auto-expire; admin UI listing.
 - Personal + tenant-wide grant creation paths (Phase 4 only minted synthetic execution-delegations at draft time; Phase 5 adds the user-initiated `grant` path).
 - Rate limit: `schedule_or_delegation_creations_per_user_per_day = 5`.
@@ -523,11 +530,11 @@ Full v1 spec delivered across 7 phases. **Honest estimate: 18–22 weeks for one
 - Read-only + notify + draft-to-inbox policy enforced in async turn runner (no autonomous writes in v1).
 - Admin UI: active schedules, active delegations, per-schedule metrics.
 
-**Exit criterion:** a scheduled personal agent runs weekly, drafts to inbox under the delegator's authority, pauses when delegation expires, and fails gracefully when per-delegation cost ceiling trips.
+**Exit criterion:** right-to-erasure request completes end-to-end across DB + Langfuse + L3, with compliance-incident logging on a synthetic partial-failure; a scheduled personal agent runs weekly, drafts to inbox under the delegator's authority, pauses when delegation expires, and fails gracefully when per-delegation cost ceiling trips.
 
-### Phase 6 — Cost control, canary, eval, content moderation (weeks 16–19)
+### Phase 6 — Cost control, canary, eval CI (weeks 18–20)
 
-**Ships:** §13 full cost control + §12 canary + §14 eval CI gate + §18 content moderation.
+**Ships:** §13 full cost control + §12 canary + §14 eval CI gate.
 
 - `CostMeter` — dollar denomination with cached-token accounting; pre-turn refusal with minimum-balance check; mid-turn abort on ceiling; distinct `turn.ended.reason` for `refused` vs `budget`.
 - Tenant tiered degradation: 80% pauses async, 95% drops to nano, 100% hard refuse. Admin notifications rate-limited.
@@ -535,25 +542,24 @@ Full v1 spec delivered across 7 phases. **Honest estimate: 18–22 weeks for one
 - Refusal trace captures expected-cost estimate.
 - `QualityCanaryService` — rolling probe per tier, canary queries rotated quarterly from production, frozen fixture tenant, degraded-flag, budget-independent fallback, both-tiers fallback with elevated notice.
 - Per-turn anomaly dashboards: validation-error rate spike, iteration-count distribution anomaly.
+- Confidence calibration dashboard (spec §12) — query over existing thumbs/approval signals.
 - Golden-trace CI gate: Langfuse Datasets + Experiments; small hand-curated set; adversarial sanitization-projection subset.
+
+**Exit criterion:** CI gate blocks a PR that regresses on the golden trace set; quality-canary catches a synthetic model degradation and fails over to the other tier; tenant hitting 95% silently drops to nano-only with visible user banner.
+
+### Phase 7 — Moderation, replay, polish, nightly consistency check (weeks 21–23)
+
+**Ships:** content moderation (§18), replay harness, nightly consistency check, dev-mode affordances, remaining polish. External GA gate.
+
 - **Content moderation (§18):** `OutputModerator` port + `OpenAIModerationAdapter`; wired on input (pre-router) and output (pre-stream-complete); `turn.ended.reason = 'moderation'` when flagged; content-hash caching within a turn.
-- L3 memory (`user-initiated writes only`); CRUD endpoints; tRPC mutations deliberately omit `.meta({ agent })`.
-
-**Exit criterion:** CI gate blocks a PR that regresses on the golden trace set; quality-canary catches a synthetic model degradation and fails over to the other tier; tenant hitting 95% silently drops to nano-only with visible user banner; moderation flags a synthetic harmful utterance and fires `turn.ended.reason = 'moderation'`.
-
-### Phase 7 — Replay, GDPR, polish, nightly consistency check (weeks 20–22)
-
-**Ships:** replay harness, GDPR erasure, nightly consistency check, dev-mode affordances, remaining polish.
-
 - `ReplayHarness` — CLI tool + HTTP endpoint for dev users; given `trace_id`, reconstructs full message array via hash stores; errors-on-miss with no silent fallback.
 - **Nightly prompt-hash consistency check (§6)** — Inngest daily function asserts that every `content_hash` referenced by a Langfuse trace in the last 24h exists in `agents.prompt_store` / `agents.narrative_store`. Mismatch → kernel audit event `agent.prompt_hash_missing` + page on-call.
-- `erasure-pipeline.service` — transactional DB hard-delete + Langfuse `purgeByUserId` + L3 delete; compensating action on partial failure logs compliance incident.
 - Dev-mode UI deep-linking: conversation message → Langfuse trace + replay tool for 100%-captured turns.
 - End-user deep-link to redacted-safe audit-trail summary.
 - L4 lazy fetch pattern finalized (`AdminQueryFacade.getCurrencyPreference` etc.).
 - Documentation pass; runbook for common incidents; alert playbook.
 
-**Exit criterion:** right-to-erasure request completes end-to-end; a replay of a production trace_id reconstructs the exact message array; dev-mode deep-link lands on the Langfuse trace; nightly consistency check runs without mismatches on a seeded-inconsistency test.
+**Exit criterion:** moderation flags a synthetic harmful utterance and fires `turn.ended.reason = 'moderation'`; a replay of a production trace_id reconstructs the exact message array; dev-mode deep-link lands on the Langfuse trace; nightly consistency check runs without mismatches on a seeded-inconsistency test.
 
 ---
 
