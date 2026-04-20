@@ -23,8 +23,8 @@ export default function MyDayBoardPage() {
   if (isLoading) {
     return (
       <div className="flex gap-4 p-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-96 w-72" />
+        {['a', 'b', 'c'].map((k) => (
+          <Skeleton key={k} className="h-96 w-72" />
         ))}
       </div>
     )
