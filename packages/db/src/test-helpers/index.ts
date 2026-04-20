@@ -293,6 +293,7 @@ export async function seedAllocation(
 export async function truncatePlannerSchema(db: Db): Promise<void> {
   await db.execute(
     sql`TRUNCATE
+      planner.task_daily_snapshot,
       planner.task_evidence,
       planner.task_comment,
       planner.task_attachment,
