@@ -32,6 +32,8 @@ export const plannerPlan = plannerSchema.table(
     msRosterId: text('ms_roster_id'),
     msPlanId: text('ms_plan_id'),
     msPlanEtag: text('ms_plan_etag'),
+    ownerActorId: uuid('owner_actor_id'), // nullable — null for team plans, set for personal plans
+    syncEnabled: boolean('sync_enabled').notNull().default(true), // true for team; handler overrides to false for personal
     createdBy: uuid('created_by').notNull(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -52,6 +54,9 @@ export const plannerPlan = plannerSchema.table(
     uniqueIndex('uq_plan_tenant_ms_plan_id')
       .on(table.tenantId, table.msPlanId)
       .where(sql`${table.msPlanId} IS NOT NULL`),
+    index('idx_plan_tenant_owner_actor')
+      .on(table.tenantId, table.ownerActorId)
+      .where(sql`${table.ownerActorId} IS NOT NULL`),
   ],
 )
 
@@ -327,5 +332,22 @@ export const plannerTaskEvidence = plannerSchema.table(
     ),
     index('idx_task_evidence_task_submitted').on(table.taskId, table.submittedAt),
     index('idx_task_evidence_tenant_submitted_by').on(table.tenantId, table.submittedBy),
+  ],
+)
+
+export const plannerMyDayEntry = plannerSchema.table(
+  'my_day_entry',
+  {
+    actorId: uuid('actor_id').notNull(),
+    taskId: uuid('task_id').notNull(),
+    addedDate: date('added_date').notNull(),
+    addedAt: timestamp('added_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    tenantId: uuid('tenant_id').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.actorId, table.taskId, table.addedDate] }),
+    index('idx_my_day_entry_today').on(table.tenantId, table.actorId, table.addedDate),
+    index('idx_my_day_entry_task').on(table.taskId),
   ],
 )
