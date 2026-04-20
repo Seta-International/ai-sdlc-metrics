@@ -67,7 +67,7 @@ describe('usePersonalCharts', () => {
 
     const { result } = renderHook(() => usePersonalCharts(), { wrapper: Wrapper })
 
-    await new Promise((r) => setTimeout(r, 20))
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
 
     expect(result.current.data).toBeUndefined()
     expect(mockQuery).not.toHaveBeenCalled()
