@@ -20,6 +20,12 @@ export class InMemoryTaskRepository implements ITaskRepository {
     )
   }
 
+  async listByPlanIncludingCompleted(planId: string, tenantId: string): Promise<Task[]> {
+    return [...this.store.values()].filter(
+      (t) => t.planId === planId && t.tenantId === tenantId && !t.deletedAt,
+    )
+  }
+
   async save(task: Task): Promise<void> {
     this.store.set(task.id, task)
   }
