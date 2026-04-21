@@ -16,9 +16,9 @@
 
 ---
 
-Most business software gives you a dashboard and leaves you to figure out what to do next. Future is different. Every workflow has an embedded agent that **acts**: reconciles payroll, surfaces contract expirations, routes approvals, answers "what's our margin on this project?" in seconds from data you can trust.
+Most enterprise software hands you a dashboard and calls it done. Future goes further — every workflow has an embedded agent that **takes action**: it reconciles payroll, flags expiring contracts, routes approvals, and answers _"what's our margin on this project?"_ in seconds, from data you can actually trust.
 
-Built on a unified canonical data layer across HR, time, hiring, finance, projects, and goals — the kind of foundation that makes cross-functional answers possible without a three-day spreadsheet exercise.
+One canonical data layer spans HR, time, hiring, finance, projects, and goals. Cross-functional questions get real answers — not a three-day spreadsheet exercise.
 
 ---
 
@@ -27,7 +27,7 @@ Built on a unified canonical data layer across HR, time, hiring, finance, projec
 - [What it does](#what-it-does)
 - [How it's built](#how-its-built)
 - [Set up with an AI agent](#set-up-with-an-ai-agent)
-- [Get started](#get-started)
+- [Get started manually](#get-started-manually)
 - [Docs](#docs)
 
 ---
@@ -49,11 +49,11 @@ Built on a unified canonical data layer across HR, time, hiring, finance, projec
 
 ## How it's built
 
-The frontend is **11 independent Next.js zones** — one per domain — talking to a single NestJS API over tRPC. No monolithic frontend. No shared state between zones. Each zone deploys independently.
+The frontend is **11 independent Next.js zones** — one per domain — each talking to a single NestJS API over tRPC. No shared state, no monolithic bundle. Zones deploy and scale independently.
 
-The backend is a **modular monolith**: 13 domain modules (People, Time, Hiring, Finance...), each owning its own Postgres schema and Drizzle ORM layer. Modules never import each other's internals — cross-module reads go through typed facades, async writes go through a durable outbox. Row-level security enforces tenant isolation at the database level.
+The backend is a **modular monolith** of 13 domain modules, each owning its own Postgres schema and Drizzle ORM layer. Modules are strictly isolated: cross-module reads go through typed facades, async writes through a durable outbox. Row-level security enforces tenant boundaries at the database itself.
 
-**Agents** live inside the `agents` module and reach other modules through MCP tool contracts — the same authorization layer the UI uses. No agent bypasses the kernel permission check. Every action leaves an `audit_event`.
+**Agents** are first-class citizens — they live in the `agents` module and reach every other module through MCP tool contracts, subject to the same kernel permission check as the UI. No shortcuts, no side doors. Every action leaves an `audit_event`.
 
 ```mermaid
 flowchart TD
@@ -113,7 +113,7 @@ flowchart TD
 
 ## Set up with an AI agent
 
-Open your agent and paste:
+Drop this into any AI coding agent (Copilot, Cursor, Claude, etc.) and it handles the rest:
 
 ```
 Read AGENTS.md and QUICKSTART.md, then run `sh scripts/bootstrap.sh --full`. Tell me which .env values still need filling in, then start the dev server. I'm working on: [your task]
@@ -121,7 +121,7 @@ Read AGENTS.md and QUICKSTART.md, then run `sh scripts/bootstrap.sh --full`. Tel
 
 ---
 
-## Get started
+## Get started manually
 
 ```bash
 git clone <repo>
@@ -129,7 +129,7 @@ sh scripts/bootstrap.sh --full   # copies .env files, installs, starts DB, build
 bun run dev --filter=@future/api --filter=@future/web-shell
 ```
 
-Full guide: [QUICKSTART.md](QUICKSTART.md)
+Full setup guide, port map, and PR rules: [QUICKSTART.md](QUICKSTART.md)
 
 ---
 
