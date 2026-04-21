@@ -90,20 +90,20 @@ describe('createPeopleRouter', () => {
     })
   })
 
-  it('should call RehireEmploymentCommand via rehire procedure', async () => {
-    // Import the public peopleRouter to test public procedures
-    const { peopleRouter: publicRouter } = await import('./people.router')
-
+  it('should call RehireEmploymentCommand via rehire procedure protected by people:employment:rehire', async () => {
     const commandBus = {
       execute: vi.fn().mockResolvedValue({ profileId: 'p1', employmentId: 'e1' }),
     }
     const trpcService = new PeopleTrpcService(commandBus as never, { execute: vi.fn() } as never)
     trpcService.onModuleInit()
 
-    const caller = router({ people: publicRouter }).createCaller({} as any)
+    const { peopleRouter, kernelFacade } = setup(true)
+    const caller = router({ people: peopleRouter }).createCaller({
+      actorId: ACTOR_ID,
+      tenantId: TENANT_ID,
+    } as any)
 
     const result = await (caller.people as any).rehire({
-      tenantId: TENANT_ID,
       previousProfileId: '01900000-0000-7000-8000-000000000010',
       actorId: ACTOR_ID,
       rehireDate: new Date('2026-06-01'),
@@ -113,7 +113,30 @@ describe('createPeopleRouter', () => {
       rehiredBy: ACTOR_ID,
     })
 
+    expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'people:employment:rehire', {
+      tenantId: TENANT_ID,
+    })
     expect(commandBus.execute).toHaveBeenCalledWith(expect.any(RehireEmploymentCommand))
     expect(result).toEqual({ profileId: 'p1', employmentId: 'e1' })
+  })
+
+  it('should deny rehire when permission is not granted', async () => {
+    const { peopleRouter } = setup(false)
+    const caller = router({ people: peopleRouter }).createCaller({
+      actorId: ACTOR_ID,
+      tenantId: TENANT_ID,
+    } as any)
+
+    await expect(
+      (caller.people as any).rehire({
+        previousProfileId: '01900000-0000-7000-8000-000000000010',
+        actorId: ACTOR_ID,
+        rehireDate: new Date('2026-06-01'),
+        workerType: 'employee',
+        employmentType: 'permanent',
+        countryCode: 'VN',
+        rehiredBy: ACTOR_ID,
+      }),
+    ).rejects.toThrow(TRPCError)
   })
 })
