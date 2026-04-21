@@ -46,13 +46,30 @@ The SSE contract is a **public, versioned interface** consumed by 11 Next.js zon
 
 **What this is NOT:** a general streaming framework. It is a constrained SSE contract with a specific state machine, a specific abort model, and a specific set of consumers.
 
+**Prior-art review — what was adopted and what was rejected.** Claude Code's streaming/cancellation substrate (`query.ts`, `StreamingToolExecutor.ts`, `utils/abortController.ts`, `services/api/claude.ts`) was reviewed as prior art. Two patterns were confirmed aligned: (a) abort-signal parameter threading (never via ambient/AsyncLocalStorage) — R-06.25; (b) `AbortSignal.any` composition — R-06.24. Four patterns were **rejected** because they are terminal-CLI-shaped: (i) ANSI terminal escape codes / raw stdout streaming — our consumers are React components in Next.js zones, not a TTY; event payloads are structured data, not rendered bytes. (ii) Process-global session tokens (Claude Code reads `CLAUDE_CODE_SESSION_ACCESS_TOKEN` from env) — multi-tenant SaaS has 10+ concurrent turns per pod; identity flows exclusively through `RequestContext` (R-06.36). (iii) Silent streaming→non-streaming fallback — invisible retries are anti-UX for HR managers watching a progress indicator; any retry adding ≥500ms of perceived silence emits a `progress` event (R-06.35a). (iv) Concurrent tool execution interleaved with synthesizer token emission — our phase boundary is strict (R-06.14), not overlapped; Claude Code's REPL can overlap because there's no approval-card atomicity to preserve.
+
 ---
 
 ## 3. Data Model
 
-### No new tables at MVP
+### `agent_active_turn` (ephemeral, heartbeat-expired)
 
-Cancellation is ephemeral; streaming is ephemeral; events reference the existing `trace_id` from plan 07. All persistence is through plan 04 (messages) + plan 07 (spans) + plan 08 (drafts).
+One row per in-flight turn. Used for cross-pod cancel discovery when an admin force-stops a turn running on a different ECS task than the one handling the cancel HTTP call.
+
+- `trace_id UUID PK` — equal to `turnId`.
+- `tenant_id UUID` (RLS).
+- `user_id UUID` — owner of the turn.
+- `conversation_id UUID` (nullable for async jobs).
+- `pod_id TEXT` — ECS task identifier; target for `POST /agent/turn/:trace_id/cancel` forwarding.
+- `surface TEXT`.
+- `started_at TIMESTAMPTZ`.
+- `last_heartbeat_at TIMESTAMPTZ` — refreshed every 5s by the owning pod.
+- Index: `(tenant_id, started_at DESC)`; `(last_heartbeat_at)` for sweep.
+- TTL: rows with `last_heartbeat_at` older than 30s are considered dead. Plan 09's sweep job deletes them and invokes compensating cleanup (release drafts in `proposed` state, close orphaned Langfuse spans). Crash + pod-loss recovery leans on this.
+
+### Event sequence numbers
+
+Every emitted SSE event carries a monotonic `seq: number` (turn-scoped, starts at 1, increments once per `emit()` call). Sequence is **not** load-bearing for ordering (the state machine owns ordering) — it exists to make future reattach/resume semantics non-breaking. Clients may ignore `seq` at MVP. See §18 open question on multi-zone reattach.
 
 ### In-memory per-turn controller state
 
@@ -119,19 +136,20 @@ type TurnRequestBody = {
 ### SSE event types
 
 ```
+// Every event carries a turn-scoped monotonic `seq` starting at 1; see §3 Event sequence numbers.
 type SseEvent =
-  | { type: 'turn.started'; payload: { trace_id, conversation_id, topology: 'bounded' | 'iterative' }; metadata?: Record<string, unknown> }
-  | { type: 'phase.started'; payload: { phase: 1 | 2; sub_agents: Array<{ domain: string }> }; metadata? }
-  | { type: 'iteration.started'; payload: { n: number; sub_agent_domain: string; selection_reason: string }; metadata? }
-  | { type: 'iteration.validated'; payload: { n: number; passed: boolean; scorer_results: ScorerResult[]; max_iterations_reached: boolean }; metadata? }
-  | { type: 'iteration.ended'; payload: { n: number; is_complete: boolean; usage: UsageSnapshot }; metadata? }
-  | { type: 'progress'; payload: { message: string }; metadata? }   // human-readable, i18n-resolved
-  | { type: 'refusal.started'; payload: { reason: RefusalReason; processor_id?: string; retry_allowed: boolean; metadata?: Record<string, unknown> }; metadata? }
-  | { type: 'answer.shape_declared'; payload: { shape: AnswerShape; skeleton?: unknown }; metadata? }
-  | { type: 'answer.token'; payload: { text: string }; metadata? }
-  | { type: 'answer.complete'; payload: { shape: AnswerShape; content: unknown; citations: Citation[] }; metadata? }
-  | { type: 'draft.proposed'; payload: { action_id: string; summary: string; tier: 'low' | 'high'; requires_approval: boolean; provenance: DraftProvenance }; metadata? }
-  | { type: 'turn.ended'; payload: { reason: TurnEndReason; usage: UsageSnapshot }; metadata? }
+  | { seq: number; type: 'turn.started'; payload: { trace_id, conversation_id, topology: 'bounded' | 'iterative' }; metadata?: Record<string, unknown> }
+  | { seq: number; type: 'phase.started'; payload: { phase: 1 | 2; sub_agents: Array<{ domain: string }> }; metadata? }
+  | { seq: number; type: 'iteration.started'; payload: { n: number; sub_agent_domain: string; selection_reason: string }; metadata? }
+  | { seq: number; type: 'iteration.validated'; payload: { n: number; passed: boolean; scorer_results: ScorerResult[]; max_iterations_reached: boolean }; metadata? }
+  | { seq: number; type: 'iteration.ended'; payload: { n: number; is_complete: boolean; usage: UsageSnapshot }; metadata? }
+  | { seq: number; type: 'progress'; payload: { message: string; cause?: 'vendor_retry' | 'fallback' | 'long_tool' }; metadata? }   // human-readable, i18n-resolved; `cause` indicates internal origin for debugging
+  | { seq: number; type: 'refusal.started'; payload: { reason: RefusalReason; processor_id?: string; retry_allowed: boolean; metadata?: Record<string, unknown> }; metadata? }
+  | { seq: number; type: 'answer.shape_declared'; payload: { shape: AnswerShape; skeleton?: unknown }; metadata? }
+  | { seq: number; type: 'answer.token'; payload: { text: string }; metadata? }
+  | { seq: number; type: 'answer.complete'; payload: { shape: AnswerShape; content: unknown; citations: Citation[] }; metadata? }
+  | { seq: number; type: 'draft.proposed'; payload: { action_id: string; summary: string; tier: 'low' | 'high'; requires_approval: boolean; provenance: DraftProvenance }; metadata? }
+  | { seq: number; type: 'turn.ended'; payload: { reason: TurnEndReason; usage: UsageSnapshot; cancelled_by?: UUID }; metadata? }
 
 type TurnEndReason = 'completed' | 'cancelled' | 'timeout' | 'refused' | 'error' | 'budget' | 'provider_outage' | 'quality_canary'
 type RefusalReason = 'daily_budget' | 'insufficient_minimum' | 'rate_limit' | 'disambiguation' | 'model_policy' | 'internal'
@@ -305,30 +323,32 @@ Experimental usage: plan 10 attaches `metadata: { canary_iteration: N }` during 
 
 ### HTTP surface
 
-| #      | Requirement                                                                                       | Design §§    |
-| ------ | ------------------------------------------------------------------------------------------------- | ------------ |
-| R-06.1 | `POST /agent/turn` body per §4 interface; returns SSE stream                                      | §15.3        |
-| R-06.2 | `POST /agent/turn/:trace_id/cancel` triggers `userCancelController.abort()` for the live turn     | §15.2, §15.3 |
-| R-06.3 | `GET /agent/conversations` returns GLOBAL conversations only                                      | §15.3        |
-| R-06.4 | `GET /agent/conversations?surface=...` queries inline by surface                                  | §15.3        |
-| R-06.5 | `GET /agent/conversations/:id`, `DELETE /agent/conversations/:id` standard                        | §15.3        |
-| R-06.6 | `GET/POST/DELETE /agent/memory` — L3; underlying mutations omit `.meta({ agent })` as enforcement | §15.3, §5    |
-| R-06.7 | Every SSE response includes `event_schema_version` HTTP header                                    | §15          |
+| #      | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Design §§    |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| R-06.1 | `POST /agent/turn` body per §4 interface; returns SSE stream                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | §15.3        |
+| R-06.2 | `POST /agent/turn/:trace_id/cancel` triggers `userCancelController.abort()` for the live turn. **Authorization:** (a) `user_id` matching the turn's owner → always allowed (self-cancel). (b) Different `user_id`, same tenant → requires `canDo('agent.force_stop_turn')` (e.g. line-manager/admin force-stop). (c) `platform_admin` scope → requires `canDo('admin.turn.force_stop')` (SETA operator). Cross-user/admin cancels stamp `cancelled_by: UUID` on the `turn.ended` payload and emit `agent.turn_force_stopped` kernel audit event with actor + reason. Unauthorized → 403. **Cross-pod discovery:** handler looks up `trace_id` in `agent_active_turn`; if `pod_id` ≠ current pod, forwards the cancel via internal RPC to the owning pod. | §15.2, §15.3 |
+| R-06.3 | `GET /agent/conversations` returns GLOBAL conversations only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | §15.3        |
+| R-06.4 | `GET /agent/conversations?surface=...` queries inline by surface                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | §15.3        |
+| R-06.5 | `GET /agent/conversations/:id`, `DELETE /agent/conversations/:id` standard                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | §15.3        |
+| R-06.6 | `GET/POST/DELETE /agent/memory` — L3; underlying mutations omit `.meta({ agent })` as enforcement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | §15.3, §5    |
+| R-06.7 | Every SSE response includes `event_schema_version` HTTP header                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | §15          |
 
 ### SSE events
 
-| #       | Requirement                                                                            | Design §§    |
-| ------- | -------------------------------------------------------------------------------------- | ------------ | ----- |
-| R-06.8  | 12 events per §4 interface                                                             | §15.3        |
-| R-06.9  | `turn.started.payload.topology: 'bounded'                                              | 'iterative'` | §15.3 |
-| R-06.10 | `phase.started.payload.sub_agents[]` — domain only in prod; sub-agent name in dev mode | §15.1        |
-| R-06.11 | `refusal.started.payload = { reason, processor_id?, retry_allowed, metadata? }`        | §15.3        |
-| R-06.12 | `answer.shape_declared` fires BEFORE first `answer.token` for non-narrative shapes     | §15.1, §9    |
-| R-06.13 | `answer.complete.payload = { shape, content, citations }`                              | §15.3        |
-| R-06.14 | `draft.proposed` fires AFTER `answer.complete`, NEVER interleaved with tokens          | §15.1        |
-| R-06.15 | `turn.ended.payload.usage` populated from accumulator at close time                    | §15.3        |
-| R-06.16 | `turn.ended.reason` enum per §4                                                        | §15.3        |
-| R-06.17 | Every event carries optional `metadata?` — non-versioned, never load-bearing           | §15.3        |
+| #        | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                     | Design §§      |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ----- |
+| R-06.8   | 12 events per §4 interface                                                                                                                                                                                                                                                                                                                                                                                                                      | §15.3          |
+| R-06.9   | `turn.started.payload.topology: 'bounded'                                                                                                                                                                                                                                                                                                                                                                                                       | 'iterative'`   | §15.3 |
+| R-06.10  | `phase.started.payload.sub_agents[]` — domain only in prod; sub-agent name in dev mode                                                                                                                                                                                                                                                                                                                                                          | §15.1          |
+| R-06.11  | `refusal.started.payload = { reason, processor_id?, retry_allowed, metadata? }`                                                                                                                                                                                                                                                                                                                                                                 | §15.3          |
+| R-06.12  | `answer.shape_declared` fires BEFORE first `answer.token` for non-narrative shapes                                                                                                                                                                                                                                                                                                                                                              | §15.1, §9      |
+| R-06.13  | `answer.complete.payload = { shape, content, citations }`                                                                                                                                                                                                                                                                                                                                                                                       | §15.3          |
+| R-06.14  | `draft.proposed` fires AFTER `answer.complete`, NEVER interleaved with tokens                                                                                                                                                                                                                                                                                                                                                                   | §15.1          |
+| R-06.14a | **Persist-then-emit atomicity:** `draft.proposed` SSE event is emitted ONLY after the approval-inbox row (plan 08) is durably persisted. Ordering is: persist row → emit event. If persist fails, emit is replaced by a `progress` event with `cause: 'draft_persist_failed'` and the turn proceeds without the draft (error logged P2). Guarantees the UI's source of truth: any card seen in SSE is also recoverable via `GET /agent/drafts`. | §15.1, plan 08 |
+| R-06.15  | `turn.ended.payload.usage` populated from accumulator at close time                                                                                                                                                                                                                                                                                                                                                                             | §15.3          |
+| R-06.16  | `turn.ended.reason` enum per §4                                                                                                                                                                                                                                                                                                                                                                                                                 | §15.3          |
+| R-06.17  | Every event carries optional `metadata?` — non-versioned, never load-bearing                                                                                                                                                                                                                                                                                                                                                                    | §15.3          |
+| R-06.17a | Every event carries a turn-scoped monotonic `seq: number` starting at 1. Not load-bearing for ordering (state machine owns that); reserved for future reattach/resume semantics. Clients MUST tolerate but MAY ignore at MVP.                                                                                                                                                                                                                   | §15.3          |
 
 ### Ordering
 
@@ -355,13 +375,14 @@ Experimental usage: plan 10 attaches `metadata: { canary_iteration: N }` during 
 
 ### Streaming discipline
 
-| #       | Requirement                                                         | Design §§ |
-| ------- | ------------------------------------------------------------------- | --------- |
-| R-06.31 | Synthesizer output tokens stream                                    | §15.1     |
-| R-06.32 | Sub-agent ReAct traces DO NOT stream — Langfuse only                | §15.1     |
-| R-06.33 | Drafted writes DO NOT stream — atomic card after synthesizer        | §15.1     |
-| R-06.34 | Inline copilots: no phase stepper, simple spinner                   | §15.1     |
-| R-06.35 | Phase-event granularity: prod = domain only; dev = sub-agent + tool | §15.1     |
+| #        | Requirement                                                                                                                                                                                                                                                                                                                                                                              | Design §§ |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| R-06.31  | Synthesizer output tokens stream                                                                                                                                                                                                                                                                                                                                                         | §15.1     |
+| R-06.32  | Sub-agent ReAct traces DO NOT stream — Langfuse only                                                                                                                                                                                                                                                                                                                                     | §15.1     |
+| R-06.33  | Drafted writes DO NOT stream — atomic card after synthesizer                                                                                                                                                                                                                                                                                                                             | §15.1     |
+| R-06.34  | Inline copilots: no phase stepper, simple spinner                                                                                                                                                                                                                                                                                                                                        | §15.1     |
+| R-06.35  | Phase-event granularity: prod = domain only; dev = sub-agent + tool                                                                                                                                                                                                                                                                                                                      | §15.1     |
+| R-06.35a | **Fallback visibility.** Any internal retry or provider fallback (per plan 05 R-05.20b/c) that adds ≥500ms of perceived silence MUST emit a `progress` event with `cause: 'vendor_retry' \| 'fallback' \| 'long_tool'` before the retry fires. Silent retries are rejected — users must see activity. Exception: retries completing under the 500ms threshold may be silent (low-noise). | §15.1     |
 
 ### Identity-key discipline
 
@@ -371,22 +392,33 @@ Experimental usage: plan 10 attaches `metadata: { canary_iteration: N }` during 
 | R-06.37 | Tool handlers / sub-agent code attempting to write identity keys: throw in dev, drop + log in prod           | §15.4     |
 | R-06.38 | Write attempt emits `identity_key_write_attempted` security audit event                                      | §15.4     |
 
+### Active-turn registry
+
+| #       | Requirement                                                                                                                                                                                                                                                                                  | Design §§      |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| R-06.39 | Every in-flight turn owns one `agent_active_turn` row with `pod_id` + 5s heartbeat. Row cleared on terminal event (any `turn.ended`). Plan 09 sweep deletes rows whose `last_heartbeat_at` exceeds 30s, releases any `proposed`-state drafts from that turn, and closes open Langfuse spans. | §15.2, plan 09 |
+| R-06.40 | Cross-pod cancel: `POST /agent/turn/:trace_id/cancel` reaching a pod that does not own the turn reads `pod_id` from `agent_active_turn` and forwards via internal RPC; if no row found (already ended or swept) returns 404 idempotently.                                                    | §15.2          |
+
 ---
 
 ## 7. Failure Modes & Recovery
 
-| Failure                                                         | Symptom                                                                    | Recovery                                                                                                  |
-| --------------------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Client disconnects mid-stream                                   | SSE write fails with EPIPE                                                 | Runtime catches; calls `userCancelController.abort({ reason: 'user' })`; treated as user cancel.          |
-| Producer emits out-of-order event                               | Runtime state-machine throws                                               | `StreamEmitter.error` → `turn.ended.reason: 'error'`; span attr identifies offending producer.            |
-| `POST /cancel` arrives after turn already ended                 | No active-turn registry entry                                              | 404 returned; idempotent; no error.                                                                       |
-| Timeout fires after `turn.ended` already sent                   | Second `turn.ended` attempt → state-machine error                          | Guard: state-machine rejects repeat terminal; first terminal wins.                                        |
-| Multiple abort reasons fire near-simultaneously                 | Composed signal captures whichever attached listener fired first           | First-fired reason wins; others ignored. Deterministic at listener-registration time.                     |
-| pg-boss `cancel()` fails                                        | Resource cleanup incomplete                                                | Log P2; trigger cleanup sweep job. Turn still ends.                                                       |
-| `fetch` abort on upstream tool with slow disconnect             | Tool call lingers; socket close                                            | Acceptable for short lingers; escalate if >5s after abort.                                                |
-| Backpressure — slow client cannot drain SSE                     | Fastify write queue saturates                                              | Bounded queue; overflow → `turn.ended.reason: 'error'` with cause = `client_backpressure`.                |
-| Event-schema mismatch (client on old schema receives new field) | `metadata` bag ignored; new event type → client logs unknown-event warning | Client MUST tolerate unknown event types + unknown metadata keys (forward compat). Verified in SDK tests. |
-| Identity-key write attempt in prod                              | Drop + alert                                                               | Alert investigates; never acts as user-identity override.                                                 |
+| Failure                                                         | Symptom                                                                    | Recovery                                                                                                                                                                      |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Client disconnects mid-stream                                   | SSE write fails with EPIPE                                                 | Runtime catches; calls `userCancelController.abort({ reason: 'user' })`; treated as user cancel.                                                                              |
+| Producer emits out-of-order event                               | Runtime state-machine throws                                               | `StreamEmitter.error` → `turn.ended.reason: 'error'`; span attr identifies offending producer.                                                                                |
+| `POST /cancel` arrives after turn already ended                 | No active-turn registry entry                                              | 404 returned; idempotent; no error.                                                                                                                                           |
+| Timeout fires after `turn.ended` already sent                   | Second `turn.ended` attempt → state-machine error                          | Guard: state-machine rejects repeat terminal; first terminal wins.                                                                                                            |
+| Multiple abort reasons fire near-simultaneously                 | Composed signal captures whichever attached listener fired first           | First-fired reason wins; others ignored. Deterministic at listener-registration time.                                                                                         |
+| pg-boss `cancel()` fails                                        | Resource cleanup incomplete                                                | Log P2; trigger cleanup sweep job. Turn still ends.                                                                                                                           |
+| `fetch` abort on upstream tool with slow disconnect             | Tool call lingers; socket close                                            | Acceptable for short lingers; escalate if >5s after abort.                                                                                                                    |
+| Backpressure — slow client cannot drain SSE                     | Fastify write queue saturates                                              | Bounded queue; overflow → `turn.ended.reason: 'error'` with cause = `client_backpressure`.                                                                                    |
+| Event-schema mismatch (client on old schema receives new field) | `metadata` bag ignored; new event type → client logs unknown-event warning | Client MUST tolerate unknown event types + unknown metadata keys (forward compat). Verified in SDK tests.                                                                     |
+| Identity-key write attempt in prod                              | Drop + alert                                                               | Alert investigates; never acts as user-identity override.                                                                                                                     |
+| Cross-user cancel without required permission                   | `canDo` denial                                                             | 403 to caller; no abort; audit event `agent.turn_force_stopped_attempt_denied` with actor + target turn.                                                                      |
+| Owning pod crashes mid-turn                                     | `agent_active_turn` heartbeat stops; after 30s sweep deletes row           | Plan 09 sweep releases drafts + closes spans + (optionally) writes a synthetic `turn.ended.reason: error` for downstream accounting. Client SSE already dead on EPIPE.        |
+| Cross-pod cancel RPC fails (network blip to owning pod)         | Forward RPC timeout                                                        | Retry forward once; if still failing, set `agent_active_turn.abort_pending: true` + let owning pod detect on next heartbeat. Caller receives 202 accepted + `eventual: true`. |
+| Draft persist fails between synthesizer and `draft.proposed`    | DB error on approval-inbox insert                                          | Per R-06.14a: no `draft.proposed` emitted; a `progress` event with `cause: 'draft_persist_failed'` is emitted; turn continues. P2 log. UI never shows a phantom card.         |
 
 ---
 
@@ -415,6 +447,10 @@ Experimental usage: plan 10 attaches `metadata: { canary_iteration: N }` during 
 - `agent_ordering_violation_total{producer}` — counter (P2 alert on any positive).
 - `agent_identity_key_write_attempted_total` — counter (P1 alert on any positive).
 - `agent_sse_backpressure_total{tenant_id}` — counter.
+- `agent_turn_force_stopped_total{tenant_id, actor_role}` — counter. `actor_role ∈ {admin, platform_admin}`; self-cancel excluded. Trends inform force-stop-UX tuning.
+- `agent_active_turn_sweep_total{tenant_id, cause}` — counter. `cause ∈ {heartbeat_expired, pod_crash_detected}`. P2 alert on sustained positive rate (indicates pod instability).
+- `agent_draft_persist_failure_total{tenant_id}` — counter. Non-zero ⇒ R-06.14a fired; P2 alert.
+- `agent_progress_event_total{tenant_id, cause}` — counter. `cause ∈ {vendor_retry, fallback, long_tool}`; lets us quantify perceived-latency events driven by R-06.35a.
 
 ### Dashboards
 
@@ -473,6 +509,13 @@ Experimental usage: plan 10 attaches `metadata: { canary_iteration: N }` during 
 - pg-boss active-cancel: tool wraps pg-boss run; abort fires → `run.cancel()` called within 100ms.
 - Client disconnect: close SSE socket mid-stream → `userCancelController.abort({ reason: 'user' })` triggers via write-error detection.
 - Identity-key write: seed a tool handler attempting `requestContext.set('tenant_id', ...)` → in dev throws with clear message; in prod alert fires + attempt dropped.
+- Cross-user cancel: user-A with `canDo('agent.force_stop_turn')` cancels user-B's turn → succeeds; `turn.ended.payload.cancelled_by = user_A_id`; `agent.turn_force_stopped` kernel audit row present.
+- Cross-user cancel denied: user-A without permission cancels user-B's turn → 403; no abort fires; `agent.turn_force_stopped_attempt_denied` audit row present.
+- Cross-pod cancel: pod-1 owns a turn, cancel POST hits pod-2 → pod-2 reads `agent_active_turn`, forwards RPC to pod-1, turn ends; observed latency under R-06.2 budget.
+- Active-turn heartbeat leak: simulate pod crash (kill heartbeat) → 35s later plan 09 sweep deletes row + releases `proposed` drafts tied to that turn.
+- Persist-then-emit atomicity: seed approval-inbox insert to fail → `draft.proposed` NOT emitted; `progress` event with `cause: 'draft_persist_failed'` emitted instead; no phantom card visible to client.
+- Fallback visibility: seed plan 05 vendor_overload retry adding 2s latency → `progress` event with `cause: 'vendor_retry'` observed before retry fires; user-visible latency never exceeds 500ms of silence.
+- Sequence numbers: assert every emitted event has monotonic `seq` starting at 1 with no gaps.
 
 ### Property
 
@@ -504,6 +547,10 @@ Experimental usage: plan 10 attaches `metadata: { canary_iteration: N }` during 
 - Identity-key write attempts in prod produce alert; never succeed.
 - SDK forward-compat: old client reading new server (with `metadata` additions) works without errors.
 - `event_schema_version: 1.0.0` header present on every SSE response at MVP.
+- Cross-user force-stop audit trail: every non-self cancel produces exactly one `agent.turn_force_stopped` kernel audit row with actor, target user, reason.
+- Persist-then-emit atomicity verified: zero phantom `draft.proposed` events observed in integration suite across seeded persist-failure cases.
+- Active-turn registry heartbeat observed at 5s cadence; sweep deletes rows within 30s of crash.
+- Every emitted event carries `seq ≥ 1`; monotonic within a turn; no gaps.
 
 ---
 
@@ -525,7 +572,8 @@ Experimental usage: plan 10 attaches `metadata: { canary_iteration: N }` during 
 - Plan 04: memory save-queue (pre-commit check).
 - Plan 05: `systemAbortController` for budget.
 - Plan 07: trace + span correlation.
-- Plan 08: `draft.proposed` event shape.
+- Plan 08: `draft.proposed` event shape + persist-then-emit atomicity (R-06.14a).
+- Plan 09: `agent_active_turn` sweep job (R-06.39) + compensating cleanup on pod crash.
 - Plan 10: `systemAbortController` for quality canary.
 
 ## 15. Integration Points
@@ -534,7 +582,9 @@ Experimental usage: plan 10 attaches `metadata: { canary_iteration: N }` during 
 - `apps/api/src/modules/agents/interface/http/agent-cancel-controller.ts`.
 - `apps/api/src/modules/agents/application/services/stream-gateway.ts` — state machine + emit/close/error.
 - `apps/api/src/modules/agents/application/services/abort-coordinator.ts`.
-- `apps/api/src/modules/agents/application/services/active-turn-registry.ts` — cancel lookup by `trace_id`.
+- `apps/api/src/modules/agents/application/services/active-turn-registry.ts` — cancel lookup by `trace_id`; in-memory per-pod + `agent_active_turn` row mirror with 5s heartbeat.
+- `@future/db` — `agent_active_turn` table (R-06.39).
+- `apps/api/src/modules/agents/infrastructure/cross-pod-cancel.ts` — internal RPC forwarding for cross-pod cancel (R-06.40).
 - `packages/agent/src/runtime/sse-event-schema.ts` — shared type defs.
 - `packages/agent/src/runtime/event-consumer.ts` — client SDK.
 - Zone apps — `/api/agent/turn` Next.js rewrite per zone.
@@ -562,3 +612,5 @@ MVP. Ships with first production turn.
 - **Client SDK `metadata` handling.** Log but never act — document explicitly in README. Owner: SDK maintainer.
 - **Cancel idempotence at HTTP layer.** Multiple `POST /cancel` → single abort; second/third 404 or 200? Recommend: 200 always (idempotent), body indicates if it was a no-op.
 - **`/agent/memory` L3 mutation shape.** Does UI call tRPC directly or goes through REST proxy? Recommend: direct tRPC (consistent with other L3 admin); this endpoint exists for consistency with GET only.
+- **Multi-zone / multi-tab reattach.** A user may open a conversation in a second tab (same zone) or navigate across zones (hard reload per CLAUDE.md) while a turn is mid-stream. MVP behavior: original stream dies on navigation/tab-close via EPIPE → user cancel fires. Second tab/zone can poll `GET /agent/conversations/:id` after the turn ends. Future: a `GET /agent/turn/:trace_id/stream?from_seq=N` reattach endpoint replays buffered events from `seq = N+1`. `seq` field (R-06.17a) and `agent_active_turn` (R-06.39) are the forward-compat primitives that make this a non-breaking addition later. Owner: decide at Beta based on real user multi-tab telemetry. Do NOT add reattach at MVP.
+- **Cancel idempotency + eventual-consistency surface.** When cross-pod cancel RPC fails and we set `abort_pending: true` on the registry row, the HTTP response to the canceller is 202 + `eventual: true`. Is that acceptable UX, or should we block until the owning pod confirms? Recommend 202 — unblocks the admin UI; audit trail captures eventual completion.

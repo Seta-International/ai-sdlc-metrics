@@ -51,6 +51,8 @@ Synthesizer input is **structured multi-source** (summary + semantics + confiden
 - DAG / phase 3+ execution — §16 Out of Scope. Iterative topology covers the "complex plan" case better.
 - Pre-aggregating per-iteration synthesis — §16 GA gate. MVP synthesizes once.
 
+**Prior-art review — what was adopted and what was rejected.** Claude Code's execution loop (`query.ts`, `QueryEngine.ts`, `services/tools/StreamingToolExecutor.ts`, `services/compact/autoCompact.ts`) was reviewed as prior art. Two patterns are confirmed aligned: (a) fine-grained loop-termination taxonomy with distinct reasons (we mirror in `SubAgentOutput.kind`); (b) circuit-breaking consecutive failures (we adopt for re-plan via `router_replan_count ≤ 1`). Four patterns were explicitly **rejected** because they fit an interactive developer CLI, not a stateless business-AaaS turn: (i) **Mid-turn user input / REPL-style yield-and-resume** — our turns are atomic; any "ask for clarification" path is disambiguation (R-03.5), not mid-sub-agent pause. (ii) **Tool-result-then-synthesis interleaving** — synthesis is a strict phase boundary after all phase-1 (and optional phase-2) outputs; no per-sub-agent incremental synthesis. (iii) **Filesystem / cross-turn state restoration on restart** — turn state is request-scoped and discarded at turn end; restart = new turn = fresh L1 (plan 04). (iv) **Fuzzy confidence thresholds for partial answers** — the gate is rule-based (ceiling hit + zero writes), not a magnitude threshold, to keep operator semantics unambiguous.
+
 ---
 
 ## 3. Data Model
@@ -131,7 +133,8 @@ run(opts: {
 }): Promise<SubAgentOutput>
 
 type SubAgentOutput = {
-  kind: 'completed' | 'ceiling_hit' | 'all_tools_disabled' | 'errored';
+  kind: 'completed' | 'ceiling_hit' | 'all_tools_disabled' | 'errored' | 'aborted';
+  abortReason?: CancellationReason;    // populated iff kind === 'aborted'
   summary: string;
   semantics: string;          // what was measured
   confidence: 'high' | 'med' | 'low';
@@ -140,6 +143,17 @@ type SubAgentOutput = {
   drafts?: DraftProposal[];
   circuitBreakerState: Record<ToolName, { disabled: boolean; reason: string }>;
   usageTotals: { inputTokens; outputTokens; inputCachedRead; inputCachedWrite; outputReasoning; costUsd };
+}
+
+type DraftProposal = {
+  // ... (plan 08 owns full shape; this plan contributes provenance)
+  taintSource?: {
+    subAgentKey: string;       // which sub-agent's sibling tool call caused the taint flip
+    toolName: string;          // the tool whose result contained tenant-authored free text
+    fieldName: string;         // the declared `tenantAuthoredFreeText` field that tripped taint
+    flippedAtIteration: number;
+  };
+  // Remainder of DraftProposal owned by plan 08 (R-08.x).
 }
 ```
 
@@ -175,6 +189,7 @@ type SynthesizerOutput = {
 type Citation = {
   claim: string;             // paragraph or sentence this cites
   sources: ToolCall[];       // one or more source tool invocations
+  subAgentKey: string;       // which sub-agent's chain produced this claim (paragraph can have siblings w/ different keys)
 }
 ```
 
@@ -242,7 +257,7 @@ Only invoked when phase-1 output can't satisfy phase-2 input schema; increments 
 
 1. `abortSignal.aborted` becomes `true`.
 2. Propagates through `AbortSignal.any` composition (plan 06) to every `ToolLoopAgent` + pending `generateObject` call.
-3. In-flight sub-agents receive abort at next tool-call boundary or LLM-call boundary.
+3. In-flight sub-agents receive abort at next tool-call boundary or LLM-call boundary. Each such sub-agent's runner returns `SubAgentOutput` with `kind: 'aborted'` and `abortReason` copied from the signal; the partial `structured` payload (if any) is retained for audit but not surfaced.
 4. Drafted-not-submitted writes discarded.
 5. Synthesizer NOT invoked.
 6. Phase executor returns `{ kind: 'aborted', reason }`.
@@ -335,21 +350,29 @@ This prevents the cross-sub-agent leak class where sub-agent A's `quote` contain
 | ------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
 | R-03.30 | Directive `quote` is projected per target sub-agent's readable scope before being passed to the sub-agent | §3 (added in plan 03 open question resolution) |
 
+### Permission-denied + errored sub-agent disclosure
+
+| #       | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Design §§              |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| R-03.31 | When any phase-1 sub-agent returns `kind: 'all_tools_disabled'` or `kind: 'errored'`, the synthesizer MUST include an explicit per-sub-agent status disclosure in its output (e.g. narrative: _"Timesheet data not retrieved — your role lacks the required permission."_; table/list: a dedicated status row). Silently omitting the failed sub-agent is forbidden. Rationale: transparency over coherence (§9); a permission gap is actionable information the user can follow up on with an admin. | §9, transparency tenet |
+| R-03.32 | `DraftProposal.taintSource` is populated by the sub-agent runner whenever the draft is produced under a tainted turn state. Fields: `{ subAgentKey, toolName, fieldName, flippedAtIteration }`. Consumed by plan 08 for approval-tier bump rationale + UI presentation.                                                                                                                                                                                                                               | §9, plan 08            |
+| R-03.33 | `Citation.subAgentKey` is populated on every citation. Synthesizer MUST NOT merge citations from different sub-agents into a single record that loses the per-key attribution.                                                                                                                                                                                                                                                                                                                        | §9 transparency        |
+
 ---
 
 ## 7. Failure Modes & Recovery
 
-| Failure                                                              | Symptom                                                                                        | Recovery                                                                                  |
-| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Router plan violates shape                                           | Immediate error in phase executor entry                                                        | Treat as parse failure; escalate to disambiguation.                                       |
-| Phase-1 sub-agent's `SubAgentOutput` fails `outputSchema` validation | Runner captures `kind: 'errored'`; synthesizer still invoked with whatever valid outputs exist | If all phase-1 fail, end turn `kind: 'partial'` with reason = outputs-invalid; log as P2. |
-| Phase-shape mismatch                                                 | Replanner invoked once                                                                         | Second mismatch → disambiguation.                                                         |
-| Sub-agent ReAct exceeds iteration ceiling                            | `SubAgentOutput.kind = 'ceiling_hit'`; partial content captured                                | Partial-answer gate evaluates at phase-executor level.                                    |
-| All tools disabled mid-sub-agent (permission denials)                | `kind: 'all_tools_disabled'`; sub-agent's best-effort summary                                  | Synthesizer receives as `low` confidence source.                                          |
-| Synthesizer LLM call fails                                           | Retry-with-jitter per §4 LLM-provider class                                                    | Two failures → `turn.ended.reason: error`.                                                |
-| Abort mid-sub-agent                                                  | `ToolLoopAgent` abort at next await                                                            | Turn ends `kind: 'aborted'`. Drafted writes discarded.                                    |
-| Contradiction in semantics that synthesizer can't render             | Fallback: list each sub-agent's result as separate paragraphs with explicit header             | Never merge-by-average; transparency over coherence.                                      |
-| Phase-2 sub-agent input schema requires fields phase-1 didn't return | Phase-shape mismatch → replan path                                                             | One re-plan, then escalate.                                                               |
+| Failure                                                              | Symptom                                                                                                                                        | Recovery                                                                                                                                 |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Router plan violates shape                                           | Immediate error in phase executor entry                                                                                                        | Treat as parse failure; escalate to disambiguation.                                                                                      |
+| Phase-1 sub-agent's `SubAgentOutput` fails `outputSchema` validation | Runner captures `kind: 'errored'`; synthesizer still invoked with whatever valid outputs exist and discloses the failure narratively (R-03.31) | If all phase-1 fail, end turn `kind: 'partial'` with reason = outputs-invalid; log as P2.                                                |
+| Phase-shape mismatch                                                 | Replanner invoked once                                                                                                                         | Second mismatch → disambiguation.                                                                                                        |
+| Sub-agent ReAct exceeds iteration ceiling                            | `SubAgentOutput.kind = 'ceiling_hit'`; partial content captured                                                                                | Partial-answer gate evaluates at phase-executor level.                                                                                   |
+| All tools disabled mid-sub-agent (permission denials)                | `kind: 'all_tools_disabled'`; sub-agent's best-effort summary                                                                                  | Synthesizer receives as `low` confidence source AND emits explicit per-sub-agent status disclosure per R-03.31 (never silently dropped). |
+| Synthesizer LLM call fails                                           | Retry-with-jitter per §4 LLM-provider class                                                                                                    | Two failures → `turn.ended.reason: error`.                                                                                               |
+| Abort mid-sub-agent                                                  | `ToolLoopAgent` abort at next await                                                                                                            | Turn ends `kind: 'aborted'`. Drafted writes discarded.                                                                                   |
+| Contradiction in semantics that synthesizer can't render             | Fallback: list each sub-agent's result as separate paragraphs with explicit header                                                             | Never merge-by-average; transparency over coherence.                                                                                     |
+| Phase-2 sub-agent input schema requires fields phase-1 didn't return | Phase-shape mismatch → replan path                                                                                                             | One re-plan, then escalate.                                                                                                              |
 
 ---
 
@@ -430,7 +453,10 @@ This prevents the cross-sub-agent leak class where sub-agent A's `quote` contain
 - Phase-shape mismatch: seed a phase-1 output missing a required phase-2 field → replan fires once → seed second mismatch → disambiguation emitted with `router_rechose_after_replan` signal.
 - Contradiction: seed two sub-agents with numerically different answers + different `semantics` → synthesizer output contains both numbers with definitional-clarity prose; confidence demoted.
 - Partial-answer: seed a ceiling hit mid-phase-1 with zero writes → partial surface with label; with writes drafted → partial suppressed, drafts still proposed.
-- Abort: seed abort during phase 1 → abort propagates to all in-flight sub-agents → `turn.ended.reason: cancelled`.
+- Abort: seed abort during phase 1 → abort propagates to all in-flight sub-agents → each returns `kind: 'aborted'` with `abortReason` populated → phase executor returns `kind: 'aborted'`; `turn.ended.reason: cancelled`.
+- Permission-denied disclosure: seed one of three phase-1 sub-agents to return `kind: 'all_tools_disabled'`, others `kind: 'completed'` → synthesizer output contains an explicit per-sub-agent status line naming the denied sub-agent; failed sub-agent is NOT silently dropped.
+- Taint lineage on draft: seed phase-1 sub-agent A tool returning tainted field, sub-agent B drafting a write after taint flips → draft's `taintSource` populated with `{ subAgentKey: 'A', toolName, fieldName, flippedAtIteration }`.
+- Citation attribution: two sub-agents contribute to same synthesizer paragraph → citations for that paragraph include both `subAgentKey` values; merging citations across keys is rejected by a property test.
 - `outputSchema` validation: seed a sub-agent returning wrong shape → runner captures `kind: 'errored'`; synthesizer still invoked with remaining outputs.
 
 ### Property
@@ -458,7 +484,10 @@ This prevents the cross-sub-agent leak class where sub-agent A's `quote` contain
 ## 12. Acceptance Criteria
 
 - All unit + integration + property + E2E tests pass.
-- Langfuse span hierarchy matches §8 structure for each test scenario.
+- Exported trace span hierarchy matches §8 structure for each test scenario.
+- Permission-denied disclosure present on every seeded `all_tools_disabled` scenario (R-03.31).
+- `DraftProposal.taintSource` populated on every draft produced under a tainted turn (R-03.32).
+- `Citation.subAgentKey` present on every citation; cross-key merging rejected (R-03.33).
 - Phase-1 runs measurably in parallel (duration < sum of per-sub-agent durations).
 - Replan fires at most once per turn (verified by trace attr `router_replan_count ≤ 1`).
 - Cross-tenant seed test passes.

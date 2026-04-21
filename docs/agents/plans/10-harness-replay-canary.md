@@ -358,7 +358,7 @@ For `mode: 'full'` (100%-captured turns only):
 1. Replay attempts to resolve a hash.
 2. Hash not found in store → raise `ReplayLookupMissError` with context: `{ hash, expected_layer, trace_id }`.
 3. No fallback, no fuzzy match, no approximate reconstruction.
-4. Operator sees explicit error, knows to investigate: prompt store pruning? canonicalizer version drift? Langfuse retention mismatch?
+4. Operator sees explicit error, knows to investigate: prompt store pruning? canonicalizer version drift? trace-backend retention mismatch?
 
 ---
 

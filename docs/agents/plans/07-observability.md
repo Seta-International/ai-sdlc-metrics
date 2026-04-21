@@ -8,12 +8,13 @@
 
 ### In
 
-- Langfuse self-hosted collector; OTel wiring at `apps/api` bootstrap (plan 00 shipped base; this plan completes it).
+- OpenTelemetry SDK wiring at `apps/api` bootstrap (plan 00 shipped OTel base; this plan completes the agent-layer spans).
+- **Trace backend is vendor-agnostic at this plan's contract layer.** Span emission uses OTel SDK with stable attribute names; an adapter at the exporter boundary maps to the chosen backend (Langfuse, self-hosted OTel→ClickHouse/Tempo, or equivalent). Backend selection is **deferred** per CLAUDE.md roadmap; this plan does not name one.
 - Two-dimensional span taxonomy: `span_type` × `entity_type`.
 - Typed `SamplingConfig` discriminated union with trace-level atomicity invariant.
 - Stratified sampling: 1% baseline + 100% on 5 MVP triggers.
-- `trace_id` (UUIDv7) stamped on `agent_message`, every kernel audit event, Langfuse trace, pg-boss job row, outbox events, approval_request rows.
-- Tool-output audit trail (kernel-owned, separate from Langfuse).
+- `trace_id` (UUIDv7) stamped on `agent_message`, every kernel audit event, every exported OTel span, pg-boss job row, outbox events, approval_request rows.
+- Tool-output audit trail (kernel-owned, separate from trace-backend storage).
 - Pre-capture PII / tenant-authored redaction at write time.
 - Per-span attributes: content hashes, version strings, TTFT, cache-token breakdown, `request_context_keys` auto-stamp, cancellation reason.
 - Leaf-only usage accumulation (no pre-aggregation on turn root).
@@ -28,7 +29,7 @@
 - Quality canary scheduling + fixture-tenant management (plan 10 — this plan provides the signal surface).
 - LLM-judge scorers (GA).
 - Full-fleet prompt capture beyond stratified (GA).
-- Self-hosted Langfuse deployment / ops (infra concern — documented in implementation doc).
+- Trace backend selection, deployment, and ops (infra concern; vendor choice deferred per CLAUDE.md).
 
 ---
 
@@ -40,21 +41,25 @@ Observability is **tenet #6** — version-tagged, trace-correlated, tenant-parti
 
 **Trace-level sampling atomicity** is load-bearing for replay correctness. The decision to sample or not is made ONCE at the trace root and inherited by every child span via `NoOpSpan` propagation. Mastra shipped a fix for this exact bug (issue #11504) when they realized per-child sampling creates half-captured trees that can't be replayed. We bake the invariant in from day one.
 
-**Single `trace_id` end-to-end** is our strongest observability advantage over mastra. Their `traceId` appears only on observability-owned tables (`scores`, `feedback`, `metrics`) — application DB rows carry no trace ID. Ours stamps `agent_message`, `kernel_audit`, `tool_invocation`, pg-boss jobs, outbox events, approval_requests. One ID to grep gives end-to-end correlation for any incident.
+**Single `trace_id` end-to-end** is our strongest observability advantage over mastra. Their `traceId` appears only on observability-owned tables (`scores`, `feedback`, `metrics`) — application DB rows carry no trace ID. Ours stamps `agent_message`, `kernel_audit`, `tool_invocation`, pg-boss jobs, outbox events, approval_requests. One ID to grep gives end-to-end correlation for any incident without relying on a specific trace backend.
 
 **Leaf-only usage accumulation** prevents double-count when exporters flatten the span tree. Mastra enforces this explicitly (`observability/types/tracing.ts:444-447`); we adopt directly.
 
 **`request_context_keys` auto-stamp** removes hundreds of manual `span.setAttr('tenant_id', ...)` call sites that inevitably drift. `RequestContext` knows the identity keys (plan 06); the auto-stamper hooks into span creation to copy them.
 
-**PII redaction at capture, not query.** Retrospective scrubbing after a GDPR request is a nightmare; we redact `tenantAuthoredFreeText` fields pre-capture. User's own utterance requires a separate purge-by-user-id operation (plan 04 owns the erasure pipeline; this plan wires the Langfuse side).
+**PII redaction at capture, not query.** Retrospective scrubbing after a GDPR request is a nightmare; we redact `tenantAuthoredFreeText` fields pre-capture. User's own utterance requires a separate purge-by-user-id operation (plan 04 owns the erasure pipeline; this plan exposes the exporter-adapter hook that invokes whichever backend is wired).
 
-**What this is NOT:** a general-purpose tracing library. It is a configured Langfuse-backed pipeline with specific sampling rules, specific attribute conventions, and specific dashboards.
+**Vendor-agnostic span emission.** Source code emits OTel spans with **stable, source-owned attribute names** (e.g. `tenant_id`, `span_type`, `tool_name`). A thin **exporter adapter** at the boundary maps these names to whichever backend (Langfuse, ClickHouse/OTel, Tempo, etc.) is ultimately selected. This is the §2.5 vendor-neutrality invariant: backend selection or replacement never requires touching span-emission code.
+
+**What this is NOT:** a general-purpose tracing library. It is a configured, backend-agnostic observability pipeline with specific sampling rules, specific attribute conventions, and specific dashboards.
+
+**Prior-art review — what was adopted and what was rejected.** Claude Code's OTel instrumentation (`utils/telemetry/sessionTracing.ts`, `utils/telemetry/instrumentation.ts`, `services/analytics/sink.ts`) was reviewed as prior art. Three patterns are adopted: (a) vendor-agnostic exporter boundary — Claude Code parameterizes protocol/endpoint via `OTEL_*_EXPORTER` config and never hard-codes a vendor into emission code (we do the same via our adapter seam). (b) Identity-key auto-stamp via request-scoped context — removes drift across hundreds of call sites (R-07.24). (c) Redaction markers applied pre-capture so sinks can route sensitive fields safely (R-07.29). Three patterns were explicitly **rejected** because they fit a single-user developer CLI, not multi-tenant SaaS: (i) per-developer telemetry tagging (session/host IDs at the OTel layer) — our unit of aggregation is tenant, not developer. (ii) Offline telemetry spooling to disk — breaks multi-tenant isolation and would require per-tenant retention policies on local disk; we drop on sustained exporter outage after bounded backoff. (iii) Datadog analytics sink coupling — we do not port a vendor-specific analytics plane; OTel spans with stable attribute names are the single emission surface.
 
 ---
 
 ## 3. Data Model
 
-### Span (Langfuse + OTel shape; not a Postgres table)
+### Span (OTel shape; not a Postgres table)
 
 All spans carry:
 
@@ -84,7 +89,7 @@ Consumed here; schema owned by kernel module:
 - `created_at TIMESTAMPTZ`.
 - Index: `(trace_id)`, `(tenant_id, created_at DESC)`.
 
-### `agent_tool_invocation` (tool-output audit trail, separate from Langfuse)
+### `agent_tool_invocation` (tool-output audit trail, separate from trace-backend storage)
 
 - `id UUID PK`
 - `trace_id UUID` (RLS via tenant_id).
@@ -248,8 +253,8 @@ record(opts: {
 
 1. Plan 06 closes stream.
 2. Turn-state triggers re-evaluated — any that flipped true during execution (e.g. `taint_flipped`, `approval_required_draft_submitted`) retroactively escalate sampling to 100%.
-3. For escalation: if `capture` was `false` (sampled out), the already-NoOp'd spans are lost — but the **trigger-detection metadata** is persisted on the `TURN` span summary so operators know the turn matched a trigger. Retrospective span reconstruction is not possible from NoOp; this is the accepted tradeoff.
-4. For captured traces: all spans flushed to Langfuse.
+3. For escalation: if `capture` was `false` (sampled out), the already-NoOp'd spans are lost — but the **trigger-detection metadata** is persisted on the `TURN` span summary so operators know the turn matched a trigger (even for sampled-out turns, the sampling-decision outcome and would-have-matched triggers are stamped as attributes on a minimal TURN stub row in the audit table — see R-07.17a). Retrospective span reconstruction is not possible from NoOp; this is the accepted tradeoff.
+4. For captured traces: all spans flushed to the configured trace backend via the exporter adapter.
 5. Tool-output audit trail (plan 01 step 6) persists regardless of sampling — kernel-owned, separate persistence, not tied to sampling decision.
 
 **Sampling decision is made at root + re-evaluated at turn-end for trigger-match reporting only.** No span-level override.
@@ -288,9 +293,9 @@ Component-specific attrs added explicitly (e.g. `gateway:ceiling-check` adds `by
 ### PII redaction at capture
 
 1. Plan 01 gateway wraps tool result fields declared in `tenantAuthoredFreeText`.
-2. When the tool-result is stamped on `SUB_AGENT_TOOL_CALL.result` attr for Langfuse, `PreCaptureRedactor` strips the tenant-authored fields and replaces with `'<redacted:tenant_authored>'`.
+2. When the tool-result is stamped on the `SUB_AGENT_TOOL_CALL.result` span attribute for export, `PreCaptureRedactor` strips the tenant-authored fields and replaces with `'<redacted:tenant_authored>'` **before** the span leaves the process.
 3. The un-redacted result goes to `agent_tool_invocation.result_preview` — kernel-owned, RLS-protected, retained under documented legitimate-interest.
-4. Langfuse trace shows redacted; audit table has raw for incident reconstruction.
+4. Exported trace shows redacted; audit table has raw for incident reconstruction. The redactor runs pre-capture so no backend ever receives raw tenant-authored content via the trace plane.
 
 ### Tool-output audit write
 
@@ -317,11 +322,18 @@ For each of the following, plan 07 emits metric + trace attr:
 
 **Confidence calibration** — plan 03 stamps `confidence` on synthesizer output; plan 08 feedback (thumbs, initiator-approval) correlates.
 
-### GDPR Langfuse purge (plan 04 integration)
+### GDPR trace-backend purge (plan 04 integration)
 
-1. Plan 04 GDPR pipeline calls Langfuse `purgeByUserId({ userId, tenantId })`.
-2. Langfuse API call; we log result.
-3. On partial failure, plan 04's pipeline captures as compliance incident.
+1. Plan 04 GDPR pipeline calls the trace-backend exporter adapter's `purgeByUserId({ userId, tenantId })` — a vendor-neutral interface that every exporter adapter must implement.
+2. Adapter invokes whichever backend-specific API is wired (or a no-op if the backend has no trace user data, e.g. spans flushed to a self-hosted store scrubbed separately). Result (`'ok' | 'partial' | 'failed'`) returned.
+3. On failure, plan 04 retries 3× per R-04.29 and opens a `compliance_ticket_required: true` kernel audit row on exhaustion; DB + L3 scrub commit regardless.
+
+### Cross-tenant leak canary (scheduled)
+
+1. A daily pg-boss job `observability-leak-canary` runs under a fixture-tenant context. It emits a synthetic turn with a well-known `trace_id` shape (stamped `canary_marker: true`) and known `tenant_id = fixture_tenant_id`.
+2. A second phase queries the trace backend across all other tenants' trace-read surfaces (RLS-filtered) for any span carrying `canary_marker` or the fixture `tenant_id`.
+3. Any match ⇒ P0 cross-tenant leak incident; pages on-call, triggers runbook, and temporarily disables the exporter adapter's read plane for investigation.
+4. No match ⇒ green signal recorded on the observability health dashboard.
 
 ---
 
@@ -338,12 +350,13 @@ For each of the following, plan 07 emits metric + trace attr:
 
 ### Trace correlation
 
-| #      | Requirement                                                                                                                                                 | Design §§ |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| R-07.5 | `trace_id` = UUIDv7; chronologically sortable                                                                                                               | §12       |
-| R-07.6 | `trace_id` stamped on: `agent_message`, kernel audit events, Langfuse trace, pg-boss job row, outbox events, approval_request rows, `agent_tool_invocation` | §12       |
-| R-07.7 | `tenant_id` required on every span; auto-stamped at root, inherited                                                                                         | §12       |
-| R-07.8 | `trace_id` UUIDv7 format — if Langfuse requires OTel 32-hex, adapt at exporter boundary (never generate OTel-format at source)                              | §12       |
+| #       | Requirement                                                                                                                                                                                                                                                                                                                                                                                                       | Design §§ |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| R-07.5  | `trace_id` = UUIDv7; chronologically sortable                                                                                                                                                                                                                                                                                                                                                                     | §12       |
+| R-07.6  | `trace_id` stamped on: `agent_message`, kernel audit events, trace-backend span, pg-boss job row, outbox events, approval_request rows, `agent_tool_invocation`                                                                                                                                                                                                                                                   | §12       |
+| R-07.7  | `tenant_id` required on every span; auto-stamped at root, inherited                                                                                                                                                                                                                                                                                                                                               | §12       |
+| R-07.8  | `trace_id` is UUIDv7 at source. If the chosen trace backend requires a different format (e.g. OTel 32-hex), the mapping happens in the exporter adapter — **never** generate backend-specific formats in emission code.                                                                                                                                                                                           | §12       |
+| R-07.8a | **Vendor-neutrality invariant.** Span emission code uses stable source-owned attribute names (`tenant_id`, `span_type`, `entity_type`, `tool_name`, `cost_usd`, etc.). Any mapping to backend-specific field names lives exclusively in the exporter adapter (`trace-backend-exporter.ts` et al.). Backend swap requires zero changes to emission code — a non-negotiable invariant for vendor-lock-in avoidance. | §12       |
 
 ### Sampling
 
@@ -355,14 +368,16 @@ For each of the following, plan 07 emits metric + trace attr:
 
 ### MVP sampling triggers (100% on any match)
 
-| #       | Requirement                                                                              | Design §§ |
-| ------- | ---------------------------------------------------------------------------------------- | --------- | --------------------- | --- | ----------------- | --- |
-| R-07.12 | `turn.ended.reason !== 'completed'`                                                      | §12       |
-| R-07.13 | `iteration_ceiling_hit                                                                   |           | wallclock_ceiling_hit |     | cost_ceiling_hit` | §12 |
-| R-07.14 | `taint_flipped`                                                                          | §12       |
-| R-07.15 | `approval_required_draft_submitted`                                                      | §12       |
-| R-07.16 | `composition_amplification` (≥2 `compositionSensitive` tools across distinct aggregates) | §12       |
-| R-07.17 | Baseline sampling rate for completed turns: 1%                                           | §12       |
+| #        | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Design §§ |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | --------------------- | --- | ----------------- | --- |
+| R-07.12  | `turn.ended.reason !== 'completed'`                                                                                                                                                                                                                                                                                                                                                                                                                                                               | §12       |
+| R-07.13  | `iteration_ceiling_hit                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |           | wallclock_ceiling_hit |     | cost_ceiling_hit` | §12 |
+| R-07.14  | `taint_flipped`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | §12       |
+| R-07.15  | `approval_required_draft_submitted`                                                                                                                                                                                                                                                                                                                                                                                                                                                               | §12       |
+| R-07.16  | `composition_amplification` (≥2 `compositionSensitive` tools across distinct aggregates)                                                                                                                                                                                                                                                                                                                                                                                                          | §12       |
+| R-07.17  | Baseline sampling rate for completed turns: 1%                                                                                                                                                                                                                                                                                                                                                                                                                                                    | §12       |
+| R-07.17a | **Sampling-decision diagnostic stamp.** Every turn — sampled or not — produces a minimal TURN-stub row in `agent_tool_invocation`'s sibling table `agent_turn_sampling_decision` carrying `{ trace_id, tenant_id, user_id, capture: bool, root_decision_reason, triggers_matched_at_root: string[], triggers_matched_retroactively: string[] }`. Lets operators detect "would-have-been-captured-if-sampled-differently" patterns without full capture. Cardinality-bounded by turn count; cheap. | §12       |
+| R-07.17b | **Per-tenant trace-emission quota.** Each tenant has `max_sampled_turns_per_day INT` (default 10_000) in `admin_tenant_config`. When crossed, new turns are **force-sampled-out** (capture=false) regardless of triggers; a signal `tenant_quota_exhausted_at` is stamped on the diagnostic row (R-07.17a); P2 alert fires at 80% and 100%. Protects trace backend from single-tenant storms. Quota can be raised via admin runbook.                                                              | §12       |
 
 ### Per-span attributes
 
@@ -387,11 +402,11 @@ For each of the following, plan 07 emits metric + trace attr:
 
 ### PII / redaction
 
-| #       | Requirement                                                                     | Design §§ |
-| ------- | ------------------------------------------------------------------------------- | --------- |
-| R-07.29 | `PreCaptureRedactor` strips `tenantAuthoredFreeText` fields from Langfuse attrs | §2, §12   |
-| R-07.30 | User's own utterance purge-by-user-id wired to plan 04 GDPR pipeline            | §6, §12   |
-| R-07.31 | Retrospective scrubbing is fallback only — default is redact at write           | §12       |
+| #       | Requirement                                                                                                                                                                                       | Design §§ |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| R-07.29 | `PreCaptureRedactor` strips `tenantAuthoredFreeText` fields from span attributes **before** the span leaves the process; no backend ever receives raw tenant-authored content via the trace plane | §2, §12   |
+| R-07.30 | User's own utterance purge-by-user-id flows through the exporter adapter's `purgeByUserId` interface, called by plan 04's GDPR pipeline                                                           | §6, §12   |
+| R-07.31 | Retrospective scrubbing is fallback only — default is redact at write                                                                                                                             | §12       |
 
 ### Tool-output audit (kernel-owned)
 
@@ -399,16 +414,17 @@ For each of the following, plan 07 emits metric + trace attr:
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
 | R-07.32 | `agent_tool_invocation` row per tool call: `{ name, args, result_preview, result_hash, byte_count, trace_id, tenant_id, sub_agent_key, phase, iteration? }` | §12       |
 | R-07.33 | Tenant-partitioned via RLS                                                                                                                                  | §12       |
-| R-07.34 | Correlation to Langfuse via shared `trace_id`                                                                                                               | §12       |
+| R-07.34 | Correlation to exported trace spans via shared `trace_id`                                                                                                   | §12       |
 | R-07.35 | Audit persists regardless of sampling decision — it IS the source of truth for "what did the agent see"                                                     | §12       |
 
 ### Retention
 
-| #       | Requirement                                   | Design §§ |
-| ------- | --------------------------------------------- | --------- |
-| R-07.36 | Traces ≥30 days (per-tenant configurable)     | §12       |
-| R-07.37 | Audit ≥90 days (per-tenant configurable)      | §12       |
-| R-07.38 | Retained under documented legitimate-interest | §12       |
+| #        | Requirement                                                                                                                                                                                                                                                                                                                               | Design §§ |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| R-07.36  | Traces ≥30 days (per-tenant configurable). **Config location:** `admin_tenant_config.trace_retention_days` (default 30, min 7, max 365). Consumed by whichever backend adapter is wired; backend-specific retention job enforces.                                                                                                         | §12       |
+| R-07.37  | Audit ≥90 days (per-tenant configurable). **Config location:** `admin_tenant_config.audit_retention_days` (default 90, min 90 for compliance, max 2555 = 7 years). Owned by plan 04 alignment.                                                                                                                                            | §12       |
+| R-07.38  | Retained under documented legitimate-interest                                                                                                                                                                                                                                                                                             | §12       |
+| R-07.38a | **Cross-tenant leak canary.** A daily `observability-leak-canary` pg-boss job emits a synthetic fixture-tenant turn with `canary_marker: true` and scans every other tenant's trace-read surface for any match. Non-zero match = P0 security incident; exporter read plane disabled for investigation. Runs regardless of backend choice. | §12, §18  |
 
 ### Dashboards + signals
 
@@ -423,18 +439,20 @@ For each of the following, plan 07 emits metric + trace attr:
 
 ## 7. Failure Modes & Recovery
 
-| Failure                                                                    | Symptom                                  | Recovery                                                                                                                                                                              |
-| -------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Langfuse collector unreachable                                             | Span flushes fail                        | Local buffer retries with exponential backoff; drop after 5 min retention (bounded memory); alert on sustained outage. Kernel audit + `agent_tool_invocation` unaffected (DB-backed). |
-| Sampling-decider race (two spans created in parallel before root decision) | Rare — root span is always created first | Defensive: `SamplingDecider.decide` is synchronous at root creation; child spans block until root decision committed.                                                                 |
-| Identity-key auto-stamp missing                                            | Span has blank `tenant_id`               | Hard fail — `TURN` span creation asserts all identity keys present; missing = `turn.ended.reason: error`.                                                                             |
-| `request_context_keys` auto-stamp accidentally set via manual API          | Potential spoofing surface               | `Span.setAttribute(key, value)` rejects identity-key names via typed denylist; manual override requires a separate system API used only by middleware.                                |
-| Usage recorded on non-leaf span                                            | Double-count risk                        | Warn metric + skip record. Bug in the caller; fix in PR.                                                                                                                              |
-| Tool-output audit write fails                                              | Partial audit trail                      | Retry via outbox pattern (plan 11 owns outbox if relevant); if persistent failure, P1 — tool call trace exists but audit doesn't.                                                     |
-| PreCaptureRedactor misses a declared field (coding error)                  | Tenant-authored text leaks into Langfuse | Scheduled audit scan over Langfuse traces for `<tenant_authored>` markers matches against redaction coverage; any miss is a P1 data-handling incident.                                |
-| Trace-ID UUIDv7 collision                                                  | Astronomically unlikely but non-zero     | Second turn with colliding `trace_id` gets rejected at insert (unique constraint); request retries with new UUID.                                                                     |
-| `purgeByUserId` against Langfuse fails                                     | Partial GDPR compliance                  | Plan 04 captures as compliance incident; retry + escalate.                                                                                                                            |
-| Metric label cardinality explosion (despite guardrail)                     | TSDB memory blow-up                      | Plan 05 guardrail catches at exporter; this plan's metrics are audited for compliance.                                                                                                |
+| Failure                                                                                    | Symptom                                       | Recovery                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Trace backend unreachable                                                                  | Span flushes fail                             | Local buffer retries with exponential backoff; drop after 5 min retention (bounded memory); alert on sustained outage. Kernel audit + `agent_tool_invocation` unaffected (DB-backed). No disk-spooling fallback (multi-tenant isolation). |
+| Sampling-decider race (two spans created in parallel before root decision)                 | Rare — root span is always created first      | Defensive: `SamplingDecider.decide` is synchronous at root creation; child spans block until root decision committed.                                                                                                                     |
+| Identity-key auto-stamp missing                                                            | Span has blank `tenant_id`                    | Hard fail — `TURN` span creation asserts all identity keys present; missing = `turn.ended.reason: error`.                                                                                                                                 |
+| `request_context_keys` auto-stamp accidentally set via manual API                          | Potential spoofing surface                    | `Span.setAttribute(key, value)` rejects identity-key names via typed denylist; manual override requires a separate system API used only by middleware.                                                                                    |
+| Usage recorded on non-leaf span                                                            | Double-count risk                             | Warn metric + skip record. Bug in the caller; fix in PR.                                                                                                                                                                                  |
+| Tool-output audit write fails                                                              | Partial audit trail                           | Retry via outbox pattern (plan 11 owns outbox if relevant); if persistent failure, P1 — tool call trace exists but audit doesn't.                                                                                                         |
+| PreCaptureRedactor misses a declared field (coding error)                                  | Tenant-authored text leaks into trace backend | Scheduled audit scan over exported trace spans for `<tenant_authored>` markers matches against redaction coverage; any miss is a P1 data-handling incident.                                                                               |
+| Trace-ID UUIDv7 collision                                                                  | Astronomically unlikely but non-zero          | Second turn with colliding `trace_id` gets rejected at insert (unique constraint); request retries with new UUID.                                                                                                                         |
+| Exporter adapter's `purgeByUserId` fails                                                   | Partial GDPR compliance                       | Plan 04 retries 3× (1s/4s/16s); on exhaustion opens `compliance_ticket_required: true` kernel audit row; DB + L3 scrub committed regardless.                                                                                              |
+| Tenant exceeds daily trace-emission quota                                                  | Capture forced off for that tenant            | Sampled-out turns still produce `agent_turn_sampling_decision` diagnostic rows. P2 alert at 80%/100%. Admin runbook raises quota if legitimate traffic.                                                                                   |
+| Cross-tenant leak canary job finds fixture-tenant span in another tenant's trace-read view | P0 security incident                          | Pages on-call; temporarily disables exporter read plane; runbook inspects RLS on trace-read adapter; backend filter config reviewed. Blocks further reads until cleared.                                                                  |
+| Metric label cardinality explosion (despite guardrail)                                     | TSDB memory blow-up                           | Plan 05 guardrail catches at exporter; this plan's metrics are audited for compliance.                                                                                                                                                    |
 
 ---
 
@@ -444,18 +462,22 @@ _This plan ships the observability surface; its self-observation is narrower._
 
 ### Meta-metrics
 
-- `agent_span_flush_total{status: 'ok' | 'error'}` — Langfuse send outcomes.
-- `agent_span_buffer_depth` — gauge; alert if sustained high (collector unreachable).
+- `agent_span_flush_total{status: 'ok' | 'error'}` — trace-backend export outcomes.
+- `agent_span_buffer_depth` — gauge; alert if sustained high (backend unreachable).
 - `agent_sampling_decision_total{capture: 'true' | 'false', reason}` — counter.
 - `agent_pii_redaction_total{tool_name}` — counter of redacted-field occurrences.
 - `agent_usage_recorded_on_non_leaf_total` — counter; should always be 0.
 - `agent_trace_audit_join_miss_total` — counter; any non-zero is P1 (tool-call span without audit row).
+- `agent_tenant_trace_quota_used{tenant_id}` — gauge (fraction of daily quota consumed); P2 at 0.8, P1 at 1.0.
+- `agent_cross_tenant_leak_canary_total{result: 'clean' | 'leak_detected'}` — counter; any `leak_detected` is P0.
 
 ### Dashboards (meta)
 
-- Langfuse collector health (span-flush success rate; alert if <99% for 10 min).
-- Sampling distribution (expected: 99% sampled-out, 1% baseline sample, N% trigger-match).
+- Trace-backend collector health (span-flush success rate; alert if <99% for 10 min).
+- Sampling distribution (expected: 99% sampled-out, 1% baseline sample, N% trigger-match, force-sampled-out-by-quota broken out separately).
 - Cross-system `trace_id` join coverage (audit vs traces — should be 100% modulo sampling).
+- Per-tenant trace-quota consumption + leader board (who's nearing cap).
+- Cross-tenant leak canary status (daily green/red timeline).
 
 ---
 
@@ -463,24 +485,26 @@ _This plan ships the observability surface; its self-observation is narrower._
 
 - **`trace_id` is not sensitive** — it's a correlation token, not an authz credential. Exposing it in UI deep-links is fine for dev users.
 - **`agent_tool_invocation.result_preview` holds unredacted tool results** including `tenantAuthoredFreeText`. RLS protects; 90-day retention; accessed for incident reconstruction only. Access is audited.
-- **Langfuse holds redacted + user utterances**. User utterances are covered by plan 04 GDPR pipeline. Tenant-authored text is redacted pre-capture; if miss, treat as incident.
+- **Trace backend holds redacted spans + user utterances**. User utterances are covered by plan 04 GDPR pipeline. Tenant-authored text is redacted pre-capture; if miss, treat as incident.
 - **Identity-key auto-stamp prevents manual spoofing**. `Span.setAttribute('tenant_id', 'other')` from a sub-agent would be blocked at the API; middleware is the only writer.
 - **Sampling decision cannot be overridden mid-flight by untrusted input.** The `SamplingConfig` is server-config, not per-request.
 - **Dashboard PII avoidance.** Meta-metrics don't carry `user_id`; dashboards aggregate by tenant + tier only.
+- **Cross-tenant trace isolation.** The exporter adapter's read plane MUST filter by `tenant_id` from `RequestContext`. The leak canary (R-07.38a) is the continuous proof that isolation holds — without it, we have no observable assurance that the backend honors tenant filters.
+- **Vendor-neutral emission surface** (R-07.8a). If the chosen backend is replaced, spans continue emitting with the same attribute names; only the adapter changes. No risk of attribute-naming drift smuggling PII across a migration.
 
 ---
 
 ## 10. Performance Budget
 
-| Operation                                | p50    | p95    | p99    |
-| ---------------------------------------- | ------ | ------ | ------ |
-| `ObservabilityContextFactory.create`     | <2ms   | <5ms   | <10ms  |
-| `Span` creation (captured)               | <1ms   | <3ms   | <8ms   |
-| `Span` creation (NoOp)                   | <0.1ms | <0.3ms | <1ms   |
-| `Span.setAttribute`                      | <0.1ms | <0.2ms | <0.5ms |
-| `PreCaptureRedactor.redact`              | <2ms   | <5ms   | <15ms  |
-| `ToolInvocationAuditRecorder.record`     | <5ms   | <15ms  | <40ms  |
-| Langfuse batch flush (async, background) | —      | —      | —      |
+| Operation                                     | p50    | p95    | p99    |
+| --------------------------------------------- | ------ | ------ | ------ |
+| `ObservabilityContextFactory.create`          | <2ms   | <5ms   | <10ms  |
+| `Span` creation (captured)                    | <1ms   | <3ms   | <8ms   |
+| `Span` creation (NoOp)                        | <0.1ms | <0.3ms | <1ms   |
+| `Span.setAttribute`                           | <0.1ms | <0.2ms | <0.5ms |
+| `PreCaptureRedactor.redact`                   | <2ms   | <5ms   | <15ms  |
+| `ToolInvocationAuditRecorder.record`          | <5ms   | <15ms  | <40ms  |
+| Trace-backend batch flush (async, background) | —      | —      | —      |
 
 Total observability overhead per turn: <50ms p99 (on sampled turns). NoOp path: <5ms total (essentially free on 99% of turns).
 
@@ -499,14 +523,17 @@ Total observability overhead per turn: <50ms p99 (on sampled turns). NoOp path: 
 
 ### Integration
 
-- Happy turn: Langfuse trace has full span tree; `tenant_id` on every span; content hashes populated on root; leaf spans have usage.
-- 1% baseline sampling: seed 100 turns; ~1 has full capture; others NoOp.
+- Happy turn: exported trace has full span tree; `tenant_id` on every span; content hashes populated on root; leaf spans have usage.
+- 1% baseline sampling: seed 100 turns; ~1 has full capture; others NoOp; all 100 produce `agent_turn_sampling_decision` diagnostic rows.
 - Trigger-match: seed a ceiling-hit turn → 100% capture regardless of baseline.
 - Trace-audit join: for every `SUB_AGENT_TOOL_CALL` span, find matching `agent_tool_invocation` row by `trace_id`. 100% coverage.
-- PII redaction: seed a tool result with a declared free-text field → Langfuse shows `<redacted>`, audit shows raw.
-- GDPR: delete user X → Langfuse `purgeByUserId` called → subsequent Langfuse query for user X returns empty.
-- Cross-tenant: tenant A's Langfuse project does not return tenant B traces.
+- PII redaction: seed a tool result with a declared free-text field → exported span shows `<redacted>`, audit shows raw.
+- GDPR: delete user X → exporter adapter `purgeByUserId` called → subsequent backend query for user X returns empty.
+- Cross-tenant: tenant A's trace-read surface does not return tenant B spans.
 - UUIDv7 format: `trace_id` chronologically sortable verified by insert order vs lexicographic sort.
+- Tenant quota: seed tenant emitting > `max_sampled_turns_per_day` → subsequent turns are force-sampled-out; `tenant_quota_exhausted_at` stamped on diagnostic rows; P2 alert fires.
+- Cross-tenant leak canary: inject fixture-tenant canary trace → daily job scans across tenants → no match found → `agent_cross_tenant_leak_canary_total{result: 'clean'}` increments. Seeded-leak test (deliberately broken filter) triggers `leak_detected` + P0 path.
+- Vendor-neutrality: seed a second dummy exporter adapter in test → same span emission produces correctly-mapped output for both adapters with zero changes to emission code (R-07.8a invariant).
 
 ### Property
 
@@ -515,7 +542,7 @@ Total observability overhead per turn: <50ms p99 (on sampled turns). NoOp path: 
 
 ### E2E
 
-- Incident reconstruction drill: given a `trace_id`, grep returns rows from `agent_message`, `kernel_audit`, `agent_tool_invocation`, pg-boss; Langfuse trace loads. All consistent.
+- Incident reconstruction drill: given a `trace_id`, grep returns rows from `agent_message`, `kernel_audit`, `agent_tool_invocation`, pg-boss; trace-backend view loads. All consistent.
 
 ### Fixtures
 
@@ -531,11 +558,14 @@ Total observability overhead per turn: <50ms p99 (on sampled turns). NoOp path: 
 - §18.4 observability thresholds met:
   - `trace_id` correlation end-to-end: sample 100 random traces; 100% have matching rows in all expected tables.
   - Stratified sampling triggers: all 5 MVP triggers fire 100% capture in the last 30 days with count ≥1 each.
-  - PII redaction: zero `tenantAuthoredFreeText` leakage in Langfuse scans.
+  - PII redaction: zero `tenantAuthoredFreeText` leakage in exported trace scans.
 - Cross-tenant seed test passes.
 - `agent_trace_audit_join_miss_total` = 0 in production for any 30-day window.
-- Langfuse UI shows auto-stamped identity keys on every span.
-- UUIDv7 round-trip: server generates → Langfuse stores → adapter round-trips without collision or format loss.
+- Exported trace view shows auto-stamped identity keys on every span.
+- UUIDv7 round-trip: server generates → backend stores → adapter round-trips without collision or format loss.
+- Daily cross-tenant leak canary runs green for 30 consecutive days before MVP ship gate.
+- Per-tenant quota enforcement verified: tenant over quota cannot force higher sampling via any surface.
+- Vendor-neutrality test: a second dummy exporter adapter compiled into tests proves emission is backend-agnostic.
 
 ---
 
@@ -544,16 +574,18 @@ Total observability overhead per turn: <50ms p99 (on sampled turns). NoOp path: 
 - **Phase 1** — ship observability context + span taxonomy + auto-stamping; default `SamplingConfig: { type: 'always' }` for internal-tenant dev.
 - **Phase 2** — enable stratified sampling + 5 triggers.
 - **Phase 3** — wire `agent_tool_invocation` audit table + trace-audit join dashboards.
-- **Phase 4** — wire GDPR Langfuse purge to plan 04 pipeline.
-- **Phase 5** — dashboards + alerts (router accuracy, anomaly, calibration).
+- **Phase 4** — wire GDPR purge from plan 04 pipeline through exporter adapter.
+- **Phase 5** — dashboards + alerts (router accuracy, anomaly, calibration, quota, leak canary).
+- **Phase 6** — daily cross-tenant leak canary live in production, 30-day green window before MVP gate.
 
-**Backout:** observability faults fail-open (turn completes with no trace rather than fail). Langfuse outage doesn't block user-visible flow. Any regression is fixed forward; no feature flag because observability is tenet-level.
+**Backout:** observability faults fail-open (turn completes with no trace rather than fail). Trace-backend outage doesn't block user-visible flow. Any regression is fixed forward; no feature flag because observability is tenet-level.
 
 ---
 
 ## 14. Dependencies
 
-- Plan 00 (shipped): Langfuse OTel wiring + prompt/narrative stores.
+- Plan 00 (shipped): OTel wiring + prompt/narrative stores. (Trace backend selection is deferred per CLAUDE.md roadmap; this plan is backend-agnostic.)
+- Admin module: `admin_tenant_config` fields `max_sampled_turns_per_day`, `trace_retention_days`, `audit_retention_days` (R-07.17b, R-07.36, R-07.37).
 - Plan 01: tool-output audit emitted from gateway step 6.
 - Plan 02: session hash attributes (router_prompt_hash etc.).
 - Plan 03: sub-agent + synthesizer span emission.
@@ -567,13 +599,14 @@ Total observability overhead per turn: <50ms p99 (on sampled turns). NoOp path: 
 
 - `apps/api/src/modules/agents/application/services/observability-context.ts` — factory + auto-stamper.
 - `apps/api/src/modules/agents/application/services/sampling-decider.ts`.
-- `apps/api/src/modules/agents/infrastructure/exporters/langfuse-exporter.ts` — attribute remapping if Langfuse requires.
+- `apps/api/src/modules/agents/infrastructure/exporters/trace-backend-exporter.ts` — adapter interface; attribute remapping + `purgeByUserId` implementation per chosen backend. Backend selection is swappable; emission code never imports this directly.
 - `apps/api/src/modules/agents/infrastructure/redaction/pre-capture-redactor.ts`.
 - `apps/api/src/modules/agents/infrastructure/schema/agent-tool-invocation.ts` — Drizzle.
+- `apps/api/src/modules/agents/infrastructure/schema/agent-turn-sampling-decision.ts` — Drizzle (R-07.17a diagnostic rows).
 - `apps/api/src/modules/agents/infrastructure/repositories/tool-invocation-audit-repository.ts`.
+- `apps/api/src/modules/agents/application/services/leak-canary-scheduler.ts` — daily pg-boss job (R-07.38a).
 - Kernel module — audit event write.
-- Langfuse SDK — trace + span + purge-by-user-id.
-- OTel — span export.
+- OTel SDK — span emission (vendor-neutral).
 
 ## 16. Activation Gate
 
@@ -584,13 +617,15 @@ MVP. Ships with first production turn.
 - Quality canary scheduling / fixture-tenant data (plan 10).
 - LLM-judge scorers (GA).
 - Full-fleet prompt capture (GA).
-- Langfuse self-hosted deployment ops (infra / implementation-doc).
+- Trace-backend deployment, ops, and vendor selection (infra / implementation-doc — deferred per CLAUDE.md).
 - Per-tenant retention config UI (product concern).
 
 ## 18. Open Questions
 
-- **`trace_id` format coercion at Langfuse boundary.** If Langfuse requires OTel 32-hex, we convert UUIDv7 to hex representation at export. Verify at bootstrap smoke test. Owner: platform eng.
+- **`trace_id` format coercion at backend boundary.** If the chosen backend requires a different format (e.g. OTel 32-hex), the adapter converts UUIDv7 → required representation at export. Verify at bootstrap smoke test once backend is selected. Owner: platform eng.
 - **Async trace-joining for pg-boss reminders.** New trace with `parent_trace_id` link attribute vs joining an open trace. Recommend: new trace with link; avoids multi-day unclosed traces. Owner: plan 09 integration.
 - **`entity_version_id` vs content hash duplication.** Both on every trace. Redundancy confirms replay. Keep both at MVP; revisit if storage cost is meaningful.
-- **Langfuse retention vs kernel audit retention.** 30d vs 90d. Document explicitly: audit is authoritative post-30-day; Langfuse is query/replay convenience. Owner: legal + ops.
+- **Trace retention vs kernel audit retention.** 30d vs 90d. Document explicitly: audit is authoritative post-30-day; trace backend is query/replay convenience. Owner: legal + ops.
+- **Trace-backend selection.** Deferred per CLAUDE.md. Candidates include Langfuse (self-hosted or cloud), self-hosted OTel collector → ClickHouse/Tempo, etc. Decision criteria: RLS-compatible tenant filtering, `purgeByUserId` semantics, retention configurability, cost at tenant scale. Owner: ops + platform eng; deadline TBD before Phase 4.
+- **Single vs multi-exporter adapter registry.** Should we support multiple backends simultaneously (e.g. cheap ClickHouse bulk + expensive Langfuse high-fidelity) via a composite exporter? Defer until single-backend pattern is operating smoothly; adds ops surface area. Recommend: single backend at MVP; composite deferred.
 - **Meta-eval corpus for LLM-judge promotion (plan 10 dep).** This plan's `agent_tool_invocation` retention supports corpus mining; verify we don't prematurely delete incident-class traces before meta-eval gate clears. Owner: plan 10 author.

@@ -44,6 +44,8 @@ The permission narrative (§8) is also generated, not hand-written — it's the 
 
 **What this is NOT:** an extensible agent-framework surface. It is a constrained factory with opinionated validation; new fields require a design doc change.
 
+**Prior-art review — what was adopted and what was rejected.** Claude Code's sub-agent / coordinator substrate (`tools/AgentTool/loadAgentsDir.ts`, `coordinator/coordinatorMode.ts`, `skills/`) was reviewed as prior art. Two patterns are confirmed aligned: (a) typed declaration of callable agent-like entities with compile-checked required fields (our `defineSubAgent` is stricter — Zod-typed I/O schemas + type-forbidden L4 writes); (b) registry-sourced router prompt generation — both closes the drift gap. Three patterns were explicitly **rejected** because they fit a developer CLI, not multi-tenant business AaaS: (i) **User-authored markdown sub-agents** (Claude Code's `agents/*.md` with frontmatter) — in a multi-tenant SaaS, tenant-uploaded prompts are unvalidated until runtime and become a latent injection surface. All sub-agents are code-declared through PR review. (ii) **Free-text slash-command routing** — our router receives a structured `user_utterance` + context and classifies topology via generateObject, not by parsing slash commands. (iii) **Coordinator worker-tool narrative injection** (static per-call text block listing tools) — our router prompt is hash-pinned at session start and cannot be mutated mid-turn; runtime narrative injection would break replay determinism (R-02.16).
+
 ---
 
 ## 3. Data Model
@@ -218,7 +220,10 @@ type RouterPlan = {
 1. Receive `POST /agent/turn` — plan 06 extracts `tenantId, userId, surface, conversationId?`.
 2. Attempt to load `agent_session` for `conversationId`. If missing → proceed to step 3. If present → use pinned hashes; skip to phase execution.
 3. **Build permission narrative.** `PermissionNarrativeBuilder.build({ tenantId, roleId })`. On cache hit, return existing `narrativeHash`; on miss, generate text programmatically from `canDo` rules, content-hash it, append to `agent_narrative_store`, emit `agent.narrative_stored` audit.
-4. **Resolve sub-agents.** `SubAgentRegistry.resolveForSession(...)` returns the tenant-resolved subset with resolved model + rendered prompt body + per-sub-agent prompt hash.
+4. **Resolve sub-agents.** `SubAgentRegistry.resolveForSession(...)` returns the tenant-resolved subset with resolved model + rendered prompt body + per-sub-agent prompt hash. Filtering is a **three-stage intersection**:
+   - (a) **Module toggle**: read tenant's enabled-modules set from admin module config; a sub-agent whose `toolScope` lies entirely within a disabled module is dropped. Emit `router_sub_agent_hidden_by_module{module, sub_agent_key}` span attribute for the filtered set.
+   - (b) **Role permissions**: for each surviving sub-agent, intersect `toolScope` against `roleAllowedPermissions` via `canDo`. Tools the role cannot call are removed from the sub-agent's effective scope.
+   - (c) **Empty-scope drop**: if (a) + (b) leave a sub-agent with zero resolvable tools, the sub-agent is dropped from the returned list entirely. Emit `router_sub_agent_hidden_by_permission{sub_agent_key}` span attribute. This prevents the router prompt from advertising a sub-agent that cannot do useful work, and also surfaces a product signal ("user role would use this sub-agent but lacks the tools"). See R-02.9a.
 5. **Build router prompt.** `RouterPromptBuilder.build(...)` returns system prompt + developer message + `routerPromptHash`. Registry entries are rendered as `{ key, domain, description, whenToUse, inputSchema JSONSchema, outputSchema JSONSchema }`. Tool catalog (filtered per role) is rendered once; hashed for `toolCatalogHash`.
 6. **Pin to session.** Create `agent_session` row with all hashes. Replay harness (plan 10) reconstructs prompts via these hashes.
 
@@ -227,7 +232,7 @@ type RouterPlan = {
 1. Assemble messages: system prompt (hash-pinned) → developer message (turn-dynamic: taint narrative, L3 preferences, γ/α window, circuit-breaker notes) → user message.
 2. Invoke `generateObject` (Vercel AI SDK) with `schema: RouterPlanSchema`.
 3. Parse via `RouterDecisionParser.parse`. Three outcomes:
-   - `ok` → return plan to phase execution (plan 03).
+   - `ok` → **emit `agent.sub_agent_invoked` kernel audit event for each `phase1` directive and the optional `phase2` directive** (one event per selected sub-agent; payload `{ sub_agent_key, phase, iteration: null, caller_user_id, role_id, turn_trace_id, sub_agent_prompt_hash }`), then return plan to phase execution (plan 03). Audit event stamps the compliance trail of which sub-agent was selected for which turn, independent of subsequent tool-call audits.
    - `retry` → re-issue call with `jsonPromptInjection: true` equivalent (schema re-injected into prompt) ONCE.
    - `escalate` → emit disambiguation event (plan 06 `refusal.started` with `reason: 'disambiguation'`), end turn without executing phases.
 4. Hash the assembled router message array (content hash); stamp `router_prompt_hash` on the trace (must match session-pinned hash — mismatch = bug).
@@ -274,11 +279,12 @@ Every string emitted into the assembled router prompt passes through the canonic
 
 ### Drift tests
 
-| #       | Requirement                                                                                   | Design §§ |
-| ------- | --------------------------------------------------------------------------------------------- | --------- |
-| R-02.9  | Every sub-agent has a non-empty `toolScope` resolvable against the current tRPC registry      | §3        |
-| R-02.10 | `inputSchema` subset check is compile-enforced + CI-verified against canonical phase-1 output | §3        |
-| R-02.11 | CI hard-fail on any drift-test regression; no warn-only                                       | §14       |
+| #       | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Design §§ |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| R-02.9  | Every sub-agent has a non-empty `toolScope` resolvable against the current tRPC registry                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | §3        |
+| R-02.9a | `resolveForSession` applies a 3-stage filter: (a) drop sub-agents whose `toolScope` lies entirely within a tenant-disabled module (admin module toggles); (b) intersect each sub-agent's scope against `roleAllowedPermissions` via `canDo`; (c) drop sub-agents whose resulting scope is empty. Filtered sub-agents emit `router_sub_agent_hidden_by_{module,permission}` span attributes for product/compliance analytics. Prevents the router prompt from advertising sub-agents that cannot do useful work and surfaces "would-use-if-enabled" signals. | §3        |
+| R-02.10 | `inputSchema` subset check is compile-enforced + CI-verified against canonical phase-1 output                                                                                                                                                                                                                                                                                                                                                                                                                                                               | §3        |
+| R-02.11 | CI hard-fail on any drift-test regression; no warn-only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | §14       |
 
 ### Router prompt generation
 
@@ -300,12 +306,13 @@ Every string emitted into the assembled router prompt passes through the canonic
 
 ### Structured-output parse
 
-| #       | Requirement                                                                                  | Design §§ |
-| ------- | -------------------------------------------------------------------------------------------- | --------- |
-| R-02.20 | Router decision parsed via structured output against Zod schema                              | §3, §4    |
-| R-02.21 | On schema-fail: one retry with schema re-injection; second fail → escalate to disambiguation | §4        |
-| R-02.22 | No silent string-repair / fuzzy-JSON fallback                                                | §4, §8    |
-| R-02.23 | Escalation emits structured disambiguation event via plan 06                                 | §4, §15   |
+| #        | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Design §§                 |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| R-02.20  | Router decision parsed via structured output against Zod schema                                                                                                                                                                                                                                                                                                                                                                                                      | §3, §4                    |
+| R-02.21  | On schema-fail: one retry with schema re-injection; second fail → escalate to disambiguation                                                                                                                                                                                                                                                                                                                                                                         | §4                        |
+| R-02.22  | No silent string-repair / fuzzy-JSON fallback                                                                                                                                                                                                                                                                                                                                                                                                                        | §4, §8                    |
+| R-02.23  | Escalation emits structured disambiguation event via plan 06                                                                                                                                                                                                                                                                                                                                                                                                         | §4, §15                   |
+| R-02.23a | On parse `ok`, the router emits one `agent.sub_agent_invoked` kernel audit event per selected sub-agent in the plan (phase 1 + optional phase 2). Payload: `{ sub_agent_key, phase, iteration: null, caller_user_id, role_id, turn_trace_id, sub_agent_prompt_hash }`. Establishes a compliance audit trail of router decisions independent of downstream tool-call audits. Consumed by legal-export queries ("which sub-agents touched user X's data in period Y"). | §12, plan 01 audit schema |
 
 ### Canonicalization
 
@@ -354,6 +361,8 @@ Every string emitted into the assembled router prompt passes through the canonic
 - `agent_router_decisions_total{tenant_id, outcome}` — outcome: `bounded_plan | disambiguation | parse_escalated`.
 - `agent_router_parse_retry_total{tenant_id}` — counter.
 - `agent_narrative_cache_hit_ratio{tenant_id}` — gauge.
+- `agent_sub_agent_hidden_total{tenant_id, reason}` — counter. `reason ∈ {module_disabled, permission_empty_scope}`. Sustained high values flag misconfigured roles or missing module subscriptions (product signal).
+- `agent_sub_agent_invoked_total{tenant_id, sub_agent_key, phase}` — counter. Populated from `agent.sub_agent_invoked` audit events (R-02.23a).
 
 ### Dashboards
 
@@ -370,6 +379,7 @@ Every string emitted into the assembled router prompt passes through the canonic
 - **Rejected `additionalInstructions`:** would let a tenant-admin inject arbitrary text into the router prompt, a hallmark of the indirect-injection class. Not a MVP path. If tenant routing variation is needed, it goes into per-sub-agent `whenToUse` via code review.
 - **`agent_stored_sub_agent` Beta path:** will require kernel audit on every row change + admin-role `canDo` gate. Capture the audit shape now so it doesn't get retrofitted.
 - **Prompt-hash replay:** the session-pinned hashes prevent mid-session tenant-admin changes from affecting active turns (race-condition class: admin updates narrative → in-flight turn re-fetches → different narrative than router expected).
+- **Caller-JWT inheritance / no impersonation.** A sub-agent's tool calls run under the **original caller's** JWT and `RequestContext`, inherited through plan 06's identity-key discipline (R-06.36). Sub-agents have no API to re-authenticate as another user, downgrade to a service identity, or elevate permissions. The router does not choose an identity; it chooses sub-agents that execute under the same identity that made the turn request. In async/delegated turns (plan 09), identity flows through the delegation row's `on_behalf_of` user — never forged at sub-agent level. Verified by Plan 06 R-06.36-38 (`identity_key_write_attempted` audit + type-level denial).
 
 ---
 
@@ -409,6 +419,10 @@ Total non-LLM overhead: <50ms p99. Dominated by the LLM call.
 - Seed a router response with malformed JSON (first call) + valid JSON (second call) → parse retries once, succeeds.
 - Seed two consecutive malformed responses → disambiguation event emitted; no plan executes.
 - Fuzzy-repair attempt: seed nearly-valid JSON (e.g. trailing comma) → parser rejects (no repair).
+- Module toggle: seed tenant with `hiring` module disabled + a sub-agent whose `toolScope: ['hiring.*']` → `resolveForSession` returns list without that sub-agent; span attribute `router_sub_agent_hidden_by_module{module: 'hiring'}` present.
+- Empty-permission-scope: seed role lacking all perms for a sub-agent's tools → sub-agent dropped; `router_sub_agent_hidden_by_permission` span attribute present.
+- Sub-agent-invoked audit: router plan containing 2 phase-1 sub-agents + 1 phase-2 sub-agent → exactly 3 `agent.sub_agent_invoked` kernel audit rows present with correct `phase` values.
+- Caller JWT inheritance: seed a turn where the user's JWT has permission P1 but the sub-agent-default identity lacks P1 → verify the sub-agent's tool call succeeds (uses user's JWT), NOT the default. Then: remove P1 from user's JWT → verify the same sub-agent's tool call fails with tripwire `permission_denied`.
 
 ### Property
 
@@ -431,8 +445,11 @@ Total non-LLM overhead: <50ms p99. Dominated by the LLM call.
 
 - All unit + integration + property tests pass.
 - Build fails on seeded violation PRs (missing field, collision, L4 write, non-existent tool).
-- Langfuse trace for first turn of a conversation shows: `permission-narrative:build` with `from_cache: false` → `router-prompt:build` → `router-llm:call` → `router-decision:parse`.
-- Langfuse trace for second turn in same conversation shows `permission-narrative:build` with `from_cache: true`.
+- Exported trace for first turn of a conversation shows: `permission-narrative:build` with `from_cache: false` → `router-prompt:build` → `router-llm:call` → `router-decision:parse`.
+- Exported trace for second turn in same conversation shows `permission-narrative:build` with `from_cache: true`.
+- `agent.sub_agent_invoked` kernel audit events present for every selected sub-agent across a sample of 100 turns (R-02.23a).
+- Module-toggle filter verified: disable `hiring` module for a seeded tenant → sub-agents whose `toolScope` is entirely `hiring.*` do NOT appear in router prompt; `router_sub_agent_hidden_by_module` span attribute emitted.
+- Empty-permission-scope filter verified: role with no permissions for a sub-agent's tools → sub-agent dropped; `router_sub_agent_hidden_by_permission` span attribute emitted.
 - Session row `agent_session` persisted with all hash columns populated.
 - Disambiguation emitted on double-parse-failure matches plan 06 event schema.
 - Canonicalizer version hash appears as trace attr on every trace.
@@ -453,7 +470,8 @@ Total non-LLM overhead: <50ms p99. Dominated by the LLM call.
 
 ## 14. Dependencies
 
-- Plan 00 (shipped): `agent_narrative_store` + sanitizer + Langfuse wiring.
+- Plan 00 (shipped): `agent_narrative_store` + sanitizer + OTel wiring (trace backend selection deferred per CLAUDE.md; plan 07).
+- Admin module: tenant module-toggle configuration consumed by `resolveForSession` stage (a) filter (R-02.9a).
 - Plan 01: tool registry (for `tool_catalog_hash` + tool-name validation in `toolScope`).
 - `KernelQueryFacade.getRolePermissions(tenantId, roleId)` returning `{ role, allow, deny }`.
 

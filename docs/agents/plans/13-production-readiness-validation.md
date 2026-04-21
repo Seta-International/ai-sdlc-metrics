@@ -185,7 +185,7 @@ Specific evaluators (at least one per §18 row):
   - `trace_correlation_end_to_end`: monthly sample of 100 random traces with joins intact.
   - `stratified_sampling_trigger_coverage`: all 5 MVP triggers fired ≥1× in last 30d.
   - `canary_detects_planted_degradation`: quarterly red-team drill outcome.
-  - `pii_redaction_at_capture`: scheduled scan over Langfuse for `<tenant_authored>` leakage = 0.
+  - `pii_redaction_at_capture`: scheduled scan over exported trace spans for `<tenant_authored>` leakage = 0.
   - `replay_coverage_on_100_sampled`: 100% replay success rate.
 
 - **§18.5 Rollout safety**

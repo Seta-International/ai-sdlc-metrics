@@ -45,6 +45,8 @@ Pricing is **versioned**. Every cost event stamps `pricing_id` (FK into an appen
 
 **What this is NOT:** a usage-tracking library. It is the budget + ceiling + refusal enforcement layer. Token capture is a collaboration between this plan (defines data shape) and plan 07 (emits spans).
 
+**Prior-art review — what was adopted and what was rejected.** Claude Code's cost/retry/rate-limit substrate (`cost-tracker.ts`, `withRetry.ts`, `bootstrap/state.ts`) was reviewed as prior art. Four patterns are adopted here in business-AaaS-appropriate form: (a) cost event fires once per successful LLM completion — never per retry attempt; duration-with-retries and attempt-duration recorded separately (R-05.6a, R-05.6b). (b) Distinct error taxonomy for vendor-side failures: rate limit vs overload vs server error vs timeout vs invalid response, each with different cost + fallback semantics (R-05.20a). (c) Vendor retry-after / reset-timestamp headers are honored verbatim for rate-limit windows — no exponential-backoff guessing when the vendor published the actual reset (R-05.20b). (d) Consecutive-same-error counter drives `provider_fallback`, not single-error (R-05.20c). Three patterns were explicitly **rejected** because they are single-user-CLI shaped and would be anti-patterns in multi-tenant billing: (i) runtime cost-tier mutation (e.g. `getOpus46CostTier(fastMode)` bumps rate based on session mode) — our billing requires pricing_id stamped at event time, not recomputed at display; (ii) config-file cost persistence (`~/.claude/settings.json`) — all cost state lives in RLS-protected `agent_cost_event` / `agent_tenant_budget`; config-file state breaks tenant isolation; (iii) raw vendor-error-string pass-through to the model — error context flows through plan 01 R-01.29's `project_to_schema` sanitizer to prevent cross-turn PII bleed.
+
 ---
 
 ## 3. Data Model
@@ -136,9 +138,34 @@ type UsageTokens = {
   output: number;
   outputReasoning: number;
 }
+
+const EMPTY_USAGE: UsageTokens = {
+  inputUncached: 0, inputCachedRead: 0, inputCachedWrite: 0, output: 0, outputReasoning: 0,
+}  // canonical zero-init; extractors start from this rather than partial {} to prevent undefined-to-zero coercion bugs
 ```
 
-Adapter MUST extract all fields or emit `adapter_dropped_cache_fields` audit + P1 alert.
+Adapter MUST extract all fields or emit `adapter_dropped_cache_fields` audit + P1 alert. Adapter MUST suppress the audit when a vendor field is present with value 0 vs absent entirely (avoid false positives on genuinely-zero responses — presence check, not value check).
+
+### `VendorErrorExtractor` (per provider adapter)
+
+```
+extract(providerResponse: unknown): VendorError | null
+
+type VendorError = {
+  class: 'vendor_rate_limit' | 'vendor_overload' | 'vendor_server_error' | 'vendor_timeout' | 'vendor_invalid_response';
+  retryAfterMs?: number;        // honored verbatim when present; overrides backoff policy
+  resetAt?: Date;               // window-based limits (e.g. `anthropic-ratelimit-unified-reset`)
+  vendorMessage?: string;       // raw string, NEVER passed to model — audit only
+}
+```
+
+Retry/fallback policy per class:
+
+- `vendor_rate_limit` (HTTP 429): honor `retryAfterMs` / `resetAt`; wait, then retry once. No fallback. No cost charge.
+- `vendor_overload` (HTTP 529 / capacity error): increment consecutive-overload counter for this turn + model; 3rd consecutive → `provider_fallback` to nano tier for rest of turn. No cost charge on the failed calls.
+- `vendor_server_error` (HTTP 5xx non-529): retry once with jitter; second failure → `provider_fallback`. No cost charge.
+- `vendor_timeout` (wallclock on stream): retry once; second failure → tripwire to turn with partial-answer gate.
+- `vendor_invalid_response` (malformed JSON / missing required fields): no retry; tripwire immediately. P1 alert — indicates adapter-vendor contract drift.
 
 ### `CostCalculator`
 
@@ -214,15 +241,27 @@ Both procedures emit `agent.budget_topup` / `agent.budget_limit_changed` kernel 
 
 1. Sub-agent / router / synthesizer completes an LLM call via plan 03's runner.
 2. Runner receives provider response with `usage`.
-3. Runner calls `UsageExtractor.extract(response)` for the provider adapter in use.
-4. If adapter fails to extract a field that the vendor actually reported → emit `adapter_dropped_cache_fields` audit + monitoring alert (P1).
-5. Runner calls `PricingResolver.resolve({ modelId })` → returns current `Pricing`.
-6. Runner calls `CostCalculator.compute({ usage, pricing })` → returns `costUsd` + per-component breakdown.
-7. Runner calls `CostRecorder.record({ traceId, tenantId, userId, layer, modelId, usage, pricing, costUsd })`:
+3. **Cost records exactly once per successful completion — never per retry attempt.** If the runner retried internally (vendor 429/529/5xx), only the successful final response's `usage` drives `CostRecorder.record`. Failed attempts produce no cost event and no budget decrement. Rationale: retry absorption is transparent to billing; otherwise tenants pay for provider flakiness.
+4. Runner calls `UsageExtractor.extract(response)` for the provider adapter in use.
+5. If adapter fails to extract a field that the vendor actually reported (presence check, not value check) → emit `adapter_dropped_cache_fields` audit + monitoring alert (P1).
+6. Runner calls `PricingResolver.resolve({ modelId })` → returns current `Pricing`.
+7. Runner calls `CostCalculator.compute({ usage, pricing })` → returns `costUsd` + per-component breakdown.
+8. Runner calls `CostRecorder.record({ traceId, tenantId, userId, layer, modelId, usage, pricing, costUsd, retryCount, attemptDurationMs, totalDurationMs })`:
    - Writes `agent_cost_event`.
    - Decrements `agent_tenant_budget.remaining_usd` atomically.
    - Updates `agent_user_budget` for today's bucket.
-8. Plan 07 observability stamps usage + cost as span attrs on the enclosing LLM-call span.
+9. Plan 07 observability stamps usage + cost as span attrs on the enclosing LLM-call span. `retryCount`, `attemptDurationMs` (last attempt only, for latency SLO), and `totalDurationMs` (all attempts aggregated, for reliability analysis) are distinct trace attributes — latency SLOs read `attemptDurationMs`; reliability dashboards read `totalDurationMs`.
+
+### Vendor-error handling (retry / fallback)
+
+1. Provider adapter receives response; runner calls `VendorErrorExtractor.extract(response)`.
+2. If non-null, branch on `error.class`:
+   - `vendor_rate_limit`: await `retryAfterMs` or until `resetAt`; retry once. Both calls produce zero cost events. Second failure → tripwire with class `transient_infra_error` (plan 01 R-01.29 sanitizer applies).
+   - `vendor_overload`: increment `turnState.consecutiveOverload[modelId]`. If counter ≥ 3 → emit `provider_fallback` trace tag with `finish_reason: provider_fallback` and `error_class: vendor_overload`; route remaining turn calls to `gpt-5.4-nano` (or configured fallback). Fallback is sticky for the rest of the turn (not per-call).
+   - `vendor_server_error`: retry once with jittered backoff; on second failure → `provider_fallback` as above with `error_class: vendor_server_error`.
+   - `vendor_timeout`: retry once; second timeout → partial-answer gate via plan 03.
+   - `vendor_invalid_response`: no retry. Tripwire immediately. P1 audit + alert — adapter/vendor contract drift requires engineering intervention.
+3. Any fallback sets `tier_shift: false` on the trace and `provider_fallback: true` — these are distinct signals (R-05.21). A single turn may experience both (e.g. budget-driven tier_shift followed by capacity-driven provider_fallback).
 
 ### Pre-turn budget check
 
@@ -291,14 +330,17 @@ Both procedures emit `agent.budget_topup` / `agent.budget_limit_changed` kernel 
 
 ### Cost accounting
 
-| #      | Requirement                                                                                                                                       | Design §§ |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| R-05.1 | Cost denominated in dollars                                                                                                                       | §13       |
-| R-05.2 | Per-call billing splits: `input_uncached`, `input_cached_read` (~0.1×), `input_cached_write` (~1.25×), `output`, `output_reasoning` (output rate) | §13       |
-| R-05.3 | Every cost event stamps `pricing_id` + `priced_at`                                                                                                | §13       |
-| R-05.4 | `agent_pricing` append-only; new rates → new row, never update                                                                                    | §13       |
-| R-05.5 | Adapter-drop alerts P1; `adapter_dropped_cache_fields` fires on any vendor-reported-but-dropped field                                             | §13       |
-| R-05.6 | On drop, over-bill (apply uncached rate to dropped fraction) not under-bill                                                                       | §13       |
+| #       | Requirement                                                                                                                                                                                                                                                                                                          | Design §§ |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| R-05.1  | Cost denominated in dollars                                                                                                                                                                                                                                                                                          | §13       |
+| R-05.2  | Per-call billing splits: `input_uncached`, `input_cached_read` (~0.1×), `input_cached_write` (~1.25×), `output`, `output_reasoning` (output rate)                                                                                                                                                                    | §13       |
+| R-05.3  | Every cost event stamps `pricing_id` + `priced_at`                                                                                                                                                                                                                                                                   | §13       |
+| R-05.4  | `agent_pricing` append-only; new rates → new row, never update                                                                                                                                                                                                                                                       | §13       |
+| R-05.5  | Adapter-drop alerts P1; `adapter_dropped_cache_fields` fires on any vendor-reported-but-dropped field                                                                                                                                                                                                                | §13       |
+| R-05.6  | On drop, over-bill (apply uncached rate to dropped fraction) not under-bill                                                                                                                                                                                                                                          | §13       |
+| R-05.6a | Cost records exactly once per successful LLM completion. Retry attempts absorbed internally — zero cost events for failed attempts. Tenants never billed for provider flakiness.                                                                                                                                     | §13       |
+| R-05.6b | `agent_cost_event` carries `retry_count INT` (attempts before success; default 0), `attempt_duration_ms INT` (successful attempt only), `total_duration_ms INT` (sum across attempts). Latency SLO reads `attempt_duration_ms`; reliability analysis reads `total_duration_ms`. Conflating them hides either signal. | §13       |
+| R-05.6c | Adapter-drop audit triggers on vendor-field **presence** (field reported by vendor but unrouted by adapter), not **value** (field reported as 0). Suppresses false positives on genuinely-zero responses.                                                                                                            | §13       |
 
 ### Ceilings
 
@@ -324,12 +366,16 @@ Both procedures emit `agent.budget_topup` / `agent.budget_limit_changed` kernel 
 
 ### tier_shift vs provider_fallback
 
-| #       | Requirement                                                | Design §§ |
-| ------- | ---------------------------------------------------------- | --------- |
-| R-05.19 | `tier_shift` = policy-driven tier downgrade                | §13       |
-| R-05.20 | `provider_fallback` = error-recovery-driven                | §13       |
-| R-05.21 | Distinct `finish_reason` values; distinct alert paths      | §13       |
-| R-05.22 | `tier_shift` surfaces explicit UI message 100% of the time | §13       |
+| #        | Requirement                                                                                                                                                                                                                                                                                             | Design §§       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| R-05.19  | `tier_shift` = policy-driven tier downgrade                                                                                                                                                                                                                                                             | §13             |
+| R-05.20  | `provider_fallback` = error-recovery-driven                                                                                                                                                                                                                                                             | §13             |
+| R-05.20a | `provider_fallback` carries explicit `error_class ∈ {vendor_rate_limit, vendor_overload, vendor_server_error, vendor_timeout, vendor_invalid_response}`. Alignment with plan 01's error taxonomy for consistent trace + audit semantics.                                                                | §13, plan 01 §3 |
+| R-05.20b | Vendor `retry-after` / `anthropic-ratelimit-unified-reset` headers (and equivalents) are honored verbatim. No exponential-backoff guessing when the vendor published the actual reset time. Applies to `vendor_rate_limit` only.                                                                        | §13             |
+| R-05.20c | `provider_fallback` trigger is consecutive-same-error, not single-error. Default threshold: 3 consecutive same-class failures for a given `modelId` within the current turn. Fallback is sticky for the rest of the turn — subsequent successful responses do NOT revert to the primary model mid-turn. | §13             |
+| R-05.20d | Failed vendor-error responses produce zero cost events regardless of retry count (R-05.6a). `vendor_rate_limit` + `vendor_overload` + `vendor_server_error` + `vendor_timeout` never charge; only the terminal successful attempt's `usage` drives `CostRecorder.record`.                               | §13             |
+| R-05.21  | Distinct `finish_reason` values; distinct alert paths                                                                                                                                                                                                                                                   | §13             |
+| R-05.22  | `tier_shift` surfaces explicit UI message 100% of the time                                                                                                                                                                                                                                              | §13             |
 
 ### Rate limits
 
@@ -379,7 +425,12 @@ Both procedures emit `agent.budget_topup` / `agent.budget_limit_changed` kernel 
 | Tenant budget not refilled at midnight (cron failure)                    | First turn after midnight refused                                 | Alert → manual refill via `AdminBudgetOps.topUp` + incident runbook.                                                                             |
 | Race: two concurrent turns both see "budget OK" and combined exceed 100% | Slight over-spend (≤ one turn's cost beyond limit)                | Acceptable — mid-turn abort catches at next check. Optimistic-locking on `remaining_usd` would trade throughput for precision; not worth at MVP. |
 | Rate-limit substrate (Redis) unreachable                                 | `RateLimiter.check` fails open (allows) with warning log          | Accepted — availability over rate enforcement for transient substrate failures. Long outage → alert.                                             |
-| Adapter drops cache field that is actually zero in response              | False-positive `adapter_dropped_cache_fields`                     | Expected; suppress at adapter layer by comparing vendor field presence, not value.                                                               |
+| Adapter drops cache field that is actually zero in response              | False-positive `adapter_dropped_cache_fields`                     | Expected; suppress at adapter layer by comparing vendor field presence, not value. Codified in R-05.6c.                                          |
+| Vendor 429 / 429-with-window rate limit                                  | `VendorError.class: vendor_rate_limit`; stream pauses             | Honor `retryAfterMs` / `resetAt` verbatim. Retry once. Both attempts produce zero cost. Second failure → tripwire `transient_infra_error`.       |
+| Vendor 529 / capacity overload, 1-2 occurrences in turn                  | `VendorError.class: vendor_overload`; counter increments          | Retry per backoff policy. No cost. Counter resets on any successful response (consecutive-only).                                                 |
+| Vendor 529 / capacity overload, ≥3 consecutive                           | `provider_fallback` tag on trace; sticky for rest of turn         | Route subsequent calls to `gpt-5.4-nano` (or configured fallback). `error_class: vendor_overload` on the fallback signal.                        |
+| Vendor returns malformed response (missing required fields / bad JSON)   | `VendorError.class: vendor_invalid_response`                      | Immediate tripwire, no retry. P1 audit + alert — indicates adapter/vendor contract drift. Zero cost.                                             |
+| Runner double-records cost (bug — records on retry before success)       | `agent_cost_event` count > actual successful LLM calls            | Regression test for R-05.6a. Reconciliation job surfaces as `cost_event_count_exceeds_langfuse_success_count` if deployed in error.              |
 | User hits soft 80% warning mid-conversation                              | UI banner on next turn                                            | No action needed; informational.                                                                                                                 |
 | Per-tool ceiling seeded too tight                                        | Tripwire retries fail repeatedly                                  | Adjust `.meta({ agent: { ceilings } })` via tool-author PR; ship hotfix. Meanwhile, circuit breaker disables the tool.                           |
 
@@ -394,7 +445,10 @@ Both procedures emit `agent.budget_topup` / `agent.budget_limit_changed` kernel 
 - `agent_budget_remaining_usd{tenant_id}` — gauge.
 - `agent_budget_user_remaining_usd{tenant_id}` — gauge (aggregated; no `user_id` label).
 - `agent_tier_shift_total{tenant_id, from_tier, to_tier, reason}` — counter. `reason ∈ {budget, quality_canary}`.
-- `agent_provider_fallback_total{tenant_id, model_id, error_class}` — counter.
+- `agent_provider_fallback_total{tenant_id, model_id, error_class}` — counter. `error_class ∈ {vendor_rate_limit, vendor_overload, vendor_server_error, vendor_timeout, vendor_invalid_response}` per R-05.20a.
+- `agent_llm_call_attempt_duration_ms{tenant_id, model_id, layer}` — histogram of **terminal successful attempt** duration only. Latency SLO source.
+- `agent_llm_call_total_duration_ms{tenant_id, model_id, layer}` — histogram of **total duration across all attempts** (including retries). Reliability analysis source. The gap between the two histograms quantifies retry overhead per tenant.
+- `agent_vendor_retry_total{tenant_id, model_id, error_class}` — counter of internal retries (R-05.6a / R-05.20b). Zero cost impact but tracks vendor reliability.
 - `agent_rate_limit_rejected_total{tenant_id, limit_key}` — counter.
 - `agent_adapter_drop_total{adapter, field}` — counter. P1 alert on any non-zero value.
 - `agent_approval_inbox_depth{tenant_id}` — gauge (approver-aggregate; no `user_id`).
@@ -402,8 +456,8 @@ Both procedures emit `agent.budget_topup` / `agent.budget_limit_changed` kernel 
 
 ### Trace attributes
 
-- On LLM-call spans: `pricing_id`, `priced_at`, `cost_usd`, `usage.*` per §12 R-07.21-22.
-- On `TURN` root: `tier_shift: boolean`, `tier_shift_reason?`, `mid_turn_abort: boolean`, `pre_turn_refusal: boolean`, `refusal_reason?`.
+- On LLM-call spans: `pricing_id`, `priced_at`, `cost_usd`, `usage.*` per §12 R-07.21-22. Additionally: `retry_count`, `attempt_duration_ms`, `total_duration_ms` (R-05.6b), and on retry: `vendor_error_class`, `vendor_retry_after_ms?`, `vendor_reset_at?`.
+- On `TURN` root: `tier_shift: boolean`, `tier_shift_reason?`, `mid_turn_abort: boolean`, `pre_turn_refusal: boolean`, `refusal_reason?`, `provider_fallback: boolean`, `provider_fallback_error_class?`, `provider_fallback_triggered_at_iteration?`.
 
 ### Dashboards
 
@@ -470,6 +524,9 @@ Cost-path overhead per LLM call ≤ 20ms p99. Pre-turn check ≤ 40ms p99 (adds 
 
 - Over-billing invariant: for any combination of adapter drops, computed `cost_usd` ≥ true cost.
 - Monotonicity: `agent_tenant_budget.remaining_usd` only decreases or resets (refill / top-up); never increases from a cost event.
+- **Retry-cost invariant (R-05.6a):** for any sequence of N vendor retries followed by one success, exactly one `agent_cost_event` row is produced. Property test seeds adapter to fail K times then succeed for K ∈ {0, 1, 2, 3}; asserts 1 cost event + K retry-counter increments + zero-cost failed attempts in trace.
+- **Retry-after fidelity (R-05.20b):** when vendor response carries `retry-after: 30`, the retry fires no earlier than 30s after the 429 (tolerance ±0.5s). Mocked-clock test.
+- **Fallback stickiness (R-05.20c):** after `provider_fallback` triggers mid-turn, all subsequent LLM calls in that turn target the fallback model even if the primary recovers. Asserted with seeded recovery after 3-consecutive-overload trigger.
 
 ### Cardinality
 
@@ -481,6 +538,9 @@ Cost-path overhead per LLM call ≤ 20ms p99. Pre-turn check ≤ 40ms p99 (adds 
 - `fixtures/pricing/openai-2026-05-update.sql` — simulates a mid-year rate change.
 - `fixtures/vendor-responses/gpt-5-4-full-usage.json`
 - `fixtures/vendor-responses/gpt-5-4-missing-cached-write.json` (adapter-drop scenario).
+- `fixtures/vendor-responses/gpt-5-4-rate-limit-with-reset-at.json` (vendor_rate_limit class with `retryAfterMs` header).
+- `fixtures/vendor-responses/gpt-5-4-overload-529.json` (vendor_overload class — consecutive-error fallback seeding).
+- `fixtures/vendor-responses/gpt-5-4-malformed.json` (vendor_invalid_response — tripwire immediately).
 
 ---
 
@@ -488,6 +548,9 @@ Cost-path overhead per LLM call ≤ 20ms p99. Pre-turn check ≤ 40ms p99 (adds 
 
 - All unit + integration + property tests pass.
 - Cost events sum equals Langfuse-reported totals (reconciliation within rounding).
+- Retry-cost invariant verified: N vendor-error retries + 1 success produces exactly 1 `agent_cost_event`; reconciliation job flags any divergence.
+- `vendor_retry_after` honored within ±0.5s of header-specified reset time (mocked-clock test).
+- `provider_fallback` fires only on consecutive-same-error ≥3 and remains sticky for rest of turn.
 - Adapter-drop alert verified end-to-end (P1 PagerDuty test).
 - Tier-shift UI message surfaces every time; verified manually + monitored.
 - Rate-limit rejection produces user-visible message in zone UIs.

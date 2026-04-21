@@ -56,6 +56,8 @@
 
 **What this is NOT:** a general scheduling framework or a workflow engine. It's a constrained async-turn surface with delegation semantics.
 
+**Prior-art review — what was adopted and what was rejected.** Claude Code's scheduling substrate (`tools/ScheduleCronTool/`, `cronScheduler.ts`, `hooks/useScheduledTasks.ts`, `remote/RemoteSessionManager.ts`) was reviewed as prior art. Three patterns are confirmed aligned: (a) structured payload serialization at enqueue time — not "run this shell command later"; (b) version pinning + retry idempotency (our pinned_versions are stricter — router, sub-agent, tool_meta, model_id — because Claude Code is single-process single-user and can assume stable versions); (c) explicit identity attribution via `RequestContext` rather than credential copy. Four patterns were explicitly **rejected** because they fit a developer's laptop, not a multi-tenant multi-pod SaaS: (i) **File-based task storage** (`.claude/scheduled_tasks.json`) — we use Postgres + RLS; file storage has no tenant isolation and doesn't survive pod restart. (ii) **Process-local scheduling loop** (1s setInterval in the REPL) — incompatible with autoscaling ECS; scheduling must be server-side via pg-boss. (iii) **Raw command-string scheduling** — our schedules carry structured payload (`prompt`, `delegation_id`, `pinned_versions`, `taint_seeded`), never raw shell or prompt strings. (iv) **Per-task `durable` flag** — all schedules are durable by default; two-tier persistence invites drift.
+
 ---
 
 ## 3. Data Model
@@ -75,6 +77,9 @@
 - `cost_ceiling_daily_usd NUMERIC(10,2)` — per-delegation daily budget.
 - `invocation_ceiling_daily INT` — max fires per day.
 - `status TEXT` — `'active' | 'paused' | 'deleted'`.
+- `pause_reason TEXT?` — set when `status='paused'`; values include `'owner_requested' | 'delegation_expired' | 'owner_offboarded' | 'tenant_spend_exhausted' | 'consecutive_failures' | 'admin_intervention'`.
+- `consecutive_failure_count INT DEFAULT 0` — incremented on each run failure, reset on success. Drives R-09.29 escalation.
+- `failure_alert_policy TEXT DEFAULT 'owner_and_admin'` — `'owner' | 'owner_and_admin' | 'admin_only' | 'silent'`. Set per-schedule at creation; admin can override tenant-wide default via `admin_tenant_config.default_schedule_failure_alert_policy`.
 - `created_at TIMESTAMPTZ`, `updated_at TIMESTAMPTZ`.
 - Index: `(tenant_id, status, trigger_kind, cron_expression)`, `(tenant_id, owner_user_id, status)`.
 
@@ -200,9 +205,21 @@ create(opts: { tenantId; delegatorUserId?; delegate; scope; expiresAt }): Promis
 //  - max-active per user
 //  - rate limit (plan 05 R-05.25)
 //  - auto-expire ≤ 180d regardless of requested expires_at
+//  - scope.permitted_tools each resolvable against current tRPC registry — unknown tools log a drift warning (not a failure); the effective scope narrows to intersecting tools only. Admin audit captures the mismatch so stale grants can be renewed.
 revoke(opts: { tenantId; delegationId; reason: string }): Promise<void>
 listActive(opts: { tenantId; userId? }): Promise<Delegation[]>
 sweepExpired(): Promise<{ expiredCount: number }>  // scheduled cron
+handleUserOffboarding(opts: { tenantId; userId; offboardingActorId }): Promise<{
+  revokedDelegationCount: number;
+  pausedScheduleCount: number;
+  reassignedScheduleCount: number;    // 0 at MVP — reassignment is Beta
+}>
+// Called by people module when a user is offboarded. Default policy:
+//   - revoke all delegations with delegator_user_id = userId (status='revoked', reason='owner_offboarded')
+//   - pause all personal schedules with owner_user_id = userId (status='paused', pause_reason='owner_offboarded')
+//   - emit kernel audit agent.schedules_revoked_on_offboarding with full inventory
+//   - notify tenant admin with summary
+// Beta+: optional per-tenant policy to reassign schedules to a configured fallback owner instead of pausing.
 ```
 
 ### `TaintSeedDetector` (for event-triggered schedules)
@@ -273,12 +290,12 @@ Tenant-wide creation is gated `canDo('admin.schedule.create')`. Personal schedul
 
 ### Event-triggered spawn
 
-1. Domain event fires (e.g. `ticket.comment.created`).
-2. Event-router matches `agent_schedule.event_subscription.event_type` filters.
+1. Domain event fires (e.g. `ticket.comment.created`). Event carries `event.tenant_id`.
+2. Event-router matches `agent_schedule.event_subscription.event_type` filters **AND enforces `event.tenant_id === schedule.tenant_id`** as a hard match requirement (R-09.28). Cross-tenant event/schedule pairings are never routed; attempted routing with a tenant mismatch is rejected and audited as a P0 candidate.
 3. For each matching schedule: `ScheduledTurnSpawner.spawn({ schedule, firedBy: 'event:ticket.comment.created', eventPayload })`.
 4. `TaintSeedDetector.shouldSeedTaint(...)` → typically `true` for user-authored event content.
 5. Same pre-checks as cron.
-6. pg-boss job payload includes `event_payload`.
+6. pg-boss job payload includes `event_payload`. Worker re-validates `tenant_id` match on first DB read (belt-and-suspenders).
 
 ### Worker execution
 
@@ -325,6 +342,32 @@ Tenant-wide creation is gated `canDo('admin.schedule.create')`. Personal schedul
 3. Updates `status = 'expired'`.
 4. Marks dependent schedules as `paused` with `pause_reason = 'delegation_expired'`.
 5. Notifies delegator.
+
+### User offboarding
+
+1. People module flags a user as offboarded (terminated, left tenant, etc.).
+2. People module calls `DelegationLifecycle.handleUserOffboarding({ tenantId, userId, offboardingActorId })`.
+3. Revokes all delegations where `delegator_user_id = userId` (status='revoked', reason='owner_offboarded').
+4. Pauses all personal schedules where `owner_user_id = userId` (status='paused', pause_reason='owner_offboarded').
+5. Emits kernel audit `agent.schedules_revoked_on_offboarding` with the full inventory of revoked delegations + paused schedules + initiating actor.
+6. Notifies tenant admin with a summary report (one notification, not one per schedule).
+7. Admin UI surfaces a "former-owner schedules" view so admins can either keep them paused or (at Beta) reassign to a designated successor. At MVP: pause-only.
+
+### Consecutive-failure escalation
+
+1. Worker run completes with `outcome` in `{'error', 'refused', 'budget'}` — non-success.
+2. Worker increments `agent_schedule.consecutive_failure_count` atomically.
+3. If count == 1 or 2: notify per `failure_alert_policy` (default: owner + admin).
+4. If count == 3: escalate — always notify admin + owner regardless of per-schedule policy, AND pause the schedule with `pause_reason='consecutive_failures'`. Rationale: three consecutive failures is almost always a config/permission drift; letting the schedule keep firing wastes LLM spend and noise-floods the inbox.
+5. On any successful run, counter resets to 0.
+6. Admin runbook action to resume a `consecutive_failures`-paused schedule flips `status='active'` and clears the counter.
+
+### Tenant-wide spend exhaustion
+
+1. Daily aggregation job sums `agent_cost_event` for the tenant across all `layer ∈ {'sub_agent:*', 'router', 'synthesizer', 'summarizer'}` where the originating turn carried `via_schedule_id`.
+2. Compares against `admin_tenant_config.scheduled_spend_daily_limit_usd` (if set).
+3. If exceeded: bulk-pauses all schedules in the tenant with `pause_reason='tenant_spend_exhausted'`, notifies tenant admin. Manual resume required.
+4. Not a mid-run abort — enforcement is at the next spawn boundary to avoid tearing down active runs.
 
 ### Taint seeding + approval bump
 
@@ -393,13 +436,30 @@ Tenant-wide creation is gated `canDo('admin.schedule.create')`. Personal schedul
 
 ### Delegation lifecycle
 
-| #       | Requirement                                                                                                             | Design §§ |
-| ------- | ----------------------------------------------------------------------------------------------------------------------- | --------- |
-| R-09.20 | Max active delegations per user: 10 default                                                                             | §11       |
-| R-09.21 | Creation rate limit: `schedule_or_delegation_creations_per_user_per_day` default 5 (single counter per plan 05 R-05.25) | §11, §13  |
-| R-09.22 | Auto-expire grants ≥ 180d regardless of requested expiry                                                                | §11       |
-| R-09.23 | Admin UI shows all active grants per user                                                                               | §11       |
-| R-09.24 | Expired delegations trigger paused schedules; owner notified                                                            | §11       |
+| #        | Requirement                                                                                                                                                                                                                                                                                                                              | Design §§ |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| R-09.20  | Max active delegations per user: 10 default                                                                                                                                                                                                                                                                                              | §11       |
+| R-09.21  | Creation rate limit: `schedule_or_delegation_creations_per_user_per_day` default 5 (single counter per plan 05 R-05.25)                                                                                                                                                                                                                  | §11, §13  |
+| R-09.22  | Auto-expire grants ≥ 180d regardless of requested expiry                                                                                                                                                                                                                                                                                 | §11       |
+| R-09.23  | Admin UI shows all active grants per user                                                                                                                                                                                                                                                                                                | §11       |
+| R-09.24  | Expired delegations trigger paused schedules; owner notified                                                                                                                                                                                                                                                                             | §11       |
+| R-09.24a | `DelegationLifecycle.handleUserOffboarding(userId)` revokes all delegations owned by `userId` and pauses all personal schedules with `owner_user_id=userId`, emitting `agent.schedules_revoked_on_offboarding` audit with the full inventory. People module is the caller. Reassignment to a successor is Beta-gated; MVP is pause-only. | §11       |
+| R-09.24b | `DelegationLifecycle.create` validates `scope.permitted_tools` against the current tRPC registry. Unknown tools emit a drift warning audit and narrow the effective scope to intersecting tools only. Does NOT fail creation.                                                                                                            | §11       |
+
+### Cross-tenant event isolation
+
+| #       | Requirement                                                                                                                                                                                                                                                                                | Design §§     |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| R-09.28 | Event-router MUST filter schedule matches by `event.tenant_id === schedule.tenant_id` BEFORE calling `ScheduledTurnSpawner.spawn()`. Any attempted cross-tenant routing is rejected and audited as a P0 candidate. Worker re-validates `tenant_id` on first DB read (belt-and-suspenders). | §11, Tenet #1 |
+
+### Failure escalation + tenant spend
+
+| #       | Requirement                                                                                                                                                                                                                                                           | Design §§ |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| R-09.29 | `agent_schedule.consecutive_failure_count` tracked per schedule; incremented on non-success outcomes, reset on success. At count=3, schedule is auto-paused with `pause_reason='consecutive_failures'` and admin+owner notified regardless of `failure_alert_policy`. | §11       |
+| R-09.30 | Per-schedule `failure_alert_policy ∈ {'owner' \| 'owner_and_admin' \| 'admin_only' \| 'silent'}` at creation time; tenant-wide default in `admin_tenant_config`. Ignored on the count=3 escalation (which always alerts both).                                        | §11       |
+| R-09.31 | `admin_tenant_config.max_active_schedules INT` (default 100) — tenant-wide cap on `status='active'` schedules. At 80% → warn admin; at 100% → new-schedule creation refused until existing schedules are deleted.                                                     | §11, §13  |
+| R-09.32 | `admin_tenant_config.scheduled_spend_daily_limit_usd NUMERIC(10,2)?` (optional; when set, a daily aggregation job pauses all schedules in the tenant at limit breach with `pause_reason='tenant_spend_exhausted'`). Bulk pause, not mid-run abort.                    | §11, §13  |
 
 ### Audit + observability
 
@@ -413,20 +473,26 @@ Tenant-wide creation is gated `canDo('admin.schedule.create')`. Personal schedul
 
 ## 7. Failure Modes & Recovery
 
-| Failure                                                                                           | Symptom                                  | Recovery                                                                                                 |
-| ------------------------------------------------------------------------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Cron fires for deleted schedule                                                                   | Spawner checks status; refuses           | Audit logs; no job enqueued.                                                                             |
-| Delegation expired between cron-fire and worker-pickup                                            | Worker step 2 validation fails           | Worker marks schedule paused; owner notified; spawner skips subsequent fires until owner renews.         |
-| pg-boss retry of a job whose schedule was paused mid-flight                                       | Worker step 2 detects pause              | Retry still runs to completion if already past check (race); subsequent retries refused.                 |
-| Cost ceiling exhausted mid-run                                                                    | `systemAbortController` fires            | `outcome: 'budget'`; partial-answer gate applies (plan 03); audit captures.                              |
-| Worker crashes mid-LLM-call                                                                       | pg-boss retry                            | Retry with same pinned versions; up to 3 retries.                                                        |
-| Event-payload schema changes in triggering domain                                                 | `TaintSeedDetector` may misclassify      | Conservative default = seed taint; prefer over-classify.                                                 |
-| Invocation ceiling rate-limiting a legitimate bursty schedule (e.g. 5-min cron hitting daily cap) | Spawner refuses                          | Owner sees "ceiling exhausted" in notification; adjust schedule config or increase ceiling.              |
-| Delegation max-active cap hit                                                                     | Create refuses with structured error     | Owner revokes unused delegations to free slots.                                                          |
-| Orphaned delegation (schedule deleted but delegation still active)                                | Cleanup sweeper catches                  | Delegation revoked within 24h.                                                                           |
-| Tenant-wide schedule runs with no configured recipients                                           | Synthesizer output has nowhere to go     | Fallback: post to generic `tenant_admin_notifications` channel; audit + alert.                           |
-| Two concurrent cron fires for same schedule (rare race)                                           | pg-boss dedup or application-layer check | pg-boss job uniqueness based on `(schedule_id, fire_time)`; duplicate enqueue rejected.                  |
-| Retry-with-pinned-versions but pinned-version artifact removed (aggressive prompt-store GC)       | Worker can't resolve prompt hashes       | Audit + mark run failed with `missing_pinned_artifacts`; operational alert — GC policy needs adjustment. |
+| Failure                                                                                           | Symptom                                                                                  | Recovery                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cron fires for deleted schedule                                                                   | Spawner checks status; refuses                                                           | Audit logs; no job enqueued.                                                                                                                            |
+| Delegation expired between cron-fire and worker-pickup                                            | Worker step 2 validation fails                                                           | Worker marks schedule paused; owner notified; spawner skips subsequent fires until owner renews.                                                        |
+| pg-boss retry of a job whose schedule was paused mid-flight                                       | Worker step 2 detects pause                                                              | Retry still runs to completion if already past check (race); subsequent retries refused.                                                                |
+| Cost ceiling exhausted mid-run                                                                    | `systemAbortController` fires                                                            | `outcome: 'budget'`; partial-answer gate applies (plan 03); audit captures.                                                                             |
+| Worker crashes mid-LLM-call                                                                       | pg-boss retry                                                                            | Retry with same pinned versions; up to 3 retries.                                                                                                       |
+| Event-payload schema changes in triggering domain                                                 | `TaintSeedDetector` may misclassify                                                      | Conservative default = seed taint; prefer over-classify.                                                                                                |
+| Invocation ceiling rate-limiting a legitimate bursty schedule (e.g. 5-min cron hitting daily cap) | Spawner refuses                                                                          | Owner sees "ceiling exhausted" in notification; adjust schedule config or increase ceiling.                                                             |
+| Delegation max-active cap hit                                                                     | Create refuses with structured error                                                     | Owner revokes unused delegations to free slots.                                                                                                         |
+| Orphaned delegation (schedule deleted but delegation still active)                                | Cleanup sweeper catches                                                                  | Delegation revoked within 24h.                                                                                                                          |
+| Tenant-wide schedule runs with no configured recipients                                           | Synthesizer output has nowhere to go                                                     | Fallback: post to generic `tenant_admin_notifications` channel; audit + alert.                                                                          |
+| Two concurrent cron fires for same schedule (rare race)                                           | pg-boss dedup or application-layer check                                                 | pg-boss job uniqueness based on `(schedule_id, fire_time)`; duplicate enqueue rejected.                                                                 |
+| Retry-with-pinned-versions but pinned-version artifact removed (aggressive prompt-store GC)       | Worker can't resolve prompt hashes                                                       | Audit + mark run failed with `missing_pinned_artifacts`; operational alert — GC policy needs adjustment.                                                |
+| User offboarded with active personal schedules                                                    | People module calls `handleUserOffboarding`                                              | All owned delegations revoked; all owned personal schedules paused; admin notified; audit `agent.schedules_revoked_on_offboarding` lists the inventory. |
+| Delegation permitted_tools contains a tool renamed/deleted since creation                         | `DelegationLifecycle.create` drift warning; scope narrows to intersecting tools only     | Owner (and admin) notified of drift; grant still works for remaining tools; owner can recreate for renamed tool.                                        |
+| Cross-tenant event-router misconfig attempts to route to mismatched tenant's schedule             | Event router's `tenant_id` filter rejects; audit event fires                             | P0 candidate incident; runbook investigates event-router config; worker's belt-and-suspenders check catches any that slip past router.                  |
+| Schedule hits 3 consecutive failures                                                              | Auto-paused with `pause_reason='consecutive_failures'`; admin + owner notified           | Admin runbook reviews the run failures, fixes underlying cause (permission, tool change, data state), flips status back to active.                      |
+| Tenant exceeds `max_active_schedules`                                                             | New schedule creation refused at 100%; warn at 80%                                       | Owner / admin deletes or pauses unused schedules; limit can be raised via admin runbook.                                                                |
+| Tenant exceeds `scheduled_spend_daily_limit_usd`                                                  | Daily aggregation bulk-pauses all schedules with `pause_reason='tenant_spend_exhausted'` | Admin reviews spend, increases limit if legitimate or identifies misfiring schedule; manual resume per schedule.                                        |
 
 ---
 
@@ -448,6 +514,12 @@ Tenant-wide creation is gated `canDo('admin.schedule.create')`. Personal schedul
 - `agent_delegation_creations_total{tenant_id}` — counter (for rate-limit observability).
 - `agent_async_taint_seeded_total{tenant_id, event_type}` — counter.
 - `agent_schedule_ceiling_exhausted_total{tenant_id, ceiling_kind}` — counter.
+- `agent_schedule_consecutive_failure_pause_total{tenant_id}` — counter. Fires when R-09.29 auto-pause triggers.
+- `agent_schedule_tenant_spend_pause_total{tenant_id}` — counter. Fires when R-09.32 bulk-pause triggers.
+- `agent_schedule_active_count{tenant_id}` — gauge (already present above); alert at 80% of `max_active_schedules` per R-09.31.
+- `agent_schedules_revoked_on_offboarding_total{tenant_id}` — counter; spike correlates with user-departure events.
+- `agent_delegation_scope_drift_total{tenant_id, reason}` — counter. `reason ∈ {'tool_renamed', 'tool_removed'}`; fires from `DelegationLifecycle.create` drift check.
+- `agent_event_router_cross_tenant_rejected_total{tenant_id}` — counter; any non-zero is a P0 candidate.
 
 ### Dashboards
 
@@ -469,7 +541,9 @@ Tenant-wide creation is gated `canDo('admin.schedule.create')`. Personal schedul
 - **180d auto-expire.** Hard cap regardless of requested expiry. Long-lived delegations drift; periodic renewal forces visibility.
 - **pg-boss job payload contains delegation_id, not credentials.** No raw tokens stored.
 - **Pinned-version artifact retention.** Prompt store + narrative store must retain referenced hashes long enough to cover retry window; aggressive GC breaks retries.
-- **Cross-tenant schedule fire.** pg-boss workers MUST verify `tenant_id` on every payload; buggy event router leaking across tenants would be caught by RLS on the first DB read but belt-and-suspenders verification at payload parse is cheap.
+- **Cross-tenant schedule fire.** pg-boss workers MUST verify `tenant_id` on every payload; buggy event router leaking across tenants would be caught by RLS on the first DB read but belt-and-suspenders verification at payload parse is cheap. Additionally (R-09.28), the event router itself filters by `event.tenant_id === schedule.tenant_id` BEFORE calling `ScheduledTurnSpawner.spawn()`; any attempted cross-tenant routing is rejected and metric-audited as a P0 candidate. Defense in depth: router filter + worker re-validation + RLS.
+- **Owner offboarding closure.** R-09.24a ensures a departed user's delegations are revoked and schedules paused at offboarding time rather than relying on 180d auto-expire. Prevents a long tail of "still running as ex-employee" schedules that are legal/compliance-sensitive.
+- **Tenant-wide spend containment.** R-09.32's optional `scheduled_spend_daily_limit_usd` bulk-pauses all schedules at breach. Protects against runaway misfires (bad filter, loop, infinite event cascade) from costing the tenant more than their admin configured.
 
 ---
 
@@ -508,6 +582,12 @@ Tenant-wide creation is gated `canDo('admin.schedule.create')`. Personal schedul
 - Schedule delete: in-flight run sees "schedule deleted" banner in notification.
 - Version pinning: spawn with pinned v1; rollout to v2 mid-run; pg-boss retry uses v1 (verified via trace attr).
 - Cross-tenant: tenant A's schedule does not fire under tenant B's context even if event routing hypothetically leaked.
+- Event-router tenant filter (R-09.28): seed a mismatched tenant event → router rejects before spawner is called; `agent_event_router_cross_tenant_rejected_total` increments; P0 audit emitted.
+- User offboarding: seed user with 3 personal schedules + 2 delegations → call `handleUserOffboarding` → 2 delegations revoked, 3 schedules paused with `pause_reason='owner_offboarded'`, single summary notification to admin with full inventory.
+- Delegation scope drift: seed scope with `permitted_tools: ['hiring.oldName', 'hiring.existing']` where `hiring.oldName` was renamed → `DelegationLifecycle.create` succeeds with narrowed scope; `agent_delegation_scope_drift_total{reason: 'tool_renamed'}` increments; drift audit captures the unknown tool name.
+- Consecutive-failure escalation: seed 3 consecutive error-outcome runs → schedule auto-pauses with `pause_reason='consecutive_failures'`; admin+owner notified; 4th cron fire does not spawn (paused); metric increments.
+- Tenant active-schedule cap: seed tenant at 100 active schedules + attempt to create 101st → creation refused; warn at 80 threshold observable via dashboard.
+- Tenant spend cap: seed daily aggregation sum exceeding `scheduled_spend_daily_limit_usd` → bulk pause fires on next aggregation tick; all schedules status='paused' with correct reason.
 
 ### Property
 
@@ -538,6 +618,11 @@ Tenant-wide creation is gated `canDo('admin.schedule.create')`. Personal schedul
 - Version pinning across retries verified by trace attr.
 - Scheduled-turn trace correlation: `parent_trace_id` points to schedule-creation trace.
 - Cross-tenant isolation: pg-boss payload `tenant_id` always verified; mismatched payload rejected.
+- Event-router tenant filter rejects all seeded cross-tenant pairings (R-09.28); never a single metric hit in production-suite baseline run.
+- User-offboarding flow verified: delegations revoked, schedules paused, audit inventory populated, admin summary notification.
+- Delegation scope-drift validation on create: warning-not-failure confirmed; effective scope narrows to existing tools.
+- Consecutive-failure escalation: 3 non-success runs auto-pause the schedule with correct `pause_reason`.
+- Tenant active-schedule cap + tenant spend cap both enforce at thresholds; alerts fire at 80%.
 
 ---
 
@@ -556,6 +641,8 @@ Tenant-wide creation is gated `canDo('admin.schedule.create')`. Personal schedul
 ## 14. Dependencies
 
 - Plan 00 (shipped): sanitizer.
+- People module: call-site for `DelegationLifecycle.handleUserOffboarding` at offboarding events (R-09.24a).
+- Admin module: `admin_tenant_config` fields `max_active_schedules` (default 100), `scheduled_spend_daily_limit_usd?`, `default_schedule_failure_alert_policy` (R-09.30-32).
 - Plan 01: gateway pipeline (tool invocations in scheduled turns).
 - Plan 02: registry (same sub-agents available to scheduled turns).
 - Plan 03: phase execution.

@@ -56,6 +56,8 @@ Single code path, single audit shape. Approver is the gate; delegator is the exe
 
 **What this is NOT:** a workflow engine. No step chaining, no DAG, no resumable state machines. It's a draft-in, executed-eventually handoff with provenance + delegation + revalidation semantics. Mastra couples this into their workflow engine; we split it (Tenet #3, spike 13).
 
+**Prior-art review — what was adopted and what was rejected.** Claude Code's permission substrate (`hooks/useCanUseTool.tsx`, `PermissionContext.ts`, `services/tools/toolExecution.ts`) was reviewed as prior art. Three patterns are confirmed aligned: (a) **point-in-time permission snapshot** — draft-time `canDo` captured, never cached for reuse (R-08.3); (b) **no session-level "approved for X-type drafts" memory** — each draft is a discrete artifact, re-approval required on re-proposal; (c) **presenter-pattern for approval dialogs** — the agent module owns the render component, downstream UIs cannot inline-render draft payload (R-08.25). Four patterns were explicitly **rejected** because they fit an interactive developer CLI, not an async-inbox multi-tenant SaaS: (i) **Mid-turn synchronous permission dialogs** — Claude Code's dialog races with streaming; in business AaaS the turn ends at "draft submitted" and approval is strictly async via the inbox (R-08.5). (ii) **Raw tool-command-string in approval UI** — Claude Code's bash dialogs show the parsed command; our approval cards render business-intent language ("Approve Jane Doe's leave Apr 15-19"), never raw `{date, duration, employeeId}` args (R-08.25a). (iii) **Developer-risk framing ("dangerous", "destructive", "rm -rf")** — our risk is business-rule-driven (tier, domain_kind, impact), not technical severity. (iv) **Session-local "approved this session for X" memory** — Claude Code's classifier-approval map is per-tool-use-ID and cleared at session exit; our drafts have no equivalent because approval is per-artifact, not per-pattern.
+
 ---
 
 ## 3. Data Model
@@ -197,7 +199,23 @@ Tier classification rules (in priority order):
 
 1. If `tool.meta.agent.approvalRequired === 'always'` → high_risk.
 2. If `turnState.tainted === true` AND tool is `.mutation()` → bump any low_risk to high_risk.
-3. Else tool's declared default tier.
+3. If `tenantPolicy.tierOverridesByTool[toolName]` present → apply tenant override (can bump to high_risk only; cannot downgrade a globally high_risk tool to low_risk).
+4. Else tool's declared default tier.
+
+### `TenantApprovalPolicy`
+
+Lives in admin module's `admin_tenant_config` (same pattern as plan 04 retention config, plan 05 quota, plan 07 trace quota). Consumed by `DraftTierClassifier` and `DraftProposer.resolveApproverFor`. MVP shape (fields may be added at Beta):
+
+```
+type TenantApprovalPolicy = {
+  tier_overrides_by_tool?: Record<ToolName, 'high_risk_approval_required'>;   // upgrade-only, never downgrade
+  approval_ttl_override_hours?: number;                                        // min 1, max 168 (7d)
+  approver_escalation_rule?: 'fixed_single' | 'primary_with_delegate';         // MVP: 'fixed_single'
+  // Future (Beta+): multi_approver_chain, amount_threshold_rules, domain_specific_policies
+}
+```
+
+At MVP, only `tier_overrides_by_tool` + `approval_ttl_override_hours` are honored; other fields are placeholders so the JSONB shape doesn't require migration when Beta adds them. Admin UI is product-owned (§17 out of scope).
 
 ### `ApprovalExecutorDelegationMinter`
 
@@ -414,21 +432,23 @@ On failure:
 
 ### Provenance + UI contract
 
-| #       | Requirement                                                                                                        | Design §§ |
-| ------- | ------------------------------------------------------------------------------------------------------------------ | --------- |
-| R-08.23 | `provenance` shape per §4 interface, always all fields populated                                                   | §10       |
-| R-08.24 | `user_utterance` sanitized via `project_to_schema` when approver ≠ initiator                                       | §10       |
-| R-08.25 | Approval cards rendered through `<AgentDraftCard>` presenter in `@future/ui` — downstream UIs cannot inline-render | §10       |
-| R-08.26 | Draft-age indicator renders past 24h with increasing visual weight past 72h                                        | §10       |
-| R-08.27 | Tainted-source provenance renders above the fold with warning styling on high-risk drafts                          | §10       |
+| #        | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Design §§ |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| R-08.23  | `provenance` shape per §4 interface, always all fields populated                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | §10       |
+| R-08.24  | `user_utterance` sanitized via `project_to_schema` when approver ≠ initiator                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | §10       |
+| R-08.25  | Approval cards rendered through `<AgentDraftCard>` presenter in `@future/ui` — downstream UIs cannot inline-render                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | §10       |
+| R-08.25a | `DraftProposal.summary` is **business-intent language**, never raw args or technical jargon. Acceptable: _"Approve Jane Doe's leave request for Apr 15–19, 2026"_ or _"Create hiring offer for Acme Corp, $85k base"_. Unacceptable: _"Call timesheet.entry.create({date: '2026-04-21', ...})"_ or _"Execute mutation with these params"_. Summary is generated by the proposing sub-agent with knowledge of the domain entity; the sub-agent's `outputSchema` SHOULD constrain the summary field (e.g. min/max length, required entity-name mention). Any draft whose summary contains raw args markup (JSON brackets, tool-name prefixes, parameter keys like `date:`) is a P2 incident surfaced by a scheduled lint job over recent drafts. | §10       |
+| R-08.26  | Draft-age indicator renders past 24h with increasing visual weight past 72h                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | §10       |
+| R-08.27  | Tainted-source provenance renders above the fold with warning styling on high-risk drafts                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | §10       |
 
 ### Audit trail
 
-| #       | Requirement                                                                                                                                                                                                                | Design §§  |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| R-08.28 | Kernel audit events: `agent.draft_proposed`, `agent.draft_approved`, `agent.draft_rejected`, `agent.draft_executed`, `agent.draft_expired`, `agent.draft_execution_failed`, `permission_widened_between_draft_and_execute` | §10, §15.5 |
-| R-08.29 | Every audit event tagged with `trace_id, on_behalf_of, via_delegation, via_schedule?, approved_by?`                                                                                                                        | §15.5      |
-| R-08.30 | `derived_from_tainted_sources` is a first-class query dimension on audit trail — one query retrieves "all approved drafts from tainted turns in last 30 days"                                                              | §10        |
+| #        | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Design §§       |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| R-08.28  | Kernel audit events: `agent.draft_proposed`, `agent.draft_approved`, `agent.draft_rejected`, `agent.draft_executed`, `agent.draft_expired`, `agent.draft_execution_failed`, `permission_widened_between_draft_and_execute`                                                                                                                                                                                                                                                                                                                                                        | §10, §15.5      |
+| R-08.29  | Every audit event tagged with `trace_id, on_behalf_of, via_delegation, via_schedule?, approved_by?`                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | §15.5           |
+| R-08.30  | `derived_from_tainted_sources` is a first-class query dimension on audit trail — one query retrieves "all approved drafts from tainted turns in last 30 days"                                                                                                                                                                                                                                                                                                                                                                                                                     | §10             |
+| R-08.30a | A read-only `DraftAuditQueryFacade` (RLS-scoped) provides a typed query surface for the compliance module. Required dimensions queryable in any combination: `tenant_id` (implicit), `initiator_user_id`, `approver_user_id`, `tier`, `status`, `domain_kind` (parsed from `tool_name`), `approved_at` time bucket (hour / day / week / month), `taint_at_draft_time`. Example compliance query: "All timesheet.\* drafts in Q1 2026 where status='executed', grouped by approver, with time-to-approval histogram." Consumed by the compliance module's SOC2/HR audit reporting. | §10, compliance |
 
 ---
 
@@ -539,6 +559,9 @@ Draft proposal adds < 200ms to turn wallclock p99 per draft.
 - Idempotence: seed pg-boss duplicate delivery of `execute-approved-draft`; second invocation no-ops.
 - Utterance sanitization: initiator utterance contains content outside approver's scope; approver's card shows redacted utterance.
 - Presenter contract: downstream UI tries to render draft payload without `<AgentDraftCard>` → lint rule (or design-system constraint) blocks at review.
+- Business-intent summary (R-08.25a): seed drafts with summaries containing raw args markup (JSON brackets, `tool.*.create({...})`, `date: '2026-04-21'`) → scheduled lint job flags them as P2 incidents; seed drafts with proper business language ("Approve Jane Doe's leave…") → lint passes.
+- Compliance query facade (R-08.30a): seed 50 drafts across 3 tenants with varying `tier`, `status`, `approver_user_id`, `domain_kind`; verify `DraftAuditQueryFacade` returns correct row counts for each dimension combination; cross-tenant query for tenant A never returns tenant B rows (RLS).
+- Tenant policy override: seed `TenantApprovalPolicy.tier_overrides_by_tool = { 'timesheet.entry.update': 'high_risk_approval_required' }` → a draft that would be `low_risk_auto` by tool default is classified high_risk; seed attempted downgrade (tenant tries to set low_risk for a globally-high_risk tool) → classifier ignores the override (downgrade forbidden by rule).
 
 ### Property
 
@@ -572,6 +595,9 @@ Draft proposal adds < 200ms to turn wallclock p99 per draft.
 - Cross-tenant isolation: no draft visible across tenants.
 - Double-execute idempotence: seeded duplicate delivery produces single execution.
 - `<AgentDraftCard>` presenter is the only rendering path (lint/review-enforced).
+- Summary-lint job verified on seeded corpus: drafts with raw-args summaries flagged P2; business-intent summaries pass clean.
+- `DraftAuditQueryFacade` dimensions all queryable in combination; RLS-verified cross-tenant isolation.
+- Tenant policy upgrade enforced; downgrade attempts ignored.
 
 ---
 
@@ -609,6 +635,8 @@ Draft proposal adds < 200ms to turn wallclock p99 per draft.
 - `apps/api/src/modules/agents/application/services/draft-tier-classifier.ts`.
 - `apps/api/src/modules/agents/application/services/approval-executor-delegation-minter.ts`.
 - `apps/api/src/modules/agents/application/services/draft-sink.ts`.
+- `apps/api/src/modules/agents/interface/trpc/draft-audit-query-facade.ts` — compliance read surface (R-08.30a).
+- Admin module: `admin_tenant_config.approval_policy JSONB` (R-08.25a / §4 `TenantApprovalPolicy`) + `admin.setApprovalPolicy` runbook mutation.
 - `apps/api/src/modules/agents/infrastructure/workers/execute-approved-draft.ts`.
 - `apps/api/src/modules/agents/infrastructure/workers/sweep-expired-drafts.ts`.
 - `packages/ui/src/agent/agent-draft-card.tsx` — `<AgentDraftCard>`.
@@ -637,4 +665,7 @@ Low-risk auto-execute + high-risk approval flow both MVP.
 - **Approval-card copy + visual design.** Warning styling for tainted provenance — what does "above the fold" look like mobile vs desktop? Owner: design review.
 - **Notification module contract.** What's the exact interface for `notifications_item` write + approve/reject hooks? Pre-flight check before plan 08 Phase 2.
 - **Rejection reason taxonomy.** Free-text vs enumerated? Recommend: enumerated at MVP (`not_needed`, `wrong_entity`, `wrong_value`, `other_with_note`).
-- **`approvalTtl` per-tenant override.** Should tenants configure their own default TTLs? Recommend: not at MVP; add if customer asks.
+- **`approvalTtl` per-tenant override.** Should tenants configure their own default TTLs? Recommend: not at MVP; add if customer asks. (Now part of `TenantApprovalPolicy.approval_ttl_override_hours` — shape placeholder at MVP, honored from Phase 4.)
+- **Approver unavailability / OOO escalation.** What happens if the resolved approver is on leave, terminated, or simply unresponsive past SLA? MVP behavior: draft sits until TTL expiry (72h default), then initiator is notified. This is safe but slow for time-sensitive work. Candidates for post-MVP: (a) query leave module for approver OOO status at resolution time → resolve to delegate if flagged; (b) approver SLA timer → escalate to manager's-manager after N hours; (c) tenant-configured fallback-approver chain. Recommend: (a) first (read-only, domain-integrated). Owner: product + domain owners; defer to Beta.
+- **Multi-approver sequencing.** Some business flows (finance > $10k, cross-functional hires, compliance-sensitive terminations) need multiple approvers in sequence or parallel. MVP: single approver per draft. Forward-compat: `agent_draft` schema reserves space — add `approver_chain JSONB?` field at Beta if adopted (array of `{ user_id, status, approved_at? }`). Do NOT add the field at MVP until there's a real use case — unused schema drifts. Owner: product; revisit at Beta when cross-domain drafts appear (plan 12).
+- **Revalidation that detects meaningful change but not failure.** Example: draft proposes invoice at unit price $100; at execute time, unit price is $105 (minor change). `'revalidate'` currently returns binary pass/fail. Should there be a third outcome — "proceed with refreshed value" — that notifies the approver for acknowledgment before commit? Recommend: keep binary at MVP; per-domain revalidation functions return pass/fail. If a domain wants refresh-with-ack, it implements that as a fresh draft proposal, not a mid-execution mutation. Owner: domain module authors; document convention in implementation doc.
