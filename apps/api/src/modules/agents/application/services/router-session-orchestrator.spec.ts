@@ -17,9 +17,18 @@
  * 10.  Audit event count: 2 phase1 + 1 phase2 = 3 sub_agent_invoked events
  * 11.  Metric: routerDecisionsTotal called with correct outcome
  * 12.  parse retry metric: recordRouterParseRetry called on retry turns
+ * 13.  Span: escalation emits router-decision:parse span with parse_outcome='escalate'
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
+import {
+  BasicTracerProvider,
+  InMemorySpanExporter,
+  SimpleSpanProcessor,
+  type ReadableSpan,
+} from '@opentelemetry/sdk-trace-base'
+import { trace, context } from '@opentelemetry/api'
+import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks'
 import { RouterSessionOrchestrator } from './router-session-orchestrator'
 import type { RouteTurnOpts } from './router-session-orchestrator'
 import type { AgentSessionEntry } from '../../domain/ports/agent-session.port'
@@ -27,6 +36,25 @@ import type { RouterPlan } from '../../domain/value-objects/router-plan-schema'
 import type { WindowedSummaries } from '../../domain/value-objects/windowed-summaries'
 import type { SubAgentKey } from '../../domain/services/sub-agent-types'
 import { estimateTokens } from './sub-agent-retriever'
+
+// ─── OTel span capture setup ──────────────────────────────────────────────────
+// Registers a global TracerProvider once for the entire spec file.
+// OTel API intentionally prevents re-registration; we reset the exporter between tests.
+
+const spanExporter = new InMemorySpanExporter()
+const spanProvider = new BasicTracerProvider({
+  spanProcessors: [new SimpleSpanProcessor(spanExporter)],
+})
+trace.setGlobalTracerProvider(spanProvider)
+
+// AsyncLocalStorage context manager required for context.with() to propagate spans.
+const ctxMgr = new AsyncLocalStorageContextManager()
+ctxMgr.enable()
+context.setGlobalContextManager(ctxMgr)
+
+afterAll(async () => {
+  await spanProvider.shutdown()
+})
 
 // ─── Mock sub-agent-retriever (preserves ROUTER_PROMPT_TOKEN_CEILING + other exports,
 //     mocks the module-level estimateTokens function so tests can control it) ──────
@@ -326,6 +354,8 @@ describe('RouterSessionOrchestrator', () => {
     mockRecordSubAgentInvoked.mockReset()
     // Default: return well below ceiling so retrieval is dormant in most tests
     vi.mocked(estimateTokens).mockReturnValue(1_000)
+    // Reset span exporter between tests so spans don't bleed across test cases
+    spanExporter.reset()
   })
 
   // ── 1. Happy path — new session ─────────────────────────────────────────────
@@ -659,5 +689,27 @@ describe('RouterSessionOrchestrator', () => {
     expect(arg['toolCatalogHash']).toBeDefined()
     expect(arg['directiveSchemaHash']).toBeDefined()
     expect(arg['canonicalizerVersionHash']).toBeDefined()
+  })
+
+  // ── 13. Span: escalation emits router-decision:parse with parse_outcome='escalate' ──
+
+  it('escalation: emits router-decision:parse span with parse_outcome=escalate (Plan 02 §8)', async () => {
+    const { orchestrator } = buildOrchestrator({
+      llmResults: [
+        { kind: 'malformed', error: new Error('fail1'), rawText: null },
+        { kind: 'malformed', error: new Error('fail2'), rawText: null },
+      ],
+    })
+
+    await orchestrator.routeTurn(BASE_OPTS)
+
+    const finished = spanExporter.getFinishedSpans() as ReadableSpan[]
+    const parseSpans = finished.filter((s) => s.name === 'router-decision:parse')
+
+    // Attempt 1 fail → parse_outcome='retry', attempt 2 fail → parse_outcome='retry',
+    // then escalation → parse_outcome='escalate'
+    const escalateSpan = parseSpans.find((s) => s.attributes['parse_outcome'] === 'escalate')
+    expect(escalateSpan).toBeDefined()
+    expect(escalateSpan?.attributes['retry_round']).toBe(1)
   })
 })

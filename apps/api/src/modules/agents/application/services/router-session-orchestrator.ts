@@ -379,6 +379,14 @@ export class RouterSessionOrchestrator {
     }
 
     // ── Escalation: both attempts failed ─────────────────────────────────────────
+    // Emit the final `router-decision:parse` span with parse_outcome='escalate'
+    // to signal that both attempts were exhausted and the router is handing off
+    // to disambiguation. This is the third possible parse_outcome value per Plan 02 §8:
+    // ok | retry | escalate.
+    const escalateParseSpan = tracer.startSpan('router-decision:parse')
+    escalateParseSpan.setAttributes({ retry_round: 1, parse_outcome: 'escalate' })
+    escalateParseSpan.end()
+
     parentSpan.setAttributes({
       router_parse_retries: 1,
       router_escalated_to_disambiguation: true,
@@ -417,6 +425,11 @@ export class RouterSessionOrchestrator {
       'model.model': model.model,
       attempt,
     })
+    // TODO(Plan 05 — cost ceilings): surface usage.prompt_tokens + usage.completion_tokens
+    // on this span once RouterLlmClient exposes token usage from generateObject. As of
+    // Plan 02, RouterLlmClient returns { kind: 'ok'; plan } | { kind: 'malformed'; ... }
+    // with no usage field. The Vercel AI SDK's generateObject() does return usage, but
+    // RouterLlmClient does not yet propagate it. Wire here when Plan 05 adds cost tracking.
 
     let result: Awaited<ReturnType<RouterLlmClient['generate']>>
     try {
