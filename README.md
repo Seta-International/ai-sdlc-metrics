@@ -52,16 +52,6 @@ Full guide: [QUICKSTART.md](QUICKSTART.md)
 
 ---
 
-## Set up with an AI agent
-
-Open your agent and paste:
-
-```
-Read AGENTS.md and QUICKSTART.md, then run `sh scripts/bootstrap.sh --full`. Tell me which .env values still need filling in, then start the dev server. I'm working on: [your task]
-```
-
----
-
 ## Docs
 
 |                                                                  |                                                |
