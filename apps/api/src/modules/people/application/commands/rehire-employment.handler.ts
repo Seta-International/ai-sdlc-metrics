@@ -44,6 +44,12 @@ export class RehireEmploymentHandler implements ICommandHandler<
       throw new InvalidRehireException(command.previousProfileId)
     }
 
+    const prevEmployments = await this.employmentRepo.findByPersonProfileId(
+      command.previousProfileId,
+      command.tenantId,
+    )
+    const latestPrevEmployment = prevEmployments[0]
+
     const newProfile = await this.profileRepo.insert({
       tenantId: command.tenantId,
       actorId: prevProfile.actorId,
@@ -74,7 +80,10 @@ export class RehireEmploymentHandler implements ICommandHandler<
       terminationDate: null,
       terminationReason: null,
       hireDate: command.rehireDate,
-      originalHireDate: command.rehireDate,
+      originalHireDate:
+        latestPrevEmployment?.originalHireDate ??
+        latestPrevEmployment?.hireDate ??
+        command.rehireDate,
     })
 
     await this.recorder.recordRehire({

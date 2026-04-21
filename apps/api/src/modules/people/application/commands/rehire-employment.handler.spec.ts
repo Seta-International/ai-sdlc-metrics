@@ -49,7 +49,7 @@ function makeNewProfile(overrides: Partial<PersonProfile> = {}): PersonProfile {
   return {
     ...makePrevProfile(),
     id: NEW_PROFILE_ID,
-    actorId: ACTOR_ID,
+    actorId: 'actor-prev',
     ...overrides,
   }
 }
@@ -133,7 +133,7 @@ describe('RehireEmploymentHandler', () => {
 
     employmentRepo = {
       findById: vi.fn(),
-      findByPersonProfileId: vi.fn(),
+      findByPersonProfileId: vi.fn().mockResolvedValue([makeTerminatedEmployment()]),
       findActiveByActorId: vi.fn().mockResolvedValue(null),
       insert: vi.fn().mockResolvedValue(newEmployment),
       updateStatus: vi.fn(),
@@ -171,7 +171,7 @@ describe('RehireEmploymentHandler', () => {
       )
     })
 
-    it('inserts a new profile copied from the previous profile with a new actorId', async () => {
+    it('inserts a new profile copied from the previous profile using the same actorId', async () => {
       const prevProfile = makePrevProfile()
       vi.mocked(profileRepo.findById).mockResolvedValue(prevProfile)
 
@@ -200,6 +200,49 @@ describe('RehireEmploymentHandler', () => {
           employmentStatus: 'active',
           hireDate: REHIRE_DATE,
           personProfileId: newProfile.id,
+        }),
+      )
+    })
+
+    it('carries originalHireDate forward from previous employment originalHireDate', async () => {
+      const prevOriginalHireDate = new Date('2024-03-15')
+      const prevEmp = makeTerminatedEmployment({
+        originalHireDate: prevOriginalHireDate,
+        hireDate: new Date('2025-01-01'),
+      })
+      vi.mocked(employmentRepo.findByPersonProfileId).mockResolvedValue([prevEmp])
+
+      await handler.execute(makeCmd())
+
+      expect(employmentRepo.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          originalHireDate: prevOriginalHireDate,
+        }),
+      )
+    })
+
+    it('falls back to previous employment hireDate when originalHireDate is null', async () => {
+      const prevHireDate = new Date('2025-01-01')
+      const prevEmp = makeTerminatedEmployment({ originalHireDate: null, hireDate: prevHireDate })
+      vi.mocked(employmentRepo.findByPersonProfileId).mockResolvedValue([prevEmp])
+
+      await handler.execute(makeCmd())
+
+      expect(employmentRepo.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          originalHireDate: prevHireDate,
+        }),
+      )
+    })
+
+    it('falls back to rehireDate when no previous employment records exist', async () => {
+      vi.mocked(employmentRepo.findByPersonProfileId).mockResolvedValue([])
+
+      await handler.execute(makeCmd())
+
+      expect(employmentRepo.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          originalHireDate: REHIRE_DATE,
         }),
       )
     })
