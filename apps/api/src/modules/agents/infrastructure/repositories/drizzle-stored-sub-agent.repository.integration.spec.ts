@@ -11,6 +11,7 @@ import {
 import { DrizzleStoredSubAgentRepository } from './drizzle-stored-sub-agent.repository'
 
 const TENANT_A = '01900000-0000-7fff-8000-000000000081'
+const TENANT_B = '01900000-0000-7fff-8000-000000000082'
 const CREATOR = '01900000-0000-7fff-8000-000000000a81'
 
 async function insertStoredSubAgent(
@@ -43,6 +44,7 @@ describe('DrizzleStoredSubAgentRepository', () => {
     await db.execute(sql`TRUNCATE agents.agent_stored_sub_agent RESTART IDENTITY CASCADE`)
     await truncateCoreSchema(db)
     await seedTenant(db, { id: TENANT_A, slug: 'stored-sub-agent-a' })
+    await seedTenant(db, { id: TENANT_B, slug: 'stored-sub-agent-b' })
     repo = new DrizzleStoredSubAgentRepository(db as never)
   })
 
@@ -155,5 +157,26 @@ describe('DrizzleStoredSubAgentRepository', () => {
           (${uuidv7()}, ${TENANT_A}, ${'bad-status'}, ${'{}'}::jsonb, 1, 'invalid', ${CREATOR})
       `),
     ).rejects.toThrow(/check constraint/i)
+  })
+
+  it('cross-tenant RLS: active row seeded under TENANT_B is invisible to TENANT_A', async () => {
+    const key = `rls-cross-tenant-${uuidv7().slice(0, 8)}`
+
+    // Seed an active row as TENANT_B.
+    await setTenantContext(db, TENANT_B)
+    await insertStoredSubAgent(db, {
+      id: uuidv7(),
+      tenantId: TENANT_B,
+      key,
+      version: 1,
+      status: 'active',
+      config: { secret: 'tenant-b-data' },
+      createdBy: CREATOR,
+    })
+
+    // Switch to TENANT_A — same key — row must be hidden by RLS.
+    await setTenantContext(db, TENANT_A)
+    const leaked = await repo.findActiveByKey({ tenantId: TENANT_A, key })
+    expect(leaked).toBeNull()
   })
 })

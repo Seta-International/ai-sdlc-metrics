@@ -115,6 +115,13 @@ export const agentSessions = agentsSchema.table(
       t.conversationId,
       t.startedAt.desc(),
     ),
+    // Partial unique index: at most one active (non-ended) session per
+    // (tenant, conversation). Prevents race on first-turn from creating
+    // two active rows. Ended sessions (ended_at IS NOT NULL) are excluded
+    // so a conversation can be restarted after it has been closed.
+    uniqueIndex('agent_session_conversation_active_uq')
+      .on(t.tenantId, t.conversationId)
+      .where(sql`ended_at IS NULL`),
   ],
 )
 
