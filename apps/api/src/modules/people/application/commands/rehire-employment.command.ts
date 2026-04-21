@@ -6,7 +6,7 @@ export class RehireEmploymentCommand {
     public readonly rehireDate: Date,
     public readonly workerType: 'employee' | 'contingent',
     public readonly employmentType: 'permanent' | 'fixed_term' | 'intern',
-    public readonly countryCode: string | null,
+    public readonly countryCode: string,
     public readonly jobTitle: string | null,
     public readonly departmentId: string | null,
     public readonly managerProfileId: string | null,

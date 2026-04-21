@@ -40,7 +40,7 @@ export class RehireEmploymentHandler implements ICommandHandler<
       prevProfile.actorId,
       command.tenantId,
     )
-    if (prevEmployment && prevEmployment.employmentStatus !== 'terminated') {
+    if (prevEmployment) {
       throw new InvalidRehireException(command.previousProfileId)
     }
 
@@ -69,7 +69,7 @@ export class RehireEmploymentHandler implements ICommandHandler<
       companyEmail: null,
       workerType: command.workerType,
       employmentType: command.employmentType,
-      countryCode: command.countryCode ?? 'VN',
+      countryCode: command.countryCode,
       employmentStatus: 'active',
       terminationDate: null,
       terminationReason: null,
