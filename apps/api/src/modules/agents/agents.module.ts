@@ -46,6 +46,13 @@ import {
 } from './application/services/router-prompt-builder'
 // Sub-agent retriever (Task 8)
 import { SubAgentRetriever, SUB_AGENT_RETRIEVER } from './application/services/sub-agent-retriever'
+// Router decision parser (Task 9)
+import {
+  RouterDecisionParser,
+  ROUTER_DECISION_PARSER,
+} from './application/services/router-decision-parser'
+// Router LLM client (Task 9)
+import { RouterLlmClient, ROUTER_LLM_CLIENT } from './infrastructure/llm/router-llm-client'
 // Gateway pipeline (Task 5)
 import { ToolRegistry } from './infrastructure/tool-registry/tool-registry'
 import { TrpcCallerImpl } from './application/services/trpc-caller'
@@ -115,6 +122,12 @@ import { listMyAssignmentsIntent } from '../projects/agent/intents'
     // Sub-agent retriever (Task 8)
     SubAgentRetriever,
     { provide: SUB_AGENT_RETRIEVER, useExisting: SubAgentRetriever },
+    // Router decision parser (Task 9)
+    RouterDecisionParser,
+    { provide: ROUTER_DECISION_PARSER, useExisting: RouterDecisionParser },
+    // Router LLM client (Task 9)
+    RouterLlmClient,
+    { provide: ROUTER_LLM_CLIENT, useExisting: RouterLlmClient },
     // Gateway pipeline (Task 5)
     ToolRegistry,
     TrpcCallerImpl,
@@ -133,6 +146,8 @@ import { listMyAssignmentsIntent } from '../projects/agent/intents'
     PERMISSION_NARRATIVE_BUILDER,
     ROUTER_PROMPT_BUILDER,
     SUB_AGENT_RETRIEVER,
+    ROUTER_DECISION_PARSER,
+    ROUTER_LLM_CLIENT,
   ],
 })
 export class AgentsModule implements OnModuleInit {
