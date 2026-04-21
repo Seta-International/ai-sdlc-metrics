@@ -114,6 +114,10 @@ import { PROFILE_SHARE_LINK_REPOSITORY } from './domain/repositories/profile-sha
 import { BULK_OPERATION_REPOSITORY } from './domain/repositories/bulk-operation.repository'
 import { IMPORT_JOB_REPOSITORY } from './domain/repositories/import-job.repository'
 
+// ── Plan 01 repositories ───────────────────────────────────────────────────
+import { JobHistoryRepositoryImpl } from './infrastructure/repositories/job-history.repository'
+import { JOB_HISTORY_REPOSITORY } from './domain/repositories/job-history.repository'
+
 // ── Plan 05 services ───────────────────────────────────────────────────────
 import { SearchIndexRebuildService } from './application/services/search-index-rebuild.service'
 import { EmailGenerationService } from './application/services/email-generation.service'
@@ -226,6 +230,9 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     { provide: EMPLOYEE_DOCUMENT_REPOSITORY, useClass: DrizzleEmployeeDocumentRepository },
     { provide: DOCUMENT_REQUIREMENT_REPOSITORY, useClass: DrizzleDocumentRequirementRepository },
     { provide: COMPLETENESS_RULE_REPOSITORY, useClass: DrizzleCompletenessRuleRepository },
+
+    // ── Plan 01 repositories ─────────────────────────────────────────────
+    { provide: JOB_HISTORY_REPOSITORY, useClass: JobHistoryRepositoryImpl },
 
     // ── New command handlers ─────────────────────────────────────────────
     CreatePersonProfileHandler,
