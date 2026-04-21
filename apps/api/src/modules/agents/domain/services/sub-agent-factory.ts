@@ -8,14 +8,19 @@
  *   - `budgets.maxIterations` outside [4, 5] → RangeError at call time.
  *   - `budgets.wallclockMs` / `budgets.costUsd` ≤ 0 → RangeError at call time.
  *   - `key` not matching domain-dot-name regex → RangeError at call time.
+ *   - `promptTemplate.variables` not a Zod schema instance → RangeError at call time.
  *
- * The returned config is deeply frozen so downstream consumers (registry, router
- * prompt builder) cannot mutate it after construction.
+ * The returned config is frozen at the top level, across all array fields, and
+ * across nested plain-object fields (`budgets`, `memoryScope`, `promptTemplate`,
+ * `toolRetrieval`). Zod schemas (`inputSchema`, `outputSchema`) and
+ * function-valued `model` are deliberately not frozen because freezing Zod
+ * internals can trigger stack overflow via cyclic `_def` references, and
+ * function objects should not be frozen in place.
  *
  * Pure TypeScript — no NestJS, no Drizzle.
  */
 
-import type { ZodType } from 'zod'
+import { ZodType } from 'zod'
 import type {
   DynamicArgument,
   MemoryReadLevel,
@@ -39,10 +44,12 @@ export type {
 
 /**
  * Allowed key format: `<domain>.<name>` where each segment is a lowercase
- * alphanumeric+hyphen identifier starting with a letter.
+ * alphanumeric identifier where hyphens may appear only between alphanumeric
+ * segments (never trailing, never leading).
  * Examples: `planner.read-only`, `people.onboarding-helper`.
+ * Rejected: `planner.read-only-`, `planner-.read-only`.
  */
-const SUB_AGENT_KEY_RE = /^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/
+const SUB_AGENT_KEY_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
 
 // ─── Raw input type ────────────────────────────────────────────────────────────
 
@@ -100,12 +107,18 @@ function freezeArray<T>(arr: ReadonlyArray<T>): ReadonlyArray<T> {
  * Constructs a `ValidatedSubAgentConfig` from the given input.
  *
  * Boot-time validations (throw on violation):
- *   - `key` must match `/^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/`
+ *   - `key` must match the domain-dot-name regex (no trailing hyphens)
  *   - `budgets.maxIterations` must be 4 or 5
  *   - `budgets.wallclockMs` must be > 0
  *   - `budgets.costUsd` must be > 0
+ *   - `promptTemplate.variables` must be a `ZodType` instance
  *
- * The returned config is deeply frozen (top-level object + all array fields).
+ * The returned config is frozen at the top level, across all array fields, and
+ * across nested plain-object fields (`budgets`, `memoryScope`, `promptTemplate`,
+ * `toolRetrieval`). Zod schemas (`inputSchema`, `outputSchema`) and
+ * function-valued `model` are deliberately not frozen because freezing Zod
+ * internals can trigger stack overflow via cyclic `_def` references, and
+ * function objects should not be frozen in place.
  * Attempting to mutate a frozen array in strict mode throws a TypeError.
  */
 export function defineSubAgent<TInputSchema extends ZodType, TOutputSchema extends ZodType>(
@@ -115,8 +128,15 @@ export function defineSubAgent<TInputSchema extends ZodType, TOutputSchema exten
   if (!SUB_AGENT_KEY_RE.test(config.key)) {
     throw new RangeError(
       `defineSubAgent: key "${config.key}" is invalid. ` +
-        `Expected domain-dot-name format matching /^[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*$/ ` +
+        `Expected domain-dot-name format with no trailing or leading hyphens ` +
         `(e.g. "planner.read-only"). Got: "${config.key}"`,
+    )
+  }
+
+  // ── promptTemplate.variables runtime guard ────────────────────────────────
+  if (!(config.promptTemplate.variables instanceof ZodType)) {
+    throw new RangeError(
+      `defineSubAgent: promptTemplate.variables must be a Zod schema. Got: ${typeof config.promptTemplate.variables}`,
     )
   }
 

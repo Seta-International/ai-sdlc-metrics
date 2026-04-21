@@ -95,6 +95,12 @@ describe('defineSubAgent', () => {
     expect(() => defineSubAgent(input)).toThrow(/domain-dot-name format/)
   })
 
+  it('key: "planner.read-only-" (trailing hyphen) → throws RangeError', () => {
+    const input = { ...validConfig(), key: 'planner.read-only-' }
+    expect(() => defineSubAgent(input)).toThrow(RangeError)
+    expect(() => defineSubAgent(input)).toThrow(/domain-dot-name format/)
+  })
+
   // ─── Deep-freeze verification ─────────────────────────────────────────────
 
   it('returned config toolScope array is frozen', () => {
@@ -156,5 +162,46 @@ describe('defineSubAgent', () => {
     const input = { ...validConfig(), budgets: { ...validConfig().budgets, maxIterations: 5 } }
     const cfg = defineSubAgent(input)
     expect(cfg.budgets.maxIterations).toBe(5)
+  })
+
+  // ─── promptTemplate.variables runtime guard ──────────────────────────────
+
+  it('promptTemplate.variables: plain object → throws RangeError', () => {
+    const input = {
+      ...validConfig(),
+      promptTemplate: {
+        body: 'You are a planner assistant. {{query}}',
+        variables: {} as unknown as import('zod').ZodType,
+      },
+    }
+    expect(() => defineSubAgent(input)).toThrow(RangeError)
+    expect(() => defineSubAgent(input)).toThrow(/promptTemplate\.variables/)
+  })
+
+  // ─── toolCeilingBytes + source: 'stored' ─────────────────────────────────
+
+  it('budgets.toolCeilingBytes: 512 AND source: "stored" → both preserved', () => {
+    const input = {
+      ...validConfig(),
+      budgets: { ...validConfig().budgets, toolCeilingBytes: 512 },
+      source: 'stored' as const,
+    }
+    const cfg = defineSubAgent(input)
+    expect(cfg.budgets.toolCeilingBytes).toBe(512)
+    expect(cfg.source).toBe('stored')
+  })
+
+  // ─── Negative budget values ───────────────────────────────────────────────
+
+  it('budgets.wallclockMs: -1 → throws RangeError', () => {
+    const input = { ...validConfig(), budgets: { ...validConfig().budgets, wallclockMs: -1 } }
+    expect(() => defineSubAgent(input)).toThrow(RangeError)
+    expect(() => defineSubAgent(input)).toThrow(/wallclockMs must be > 0/)
+  })
+
+  it('budgets.costUsd: -0.01 → throws RangeError', () => {
+    const input = { ...validConfig(), budgets: { ...validConfig().budgets, costUsd: -0.01 } }
+    expect(() => defineSubAgent(input)).toThrow(RangeError)
+    expect(() => defineSubAgent(input)).toThrow(/costUsd must be > 0/)
   })
 })
