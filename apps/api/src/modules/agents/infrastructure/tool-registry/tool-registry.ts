@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import type { AgentToolDescriptor, AgentToolMeta } from '../../../../common/trpc/agent-tool-meta'
 
 // ─── Validation Error ─────────────────────────────────────────────────────────
@@ -20,7 +20,7 @@ export class ToolRegistryValidationError extends Error {
  * tRPC v11 procedure definition as accessed via `router._def.procedures[name]._def`.
  * Typed minimally; we only read the fields we actually use.
  */
-interface TrpcProcedureDef {
+interface ProcedureDef {
   type: 'query' | 'mutation' | 'subscription'
   meta?: {
     permission?: string
@@ -29,16 +29,16 @@ interface TrpcProcedureDef {
   inputs: unknown[]
 }
 
-interface TrpcProcedure {
-  _def: TrpcProcedureDef
+interface ProcedureLike {
+  _def: ProcedureDef
 }
 
-interface TrpcRouterDef {
-  procedures: Record<string, TrpcProcedure>
+interface RouterDef {
+  procedures: Record<string, ProcedureLike>
 }
 
-interface TrpcRouter {
-  _def: TrpcRouterDef
+interface RouterLike {
+  _def: RouterDef
 }
 
 // ─── Zod v4 minimal shape for tenant_id check ────────────────────────────────
@@ -61,6 +61,21 @@ function isZodObject(schema: unknown): schema is ZodObjectLike {
     typeof (schema as ZodObjectLike)._def?.shape === 'object' &&
     (schema as ZodObjectLike)._def?.shape !== null
   )
+}
+
+/**
+ * Unwraps a single level of Zod v4 pipe wrapper (produced by `.transform()` or `.pipe()`).
+ * `_def.type === 'pipe'` means the "real" schema is at `_def.in`.
+ * Returns the input unchanged for any other shape.
+ */
+function resolveRootSchema(schema: unknown): unknown {
+  if (typeof schema === 'object' && schema !== null && '_def' in schema) {
+    const def = (schema as { _def: { type?: string; in?: unknown } })._def
+    if (def?.type === 'pipe' && 'in' in def) {
+      return resolveRootSchema(def.in)
+    }
+  }
+  return schema
 }
 
 // ─── resolveMenuFor options ───────────────────────────────────────────────────
@@ -90,6 +105,7 @@ export interface ResolveMenuOptions {
  */
 @Injectable()
 export class ToolRegistry {
+  private readonly logger = new Logger(ToolRegistry.name)
   private readonly _descriptors = new Map<string, AgentToolDescriptor>()
   private _loaded = false
 
@@ -107,10 +123,13 @@ export class ToolRegistry {
    */
   loadFromRouter(router: unknown): void {
     if (this._loaded) {
+      this.logger.warn(
+        `loadFromRouter called more than once; ignoring subsequent calls (first-wins). Tool count: ${this._descriptors.size}.`,
+      )
       return
     }
 
-    const trpcRouter = router as TrpcRouter
+    const trpcRouter = router as RouterLike
     if (!trpcRouter?._def?.procedures) {
       throw new ToolRegistryValidationError(
         'ToolRegistry.loadFromRouter: router does not expose _def.procedures. ' +
@@ -177,7 +196,7 @@ export class ToolRegistry {
 
       const inputs = def.inputs
       if (Array.isArray(inputs) && inputs.length > 0) {
-        const rootSchema = inputs[0]
+        const rootSchema = resolveRootSchema(inputs[0])
         if (isZodObject(rootSchema)) {
           if ('tenant_id' in rootSchema._def.shape) {
             procViolations.push(
@@ -237,11 +256,10 @@ export class ToolRegistry {
    *    appears as a '/'-separated segment of the screen path
    *
    * Result is sorted by `name` ascending for stable ordering.
-   *
-   * // TODO plan-02: refine screen-relevance heuristic once router stubs exist
    */
   resolveMenuFor(opts: ResolveMenuOptions): ReadonlyArray<AgentToolDescriptor> {
     const { subAgentScope, roleAllowedPermissions, surfaceContext } = opts
+    // TODO plan-02: refine screen-relevance heuristic once router stubs exist
     const screenSegments = new Set(surfaceContext.screen.split('/').filter(Boolean))
 
     const results: AgentToolDescriptor[] = []

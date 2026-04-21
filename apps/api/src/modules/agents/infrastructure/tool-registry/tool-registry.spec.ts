@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { Logger } from '@nestjs/common'
 import { initTRPC } from '@trpc/server'
 import { z } from 'zod'
 import { ToolRegistry, ToolRegistryValidationError } from './tool-registry'
@@ -452,6 +453,69 @@ describe('ToolRegistry', () => {
     // Second call ignored — first-loaded state preserved
     registry.loadFromRouter(router2)
     expect(registry.listAgentTools()).toHaveLength(1)
+  })
+
+  it('loadFromRouter logs a warning when called a second time', () => {
+    const warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined)
+    try {
+      const testRouter = r({
+        planner: r({
+          task: r({
+            getBoard: p
+              .meta({ permission: 'planner:task:read', agent: VALID_QUERY_META })
+              .query(() => 'board'),
+          }),
+        }),
+      })
+
+      registry.loadFromRouter(testRouter)
+      expect(warnSpy).not.toHaveBeenCalled()
+
+      registry.loadFromRouter(testRouter)
+      expect(warnSpy).toHaveBeenCalledOnce()
+      expect(warnSpy.mock.calls[0][0]).toMatch(/called more than once/)
+    } finally {
+      warnSpy.mockRestore()
+    }
+  })
+
+  // ── Test: tenant_id ban bypassed via .transform() — R-01.30 pipe-unwrap ───────
+
+  it('throws ToolRegistryValidationError when input schema with tenant_id is wrapped in .transform()', () => {
+    // Without resolveRootSchema, the _def.type is 'pipe' and isZodObject returns false,
+    // causing the guard to silently skip — allowing tenant_id to slip through.
+    const testRouter = r({
+      planner: r({
+        task: r({
+          getBoard: p
+            .input(z.object({ planId: z.string(), tenant_id: z.string() }).transform((d) => d))
+            .meta({ permission: 'planner:task:read', agent: VALID_QUERY_META })
+            .query(() => 'board'),
+        }),
+      }),
+    })
+
+    expect(() => registry.loadFromRouter(testRouter)).toThrow(ToolRegistryValidationError)
+    expect(() => {
+      const reg2 = new ToolRegistry()
+      reg2.loadFromRouter(testRouter)
+    }).toThrow(/tenant_id/)
+  })
+
+  it('accepts input schema without tenant_id wrapped in .transform()', () => {
+    // Unwrapping should not cause false positives when tenant_id is absent.
+    const testRouter = r({
+      planner: r({
+        task: r({
+          getBoard: p
+            .input(z.object({ planId: z.string() }).transform((d) => d))
+            .meta({ permission: 'planner:task:read', agent: VALID_QUERY_META })
+            .query(() => 'board'),
+        }),
+      }),
+    })
+
+    expect(() => registry.loadFromRouter(testRouter)).not.toThrow()
   })
 
   // ── Test: error message lists all offending tools ─────────────────────────────
