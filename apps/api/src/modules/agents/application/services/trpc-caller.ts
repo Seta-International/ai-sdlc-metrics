@@ -19,7 +19,7 @@
  *   implement it. An explicit Error is thrown so callers fail loud rather than silently.
  */
 
-import { Injectable } from '@nestjs/common'
+import { Injectable, Optional } from '@nestjs/common'
 import type { TrpcCaller } from '../pipeline/pipeline-steps'
 import type { RequestContext } from './tool-gateway-contracts'
 import type { TrpcContext } from '../../../../common/trpc/trpc-init'
@@ -45,7 +45,7 @@ type AnyRouter = {
 export class TrpcCallerImpl implements TrpcCaller {
   private readonly routerProvider: () => AnyRouter
 
-  constructor(routerProvider?: () => AnyRouter) {
+  constructor(@Optional() routerProvider?: () => AnyRouter) {
     this.routerProvider = routerProvider ?? (getAppRouter as () => AnyRouter)
   }
 

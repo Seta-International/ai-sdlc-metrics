@@ -22,6 +22,19 @@ import type { RequestContext, TurnState } from '../services/tool-gateway-contrac
 import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { tripwire, type Tripwire } from '../../infrastructure/guards/tripwire'
 
+// ─── Retry-key helpers ────────────────────────────────────────────────────────
+
+/**
+ * Canonical retry-key factory used by both `ceilingPreCheck` (pipeline) and the
+ * ToolGateway orchestrator. Centralised here to avoid key-string drift between the
+ * two sites.
+ */
+export const RETRY_KEY = {
+  ceiling: (toolName: string) => `${toolName}:ceiling`,
+  validation: (toolName: string) => `${toolName}:validation`,
+  timeout: (toolName: string) => `${toolName}:timeout`,
+} as const
+
 // ─── Step 1 — resolve ─────────────────────────────────────────────────────────
 
 /**
@@ -116,7 +129,7 @@ export function ceilingPreCheck(input: {
 
   // Check bytes ceiling
   if (bytesRemaining !== undefined && bytesRemaining <= 0) {
-    const retryKey = `${descriptor.name}:ceiling`
+    const retryKey = RETRY_KEY.ceiling(descriptor.name)
     const retryCount = turnState.retryCount.get(retryKey) ?? 0
     const disposition = retryCount >= 1 ? 'abort' : 'retry'
     return tripwire('ceiling_breach_bytes', disposition, {
@@ -128,7 +141,7 @@ export function ceilingPreCheck(input: {
 
   // Check wallclock ceiling
   if (wallclockRemaining !== undefined && wallclockRemaining <= 0) {
-    const retryKey = `${descriptor.name}:ceiling`
+    const retryKey = RETRY_KEY.ceiling(descriptor.name)
     const retryCount = turnState.retryCount.get(retryKey) ?? 0
     const disposition = retryCount >= 1 ? 'abort' : 'retry'
     return tripwire('ceiling_breach_wallclock', disposition, {

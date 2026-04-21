@@ -39,6 +39,7 @@ import {
   invoke,
   applyTaintWrap,
   auditEmit,
+  RETRY_KEY,
 } from '../pipeline/pipeline-steps'
 import {
   ok,
@@ -364,10 +365,12 @@ export class ToolGateway {
           fieldsToWrap: fw,
           turnState,
         })
+        const resultHash = canonicalize(coalescedResult ?? null).hash
         await auditEmit({
           descriptor,
           requestContext,
           resultStatus: 'success',
+          resultHash,
           extraAttrs: { fromCache: true, cache_coalesced: true, fieldsWrapped, taintFlipped },
           auditFacade: this.auditFacade,
           logger: this.logger,
@@ -397,13 +400,17 @@ export class ToolGateway {
     // Step 4: prepareTaintWrap
     const { fieldsToWrap } = prepareTaintWrap({ descriptor })
 
+    // Wallclock timer covers everything after resolve — including ceiling checks,
+    // pre-write abort, invoke, and any transient-retry jitter sleep. A transient
+    // retry's wait counts against the tool's wallclock budget; this is deliberate
+    // — the caller experiences that time regardless.
     const startedAt = Date.now()
 
     // Step 5: ceilingPreCheck
     const ceilingResult = ceilingPreCheck({ descriptor, turnState })
     if (isTripwireVariant(ceilingResult)) {
       // Increment ceiling retry counter
-      const ceilingKey = `${descriptor.name}:ceiling`
+      const ceilingKey = RETRY_KEY.ceiling(descriptor.name)
       const prevCeiling = turnState.retryCount.get(ceilingKey) ?? 0
       turnState.retryCount.set(ceilingKey, prevCeiling + 1)
 
@@ -564,8 +571,8 @@ export class ToolGateway {
     if (variant === 'validation_failed' || variant === 'invocation_timeout') {
       const retryKey =
         variant === 'validation_failed'
-          ? `${descriptor.name}:validation`
-          : `${descriptor.name}:timeout`
+          ? RETRY_KEY.validation(descriptor.name)
+          : RETRY_KEY.timeout(descriptor.name)
       const prev = turnState.retryCount.get(retryKey) ?? 0
       turnState.retryCount.set(retryKey, prev + 1)
 

@@ -119,6 +119,32 @@ function makeInput(overrides?: Partial<ToolGatewayInvokeInput>): ToolGatewayInvo
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('ToolGateway', () => {
+  describe('procedure_out_of_sub_agent_scope', () => {
+    it('tool exists in registry but permission is outside subAgentScope — tripwire, no caller, no audit', async () => {
+      const descriptor = makeDescriptor({
+        name: 'planner.task.getBoard',
+        permission: 'planner:task:read',
+      })
+      const registry = makeRegistry(descriptor)
+      const { facade, recordEvent } = makeAuditFacade()
+      const { caller, callFn } = makeCaller({ tasks: [] })
+      const gw = new ToolGateway(registry, caller, facade)
+
+      // subAgentScope does NOT include 'planner:task:read' or any prefix of it
+      const result = await gw.invoke(
+        makeInput({ subAgentScope: ['people:profile:read', 'time:leave:read'] }),
+      )
+
+      expect(result.kind).toBe('tripwire')
+      if (result.kind === 'tripwire') {
+        expect(result.variant).toBe('procedure_out_of_sub_agent_scope')
+        expect(result.disposition).toBe('abort')
+      }
+      expect(callFn).not.toHaveBeenCalled()
+      expect(recordEvent).not.toHaveBeenCalled()
+    })
+  })
+
   describe('unknown tool', () => {
     it('returns procedure_not_agent_exposed tripwire without calling audit', async () => {
       const registry = makeRegistry(undefined)

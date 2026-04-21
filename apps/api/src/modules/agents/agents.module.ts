@@ -34,7 +34,6 @@ import { setAgentInsightHandlers } from './interface/trpc/insight.router'
 import { ToolRegistry } from './infrastructure/tool-registry/tool-registry'
 import { TrpcCallerImpl } from './application/services/trpc-caller'
 import { ToolGateway } from './application/services/tool-gateway'
-import { KernelAuditFacade } from '../kernel/application/facades/kernel-audit.facade'
 import { getAppRouter } from '../../common/trpc/app-router'
 
 @Module({

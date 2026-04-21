@@ -93,6 +93,7 @@ describe('ToolGatewayInvokeInput type', () => {
       toolName: 'people.listEmployees',
       args: { departmentId: 'dept-uuid' },
       subAgentKey: 'people-reader',
+      subAgentScope: ['planner:task'],
       requestContext: {
         tenantId: 'tenant-uuid',
         userId: 'user-uuid',
@@ -122,6 +123,7 @@ describe('ToolGatewayInvokeInput type', () => {
       toolName: 'time.submitLeave',
       args: { leaveType: 'annual', startDate: '2026-05-01', endDate: '2026-05-03' },
       subAgentKey: 'leave-writer',
+      subAgentScope: ['planner:task'],
       requestContext: {
         tenantId: 'tenant-uuid',
         userId: 'user-uuid',

@@ -304,6 +304,21 @@ describe('L1Cache', () => {
     })
   })
 
+  describe('coalesced waiter rejects on primary fail', () => {
+    it('coalesced waiter promise rejects when primary fail() is called', async () => {
+      const cache = new L1Cache()
+      const handle = cache.registerInFlight('planner.task.getBoard', 'h1')
+      const hit = cache.lookup('planner.task.getBoard', 'h1')
+      expect(hit?.kind).toBe('pending')
+      const waiterPromise = (hit as { kind: 'pending'; promise: Promise<unknown> }).promise
+
+      const primaryError = new Error('primary failed')
+      handle.fail(primaryError)
+
+      await expect(waiterPromise).rejects.toBe(primaryError)
+    })
+  })
+
   describe('coalescing under concurrency', () => {
     it('exactly one invocation runs when two concurrent callers use the pattern', async () => {
       const cache = new L1Cache()
