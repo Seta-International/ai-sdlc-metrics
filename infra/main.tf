@@ -6,7 +6,6 @@ module "vpc"          { source = "./modules/vpc" }
 module "alb"          { source = "./modules/alb" }
 module "ecs_cluster"  { source = "./modules/ecs-cluster" }
 module "rds"          { source = "./modules/rds" }
-module "rds_langfuse" { source = "./modules/rds-langfuse" }
 module "redis"        { source = "./modules/redis" }
 module "ecr"          { source = "./modules/ecr" }
 module "secrets"      { source = "./modules/secrets" }

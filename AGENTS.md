@@ -12,7 +12,7 @@
 | Events        | `outbox_event` + polling relay                                                               |
 | Analytics     | Glue ETL → S3 Parquet → Iceberg → Athena                                                     |
 | AI            | Vercel AI SDK + OpenAI (`gpt-5.4-nano` classify, `gpt-5.4` reason, `text-embedding-3-small`) |
-| Observability | Langfuse (self-hosted ECS)                                                                   |
+| Observability | _deferred_ — see roadmap                                                                     |
 | Infra         | AWS ECS Fargate Graviton ARM64, Terraform, ap-southeast-1                                    |
 
 ## Domain Modules
