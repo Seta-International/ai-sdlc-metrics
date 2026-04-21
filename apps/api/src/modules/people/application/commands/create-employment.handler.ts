@@ -37,6 +37,7 @@ export class CreateEmploymentHandler implements ICommandHandler<
     const employment = await this.employmentRepo.insert({
       tenantId: command.tenantId,
       personProfileId: command.personProfileId,
+      previousProfileId: null,
       workerType: command.workerType,
       employmentType: command.employmentType,
       countryCode: command.countryCode,

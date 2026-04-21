@@ -85,6 +85,7 @@ export class OnCandidateHiredHandler implements IEventHandler<CandidateHiredEven
     const employment = await this.employmentRepo.insert({
       tenantId: event.tenantId,
       personProfileId: profile.id,
+      previousProfileId: null,
       employeeCode: null,
       companyEmail: null,
       workerType: event.workerType as 'employee' | 'contingent',
