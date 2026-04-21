@@ -39,6 +39,11 @@ import {
   PermissionNarrativeBuilder,
   PERMISSION_NARRATIVE_BUILDER,
 } from './application/services/permission-narrative-builder'
+// Router prompt builder (Task 7)
+import {
+  RouterPromptBuilder,
+  ROUTER_PROMPT_BUILDER,
+} from './application/services/router-prompt-builder'
 // Gateway pipeline (Task 5)
 import { ToolRegistry } from './infrastructure/tool-registry/tool-registry'
 import { TrpcCallerImpl } from './application/services/trpc-caller'
@@ -102,6 +107,9 @@ import { listMyAssignmentsIntent } from '../projects/agent/intents'
     // Permission narrative builder (Task 6)
     PermissionNarrativeBuilder,
     { provide: PERMISSION_NARRATIVE_BUILDER, useExisting: PermissionNarrativeBuilder },
+    // Router prompt builder (Task 7)
+    RouterPromptBuilder,
+    { provide: ROUTER_PROMPT_BUILDER, useExisting: RouterPromptBuilder },
     // Gateway pipeline (Task 5)
     ToolRegistry,
     TrpcCallerImpl,
@@ -113,7 +121,13 @@ import { listMyAssignmentsIntent } from '../projects/agent/intents'
     IntentRegistry,
     { provide: INTENT_REGISTRY, useExisting: IntentRegistry },
   ],
-  exports: [AgentsQueryFacade, SUB_AGENT_REGISTRY, INTENT_REGISTRY, PERMISSION_NARRATIVE_BUILDER],
+  exports: [
+    AgentsQueryFacade,
+    SUB_AGENT_REGISTRY,
+    INTENT_REGISTRY,
+    PERMISSION_NARRATIVE_BUILDER,
+    ROUTER_PROMPT_BUILDER,
+  ],
 })
 export class AgentsModule implements OnModuleInit {
   constructor(
