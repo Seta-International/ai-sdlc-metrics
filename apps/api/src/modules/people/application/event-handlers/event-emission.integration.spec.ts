@@ -51,10 +51,13 @@ describe('Event Emission Integration', () => {
         countByTenant: vi.fn(),
       }
 
-      // Constructor: employmentRepo, eventBus
+      const recorder = { recordHire: vi.fn().mockResolvedValue(undefined) }
+
+      // Constructor: employmentRepo, eventBus, recorder
       const handler = new ActivateEmploymentHandler(
         employmentRepo as unknown as IEmploymentRepository,
         eventBus,
+        recorder as never,
       )
 
       await handler.execute(new ActivateEmploymentCommand(TENANT_ID, EMPLOYMENT_ID, ACTOR_ID))
