@@ -53,6 +53,11 @@ import {
 } from './application/services/router-decision-parser'
 // Router LLM client (Task 9)
 import { RouterLlmClient, ROUTER_LLM_CLIENT } from './infrastructure/llm/router-llm-client'
+// Router session orchestrator (Task 10)
+import {
+  RouterSessionOrchestrator,
+  ROUTER_SESSION_ORCHESTRATOR,
+} from './application/services/router-session-orchestrator'
 // Gateway pipeline (Task 5)
 import { ToolRegistry } from './infrastructure/tool-registry/tool-registry'
 import { TrpcCallerImpl } from './application/services/trpc-caller'
@@ -128,6 +133,9 @@ import { listMyAssignmentsIntent } from '../projects/agent/intents'
     // Router LLM client (Task 9)
     RouterLlmClient,
     { provide: ROUTER_LLM_CLIENT, useExisting: RouterLlmClient },
+    // Router session orchestrator (Task 10)
+    RouterSessionOrchestrator,
+    { provide: ROUTER_SESSION_ORCHESTRATOR, useExisting: RouterSessionOrchestrator },
     // Gateway pipeline (Task 5)
     ToolRegistry,
     TrpcCallerImpl,
@@ -148,6 +156,7 @@ import { listMyAssignmentsIntent } from '../projects/agent/intents'
     SUB_AGENT_RETRIEVER,
     ROUTER_DECISION_PARSER,
     ROUTER_LLM_CLIENT,
+    ROUTER_SESSION_ORCHESTRATOR,
   ],
 })
 export class AgentsModule implements OnModuleInit {

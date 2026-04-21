@@ -132,6 +132,29 @@ export interface CanonicalizeResult {
 }
 
 /**
+ * Stable version hash for this canonicaliser implementation.
+ *
+ * Computed once at module load from a deterministic sentinel object. When the
+ * canonicalisation rules change (e.g. a new normalisation pass is added) this
+ * constant MUST be updated so existing `agent_session` rows with mismatched hashes
+ * are detected as drift by the orchestrator (T10).
+ *
+ * Do NOT derive this from Date.now() or Math.random() — it must be stable across
+ * restarts.
+ */
+export const CANONICALIZER_VERSION_HASH: string = (() => {
+  const { hash } = _computeCanonicalVersion()
+  return hash
+})()
+
+function _computeCanonicalVersion(): CanonicalizeResult {
+  // Sentinel: bumping this string triggers a new hash → existing sessions detect drift.
+  const canonical = JSON.stringify({ canonicalizerVersion: '1' })
+  const hash = createHash('sha256').update(canonical).digest('hex')
+  return { canonical, hash }
+}
+
+/**
  * Deterministically serialise `args` to a stable JSON string + SHA-256 hex hash.
  *
  * Rules (R-01.23):

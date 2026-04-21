@@ -71,6 +71,32 @@ interface GatewayInstruments {
    * the dashboard via PromQL / OTTL. This is R-02.17..R-02.19.
    */
   narrativeCacheTotal: Counter
+  /**
+   * Counts router turn decisions by outcome (Plan 02 §8).
+   * Labels: tenant_id, outcome.
+   * outcome ∈ 'bounded_plan' | 'disambiguation' | 'parse_escalated'
+   *
+   * 3 outcomes — bounded cardinality regardless of tenant count.
+   */
+  routerDecisionsTotal: Counter
+  /**
+   * Counts router parse retries (Plan 02 §8, R-02.23a).
+   * Labels: tenant_id.
+   * Incremented once per turn that requires a second LLM call.
+   */
+  routerParseRetryTotal: Counter
+  /**
+   * Counts sub-agent invocations emitted per turn (Plan 02 §8, R-02.23a).
+   * Labels: tenant_id, sub_agent_key, phase.
+   *
+   * DEVIATION from general cardinality discipline (T5):
+   *   `sub_agent_key` IS a label here because Plan §8 explicitly spec's it:
+   *   "agent_sub_agent_invoked_total{tenant_id, sub_agent_key, phase}".
+   *   Unlike tool_name (free-form), sub_agent_key is a registry-boot-time
+   *   constant — cardinality is bounded by the number of registered sub-agents
+   *   (low double digits at most). This is a documented exception.
+   */
+  subAgentInvokedTotal: Counter
 }
 
 let _instruments: GatewayInstruments | undefined
@@ -146,6 +172,38 @@ function getInstruments(): GatewayInstruments {
      */
     narrativeCacheTotal: meter.createCounter('agent_narrative_cache_total', {
       description: 'Permission narrative cache outcomes (hit/miss) per tenant.',
+      valueType: ValueType.INT,
+    }),
+
+    /**
+     * Counts router turn decisions by outcome (Plan 02 §8).
+     * Labels: tenant_id, outcome.
+     * outcome ∈ 'bounded_plan' | 'disambiguation' | 'parse_escalated'
+     */
+    routerDecisionsTotal: meter.createCounter('agent_router_decisions_total', {
+      description: 'Router turn decision outcomes per tenant.',
+      valueType: ValueType.INT,
+    }),
+
+    /**
+     * Counts router parse retries (Plan 02 §8, R-02.23a).
+     * Labels: tenant_id.
+     */
+    routerParseRetryTotal: meter.createCounter('agent_router_parse_retry_total', {
+      description: 'Router parse retries (second LLM call) per tenant.',
+      valueType: ValueType.INT,
+    }),
+
+    /**
+     * Counts sub-agent invocations emitted per turn (Plan 02 §8, R-02.23a).
+     * Labels: tenant_id, sub_agent_key, phase.
+     *
+     * DEVIATION from general cardinality discipline (T5):
+     *   `sub_agent_key` IS a label here because Plan §8 explicitly spec's it.
+     *   Cardinality is bounded by the number of registered sub-agents (low double digits).
+     */
+    subAgentInvokedTotal: meter.createCounter('agent_sub_agent_invoked_total', {
+      description: 'Sub-agent invocation events per tenant, key, and phase.',
       valueType: ValueType.INT,
     }),
   }
@@ -237,4 +295,43 @@ export function recordSubAgentHidden(
  */
 export function recordNarrativeCache(tenantId: string, outcome: 'hit' | 'miss'): void {
   getInstruments().narrativeCacheTotal.add(1, { tenant_id: tenantId, outcome })
+}
+
+/**
+ * Record a router turn decision outcome (Plan 02 §8).
+ * outcome ∈ 'bounded_plan' | 'disambiguation' | 'parse_escalated'
+ */
+export function recordRouterDecision(
+  tenantId: string,
+  outcome: 'bounded_plan' | 'disambiguation' | 'parse_escalated',
+): void {
+  getInstruments().routerDecisionsTotal.add(1, { tenant_id: tenantId, outcome })
+}
+
+/**
+ * Record a router parse retry event (Plan 02 §8, R-02.23a).
+ * Call once per turn that triggers the second LLM attempt.
+ */
+export function recordRouterParseRetry(tenantId: string): void {
+  getInstruments().routerParseRetryTotal.add(1, { tenant_id: tenantId })
+}
+
+/**
+ * Record a sub-agent invocation event (Plan 02 §8, R-02.23a).
+ * Called once per directive per phase emitted in a bounded plan.
+ *
+ * DEVIATION from general cardinality discipline:
+ *   `sub_agent_key` IS included as a metric label because Plan §8 explicitly
+ *   specifies it. Cardinality is bounded by the registry size (low double digits).
+ */
+export function recordSubAgentInvoked(
+  tenantId: string,
+  subAgentKey: string,
+  phase: 'phase1' | 'phase2',
+): void {
+  getInstruments().subAgentInvokedTotal.add(1, {
+    tenant_id: tenantId,
+    sub_agent_key: subAgentKey,
+    phase,
+  })
 }
