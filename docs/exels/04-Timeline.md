@@ -90,7 +90,31 @@ VN public holidays across the W1–W12 build + pilot window, plus any other non-
 
 Reconfirm exact observed dates with the VN government labour announcement on file (HR to provide at Kickoff). Add any bridge days granted in that announcement.
 
-## Block 6 — Weekly Cadence Overview
+## Block 6 — QA + DevOps per-sprint activities
+
+Overlay on the Sprint Plan (Block 3). Makes explicit what QA and DevOps owners deliver each sprint.
+
+### QA activities by sprint
+
+| Sprint | QA activities                                                                                                                                    | Deliverable                                                                          | Exit                                                                     |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| S1     | Test strategy + plan · test-data fixtures · staging env setup · first unit + integration tests authored alongside Dev · defect-tracking rig live | Test plan signed off; fixtures load in staging; defect log live on `08-Risks-Issues` | Test plan reviewed with Tech Lead                                        |
+| S2     | First Playwright e2e flows (sign-in · action CRUD · HITL review) · visual-regression baseline · integration suite coverage on Planner handlers   | e2e suite in CI; visual baseline green                                               | e2e critical flows pass on every main merge                              |
+| S3     | Adversarial prompt suite for Core AI Phase 2 · composition-sensitivity tests · performance-test harness stood up                                 | Adversarial suite in CI; k6 script running on staging                                | Red-team regression passes; perf dashboards live                         |
+| S4     | Penetration-style test on conversational AI (REQ-22g) · pre-pilot rehearsal · pilot go/no-go recommendation · defect-leakage review              | Pentest report; rehearsal pass; recommendation memo                                  | Zero permission-leak incidents; ≥95% rehearsal pass; defect leakage < 5% |
+| Pilot  | Daily triage of pilot-reported issues · support-ticket quality review · post-pilot defect summary                                                | Pilot issue log + severity-by-sprint report                                          | Pilot-to-Wave gate (M06) input                                           |
+
+### DevOps activities by sprint
+
+| Sprint | DevOps activities                                                                                                                               | Deliverable                                                     | Exit                                                  |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------- |
+| S1     | Terraform for dev + staging (VPC, ECS, ECR, RDS, ALB, CloudFront, WAF, Secrets Manager) · CI pipeline · secrets loaded · observability baseline | Dev + staging envs reachable; PR pipeline green                 | `terraform plan` clean; smoke-deploy to staging works |
+| S2     | Prod Terraform + CD pipeline · staging auto-deploy on merge · prod on tag · auto-rollback wired                                                 | Staging deploys on every merge; prod deploy with rollback drill | Canary-failure drill proves rollback < 15 min         |
+| S3     | SLO dashboards · alert routes · on-call rotation scheduling · pre-pilot load test dry run                                                       | Dashboards live · alerts fire on synthetic error                | First on-call handover rehearsed                      |
+| S4     | Release runbook · load test at 2× pilot concurrency · post-deploy verification · secrets rotation review · backup + restore drill               | Runbook exercised · load target met · backup/restore timed      | Rollback + restore SOPs approved by CTO               |
+| Pilot  | On-call coverage · daily health-check review · cost dashboard review · weekly rotation handover                                                 | On-call calendar · weekly cost report                           | No unresolved P1s carried > 24 h                      |
+
+## Block 7 — Weekly Cadence Overview
 
 Visible on one row per week for PMO at-a-glance view.
 
