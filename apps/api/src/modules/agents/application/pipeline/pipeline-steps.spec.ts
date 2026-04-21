@@ -375,7 +375,6 @@ describe('invoke', () => {
     args: { planId: 'plan-1' },
     requestContext: REQUEST_CONTEXT,
     mode: 'execute' as const,
-    turnState: makeTurnState(),
   }
 
   it('returns ok with result on success', async () => {
@@ -665,10 +664,15 @@ describe('auditEmit', () => {
     } as unknown as KernelAuditFacade
   }
 
+  function makeLogger() {
+    return { error: vi.fn() }
+  }
+
   const descriptor = makeDescriptor()
 
   it('calls recordEvent with the correct payload shape', async () => {
     const auditFacade = makeAuditFacade()
+    const logger = makeLogger()
     const result = await auditEmit({
       descriptor,
       requestContext: REQUEST_CONTEXT,
@@ -676,6 +680,7 @@ describe('auditEmit', () => {
       resultHash: 'hash-abc',
       extraAttrs: { foo: 'bar' },
       auditFacade,
+      logger,
     })
 
     expect(result.emitted).toBe(true)
@@ -699,20 +704,42 @@ describe('auditEmit', () => {
   it('returns { emitted: false, error } without throwing when facade throws', async () => {
     const auditError = new Error('DB write failed')
     const auditFacade = makeAuditFacade(auditError)
+    const logger = makeLogger()
 
     const result = await auditEmit({
       descriptor,
       requestContext: REQUEST_CONTEXT,
       resultStatus: 'infra_error',
       auditFacade,
+      logger,
     })
 
     expect(result.emitted).toBe(false)
     expect(result.error).toBe(auditError)
   })
 
+  it('calls logger.error exactly once on facade throw, message contains toolName and traceId', async () => {
+    const auditError = new Error('DB write failed')
+    const auditFacade = makeAuditFacade(auditError)
+    const logger = makeLogger()
+
+    await auditEmit({
+      descriptor,
+      requestContext: REQUEST_CONTEXT,
+      resultStatus: 'infra_error',
+      auditFacade,
+      logger,
+    })
+
+    expect(logger.error).toHaveBeenCalledTimes(1)
+    const [message] = logger.error.mock.calls[0] as [string, ...unknown[]]
+    expect(message).toContain(descriptor.name)
+    expect(message).toContain(REQUEST_CONTEXT.traceId)
+  })
+
   it('does not propagate the audit error as a thrown exception', async () => {
     const auditFacade = makeAuditFacade(new Error('Audit failure'))
+    const logger = makeLogger()
 
     await expect(
       auditEmit({
@@ -720,17 +747,20 @@ describe('auditEmit', () => {
         requestContext: REQUEST_CONTEXT,
         resultStatus: 'success',
         auditFacade,
+        logger,
       }),
     ).resolves.not.toThrow()
   })
 
   it('works with minimal inputs (no optional resultHash or extraAttrs)', async () => {
     const auditFacade = makeAuditFacade()
+    const logger = makeLogger()
     const result = await auditEmit({
       descriptor,
       requestContext: REQUEST_CONTEXT,
       resultStatus: 'ceiling_hit',
       auditFacade,
+      logger,
     })
 
     expect(result.emitted).toBe(true)

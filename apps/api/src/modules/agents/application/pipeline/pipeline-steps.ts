@@ -14,7 +14,7 @@
  */
 
 import { TRPCError } from '@trpc/server'
-import type { ZodError } from 'zod'
+import type { Logger } from '@nestjs/common'
 import type { AgentToolDescriptor } from '../../../../common/trpc/agent-tool-meta'
 import { permissionMatchesAnyPrefix } from '../../infrastructure/tool-registry/permission-match'
 import type { ToolRegistry } from '../../infrastructure/tool-registry/tool-registry'
@@ -215,7 +215,6 @@ export async function invoke(input: {
   requestContext: RequestContext
   mode: 'execute' | 'dry-run'
   caller: TrpcCaller
-  turnState: TurnState
 }): Promise<{ kind: 'ok'; result: unknown } | Tripwire> {
   const { descriptor, args, requestContext, mode, caller } = input
 
@@ -242,6 +241,20 @@ export async function invoke(input: {
 }
 
 /**
+ * Duck-type check for a Zod-like error with an `issues` array.
+ * We rely on structural match rather than an `instanceof ZodError` check so
+ * this helper stays decoupled from the exact Zod version imported by the caller.
+ */
+function isZodLikeIssuesError(
+  cause: unknown,
+): cause is { issues: Array<{ path: readonly (string | number)[]; message: string }> } {
+  if (cause === null || cause === undefined || typeof cause !== 'object') return false
+  if (!('issues' in cause)) return false
+  const issues = (cause as { issues: unknown }).issues
+  return Array.isArray(issues)
+}
+
+/**
  * Maps a TRPCError to the appropriate tripwire variant.
  * Internal helper — not exported.
  */
@@ -251,10 +264,9 @@ function mapTrpcError(toolName: string, err: TRPCError): Tripwire {
 
   // Extract Zod field name from cause if available
   let fieldName: string | undefined
-  const zodCause = err.cause as ZodError | undefined
-  if (zodCause && typeof zodCause === 'object' && 'issues' in zodCause) {
-    const issues = (zodCause as ZodError).issues
-    if (Array.isArray(issues) && issues.length > 0 && issues[0]) {
+  if (isZodLikeIssuesError(err.cause)) {
+    const issues = err.cause.issues
+    if (issues.length > 0 && issues[0]) {
       const path = issues[0].path
       if (Array.isArray(path) && path.length > 0) {
         fieldName = String(path[0])
@@ -271,11 +283,7 @@ function mapTrpcError(toolName: string, err: TRPCError): Tripwire {
     case 'BAD_REQUEST': {
       // Validation error: BAD_REQUEST with message containing 'validation' OR Zod cause
       const isValidation =
-        rawMessage.toLowerCase().includes('validation') ||
-        (err.cause !== undefined &&
-          err.cause !== null &&
-          typeof err.cause === 'object' &&
-          'issues' in err.cause)
+        rawMessage.toLowerCase().includes('validation') || isZodLikeIssuesError(err.cause)
       if (isValidation) {
         return tripwire(
           'validation_failed',
@@ -401,7 +409,9 @@ function wrapObjectFields(
  * concern; it does NOT tripwire the user-visible path). Always returns
  * `{ emitted: false, error }` on failure.
  *
- * The orchestrator is responsible for logging the error if `emitted` is false.
+ * P1 visibility: when `emitted` is false the step itself logs `toolName` and
+ * `traceId` at error level so the failure is observable without requiring the
+ * orchestrator to inspect the return value.
  */
 export async function auditEmit(input: {
   descriptor: AgentToolDescriptor
@@ -420,8 +430,10 @@ export async function auditEmit(input: {
   resultHash?: string
   extraAttrs?: Readonly<Record<string, unknown>>
   auditFacade: KernelAuditFacade
+  logger: Pick<Logger, 'error'>
 }): Promise<{ emitted: boolean; error?: unknown }> {
-  const { descriptor, requestContext, resultStatus, resultHash, extraAttrs, auditFacade } = input
+  const { descriptor, requestContext, resultStatus, resultHash, extraAttrs, auditFacade, logger } =
+    input
 
   try {
     await auditFacade.recordEvent({
@@ -440,6 +452,10 @@ export async function auditEmit(input: {
     })
     return { emitted: true }
   } catch (error: unknown) {
+    logger.error(
+      `agent.tool_called audit emit failed for tool="${descriptor.name}" traceId="${requestContext.traceId}"`,
+      error instanceof Error ? error.stack : String(error),
+    )
     return { emitted: false, error }
   }
 }
