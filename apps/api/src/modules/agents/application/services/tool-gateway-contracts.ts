@@ -4,6 +4,8 @@
  * Per plan 01 §4 Interface Contracts.
  */
 
+import type { L1Cache } from '../../infrastructure/cache/l1-cache'
+
 // ─── RequestContext ────────────────────────────────────────────────────────────
 
 /**
@@ -64,11 +66,10 @@ export interface TurnState {
   >
 
   /**
-   * Turn-scoped L1 read cache.
-   * Key: `${toolName}:${canonicalArgsHash}`. Value type defined in Task 3.
-   * TODO-Task-3: replace `unknown` with a typed cache entry shape.
+   * Turn-scoped L1 read cache with in-flight promise coalescing.
+   * One instance per (turn, sub-agent) pair — created by the orchestrator (Task 5).
    */
-  readonly l1Cache: unknown
+  readonly l1Cache: L1Cache
 }
 
 // ─── ToolGatewayInvokeInput ───────────────────────────────────────────────────

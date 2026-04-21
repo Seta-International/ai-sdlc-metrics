@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { RequestContext, TurnState, ToolGatewayInvokeInput } from './tool-gateway-contracts'
+import { L1Cache } from '../../infrastructure/cache/l1-cache'
 
 describe('RequestContext type', () => {
   it('compiles with all required fields', () => {
@@ -42,7 +43,7 @@ describe('TurnState type', () => {
       toolCeilingRemaining: new Map([
         ['people.listEmployees', { bytes: 500_000, wallclockMs: 3000 }],
       ]),
-      l1Cache: null,
+      l1Cache: new L1Cache(),
     }
 
     expect(state.tainted.value).toBe(false)
@@ -60,7 +61,7 @@ describe('TurnState type', () => {
       circuitBreaker: new Map(),
       retryCount: new Map(),
       toolCeilingRemaining: new Map(),
-      l1Cache: undefined,
+      l1Cache: new L1Cache(),
     }
 
     state.tainted.value = true
@@ -76,7 +77,7 @@ describe('TurnState type', () => {
       ]),
       retryCount: new Map(),
       toolCeilingRemaining: new Map(),
-      l1Cache: undefined,
+      l1Cache: new L1Cache(),
     }
 
     expect(state.circuitBreaker.get('tool-a')?.permissionDenied).toBe(true)
@@ -104,7 +105,7 @@ describe('ToolGatewayInvokeInput type', () => {
         circuitBreaker: new Map(),
         retryCount: new Map(),
         toolCeilingRemaining: new Map(),
-        l1Cache: undefined,
+        l1Cache: new L1Cache(),
       },
       mode: 'execute',
     }
@@ -134,7 +135,7 @@ describe('ToolGatewayInvokeInput type', () => {
         circuitBreaker: new Map(),
         retryCount: new Map(),
         toolCeilingRemaining: new Map(),
-        l1Cache: undefined,
+        l1Cache: new L1Cache(),
       },
       mode: 'dry-run',
     }
