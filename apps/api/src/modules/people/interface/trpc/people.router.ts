@@ -1000,6 +1000,59 @@ export function createPeopleRouter(
           return peopleFacade.listFieldEditPolicies(ctx.tenantId)
         }),
     }),
+
+    // ── Lifecycle mutations ────────────────────────────────────────────────
+    rehire: permissionProtectedProcedure
+      .meta({ permission: 'people:employment:rehire' })
+      .input(
+        z.object({
+          previousProfileId: z.string().uuid(),
+          actorId: z.string().uuid(),
+          rehireDate: z.coerce.date(),
+          workerType: z.enum(['employee', 'contingent']),
+          employmentType: z.enum(['permanent', 'fixed_term', 'intern']),
+          countryCode: z.string().min(2).max(3),
+          jobTitle: z.string().nullable().optional(),
+          departmentId: z.string().uuid().nullable().optional(),
+          managerProfileId: z.string().uuid().nullable().optional(),
+          rehiredBy: z.string().uuid(),
+        }),
+      )
+      .mutation(
+        async ({
+          ctx,
+          input,
+        }: {
+          ctx: AuthContext
+          input: {
+            previousProfileId: string
+            actorId: string
+            rehireDate: Date
+            workerType: 'employee' | 'contingent'
+            employmentType: 'permanent' | 'fixed_term' | 'intern'
+            countryCode: string
+            jobTitle?: string | null
+            departmentId?: string | null
+            managerProfileId?: string | null
+            rehiredBy: string
+          }
+        }) =>
+          svc().command(
+            new RehireEmploymentCommand(
+              ctx.tenantId,
+              input.previousProfileId,
+              input.actorId,
+              input.rehireDate,
+              input.workerType,
+              input.employmentType,
+              input.countryCode,
+              input.jobTitle ?? null,
+              input.departmentId ?? null,
+              input.managerProfileId ?? null,
+              input.rehiredBy,
+            ),
+          ),
+      ),
   })
 }
 
@@ -1628,40 +1681,6 @@ export const peopleRouter = router({
           input.employmentId,
           input.terminationDate,
           input.initiatedBy,
-        ),
-      ),
-    ),
-
-  rehire: publicProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        previousProfileId: z.string().uuid(),
-        actorId: z.string().uuid(),
-        rehireDate: z.coerce.date(),
-        workerType: z.enum(['employee', 'contingent']),
-        employmentType: z.enum(['permanent', 'fixed_term', 'intern']),
-        countryCode: z.string().min(2).max(3),
-        jobTitle: z.string().nullable().optional(),
-        departmentId: z.string().uuid().nullable().optional(),
-        managerProfileId: z.string().uuid().nullable().optional(),
-        rehiredBy: z.string().uuid(),
-      }),
-    )
-    .mutation(({ input }) =>
-      svc().command(
-        new RehireEmploymentCommand(
-          input.tenantId,
-          input.previousProfileId,
-          input.actorId,
-          input.rehireDate,
-          input.workerType,
-          input.employmentType,
-          input.countryCode,
-          input.jobTitle ?? null,
-          input.departmentId ?? null,
-          input.managerProfileId ?? null,
-          input.rehiredBy,
         ),
       ),
     ),
