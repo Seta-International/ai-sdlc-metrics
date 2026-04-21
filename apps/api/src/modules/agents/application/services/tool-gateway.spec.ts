@@ -41,6 +41,7 @@ import { L1Cache } from '../../infrastructure/cache/l1-cache'
 import { ToolGateway, sanitizeTripwireContext } from './tool-gateway'
 import type { TrpcCaller } from '../pipeline/pipeline-steps'
 import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
+import * as gatewayMetrics from '../../infrastructure/observability/gateway-metrics'
 
 // ─── One-time OTel provider for smoke tests ──────────────────────────────────
 // OTel API only allows one global TracerProvider registration — register once
@@ -596,6 +597,217 @@ describe('ToolGateway', () => {
       // args must NOT have tenant_id injected
       const calledArgs = callFn.mock.calls[0][0].args as Record<string, unknown>
       expect('tenant_id' in calledArgs).toBe(false)
+    })
+  })
+
+  // ─── C-2: wallclock ceiling variant propagates through circuit breaker ────
+
+  describe('ceiling breach — wallclock variant (Fix C-2)', () => {
+    it('wallclock-only tool: second breach trips breaker with wallclock variant; third call tripwires ceiling_breach_wallclock', async () => {
+      const descriptor = makeDescriptor({
+        name: 'planner.task.getBoard',
+        meta: { ...BASE_META, ceilings: { wallclockMs: 0 } }, // wallclock-only ceiling
+      })
+      const registry = makeRegistry(descriptor)
+      const { facade } = makeAuditFacade()
+      const { caller } = makeCaller({ tasks: [] })
+
+      // Pre-seed: retryCount at 1 so the second breach trips the breaker
+      const turnState = makeTurnState({
+        toolCeilingRemaining: new Map([['planner.task.getBoard', { wallclockMs: 0 }]]),
+        retryCount: new Map([['planner.task.getBoard:ceiling', 1]]),
+      })
+      const gw = new ToolGateway(registry, caller, facade)
+
+      // Second ceiling breach — should trip the breaker with wallclock variant
+      const secondResult = await gw.invoke(makeInput({ turnState }))
+      expect(secondResult.kind).toBe('tripwire')
+      if (secondResult.kind === 'tripwire') {
+        expect(secondResult.disposition).toBe('abort')
+      }
+
+      // Verify the circuit breaker records the wallclock variant
+      const cb = turnState.circuitBreaker.get('planner.task.getBoard')
+      expect(cb?.ceilingBreached).toBe(true)
+      expect(cb?.breachedVariant).toBe('ceiling_breach_wallclock')
+    })
+
+    it('wallclock-only tool: third call (circuit breaker hit) tripwires ceiling_breach_wallclock not bytes', async () => {
+      const descriptor = makeDescriptor({
+        name: 'planner.task.getBoard',
+        meta: { ...BASE_META, ceilings: { wallclockMs: 0 } },
+      })
+      const registry = makeRegistry(descriptor)
+      const { facade } = makeAuditFacade()
+      const { caller } = makeCaller({ tasks: [] })
+
+      // Pre-set circuit breaker with wallclock variant (as if second breach already happened)
+      const turnState = makeTurnState({
+        toolCeilingRemaining: new Map([['planner.task.getBoard', { wallclockMs: 0 }]]),
+        circuitBreaker: new Map([
+          [
+            'planner.task.getBoard',
+            {
+              ceilingBreached: true as const,
+              breachedVariant: 'ceiling_breach_wallclock' as const,
+              brokenAt: Date.now(),
+            },
+          ],
+        ]),
+      })
+      const gw = new ToolGateway(registry, caller, facade)
+
+      const result = await gw.invoke(makeInput({ turnState }))
+
+      expect(result.kind).toBe('tripwire')
+      if (result.kind === 'tripwire') {
+        // Must be wallclock variant, NOT bytes
+        expect(result.variant).toBe('ceiling_breach_wallclock')
+        expect(result.variant).not.toBe('ceiling_breach_bytes')
+        expect(result.disposition).toBe('abort')
+      }
+    })
+
+    it('wallclock-only tool: recordTripwire metric uses ceiling_breach_wallclock on circuit-broken path', async () => {
+      const descriptor = makeDescriptor({
+        name: 'planner.task.getBoard',
+        meta: { ...BASE_META, ceilings: { wallclockMs: 0 } },
+      })
+      const registry = makeRegistry(descriptor)
+      const { facade } = makeAuditFacade()
+      const { caller } = makeCaller({ tasks: [] })
+
+      const turnState = makeTurnState({
+        toolCeilingRemaining: new Map([['planner.task.getBoard', { wallclockMs: 0 }]]),
+        circuitBreaker: new Map([
+          [
+            'planner.task.getBoard',
+            {
+              ceilingBreached: true as const,
+              breachedVariant: 'ceiling_breach_wallclock' as const,
+              brokenAt: Date.now(),
+            },
+          ],
+        ]),
+      })
+      const gw = new ToolGateway(registry, caller, facade)
+
+      const recordTripwireSpy = vi.spyOn(gatewayMetrics, 'recordTripwire')
+      await gw.invoke(makeInput({ turnState }))
+
+      // The recordTripwire call for the ceiling-broken path must use wallclock variant
+      const ceilingTripwireCall = recordTripwireSpy.mock.calls.find(
+        ([, variant]) => variant === 'ceiling_breach_wallclock',
+      )
+      expect(ceilingTripwireCall).toBeDefined()
+      // Confirm bytes variant was NOT used
+      const bytesTripwireCall = recordTripwireSpy.mock.calls.find(
+        ([, variant]) => variant === 'ceiling_breach_bytes',
+      )
+      expect(bytesTripwireCall).toBeUndefined()
+
+      recordTripwireSpy.mockRestore()
+    })
+  })
+
+  // ─── I-2: recordTripwire fires on resolve errors ──────────────────────────
+
+  describe('recordTripwire on resolve errors (Fix I-2)', () => {
+    it('procedure_not_agent_exposed fires recordTripwire', async () => {
+      const registry = makeRegistry(undefined) // tool not found
+      const { facade } = makeAuditFacade()
+      const { caller } = makeCaller({ tasks: [] })
+      const gw = new ToolGateway(registry, caller, facade)
+
+      const recordTripwireSpy = vi.spyOn(gatewayMetrics, 'recordTripwire')
+      const result = await gw.invoke(makeInput({ toolName: 'nonexistent.tool' }))
+
+      expect(result.kind).toBe('tripwire')
+      if (result.kind === 'tripwire') {
+        expect(result.variant).toBe('procedure_not_agent_exposed')
+      }
+      const call = recordTripwireSpy.mock.calls.find(
+        ([, variant]) => variant === 'procedure_not_agent_exposed',
+      )
+      expect(call).toBeDefined()
+
+      recordTripwireSpy.mockRestore()
+    })
+
+    it('procedure_out_of_sub_agent_scope fires recordTripwire', async () => {
+      const descriptor = makeDescriptor({
+        name: 'planner.task.getBoard',
+        permission: 'planner:task:read',
+      })
+      const registry = makeRegistry(descriptor)
+      const { facade } = makeAuditFacade()
+      const { caller } = makeCaller({ tasks: [] })
+      const gw = new ToolGateway(registry, caller, facade)
+
+      const recordTripwireSpy = vi.spyOn(gatewayMetrics, 'recordTripwire')
+      const result = await gw.invoke(
+        makeInput({ subAgentScope: ['people:profile:read'] }), // excludes planner
+      )
+
+      expect(result.kind).toBe('tripwire')
+      if (result.kind === 'tripwire') {
+        expect(result.variant).toBe('procedure_out_of_sub_agent_scope')
+      }
+      const call = recordTripwireSpy.mock.calls.find(
+        ([, variant]) => variant === 'procedure_out_of_sub_agent_scope',
+      )
+      expect(call).toBeDefined()
+
+      recordTripwireSpy.mockRestore()
+    })
+  })
+
+  // ─── I-4: coalesced-waiter audit row does not carry primary's rawMessage ──
+
+  describe('coalesced waiter audit row (Fix I-4)', () => {
+    it('coalesced waiter error audit row does NOT contain rawMessage', async () => {
+      const descriptor = makeDescriptor()
+      const registry = makeRegistry(descriptor)
+      const { facade, recordEvent } = makeAuditFacade()
+
+      // Primary call will fail
+      let rejectCall!: (err: unknown) => void
+      const callPromise = new Promise<unknown>((_, rej) => {
+        rejectCall = rej
+      })
+      const callFn = vi.fn().mockReturnValue(callPromise)
+      const caller = { call: callFn } as unknown as TrpcCaller
+
+      const turnState = makeTurnState()
+      const gw = new ToolGateway(registry, caller, facade)
+      const input = makeInput({ turnState })
+
+      // Fire two concurrent calls
+      const p1 = gw.invoke(input)
+      await Promise.resolve()
+      const p2 = gw.invoke(input)
+
+      // Reject the primary with a raw error
+      rejectCall(new Error('db exploded with secret-data'))
+
+      const [r1, r2] = await Promise.all([p1, p2])
+
+      expect(r1.kind).toBe('tripwire')
+      expect(r2.kind).toBe('tripwire')
+
+      // Find the coalesced waiter's audit row
+      const auditCalls = recordEvent.mock.calls as Array<
+        [{ payload: { extraAttrs?: Record<string, unknown> } }]
+      >
+      const waitersAuditRow = auditCalls.find(
+        ([args]) => args.payload?.extraAttrs?.['cache_coalesced'] === true,
+      )
+      expect(waitersAuditRow).toBeDefined()
+
+      // rawMessage must NOT appear in the waiter's audit row
+      const extraAttrs = waitersAuditRow![0].payload.extraAttrs ?? {}
+      expect(extraAttrs['rawMessage']).toBeUndefined()
+      expect(extraAttrs['cache_coalesced']).toBe(true)
     })
   })
 

@@ -37,12 +37,15 @@ export interface TurnState {
   /**
    * Per-tool circuit-breaker state within this sub-agent turn.
    * Key: toolName. `brokenAt` is a Unix epoch ms timestamp.
+   * `breachedVariant` records which ceiling variant tripped the breaker so the
+   * re-invocation tripwire uses the correct variant (bytes vs wallclock).
    */
   readonly circuitBreaker: Map<
     string,
     {
       permissionDenied?: boolean
       ceilingBreached?: true
+      breachedVariant?: 'ceiling_breach_bytes' | 'ceiling_breach_wallclock'
       brokenAt: number
     }
   >

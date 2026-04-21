@@ -6,6 +6,20 @@
 
 import { createHash } from 'node:crypto'
 
+// ─── Error class ──────────────────────────────────────────────────────────────
+
+/**
+ * Thrown by `canonicalize()` when the input cannot be serialised to a canonical
+ * JSON string. Using a named subclass lets callers distinguish canonicalize errors
+ * from unrelated TypeErrors.
+ */
+export class CanonicalizeError extends TypeError {
+  constructor(message: string) {
+    super(`canonicalize: ${message}`)
+    this.name = 'CanonicalizeError'
+  }
+}
+
 // ─── ISO-datetime detection ────────────────────────────────────────────────────
 
 /**
@@ -41,8 +55,8 @@ function canonicaliseValue(value: unknown): unknown {
 
   if (t === 'number') {
     if (!Number.isFinite(value as number)) {
-      throw new TypeError(
-        `canonicalize: illegal numeric value ${String(value)} — NaN and Infinity have no JSON representation`,
+      throw new CanonicalizeError(
+        `illegal numeric value ${String(value)} — NaN and Infinity have no JSON representation`,
       )
     }
     return value
@@ -53,15 +67,15 @@ function canonicaliseValue(value: unknown): unknown {
   }
 
   if (t === 'bigint') {
-    throw new TypeError(`canonicalize: BigInt values cannot be represented in canonical JSON`)
+    throw new CanonicalizeError(`BigInt values cannot be represented in canonical JSON`)
   }
 
   if (t === 'function') {
-    throw new TypeError(`canonicalize: function values cannot be canonicalised`)
+    throw new CanonicalizeError(`function values cannot be canonicalised`)
   }
 
   if (t === 'symbol') {
-    throw new TypeError(`canonicalize: symbol values cannot be canonicalised`)
+    throw new CanonicalizeError(`symbol values cannot be canonicalised`)
   }
 
   if (Array.isArray(value)) {
@@ -74,12 +88,21 @@ function canonicaliseValue(value: unknown): unknown {
   }
 
   if (t === 'object') {
+    // Dates are first-class in agent tool args + results — coerce to canonical ISO-8601 UTC-Z.
+    // Invalid Date (NaN) throws for consistency with NaN/Infinity rejection.
+    if (value instanceof Date) {
+      if (Number.isNaN(value.getTime())) {
+        throw new CanonicalizeError('invalid Date (NaN) cannot be canonicalised')
+      }
+      return value.toISOString()
+    }
+
     // Guard against class instances that are not plain objects or arrays.
     // Plain objects have Object as constructor or no constructor (Object.create(null)).
     const proto = Object.getPrototypeOf(value)
     if (proto !== null && proto !== Object.prototype) {
-      throw new TypeError(
-        `canonicalize: class instances (constructor: ${(value as object).constructor?.name ?? 'unknown'}) cannot be canonicalised`,
+      throw new CanonicalizeError(
+        `class instances (constructor: ${(value as object).constructor?.name ?? 'unknown'}) cannot be canonicalised`,
       )
     }
 
@@ -98,7 +121,7 @@ function canonicaliseValue(value: unknown): unknown {
   }
 
   // Unreachable in standard JS/TS, but guard anyway
-  throw new TypeError(`canonicalize: unsupported value type "${t}"`)
+  throw new CanonicalizeError(`unsupported value type "${t}"`)
 }
 
 // ─── Public API ────────────────────────────────────────────────────────────────
@@ -125,8 +148,8 @@ export function canonicalize(args: unknown): CanonicalizeResult {
     // top-level undefined has no valid JSON representation; reject explicitly
     // rather than silently normalising to "null" (which would confuse it with
     // a legitimate null argument).
-    throw new TypeError(
-      `canonicalize: top-level undefined is not a valid argument — pass null or omit the field`,
+    throw new CanonicalizeError(
+      `top-level undefined is not a valid argument — pass null or omit the field`,
     )
   }
   const normalised = canonicaliseValue(args)

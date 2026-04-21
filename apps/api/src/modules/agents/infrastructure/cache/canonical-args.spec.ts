@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { canonicalize } from './canonical-args'
+import { canonicalize, CanonicalizeError } from './canonical-args'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -69,6 +69,41 @@ describe('canonicalize — null vs undefined (property)', () => {
       // Adding x:null should change hash (null is included in canonical)
       expect(canonicalize(withNull).hash).not.toBe(canonicalize(baseWithoutX).hash)
     }
+  })
+})
+
+// ─── Date coercion ────────────────────────────────────────────────────────────
+
+describe('canonicalize — Date coercion (Fix C-1)', () => {
+  it('bare Date is coerced to canonical UTC-Z ISO-8601 string', () => {
+    const { canonical } = canonicalize(new Date('2026-04-22T10:00:00Z'))
+    expect(canonical).toBe('"2026-04-22T10:00:00.000Z"')
+  })
+
+  it('Date-bearing object coerces the Date field to UTC-Z', () => {
+    // +07:00 offset → UTC is 03:00
+    const { canonical } = canonicalize({ a: 1, created: new Date('2026-04-22T10:00:00+07:00') })
+    expect(canonical).toContain('"2026-04-22T03:00:00.000Z"')
+  })
+
+  it('two Dates with same epoch millis but different tz origins hash identically', () => {
+    const utc = new Date('2026-04-22T03:00:00.000Z')
+    const plus7 = new Date('2026-04-22T10:00:00+07:00')
+    // Same instant — different local representation
+    expect(utc.getTime()).toBe(plus7.getTime())
+    expect(canonicalize(utc).hash).toBe(canonicalize(plus7).hash)
+  })
+
+  it('invalid Date throws CanonicalizeError', () => {
+    expect(() => canonicalize(new Date('bogus'))).toThrow(CanonicalizeError)
+    expect(() => canonicalize(new Date('bogus'))).toThrow(/invalid Date/)
+  })
+
+  it('existing string-input ISO-date normalisation path is unchanged', () => {
+    const withOffset = canonicalize('2026-04-22T10:00:00+07:00')
+    const withZ = canonicalize('2026-04-22T03:00:00Z')
+    expect(withOffset.hash).toBe(withZ.hash)
+    expect(withOffset.canonical).toBe('"2026-04-22T03:00:00.000Z"')
   })
 })
 

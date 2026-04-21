@@ -73,7 +73,14 @@ describe('TurnState type', () => {
       tainted: { value: false },
       circuitBreaker: new Map([
         ['tool-a', { permissionDenied: true, brokenAt: 1000 }],
-        ['tool-b', { ceilingBreached: true, brokenAt: 2000 }],
+        [
+          'tool-b',
+          {
+            ceilingBreached: true,
+            breachedVariant: 'ceiling_breach_wallclock',
+            brokenAt: 2000,
+          },
+        ],
       ]),
       retryCount: new Map(),
       toolCeilingRemaining: new Map(),
@@ -82,6 +89,7 @@ describe('TurnState type', () => {
 
     expect(state.circuitBreaker.get('tool-a')?.permissionDenied).toBe(true)
     expect(state.circuitBreaker.get('tool-b')?.ceilingBreached).toBe(true)
+    expect(state.circuitBreaker.get('tool-b')?.breachedVariant).toBe('ceiling_breach_wallclock')
   })
 })
 

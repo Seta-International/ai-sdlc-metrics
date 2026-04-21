@@ -320,6 +320,14 @@ export class ToolGateway {
       // No audit — tool doesn't exist / out of scope; no audit subject.
       // procedure_not_agent_exposed / procedure_out_of_sub_agent_scope are not
       // attributable to a tenant tool call so we skip recordToolCall here.
+      // However, we DO record the tripwire metric — these are load-bearing
+      // attack-telemetry signals (jailbreak probes, router drift, model hallucinating
+      // tool names). The metric carries no PII (variant + disposition are static).
+      recordTripwire(
+        requestContext.tenantId,
+        resolveOutcome.tw.variant,
+        resolveOutcome.tw.disposition,
+      )
       return resolveOutcome.tw
     }
 
@@ -379,17 +387,21 @@ export class ToolGateway {
             }),
         )
         recordStepDuration('audit-emit', Date.now() - auditStart)
-        // Use ceiling_breach_bytes as the canonical ceiling variant for the broken-circuit path
+        // Use the variant that originally tripped the breaker so the model receives
+        // the correct retry hint (bytes vs wallclock scope reduction).
+        // Fallback to 'ceiling_breach_bytes' is a safety net for pre-extension entries
+        // that pre-date the breachedVariant field.
+        const ceilingVariant = cb.breachedVariant ?? 'ceiling_breach_bytes'
         const tw = tripwire(
-          'ceiling_breach_bytes',
+          ceilingVariant,
           'abort',
           sanitizeTripwireContext(
             { ...rawContext, bytesRemaining: 0, wallclockRemaining: 0 },
-            'ceiling_breach_bytes',
+            ceilingVariant,
           ) as Record<string, unknown>,
         )
         recordToolCall(tenantId, descriptor.name, 'ceiling_hit')
-        recordTripwire(tenantId, 'ceiling_breach_bytes', 'abort')
+        recordTripwire(tenantId, ceilingVariant, 'abort')
         return tw
       }
     }
@@ -397,7 +409,12 @@ export class ToolGateway {
     const { descriptor } = resolveOutcome
 
     // Step 3: L1 cache lookup
-    const argsHash = canonicalize(args ?? null).hash
+    // Protocol: a caller passing `undefined` (no arg) is treated as `null` for hashing
+    // purposes. canonicalize() explicitly rejects top-level `undefined` (Task 3).
+    // Using an explicit ternary makes the coercion visible and intentional; `?? null`
+    // was too easy to read as "null if falsy" which would also collapse `0` and `''`.
+    const argsForHash = args === undefined ? null : args
+    const argsHash = canonicalize(argsForHash).hash
     const cacheHit = turnState.l1Cache.lookup(descriptor.name, argsHash)
 
     if (cacheHit?.kind === 'completed') {
@@ -465,7 +482,20 @@ export class ToolGateway {
       } catch (coalescedErr: unknown) {
         recordStepDuration('cache-hit', Date.now() - cacheHitStart)
         const rawMsg = coalescedErr instanceof Error ? coalescedErr.message : String(coalescedErr)
-        const rawContext = { toolName: descriptor.name, rawMessage: rawMsg, cache_coalesced: true }
+        // The waiter did not execute the call — the error belongs to the primary.
+        // Do NOT include rawMessage in the waiter's audit row; the primary's audit row
+        // already carries the full error. cache_coalesced: true directs an operator to
+        // find the primary's row via the shared cache key + timestamp window.
+        const rawContext = {
+          toolName: descriptor.name,
+          cache_coalesced: true,
+          fromCache: true,
+        }
+        // Still log the raw message locally for debugging (does not reach the audit trail).
+        this.logger.error(
+          `ToolGateway: coalesced waiter received primary error for tool="${descriptor.name}"`,
+          rawMsg,
+        )
         await auditEmit({
           descriptor,
           requestContext,
@@ -502,11 +532,20 @@ export class ToolGateway {
     let fieldsToWrap: ReadonlyArray<string> = []
     // Fire-and-forget the Promise; the sync body runs immediately due to
     // withGatewayStep's synchronous execution of sync fns inside context.with.
-    void withGatewayStep('taint-wrap-setup', {}, () => {
+    // The .catch() is defensive: current sync steps do not throw, but any future
+    // change that adds a throw path would otherwise produce a silent unhandled
+    // rejection. queueMicrotask(throw) surfaces the error loudly (triggers Node's
+    // unhandled-rejection handler) without yielding a microtask before
+    // registerInFlight, preserving the L1 cache coalescing race-freedom guarantee.
+    withGatewayStep('taint-wrap-setup', {}, () => {
       const r = prepareTaintWrap({ descriptor })
       fieldsToWrap = r.fieldsToWrap
       recordStepAttrs({ fields_to_wrap: [...r.fieldsToWrap] })
       return r
+    }).catch((err) => {
+      queueMicrotask(() => {
+        throw err
+      })
     })
     recordStepDuration('taint-wrap-setup', Date.now() - taintWrapSetupStart)
 
@@ -520,7 +559,7 @@ export class ToolGateway {
     // to preserve coalescing timing. See taint-wrap-setup comment above.
     let ceilingResult: ReturnType<typeof ceilingPreCheck> | undefined
     const ceilingCheckStart = Date.now()
-    void withGatewayStep('ceiling-check', {}, () => {
+    withGatewayStep('ceiling-check', {}, () => {
       const r = ceilingPreCheck({ descriptor, turnState })
       ceilingResult = r
       // Record budget attrs mid-step onto the active span (ceiling-check span)
@@ -544,25 +583,32 @@ export class ToolGateway {
         })
       }
       return r
+    }).catch((err) => {
+      queueMicrotask(() => {
+        throw err
+      })
     })
     recordStepDuration('ceiling-check', Date.now() - ceilingCheckStart)
     // ceilingResult is guaranteed set (synchronous fn)
 
     if (isTripwireVariant(ceilingResult!)) {
+      const ceilingTw = ceilingResult!
+
       // Increment ceiling retry counter
       const ceilingKey = RETRY_KEY.ceiling(descriptor.name)
       const prevCeiling = turnState.retryCount.get(ceilingKey) ?? 0
       turnState.retryCount.set(ceilingKey, prevCeiling + 1)
 
-      // If was already retry-disposition before increment (prevCeiling >= 1), set circuit breaker
+      // If was already retry-disposition before increment (prevCeiling >= 1), set circuit breaker.
+      // Record the specific variant so the re-invocation tripwire uses the correct ceiling variant
+      // (bytes vs wallclock) rather than defaulting to bytes for all ceiling breaches.
       if (prevCeiling >= 1) {
         turnState.circuitBreaker.set(descriptor.name, {
           ceilingBreached: true,
+          breachedVariant: ceilingTw.variant as 'ceiling_breach_bytes' | 'ceiling_breach_wallclock',
           brokenAt: Date.now(),
         })
       }
-
-      const ceilingTw = ceilingResult!
 
       // Audit with raw context (ceiling context is structurally safe — just numbers)
       const auditStart = Date.now()
@@ -601,13 +647,17 @@ export class ToolGateway {
     if (descriptor.procedure === 'mutation') {
       let abortResult: ReturnType<typeof preWriteAbortCheck> | undefined
       const abortCheckStart = Date.now()
-      void withGatewayStep('pre-write-abort-check', {}, () => {
+      withGatewayStep('pre-write-abort-check', {}, () => {
         const r = preWriteAbortCheck({ descriptor, abortSignal })
         abortResult = r
         if (isTripwireVariant(r)) {
           recordStepAttrs({ aborted: true })
         }
         return r
+      }).catch((err) => {
+        queueMicrotask(() => {
+          throw err
+        })
       })
       recordStepDuration('pre-write-abort-check', Date.now() - abortCheckStart)
 
