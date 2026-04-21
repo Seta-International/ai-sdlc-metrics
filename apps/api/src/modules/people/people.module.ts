@@ -78,6 +78,7 @@ import { SuspendEmploymentHandler } from './application/commands/suspend-employm
 import { ReinstateSuspensionHandler } from './application/commands/reinstate-suspension.handler'
 import { GiveNoticeHandler } from './application/commands/give-notice.handler'
 import { CompleteTerminationHandler } from './application/commands/complete-termination.handler'
+import { RehireEmploymentHandler } from './application/commands/rehire-employment.handler'
 import { CreateContractVersionHandler } from './application/commands/create-contract-version.handler'
 import { CreateCustomFieldDefinitionHandler } from './application/commands/create-custom-field-definition.handler'
 import { UpdateCustomFieldDefinitionHandler } from './application/commands/update-custom-field-definition.handler'
@@ -257,6 +258,7 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     ReinstateSuspensionHandler,
     GiveNoticeHandler,
     CompleteTerminationHandler,
+    RehireEmploymentHandler,
     CreateContractVersionHandler,
     CreateCustomFieldDefinitionHandler,
     UpdateCustomFieldDefinitionHandler,
