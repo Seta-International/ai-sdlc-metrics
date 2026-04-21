@@ -6,15 +6,12 @@
 </p>
 
 <p align="center">
-  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white"/>
-  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-15-black?logo=next.js"/>
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-15_multi--zone-black?logo=next.js"/>
   <img alt="NestJS" src="https://img.shields.io/badge/NestJS-modular_monolith-E0234E?logo=nestjs"/>
-  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white"/>
   <img alt="Bun" src="https://img.shields.io/badge/Bun-1.3-fbf0df?logo=bun"/>
   <img alt="OpenAI" src="https://img.shields.io/badge/OpenAI-GPT--5.4-412991?logo=openai&logoColor=white"/>
   <img alt="Vercel AI SDK" src="https://img.shields.io/badge/Vercel_AI_SDK-agentic-black?logo=vercel"/>
   <img alt="Langfuse" src="https://img.shields.io/badge/Langfuse-observability-CC6600"/>
-  <img alt="AWS ECS" src="https://img.shields.io/badge/AWS-ECS_Fargate-FF9900?logo=amazon-aws&logoColor=white"/>
 </p>
 
 ---
