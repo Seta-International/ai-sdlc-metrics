@@ -16,8 +16,8 @@
  *
  * R-02.15 — DETERMINISTIC ASSEMBLY:
  *   Sub-agents are sorted lexicographically by key before rendering.
- *   JSON Schemas are emitted with sorted keys (via zod-to-json-schema +
- *   canonicalize). No Date.now(), Math.random(), request IDs, or any other
+ *   JSON Schemas are emitted with sorted keys (via Zod v4's native
+ *   `z.toJSONSchema()` + canonicalize). No Date.now(), Math.random(), request IDs, or any other
  *   non-deterministic value appears in the prompt body.
  *
  * R-02.16 — CONTENT-ONLY OUTPUT:

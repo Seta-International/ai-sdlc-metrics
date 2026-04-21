@@ -157,7 +157,7 @@ describe('RouterPromptBuilder', () => {
     const result = builder.build(makeOpts())
 
     // The planner.read-only inputSchema has { utterance: z.string() }
-    // zod-to-json-schema should render this as { "properties": { "utterance": ... } }
+    // z.toJSONSchema() should render this as { "properties": { "utterance": ... } }
     expect(result.systemPrompt).toContain('"utterance"')
     // Also check outputSchema field "summary" appears
     expect(result.systemPrompt).toContain('"summary"')
