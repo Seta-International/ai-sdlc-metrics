@@ -19,7 +19,11 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common'
+import { trace } from '@opentelemetry/api'
 import type { ValidatedSubAgentConfig } from '../../domain/services/sub-agent-factory'
+import type { ModelChoice, SubAgentKey, TenantContext } from '../../domain/services/sub-agent-types'
+import { canonicalize } from '../cache/canonical-args'
+import { recordSubAgentHidden } from '../observability/gateway-metrics'
 import type { ToolRegistry } from '../tool-registry/tool-registry'
 
 // ─── DI token ─────────────────────────────────────────────────────────────────
@@ -40,6 +44,56 @@ export class SubAgentRegistryValidationError extends Error {
   }
 }
 
+// ─── resolveForSession types ──────────────────────────────────────────────────
+
+/**
+ * Options accepted by `SubAgentRegistry.resolveForSession` (Plan 02 §4).
+ *
+ * `surface` is required — the caller (Task 10 orchestrator) knows the originating
+ * surface and must pass it explicitly. No default is applied here.
+ */
+export interface ResolveForSessionOpts {
+  readonly tenantId: string
+  readonly userId: string
+  readonly surface: TenantContext['surface']
+  /** Tenant-enabled module names. Source: admin module config. */
+  readonly enabledModules: ReadonlySet<string>
+  /**
+   * Full set of permission keys the role is allowed to call.
+   * Each tool's `.meta.permission` is checked against this set.
+   */
+  readonly roleAllowedPermissions: ReadonlySet<string>
+  /**
+   * Per-sub-agent prompt variables, keyed by sub-agent key.
+   * If a key is absent the sub-agent receives an empty variable map `{}`.
+   */
+  readonly promptVariables: ReadonlyMap<SubAgentKey, Record<string, unknown>>
+}
+
+/**
+ * A single entry in the array returned by `resolveForSession`.
+ *
+ * Narrowing contract (stage b filtering):
+ *   The `config` field is the ORIGINAL, UNMODIFIED `ValidatedSubAgentConfig`.
+ *   Stage (b) narrows the EFFECTIVE scope internally to determine whether the
+ *   sub-agent survives stage (c), but does NOT mutate the config object and does
+ *   NOT expose a separate `effectiveToolScope` field — narrowing is visible only
+ *   via stage (c)'s empty-scope drop. Callers that need the effective scope can
+ *   intersect `config.toolScope` with `roleAllowedPermissions` themselves.
+ */
+export interface ResolvedSubAgent {
+  readonly config: ValidatedSubAgentConfig
+  /** Static model value, or the result of calling a function-valued model with TenantContext. */
+  readonly resolvedModel: ModelChoice
+  /** `promptTemplate.body` with `{{varName}}` tokens replaced by validated variables. */
+  readonly resolvedPromptBody: string
+  /**
+   * SHA-256 hex hash of `{ key, resolvedPromptBody, toolScope }`.
+   * Deterministic — same inputs always produce the same hash (R-02.15, R-02.16).
+   */
+  readonly subAgentPromptHash: string
+}
+
 // ─── SubAgentRegistry ─────────────────────────────────────────────────────────
 
 @Injectable()
@@ -47,6 +101,7 @@ export class SubAgentRegistry {
   private readonly logger = new Logger(SubAgentRegistry.name)
   private readonly _map = new Map<string, ValidatedSubAgentConfig>()
   private _frozen = false
+  private _toolRegistry: ToolRegistry | undefined
 
   // ─── Boot ────────────────────────────────────────────────────────────────────
 
@@ -121,6 +176,7 @@ export class SubAgentRegistry {
 
     Object.freeze(this._map)
     this._frozen = true
+    this._toolRegistry = toolRegistry
 
     this.logger.log(
       `SubAgentRegistry booted successfully. ${this._map.size} sub-agent(s) registered: ` +
@@ -150,5 +206,151 @@ export class SubAgentRegistry {
    */
   has(key: string): boolean {
     return this._map.has(key)
+  }
+
+  // ─── resolveForSession ────────────────────────────────────────────────────────
+
+  /**
+   * Returns the tenant-resolved subset of sub-agents for a given session context.
+   *
+   * Applies a 3-stage filter (R-02.9a) to each registered sub-agent:
+   *
+   *   Stage (a) — Module toggle: if EVERY tool in the sub-agent's `toolScope`
+   *     belongs to a tenant-disabled module, the sub-agent is dropped entirely.
+   *     Module membership is derived from the tool name's first dot-separated
+   *     segment (e.g. `planner.personal.listTasks` → module `'planner'`).
+   *     Sub-agents with mixed scopes (tools in both enabled and disabled modules)
+   *     survive this stage.
+   *
+   *   Stage (b) — Role permission filter: the effective tool scope is the subset
+   *     of `toolScope` whose `.meta.permission` key is in `roleAllowedPermissions`.
+   *     The ORIGINAL `config` is NOT mutated — narrowing is internal only.
+   *
+   *   Stage (c) — Empty-scope drop: if the effective scope after stages (a)+(b)
+   *     has zero tools, the sub-agent is dropped.
+   *
+   * For each surviving sub-agent, the method resolves the model (evaluating
+   * function-valued models with the provided `TenantContext`), renders the prompt
+   * body by substituting `{{varName}}` tokens after Zod-validating the variables,
+   * and computes a deterministic per-sub-agent prompt hash.
+   *
+   * Observability: emits OTel span attributes on the active span (if any) and
+   * increments `agent_sub_agent_hidden_total` for each hidden sub-agent.
+   *
+   * @throws {Error} if prompt variable validation fails for any surviving sub-agent.
+   */
+  resolveForSession(opts: ResolveForSessionOpts): ReadonlyArray<ResolvedSubAgent> {
+    if (!this._frozen || !this._toolRegistry) {
+      throw new SubAgentRegistryValidationError(
+        'SubAgentRegistry.resolveForSession called before boot(). Call boot() first.',
+      )
+    }
+
+    const { tenantId, surface, enabledModules, roleAllowedPermissions, promptVariables } = opts
+    const toolRegistry = this._toolRegistry
+
+    const totalAvailable = this._map.size
+    const hiddenByModule: Array<{ module: string; sub_agent_key: string }> = []
+    const hiddenByPermission: string[] = []
+    const resolved: ResolvedSubAgent[] = []
+
+    for (const config of this._map.values()) {
+      const key = config.key as string
+
+      // ── Stage (a): Module toggle filter ─────────────────────────────────────
+      // A sub-agent is dropped if EVERY tool in its toolScope belongs to a
+      // disabled module. Mixed scopes (tools spanning enabled + disabled modules)
+      // survive; only those tools in disabled modules are excluded in stage (b).
+      const allToolsDisabled = config.toolScope.every((toolName) => {
+        const toolModule = toolName.split('.')[0] ?? ''
+        return !enabledModules.has(toolModule)
+      })
+
+      if (allToolsDisabled) {
+        // Collect the distinct modules that caused the drop (for span attrs)
+        const disabledModules = [...new Set(config.toolScope.map((t) => t.split('.')[0] ?? ''))]
+        for (const mod of disabledModules) {
+          hiddenByModule.push({ module: mod, sub_agent_key: key })
+        }
+        recordSubAgentHidden(tenantId, key, 'module_disabled')
+        this.logger.debug(
+          `resolveForSession: sub-agent "${key}" dropped — all tools in disabled module(s): ${disabledModules.join(', ')}`,
+        )
+        continue
+      }
+
+      // ── Stage (b): Role permission filter ────────────────────────────────────
+      // Build the effective tool scope: only tools whose permission key is in
+      // roleAllowedPermissions. The original config is NOT mutated.
+      const effectiveToolScope = config.toolScope.filter((toolName) => {
+        const descriptor = toolRegistry.getDescriptor(toolName)
+        if (!descriptor) return false
+        return roleAllowedPermissions.has(descriptor.permission)
+      })
+
+      // ── Stage (c): Empty-scope drop ───────────────────────────────────────────
+      if (effectiveToolScope.length === 0) {
+        hiddenByPermission.push(key)
+        recordSubAgentHidden(tenantId, key, 'permission_empty_scope')
+        this.logger.debug(
+          `resolveForSession: sub-agent "${key}" dropped — no tools permitted by role`,
+        )
+        continue
+      }
+
+      // ── Model resolution ──────────────────────────────────────────────────────
+      const tenantContext: TenantContext = { tenantId, surface }
+      const resolvedModel: ModelChoice =
+        typeof config.model === 'function' ? config.model(tenantContext) : config.model
+
+      // ── Prompt body rendering ─────────────────────────────────────────────────
+      const rawVars = promptVariables.get(config.key as SubAgentKey) ?? {}
+      const parseResult = config.promptTemplate.variables.safeParse(rawVars)
+      if (!parseResult.success) {
+        throw new Error(
+          `resolveForSession: prompt variable validation failed for sub-agent "${key}": ` +
+            parseResult.error.message,
+        )
+      }
+      const validatedVars = parseResult.data as Record<string, unknown>
+
+      const resolvedPromptBody = config.promptTemplate.body.replace(
+        /\{\{(\w+)\}\}/g,
+        (match, varName: string) => {
+          if (Object.prototype.hasOwnProperty.call(validatedVars, varName)) {
+            return String(validatedVars[varName])
+          }
+          // Unknown tokens are left as-is (Zod schema is the authority)
+          return match
+        },
+      )
+
+      // ── Sub-agent prompt hash ─────────────────────────────────────────────────
+      // Input: { key, resolvedPromptBody, toolScope: [...config.toolScope] }
+      // Uses the full config.toolScope (not the filtered effectiveToolScope) so
+      // the hash is stable across role changes — per-sub-agent hash pins the
+      // content contract, not the role-narrowed scope.
+      const hashInput = {
+        key,
+        resolvedPromptBody,
+        toolScope: [...config.toolScope],
+      }
+      const { hash: subAgentPromptHash } = canonicalize(hashInput)
+
+      resolved.push({ config, resolvedModel, resolvedPromptBody, subAgentPromptHash })
+    }
+
+    // ── Observability: span attributes ────────────────────────────────────────
+    const activeSpan = trace.getActiveSpan()
+    if (activeSpan) {
+      activeSpan.setAttributes({
+        'agent.sub_agent_count_available': totalAvailable,
+        'agent.sub_agent_count_selected': resolved.length,
+        'agent.router.sub_agent_hidden_by_module': JSON.stringify(hiddenByModule),
+        'agent.router.sub_agent_hidden_by_permission': JSON.stringify(hiddenByPermission),
+      })
+    }
+
+    return Object.freeze(resolved)
   }
 }

@@ -49,6 +49,12 @@ interface GatewayInstruments {
   tripwireTotal: Counter
   cacheLookupTotal: Counter
   stepDurationMs: Histogram
+  /**
+   * Counts sub-agents that were hidden during resolveForSession (Plan 02 §8).
+   * Labels: tenant_id, sub_agent_key, reason.
+   * reason ∈ 'module_disabled' | 'permission_empty_scope'
+   */
+  subAgentHiddenTotal: Counter
 }
 
 let _instruments: GatewayInstruments | undefined
@@ -105,6 +111,17 @@ function getInstruments(): GatewayInstruments {
       description: 'Per-step gateway duration in ms.',
       unit: 'ms',
       valueType: ValueType.DOUBLE,
+    }),
+
+    /**
+     * Counts sub-agents hidden during resolveForSession due to module toggles or
+     * role permission filtering (Plan 02 §8, R-02.9a).
+     * Labels: tenant_id, sub_agent_key, reason.
+     */
+    subAgentHiddenTotal: meter.createCounter('agent_sub_agent_hidden_total', {
+      description:
+        'Sub-agents hidden from a session due to module toggle or empty permission scope.',
+      valueType: ValueType.INT,
     }),
   }
 
@@ -164,4 +181,23 @@ export function recordCacheLookup(
   outcome: 'hit' | 'miss' | 'coalesced',
 ): void {
   getInstruments().cacheLookupTotal.add(1, { tenant_id: tenantId, tool_name: toolName, outcome })
+}
+
+/**
+ * Record a sub-agent hidden event during resolveForSession (Plan 02 §8, R-02.9a).
+ *
+ * `reason`:
+ *   - `'module_disabled'`       — every tool in the sub-agent's toolScope belongs to a disabled module.
+ *   - `'permission_empty_scope'`— all tools were filtered by role permissions, leaving an empty scope.
+ */
+export function recordSubAgentHidden(
+  tenantId: string,
+  subAgentKey: string,
+  reason: 'module_disabled' | 'permission_empty_scope',
+): void {
+  getInstruments().subAgentHiddenTotal.add(1, {
+    tenant_id: tenantId,
+    sub_agent_key: subAgentKey,
+    reason,
+  })
 }
