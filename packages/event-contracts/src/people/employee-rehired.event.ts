@@ -1,5 +1,5 @@
 export class EmployeeRehiredEvent {
-  static readonly eventName = 'people.employee.rehired'
+  static readonly eventName = 'people.employee-rehired'
   constructor(
     public readonly tenantId: string,
     public readonly newProfileId: string,
@@ -8,5 +8,6 @@ export class EmployeeRehiredEvent {
     public readonly actorId: string,
     public readonly rehireDate: Date,
     public readonly rehiredBy: string,
+    public readonly occurredAt: Date,
   ) {}
 }
