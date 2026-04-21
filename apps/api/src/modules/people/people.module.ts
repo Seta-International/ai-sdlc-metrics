@@ -118,6 +118,9 @@ import { IMPORT_JOB_REPOSITORY } from './domain/repositories/import-job.reposito
 import { JobHistoryRepositoryImpl } from './infrastructure/repositories/job-history.repository'
 import { JOB_HISTORY_REPOSITORY } from './domain/repositories/job-history.repository'
 
+// ── Plan 02 services ───────────────────────────────────────────────────────
+import { JobHistoryRecorderService } from './application/services/job-history-recorder.service'
+
 // ── Plan 05 services ───────────────────────────────────────────────────────
 import { SearchIndexRebuildService } from './application/services/search-index-rebuild.service'
 import { EmailGenerationService } from './application/services/email-generation.service'
@@ -263,6 +266,9 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     BatchRejectChangesHandler,
     UploadEmployeeDocumentHandler,
     AcknowledgePolicyHandler,
+
+    // ── Plan 02 services ─────────────────────────────────────────────────
+    JobHistoryRecorderService,
 
     // ── Services ─────────────────────────────────────────────────────────
     CountryFieldValidationService,
