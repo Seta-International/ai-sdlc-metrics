@@ -12,10 +12,14 @@ import { KernelModule } from '../kernel/kernel.module'
 import { AGENT_SESSION_REPOSITORY } from './domain/repositories/agent-session.repository'
 import { AGENT_MESSAGE_REPOSITORY } from './domain/repositories/agent-message.repository'
 import { AGENT_INSIGHT_REPOSITORY } from './domain/repositories/agent-insight.repository'
+import { PROMPT_STORE } from './domain/ports/prompt-store.port'
+import { NARRATIVE_STORE } from './domain/ports/narrative-store.port'
 // Drizzle repositories
 import { DrizzleAgentSessionRepository } from './infrastructure/repositories/drizzle-agent-session.repository'
 import { DrizzleAgentMessageRepository } from './infrastructure/repositories/drizzle-agent-message.repository'
 import { DrizzleAgentInsightRepository } from './infrastructure/repositories/drizzle-agent-insight.repository'
+import { DrizzlePromptStoreRepository } from './infrastructure/repositories/drizzle-prompt-store.repository'
+import { DrizzleNarrativeStoreRepository } from './infrastructure/repositories/drizzle-narrative-store.repository'
 // Command handlers
 import { CreateSessionHandler } from './application/commands/create-session.handler'
 import { SendMessageHandler } from './application/commands/send-message.handler'
@@ -44,6 +48,8 @@ import { setAgentInsightHandlers } from './interface/trpc/insight.router'
     { provide: AGENT_SESSION_REPOSITORY, useClass: DrizzleAgentSessionRepository },
     { provide: AGENT_MESSAGE_REPOSITORY, useClass: DrizzleAgentMessageRepository },
     { provide: AGENT_INSIGHT_REPOSITORY, useClass: DrizzleAgentInsightRepository },
+    { provide: PROMPT_STORE, useClass: DrizzlePromptStoreRepository },
+    { provide: NARRATIVE_STORE, useClass: DrizzleNarrativeStoreRepository },
     // Command handlers
     CreateSessionHandler,
     SendMessageHandler,
