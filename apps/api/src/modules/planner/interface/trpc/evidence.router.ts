@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
+import { PERMISSIONS } from '../../../../common/auth/permissions'
 import { PlannerRouterService } from './planner-router.service'
 import { RequestEvidenceUploadCommand } from '../../application/commands/evidence/request-upload.command'
 import { FinalizeEvidenceUploadCommand } from '../../application/commands/evidence/finalize-upload.command'
@@ -174,6 +175,27 @@ export const evidenceRouter = router({
     }),
 
   list: publicProcedure
+    .meta({
+      permission: PERMISSIONS.PLANNER_AGENT_LIST_EVIDENCE,
+      agent: {
+        whenToUse:
+          'Use when the user asks to see evidence (attachments, links, notes) attached to a specific task.',
+        whenNotToUse:
+          'Do not use to upload, create, or remove evidence. Do not use to list tasks or plans.',
+        examples: [
+          {
+            input: 'Show me the evidence on task X',
+            callArgs: {
+              tenantId: 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
+              planId: 'c2eebc99-9c0b-4ef8-bb6d-6bb9bd380a33',
+              taskId: 'd3eebc99-9c0b-4ef8-bb6d-6bb9bd380a44',
+              actorId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+            },
+          },
+        ],
+        collectionContract: { pageSize: 50, cursorStyle: 'forward' },
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),

@@ -39,6 +39,12 @@ import { ToolRegistry } from './infrastructure/tool-registry/tool-registry'
 import { TrpcCallerImpl } from './application/services/trpc-caller'
 import { ToolGateway } from './application/services/tool-gateway'
 import { getAppRouter } from '../../common/trpc/app-router'
+// Sub-agent registry (Task 3)
+import { SubAgentRegistry } from './infrastructure/registry/sub-agent-registry'
+// Module sub-agent barrels — add a new import here for each domain module that
+// declares sub-agents. Within a module barrel, adding a new sub-agent file
+// requires only re-exporting it from the barrel's index.ts.
+import { plannerReadOnlySubAgent } from '../planner/agent/sub-agents'
 
 @Module({
   imports: [
@@ -79,8 +85,10 @@ import { getAppRouter } from '../../common/trpc/app-router'
     ToolRegistry,
     TrpcCallerImpl,
     ToolGateway,
+    // Sub-agent registry (Task 3)
+    SubAgentRegistry,
   ],
-  exports: [AgentsQueryFacade],
+  exports: [AgentsQueryFacade, SubAgentRegistry],
 })
 export class AgentsModule implements OnModuleInit {
   constructor(
@@ -90,6 +98,7 @@ export class AgentsModule implements OnModuleInit {
     private readonly listSessions: ListSessionsHandler,
     private readonly listInsights: ListInsightsHandler,
     private readonly toolRegistry: ToolRegistry,
+    private readonly subAgentRegistry: SubAgentRegistry,
   ) {}
 
   onModuleInit() {
@@ -103,11 +112,25 @@ export class AgentsModule implements OnModuleInit {
       dismissInsight: this.dismissInsight,
     })
 
-    // Load agent tools from the assembled tRPC router.
+    // Step 1: Load agent tools from the assembled tRPC router.
     // TrpcModule.onModuleInit() must have run before AgentsModule.onModuleInit()
     // to ensure permission-enforcing routers have been swapped in.
     // NestJS module init order is determined by import order in AppModule;
     // TrpcModule is imported before AgentsModule in app.module.ts.
     this.toolRegistry.loadFromRouter(getAppRouter())
+
+    // Step 2: Boot the sub-agent registry AFTER the tool registry has loaded.
+    // Order is critical: SubAgentRegistry.boot validates toolScope entries against
+    // the ToolRegistry — the tool registry must be populated first.
+    //
+    // To add a sub-agent for a new domain module:
+    //   1. Create apps/api/src/modules/<domain>/agent/sub-agents/<name>.ts
+    //   2. Re-export it from apps/api/src/modules/<domain>/agent/sub-agents/index.ts
+    //   3. Import the export here and include it in the descriptors array below.
+    const descriptors = [
+      // Planner module sub-agents
+      plannerReadOnlySubAgent,
+    ]
+    this.subAgentRegistry.boot(descriptors, this.toolRegistry)
   }
 }
