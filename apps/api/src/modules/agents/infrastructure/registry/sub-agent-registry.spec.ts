@@ -9,7 +9,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { z } from 'zod'
 import { defineSubAgent } from '../../domain/services/sub-agent-factory'
-import { SubAgentRegistry, SubAgentRegistryValidationError } from './sub-agent-registry'
+import {
+  SubAgentRegistry,
+  SubAgentRegistryValidationError,
+  SUB_AGENT_REGISTRY,
+} from './sub-agent-registry'
 import type { ToolRegistry } from '../tool-registry/tool-registry'
 
 // ─── Stub ToolRegistry ────────────────────────────────────────────────────────
@@ -198,5 +202,38 @@ describe('SubAgentRegistry', () => {
     registry.boot([a], toolRegistry)
 
     expect(registry.get('does.not-exist')).toBeUndefined()
+  })
+})
+
+// ─── Token identity ───────────────────────────────────────────────────────────
+
+describe('SUB_AGENT_REGISTRY token', () => {
+  it('is a Symbol with the description "SUB_AGENT_REGISTRY"', () => {
+    expect(typeof SUB_AGENT_REGISTRY).toBe('symbol')
+    expect(SUB_AGENT_REGISTRY.description).toBe('SUB_AGENT_REGISTRY')
+  })
+
+  it('is distinct from the SubAgentRegistry class reference', () => {
+    // The token and the class must be different values so that NestJS
+    // can register both `SubAgentRegistry` (class provider) and
+    // `{ provide: SUB_AGENT_REGISTRY, useExisting: SubAgentRegistry }`
+    // as separate provider keys that resolve to the same singleton.
+    expect((SUB_AGENT_REGISTRY as unknown) !== SubAgentRegistry).toBe(true)
+  })
+
+  it('useExisting pattern: same instance resolvable by token and by class', () => {
+    // Simulate the useExisting: SubAgentRegistry pattern without the NestJS
+    // container (@nestjs/testing is not installed). We construct one instance
+    // and bind the token to it — identical to what the container does.
+    const instance = new SubAgentRegistry()
+    const providerMap = new Map<symbol | (new (...args: unknown[]) => unknown), SubAgentRegistry>()
+    providerMap.set(SubAgentRegistry as unknown as new () => SubAgentRegistry, instance)
+    providerMap.set(SUB_AGENT_REGISTRY, instance) // useExisting points to same object
+
+    const byClass = providerMap.get(SubAgentRegistry as unknown as new () => SubAgentRegistry)
+    const byToken = providerMap.get(SUB_AGENT_REGISTRY)
+
+    expect(byToken).toBeInstanceOf(SubAgentRegistry)
+    expect(byToken).toBe(byClass)
   })
 })

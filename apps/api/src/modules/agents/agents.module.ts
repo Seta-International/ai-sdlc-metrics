@@ -40,7 +40,7 @@ import { TrpcCallerImpl } from './application/services/trpc-caller'
 import { ToolGateway } from './application/services/tool-gateway'
 import { getAppRouter } from '../../common/trpc/app-router'
 // Sub-agent registry (Task 3)
-import { SubAgentRegistry } from './infrastructure/registry/sub-agent-registry'
+import { SubAgentRegistry, SUB_AGENT_REGISTRY } from './infrastructure/registry/sub-agent-registry'
 // Module sub-agent barrels — add a new import here for each domain module that
 // declares sub-agents. Within a module barrel, adding a new sub-agent file
 // requires only re-exporting it from the barrel's index.ts.
@@ -87,8 +87,9 @@ import { plannerReadOnlySubAgent } from '../planner/agent/sub-agents'
     ToolGateway,
     // Sub-agent registry (Task 3)
     SubAgentRegistry,
+    { provide: SUB_AGENT_REGISTRY, useExisting: SubAgentRegistry },
   ],
-  exports: [AgentsQueryFacade, SubAgentRegistry],
+  exports: [AgentsQueryFacade, SUB_AGENT_REGISTRY],
 })
 export class AgentsModule implements OnModuleInit {
   constructor(
