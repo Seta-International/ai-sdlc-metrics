@@ -174,6 +174,7 @@ import { RejectOffboardingHandler } from './application/commands/reject-offboard
 import { GetPersonProfileHandler } from './application/queries/get-person-profile.handler'
 import { GetEmploymentHandler } from './application/queries/get-employment.handler'
 import { GetCurrentJobAssignmentHandler } from './application/queries/get-current-job-assignment.handler'
+import { GetJobHistoryHandler } from './application/queries/get-job-history.handler'
 import { ListEmploymentsHandler } from './application/queries/list-employments.handler'
 import { ListJobProfilesHandler } from './application/queries/list-job-profiles.handler'
 import { GetProbationRecordHandler } from './application/queries/get-probation-record.handler'
@@ -331,6 +332,7 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     GetPersonProfileHandler,
     GetEmploymentHandler,
     GetCurrentJobAssignmentHandler,
+    GetJobHistoryHandler,
     ListEmploymentsHandler,
     ListJobProfilesHandler,
     GetProbationRecordHandler,
