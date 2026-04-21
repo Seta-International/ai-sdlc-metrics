@@ -44,6 +44,8 @@ import {
   RouterPromptBuilder,
   ROUTER_PROMPT_BUILDER,
 } from './application/services/router-prompt-builder'
+// Sub-agent retriever (Task 8)
+import { SubAgentRetriever, SUB_AGENT_RETRIEVER } from './application/services/sub-agent-retriever'
 // Gateway pipeline (Task 5)
 import { ToolRegistry } from './infrastructure/tool-registry/tool-registry'
 import { TrpcCallerImpl } from './application/services/trpc-caller'
@@ -110,6 +112,9 @@ import { listMyAssignmentsIntent } from '../projects/agent/intents'
     // Router prompt builder (Task 7)
     RouterPromptBuilder,
     { provide: ROUTER_PROMPT_BUILDER, useExisting: RouterPromptBuilder },
+    // Sub-agent retriever (Task 8)
+    SubAgentRetriever,
+    { provide: SUB_AGENT_RETRIEVER, useExisting: SubAgentRetriever },
     // Gateway pipeline (Task 5)
     ToolRegistry,
     TrpcCallerImpl,
@@ -127,6 +132,7 @@ import { listMyAssignmentsIntent } from '../projects/agent/intents'
     INTENT_REGISTRY,
     PERMISSION_NARRATIVE_BUILDER,
     ROUTER_PROMPT_BUILDER,
+    SUB_AGENT_RETRIEVER,
   ],
 })
 export class AgentsModule implements OnModuleInit {
