@@ -1,6 +1,13 @@
 # Future
 
 <p align="center">
+  <a href="https://github.com/Seta-International/Future/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Seta-International/Future?style=social"/></a>
+  <a href="https://github.com/Seta-International/Future/issues"><img alt="Issues" src="https://img.shields.io/github/issues/Seta-International/Future"/></a>
+  <a href="https://github.com/Seta-International/Future/pulls"><img alt="PRs" src="https://img.shields.io/github/issues-pr/Seta-International/Future"/></a>
+  <a href="https://github.com/Seta-International/Future/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/Seta-International/Future"/></a>
+</p>
+
+<p align="center">
   <strong>The enterprise OS where AI agents do the work — not just surface it.</strong><br/>
   Built by <a href="https://seta-international.com">SETA International</a> · 17 years of enterprise engineering
 </p>
@@ -140,7 +147,7 @@ Read AGENTS.md and QUICKSTART.md, then run `sh scripts/bootstrap.sh --full`. Tel
 ## Get started manually
 
 ```bash
-git clone <repo>
+git clone https://github.com/Seta-International/Future.git
 sh scripts/bootstrap.sh --full   # copies .env files, installs, starts DB, builds, migrates
 bun run dev --filter=@future/api --filter=@future/web-shell
 ```
