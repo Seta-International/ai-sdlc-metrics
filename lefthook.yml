@@ -6,7 +6,10 @@ pre-commit:
       run: bunx prettier --check {staged_files}
     design-tokens:
       glob: '*.{ts,tsx,js,jsx}'
-      run: bun scripts/check-design-tokens.ts {staged_files}
+      run: sh scripts/check-design-tokens.sh {staged_files}
+    ddd-boundaries:
+      glob: '*.{ts,tsx}'
+      run: sh scripts/check-ddd-boundaries.sh {staged_files}
 
 pre-push:
   parallel: true

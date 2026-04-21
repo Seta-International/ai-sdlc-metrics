@@ -10,6 +10,8 @@
   ],
   "scripts": {
     "prepare": "lefthook install",
+    "bootstrap": "sh scripts/bootstrap.sh",
+    "bootstrap:full": "sh scripts/bootstrap.sh --full",
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",

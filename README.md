@@ -1,57 +1,63 @@
 # Future
 
-Agent-native enterprise OS by SETA.
+**The enterprise OS where AI agents do the work — not just surface it.**
 
-## Dev Setup
+Most business software gives you a dashboard and leaves you to figure out what to do next. Future is different. Every workflow has an embedded agent that acts: reconciles payroll, surfaces contract expirations, routes approvals, answers "what's our margin on this project?" in seconds from data you can trust.
 
-```bash
-bun install
+Built on a unified canonical data layer across HR, time, hiring, finance, projects, and goals — the kind of foundation that makes cross-functional answers possible without a three-day spreadsheet exercise.
 
-# Create local env vars for DB-backed commands
-cp .env.example .env
+---
 
-# Start local Postgres (creates future, future_dev, future_test on first boot)
-bun run db:up
+## What it does
 
-# Tail Postgres logs
-bun run db:logs
+| Module          | What the agent handles                                                         |
+| --------------- | ------------------------------------------------------------------------------ |
+| **People**      | Employment lifecycle, org changes, offboarding — with compliance guardrails    |
+| **Time**        | Attendance, leave, OT, timesheets — automated reconciliation against payroll   |
+| **Hiring**      | Pipeline, interviews, offers — agents draft, route, and remind                 |
+| **Performance** | Review cycles, 360 feedback — structured and on schedule                       |
+| **Finance**     | Invoices, payroll, project profitability — real-time, not end-of-quarter       |
+| **Goals**       | OKRs and KPIs drawn from live operational data — not manually updated          |
+| **Planner**     | Tasks, evidence, delivery tracking — synced with MS 365 Planner                |
+| **Insights**    | Cross-module analytics via Athena — ask in plain language, get sourced answers |
 
-# API + one zone (most common)
-bun run dev --filter=@future/api --filter=@future/web-people --filter=@future/web-shell --filter=@future/web-projects --filter=@future/web-planner
+---
 
-# Type-check everything
-bun run typecheck
+## How it's built
 
-# DB migrations
-bun run db:generate
-bun run db:migrate
-
-# Unit tests
-bun run test:unit
-
-# Integration tests (requires TEST_DATABASE_URL)
-bun run test:integration
-
-# E2E (requires staging)
-bun run test:e2e
-
-# Check outdated dependencies by scanning apps/* and packages/*
-# Run from repo root
-bun run deps:outdated
-
-# Update apps/* and packages/* within existing semver ranges
-# Run from repo root
-bun run deps:update
-
-# Interactively choose dependency updates while walking apps/* and packages/*
-# Run from repo root
-bun run deps:update:interactive
-
-# Upgrade apps/* and packages/* to latest published versions
-# Run from repo root
-bun run deps:update:latest
+```
+Next.js 15 multi-zone frontend (11 zones + auth shell)
+  ↕ tRPC (end-to-end type-safe)
+NestJS modular monolith — one module per domain, strict DDD boundaries
+  ↕ Drizzle ORM + PostgreSQL 16 with RLS (schema-per-module)
+  ↕ pg-boss job queue + outbox event relay
+Agent runtime — Vercel AI SDK + OpenAI, governed by kernel authority layer
+  ↕ MCP tool contracts per module
+AWS ECS Fargate (Graviton ARM64) · Terraform · ap-southeast-1
 ```
 
-When you're done with local development, stop the database with `bun run db:down`.
+Every table has `tenant_id`. Every action leaves an `audit_event`. Every agent call is governed by the same role/permission layer as the UI.
 
-See `docs/` for full architecture and tech stack docs.
+---
+
+## Get started
+
+```bash
+git clone <repo>
+sh scripts/bootstrap.sh --full   # copies .env files, installs, starts DB, builds, migrates
+bun run dev --filter=@future/api --filter=@future/web-shell
+```
+
+Full guide: [QUICKSTART.md](QUICKSTART.md)
+
+---
+
+## Docs
+
+|                                                                  |                                                |
+| ---------------------------------------------------------------- | ---------------------------------------------- |
+| [QUICKSTART.md](QUICKSTART.md)                                   | Setup, commands, port map, PR rules            |
+| [AGENTS.md](AGENTS.md)                                           | Hard rules, DDD boundaries, module conventions |
+| [DESIGN.md](DESIGN.md)                                           | Design system — read before any UI work        |
+| [docs/architecture/overview.md](docs/architecture/overview.md)   | Full architecture diagram                      |
+| [docs/engineering/tech-stack.md](docs/engineering/tech-stack.md) | Every technology choice with rationale         |
