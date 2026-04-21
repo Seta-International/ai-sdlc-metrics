@@ -1,6 +1,12 @@
 # Agent Runtime Architecture — v1 Specification
 
-**Status:** v1 design, locked through iterative refinement + external adversarial pass.
+**Status:** Production-ready specification (revision 2026-04-21). Supersedes v1 lock from earlier adversarial pass. The document covers the full path from first-ship through GA — each concern carries explicit **phase markers** (MVP / Beta / GA) rather than a flat deferred bucket. Revision informed by mastra prior-art spike (see `docs/spike/mastra/`). Phase markers:
+
+- **MVP** — first-ship; must exist for any agent turn to run correctly.
+- **Beta** — required for multi-tenant rollout; adds cost discipline, observability depth, shadow-mode capability.
+- **GA** — required to call the runtime production-ready; adds iterative topology, canary + quality probes, LLM-judge meta-eval, embedding spike if triggered, full replay coverage beyond stratified sample.
+
+Production readiness criteria (observable thresholds, not feature list) are enumerated in §18. "Back-compat: none" — each phase transition is a full refactor under the stated invariants, not a compat shim.
 **Scope:** Agent runtime layer only. Does not cover full application architecture, UI/UX beyond interface contracts, or domain module internals beyond integration points.
 **Audience:** Engineers implementing or extending the agent layer. Assumes familiarity with the existing NestJS + tRPC + Postgres RLS stack and the `canDo` permission middleware.
 
@@ -56,7 +62,7 @@ Every decision in this document derives from these. If a future change violates 
 ### 2.1 Runtime Layer
 
 - The runtime is built on the **Vercel AI SDK** primitive surface (`ToolLoopAgent`, `generateObject`, `streamText`, `stopWhen` / `prepareStep`, MCP). Exact version pinned in the implementation doc.
-- **Primitive-level, not orchestration-level.** Router, phase execution, and synthesizer are code-orchestrated. Supervisor/iterative-loop frameworks are out of scope at this layer because they do not preserve the two-phase bounded invariant (§3), cost predictability, or deterministic replay without significant constraint work.
+- **Primitive-level, not orchestration-level.** Router, phase execution, and synthesizer are code-orchestrated. **The runtime supports two topologies, surface-selected at router entry:** (a) **two-phase bounded** (§3) — default for structured cross-domain queries; cost-capped, replay-deterministic, taint well-scoped; (b) **iterative supervisor** (§3.1) — for open-ended investigation / multi-step planning tasks that do not decompose into ≤3 parallel + 1 sequential. Iterative turns carry stricter per-iteration cost gates, scorer-determinism constraints on exit, and explicit taint-persistence-across-iterations. Inline copilots remain bounded-only by hard contract.
 - Non-agent workflows (data ingestion, batch) are unaffected by this lock.
 
 ---
@@ -116,6 +122,47 @@ Each sub-agent is declared via a typed `defineSubAgent(config)` factory whose co
 
 **Additive-extension invariant.** Phase-1 output shape (§9) extensions are additive-only. New sub-agents opt in per new field via their own `inputSchema`; existing sub-agents that don't pick a new field are unaffected — additive-safe by construction.
 
+### Router prompt is registry-generated, not hand-written
+
+The router's available-sub-agents list is **generated from the `defineSubAgent` registry at session start** — never hand-written. Each registry entry renders `{ domain, description, whenToUse, inputSchema as JSON Schema, outputSchema as JSON Schema }`. Drift between registry and router prompt is structurally impossible. The rendered prompt is captured by content-hash (§8) and pinned into the session record so replay-time re-resolution is deterministic regardless of later registry changes.
+
+**Tenant-level router customization via free-text addenda is rejected.** Per-tenant routing variation belongs in each sub-agent's `whenToUse` declaration, not in a router-prompt suffix. Free-text addenda break the prompt-hash stability story (§8) and are a latent injection surface (cf. mastra's `routingConfig.additionalInstructions` — see spike finding 04-routing).
+
+### Sub-agent declaration site — v1.1 field additions
+
+The `defineSubAgent(config)` factory config (§3 above) is extended with:
+
+- `description` — short, audience-facing one-liner (what this sub-agent does).
+- `whenToUse` — decision hint for the router's LLM; shown inline in the router prompt.
+- `memoryScope: { reads: L1|L2|L3|L4[], writes: (L1|L2|L3)[] }` — explicit per-tier binding; prevents implicit inheritance (cf. mastra silently assigns parent memory — see spike 12-agent-builder-config).
+- `promptTemplate: { body, variables: zodSchema }` — typed prompt; v1.1 replaces bare `prompt` string. Template body is content-hashable; variables resolve at session start (not per call) so the resolved hash is replay-stable.
+- `source: 'code' | 'stored'` — declaration origin; `'stored'` = DB-resident for blue/green prompt rollout (§14).
+- `model: DynamicArgument<ModelChoice, TenantContext>` — per-sub-agent model override; resolved at session start.
+
+Construction-time validation is strict: missing required field = compile error (for `code` source) or startup error (for `stored` source). Late runtime-returning-empty is not an acceptable failure mode.
+
+---
+
+## 3.1. Iterative Supervisor Topology
+
+**Status:** v1.1 addition. Opt-in per turn, router-classified alongside the two-phase plan. Inline copilots are bounded-only by hard contract (§3) and MUST NOT select iterative.
+
+**When to use:** open-ended investigation ("why did KPI X regress?"), multi-step planning ("build a project comparison across these five dimensions"), or any task whose plan shape cannot be fixed before the first tool call returns. Any task that decomposes cleanly into ≤3 parallel + 1 sequential stays bounded — iterative is the escape hatch, not the default.
+
+**Execution model:** Router produces a plan containing `topology: 'iterative'`, an initial task, and declared completion criteria (see scorer constraint below). Loop body: router picks one sub-agent per iteration → executes → evaluates completion scorers → re-plans with prior-iteration feedback, or exits. Synthesizer runs once after loop exit.
+
+**Invariants specific to iterative:**
+
+1. **Per-turn iteration cap.** Default 10 for interactive turns, 20 for async. Hard cap — exceeding aborts with `turn.ended.reason: budget`.
+2. **Per-iteration cost + wallclock gates** enforced _between_ iterations (not only within a sub-agent). Failing gate ends the turn at `budget`; partial-answer gate (§4) applies unchanged.
+3. **Taint is turn-scoped, not iteration-scoped.** Once flipped, persists for the remainder of the turn; any drafted write from any subsequent iteration inherits the approval-tier bump regardless of which iteration drafted it.
+4. **Completion scorers are rule-based or structural only in v1.** `SetaScorer.kind` (see §14) must be `'deterministic'`. LLM-judge scorers as exit gates are deferred to v1.5, gated on the same meta-eval that governs LLM-judge for regression evaluation (§14). Non-deterministic scorers at iterative topology are a startup error.
+5. **Synthesizer runs once.** Per-iteration synthesis is deferred (§16).
+6. **Replay determinism.** Iterative turns are replay-deterministic iff all scorers declared on the loop are deterministic — enforced by scorer-kind type at registration.
+7. **Topology downgrade signal.** If a bounded turn fires §3's one bounded re-plan (plan-shape mismatch), emit `router_topology_downgrade_candidate` as an observability signal (§12) — the router may have picked bounded when iterative was the right call.
+
+**Execution engine reuses the §7 gateway pipeline unchanged.** The pipeline is per-tool-call, not per-topology; bounded and iterative share the same tool-invocation contract.
+
 ---
 
 ## 4. Execution Loop & Error Handling
@@ -130,17 +177,18 @@ Each sub-agent is declared via a typed `defineSubAgent(config)` factory whose co
 
 **Cross-phase budget math:** A cross-domain turn with 3 sub-agents × 4 iterations is up to 12 tool calls total. Budgets are per-sub-agent deliberately, to avoid starving complex cases under a single turn-wide cap.
 
-**Error classification (7 classes):**
+**Error classification (8 classes):**
 
-| Class                    | Source                                                     | Response                                                                                                                                                                            |
-| ------------------------ | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tool validation          | Model (bad args, unresolved IDs)                           | Return error to model. Max 1 retry per tool per iteration, 2 per turn. Each retry-failure counts toward the circuit-breaker threshold below.                                        |
-| Permission denied        | `canDo` / RLS empty                                        | Return as distinct error. **First permission denial disables the tool for the rest of the sub-agent** ("not permitted, proceed without").                                           |
-| Domain execution         | Optimistic lock, downstream 500, timeout                   | **Domain owns concurrency retry** (knows entity conflict semantics). Gateway retries network/timeout only, max 2 with backoff. Still failing → distinct "transient" error to model. |
-| LLM provider             | Timeout, rate limit, 5xx                                   | Retry with jitter, max 2. **Retry lives at exactly one layer** — disable Vercel AI SDK retry if gateway retries, or vice versa. Stacked retries silently inflate cost.              |
-| Ceiling hit (turn-scope) | Per-turn budget, wallclock, iteration                      | Not retried. Aborts sub-agent; synthesizer runs against whatever's there.                                                                                                           |
-| Ceiling hit (tool-scope) | Per-tool `ceilings` breach (§7) — bytes scanned, wallclock | Not retried. Returned to the model as a distinct error for this call only; the sub-agent continues with other tools.                                                                |
-| Model refusal / policy   | Model-initiated                                            | No retry. Emitted as structured refusal event (§15).                                                                                                                                |
+| Class                    | Source                                                     | Response                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------------ | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tool validation          | Model (bad args, unresolved IDs)                           | Return error to model. Max 1 retry per tool per iteration, 2 per turn. Each retry-failure counts toward the circuit-breaker threshold below.                                                                                                                                                                                                                     |
+| Permission denied        | `canDo` / RLS empty                                        | Return as distinct error. **First permission denial disables the tool for the rest of the sub-agent** ("not permitted, proceed without").                                                                                                                                                                                                                        |
+| Domain execution         | Optimistic lock, downstream 500, timeout                   | **Domain owns concurrency retry** (knows entity conflict semantics). Gateway retries network/timeout only, max 2 with backoff. Still failing → distinct "transient" error to model.                                                                                                                                                                              |
+| LLM provider             | Timeout, rate limit, 5xx                                   | Retry with jitter, max 2. **Retry lives at exactly one layer** — disable Vercel AI SDK retry if gateway retries, or vice versa. Stacked retries silently inflate cost.                                                                                                                                                                                           |
+| Structured-output parse  | Router / sub-agent structured decoder                      | One retry with schema re-injection (`jsonPromptInjection: true` semantics) then escalate to disambiguation. No silent string-repair fallback — the parse result is either schema-valid or raised. Cf. mastra's `safeParseLLMJson` + `tryGenerateWithJsonFallback` (spike 04-routing).                                                                            |
+| Ceiling hit (turn-scope) | Per-turn budget, wallclock, iteration                      | Not retried. Aborts sub-agent; synthesizer runs against whatever's there.                                                                                                                                                                                                                                                                                        |
+| Ceiling hit (tool-scope) | Per-tool `ceilings` breach (§7) — bytes scanned, wallclock | **Returned to the model as a distinct error** for this call only; the sub-agent continues with other tools. Disposition is `retry` (model may retry with narrower args) rather than `abort` — retry adds one feedback cycle without terminating the turn, per the gateway-pipeline retry disposition (§7). Hard abort applies only if the retry itself breaches. |
+| Model refusal / policy   | Model-initiated                                            | No retry. Emitted as structured refusal event (§15).                                                                                                                                                                                                                                                                                                             |
 
 **Circuit breaker:** 2 total failures of the same tool in a sub-agent (counting retry-failures from the validation row above) → tool disabled for the rest of the turn. State propagates across the phase-1 → phase-2 boundary via the same sanitized-summary channel the rest of context uses; phase 2 sees "tool X unavailable this turn" as a context note.
 
@@ -152,12 +200,13 @@ Each sub-agent is declared via a typed `defineSubAgent(config)` factory whose co
 
 Four conceptual layers. v1 scope:
 
-| Layer  | Contents                                                                                   | Partition                                    | v1 status                           |
-| ------ | ------------------------------------------------------------------------------------------ | -------------------------------------------- | ----------------------------------- |
-| **L1** | Sub-agent ReAct trace within one turn. Turn-scoped read cache (same-tool-same-args dedup). | Turn                                         | **v1, dies at turn end.**           |
-| **L2** | Sanitized turn summaries and user messages across a conversation.                          | `(tenant_id, user_id, conversation_id)`, RLS | **v1, mandatory.**                  |
-| **L3** | Non-domain user preferences (display format, default currency display). UX-scoped only.    | `(tenant_id, user_id)`                       | **v1, user-initiated writes only.** |
-| **L4** | Tenant / role organizational facts (working hours, fiscal year, currency).                 | `(tenant_id)` or `(tenant_id, role_id)`      | **v1 via lazy fetch only.**         |
+| Layer    | Contents                                                                                   | Partition                                    | Phase                                                |
+| -------- | ------------------------------------------------------------------------------------------ | -------------------------------------------- | ---------------------------------------------------- |
+| **L1**   | Sub-agent ReAct trace within one turn. Turn-scoped read cache (same-tool-same-args dedup). | Turn                                         | **MVP, dies at turn end.**                           |
+| **L2**   | Sanitized turn summaries and user messages across a conversation.                          | `(tenant_id, user_id, conversation_id)`, RLS | **MVP, mandatory.**                                  |
+| **L3**   | Non-domain user preferences (display format, default currency display). UX-scoped only.    | `(tenant_id, user_id)`                       | **MVP, user-initiated writes only.**                 |
+| **L3.5** | Agent-writable persistent scratchpad (allowlisted fields). Named-deferred; see below.      | `(tenant_id, user_id)`                       | **Beta** gated on write-tool + approval-tier bump.   |
+| **L4**   | Tenant / role organizational facts (working hours, fiscal year, currency).                 | `(tenant_id)` or `(tenant_id, role_id)`      | **MVP via lazy fetch.** GA: optional pre-inject opt. |
 
 **L3 scope restriction:** Only things that have nowhere else to live. Authoritative data (user's projects, timezone, salary) lives in domain modules and is fetched via QueryFacade on demand. Duplicating domain data into L3 creates two-sources-of-truth drift. L3 is for preferences that exist _only_ because the agent exists.
 
@@ -173,11 +222,17 @@ Four conceptual layers. v1 scope:
 - **Timeout / transient failure** — treated as any other tool via §4 error model (retry-with-jitter, circuit breaker after 2 failures). On final failure, sub-agent falls back to system default and synthesizer discloses narratively.
 - **No L4-specific retry path.** L4 is a tool like any other; the error model is shared.
 
-**No embeddings in v1.** Recency (last N turn summaries) plus L3 facts covers ~90% of chat quality. Vector indexes shared across tenants are a cross-tenant leak vector; single-tenant vector stores multiply operational cost with unclear return at this scale. Revisit when session lengths routinely exceed context window.
+**L3.5 — Agent scratchpad (Beta/GA, persistent agent-writable memory).** A deliberately-named tier distinct from L1-L4, deferred past MVP. Rationale: mastra's "working memory" is an agent-writable, persistent-per-user markdown/JSON scratchpad injected as a system message every turn, written via a dedicated `update-working-memory` tool (see spike 03-memory). **This is exactly the prompt-injection write surface we did not ship at MVP.** Named here so it doesn't get smuggled in under "L3 convenience." Beta gate: schema-allowlisted fields only (not free-form markdown), written via a kernel-audited tool, `canDo('agent.scratchpad.write')` gated, and scope-keyed `(tenant_id, user_id)` with no cross-conversation carryover. GA gate: approval-tier bump on writes derived from tainted tool results (scratchpad writes inherit taint).
 
-**Turn-scoped read cache is L1, not L3.** When a sub-agent calls `projects.getMyProjects()` at step 1 and again at step 3 of the same ReAct loop, the result is reused from an in-memory turn-scoped cache. This is performance, not "memory about the user." Must not be confused with L3 in UI surfaces or docs.
+**No embeddings at MVP.** Recency (last N turn summaries) plus L3 facts covers ~90% of chat quality. Vector indexes shared across tenants are a cross-tenant leak vector; single-tenant vector stores multiply operational cost with unclear return at this scale. Beta/GA trigger: session lengths routinely exceed context window, OR thumbs-down rate on "I already told you this" pattern exceeds threshold. When the trigger fires, §16 RAG decision tree governs the spike.
+
+**Turn-scoped read cache is L1, not L3.** When a sub-agent calls `projects.getMyProjects()` at step 1 and again at step 3 of the same ReAct loop, the result is reused from an in-memory turn-scoped cache. This is performance, not "memory about the user." Must not be confused with L3 in UI surfaces or docs. **Our L1 read cache is a mastra gap** — mastra has no equivalent and pays duplicate-tool-call cost on every repeat (spike 03-memory).
 
 **Summarization off the critical path:** Each turn's sanitized summary is computed post-turn by an async nano call, written back to `agent_message.summary`. The router never blocks on summarizing the _previous_ turn. Re-filtering per target sub-agent's permission scope happens at inject time (field-drop, cheap).
+
+**Debounced save-queue semantics (MVP).** Message persistence uses a per-conversation debounced queue: 100ms debounce, 1s staleness cap (force-flush if any message older than 1s sits unflushed), forced flush at turn boundary regardless of debounce state. Per-conversation serialization — no concurrent writes to the same `conversation_id` from the queue. Prior art: mastra `packages/core/src/agent/save-queue/` (spike 03-memory).
+
+**Router read surface is γ/α only.** The router never invokes L3 / L4 / domain read tools. Tool invocation happens exclusively inside sub-agents. This keeps every tool read inside a sub-agent's permission scope, and prevents router-step reads from influencing fan-out in ways that bypass target sub-agent sanitization. Mastra analog: their routing agent explicitly strips memory processors for the same reason (spike 01-orchestrator).
 
 ---
 
@@ -191,6 +246,8 @@ Four conceptual layers. v1 scope:
 - **Inline copilots:** session-of-screen-visit. Single sub-agent by hard contract (§3). Ephemeral UX, stored for audit but not flat-listed.
 
 **Scope key:** `(tenant_id, user_id, surface)` **across devices and tabs.** Desktop + phone + second tab share the same active conversation. Avoids parallel conversations generating contradictory L3 write requests.
+
+**Ownership is RLS, not application check.** A thread lookup that returns rows is by construction visible to the caller — `tenant_id` + `user_id` are set in the DB session before the query, and RLS filters at read time. There is no separate `thread.user_id === caller.user_id` step in application code. Prior art rejected: mastra's `validateThreadIsOwnedByResource` application-layer equality check (spike 02-identity-tracking) — one forgotten await-call away from a cross-resource leak.
 
 **Two stores:**
 
@@ -273,13 +330,25 @@ Four conceptual layers. v1 scope:
 
 All three are deterministic, pre-LLM, and cheap. The router's classification into sub-agents is the only LLM-involved step in menu shaping.
 
-**Gateway responsibilities:**
+**Gateway is an ordered processor pipeline.** Each tool invocation traverses a fixed sequence of named steps; each step may short-circuit the call via a **tripwire** (returns a structured error to the model without executing the tool). Steps emit child spans of the tool-call span for observability. The tripwire surface is the single implementation site for §15.2's single abort path — user cancel, system abort (tenant budget tripped, provider outage, quality canary degraded), and pre-write abort-signal all tripwire through the same mechanism, differing only by `cancellation_reason` on the trace.
 
-- Invokes tRPC via server-side `TrpcCaller` (never direct service injection).
-- Single reader of `tenantAuthoredFreeText` meta: wraps those fields in `<tenant_authored field="...">...</tenant_authored>` at inject time, flips turn's taint flag.
-- Shadow-ready: supports `mode: 'execute' | 'dry-run'` discriminator from v1. No shadow traffic yet, but every tool handler is ready — retrofitting this later would be a whole-surface change.
-- Enforces per-tool independent ceilings declared in `.meta({ agent: { ceilings } })` for non-token-denominated tools (escape hatch, future bulk tools): bytes scanned, wallclock, independent of the turn's LLM budget. Ceiling breach = distinct error class returned to the model, not retried.
-- **Pre-write abort-signal check** (see §15 cancellation).
+**Pipeline steps (v1, in order):**
+
+1. **Resolve.** Look up the tRPC procedure by name. Tripwire if the procedure is not agent-exposed (no `.meta({ agent })`) or is outside the sub-agent's resolved scope (§7 menu scoping). Structural guard against router mis-selection.
+2. **Taint-wrap (inject-time).** Read `tenantAuthoredFreeText` meta; wrap declared fields in `<tenant_authored field="...">...</tenant_authored>` on the message injected into the LLM; flip the turn's taint flag. Applies on the result path after invocation; the wrap is visible to the model (§8).
+3. **Ceiling pre-check.** Verify per-tool `.meta({ agent: { ceilings } })` headroom (bytes scanned, wallclock) for non-token-denominated tools. Tripwire with `tool-scope ceiling-hit` error class (§4) if exhausted; the sub-agent continues with other tools.
+4. **Pre-write abort-signal check.** Fires only on `.mutation()` procedures. Tripwire if aborted (§15.2). Position is load-bearing: after ceiling check, before invocation — once past this step, the write commits and cancellation cannot undo it.
+5. **Invoke.** Call via server-side `TrpcCaller`; never direct service injection. Honors `mode: 'execute' | 'dry-run'` discriminator (shadow-ready; v1 always `execute`). `canDo` + RLS apply automatically inside tRPC middleware.
+6. **Audit emit.** Kernel audit event stamped with `trace_id`, `on_behalf_of`, `via_delegation?`, `via_schedule?`, `approved_by?` (§15.5). Emitted post-invocation, including on domain-execution failure, so the audit trail is symmetric with success.
+
+**Pipeline invariants:**
+
+- **Order is load-bearing, not incidental.** Taint-wrap reads `tenantAuthoredFreeText` declared on the same procedure Resolve found; Pre-write abort-signal after Ceiling pre-check ensures an abort cannot race past a ceiling breach into a committed write; Audit emit after Invoke captures the actual outcome, not the intent.
+- **Tripwire is structured, not thrown.** Each tripwire returns a discriminated variant matching §4's error classes. Uncaught throws are runtime bugs, not a control-flow path — they escalate to the `error` turn-end reason.
+- **Tripwire carries a disposition: `abort | retry`.** `abort` terminates the tool call and surfaces the error to the model (default). `retry` returns structured feedback to the model so it can re-issue the call with narrower args (applies to tool-scope ceiling breach and soft validation failures; never to permission denials or pre-write abort-signal). Retry disposition prevents one ceiling bump from terminating an otherwise-healthy sub-agent. Taint-wrap is idempotent across retries; span cardinality is capped (see below). Inspired by mastra's `TripWireOptions.retry` (spike 07-processors).
+- **No plugin seam at MVP.** The pipeline is fixed; new steps require a design change reviewed against the shadow-ready invariant and the single-abort-path contract. Extension points are deliberate, not free. Beta reconsideration: output post-processors only (e.g. PII redaction), never input pre-processors that could weaken the security boundary.
+- **Every step is a child span.** Observability parity across pipeline steps is non-negotiable — retrofitting span coverage on a gateway that pre-dates it is measurably more expensive (Tenet #6). **Span naming convention: `gateway:<step-name>`** (e.g. `gateway:resolve`, `gateway:taint-wrap`, `gateway:ceiling-check`) — parallels mastra's `input processor: <id>` / `output processor: <id>` pattern and keeps Langfuse hierarchy scannable.
+- **Per-step attribute recording.** Each pipeline step records its mutations to the outbound tool-call as span attributes (e.g. `taint_wrap.fields_wrapped: ["notes", "comment"]`, `ceiling.bytes_remaining: 48_392_100`). Debuggability without inferring from trace deltas.
 
 **Tool results stored pre-render** — as structured objects. `<tenant_authored>` wrappers are applied at inject time, not on storage. Re-rendering strategy can change without re-sanitizing historical data.
 
@@ -352,8 +421,10 @@ Version strings remain for human-legible rollout reasoning; replay always resolv
 ### Replay harness
 
 - First-class runtime capability: given `trace_id`, deterministically reconstructs the full message array that was sent to each LLM call. Resolves via hash stores + trace-captured dynamic content.
-- **Errors explicitly on any lookup miss.** No silent fallback, no "approximate reconstruction." Approximate replay without warning is worse than no replay at all — it's the class of fiction that makes debugging worse.
-- **Replay scope statement:** Full deterministic replay is guaranteed for **100%-captured turns only.** Baseline-sampled (1%) turns are prompt-replayable but not tool-output-replayable — tool re-invocation at replay time returns current data, not historical. The 100%-capture triggers (error, taint, approval, ceiling, amplification) coincide with the population where replay is most valuable by design.
+- **Replay reconstructs assembly inputs, not outbound HTTP.** The harness rebuilds prompt fragments, narrative-hash resolutions, γ/α snapshot, captured tool outputs (for 100%-sampled turns), and model + version pins. It does NOT replay HTTP traffic to the LLM provider — outbound calls go to the live provider under current keys. Contrast: mastra's `_llm-recorder` replays at the HTTP level via MSW interception (spike 06-harness-eval-replay) — appropriate for tests, wrong level for production incident reconstruction.
+- **Errors explicitly on any lookup miss.** No silent fallback, no "approximate reconstruction." Approximate replay without warning is worse than no replay at all — it's the class of fiction that makes debugging worse. **Named anti-pattern rejected:** mastra's `_llm-recorder` ships a string-similarity fuzzy fallback at threshold 0.6 that `console.warn`s but still returns a response on hash miss (`packages/_llm-recorder/llm-recorder.ts:607-702`, spike 06). Our replay raises; fuzzy miss-recovery is not an acceptable production behavior.
+- **Canonicalization rules for content hashing:** JSON key-sort (lexicographic), `undefined` dropped, `null` preserved, ISO-8601 dates re-parsed into canonical form (e.g. always Z-suffix UTC), no numeric coercion. The canonicalizer itself is content-hashed and pinned as a version attribute on every trace — a canonicalizer bump invalidates no stored hashes (same content still hashes same) but rollout awareness is preserved.
+- **Replay scope statement:** Full deterministic replay is guaranteed for **100%-captured turns only.** Baseline-sampled (1%) turns are prompt-replayable but not tool-output-replayable — tool re-invocation at replay time returns current data, not historical. The 100%-capture triggers (error, taint, approval, ceiling, amplification) coincide with the population where replay is most valuable by design. **GA extension:** full capture for any turn exceeding median cost by ≥3σ (high-cost tail) and for any drafted write on a tainted turn regardless of tier — both add observational value at negligible storage cost.
 
 ---
 
@@ -604,6 +675,55 @@ Rationale: a successful injection is invisible in postmortem without this. You c
 
 **Retention:** traces ≥ 30 days, audit ≥ 90 days, configurable per tenant for compliance. Retained under documented legitimate-interest.
 
+### Span taxonomy — two-dimensional
+
+Two parallel enums, both stamped on every span:
+
+- **`span_type`** (shape) — `TURN`, `ROUTER_PLAN`, `SUB_AGENT_PLAN`, `SUB_AGENT_TOOL_CALL`, `SUB_AGENT_SYNTHESIS`, `PHASE_2`, `SYNTHESIZER`, `GATEWAY_STEP`, `ITERATION` (§3.1), `FINAL`.
+- **`entity_type`** (origin) — `ROUTER`, `SUB_AGENT`, `TOOL`, `SYNTHESIZER`, `GATEWAY`, `PROCESSOR`, `MEMORY`, `DELEGATION`.
+
+Dimension separation lets a query filter "all router spans regardless of shape" OR "all synthesis spans regardless of origin" without string-prefix hacks. Prior art: mastra's `SpanType × EntityType` (spike 08-observability-tracing) — borrowed pattern, our enums are ~10× smaller because our topology is smaller.
+
+### Sampling config — typed, trace-atomic, composable
+
+**Typed shape:**
+
+```
+SamplingConfig = { type: 'always' }
+               | { type: 'never' }
+               | { type: 'ratio', probability: number }
+               | { type: 'triggered', triggers: TriggerPredicate[], baselineProbability: number }
+               | { type: 'composite', configs: SamplingConfig[], strategy: 'any' | 'all' }
+```
+
+**Trace-level atomicity invariant.** Sampling decision is made **once at trace root** (router entry) and inherited by every child span via the same `NoOpSpan` propagation pattern (cf. mastra issue #11504 fix). A non-sampled trace records zero spans, not a half-captured tree. This is load-bearing for replay correctness (§8) and cost-predictable storage.
+
+**v1 trigger set** (MVP — encoded as `TriggerPredicate` functions, not string flags):
+
+- `turn.ended.reason !== 'completed'`
+- `iteration_ceiling_hit || wallclock_ceiling_hit || cost_ceiling_hit`
+- `taint_flipped`
+- `approval_required_draft_submitted`
+- `composition_amplification` (≥2 `compositionSensitive` tools across distinct aggregates)
+
+**Beta additions:** `iteration_count_exceeded_p95` (iterative-topology tail), `router_rechose_after_replan` (§3's one re-plan fired), `topology_downgrade_candidate` (§3.1).
+
+**GA additions:** high-cost tail (>median × 3σ), any drafted write on a tainted turn.
+
+### Per-span attributes — extended
+
+Beyond the content hashes and version strings named above in §8:
+
+- `time_to_first_token_ms` (TTFT) — captured from provider streaming metadata; free data most implementations drop.
+- `usage.input_cached_read` + `usage.input_cached_write` + `usage.output_reasoning` — cache-token breakdown plus reasoning-token accounting. Required for correct cost attribution (see §13 cache rate split).
+- `entity_version_id` — opaque version pin for the rendered prompt/narrative/tool-catalog at trace time; resolves through §8 hash stores.
+- `request_context_keys` auto-stamped — `tenant_id`, `user_id`, `trace_id`, `surface`, `delegation_id?` populate as attributes without manual `span.setAttr(...)` calls. Mastra's `TraceState.requestContextKeys` pattern (spike 08).
+- `cancellation_reason?` — populated only if the turn/span ended by abort; typed enum: `user | timeout | budget | provider_outage | quality_canary`.
+
+### Usage accumulation — leaf-only
+
+**Usage metrics are stamped on leaf spans (per-LLM-call, per-tool-call), never pre-aggregated on the turn-root span.** Turn totals are computed at query time by summing leaves. Rationale: pre-aggregating causes double-counting when an exporter flattens the tree. Prior art: mastra's explicit leaf-only rule (`observability/types/tracing.ts:444-447`, spike 08).
+
 ### Router-accuracy regression signals
 
 First-class dashboarded signals for detecting router misrouting / sub-agent proliferation decay:
@@ -678,10 +798,12 @@ No new capture mechanism. Confidence is already stamped on traces; feedback sign
 
 Pre-turn refusal (`refused`) and mid-turn abort (`budget`) must not collapse — different UX states, different retry semantics, different alerting.
 
-**Cost denomination: dollars with cache-hit accounting.**
+**Cost denomination: dollars with cache-aware accounting.**
 
-- Read `cached_tokens` from provider responses; bill cached tokens at the cached rate (OpenAI typically 50% off).
-- With prompt-cache discipline (§8), hot sessions see significant cached-token share. Metering at uncached rate either over-refuses legitimately available budget or overshoots hard caps. Not a rounding error.
+- Read `usage.input_cached_read`, `usage.input_cached_write`, `usage.output_reasoning` from provider responses. **Cache-read is NOT the same rate as cache-write.** Typical OpenAI pricing: cache-read ~0.1× input rate; **cache-write ~1.25× input rate** (higher than uncached). Billing must split the two; conflating them is a real pricing bug, not a rounding error. Reasoning tokens are a separate line item charged at output rate.
+- With prompt-cache discipline (§8), hot sessions see significant cache-read share. Metering at uncached rate over-refuses; metering cache-write at cache-read rate under-bills. Both kinds of drift compound.
+- **Pricing is time-versioned.** Every cost event stamps `pricing_id` + `priced_at` (timestamp-tz). Vendor pricing changes → new `pricing_id` → historical costs retain original pricing for audit-safe re-computation. A `pricing_id` row carries `{ model_id, input, cached_read, cached_write, output, reasoning, effective_from, effective_until? }`.
+- **Adapter validation invariant.** When a vendor response reports cache-token fields that the provider adapter (e.g. AI SDK v4 vs v5) fails to expose, the gateway emits an `adapter_dropped_cache_fields` kernel audit event and a monitoring alert. Silent drop = silent over-billing. (Cf. mastra's AI SDK v4 usage converter drops `cachedInputTokens` — spike 09-cost-usage.)
 
 **Tenant-level tiered degradation (separate thresholds, not cascade):**
 
@@ -690,6 +812,8 @@ Pre-turn refusal (`refused`) and mid-turn abort (`budget`) must not collapse —
 - **100%:** hard refuse. Admin notified (rate-limited).
 
 Rationale: async users (schedules) don't notice an extra hour of delay. Interactive users notice nano quality immediately. Spending the async latency buffer first buys 15% of tenant daily before touching interactive quality.
+
+**`tier_shift` vs `provider_fallback` — distinct trace tags.** `tier_shift` is a policy-driven tier downgrade (budget threshold crossed; tenant-wide decision). `provider_fallback` is error-recovery-driven (provider 5xx; per-call decision). They log distinct `finish_reason` values and feed different alerting paths — conflating them hides budget pressure behind provider flakiness or vice versa.
 
 **Budget model:**
 
@@ -720,6 +844,8 @@ Defensive posture against infrastructure abuse = observability + rate-limiting, 
 | `queries_per_user_per_minute`                       | Generous default, tuned from observed | Per user. Covers disambiguation amplification, bursts, and future vectors generically — no special-casing. |
 | `l3_writes_per_user_per_day`                        | ~20                                   | Per user.                                                                                                  |
 | `schedule_or_delegation_creations_per_user_per_day` | 5                                     | Per user. Independent of delegation max-active (§11).                                                      |
+
+**Metric-label cardinality guardrail.** Rate-limit metrics and cost metrics MUST NOT carry `user_id`, `conversation_id`, `trace_id`, or any other high-cardinality label on the metric value itself. Counters are scoped to `tenant_id` + bounded enum dimensions (model_tier, surface, refusal_reason). High-cardinality values live on traces (§12) where retention is bounded; putting them on metrics explodes Prometheus/equivalent TSDB cost. `DEFAULT_BLOCKED_LABELS` is enforced at the metrics exporter level, not a convention. Mastra prior art: `metrics.ts:131-140` (spike 09).
 
 ### Approval inbox throttle
 
@@ -769,6 +895,36 @@ Tool-meta counts as "what the system can do," so it lives on the tenant side des
 
 **Version assignment sticky across retries:** a pg-boss retry hits the same versions pinned at job spawn (§11), not whatever's currently rolling out. Without this, retries flip assignments mid-flight.
 
+### SetaScorer — typed scoring contract
+
+Golden-trace regression, quality canary, iterative exit gates (§3.1), and v1.5 LLM-judge all share one scorer interface:
+
+```
+SetaScorer = {
+  id: string,
+  name: string,
+  kind: 'deterministic' | 'llm-judge',
+  scope: 'live' | 'trace' | 'experiment' | 'test',
+  run(ctx): Promise<{ score: 0 | 1, passed: boolean, reason?: string }>
+}
+```
+
+**The `kind` discriminator is enforced at registration, not runtime.** A scorer registered as `kind: 'llm-judge'` is REJECTED from:
+
+- §3.1 iterative exit gates at MVP and Beta (only `deterministic` kind permitted; LLM-judge gated on meta-eval for GA).
+- §14 production regression signals at MVP and Beta.
+
+Registration-time enforcement means a dev cannot accidentally ship an LLM-judge as a golden-trace gate; it fails to load, not fails at run time.
+
+**Meta-eval gate for `kind: 'llm-judge'` promotion.** Before any LLM-judge scorer may be used as a production gate, it must classify a hand-labeled `SetaGoldenCorpus` of ≥100 rows with agreement ≥95% against human labels. The meta-eval itself runs as a deterministic scorer over the corpus. Promotion = a kernel audit event; demotion if agreement drifts is automatic.
+
+### Golden-trace regression suite — size cap
+
+- **Cap: ≤20 rows in CI-gating set.** Above 20, CI latency dominates and contributors start to bypass. Coverage gains past 20 are marginal; a larger corpus lives in the `SetaGoldenCorpus` for offline meta-eval, separate from CI.
+- Each row carries: `{ trace_id, expected_tool_calls: string[], expected_shape, expected_permission_keys, taint_expectation, answer_shape_contract }`. No free-text expectations.
+- Rotation is additive — rows removed require explicit PR with a documented reason ("domain sunset", "duplicate coverage"), never silent cleanup.
+- CI gate: any regression causes a hard fail. No "warn only" mode — soft signals train teams to ignore them.
+
 ---
 
 ## 15. Streaming, Cancellation & Interface Contracts
@@ -800,21 +956,40 @@ Tool names in UI leak implementation detail and translate badly (_"Calling `time
 
 **Cancel-race contract (explicit, enforced):**
 
-The gateway checks the abort signal **immediately before issuing the write**. Once past that check, the write commits and cancellation cannot undo it.
+The gateway checks the abort signal **immediately before issuing the write** (see §7 pipeline step 4). Once past that check, the write commits and cancellation cannot undo it. This is **one instance of a broader pattern:** every side-effecting boundary (approval-metadata write, memory save, tool-result persist, workflow-result save, `executeOnFinish`, every LLM stream chunk) re-reads `abortSignal.aborted` before the commit. Prior art: mastra's pattern across `packages/core/src/loop/network/index.ts:1548, 807, 976, 1807, 1301` + `map-results-step.ts:282-330` + `llm-execution-step.ts:136-142` (spike 11-cancellation-abort).
 
 UX consequence, communicated honestly: _"Timesheet draft saved at 10:23:45.102 before cancellation at 10:23:45.401."_ No fiction about rolling back real writes.
 
-**Single abort path:**
+**Single abort path with typed reason:**
 
-User cancel, system-triggered abort (tenant budget tripped, provider outage, quality canary degraded), and 30s timeout all traverse `router → sub-agent abort` identically. They differ only by `cancellation_reason` in the trace. Three near-identical abort paths diverge subtly over time; one path cannot.
+User cancel, system-triggered abort (tenant budget tripped, provider outage, quality canary degraded), and 30s timeout all traverse `router → sub-agent abort` identically. They differ only by `cancellation_reason` — typed enum:
+
+```
+cancellation_reason ∈ { user | timeout | budget | provider_outage | quality_canary }
+```
+
+Three near-identical abort paths diverge subtly over time; one path cannot. The typed reason is non-optional on every abort event and trace; "unknown" is not a value.
+
+**Abort-signal composition:** the root abort signal for a turn is composed at router entry:
+
+```
+turnAbortSignal = AbortSignal.any([
+  userCancelController.signal,         // user clicks cancel
+  AbortSignal.timeout(WALLCLOCK_MS),   // 30s default, per-surface
+  systemAbortController.signal,        // budget / provider / canary
+])
+```
+
+The composed signal is threaded as a parameter through every layer — never stored on async-local-storage, never reconstructed at leaf nodes. Prior art: parameter-threading in mastra (spike 11).
 
 **On cancel:**
 
 - Abort signal propagates to router → all in-flight sub-agents.
 - Drafted writes **not yet submitted** are discarded; **not** persisted to approval inbox.
 - Synthesizer not invoked.
-- Trace marked `cancelled`, `timeout`, `budget`, or as appropriate.
-- Cost for tokens already consumed is billed.
+- Trace marked `cancelled`, `timeout`, `budget`, `provider_outage`, or `quality_canary` as appropriate.
+- **Cost for tokens already consumed is billed** — the abort event payload carries `usage: { input_tokens, output_tokens, input_cached_read, input_cached_write, output_reasoning }` drawn from the running accumulator. Honoring the billing contract at the wire level, not just prose.
+- **Active-cancel downstream** via `abortSignal.addEventListener('abort', () => handle.cancel())` for any resource with a native cancel API (pg-boss `run.cancel()`, external `fetch` underlying tool calls). Mastra pattern at `:1182-1193`.
 
 ### 15.3 Upward Contract (Runtime → UI)
 
@@ -828,26 +1003,36 @@ User cancel, system-triggered abort (tenant budget tripped, provider outage, qua
 
 **SSE event schema (versioned via `event_schema_version` header):**
 
-| Event                   | Payload                                                                 |
-| ----------------------- | ----------------------------------------------------------------------- | --------- | ------- | ------- | ----- | ------- |
-| `turn.started`          | `{ trace_id, conversation_id }`                                         |
-| `phase.started`         | `{ phase, sub_agents: [domain] }` (domain-only in prod)                 |
-| `progress`              | `{ message }` — human-readable, i18n-resolved                           |
-| `refusal.started`       | `{ reason }` — pre-stream, structured                                   |
-| `answer.shape_declared` | `{ shape, skeleton? }` — pre-token, fires for non-narrative shapes      |
-| `answer.token`          | `{ text }` — streaming tokens                                           |
-| `answer.complete`       | `{ shape, content, citations }` — final structured output               |
-| `draft.proposed`        | `{ action_id, summary, tier, requires_approval, provenance }` — see §10 |
-| `turn.ended`            | `{ reason }` — one of `completed                                        | cancelled | timeout | refused | error | budget` |
+| Event                   | Payload                                                                                                       | Phase |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------- | ----- |
+| `turn.started`          | `{ trace_id, conversation_id, topology: 'bounded' \| 'iterative' }`                                           | MVP   |
+| `phase.started`         | `{ phase, sub_agents: [domain] }` (domain-only in prod) — bounded only                                        | MVP   |
+| `iteration.started`     | `{ n, sub_agent_domain, selection_reason }` — iterative only (§3.1)                                           | GA    |
+| `iteration.validated`   | `{ n, passed: boolean, scorer_results, max_iterations_reached: boolean }` — iterative only                    | GA    |
+| `iteration.ended`       | `{ n, is_complete, usage }` — iterative only                                                                  | GA    |
+| `progress`              | `{ message }` — human-readable, i18n-resolved                                                                 | MVP   |
+| `refusal.started`       | `{ reason, processor_id?, retry_allowed: boolean, metadata? }` — pre-stream, structured                       | MVP   |
+| `answer.shape_declared` | `{ shape, skeleton? }` — pre-token, fires for non-narrative shapes                                            | MVP   |
+| `answer.token`          | `{ text }` — streaming tokens                                                                                 | MVP   |
+| `answer.complete`       | `{ shape, content, citations }` — final structured output                                                     | MVP   |
+| `draft.proposed`        | `{ action_id, summary, tier, requires_approval, provenance }` — see §10                                       | MVP   |
+| `turn.ended`            | `{ reason, usage: { input_tokens, output_tokens, input_cached_read, input_cached_write, output_reasoning } }` | MVP   |
+
+`turn.ended.reason` is one of `completed | cancelled | timeout | refused | error | budget | provider_outage | quality_canary`.
+
+**Every event carries a `metadata?: Record<string, unknown>` bag** for feature-flagged experimentation. The `metadata` bag is explicitly non-versioned and MAY change across deploys; contents are never load-bearing. The schema shape itself is versioned via the `event_schema_version` header and freezes at each GA milestone.
 
 **SSE event ordering contract:**
 
 1. `turn.started` — always first.
-2. Zero or more `phase.started` / `progress` interleaved with the rest.
-3. Exactly one of:
+2. **Bounded:** zero or more `phase.started` / `progress` interleaved with the rest.
+3. **Iterative (§3.1):** zero or more `iteration.started` / `iteration.validated` / `iteration.ended` / `progress` interleaved; each iteration's triplet must appear in order `started → validated → ended`.
+4. Exactly one of:
    - `refusal.started` followed by a terminal `turn.ended` with `reason: refused`. No `answer.*` events. No `draft.proposed`.
    - Optional `answer.shape_declared` → `answer.token` stream → `answer.complete`. Followed by zero or more `draft.proposed` (after `answer.complete`, never interleaved with `answer.token`). Then `turn.ended`.
-4. `turn.ended` — always last. Exactly one per stream.
+5. `turn.ended` — always last. Exactly one per stream.
+
+**Ordering is runtime-asserted, not prose-only.** The outer stream gateway validates each emitted event against the state machine above and raises (closing the stream with `error`) if a producer emits out of order. Invariants as prose decay; as assertions they survive refactors. Prior art: mastra's ordering is writer-discipline only (spike 10-streaming-events) — we upgrade.
 
 Drafts fire after `answer.complete` to avoid half-rendered state: the UI commits the full answer first, then receives atomic draft cards.
 
@@ -859,6 +1044,8 @@ Drafts fire after `answer.complete` to avoid half-rendered state: the UI commits
 - Domain modules expose nothing agent-specific beyond `.meta({ agent })` on procedures they opt into.
 - L4 lazy fetches (`AdminQueryFacade.getCurrencyPreference`) go through the same tRPC + gateway path as any other tool.
 - Domain commands receiving `execute-approved-draft` jobs MUST revalidate preconditions (§10).
+
+**Identity keys on per-request context are middleware-write-only.** `tenant_id`, `user_id`, `trace_id`, `delegation_id` (async), and `surface` are set exclusively by `RlsMiddleware` / JWT verifier / pg-boss worker bootstrap. Tool handlers, sub-agent code, and processors **read** from context; they cannot **write** identity keys. Attempts throw at dev time and are silently dropped at runtime — never override. Prior art: mastra's `MASTRA_RESOURCE_ID_KEY` reserved-constant middleware-precedence pattern (spike 02-identity-tracking), adapted to RLS by making it write-only rather than merely precedence-ordered.
 
 ### 15.5 Sideways Contract (Runtime ↔ Kernel)
 
@@ -877,30 +1064,65 @@ One `trace_id` namespace end-to-end makes all of this cheap.
 
 ---
 
-## 16. Deferred to v1.5+
+## 16. Feature Activation Gates
 
-Explicit list. v1 does not include:
+**Every feature in this specification is production-committed.** Nothing is "deferred" in the sense of "might never ship." Each row below names its activation gate — an observable threshold, product decision, or incident-driven trigger that determines **when** it turns on, not **if**. Rollout phases (MVP / Beta / GA) are the ordering of activation, not a hierarchy of importance.
 
-- **Agent-proposed L3 writes.** v1 = user-initiated only. Revisit with eval coverage.
-- **Embeddings over L2 conversation history.** Recency + L3 sufficient for v1 chat lengths.
-- **Observational / compressed L2 memory.** v1 uses recency windowing (§6). Trigger to spike an upgrade: session lengths routinely approach the context window (same trigger §5 already names). Evaluation is an isolated, reversible spike on the L2 read path — vendor-neutral, not a silent adoption of any specific library. Outcome feeds back into §5's embedding/no-embedding decision.
-- **L4 pre-injection.** v1 = lazy fetch only.
-- **Topic-scoped user-managed conversations** (Q17 option C). Defer unless users ask.
-- **Phase 3 / DAG execution.** Two-phase bounded invariant is enforceable; DAG depth is not.
-- **Async autonomous writes.** v1 = read-only + notify + draft-to-inbox.
-- **Shadow-mode traffic.** Gateway is shadow-ready in v1; shadow traffic deferred.
-- **LLM-as-judge evals.** v1.5, meta-eval gated.
-- **Full-fleet prompt capture.** v1 = stratified sampling.
-- **Self-hosted model tier.** v1 = provider-only (OpenAI cost-tiered).
-- **Cross-tenant analytics / benchmarking.** Not in scope.
-- **`refusal-on-historically-accepted-pattern-match` quality signal.** Requires nontrivial L2 pattern matching; deferred pending ROI signal.
-- **Full sub-agent governance machinery** (declared review process, example-query requirements, gate criteria). Trigger-based adoption: activates when router-accuracy regression fires sustained OR sub-agent headcount passes ~7, whichever comes first.
+| Feature                                                      | Phase | Activation gate                                                                                                                                 | Owner §§ |
+| ------------------------------------------------------------ | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Two-phase bounded topology                                   | MVP   | First production turn                                                                                                                           | §3       |
+| Gateway processor pipeline + tool registry `.meta({agent})`  | MVP   | First production turn                                                                                                                           | §7       |
+| L1/L2/L3 memory + L4 lazy fetch                              | MVP   | First production turn                                                                                                                           | §5       |
+| Stratified trace sampling (1% + 5 triggers)                  | MVP   | First production turn                                                                                                                           | §12      |
+| Draft-to-inbox + `execute-approved-draft` pg-boss            | MVP   | First production turn                                                                                                                           | §10      |
+| SSE event schema v1                                          | MVP   | First production turn                                                                                                                           | §15      |
+| Abort reason enum + `AbortSignal.any` composition            | MVP   | First production turn                                                                                                                           | §15.2    |
+| Dollar-denominated cost with cache-read/write split          | MVP   | First production turn                                                                                                                           | §13      |
+| Golden-trace CI suite (≤20 rows)                             | MVP   | First production turn                                                                                                                           | §14      |
+| **Shadow-mode capable gateway (`mode: execute \| dry-run`)** | MVP   | First production turn — interface is load-bearing for Beta model swaps                                                                          | §7, §14  |
+| **Quality canary + fixture-tenant probe**                    | MVP   | First production turn — model degradation is a production-reliability signal, not optional                                                      | §12      |
+| **Async agents (scheduled, read-only + draft-to-inbox)**     | MVP   | First production turn                                                                                                                           | §11      |
+| **Iterative supervisor topology**                            | Beta  | Router classifies first real open-ended task; two-phase bounded ships first so the gateway/pipeline stabilize                                   | §3.1     |
+| **L3.5 agent scratchpad (write-tool, allowlisted fields)**   | Beta  | Product decision — activated when persistent-cross-conversation agent memory is explicitly scoped into a product feature                        | §5       |
+| **L4 pre-injection (performance opt-in)**                    | Beta  | Lazy fetch p95 exceeds budget AND facts are static-per-tenant                                                                                   | §5       |
+| **Embeddings / semantic recall**                             | GA    | Session lengths routinely exceed context window OR "I already told you" thumbs-down rate > threshold. §16 RAG tree governs the activation spike | §5       |
+| **LLM-as-judge scorers for regression gating**               | GA    | `SetaGoldenCorpus` ≥100 rows hand-labeled AND meta-eval ≥95% agreement                                                                          | §14      |
+| **Per-iteration synthesizer (live narration)**               | GA    | UX demand signal from iterative-turn observations                                                                                               | §3.1     |
+| **Full-fleet prompt capture (beyond stratified)**            | GA    | Incident requires replay on a currently-unsampled turn class twice                                                                              | §8       |
+| **Async autonomous writes**                                  | GA    | Incident-free async draft-to-inbox for two quarters AND approval-rate ≥95%                                                                      | §11      |
+| **Agent-proposed L3 writes**                                 | GA    | Thumbs-down corpus + eval coverage permit supervised extraction                                                                                 | §5       |
+| **Self-hosted model tier**                                   | GA    | Cost or data-sovereignty constraint forces off-OpenAI                                                                                           | §13      |
+| **Full sub-agent governance (authoring review gates)**       | GA    | Router-accuracy regression fires sustained OR sub-agent headcount > ~7                                                                          | §17      |
+
+Plans (`docs/agents/plans/`) own the how-to-implement; this table owns the gate criteria. Moving a row up (e.g. Beta → MVP) is a product decision that changes the plan's delivery order, not its existence.
+
+### RAG activation spike — 8-question decision tree
+
+When the embedding gate fires (§5), the activation spike answers these in order before shipping:
+
+1. **Tenant partitioning first** — pgvector schema-per-tenant vs partition-key vs separate DB? Never metadata-post-filter (cf. mastra's `memory_messages` shared index, spike 05-rag-semantic-recall).
+2. **Raw-recall vs observational-memory** — embed every message vs summarize-then-embed? Different cost/safety/quality profiles.
+3. **Embedding model** — `text-embedding-3-small` baseline; budget for rerank.
+4. **Chunk strategy per content type** — short chat messages tolerate whitespace-split; longer artifacts need overlap + semantic boundaries.
+5. **Tool-call, not auto-inject** — RAG retrieval is a sub-agent tool, never a context-layer pre-inject (same L4 lazy pattern).
+6. **Rerank** — hybrid (lexical + vector) with rerank, or vector-only? Start vector-only; add rerank only on measured recall-quality deficit.
+7. **Fire-and-forget write path** — embedding write is async (out-of-band), never inline in `saveMessages` (cf. mastra `:946-1020`, rejected).
+8. **Feature-flag reversibility** — spike must be one-flag-off revertible. If retrieval can't be disabled cleanly, it was built wrong.
+
+### Out of scope (not activation-gated, genuinely not building)
+
+Distinct from "activation-gated" — these are decisions to not build, with a recorded reason.
+
+- **Phase 3 / DAG execution.** Iterative supervisor (§3.1) is the chosen alternative; DAG depth is not enforceable.
+- **Cross-tenant analytics / benchmarking.** Privacy-incompatible with tenant isolation.
+- **Topic-scoped user-managed conversations** (prior Q17 option C). Defer unless users ask — if they do, it becomes a product feature, not a runtime change.
+- **`refusal-on-historically-accepted-pattern-match` quality signal.** Superseded by the confidence-calibration dashboard (§12) + thumbs-down feedback loop.
 
 ---
 
 ## 17. Open Seams (design-complete, implementation TBD)
 
-These do not block v1 design lock.
+These do not block production readiness — they are scheduling-and-process questions, not architectural ones.
 
 - **Sub-agent authoring process.** Eval harness per sub-agent, prompt-composition review gates. The declaration _shape_ is locked in §3 ("Sub-agent declaration site"); the _process_ around authoring is not.
 
@@ -910,7 +1132,142 @@ These do not block v1 design lock.
 
 - **Confidence derivation rule table (§9).** Refined as observed regressions inform it. Calibration signal for refinement is locked in §12.
 
-**Closed in this revision:** sub-agent declaration site (§3), tool-result caching semantics (§7), confidence calibration signal (§12). **Closed in implementation doc:** agent module internal structure.
+### Prior art reviewed
+
+**Mastra** (`/Users/canh/Projects/Seta/mastra`, `packages/core/src/{agent,loop,processors,observability,memory,workflows}` + `packages/memory,packages/rag,packages/_llm-recorder,packages/evals,packages/agent-builder`). Evaluated end-to-end via 11 spike findings under `docs/spike/mastra/`.
+
+**Borrowed (with §-section mapping):**
+
+| Pattern                                                                                         | Applied at | Spike finding                           |
+| ----------------------------------------------------------------------------------------------- | ---------- | --------------------------------------- |
+| Gateway processor-pipeline vocabulary (ordered steps + tripwires + child spans)                 | §7         | 07-processors                           |
+| Tripwire `retry` disposition alongside `abort`                                                  | §4, §7     | 07-processors                           |
+| Span naming convention `gateway:<step-name>` + per-step attribute recording                     | §7, §12    | 07-processors, 08-observability-tracing |
+| Polymorphic sampling-strategy typing with trace-level atomicity                                 | §12        | 08-observability-tracing                |
+| Two-dimensional span taxonomy (`span_type` × `entity_type`)                                     | §12        | 08-observability-tracing                |
+| Leaf-only usage accumulation to prevent double-count                                            | §12        | 08-observability-tracing, 09-cost-usage |
+| `request_context_keys` auto-stamp on spans                                                      | §12        | 08-observability-tracing                |
+| `requestContext` middleware-write-only identity-key discipline                                  | §15.4      | 02-identity-tracking                    |
+| Router-prompt generation from registry with inline JSON Schema                                  | §3         | 04-routing, 12-agent-builder-config     |
+| Debounced save-queue with per-conversation serialization                                        | §5         | 03-memory                               |
+| Structured-output parse fallback (one retry with schema re-inject, no string repair)            | §4         | 04-routing                              |
+| SSE `metadata?: Record<string,unknown>` bag for feature-flagged experimentation                 | §15        | 10-streaming-events                     |
+| `refusal.started` carries `{ reason, processor_id, retry, metadata }`                           | §15        | 10-streaming-events                     |
+| Iterative topology as second supported shape + event triplet                                    | §3.1, §15  | 01-orchestrator, 10-streaming-events    |
+| `AbortSignal.any([userCancel, AbortSignal.timeout, systemAbort])` composition                   | §15.2      | 11-cancellation-abort                   |
+| Active-cancel-via-listener for resources with native cancel APIs                                | §15.2      | 11-cancellation-abort                   |
+| `pricing_id` + `priced_at` stamping on cost events for audit-safe re-pricing                    | §13        | 09-cost-usage                           |
+| Cache-read vs cache-write rate split (mastra exposes but doesn't bill)                          | §13        | 09-cost-usage, 08-observability         |
+| `DEFAULT_BLOCKED_LABELS` cardinality guardrail on metrics                                       | §13        | 09-cost-usage                           |
+| `tier_shift` vs `provider_fallback` as distinct finish reasons                                  | §13        | 09-cost-usage                           |
+| Scorer `{ score, passed, reason }` + `scope` + `kind` shape                                     | §14        | 06-harness-eval-replay                  |
+| Trace-level regression scorer (`scoreTracesWorkflow` pattern)                                   | §14        | 06-harness-eval-replay                  |
+| `requestContext.get('filter')` tool-call tenant-filter pattern (for L3/Planner lookup, not RAG) | §5, §15.4  | 05-rag-semantic-recall                  |
+| Explicit ownership-is-RLS invariant, rejecting app-layer equality                               | §6         | 02-identity-tracking                    |
+| Router read-surface γ/α-only invariant                                                          | §5, §6     | 01-orchestrator                         |
+| `memoryScope: { reads, writes }` explicit per sub-agent                                         | §3         | 12-agent-builder-config                 |
+| Content-hash canonicalization rules (key-sort, null-preserve, ISO-date re-parse)                | §8         | 06-harness-eval-replay                  |
+| Message-filter-for-sub-agent-delegation → validated our `project_to_schema` approach            | §3         | 01-orchestrator                         |
+
+**Explicitly rejected, recorded so future maintainers do not re-litigate:**
+
+- **Observational memory / embeddings-based recall as-shipped.** Coupled to `saveMessages` (inline), shared `memory_messages` table across tenants with metadata post-filter. Violates §5 no-embeddings-at-MVP + §1 Tenet #1. Activation path is §16 RAG tree, not library adoption.
+- **Resumable workflow execution engine with serialized graph state.** Violates Tenet #3 (domain owns workflows). Draft-to-approval runs through notifications + pg-boss `execute-approved-draft`, not a runtime-layer state machine. Spike 13-workflows-execution confirms no architectural compromise is needed.
+- **Pluggable delegation hooks** (`onDelegationStart` / `messageFilter` / `onDelegationComplete`). Violates §3 "router produces a plan; code executes it." Observability needs met by span attributes, not callback surfaces.
+- **Claude-specific trailing-assistant guards** (`prefill-error-handler`, `TrailingAssistantGuard`). Not applicable under §2.1 Vercel-AI-SDK + OpenAI pin; revisit only if the model pin changes.
+- **MSW-based HTTP-level replay** (`packages/_llm-recorder`) with string-similarity fuzzy fallback at 0.6 threshold. Our replay operates at prompt-assembly level and raises on miss (§8) — fuzzy reconstruction is worse than no reconstruction.
+- **Unified `agent | workflow | tool` primitive at router level.** Our sub-agents are homogeneous; domain workflows invoked through sub-agent tool calls. Heterogeneous router primitives make input schema + permission model inconsistent.
+- **Storing routing decisions in the conversation + filtering on read** (`filterMessagesForSubAgent` content-parser). Auditable-by-construction stored summaries (§6) beat content-parser filters that depend on future contributors remembering them.
+- **Scorer-gated unbounded iteration.** Iterative topology (§3.1) is bounded by per-turn cap + per-iteration cost gates; mastra's `dountil(scorer passes)` has no hard iteration cap in their default.
+- **LLM-judge as exit scorer at MVP/Beta.** `SetaScorer.kind` discriminator rejects LLM-judge registration until meta-eval gate clears (§14).
+- **Embeddings-on-save inline write path.** Mastra couples embedding write to `saveMessages` (`packages/memory/src/index.ts:946-1020`), creating dependency of DB writes on OpenAI availability. Our §16 RAG tree mandates fire-and-forget out-of-band.
+- **AsyncLocalStorage as primary context propagation.** Parameter-threading (our choice + mastra's primary) is clearer and testable; ALS is escape-hatch only.
+- **Implicit memory inheritance from parent agent.** Mastra silently assigns parent memory to sub-agent with none (`agent.ts:3305-3306`). Our `memoryScope` is explicit, opt-in per tier.
+- **Free-text `additionalInstructions` router-prompt addendum.** Breaks prompt-hash stability (§8) and is a latent injection surface. Tenant routing variation belongs in `whenToUse` per sub-agent (§3).
+- **`mastra-versions-key` per-request version override via context.** Our A/B stability keys resolve via `tenant_id` hashing (§14); per-request override defeats stability.
+- **Exporter plugin framework for observability.** We commit to Langfuse directly; thin `ObservabilityExporter` interface is over-engineering for a single backend.
+- **Streaming tool-call args to client.** Our sub-agent tool calls are hidden from client UX (§15.1). Mastra streams because their tools are user-observable — different contract, correct divergence.
+
+**Closed in this revision:** sub-agent declaration site (§3), gateway processor pipeline (§7), tool-result caching semantics (§7), confidence calibration signal (§12), prior-art review scope (§17). **Closed in implementation doc:** agent module internal structure.
+
+---
+
+## 18. Production Readiness Criteria
+
+Observable thresholds the runtime must meet to be called production-ready. **Criteria are measured on the fixture tenant (§12 quality canary) + 30-day rolling production traffic**, not self-reported.
+
+### 18.1 Reliability
+
+| Metric                                      | Threshold | Measurement window                                                                                                                      |
+| ------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `turn.ended.reason=completed` rate          | ≥99.0%    | 30-day rolling, interactive turns                                                                                                       |
+| Uncaught error rate (turns ending `error`)  | ≤0.2%     | 30-day rolling                                                                                                                          |
+| Provider-outage fallback success rate       | ≥95%      | Any window with ≥50 provider errors                                                                                                     |
+| Single-abort-path compliance                | 100%      | Every `cancelled / timeout / budget / provider_outage / quality_canary` turn routes through §15.2 helper. Audited via trace inspection. |
+| Drafts discarded on abort (never persisted) | 100%      | Verified by audit: zero `draft_persisted` events where trace has `cancellation_reason`.                                                 |
+
+### 18.2 Security
+
+| Criterion                                 | Evidence                                                                                                                             |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Cross-tenant leak test                    | Two-tenant seed test suite: every turn-shape runs in tenant A and tenant B; zero A-rows observed from B-side. Gated on every CI run. |
+| RLS unbypassable at domain boundary       | Lint rule blocks domain-service imports from agent module. Build fails on violation.                                                 |
+| Identity-key write-discipline enforcement | Unit test per layer: sub-agent code setting `ctx.set('tenant_id', ...)` throws in dev, silently dropped in prod.                     |
+| Taint-propagates-across-approval          | End-to-end test: tenant-authored note → drafted write → approval → execution trace stamped `derived_from_tainted_sources` non-empty. |
+| Kernel audit for every tool call          | Trace-vs-audit join: zero tool-call spans without matching audit rows in 30-day window.                                              |
+
+### 18.3 Cost stability
+
+| Metric                                                 | Threshold                                                                                     |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Per-turn cost p95 variance                             | ≤20% week-over-week outside deliberate model changes                                          |
+| Cache-hit rate on hot sessions (≥5-turn conversations) | ≥60% (indicates §8 prompt-cache discipline holds)                                             |
+| Budget-refusal precision                               | ≥99% of `refused/budget` turns correspond to actual budget state; ≤1% false-positive refusals |
+| `adapter_dropped_cache_fields` events                  | 0 sustained — any occurrence is a P1 incident                                                 |
+| Tier-degradation user-notice rate                      | 100% of `tier_shift` events surface the explicit UI message from §13                          |
+
+### 18.4 Observability
+
+| Criterion                                         | Evidence                                                                                                                                       |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `trace_id` correlation end-to-end                 | Sample 100 random traces monthly; every trace has matching rows in `agent_message`, `kernel_audit`, Langfuse, pg-boss (if async). Zero dangle. |
+| Stratified-sampling trigger coverage              | All 5 MVP triggers (+ Beta/GA additions) fire 100%-capture in the last 30 days with verifiable count ≥1 each.                                  |
+| Canary detects ≥1 planted degradation per quarter | Quarterly red-team: deliberately-broken prompt deployed to fixture tenant; canary flags degraded within 30 minutes.                            |
+| PII redaction at capture                          | Every 100%-captured trace scanned for `tenantAuthoredFreeText` leakage; zero hits.                                                             |
+| Replay coverage on 100%-captured turns            | 100% — every 100%-sample trace can be replay-reconstructed without any `lookup_miss` error.                                                    |
+
+### 18.5 Rollout safety
+
+| Criterion                             | Evidence                                                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Golden-trace CI gate                  | ≤20-row set gates every prompt / model / tool-meta PR; hard fail on regression.                                                |
+| Canary 1% → 5% → 25% → 100% automated | Auto-rollback triggers on any §12 regression signal exceeding threshold.                                                       |
+| Shadow-mode interface exercised       | At least one model-swap candidate has run in shadow (`mode: dry-run`) against production traffic for ≥7 days before promotion. |
+| Version-pinning across retries        | pg-boss retry audit: 100% of retries hit the same `pinned_versions` as the original spawn.                                     |
+
+### 18.6 Incident playbook coverage
+
+A runbook exists and has been dry-run exercised for each of:
+
+- **Provider outage** (§13 `provider_fallback`, §15.2 `cancellation_reason: provider_outage`)
+- **Budget exhaustion mid-flight** (§13 mid-turn abort path)
+- **Quality canary degradation** (§12 degraded-flag, §13 tier routing)
+- **Cross-tenant leak alert** (§18.2 test suite red)
+- **Content-hash store miss during replay** (§8 error path; dev-mode only)
+- **Adapter-dropped-cache-fields alarm** (§13 P1)
+- **Approval-inbox flood** (§13 throttle tripped)
+- **GDPR erasure partial success** (§6 compliance incident)
+
+### 18.7 GA gate
+
+The runtime is **GA** when:
+
+1. All §18.1–§18.5 thresholds are met for **two consecutive 30-day windows**.
+2. All §18.6 runbooks have been dry-run exercised at least once with post-mortem written.
+3. Zero P1 security incidents in the prior 90 days.
+4. At least 3 tenants live, with combined traffic ≥1,000 interactive turns/day.
+
+Pre-GA (MVP / Beta) operates under the same architectural invariants; the difference is tenant count, traffic volume, and incident-playbook maturity — not feature set.
 
 ---
 
