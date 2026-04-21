@@ -40,6 +40,7 @@ interface PendingEntry {
 
 interface CompletedEntry {
   kind: 'completed'
+  readonly toolName: string
   result: unknown
   resultHash: string
 }
@@ -137,14 +138,15 @@ export class L1Cache {
 
     const complete = (result: unknown): void => {
       const current = this.entries.get(key)
-      // Guard: if invalidated before complete(), just resolve the promise
-      // with the result (the invalidation already rejected it — but pending
-      // entries are removed on invalidate, so current will be absent).
+      // Entry was removed by invalidate() or clear() before this completion
+      // landed. The promise has already been settled (rejected) by invalidate(),
+      // or abandoned by clear(). Either way, there's nothing to do.
       if (!current || current.kind !== 'pending') return
 
       const resultHash = canonicalize(result).hash
       const completedEntry: CompletedEntry = {
         kind: 'completed',
+        toolName,
         result,
         resultHash,
       }
@@ -171,9 +173,7 @@ export class L1Cache {
    */
   invalidate(toolNamePrefix: string): void {
     for (const [key, entry] of this.entries) {
-      const toolName = entry.kind === 'pending' ? entry.toolName : key.split('::')[0]!
-
-      if (matchesPrefix(toolName, toolNamePrefix)) {
+      if (matchesPrefix(entry.toolName, toolNamePrefix)) {
         if (entry.kind === 'pending') {
           entry.deferred.reject(new InvalidationAbortError(entry.toolName, entry.argsHash))
         }

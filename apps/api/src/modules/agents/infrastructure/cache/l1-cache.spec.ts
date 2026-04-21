@@ -236,6 +236,32 @@ describe('L1Cache', () => {
       cache.invalidate('planner.task')
       expect(cache.size()).toBe(0)
     })
+
+    it('complete() after invalidate() is a silent no-op (entry does not reappear)', () => {
+      const cache = new L1Cache()
+      const handle = cache.registerInFlight('planner.task.getBoard', 'h1')
+
+      // Avoid unhandled-rejection on the pending promise
+      handle.promise.catch(() => {})
+
+      cache.invalidate('planner.task.getBoard')
+      expect(() => handle.complete({ ok: true })).not.toThrow()
+      expect(cache.lookup('planner.task.getBoard', 'h1')).toBeUndefined()
+      expect(cache.size()).toBe(0)
+    })
+
+    it('fail() after invalidate() is a silent no-op (entry does not reappear)', () => {
+      const cache = new L1Cache()
+      const handle = cache.registerInFlight('planner.task.getBoard', 'h1')
+
+      // Avoid unhandled-rejection on the pending promise
+      handle.promise.catch(() => {})
+
+      cache.invalidate('planner.task.getBoard')
+      expect(() => handle.fail(new Error('late failure'))).not.toThrow()
+      expect(cache.lookup('planner.task.getBoard', 'h1')).toBeUndefined()
+      expect(cache.size()).toBe(0)
+    })
   })
 
   describe('clear()', () => {

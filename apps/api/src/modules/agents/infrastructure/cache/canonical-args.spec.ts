@@ -28,6 +28,10 @@ function shuffleKeys(obj: Record<string, unknown>): Record<string, unknown> {
 // ─── Property: key order idempotence ─────────────────────────────────────────
 
 describe('canonicalize — key order idempotence (property)', () => {
+  // Math.random() is unseeded here. The property under test (sort idempotence)
+  // is universally true for all inputs. A failure is not a flake — it means the
+  // property is broken for SOME input. The minimal failing case is deterministic
+  // once the seed is known; shrink by bisecting the generated object.
   it('produces identical canonical for shuffled flat objects (50 samples)', () => {
     for (let i = 0; i < 50; i++) {
       const original = randomFlatObject(5 + Math.floor(Math.random() * 10))
@@ -41,6 +45,10 @@ describe('canonicalize — key order idempotence (property)', () => {
 // ─── Property: null vs undefined preservation ────────────────────────────────
 
 describe('canonicalize — null vs undefined (property)', () => {
+  // Math.random() is unseeded here. Both properties (undefined-drops, null-preserves)
+  // are universally true for all inputs — a failure means the invariant is broken,
+  // not a transient flake. Any failure is reproducible: identify the failing
+  // random object via the seed or binary-search the input space.
   it('adding {x: undefined} does not change the hash (20 samples)', () => {
     for (let i = 0; i < 20; i++) {
       const base = randomFlatObject(3 + Math.floor(Math.random() * 5))
@@ -200,14 +208,11 @@ describe('canonicalize — edge cases', () => {
     expect(hash).toMatch(/^[0-9a-f]{64}$/)
   })
 
-  it('undefined at top level → canonical "undefined" drops gracefully', () => {
-    // undefined → JSON.stringify(undefined) returns undefined not "null"
-    // Our code: canonicaliseValue(undefined) = undefined, JSON.stringify(undefined) = undefined
-    // We guard with ?? 'null', so top-level undefined → "null"
-    // Actually the brief doesn't specify top-level undefined behaviour explicitly —
-    // we output "null" as fallback (safe).
-    const { canonical } = canonicalize(undefined)
-    expect(canonical).toBe('null')
+  it('undefined at top level throws — no valid JSON representation', () => {
+    // top-level undefined has no JSON equivalent; we reject it explicitly rather
+    // than silently normalising to "null" (which would be indistinguishable from
+    // a legitimate null argument).
+    expect(() => canonicalize(undefined)).toThrow(/top-level undefined/)
   })
 
   it('object with only undefined values → "{}"', () => {
@@ -216,5 +221,44 @@ describe('canonicalize — edge cases', () => {
 
   it('mixed undefined and null → only null key survives', () => {
     expect(canonicalize({ a: undefined, b: null }).canonical).toBe('{"b":null}')
+  })
+})
+
+// ─── __proto__ hash-collision regression ─────────────────────────────────────
+
+describe('canonicalize — __proto__ key is not silently dropped (cache-poisoning regression)', () => {
+  // Must use Object.defineProperty to create a true own enumerable "__proto__"
+  // property. Writing `obj.__proto__ = ...` invokes the prototype setter and
+  // does NOT create an own property — the test would pass vacuously.
+
+  function makeWithProtoKey(
+    protoVal: unknown,
+    extra?: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const obj: Record<string, unknown> = { ...(extra ?? {}) }
+    Object.defineProperty(obj, '__proto__', {
+      value: protoVal,
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    })
+    return obj
+  }
+
+  it('{ __proto__: {x:1}, a:1 } and { a:1 } produce DIFFERENT hashes', () => {
+    const withProto = makeWithProtoKey({ x: 1 }, { a: 1 })
+    const withoutProto = { a: 1 }
+    expect(canonicalize(withProto).hash).not.toBe(canonicalize(withoutProto).hash)
+  })
+
+  it('{ __proto__: {x:1}, a:1 } and { a:1 } produce DIFFERENT canonical strings', () => {
+    const withProto = makeWithProtoKey({ x: 1 }, { a: 1 })
+    const withoutProto = { a: 1 }
+    expect(canonicalize(withProto).canonical).not.toBe(canonicalize(withoutProto).canonical)
+  })
+
+  it('canonical string for { __proto__: {x:1} } contains "__proto__" literally', () => {
+    const withProto = makeWithProtoKey({ x: 1 })
+    expect(canonicalize(withProto).canonical).toContain('__proto__')
   })
 })

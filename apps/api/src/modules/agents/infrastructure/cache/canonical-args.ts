@@ -37,13 +37,13 @@ function canonicaliseValue(value: unknown): unknown {
 
   const t = typeof value
 
-  if (t === 'boolean' || t === 'number') {
-    if (t === 'number') {
-      if (!Number.isFinite(value as number)) {
-        throw new TypeError(
-          `canonicalize: illegal numeric value ${String(value)} — NaN and Infinity have no JSON representation`,
-        )
-      }
+  if (t === 'boolean') return value
+
+  if (t === 'number') {
+    if (!Number.isFinite(value as number)) {
+      throw new TypeError(
+        `canonicalize: illegal numeric value ${String(value)} — NaN and Infinity have no JSON representation`,
+      )
     }
     return value
   }
@@ -85,7 +85,9 @@ function canonicaliseValue(value: unknown): unknown {
 
     const obj = value as Record<string, unknown>
     const sortedKeys = Object.keys(obj).sort()
-    const result: Record<string, unknown> = {}
+    // Use Object.create(null) so that a literal "__proto__" key is stored as an
+    // ordinary own property rather than invoking the prototype setter.
+    const result = Object.create(null) as Record<string, unknown>
     for (const key of sortedKeys) {
       const v = canonicaliseValue(obj[key])
       if (v !== undefined) {
@@ -119,8 +121,16 @@ export interface CanonicalizeResult {
  * - BigInt / Function / Symbol / class instances → throw
  */
 export function canonicalize(args: unknown): CanonicalizeResult {
+  if (args === undefined) {
+    // top-level undefined has no valid JSON representation; reject explicitly
+    // rather than silently normalising to "null" (which would confuse it with
+    // a legitimate null argument).
+    throw new TypeError(
+      `canonicalize: top-level undefined is not a valid argument — pass null or omit the field`,
+    )
+  }
   const normalised = canonicaliseValue(args)
-  const canonical = JSON.stringify(normalised) ?? 'null'
+  const canonical = JSON.stringify(normalised) as string
   const hash = createHash('sha256').update(canonical).digest('hex')
   return { canonical, hash }
 }
