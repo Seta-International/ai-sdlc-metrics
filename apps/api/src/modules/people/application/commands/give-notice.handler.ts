@@ -1,6 +1,6 @@
 import { Inject } from '@nestjs/common'
 import { CommandHandler, EventBus, type ICommandHandler } from '@nestjs/cqrs'
-import { EmployeeNoticeGivenEvent } from '@future/event-contracts'
+import { EmployeeNoticeGivenEvent, TerminationInitiatedEvent } from '@future/event-contracts'
 import { EmploymentNotFoundException } from '../../domain/exceptions/people.exceptions'
 import {
   EMPLOYMENT_REPOSITORY,
@@ -31,6 +31,19 @@ export class GiveNoticeHandler implements ICommandHandler<GiveNoticeCommand, voi
         command.employmentId,
         command.lastWorkingDay,
         command.noticeType,
+      ),
+    )
+
+    await this.eventBus.publish(
+      new TerminationInitiatedEvent(
+        command.tenantId,
+        command.employmentId,
+        employment.personProfileId,
+        command.initiatedBy,
+        command.lastWorkingDay,
+        command.noticeType,
+        command.initiatedBy,
+        new Date(),
       ),
     )
   }
