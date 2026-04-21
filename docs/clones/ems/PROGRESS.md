@@ -57,7 +57,7 @@ graph LR
 | Task                            | Status  | Priority | Blocked By |
 | ------------------------------- | ------- | -------- | ---------- |
 | 001-schema-evolution            | done    | high     | —          |
-| 002-lifecycle-state-machine     | pending | high     | 001        |
+| 002-lifecycle-state-machine     | done    | high     | 001        |
 | 003-directory-search            | pending | high     | 001        |
 | 004-change-request-enhancements | pending | high     | 001        |
 | 005-employee-documents          | pending | medium   | 001        |
