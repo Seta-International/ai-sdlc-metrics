@@ -41,12 +41,23 @@ import { ToolGateway } from './application/services/tool-gateway'
 import { getAppRouter } from '../../common/trpc/app-router'
 // Sub-agent registry (Task 3)
 import { SubAgentRegistry, SUB_AGENT_REGISTRY } from './infrastructure/registry/sub-agent-registry'
+// Intent registry (Task 4)
+import { IntentRegistry, INTENT_REGISTRY } from './infrastructure/registry/intents/intent-registry'
 // Module sub-agent barrels.
 //   • Adding a sub-agent to an EXISTING module: re-export it from that module's
 //     barrel (agent/sub-agents/index.ts). No changes here are needed.
 //   • Adding sub-agents for a NEW domain module: add a new import below and
 //     include the descriptor(s) in the `descriptors` array in onModuleInit().
 import { plannerReadOnlySubAgent } from '../planner/agent/sub-agents'
+// Module intent barrels.
+//   • Adding an intent to an EXISTING module: re-export it from that module's
+//     barrel (agent/intents/index.ts). No changes here are needed.
+//   • Adding intents for a NEW domain module: add a new import below and
+//     include the descriptor(s) in the `intentDescriptors` array in onModuleInit().
+import { unclassifiedIntent } from './intents'
+import { listMyTasksIntent, listMyPlansIntent, listEvidenceIntent } from '../planner/agent/intents'
+import { viewMyProfileIntent } from '../people/agent/intents'
+import { listMyAssignmentsIntent } from '../projects/agent/intents'
 
 @Module({
   imports: [
@@ -90,8 +101,11 @@ import { plannerReadOnlySubAgent } from '../planner/agent/sub-agents'
     // Sub-agent registry (Task 3)
     SubAgentRegistry,
     { provide: SUB_AGENT_REGISTRY, useExisting: SubAgentRegistry },
+    // Intent registry (Task 4)
+    IntentRegistry,
+    { provide: INTENT_REGISTRY, useExisting: IntentRegistry },
   ],
-  exports: [AgentsQueryFacade, SUB_AGENT_REGISTRY],
+  exports: [AgentsQueryFacade, SUB_AGENT_REGISTRY, INTENT_REGISTRY],
 })
 export class AgentsModule implements OnModuleInit {
   constructor(
@@ -102,6 +116,7 @@ export class AgentsModule implements OnModuleInit {
     private readonly listInsights: ListInsightsHandler,
     private readonly toolRegistry: ToolRegistry,
     private readonly subAgentRegistry: SubAgentRegistry,
+    private readonly intentRegistry: IntentRegistry,
   ) {}
 
   onModuleInit() {
@@ -135,5 +150,28 @@ export class AgentsModule implements OnModuleInit {
       plannerReadOnlySubAgent,
     ]
     this.subAgentRegistry.boot(descriptors, this.toolRegistry)
+
+    // Step 3: Boot the intent registry.
+    // Order: after subAgentRegistry.boot for readability. The intent registry
+    // has no dependency on the tool registry — it validates slugs and domain
+    // consistency only.
+    //
+    // To add an intent for a new domain module:
+    //   1. Create apps/api/src/modules/<domain>/agent/intents/<name>.ts
+    //   2. Re-export it from apps/api/src/modules/<domain>/agent/intents/index.ts
+    //   3. Import the export here and include it in intentDescriptors below.
+    const intentDescriptors = [
+      // agents module (fallback)
+      unclassifiedIntent,
+      // Planner module intents
+      listMyTasksIntent,
+      listMyPlansIntent,
+      listEvidenceIntent,
+      // People module intents
+      viewMyProfileIntent,
+      // Projects module intents
+      listMyAssignmentsIntent,
+    ]
+    this.intentRegistry.boot(intentDescriptors)
   }
 }

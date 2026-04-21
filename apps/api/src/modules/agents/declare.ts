@@ -11,3 +11,4 @@
 
 export { defineSubAgent } from './domain/services/sub-agent-factory'
 export type { ValidatedSubAgentConfig } from './domain/services/sub-agent-factory'
+export type { IntentDescriptor } from './domain/value-objects/intent-descriptor'
