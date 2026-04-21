@@ -106,13 +106,13 @@ Overlay on the Sprint Plan (Block 3). Makes explicit what QA and DevOps owners d
 
 ### DevOps activities by sprint
 
-| Sprint | DevOps activities                                                                                                                               | Deliverable                                                     | Exit                                                  |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------- |
-| S1     | Terraform for dev + staging (VPC, ECS, ECR, RDS, ALB, CloudFront, WAF, Secrets Manager) · CI pipeline · secrets loaded · observability baseline | Dev + staging envs reachable; PR pipeline green                 | `terraform plan` clean; smoke-deploy to staging works |
-| S2     | Prod Terraform + CD pipeline · staging auto-deploy on merge · prod on tag · auto-rollback wired                                                 | Staging deploys on every merge; prod deploy with rollback drill | Canary-failure drill proves rollback < 15 min         |
-| S3     | SLO dashboards · alert routes · on-call rotation scheduling · pre-pilot load test dry run                                                       | Dashboards live · alerts fire on synthetic error                | First on-call handover rehearsed                      |
-| S4     | Release runbook · load test at 2× pilot concurrency · post-deploy verification · secrets rotation review · backup + restore drill               | Runbook exercised · load target met · backup/restore timed      | Rollback + restore SOPs approved by CTO               |
-| Pilot  | On-call coverage · daily health-check review · cost dashboard review · weekly rotation handover                                                 | On-call calendar · weekly cost report                           | No unresolved P1s carried > 24 h                      |
+| Sprint | DevOps activities                                                                                                                               | Deliverable                                                | Exit                                                     |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------- |
+| S1     | Terraform for dev + staging (VPC, ECS, ECR, RDS, ALB, CloudFront, WAF, Secrets Manager) · CI pipeline · secrets loaded · observability baseline | Dev + staging envs reachable; PR pipeline green            | `terraform plan` clean; smoke-deploy to staging works    |
+| S2     | CD pipeline for pilot-staging · staging auto-deploy on merge · auto-rollback wired. **No prod env in this MVP.**                                | Staging deploys on every merge; rollback drill on staging  | Canary-failure drill on staging proves rollback < 15 min |
+| S3     | SLO dashboards · alert routes · on-call rotation scheduling · pre-pilot load test dry run                                                       | Dashboards live · alerts fire on synthetic error           | First on-call handover rehearsed                         |
+| S4     | Release runbook · load test at 2× pilot concurrency · post-deploy verification · secrets rotation review · backup + restore drill               | Runbook exercised · load target met · backup/restore timed | Rollback + restore SOPs approved by CTO                  |
+| Pilot  | On-call coverage · daily health-check review · cost dashboard review · weekly rotation handover                                                 | On-call calendar · weekly cost report                      | No unresolved P1s carried > 24 h                         |
 
 ## Block 7 — Weekly Cadence Overview
 

@@ -108,5 +108,5 @@ Track totals (indicative): ~41–74 MD across 16 rows.
 | Redis presence for rate limiter or Postgres-only                                                                        | FS#2 + CTO      | W1        |
 | SES sending-domain name (reuses existing SETA domain?)                                                                  | IT              | W2        |
 | Retention windows per entity type (action · transcript · evidence · audit log) — default is indefinite; any exceptions? | Sponsor + Legal | W4        |
-| Which tracing sampling rate in staging vs prod?                                                                         | FS#2 + SRE      | W2        |
+| Tracing sampling rate on pilot-staging env                                                                              | FS#2 + SRE      | W2        |
 | MS Graph subscription resource scopes — are chat / transcript scopes granted at tenant level or filtered by Admin?      | IT + Admin      | W2        |

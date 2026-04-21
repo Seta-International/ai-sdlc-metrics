@@ -106,7 +106,7 @@ Place each stakeholder by influence (row) × interest (column). Cells name the s
 | Dev                   | Design + story      | Code + unit tests + integration tests    | Task ≤ 5 MD; one owner; AC is measurable             | **Test-first: test written and failing before code · ≥70% coverage (lines · functions · branches) · no `__tests__/` dirs (tests co-located) · no Promise.all on DB queries in handlers · no `.js` extensions on relative imports · code review approved by Tech Lead or peer** | Dev                  |
 | QA                    | Build               | Test report; defect list                 | Test plan approved; UAT environment reachable        | 0 critical · ≤ 2 high with documented workaround · ≥ 95% test pass · coverage ≥ 70% · security scan clean                                                                                                                                                                      | QA                   |
 | UAT / Pilot rehearsal | Signed build        | Pilot rehearsal sign-off                 | UAT env with realistic data; pilot playbook drafted  | ≥ 95% pass on pilot rehearsal scripts; no blocker                                                                                                                                                                                                                              | PM + BA              |
-| Release               | UAT sign-off        | Prod deployment                          | Runbook ready; rollback plan in place                | Smoke test passes; Langfuse + CloudWatch dashboards green for 2 hours                                                                                                                                                                                                          | DevOps               |
+| Release               | UAT sign-off        | Pilot-staging deployment                 | Runbook ready; rollback plan in place                | Smoke test passes; Langfuse + CloudWatch dashboards green for 2 hours on staging                                                                                                                                                                                               | DevOps               |
 
 ## Block 7 — KPI Tracking Dashboard
 
@@ -203,7 +203,7 @@ Unit         70%
 2. **Build** — GitHub Actions · Turborepo remote cache · lint · unit · SAST · image build (ARM64 only)
 3. **Test** — Vitest · Playwright · integration against real Postgres via testcontainers · coverage report attached to PR
 4. **Package** — Docker ARM64 image · ECR push · SBOM generation · Cosign sign
-5. **Deploy** — ECS Fargate rolling deploy (staging → prod) · blue-green or canary 10% for high-risk changes · auto-rollback on health check failure
+5. **Deploy** — ECS Fargate rolling deploy to a **single pilot-staging env** (no production env in this MVP) · auto-rollback on health check failure. Production environment is a post-pilot scope item; the pilot itself runs on staging.
 6. **Monitor** — Langfuse · CloudWatch · Sentry · SLO dashboards · on-call rotation (pilot only)
 
 ### DORA targets (Elite-level aim)
