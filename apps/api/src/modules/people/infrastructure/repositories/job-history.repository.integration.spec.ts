@@ -290,6 +290,10 @@ describe('JobHistoryRepositoryImpl', () => {
 
       expect(openEntry).toBeDefined()
       expect(openEntry!.effectiveTo).not.toBeNull()
+      const effectiveToDate = openEntry!.effectiveTo!
+      expect(effectiveToDate.getFullYear()).toBe(2024)
+      expect(effectiveToDate.getMonth() + 1).toBe(6) // June
+      expect(effectiveToDate.getDate()).toBe(30)
 
       expect(closedEntry).toBeDefined()
       // The original closed entry should still have its original effectiveTo

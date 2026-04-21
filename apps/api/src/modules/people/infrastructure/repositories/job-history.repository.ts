@@ -59,7 +59,7 @@ export class JobHistoryRepositoryImpl implements IJobHistoryRepository {
   }
 
   async recordChange(
-    entry: Parameters<IJobHistoryRepository['recordChange']>[0],
+    entry: Omit<JobHistoryEntry, 'id' | 'createdAt' | 'updatedAt' | 'recordedAt'>,
   ): Promise<JobHistoryEntry> {
     const [row] = await this.db.insert(jobHistory).values(entry).returning()
     return this.toEntity(row!)
