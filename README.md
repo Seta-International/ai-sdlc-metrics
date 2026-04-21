@@ -40,16 +40,11 @@ One canonical data layer spans HR, time, hiring, finance, projects, and goals. C
 
 ## Agentic AI
 
-Future is not an app with AI bolted on — the agent layer is load-bearing. Every domain module ships with agents that own their workflow end-to-end, not just generate text for a human to act on.
+Future treats agents as infrastructure, not features. Every domain module ships with embedded agents that own their workflow end-to-end — they don't generate suggestions for a human to act on, they act.
 
-Two modes of operation:
+For high-frequency, deterministic tasks — payroll reconciliation, leave approval routing, contract expiry alerts — agents execute predefined workflows: auditable, fast, and predictable. For open-ended reasoning — cross-module root-cause analysis, performance-against-budget summaries, offer drafting — agents plan their own steps, call the tools they need, and return a sourced answer.
 
-- **Workflows** — deterministic, auditable paths for high-frequency tasks: payroll reconciliation, leave approval routing, contract expiry alerts. Predictable, fast, no hallucination risk.
-- **Agents** — dynamic reasoning for open-ended tasks: "summarise this quarter's hiring performance against budget", cross-module root-cause analysis, drafting and routing offers end-to-end. The agent plans its own steps, calls tools, and surfaces a sourced answer.
-
-The agent-computer interface is MCP. Each module exposes typed tool contracts — agents call tools, never raw SQL. This means the kernel permission layer, tenant RLS, and audit trail apply equally to every agent action and every UI click. An agent can only do what the user who triggered it is allowed to do.
-
-Human checkpoints are built in: agents pause at blockers, surface their reasoning steps, and require explicit confirmation before irreversible writes.
+The technical contract is MCP. Every module exposes typed tool contracts; agents call tools, never the database directly. The kernel permission layer, tenant RLS, and audit trail are identical for agents and UI users. An agent operates with exactly the access of the person who triggered it — no more, no less. Before any irreversible write, the agent surfaces its reasoning and waits for confirmation.
 
 ---
 
