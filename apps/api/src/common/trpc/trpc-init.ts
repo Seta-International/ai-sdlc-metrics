@@ -2,7 +2,7 @@ import { initTRPC } from '@trpc/server'
 import { createAuthMiddleware, type AuthContext } from './auth-middleware'
 import type { JwtService } from '../auth/jwt.service'
 import type { PermissionKey } from '../auth/permissions'
-import type { AgentToolMeta } from '../../modules/agents/infrastructure/tool-registry/agent-tool-meta'
+import type { AgentToolMeta } from './agent-tool-meta'
 
 export interface TrpcMeta {
   /**

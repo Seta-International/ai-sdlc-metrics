@@ -104,6 +104,7 @@ describe('isOk() type predicate', () => {
   })
 
   it('narrows type correctly (compile-time)', () => {
+    expect.assertions(2)
     const result: ToolGatewayResult = ok({ data: 'x' }, true)
     if (isOk(result)) {
       // TypeScript should allow accessing .result and .fromCache here
@@ -125,6 +126,7 @@ describe('isTripwire() type predicate', () => {
   })
 
   it('narrows type correctly (compile-time)', () => {
+    expect.assertions(3)
     const result: ToolGatewayResult = tripwire('infra_error', 'abort', { service: 'db' })
     if (isTripwire(result)) {
       // TypeScript should allow accessing .variant, .disposition, .context here

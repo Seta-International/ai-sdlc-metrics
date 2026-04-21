@@ -26,7 +26,7 @@ export type TripwireDisposition = 'abort' | 'retry'
  * These variants always carry disposition `abort`, per §4.
  * Misuse is caught at construction time by `enforceFixedDisposition`.
  */
-const FIXED_ABORT_VARIANTS = new Set<TripwireVariant>([
+const FIXED_ABORT_VARIANTS: ReadonlySet<TripwireVariant> = new Set([
   'permission_denied',
   'permission_denied_disabled',
   'abort_pre_write',
@@ -73,6 +73,8 @@ export type ToolGatewayResult = ToolGatewayOk | Tripwire
 
 // ─── Construction helpers ─────────────────────────────────────────────────────
 
+// `result` is opaque (unknown) — deep-freezing would be brittle and expensive;
+// the security-sensitive surface is `context` (on Tripwire), not `result`.
 export function ok(result: unknown, fromCache: boolean): ToolGatewayOk {
   return Object.freeze({ kind: 'ok', result, fromCache })
 }

@@ -1,6 +1,10 @@
 /**
  * AgentToolMeta — shape of the `.meta({ agent: {...} })` block on tRPC procedures.
  * Per plan 01 §3. Lives in code only; no DB persistence.
+ *
+ * Lives in common/trpc/ because these types are part of the tRPC metadata contract —
+ * they exist solely because tRPC procedures carry `.meta({ agent: {...} })`.
+ * Modules consume this type; common/trpc does not depend on any module.
  */
 export interface AgentToolMeta {
   /** Required. Router decision hint — shown inline in the router prompt. */
@@ -21,8 +25,8 @@ export interface AgentToolMeta {
    */
   readonly tenantAuthoredFreeText?: ReadonlyArray<string>
   /**
-   * Required on `.mutation()` procedures exposed as agent tools.
-   * Drives §10 revalidation contract.
+   * Must be set on `.mutation()` procedures exposed as agent tools — validated at registry
+   * boot time (Task 2). Drives §10 revalidation contract.
    */
   readonly approvalFreshness?: 'revalidate' | 'accept-stale'
   /** Optional, default 72h. Per-tool override for draft expiry. */

@@ -33,7 +33,6 @@ describe('RequestContext type', () => {
 describe('TurnState type', () => {
   it('compiles against a fully-populated sample', () => {
     const state: TurnState = {
-      subAgentKey: 'people-reader',
       tainted: { value: false },
       circuitBreaker: new Map([
         ['people.listEmployees', { permissionDenied: true, brokenAt: Date.now() }],
@@ -46,7 +45,6 @@ describe('TurnState type', () => {
       l1Cache: null,
     }
 
-    expect(state.subAgentKey).toBe('people-reader')
     expect(state.tainted.value).toBe(false)
     expect(state.circuitBreaker.size).toBe(2)
     expect(state.retryCount.get('people.listEmployees')).toBe(1)
@@ -58,7 +56,6 @@ describe('TurnState type', () => {
 
   it('tainted wrapper value is mutable', () => {
     const state: TurnState = {
-      subAgentKey: 'writer',
       tainted: { value: false },
       circuitBreaker: new Map(),
       retryCount: new Map(),
@@ -72,7 +69,6 @@ describe('TurnState type', () => {
 
   it('circuitBreaker entry can represent both permissionDenied and ceilingBreached', () => {
     const state: TurnState = {
-      subAgentKey: 'reader',
       tainted: { value: false },
       circuitBreaker: new Map([
         ['tool-a', { permissionDenied: true, brokenAt: 1000 }],
@@ -104,7 +100,6 @@ describe('ToolGatewayInvokeInput type', () => {
       },
       abortSignal: abortController.signal,
       turnState: {
-        subAgentKey: 'people-reader',
         tainted: { value: false },
         circuitBreaker: new Map(),
         retryCount: new Map(),
@@ -135,7 +130,6 @@ describe('ToolGatewayInvokeInput type', () => {
       },
       abortSignal: abortController.signal,
       turnState: {
-        subAgentKey: 'leave-writer',
         tainted: { value: false },
         circuitBreaker: new Map(),
         retryCount: new Map(),

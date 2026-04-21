@@ -26,9 +26,6 @@ export interface RequestContext {
  * Lifetime: one sub-agent execution; never shared across sub-agents.
  */
 export interface TurnState {
-  /** Key identifying the sub-agent (e.g. 'people-reader', 'leave-writer'). */
-  readonly subAgentKey: string
-
   /**
    * Mutable wrapper ref so any pipeline step can flip tainted to true.
    * A tainted turn means tenant-authored free text was included in LLM context.
