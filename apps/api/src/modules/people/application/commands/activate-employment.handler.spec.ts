@@ -7,6 +7,7 @@ import {
 } from '../../domain/exceptions/people.exceptions'
 import type { IEmploymentRepository } from '../../domain/repositories/employment.repository'
 import type { Employment } from '../../domain/entities/employment.entity'
+import type { JobHistoryRecorderService } from '../services/job-history-recorder.service'
 import { ActivateEmploymentCommand } from './activate-employment.command'
 import { ActivateEmploymentHandler } from './activate-employment.handler'
 
@@ -39,6 +40,7 @@ describe('ActivateEmploymentHandler', () => {
   let handler: ActivateEmploymentHandler
   let employmentRepo: IEmploymentRepository
   let eventBus: { publish: ReturnType<typeof vi.fn> }
+  let recorder: { recordHire: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     employmentRepo = {
@@ -53,8 +55,13 @@ describe('ActivateEmploymentHandler', () => {
     } as unknown as IEmploymentRepository
 
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
+    recorder = { recordHire: vi.fn().mockResolvedValue(undefined) }
 
-    handler = new ActivateEmploymentHandler(employmentRepo, eventBus as unknown as EventBus)
+    handler = new ActivateEmploymentHandler(
+      employmentRepo,
+      eventBus as unknown as EventBus,
+      recorder as unknown as JobHistoryRecorderService,
+    )
   })
 
   it('activates a pre_hire employment successfully', async () => {
@@ -94,5 +101,33 @@ describe('ActivateEmploymentHandler', () => {
     await expect(
       handler.execute(new ActivateEmploymentCommand(TENANT_ID, EMPLOYMENT_ID, ACTIVATED_BY)),
     ).rejects.toThrow(InvalidEmploymentStatusTransitionException)
+  })
+
+  it('records a hire history entry after activating', async () => {
+    const employment = makeEmployment()
+    vi.mocked(employmentRepo.findById).mockResolvedValue(employment)
+
+    await handler.execute(new ActivateEmploymentCommand(TENANT_ID, EMPLOYMENT_ID, ACTIVATED_BY))
+
+    expect(recorder.recordHire).toHaveBeenCalledWith({
+      profileId: employment.personProfileId,
+      tenantId: TENANT_ID,
+      effectiveFrom: employment.hireDate,
+      jobTitle: null,
+      departmentId: null,
+      managerProfileId: null,
+      changeReason: null,
+      recordedBy: ACTIVATED_BY,
+    })
+  })
+
+  it('does not record history if employment not found', async () => {
+    vi.mocked(employmentRepo.findById).mockResolvedValue(null)
+
+    await expect(
+      handler.execute(new ActivateEmploymentCommand(TENANT_ID, EMPLOYMENT_ID, ACTIVATED_BY)),
+    ).rejects.toThrow(EmploymentNotFoundException)
+
+    expect(recorder.recordHire).not.toHaveBeenCalled()
   })
 })

@@ -7,6 +7,7 @@ import {
   type IEmploymentRepository,
 } from '../../domain/repositories/employment.repository'
 import { assertValidTransition } from '../../domain/value-objects/employment-state-machine'
+import { JobHistoryRecorderService } from '../services/job-history-recorder.service'
 import { ActivateEmploymentCommand } from './activate-employment.command'
 
 @CommandHandler(ActivateEmploymentCommand)
@@ -15,6 +16,7 @@ export class ActivateEmploymentHandler implements ICommandHandler<ActivateEmploy
     @Inject(EMPLOYMENT_REPOSITORY)
     private readonly employmentRepo: IEmploymentRepository,
     private readonly eventBus: EventBus,
+    private readonly recorder: JobHistoryRecorderService,
   ) {}
 
   async execute(command: ActivateEmploymentCommand): Promise<void> {
@@ -24,6 +26,17 @@ export class ActivateEmploymentHandler implements ICommandHandler<ActivateEmploy
     assertValidTransition(employment.employmentStatus, 'active')
 
     await this.employmentRepo.updateStatus(command.employmentId, command.tenantId, 'active')
+
+    await this.recorder.recordHire({
+      profileId: employment.personProfileId,
+      tenantId: command.tenantId,
+      effectiveFrom: employment.hireDate,
+      jobTitle: null,
+      departmentId: null,
+      managerProfileId: null,
+      changeReason: null,
+      recordedBy: command.activatedBy,
+    })
 
     await this.eventBus.publish(
       new EmploymentActivatedEvent(
