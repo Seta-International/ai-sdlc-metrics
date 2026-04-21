@@ -11,6 +11,7 @@
   <img alt="Langfuse" src="https://img.shields.io/badge/Langfuse-observability-CC6600"/>
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-15_multi--zone-black?logo=next.js"/>
   <img alt="NestJS" src="https://img.shields.io/badge/NestJS-modular_monolith-E0234E?logo=nestjs"/>
+  <img alt="Turborepo" src="https://img.shields.io/badge/Turborepo-monorepo-EF4444?logo=turborepo&logoColor=white"/>
   <img alt="Bun" src="https://img.shields.io/badge/Bun-1.3-fbf0df?logo=bun"/>
 </p>
 
