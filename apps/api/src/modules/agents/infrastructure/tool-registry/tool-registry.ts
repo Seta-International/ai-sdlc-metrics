@@ -148,7 +148,7 @@ export class ToolRegistry {
         })
       }
 
-      // ── R-01.13: mutations must declare approvalFreshness ──────────────────
+      // ── R-01.18: mutations must declare approvalFreshness ──────────────────
 
       if (def.type === 'mutation' && agent.approvalFreshness === undefined) {
         procViolations.push(
