@@ -1,0 +1,1 @@
+ALTER TABLE "agents"."agent_session" RENAME TO "agent_chat_session";

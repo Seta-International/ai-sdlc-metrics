@@ -1,8 +1,8 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common'
 import {
-  AGENT_SESSION_REPOSITORY,
-  type AgentSessionRepository,
-} from '../../domain/repositories/agent-session.repository'
+  AGENT_CHAT_SESSION_REPOSITORY,
+  type AgentChatSessionRepository,
+} from '../../domain/repositories/agent-chat-session.repository'
 import {
   AGENT_MESSAGE_REPOSITORY,
   type AgentMessageRepository,
@@ -13,8 +13,8 @@ import type { SendMessageCommand } from './send-message.command'
 @Injectable()
 export class SendMessageHandler {
   constructor(
-    @Inject(AGENT_SESSION_REPOSITORY)
-    private readonly sessionRepo: AgentSessionRepository,
+    @Inject(AGENT_CHAT_SESSION_REPOSITORY)
+    private readonly sessionRepo: AgentChatSessionRepository,
     @Inject(AGENT_MESSAGE_REPOSITORY)
     private readonly messageRepo: AgentMessageRepository,
   ) {}

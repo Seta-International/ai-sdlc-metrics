@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NotFoundException } from '@nestjs/common'
 import { SendMessageCommand } from './send-message.command'
 import { SendMessageHandler } from './send-message.handler'
-import type { AgentSessionRepository } from '../../domain/repositories/agent-session.repository'
+import type { AgentChatSessionRepository } from '../../domain/repositories/agent-chat-session.repository'
 import type { AgentMessageRepository } from '../../domain/repositories/agent-message.repository'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
@@ -40,7 +40,7 @@ const mockMessage = {
 
 describe('SendMessageHandler', () => {
   let handler: SendMessageHandler
-  let sessionRepo: AgentSessionRepository
+  let sessionRepo: AgentChatSessionRepository
   let messageRepo: AgentMessageRepository
 
   beforeEach(() => {

@@ -1,19 +1,19 @@
 import { Inject, Injectable } from '@nestjs/common'
 import {
-  AGENT_SESSION_REPOSITORY,
-  type AgentSessionRepository,
-} from '../../domain/repositories/agent-session.repository'
-import type { AgentSessionEntity } from '../../domain/entities/agent-session.entity'
+  AGENT_CHAT_SESSION_REPOSITORY,
+  type AgentChatSessionRepository,
+} from '../../domain/repositories/agent-chat-session.repository'
+import type { AgentChatSessionEntity } from '../../domain/entities/agent-chat-session.entity'
 import type { CreateSessionCommand } from './create-session.command'
 
 @Injectable()
 export class CreateSessionHandler {
   constructor(
-    @Inject(AGENT_SESSION_REPOSITORY)
-    private readonly sessionRepo: AgentSessionRepository,
+    @Inject(AGENT_CHAT_SESSION_REPOSITORY)
+    private readonly sessionRepo: AgentChatSessionRepository,
   ) {}
 
-  async execute(command: CreateSessionCommand): Promise<AgentSessionEntity> {
+  async execute(command: CreateSessionCommand): Promise<AgentChatSessionEntity> {
     return this.sessionRepo.create({
       tenantId: command.tenantId,
       actorId: command.actorId,

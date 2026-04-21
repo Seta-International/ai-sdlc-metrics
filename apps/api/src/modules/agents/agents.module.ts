@@ -9,13 +9,17 @@ import { ExposureContractGuard } from './infrastructure/guards/exposure-contract
 import { ToolPermissionGuard } from './infrastructure/guards/tool-permission.guard'
 import { KernelModule } from '../kernel/kernel.module'
 // Repository tokens
-import { AGENT_SESSION_REPOSITORY } from './domain/repositories/agent-session.repository'
+import { AGENT_CHAT_SESSION_REPOSITORY } from './domain/repositories/agent-chat-session.repository'
+import { AGENT_SESSION_PORT } from './domain/ports/agent-session.port'
+import { STORED_SUB_AGENT_PORT } from './domain/ports/stored-sub-agent.port'
 import { AGENT_MESSAGE_REPOSITORY } from './domain/repositories/agent-message.repository'
 import { AGENT_INSIGHT_REPOSITORY } from './domain/repositories/agent-insight.repository'
 import { PROMPT_STORE } from './domain/ports/prompt-store.port'
 import { NARRATIVE_STORE } from './domain/ports/narrative-store.port'
 // Drizzle repositories
+import { DrizzleAgentChatSessionRepository } from './infrastructure/repositories/drizzle-agent-chat-session.repository'
 import { DrizzleAgentSessionRepository } from './infrastructure/repositories/drizzle-agent-session.repository'
+import { DrizzleStoredSubAgentRepository } from './infrastructure/repositories/drizzle-stored-sub-agent.repository'
 import { DrizzleAgentMessageRepository } from './infrastructure/repositories/drizzle-agent-message.repository'
 import { DrizzleAgentInsightRepository } from './infrastructure/repositories/drizzle-agent-insight.repository'
 import { DrizzlePromptStoreRepository } from './infrastructure/repositories/drizzle-prompt-store.repository'
@@ -50,7 +54,9 @@ import { getAppRouter } from '../../common/trpc/app-router'
   ],
   providers: [
     // Repositories
-    { provide: AGENT_SESSION_REPOSITORY, useClass: DrizzleAgentSessionRepository },
+    { provide: AGENT_CHAT_SESSION_REPOSITORY, useClass: DrizzleAgentChatSessionRepository },
+    { provide: AGENT_SESSION_PORT, useClass: DrizzleAgentSessionRepository },
+    { provide: STORED_SUB_AGENT_PORT, useClass: DrizzleStoredSubAgentRepository },
     { provide: AGENT_MESSAGE_REPOSITORY, useClass: DrizzleAgentMessageRepository },
     { provide: AGENT_INSIGHT_REPOSITORY, useClass: DrizzleAgentInsightRepository },
     { provide: PROMPT_STORE, useClass: DrizzlePromptStoreRepository },

@@ -1,4 +1,4 @@
-export interface AgentSessionEntity {
+export interface AgentChatSessionEntity {
   id: string
   tenantId: string
   actorId: string
