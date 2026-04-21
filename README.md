@@ -30,10 +30,34 @@ One canonical data layer spans HR, time, hiring, finance, projects, and goals. C
 ## Table of Contents
 
 - [What it does](#what-it-does)
+- [Agentic AI](#agentic-ai)
 - [How it's built](#how-its-built)
 - [Set up with an AI agent](#set-up-with-an-ai-agent)
 - [Get started manually](#get-started-manually)
 - [Docs](#docs)
+
+---
+
+## Agentic AI
+
+Future is not an app with AI bolted on. The agent layer is load-bearing — every domain module ships with an embedded agent that owns its workflow end-to-end.
+
+**What agents can do:**
+
+- **Act autonomously** — reconcile a payroll discrepancy, close an expired contract, escalate a stalled approval, without waiting for a human to notice
+- **Reason across modules** — an agent in Goals can pull live data from Finance, Time, and Projects to answer "are we on track?" with sourced evidence, not estimates
+- **Operate through natural language** — accessible via Microsoft Teams, Slack, or SSE; same answer whether you type or click
+- **Stay governed** — every agent call passes through the kernel authority layer. Role permissions, delegation rules, and tenant isolation apply equally to agents and UI users. No agent has more access than the human who triggered it
+
+**The technical contract:**
+
+Each module exposes its capabilities as MCP tool contracts. Agents call tools — they never touch the database directly. This means the same audit trail, the same RLS enforcement, the same permission checks as the UI. An agent that drafts an offer letter in Hiring goes through exactly the same guards as a recruiter clicking "Send Offer".
+
+| Channel         | How agents surface                            |
+| --------------- | --------------------------------------------- |
+| Microsoft Teams | Adaptive cards, proactive notifications, chat |
+| Slack           | Slash commands, DMs, channel alerts           |
+| SSE / Web       | Streaming responses in the in-app chat panel  |
 
 ---
 
