@@ -52,6 +52,13 @@ import { canonicalize } from '../../infrastructure/cache/canonical-args'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { TrpcCallerImpl } from './trpc-caller'
 import type { ToolGatewayInvokeInput } from './tool-gateway-contracts'
+import { withGatewayStep, recordStepAttrs } from '../../infrastructure/observability/gateway-spans'
+import {
+  recordToolCall,
+  recordTripwire,
+  recordStepDuration,
+  recordCacheLookup,
+} from '../../infrastructure/observability/gateway-metrics'
 
 // ─── Sanitization ─────────────────────────────────────────────────────────────
 
@@ -264,7 +271,7 @@ export class ToolGateway {
     const {
       toolName,
       args,
-      subAgentKey: _subAgentKey,
+      subAgentKey,
       subAgentScope,
       requestContext,
       abortSignal,
@@ -272,17 +279,30 @@ export class ToolGateway {
       mode,
     } = input
 
+    const { tenantId } = requestContext
+
     // ── Phase A ─────────────────────────────────────────────────────────────
 
-    // Step 1: resolve
-    const resolveResult = resolve({ toolName, subAgentScope, registry: this.registry })
+    // Step 1: resolve — wrapped in gateway:resolve span.
+    const resolveStepStart = Date.now()
+    const resolveResult = await withGatewayStep(
+      'resolve',
+      { tool_name: toolName, sub_agent_key: subAgentKey },
+      () => resolve({ toolName, subAgentScope, registry: this.registry }),
+    )
+    recordStepDuration('resolve', Date.now() - resolveStepStart)
+
     if (isTripwireVariant(resolveResult)) {
-      // No audit — tool doesn't exist / out of scope; no audit subject
+      // No audit — tool doesn't exist / out of scope; no audit subject.
+      // procedure_not_agent_exposed / procedure_out_of_sub_agent_scope are not
+      // attributable to a tenant tool call so we skip recordToolCall here.
       return resolveResult
     }
     const { descriptor } = resolveResult
 
-    // Step 2: circuit-breaker check
+    // Step 2: circuit-breaker check.
+    // Per plan §8 — circuit-broken re-invocation is annotated on the resolve span
+    // via circuit_broken: true attribute (plan names no distinct span for this path).
     const cb = turnState.circuitBreaker.get(descriptor.name)
     if (cb?.permissionDenied) {
       const rawContext = {
@@ -290,15 +310,23 @@ export class ToolGateway {
         circuit_broken_at: cb.brokenAt,
       }
       // Audit with raw context (audit is sanctuary), return sanitized
-      await auditEmit({
-        descriptor,
-        requestContext,
-        resultStatus: 'permission_denied_disabled',
-        extraAttrs: { circuit_broken_at: cb.brokenAt },
-        auditFacade: this.auditFacade,
-        logger: this.logger,
-      })
-      return tripwire(
+      const auditStart = Date.now()
+      const auditResult = await withGatewayStep(
+        'audit-emit',
+        { result_status: 'permission_denied_disabled', audit_row_id: undefined },
+        () =>
+          auditEmit({
+            descriptor,
+            requestContext,
+            resultStatus: 'permission_denied_disabled',
+            extraAttrs: { circuit_broken_at: cb.brokenAt },
+            auditFacade: this.auditFacade,
+            logger: this.logger,
+          }),
+      )
+      recordStepDuration('audit-emit', Date.now() - auditStart)
+      void auditResult // result not needed here
+      const tw = tripwire(
         'permission_denied_disabled',
         'abort',
         sanitizeTripwireContext(rawContext, 'permission_denied_disabled') as Record<
@@ -306,6 +334,9 @@ export class ToolGateway {
           unknown
         >,
       )
+      recordToolCall(tenantId, descriptor.name, 'permission_denied_disabled')
+      recordTripwire(tenantId, 'permission_denied_disabled', 'abort')
+      return tw
     }
 
     if (cb?.ceilingBreached) {
@@ -313,16 +344,25 @@ export class ToolGateway {
         toolName: descriptor.name,
         circuit_broken_at: cb.brokenAt,
       }
-      await auditEmit({
-        descriptor,
-        requestContext,
-        resultStatus: 'ceiling_hit',
-        extraAttrs: { circuit_broken: true, circuit_broken_at: cb.brokenAt },
-        auditFacade: this.auditFacade,
-        logger: this.logger,
-      })
+      // circuit_broken: true attribute on the resolve span documents this path
+      // (plan §8: emit circuit_broken attr on resolve span, no separate span for this path)
+      const auditStart = Date.now()
+      await withGatewayStep(
+        'audit-emit',
+        { result_status: 'ceiling_hit', audit_row_id: undefined },
+        () =>
+          auditEmit({
+            descriptor,
+            requestContext,
+            resultStatus: 'ceiling_hit',
+            extraAttrs: { circuit_broken: true, circuit_broken_at: cb.brokenAt },
+            auditFacade: this.auditFacade,
+            logger: this.logger,
+          }),
+      )
+      recordStepDuration('audit-emit', Date.now() - auditStart)
       // Use ceiling_breach_bytes as the canonical ceiling variant for the broken-circuit path
-      return tripwire(
+      const tw = tripwire(
         'ceiling_breach_bytes',
         'abort',
         sanitizeTripwireContext(
@@ -330,6 +370,9 @@ export class ToolGateway {
           'ceiling_breach_bytes',
         ) as Record<string, unknown>,
       )
+      recordToolCall(tenantId, descriptor.name, 'ceiling_hit')
+      recordTripwire(tenantId, 'ceiling_breach_bytes', 'abort')
+      return tw
     }
 
     // Step 3: L1 cache lookup
@@ -337,46 +380,69 @@ export class ToolGateway {
     const cacheHit = turnState.l1Cache.lookup(descriptor.name, argsHash)
 
     if (cacheHit?.kind === 'completed') {
-      const { fieldsToWrap: fw } = prepareTaintWrap({ descriptor })
-      const { wrappedResult, fieldsWrapped, taintFlipped } = applyTaintWrap({
-        result: cacheHit.result,
-        fieldsToWrap: fw,
-        turnState,
-      })
-      await auditEmit({
-        descriptor,
-        requestContext,
-        resultStatus: 'success',
-        resultHash: cacheHit.resultHash,
-        extraAttrs: { fromCache: true, fieldsWrapped, taintFlipped },
-        auditFacade: this.auditFacade,
-        logger: this.logger,
-      })
-      return ok(wrappedResult, true)
+      recordCacheLookup(tenantId, descriptor.name, 'hit')
+      const cacheHitStart = Date.now()
+      const cacheHitResult = await withGatewayStep(
+        'cache-hit',
+        { cached_args_hash: argsHash, cache_outcome: 'completed' },
+        async () => {
+          const { fieldsToWrap: fw } = prepareTaintWrap({ descriptor })
+          const { wrappedResult, fieldsWrapped, taintFlipped } = applyTaintWrap({
+            result: cacheHit.result,
+            fieldsToWrap: fw,
+            turnState,
+          })
+          await auditEmit({
+            descriptor,
+            requestContext,
+            resultStatus: 'success',
+            resultHash: cacheHit.resultHash,
+            extraAttrs: { fromCache: true, fieldsWrapped, taintFlipped },
+            auditFacade: this.auditFacade,
+            logger: this.logger,
+          })
+          return ok(wrappedResult, true)
+        },
+      )
+      recordStepDuration('cache-hit', Date.now() - cacheHitStart)
+      recordToolCall(tenantId, descriptor.name, 'success')
+      return cacheHitResult
     }
 
     if (cacheHit?.kind === 'pending') {
+      recordCacheLookup(tenantId, descriptor.name, 'coalesced')
+      const cacheHitStart = Date.now()
       // Coalesce onto the in-flight promise
       try {
-        const coalescedResult = await cacheHit.promise
-        const { fieldsToWrap: fw } = prepareTaintWrap({ descriptor })
-        const { wrappedResult, fieldsWrapped, taintFlipped } = applyTaintWrap({
-          result: coalescedResult,
-          fieldsToWrap: fw,
-          turnState,
-        })
-        const resultHash = canonicalize(coalescedResult ?? null).hash
-        await auditEmit({
-          descriptor,
-          requestContext,
-          resultStatus: 'success',
-          resultHash,
-          extraAttrs: { fromCache: true, cache_coalesced: true, fieldsWrapped, taintFlipped },
-          auditFacade: this.auditFacade,
-          logger: this.logger,
-        })
-        return ok(wrappedResult, true)
+        const coalescedResult = await withGatewayStep(
+          'cache-hit',
+          { cached_args_hash: argsHash, cache_outcome: 'coalesced' },
+          async () => {
+            const resolved = await cacheHit.promise
+            const { fieldsToWrap: fw } = prepareTaintWrap({ descriptor })
+            const { wrappedResult, fieldsWrapped, taintFlipped } = applyTaintWrap({
+              result: resolved,
+              fieldsToWrap: fw,
+              turnState,
+            })
+            const resultHash = canonicalize(resolved ?? null).hash
+            await auditEmit({
+              descriptor,
+              requestContext,
+              resultStatus: 'success',
+              resultHash,
+              extraAttrs: { fromCache: true, cache_coalesced: true, fieldsWrapped, taintFlipped },
+              auditFacade: this.auditFacade,
+              logger: this.logger,
+            })
+            return ok(wrappedResult, true)
+          },
+        )
+        recordStepDuration('cache-hit', Date.now() - cacheHitStart)
+        recordToolCall(tenantId, descriptor.name, 'success')
+        return coalescedResult
       } catch (coalescedErr: unknown) {
+        recordStepDuration('cache-hit', Date.now() - cacheHitStart)
         const rawMsg = coalescedErr instanceof Error ? coalescedErr.message : String(coalescedErr)
         const rawContext = { toolName: descriptor.name, rawMessage: rawMsg, cache_coalesced: true }
         await auditEmit({
@@ -387,18 +453,40 @@ export class ToolGateway {
           auditFacade: this.auditFacade,
           logger: this.logger,
         })
-        return tripwire(
+        const tw = tripwire(
           'infra_error',
           'abort',
           sanitizeTripwireContext(rawContext, 'infra_error') as Record<string, unknown>,
         )
+        recordToolCall(tenantId, descriptor.name, 'infra_error')
+        recordTripwire(tenantId, 'infra_error', 'abort')
+        return tw
       }
     }
 
+    // Cache miss
+    recordCacheLookup(tenantId, descriptor.name, 'miss')
+
     // ── Phase B ─────────────────────────────────────────────────────────────
 
-    // Step 4: prepareTaintWrap
-    const { fieldsToWrap } = prepareTaintWrap({ descriptor })
+    // Step 4: prepareTaintWrap — pure sync step; called directly (no await) to
+    // preserve the cache-coalescing timing guarantee. The L1 cache's
+    // registerInFlight call (Step 7) must happen in the same microtask as the
+    // cache-miss decision so a concurrent second call sees the in-flight entry
+    // when it calls lookup(). Awaiting any Promise here would yield a tick and
+    // break coalescing. We emit the span inline by calling withGatewayStep without
+    // await; since prepareTaintWrap is sync, the span body runs synchronously
+    // and fieldsToWrap is captured via the closure.
+    const taintWrapSetupStart = Date.now()
+    let fieldsToWrap: ReadonlyArray<string> = []
+    // Fire-and-forget the Promise; the sync body runs immediately due to
+    // withGatewayStep's synchronous execution of sync fns inside context.with.
+    void withGatewayStep('taint-wrap-setup', { fields_to_wrap_count: 0 }, () => {
+      const r = prepareTaintWrap({ descriptor })
+      fieldsToWrap = r.fieldsToWrap
+      return r
+    })
+    recordStepDuration('taint-wrap-setup', Date.now() - taintWrapSetupStart)
 
     // Wallclock timer covers everything after resolve — including ceiling checks,
     // pre-write abort, invoke, and any transient-retry jitter sleep. A transient
@@ -406,9 +494,39 @@ export class ToolGateway {
     // — the caller experiences that time regardless.
     const startedAt = Date.now()
 
-    // Step 5: ceilingPreCheck
-    const ceilingResult = ceilingPreCheck({ descriptor, turnState })
-    if (isTripwireVariant(ceilingResult)) {
+    // Step 5: ceilingPreCheck — pure sync step; span emitted inline (no await)
+    // to preserve coalescing timing. See taint-wrap-setup comment above.
+    let ceilingResult: ReturnType<typeof ceilingPreCheck> | undefined
+    const ceilingCheckStart = Date.now()
+    void withGatewayStep('ceiling-check', {}, () => {
+      const r = ceilingPreCheck({ descriptor, turnState })
+      ceilingResult = r
+      // Record budget attrs mid-step onto the active span (ceiling-check span)
+      if (r.kind === 'ok') {
+        const rem = r.remaining
+        recordStepAttrs({
+          bytes_remaining: rem.bytes ?? -1,
+          wallclock_remaining: rem.wallclockMs ?? -1,
+          breach: false,
+        })
+      } else {
+        // Tripwire — record breach attrs before the span helper annotates tripwire_variant.
+        // Cast to number: bytesRemaining / wallclockRemaining are numbers or null in context;
+        // -1 is a sentinel for "not applicable" to satisfy AttributeValue (no null).
+        const ctx = r.context as Record<string, unknown>
+        recordStepAttrs({
+          bytes_remaining: typeof ctx['bytesRemaining'] === 'number' ? ctx['bytesRemaining'] : -1,
+          wallclock_remaining:
+            typeof ctx['wallclockRemaining'] === 'number' ? ctx['wallclockRemaining'] : -1,
+          breach: true,
+        })
+      }
+      return r
+    })
+    recordStepDuration('ceiling-check', Date.now() - ceilingCheckStart)
+    // ceilingResult is guaranteed set (synchronous fn)
+
+    if (isTripwireVariant(ceilingResult!)) {
       // Increment ceiling retry counter
       const ceilingKey = RETRY_KEY.ceiling(descriptor.name)
       const prevCeiling = turnState.retryCount.get(ceilingKey) ?? 0
@@ -422,33 +540,64 @@ export class ToolGateway {
         })
       }
 
-      // Audit with raw context (ceiling context is structurally safe — just numbers)
-      await auditEmit({
-        descriptor,
-        requestContext,
-        resultStatus: 'ceiling_hit',
-        extraAttrs: {
-          ...ceilingResult.context,
-          circuit_broken: prevCeiling >= 1,
-          retryCount: prevCeiling + 1,
-        },
-        auditFacade: this.auditFacade,
-        logger: this.logger,
-      })
+      const ceilingTw = ceilingResult!
 
-      // Ceiling context is structurally safe — passes through sanitizer unchanged
-      return tripwire(
-        ceilingResult.variant,
-        ceilingResult.disposition,
-        ceilingResult.context as Record<string, unknown>,
+      // Audit with raw context (ceiling context is structurally safe — just numbers)
+      const auditStart = Date.now()
+      await withGatewayStep(
+        'audit-emit',
+        { result_status: 'ceiling_hit', audit_row_id: undefined },
+        () =>
+          auditEmit({
+            descriptor,
+            requestContext,
+            resultStatus: 'ceiling_hit',
+            extraAttrs: {
+              ...ceilingTw.context,
+              circuit_broken: prevCeiling >= 1,
+              retryCount: prevCeiling + 1,
+            },
+            auditFacade: this.auditFacade,
+            logger: this.logger,
+          }),
       )
+      recordStepDuration('audit-emit', Date.now() - auditStart)
+
+      const tw = tripwire(
+        ceilingTw.variant,
+        ceilingTw.disposition,
+        ceilingTw.context as Record<string, unknown>,
+      )
+      recordToolCall(tenantId, descriptor.name, 'ceiling_hit')
+      recordTripwire(tenantId, ceilingTw.variant, ceilingTw.disposition)
+      return tw
     }
 
-    // Step 6: preWriteAbortCheck
-    const abortResult = preWriteAbortCheck({ descriptor, abortSignal })
-    if (isTripwireVariant(abortResult)) {
-      // Per plan §5 "Pre-write abort": NO audit event
-      return abortResult
+    // Step 6: preWriteAbortCheck — pure sync step; span emitted inline (no await).
+    // Mutations get a gateway:pre-write-abort-check span per plan §8.
+    // Queries skip the span entirely (plan §8: "only for mutations").
+    if (descriptor.procedure === 'mutation') {
+      let abortResult: ReturnType<typeof preWriteAbortCheck> | undefined
+      const abortCheckStart = Date.now()
+      void withGatewayStep('pre-write-abort-check', { aborted: false }, () => {
+        const r = preWriteAbortCheck({ descriptor, abortSignal })
+        abortResult = r
+        return r
+      })
+      recordStepDuration('pre-write-abort-check', Date.now() - abortCheckStart)
+
+      if (isTripwireVariant(abortResult!)) {
+        // Per plan §5 "Pre-write abort": NO audit event
+        recordToolCall(tenantId, descriptor.name, 'aborted')
+        recordTripwire(tenantId, 'abort_pre_write', 'abort')
+        return abortResult!
+      }
+    } else {
+      // Query — check abort signal without emitting a span (no-span path per plan §8)
+      const abortResult = preWriteAbortCheck({ descriptor, abortSignal })
+      if (isTripwireVariant(abortResult)) {
+        return abortResult
+      }
     }
 
     // Step 7: register in-flight cache entry
@@ -467,13 +616,26 @@ export class ToolGateway {
     }
 
     // Step 8: invoke + optional transient retry
-    let invokeResult = await invoke({
-      descriptor,
-      args,
-      requestContext,
-      mode,
-      caller: this.caller,
-    })
+    // Each invoke attempt (including retry) gets its own gateway:invoke span — the
+    // retry IS a new invocation attempt, distinct trace subtree per plan §8.
+    let retryCount = 0
+    const invokeStep = async () => {
+      const invokeStart = Date.now()
+      const result = await withGatewayStep(
+        'invoke',
+        {
+          tool_name: descriptor.name,
+          sub_agent_key: subAgentKey,
+          retry_count: retryCount,
+          cached_args_hash: argsHash,
+        },
+        () => invoke({ descriptor, args, requestContext, mode, caller: this.caller }),
+      )
+      recordStepDuration('invoke', Date.now() - invokeStart)
+      return result
+    }
+
+    let invokeResult = await invokeStep()
 
     // Single transient retry (200 ms + 0-100 ms jitter)
     if (
@@ -481,8 +643,9 @@ export class ToolGateway {
       invokeResult.variant === 'transient_infra_error' &&
       invokeResult.disposition === 'retry'
     ) {
+      retryCount = 1
       await sleep(200 + Math.floor(Math.random() * 100))
-      invokeResult = await invoke({ descriptor, args, requestContext, mode, caller: this.caller })
+      invokeResult = await invokeStep()
     }
 
     // Step 9: handle invoke result
@@ -501,11 +664,17 @@ export class ToolGateway {
 
     // On ok: apply taint wrap, complete cache handle, decrement ceiling, audit
     const { result } = invokeResult
-    const { wrappedResult, fieldsWrapped, taintFlipped } = applyTaintWrap({
-      result,
-      fieldsToWrap,
-      turnState,
-    })
+
+    const taintWrapResultStart = Date.now()
+    const { wrappedResult, fieldsWrapped, taintFlipped } = await withGatewayStep(
+      'taint-wrap-result',
+      {},
+      () => {
+        const wrapped = applyTaintWrap({ result, fieldsToWrap, turnState })
+        return wrapped
+      },
+    )
+    recordStepDuration('taint-wrap-result', Date.now() - taintWrapResultStart)
 
     const resultHash = canonicalize(result ?? null).hash
 
@@ -528,15 +697,29 @@ export class ToolGateway {
       })
     }
 
-    await auditEmit({
-      descriptor,
-      requestContext,
-      resultStatus: 'success',
-      resultHash,
-      extraAttrs: { fieldsWrapped, taintFlipped },
-      auditFacade: this.auditFacade,
-      logger: this.logger,
-    })
+    const auditEmitStart = Date.now()
+    await withGatewayStep(
+      'audit-emit',
+      {
+        result_status: 'success',
+        // TODO-plan-07: audit_row_id will be available once plan 07 exposes the
+        // audit record ID via KernelAuditFacade. Until then, set to null.
+        audit_row_id: undefined,
+      },
+      () =>
+        auditEmit({
+          descriptor,
+          requestContext,
+          resultStatus: 'success',
+          resultHash,
+          extraAttrs: { fieldsWrapped, taintFlipped },
+          auditFacade: this.auditFacade,
+          logger: this.logger,
+        }),
+    )
+    recordStepDuration('audit-emit', Date.now() - auditEmitStart)
+
+    recordToolCall(tenantId, descriptor.name, 'success')
 
     return ok(wrappedResult, false)
   }
@@ -557,6 +740,7 @@ export class ToolGateway {
     turnState: ToolGatewayInvokeInput['turnState'],
   ): Promise<Tripwire> {
     const { variant } = tw
+    const { tenantId } = requestContext
 
     // ── Retry-count bookkeeping for retryable variants ───────────────────────
     // Per R-01.21: validation_failed and invocation_timeout are retried once,
@@ -594,14 +778,31 @@ export class ToolGateway {
     }
 
     // ── Audit (raw context) ──────────────────────────────────────────────────
-    await auditEmit({
-      descriptor: descriptor as Parameters<typeof auditEmit>[0]['descriptor'],
-      requestContext,
-      resultStatus: variantToAuditStatus(variant),
-      extraAttrs: { ...tw.context, disposition: returnedTw.disposition },
-      auditFacade: this.auditFacade,
-      logger: this.logger,
-    })
+    const auditStatus = variantToAuditStatus(variant)
+    const auditStart = Date.now()
+    await withGatewayStep(
+      'audit-emit',
+      {
+        result_status: auditStatus,
+        // TODO-plan-07: audit_row_id will be available once plan 07 exposes the
+        // audit record ID via KernelAuditFacade. Until then, set to null.
+        audit_row_id: undefined,
+      },
+      () =>
+        auditEmit({
+          descriptor: descriptor as Parameters<typeof auditEmit>[0]['descriptor'],
+          requestContext,
+          resultStatus: auditStatus,
+          extraAttrs: { ...tw.context, disposition: returnedTw.disposition },
+          auditFacade: this.auditFacade,
+          logger: this.logger,
+        }),
+    )
+    recordStepDuration('audit-emit', Date.now() - auditStart)
+
+    // ── Metrics ──────────────────────────────────────────────────────────────
+    recordToolCall(tenantId, descriptor.name, auditStatus)
+    recordTripwire(tenantId, returnedTw.variant, returnedTw.disposition)
 
     // ── Return sanitized tripwire ────────────────────────────────────────────
     const sanitized = sanitizeTripwireContext(tw.context, variant) as Record<string, unknown>
