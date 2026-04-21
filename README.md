@@ -54,21 +54,11 @@ Full guide: [QUICKSTART.md](QUICKSTART.md)
 
 ## Set up with an AI agent
 
-Already have GitHub Copilot, Cursor, Claude, or another coding agent open? Paste this prompt and let it do the setup:
+Open your agent and paste:
 
 ```
-I'm onboarding to the Future codebase. Please:
-1. Read AGENTS.md and QUICKSTART.md in full before doing anything else.
-2. Run `sh scripts/bootstrap.sh` to copy all .env files, then tell me which variables I still need to fill in manually.
-3. Check that Docker is running, then run `sh scripts/bootstrap.sh --full` to install dependencies, start the database, build workspace packages, and run migrations.
-4. Start the API and web-shell: `bun run dev --filter=@future/api --filter=@future/web-shell`
-5. Confirm everything is running by checking http://localhost:4000 (API) and http://localhost:3000 (shell).
-6. Give me a 3-bullet summary of the module I should look at first based on what I tell you I'm working on.
-
-I'm working on: [describe your task here]
+Read AGENTS.md and QUICKSTART.md, then run `sh scripts/bootstrap.sh --full`. Tell me which .env values still need filling in, then start the dev server. I'm working on: [your task]
 ```
-
-The agent will read the rules in `AGENTS.md` first, which keeps it from making architecture mistakes on day one.
 
 ---
 
