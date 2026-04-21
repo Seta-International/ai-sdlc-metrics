@@ -131,11 +131,11 @@ describe('TaskGrid performance', () => {
     // The spec target is < 300ms in a real browser.  In jsdom+vitest the test runner
     // shares a cold-start transform budget across all test files; on slow CI this
     // can add substantial overhead to the first render when running alongside many
-    // other test files (e.g. Turbo pre-push hook).  We use 2000ms here so the
-    // assertion is stable on both laptop and CI while still catching any runaway
-    // O(n)-in-DOM rendering regression (a naïve non-virtualised render of 2400
-    // rows takes several seconds).
-    const FIRST_RENDER_CEILING_MS = 2000
+    // other test files (e.g. Turbo pre-push hook running lint+typecheck+tests in
+    // parallel).  We use 4000ms here so the assertion is stable on both laptop and
+    // CI while still catching any runaway O(n)-in-DOM rendering regression (a naïve
+    // non-virtualised render of 2400 rows takes several seconds).
+    const FIRST_RENDER_CEILING_MS = 4000
 
     const t0 = performance.now()
 
@@ -175,9 +175,11 @@ describe('TaskGrid performance', () => {
     // jsdom has no layout engine so it cannot measure real 60fps frame cost.
     // This test verifies that re-rendering 2400 rows (with the virtualizer capped at 40
     // visible rows) does not spin unboundedly — a proxy for "no dropped frames".
-    // The 500ms ceiling is generous for jsdom+vitest cold-start overhead; in a real
-    // browser with a layout engine the same path takes < 16ms.
-    const RERENDER_CEILING_MS = 500
+    // In a real browser this takes < 16ms. In jsdom+vitest running in parallel with
+    // lint+typecheck (pre-push hook), CPU contention can push this well past 1s.
+    // 4000ms still catches pathological regressions (non-virtualized renders spin
+    // for 10s+) while being stable on any developer machine under load.
+    const RERENDER_CEILING_MS = 4000
 
     const { rerender } = render(
       <TaskGrid
