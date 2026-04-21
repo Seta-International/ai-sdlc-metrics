@@ -7,6 +7,7 @@ import type { KernelQueryFacade } from '../../../kernel/application/facades/kern
 import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { PeopleQueryFacade } from '../../application/facades/people-query.facade'
 import { createProtectedProcedures } from '../../../../common/trpc/create-protected-procedures'
+import { PeopleTrpcService } from './people-trpc.service'
 
 const ACTOR_ID = '01900000-0000-7000-8000-000000000001'
 const TENANT_ID = '01900000-0000-7000-8000-000000000002'
@@ -65,6 +66,25 @@ describe('createPeopleRouter', () => {
     } as any)
     await (caller.people as any).getOwnProfile()
     expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'people:profile:self:read', {
+      tenantId: TENANT_ID,
+    })
+  })
+
+  it('should create a router with getJobHistory protected by people:profile:read', async () => {
+    // Initialize the PeopleTrpcService singleton with a mock that returns []
+    const queryBus = { execute: vi.fn().mockResolvedValue([]) }
+    const trpcService = new PeopleTrpcService({ execute: vi.fn() } as never, queryBus as never)
+    trpcService.onModuleInit()
+
+    const { peopleRouter, kernelFacade } = setup(true)
+    const caller = router({ people: peopleRouter }).createCaller({
+      actorId: ACTOR_ID,
+      tenantId: TENANT_ID,
+    } as any)
+
+    const result = await (caller.people as any).getJobHistory({ profileId: ACTOR_ID })
+    expect(result).toEqual([])
+    expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'people:profile:read', {
       tenantId: TENANT_ID,
     })
   })
