@@ -135,7 +135,7 @@ describe('RehireEmploymentHandler', () => {
     employmentRepo = {
       findById: vi.fn(),
       findByPersonProfileId: vi.fn(),
-      findActiveByActorId: vi.fn().mockResolvedValue(makeTerminatedEmployment()),
+      findActiveByActorId: vi.fn().mockResolvedValue(null),
       insert: vi.fn().mockResolvedValue(newEmployment),
       updateStatus: vi.fn(),
       update: vi.fn(),
@@ -253,19 +253,15 @@ describe('RehireEmploymentHandler', () => {
     })
   })
 
-  describe('error: previous employment is still active', () => {
-    it('throws InvalidRehireException when existing employment is active (not terminated)', async () => {
-      vi.mocked(employmentRepo.findActiveByActorId).mockResolvedValue(
-        makeTerminatedEmployment({ employmentStatus: 'active' }),
-      )
+  describe('error: previous employment exists', () => {
+    it('throws InvalidRehireException when findActiveByActorId returns a non-null employment', async () => {
+      vi.mocked(employmentRepo.findActiveByActorId).mockResolvedValue(makeTerminatedEmployment())
 
       await expect(handler.execute(makeCmd())).rejects.toThrow(InvalidRehireException)
     })
 
-    it('does not create new profile when previous employment is active', async () => {
-      vi.mocked(employmentRepo.findActiveByActorId).mockResolvedValue(
-        makeTerminatedEmployment({ employmentStatus: 'active' }),
-      )
+    it('does not create new profile when previous employment is found', async () => {
+      vi.mocked(employmentRepo.findActiveByActorId).mockResolvedValue(makeTerminatedEmployment())
 
       await expect(handler.execute(makeCmd())).rejects.toThrow(InvalidRehireException)
 
