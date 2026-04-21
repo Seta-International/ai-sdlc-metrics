@@ -60,7 +60,7 @@ ALTER TABLE "people"."job_history" ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "tenant_isolation" ON "people"."job_history"
   AS PERMISSIVE FOR ALL
   TO PUBLIC
-  USING (tenant_id::text = current_setting('app.tenant_id', true));
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid);
 --> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "employment_detail_custom_fields_gin_idx"
   ON "people"."employment_detail" USING gin (custom_fields);
