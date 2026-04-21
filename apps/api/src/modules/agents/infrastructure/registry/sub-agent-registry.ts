@@ -1,17 +1,18 @@
 /**
  * SubAgentRegistry — aggregates, validates, and freezes sub-agent declarations
- * at module boot time (Plan 02 §4, R-02.6, R-02.7, R-02.8, R-02.9).
+ * at module boot time (Plan 02 §4).
  *
- * Descriptor aggregation convention:
+ * Descriptor aggregation convention (R-02.6 — registry built from module-scoped
+ * barrel files, aggregated by agents.module.ts):
  *   Each domain module owns an `agent/sub-agents/` directory with a barrel
  *   `index.ts` that re-exports all `defineSubAgent(...)` results. The
  *   `agents.module.ts` imports from every module barrel and concatenates the
  *   arrays into the `descriptors` list passed to `boot()`. Adding a new
- *   sub-agent to a module requires only:
+ *   sub-agent to an existing module requires only:
  *     1. Add a new file in `modules/<domain>/agent/sub-agents/<name>.ts`.
  *     2. Re-export it from `modules/<domain>/agent/sub-agents/index.ts`.
- *   No changes to `agents.module.ts` are required — the barrel re-export
- *   makes the new entry visible automatically.
+ *   Adding sub-agents for a new domain module additionally requires a new
+ *   import and descriptor entry in `agents.module.ts`.
  *
  * Lives in `infrastructure/` because it is NestJS-injectable; it has zero
  * domain logic — it is purely a lookup/validation container.
@@ -53,13 +54,12 @@ export class SubAgentRegistry {
    * Aggregates, validates, and freezes the sub-agent registry.
    *
    * Must be called exactly once after `ToolRegistry.loadFromRouter` has run,
-   * because the resolvability check (R-02.9) queries the tool registry.
+   * because the tool-resolvability check (R-02.9) queries the tool registry.
    *
    * Invariants enforced (any violation throws `SubAgentRegistryValidationError`):
-   *   R-02.6  — Registry must contain at least one sub-agent (empty-deploy guard).
    *   R-02.7  — Duplicate keys across modules are not allowed.
-   *   R-02.8  — Each sub-agent must declare at least one tool in `toolScope`.
-   *   R-02.9  — Every tool name in `toolScope` must exist in the ToolRegistry.
+   *   R-02.9  — Each sub-agent must declare a non-empty `toolScope` and every
+   *              tool name in it must exist in the ToolRegistry.
    *
    * Calling `boot` a second time throws immediately — double-boot is a bug.
    *
@@ -72,7 +72,7 @@ export class SubAgentRegistry {
       )
     }
 
-    // R-02.6: non-empty registry
+    // Guard against an empty-deploy: at least one sub-agent must be registered.
     if (descriptors.length === 0) {
       throw new SubAgentRegistryValidationError(
         'SubAgentRegistry.boot: no sub-agents provided. ' +
@@ -85,7 +85,7 @@ export class SubAgentRegistry {
     for (const descriptor of descriptors) {
       const key = descriptor.key as string
 
-      // R-02.7: duplicate key check
+      // R-02.7: key collision across modules is not allowed.
       if (this._map.has(key)) {
         violations.push(
           `Duplicate sub-agent key "${key}": each sub-agent key must be unique across all modules.`,
@@ -93,14 +93,13 @@ export class SubAgentRegistry {
         continue
       }
 
-      // R-02.8: non-empty toolScope
+      // R-02.9: toolScope must be non-empty and every tool must be resolvable.
       if (descriptor.toolScope.length === 0) {
         violations.push(
           `Sub-agent "${key}" has an empty toolScope. Each sub-agent must declare at least one tool.`,
         )
       }
 
-      // R-02.9: every tool in toolScope must exist in ToolRegistry
       for (const toolName of descriptor.toolScope) {
         if (!toolRegistry.getDescriptor(toolName)) {
           violations.push(

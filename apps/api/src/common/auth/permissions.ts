@@ -80,9 +80,9 @@ export const PERMISSIONS = {
   PLANNER_PERSONAL_READ: 'planner:personal:read',
   PLANNER_PERSONAL_WRITE: 'planner:personal:write',
   // Agent-exposed read procedures (Plan 02 §13 — planner.read-only sub-agent toolScope)
-  PLANNER_AGENT_LIST_MY_TASKS: 'planner:agent:listMyTasks',
-  PLANNER_AGENT_LIST_MY_PLANS: 'planner:agent:listMyPlans',
-  PLANNER_AGENT_LIST_EVIDENCE: 'planner:agent:listEvidence',
+  PLANNER_AGENT_LIST_MY_TASKS: 'planner:agent:list-my-tasks',
+  PLANNER_AGENT_LIST_MY_PLANS: 'planner:agent:list-my-plans',
+  PLANNER_AGENT_LIST_EVIDENCE: 'planner:agent:list-evidence',
 } as const
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

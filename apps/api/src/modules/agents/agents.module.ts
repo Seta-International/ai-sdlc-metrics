@@ -41,9 +41,11 @@ import { ToolGateway } from './application/services/tool-gateway'
 import { getAppRouter } from '../../common/trpc/app-router'
 // Sub-agent registry (Task 3)
 import { SubAgentRegistry, SUB_AGENT_REGISTRY } from './infrastructure/registry/sub-agent-registry'
-// Module sub-agent barrels — add a new import here for each domain module that
-// declares sub-agents. Within a module barrel, adding a new sub-agent file
-// requires only re-exporting it from the barrel's index.ts.
+// Module sub-agent barrels.
+//   • Adding a sub-agent to an EXISTING module: re-export it from that module's
+//     barrel (agent/sub-agents/index.ts). No changes here are needed.
+//   • Adding sub-agents for a NEW domain module: add a new import below and
+//     include the descriptor(s) in the `descriptors` array in onModuleInit().
 import { plannerReadOnlySubAgent } from '../planner/agent/sub-agents'
 
 @Module({

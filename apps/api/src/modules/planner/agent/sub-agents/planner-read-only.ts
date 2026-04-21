@@ -61,7 +61,7 @@ export const plannerReadOnlySubAgent = defineSubAgent({
   },
   model: (ctx) => ({
     provider: 'openai',
-    model: ctx.surface === 'async' ? 'gpt-5.4-mini' : 'gpt-5.4-nano',
+    model: ctx.surface === 'async' ? 'gpt-5.4' : 'gpt-5.4-nano',
   }),
   source: 'code',
 })
