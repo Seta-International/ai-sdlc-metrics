@@ -54,19 +54,19 @@ graph LR
   008[008-linkedin-share-email]
 ```
 
-| Task                            | Status  | Priority | Blocked By |
-| ------------------------------- | ------- | -------- | ---------- |
-| 001-schema-evolution            | pending | high     | —          |
-| 002-lifecycle-state-machine     | pending | high     | 001        |
-| 003-directory-search            | pending | high     | 001        |
-| 004-change-request-enhancements | pending | high     | 001        |
-| 005-employee-documents          | pending | medium   | 001        |
-| 006-custom-fields               | pending | medium   | 001        |
-| 007-probation-management        | pending | medium   | 002        |
-| 008-linkedin-share-email        | pending | medium   | 001        |
-| 009-bulk-ops-csv-import         | pending | medium   | 001, 003   |
-| 010-field-access-control        | pending | medium   | 004        |
-| 011-profile-completeness        | pending | low      | 001, 003   |
+| Task                            | Status                                 | Priority | Blocked By |
+| ------------------------------- | -------------------------------------- | -------- | ---------- |
+| 001-schema-evolution            | in-progress (schema landed in Plan 01) | high     | —          |
+| 002-lifecycle-state-machine     | pending                                | high     | 001        |
+| 003-directory-search            | pending                                | high     | 001        |
+| 004-change-request-enhancements | pending                                | high     | 001        |
+| 005-employee-documents          | pending                                | medium   | 001        |
+| 006-custom-fields               | pending                                | medium   | 001        |
+| 007-probation-management        | pending                                | medium   | 002        |
+| 008-linkedin-share-email        | pending                                | medium   | 001        |
+| 009-bulk-ops-csv-import         | pending                                | medium   | 001, 003   |
+| 010-field-access-control        | pending                                | medium   | 004        |
+| 011-profile-completeness        | pending                                | low      | 001, 003   |
 
 ### project-staffing
 
