@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { EventBus } from '@nestjs/cqrs'
-import { EmployeeNoticeGivenEvent } from '@future/event-contracts'
+import { EmployeeNoticeGivenEvent, TerminationInitiatedEvent } from '@future/event-contracts'
 import {
   EmploymentNotFoundException,
   InvalidEmploymentStatusTransitionException,
@@ -58,14 +58,12 @@ describe('GiveNoticeHandler', () => {
   })
 
   it('transitions active employment to notice_period (resignation)', async () => {
+    const employment = makeEmployment()
+    const lastWorkingDay = new Date('2026-07-31')
+    vi.mocked(employmentRepo.findById).mockResolvedValue(employment)
+
     await handler.execute(
-      new GiveNoticeCommand(
-        TENANT_ID,
-        EMPLOYMENT_ID,
-        new Date('2026-07-31'),
-        'resignation',
-        INITIATED_BY,
-      ),
+      new GiveNoticeCommand(TENANT_ID, EMPLOYMENT_ID, lastWorkingDay, 'resignation', INITIATED_BY),
     )
 
     expect(employmentRepo.updateStatus).toHaveBeenCalledWith(
@@ -74,23 +72,46 @@ describe('GiveNoticeHandler', () => {
       'notice_period',
     )
     expect(eventBus.publish).toHaveBeenCalledWith(expect.any(EmployeeNoticeGivenEvent))
+    expect(eventBus.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: TENANT_ID,
+        employmentId: EMPLOYMENT_ID,
+        profileId: employment.personProfileId,
+        actorId: INITIATED_BY,
+        terminationDate: lastWorkingDay,
+        terminationReason: 'resignation',
+        initiatedBy: INITIATED_BY,
+        occurredAt: expect.any(Date),
+      }),
+    )
   })
 
   it('transitions active employment to notice_period (employer-initiated)', async () => {
+    const employment = makeEmployment()
+    const lastWorkingDay = new Date('2026-07-31')
+    vi.mocked(employmentRepo.findById).mockResolvedValue(employment)
+
     await handler.execute(
-      new GiveNoticeCommand(
-        TENANT_ID,
-        EMPLOYMENT_ID,
-        new Date('2026-07-31'),
-        'employer',
-        INITIATED_BY,
-      ),
+      new GiveNoticeCommand(TENANT_ID, EMPLOYMENT_ID, lastWorkingDay, 'employer', INITIATED_BY),
     )
 
     expect(employmentRepo.updateStatus).toHaveBeenCalledWith(
       EMPLOYMENT_ID,
       TENANT_ID,
       'notice_period',
+    )
+    expect(eventBus.publish).toHaveBeenCalledWith(expect.any(TerminationInitiatedEvent))
+    expect(eventBus.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: TENANT_ID,
+        employmentId: EMPLOYMENT_ID,
+        profileId: employment.personProfileId,
+        actorId: INITIATED_BY,
+        terminationDate: lastWorkingDay,
+        terminationReason: 'employer',
+        initiatedBy: INITIATED_BY,
+        occurredAt: expect.any(Date),
+      }),
     )
   })
 

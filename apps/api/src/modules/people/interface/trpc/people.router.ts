@@ -20,6 +20,7 @@ import { ReinstateSuspensionCommand } from '../../application/commands/reinstate
 import { GiveNoticeCommand } from '../../application/commands/give-notice.command'
 import { TerminateEmploymentCommand } from '../../application/commands/terminate-employment.command'
 import { CompleteTerminationCommand } from '../../application/commands/complete-termination.command'
+import { RehireEmploymentCommand } from '../../application/commands/rehire-employment.command'
 // Probation commands
 import { ConfirmProbationCommand } from '../../application/commands/confirm-probation.command'
 import { ExtendProbationCommand } from '../../application/commands/extend-probation.command'
@@ -999,6 +1000,54 @@ export function createPeopleRouter(
           return peopleFacade.listFieldEditPolicies(ctx.tenantId)
         }),
     }),
+
+    // ── Lifecycle mutations ────────────────────────────────────────────────
+    rehire: permissionProtectedProcedure
+      .meta({ permission: 'people:employment:rehire' })
+      .input(
+        z.object({
+          previousProfileId: z.string().uuid(),
+          rehireDate: z.coerce.date(),
+          workerType: z.enum(['employee', 'contingent']),
+          employmentType: z.enum(['permanent', 'fixed_term', 'intern']),
+          countryCode: z.string().min(2).max(3),
+          jobTitle: z.string().nullable().optional(),
+          departmentId: z.string().uuid().nullable().optional(),
+          managerProfileId: z.string().uuid().nullable().optional(),
+        }),
+      )
+      .mutation(
+        async ({
+          ctx,
+          input,
+        }: {
+          ctx: AuthContext
+          input: {
+            previousProfileId: string
+            rehireDate: Date
+            workerType: 'employee' | 'contingent'
+            employmentType: 'permanent' | 'fixed_term' | 'intern'
+            countryCode: string
+            jobTitle?: string | null
+            departmentId?: string | null
+            managerProfileId?: string | null
+          }
+        }) =>
+          svc().command(
+            new RehireEmploymentCommand(
+              ctx.tenantId,
+              input.previousProfileId,
+              input.rehireDate,
+              input.workerType,
+              input.employmentType,
+              input.countryCode,
+              input.jobTitle ?? null,
+              input.departmentId ?? null,
+              input.managerProfileId ?? null,
+              ctx.actorId,
+            ),
+          ),
+      ),
   })
 }
 

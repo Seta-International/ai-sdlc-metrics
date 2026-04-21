@@ -8,6 +8,7 @@ import type { KernelAuditFacade } from '../../../kernel/application/facades/kern
 import type { PeopleQueryFacade } from '../../application/facades/people-query.facade'
 import { createProtectedProcedures } from '../../../../common/trpc/create-protected-procedures'
 import { PeopleTrpcService } from './people-trpc.service'
+import { RehireEmploymentCommand } from '../../application/commands/rehire-employment.command'
 
 const ACTOR_ID = '01900000-0000-7000-8000-000000000001'
 const TENANT_ID = '01900000-0000-7000-8000-000000000002'
@@ -87,5 +88,51 @@ describe('createPeopleRouter', () => {
     expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'people:profile:read', {
       tenantId: TENANT_ID,
     })
+  })
+
+  it('should call RehireEmploymentCommand via rehire procedure protected by people:employment:rehire', async () => {
+    const commandBus = {
+      execute: vi.fn().mockResolvedValue({ profileId: 'p1', employmentId: 'e1' }),
+    }
+    const trpcService = new PeopleTrpcService(commandBus as never, { execute: vi.fn() } as never)
+    trpcService.onModuleInit()
+
+    const { peopleRouter, kernelFacade } = setup(true)
+    const caller = router({ people: peopleRouter }).createCaller({
+      actorId: ACTOR_ID,
+      tenantId: TENANT_ID,
+    } as any)
+
+    const result = await (caller.people as any).rehire({
+      previousProfileId: '01900000-0000-7000-8000-000000000010',
+      rehireDate: new Date('2026-06-01'),
+      workerType: 'employee',
+      employmentType: 'permanent',
+      countryCode: 'VN',
+    })
+
+    expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'people:employment:rehire', {
+      tenantId: TENANT_ID,
+    })
+    expect(commandBus.execute).toHaveBeenCalledWith(expect.any(RehireEmploymentCommand))
+    expect(result).toEqual({ profileId: 'p1', employmentId: 'e1' })
+  })
+
+  it('should deny rehire when permission is not granted', async () => {
+    const { peopleRouter } = setup(false)
+    const caller = router({ people: peopleRouter }).createCaller({
+      actorId: ACTOR_ID,
+      tenantId: TENANT_ID,
+    } as any)
+
+    await expect(
+      (caller.people as any).rehire({
+        previousProfileId: '01900000-0000-7000-8000-000000000010',
+        rehireDate: new Date('2026-06-01'),
+        workerType: 'employee',
+        employmentType: 'permanent',
+        countryCode: 'VN',
+      }),
+    ).rejects.toThrow(TRPCError)
   })
 })

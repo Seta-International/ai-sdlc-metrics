@@ -43,6 +43,7 @@ export const PERMISSIONS = {
   PEOPLE_SETTINGS_READ: 'people:settings:read',
   PEOPLE_SETTINGS_WRITE: 'people:settings:write',
   PEOPLE_ADMIN: 'people:admin',
+  PEOPLE_EMPLOYMENT_REHIRE: 'people:employment:rehire',
 
   // ── time (attendance, leave) ──────────────────────────────────────────
   TIME_LEAVE_SELF_SUBMIT: 'time:leave:self:submit',
