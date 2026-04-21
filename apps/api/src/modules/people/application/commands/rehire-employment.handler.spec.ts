@@ -254,14 +254,18 @@ describe('RehireEmploymentHandler', () => {
   })
 
   describe('error: previous employment exists', () => {
-    it('throws InvalidRehireException when findActiveByActorId returns a non-null employment', async () => {
-      vi.mocked(employmentRepo.findActiveByActorId).mockResolvedValue(makeTerminatedEmployment())
+    it('throws InvalidRehireException when active employment exists', async () => {
+      vi.mocked(employmentRepo.findActiveByActorId).mockResolvedValue(
+        makeTerminatedEmployment({ employmentStatus: 'active' }),
+      )
 
       await expect(handler.execute(makeCmd())).rejects.toThrow(InvalidRehireException)
     })
 
     it('does not create new profile when previous employment is found', async () => {
-      vi.mocked(employmentRepo.findActiveByActorId).mockResolvedValue(makeTerminatedEmployment())
+      vi.mocked(employmentRepo.findActiveByActorId).mockResolvedValue(
+        makeTerminatedEmployment({ employmentStatus: 'active' }),
+      )
 
       await expect(handler.execute(makeCmd())).rejects.toThrow(InvalidRehireException)
 
