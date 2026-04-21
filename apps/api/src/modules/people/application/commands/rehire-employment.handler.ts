@@ -46,7 +46,7 @@ export class RehireEmploymentHandler implements ICommandHandler<
 
     const newProfile = await this.profileRepo.insert({
       tenantId: command.tenantId,
-      actorId: command.actorId,
+      actorId: prevProfile.actorId,
       familyName: prevProfile.familyName,
       middleName: prevProfile.middleName,
       givenName: prevProfile.givenName,
@@ -94,7 +94,7 @@ export class RehireEmploymentHandler implements ICommandHandler<
         newProfile.id,
         command.previousProfileId,
         newEmployment.id,
-        command.actorId,
+        prevProfile.actorId,
         command.rehireDate,
         command.rehiredBy,
         new Date(),

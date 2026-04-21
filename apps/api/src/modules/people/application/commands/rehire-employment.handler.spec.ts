@@ -109,7 +109,6 @@ describe('RehireEmploymentHandler', () => {
     new RehireEmploymentCommand(
       TENANT_ID,
       PREV_PROFILE_ID,
-      ACTOR_ID,
       REHIRE_DATE,
       'employee',
       'permanent',
@@ -181,7 +180,7 @@ describe('RehireEmploymentHandler', () => {
       expect(profileRepo.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           tenantId: TENANT_ID,
-          actorId: ACTOR_ID,
+          actorId: prevProfile.actorId,
           familyName: prevProfile.familyName,
           givenName: prevProfile.givenName,
           fullName: prevProfile.fullName,

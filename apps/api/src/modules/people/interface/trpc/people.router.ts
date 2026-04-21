@@ -1007,7 +1007,6 @@ export function createPeopleRouter(
       .input(
         z.object({
           previousProfileId: z.string().uuid(),
-          actorId: z.string().uuid(),
           rehireDate: z.coerce.date(),
           workerType: z.enum(['employee', 'contingent']),
           employmentType: z.enum(['permanent', 'fixed_term', 'intern']),
@@ -1026,7 +1025,6 @@ export function createPeopleRouter(
           ctx: AuthContext
           input: {
             previousProfileId: string
-            actorId: string
             rehireDate: Date
             workerType: 'employee' | 'contingent'
             employmentType: 'permanent' | 'fixed_term' | 'intern'
@@ -1041,7 +1039,6 @@ export function createPeopleRouter(
             new RehireEmploymentCommand(
               ctx.tenantId,
               input.previousProfileId,
-              input.actorId,
               input.rehireDate,
               input.workerType,
               input.employmentType,
