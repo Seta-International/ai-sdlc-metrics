@@ -43,7 +43,6 @@ function buildTestRouter() {
 
 type TestRouter = ReturnType<typeof buildTestRouter>
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function makeCallerImpl(router?: TestRouter): TrpcCallerImpl {
   const r = router ?? buildTestRouter()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

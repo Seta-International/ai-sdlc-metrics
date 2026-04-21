@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { TRPCError } from '@trpc/server'
 import type { AgentToolDescriptor, AgentToolMeta } from '../../../../common/trpc/agent-tool-meta'
 import type { TurnState } from '../services/tool-gateway-contracts'

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { L1Cache, InvalidationAbortError } from './l1-cache'
 import { canonicalize } from './canonical-args'
 
