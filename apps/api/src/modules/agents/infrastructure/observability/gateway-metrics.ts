@@ -50,9 +50,15 @@ interface GatewayInstruments {
   cacheLookupTotal: Counter
   stepDurationMs: Histogram
   /**
-   * Counts sub-agents that were hidden during resolveForSession (Plan 02 §8).
-   * Labels: tenant_id, sub_agent_key, reason.
+   * Counts sub-agents hidden during resolveForSession due to module toggles or
+   * role permission filtering (Plan 02 §8, R-02.9a).
+   * Labels: tenant_id, reason.
    * reason ∈ 'module_disabled' | 'permission_empty_scope'
+   *
+   * `sub_agent_key` is intentionally omitted — it is a free-form string that
+   * grows without bound and multiplies cardinality per tenant. Per-sub-agent
+   * detail lives on span attributes (agent.router.sub_agent_hidden_by_module,
+   * agent.router.sub_agent_hidden_by_permission).
    */
   subAgentHiddenTotal: Counter
 }
@@ -116,7 +122,7 @@ function getInstruments(): GatewayInstruments {
     /**
      * Counts sub-agents hidden during resolveForSession due to module toggles or
      * role permission filtering (Plan 02 §8, R-02.9a).
-     * Labels: tenant_id, sub_agent_key, reason.
+     * Labels: tenant_id, reason.
      */
     subAgentHiddenTotal: meter.createCounter('agent_sub_agent_hidden_total', {
       description:
@@ -189,15 +195,16 @@ export function recordCacheLookup(
  * `reason`:
  *   - `'module_disabled'`       — every tool in the sub-agent's toolScope belongs to a disabled module.
  *   - `'permission_empty_scope'`— all tools were filtered by role permissions, leaving an empty scope.
+ *
+ * `sub_agent_key` is NOT included as a label — see the module-level doc comment
+ * for the cardinality rationale. Per-sub-agent detail is captured on span attributes.
  */
 export function recordSubAgentHidden(
   tenantId: string,
-  subAgentKey: string,
   reason: 'module_disabled' | 'permission_empty_scope',
 ): void {
   getInstruments().subAgentHiddenTotal.add(1, {
     tenant_id: tenantId,
-    sub_agent_key: subAgentKey,
     reason,
   })
 }

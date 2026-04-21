@@ -380,9 +380,9 @@ describe('SubAgentRegistry.resolveForSession', () => {
     expect(matchingPoint).toBeDefined()
     expect(matchingPoint!.attributes).toMatchObject({
       tenant_id: 'tenant-2',
-      sub_agent_key: 'planner.readonly',
       reason: 'module_disabled',
     })
+    expect(matchingPoint!.attributes).not.toHaveProperty('sub_agent_key')
     expect(matchingPoint!.value).toBe(1)
   })
 
@@ -407,6 +407,46 @@ describe('SubAgentRegistry.resolveForSession', () => {
     // Mixed scope → survives stage (a)
     expect(result).toHaveLength(1)
     expect(result[0]!.config.key).toBe('fixtures.mixed')
+  })
+
+  // ── T5-3b: Stage (b) combined filter — disabled-module tool + no enabled-module permission ──
+
+  it('T5-3b: planner disabled + people enabled; role permits only planner tool → dropped at stage (c)', async () => {
+    // Mixed-scope agent: 'planner' is disabled, 'people' is enabled.
+    // The role permits the planner tool but NOT the people tool.
+    // Stage (b) must filter out the planner tool (disabled module) AND the
+    // people tool (no permission), leaving an empty effective scope → stage (c) drop.
+    const mixedAgent = makeFixture('fixtures.mixed2', {
+      toolScope: ['planner.tasks.list', 'people.profiles.read'],
+    })
+    const registry = bootRegistry([mixedAgent])
+
+    const result = registry.resolveForSession({
+      tenantId: 'tenant-3b',
+      userId: 'user-1',
+      surface: 'global-chat',
+      enabledModules: new Set(['people']), // planner disabled; people enabled
+      // role permits planner tool (but planner is disabled) — NOT people tool
+      roleAllowedPermissions: new Set(['planner:tasks:list']),
+      promptVariables: new Map(),
+    })
+
+    // Must be dropped at stage (c): effective scope is empty after both filters
+    expect(result).toHaveLength(0)
+
+    const points = await flushAndGetPoints('agent_sub_agent_hidden_total')
+    const matchingPoint = points.find(
+      (p) =>
+        p.attributes['reason'] === 'permission_empty_scope' &&
+        p.attributes['tenant_id'] === 'tenant-3b',
+    )
+    expect(matchingPoint).toBeDefined()
+    expect(matchingPoint!.attributes).toMatchObject({
+      tenant_id: 'tenant-3b',
+      reason: 'permission_empty_scope',
+    })
+    expect(matchingPoint!.attributes).not.toHaveProperty('sub_agent_key')
+    expect(matchingPoint!.value).toBe(1)
   })
 
   // ── T5-4: Stage (b) narrow — role permits only 1 of 3 tools ─────────────────
@@ -464,9 +504,9 @@ describe('SubAgentRegistry.resolveForSession', () => {
     expect(matchingPoint).toBeDefined()
     expect(matchingPoint!.attributes).toMatchObject({
       tenant_id: 'tenant-5',
-      sub_agent_key: 'planner.readonly',
       reason: 'permission_empty_scope',
     })
+    expect(matchingPoint!.attributes).not.toHaveProperty('sub_agent_key')
     expect(matchingPoint!.value).toBe(1)
   })
 

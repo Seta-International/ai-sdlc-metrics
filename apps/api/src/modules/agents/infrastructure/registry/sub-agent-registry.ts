@@ -54,6 +54,7 @@ export class SubAgentRegistryValidationError extends Error {
  */
 export interface ResolveForSessionOpts {
   readonly tenantId: string
+  /** Reserved for future per-user model/feature overrides; unused in the current filter pipeline. */
   readonly userId: string
   readonly surface: TenantContext['surface']
   /** Tenant-enabled module names. Source: admin module config. */
@@ -79,7 +80,8 @@ export interface ResolveForSessionOpts {
  *   sub-agent survives stage (c), but does NOT mutate the config object and does
  *   NOT expose a separate `effectiveToolScope` field — narrowing is visible only
  *   via stage (c)'s empty-scope drop. Callers that need the effective scope can
- *   intersect `config.toolScope` with `roleAllowedPermissions` themselves.
+ *   intersect `config.toolScope` with enabled modules and `roleAllowedPermissions`
+ *   themselves.
  */
 export interface ResolvedSubAgent {
   readonly config: ValidatedSubAgentConfig
@@ -222,8 +224,11 @@ export class SubAgentRegistry {
    *     Sub-agents with mixed scopes (tools in both enabled and disabled modules)
    *     survive this stage.
    *
-   *   Stage (b) — Role permission filter: the effective tool scope is the subset
-   *     of `toolScope` whose `.meta.permission` key is in `roleAllowedPermissions`.
+   *   Stage (b) — Enabled-module + role permission filter: the effective tool scope
+   *     is the subset of `toolScope` whose module is in `enabledModules` AND whose
+   *     `.meta.permission` key is in `roleAllowedPermissions`. This prevents a
+   *     mixed-module agent from reaching the router with unusable disabled-module
+   *     tools even if the role happens to permit them.
    *     The ORIGINAL `config` is NOT mutated — narrowing is internal only.
    *
    *   Stage (c) — Empty-scope drop: if the effective scope after stages (a)+(b)
@@ -272,17 +277,23 @@ export class SubAgentRegistry {
         for (const mod of disabledModules) {
           hiddenByModule.push({ module: mod, sub_agent_key: key })
         }
-        recordSubAgentHidden(tenantId, key, 'module_disabled')
+        recordSubAgentHidden(tenantId, 'module_disabled')
         this.logger.debug(
           `resolveForSession: sub-agent "${key}" dropped — all tools in disabled module(s): ${disabledModules.join(', ')}`,
         )
         continue
       }
 
-      // ── Stage (b): Role permission filter ────────────────────────────────────
-      // Build the effective tool scope: only tools whose permission key is in
-      // roleAllowedPermissions. The original config is NOT mutated.
+      // ── Stage (b): Role permission filter + enabled-module filter ────────────
+      // Build the effective tool scope: only tools that satisfy BOTH conditions:
+      //   1. The tool's module (first dot-separated segment) is in enabledModules.
+      //   2. The tool's `.meta.permission` key is in roleAllowedPermissions.
+      // This prevents a mixed-module agent from reaching the router with tools
+      // from disabled modules that the role happens to permit — those tools would
+      // be unusable anyway. The original config is NOT mutated.
       const effectiveToolScope = config.toolScope.filter((toolName) => {
+        const toolModule = toolName.split('.')[0] ?? ''
+        if (!enabledModules.has(toolModule)) return false
         const descriptor = toolRegistry.getDescriptor(toolName)
         if (!descriptor) return false
         return roleAllowedPermissions.has(descriptor.permission)
@@ -291,7 +302,7 @@ export class SubAgentRegistry {
       // ── Stage (c): Empty-scope drop ───────────────────────────────────────────
       if (effectiveToolScope.length === 0) {
         hiddenByPermission.push(key)
-        recordSubAgentHidden(tenantId, key, 'permission_empty_scope')
+        recordSubAgentHidden(tenantId, 'permission_empty_scope')
         this.logger.debug(
           `resolveForSession: sub-agent "${key}" dropped — no tools permitted by role`,
         )
@@ -304,7 +315,7 @@ export class SubAgentRegistry {
         typeof config.model === 'function' ? config.model(tenantContext) : config.model
 
       // ── Prompt body rendering ─────────────────────────────────────────────────
-      const rawVars = promptVariables.get(config.key as SubAgentKey) ?? {}
+      const rawVars = promptVariables.get(config.key) ?? {}
       const parseResult = config.promptTemplate.variables.safeParse(rawVars)
       if (!parseResult.success) {
         throw new Error(
