@@ -105,7 +105,6 @@ describe('createPeopleRouter', () => {
 
     const result = await (caller.people as any).rehire({
       previousProfileId: '01900000-0000-7000-8000-000000000010',
-      actorId: ACTOR_ID,
       rehireDate: new Date('2026-06-01'),
       workerType: 'employee',
       employmentType: 'permanent',
@@ -130,7 +129,6 @@ describe('createPeopleRouter', () => {
     await expect(
       (caller.people as any).rehire({
         previousProfileId: '01900000-0000-7000-8000-000000000010',
-        actorId: ACTOR_ID,
         rehireDate: new Date('2026-06-01'),
         workerType: 'employee',
         employmentType: 'permanent',
