@@ -1014,7 +1014,6 @@ export function createPeopleRouter(
           jobTitle: z.string().nullable().optional(),
           departmentId: z.string().uuid().nullable().optional(),
           managerProfileId: z.string().uuid().nullable().optional(),
-          rehiredBy: z.string().uuid(),
         }),
       )
       .mutation(
@@ -1032,7 +1031,6 @@ export function createPeopleRouter(
             jobTitle?: string | null
             departmentId?: string | null
             managerProfileId?: string | null
-            rehiredBy: string
           }
         }) =>
           svc().command(
@@ -1046,7 +1044,7 @@ export function createPeopleRouter(
               input.jobTitle ?? null,
               input.departmentId ?? null,
               input.managerProfileId ?? null,
-              input.rehiredBy,
+              ctx.actorId,
             ),
           ),
       ),

@@ -109,7 +109,6 @@ describe('createPeopleRouter', () => {
       workerType: 'employee',
       employmentType: 'permanent',
       countryCode: 'VN',
-      rehiredBy: ACTOR_ID,
     })
 
     expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'people:employment:rehire', {
@@ -133,7 +132,6 @@ describe('createPeopleRouter', () => {
         workerType: 'employee',
         employmentType: 'permanent',
         countryCode: 'VN',
-        rehiredBy: ACTOR_ID,
       }),
     ).rejects.toThrow(TRPCError)
   })
