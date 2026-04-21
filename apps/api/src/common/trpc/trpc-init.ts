@@ -2,6 +2,7 @@ import { initTRPC } from '@trpc/server'
 import { createAuthMiddleware, type AuthContext } from './auth-middleware'
 import type { JwtService } from '../auth/jwt.service'
 import type { PermissionKey } from '../auth/permissions'
+import type { AgentToolMeta } from '../../modules/agents/infrastructure/tool-registry/agent-tool-meta'
 
 export interface TrpcMeta {
   /**
@@ -11,6 +12,13 @@ export interface TrpcMeta {
    * freshly-added route.
    */
   permission?: PermissionKey
+  /**
+   * Optional agent tool metadata. When present, the procedure is registered
+   * in the ToolRegistry and exposed to sub-agent runners.
+   * Per plan 01 §3 — R-01.11: a tRPC procedure is an agent tool iff
+   * `.meta({ agent: {...} })` is present.
+   */
+  agent?: AgentToolMeta
 }
 
 export interface TrpcContext {
