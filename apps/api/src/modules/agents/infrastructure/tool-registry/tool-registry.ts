@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import type { AgentToolDescriptor, AgentToolMeta } from '../../../../common/trpc/agent-tool-meta'
 import { permissionMatchesAnyPrefix } from './permission-match'
+import { isZodObject, resolveRootSchema } from './zod-schema-utils'
 
 // ─── Validation Error ─────────────────────────────────────────────────────────
 
@@ -40,43 +41,6 @@ interface RouterDef {
 
 interface RouterLike {
   _def: RouterDef
-}
-
-// ─── Zod v4 minimal shape for tenant_id check ────────────────────────────────
-
-interface ZodObjectDef {
-  type: 'object'
-  shape: Record<string, unknown>
-}
-
-interface ZodObjectLike {
-  _def: ZodObjectDef
-}
-
-function isZodObject(schema: unknown): schema is ZodObjectLike {
-  return (
-    typeof schema === 'object' &&
-    schema !== null &&
-    '_def' in schema &&
-    (schema as ZodObjectLike)._def?.type === 'object' &&
-    typeof (schema as ZodObjectLike)._def?.shape === 'object' &&
-    (schema as ZodObjectLike)._def?.shape !== null
-  )
-}
-
-/**
- * Unwraps a single level of Zod v4 pipe wrapper (produced by `.transform()` or `.pipe()`).
- * `_def.type === 'pipe'` means the "real" schema is at `_def.in`.
- * Returns the input unchanged for any other shape.
- */
-function resolveRootSchema(schema: unknown): unknown {
-  if (typeof schema === 'object' && schema !== null && '_def' in schema) {
-    const def = (schema as { _def: { type?: string; in?: unknown } })._def
-    if (def?.type === 'pipe' && 'in' in def) {
-      return resolveRootSchema(def.in)
-    }
-  }
-  return schema
 }
 
 // ─── resolveMenuFor options ───────────────────────────────────────────────────

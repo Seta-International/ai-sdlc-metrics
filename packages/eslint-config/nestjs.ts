@@ -54,6 +54,72 @@ const config: Linter.Config[] = [
       ],
     },
   },
+  // Agents module DI boundary (R-01.6): the agents module must only cross module
+  // boundaries via QueryFacade / write-facade / module symbol.  It must never
+  // inject or import domain entities, application services, command/query handlers,
+  // event-handlers, or infrastructure internals from other modules.
+  //
+  // Allowed cross-module imports from within agents/**:
+  //   - **/modules/<module>/application/facades/**   (canonical public surface)
+  //   - **/modules/<module>/<module>.module.ts        (NestJS imports array)
+  //
+  // Explicitly BANNED (one pattern per import kind).
+  // Regex matches both:
+  //   - relative paths:  ../kernel/domain/...  or  ../../../kernel/domain/...
+  //   - absolute-style:  .../modules/kernel/domain/...
+  // Negative lookahead (?!agents/) ensures own-module paths are NOT caught.
+  {
+    files: ['**/modules/agents/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            // Ban: domain internals from any non-agents module
+            {
+              regex: '.*[/\\\\](?!agents[/\\\\])[a-z][a-z0-9-]*[/\\\\]domain[/\\\\].*',
+              message:
+                'The agents module must not inject or import domain services, handlers, or internals from other modules. Cross-module reads go through QueryFacade; writes go through dedicated write/audit facades. (R-01.6)',
+            },
+            // Ban: infrastructure internals from any non-agents module
+            {
+              regex: '.*[/\\\\](?!agents[/\\\\])[a-z][a-z0-9-]*[/\\\\]infrastructure[/\\\\].*',
+              message:
+                'The agents module must not inject or import domain services, handlers, or internals from other modules. Cross-module reads go through QueryFacade; writes go through dedicated write/audit facades. (R-01.6)',
+            },
+            // Ban: application/commands from any non-agents module
+            {
+              regex:
+                '.*[/\\\\](?!agents[/\\\\])[a-z][a-z0-9-]*[/\\\\]application[/\\\\]commands[/\\\\].*',
+              message:
+                'The agents module must not inject or import domain services, handlers, or internals from other modules. Cross-module reads go through QueryFacade; writes go through dedicated write/audit facades. (R-01.6)',
+            },
+            // Ban: application/queries from any non-agents module
+            {
+              regex:
+                '.*[/\\\\](?!agents[/\\\\])[a-z][a-z0-9-]*[/\\\\]application[/\\\\]queries[/\\\\].*',
+              message:
+                'The agents module must not inject or import domain services, handlers, or internals from other modules. Cross-module reads go through QueryFacade; writes go through dedicated write/audit facades. (R-01.6)',
+            },
+            // Ban: application/services from any non-agents module
+            {
+              regex:
+                '.*[/\\\\](?!agents[/\\\\])[a-z][a-z0-9-]*[/\\\\]application[/\\\\]services[/\\\\].*',
+              message:
+                'The agents module must not inject or import domain services, handlers, or internals from other modules. Cross-module reads go through QueryFacade; writes go through dedicated write/audit facades. (R-01.6)',
+            },
+            // Ban: application/event-handlers from any non-agents module
+            {
+              regex:
+                '.*[/\\\\](?!agents[/\\\\])[a-z][a-z0-9-]*[/\\\\]application[/\\\\]event-handlers[/\\\\].*',
+              message:
+                'The agents module must not inject or import domain services, handlers, or internals from other modules. Cross-module reads go through QueryFacade; writes go through dedicated write/audit facades. (R-01.6)',
+            },
+          ],
+        },
+      ],
+    },
+  },
   prettier,
 ]
 
