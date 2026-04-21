@@ -25,18 +25,30 @@ Built on a unified canonical data layer across HR, time, hiring, finance, projec
 
 ## How it's built
 
-```
-Next.js 15 multi-zone frontend (11 zones + auth shell)
-  ↕ tRPC (end-to-end type-safe)
-NestJS modular monolith — one module per domain, strict DDD boundaries
-  ↕ Drizzle ORM + PostgreSQL 16 with RLS (schema-per-module)
-  ↕ pg-boss job queue + outbox event relay
-Agent runtime — Vercel AI SDK + OpenAI, governed by kernel authority layer
-  ↕ MCP tool contracts per module
-AWS ECS Fargate (Graviton ARM64) · Terraform · ap-southeast-1
-```
+The frontend is 11 independent Next.js zones — one per domain — talking to a single NestJS API over tRPC. No monolithic frontend. No shared state between zones. Each zone deploys independently.
 
-Every table has `tenant_id`. Every action leaves an `audit_event`. Every agent call is governed by the same role/permission layer as the UI.
+The backend is a modular monolith: 13 domain modules (People, Time, Hiring, Finance...), each owning its own Postgres schema and Drizzle ORM layer. Modules never import each other's internals — cross-module reads go through typed facades, async writes go through a durable outbox. Row-level security enforces tenant isolation at the database level.
+
+Agents live inside the `agents` module. They reach other modules through MCP tool contracts — the same authorization layer the UI uses. No agent bypasses the kernel permission check. Every action leaves an `audit_event`.
+
+```
+Browser
+  → Next.js zone (one per domain, independent deploy)
+  → tRPC over HTTPS
+  → NestJS API (modular monolith, 13 domain modules)
+  → PostgreSQL 16 (schema-per-module, RLS, pg-boss jobs)
+
+Agent channel (Teams / Slack / SSE)
+  → Agent runtime (Vercel AI SDK + OpenAI)
+  → MCP tool contracts
+  → Same NestJS API, same permission layer
+
+Data platform
+  → Hourly Glue ETL → S3 Parquet → Iceberg → Athena
+  → Insights module proxies queries — no direct Athena access from frontend
+
+Infra: AWS ECS Fargate (Graviton ARM64) · Terraform · ap-southeast-1
+```
 
 ---
 
