@@ -61,6 +61,16 @@ interface GatewayInstruments {
    * agent.router.sub_agent_hidden_by_permission).
    */
   subAgentHiddenTotal: Counter
+  /**
+   * Counts permission narrative cache lookups by outcome.
+   * Labels: tenant_id, outcome.
+   * outcome ∈ 'hit' | 'miss'
+   *
+   * Plan §8 specifies agent_narrative_cache_hit_ratio as a gauge, but OTel
+   * semantics favour two counters (hit + miss) with the ratio computed in
+   * the dashboard via PromQL / OTTL. This is R-02.17..R-02.19.
+   */
+  narrativeCacheTotal: Counter
 }
 
 let _instruments: GatewayInstruments | undefined
@@ -127,6 +137,15 @@ function getInstruments(): GatewayInstruments {
     subAgentHiddenTotal: meter.createCounter('agent_sub_agent_hidden_total', {
       description:
         'Sub-agents hidden from a session due to module toggle or empty permission scope.',
+      valueType: ValueType.INT,
+    }),
+
+    /**
+     * Counts permission narrative cache lookups by outcome (Plan 02 §8, R-02.17..R-02.19).
+     * Labels: tenant_id, outcome.
+     */
+    narrativeCacheTotal: meter.createCounter('agent_narrative_cache_total', {
+      description: 'Permission narrative cache outcomes (hit/miss) per tenant.',
       valueType: ValueType.INT,
     }),
   }
@@ -207,4 +226,15 @@ export function recordSubAgentHidden(
     tenant_id: tenantId,
     reason,
   })
+}
+
+/**
+ * Record a permission narrative cache lookup outcome (Plan 02 §8, R-02.17..R-02.19).
+ *
+ * `outcome`:
+ *   - `'hit'`  — the narrative hash already existed in the store (`wasAppended: false`).
+ *   - `'miss'` — the narrative was generated and written for the first time (`wasAppended: true`).
+ */
+export function recordNarrativeCache(tenantId: string, outcome: 'hit' | 'miss'): void {
+  getInstruments().narrativeCacheTotal.add(1, { tenant_id: tenantId, outcome })
 }

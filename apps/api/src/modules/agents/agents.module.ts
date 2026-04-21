@@ -34,6 +34,11 @@ import { ListInsightsHandler } from './application/queries/list-insights.handler
 // tRPC handler setters
 import { setAgentSessionHandlers } from './interface/trpc/session.router'
 import { setAgentInsightHandlers } from './interface/trpc/insight.router'
+// Permission narrative builder (Task 6)
+import {
+  PermissionNarrativeBuilder,
+  PERMISSION_NARRATIVE_BUILDER,
+} from './application/services/permission-narrative-builder'
 // Gateway pipeline (Task 5)
 import { ToolRegistry } from './infrastructure/tool-registry/tool-registry'
 import { TrpcCallerImpl } from './application/services/trpc-caller'
@@ -94,6 +99,9 @@ import { listMyAssignmentsIntent } from '../projects/agent/intents'
     McpAuthGuard,
     ExposureContractGuard,
     ToolPermissionGuard,
+    // Permission narrative builder (Task 6)
+    PermissionNarrativeBuilder,
+    { provide: PERMISSION_NARRATIVE_BUILDER, useExisting: PermissionNarrativeBuilder },
     // Gateway pipeline (Task 5)
     ToolRegistry,
     TrpcCallerImpl,
@@ -105,7 +113,7 @@ import { listMyAssignmentsIntent } from '../projects/agent/intents'
     IntentRegistry,
     { provide: INTENT_REGISTRY, useExisting: IntentRegistry },
   ],
-  exports: [AgentsQueryFacade, SUB_AGENT_REGISTRY, INTENT_REGISTRY],
+  exports: [AgentsQueryFacade, SUB_AGENT_REGISTRY, INTENT_REGISTRY, PERMISSION_NARRATIVE_BUILDER],
 })
 export class AgentsModule implements OnModuleInit {
   constructor(
