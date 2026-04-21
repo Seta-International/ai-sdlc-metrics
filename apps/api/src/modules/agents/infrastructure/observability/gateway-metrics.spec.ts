@@ -31,7 +31,7 @@ import {
   recordTripwire,
   recordStepDuration,
   recordCacheLookup,
-  _resetInstrumentsForTest,
+  __INTERNAL_resetInstruments,
 } from './gateway-metrics'
 
 // ─── One-time OTel meter provider setup ──────────────────────────────────────
@@ -57,7 +57,7 @@ metrics.setGlobalMeterProvider(meterProvider)
 // a helper function re-acquires the meter from the (already registered) provider.
 beforeEach(() => {
   exporter.reset()
-  _resetInstrumentsForTest()
+  __INTERNAL_resetInstruments()
 })
 
 // ─── Helper: get a metric's data points from the latest export ────────────────

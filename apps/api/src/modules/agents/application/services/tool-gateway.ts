@@ -30,6 +30,7 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common'
+import type { AgentToolDescriptor } from '../../../../common/trpc/agent-tool-meta'
 import { ToolRegistry } from '../../infrastructure/tool-registry/tool-registry'
 import {
   resolve,
@@ -283,97 +284,117 @@ export class ToolGateway {
 
     // ── Phase A ─────────────────────────────────────────────────────────────
 
-    // Step 1: resolve — wrapped in gateway:resolve span.
+    // Step 1 + 2: resolve + circuit-breaker check — both inside gateway:resolve span.
+    // The circuit_broken: true attribute must land on this span (for dashboards +
+    // trace filtering). The closure returns a tagged union so the outer code branches
+    // cleanly without needing to re-check the circuit-breaker state.
+    type CbEntry = NonNullable<ReturnType<typeof turnState.circuitBreaker.get>>
+
     const resolveStepStart = Date.now()
-    const resolveResult = await withGatewayStep(
+    const resolveOutcome = await withGatewayStep(
       'resolve',
       { tool_name: toolName, sub_agent_key: subAgentKey },
-      () => resolve({ toolName, subAgentScope, registry: this.registry }),
+      ():
+        | { kind: 'resolve_error'; tw: Tripwire }
+        | { kind: 'circuit_broken'; descriptor: AgentToolDescriptor; cb: CbEntry }
+        | { kind: 'ok'; descriptor: AgentToolDescriptor } => {
+        const resolveResult = resolve({ toolName, subAgentScope, registry: this.registry })
+        if (isTripwireVariant(resolveResult)) {
+          return { kind: 'resolve_error', tw: resolveResult }
+        }
+        const cb = turnState.circuitBreaker.get(resolveResult.descriptor.name)
+        if (cb?.permissionDenied) {
+          recordStepAttrs({ circuit_broken: true, cb_reason: 'permission_denied' })
+          return { kind: 'circuit_broken', descriptor: resolveResult.descriptor, cb }
+        }
+        if (cb?.ceilingBreached) {
+          recordStepAttrs({ circuit_broken: true, cb_reason: 'ceiling_breached' })
+          return { kind: 'circuit_broken', descriptor: resolveResult.descriptor, cb }
+        }
+        return { kind: 'ok', descriptor: resolveResult.descriptor }
+      },
     )
     recordStepDuration('resolve', Date.now() - resolveStepStart)
 
-    if (isTripwireVariant(resolveResult)) {
+    if (resolveOutcome.kind === 'resolve_error') {
       // No audit — tool doesn't exist / out of scope; no audit subject.
       // procedure_not_agent_exposed / procedure_out_of_sub_agent_scope are not
       // attributable to a tenant tool call so we skip recordToolCall here.
-      return resolveResult
-    }
-    const { descriptor } = resolveResult
-
-    // Step 2: circuit-breaker check.
-    // Per plan §8 — circuit-broken re-invocation is annotated on the resolve span
-    // via circuit_broken: true attribute (plan names no distinct span for this path).
-    const cb = turnState.circuitBreaker.get(descriptor.name)
-    if (cb?.permissionDenied) {
-      const rawContext = {
-        toolName: descriptor.name,
-        circuit_broken_at: cb.brokenAt,
-      }
-      // Audit with raw context (audit is sanctuary), return sanitized
-      const auditStart = Date.now()
-      const auditResult = await withGatewayStep(
-        'audit-emit',
-        { result_status: 'permission_denied_disabled', audit_row_id: undefined },
-        () =>
-          auditEmit({
-            descriptor,
-            requestContext,
-            resultStatus: 'permission_denied_disabled',
-            extraAttrs: { circuit_broken_at: cb.brokenAt },
-            auditFacade: this.auditFacade,
-            logger: this.logger,
-          }),
-      )
-      recordStepDuration('audit-emit', Date.now() - auditStart)
-      void auditResult // result not needed here
-      const tw = tripwire(
-        'permission_denied_disabled',
-        'abort',
-        sanitizeTripwireContext(rawContext, 'permission_denied_disabled') as Record<
-          string,
-          unknown
-        >,
-      )
-      recordToolCall(tenantId, descriptor.name, 'permission_denied_disabled')
-      recordTripwire(tenantId, 'permission_denied_disabled', 'abort')
-      return tw
+      return resolveOutcome.tw
     }
 
-    if (cb?.ceilingBreached) {
-      const rawContext = {
-        toolName: descriptor.name,
-        circuit_broken_at: cb.brokenAt,
-      }
-      // circuit_broken: true attribute on the resolve span documents this path
-      // (plan §8: emit circuit_broken attr on resolve span, no separate span for this path)
-      const auditStart = Date.now()
-      await withGatewayStep(
-        'audit-emit',
-        { result_status: 'ceiling_hit', audit_row_id: undefined },
-        () =>
-          auditEmit({
-            descriptor,
-            requestContext,
-            resultStatus: 'ceiling_hit',
-            extraAttrs: { circuit_broken: true, circuit_broken_at: cb.brokenAt },
-            auditFacade: this.auditFacade,
-            logger: this.logger,
-          }),
-      )
-      recordStepDuration('audit-emit', Date.now() - auditStart)
-      // Use ceiling_breach_bytes as the canonical ceiling variant for the broken-circuit path
-      const tw = tripwire(
-        'ceiling_breach_bytes',
-        'abort',
-        sanitizeTripwireContext(
-          { ...rawContext, bytesRemaining: 0, wallclockRemaining: 0 },
+    if (resolveOutcome.kind === 'circuit_broken') {
+      const { descriptor, cb } = resolveOutcome
+      if (cb.permissionDenied) {
+        const rawContext = {
+          toolName: descriptor.name,
+          circuit_broken_at: cb.brokenAt,
+        }
+        // Audit with raw context (audit is sanctuary), return sanitized
+        const auditStart = Date.now()
+        const auditResult = await withGatewayStep(
+          'audit-emit',
+          { result_status: 'permission_denied_disabled', audit_row_id: undefined },
+          () =>
+            auditEmit({
+              descriptor,
+              requestContext,
+              resultStatus: 'permission_denied_disabled',
+              extraAttrs: { circuit_broken_at: cb.brokenAt },
+              auditFacade: this.auditFacade,
+              logger: this.logger,
+            }),
+        )
+        recordStepDuration('audit-emit', Date.now() - auditStart)
+        void auditResult // result not needed here
+        const tw = tripwire(
+          'permission_denied_disabled',
+          'abort',
+          sanitizeTripwireContext(rawContext, 'permission_denied_disabled') as Record<
+            string,
+            unknown
+          >,
+        )
+        recordToolCall(tenantId, descriptor.name, 'permission_denied_disabled')
+        recordTripwire(tenantId, 'permission_denied_disabled', 'abort')
+        return tw
+      } else {
+        // ceilingBreached
+        const rawContext = {
+          toolName: descriptor.name,
+          circuit_broken_at: cb.brokenAt,
+        }
+        const auditStart = Date.now()
+        await withGatewayStep(
+          'audit-emit',
+          { result_status: 'ceiling_hit', audit_row_id: undefined },
+          () =>
+            auditEmit({
+              descriptor,
+              requestContext,
+              resultStatus: 'ceiling_hit',
+              extraAttrs: { circuit_broken: true, circuit_broken_at: cb.brokenAt },
+              auditFacade: this.auditFacade,
+              logger: this.logger,
+            }),
+        )
+        recordStepDuration('audit-emit', Date.now() - auditStart)
+        // Use ceiling_breach_bytes as the canonical ceiling variant for the broken-circuit path
+        const tw = tripwire(
           'ceiling_breach_bytes',
-        ) as Record<string, unknown>,
-      )
-      recordToolCall(tenantId, descriptor.name, 'ceiling_hit')
-      recordTripwire(tenantId, 'ceiling_breach_bytes', 'abort')
-      return tw
+          'abort',
+          sanitizeTripwireContext(
+            { ...rawContext, bytesRemaining: 0, wallclockRemaining: 0 },
+            'ceiling_breach_bytes',
+          ) as Record<string, unknown>,
+        )
+        recordToolCall(tenantId, descriptor.name, 'ceiling_hit')
+        recordTripwire(tenantId, 'ceiling_breach_bytes', 'abort')
+        return tw
+      }
     }
+
+    const { descriptor } = resolveOutcome
 
     // Step 3: L1 cache lookup
     const argsHash = canonicalize(args ?? null).hash
@@ -481,9 +502,10 @@ export class ToolGateway {
     let fieldsToWrap: ReadonlyArray<string> = []
     // Fire-and-forget the Promise; the sync body runs immediately due to
     // withGatewayStep's synchronous execution of sync fns inside context.with.
-    void withGatewayStep('taint-wrap-setup', { fields_to_wrap_count: 0 }, () => {
+    void withGatewayStep('taint-wrap-setup', {}, () => {
       const r = prepareTaintWrap({ descriptor })
       fieldsToWrap = r.fieldsToWrap
+      recordStepAttrs({ fields_to_wrap: [...r.fieldsToWrap] })
       return r
     })
     recordStepDuration('taint-wrap-setup', Date.now() - taintWrapSetupStart)
@@ -579,9 +601,12 @@ export class ToolGateway {
     if (descriptor.procedure === 'mutation') {
       let abortResult: ReturnType<typeof preWriteAbortCheck> | undefined
       const abortCheckStart = Date.now()
-      void withGatewayStep('pre-write-abort-check', { aborted: false }, () => {
+      void withGatewayStep('pre-write-abort-check', {}, () => {
         const r = preWriteAbortCheck({ descriptor, abortSignal })
         abortResult = r
+        if (isTripwireVariant(r)) {
+          recordStepAttrs({ aborted: true })
+        }
         return r
       })
       recordStepDuration('pre-write-abort-check', Date.now() - abortCheckStart)
@@ -671,6 +696,10 @@ export class ToolGateway {
       {},
       () => {
         const wrapped = applyTaintWrap({ result, fieldsToWrap, turnState })
+        recordStepAttrs({
+          fields_wrapped: [...wrapped.fieldsWrapped],
+          taint_flipped: wrapped.taintFlipped,
+        })
         return wrapped
       },
     )

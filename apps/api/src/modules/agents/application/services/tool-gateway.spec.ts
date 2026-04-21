@@ -659,6 +659,60 @@ describe('ToolGateway', () => {
       // audit-emit span was emitted
       expect(auditSpan).toBeDefined()
     })
+
+    it('circuit_broken permission_denied_disabled: resolve span carries circuit_broken=true and cb_reason=permission_denied', async () => {
+      const descriptor = makeDescriptor()
+      const registry = makeRegistry(descriptor)
+      const { facade } = makeAuditFacade()
+      const { caller } = makeCaller({ tasks: [] })
+      const turnState = makeTurnState({
+        circuitBreaker: new Map([
+          ['planner.task.getBoard', { permissionDenied: true as const, brokenAt: Date.now() }],
+        ]),
+      })
+      const gw = new ToolGateway(registry, caller, facade)
+
+      const result = await gw.invoke(makeInput({ turnState }))
+
+      expect(result.kind).toBe('tripwire')
+      if (result.kind === 'tripwire') {
+        expect(result.variant).toBe('permission_denied_disabled')
+      }
+
+      const spans = spanExporter.getFinishedSpans()
+      const resolveSpan = spans.find((s: ReadableSpan) => s.name === 'gateway:resolve')
+      expect(resolveSpan).toBeDefined()
+      expect(resolveSpan?.attributes['circuit_broken']).toBe(true)
+      expect(resolveSpan?.attributes['cb_reason']).toBe('permission_denied')
+    })
+
+    it('circuit_broken ceiling_breached: resolve span carries circuit_broken=true and cb_reason=ceiling_breached', async () => {
+      const descriptor = makeDescriptor({
+        meta: { ...BASE_META, ceilings: { bytesScanned: 0 } },
+      })
+      const registry = makeRegistry(descriptor)
+      const { facade } = makeAuditFacade()
+      const { caller } = makeCaller({ tasks: [] })
+      const turnState = makeTurnState({
+        circuitBreaker: new Map([
+          ['planner.task.getBoard', { ceilingBreached: true as const, brokenAt: Date.now() }],
+        ]),
+      })
+      const gw = new ToolGateway(registry, caller, facade)
+
+      const result = await gw.invoke(makeInput({ turnState }))
+
+      expect(result.kind).toBe('tripwire')
+      if (result.kind === 'tripwire') {
+        expect(result.variant).toBe('ceiling_breach_bytes')
+      }
+
+      const spans = spanExporter.getFinishedSpans()
+      const resolveSpan = spans.find((s: ReadableSpan) => s.name === 'gateway:resolve')
+      expect(resolveSpan).toBeDefined()
+      expect(resolveSpan?.attributes['circuit_broken']).toBe(true)
+      expect(resolveSpan?.attributes['cb_reason']).toBe('ceiling_breached')
+    })
   })
 })
 

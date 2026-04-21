@@ -111,14 +111,17 @@ function getInstruments(): GatewayInstruments {
   return _instruments
 }
 
+// ─── Test-only reset ──────────────────────────────────────────────────────────
+// DO NOT import __INTERNAL_resetInstruments outside of test files.
+// This hook exists solely for test teardown when the MeterProvider is replaced
+// between test suites. Calling it in production code will silently drop metrics.
+
 /**
- * Reset the cached instruments (for use in test teardown when the MeterProvider
- * is replaced between test suites). Not exposed publicly to keep the API surface
- * clean; imported only by the test file via the same module.
- *
- * @internal
+ * @internal — test-only. Clears the cached instrument instances so the next
+ * helper call re-acquires a fresh meter from the currently registered provider.
+ * Must only be called from test setup/teardown (e.g. `beforeEach` in spec files).
  */
-export function _resetInstrumentsForTest(): void {
+export function __INTERNAL_resetInstruments(): void {
   _instruments = undefined
 }
 
