@@ -30,6 +30,12 @@ import { ListInsightsHandler } from './application/queries/list-insights.handler
 // tRPC handler setters
 import { setAgentSessionHandlers } from './interface/trpc/session.router'
 import { setAgentInsightHandlers } from './interface/trpc/insight.router'
+// Gateway pipeline (Task 5)
+import { ToolRegistry } from './infrastructure/tool-registry/tool-registry'
+import { TrpcCallerImpl } from './application/services/trpc-caller'
+import { ToolGateway } from './application/services/tool-gateway'
+import { KernelAuditFacade } from '../kernel/application/facades/kernel-audit.facade'
+import { getAppRouter } from '../../common/trpc/app-router'
 
 @Module({
   imports: [
@@ -64,6 +70,10 @@ import { setAgentInsightHandlers } from './interface/trpc/insight.router'
     McpAuthGuard,
     ExposureContractGuard,
     ToolPermissionGuard,
+    // Gateway pipeline (Task 5)
+    ToolRegistry,
+    TrpcCallerImpl,
+    ToolGateway,
   ],
   exports: [AgentsQueryFacade],
 })
@@ -74,6 +84,7 @@ export class AgentsModule implements OnModuleInit {
     private readonly dismissInsight: DismissInsightHandler,
     private readonly listSessions: ListSessionsHandler,
     private readonly listInsights: ListInsightsHandler,
+    private readonly toolRegistry: ToolRegistry,
   ) {}
 
   onModuleInit() {
@@ -86,5 +97,12 @@ export class AgentsModule implements OnModuleInit {
       listInsights: this.listInsights,
       dismissInsight: this.dismissInsight,
     })
+
+    // Load agent tools from the assembled tRPC router.
+    // TrpcModule.onModuleInit() must have run before AgentsModule.onModuleInit()
+    // to ensure permission-enforcing routers have been swapped in.
+    // NestJS module init order is determined by import order in AppModule;
+    // TrpcModule is imported before AgentsModule in app.module.ts.
+    this.toolRegistry.loadFromRouter(getAppRouter())
   }
 }

@@ -198,11 +198,17 @@ export interface TrpcCaller {
  *  - Unknown non-TRPCError throw  → `infra_error`,             fixed abort
  *
  * NOTE on `transient_infra_error`:
- *   That variant is NOT produced here. The orchestrator (Task 5) wraps this step
- *   and performs a single in-gateway retry on transient failures. Only after that
- *   retry is exhausted does the orchestrator emit `transient_infra_error`.
- *   Keeping classification here and retry logic in the orchestrator maintains a
- *   clean separation of concerns.
+ *   This variant IS produced here when the thrown error looks transient (e.g.
+ *   SERVICE_UNAVAILABLE, TOO_MANY_REQUESTS, ECONNRESET, ETIMEDOUT). The orchestrator
+ *   (Task 5) detects `transient_infra_error` with `disposition: 'retry'` and executes
+ *   a single in-gateway retry (with jitter). Only after that retry is exhausted does
+ *   the orchestrator return the tripwire to the caller.
+ *
+ *   Rationale for classifying here rather than adding `rawError` to tripwire context:
+ *   - `rawError` (a live Error object) on a Tripwire could carry large stacks, circular
+ *     references, or PII; a sanitizer bug would leak it.
+ *   - The original error is available HERE; classify it once, keep it out of the payload.
+ *   - The orchestrator only needs the variant + disposition to know it should retry once.
  *
  * NOTE on sanitization (R-01.29):
  *   `rawMessage` in the context carries the raw error message. The orchestrator
@@ -231,14 +237,27 @@ export async function invoke(input: {
       return mapTrpcError(descriptor.name, err)
     }
 
-    // Unknown non-TRPCError — treat as infra_error (fixed abort)
+    // Unknown non-TRPCError — check for transient network patterns first
     const rawMessage = err instanceof Error ? err.message : String(err)
+    if (TRANSIENT_MESSAGE_RE.test(rawMessage)) {
+      return tripwire('transient_infra_error', 'retry', {
+        toolName: descriptor.name,
+        rawMessage,
+      })
+    }
+
     return tripwire('infra_error', 'abort', {
       toolName: descriptor.name,
       rawMessage,
     })
   }
 }
+
+/**
+ * Pattern matching transient network errors in non-TRPCError messages.
+ * Kept broad enough to catch common Node.js socket resets and DNS failures.
+ */
+const TRANSIENT_MESSAGE_RE = /ECONNRESET|ETIMEDOUT|network/i
 
 /**
  * Duck-type check for a Zod-like error with an `issues` array.
@@ -302,6 +321,10 @@ function mapTrpcError(toolName: string, err: TRPCError): Tripwire {
     case 'TIMEOUT':
     case 'CLIENT_CLOSED_REQUEST':
       return tripwire('invocation_timeout', 'retry', baseContext)
+
+    case 'SERVICE_UNAVAILABLE':
+    case 'TOO_MANY_REQUESTS':
+      return tripwire('transient_infra_error', 'retry', baseContext)
 
     default:
       // INTERNAL_SERVER_ERROR and any other tRPC infra codes → infra_error

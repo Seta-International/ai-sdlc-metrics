@@ -82,6 +82,14 @@ export interface ToolGatewayInvokeInput {
   readonly toolName: string
   readonly args: unknown
   readonly subAgentKey: string
+  /**
+   * Permission-key prefixes this sub-agent is allowed to call.
+   * Example: `['planner:task', 'people:profile:read']`.
+   * The gateway passes this to `resolve()` to enforce sub-agent scope isolation.
+   * Provided by the AgentRuntime (Plan 03) when building the per-turn invoke function;
+   * sourced from the sub-agent config in the DB.
+   */
+  readonly subAgentScope: ReadonlyArray<string>
   readonly requestContext: RequestContext
   readonly abortSignal: AbortSignal
   readonly turnState: TurnState

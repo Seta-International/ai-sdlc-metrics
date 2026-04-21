@@ -534,6 +534,61 @@ describe('invoke', () => {
       expect(outcome.context['rawMessage']).toBe(rawMsg)
     }
   })
+
+  it('SERVICE_UNAVAILABLE → transient_infra_error, retry', async () => {
+    const err = new TRPCError({ code: 'SERVICE_UNAVAILABLE', message: 'Upstream down' })
+    const outcome = await invoke({ ...INVOKE_BASE, caller: makeCaller(undefined, err) })
+
+    expect(outcome.kind).toBe('tripwire')
+    if (outcome.kind === 'tripwire') {
+      expect(outcome.variant).toBe('transient_infra_error')
+      expect(outcome.disposition).toBe('retry')
+    }
+  })
+
+  it('TOO_MANY_REQUESTS → transient_infra_error, retry', async () => {
+    const err = new TRPCError({ code: 'TOO_MANY_REQUESTS', message: 'Rate limited' })
+    const outcome = await invoke({ ...INVOKE_BASE, caller: makeCaller(undefined, err) })
+
+    expect(outcome.kind).toBe('tripwire')
+    if (outcome.kind === 'tripwire') {
+      expect(outcome.variant).toBe('transient_infra_error')
+      expect(outcome.disposition).toBe('retry')
+    }
+  })
+
+  it('non-TRPCError with ECONNRESET → transient_infra_error, retry', async () => {
+    const err = new Error('read ECONNRESET')
+    const outcome = await invoke({ ...INVOKE_BASE, caller: makeCaller(undefined, err) })
+
+    expect(outcome.kind).toBe('tripwire')
+    if (outcome.kind === 'tripwire') {
+      expect(outcome.variant).toBe('transient_infra_error')
+      expect(outcome.disposition).toBe('retry')
+    }
+  })
+
+  it('non-TRPCError with ETIMEDOUT → transient_infra_error, retry', async () => {
+    const err = new Error('connect ETIMEDOUT 10.0.0.1:5432')
+    const outcome = await invoke({ ...INVOKE_BASE, caller: makeCaller(undefined, err) })
+
+    expect(outcome.kind).toBe('tripwire')
+    if (outcome.kind === 'tripwire') {
+      expect(outcome.variant).toBe('transient_infra_error')
+      expect(outcome.disposition).toBe('retry')
+    }
+  })
+
+  it('non-TRPCError without transient pattern → infra_error, abort', async () => {
+    const err = new Error('Some unexpected business bug')
+    const outcome = await invoke({ ...INVOKE_BASE, caller: makeCaller(undefined, err) })
+
+    expect(outcome.kind).toBe('tripwire')
+    if (outcome.kind === 'tripwire') {
+      expect(outcome.variant).toBe('infra_error')
+      expect(outcome.disposition).toBe('abort')
+    }
+  })
 })
 
 // ─── applyTaintWrap ───────────────────────────────────────────────────────────

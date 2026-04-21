@@ -68,6 +68,10 @@ function makeDeferred(): Deferred {
     resolve = res
     reject = rej
   })
+  // Attach a no-op catch so that when fail() is called without any coalesced waiters,
+  // Node.js does not emit an UnhandledPromiseRejectionWarning.
+  // Waiters that do await the promise supply their own catch handling.
+  promise.catch(() => undefined)
   return { promise, resolve, reject }
 }
 
