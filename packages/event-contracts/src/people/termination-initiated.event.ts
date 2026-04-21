@@ -1,5 +1,5 @@
 export class TerminationInitiatedEvent {
-  static readonly eventName = 'people.termination.initiated'
+  static readonly eventName = 'people.termination-initiated'
   constructor(
     public readonly tenantId: string,
     public readonly employmentId: string,
@@ -8,5 +8,6 @@ export class TerminationInitiatedEvent {
     public readonly terminationDate: Date,
     public readonly terminationReason: string,
     public readonly initiatedBy: string,
+    public readonly occurredAt: Date,
   ) {}
 }
