@@ -16,6 +16,7 @@ export {
   offboardingCase,
   offboardingTask,
   contractVersion,
+  jobHistory,
 } from './people.schema'
 export { profileChangeRequest } from './change-requests.schema'
 export { employeeDocument, documentRequirement, completenessRule } from './documents.schema'

@@ -88,6 +88,7 @@ export const employment = peopleSchema.table('employment', {
   }),
   hireDate: date('hire_date', { mode: 'date' }).notNull(),
   originalHireDate: date('original_hire_date', { mode: 'date' }),
+  previousProfileId: uuid('previous_profile_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
@@ -239,7 +240,18 @@ export const profileSection = peopleSchema.table('profile_section', {
   tenantId: uuid('tenant_id').notNull(),
   profileId: uuid('profile_id').notNull(),
   sectionType: text('section_type', {
-    enum: ['education', 'certification', 'skill', 'language', 'social_link', 'dependent'],
+    enum: [
+      'education',
+      'certification',
+      'skill',
+      'language',
+      'social_link',
+      'dependent',
+      'work_experience',
+      'emergency_contact',
+      'project_history',
+      'license',
+    ],
   }).notNull(),
   payload: jsonb('payload').notNull().default({}),
   displayOrder: integer('display_order').notNull().default(0),
@@ -594,3 +606,43 @@ export const importJob = peopleSchema.table('import_job', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   completedAt: timestamp('completed_at'),
 })
+
+export const jobHistory = peopleSchema.table(
+  'job_history',
+  {
+    id: uuid('id')
+      .$defaultFn(() => uuidv7())
+      .primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    profileId: uuid('profile_id').notNull(),
+    effectiveFrom: date('effective_from', { mode: 'date' }).notNull(),
+    effectiveTo: date('effective_to', { mode: 'date' }),
+    jobTitle: text('job_title'),
+    departmentId: uuid('department_id'),
+    managerProfileId: uuid('manager_profile_id'),
+    changeType: text('change_type', {
+      enum: [
+        'hire',
+        'promotion',
+        'lateral',
+        'demotion',
+        'department_transfer',
+        'manager_change',
+        'termination',
+        'rehire',
+      ],
+    }).notNull(),
+    changeReason: text('change_reason'),
+    recordedAt: timestamp('recorded_at').defaultNow().notNull(),
+    recordedBy: uuid('recorded_by'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('job_history_tenant_profile_from_uidx').on(
+      table.tenantId,
+      table.profileId,
+      table.effectiveFrom,
+    ),
+  ],
+)
