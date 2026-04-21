@@ -39,7 +39,7 @@ export class GiveNoticeHandler implements ICommandHandler<GiveNoticeCommand, voi
         command.tenantId,
         command.employmentId,
         employment.personProfileId,
-        command.initiatedBy,
+        command.initiatedBy, // actorId — GiveNoticeCommand has no separate actorId; initiatedBy serves both
         command.lastWorkingDay,
         command.noticeType,
         command.initiatedBy,
