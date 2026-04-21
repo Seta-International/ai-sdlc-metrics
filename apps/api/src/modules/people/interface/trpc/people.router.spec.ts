@@ -8,6 +8,7 @@ import type { KernelAuditFacade } from '../../../kernel/application/facades/kern
 import type { PeopleQueryFacade } from '../../application/facades/people-query.facade'
 import { createProtectedProcedures } from '../../../../common/trpc/create-protected-procedures'
 import { PeopleTrpcService } from './people-trpc.service'
+import { RehireEmploymentCommand } from '../../application/commands/rehire-employment.command'
 
 const ACTOR_ID = '01900000-0000-7000-8000-000000000001'
 const TENANT_ID = '01900000-0000-7000-8000-000000000002'
@@ -87,5 +88,32 @@ describe('createPeopleRouter', () => {
     expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'people:profile:read', {
       tenantId: TENANT_ID,
     })
+  })
+
+  it('should call RehireEmploymentCommand via rehire procedure', async () => {
+    // Import the public peopleRouter to test public procedures
+    const { peopleRouter: publicRouter } = await import('./people.router')
+
+    const commandBus = {
+      execute: vi.fn().mockResolvedValue({ profileId: 'p1', employmentId: 'e1' }),
+    }
+    const trpcService = new PeopleTrpcService(commandBus as never, { execute: vi.fn() } as never)
+    trpcService.onModuleInit()
+
+    const caller = router({ people: publicRouter }).createCaller({} as any)
+
+    const result = await (caller.people as any).rehire({
+      tenantId: TENANT_ID,
+      previousProfileId: '01900000-0000-7000-8000-000000000010',
+      actorId: ACTOR_ID,
+      rehireDate: new Date('2026-06-01'),
+      workerType: 'employee',
+      employmentType: 'permanent',
+      countryCode: 'VN',
+      rehiredBy: ACTOR_ID,
+    })
+
+    expect(commandBus.execute).toHaveBeenCalledWith(expect.any(RehireEmploymentCommand))
+    expect(result).toEqual({ profileId: 'p1', employmentId: 'e1' })
   })
 })
