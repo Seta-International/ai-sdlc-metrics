@@ -6,12 +6,12 @@
 </p>
 
 <p align="center">
-  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-15_multi--zone-black?logo=next.js"/>
-  <img alt="NestJS" src="https://img.shields.io/badge/NestJS-modular_monolith-E0234E?logo=nestjs"/>
-  <img alt="Bun" src="https://img.shields.io/badge/Bun-1.3-fbf0df?logo=bun"/>
   <img alt="OpenAI" src="https://img.shields.io/badge/OpenAI-GPT--5.4-412991?logo=openai&logoColor=white"/>
   <img alt="Vercel AI SDK" src="https://img.shields.io/badge/Vercel_AI_SDK-agentic-black?logo=vercel"/>
   <img alt="Langfuse" src="https://img.shields.io/badge/Langfuse-observability-CC6600"/>
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-15_multi--zone-black?logo=next.js"/>
+  <img alt="NestJS" src="https://img.shields.io/badge/NestJS-modular_monolith-E0234E?logo=nestjs"/>
+  <img alt="Bun" src="https://img.shields.io/badge/Bun-1.3-fbf0df?logo=bun"/>
 </p>
 
 ---
