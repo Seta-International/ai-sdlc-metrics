@@ -15,12 +15,27 @@ export class SchemaMismatchError extends Error {
  *
  * Implements the §3 phase-handoff sanitization contract from the agent-runtime spec:
  * - Project phase-1 output into the target sub-agent's declared input schema.
- * - On any mismatch (missing key, wrong type), throw — never coerce.
+ * - On any mismatch (missing key, wrong type), throw `SchemaMismatchError` — never coerce.
+ * - Zero-key target returns `{}`.
+ * - `null` / non-object input throws `SchemaMismatchError`.
+ *
+ * **Caveat for target schemas:** Zod constructs that rewrite values at parse time —
+ * `.default(...)`, `.transform(...)`, `.catch(...)`, `.coerce.*` — bypass the "no
+ * transformation" guarantee because `safeParse` will apply them. Callers must avoid
+ * these constructs in target schemas. This is not enforced at runtime because walking
+ * arbitrary Zod shapes for forbidden wrappers is a moving target across Zod versions.
  */
 export function projectToSchema<TShape extends ZodRawShape>(
   input: Record<string, unknown>,
   target: ZodObject<TShape>,
 ): z.infer<ZodObject<TShape>> {
+  if (input === null || typeof input !== 'object') {
+    throw new SchemaMismatchError(`projectToSchema: input must be an object, got ${typeof input}`, {
+      receivedType: typeof input,
+      receivedValue: input,
+    })
+  }
+
   const picked: Record<string, unknown> = {}
   for (const key of Object.keys(target.shape)) {
     if (!(key in input)) {

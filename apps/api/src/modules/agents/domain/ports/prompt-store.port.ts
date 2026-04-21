@@ -8,10 +8,29 @@ export interface PromptStoreEntry {
   firstSeenAt: Date
 }
 
+/**
+ * Hash-keyed, content-addressable prompt store.
+ *
+ * **Primary key is `contentHash` alone, NOT `(contentHash, tenantId)`.** This is
+ * deliberate: identical prompt content produces the same SHA-256, so two tenants
+ * writing the same system/developer prompt dedupe to a single row — the first
+ * writer wins `firstSeenAt` and `tenantId`. Subsequent tenants calling
+ * `putIfAbsent` for the same hash observe `inserted: false` and receive the row
+ * the first tenant inserted.
+ *
+ * Tenant isolation is enforced on reads: `get(hash, tenantId)` filters by
+ * `tenantId` (app-level) and RLS is enabled + forced on the table. A tenant
+ * whose `tenantId` does not match the stored row observes `null`.
+ *
+ * This is a cache, not a tenant-owned record. Do not store tenant-specific data
+ * in prompt content — by definition, if it's the same text, it's the same cache
+ * entry.
+ */
 export interface PromptStore {
   /**
-   * Idempotent write: if the (contentHash, tenantId) already exists, return it without rewriting.
-   * Returns the stored entry and whether the write actually inserted a row.
+   * Idempotent write. If `contentHash` already exists, returns the stored row
+   * (not the input) and `inserted: false`. The stored row may have been inserted
+   * under a different `tenantId`; see the `PromptStore` interface docs.
    */
   putIfAbsent(
     entry: Omit<PromptStoreEntry, 'firstSeenAt'>,

@@ -74,4 +74,36 @@ describe('DrizzleNarrativeStoreRepository', () => {
     const found = await repo.get('sha256-narrative-missing-003', TENANT_A)
     expect(found).toBeNull()
   })
+
+  it('returns the stored entry from get() when present', async () => {
+    await setTenantContext(db, TENANT_A)
+
+    await repo.putIfAbsent({
+      contentHash: 'sha256-narrative-get-004',
+      tenantId: TENANT_A,
+      roleId: ROLE_ADMIN,
+      content: 'Persisted narrative.',
+    })
+
+    const found = await repo.get('sha256-narrative-get-004', TENANT_A)
+    expect(found).not.toBeNull()
+    expect(found?.contentHash).toBe('sha256-narrative-get-004')
+    expect(found?.content).toBe('Persisted narrative.')
+    expect(found?.roleId).toBe(ROLE_ADMIN)
+    expect(found?.tenantId).toBe(TENANT_A)
+    expect(found?.firstSeenAt).toBeInstanceOf(Date)
+  })
+
+  it('has RLS enabled + forced at the table level (structural check)', async () => {
+    const rows = (await db.execute(sql`
+      SELECT c.relrowsecurity, c.relforcerowsecurity
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'agents' AND c.relname = 'agent_narrative_store'
+    `)) as unknown as { rows: Array<{ relrowsecurity: boolean; relforcerowsecurity: boolean }> }
+
+    expect(rows.rows).toHaveLength(1)
+    expect(rows.rows[0]!.relrowsecurity).toBe(true)
+    expect(rows.rows[0]!.relforcerowsecurity).toBe(true)
+  })
 })
