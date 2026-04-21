@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-21
 **Owner:** Canh Ta (PM)
-**Status:** Draft for review
+**Status:** Draft for review (v2 — Excel-only deliverable)
 **Related:** `docs/modules/planner.md` (BRD, input only), `docs/raws/Project_Plan_Template.pptx` (structure template), `CLAUDE.md` (stack reference)
 
 ---
@@ -11,292 +11,216 @@
 
 Produce the Project Plan for the Future Planner MVP and its three foundational tracks (Core Backend, Core Frontend, Core AI Agent). The plan is the PMO-facing delivery artefact: contract, scope, WBS, timeline, governance, RACI, risks, executive support.
 
-This spec describes _what documents we will produce, their shape, and where their content comes from_. It does not author the plan content itself — that follows once this spec is approved.
+This spec describes _what the single Excel workbook will contain, its sheet structure, and where content comes from_. It does not author the plan content itself — that follows once this spec is approved.
 
 Scope covers the full arc from Kickoff (W1, 20 Apr 2026) through full-coverage rollout (waves TBD), not just the 8-week build.
 
 ## 2. Goals
 
-- One authoritative Project Plan that a PMO reader can open and act on.
-- Four track briefs that track leads own day-to-day and update weekly.
-- Tabular artefacts (WBS, milestones, risks, RACI, sprint status) in a format suited to weekly editing — Excel, not Markdown.
-- Every BRD REQ/NFR traces to at least one deliverable; nothing silently dropped.
-- Phasing is explicit for the Core AI Agent track; the other three tracks are single-phase.
+- One authoritative Project Plan artefact the PMO can open and act on.
+- PPTX-template-shape preserved so the document reads the way SETA PMO expects.
+- Every PPTX section represented as a workbook sheet — narrative and tabular alike.
+- Every BRD REQ/NFR traces to at least one deliverable row; nothing silently dropped.
+- Phasing is explicit for the Core AI Agent track (Phase 1 W1–W4, Phase 2 W5–W8); the other three tracks are single-phase.
 
-## 3. Deliverables
+## 3. Deliverable
 
-Five Markdown files plus one Excel workbook under `docs/project-plan/`:
+**One Excel workbook:** `docs/project-plan/project-plan.xlsx`. No supporting Markdown files. No README.md.
 
-```
-docs/project-plan/
-├── README.md                         # 1-page index: audience, ownership, how to navigate
-├── 00-master-plan.md                 # PMO-facing; follows PPTX template literally, 9 sections
-├── project-plan.xlsx                 # all tabular artefacts, one sheet per concern
-└── tracks/
-    ├── 10-planner.md
-    ├── 20-core-backend.md
-    ├── 30-core-frontend.md
-    └── 40-core-ai-agent.md
-```
+Workbook structure follows PPTX Option 1: one sheet per PPTX section (9 template sections), plus one sheet per track brief, plus appendices. Total ~16 sheets.
 
-**Naming convention:** two-digit prefixes for reading order. No dates in filenames; version + date live in document headers. Master doc is authoritative for cross-track concerns (contract, timeline rollup, RACI, risks, governance). Each track brief is authoritative for its own WBS, acceptance, sprint plan, and track-specific risks.
+### 3.1 Sheet index
 
-## 4. Markdown ↔ Excel split
+| #   | Sheet                   | Maps to PPTX | Content type                                                                                                                                       |
+| --- | ----------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `00-Cover`              | Slide 1      | Title, version, date, owner, approver list                                                                                                         |
+| 2   | `00-TOC`                | Slide 2      | Table of contents with hyperlinks to each sheet                                                                                                    |
+| 3   | `01-Overview`           | Slides 3-5   | Info fields · Problem/Solution narrative · Key Components · SMART Objectives table                                                                 |
+| 4   | `02-Contract`           | Slides 6-7   | Internal charter fields · Milestones & Deliverables table · Legal & Compliance                                                                     |
+| 5   | `03-Scope`              | Slides 8-10  | WBS-Master (feature-level rollup) · In/Out of scope · CR process · CR log                                                                          |
+| 6   | `04-Timeline`           | Slides 11-12 | Master timeline band (image/shapes) · Milestone tracking table · Sprint plan table                                                                 |
+| 7   | `05-Approach`           | Slides 13-23 | Org chart · Escalation · Comms plan · SDLC + DoR/DoD · KPI dashboard · Technical approach · QA · CI/CD · AI differentiator · Definition of Success |
+| 8   | `06-Resources`          | Slide 17     | Allocation table + RACI matrix                                                                                                                     |
+| 9   | `07-DCA`                | Slide 24     | Dependencies · Constraints · Assumptions                                                                                                           |
+| 10  | `08-Risks-Issues`       | Slides 25-26 | Risk register · Heat map · Issues log · Process                                                                                                    |
+| 11  | `09-ExecSupport`        | Slide 27+    | Budget · Decision SLA · Kill criteria                                                                                                              |
+| 12  | `Track-Planner`         | —            | Full track brief (purpose, scope, deliverables, WBS, sprint plan, risks, DoD, open Qs)                                                             |
+| 13  | `Track-CoreBackend`     | —            | Full track brief                                                                                                                                   |
+| 14  | `Track-CoreFrontend`    | —            | Full track brief                                                                                                                                   |
+| 15  | `Track-CoreAIAgent`     | —            | Full track brief with Phase 1 + Phase 2 blocks inside every sub-section                                                                            |
+| 16  | `Appendix-BA-Legacy`    | —            | Parallel BA workstream (stakeholder map + legacy system requirement briefs)                                                                        |
+| 17  | `Appendix-BRD-Coverage` | —            | Traceability matrix: BRD REQ-XX / NFR-XX → track sheet + deliverable row                                                                           |
 
-**Rule of thumb:** tables that get edited weekly go in Excel; narrative and one-time-authored content stays in Markdown. Markdown sections that need to reference a table carry a _snapshot_ with a "generated from sheet `X` as of `DATE`" footer.
+### 3.2 Sheet-level content schemas
 
-### 4.1 Excel workbook — `project-plan.xlsx`
+Each sheet uses a consistent two-column header layout: merged title row + sub-section blocks stacked vertically. Narrative sub-sections use wrapped-text cells; tabular sub-sections use bordered tables with filter-enabled headers.
 
-One sheet per artefact. Column schemas:
+**`01-Overview`**
 
-| Sheet          | Maps to template slide | Columns                                                                                                                                            |
-| -------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WBS-Master`   | Slide 8                | Track · Module · Function · Feature · Effort Low (MD) · Effort High (MD) · Confidence (H/M/L) · Owner · Sprint · Acceptance                        |
-| `WBS-Planner`  | Slide 8                | Module · Function · Feature · Screen/API · Description · Effort Low · Effort High · Confidence · Owner · Sprint · Acceptance · BRD REQ/NFR         |
-| `WBS-CoreBE`   | Slide 8                | (same schema as WBS-Planner)                                                                                                                       |
-| `WBS-CoreFE`   | Slide 8                | (same schema as WBS-Planner)                                                                                                                       |
-| `WBS-CoreAI`   | Slide 8                | Phase · Module · Function · Feature · Screen/API · Description · Effort Low · Effort High · Confidence · Owner · Sprint · Acceptance · BRD REQ/NFR |
-| `Milestones`   | Slide 7, 12            | ID · Milestone · Planned · Actual · Owner · Acceptance · Status                                                                                    |
-| `Sprints`      | Slide 12               | Sprint · Start · End · Goal · Scope · Deliverable · Exit Criterion · Status                                                                        |
-| `RACI`         | Slide 17               | Task · PM · PO · SM · BA · AI Eng · FS #1 · FS #2 · DE · Designer (A/R/C/I, one A per task)                                                        |
-| `Risks`        | Slide 25               | ID · Risk · Probability · Impact · Score · Mitigation · Owner · Status                                                                             |
-| `Dependencies` | Slide 24               | Description · Impact · Owner · Due Date                                                                                                            |
-| `Issues`       | Slide 26               | ID · Description · Severity · Owner · Status · ETA                                                                                                 |
-| `CR-Log`       | Slide 10               | CR ID · Description · Impact (Scope / Time / Cost) · Decision · Status                                                                             |
-| `DoR-DoD`      | Slide 18               | Phase · Input · Output · DoR · DoD · Owner                                                                                                         |
+- Block 1 — **Information** (field/value grid): BMM, Duration, Methodology, Stakeholders, Budget, Version.
+- Block 2 — **Problem & Solution** (wrapped text, 2 cells): five operational costs from BRD §2.
+- Block 3 — **Key Components** (card grid, 4 rows): Planner · Core BE · Core FE · Core AI Agent. Core AI Agent cell notes Phase 1/2.
+- Block 4 — **SMART Objectives** (table): Objective · Metric · Target · Timeline · Owner (5 rows from BRD §3).
 
-Excel is authoritative for all numbers (effort, dates, status). Markdown snapshots are read-only views.
+**`02-Contract`**
 
-**Known trade-off:** Excel is binary, so git diffs are unhelpful. Accepted — PMO editing productivity outweighs reviewable diffs.
+- Block 1 — **Internal Charter Fields**: Sponsor = Hung Vu; Technical Sponsor = Thu Mai; PMO = Hoang Nguyen; Payment Model → "Acceptance Weight"; SLA → Kill Criteria (links to `09-ExecSupport`); Governance = Steering cadence.
+- Block 2 — **Milestones & Deliverables** (table): ID · Milestone · Planned · Actual · Owner · Acceptance Criterion · Acceptance Weight · Status.
+  - Rows: Kick-off (W1) · Core Foundations (W2) · First Working Version (W4) · Core Agent Phase 1 complete (W4) · MVP Pilot-ready (W8) · Core Agent Phase 2 complete (W8) · Pilot gate (W12) · Wave 1 (TBD) · Full coverage (TBD) · Post-rollout review (TBD).
+- Block 3 — **Legal & Compliance** (wrapped text): BRD §11 — MS 365 SSO standards, Teams consent inherited, no audio stored, AI vendor disclosure, ap-southeast-1 data residency.
 
-### 4.2 Markdown files keep
+**`03-Scope`**
 
-Narrative (Problem/Solution, SMART Objectives, technical/QA/CI-CD/AI approach, communication plan, Definition of Success), process flows (CR process, escalation path, risk process), and links into Excel.
+- Block 1 — **WBS-Master** (table, feature-level rollup): Track · Module · Function · Feature · Effort Low (MD) · Effort High (MD) · Confidence (H/M/L) · Owner · Sprint · Acceptance. Populated from the four track sheets; ~30–40 rows.
+- Block 2 — **In Scope** (bulleted list) — from BRD §4.1.
+- Block 3 — **Out of Scope** (bulleted list) — from BRD §4.3.
+- Block 4 — **Change Request Process** (5-step flow, rendered as numbered text + diagram image).
+- Block 5 — **CR Log** (table): CR ID · Description · Impact (Scope/Time/Cost) · Decision · Status.
 
-## 5. Master plan outline — `00-master-plan.md`
+**`04-Timeline`**
 
-Follows the PPTX template structure 1:1, 9 sections. Internal-charter substitutions for Section 2.
+- Block 1 — **Master Timeline** (image or Excel shapes): week-by-week band chart W0 → full coverage.
+- Block 2 — **Milestone Tracking** (table, same schema as `02-Contract` milestones but updated weekly): ID · Milestone · Planned · Actual · Status · Notes.
+- Block 3 — **Sprint Plan** (table): Sprint · Start · End · Goal · Scope · Deliverable · Exit Criterion · Status. 4 sprints × 2 weeks for build; pilot + rollout rows beyond.
 
-```
-# Future — Project Plan (Planner MVP)
-Version 1.0 · 2026-04-21 · Owner: Canh Ta, Nguyen Hương Ly
+**`05-Approach`** (largest sheet; stacked blocks mirror PPTX slides 13-23)
 
-## 1. Project Overview
-  1.1 Information
-    BMM = Internal / Cost-saving; Duration W1 (20-Apr-2026) → wave full-coverage (TBD);
-    Methodology = Agile Scrum 2-week; Stakeholders = Hung Vu (Sponsor), Thu Mai (CTO),
-    Hoang Nguyen (PMO); Budget = team time + 1× Claude Max x20 + ~$200 AI cap.
-  1.2 Problem & Solution
-    Restate BRD §2 five operational costs (chase-up tax, no authoritative record,
-    completion without evidence, portfolio blindness, strategic commitments evaporate).
-  1.3 Key Components
-    Four tracks: Planner · Core Backend · Core Frontend · Core AI Agent.
-    Core AI Agent is phased (Phase 1 W1-W4, Phase 2 W5-W8); others single-phase.
-  1.4 SMART Objectives (table)
-    Objective · Metric · Target · Timeline · Owner — derived from BRD §3 G1-G7.
+- Block 1 — **Organisation chart** (embedded image): Steering Co. → PM → (PO, SM, BA, Tech Lead, AI Eng, Designer).
+- Block 2 — **Escalation Path**: L1/L2/L3 + response SLA (P1-P4) per PPTX Slide 14.
+- Block 3 — **Communication Plan** (table): Ceremony · Audience · Frequency · Duration · Owner · Output. Includes BA parallel legacy-discovery interviews as a separate row.
+- Block 4 — **Methodology & SDLC** (table): Phase · Input · Output · DoR · DoD · Owner. Agile Scrum 2-week per BRD §8; DoR/DoD sourced from CLAUDE.md testing rules (≥70% coverage, TDD, co-located tests).
+- Block 5 — **KPI Dashboard** (4 metric cells): Progress · Defect rate · Uptime · CSAT (targets only at plan time).
+- Block 6 — **Technical Approach** (card grid): stack verbatim from CLAUDE.md — Next.js multi-zones · NestJS · Drizzle · tRPC · pg-boss · Vercel AI SDK · AWS ECS Fargate ARM64 · Turborepo.
+- Block 7 — **QA Approach**: test pyramid diagram + exit criteria. CLAUDE.md rules: TDD, ≥70% coverage, co-located tests, no `__tests__/` dirs.
+- Block 8 — **CI/CD Approach**: GitHub Actions · Turborepo remote cache · Docker ARM64 · ECR · ECS rolling. DORA targets.
+- Block 9 — **AI Differentiator** (card grid): per-role AI uplift (Dev/QA/PM/BA/Ops) per PPTX Slide 23, tuned for 1× Claude Max x20 shared.
+- Block 10 — **Definition of Success** (4 quadrants): Delivery · Quality · Adoption · Outcome, tied to BRD §7.
 
-## 2. Project Contract (Internal Charter)
-  2.1 Fields
-    Sponsor = Hung Vu; Technical Sponsor = Thu Mai; PMO = Hoang Nguyen;
-    Payment % column renamed "Acceptance Weight"; SLA credits → Kill criteria (§9.3);
-    Termination → Pilot-to-Wave gate decisions.
-  2.2 Milestones & Deliverables → xlsx#Milestones
-    Kick-off (W1) · Core Foundations (W2) · First Working Version (W4) ·
-    Core Agent Phase 1 complete (W4) · MVP Pilot-ready (W8) ·
-    Core Agent Phase 2 complete (W8) · Pilot gate (W12) · Wave 1 (TBD) ·
-    Full coverage (TBD) · Post-rollout review (TBD).
-  2.3 Legal & Compliance
-    From BRD §11: MS 365 SSO standards, Teams consent inherited, no audio stored,
-    AI vendor disclosure, ap-southeast-1 data residency.
+**`06-Resources`**
 
-## 3. Estimation & Scope
-  3.1 WBS (feature-level rollup) → xlsx#WBS-Master (~30-40 rows across 4 tracks)
-  3.2 In Scope / Out of Scope — from BRD §4.1 and §4.3
-  3.3 Change Request process — 5-step flow per PPTX Slide 10 → xlsx#CR-Log
+- Block 1 — **Allocation** (table): Role · Person · Effort % · Tracks covered. BA row notes flexible split between Planner MVP and legacy discovery; no fixed percentages.
+- Block 2 — **RACI Matrix** (table): Task · PM · PO · SM · BA · AI Eng · FS #1 · FS #2 · DE · Designer. Exactly one A per row.
 
-## 4. Project Timeline
-  4.1 Master timeline — week-by-week band chart W0 → full coverage
-  4.2 Milestone tracking → xlsx#Milestones
-  4.3 Sprint plan → xlsx#Sprints — 4 sprints × 2 weeks for build; pilot + rollout tracked
-       separately in xlsx#Milestones
+**`07-DCA`**
 
-## 5. Project Approach
-  5.1 Organisation & RACI → xlsx#RACI
-    Org chart: Steering Co. → PM → (PO, SM, BA, Tech Lead, AI Eng, Designer).
-    Accountable overlap: PM Accountable for backlog/prioritisation/scope/delivery;
-    PO Accountable for story acceptance at sprint review.
-  5.2 Escalation path — L1/L2/L3 + response SLA (P1-P4) per PPTX Slide 14
-  5.3 Communication plan (table)
-    Daily (SM) · Sprint Planning (PM+PO) · Sprint Review (PO) · Retro (SM) ·
-    PM weekly sync (PM) · Steering Committee monthly (PM+Sponsor) ·
-    Weekly status report (PM). BA runs parallel legacy-discovery interviews.
-  5.4 Methodology & SDLC → xlsx#DoR-DoD per phase
-    Agile Scrum 2-week per BRD §8; DoR/DoD sourced from CLAUDE.md testing rules.
-  5.5 KPI dashboard — 4 KPIs: Progress, Defect rate, Uptime, CSAT (targets only).
-  5.6 Technical approach — stack verbatim from CLAUDE.md.
-  5.7 QA approach — test pyramid + CLAUDE.md TDD rules (≥70% coverage).
-  5.8 CI/CD approach — GitHub Actions · Turborepo · Docker ARM64 · ECR · ECS rolling.
-  5.9 AI differentiator — per-role AI uplift (Dev/QA/PM/BA/Ops) per PPTX Slide 23,
-      tuned for 1× Claude Max x20 shared subscription.
-  5.10 Definition of Success — Delivery · Quality · Adoption · Outcome quadrants,
-       tied to BRD §7 outcome measures.
+- Block 1 — **Dependencies** (table): Description · Impact · Owner · Due Date. MS Graph transcript subscription, Entra ID directory read, MS Planner API, existing docs (`docs/agents/*`, `docs/architecture/agent-runtime*.md`) for Phase 1.
+- Block 2 — **Constraints** (table): Type · Description · Impact. 2-month build, ~5.5 FTE, English-only, desktop-only, MS 365 tenant cooperation, DE contingent.
+- Block 3 — **Assumptions** (table): Assumption · Impact if false. From BRD §10.3.
 
-## 6. Resource Management
-  6.1 Allocation — % per role per track (bar chart). BA 50% is flexible between
-      Planner MVP and legacy discovery; no fixed split.
-  6.2 RACI matrix → xlsx#RACI
+**`08-Risks-Issues`**
 
-## 7. Dependencies, Constraints, Assumptions
-  7.1 Dependencies → xlsx#Dependencies
-    MS Graph transcript subscription, Entra ID directory read, MS Planner API,
-    existing docs (docs/agents/*, docs/architecture/agent-runtime*.md) for Phase 1.
-  7.2 Constraints — 2-month build, ~5.5 FTE, English-only, desktop-only,
-      MS 365 tenant cooperation, DE contingent on onboarding.
-  7.3 Assumptions — Teams dominant, transcription enabled, scheduled meetings only,
-      Admin configures scope conservatively.
+- Block 1 — **Risk Register** (table): ID · Risk · Probability · Impact · Score · Mitigation · Owner · Status. Seeded from BRD §10.2 R-01..R-08.
+- Block 2 — **Risk Heat Map** (3×3 grid with cell references): Probability × Impact, risks plotted by ID.
+- Block 3 — **Issues Log** (table): ID · Description · Severity · Owner · Status · ETA.
+- Block 4 — **Process** (wrapped text): Identify → Assess → Mitigate → Monitor.
 
-## 8. Risk & Issue Management
-  8.1 Top-5 risk register → xlsx#Risks (seeded from BRD §10.2 R-01..R-08)
-  8.2 Risk heat map — text-based P × I matrix
-  8.3 Issue tracking → xlsx#Issues
-  8.4 Process — Identify → Assess → Mitigate → Monitor
+**`09-ExecSupport`**
 
-## 9. Executive Support
-  9.1 Budget — team time + 1× Claude Max x20 + ~$200 AI cap (per BRD §9); no
-      dollar project budget.
-  9.2 Decision SLA — Sponsor 48h · CTO 24h on architecture · PMO 48h on rollout.
-  9.3 Kill criteria — from BRD §7.3 (recall <40%, side-records >75%, chase-up ≤0%,
-      permission leak = immediate stop).
+- Block 1 — **Budget** (wrapped text): team time + 1× Claude Max x20 + ~$200 AI cap per BRD §9. No dollar project budget.
+- Block 2 — **Decision SLA** (table): Decision type · Approver · SLA. Sponsor 48h · CTO 24h on architecture · PMO 48h on rollout.
+- Block 3 — **Kill Criteria** (table, from BRD §7.3): Measure · Pause-and-tune threshold · Stop-and-reconsider threshold.
 
-## Appendix A — Parallel workstream: BA legacy systems discovery
-  Not a build track; outputs are a stakeholder map and per-legacy-system requirement
-  briefs feeding future Future modules (People, Project, Finance, etc.). Explicitly
-  out of scope for Planner MVP acceptance; surfaced so PMO sees the BA's full load.
+**`Track-<name>`** (four sheets, same shape; Core AI Agent adds Phase 1/2 blocks)
 
-## Appendix B — BRD coverage matrix
-  Table mapping every BRD REQ-XX / NFR-XX to the track brief and deliverable row
-  that implements it. Catches silent drops before sign-off.
-```
+- Block 1 — **Purpose** (wrapped text).
+- Block 2 — **Scope** (In/Out/Dependencies sub-blocks).
+- Block 3 — **Deliverables & Acceptance** (table): Deliverable · Acceptance criterion · Evidence · Milestone · BRD REQ/NFR.
+- Block 4 — **WBS (task-level)** (table): Module · Function · Feature · Screen/API · Description · Effort Low · Effort High · Confidence H/M/L · Owner · Sprint · Acceptance · BRD ref. Core AI sheet adds a Phase column.
+- Block 5 — **Sprint plan** (table): Sprint · Goal · Deliverable · Exit Criterion. Core AI: sprints 1-2 = Phase 1, sprints 3-4 = Phase 2.
+- Block 6 — **Track-specific Risks** (table, same schema as master Risk Register).
+- Block 7 — **Definition of Done** (bulleted list).
+- Block 8 — **Open Questions** (table): Question · Owner · Needed-by date.
 
-## 6. Track brief outline — `tracks/*.md`
+**`Appendix-BA-Legacy`**
 
-One shape for all four briefs so they're directly comparable. Core AI Agent brief adds Phase 1 / Phase 2 splits inside every sub-section.
+- Narrative + table of legacy systems + stakeholder map. Explicitly out of scope for Planner MVP acceptance; surfaced so PMO sees BA's full load.
 
-```
-# Track: <name>
-Track lead · Version · 2026-04-21
+**`Appendix-BRD-Coverage`**
 
-## 1. Purpose
-  One paragraph: what this track delivers to the MVP and why it is a separate track.
+- Table: BRD REQ-XX / NFR-XX · Description · Covered by (track sheet + deliverable row reference) · Status (Covered / Deferred / Out-of-scope).
 
-## 2. Scope
-  2.1 In scope — BRD REQs / Core-slice pieces this track owns
-  2.2 Out of scope — explicit carve-outs
-  2.3 Dependencies — other tracks + external (MS Graph, Entra ID, etc.)
+## 4. Trade-offs accepted
 
-## 3. Deliverables & Acceptance
-  Table: Deliverable · Acceptance criterion · Evidence · Milestone · BRD ref
-  Feature-level. Every row traces to ≥1 BRD REQ/NFR.
+- **Excel is binary — no meaningful git diffs on narrative or numbers.** Accepted in favour of single-artefact PMO workflow.
+- **Narrative in cells reads worse than in Markdown.** Mitigated by wrapped-text cells with generous row heights and a consistent block-title / block-body layout.
+- **Diagrams become embedded images or Excel shapes.** Less clean than Mermaid; accepted for visual parity with the PPTX template.
+- **Programmatic authoring is harder.** The plan will be generated once by script (openpyxl or equivalent) from structured inputs, then owned in Excel thereafter. The script is a one-shot generator, not a round-trip tool.
 
-## 4. WBS (task-level) → xlsx#WBS-<Track>
-  Inline snapshot: top 5 tasks by effort.
-  Every row: Module · Function · Feature · Screen/API · Description · Effort Low/High ·
-  Confidence H/M/L · Owner · Sprint · Acceptance · BRD ref.
+## 5. Team & RACI
 
-## 5. Sprint plan
-  4 sprints × 2 weeks (W1-W8). Each sprint: goal · deliverable · exit criterion.
-  Core AI Agent: sprints 1-2 = Phase 1, sprints 3-4 = Phase 2; each phase has its
-  own exit criterion. Phase 2 gated on adversarial security testing (BRD R-6).
+| Role                     | Effort                 | Accountable for                                                                                                                                                       |
+| ------------------------ | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PM (Canh)                | 50%                    | Backlog, prioritisation, scope (veto from Hung Vu), delivery, sponsor comms                                                                                           |
+| PO                       | TBD                    | Story acceptance at sprint review, user representation in refinement                                                                                                  |
+| Scrum Master             | 50%                    | Ceremonies, velocity tracking, unblocking                                                                                                                             |
+| BA                       | 50% (flexible)         | Planner MVP: requirements, user stories, UAT, pilot feedback. Legacy systems: stakeholder interviews, requirement briefs for future modules. PM covers capacity gaps. |
+| AI Engineer              | 100%                   | Core AI Agent (Phase 1 + 2), Agent module, conversational AI                                                                                                          |
+| Full-Stack #1            | 100%                   | Planner module + Core Frontend                                                                                                                                        |
+| Full-Stack #2            | 100%                   | Core Backend                                                                                                                                                          |
+| Data Engineer            | 100% (if onboarded W1) | Core Data Platform (deferred-capable per BRD §4.1)                                                                                                                    |
+| Designer-Lead (borrowed) | Part-time              | HITL queue, aggregated dashboards, action detail view                                                                                                                 |
 
-## 6. Track-specific risks
-  Top 3-5 risks scoped to this track only. Schema matches master xlsx#Risks.
+PM and PO Accountable cells are adjacent, not conflicting: PM owns "what/when", PO owns "did we build the right thing this sprint". Every RACI row still has exactly one A.
 
-## 7. Definition of Done (track-level)
-  Exit gates that let the track sign off. Rolls up into master §5.10.
+## 6. Content sources
 
-## 8. Open questions
-  Unresolved decisions that block or threaten the track. Owner and needed-by date.
-  Closed by end of Kickoff week.
-```
+| Sheet / Block                   | Primary source                                                                                                    |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `01-Overview` Info              | User-provided + BRD §8                                                                                            |
+| `01-Overview` Problem/Solution  | BRD §2                                                                                                            |
+| `01-Overview` Key Components    | BRD §4.1 + AI Phase 1/2 shape                                                                                     |
+| `01-Overview` SMART Objectives  | BRD §3                                                                                                            |
+| `02-Contract` Fields            | Authored (sponsors from BRD §12)                                                                                  |
+| `02-Contract` Milestones        | Authored from BRD §8.2 + AI Phase 1/2 additions                                                                   |
+| `02-Contract` Legal             | BRD §11                                                                                                           |
+| `03-Scope` WBS-Master           | Authored — rollup from four track sheets                                                                          |
+| `03-Scope` In/Out               | BRD §4.1, §4.3                                                                                                    |
+| `04-Timeline`                   | Authored                                                                                                          |
+| `05-Approach` Technical         | CLAUDE.md verbatim                                                                                                |
+| `05-Approach` QA                | CLAUDE.md + PPTX template                                                                                         |
+| `05-Approach` CI/CD             | Authored per CLAUDE.md                                                                                            |
+| `05-Approach` AI differentiator | Authored from PPTX Slide 23                                                                                       |
+| `05-Approach` DoS               | PPTX Slide 16 + BRD §7.1                                                                                          |
+| `06-Resources`                  | Authored                                                                                                          |
+| `07-DCA`                        | BRD §10.1, §10.3 + authored MS Graph specifics                                                                    |
+| `08-Risks-Issues`               | BRD §10.2 + track-specific from each `Track-*` sheet                                                              |
+| `09-ExecSupport`                | BRD §9, §7.3                                                                                                      |
+| `Track-*`                       | BRD §6.1.x scoped to track + `docs/architecture/*.md` + `docs/agents/*` (Core AI Phase 1) + `DESIGN.md` (Core FE) |
 
-### 6.1 Track-specific shape
+## 7. Sign-off & review cadence (baked into the plan)
 
-| Track         | Lead                   | Notable                                                                                                                                                                                                                                                                |
-| ------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Planner       | Full-Stack #1          | Largest WBS (action CRUD, Meetings page, HITL queue, MS Planner sync, aggregated views, exec digest)                                                                                                                                                                   |
-| Core Backend  | Full-Stack #2          | Identity (Entra ID SSO), permissions engine (NFR-04), audit log, MS Graph integration, outbound email gateway                                                                                                                                                          |
-| Core Frontend | Full-Stack #1 (shared) | Design system, layout + nav primitives, `@future/ui`, `@future/app-layout`; DESIGN.md is primary source                                                                                                                                                                |
-| Core AI Agent | AI Engineer            | Two-phase: Phase 1 = foundational (LLM client, prompts, confidence, HITL routing, bounded tool/MCP registry); Phase 2 = fine-tuning, security hardening, free-form queries beyond Phase 1 registry. Phase 2 acceptance includes penetration-style adversarial testing. |
+1. **Kickoff week (W1):** track leads validate WBS estimates on their sheet and close Open Questions. Deliverable, not optional.
+2. **End of each sprint (W2, W4, W6, W8):** `04-Timeline` Milestones + Sprint Plan updated; status delta captured in `02-Contract` milestone rows.
+3. **Mid-build (W4):** First Working Version demo → sponsor review → scope re-check against `03-Scope` In/Out.
+4. **Pre-pilot gate (W8):** MVP sign-off against `05-Approach` Definition of Success. Go/no-go recorded on the milestone row.
+5. **Pilot-to-Wave gate (W12):** BRD §7.3 kill criteria evaluated on `09-ExecSupport`; Steering Committee decides proceed / pause-and-tune / pivot.
 
-## 7. Team & RACI
+## 8. Validation of the workbook itself
 
-| Role                     | Effort                   | Accountable for                                                                                                                                                              |
-| ------------------------ | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PM (Canh)                | 50%                      | Backlog, prioritisation, scope (veto from Hung Vu), delivery, sponsor comms                                                                                                  |
-| PO                       | TBD                      | Story acceptance at sprint review, user representation in refinement                                                                                                         |
-| Scrum Master             | 50%                      | Ceremonies, velocity tracking, unblocking                                                                                                                                    |
-| BA                       | 50% _(flexible split)_   | Planner MVP: requirements, user stories, UAT design, pilot feedback. Legacy systems: stakeholder interviews, requirement briefs for future modules. PM covers capacity gaps. |
-| AI Engineer              | 100%                     | Core AI Agent (Phase 1 + Phase 2), Agent module, conversational AI                                                                                                           |
-| Full-Stack #1            | 100%                     | Planner module + Core Frontend                                                                                                                                               |
-| Full-Stack #2            | 100%                     | Core Backend                                                                                                                                                                 |
-| Data Engineer            | 100% _(if onboarded W1)_ | Core Data Platform (deferred-capable per BRD §4.1)                                                                                                                           |
-| Designer-Lead (borrowed) | Part-time                | HITL queue, aggregated dashboards, action detail view                                                                                                                        |
+Before considering the plan shipped:
 
-Accountable overlap between PM and PO is explicit: one A per RACI row, but the two are adjacent rather than conflicting — PM owns "what/when", PO owns "did we build the right thing this sprint".
+- **BRD coverage check:** every REQ-XX / NFR-XX appears in `Appendix-BRD-Coverage` with a non-empty "Covered by" reference.
+- **Cross-reference check:** every milestone in `02-Contract` appears in `04-Timeline` and in the relevant `Track-*` sprint plan.
+- **RACI integrity:** exactly one A per row on `06-Resources`.
+- **WBS sanity:** sum of Effort High across all tasks per track ≤ available MD per track lead × 8 weeks; flag tracks over capacity.
+- **Hyperlink check:** `00-TOC` hyperlinks all resolve; cross-sheet cell references (e.g., `02-Contract` → `09-ExecSupport` Kill Criteria) all valid.
 
-## 8. Content sources
+## 9. Generation approach
 
-| Master section                         | Primary source                                                                                                                |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 1.1 Information                        | User-provided + BRD §8                                                                                                        |
-| 1.2 Problem & Solution                 | BRD §2                                                                                                                        |
-| 1.3 Key Components                     | BRD §4.1 + AI Phase 1/2 shape                                                                                                 |
-| 1.4 SMART Objectives                   | BRD §3                                                                                                                        |
-| 2.1 Contract                           | Authored (sponsors from BRD §12)                                                                                              |
-| 2.2 Milestones                         | Authored from BRD §8.2 + AI Phase 1/2 additions                                                                               |
-| 2.3 Legal & Compliance                 | BRD §11                                                                                                                       |
-| 3.1 WBS-Master                         | Authored — rollup from four track briefs                                                                                      |
-| 3.2 In/Out of scope                    | BRD §4.1, §4.3                                                                                                                |
-| 4 Timeline/Milestones/Sprints          | Authored                                                                                                                      |
-| 5.1-5.5 Org/SDLC/Comms/KPIs            | Authored from PPTX template, adjusted for team of 5.5 FTE                                                                     |
-| 5.6 Technical approach                 | CLAUDE.md verbatim                                                                                                            |
-| 5.7 QA approach                        | CLAUDE.md + PPTX template                                                                                                     |
-| 5.8 CI/CD approach                     | Authored per CLAUDE.md                                                                                                        |
-| 5.9 AI differentiator                  | Authored from PPTX Slide 23                                                                                                   |
-| 5.10 Definition of Success             | PPTX Slide 16 + BRD §7.1                                                                                                      |
-| 6 Resource Management                  | Authored                                                                                                                      |
-| 7 Dependencies/Constraints/Assumptions | BRD §10.1, §10.3 + authored MS Graph specifics                                                                                |
-| 8 Risks                                | BRD §10.2 + track-specific in briefs                                                                                          |
-| 9 Executive Support                    | BRD §9, §7.3                                                                                                                  |
-| Track briefs                           | BRD §6.1.x REQs/NFRs scoped to track, plus `docs/architecture/*.md`, `docs/agents/*` (Core AI Phase 1), `DESIGN.md` (Core FE) |
+The workbook will be authored **once** by a one-shot Python script (openpyxl) that reads structured inputs (BRD references, stack from CLAUDE.md, milestone dates, WBS rows) and produces `docs/project-plan/project-plan.xlsx`. After generation, ownership passes to the PM — the Excel is the live artefact, not the script.
 
-## 9. Sign-off & review cadence (baked into the plan)
+The script lives at `scripts/generate-project-plan.py` and is **not** a round-trip tool. Running it again overwrites the workbook; weekly PMO edits in Excel are not preserved by re-running. This is accepted; regeneration would only happen for a major structural revision.
 
-1. **Kickoff week (W1):** track leads validate WBS estimates and close §8 Open Questions. Deliverable, not optional.
-2. **End of each sprint (W2, W4, W6, W8):** Excel `Milestones` + `Sprints` updated; one-line status in master §4.2.
-3. **Mid-build (W4):** First Working Version demo → sponsor review → scope re-check.
-4. **Pre-pilot gate (W8):** MVP sign-off against §5.10 Definition of Success. Go/no-go decision recorded.
-5. **Pilot-to-Wave gate (W12):** BRD §7.3 kill criteria evaluated; Steering Committee decides proceed / pause-and-tune / pivot.
+## 10. Out of scope for this plan
 
-## 10. Validation of the plan document itself
-
-Before committing the plan:
-
-- **BRD coverage check:** every REQ-XX and NFR-XX maps to ≥1 deliverable row across the four track briefs. Output is Appendix B.
-- **Cross-reference check:** every milestone in master §2.2 appears in §4.2 and in the relevant track brief §5 sprint plan.
-- **RACI integrity:** exactly one Accountable per task row in xlsx#RACI.
-- **WBS totals sanity:** sum of Effort High across all tasks per track ≤ available MD per track lead × 8 weeks; flag any track over capacity.
-
-## 11. Out of scope for this plan
-
-- Writing the implementation plans for any of the tracks (separate artefacts, created after this plan is approved).
-- Drafting the SRS (separate artefact; will follow this Project Plan).
+- Writing implementation plans for any of the tracks (separate artefacts, created after this plan is approved).
+- Drafting the SRS (separate artefact; follows this Project Plan).
 - Pilot playbook and wave rollout runbook (separate artefacts created closer to the dates).
-- Detailed test plans (QA approach is summarised in §5.7; detailed plans live per track).
+- Detailed test plans (QA approach summarised in `05-Approach`; detailed plans live per track later).
 - Budget negotiation with Finance (the plan reflects the approved shape from BRD §9).
 
-## 12. Open items not resolved in this spec
+## 11. Open items not resolved in this spec
 
-- PO allocation percentage (shown as _tbd_ in §7).
-- Whether Data Engineer onboarded by W1 (triggers inclusion of Core Data Platform as a fifth track; BRD §4.1 says otherwise operational-DB queries carry the MVP).
+- PO allocation percentage (`06-Resources` allocation block, currently TBD).
+- Whether Data Engineer onboarded by W1 (triggers inclusion of Core Data Platform as a fifth track sheet; otherwise operational-DB queries carry the MVP per BRD §4.1).
 - Designer-Lead weekly window confirmation per BRD R-02 mitigation.
