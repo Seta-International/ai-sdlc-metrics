@@ -153,3 +153,10 @@ export class ShareLinkNotFoundException extends DomainException {
     super(`Share link not found: ${id}`)
   }
 }
+
+export class InvalidRehireException extends DomainException {
+  readonly code = 'INVALID_REHIRE'
+  constructor(profileId: string) {
+    super(`Cannot rehire: employment for profile ${profileId} is not terminated`)
+  }
+}

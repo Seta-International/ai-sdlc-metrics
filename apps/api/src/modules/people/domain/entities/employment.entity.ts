@@ -9,6 +9,7 @@ export interface Employment {
   id: string
   tenantId: string
   personProfileId: string
+  previousProfileId: string | null
   employeeCode: string | null
   companyEmail: string | null
   workerType: WorkerType
