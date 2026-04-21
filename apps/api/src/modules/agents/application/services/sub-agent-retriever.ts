@@ -191,6 +191,7 @@ export function estimateTokens(opts: EstimateTokensOpts): number {
 // ─── retrieve opts ────────────────────────────────────────────────────────────
 
 export interface RetrieveOpts {
+  /** Reserved for future per-tenant personalized ranking; unused by the MVP string-overlap ranker. */
   readonly tenantId: string
   readonly utterance: string
   readonly recentSummary: WindowedSummaries
