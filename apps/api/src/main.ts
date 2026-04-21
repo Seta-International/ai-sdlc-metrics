@@ -14,9 +14,20 @@ async function bootstrap() {
   await runMigrations()
 
   const langfuse = initLangfuseOTel()
-  const flushLangfuse = () => void langfuse.shutdown()
-  process.on('SIGTERM', flushLangfuse)
-  process.on('SIGINT', flushLangfuse)
+  const flushLangfuseAndExit = async (signal: NodeJS.Signals) => {
+    try {
+      await langfuse.shutdown()
+    } catch (err) {
+      logger.error(
+        `Langfuse shutdown failed on ${signal}`,
+        err instanceof Error ? err.stack : String(err),
+      )
+    } finally {
+      process.exit(0)
+    }
+  }
+  process.on('SIGTERM', flushLangfuseAndExit)
+  process.on('SIGINT', flushLangfuseAndExit)
 
   const adapter = new FastifyAdapter()
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter, {

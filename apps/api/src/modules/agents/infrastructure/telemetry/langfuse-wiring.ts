@@ -5,6 +5,8 @@ export interface LangfuseOTelHandle {
   shutdown: () => Promise<void>
 }
 
+let handle: LangfuseOTelHandle | null = null
+
 function requireEnv(key: string): string {
   const value = process.env[key]
   if (!value) throw new Error(`${key} env var is required for Langfuse OTel wiring`)
@@ -17,8 +19,14 @@ function requireEnv(key: string): string {
  *
  * Sampling is always-on at the OTel layer; stratified sampling (spec §12) is decided
  * downstream by setting `experimental_telemetry.isEnabled = true/false` per-call.
+ *
+ * Idempotent: repeated calls return the same handle without re-registering OTel. This
+ * matters because `registerOTel` installs a process-wide tracer provider; double
+ * registration would replace the provider under any callers already holding a reference.
  */
 export function initLangfuseOTel(): LangfuseOTelHandle {
+  if (handle) return handle
+
   const exporter = new LangfuseExporter({
     secretKey: requireEnv('LANGFUSE_SECRET_KEY'),
     publicKey: requireEnv('LANGFUSE_PUBLIC_KEY'),
@@ -30,10 +38,11 @@ export function initLangfuseOTel(): LangfuseOTelHandle {
     traceExporter: exporter,
   })
 
-  return {
+  handle = {
     shutdown: async () => {
       await exporter.forceFlush()
       await exporter.shutdown()
     },
   }
+  return handle
 }
