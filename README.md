@@ -26,8 +26,8 @@ Built on a unified canonical data layer across HR, time, hiring, finance, projec
 
 - [What it does](#what-it-does)
 - [How it's built](#how-its-built)
-- [Get started](#get-started)
 - [Set up with an AI agent](#set-up-with-an-ai-agent)
+- [Get started](#get-started)
 - [Docs](#docs)
 
 ---
@@ -111,6 +111,16 @@ flowchart TD
 
 ---
 
+## Set up with an AI agent
+
+Open your agent and paste:
+
+```
+Read AGENTS.md and QUICKSTART.md, then run `sh scripts/bootstrap.sh --full`. Tell me which .env values still need filling in, then start the dev server. I'm working on: [your task]
+```
+
+---
+
 ## Get started
 
 ```bash
@@ -120,16 +130,6 @@ bun run dev --filter=@future/api --filter=@future/web-shell
 ```
 
 Full guide: [QUICKSTART.md](QUICKSTART.md)
-
----
-
-## Set up with an AI agent
-
-Open your agent and paste:
-
-```
-Read AGENTS.md and QUICKSTART.md, then run `sh scripts/bootstrap.sh --full`. Tell me which .env values still need filling in, then start the dev server. I'm working on: [your task]
-```
 
 ---
 
