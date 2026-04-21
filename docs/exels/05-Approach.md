@@ -64,7 +64,7 @@ Render as embedded shapes / image. Text preview:
 
 | Severity                                               | Response       | Resolve         |
 | ------------------------------------------------------ | -------------- | --------------- |
-| P1 — Critical (prod-impacting or security)             | 15 minutes     | 4 hours         |
+| P1 — Critical (pilot-impacting or security)            | 15 minutes     | 4 hours         |
 | P2 — High (blocking pilot feature)                     | 1 hour         | 1 business day  |
 | P3 — Medium (degraded behaviour, workaround available) | 4 hours        | 3 business days |
 | P4 — Low (cosmetic, nice-to-have)                      | 1 business day | Next release    |
@@ -112,12 +112,12 @@ Place each stakeholder by influence (row) × interest (column). Cells name the s
 
 ### Metric tiles (populated weekly)
 
-| Metric                              | Target              | Week Value | Status  |
-| ----------------------------------- | ------------------- | ---------- | ------- |
-| Progress (% of MVP scope delivered) | 100% by W8          | —          | Planned |
-| Defect rate (P1+P2 / total closed)  | < 2%                | —          | Planned |
-| Coverage (lines, branches)          | ≥ 70% per CLAUDE.md | —          | Planned |
-| Pilot CSAT (set at pilot W4)        | ≥ 4 / 5             | —          | Planned |
+| Metric                                | Target              | Week Value | Status  |
+| ------------------------------------- | ------------------- | ---------- | ------- |
+| Progress (% of MVP scope delivered)   | 100% by W8          | —          | Planned |
+| Defect rate (P1+P2 / total closed)    | < 2%                | —          | Planned |
+| Coverage (lines, functions, branches) | ≥ 70% per CLAUDE.md | —          | Planned |
+| Pilot CSAT (set at pilot W4)          | ≥ 4 / 5             | —          | Planned |
 
 ### Sprint Velocity
 
@@ -228,7 +228,7 @@ AI is integrated into each role to accelerate delivery and reduce manual effort.
 | Ops                 | Anomaly detection · incident triage · RCA assist                                | ↓ MTTR 40%                                             |
 | Client (in-product) | Agent + conversational AI (optional add-on to the product itself)               | Business-value uplift measured in pilot outcomes G1–G7 |
 
-**Principle:** Human-in-the-loop by default. Sample any AI-generated code in CR. No autonomous writes in production paths without HITL approval.
+**Principle:** Human-in-the-loop by default. Sample any AI-generated code in CR. No autonomous writes in user-facing paths without HITL approval.
 
 ## Block 12 — Definition of Success
 

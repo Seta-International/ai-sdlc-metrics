@@ -75,15 +75,15 @@ High-level deliverables rolling up WBS rows. Each ties to at least one milestone
 
 Full task-level WBS lives on `03-Scope` Block 1 rows `W-P01` .. `W-P30`. Top 5 tasks by effort on this track:
 
-| Rank | ID    | Feature                                                                       | Effort High (MD) | Confidence | Owner |
-| ---- | ----- | ----------------------------------------------------------------------------- | ---------------- | ---------- | ----- |
-| 1    | W-P19 | Microsoft Planner bidirectional sync                                          | 14               | L          | FS#2  |
-| 2    | W-P06 | Plan / Project CRUD + membership + labels + buckets (consolidated into W-P06) | 10               | H          | FS#1  |
-| 3    | W-P07 | Views (Board · Grid · Schedule · Charts)                                      | 10               | H          | FS#1  |
-| 4    | W-P20 | Team + Manager aggregated views                                               | 10               | M          | FS#1  |
-| 5    | W-P11 | Teams transcript webhook handler                                              | 10               | L          | FS#2  |
+| Rank | ID    | Feature                                  | Effort High (MD) | Confidence | Owner  |
+| ---- | ----- | ---------------------------------------- | ---------------- | ---------- | ------ |
+| 1    | W-P19 | Microsoft Planner bidirectional sync     | 14               | L          | FS#2   |
+| 2    | W-P07 | Views (Board · Grid · Schedule · Charts) | 10               | H          | FS#1   |
+| 3    | W-P20 | Team + Manager aggregated views          | 10               | M          | FS#1   |
+| 4    | W-P23 | Admin Console — scope + role + kill      | 10               | M          | FS#1   |
+| 5    | W-P26 | Planner query executor (conversational)  | 9                | L          | AI Eng |
 
-**Track totals (indicative, from WBS rollup):** ~112–194 MD across 30 rows.
+**Track totals (indicative, from WBS rollup):** ~113–191 MD across 30 rows.
 
 ## Block 5 — Sprint Plan (Planner-specific)
 

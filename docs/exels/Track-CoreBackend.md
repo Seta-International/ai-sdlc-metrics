@@ -10,7 +10,7 @@ Deliver the foundational backend slice that every Future module will reuse. Enou
 
 ### 2.1 In scope
 
-`03-Scope` Block 1 WBS rows `W-B01` .. `W-B16`:
+`03-Scope` Block 1 WBS rows `W-B01` .. `W-B21`:
 
 - Monorepo scaffolding (Turborepo · Bun workspaces · shared tsconfig / eslint / prettier / lefthook / workspace template).
 - Hexagonal + DDD module generator per project convention.
@@ -59,7 +59,7 @@ Deliver the foundational backend slice that every Future module will reuse. Enou
 
 ## Block 4 — WBS (task-level)
 
-Full WBS on `03-Scope` Block 1 rows `W-B01` .. `W-B16`. Top 5 by effort:
+Full WBS on `03-Scope` Block 1 rows `W-B01` .. `W-B21`. Top 5 by effort:
 
 | Rank | ID    | Feature                      | Effort High (MD) | Confidence | Owner |
 | ---- | ----- | ---------------------------- | ---------------- | ---------- | ----- |
@@ -69,7 +69,7 @@ Full WBS on `03-Scope` Block 1 rows `W-B01` .. `W-B16`. Top 5 by effort:
 | 4    | W-B03 | Entra ID SSO primitive       | 5                | H          | FS#2  |
 | 5    | W-B13 | Outbound email gateway       | 5                | H          | FS#2  |
 
-Track totals (indicative): ~41–74 MD across 16 rows.
+Track totals (indicative): ~51–82 MD across 21 rows.
 
 ## Block 5 — Sprint Plan (Core BE)
 

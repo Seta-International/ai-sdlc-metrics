@@ -40,8 +40,8 @@ The Project Plan is the single source of truth for scope, WBS, timeline, team, r
 
 - **Kickoff:** Wed 22 Apr 2026
 - **VN public holidays (Sprint 1):** ~27 Apr – 1 May 2026 (~3 working days lost)
-- **First Working Version:** W4 (~20 May 2026)
-- **Core AI Agent Phase 1 complete:** W4
-- **MVP Pilot-ready / Core AI Phase 2 complete:** W8 (~17 Jun 2026)
-- **Pilot gate:** W12 (~15 Jul 2026)
+- **First Working Version:** W4 (Tue 19 May 2026)
+- **Core AI Agent Phase 1 complete:** W4 (Tue 19 May 2026)
+- **MVP Pilot-ready / Core AI Phase 2 complete:** W8 (Tue 16 Jun 2026)
+- **Pilot gate:** W12 (Tue 14 Jul 2026)
 - **Wave 1 → Full coverage:** TBD (post pilot-gate decision)

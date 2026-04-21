@@ -159,11 +159,11 @@ Not code deliverables but required for delivery. Owned by the non-builder roles 
 
 ### Rollup totals (indicative)
 
-- **Core BE (W-B01..W-B21):** ~52–92 MD · average ~72 MD
+- **Core BE (W-B01..W-B21):** ~51–82 MD · average ~67 MD
 - **Core FE (W-F01..W-F19):** ~47–81 MD · average ~64 MD
 - **Core AI (W-A01..W-A14):** ~48–80 MD · average ~64 MD
-- **Planner (W-P01..W-P30):** ~112–194 MD · average ~153 MD
-- **Grand total:** ~259–437 MD · midpoint ~348 MD
+- **Planner (W-P01..W-P30):** ~113–191 MD · average ~152 MD
+- **Grand total:** ~259–434 MD · midpoint ~348 MD
 
 ### Capacity check
 
@@ -174,7 +174,7 @@ Available builder-MD over the 8-week build window, after deducting ~3 VN holiday
 - AI Engineer (Core AI + Planner Agent integration): ~38 MD
 - **Combined builder capacity: ~114 MD**
 
-**Planned midpoint work ≈ 322 MD against ~114 MD capacity ⇒ 2.8× over.** Resolution paths (pick two):
+**Planned midpoint work ≈ 348 MD against ~114 MD capacity ⇒ ~3.1× over.** Resolution paths (pick two):
 
 1. Push Admin console, MS Planner sync, Phase 2 Core AI security-plus-router features to post-pilot (after W8, during wave phase).
 2. Reduce Planner aggregated views to Team + PMO only (drop Account Manager + Line Manager differentiation until post-pilot).

@@ -10,7 +10,7 @@ Deliver the foundational frontend slice that every Future zone will reuse. Multi
 
 ### 2.1 In scope
 
-`03-Scope` Block 1 WBS rows `W-F01` .. `W-F14`:
+`03-Scope` Block 1 WBS rows `W-F01` .. `W-F19`:
 
 - Multi-zone Next.js setup (11 zones + shell; routing conventions; zone proxy).
 - Design system tokens + Tailwind v4 + CSS variables + dark (default) + light.
@@ -58,7 +58,7 @@ Deliver the foundational frontend slice that every Future zone will reuse. Multi
 
 ## Block 4 — WBS (task-level)
 
-Full WBS on `03-Scope` Block 1 rows `W-F01` .. `W-F14`. Top 5 by effort:
+Full WBS on `03-Scope` Block 1 rows `W-F01` .. `W-F19`. Top 5 by effort:
 
 | Rank | ID    | Feature                     | Effort High (MD) | Confidence | Owner |
 | ---- | ----- | --------------------------- | ---------------- | ---------- | ----- |
@@ -68,7 +68,7 @@ Full WBS on `03-Scope` Block 1 rows `W-F01` .. `W-F14`. Top 5 by effort:
 | 4    | W-F09 | React Query / tRPC client   | 5                | H          | FS#1  |
 | 5    | W-F12 | Responsive + mobile layouts | 5                | M          | FS#1  |
 
-Track totals (indicative): ~36–60 MD across 14 rows.
+Track totals (indicative): ~47–81 MD across 19 rows.
 
 ## Block 5 — Sprint Plan (Core FE)
 
