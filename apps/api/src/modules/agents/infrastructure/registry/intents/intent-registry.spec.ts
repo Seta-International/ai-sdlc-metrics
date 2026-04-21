@@ -128,6 +128,22 @@ describe('IntentRegistry', () => {
     expect(registry.get('unclassified')?.domain).toBe('agents')
   })
 
+  // ── Test 7b: unclassified with wrong domain → throws ──────────────────────────
+
+  it('"unclassified" slug with domain other than "agents" → boot throws', () => {
+    const wrongDomain: IntentDescriptor = {
+      slug: 'unclassified',
+      domain: 'planner',
+      description: 'x',
+    }
+
+    expect(() => registry.boot([wrongDomain])).toThrow(IntentRegistryValidationError)
+    expect(() => {
+      const reg2 = new IntentRegistry()
+      reg2.boot([wrongDomain])
+    }).toThrow(/unclassified.*domain.*agents/i)
+  })
+
   // ── Test 8: list() returns frozen array ──────────────────────────────────────
 
   it('list() returns a frozen array — mutating it throws TypeError', () => {

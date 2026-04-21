@@ -124,8 +124,19 @@ export class IntentRegistry {
         continue
       }
 
+      // ── Unclassified domain guard ─────────────────────────────────────────────
+      // 'unclassified' must always declare domain 'agents' — it is owned by the
+      // agents module. Any other domain is a misconfiguration.
+      if (isUnclassified && domain !== 'agents') {
+        violations.push(
+          `The "unclassified" slug must declare domain "agents" (owned by the agents module); ` +
+            `found domain "${domain}".`,
+        )
+        continue
+      }
+
       // ── Duplicate slug check (R-02.27) ───────────────────────────────────────
-      if (seenSlugs.has(slug) || this._map.has(slug)) {
+      if (seenSlugs.has(slug)) {
         violations.push(
           `Duplicate intent slug "${slug}": each intent slug must be unique across all modules.`,
         )

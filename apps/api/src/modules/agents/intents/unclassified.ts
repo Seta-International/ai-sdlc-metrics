@@ -16,5 +16,5 @@ export const unclassifiedIntent: IntentDescriptor = {
   slug: 'unclassified',
   domain: 'agents',
   description:
-    'Fallback when no other intent applies; the router could not classify the utterance.',
+    "General, ambiguous, or greeting-type utterances that do not map to a specific HR, planner, or project-domain action. Use only when every other intent's whenToUse fails to apply.",
 }
