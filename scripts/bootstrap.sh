@@ -47,7 +47,6 @@ divider
 copy_env ".env.example"                  ".env"
 copy_env "apps/api/.env.example"         "apps/api/.env"
 copy_env "apps/web-shell/.env.example"   "apps/web-shell/.env"
-copy_env "agents/langfuse/.env.example"  "agents/langfuse/.env"
 
 cat <<'NOTICE'
 
@@ -59,7 +58,6 @@ cat <<'NOTICE'
   │                            NEXT_PUBLIC_MICROSOFT_CLIENT_ID           │
   │                            MICROSOFT_CLIENT_SECRET                   │
   │                            NEXT_PUBLIC_MICROSOFT_TENANT_ID           │
-  │  agents/langfuse/.env    → NEXTAUTH_SECRET (any 32-char random str)  │
   │                                                                      │
   │  For local dev without SSO, the LOCAL_DEV vars in .env.example       │
   │  let you skip the Entra setup entirely.                              │

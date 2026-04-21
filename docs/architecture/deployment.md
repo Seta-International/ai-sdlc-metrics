@@ -198,7 +198,6 @@ infra/
     ecs-service/      → reusable: service + task def + autoscaling
                         (parameterized: name, image, cpu, memory, spot_weight)
     rds/              → RDS instance, RDS Proxy, Read Replica, parameter groups
-    rds-langfuse/     → Langfuse-dedicated RDS (db.t4g.micro)
     redis/            → ElastiCache cluster
     ecr/              → ECR repos (one per service)
     secrets/          → Secrets Manager entries

@@ -50,7 +50,6 @@ Or do it manually:
 cp .env.example .env
 cp apps/api/.env.example apps/api/.env
 cp apps/web-shell/.env.example apps/web-shell/.env
-cp agents/langfuse/.env.example agents/langfuse/.env
 ```
 
 Required variables to set before the API will start:
@@ -194,12 +193,6 @@ apps/
   web-shell/         → Next.js auth hub (SSO entry point for all zones)
   web-{module}/      → Next.js zone per domain module (11 total)
   e2e/               → Playwright E2E tests (staging only)
-agents/
-  langfuse/          → Self-hosted LLM observability
-  mcp-tools/         → MCP tool contracts per module
-  prompts/           → System prompts, topic configs, guardrail rules
-  evals/             → LLM eval harness
-  channels/          → Teams, Slack, SSE adapters
 packages/
   db/                → Drizzle schema + migrations
   ui/                → Shared React components (@future/ui)

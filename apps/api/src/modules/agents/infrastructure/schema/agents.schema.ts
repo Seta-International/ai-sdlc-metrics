@@ -46,3 +46,19 @@ export const agentInsights = agentsSchema.table('agent_insight', {
   isDismissed: boolean('is_dismissed').default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+export const agentPromptStore = agentsSchema.table('agent_prompt_store', {
+  contentHash: text('content_hash').primaryKey(),
+  layer: text('layer').notNull(),
+  content: text('content').notNull(),
+  tenantId: uuid('tenant_id').notNull(),
+  firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const agentNarrativeStore = agentsSchema.table('agent_narrative_store', {
+  contentHash: text('content_hash').primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  roleId: uuid('role_id').notNull(),
+  content: text('content').notNull(),
+  firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull().defaultNow(),
+})
