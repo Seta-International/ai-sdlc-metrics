@@ -77,7 +77,7 @@ export const agentPromptStore = agentsSchema.table('agent_prompt_store', {
 export const agentNarrativeStore = agentsSchema.table('agent_narrative_store', {
   contentHash: text('content_hash').primaryKey(),
   tenantId: uuid('tenant_id').notNull(),
-  roleId: uuid('role_id').notNull(),
+  roleKey: text('role_key').notNull(),
   content: text('content').notNull(),
   firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull().defaultNow(),
 })

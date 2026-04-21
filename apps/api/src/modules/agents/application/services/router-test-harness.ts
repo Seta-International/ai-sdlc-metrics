@@ -192,7 +192,7 @@ export class InMemoryNarrativeStore implements NarrativeStore {
     const stored: NarrativeStoreEntry = {
       contentHash: entry.contentHash,
       tenantId: entry.tenantId,
-      roleId: entry.roleId,
+      roleKey: entry.roleKey,
       content: entry.content,
       firstSeenAt: new Date(),
     }

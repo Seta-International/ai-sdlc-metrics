@@ -99,6 +99,13 @@
       "when": 1776804613342,
       "tag": "0013_little_lionheart",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1745280000000,
+      "tag": "0014_narrative_store_role_key",
+      "breakpoints": true
     }
   ]
 }

@@ -6,13 +6,9 @@
  * `agent_narrative_store` (Plan 00) so identical permission sets deduplicate
  * to a single row.
  *
- * Interface deviation from Plan §4:
- *   Plan §4 specifies `{ tenantId: UUID; roleId: UUID; actorId: UUID }`.
- *   `KernelQueryFacade.getRolePermissions` takes `roleKey: string`, not `roleId`.
- *   No `roleId → roleKey` mapping exists in the facade, and roles are canonically
- *   identified by their string key in downstream services.
- *   Decision: changed the port to accept `roleKey: string` instead of `roleId: UUID`,
- *   consistent with the rest of the kernel facade surface.
+ * The port uses `roleKey: string` (e.g. "employee", "manager") rather than a
+ * UUID, consistent with `KernelQueryFacade.getRolePermissions(roleKey, tenantId)`.
+ * The `agent_narrative_store.role_key` column stores this string value directly.
  */
 
 import { Inject, Injectable } from '@nestjs/common'
@@ -117,7 +113,7 @@ export class PermissionNarrativeBuilder {
     const { entry, wasAppended } = await this.narrativeStore.appendIfMissing({
       contentHash,
       tenantId,
-      roleId: roleKey, // column is named roleId; we store roleKey per Plan 00 documented ambiguity
+      roleKey,
       content: text,
       actorId,
     })

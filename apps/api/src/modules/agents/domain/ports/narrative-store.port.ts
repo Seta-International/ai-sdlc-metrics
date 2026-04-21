@@ -1,7 +1,7 @@
 export interface NarrativeStoreEntry {
   contentHash: string
   tenantId: string
-  roleId: string
+  roleKey: string
   content: string
   firstSeenAt: Date
 }
@@ -10,9 +10,9 @@ export interface NarrativeStoreEntry {
  * Hash-keyed, content-addressable role-narrative store.
  *
  * Primary key is `contentHash` alone, NOT `(contentHash, tenantId)`. Same
- * cache semantics as `PromptStore`: identical `(content, roleId)` produces
+ * cache semantics as `PromptStore`: identical `(content, roleKey)` produces
  * the same hash and dedupes to a single row across tenants. First writer
- * wins `firstSeenAt`, `tenantId`, and `roleId`; subsequent `appendIfMissing`
+ * wins `firstSeenAt`, `tenantId`, and `roleKey`; subsequent `appendIfMissing`
  * calls observe `wasAppended: false` and receive the row the first tenant
  * inserted.
  *

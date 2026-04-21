@@ -40,7 +40,7 @@ describe('DrizzleNarrativeStoreRepository', () => {
     const result = await repo.appendIfMissing({
       contentHash: 'sha256-narrative-insert-001',
       tenantId: TENANT_A,
-      roleId: ROLE_ADMIN,
+      roleKey: ROLE_ADMIN,
       content: 'Admins oversee tenant configuration and security.',
       actorId: ACTOR,
     })
@@ -48,7 +48,7 @@ describe('DrizzleNarrativeStoreRepository', () => {
     expect(result.wasAppended).toBe(true)
     expect(result.entry.contentHash).toBe('sha256-narrative-insert-001')
     expect(result.entry.content).toBe('Admins oversee tenant configuration and security.')
-    expect(result.entry.roleId).toBe(ROLE_ADMIN)
+    expect(result.entry.roleKey).toBe(ROLE_ADMIN)
     expect(result.entry.tenantId).toBe(TENANT_A)
     expect(recordEvent).toHaveBeenCalledTimes(1)
     expect(recordEvent).toHaveBeenCalledWith(
@@ -58,7 +58,7 @@ describe('DrizzleNarrativeStoreRepository', () => {
         tenantId: TENANT_A,
         actorId: ACTOR,
         subjectId: 'sha256-narrative-insert-001',
-        payload: expect.objectContaining({ roleId: ROLE_ADMIN }),
+        payload: expect.objectContaining({ roleKey: ROLE_ADMIN }),
       }),
     )
   })
@@ -70,7 +70,7 @@ describe('DrizzleNarrativeStoreRepository', () => {
     const first = await repo.appendIfMissing({
       contentHash: 'sha256-narrative-idem-002',
       tenantId: TENANT_A,
-      roleId: ROLE_ADMIN,
+      roleKey: ROLE_ADMIN,
       content: 'Original narrative content.',
       actorId: ACTOR,
     })
@@ -81,7 +81,7 @@ describe('DrizzleNarrativeStoreRepository', () => {
     const second = await repo.appendIfMissing({
       contentHash: 'sha256-narrative-idem-002',
       tenantId: TENANT_A,
-      roleId: ROLE_ADMIN,
+      roleKey: ROLE_ADMIN,
       content: 'Different content that should be ignored.',
       actorId: ACTOR,
     })
@@ -104,7 +104,7 @@ describe('DrizzleNarrativeStoreRepository', () => {
     await repo.appendIfMissing({
       contentHash: 'sha256-narrative-get-004',
       tenantId: TENANT_A,
-      roleId: ROLE_ADMIN,
+      roleKey: ROLE_ADMIN,
       content: 'Persisted narrative.',
       actorId: ACTOR,
     })
@@ -113,7 +113,7 @@ describe('DrizzleNarrativeStoreRepository', () => {
     expect(found).not.toBeNull()
     expect(found?.contentHash).toBe('sha256-narrative-get-004')
     expect(found?.content).toBe('Persisted narrative.')
-    expect(found?.roleId).toBe(ROLE_ADMIN)
+    expect(found?.roleKey).toBe(ROLE_ADMIN)
     expect(found?.tenantId).toBe(TENANT_A)
     expect(found?.firstSeenAt).toBeInstanceOf(Date)
   })

@@ -57,7 +57,7 @@ function makeEntry(overrides?: Partial<NarrativeStoreEntry>): NarrativeStoreEntr
   return {
     contentHash: 'abc123hash',
     tenantId: TENANT_ID,
-    roleId: 'employee',
+    roleKey: 'employee',
     content: 'Acting as employee. You can read; you cannot manage.',
     firstSeenAt: new Date('2026-04-22T00:00:00.000Z'),
     ...overrides,
