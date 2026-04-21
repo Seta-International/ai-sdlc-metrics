@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import type { AgentToolDescriptor, AgentToolMeta } from '../../../../common/trpc/agent-tool-meta'
+import { permissionMatchesAnyPrefix } from './permission-match'
 
 // ─── Validation Error ─────────────────────────────────────────────────────────
 
@@ -268,7 +269,7 @@ export class ToolRegistry {
       const perm = descriptor.permission
 
       // Filter 1: sub-agent scope — segment-boundary prefix match
-      const inScope = subAgentScope.some((prefix) => isPermissionInScope(perm, prefix))
+      const inScope = permissionMatchesAnyPrefix(perm, subAgentScope)
       if (!inScope) continue
 
       // Filter 2: role-allowed
@@ -288,24 +289,4 @@ export class ToolRegistry {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Segment-boundary prefix check.
- *
- * `isPermissionInScope('planner:task:read', 'planner:task')` → true
- * `isPermissionInScope('planner:tasks:read', 'planner:task')` → false  (different segment)
- * `isPermissionInScope('people:profile:rea', 'people:profile:read')` → false (prefix longer than perm)
- *
- * Splits both sides on ':' and checks that every segment of `prefix` matches
- * the corresponding segment of `permission` exactly.
- */
-function isPermissionInScope(permission: string, prefix: string): boolean {
-  const permSegs = permission.split(':')
-  const prefixSegs = prefix.split(':')
-
-  if (prefixSegs.length > permSegs.length) {
-    return false
-  }
-
-  return prefixSegs.every((seg, i) => seg === permSegs[i])
-}
+// isPermissionInScope logic lives in permission-match.ts (shared with pipeline steps).
