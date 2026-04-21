@@ -8,6 +8,7 @@ import {
   EMPLOYMENT_REPOSITORY,
   type IEmploymentRepository,
 } from '../../domain/repositories/employment.repository'
+import { JobHistoryRecorderService } from '../services/job-history-recorder.service'
 import { CompleteTerminationCommand } from './complete-termination.command'
 
 @CommandHandler(CompleteTerminationCommand)
@@ -18,6 +19,7 @@ export class CompleteTerminationHandler implements ICommandHandler<
   constructor(
     @Inject(EMPLOYMENT_REPOSITORY)
     private readonly employmentRepo: IEmploymentRepository,
+    private readonly recorder: JobHistoryRecorderService,
   ) {}
 
   async execute(command: CompleteTerminationCommand): Promise<void> {
@@ -37,6 +39,12 @@ export class CompleteTerminationHandler implements ICommandHandler<
       'terminated',
       command.terminationDate,
       employment.terminationReason,
+    )
+
+    await this.recorder.recordTermination(
+      employment.personProfileId,
+      command.tenantId,
+      command.terminationDate,
     )
   }
 }

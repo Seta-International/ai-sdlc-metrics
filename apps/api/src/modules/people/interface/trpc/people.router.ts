@@ -49,6 +49,7 @@ import { ListProfileChangeRequestsQuery } from '../../application/queries/list-p
 import { ListOnboardingTasksQuery } from '../../application/queries/list-onboarding-tasks.query'
 import { ListTemplatesQuery } from '../../application/queries/list-templates.query'
 import { ListContractVersionsQuery } from '../../application/queries/list-contract-versions.query'
+import { GetJobHistoryQuery } from '../../application/queries/get-job-history.query'
 
 import { PeopleTrpcService } from './people-trpc.service'
 import {
@@ -164,6 +165,13 @@ export function createPeopleRouter(
       .input(z.object({ employmentId: z.string().uuid() }))
       .query(async ({ ctx, input }: { ctx: AuthContext; input: { employmentId: string } }) => {
         return peopleFacade.getCurrentJobAssignment(ctx.tenantId, input.employmentId)
+      }),
+
+    getJobHistory: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:read' })
+      .input(z.object({ profileId: z.string().uuid() }))
+      .query(async ({ ctx, input }: { ctx: AuthContext; input: { profileId: string } }) => {
+        return svc().query(new GetJobHistoryQuery(input.profileId, ctx.tenantId))
       }),
 
     listJobProfiles: permissionProtectedProcedure

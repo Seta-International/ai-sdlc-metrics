@@ -5,6 +5,7 @@ import {
 } from '../../domain/exceptions/people.exceptions'
 import type { IEmploymentRepository } from '../../domain/repositories/employment.repository'
 import type { Employment } from '../../domain/entities/employment.entity'
+import type { JobHistoryRecorderService } from '../services/job-history-recorder.service'
 import { CompleteTerminationCommand } from './complete-termination.command'
 import { CompleteTerminationHandler } from './complete-termination.handler'
 
@@ -37,6 +38,7 @@ function makeEmployment(overrides: Partial<Employment> = {}): Employment {
 describe('CompleteTerminationHandler', () => {
   let handler: CompleteTerminationHandler
   let employmentRepo: IEmploymentRepository
+  let recorder: { recordTermination: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     employmentRepo = {
@@ -50,7 +52,12 @@ describe('CompleteTerminationHandler', () => {
       countByTenant: vi.fn(),
     } as unknown as IEmploymentRepository
 
-    handler = new CompleteTerminationHandler(employmentRepo)
+    recorder = { recordTermination: vi.fn().mockResolvedValue(undefined) }
+
+    handler = new CompleteTerminationHandler(
+      employmentRepo,
+      recorder as unknown as JobHistoryRecorderService,
+    )
   })
 
   it('completes termination for notice_period employment using stored reason', async () => {
@@ -121,5 +128,46 @@ describe('CompleteTerminationHandler', () => {
         new CompleteTerminationCommand(TENANT_ID, EMPLOYMENT_ID, TERMINATION_DATE, INITIATED_BY),
       ),
     ).rejects.toThrow(InvalidEmploymentStatusTransitionException)
+  })
+
+  it('records termination history entry after completing', async () => {
+    const employment = makeEmployment()
+    vi.mocked(employmentRepo.findById).mockResolvedValue(employment)
+
+    await handler.execute(
+      new CompleteTerminationCommand(TENANT_ID, EMPLOYMENT_ID, TERMINATION_DATE, INITIATED_BY),
+    )
+
+    expect(recorder.recordTermination).toHaveBeenCalledWith(
+      employment.personProfileId,
+      TENANT_ID,
+      TERMINATION_DATE,
+    )
+  })
+
+  it('does not record termination history when employment not found', async () => {
+    vi.mocked(employmentRepo.findById).mockResolvedValue(null)
+
+    await expect(
+      handler.execute(
+        new CompleteTerminationCommand(TENANT_ID, EMPLOYMENT_ID, TERMINATION_DATE, INITIATED_BY),
+      ),
+    ).rejects.toThrow(EmploymentNotFoundException)
+
+    expect(recorder.recordTermination).not.toHaveBeenCalled()
+  })
+
+  it('does not record termination history when status is invalid', async () => {
+    vi.mocked(employmentRepo.findById).mockResolvedValue(
+      makeEmployment({ employmentStatus: 'active' }),
+    )
+
+    await expect(
+      handler.execute(
+        new CompleteTerminationCommand(TENANT_ID, EMPLOYMENT_ID, TERMINATION_DATE, INITIATED_BY),
+      ),
+    ).rejects.toThrow(InvalidEmploymentStatusTransitionException)
+
+    expect(recorder.recordTermination).not.toHaveBeenCalled()
   })
 })

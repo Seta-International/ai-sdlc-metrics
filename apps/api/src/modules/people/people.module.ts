@@ -118,6 +118,9 @@ import { IMPORT_JOB_REPOSITORY } from './domain/repositories/import-job.reposito
 import { JobHistoryRepositoryImpl } from './infrastructure/repositories/job-history.repository'
 import { JOB_HISTORY_REPOSITORY } from './domain/repositories/job-history.repository'
 
+// ── Plan 02 services ───────────────────────────────────────────────────────
+import { JobHistoryRecorderService } from './application/services/job-history-recorder.service'
+
 // ── Plan 05 services ───────────────────────────────────────────────────────
 import { SearchIndexRebuildService } from './application/services/search-index-rebuild.service'
 import { EmailGenerationService } from './application/services/email-generation.service'
@@ -171,6 +174,7 @@ import { RejectOffboardingHandler } from './application/commands/reject-offboard
 import { GetPersonProfileHandler } from './application/queries/get-person-profile.handler'
 import { GetEmploymentHandler } from './application/queries/get-employment.handler'
 import { GetCurrentJobAssignmentHandler } from './application/queries/get-current-job-assignment.handler'
+import { GetJobHistoryHandler } from './application/queries/get-job-history.handler'
 import { ListEmploymentsHandler } from './application/queries/list-employments.handler'
 import { ListJobProfilesHandler } from './application/queries/list-job-profiles.handler'
 import { GetProbationRecordHandler } from './application/queries/get-probation-record.handler'
@@ -264,6 +268,9 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     UploadEmployeeDocumentHandler,
     AcknowledgePolicyHandler,
 
+    // ── Plan 02 services ─────────────────────────────────────────────────
+    JobHistoryRecorderService,
+
     // ── Services ─────────────────────────────────────────────────────────
     CountryFieldValidationService,
     CustomFieldValidationService,
@@ -325,6 +332,7 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     GetPersonProfileHandler,
     GetEmploymentHandler,
     GetCurrentJobAssignmentHandler,
+    GetJobHistoryHandler,
     ListEmploymentsHandler,
     ListJobProfilesHandler,
     GetProbationRecordHandler,
