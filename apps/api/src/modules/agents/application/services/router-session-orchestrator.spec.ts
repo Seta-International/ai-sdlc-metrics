@@ -26,6 +26,15 @@ import type { AgentSessionEntry } from '../../domain/ports/agent-session.port'
 import type { RouterPlan } from '../../domain/value-objects/router-plan-schema'
 import type { WindowedSummaries } from '../../domain/value-objects/windowed-summaries'
 import type { SubAgentKey } from '../../domain/services/sub-agent-types'
+import { estimateTokens } from './sub-agent-retriever'
+
+// ─── Mock sub-agent-retriever (preserves ROUTER_PROMPT_TOKEN_CEILING + other exports,
+//     mocks the module-level estimateTokens function so tests can control it) ──────
+
+vi.mock('./sub-agent-retriever', async (importOriginal) => {
+  const mod = (await importOriginal()) as typeof import('./sub-agent-retriever')
+  return { ...mod, estimateTokens: vi.fn() }
+})
 
 // ─── Mock gateway-metrics (hoisted so vi.mock factory can reference them) ─────
 
@@ -170,7 +179,6 @@ function buildOrchestrator(opts: {
     | { kind: 'retry'; reason: string; schemaInjectedPrompt: string }
   >
   resolvedSubAgents?: ReturnType<typeof makeResolvedSubAgent>[]
-  estimatedTokens?: number
   narrowedConfigs?: Array<{ key: string }>
   promptHash?: string
 }) {
@@ -179,7 +187,6 @@ function buildOrchestrator(opts: {
     llmResults = [{ kind: 'ok', plan: VALID_PLAN }],
     parseResults,
     resolvedSubAgents = [makeResolvedSubAgent('planner.read-only')],
-    estimatedTokens = 1000,
     narrowedConfigs,
     promptHash = 'rebuilt-prompt-hash',
   } = opts
@@ -236,11 +243,10 @@ function buildOrchestrator(opts: {
 
   const subAgentRetriever = {
     retrieve: vi.fn().mockResolvedValue(narrowedConfigs ?? resolvedSubAgents.map((r) => r.config)),
-    estimateTokens: vi.fn().mockReturnValue(estimatedTokens),
+    // estimateTokens instance method present for DI compatibility;
+    // the orchestrator uses the module-level estimateTokens (mocked via vi.mock above)
+    estimateTokens: vi.fn(),
   }
-
-  // estimateTokens module-level function is mocked via vi.mock below
-  // but we also need to handle it here via the retriever's delegate
 
   const llmClient = {
     generate: vi.fn().mockImplementation(async () => {
@@ -318,6 +324,8 @@ describe('RouterSessionOrchestrator', () => {
     mockRecordRouterDecision.mockReset()
     mockRecordRouterParseRetry.mockReset()
     mockRecordSubAgentInvoked.mockReset()
+    // Default: return well below ceiling so retrieval is dormant in most tests
+    vi.mocked(estimateTokens).mockReturnValue(1_000)
   })
 
   // ── 1. Happy path — new session ─────────────────────────────────────────────
@@ -469,7 +477,7 @@ describe('RouterSessionOrchestrator', () => {
     expect(mockRecordRouterDecision).toHaveBeenCalledWith(TENANT_ID, 'disambiguation')
   })
 
-  // ── 6. Token-budget activation ────────────────────────────────────────────
+  // ── 6. Token-budget activation (R-02.26) ─────────────────────────────────
 
   it('token budget > ceiling: retriever is called, resolvedSubAgents narrowed', async () => {
     const allSubAgents = [
@@ -477,44 +485,43 @@ describe('RouterSessionOrchestrator', () => {
       makeResolvedSubAgent('people.profile', 'hash-2'),
       makeResolvedSubAgent('projects.assignments', 'hash-3'),
     ]
-    const { orchestrator, subAgentRetriever } = buildOrchestrator({
+    const narrowed = [allSubAgents[0]!.config, allSubAgents[1]!.config]
+
+    const { orchestrator, subAgentRetriever, routerPromptBuilder } = buildOrchestrator({
       existingSession: null,
       resolvedSubAgents: allSubAgents,
-      estimatedTokens: 200_000, // > 120_000 ceiling
-      narrowedConfigs: [allSubAgents[0]!.config, allSubAgents[1]!.config],
+      narrowedConfigs: narrowed,
     })
 
-    // Need to mock estimateTokens to return a high number
-    // Our buildOrchestrator doesn't mock the module-level estimateTokens; patch it:
-    const retriever = subAgentRetriever as { retrieve: ReturnType<typeof vi.fn> }
-    retriever.retrieve.mockResolvedValue([allSubAgents[0]!.config, allSubAgents[1]!.config])
+    // Override module-level estimateTokens to exceed ceiling (120_000)
+    vi.mocked(estimateTokens).mockReturnValue(150_000)
+    // Ensure retrieve returns only the two narrowed configs
+    subAgentRetriever.retrieve.mockResolvedValue(narrowed)
 
-    // The orchestrator calls module-level estimateTokens which we haven't mocked.
-    // estimateTokens returns ceil(chars/4); with our tiny test data it'll be small.
-    // We'll skip the retrieval check for this test and just verify the retriever is called
-    // when we override the ceiling to be smaller than the estimate.
-    // Actually we need to get around the ceiling. We'll test by setting a very
-    // small budget and verifying retrieve was called after the orchestrator proceeds.
-    // Since we can't easily override the budget, test intent: verify retrieve IS callable
-    // and the filter logic works when retrieve is invoked.
-
-    // Just verify the flow still produces a bounded result regardless of retrieval
     const result = await orchestrator.routeTurn(BASE_OPTS)
+
+    // Retriever must have been called exactly once (gate triggered)
+    expect(subAgentRetriever.retrieve).toHaveBeenCalledTimes(1)
+
+    // The resolved set passed to the prompt builder must be the narrowed subset
+    const buildCall = routerPromptBuilder.build.mock.calls[0]![0] as { subAgents: unknown[] }
+    expect(buildCall.subAgents).toHaveLength(2)
+
     expect(result.kind).toBe('bounded')
   })
 
-  // ── 7. Token-budget dormant ───────────────────────────────────────────────
+  // ── 7. Token-budget dormant (R-02.26) ────────────────────────────────────
 
   it('token budget <= ceiling: retriever NOT called', async () => {
     const { orchestrator, subAgentRetriever } = buildOrchestrator({
-      estimatedTokens: 1000,
+      existingSession: null,
     })
+
+    // Module-level estimateTokens returns well below ceiling
+    vi.mocked(estimateTokens).mockReturnValue(1_000)
 
     await orchestrator.routeTurn(BASE_OPTS)
 
-    // retrieve is called only when budget exceeded — with real estimateTokens
-    // returning ceil(tiny/4) << 120K, retrieve should not be called
-    // (The mock's estimateTokens returns 1000 which is well under the ceiling)
     expect(subAgentRetriever.retrieve).not.toHaveBeenCalled()
   })
 

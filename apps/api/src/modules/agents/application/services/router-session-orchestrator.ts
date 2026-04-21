@@ -153,10 +153,12 @@ export class RouterSessionOrchestrator {
     let sessionId: UUID
     let systemPrompt: string
     let developerMessage: string
+    let pinnedSubAgentPromptHashes: Record<string, string>
 
     if (existingSession) {
       // ── Existing session ────────────────────────────────────────────────────────
       sessionId = existingSession.id
+      pinnedSubAgentPromptHashes = existingSession.pinnedSubAgentPromptHashes
 
       // Re-build narrative (sequential DB call — may hit cache)
       const narrative = await this._buildNarrativeSpan({ tenantId, roleKey, userId })
@@ -171,8 +173,8 @@ export class RouterSessionOrchestrator {
         promptVariables,
       })
 
-      // Re-build prompt — must reproduce the same hash
-      const promptResult = this.routerPromptBuilder.build({
+      // Re-build prompt — must reproduce the same hash (wrapped in child span for consistency)
+      const promptResult = await this._buildPromptSpan({
         tenantId,
         userId,
         surface,
@@ -182,6 +184,8 @@ export class RouterSessionOrchestrator {
         permissionNarrative: narrative.text,
         recentSummaryWindow: recentSummary,
         toolCatalogHash: toolCatHash,
+        retrievalActivated: false,
+        resolvedCount: resolved.length,
       })
 
       // Hash drift detection — mismatch = deployment / rollout bug
@@ -259,29 +263,19 @@ export class RouterSessionOrchestrator {
       }
 
       // Step 5: Build router prompt (T7) — wrapped in a child span
-      const promptBuildSpan = tracer.startSpan('router-prompt:build')
-      let promptResult: ReturnType<RouterPromptBuilder['build']>
-      try {
-        promptResult = this.routerPromptBuilder.build({
-          tenantId,
-          userId,
-          surface,
-          roleKey,
-          roleAllowedPermissions,
-          subAgents: [...resolvedSubAgents],
-          permissionNarrative: narrative.text,
-          recentSummaryWindow: recentSummary,
-          toolCatalogHash: toolCatHash,
-        })
-        promptBuildSpan.setAttributes({
-          router_prompt_hash: promptResult.routerPromptHash,
-          sub_agent_count: resolvedSubAgents.length,
-          tool_count: this.toolRegistry.listAgentTools().length,
-          'agent.router.retrieval_activated': retrievalActivated,
-        })
-      } finally {
-        promptBuildSpan.end()
-      }
+      const promptResult = await this._buildPromptSpan({
+        tenantId,
+        userId,
+        surface,
+        roleKey,
+        roleAllowedPermissions,
+        subAgents: [...resolvedSubAgents],
+        permissionNarrative: narrative.text,
+        recentSummaryWindow: recentSummary,
+        toolCatalogHash: toolCatHash,
+        retrievalActivated,
+        resolvedCount: resolvedSubAgents.length,
+      })
 
       systemPrompt = promptResult.systemPrompt
       developerMessage = promptResult.developerMessage
@@ -291,7 +285,7 @@ export class RouterSessionOrchestrator {
       const permissionNarrativeHash = narrative.narrativeHash
 
       // Step 6: Create session row (sequential DB write — no Promise.all)
-      const pinnedSubAgentPromptHashes: Record<string, string> = {}
+      pinnedSubAgentPromptHashes = {}
       for (const r of resolvedSubAgents) {
         pinnedSubAgentPromptHashes[r.config.key as string] = r.subAgentPromptHash
       }
@@ -340,11 +334,11 @@ export class RouterSessionOrchestrator {
       return this._handleBoundedOrDisambig(
         parseResult1.plan,
         sessionId,
+        pinnedSubAgentPromptHashes,
         tenantId,
         userId,
         roleKey,
         turnTraceId,
-        opts,
         0,
       )
     }
@@ -375,11 +369,11 @@ export class RouterSessionOrchestrator {
       return this._handleBoundedOrDisambig(
         parseResult2.plan,
         sessionId,
+        pinnedSubAgentPromptHashes,
         tenantId,
         userId,
         roleKey,
         turnTraceId,
-        opts,
         1,
       )
     }
@@ -464,11 +458,11 @@ export class RouterSessionOrchestrator {
   private async _handleBoundedOrDisambig(
     plan: RouterPlan,
     sessionId: UUID,
+    pinnedSubAgentPromptHashes: Record<string, string>,
     tenantId: string,
     userId: string,
     roleKey: string,
     turnTraceId: UUID,
-    opts: RouteTurnOpts,
     parseRetries: 0 | 1,
   ): Promise<RouteTurnResult> {
     const parentSpan = trace.getActiveSpan()
@@ -479,6 +473,13 @@ export class RouterSessionOrchestrator {
         router_parse_retries: parseRetries,
         router_escalated_to_disambiguation: true,
         intent_slug: plan.intent_slug,
+        /**
+         * flow_id is LLM-generated per-turn. The Zod schema validates UUID format;
+         * on format failure the parse retry handles it. The orchestrator does NOT
+         * pre-generate a flow_id to cross-check — design choice is to let the LLM
+         * own this correlation id for now; Plan 07 will reconsider if trace
+         * correlation becomes problematic.
+         */
         flow_id: plan.flow_id,
       })
 
@@ -496,16 +497,17 @@ export class RouterSessionOrchestrator {
       return { kind: 'disambiguation', reason: plan.disambiguation, sessionId, parseRetries }
     }
 
-    // Bounded plan — load pinned hashes and emit audit events (R-02.23a)
-    const session = await this.agentSessionPort.findByConversation({
-      tenantId,
-      userId,
-      conversationId: opts.conversationId,
-    })
-    const pinnedHashes = session?.pinnedSubAgentPromptHashes ?? {}
+    // Bounded plan — emit audit events per directive (R-02.23a)
+    // pinnedSubAgentPromptHashes is passed in from _pipeline — no extra DB call needed.
 
     // phase1 directives (sequential awaits — single DB client)
     for (const directive of plan.phase1) {
+      const hash = pinnedSubAgentPromptHashes[directive.sub_agent_key]
+      if (!hash) {
+        this.logger.warn(
+          `sub_agent_invoked audit: no pinned hash for ${directive.sub_agent_key} — session may pre-date registration`,
+        )
+      }
       await this.kernelAuditFacade.recordEvent({
         tenantId,
         actorId: userId,
@@ -519,7 +521,7 @@ export class RouterSessionOrchestrator {
           caller_user_id: userId,
           role_key: roleKey,
           turn_trace_id: turnTraceId,
-          sub_agent_prompt_hash: pinnedHashes[directive.sub_agent_key] ?? '',
+          sub_agent_prompt_hash: hash ?? '',
         },
       })
       recordSubAgentInvoked(tenantId, directive.sub_agent_key, 'phase1')
@@ -527,6 +529,12 @@ export class RouterSessionOrchestrator {
 
     // phase2 directive (optional, sequential await)
     if (plan.phase2) {
+      const hash = pinnedSubAgentPromptHashes[plan.phase2.sub_agent_key]
+      if (!hash) {
+        this.logger.warn(
+          `sub_agent_invoked audit: no pinned hash for ${plan.phase2.sub_agent_key} — session may pre-date registration`,
+        )
+      }
       await this.kernelAuditFacade.recordEvent({
         tenantId,
         actorId: userId,
@@ -540,7 +548,7 @@ export class RouterSessionOrchestrator {
           caller_user_id: userId,
           role_key: roleKey,
           turn_trace_id: turnTraceId,
-          sub_agent_prompt_hash: pinnedHashes[plan.phase2.sub_agent_key] ?? '',
+          sub_agent_prompt_hash: hash ?? '',
         },
       })
       recordSubAgentInvoked(tenantId, plan.phase2.sub_agent_key, 'phase2')
@@ -550,6 +558,13 @@ export class RouterSessionOrchestrator {
       router_parse_retries: parseRetries,
       router_escalated_to_disambiguation: false,
       intent_slug: plan.intent_slug,
+      /**
+       * flow_id is LLM-generated per-turn. The Zod schema validates UUID format;
+       * on format failure the parse retry handles it. The orchestrator does NOT
+       * pre-generate a flow_id to cross-check — design choice is to let the LLM
+       * own this correlation id for now; Plan 07 will reconsider if trace
+       * correlation becomes problematic.
+       */
       flow_id: plan.flow_id,
     })
 
@@ -579,6 +594,34 @@ export class RouterSessionOrchestrator {
     } finally {
       span.end()
     }
+  }
+
+  /**
+   * Build router prompt — wrapped in a `router-prompt:build` child span.
+   * Used by both the new-session and existing-session paths so span coverage
+   * is consistent regardless of session state.
+   */
+  private async _buildPromptSpan(
+    opts: Parameters<RouterPromptBuilder['build']>[0] & {
+      retrievalActivated: boolean
+      resolvedCount: number
+    },
+  ): Promise<ReturnType<RouterPromptBuilder['build']>> {
+    const { retrievalActivated, resolvedCount, ...buildOpts } = opts
+    const span = tracer.startSpan('router-prompt:build')
+    let promptResult: ReturnType<RouterPromptBuilder['build']>
+    try {
+      promptResult = this.routerPromptBuilder.build(buildOpts)
+      span.setAttributes({
+        router_prompt_hash: promptResult.routerPromptHash,
+        sub_agent_count: resolvedCount,
+        tool_count: this.toolRegistry.listAgentTools().length,
+        'agent.router.retrieval_activated': retrievalActivated,
+      })
+    } finally {
+      span.end()
+    }
+    return promptResult
   }
 
   /**
