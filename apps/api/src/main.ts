@@ -6,11 +6,17 @@ import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/a
 import { runMigrations } from '@future/db/migrate'
 import { AppModule } from './app.module'
 import { getAppRouter, type AppRouter } from './common/trpc/app-router'
+import { initLangfuseOTel } from './modules/agents/infrastructure/telemetry/langfuse-wiring'
 
 const logger = new Logger('Bootstrap')
 
 async function bootstrap() {
   await runMigrations()
+
+  const langfuse = initLangfuseOTel()
+  const flushLangfuse = () => void langfuse.shutdown()
+  process.on('SIGTERM', flushLangfuse)
+  process.on('SIGINT', flushLangfuse)
 
   const adapter = new FastifyAdapter()
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter, {
