@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-21
 **Owner:** Canh Ta (PM)
-**Status:** Draft for review (v2 — Excel-only deliverable)
+**Status:** Draft for review (v3 — PPTX full-coverage audit + kickoff 22 Apr + VN holiday capacity)
 **Related:** `docs/modules/planner.md` (BRD, input only), `docs/raws/Project_Plan_Template.pptx` (structure template), `CLAUDE.md` (stack reference)
 
 ---
@@ -13,7 +13,9 @@ Produce the Project Plan for the Future Planner MVP and its three foundational t
 
 This spec describes _what the single Excel workbook will contain, its sheet structure, and where content comes from_. It does not author the plan content itself — that follows once this spec is approved.
 
-Scope covers the full arc from Kickoff (W1, 20 Apr 2026) through full-coverage rollout (waves TBD), not just the 8-week build.
+Scope covers the full arc from Kickoff (W1, **Wed 22 Apr 2026**) through full-coverage rollout (waves TBD), not just the 8-week build.
+
+**Known capacity hit in Sprint 1:** Vietnamese public holidays in the week of 27 Apr 2026 remove ~3 working days. The plan must account for this — Sprint 1 is effectively 7 working days, not 10. This shifts the "First Working Version" milestone risk rightward; mitigation is explicit in `04-Timeline` Working Days column and `04-Timeline` Block 5 Holiday Calendar.
 
 ## 2. Goals
 
@@ -27,29 +29,30 @@ Scope covers the full arc from Kickoff (W1, 20 Apr 2026) through full-coverage r
 
 **One Excel workbook:** `docs/project-plan/project-plan.xlsx`. No supporting Markdown files. No README.md.
 
-Workbook structure follows PPTX Option 1: one sheet per PPTX section (9 template sections), plus one sheet per track brief, plus appendices. Total ~16 sheets.
+Workbook structure follows PPTX Option 1: one sheet per PPTX section (9 template sections), plus one sheet per track brief, plus appendices. Total 18 sheets. Every element present in the PPTX template maps to a block in one of these sheets — see §3.3 PPTX coverage matrix.
 
 ### 3.1 Sheet index
 
-| #   | Sheet                   | Maps to PPTX | Content type                                                                                                                                       |
-| --- | ----------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `00-Cover`              | Slide 1      | Title, version, date, owner, approver list                                                                                                         |
-| 2   | `00-TOC`                | Slide 2      | Table of contents with hyperlinks to each sheet                                                                                                    |
-| 3   | `01-Overview`           | Slides 3-5   | Info fields · Problem/Solution narrative · Key Components · SMART Objectives table                                                                 |
-| 4   | `02-Contract`           | Slides 6-7   | Internal charter fields · Milestones & Deliverables table · Legal & Compliance                                                                     |
-| 5   | `03-Scope`              | Slides 8-10  | WBS-Master (feature-level rollup) · In/Out of scope · CR process · CR log                                                                          |
-| 6   | `04-Timeline`           | Slides 11-12 | Master timeline band (image/shapes) · Milestone tracking table · Sprint plan table                                                                 |
-| 7   | `05-Approach`           | Slides 13-23 | Org chart · Escalation · Comms plan · SDLC + DoR/DoD · KPI dashboard · Technical approach · QA · CI/CD · AI differentiator · Definition of Success |
-| 8   | `06-Resources`          | Slide 17     | Allocation table + RACI matrix                                                                                                                     |
-| 9   | `07-DCA`                | Slide 24     | Dependencies · Constraints · Assumptions                                                                                                           |
-| 10  | `08-Risks-Issues`       | Slides 25-26 | Risk register · Heat map · Issues log · Process                                                                                                    |
-| 11  | `09-ExecSupport`        | Slide 27+    | Budget · Decision SLA · Kill criteria                                                                                                              |
-| 12  | `Track-Planner`         | —            | Full track brief (purpose, scope, deliverables, WBS, sprint plan, risks, DoD, open Qs)                                                             |
-| 13  | `Track-CoreBackend`     | —            | Full track brief                                                                                                                                   |
-| 14  | `Track-CoreFrontend`    | —            | Full track brief                                                                                                                                   |
-| 15  | `Track-CoreAIAgent`     | —            | Full track brief with Phase 1 + Phase 2 blocks inside every sub-section                                                                            |
-| 16  | `Appendix-BA-Legacy`    | —            | Parallel BA workstream (stakeholder map + legacy system requirement briefs)                                                                        |
-| 17  | `Appendix-BRD-Coverage` | —            | Traceability matrix: BRD REQ-XX / NFR-XX → track sheet + deliverable row                                                                           |
+| #   | Sheet                    | Maps to PPTX | Content type                                                                                                                                       |
+| --- | ------------------------ | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `00-Cover`               | Slide 1      | Title, version, date, owner, approver list                                                                                                         |
+| 2   | `00-TOC`                 | Slide 2      | Table of contents with hyperlinks to each sheet                                                                                                    |
+| 3   | `01-Overview`            | Slides 3-5   | Info fields · Problem/Solution narrative · Key Components · SMART Objectives table                                                                 |
+| 4   | `02-Contract`            | Slides 6-7   | Internal charter fields · Milestones & Deliverables table · Legal & Compliance                                                                     |
+| 5   | `03-Scope`               | Slides 8-10  | WBS-Master (feature-level rollup) · In/Out of scope · CR process · CR log                                                                          |
+| 6   | `04-Timeline`            | Slides 11-12 | Master timeline band (image/shapes) · Milestone tracking table · Sprint plan table                                                                 |
+| 7   | `05-Approach`            | Slides 13-23 | Org chart · Escalation · Comms plan · SDLC + DoR/DoD · KPI dashboard · Technical approach · QA · CI/CD · AI differentiator · Definition of Success |
+| 8   | `06-Resources`           | Slide 17     | Allocation table + RACI matrix                                                                                                                     |
+| 9   | `07-DCA`                 | Slide 24     | Dependencies · Constraints · Assumptions                                                                                                           |
+| 10  | `08-Risks-Issues`        | Slides 25-26 | Risk register · Heat map · Issues log · Process                                                                                                    |
+| 11  | `09-ExecSupport`         | Slide 27+    | Budget · Decision SLA · Kill criteria                                                                                                              |
+| 12  | `Track-Planner`          | —            | Full track brief (purpose, scope, deliverables, WBS, sprint plan, risks, DoD, open Qs)                                                             |
+| 13  | `Track-CoreBackend`      | —            | Full track brief                                                                                                                                   |
+| 14  | `Track-CoreFrontend`     | —            | Full track brief                                                                                                                                   |
+| 15  | `Track-CoreAIAgent`      | —            | Full track brief with Phase 1 + Phase 2 blocks inside every sub-section                                                                            |
+| 16  | `Appendix-BA-Legacy`     | —            | Parallel BA workstream (stakeholder map + legacy system requirement briefs)                                                                        |
+| 17  | `Appendix-BRD-Coverage`  | —            | Traceability matrix: BRD REQ-XX / NFR-XX → track sheet + deliverable row                                                                           |
+| 18  | `Appendix-PPTX-Coverage` | —            | Coverage matrix: every PPTX slide / sub-element → workbook sheet + block                                                                           |
 
 ### 3.2 Sheet-level content schemas
 
@@ -57,7 +60,7 @@ Each sheet uses a consistent two-column header layout: merged title row + sub-se
 
 **`01-Overview`**
 
-- Block 1 — **Information** (field/value grid): BMM, Duration, Methodology, Stakeholders, Budget, Version.
+- Block 1 — **Information** (field/value grid): BMM = Internal/Cost-saving; Duration = 22 Apr 2026 → full-coverage (TBD); Methodology = Agile Scrum 2-week; Stakeholders = Hung Vu / Thu Mai / Hoang Nguyen; Budget = team time + 1× Claude Max x20 + ~$200 AI cap; Version = 1.0.
 - Block 2 — **Problem & Solution** (wrapped text, 2 cells): five operational costs from BRD §2.
 - Block 3 — **Key Components** (card grid, 4 rows): Planner · Core BE · Core FE · Core AI Agent. Core AI Agent cell notes Phase 1/2.
 - Block 4 — **SMART Objectives** (table): Objective · Metric · Target · Timeline · Owner (5 rows from BRD §3).
@@ -66,8 +69,9 @@ Each sheet uses a consistent two-column header layout: merged title row + sub-se
 
 - Block 1 — **Internal Charter Fields**: Sponsor = Hung Vu; Technical Sponsor = Thu Mai; PMO = Hoang Nguyen; Payment Model → "Acceptance Weight"; SLA → Kill Criteria (links to `09-ExecSupport`); Governance = Steering cadence.
 - Block 2 — **Milestones & Deliverables** (table): ID · Milestone · Planned · Actual · Owner · Acceptance Criterion · Acceptance Weight · Status.
-  - Rows: Kick-off (W1) · Core Foundations (W2) · First Working Version (W4) · Core Agent Phase 1 complete (W4) · MVP Pilot-ready (W8) · Core Agent Phase 2 complete (W8) · Pilot gate (W12) · Wave 1 (TBD) · Full coverage (TBD) · Post-rollout review (TBD).
-- Block 3 — **Legal & Compliance** (wrapped text): BRD §11 — MS 365 SSO standards, Teams consent inherited, no audio stored, AI vendor disclosure, ap-southeast-1 data residency.
+  - Rows: Kick-off (22 Apr · W1) · Core Foundations (W2) · First Working Version (W4) · Core Agent Phase 1 complete (W4) · MVP Pilot-ready (W8) · Core Agent Phase 2 complete (W8) · Pilot gate (W12) · Wave 1 (TBD) · Full coverage (TBD) · Post-rollout review (TBD). Sprint 1 Planned dates honour the 3-day VN holiday (see `04-Timeline` Block 5).
+- Block 3 — **Legal & Compliance Checklist** (two-column checklist, per PPTX Slide 6): NDA signed · Data protection & privacy clause (GDPR / local law) · IP ownership & license scope. Each item shows Status (✓ / pending / N/A) + owner. Internal project substitutions noted inline (e.g., NDA = N/A for internal; IP = SETA-owned).
+- Block 4 — **Regulatory context** (wrapped text, from BRD §11): MS 365 SSO standards, Teams consent inherited, no audio stored, AI vendor disclosure, ap-southeast-1 data residency.
 
 **`03-Scope`**
 
@@ -81,20 +85,24 @@ Each sheet uses a consistent two-column header layout: merged title row + sub-se
 
 - Block 1 — **Master Timeline** (image or Excel shapes): week-by-week band chart W0 → full coverage.
 - Block 2 — **Milestone Tracking** (table, same schema as `02-Contract` milestones but updated weekly): ID · Milestone · Planned · Actual · Status · Notes.
-- Block 3 — **Sprint Plan** (table): Sprint · Start · End · Goal · Scope · Deliverable · Exit Criterion · Status. 4 sprints × 2 weeks for build; pilot + rollout rows beyond.
+- Block 3 — **Sprint Plan** (table): Sprint · Start · End · Working Days · Goal · Scope · Deliverable · Exit Criterion · Status. 4 sprints × 2 weeks for build; pilot + rollout rows beyond. Working Days column nets out public holidays (e.g., Sprint 1 loses 3 days to the Vietnamese holiday in W1).
+- Block 4 — **Status Legend** (color key, per PPTX Slide 12): On-track / Done · At risk / Slight delay · Blocked / Critical. Used by Blocks 2-3 cell fills.
+- Block 5 — **Holiday Calendar** (table): Date · Holiday · Working-day impact · Sprints affected. Surfaces VN public holidays across the plan horizon so sprint capacity is honest.
 
 **`05-Approach`** (largest sheet; stacked blocks mirror PPTX slides 13-23)
 
-- Block 1 — **Organisation chart** (embedded image): Steering Co. → PM → (PO, SM, BA, Tech Lead, AI Eng, Designer).
-- Block 2 — **Escalation Path**: L1/L2/L3 + response SLA (P1-P4) per PPTX Slide 14.
-- Block 3 — **Communication Plan** (table): Ceremony · Audience · Frequency · Duration · Owner · Output. Includes BA parallel legacy-discovery interviews as a separate row.
-- Block 4 — **Methodology & SDLC** (table): Phase · Input · Output · DoR · DoD · Owner. Agile Scrum 2-week per BRD §8; DoR/DoD sourced from CLAUDE.md testing rules (≥70% coverage, TDD, co-located tests).
-- Block 5 — **KPI Dashboard** (4 metric cells): Progress · Defect rate · Uptime · CSAT (targets only at plan time).
-- Block 6 — **Technical Approach** (card grid): stack verbatim from CLAUDE.md — Next.js multi-zones · NestJS · Drizzle · tRPC · pg-boss · Vercel AI SDK · AWS ECS Fargate ARM64 · Turborepo.
-- Block 7 — **QA Approach**: test pyramid diagram + exit criteria. CLAUDE.md rules: TDD, ≥70% coverage, co-located tests, no `__tests__/` dirs.
-- Block 8 — **CI/CD Approach**: GitHub Actions · Turborepo remote cache · Docker ARM64 · ECR · ECS rolling. DORA targets.
-- Block 9 — **AI Differentiator** (card grid): per-role AI uplift (Dev/QA/PM/BA/Ops) per PPTX Slide 23, tuned for 1× Claude Max x20 shared.
-- Block 10 — **Definition of Success** (4 quadrants): Delivery · Quality · Adoption · Outcome, tied to BRD §7.
+- Block 1 — **Organisation Chart** (embedded image, PPTX Slide 13 top): Steering Co. → PM → (PO, SM, BA, Tech Lead, AI Eng, Designer).
+- Block 2 — **Roles & Responsibilities** (table, PPTX Slide 13 bottom): Role · Responsibilities. One row per role (PM · PO · SM · BA · Tech Lead · Dev · AI Eng · QA · DevOps · Designer).
+- Block 3 — **Escalation Path** (3-tier block + SLA table, PPTX Slide 14): L1 (team issue, 24h) · L2 (multi-team, PM to sponsor) · L3 (critical, Steering Committee). Response SLA: P1 15min/4h · P2 1h/1bd · P3 4h/3bd · P4 1d/next release.
+- Block 4 — **Communication Plan** (table, PPTX Slide 15 top): Ceremony · Audience · Frequency · Duration · Owner · Output. Includes BA parallel legacy-discovery interviews as a separate row.
+- Block 5 — **Stakeholder Engagement Matrix** (2×2 grid, PPTX Slide 15 bottom): High/High → Manage Closely · High/Low → Keep Satisfied · Low/High → Keep Informed · Low/Low → Monitor. Each cell names the stakeholders placed there.
+- Block 6 — **Methodology & SDLC** (method pick block + DoR/DoD table, PPTX Slide 18): Agile Scrum 2-week selected. Table: Phase · Input · Output · DoR · DoD · Owner. DoR/DoD sourced from CLAUDE.md testing rules (≥70% coverage, TDD, co-located tests, no `__tests__/`).
+- Block 7 — **KPI Tracking Dashboard** (PPTX Slide 19): four metric tiles (Progress · Defect rate · Uptime · CSAT with target + status colour) + Sprint Velocity chart placeholder + Burn-down chart placeholder. Charts empty at plan time; populated weekly from sprint data.
+- Block 8 — **Technical Approach** (6-card grid, PPTX Slide 20): Frontend · Backend · Database · Infrastructure · Observability · Security. Content verbatim from CLAUDE.md — Next.js multi-zones · NestJS · Drizzle / Postgres 16 · AWS ECS Fargate ARM64 · Langfuse · Entra ID SSO + RLS.
+- Block 9 — **QA Approach** (PPTX Slide 21): test pyramid diagram (Unit 70% / Integration 20% / System 8% / UAT 2%) + **Test Type Ownership** table (Test Type · Scope · Owner: Unit/Integration/System/Performance/Security/UAT) + exit criteria (0 critical · ≤2 high with workaround · ≥95% test pass · coverage ≥70% per CLAUDE.md · security scan clean).
+- Block 10 — **CI/CD Approach** (6-step flow + DORA metrics, PPTX Slide 22): Source (GitHub) · Build (GH Actions: lint · unit · SAST · image) · Test (Jest · Playwright) · Package (Docker ARM64 · ECR · SBOM · sign) · Deploy (ECS rolling or blue-green) · Monitor (Langfuse · CloudWatch · Sentry). DORA targets: Daily deploys · <1 day lead time · <15% change failure · <1 hour MTTR.
+- Block 11 — **AI Differentiator** (6-card grid, PPTX Slide 23): per-role AI uplift — Dev (↑ productivity 25-40%) · QA (↓ manual effort 50%) · PM (early warning 2-3 sprints) · BA (faster discovery 30%) · Ops (↓ MTTR 40%) · Client (optional copilot). Tuned for 1× Claude Max x20 shared subscription.
+- Block 12 — **Definition of Success** (4 quadrants, PPTX Slide 16): Delivery · Quality · Adoption · Outcome. Each quadrant carries 3-4 measurable criteria tied to BRD §7.1.
 
 **`06-Resources`**
 
@@ -138,6 +146,45 @@ Each sheet uses a consistent two-column header layout: merged title row + sub-se
 **`Appendix-BRD-Coverage`**
 
 - Table: BRD REQ-XX / NFR-XX · Description · Covered by (track sheet + deliverable row reference) · Status (Covered / Deferred / Out-of-scope).
+
+**`Appendix-PPTX-Coverage`**
+
+- Table: PPTX Slide # · Slide title · Sub-element · Workbook sheet · Block # · Notes. One row per distinct sub-element in the template; used to prove 100% coverage at review time.
+
+### 3.3 PPTX coverage matrix (summary)
+
+High-level mapping — the full per-sub-element table lives on `Appendix-PPTX-Coverage`.
+
+| PPTX slide | Title                                                 | Covered by                                      |
+| ---------- | ----------------------------------------------------- | ----------------------------------------------- |
+| 1          | Title                                                 | `00-Cover`                                      |
+| 2          | Table of Contents                                     | `00-TOC`                                        |
+| 3          | Project Overview — Information                        | `01-Overview` Block 1                           |
+| 4          | Project Overview — Problems & Solution                | `01-Overview` Block 2                           |
+| 5          | Project Overview — Solutions & Objectives             | `01-Overview` Blocks 3-4                        |
+| 6          | Project Contract (fields + legal checklist)           | `02-Contract` Blocks 1, 3, 4                    |
+| 7          | Project Contract — Milestones & Deliverables          | `02-Contract` Block 2                           |
+| 8          | Estimation & Scope — WBS                              | `03-Scope` Block 1 + per-track WBS on `Track-*` |
+| 9          | Estimation & Scope — In/Out                           | `03-Scope` Blocks 2-3                           |
+| 10         | Estimation & Scope — Change Request                   | `03-Scope` Blocks 4-5                           |
+| 11         | Project Timeline — Master Timeline                    | `04-Timeline` Block 1                           |
+| 12         | Project Timeline — Milestone + Sprint + Status legend | `04-Timeline` Blocks 2-4                        |
+| 13         | Approach — Org Structure + R&R                        | `05-Approach` Blocks 1-2                        |
+| 14         | Approach — Escalation + SLA                           | `05-Approach` Block 3                           |
+| 15         | Approach — Communication + Stakeholder Matrix         | `05-Approach` Blocks 4-5                        |
+| 16         | Approach — Definition of Success                      | `05-Approach` Block 12                          |
+| 17         | Approach — Allocation + RACI                          | `06-Resources` Blocks 1-2                       |
+| 18         | Approach — Methodology + DoR/DoD                      | `05-Approach` Block 6                           |
+| 19         | Approach — KPI Dashboard + Velocity + Burndown        | `05-Approach` Block 7                           |
+| 20         | Approach — Technical Approach                         | `05-Approach` Block 8                           |
+| 21         | Approach — QA (pyramid + test ownership + exit)       | `05-Approach` Block 9                           |
+| 22         | Approach — CI/CD + DORA                               | `05-Approach` Block 10                          |
+| 23         | Approach — AI Differentiator                          | `05-Approach` Block 11                          |
+| 24         | Dependencies & Constraints                            | `07-DCA` Blocks 1-2                             |
+| 25         | Assumptions + Risk Register + Heat Map                | `07-DCA` Block 3 + `08-Risks-Issues` Blocks 1-2 |
+| 26         | Risk Process + Issue Tracking Log                     | `08-Risks-Issues` Blocks 3-4                    |
+
+**Executive Support content** (PPTX section 9 — budget buffer, decision SLA) lives on `09-ExecSupport`. **Kill Criteria** is a Future-specific addition from BRD §7.3 substituting for the template's generic closure criteria. Both are surfaced on the coverage matrix row for completeness.
 
 ## 4. Trade-offs accepted
 
@@ -204,6 +251,8 @@ Before considering the plan shipped:
 - **RACI integrity:** exactly one A per row on `06-Resources`.
 - **WBS sanity:** sum of Effort High across all tasks per track ≤ available MD per track lead × 8 weeks; flag tracks over capacity.
 - **Hyperlink check:** `00-TOC` hyperlinks all resolve; cross-sheet cell references (e.g., `02-Contract` → `09-ExecSupport` Kill Criteria) all valid.
+- **PPTX coverage check:** every PPTX slide + sub-element appears in `Appendix-PPTX-Coverage` with a non-empty workbook sheet/block reference. No "not covered" rows.
+- **Holiday calendar check:** `04-Timeline` Block 5 populated with all VN public holidays in the W1–W12 window; every Sprint row's Working Days column reflects deductions.
 
 ## 9. Generation approach
 
@@ -224,3 +273,4 @@ The script lives at `scripts/generate-project-plan.py` and is **not** a round-tr
 - PO allocation percentage (`06-Resources` allocation block, currently TBD).
 - Whether Data Engineer onboarded by W1 (triggers inclusion of Core Data Platform as a fifth track sheet; otherwise operational-DB queries carry the MVP per BRD §4.1).
 - Designer-Lead weekly window confirmation per BRD R-02 mitigation.
+- Exact Vietnamese public holiday dates in W1 — user flagged ~3 working days lost in the week of 27 Apr 2026; government announcement text to be pasted into `04-Timeline` Block 5. Plus remaining 2026 VN public holidays across the W1–W12 window (Reunification 30 Apr, Labour 1 May, National Day 2 Sep if in window, etc.).
