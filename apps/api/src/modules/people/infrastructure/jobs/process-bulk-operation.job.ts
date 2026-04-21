@@ -8,7 +8,12 @@ import {
   JOB_ASSIGNMENT_REPOSITORY,
   type IJobAssignmentRepository,
 } from '../../domain/repositories/job-assignment.repository'
+import {
+  EMPLOYMENT_REPOSITORY,
+  type IEmploymentRepository,
+} from '../../domain/repositories/employment.repository'
 import { CreateJobAssignmentCommand } from '../../application/commands/create-job-assignment.command'
+import { JobHistoryRecorderService } from '../../application/services/job-history-recorder.service'
 
 export const PROCESS_BULK_OPERATION_JOB = 'people.process-bulk-operation'
 
@@ -22,6 +27,9 @@ export class ProcessBulkOperationJob {
     @Inject(JOB_ASSIGNMENT_REPOSITORY)
     private readonly jobAssignmentRepo: IJobAssignmentRepository,
     private readonly commandBus: CommandBus,
+    @Inject(EMPLOYMENT_REPOSITORY)
+    private readonly employmentRepo: IEmploymentRepository,
+    private readonly recorder: JobHistoryRecorderService,
   ) {}
 
   async handle(payload: { bulkOperationId: string; tenantId: string }): Promise<void> {
@@ -62,6 +70,20 @@ export class ProcessBulkOperationJob {
               op.payload.reason as string,
             ),
           )
+
+          const emp = await this.employmentRepo.findById(employmentId, payload.tenantId)
+          if (emp) {
+            await this.recorder.recordDepartmentTransfer({
+              profileId: emp.personProfileId,
+              tenantId: payload.tenantId,
+              effectiveFrom: op.payload.effectiveFrom as Date,
+              jobTitle: null,
+              departmentId: op.payload.newDepartmentId as string,
+              managerProfileId: null,
+              changeReason: (op.payload.reason as string) ?? null,
+              recordedBy: op.requestedBy,
+            })
+          }
         }
         successCount++
       } catch (error) {
