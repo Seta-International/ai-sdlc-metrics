@@ -6,6 +6,10 @@
 </p>
 
 <p align="center">
+  <img alt="Agentic AI" src="https://img.shields.io/badge/Agentic_AI-first_system-6366F1?style=for-the-badge"/>
+</p>
+
+<p align="center">
   <img alt="OpenAI" src="https://img.shields.io/badge/OpenAI-GPT--5.4-412991?logo=openai&logoColor=white"/>
   <img alt="Vercel AI SDK" src="https://img.shields.io/badge/Vercel_AI_SDK-agentic-black?logo=vercel"/>
   <img alt="Langfuse" src="https://img.shields.io/badge/Langfuse-observability-CC6600"/>
