@@ -18,6 +18,7 @@
     "seed": "bun run src/seeds/seed.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.53",
     "@future/core": "workspace:*",
     "@future/db": "workspace:*",
     "@future/documents": "workspace:*",
@@ -31,11 +32,14 @@
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/platform-fastify": "^11.1.19",
     "@trpc/server": "^11.16.0",
+    "@vercel/otel": "^2.1.2",
+    "ai": "^6.0.168",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "drizzle-orm": "^0.45.2",
     "ioredis": "^5.10.1",
     "jose": "^6.2.2",
+    "langfuse-vercel": "^3.38.20",
     "latest": "^0.2.0",
     "nestjs-cls": "^6.2.0",
     "pg-boss": "^12.15.0",
