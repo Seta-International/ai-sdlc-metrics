@@ -2,6 +2,18 @@
 
 **Design §§:** §12 (Observability), §8 (content-hash attributes), §18 (observability readiness criteria).
 
+## Revision 2026-04-22
+
+Aligns with the 2026-04-22 production-ready-comprehensive revision of `docs/architecture/agent-runtime.md` §12. Changes:
+
+- **`flow_id` + `intent_slug` promoted to first-class span/trace attributes** (required on every span; propagated to kernel audit events, drafts, approvals, executions, and the trace-backend `metadata`/`tags` plane).
+- **Composition-attack runtime monitor** added as an MVP feature: post-turn job over tool-call sequences + cross-turn rate aggregation per `(tenant_id, user_id)`; emits `agent.composition_pattern_observed` kernel audit event; never blocks (Tenet #9).
+- **Declared-intent drift scorer** (plan 10 owner) hooks added to this plan's signal surface — drift scorer consumes `flow_id` / `intent_slug` / `tool_name` / `sub_agent_key` dimensions persisted here.
+- **Per-intent and per-flow dashboards** — new dashboard class derived from the new dimensions (no post-hoc tool-sequence inference).
+- **§18.5 evidence hooks** — `intent_slug: 'unclassified'` rate ≤ 2% and `flow_id` zero-dangle correlation surfaced as explicit requirements.
+
+Additions are surgical and stay under the 30% envelope. Structure of §§1–18 unchanged.
+
 ---
 
 ## 1. Scope
@@ -14,6 +26,10 @@
 - Typed `SamplingConfig` discriminated union with trace-level atomicity invariant.
 - Stratified sampling: 1% baseline + 100% on 5 MVP triggers.
 - `trace_id` (UUIDv7) stamped on `agent_message`, every kernel audit event, every exported OTel span, pg-boss job row, outbox events, approval_request rows.
+- `flow_id` (per-user-intent UUID) minted at router entry, propagated to every child span, every kernel audit event for the turn, every draft / approval / execution event downstream in the same flow, and the trace-backend `metadata.flow_id` + `tags=[intent:<slug>]` facet. A multi-turn flow (draft → approval → execute) shares one `flow_id` across multiple `trace_id`s.
+- `intent_slug` (module-declared controlled vocabulary per §2.2 EI-3) stamped alongside `flow_id` on the same surfaces. New slugs only via `modules/<X>/agent/intents/*.ts` PR review.
+- **Composition-attack runtime monitor**: post-turn job scans each trace's tool-call sequence for `compositionSensitive` patterns (turn-level), plus cross-turn rate aggregation per `(tenant_id, user_id)`; emits kernel audit event `agent.composition_pattern_observed` + feeds a dashboard. **Never blocks** (Tenet #9).
+- Per-intent dashboards (cost, latency, thumbs-down rate by `intent_slug`) and per-flow correlation dashboards.
 - Tool-output audit trail (kernel-owned, separate from trace-backend storage).
 - Pre-capture PII / tenant-authored redaction at write time.
 - Per-span attributes: content hashes, version strings, TTFT, cache-token breakdown, `request_context_keys` auto-stamp, cancellation reason.
@@ -78,7 +94,9 @@ All spans carry:
 Consumed here; schema owned by kernel module:
 
 - `trace_id UUID` (added as a tag on all agent-emitted audit events).
-- `event_type TEXT` (`'agent.tool_called'`, `'agent.prompt_stored'`, `'agent.narrative_stored'`, `'agent.draft_proposed'`, `'agent.draft_executed'`, `'agent.budget_topup'`, `'user_erased_start/complete/partial'`, etc.).
+- `flow_id UUID` (per-user-intent correlation — shared across multiple `trace_id`s within a multi-turn flow). **Schema note:** kernel `agent_audit_event` must expose `flow_id` and `intent_slug` columns; if the existing kernel migration does not yet include them, a follow-up kernel-owned migration is required before this plan ships. Indexed `(tenant_id, flow_id)`.
+- `intent_slug TEXT` (module-declared controlled vocabulary).
+- `event_type TEXT` (`'agent.tool_called'`, `'agent.prompt_stored'`, `'agent.narrative_stored'`, `'agent.draft_proposed'`, `'agent.draft_executed'`, `'agent.composition_pattern_observed'`, `'agent.budget_topup'`, `'user_erased_start/complete/partial'`, etc.).
 - `actor_user_id UUID?`
 - `on_behalf_of UUID?`
 - `via_delegation UUID?`
@@ -233,6 +251,41 @@ record(opts: {
 // Writes agent_tool_invocation row; called by plan 01 gateway step 6 alongside kernel audit.
 ```
 
+### Required span attributes (extended schema)
+
+Every span — regardless of `span_type` / `entity_type` — MUST carry:
+
+- `tenant_id`, `user_id`, `trace_id`, `surface` (identity keys; auto-stamped from `RequestContext`).
+- `flow_id` (auto-stamped; minted at router entry of the first turn in a flow, inherited across descendant spans and subsequent turns).
+- `intent_slug` (auto-stamped; from the per-flow pin established at router entry; controlled vocabulary).
+- `sub_agent_key` (populated on any span whose `entity_type ∈ { SUB_AGENT, TOOL, SYNTHESIZER }`; `null` on `ROUTER` / `GATEWAY` / `MEMORY` roots).
+- `tool_name` (populated on `span_type = SUB_AGENT_TOOL_CALL` and any `GATEWAY_STEP` child of a tool call; `null` elsewhere).
+
+Missing any of these on a non-null-applicable span is a hard fail at span creation (identity-key invariant extended to the four dimensions).
+
+### `FlowIdPropagation` contract
+
+```
+type FlowIdPropagation = {
+  // Minted once per user intent at router entry of the first turn.
+  mint(opts: { requestContext: RequestContext; intentSlug: IntentSlug }): FlowId;
+
+  // Subsequent turns in the same flow (draft resume, approval decision, scheduled execute)
+  // inherit via explicit correlation — never re-minted.
+  inheritFrom(opts: {
+    priorFlowId: FlowId;        // read from the source draft / approval / schedule row
+    requestContext: RequestContext;
+  }): FlowId;
+}
+```
+
+**Invariants:**
+
+- One UUID per flow. Multiple `trace_id`s within a flow share the same `flow_id`.
+- The first `trace_id` in a flow emits `flow_id` on its `TURN` root via `mint`.
+- Subsequent turns (draft → approval → execute) inherit via correlation join: the source row (draft / approval_request / pg-boss job) stamps `flow_id`; the downstream turn's router reads it and calls `inheritFrom`.
+- Never derived from `trace_id`. Never synthesized late. Absence on a span that expects it is a bug.
+
 ---
 
 ## 5. Control Flow
@@ -240,14 +293,18 @@ record(opts: {
 ### Trace start (turn start)
 
 1. Plan 06 controller receives `POST /agent/turn` → middleware sets identity keys (`tenant_id, user_id, trace_id` = UUIDv7, `surface`).
-2. `ObservabilityContextFactory.create({ requestContext })` creates the root `TURN` span.
-3. `TURN` span auto-stamps identity keys: `tenant_id`, `user_id`, `trace_id`, `surface`, `delegation_id?`.
-4. `SamplingDecider.decide(...)` evaluates the configured `SamplingConfig`. For the default stratified config:
+2. Plan 02 router resolves `intent_slug` (controlled vocabulary) + `flow_id`:
+   a. **First turn of a flow** — `FlowIdPropagation.mint({ requestContext, intentSlug })` produces a new UUID.
+   b. **Subsequent turn** (resume draft / approval decision / scheduled execute) — source row (draft, `approval_request`, pg-boss job) carries `flow_id`; router calls `FlowIdPropagation.inheritFrom(...)`.
+   c. If `intent_slug` resolution fails (ambiguous / unknown), stamp `intent_slug: 'unclassified'`; the `§18.5 ≤ 2%` threshold monitors this.
+3. `ObservabilityContextFactory.create({ requestContext })` creates the root `TURN` span.
+4. `TURN` span auto-stamps identity keys + flow dimensions: `tenant_id`, `user_id`, `trace_id`, `flow_id`, `intent_slug`, `surface`, `delegation_id?`.
+5. `SamplingDecider.decide(...)` evaluates the configured `SamplingConfig`. For the default stratified config:
    a. Evaluate triggers (most false at trace start; `taint_flipped` is false, `turn.ended.reason` not yet known).
    b. If any trigger true → return `capture = true`.
    c. Else → sample at baseline probability (1%).
-5. `capture` stored on turn state. If `false`, all `createChildSpan` calls return `NoOpSpan` (zero-overhead).
-6. Proceed to plan 02 (router) + plan 03 (execution).
+6. `capture` stored on turn state. If `false`, all `createChildSpan` calls return `NoOpSpan` (zero-overhead).
+7. Proceed to plan 02 (router) + plan 03 (execution). `flow_id` + `intent_slug` propagate via `ObservabilityContext` so every child span auto-stamps them.
 
 ### Trace end (turn end)
 
@@ -268,9 +325,10 @@ record(opts: {
 
 ### Span attribute stamping (on every span creation)
 
-Auto-stamped attrs (from `request_context_keys`):
+Auto-stamped attrs (from `request_context_keys` + flow pin):
 
-- `tenant_id`, `user_id`, `trace_id`, `surface`, `delegation_id?`, `schedule_id?`.
+- `tenant_id`, `user_id`, `trace_id`, `flow_id`, `intent_slug`, `surface`, `delegation_id?`, `schedule_id?`.
+- `sub_agent_key`, `tool_name` — auto-stamped where applicable per the extended schema in §4.
 
 Auto-stamped on `TURN` root specifically:
 
@@ -301,7 +359,16 @@ Component-specific attrs added explicitly (e.g. `gateway:ceiling-check` adds `by
 
 1. Plan 01 gateway step 6 emits kernel audit event `agent.tool_called`.
 2. In parallel, `ToolInvocationAuditRecorder.record(...)` writes `agent_tool_invocation` row.
-3. Both share `trace_id` — join works across both via the single ID.
+3. Both share `trace_id` + `flow_id` — join works across both via either ID.
+
+### Composition-attack runtime monitor (post-turn)
+
+1. Turn end: a pg-boss job `observability-composition-monitor` is enqueued with `{ trace_id, tenant_id, user_id, flow_id }`.
+2. The job reads the trace's `agent_tool_invocation` sequence and evaluates two signals:
+   a. **Turn-level.** ≥2 tools declaring `compositionSensitive` (§7 tool metadata) invoked across **distinct aggregate dimensions** within the same trace. (Also triggers the `composition_amplification` 100%-capture sampler at turn end; the runtime monitor is the audit-team-facing complement.)
+   b. **Cross-turn rate.** Sliding window per `(tenant_id, user_id)` — composition-sensitive invocations above a tuned threshold within a short window.
+3. On either match, emits a kernel audit event `agent.composition_pattern_observed` with `{ tenant_id, user_id, flow_id, trace_id, tool_names[], aggregate_dimensions[], signal: 'turn_level' | 'cross_turn_rate' }`.
+4. **Never blocks** a tool call (Tenet #9). Feeds the kernel audit team's investigation queue + composition-pattern dashboard (§8).
 
 ### Dashboard signal emission
 
@@ -435,6 +502,17 @@ For each of the following, plan 07 emits metric + trace attr:
 | R-07.41 | Approval inbox depth per-approver first-class metric                                                                                 | §12       |
 | R-07.42 | Confidence calibration dashboard: thumbs-down rate per tier + initiator-approval rate per tier                                       | §12       |
 
+### Flow / intent dimensions + composition monitor
+
+| #       | Requirement                                                                                                                                                                                                                                                                         | Design §§      |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| R-07.43 | Every span carries `flow_id`, `intent_slug`, `sub_agent_key`, `tool_name` per §4 extended schema (EI-7). Missing-dimension on a non-null-applicable span is a hard fail at span creation.                                                                                           | §12, EI-7      |
+| R-07.44 | **Zero dangle.** Every flow's spans, kernel audit events, drafts, and approvals carry the same `flow_id`. Monthly audit per §18.5: sample 100 random multi-turn flows; all downstream artifacts must correlate. Any dangle = P1.                                                    | §12, §18.5     |
+| R-07.45 | `FlowIdPropagation.mint` is called exactly once per flow at router entry; subsequent turns (draft → approval → execute) use `inheritFrom` and never re-mint.                                                                                                                        | §12            |
+| R-07.46 | Composition-attack runtime monitor runs as a post-turn pg-boss job; on match emits kernel audit event `agent.composition_pattern_observed` with `{ tenant_id, user_id, flow_id, trace_id, tool_names[], aggregate_dimensions[], signal }`. **Never blocks a tool call** (Tenet #9). | §12 (§Monitor) |
+| R-07.47 | Per-intent dashboards (cost, latency, thumbs-down rate by `intent_slug`) and per-flow correlation dashboards are direct queries over stamped dimensions — **no post-hoc inference** from tool-call sequences.                                                                       | §12            |
+| R-07.48 | `intent_slug: 'unclassified'` rate ≤ 2% on 30-day rolling traffic (§18.5 threshold). Exceedance triggers intent-registry review.                                                                                                                                                    | §12, §18.5     |
+
 ---
 
 ## 7. Failure Modes & Recovery
@@ -479,11 +557,19 @@ _This plan ships the observability surface; its self-observation is narrower._
 - Per-tenant trace-quota consumption + leader board (who's nearing cap).
 - Cross-tenant leak canary status (daily green/red timeline).
 
+### Dashboards (flow / intent)
+
+- **Per-intent regression dashboard** — cost, latency p50/p95/p99, thumbs-down rate, refusal rate, and `intent_slug: 'unclassified'` share — bucketed by `intent_slug`. Primary surface for router-accuracy + quality regression by user intent. Breach of §18.5 `'unclassified' ≤ 2%` fires an alert.
+- **Per-flow correlation dashboard** — given a `flow_id`, shows all `trace_id`s, all kernel audit events, all drafts, all `approval_request` rows, all pg-boss jobs, and all execution events linked to the flow. Primary incident-reconstruction surface for multi-turn flows (R-07.44 zero-dangle proof).
+- **Composition-pattern heatmap** — tool-pair frequency per tenant derived from `agent.composition_pattern_observed` events; week-over-week delta; top invokers per tenant. Drives PR-time review of aggregate-tool `minGroupSize` discipline.
+
 ---
 
 ## 9. Security Considerations
 
 - **`trace_id` is not sensitive** — it's a correlation token, not an authz credential. Exposing it in UI deep-links is fine for dev users.
+- **`flow_id` is not a secret** — same correlation-token posture as `trace_id`. However, `flow_id` **must not leak cross-tenant** via any dashboard, export, or support tool. Filtering inherits from the existing `tenant_id` discipline: any query surface that returns `flow_id` values MUST filter by `tenant_id` from `RequestContext` (same rule the cross-tenant leak canary verifies for trace spans). A second tenant ever seeing another tenant's `flow_id` is a P0 on the same incident class as a span leak.
+- **`intent_slug` is a controlled vocabulary**, not user input — no free-text exfiltration risk. New slugs only ship via PR-reviewed `modules/<X>/agent/intents/*.ts` declarations (§2.2 EI-3).
 - **`agent_tool_invocation.result_preview` holds unredacted tool results** including `tenantAuthoredFreeText`. RLS protects; 90-day retention; accessed for incident reconstruction only. Access is audited.
 - **Trace backend holds redacted spans + user utterances**. User utterances are covered by plan 04 GDPR pipeline. Tenant-authored text is redacted pre-capture; if miss, treat as incident.
 - **Identity-key auto-stamp prevents manual spoofing**. `Span.setAttribute('tenant_id', 'other')` from a sub-agent would be blocked at the API; middleware is the only writer.
@@ -587,13 +673,13 @@ Total observability overhead per turn: <50ms p99 (on sampled turns). NoOp path: 
 - Plan 00 (shipped): OTel wiring + prompt/narrative stores. (Trace backend selection is deferred per CLAUDE.md roadmap; this plan is backend-agnostic.)
 - Admin module: `admin_tenant_config` fields `max_sampled_turns_per_day`, `trace_retention_days`, `audit_retention_days` (R-07.17b, R-07.36, R-07.37).
 - Plan 01: tool-output audit emitted from gateway step 6.
-- Plan 02: session hash attributes (router_prompt_hash etc.).
+- Plan 02: session hash attributes (router_prompt_hash etc.); **router emits `flow_id` + `intent_slug` on turn entry** (mint or inheritFrom) — this plan auto-stamps them onto every descendant span.
 - Plan 03: sub-agent + synthesizer span emission.
 - Plan 04: GDPR purge integration; post-turn summarizer emits router-accuracy signal.
 - Plan 05: cost + usage attributes.
 - Plan 06: identity-key discipline on `RequestContext`.
-- Plan 08: approval-inbox depth metric.
-- Plan 10: canary signal ingestion point.
+- Plan 08: approval-inbox depth metric; **drafts, `approval_request` rows, and approval / execution events stamp `flow_id`** so downstream turns inherit via `FlowIdPropagation.inheritFrom`.
+- Plan 10: canary signal ingestion point; **declared-intent drift scorer** consumes `flow_id` / `intent_slug` / `tool_name` / `sub_agent_key` dimensions persisted here (golden-trace replay queries these attributes directly — no post-hoc inference).
 
 ## 15. Integration Points
 
@@ -610,7 +696,7 @@ Total observability overhead per turn: <50ms p99 (on sampled turns). NoOp path: 
 
 ## 16. Activation Gate
 
-MVP. Ships with first production turn.
+MVP. Ships with first production turn. The new 2026-04-22 dimensions — `flow_id`, `intent_slug`, required `sub_agent_key` / `tool_name` on every applicable span, composition-attack runtime monitor — are **all MVP** and active on the first production turn. No feature-flag gradual rollout: observability-tenet-level invariants ship turned on, fail-open on fault (per §13 backout), fix-forward on regression.
 
 ## 17. Out of Scope
 

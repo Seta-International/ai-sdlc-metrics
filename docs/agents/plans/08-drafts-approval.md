@@ -2,6 +2,15 @@
 
 **Design §§:** §10 (Writes, Approvals, Drafts), §15.5 (Sideways contract to kernel).
 
+## Revision 2026-04-22
+
+Aligns with `docs/architecture/agent-runtime.md` 2026-04-22 revision.
+
+- **Per-flow approval policy** is MVP: module-local registry entries keyed by `intent_slug` compose with per-tool `approvalFreshness` / `approvalTtl` defaults. Resolution is a gateway pipeline step between `Resolve` and `Ceiling pre-check`; composition is most-strict-wins.
+- **Draft rows stamp `flow_id`** (plan 07) so multi-turn flows (draft → approval → execute) carry a single flow identity across multiple `trace_id`s.
+- **MVP write scope**: planner + projects writes enabled day 1; `people.*` writes flag-gated behind `feature.agent.people_writes` (default off; enable 2-4 weeks post-MVP).
+- **Draft-to-inbox** ships at MVP (day 1). Delegation-signed autonomous writes remain deferred to plan 09 Beta gate.
+
 ---
 
 ## 1. Scope
@@ -9,6 +18,10 @@
 ### In
 
 - Draft proposal generation by sub-agents during phase execution.
+- **Per-flow approval policy**: flow-level rules (keyed by `intent_slug`) that compose with tool-level `approvalFreshness` / `approvalTtl` defaults. Resolved in the gateway pipeline per tool call (see §5).
+- Draft rows stamp `flow_id` (plan 07) so multi-turn flows (draft → approval → execute) carry a single flow identity across multiple `trace_id`s.
+- MVP write scope: planner + projects writes enabled day 1; `people.*` writes flag-gated 2-4 weeks post-MVP.
+- Draft-to-inbox at MVP (day 1). Delegation-signed autonomous writes defer to plan 09 Beta gate.
 - `draft.proposed` SSE event shape + always-present provenance block.
 - Approval-tier classification: low-risk (autonomous execute) vs high-risk (approval-required).
 - Taint → approval-tier bump (turn-scoped taint flag triggers one-tier escalation).
@@ -62,11 +75,28 @@ Single code path, single audit shape. Approver is the gate; delegator is the exe
 
 ## 3. Data Model
 
+### Flow-policy registry
+
+Per-flow approval policy lives in module-local files at `modules/<X>/agent/flow-policies/*.ts`, aggregated at build. Schema:
+
+```
+type FlowPolicyEntry = {
+  intent_slug: string;                               // unique registry key
+  approvalFreshness?: 'revalidate' | 'accept-stale';
+  approvalTtl?: Duration;
+  requireFresh?: boolean;                            // strengthens to 'revalidate'
+  bump?: 'high_risk_approval_required';              // tier bump (upgrade-only)
+}
+```
+
+Per-flow policy composes with per-tool `.meta({ agent })` policy via the precedence rule in §4 (most-strict-wins). Build fails on duplicate `intent_slug` across the aggregated registry.
+
 ### `agent_draft`
 
 - `id UUID PK` — `action_id` surfaced in SSE + notifications.
 - `tenant_id UUID` (RLS).
 - `trace_id UUID` — correlation.
+- `flow_id UUID` — flow identity carried across draft → approval → execute (see plan 07). Inherited by approval + execute events.
 - `initiator_user_id UUID` — who kicked off the turn.
 - `on_behalf_of UUID?` — delegator (for async) or same as initiator (for live session).
 - `via_delegation_id UUID` — always present; synthetic for live-session drafts.
@@ -157,6 +187,28 @@ type DraftProvenance = {
 ```
 
 Rendered through agent-module-owned presenter; downstream UIs do NOT render directly.
+
+### `FlowPolicyResolver`
+
+```
+resolve(intent_slug: string, tool_meta: AgentToolMeta): EffectivePolicy
+
+type EffectivePolicy = {
+  approvalFreshness: 'revalidate' | 'accept-stale';
+  approvalTtl: Duration;
+  tier_bump?: 'high_risk_approval_required';
+}
+```
+
+Call-site: gateway pipeline step inserted between `Resolve` (step 1) and `Ceiling pre-check` (step 3). Downstream pipeline decisions (pre-write abort, tier classification, TTL stamping) read the effective policy, not raw `tool_meta`.
+
+**Precedence (most-strict-wins):**
+
+- `approvalFreshness` → `max(flow.approvalFreshness, tool.approvalFreshness)` on the ordering `'accept-stale' < 'revalidate'`. `requireFresh: true` on a flow forces `'revalidate'`.
+- `approvalTtl` → `min(flow.approvalTtl, tool.approvalTtl)` — shorter wins.
+- `tier_bump` → applied if either side upgrades; downgrade is forbidden.
+
+**Forbidden combination (build-time reject):** a `.mutation()` tool invoked via an `intent_slug` whose flow-policy declares `requireFresh: true` AND whose tool-meta declares `approvalFreshness: 'accept-stale'` fails the build. Flow-policy may only strengthen tool-meta; escalating to `'accept-stale'` is rejected.
 
 ### `DraftProposer` (consumed by plan 03 sub-agent runner)
 
@@ -290,6 +342,17 @@ Behavior (per §10):
 ---
 
 ## 5. Control Flow
+
+### Gateway pipeline ordering (flow-policy placement)
+
+Flow-policy resolution is inserted into the plan 01 gateway pipeline:
+
+1. **Resolve** — permission + authority resolve (`canDo`, delegation check).
+2. **Flow-policy resolve** — `FlowPolicyResolver.resolve(intent_slug, tool_meta)` → `EffectivePolicy`. All downstream steps read the effective policy, not raw `tool_meta`.
+3. **Ceiling pre-check** — authority ceiling against effective policy.
+4. Continues through taint-wrap, tier classify, draft submit, etc.
+
+The `intent_slug` enters the pipeline from the router (plan 02) and is carried on `turnState` for the duration of the sub-agent invocation.
 
 ### Draft proposal inside a sub-agent (live session)
 
@@ -450,6 +513,17 @@ On failure:
 | R-08.30  | `derived_from_tainted_sources` is a first-class query dimension on audit trail — one query retrieves "all approved drafts from tainted turns in last 30 days"                                                                                                                                                                                                                                                                                                                                                                                                                     | §10             |
 | R-08.30a | A read-only `DraftAuditQueryFacade` (RLS-scoped) provides a typed query surface for the compliance module. Required dimensions queryable in any combination: `tenant_id` (implicit), `initiator_user_id`, `approver_user_id`, `tier`, `status`, `domain_kind` (parsed from `tool_name`), `approved_at` time bucket (hour / day / week / month), `taint_at_draft_time`. Example compliance query: "All timesheet.\* drafts in Q1 2026 where status='executed', grouped by approver, with time-to-approval histogram." Consumed by the compliance module's SOC2/HR audit reporting. | §10, compliance |
 
+### Per-flow approval policy + MVP write scope
+
+| #       | Requirement                                                                                                                                                                                                                                                                                 | Design §§                 |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| R-08.31 | Flow-policy registry is module-local (`modules/<X>/agent/flow-policies/*.ts`), aggregated at build; `intent_slug` is unique across the aggregated registry (EI-8). Duplicate keys fail the build.                                                                                           | runtime §10, §12, §16     |
+| R-08.32 | Per-flow policy composes with per-tool policy via the most-strict-wins rule (`max` on `approvalFreshness`, `min` on `approvalTtl`, upgrade-only `tier_bump`). Composition is deterministic and unit-tested.                                                                                 | runtime §10               |
+| R-08.33 | Flow-policy resolution runs in the gateway pipeline between `Resolve` and `Ceiling pre-check` (step 2 of §5). Downstream pipeline steps read the effective policy.                                                                                                                          | runtime §10, §16; plan 01 |
+| R-08.34 | Draft row carries `flow_id` (plan 07). `agent.draft_proposed` / `_approved` / `_executed` / `_expired` / `_rejected` audit events inherit `flow_id` from the draft.                                                                                                                         | runtime §12               |
+| R-08.35 | Build fails if a `.mutation()` tool is invoked via an `intent_slug` whose flow-policy declares `requireFresh: true` AND tool-meta declares `approvalFreshness: 'accept-stale'`. Flow-policy may only strengthen tool-meta defaults; escalating to stale is rejected at build time.          | runtime §10               |
+| R-08.36 | MVP write scope enforced by feature flag: `planner.*` and `projects.*` mutations enabled day 1. `people.*` mutations gated behind `feature.agent.people_writes` (default off at MVP; enabled 2-4 weeks post-MVP). Non-whitelisted domains reject at the gateway before tier classification. | runtime §16               |
+
 ---
 
 ## 7. Failure Modes & Recovery
@@ -517,6 +591,7 @@ On failure:
 - **Double-execute idempotence.** Single-row-update lock on `status = 'approved'` to `'executed'` transition guarantees exactly-once semantics.
 - **Notifications module trust boundary.** We hand off a payload; the notifications module's approval UI is a separate trust domain. Presenter component enforces agent-defined rendering; notifications module cannot render draft payload bypassing the presenter (R-08.25).
 - **TTL default = 72h.** Biases toward "let drafts expire" rather than "let them linger"; minimizes stale-execution risk.
+- **Flow-policy is a strengthening surface only.** Per-flow policy can raise `approvalFreshness` to `'revalidate'`, shorten `approvalTtl`, and bump tier to `high_risk_approval_required`. It cannot downgrade tool-meta defaults. Composition is enforced at build (forbidden combination rejected per R-08.35) and at runtime by the most-strict-wins resolver. A compromised or misconfigured module-local flow-policy file can only make a call safer, never laxer.
 
 ---
 
@@ -616,13 +691,14 @@ Draft proposal adds < 200ms to turn wallclock p99 per draft.
 ## 14. Dependencies
 
 - Plan 00 (shipped): sanitizer (for utterance projection).
-- Plan 01: gateway pipeline (write path + taint flag).
+- Plan 01: gateway pipeline — `FlowPolicyResolver` placement between Resolve and Ceiling pre-check (R-08.33); write path + taint flag.
+- Plan 02: router — emits `intent_slug` consumed by flow-policy resolver.
 - Plan 03: sub-agent runner (calls `DraftProposer`).
 - Plan 04: memory / conversation state.
 - Plan 05: approval inbox throttle.
 - Plan 06: `draft.proposed` SSE event.
-- Plan 07: trace correlation + audit.
-- Plan 09: async agent delegation creation (drafts via schedules reuse delegation).
+- Plan 07: trace correlation + audit — `flow_id` column on `agent_draft` (R-08.34).
+- Plan 09: async agent delegation creation (drafts via schedules reuse delegation); delegation-signed autonomous writes defer to Beta gate.
 - Kernel module: `canDo`, delegation grants, audit events.
 - Notifications module: approval inbox UI + approve/reject actions + `<AgentDraftCard>` mounting.
 
@@ -646,9 +722,16 @@ Draft proposal adds < 200ms to turn wallclock p99 per draft.
 
 ## 16. Activation Gate
 
-MVP. Ships with first production turn that includes any write tool.
+MVP. First production turn that includes any write tool activates:
 
-Low-risk auto-execute + high-risk approval flow both MVP.
+- Per-flow approval policy (flow-policy registry + `FlowPolicyResolver` in gateway pipeline).
+- Draft-to-inbox (draft → notifications-module approval card → approve → execute).
+- Low-risk auto-execute + high-risk approval flow.
+- Write scope: `planner.*` and `projects.*` mutations enabled day 1.
+
+`people.*` write activation is deferred 2-4 weeks post-MVP, gated behind `feature.agent.people_writes` (default off). Enable after clean approval data and domain sign-off.
+
+Delegation-signed autonomous writes remain deferred to plan 09 Beta gate.
 
 ## 17. Out of Scope
 

@@ -1,6 +1,16 @@
 # 10 — Harness + Replay + Golden-trace CI + Quality Canary
 
-**Design §§:** §8 (Replay harness), §12 (Quality canary), §14 (Rollout & Eval).
+**Design §§:** §8 (Replay harness), §12 (Quality canary, Declared-intent drift scorer), §14 (Rollout & Eval, LLM-judge gate), §16 (Activation).
+
+## Revision 2026-04-22
+
+Production-ready-comprehensive revision. Two surfaces newly scoped:
+
+- **Declared-intent drift scorer (MVP).** Deterministic CI check over the golden-trace replay set that verifies each tool's `whenToUse` / `whenNotToUse` declaration is not contradicted by observed use. A tool called in a context its `whenNotToUse` excludes fails CI. No LLM required; runs in the existing scorer pipeline.
+- **LLM-judge scorer framework (MVP, scaffolded only).** `SetaScorer.kind: 'llm-judge'` registration path, typed prompts, and stub implementation ship at MVP but are **observe-only** — they produce `{ score, passed, reason }` for inspection and never gate CI, merge, or production routing. Activation to gating is Beta-gated on `SetaGoldenCorpus ≥ 100 hand-labeled rows AND meta-eval agreement ≥ 95%` (§14).
+- **Canary rotation mechanism captured here.** Quarterly rotation from anonymized production traffic is the authoritative source-of-queries policy; fixed canary sets are rejected.
+
+Iterative-topology exit-gate registration of `kind: 'llm-judge'` scorers is rejected at registration time per §3.1 invariant 4 (plan 12).
 
 ---
 
@@ -12,9 +22,11 @@
 - Content-hash-keyed prompt + narrative store consumption (already shipped in plan 00).
 - Replay operates at assembly level, NOT HTTP level — rebuilds prompt fragments, narrative-hash resolutions, γ/α snapshot, captured tool outputs, model + version pins.
 - `SetaScorer` typed contract with `kind: 'deterministic' | 'llm-judge'` registration-time enforcement.
+- **Declared-intent drift scorer (MVP, deterministic).** On every CI build, replay the golden-trace set and, for each `(tool, context)` pair, verify the tool's `whenToUse` / `whenNotToUse` declarations are not contradicted by observed use. A tool call landing in a context excluded by its `whenNotToUse` fails CI. No LLM involvement.
+- **LLM-judge scorer framework (MVP, scaffolded only).** `SetaScorer.kind: 'llm-judge'` registration path, typed prompts, stub implementation. Registers, runs in observe-only mode, emits `{ score, passed, reason }` — **does not gate CI, merge, or routing at MVP**. Activation to gating is Beta-gated (§14, §16).
 - Golden-trace regression suite: ≤20-row CI-gating set, additive-removal policy.
-- Quality canary: rolling health probe per model tier; fixture-tenant frozen data.
-- Canary queries rotated quarterly from anonymized production traffic.
+- Quality canary: rolling health probe per model tier; fixture-tenant frozen data. **Canary runs against rotated production-derived queries** — not a fixed set.
+- Canary queries rotated quarterly from anonymized production traffic; rotation mechanism (ingest / anonymize / author expected-contract / review / retire) captured in §5.
 - Degraded-flag per tier; budget-independent fallback.
 - Both-tiers-degraded elevated-notice + hard-refusal threshold.
 - Offline replay harness integrated with `SetaGoldenCorpus` (Beta — corpus >100 rows, separate from CI gate).
@@ -53,6 +65,8 @@
 ---
 
 ## 3. Data Model
+
+> **Corpus note.** Golden traces, canary queries, and replay fixtures are the three corpora this plan owns. No new DB tables beyond those listed below — prompt and narrative material flows from the content-hash stores shipped in plan 00; drift-scorer inputs are the tool registry's declared `whenToUse` / `whenNotToUse` fields plus the golden-trace replay set; LLM-judge scaffolding persists only via `agent_scorer_registration` (no separate judge-result table at MVP — observe-only output lands in the existing trace span attrs).
 
 ### `agent_prompt_store` (shipped plan 00)
 
@@ -188,7 +202,41 @@ type ScorerContext<TInput, TOutput> = {
 Registration-time enforcement via `ScorerRegistry.register(scorer)`:
 
 - `kind: 'llm-judge'` + `scope != 'test'` + no `meta_eval_agreement` → rejected.
+- `kind: 'llm-judge'` + registration target `iterative-topology-exit-gate` → **rejected** (per §3.1 invariant 4, plan 12 iterative topology). Only deterministic scorers may gate iterative exits.
 - Missing required fields → compile error.
+
+### `IntentDriftScorer` (deterministic, MVP gate)
+
+```
+type IntentDriftScorer = SetaScorer<ReplayedTrace, IntentDriftResult> & {
+  kind: 'deterministic';
+  scope: 'trace';
+}
+
+score(trace: ReplayedTrace): Promise<ScorerResult>
+  // For each (tool_name, invocation_context) pair captured in the trace:
+  //   Look up tool declaration: { whenToUse: string[], whenNotToUse: string[] }.
+  //   Match invocation_context against whenNotToUse predicates.
+  //   Any match → passed: false, reason: "tool <X> invoked in whenNotToUse context <Y>".
+  // Returns { score: 0 | 1, passed, reason? } deterministically — no LLM call.
+```
+
+Runs on every CI build against the golden-trace replay set. Failure blocks merge (R-10.29).
+
+### `LlmJudgeScorer` (scaffolded at MVP, observe-only)
+
+```
+type LlmJudgeScorer = SetaScorer<ReplayedTrace, JudgeResult> & {
+  kind: 'llm-judge';
+  scope: 'trace' | 'experiment' | 'test';
+  metaEvalAgreement?: number;    // populated only after Beta corpus run
+  promptTemplate: TypedPromptTemplate;
+}
+
+score(trace: ReplayedTrace): Promise<ScorerResult>  // stub at MVP; typed but returns { score: 0, passed: true, reason: 'observe-only' }
+```
+
+At MVP the stub returns an observe-only result; the registration path, typed prompt template, and pipeline wiring exist so Beta activation is a flag-flip + meta-eval, not a re-architecture. Never wired to any gate until Beta promotion criteria in §14 are met.
 
 ### `GoldenTraceRunner`
 
@@ -332,6 +380,22 @@ For `mode: 'full'` (100%-captured turns only):
 3. Plan 06: if canary success ≥ 50% on least-degraded → run on that tier with `elevated_notice_level: 'elevated'`; user sees banner _"Service quality is degraded across all tiers; responses may be unreliable."_
 4. If < 50% (configurable stricter threshold) → `turn.ended.reason: 'quality_canary'`; hard refusal.
 
+### CI pipeline (per PR)
+
+1. `agent:golden-trace-ci` turbo task runs.
+2. Replay every non-retired golden trace against current PR code.
+3. Execute all **deterministic** scorers (including `IntentDriftScorer`) against each replayed trace; aggregate results.
+4. Gate: any deterministic scorer `passed: false` → CI hard fails and blocks merge.
+5. In parallel, execute all registered **LLM-judge** scorers in **observe-only** mode; results attach to the CI run's trace as span attrs. Gate is skipped — observe-only outputs never fail the build at MVP.
+6. Publish a single CI summary covering gating + observe-only results.
+
+### Canary pipeline (scheduled)
+
+1. Hourly: `QualityCanaryScheduler.tickHourly()` runs a canary query per tier against the fixture tenant.
+2. Compute rolling success-rate → update `agent_tier_health` → derive `degraded_flag`.
+3. Publish degraded-flag surface consumed by plan 05 (tier-shift UX) and plan 06 (stream controller).
+4. Quarterly: `CanaryQueryRotator.rotateQuarterly()` retires the prior quarter's queries and ingests a fresh anonymized-production batch. Review gate on ingestion (§9 anonymization + human approval).
+
 ### Canary query rotation (quarterly)
 
 1. Scheduled job runs first Sunday of quarter.
@@ -421,6 +485,17 @@ For `mode: 'full'` (100%-captured turns only):
 | ------- | ---------------------------------------------------------------------------------------------------------------------------- | --------- |
 | R-10.27 | Prompt + narrative stores retain entries referenced by any trace in the last 30 days                                         | §8        |
 | R-10.28 | Aggressive GC of older hashes coordinated with retention policy; referenced hashes never purged while trace retention active | §8        |
+
+### Declared-intent drift + LLM-judge framework
+
+| #       | Requirement                                                                                                                                                                             | Design §§ |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| R-10.29 | Declared-intent drift scorer runs on every CI build against the golden-trace replay set; any `(tool, context)` pair violating `whenNotToUse` fails CI and blocks merge                  | §12       |
+| R-10.30 | LLM-judge framework (`SetaScorer.kind: 'llm-judge'` registration path + typed prompts + stub implementation) exists at MVP in **observe-only** mode — never gates CI, merge, or routing | §14       |
+| R-10.31 | Activation of any LLM-judge scorer to gating role requires `SetaGoldenCorpus ≥ 100 hand-labeled rows` AND `meta_eval_agreement ≥ 0.95`; enforced at promotion                           | §14, §16  |
+| R-10.32 | Scorer `.kind` discriminator rejects `'llm-judge'` registration as an iterative-topology exit gate (plan 12 §3.1 invariant 4)                                                           | §14       |
+| R-10.33 | Replay harness errors explicitly on any lookup miss — no silent fallback, no fuzzy match (restated here for the drift/judge scorers that consume replay output)                         | §8        |
+| R-10.34 | Canary queries are rotated quarterly from anonymized production traffic; a fixed "known-good" set is explicitly rejected                                                                | §12       |
 
 ---
 
@@ -518,6 +593,10 @@ CI latency target: ≤10min p99 for the golden-trace gate. Above this, contribut
 - Degraded flag: seed 15 consecutive canary failures → `degraded_flag: true` → next turn uses alt tier with `tier_shift: true` trace attr.
 - Both-tiers-degraded: both fail → depending on success rate, elevated notice or hard refusal.
 - Scorer meta-eval: stored `SetaGoldenCorpus` with 100 rows → run scorer → compute agreement; score ≥0.95 → promotion; <0.95 → remains provisional.
+- **Drift-scorer fixture.** Seed a trace where tool `X` is called in a context that matches `X.whenNotToUse`; run `IntentDriftScorer.score(trace)`; assert `passed: false` with a reason referencing the violated clause. Inverse fixture: compliant trace → `passed: true`.
+- **LLM-judge observe-only test.** Register an `llm-judge` scorer with `scope: 'trace'` and no `meta_eval_agreement`; registration succeeds; scorer runs in CI pipeline, emits `{ score, passed, reason }`; assert the gating path does **not** consider its result (CI passes even when the stub returns `passed: false`).
+- **LLM-judge iterative-gate rejection.** Attempt to register an `llm-judge` scorer as an iterative-topology exit gate; assert registration is rejected with a clear error citing §3.1 invariant 4.
+- **Canary rotation test.** Run `CanaryQueryRotator.rotateQuarterly()` twice (simulated quarters); assert the resulting active set is disjoint from the prior quarter's active set (or overlap only via explicit re-approval) and that all retired queries carry `status: 'retired'` + `rotation_quarter`.
 
 ### Property
 
@@ -551,6 +630,8 @@ CI latency target: ≤10min p99 for the golden-trace gate. Above this, contribut
 - Degraded-flag fires correctly on seeded failures; fallback engages; tier-shift UI message surfaces.
 - Both-tiers-degraded path exercised in a quarterly drill.
 - LLM-judge promotion path demonstrated: provisional registration → meta-eval → agreement ≥0.95 → promoted to gating (Beta only).
+- **Declared-intent drift scorer gate passes on clean PRs and hard-fails on a seeded `whenNotToUse` violation (verified in a dry-run PR).**
+- **LLM-judge framework scaffolding present at MVP:** typed registration path, stub scorer, observe-only execution, trace-span attribution — without any gating wiring. Verified by the observe-only test in §11.
 - Confidence calibration dashboard accessible and shows expected ordering; alert fires on seeded inversion.
 
 ---
@@ -571,15 +652,16 @@ CI latency target: ≤10min p99 for the golden-trace gate. Above this, contribut
 ## 14. Dependencies
 
 - Plan 00 (shipped): prompt + narrative stores.
-- Plan 01: tool gateway for canary tool invocations.
+- Plan 01: tool gateway for canary tool invocations; **trace shape consumed by `IntentDriftScorer` and `LlmJudgeScorer`** (replay output structure).
 - Plan 02: router prompt assembly (canonicalization rules).
 - Plan 03: phase execution (canary runs use it).
 - Plan 04: conversation state.
 - Plan 05: tier-shift UX surface (reused for canary-driven fallback).
 - Plan 06: `systemAbortController` for hard-refusal on both-tiers-degraded.
-- Plan 07: trace correlation + `agent_tool_invocation` for full-replay tool outputs.
+- Plan 07: trace correlation + `agent_tool_invocation` for full-replay tool outputs; **`flow_id` + `intent_slug` surfaced on trace spans so `IntentDriftScorer` can query `(tool, context)` pairs without re-deriving context from message content**.
 - Plan 08: thumbs-down + initiator-approval for confidence calibration.
 - Plan 11: shadow-mode (this plan's scorer infrastructure is consumed by plan 11).
+- **Plan 12: iterative topology constraints on `scorer.kind`** — iterative exit gates must be `kind: 'deterministic'`; `'llm-judge'` registration for that role is rejected at registration time (R-10.32).
 - Kernel module: audit events.
 
 ## 15. Integration Points
@@ -598,11 +680,24 @@ CI latency target: ≤10min p99 for the golden-trace gate. Above this, contribut
 
 ## 16. Activation Gate
 
-MVP for: replay (prompt-only), golden-trace suite (CI gate), canary (observability + degraded-flag + fallback).
+**MVP first-production-turn:**
 
-Beta for: `SetaGoldenCorpus` ≥100 rows, LLM-judge meta-eval promotion path.
+- Replay (prompt-only mode).
+- Golden-trace suite with CI hard-fail gate (≤20 rows).
+- Quality canary: observability + degraded-flag + budget-independent fallback.
+- **Declared-intent drift scorer — deterministic, CI-gating on every build.**
+- **LLM-judge framework scaffolding** — typed `kind: 'llm-judge'` registration path, typed prompts, stub implementation, observe-only pipeline wiring. Emits `{ score, passed, reason }` but never gates.
 
-GA for: LLM-judge scorers actually promoted to gating (depends on Beta corpus work passing meta-eval).
+**Beta:**
+
+- `SetaGoldenCorpus` ≥100 hand-labeled rows.
+- LLM-judge meta-eval promotion path: a scorer with `meta_eval_agreement ≥ 0.95` on the corpus can be promoted from `provisional` to `gating_eligible`.
+- **Activation of any LLM-judge scorer to gating role requires BOTH conditions above**, and can never apply to an iterative-topology exit gate (R-10.32).
+
+**GA:**
+
+- LLM-judge scorers actually promoted to production-gating roles (depends on Beta corpus work passing meta-eval).
+- Full-fleet prompt capture.
 
 ## 17. Out of Scope
 

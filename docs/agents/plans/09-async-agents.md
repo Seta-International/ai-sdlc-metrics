@@ -2,11 +2,26 @@
 
 **Design §§:** §11 (Async Agents), §10 (drafts integration), §13 (per-delegation cost caps).
 
+## Revision 2026-04-22
+
+Production-ready-comprehensive revision against the 2026-04-22 cut of `docs/architecture/agent-runtime.md`. MVP scope is narrowed to **read-only + draft-to-inbox only**: async turns cannot execute mutations directly; any mutation intent yields a draft that routes through plan 08 to the initiator's inbox. Delegation-signed autonomous writes are structurally plumbed in MVP (the carrier exists) but are flag-gated off behind `feature.agent.async_autonomous_writes` (default off). Activation is Beta-gated per §16: **4 weeks of incident-free async draft-to-inbox on ≥2 tenants AND approval-rate ≥95%** on the async draft stream. `flow_id` is stamped on every pg-boss async job row; async-spawned drafts inherit the `flow_id` and correlate back to the scheduling origin trace via `parent_trace_id` (plan 07). Taint seeding at job spawn (already in §2) is unchanged. 18-section structure preserved; patches are additive.
+
 ---
 
 ## 1. Scope
 
 ### In
+
+**MVP scope (narrowed 2026-04-22):**
+
+- Scheduled async turns (pg-boss cron + event-triggered spawns).
+- Read-only tool invocations only.
+- Draft-to-inbox creation — async turns draft; the initiator (personal-schedule owner or tenant-wide recipient set) surfaces and approves the draft via plan 08.
+- Delegation grant plumbing — the pg-boss job carries the delegation_id as a **carrier** for Beta; at MVP the carrier exists but does not sign autonomous writes.
+- Taint propagation across the async boundary (unchanged from §2).
+- `flow_id` stamped on every pg-boss async job row; async-spawned drafts inherit the `flow_id` and correlate back to the scheduling origin trace.
+
+**Structural (shipped at MVP; active across phases):**
 
 - pg-boss-backed scheduled agent turns.
 - Two identity models: personal-schedule delegation + tenant-wide scheduler principal.
@@ -22,7 +37,7 @@
 
 ### Out
 
-- Autonomous writes from async (GA activation-gated — MVP async is read-only + notify + draft-to-inbox).
+- **Autonomous writes (delegation-signed executions without user review).** Deferred to Beta per §16 activation gate. The code path exists structurally behind `feature.agent.async_autonomous_writes` (default off) so the flag flip is the entire rollout; no re-plumbing at Beta.
 - Event-triggered schedules firing on domain events (can ship as MVP but complex integration — captured here as "firable by event or cron" interface; event routing lives in the triggering domain).
 - Schedule admin UI implementation (interface stubs here; UI in `web-admin`).
 - Natural-language schedule creation ("every Friday at 5pm" → cron) — product/UX concern.
@@ -106,9 +121,10 @@ Schema owned by kernel. Approval-executor delegation (plan 08) already defined; 
 - `tenant_id UUID`.
 - `delegator_user_id UUID?` — NULL for tenant-wide.
 - `delegate TEXT` — `'agent:scheduler'`.
-- `scope JSONB` — `{ schedule_id, permitted_tools, permitted_domains, notes }`.
+- `scope JSONB` — `{ schedule_id, permitted_tools, permitted_domains, notes }`. **Delegation-grant carrier (MVP):** at MVP the carrier is present on every async job but does not yet sign autonomous writes; enforcement to draft-to-inbox-only is done at the worker/gateway boundary (§5, R-09.6a).
 - `expires_at TIMESTAMPTZ`.
 - `status TEXT` — `'active' | 'expired' | 'revoked'`.
+- `autonomous_writes_allowed BOOLEAN DEFAULT false` — **autonomous-write gating field.** Exists in MVP schema; ignored at MVP because `feature.agent.async_autonomous_writes` is off globally. When the feature flag activates at Beta, this per-delegation field becomes the second authorization factor (flag on + field true). Populated at delegation creation; admin-auditable per R-09.23.
 - `created_at TIMESTAMPTZ`.
 - `max_active_per_user INT` — config; default 10.
 
@@ -124,7 +140,8 @@ Payload:
   user_on_behalf_of: UUID | null;       // null for tenant-wide
   actor_principal: 'user' | 'agent:scheduler';
   schedule_id: UUID;
-  delegation_id: UUID;
+  delegation_id: UUID;                   // carrier; MVP does not use it to sign autonomous writes
+  flow_id: string;                       // stamped at spawn; async-spawned drafts + turn-start audit correlate via this
   taint_seeded: boolean;
   cost_ceiling_remaining_usd: number;   // at spawn time
   invocation_ceiling_remaining: number;
@@ -251,6 +268,21 @@ Tenant-wide creation is gated `canDo('admin.schedule.create')`. Personal schedul
 ---
 
 ## 5. Control Flow
+
+### Two paths (write policy)
+
+**MVP path (active; `feature.agent.async_autonomous_writes` off):**
+
+1. Async turn spawns — spawner stamps `flow_id` on the pg-boss payload and records it on `agent_schedule_run.flow_id`.
+2. Worker hydrates `RequestContext` and runs the gateway pipeline under a **read-only policy envelope**: the gateway refuses to dispatch any tool whose meta declares `mutation: true` for direct execution.
+3. Any mutation intent produced during the turn is coerced into a **draft-to-inbox** via plan 08 — never an execution. The draft inherits the job's `delegation_id` (as author of record) and `flow_id` (for correlation).
+4. Kernel audit records the turn-start, every draft creation, and the turn-end outcome. Notification to the initiator surfaces the draft for manual approval.
+
+**Beta path (gated off at MVP; structural plumbing present):**
+
+1. Same spawn + hydrate.
+2. If `feature.agent.async_autonomous_writes` is on AND `agent_delegation.autonomous_writes_allowed = true` AND tool is within the delegation's `permitted_tools`: the gateway permits delegation-signed autonomous execution on the first low-risk tier. Higher tiers still draft.
+3. At MVP, both flags resolve off → path 2 is structurally unreachable; the worker emits a **dry-run audit** (§9) recording the would-have-executed tool so the soak period has data to judge the Beta activation gate.
 
 ### Schedule creation (personal)
 
@@ -392,10 +424,15 @@ Tenant-wide creation is gated `canDo('admin.schedule.create')`. Personal schedul
 
 ### Write policy
 
-| #      | Requirement                                                                              | Design §§ |
-| ------ | ---------------------------------------------------------------------------------------- | --------- |
-| R-09.6 | MVP: read-only + notify + draft-to-inbox. No autonomous writes                           | §11       |
-| R-09.7 | Drafts from async turns route through plan 08 approval flow; reuse schedule's delegation | §11, §10  |
+| #       | Requirement                                                                                                                                                                                                                                         | Design §§ |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| R-09.6  | MVP: read-only + notify + draft-to-inbox. No autonomous writes                                                                                                                                                                                      | §11       |
+| R-09.6a | Async turns cannot execute mutations directly at MVP; any mutation intent produced by the gateway is coerced into a draft-to-inbox via plan 08. Enforced at the worker/gateway boundary — refusal of any `mutation: true` tool for direct dispatch. | §11, §10  |
+| R-09.6b | Feature flag `feature.agent.async_autonomous_writes` governs the Beta path. Default **off** at MVP. Activation gate: **4 weeks of incident-free async draft-to-inbox on ≥2 tenants AND approval-rate ≥95% on the async draft stream** (§16).        | §11, §16  |
+| R-09.6c | `agent_delegation.autonomous_writes_allowed` column exists in MVP schema but is ignored while `feature.agent.async_autonomous_writes` is off. When the flag activates, authorization is flag-on AND per-delegation-field-true (two-factor).         | §11       |
+| R-09.6d | `flow_id` stamped on every pg-boss async job row at spawn; recorded on `agent_schedule_run.flow_id`; async-spawned drafts inherit and correlate to the scheduling origin trace via `parent_trace_id` (plan 07).                                     | §11, §12  |
+| R-09.6e | Event-triggered-by-tenant-content: a schedule fired by a user-authored event payload starts tainted (`taint_seeded: true` at spawn). Covered by explicit integration test (§11 Testing).                                                            | §2, §11   |
+| R-09.7  | Drafts from async turns route through plan 08 approval flow; reuse schedule's delegation                                                                                                                                                            | §11, §10  |
 
 ### Job row shape
 
@@ -473,26 +510,29 @@ Tenant-wide creation is gated `canDo('admin.schedule.create')`. Personal schedul
 
 ## 7. Failure Modes & Recovery
 
-| Failure                                                                                           | Symptom                                                                                  | Recovery                                                                                                                                                |
-| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cron fires for deleted schedule                                                                   | Spawner checks status; refuses                                                           | Audit logs; no job enqueued.                                                                                                                            |
-| Delegation expired between cron-fire and worker-pickup                                            | Worker step 2 validation fails                                                           | Worker marks schedule paused; owner notified; spawner skips subsequent fires until owner renews.                                                        |
-| pg-boss retry of a job whose schedule was paused mid-flight                                       | Worker step 2 detects pause                                                              | Retry still runs to completion if already past check (race); subsequent retries refused.                                                                |
-| Cost ceiling exhausted mid-run                                                                    | `systemAbortController` fires                                                            | `outcome: 'budget'`; partial-answer gate applies (plan 03); audit captures.                                                                             |
-| Worker crashes mid-LLM-call                                                                       | pg-boss retry                                                                            | Retry with same pinned versions; up to 3 retries.                                                                                                       |
-| Event-payload schema changes in triggering domain                                                 | `TaintSeedDetector` may misclassify                                                      | Conservative default = seed taint; prefer over-classify.                                                                                                |
-| Invocation ceiling rate-limiting a legitimate bursty schedule (e.g. 5-min cron hitting daily cap) | Spawner refuses                                                                          | Owner sees "ceiling exhausted" in notification; adjust schedule config or increase ceiling.                                                             |
-| Delegation max-active cap hit                                                                     | Create refuses with structured error                                                     | Owner revokes unused delegations to free slots.                                                                                                         |
-| Orphaned delegation (schedule deleted but delegation still active)                                | Cleanup sweeper catches                                                                  | Delegation revoked within 24h.                                                                                                                          |
-| Tenant-wide schedule runs with no configured recipients                                           | Synthesizer output has nowhere to go                                                     | Fallback: post to generic `tenant_admin_notifications` channel; audit + alert.                                                                          |
-| Two concurrent cron fires for same schedule (rare race)                                           | pg-boss dedup or application-layer check                                                 | pg-boss job uniqueness based on `(schedule_id, fire_time)`; duplicate enqueue rejected.                                                                 |
-| Retry-with-pinned-versions but pinned-version artifact removed (aggressive prompt-store GC)       | Worker can't resolve prompt hashes                                                       | Audit + mark run failed with `missing_pinned_artifacts`; operational alert — GC policy needs adjustment.                                                |
-| User offboarded with active personal schedules                                                    | People module calls `handleUserOffboarding`                                              | All owned delegations revoked; all owned personal schedules paused; admin notified; audit `agent.schedules_revoked_on_offboarding` lists the inventory. |
-| Delegation permitted_tools contains a tool renamed/deleted since creation                         | `DelegationLifecycle.create` drift warning; scope narrows to intersecting tools only     | Owner (and admin) notified of drift; grant still works for remaining tools; owner can recreate for renamed tool.                                        |
-| Cross-tenant event-router misconfig attempts to route to mismatched tenant's schedule             | Event router's `tenant_id` filter rejects; audit event fires                             | P0 candidate incident; runbook investigates event-router config; worker's belt-and-suspenders check catches any that slip past router.                  |
-| Schedule hits 3 consecutive failures                                                              | Auto-paused with `pause_reason='consecutive_failures'`; admin + owner notified           | Admin runbook reviews the run failures, fixes underlying cause (permission, tool change, data state), flips status back to active.                      |
-| Tenant exceeds `max_active_schedules`                                                             | New schedule creation refused at 100%; warn at 80%                                       | Owner / admin deletes or pauses unused schedules; limit can be raised via admin runbook.                                                                |
-| Tenant exceeds `scheduled_spend_daily_limit_usd`                                                  | Daily aggregation bulk-pauses all schedules with `pause_reason='tenant_spend_exhausted'` | Admin reviews spend, increases limit if legitimate or identifies misfiring schedule; manual resume per schedule.                                        |
+| Failure                                                                                           | Symptom                                                                                  | Recovery                                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cron fires for deleted schedule                                                                   | Spawner checks status; refuses                                                           | Audit logs; no job enqueued.                                                                                                                                                                                    |
+| Delegation expired between cron-fire and worker-pickup                                            | Worker step 2 validation fails                                                           | Worker marks schedule paused; owner notified; spawner skips subsequent fires until owner renews.                                                                                                                |
+| pg-boss retry of a job whose schedule was paused mid-flight                                       | Worker step 2 detects pause                                                              | Retry still runs to completion if already past check (race); subsequent retries refused.                                                                                                                        |
+| Cost ceiling exhausted mid-run                                                                    | `systemAbortController` fires                                                            | `outcome: 'budget'`; partial-answer gate applies (plan 03); audit captures.                                                                                                                                     |
+| Worker crashes mid-LLM-call                                                                       | pg-boss retry                                                                            | Retry with same pinned versions; up to 3 retries.                                                                                                                                                               |
+| Event-payload schema changes in triggering domain                                                 | `TaintSeedDetector` may misclassify                                                      | Conservative default = seed taint; prefer over-classify.                                                                                                                                                        |
+| Invocation ceiling rate-limiting a legitimate bursty schedule (e.g. 5-min cron hitting daily cap) | Spawner refuses                                                                          | Owner sees "ceiling exhausted" in notification; adjust schedule config or increase ceiling.                                                                                                                     |
+| Delegation max-active cap hit                                                                     | Create refuses with structured error                                                     | Owner revokes unused delegations to free slots.                                                                                                                                                                 |
+| Orphaned delegation (schedule deleted but delegation still active)                                | Cleanup sweeper catches                                                                  | Delegation revoked within 24h.                                                                                                                                                                                  |
+| Tenant-wide schedule runs with no configured recipients                                           | Synthesizer output has nowhere to go                                                     | Fallback: post to generic `tenant_admin_notifications` channel; audit + alert.                                                                                                                                  |
+| Two concurrent cron fires for same schedule (rare race)                                           | pg-boss dedup or application-layer check                                                 | pg-boss job uniqueness based on `(schedule_id, fire_time)`; duplicate enqueue rejected.                                                                                                                         |
+| Retry-with-pinned-versions but pinned-version artifact removed (aggressive prompt-store GC)       | Worker can't resolve prompt hashes                                                       | Audit + mark run failed with `missing_pinned_artifacts`; operational alert — GC policy needs adjustment.                                                                                                        |
+| User offboarded with active personal schedules                                                    | People module calls `handleUserOffboarding`                                              | All owned delegations revoked; all owned personal schedules paused; admin notified; audit `agent.schedules_revoked_on_offboarding` lists the inventory.                                                         |
+| Delegation permitted_tools contains a tool renamed/deleted since creation                         | `DelegationLifecycle.create` drift warning; scope narrows to intersecting tools only     | Owner (and admin) notified of drift; grant still works for remaining tools; owner can recreate for renamed tool.                                                                                                |
+| Cross-tenant event-router misconfig attempts to route to mismatched tenant's schedule             | Event router's `tenant_id` filter rejects; audit event fires                             | P0 candidate incident; runbook investigates event-router config; worker's belt-and-suspenders check catches any that slip past router.                                                                          |
+| Schedule hits 3 consecutive failures                                                              | Auto-paused with `pause_reason='consecutive_failures'`; admin + owner notified           | Admin runbook reviews the run failures, fixes underlying cause (permission, tool change, data state), flips status back to active.                                                                              |
+| Tenant exceeds `max_active_schedules`                                                             | New schedule creation refused at 100%; warn at 80%                                       | Owner / admin deletes or pauses unused schedules; limit can be raised via admin runbook.                                                                                                                        |
+| Tenant exceeds `scheduled_spend_daily_limit_usd`                                                  | Daily aggregation bulk-pauses all schedules with `pause_reason='tenant_spend_exhausted'` | Admin reviews spend, increases limit if legitimate or identifies misfiring schedule; manual resume per schedule.                                                                                                |
+| Draft-to-inbox creation fails mid-turn (plan 08 inbox unreachable, DB error)                      | Worker catches the draft-write error                                                     | pg-boss retry of the entire job with pinned versions; up to 3 retries. On exhaustion: run outcome `error`; no partial-draft state persists.                                                                     |
+| Async-spawned draft stream overwhelms initiator's inbox (flood from bursty event schedule)        | Per-initiator inbox depth crosses plan 08 / §13 throttle threshold                       | Plan 08 approval-inbox throttle (§13) kicks in — new async drafts for that initiator are rate-limited; schedule `consecutive_failure_count` does NOT increment (throttle is not a run failure). Admin notified. |
+| Async turn gateway coerces a mutation intent into a draft, but no draft tier applies              | Plan 08 draft proposer returns no-tier                                                   | Run outcome `refused`; audit captures the tool + intent; owner notified; does not count toward `consecutive_failure_count` as "error" but as `refused`.                                                         |
 
 ---
 
@@ -544,6 +584,8 @@ Tenant-wide creation is gated `canDo('admin.schedule.create')`. Personal schedul
 - **Cross-tenant schedule fire.** pg-boss workers MUST verify `tenant_id` on every payload; buggy event router leaking across tenants would be caught by RLS on the first DB read but belt-and-suspenders verification at payload parse is cheap. Additionally (R-09.28), the event router itself filters by `event.tenant_id === schedule.tenant_id` BEFORE calling `ScheduledTurnSpawner.spawn()`; any attempted cross-tenant routing is rejected and metric-audited as a P0 candidate. Defense in depth: router filter + worker re-validation + RLS.
 - **Owner offboarding closure.** R-09.24a ensures a departed user's delegations are revoked and schedules paused at offboarding time rather than relying on 180d auto-expire. Prevents a long tail of "still running as ex-employee" schedules that are legal/compliance-sensitive.
 - **Tenant-wide spend containment.** R-09.32's optional `scheduled_spend_daily_limit_usd` bulk-pauses all schedules at breach. Protects against runaway misfires (bad filter, loop, infinite event cascade) from costing the tenant more than their admin configured.
+- **Beta-gating of autonomous writes is a security control, not a product rollout convenience.** Autonomous writes widen the blast radius from "user-reviewed draft" to "kernel-signed execution without live human." The `feature.agent.async_autonomous_writes` flag + `agent_delegation.autonomous_writes_allowed` two-factor (R-09.6b, R-09.6c) are the enforcement surface; either being false denies the write. The 4-week incident-free soak + ≥95% approval-rate gate (§16) is the evidence threshold for flipping the global flag — not a product-taste call.
+- **Dry-run audit path during soak.** While the flag is off, the worker still evaluates the hypothetical "would autonomous-write have fired here?" and emits a `agent.async_dry_run_would_have_written` audit event with tool, tier, delegation scope, and taint state. This gives the soak period quantitative data (what would the autonomous-write volume look like? what would the approval-rate-on-draft have rejected?) to judge whether the 95% threshold holds in counterfactual. No user-visible behavior; audit-only.
 
 ---
 
@@ -676,9 +718,9 @@ Tenant-wide creation is gated `canDo('admin.schedule.create')`. Personal schedul
 
 ## 16. Activation Gate
 
-MVP. Ships with the MVP cut.
+**MVP gate (read-only + draft-to-inbox):** first production turn. Ships with the MVP cut. Constraint: read-only tool invocations + notify + draft-to-inbox only. `feature.agent.async_autonomous_writes` is globally off; `agent_delegation.autonomous_writes_allowed` is present in schema but ignored.
 
-MVP constraint: read-only + notify + draft-to-inbox. Async autonomous writes are GA-gated.
+**Beta gate (autonomous writes):** `feature.agent.async_autonomous_writes` activation requires **4 weeks of incident-free async draft-to-inbox on ≥2 tenants AND approval-rate ≥95% on the async draft stream** (per architecture §16 row "Async delegation-signed writes (beyond draft-to-inbox)"). The dry-run audit stream (§9) provides the counterfactual approval-rate-on-would-be-execution signal used alongside the live approval-rate-on-draft signal. Gate evaluation is a joint Product + Security sign-off (see §18).
 
 ## 17. Out of Scope
 
@@ -696,3 +738,4 @@ MVP constraint: read-only + notify + draft-to-inbox. Async autonomous writes are
 - **Mid-run cost decrement races.** Concurrent LLM calls within a single scheduled run → atomic decrements. Defer to implementation doc; current plan assumes single-request-at-a-time LLM calls (true for bounded; check for iterative).
 - **Delegation renewal UX.** Auto-expire at 180d — how does the owner see "renew soon"? Recommend: notification 7 days before expiry. Owner: product.
 - **Event-triggered schedule debouncing.** If an event fires 100x in a minute (bursty domain event), do 100 schedule runs fire? Recommend: per-schedule debounce config with default 60s. Owner: schedule UX.
+- **Soak-audit sign-off authority for async autonomous writes.** Who signs the 4-week soak audit decision to flip `feature.agent.async_autonomous_writes` on — Product and Security jointly, or does Security hold veto? Recommend: joint approval required, with Security holding an explicit veto on any single hard criterion (incident rate, taint-path false-negative count, dry-run-vs-live approval-rate delta). Owner: security review before Beta begins.

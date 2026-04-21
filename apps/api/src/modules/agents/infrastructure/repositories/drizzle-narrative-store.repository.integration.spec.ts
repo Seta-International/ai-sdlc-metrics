@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   createTestDb,
   migrateForTest,
@@ -7,13 +7,17 @@ import {
   setTenantContext,
   truncateCoreSchema,
 } from '@future/db/test-helpers'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { DrizzleNarrativeStoreRepository } from './drizzle-narrative-store.repository'
 
 const TENANT_A = '01900000-0000-7fff-8000-000000000063'
 const ROLE_ADMIN = '01900000-0000-7fff-8000-000000000201'
+const ACTOR = '01900000-0000-7fff-8000-0000000000a2'
 
 describe('DrizzleNarrativeStoreRepository', () => {
   const db = createTestDb()
+  const recordEvent = vi.fn().mockResolvedValue(undefined)
+  const audit = { recordEvent, publishOutboxEvent: vi.fn() } as unknown as KernelAuditFacade
   let repo: DrizzleNarrativeStoreRepository
 
   beforeAll(async () => {
@@ -21,7 +25,7 @@ describe('DrizzleNarrativeStoreRepository', () => {
     await db.execute(sql`TRUNCATE agents.agent_narrative_store RESTART IDENTITY CASCADE`)
     await truncateCoreSchema(db)
     await seedTenant(db, { id: TENANT_A, slug: 'narrative-store-a' })
-    repo = new DrizzleNarrativeStoreRepository(db as never)
+    repo = new DrizzleNarrativeStoreRepository(db as never, audit)
   })
 
   afterAll(async () => {
@@ -29,43 +33,62 @@ describe('DrizzleNarrativeStoreRepository', () => {
     await truncateCoreSchema(db)
   })
 
-  it('inserts narrative when hash is absent', async () => {
+  it('appends narrative when hash is absent and emits agent.narrative_stored', async () => {
     await setTenantContext(db, TENANT_A)
+    recordEvent.mockClear()
 
-    const result = await repo.putIfAbsent({
+    const result = await repo.appendIfMissing({
       contentHash: 'sha256-narrative-insert-001',
       tenantId: TENANT_A,
       roleId: ROLE_ADMIN,
       content: 'Admins oversee tenant configuration and security.',
+      actorId: ACTOR,
     })
 
-    expect(result.inserted).toBe(true)
+    expect(result.wasAppended).toBe(true)
     expect(result.entry.contentHash).toBe('sha256-narrative-insert-001')
     expect(result.entry.content).toBe('Admins oversee tenant configuration and security.')
     expect(result.entry.roleId).toBe(ROLE_ADMIN)
     expect(result.entry.tenantId).toBe(TENANT_A)
+    expect(recordEvent).toHaveBeenCalledTimes(1)
+    expect(recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'agent.narrative_stored',
+        module: 'agents',
+        tenantId: TENANT_A,
+        actorId: ACTOR,
+        subjectId: 'sha256-narrative-insert-001',
+        payload: expect.objectContaining({ roleId: ROLE_ADMIN }),
+      }),
+    )
   })
 
-  it('is idempotent on duplicate hash within the same tenant', async () => {
+  it('is idempotent on duplicate hash and does NOT re-emit audit event', async () => {
     await setTenantContext(db, TENANT_A)
+    recordEvent.mockClear()
 
-    const first = await repo.putIfAbsent({
+    const first = await repo.appendIfMissing({
       contentHash: 'sha256-narrative-idem-002',
       tenantId: TENANT_A,
       roleId: ROLE_ADMIN,
       content: 'Original narrative content.',
+      actorId: ACTOR,
     })
-    expect(first.inserted).toBe(true)
+    expect(first.wasAppended).toBe(true)
+    expect(recordEvent).toHaveBeenCalledTimes(1)
 
-    const second = await repo.putIfAbsent({
+    recordEvent.mockClear()
+    const second = await repo.appendIfMissing({
       contentHash: 'sha256-narrative-idem-002',
       tenantId: TENANT_A,
       roleId: ROLE_ADMIN,
       content: 'Different content that should be ignored.',
+      actorId: ACTOR,
     })
 
-    expect(second.inserted).toBe(false)
+    expect(second.wasAppended).toBe(false)
     expect(second.entry.content).toBe('Original narrative content.')
+    expect(recordEvent).not.toHaveBeenCalled()
   })
 
   it('returns null from get() when hash is absent', async () => {
@@ -78,11 +101,12 @@ describe('DrizzleNarrativeStoreRepository', () => {
   it('returns the stored entry from get() when present', async () => {
     await setTenantContext(db, TENANT_A)
 
-    await repo.putIfAbsent({
+    await repo.appendIfMissing({
       contentHash: 'sha256-narrative-get-004',
       tenantId: TENANT_A,
       roleId: ROLE_ADMIN,
       content: 'Persisted narrative.',
+      actorId: ACTOR,
     })
 
     const found = await repo.get('sha256-narrative-get-004', TENANT_A)

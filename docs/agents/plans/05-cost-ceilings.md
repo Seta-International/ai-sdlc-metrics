@@ -2,6 +2,16 @@
 
 **Design §§:** §13 (Cost Control), §4 (ceiling error classes).
 
+## Revision 2026-04-22
+
+Aligns plan 05 with the 2026-04-22 revision of `docs/architecture/agent-runtime.md` §13:
+
+- Adopts the now-explicit 7-step graceful degradation ladder (per-call retry → nano fallback → partial-answer gate → canary-driven tenant-wide tier shift → both-tiers-degraded notice → hard refuse on canary collapse → budget refuse).
+- Codifies `provider_fallback` vs `tier_shift` as distinct trace tags with distinct emission surfaces; silent degradation is a CI-testable violation.
+- Adds the quality-canary-driven tier-shift subscription surface (plan 10 publishes canary degraded-flag; plan 05 subscribes and drives steps 4–6).
+- Captures the `pricing_id` + `priced_at` stamping contract on cost events as an explicit data-model invariant (no new tables).
+- Defers multi-region / cross-provider failover to Beta; MVP ladder is within-provider only (within-OpenAI tier degradation).
+
 ---
 
 ## 1. Scope
@@ -14,7 +24,9 @@
 - Per-user daily + per-tenant daily budgets with tiered degradation (80 / 95 / 100%).
 - Pre-turn refusal vs mid-turn abort distinction (`refused` vs `budget` turn reasons).
 - Adapter validation — error-log + P1 alert when vendor reports cache fields the adapter drops.
-- `tier_shift` vs `provider_fallback` distinct trace tags.
+- **Explicit 7-step graceful degradation ladder** — per-call provider retry → nano provider-fallback for that call → partial-answer short-circuit on nano failure → canary-driven tenant-wide tier shift → both-tiers-degraded elevated user notice → hard refuse on canary collapse → budget refuse. Each step short-circuits later steps on success; each step emits a distinct trace tag and a user-visible message per §13 table. Silent degradation is forbidden.
+- `tier_shift` (policy-driven, budget- or canary-originated) vs `provider_fallback` (error-recovery-driven, per-call) are distinct trace tags with distinct emission surfaces on cost-event records. A single turn may carry both; conflation is a CI-testable violation.
+- Quality-canary-driven tier-shift subscription surface — plan 10 publishes a canary degraded-flag; this plan subscribes and drives ladder steps 4–6 (tenant-wide route to nano, both-tiers-degraded notice, hard refuse on canary collapse).
 - Rate limits: queries/user/min, L3 writes/user/day, schedule-or-delegation creations/user/day.
 - Approval inbox throttle thresholds (per-approver + per-initiator-pair).
 - Metric-label cardinality guardrail (`DEFAULT_BLOCKED_LABELS`).
@@ -23,9 +35,11 @@
 ### Out
 
 - Per-delegation cost / invocation caps (plan 09 — async agents enforces pre-spawn).
-- Quality-canary-triggered degradation (plan 10 — separate trigger source, reuses tier-shift surface).
+- Canary signal production (plan 10 owns publishing; this plan subscribes and drives ladder steps 4–6).
 - Self-hosted model tier (GA activation-gated).
 - Usage capture at span level (plan 07 stamps; this plan defines the data).
+- **Multi-region failover** — deferred to Beta; MVP is ap-southeast-1 single region.
+- **Cross-provider routing** — deferred to Beta; MVP ladder steps are within-OpenAI only. Beta inserts an intermediate cross-provider fallback before the nano step (§13) without changing ladder shape.
 
 ---
 
@@ -50,6 +64,8 @@ Pricing is **versioned**. Every cost event stamps `pricing_id` (FK into an appen
 ---
 
 ## 3. Data Model
+
+**`pricing_id` + `priced_at` stamping contract (§13 invariant).** Every row in `agent_cost_event` carries both `pricing_id` (FK-style reference to the append-only `agent_pricing` row in effect at capture time) and `priced_at` (the `effective_from` of that row). Historical events are never re-priced when vendor rates change — a new `agent_pricing` row is inserted instead, and new cost events reference it. Reconciliation, refund computation, and Stripe-divergence audits read the stamped pair, never the current pricing table. No new tables are introduced by the 2026-04-22 revision; the contract is schema-level documentation of the existing `agent_cost_event` + `agent_pricing` pair.
 
 ### `agent_pricing` (append-only)
 
@@ -224,6 +240,79 @@ checkEligibility(opts: {
 }>
 ```
 
+### `GracefulDegradationLadder` (state machine)
+
+Ordered 7-step machine per §13. State shape per step:
+
+```
+{
+  step: 1..7,
+  trigger: 'provider_5xx' | 'provider_timeout' | 'nano_5xx' | 'canary_degraded_primary'
+         | 'canary_degraded_both' | 'canary_collapse' | 'budget_exhausted',
+  userMessage: string,        // mandatory; empty = CI violation
+  traceTag: 'provider_retry' | 'provider_fallback' | 'provider_outage'
+          | 'tier_shift' | 'refused',
+  cancellationReason?: 'quality_canary' | 'budget',   // steps 6 + 7
+}
+```
+
+Contract rules:
+
+- The ladder is ordered and monotonic within a turn — once step N fires and succeeds, steps N+1..7 are skipped for that call.
+- A single turn MAY traverse non-adjacent steps across calls (e.g. step 1 retry succeeds on call 1; step 2 `provider_fallback` fires on call 3).
+- Every transition emits exactly one trace tag and exactly one user-visible message. An empty `userMessage` at runtime is a CI-testable violation (R-05.40).
+- Steps 4–6 are driven by the canary subscription (below), not by provider errors.
+- Step 2 and step 4 both involve "use nano," but they emit distinct tags (`provider_fallback` vs `tier_shift`) — this distinction is load-bearing for alerting.
+
+### `ProviderFallback` vs `TierShift` discriminators
+
+Every cost event produced during a degraded turn carries one of two mutually-exclusive discriminator fields on its trace context:
+
+```
+ProviderFallback = {
+  kind: 'provider_fallback';
+  errorClass: VendorError['class'];       // per R-05.20a
+  triggeredAtIteration: number;
+  fallbackModelId: string;                // e.g. 'gpt-5.4-nano'
+}
+
+TierShift = {
+  kind: 'tier_shift';
+  origin: 'budget' | 'canary_primary_degraded' | 'canary_both_degraded';
+  fromTier: 'full' | 'nano';
+  toTier: 'nano' | 'refused';
+  crossedThresholdPct?: 80 | 95 | 100;    // budget origin only
+  canaryWindowId?: UUID;                  // canary origin only (plan 10)
+}
+```
+
+A turn may emit both (e.g. budget-driven `tier_shift` on call 2 followed by capacity-driven `provider_fallback` on call 5). They never collapse into a single tag.
+
+### `QualityCanarySubscription` (plan 10 → plan 05 surface)
+
+Plan 10 publishes canary state; plan 05 subscribes and drives ladder steps 4–6.
+
+```
+subscribe(handler: (event: CanaryStateChange) => void): Unsubscribe
+
+type CanaryStateChange = {
+  windowId: UUID;
+  observedAt: Date;
+  primaryTierHealthy: boolean;        // 'gpt-5.4'
+  fallbackTierHealthy: boolean;       // 'gpt-5.4-nano'
+  successRatePct: { primary: number; fallback: number };
+  severity: 'nominal' | 'primary_degraded' | 'both_degraded' | 'collapse';
+}
+```
+
+Handler contract:
+
+- `primary_degraded` → ladder step 4 active for new turns until recovery; emits `tier_shift` with `origin: 'canary_primary_degraded'`.
+- `both_degraded` → ladder step 5; least-degraded tier + elevated user notice.
+- `collapse` (both tiers success-rate < 50%) → ladder step 6; hard refuse with `cancellation_reason: quality_canary`.
+- Recovery restores ladder to nominal without requiring turn retries.
+- Subscription registration is verified by a CI integration test (R-05.42).
+
 ### `AdminBudgetOps` (tRPC procedures; kernel-audited)
 
 ```
@@ -262,6 +351,20 @@ Both procedures emit `agent.budget_topup` / `agent.budget_limit_changed` kernel 
    - `vendor_timeout`: retry once; second timeout → partial-answer gate via plan 03.
    - `vendor_invalid_response`: no retry. Tripwire immediately. P1 audit + alert — adapter/vendor contract drift requires engineering intervention.
 3. Any fallback sets `tier_shift: false` on the trace and `provider_fallback: true` — these are distinct signals (R-05.21). A single turn may experience both (e.g. budget-driven tier_shift followed by capacity-driven provider_fallback).
+
+### Graceful degradation ladder walk
+
+Per LLM call (or per turn-start for steps 4–7), the runtime evaluates ladder steps in order; each step short-circuits further steps on success. Every transition emits exactly one trace tag + one user-visible message per the §13 table; silent degradation is forbidden.
+
+1. **Step 1 — `provider_retry`.** Single-retry layer (§4) for provider 5xx / timeout on primary model. No user-visible message; transient. If retry succeeds, ladder exits.
+2. **Step 2 — `provider_fallback`.** Primary retry exhausted → fall back to nano for this call. Emit `provider_fallback` tag with `errorClass` discriminator per R-05.20a. User-visible: "Switched to faster model for this response." Cost event attributes `ProviderFallback` discriminator.
+3. **Step 3 — `provider_outage`.** Nano also 5xx / timeout → short-circuit sub-agent via partial-answer gate (plan 03). User-visible: "Partial — model unavailable."
+4. **Step 4 — `tier_shift` (canary-driven, primary degraded).** On `QualityCanarySubscription` event `primary_degraded`, tenant-wide new turns route to nano. Cost events stamp `TierShift { origin: 'canary_primary_degraded' }`. User-visible: "Answering in simplified mode — full-quality mode resumes at N."
+5. **Step 5 — `tier_shift` (canary-driven, both degraded).** On `both_degraded`, route to least-degraded tier and surface elevated notice (§12). User-visible: "Service quality is degraded across all tiers."
+6. **Step 6 — hard refuse on canary collapse.** On `collapse` (both tiers <50% success), refuse new turns with `cancellation_reason: quality_canary`; admin alert fires (rate-limited). User-visible: "Service temporarily unavailable; try again shortly."
+7. **Step 7 — budget refuse.** Tenant budget 100% (existing pre-turn / mid-turn check below). `cancellation_reason: budget`. User-visible: "Daily budget reached; try again after N."
+
+Steps 1–3 are per-call; steps 4–6 are tenant-wide and set by the canary subscription handler; step 7 is the existing budget check. Distinct trace tags are mandatory — a `tier_shift` emitted with a provider-error origin, or a `provider_fallback` emitted on budget threshold crossing, is a CI-caught bug.
 
 ### Pre-turn budget check
 
@@ -413,26 +516,47 @@ Both procedures emit `agent.budget_topup` / `agent.budget_limit_changed` kernel 
 | R-05.37 | Every cost refusal generates a trace with budget state at refusal time         | §13       |
 | R-05.38 | Refusal traces include expected-cost estimate from history (capacity planning) | §13       |
 
+### Graceful degradation ladder
+
+| #       | Requirement                                                                                                                                                                                                                                                              | Design §§ |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| R-05.39 | The ladder is an ordered 7-step machine per §13; every step must be implemented, reachable from its trigger, and short-circuit later steps on success.                                                                                                                   | §13       |
+| R-05.40 | Every ladder transition emits both a distinct trace tag AND a user-visible message. Silent degradation (missing tag or empty message) is a CI-testable violation; a unit test asserts the invariant per step.                                                            | §13       |
+| R-05.41 | `provider_fallback` and `tier_shift` are distinct trace tags on cost events and NEVER conflated. A cost event carries at most one of `ProviderFallback` or `TierShift` discriminators per call; a turn may carry both across calls. Conflation is a CI-caught assertion. | §13       |
+| R-05.42 | Canary-driven tier shift consumes plan 10's `QualityCanarySubscription` degraded-flag. Subscription registration is verified by a CI integration test that seeds a canary event and asserts the ladder advances to the correct step (4, 5, or 6 per severity).           | §13       |
+| R-05.43 | Both-tiers-degraded severe mode (ladder step 5) engages the elevated user notice per §12; the notice copy is distinct from step 4 and MUST surface on every affected turn.                                                                                               | §13, §12  |
+| R-05.44 | Canary-collapse hard refuse (ladder step 6) uses `turn.ended.reason: refused` with `cancellation_reason: quality_canary` — distinct from `budget` refusal. Admin alert fires rate-limited per R-05.36.                                                                   | §13       |
+| R-05.45 | Multi-region failover and cross-provider routing are deferred to Beta (gate: 3+ live tenants OR a single-region outage incident). MVP ladder is within-OpenAI only; no code path in MVP selects a secondary provider. Beta extension inserts a step 2a without reshape.  | §13       |
+
 ---
 
 ## 7. Failure Modes & Recovery
 
-| Failure                                                                  | Symptom                                                           | Recovery                                                                                                                                         |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Vendor returns response without usage                                    | Adapter returns zero-usage tokens                                 | Over-bill: assume uncached input = message token count (approximation); log warning. Prefer over-billing to under-billing.                       |
-| Adapter silently drops `cachedInputTokens`                               | `adapter_dropped_cache_fields` fires                              | P1 alert → immediate runbook: verify adapter version, patch, hotfix.                                                                             |
-| Pricing table stale (vendor changed rates, no PR yet)                    | `priced_at` stamps old rate; billing diverges from vendor invoice | Weekly reconciliation job flags divergence > 5%; triggers PR.                                                                                    |
-| Tenant budget not refilled at midnight (cron failure)                    | First turn after midnight refused                                 | Alert → manual refill via `AdminBudgetOps.topUp` + incident runbook.                                                                             |
-| Race: two concurrent turns both see "budget OK" and combined exceed 100% | Slight over-spend (≤ one turn's cost beyond limit)                | Acceptable — mid-turn abort catches at next check. Optimistic-locking on `remaining_usd` would trade throughput for precision; not worth at MVP. |
-| Rate-limit substrate (Redis) unreachable                                 | `RateLimiter.check` fails open (allows) with warning log          | Accepted — availability over rate enforcement for transient substrate failures. Long outage → alert.                                             |
-| Adapter drops cache field that is actually zero in response              | False-positive `adapter_dropped_cache_fields`                     | Expected; suppress at adapter layer by comparing vendor field presence, not value. Codified in R-05.6c.                                          |
-| Vendor 429 / 429-with-window rate limit                                  | `VendorError.class: vendor_rate_limit`; stream pauses             | Honor `retryAfterMs` / `resetAt` verbatim. Retry once. Both attempts produce zero cost. Second failure → tripwire `transient_infra_error`.       |
-| Vendor 529 / capacity overload, 1-2 occurrences in turn                  | `VendorError.class: vendor_overload`; counter increments          | Retry per backoff policy. No cost. Counter resets on any successful response (consecutive-only).                                                 |
-| Vendor 529 / capacity overload, ≥3 consecutive                           | `provider_fallback` tag on trace; sticky for rest of turn         | Route subsequent calls to `gpt-5.4-nano` (or configured fallback). `error_class: vendor_overload` on the fallback signal.                        |
-| Vendor returns malformed response (missing required fields / bad JSON)   | `VendorError.class: vendor_invalid_response`                      | Immediate tripwire, no retry. P1 audit + alert — indicates adapter/vendor contract drift. Zero cost.                                             |
-| Runner double-records cost (bug — records on retry before success)       | `agent_cost_event` count > actual successful LLM calls            | Regression test for R-05.6a. Reconciliation job surfaces as `cost_event_count_exceeds_langfuse_success_count` if deployed in error.              |
-| User hits soft 80% warning mid-conversation                              | UI banner on next turn                                            | No action needed; informational.                                                                                                                 |
-| Per-tool ceiling seeded too tight                                        | Tripwire retries fail repeatedly                                  | Adjust `.meta({ agent: { ceilings } })` via tool-author PR; ship hotfix. Meanwhile, circuit breaker disables the tool.                           |
+| Failure                                                                        | Symptom                                                             | Recovery                                                                                                                                                                        |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vendor returns response without usage                                          | Adapter returns zero-usage tokens                                   | Over-bill: assume uncached input = message token count (approximation); log warning. Prefer over-billing to under-billing.                                                      |
+| Adapter silently drops `cachedInputTokens`                                     | `adapter_dropped_cache_fields` fires                                | P1 alert → immediate runbook: verify adapter version, patch, hotfix.                                                                                                            |
+| Pricing table stale (vendor changed rates, no PR yet)                          | `priced_at` stamps old rate; billing diverges from vendor invoice   | Weekly reconciliation job flags divergence > 5%; triggers PR.                                                                                                                   |
+| Tenant budget not refilled at midnight (cron failure)                          | First turn after midnight refused                                   | Alert → manual refill via `AdminBudgetOps.topUp` + incident runbook.                                                                                                            |
+| Race: two concurrent turns both see "budget OK" and combined exceed 100%       | Slight over-spend (≤ one turn's cost beyond limit)                  | Acceptable — mid-turn abort catches at next check. Optimistic-locking on `remaining_usd` would trade throughput for precision; not worth at MVP.                                |
+| Rate-limit substrate (Redis) unreachable                                       | `RateLimiter.check` fails open (allows) with warning log            | Accepted — availability over rate enforcement for transient substrate failures. Long outage → alert.                                                                            |
+| Adapter drops cache field that is actually zero in response                    | False-positive `adapter_dropped_cache_fields`                       | Expected; suppress at adapter layer by comparing vendor field presence, not value. Codified in R-05.6c.                                                                         |
+| Vendor 429 / 429-with-window rate limit                                        | `VendorError.class: vendor_rate_limit`; stream pauses               | Honor `retryAfterMs` / `resetAt` verbatim. Retry once. Both attempts produce zero cost. Second failure → tripwire `transient_infra_error`.                                      |
+| Vendor 529 / capacity overload, 1-2 occurrences in turn                        | `VendorError.class: vendor_overload`; counter increments            | Retry per backoff policy. No cost. Counter resets on any successful response (consecutive-only).                                                                                |
+| Vendor 529 / capacity overload, ≥3 consecutive                                 | `provider_fallback` tag on trace; sticky for rest of turn           | Route subsequent calls to `gpt-5.4-nano` (or configured fallback). `error_class: vendor_overload` on the fallback signal.                                                       |
+| Vendor returns malformed response (missing required fields / bad JSON)         | `VendorError.class: vendor_invalid_response`                        | Immediate tripwire, no retry. P1 audit + alert — indicates adapter/vendor contract drift. Zero cost.                                                                            |
+| Runner double-records cost (bug — records on retry before success)             | `agent_cost_event` count > actual successful LLM calls              | Regression test for R-05.6a. Reconciliation job surfaces as `cost_event_count_exceeds_langfuse_success_count` if deployed in error.                                             |
+| User hits soft 80% warning mid-conversation                                    | UI banner on next turn                                              | No action needed; informational.                                                                                                                                                |
+| Per-tool ceiling seeded too tight                                              | Tripwire retries fail repeatedly                                    | Adjust `.meta({ agent: { ceilings } })` via tool-author PR; ship hotfix. Meanwhile, circuit breaker disables the tool.                                                          |
+| Ladder step 1 — provider retry masks persistent primary outage                 | Primary 5xx on call 1 retry succeeds; call 2 fails fresh            | Expected per-call scope. Ladder is per-call; aggregate primary-5xx burst visible on `agent_vendor_retry_total{error_class}` dashboard.                                          |
+| Ladder step 2 — `provider_fallback` fires but user never sees notice           | Missing user-visible message → silent degradation                   | R-05.40 CI unit test fails the build. Runtime-drop fallback: emit `ladder_missing_user_message` audit + synthesize default copy so UX is never silent.                          |
+| Ladder step 3 — nano also down, partial-answer gate engages                    | Sub-agent short-circuits; answer marked partial                     | Expected. Plan 03 partial-answer gate renders with `provider_outage` trace tag. Persistent both-tier outage escalates to ladder step 5/6 via canary.                            |
+| Ladder step 4 — canary flag stuck `degraded` after primary recovered           | Tenant-wide nano continues after primary healthy                    | Canary subscription re-evaluates per window; plan 10 publishes `nominal` on recovery. Orphan-stuck-flag → ops runbook + manual canary reset.                                    |
+| Ladder step 5 — both-tiers-degraded notice suppressed by notification throttle | User never sees elevated notice                                     | Throttle applies to admin alerts only, not user-visible notices. R-05.43 CI integration test asserts user-visible emission on every affected turn.                              |
+| Ladder step 6 — canary collapse false positive                                 | New turns refused despite tiers actually healthy                    | Plan 10 sets floor on sample size before collapse fires. Admin override: `AdminBudgetOps.forceCanaryReset` kernel-audited emergency path.                                       |
+| Ladder step 7 — budget refuse collides with canary refuse in same turn         | Two refusal reasons; UX ambiguous                                   | Canary state evaluated first (service health gate); budget state second. `cancellation_reason` resolves to the first-evaluated cause; other cause surfaced in admin audit only. |
+| `tier_shift` emitted with provider-error origin (misuse)                       | Cost event carries `TierShift` discriminator when fallback intended | R-05.41 CI assertion fails the build. Runtime: log-and-drop the mis-emitted tag; emit `discriminator_conflation` audit.                                                         |
+| Canary subscription disconnects silently                                       | Ladder steps 4–6 never fire despite degraded state                  | R-05.42 integration test + heartbeat. Missed heartbeat → P1 alert; assume worst-case (primary degraded) conservatively until restored.                                          |
 
 ---
 
@@ -458,6 +582,7 @@ Both procedures emit `agent.budget_topup` / `agent.budget_limit_changed` kernel 
 
 - On LLM-call spans: `pricing_id`, `priced_at`, `cost_usd`, `usage.*` per §12 R-07.21-22. Additionally: `retry_count`, `attempt_duration_ms`, `total_duration_ms` (R-05.6b), and on retry: `vendor_error_class`, `vendor_retry_after_ms?`, `vendor_reset_at?`.
 - On `TURN` root: `tier_shift: boolean`, `tier_shift_reason?`, `mid_turn_abort: boolean`, `pre_turn_refusal: boolean`, `refusal_reason?`, `provider_fallback: boolean`, `provider_fallback_error_class?`, `provider_fallback_triggered_at_iteration?`.
+- **Per-ladder-step dimensions.** Every ladder transition stamps: `ladder_step: 1..7`, `ladder_trigger: string` (per `GracefulDegradationLadder` trigger enum), `ladder_trace_tag: 'provider_retry' | 'provider_fallback' | 'provider_outage' | 'tier_shift' | 'refused'`, `ladder_user_message_surfaced: boolean` (R-05.40 audit signal), and — for steps 4–6 — `canary_window_id`, `canary_severity`. Histograms `agent_ladder_step_total{tenant_id, step, trace_tag}` and `agent_ladder_transition_latency_ms{step}` give per-step rate + time-to-surface visibility. Dashboards alert on `ladder_user_message_surfaced = false` (any occurrence is a bug).
 
 ### Dashboards
 
@@ -594,7 +719,12 @@ Cost-path overhead per LLM call ≤ 20ms p99. Pre-turn check ≤ 40ms p99 (adds 
 
 ## 16. Activation Gate
 
-MVP. Ships with first production turn.
+**MVP** — ships with first production turn. Includes:
+
+- All cost accounting + ceiling + rate-limit surfaces.
+- The full 7-step graceful degradation ladder (within-OpenAI tier degradation only) with distinct trace tags, user-visible messages, and canary subscription wired to plan 10.
+
+**Beta** — multi-region failover and cross-provider routing. Gate: **3+ live tenants OR a single-region outage incident** (whichever fires first). Beta extension inserts an intermediate cross-provider fallback step between ladder steps 1 and 2 (recorded as `provider_fallback` with the alternate `model_id`) without reshaping the ladder. No code path in MVP selects a secondary provider or a secondary region.
 
 ## 17. Out of Scope
 

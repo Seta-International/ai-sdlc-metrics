@@ -2,7 +2,11 @@
 
 **Design §§:** §3.1 (Iterative Supervisor Topology), §2.1 (two-topology runtime), §4 (error classes).
 
-**Activation gate:** Beta. Two-phase bounded (plans 02-03) ships first so gateway, registry, phase executor, streaming contract, observability stabilize under a constrained topology. Iterative activates when router classifies its first real open-ended task OR product explicitly enables for a specific use case.
+## Revision 2026-04-22
+
+Iterative topology promoted from **Beta opt-in** to **MVP Tier 2** of the four-tier router taxonomy (§3 table: Tier 0 direct / Tier 1 bounded DAG / Tier 2 iterative / Tier 3 async). Ships live at first production turn, permission-gated on `canDo('agent.iterative')` with staged per-tenant rollout (default-off → admin opt-in → gradual ramp). The permission gate is the load-bearing guard — external 2025-2026 research on unstructured multi-agent networks documents up to **17.2× error amplification** on routine queries; the gate ensures iterative self-selects only where its cost is justified. All §3.1 invariants 1-7 (iteration cap, per-iteration cost gate, taint turn-scoped, deterministic-scorers-only, single synthesizer, replay-determinism, topology-downgrade-candidate signal) are preserved. Section structure unchanged.
+
+**Activation gate:** MVP Tier 2 — ships live at first production turn. Permission-gated on `canDo('agent.iterative')`; tenant rollout staged (default-off, admin opt-in, gradual ramp). Absence of the permission yields disambiguation fallback (no silent downgrade without operator awareness).
 
 ---
 
@@ -10,6 +14,7 @@
 
 ### In
 
+- **Tier 2 of the four-tier router taxonomy** (§3 table: Tier 0 direct / Tier 1 bounded DAG / Tier 2 iterative / Tier 3 async). Selection criteria per §3.1: open-ended investigation, multi-step planning, or any task whose plan shape cannot be fixed before the first tool call returns (~5% of flows — the investigative tail).
 - Router `topology: 'iterative'` classification path (extension of plan 02 router plan shape).
 - Iterative orchestrator: picks one sub-agent per iteration, executes, evaluates completion scorers, re-plans or exits.
 - Per-iteration cost + wallclock gates enforced BETWEEN iterations.
@@ -35,7 +40,9 @@
 
 **Iterative is the second supported topology, not a replacement for bounded.** Two-phase bounded (plan 03) serves ~90% of HR/Time/Projects/Finance/KPI queries well. Iterative serves the other ~10%: open-ended investigation ("why did KPI X regress?"), multi-step planning ("build a comparison across 5 dimensions"), anything whose plan shape cannot be fixed before the first tool call returns.
 
-**Router classifies topology at entry, alongside the plan.** This is the critical decision: does this intent fit bounded (≤3 parallel + 1 sequential) or does it need iterative re-planning? Router heuristic at MVP Beta activation: keyword + intent-pattern match (explicit product-tunable allowlist of iterative-apt patterns). GA: structured classification against a labeled corpus.
+**Router classifies topology at entry, alongside the plan.** This is the critical decision: does this intent fit bounded (≤3 parallel + 1 sequential) or does it need iterative re-planning? Router heuristic at MVP first-production-turn activation: keyword + intent-pattern match (explicit product-tunable allowlist of iterative-apt patterns). GA: structured classification against a labeled corpus.
+
+**Why the permission gate (`canDo('agent.iterative')`) exists even though iterative is MVP.** External research (2025-2026) on unstructured multi-agent networks documents up to **17.2× error amplification** when supervisor-style loops self-select on routine queries. Without the permission gate, iterative would self-select on low-value turns the router could classify as bounded-or-direct, degrading quality and inflating cost. The gate is a correctness guard, not a timeline deferral — it ships alongside the topology at first production turn.
 
 **Inline copilots stay bounded-only by hard contract** (§3). Inline = single sub-agent; iterative would break the contract. Enforced at router entry: inline surface + iterative topology → immediate fallback to bounded or escalate to global chat.
 
@@ -293,12 +300,16 @@ Reads `turnState.cumulativeCostUsd`, `cumulativeWallclockMs`, `iterationNumber` 
 
 ### Topology activation
 
-| #      | Requirement                                                                                       | Design §§ |
-| ------ | ------------------------------------------------------------------------------------------------- | --------- |
-| R-12.1 | Router plan shape extended to discriminated union on `topology`                                   | §3.1, §3  |
-| R-12.2 | Iterative plan validation: `completionCriteria.scorerIds` all exist + all `kind: 'deterministic'` | §3.1, §14 |
-| R-12.3 | Iterative plan rejected at inline surface; router retries with bounded directive                  | §3.1      |
-| R-12.4 | Orchestrator selection by topology: `PhaseExecutor` (bounded) vs `IterativeOrchestrator`          | §3.1      |
+| #       | Requirement                                                                                                                                                                                                                  | Design §§     |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| R-12.1  | Router plan shape extended to discriminated union on `topology`                                                                                                                                                              | §3.1, §3      |
+| R-12.2  | Iterative plan validation: `completionCriteria.scorerIds` all exist + all `kind: 'deterministic'`                                                                                                                            | §3.1, §14     |
+| R-12.3  | Iterative plan rejected at inline surface; router retries with bounded directive                                                                                                                                             | §3.1          |
+| R-12.4  | Orchestrator selection by topology: `PhaseExecutor` (bounded) vs `IterativeOrchestrator`                                                                                                                                     | §3.1          |
+| R-12.4a | Iterative is Tier 2 of four-tier taxonomy, available at MVP first-production-turn (no dormant phase)                                                                                                                         | §3, §3.1, §16 |
+| R-12.4b | Iterative gated on `canDo('agent.iterative')`; absence yields disambiguation fallback (not silent downgrade to bounded)                                                                                                      | §3.1, §16     |
+| R-12.4c | Tenant rollout staged: default-off per tenant → admin opt-in via `web-admin` toggle → gradual ramp (see §13)                                                                                                                 | §3.1, §16     |
+| R-12.4d | All §3.1 invariants 1-7 (iteration cap, per-iteration cost gate, taint turn-scoped, deterministic-scorers-only, single synthesizer, replay-determinism, topology-downgrade-candidate signal) enforced from first-turn onward | §3.1          |
 
 ### Iteration caps
 
@@ -319,8 +330,8 @@ Reads `turnState.cumulativeCostUsd`, `cumulativeWallclockMs`, `iterationNumber` 
 
 | #       | Requirement                                                          | Design §§        |
 | ------- | -------------------------------------------------------------------- | ---------------- | --- |
-| R-12.10 | Only `SetaScorer.kind: 'deterministic'` at Beta                      | §3.1, §14        |
-| R-12.11 | LLM-judge completion scorers deferred to GA (plan 10 meta-eval gate) | §3.1, §14        |
+| R-12.10 | Only `SetaScorer.kind: 'deterministic'` at MVP                       | §3.1, §14        |
+| R-12.11 | LLM-judge completion scorers deferred until plan 10 meta-eval clears | §3.1, §14        |
 | R-12.12 | Strategy `'all'                                                      | 'any'` supported | §14 |
 
 ### Synthesizer
@@ -377,10 +388,12 @@ Reads `turnState.cumulativeCostUsd`, `cumulativeWallclockMs`, `iterationNumber` 
 
 ### Spans
 
-- `TURN` root with attr `topology: 'iterative'`.
-- `ITERATION` span per iteration (entity `SUB_AGENT`); attrs `iteration_number`, `sub_agent_key`, `selection_reason`, `is_complete`, `taint_at_start`, `scorer_results`.
+- `TURN` root with attr `plan.topology: 'iterative'` (normative attribute name; dashboards + sampling triggers key off this).
+- `ITERATION` span per iteration (entity `SUB_AGENT`); attrs `iteration_count` (1-based current value), `sub_agent_key`, `selection_reason`, `scorer_passed` (boolean, set once `CompletionScorerRunner` returns), `is_complete`, `taint_at_start`, `scorer_results`.
 - `REPLAN:llm-call` — child of `TURN` (not of `ITERATION`); emitted when router re-plans between iterations.
 - `COMPLETION_SCORER:run` — child of `ITERATION`.
+
+Every iteration MUST emit `iteration_count` and `scorer_passed` on close; the topology-downgrade dashboard and the replay harness both consume these attributes.
 
 ### Metrics
 
@@ -470,8 +483,8 @@ Interactive iterative wallclock ceiling: extend plan 06's default 30s to 60s for
 ## 12. Acceptance Criteria
 
 - All unit + integration + property + E2E tests pass.
-- Iterative topology ships dormant at MVP (plan 06 events defined but never fired).
-- Beta activation: first production iterative turn serves a real user query that two-phase bounded couldn't serve cleanly.
+- Iterative topology ships **live as Tier 2** at MVP first-production-turn; permission gate (`canDo('agent.iterative')`) wired + verified in both directions (granted → execute; denied → disambiguation).
+- First real production iterative turn (on an admin-opted-in tenant) serves an open-ended query that bounded cannot serve cleanly — verified against the fixture scenario.
 - Taint persistence verified end-to-end.
 - Iteration cap enforcement verified.
 - Inline surface rejection verified.
@@ -483,28 +496,37 @@ Interactive iterative wallclock ceiling: extend plan 06's default 30s to 60s for
 
 ## 13. Rollout Plan
 
-- **Phase 1 (MVP, dormant)** — ship extended plan shape, orchestrator, SSE events. All production routers classify `topology: 'bounded'`; iterative code path never exercised.
-- **Phase 2 (Beta activation)** — enable router classification heuristic for explicit iterative-apt patterns. One sub-agent enabled for iterative initial directive.
-- **Phase 3** — extend to all MVP sub-agents; expand router classification coverage.
-- **Phase 4** — enable async iterative (plan 09 integration).
-- **Phase 5 (GA)** — LLM-judge scorers promoted; per-iteration synthesis considered.
+Iterative ships **live** at MVP first-production-turn. Rollout is staged **per tenant**, not phased across MVP/Beta/GA.
 
-**Backout:** iterative is opt-in; disable by forcing router to always emit `topology: 'bounded'`. All turns fall back to bounded (some may fail if genuinely unfit — but safer than broken iterative). Config flag `agent.iterative.enabled = false`.
+- **Stage 1 — default-off per tenant.** Ship code; `canDo('agent.iterative')` defaults to denied for every tenant. Router may emit iterative plans internally, but the permission gate converts them to disambiguation before execution. Absorb the first week of production traffic on bounded + direct only.
+- **Stage 2 — admin opt-in.** Tenant admin enables iterative via `web-admin` toggle (writes `agent.iterative.enabled` on tenant settings; grants `canDo('agent.iterative')` to the tenant's role graph). Admin UI surfaces the known cost profile + the 17× research finding so opt-in is informed.
+- **Stage 3 — gradual ramp per tenant.** Enable for an initial cohort of intent slugs; monitor `agent_iteration_count_exceeded_p95` + `agent_topology_downgrade_candidate_total` + turn-quality canary (plan 10). Expand coverage as signals stay clean.
+- **Stage 4 — async iterative.** Plan 09 integration once async draft-to-inbox has cleared §11 incident-free window.
+- **Stage 5 — scorer surface expansion.** LLM-judge completion scorers activate when plan 10 meta-eval clears (not before).
+
+**Auto-rollback.** Regression signal (plan 10 canary delta, sustained `agent_iteration_count_exceeded_p95` breach, or error-rate spike on iterative vs bounded baseline) auto-flips the tenant's `agent.iterative.enabled` back to false and raises an operator alert. Rollback is per-tenant, not platform-wide.
+
+**Manual backout.** Platform-wide kill switch: `agent.iterative.enabled = false` at admin-config root forces router to always emit bounded. Cleanly reversible; no data-model dependency on iterative having ever fired.
 
 ---
 
 ## 14. Dependencies
 
-- Plan 01: gateway pipeline (tool calls per iteration).
-- Plan 02: router + registry; plan shape extension.
-- Plan 03: sub-agent runner + synthesizer (reused).
-- Plan 04: memory (conversation state, L1 cache per iteration).
-- Plan 05: cumulative cost enforcement.
-- Plan 06: SSE iteration event triplet; abort propagation.
-- Plan 07: 100% capture + topology-downgrade signal + new sampling trigger.
-- Plan 08: draft taint bump across iterations.
-- Plan 09: async iterative (Phase 4).
-- Plan 10: `SetaScorer` registry + kind discriminator (ENFORCES R-12.10 at registration time).
+**Load-bearing for MVP activation:**
+
+- **Plan 01** — gateway pipeline (tool calls per iteration; taint detection at gateway is what makes R-12.8 / R-12.9 enforceable across iterations).
+- **Plan 02** — router + registry; router classification must emit `topology: 'iterative'` as a first-class option, not a fallback.
+- **Plan 07** — `flow_id` / `intent_slug` stamping on every descendant span; without these the topology-downgrade-candidate signal cannot aggregate per-intent.
+- **Plan 10** — deterministic-scorer registration discipline (`SetaScorer.kind` discriminator enforced at registration time — R-12.10; LLM-judge scorers rejected until meta-eval clears — R-12.11).
+
+**Supporting:**
+
+- Plan 03 — sub-agent runner + synthesizer (reused for iteration bodies + post-loop synthesis).
+- Plan 04 — memory (conversation state, L1 cache per iteration).
+- Plan 05 — cumulative cost enforcement.
+- Plan 06 — SSE iteration event triplet; abort propagation.
+- Plan 08 — draft taint bump across iterations.
+- Plan 09 — async iterative (Stage 4 of §13 rollout).
 
 ## 15. Integration Points
 
@@ -519,20 +541,17 @@ Interactive iterative wallclock ceiling: extend plan 06's default 30s to 60s for
 
 ## 16. Activation Gate
 
-Beta. Specific activation triggers:
+**MVP first-production-turn.** Iterative ships live as Tier 2 of the four-tier router taxonomy; permission-gated per-tenant on `canDo('agent.iterative')` with staged rollout per §13 (default-off → admin opt-in → gradual ramp). The gate is a correctness guard against 17× error-amplification on low-value turns — not a timeline deferral.
 
-- Router classifies first real open-ended task (internal-tenant test), OR
-- Product explicitly scopes an iterative-apt feature.
-
-Iterative code ships in MVP build (dormant) so plan 06 events are defined + infrastructure is tested via unit/integration.
+The permission gate is the only thing between a router-classified iterative plan and execution: absent `canDo('agent.iterative')`, the plan is rejected at orchestrator selection and the turn falls through to disambiguation (never a silent downgrade to bounded — silent downgrade would hide the classifier's signal from observability).
 
 ## 17. Out of Scope
 
-- LLM-judge completion scorers (GA; plan 10 meta-eval gate).
-- Per-iteration synthesizer (GA).
-- DAG / arbitrary graph execution (§16 Out of Scope).
-- Mid-turn topology switch.
-- Inline surface iterative (hard contract).
+- **Per-iteration synthesizer (live narration).** Deferred to Beta per §3.1; UX demand signal from iterative-turn observations gates activation.
+- **LLM-judge completion scorers.** Rejected until plan 10 meta-eval clears (R-12.11); opens a prompt-injection vector at the exit gate (see §9 Security).
+- DAG / arbitrary graph execution (§16 Out of Scope — iterative is the chosen alternative).
+- Mid-turn topology switch (router decides at entry; no switching mid-turn).
+- Inline surface iterative (hard contract — inline is bounded-only per §3).
 - Tenant-specific iteration cap configuration (default only; add if customer asks).
 
 ## 18. Open Questions

@@ -2,6 +2,17 @@
 
 **Design §§:** §18 (Production Readiness Criteria).
 
+## Revision 2026-04-22
+
+Expanded to reflect the 2026-04-22 revision of §18 (added §18.5 rollout-safety rows) and §2.2 (EI-1..EI-10 extensibility invariants). New validation-harness components:
+
+- **12-module scale probe** — synthetic 12-sub-agent / 20-tool-per-sub-agent fixture exercising EI-4, EI-5, EI-6. CI gate from the first plan-touching PR onward; also a GA gate (§18.5).
+- **EI-1..EI-10 audit harness** — CI suite asserting each §2.2 extensibility invariant on the synthetic-module fixture + the three MVP modules. Zero failures required.
+- **Intent-slug coverage probe** — CI + runtime probes asserting `intent_slug: 'unclassified'` rate ≤ 2% on 30-day rolling traffic.
+- **`flow_id` correlation probe** — monthly sample of 100 random multi-turn flows; every span / audit event / draft / approval / execution in a flow shares the same `flow_id`. Zero dangle.
+
+These components are production-ready scope: the scale probe and EI audit run from the first CI build (not deferred to GA), while intent-slug and flow_id probes run on rolling windows and feed the GA gate evaluator in §18.7.
+
 **Activation gate:** Runs continuously from Beta onward. **GA is achieved** when this harness reports all §18 thresholds met for two consecutive 30-day windows + runbook dry-runs complete + zero P1 security incidents + ≥3 live tenants.
 
 ---
@@ -19,6 +30,10 @@
 - Audit-chain integrity scanner: every tool-call span has matching audit row, every `draft_executed` has prior `draft_approved` (except auto), etc.
 - GA gate evaluator: machine-readable "are we GA?" state with explicit pass/fail per criterion.
 - Runbook dry-run scheduler + log.
+- **12-module scale probe** — synthetic 12-sub-agent registry with 20-tool-per-sub-agent fixture exercising EI-4 (sub-agent retrieval recall), EI-5 (tool retrieval recall), EI-6 (router prompt budget ceiling). CI gate on any PR touching plan 02, plan 02.5, or plan 07. Also a GA gate (§18.5).
+- **EI-1..EI-10 audit harness** — CI test suite verifying each extensibility invariant from §2.2 holds on the synthetic-module fixture + the three MVP modules (planner, people, projects). Zero failures to merge.
+- **Intent-slug coverage probe** — CI and runtime probes asserting `intent_slug: 'unclassified'` rate ≤ 2% on 30-day rolling traffic; enforces controlled-vocabulary discipline from §2.2 EI-3.
+- **`flow_id` correlation probe** — monthly sample of 100 random multi-turn flows; every span, audit event, draft, approval, and execution in a flow carries the same `flow_id`. Zero-dangle threshold.
 
 ### Out
 
@@ -101,6 +116,16 @@ Persisted result of each criterion evaluation.
 - `summary TEXT`.
 - `post_mortem_url TEXT?`.
 - Index: `(severity, opened_at DESC)`.
+
+### Fixture layout (no new production tables)
+
+The scale probe, EI audit, and flow-correlation probe are backed by fixture data, not new production tables:
+
+- **Synthetic-module registry** — 12 fake sub-agents under a `fixtures/scale-probe/synthetic-modules/` tree mirroring the `modules/<X>/agent/{sub-agents,intents,tools}` layout. Consumed by EI-1, EI-3, EI-4 checks.
+- **Fixture-tenant data** — a dedicated tenant seeded with traffic exercising each synthetic module; used by EI-5, EI-6, EI-8 budget-allocation assertions.
+- **Golden flow set** — a hand-curated list of multi-turn flows (plus a monthly random sample) consumed by the `FlowCorrelationProbe` to assert `flow_id` propagation across `agent_span`, `kernel_audit`, `agent_draft`, `agent_approval`, and tool-execution rows.
+
+No new agent-module tables are introduced by these harness components; results are persisted into the existing `agent_readiness_check` rows (one criterion row per EI check and per probe run).
 
 ### `agent_cost_reconciliation`
 
@@ -251,6 +276,64 @@ type DrillResult = {
 
 Target: canary detects within 30 min of planting.
 
+### `ScaleProbeRunner`
+
+```
+run(): Promise<ScaleProbeResult>
+
+type ScaleProbeResult = {
+  ranAt: Date;
+  syntheticModuleCount: number;      // 12
+  toolsPerSubAgent: number;          // 20
+  perInvariant: ReadonlyArray<{
+    invariantId: 'EI-4' | 'EI-5' | 'EI-6';
+    passed: boolean;
+    observed: number;                // recall, token count
+    threshold: number;
+    details?: Record<string, unknown>;
+  }>;
+  allPassed: boolean;
+}
+```
+
+Invoked in CI on any PR touching plan 02, plan 02.5, or plan 07. Hard-fails the build on any red invariant. Result persists as `agent_readiness_check` rows with `criterion_id = '18.5.scale_probe.{EI-4|EI-5|EI-6}'`.
+
+### `ExtensibilityInvariantAudit`
+
+```
+run(): Promise<AuditResult>
+
+type AuditResult = {
+  ranAt: Date;
+  perInvariant: ReadonlyArray<{
+    invariantId: 'EI-1' | 'EI-2' | 'EI-3' | 'EI-4' | 'EI-5' | 'EI-6' | 'EI-7' | 'EI-8' | 'EI-9' | 'EI-10';
+    passed: boolean;
+    evidence: string;                // span schema snapshot, lint output, drift report
+  }>;
+  allPassed: boolean;
+}
+```
+
+Runs on every CI build against the synthetic-module fixture + the three MVP modules. Zero failures required to merge. Evidence field is a textual summary (span attribute listing for EI-7, lint output for EI-10, slug registry diff for EI-3, etc.) sufficient for reproducing a failure locally.
+
+### `FlowCorrelationProbe`
+
+```
+sample(n = 100): Promise<CorrelationResult>
+
+type CorrelationResult = {
+  ranAt: Date;
+  sampleSize: number;
+  dangles: ReadonlyArray<{
+    flowId: string;
+    missingFrom: ReadonlyArray<'span' | 'audit' | 'draft' | 'approval' | 'execution'>;
+  }>;
+  zeroDangle: boolean;
+}
+```
+
+Runs monthly. Selects `n` multi-turn flows at random, joins across `agent_span`, `kernel_audit`, `agent_draft`, `agent_approval`, and tool-execution rows by `flow_id`; reports any flow missing the shared id anywhere it should appear. `zeroDangle` feeds the GA gate.
+
 ---
 
 ## 5. Control Flow
@@ -312,6 +395,23 @@ Target: canary detects within 30 min of planting.
 2. Scheduled nightly run in production env.
 3. For every turn-shape in the test corpus: run in tenant A, then tenant B; compare RLS-filtered rows.
 4. Any leak → P1 incident logged + alert.
+
+### Scale probe + EI audit pipelines
+
+Three distinct pipelines wire the new harness components into CI, GA, and monthly sampling:
+
+**CI path (per-PR, hard gate).** On any PR touching plan 02, plan 02.5, or plan 07:
+
+1. CI invokes `ScaleProbeRunner.run()` against the synthetic 12-module fixture.
+2. CI invokes `ExtensibilityInvariantAudit.run()` against the synthetic fixture + the three MVP modules.
+3. Any `passed: false` in either result fails the build; the PR cannot merge.
+4. Results persist to `agent_readiness_check` (criterion_id prefix `18.5.scale_probe.*`, `18.2+18.5.ei_audit.*`) for trend visibility.
+
+**GA path (rolling 30-day windows).** §18.1–§18.5 thresholds are evaluated continuously by `ReadinessValidator.evaluateAll()`; the GA gate flips when those thresholds hold for two consecutive 30-day windows (already §18.7). The scale probe and EI audit participate as §18.5 rows — their most recent CI run must be green for the window to count.
+
+**Monthly sampling.** `FlowCorrelationProbe.sample(100)` runs on a monthly schedule; its `zeroDangle` boolean persists and must hold true for two consecutive months before GA. Sampled flows + results are pinned to audit retention so a failing month is reproducible.
+
+Intent-slug coverage is evaluated nightly on 30-day rolling traffic by a dedicated `CriterionEvaluator` implementing the §18.5 `intent_slug_coverage` row; no new pipeline, just another evaluator registered with `ReadinessValidator`.
 
 ### Criterion threshold governance
 
@@ -376,6 +476,16 @@ Target: canary detects within 30 min of planting.
 | ------- | --------------------------------------------------------------- | --------- |
 | R-13.17 | GA readiness dashboard shows each criterion + pass/fail + trend | §18       |
 | R-13.18 | `is_ga_ready` state visible to operators + stakeholders         | §18       |
+
+### 12-module scale probe + extensibility audit
+
+| #       | Requirement                                                                                                                               | Design §§    |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| R-13.19 | Scale probe runs on every PR touching plan 02, plan 02.5, or plan 07 and hard-fails on any EI-4 / EI-5 / EI-6 red                         | §2.2, §18.5  |
+| R-13.20 | EI-1..EI-10 audit suite runs on every CI build against synthetic fixture + 3 MVP modules; zero failures required to merge                 | §2.2, §18.5  |
+| R-13.21 | Intent-slug coverage probe runs nightly on 30-day rolling traffic; `unclassified` rate ≤ 2%                                               | §2.2, §18.5  |
+| R-13.22 | `flow_id` end-to-end correlation probe runs monthly on a 100-flow random sample; zero-dangle required                                     | §18.4, §18.5 |
+| R-13.23 | GA gate: all §18.1–§18.5 thresholds (including scale probe, EI audit, intent-slug, flow_id probe) held for two consecutive 30-day windows | §18.7        |
 
 ---
 
@@ -456,6 +566,9 @@ Hourly harness overhead: <0.01% of production capacity. Trivial.
 - Each `CriterionEvaluator`: seeded data → expected observed/threshold/passed.
 - `GaReadinessComputer`: matrix of (all-pass / 1-window / 2-window / incident / tenant-count / runbook-coverage) → `is_ga_ready` boolean.
 - Runbook coverage: last-pass calculation across multiple runbook entries.
+- `ScaleProbeRunner`: mock 12-sub-agent registry → assert budget-ceiling (EI-6) check fires when router prompt exceeds target; recall-threshold (EI-4, EI-5) checks fire on synthetic misses.
+- `FlowCorrelationProbe`: seeded flow with one missing `flow_id` on a draft → probe reports exact dangle location.
+- `ExtensibilityInvariantAudit`: per-invariant unit tests with seeded passing + seeded failing fixtures (e.g. EI-3 unique-slug test with injected duplicate).
 
 ### Integration
 
@@ -464,11 +577,15 @@ Hourly harness overhead: <0.01% of production capacity. Trivial.
 - Threshold change: PR seeded → audit event emitted; dashboard reflects new threshold immediately on next tick.
 - Cost reconciliation: seed `agent_cost_event` + vendor invoice differing by 3% → alert fires.
 - Red-team drill: plant degradation → canary detects within simulated 30 min window → drill outcome recorded.
+- EI audit against the 3 MVP modules (planner, people, projects): every EI-1..EI-10 check passes; planted violation (e.g. seeded central-registration edit, module-scoped memory column) flips the audit red.
+- Intent-slug coverage evaluator: seed 30-day traffic with 3% `unclassified` → criterion fails; seed at 1% → passes.
 
 ### E2E
 
 - Full quarterly cycle: drill scheduled → executed → logged → coverage gauge updates → next quarter scheduled.
 - Production readiness scenario: start with `is_ga_ready: false`; over simulated 60+ days, all criteria pass; GA gate flips; notification fires; stakeholders see scorecard.
+- Scale probe end-to-end against the synthetic 12-module fixture: CI run materializes the 12-sub-agent / 20-tool registry, executes `ScaleProbeRunner.run()` once per CI, asserts EI-4 / EI-5 / EI-6 green and persists a readiness row.
+- Flow-correlation probe end-to-end: generate 100 simulated multi-turn flows → `FlowCorrelationProbe.sample(100)` reports `zeroDangle: true`; inject a missing `flow_id` on a single draft → probe reports exact dangle.
 
 ### Property
 
@@ -494,6 +611,10 @@ Hourly harness overhead: <0.01% of production capacity. Trivial.
 - Cost reconciliation runs weekly + alerts on divergence.
 - Cross-tenant leak suite runs nightly in production env + on every PR.
 - Threshold change audit trail demonstrable.
+- Scale probe passes in CI for every PR touching plan 02, plan 02.5, or plan 07.
+- EI-1..EI-10 audit passes on the three-module MVP (planner, people, projects) and on the 12-module synthetic fixture.
+- Observed `intent_slug: 'unclassified'` rate ≤ 2% on 30-day rolling traffic.
+- 100-flow monthly correlation probe returns `zeroDangle: true` for two consecutive months before GA.
 
 ---
 
@@ -514,12 +635,13 @@ This plan itself rolls out alongside the others:
 ## 14. Dependencies
 
 - Plan 01: tool gateway pipeline (observability surface consumed).
-- Plan 02: session + hashes.
+- Plan 02: session + hashes. Scale probe + EI audit consume its router / sub-agent registry surfaces.
+- Plan 02.5: sub-agent / tool routing. Scale probe exercises its retrieval and prompt-budget behavior at N=12.
 - Plan 03: phase execution metrics.
 - Plan 04: conversation state (GDPR runbook).
 - Plan 05: cost events + budget state (cost reconciliation).
 - Plan 06: SSE + abort (reliability metrics).
-- Plan 07: observability infrastructure (heavy consumer).
+- Plan 07: observability infrastructure (heavy consumer). Scale probe + EI audit consume its span-attribute contract (EI-7) and its `flow_id` / `intent_slug` emission surfaces.
 - Plan 08: drafts + approval (R-08.30 audit-trail query).
 - Plan 09: async agents (runbook coverage includes async incident scenarios).
 - Plan 10: canary infrastructure + scorer registry + golden-trace CI.
@@ -543,6 +665,8 @@ This plan itself rolls out alongside the others:
 ## 16. Activation Gate
 
 Continuous from Beta onward. Itself gates GA.
+
+**Scale probe + EI audit are active from the first CI run** (not deferred to Beta): the moment plan 02, plan 02.5, or plan 07 ship a PR, the scale probe and EI audit hard-gate merge. Intent-slug and flow-id probes activate as soon as their upstream emissions exist (plan 02 / plan 07). The GA gate criteria consolidate into §18.7: all §18.1–§18.5 thresholds (including the scale probe, EI audit, intent-slug coverage, and flow_id correlation rows) held for two consecutive 30-day windows, plus §18.6 runbook coverage + tenant count + P1-incident count conditions.
 
 ## 17. Out of Scope
 

@@ -2,6 +2,19 @@
 
 **Design §§:** §3 (Runtime Topology, Sub-agent declaration site), §8 (Prompt Architecture).
 
+## Revision 2026-04-22
+
+Reflects the 2026-04-22 revision of `agent-runtime.md`. Previously-deferred items promoted to MVP; integration remains narrow (planner/people/projects) but core must scale to 12+ modules (EI-1..EI-10).
+
+- §1 In — adds `intent_slug` registry (EI-3, module-local files aggregated at build); router emits `intent_slug` + `flow_id` on the plan and propagates both to every child span (design §12); sub-agent retrieval at router (design §3) activates when the rendered router prompt exceeds the token budget; sub-agent config extended with `toolRetrieval` and `coreTools` (full retrieval contract owned by plan 02.5; wiring lives here).
+- §3 Data Model — adds intent-slug registry (file-based build aggregation, no DB table).
+- §4 Interface Contracts — extends `defineSubAgent` config with `toolRetrieval` + `coreTools`; extends `RouterPlanOutput` with `intent_slug` + `flow_id`; adds `SubAgentRetriever` interface.
+- §5 Control Flow — inserts a budget-check step before prompt render that may activate sub-agent retrieval; router plan output now carries `intent_slug` + `flow_id`.
+- §6 Requirements — new rows R-02.26..R-02.29 for budget enforcement, intent-slug registry aggregation + uniqueness, sub-agent retrieval recall on 12-sub-agent probe, and `intent_slug` + `flow_id` stamping discipline.
+- §14 Dependencies — adds plan 02.5 (tool retrieval) and plan 07 (flow_id propagation).
+- §16 Activation Gate — MVP first-production-turn; sub-agent retrieval ships enabled but structurally dormant below the budget, activating when breached.
+- §18 Open Questions — adds router prompt token-budget seeding question.
+
 ---
 
 ## 1. Scope
@@ -15,6 +28,10 @@
 - Permission narrative generation from `canDo` rule set, cached by content hash in `agent_narrative_store`.
 - Structured-output parse with one-retry-on-schema-fail, then escalate to disambiguation.
 - Canonicalization rules applied at prompt-assembly time so hashes are stable.
+- **`intent_slug` registry (EI-3).** Module-local declaration files at `modules/<X>/agent/intents/*.ts`, aggregated at build into a single tenant-agnostic slug table. Router emits `intent_slug` on every plan; slug + `flow_id` propagate to every child span (design §12).
+- **Router emits `intent_slug` + `flow_id` on the plan** (design §12). Both are required fields on `RouterPlanOutput`; propagation into downstream spans is owned by plan 07.
+- **Sub-agent retrieval at router (design §3).** Activates when the rendered router prompt exceeds the configured token budget. Below budget the full registry is inlined (MVP 3-module case); above budget, a top-K retrieval narrows the advertised sub-agent set. Ships enabled but structurally dormant below budget.
+- **Sub-agent config extensions for retrieval.** `defineSubAgent` gains `toolRetrieval` + `coreTools`. The full tool-retrieval runtime contract is owned by plan 02.5; plan 02 owns the sub-agent config surface that plan 02.5 consumes.
 
 ### Out
 
@@ -61,6 +78,14 @@ Built-registry artifact (in-memory at runtime):
 
 - `Map<SubAgentKey, ValidatedSubAgentConfig>` — indexed by `key`.
 - Frozen at bootstrap; no runtime mutation.
+
+### Intent-slug registry (code + build artifact, EI-3)
+
+Not a DB table. Module-local source + build-time aggregation, same pattern as the sub-agent registry:
+
+- `apps/api/src/modules/<domain>/agent/intents/*.ts` — module-scoped files declaring slug entries `{ slug, domain, description }`.
+- Build-time aggregator at `apps/api/src/modules/agents/infrastructure/registry/intents/` merges all module-local files into a single frozen table and fails the build on duplicate `slug`.
+- Consumed by the router to emit `intent_slug` on every plan; the router never invents a slug outside the aggregated table.
 
 ### `agent_stored_sub_agent` (for `source: 'stored'`, shipped interface stub at MVP)
 
@@ -129,6 +154,8 @@ defineSubAgent<TInputSchema extends ZodType, TOutputSchema extends ZodType>(conf
   };
   model: DynamicArgument<ModelChoice, TenantContext>;
   source: 'code' | 'stored';
+  toolRetrieval?: { enabled: boolean; topK: number };   // plan 02.5 consumes
+  coreTools?: ReadonlyArray<string>;                    // always-inlined tools, excluded from retrieval
 }): ValidatedSubAgentConfig<TInputSchema, TOutputSchema>
 ```
 
@@ -193,6 +220,23 @@ build(opts: { tenantId: UUID; roleId: UUID; }): Promise<{
 
 Reads `agent_narrative_store` by `(tenant_id, role_id) → hash → text`. Misses trigger generation + append + kernel audit event `agent.narrative_stored`.
 
+### `SubAgentRetriever`
+
+Activates when rendered router prompt would exceed the token budget. Returns a top-K subset of sub-agent descriptors ranked against the current utterance + recent-summary window. An `alwaysInclude` set (e.g. tenant-critical or recently-invoked sub-agents) is appended after ranking so pinned entries survive narrowing.
+
+```
+retrieve(opts: {
+  tenantId: UUID;
+  utterance: string;
+  recentSummary: WindowedSummaries;
+  candidates: ReadonlyArray<ValidatedSubAgentConfig>;
+  topK: number;
+  alwaysInclude: ReadonlySet<SubAgentKey>;
+}): Promise<ReadonlyArray<ValidatedSubAgentConfig>>
+```
+
+Determinism / auditability: retrieval input + output identifiers are stamped on `router-prompt:build` span attrs so a narrowed prompt is reproducible from the turn trace.
+
 ### `RouterDecisionParser`
 
 ```
@@ -205,6 +249,8 @@ type ParseResult =
 
 type RouterPlan = {
   topology: 'bounded';                      // iterative added in plan 12
+  intent_slug: string;                      // from aggregated intent registry (EI-3); stamped on plan + every child span
+  flow_id: string;                          // per-turn correlation id; propagated by plan 07
   phase1: SubAgentDirective[];              // 1..3
   phase2?: SubAgentDirective;
   disambiguation?: string;                  // present iff topology can't fit
@@ -224,8 +270,9 @@ type RouterPlan = {
    - (a) **Module toggle**: read tenant's enabled-modules set from admin module config; a sub-agent whose `toolScope` lies entirely within a disabled module is dropped. Emit `router_sub_agent_hidden_by_module{module, sub_agent_key}` span attribute for the filtered set.
    - (b) **Role permissions**: for each surviving sub-agent, intersect `toolScope` against `roleAllowedPermissions` via `canDo`. Tools the role cannot call are removed from the sub-agent's effective scope.
    - (c) **Empty-scope drop**: if (a) + (b) leave a sub-agent with zero resolvable tools, the sub-agent is dropped from the returned list entirely. Emit `router_sub_agent_hidden_by_permission{sub_agent_key}` span attribute. This prevents the router prompt from advertising a sub-agent that cannot do useful work, and also surfaces a product signal ("user role would use this sub-agent but lacks the tools"). See R-02.9a.
-5. **Build router prompt.** `RouterPromptBuilder.build(...)` returns system prompt + developer message + `routerPromptHash`. Registry entries are rendered as `{ key, domain, description, whenToUse, inputSchema JSONSchema, outputSchema JSONSchema }`. Tool catalog (filtered per role) is rendered once; hashed for `toolCatalogHash`.
-6. **Pin to session.** Create `agent_session` row with all hashes. Replay harness (plan 10) reconstructs prompts via these hashes.
+5. **Token-budget check (sub-agent retrieval gate).** Estimate the rendered router prompt size against the configured token ceiling. If the rendered registry + tool catalog + narrative + γ/α window would exceed the ceiling, invoke `SubAgentRetriever.retrieve(...)` with the resolved sub-agent list as `candidates`, the current utterance, the recent-summary window, and the tenant's `alwaysInclude` set; the returned top-K replaces the full list for this turn. If under budget, the full list is inlined unchanged. The activation decision + retrieval input/output identifiers are stamped on `router-prompt:build` span attrs for replay.
+6. **Build router prompt.** `RouterPromptBuilder.build(...)` returns system prompt + developer message + `routerPromptHash`. Registry entries are rendered as `{ key, domain, description, whenToUse, inputSchema JSONSchema, outputSchema JSONSchema }`. Tool catalog (filtered per role) is rendered once; hashed for `toolCatalogHash`.
+7. **Pin to session.** Create `agent_session` row with all hashes. Replay harness (plan 10) reconstructs prompts via these hashes. Router plan output also stamps `intent_slug` + `flow_id`, which plan 07 propagates into every child span.
 
 ### Router LLM call (per turn)
 
@@ -320,6 +367,15 @@ Every string emitted into the assembled router prompt passes through the canonic
 | ------- | ------------------------------------------------------- | --------- |
 | R-02.24 | Apply §8 canonicalization rules at prompt-assembly time | §8        |
 | R-02.25 | Canonicalizer version hash stamped on every trace       | §8        |
+
+### Token budget + sub-agent retrieval (2026-04-22 revision)
+
+| #       | Requirement                                                                                                                                                                                                                                                                                                                                                | Design §§ |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| R-02.26 | Router prompt token budget enforced at assembly. When rendered prompt would exceed the ceiling, `SubAgentRetriever.retrieve` activates and narrows the advertised sub-agent list to top-K plus `alwaysInclude`. Below budget the full registry is inlined. Activation is a span-attribute boolean on `router-prompt:build`; never silently truncates text. | §3        |
+| R-02.27 | Intent-slug registry aggregated at build from module-local `modules/<X>/agent/intents/*.ts`. A build-time test asserts slug uniqueness across modules; duplicate slug = build failure. (EI-3.)                                                                                                                                                             | §12, EI-3 |
+| R-02.28 | Sub-agent retrieval recall meets the target on a 12-sub-agent synthetic probe fixture covering EI-1..EI-10 scale. CI hard-fails on regression. (EI-4.)                                                                                                                                                                                                     | §3, EI-4  |
+| R-02.29 | Router always stamps `intent_slug` + `flow_id` on the plan and both propagate to every child span. `intent_slug: 'unclassified'` rate must stay ≤ 2% on 30-day rolling traffic per tenant; sustained breach is a router-quality incident, not a soft warning.                                                                                              | §12       |
 
 ---
 
@@ -473,6 +529,8 @@ Total non-LLM overhead: <50ms p99. Dominated by the LLM call.
 - Plan 00 (shipped): `agent_narrative_store` + sanitizer + OTel wiring (trace backend selection deferred per CLAUDE.md; plan 07).
 - Admin module: tenant module-toggle configuration consumed by `resolveForSession` stage (a) filter (R-02.9a).
 - Plan 01: tool registry (for `tool_catalog_hash` + tool-name validation in `toolScope`).
+- Plan 02.5 (tool retrieval): owns the runtime contract behind the `toolRetrieval` / `coreTools` config surface defined here.
+- Plan 07 (flow_id propagation): consumes `intent_slug` + `flow_id` stamped on the router plan and propagates them onto every child span.
 - `KernelQueryFacade.getRolePermissions(tenantId, roleId)` returning `{ role, allow, deny }`.
 
 ## 15. Integration Points
@@ -491,7 +549,7 @@ Total non-LLM overhead: <50ms p99. Dominated by the LLM call.
 
 ## 16. Activation Gate
 
-MVP. Ships with first production turn.
+MVP — ships with first production turn. Sub-agent retrieval (R-02.26) ships enabled but _structurally_ dormant: below the token budget, the full registry is inlined and retrieval is never invoked. It activates only when the rendered router prompt exceeds the ceiling. This keeps the MVP 3-module case identical to the pre-revision behaviour while the core is already ready for EI-1..EI-10 scale.
 
 ## 17. Out of Scope
 
@@ -507,3 +565,4 @@ MVP. Ships with first production turn.
 - **Stored sub-agent signing / integrity.** If tenants can edit stored sub-agents at Beta, do we want a signed checksum to prevent unauthorized DB edits from landing? Owner: Beta-phase designer.
 - **Drift-test perf at scale.** 60-100 tools × N sub-agents × input-schema compat check — profile at 20-tool milestone. If >30s, move to scheduled job, not per-PR. Owner: CI maintainer.
 - **Disambiguation prompt copy.** What does the user see when router escalates? Owner: product + UX review before first canary.
+- **Initial token budget for router prompt.** Seed from the MVP 3-module fixture (planner/people/projects) so retrieval stays dormant through first production traffic; re-tune at Beta once EI-1..EI-10 module enablement broadens the rendered registry. Owner: runtime lead at Beta entry.

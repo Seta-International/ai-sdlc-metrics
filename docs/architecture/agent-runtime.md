@@ -1,10 +1,10 @@
 # Agent Runtime Architecture — v1 Specification
 
-**Status:** Production-ready specification (revision 2026-04-21). Supersedes v1 lock from earlier adversarial pass. The document covers the full path from first-ship through GA — each concern carries explicit **phase markers** (MVP / Beta / GA) rather than a flat deferred bucket. Revision informed by mastra prior-art spike (see `docs/spike/mastra/`). Phase markers:
+**Status:** Production-ready specification (revision 2026-04-22). Supersedes the 2026-04-21 revision. This pass reframes the runtime as comprehensive-production-ready from v1 rather than staged MVP → Beta → GA: features previously gated to Beta/GA that are load-bearing at the 200-flow / 12-module target have been promoted to MVP. Core runtime is designed to serve all 13 domain modules (see §2.2 Extensibility Invariants); MVP integration is narrow by design — **planner, people, projects** only (see §2.3). Informed by mastra prior-art spike (see `docs/spike/mastra/`) and 2025-2026 external research on multi-agent systems at scale. Phase markers:
 
-- **MVP** — first-ship; must exist for any agent turn to run correctly.
-- **Beta** — required for multi-tenant rollout; adds cost discipline, observability depth, shadow-mode capability.
-- **GA** — required to call the runtime production-ready; adds iterative topology, canary + quality probes, LLM-judge meta-eval, embedding spike if triggered, full replay coverage beyond stratified sample.
+- **MVP** — first-ship; must exist for any agent turn to run correctly at the production-ready target.
+- **Beta** — tenant expansion discipline: broader tenant rollout, wider module integration (modules 4-13), LLM-judge activation once meta-eval corpus exists.
+- **GA** — two consecutive 30-day windows meeting §18 thresholds across ≥3 live tenants.
 
 Production readiness criteria (observable thresholds, not feature list) are enumerated in §18. "Back-compat: none" — each phase transition is a full refactor under the stated invariants, not a compat shim.
 **Scope:** Agent runtime layer only. Does not cover full application architecture, UI/UX beyond interface contracts, or domain module internals beyond integration points.
@@ -62,8 +62,37 @@ Every decision in this document derives from these. If a future change violates 
 ### 2.1 Runtime Layer
 
 - The runtime is built on the **Vercel AI SDK** primitive surface (`ToolLoopAgent`, `generateObject`, `streamText`, `stopWhen` / `prepareStep`, MCP). Exact version pinned in the implementation doc.
-- **Primitive-level, not orchestration-level.** Router, phase execution, and synthesizer are code-orchestrated. **The runtime supports two topologies, surface-selected at router entry:** (a) **two-phase bounded** (§3) — default for structured cross-domain queries; cost-capped, replay-deterministic, taint well-scoped; (b) **iterative supervisor** (§3.1) — for open-ended investigation / multi-step planning tasks that do not decompose into ≤3 parallel + 1 sequential. Iterative turns carry stricter per-iteration cost gates, scorer-determinism constraints on exit, and explicit taint-persistence-across-iterations. Inline copilots remain bounded-only by hard contract.
+- **Primitive-level, not orchestration-level.** Router, phase execution, and synthesizer are code-orchestrated. **The runtime supports four topology tiers, selected per-turn by the router's plan:** Tier 0 (direct execution, single tool call, no sub-agent, no synthesizer); Tier 1 (bounded DAG — Phase 1 ≤3 parallel sub-agents, optional Phase 2 ≤3 parallel sub-agents consuming Phase 1's sanitized output); Tier 2 (iterative supervisor, §3.1); Tier 3 (async autonomous, §11). Every tier shares the same §7 gateway pipeline and §2 security invariants. Inline copilots remain bounded-only (Tier 0 or single-sub-agent Tier 1) by hard contract.
 - Non-agent workflows (data ingestion, batch) are unaffected by this lock.
+
+### 2.2 Extensibility Invariants — the 12-module contract
+
+The runtime integrates 3 domain modules at MVP (planner, people, projects) but its core abstractions are designed to serve all 13 domain modules without runtime rewrites. These invariants define that contract — adding modules 4 through 12 must be a PR inside the target module, never a change to the agent runtime. Each maps to a test in §18.5.
+
+| #     | Invariant                                                                                                                                                                       | Enforced by                                                                     |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| EI-1  | **Sub-agent addition is module-local.** Adding a sub-agent is a new file in `modules/<X>/agent/sub-agents/*.ts` and zero central edits.                                         | Root aggregator discovers at build; key-collision test fails build.             |
+| EI-2  | **Tool addition is a tRPC meta change.** Adding an agent tool is `.meta({ agent })` on a tRPC procedure — no central registration.                                              | Drift test enumerates all procedures with the `agent` meta block.               |
+| EI-3  | **Intent-slug addition is module-local.** Declaring a new intent slug is a new file in `modules/<X>/agent/intents/*.ts`.                                                        | Slug registry aggregated at build; unique-slug test fails build.                |
+| EI-4  | **Sub-agent retrieval scales to N.** Router prompt size holds as sub-agent count grows; retrieval accuracy holds.                                                               | Synthetic 12-sub-agent registry probe; recall ≥ target.                         |
+| EI-5  | **Tool retrieval scales to M.** Sub-agent tool-selection accuracy holds as per-sub-agent tool count grows.                                                                      | Synthetic 20-tool sub-agent probe; recall ≥ target.                             |
+| EI-6  | **Router prompt budget holds at scale.** Explicit token ceiling on rendered router prompt; breach triggers sub-agent retrieval activation.                                      | Budget-ceiling test at N=12 synthetic sub-agents.                               |
+| EI-7  | **Observability dimensions are module-neutral.** `flow_id`, `intent_slug`, `sub_agent_key`, `tool_name` are indexed span attributes; zero module-specific dashboards hardcoded. | Span schema test: every trace carries the four attributes.                      |
+| EI-8  | **Budget scope is tenant × sub-agent × flow, never module.** Cost ceilings, rate limits, approval policies scale per-tenant × per-sub-agent × per-flow.                         | Seed test with 12 synthetic sub-agents verifying budget allocation correctness. |
+| EI-9  | **Memory tier scope excludes module dimension.** Memory partition keys are `(tenant_id, user_id)` or `(tenant_id)` — never `(tenant_id, module)`.                               | Schema review: no `module` column on memory tables.                             |
+| EI-10 | **Governance lints are pattern-matched.** Lint rules run against `modules/*/agent/**` globs.                                                                                    | Lint dry-run against synthetic-module fixture.                                  |
+
+**12-module scale probe (§18.5).** A synthetic 12-sub-agent registry with fake tools/intents exercises EI-4, EI-5, EI-6 in CI on every plan-changing PR and as a GA gate. Proves 12-module capacity at 3-module delivery — not in production.
+
+### 2.3 MVP Integration Scope
+
+MVP integrates **planner**, **people**, and **projects** — the densest cross-domain triplet in the 13-module set. These three modules jointly exercise every topology tier (Tier 0 direct lookup, Phase-1 parallel fan-out, Phase-2 fan-out, iterative), the taint path (tenant-authored task notes), the approval ladder (low-tier `planner.createTask` + high-tier `people.updateRole`), and aggregate composition (team-member × task-count k-anonymity concern). Modules 4 through 13 integrate post-MVP through Beta, each a module-local PR inside the EI-1..EI-10 contract — no runtime changes.
+
+**MVP per-module write discipline:**
+
+- **planner, projects** — writes enabled day 1 (lower blast radius; taint + approval-tier exercise the full ladder).
+- **people** — writes flag-gated for 2-4 weeks post-launch (higher blast radius; reads first).
+- All three — reads and draft-to-inbox enabled day 1; delegation-signed autonomous writes deferred to §11 async expansion (gate: 4 weeks of incident-free draft-to-inbox).
 
 ---
 
@@ -71,44 +100,58 @@ Every decision in this document derives from these. If a future change violates 
 
 **Shape:** Router → sub-agents → synthesizer. Not a flat single-agent-with-many-tools.
 
-**Architectural invariant — the router produces a plan; code executes it.** The router is an LLM call that emits a structured plan (typed via schema). Phase execution is deterministic code (parallel spawn + sanitize + optional phase-2). Sub-agents do not re-plan. This invariant is load-bearing for cost predictability, turn-scoped taint, and deterministic replay — properties supervisor/iterative-loop shapes do not preserve without significant fighting of defaults.
+**Architectural invariant — the router produces a plan; code executes it.** The router is an LLM call that emits a structured plan (typed via schema). Phase execution is deterministic code (parallel spawn + sanitize + optional Phase 2 fan-out). Sub-agents do not re-plan. This invariant is load-bearing for cost predictability, turn-scoped taint, and deterministic replay — properties supervisor/iterative-loop shapes do not preserve without significant fighting of defaults.
 
-**Rationale.** With ~60–100 tools across KPI/Timesheet/Project/HRM/Finance, flat tool surfaces degrade accuracy past ~30–40 tools. Domain-scoped sub-agents each see only their ~10–15 tools, well under the cliff.
+**Tool-surface rationale.** Projected steady-state surface is ~100-150 agent tools across the 13 domain modules. 2025-2026 research (Anthropic advanced-tool-use guidance; MCPVerse / WildToolBench benchmarks) locates the accuracy cliff at **~10 tools without retrieval** (Claude Opus 4.5 baseline ~79.5%) and **~40-50 tools with retrieval** (retrieval lifts Opus 4.5 to ~88.1%). Our shape is domain-scoped sub-agents each seeing ≤15 tools in scope, with **dynamic tool retrieval** (§7, plan 02.5) surfacing top-K ≈ 5-7 per invocation. This keeps the effective tool surface per LLM call well under the no-retrieval cliff even as domain tool counts grow. The earlier "30-40 cliff" anchor is retired.
 
-**Two-phase bounded execution.** The router produces a plan with at most two phases:
+**Topology tier selection (router-classified):**
 
-- **Phase 1:** Parallel fan-out to ≤3 sub-agents, independent inputs from the router.
-- **Phase 2 (optional):** One additional sub-agent whose input can reference phase 1's sanitized summary. Input goes through the same sanitization pipeline as cross-turn summaries.
-- **No phase 3. No branching within a phase.**
+| Tier  | Shape                                                                                                                            | When the router picks it                                                                                                     | Coverage at 200 flows                                                 |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **0** | Direct execution — single tool call, no sub-agent, no synthesizer.                                                               | High-confidence simple lookup intent; target tool carries `directExecutable: true` (§7); no taint-bearing output; read-only. | ~60-70% of flows (typed lookups).                                     |
+| **1** | Bounded DAG — Phase 1 (≤3 parallel sub-agents) + optional Phase 2 (≤3 parallel sub-agents consuming Phase 1's sanitized output). | Structured cross-domain intent; plan shape fixed before first tool call.                                                     | ~25% of flows (cross-domain lookups, composed reads, drafted writes). |
+| **2** | Iterative supervisor (§3.1).                                                                                                     | Open-ended investigation or multi-step planning whose plan shape cannot be fixed before the first tool call returns.         | ~5% of flows (the investigative tail).                                |
+| **3** | Async autonomous (§11).                                                                                                          | Event-triggered or scheduled; not a direct response to a live user turn.                                                     | Scheduled reports, anomaly nudges, onboarding automations.            |
 
-If the intent requires more than this, the router escalates to **disambiguation** — asks the user a clarifying question — rather than inventing a larger plan.
+**Tier-0 safety rails (non-negotiable):**
 
-**Phase-1 cap of 3 is a v1 complexity guardrail, not a permanent architectural limit.** Revisit if router-accuracy monitoring (§12) shows sustained capacity for higher N, or if real cross-domain queries systematically require more. Revisiting is a tenant-level rollout (same A/B key as router/tool-meta, §14), not a silent code bump.
+- **Write tools ineligible.** Tier 0 is read-only by construction. Drafted writes must run through Tier 1 so the synthesizer's taint + approval-tier reasoning applies.
+- **Taint-bearing outputs ineligible.** A tool declaring `tenantAuthoredFreeText` must run through Tier 1 synthesizer for disclosure rendering.
+- **Opt-in per tool.** A tool is Tier-0-eligible iff its meta carries `directExecutable: true`. Default off; whitelisting is a PR-reviewed decision.
+- **Confidence floor.** If router confidence on Tier-0 classification falls below threshold, auto-downgrade to Tier 1; emit `router_tier0_declined_confidence` observability signal.
 
-**Ambiguity ladder (in order of preference):**
+**Tier-1 Phase 2 fan-out.** Phase 2 is a list of 0-3 sub-agents, each consuming Phase 1's sanitized output independently. Sanitizer runs per Phase-2 sub-agent against its declared `inputSchema`. Worst-case turn: 3 Phase-1 + 3 Phase-2 = 6 sub-agents, exercised within the turn-level cost ceiling (§13). Phase-2 sub-agents remain parallel — no serial chain across Phase-2 entries.
 
-1. Disambiguation question.
-2. Fan-out to matched sub-agents (capped at 3), synthesizer merges.
+**No phase 3; no unbounded DAG depth.** Queries requiring depth ≥3 are Tier 2 (iterative) territory — the router classifies them accordingly. Tier 1 is a 2-level DAG with fan-out at each level, not an arbitrary graph.
+
+**Phase caps (1 fan-out ≤3, 2 fan-out ≤3) are tunable per tenant** via the same A/B key as router/tool-meta (§14). Revisit if router-accuracy monitoring (§12) shows sustained capacity for higher N or if real cross-domain queries systematically require more.
+
+**Ambiguity ladder** (triggered when intent is not directly actionable by any tier):
+
+1. Disambiguation question to the user.
+2. Tier-1 fan-out to best-match sub-agents (capped at Phase 1 ≤3 + Phase 2 ≤3), synthesizer merges.
 3. Analyst sub-agent (read-only, escape-hatch tools), gated on `canDo('agent.analyst')`.
 
 **Surfaces:**
 
-- **Global chat** (primary, v1). Router + sub-agents + synthesizer. Two-phase execution enabled.
-- **Inline copilots** (v1). Single sub-agent by hard contract. Cross-domain requests surface a deep-link to global chat, not a fan-out.
-- **Async / event-triggered** (v1, deferred autonomy). Delegation-based identity. Policy constraint: read-only + notify + draft-to-inbox — no autonomous writes.
+- **Global chat** (primary, v1 MVP). Router + sub-agents + synthesizer. All four topology tiers selectable.
+- **Inline copilots** (v1 MVP). Single sub-agent by hard contract (Tier 0 or single-sub-agent Tier 1). Cross-domain requests surface a deep-link to global chat, not a fan-out.
+- **Async / event-triggered** (v1 MVP, scoped). Delegation-based identity. MVP policy: read-only + notify + draft-to-inbox. Delegation-signed autonomous writes activate when §11 async-write gate clears (4 weeks of incident-free draft-to-inbox; see §16).
 
 **Router responsibilities:**
 
-- Parse intent, select 1–N sub-agents (or disambiguate).
-- Produce sanitized directive per sub-agent: `{ goal, constraints, expected_output_shape, quote }`.
+- Parse intent; emit **`intent_slug`** (from the module-declared slug registry, §2.2 EI-3) and **`flow_id`** (trace-scoped UUID) on the plan. Both are stamped on every descendant span (§12).
+- Select topology tier (0 / 1 / 2 / disambiguate); produce the tier-specific plan.
+- For Tier 1: select 1–N sub-agents across Phase 1 + optional Phase 2, produce sanitized directive per sub-agent: `{ goal, constraints, expected_output_shape, quote }`.
 - Maintain sanitized cross-turn summary (re-filtered per target sub-agent's permission scope) — raw sub-agent traces never cross sub-agent boundaries, even within a single user's conversation.
 - Emit phase events to the streaming layer.
 
 ### Sanitization — phase handoff contract
 
 - **Sanitization is field-drop projection only.** Pure function. No value transformation, no computed fields, no coercion. Business logic (aggregation, demotion, bucketing) lives with the producer sub-agent, not the sanitizer.
-- Target sub-agent declares its input schema (see "Sub-agent declaration site" below); sanitizer projects phase-1 output to that schema.
-- **Plan-shape mismatch fails fast.** If phase-1 output doesn't contain what phase-2's input schema requires, router gets exactly **one bounded re-plan opportunity**, then escalates to disambiguation. Matches "one retry then fail loudly" discipline across the rest of the error model. Zero re-plans is too strict (benign misplans happen); unbounded re-plans reintroduce DAG-complexity that Q10 closed off.
+- Target sub-agent declares its input schema (see "Sub-agent declaration site" below); sanitizer projects Phase-1 output to that schema.
+- **Per-Phase-2-sub-agent sanitization.** When Phase 2 has multiple sub-agents, the sanitizer runs once **per Phase-2 sub-agent** against that sub-agent's `inputSchema`. Each Phase-2 sub-agent sees only the fields its own `inputSchema` declares — cross-contamination is structurally impossible.
+- **Plan-shape mismatch fails fast.** If Phase-1 output doesn't contain what a Phase-2 sub-agent's input schema requires, router gets exactly **one bounded re-plan opportunity**, then escalates to disambiguation. Matches "one retry then fail loudly" discipline across the rest of the error model. Zero re-plans is too strict (benign misplans happen); unbounded re-plans reintroduce DAG-complexity the tier boundary closed off.
 - No silent coercion between phases.
 
 ### Sub-agent declaration site
@@ -128,24 +171,34 @@ The router's available-sub-agents list is **generated from the `defineSubAgent` 
 
 **Tenant-level router customization via free-text addenda is rejected.** Per-tenant routing variation belongs in each sub-agent's `whenToUse` declaration, not in a router-prompt suffix. Free-text addenda break the prompt-hash stability story (§8) and are a latent injection surface (cf. mastra's `routingConfig.additionalInstructions` — see spike finding 04-routing).
 
-### Sub-agent declaration site — v1.1 field additions
+### Sub-agent declaration site — full field set
 
-The `defineSubAgent(config)` factory config (§3 above) is extended with:
+The `defineSubAgent(config)` factory config is:
 
+- `key` — unique sub-agent identifier; collision test fails build (EI-1).
+- `domain` — owning module (e.g. `'planner' | 'people' | 'projects'`).
 - `description` — short, audience-facing one-liner (what this sub-agent does).
 - `whenToUse` — decision hint for the router's LLM; shown inline in the router prompt.
-- `memoryScope: { reads: L1|L2|L3|L4[], writes: (L1|L2|L3)[] }` — explicit per-tier binding; prevents implicit inheritance (cf. mastra silently assigns parent memory — see spike 12-agent-builder-config).
-- `promptTemplate: { body, variables: zodSchema }` — typed prompt; v1.1 replaces bare `prompt` string. Template body is content-hashable; variables resolve at session start (not per call) so the resolved hash is replay-stable.
+- `promptTemplate: { body, variables: zodSchema }` — typed prompt. Template body is content-hashable; variables resolve at session start (not per call) so the resolved hash is replay-stable.
+- `inputSchema` — sanitization target for Phase-2 consumption.
+- `outputSchema` — sub-agent's structured output shape.
+- `toolScope: ReadonlyArray<string>` — tool name prefixes / concrete names in-scope.
+- `coreTools?: ReadonlyArray<string>` — tools always visible to the sub-agent regardless of retrieval (§7). Approval-adjacent and safety tools belong here.
+- `toolRetrieval?: { enabled: boolean; topK: number }` — when enabled, only top-K retrieved tools + `coreTools` are surfaced to the sub-agent per invocation. Retrieval embeds the router directive against each tool's `whenToUse + whenNotToUse + description`. Default topK = 6 (§7, plan 02.5).
+- `memoryScope: { reads: (L1|L2|L3|L4)[], writes: (L1|L2|L3)[] }` — explicit per-tier binding; prevents implicit inheritance (cf. mastra silently assigns parent memory — spike 12-agent-builder-config).
+- `budgets: { wallclockMs, costUsd, maxIterations }` — per-sub-agent ceilings (§4, §13).
 - `source: 'code' | 'stored'` — declaration origin; `'stored'` = DB-resident for blue/green prompt rollout (§14).
 - `model: DynamicArgument<ModelChoice, TenantContext>` — per-sub-agent model override; resolved at session start.
 
 Construction-time validation is strict: missing required field = compile error (for `code` source) or startup error (for `stored` source). Late runtime-returning-empty is not an acceptable failure mode.
 
+**Sub-agent retrieval at router (EI-4).** When the `defineSubAgent` registry exceeds the router-prompt token budget (§7), the router renders a **top-K retrieved** sub-agent list rather than the full registry. Retrieval embeds each sub-agent's `description + whenToUse` against the user's utterance + cross-turn summary. A per-tenant `alwaysIncludeSubAgents` list is always appended to the retrieved set (universal fallbacks). Retrieval is disabled below the budget threshold — it activates structurally, not as a default on.
+
 ---
 
 ## 3.1. Iterative Supervisor Topology
 
-**Status:** v1.1 addition. Opt-in per turn, router-classified alongside the two-phase plan. Inline copilots are bounded-only by hard contract (§3) and MUST NOT select iterative.
+**Status:** v1 MVP — router-classified as **Tier 2** alongside Tier 0 (direct) / Tier 1 (bounded DAG). Gated on `canDo('agent.iterative')` to avoid accidental activation on low-value turns (the 17× error-amplification finding for unstructured multi-agent systems is the load-bearing reason the gate exists). Inline copilots are bounded-only by hard contract (§3) and MUST NOT select iterative.
 
 **When to use:** open-ended investigation ("why did KPI X regress?"), multi-step planning ("build a project comparison across these five dimensions"), or any task whose plan shape cannot be fixed before the first tool call returns. Any task that decomposes cleanly into ≤3 parallel + 1 sequential stays bounded — iterative is the escape hatch, not the default.
 
@@ -309,6 +362,15 @@ Four conceptual layers. v1 scope:
       bytesScanned: 100_000_000,
       wallclockMs: 5_000,
     },
+
+    // Optional; Tier-0 direct-execution eligibility (§3). Default false.
+    // Rejected by drift test if set on a .mutation() or a tool declaring
+    // tenantAuthoredFreeText.
+    directExecutable: true,
+
+    // Optional; semantic result cache (plan 14) eligibility. Default false.
+    // Rejected by drift test if set on a .mutation().
+    cacheable: { ttlSeconds: 60 },
   },
 })
 ```
@@ -316,7 +378,7 @@ Four conceptual layers. v1 scope:
 **Key invariants:**
 
 - **Opt-in, not opt-out.** A procedure becomes an agent tool only if the `agent` meta block is present. Internal health checks, admin-setup endpoints, and background triggers without an `agent` block are invisible to the agent. Expanding the agent surface requires an explicit decision per procedure.
-- **Drift tests (multiple).** (a) Every `agent` block resolves to an existing procedure with matching schema field names. (b) Every write tool declares `approvalFreshness` — _"write tool" is defined as a tRPC `.mutation()` procedure_; `.query()` procedures are read tools and do not require the field. (c) Every aggregate-returning tool declares `compositionSensitive.minGroupSize`. Build fails on any drift.
+- **Drift tests (multiple).** (a) Every `agent` block resolves to an existing procedure with matching schema field names. (b) Every write tool declares `approvalFreshness` — _"write tool" is defined as a tRPC `.mutation()` procedure_; `.query()` procedures are read tools and do not require the field. (c) Every aggregate-returning tool declares `compositionSensitive.minGroupSize`. (d) `directExecutable: true` is rejected on `.mutation()` procedures or tools declaring `tenantAuthoredFreeText`. (e) `cacheable` is rejected on `.mutation()` procedures. (f) Every `whenToUse` passes the authoring lint (plan 15): ≥ N chars, ≥1 action verb; `whenNotToUse` is non-empty; `examples` includes ≥1 negative case. Build fails on any drift.
 - **TypeScript-enforced template.** `whenToUse`, `whenNotToUse`, `examples` are required fields on the typed `agent` object. Compile fails if missing. No central reviewer bottleneck; no lint rule debate.
 - **Ownership decentralized.** Whoever touches the procedure touches the agent description in the same PR. Description quality is a code-review concern, not a separate approval step.
 
@@ -324,11 +386,30 @@ Four conceptual layers. v1 scope:
 
 **Menu scoping (what a sub-agent actually sees):**
 
-1. Sub-agent scope: only its domain's tools.
-2. Role filter: tools disallowed by caller's role dropped.
-3. Screen filter: tools irrelevant to current surface/screen dropped.
+1. **Sub-agent scope** — only its domain's `toolScope` declaration.
+2. **Role filter** — tools disallowed by caller's role dropped.
+3. **Screen filter** — tools irrelevant to current surface/screen dropped.
+4. **Retrieval filter** (when enabled per sub-agent, plan 02.5) — top-K retrieved tools ∪ `coreTools` allowlist.
 
-All three are deterministic, pre-LLM, and cheap. The router's classification into sub-agents is the only LLM-involved step in menu shaping.
+Steps 1-3 are deterministic, pre-LLM, and cheap. Step 4 is an embedding lookup (no LLM call). The router's classification into sub-agents remains the only LLM-involved step in menu shaping.
+
+### Dynamic tool retrieval (plan 02.5)
+
+Rationale: at ~10 tools per sub-agent the accuracy cliff begins (§3 rationale). Rather than shrink every sub-agent's `toolScope`, retrieval keeps the declared scope intact while surfacing only the top-K semantically relevant tools to each LLM invocation.
+
+- **Embedding target.** `whenToUse + whenNotToUse + description` per tool, embedded once at tool-descriptor load time with `text-embedding-3-small`.
+- **Retrieval query.** The sub-agent's Phase directive (`goal + constraints`) or, for Tier-0 candidates, the user utterance.
+- **Retrieval output.** Top-K tools (default K=6, tunable per sub-agent) unioned with the sub-agent's `coreTools` allowlist — the latter always visible regardless of retrieval ranking.
+- **Activation.** Per sub-agent via `toolRetrieval.enabled` in `defineSubAgent`. Required when a sub-agent's `toolScope` resolves to >10 tools; optional below.
+- **Drift tests.** (a) Retrieval quality scorer on a sub-agent's golden traces — target recall ≥ threshold (plan 02.5). (b) `whenToUse` token-collision check: tools within the same `toolScope` whose embeddings cluster tightly trigger an authoring-lint warning (ambiguous descriptions confuse the retriever).
+
+### Semantic result cache (plan 14)
+
+- **Scope.** Per-tenant, per-tool, TTL-bounded (declared via `cacheable.ttlSeconds` on tool meta). Cross-turn, cross-sub-agent.
+- **Keying.** Semantic-hash of canonical args via embedding + nearest-neighbor lookup under a tight distance threshold. Exact-match keys hit first (zero embedding cost); semantic-match is a fallback for near-identical queries.
+- **Opt-in per tool.** `cacheable: { ttlSeconds }` on meta. Default off. Rejected on `.mutation()` procedures by drift test.
+- **Invalidation.** Any `.mutation()` on the same domain invalidates the semantic cache partition for read tools in that domain. Coarse by design — correctness over cache hit rate.
+- **Distinct from L1.** L1 read cache (§5) is per-sub-agent, per-turn, exact-key, RAM-only. Semantic cache is per-tenant, cross-turn, semantic-key, persistent. Both can hit on the same tool call; L1 wins on cost and is checked first.
 
 **Gateway is an ordered processor pipeline.** Each tool invocation traverses a fixed sequence of named steps; each step may short-circuit the call via a **tripwire** (returns a structured error to the model without executing the tool). Steps emit child spans of the tool-call span for observability. The tripwire surface is the single implementation site for §15.2's single abort path — user cancel, system abort (tenant budget tripped, provider outage, quality canary degraded), and pre-write abort-signal all tripwire through the same mechanism, differing only by `cancellation_reason` on the trace.
 
@@ -652,7 +733,13 @@ Uniform 1% misses the rare high-signal events — exactly the ones you need for 
   - every kernel audit event for tools called this turn
   - the Langfuse trace
   - the pg-boss job row (for async)
-- **One ID to grep.** End-to-end correlation across every log surface.
+- `flow_id` — single UUID generated at router entry, scoped to the **user intent** (distinct from `trace_id` which is per-turn; a multi-turn flow like draft → approval → execute shares one `flow_id` across multiple `trace_id`s). Stamped on:
+  - every span in the turn (including every `gateway:<step>` child span)
+  - every kernel audit event for tools called this turn
+  - every draft / approval / execution event related to the flow
+  - the Langfuse trace as `metadata.flow_id` + `tags=[intent:<slug>]` (vendor-agnostic; Langfuse renders `tags` as filterable facets)
+- `intent_slug` — from the module-declared slug registry (§2.2 EI-3). A controlled vocabulary — new slugs only via a `modules/<X>/agent/intents/*.ts` declaration reviewed at PR. Stamped on the same surfaces as `flow_id`.
+- **Four IDs to grep.** `tenant_id` / `trace_id` / `flow_id` / `intent_slug`. End-to-end correlation across every log surface; per-intent dashboards are a direct query rather than post-hoc inference from tool sequences.
 
 **Per-layer attributes on every trace** (§8 repeated for completeness):
 
@@ -756,6 +843,18 @@ No new capture mechanism — these are new dashboards and alerts over existing t
 
 **Deferred to v1.5:** `refusal-on-historically-accepted-pattern-match` — requires nontrivial L2 pattern matching; ROI uncertain vs. the two signals above.
 
+### Composition-attack runtime monitor
+
+`compositionSensitive` (§7) is an authoring-time declaration; composition-derived disclosure (Tenet #8) is ultimately a tool-authoring responsibility. The runtime monitor is the **operational** layer — it detects and alerts on patterns that indicate a composition attack in progress, without attempting to block the call (blocking requires intent inference, which Tenet #9 rules out).
+
+- **Detection surface.** Turn-level scan of tool-call sequences: ≥2 `compositionSensitive` tools invoked across distinct aggregate dimensions within the same trace (already emits `composition_amplification` for 100% sampling). Monitor adds cross-turn rate aggregation per `(tenant_id, user_id)` — bursts of composition-sensitive invocations from a single user in a short window are flagged.
+- **Fires:** a kernel audit event `agent.composition_pattern_observed` with `{ tenant_id, user_id, flow_id, tool_names[], aggregate_dimensions[] }`. Not a block. Feeds the kernel audit team's investigation queue.
+- **Dashboard.** Operational surface for the audit team: top composition-sensitive invokers per tenant, week-over-week delta, tool-pair frequency heatmap. Drives PR-time review of new aggregate tools (is `minGroupSize` still adequate given observed composition patterns?).
+
+### Declared-intent drift scorer (plan 10)
+
+First-class CI scorer on the golden-trace replay set: for each `(tool, context)` pair captured in traces, verify the tool's `whenToUse` / `whenNotToUse` declarations are not contradicted by the context of its actual use. Fails CI when a tool is called in a context its `whenNotToUse` excludes — surfaces "tool X is being called in context Y; update `whenToUse` or fix the sub-agent prompt." Uses deterministic string / structural checks where possible; LLM-judge variants activate post-MVP once meta-eval gate clears (§14).
+
 ### Approval inbox depth observability
 
 - Per-approver queue depth as a first-class metric. Feeds the throttle mechanism in §13.
@@ -814,6 +913,22 @@ Pre-turn refusal (`refused`) and mid-turn abort (`budget`) must not collapse —
 Rationale: async users (schedules) don't notice an extra hour of delay. Interactive users notice nano quality immediately. Spending the async latency buffer first buys 15% of tenant daily before touching interactive quality.
 
 **`tier_shift` vs `provider_fallback` — distinct trace tags.** `tier_shift` is a policy-driven tier downgrade (budget threshold crossed; tenant-wide decision). `provider_fallback` is error-recovery-driven (provider 5xx; per-call decision). They log distinct `finish_reason` values and feed different alerting paths — conflating them hides budget pressure behind provider flakiness or vice versa.
+
+**Graceful degradation ladder (explicit, ordered).** When a dependency degrades, the runtime walks the ladder top to bottom. Each step is observable via distinct trace tags and user-visible messaging; silent degradation is forbidden.
+
+| Step | Trigger                                                        | Action                                                | User-visible signal                                             | Trace tag                                            |
+| ---- | -------------------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------- |
+| 1    | Per-call provider 5xx / timeout                                | Retry once with jitter (single retry layer, §4)       | None (transient)                                                | `provider_retry`                                     |
+| 2    | Retry exhausted on `gpt-5.4`                                   | Fallback to `gpt-5.4-nano` for this call              | "Switched to faster model for this response"                    | `provider_fallback`                                  |
+| 3    | Nano also 5xx / timeout                                        | Short-circuit sub-agent with partial-answer gate (§4) | "Partial — model unavailable"                                   | `provider_outage`                                    |
+| 4    | Quality canary flags `gpt-5.4` degraded                        | Tenant-wide route to nano until canary recovers       | "Answering in simplified mode — full-quality mode resumes at N" | `tier_shift` (canary-driven)                         |
+| 5    | Quality canary flags both tiers degraded (severe)              | Least-degraded tier + elevated user notice (§12)      | "Service quality is degraded across all tiers"                  | `tier_shift` (both-tiers-degraded)                   |
+| 6    | Hard refuse threshold (canary success rate <50% on both tiers) | Refuse new turns; admin alerted                       | "Service temporarily unavailable; try again shortly"            | `refused` with `cancellation_reason: quality_canary` |
+| 7    | Tenant budget 100%                                             | Refuse new turns (§13 above)                          | "Daily budget reached; try again after N"                       | `refused` with `cancellation_reason: budget`         |
+
+**Multi-region / multi-provider posture.** MVP is ap-southeast-1 + OpenAI single-provider. The fallback ladder uses only within-provider tier degradation. Multi-region failover and cross-provider routing activate at Beta once traffic justifies the operational overhead (gate: 3+ live tenants OR single-region outage incident). Beta adds step 2a (`provider_fallback` to a secondary provider with `model_id` recorded) before falling to nano; the ladder's shape is unchanged.
+
+**No self-hosted model tier at MVP.** The ladder routes entirely within OpenAI tiers. Self-hosted is §16-gated (cost or data-sovereignty trigger).
 
 **Budget model:**
 
@@ -1068,31 +1183,41 @@ One `trace_id` namespace end-to-end makes all of this cheap.
 
 **Every feature in this specification is production-committed.** Nothing is "deferred" in the sense of "might never ship." Each row below names its activation gate — an observable threshold, product decision, or incident-driven trigger that determines **when** it turns on, not **if**. Rollout phases (MVP / Beta / GA) are the ordering of activation, not a hierarchy of importance.
 
-| Feature                                                      | Phase | Activation gate                                                                                                                                 | Owner §§ |
-| ------------------------------------------------------------ | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| Two-phase bounded topology                                   | MVP   | First production turn                                                                                                                           | §3       |
-| Gateway processor pipeline + tool registry `.meta({agent})`  | MVP   | First production turn                                                                                                                           | §7       |
-| L1/L2/L3 memory + L4 lazy fetch                              | MVP   | First production turn                                                                                                                           | §5       |
-| Stratified trace sampling (1% + 5 triggers)                  | MVP   | First production turn                                                                                                                           | §12      |
-| Draft-to-inbox + `execute-approved-draft` pg-boss            | MVP   | First production turn                                                                                                                           | §10      |
-| SSE event schema v1                                          | MVP   | First production turn                                                                                                                           | §15      |
-| Abort reason enum + `AbortSignal.any` composition            | MVP   | First production turn                                                                                                                           | §15.2    |
-| Dollar-denominated cost with cache-read/write split          | MVP   | First production turn                                                                                                                           | §13      |
-| Golden-trace CI suite (≤20 rows)                             | MVP   | First production turn                                                                                                                           | §14      |
-| **Shadow-mode capable gateway (`mode: execute \| dry-run`)** | MVP   | First production turn — interface is load-bearing for Beta model swaps                                                                          | §7, §14  |
-| **Quality canary + fixture-tenant probe**                    | MVP   | First production turn — model degradation is a production-reliability signal, not optional                                                      | §12      |
-| **Async agents (scheduled, read-only + draft-to-inbox)**     | MVP   | First production turn                                                                                                                           | §11      |
-| **Iterative supervisor topology**                            | Beta  | Router classifies first real open-ended task; two-phase bounded ships first so the gateway/pipeline stabilize                                   | §3.1     |
-| **L3.5 agent scratchpad (write-tool, allowlisted fields)**   | Beta  | Product decision — activated when persistent-cross-conversation agent memory is explicitly scoped into a product feature                        | §5       |
-| **L4 pre-injection (performance opt-in)**                    | Beta  | Lazy fetch p95 exceeds budget AND facts are static-per-tenant                                                                                   | §5       |
-| **Embeddings / semantic recall**                             | GA    | Session lengths routinely exceed context window OR "I already told you" thumbs-down rate > threshold. §16 RAG tree governs the activation spike | §5       |
-| **LLM-as-judge scorers for regression gating**               | GA    | `SetaGoldenCorpus` ≥100 rows hand-labeled AND meta-eval ≥95% agreement                                                                          | §14      |
-| **Per-iteration synthesizer (live narration)**               | GA    | UX demand signal from iterative-turn observations                                                                                               | §3.1     |
-| **Full-fleet prompt capture (beyond stratified)**            | GA    | Incident requires replay on a currently-unsampled turn class twice                                                                              | §8       |
-| **Async autonomous writes**                                  | GA    | Incident-free async draft-to-inbox for two quarters AND approval-rate ≥95%                                                                      | §11      |
-| **Agent-proposed L3 writes**                                 | GA    | Thumbs-down corpus + eval coverage permit supervised extraction                                                                                 | §5       |
-| **Self-hosted model tier**                                   | GA    | Cost or data-sovereignty constraint forces off-OpenAI                                                                                           | §13      |
-| **Full sub-agent governance (authoring review gates)**       | GA    | Router-accuracy regression fires sustained OR sub-agent headcount > ~7                                                                          | §17      |
+| Feature                                                                           | Phase | Activation gate                                                                                          | Owner §§       |
+| --------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------- | -------------- |
+| Gateway processor pipeline + tool registry `.meta({agent})`                       | MVP   | First production turn                                                                                    | §7, plan 01    |
+| Sub-agent registry + router prompt + intent classifier                            | MVP   | First production turn                                                                                    | §3, plan 02    |
+| **Tool retrieval inside sub-agents**                                              | MVP   | First production turn — required on any sub-agent whose `toolScope` resolves to >10 tools                | §7, plan 02.5  |
+| **Sub-agent retrieval at router**                                                 | MVP   | First production turn — activates when rendered router prompt exceeds token budget                       | §3, plan 02    |
+| Tier 1 bounded DAG (Phase 1 ≤3 + Phase 2 ≤3)                                      | MVP   | First production turn                                                                                    | §3, plan 03    |
+| **Tier 0 direct execution (opt-in per tool)**                                     | MVP   | First production turn — allowlist of ~15-20 tools across planner/people/projects                         | §3, plan 03    |
+| **Tier 2 iterative supervisor**                                                   | MVP   | First production turn — gated on `canDo('agent.iterative')`; tenant rollout staged                       | §3.1, plan 12  |
+| L1/L2/L3 memory + L4 lazy fetch                                                   | MVP   | First production turn                                                                                    | §5, plan 04    |
+| **L3.5 agent scratchpad (allowlisted fields, kernel-audited)**                    | MVP   | First production turn — schema-allowlisted only, `canDo('agent.scratchpad.write')` gated                 | §5, plan 04    |
+| **Semantic recall (§16 RAG tree-compliant)**                                      | MVP   | First production turn — opt-in per sub-agent, fire-and-forget write path, single-tenant index-per-tenant | §5, plan 04    |
+| Stratified trace sampling + `flow_id` + `intent_slug`                             | MVP   | First production turn                                                                                    | §12, plan 07   |
+| **Composition-attack runtime monitor**                                            | MVP   | First production turn — audit event + dashboard; no blocking                                             | §12, plan 07   |
+| Draft-to-inbox + `execute-approved-draft` pg-boss                                 | MVP   | First production turn                                                                                    | §10, plan 08   |
+| **Per-flow approval policy (flow-level + tool-level composition)**                | MVP   | First production turn — policy resolved in gateway pipeline                                              | §10, plan 08   |
+| SSE event schema v1 + abort reason enum                                           | MVP   | First production turn                                                                                    | §15, plan 06   |
+| Dollar-denominated cost with cache-read/write split + graceful degradation ladder | MVP   | First production turn                                                                                    | §13, plan 05   |
+| Golden-trace CI + declared-intent drift scorer                                    | MVP   | First production turn                                                                                    | §14, plan 10   |
+| **Semantic result cache (per-tenant, per-tool, TTL-bounded)**                     | MVP   | First production turn — opt-in per tool via `cacheable: true`                                            | §7, plan 14    |
+| **Governance: authoring lints + PR review protocol**                              | MVP   | First production turn — lint rules over `modules/*/agent/**`                                             | plan 15        |
+| Shadow-mode capable gateway (`mode: execute \| dry-run`)                          | MVP   | First production turn — interface load-bearing for shadow traffic                                        | §7, plan 11    |
+| Quality canary + fixture-tenant probe                                             | MVP   | First production turn                                                                                    | §12, plan 10   |
+| Async agents (scheduled, read-only + draft-to-inbox)                              | MVP   | First production turn; MVP scope is read-only + draft                                                    | §11, plan 09   |
+| 12-module scale probe (EI-4, EI-5, EI-6)                                          | MVP   | CI gate from first PR; re-runs on every plan-02 / plan-02.5 / plan-07 change                             | §18.5, plan 13 |
+| **L4 pre-injection (performance opt-in)**                                         | Beta  | Lazy fetch p95 exceeds budget AND facts are static-per-tenant                                            | §5             |
+| **LLM-as-judge scorers activated (framework scaffolded at MVP)**                  | Beta  | `SetaGoldenCorpus` ≥100 rows hand-labeled AND meta-eval ≥95% agreement                                   | §14, plan 10   |
+| **Async delegation-signed writes (beyond draft-to-inbox)**                        | Beta  | 4 weeks of incident-free async draft-to-inbox AND approval-rate ≥95%                                     | §11, plan 09   |
+| **Per-iteration synthesizer (live narration)**                                    | Beta  | UX demand signal from iterative-turn observations                                                        | §3.1           |
+| **Modules 4-13 integration (beyond planner/people/projects)**                     | Beta  | Module-local PR per module under EI-1..EI-10 contract; no runtime change required                        | §2.3           |
+| **Multi-region / cross-provider failover**                                        | Beta  | 3+ live tenants OR single-region outage incident                                                         | §13            |
+| **Full-fleet prompt capture (beyond stratified)**                                 | GA    | Incident requires replay on a currently-unsampled turn class twice                                       | §8             |
+| **Agent-proposed L3 writes**                                                      | GA    | Thumbs-down corpus + eval coverage permit supervised extraction                                          | §5             |
+| **Self-hosted model tier**                                                        | GA    | Cost or data-sovereignty constraint forces off-OpenAI                                                    | §13            |
+| **Code-execution composition tier (v1.5)**                                        | GA    | Composition-heavy flows accumulate measurable cost tail in production telemetry                          | plan 16        |
 
 Plans (`docs/agents/plans/`) own the how-to-implement; this table owns the gate criteria. Moving a row up (e.g. Beta → MVP) is a product decision that changes the plan's delivery order, not its existence.
 
@@ -1124,13 +1249,15 @@ Distinct from "activation-gated" — these are decisions to not build, with a re
 
 These do not block production readiness — they are scheduling-and-process questions, not architectural ones.
 
-- **Sub-agent authoring process.** Eval harness per sub-agent, prompt-composition review gates. The declaration _shape_ is locked in §3 ("Sub-agent declaration site"); the _process_ around authoring is not.
+- **Sub-agent authoring process.** The declaration _shape_ is locked in §3 ("Sub-agent declaration site"); the lint + PR review _infrastructure_ is plan 15 (MVP). The _curation process_ — which sub-agents to author in what order across the 13 modules — is a product-scheduling decision, not an architectural one.
 
   **Authoring tenet, locked now:** _"Proliferation of sub-agents is the default path; consolidation is the deliberate act. Before creating a new sub-agent, the default question is 'can this fit inside an existing sub-agent with tool additions?' — not 'what domain does this belong to?'"_
 
 - **Kernel integration concrete points.** Exact facade imports, audit event shapes, delegation API surface. TBD against a kernel-integration checklist. **Addendum from adversarial pass:** tool-authoring review checklist must include _"Does your aggregate-returning tool enforce k-anonymity / small-group suppression? What is `minGroupSize`?"_ (Tenet #8).
 
 - **Confidence derivation rule table (§9).** Refined as observed regressions inform it. Calibration signal for refinement is locked in §12.
+
+- **Beta module-integration sequencing.** Modules 4-13 integrate post-MVP in an order determined by product priority, not architectural constraint. The EI-1..EI-10 contract (§2.2) guarantees any order is safe.
 
 ### Prior art reviewed
 
@@ -1238,12 +1365,16 @@ Observable thresholds the runtime must meet to be called production-ready. **Cri
 
 ### 18.5 Rollout safety
 
-| Criterion                             | Evidence                                                                                                                       |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Golden-trace CI gate                  | ≤20-row set gates every prompt / model / tool-meta PR; hard fail on regression.                                                |
-| Canary 1% → 5% → 25% → 100% automated | Auto-rollback triggers on any §12 regression signal exceeding threshold.                                                       |
-| Shadow-mode interface exercised       | At least one model-swap candidate has run in shadow (`mode: dry-run`) against production traffic for ≥7 days before promotion. |
-| Version-pinning across retries        | pg-boss retry audit: 100% of retries hit the same `pinned_versions` as the original spawn.                                     |
+| Criterion                                        | Evidence                                                                                                                                                                                                                               |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Golden-trace CI gate                             | Hand-curated set (grows with incident history) gates every prompt / model / tool-meta PR; hard fail on regression.                                                                                                                     |
+| Canary 1% → 5% → 25% → 100% automated            | Auto-rollback triggers on any §12 regression signal exceeding threshold.                                                                                                                                                               |
+| Shadow-mode interface exercised                  | At least one model-swap candidate has run in shadow (`mode: dry-run`) against production traffic for ≥7 days before promotion.                                                                                                         |
+| Version-pinning across retries                   | pg-boss retry audit: 100% of retries hit the same `pinned_versions` as the original spawn.                                                                                                                                             |
+| **12-module scale probe (EI-4, EI-5, EI-6)**     | CI test: synthetic 12-sub-agent registry + 20-tool-per-sub-agent fixture. Router prompt within token budget; sub-agent retrieval recall ≥ target; tool retrieval recall ≥ target. Gates every PR touching plan 02, plan 02.5, plan 07. |
+| **Extensibility invariants audit (EI-1..EI-10)** | CI test suite covering each invariant in §2.2. Run against the synthetic-module fixture + the three MVP modules. Zero failures.                                                                                                        |
+| **Intent-slug coverage**                         | Every turn stamps `intent_slug` from the controlled vocabulary; `intent_slug: 'unclassified'` rate ≤ 2% on 30-day rolling traffic.                                                                                                     |
+| **`flow_id` correlation end-to-end**             | Sample 100 random multi-turn flows monthly; every flow's spans, audit events, drafts, and approvals carry the same `flow_id`. Zero dangle.                                                                                             |
 
 ### 18.6 Incident playbook coverage
 
@@ -1283,7 +1414,17 @@ Pre-GA (MVP / Beta) operates under the same architectural invariants; the differ
 - **Delegation** — kernel-owned scoped grant allowing one principal to act on behalf of another, audited via `on_behalf_of / via_delegation / via_schedule`.
 - **Escape hatch** — analyst-tier tool (parameterized SQL on read replica), role-gated, read-only.
 - **Shadow-ready gateway** — gateway interface accepts `mode: 'execute' | 'dry-run'` from v1, enabling v1.5 shadow-mode traffic without surface-wide retrofit.
-- **Two-phase bounded execution** — router plan with Phase 1 (parallel ≤3 sub-agents) + optional Phase 2 (≤1 sub-agent referencing Phase 1). No phase 3; no in-phase branching.
+- **Two-phase bounded execution** — router plan with Phase 1 (parallel ≤3 sub-agents) + optional Phase 2 (parallel ≤3 sub-agents consuming Phase 1's sanitized output). Tier 1 of the topology taxonomy. No phase 3; no in-phase branching.
+- **Tier 0 / Tier 1 / Tier 2 / Tier 3** — topology taxonomy (§3). Tier 0 = direct execution (single tool call, no sub-agent); Tier 1 = bounded DAG; Tier 2 = iterative supervisor (§3.1); Tier 3 = async autonomous (§11).
+- **`flow_id`** — per-user-intent UUID, trace-level attribute. A multi-turn flow (draft → approval → execute) shares one `flow_id` across multiple `trace_id`s. Stamped on every span, every kernel audit event, and Langfuse metadata (§12).
+- **`intent_slug`** — controlled-vocabulary identifier of the user's intent; declared per-module via `modules/<X>/agent/intents/*.ts`. Stamped alongside `flow_id`.
+- **`directExecutable`** — tool-meta field marking a tool as eligible for Tier-0 direct execution. Rejected by drift test on mutations and tainted-output tools.
+- **`cacheable`** — tool-meta field enabling semantic result cache participation (plan 14). Rejected by drift test on mutations.
+- **`toolRetrieval`** — sub-agent-config field enabling per-invocation top-K retrieval over the declared `toolScope` (§7, plan 02.5).
+- **`coreTools`** — sub-agent-config allowlist of tools always visible regardless of retrieval ranking.
+- **Extensibility Invariant (EI-1..EI-10)** — the 12-module contract (§2.2). Tested in §18.5 on every CI run.
+- **12-module scale probe** — synthetic registry + fixture that exercises EI-4, EI-5, EI-6 at N=12 sub-agents with 20 tools each. CI gate; see §18.5.
+- **Graceful degradation ladder** — ordered 7-step fallback (§13) from per-call retry through quality-canary refusal. Every step carries a distinct trace tag and user-visible message; silent degradation is forbidden.
 - **Provenance block** — always-present metadata on `draft.proposed` capturing initiator, utterance, draft time, and tainted sources (§10). Rendered through agent-module-owned presenter.
 - **Replay harness** — first-class runtime capability that deterministically reconstructs the full message array for a given trace_id via content-hash-keyed prompt and narrative stores. Errors on any lookup miss; no silent fallback.
 - **Quality canary** — rolling health probe per model tier running rotated production-derived queries against a fixture tenant, producing a degraded-flag independent of budget.

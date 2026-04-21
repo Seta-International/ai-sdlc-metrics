@@ -3,9 +3,11 @@ import { NestFactory } from '@nestjs/core'
 import { Logger } from '@nestjs/common'
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify'
 import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/adapters/fastify'
+import { ClsService } from 'nestjs-cls'
 import { runMigrations } from '@future/db/migrate'
 import { AppModule } from './app.module'
 import { getAppRouter, type AppRouter } from './common/trpc/app-router'
+import { startOtel } from './common/observability/otel'
 
 const logger = new Logger('Bootstrap')
 
@@ -16,6 +18,17 @@ async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter, {
     logger: ['error', 'warn', 'log', 'debug'],
   })
+
+  const otel = startOtel({ cls: app.get(ClsService) })
+  const shutdownOtel = async (): Promise<void> => {
+    try {
+      await otel.shutdown()
+    } catch (err) {
+      logger.error('OTel shutdown failed', err instanceof Error ? err.stack : String(err))
+    }
+  }
+  process.on('SIGTERM', () => void shutdownOtel())
+  process.on('SIGINT', () => void shutdownOtel())
 
   // Allow cross-origin requests from web zones (ports 3000-3011 in dev,
   // configurable via CORS_ORIGIN in production).

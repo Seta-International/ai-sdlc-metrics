@@ -2,6 +2,18 @@
 
 **Design §§:** §3 (Runtime Topology), §4 (Execution Loop), §9 (Synthesizer).
 
+## Revision 2026-04-22
+
+Production-ready-comprehensive revision reflecting the 2026-04-22 runtime-design update (architecture §3: Topology tier selection + Phase-2 fan-out + sanitization contract). Items previously deferred are promoted to MVP; scope now spans the 3-module integration surface against the 12-module core (EI-1..EI-10).
+
+Changes in this revision:
+
+- **Tier 0 (direct execution) promoted to MVP.** Router may emit a `direct` topology that skips sub-agent + synthesizer entirely; gateway executes a single opt-in tool and a deterministic formatter renders the result.
+- **Phase-2 fan-out.** Phase 2 is now a list of up to 3 sub-agent calls (was: at most one). Phase-2 sub-agents run in parallel.
+- **Per-Phase-2-sub-agent sanitization.** `project_to_schema` runs once per Phase-2 sub-agent against that sub-agent's own `inputSchema`, not once globally across a merged payload.
+- **Router plan shape.** `RouterPlan` discriminates on `topology: 'direct' | 'bounded' | 'iterative'`; the bounded shape carries `phase1` and `phase2` as lists.
+- **New requirements, observability, and safety rails** for Tier 0 allowlist, confidence floor, auto-downgrade emission, Phase-2 length cap, and the turn-level cost-ceiling worst-case accounting.
+
 ---
 
 ## 1. Scope
@@ -9,10 +21,11 @@
 ### In
 
 - Phase-execution orchestrator consuming the router plan from plan 02.
+- **Tier 0 direct execution branch.** When the router emits `{ topology: 'direct', toolName, args, confidence }`, the gateway executes a single tool call; a lightweight deterministic formatter renders the result; no sub-agent is instantiated and no synthesizer call is made. Opt-in per tool via a `directExecutable: true` tool-meta flag.
 - Phase 1 parallel fan-out to ≤3 sub-agents with independent inputs from the router directive.
-- Phase 2 (optional) sequential single sub-agent whose input references a sanitized phase-1 summary.
+- **Phase 2 parallel fan-out to 0..3 sub-agents** (was: one optional sub-agent). Each Phase-2 sub-agent receives input built from sanitized Phase-1 outputs.
 - Sub-agent ReAct loop (bounded 4-5 iterations) wrapped around Vercel AI SDK `ToolLoopAgent` with `maxRetries: 0`.
-- Phase-handoff sanitization via `project_to_schema` (field-drop projection only).
+- Phase-handoff sanitization via `project_to_schema` (field-drop projection only). **Sanitizer runs once per Phase-2 sub-agent** against that sub-agent's own `inputSchema` — never once globally.
 - Plan-shape-mismatch detection with one bounded re-plan, then escalate to disambiguation.
 - Circuit breaker state (per-tool, per-sub-agent) propagated across phase boundary via sanitized summary.
 - Partial-answer gate (ceiling hit + zero writes drafted → surface partial labeled).
@@ -41,7 +54,7 @@ Two-phase bounded execution fits the vast majority of HR / Time / Projects / Fin
 
 Inside a sub-agent we use pure ReAct with 4-5 iteration max, wrapped around Vercel AI SDK `ToolLoopAgent`. The AI SDK's own retry is disabled (`maxRetries: 0`) so retries live at exactly one layer — the gateway (plan 01). Stacked retries silently inflate cost (§4).
 
-Phase 2 is deliberately optional and capped at one sub-agent: it's there for aggregation across phase-1 results (e.g. "compare these three"), not for pipeline depth. Anything more complex escalates.
+Phase 2 is deliberately optional and capped at 3 sub-agents in parallel (the 2026-04-22 revision generalized the earlier single-sub-agent cap): it's there for aggregation / cross-cutting follow-ups across phase-1 results (e.g. "compare these three", "synthesize KPIs against these team rosters"), not for pipeline depth. Phase 2 is still a single fan-out step — there is no phase 3. Anything requiring deeper chaining escalates.
 
 Synthesizer input is **structured multi-source** (summary + semantics + confidence + provenance per source), not concatenated text. This is what makes definitional-clarity rendering cheap — the synthesizer can say "5 projects by measure A; 6 projects by measure B" because each sub-agent declared its semantics. Confidence is rule-derived (§9) from observable properties of the sub-agent's execution, not LLM self-assessed, because LLM-reported confidence is noisy and under-reports on wrong answers.
 
@@ -69,8 +82,9 @@ Key fields:
 - `circuit_breaker: Map<tool_name, { failed_count: number, permission_denied: boolean }>` per sub-agent.
 - `l1_read_cache: Map<sub_agent_key, Map<(tool, args_hash), result>>` (plan 04 owns implementation).
 - `phase_1_results: Map<sub_agent_key, SubAgentOutput>`.
-- `phase_2_result?: SubAgentOutput`.
+- `phase_2_results: Map<sub_agent_key, SubAgentOutput>` — up to 3 entries (Phase-2 is now a fan-out list).
 - `router_replan_count: 0 | 1`.
+- `plan_topology: 'direct' | 'bounded' | 'iterative'` — captured from `RouterPlan.topology` at turn entry; governs which control-flow branch runs. Tier 0 (`direct`) turns carry no `phase_1_results` / `phase_2_results`.
 - `ceiling_consumed: { wallclockMs, costUsd, iterationsPerSubAgent, bytesScannedPerTool }`.
 
 Turn state is discarded at turn end — no persistence. L2/L3 writes happen through plan 04 interfaces.
@@ -85,22 +99,15 @@ Plan 00-02 cover persistence; this plan is orchestration only.
 
 ### `RouterPlan` (produced by plan 02)
 
-```
-type RouterPlan = {
-  topology: 'bounded' | 'iterative';   // iterative handled by plan 12
-  phase1: SubAgentDirective[];         // 1..3 for bounded
-  phase2?: SubAgentDirective;          // 0..1 for bounded
-  disambiguation?: { question: string };  // mutually exclusive with phase1
-}
+`RouterPlan` is a discriminated union over `topology`. Three variants:
 
-type SubAgentDirective = {
-  subAgentKey: string;
-  goal: string;
-  constraints: string[];
-  expectedOutputShape: AnswerShape;    // 'short-answer'|'list'|'table'|'narrative'|'chart'
-  quote: string;                       // router-controlled narrow utterance slice, scope-projected
-}
-```
+- **`DirectExecutionPlan`** — `{ topology: 'direct', toolName, args, confidence, intent_slug, flow_id }`. Single tool, zero sub-agents, zero synthesizer call. Subject to Tier-0 allowlist + confidence-floor rails (§5).
+- **`BoundedPlan`** — `{ topology: 'bounded', phase1: SubAgentCall[] (length 1..3), phase2: SubAgentCall[] (length 0..3), intent_slug, flow_id }`. Phase 1 and Phase 2 are BOTH lists; Phase 2 may be empty. Sanitizer runs once per Phase-2 entry.
+- **`IterativePlan`** — shape unchanged from plan 02; handled by plan 12 (Tier 2 MVP, activation-gated).
+
+`SubAgentCall` is the existing `SubAgentDirective` shape (`{ subAgentKey, goal, constraints, expectedOutputShape, quote }`) — renamed for symmetry with the three-topology vocabulary; `quote` remains router-controlled and scope-projected.
+
+A `disambiguation` escape is still modeled as a sibling discriminator (`{ topology: 'disambiguation', question }`) mutually exclusive with the execution variants.
 
 ### `PhaseExecutor` (module boundary)
 
@@ -171,7 +178,7 @@ Pure; errors on shape mismatch.
 synthesize(opts: {
   directive: RouterPlan;
   phase1Outputs: Map<SubAgentKey, SubAgentOutput>;
-  phase2Output?: SubAgentOutput;
+  phase2Outputs: Map<SubAgentKey, SubAgentOutput>; // 0..3 entries (Phase-2 fan-out)
   turnState: TurnState;
   userUtterance: string;   // used for tone, never directly templated into output
   abortSignal: AbortSignal;
@@ -210,22 +217,38 @@ Only invoked when phase-1 output can't satisfy phase-2 input schema; increments 
 
 ## 5. Control Flow
 
-### Happy path — bounded, phase 1 + phase 2
+### Tier 0 — direct execution (first match at phase-execution entry)
 
-1. Receive `RouterPlan` from plan 02. Validate topology `bounded`, phase1 size ≤ 3, phase2 size ≤ 1.
+1. Receive `RouterPlan` from plan 02. If `plan.topology === 'direct'`, branch here and SKIP sub-agent instantiation + synthesizer call entirely.
+2. Validate against the Tier-0 allowlist: the tool referenced by `plan.toolName` must declare `directExecutable: true` in tool meta (§ Safety rails).
+3. Invoke `ToolGateway.invoke({ toolName, args, ... })` (plan 01) exactly once.
+4. Pass the gateway result through the lightweight deterministic formatter bound to the tool's `directExecutable` contract (pure projection; no LLM call).
+5. Emit SSE tokens from the formatter output and close the turn. Emit `turn.ended.reason: 'completed'`.
+6. On gateway error, confidence-floor breach, or tripwire: emit `router_tier0_declined_confidence` (plan 07) and end the turn. The router is NOT auto-retried from phase execution — a downgrade to `bounded` requires a fresh router emission on the next turn (see Safety rails).
+
+### Control-flow safety rails (Tier 0)
+
+- **`directExecutable` allowlist — build-time drift test.** A test at plan-build time asserts that every tool carrying `directExecutable: true` is a pure read (`.query()`) AND declares zero `tenantAuthoredFreeText` fields in its output schema. Any tool violating this is rejected at build time (see R-03.x below).
+- **`directExecutable` allowlist — runtime guard.** At the top of the Tier-0 branch, phase-executor re-checks the referenced tool against the allowlist before calling the gateway. A mismatch (router hallucinated a non-allowlisted tool) emits `router_tier0_declined_confidence` and ends the turn.
+- **Confidence floor.** If `plan.confidence` < the per-surface floor, abandon Tier 0, emit `router_tier0_declined_confidence`, and end the turn. No automatic downgrade to `bounded`: the router must re-emit a fresh plan on a subsequent turn. This prevents infinite downgrade loops where Tier-0 failure triggers a bounded fallback which loops back into Tier-0 on re-plan.
+
+### Happy path — bounded, phase 1 + phase 2 fan-out
+
+1. Receive `RouterPlan` from plan 02. Validate topology `bounded`, `phase1.length ∈ [1,3]`, `phase2.length ∈ [0,3]`.
 2. Emit `phase.started` logical event for phase 1 with sub-agent domains.
 3. For each phase-1 directive in parallel:
    a. Instantiate `SubAgentRunner` bound to the sub-agent's config.
    b. Call `run({ directive, phase: 1, ... })`. ReAct loop bounded by `config.budgets.maxIterations`.
    c. Each iteration: model picks tool, calls `ToolGateway.invoke(...)` (plan 01) via Vercel AI SDK `ToolLoopAgent`, receives result, may iterate. On completion, sub-agent produces `SubAgentOutput` validated against `config.outputSchema`.
 4. All phase-1 sub-agents complete OR tripwire. Collect `phase1Outputs`.
-5. **Phase-shape check:** if `plan.phase2` present, verify phase-2 directive's implicit `inputSchema` is satisfied by union of `phase1Outputs.structured`.
-   - If mismatch → invoke `RouterReplanner.requestReplan(...)`. If it returns a new plan, re-enter phase 1 with new directives. If it returns `escalate`, end turn with `disambiguation`.
-6. If `plan.phase2` present: build phase-2 input via `project_to_schema(phase1Outputs_merged, phase2_inputSchema)`. Run phase-2 sub-agent.
-7. Emit `phase.started` for phase 2 if phase 2 ran.
-8. Invoke `Synthesizer.synthesize({ phase1Outputs, phase2Output?, ... })`.
-9. Synthesizer emits `answer.shape_declared` (if non-narrative), streams `answer.token`, emits `answer.complete`, and returns.
-10. Return `{ kind: 'synthesized', answer, drafts }`.
+5. **Phase-shape check:** if `plan.phase2` is non-empty, verify for EACH phase-2 directive independently that its own `inputSchema` is satisfied by the union of `phase1Outputs.structured`.
+   - If any phase-2 directive's input schema is unsatisfied → invoke `RouterReplanner.requestReplan(...)`. If it returns a new plan, re-enter phase 1 with new directives. If it returns `escalate`, end turn with `disambiguation`.
+6. If `plan.phase2` is non-empty: **fan out** — spawn all phase-2 sub-agents in parallel. For each phase-2 directive, build its input via `project_to_schema(phase1Outputs_merged, thisSubAgent.inputSchema)` — the sanitizer runs ONCE PER PHASE-2 SUB-AGENT against its own schema (never once globally against a shared merged payload). Run each phase-2 sub-agent through `SubAgentRunner.run(..., phase: 2)`.
+7. Emit `phase.started` for phase 2 (with the phase-2 sub-agent domains) if phase 2 ran.
+8. All phase-2 sub-agents complete OR tripwire. Collect `phase2Outputs`.
+9. Invoke `Synthesizer.synthesize({ phase1Outputs, phase2Outputs, ... })` — synthesizer receives the FULL set of phase-1 + phase-2 outputs as structured multi-source input.
+10. Synthesizer emits `answer.shape_declared` (if non-narrative), streams `answer.token`, emits `answer.complete`, and returns.
+11. Return `{ kind: 'synthesized', answer, drafts }`.
 
 ### Plan-shape mismatch (one bounded re-plan)
 
@@ -358,6 +381,17 @@ This prevents the cross-sub-agent leak class where sub-agent A's `quote` contain
 | R-03.32 | `DraftProposal.taintSource` is populated by the sub-agent runner whenever the draft is produced under a tainted turn state. Fields: `{ subAgentKey, toolName, fieldName, flippedAtIteration }`. Consumed by plan 08 for approval-tier bump rationale + UI presentation.                                                                                                                                                                                                                               | §9, plan 08            |
 | R-03.33 | `Citation.subAgentKey` is populated on every citation. Synthesizer MUST NOT merge citations from different sub-agents into a single record that loses the per-key attribution.                                                                                                                                                                                                                                                                                                                        | §9 transparency        |
 
+### Topology tier selection + fan-out + sanitization (2026-04-22 revision)
+
+| #       | Requirement                                                                                                                                                                                                                                       | Design §§ |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| R-03.34 | Router emits exactly one of three plan topologies: `direct`, `bounded`, or `iterative`. Phase executor dispatches on `plan.topology`; unknown values are rejected at plan-entry.                                                                  | §3        |
+| R-03.35 | A tool declaring `directExecutable: true` is rejected at build time if it is a `.mutation()` OR declares any field as `tenantAuthoredFreeText`. Enforced by a plan-build drift test (see §11). Phase executor re-checks the allowlist at runtime. | §3        |
+| R-03.36 | Tier 0 auto-downgrade on confidence-floor breach, allowlist-mismatch, or gateway error: emit `router_tier0_declined_confidence` (plan 07) and end the turn. The router is NOT auto-retried from phase execution — re-plan requires a fresh turn.  | §3        |
+| R-03.37 | `plan.phase2.length ≤ 3`. Enforced at the router output-schema level (plan 02) AND re-validated at phase-executor entry. A plan with `phase2.length > 3` is rejected as a shape violation.                                                        | §3        |
+| R-03.38 | Sanitizer runs ONCE PER PHASE-2 SUB-AGENT against that sub-agent's own `inputSchema`, not once globally against a shared merged payload. Each Phase-2 sub-agent sees only the fields its own input schema declares.                               | §3        |
+| R-03.39 | Turn-level cost ceiling (§13) must be sized against the worst-case sub-agent count: up to 3 Phase-1 + 3 Phase-2 = 6 × per-sub-agent budget, plus one synthesizer call. Plan 05 enforces; this plan declares the accounting assumption.            | §13       |
+
 ---
 
 ## 7. Failure Modes & Recovery
@@ -391,7 +425,9 @@ This prevents the cross-sub-agent leak class where sub-agent A's `quote` contain
 
 ### Span attributes
 
-- On `TURN`: `router_replan_count`, `partial_answer_surfaced`, `contradiction_detected`, `sub_agent_count_phase1`, `phase2_present: boolean`.
+- On `TURN`: `plan.topology` (`direct | bounded | iterative`), `router_replan_count`, `partial_answer_surfaced`, `contradiction_detected`, `sub_agent_count_phase1`, `sub_agent_count_phase2` (0..3 under the Phase-2 fan-out model; replaces the old boolean `phase2_present`).
+- On Tier 0 (`direct`) turns: `tier0.toolName` is stamped on the `TURN` span so traces filterable by directly-executed tool; the `PHASE_1` / `PHASE_2` / `SYNTHESIZER` spans are absent.
+- Phase-2 fan-out emits ONE span per Phase-2 sub-agent (mirroring the Phase-1 parallel span pattern), each carrying its own `sub_agent_key` + schema hashes + derived confidence.
 - On each `SUB_AGENT_PLAN`: `sub_agent_key`, `sub_agent_version`, `input_schema_hash`, `output_schema_hash`, confidence_derived tier, `ceiling_hit: boolean`.
 - On `SYNTHESIZER`: `answer_shape`, `citation_count`, `contradiction_rendered: boolean`, `confidence_final`.
 
@@ -511,12 +547,12 @@ This prevents the cross-sub-agent leak class where sub-agent A's `quote` contain
 ## 14. Dependencies
 
 - Plan 00: sanitizer + prompt/narrative stores.
-- Plan 01: tool gateway pipeline.
-- Plan 02: router plan + sub-agent registry + permission narrative.
+- Plan 01: tool gateway pipeline — specifically the Tier-0 direct-execution invocation path + the `directExecutable` tool-meta flag propagation.
+- Plan 02: router plan + sub-agent registry + permission narrative — specifically the three-topology `RouterPlan` discriminator (`direct | bounded | iterative`) and Phase-2 list output-schema validation.
 - Plan 04: L1 cache + memory injection.
-- Plan 05: cost ceiling enforcement hook.
+- Plan 05: cost ceiling enforcement hook (accounts for worst-case 3 + 3 fan-out per R-03.39).
 - Plan 06: streaming event emitter + abort signal threading.
-- Plan 07: trace correlation + span attrs.
+- Plan 07: trace correlation + span attrs — specifically `flow_id` correlation, the `plan.topology` / `tier0.toolName` span attributes, and the `router_tier0_declined_confidence` observability signal.
 - Plan 08: draft proposals from sub-agent runner (this plan defines the shape; 08 consumes).
 
 ## 15. Integration Points
@@ -534,7 +570,9 @@ This prevents the cross-sub-agent leak class where sub-agent A's `quote` contain
 
 ## 16. Activation Gate
 
-MVP. Ships with first production turn.
+MVP. Ships with the first production turn for ALL three tiers: Tier 0 (`direct`), Tier 1 (`bounded` with Phase-2 fan-out), and Tier 2 (`iterative`, coordinated with plan 12's supervisor topology).
+
+Tier-0 allowlist at MVP is approximately 15-20 tools spanning the `planner`, `people`, and `projects` modules — the high-volume read-only "look this up" surface where a deterministic formatter is demonstrably better UX than a synthesizer paragraph. Tools earn `directExecutable: true` by meeting R-03.35 (pure read + zero `tenantAuthoredFreeText`). The allowlist is reviewed each quarter; additions ship behind the same activation gate.
 
 ## 17. Out of Scope
 
