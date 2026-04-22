@@ -4,14 +4,19 @@
  * Tests use `vi.mock` to intercept the Vercel AI SDK `generateObject` call
  * so no real HTTP requests are made. The wrapper's job is to:
  *   1. Call generateObject with the right model + messages + schema.
- *   2. Return { kind: 'ok', plan } on success.
+ *   2. Return { kind: 'ok', plan, usage } on success, mapping SDK inputTokens/outputTokens
+ *      to our canonical promptTokens/completionTokens names.
  *   3. Return { kind: 'malformed', error, rawText: null } on any throw.
  *   4. NOT re-evaluate function-valued models (model is already resolved).
+ *   5. Pass systemPrompt as top-level `system`, developerMessage as a second system-role
+ *      message in the `messages` array, and userMessage as a user-role message.
  *
  * Covers:
- * 12.  Happy path — generateObject returns valid plan → { kind: 'ok', plan }
+ * 12.  Happy path — generateObject returns valid plan → { kind: 'ok', plan, usage }
  * 13.  generateObject throws → { kind: 'malformed', error, rawText: null }
  * 14.  Wrapper receives concrete ModelChoice and does not re-resolve it
+ * 15.  Message separation — system/developer/user roles are passed correctly
+ * 16.  Usage mapping — SDK inputTokens/outputTokens mapped to promptTokens/completionTokens
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -53,6 +58,19 @@ const VALID_PLAN: RouterPlan = {
   ],
 }
 
+/**
+ * Default SDK usage object matching Vercel AI SDK v6's `LanguageModelUsage` shape.
+ * The SDK uses `inputTokens`/`outputTokens`/`totalTokens`; the wrapper maps these
+ * to `promptTokens`/`completionTokens`/`totalTokens`.
+ */
+const SDK_USAGE = {
+  inputTokens: 120,
+  outputTokens: 45,
+  totalTokens: 165,
+  inputTokenDetails: { noCacheTokens: 120, cacheReadTokens: 0, cacheWriteTokens: 0 },
+  outputTokenDetails: { textTokens: 45, reasoningTokens: 0 },
+}
+
 const BASE_OPTS: RouterLlmClientOpts = {
   model: { provider: 'openai', model: 'gpt-5.4' },
   systemPrompt: 'You are the router agent.',
@@ -74,8 +92,8 @@ describe('RouterLlmClient', () => {
 
   // ── 12. Happy path ─────────────────────────────────────────────────────────
 
-  it('12. returns { kind: "ok", plan } when generateObject succeeds', async () => {
-    mockGenerateObject.mockResolvedValueOnce({ object: VALID_PLAN })
+  it('12. returns { kind: "ok", plan, usage } when generateObject succeeds', async () => {
+    mockGenerateObject.mockResolvedValueOnce({ object: VALID_PLAN, usage: SDK_USAGE })
 
     const result = await client.generate(BASE_OPTS)
 
@@ -83,25 +101,35 @@ describe('RouterLlmClient', () => {
     if (result.kind === 'ok') {
       expect(result.plan).toEqual(VALID_PLAN)
       expect(result.plan.topology).toBe('bounded')
+      // usage is mapped: SDK inputTokens → promptTokens, outputTokens → completionTokens
+      expect(result.usage.promptTokens).toBe(SDK_USAGE.inputTokens)
+      expect(result.usage.completionTokens).toBe(SDK_USAGE.outputTokens)
+      expect(result.usage.totalTokens).toBe(SDK_USAGE.totalTokens)
     }
   })
 
-  it('12b. calls generateObject with system + user messages', async () => {
-    mockGenerateObject.mockResolvedValueOnce({ object: VALID_PLAN })
+  it('12b. calls generateObject with system at top-level + developer + user messages', async () => {
+    mockGenerateObject.mockResolvedValueOnce({ object: VALID_PLAN, usage: SDK_USAGE })
 
     await client.generate(BASE_OPTS)
 
     expect(mockGenerateObject).toHaveBeenCalledOnce()
     const callArgs = mockGenerateObject.mock.calls[0][0] as {
+      system: string
       messages: Array<{ role: string; content: string }>
     }
-    const roles = callArgs.messages.map((m) => m.role)
-    expect(roles).toContain('system')
-    expect(roles).toContain('user')
+    // systemPrompt is passed as top-level `system` arg
+    expect(callArgs.system).toBe(BASE_OPTS.systemPrompt)
+    // messages array: first entry is system-role (developer message), second is user-role
+    expect(callArgs.messages).toHaveLength(2)
+    expect(callArgs.messages[0]!.role).toBe('system')
+    expect(callArgs.messages[0]!.content).toBe(BASE_OPTS.developerMessage)
+    expect(callArgs.messages[1]!.role).toBe('user')
+    expect(callArgs.messages[1]!.content).toBe(BASE_OPTS.userMessage)
   })
 
   it('12c. passes RouterPlanSchema as the schema to generateObject', async () => {
-    mockGenerateObject.mockResolvedValueOnce({ object: VALID_PLAN })
+    mockGenerateObject.mockResolvedValueOnce({ object: VALID_PLAN, usage: SDK_USAGE })
 
     await client.generate(BASE_OPTS)
 
@@ -153,7 +181,7 @@ describe('RouterLlmClient', () => {
   // ── 14. Concrete ModelChoice — no re-resolution ────────────────────────────
 
   it('14a. passes the concrete model string to createOpenAI — no function re-evaluation', async () => {
-    mockGenerateObject.mockResolvedValueOnce({ object: VALID_PLAN })
+    mockGenerateObject.mockResolvedValueOnce({ object: VALID_PLAN, usage: SDK_USAGE })
     const mockModelFn = vi.fn(() => 'resolved-model-instance')
     mockCreateOpenAI.mockReturnValueOnce(mockModelFn)
 
@@ -171,7 +199,7 @@ describe('RouterLlmClient', () => {
   })
 
   it('14b. uses the model string from the provided ModelChoice, not a hardcoded default', async () => {
-    mockGenerateObject.mockResolvedValueOnce({ object: VALID_PLAN })
+    mockGenerateObject.mockResolvedValueOnce({ object: VALID_PLAN, usage: SDK_USAGE })
     const mockModelFn = vi.fn(() => 'resolved-model-instance')
     mockCreateOpenAI.mockReturnValueOnce(mockModelFn)
 
@@ -193,6 +221,82 @@ describe('RouterLlmClient', () => {
     expect(result.kind).toBe('malformed')
     if (result.kind === 'malformed') {
       expect(result.error.message).toContain('anthropic')
+    }
+  })
+
+  // ── 15. Message separation — F5 ───────────────────────────────────────────
+
+  it('15a. passes systemPrompt as top-level system, developerMessage as system-role, userMessage as user-role', async () => {
+    mockGenerateObject.mockResolvedValueOnce({ object: VALID_PLAN, usage: SDK_USAGE })
+
+    await client.generate(BASE_OPTS)
+
+    const callArgs = mockGenerateObject.mock.calls[0][0] as {
+      system: string
+      messages: Array<{ role: string; content: string }>
+    }
+    expect(callArgs.system).toBe('You are the router agent.')
+    expect(callArgs.messages[0]!.role).toBe('system')
+    expect(callArgs.messages[0]!.content).toBe('Emit a RouterPlan JSON only.')
+    expect(callArgs.messages[1]!.role).toBe('user')
+    expect(callArgs.messages[1]!.content).toBe('Show me my tasks for today')
+  })
+
+  it('15b. does NOT concatenate developerMessage + userMessage into a single message', async () => {
+    mockGenerateObject.mockResolvedValueOnce({ object: VALID_PLAN, usage: SDK_USAGE })
+
+    await client.generate(BASE_OPTS)
+
+    const callArgs = mockGenerateObject.mock.calls[0][0] as {
+      messages: Array<{ role: string; content: string }>
+    }
+    // The user-role message must be only the userMessage, not a concatenation
+    const userMsg = callArgs.messages.find((m) => m.role === 'user')
+    expect(userMsg?.content).toBe(BASE_OPTS.userMessage)
+    expect(userMsg?.content).not.toContain(BASE_OPTS.developerMessage)
+  })
+
+  // ── 16. Usage mapping — F4 ────────────────────────────────────────────────
+
+  it('16a. maps SDK inputTokens/outputTokens/totalTokens to promptTokens/completionTokens/totalTokens', async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: VALID_PLAN,
+      usage: { ...SDK_USAGE, inputTokens: 200, outputTokens: 80, totalTokens: 280 },
+    })
+
+    const result = await client.generate(BASE_OPTS)
+
+    expect(result.kind).toBe('ok')
+    if (result.kind === 'ok') {
+      expect(result.usage.promptTokens).toBe(200)
+      expect(result.usage.completionTokens).toBe(80)
+      expect(result.usage.totalTokens).toBe(280)
+    }
+  })
+
+  it('16b. handles undefined token counts from provider (passes undefined through)', async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: VALID_PLAN,
+      usage: {
+        inputTokens: undefined,
+        outputTokens: undefined,
+        totalTokens: undefined,
+        inputTokenDetails: {
+          noCacheTokens: undefined,
+          cacheReadTokens: undefined,
+          cacheWriteTokens: undefined,
+        },
+        outputTokenDetails: { textTokens: undefined, reasoningTokens: undefined },
+      },
+    })
+
+    const result = await client.generate(BASE_OPTS)
+
+    expect(result.kind).toBe('ok')
+    if (result.kind === 'ok') {
+      expect(result.usage.promptTokens).toBeUndefined()
+      expect(result.usage.completionTokens).toBeUndefined()
+      expect(result.usage.totalTokens).toBeUndefined()
     }
   })
 })

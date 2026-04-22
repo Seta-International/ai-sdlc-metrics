@@ -197,10 +197,17 @@ function makeResolvedSubAgent(key: string, subAgentPromptHash = 'sa-hash-1') {
 
 // ─── Build orchestrator with mocked dependencies ───────────────────────────────
 
+const DEFAULT_LLM_USAGE = { promptTokens: 100, completionTokens: 50, totalTokens: 150 }
+
 function buildOrchestrator(opts: {
   existingSession?: AgentSessionEntry | null
   llmResults?: Array<
-    { kind: 'ok'; plan: RouterPlan } | { kind: 'malformed'; error: Error; rawText: null }
+    | {
+        kind: 'ok'
+        plan: RouterPlan
+        usage?: { promptTokens: number; completionTokens: number; totalTokens: number }
+      }
+    | { kind: 'malformed'; error: Error; rawText: null }
   >
   parseResults?: Array<
     | { kind: 'ok'; plan: RouterPlan }
@@ -212,7 +219,7 @@ function buildOrchestrator(opts: {
 }) {
   const {
     existingSession = null,
-    llmResults = [{ kind: 'ok', plan: VALID_PLAN }],
+    llmResults = [{ kind: 'ok', plan: VALID_PLAN, usage: DEFAULT_LLM_USAGE }],
     parseResults,
     resolvedSubAgents = [makeResolvedSubAgent('planner.read-only')],
     narrowedConfigs,
@@ -280,6 +287,10 @@ function buildOrchestrator(opts: {
     generate: vi.fn().mockImplementation(async () => {
       const result = llmResults[llmCallCount] ?? llmResults[llmResults.length - 1]
       llmCallCount++
+      // Ensure ok results always carry a usage object (RouterLlmClient contract)
+      if (result && result.kind === 'ok' && !('usage' in result)) {
+        return { ...result, usage: DEFAULT_LLM_USAGE }
+      }
       return result
     }),
   }
@@ -461,7 +472,13 @@ describe('RouterSessionOrchestrator', () => {
       expect(result.reason).toBe('parse_escalated_after_retry')
     }
     expect(kernelAuditFacade.recordEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ eventType: 'agent.router_disambiguation_emitted' }),
+      expect.objectContaining({
+        eventType: 'refusal.started',
+        payload: expect.objectContaining({
+          reason: 'disambiguation',
+          underlying_reason: 'parse_escalated_after_retry',
+        }),
+      }),
     )
     expect(mockRecordRouterDecision).toHaveBeenCalledWith(TENANT_ID, 'parse_escalated')
   })
@@ -482,7 +499,7 @@ describe('RouterSessionOrchestrator', () => {
 
     expect(result.kind).toBe('disambiguation')
     expect(kernelAuditFacade.recordEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ eventType: 'agent.router_disambiguation_emitted' }),
+      expect.objectContaining({ eventType: 'refusal.started' }),
     )
   })
 
@@ -502,7 +519,13 @@ describe('RouterSessionOrchestrator', () => {
       expect(result.parseRetries).toBe(0)
     }
     expect(kernelAuditFacade.recordEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ eventType: 'agent.router_disambiguation_emitted' }),
+      expect.objectContaining({
+        eventType: 'refusal.started',
+        payload: expect.objectContaining({
+          reason: 'disambiguation',
+          underlying_reason: 'Did you mean tasks or plans?',
+        }),
+      }),
     )
     expect(mockRecordRouterDecision).toHaveBeenCalledWith(TENANT_ID, 'disambiguation')
   })
@@ -711,5 +734,27 @@ describe('RouterSessionOrchestrator', () => {
     const escalateSpan = parseSpans.find((s) => s.attributes['parse_outcome'] === 'escalate')
     expect(escalateSpan).toBeDefined()
     expect(escalateSpan?.attributes['retry_round']).toBe(1)
+  })
+
+  // ── 14. LLM usage span attrs (F4 — R-02 follow-up) ────────────────────────
+
+  it('LLM usage attrs appear on router-llm:call span when call succeeds', async () => {
+    const { orchestrator } = buildOrchestrator({
+      llmResults: [{ kind: 'ok', plan: VALID_PLAN, usage: DEFAULT_LLM_USAGE }],
+      parseResults: [{ kind: 'ok', plan: VALID_PLAN }],
+    })
+
+    await orchestrator.routeTurn(BASE_OPTS)
+
+    const finished = spanExporter.getFinishedSpans() as ReadableSpan[]
+    const llmSpan = finished.find((s) => s.name === 'router-llm:call')
+    expect(llmSpan).toBeDefined()
+    expect(llmSpan?.attributes['agent.llm.usage.prompt_tokens']).toBe(
+      DEFAULT_LLM_USAGE.promptTokens,
+    )
+    expect(llmSpan?.attributes['agent.llm.usage.completion_tokens']).toBe(
+      DEFAULT_LLM_USAGE.completionTokens,
+    )
+    expect(llmSpan?.attributes['agent.llm.usage.total_tokens']).toBe(DEFAULT_LLM_USAGE.totalTokens)
   })
 })

@@ -49,8 +49,20 @@ export interface RouterLlmClientOpts {
 
 // ─── Result type ──────────────────────────────────────────────────────────────
 
+/**
+ * LLM token usage, mapped from Vercel AI SDK v6's `LanguageModelUsage`
+ * (`inputTokens`/`outputTokens`/`totalTokens`) to our wrapper's canonical names.
+ * Downstream code uses these names; they are stable regardless of SDK naming.
+ * Values are `undefined` if the provider did not report usage.
+ */
+export interface RouterLlmUsage {
+  promptTokens: number | undefined
+  completionTokens: number | undefined
+  totalTokens: number | undefined
+}
+
 export type RouterLlmResult =
-  | { kind: 'ok'; plan: RouterPlan }
+  | { kind: 'ok'; plan: RouterPlan; usage: RouterLlmUsage }
   | { kind: 'malformed'; error: Error; rawText: string | null }
 
 // ─── RouterLlmClient ─────────────────────────────────────────────────────────
@@ -82,13 +94,29 @@ export class RouterLlmClient {
       const result = await generateObject({
         model: languageModel,
         schema: RouterPlanSchema,
+        // systemPrompt is the router's top-level policy/persona prompt (high trust).
+        // developerMessage is the constraints/format section (developer-level trust).
+        // userMessage is the raw user utterance (user-level trust).
+        // Vercel AI SDK v6 supports `system` + `messages` simultaneously.
+        system: systemPrompt,
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: developerMessage + '\n\n' + userMessage },
+          // A second system-role message carries developer-level instructions.
+          // OpenAI accepts multiple system messages in the array; the SDK v6
+          // `ModelMessage` type includes `{ role: 'system', content: string }`.
+          { role: 'system', content: developerMessage },
+          { role: 'user', content: userMessage },
         ],
       })
 
-      return { kind: 'ok', plan: result.object }
+      // SDK v6 `LanguageModelUsage` uses `inputTokens`/`outputTokens`/`totalTokens`.
+      // We map to our canonical names so downstream code is SDK-agnostic.
+      const usage: RouterLlmUsage = {
+        promptTokens: result.usage.inputTokens,
+        completionTokens: result.usage.outputTokens,
+        totalTokens: result.usage.totalTokens,
+      }
+
+      return { kind: 'ok', plan: result.object, usage }
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err))
       return { kind: 'malformed', error, rawText: null }

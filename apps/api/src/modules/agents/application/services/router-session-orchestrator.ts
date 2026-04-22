@@ -393,13 +393,20 @@ export class RouterSessionOrchestrator {
     })
 
     const escalateReason = 'parse_escalated_after_retry'
+    // Plan 06 owns the `refusal.started` schema canonically; this is the agreed stub
+    // shape per Plan 02 R-02.23 + Plan 06 cross-reference.
     await this.kernelAuditFacade.recordEvent({
       tenantId,
       actorId: userId,
-      eventType: 'agent.router_disambiguation_emitted',
+      eventType: 'refusal.started',
       module: 'agents',
       subjectId: sessionId,
-      payload: { turn_trace_id: turnTraceId, reason: escalateReason, session_id: sessionId },
+      payload: {
+        reason: 'disambiguation',
+        turn_trace_id: turnTraceId,
+        session_id: sessionId,
+        underlying_reason: escalateReason,
+      },
     })
 
     recordRouterDecision(tenantId, 'parse_escalated')
@@ -425,15 +432,18 @@ export class RouterSessionOrchestrator {
       'model.model': model.model,
       attempt,
     })
-    // TODO(Plan 05 — cost ceilings): surface usage.prompt_tokens + usage.completion_tokens
-    // on this span once RouterLlmClient exposes token usage from generateObject. As of
-    // Plan 02, RouterLlmClient returns { kind: 'ok'; plan } | { kind: 'malformed'; ... }
-    // with no usage field. The Vercel AI SDK's generateObject() does return usage, but
-    // RouterLlmClient does not yet propagate it. Wire here when Plan 05 adds cost tracking.
 
     let result: Awaited<ReturnType<RouterLlmClient['generate']>>
     try {
       result = await this.llmClient.generate({ model, systemPrompt, developerMessage, userMessage })
+      // Set usage attrs before ending the span so they are captured in the export.
+      if (result.kind === 'ok') {
+        llmSpan.setAttributes({
+          'agent.llm.usage.prompt_tokens': result.usage.promptTokens ?? 0,
+          'agent.llm.usage.completion_tokens': result.usage.completionTokens ?? 0,
+          'agent.llm.usage.total_tokens': result.usage.totalTokens ?? 0,
+        })
+      }
     } finally {
       llmSpan.end()
     }
@@ -496,13 +506,20 @@ export class RouterSessionOrchestrator {
         flow_id: plan.flow_id,
       })
 
+      // Plan 06 owns the `refusal.started` schema canonically; this is the agreed stub
+      // shape per Plan 02 R-02.23 + Plan 06 cross-reference.
       await this.kernelAuditFacade.recordEvent({
         tenantId,
         actorId: userId,
-        eventType: 'agent.router_disambiguation_emitted',
+        eventType: 'refusal.started',
         module: 'agents',
         subjectId: sessionId,
-        payload: { turn_trace_id: turnTraceId, reason: plan.disambiguation, session_id: sessionId },
+        payload: {
+          reason: 'disambiguation',
+          turn_trace_id: turnTraceId,
+          session_id: sessionId,
+          underlying_reason: plan.disambiguation,
+        },
       })
 
       recordRouterDecision(tenantId, 'disambiguation')

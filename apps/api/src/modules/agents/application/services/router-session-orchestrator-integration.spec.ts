@@ -390,10 +390,11 @@ describe('Case 6: Double parse failure → escalation', () => {
       expect(result.reason).toBe('parse_escalated_after_retry')
     }
 
-    // Audit event must be emitted
-    const disambigEvents = auditCapture.ofType('agent.router_disambiguation_emitted')
+    // Audit event must be emitted with refusal.started type (Plan 06 cross-ref, R-02.23)
+    const disambigEvents = auditCapture.ofType('refusal.started')
     expect(disambigEvents).toHaveLength(1)
     expect(disambigEvents[0]!.tenantId).toBe(TENANT_A)
+    expect((disambigEvents[0]!.payload as Record<string, unknown>)['reason']).toBe('disambiguation')
 
     // Metric: agent_router_decisions_total{outcome:'parse_escalated'}
     const decisionPoints = await flushMetricPoints('agent_router_decisions_total')
@@ -441,8 +442,8 @@ describe('Case 7: LLM-emitted disambiguation plan', () => {
       expect(result.parseRetries).toBe(0)
     }
 
-    // Audit event must be emitted for disambiguation
-    const disambigEvents = auditCapture.ofType('agent.router_disambiguation_emitted')
+    // Audit event must be emitted for disambiguation (refusal.started per Plan 06 cross-ref)
+    const disambigEvents = auditCapture.ofType('refusal.started')
     expect(disambigEvents).toHaveLength(1)
   })
 })

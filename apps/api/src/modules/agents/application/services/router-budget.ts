@@ -25,5 +25,16 @@
  *
  * Estimated via character-based heuristic: ceil(totalChars / 4).
  * See SubAgentRetriever.estimateTokens for the full computation.
+ *
+ * Override via ROUTER_PROMPT_TOKEN_CEILING env var (must be a positive integer).
+ * Invalid values (non-numeric, negative, zero) fall back to the default silently.
  */
-export const ROUTER_PROMPT_TOKEN_CEILING = 120_000
+function resolveCeiling(): number {
+  const raw = process.env['ROUTER_PROMPT_TOKEN_CEILING']
+  if (!raw) return 120_000
+  const parsed = Number.parseInt(raw, 10)
+  if (!Number.isFinite(parsed) || parsed <= 0) return 120_000
+  return parsed
+}
+
+export const ROUTER_PROMPT_TOKEN_CEILING = resolveCeiling()

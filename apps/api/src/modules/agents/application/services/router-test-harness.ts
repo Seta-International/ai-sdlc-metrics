@@ -386,8 +386,14 @@ export function makeKernelQueryFacade(opts: {
 // ─── Orchestrator builder ─────────────────────────────────────────────────────
 
 export type RouterLlmResult =
-  | { kind: 'ok'; plan: RouterPlan }
+  | {
+      kind: 'ok'
+      plan: RouterPlan
+      usage?: { promptTokens: number; completionTokens: number; totalTokens: number }
+    }
   | { kind: 'malformed'; error: Error; rawText: null }
+
+const DEFAULT_TEST_USAGE = { promptTokens: 100, completionTokens: 50, totalTokens: 150 }
 
 /**
  * Constructs a RouterSessionOrchestrator with REAL sub-components:
@@ -437,6 +443,10 @@ export function buildRealOrchestrator(opts: {
     generate: vi.fn().mockImplementation(async () => {
       const result = llmResults[callCount] ?? llmResults[llmResults.length - 1]!
       callCount++
+      // Ensure ok results always carry a usage object (RouterLlmClient contract)
+      if (result.kind === 'ok' && !('usage' in result)) {
+        return { ...result, usage: DEFAULT_TEST_USAGE }
+      }
       return result
     }),
   }
