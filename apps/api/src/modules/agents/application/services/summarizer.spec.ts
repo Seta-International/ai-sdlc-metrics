@@ -12,7 +12,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Summarizer, JOB_SUMMARIZE_TURN } from './summarizer'
-import type { AiClient, SummarizeTurnJobPayload } from './summarizer'
+import type { AiClient } from './summarizer'
 import type { ConversationRepository } from '../../domain/repositories/conversation.repository'
 import type { ConversationMessageRepository } from '../../domain/repositories/conversation-message.repository'
 import type { ConversationMessageEntity } from '../../domain/entities/conversation-message.entity'

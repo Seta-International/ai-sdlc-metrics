@@ -224,7 +224,7 @@ describe('SaveQueue', () => {
 
       const repo = makeRepo()
       ;(repo.persistMany as ReturnType<typeof vi.fn>).mockImplementation(
-        (opts: { conversationId: string; tenantId: string; messages: unknown[] }) => {
+        (_opts: { conversationId: string; tenantId: string; messages: unknown[] }) => {
           return new Promise<ConversationMessageEntity[]>((resolve) => {
             if (order.length === 0) {
               order.push('first-start')

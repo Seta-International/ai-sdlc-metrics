@@ -10,7 +10,7 @@
  * See: R-04.11, R-04.12, R-04.13, R-04.14, R-04.26b, R-04.26c
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { WindowBuilder } from './window-builder'
 import type { ConversationMessageRepository } from '../../domain/repositories/conversation-message.repository'
 import type { ConversationMessageEntity } from '../../domain/entities/conversation-message.entity'
