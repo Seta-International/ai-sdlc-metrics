@@ -15,7 +15,17 @@ export type TRPCClientOptions = {
 const credentialedFetch: typeof fetch = (input, init) =>
   fetch(input, { ...init, credentials: 'include' })
 
-export function createTRPCClient(options: TRPCClientOptions) {
+/**
+ * The concrete type of the tRPC proxy client.
+ *
+ * Declared before `createTRPCClient` so the function can use it as an explicit
+ * return type annotation. Without the annotation TypeScript cannot name the inferred
+ * type (TS2883) because it transitively references entity types from `@future/api/dist`
+ * that are not re-exported from this package.
+ */
+export type TRPCClient = ReturnType<typeof createTRPCProxyClient<AppRouter>>
+
+export function createTRPCClient(options: TRPCClientOptions): TRPCClient {
   const { apiUrl, headers } = options
   return createTRPCProxyClient<AppRouter>({
     links: [
@@ -27,5 +37,3 @@ export function createTRPCClient(options: TRPCClientOptions) {
     ],
   })
 }
-
-export type TRPCClient = ReturnType<typeof createTRPCClient>
