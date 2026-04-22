@@ -329,7 +329,7 @@ describe('people.directory tRPC sub-router', () => {
 describe('people.directory tRPC sub-router - hierarchy integration', () => {
   const db = createTestDb()
   let repo: DrizzleDirectorySearchIndexRepository
-  let caller: any
+  let caller: ReturnType<typeof peopleRouter.createCaller>
 
   beforeAll(async () => {
     await migrateForTest()
