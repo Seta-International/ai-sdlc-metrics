@@ -6,7 +6,7 @@ import '@future/schedule/styles.css'
 import { Alert, AlertDescription, Skeleton } from '@future/ui'
 import { useMyDay } from '@/lib/hooks/use-my-day'
 import { useMyDayContext } from '../my-day-context'
-import { MyDayEmptyState } from '@/components/my-day/my-day-empty-state'
+import { MyDayEmptyState } from '@/components/my-day/MyDayEmptyState'
 
 export default function MyDaySchedulePage() {
   const { date } = useMyDayContext()

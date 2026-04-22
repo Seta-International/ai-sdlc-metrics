@@ -5,24 +5,24 @@ import {
   defaultTableState,
 } from '@future/ui'
 
-export function getTableStateFromUrl(): FutureTableState {
-  if (typeof window === 'undefined') return defaultTableState
-  return parseTableStateFromSearchParams(new URLSearchParams(window.location.search))
+export function getTableStateFromUrl(searchParams: URLSearchParams): FutureTableState {
+  return parseTableStateFromSearchParams(searchParams)
 }
 
-export function pushTableStateToUrl(state: FutureTableState): void {
+export function pushTableStateToUrl(state: FutureTableState, pathname: string): void {
   const params = serializeTableStateToSearchParams(state)
-  const url = `${window.location.pathname}?${params.toString()}`
+  const url = `${pathname}?${params.toString()}`
   window.history.pushState({}, '', url)
 }
 
 export function replaceTableStateInUrl(
   state: FutureTableState,
+  pathname: string,
   activeViewId?: string | null,
 ): void {
   const params = serializeTableStateToSearchParams(state)
   if (activeViewId) params.set('activeViewId', activeViewId)
-  const url = `${window.location.pathname}?${params.toString()}`
+  const url = `${pathname}?${params.toString()}`
   window.history.replaceState({}, '', url)
 }
 

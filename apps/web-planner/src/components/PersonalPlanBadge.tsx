@@ -1,13 +1,19 @@
-import { User } from 'lucide-react'
+import { Folder, User } from 'lucide-react'
+import { Badge } from '@future/ui'
 
-export function PersonalPlanBadge() {
+export function PersonalPlanBadge({
+  planName,
+  planKind,
+}: {
+  planName: string
+  planKind: 'team' | 'personal'
+}) {
+  const Icon = planKind === 'personal' ? User : Folder
+  const label = planKind === 'personal' ? 'Personal plan' : 'Team plan'
   return (
-    <span
-      data-testid="personal-plan-badge"
-      className="inline-flex items-center gap-1 rounded-full bg-elevated px-2 py-0.5 text-tiny font-510 text-fg-muted"
-    >
-      <User size={10} aria-hidden />
-      Personal
-    </span>
+    <Badge variant="subtle" className="gap-1" aria-label={label}>
+      <Icon className="size-3" aria-hidden={true} />
+      <span className="max-w-24 truncate">{planName}</span>
+    </Badge>
   )
 }

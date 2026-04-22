@@ -6,6 +6,7 @@ import { useSession } from '@future/auth'
 import {
   Button,
   Input,
+  FileUploadTrigger,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -116,7 +117,6 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
 
   const { task } = useTaskDetail({ taskId, planId })
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
   const [showLinkForm, setShowLinkForm] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
@@ -130,10 +130,8 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
     void queryClient.invalidateQueries({ queryKey: ['tasks.getDetail', taskId] })
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files
-    if (!files || files.length === 0) return
-    e.target.value = ''
+  async function handleFileChange(files: FileList) {
+    if (files.length === 0) return
     for (const file of Array.from(files)) {
       await uploadFile(file)
     }
@@ -250,15 +248,17 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
     <div className="flex flex-col gap-2 px-4 py-3" data-testid="attachments-section">
       <div className="flex items-center gap-2">
         <h3 className="flex-1 text-sm font-510">Attachments</h3>
-        <Button
+        <FileUploadTrigger
+          onFiles={(files) => void handleFileChange(files)}
+          multiple
           variant="ghost"
           size="sm"
-          onClick={() => fileInputRef.current?.click()}
           disabled={uploadState.uploading}
           data-testid="attach-file-btn"
         >
+          <Paperclip className="h-3.5 w-3.5" />
           Attach file
-        </Button>
+        </FileUploadTrigger>
         <Button
           variant="ghost"
           size="sm"
@@ -271,14 +271,6 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
         >
           Attach link
         </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={handleFileChange}
-          aria-label="File upload input"
-        />
       </div>
 
       {uploadState.uploading && (

@@ -1,7 +1,7 @@
 'use client'
 import * as React from 'react'
 import type { ColumnDef, CellContext } from '@tanstack/react-table'
-import { DataTable, type FutureTableState, defaultTableState } from '@future/ui'
+import { DataTable, Checkbox, type FutureTableState, defaultTableState } from '@future/ui'
 import { AvatarNameCell } from '../AvatarNameCell'
 import { trpc } from '../../lib/trpc'
 
@@ -50,22 +50,18 @@ export function BulkEmployeeSelector({
     {
       id: 'select',
       header: ({ table }) => (
-        <input
-          type="checkbox"
+        <Checkbox
           checked={table.getIsAllPageRowsSelected()}
-          onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
-          className="h-3.5 w-3.5"
+          onCheckedChange={(v) => table.toggleAllPageRowsSelected(!!v)}
         />
       ),
       cell: ({ row }: CellContext<EmployeeRow, unknown>) => (
-        <input
-          type="checkbox"
+        <Checkbox
           checked={selectedIds.includes(row.original.id)}
-          onChange={(e) => {
-            if (e.target.checked) onSelectionChange([...selectedIds, row.original.id])
+          onCheckedChange={(checked) => {
+            if (checked) onSelectionChange([...selectedIds, row.original.id])
             else onSelectionChange(selectedIds.filter((id) => id !== row.original.id))
           }}
-          className="h-3.5 w-3.5"
         />
       ),
       enableSorting: false,

@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  FileUploadDropzone,
   Input,
   Select,
   SelectContent,
@@ -21,7 +22,7 @@ import {
   type FutureTableState,
   defaultTableState,
 } from '@future/ui'
-import { Upload, CheckCircle2, AlertTriangle, Clock } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Clock, Upload } from 'lucide-react'
 import type { EmployeeDocument, DocumentRequirement } from '../../lib/types'
 import { trpc } from '../../lib/trpc'
 
@@ -162,13 +163,10 @@ export function TabDocuments({
                 <DialogTitle>Upload Document</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
-                  <Upload className="mx-auto h-8 w-8 text-secondary-foreground/60 mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    Drop files here or click to browse
-                  </p>
-                  <input type="file" className="hidden" />
-                </div>
+                <FileUploadDropzone
+                  description="Drop files here or click to browse"
+                  onFiles={() => {}}
+                />
                 <div className="space-y-3">
                   <Input placeholder="Document title" />
                   <Select>

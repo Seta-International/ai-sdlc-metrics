@@ -61,6 +61,12 @@ No FK constraints across schema boundaries. No imports from another module's `do
 
 ## Hard Rules
 
+### Database Migrations (Development Phase)
+
+- **One file only: `0000_initial.sql`.** Never add numbered migrations — squash all schema changes into the initial file.
+- To apply a change: update the Drizzle schema → delete all `.sql` files + `meta/` snapshots → `bun run db:generate --name initial` → `bun run db:down -v && bun run db:up && bun run db:migrate`.
+- Lifted at stable Beta when real tenant data exists.
+
 ### Infrastructure
 
 - Terraform only. No manual AWS console changes.
@@ -72,6 +78,13 @@ No FK constraints across schema boundaries. No imports from another module's `do
 ### No Backward Compatibility
 
 - No shims, no deprecated aliases. Update callers; never preserve old interfaces.
+
+### SSR / Hydration Safety
+
+- **Never read `window.location`, `localStorage`, or `sessionStorage` in `useState` initializers or component bodies.** These APIs are undefined on the server and cause hydration mismatches.
+- URL state → `useSearchParams()` + `usePathname()` from `next/navigation`. Pass them as arguments; never access `window.location` directly.
+- Client-only storage (localStorage) → `useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)` where `getServerSnapshot` returns the safe default.
+- Mutations that write to localStorage → dispatch a custom `Event` after writing so `useSyncExternalStore` subscribers re-render in the same tab.
 
 ### Navigation / Sidebar
 

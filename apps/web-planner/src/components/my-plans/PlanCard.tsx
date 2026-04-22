@@ -19,7 +19,7 @@ export function PlanCard({ plan }: { plan: PlanCardData }) {
       <Card className="cursor-pointer p-4 transition-colors hover:bg-elevated">
         <div className="flex items-start justify-between gap-2">
           <h2 className="truncate text-sm font-510 text-fg-primary">{plan.name}</h2>
-          {plan.isPersonal && <PersonalPlanBadge />}
+          {plan.isPersonal && <PersonalPlanBadge planName={plan.name} planKind="personal" />}
         </div>
         <div className="mt-2 flex items-center gap-1.5 text-xs text-fg-muted">
           <Users size={12} />

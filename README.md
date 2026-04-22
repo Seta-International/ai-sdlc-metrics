@@ -138,7 +138,7 @@ flowchart TD
 Drop this into any AI coding agent (Copilot, Cursor, Claude, etc.) and it handles the rest:
 
 ```
-Read AGENTS.md and QUICKSTART.md, then run `sh scripts/bootstrap.sh --full`. Tell me which .env values still need filling in, then start the dev server. I'm working on: [your task]
+Read AGENTS.md and QUICKSTART.md, then run `sh scripts/setup.sh --full`. Tell me which .env values still need filling in, then start the dev server. I'm working on: [your task]
 ```
 
 ---
@@ -147,7 +147,7 @@ Read AGENTS.md and QUICKSTART.md, then run `sh scripts/bootstrap.sh --full`. Tel
 
 ```bash
 git clone https://github.com/Seta-International/Future.git
-sh scripts/bootstrap.sh --full   # copies .env files, installs, starts DB, builds, migrates
+sh scripts/setup.sh --full   # copies .env files, installs, starts DB, builds, migrates
 bun run dev --filter=@future/api --filter=@future/web-shell
 ```
 

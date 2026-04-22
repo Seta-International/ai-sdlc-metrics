@@ -21,7 +21,7 @@ vi.mock('../../lib/hooks/use-carry-over', () => ({
 // Imports after mocks
 // ---------------------------------------------------------------------------
 
-import { CarryOverBanner } from './carry-over-banner'
+import { CarryOverBanner } from './CarryOverBanner'
 
 // ---------------------------------------------------------------------------
 // Fixtures

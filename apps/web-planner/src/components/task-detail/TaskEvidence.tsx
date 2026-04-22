@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSession } from '@future/auth'
-import { Button, Input, Textarea } from '@future/ui'
+import { Button, Input, Textarea, FileUploadTrigger } from '@future/ui'
 import { FileText, Link, StickyNote, ShieldCheck, Trash2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpc } from '@/lib/trpc'
@@ -172,8 +172,6 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
   const [linkUrl, setLinkUrl] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loadItems = useCallback(async () => {
     setLoading(true)
@@ -415,17 +413,14 @@ export function TaskEvidence({ taskId, planId }: TaskEvidenceProps) {
 
           {activeKind === 'file' && (
             <div className="flex items-center gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                aria-label="Choose file"
+              <FileUploadTrigger
+                onFiles={(files) => setFile(files[0] ?? null)}
+                variant="ghost"
+                size="sm"
                 data-testid="evidence-file-input"
-              />
-              <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
+              >
                 Choose file
-              </Button>
+              </FileUploadTrigger>
               {file && <span className="text-caption text-fg-muted truncate">{file.name}</span>}
             </div>
           )}

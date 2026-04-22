@@ -12,7 +12,7 @@ import { DueBadge } from '../primitives/DueBadge'
 import { AssigneeAvatarStack } from '../primitives/AssigneeAvatarStack'
 import { LabelPill } from '../primitives/LabelPill'
 import { TaskCardCover } from './TaskCardCover'
-import { PersonalPlanBadge } from '../personal-plan-badge'
+import { PersonalPlanBadge } from '../PersonalPlanBadge'
 import { AssigneePicker } from '../assignees/AssigneePicker'
 import { LabelPicker } from '../labels/LabelPicker'
 import { trpc } from '../../lib/trpc'
@@ -27,7 +27,7 @@ import {
   DropdownMenuSeparator,
 } from '@future/ui'
 import type { TaskFlatWithPlan } from '@future/api-client/planner'
-import { AddToMyDayButton } from '../my-day/add-to-my-day-button'
+import { AddToMyDayButton } from '../my-day/AddToMyDayButton'
 
 const MAX_LABELS = 4
 

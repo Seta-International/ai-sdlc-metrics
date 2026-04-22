@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Badge, Separator } from '@future/ui'
+import { Badge, Button, Separator } from '@future/ui'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
 const eventTypeConfig: Record<
@@ -86,17 +86,18 @@ export function TimelineEntry({
           </div>
 
           {hasDiff && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setExpanded(!expanded)}
-              className="shrink-0 rounded p-1 hover:bg-secondary/50"
+              className="h-6 w-6 shrink-0"
             >
               {expanded ? (
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
               ) : (
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               )}
-            </button>
+            </Button>
           )}
         </div>
 

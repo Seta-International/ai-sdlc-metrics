@@ -32,6 +32,7 @@ export interface DataTableProps<TData> {
   totalCount: number
   onStateChange: (state: FutureTableState) => void
   renderExpandedRow?: (row: TData) => React.ReactNode
+  onRowClick?: (row: TData) => void
   onExport?: () => void
   exportDisabled?: boolean
   isLoading?: boolean
@@ -56,6 +57,7 @@ export function DataTable<TData>({
   totalCount,
   onStateChange,
   renderExpandedRow,
+  onRowClick,
   onExport,
   exportDisabled,
   isLoading,
@@ -260,7 +262,11 @@ export function DataTable<TData>({
           <TableBody data-density={state.density}>
             {table.getRowModel().rows.map((row) => (
               <React.Fragment key={row.id}>
-                <TableRow data-state={row.getIsSelected() ? 'selected' : undefined}>
+                <TableRow
+                  data-state={row.getIsSelected() ? 'selected' : undefined}
+                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                  className={onRowClick ? 'cursor-pointer' : undefined}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}

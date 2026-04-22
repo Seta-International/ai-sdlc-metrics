@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MyDayEmptyState } from './my-day-empty-state'
+import { MyDayEmptyState } from './MyDayEmptyState'
 
 describe('MyDayEmptyState', () => {
   it('renders the spec copy', () => {

@@ -89,12 +89,13 @@ export function ProfileHeader({
             )}
           </div>
           {(isSelf || canEdit) && (
-            <button
-              type="button"
-              className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground hover:text-foreground"
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute bottom-0 right-0 h-7 w-7 rounded-full border border-border bg-muted text-muted-foreground hover:text-foreground"
             >
               <Edit className="h-3 w-3" />
-            </button>
+            </Button>
           )}
         </div>
 

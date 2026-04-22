@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Card, Badge, HoverCard, HoverCardContent, HoverCardTrigger } from '@future/ui'
+import { Card, Badge, Button, HoverCard, HoverCardContent, HoverCardTrigger } from '@future/ui'
 import Image from 'next/image'
 import { ChevronDown, ChevronRight, Users } from 'lucide-react'
 import type { OrgChartNode as OrgChartNodeType } from '../lib/types'
@@ -89,13 +89,14 @@ export function OrgChartNodeComponent({
             <div className="text-xs text-secondary-foreground/60">
               {node.directReportCount} direct reports
             </div>
-            <button
-              type="button"
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-xs"
               onClick={() => onNavigate(node.employmentId)}
-              className="text-xs text-accent hover:text-primary/90"
             >
               View Profile
-            </button>
+            </Button>
           </div>
         </HoverCardContent>
       </HoverCard>

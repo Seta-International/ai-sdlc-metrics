@@ -19,7 +19,7 @@ vi.mock('../../lib/hooks/use-carry-over', () => ({
 // Imports after mocks
 // ---------------------------------------------------------------------------
 
-import { CarryOverPickerDialog } from './carry-over-picker-dialog'
+import { CarryOverPickerDialog } from './CarryOverPickerDialog'
 
 // ---------------------------------------------------------------------------
 // Fixtures

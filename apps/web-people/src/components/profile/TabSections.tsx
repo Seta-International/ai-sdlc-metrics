@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger, Card, Badge, Button, Skeleton } from '@future/ui'
-import { Plus, Edit, Trash2, Link } from 'lucide-react'
+import { Plus, Edit, Trash2, Link, X } from 'lucide-react'
 import type { ProfileSection } from '../../lib/types'
 import { trpc } from '../../lib/trpc'
 
@@ -158,12 +158,14 @@ function SkillsView({ entries, canEdit }: { entries: ProfileSection[]; canEdit: 
           <Badge key={entry.id} variant="subtle" className="gap-1">
             {String(entry.data.name ?? entry.data.skill ?? '')}
             {canEdit && (
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 type="button"
-                className="ml-1 text-secondary-foreground/60 hover:text-red-400"
+                className="ml-1 h-4 w-4 p-0 text-secondary-foreground/60 hover:text-red-400"
               >
-                x
-              </button>
+                <X className="h-3 w-3" />
+              </Button>
             )}
           </Badge>
         ))}

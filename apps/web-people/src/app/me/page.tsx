@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams, usePathname, useRouter } from 'next/navigation'
 import { Skeleton } from '@future/ui'
 import { ProfileHeader } from '../../components/profile/ProfileHeader'
 import { ProfileTabs } from '../../components/profile/ProfileTabs'
@@ -68,6 +68,7 @@ function toEmployeeProfile(
 
 export default function MyProfilePage() {
   const searchParams = useSearchParams()
+  const pathname = usePathname()
   const router = useRouter()
   const activeTab = searchParams.get('tab') ?? 'overview'
 
@@ -95,9 +96,9 @@ export default function MyProfilePage() {
   }, [])
 
   function handleTabChange(tab: string) {
-    const p = new URLSearchParams(window.location.search)
+    const p = new URLSearchParams(searchParams.toString())
     p.set('tab', tab)
-    router.replace(`${window.location.pathname}?${p.toString()}`)
+    router.replace(`${pathname}?${p.toString()}`)
   }
 
   if (isLoading) {

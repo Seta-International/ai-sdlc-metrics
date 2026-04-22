@@ -23,6 +23,6 @@ describe('PlanCard', () => {
 
   it('renders the personal badge when isPersonal is true', () => {
     render(<PlanCard plan={{ ...base, isPersonal: true, ownerActorId: 'a1' }} />)
-    expect(screen.getByTestId('personal-plan-badge')).toBeInTheDocument()
+    expect(screen.getByLabelText(/personal plan/i)).toBeInTheDocument()
   })
 })

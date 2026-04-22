@@ -1,7 +1,7 @@
 'use client'
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import type { ColumnDef, CellContext } from '@tanstack/react-table'
+import type { ColumnDef } from '@tanstack/react-table'
 import { DataTable, type FutureTableState, defaultTableState } from '@future/ui'
 import type { CountryConfig } from '../../../lib/types-workflows'
 import { trpc } from '../../../lib/trpc'
@@ -29,15 +29,6 @@ function CountriesTable({
       accessorKey: 'code',
       header: 'Code',
       enableSorting: true,
-      cell: ({ getValue, row }: CellContext<CountryConfig, unknown>) => (
-        <button
-          type="button"
-          className="text-left hover:underline"
-          onClick={() => router.push(`/settings/countries/${row.original.code}`)}
-        >
-          {getValue() as string}
-        </button>
-      ),
     },
     { accessorKey: 'name', header: 'Country', enableSorting: true },
     { accessorKey: 'fieldCount', header: 'Fields', enableSorting: true },
@@ -52,6 +43,7 @@ function CountriesTable({
       state={tableState}
       totalCount={totalCount}
       onStateChange={setTableState}
+      onRowClick={(row) => router.push(`/settings/countries/${row.code}`)}
       isLoading={isLoading}
     />
   )

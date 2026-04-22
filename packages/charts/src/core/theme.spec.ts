@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { SETA_LIGHT_THEME, SETA_DARK_THEME, registerSetaThemes } from './theme'
 
 describe('theme', () => {
@@ -40,10 +40,12 @@ describe('theme', () => {
   })
 
   describe('registerSetaThemes', () => {
-    it('registers both themes with echarts', async () => {
-      const { echarts } = await import('./echarts-setup')
-      // Should not throw
-      registerSetaThemes(echarts)
+    it('registers both themes with echarts', () => {
+      const mockEcharts = { registerTheme: vi.fn() }
+      registerSetaThemes(mockEcharts as never)
+      expect(mockEcharts.registerTheme).toHaveBeenCalledTimes(2)
+      expect(mockEcharts.registerTheme).toHaveBeenCalledWith('seta-light', SETA_LIGHT_THEME)
+      expect(mockEcharts.registerTheme).toHaveBeenCalledWith('seta-dark', SETA_DARK_THEME)
     })
   })
 })

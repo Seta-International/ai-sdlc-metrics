@@ -5,6 +5,7 @@ import {
   Card,
   Button,
   Badge,
+  FileUploadDropzone,
   Select,
   SelectContent,
   SelectItem,
@@ -12,7 +13,7 @@ import {
   SelectValue,
   Progress,
 } from '@future/ui'
-import { Upload, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
 
 type WizardStep = 'upload' | 'mapping' | 'validation' | 'preview' | 'processing'
 
@@ -60,28 +61,15 @@ export function ImportWizard() {
       {step === 'upload' && (
         <Card className="border-border bg-card p-8">
           <div className="flex flex-col items-center gap-4">
-            <div className="rounded-lg border-2 border-dashed border-border p-12 w-full text-center">
-              <Upload className="mx-auto h-10 w-10 text-secondary-foreground/60 mb-3" />
-              <p className="text-sm text-secondary-foreground mb-1">Drop CSV or XLSX file here</p>
-              <p className="text-xs text-secondary-foreground/60">Maximum 10MB</p>
-              <input
-                type="file"
-                accept=".csv,.xlsx"
-                className="hidden"
-                id="import-file"
-                onChange={(e) => {
-                  if (e.target.files?.[0]) setFile(e.target.files[0])
-                }}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4"
-                onClick={() => document.getElementById('import-file')?.click()}
-              >
-                Browse Files
-              </Button>
-            </div>
+            <FileUploadDropzone
+              accept=".csv,.xlsx"
+              description="Drop CSV or XLSX file here"
+              hint="Maximum 10MB"
+              className="w-full p-12"
+              onFiles={(files) => {
+                if (files[0]) setFile(files[0])
+              }}
+            />
             {file && (
               <div className="flex items-center justify-between w-full">
                 <span className="text-sm text-secondary-foreground">

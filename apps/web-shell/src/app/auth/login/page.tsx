@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { Button, Input } from '@future/ui'
 import { MICROSOFT_CONFIG, GOOGLE_CONFIG } from '../../../lib/auth-config'
 
 const PEOPLE_APP_URL =
@@ -99,21 +100,17 @@ export default function LoginPage() {
               {error}
             </div>
           )}
-          <input
+          <Input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@company.com"
             required
-            className="w-full rounded-md border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none"
+            className="w-full"
           />
-          <button
-            type="submit"
-            disabled={loading || !email}
-            className="w-full rounded-md bg-brand px-4 py-3 text-sm font-510 text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-          >
+          <Button type="submit" disabled={loading || !email} className="w-full">
             {loading ? 'Sending…' : 'Send magic link'}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

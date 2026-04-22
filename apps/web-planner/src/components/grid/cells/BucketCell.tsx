@@ -1,5 +1,5 @@
 import type { TaskFlat } from '@future/api-client/planner'
-import { PersonalPlanBadge } from '../../personal-plan-badge'
+import { PersonalPlanBadge } from '../../PersonalPlanBadge'
 
 export function BucketCell({ task }: { task: TaskFlat }) {
   const withPlan = task as TaskFlat & { planName?: string; planKind?: 'team' | 'personal' }

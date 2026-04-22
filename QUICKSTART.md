@@ -41,7 +41,7 @@ Starts PostgreSQL 16 and Redis 8 via Docker Compose. On first boot, creates thre
 The fastest way — copy all `.env` files at once:
 
 ```bash
-bun run bootstrap
+bun run setup
 ```
 
 Or do it manually:
@@ -100,7 +100,7 @@ Most common: API + the zones you're working on.
 bun run dev --filter=@future/api
 
 # API + shell + specific zones
-bun run dev --filter=@future/api --filter=@future/web-shell --filter=@future/web-people
+bun run dev --filter=@future/api --filter=@future/web-shell --filter=@future/web-people --filter=@future/web-planner
 
 # Everything (slow, use only if you need all zones)
 bun run dev
@@ -169,8 +169,9 @@ bun run db:down
 
 | Command                  | What it does                                                   |
 | ------------------------ | -------------------------------------------------------------- |
-| `bun run bootstrap`      | Copy all .env.example files (safe to re-run)                   |
-| `bun run bootstrap:full` | Full onboarding: copy envs + install + db:up + build + migrate |
+| `bun run setup`          | Copy all .env.example files (safe to re-run)                   |
+| `bun run setup:full`     | Full onboarding: copy envs + install + db:up + build + migrate |
+| `bun run setup:clean`    | Tear down: remove .env files, stop Docker, wipe volumes        |
 | `bun run db:up`          | Start Postgres + Redis                                         |
 | `bun run db:down`        | Stop Postgres + Redis                                          |
 | `bun run db:generate`    | Generate a new Drizzle migration from schema changes           |

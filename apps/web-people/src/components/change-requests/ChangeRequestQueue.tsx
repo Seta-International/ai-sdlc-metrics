@@ -8,6 +8,7 @@ import {
   Badge,
   Button,
   Card,
+  Checkbox,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -36,19 +37,17 @@ const columns: ColumnDef<ChangeRequestRow>[] = [
   {
     id: 'select',
     header: ({ table }) => (
-      <input
-        type="checkbox"
+      <Checkbox
         checked={table.getIsAllPageRowsSelected()}
-        onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
-        className="h-3.5 w-3.5"
+        onCheckedChange={(v) => table.toggleAllPageRowsSelected(!!v)}
+        aria-label="Select all"
       />
     ),
     cell: ({ row }) => (
-      <input
-        type="checkbox"
+      <Checkbox
         checked={row.getIsSelected()}
-        onChange={(e) => row.toggleSelected(e.target.checked)}
-        className="h-3.5 w-3.5"
+        onCheckedChange={(v) => row.toggleSelected(!!v)}
+        aria-label="Select row"
       />
     ),
     enableSorting: false,

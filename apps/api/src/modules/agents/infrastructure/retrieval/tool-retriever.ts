@@ -75,6 +75,7 @@ export class ToolRetriever implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
+    if (process.env['LOCAL_DEV'] && !process.env['OPENAI_API_KEY']) return
     const apiKey = process.env['OPENAI_API_KEY']
     if (!apiKey || apiKey.trim() === '') {
       throw new Error(

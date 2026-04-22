@@ -5,6 +5,8 @@ import { render, screen, cleanup } from '@testing-library/react'
 // Mock next/navigation
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => '/people',
 }))
 
 // Mock table-url-state utilities

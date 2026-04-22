@@ -97,13 +97,14 @@ export function JobCatalogEditor() {
       const hasChildren = family.children && family.children.length > 0
       return (
         <div key={family.id}>
-          <button
+          <Button
+            variant="ghost"
             type="button"
             onClick={() => {
               setSelectedFamilyId(family.id)
               if (hasChildren) toggleExpand(family.id)
             }}
-            className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm ${isSelected ? 'bg-border text-foreground font-510' : 'text-secondary-foreground hover:bg-secondary'}`}
+            className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm h-auto justify-start ${isSelected ? 'bg-border text-foreground font-510' : 'text-secondary-foreground hover:bg-secondary'}`}
             style={{ paddingLeft: `${depth * 16 + 8}px` }}
           >
             {hasChildren ? (
@@ -119,7 +120,7 @@ export function JobCatalogEditor() {
             <Badge variant="subtle" className="ml-auto h-4 px-1 text-xs">
               {family.profileCount}
             </Badge>
-          </button>
+          </Button>
           {isExpanded && hasChildren && renderFamilyTree(family.children!, depth + 1)}
         </div>
       )

@@ -43,6 +43,88 @@ CREATE TABLE "admin"."tenant_email_config" (
 	CONSTRAINT "tenant_email_config_tenant_id_unique" UNIQUE("tenant_id")
 );
 --> statement-breakpoint
+CREATE TABLE "admin"."tenant_settings" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"planner_core_enabled" boolean DEFAULT false NOT NULL,
+	"planner_views_enabled" boolean DEFAULT false NOT NULL,
+	"planner_grid_enabled" boolean DEFAULT false NOT NULL,
+	"planner_schedule_enabled" boolean DEFAULT false NOT NULL,
+	"planner_charts_enabled" boolean DEFAULT false NOT NULL,
+	"planner_charts_trends_enabled" boolean DEFAULT false NOT NULL,
+	"planner_personal_enabled" boolean DEFAULT false NOT NULL,
+	"timezone" text DEFAULT 'Asia/Ho_Chi_Minh' NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "tenant_settings_tenant_id_unique" UNIQUE("tenant_id")
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_tool_embedding" (
+	"tool_name" text NOT NULL,
+	"content_hash" text NOT NULL,
+	"embedding" jsonb NOT NULL,
+	"descriptor_snapshot" jsonb NOT NULL,
+	"first_seen_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "agent_tool_embedding_tool_name_content_hash_pk" PRIMARY KEY("tool_name","content_hash")
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_chat_message" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"session_id" uuid NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"role" text NOT NULL,
+	"content" text NOT NULL,
+	"tool_name" text,
+	"tool_args" jsonb,
+	"model_used" text,
+	"tokens_used" integer,
+	"is_error" boolean DEFAULT false,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_chat_session" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"actor_id" uuid NOT NULL,
+	"agent_id" uuid,
+	"channel_type" text DEFAULT 'web_chat' NOT NULL,
+	"status" text DEFAULT 'active' NOT NULL,
+	"context_module" text,
+	"context_entity" text,
+	"context_entity_id" text,
+	"context_metadata" jsonb,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"ended_at" timestamp with time zone
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_message" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"conversation_id" uuid NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"role" text NOT NULL,
+	"content" jsonb,
+	"summary" text,
+	"trace_id" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "agent_message_role_check" CHECK ("agents"."agent_message"."role" IN ('user', 'assistant', 'system'))
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_conversation" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"surface" text NOT NULL,
+	"status" text DEFAULT 'active' NOT NULL,
+	"title" text,
+	"last_user_turn_at" timestamp with time zone,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"archived_at" timestamp with time zone,
+	"summary_failure_streak" integer DEFAULT 0 NOT NULL,
+	"summary_disabled_at" timestamp with time zone,
+	CONSTRAINT "agent_conversation_status_check" CHECK ("agents"."agent_conversation"."status" IN ('active', 'archived'))
+);
+--> statement-breakpoint
 CREATE TABLE "agents"."agent_insight" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"tenant_id" uuid NOT NULL,
@@ -59,33 +141,67 @@ CREATE TABLE "agents"."agent_insight" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "agents"."agent_message" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"session_id" uuid NOT NULL,
+CREATE TABLE "agents"."agent_l3_preference" (
 	"tenant_id" uuid NOT NULL,
-	"role" text NOT NULL,
+	"user_id" uuid NOT NULL,
+	"key" text NOT NULL,
+	"value" jsonb NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_by" uuid NOT NULL,
+	CONSTRAINT "agent_l3_preference_pk" PRIMARY KEY("tenant_id","user_id","key")
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_narrative_store" (
+	"content_hash" text PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"role_key" text NOT NULL,
 	"content" text NOT NULL,
-	"tool_name" text,
-	"tool_args" jsonb,
-	"model_used" text,
-	"tokens_used" integer,
-	"is_error" boolean DEFAULT false,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+	"first_seen_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_prompt_store" (
+	"content_hash" text PRIMARY KEY NOT NULL,
+	"layer" text NOT NULL,
+	"content" text NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"first_seen_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_scratchpad" (
+	"tenant_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"field" text NOT NULL,
+	"value" jsonb NOT NULL,
+	"tainted" boolean DEFAULT false NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "agent_scratchpad_pk" PRIMARY KEY("tenant_id","user_id","field")
 );
 --> statement-breakpoint
 CREATE TABLE "agents"."agent_session" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"tenant_id" uuid NOT NULL,
-	"actor_id" uuid NOT NULL,
-	"agent_id" uuid,
-	"channel_type" text DEFAULT 'web_chat' NOT NULL,
-	"status" text DEFAULT 'active' NOT NULL,
-	"context_module" text,
-	"context_entity" text,
-	"context_entity_id" text,
-	"context_metadata" jsonb,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"conversation_id" uuid NOT NULL,
+	"router_prompt_hash" text NOT NULL,
+	"permission_narrative_hash" text NOT NULL,
+	"tool_catalog_hash" text NOT NULL,
+	"directive_schema_hash" text NOT NULL,
+	"canonicalizer_version_hash" text NOT NULL,
+	"pinned_sub_agent_prompt_hashes" jsonb NOT NULL,
+	"started_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"ended_at" timestamp with time zone
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_stored_sub_agent" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"key" text NOT NULL,
+	"config" jsonb NOT NULL,
+	"version" integer NOT NULL,
+	"status" text NOT NULL,
+	"created_by" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "agent_stored_sub_agent_status_check" CHECK ("agents"."agent_stored_sub_agent"."status" IN ('draft', 'active', 'retired'))
 );
 --> statement-breakpoint
 CREATE TABLE "documents"."generation_job" (
@@ -588,6 +704,7 @@ CREATE TABLE "people"."employment" (
 	"termination_reason" text,
 	"hire_date" date NOT NULL,
 	"original_hire_date" date,
+	"previous_profile_id" uuid,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -666,6 +783,23 @@ CREATE TABLE "people"."job_family" (
 	"parent_id" uuid,
 	"is_active" boolean DEFAULT true NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "people"."job_history" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"profile_id" uuid NOT NULL,
+	"effective_from" date NOT NULL,
+	"effective_to" date,
+	"job_title" text,
+	"department_id" uuid,
+	"manager_profile_id" uuid,
+	"change_type" text NOT NULL,
+	"change_reason" text,
+	"recorded_at" timestamp DEFAULT now() NOT NULL,
+	"recorded_by" uuid,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "people"."job_profile" (
@@ -858,6 +992,204 @@ CREATE TABLE "people"."profile_share_link" (
 	"revoked_at" timestamp
 );
 --> statement-breakpoint
+CREATE TABLE "planner"."bucket" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"plan_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"order_hint" text NOT NULL,
+	"ms_bucket_id" text,
+	"ms_bucket_etag" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"deleted_at" timestamp
+);
+--> statement-breakpoint
+CREATE TABLE "planner"."my_day_entry" (
+	"actor_id" uuid NOT NULL,
+	"task_id" uuid NOT NULL,
+	"added_date" date NOT NULL,
+	"added_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"completed_at" timestamp with time zone,
+	"tenant_id" uuid NOT NULL,
+	CONSTRAINT "my_day_entry_actor_id_task_id_added_date_pk" PRIMARY KEY("actor_id","task_id","added_date")
+);
+--> statement-breakpoint
+CREATE TABLE "planner"."plan" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"description" text DEFAULT '' NOT NULL,
+	"container_type" text,
+	"ms_group_id" text,
+	"ms_roster_id" text,
+	"ms_plan_id" text,
+	"ms_plan_etag" text,
+	"owner_actor_id" uuid,
+	"sync_enabled" boolean DEFAULT true NOT NULL,
+	"created_by" uuid NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"deleted_at" timestamp,
+	CONSTRAINT "chk_plan_description_length" CHECK (char_length("planner"."plan"."description") <= 32000),
+	CONSTRAINT "chk_plan_container_xor" CHECK (("planner"."plan"."container_type" IS NULL AND "planner"."plan"."ms_group_id" IS NULL AND "planner"."plan"."ms_roster_id" IS NULL)
+        OR ("planner"."plan"."container_type" = 'group' AND "planner"."plan"."ms_group_id" IS NOT NULL AND "planner"."plan"."ms_roster_id" IS NULL)
+        OR ("planner"."plan"."container_type" = 'roster' AND "planner"."plan"."ms_roster_id" IS NOT NULL AND "planner"."plan"."ms_group_id" IS NULL))
+);
+--> statement-breakpoint
+CREATE TABLE "planner"."plan_label" (
+	"plan_id" uuid NOT NULL,
+	"slot" text NOT NULL,
+	"name" text NOT NULL,
+	"color" text NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	CONSTRAINT "plan_label_plan_id_slot_pk" PRIMARY KEY("plan_id","slot"),
+	CONSTRAINT "chk_plan_label_slot" CHECK ("planner"."plan_label"."slot" ~ '^category([1-9]|1[0-9]|2[0-5])$')
+);
+--> statement-breakpoint
+CREATE TABLE "planner"."plan_member" (
+	"plan_id" uuid NOT NULL,
+	"actor_id" uuid NOT NULL,
+	"role" text NOT NULL,
+	"added_by" uuid NOT NULL,
+	"added_at" timestamp DEFAULT now() NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	CONSTRAINT "plan_member_plan_id_actor_id_pk" PRIMARY KEY("plan_id","actor_id")
+);
+--> statement-breakpoint
+CREATE TABLE "planner"."task" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"plan_id" uuid NOT NULL,
+	"bucket_id" uuid NOT NULL,
+	"title" text NOT NULL,
+	"description" text DEFAULT '' NOT NULL,
+	"progress" smallint DEFAULT 0 NOT NULL,
+	"priority" smallint DEFAULT 5 NOT NULL,
+	"start_date" date,
+	"due_date" date,
+	"order_hint" text NOT NULL,
+	"cover_attachment_id" uuid,
+	"checklist_item_count" smallint DEFAULT 0 NOT NULL,
+	"checklist_checked_count" smallint DEFAULT 0 NOT NULL,
+	"created_by" uuid NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"completed_by" uuid,
+	"completed_at" timestamp,
+	"deleted_at" timestamp,
+	"ms_task_id" text,
+	"ms_task_etag" text,
+	"ms_task_details_etag" text,
+	"pending_ms_assignments" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	CONSTRAINT "chk_task_progress" CHECK ("planner"."task"."progress" IN (0, 50, 100)),
+	CONSTRAINT "chk_task_priority" CHECK ("planner"."task"."priority" IN (1, 3, 5, 9)),
+	CONSTRAINT "chk_task_description_length" CHECK (char_length("planner"."task"."description") <= 32000),
+	CONSTRAINT "chk_task_completion_consistency" CHECK (("planner"."task"."progress" = 100 AND "planner"."task"."completed_at" IS NOT NULL) OR ("planner"."task"."progress" < 100 AND "planner"."task"."completed_at" IS NULL))
+);
+--> statement-breakpoint
+CREATE TABLE "planner"."task_applied_label" (
+	"task_id" uuid NOT NULL,
+	"slot" text NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"plan_id" uuid NOT NULL,
+	CONSTRAINT "task_applied_label_task_id_slot_pk" PRIMARY KEY("task_id","slot")
+);
+--> statement-breakpoint
+CREATE TABLE "planner"."task_assignee" (
+	"task_id" uuid NOT NULL,
+	"actor_id" uuid NOT NULL,
+	"assigned_by" uuid NOT NULL,
+	"assigned_at" timestamp DEFAULT now() NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	CONSTRAINT "task_assignee_task_id_actor_id_pk" PRIMARY KEY("task_id","actor_id")
+);
+--> statement-breakpoint
+CREATE TABLE "planner"."task_attachment" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"task_id" uuid NOT NULL,
+	"kind" text NOT NULL,
+	"storage_key" text,
+	"size_bytes" bigint,
+	"content_type" text,
+	"filename" text,
+	"url" text,
+	"link_title" text,
+	"preview_type" text,
+	"tenant_id" uuid NOT NULL,
+	"created_by" uuid NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "chk_task_attachment_kind_xor" CHECK (("planner"."task_attachment"."kind" = 'file' AND "planner"."task_attachment"."storage_key" IS NOT NULL AND "planner"."task_attachment"."url" IS NULL)
+        OR ("planner"."task_attachment"."kind" = 'link' AND "planner"."task_attachment"."url" IS NOT NULL AND "planner"."task_attachment"."storage_key" IS NULL))
+);
+--> statement-breakpoint
+CREATE TABLE "planner"."task_checklist_item" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"task_id" uuid NOT NULL,
+	"title" text NOT NULL,
+	"is_checked" boolean DEFAULT false NOT NULL,
+	"order_hint" text NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"created_by" uuid NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "planner"."task_comment" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"task_id" uuid NOT NULL,
+	"author_actor_id" uuid NOT NULL,
+	"body" text NOT NULL,
+	"posted_at" timestamp DEFAULT now() NOT NULL,
+	"deleted_at" timestamp,
+	"tenant_id" uuid NOT NULL,
+	"ms_thread_id" text,
+	"ms_post_id" text,
+	"ms_post_etag" text,
+	CONSTRAINT "chk_task_comment_body_length" CHECK (char_length("planner"."task_comment"."body") <= 4000)
+);
+--> statement-breakpoint
+CREATE TABLE "planner"."task_evidence" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"task_id" uuid NOT NULL,
+	"submitted_by" uuid NOT NULL,
+	"submitted_at" timestamp DEFAULT now() NOT NULL,
+	"kind" text NOT NULL,
+	"storage_key" text,
+	"size_bytes" bigint,
+	"content_type" text,
+	"filename" text,
+	"url" text,
+	"link_title" text,
+	"body" text,
+	"caption" text DEFAULT '' NOT NULL,
+	"verified_by" uuid,
+	"verified_at" timestamp,
+	"verification_note" text,
+	"tenant_id" uuid NOT NULL,
+	CONSTRAINT "chk_task_evidence_kind_xor" CHECK (("planner"."task_evidence"."kind" = 'file' AND "planner"."task_evidence"."storage_key" IS NOT NULL)
+        OR ("planner"."task_evidence"."kind" = 'link' AND "planner"."task_evidence"."url" IS NOT NULL)
+        OR ("planner"."task_evidence"."kind" = 'note' AND "planner"."task_evidence"."body" IS NOT NULL)),
+	CONSTRAINT "chk_task_evidence_caption_length" CHECK (char_length("planner"."task_evidence"."caption") <= 500),
+	CONSTRAINT "chk_task_evidence_body_length" CHECK ("planner"."task_evidence"."body" IS NULL OR char_length("planner"."task_evidence"."body") <= 4000),
+	CONSTRAINT "chk_task_evidence_verification_consistency" CHECK (("planner"."task_evidence"."verified_by" IS NULL AND "planner"."task_evidence"."verified_at" IS NULL) OR ("planner"."task_evidence"."verified_by" IS NOT NULL AND "planner"."task_evidence"."verified_at" IS NOT NULL))
+);
+--> statement-breakpoint
+CREATE TABLE "planner"."task_daily_snapshot" (
+	"tenant_id" uuid NOT NULL,
+	"plan_id" uuid NOT NULL,
+	"snapshot_date" date NOT NULL,
+	"total_count" integer NOT NULL,
+	"open_count" integer NOT NULL,
+	"completed_count" integer NOT NULL,
+	"by_priority" jsonb NOT NULL,
+	"by_bucket" jsonb NOT NULL,
+	"by_assignee" jsonb NOT NULL,
+	"completed_in_day" integer NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "task_daily_snapshot_tenant_id_plan_id_snapshot_date_pk" PRIMARY KEY("tenant_id","plan_id","snapshot_date")
+);
+--> statement-breakpoint
 CREATE TABLE "preferences"."saved_view" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"tenant_id" uuid NOT NULL,
@@ -934,6 +1266,26 @@ CREATE TABLE "projects"."project_role" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+ALTER TABLE "planner"."bucket" ADD CONSTRAINT "bucket_plan_id_plan_id_fk" FOREIGN KEY ("plan_id") REFERENCES "planner"."plan"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "planner"."plan_label" ADD CONSTRAINT "plan_label_plan_id_plan_id_fk" FOREIGN KEY ("plan_id") REFERENCES "planner"."plan"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "planner"."plan_member" ADD CONSTRAINT "plan_member_plan_id_plan_id_fk" FOREIGN KEY ("plan_id") REFERENCES "planner"."plan"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "planner"."task" ADD CONSTRAINT "task_plan_id_plan_id_fk" FOREIGN KEY ("plan_id") REFERENCES "planner"."plan"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "planner"."task" ADD CONSTRAINT "task_bucket_id_bucket_id_fk" FOREIGN KEY ("bucket_id") REFERENCES "planner"."bucket"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "planner"."task_applied_label" ADD CONSTRAINT "task_applied_label_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "planner"."task_assignee" ADD CONSTRAINT "task_assignee_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "planner"."task_attachment" ADD CONSTRAINT "task_attachment_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "planner"."task_checklist_item" ADD CONSTRAINT "task_checklist_item_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "planner"."task_comment" ADD CONSTRAINT "task_comment_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "planner"."task_evidence" ADD CONSTRAINT "task_evidence_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "agent_tool_embedding_tool_name_idx" ON "agents"."agent_tool_embedding" USING btree ("tool_name");--> statement-breakpoint
+CREATE INDEX "agent_message_tenant_user_conv_created_idx" ON "agents"."agent_message" USING btree ("tenant_id","user_id","conversation_id","created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "agent_conversation_scope_active_uidx" ON "agents"."agent_conversation" USING btree ("tenant_id","user_id","surface") WHERE status = 'active';--> statement-breakpoint
+CREATE INDEX "agent_conversation_tenant_user_status_updated_idx" ON "agents"."agent_conversation" USING btree ("tenant_id","user_id","status","updated_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_session_conversation_lookup_idx" ON "agents"."agent_session" USING btree ("tenant_id","user_id","conversation_id","started_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE UNIQUE INDEX "agent_session_conversation_active_uq" ON "agents"."agent_session" USING btree ("tenant_id","conversation_id") WHERE ended_at IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "agent_stored_sub_agent_tenant_key_version_uidx" ON "agents"."agent_stored_sub_agent" USING btree ("tenant_id","key","version");--> statement-breakpoint
+CREATE INDEX "agent_stored_sub_agent_tenant_key_status_idx" ON "agents"."agent_stored_sub_agent" USING btree ("tenant_id","key","status");--> statement-breakpoint
+CREATE INDEX "agent_stored_sub_agent_tenant_key_version_desc_idx" ON "agents"."agent_stored_sub_agent" USING btree ("tenant_id","key","version" DESC NULLS LAST);--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_identity_provider_tenant_primary" ON "identity"."identity_provider" USING btree ("tenant_id","is_primary") WHERE "identity"."identity_provider"."is_primary" = true;--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_idp_group_mapping_role_scope_scoped" ON "identity"."idp_group_mapping" USING btree ("tenant_id","external_group_id","role_key","scope_type","scope_id") WHERE "identity"."idp_group_mapping"."scope_id" IS NOT NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_idp_group_mapping_role_scope_global" ON "identity"."idp_group_mapping" USING btree ("tenant_id","external_group_id","role_key","scope_type") WHERE "identity"."idp_group_mapping"."scope_id" IS NULL;--> statement-breakpoint
@@ -948,6 +1300,26 @@ CREATE UNIQUE INDEX "field_edit_policy_tenant_path_uidx" ON "people"."field_edit
 CREATE UNIQUE INDEX "field_visibility_config_tenant_path_uidx" ON "people"."field_visibility_config" USING btree ("tenant_id","field_path");--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_directory_search_index_employment" ON "people"."directory_search_index" USING btree ("tenant_id","employment_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "employment_detail_tenant_employment_uidx" ON "people"."employment_detail" USING btree ("tenant_id","employment_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "job_history_tenant_profile_from_uidx" ON "people"."job_history" USING btree ("tenant_id","profile_id","effective_from");--> statement-breakpoint
 CREATE UNIQUE INDEX "person_profile_tenant_actor_uidx" ON "people"."person_profile" USING btree ("tenant_id","actor_id");--> statement-breakpoint
+CREATE INDEX "idx_bucket_plan_deleted_order" ON "planner"."bucket" USING btree ("plan_id","deleted_at","order_hint") WHERE "planner"."bucket"."deleted_at" IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "uq_bucket_tenant_ms_bucket_id" ON "planner"."bucket" USING btree ("tenant_id","ms_bucket_id") WHERE "planner"."bucket"."ms_bucket_id" IS NOT NULL;--> statement-breakpoint
+CREATE INDEX "idx_my_day_entry_today" ON "planner"."my_day_entry" USING btree ("tenant_id","actor_id","added_date");--> statement-breakpoint
+CREATE INDEX "idx_my_day_entry_task" ON "planner"."my_day_entry" USING btree ("task_id");--> statement-breakpoint
+CREATE INDEX "idx_plan_tenant_deleted" ON "planner"."plan" USING btree ("tenant_id","deleted_at") WHERE "planner"."plan"."deleted_at" IS NULL;--> statement-breakpoint
+CREATE INDEX "idx_plan_tenant_created_by" ON "planner"."plan" USING btree ("tenant_id","created_by");--> statement-breakpoint
+CREATE UNIQUE INDEX "uq_plan_tenant_ms_plan_id" ON "planner"."plan" USING btree ("tenant_id","ms_plan_id") WHERE "planner"."plan"."ms_plan_id" IS NOT NULL;--> statement-breakpoint
+CREATE INDEX "idx_plan_tenant_owner_actor" ON "planner"."plan" USING btree ("tenant_id","owner_actor_id") WHERE "planner"."plan"."owner_actor_id" IS NOT NULL;--> statement-breakpoint
+CREATE INDEX "idx_plan_member_tenant_actor" ON "planner"."plan_member" USING btree ("tenant_id","actor_id");--> statement-breakpoint
+CREATE INDEX "idx_task_tenant_plan_bucket_deleted_order" ON "planner"."task" USING btree ("tenant_id","plan_id","bucket_id","deleted_at","order_hint") WHERE "planner"."task"."deleted_at" IS NULL;--> statement-breakpoint
+CREATE INDEX "idx_task_tenant_due_date" ON "planner"."task" USING btree ("tenant_id","due_date") WHERE "planner"."task"."deleted_at" IS NULL AND "planner"."task"."progress" < 100;--> statement-breakpoint
+CREATE UNIQUE INDEX "uq_task_tenant_ms_task_id" ON "planner"."task" USING btree ("tenant_id","ms_task_id") WHERE "planner"."task"."ms_task_id" IS NOT NULL;--> statement-breakpoint
+CREATE INDEX "idx_task_applied_label_tenant_plan_slot" ON "planner"."task_applied_label" USING btree ("tenant_id","plan_id","slot");--> statement-breakpoint
+CREATE INDEX "idx_task_assignee_tenant_actor" ON "planner"."task_assignee" USING btree ("tenant_id","actor_id");--> statement-breakpoint
+CREATE INDEX "idx_task_attachment_task" ON "planner"."task_attachment" USING btree ("task_id");--> statement-breakpoint
+CREATE INDEX "idx_task_checklist_item_task_order" ON "planner"."task_checklist_item" USING btree ("task_id","order_hint");--> statement-breakpoint
+CREATE INDEX "idx_task_comment_task_posted" ON "planner"."task_comment" USING btree ("task_id","posted_at") WHERE "planner"."task_comment"."deleted_at" IS NULL;--> statement-breakpoint
+CREATE INDEX "idx_task_evidence_task_submitted" ON "planner"."task_evidence" USING btree ("task_id","submitted_at");--> statement-breakpoint
+CREATE INDEX "idx_task_evidence_tenant_submitted_by" ON "planner"."task_evidence" USING btree ("tenant_id","submitted_by");--> statement-breakpoint
 CREATE INDEX "saved_view_tenant_actor_resource_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key");--> statement-breakpoint
 CREATE UNIQUE INDEX "saved_view_unique_default_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key") WHERE is_default = true;

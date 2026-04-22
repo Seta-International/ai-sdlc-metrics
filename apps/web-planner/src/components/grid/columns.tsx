@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
+import { Checkbox } from '@future/ui'
 import type { TaskFlat } from '@future/api-client/planner'
 import { TitleCell } from './cells/TitleCell'
 import { BucketCell } from './cells/BucketCell'
@@ -29,26 +30,17 @@ export function buildColumns(opts: BuildColumnsOptions): ColumnDef<TaskFlat>[] {
       id: 'select',
       enableSorting: false,
       header: ({ table }) => (
-        <input
-          type="checkbox"
+        <Checkbox
           checked={table.getIsAllPageRowsSelected()}
-          ref={(el) => {
-            if (el) {
-              el.indeterminate = table.getIsSomePageRowsSelected()
-            }
-          }}
-          onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
+          onCheckedChange={(v) => table.toggleAllPageRowsSelected(!!v)}
           aria-label="Select all"
-          className="size-4 accent-primary"
         />
       ),
       cell: ({ row }) => (
-        <input
-          type="checkbox"
+        <Checkbox
           checked={row.getIsSelected()}
-          onChange={(e) => row.toggleSelected(e.target.checked)}
+          onCheckedChange={(v) => row.toggleSelected(!!v)}
           aria-label="Select row"
-          className="size-4 accent-primary"
         />
       ),
       size: 36,

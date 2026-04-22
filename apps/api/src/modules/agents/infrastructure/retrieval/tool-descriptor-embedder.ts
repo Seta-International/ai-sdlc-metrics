@@ -62,6 +62,7 @@ export class ToolDescriptorEmbedder implements OnModuleInit {
 
   onModuleInit(): void {
     // Validate OPENAI_API_KEY at module init so failures surface early.
+    if (process.env['LOCAL_DEV'] && !process.env['OPENAI_API_KEY']) return
     const apiKey = process.env['OPENAI_API_KEY']
     if (!apiKey || apiKey.trim() === '') {
       throw new Error(
@@ -155,6 +156,16 @@ export class ToolDescriptorEmbedder implements OnModuleInit {
     const texts = missing.map((d) => {
       return `${d.meta.whenToUse} ${d.meta.whenNotToUse}`
     })
+
+    // If no OpenAI client (LOCAL_DEV without API key), skip embedding — degraded
+    // mode is allowed when the environment has explicitly opted out of AI features.
+    if (!this.openai) {
+      this.logger.warn(
+        `ToolDescriptorEmbedder: OPENAI_API_KEY not set — skipping embedding for ` +
+          `${missing.length} tool(s). Retrieval will be unavailable.`,
+      )
+      return { embedded: 0, reused }
+    }
 
     let newEmbeddings: number[][]
     try {

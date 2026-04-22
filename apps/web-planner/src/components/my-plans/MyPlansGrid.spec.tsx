@@ -40,6 +40,6 @@ describe('MyPlansGrid', () => {
 
   it("marks the actor's personal plan card with the personal badge", () => {
     render(<MyPlansGrid plans={[personal, teamA]} actorId={actorId} />)
-    expect(screen.getAllByTestId('personal-plan-badge')).toHaveLength(1)
+    expect(screen.getAllByLabelText(/personal plan/i)).toHaveLength(1)
   })
 })

@@ -84,7 +84,7 @@ export class RouterLlmClient implements OnModuleInit {
    * in a committed file, .env, DB, or build artifact.
    */
   onModuleInit(): void {
-    if (!process.env['OPENAI_API_KEY']) {
+    if (!process.env['OPENAI_API_KEY'] && !process.env['LOCAL_DEV']) {
       throw new Error(
         'OPENAI_API_KEY missing — required to be provided via ECS Secrets Manager mapping per CLAUDE.md secrets rule',
       )

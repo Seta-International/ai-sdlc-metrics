@@ -1,6 +1,6 @@
 'use client'
 
-import { Progress } from '@future/ui'
+import { Progress, Button } from '@future/ui'
 
 interface CompletenessBarProps {
   score: number // 0-100
@@ -25,13 +25,9 @@ export function CompletenessBar({
       </div>
       <Progress value={score} className="h-1.5" />
       {showLink && score < 100 && missingItems && missingItems.length > 0 && (
-        <button
-          type="button"
-          onClick={onCompleteClick}
-          className="text-xs text-accent hover:text-primary/80 underline-offset-2 hover:underline"
-        >
+        <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={onCompleteClick}>
           Complete your profile ({missingItems.length} items remaining)
-        </button>
+        </Button>
       )}
     </div>
   )

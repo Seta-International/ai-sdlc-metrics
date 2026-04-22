@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useSyncExternalStore, useState } from 'react'
 import { Sunrise } from 'lucide-react'
 import { Alert, AlertDescription, Button, Spinner } from '@future/ui'
 import { useCarryOver, useMyDayCarryOverCandidates } from '../../lib/hooks/use-carry-over'
-import { CarryOverPickerDialog } from './carry-over-picker-dialog'
+import { CarryOverPickerDialog } from './CarryOverPickerDialog'
 
 interface Props {
   today: string
@@ -28,10 +28,27 @@ function readDismissed(today: string): boolean {
   return window.localStorage.getItem(dismissKey(today)) === '1'
 }
 
+const DISMISS_EVENT = 'carry-over-banner-dismiss'
+
+function subscribeDismiss(callback: () => void): () => void {
+  window.addEventListener(DISMISS_EVENT, callback)
+  window.addEventListener('storage', callback)
+  return () => {
+    window.removeEventListener(DISMISS_EVENT, callback)
+    window.removeEventListener('storage', callback)
+  }
+}
+
 export function CarryOverBanner({ today }: Props) {
   const { data, isLoading } = useMyDayCarryOverCandidates(today)
   const carryOver = useCarryOver()
-  const [dismissed, setDismissed] = useState(() => readDismissed(today))
+  // useSyncExternalStore: server snapshot = false, client snapshot reads localStorage.
+  // subscribeDismiss listens for storage changes (cross-tab) and a custom event (same-tab).
+  const dismissed = useSyncExternalStore(
+    subscribeDismiss,
+    () => readDismissed(today),
+    () => false,
+  )
   const [pickerOpen, setPickerOpen] = useState(false)
 
   if (isLoading) return null
@@ -50,9 +67,8 @@ export function CarryOverBanner({ today }: Props) {
   }
 
   const onDismiss = () => {
-    // Dismissal is UX sugar; cross-browser dismiss is out of scope per locked decision 9.
     window.localStorage.setItem(dismissKey(today), '1')
-    setDismissed(true)
+    window.dispatchEvent(new Event(DISMISS_EVENT))
   }
 
   const pending = carryOver.isPending

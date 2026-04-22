@@ -4,7 +4,7 @@ import { Alert, AlertDescription, Skeleton } from '@future/ui'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@future/ui'
 import { usePersonalTasks } from '@/lib/hooks/use-personal-tasks'
 import { usePersonalTasksCtx } from '../personal-tasks-context'
-import { PersonalPlanBadge } from '@/components/personal-plan-badge'
+import { PersonalPlanBadge } from '@/components/PersonalPlanBadge'
 import type { TaskFlatWithPlan } from '@future/api-client/planner'
 
 export default function PersonalGridPage() {

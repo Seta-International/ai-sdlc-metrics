@@ -94,28 +94,30 @@ export function OrgChartTree() {
           </div>
 
           <div className="flex items-center rounded-md border border-border">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setViewMode('manager')}
-              className={`rounded-l-md px-3 py-1.5 text-xs ${
+              className={`rounded-l-md rounded-r-none text-xs ${
                 viewMode === 'manager'
                   ? 'bg-border text-foreground'
                   : 'text-secondary-foreground/60 hover:text-muted-foreground'
               }`}
             >
               By Manager
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setViewMode('department')}
-              className={`rounded-r-md px-3 py-1.5 text-xs ${
+              className={`rounded-r-md rounded-l-none text-xs ${
                 viewMode === 'department'
                   ? 'bg-border text-foreground'
                   : 'text-secondary-foreground/60 hover:text-muted-foreground'
               }`}
             >
               By Department
-            </button>
+            </Button>
           </div>
         </div>
 

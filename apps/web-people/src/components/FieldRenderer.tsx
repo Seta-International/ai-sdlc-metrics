@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Badge, Input, Checkbox } from '@future/ui'
+import { Badge, Input, Textarea, Checkbox } from '@future/ui'
 
 type FieldType = 'text' | 'number' | 'date' | 'boolean' | 'select' | 'multi_select' | 'textarea'
 
@@ -78,10 +78,9 @@ function renderEditableField(
       )
     case 'textarea':
       return (
-        <textarea
+        <Textarea
           value={String(value ?? '')}
           onChange={(e) => onChange?.(e.target.value)}
-          className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-secondary-foreground"
           rows={3}
         />
       )

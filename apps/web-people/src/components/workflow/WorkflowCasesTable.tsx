@@ -67,24 +67,18 @@ function buildStatusColumn<T extends WorkflowCase>(
   }
 }
 
-function buildOnboardingColumns(onNavigate: (id: string) => void): ColumnDef<OnboardingCase>[] {
+function buildOnboardingColumns(): ColumnDef<OnboardingCase>[] {
   return [
     {
       accessorKey: 'employeeName',
       header: 'Employee',
       enableSorting: true,
       cell: ({ row }: CellContext<OnboardingCase, unknown>) => (
-        <button
-          type="button"
-          className="text-left hover:underline"
-          onClick={() => onNavigate(row.original.id)}
-        >
-          <AvatarNameCell
-            fullName={row.original.employeeName}
-            avatarUrl={row.original.avatarUrl}
-            subtitle={row.original.department}
-          />
-        </button>
+        <AvatarNameCell
+          fullName={row.original.employeeName}
+          avatarUrl={row.original.avatarUrl}
+          subtitle={row.original.department}
+        />
       ),
     },
     {
@@ -104,20 +98,14 @@ function buildOnboardingColumns(onNavigate: (id: string) => void): ColumnDef<Onb
   ]
 }
 
-function buildOffboardingColumns(onNavigate: (id: string) => void): ColumnDef<OffboardingCase>[] {
+function buildOffboardingColumns(): ColumnDef<OffboardingCase>[] {
   return [
     {
       accessorKey: 'employeeName',
       header: 'Employee',
       enableSorting: true,
       cell: ({ row }: CellContext<OffboardingCase, unknown>) => (
-        <button
-          type="button"
-          className="text-left hover:underline"
-          onClick={() => onNavigate(row.original.id)}
-        >
-          <AvatarNameCell fullName={row.original.employeeName} avatarUrl={row.original.avatarUrl} />
-        </button>
+        <AvatarNameCell fullName={row.original.employeeName} avatarUrl={row.original.avatarUrl} />
       ),
     },
     {
@@ -153,11 +141,8 @@ export function WorkflowCasesTable({ type }: WorkflowCasesTableProps) {
   const [isLoading, setIsLoading] = React.useState(true)
 
   const columns = React.useMemo(
-    () =>
-      type === 'onboarding'
-        ? buildOnboardingColumns((id) => router.push(`/onboarding/${id}`))
-        : buildOffboardingColumns((id) => router.push(`/offboarding/${id}`)),
-    [type, router],
+    () => (type === 'onboarding' ? buildOnboardingColumns() : buildOffboardingColumns()),
+    [type],
   )
 
   React.useEffect(() => {
@@ -182,6 +167,10 @@ export function WorkflowCasesTable({ type }: WorkflowCasesTableProps) {
       state={tableState}
       totalCount={totalCount}
       onStateChange={setTableState}
+      onRowClick={(row) => {
+        const path = type === 'onboarding' ? `/onboarding/${row.id}` : `/offboarding/${row.id}`
+        router.push(path)
+      }}
       isLoading={isLoading}
     />
   )

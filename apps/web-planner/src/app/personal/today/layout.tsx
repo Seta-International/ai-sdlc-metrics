@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbPage } from '@future/ui'
 import { ViewPicker } from '@/components/view-picker/ViewPicker'
 import { useTenantTimezone } from '@/lib/hooks/useTenantTimezone'
-import { CarryOverBanner } from '@/components/my-day/carry-over-banner'
+import { CarryOverBanner } from '@/components/my-day/CarryOverBanner'
 import { MyDayContext } from './my-day-context'
 
 function todayInTz(tz: string): string {

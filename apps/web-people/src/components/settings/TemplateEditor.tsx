@@ -62,11 +62,12 @@ export function TemplateEditor({ type }: TemplateEditorProps) {
         </div>
         <div className="space-y-1">
           {templates.map((tmpl) => (
-            <button
+            <Button
               key={tmpl.id}
+              variant="ghost"
               type="button"
               onClick={() => setSelectedId(tmpl.id)}
-              className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-sm ${selectedId === tmpl.id ? 'bg-border text-foreground font-510' : 'text-secondary-foreground hover:bg-secondary'}`}
+              className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-sm h-auto ${selectedId === tmpl.id ? 'bg-border text-foreground font-510' : 'text-secondary-foreground hover:bg-secondary'}`}
             >
               <div className="truncate">
                 {tmpl.name}
@@ -77,7 +78,7 @@ export function TemplateEditor({ type }: TemplateEditorProps) {
                 )}
               </div>
               <span className="text-xs text-secondary-foreground/60">{tmpl.taskCount}</span>
-            </button>
+            </Button>
           ))}
         </div>
       </Card>

@@ -27,7 +27,7 @@ vi.mock('../../lib/hooks/useTenantTimezone', () => ({
 }))
 
 import { trpc } from '../../lib/trpc'
-import { AddToMyDayButton } from './add-to-my-day-button'
+import { AddToMyDayButton } from './AddToMyDayButton'
 
 const mockAdd = vi.mocked(
   (trpc.planner.personal.myDay as unknown as { add: { mutate: ReturnType<typeof vi.fn> } }).add

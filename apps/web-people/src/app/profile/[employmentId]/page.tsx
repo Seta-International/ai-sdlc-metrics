@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useParams, useSearchParams, useRouter } from 'next/navigation'
+import { useParams, useSearchParams, usePathname, useRouter } from 'next/navigation'
 import { Skeleton } from '@future/ui'
 import { ProfileHeader } from '../../../components/profile/ProfileHeader'
 import { ProfileTabs } from '../../../components/profile/ProfileTabs'
@@ -111,6 +111,7 @@ function toEmployeeProfile(raw: any): EmployeeProfile | null {
 export default function EmployeeProfilePage() {
   const params = useParams()
   const searchParams = useSearchParams()
+  const pathname = usePathname()
   const router = useRouter()
   const employmentId = params.employmentId as string
   const activeTab = searchParams.get('tab') ?? 'overview'
@@ -135,9 +136,9 @@ export default function EmployeeProfilePage() {
   }, [employmentId])
 
   function handleTabChange(tab: string) {
-    const p = new URLSearchParams(window.location.search)
+    const p = new URLSearchParams(searchParams.toString())
     p.set('tab', tab)
-    router.replace(`${window.location.pathname}?${p.toString()}`)
+    router.replace(`${pathname}?${p.toString()}`)
   }
 
   if (isLoading) {

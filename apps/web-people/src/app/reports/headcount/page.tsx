@@ -2,7 +2,14 @@
 
 import * as React from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { DataTable, Card, type FutureTableState, defaultTableState, Skeleton } from '@future/ui'
+import {
+  DataTable,
+  Card,
+  Button,
+  type FutureTableState,
+  defaultTableState,
+  Skeleton,
+} from '@future/ui'
 import { SummaryCardsRow } from '../../../components/reports/SummaryCards'
 import type { HeadcountSummary } from '../../../lib/types-workflows'
 import { trpc } from '../../../lib/trpc'
@@ -101,14 +108,15 @@ export default function HeadcountReportPage() {
         <div className="flex items-center gap-2 mb-3">
           <span className="text-sm font-510 text-foreground">Breakdown by</span>
           {(['department', 'country', 'type'] as const).map((view) => (
-            <button
+            <Button
               key={view}
-              type="button"
+              variant="outline"
+              size="sm"
               onClick={() => setBreakdownView(view)}
-              className={`px-2 py-1 text-xs rounded ${breakdownView === view ? 'bg-secondary text-foreground font-510' : 'text-muted-foreground hover:text-secondary-foreground'}`}
+              className={breakdownView === view ? 'bg-secondary text-foreground font-510' : ''}
             >
               {view.charAt(0).toUpperCase() + view.slice(1)}
-            </button>
+            </Button>
           ))}
         </div>
         <DataTable

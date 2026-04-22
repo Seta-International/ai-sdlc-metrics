@@ -13,9 +13,9 @@ import {
 } from '@future/ui'
 import { useMyDay } from '@/lib/hooks/use-my-day'
 import { useMyDayContext } from '../my-day-context'
-import { MyDayEmptyState } from '@/components/my-day/my-day-empty-state'
-import { AddToMyDayButton } from '@/components/my-day/add-to-my-day-button'
-import { PersonalPlanBadge } from '@/components/personal-plan-badge'
+import { MyDayEmptyState } from '@/components/my-day/MyDayEmptyState'
+import { AddToMyDayButton } from '@/components/my-day/AddToMyDayButton'
+import { PersonalPlanBadge } from '@/components/PersonalPlanBadge'
 
 export default function MyDayGridPage() {
   const { date } = useMyDayContext()

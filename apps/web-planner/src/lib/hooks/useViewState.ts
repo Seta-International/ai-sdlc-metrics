@@ -20,38 +20,36 @@ export function useViewState(opts: ViewStateOptions) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const hydrate = useCallback((): ViewState => {
-    const fromUrl = parseViewStateFromSearch(searchParams)
-    const isUrlEmpty = searchParams.toString().length === 0
-    if (!isUrlEmpty) return fromUrl
-    if (typeof window !== 'undefined') {
-      try {
-        const raw = localStorage.getItem(LS_PREFIX + storageKey)
-        if (raw) {
-          const parsed = JSON.parse(raw)
-          return {
-            ...DEFAULT_VIEW_STATE,
-            ...parsed,
-            filter: { ...DEFAULT_VIEW_STATE.filter, ...(parsed.filter ?? {}) },
-          }
-        }
-      } catch {
-        /* corrupt — ignore */
-      }
-    }
-    return DEFAULT_VIEW_STATE
-  }, [storageKey, searchParams])
+  const [state, setState] = useState<ViewState>(() => {
+    // Always start with URL-parsed state (same on server and client).
+    // localStorage hydration happens in useEffect below to avoid SSR mismatch.
+    return parseViewStateFromSearch(searchParams)
+  })
 
-  const [state, setState] = useState<ViewState>(hydrate)
+  const hasMountedRef = useRef(false)
 
   // one-time hydration from localStorage when URL was empty on mount
   useEffect(() => {
-    if (searchParams.toString().length === 0 && state !== DEFAULT_VIEW_STATE) {
-      const encoded = serializeViewStateToSearch(state)
-      if (encoded.length > 0) router.replace(`${pathname}?${encoded}`, { scroll: false })
+    if (hasMountedRef.current) return
+    hasMountedRef.current = true
+    if (searchParams.toString().length > 0) return
+    try {
+      const raw = localStorage.getItem(LS_PREFIX + storageKey)
+      if (!raw) return
+      const parsed = JSON.parse(raw)
+      const restored: ViewState = {
+        ...DEFAULT_VIEW_STATE,
+        ...parsed,
+        filter: { ...DEFAULT_VIEW_STATE.filter, ...(parsed.filter ?? {}) },
+      }
+      const encoded = serializeViewStateToSearch(restored)
+      // Replace URL first, which re-renders with the new searchParams and
+      // causes useState to re-init on the next render — no synchronous setState needed.
+      router.replace(encoded.length > 0 ? `${pathname}?${encoded}` : pathname, { scroll: false })
+    } catch {
+      /* corrupt — ignore */
     }
-    // eslint-disable-next-line @eslint-react/exhaustive-deps
-  }, [])
+  }, [pathname, router, searchParams, storageKey])
 
   const lsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 

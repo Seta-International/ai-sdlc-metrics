@@ -1,9 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import type { ColumnDef, CellContext } from '@tanstack/react-table'
-import { DataTable, type FutureTableState, defaultTableState, Button } from '@future/ui'
+import { DataTable, type FutureTableState, Button } from '@future/ui'
 import { LayoutGrid, LayoutList, Download } from 'lucide-react'
 import { trpc } from '../lib/trpc'
 import { getTableStateFromUrl, pushTableStateToUrl } from '../lib/table-url-state'
@@ -110,15 +110,13 @@ export interface PeopleDirectoryTableProps {
 
 export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps) {
   const router = useRouter()
-  const [tableState, setTableState] = React.useState<FutureTableState>(() => {
-    if (typeof window === 'undefined') return defaultTableState
-    return getTableStateFromUrl()
-  })
-  const [viewMode, setViewMode] = React.useState<ViewMode>(() => {
-    if (typeof window === 'undefined') return 'list'
-    const v = new URLSearchParams(window.location.search).get('view')
-    return v === 'card' || v === 'list' ? v : 'list'
-  })
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const [tableState, setTableState] = React.useState<FutureTableState>(() =>
+    getTableStateFromUrl(searchParams),
+  )
+  const viewParam = searchParams.get('view')
+  const [viewMode, setViewMode] = React.useState<ViewMode>(viewParam === 'card' ? 'card' : 'list')
   const [rows, setRows] = React.useState<DirectoryRow[]>([])
   const [totalCount, setTotalCount] = React.useState(0)
   const [isLoading, setIsLoading] = React.useState(true)
@@ -163,7 +161,7 @@ export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps)
 
   function handleStateChange(next: FutureTableState) {
     setTableState(next)
-    pushTableStateToUrl(next)
+    pushTableStateToUrl(next, pathname)
   }
 
   function handleRowClick(row: DirectoryRow) {
@@ -193,19 +191,6 @@ export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps)
     }
   }
 
-  // Render expanded row: navigate to profile on click
-  function renderExpandedRow(row: DirectoryRow) {
-    return (
-      <button
-        type="button"
-        className="w-full text-left px-4 py-3 text-sm hover:bg-secondary transition-colors"
-        onClick={() => handleRowClick(row)}
-      >
-        <span className="text-secondary-foreground/60">View profile →</span>
-      </button>
-    )
-  }
-
   return (
     <div className="space-y-4">
       {/* Toolbar */}
@@ -227,10 +212,11 @@ export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps)
         <div className="flex items-center gap-2">
           {/* View toggle */}
           <div className="flex items-center rounded-md border border-border">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setViewMode('list')}
-              className={`rounded-l-md p-1.5 ${
+              className={`rounded-l-md rounded-r-none h-7 w-7 ${
                 viewMode === 'list'
                   ? 'bg-border text-foreground'
                   : 'text-secondary-foreground/60 hover:text-muted-foreground'
@@ -238,11 +224,12 @@ export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps)
               aria-label="List view"
             >
               <LayoutList className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setViewMode('card')}
-              className={`rounded-r-md p-1.5 ${
+              className={`rounded-r-md rounded-l-none h-7 w-7 ${
                 viewMode === 'card'
                   ? 'bg-border text-foreground'
                   : 'text-secondary-foreground/60 hover:text-muted-foreground'
@@ -250,7 +237,7 @@ export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps)
               aria-label="Card view"
             >
               <LayoutGrid className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
 
           {/* Export */}
@@ -274,7 +261,7 @@ export function PeopleDirectoryTable({ resourceKey }: PeopleDirectoryTableProps)
           state={tableState}
           totalCount={totalCount}
           onStateChange={handleStateChange}
-          renderExpandedRow={renderExpandedRow}
+          onRowClick={handleRowClick}
           onExport={() => void handleExport('csv')}
           isLoading={isLoading}
           error={error}
