@@ -132,6 +132,7 @@ function makePlan(overrides?: Partial<RouterPlan>): RouterPlan {
         reason: 'lists tasks',
       },
     ],
+    phase2: [],
     ...overrides,
   }
 }
@@ -423,6 +424,7 @@ describe('Case 7: LLM-emitted disambiguation plan', () => {
       intent_slug: 'unclassified',
       flow_id: FLOW_ID,
       phase1: [],
+      phase2: [],
       disambiguation: 'Did you mean tasks or plans?',
     }
 
@@ -596,7 +598,7 @@ describe('Case 11: Sub-agent-invoked audit count (R-02.23a)', () => {
         { sub_agent_key: 'planner.read-only', input: {}, reason: 'r1' },
         { sub_agent_key: 'people.profile-reader', input: {}, reason: 'r2' },
       ],
-      phase2: { sub_agent_key: 'people.org-viewer', input: {}, reason: 'r3' },
+      phase2: [{ sub_agent_key: 'people.org-viewer', input: {}, reason: 'r3' }],
     }
 
     const auditCapture = new InMemoryAuditCapture()

@@ -23,7 +23,7 @@ import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-au
 import type { AgentSessionPort } from '../../domain/ports/agent-session.port'
 import { AGENT_SESSION_PORT } from '../../domain/ports/agent-session.port'
 import type { WindowedSummaries } from '../../domain/value-objects/windowed-summaries'
-import type { RouterPlan } from '../../domain/value-objects/router-plan-schema'
+import type { RouterPlan, BoundedPlan } from '../../domain/value-objects/router-plan-schema'
 import { ROUTER_PLAN_JSON_SCHEMA_PLACEHOLDER } from '../../domain/value-objects/router-plan-schema'
 import type { SubAgentKey } from '../../domain/services/sub-agent-types'
 import { canonicalize, CANONICALIZER_VERSION_HASH } from '../../infrastructure/cache/canonical-args'
@@ -493,12 +493,35 @@ export class RouterSessionOrchestrator {
   ): Promise<RouteTurnResult> {
     const parentSpan = trace.getActiveSpan()
 
+    // Only bounded plans reach here — direct/iterative topologies are handled by PhaseExecutor.
+    // For now the orchestrator only handles bounded plans (the router LLM only emits bounded).
+    if (plan.topology !== 'bounded') {
+      // Non-bounded plans emitted by the router are passed through unchanged.
+      // PhaseExecutor dispatches on topology.
+      parentSpan?.setAttributes({
+        router_parse_retries: parseRetries,
+        router_escalated_to_disambiguation: false,
+        intent_slug: plan.intent_slug,
+        flow_id: plan.flow_id,
+        plan_topology: plan.topology,
+      })
+      this._safeMetric(() =>
+        recordRouterDecision(
+          tenantId,
+          plan.topology === 'direct' ? 'direct_plan' : 'iterative_plan',
+        ),
+      )
+      return { kind: 'bounded', plan, sessionId, parseRetries }
+    }
+
+    const bounded = plan as BoundedPlan
+
     // LLM-emitted disambiguation plan
-    if (plan.disambiguation !== undefined) {
+    if (bounded.disambiguation !== undefined) {
       parentSpan?.setAttributes({
         router_parse_retries: parseRetries,
         router_escalated_to_disambiguation: true,
-        intent_slug: plan.intent_slug,
+        intent_slug: bounded.intent_slug,
         /**
          * flow_id is LLM-generated per-turn. The Zod schema validates UUID format;
          * on format failure the parse retry handles it. The orchestrator does NOT
@@ -506,7 +529,7 @@ export class RouterSessionOrchestrator {
          * own this correlation id for now; Plan 07 will reconsider if trace
          * correlation becomes problematic.
          */
-        flow_id: plan.flow_id,
+        flow_id: bounded.flow_id,
       })
 
       // Plan 06 owns the `refusal.started` schema canonically; this is the agreed stub
@@ -521,20 +544,20 @@ export class RouterSessionOrchestrator {
           reason: 'disambiguation',
           turn_trace_id: turnTraceId,
           session_id: sessionId,
-          underlying_reason: plan.disambiguation,
+          underlying_reason: bounded.disambiguation,
         },
       })
 
       this._safeMetric(() => recordRouterDecision(tenantId, 'disambiguation'))
 
-      return { kind: 'disambiguation', reason: plan.disambiguation, sessionId, parseRetries }
+      return { kind: 'disambiguation', reason: bounded.disambiguation, sessionId, parseRetries }
     }
 
     // Bounded plan — emit audit events per directive (R-02.23a)
     // pinnedSubAgentPromptHashes is passed in from _pipeline — no extra DB call needed.
 
     // phase1 directives (sequential awaits — single DB client)
-    for (const directive of plan.phase1) {
+    for (const directive of bounded.phase1) {
       const hash = pinnedSubAgentPromptHashes[directive.sub_agent_key]
       if (!hash) {
         this.logger.warn(
@@ -560,12 +583,12 @@ export class RouterSessionOrchestrator {
       this._safeMetric(() => recordSubAgentInvoked(tenantId, directive.sub_agent_key, 'phase1'))
     }
 
-    // phase2 directive (optional, sequential await)
-    if (plan.phase2) {
-      const hash = pinnedSubAgentPromptHashes[plan.phase2.sub_agent_key]
+    // phase2 directives — now an array (0..3) per Plan 03 R-03.37 (sequential awaits)
+    for (const directive of bounded.phase2) {
+      const hash = pinnedSubAgentPromptHashes[directive.sub_agent_key]
       if (!hash) {
         this.logger.warn(
-          `sub_agent_invoked audit: no pinned hash for ${plan.phase2.sub_agent_key} — session may pre-date registration`,
+          `sub_agent_invoked audit: no pinned hash for ${directive.sub_agent_key} — session may pre-date registration`,
         )
       }
       await this._safeAudit({
@@ -575,7 +598,7 @@ export class RouterSessionOrchestrator {
         module: 'agents',
         subjectId: sessionId,
         payload: {
-          sub_agent_key: plan.phase2.sub_agent_key,
+          sub_agent_key: directive.sub_agent_key,
           phase: 'phase2',
           iteration: null,
           caller_user_id: userId,
@@ -584,13 +607,13 @@ export class RouterSessionOrchestrator {
           sub_agent_prompt_hash: hash ?? '',
         },
       })
-      this._safeMetric(() => recordSubAgentInvoked(tenantId, plan.phase2!.sub_agent_key, 'phase2'))
+      this._safeMetric(() => recordSubAgentInvoked(tenantId, directive.sub_agent_key, 'phase2'))
     }
 
     parentSpan?.setAttributes({
       router_parse_retries: parseRetries,
       router_escalated_to_disambiguation: false,
-      intent_slug: plan.intent_slug,
+      intent_slug: bounded.intent_slug,
       /**
        * flow_id is LLM-generated per-turn. The Zod schema validates UUID format;
        * on format failure the parse retry handles it. The orchestrator does NOT
@@ -598,7 +621,7 @@ export class RouterSessionOrchestrator {
        * own this correlation id for now; Plan 07 will reconsider if trace
        * correlation becomes problematic.
        */
-      flow_id: plan.flow_id,
+      flow_id: bounded.flow_id,
     })
 
     this._safeMetric(() => recordRouterDecision(tenantId, 'bounded_plan'))

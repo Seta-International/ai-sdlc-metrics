@@ -28,7 +28,7 @@ import {
   RouterPlanSchema,
   ROUTER_PLAN_JSON_SCHEMA_PLACEHOLDER,
 } from '../../domain/value-objects/router-plan-schema'
-import type { RouterPlan } from '../../domain/value-objects/router-plan-schema'
+import type { RouterPlan, BoundedPlan } from '../../domain/value-objects/router-plan-schema'
 import {
   INTENT_REGISTRY,
   IntentRegistry,
@@ -129,20 +129,31 @@ export class RouterDecisionParser {
   // ─── Semantic checks ──────────────────────────────────────────────────────
 
   /**
-   * Applies semantic validation rules to a Zod-valid RouterPlan:
+   * Applies semantic validation rules to a Zod-valid RouterPlan.
    *
+   * For `direct` and `iterative` topologies: only intent_slug format is checked;
+   * deeper semantic checks live in Plan 01 (direct) and Plan 12 (iterative).
+   *
+   * For `bounded` topology:
    *   1. intent_slug must be in IntentRegistry (or be 'unclassified').
    *   2. phase1[*].sub_agent_key must be in SubAgentRegistry.
-   *   3. phase2.sub_agent_key (if present) must be in SubAgentRegistry.
-   *   4. Mutual exclusivity: disambiguation XOR (phase1 non-empty | phase2 set).
-   *      - If disambiguation is set: phase1 must be empty AND phase2 absent.
+   *   3. phase2[*].sub_agent_key (each entry) must be in SubAgentRegistry.
+   *   4. Mutual exclusivity: disambiguation XOR (phase1 non-empty | phase2 non-empty).
+   *      - If disambiguation is set: phase1 must be empty AND phase2 must be empty.
    *      - If disambiguation is absent: phase1 must have at least 1 directive.
    */
   private _semanticCheck(plan: RouterPlan): ParseResult {
+    // Non-bounded topologies: accept after Zod structural validation
+    if (plan.topology !== 'bounded') {
+      return { kind: 'ok', plan }
+    }
+
+    const bounded = plan as BoundedPlan
+
     // Check 1: intent_slug in registry
-    if (!this.intentRegistry.has(plan.intent_slug)) {
+    if (!this.intentRegistry.has(bounded.intent_slug)) {
       const reason =
-        `intent_slug "${plan.intent_slug}" is not registered in the IntentRegistry. ` +
+        `intent_slug "${bounded.intent_slug}" is not registered in the IntentRegistry. ` +
         `Registered slugs: ${this.intentRegistry
           .list()
           .map((i) => i.slug)
@@ -150,15 +161,17 @@ export class RouterDecisionParser {
       return { kind: 'retry', reason, schemaInjectedPrompt: buildSchemaInjectedPrompt(reason) }
     }
 
-    // Check 2 + 3: sub_agent_key membership
+    // Check 2 + 3: sub_agent_key membership — phase1 and phase2 (now an array)
     const unknownKeys: string[] = []
-    for (const directive of plan.phase1) {
+    for (const directive of bounded.phase1) {
       if (!this.subAgentRegistry.has(directive.sub_agent_key)) {
         unknownKeys.push(directive.sub_agent_key)
       }
     }
-    if (plan.phase2 && !this.subAgentRegistry.has(plan.phase2.sub_agent_key)) {
-      unknownKeys.push(plan.phase2.sub_agent_key)
+    for (const directive of bounded.phase2) {
+      if (!this.subAgentRegistry.has(directive.sub_agent_key)) {
+        unknownKeys.push(directive.sub_agent_key)
+      }
     }
     if (unknownKeys.length > 0) {
       const reason =
@@ -171,17 +184,17 @@ export class RouterDecisionParser {
     }
 
     // Check 4a: mutual exclusivity — disambiguation present
-    if (plan.disambiguation !== undefined) {
-      if (plan.phase1.length > 0 || plan.phase2 !== undefined) {
+    if (bounded.disambiguation !== undefined) {
+      if (bounded.phase1.length > 0 || bounded.phase2.length > 0) {
         const reason =
           'mutual exclusivity violated — "disambiguation" cannot coexist with non-empty ' +
-          '"phase1" or a set "phase2". When disambiguation is present, omit phase1 and phase2.'
+          '"phase1" or non-empty "phase2". When disambiguation is present, both arrays must be empty.'
         return { kind: 'retry', reason, schemaInjectedPrompt: buildSchemaInjectedPrompt(reason) }
       }
     }
 
     // Check 4b: mutual exclusivity — disambiguation absent → phase1 must be non-empty
-    if (plan.disambiguation === undefined && plan.phase1.length === 0) {
+    if (bounded.disambiguation === undefined && bounded.phase1.length === 0) {
       const reason =
         '"phase1" is empty and "disambiguation" is absent. ' +
         'Either provide at least one phase1 directive or set "disambiguation".'

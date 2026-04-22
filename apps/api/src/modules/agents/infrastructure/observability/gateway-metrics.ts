@@ -74,9 +74,9 @@ interface GatewayInstruments {
   /**
    * Counts router turn decisions by outcome (Plan 02 §8).
    * Labels: tenant_id, outcome.
-   * outcome ∈ 'bounded_plan' | 'disambiguation' | 'parse_escalated'
+   * outcome ∈ 'bounded_plan' | 'direct_plan' | 'iterative_plan' | 'disambiguation' | 'parse_escalated'
    *
-   * 3 outcomes — bounded cardinality regardless of tenant count.
+   * 5 outcomes — bounded cardinality regardless of tenant count.
    */
   routerDecisionsTotal: Counter
   /**
@@ -178,7 +178,7 @@ function getInstruments(): GatewayInstruments {
     /**
      * Counts router turn decisions by outcome (Plan 02 §8).
      * Labels: tenant_id, outcome.
-     * outcome ∈ 'bounded_plan' | 'disambiguation' | 'parse_escalated'
+     * outcome ∈ 'bounded_plan' | 'direct_plan' | 'iterative_plan' | 'disambiguation' | 'parse_escalated'
      */
     routerDecisionsTotal: meter.createCounter('agent_router_decisions_total', {
       description: 'Router turn decision outcomes per tenant.',
@@ -298,12 +298,12 @@ export function recordNarrativeCache(tenantId: string, outcome: 'hit' | 'miss'):
 }
 
 /**
- * Record a router turn decision outcome (Plan 02 §8).
- * outcome ∈ 'bounded_plan' | 'disambiguation' | 'parse_escalated'
+ * Record a router turn decision outcome (Plan 02 §8, Plan 03 §5).
+ * outcome ∈ 'bounded_plan' | 'direct_plan' | 'iterative_plan' | 'disambiguation' | 'parse_escalated'
  */
 export function recordRouterDecision(
   tenantId: string,
-  outcome: 'bounded_plan' | 'disambiguation' | 'parse_escalated',
+  outcome: 'bounded_plan' | 'direct_plan' | 'iterative_plan' | 'disambiguation' | 'parse_escalated',
 ): void {
   getInstruments().routerDecisionsTotal.add(1, { tenant_id: tenantId, outcome })
 }
