@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
+import { PERMISSIONS } from '../../../../common/auth/permissions'
 import { PlannerRouterService } from './planner-router.service'
 import { ListPlansForActorQuery } from '../../application/queries/plans/list-plans-for-actor.query'
 import { ListTasksForActorQuery } from '../../application/queries/personal/list-tasks-for-actor.query'
@@ -120,6 +121,32 @@ const myDayRouter = router({
 
 export const personalRouter = router({
   listPlans: publicProcedure
+    .meta({
+      permission: PERMISSIONS.PLANNER_AGENT_LIST_MY_PLANS,
+      agent: {
+        whenToUse:
+          'Use when the user asks to see the plans (projects/boards) they are a member of or own.',
+        whenNotToUse:
+          'Do not use to create, rename, or delete plans. Do not use to list tasks within a plan.',
+        examples: [
+          {
+            input: 'Show me my plans',
+            callArgs: {
+              actorId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+              tenantId: 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
+            },
+          },
+          {
+            input: 'What plans am I part of?',
+            callArgs: {
+              actorId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+              tenantId: 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
+            },
+          },
+        ],
+        collectionContract: { pageSize: 50, cursorStyle: 'forward' },
+      },
+    })
     .input(
       z.object({
         actorId: z.string().uuid(),
@@ -136,6 +163,34 @@ export const personalRouter = router({
     }),
 
   listTasks: publicProcedure
+    .meta({
+      permission: PERMISSIONS.PLANNER_AGENT_LIST_MY_TASKS,
+      agent: {
+        whenToUse:
+          'Use when the user asks about their assigned tasks, open work items, or upcoming tasks.',
+        whenNotToUse:
+          'Do not use to create, update, or delete tasks. Do not use to list tasks that belong to other users.',
+        examples: [
+          {
+            input: 'What tasks do I have open?',
+            callArgs: {
+              actorId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+              tenantId: 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
+              includeCompleted: false,
+            },
+          },
+          {
+            input: 'Show me all my tasks including done ones',
+            callArgs: {
+              actorId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+              tenantId: 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
+              includeCompleted: true,
+            },
+          },
+        ],
+        collectionContract: { pageSize: 50, cursorStyle: 'forward' },
+      },
+    })
     .input(
       z.object({
         actorId: z.string().uuid(),

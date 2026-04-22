@@ -1,15 +1,21 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { z } from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import { CreateSessionCommand } from '../../application/commands/create-session.command'
 import { SendMessageCommand } from '../../application/commands/send-message.command'
 import { ListSessionsQuery } from '../../application/queries/list-sessions.query'
+import type { CreateSessionHandler } from '../../application/commands/create-session.handler'
+import type { SendMessageHandler } from '../../application/commands/send-message.handler'
+import type { ListSessionsHandler } from '../../application/queries/list-sessions.handler'
 
-let createSessionHandler: any
-let listSessionsHandler: any
-let sendMessageHandler: any
+let createSessionHandler: CreateSessionHandler | undefined
+let listSessionsHandler: ListSessionsHandler | undefined
+let sendMessageHandler: SendMessageHandler | undefined
 
-export function setAgentSessionHandlers(handlers: Record<string, any>) {
+export function setAgentSessionHandlers(handlers: {
+  createSession: CreateSessionHandler
+  listSessions: ListSessionsHandler
+  sendMessage: SendMessageHandler
+}) {
   createSessionHandler = handlers.createSession
   listSessionsHandler = handlers.listSessions
   sendMessageHandler = handlers.sendMessage
@@ -28,6 +34,7 @@ export const sessionRouter = router({
       }),
     )
     .mutation(({ input }) => {
+      if (!createSessionHandler) throw new Error('createSessionHandler not wired — boot failure')
       return createSessionHandler.execute(
         new CreateSessionCommand(
           input.tenantId,
@@ -49,6 +56,7 @@ export const sessionRouter = router({
       }),
     )
     .query(({ input }) => {
+      if (!listSessionsHandler) throw new Error('listSessionsHandler not wired — boot failure')
       return listSessionsHandler.execute(
         new ListSessionsQuery(input.actorId, input.tenantId, input.limit),
       )
@@ -69,6 +77,7 @@ export const sessionRouter = router({
       }),
     )
     .mutation(({ input }) => {
+      if (!sendMessageHandler) throw new Error('sendMessageHandler not wired — boot failure')
       return sendMessageHandler.execute(
         new SendMessageCommand(
           input.tenantId,

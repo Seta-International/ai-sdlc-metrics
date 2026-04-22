@@ -31,6 +31,7 @@ import {
   recordTripwire,
   recordStepDuration,
   recordCacheLookup,
+  recordSubAgentHidden,
   __INTERNAL_resetInstruments,
 } from './gateway-metrics'
 
@@ -219,5 +220,60 @@ describe('recordCacheLookup', () => {
     const point = points.find((p) => p.attributes['outcome'] === 'coalesced')
     expect(point).toBeDefined()
     expect(point!.value).toBe(1)
+  })
+})
+
+describe('recordSubAgentHidden', () => {
+  it('increments agent_sub_agent_hidden_total for reason=module_disabled', async () => {
+    recordSubAgentHidden('tenant-sa-1', 'module_disabled')
+
+    const points = await flushAndGetPoints('agent_sub_agent_hidden_total')
+    const point = points.find(
+      (p) =>
+        p.attributes['tenant_id'] === 'tenant-sa-1' && p.attributes['reason'] === 'module_disabled',
+    )
+    expect(point).toBeDefined()
+    expect(point!.value).toBe(1)
+  })
+
+  it('increments agent_sub_agent_hidden_total for reason=permission_empty_scope', async () => {
+    recordSubAgentHidden('tenant-sa-2', 'permission_empty_scope')
+
+    const points = await flushAndGetPoints('agent_sub_agent_hidden_total')
+    const point = points.find(
+      (p) =>
+        p.attributes['tenant_id'] === 'tenant-sa-2' &&
+        p.attributes['reason'] === 'permission_empty_scope',
+    )
+    expect(point).toBeDefined()
+    expect(point!.value).toBe(1)
+  })
+
+  it('label set is exactly {tenant_id, reason} — no sub_agent_key or other extras', async () => {
+    recordSubAgentHidden('tenant-sa-3', 'module_disabled')
+
+    const points = await flushAndGetPoints('agent_sub_agent_hidden_total')
+    const point = points.find((p) => p.attributes['tenant_id'] === 'tenant-sa-3')
+    expect(point).toBeDefined()
+    const labelKeys = Object.keys(point!.attributes)
+    expect(labelKeys).toHaveLength(2)
+    expect(labelKeys).toContain('tenant_id')
+    expect(labelKeys).toContain('reason')
+    expect(labelKeys).not.toContain('sub_agent_key')
+  })
+
+  it('is idempotent across multiple calls — counter accumulates correctly', async () => {
+    recordSubAgentHidden('tenant-sa-4', 'permission_empty_scope')
+    recordSubAgentHidden('tenant-sa-4', 'permission_empty_scope')
+    recordSubAgentHidden('tenant-sa-4', 'permission_empty_scope')
+
+    const points = await flushAndGetPoints('agent_sub_agent_hidden_total')
+    const point = points.find(
+      (p) =>
+        p.attributes['tenant_id'] === 'tenant-sa-4' &&
+        p.attributes['reason'] === 'permission_empty_scope',
+    )
+    expect(point).toBeDefined()
+    expect(point!.value).toBe(3)
   })
 })

@@ -64,6 +64,27 @@ describe('fresh migrations', () => {
           { table_name: 'user_identity', relrowsecurity: true, relforcerowsecurity: true },
         ])
 
+        // agents schema tables that must have RLS — prevents drizzle-kit
+        // regenerations from silently dropping hand-written RLS policies.
+        const agentsRlsRows = await targetDb.execute<{
+          table_name: string
+          relrowsecurity: boolean
+          relforcerowsecurity: boolean
+        }>(sql`
+          SELECT c.relname AS table_name, c.relrowsecurity, c.relforcerowsecurity
+          FROM pg_class c
+          INNER JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'agents'
+            AND c.relname IN ('agent_session', 'agent_stored_sub_agent')
+          ORDER BY c.relname
+        `)
+
+        expect(agentsRlsRows.rows).toHaveLength(2)
+        expect(agentsRlsRows.rows).toEqual([
+          { table_name: 'agent_session', relrowsecurity: true, relforcerowsecurity: true },
+          { table_name: 'agent_stored_sub_agent', relrowsecurity: true, relforcerowsecurity: true },
+        ])
+
         const indexRows = await targetDb.execute<{ indexname: string }>(sql`
           SELECT indexname
           FROM pg_indexes

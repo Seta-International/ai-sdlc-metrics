@@ -39,7 +39,7 @@ export class DrizzleNarrativeStoreRepository implements NarrativeStore {
         eventType: 'agent.narrative_stored',
         module: 'agents',
         subjectId: entry.contentHash,
-        payload: { roleId: entry.roleId, byteCount: entry.content.length },
+        payload: { roleKey: entry.roleKey, byteCount: entry.content.length },
       })
       return { entry, wasAppended: true }
     }

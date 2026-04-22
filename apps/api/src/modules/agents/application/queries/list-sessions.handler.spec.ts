@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ListSessionsQuery } from './list-sessions.query'
 import { ListSessionsHandler } from './list-sessions.handler'
-import type { AgentSessionRepository } from '../../domain/repositories/agent-session.repository'
+import type { AgentChatSessionRepository } from '../../domain/repositories/agent-chat-session.repository'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const ACTOR_ID = '01900000-0000-7000-8000-000000000002'
@@ -25,7 +25,7 @@ const mockSessions = [
 
 describe('ListSessionsHandler', () => {
   let handler: ListSessionsHandler
-  let sessionRepo: AgentSessionRepository
+  let sessionRepo: AgentChatSessionRepository
 
   beforeEach(() => {
     sessionRepo = {
