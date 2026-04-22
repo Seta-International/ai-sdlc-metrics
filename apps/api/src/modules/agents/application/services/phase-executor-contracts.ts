@@ -1,0 +1,220 @@
+/**
+ * Plan 03 type contracts — phase executor, sub-agent runner, synthesizer.
+ *
+ * Pure TypeScript. Zero NestJS / Drizzle / Zod dependencies.
+ * These types define the interfaces between plan 03 services.
+ */
+
+import type { BoundedPlan, SubAgentDirective } from '../../domain/value-objects/router-plan-schema'
+import type { ValidatedSubAgentConfig } from '../../domain/services/sub-agent-types'
+
+// ─── Primitive types ──────────────────────────────────────────────────────────
+
+export type Confidence = 'high' | 'med' | 'low'
+
+export type AnswerShape = 'short-answer' | 'list' | 'table' | 'narrative' | 'chart'
+
+export type CancellationReason = 'user_cancelled' | 'timeout' | 'budget' | 'system_shutdown'
+
+export type ToolName = string
+export type SubAgentKey = string
+
+// ─── ToolCall ─────────────────────────────────────────────────────────────────
+
+/** A single recorded tool invocation within a sub-agent's ReAct loop. */
+export interface ToolCall {
+  readonly toolName: ToolName
+  readonly args: unknown
+  readonly result: unknown
+  readonly iteration: number
+  readonly durationMs: number
+}
+
+// ─── DraftProposal ────────────────────────────────────────────────────────────
+
+/**
+ * A write proposal produced by a sub-agent during its ReAct loop.
+ * Plan 08 owns the full shape; plan 03 contributes taintSource provenance.
+ */
+export interface DraftProposal {
+  readonly id: string
+  readonly toolName: ToolName
+  readonly args: unknown
+  /**
+   * Taint provenance — populated by SubAgentRunner when the draft is produced
+   * under a tainted turn state (R-03.32).
+   * Consumed by plan 08 for approval-tier bump rationale + UI presentation.
+   */
+  readonly taintSource?: {
+    readonly subAgentKey: SubAgentKey
+    readonly toolName: ToolName
+    readonly fieldName: string
+    readonly flippedAtIteration: number
+  }
+}
+
+// ─── Citation ─────────────────────────────────────────────────────────────────
+
+/**
+ * A citation in the synthesizer output (R-03.27, R-03.33).
+ * `subAgentKey` is mandatory — the synthesizer MUST NOT merge citations from
+ * different sub-agents into a single record that loses per-key attribution.
+ */
+export interface Citation {
+  /** The prose claim this citation supports (paragraph or sentence level). */
+  readonly claim: string
+  /** The tool invocation(s) in the sub-agent's chain that produced this claim. */
+  readonly sources: ToolCall[]
+  /** Which sub-agent's chain produced this claim. Mandatory (R-03.33). */
+  readonly subAgentKey: SubAgentKey
+}
+
+// ─── SubAgentUsage ────────────────────────────────────────────────────────────
+
+export interface SubAgentUsage {
+  readonly inputTokens: number
+  readonly outputTokens: number
+  readonly inputCachedRead: number
+  readonly inputCachedWrite: number
+  readonly outputReasoning: number
+  readonly costUsd: number
+}
+
+// ─── SubAgentOutput ───────────────────────────────────────────────────────────
+
+/**
+ * Output produced by SubAgentRunner.run() after the ReAct loop completes
+ * or terminates (Plan 03 §4 Interface Contracts).
+ *
+ * `kind` encodes the termination reason:
+ *   - `completed`         — loop finished normally; all structured data is valid.
+ *   - `ceiling_hit`       — wallclock / iteration / cost ceiling exceeded mid-loop.
+ *   - `all_tools_disabled`— circuit breaker disabled all tools; sub-agent has no data source.
+ *   - `errored`           — structured output failed schema validation, or unexpected error.
+ *   - `aborted`           — AbortSignal fired; `abortReason` is populated.
+ */
+export interface SubAgentOutput {
+  readonly kind: 'completed' | 'ceiling_hit' | 'all_tools_disabled' | 'errored' | 'aborted'
+  /** Populated iff kind === 'aborted'. */
+  readonly abortReason?: CancellationReason
+  /** Human-readable summary of what the sub-agent found. */
+  readonly summary: string
+  /** What was measured / the semantic frame of the summary (e.g. "has logged hours this month"). */
+  readonly semantics: string
+  /** Rule-derived confidence (NOT LLM self-assessed). */
+  readonly confidence: Confidence
+  /** Tool calls that produced the structured output. Used for citations. */
+  readonly sourceToolProvenance: ToolCall[]
+  /** Validated against config.outputSchema at sub-agent exit. `unknown` until validated. */
+  readonly structured: unknown
+  /** Write proposals produced during the sub-agent's ReAct loop. */
+  readonly drafts?: DraftProposal[]
+  /** Per-tool circuit-breaker state at the end of this sub-agent's run. */
+  readonly circuitBreakerState: Record<ToolName, { disabled: boolean; reason: string }>
+  readonly usageTotals: SubAgentUsage
+}
+
+// ─── SynthesizerOutput ────────────────────────────────────────────────────────
+
+/**
+ * Output produced by Synthesizer.synthesize() (Plan 03 §4, §9).
+ */
+export interface SynthesizerOutput {
+  readonly shape: AnswerShape
+  /** Shape-specific content: string | Array | TableData | ChartData | Narrative */
+  readonly content: unknown
+  readonly citations: Citation[]
+  /** MIN across contributing sub-agents + one-step demotion on contradiction (R-03.22). */
+  readonly confidence: Confidence
+  readonly turnEndedReason: 'completed' | 'partial'
+}
+
+// ─── PhaseExecutionResult ─────────────────────────────────────────────────────
+
+/**
+ * Result returned by PhaseExecutor.execute() (Plan 03 §4 Interface Contracts).
+ */
+export type PhaseExecutionResult =
+  | { kind: 'synthesized'; answer: SynthesizerOutput; drafts: DraftProposal[] }
+  | { kind: 'disambiguation'; question: string }
+  | { kind: 'partial'; answer: SynthesizerOutput; reason: 'limit_reached' }
+  | { kind: 'aborted'; reason: CancellationReason }
+
+// ─── ConfidenceSignals ────────────────────────────────────────────────────────
+
+/**
+ * Observable trace signals collected during a sub-agent's ReAct loop.
+ * Used by `deriveConfidence()` to compute per-sub-agent confidence
+ * without relying on LLM self-assessment (R-03.22).
+ */
+export interface ConfidenceSignals {
+  /** Number of distinct tool results that corroborate the answer (≥1 = corroborated). */
+  readonly toolResultCount: number
+  /** Number of retry events (LLM retries or tool retries) during the loop. */
+  readonly retryCount: number
+  /** Number of tool failures (error responses, not circuit-breaker). */
+  readonly toolFailureCount: number
+  /** Whether the turn's taint flag was flipped during THIS sub-agent's iterations. */
+  readonly taintFlippedDuringRun: boolean
+  /** Whether the sub-agent hit a ceiling (wallclock / iteration / cost). */
+  readonly ceilingHit: boolean
+  /** Whether the sub-agent's declared semantics conflict with a sibling's semantics. */
+  readonly semanticConflictWithSibling: boolean
+  /** Whether any circuit-breaker events occurred during this sub-agent's run. */
+  readonly circuitBreakerEventOccurred: boolean
+}
+
+// ─── PartialAnswerDecision ────────────────────────────────────────────────────
+
+export type PartialAnswerDecision =
+  | 'surface_partial' // ceiling hit + zero writes → surface partial (R-03.19)
+  | 'suppress_partial' // ceiling hit + writes drafted → suppress, drafts only (R-03.20)
+  | 'no_ceiling' // no sub-agent hit a ceiling; full synthesis proceeds
+
+// ─── Phase executor opts ──────────────────────────────────────────────────────
+
+/**
+ * Extended turn state for the phase executor.
+ * Lives in the request handler and is threaded through all phase-03 components.
+ */
+export interface PhaseExecutorTurnState {
+  readonly traceId: string
+  readonly tenantId: string
+  readonly userId: string
+  readonly conversationId: string
+  readonly sessionId: string
+  readonly surface: 'global-chat' | 'inline' | 'async'
+  /** Shared mutable taint flag — any sub-agent can flip it to true. */
+  readonly tainted: { value: boolean }
+  routerReplanCount: 0 | 1
+}
+
+// ─── SubAgentRunnerOpts ───────────────────────────────────────────────────────
+
+export interface SubAgentRunnerOpts {
+  readonly directive: SubAgentDirective
+  readonly config: ValidatedSubAgentConfig
+  readonly phase: 1 | 2
+  /** Only provided to phase-2 sub-agents; undefined for phase-1. */
+  readonly phase1SanitizedInput?: Record<string, unknown>
+  readonly abortSignal: AbortSignal
+  readonly turnState: PhaseExecutorTurnState
+}
+
+// ─── SynthesizerOpts ─────────────────────────────────────────────────────────
+
+export interface SynthesizerOpts {
+  readonly directive: BoundedPlan
+  readonly phase1Outputs: Map<SubAgentKey, SubAgentOutput>
+  readonly phase2Outputs: Map<SubAgentKey, SubAgentOutput>
+  readonly userUtterance: string
+  readonly abortSignal: AbortSignal
+  readonly turnState: PhaseExecutorTurnState
+}
+
+// ─── PhaseShapeMismatch ───────────────────────────────────────────────────────
+
+export interface PhaseShapeMismatch {
+  readonly phase2Required: string[]
+  readonly phase1Missing: string[]
+}

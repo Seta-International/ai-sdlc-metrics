@@ -112,6 +112,7 @@ const VALID_PLAN: RouterPlan = {
       reason: 'lists tasks',
     },
   ],
+  phase2: [],
 }
 
 const VALID_PLAN_2P1_1P2: RouterPlan = {
@@ -122,7 +123,7 @@ const VALID_PLAN_2P1_1P2: RouterPlan = {
     { sub_agent_key: 'planner.read-only', input: {}, reason: 'r1' },
     { sub_agent_key: 'planner.read-only-2', input: {}, reason: 'r2' },
   ],
-  phase2: { sub_agent_key: 'planner.read-only-3', input: {}, reason: 'r3' },
+  phase2: [{ sub_agent_key: 'planner.read-only-3', input: {}, reason: 'r3' }],
 }
 
 const DISAMBIG_PLAN: RouterPlan = {
@@ -130,6 +131,7 @@ const DISAMBIG_PLAN: RouterPlan = {
   intent_slug: 'unclassified',
   flow_id: FLOW_ID,
   phase1: [],
+  phase2: [],
   disambiguation: 'Did you mean tasks or plans?',
 }
 

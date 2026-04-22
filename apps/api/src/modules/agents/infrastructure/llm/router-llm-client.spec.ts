@@ -62,6 +62,7 @@ const VALID_PLAN: RouterPlan = {
       reason: 'User asked to list tasks',
     },
   ],
+  phase2: [],
 }
 
 /**

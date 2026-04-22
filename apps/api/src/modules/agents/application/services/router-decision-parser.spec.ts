@@ -105,6 +105,7 @@ function validPlanWithPhase1(): RouterPlan {
         reason: 'User asked to list tasks',
       },
     ],
+    phase2: [],
   }
 }
 
@@ -114,6 +115,7 @@ function validDisambiguationPlan(): RouterPlan {
     intent_slug: VALID_INTENT_SLUG,
     flow_id: VALID_FLOW_ID,
     phase1: [],
+    phase2: [],
     disambiguation: 'Did you mean your personal tasks or the team tasks?',
   }
 }
@@ -257,11 +259,7 @@ describe('RouterDecisionParser', () => {
   it('5b. returns retry when phase2 sub_agent_key is invalid', () => {
     const badPhase2Key: RouterPlan = {
       ...validPlanWithPhase1(),
-      phase2: {
-        sub_agent_key: 'nonexistent.agent',
-        input: {},
-        reason: 'follow-up',
-      },
+      phase2: [{ sub_agent_key: 'nonexistent.agent', input: {}, reason: 'follow-up' }],
     }
     const result = parser.parseRaw(JSON.stringify(badPhase2Key))
 
@@ -292,11 +290,7 @@ describe('RouterDecisionParser', () => {
       intent_slug: VALID_INTENT_SLUG,
       flow_id: VALID_FLOW_ID,
       phase1: [],
-      phase2: {
-        sub_agent_key: VALID_SUB_AGENT_KEY,
-        input: {},
-        reason: 'follow up',
-      },
+      phase2: [{ sub_agent_key: VALID_SUB_AGENT_KEY, input: {}, reason: 'follow up' }],
       disambiguation: 'Do you mean X or Y?',
     }
     const result = parser.parseRaw(JSON.stringify(withPhase2))
@@ -315,6 +309,7 @@ describe('RouterDecisionParser', () => {
       intent_slug: VALID_INTENT_SLUG,
       flow_id: VALID_FLOW_ID,
       phase1: [],
+      phase2: [],
       // no disambiguation
     }
     const result = parser.parseRaw(JSON.stringify(emptyPhase1))
@@ -328,15 +323,15 @@ describe('RouterDecisionParser', () => {
 
   // ── 8. Valid disambiguation-only plan ──────────────────────────────────────
 
-  it('8. returns ok for a disambiguation-only plan (empty phase1, no phase2)', () => {
+  it('8. returns ok for a disambiguation-only plan (empty phase1, empty phase2)', () => {
     const disambiguationPlan = validDisambiguationPlan()
     const result = parser.parseRaw(JSON.stringify(disambiguationPlan))
 
     expect(result.kind).toBe('ok')
-    if (result.kind === 'ok') {
+    if (result.kind === 'ok' && result.plan.topology === 'bounded') {
       expect(result.plan.disambiguation).toBe('Did you mean your personal tasks or the team tasks?')
       expect(result.plan.phase1).toHaveLength(0)
-      expect(result.plan.phase2).toBeUndefined()
+      expect(result.plan.phase2).toHaveLength(0)
     }
   })
 
@@ -471,7 +466,7 @@ describe('RouterDecisionParser', () => {
     }
   })
 
-  it('accepts a plan with phase1 + phase2 and no disambiguation', () => {
+  it('accepts a plan with phase1 + phase2 array and no disambiguation', () => {
     const withBothPhases: RouterPlan = {
       topology: 'bounded',
       intent_slug: VALID_INTENT_SLUG,
@@ -483,14 +478,52 @@ describe('RouterDecisionParser', () => {
           reason: 'read tasks',
         },
       ],
-      phase2: {
-        sub_agent_key: VALID_SUB_AGENT_KEY,
-        input: { utterance: 'summary' },
-        reason: 'summarize results',
-      },
+      phase2: [
+        {
+          sub_agent_key: VALID_SUB_AGENT_KEY,
+          input: { utterance: 'summary' },
+          reason: 'summarize results',
+        },
+      ],
     }
     const result = parser.parseRaw(JSON.stringify(withBothPhases))
 
     expect(result.kind).toBe('ok')
+  })
+
+  it('accepts a bounded plan with phase2 fan-out of 3 sub-agents', () => {
+    const fanOut3: RouterPlan = {
+      topology: 'bounded',
+      intent_slug: VALID_INTENT_SLUG,
+      flow_id: VALID_FLOW_ID,
+      phase1: [{ sub_agent_key: VALID_SUB_AGENT_KEY, input: { utterance: 'tasks' }, reason: 'r1' }],
+      phase2: [
+        { sub_agent_key: VALID_SUB_AGENT_KEY, input: { utterance: 'a' }, reason: 'r2' },
+        { sub_agent_key: VALID_SUB_AGENT_KEY, input: { utterance: 'b' }, reason: 'r3' },
+        { sub_agent_key: VALID_SUB_AGENT_KEY, input: { utterance: 'c' }, reason: 'r4' },
+      ],
+    }
+    const result = parser.parseRaw(JSON.stringify(fanOut3))
+    expect(result.kind).toBe('ok')
+  })
+
+  it('rejects a plan with phase2 array of 4 sub-agents (Zod max violation)', () => {
+    const tooManyPhase2 = {
+      topology: 'bounded',
+      intent_slug: VALID_INTENT_SLUG,
+      flow_id: VALID_FLOW_ID,
+      phase1: [{ sub_agent_key: VALID_SUB_AGENT_KEY, input: {}, reason: 'r1' }],
+      phase2: [
+        { sub_agent_key: VALID_SUB_AGENT_KEY, input: {}, reason: 'r2' },
+        { sub_agent_key: VALID_SUB_AGENT_KEY, input: {}, reason: 'r3' },
+        { sub_agent_key: VALID_SUB_AGENT_KEY, input: {}, reason: 'r4' },
+        { sub_agent_key: VALID_SUB_AGENT_KEY, input: {}, reason: 'r5' }, // 4 > max 3
+      ],
+    }
+    const result = parser.parseRaw(JSON.stringify(tooManyPhase2))
+    expect(result.kind).toBe('retry')
+    if (result.kind === 'retry') {
+      expect(result.reason).toContain('schema validation failed')
+    }
   })
 })
