@@ -1,5 +1,5 @@
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
-import { z } from 'zod'
+import * as z from 'zod'
 import { TRPCError } from '@trpc/server'
 import { CommandBus } from '@nestjs/cqrs'
 import {

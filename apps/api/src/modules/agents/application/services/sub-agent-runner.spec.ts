@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { z } from 'zod'
+import * as z from 'zod'
 import { buildSubAgentOutput, attachTaintSource } from './sub-agent-runner'
 import type { DraftProposal, ConfidenceSignals } from './phase-executor-contracts'
 

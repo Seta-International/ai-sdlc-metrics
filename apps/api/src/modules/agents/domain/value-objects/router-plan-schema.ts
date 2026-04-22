@@ -21,7 +21,7 @@
  *   RouterDecisionParser. The special fallback slug 'unclassified' is allowed explicitly.
  */
 
-import { z } from 'zod'
+import * as z from 'zod'
 import { INTENT_SLUG_REGEX } from '../../infrastructure/registry/intents/intent-registry'
 
 // ─── SubAgentDirective ────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { z } from 'zod'
+import * as z from 'zod'
 import { defineSubAgent } from './sub-agent-factory'
 
 // ─── Shared minimal valid config ───────────────────────────────────────────────

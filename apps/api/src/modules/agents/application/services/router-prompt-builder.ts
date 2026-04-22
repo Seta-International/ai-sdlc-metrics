@@ -26,7 +26,7 @@
  */
 
 import { Injectable } from '@nestjs/common'
-import { z, type ZodType } from 'zod'
+import * as z from 'zod'
 import { canonicalize } from '../../infrastructure/cache/canonical-args'
 import type { ResolvedSubAgent } from '../../infrastructure/registry/sub-agent-registry'
 import type { WindowedSummaries } from '../../domain/value-objects/windowed-summaries'
@@ -69,7 +69,7 @@ export interface BuildResult {
  * helper key injected by Zod v4 is dropped by `canonicalize`'s undefined-drop
  * rule. Keys are sorted by the canonicalize pass to guarantee deterministic output.
  */
-function zodToSortedJsonSchema(schema: ZodType): Record<string, unknown> {
+function zodToSortedJsonSchema(schema: z.ZodType): Record<string, unknown> {
   // Zod v4's native JSON Schema emitter. `reused: 'inline'` prevents $ref
   // indirection for simple schemas, keeping the prompt self-contained.
   const raw = z.toJSONSchema(schema, { reused: 'inline' })

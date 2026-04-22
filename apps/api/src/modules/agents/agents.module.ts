@@ -1,4 +1,4 @@
-import { Inject, Module, type OnModuleInit } from '@nestjs/common'
+import { Inject, Module, type OnModuleInit, type OnApplicationBootstrap } from '@nestjs/common'
 import { JwtModule } from '@nestjs/jwt'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { AgentsQueryFacade } from './application/facades/agents-query.facade'
@@ -299,7 +299,7 @@ class NullTenantLister implements TenantListerLike {
     GDPR_ERASURE_PIPELINE,
   ],
 })
-export class AgentsModule implements OnModuleInit {
+export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
   constructor(
     private readonly createSession: CreateSessionHandler,
     private readonly sendMessage: SendMessageHandler,
@@ -387,11 +387,12 @@ export class AgentsModule implements OnModuleInit {
     // Registry misconfiguration (duplicate keys, unknown tools, missing slugs, etc.)
     // MUST be fixed before deployment — there is no degraded-mode fallback.
     this.intentRegistry.boot(intentDescriptors)
-
+  }
+  async onApplicationBootstrap(): Promise<void> {
     // Step 4: Register Plan 04 pg-boss workers.
     // Summarizer worker fires post-turn to generate async summaries (R-04.24).
     // SUMMARIZER token is a Symbol so we use the injected instance directly.
-    this.summarizer.registerWorkers()
+    await this.summarizer.registerWorkers()
 
     // Step 5: Register retention scheduler — daily cron to archive idle conversations (R-04.27).
     await this.retentionScheduler.registerWorkers()

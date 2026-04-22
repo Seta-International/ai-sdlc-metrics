@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import { ListInsightsQuery } from '../../application/queries/list-insights.query'
 import { DismissInsightCommand } from '../../application/commands/dismiss-insight.command'

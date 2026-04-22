@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import { CreateSessionCommand } from '../../application/commands/create-session.command'
 import { SendMessageCommand } from '../../application/commands/send-message.command'

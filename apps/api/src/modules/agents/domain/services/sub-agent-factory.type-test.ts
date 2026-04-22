@@ -13,7 +13,7 @@
  * `AssertSubsetOfPhase1` in `sub-agent-factory.ts`. See Tests 5 and 6 below.
  */
 
-import { z } from 'zod'
+import * as z from 'zod'
 import { defineSubAgent } from './sub-agent-factory'
 
 // inputSchema WITH utterance — used for happy-path tests

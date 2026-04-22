@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import { TRPCError } from '@trpc/server'
 import { publicProcedure, router } from '../../../../common/trpc/trpc-init'
 import type { AuthContext } from '../../../../common/trpc/auth-middleware'

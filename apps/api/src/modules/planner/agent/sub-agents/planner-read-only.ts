@@ -11,7 +11,7 @@
  *   planner.evidence.list       → planner > evidence > list
  */
 
-import { z } from 'zod'
+import * as z from 'zod'
 import { defineSubAgent } from '../../../agents/declare'
 
 export const plannerReadOnlySubAgent = defineSubAgent({

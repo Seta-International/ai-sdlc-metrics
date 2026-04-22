@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 
 const answerDeltaEvent = z.object({
   type: z.literal('answer.delta'),

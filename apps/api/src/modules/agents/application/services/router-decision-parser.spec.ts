@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest'
-import { z } from 'zod'
+import * as z from 'zod'
 import { RouterDecisionParser } from './router-decision-parser'
 import { IntentRegistry } from '../../infrastructure/registry/intents/intent-registry'
 import { SubAgentRegistry } from '../../infrastructure/registry/sub-agent-registry'

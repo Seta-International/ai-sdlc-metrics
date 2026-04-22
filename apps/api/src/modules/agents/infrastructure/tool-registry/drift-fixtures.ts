@@ -10,7 +10,7 @@
  */
 
 import { initTRPC } from '@trpc/server'
-import { z } from 'zod'
+import * as z from 'zod'
 import type { AgentToolMeta } from '../../../../common/trpc/agent-tool-meta'
 
 // ─── Shared tRPC instance (no context needed for fixtures) ────────────────────

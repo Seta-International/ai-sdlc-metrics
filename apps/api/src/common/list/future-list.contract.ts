@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 
 const scalarFilterValue = z.union([z.string(), z.number(), z.boolean()])
 
