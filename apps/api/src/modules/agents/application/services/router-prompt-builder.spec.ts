@@ -105,7 +105,7 @@ function makeOpts(overrides?: Partial<BuildOpts>): BuildOpts {
     roleAllowedPermissions: new Set(['planner:plan:read']),
     subAgents: [makeResolvedSubAgent()],
     permissionNarrative: PERMISSION_NARRATIVE,
-    recentSummaryWindow: { gamma: [], alpha: null },
+    recentSummaryWindow: { verbatim: [], compressed: [], rolling: null },
     toolCatalogHash: TOOL_CATALOG_HASH,
     ...overrides,
   }
@@ -177,8 +177,9 @@ describe('RouterPromptBuilder', () => {
 
   it('6a. alpha present → "Conversation-level summary" section rendered', () => {
     const window: WindowedSummaries = {
-      alpha: 'The user has been asking about their Q2 plans.',
-      gamma: [],
+      rolling: 'The user has been asking about their Q2 plans.',
+      verbatim: [],
+      compressed: [],
     }
     const result = builder.build(makeOpts({ recentSummaryWindow: window }))
 
@@ -188,8 +189,9 @@ describe('RouterPromptBuilder', () => {
 
   it('6b. gamma empty → no "Recent turns" section', () => {
     const window: WindowedSummaries = {
-      alpha: null,
-      gamma: [],
+      rolling: null,
+      verbatim: [],
+      compressed: [],
     }
     const result = builder.build(makeOpts({ recentSummaryWindow: window }))
 
@@ -198,11 +200,12 @@ describe('RouterPromptBuilder', () => {
 
   it('6c. gamma non-empty → "Recent turns" section with turnTraceId entries', () => {
     const window: WindowedSummaries = {
-      alpha: null,
-      gamma: [
+      rolling: null,
+      verbatim: [
         { turnTraceId: 'turn-001', summary: 'User asked about tasks.' },
         { turnTraceId: 'turn-002', summary: 'User asked about plans.' },
       ],
+      compressed: [],
     }
     const result = builder.build(makeOpts({ recentSummaryWindow: window }))
 
@@ -225,12 +228,14 @@ describe('RouterPromptBuilder', () => {
     // Build two WindowedSummaries objects that are logically identical
     // but constructed with different property insertion order.
     const windowA: WindowedSummaries = {
-      gamma: [{ turnTraceId: 'turn-001', summary: 'User asked about tasks.' }],
-      alpha: 'Summary A.',
+      verbatim: [{ turnTraceId: 'turn-001', summary: 'User asked about tasks.' }],
+      compressed: [],
+      rolling: 'Summary A.',
     }
     const windowB: WindowedSummaries = {
-      alpha: 'Summary A.',
-      gamma: [{ turnTraceId: 'turn-001', summary: 'User asked about tasks.' }],
+      rolling: 'Summary A.',
+      verbatim: [{ turnTraceId: 'turn-001', summary: 'User asked about tasks.' }],
+      compressed: [],
     }
 
     const resultA = builder.build(makeOpts({ recentSummaryWindow: windowA }))
@@ -259,7 +264,7 @@ describe('RouterPromptBuilder', () => {
   // ── 10. Empty γ + null α ──────────────────────────────────────────────────
 
   it('10. empty gamma + null alpha → builder renders without crashing; no spurious sections', () => {
-    const window: WindowedSummaries = { gamma: [], alpha: null }
+    const window: WindowedSummaries = { verbatim: [], compressed: [], rolling: null }
     const result = builder.build(makeOpts({ recentSummaryWindow: window }))
 
     expect(result.systemPrompt).toBeTruthy()
@@ -275,8 +280,9 @@ describe('RouterPromptBuilder', () => {
     // two separate calls with the same inputs must produce the same hash.
     const opts = makeOpts({
       recentSummaryWindow: {
-        alpha: 'rolling summary',
-        gamma: [{ turnTraceId: 't1', summary: 'previous turn' }],
+        rolling: 'rolling summary',
+        verbatim: [{ turnTraceId: 't1', summary: 'previous turn' }],
+        compressed: [],
       },
     })
 

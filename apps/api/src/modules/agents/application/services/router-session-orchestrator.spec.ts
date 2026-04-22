@@ -135,7 +135,7 @@ const DISAMBIG_PLAN: RouterPlan = {
   disambiguation: 'Did you mean tasks or plans?',
 }
 
-const BASE_SUMMARY: WindowedSummaries = { gamma: [], alpha: null }
+const BASE_SUMMARY: WindowedSummaries = { verbatim: [], compressed: [], rolling: null }
 
 const BASE_OPTS: RouteTurnOpts = {
   tenantId: TENANT_ID,

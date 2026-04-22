@@ -114,7 +114,7 @@ function makeTurnOpts(overrides?: Partial<RouteTurnOpts>): RouteTurnOpts {
     conversationId: CONVERSATION_ID,
     turnTraceId: TURN_TRACE_ID,
     utterance: 'show my tasks',
-    recentSummary: { gamma: [], alpha: null },
+    recentSummary: { verbatim: [], compressed: [], rolling: null },
     promptVariables: new Map<SubAgentKey, Record<string, unknown>>(),
     ...overrides,
   }

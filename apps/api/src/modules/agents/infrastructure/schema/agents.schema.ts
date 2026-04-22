@@ -8,6 +8,7 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  primaryKey,
   check,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
@@ -36,7 +37,11 @@ export const agentChatSessions = agentsSchema.table('agent_chat_session', {
   endedAt: timestamp('ended_at', { withTimezone: true }),
 })
 
-export const agentMessages = agentsSchema.table('agent_message', {
+/**
+ * Web-chat messages (UI chat history). Renamed from agent_message in migration 0015
+ * to make room for Plan 04's agent_message (which uses conversation_id FK).
+ */
+export const agentChatMessages = agentsSchema.table('agent_chat_message', {
   id: uuid('id').primaryKey().defaultRandom(),
   sessionId: uuid('session_id').notNull(),
   tenantId: uuid('tenant_id').notNull(),
@@ -115,10 +120,6 @@ export const agentSessions = agentsSchema.table(
       t.conversationId,
       t.startedAt.desc(),
     ),
-    // Partial unique index: at most one active (non-ended) session per
-    // (tenant, conversation). Prevents race on first-turn from creating
-    // two active rows. Ended sessions (ended_at IS NOT NULL) are excluded
-    // so a conversation can be restarted after it has been closed.
     uniqueIndex('agent_session_conversation_active_uq')
       .on(t.tenantId, t.conversationId)
       .where(sql`ended_at IS NULL`),
@@ -157,4 +158,114 @@ export const agentStoredSubAgents = agentsSchema.table(
       sql`${t.status} IN ('draft', 'active', 'retired')`,
     ),
   ],
+)
+
+// ─── Plan 04 — Memory L1-L4 + Conversation State ──────────────────────────────
+
+/**
+ * Plan 04 — Active conversation per (tenant, user, surface).
+ *
+ * Unique partial index on (tenant_id, user_id, surface) WHERE status='active'
+ * enforces cross-device consolidation: at most one active conversation per scope.
+ * Concurrent loadOrCreateActive calls from two devices converge to the same row.
+ */
+export const agentConversations = agentsSchema.table(
+  'agent_conversation',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    surface: text('surface').notNull(),
+    status: text('status').notNull().default('active'),
+    title: text('title'),
+    lastUserTurnAt: timestamp('last_user_turn_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    summaryFailureStreak: integer('summary_failure_streak').notNull().default(0),
+    summaryDisabledAt: timestamp('summary_disabled_at', { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex('agent_conversation_scope_active_uidx')
+      .on(t.tenantId, t.userId, t.surface)
+      .where(sql`status = 'active'`),
+    index('agent_conversation_tenant_user_status_updated_idx').on(
+      t.tenantId,
+      t.userId,
+      t.status,
+      t.updatedAt.desc(),
+    ),
+    check('agent_conversation_status_check', sql`${t.status} IN ('active', 'archived')`),
+  ],
+)
+
+/**
+ * Plan 04 — Per-turn agent messages with JSONB content and async summary.
+ *
+ * user_id is denormalized from agent_conversation for keyset pagination (R-04.10)
+ * without requiring a join. FTS index covers user utterances + summaries only;
+ * raw tool-result content is NEVER indexed (R-04.8).
+ */
+export const agentConversationMessages = agentsSchema.table(
+  'agent_message',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    conversationId: uuid('conversation_id').notNull(),
+    tenantId: uuid('tenant_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    role: text('role').notNull(),
+    content: jsonb('content'),
+    summary: text('summary'),
+    traceId: uuid('trace_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('agent_message_tenant_user_conv_created_idx').on(
+      t.tenantId,
+      t.userId,
+      t.conversationId,
+      t.createdAt,
+    ),
+    check('agent_message_role_check', sql`${t.role} IN ('user', 'assistant', 'system')`),
+  ],
+)
+
+/**
+ * Plan 04 — L3 user preferences.
+ *
+ * Key is allowlisted at the service layer (unknown keys are rejected at write).
+ * Writes are user-initiated at MVP — the tRPC mutation deliberately omits
+ * `.meta({ agent })` so the plan-01 registry cannot invoke it.
+ */
+export const agentL3Preferences = agentsSchema.table(
+  'agent_l3_preference',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    key: text('key').notNull(),
+    value: jsonb('value').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: uuid('updated_by').notNull(),
+  },
+  (t) => [primaryKey({ name: 'agent_l3_preference_pk', columns: [t.tenantId, t.userId, t.key] })],
+)
+
+/**
+ * Plan 04 — L3.5 agent scratchpad.
+ *
+ * Schema-allowlisted fields per sub-agent (not free-form markdown). Taint flag
+ * travels with the value so downstream consumption can bump approval-tier.
+ * Written exclusively via the kernel-audited scratchpad.write tool (R-04.33).
+ * Scope key: (tenant_id, user_id) — never (tenant_id, module) per EI-9.
+ */
+export const agentScratchpad = agentsSchema.table(
+  'agent_scratchpad',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    field: text('field').notNull(),
+    value: jsonb('value').notNull(),
+    tainted: boolean('tainted').notNull().default(false),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ name: 'agent_scratchpad_pk', columns: [t.tenantId, t.userId, t.field] })],
 )

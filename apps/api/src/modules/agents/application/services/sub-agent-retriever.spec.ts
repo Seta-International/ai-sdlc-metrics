@@ -54,7 +54,7 @@ vi.mock('@opentelemetry/api', () => ({
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 
-const EMPTY_SUMMARY: WindowedSummaries = { gamma: [], alpha: null }
+const EMPTY_SUMMARY: WindowedSummaries = { verbatim: [], compressed: [], rolling: null }
 
 /**
  * Build a minimal ValidatedSubAgentConfig with the given key and optional
@@ -312,8 +312,9 @@ describe('estimateTokens', () => {
     const agents2 = makeNConfigs(3) // same shape but different object identities
     const narrative = 'same permission narrative'
     const summary: WindowedSummaries = {
-      gamma: [{ turnTraceId: 't1', summary: 'prior turn summary' }],
-      alpha: 'rolling alpha summary',
+      verbatim: [{ turnTraceId: 't1', summary: 'prior turn summary' }],
+      compressed: [],
+      rolling: 'rolling alpha summary',
     }
 
     const r1 = estimateTokens({
@@ -356,11 +357,12 @@ describe('estimateTokens', () => {
       makeEstimateOpts(agents, {
         permissionNarrative: narrative,
         recentSummary: {
-          gamma: [
+          verbatim: [
             { turnTraceId: 't1', summary: 'User was asking about their open tasks' },
             { turnTraceId: 't2', summary: 'User reviewed a plan' },
           ],
-          alpha: null,
+          compressed: [],
+          rolling: null,
         },
       }),
     )
@@ -375,15 +377,16 @@ describe('estimateTokens', () => {
     const withoutAlpha = estimateTokens(
       makeEstimateOpts(agents, {
         permissionNarrative: narrative,
-        recentSummary: { gamma: [], alpha: null },
+        recentSummary: { verbatim: [], compressed: [], rolling: null },
       }),
     )
     const withAlpha = estimateTokens(
       makeEstimateOpts(agents, {
         permissionNarrative: narrative,
         recentSummary: {
-          gamma: [],
-          alpha: 'This is the rolling conversation-level summary for the session.',
+          verbatim: [],
+          compressed: [],
+          rolling: 'This is the rolling conversation-level summary for the session.',
         },
       }),
     )

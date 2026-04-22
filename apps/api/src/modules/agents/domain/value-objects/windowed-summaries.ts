@@ -1,21 +1,37 @@
 /**
- * WindowedSummaries — minimal stub type for the γ/α memory windows.
+ * WindowedSummaries — Plan 04 L2 memory window shapes (R-04.11, R-04.12).
  *
- * Minimal stub shape; Plan 04 will extend with L3.5 scratchpad references.
+ * γ (global) window — for global chat surface:
+ *   - last 3 verbatim turn summaries
+ *   - last 10 compressed (cached concat + nano)
+ *   - rolling background summary (updated every 3 user turns, R-04.26c)
  *
- * γ (gamma) — prior-turn summaries (short-term, newest last in the array).
- * α (alpha) — conversation-level rolling summary (null when the conversation is
- *             too short to have been compressed).
+ * α (inline) window — for inline copilot surfaces:
+ *   - last N verbatim (default 5, configurable per surface)
  *
- * The RouterPromptBuilder reads this shape to render the "recent summary window"
- * section of the developer message (Plan 02 §5 step 6). Plan 04 will replace this
- * stub with a richer type without breaking the builder's interface — the builder
- * pattern-matches on gamma.length and alpha nullability.
+ * Summary text is always delimiter-wrapped at inject time (R-04.26b) by WindowBuilder:
+ *   <conversation_summary source="post_turn_nano">...</conversation_summary>
+ * This ensures downstream LLMs treat summaries as untrusted context, not system instructions.
+ *
+ * RouterPromptBuilder pattern-matches on verbatim.length and rolling nullability
+ * — the builder interface is stable across γ/α variants.
  */
 
-export type WindowedSummaries = {
-  /** γ = prior-turn summaries (short-term); entries ordered oldest → newest. */
-  gamma: ReadonlyArray<{ turnTraceId: string; summary: string }>
-  /** α = conversation-level rolling summary; null when not yet computed. */
-  alpha: string | null
+export type VerbatimSummary = {
+  /** Correlates to the kernel audit trace for this turn. */
+  turnTraceId: string
+  /** Delimiter-wrapped summary text (R-04.26b). */
+  summary: string
 }
+
+export type WindowedSummaries = {
+  /** γ/α verbatim entries; ordered oldest → newest. */
+  verbatim: ReadonlyArray<VerbatimSummary>
+  /** γ only: last 10 compressed summaries. Empty array for α windows. */
+  compressed: ReadonlyArray<string>
+  /** γ only: rolling background summary updated every 3 user turns. Null for α or when not yet computed. */
+  rolling: string | null
+}
+
+/** Convenience alias kept for RouterPromptBuilder callers that used the old type. */
+export type { WindowedSummaries as WindowedSummariesV2 }

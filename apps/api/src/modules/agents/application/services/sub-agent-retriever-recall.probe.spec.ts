@@ -13,7 +13,7 @@
  *
  * Probe design:
  *   - alwaysInclude = new Set()  →  isolates ranking to utterance only.
- *   - recentSummary = { gamma: [], alpha: null }  →  no memory signal.
+ *   - recentSummary = { verbatim: [], compressed: [], rolling: null }  →  no memory signal.
  *   - tenantId = 'probe-tenant'  →  constant, no DB involved.
  *   - Recall = |expected ∩ returned| / |expected|.  We assert recall === 1.0
  *     (subset assertion, not equality).
@@ -61,7 +61,7 @@ vi.mock('@opentelemetry/api', () => ({
 
 const TENANT_ID = 'probe-tenant'
 
-const EMPTY_SUMMARY: WindowedSummaries = { gamma: [], alpha: null }
+const EMPTY_SUMMARY: WindowedSummaries = { verbatim: [], compressed: [], rolling: null }
 
 const ALWAYS_INCLUDE = new Set<SubAgentKey>()
 
