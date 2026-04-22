@@ -190,13 +190,14 @@ export class RouterSessionOrchestrator {
 
       // Hash drift detection — mismatch = deployment / rollout bug
       if (promptResult.routerPromptHash !== existingSession.routerPromptHash) {
-        this.logger.error(
-          `[${tenantId}] router prompt hash drift for session ${existingSession.id}. ` +
-            `pinned=${existingSession.routerPromptHash} rebuilt=${promptResult.routerPromptHash}. ` +
-            `This is a deployment bug — session pinning violated.`,
-        )
+        this.logger.error('Router prompt hash drift — session pinning violated (deployment bug)', {
+          tenantId,
+          sessionId: existingSession.id,
+          pinnedHash: existingSession.routerPromptHash,
+          rebuiltHash: promptResult.routerPromptHash,
+        })
         parentSpan.setAttributes({ 'router.hash_drift': true })
-        recordRouterDecision(tenantId, 'disambiguation')
+        this._safeMetric(() => recordRouterDecision(tenantId, 'disambiguation'))
         return {
           kind: 'disambiguation',
           reason: 'internal_hash_drift',
@@ -246,9 +247,11 @@ export class RouterSessionOrchestrator {
 
       if (estimated > ROUTER_PROMPT_TOKEN_CEILING) {
         retrievalActivated = true
-        this.logger.log(
-          `[${tenantId}] token budget ${estimated} > ${ROUTER_PROMPT_TOKEN_CEILING}; activating retrieval`,
-        )
+        this.logger.log('Token budget exceeded ceiling — activating sub-agent retrieval', {
+          tenantId,
+          estimated,
+          ceiling: ROUTER_PROMPT_TOKEN_CEILING,
+        })
         // retrieve returns ValidatedSubAgentConfig[]; filter resolvedAll to preserve heavy resolution
         const narrowedConfigs = await this.subAgentRetriever.retrieve({
           tenantId,
@@ -352,7 +355,7 @@ export class RouterSessionOrchestrator {
     // llmResult1.kind === 'malformed' → use fallback schema prompt
 
     // Attempt 2 (retry)
-    recordRouterParseRetry(tenantId)
+    this._safeMetric(() => recordRouterParseRetry(tenantId))
     const retrySchemaPrompt = attempt1SchemaPrompt ?? _buildFallbackSchemaPrompt()
     const augmentedSystem = systemPrompt + '\n\n' + retrySchemaPrompt
 
@@ -395,7 +398,7 @@ export class RouterSessionOrchestrator {
     const escalateReason = 'parse_escalated_after_retry'
     // Plan 06 owns the `refusal.started` schema canonically; this is the agreed stub
     // shape per Plan 02 R-02.23 + Plan 06 cross-reference.
-    await this.kernelAuditFacade.recordEvent({
+    await this._safeAudit({
       tenantId,
       actorId: userId,
       eventType: 'refusal.started',
@@ -409,7 +412,7 @@ export class RouterSessionOrchestrator {
       },
     })
 
-    recordRouterDecision(tenantId, 'parse_escalated')
+    this._safeMetric(() => recordRouterDecision(tenantId, 'parse_escalated'))
 
     return { kind: 'disambiguation', reason: escalateReason, sessionId, parseRetries: 1 }
   }
@@ -508,7 +511,7 @@ export class RouterSessionOrchestrator {
 
       // Plan 06 owns the `refusal.started` schema canonically; this is the agreed stub
       // shape per Plan 02 R-02.23 + Plan 06 cross-reference.
-      await this.kernelAuditFacade.recordEvent({
+      await this._safeAudit({
         tenantId,
         actorId: userId,
         eventType: 'refusal.started',
@@ -522,7 +525,7 @@ export class RouterSessionOrchestrator {
         },
       })
 
-      recordRouterDecision(tenantId, 'disambiguation')
+      this._safeMetric(() => recordRouterDecision(tenantId, 'disambiguation'))
 
       return { kind: 'disambiguation', reason: plan.disambiguation, sessionId, parseRetries }
     }
@@ -538,7 +541,7 @@ export class RouterSessionOrchestrator {
           `sub_agent_invoked audit: no pinned hash for ${directive.sub_agent_key} — session may pre-date registration`,
         )
       }
-      await this.kernelAuditFacade.recordEvent({
+      await this._safeAudit({
         tenantId,
         actorId: userId,
         eventType: 'agent.sub_agent_invoked',
@@ -554,7 +557,7 @@ export class RouterSessionOrchestrator {
           sub_agent_prompt_hash: hash ?? '',
         },
       })
-      recordSubAgentInvoked(tenantId, directive.sub_agent_key, 'phase1')
+      this._safeMetric(() => recordSubAgentInvoked(tenantId, directive.sub_agent_key, 'phase1'))
     }
 
     // phase2 directive (optional, sequential await)
@@ -565,7 +568,7 @@ export class RouterSessionOrchestrator {
           `sub_agent_invoked audit: no pinned hash for ${plan.phase2.sub_agent_key} — session may pre-date registration`,
         )
       }
-      await this.kernelAuditFacade.recordEvent({
+      await this._safeAudit({
         tenantId,
         actorId: userId,
         eventType: 'agent.sub_agent_invoked',
@@ -581,7 +584,7 @@ export class RouterSessionOrchestrator {
           sub_agent_prompt_hash: hash ?? '',
         },
       })
-      recordSubAgentInvoked(tenantId, plan.phase2.sub_agent_key, 'phase2')
+      this._safeMetric(() => recordSubAgentInvoked(tenantId, plan.phase2!.sub_agent_key, 'phase2'))
     }
 
     parentSpan?.setAttributes({
@@ -598,9 +601,44 @@ export class RouterSessionOrchestrator {
       flow_id: plan.flow_id,
     })
 
-    recordRouterDecision(tenantId, 'bounded_plan')
+    this._safeMetric(() => recordRouterDecision(tenantId, 'bounded_plan'))
 
     return { kind: 'bounded', plan, sessionId, parseRetries }
+  }
+
+  // ─── Non-critical operation wrappers ─────────────────────────────────────────
+
+  /**
+   * Fire-and-forget audit event emission. Errors are logged but NEVER re-thrown.
+   *
+   * Audit events are observability/compliance records; their failure must not abort
+   * a user turn or hold the request-scoped DB client. Only wrap calls here — DB
+   * writes that are required for correctness (e.g. agentSessionPort.create) must
+   * still propagate errors and are NOT wrapped.
+   */
+  private async _safeAudit(
+    payload: Parameters<KernelAuditFacade['recordEvent']>[0],
+  ): Promise<void> {
+    try {
+      await this.kernelAuditFacade.recordEvent(payload)
+    } catch (err) {
+      this.logger.error('Audit event emission failed — turn continues', { err })
+    }
+  }
+
+  /**
+   * Fire-and-forget metric record. Errors are logged but NEVER re-thrown.
+   *
+   * OTel counter/histogram `add`/`record` calls should not throw in production
+   * (they are no-ops if the provider is absent). But we guard defensively in case
+   * a future provider or test shim does throw.
+   */
+  private _safeMetric(fn: () => void): void {
+    try {
+      fn()
+    } catch (err) {
+      this.logger.error('Metric emission failed — turn continues', { err })
+    }
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────────

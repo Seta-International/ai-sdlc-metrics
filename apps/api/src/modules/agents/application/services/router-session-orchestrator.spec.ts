@@ -757,4 +757,55 @@ describe('RouterSessionOrchestrator', () => {
     )
     expect(llmSpan?.attributes['agent.llm.usage.total_tokens']).toBe(DEFAULT_LLM_USAGE.totalTokens)
   })
+
+  // ── 15. Audit error boundary (P1.2) ────────────────────────────────────────
+
+  it('audit error boundary: kernelAuditFacade.recordEvent throws → routeTurn still returns bounded ok', async () => {
+    const { orchestrator, kernelAuditFacade } = buildOrchestrator({
+      llmResults: [{ kind: 'ok', plan: VALID_PLAN }],
+      parseResults: [{ kind: 'ok', plan: VALID_PLAN }],
+    })
+
+    // Force all audit calls to throw
+    kernelAuditFacade.recordEvent.mockRejectedValue(new Error('audit DB unavailable'))
+
+    // Turn must still complete — audit failure must not abort the user turn
+    const result = await orchestrator.routeTurn(BASE_OPTS)
+
+    expect(result.kind).toBe('bounded')
+  })
+
+  it('audit error boundary: recordEvent throws on escalation → routeTurn returns disambiguation ok', async () => {
+    const { orchestrator, kernelAuditFacade } = buildOrchestrator({
+      llmResults: [
+        { kind: 'malformed', error: new Error('fail1'), rawText: null },
+        { kind: 'malformed', error: new Error('fail2'), rawText: null },
+      ],
+    })
+
+    kernelAuditFacade.recordEvent.mockRejectedValue(new Error('audit DB unavailable'))
+
+    const result = await orchestrator.routeTurn(BASE_OPTS)
+
+    // Still returns disambiguation even though audit threw
+    expect(result.kind).toBe('disambiguation')
+  })
+
+  // ── 16. Metric error boundary (P1.2) ───────────────────────────────────────
+
+  it('metric error boundary: recordRouterDecision throws → routeTurn still returns bounded ok', async () => {
+    const { orchestrator } = buildOrchestrator({
+      llmResults: [{ kind: 'ok', plan: VALID_PLAN }],
+      parseResults: [{ kind: 'ok', plan: VALID_PLAN }],
+    })
+
+    // Force the metric helper to throw
+    mockRecordRouterDecision.mockImplementationOnce(() => {
+      throw new Error('metrics provider unavailable')
+    })
+
+    const result = await orchestrator.routeTurn(BASE_OPTS)
+
+    expect(result.kind).toBe('bounded')
+  })
 })

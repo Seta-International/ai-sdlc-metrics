@@ -201,6 +201,9 @@ export class AgentsModule implements OnModuleInit {
       // Planner module sub-agents
       plannerReadOnlySubAgent,
     ]
+    // Errors from registry boot propagate to NestJS, failing app startup intentionally.
+    // Registry misconfiguration (duplicate keys, unknown tools, missing slugs, etc.)
+    // MUST be fixed before deployment — there is no degraded-mode fallback.
     this.subAgentRegistry.boot(descriptors, this.toolRegistry)
 
     // Step 3: Boot the intent registry.
@@ -224,6 +227,9 @@ export class AgentsModule implements OnModuleInit {
       // Projects module intents
       listMyAssignmentsIntent,
     ]
+    // Errors from registry boot propagate to NestJS, failing app startup intentionally.
+    // Registry misconfiguration (duplicate keys, unknown tools, missing slugs, etc.)
+    // MUST be fixed before deployment — there is no degraded-mode fallback.
     this.intentRegistry.boot(intentDescriptors)
   }
 }

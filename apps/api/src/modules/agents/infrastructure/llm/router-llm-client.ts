@@ -14,21 +14,26 @@
  *   models. Keeping model resolution outside this wrapper ensures the orchestrator
  *   controls tenancy and model selection.
  *
- * OpenAI API key:
- *   Pulled from `process.env.OPENAI_API_KEY`. In production, the ECS task
- *   definition injects this value from AWS Secrets Manager via the `secrets`
- *   block in the ECS task definition JSON (Terraform-managed). Never hardcode.
- *   TODO (ops): ensure `OPENAI_API_KEY` is wired in the ECS task secret map.
- *
  * The `ROUTER_LLM_CLIENT` DI token is exported for injection into T10 orchestrator.
  */
 
-import { Injectable } from '@nestjs/common'
+// OPENAI_API_KEY sourcing contract:
+//   - In production (ECS Fargate): Terraform defines a Secrets Manager secret;
+//     the ECS task definition maps the secret value into the container's
+//     environment as OPENAI_API_KEY. The value never touches a committed file,
+//     .env, DB, or build artifact.
+//   - In local development: developer's shell exports OPENAI_API_KEY from a
+//     secure source (1Password, AWS CLI session). NEVER commit a .env file
+//     containing this key.
+//   - CLAUDE.md rule enforced: no secret in env files, DB, or hardcoded.
+
+import { Injectable, OnModuleInit } from '@nestjs/common'
 import { generateObject } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { RouterPlanSchema } from '../../domain/value-objects/router-plan-schema'
 import type { RouterPlan } from '../../domain/value-objects/router-plan-schema'
 import type { ModelChoice } from '../../domain/services/sub-agent-types'
+import { ROUTER_LLM_TIMEOUT_MS } from '../../application/services/router-budget'
 
 // ─── DI token ─────────────────────────────────────────────────────────────────
 
@@ -68,23 +73,51 @@ export type RouterLlmResult =
 // ─── RouterLlmClient ─────────────────────────────────────────────────────────
 
 @Injectable()
-export class RouterLlmClient {
+export class RouterLlmClient implements OnModuleInit {
+  /**
+   * Validates that OPENAI_API_KEY is present in the environment.
+   * Called once at module init (NestJS lifecycle hook) so the failure is loud
+   * and immediate at boot rather than silently failing on the first request.
+   *
+   * Per the sourcing contract above: the key originates in AWS Secrets Manager;
+   * Terraform/ECS maps it into the container environment. It must never appear
+   * in a committed file, .env, DB, or build artifact.
+   */
+  onModuleInit(): void {
+    if (!process.env['OPENAI_API_KEY']) {
+      throw new Error(
+        'OPENAI_API_KEY missing — required to be provided via ECS Secrets Manager mapping per CLAUDE.md secrets rule',
+      )
+    }
+  }
+
   /**
    * Invokes `generateObject` with the assembled router messages and
    * `RouterPlanSchema` as the schema.
    *
    * On success: returns `{ kind: 'ok', plan }`.
-   * On failure (model emits malformed JSON or schema-invalid output):
+   * On failure (model emits malformed JSON, schema-invalid output, or timeout):
    *   returns `{ kind: 'malformed', error, rawText }`.
    *   `rawText` is null because `generateObject` does not expose the raw
    *   model text on error; the orchestrator should feed the retry prompt
    *   directly to a new `generate()` call.
+   *
+   * Timeout: an AbortController fires after ROUTER_LLM_TIMEOUT_MS (default 30 s).
+   * On abort the error message contains "aborted" / "timeout" so upstream logs
+   * can distinguish this from JSON parse failures.
    *
    * The wrapper catches ALL errors from `generateObject` so T10 never needs
    * to handle Vercel AI SDK internals directly.
    */
   async generate(opts: RouterLlmClientOpts): Promise<RouterLlmResult> {
     const { model, systemPrompt, developerMessage, userMessage } = opts
+
+    const controller = new AbortController()
+    const timeoutHandle = setTimeout(() => {
+      controller.abort(
+        new Error(`RouterLlmClient: LLM call timed out after ${ROUTER_LLM_TIMEOUT_MS}ms (aborted)`),
+      )
+    }, ROUTER_LLM_TIMEOUT_MS)
 
     try {
       // _resolveModel is inside the try block so that unsupported provider errors
@@ -106,6 +139,7 @@ export class RouterLlmClient {
           { role: 'system', content: developerMessage },
           { role: 'user', content: userMessage },
         ],
+        abortSignal: controller.signal,
       })
 
       // SDK v6 `LanguageModelUsage` uses `inputTokens`/`outputTokens`/`totalTokens`.
@@ -118,8 +152,28 @@ export class RouterLlmClient {
 
       return { kind: 'ok', plan: result.object, usage }
     } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err))
+      // Normalize the error. If the request was aborted (timeout or external abort),
+      // ensure the message contains a recognizable "timeout"/"aborted" marker so
+      // upstream logs can distinguish this from schema / JSON parse failures.
+      let error: Error
+      if (err instanceof Error) {
+        if (
+          controller.signal.aborted &&
+          !err.message.includes('aborted') &&
+          !err.message.includes('timeout')
+        ) {
+          error = new Error(
+            `RouterLlmClient: LLM call aborted/timeout after ${ROUTER_LLM_TIMEOUT_MS}ms — ${err.message}`,
+          )
+        } else {
+          error = err
+        }
+      } else {
+        error = new Error(String(err))
+      }
       return { kind: 'malformed', error, rawText: null }
+    } finally {
+      clearTimeout(timeoutHandle)
     }
   }
 

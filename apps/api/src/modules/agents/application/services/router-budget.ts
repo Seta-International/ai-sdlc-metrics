@@ -37,4 +37,31 @@ function resolveCeiling(): number {
   return parsed
 }
 
+// Non-secret config sourcing: ROUTER_PROMPT_TOKEN_CEILING is tunable infrastructure
+// config (not a secret) and may live in the ECS task-definition environment block
+// or be overridden via a deployment config file. It is safe to commit a default
+// value here. Follows the same env-override pattern as ROUTER_LLM_TIMEOUT_MS.
 export const ROUTER_PROMPT_TOKEN_CEILING = resolveCeiling()
+
+/**
+ * Default LLM call timeout in milliseconds.
+ *
+ * If the OpenAI API (or any configured provider) does not respond within this
+ * window, the RouterLlmClient aborts the request and returns
+ * `{ kind: 'malformed', error }` so the orchestrator can fall back to the
+ * retry / disambiguation path instead of blocking the request-scoped DB client
+ * indefinitely.
+ *
+ * Override via ROUTER_LLM_TIMEOUT_MS env var (must be a positive integer, in ms).
+ * Invalid values fall back to the default silently.
+ * Default: 30 000 ms (30 seconds).
+ */
+function resolveTimeout(): number {
+  const raw = process.env['ROUTER_LLM_TIMEOUT_MS']
+  if (!raw) return 30_000
+  const parsed = Number.parseInt(raw, 10)
+  if (!Number.isFinite(parsed) || parsed <= 0) return 30_000
+  return parsed
+}
+
+export const ROUTER_LLM_TIMEOUT_MS = resolveTimeout()

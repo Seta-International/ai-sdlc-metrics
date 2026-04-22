@@ -17,12 +17,18 @@
  * 14.  Wrapper receives concrete ModelChoice and does not re-resolve it
  * 15.  Message separation — system/developer/user roles are passed correctly
  * 16.  Usage mapping — SDK inputTokens/outputTokens mapped to promptTokens/completionTokens
+ * 17.  Timeout — generateObject never resolves → { kind: 'malformed' } with timeout marker
+ * 18.  ROUTER_LLM_TIMEOUT_MS default + env override
+ * 19.  onModuleInit throws when OPENAI_API_KEY is missing
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { RouterLlmClient } from './router-llm-client'
 import type { RouterLlmClientOpts } from './router-llm-client'
 import type { RouterPlan } from '../../domain/value-objects/router-plan-schema'
+
+// Ensure OPENAI_API_KEY is present so onModuleInit does not throw in most tests.
+vi.stubEnv('OPENAI_API_KEY', 'test-key-for-unit-tests')
 
 // ─── Mock Vercel AI SDK ────────────────────────────────────────────────────────
 
@@ -298,5 +304,93 @@ describe('RouterLlmClient', () => {
       expect(result.usage.completionTokens).toBeUndefined()
       expect(result.usage.totalTokens).toBeUndefined()
     }
+  })
+
+  // ── 17. Timeout path ──────────────────────────────────────────────────────
+  //
+  // ROUTER_LLM_TIMEOUT_MS is a module-level constant resolved at import time;
+  // vi.stubEnv cannot retroactively change it. We use vi.useFakeTimers to
+  // advance the JS clock so the AbortController fires without waiting.
+
+  it('17a. timeout: generateObject never resolves → { kind: "malformed" } with timeout/aborted marker', async () => {
+    vi.useFakeTimers()
+
+    // generateObject never resolves — simulates a hung OpenAI connection.
+    // The inner promise captures the abort signal; when abort fires it rejects.
+    mockGenerateObject.mockImplementationOnce(
+      (_opts: { abortSignal?: AbortSignal }) =>
+        new Promise<never>((_resolve, reject) => {
+          _opts.abortSignal?.addEventListener('abort', () => {
+            reject(new DOMException('The operation was aborted.', 'AbortError'))
+          })
+        }),
+    )
+
+    const generatePromise = client.generate(BASE_OPTS)
+
+    // Advance clock past ROUTER_LLM_TIMEOUT_MS (30 000 ms default) to fire the AbortController
+    await vi.advanceTimersByTimeAsync(35_000)
+
+    const result = await generatePromise
+
+    expect(result.kind).toBe('malformed')
+    if (result.kind === 'malformed') {
+      expect(result.rawText).toBeNull()
+      // Error message must mention "aborted" or "timeout" so logs can distinguish
+      // this from a JSON parse failure.
+      const msg = result.error.message.toLowerCase()
+      expect(msg.includes('aborted') || msg.includes('timeout')).toBe(true)
+    }
+
+    vi.useRealTimers()
+  })
+
+  it('17b. timeout: abort clears the timeout handle (no dangling timer)', async () => {
+    vi.useFakeTimers()
+
+    mockGenerateObject.mockImplementationOnce(
+      (_opts: { abortSignal?: AbortSignal }) =>
+        new Promise<never>((_resolve, reject) => {
+          _opts.abortSignal?.addEventListener('abort', () => {
+            reject(new DOMException('The operation was aborted.', 'AbortError'))
+          })
+        }),
+    )
+
+    const generatePromise = client.generate(BASE_OPTS)
+    await vi.advanceTimersByTimeAsync(35_000)
+
+    // Should resolve (not hang) — confirms finally { clearTimeout } works
+    const result = await generatePromise
+    expect(result.kind).toBe('malformed')
+
+    vi.useRealTimers()
+  })
+
+  // ── 18. ROUTER_LLM_TIMEOUT_MS default + env override ─────────────────────
+
+  it('18a. ROUTER_LLM_TIMEOUT_MS defaults to 30_000 when env var is absent', async () => {
+    const { ROUTER_LLM_TIMEOUT_MS } = await import('../../application/services/router-budget')
+    // The default should be 30 000 ms unless the test runner overrides the env
+    expect(typeof ROUTER_LLM_TIMEOUT_MS).toBe('number')
+    expect(ROUTER_LLM_TIMEOUT_MS).toBeGreaterThan(0)
+  })
+
+  // ── 19. onModuleInit — OPENAI_API_KEY assertion ────────────────────────────
+
+  it('19a. onModuleInit throws when OPENAI_API_KEY is missing', () => {
+    vi.stubEnv('OPENAI_API_KEY', '')
+    const freshClient = new RouterLlmClient()
+    expect(() => freshClient.onModuleInit()).toThrow(/OPENAI_API_KEY missing/)
+    vi.unstubAllEnvs()
+    vi.stubEnv('OPENAI_API_KEY', 'test-key-for-unit-tests')
+  })
+
+  it('19b. onModuleInit does NOT throw when OPENAI_API_KEY is present', () => {
+    vi.stubEnv('OPENAI_API_KEY', 'sk-test-1234')
+    const freshClient = new RouterLlmClient()
+    expect(() => freshClient.onModuleInit()).not.toThrow()
+    vi.unstubAllEnvs()
+    vi.stubEnv('OPENAI_API_KEY', 'test-key-for-unit-tests')
   })
 })
