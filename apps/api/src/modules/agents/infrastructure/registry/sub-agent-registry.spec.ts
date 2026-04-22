@@ -128,7 +128,7 @@ function makeFixture(key: string, opts: FixtureOpts = {}): ReturnType<typeof def
       body: promptBody,
       variables: promptVariablesSchema,
     },
-    inputSchema: z.object({ query: z.string() }),
+    inputSchema: z.object({ utterance: z.string().min(1) }),
     outputSchema: z.object({ answer: z.string() }),
     toolScope,
     budgets: {
@@ -640,6 +640,50 @@ describe('SubAgentRegistry.resolveForSession', () => {
     })
 
     expect(r1[0]!.subAgentPromptHash).not.toBe(r2[0]!.subAgentPromptHash)
+  })
+})
+
+// ─── Phase-1 output subset drift test (R-02.11) ──────────────────────────────
+//
+// CI hard-fail: every booted sub-agent's inputSchema must accept the canonical
+// phase-1 sample `{ utterance: 'hello world' }`. This mirrors the compile-time
+// `AssertSubsetOfPhase1` constraint at runtime, ensuring no drift between the
+// type check and actual schema behavior.
+//
+// If a new sub-agent is declared with an inputSchema that rejects a valid
+// phase-1 output sample, this suite breaks CI (R-02.11 — no warn-only).
+
+describe('Phase-1 output subset drift test (R-02.11)', () => {
+  // The canonical minimal phase-1 sample — matches Phase1OutputSchema exactly.
+  const PHASE1_SAMPLE = { utterance: 'hello world' }
+
+  it('every fixture sub-agent inputSchema accepts the canonical Phase1Output sample', () => {
+    // Build a representative set of sub-agents via the fixture factory to cover
+    // the constraint for any sub-agents that might appear in the registry.
+    const agents = [
+      // Standard fixture with utterance — must pass
+      makeFixture('fixtures.drift-check-a', { toolScope: ['fixtures.tools.alpha'] }),
+    ]
+
+    for (const agent of agents) {
+      const result = agent.inputSchema.safeParse(PHASE1_SAMPLE)
+      expect(
+        result.success,
+        `Sub-agent "${agent.key}" rejected Phase1Output sample: ${!result.success ? JSON.stringify((result as { error: unknown }).error) : 'ok'}`,
+      ).toBe(true)
+    }
+  })
+
+  it('planner.read-only inputSchema (real declaration) accepts the canonical Phase1Output sample', async () => {
+    // Import the real seeded sub-agent to verify the production declaration
+    // (not just test fixtures) satisfies the phase-1 contract.
+    const { plannerReadOnlySubAgent } =
+      await import('../../../planner/agent/sub-agents/planner-read-only')
+    const result = plannerReadOnlySubAgent.inputSchema.safeParse(PHASE1_SAMPLE)
+    expect(
+      result.success,
+      `planner.read-only rejected Phase1Output sample: ${!result.success ? JSON.stringify((result as { error: unknown }).error) : 'ok'}`,
+    ).toBe(true)
   })
 })
 

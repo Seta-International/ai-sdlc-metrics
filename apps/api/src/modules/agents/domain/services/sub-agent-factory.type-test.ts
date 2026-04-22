@@ -9,15 +9,17 @@
  * included in `bun run typecheck` via tsconfig. The test strategy mirrors the
  * project's existing pattern of co-located type checks.
  *
- * NOTE — Phase-1 subset check (R-02.5 item 5):
- * Skipped because no canonical phase-1 output Zod schema exists as a typed
- * artifact in Plan 01. See ESCALATION NOTE in sub-agent-types.ts.
+ * Phase-1 subset check (R-02.5 + R-02.10) is now enforced via
+ * `AssertSubsetOfPhase1` in `sub-agent-factory.ts`. See Tests 5 and 6 below.
  */
 
 import { z } from 'zod'
 import { defineSubAgent } from './sub-agent-factory'
 
-const INPUT = z.object({ query: z.string() })
+// inputSchema WITH utterance — used for happy-path tests
+const INPUT_WITH_UTTERANCE = z.object({ utterance: z.string().min(1) })
+// inputSchema WITHOUT utterance — used to verify the R-02.5 type error
+const INPUT_WITHOUT_UTTERANCE = z.object({ filters: z.string() })
 const OUTPUT = z.object({ answer: z.string() })
 
 const BASE = {
@@ -25,7 +27,7 @@ const BASE = {
   description: 'Test agent',
   whenToUse: 'When testing',
   promptTemplate: { body: '{{query}}', variables: z.object({ query: z.string() }) },
-  inputSchema: INPUT,
+  inputSchema: INPUT_WITH_UTTERANCE,
   outputSchema: OUTPUT,
   toolScope: ['planner:task:read'] as const,
   budgets: { maxIterations: 4 as const, wallclockMs: 30_000, costUsd: 0.05 },
@@ -34,7 +36,7 @@ const BASE = {
   source: 'code' as const,
 }
 
-// ─── Test 1: Valid config compiles clean ───────────────────────────────────────
+// ─── Test 1: Valid config (with utterance) compiles clean ─────────────────────
 
 // No @ts-expect-error — this MUST compile without error.
 defineSubAgent({ key: 'planner.read-only', ...BASE })
@@ -59,7 +61,7 @@ defineSubAgent({
   domain: 'planner',
   description: 'Test agent',
   promptTemplate: { body: '{{query}}', variables: z.object({ query: z.string() }) },
-  inputSchema: INPUT,
+  inputSchema: INPUT_WITH_UTTERANCE,
   outputSchema: OUTPUT,
   toolScope: ['planner:task:read'] as const,
   budgets: { maxIterations: 4 as const, wallclockMs: 30_000, costUsd: 0.05 },
@@ -75,4 +77,43 @@ defineSubAgent({
   ...BASE,
   // @ts-expect-error string is not assignable to ReadonlyArray<string>
   toolScope: 'planner:task:read',
+})
+
+// ─── Test 5: inputSchema missing `utterance` → compile error (R-02.5) ────────
+
+// @ts-expect-error inputSchema lacks required `utterance` field (R-02.5)
+defineSubAgent({
+  key: 'fixture.missing-utterance',
+  domain: 'fixture',
+  description: 'Agent without utterance in inputSchema',
+  whenToUse: 'Never — compile-error fixture',
+  promptTemplate: { body: 'x', variables: z.object({}) },
+  inputSchema: INPUT_WITHOUT_UTTERANCE,
+  outputSchema: OUTPUT,
+  toolScope: ['fixture:tool:read'] as const,
+  budgets: { maxIterations: 4 as const, wallclockMs: 30_000, costUsd: 0.05 },
+  memoryScope: { reads: ['L1'] as const, writes: ['L1'] as const },
+  model: { provider: 'openai' as const, model: 'gpt-5.4-nano' },
+  source: 'code' as const,
+})
+
+// ─── Test 6: inputSchema with utterance + extra optional fields → compiles ────
+
+// No @ts-expect-error — utterance is present; extra optional field is allowed.
+defineSubAgent({
+  key: 'fixture.with-extras',
+  domain: 'fixture',
+  description: 'Agent with utterance + extra optional field',
+  whenToUse: 'Testing that extra optional fields are allowed alongside utterance',
+  promptTemplate: { body: 'x', variables: z.object({}) },
+  inputSchema: z.object({
+    utterance: z.string().min(1),
+    filters: z.object({ status: z.string() }).optional(),
+  }),
+  outputSchema: OUTPUT,
+  toolScope: ['fixture:tool:read'] as const,
+  budgets: { maxIterations: 4 as const, wallclockMs: 30_000, costUsd: 0.05 },
+  memoryScope: { reads: ['L1'] as const, writes: ['L1'] as const },
+  model: { provider: 'openai' as const, model: 'gpt-5.4-nano' },
+  source: 'code' as const,
 })

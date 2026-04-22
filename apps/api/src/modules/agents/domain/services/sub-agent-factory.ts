@@ -21,6 +21,7 @@
  */
 
 import { ZodType } from 'zod'
+import type { Phase1Output } from '../value-objects/phase1-output-schema'
 import type {
   DynamicArgument,
   MemoryReadLevel,
@@ -39,6 +40,30 @@ export type {
   TenantContext,
   ValidatedSubAgentConfig,
 } from './sub-agent-types'
+
+// ─── Phase-1 subset constraint (R-02.5 + R-02.10) ────────────────────────────
+
+/**
+ * Compile-enforces R-02.5 / R-02.10: the sub-agent's inputSchema must accept
+ * (as REQUIRED fields) everything in the canonical phase-1 output schema.
+ *
+ * The check uses `Phase1Output extends z.infer<TInputSchema>`:
+ *   "The canonical phase-1 output object is assignable to the inputSchema's
+ *    inferred type." This means a valid Phase1Output satisfies the schema —
+ *    i.e., `utterance: string` (and any other phase-1 required fields) must be
+ *    present in the inferred type.
+ *
+ * If the check fails, this helper resolves to a structural error type that is
+ * not assignable to `TInputSchema`, producing a `tsc` error at the
+ * `defineSubAgent` call site on the `inputSchema` property.
+ */
+type AssertSubsetOfPhase1<TInputSchema extends ZodType> =
+  Phase1Output extends import('zod').infer<TInputSchema>
+    ? TInputSchema
+    : {
+        __error: 'inputSchema missing required Phase1Output fields (R-02.5)'
+        __required: Phase1Output
+      }
 
 // ─── Key format ────────────────────────────────────────────────────────────────
 
@@ -69,7 +94,13 @@ interface SubAgentInput<TInputSchema extends ZodType, TOutputSchema extends ZodT
     readonly body: string
     readonly variables: ZodType
   }
-  readonly inputSchema: TInputSchema
+  /**
+   * R-02.5 / R-02.10: must accept all canonical Phase1Output fields as required.
+   * `AssertSubsetOfPhase1<TInputSchema>` resolves to a structural error type
+   * (not assignable to `TInputSchema`) when `utterance: string` is absent,
+   * producing a compile error here at the call site.
+   */
+  readonly inputSchema: AssertSubsetOfPhase1<TInputSchema>
   readonly outputSchema: TOutputSchema
   readonly toolScope: ReadonlyArray<string>
   readonly budgets: {
@@ -159,6 +190,9 @@ export function defineSubAgent<TInputSchema extends ZodType, TOutputSchema exten
   }
 
   // ── Build frozen config ───────────────────────────────────────────────────
+  // `config.inputSchema` is typed as `AssertSubsetOfPhase1<TInputSchema>` (which
+  // resolves to `TInputSchema` when the constraint passes). The cast is safe:
+  // the conditional type proves the constraint holds at the call site.
   const validated: ValidatedSubAgentConfig<TInputSchema, TOutputSchema> = Object.freeze({
     key: config.key as ValidatedSubAgentConfig['key'],
     domain: config.domain,
@@ -168,7 +202,7 @@ export function defineSubAgent<TInputSchema extends ZodType, TOutputSchema exten
       body: config.promptTemplate.body,
       variables: config.promptTemplate.variables,
     }),
-    inputSchema: config.inputSchema,
+    inputSchema: config.inputSchema as TInputSchema,
     outputSchema: config.outputSchema,
     toolScope: freezeArray(config.toolScope),
     budgets: Object.freeze({

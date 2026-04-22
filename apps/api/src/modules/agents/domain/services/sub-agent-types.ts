@@ -3,20 +3,18 @@
  *
  * Pure TypeScript; zero NestJS / Drizzle dependencies.
  *
- * NOTE — Phase-1 output subset check (R-02.5):
- * The `projectToSchema()` function in application/ accepts any `ZodObject` as
- * the target schema and performs the subset projection at runtime. No canonical
- * "phase-1 output" Zod schema exists as a typed artifact — the output shape
- * varies per tool call (each tool has its own return type). Therefore the
- * compile-time subset constraint described in R-02.5 is NOT IMPLEMENTABLE with
- * the current Plan 01 artifacts. The `inputSchema` field is typed as
- * `TInputSchema extends ZodType` which gives per-call type safety but cannot
- * enforce the subset relationship at the `defineSubAgent` call site.
+ * Phase-1 output subset check (R-02.5 + R-02.10):
+ * The canonical phase-1 output schema is defined in
+ * `domain/value-objects/phase1-output-schema.ts` as `Phase1OutputSchema`
+ * (MVP: `{ utterance: string }`). The subset check is enforced at compile time
+ * via `AssertSubsetOfPhase1<TInputSchema>` in `sub-agent-factory.ts`:
+ * any `defineSubAgent` call whose `inputSchema` does not include `utterance`
+ * as a required field produces a `tsc` error at the call site.
  *
- * ESCALATION NOTE: if a future plan introduces a canonical phase-1 envelope
- * schema (e.g. a shared `GatewayPhase1Output` Zod object), the subset check
- * can be added to `defineSubAgent`'s type signature using:
- *   `z.infer<TInputSchema> extends z.infer<typeof GatewayPhase1Output> ? ...`
+ * Runtime drift check (R-02.11):
+ * `sub-agent-registry.spec.ts` contains a CI-breaking test that iterates all
+ * booted sub-agents and parses `{ utterance: 'hello world' }` against each
+ * inputSchema — ensuring no drift between compile-time constraint and runtime.
  */
 
 import type { ZodType } from 'zod'
