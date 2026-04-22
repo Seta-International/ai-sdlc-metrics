@@ -687,6 +687,71 @@ describe('Phase-1 output subset drift test (R-02.11)', () => {
   })
 })
 
+// ─── R-02.5.5: toolRetrieval.enabled required when toolScope.length > 10 ─────
+
+describe('SubAgentRegistry.boot — R-02.5.5 toolRetrieval validation', () => {
+  /**
+   * Builds a toolScope array of `n` unique tool names and a corresponding
+   * ToolRegistry stub that knows all of them.
+   */
+  function makeToolScope(n: number): { toolScope: string[]; toolRegistry: ToolRegistry } {
+    const toolScope = Array.from({ length: n }, (_, i) => `fixtures.tools.tool${i}`)
+    const toolRegistry = makeToolRegistry(toolScope)
+    return { toolScope, toolRegistry }
+  }
+
+  it('R-02.5.5: toolScope.length > 10 with toolRetrieval.enabled: false → boot throws mentioning "toolRetrieval"', () => {
+    const { toolScope, toolRegistry } = makeToolScope(11)
+    const descriptor = makeFixture('fixtures.retrieval-required', {
+      toolScope,
+      model: { provider: 'openai', model: 'gpt-5.4-nano' },
+    })
+
+    // Patch the descriptor to have toolRetrieval.enabled: false
+    const patchedDescriptor = {
+      ...descriptor,
+      toolRetrieval: { enabled: false, topK: 5 },
+    } as ReturnType<typeof defineSubAgent>
+
+    const registry = new SubAgentRegistry()
+    expect(() => registry.boot([patchedDescriptor], toolRegistry)).toThrow(
+      SubAgentRegistryValidationError,
+    )
+    expect(() => {
+      const reg2 = new SubAgentRegistry()
+      reg2.boot([patchedDescriptor], toolRegistry)
+    }).toThrow(/toolRetrieval/i)
+  })
+
+  it('R-02.5.5: toolScope.length > 10 with toolRetrieval.enabled: true → boot succeeds', () => {
+    const { toolScope, toolRegistry } = makeToolScope(11)
+    const descriptor = makeFixture('fixtures.retrieval-ok', {
+      toolScope,
+      model: { provider: 'openai', model: 'gpt-5.4-nano' },
+    })
+
+    const patchedDescriptor = {
+      ...descriptor,
+      toolRetrieval: { enabled: true, topK: 5 },
+    } as ReturnType<typeof defineSubAgent>
+
+    const registry = new SubAgentRegistry()
+    expect(() => registry.boot([patchedDescriptor], toolRegistry)).not.toThrow()
+  })
+
+  it('R-02.5.5: toolScope.length === 10 with no toolRetrieval → boot succeeds (≤10 is fine)', () => {
+    const { toolScope, toolRegistry } = makeToolScope(10)
+    const descriptor = makeFixture('fixtures.no-retrieval-ok', {
+      toolScope,
+      model: { provider: 'openai', model: 'gpt-5.4-nano' },
+    })
+
+    // No toolRetrieval field at all
+    const registry = new SubAgentRegistry()
+    expect(() => registry.boot([descriptor], toolRegistry)).not.toThrow()
+  })
+})
+
 // ─── Token identity ───────────────────────────────────────────────────────────
 
 describe('SUB_AGENT_REGISTRY token', () => {

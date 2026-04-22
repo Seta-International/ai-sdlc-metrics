@@ -67,6 +67,23 @@ import { getAppRouter } from '../../common/trpc/app-router'
 import { SubAgentRegistry, SUB_AGENT_REGISTRY } from './infrastructure/registry/sub-agent-registry'
 // Intent registry (Task 4)
 import { IntentRegistry, INTENT_REGISTRY } from './infrastructure/registry/intents/intent-registry'
+// Tool descriptor embedder (Plan 02.5 Task 1)
+import {
+  ToolDescriptorEmbedder,
+  TOOL_DESCRIPTOR_EMBEDDER,
+} from './infrastructure/retrieval/tool-descriptor-embedder'
+// Tool retriever (Plan 02.5 Task 2)
+import { ToolRetriever, TOOL_RETRIEVER } from './infrastructure/retrieval/tool-retriever'
+// When-to-use collision linter (Plan 02.5 Task 3)
+import {
+  WhenToUseCollisionLinter,
+  WHEN_TO_USE_COLLISION_LINTER,
+} from './application/services/when-to-use-collision-linter'
+// Retrieval quality scorer (Plan 02.5 Task 4)
+import {
+  RetrievalQualityScorer,
+  RETRIEVAL_QUALITY_SCORER,
+} from './application/services/retrieval-quality-scorer'
 // Module sub-agent barrels.
 //   • Adding a sub-agent to an EXISTING module: re-export it from that module's
 //     barrel (agent/sub-agents/index.ts). No changes here are needed.
@@ -146,6 +163,18 @@ import { listMyAssignmentsIntent } from '../projects/agent/intents'
     // Intent registry (Task 4)
     IntentRegistry,
     { provide: INTENT_REGISTRY, useExisting: IntentRegistry },
+    // Tool descriptor embedder (Plan 02.5 Task 1)
+    ToolDescriptorEmbedder,
+    { provide: TOOL_DESCRIPTOR_EMBEDDER, useExisting: ToolDescriptorEmbedder },
+    // Tool retriever (Plan 02.5 Task 2)
+    ToolRetriever,
+    { provide: TOOL_RETRIEVER, useExisting: ToolRetriever },
+    // When-to-use collision linter (Plan 02.5 Task 3)
+    WhenToUseCollisionLinter,
+    { provide: WHEN_TO_USE_COLLISION_LINTER, useExisting: WhenToUseCollisionLinter },
+    // Retrieval quality scorer (Plan 02.5 Task 4)
+    RetrievalQualityScorer,
+    { provide: RETRIEVAL_QUALITY_SCORER, useExisting: RetrievalQualityScorer },
   ],
   exports: [
     AgentsQueryFacade,
@@ -157,6 +186,10 @@ import { listMyAssignmentsIntent } from '../projects/agent/intents'
     ROUTER_DECISION_PARSER,
     ROUTER_LLM_CLIENT,
     ROUTER_SESSION_ORCHESTRATOR,
+    TOOL_DESCRIPTOR_EMBEDDER,
+    TOOL_RETRIEVER,
+    WHEN_TO_USE_COLLISION_LINTER,
+    RETRIEVAL_QUALITY_SCORER,
   ],
 })
 export class AgentsModule implements OnModuleInit {
@@ -169,9 +202,10 @@ export class AgentsModule implements OnModuleInit {
     private readonly toolRegistry: ToolRegistry,
     private readonly subAgentRegistry: SubAgentRegistry,
     private readonly intentRegistry: IntentRegistry,
+    private readonly toolDescriptorEmbedder: ToolDescriptorEmbedder,
   ) {}
 
-  onModuleInit() {
+  async onModuleInit(): Promise<void> {
     setAgentSessionHandlers({
       createSession: this.createSession,
       listSessions: this.listSessions,
@@ -205,6 +239,14 @@ export class AgentsModule implements OnModuleInit {
     // Registry misconfiguration (duplicate keys, unknown tools, missing slugs, etc.)
     // MUST be fixed before deployment — there is no degraded-mode fallback.
     this.subAgentRegistry.boot(descriptors, this.toolRegistry)
+
+    // Step 2.5: Boot the tool descriptor embedder AFTER the tool registry has loaded.
+    // ensureEmbedded upserts embeddings for any tool whose (tool_name, content_hash)
+    // pair is missing from the DB. buildInMemoryIndex loads the latest vector per
+    // tool_name into the in-memory Map for runtime retrieval.
+    const allTools = this.toolRegistry.listAgentTools()
+    await this.toolDescriptorEmbedder.ensureEmbedded(allTools)
+    await this.toolDescriptorEmbedder.buildInMemoryIndex(allTools)
 
     // Step 3: Boot the intent registry.
     // Order: after subAgentRegistry.boot for readability. The intent registry
