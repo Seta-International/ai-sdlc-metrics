@@ -1,4 +1,4 @@
-import { Module, type OnModuleInit } from '@nestjs/common'
+import { Inject, Module, type OnModuleInit } from '@nestjs/common'
 import { JwtModule } from '@nestjs/jwt'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { AgentsQueryFacade } from './application/facades/agents-query.facade'
@@ -8,7 +8,8 @@ import { McpAuthGuard } from './infrastructure/guards/mcp-auth.guard'
 import { ExposureContractGuard } from './infrastructure/guards/exposure-contract.guard'
 import { ToolPermissionGuard } from './infrastructure/guards/tool-permission.guard'
 import { KernelModule } from '../kernel/kernel.module'
-// Repository tokens
+import { KernelAuditFacade } from '../kernel/application/facades/kernel-audit.facade'
+// Repository tokens — pre-Plan 04
 import { AGENT_CHAT_SESSION_REPOSITORY } from './domain/repositories/agent-chat-session.repository'
 import { AGENT_SESSION_PORT } from './domain/ports/agent-session.port'
 import { STORED_SUB_AGENT_PORT } from './domain/ports/stored-sub-agent.port'
@@ -16,7 +17,13 @@ import { AGENT_MESSAGE_REPOSITORY } from './domain/repositories/agent-message.re
 import { AGENT_INSIGHT_REPOSITORY } from './domain/repositories/agent-insight.repository'
 import { PROMPT_STORE } from './domain/ports/prompt-store.port'
 import { NARRATIVE_STORE } from './domain/ports/narrative-store.port'
-// Drizzle repositories
+// Repository tokens — Plan 04
+import { CONVERSATION_REPOSITORY } from './domain/repositories/conversation.repository'
+import { CONVERSATION_MESSAGE_REPOSITORY } from './domain/repositories/conversation-message.repository'
+import { L3_PREFERENCE_REPOSITORY } from './domain/repositories/l3-preference.repository'
+import { SCRATCHPAD_REPOSITORY } from './domain/repositories/scratchpad.repository'
+import { SEMANTIC_INDEX_REPOSITORY } from './domain/repositories/semantic-index.repository'
+// Drizzle repositories — pre-Plan 04
 import { DrizzleAgentChatSessionRepository } from './infrastructure/repositories/drizzle-agent-chat-session.repository'
 import { DrizzleAgentSessionRepository } from './infrastructure/repositories/drizzle-agent-session.repository'
 import { DrizzleStoredSubAgentRepository } from './infrastructure/repositories/drizzle-stored-sub-agent.repository'
@@ -24,6 +31,12 @@ import { DrizzleAgentMessageRepository } from './infrastructure/repositories/dri
 import { DrizzleAgentInsightRepository } from './infrastructure/repositories/drizzle-agent-insight.repository'
 import { DrizzlePromptStoreRepository } from './infrastructure/repositories/drizzle-prompt-store.repository'
 import { DrizzleNarrativeStoreRepository } from './infrastructure/repositories/drizzle-narrative-store.repository'
+// Drizzle repositories — Plan 04
+import { DrizzleConversationRepository } from './infrastructure/repositories/drizzle-conversation.repository'
+import { DrizzleConversationMessageRepository } from './infrastructure/repositories/drizzle-conversation-message.repository'
+import { DrizzleL3PreferenceRepository } from './infrastructure/repositories/drizzle-l3-preference.repository'
+import { DrizzleScratchpadRepository } from './infrastructure/repositories/drizzle-scratchpad.repository'
+import { NullSemanticIndexRepository } from './infrastructure/repositories/null-semantic-index.repository'
 // Command handlers
 import { CreateSessionHandler } from './application/commands/create-session.handler'
 import { SendMessageHandler } from './application/commands/send-message.handler'
@@ -34,6 +47,8 @@ import { ListInsightsHandler } from './application/queries/list-insights.handler
 // tRPC handler setters
 import { setAgentSessionHandlers } from './interface/trpc/session.router'
 import { setAgentInsightHandlers } from './interface/trpc/insight.router'
+import { setPreferencesService } from './interface/trpc/preferences.router'
+import { setConversationRepository } from './interface/trpc/conversation.router'
 // Permission narrative builder (Task 6)
 import {
   PermissionNarrativeBuilder,
@@ -84,6 +99,22 @@ import {
   RetrievalQualityScorer,
   RETRIEVAL_QUALITY_SCORER,
 } from './application/services/retrieval-quality-scorer'
+// Plan 04 services
+import { SaveQueue } from './application/services/save-queue'
+import { L3PreferenceService } from './application/services/l3-preferences'
+import { WindowBuilder } from './application/services/window-builder'
+import { Summarizer } from './application/services/summarizer'
+import { GDPRErasurePipeline } from './application/services/gdpr-erasure'
+import {
+  ConversationRetentionScheduler,
+  type TenantListerLike,
+} from './application/services/conversation-retention-scheduler'
+import type { ConversationRepository } from './domain/repositories/conversation.repository'
+import type { ConversationMessageRepository } from './domain/repositories/conversation-message.repository'
+import type { L3PreferenceRepository } from './domain/repositories/l3-preference.repository'
+import type { ScratchpadRepository } from './domain/repositories/scratchpad.repository'
+import type { SemanticIndexRepository } from './domain/repositories/semantic-index.repository'
+import { PgBossService } from '../../common/jobs/pg-boss.service'
 // Module sub-agent barrels.
 //   • Adding a sub-agent to an EXISTING module: re-export it from that module's
 //     barrel (agent/sub-agents/index.ts). No changes here are needed.
@@ -100,6 +131,18 @@ import { listMyTasksIntent, listMyPlansIntent, listEvidenceIntent } from '../pla
 import { viewMyProfileIntent } from '../people/agent/intents'
 import { listMyAssignmentsIntent } from '../projects/agent/intents'
 
+// DI tokens for Plan 04 plain-class services
+export const WINDOW_BUILDER = Symbol('WINDOW_BUILDER')
+export const SUMMARIZER = Symbol('SUMMARIZER')
+export const GDPR_ERASURE_PIPELINE = Symbol('GDPR_ERASURE_PIPELINE')
+export const CONVERSATION_RETENTION_SCHEDULER = Symbol('CONVERSATION_RETENTION_SCHEDULER')
+
+class NullTenantLister implements TenantListerLike {
+  async listActiveTenantIds(): Promise<string[]> {
+    return []
+  }
+}
+
 @Module({
   imports: [
     KernelModule,
@@ -113,7 +156,7 @@ import { listMyAssignmentsIntent } from '../projects/agent/intents'
     }),
   ],
   providers: [
-    // Repositories
+    // ── Pre-Plan 04 repositories ───────────────────────────────────────────────
     { provide: AGENT_CHAT_SESSION_REPOSITORY, useClass: DrizzleAgentChatSessionRepository },
     { provide: AGENT_SESSION_PORT, useClass: DrizzleAgentSessionRepository },
     { provide: STORED_SUB_AGENT_PORT, useClass: DrizzleStoredSubAgentRepository },
@@ -121,60 +164,113 @@ import { listMyAssignmentsIntent } from '../projects/agent/intents'
     { provide: AGENT_INSIGHT_REPOSITORY, useClass: DrizzleAgentInsightRepository },
     { provide: PROMPT_STORE, useClass: DrizzlePromptStoreRepository },
     { provide: NARRATIVE_STORE, useClass: DrizzleNarrativeStoreRepository },
-    // Command handlers
+    // ── Plan 04 repositories ───────────────────────────────────────────────────
+    { provide: CONVERSATION_REPOSITORY, useClass: DrizzleConversationRepository },
+    { provide: CONVERSATION_MESSAGE_REPOSITORY, useClass: DrizzleConversationMessageRepository },
+    { provide: L3_PREFERENCE_REPOSITORY, useClass: DrizzleL3PreferenceRepository },
+    { provide: SCRATCHPAD_REPOSITORY, useClass: DrizzleScratchpadRepository },
+    { provide: SEMANTIC_INDEX_REPOSITORY, useClass: NullSemanticIndexRepository },
+    // ── Command handlers ───────────────────────────────────────────────────────
     CreateSessionHandler,
     SendMessageHandler,
     DismissInsightHandler,
-    // Query handlers
+    // ── Query handlers ─────────────────────────────────────────────────────────
     ListSessionsHandler,
     ListInsightsHandler,
-    // Existing providers
+    // ── Core services ─────────────────────────────────────────────────────────
     AgentsQueryFacade,
     AgentPermissionService,
     AgentToolExecutor,
     McpAuthGuard,
     ExposureContractGuard,
     ToolPermissionGuard,
-    // Permission narrative builder (Task 6)
+    // ── Permission narrative builder (Task 6) ──────────────────────────────────
     PermissionNarrativeBuilder,
     { provide: PERMISSION_NARRATIVE_BUILDER, useExisting: PermissionNarrativeBuilder },
-    // Router prompt builder (Task 7)
+    // ── Router prompt builder (Task 7) ─────────────────────────────────────────
     RouterPromptBuilder,
     { provide: ROUTER_PROMPT_BUILDER, useExisting: RouterPromptBuilder },
-    // Sub-agent retriever (Task 8)
+    // ── Sub-agent retriever (Task 8) ───────────────────────────────────────────
     SubAgentRetriever,
     { provide: SUB_AGENT_RETRIEVER, useExisting: SubAgentRetriever },
-    // Router decision parser (Task 9)
+    // ── Router decision parser (Task 9) ────────────────────────────────────────
     RouterDecisionParser,
     { provide: ROUTER_DECISION_PARSER, useExisting: RouterDecisionParser },
-    // Router LLM client (Task 9)
+    // ── Router LLM client (Task 9) ─────────────────────────────────────────────
     RouterLlmClient,
     { provide: ROUTER_LLM_CLIENT, useExisting: RouterLlmClient },
-    // Router session orchestrator (Task 10)
+    // ── Router session orchestrator (Task 10) ──────────────────────────────────
     RouterSessionOrchestrator,
     { provide: ROUTER_SESSION_ORCHESTRATOR, useExisting: RouterSessionOrchestrator },
-    // Gateway pipeline (Task 5)
+    // ── Gateway pipeline (Task 5) ──────────────────────────────────────────────
     ToolRegistry,
     TrpcCallerImpl,
     ToolGateway,
-    // Sub-agent registry (Task 3)
+    // ── Sub-agent registry (Task 3) ────────────────────────────────────────────
     SubAgentRegistry,
     { provide: SUB_AGENT_REGISTRY, useExisting: SubAgentRegistry },
-    // Intent registry (Task 4)
+    // ── Intent registry (Task 4) ───────────────────────────────────────────────
     IntentRegistry,
     { provide: INTENT_REGISTRY, useExisting: IntentRegistry },
-    // Tool descriptor embedder (Plan 02.5 Task 1)
+    // ── Tool descriptor embedder (Plan 02.5 Task 1) ────────────────────────────
     ToolDescriptorEmbedder,
     { provide: TOOL_DESCRIPTOR_EMBEDDER, useExisting: ToolDescriptorEmbedder },
-    // Tool retriever (Plan 02.5 Task 2)
+    // ── Tool retriever (Plan 02.5 Task 2) ──────────────────────────────────────
     ToolRetriever,
     { provide: TOOL_RETRIEVER, useExisting: ToolRetriever },
-    // When-to-use collision linter (Plan 02.5 Task 3)
+    // ── When-to-use collision linter (Plan 02.5 Task 3) ───────────────────────
     WhenToUseCollisionLinter,
     { provide: WHEN_TO_USE_COLLISION_LINTER, useExisting: WhenToUseCollisionLinter },
-    // Retrieval quality scorer (Plan 02.5 Task 4)
+    // ── Retrieval quality scorer (Plan 02.5 Task 4) ────────────────────────────
     RetrievalQualityScorer,
     { provide: RETRIEVAL_QUALITY_SCORER, useExisting: RetrievalQualityScorer },
+    // ── Plan 04 — Memory L1-L4 + Conversation State ───────────────────────────
+    // SaveQueue: @Injectable — constructor-injected CONVERSATION_MESSAGE_REPOSITORY
+    SaveQueue,
+    // L3PreferenceService: @Injectable — needs L3_PREFERENCE_REPOSITORY + KernelAuditFacade
+    L3PreferenceService,
+    // WindowBuilder: plain class — constructed via useFactory
+    {
+      provide: WINDOW_BUILDER,
+      inject: [CONVERSATION_MESSAGE_REPOSITORY],
+      useFactory: (msgRepo: ConversationMessageRepository) => new WindowBuilder(msgRepo),
+    },
+    // Summarizer: plain class — constructed via useFactory
+    // AiClient stub: no-op at Phase 1; replaced in Phase 4 when summarization activates.
+    {
+      provide: SUMMARIZER,
+      inject: [PgBossService, CONVERSATION_REPOSITORY, CONVERSATION_MESSAGE_REPOSITORY],
+      useFactory: (
+        pgBoss: PgBossService,
+        convRepo: ConversationRepository,
+        msgRepo: ConversationMessageRepository,
+      ) => new Summarizer(pgBoss, { generateText: async () => '' }, convRepo, msgRepo),
+    },
+    // GDPRErasurePipeline: plain class — constructed via useFactory
+    {
+      provide: GDPR_ERASURE_PIPELINE,
+      inject: [
+        CONVERSATION_MESSAGE_REPOSITORY,
+        L3_PREFERENCE_REPOSITORY,
+        SCRATCHPAD_REPOSITORY,
+        SEMANTIC_INDEX_REPOSITORY,
+        KernelAuditFacade,
+      ],
+      useFactory: (
+        msgRepo: ConversationMessageRepository,
+        l3Repo: L3PreferenceRepository,
+        scratchpadRepo: ScratchpadRepository,
+        semanticIndex: SemanticIndexRepository,
+        kernelAudit: KernelAuditFacade,
+      ) => new GDPRErasurePipeline(msgRepo, l3Repo, scratchpadRepo, semanticIndex, kernelAudit),
+    },
+    // ConversationRetentionScheduler: plain class — daily pg-boss cron for 90-day archive
+    {
+      provide: CONVERSATION_RETENTION_SCHEDULER,
+      inject: [PgBossService, CONVERSATION_REPOSITORY],
+      useFactory: (pgBoss: PgBossService, convRepo: ConversationRepository) =>
+        new ConversationRetentionScheduler(pgBoss, convRepo, new NullTenantLister()),
+    },
   ],
   exports: [
     AgentsQueryFacade,
@@ -190,6 +286,17 @@ import { listMyAssignmentsIntent } from '../projects/agent/intents'
     TOOL_RETRIEVER,
     WHEN_TO_USE_COLLISION_LINTER,
     RETRIEVAL_QUALITY_SCORER,
+    // Plan 04
+    CONVERSATION_REPOSITORY,
+    CONVERSATION_MESSAGE_REPOSITORY,
+    L3_PREFERENCE_REPOSITORY,
+    SCRATCHPAD_REPOSITORY,
+    SEMANTIC_INDEX_REPOSITORY,
+    SaveQueue,
+    L3PreferenceService,
+    WINDOW_BUILDER,
+    SUMMARIZER,
+    GDPR_ERASURE_PIPELINE,
   ],
 })
 export class AgentsModule implements OnModuleInit {
@@ -203,6 +310,11 @@ export class AgentsModule implements OnModuleInit {
     private readonly subAgentRegistry: SubAgentRegistry,
     private readonly intentRegistry: IntentRegistry,
     private readonly toolDescriptorEmbedder: ToolDescriptorEmbedder,
+    @Inject(SUMMARIZER) private readonly summarizer: Summarizer,
+    private readonly l3PreferenceService: L3PreferenceService,
+    @Inject(CONVERSATION_REPOSITORY) private readonly conversationRepo: ConversationRepository,
+    @Inject(CONVERSATION_RETENTION_SCHEDULER)
+    private readonly retentionScheduler: ConversationRetentionScheduler,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -215,6 +327,8 @@ export class AgentsModule implements OnModuleInit {
       listInsights: this.listInsights,
       dismissInsight: this.dismissInsight,
     })
+    setPreferencesService(this.l3PreferenceService)
+    setConversationRepository(this.conversationRepo)
 
     // Step 1: Load agent tools from the assembled tRPC router.
     // TrpcModule.onModuleInit() must have run before AgentsModule.onModuleInit()
@@ -273,5 +387,13 @@ export class AgentsModule implements OnModuleInit {
     // Registry misconfiguration (duplicate keys, unknown tools, missing slugs, etc.)
     // MUST be fixed before deployment — there is no degraded-mode fallback.
     this.intentRegistry.boot(intentDescriptors)
+
+    // Step 4: Register Plan 04 pg-boss workers.
+    // Summarizer worker fires post-turn to generate async summaries (R-04.24).
+    // SUMMARIZER token is a Symbol so we use the injected instance directly.
+    this.summarizer.registerWorkers()
+
+    // Step 5: Register retention scheduler — daily cron to archive idle conversations (R-04.27).
+    await this.retentionScheduler.registerWorkers()
   }
 }

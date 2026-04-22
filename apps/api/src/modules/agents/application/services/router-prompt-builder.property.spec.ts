@@ -33,7 +33,7 @@ const TENANT_ID = '00000000-0000-7000-8000-000000000099'
 const USER_ID = '00000000-0000-7000-8000-000000000098'
 const TOOL_CATALOG_HASH = 'abc123' + '0'.repeat(58)
 const PERMISSION_NARRATIVE = 'Acting as employee. you can read; you cannot manage.'
-const SUMMARY: WindowedSummaries = { gamma: [], alpha: null }
+const SUMMARY: WindowedSummaries = { verbatim: [], compressed: [], rolling: null }
 
 const builder = new RouterPromptBuilder()
 

@@ -153,18 +153,18 @@ function renderSystemPrompt(subAgents: ReadonlyArray<ResolvedSubAgent>): string 
 
 /**
  * Render the recent summary window section of the developer message.
- * Returns an empty string if both alpha is null and gamma is empty.
+ * Returns an empty string if both rolling is null and verbatim is empty.
  */
 function renderSummaryWindow(window: WindowedSummaries): string {
   const lines: string[] = []
 
-  if (window.alpha !== null) {
-    lines.push(`Conversation-level summary: ${window.alpha}`)
+  if (window.rolling !== null) {
+    lines.push(`Conversation-level summary: ${window.rolling}`)
   }
 
-  if (window.gamma.length > 0) {
+  if (window.verbatim.length > 0) {
     lines.push('Recent turns (newest last):')
-    for (const entry of window.gamma) {
+    for (const entry of window.verbatim) {
       lines.push(`  - [turnTraceId: ${entry.turnTraceId}] ${entry.summary}`)
     }
   }

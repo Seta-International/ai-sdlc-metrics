@@ -179,9 +179,9 @@ export function estimateTokens(opts: EstimateTokensOpts): number {
   }
 
   totalChars += permissionNarrative.length
-  totalChars += recentSummary.alpha?.length ?? 0
+  totalChars += recentSummary.rolling?.length ?? 0
 
-  for (const g of recentSummary.gamma) {
+  for (const g of recentSummary.verbatim) {
     totalChars += g.summary.length
   }
 
@@ -295,12 +295,12 @@ export class SubAgentRetriever {
 function buildQueryText(utterance: string, recentSummary: WindowedSummaries): string {
   const parts: string[] = [utterance]
 
-  for (const g of recentSummary.gamma) {
+  for (const g of recentSummary.verbatim) {
     parts.push(g.summary)
   }
 
-  if (recentSummary.alpha !== null) {
-    parts.push(recentSummary.alpha)
+  if (recentSummary.rolling !== null) {
+    parts.push(recentSummary.rolling)
   }
 
   return parts.join(' ')
