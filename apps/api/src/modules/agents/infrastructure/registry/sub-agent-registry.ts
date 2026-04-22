@@ -166,6 +166,17 @@ export class SubAgentRegistry {
         }
       }
 
+      // R-02.5.5: toolScope > 10 tools requires toolRetrieval.enabled: true.
+      // Large toolScopes without retrieval force the router to include all tool
+      // descriptions in every prompt, inflating context and degrading accuracy.
+      if (descriptor.toolScope.length > 10 && descriptor.toolRetrieval?.enabled !== true) {
+        violations.push(
+          `Sub-agent "${key}": toolScope has ${descriptor.toolScope.length} tools but ` +
+            `toolRetrieval.enabled is not true. toolRetrieval must be enabled when toolScope ` +
+            `exceeds 10 tools (plan 02.5 R-02.5.5).`,
+        )
+      }
+
       this._map.set(key, descriptor)
     }
 
