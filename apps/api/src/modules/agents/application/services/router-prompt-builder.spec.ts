@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { z } from 'zod'
+import * as z from 'zod'
 import { RouterPromptBuilder } from './router-prompt-builder'
 import type { BuildOpts } from './router-prompt-builder'
 import type { ResolvedSubAgent } from '../../infrastructure/registry/sub-agent-registry'

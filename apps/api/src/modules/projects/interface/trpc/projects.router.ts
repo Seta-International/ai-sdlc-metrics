@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import { ProjectsRouterService } from './projects-router.service'
 import { CreateAccountCommand } from '../../application/commands/create-account.command'

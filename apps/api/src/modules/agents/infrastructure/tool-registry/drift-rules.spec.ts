@@ -17,7 +17,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { initTRPC } from '@trpc/server'
-import { z } from 'zod'
+import * as z from 'zod'
 import { appRouter } from '../../../../common/trpc/app-router'
 import { checkDriftRules } from './drift-rules'
 import {

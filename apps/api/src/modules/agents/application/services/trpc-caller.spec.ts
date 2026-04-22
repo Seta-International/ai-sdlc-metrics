@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { initTRPC, TRPCError } from '@trpc/server'
-import { z } from 'zod'
+import * as z from 'zod'
 import { TrpcCallerImpl } from './trpc-caller'
 
 // ─── Test router setup ────────────────────────────────────────────────────────

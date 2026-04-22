@@ -14,7 +14,7 @@
  * Plan 02 §3 + R-02.5 + R-02.10 contract.
  */
 
-import { z } from 'zod'
+import * as z from 'zod'
 
 export const Phase1OutputSchema = z.object({
   utterance: z.string().min(1),

@@ -29,7 +29,7 @@
 
 import { Injectable } from '@nestjs/common'
 import { trace } from '@opentelemetry/api'
-import { z } from 'zod'
+import * as z from 'zod'
 import type { ValidatedSubAgentConfig, SubAgentKey } from '../../domain/services/sub-agent-types'
 import type { WindowedSummaries } from '../../domain/value-objects/windowed-summaries'
 

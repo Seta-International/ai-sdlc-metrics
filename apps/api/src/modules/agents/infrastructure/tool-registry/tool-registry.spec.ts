@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { Logger } from '@nestjs/common'
 import { initTRPC } from '@trpc/server'
-import { z } from 'zod'
+import * as z from 'zod'
 import { ToolRegistry, ToolRegistryValidationError } from './tool-registry'
 import type { AgentToolMeta } from '../../../../common/trpc/agent-tool-meta'
 

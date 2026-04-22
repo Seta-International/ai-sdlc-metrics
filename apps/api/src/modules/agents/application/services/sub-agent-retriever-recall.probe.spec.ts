@@ -31,7 +31,7 @@
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { z } from 'zod'
+import * as z from 'zod'
 import { SubAgentRetriever } from './sub-agent-retriever'
 import type { RetrieveOpts } from './sub-agent-retriever'
 import type { ValidatedSubAgentConfig, SubAgentKey } from '../../domain/services/sub-agent-types'

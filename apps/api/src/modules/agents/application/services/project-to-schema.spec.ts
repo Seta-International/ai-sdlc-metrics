@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { z } from 'zod'
+import * as z from 'zod'
 import { projectToSchema, SchemaMismatchError } from './project-to-schema'
 
 const Phase1Output = z.object({

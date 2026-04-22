@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import { PlannerRouterService } from './planner-router.service'
 import { GetBoardQuery } from '../../application/queries/tasks/get-board.query'

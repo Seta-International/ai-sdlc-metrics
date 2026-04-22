@@ -15,7 +15,7 @@ import {
 } from '@opentelemetry/sdk-metrics'
 import { metrics } from '@opentelemetry/api'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { z } from 'zod'
+import * as z from 'zod'
 import { defineSubAgent } from '../../domain/services/sub-agent-factory'
 import type { ModelChoice, SubAgentKey, TenantContext } from '../../domain/services/sub-agent-types'
 import { __INTERNAL_resetInstruments } from '../observability/gateway-metrics'

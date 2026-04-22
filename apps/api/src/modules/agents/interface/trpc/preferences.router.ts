@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import { PERMISSIONS } from '../../../../common/auth/permissions'
 import type { L3PreferenceService } from '../../application/services/l3-preferences'

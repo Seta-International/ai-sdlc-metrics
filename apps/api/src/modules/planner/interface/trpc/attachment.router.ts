@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import { PlannerRouterService } from './planner-router.service'
 import { RequestUploadCommand } from '../../application/commands/attachments/request-upload.command'

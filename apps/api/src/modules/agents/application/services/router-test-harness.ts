@@ -17,7 +17,7 @@
  */
 
 import { vi } from 'vitest'
-import { z } from 'zod'
+import * as z from 'zod'
 import {
   AggregationTemporality,
   InMemoryMetricExporter,

@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import type { KernelQueryFacade } from '../../application/facades/kernel-query.facade'
 

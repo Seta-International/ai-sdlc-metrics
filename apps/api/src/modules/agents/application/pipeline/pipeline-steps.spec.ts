@@ -424,7 +424,7 @@ describe('invoke', () => {
   })
 
   it('BAD_REQUEST with ZodError cause → validation_failed, retry', async () => {
-    const { z } = await import('zod')
+    const z = await import('zod')
     const schema = z.object({ name: z.string() })
     const parseResult = schema.safeParse({ name: 123 })
     const zodError = !parseResult.success ? parseResult.error : null
