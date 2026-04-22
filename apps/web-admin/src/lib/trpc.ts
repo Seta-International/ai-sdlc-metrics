@@ -1,5 +1,5 @@
-import { createTRPCClient } from '@future/api-client'
+import { createTRPCClient, type TRPCClient } from '@future/api-client'
 
-export const trpc = createTRPCClient({
+export const trpc: TRPCClient = createTRPCClient({
   apiUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000',
 })
