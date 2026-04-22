@@ -38,7 +38,7 @@ import {
   buildDisclosureStatements,
   buildCitations,
 } from './synthesizer'
-import type { SubAgentOutput, ToolCall, Citation } from './phase-executor-contracts'
+import type { SubAgentOutput, ToolCall } from './phase-executor-contracts'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

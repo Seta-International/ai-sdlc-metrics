@@ -40,7 +40,6 @@ import type { RouterPlan } from '../../domain/value-objects/router-plan-schema'
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 const FLOW_ID = '018e8b2a-4c1d-7000-8000-000000000001'
-const DIRECTIVE = { sub_agent_key: 'planner.read-only', input: {}, reason: 'r1' }
 
 function boundedPlan(phase1Count: number, phase2Count: number): RouterPlan {
   const p1 = Array.from({ length: phase1Count }, (_, i) => ({
