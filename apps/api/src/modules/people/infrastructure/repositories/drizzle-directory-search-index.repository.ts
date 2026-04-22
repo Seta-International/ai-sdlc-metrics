@@ -7,7 +7,7 @@ import type {
   IDirectorySearchIndexRepository,
   DirectorySearchIndexFilters,
 } from '../../domain/repositories/directory-search-index.repository'
-import { directorySearchIndex } from '../schema/people.schema'
+import { directorySearchIndex, jobAssignment } from '../schema/people.schema'
 
 @Injectable()
 export class DrizzleDirectorySearchIndexRepository implements IDirectorySearchIndexRepository {
@@ -45,6 +45,33 @@ export class DrizzleDirectorySearchIndexRepository implements IDirectorySearchIn
     if (filters.employmentId) {
       conditions.push(eq(directorySearchIndex.employmentId, filters.employmentId))
     }
+    if (filters.departmentId) {
+      // `directory_search_index` does not store `department_id`. We filter by joining the
+      // current job assignment and expanding the department subtree via a tenant-scoped
+      // recursive CTE against `core.department`.
+      conditions.push(sql<boolean>`
+        ${directorySearchIndex.employmentId} IN (
+          SELECT DISTINCT ${jobAssignment.employmentId}
+          FROM ${jobAssignment}
+          WHERE
+            ${jobAssignment.tenantId} = ${tenantId}
+            AND ${jobAssignment.effectiveTo} IS NULL
+            AND ${jobAssignment.departmentId} IN (
+              WITH RECURSIVE dept_tree AS (
+                SELECT d.id
+                FROM core.department d
+                WHERE d.tenant_id = ${tenantId} AND d.id = ${filters.departmentId}
+                UNION ALL
+                SELECT child.id
+                FROM core.department child
+                JOIN dept_tree dt ON child.parent_id = dt.id
+                WHERE child.tenant_id = ${tenantId}
+              )
+              SELECT id FROM dept_tree
+            )
+        )
+      `)
+    }
     if (filters.employmentStatus) {
       conditions.push(eq(directorySearchIndex.employmentStatus, filters.employmentStatus))
     } else {
@@ -65,7 +92,7 @@ export class DrizzleDirectorySearchIndexRepository implements IDirectorySearchIn
     if (filters.hiredBefore) {
       conditions.push(lte(directorySearchIndex.hireDate, filters.hiredBefore))
     }
-    // Note: departmentId, jobProfileId, jobFamilyId, managerId, locationId, workerType,
+    // Note: jobProfileId, jobFamilyId, managerId, locationId, workerType,
     // employmentType are not columns in the directory_search_index table and cannot be
     // filtered here. These are intentionally ignored.
 
