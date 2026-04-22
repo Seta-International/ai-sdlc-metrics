@@ -12,7 +12,7 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   createTestDb,
   migrateForTest,
@@ -20,7 +20,6 @@ import {
   setTenantContext,
   truncateCoreSchema,
 } from '@future/db/test-helpers'
-import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { DrizzleL3PreferenceRepository } from './drizzle-l3-preference.repository'
 
 const TENANT_A = '01900000-0000-7fff-8000-000000000071'
@@ -30,8 +29,6 @@ const USER_B = '01900000-0000-7fff-8000-0000000000b2'
 
 describe('DrizzleL3PreferenceRepository', () => {
   const db = createTestDb()
-  const recordEvent = vi.fn().mockResolvedValue(undefined)
-  const audit = { recordEvent, publishOutboxEvent: vi.fn() } as unknown as KernelAuditFacade
   let repo: DrizzleL3PreferenceRepository
 
   beforeAll(async () => {
@@ -40,7 +37,7 @@ describe('DrizzleL3PreferenceRepository', () => {
     await truncateCoreSchema(db)
     await seedTenant(db, { id: TENANT_A, slug: 'l3-pref-tenant-a' })
     await seedTenant(db, { id: TENANT_B, slug: 'l3-pref-tenant-b' })
-    repo = new DrizzleL3PreferenceRepository(db as never, audit)
+    repo = new DrizzleL3PreferenceRepository(db as never)
   })
 
   afterAll(async () => {

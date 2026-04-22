@@ -222,7 +222,6 @@ export class Summarizer {
   }): Promise<void> {
     const { conversationId, tenantId } = opts
     await this.conversationRepo.clearSummaryDisabled({ id: conversationId, tenantId })
-    await this.conversationRepo.resetSummaryFailureStreak({ id: conversationId, tenantId })
   }
 
   /**

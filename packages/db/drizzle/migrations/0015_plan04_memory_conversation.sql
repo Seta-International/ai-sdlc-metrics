@@ -29,15 +29,18 @@ CREATE TABLE "agents"."agent_conversation" (
 
 -- ─── 3. agent_message (Plan 04) ─────────────────────────────────────────────────
 -- JSONB content (structured tool calls + results), nullable summary (post-turn
--- async), trace_id for Langfuse + kernel audit correlation.
+-- async), trace_id for kernel audit correlation.
+-- content is nullable: GDPR erasure (hardDeleteContent) NULLs it in-place (R-04.28).
+-- ON DELETE CASCADE: hard_delete retention mode deletes the conversation row;
+--   child messages must cascade or the DELETE will fail with a FK violation.
 -- user_id is denormalized from agent_conversation for keyset pagination (R-04.10).
 CREATE TABLE "agents"."agent_message" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"conversation_id" uuid NOT NULL REFERENCES "agents"."agent_conversation"("id"),
+	"conversation_id" uuid NOT NULL REFERENCES "agents"."agent_conversation"("id") ON DELETE CASCADE,
 	"tenant_id" uuid NOT NULL,
 	"user_id" uuid NOT NULL,
 	"role" text NOT NULL,
-	"content" jsonb NOT NULL,
+	"content" jsonb,
 	"summary" text,
 	"trace_id" uuid NOT NULL,
 	"created_at" timestamp with time zone NOT NULL DEFAULT now(),

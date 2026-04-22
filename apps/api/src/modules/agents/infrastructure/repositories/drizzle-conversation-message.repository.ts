@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import type { Db } from '@future/db'
-import { and, asc, eq, lt, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, lt, sql } from 'drizzle-orm'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { agentConversationMessages } from '../schema/agents.schema'
 import type {
@@ -112,7 +112,7 @@ export class DrizzleConversationMessageRepository implements ConversationMessage
             lt(agentConversationMessages.createdAt, cursorRow.createdAt),
           ),
         )
-        .orderBy(asc(agentConversationMessages.createdAt))
+        .orderBy(desc(agentConversationMessages.createdAt))
         .limit(opts.limit)
 
       return rows.map((r) => toEntity(r as MessageRow))
@@ -127,7 +127,7 @@ export class DrizzleConversationMessageRepository implements ConversationMessage
           eq(agentConversationMessages.conversationId, opts.conversationId),
         ),
       )
-      .orderBy(asc(agentConversationMessages.createdAt))
+      .orderBy(desc(agentConversationMessages.createdAt))
       .limit(opts.limit)
 
     return rows.map((r) => toEntity(r as MessageRow))

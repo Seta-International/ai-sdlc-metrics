@@ -82,18 +82,17 @@ export class WindowBuilder {
       (m): m is ConversationMessageEntity & { summary: string } => m.summary !== null,
     )
 
-    // listForWindow returns newest → oldest. We want oldest → newest for display ordering.
+    // listForWindow returns newest → oldest (DESC). Reverse to oldest → newest for slicing.
     const oldest = [...withSummary].reverse()
 
     // Verbatim: last GAMMA_VERBATIM_COUNT entries (newest).
     const verbatimRaw = oldest.slice(-GAMMA_VERBATIM_COUNT)
 
     // Compressed: the GAMMA_COMPRESSED_COUNT entries immediately before the verbatim slice.
-    const compressedStart = Math.max(
-      0,
-      oldest.length - GAMMA_VERBATIM_COUNT - GAMMA_COMPRESSED_COUNT,
-    )
-    const compressedEnd = oldest.length - GAMMA_VERBATIM_COUNT
+    // Guard compressedEnd: when oldest.length < GAMMA_VERBATIM_COUNT the result would be
+    // negative, causing slice(0, negative) to bleed into verbatim territory.
+    const compressedEnd = Math.max(0, oldest.length - GAMMA_VERBATIM_COUNT)
+    const compressedStart = Math.max(0, compressedEnd - GAMMA_COMPRESSED_COUNT)
     const compressedRaw = oldest.slice(compressedStart, compressedEnd)
 
     // Rolling: computed from ALL available summaries when ≥ ROLLING_TURN_THRESHOLD exist (R-04.26c).
@@ -130,7 +129,7 @@ export class WindowBuilder {
       (m): m is ConversationMessageEntity & { summary: string } => m.summary !== null,
     )
 
-    // Return newest → oldest (reversed to oldest → newest), then take the last N.
+    // listForWindow returns newest → oldest (DESC). Reverse to oldest → newest, then take last N.
     const oldest = [...withSummary].reverse()
     const verbatimRaw = oldest.slice(-verbatimCount)
 

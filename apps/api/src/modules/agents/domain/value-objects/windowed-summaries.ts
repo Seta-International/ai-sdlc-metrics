@@ -32,6 +32,3 @@ export type WindowedSummaries = {
   /** γ only: rolling background summary updated every 3 user turns. Null for α or when not yet computed. */
   rolling: string | null
 }
-
-/** Convenience alias kept for RouterPromptBuilder callers that used the old type. */
-export type { WindowedSummaries as WindowedSummariesV2 }

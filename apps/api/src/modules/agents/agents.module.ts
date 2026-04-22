@@ -247,7 +247,6 @@ class NullTenantLister implements TenantListerLike {
       ) => new Summarizer(pgBoss, { generateText: async () => '' }, convRepo, msgRepo),
     },
     // GDPRErasurePipeline: plain class — constructed via useFactory
-    // LangfuseClient stub: no-op at Phase 1; replaced when Langfuse is wired in Phase 5.
     {
       provide: GDPR_ERASURE_PIPELINE,
       inject: [
@@ -263,15 +262,7 @@ class NullTenantLister implements TenantListerLike {
         scratchpadRepo: ScratchpadRepository,
         semanticIndex: SemanticIndexRepository,
         kernelAudit: KernelAuditFacade,
-      ) =>
-        new GDPRErasurePipeline(
-          msgRepo,
-          l3Repo,
-          scratchpadRepo,
-          { purgeByUserId: async () => undefined },
-          semanticIndex,
-          kernelAudit,
-        ),
+      ) => new GDPRErasurePipeline(msgRepo, l3Repo, scratchpadRepo, semanticIndex, kernelAudit),
     },
     // ConversationRetentionScheduler: plain class — daily pg-boss cron for 90-day archive
     {

@@ -1,8 +1,7 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Inject } from '@nestjs/common'
 import type { ConversationMessageEntity } from '../../domain/entities/conversation-message.entity'
 import type { ConversationMessageRepository } from '../../domain/repositories/conversation-message.repository'
 import { CONVERSATION_MESSAGE_REPOSITORY } from '../../domain/repositories/conversation-message.repository'
-import { Inject } from '@nestjs/common'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

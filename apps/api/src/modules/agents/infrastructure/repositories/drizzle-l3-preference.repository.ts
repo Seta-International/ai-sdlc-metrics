@@ -2,7 +2,6 @@ import { Inject, Injectable } from '@nestjs/common'
 import type { Db } from '@future/db'
 import { and, eq } from 'drizzle-orm'
 import { DB_TOKEN } from '../../../../common/db/db.module'
-import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { agentL3Preferences } from '../schema/agents.schema'
 import type { L3PreferenceRepository } from '../../domain/repositories/l3-preference.repository'
 
@@ -14,10 +13,7 @@ import type { L3PreferenceRepository } from '../../domain/repositories/l3-prefer
  */
 @Injectable()
 export class DrizzleL3PreferenceRepository implements L3PreferenceRepository {
-  constructor(
-    @Inject(DB_TOKEN) private readonly db: Db,
-    private readonly audit: KernelAuditFacade,
-  ) {}
+  constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
   async set(opts: {
     tenantId: string

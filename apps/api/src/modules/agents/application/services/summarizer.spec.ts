@@ -378,16 +378,13 @@ describe('Summarizer', () => {
       })
     })
 
-    it('also resets the failure streak when clearing circuit breaker', async () => {
+    it('does not call resetSummaryFailureStreak (clearSummaryDisabled resets it internally)', async () => {
       await summarizer.clearSummaryCircuitBreaker({
         conversationId: CONVERSATION_ID,
         tenantId: TENANT_ID,
       })
 
-      expect(conversationRepo.resetSummaryFailureStreak).toHaveBeenCalledWith({
-        id: CONVERSATION_ID,
-        tenantId: TENANT_ID,
-      })
+      expect(conversationRepo.resetSummaryFailureStreak).not.toHaveBeenCalled()
     })
   })
 
