@@ -3,13 +3,14 @@ import { count, eq, and, gte } from 'drizzle-orm'
 import { DB_TOKEN, type DrizzleDb } from '@future/db'
 import { agentTurnSamplingDecisions } from '../../infrastructure/schema/agents.schema'
 import { setTenantTraceQuotaUsed } from '../../infrastructure/observability/observability-metrics'
+import type { SamplingDecisionReason } from './sampling-decider'
 
 export interface RecordTurnDecisionOpts {
   traceId: string
   tenantId: string
   userId: string
   capture: boolean
-  rootDecisionReason: string
+  rootDecisionReason: SamplingDecisionReason
   triggersMatchedAtRoot: string[]
   triggersMatchedRetroactively: string[]
   tenantQuotaExhaustedAt?: Date | null

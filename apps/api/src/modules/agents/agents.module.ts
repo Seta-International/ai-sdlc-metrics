@@ -116,6 +116,7 @@ import {
 } from './infrastructure/jobs/composition-monitor.worker'
 import { LeakCanaryScheduler } from './infrastructure/jobs/leak-canary.scheduler'
 import { TurnSamplingDecisionRecorder } from './application/services/turn-sampling-decision-recorder'
+import { ToolInvocationAuditRecorder } from './application/services/tool-invocation-audit-recorder'
 import type { ConversationRepository } from './domain/repositories/conversation.repository'
 import type { ConversationMessageRepository } from './domain/repositories/conversation-message.repository'
 import type { L3PreferenceRepository } from './domain/repositories/l3-preference.repository'
@@ -283,6 +284,7 @@ class NullTenantLister implements TenantListerLike {
     // ── Plan 07 Task 7 — Observability meta-metrics + quota recorder ──────────
     TurnSamplingDecisionRecorder,
     LeakCanaryScheduler,
+    ToolInvocationAuditRecorder,
   ],
   exports: [
     AgentsQueryFacade,

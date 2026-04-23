@@ -14,17 +14,19 @@ import type {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type SamplingDecisionReason =
+  | 'always'
+  | 'never'
+  | 'ratio_sampled_in'
+  | 'ratio_sampled_out'
+  | 'trigger_matched'
+  | 'baseline_sampled_in'
+  | 'baseline_sampled_out'
+  | 'composite'
+
 export interface SamplingDecision {
   capture: boolean
-  reason:
-    | 'always'
-    | 'never'
-    | 'ratio_sampled_in'
-    | 'ratio_sampled_out'
-    | 'trigger_matched'
-    | 'baseline_sampled_in'
-    | 'baseline_sampled_out'
-    | 'composite'
+  reason: SamplingDecisionReason
   /** Names of matched trigger predicates — for diagnostics / logging */
   triggersMatched: string[]
 }
