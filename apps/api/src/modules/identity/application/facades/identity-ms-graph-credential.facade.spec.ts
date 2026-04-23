@@ -347,7 +347,7 @@ describe('IdentityMsGraphCredentialFacade', () => {
     )
   })
 
-  it('destroy disconnect deletes the secret, deletes the credential, then persists the durable hook', async () => {
+  it('destroy disconnect deletes the credential, persists the durable hook, then deletes the secret', async () => {
     const credential = MsGraphCredentialEntity.create({
       tenantId: TENANT_ID,
       clientId: INPUT.clientId,
@@ -368,11 +368,11 @@ describe('IdentityMsGraphCredentialFacade', () => {
     expect(credentialRepo.deleteIfSecretRef).toHaveBeenCalledWith(TENANT_ID, SECRET_REF)
     expect(secretsStore.deleteSecret).toHaveBeenCalledWith(SECRET_REF)
     expect(persistDurableEvent).toHaveBeenCalledOnce()
-    expect(secretsStore.deleteSecret.mock.invocationCallOrder[0]).toBeLessThan(
-      credentialRepo.deleteIfSecretRef.mock.invocationCallOrder[0],
-    )
     expect(credentialRepo.deleteIfSecretRef.mock.invocationCallOrder[0]).toBeLessThan(
       persistDurableEvent.mock.invocationCallOrder[0],
+    )
+    expect(persistDurableEvent.mock.invocationCallOrder[0]).toBeLessThan(
+      secretsStore.deleteSecret.mock.invocationCallOrder[0],
     )
   })
 
@@ -392,7 +392,7 @@ describe('IdentityMsGraphCredentialFacade', () => {
     expect(persistDurableEvent).not.toHaveBeenCalled()
   })
 
-  it('destroy disconnect keeps the credential row and durable event unpersisted when secret deletion fails', async () => {
+  it('destroy disconnect propagates secret deletion failure after durable event persistence', async () => {
     const credential = MsGraphCredentialEntity.create({
       tenantId: TENANT_ID,
       clientId: INPUT.clientId,
@@ -412,8 +412,9 @@ describe('IdentityMsGraphCredentialFacade', () => {
       ),
     ).rejects.toThrow(/secrets unavailable/)
 
-    expect(persistDurableEvent).not.toHaveBeenCalled()
-    expect(credentialRepo.deleteIfSecretRef).not.toHaveBeenCalled()
+    expect(credentialRepo.deleteIfSecretRef).toHaveBeenCalledWith(TENANT_ID, SECRET_REF)
+    expect(persistDurableEvent).toHaveBeenCalledOnce()
+    expect(secretsStore.deleteSecret).toHaveBeenCalledWith(SECRET_REF)
   })
 
   it('destroy disconnect reinserts the credential row when durable event persistence fails after deletion', async () => {
@@ -435,9 +436,9 @@ describe('IdentityMsGraphCredentialFacade', () => {
       ),
     ).rejects.toThrow(/outbox unavailable/)
 
-    expect(secretsStore.deleteSecret).toHaveBeenCalledWith(SECRET_REF)
     expect(credentialRepo.deleteIfSecretRef).toHaveBeenCalledWith(TENANT_ID, SECRET_REF)
     expect(credentialRepo.insertIfAbsent).toHaveBeenCalledWith(credential)
+    expect(secretsStore.deleteSecret).not.toHaveBeenCalled()
   })
 
   it('destroy disconnect treats an already-deleted secret as recoverable on retry', async () => {
@@ -545,8 +546,8 @@ describe('IdentityMsGraphCredentialFacade', () => {
       ),
     ).rejects.toThrow(/credential changed before disconnect/)
 
-    expect(secretsStore.deleteSecret).toHaveBeenCalledWith(SECRET_REF)
     expect(persistDurableEvent).not.toHaveBeenCalled()
+    expect(secretsStore.deleteSecret).not.toHaveBeenCalled()
     expect(credentialRepo.insertIfAbsent).not.toHaveBeenCalled()
   })
 })

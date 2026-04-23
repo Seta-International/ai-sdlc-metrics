@@ -158,7 +158,6 @@ export class IdentityMsGraphCredentialFacade {
         throw error
       }
     } else {
-      await this.deleteSecretIfPresent(originalSecretRef)
       const deleted = await this.credentialRepo.deleteIfSecretRef(input.tenantId, originalSecretRef)
       if (!deleted) {
         throw new Error('credential changed before disconnect')
@@ -170,6 +169,8 @@ export class IdentityMsGraphCredentialFacade {
         await this.credentialRepo.insertIfAbsent(originalCredential)
         throw error
       }
+
+      await this.deleteSecretIfPresent(originalSecretRef)
     }
 
     return true
