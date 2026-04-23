@@ -118,6 +118,7 @@ import { TurnSamplingDecisionRecorder } from './application/services/turn-sampli
 import { ToolInvocationAuditRecorder } from './application/services/tool-invocation-audit-recorder'
 // Plan 05 services
 import { PricingResolver } from './infrastructure/pricing/pricing-resolver'
+import { OpenAiUsageExtractor } from './infrastructure/adapters/openai-usage-extractor'
 import { CostRecorder } from './application/services/cost-recorder'
 import { BudgetChecker } from './application/services/budget-checker'
 import { RateLimiter } from './application/services/rate-limiter'
@@ -294,6 +295,7 @@ class NullTenantLister implements TenantListerLike {
     ToolInvocationAuditRecorder,
     // ── Plan 05 — Cost / budget / rate-limiting / canary / throttle ───────────
     PricingResolver,
+    OpenAiUsageExtractor,
     CostRecorder,
     BudgetChecker,
     RateLimiter,

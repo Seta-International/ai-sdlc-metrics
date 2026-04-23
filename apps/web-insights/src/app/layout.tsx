@@ -11,7 +11,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
   const theme = (await cookies()).get('future-theme')?.value
   return (
     <html lang="en" className={fontVariables} data-density="compact" suppressHydrationWarning>
-      <body>
+      <body suppressHydrationWarning>
         <ThemeProvider defaultTheme={theme ?? 'system'} enableSystem={!theme}>
           <InsightsLayoutClient>{children}</InsightsLayoutClient>
         </ThemeProvider>
