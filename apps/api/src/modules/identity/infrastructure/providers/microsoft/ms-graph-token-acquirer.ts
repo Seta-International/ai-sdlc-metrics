@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common'
+import { Inject, Injectable, Optional } from '@nestjs/common'
 import { SECRETS_STORE, type ISecretsStore } from '../../../domain/ports/secrets-store.port'
 
 interface CacheEntry {
@@ -14,6 +14,7 @@ export class MsGraphTokenAcquirer {
   constructor(
     @Inject(SECRETS_STORE)
     private readonly secrets: ISecretsStore,
+    @Optional()
     private readonly clock: () => Date = () => new Date(),
   ) {}
 

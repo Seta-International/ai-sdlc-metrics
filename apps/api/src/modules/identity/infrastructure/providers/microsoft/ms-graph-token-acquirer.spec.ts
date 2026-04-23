@@ -82,4 +82,13 @@ describe('MsGraphTokenAcquirer', () => {
 
     await expect(acquirer.acquire(cred)).rejects.toThrow(/invalid_grant/)
   })
+
+  it('marks the test-only clock function optional for Nest DI', () => {
+    const optionalParamIndexes = Reflect.getMetadata(
+      'optional:paramtypes',
+      MsGraphTokenAcquirer,
+    ) as number[] | undefined
+
+    expect(optionalParamIndexes ?? []).toContain(1)
+  })
 })
