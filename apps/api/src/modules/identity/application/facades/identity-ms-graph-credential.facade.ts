@@ -138,6 +138,7 @@ export class IdentityMsGraphCredentialFacade {
     }
 
     if (input.mode === 'pause') {
+      await options.persistDurableEvent?.()
       credential.markPaused()
       const paused = await this.credentialRepo.updateIfSecretRef(
         credential,
@@ -147,6 +148,8 @@ export class IdentityMsGraphCredentialFacade {
         throw new Error('credential changed before disconnect')
       }
     } else {
+      await this.deleteSecretIfPresent(credential.clientSecretRef)
+      await options.persistDurableEvent?.()
       const deleted = await this.credentialRepo.deleteIfSecretRef(
         input.tenantId,
         credential.clientSecretRef,
@@ -154,10 +157,8 @@ export class IdentityMsGraphCredentialFacade {
       if (!deleted) {
         throw new Error('credential changed before disconnect')
       }
-      await this.secretsStore.deleteSecret(credential.clientSecretRef)
     }
 
-    await options.persistDurableEvent?.()
     return true
   }
 
@@ -204,6 +205,30 @@ export class IdentityMsGraphCredentialFacade {
     }
 
     return failures
+  }
+
+  private async deleteSecretIfPresent(secretRef: string): Promise<void> {
+    try {
+      await this.secretsStore.deleteSecret(secretRef)
+    } catch (error) {
+      if (this.isMissingSecretError(error)) {
+        return
+      }
+      throw error
+    }
+  }
+
+  private isMissingSecretError(error: unknown): boolean {
+    if (!(error instanceof Error)) {
+      return false
+    }
+
+    const errorWithCode = error as Error & { code?: string; Code?: string }
+    return (
+      error.name === 'ResourceNotFoundException' ||
+      errorWithCode.code === 'ResourceNotFoundException' ||
+      errorWithCode.Code === 'ResourceNotFoundException'
+    )
   }
 
   private async validateMicrosoftGraphConnection(

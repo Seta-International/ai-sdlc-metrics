@@ -318,7 +318,7 @@ describe('IdentityMsGraphCredentialFacade', () => {
     expect(credentialRepo.updateIfSecretRef).not.toHaveBeenCalled()
   })
 
-  it('pause disconnect marks the credential paused, keeps the secret, and persists the durable hook after the update', async () => {
+  it('pause disconnect persists the durable hook before marking the credential paused and keeps the secret', async () => {
     const credential = MsGraphCredentialEntity.create({
       tenantId: TENANT_ID,
       clientId: INPUT.clientId,
@@ -342,12 +342,12 @@ describe('IdentityMsGraphCredentialFacade', () => {
     )
     expect(secretsStore.deleteSecret).not.toHaveBeenCalled()
     expect(persistDurableEvent).toHaveBeenCalledOnce()
-    expect(credentialRepo.updateIfSecretRef.mock.invocationCallOrder[0]).toBeLessThan(
-      persistDurableEvent.mock.invocationCallOrder[0],
+    expect(persistDurableEvent.mock.invocationCallOrder[0]).toBeLessThan(
+      credentialRepo.updateIfSecretRef.mock.invocationCallOrder[0],
     )
   })
 
-  it('destroy disconnect deletes the credential and secret, and persists the durable hook after both mutations', async () => {
+  it('destroy disconnect deletes the secret, persists the durable hook, then deletes the credential', async () => {
     const credential = MsGraphCredentialEntity.create({
       tenantId: TENANT_ID,
       clientId: INPUT.clientId,
@@ -368,11 +368,11 @@ describe('IdentityMsGraphCredentialFacade', () => {
     expect(credentialRepo.deleteIfSecretRef).toHaveBeenCalledWith(TENANT_ID, SECRET_REF)
     expect(secretsStore.deleteSecret).toHaveBeenCalledWith(SECRET_REF)
     expect(persistDurableEvent).toHaveBeenCalledOnce()
-    expect(credentialRepo.deleteIfSecretRef.mock.invocationCallOrder[0]).toBeLessThan(
-      secretsStore.deleteSecret.mock.invocationCallOrder[0],
-    )
     expect(secretsStore.deleteSecret.mock.invocationCallOrder[0]).toBeLessThan(
       persistDurableEvent.mock.invocationCallOrder[0],
+    )
+    expect(persistDurableEvent.mock.invocationCallOrder[0]).toBeLessThan(
+      credentialRepo.deleteIfSecretRef.mock.invocationCallOrder[0],
     )
   })
 
@@ -392,7 +392,7 @@ describe('IdentityMsGraphCredentialFacade', () => {
     expect(persistDurableEvent).not.toHaveBeenCalled()
   })
 
-  it('disconnect does not persist durable event or delete secret when optimistic credential mutation fails', async () => {
+  it('destroy disconnect keeps the credential row and durable event unpersisted when secret deletion fails', async () => {
     const credential = MsGraphCredentialEntity.create({
       tenantId: TENANT_ID,
       clientId: INPUT.clientId,
@@ -403,16 +403,88 @@ describe('IdentityMsGraphCredentialFacade', () => {
     })
     const persistDurableEvent = vi.fn().mockResolvedValue(undefined)
     credentialRepo.get.mockResolvedValue(credential)
-    credentialRepo.deleteIfSecretRef.mockResolvedValue(false)
+    secretsStore.deleteSecret.mockRejectedValue(new Error('secrets unavailable'))
 
     await expect(
       facade.disconnectMicrosoftGraphCredential(
         { tenantId: TENANT_ID, mode: 'destroy' },
         { persistDurableEvent },
       ),
-    ).rejects.toThrow(/credential changed before disconnect/)
+    ).rejects.toThrow(/secrets unavailable/)
 
     expect(persistDurableEvent).not.toHaveBeenCalled()
-    expect(secretsStore.deleteSecret).not.toHaveBeenCalled()
+    expect(credentialRepo.deleteIfSecretRef).not.toHaveBeenCalled()
+  })
+
+  it('destroy disconnect keeps the credential row when durable event persistence fails after secret deletion', async () => {
+    const credential = MsGraphCredentialEntity.create({
+      tenantId: TENANT_ID,
+      clientId: INPUT.clientId,
+      clientSecretRef: SECRET_REF,
+      tenantAdId: INPUT.tenantAdId,
+      scopes: ['https://graph.microsoft.com/.default'],
+      consentedAt: new Date('2026-04-23T00:00:00Z'),
+    })
+    const persistDurableEvent = vi.fn().mockRejectedValue(new Error('outbox unavailable'))
+    credentialRepo.get.mockResolvedValue(credential)
+
+    await expect(
+      facade.disconnectMicrosoftGraphCredential(
+        { tenantId: TENANT_ID, mode: 'destroy' },
+        { persistDurableEvent },
+      ),
+    ).rejects.toThrow(/outbox unavailable/)
+
+    expect(secretsStore.deleteSecret).toHaveBeenCalledWith(SECRET_REF)
+    expect(credentialRepo.deleteIfSecretRef).not.toHaveBeenCalled()
+  })
+
+  it('destroy disconnect treats an already-deleted secret as recoverable on retry', async () => {
+    const credential = MsGraphCredentialEntity.create({
+      tenantId: TENANT_ID,
+      clientId: INPUT.clientId,
+      clientSecretRef: SECRET_REF,
+      tenantAdId: INPUT.tenantAdId,
+      scopes: ['https://graph.microsoft.com/.default'],
+      consentedAt: new Date('2026-04-23T00:00:00Z'),
+    })
+    const notFound = Object.assign(new Error('secret not found'), {
+      name: 'ResourceNotFoundException',
+    })
+    const persistDurableEvent = vi.fn().mockResolvedValue(undefined)
+    credentialRepo.get.mockResolvedValue(credential)
+    secretsStore.deleteSecret.mockRejectedValue(notFound)
+
+    const disconnected = await facade.disconnectMicrosoftGraphCredential(
+      { tenantId: TENANT_ID, mode: 'destroy' },
+      { persistDurableEvent },
+    )
+
+    expect(disconnected).toBe(true)
+    expect(persistDurableEvent).toHaveBeenCalledOnce()
+    expect(credentialRepo.deleteIfSecretRef).toHaveBeenCalledWith(TENANT_ID, SECRET_REF)
+  })
+
+  it('pause disconnect does not mutate credential state when durable event persistence fails', async () => {
+    const credential = MsGraphCredentialEntity.create({
+      tenantId: TENANT_ID,
+      clientId: INPUT.clientId,
+      clientSecretRef: SECRET_REF,
+      tenantAdId: INPUT.tenantAdId,
+      scopes: ['https://graph.microsoft.com/.default'],
+      consentedAt: new Date('2026-04-23T00:00:00Z'),
+    })
+    const persistDurableEvent = vi.fn().mockRejectedValue(new Error('outbox unavailable'))
+    credentialRepo.get.mockResolvedValue(credential)
+
+    await expect(
+      facade.disconnectMicrosoftGraphCredential(
+        { tenantId: TENANT_ID, mode: 'pause' },
+        { persistDurableEvent },
+      ),
+    ).rejects.toThrow(/outbox unavailable/)
+
+    expect(credentialRepo.updateIfSecretRef).not.toHaveBeenCalled()
+    expect(credential.status).toBe('active')
   })
 })
