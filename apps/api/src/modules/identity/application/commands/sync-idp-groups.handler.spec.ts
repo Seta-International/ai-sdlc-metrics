@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SyncIdpGroupsCommand } from './sync-idp-groups.command'
 import { SyncIdpGroupsHandler } from './sync-idp-groups.handler'
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
-import type { IDirectoryProvider, DirectoryGroup } from '../../domain/ports/directory-provider.port'
+import type { IDirectoryProvider, IdpGroup } from '../../domain/ports/directory-provider.port'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { IdentityProviderEntity } from '../../domain/entities/identity-provider.entity'
 
@@ -26,15 +26,20 @@ const fakeProvider: IdentityProviderEntity = {
   updatedAt: new Date(),
 }
 
-const fakeGroups: DirectoryGroup[] = [
-  { externalGroupId: 'group-001', displayName: 'Engineering', memberCount: 45 },
-  { externalGroupId: 'group-002', displayName: 'HR', memberCount: 12 },
+const fakeGroups: IdpGroup[] = [
+  { externalGroupId: 'group-001', displayName: 'Engineering', memberExternalIds: ['u1'] },
+  { externalGroupId: 'group-002', displayName: 'HR', memberExternalIds: ['u2'] },
 ]
 
 describe('SyncIdpGroupsHandler', () => {
   let handler: SyncIdpGroupsHandler
   let providerRepo: IIdentityProviderRepository
   let directoryProvider: IDirectoryProvider
+  let directoryProviderFactory: { create: ReturnType<typeof vi.fn> }
+  let memberRepo: {
+    replaceForGroup: ReturnType<typeof vi.fn>
+    listMembers: ReturnType<typeof vi.fn>
+  }
   let auditFacade: KernelAuditFacade
 
   beforeEach(() => {
@@ -48,19 +53,26 @@ describe('SyncIdpGroupsHandler', () => {
     }
     directoryProvider = {
       testConnection: vi.fn(),
-      listGroups: vi.fn(),
+      listGroupsWithMembers: vi.fn(),
       listUsers: vi.fn(),
     }
+    directoryProviderFactory = { create: vi.fn().mockResolvedValue(directoryProvider) }
+    memberRepo = { replaceForGroup: vi.fn(), listMembers: vi.fn() }
     auditFacade = {
       recordEvent: vi.fn(),
       publishOutboxEvent: vi.fn(),
     } as unknown as KernelAuditFacade
-    handler = new SyncIdpGroupsHandler(providerRepo, directoryProvider, auditFacade)
+    handler = new SyncIdpGroupsHandler(
+      providerRepo,
+      directoryProviderFactory as never,
+      auditFacade,
+      memberRepo as never,
+    )
   })
 
   it('fetches groups from IdP and returns them', async () => {
     vi.mocked(providerRepo.findPrimaryByTenantId).mockResolvedValue(fakeProvider)
-    vi.mocked(directoryProvider.listGroups).mockResolvedValue(fakeGroups)
+    vi.mocked(directoryProvider.listGroupsWithMembers).mockResolvedValue(fakeGroups)
     vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
 
     const result = await handler.execute(new SyncIdpGroupsCommand(TENANT_ID, ACTOR_ID))
@@ -69,12 +81,8 @@ describe('SyncIdpGroupsHandler', () => {
       providerId: PROVIDER_ID,
       groups: fakeGroups,
     })
-    expect(directoryProvider.listGroups).toHaveBeenCalledWith(
-      'microsoft',
-      'client-id-123',
-      'arn:aws:secretsmanager:ap-southeast-1:123:secret:entra-client-secret',
-      'directory-id-456',
-    )
+    expect(directoryProviderFactory.create).toHaveBeenCalledWith(fakeProvider)
+    expect(directoryProvider.listGroupsWithMembers).toHaveBeenCalledWith()
   })
 
   it('throws when no provider is configured for tenant', async () => {
@@ -83,5 +91,20 @@ describe('SyncIdpGroupsHandler', () => {
     await expect(handler.execute(new SyncIdpGroupsCommand(TENANT_ID, ACTOR_ID))).rejects.toThrow(
       'No identity provider configured',
     )
+  })
+
+  it('replaces idp_group_member rows for each returned group', async () => {
+    vi.mocked(providerRepo.findPrimaryByTenantId).mockResolvedValue(fakeProvider)
+    vi.mocked(directoryProvider.listGroupsWithMembers).mockResolvedValue(fakeGroups)
+    vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
+
+    await handler.execute(new SyncIdpGroupsCommand(TENANT_ID, ACTOR_ID))
+
+    expect(memberRepo.replaceForGroup).toHaveBeenCalledTimes(2)
+    expect(memberRepo.replaceForGroup).toHaveBeenCalledWith({
+      tenantId: TENANT_ID,
+      externalGroupId: 'group-001',
+      ssoSubjects: ['u1'],
+    })
   })
 })

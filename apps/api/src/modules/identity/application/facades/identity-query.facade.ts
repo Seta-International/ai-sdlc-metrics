@@ -6,9 +6,16 @@ import { GetIdentityProviderQuery } from '../queries/get-identity-provider.query
 import { GetIdpGroupMappingsQuery } from '../queries/get-idp-group-mappings.query'
 import { GetSyncStatusQuery } from '../queries/get-sync-status.query'
 import { ValidateApiKeyQuery } from '../queries/validate-api-key.query'
+import { GetGraphCredentialQuery } from '../queries/get-graph-credential.query'
+import { ListGroupMembersQuery } from '../queries/list-group-members.query'
 import type { SyncStatusDto as SyncStatusResult } from '../queries/get-sync-status.handler'
 import type { ValidateApiKeyResult } from '../queries/validate-api-key.handler'
+import type { MsGraphCredentialEntity } from '../../domain/entities/ms-graph-credential.entity'
+import type { GroupMemberResolution } from '../queries/list-group-members.handler'
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
+
+export type { GroupMemberResolution } from '../queries/list-group-members.handler'
+export type { MsGraphCredentialEntity } from '../../domain/entities/ms-graph-credential.entity'
 
 @Injectable()
 export class IdentityQueryFacade {
@@ -31,6 +38,14 @@ export class IdentityQueryFacade {
 
   validateApiKey(keyHash: string, tenantId: string): Promise<ValidateApiKeyResult> {
     return this.queryBus.execute(new ValidateApiKeyQuery(keyHash, tenantId))
+  }
+
+  listGroupMembers(externalGroupId: string, tenantId: string): Promise<GroupMemberResolution[]> {
+    return this.queryBus.execute(new ListGroupMembersQuery(externalGroupId, tenantId))
+  }
+
+  getGraphCredential(tenantId: string): Promise<MsGraphCredentialEntity | null> {
+    return this.queryBus.execute(new GetGraphCredentialQuery(tenantId))
   }
 
   /**

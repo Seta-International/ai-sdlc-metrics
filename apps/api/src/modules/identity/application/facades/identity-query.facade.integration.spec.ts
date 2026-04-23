@@ -15,6 +15,7 @@ import {
   seedTenant,
   setTenantContext,
   truncateCoreSchema,
+  truncateIdentitySchema,
 } from '@future/db/test-helpers'
 import { uuidv7 } from 'uuidv7'
 import { QueryBus } from '@nestjs/cqrs'
@@ -23,6 +24,9 @@ import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-qu
 import { GetUserIdentityByActorIdHandler } from '../../../kernel/application/queries/get-user-identity-by-actor-id.handler'
 import { GetUserIdentityByActorIdQuery } from '../../../kernel/application/queries/get-user-identity-by-actor-id.query'
 import { GetUserIdentityBySsoSubjectQuery } from '../../../kernel/application/queries/get-user-identity-by-sso-subject.query'
+import { DrizzleIdpGroupMemberRepository } from '../../infrastructure/repositories/drizzle-idp-group-member.repository'
+import { ListGroupMembersHandler } from '../queries/list-group-members.handler'
+import { ListGroupMembersQuery } from '../queries/list-group-members.query'
 import { IdentityQueryFacade } from './identity-query.facade'
 
 const TENANT = '01900000-0000-7fff-8000-000000000070'
@@ -64,6 +68,7 @@ describe('IdentityQueryFacade — getExternalUserId / getActorIdByExternalUserId
 
   beforeAll(async () => {
     await migrateForTest()
+    await truncateIdentitySchema(db)
     await truncateCoreSchema(db)
     await seedTenant(db, { id: TENANT, slug: 'facade-integration-tenant' })
     await setTenantContext(db, TENANT)
@@ -145,11 +150,21 @@ describe('IdentityQueryFacade — getExternalUserId / getActorIdByExternalUserId
 
     const kernelQueryFacade = new KernelQueryFacade(queryBus)
 
-    const identityQueryBus = { execute: vi.fn() } as unknown as QueryBus
+    const memberRepo = new DrizzleIdpGroupMemberRepository(db as never)
+    const listGroupMembersHandler = new ListGroupMembersHandler(memberRepo, kernelQueryFacade)
+    const identityQueryBus = {
+      execute: vi.fn().mockImplementation(async (query) => {
+        if (query instanceof ListGroupMembersQuery) {
+          return listGroupMembersHandler.execute(query)
+        }
+        return null
+      }),
+    } as unknown as QueryBus
     facade = new IdentityQueryFacade(identityQueryBus, kernelQueryFacade)
   })
 
   afterAll(async () => {
+    await truncateIdentitySchema(db)
     await truncateCoreSchema(db)
   })
 
@@ -178,6 +193,25 @@ describe('IdentityQueryFacade — getExternalUserId / getActorIdByExternalUserId
       await setTenantContext(db, TENANT)
       const result = await facade.getActorIdByExternalUserId('unknown-oid', TENANT)
       expect(result).toBeNull()
+    })
+  })
+
+  describe('listGroupMembers', () => {
+    it('resolves actorIds for materialized group members', async () => {
+      await setTenantContext(db, TENANT)
+      const memberRepo = new DrizzleIdpGroupMemberRepository(db as never)
+      await memberRepo.replaceForGroup({
+        tenantId: TENANT,
+        externalGroupId: 'group-integration-1',
+        ssoSubjects: [SSO_SUBJECT, 'aad-oid-without-actor'],
+      })
+
+      const result = await facade.listGroupMembers('group-integration-1', TENANT)
+
+      expect(result).toEqual([
+        { actorId, ssoSubject: SSO_SUBJECT },
+        { actorId: null, ssoSubject: 'aad-oid-without-actor' },
+      ])
     })
   })
 })

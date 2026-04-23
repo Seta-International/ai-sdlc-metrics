@@ -312,7 +312,7 @@ export async function truncatePlannerSchema(db: Db): Promise<void> {
 
 export async function truncateIdentitySchema(db: Db): Promise<void> {
   await db.execute(
-    sql`TRUNCATE identity.api_key, identity.magic_link_token, identity.idp_group_mapping, identity.identity_provider RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE identity.api_key, identity.magic_link_token, identity.idp_group_member, identity.ms_graph_credential, identity.idp_group_mapping, identity.identity_provider RESTART IDENTITY CASCADE`,
   )
 }
 

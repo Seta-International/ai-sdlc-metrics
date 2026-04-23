@@ -7,6 +7,7 @@ import {
   uniqueIndex,
   index,
   integer,
+  primaryKey,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import { uuidv7 } from 'uuidv7'
@@ -70,6 +71,34 @@ export const idpGroupMapping = identitySchema.table(
     uniqueIndex('uq_idp_group_mapping_role_scope_global')
       .on(table.tenantId, table.externalGroupId, table.roleKey, table.scopeType)
       .where(sql`${table.scopeId} IS NULL`),
+  ],
+)
+
+export const msGraphCredential = identitySchema.table('ms_graph_credential', {
+  tenantId: uuid('tenant_id').primaryKey().notNull(),
+  clientId: text('client_id').notNull(),
+  clientSecretRef: text('client_secret_ref').notNull(),
+  tenantAdId: text('tenant_ad_id').notNull(),
+  scopes: text('scopes').array().notNull(),
+  status: text('status').notNull().default('active'),
+  consentedAt: timestamp('consented_at', { withTimezone: true }).notNull(),
+  lastValidatedAt: timestamp('last_validated_at', { withTimezone: true }),
+  lastError: text('last_error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const idpGroupMember = identitySchema.table(
+  'idp_group_member',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    externalGroupId: text('external_group_id').notNull(),
+    ssoSubject: text('sso_subject').notNull(),
+    syncedAt: timestamp('synced_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.tenantId, table.externalGroupId, table.ssoSubject] }),
+    index('idx_idp_group_member_lookup').on(table.tenantId, table.externalGroupId),
   ],
 )
 

@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.53",
+    "@aws-sdk/client-secrets-manager": "^3.1035.0",
     "@future/core": "workspace:*",
     "@future/db": "workspace:*",
     "@future/documents": "workspace:*",

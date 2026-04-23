@@ -30,6 +30,7 @@ describe('TestIdpConnectionHandler', () => {
   let handler: TestIdpConnectionHandler
   let providerRepo: IIdentityProviderRepository
   let directoryProvider: IDirectoryProvider
+  let directoryProviderFactory: { create: ReturnType<typeof vi.fn> }
   let auditFacade: KernelAuditFacade
 
   beforeEach(() => {
@@ -43,21 +44,25 @@ describe('TestIdpConnectionHandler', () => {
     }
     directoryProvider = {
       testConnection: vi.fn(),
-      listGroups: vi.fn(),
+      listGroupsWithMembers: vi.fn(),
       listUsers: vi.fn(),
     }
+    directoryProviderFactory = { create: vi.fn().mockResolvedValue(directoryProvider) }
     auditFacade = {
       recordEvent: vi.fn(),
       publishOutboxEvent: vi.fn(),
     } as unknown as KernelAuditFacade
-    handler = new TestIdpConnectionHandler(providerRepo, directoryProvider, auditFacade)
+    handler = new TestIdpConnectionHandler(
+      providerRepo,
+      directoryProviderFactory as never,
+      auditFacade,
+    )
   })
 
   it('returns success when connection test passes', async () => {
     vi.mocked(providerRepo.findById).mockResolvedValue(fakeProvider)
     vi.mocked(directoryProvider.testConnection).mockResolvedValue({
-      success: true,
-      userCount: 312,
+      ok: true,
     })
     vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
 
@@ -65,19 +70,15 @@ describe('TestIdpConnectionHandler', () => {
       new TestIdpConnectionCommand(TENANT_ID, PROVIDER_ID, ACTOR_ID),
     )
 
-    expect(result).toEqual({ success: true, userCount: 312 })
-    expect(directoryProvider.testConnection).toHaveBeenCalledWith(
-      'microsoft',
-      'client-id-123',
-      'arn:aws:secretsmanager:ap-southeast-1:123:secret:entra-client-secret',
-      'directory-id-456',
-    )
+    expect(result).toEqual({ success: true })
+    expect(directoryProviderFactory.create).toHaveBeenCalledWith(fakeProvider)
+    expect(directoryProvider.testConnection).toHaveBeenCalledWith()
   })
 
   it('returns failure with error message when connection test fails', async () => {
     vi.mocked(providerRepo.findById).mockResolvedValue(fakeProvider)
     vi.mocked(directoryProvider.testConnection).mockResolvedValue({
-      success: false,
+      ok: false,
       error: 'Invalid client credentials',
     })
     vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)

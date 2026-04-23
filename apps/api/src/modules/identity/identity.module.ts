@@ -8,25 +8,30 @@ import { IDP_GROUP_MAPPING_REPOSITORY } from './domain/repositories/idp-group-ma
 import { MAGIC_LINK_TOKEN_REPOSITORY } from './domain/repositories/magic-link-token.repository'
 import { API_KEY_REPOSITORY } from './domain/repositories/api-key.repository'
 import { SYNC_HISTORY_REPOSITORY } from './domain/repositories/sync-history.repository'
+import { IDP_GROUP_MEMBER_REPOSITORY } from './domain/repositories/idp-group-member.repository'
+import { MS_GRAPH_CREDENTIAL_REPOSITORY } from './domain/repositories/ms-graph-credential.repository'
 import { CRYPTO_PROVIDER } from './domain/ports/crypto-provider.port'
 import { JOB_SCHEDULER } from './domain/ports/job-scheduler.port'
 import { MAGIC_LINK_SENDER } from './domain/ports/magic-link-sender.port'
 import { LOCAL_USER_QUERY_PORT } from './domain/ports/local-user-query.port'
+import { SECRETS_STORE } from './domain/ports/secrets-store.port'
 
 import { DrizzleIdentityProviderRepository } from './infrastructure/repositories/drizzle-identity-provider.repository'
 import { DrizzleIdpGroupMappingRepository } from './infrastructure/repositories/drizzle-idp-group-mapping.repository'
 import { DrizzleMagicLinkTokenRepository } from './infrastructure/repositories/drizzle-magic-link-token.repository'
 import { DrizzleApiKeyRepository } from './infrastructure/repositories/drizzle-api-key.repository'
 import { DrizzleSyncHistoryRepository } from './infrastructure/repositories/drizzle-sync-history.repository'
+import { DrizzleIdpGroupMemberRepository } from './infrastructure/repositories/drizzle-idp-group-member.repository'
+import { DrizzleMsGraphCredentialRepository } from './infrastructure/repositories/drizzle-ms-graph-credential.repository'
 
-import { DIRECTORY_PROVIDER_FACTORY } from './infrastructure/providers/directory-provider.interface'
+import { DIRECTORY_PROVIDER_FACTORY } from './domain/ports/directory-provider.port'
 import { DirectoryProviderFactory } from './infrastructure/providers/directory-provider.factory'
-import { DIRECTORY_PROVIDER } from './domain/ports/directory-provider.port'
-import { DirectoryConnectionService } from './infrastructure/providers/directory-connection.service'
+import { MsGraphTokenAcquirer } from './infrastructure/providers/microsoft/ms-graph-token-acquirer'
 import { NodeCryptoProvider } from './infrastructure/providers/node-crypto.provider'
 import { StubJobScheduler } from './infrastructure/jobs/stub-job-scheduler'
 import { MailMagicLinkSender } from './infrastructure/mailers/mail-magic-link.sender'
 import { DrizzleLocalUserQueryService } from './infrastructure/queries/drizzle-local-user-query.service'
+import { AwsSecretsStoreAdapter } from './infrastructure/secrets/aws-secrets-store.adapter'
 
 import { ConfigureIdentityProviderHandler } from './application/commands/configure-identity-provider.handler'
 import { TestIdpConnectionHandler } from './application/commands/test-idp-connection.handler'
@@ -52,6 +57,8 @@ import { GetSyncHistoryHandler } from './application/queries/get-sync-history.ha
 import { ListApiKeysHandler } from './application/queries/list-api-keys.handler'
 import { GetIdpGroupMappingsHandler } from './application/queries/get-idp-group-mappings.handler'
 import { ValidateApiKeyHandler } from './application/queries/validate-api-key.handler'
+import { ListGroupMembersHandler } from './application/queries/list-group-members.handler'
+import { GetGraphCredentialHandler } from './application/queries/get-graph-credential.handler'
 
 import { IdentityQueryFacade } from './application/facades/identity-query.facade'
 import { IdentityRouterService } from './interface/trpc/identity-router.service'
@@ -83,6 +90,8 @@ const QueryHandlers = [
   ListApiKeysHandler,
   GetIdpGroupMappingsHandler,
   ValidateApiKeyHandler,
+  ListGroupMembersHandler,
+  GetGraphCredentialHandler,
 ]
 
 @Module({
@@ -93,12 +102,19 @@ const QueryHandlers = [
     { provide: MAGIC_LINK_TOKEN_REPOSITORY, useClass: DrizzleMagicLinkTokenRepository },
     { provide: API_KEY_REPOSITORY, useClass: DrizzleApiKeyRepository },
     { provide: SYNC_HISTORY_REPOSITORY, useClass: DrizzleSyncHistoryRepository },
+    { provide: IDP_GROUP_MEMBER_REPOSITORY, useClass: DrizzleIdpGroupMemberRepository },
+    { provide: MS_GRAPH_CREDENTIAL_REPOSITORY, useClass: DrizzleMsGraphCredentialRepository },
     { provide: DIRECTORY_PROVIDER_FACTORY, useClass: DirectoryProviderFactory },
-    { provide: DIRECTORY_PROVIDER, useClass: DirectoryConnectionService },
+    {
+      provide: SECRETS_STORE,
+      useFactory: () =>
+        new AwsSecretsStoreAdapter({ region: process.env.AWS_REGION ?? 'ap-southeast-1' }),
+    },
     { provide: CRYPTO_PROVIDER, useClass: NodeCryptoProvider },
     { provide: JOB_SCHEDULER, useClass: StubJobScheduler },
     { provide: MAGIC_LINK_SENDER, useClass: MailMagicLinkSender },
     { provide: LOCAL_USER_QUERY_PORT, useClass: DrizzleLocalUserQueryService },
+    MsGraphTokenAcquirer,
     ...CommandHandlers,
     ...QueryHandlers,
     IdentityQueryFacade,

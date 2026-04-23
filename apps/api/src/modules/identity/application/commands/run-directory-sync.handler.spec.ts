@@ -14,7 +14,7 @@ import type {
   IDirectoryProvider,
   IdpUser,
   IdpGroup,
-} from '../../infrastructure/providers/directory-provider.interface'
+} from '../../domain/ports/directory-provider.port'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const PROVIDER_ID = '01900000-0000-7000-8000-000000000002'
@@ -77,8 +77,12 @@ describe('RunDirectorySyncHandler', () => {
       createUserIdentity: vi.fn(),
       deprovisionUserIdentity: vi.fn(),
     } as unknown as KernelUserIdentityFacade
-    directoryProvider = { listUsers: vi.fn(), listGroupsWithMembers: vi.fn() }
-    directoryProviderFactory = { create: vi.fn().mockReturnValue(directoryProvider) }
+    directoryProvider = {
+      testConnection: vi.fn(),
+      listUsers: vi.fn(),
+      listGroupsWithMembers: vi.fn(),
+    }
+    directoryProviderFactory = { create: vi.fn().mockResolvedValue(directoryProvider) }
     handler = new RunDirectorySyncHandler(
       providerRepo,
       mappingRepo,

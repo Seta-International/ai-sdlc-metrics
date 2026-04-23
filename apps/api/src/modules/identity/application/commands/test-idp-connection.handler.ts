@@ -2,8 +2,8 @@ import { Inject } from '@nestjs/common'
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import {
-  DIRECTORY_PROVIDER,
-  type IDirectoryProvider,
+  DIRECTORY_PROVIDER_FACTORY,
+  type IDirectoryProviderFactory,
 } from '../../domain/ports/directory-provider.port'
 import {
   IDENTITY_PROVIDER_REPOSITORY,
@@ -33,8 +33,8 @@ export class TestIdpConnectionHandler implements ICommandHandler<
   constructor(
     @Inject(IDENTITY_PROVIDER_REPOSITORY)
     private readonly providerRepo: IIdentityProviderRepository,
-    @Inject(DIRECTORY_PROVIDER)
-    private readonly directoryProvider: IDirectoryProvider,
+    @Inject(DIRECTORY_PROVIDER_FACTORY)
+    private readonly directoryProviderFactory: IDirectoryProviderFactory,
     private readonly auditFacade: KernelAuditFacade,
   ) {}
 
@@ -44,12 +44,10 @@ export class TestIdpConnectionHandler implements ICommandHandler<
       throw new IdentityProviderNotFoundException(command.providerId)
     }
 
-    const result = await this.directoryProvider.testConnection(
-      provider.providerType,
-      provider.clientId,
-      provider.clientSecretRef,
-      provider.directoryId ?? '',
-    )
+    const directoryProvider = await this.directoryProviderFactory.create(provider)
+    const result = await directoryProvider.testConnection()
+    const response =
+      result.ok === true ? { success: true } : { success: false, error: result.error }
 
     await this.auditFacade.recordEvent({
       tenantId: command.tenantId,
@@ -57,9 +55,9 @@ export class TestIdpConnectionHandler implements ICommandHandler<
       eventType: 'identity_provider.connection_tested',
       module: 'identity',
       subjectId: command.providerId,
-      payload: { success: result.success, error: result.error },
+      payload: { success: response.success, error: response.error },
     })
 
-    return result
+    return response
   }
 }

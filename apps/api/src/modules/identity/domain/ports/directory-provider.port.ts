@@ -1,38 +1,26 @@
-export const DIRECTORY_PROVIDER = Symbol('IDirectoryProvider')
+import type { IdentityProviderEntity } from '../entities/identity-provider.entity'
 
-export interface DirectoryGroup {
-  externalGroupId: string
-  displayName: string
-  memberCount: number
-}
+export const DIRECTORY_PROVIDER_FACTORY = Symbol('IDirectoryProviderFactory')
 
-export interface DirectoryUser {
-  ssoSubject: string
+export interface IdpUser {
+  externalId: string
   email: string
   displayName: string
-  isEnabled: boolean
-  groups: string[]
+  isActive: boolean
+}
+
+export interface IdpGroup {
+  externalGroupId: string
+  displayName: string
+  memberExternalIds: string[]
 }
 
 export interface IDirectoryProvider {
-  testConnection(
-    providerType: 'microsoft' | 'google',
-    clientId: string,
-    clientSecretRef: string,
-    directoryId: string,
-  ): Promise<{ success: boolean; error?: string; userCount?: number }>
+  testConnection(): Promise<{ ok: true } | { ok: false; error: string }>
+  listUsers(): Promise<IdpUser[]>
+  listGroupsWithMembers(): Promise<IdpGroup[]>
+}
 
-  listGroups(
-    providerType: 'microsoft' | 'google',
-    clientId: string,
-    clientSecretRef: string,
-    directoryId: string,
-  ): Promise<DirectoryGroup[]>
-
-  listUsers(
-    providerType: 'microsoft' | 'google',
-    clientId: string,
-    clientSecretRef: string,
-    directoryId: string,
-  ): Promise<DirectoryUser[]>
+export interface IDirectoryProviderFactory {
+  create(provider: IdentityProviderEntity): Promise<IDirectoryProvider>
 }

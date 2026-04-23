@@ -50,6 +50,26 @@ describe('IdentityQueryFacade', () => {
     expect(result).toBe(expected)
   })
 
+  it('listGroupMembers delegates to query bus', async () => {
+    const expected = [{ actorId: ACTOR_ID, ssoSubject: AAD_OID }]
+    vi.mocked(queryBus.execute).mockResolvedValue(expected)
+
+    const result = await facade.listGroupMembers('group-1', TENANT_ID)
+
+    expect(result).toBe(expected)
+    expect(queryBus.execute).toHaveBeenCalledTimes(1)
+  })
+
+  it('getGraphCredential delegates to query bus', async () => {
+    const expected = { tenantId: TENANT_ID, clientId: 'c' }
+    vi.mocked(queryBus.execute).mockResolvedValue(expected)
+
+    const result = await facade.getGraphCredential(TENANT_ID)
+
+    expect(result).toBe(expected)
+    expect(queryBus.execute).toHaveBeenCalledTimes(1)
+  })
+
   describe('getExternalUserId', () => {
     it('returns ssoSubject when user identity exists', async () => {
       vi.mocked(kernelQueryFacade.getExternalUserId).mockResolvedValue(AAD_OID)
