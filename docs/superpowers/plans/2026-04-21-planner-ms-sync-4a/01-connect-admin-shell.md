@@ -366,7 +366,7 @@ git commit -m "feat(planner): ConnectMsSyncCommand + handler — validate + stor
 - Create: `apps/api/src/modules/planner/application/commands/ms-sync/disconnect-ms-sync.handler.ts`
 - Create: `apps/api/src/modules/planner/application/commands/ms-sync/disconnect-ms-sync.handler.spec.ts`
 
-- [ ] **Step 1: Command**
+- [x] **Step 1: Command**
 
 ```typescript
 export class DisconnectMsSyncCommand {
@@ -378,7 +378,7 @@ export class DisconnectMsSyncCommand {
 }
 ```
 
-- [ ] **Step 2: Test**
+- [x] **Step 2: Test**
 
 ```typescript
 describe('DisconnectMsSyncHandler', () => {
@@ -442,7 +442,7 @@ describe('DisconnectMsSyncHandler', () => {
 })
 ```
 
-- [ ] **Step 3: Handler**
+- [x] **Step 3: Handler**
 
 ```typescript
 @CommandHandler(DisconnectMsSyncCommand)
@@ -481,9 +481,9 @@ export class DisconnectMsSyncHandler implements ICommandHandler<DisconnectMsSync
 
 Plan 4.2 later adds: when destroy is invoked, convert all MS-linked plans to `container_type='future_only'`. In this plan, `ms_linked_group` table doesn't yet exist, so there's nothing to convert.
 
-- [ ] **Step 4: Run — expect PASS**
+- [x] **Step 4: Run — expect PASS**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A apps/api/src/modules/planner/application/commands/ms-sync
