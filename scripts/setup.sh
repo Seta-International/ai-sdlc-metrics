@@ -168,16 +168,24 @@ echo ""
 warn "SSO keys (needed for Microsoft Entra login — skip for local dev with LOCAL_DEV=1):"
 ask_env "apps/web-shell/.env" \
   "NEXT_PUBLIC_MICROSOFT_CLIENT_ID" \
-  "" \
+  "e8aff199-2c97-421e-805a-cd18ecb8de0c" \
   "Entra app client ID (Azure portal → App registrations)"
 ask_env "apps/web-shell/.env" \
   "MICROSOFT_CLIENT_SECRET" \
-  "" \
+  "yrX8Q~sgB6lB1pYOlI-qFfaQ.w76BUFkGhNPzdsW" \
   "Entra app client secret"
 ask_env "apps/web-shell/.env" \
   "NEXT_PUBLIC_MICROSOFT_TENANT_ID" \
-  "" \
+  "d7f9f1a0-2abd-4417-b315-f1997cdf424b" \
   "Entra tenant ID"
+ask_env ".env" \
+  "ENTRA_TENANT_ID" \
+  "d7f9f1a0-2abd-4417-b315-f1997cdf424b" \
+  "Entra tenant ID for the API"
+ask_env ".env" \
+  "ENTRA_CLIENT_ID" \
+  "e8aff199-2c97-421e-805a-cd18ecb8de0c" \
+  "Entra client ID for the API"
 
 echo ""
 warn "AI keys (optional for local dev — agents will be disabled without OPENAI_API_KEY):"
@@ -252,6 +260,12 @@ echo "  Start API + shell:      bun run dev --filter=@future/api --filter=@futur
 echo "  Run unit tests:         bun run test:unit"
 echo "  Provision a tenant:     bun run tenant:provision --name ... --slug ... --plan starter --admin-name ... --admin-email ..."
 echo "  Stop local infra:       bun run db:down"
+echo ""
+echo "  Seeded tenants:"
+echo "    SETA International  (slug: seta,   domain: seta-international.vn)"
+echo "    BlueOC              (slug: blueoc, domain: blueoc.tech)"
+echo "    AIcycle             (slug: aicycle,domain: aicycle.ai)"
+echo "    Future              (slug: future, domain: setafuture.onmicrosoft.com)"
 echo ""
 echo "  Full guide: QUICKSTART.md"
 echo ""
