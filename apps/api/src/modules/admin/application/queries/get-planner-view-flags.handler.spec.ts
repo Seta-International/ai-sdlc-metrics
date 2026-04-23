@@ -15,6 +15,7 @@ function makeDb(
     plannerChartsEnabled: boolean
     plannerChartsTrendsEnabled: boolean
     plannerPersonalEnabled: boolean
+    plannerMsSyncEnabled: boolean
   }>,
 ): Db {
   const selectFn = vi.fn().mockReturnValue({
@@ -44,6 +45,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         chartsEnabled: false,
         trendsEnabled: false,
         personalEnabled: false,
+        msSyncEnabled: false,
       })
     })
   })
@@ -59,6 +61,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerChartsEnabled: false,
             plannerChartsTrendsEnabled: false,
             plannerPersonalEnabled: false,
+            plannerMsSyncEnabled: false,
           },
         ]),
       )
@@ -73,6 +76,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         chartsEnabled: false,
         trendsEnabled: false,
         personalEnabled: false,
+        msSyncEnabled: false,
       })
     })
   })
@@ -88,6 +92,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerChartsEnabled: true,
             plannerChartsTrendsEnabled: true,
             plannerPersonalEnabled: true,
+            plannerMsSyncEnabled: true,
           },
         ]),
       )
@@ -102,6 +107,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         chartsEnabled: true,
         trendsEnabled: true,
         personalEnabled: true,
+        msSyncEnabled: true,
       })
     })
   })
@@ -117,6 +123,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerChartsEnabled: false,
             plannerChartsTrendsEnabled: true,
             plannerPersonalEnabled: false,
+            plannerMsSyncEnabled: false,
           },
         ]),
       )
@@ -131,6 +138,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         chartsEnabled: false,
         trendsEnabled: true,
         personalEnabled: false,
+        msSyncEnabled: false,
       })
     })
   })
@@ -146,6 +154,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerChartsEnabled: false,
             plannerChartsTrendsEnabled: false,
             plannerPersonalEnabled: true,
+            plannerMsSyncEnabled: false,
           },
         ]),
       )
@@ -160,6 +169,38 @@ describe('GetPlannerViewFlagsHandler', () => {
         chartsEnabled: false,
         trendsEnabled: false,
         personalEnabled: true,
+        msSyncEnabled: false,
+      })
+    })
+  })
+
+  describe('when row exists with plannerMsSyncEnabled = true only', () => {
+    beforeEach(() => {
+      handler = new GetPlannerViewFlagsHandler(
+        makeDb([
+          {
+            plannerViewsEnabled: false,
+            plannerGridEnabled: false,
+            plannerScheduleEnabled: false,
+            plannerChartsEnabled: false,
+            plannerChartsTrendsEnabled: false,
+            plannerPersonalEnabled: false,
+            plannerMsSyncEnabled: true,
+          },
+        ]),
+      )
+    })
+
+    it('returns msSyncEnabled = true and others = false', async () => {
+      const result = await handler.execute(new GetPlannerViewFlagsQuery(TENANT_ID))
+      expect(result).toEqual({
+        viewsEnabled: false,
+        gridEnabled: false,
+        scheduleEnabled: false,
+        chartsEnabled: false,
+        trendsEnabled: false,
+        personalEnabled: false,
+        msSyncEnabled: true,
       })
     })
   })

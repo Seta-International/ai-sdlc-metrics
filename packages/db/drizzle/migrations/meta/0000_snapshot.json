@@ -144,6 +144,13 @@
           "notNull": true,
           "default": false
         },
+        "planner_ms_sync_enabled": {
+          "name": "planner_ms_sync_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "timezone": {
           "name": "timezone",
           "type": "text",

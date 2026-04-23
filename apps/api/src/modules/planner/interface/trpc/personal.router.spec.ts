@@ -32,6 +32,7 @@ function allEnabledFlags(): PlannerViewFlags {
     chartsEnabled: true,
     trendsEnabled: true,
     personalEnabled: true,
+    msSyncEnabled: true,
   }
 }
 

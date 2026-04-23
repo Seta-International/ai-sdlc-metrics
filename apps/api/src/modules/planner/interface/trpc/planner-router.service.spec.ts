@@ -33,6 +33,7 @@ describe('PlannerRouterService', () => {
         chartsEnabled: true,
         trendsEnabled: true,
         personalEnabled: true,
+        msSyncEnabled: true,
       })
       await expect(svc.assertPersonalEnabled('tenant-1')).resolves.toBeUndefined()
     })
@@ -45,6 +46,7 @@ describe('PlannerRouterService', () => {
         chartsEnabled: true,
         trendsEnabled: true,
         personalEnabled: false,
+        msSyncEnabled: true,
       })
       await expect(svc.assertPersonalEnabled('tenant-1')).rejects.toMatchObject({
         code: 'FORBIDDEN',

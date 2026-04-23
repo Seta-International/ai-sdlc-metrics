@@ -51,6 +51,26 @@ describe('GetPlannerViewFlagsHandler — integration', () => {
       expect(result.scheduleEnabled).toBe(false)
       expect(result.chartsEnabled).toBe(false)
       expect(result.trendsEnabled).toBe(false)
+      expect(result.msSyncEnabled).toBe(false)
+    })
+  })
+
+  describe('when tenant_settings row exists with planner_ms_sync_enabled = true', () => {
+    it('returns msSyncEnabled=true and all other view flags false', async () => {
+      await db.execute(
+        sql`INSERT INTO admin.tenant_settings (id, tenant_id, planner_ms_sync_enabled, created_at, updated_at)
+            VALUES (${uuidv7()}, ${TENANT_ID}, true, NOW(), NOW())`,
+      )
+
+      const result = await handler.execute(new GetPlannerViewFlagsQuery(TENANT_ID))
+
+      expect(result.viewsEnabled).toBe(false)
+      expect(result.gridEnabled).toBe(false)
+      expect(result.scheduleEnabled).toBe(false)
+      expect(result.chartsEnabled).toBe(false)
+      expect(result.trendsEnabled).toBe(false)
+      expect(result.personalEnabled).toBe(false)
+      expect(result.msSyncEnabled).toBe(true)
     })
   })
 
@@ -63,6 +83,8 @@ describe('GetPlannerViewFlagsHandler — integration', () => {
       expect(result.scheduleEnabled).toBe(false)
       expect(result.chartsEnabled).toBe(false)
       expect(result.trendsEnabled).toBe(false)
+      expect(result.personalEnabled).toBe(false)
+      expect(result.msSyncEnabled).toBe(false)
     })
   })
 })

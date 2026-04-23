@@ -70,3 +70,21 @@ describe('PERMISSIONS — personal-hubs + timezone keys', () => {
     expect(PERMISSIONS.ADMIN_TENANT_TIMEZONE_UPDATE).toBe('admin:tenant:timezone:update')
   })
 })
+
+describe('PERMISSIONS — planner ms_sync keys', () => {
+  it('exposes planner.ms_sync.connect', () => {
+    expect(PERMISSIONS.PLANNER_MS_SYNC_CONNECT).toBe('planner.ms_sync.connect')
+  })
+
+  it('exposes planner.ms_sync.link_group', () => {
+    expect(PERMISSIONS.PLANNER_MS_SYNC_LINK_GROUP).toBe('planner.ms_sync.link_group')
+  })
+
+  it('exposes planner.ms_sync.conflict.resolve', () => {
+    expect(PERMISSIONS.PLANNER_MS_SYNC_CONFLICT_RESOLVE).toBe('planner.ms_sync.conflict.resolve')
+  })
+
+  it('exposes planner.ms_sync.force_resync', () => {
+    expect(PERMISSIONS.PLANNER_MS_SYNC_FORCE_RESYNC).toBe('planner.ms_sync.force_resync')
+  })
+})
