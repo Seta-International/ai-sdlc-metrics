@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GracefulDegradationLadder } from './graceful-degradation-ladder'
 import { QualityCanarySubscription } from './quality-canary-subscription'
 import type { CanaryStateChange } from '../../domain/cost/cost-types'

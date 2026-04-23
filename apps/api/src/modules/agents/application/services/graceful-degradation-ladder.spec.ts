@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest'
 import { GracefulDegradationLadder, LadderInvariantError } from './graceful-degradation-ladder'
 import type { TenantLadderState } from '../../domain/cost/cost-types'
 

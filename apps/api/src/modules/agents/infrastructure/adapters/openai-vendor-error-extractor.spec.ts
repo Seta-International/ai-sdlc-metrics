@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest'
 import { OpenAiVendorErrorExtractor } from './openai-vendor-error-extractor'
 
 describe('OpenAiVendorErrorExtractor', () => {
