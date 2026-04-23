@@ -126,6 +126,28 @@ CREATE TABLE "agents"."agent_conversation" (
 	CONSTRAINT "agent_conversation_status_check" CHECK ("agents"."agent_conversation"."status" IN ('active', 'archived'))
 );
 --> statement-breakpoint
+CREATE TABLE "agents"."agent_cost_event" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"trace_id" uuid NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"user_id" uuid,
+	"pricing_id" uuid NOT NULL,
+	"priced_at" timestamp with time zone NOT NULL,
+	"model_id" text NOT NULL,
+	"usage_input_uncached" integer DEFAULT 0 NOT NULL,
+	"usage_input_cached_read" integer DEFAULT 0 NOT NULL,
+	"usage_input_cached_write" integer DEFAULT 0 NOT NULL,
+	"usage_output" integer DEFAULT 0 NOT NULL,
+	"usage_output_reasoning" integer DEFAULT 0 NOT NULL,
+	"cost_usd" numeric(12, 6) NOT NULL,
+	"layer" text NOT NULL,
+	"retry_count" integer DEFAULT 0 NOT NULL,
+	"attempt_duration_ms" integer DEFAULT 0 NOT NULL,
+	"total_duration_ms" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "agent_cost_event_layer_check" CHECK ("agents"."agent_cost_event"."layer" IN ('router','synthesizer','summarizer') OR "agents"."agent_cost_event"."layer" LIKE 'sub_agent:%')
+);
+--> statement-breakpoint
 CREATE TABLE "agents"."agent_insight" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"tenant_id" uuid NOT NULL,
@@ -160,12 +182,35 @@ CREATE TABLE "agents"."agent_narrative_store" (
 	"first_seen_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "agents"."agent_pricing" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"model_id" text NOT NULL,
+	"input_usd_per_mtok" numeric(10, 4) NOT NULL,
+	"input_cached_read_usd_per_mtok" numeric(10, 4) NOT NULL,
+	"input_cached_write_usd_per_mtok" numeric(10, 4) NOT NULL,
+	"output_usd_per_mtok" numeric(10, 4) NOT NULL,
+	"output_reasoning_usd_per_mtok" numeric(10, 4) NOT NULL,
+	"effective_from" timestamp with time zone NOT NULL,
+	"effective_until" timestamp with time zone
+);
+--> statement-breakpoint
 CREATE TABLE "agents"."agent_prompt_store" (
 	"content_hash" text PRIMARY KEY NOT NULL,
 	"layer" text NOT NULL,
 	"content" text NOT NULL,
 	"tenant_id" uuid NOT NULL,
 	"first_seen_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_rate_limit_counter" (
+	"tenant_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"limit_key" text NOT NULL,
+	"bucket" timestamp with time zone NOT NULL,
+	"count" integer DEFAULT 0 NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "agent_rate_limit_counter_pk" PRIMARY KEY("tenant_id","user_id","limit_key","bucket"),
+	CONSTRAINT "agent_rate_limit_counter_limit_key_check" CHECK ("agents"."agent_rate_limit_counter"."limit_key" IN ('queries/user/min', 'l3_writes/user/day', 'schedule_creations/user/day'))
 );
 --> statement-breakpoint
 CREATE TABLE "agents"."agent_scratchpad" (
@@ -205,6 +250,14 @@ CREATE TABLE "agents"."agent_stored_sub_agent" (
 	CONSTRAINT "agent_stored_sub_agent_status_check" CHECK ("agents"."agent_stored_sub_agent"."status" IN ('draft', 'active', 'retired'))
 );
 --> statement-breakpoint
+CREATE TABLE "agents"."agent_tenant_budget" (
+	"tenant_id" uuid PRIMARY KEY NOT NULL,
+	"daily_limit_usd" numeric(10, 2) DEFAULT '50' NOT NULL,
+	"remaining_usd" numeric(12, 6) NOT NULL,
+	"last_refilled_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "agents"."agent_tool_invocation" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"trace_id" uuid NOT NULL,
@@ -232,6 +285,16 @@ CREATE TABLE "agents"."agent_turn_sampling_decision" (
 	"triggers_matched_retroactively" text[] DEFAULT '{}' NOT NULL,
 	"tenant_quota_exhausted_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_user_budget" (
+	"tenant_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"date" date NOT NULL,
+	"daily_limit_usd" numeric(10, 2) NOT NULL,
+	"remaining_usd" numeric(12, 6) NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "agent_user_budget_pk" PRIMARY KEY("tenant_id","user_id","date")
 );
 --> statement-breakpoint
 CREATE TABLE "documents"."generation_job" (
@@ -314,20 +377,6 @@ CREATE TABLE "identity"."idp_group_mapping" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "identity"."ms_graph_credential" (
-	"tenant_id" uuid PRIMARY KEY NOT NULL,
-	"client_id" text NOT NULL,
-	"client_secret_ref" text NOT NULL,
-	"tenant_ad_id" text NOT NULL,
-	"scopes" text[] NOT NULL,
-	"status" text DEFAULT 'active' NOT NULL,
-	"consented_at" timestamp with time zone NOT NULL,
-	"last_validated_at" timestamp with time zone,
-	"last_error" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "identity"."idp_group_member" (
 	"tenant_id" uuid NOT NULL,
 	"external_group_id" text NOT NULL,
@@ -344,6 +393,20 @@ CREATE TABLE "identity"."magic_link_token" (
 	"expires_at" timestamp NOT NULL,
 	"used_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "identity"."ms_graph_credential" (
+	"tenant_id" uuid PRIMARY KEY NOT NULL,
+	"client_id" text NOT NULL,
+	"client_secret_ref" text NOT NULL,
+	"tenant_ad_id" text NOT NULL,
+	"scopes" text[] NOT NULL,
+	"status" text DEFAULT 'active' NOT NULL,
+	"consented_at" timestamp with time zone NOT NULL,
+	"last_validated_at" timestamp with time zone,
+	"last_error" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "identity"."sync_history" (
@@ -1333,6 +1396,10 @@ CREATE INDEX "agent_tool_embedding_tool_name_idx" ON "agents"."agent_tool_embedd
 CREATE INDEX "agent_message_tenant_user_conv_created_idx" ON "agents"."agent_message" USING btree ("tenant_id","user_id","conversation_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "agent_conversation_scope_active_uidx" ON "agents"."agent_conversation" USING btree ("tenant_id","user_id","surface") WHERE status = 'active';--> statement-breakpoint
 CREATE INDEX "agent_conversation_tenant_user_status_updated_idx" ON "agents"."agent_conversation" USING btree ("tenant_id","user_id","status","updated_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_cost_event_tenant_created_idx" ON "agents"."agent_cost_event" USING btree ("tenant_id","created_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_cost_event_tenant_user_created_idx" ON "agents"."agent_cost_event" USING btree ("tenant_id","user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE UNIQUE INDEX "agent_pricing_model_effective_from_uidx" ON "agents"."agent_pricing" USING btree ("model_id","effective_from");--> statement-breakpoint
+CREATE INDEX "agent_rate_limit_counter_lookup_idx" ON "agents"."agent_rate_limit_counter" USING btree ("tenant_id","user_id","limit_key","bucket");--> statement-breakpoint
 CREATE INDEX "agent_session_conversation_lookup_idx" ON "agents"."agent_session" USING btree ("tenant_id","user_id","conversation_id","started_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE UNIQUE INDEX "agent_session_conversation_active_uq" ON "agents"."agent_session" USING btree ("tenant_id","conversation_id") WHERE ended_at IS NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "agent_stored_sub_agent_tenant_key_version_uidx" ON "agents"."agent_stored_sub_agent" USING btree ("tenant_id","key","version");--> statement-breakpoint
@@ -1378,12 +1445,4 @@ CREATE INDEX "idx_task_comment_task_posted" ON "planner"."task_comment" USING bt
 CREATE INDEX "idx_task_evidence_task_submitted" ON "planner"."task_evidence" USING btree ("task_id","submitted_at");--> statement-breakpoint
 CREATE INDEX "idx_task_evidence_tenant_submitted_by" ON "planner"."task_evidence" USING btree ("tenant_id","submitted_by");--> statement-breakpoint
 CREATE INDEX "saved_view_tenant_actor_resource_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key");--> statement-breakpoint
-CREATE UNIQUE INDEX "saved_view_unique_default_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key") WHERE is_default = true;--> statement-breakpoint
-ALTER TABLE identity.ms_graph_credential ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-ALTER TABLE identity.idp_group_member ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY tenant_isolation ON identity.ms_graph_credential
-  FOR ALL
-  USING (tenant_id = current_setting('app.tenant_id')::uuid);--> statement-breakpoint
-CREATE POLICY tenant_isolation ON identity.idp_group_member
-  FOR ALL
-  USING (tenant_id = current_setting('app.tenant_id')::uuid);
+CREATE UNIQUE INDEX "saved_view_unique_default_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key") WHERE is_default = true;
