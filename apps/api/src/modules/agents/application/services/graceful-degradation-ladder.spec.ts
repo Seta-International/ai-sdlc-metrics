@@ -139,7 +139,11 @@ describe('GracefulDegradationLadder', () => {
     it('throws LadderInvariantError if a non-step-1 step would have empty userMessage', () => {
       // We test this via a subclass or by directly checking that the invariant
       // is enforced. We monkey-patch the STEP_MESSAGES to simulate violation.
-      const ladder = makeLadder() as any
+      const ladder = makeLadder() as unknown as {
+        _stepMessages: Record<number, string>
+        recordError: (m: string, e: string) => void
+        evaluate: (o: unknown) => unknown
+      }
       // Temporarily override to produce empty message for step 2
       const originalMessages = ladder._stepMessages
       ladder._stepMessages = { ...originalMessages, 2: '' }

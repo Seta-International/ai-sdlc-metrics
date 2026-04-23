@@ -42,7 +42,7 @@ export class GracefulDegradationLadder {
     currentTier: 'full' | 'nano'
     tenantState: TenantLadderState
   }): LadderStepState {
-    const { trigger, modelId, iteration, tenantState } = opts
+    const { trigger, modelId, iteration: _iteration, tenantState: _tenantState } = opts
 
     // Step 7 — budget refuse (highest priority check, trigger-based)
     if (trigger === 'budget_exhausted') {

@@ -8,7 +8,7 @@
  *  4. setDailyLimit passes new limit and actorUserId to audit
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { AdminBudgetOps } from './admin-budget-ops'
 import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 

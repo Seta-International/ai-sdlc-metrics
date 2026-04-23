@@ -86,7 +86,7 @@ describe('CostRecorder', () => {
     mockAudit = { recordEvent: vi.fn().mockResolvedValue(undefined) }
     mockExtractor = { detectDroppedFields: vi.fn().mockReturnValue([]) }
 
-    service = new CostRecorder(mockDb as any, mockAudit as any, mockExtractor as any)
+    service = new CostRecorder(mockDb as never, mockAudit as never, mockExtractor as never)
   })
 
   afterEach(() => vi.clearAllMocks())
