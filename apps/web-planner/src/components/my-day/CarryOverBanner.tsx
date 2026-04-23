@@ -1,7 +1,7 @@
 'use client'
 
 import { useSyncExternalStore, useState } from 'react'
-import { Sunrise } from 'lucide-react'
+import { Sunrise } from '@future/ui/icons'
 import { Alert, AlertDescription, Button, Spinner } from '@future/ui'
 import { useCarryOver, useMyDayCarryOverCandidates } from '../../lib/hooks/use-carry-over'
 import { CarryOverPickerDialog } from './CarryOverPickerDialog'

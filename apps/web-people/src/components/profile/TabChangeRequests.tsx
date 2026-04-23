@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Badge, Button, Card, Skeleton } from '@future/ui'
-import { Check, X } from 'lucide-react'
+import { Check, X } from '@future/ui/icons'
 import type { ChangeRequest } from '../../lib/types'
 import { trpc } from '../../lib/trpc'
 

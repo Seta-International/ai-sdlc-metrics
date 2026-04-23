@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@future/ui'
-import { Edit, Share2, MoreHorizontal, Download, Clock, UserMinus } from 'lucide-react'
+import { Edit, Share2, MoreHorizontal, Download, Clock, UserMinus } from '@future/ui/icons'
 import { StatusBadge } from '../StatusBadge'
 import { CompletenessBar } from '../CompletenessBar'
 import type { EmployeeProfile } from '../../lib/types'

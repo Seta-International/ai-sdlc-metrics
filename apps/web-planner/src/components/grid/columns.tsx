@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { ColumnDef } from '@future/ui'
 import { Checkbox } from '@future/ui'
 import type { TaskFlat } from '@future/api-client/planner'
 import { TitleCell } from './cells/TitleCell'

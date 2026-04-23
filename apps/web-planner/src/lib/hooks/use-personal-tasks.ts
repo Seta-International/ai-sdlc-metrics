@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery } from '@future/api-client'
 import { useSession } from '@future/auth'
 import type { TaskFlatWithPlan } from '@future/api-client/planner'
 import type { TaskGroup } from '../task-group'

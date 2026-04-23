@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { ColumnDef } from '@future/ui'
 import {
   DataTable,
   Card,

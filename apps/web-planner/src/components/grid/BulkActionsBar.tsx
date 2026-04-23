@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
-import { CalendarIcon, TagIcon, Trash2Icon, UserIcon } from 'lucide-react'
-import { Check } from 'lucide-react'
+import { CalendarIcon, TagIcon, Trash2Icon, UserIcon } from '@future/ui/icons'
+import { Check } from '@future/ui/icons'
 import { useSession } from '@future/auth'
 import {
   AlertDialog,

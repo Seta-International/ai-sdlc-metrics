@@ -1,4 +1,4 @@
-import { DollarSign, Receipt, Wallet, PiggyBank } from 'lucide-react'
+import { DollarSign, Receipt, Wallet, PiggyBank } from '@future/ui/icons'
 import type { NavigationConfig } from '@future/app-layout'
 
 export const financeNavConfig: NavigationConfig = {

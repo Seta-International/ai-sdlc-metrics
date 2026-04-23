@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { UserPlusIcon, TrashIcon, XIcon, ArrowLeft } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@future/api-client'
+import { UserPlusIcon, TrashIcon, XIcon, ArrowLeft } from '@future/ui/icons'
 import { useSession } from '@future/auth'
 import {
   Button,

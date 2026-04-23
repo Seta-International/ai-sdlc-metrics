@@ -109,6 +109,13 @@ import {
   ConversationRetentionScheduler,
   type TenantListerLike,
 } from './application/services/conversation-retention-scheduler'
+import {
+  CompositionMonitorWorker,
+  type CompositionMonitorJobData,
+} from './infrastructure/jobs/composition-monitor.worker'
+import { LeakCanaryScheduler } from './infrastructure/jobs/leak-canary.scheduler'
+import { TurnSamplingDecisionRecorder } from './application/services/turn-sampling-decision-recorder'
+import { ToolInvocationAuditRecorder } from './application/services/tool-invocation-audit-recorder'
 import type { ConversationRepository } from './domain/repositories/conversation.repository'
 import type { ConversationMessageRepository } from './domain/repositories/conversation-message.repository'
 import type { L3PreferenceRepository } from './domain/repositories/l3-preference.repository'
@@ -271,6 +278,12 @@ class NullTenantLister implements TenantListerLike {
       useFactory: (pgBoss: PgBossService, convRepo: ConversationRepository) =>
         new ConversationRetentionScheduler(pgBoss, convRepo, new NullTenantLister()),
     },
+    // ── Composition-attack monitor (Plan 07 Task 6) ───────────────────────────
+    CompositionMonitorWorker,
+    // ── Plan 07 Task 7 — Observability meta-metrics + quota recorder ──────────
+    TurnSamplingDecisionRecorder,
+    LeakCanaryScheduler,
+    ToolInvocationAuditRecorder,
   ],
   exports: [
     AgentsQueryFacade,
@@ -315,6 +328,9 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     @Inject(CONVERSATION_REPOSITORY) private readonly conversationRepo: ConversationRepository,
     @Inject(CONVERSATION_RETENTION_SCHEDULER)
     private readonly retentionScheduler: ConversationRetentionScheduler,
+    private readonly compositionMonitorWorker: CompositionMonitorWorker,
+    private readonly leakCanaryScheduler: LeakCanaryScheduler,
+    private readonly pgBossService: PgBossService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -396,5 +412,20 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
 
     // Step 5: Register retention scheduler — daily cron to archive idle conversations (R-04.27).
     await this.retentionScheduler.registerWorkers()
+
+    // Step 6: Register composition-attack monitor (Plan 07 Task 6, R-07.46).
+    // Best-effort, post-turn async job — never blocks tool calls (Tenet #9).
+    await this.pgBossService.registerWorker<CompositionMonitorJobData>(
+      'observability-composition-monitor',
+      async (jobs) => {
+        for (const job of jobs) {
+          await this.compositionMonitorWorker.handle(job)
+        }
+      },
+    )
+
+    // Step 7: Register leak canary job (Plan 07 Task 7, R-07.§8).
+    // Daily 3am UTC scan for cross-tenant trace leaks — MVP stub records 'clean'.
+    await this.leakCanaryScheduler.registerJob()
   }
 }

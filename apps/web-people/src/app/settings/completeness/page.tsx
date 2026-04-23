@@ -1,8 +1,8 @@
 'use client'
 import * as React from 'react'
-import type { ColumnDef, CellContext } from '@tanstack/react-table'
+import type { ColumnDef, CellContext } from '@future/ui'
 import { DataTable, Button, Badge, type FutureTableState, defaultTableState } from '@future/ui'
-import { Plus } from 'lucide-react'
+import { Plus } from '@future/ui/icons'
 import type { CompletenessRule } from '../../../lib/types-workflows'
 import { trpc } from '../../../lib/trpc'
 

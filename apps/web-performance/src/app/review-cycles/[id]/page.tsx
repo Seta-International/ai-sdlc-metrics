@@ -1,5 +1,5 @@
 import { AgentContextProvider, AgentBadge, AgentInlineAction, AgentBanner } from '@future/agent'
-import { BarChart2, Pencil } from 'lucide-react'
+import { BarChart2, Pencil } from '@future/ui/icons'
 
 export default function ReviewCyclePage({ params }: { params: { id: string } }) {
   return (

@@ -1,5 +1,5 @@
 import { AgentContextProvider, AgentBadge, AgentInlineAction, AgentBanner } from '@future/agent'
-import { BookOpen, Lightbulb } from 'lucide-react'
+import { BookOpen, Lightbulb } from '@future/ui/icons'
 
 export default function LeaveRequestPage({ params }: { params: { id: string } }) {
   return (

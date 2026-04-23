@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Check } from 'lucide-react'
+import { Check } from '@future/ui/icons'
 import { useSession } from '@future/auth'
 import {
   Popover,

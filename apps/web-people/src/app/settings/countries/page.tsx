@@ -1,7 +1,7 @@
 'use client'
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { ColumnDef } from '@future/ui'
 import { DataTable, type FutureTableState, defaultTableState } from '@future/ui'
 import type { CountryConfig } from '../../../lib/types-workflows'
 import { trpc } from '../../../lib/trpc'

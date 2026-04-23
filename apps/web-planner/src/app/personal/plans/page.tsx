@@ -2,7 +2,7 @@
 
 import { useSession } from '@future/auth'
 import { Skeleton } from '@future/ui'
-import { Folder } from 'lucide-react'
+import { Folder } from '@future/ui/icons'
 import { usePersonalPlans } from '../../../lib/hooks/usePersonalPlans'
 import { MyPlansGrid } from '../../../components/my-plans/MyPlansGrid'
 

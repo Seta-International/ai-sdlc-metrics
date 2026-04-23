@@ -1,6 +1,6 @@
 'use client'
 
-import { Sun, SunDim } from 'lucide-react'
+import { Sun, SunDim } from '@future/ui/icons'
 import { Button, DropdownMenuItem, Spinner } from '@future/ui'
 import type { TaskFlatWithPlan } from '@future/api-client/planner'
 import { useTenantTimezone } from '../../lib/hooks/useTenantTimezone'

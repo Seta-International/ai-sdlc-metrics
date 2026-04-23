@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation } from '@future/api-client'
 import { useSession } from '@future/auth'
 import {
   Button,

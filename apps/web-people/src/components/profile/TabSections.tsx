@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger, Card, Badge, Button, Skeleton } from '@future/ui'
-import { Plus, Edit, Trash2, Link, X } from 'lucide-react'
+import { Plus, Edit, Trash2, Link, X } from '@future/ui/icons'
 import type { ProfileSection } from '../../lib/types'
 import { trpc } from '../../lib/trpc'
 

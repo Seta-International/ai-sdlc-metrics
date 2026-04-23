@@ -1,4 +1,4 @@
-import { Settings, Cpu, ToggleRight, Shield, Bot } from 'lucide-react'
+import { Settings, Cpu, ToggleRight, Shield, Bot } from '@future/ui/icons'
 import type { NavigationConfig } from '@future/app-layout'
 
 export const adminNavConfig: NavigationConfig = {

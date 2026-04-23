@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, act, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import React from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider } from '@future/api-client'
 import { TaskAttachments } from './TaskAttachments'
 import type { AttachmentSnapshot, TaskDetailSnapshot } from '@/lib/board-types'
 

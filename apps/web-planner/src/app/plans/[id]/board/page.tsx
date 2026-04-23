@@ -8,7 +8,7 @@ import { useOptimisticMove } from '../../../../lib/hooks/useOptimisticMove'
 import { BoardDragContext } from '../../../../components/board/BoardDragContext'
 import { BoardColumn } from '../../../../components/board/BoardColumn'
 import { AddBucketButton } from '../../../../components/board/AddBucketButton'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@future/api-client'
 import { trpc } from '../../../../lib/trpc'
 import type {
   BoardSnapshot,

@@ -22,14 +22,10 @@
     "@future/charts": "workspace:*",
     "@future/schedule": "workspace:*",
     "@future/ui": "workspace:*",
-    "@tanstack/react-query": "^5.99.0",
-    "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.13.24",
-    "lucide-react": "^1.8.0",
     "next": "16.2.4",
     "react": "^19.2.5",
-    "react-dom": "^19.2.5",
-    "sonner": "^2.0.7"
+    "react-dom": "^19.2.5"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.2",

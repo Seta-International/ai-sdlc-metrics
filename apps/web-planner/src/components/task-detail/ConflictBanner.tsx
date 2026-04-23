@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle } from '@future/ui/icons'
 import { Alert, AlertDescription, Button } from '@future/ui'
 
 interface ConflictBannerProps {

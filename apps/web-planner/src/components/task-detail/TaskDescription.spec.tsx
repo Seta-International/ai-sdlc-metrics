@@ -5,7 +5,7 @@ import { TaskDescription } from './TaskDescription'
 
 vi.mock('sonner', () => ({ toast: vi.fn() }))
 
-import { toast } from 'sonner'
+import { toast } from '@future/ui'
 
 afterEach(() => {
   cleanup()

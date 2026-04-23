@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { render, screen, cleanup, act } from '@testing-library/react'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { ColumnDef } from '@future/ui'
 
 // Hoist mocks so they are available before vi.mock factories run
 const { mockListCasesQuery } = vi.hoisted(() => ({

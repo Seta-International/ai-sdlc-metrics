@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery } from '@future/api-client'
 import { useSession } from '@future/auth'
 import { trpc } from '../trpc'
 

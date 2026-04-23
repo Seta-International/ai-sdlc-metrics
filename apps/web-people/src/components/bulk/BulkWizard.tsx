@@ -11,7 +11,7 @@ import {
   SelectValue,
   Input,
 } from '@future/ui'
-import { Building2, Users, ToggleLeft, ArrowRight } from 'lucide-react'
+import { Building2, Users, ToggleLeft, ArrowRight } from '@future/ui/icons'
 import { BulkEmployeeSelector } from './BulkEmployeeSelector'
 import { BulkPreviewTable } from './BulkPreviewTable'
 import type { BulkOperationType, BulkPreviewRow } from '../../lib/types-workflows'

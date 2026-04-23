@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import type { ColumnDef, CellContext } from '@tanstack/react-table'
+import type { ColumnDef, CellContext } from '@future/ui'
 import { DataTable, Badge, Progress, type FutureTableState, defaultTableState } from '@future/ui'
 import { AvatarNameCell } from '../AvatarNameCell'
 import type { OnboardingCase, OffboardingCase } from '../../lib/types-workflows'

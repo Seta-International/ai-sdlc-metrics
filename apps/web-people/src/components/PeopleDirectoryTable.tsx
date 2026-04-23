@@ -2,9 +2,9 @@
 
 import * as React from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import type { ColumnDef, CellContext } from '@tanstack/react-table'
+import type { ColumnDef, CellContext } from '@future/ui'
 import { DataTable, type FutureTableState, Button } from '@future/ui'
-import { LayoutGrid, LayoutList, Download } from 'lucide-react'
+import { LayoutGrid, LayoutList, Download } from '@future/ui/icons'
 import { trpc } from '../lib/trpc'
 import { getTableStateFromUrl, pushTableStateToUrl } from '../lib/table-url-state'
 import { AvatarNameCell } from './AvatarNameCell'

@@ -10,6 +10,9 @@ pre-commit:
     ddd-boundaries:
       glob: '*.{ts,tsx}'
       run: bash scripts/check-ddd-boundaries.sh {staged_files}
+    ui-components:
+      glob: '*.tsx'
+      run: bash scripts/check-ui-components.sh {staged_files}
 
 pre-push:
   parallel: true

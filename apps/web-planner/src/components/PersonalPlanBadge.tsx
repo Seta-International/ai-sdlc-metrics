@@ -1,4 +1,4 @@
-import { Folder, User } from 'lucide-react'
+import { Folder, User } from '@future/ui/icons'
 import { Badge } from '@future/ui'
 
 export function PersonalPlanBadge({

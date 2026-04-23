@@ -1,7 +1,7 @@
 'use client'
 
 import { Card, Button } from '@future/ui'
-import { Edit } from 'lucide-react'
+import { Edit } from '@future/ui/icons'
 
 interface InfoCardProps {
   title: string

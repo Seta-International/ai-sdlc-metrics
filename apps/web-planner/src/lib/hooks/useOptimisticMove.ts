@@ -1,6 +1,6 @@
 'use client'
 
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@future/api-client'
 import { trpc } from '../trpc'
 import { orderHintBetween } from '../order-hint'
 import type { BoardSnapshot } from '../board-types'

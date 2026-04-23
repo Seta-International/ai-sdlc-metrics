@@ -1,6 +1,6 @@
 'use client'
 import * as React from 'react'
-import type { ColumnDef } from '@tanstack/react-table'
+import type { ColumnDef } from '@future/ui'
 import {
   DataTable,
   Tabs,
@@ -11,7 +11,7 @@ import {
   type FutureTableState,
   defaultTableState,
 } from '@future/ui'
-import { Plus } from 'lucide-react'
+import { Plus } from '@future/ui/icons'
 import { trpc } from '../../lib/trpc'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

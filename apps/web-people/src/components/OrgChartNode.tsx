@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { Card, Badge, Button, HoverCard, HoverCardContent, HoverCardTrigger } from '@future/ui'
 import Image from 'next/image'
-import { ChevronDown, ChevronRight, Users } from 'lucide-react'
+import { ChevronDown, ChevronRight, Users } from '@future/ui/icons'
 import type { OrgChartNode as OrgChartNodeType } from '../lib/types'
 
 interface OrgChartNodeProps {

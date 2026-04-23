@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@future/api-client'
 import { useSession } from '@future/auth'
-import { toast } from 'sonner'
+import { toast } from '@future/ui'
 import { trpc } from '../trpc'
 
 interface UseUploadOptions {

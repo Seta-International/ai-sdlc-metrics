@@ -1,6 +1,6 @@
 'use client'
 
-import { Info } from 'lucide-react'
+import { Info } from '@future/ui/icons'
 import { Alert, AlertDescription, Skeleton } from '@future/ui'
 import { useTaskTrends } from '@/lib/hooks/useTaskTrends'
 import { useViewState } from '@/lib/hooks/useViewState'

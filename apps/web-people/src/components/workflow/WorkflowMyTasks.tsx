@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Card, Button } from '@future/ui'
-import { CheckCircle2, Clock, AlertTriangle, Upload } from 'lucide-react'
+import { CheckCircle2, Clock, AlertTriangle, Upload } from '@future/ui/icons'
 import type { WorkflowTask } from '../../lib/types-workflows'
 import { trpc } from '../../lib/trpc'
 

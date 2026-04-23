@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider } from '@future/api-client'
 import { AppLayout, type PermissionTrpcClient } from '@future/app-layout'
 import { AgentProvider } from '@future/agent'
 import { trpc } from '../lib/trpc'

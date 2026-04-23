@@ -17,7 +17,7 @@ import {
   SelectValue,
   Switch,
 } from '@future/ui'
-import { Plus, GripVertical, Trash2, Copy } from 'lucide-react'
+import { Plus, GripVertical, Trash2, Copy } from '@future/ui/icons'
 import type { OnboardingTemplate } from '../../lib/types-workflows'
 import { trpc } from '../../lib/trpc'
 

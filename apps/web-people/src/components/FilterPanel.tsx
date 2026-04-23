@@ -11,7 +11,7 @@ import {
   Separator,
   Input,
 } from '@future/ui'
-import { Filter, X } from 'lucide-react'
+import { Filter, X } from '@future/ui/icons'
 import type { EmploymentStatus, EmploymentType, WorkArrangement } from '../lib/types'
 
 export type FilterValues = {

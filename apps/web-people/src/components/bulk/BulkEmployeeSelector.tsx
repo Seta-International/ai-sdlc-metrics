@@ -1,6 +1,6 @@
 'use client'
 import * as React from 'react'
-import type { ColumnDef, CellContext } from '@tanstack/react-table'
+import type { ColumnDef, CellContext } from '@future/ui'
 import { DataTable, Checkbox, type FutureTableState, defaultTableState } from '@future/ui'
 import { AvatarNameCell } from '../AvatarNameCell'
 import { trpc } from '../../lib/trpc'

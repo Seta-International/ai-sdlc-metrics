@@ -1,6 +1,6 @@
 'use client'
 
-import { MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal } from '@future/ui/icons'
 import { Button } from '@future/ui'
 import type { TaskFlat } from '@future/api-client/planner'
 

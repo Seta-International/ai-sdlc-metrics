@@ -10,8 +10,15 @@ import {
   uniqueIndex,
   primaryKey,
   check,
+  customType,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return 'bytea'
+  },
+})
 
 export const agentsSchema = pgSchema('agents')
 
@@ -268,4 +275,73 @@ export const agentScratchpad = agentsSchema.table(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ name: 'agent_scratchpad_pk', columns: [t.tenantId, t.userId, t.field] })],
+)
+
+// ─── Plan 07 — Observability ───────────────────────────────────────────────────
+
+/**
+ * Plan 07 — Tool-output audit trail (R-07.32–35).
+ *
+ * Stores a canonicalized copy of every tool invocation: args, result preview
+ * (first 16 KB as BYTEA), SHA-256 hash of full result, and correlation to the
+ * OTel trace span so logs can be joined with distributed traces.
+ */
+export const agentToolInvocations = agentsSchema.table(
+  'agent_tool_invocation',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    traceId: uuid('trace_id').notNull(),
+    tenantId: uuid('tenant_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    toolName: text('tool_name').notNull(),
+    args: jsonb('args').notNull(),
+    resultPreview: bytea('result_preview'),
+    resultHash: text('result_hash'),
+    byteCount: integer('byte_count'),
+    resultStatus: text('result_status').notNull(),
+    subAgentKey: text('sub_agent_key'),
+    phase: integer('phase').notNull(),
+    iteration: integer('iteration'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('agent_tool_invocation_trace_idx').on(t.traceId),
+    index('agent_tool_invocation_tenant_user_tool_created_idx').on(
+      t.tenantId,
+      t.userId,
+      t.toolName,
+      t.createdAt.desc(),
+    ),
+  ],
+)
+
+/**
+ * Plan 07 — Per-turn sampling decision diagnostic (R-07.17a).
+ *
+ * One row per turn (trace_id is the PK). Records why a turn was or was not
+ * captured so quota exhaustion and trigger matching can be audited after the
+ * fact without re-running evaluation logic.
+ */
+export const agentTurnSamplingDecisions = agentsSchema.table(
+  'agent_turn_sampling_decision',
+  {
+    traceId: uuid('trace_id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    capture: boolean('capture').notNull(),
+    rootDecisionReason: text('root_decision_reason').notNull(),
+    triggersMatchedAtRoot: text('triggers_matched_at_root')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    triggersMatchedRetroactively: text('triggers_matched_retroactively')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    tenantQuotaExhaustedAt: timestamp('tenant_quota_exhausted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('agent_turn_sampling_decision_tenant_created_idx').on(t.tenantId, t.createdAt.desc()),
+  ],
 )

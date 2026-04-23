@@ -1,7 +1,7 @@
 'use client'
 
 import { Button, Input, Spinner } from '@future/ui'
-import { X } from 'lucide-react'
+import { X } from '@future/ui/icons'
 
 interface Props {
   title: string

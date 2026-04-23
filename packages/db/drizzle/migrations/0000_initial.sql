@@ -54,6 +54,7 @@ CREATE TABLE "admin"."tenant_settings" (
 	"planner_charts_trends_enabled" boolean DEFAULT false NOT NULL,
 	"planner_personal_enabled" boolean DEFAULT false NOT NULL,
 	"timezone" text DEFAULT 'Asia/Ho_Chi_Minh' NOT NULL,
+	"max_sampled_turns_per_day" integer DEFAULT 10000 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "tenant_settings_tenant_id_unique" UNIQUE("tenant_id")
@@ -202,6 +203,35 @@ CREATE TABLE "agents"."agent_stored_sub_agent" (
 	"created_by" uuid NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "agent_stored_sub_agent_status_check" CHECK ("agents"."agent_stored_sub_agent"."status" IN ('draft', 'active', 'retired'))
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_tool_invocation" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"trace_id" uuid NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"tool_name" text NOT NULL,
+	"args" jsonb NOT NULL,
+	"result_preview" "bytea",
+	"result_hash" text,
+	"byte_count" integer,
+	"result_status" text NOT NULL,
+	"sub_agent_key" text,
+	"phase" integer NOT NULL,
+	"iteration" integer,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_turn_sampling_decision" (
+	"trace_id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"capture" boolean NOT NULL,
+	"root_decision_reason" text NOT NULL,
+	"triggers_matched_at_root" text[] DEFAULT '{}' NOT NULL,
+	"triggers_matched_retroactively" text[] DEFAULT '{}' NOT NULL,
+	"tenant_quota_exhausted_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "documents"."generation_job" (
@@ -1286,6 +1316,9 @@ CREATE UNIQUE INDEX "agent_session_conversation_active_uq" ON "agents"."agent_se
 CREATE UNIQUE INDEX "agent_stored_sub_agent_tenant_key_version_uidx" ON "agents"."agent_stored_sub_agent" USING btree ("tenant_id","key","version");--> statement-breakpoint
 CREATE INDEX "agent_stored_sub_agent_tenant_key_status_idx" ON "agents"."agent_stored_sub_agent" USING btree ("tenant_id","key","status");--> statement-breakpoint
 CREATE INDEX "agent_stored_sub_agent_tenant_key_version_desc_idx" ON "agents"."agent_stored_sub_agent" USING btree ("tenant_id","key","version" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_tool_invocation_trace_idx" ON "agents"."agent_tool_invocation" USING btree ("trace_id");--> statement-breakpoint
+CREATE INDEX "agent_tool_invocation_tenant_user_tool_created_idx" ON "agents"."agent_tool_invocation" USING btree ("tenant_id","user_id","tool_name","created_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_turn_sampling_decision_tenant_created_idx" ON "agents"."agent_turn_sampling_decision" USING btree ("tenant_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_identity_provider_tenant_primary" ON "identity"."identity_provider" USING btree ("tenant_id","is_primary") WHERE "identity"."identity_provider"."is_primary" = true;--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_idp_group_mapping_role_scope_scoped" ON "identity"."idp_group_mapping" USING btree ("tenant_id","external_group_id","role_key","scope_type","scope_id") WHERE "identity"."idp_group_mapping"."scope_id" IS NOT NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_idp_group_mapping_role_scope_global" ON "identity"."idp_group_mapping" USING btree ("tenant_id","external_group_id","role_key","scope_type") WHERE "identity"."idp_group_mapping"."scope_id" IS NULL;--> statement-breakpoint

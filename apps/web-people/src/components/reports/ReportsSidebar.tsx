@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Users, CheckSquare, FileText, Clock, FileSignature } from 'lucide-react'
+import { Users, CheckSquare, FileText, Clock, FileSignature } from '@future/ui/icons'
 
 const reportLinks = [
   { href: '/reports/headcount', label: 'Headcount', icon: Users },

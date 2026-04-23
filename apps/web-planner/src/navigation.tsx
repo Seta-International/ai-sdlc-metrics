@@ -1,4 +1,4 @@
-import { Sun, ListChecks, Folder, ListTodo } from 'lucide-react'
+import { Sun, ListChecks, Folder, ListTodo } from '@future/ui/icons'
 import type { NavigationConfig } from '@future/app-layout'
 import { PlannerSidebarPlansGroup } from './components/sidebar/PlannerSidebarPlansGroup'
 

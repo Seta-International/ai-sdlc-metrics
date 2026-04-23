@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery } from '@future/api-client'
 import { useSession } from '@future/auth'
 import { trpc } from '../trpc'
 import { applyTaskFilter } from '../task-filter'
