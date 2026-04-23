@@ -1,0 +1,117 @@
+/**
+ * ObservabilityContext and ObservabilityContextFactory.
+ *
+ * Every agent turn gets one ObservabilityContext. It threads the traceId,
+ * flowId, and intentSlug through all child spans, and auto-stamps identity
+ * attributes (tenant_id, user_id, etc.) on every span at creation.
+ *
+ * Application layer — may import from domain. Zero NestJS decorators.
+ */
+
+import { trace, context, SpanStatusCode } from '@opentelemetry/api'
+import { NoOpSpan, OtelSpan } from '../../domain/observability/span'
+import type { Span } from '../../domain/observability/span'
+import type { SpanType, EntityType } from '../../domain/observability/span-types'
+import type { RequestContext } from './tool-gateway-contracts'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type ObservabilityContext = {
+  readonly currentSpan: Span
+  readonly traceId: string
+  readonly flowId: string
+  readonly intentSlug: string
+  createChildSpan(opts: {
+    type: SpanType
+    entity: EntityType
+    name: string
+    attrs?: Record<string, unknown>
+  }): Span
+}
+
+// ─── Factory ──────────────────────────────────────────────────────────────────
+
+const tracer = trace.getTracer('agents.observability')
+
+export class ObservabilityContextFactory {
+  create(opts: {
+    requestContext: RequestContext
+    parentSpan?: Span
+    flowId: string
+    intentSlug: string
+    capture: boolean
+  }): ObservabilityContext {
+    const { requestContext, flowId, intentSlug, capture } = opts
+
+    if (!capture) {
+      return this._makeNoOpContext(requestContext.traceId, flowId, intentSlug)
+    }
+
+    // Create a root span for this context backed by OTel
+    const otelRoot = tracer.startSpan('agents.context.root')
+    const rootSpan = new OtelSpan(otelRoot, requestContext.traceId)
+
+    return this._makeRealContext(rootSpan, requestContext, flowId, intentSlug)
+  }
+
+  private _makeNoOpContext(
+    traceId: string,
+    flowId: string,
+    intentSlug: string,
+  ): ObservabilityContext {
+    const noOpSpan = new NoOpSpan(traceId)
+    return {
+      currentSpan: noOpSpan,
+      traceId,
+      flowId,
+      intentSlug,
+      createChildSpan: (_opts) => new NoOpSpan(traceId),
+    }
+  }
+
+  private _makeRealContext(
+    currentSpan: OtelSpan,
+    requestContext: RequestContext,
+    flowId: string,
+    intentSlug: string,
+  ): ObservabilityContext {
+    return {
+      currentSpan,
+      traceId: requestContext.traceId,
+      flowId,
+      intentSlug,
+      createChildSpan: (childOpts) => {
+        // Mark the parent as non-leaf
+        currentSpan._hasChildren = true
+
+        // Build the identity + classification attributes
+        const autoAttrs: Record<string, unknown> = {
+          tenant_id: requestContext.tenantId,
+          user_id: requestContext.userId,
+          trace_id: requestContext.traceId,
+          surface: requestContext.surface,
+          flow_id: flowId,
+          intent_slug: intentSlug,
+          span_type: childOpts.type,
+          entity_type: childOpts.entity,
+          ...childOpts.attrs,
+        }
+
+        if (requestContext.delegationId) {
+          autoAttrs['delegation_id'] = requestContext.delegationId
+        }
+
+        // Start an OTel child span under the current active context
+        const otelCtx = trace.setSpan(context.active(), currentSpan['_otel'])
+        let childOtelSpan: ReturnType<typeof tracer.startSpan>
+        context.with(otelCtx, () => {
+          childOtelSpan = tracer.startSpan(childOpts.name)
+        })
+        // context.with callback is synchronous so childOtelSpan is assigned
+        childOtelSpan!.setAttributes(autoAttrs as Parameters<typeof childOtelSpan.setAttributes>[0])
+
+        return new OtelSpan(childOtelSpan!, requestContext.traceId)
+      },
+    }
+  }
+}
