@@ -200,7 +200,7 @@ describe('IdentityMsGraphCredentialFacade', () => {
     expect(directoryFactory.create).not.toHaveBeenCalled()
   })
 
-  it('repairs a matching staged credential by persisting the durable event before activation', async () => {
+  it('rejects a matching validated paused credential without activating it', async () => {
     const persistDurableEvent = vi.fn().mockResolvedValue(undefined)
     credentialRepo.get.mockResolvedValue({
       tenantId: TENANT_ID,
@@ -213,16 +213,36 @@ describe('IdentityMsGraphCredentialFacade', () => {
       consentedAt: new Date('2026-04-23T00:00:00Z'),
     })
 
-    await facade.connectMicrosoftGraphCredential(INPUT, { persistDurableEvent })
+    await expect(
+      facade.connectMicrosoftGraphCredential(INPUT, { persistDurableEvent }),
+    ).rejects.toThrow(/already connected/i)
 
-    expect(persistDurableEvent).toHaveBeenCalledOnce()
+    expect(persistDurableEvent).not.toHaveBeenCalled()
     expect(secretsStore.putSecret).not.toHaveBeenCalled()
-    expect(credentialRepo.upsert).toHaveBeenCalledOnce()
-    expect(credentialRepo.upsert.mock.calls[0][0]).toMatchObject({
+    expect(credentialRepo.upsert).not.toHaveBeenCalled()
+    expect(credentialRepo.delete).not.toHaveBeenCalled()
+    expect(directoryFactory.create).not.toHaveBeenCalled()
+  })
+
+  it('rejects a non-matching paused credential without replacing it', async () => {
+    credentialRepo.get.mockResolvedValue({
       tenantId: TENANT_ID,
-      status: 'active',
+      clientId: 'different-client',
       clientSecretRef: SECRET_REF,
+      tenantAdId: 'different-aad-tenant',
+      scopes: ['https://graph.microsoft.com/.default'],
+      status: 'paused',
+      lastValidatedAt: null,
+      consentedAt: new Date('2026-04-23T00:00:00Z'),
     })
+
+    await expect(facade.connectMicrosoftGraphCredential(INPUT)).rejects.toThrow(
+      /already connected/i,
+    )
+
+    expect(secretsStore.putSecret).not.toHaveBeenCalled()
+    expect(credentialRepo.upsert).not.toHaveBeenCalled()
+    expect(credentialRepo.delete).not.toHaveBeenCalled()
     expect(directoryFactory.create).not.toHaveBeenCalled()
   })
 

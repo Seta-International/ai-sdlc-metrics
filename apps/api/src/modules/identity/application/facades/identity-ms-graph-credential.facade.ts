@@ -39,35 +39,7 @@ export class IdentityMsGraphCredentialFacade {
   ): Promise<void> {
     const existing = await this.credentialRepo.get(input.tenantId)
     if (existing) {
-      if (existing.status === 'active') {
-        throw new Error('Microsoft 365 is already connected for this tenant; disconnect first')
-      }
-
-      if (this.isMatchingValidatedStagedCredential(existing, input)) {
-        await this.persistOutboxThenActivate(
-          input,
-          existing.clientSecretRef,
-          existing.consentedAt,
-          options,
-        )
-        return
-      }
-
-      if (existing.status === 'invalid') {
-        throw new Error('Microsoft 365 is already connected for this tenant; disconnect first')
-      }
-
-      const cleanupFailures = await this.cleanupStoredCredential(
-        input.tenantId,
-        existing.clientSecretRef,
-        true,
-      )
-      if (cleanupFailures.length > 0) {
-        throw this.withCleanupFailures(
-          'Microsoft Graph setup cleanup failed before reconnect',
-          cleanupFailures,
-        )
-      }
+      throw new Error('Microsoft 365 is already connected for this tenant; disconnect first')
     }
 
     const { ref } = await this.secretsStore.putSecret({
@@ -233,23 +205,6 @@ export class IdentityMsGraphCredentialFacade {
     } catch (error) {
       return (error as Error).message
     }
-  }
-
-  private isMatchingValidatedStagedCredential(
-    credential: {
-      clientId: string
-      tenantAdId: string
-      status: string
-      lastValidatedAt?: Date | null
-    },
-    input: ConnectMicrosoftGraphCredentialInput,
-  ): boolean {
-    return (
-      credential.status === 'paused' &&
-      credential.lastValidatedAt instanceof Date &&
-      credential.clientId === input.clientId &&
-      credential.tenantAdId === input.tenantAdId
-    )
   }
 
   private withCleanupFailures(message: string, cleanupFailures: string[]): Error {
