@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common'
 import type {
   LadderStepState,
   LadderTrigger,
@@ -26,7 +25,8 @@ const DEFAULT_STEP_MESSAGES: Record<number, string> = {
 
 const FALLBACK_THRESHOLD = 3
 
-@Injectable()
+// Per-turn instantiation: use `new GracefulDegradationLadder()` at the start of each turn.
+// NOT a NestJS singleton — state is turn-scoped (fallbackActive, consecutiveOverloadCount).
 export class GracefulDegradationLadder {
   // Exposed for test override
   _stepMessages: Record<number, string> = { ...DEFAULT_STEP_MESSAGES }
@@ -87,10 +87,8 @@ export class GracefulDegradationLadder {
   }
 
   recordError(modelId: string, errorClass: VendorErrorClass): void {
-    const isOverload =
-      errorClass === 'vendor_overload' ||
-      errorClass === 'vendor_server_error' ||
-      errorClass === 'vendor_rate_limit'
+    // vendor_rate_limit → wait+retry once; spec forbids fallback for rate-limit errors (R-05.20c)
+    const isOverload = errorClass === 'vendor_overload' || errorClass === 'vendor_server_error'
     if (isOverload) {
       const current = this.consecutiveOverloadCount.get(modelId) ?? 0
       this.consecutiveOverloadCount.set(modelId, current + 1)
