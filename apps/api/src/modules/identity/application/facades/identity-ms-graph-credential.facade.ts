@@ -20,6 +20,15 @@ export interface ConnectMicrosoftGraphCredentialOptions {
   persistDurableEvent?: () => Promise<void>
 }
 
+export interface DisconnectMicrosoftGraphCredentialInput {
+  tenantId: string
+  mode: 'pause' | 'destroy'
+}
+
+export interface DisconnectMicrosoftGraphCredentialOptions {
+  persistDurableEvent?: () => Promise<void>
+}
+
 const DEFAULT_SCOPES = ['https://graph.microsoft.com/.default'] as const
 
 @Injectable()
@@ -117,6 +126,39 @@ export class IdentityMsGraphCredentialFacade {
         cleanupFailures,
       )
     }
+  }
+
+  async disconnectMicrosoftGraphCredential(
+    input: DisconnectMicrosoftGraphCredentialInput,
+    options: DisconnectMicrosoftGraphCredentialOptions = {},
+  ): Promise<boolean> {
+    const credential = await this.credentialRepo.get(input.tenantId)
+    if (!credential) {
+      return false
+    }
+
+    if (input.mode === 'pause') {
+      credential.markPaused()
+      const paused = await this.credentialRepo.updateIfSecretRef(
+        credential,
+        credential.clientSecretRef,
+      )
+      if (!paused) {
+        throw new Error('credential changed before disconnect')
+      }
+    } else {
+      const deleted = await this.credentialRepo.deleteIfSecretRef(
+        input.tenantId,
+        credential.clientSecretRef,
+      )
+      if (!deleted) {
+        throw new Error('credential changed before disconnect')
+      }
+      await this.secretsStore.deleteSecret(credential.clientSecretRef)
+    }
+
+    await options.persistDurableEvent?.()
+    return true
   }
 
   private createMicrosoftProviderConfig(

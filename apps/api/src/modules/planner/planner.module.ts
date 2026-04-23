@@ -101,6 +101,7 @@ import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-sna
 import { MyDayOrphanSweepJob } from './infrastructure/jobs/my-day-orphan-sweep.job'
 import { MyDayOrphanSweepScheduler } from './infrastructure/jobs/my-day-orphan-sweep.scheduler'
 import { ConnectMsSyncHandler } from './application/commands/ms-sync/connect-ms-sync.handler'
+import { DisconnectMsSyncHandler } from './application/commands/ms-sync/disconnect-ms-sync.handler'
 
 @Module({
   imports: [CqrsModule, KernelModule, AdminModule, IdentityModule, NotificationsModule],
@@ -191,6 +192,7 @@ import { ConnectMsSyncHandler } from './application/commands/ms-sync/connect-ms-
     MyDayOrphanSweepJob,
     MyDayOrphanSweepScheduler,
     ConnectMsSyncHandler,
+    DisconnectMsSyncHandler,
     PlannerQueryFacade,
     PlannerRouterService,
   ],

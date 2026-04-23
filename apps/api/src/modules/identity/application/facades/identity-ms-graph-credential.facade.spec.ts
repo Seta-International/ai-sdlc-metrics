@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { IDirectoryProviderFactory } from '../../domain/ports/directory-provider.port'
 import type { ISecretsStore } from '../../domain/ports/secrets-store.port'
 import type { IMsGraphCredentialRepository } from '../../domain/repositories/ms-graph-credential.repository'
+import { MsGraphCredentialEntity } from '../../domain/entities/ms-graph-credential.entity'
 import { IdentityMsGraphCredentialFacade } from './identity-ms-graph-credential.facade'
 
 const TENANT_ID = 'tenant-1'
@@ -315,5 +316,103 @@ describe('IdentityMsGraphCredentialFacade', () => {
     expect(secretsStore.putSecret).not.toHaveBeenCalled()
     expect(credentialRepo.insertIfAbsent).not.toHaveBeenCalled()
     expect(credentialRepo.updateIfSecretRef).not.toHaveBeenCalled()
+  })
+
+  it('pause disconnect marks the credential paused, keeps the secret, and persists the durable hook after the update', async () => {
+    const credential = MsGraphCredentialEntity.create({
+      tenantId: TENANT_ID,
+      clientId: INPUT.clientId,
+      clientSecretRef: SECRET_REF,
+      tenantAdId: INPUT.tenantAdId,
+      scopes: ['https://graph.microsoft.com/.default'],
+      consentedAt: new Date('2026-04-23T00:00:00Z'),
+    })
+    const persistDurableEvent = vi.fn().mockResolvedValue(undefined)
+    credentialRepo.get.mockResolvedValue(credential)
+
+    const disconnected = await facade.disconnectMicrosoftGraphCredential(
+      { tenantId: TENANT_ID, mode: 'pause' },
+      { persistDurableEvent },
+    )
+
+    expect(disconnected).toBe(true)
+    expect(credentialRepo.updateIfSecretRef).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: TENANT_ID, status: 'paused' }),
+      SECRET_REF,
+    )
+    expect(secretsStore.deleteSecret).not.toHaveBeenCalled()
+    expect(persistDurableEvent).toHaveBeenCalledOnce()
+    expect(credentialRepo.updateIfSecretRef.mock.invocationCallOrder[0]).toBeLessThan(
+      persistDurableEvent.mock.invocationCallOrder[0],
+    )
+  })
+
+  it('destroy disconnect deletes the credential and secret, and persists the durable hook after both mutations', async () => {
+    const credential = MsGraphCredentialEntity.create({
+      tenantId: TENANT_ID,
+      clientId: INPUT.clientId,
+      clientSecretRef: SECRET_REF,
+      tenantAdId: INPUT.tenantAdId,
+      scopes: ['https://graph.microsoft.com/.default'],
+      consentedAt: new Date('2026-04-23T00:00:00Z'),
+    })
+    const persistDurableEvent = vi.fn().mockResolvedValue(undefined)
+    credentialRepo.get.mockResolvedValue(credential)
+
+    const disconnected = await facade.disconnectMicrosoftGraphCredential(
+      { tenantId: TENANT_ID, mode: 'destroy' },
+      { persistDurableEvent },
+    )
+
+    expect(disconnected).toBe(true)
+    expect(credentialRepo.deleteIfSecretRef).toHaveBeenCalledWith(TENANT_ID, SECRET_REF)
+    expect(secretsStore.deleteSecret).toHaveBeenCalledWith(SECRET_REF)
+    expect(persistDurableEvent).toHaveBeenCalledOnce()
+    expect(credentialRepo.deleteIfSecretRef.mock.invocationCallOrder[0]).toBeLessThan(
+      secretsStore.deleteSecret.mock.invocationCallOrder[0],
+    )
+    expect(secretsStore.deleteSecret.mock.invocationCallOrder[0]).toBeLessThan(
+      persistDurableEvent.mock.invocationCallOrder[0],
+    )
+  })
+
+  it('disconnect no-ops without durable event when no credential exists', async () => {
+    const persistDurableEvent = vi.fn().mockResolvedValue(undefined)
+    credentialRepo.get.mockResolvedValue(null)
+
+    const disconnected = await facade.disconnectMicrosoftGraphCredential(
+      { tenantId: TENANT_ID, mode: 'pause' },
+      { persistDurableEvent },
+    )
+
+    expect(disconnected).toBe(false)
+    expect(credentialRepo.updateIfSecretRef).not.toHaveBeenCalled()
+    expect(credentialRepo.deleteIfSecretRef).not.toHaveBeenCalled()
+    expect(secretsStore.deleteSecret).not.toHaveBeenCalled()
+    expect(persistDurableEvent).not.toHaveBeenCalled()
+  })
+
+  it('disconnect does not persist durable event or delete secret when optimistic credential mutation fails', async () => {
+    const credential = MsGraphCredentialEntity.create({
+      tenantId: TENANT_ID,
+      clientId: INPUT.clientId,
+      clientSecretRef: SECRET_REF,
+      tenantAdId: INPUT.tenantAdId,
+      scopes: ['https://graph.microsoft.com/.default'],
+      consentedAt: new Date('2026-04-23T00:00:00Z'),
+    })
+    const persistDurableEvent = vi.fn().mockResolvedValue(undefined)
+    credentialRepo.get.mockResolvedValue(credential)
+    credentialRepo.deleteIfSecretRef.mockResolvedValue(false)
+
+    await expect(
+      facade.disconnectMicrosoftGraphCredential(
+        { tenantId: TENANT_ID, mode: 'destroy' },
+        { persistDurableEvent },
+      ),
+    ).rejects.toThrow(/credential changed before disconnect/)
+
+    expect(persistDurableEvent).not.toHaveBeenCalled()
+    expect(secretsStore.deleteSecret).not.toHaveBeenCalled()
   })
 })
