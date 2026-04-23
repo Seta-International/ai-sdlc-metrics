@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>People Module — UI/UX pass</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #0a0a0b;
+        color: #f7f8f8;
+        font-family: 'Inter', system-ui, sans-serif;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      #root {
+        height: 100%;
+      }
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.15);
+      }
+    </style>
+    <script
+      src="https://unpkg.com/react@18.3.1/umd/react.development.js"
+      integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"
+      integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"
+      integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y"
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel" src="people/data.js"></script>
+    <script type="text/babel" src="people/primitives.jsx"></script>
+    <script type="text/babel" src="people/shell.jsx"></script>
+    <script type="text/babel" src="people/directory.jsx"></script>
+    <script type="text/babel" src="people/profile.jsx"></script>
+    <script type="text/babel" src="people/workflows.jsx"></script>
+    <script type="text/babel" src="people/hr-tasks.jsx"></script>
+    <script type="text/babel" src="people/design-canvas.jsx"></script>
+
+    <script type="text/babel" data-presets="react">
+      const DCanvas = window.DesignCanvas
+      const DCSec = window.DCSection
+      const DCArt = window.DCArtboard
+
+      // Pin-down frame so artboards render without full-viewport stretching
+      const Frame = ({ w, h, children, bg = '#08090a' }) => (
+        <div
+          style={{
+            width: w,
+            height: h,
+            background: bg,
+            overflow: 'hidden',
+            borderRadius: 8,
+            position: 'relative',
+          }}
+        >
+          {children}
+        </div>
+      )
+
+      const TWEAKS_DEFAULTS = /*EDITMODE-BEGIN*/ {
+        density: 'comfortable',
+        accent: '#10b981',
+      } /*EDITMODE-END*/
+
+      function App() {
+        const [tweaks, setTweaks] = React.useState(TWEAKS_DEFAULTS)
+        const [tweaksOn, setTweaksOn] = React.useState(false)
+
+        React.useEffect(() => {
+          const onMsg = (e) => {
+            const d = e.data || {}
+            if (d.type === '__activate_edit_mode') setTweaksOn(true)
+            if (d.type === '__deactivate_edit_mode') setTweaksOn(false)
+          }
+          window.addEventListener('message', onMsg)
+          window.parent.postMessage({ type: '__edit_mode_available' }, '*')
+          return () => window.removeEventListener('message', onMsg)
+        }, [])
+
+        const setKey = (k, v) => {
+          const next = { ...tweaks, [k]: v }
+          setTweaks(next)
+          window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [k]: v } }, '*')
+          document.documentElement.style.setProperty('--accent', next.accent)
+        }
+
+        React.useEffect(() => {
+          document.documentElement.style.setProperty('--accent', tweaks.accent)
+        }, [tweaks.accent])
+
+        return (
+          <>
+            <DCanvas
+              title="People module — UI/UX polish"
+              subtitle="Dark, keyboard-first, Linear-flavored. Stays within existing structure; tightens density, hierarchy, filters, and flows."
+            >
+              {/* ========== OVERVIEW ========== */}
+              <DCSec id="overview" title="01 — Overview & Design system">
+                <DCArt
+                  id="ds-tokens"
+                  label="Design tokens · type, color, density"
+                  width={1200}
+                  height={720}
+                >
+                  <Frame w={1200} h={720}>
+                    <TokensBoard />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="ds-components"
+                  label="Primitives · pills, avatars, buttons"
+                  width={1200}
+                  height={720}
+                >
+                  <Frame w={1200} h={720}>
+                    <ComponentsBoard />
+                  </Frame>
+                </DCArt>
+              </DCSec>
+
+              {/* ========== DIRECTORY ========== */}
+              <DCSec id="directory" title="02 — Directory · the main workspace">
+                <DCArt
+                  id="dir-main"
+                  label="Directory · dense list + saved views + filters"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <Directory />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="dir-filter-open"
+                  label="Directory · filter composer open"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <Directory initialFilterOpen />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="dir-bulk"
+                  label="Directory · bulk selection surface"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <Directory initialSelected={[0, 2, 3, 5]} />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="dir-cmdk"
+                  label="⌘K · global command palette"
+                  width={700}
+                  height={540}
+                  background="#0a0a0b"
+                >
+                  <div
+                    style={{
+                      width: 700,
+                      height: 540,
+                      background: 'radial-gradient(circle at 50% 30%, #1a1b1d, #08090a)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <CommandPalette />
+                  </div>
+                </DCArt>
+              </DCSec>
+
+              {/* ========== PROFILE ========== */}
+              <DCSec id="profile" title="03 — Employee profile · flatter hierarchy">
+                <DCArt id="prof-overview" label="Profile · overview tab" width={1440} height={900}>
+                  <Frame w={1440} h={900}>
+                    <Profile />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="prof-compensation"
+                  label="Profile · compensation tab"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <Profile initialTab="compensation" />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="prof-documents"
+                  label="Profile · documents tab (Task 06)"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <Profile initialTab="documents" />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="prof-job-history"
+                  label="Profile · job history timeline (Task 02)"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <Profile initialTab="jobs" />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="prof-terminated"
+                  label="Profile · terminated + rehire (Task 03)"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <Profile terminated />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="prof-rehire-dialog"
+                  label="Profile · rehire dialog open (Task 03)"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <Profile terminated showRehireDialog />
+                  </Frame>
+                </DCArt>
+              </DCSec>
+
+              {/* ========== WORKFLOWS ========== */}
+              <DCSec id="workflows" title="04 — Workflows · changes & onboarding">
+                <DCArt
+                  id="wf-changes"
+                  label="Change requests · pending queue"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <ChangeRequests />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="wf-section-change"
+                  label="Change request · section-level approval (Task 05)"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <SectionChangeRequest />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="wf-onboarding"
+                  label="Onboarding · stage kanban"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <Onboarding />
+                  </Frame>
+                </DCArt>
+              </DCSec>
+
+              {/* ========== BULK ACTIONS (Task 10) ========== */}
+              <DCSec id="bulk" title="06 — Directory · bulk actions (Task 10)">
+                <DCArt id="bulk-status" label="Bulk: change status" width={1440} height={900}>
+                  <Frame w={1440} h={900}>
+                    <BulkActions mode="status" />
+                  </Frame>
+                </DCArt>
+                <DCArt id="bulk-manager" label="Bulk: reassign manager" width={1440} height={900}>
+                  <Frame w={1440} h={900}>
+                    <BulkActions mode="manager" />
+                  </Frame>
+                </DCArt>
+                <DCArt id="bulk-dept" label="Bulk: department split" width={1440} height={900}>
+                  <Frame w={1440} h={900}>
+                    <BulkActions mode="department" />
+                  </Frame>
+                </DCArt>
+              </DCSec>
+
+              {/* ========== DIRECTORY HIERARCHY (Task 04) ========== */}
+              <DCSec id="dir-hierarchy" title="07 — Directory · hierarchy filter (Task 04)">
+                <DCArt
+                  id="dir-hier-tree"
+                  label="Filter composer · department tree"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <Directory />
+                    <DirectoryHierarchyFilter />
+                  </Frame>
+                </DCArt>
+              </DCSec>
+
+              {/* ========== ORG & INSIGHTS ========== */}
+              <DCSec id="insights" title="08 — Org chart, reports, probation">
+                <DCArt id="org" label="Org chart" width={1440} height={900}>
+                  <Frame w={1440} h={900}>
+                    <OrgChart />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="reports"
+                  label="Reports · headcount, probation, completeness"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <Reports />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="probation"
+                  label="Probationary employees · reminder status (Task 08)"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <ProbationList />
+                  </Frame>
+                </DCArt>
+              </DCSec>
+
+              {/* ========== ADMIN SETTINGS ========== */}
+              <DCSec id="admin" title="09 — Admin · configuration & integrations">
+                <DCArt
+                  id="settings"
+                  label="Settings · module configuration"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <Settings />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="admin-custom-fields"
+                  label="Admin · custom fields (Task 07)"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <AdminCustomFields />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="admin-completeness"
+                  label="Admin · completeness rules (Task 11)"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <AdminCompleteness />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="admin-share"
+                  label="Admin · LinkedIn + share links (Task 09)"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <AdminShareLinks />
+                  </Frame>
+                </DCArt>
+              </DCSec>
+
+              {/* ========== MOBILE ========== */}
+              <DCSec id="mobile" title="06 — Mobile · manager on the go">
+                <DCArt id="mob-dir" label="Mobile · directory" width={390} height={780}>
+                  <MobileDirectory />
+                </DCArt>
+                <DCArt
+                  id="mob-approve"
+                  label="Mobile · approve change request"
+                  width={390}
+                  height={780}
+                >
+                  <MobileApproval />
+                </DCArt>
+              </DCSec>
+            </DCanvas>
+
+            {tweaksOn && <TweaksPanel tweaks={tweaks} setKey={setKey} />}
+          </>
+        )
+      }
+
+      // ============ TOKENS / DS BOARDS ============
+      function TokensBoard() {
+        const swatches = [
+          { name: '--bg-900', hex: '#08090a', role: 'App background' },
+          { name: '--bg-800', hex: '#0f1011', role: 'Sidebar, inspector' },
+          { name: '--bg-700', hex: '#191a1b', role: 'Card, popover' },
+          { name: '--border', hex: 'rgba(255,255,255,0.08)', role: 'Hairlines' },
+          { name: '--text-100', hex: '#f7f8f8', role: 'Primary text' },
+          { name: '--text-300', hex: '#d0d6e0', role: 'Body' },
+          { name: '--text-500', hex: '#8a8f98', role: 'Secondary' },
+          { name: '--text-700', hex: '#62666d', role: 'Tertiary / labels' },
+          { name: '--accent', hex: '#7170ff', role: 'Action · links' },
+          { name: '--success', hex: '#10b981', role: 'Approved · active' },
+          { name: '--warn', hex: '#f59e0b', role: 'Probation · pending' },
+          { name: '--danger', hex: '#ef4444', role: 'Reject · errors' },
+        ]
+        const types = [
+          ['Title M', 18, 510, '-0.02em'],
+          ['Title S', 14, 510, '-0.01em'],
+          ['Body', 12, 400, '0'],
+          ['Caption', 11, 400, '0'],
+          ['Label', 10, 510, '0.06em'],
+          ['Mono', 11, 400, '0', 'IBM Plex Mono'],
+        ]
+        return (
+          <div
+            style={{
+              padding: 40,
+              height: '100%',
+              display: 'grid',
+              gridTemplateColumns: '1.2fr 1fr',
+              gap: 32,
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 510,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: '#62666d',
+                  marginBottom: 4,
+                }}
+              >
+                System
+              </div>
+              <h1 style={{ margin: 0, fontSize: 26, fontWeight: 510, letterSpacing: '-0.02em' }}>
+                Dark, dense, keyboard-first
+              </h1>
+              <p
+                style={{
+                  margin: '10px 0 24px',
+                  fontSize: 13,
+                  color: '#8a8f98',
+                  lineHeight: 1.6,
+                  maxWidth: 480,
+                }}
+              >
+                The existing module is structurally fine — the problem is visual noise, loose type,
+                and flat hierarchy. This pass keeps the same pages, tabs, and flows but tightens the
+                whole thing into a Linear-flavored admin surface.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                {swatches.map((s) => (
+                  <div
+                    key={s.name}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: 10,
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: 8,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 6,
+                        background: s.hex.startsWith('rgba') ? s.hex : s.hex,
+                        border: '1px solid rgba(255,255,255,0.1)',
+                      }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          fontFamily: 'IBM Plex Mono, monospace',
+                          color: '#d0d6e0',
+                        }}
+                      >
+                        {s.name}
+                      </div>
+                      <div style={{ fontSize: 10, color: '#62666d' }}>{s.role}</div>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontFamily: 'IBM Plex Mono, monospace',
+                        color: '#62666d',
+                      }}
+                    >
+                      {s.hex.length > 10 ? s.hex.slice(0, 10) + '…' : s.hex}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 510,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: '#62666d',
+                  marginBottom: 16,
+                }}
+              >
+                Typography
+              </div>
+              {types.map(([name, size, weight, tracking, family]) => (
+                <div
+                  key={name}
+                  style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: '#62666d',
+                      fontFamily: 'IBM Plex Mono, monospace',
+                      marginBottom: 4,
+                    }}
+                  >
+                    {name} · {size}/{weight} {tracking !== '0' ? `· ${tracking}` : ''}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: size,
+                      fontWeight: weight,
+                      letterSpacing: tracking,
+                      fontFamily: family || 'Inter',
+                      color: '#f7f8f8',
+                    }}
+                  >
+                    Every person has a profile, a role, and a story to tell.
+                  </div>
+                </div>
+              ))}
+              <div
+                style={{
+                  marginTop: 20,
+                  padding: 14,
+                  background: 'rgba(113,112,255,0.04)',
+                  border: '1px solid rgba(113,112,255,0.15)',
+                  borderRadius: 8,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 510,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: '#9ea2ff',
+                    marginBottom: 6,
+                  }}
+                >
+                  Density note
+                </div>
+                <div style={{ fontSize: 12, color: '#d0d6e0', lineHeight: 1.6 }}>
+                  Rows: 32px compact · 40px comfortable.
+                  <br />
+                  Sidebar: 220px fixed, 10px vertical rhythm.
+                  <br />
+                  Cards: 14px padding, 8px radius, 1px hairlines only.
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      function ComponentsBoard() {
+        return (
+          <div
+            style={{
+              padding: 40,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 24,
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 510,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: '#62666d',
+                  marginBottom: 4,
+                }}
+              >
+                Primitives
+              </div>
+              <h1 style={{ margin: 0, fontSize: 24, fontWeight: 510, letterSpacing: '-0.02em' }}>
+                Small, quiet, consistent
+              </h1>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+              {/* Buttons */}
+              <div
+                style={{
+                  padding: 20,
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: 8,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 510,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: '#62666d',
+                    marginBottom: 14,
+                  }}
+                >
+                  Buttons
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  <Btn variant="primary" size="md" icon={I.plus}>
+                    Add person
+                  </Btn>
+                  <Btn variant="subtle" size="md" icon={I.download}>
+                    Export
+                  </Btn>
+                  <Btn variant="ghost" size="md">
+                    Ghost
+                  </Btn>
+                  <Btn variant="danger" size="md" icon={I.x}>
+                    Reject
+                  </Btn>
+                </div>
+              </div>
+              {/* Pills */}
+              <div
+                style={{
+                  padding: 20,
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: 8,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 510,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: '#62666d',
+                    marginBottom: 14,
+                  }}
+                >
+                  Status
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  <StatusPill status="Active" />
+                  <StatusPill status="Probation" />
+                  <StatusPill status="Onboarding" />
+                  <StatusPill status="Leave" />
+                  <StatusPill status="Offboarding" />
+                </div>
+              </div>
+              {/* Avatars */}
+              <div
+                style={{
+                  padding: 20,
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: 8,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 510,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: '#62666d',
+                    marginBottom: 14,
+                  }}
+                >
+                  Avatars
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Avatar name="Ana Silva" initials="AS" deptColor="#7170ff" size={20} />
+                  <Avatar name="Mei Chen" initials="MC" deptColor="#06b6d4" size={28} />
+                  <Avatar name="Diego Ribeiro" initials="DR" deptColor="#10b981" size={36} />
+                  <Avatar name="Priya Patel" initials="PP" deptColor="#f59e0b" size={48} />
+                  <Avatar name="Omar Hassan" initials="OH" deptColor="#ef4444" size={60} />
+                </div>
+                <div style={{ marginTop: 12, fontSize: 11, color: '#62666d' }}>
+                  Dept-tinted gradient + hairline · no photos required.
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: 20,
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 8,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 510,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  color: '#62666d',
+                  marginBottom: 14,
+                }}
+              >
+                Filter chips · saved views
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <FilterChip label="Department" value="Engineering" active />
+                <FilterChip label="Location" value="Remote · EU" active />
+                <FilterChip label="Employment" value="Full-time" active />
+                <FilterChip label="Manager" />
+                <FilterChip label="Start date" />
+                <FilterChip label="+ Add filter" />
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: 20,
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 8,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 510,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  color: '#62666d',
+                  marginBottom: 14,
+                }}
+              >
+                Keyboard
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 20,
+                  flexWrap: 'wrap',
+                  fontSize: 12,
+                  color: '#d0d6e0',
+                }}
+              >
+                <span>
+                  <Kbd>⌘K</Kbd> command palette
+                </span>
+                <span>
+                  <Kbd>G</Kbd>
+                  <Kbd>D</Kbd> go to directory
+                </span>
+                <span>
+                  <Kbd>G</Kbd>
+                  <Kbd>O</Kbd> go to onboarding
+                </span>
+                <span>
+                  <Kbd>N</Kbd> new person
+                </span>
+                <span>
+                  <Kbd>E</Kbd> edit selected
+                </span>
+                <span>
+                  <Kbd>/</Kbd> search
+                </span>
+                <span>
+                  <Kbd>?</Kbd> help
+                </span>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      function TweaksPanel({ tweaks, setKey }) {
+        const accents = ['#7170ff', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899']
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              right: 16,
+              bottom: 16,
+              zIndex: 9999,
+              width: 280,
+              background: '#191a1b',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 12,
+              padding: 16,
+              color: '#f7f8f8',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+              fontFamily: 'Inter, system-ui, sans-serif',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 510,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color: '#62666d',
+                marginBottom: 12,
+              }}
+            >
+              Tweaks
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: '#8a8f98', marginBottom: 6 }}>Density</div>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 4,
+                  background: 'rgba(255,255,255,0.04)',
+                  padding: 3,
+                  borderRadius: 6,
+                }}
+              >
+                {['compact', 'comfortable'].map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setKey('density', d)}
+                    style={{
+                      flex: 1,
+                      padding: '5px 10px',
+                      borderRadius: 4,
+                      background: tweaks.density === d ? 'rgba(255,255,255,0.08)' : 'transparent',
+                      border: 'none',
+                      color: tweaks.density === d ? '#f7f8f8' : '#8a8f98',
+                      fontSize: 11,
+                      fontFamily: 'inherit',
+                      cursor: 'pointer',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: '#8a8f98', marginBottom: 6 }}>Accent</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {accents.map((a) => (
+                  <button
+                    key={a}
+                    onClick={() => setKey('accent', a)}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 6,
+                      background: a,
+                      border:
+                        tweaks.accent === a
+                          ? '2px solid #f7f8f8'
+                          : '1px solid rgba(255,255,255,0.1)',
+                      cursor: 'pointer',
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+    </script>
+  </body>
+</html>

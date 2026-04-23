@@ -1,0 +1,1324 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Planner Module — UI/UX pass</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #0a0a0b;
+        color: #f7f8f8;
+        font-family: 'Inter', system-ui, sans-serif;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      #root {
+        height: 100%;
+      }
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.15);
+      }
+    </style>
+    <script
+      src="https://unpkg.com/react@18.3.1/umd/react.development.js"
+      integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"
+      integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"
+      integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y"
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel" src="planner/data.js"></script>
+    <script type="text/babel" src="planner/primitives.jsx"></script>
+    <script type="text/babel" src="planner/plan-primitives.jsx"></script>
+    <script type="text/babel" src="planner/ai-panel.jsx"></script>
+    <script type="text/babel" src="planner/views.jsx"></script>
+    <script type="text/babel" src="planner/transcripts.jsx"></script>
+    <script type="text/babel" src="planner/design-canvas.jsx"></script>
+
+    <script type="text/babel" data-presets="react">
+      const DCanvas = window.DesignCanvas
+      const DCSec = window.DCSection
+      const DCArt = window.DCArtboard
+
+      const Frame = ({ w, h, children, bg = '#08090a' }) => (
+        <div style={{ width: w, height: h, background: bg, overflow: 'hidden', borderRadius: 8 }}>
+          {children}
+        </div>
+      )
+
+      const TWEAKS_DEFAULTS = /*EDITMODE-BEGIN*/ {
+        density: 'comfortable',
+        accent: '#7170ff',
+        sidebarDefault: 'open',
+        aiDefault: 'rail',
+      } /*EDITMODE-END*/
+
+      function App() {
+        const [tweaks, setTweaks] = React.useState(TWEAKS_DEFAULTS)
+        const [tweaksOn, setTweaksOn] = React.useState(false)
+
+        React.useEffect(() => {
+          const onMsg = (e) => {
+            const d = e.data || {}
+            if (d.type === '__activate_edit_mode') setTweaksOn(true)
+            if (d.type === '__deactivate_edit_mode') setTweaksOn(false)
+          }
+          window.addEventListener('message', onMsg)
+          window.parent.postMessage({ type: '__edit_mode_available' }, '*')
+          return () => window.removeEventListener('message', onMsg)
+        }, [])
+
+        const setKey = (k, v) => {
+          const next = { ...tweaks, [k]: v }
+          setTweaks(next)
+          window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [k]: v } }, '*')
+          document.documentElement.style.setProperty('--accent', next.accent)
+        }
+
+        React.useEffect(() => {
+          document.documentElement.style.setProperty('--accent', tweaks.accent)
+        }, [tweaks.accent])
+
+        return (
+          <>
+            <DCanvas
+              title="Planner module — UI/UX polish"
+              subtitle="Dark, task-dense, keyboard-first. Board-first with grid/schedule/charts parity; My Day for personal focus; label slots + priority + progress as first-class visual grammar."
+            >
+              {/* ========== OVERVIEW ========== */}
+              <DCSec id="overview" title="01 — System · tokens, primitives, task grammar">
+                <DCArt
+                  id="ds-tokens"
+                  label="Design tokens · color, type, density"
+                  width={1200}
+                  height={720}
+                >
+                  <Frame w={1200} h={720}>
+                    <TokensBoard />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="ds-grammar"
+                  label="Task grammar · priority, progress, labels, due, assignees"
+                  width={1200}
+                  height={720}
+                >
+                  <Frame w={1200} h={720}>
+                    <GrammarBoard />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="ds-card"
+                  label="Task card anatomy · hover, states, affordances"
+                  width={1200}
+                  height={720}
+                >
+                  <Frame w={1200} h={720}>
+                    <CardBoard />
+                  </Frame>
+                </DCArt>
+              </DCSec>
+
+              {/* ========== BOARD ========== */}
+              <DCSec id="board" title="02 — Board · the primary canvas">
+                <DCArt
+                  id="board-main"
+                  label="Board · buckets, cards, filter bar"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <BoardView />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="board-quickadd"
+                  label="Board · quick-add composer open"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <BoardQuickAdd />
+                  </Frame>
+                </DCArt>
+                <DCArt id="board-empty" label="Board · empty bucket state" width={700} height={500}>
+                  <Frame w={700} h={500}>
+                    <BoardEmpty />
+                  </Frame>
+                </DCArt>
+              </DCSec>
+
+              {/* ========== GRID ========== */}
+              <DCSec id="grid" title="03 — Grid · dense table for bulk work">
+                <DCArt
+                  id="grid-main"
+                  label="Grid · sortable columns, sticky header"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <GridView />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="grid-bulk"
+                  label="Grid · bulk selection surface"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <GridView initialSelected={[1, 2, 5, 8]} />
+                  </Frame>
+                </DCArt>
+              </DCSec>
+
+              {/* ========== SCHEDULE & CHARTS ========== */}
+              <DCSec id="timeline" title="04 — Schedule & charts">
+                <DCArt
+                  id="schedule"
+                  label="Schedule · week grid with task bars"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <ScheduleView />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="charts"
+                  label="Charts · burndown, throughput, breakdowns"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <ChartsView />
+                  </Frame>
+                </DCArt>
+              </DCSec>
+
+              {/* ========== MY DAY / PLANS ========== */}
+              <DCSec id="personal" title="05 — My Day & My Plans · the personal entry points">
+                <DCArt id="myday" label="My Day · today's focus list" width={1440} height={900}>
+                  <Frame w={1440} h={900}>
+                    <MyDayView />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="myplans"
+                  label="My Plans · grouped by personal / team"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <MyPlansView />
+                  </Frame>
+                </DCArt>
+              </DCSec>
+
+              {/* ========== TRANSCRIPTS ========== */}
+              <DCSec id="transcripts" title="06 — Transcripts · Teams meeting → actions">
+                <DCArt
+                  id="transcripts-list"
+                  label="All meetings · captured Teams list"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <TranscriptsListView />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="transcripts-detail"
+                  label="Meeting detail · transcript + proposals (HITL)"
+                  width={1600}
+                  height={900}
+                >
+                  <Frame w={1600} h={900}>
+                    <TranscriptDetailView />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="transcripts-inbox"
+                  label="Proposal inbox · cross-meeting review queue"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <ProposalInboxView />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="transcripts-settings"
+                  label="Capture settings · opt-out, scope, audit"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <CaptureSettingsView />
+                  </Frame>
+                </DCArt>
+              </DCSec>
+
+              {/* ========== DETAIL ========== */}
+              <DCSec id="detail" title="07 — Task detail · side panel">
+                <DCArt
+                  id="detail-main"
+                  label="Task detail · description, checklist, comments"
+                  width={1440}
+                  height={900}
+                >
+                  <Frame w={1440} h={900}>
+                    <TaskDetail />
+                  </Frame>
+                </DCArt>
+              </DCSec>
+
+              {/* ========== MOBILE ========== */}
+              <DCSec id="mobile" title="08 — Mobile · on the go">
+                <DCArt
+                  id="mob-board"
+                  label="Mobile · board + bucket switcher"
+                  width={390}
+                  height={780}
+                >
+                  <MobileBoard />
+                </DCArt>
+                <DCArt id="mob-detail" label="Mobile · task detail" width={390} height={780}>
+                  <MobileDetail />
+                </DCArt>
+              </DCSec>
+
+              {/* ========== SHELL CHROME ========== */}
+              <DCSec id="shell" title="09 — Shell · collapsible left nav, AI chat right pane">
+                <DCArt
+                  id="shell-both-open"
+                  label="Default · nav expanded, AI panel open (idle state)"
+                  width={1600}
+                  height={900}
+                >
+                  <Frame w={1600} h={900}>
+                    <BoardWithShell sidebar="open" ai="panel" aiState="idle" />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="shell-sidebar-collapsed"
+                  label="Left collapsed · icon rail + AI panel"
+                  width={1600}
+                  height={900}
+                >
+                  <Frame w={1600} h={900}>
+                    <BoardWithShell sidebar="collapsed" ai="panel" aiState="idle" />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="shell-both-rail"
+                  label="Both collapsed · icon rails both sides"
+                  width={1600}
+                  height={900}
+                >
+                  <Frame w={1600} h={900}>
+                    <BoardWithShell sidebar="collapsed" ai="rail" aiState="idle" />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="shell-full-canvas"
+                  label="AI off · full canvas (sidebar open)"
+                  width={1600}
+                  height={900}
+                >
+                  <Frame w={1600} h={900}>
+                    <BoardWithShell sidebar="open" ai="off" />
+                  </Frame>
+                </DCArt>
+              </DCSec>
+
+              {/* ========== AI CHAT STATES ========== */}
+              <DCSec id="ai" title="10 — Action Intelligence · the AI chat panel">
+                <DCArt
+                  id="ai-idle"
+                  label="Idle · empty state with suggested prompts + recent threads"
+                  width={380}
+                  height={900}
+                >
+                  <Frame w={380} h={900}>
+                    <AIPanelSolo state="idle" />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="ai-streaming"
+                  label="Streaming · plan + tool trace + tokens arriving"
+                  width={380}
+                  height={900}
+                >
+                  <Frame w={380} h={900}>
+                    <AIPanelSolo state="streaming" />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="ai-draft"
+                  label="Draft approval · proposed write, awaiting you"
+                  width={380}
+                  height={900}
+                >
+                  <Frame w={380} h={900}>
+                    <AIPanelSolo state="draft" />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="ai-iteration"
+                  label="Iterative · supervisor fan-out with per-iteration progress"
+                  width={380}
+                  height={900}
+                >
+                  <Frame w={380} h={900}>
+                    <AIPanelSolo state="iteration" />
+                  </Frame>
+                </DCArt>
+                <DCArt id="ai-rail" label="Collapsed · icon rail" width={80} height={900}>
+                  <Frame w={80} h={900}>
+                    <AIRailSolo />
+                  </Frame>
+                </DCArt>
+                <DCArt
+                  id="ai-inboard"
+                  label="In context · AI panel open alongside the board, streaming a triage"
+                  width={1600}
+                  height={900}
+                >
+                  <Frame w={1600} h={900}>
+                    <BoardWithShell
+                      sidebar="collapsed"
+                      ai="panel"
+                      aiState="streaming"
+                      aiTaskContext="Q1 Launch · Board"
+                    />
+                  </Frame>
+                </DCArt>
+              </DCSec>
+            </DCanvas>
+
+            {tweaksOn && <TweaksPanel tweaks={tweaks} setKey={setKey} />}
+          </>
+        )
+      }
+
+      // ============ TOKENS BOARD ============
+      function TokensBoard() {
+        const swatches = [
+          { name: '--bg-900', hex: '#08090a', role: 'App background' },
+          { name: '--bg-800', hex: '#0f1011', role: 'Sidebar' },
+          { name: '--bg-700', hex: '#191a1b', role: 'Popover' },
+          { name: '--text-100', hex: '#f7f8f8', role: 'Title text' },
+          { name: '--text-300', hex: '#d0d6e0', role: 'Body' },
+          { name: '--text-500', hex: '#8a8f98', role: 'Secondary' },
+          { name: '--text-700', hex: '#62666d', role: 'Tertiary · labels' },
+          { name: '--accent', hex: '#7170ff', role: 'Active plan · CTA' },
+          { name: '--urgent', hex: '#f59e0b', role: 'Urgent priority' },
+          { name: '--danger', hex: '#ef4444', role: 'Overdue · blocker' },
+          { name: '--done', hex: '#10b981', role: 'Completed' },
+          { name: '--info', hex: '#06b6d4', role: 'In progress' },
+        ]
+        return (
+          <div
+            style={{
+              padding: 40,
+              height: '100%',
+              display: 'grid',
+              gridTemplateColumns: '1.2fr 1fr',
+              gap: 32,
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 510,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: '#62666d',
+                  marginBottom: 4,
+                }}
+              >
+                System
+              </div>
+              <h1 style={{ margin: 0, fontSize: 26, fontWeight: 510, letterSpacing: '-0.02em' }}>
+                Task-dense, low-chrome, keyboard-first
+              </h1>
+              <p
+                style={{
+                  margin: '10px 0 24px',
+                  fontSize: 13,
+                  color: '#8a8f98',
+                  lineHeight: 1.6,
+                  maxWidth: 480,
+                }}
+              >
+                The existing planner is feature-complete but visually loud. This pass keeps every
+                view and affordance, and rebuilds the surface as a dense, chromeless workspace.
+                Priority, progress, and labels become first-class visual grammar that's legible at
+                card, row, and chart scales.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                {swatches.map((s) => (
+                  <div
+                    key={s.name}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: 10,
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: 8,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 6,
+                        background: s.hex,
+                        border: '1px solid rgba(255,255,255,0.1)',
+                      }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          fontFamily: 'IBM Plex Mono, monospace',
+                          color: '#d0d6e0',
+                        }}
+                      >
+                        {s.name}
+                      </div>
+                      <div style={{ fontSize: 10, color: '#62666d' }}>{s.role}</div>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontFamily: 'IBM Plex Mono, monospace',
+                        color: '#62666d',
+                      }}
+                    >
+                      {s.hex}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 510,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: '#62666d',
+                  marginBottom: 16,
+                }}
+              >
+                Typography · density
+              </div>
+              {[
+                ['Page title', 18, 510, '-0.02em'],
+                ['Card title', 12, 510, '-0.01em'],
+                ['Body', 12, 400, '0'],
+                ['Caption', 11, 400, '0'],
+                ['Label', 10, 510, '0.06em'],
+                ['Mono · ID', 11, 400, '0', 'IBM Plex Mono'],
+              ].map(([name, size, weight, tracking, family]) => (
+                <div
+                  key={name}
+                  style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: '#62666d',
+                      fontFamily: 'IBM Plex Mono, monospace',
+                      marginBottom: 4,
+                    }}
+                  >
+                    {name} · {size}/{weight} {tracking !== '0' ? `· ${tracking}` : ''}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: size,
+                      fontWeight: weight,
+                      letterSpacing: tracking,
+                      fontFamily: family || 'Inter',
+                      color: '#f7f8f8',
+                    }}
+                  >
+                    Ship the label editor — 12 slot ceiling.
+                  </div>
+                </div>
+              ))}
+              <div
+                style={{
+                  marginTop: 20,
+                  padding: 14,
+                  background: 'rgba(113,112,255,0.04)',
+                  border: '1px solid rgba(113,112,255,0.15)',
+                  borderRadius: 8,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 510,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: '#9ea2ff',
+                    marginBottom: 6,
+                  }}
+                >
+                  Density note
+                </div>
+                <div style={{ fontSize: 12, color: '#d0d6e0', lineHeight: 1.6 }}>
+                  Card: 9px padding, 7px radius.
+                  <br />
+                  Bucket gutter: 10px · card gap: 6px.
+                  <br />
+                  Grid row: 28px compact · 32px comfortable.
+                  <br />
+                  Sidebar: 228px fixed.
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      // ============ GRAMMAR BOARD ============
+      function GrammarBoard() {
+        const Row = ({ label, children, hint }) => (
+          <div
+            style={{
+              padding: '14px 0',
+              borderBottom: '1px solid rgba(255,255,255,0.05)',
+              display: 'grid',
+              gridTemplateColumns: '140px 1fr 260px',
+              gap: 20,
+              alignItems: 'center',
+            }}
+          >
+            <div style={{ fontSize: 11, fontFamily: 'IBM Plex Mono, monospace', color: '#8a8f98' }}>
+              {label}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              {children}
+            </div>
+            <div style={{ fontSize: 11, color: '#62666d', lineHeight: 1.5 }}>{hint}</div>
+          </div>
+        )
+        const Ex = ({ label, children }) => (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '5px 10px',
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid rgba(255,255,255,0.05)',
+              borderRadius: 6,
+            }}
+          >
+            {children}
+            <span style={{ fontSize: 11, color: '#d0d6e0' }}>{label}</span>
+          </div>
+        )
+        return (
+          <div style={{ padding: 40, height: '100%', overflow: 'auto' }}>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 510,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: '#62666d',
+                marginBottom: 4,
+              }}
+            >
+              Grammar
+            </div>
+            <h1
+              style={{
+                margin: '0 0 20px',
+                fontSize: 24,
+                fontWeight: 510,
+                letterSpacing: '-0.02em',
+              }}
+            >
+              Five signals, read at a glance
+            </h1>
+
+            <Row
+              label="Priority"
+              hint="Four-tick scale. Urgent uses a warm fill so it pops out of a dense column without adding color noise."
+            >
+              <Ex label="Urgent">
+                <Priority level={9} />
+              </Ex>
+              <Ex label="Important">
+                <Priority level={5} />
+              </Ex>
+              <Ex label="Normal">
+                <Priority level={3} />
+              </Ex>
+              <Ex label="Low">
+                <Priority level={1} />
+              </Ex>
+            </Row>
+
+            <Row
+              label="Progress"
+              hint="Three states: empty (not started), half (in progress), check (done). Sits flush to the title so completed tasks read as muted strikethrough."
+            >
+              <Ex label="Not started">
+                <Progress value={0} />
+              </Ex>
+              <Ex label="In progress">
+                <Progress value={50} />
+              </Ex>
+              <Ex label="Done">
+                <Progress value={100} />
+              </Ex>
+            </Row>
+
+            <Row
+              label="Labels"
+              hint="12 slots per plan, hardcoded palette. Tint + ring + low-alpha fill keeps pills legible over both card & row backgrounds."
+            >
+              <LabelPill slot={1} />
+              <LabelPill slot={2} />
+              <LabelPill slot={3} />
+              <LabelPill slot={4} />
+              <LabelPill slot={5} />
+              <LabelPill slot={6} />
+            </Row>
+
+            <Row
+              label="Due"
+              hint="Overdue = red, today = amber, future = muted. Absolute date shown for >1d out."
+            >
+              <Ex label="">
+                <DueBadge date="2026-04-18" />
+              </Ex>
+              <Ex label="">
+                <DueBadge date="2026-04-22" />
+              </Ex>
+              <Ex label="">
+                <DueBadge date="2026-04-23" />
+              </Ex>
+              <Ex label="">
+                <DueBadge date="2026-05-02" />
+              </Ex>
+            </Row>
+
+            <Row label="Assignees" hint="Avatar stack with dept-tinted gradient. +N pill after 3.">
+              <Ex label="">
+                <AssigneeStack ids={['u1']} />
+              </Ex>
+              <Ex label="">
+                <AssigneeStack ids={['u1', 'u2', 'u3']} />
+              </Ex>
+              <Ex label="">
+                <AssigneeStack ids={['u1', 'u2', 'u3', 'u4', 'u5']} />
+              </Ex>
+            </Row>
+          </div>
+        )
+      }
+
+      // ============ CARD BOARD ============
+      function CardBoard() {
+        const t = PLANNER_DATA.BUCKETS[1].tasks[3] // label editor · urgent
+        const t2 = PLANNER_DATA.BUCKETS[2].tasks[0] // board virtualization · in progress
+        const t3 = PLANNER_DATA.BUCKETS[4].tasks[0] // done
+        return (
+          <div
+            style={{
+              padding: 40,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 24,
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 510,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: '#62666d',
+                  marginBottom: 4,
+                }}
+              >
+                Card
+              </div>
+              <h1 style={{ margin: 0, fontSize: 24, fontWeight: 510, letterSpacing: '-0.02em' }}>
+                One card, five zones
+              </h1>
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '272px 1fr',
+                gap: 40,
+                alignItems: 'flex-start',
+              }}
+            >
+              <div style={{ position: 'relative' }}>
+                <TaskCard task={t} />
+                <svg
+                  width="100"
+                  height="260"
+                  style={{ position: 'absolute', left: '100%', top: -10 }}
+                >
+                  <g stroke="#62666d" strokeWidth="1" fill="none">
+                    <path d="M 0 18 L 50 18" />
+                    <path d="M 0 52 L 50 52" />
+                    <path d="M 0 92 L 50 92" />
+                    <path d="M 0 140 L 50 140" />
+                    <path d="M 0 180 L 50 180" />
+                  </g>
+                </svg>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 6 }}>
+                {[
+                  [
+                    'Progress + title',
+                    'Progress dot, then title. Title weight 510, size 12, tracking -0.01. One line usually; wraps to 2.',
+                  ],
+                  [
+                    'Priority flag',
+                    'Only for urgent. Everything else reads from the progress dot & due badge.',
+                  ],
+                  ['Label row', 'Up to 4 pills. Wrap to new line if overflow.'],
+                  [
+                    'Meta strip',
+                    'Assignee stack + checklist / attach / comment counts + due badge. Reads like a ticket subtitle.',
+                  ],
+                  ['Cover', 'Optional tinted strip; reserved for tasks with image attachments.'],
+                ].map(([h, b]) => (
+                  <div key={h}>
+                    <div style={{ fontSize: 12, fontWeight: 510, color: '#f7f8f8' }}>{h}</div>
+                    <div style={{ fontSize: 11, color: '#8a8f98', lineHeight: 1.5, marginTop: 3 }}>
+                      {b}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div
+              style={{
+                marginTop: 12,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 272px)',
+                gap: 14,
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 510,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: '#62666d',
+                    marginBottom: 8,
+                  }}
+                >
+                  Urgent · todo
+                </div>
+                <TaskCard task={t} />
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 510,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: '#62666d',
+                    marginBottom: 8,
+                  }}
+                >
+                  In progress
+                </div>
+                <TaskCard task={t2} />
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 510,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: '#62666d',
+                    marginBottom: 8,
+                  }}
+                >
+                  Done · muted
+                </div>
+                <TaskCard task={t3} />
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      // ============ BOARD QUICK ADD / EMPTY ============
+      function BoardQuickAdd() {
+        return (
+          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+            <BoardView />
+            <div
+              style={{
+                position: 'absolute',
+                left: 1440 * 0.28,
+                top: 140,
+                width: 272,
+                zIndex: 10,
+                background: '#191a1b',
+                border: '1px solid rgba(113,112,255,0.35)',
+                boxShadow: '0 12px 40px rgba(0,0,0,0.6), 0 0 0 3px rgba(113,112,255,0.08)',
+                borderRadius: 8,
+                padding: 10,
+              }}
+            >
+              <input
+                autoFocus
+                defaultValue="Audit board keyboard nav"
+                style={{
+                  width: '100%',
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  color: '#f7f8f8',
+                  fontSize: 13,
+                  fontWeight: 510,
+                  letterSpacing: '-0.01em',
+                  fontFamily: 'inherit',
+                  padding: 2,
+                }}
+              />
+              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                <Chip>
+                  <Priority level={5} />
+                  <span>Important</span>
+                </Chip>
+                <Chip>
+                  <span style={{ color: '#06b6d4' }}>●</span>
+                  <span>ui</span>
+                </Chip>
+                <Chip>+ Assignee</Chip>
+                <Chip>+ Due</Chip>
+              </div>
+              <div style={{ display: 'flex', marginTop: 10, gap: 6, alignItems: 'center' }}>
+                <div style={{ flex: 1, fontSize: 10, color: '#62666d' }}>
+                  <Kbd>⏎</Kbd> add · <Kbd>⇧⏎</Kbd> add and new
+                </div>
+                <Btn variant="ghost" size="sm">
+                  Cancel
+                </Btn>
+                <Btn variant="primary" size="sm">
+                  Add
+                </Btn>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      const Chip = ({ children }) => (
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '2px 7px',
+            fontSize: 11,
+            color: '#d0d6e0',
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: 5,
+            cursor: 'pointer',
+          }}
+        >
+          {children}
+        </span>
+      )
+
+      function BoardEmpty() {
+        return (
+          <div
+            style={{
+              padding: 40,
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <div style={{ width: 272 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px 8px' }}>
+                <span style={{ fontSize: 12, fontWeight: 510, color: '#f7f8f8' }}>In review</span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 510,
+                    color: '#62666d',
+                    background: 'rgba(255,255,255,0.04)',
+                    borderRadius: 4,
+                    padding: '1px 5px',
+                  }}
+                >
+                  0
+                </span>
+              </div>
+              <div
+                style={{
+                  padding: 32,
+                  background: 'rgba(255,255,255,0.015)',
+                  border: '1px dashed rgba(255,255,255,0.08)',
+                  borderRadius: 8,
+                  textAlign: 'center',
+                }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 510, color: '#d0d6e0', marginBottom: 4 }}>
+                  Nothing to review
+                </div>
+                <div style={{ fontSize: 11, color: '#62666d', lineHeight: 1.5, marginBottom: 14 }}>
+                  Drop a task here, or it'll arrive when someone moves it along.
+                </div>
+                <Btn variant="ghost" size="sm" icon={I.plus}>
+                  Add task
+                </Btn>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      // ============ TWEAKS PANEL ============
+      function TweaksPanel({ tweaks, setKey }) {
+        const accents = ['#7170ff', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899']
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              right: 16,
+              bottom: 16,
+              zIndex: 9999,
+              width: 280,
+              background: '#191a1b',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 12,
+              padding: 16,
+              color: '#f7f8f8',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+              fontFamily: 'Inter, system-ui, sans-serif',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 510,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color: '#62666d',
+                marginBottom: 12,
+              }}
+            >
+              Tweaks
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: '#8a8f98', marginBottom: 6 }}>Density</div>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 4,
+                  background: 'rgba(255,255,255,0.04)',
+                  padding: 3,
+                  borderRadius: 6,
+                }}
+              >
+                {['compact', 'comfortable'].map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setKey('density', d)}
+                    style={{
+                      flex: 1,
+                      padding: '5px 10px',
+                      borderRadius: 4,
+                      background: tweaks.density === d ? 'rgba(255,255,255,0.08)' : 'transparent',
+                      border: 'none',
+                      color: tweaks.density === d ? '#f7f8f8' : '#8a8f98',
+                      fontSize: 11,
+                      fontFamily: 'inherit',
+                      cursor: 'pointer',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: '#8a8f98', marginBottom: 6 }}>Accent</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {accents.map((a) => (
+                  <button
+                    key={a}
+                    onClick={() => setKey('accent', a)}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 6,
+                      background: a,
+                      border:
+                        tweaks.accent === a
+                          ? '2px solid #f7f8f8'
+                          : '1px solid rgba(255,255,255,0.1)',
+                      cursor: 'pointer',
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: '#8a8f98', marginBottom: 6 }}>Left nav</div>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 4,
+                  background: 'rgba(255,255,255,0.04)',
+                  padding: 3,
+                  borderRadius: 6,
+                }}
+              >
+                {[
+                  ['open', 'Expanded'],
+                  ['collapsed', 'Icon rail'],
+                ].map(([v, l]) => (
+                  <button
+                    key={v}
+                    onClick={() => setKey('sidebarDefault', v)}
+                    style={{
+                      flex: 1,
+                      padding: '5px 10px',
+                      borderRadius: 4,
+                      background:
+                        tweaks.sidebarDefault === v ? 'rgba(255,255,255,0.08)' : 'transparent',
+                      border: 'none',
+                      color: tweaks.sidebarDefault === v ? '#f7f8f8' : '#8a8f98',
+                      fontSize: 11,
+                      fontFamily: 'inherit',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: '#8a8f98', marginBottom: 6 }}>AI panel</div>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 4,
+                  background: 'rgba(255,255,255,0.04)',
+                  padding: 3,
+                  borderRadius: 6,
+                }}
+              >
+                {[
+                  ['panel', 'Open'],
+                  ['rail', 'Rail'],
+                  ['off', 'Off'],
+                ].map(([v, l]) => (
+                  <button
+                    key={v}
+                    onClick={() => setKey('aiDefault', v)}
+                    style={{
+                      flex: 1,
+                      padding: '5px 10px',
+                      borderRadius: 4,
+                      background: tweaks.aiDefault === v ? 'rgba(255,255,255,0.08)' : 'transparent',
+                      border: 'none',
+                      color: tweaks.aiDefault === v ? '#f7f8f8' : '#8a8f98',
+                      fontSize: 11,
+                      fontFamily: 'inherit',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      // ============ SHELL HELPERS FOR ARTBOARDS ============
+      function BoardWithShell({ sidebar = 'open', ai = 'panel', aiState = 'idle', aiTaskContext }) {
+        return (
+          <PlannerShell
+            active="board"
+            sidebar={sidebar}
+            ai={ai}
+            aiState={aiState}
+            aiTaskContext={aiTaskContext}
+            primary={
+              <Btn variant="primary" size="md" icon={I.plus}>
+                New task
+              </Btn>
+            }
+            secondary={
+              <Btn variant="ghost" size="md" icon={I.share}>
+                Share
+              </Btn>
+            }
+          >
+            <FilterBar view="board" />
+            <div
+              style={{
+                display: 'flex',
+                gap: 10,
+                padding: '12px 16px',
+                alignItems: 'flex-start',
+                overflow: 'auto',
+                flex: 1,
+                minHeight: 0,
+              }}
+            >
+              {PLANNER_DATA.BUCKETS.map((b) => (
+                <div
+                  key={b.id}
+                  style={{
+                    width: 272,
+                    flexShrink: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                  }}
+                >
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px 2px' }}
+                  >
+                    <span style={{ color: '#62666d', display: 'inline-flex' }}>{PI.grip}</span>
+                    <span style={{ fontSize: 12, fontWeight: 510, color: '#f7f8f8' }}>
+                      {b.name}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 510,
+                        color: '#62666d',
+                        background: 'rgba(255,255,255,0.04)',
+                        borderRadius: 4,
+                        padding: '1px 5px',
+                        minWidth: 16,
+                        textAlign: 'center',
+                      }}
+                    >
+                      {b.count}
+                    </span>
+                    <div style={{ flex: 1 }} />
+                    <span style={{ color: '#62666d' }}>{I.plus}</span>
+                    <span style={{ color: '#62666d' }}>{I.dots}</span>
+                  </div>
+                  <button
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      width: '100%',
+                      padding: '6px 9px',
+                      background: 'rgba(255,255,255,0.015)',
+                      border: '1px dashed rgba(255,255,255,0.08)',
+                      borderRadius: 7,
+                      color: '#62666d',
+                      fontSize: 11,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {I.plus}
+                    <span>Add task</span>
+                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {b.tasks.map((t) => (
+                      <TaskCard key={t.id} task={t} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </PlannerShell>
+        )
+      }
+
+      // AI panel standalone — mounted in a dark frame that matches the shell background
+      function AIPanelSolo({ state = 'idle' }) {
+        return (
+          <div style={{ height: '100%', display: 'flex', background: '#08090a' }}>
+            <AIChatPanel state={state} width={380} taskContext="Q1 Launch · Board" />
+          </div>
+        )
+      }
+
+      function AIRailSolo() {
+        return (
+          <div style={{ height: '100%', display: 'flex', background: '#08090a' }}>
+            <AIChatRail onExpand={() => {}} />
+          </div>
+        )
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+    </script>
+  </body>
+</html>
