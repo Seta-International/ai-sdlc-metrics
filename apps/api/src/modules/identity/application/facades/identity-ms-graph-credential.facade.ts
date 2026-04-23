@@ -154,23 +154,27 @@ export class IdentityMsGraphCredentialFacade {
       try {
         await options.persistDurableEvent?.()
       } catch (error) {
-        await this.credentialRepo.updateIfSecretRef(originalCredential, originalSecretRef)
+        await this.restoreOriginalCredential(originalCredential, originalSecretRef, error)
         throw error
       }
     } else {
+      const stagedCredential = this.cloneCredential(credential)
+      stagedCredential.markPaused()
+      const staged = await this.credentialRepo.updateIfSecretRef(
+        stagedCredential,
+        originalSecretRef,
+      )
+      if (!staged) {
+        throw new Error('credential changed before disconnect')
+      }
+
+      await this.deleteSecretIfPresent(originalSecretRef)
+      await options.persistDurableEvent?.()
+
       const deleted = await this.credentialRepo.deleteIfSecretRef(input.tenantId, originalSecretRef)
       if (!deleted) {
         throw new Error('credential changed before disconnect')
       }
-
-      try {
-        await options.persistDurableEvent?.()
-      } catch (error) {
-        await this.credentialRepo.insertIfAbsent(originalCredential)
-        throw error
-      }
-
-      await this.deleteSecretIfPresent(originalSecretRef)
     }
 
     return true
@@ -210,6 +214,26 @@ export class IdentityMsGraphCredentialFacade {
       lastValidatedAt: credential.lastValidatedAt,
       lastError: credential.lastError,
     })
+  }
+
+  private async restoreOriginalCredential(
+    originalCredential: MsGraphCredentialEntity,
+    originalSecretRef: string,
+    originalError: unknown,
+  ): Promise<void> {
+    try {
+      const restored = await this.credentialRepo.updateIfSecretRef(
+        originalCredential,
+        originalSecretRef,
+      )
+      if (!restored) {
+        throw new Error('restore original credential returned false')
+      }
+    } catch (restoreError) {
+      throw new Error(
+        `Microsoft Graph disconnect compensation failed: ${(restoreError as Error).message}; original error: ${(originalError as Error).message}`,
+      )
+    }
   }
 
   private async cleanupStoredCredential(

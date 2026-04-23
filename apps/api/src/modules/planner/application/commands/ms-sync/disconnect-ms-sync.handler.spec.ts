@@ -122,4 +122,20 @@ describe('DisconnectMsSyncHandler', () => {
     expect(auditFacade.publishOutboxEvent).not.toHaveBeenCalled()
     expect(eventBus.publish).not.toHaveBeenCalled()
   })
+
+  it('does not publish the in-process event when identity fails after durable event persistence', async () => {
+    identityGraphFacade.disconnectMicrosoftGraphCredential.mockImplementation(
+      async (_input, options) => {
+        await options?.persistDurableEvent?.()
+        throw new Error('credential changed before disconnect')
+      },
+    )
+
+    await expect(handler.execute(makeCommand('destroy'))).rejects.toThrow(
+      /credential changed before disconnect/,
+    )
+
+    expect(auditFacade.publishOutboxEvent).toHaveBeenCalledOnce()
+    expect(eventBus.publish).not.toHaveBeenCalled()
+  })
 })
