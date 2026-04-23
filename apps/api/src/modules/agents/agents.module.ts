@@ -116,6 +116,14 @@ import {
 import { LeakCanaryScheduler } from './infrastructure/jobs/leak-canary.scheduler'
 import { TurnSamplingDecisionRecorder } from './application/services/turn-sampling-decision-recorder'
 import { ToolInvocationAuditRecorder } from './application/services/tool-invocation-audit-recorder'
+// Plan 05 services
+import { PricingResolver } from './infrastructure/pricing/pricing-resolver'
+import { CostRecorder } from './application/services/cost-recorder'
+import { BudgetChecker } from './application/services/budget-checker'
+import { RateLimiter } from './application/services/rate-limiter'
+import { QualityCanarySubscription } from './application/services/quality-canary-subscription'
+import { ApprovalInboxThrottle } from './application/services/approval-inbox-throttle'
+import { AdminBudgetOps } from './application/commands/admin-budget-ops'
 import type { ConversationRepository } from './domain/repositories/conversation.repository'
 import type { ConversationMessageRepository } from './domain/repositories/conversation-message.repository'
 import type { L3PreferenceRepository } from './domain/repositories/l3-preference.repository'
@@ -284,6 +292,14 @@ class NullTenantLister implements TenantListerLike {
     TurnSamplingDecisionRecorder,
     LeakCanaryScheduler,
     ToolInvocationAuditRecorder,
+    // ── Plan 05 — Cost / budget / rate-limiting / canary / throttle ───────────
+    PricingResolver,
+    CostRecorder,
+    BudgetChecker,
+    RateLimiter,
+    QualityCanarySubscription,
+    ApprovalInboxThrottle,
+    AdminBudgetOps,
   ],
   exports: [
     AgentsQueryFacade,
