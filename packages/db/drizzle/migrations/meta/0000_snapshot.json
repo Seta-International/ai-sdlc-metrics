@@ -1,5 +1,5 @@
 {
-  "id": "2b84c736-8598-4e36-ba99-c756bb8d4b1f",
+  "id": "eded8c8f-53dd-4255-8f35-703baa4fde92",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1284,6 +1284,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "tool_name": {
           "name": "tool_name",
           "type": "text",
@@ -1362,11 +1368,17 @@
           "method": "btree",
           "with": {}
         },
-        "agent_tool_invocation_tenant_tool_created_idx": {
-          "name": "agent_tool_invocation_tenant_tool_created_idx",
+        "agent_tool_invocation_tenant_user_tool_created_idx": {
+          "name": "agent_tool_invocation_tenant_user_tool_created_idx",
           "columns": [
             {
               "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

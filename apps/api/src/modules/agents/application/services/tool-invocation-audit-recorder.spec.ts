@@ -15,6 +15,7 @@ function makeDb() {
 const BASE_OPTS = {
   traceId: '01952dc0-1234-7000-8000-000000000001',
   tenantId: '01952dc0-1234-7000-8000-000000000002',
+  userId: 'user-id-123',
   toolName: 'planner.list',
   args: { filter: 'active' },
   result: { items: [1, 2, 3] },
@@ -45,6 +46,7 @@ describe('ToolInvocationAuditRecorder', () => {
     const row = valuesMock.mock.calls[0][0]
     expect(row.traceId).toBe(BASE_OPTS.traceId)
     expect(row.tenantId).toBe(BASE_OPTS.tenantId)
+    expect(row.userId).toBe(BASE_OPTS.userId)
     expect(row.toolName).toBe(BASE_OPTS.toolName)
     expect(row.args).toEqual(BASE_OPTS.args)
     expect(row.phase).toBe(1)

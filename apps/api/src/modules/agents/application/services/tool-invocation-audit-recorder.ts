@@ -15,6 +15,7 @@ const RESULT_PREVIEW_MAX_BYTES = 16_384
 export interface RecordOpts {
   traceId: string
   tenantId: string
+  userId: string
   toolName: string
   args: Record<string, unknown>
   result: unknown
@@ -34,6 +35,7 @@ export class ToolInvocationAuditRecorder {
     const {
       traceId,
       tenantId,
+      userId,
       toolName,
       args,
       result,
@@ -53,6 +55,7 @@ export class ToolInvocationAuditRecorder {
     await this.db.insert(agentToolInvocations).values({
       traceId,
       tenantId,
+      userId,
       toolName,
       args,
       resultPreview,

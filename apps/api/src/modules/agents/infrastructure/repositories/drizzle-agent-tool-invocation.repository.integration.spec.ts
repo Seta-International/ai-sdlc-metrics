@@ -43,6 +43,7 @@ describe('agent_tool_invocation schema (Plan 07)', () => {
     await db.insert(agentToolInvocations).values({
       traceId,
       tenantId: TENANT_A,
+      userId: USER_A,
       toolName: 'planner.list_tasks',
       args: { filter: 'active' },
       resultStatus: 'ok',
@@ -68,6 +69,7 @@ describe('agent_tool_invocation schema (Plan 07)', () => {
     await db.insert(agentToolInvocations).values({
       traceId,
       tenantId: TENANT_A,
+      userId: USER_A,
       toolName: 'hiring.list_jobs',
       args: {},
       resultStatus: 'error',

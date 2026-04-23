@@ -292,6 +292,7 @@ export const agentToolInvocations = agentsSchema.table(
     id: uuid('id').primaryKey().defaultRandom(),
     traceId: uuid('trace_id').notNull(),
     tenantId: uuid('tenant_id').notNull(),
+    userId: uuid('user_id').notNull(),
     toolName: text('tool_name').notNull(),
     args: jsonb('args').notNull(),
     resultPreview: bytea('result_preview'),
@@ -305,8 +306,9 @@ export const agentToolInvocations = agentsSchema.table(
   },
   (t) => [
     index('agent_tool_invocation_trace_idx').on(t.traceId),
-    index('agent_tool_invocation_tenant_tool_created_idx').on(
+    index('agent_tool_invocation_tenant_user_tool_created_idx').on(
       t.tenantId,
+      t.userId,
       t.toolName,
       t.createdAt.desc(),
     ),

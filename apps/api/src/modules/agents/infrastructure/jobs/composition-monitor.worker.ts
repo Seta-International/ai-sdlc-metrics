@@ -76,6 +76,7 @@ export class CompositionMonitorWorker {
         .where(
           and(
             eq(agentToolInvocations.tenantId, tenantId),
+            eq(agentToolInvocations.userId, userId),
             gte(agentToolInvocations.createdAt, windowStart),
             inArray(agentToolInvocations.toolName, sensitiveToolNames),
           ),

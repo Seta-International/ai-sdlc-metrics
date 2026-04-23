@@ -208,6 +208,7 @@ CREATE TABLE "agents"."agent_tool_invocation" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"trace_id" uuid NOT NULL,
 	"tenant_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
 	"tool_name" text NOT NULL,
 	"args" jsonb NOT NULL,
 	"result_preview" "bytea",
@@ -1315,7 +1316,7 @@ CREATE UNIQUE INDEX "agent_stored_sub_agent_tenant_key_version_uidx" ON "agents"
 CREATE INDEX "agent_stored_sub_agent_tenant_key_status_idx" ON "agents"."agent_stored_sub_agent" USING btree ("tenant_id","key","status");--> statement-breakpoint
 CREATE INDEX "agent_stored_sub_agent_tenant_key_version_desc_idx" ON "agents"."agent_stored_sub_agent" USING btree ("tenant_id","key","version" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_tool_invocation_trace_idx" ON "agents"."agent_tool_invocation" USING btree ("trace_id");--> statement-breakpoint
-CREATE INDEX "agent_tool_invocation_tenant_tool_created_idx" ON "agents"."agent_tool_invocation" USING btree ("tenant_id","tool_name","created_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_tool_invocation_tenant_user_tool_created_idx" ON "agents"."agent_tool_invocation" USING btree ("tenant_id","user_id","tool_name","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_turn_sampling_decision_tenant_created_idx" ON "agents"."agent_turn_sampling_decision" USING btree ("tenant_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_identity_provider_tenant_primary" ON "identity"."identity_provider" USING btree ("tenant_id","is_primary") WHERE "identity"."identity_provider"."is_primary" = true;--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_idp_group_mapping_role_scope_scoped" ON "identity"."idp_group_mapping" USING btree ("tenant_id","external_group_id","role_key","scope_type","scope_id") WHERE "identity"."idp_group_mapping"."scope_id" IS NOT NULL;--> statement-breakpoint
