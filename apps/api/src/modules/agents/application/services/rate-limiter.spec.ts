@@ -125,4 +125,19 @@ describe('RateLimiter', () => {
 
     expect(result).toEqual({ allowed: true })
   })
+
+  it('6. schedule_creations/user/day uses limit=5 (R-05.25)', async () => {
+    // count=1 → remaining=4 (limit 5)
+    const { db } = buildRateLimiterDb(1)
+    const limiter = new RateLimiter(db)
+
+    const result = await limiter.check({
+      tenantId: TENANT_ID,
+      userId: USER_ID,
+      limitKey: 'schedule_creations/user/day',
+    })
+
+    expect(result.allowed).toBe(true)
+    expect(result.remaining).toBe(4) // 5 - 1
+  })
 })

@@ -1,12 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { and, eq, gte, sql } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
-import {
-  agentCostEvents,
-  agentTenantBudget,
-  agentUserBudget,
-} from '../../infrastructure/schema/agents.schema'
+import { agentTenantBudget, agentUserBudget } from '../../infrastructure/schema/agents.schema'
 
 // ─── Return types ─────────────────────────────────────────────────────────────
 
@@ -52,22 +48,9 @@ export class BudgetChecker {
     const remaining = Number(tenantBudget.remainingUsd)
     const usedPct = dailyLimit > 0 ? 1 - remaining / dailyLimit : 1
 
-    // Step 3 — query user spent today
+    // Step 3 — check user budget (agentUserBudget pre-aggregated by CostRecorder)
     const todayMidnightUtc = new Date()
     todayMidnightUtc.setUTCHours(0, 0, 0, 0)
-
-    await this.db
-      .select({ total: sql<string>`COALESCE(SUM(${agentCostEvents.costUsd}), '0')` })
-      .from(agentCostEvents)
-      .where(
-        and(
-          eq(agentCostEvents.tenantId, opts.tenantId),
-          eq(agentCostEvents.userId, opts.userId),
-          gte(agentCostEvents.createdAt, todayMidnightUtc),
-        ),
-      )
-
-    // Step 4 — check user budget
     const todayUtc = todayMidnightUtc.toISOString().slice(0, 10) // YYYY-MM-DD
 
     const [userBudget] = await this.db
@@ -90,14 +73,14 @@ export class BudgetChecker {
       return { allowed: false, tier: 'refused', reason: 'tenant_daily_budget' }
     }
 
-    // Step 6 — check insufficient minimum ($0.10)
-    if (remaining < 0.1) {
-      return { allowed: false, tier: 'refused', reason: 'insufficient_minimum' }
-    }
-
-    // Step 7 — check 95–100% range → downgrade to nano
+    // Step 6 — check 95–100% range → downgrade to nano (spec §5: before insufficient_minimum)
     if (usedPct >= 0.95) {
       return { allowed: true, tier: 'nano', tierShift: true }
+    }
+
+    // Step 7 — check insufficient minimum ($0.10)
+    if (remaining < 0.1) {
+      return { allowed: false, tier: 'refused', reason: 'insufficient_minimum' }
     }
 
     // Step 8 — default: full tier
