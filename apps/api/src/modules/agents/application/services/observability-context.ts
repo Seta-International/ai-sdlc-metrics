@@ -8,7 +8,7 @@
  * Application layer — may import from domain. Zero NestJS decorators.
  */
 
-import { trace, context, SpanStatusCode } from '@opentelemetry/api'
+import { trace, context } from '@opentelemetry/api'
 import { NoOpSpan, OtelSpan, IDENTITY_KEY_DENYLIST } from '../../domain/observability/span'
 import type { Span } from '../../domain/observability/span'
 import type { SpanType, EntityType } from '../../domain/observability/span-types'

@@ -1,5 +1,4 @@
 import { Inject, Module, type OnModuleInit, type OnApplicationBootstrap } from '@nestjs/common'
-import type PgBoss from 'pg-boss'
 import { JwtModule } from '@nestjs/jwt'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { AgentsQueryFacade } from './application/facades/agents-query.facade'
@@ -416,8 +415,13 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
 
     // Step 6: Register composition-attack monitor (Plan 07 Task 6, R-07.46).
     // Best-effort, post-turn async job — never blocks tool calls (Tenet #9).
-    await this.pgBossService.registerWorker('observability-composition-monitor', async (job) =>
-      this.compositionMonitorWorker.handle(job as PgBoss.Job<CompositionMonitorJobData>),
+    await this.pgBossService.registerWorker<CompositionMonitorJobData>(
+      'observability-composition-monitor',
+      async (jobs) => {
+        for (const job of jobs) {
+          await this.compositionMonitorWorker.handle(job)
+        }
+      },
     )
 
     // Step 7: Register leak canary job (Plan 07 Task 7, R-07.§8).

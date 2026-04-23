@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { count, eq, and, gte } from 'drizzle-orm'
-import { DB_TOKEN, type DrizzleDb } from '@future/db'
+import type { Db } from '@future/db'
+import { DB_TOKEN } from '../../../../common/db/db.module'
 import { agentTurnSamplingDecisions } from '../../infrastructure/schema/agents.schema'
 import { setTenantTraceQuotaUsed } from '../../infrastructure/observability/observability-metrics'
 import type { SamplingDecisionReason } from './sampling-decider'
@@ -25,7 +26,7 @@ const QUOTA_APPROACH_THRESHOLD = 0.8
 
 @Injectable()
 export class TurnSamplingDecisionRecorder {
-  constructor(@Inject(DB_TOKEN) private readonly db: DrizzleDb) {}
+  constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
   /**
    * Writes an agent_turn_sampling_decision row (R-07.17a).

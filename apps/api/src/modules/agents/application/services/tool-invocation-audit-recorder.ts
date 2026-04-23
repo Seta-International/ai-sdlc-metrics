@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto'
 
 import { Inject, Injectable } from '@nestjs/common'
 
-import { DB_TOKEN, type DrizzleDb } from '@future/db'
+import type { Db } from '@future/db'
+import { DB_TOKEN } from '../../../../common/db/db.module'
 
 import { agentToolInvocations } from '../../infrastructure/schema/agents.schema'
 
@@ -29,7 +30,7 @@ export interface RecordOpts {
 
 @Injectable()
 export class ToolInvocationAuditRecorder {
-  constructor(@Inject(DB_TOKEN) private readonly db: DrizzleDb) {}
+  constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
   async record(opts: RecordOpts): Promise<void> {
     const {

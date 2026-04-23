@@ -1,7 +1,8 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common'
 import type PgBoss from 'pg-boss'
 import { and, eq, gte, inArray } from 'drizzle-orm'
-import { DB_TOKEN, type DrizzleDb } from '@future/db'
+import type { Db } from '@future/db'
+import { DB_TOKEN } from '../../../../common/db/db.module'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { agentToolInvocations } from '../schema/agents.schema'
 
@@ -25,7 +26,7 @@ export class CompositionMonitorWorker {
   private readonly logger = new Logger(CompositionMonitorWorker.name)
 
   constructor(
-    @Inject(DB_TOKEN) private readonly db: DrizzleDb,
+    @Inject(DB_TOKEN) private readonly db: Db,
     private readonly auditFacade: KernelAuditFacade,
     @Optional()
     @Inject('COMPOSITION_SENSITIVE_TOOLS')

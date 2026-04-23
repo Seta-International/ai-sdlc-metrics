@@ -78,22 +78,18 @@ export class NoOpSpan implements Span {
     this.spanId = `noop-${crypto.randomUUID()}`
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   setAttribute(_key: string, _value: unknown): void {
     // no-op
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   setAttributes(_attrs: Record<string, unknown>): void {
     // no-op
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   recordUsage(_usage: UsageSnapshot): void {
     // no-op
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   end(_opts?: { status?: 'ok' | 'error'; error?: Error }): void {
     // no-op
   }
