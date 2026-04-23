@@ -114,6 +114,8 @@ import {
   CompositionMonitorWorker,
   type CompositionMonitorJobData,
 } from './infrastructure/jobs/composition-monitor.worker'
+import { LeakCanaryScheduler } from './infrastructure/jobs/leak-canary.scheduler'
+import { TurnSamplingDecisionRecorder } from './application/services/turn-sampling-decision-recorder'
 import type { ConversationRepository } from './domain/repositories/conversation.repository'
 import type { ConversationMessageRepository } from './domain/repositories/conversation-message.repository'
 import type { L3PreferenceRepository } from './domain/repositories/l3-preference.repository'
@@ -278,6 +280,9 @@ class NullTenantLister implements TenantListerLike {
     },
     // ── Composition-attack monitor (Plan 07 Task 6) ───────────────────────────
     CompositionMonitorWorker,
+    // ── Plan 07 Task 7 — Observability meta-metrics + quota recorder ──────────
+    TurnSamplingDecisionRecorder,
+    LeakCanaryScheduler,
   ],
   exports: [
     AgentsQueryFacade,
@@ -323,6 +328,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     @Inject(CONVERSATION_RETENTION_SCHEDULER)
     private readonly retentionScheduler: ConversationRetentionScheduler,
     private readonly compositionMonitorWorker: CompositionMonitorWorker,
+    private readonly leakCanaryScheduler: LeakCanaryScheduler,
     private readonly pgBossService: PgBossService,
   ) {}
 
@@ -411,5 +417,9 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     await this.pgBossService.registerWorker('observability-composition-monitor', async (job) =>
       this.compositionMonitorWorker.handle(job as PgBoss.Job<CompositionMonitorJobData>),
     )
+
+    // Step 7: Register leak canary job (Plan 07 Task 7, R-07.§8).
+    // Daily 3am UTC scan for cross-tenant trace leaks — MVP stub records 'clean'.
+    await this.leakCanaryScheduler.registerJob()
   }
 }

@@ -1,5 +1,5 @@
 {
-  "id": "eded8c8f-53dd-4255-8f35-703baa4fde92",
+  "id": "606891ce-d25f-4d1b-97fa-11da117fdfd6",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -150,6 +150,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'Asia/Ho_Chi_Minh'"
+        },
+        "max_sampled_turns_per_day": {
+          "name": "max_sampled_turns_per_day",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 10000
         },
         "created_at": {
           "name": "created_at",
