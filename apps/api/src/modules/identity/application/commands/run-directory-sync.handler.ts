@@ -18,7 +18,7 @@ import { KernelUserIdentityFacade } from '../../../kernel/application/facades/ke
 import {
   DIRECTORY_PROVIDER_FACTORY,
   type IDirectoryProviderFactory,
-} from '../../infrastructure/providers/directory-provider.interface'
+} from '../../domain/ports/directory-provider.port'
 import { RunDirectorySyncCommand } from './run-directory-sync.command'
 import type { RoleKeyValue, ScopeTypeValue } from '@future/core'
 
@@ -48,7 +48,7 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
     })
 
     try {
-      const directoryProvider = this.directoryProviderFactory.create(provider)
+      const directoryProvider = await this.directoryProviderFactory.create(provider)
 
       const [idpUsers, idpGroups] = await Promise.all([
         directoryProvider.listUsers(),

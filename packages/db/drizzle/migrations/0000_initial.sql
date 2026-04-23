@@ -314,6 +314,28 @@ CREATE TABLE "identity"."idp_group_mapping" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "identity"."ms_graph_credential" (
+	"tenant_id" uuid PRIMARY KEY NOT NULL,
+	"client_id" text NOT NULL,
+	"client_secret_ref" text NOT NULL,
+	"tenant_ad_id" text NOT NULL,
+	"scopes" text[] NOT NULL,
+	"status" text DEFAULT 'active' NOT NULL,
+	"consented_at" timestamp with time zone NOT NULL,
+	"last_validated_at" timestamp with time zone,
+	"last_error" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "identity"."idp_group_member" (
+	"tenant_id" uuid NOT NULL,
+	"external_group_id" text NOT NULL,
+	"sso_subject" text NOT NULL,
+	"synced_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "idp_group_member_tenant_id_external_group_id_sso_subject_pk" PRIMARY KEY("tenant_id","external_group_id","sso_subject")
+);
+--> statement-breakpoint
 CREATE TABLE "identity"."magic_link_token" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"tenant_id" uuid NOT NULL,
@@ -1322,6 +1344,7 @@ CREATE INDEX "agent_turn_sampling_decision_tenant_created_idx" ON "agents"."agen
 CREATE UNIQUE INDEX "uq_identity_provider_tenant_primary" ON "identity"."identity_provider" USING btree ("tenant_id","is_primary") WHERE "identity"."identity_provider"."is_primary" = true;--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_idp_group_mapping_role_scope_scoped" ON "identity"."idp_group_mapping" USING btree ("tenant_id","external_group_id","role_key","scope_type","scope_id") WHERE "identity"."idp_group_mapping"."scope_id" IS NOT NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_idp_group_mapping_role_scope_global" ON "identity"."idp_group_mapping" USING btree ("tenant_id","external_group_id","role_key","scope_type") WHERE "identity"."idp_group_mapping"."scope_id" IS NULL;--> statement-breakpoint
+CREATE INDEX "idx_idp_group_member_lookup" ON "identity"."idp_group_member" USING btree ("tenant_id","external_group_id");--> statement-breakpoint
 CREATE INDEX "idx_magic_link_token_hash_unused" ON "identity"."magic_link_token" USING btree ("token_hash") WHERE "identity"."magic_link_token"."used_at" IS NULL;--> statement-breakpoint
 CREATE INDEX "idx_sync_history_tenant_started" ON "identity"."sync_history" USING btree ("tenant_id","started_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_role_permission_tenant_role_perm" ON "core"."role_permission" USING btree ("tenant_id","role_key","permission_key");--> statement-breakpoint
@@ -1355,4 +1378,12 @@ CREATE INDEX "idx_task_comment_task_posted" ON "planner"."task_comment" USING bt
 CREATE INDEX "idx_task_evidence_task_submitted" ON "planner"."task_evidence" USING btree ("task_id","submitted_at");--> statement-breakpoint
 CREATE INDEX "idx_task_evidence_tenant_submitted_by" ON "planner"."task_evidence" USING btree ("tenant_id","submitted_by");--> statement-breakpoint
 CREATE INDEX "saved_view_tenant_actor_resource_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key");--> statement-breakpoint
-CREATE UNIQUE INDEX "saved_view_unique_default_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key") WHERE is_default = true;
+CREATE UNIQUE INDEX "saved_view_unique_default_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key") WHERE is_default = true;--> statement-breakpoint
+ALTER TABLE identity.ms_graph_credential ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE identity.idp_group_member ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY tenant_isolation ON identity.ms_graph_credential
+  FOR ALL
+  USING (tenant_id = current_setting('app.tenant_id')::uuid);--> statement-breakpoint
+CREATE POLICY tenant_isolation ON identity.idp_group_member
+  FOR ALL
+  USING (tenant_id = current_setting('app.tenant_id')::uuid);
