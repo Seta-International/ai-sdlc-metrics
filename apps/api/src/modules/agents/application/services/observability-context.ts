@@ -9,7 +9,7 @@
  */
 
 import { trace, context, SpanStatusCode } from '@opentelemetry/api'
-import { NoOpSpan, OtelSpan } from '../../domain/observability/span'
+import { NoOpSpan, OtelSpan, IDENTITY_KEY_DENYLIST } from '../../domain/observability/span'
 import type { Span } from '../../domain/observability/span'
 import type { SpanType, EntityType } from '../../domain/observability/span-types'
 import type { RequestContext } from './tool-gateway-contracts'
@@ -84,8 +84,15 @@ export class ObservabilityContextFactory {
         // Mark the parent as non-leaf
         currentSpan._hasChildren = true
 
-        // Build the identity + classification attributes
+        // Strip any denylist keys from caller-supplied attrs (defense in depth)
+        const denySet = new Set<string>(IDENTITY_KEY_DENYLIST)
+        const safeCallerAttrs = Object.fromEntries(
+          Object.entries(childOpts.attrs ?? {}).filter(([k]) => !denySet.has(k)),
+        )
+
+        // Build the identity + classification attributes; identity keys always win
         const autoAttrs: Record<string, unknown> = {
+          ...safeCallerAttrs,
           tenant_id: requestContext.tenantId,
           user_id: requestContext.userId,
           trace_id: requestContext.traceId,
@@ -94,7 +101,6 @@ export class ObservabilityContextFactory {
           intent_slug: intentSlug,
           span_type: childOpts.type,
           entity_type: childOpts.entity,
-          ...childOpts.attrs,
         }
 
         if (requestContext.delegationId) {

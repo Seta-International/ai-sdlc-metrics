@@ -200,4 +200,51 @@ describe('ObservabilityContextFactory — real OTel path (capture=true)', () => 
 
     expect(() => child.setAttributes({ tenant_id: 'evil', other: 'ok' })).toThrow()
   })
+
+  it('createChildSpan: denylist attrs in caller opts are stripped; identity keys win', () => {
+    const ctx = factory.create({
+      requestContext: REQUEST_CONTEXT,
+      flowId: 'flow-real',
+      intentSlug: 'leave-apply',
+      capture: true,
+    })
+    mockOtelSpan.setAttributes.mockClear()
+
+    ctx.createChildSpan({
+      type: SpanType.ROUTER_PLAN,
+      entity: EntityType.ROUTER,
+      name: 'router:plan',
+      attrs: { tenant_id: 'evil', span_type: 'CUSTOM', custom_key: 'kept' },
+    })
+
+    expect(mockOtelSpan.setAttributes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenant_id: 'tenant-abc', // identity key wins — not 'evil'
+        span_type: SpanType.ROUTER_PLAN, // enum value wins — not 'CUSTOM'
+        custom_key: 'kept', // non-denylist caller attr is preserved
+      }),
+    )
+  })
+
+  it('createChildSpan auto-stamps delegation_id when present on requestContext', () => {
+    const ctxWithDelegation = factory.create({
+      requestContext: { ...REQUEST_CONTEXT, delegationId: 'deleg-123' },
+      flowId: 'flow-deleg',
+      intentSlug: 'leave-apply',
+      capture: true,
+    })
+    mockOtelSpan.setAttributes.mockClear()
+
+    ctxWithDelegation.createChildSpan({
+      type: SpanType.ROUTER_PLAN,
+      entity: EntityType.ROUTER,
+      name: 'router:plan',
+    })
+
+    expect(mockOtelSpan.setAttributes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        delegation_id: 'deleg-123',
+      }),
+    )
+  })
 })
