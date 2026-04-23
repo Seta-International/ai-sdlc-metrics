@@ -39,22 +39,27 @@ export class CostRecorder {
   ) {}
 
   async record(opts: CostRecordOpts): Promise<void> {
-    // Step 1 — adapter-drop detection (best-effort, never throws)
+    // Step 1 — adapter-drop detection (best-effort; audit failure must never abort recording)
     if (opts.rawProviderResponse !== undefined) {
       const dropped = this.usageExtractor.detectDroppedFields(opts.rawProviderResponse, opts.usage)
       if (dropped.length > 0) {
-        await this.auditFacade.recordEvent({
-          tenantId: opts.tenantId,
-          actorId: opts.tenantId, // system actor — no user context at this layer
-          eventType: 'agent.adapter_dropped_cache_fields',
-          module: 'agents',
-          subjectId: opts.traceId,
-          payload: {
-            modelId: opts.modelId,
-            droppedFields: dropped,
-            layer: opts.layer,
-          },
-        })
+        try {
+          await this.auditFacade.recordEvent({
+            tenantId: opts.tenantId,
+            actorId: opts.tenantId, // system actor — no user context at this layer
+            eventType: 'agent.adapter_dropped_cache_fields',
+            module: 'agents',
+            subjectId: opts.traceId,
+            payload: {
+              modelId: opts.modelId,
+              droppedFields: dropped,
+              layer: opts.layer,
+            },
+          })
+        } catch {
+          // R-05.6: capture continues even when audit emission fails.
+          // The cost event and budget decrement proceed regardless.
+        }
       }
     }
 

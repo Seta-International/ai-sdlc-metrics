@@ -190,4 +190,18 @@ describe('CostRecorder', () => {
     expect(mockDb.insert).toHaveBeenCalledTimes(2)
     expect(mockDb.update).toHaveBeenCalledTimes(1)
   })
+
+  // ─── 7. R-05.6: audit failure does not abort recording ────────────────────────
+  it('continues to write cost event even when auditFacade.recordEvent throws', async () => {
+    mockExtractor.detectDroppedFields.mockReturnValue(['inputCachedRead'])
+    mockAudit.recordEvent.mockRejectedValue(new Error('audit DB unavailable'))
+
+    await expect(
+      service.record({ ...BASE_OPTS, rawProviderResponse: { usage: {} } }),
+    ).resolves.toBeUndefined()
+
+    // Cost event and budget writes still happen despite audit failure
+    expect(mockDb.insert).toHaveBeenCalledTimes(2)
+    expect(mockDb.update).toHaveBeenCalledTimes(1)
+  })
 })
