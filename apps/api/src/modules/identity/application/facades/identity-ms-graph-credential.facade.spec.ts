@@ -318,7 +318,7 @@ describe('IdentityMsGraphCredentialFacade', () => {
     expect(credentialRepo.updateIfSecretRef).not.toHaveBeenCalled()
   })
 
-  it('pause disconnect persists the durable hook before marking the credential paused and keeps the secret', async () => {
+  it('pause disconnect marks the credential paused, persists the durable hook, and keeps the secret', async () => {
     const credential = MsGraphCredentialEntity.create({
       tenantId: TENANT_ID,
       clientId: INPUT.clientId,
@@ -342,12 +342,12 @@ describe('IdentityMsGraphCredentialFacade', () => {
     )
     expect(secretsStore.deleteSecret).not.toHaveBeenCalled()
     expect(persistDurableEvent).toHaveBeenCalledOnce()
-    expect(persistDurableEvent.mock.invocationCallOrder[0]).toBeLessThan(
-      credentialRepo.updateIfSecretRef.mock.invocationCallOrder[0],
+    expect(credentialRepo.updateIfSecretRef.mock.invocationCallOrder[0]).toBeLessThan(
+      persistDurableEvent.mock.invocationCallOrder[0],
     )
   })
 
-  it('destroy disconnect deletes the secret, persists the durable hook, then deletes the credential', async () => {
+  it('destroy disconnect deletes the secret, deletes the credential, then persists the durable hook', async () => {
     const credential = MsGraphCredentialEntity.create({
       tenantId: TENANT_ID,
       clientId: INPUT.clientId,
@@ -369,10 +369,10 @@ describe('IdentityMsGraphCredentialFacade', () => {
     expect(secretsStore.deleteSecret).toHaveBeenCalledWith(SECRET_REF)
     expect(persistDurableEvent).toHaveBeenCalledOnce()
     expect(secretsStore.deleteSecret.mock.invocationCallOrder[0]).toBeLessThan(
-      persistDurableEvent.mock.invocationCallOrder[0],
-    )
-    expect(persistDurableEvent.mock.invocationCallOrder[0]).toBeLessThan(
       credentialRepo.deleteIfSecretRef.mock.invocationCallOrder[0],
+    )
+    expect(credentialRepo.deleteIfSecretRef.mock.invocationCallOrder[0]).toBeLessThan(
+      persistDurableEvent.mock.invocationCallOrder[0],
     )
   })
 
@@ -416,7 +416,7 @@ describe('IdentityMsGraphCredentialFacade', () => {
     expect(credentialRepo.deleteIfSecretRef).not.toHaveBeenCalled()
   })
 
-  it('destroy disconnect keeps the credential row when durable event persistence fails after secret deletion', async () => {
+  it('destroy disconnect reinserts the credential row when durable event persistence fails after deletion', async () => {
     const credential = MsGraphCredentialEntity.create({
       tenantId: TENANT_ID,
       clientId: INPUT.clientId,
@@ -436,7 +436,8 @@ describe('IdentityMsGraphCredentialFacade', () => {
     ).rejects.toThrow(/outbox unavailable/)
 
     expect(secretsStore.deleteSecret).toHaveBeenCalledWith(SECRET_REF)
-    expect(credentialRepo.deleteIfSecretRef).not.toHaveBeenCalled()
+    expect(credentialRepo.deleteIfSecretRef).toHaveBeenCalledWith(TENANT_ID, SECRET_REF)
+    expect(credentialRepo.insertIfAbsent).toHaveBeenCalledWith(credential)
   })
 
   it('destroy disconnect treats an already-deleted secret as recoverable on retry', async () => {
@@ -465,7 +466,7 @@ describe('IdentityMsGraphCredentialFacade', () => {
     expect(credentialRepo.deleteIfSecretRef).toHaveBeenCalledWith(TENANT_ID, SECRET_REF)
   })
 
-  it('pause disconnect does not mutate credential state when durable event persistence fails', async () => {
+  it('pause disconnect does not persist durable event when guarded update fails', async () => {
     const credential = MsGraphCredentialEntity.create({
       tenantId: TENANT_ID,
       clientId: INPUT.clientId,
@@ -473,6 +474,30 @@ describe('IdentityMsGraphCredentialFacade', () => {
       tenantAdId: INPUT.tenantAdId,
       scopes: ['https://graph.microsoft.com/.default'],
       consentedAt: new Date('2026-04-23T00:00:00Z'),
+    })
+    const persistDurableEvent = vi.fn().mockResolvedValue(undefined)
+    credentialRepo.get.mockResolvedValue(credential)
+    credentialRepo.updateIfSecretRef.mockResolvedValue(false)
+
+    await expect(
+      facade.disconnectMicrosoftGraphCredential(
+        { tenantId: TENANT_ID, mode: 'pause' },
+        { persistDurableEvent },
+      ),
+    ).rejects.toThrow(/credential changed before disconnect/)
+
+    expect(persistDurableEvent).not.toHaveBeenCalled()
+  })
+
+  it('pause disconnect restores the original credential when durable event persistence fails', async () => {
+    const credential = MsGraphCredentialEntity.create({
+      tenantId: TENANT_ID,
+      clientId: INPUT.clientId,
+      clientSecretRef: SECRET_REF,
+      tenantAdId: INPUT.tenantAdId,
+      scopes: ['https://graph.microsoft.com/.default'],
+      consentedAt: new Date('2026-04-23T00:00:00Z'),
+      lastValidatedAt: new Date('2026-04-23T00:00:01Z'),
     })
     const persistDurableEvent = vi.fn().mockRejectedValue(new Error('outbox unavailable'))
     credentialRepo.get.mockResolvedValue(credential)
@@ -484,7 +509,44 @@ describe('IdentityMsGraphCredentialFacade', () => {
       ),
     ).rejects.toThrow(/outbox unavailable/)
 
-    expect(credentialRepo.updateIfSecretRef).not.toHaveBeenCalled()
+    expect(credentialRepo.updateIfSecretRef).toHaveBeenCalledTimes(2)
+    expect(credentialRepo.updateIfSecretRef.mock.calls[0]).toEqual([
+      expect.objectContaining({ status: 'paused' }),
+      SECRET_REF,
+    ])
+    expect(credentialRepo.updateIfSecretRef.mock.calls[1]).toEqual([
+      expect.objectContaining({
+        tenantId: TENANT_ID,
+        status: 'active',
+        lastValidatedAt: new Date('2026-04-23T00:00:01Z'),
+      }),
+      SECRET_REF,
+    ])
     expect(credential.status).toBe('active')
+  })
+
+  it('destroy disconnect does not persist durable event when guarded delete fails', async () => {
+    const credential = MsGraphCredentialEntity.create({
+      tenantId: TENANT_ID,
+      clientId: INPUT.clientId,
+      clientSecretRef: SECRET_REF,
+      tenantAdId: INPUT.tenantAdId,
+      scopes: ['https://graph.microsoft.com/.default'],
+      consentedAt: new Date('2026-04-23T00:00:00Z'),
+    })
+    const persistDurableEvent = vi.fn().mockResolvedValue(undefined)
+    credentialRepo.get.mockResolvedValue(credential)
+    credentialRepo.deleteIfSecretRef.mockResolvedValue(false)
+
+    await expect(
+      facade.disconnectMicrosoftGraphCredential(
+        { tenantId: TENANT_ID, mode: 'destroy' },
+        { persistDurableEvent },
+      ),
+    ).rejects.toThrow(/credential changed before disconnect/)
+
+    expect(secretsStore.deleteSecret).toHaveBeenCalledWith(SECRET_REF)
+    expect(persistDurableEvent).not.toHaveBeenCalled()
+    expect(credentialRepo.insertIfAbsent).not.toHaveBeenCalled()
   })
 })

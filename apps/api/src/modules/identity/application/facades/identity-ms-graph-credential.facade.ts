@@ -137,25 +137,38 @@ export class IdentityMsGraphCredentialFacade {
       return false
     }
 
+    const originalCredential = this.cloneCredential(credential)
+    const originalSecretRef = credential.clientSecretRef
+
     if (input.mode === 'pause') {
-      await options.persistDurableEvent?.()
-      credential.markPaused()
+      const pausedCredential = this.cloneCredential(credential)
+      pausedCredential.markPaused()
       const paused = await this.credentialRepo.updateIfSecretRef(
-        credential,
-        credential.clientSecretRef,
+        pausedCredential,
+        originalSecretRef,
       )
       if (!paused) {
         throw new Error('credential changed before disconnect')
       }
+
+      try {
+        await options.persistDurableEvent?.()
+      } catch (error) {
+        await this.credentialRepo.updateIfSecretRef(originalCredential, originalSecretRef)
+        throw error
+      }
     } else {
-      await this.deleteSecretIfPresent(credential.clientSecretRef)
-      await options.persistDurableEvent?.()
-      const deleted = await this.credentialRepo.deleteIfSecretRef(
-        input.tenantId,
-        credential.clientSecretRef,
-      )
+      await this.deleteSecretIfPresent(originalSecretRef)
+      const deleted = await this.credentialRepo.deleteIfSecretRef(input.tenantId, originalSecretRef)
       if (!deleted) {
         throw new Error('credential changed before disconnect')
+      }
+
+      try {
+        await options.persistDurableEvent?.()
+      } catch (error) {
+        await this.credentialRepo.insertIfAbsent(originalCredential)
+        throw error
       }
     }
 
@@ -182,6 +195,20 @@ export class IdentityMsGraphCredentialFacade {
       createdAt: now,
       updatedAt: now,
     }
+  }
+
+  private cloneCredential(credential: MsGraphCredentialEntity): MsGraphCredentialEntity {
+    return MsGraphCredentialEntity.create({
+      tenantId: credential.tenantId,
+      clientId: credential.clientId,
+      clientSecretRef: credential.clientSecretRef,
+      tenantAdId: credential.tenantAdId,
+      scopes: credential.scopes,
+      consentedAt: credential.consentedAt,
+      status: credential.status,
+      lastValidatedAt: credential.lastValidatedAt,
+      lastError: credential.lastError,
+    })
   }
 
   private async cleanupStoredCredential(
