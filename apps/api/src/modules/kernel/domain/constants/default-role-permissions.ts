@@ -66,6 +66,7 @@ export const DEFAULT_ROLE_PERMISSIONS: DefaultRolePermissionMap = {
     ...EMPLOYEE_LOCKED,
     { permissionKey: PERMISSIONS.PEOPLE_PROFILE_READ, isLocked: false },
     { permissionKey: PERMISSIONS.PEOPLE_PROFILE_UPDATE, isLocked: false },
+    { permissionKey: PERMISSIONS.PEOPLE_ORG_READ, isLocked: false },
     { permissionKey: PERMISSIONS.PEOPLE_DIRECTORY_READ, isLocked: false },
     { permissionKey: PERMISSIONS.PEOPLE_DIRECTORY_EXPORT, isLocked: false },
     { permissionKey: PERMISSIONS.PEOPLE_SETTINGS_READ, isLocked: false },

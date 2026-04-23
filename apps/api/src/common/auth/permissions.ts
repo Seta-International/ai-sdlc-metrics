@@ -33,6 +33,7 @@ export const PERMISSIONS = {
   PEOPLE_PROFILE_TEAM_READ: 'people:profile:team:read',
   PEOPLE_PROFILE_CREATE: 'people:profile:create',
   PEOPLE_PROFILE_UPDATE: 'people:profile:update',
+  PEOPLE_ORG_READ: 'people:org:read',
   PEOPLE_DIRECTORY_READ: 'people:directory:read',
   PEOPLE_DIRECTORY_EXPORT: 'people:directory:export',
   PEOPLE_SHARE_LINK_CREATE: 'people:shareLink:create',

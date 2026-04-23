@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Check } from 'lucide-react'
+import { Check, MoreHorizontal } from 'lucide-react'
 import { cn } from '../lib/utils'
 import {
   DropdownMenu,
@@ -71,20 +71,20 @@ export function UserMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        {/* h-9 w-9 wrapper provides the 36px touch target; visual avatar is h-7 w-7 */}
         <button
           type="button"
           aria-label={`User menu for ${user.displayName}`}
           className={cn(
-            'flex h-9 w-9 flex-shrink-0 items-center justify-center',
-            'focus:outline-none focus:ring-3 focus:ring-ring/50',
+            'flex w-full items-center gap-2 rounded-md p-1.5',
+            'text-left transition-colors',
+            'hover:bg-sidebar-accent/40',
+            'focus:outline-none focus:ring-2 focus:ring-sidebar-ring/50',
           )}
         >
           <span
             className={cn(
-              'flex h-7 w-7 items-center justify-center overflow-hidden rounded-full',
+              'flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full',
               'border border-border bg-elevated text-micro font-510 text-fg-primary',
-              'transition-opacity hover:opacity-80',
             )}
           >
             {user.avatarUrl ? (
@@ -93,27 +93,53 @@ export function UserMenu({
               user.initials
             )}
           </span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-caption-lg font-510 text-sidebar-foreground leading-tight">
+              {user.displayName}
+            </div>
+            <div className="truncate text-tiny text-sidebar-foreground/40 leading-tight">
+              {user.email}
+            </div>
+          </div>
+          <MoreHorizontal className="h-3.5 w-3.5 shrink-0 text-sidebar-foreground/40" />
         </button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-64">
-        <div className="flex flex-col gap-0.5 px-2 py-1.5">
-          <span className="text-label font-510 text-muted-foreground truncate">
-            {user.tenantName}
+      <DropdownMenuContent
+        side="top"
+        align="start"
+        sideOffset={6}
+        className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-52"
+      >
+        {/* Identity header */}
+        <div className="flex items-center gap-2.5 px-2.5 py-2">
+          <span
+            className={cn(
+              'flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full',
+              'border border-border bg-elevated text-label font-510 text-fg-primary',
+            )}
+          >
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              user.initials
+            )}
           </span>
-          <span className="text-caption-lg font-510 text-foreground truncate">
-            {user.displayName}
-          </span>
-          <span className="text-caption text-muted-foreground truncate">{user.email}</span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-caption-lg font-510 text-foreground">
+              {user.displayName}
+            </div>
+            <div className="truncate text-caption text-muted-foreground">{user.email}</div>
+          </div>
         </div>
 
         {firstRole ? (
-          <div className="flex items-center gap-1.5 px-2 pb-1.5">
-            <span className="inline-flex items-center rounded-full border border-border pl-1.25 pr-2.5 text-label font-510 text-secondary-foreground">
+          <div className="flex items-center gap-1.5 px-2.5 pb-2">
+            <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-label font-510 text-muted-foreground">
               {firstRole}
             </span>
             {extraRoles > 0 ? (
-              <span className="inline-flex items-center rounded-full border border-border pl-1.25 pr-2.5 text-label font-510 text-secondary-foreground">
+              <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-label font-510 text-muted-foreground">
                 +{extraRoles}
               </span>
             ) : null}
@@ -128,13 +154,13 @@ export function UserMenu({
 
         {settingsHref ? (
           <DropdownMenuItem asChild>
-            <a href={settingsHref}>Settings</a>
+            <a href={settingsHref}>Account settings</a>
           </DropdownMenuItem>
         ) : null}
 
         {hasTenantSwitcher ? (
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger className="text-accent">Switch tenant</DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger>Switch tenant</DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
               {tenants!.map((tenant) => {
                 const isCurrent = tenant.id === user.tenantId
@@ -165,7 +191,7 @@ export function UserMenu({
 
         <DropdownMenuItem
           onSelect={handleLogout}
-          className="hover:text-destructive focus:text-destructive"
+          className="text-destructive focus:text-destructive"
         >
           Logout
         </DropdownMenuItem>

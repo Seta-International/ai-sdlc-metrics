@@ -1,4 +1,4 @@
-import { Sun, ListChecks, Folder, ListTodo } from '@future/ui/icons'
+import { Sun, ListChecks, Folder, ListTodo, FileText } from '@future/ui/icons'
 import type { NavigationConfig } from '@future/app-layout'
 import { PlannerSidebarPlansGroup } from './components/sidebar/PlannerSidebarPlansGroup'
 
@@ -23,6 +23,12 @@ export const plannerNavConfig: NavigationConfig = {
           label: 'My Plans',
           icon: Folder,
           href: '/personal/plans',
+          permission: 'planner:personal:read',
+        },
+        {
+          label: 'Transcripts',
+          icon: FileText,
+          href: '/personal/transcripts',
           permission: 'planner:personal:read',
         },
       ],

@@ -45,41 +45,36 @@ export const peopleNavConfig: NavigationConfig = {
           label: 'Onboarding',
           icon: UserPlus,
           href: '/onboarding',
-          permission: 'people:onboard:manage',
+          permission: 'people:profile:read',
         },
         {
           label: 'Offboarding',
           icon: UserMinus,
           href: '/offboarding',
-          permission: 'people:offboard:manage',
+          permission: 'people:profile:read',
         },
         {
           label: 'Change Requests',
           icon: FileCheck,
           href: '/change-requests',
-          permission: 'people:changes:review',
+          permission: 'people:profile:read',
         },
       ],
     },
     {
-      label: 'Analytics',
+      label: 'Insights',
       items: [
         {
           label: 'Reports',
           icon: BarChart3,
           href: '/reports',
-          permission: 'people:reports:read',
+          permission: 'people:profile:read',
         },
-      ],
-    },
-    {
-      label: 'Configuration',
-      items: [
         {
           label: 'Settings',
           icon: Settings,
           href: '/settings',
-          permission: 'people:settings:manage',
+          permission: 'people:settings:read',
         },
       ],
     },
