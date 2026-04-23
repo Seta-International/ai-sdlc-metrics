@@ -16,6 +16,10 @@ export interface ConnectMicrosoftGraphCredentialInput {
   clientSecret: string
 }
 
+export interface ConnectMicrosoftGraphCredentialOptions {
+  afterActivate?: () => Promise<void>
+}
+
 const DEFAULT_SCOPES = ['https://graph.microsoft.com/.default'] as const
 
 @Injectable()
@@ -31,10 +35,30 @@ export class IdentityMsGraphCredentialFacade {
 
   async connectMicrosoftGraphCredential(
     input: ConnectMicrosoftGraphCredentialInput,
+    options: ConnectMicrosoftGraphCredentialOptions = {},
   ): Promise<void> {
     const existing = await this.credentialRepo.get(input.tenantId)
     if (existing) {
-      throw new Error('Microsoft 365 is already connected for this tenant; disconnect first')
+      if (this.isMatchingActiveCredential(existing, input)) {
+        await options.afterActivate?.()
+        return
+      }
+
+      if (existing.status === 'active') {
+        throw new Error('Microsoft 365 is already connected for this tenant; disconnect first')
+      }
+
+      const cleanupFailures = await this.cleanupStoredCredential(
+        input.tenantId,
+        existing.clientSecretRef,
+        true,
+      )
+      if (cleanupFailures.length > 0) {
+        throw this.withCleanupFailures(
+          'Microsoft Graph setup cleanup failed before reconnect',
+          cleanupFailures,
+        )
+      }
     }
 
     const { ref } = await this.secretsStore.putSecret({
@@ -51,20 +75,31 @@ export class IdentityMsGraphCredentialFacade {
       tenantAdId: input.tenantAdId,
       scopes: DEFAULT_SCOPES,
       consentedAt,
+      status: 'paused',
     })
 
     try {
       await this.credentialRepo.upsert(credential)
       credentialPersisted = true
     } catch (error) {
-      await this.secretsStore.deleteSecret(ref)
+      const cleanupFailures = await this.cleanupStoredCredential(input.tenantId, ref, false)
+      if (cleanupFailures.length > 0) {
+        throw this.withCleanupFailures((error as Error).message, cleanupFailures)
+      }
       throw error
     }
 
     const validationError = await this.validateMicrosoftGraphConnection(input, ref, consentedAt)
     if (validationError) {
-      await this.rollbackStoredCredential(input.tenantId, ref, credentialPersisted)
-      throw new Error(`Microsoft Graph validation failed: ${validationError}`)
+      const cleanupFailures = await this.cleanupStoredCredential(
+        input.tenantId,
+        ref,
+        credentialPersisted,
+      )
+      throw this.withCleanupFailures(
+        `Microsoft Graph validation failed: ${validationError}`,
+        cleanupFailures,
+      )
     }
 
     const activeCredential = MsGraphCredentialEntity.create({
@@ -76,7 +111,16 @@ export class IdentityMsGraphCredentialFacade {
       consentedAt,
     })
     activeCredential.markActive()
-    await this.credentialRepo.upsert(activeCredential)
+    try {
+      await this.credentialRepo.upsert(activeCredential)
+      await options.afterActivate?.()
+    } catch (error) {
+      const cleanupFailures = await this.cleanupStoredCredential(input.tenantId, ref, true)
+      throw this.withCleanupFailures(
+        `Microsoft Graph activation failed: ${(error as Error).message}`,
+        cleanupFailures,
+      )
+    }
   }
 
   private createMicrosoftProviderConfig(
@@ -101,15 +145,27 @@ export class IdentityMsGraphCredentialFacade {
     }
   }
 
-  private async rollbackStoredCredential(
+  private async cleanupStoredCredential(
     tenantId: string,
     secretRef: string,
     credentialPersisted: boolean,
-  ): Promise<void> {
+  ): Promise<string[]> {
+    const failures: string[] = []
     if (credentialPersisted) {
-      await this.credentialRepo.delete(tenantId)
+      try {
+        await this.credentialRepo.delete(tenantId)
+      } catch (error) {
+        failures.push(`credential delete: ${(error as Error).message}`)
+      }
     }
-    await this.secretsStore.deleteSecret(secretRef)
+
+    try {
+      await this.secretsStore.deleteSecret(secretRef)
+    } catch (error) {
+      failures.push(`secret delete: ${(error as Error).message}`)
+    }
+
+    return failures
   }
 
   private async validateMicrosoftGraphConnection(
@@ -126,5 +182,24 @@ export class IdentityMsGraphCredentialFacade {
     } catch (error) {
       return (error as Error).message
     }
+  }
+
+  private isMatchingActiveCredential(
+    credential: { clientId: string; tenantAdId: string; status: string },
+    input: ConnectMicrosoftGraphCredentialInput,
+  ): boolean {
+    return (
+      credential.status === 'active' &&
+      credential.clientId === input.clientId &&
+      credential.tenantAdId === input.tenantAdId
+    )
+  }
+
+  private withCleanupFailures(message: string, cleanupFailures: string[]): Error {
+    if (cleanupFailures.length === 0) {
+      return new Error(message)
+    }
+
+    return new Error(`${message}; cleanup failed: ${cleanupFailures.join('; ')}`)
   }
 }

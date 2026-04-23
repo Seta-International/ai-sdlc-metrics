@@ -1,6 +1,8 @@
 import { EventBus } from '@nestjs/cqrs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { MS_SYNC_ENABLED_EVENT } from '@future/event-contracts'
 import { IdentityMsGraphCredentialFacade } from '../../../../identity/application/facades/identity-ms-graph-credential.facade'
+import type { KernelAuditFacade } from '../../../../kernel/application/facades/kernel-audit.facade'
 import { ConnectMsSyncCommand } from './connect-ms-sync.command'
 import { ConnectMsSyncHandler } from './connect-ms-sync.handler'
 
@@ -18,16 +20,21 @@ function makeCommand() {
 
 describe('ConnectMsSyncHandler', () => {
   let identityGraphFacade: { connectMicrosoftGraphCredential: ReturnType<typeof vi.fn> }
+  let auditFacade: { publishOutboxEvent: ReturnType<typeof vi.fn> }
   let eventBus: { publish: ReturnType<typeof vi.fn> }
   let handler: ConnectMsSyncHandler
 
   beforeEach(() => {
     identityGraphFacade = {
-      connectMicrosoftGraphCredential: vi.fn().mockResolvedValue(undefined),
+      connectMicrosoftGraphCredential: vi.fn().mockImplementation(async (_input, options) => {
+        await options?.afterActivate?.()
+      }),
     }
+    auditFacade = { publishOutboxEvent: vi.fn().mockResolvedValue(undefined) }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
     handler = new ConnectMsSyncHandler(
       identityGraphFacade as unknown as IdentityMsGraphCredentialFacade,
+      auditFacade as unknown as KernelAuditFacade,
       eventBus as unknown as EventBus,
     )
   })
@@ -35,11 +42,25 @@ describe('ConnectMsSyncHandler', () => {
   it('connects the Microsoft Graph credential and emits MsSyncEnabledEvent', async () => {
     await handler.execute(makeCommand())
 
-    expect(identityGraphFacade.connectMicrosoftGraphCredential).toHaveBeenCalledWith({
+    expect(identityGraphFacade.connectMicrosoftGraphCredential).toHaveBeenCalledWith(
+      {
+        tenantId: TENANT_ID,
+        clientId: INPUT.clientId,
+        tenantAdId: INPUT.tenantAdId,
+        clientSecret: INPUT.clientSecret,
+      },
+      expect.objectContaining({ afterActivate: expect.any(Function) }),
+    )
+    expect(auditFacade.publishOutboxEvent).toHaveBeenCalledWith({
       tenantId: TENANT_ID,
-      clientId: INPUT.clientId,
-      tenantAdId: INPUT.tenantAdId,
-      clientSecret: INPUT.clientSecret,
+      eventName: MS_SYNC_ENABLED_EVENT,
+      payload: expect.objectContaining({
+        type: MS_SYNC_ENABLED_EVENT,
+        tenantId: TENANT_ID,
+        actorId: ACTOR_ID,
+        tenantAdId: INPUT.tenantAdId,
+        clientId: INPUT.clientId,
+      }),
     })
     expect(eventBus.publish).toHaveBeenCalledOnce()
     expect(eventBus.publish).toHaveBeenCalledWith(
@@ -54,6 +75,15 @@ describe('ConnectMsSyncHandler', () => {
 
     const event = eventBus.publish.mock.calls[0][0]
     expect(Number.isNaN(Date.parse(event.occurredAt))).toBe(false)
+  })
+
+  it('does not publish the in-process event when durable outbox persistence fails', async () => {
+    auditFacade.publishOutboxEvent.mockRejectedValue(new Error('outbox unavailable'))
+
+    await expect(handler.execute(makeCommand())).rejects.toThrow(/outbox unavailable/)
+
+    expect(auditFacade.publishOutboxEvent).toHaveBeenCalledOnce()
+    expect(eventBus.publish).not.toHaveBeenCalled()
   })
 
   it('does not emit when Graph validation fails', async () => {
