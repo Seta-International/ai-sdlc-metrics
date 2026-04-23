@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config'
 import { S3StorageClient } from '@future/storage'
 import { KernelModule } from '../kernel/kernel.module'
 import { AdminModule } from '../admin/admin.module'
+import { IdentityModule } from '../identity/identity.module'
 import { PlannerQueryFacade } from './application/facades/planner-query.facade'
 import { PlannerRouterService } from './interface/trpc/planner-router.service'
 import { MS_PLANNER_CLIENT } from './domain/ports/ms-planner-client.port'
@@ -99,9 +100,10 @@ import { TaskDailySnapshotWorker } from './infrastructure/jobs/task-daily-snapsh
 import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-snapshot.scheduler'
 import { MyDayOrphanSweepJob } from './infrastructure/jobs/my-day-orphan-sweep.job'
 import { MyDayOrphanSweepScheduler } from './infrastructure/jobs/my-day-orphan-sweep.scheduler'
+import { ConnectMsSyncHandler } from './application/commands/ms-sync/connect-ms-sync.handler'
 
 @Module({
-  imports: [CqrsModule, KernelModule, AdminModule, NotificationsModule],
+  imports: [CqrsModule, KernelModule, AdminModule, IdentityModule, NotificationsModule],
   providers: [
     { provide: MS_PLANNER_CLIENT, useClass: Phase1MsPlannerClientAdapter },
     { provide: PLAN_REPOSITORY, useClass: DrizzlePlanRepository },
@@ -188,6 +190,7 @@ import { MyDayOrphanSweepScheduler } from './infrastructure/jobs/my-day-orphan-s
     TaskDailySnapshotScheduler,
     MyDayOrphanSweepJob,
     MyDayOrphanSweepScheduler,
+    ConnectMsSyncHandler,
     PlannerQueryFacade,
     PlannerRouterService,
   ],
