@@ -158,6 +158,7 @@ import { CountryFieldValidationService } from './application/services/country-fi
 import { CustomFieldValidationService } from './application/services/custom-field-validation.service'
 import { FieldVisibilityFilterService } from './application/services/field-visibility-filter.service'
 import { EditPolicyService } from './application/services/edit-policy.service'
+import { OrgChartQueryService } from './application/services/org-chart-query.service'
 
 // ── Legacy command handlers that still compile ─────────────────────────────
 // NOTE: Handlers that reference EMPLOYMENT_PROFILE_REPOSITORY (deleted) are
@@ -179,6 +180,8 @@ import { GetJobHistoryHandler } from './application/queries/get-job-history.hand
 import { ListEmploymentsHandler } from './application/queries/list-employments.handler'
 import { ListJobProfilesHandler } from './application/queries/list-job-profiles.handler'
 import { GetProbationRecordHandler } from './application/queries/get-probation-record.handler'
+import { GetOrgChartContextHandler } from './application/queries/get-org-chart-context.handler'
+import { GetOrgChartChildrenHandler } from './application/queries/get-org-chart-children.handler'
 
 // ── Legacy query handlers that still compile ───────────────────────────────
 // NOTE: Handlers that reference EMPLOYMENT_PROFILE_REPOSITORY (deleted) are excluded:
@@ -279,6 +282,7 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     FieldVisibilityFilterService,
     EditPolicyService,
     DuplicateValidationService,
+    OrgChartQueryService,
 
     // ── Plan 04 jobs ─────────────────────────────────────────────────────
     ApplyScheduledChangesJob,
@@ -338,6 +342,8 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     ListEmploymentsHandler,
     ListJobProfilesHandler,
     GetProbationRecordHandler,
+    GetOrgChartContextHandler,
+    GetOrgChartChildrenHandler,
 
     // ── Plan 04 query handlers ───────────────────────────────────────────
     ListExpiringDocumentsHandler,

@@ -1,11 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common'
 import type { Db } from '@future/db'
-import { and, count, eq, ne } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, isNull, ne } from 'drizzle-orm'
 import type { Employment } from '../../domain/entities/employment.entity'
 import type { IEmploymentRepository } from '../../domain/repositories/employment.repository'
 import type { EmploymentStatus } from '../../domain/value-objects/employment-status'
 import { DB_TOKEN } from '../../../../common/db/db.module'
-import { employment, personProfile } from '../schema/people.schema'
+import { employment, jobAssignment, personProfile } from '../schema/people.schema'
 
 @Injectable()
 export class DrizzleEmploymentRepository implements IEmploymentRepository {
@@ -18,6 +18,16 @@ export class DrizzleEmploymentRepository implements IEmploymentRepository {
       .where(and(eq(employment.id, id), eq(employment.tenantId, tenantId)))
       .limit(1)
     return (rows[0] as Employment | undefined) ?? null
+  }
+
+  async findManyByIds(ids: string[], tenantId: string): Promise<Employment[]> {
+    if (ids.length === 0) return []
+    const rows = await this.db
+      .select()
+      .from(employment)
+      .where(and(eq(employment.tenantId, tenantId), inArray(employment.id, ids)))
+      .orderBy(asc(employment.id))
+    return rows as Employment[]
   }
 
   async findByPersonProfileId(personProfileId: string, tenantId: string): Promise<Employment[]> {
@@ -44,6 +54,29 @@ export class DrizzleEmploymentRepository implements IEmploymentRepository {
       )
       .limit(1)
     return (rows[0]?.employment as Employment | undefined) ?? null
+  }
+
+  async findActiveRootEmployments(tenantId: string): Promise<Employment[]> {
+    const rows = await this.db
+      .select({ employment })
+      .from(employment)
+      .leftJoin(
+        jobAssignment,
+        and(
+          eq(jobAssignment.employmentId, employment.id),
+          eq(jobAssignment.tenantId, tenantId),
+          isNull(jobAssignment.effectiveTo),
+        ),
+      )
+      .where(
+        and(
+          eq(employment.tenantId, tenantId),
+          ne(employment.employmentStatus, 'terminated'),
+          isNull(jobAssignment.managerId),
+        ),
+      )
+      .orderBy(asc(employment.employeeCode), asc(employment.id))
+    return rows.map((row) => row.employment as Employment)
   }
 
   async insert(data: Omit<Employment, 'id' | 'createdAt' | 'updatedAt'>): Promise<Employment> {

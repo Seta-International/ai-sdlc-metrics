@@ -5,8 +5,10 @@ export const EMPLOYMENT_REPOSITORY = Symbol('IEmploymentRepository')
 
 export interface IEmploymentRepository {
   findById(id: string, tenantId: string): Promise<Employment | null>
+  findManyByIds(ids: string[], tenantId: string): Promise<Employment[]>
   findByPersonProfileId(personProfileId: string, tenantId: string): Promise<Employment[]>
   findActiveByActorId(actorId: string, tenantId: string): Promise<Employment | null>
+  findActiveRootEmployments(tenantId: string): Promise<Employment[]>
   insert(data: Omit<Employment, 'id' | 'createdAt' | 'updatedAt'>): Promise<Employment>
   updateStatus(
     id: string,

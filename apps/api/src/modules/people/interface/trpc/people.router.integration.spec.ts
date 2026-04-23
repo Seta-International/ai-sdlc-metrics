@@ -17,7 +17,12 @@ import {
 } from '@future/db/test-helpers'
 import type { Db } from '@future/db'
 import { DrizzleDirectorySearchIndexRepository } from '../../infrastructure/repositories/drizzle-directory-search-index.repository'
+import { DrizzleEmploymentRepository } from '../../infrastructure/repositories/drizzle-employment.repository'
+import { DrizzleJobAssignmentRepository } from '../../infrastructure/repositories/drizzle-job-assignment.repository'
 import { ListDirectoryQuery } from '../../application/queries/list-directory.query'
+import { GetOrgChartContextQuery } from '../../application/queries/get-org-chart-context.query'
+import { GetOrgChartChildrenQuery } from '../../application/queries/get-org-chart-children.query'
+import { OrgChartQueryService } from '../../application/services/org-chart-query.service'
 import { uuidv7 } from 'uuidv7'
 
 const TENANT_A = '01900000-0000-7fff-8000-000000000101'
@@ -38,9 +43,20 @@ const baseQuery = {
 }
 
 const HIERARCHY_TENANT = '01900000-0000-7fff-8000-000000000301'
+const OTHER_HIERARCHY_TENANT = '01900000-0000-7fff-8000-000000000302'
 const HIERARCHY_ENGINEERING = '01900000-0000-7fff-8000-000000000311'
 const HIERARCHY_BACKEND = '01900000-0000-7fff-8000-000000000312'
 const HIERARCHY_API = '01900000-0000-7fff-8000-000000000313'
+const ORG_MANAGER_ACTOR = '01900000-0000-7fff-8000-000000000321'
+const ORG_VIEWER_ACTOR = '01900000-0000-7fff-8000-000000000322'
+const ORG_PEER_ACTOR = '01900000-0000-7fff-8000-000000000323'
+const ORG_REPORT_ACTOR = '01900000-0000-7fff-8000-000000000324'
+const ORG_OTHER_ACTOR = '01900000-0000-7fff-8000-000000000325'
+const ORG_MANAGER_EMPLOYMENT = '01900000-0000-7fff-8000-000000000331'
+const ORG_VIEWER_EMPLOYMENT = '01900000-0000-7fff-8000-000000000332'
+const ORG_PEER_EMPLOYMENT = '01900000-0000-7fff-8000-000000000333'
+const ORG_REPORT_EMPLOYMENT = '01900000-0000-7fff-8000-000000000334'
+const ORG_OTHER_EMPLOYMENT = '01900000-0000-7fff-8000-000000000335'
 
 async function truncateDirectorySearchIndex(db: Db): Promise<void> {
   await db.execute(sql`TRUNCATE people.directory_search_index RESTART IDENTITY CASCADE`)
@@ -81,6 +97,7 @@ async function seedCurrentAssignment(
   tenantId: string,
   employmentId: string,
   departmentId: string,
+  managerId: string | null = null,
 ): Promise<void> {
   await db.execute(sql`
     INSERT INTO people.job_assignment (
@@ -110,10 +127,75 @@ async function seedCurrentAssignment(
       NULL,
       NULL,
       'hybrid',
-      NULL,
+      ${managerId},
       'hire',
       NULL,
       ${uuidv7()},
+      NOW()
+    )
+  `)
+}
+
+async function seedPersonAndEmployment(
+  db: Db,
+  input: {
+    tenantId: string
+    actorId: string
+    personProfileId: string
+    employmentId: string
+    fullName: string
+    employeeCode: string
+  },
+): Promise<void> {
+  await db.execute(sql`
+    INSERT INTO people.person_profile (
+      id,
+      tenant_id,
+      actor_id,
+      family_name,
+      given_name,
+      full_name,
+      full_name_unaccented,
+      name_display_order,
+      created_at,
+      updated_at
+    ) VALUES (
+      ${input.personProfileId},
+      ${input.tenantId},
+      ${input.actorId},
+      ${input.fullName.split(' ').at(-1) ?? input.fullName},
+      ${input.fullName.split(' ')[0] ?? input.fullName},
+      ${input.fullName},
+      ${input.fullName},
+      'given_first',
+      NOW(),
+      NOW()
+    )
+  `)
+  await db.execute(sql`
+    INSERT INTO people.employment (
+      id,
+      tenant_id,
+      person_profile_id,
+      employee_code,
+      worker_type,
+      employment_type,
+      country_code,
+      employment_status,
+      hire_date,
+      created_at,
+      updated_at
+    ) VALUES (
+      ${input.employmentId},
+      ${input.tenantId},
+      ${input.personProfileId},
+      ${input.employeeCode},
+      'employee',
+      'permanent',
+      'VN',
+      'active',
+      DATE '2025-01-01',
+      NOW(),
       NOW()
     )
   `)
@@ -329,11 +411,17 @@ describe('people.directory tRPC sub-router', () => {
 describe('people.directory tRPC sub-router - hierarchy integration', () => {
   const db = createTestDb()
   let repo: DrizzleDirectorySearchIndexRepository
+  let orgChart: OrgChartQueryService
   let caller: ReturnType<typeof peopleRouter.createCaller>
 
   beforeAll(async () => {
     await migrateForTest()
     repo = new DrizzleDirectorySearchIndexRepository(db as never)
+    orgChart = new OrgChartQueryService(
+      new DrizzleEmploymentRepository(db as never),
+      new DrizzleJobAssignmentRepository(db as never),
+      repo,
+    )
 
     const kernelFacade = {
       canDo: async () => true,
@@ -361,6 +449,12 @@ describe('people.directory tRPC sub-router - hierarchy integration', () => {
           if (query instanceof ListDirectoryQuery) {
             return repo.list(query.tenantId, query.filters, query.limit, query.offset)
           }
+          if (query instanceof GetOrgChartContextQuery) {
+            return orgChart.getContext(query.tenantId, query.actorId)
+          }
+          if (query instanceof GetOrgChartChildrenQuery) {
+            return orgChart.getChildren(query.tenantId, query.employmentId)
+          }
           throw new Error('Unexpected query')
         },
       } as never,
@@ -378,6 +472,7 @@ describe('people.directory tRPC sub-router - hierarchy integration', () => {
     await truncatePeopleSchema(db)
     await truncateCoreSchema(db)
     await seedTenant(db, { id: HIERARCHY_TENANT, slug: 'people-router-hierarchy' })
+    await seedTenant(db, { id: OTHER_HIERARCHY_TENANT, slug: 'people-router-hierarchy-other' })
     await setTenantContext(db, HIERARCHY_TENANT)
   })
 
@@ -437,5 +532,135 @@ describe('people.directory tRPC sub-router - hierarchy integration', () => {
       'Backend',
       'Engineering',
     ])
+  })
+
+  it('orgChart returns viewer context, lazy children, and excludes other tenants', async () => {
+    await seedPersonAndEmployment(db, {
+      tenantId: HIERARCHY_TENANT,
+      actorId: ORG_MANAGER_ACTOR,
+      personProfileId: '01900000-0000-7fff-8000-000000000341',
+      employmentId: ORG_MANAGER_EMPLOYMENT,
+      fullName: 'Morgan Manager',
+      employeeCode: 'MGR',
+    })
+    await seedPersonAndEmployment(db, {
+      tenantId: HIERARCHY_TENANT,
+      actorId: ORG_VIEWER_ACTOR,
+      personProfileId: '01900000-0000-7fff-8000-000000000342',
+      employmentId: ORG_VIEWER_EMPLOYMENT,
+      fullName: 'Sam Self',
+      employeeCode: 'SELF',
+    })
+    await seedPersonAndEmployment(db, {
+      tenantId: HIERARCHY_TENANT,
+      actorId: ORG_PEER_ACTOR,
+      personProfileId: '01900000-0000-7fff-8000-000000000343',
+      employmentId: ORG_PEER_EMPLOYMENT,
+      fullName: 'Pat Peer',
+      employeeCode: 'PEER',
+    })
+    await seedPersonAndEmployment(db, {
+      tenantId: HIERARCHY_TENANT,
+      actorId: ORG_REPORT_ACTOR,
+      personProfileId: '01900000-0000-7fff-8000-000000000344',
+      employmentId: ORG_REPORT_EMPLOYMENT,
+      fullName: 'Riley Report',
+      employeeCode: 'RPT',
+    })
+    await seedPersonAndEmployment(db, {
+      tenantId: OTHER_HIERARCHY_TENANT,
+      actorId: ORG_OTHER_ACTOR,
+      personProfileId: '01900000-0000-7fff-8000-000000000345',
+      employmentId: ORG_OTHER_EMPLOYMENT,
+      fullName: 'Other Tenant',
+      employeeCode: 'OTHER',
+    })
+
+    await seedCurrentAssignment(db, HIERARCHY_TENANT, ORG_MANAGER_EMPLOYMENT, HIERARCHY_ENGINEERING)
+    await seedCurrentAssignment(
+      db,
+      HIERARCHY_TENANT,
+      ORG_VIEWER_EMPLOYMENT,
+      HIERARCHY_BACKEND,
+      ORG_MANAGER_EMPLOYMENT,
+    )
+    await seedCurrentAssignment(
+      db,
+      HIERARCHY_TENANT,
+      ORG_PEER_EMPLOYMENT,
+      HIERARCHY_BACKEND,
+      ORG_MANAGER_EMPLOYMENT,
+    )
+    await seedCurrentAssignment(
+      db,
+      HIERARCHY_TENANT,
+      ORG_REPORT_EMPLOYMENT,
+      HIERARCHY_API,
+      ORG_VIEWER_EMPLOYMENT,
+    )
+    await seedCurrentAssignment(
+      db,
+      OTHER_HIERARCHY_TENANT,
+      ORG_OTHER_EMPLOYMENT,
+      HIERARCHY_API,
+      ORG_VIEWER_EMPLOYMENT,
+    )
+
+    for (const row of [
+      [ORG_MANAGER_EMPLOYMENT, 'Morgan Manager', 'Engineering'] as const,
+      [ORG_VIEWER_EMPLOYMENT, 'Sam Self', 'Backend'] as const,
+      [ORG_PEER_EMPLOYMENT, 'Pat Peer', 'Backend'] as const,
+      [ORG_REPORT_EMPLOYMENT, 'Riley Report', 'API'] as const,
+    ]) {
+      await repo.upsert(
+        makeDirectoryRow({
+          tenantId: HIERARCHY_TENANT,
+          employmentId: row[0],
+          fullName: row[1],
+          departmentName: row[2],
+        }),
+      )
+    }
+    await repo.upsert(
+      makeDirectoryRow({
+        tenantId: OTHER_HIERARCHY_TENANT,
+        employmentId: ORG_OTHER_EMPLOYMENT,
+        fullName: 'Other Tenant',
+        departmentName: 'API',
+      }),
+    )
+
+    const orgCaller = createPeopleRouter(
+      createProtectedProcedures(
+        publicProcedure,
+        { canDo: async () => true } as unknown as KernelQueryFacade,
+        { recordEvent: async () => undefined } as unknown as KernelAuditFacade,
+      ).permissionProtectedProcedure,
+      {} as unknown as PeopleQueryFacade,
+      {} as unknown as KernelQueryFacade,
+      {} as unknown as KernelAuditFacade,
+    ).createCaller({
+      req: { headers: {} },
+      tenantId: HIERARCHY_TENANT,
+      actorId: ORG_VIEWER_ACTOR,
+    } as never)
+
+    const context = await orgCaller.orgChart.context()
+    expect(context.focusEmploymentId).toBe(ORG_VIEWER_EMPLOYMENT)
+    expect(context.nodes.map((node) => node.relationshipToViewer)).toEqual([
+      'manager',
+      'self',
+      'peer',
+      'direct_report',
+    ])
+    expect(context.nodes.every((node) => node.employmentId !== ORG_OTHER_EMPLOYMENT)).toBe(true)
+
+    const children = await orgCaller.orgChart.children({ employmentId: ORG_VIEWER_EMPLOYMENT })
+    expect(children).toHaveLength(1)
+    expect(children[0]).toMatchObject({
+      employmentId: ORG_REPORT_EMPLOYMENT,
+      fullName: 'Riley Report',
+      managerEmploymentId: ORG_VIEWER_EMPLOYMENT,
+    })
   })
 })

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import type { Db } from '@future/db'
-import { and, desc, eq, gt, isNull, lte, or } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt, inArray, isNull, lte, or } from 'drizzle-orm'
 import type { JobAssignment } from '../../domain/entities/job-assignment.entity'
 import type { IJobAssignmentRepository } from '../../domain/repositories/job-assignment.repository'
 import { DB_TOKEN } from '../../../../common/db/db.module'
@@ -32,6 +32,49 @@ export class DrizzleJobAssignmentRepository implements IJobAssignmentRepository 
       )
       .limit(1)
     return (rows[0] as JobAssignment | undefined) ?? null
+  }
+
+  async findCurrentMany(employmentIds: string[], tenantId: string): Promise<JobAssignment[]> {
+    if (employmentIds.length === 0) return []
+    return (await this.db
+      .select()
+      .from(jobAssignment)
+      .where(
+        and(
+          eq(jobAssignment.tenantId, tenantId),
+          inArray(jobAssignment.employmentId, employmentIds),
+          isNull(jobAssignment.effectiveTo),
+        ),
+      )
+      .orderBy(asc(jobAssignment.employmentId))) as JobAssignment[]
+  }
+
+  async findCurrentByManagerId(managerId: string, tenantId: string): Promise<JobAssignment[]> {
+    return (await this.db
+      .select()
+      .from(jobAssignment)
+      .where(
+        and(
+          eq(jobAssignment.tenantId, tenantId),
+          eq(jobAssignment.managerId, managerId),
+          isNull(jobAssignment.effectiveTo),
+        ),
+      )
+      .orderBy(asc(jobAssignment.employmentId))) as JobAssignment[]
+  }
+
+  async countCurrentByManagerId(managerId: string, tenantId: string): Promise<number> {
+    const rows = await this.db
+      .select({ count: count() })
+      .from(jobAssignment)
+      .where(
+        and(
+          eq(jobAssignment.tenantId, tenantId),
+          eq(jobAssignment.managerId, managerId),
+          isNull(jobAssignment.effectiveTo),
+        ),
+      )
+    return rows[0]?.count ?? 0
   }
 
   async findAsOf(
