@@ -9,6 +9,7 @@ const provider = {
   id: 'p1',
   tenantId: 't1',
   providerType: 'microsoft',
+  clientSecretRef: 'arn',
 } as IdentityProviderEntity
 
 describe('DirectoryProviderFactory', () => {
@@ -36,6 +37,21 @@ describe('DirectoryProviderFactory', () => {
     const factory = new DirectoryProviderFactory(repo as never, {} as never)
 
     await expect(factory.create(provider)).rejects.toThrow(/No ms_graph_credential/)
+  })
+
+  it('throws when the loaded graph credential does not match the requested secret ref', async () => {
+    const credential = MsGraphCredentialEntity.create({
+      tenantId: 't1',
+      clientId: 'c',
+      clientSecretRef: 'different-arn',
+      tenantAdId: 'aad',
+      scopes: [],
+      consentedAt: new Date(),
+    })
+    const repo = { get: vi.fn().mockResolvedValue(credential) }
+    const factory = new DirectoryProviderFactory(repo as never, {} as never)
+
+    await expect(factory.create(provider)).rejects.toThrow(/does not match requested secret ref/)
   })
 
   it('creates GoogleDirectoryProvider for Google providers', async () => {

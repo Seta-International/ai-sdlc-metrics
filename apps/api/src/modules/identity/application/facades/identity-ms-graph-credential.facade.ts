@@ -47,7 +47,6 @@ export class IdentityMsGraphCredentialFacade {
       value: input.clientSecret,
     })
 
-    let credentialPersisted = false
     const consentedAt = new Date()
     const credential = MsGraphCredentialEntity.create({
       tenantId: input.tenantId,
@@ -59,9 +58,9 @@ export class IdentityMsGraphCredentialFacade {
       status: 'paused',
     })
 
+    let inserted: boolean
     try {
-      await this.credentialRepo.upsert(credential)
-      credentialPersisted = true
+      inserted = await this.credentialRepo.insertIfAbsent(credential)
     } catch (error) {
       const cleanupFailures = await this.cleanupStoredCredential(input.tenantId, ref, false)
       if (cleanupFailures.length > 0) {
@@ -69,33 +68,38 @@ export class IdentityMsGraphCredentialFacade {
       }
       throw error
     }
+    if (!inserted) {
+      const cleanupFailures = await this.cleanupStoredCredential(input.tenantId, ref, false)
+      throw this.withCleanupFailures(
+        'Microsoft 365 is already connected for this tenant; disconnect first',
+        cleanupFailures,
+      )
+    }
 
     const validationError = await this.validateMicrosoftGraphConnection(input, ref, consentedAt)
     if (validationError) {
-      const cleanupFailures = await this.cleanupStoredCredential(
-        input.tenantId,
-        ref,
-        credentialPersisted,
-      )
+      const cleanupFailures = await this.cleanupStoredCredential(input.tenantId, ref, true)
       throw this.withCleanupFailures(
         `Microsoft Graph validation failed: ${validationError}`,
         cleanupFailures,
       )
     }
 
-    const validatedAt = new Date()
-    const validatedCredential = MsGraphCredentialEntity.create({
+    const activeCredential = MsGraphCredentialEntity.create({
       tenantId: input.tenantId,
       clientId: input.clientId,
       clientSecretRef: ref,
       tenantAdId: input.tenantAdId,
       scopes: DEFAULT_SCOPES,
       consentedAt,
-      status: 'paused',
-      lastValidatedAt: validatedAt,
     })
+    activeCredential.markActive()
+
     try {
-      await this.credentialRepo.upsert(validatedCredential)
+      const activated = await this.credentialRepo.updateIfSecretRef(activeCredential, ref)
+      if (!activated) {
+        throw new Error('credential changed before activation')
+      }
     } catch (error) {
       const cleanupFailures = await this.cleanupStoredCredential(input.tenantId, ref, true)
       throw this.withCleanupFailures(
@@ -104,44 +108,13 @@ export class IdentityMsGraphCredentialFacade {
       )
     }
 
-    await this.persistOutboxThenActivate(input, ref, consentedAt, options)
-  }
-
-  private async persistOutboxThenActivate(
-    input: ConnectMicrosoftGraphCredentialInput,
-    clientSecretRef: string,
-    consentedAt: Date,
-    options: ConnectMicrosoftGraphCredentialOptions,
-  ): Promise<void> {
-    const activeCredential = MsGraphCredentialEntity.create({
-      tenantId: input.tenantId,
-      clientId: input.clientId,
-      clientSecretRef,
-      tenantAdId: input.tenantAdId,
-      scopes: DEFAULT_SCOPES,
-      consentedAt,
-    })
-    activeCredential.markActive()
     try {
       await options.persistDurableEvent?.()
     } catch (error) {
-      const cleanupFailures = await this.cleanupStoredCredential(
-        input.tenantId,
-        clientSecretRef,
-        true,
-      )
+      const cleanupFailures = await this.cleanupStoredCredential(input.tenantId, ref, true)
       throw this.withCleanupFailures(
         `Microsoft Graph activation failed: ${(error as Error).message}`,
         cleanupFailures,
-      )
-    }
-
-    try {
-      await this.credentialRepo.upsert(activeCredential)
-    } catch (error) {
-      throw this.withCleanupFailures(
-        `Microsoft Graph activation failed: ${(error as Error).message}`,
-        [],
       )
     }
   }
@@ -176,7 +149,7 @@ export class IdentityMsGraphCredentialFacade {
     const failures: string[] = []
     if (credentialPersisted) {
       try {
-        await this.credentialRepo.delete(tenantId)
+        await this.credentialRepo.deleteIfSecretRef(tenantId, secretRef)
       } catch (error) {
         failures.push(`credential delete: ${(error as Error).message}`)
       }

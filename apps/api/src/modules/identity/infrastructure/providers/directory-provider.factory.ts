@@ -29,6 +29,11 @@ export class DirectoryProviderFactory implements IDirectoryProviderFactory {
             `No ms_graph_credential for tenant ${provider.tenantId}; admin must connect Microsoft 365 first`,
           )
         }
+        if (credential.clientSecretRef !== provider.clientSecretRef) {
+          throw new Error(
+            `ms_graph_credential for tenant ${provider.tenantId} does not match requested secret ref`,
+          )
+        }
         return new MicrosoftGraphProvider(provider, credential, this.tokenAcquirer)
       }
       case 'google':

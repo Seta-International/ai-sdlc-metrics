@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import {
   createTestDb,
   migrateForTest,
@@ -18,11 +18,14 @@ describe('DrizzleMsGraphCredentialRepository', () => {
 
   beforeAll(async () => {
     await migrateForTest()
-    await truncateIdentitySchema(db)
     await truncateCoreSchema(db)
     await seedTenant(db, { id: TENANT, slug: 'ms-graph-credential' })
     await setTenantContext(db, TENANT)
     repo = new DrizzleMsGraphCredentialRepository(db as never)
+  })
+
+  beforeEach(async () => {
+    await truncateIdentitySchema(db)
   })
 
   afterAll(async () => {
@@ -30,7 +33,7 @@ describe('DrizzleMsGraphCredentialRepository', () => {
     await truncateCoreSchema(db)
   })
 
-  it('upsert persists and get returns the entity', async () => {
+  it('insertIfAbsent persists and get returns the entity', async () => {
     const cred = MsGraphCredentialEntity.create({
       tenantId: TENANT,
       clientId: 'c',
@@ -40,14 +43,69 @@ describe('DrizzleMsGraphCredentialRepository', () => {
       consentedAt: new Date('2026-04-21T00:00:00Z'),
     })
 
-    await repo.upsert(cred)
+    const inserted = await repo.insertIfAbsent(cred)
 
+    expect(inserted).toBe(true)
     const got = await repo.get(TENANT)
     expect(got?.clientId).toBe('c')
     expect(got?.status).toBe('active')
   })
 
-  it('delete removes the row', async () => {
+  it('insertIfAbsent rejects conflicts without overwriting the existing row', async () => {
+    const cred = MsGraphCredentialEntity.create({
+      tenantId: TENANT,
+      clientId: 'c',
+      clientSecretRef: 'arn',
+      tenantAdId: 'aad',
+      scopes: [],
+      consentedAt: new Date(),
+    })
+    const conflicting = MsGraphCredentialEntity.create({
+      tenantId: TENANT,
+      clientId: 'new-client',
+      clientSecretRef: 'new-arn',
+      tenantAdId: 'new-aad',
+      scopes: [],
+      consentedAt: new Date(),
+    })
+
+    await repo.insertIfAbsent(cred)
+    const inserted = await repo.insertIfAbsent(conflicting)
+
+    expect(inserted).toBe(false)
+    const got = await repo.get(TENANT)
+    expect(got?.clientId).toBe('c')
+    expect(got?.clientSecretRef).toBe('arn')
+  })
+
+  it('updateIfSecretRef updates only the row owned by the attempt secret ref', async () => {
+    const cred = MsGraphCredentialEntity.create({
+      tenantId: TENANT,
+      clientId: 'c',
+      clientSecretRef: 'arn',
+      tenantAdId: 'aad',
+      scopes: [],
+      status: 'paused',
+      consentedAt: new Date(),
+    })
+    const active = MsGraphCredentialEntity.create({
+      tenantId: TENANT,
+      clientId: 'c',
+      clientSecretRef: 'arn',
+      tenantAdId: 'aad',
+      scopes: [],
+      consentedAt: new Date(),
+    })
+
+    await repo.insertIfAbsent(cred)
+    expect(await repo.updateIfSecretRef(active, 'different-arn')).toBe(false)
+    expect((await repo.get(TENANT))?.status).toBe('paused')
+
+    expect(await repo.updateIfSecretRef(active, 'arn')).toBe(true)
+    expect((await repo.get(TENANT))?.status).toBe('active')
+  })
+
+  it('deleteIfSecretRef removes only the row owned by the attempt secret ref', async () => {
     const cred = MsGraphCredentialEntity.create({
       tenantId: TENANT,
       clientId: 'c',
@@ -57,9 +115,11 @@ describe('DrizzleMsGraphCredentialRepository', () => {
       consentedAt: new Date(),
     })
 
-    await repo.upsert(cred)
-    await repo.delete(TENANT)
+    await repo.insertIfAbsent(cred)
+    expect(await repo.deleteIfSecretRef(TENANT, 'different-arn')).toBe(false)
+    expect(await repo.get(TENANT)).not.toBeNull()
 
+    expect(await repo.deleteIfSecretRef(TENANT, 'arn')).toBe(true)
     expect(await repo.get(TENANT)).toBeNull()
   })
 })
