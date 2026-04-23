@@ -33,7 +33,7 @@ export class PreCaptureRedactor {
     attrs: Record<string, unknown>,
     freeTextKeys: ReadonlySet<string>,
   ): Record<string, unknown> {
-    if (freeTextKeys.size === 0) return attrs
+    if (freeTextKeys.size === 0) return { ...attrs }
 
     const result: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(attrs)) {

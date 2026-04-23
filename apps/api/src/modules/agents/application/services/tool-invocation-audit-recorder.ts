@@ -43,7 +43,7 @@ export class ToolInvocationAuditRecorder {
       resultStatus,
     } = opts
 
-    const serialized = JSON.stringify(result)
+    const serialized = JSON.stringify(result) ?? 'null'
     const fullBuffer = Buffer.from(serialized, 'utf8')
 
     const resultPreview = fullBuffer.subarray(0, RESULT_PREVIEW_MAX_BYTES)

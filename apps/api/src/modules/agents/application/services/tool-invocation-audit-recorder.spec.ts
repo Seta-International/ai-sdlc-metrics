@@ -36,7 +36,7 @@ describe('ToolInvocationAuditRecorder', () => {
     valuesMock = mocks.valuesMock
   })
 
-  it('calls insert(...).values(...) with correct scalar fields', async () => {
+  it('calls insert(...).values(...) with correct fields', async () => {
     await recorder.record(BASE_OPTS)
 
     expect(insertMock).toHaveBeenCalledOnce()
@@ -116,5 +116,17 @@ describe('ToolInvocationAuditRecorder', () => {
     const row = valuesMock.mock.calls[0][0]
     expect(row.subAgentKey).toBeUndefined()
     expect(row.iteration).toBeUndefined()
+  })
+
+  it('handles undefined result gracefully (serializes as "null")', async () => {
+    await recorder.record({ ...BASE_OPTS, result: undefined })
+
+    expect(insertMock).toHaveBeenCalledOnce()
+    expect(valuesMock).toHaveBeenCalledOnce()
+
+    const row = valuesMock.mock.calls[0][0]
+    const expectedHash =
+      'sha256-' + createHash('sha256').update(Buffer.from('null', 'utf8')).digest('hex')
+    expect(row.resultHash).toBe(expectedHash)
   })
 })
