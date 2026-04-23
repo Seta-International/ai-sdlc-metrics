@@ -29,7 +29,7 @@ export class ConnectMsSyncHandler implements ICommandHandler<ConnectMsSyncComman
         clientSecret: command.input.clientSecret,
       },
       {
-        afterActivate: () =>
+        persistDurableEvent: () =>
           this.auditFacade.publishOutboxEvent({
             tenantId: command.tenantId,
             eventName: event.type,

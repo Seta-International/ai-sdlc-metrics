@@ -17,7 +17,7 @@ export interface ConnectMicrosoftGraphCredentialInput {
 }
 
 export interface ConnectMicrosoftGraphCredentialOptions {
-  afterActivate?: () => Promise<void>
+  persistDurableEvent?: () => Promise<void>
 }
 
 const DEFAULT_SCOPES = ['https://graph.microsoft.com/.default'] as const
@@ -51,6 +51,10 @@ export class IdentityMsGraphCredentialFacade {
           options,
         )
         return
+      }
+
+      if (existing.status === 'invalid') {
+        throw new Error('Microsoft 365 is already connected for this tenant; disconnect first')
       }
 
       const cleanupFailures = await this.cleanupStoredCredential(
@@ -147,8 +151,7 @@ export class IdentityMsGraphCredentialFacade {
     })
     activeCredential.markActive()
     try {
-      await options.afterActivate?.()
-      await this.credentialRepo.upsert(activeCredential)
+      await options.persistDurableEvent?.()
     } catch (error) {
       const cleanupFailures = await this.cleanupStoredCredential(
         input.tenantId,
@@ -158,6 +161,15 @@ export class IdentityMsGraphCredentialFacade {
       throw this.withCleanupFailures(
         `Microsoft Graph activation failed: ${(error as Error).message}`,
         cleanupFailures,
+      )
+    }
+
+    try {
+      await this.credentialRepo.upsert(activeCredential)
+    } catch (error) {
+      throw this.withCleanupFailures(
+        `Microsoft Graph activation failed: ${(error as Error).message}`,
+        [],
       )
     }
   }
@@ -233,7 +245,7 @@ export class IdentityMsGraphCredentialFacade {
     input: ConnectMicrosoftGraphCredentialInput,
   ): boolean {
     return (
-      credential.status !== 'active' &&
+      credential.status === 'paused' &&
       credential.lastValidatedAt instanceof Date &&
       credential.clientId === input.clientId &&
       credential.tenantAdId === input.tenantAdId

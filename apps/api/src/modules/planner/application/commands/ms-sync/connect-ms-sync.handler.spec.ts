@@ -27,7 +27,7 @@ describe('ConnectMsSyncHandler', () => {
   beforeEach(() => {
     identityGraphFacade = {
       connectMicrosoftGraphCredential: vi.fn().mockImplementation(async (_input, options) => {
-        await options?.afterActivate?.()
+        await options?.persistDurableEvent?.()
       }),
     }
     auditFacade = { publishOutboxEvent: vi.fn().mockResolvedValue(undefined) }
@@ -49,7 +49,7 @@ describe('ConnectMsSyncHandler', () => {
         tenantAdId: INPUT.tenantAdId,
         clientSecret: INPUT.clientSecret,
       },
-      expect.objectContaining({ afterActivate: expect.any(Function) }),
+      expect.objectContaining({ persistDurableEvent: expect.any(Function) }),
     )
     expect(auditFacade.publishOutboxEvent).toHaveBeenCalledWith({
       tenantId: TENANT_ID,
