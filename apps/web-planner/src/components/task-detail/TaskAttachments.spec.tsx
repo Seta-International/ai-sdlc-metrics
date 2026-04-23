@@ -291,7 +291,7 @@ describe('TaskAttachments', () => {
       </Wrapper>,
     )
 
-    const fileInput = screen.getByLabelText('File upload input')
+    const fileInput = screen.getByLabelText('File upload')
     const fakeFile = new File(['hello'], 'test.pdf', { type: 'application/pdf' })
 
     await act(async () => {
@@ -341,7 +341,7 @@ describe('TaskAttachments', () => {
       </Wrapper>,
     )
 
-    const fileInput = screen.getByLabelText('File upload input')
+    const fileInput = screen.getByLabelText('File upload')
     const file1 = new File(['a'], 'a.pdf', { type: 'application/pdf' })
     const file2 = new File(['b'], 'b.pdf', { type: 'application/pdf' })
 

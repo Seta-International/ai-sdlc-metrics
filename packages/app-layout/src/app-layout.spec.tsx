@@ -34,14 +34,14 @@ vi.mock('@future/ui', () => {
   return {
     cn: (...args: any[]) => args.filter(Boolean).join(' '),
     AppLauncher: () => null,
-    AppLauncherTrigger: ({ onClick }: any) => <button onClick={onClick}>launcher</button>,
-    SidebarTrigger: () => <button>sidebar</button>,
     FUTURE_APPS: [],
     LOCAL_FUTURE_APPS: [],
     SidebarProvider: D,
     SidebarInset: D,
     Sidebar: ({ children }: any) => <nav>{children}</nav>,
     SidebarContent: D,
+    SidebarHeader: D,
+    SidebarFooter: D,
     SidebarGroup: D,
     SidebarGroupLabel: ({ children }: any) => <span>{children}</span>,
     SidebarGroupContent: D,
@@ -52,6 +52,7 @@ vi.mock('@future/ui', () => {
     SidebarMenuSubItem: ({ children }: any) => <li>{children}</li>,
     SidebarMenuSubButton: D,
     SidebarMenuBadge: ({ children }: any) => <span>{children}</span>,
+    SidebarTrigger: () => <button>sidebar</button>,
   }
 })
 /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -91,7 +92,8 @@ describe('AppLayout', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('People')).toBeInTheDocument()
+      // Zone title appears in sidebar app-switcher button and navbar breadcrumb
+      expect(screen.getAllByText('People').length).toBeGreaterThan(0)
       expect(screen.getByText('Employees')).toBeInTheDocument()
       expect(screen.queryByText('Time Off')).not.toBeInTheDocument()
       expect(screen.getByTestId('content')).toBeInTheDocument()
@@ -142,7 +144,7 @@ describe('AppLayout', () => {
     expect(screen.getByTestId('agent-panel')).toBeDefined()
   })
 
-  it('mounts SessionUserMenu and StubNotificationsPopover as navbar slots', async () => {
+  it('mounts SessionUserMenu (sidebar footer) and StubNotificationsPopover (navbar)', async () => {
     render(
       <AppLayout config={testConfig} trpc={createMockTrpc([])}>
         <div>content</div>
@@ -162,7 +164,7 @@ describe('AppLayout', () => {
         <div>content</div>
       </AppLayout>,
     )
-    // AgentPanel is always in the DOM for slide animation; the container has width 0 when closed
+    // AgentPanel is always in the DOM for slide animation
     expect(screen.getByTestId('agent-panel')).toBeDefined()
     expect(screen.getByText('content')).toBeDefined()
   })

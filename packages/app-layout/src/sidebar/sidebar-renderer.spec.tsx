@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { SidebarRenderer } from './sidebar-renderer'
 import { PermissionContext } from '../permission-provider'
 import type { NavGroup } from '../types'
@@ -103,7 +103,7 @@ describe('SidebarRenderer', () => {
       wrapper: createWrapper([]),
     })
     expect(screen.getByTestId('dynamic-content')).toBeInTheDocument()
-    expect(screen.getByText('Dynamic')).toBeInTheDocument() // the group label
+    expect(screen.getByText('Dynamic')).toBeInTheDocument()
   })
 
   it('wires a tooltip on every top-level menu button', () => {
@@ -114,9 +114,70 @@ describe('SidebarRenderer', () => {
     const menuButtons = container.querySelectorAll('[data-slot="sidebar-menu-button"]')
     expect(menuButtons.length).toBeGreaterThan(0)
     for (const button of menuButtons) {
-      // Radix Tooltip's TooltipTrigger (with asChild) emits data-state on the wrapped element.
-      // Its presence proves the SidebarMenuButton received a tooltip prop.
       expect(button.getAttribute('data-state')).toBe('closed')
     }
+  })
+
+  it('renders zone title inside the app-switcher button', () => {
+    render(<SidebarRenderer groups={testGroups} zoneTitle="People" zoneIcon={Users} />, {
+      wrapper: createWrapper(['people:profile:read']),
+    })
+    expect(screen.getByText('People')).toBeInTheDocument()
+  })
+
+  it('renders app-switcher button with "Switch app" aria-label', () => {
+    render(<SidebarRenderer groups={testGroups} zoneTitle="People" zoneIcon={Users} />, {
+      wrapper: createWrapper(['people:profile:read']),
+    })
+    expect(screen.getByRole('button', { name: 'Switch app' })).toBeInTheDocument()
+  })
+
+  it('calls onAppLauncherClick when the app-switcher button is clicked', () => {
+    const onAppLauncher = vi.fn()
+    render(
+      <SidebarRenderer
+        groups={testGroups}
+        zoneTitle="People"
+        zoneIcon={Users}
+        onAppLauncherClick={onAppLauncher}
+      />,
+      { wrapper: createWrapper(['people:profile:read']) },
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Switch app' }))
+    expect(onAppLauncher).toHaveBeenCalledOnce()
+  })
+
+  it('renders inline search button in sidebar header', () => {
+    render(<SidebarRenderer groups={testGroups} onSearchClick={vi.fn()} />, {
+      wrapper: createWrapper(['people:profile:read']),
+    })
+    // The expanded search bar has aria-label "Search…"
+    expect(screen.getAllByRole('button', { name: 'Search…' }).length).toBeGreaterThan(0)
+  })
+
+  it('calls onSearchClick when the sidebar search button is clicked', () => {
+    const onSearch = vi.fn()
+    render(<SidebarRenderer groups={testGroups} onSearchClick={onSearch} />, {
+      wrapper: createWrapper(['people:profile:read']),
+    })
+    // Click the expanded search button (first match in expanded mode)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Search…' })[0]!)
+    expect(onSearch).toHaveBeenCalledOnce()
+  })
+
+  it('renders user menu slot in sidebar footer when provided', () => {
+    render(<SidebarRenderer groups={testGroups} userMenuSlot={<button>user-footer</button>} />, {
+      wrapper: createWrapper([]),
+    })
+    expect(screen.getByText('user-footer')).toBeInTheDocument()
+  })
+
+  it('renders a sidebar collapse/expand trigger in the header', () => {
+    const { container } = render(
+      <SidebarRenderer groups={testGroups} zoneTitle="People" zoneIcon={Users} />,
+      { wrapper: createWrapper(['people:profile:read']) },
+    )
+    const triggers = container.querySelectorAll('[data-slot="sidebar-trigger"]')
+    expect(triggers.length).toBeGreaterThan(0)
   })
 })

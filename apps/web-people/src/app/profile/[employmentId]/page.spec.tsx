@@ -18,7 +18,8 @@ const { mockGetEmploymentQuery, mockLegacyProfileGetQuery } = vi.hoisted(() => (
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ employmentId: '01900000-0000-7000-8000-000000000010' }),
-  useSearchParams: () => ({ get: () => null }),
+  useSearchParams: () => ({ get: () => null, toString: () => '' }),
+  usePathname: () => '/profile/01900000-0000-7000-8000-000000000010',
   useRouter: () => ({ replace: vi.fn() }),
 }))
 

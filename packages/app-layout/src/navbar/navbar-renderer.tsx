@@ -1,10 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { Bot, Search, Sun, Moon, Plus } from 'lucide-react'
+import { Home, Sun, Moon, Plus } from 'lucide-react'
 import { useTheme } from 'next-themes'
-import { cn, AppLauncher, AppLauncherTrigger, FUTURE_APPS, LOCAL_FUTURE_APPS } from '@future/ui'
-import { SidebarTrigger } from '@future/ui'
+import { cn } from '@future/ui'
 import { useCanAccess } from '../use-can-access'
 import type { NavbarConfig } from '../types'
 
@@ -12,9 +11,10 @@ export interface NavbarRendererProps {
   config: NavbarConfig
   /** Slot for the user-menu trigger (e.g. SessionUserMenu). When absent, nothing renders. */
   userMenuSlot?: React.ReactNode
-  /** Slot for the notifications trigger (e.g. StubNotificationsPopover). When absent, nothing renders. */
+  /** Slot for the notifications trigger (e.g. NotificationsPopover). When absent, nothing renders. */
   notificationsSlot?: React.ReactNode
   onAgentClick?: () => void
+  /** ⌘K keyboard shortcut handler — no visible search bar in navbar; search lives in sidebar. */
   onSearchClick?: () => void
   agentPanelOpen?: boolean
 }
@@ -27,132 +27,110 @@ export function NavbarRenderer({
   onSearchClick,
   agentPanelOpen = false,
 }: NavbarRendererProps) {
-  const [launcherOpen, setLauncherOpen] = React.useState(false)
   const { resolvedTheme, setTheme } = useTheme()
   const canDoAction = useCanAccess(config.action?.permission)
-
-  const apps = process.env['NEXT_PUBLIC_LOCAL_DEV'] === 'true' ? LOCAL_FUTURE_APPS : FUTURE_APPS
 
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
-        setLauncherOpen((v) => !v)
+        onSearchClick?.()
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
+        e.preventDefault()
+        onAgentClick?.()
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [onSearchClick, onAgentClick])
 
   return (
-    <>
-      <AppLauncher open={launcherOpen} onOpenChange={setLauncherOpen} apps={apps} />
+    <header className="flex flex-shrink-0 flex-col">
+      <div
+        className={cn(
+          'flex h-11 items-center gap-2 px-4',
+          'border-b border-border bg-card/60 backdrop-blur-sm',
+          'dark:border-sidebar-border dark:bg-sidebar-background/60',
+        )}
+      >
+        {/* Breadcrumb: home / zone */}
+        <div className="flex items-center gap-1.5 text-caption text-muted-foreground">
+          <Home className="h-3.5 w-3.5 text-muted-foreground/40" aria-hidden="true" />
+          <span className="opacity-25 select-none" aria-hidden="true">
+            /
+          </span>
+          <span className="text-caption font-510 text-foreground">{config.title}</span>
+        </div>
 
-      <header className={cn('flex flex-shrink-0 flex-col')}>
-        <div
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Ask AI toggle */}
+        <button
+          type="button"
+          onClick={onAgentClick}
+          aria-label={agentPanelOpen ? 'Close AI panel' : 'Open AI panel'}
           className={cn(
-            'flex h-12 items-center gap-3 px-4',
-            'bg-card border-b border-border',
-            'dark:bg-sidebar-background dark:border-sidebar-border',
+            'inline-flex h-6.5 items-center gap-1.5 rounded-md px-2 text-label font-510 border transition-colors',
+            'focus:outline-none focus:ring-2 focus:ring-ring/50',
+            agentPanelOpen
+              ? 'border-primary/25 bg-primary/10 text-primary dark:border-accent/25 dark:bg-accent/10 dark:text-accent'
+              : 'border-border bg-transparent text-muted-foreground hover:bg-sidebar-accent/40 hover:text-foreground',
           )}
         >
-          {/* Sidebar toggle (mobile hamburger / desktop collapse) */}
-          <SidebarTrigger />
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path
+              d="M8 2 9.3 5.5l3.5 1.3-3.5 1.3L8 11.6 6.7 8.1 3.2 6.8l3.5-1.3L8 2z"
+              fill="currentColor"
+            />
+          </svg>
+          <span>Ask AI</span>
+          <span className="font-mono text-tiny opacity-40">⌘J</span>
+        </button>
 
-          {/* App launcher */}
-          <AppLauncherTrigger onClick={() => setLauncherOpen(true)} />
-
-          {/* Zone title */}
-          <div className="flex items-center gap-2">
-            <config.icon className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-510">{config.title}</span>
-          </div>
-
-          {/* Action button (label hidden on <md, icon kept) */}
-          {config.action && canDoAction && (
-            <a
-              href={config.action.href}
-              aria-label={config.action.label}
-              className={cn(
-                'ml-2 flex items-center gap-1.5 rounded-md px-2.5 py-1.5',
-                'bg-primary text-primary-foreground text-xs font-510',
-                'transition-all hover:bg-primary/90',
-                'focus:outline-none focus:ring-2 focus:ring-primary/50',
-              )}
-            >
-              <Plus className="h-3 w-3" />
-              <span className="hidden md:inline">{config.action.label}</span>
-            </a>
+        {/* Theme toggle */}
+        <button
+          type="button"
+          onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+          aria-label={resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          className={cn(
+            'flex h-7 w-7 items-center justify-center rounded-md',
+            'text-muted-foreground/60 transition-colors',
+            'hover:bg-sidebar-accent/40 hover:text-muted-foreground',
+            'focus:outline-none focus:ring-2 focus:ring-ring/50',
           )}
+        >
+          {resolvedTheme === 'dark' ? (
+            <Sun className="h-3.5 w-3.5" />
+          ) : (
+            <Moon className="h-3.5 w-3.5" />
+          )}
+        </button>
 
-          {/* Search (expanded, sm+) */}
-          <button
-            type="button"
-            onClick={onSearchClick}
-            aria-label="Search or ask an agent"
+        {/* Notifications slot */}
+        {notificationsSlot}
+
+        {/* Zone action button */}
+        {config.action && canDoAction && (
+          <a
+            href={config.action.href}
+            aria-label={config.action.label}
             className={cn(
-              'ml-auto hidden max-w-xs flex-1 items-center gap-2 rounded-md border px-3 py-1.5 sm:flex',
-              'border-border bg-(--btn-ghost-bg) text-xs text-muted-foreground',
-              'transition-all hover:bg-(--btn-ghost-bg-hover) hover:border-primary',
-              'focus:outline-none focus:ring-2 focus:ring-ring/50',
+              'flex items-center gap-1.5 rounded-md px-2 py-1',
+              'bg-primary text-primary-foreground text-label font-510',
+              'transition-colors hover:bg-primary/90',
+              'focus:outline-none focus:ring-2 focus:ring-primary/50',
             )}
           >
-            <Search className="h-3 w-3 flex-shrink-0 opacity-50" aria-hidden="true" />
-            <span>Search or ask...</span>
-            <span className="ml-auto font-mono text-tiny opacity-50">⌘K</span>
-          </button>
+            <Plus className="h-3 w-3" />
+            <span className="hidden md:inline">{config.action.label}</span>
+          </a>
+        )}
 
-          {/* Search (icon-only, <sm) */}
-          <button
-            type="button"
-            onClick={onSearchClick}
-            aria-label="Search or ask an agent"
-            className={cn(
-              'ml-auto flex h-11 w-11 items-center justify-center rounded-md sm:hidden',
-              'text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
-              'focus:outline-none focus:ring-2 focus:ring-ring/50',
-            )}
-          >
-            <Search className="h-4 w-4" />
-          </button>
-
-          {/* Agent toggle */}
-          <button
-            type="button"
-            onClick={onAgentClick}
-            aria-label={agentPanelOpen ? 'Close agent panel' : 'Open agent panel'}
-            className={cn(
-              'flex h-8 w-8 items-center justify-center rounded-full border transition-all',
-              'focus:outline-none focus:ring-2 focus:ring-ring/50',
-              agentPanelOpen
-                ? 'border-border bg-primary text-primary-foreground'
-                : 'border-transparent text-muted-foreground hover:border-border hover:bg-(--btn-ghost-bg) hover:text-foreground',
-            )}
-          >
-            <Bot className="h-4 w-4" />
-          </button>
-
-          {/* Notifications slot */}
-          {notificationsSlot}
-
-          {/* Theme toggle */}
-          <button
-            type="button"
-            onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-            aria-label={resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            className={cn(
-              'flex h-11 w-11 items-center justify-center rounded-md',
-              'text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
-              'focus:outline-none focus:ring-2 focus:ring-ring/50',
-            )}
-          >
-            {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
-
-          {/* User menu slot */}
-          {userMenuSlot}
-        </div>
-      </header>
-    </>
+        {/* User menu slot */}
+        {userMenuSlot}
+      </div>
+    </header>
   )
 }

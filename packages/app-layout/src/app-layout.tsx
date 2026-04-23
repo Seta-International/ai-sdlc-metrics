@@ -1,7 +1,14 @@
 'use client'
 
+import * as React from 'react'
 import type { ReactNode } from 'react'
-import { SidebarProvider, SidebarInset } from '@future/ui'
+import {
+  SidebarProvider,
+  SidebarInset,
+  AppLauncher,
+  FUTURE_APPS,
+  LOCAL_FUTURE_APPS,
+} from '@future/ui'
 import { useOptionalAgentState, AgentPanel, AgentStrip } from '@future/agent'
 import { PermissionProvider, type PermissionTrpcClient } from './permission-provider'
 import { NavbarRenderer, type NavbarRendererProps } from './navbar/navbar-renderer'
@@ -23,16 +30,25 @@ export function AppLayout({ config, trpc, children, ...navbarProps }: AppLayoutP
   const agentState = useOptionalAgentState()
   const panelOpen = agentState?.panelOpen ?? false
   const togglePanel = agentState?.togglePanel ?? (() => {})
+  const [launcherOpen, setLauncherOpen] = React.useState(false)
+  const apps = process.env['NEXT_PUBLIC_LOCAL_DEV'] === 'true' ? LOCAL_FUTURE_APPS : FUTURE_APPS
 
   return (
     <PermissionProvider trpc={trpc}>
+      <AppLauncher open={launcherOpen} onOpenChange={setLauncherOpen} apps={apps} />
       <SidebarProvider className="h-svh">
-        <SidebarRenderer groups={config.sidebar} />
+        <SidebarRenderer
+          groups={config.sidebar}
+          zoneTitle={config.navbar.title}
+          zoneIcon={config.navbar.icon}
+          userMenuSlot={<SessionUserMenu />}
+          onSearchClick={navbarProps.onSearchClick}
+          onAppLauncherClick={() => setLauncherOpen(true)}
+        />
         <SidebarInset className="overflow-hidden">
           <NavbarRenderer
             config={config.navbar}
             {...navbarProps}
-            userMenuSlot={<SessionUserMenu />}
             notificationsSlot={<StubNotificationsPopover />}
             onAgentClick={togglePanel}
             agentPanelOpen={panelOpen}

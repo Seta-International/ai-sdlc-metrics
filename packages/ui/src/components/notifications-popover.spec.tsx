@@ -46,28 +46,19 @@ describe('NotificationsPopover', () => {
       expect(screen.queryByTestId('notifications-bell-badge')).not.toBeInTheDocument()
     })
 
-    it('shows the exact unread count when between 1 and 9', () => {
+    it('shows a red dot badge when unreadCount > 0', () => {
       render(
         <NotificationsPopover
           notifications={[]}
-          unreadCount={5}
+          unreadCount={3}
           onRead={vi.fn()}
           onReadAll={vi.fn()}
         />,
       )
-      expect(screen.getByTestId('notifications-bell-badge')).toHaveTextContent('5')
-    })
-
-    it('shows "9+" when unreadCount > 9', () => {
-      render(
-        <NotificationsPopover
-          notifications={[]}
-          unreadCount={42}
-          onRead={vi.fn()}
-          onReadAll={vi.fn()}
-        />,
-      )
-      expect(screen.getByTestId('notifications-bell-badge')).toHaveTextContent('9+')
+      const badge = screen.getByTestId('notifications-bell-badge')
+      expect(badge).toBeInTheDocument()
+      expect(badge).toHaveClass('bg-destructive')
+      expect(badge.textContent).toBe('3')
     })
   })
 
