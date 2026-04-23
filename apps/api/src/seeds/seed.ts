@@ -11,6 +11,7 @@ import { DEFAULT_ROLE_PERMISSIONS } from '../modules/kernel/domain/constants/def
 import { PLACEHOLDER_SSO_SUBJECT_PREFIX } from '../modules/kernel/domain/repositories/user-identity.repository.port'
 import { personProfile, employment } from '../modules/people/infrastructure/schema/people.schema'
 import { tenantSettings } from '../modules/admin/infrastructure/schema/admin.schema'
+import { identityProvider } from '../modules/identity/infrastructure/schema/identity.schema'
 
 function deterministicUuid(seed: string): string {
   const hash = createHash('sha256')
@@ -104,8 +105,16 @@ const TENANTS = [
 
 const SKIP_DOMAINS = ['yopmail', 'gmail']
 
+const FUTURE_TENANT = {
+  slug: 'future',
+  name: 'Future',
+  planTier: 'enterprise' as const,
+  domain: 'setafuture.onmicrosoft.com',
+}
+
 const ROLE_OVERRIDES: Record<string, string[]> = {
   'canh.ta@seta-international.vn': ['tenant_admin', 'line_manager'],
+  'canh.ta@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
 }
 
 function getEmailDomain(email: string): string | null {
@@ -132,16 +141,179 @@ function assignTenant(emp: RawEmployee): (typeof TENANTS)[number] | null {
   return TENANTS.find((t) => domain === t.domain) ?? null
 }
 
+async function seedTenantEmployees(
+  db: ReturnType<typeof createDb>,
+  tenantId: string,
+  systemActorId: string,
+  tenantDomain: string | null,
+  employees: RawEmployee[],
+  provider: 'local' | 'microsoft',
+  now: Date,
+) {
+  for (const emp of employees) {
+    const actorId = deterministicUuid('actor:' + emp.email)
+    const identityId = deterministicUuid('identity:' + emp.email)
+
+    const roles: string[] =
+      ROLE_OVERRIDES[emp.email] ??
+      (emp.is_admin ? ['tenant_admin'] : emp.is_pm ? ['line_manager'] : ['employee'])
+
+    await db
+      .insert(actor)
+      .values({
+        id: actorId,
+        tenantId,
+        type: 'person',
+        displayName: emp.name,
+        status: emp.is_active ? 'active' : 'inactive',
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing()
+
+    // sso_subject is a placeholder; resolveLogin auto-claims it on first
+    // real SSO login by matching email and binding to the real claims.oid.
+    await db
+      .insert(userIdentity)
+      .values({
+        id: identityId,
+        tenantId,
+        actorId,
+        email: emp.email,
+        ssoSubject: PLACEHOLDER_SSO_SUBJECT_PREFIX + actorId,
+        provider,
+        status: 'active',
+        createdAt: now,
+      })
+      .onConflictDoNothing()
+
+    for (const role of roles) {
+      await db
+        .insert(roleGrant)
+        .values({
+          id: deterministicUuid('grant:' + emp.email + ':' + role),
+          tenantId,
+          actorId,
+          roleKey: role as (typeof roleGrant.$inferInsert)['roleKey'],
+          scopeType: 'global',
+          scopeId: null,
+          grantedBy: systemActorId,
+          source: 'manual',
+          validFrom: now,
+        })
+        .onConflictDoNothing()
+    }
+
+    const personProfileId = deterministicUuid('person_profile:' + emp.email)
+    const employmentId = deterministicUuid('employment:' + emp.email)
+    const { familyName, givenName, nameDisplayOrder } = splitName(emp.name, tenantDomain)
+    const hireDate = emp.created_at ? new Date(emp.created_at) : new Date('2020-01-01')
+    const employmentStatus: (typeof employment.$inferInsert)['employmentStatus'] = emp.is_active
+      ? 'active'
+      : 'terminated'
+
+    await db
+      .insert(personProfile)
+      .values({
+        id: personProfileId,
+        tenantId,
+        actorId,
+        familyName,
+        givenName,
+        fullName: emp.name,
+        fullNameUnaccented: stripDiacritics(emp.name),
+        nameDisplayOrder,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing()
+
+    await db
+      .insert(employment)
+      .values({
+        id: employmentId,
+        tenantId,
+        personProfileId,
+        companyEmail: emp.email,
+        workerType: 'employee',
+        employmentType: 'permanent',
+        employmentStatus,
+        hireDate,
+        countryCode: tenantDomain === 'seta-international.vn' ? 'VN' : null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing()
+  }
+}
+
+async function seedRolePermissions(
+  db: ReturnType<typeof createDb>,
+  tenantId: string,
+  tenantSlug: string,
+  now: Date,
+) {
+  for (const [roleKey, entries] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+    for (const entry of entries) {
+      await db
+        .insert(rolePermission)
+        .values({
+          id: deterministicUuid('perm:' + tenantSlug + ':' + roleKey + ':' + entry.permissionKey),
+          tenantId,
+          roleKey: roleKey as (typeof rolePermission.$inferInsert)['roleKey'],
+          permissionKey: entry.permissionKey,
+          isLocked: entry.isLocked,
+          createdAt: now,
+        })
+        .onConflictDoNothing()
+    }
+  }
+}
+
+async function enablePlanner(
+  db: ReturnType<typeof createDb>,
+  tenantId: string,
+  tenantSlug: string,
+) {
+  await db
+    .insert(tenantSettings)
+    .values({
+      id: deterministicUuid('tenant-settings:' + tenantSlug),
+      tenantId,
+      plannerCoreEnabled: true,
+      plannerViewsEnabled: true,
+      plannerGridEnabled: true,
+      plannerScheduleEnabled: true,
+      plannerChartsEnabled: true,
+      plannerChartsTrendsEnabled: true,
+      plannerPersonalEnabled: true,
+    })
+    .onConflictDoUpdate({
+      target: tenantSettings.tenantId,
+      set: {
+        plannerCoreEnabled: true,
+        plannerViewsEnabled: true,
+        plannerGridEnabled: true,
+        plannerScheduleEnabled: true,
+        plannerChartsEnabled: true,
+        plannerChartsTrendsEnabled: true,
+        plannerPersonalEnabled: true,
+      },
+    })
+}
+
 async function main() {
   const db = createDb(
     process.env['DATABASE_URL'] ?? 'postgresql://future:future@localhost:5432/future_dev',
   )
 
-  const rawPath = join(__dirname, 'data', 'employees-raw.json')
-  const rawData = JSON.parse(readFileSync(rawPath, 'utf-8')) as RawData
-  const employees = rawData.data
-
   const now = new Date()
+
+  // ── 1. SETA / BlueOC / AIcycle tenants ──────────────────────────────────
+  const setaRaw = JSON.parse(
+    readFileSync(join(__dirname, 'data', 'seta-employees.json'), 'utf-8'),
+  ) as RawData
+  const setaEmployees = setaRaw.data
 
   for (const tenantCfg of TENANTS) {
     const tenantId = deterministicUuid('tenant:' + tenantCfg.slug)
@@ -173,159 +345,90 @@ async function main() {
       })
       .onConflictDoNothing()
 
-    const tenantEmployees = employees.filter((e) => assignTenant(e)?.slug === tenantCfg.slug)
-
-    for (const emp of tenantEmployees) {
-      const actorId = deterministicUuid('actor:' + emp.email)
-      const identityId = deterministicUuid('identity:' + emp.email)
-
-      const roles: string[] =
-        ROLE_OVERRIDES[emp.email] ??
-        (emp.is_admin ? ['tenant_admin'] : emp.is_pm ? ['line_manager'] : ['employee'])
-
-      await db
-        .insert(actor)
-        .values({
-          id: actorId,
-          tenantId,
-          type: 'person',
-          displayName: emp.name,
-          status: emp.is_active ? 'active' : 'inactive',
-          createdAt: now,
-          updatedAt: now,
-        })
-        .onConflictDoNothing()
-
-      // sso_subject is a placeholder; resolveLogin auto-claims it on first
-      // real SSO login by matching email and binding to the real claims.oid.
-      await db
-        .insert(userIdentity)
-        .values({
-          id: identityId,
-          tenantId,
-          actorId,
-          email: emp.email,
-          ssoSubject: PLACEHOLDER_SSO_SUBJECT_PREFIX + actorId,
-          provider: 'local',
-          status: 'active',
-          createdAt: now,
-        })
-        .onConflictDoNothing()
-
-      for (const role of roles) {
-        await db
-          .insert(roleGrant)
-          .values({
-            id: deterministicUuid('grant:' + emp.email + ':' + role),
-            tenantId,
-            actorId,
-            roleKey: role as (typeof roleGrant.$inferInsert)['roleKey'],
-            scopeType: 'global',
-            scopeId: null,
-            grantedBy: systemActorId,
-            source: 'manual',
-            validFrom: now,
-          })
-          .onConflictDoNothing()
-      }
-
-      // ── people module: profile + employment ─────────────────────────────
-      // Mocked from the limited fields in employees-raw.json. Hire date is
-      // synthesised from `created_at` (record-creation timestamp; close enough
-      // for dev fixtures) and worker/employment type defaults to permanent
-      // full-time staff. Company email mirrors the SSO email.
-      const personProfileId = deterministicUuid('person_profile:' + emp.email)
-      const employmentId = deterministicUuid('employment:' + emp.email)
-      const { familyName, givenName, nameDisplayOrder } = splitName(emp.name, tenantCfg.domain)
-      const hireDate = emp.created_at ? new Date(emp.created_at) : new Date('2020-01-01')
-      const employmentStatus: (typeof employment.$inferInsert)['employmentStatus'] = emp.is_active
-        ? 'active'
-        : 'terminated'
-
-      await db
-        .insert(personProfile)
-        .values({
-          id: personProfileId,
-          tenantId,
-          actorId,
-          familyName,
-          givenName,
-          fullName: emp.name,
-          fullNameUnaccented: stripDiacritics(emp.name),
-          nameDisplayOrder,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .onConflictDoNothing()
-
-      await db
-        .insert(employment)
-        .values({
-          id: employmentId,
-          tenantId,
-          personProfileId,
-          companyEmail: emp.email,
-          workerType: 'employee',
-          employmentType: 'permanent',
-          employmentStatus,
-          hireDate,
-          countryCode: tenantCfg.domain === 'seta-international.vn' ? 'VN' : null,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .onConflictDoNothing()
-    }
-
-    for (const [roleKey, entries] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
-      for (const entry of entries) {
-        await db
-          .insert(rolePermission)
-          .values({
-            id: deterministicUuid(
-              'perm:' + tenantCfg.slug + ':' + roleKey + ':' + entry.permissionKey,
-            ),
-            tenantId,
-            roleKey: roleKey as (typeof rolePermission.$inferInsert)['roleKey'],
-            permissionKey: entry.permissionKey,
-            isLocked: entry.isLocked,
-            createdAt: now,
-          })
-          .onConflictDoNothing()
-      }
-    }
+    const tenantEmployees = setaEmployees.filter((e) => assignTenant(e)?.slug === tenantCfg.slug)
+    await seedTenantEmployees(
+      db,
+      tenantId,
+      systemActorId,
+      tenantCfg.domain,
+      tenantEmployees,
+      'local',
+      now,
+    )
+    await seedRolePermissions(db, tenantId, tenantCfg.slug, now)
+    await enablePlanner(db, tenantId, tenantCfg.slug)
   }
 
-  // Enable planner for all dev tenants
-  for (const tenantCfg of TENANTS) {
-    const tenantId = deterministicUuid('tenant:' + tenantCfg.slug)
-    await db
-      .insert(tenantSettings)
-      .values({
-        id: deterministicUuid('tenant-settings:' + tenantCfg.slug),
-        tenantId,
-        plannerCoreEnabled: true,
-        plannerViewsEnabled: true,
-        plannerGridEnabled: true,
-        plannerScheduleEnabled: true,
-        plannerChartsEnabled: true,
-        plannerChartsTrendsEnabled: true,
-        plannerPersonalEnabled: true,
-      })
-      .onConflictDoUpdate({
-        target: tenantSettings.tenantId,
-        set: {
-          plannerCoreEnabled: true,
-          plannerViewsEnabled: true,
-          plannerGridEnabled: true,
-          plannerScheduleEnabled: true,
-          plannerChartsEnabled: true,
-          plannerChartsTrendsEnabled: true,
-          plannerPersonalEnabled: true,
-        },
-      })
-  }
+  // ── 2. Future tenant (setafuture.onmicrosoft.com / Microsoft Entra) ──────
+  const futureRaw = JSON.parse(
+    readFileSync(join(__dirname, 'data', 'future-employees.json'), 'utf-8'),
+  ) as RawData
+  const futureEmployees = futureRaw.data
+
+  const futureTenantId = deterministicUuid('tenant:' + FUTURE_TENANT.slug)
+  const futureSystemActorId = deterministicUuid('system:' + FUTURE_TENANT.slug)
+
+  await db
+    .insert(tenant)
+    .values({
+      id: futureTenantId,
+      name: FUTURE_TENANT.name,
+      slug: FUTURE_TENANT.slug,
+      planTier: FUTURE_TENANT.planTier,
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoNothing()
+
+  await db
+    .insert(actor)
+    .values({
+      id: futureSystemActorId,
+      tenantId: futureTenantId,
+      type: 'system',
+      displayName: 'Seed System',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoNothing()
+
+  // Seed the Microsoft Entra identity provider for the future tenant
+  const entraClientId = process.env['ENTRA_CLIENT_ID'] ?? 'e8aff199-2c97-421e-805a-cd18ecb8de0c'
+  const entraClientSecret =
+    process.env['ENTRA_CLIENT_SECRET'] ?? 'yrX8Q~sgB6lB1pYOlI-qFfaQ.w76BUFkGhNPzdsW'
+  const entraDirectoryId = process.env['ENTRA_TENANT_ID'] ?? 'd7f9f1a0-2abd-4417-b315-f1997cdf424b'
+
+  await db
+    .insert(identityProvider)
+    .values({
+      id: deterministicUuid('idp:' + FUTURE_TENANT.slug + ':microsoft'),
+      tenantId: futureTenantId,
+      providerType: 'microsoft',
+      displayName: 'Future Microsoft Entra',
+      clientId: entraClientId,
+      clientSecretRef: entraClientSecret,
+      directoryId: entraDirectoryId,
+      isPrimary: true,
+      syncEnabled: false,
+    })
+    .onConflictDoNothing()
+
+  await seedTenantEmployees(
+    db,
+    futureTenantId,
+    futureSystemActorId,
+    FUTURE_TENANT.domain,
+    futureEmployees,
+    'microsoft',
+    now,
+  )
+  await seedRolePermissions(db, futureTenantId, FUTURE_TENANT.slug, now)
+  await enablePlanner(db, futureTenantId, FUTURE_TENANT.slug)
 
   console.log('Seed complete')
+  console.log('Future tenant ID:', futureTenantId)
   process.exit(0)
 }
 

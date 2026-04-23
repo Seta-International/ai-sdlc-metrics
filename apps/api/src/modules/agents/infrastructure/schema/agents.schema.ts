@@ -11,6 +11,8 @@ import {
   primaryKey,
   check,
   customType,
+  numeric,
+  date,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
@@ -343,5 +345,139 @@ export const agentTurnSamplingDecisions = agentsSchema.table(
   },
   (t) => [
     index('agent_turn_sampling_decision_tenant_created_idx').on(t.tenantId, t.createdAt.desc()),
+  ],
+)
+
+// ─── Plan 05 — Cost + Ceilings ────────────────────────────────────────────────
+
+/**
+ * Plan 05 — Global model pricing (append-only reference data).
+ *
+ * No tenant_id — pricing is a global catalogue, not tenant-scoped.
+ * Rows are never deleted; effective_until marks end-of-validity.
+ */
+export const agentPricing = agentsSchema.table(
+  'agent_pricing',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    modelId: text('model_id').notNull(),
+    inputUsdPerMtok: numeric('input_usd_per_mtok', { precision: 10, scale: 4 }).notNull(),
+    inputCachedReadUsdPerMtok: numeric('input_cached_read_usd_per_mtok', {
+      precision: 10,
+      scale: 4,
+    }).notNull(),
+    inputCachedWriteUsdPerMtok: numeric('input_cached_write_usd_per_mtok', {
+      precision: 10,
+      scale: 4,
+    }).notNull(),
+    outputUsdPerMtok: numeric('output_usd_per_mtok', { precision: 10, scale: 4 }).notNull(),
+    outputReasoningUsdPerMtok: numeric('output_reasoning_usd_per_mtok', {
+      precision: 10,
+      scale: 4,
+    }).notNull(),
+    effectiveFrom: timestamp('effective_from', { withTimezone: true }).notNull(),
+    effectiveUntil: timestamp('effective_until', { withTimezone: true }),
+  },
+  (t) => [uniqueIndex('agent_pricing_model_effective_from_uidx').on(t.modelId, t.effectiveFrom)],
+)
+
+/**
+ * Plan 05 — Per-turn cost event (append-only).
+ *
+ * Records token usage and computed cost for every agent turn.
+ * pricing_id is a soft reference to agent_pricing.id (no hard FK across tables
+ * that may be in different transactions).
+ */
+export const agentCostEvents = agentsSchema.table(
+  'agent_cost_event',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    traceId: uuid('trace_id').notNull(),
+    tenantId: uuid('tenant_id').notNull(),
+    userId: uuid('user_id'),
+    pricingId: uuid('pricing_id').notNull(),
+    pricedAt: timestamp('priced_at', { withTimezone: true }).notNull(),
+    modelId: text('model_id').notNull(),
+    usageInputUncached: integer('usage_input_uncached').notNull().default(0),
+    usageInputCachedRead: integer('usage_input_cached_read').notNull().default(0),
+    usageInputCachedWrite: integer('usage_input_cached_write').notNull().default(0),
+    usageOutput: integer('usage_output').notNull().default(0),
+    usageOutputReasoning: integer('usage_output_reasoning').notNull().default(0),
+    costUsd: numeric('cost_usd', { precision: 12, scale: 6 }).notNull(),
+    layer: text('layer').notNull(),
+    retryCount: integer('retry_count').notNull().default(0),
+    attemptDurationMs: integer('attempt_duration_ms').notNull().default(0),
+    totalDurationMs: integer('total_duration_ms').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('agent_cost_event_tenant_created_idx').on(t.tenantId, t.createdAt.desc()),
+    index('agent_cost_event_tenant_user_created_idx').on(t.tenantId, t.userId, t.createdAt.desc()),
+    check(
+      'agent_cost_event_layer_check',
+      sql`${t.layer} IN ('router','synthesizer','summarizer') OR ${t.layer} LIKE 'sub_agent:%'`,
+    ),
+  ],
+)
+
+/**
+ * Plan 05 — Tenant-level daily budget bucket.
+ *
+ * One row per tenant; remaining_usd is decremented on each cost event and
+ * refilled to daily_limit_usd by a nightly cron job.
+ */
+export const agentTenantBudget = agentsSchema.table('agent_tenant_budget', {
+  tenantId: uuid('tenant_id').primaryKey(),
+  dailyLimitUsd: numeric('daily_limit_usd', { precision: 10, scale: 2 }).notNull().default('50'),
+  remainingUsd: numeric('remaining_usd', { precision: 12, scale: 6 }).notNull(),
+  lastRefilledAt: timestamp('last_refilled_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+/**
+ * Plan 05 — Per-user daily budget bucket.
+ *
+ * One row per (tenant, user, date); allows individual spending caps.
+ * date is a calendar date so the row is naturally scoped to one day.
+ */
+export const agentUserBudget = agentsSchema.table(
+  'agent_user_budget',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    date: date('date').notNull(),
+    dailyLimitUsd: numeric('daily_limit_usd', { precision: 10, scale: 2 }).notNull(),
+    remainingUsd: numeric('remaining_usd', { precision: 12, scale: 6 }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ name: 'agent_user_budget_pk', columns: [t.tenantId, t.userId, t.date] })],
+)
+
+/**
+ * Plan 05 — Postgres-backed rate limit counter bucket.
+ *
+ * Fallback counter when Redis is unavailable. One row per
+ * (tenant, user, limit_key, bucket) where bucket is the minute or day start.
+ */
+export const agentRateLimitCounter = agentsSchema.table(
+  'agent_rate_limit_counter',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    limitKey: text('limit_key').notNull(),
+    bucket: timestamp('bucket', { withTimezone: true }).notNull(),
+    count: integer('count').notNull().default(0),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({
+      name: 'agent_rate_limit_counter_pk',
+      columns: [t.tenantId, t.userId, t.limitKey, t.bucket],
+    }),
+    index('agent_rate_limit_counter_lookup_idx').on(t.tenantId, t.userId, t.limitKey, t.bucket),
+    check(
+      'agent_rate_limit_counter_limit_key_check',
+      sql`${t.limitKey} IN ('queries/user/min', 'l3_writes/user/day', 'schedule_creations/user/day')`,
+    ),
   ],
 )
