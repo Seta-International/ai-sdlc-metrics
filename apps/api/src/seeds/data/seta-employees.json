@@ -1,0 +1,44 @@
+{
+  "data": [
+    {
+      "is_active": true,
+      "is_admin": true,
+      "is_pm": false,
+      "id": "future-001",
+      "email": "canh.ta@setafuture.onmicrosoft.com",
+      "company": "Future",
+      "name": "Canh Ta",
+      "direct_manager_id": null
+    },
+    {
+      "is_active": true,
+      "is_admin": false,
+      "is_pm": false,
+      "id": "future-002",
+      "email": "anh.nguyenviet@setafuture.onmicrosoft.com",
+      "company": "Future",
+      "name": "Anh Nguyen",
+      "direct_manager_id": "future-001"
+    },
+    {
+      "is_active": true,
+      "is_admin": false,
+      "is_pm": true,
+      "id": "future-003",
+      "email": "thang.tran@setafuture.onmicrosoft.com",
+      "company": "Future",
+      "name": "Thang Tran",
+      "direct_manager_id": "future-001"
+    },
+    {
+      "is_active": true,
+      "is_admin": false,
+      "is_pm": false,
+      "id": "future-004",
+      "email": "ly.nguyen@setafuture.onmicrosoft.com",
+      "company": "Future",
+      "name": "Ly Nguyen",
+      "direct_manager_id": "future-001"
+    }
+  ]
+}
