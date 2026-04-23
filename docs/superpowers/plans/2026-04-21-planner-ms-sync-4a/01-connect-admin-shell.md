@@ -163,7 +163,7 @@ git commit -m "feat(event-contracts): planner ms-sync lifecycle events"
 - Create: `apps/api/src/modules/planner/application/commands/ms-sync/connect-ms-sync.handler.ts`
 - Create: `apps/api/src/modules/planner/application/commands/ms-sync/connect-ms-sync.handler.spec.ts`
 
-- [ ] **Step 1: Command**
+- [x] **Step 1: Command**
 
 ```typescript
 export class ConnectMsSyncCommand {
@@ -179,7 +179,7 @@ export class ConnectMsSyncCommand {
 }
 ```
 
-- [ ] **Step 2: Handler test**
+- [x] **Step 2: Handler test**
 
 ```typescript
 import { ConnectMsSyncHandler } from './connect-ms-sync.handler'
@@ -253,9 +253,9 @@ describe('ConnectMsSyncHandler', () => {
 })
 ```
 
-- [ ] **Step 3: Run — expect FAIL**
+- [x] **Step 3: Run — expect FAIL**
 
-- [ ] **Step 4: Handler implementation**
+- [x] **Step 4: Handler implementation**
 
 ```typescript
 import { Inject } from '@nestjs/common'
@@ -347,9 +347,9 @@ export class ConnectMsSyncHandler implements ICommandHandler<ConnectMsSyncComman
 
 Note: `DirectoryConnectionService.create(...)` reads the credential from the repo (per Plan 4.0). We upsert first, then test. If test fails, we delete. Not ideal but acceptable in this plan; refine in 4.7 if needed.
 
-- [ ] **Step 5: Run — expect PASS**
+- [x] **Step 5: Run — expect PASS**
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A apps/api/src/modules/planner/application/commands/ms-sync
