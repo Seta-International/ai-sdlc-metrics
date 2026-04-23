@@ -55,7 +55,7 @@ describe('IdentityMsGraphCredentialFacade', () => {
       name: expect.stringContaining(TENANT_ID),
       value: INPUT.clientSecret,
     })
-    expect(credentialRepo.upsert).toHaveBeenCalledTimes(2)
+    expect(credentialRepo.upsert).toHaveBeenCalledTimes(3)
 
     const stagedCredential = credentialRepo.upsert.mock.calls[0][0]
     expect(stagedCredential).toMatchObject({
@@ -80,7 +80,11 @@ describe('IdentityMsGraphCredentialFacade', () => {
     )
     expect(graphProvider.testConnection).toHaveBeenCalledOnce()
 
-    const activeCredential = credentialRepo.upsert.mock.calls[1][0]
+    const validatedCredential = credentialRepo.upsert.mock.calls[1][0]
+    expect(validatedCredential.status).toBe('paused')
+    expect(validatedCredential.lastValidatedAt).toBeInstanceOf(Date)
+
+    const activeCredential = credentialRepo.upsert.mock.calls[2][0]
     expect(activeCredential.status).toBe('active')
     expect(activeCredential.lastError).toBeNull()
     expect(activeCredential.lastValidatedAt).toBeInstanceOf(Date)
@@ -88,17 +92,17 @@ describe('IdentityMsGraphCredentialFacade', () => {
     expect(secretsStore.deleteSecret).not.toHaveBeenCalled()
   })
 
-  it('persists the durable event hook after activation and before returning', async () => {
+  it('persists the durable event hook before exposing the credential as active', async () => {
     const afterActivate = vi.fn().mockResolvedValue(undefined)
 
     await facade.connectMicrosoftGraphCredential(INPUT, { afterActivate })
 
     expect(afterActivate).toHaveBeenCalledOnce()
-    expect(credentialRepo.upsert).toHaveBeenCalledTimes(2)
-    const activeCredential = credentialRepo.upsert.mock.calls[1][0]
+    expect(credentialRepo.upsert).toHaveBeenCalledTimes(3)
+    const activeCredential = credentialRepo.upsert.mock.calls[2][0]
     expect(activeCredential.status).toBe('active')
-    expect(afterActivate.mock.invocationCallOrder[0]).toBeGreaterThan(
-      credentialRepo.upsert.mock.invocationCallOrder[1],
+    expect(afterActivate.mock.invocationCallOrder[0]).toBeLessThan(
+      credentialRepo.upsert.mock.invocationCallOrder[2],
     )
   })
 
@@ -138,7 +142,7 @@ describe('IdentityMsGraphCredentialFacade', () => {
     expect(secretsStore.deleteSecret).toHaveBeenCalledWith(SECRET_REF)
   })
 
-  it('rolls back active credential and secret when durable event persistence fails', async () => {
+  it('rolls back staged credential and secret when durable event persistence fails', async () => {
     const afterActivate = vi.fn().mockRejectedValue(new Error('outbox unavailable'))
 
     await expect(facade.connectMicrosoftGraphCredential(INPUT, { afterActivate })).rejects.toThrow(
@@ -153,13 +157,14 @@ describe('IdentityMsGraphCredentialFacade', () => {
   it('rolls back staged credential and secret when active persistence fails', async () => {
     credentialRepo.upsert
       .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error('db down'))
 
     await expect(facade.connectMicrosoftGraphCredential(INPUT)).rejects.toThrow(
       /Microsoft Graph activation failed: db down/,
     )
 
-    expect(credentialRepo.upsert).toHaveBeenCalledTimes(2)
+    expect(credentialRepo.upsert).toHaveBeenCalledTimes(3)
     expect(credentialRepo.delete).toHaveBeenCalledWith(TENANT_ID)
     expect(secretsStore.deleteSecret).toHaveBeenCalledWith(SECRET_REF)
   })
@@ -193,20 +198,48 @@ describe('IdentityMsGraphCredentialFacade', () => {
     expect(directoryFactory.create).not.toHaveBeenCalled()
   })
 
-  it('repairs durable event persistence for an existing matching active credential', async () => {
+  it('repairs a matching staged credential by persisting the durable event before activation', async () => {
     const afterActivate = vi.fn().mockResolvedValue(undefined)
     credentialRepo.get.mockResolvedValue({
       tenantId: TENANT_ID,
       clientId: INPUT.clientId,
+      clientSecretRef: SECRET_REF,
       tenantAdId: INPUT.tenantAdId,
-      status: 'active',
+      scopes: ['https://graph.microsoft.com/.default'],
+      status: 'paused',
+      lastValidatedAt: new Date('2026-04-23T00:00:01Z'),
+      consentedAt: new Date('2026-04-23T00:00:00Z'),
     })
 
     await facade.connectMicrosoftGraphCredential(INPUT, { afterActivate })
 
     expect(afterActivate).toHaveBeenCalledOnce()
     expect(secretsStore.putSecret).not.toHaveBeenCalled()
-    expect(credentialRepo.upsert).not.toHaveBeenCalled()
+    expect(credentialRepo.upsert).toHaveBeenCalledOnce()
+    expect(credentialRepo.upsert.mock.calls[0][0]).toMatchObject({
+      tenantId: TENANT_ID,
+      status: 'active',
+      clientSecretRef: SECRET_REF,
+    })
     expect(directoryFactory.create).not.toHaveBeenCalled()
+  })
+
+  it('rejects an existing matching active credential without emitting another event', async () => {
+    const afterActivate = vi.fn().mockResolvedValue(undefined)
+    credentialRepo.get.mockResolvedValue({
+      tenantId: TENANT_ID,
+      clientId: INPUT.clientId,
+      clientSecretRef: SECRET_REF,
+      tenantAdId: INPUT.tenantAdId,
+      status: 'active',
+    })
+
+    await expect(facade.connectMicrosoftGraphCredential(INPUT, { afterActivate })).rejects.toThrow(
+      /already connected/i,
+    )
+
+    expect(afterActivate).not.toHaveBeenCalled()
+    expect(secretsStore.putSecret).not.toHaveBeenCalled()
+    expect(credentialRepo.upsert).not.toHaveBeenCalled()
   })
 })

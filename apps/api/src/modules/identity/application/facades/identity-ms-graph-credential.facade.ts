@@ -39,13 +39,18 @@ export class IdentityMsGraphCredentialFacade {
   ): Promise<void> {
     const existing = await this.credentialRepo.get(input.tenantId)
     if (existing) {
-      if (this.isMatchingActiveCredential(existing, input)) {
-        await options.afterActivate?.()
-        return
-      }
-
       if (existing.status === 'active') {
         throw new Error('Microsoft 365 is already connected for this tenant; disconnect first')
+      }
+
+      if (this.isMatchingValidatedStagedCredential(existing, input)) {
+        await this.persistOutboxThenActivate(
+          input,
+          existing.clientSecretRef,
+          existing.consentedAt,
+          options,
+        )
+        return
       }
 
       const cleanupFailures = await this.cleanupStoredCredential(
@@ -102,20 +107,54 @@ export class IdentityMsGraphCredentialFacade {
       )
     }
 
-    const activeCredential = MsGraphCredentialEntity.create({
+    const validatedAt = new Date()
+    const validatedCredential = MsGraphCredentialEntity.create({
       tenantId: input.tenantId,
       clientId: input.clientId,
       clientSecretRef: ref,
       tenantAdId: input.tenantAdId,
       scopes: DEFAULT_SCOPES,
       consentedAt,
+      status: 'paused',
+      lastValidatedAt: validatedAt,
+    })
+    try {
+      await this.credentialRepo.upsert(validatedCredential)
+    } catch (error) {
+      const cleanupFailures = await this.cleanupStoredCredential(input.tenantId, ref, true)
+      throw this.withCleanupFailures(
+        `Microsoft Graph activation failed: ${(error as Error).message}`,
+        cleanupFailures,
+      )
+    }
+
+    await this.persistOutboxThenActivate(input, ref, consentedAt, options)
+  }
+
+  private async persistOutboxThenActivate(
+    input: ConnectMicrosoftGraphCredentialInput,
+    clientSecretRef: string,
+    consentedAt: Date,
+    options: ConnectMicrosoftGraphCredentialOptions,
+  ): Promise<void> {
+    const activeCredential = MsGraphCredentialEntity.create({
+      tenantId: input.tenantId,
+      clientId: input.clientId,
+      clientSecretRef,
+      tenantAdId: input.tenantAdId,
+      scopes: DEFAULT_SCOPES,
+      consentedAt,
     })
     activeCredential.markActive()
     try {
-      await this.credentialRepo.upsert(activeCredential)
       await options.afterActivate?.()
+      await this.credentialRepo.upsert(activeCredential)
     } catch (error) {
-      const cleanupFailures = await this.cleanupStoredCredential(input.tenantId, ref, true)
+      const cleanupFailures = await this.cleanupStoredCredential(
+        input.tenantId,
+        clientSecretRef,
+        true,
+      )
       throw this.withCleanupFailures(
         `Microsoft Graph activation failed: ${(error as Error).message}`,
         cleanupFailures,
@@ -184,12 +223,18 @@ export class IdentityMsGraphCredentialFacade {
     }
   }
 
-  private isMatchingActiveCredential(
-    credential: { clientId: string; tenantAdId: string; status: string },
+  private isMatchingValidatedStagedCredential(
+    credential: {
+      clientId: string
+      tenantAdId: string
+      status: string
+      lastValidatedAt?: Date | null
+    },
     input: ConnectMicrosoftGraphCredentialInput,
   ): boolean {
     return (
-      credential.status === 'active' &&
+      credential.status !== 'active' &&
+      credential.lastValidatedAt instanceof Date &&
       credential.clientId === input.clientId &&
       credential.tenantAdId === input.tenantAdId
     )
