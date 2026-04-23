@@ -1,38 +1,33 @@
 import { Injectable } from '@nestjs/common'
+import { EventsHandler, type IEventHandler } from '@nestjs/cqrs'
+import {
+  EmploymentActivatedEvent,
+  JobAssignmentChangedEvent,
+  EmploymentTerminatedEvent,
+  PersonHiredEvent,
+  ProfileChangeAppliedEvent,
+} from '@future/event-contracts'
 import { SearchIndexRebuildService } from '../services/search-index-rebuild.service'
 
-// NOTE: The event contracts referenced in the original plan
-// (JobAssignmentChangedEvent, ProfileChangeAppliedEvent, EmploymentActivatedEvent,
-// EmploymentTerminatedEvent) do not yet exist in @future/event-contracts.
-// The actual people events (EmployeeActivatedEvent, EmployeeTerminatedEvent,
-// OrgPlacementChangedEvent) use different field shapes without employmentId.
-// These handlers are declared as plain methods until the corresponding event
-// contracts are added to @future/event-contracts with an employmentId field.
-// TODO: Once event contracts are published, add @EventsHandler decorators and
-// implement IEventHandler<T> for each method.
+type IndexUpdateEvent =
+  | PersonHiredEvent
+  | EmploymentActivatedEvent
+  | JobAssignmentChangedEvent
+  | EmploymentTerminatedEvent
+  | ProfileChangeAppliedEvent
 
-interface WithEmploymentAndTenant {
-  employmentId: string
-  tenantId: string
-}
-
+@EventsHandler(
+  PersonHiredEvent,
+  EmploymentActivatedEvent,
+  JobAssignmentChangedEvent,
+  EmploymentTerminatedEvent,
+  ProfileChangeAppliedEvent,
+)
 @Injectable()
-export class OnSearchIndexUpdateHandler {
+export class OnSearchIndexUpdateHandler implements IEventHandler<IndexUpdateEvent> {
   constructor(private readonly rebuildService: SearchIndexRebuildService) {}
 
-  async handleJobAssignmentChanged(event: WithEmploymentAndTenant): Promise<void> {
-    await this.rebuildService.rebuildForEmployment(event.employmentId, event.tenantId)
-  }
-
-  async handleEmploymentActivated(event: WithEmploymentAndTenant): Promise<void> {
-    await this.rebuildService.rebuildForEmployment(event.employmentId, event.tenantId)
-  }
-
-  async handleEmploymentTerminated(event: WithEmploymentAndTenant): Promise<void> {
-    await this.rebuildService.rebuildForEmployment(event.employmentId, event.tenantId)
-  }
-
-  async handleProfileChangeApplied(event: WithEmploymentAndTenant): Promise<void> {
+  async handle(event: IndexUpdateEvent): Promise<void> {
     await this.rebuildService.rebuildForEmployment(event.employmentId, event.tenantId)
   }
 }

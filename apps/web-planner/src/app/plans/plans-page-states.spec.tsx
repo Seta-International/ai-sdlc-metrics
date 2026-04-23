@@ -17,7 +17,7 @@ vi.mock('@future/auth', () => ({
 let mockIsLoading = false
 let mockPlans: unknown[] = []
 
-vi.mock('@tanstack/react-query', () => ({
+vi.mock('@future/api-client', () => ({
   useQuery: () => ({ data: mockPlans, isLoading: mockIsLoading }),
 }))
 

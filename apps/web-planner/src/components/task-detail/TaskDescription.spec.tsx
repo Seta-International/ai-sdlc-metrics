@@ -3,7 +3,10 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import React from 'react'
 import { TaskDescription } from './TaskDescription'
 
-vi.mock('sonner', () => ({ toast: vi.fn() }))
+vi.mock('@future/ui', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@future/ui')>()
+  return { ...mod, toast: vi.fn() }
+})
 
 import { toast } from '@future/ui'
 

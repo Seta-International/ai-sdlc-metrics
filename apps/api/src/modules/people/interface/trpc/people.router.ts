@@ -59,8 +59,11 @@ import {
   futureListQuerySchema,
   futureExportQuerySchema,
 } from '../../../../common/list/future-list.contract'
-import { listPeopleDirectory } from '../../application/queries/list-people-directory.query'
-import { exportPeopleDirectory } from '../../application/queries/export-people-directory.query'
+import type {
+  FutureListQuery,
+  FutureExportQuery,
+} from '../../../../common/list/future-list.contract'
+import type { ExportResult } from '../../application/queries/export-directory.handler'
 import {
   EMPLOYMENT_STATUS_VALUES,
   WORKER_TYPE_VALUES,
@@ -86,6 +89,8 @@ import { ListIncompleteProfilesQuery } from '../../application/queries/list-inco
 // Plan 05 — directory queries
 import { SearchDirectoryQuery } from '../../application/queries/search-directory.query'
 import { ListDirectoryQuery } from '../../application/queries/list-directory.query'
+import type { DirectorySearchIndexFilters } from '../../domain/repositories/directory-search-index.repository'
+import type { DirectorySearchIndex } from '../../domain/entities/directory-search-index.entity'
 import { ExportDirectoryQuery } from '../../application/queries/export-directory.query'
 import { GetSharedProfileQuery } from '../../application/queries/get-shared-profile.query'
 // Plan 05 — directory & utility commands
@@ -539,15 +544,113 @@ export function createPeopleRouter(
       list: permissionProtectedProcedure
         .meta({ permission: 'people:directory:read' })
         .input(futureListQuerySchema)
-        .query(({ input }: { input: Parameters<typeof listPeopleDirectory>[0] }) =>
-          listPeopleDirectory(input),
-        ),
+        .query(async ({ input, ctx }: { input: FutureListQuery; ctx: AuthContext }) => {
+          const { pageIndex, pageSize } = input.pagination
+          const offset = pageIndex * pageSize
+
+          // Map futureListQuery filters to DirectorySearchIndexFilters
+          const filters: DirectorySearchIndexFilters = {}
+          for (const f of input.filters) {
+            if (f.operator === 'in' || f.operator === 'not_in') {
+              const arr = (f.value as Array<string | number | boolean>).map(String)
+              if (f.field === 'employmentStatus') filters.employmentStatus = arr
+              else if (f.field === 'workArrangement') filters.workArrangement = arr
+              else if (f.field === 'countryCode') filters.countryCode = arr
+            } else {
+              const val = String(f.value)
+              if (f.field === 'departmentId') filters.departmentId = val
+              else if (f.field === 'employmentStatus') filters.employmentStatus = val
+              else if (f.field === 'workArrangement') filters.workArrangement = val
+              else if (f.field === 'countryCode') filters.countryCode = val
+              else if (f.field === 'locationId') filters.locationId = val
+              else if (f.field === 'managerId') filters.managerId = val
+              else if (f.field === 'jobProfileId') filters.jobProfileId = val
+              else if (f.field === 'jobFamilyId') filters.jobFamilyId = val
+              else if (f.field === 'hiredAfter') filters.hiredAfter = new Date(val)
+              else if (f.field === 'hireDateTo') filters.hiredBefore = new Date(val)
+            }
+          }
+
+          let items: DirectorySearchIndex[]
+          let total: number
+
+          if (input.search.trim()) {
+            const result = (await svc().query(
+              new SearchDirectoryQuery(ctx.tenantId, input.search, filters, pageSize, offset),
+            )) as { items: DirectorySearchIndex[]; total: number }
+            items = result.items
+            total = result.total
+          } else {
+            const result = (await svc().query(
+              new ListDirectoryQuery(ctx.tenantId, filters, pageSize, offset),
+            )) as { items: DirectorySearchIndex[]; total: number }
+            items = result.items
+            total = result.total
+          }
+
+          const rows = items.map((item) => ({
+            id: item.employmentId,
+            personProfileId: item.employmentId,
+            avatarUrl: null,
+            fullName: item.fullName,
+            preferredName: null,
+            jobTitle: item.jobTitle ?? '',
+            jobLevel: item.jobLevel ?? null,
+            department: item.departmentName ?? '',
+            departmentId: '',
+            location: item.locationName ?? null,
+            countryCode: item.countryCode,
+            companyEmail: item.companyEmail,
+            employmentStatus: item.employmentStatus,
+            employmentType: 'permanent',
+            workerType: 'employee',
+            workArrangement: item.workArrangement ?? null,
+            managerId: null,
+            managerName: item.managerName ?? null,
+            hireDate: item.hireDate ? item.hireDate.toISOString().split('T')[0] : '',
+          }))
+
+          return {
+            rows,
+            totalCount: total,
+            pageCount: Math.ceil(total / pageSize),
+            pageIndex,
+            pageSize,
+            facets: { departments: [], jobFamilies: [], countries: [], locations: [] },
+          }
+        }),
+
       export: permissionProtectedProcedure
         .meta({ permission: 'people:directory:read' })
         .input(futureExportQuerySchema)
-        .query(({ input }: { input: Parameters<typeof exportPeopleDirectory>[0] }) =>
-          exportPeopleDirectory(input),
-        ),
+        .query(async ({ input, ctx }: { input: FutureExportQuery; ctx: AuthContext }) => {
+          const filters: DirectorySearchIndexFilters = {}
+          for (const f of input.filters) {
+            if (f.operator === 'in' || f.operator === 'not_in') {
+              const arr = (f.value as Array<string | number | boolean>).map(String)
+              if (f.field === 'employmentStatus') filters.employmentStatus = arr
+              else if (f.field === 'workArrangement') filters.workArrangement = arr
+              else if (f.field === 'countryCode') filters.countryCode = arr
+            } else {
+              const val = String(f.value)
+              if (f.field === 'departmentId') filters.departmentId = val
+              else if (f.field === 'employmentStatus') filters.employmentStatus = val
+              else if (f.field === 'workArrangement') filters.workArrangement = val
+              else if (f.field === 'countryCode') filters.countryCode = val
+              else if (f.field === 'locationId') filters.locationId = val
+              else if (f.field === 'managerId') filters.managerId = val
+              else if (f.field === 'hiredAfter') filters.hiredAfter = new Date(val)
+              else if (f.field === 'hireDateTo') filters.hiredBefore = new Date(val)
+            }
+          }
+          const result = (await svc().query(
+            new ExportDirectoryQuery(ctx.tenantId, ctx.actorId, filters, 'csv', input.columns),
+          )) as ExportResult
+          return {
+            filename: result.filename,
+            csv: result.data.toString('utf-8').replace(/^\uFEFF/, ''),
+          }
+        }),
 
       // ── Plan 05: new CQRS-backed directory endpoints ─────────────────
       search: permissionProtectedProcedure
@@ -1824,12 +1927,19 @@ export const peopleRouter = router({
   // Type-anchor only; the real, permission-checked implementations live in
   // createPeopleRouter() and are wired by TrpcModule.onModuleInit().
   directory: router({
-    list: publicProcedure
-      .input(futureListQuerySchema)
-      .query(({ input }) => listPeopleDirectory(input)),
+    list: publicProcedure.input(futureListQuerySchema).query((_ctx) =>
+      Promise.resolve({
+        rows: [] as Record<string, unknown>[],
+        totalCount: 0,
+        pageCount: 0,
+        pageIndex: 0,
+        pageSize: 25,
+        facets: { departments: [], jobFamilies: [], countries: [], locations: [] },
+      }),
+    ),
     export: publicProcedure
       .input(futureExportQuerySchema)
-      .query(({ input }) => exportPeopleDirectory(input)),
+      .query((_ctx) => Promise.resolve({ filename: '', csv: '' })),
   }),
 
   // ── Change requests ────────────────────────────────────────────────────

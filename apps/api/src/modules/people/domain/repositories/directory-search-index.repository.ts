@@ -9,12 +9,12 @@ export interface DirectorySearchIndexFilters {
   jobFamilyId?: string
   jobLevel?: string
   managerId?: string
-  employmentStatus?: string
-  employmentType?: string
-  workerType?: string
-  workArrangement?: string
+  employmentStatus?: string | string[]
+  employmentType?: string | string[]
+  workerType?: string | string[]
+  workArrangement?: string | string[]
   locationId?: string
-  countryCode?: string
+  countryCode?: string | string[]
   hiredAfter?: Date
   hiredBefore?: Date
 }

@@ -1,8 +1,7 @@
 'use client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Tabs, TabsList, TabsTrigger } from '@future/ui'
-import { Calendar } from '@future/ui'
-import { LayoutGrid, LayoutList, PieChart } from '@future/ui/icons'
+import { CalendarDays, LayoutGrid, LayoutList, PieChart } from '@future/ui/icons'
 import type { ViewKey } from '@/lib/view-state'
 
 export type ViewPickerFlags = { views: boolean; grid: boolean; schedule: boolean; charts: boolean }
@@ -19,7 +18,7 @@ const VIEWS: {
 }[] = [
   { key: 'board', label: 'Board', icon: LayoutGrid, flag: 'views' },
   { key: 'grid', label: 'Grid', icon: LayoutList, flag: 'grid' },
-  { key: 'schedule', label: 'Schedule', icon: Calendar, flag: 'schedule' },
+  { key: 'schedule', label: 'Schedule', icon: CalendarDays, flag: 'schedule' },
   { key: 'charts', label: 'Charts', icon: PieChart, flag: 'charts' },
 ]
 

@@ -7,7 +7,12 @@ describe('plannerNavConfig', () => {
     if (!first) throw new Error('expected a first group')
     if ('render' in first && first.render) throw new Error('expected first group to be static')
     if (!('items' in first) || !first.items) throw new Error('expected static items')
-    expect(first.items.map((i) => i.label)).toEqual(['My Day', 'My Tasks', 'My Plans'])
+    expect(first.items.map((i) => i.label)).toEqual([
+      'My Day',
+      'My Tasks',
+      'My Plans',
+      'Transcripts',
+    ])
     for (const item of first.items) {
       expect(item.permission).toBe('planner:personal:read')
     }

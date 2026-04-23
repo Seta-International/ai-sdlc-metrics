@@ -77,7 +77,7 @@ vi.mock('../../../../lib/hooks/useBoardSnapshot', () => ({
   }),
 }))
 
-vi.mock('@tanstack/react-query', () => ({
+vi.mock('@future/api-client', () => ({
   useQuery: vi.fn(),
   useQueryClient: () => ({
     getQueryData: vi.fn(),

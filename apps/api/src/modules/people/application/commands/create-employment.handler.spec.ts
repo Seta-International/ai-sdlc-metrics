@@ -115,7 +115,9 @@ describe('CreateEmploymentHandler', () => {
       update: vi.fn(),
     } as unknown as IEmploymentDetailRepository
 
-    handler = new CreateEmploymentHandler(personProfileRepo, employmentRepo, employmentDetailRepo)
+    handler = new CreateEmploymentHandler(personProfileRepo, employmentRepo, employmentDetailRepo, {
+      publish: vi.fn(),
+    } as never)
   })
 
   it('creates employment in pre_hire status', async () => {

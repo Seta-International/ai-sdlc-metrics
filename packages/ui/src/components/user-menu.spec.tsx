@@ -42,9 +42,10 @@ describe('UserMenu', () => {
   it('shows displayName, email, tenantName in the header', async () => {
     render(<UserMenu user={baseUser} profileHref="/people/me" />)
     await openMenu()
-    expect(screen.getByText('Ada Lovelace')).toBeInTheDocument()
-    expect(screen.getByText('ada@example.com')).toBeInTheDocument()
-    expect(screen.getByText('Acme Inc')).toBeInTheDocument()
+    const header = screen.getByTestId('user-menu-header')
+    expect(within(header).getByText('Ada Lovelace')).toBeInTheDocument()
+    expect(within(header).getByText('ada@example.com')).toBeInTheDocument()
+    expect(within(header).getByText('Acme Inc')).toBeInTheDocument()
   })
 
   it('renders first role as chip and no +N when single role', async () => {

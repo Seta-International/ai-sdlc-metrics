@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SessionUserMenu } from './session-user-menu'
 
@@ -89,9 +89,10 @@ describe('SessionUserMenu', () => {
     const trigger = await screen.findByRole('button', { name: /User menu for Jane Doe/ })
     expect(trigger).toHaveTextContent('JD')
     await openMenu('Jane Doe')
-    expect(screen.getByText('Jane Doe')).toBeInTheDocument()
-    expect(screen.getByText('jane@example.com')).toBeInTheDocument()
-    expect(screen.getByText('Acme Inc')).toBeInTheDocument()
+    const header = screen.getByTestId('user-menu-header')
+    expect(within(header).getByText('Jane Doe')).toBeInTheDocument()
+    expect(within(header).getByText('jane@example.com')).toBeInTheDocument()
+    expect(within(header).getByText('Acme Inc')).toBeInTheDocument()
   })
 
   it('renders "?" initials when displayName is empty', async () => {

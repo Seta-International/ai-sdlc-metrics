@@ -1,5 +1,6 @@
 import { Inject } from '@nestjs/common'
-import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, EventBus, type ICommandHandler } from '@nestjs/cqrs'
+import { PersonHiredEvent } from '@future/event-contracts'
 import { PersonProfileNotFoundException } from '../../domain/exceptions/people.exceptions'
 import {
   PERSON_PROFILE_REPOSITORY,
@@ -28,6 +29,7 @@ export class CreateEmploymentHandler implements ICommandHandler<
     private readonly employmentRepo: IEmploymentRepository,
     @Inject(EMPLOYMENT_DETAIL_REPOSITORY)
     private readonly employmentDetailRepo: IEmploymentDetailRepository,
+    private readonly eventBus: EventBus,
   ) {}
 
   async execute(command: CreateEmploymentCommand): Promise<Employment> {
@@ -74,6 +76,15 @@ export class CreateEmploymentHandler implements ICommandHandler<
       countryData: null,
       customFields: null,
     })
+
+    await this.eventBus.publish(
+      new PersonHiredEvent(
+        command.tenantId,
+        command.createdBy,
+        employment.id,
+        employment.hireDate.toISOString().split('T')[0]!,
+      ),
+    )
 
     return employment
   }

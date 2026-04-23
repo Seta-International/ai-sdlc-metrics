@@ -93,7 +93,7 @@ export function UserMenu({
               user.initials
             )}
           </span>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1" aria-hidden="true">
             <div className="truncate text-caption-lg font-510 text-sidebar-foreground leading-tight">
               {user.displayName}
             </div>
@@ -112,25 +112,14 @@ export function UserMenu({
         className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-52"
       >
         {/* Identity header */}
-        <div className="flex items-center gap-2.5 px-2.5 py-2">
-          <span
-            className={cn(
-              'flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full',
-              'border border-border bg-elevated text-label font-510 text-fg-primary',
-            )}
-          >
-            {user.avatarUrl ? (
-              <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              user.initials
-            )}
+        <div data-testid="user-menu-header" className="flex flex-col gap-0.5 px-2.5 py-2">
+          <span className="truncate text-label font-510 text-muted-foreground">
+            {user.tenantName}
           </span>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-caption-lg font-510 text-foreground">
-              {user.displayName}
-            </div>
-            <div className="truncate text-caption text-muted-foreground">{user.email}</div>
-          </div>
+          <span className="truncate text-caption-lg font-510 text-foreground">
+            {user.displayName}
+          </span>
+          <span className="truncate text-caption text-muted-foreground">{user.email}</span>
         </div>
 
         {firstRole ? (
@@ -154,7 +143,7 @@ export function UserMenu({
 
         {settingsHref ? (
           <DropdownMenuItem asChild>
-            <a href={settingsHref}>Account settings</a>
+            <a href={settingsHref}>Settings</a>
           </DropdownMenuItem>
         ) : null}
 

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { and, eq, gte, isNotNull, lte, or, sql, ilike } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNotNull, lte, or, sql, ilike } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { DirectorySearchIndex } from '../../domain/entities/directory-search-index.entity'
@@ -73,15 +73,30 @@ export class DrizzleDirectorySearchIndexRepository implements IDirectorySearchIn
       `)
     }
     if (filters.employmentStatus) {
-      conditions.push(eq(directorySearchIndex.employmentStatus, filters.employmentStatus))
+      const val = filters.employmentStatus
+      if (Array.isArray(val)) {
+        conditions.push(inArray(directorySearchIndex.employmentStatus, val))
+      } else {
+        conditions.push(eq(directorySearchIndex.employmentStatus, val))
+      }
     } else {
       conditions.push(sql`${directorySearchIndex.employmentStatus} != 'terminated'`)
     }
     if (filters.countryCode) {
-      conditions.push(eq(directorySearchIndex.countryCode, filters.countryCode))
+      const val = filters.countryCode
+      if (Array.isArray(val)) {
+        conditions.push(inArray(directorySearchIndex.countryCode, val))
+      } else {
+        conditions.push(eq(directorySearchIndex.countryCode, val))
+      }
     }
     if (filters.workArrangement) {
-      conditions.push(eq(directorySearchIndex.workArrangement, filters.workArrangement))
+      const val = filters.workArrangement
+      if (Array.isArray(val)) {
+        conditions.push(inArray(directorySearchIndex.workArrangement, val))
+      } else {
+        conditions.push(eq(directorySearchIndex.workArrangement, val))
+      }
     }
     if (filters.jobLevel) {
       conditions.push(eq(directorySearchIndex.jobLevel, filters.jobLevel))

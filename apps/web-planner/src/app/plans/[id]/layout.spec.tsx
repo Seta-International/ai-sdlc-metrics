@@ -6,7 +6,7 @@ vi.mock('@future/auth', () => ({
   useSession: () => ({ actorId: 'a1', tenantId: 't1' }),
 }))
 
-vi.mock('@tanstack/react-query', () => ({
+vi.mock('@future/api-client', () => ({
   useQuery: () => ({ data: { id: 'abc', name: 'My Plan' } }),
 }))
 
