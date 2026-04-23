@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common'
 import { PgBossService } from '../../../../common/jobs/pg-boss.service'
 import { recordLeakCanary } from '../observability/observability-metrics'
 
+export const LEAK_CANARY_JOB_NAME = 'observability-leak-canary'
+
 /**
  * Synthetic canary marker stamped on synthetic turns (future use).
  * When a trace backend is wired, the canary scan will look for this value
@@ -21,8 +23,8 @@ export class LeakCanaryScheduler {
   constructor(private readonly pgBossService: PgBossService) {}
 
   async registerJob(): Promise<void> {
-    await this.pgBossService.schedule('observability-leak-canary', '0 3 * * *') // 3am UTC daily
-    this.pgBossService.registerScheduledWorker('observability-leak-canary', async () => this.run())
+    await this.pgBossService.schedule(LEAK_CANARY_JOB_NAME, '0 3 * * *') // 3am UTC daily
+    this.pgBossService.registerScheduledWorker(LEAK_CANARY_JOB_NAME, async () => this.run())
   }
 
   async run(): Promise<void> {

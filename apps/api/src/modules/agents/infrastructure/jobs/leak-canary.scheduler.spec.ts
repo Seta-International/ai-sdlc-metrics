@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { LeakCanaryScheduler } from './leak-canary.scheduler'
+import { LeakCanaryScheduler, LEAK_CANARY_JOB_NAME } from './leak-canary.scheduler'
 
 // ─── Mock observability-metrics ───────────────────────────────────────────────
 
@@ -53,7 +53,7 @@ describe('LeakCanaryScheduler', () => {
       await scheduler.registerJob()
 
       expect(pgBossService.schedule).toHaveBeenCalledOnce()
-      expect(pgBossService.schedule).toHaveBeenCalledWith('observability-leak-canary', '0 3 * * *')
+      expect(pgBossService.schedule).toHaveBeenCalledWith(LEAK_CANARY_JOB_NAME, '0 3 * * *')
     })
 
     it('registers a scheduled worker for observability-leak-canary', async () => {
@@ -61,7 +61,7 @@ describe('LeakCanaryScheduler', () => {
 
       expect(pgBossService.registerScheduledWorker).toHaveBeenCalledOnce()
       expect(pgBossService.registerScheduledWorker).toHaveBeenCalledWith(
-        'observability-leak-canary',
+        LEAK_CANARY_JOB_NAME,
         expect.any(Function),
       )
     })
