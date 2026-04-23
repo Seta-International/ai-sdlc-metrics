@@ -1,4 +1,5 @@
 import { Inject, Module, type OnModuleInit, type OnApplicationBootstrap } from '@nestjs/common'
+import type PgBoss from 'pg-boss'
 import { JwtModule } from '@nestjs/jwt'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { AgentsQueryFacade } from './application/facades/agents-query.facade'
@@ -109,6 +110,10 @@ import {
   ConversationRetentionScheduler,
   type TenantListerLike,
 } from './application/services/conversation-retention-scheduler'
+import {
+  CompositionMonitorWorker,
+  type CompositionMonitorJobData,
+} from './infrastructure/jobs/composition-monitor.worker'
 import type { ConversationRepository } from './domain/repositories/conversation.repository'
 import type { ConversationMessageRepository } from './domain/repositories/conversation-message.repository'
 import type { L3PreferenceRepository } from './domain/repositories/l3-preference.repository'
@@ -271,6 +276,8 @@ class NullTenantLister implements TenantListerLike {
       useFactory: (pgBoss: PgBossService, convRepo: ConversationRepository) =>
         new ConversationRetentionScheduler(pgBoss, convRepo, new NullTenantLister()),
     },
+    // ── Composition-attack monitor (Plan 07 Task 6) ───────────────────────────
+    CompositionMonitorWorker,
   ],
   exports: [
     AgentsQueryFacade,
@@ -315,6 +322,8 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     @Inject(CONVERSATION_REPOSITORY) private readonly conversationRepo: ConversationRepository,
     @Inject(CONVERSATION_RETENTION_SCHEDULER)
     private readonly retentionScheduler: ConversationRetentionScheduler,
+    private readonly compositionMonitorWorker: CompositionMonitorWorker,
+    private readonly pgBossService: PgBossService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -396,5 +405,11 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
 
     // Step 5: Register retention scheduler — daily cron to archive idle conversations (R-04.27).
     await this.retentionScheduler.registerWorkers()
+
+    // Step 6: Register composition-attack monitor (Plan 07 Task 6, R-07.46).
+    // Best-effort, post-turn async job — never blocks tool calls (Tenet #9).
+    await this.pgBossService.registerWorker('observability-composition-monitor', async (job) =>
+      this.compositionMonitorWorker.handle(job as PgBoss.Job<CompositionMonitorJobData>),
+    )
   }
 }
