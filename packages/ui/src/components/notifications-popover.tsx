@@ -53,29 +53,25 @@ export function NotificationsPopover({
   const showSkeletons = !hasItems && isLoading
   const disableMarkAll = unreadCount === 0
 
-  const badgeLabel = unreadCount > 9 ? '9+' : String(unreadCount)
-
   const trigger = (
     <button
       type="button"
       aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
       className={cn(
-        'relative flex h-11 w-11 items-center justify-center rounded-md border',
-        'border-border text-muted-foreground transition-all hover:bg-(--btn-ghost-bg) hover:text-foreground',
-        'focus:outline-none focus:ring-3 focus:ring-ring/50',
+        'relative flex h-7 w-7 items-center justify-center rounded-md',
+        'text-muted-foreground/60 transition-colors',
+        'hover:bg-sidebar-accent/40 hover:text-muted-foreground',
+        'focus:outline-none focus:ring-2 focus:ring-ring/50',
       )}
     >
-      <Bell className="h-4 w-4" />
+      <Bell className="h-3.5 w-3.5" />
       {unreadCount > 0 ? (
         <span
           data-testid="notifications-bell-badge"
           aria-hidden="true"
-          className={cn(
-            'absolute top-1 right-1 inline-flex min-w-4 items-center justify-center rounded-full',
-            'bg-destructive px-1 text-label font-510 text-destructive-foreground',
-          )}
+          className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-0.5 text-tiny font-semibold leading-none text-white ring-1.5 ring-background"
         >
-          {badgeLabel}
+          {unreadCount}
         </span>
       ) : null}
     </button>

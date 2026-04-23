@@ -19,13 +19,6 @@ vi.mock('next-themes', () => ({
 
 vi.mock('@future/ui', () => ({
   cn: (...args: string[]) => args.filter(Boolean).join(' '),
-  AppLauncher: () => null,
-  AppLauncherTrigger: ({ onClick }: { onClick: () => void }) => (
-    <button onClick={onClick}>launcher</button>
-  ),
-  SidebarTrigger: () => <button>sidebar</button>,
-  FUTURE_APPS: [],
-  LOCAL_FUTURE_APPS: [],
 }))
 
 function createWrapper(permissions: string[]) {
@@ -46,12 +39,20 @@ const baseConfig: NavbarConfig = {
 }
 
 describe('NavbarRenderer', () => {
-  it('renders the zone title', () => {
+  it('renders the zone title in the breadcrumb', () => {
     render(<NavbarRenderer config={baseConfig} />, {
       wrapper: createWrapper([]),
     })
 
     expect(screen.getByText('People')).toBeInTheDocument()
+  })
+
+  it('renders Ask AI toggle button', () => {
+    render(<NavbarRenderer config={baseConfig} />, {
+      wrapper: createWrapper([]),
+    })
+
+    expect(screen.getByLabelText('Open AI panel')).toBeInTheDocument()
   })
 
   it('renders action button when user has permission', () => {
@@ -93,13 +94,19 @@ describe('NavbarRenderer', () => {
     expect(screen.getByText('Settings')).toBeInTheDocument()
   })
 
-  it('renders search and agent elements', () => {
-    render(<NavbarRenderer config={baseConfig} />, {
+  it('collapses zone action label to icon-only on <md', () => {
+    const config: NavbarConfig = {
+      ...baseConfig,
+      action: { label: 'Add Employee', href: '/new' },
+    }
+
+    render(<NavbarRenderer config={config} />, {
       wrapper: createWrapper([]),
     })
 
-    expect(screen.getAllByLabelText('Search or ask an agent').length).toBeGreaterThan(0)
-    expect(screen.getByLabelText('Open agent panel')).toBeInTheDocument()
+    const label = screen.getByText('Add Employee')
+    expect(label.className).toContain('hidden')
+    expect(label.className).toContain('md:inline')
   })
 
   it('renders provided user-menu and notifications slots', () => {
@@ -123,33 +130,6 @@ describe('NavbarRenderer', () => {
 
     expect(screen.queryByText('user-menu-slot')).not.toBeInTheDocument()
     expect(screen.queryByText('notifications-slot')).not.toBeInTheDocument()
-  })
-
-  it('exposes search in both expanded (sm:flex) and icon-only (sm:hidden) forms', () => {
-    render(<NavbarRenderer config={baseConfig} />, {
-      wrapper: createWrapper([]),
-    })
-
-    const searchButtons = screen.getAllByLabelText('Search or ask an agent')
-    expect(searchButtons).toHaveLength(2)
-    const classes = searchButtons.map((b) => b.className)
-    expect(classes.some((c) => c.includes('sm:flex'))).toBe(true)
-    expect(classes.some((c) => c.includes('sm:hidden'))).toBe(true)
-  })
-
-  it('collapses zone action label to icon-only on <md', () => {
-    const config: NavbarConfig = {
-      ...baseConfig,
-      action: { label: 'Add Employee', href: '/new' },
-    }
-
-    render(<NavbarRenderer config={config} />, {
-      wrapper: createWrapper([]),
-    })
-
-    const label = screen.getByText('Add Employee')
-    expect(label.className).toContain('hidden')
-    expect(label.className).toContain('md:inline')
   })
 
   it('renders light mode theme toggle label when in light mode', () => {
@@ -184,29 +164,42 @@ describe('NavbarRenderer', () => {
     expect(mockSetTheme).toHaveBeenCalledWith('dark')
   })
 
-  it('calls callback handlers when buttons are clicked', () => {
-    const onSearch = vi.fn()
+  it('calls onAgentClick when Ask AI button is clicked', () => {
     const onAgent = vi.fn()
 
-    render(<NavbarRenderer config={baseConfig} onSearchClick={onSearch} onAgentClick={onAgent} />, {
+    render(<NavbarRenderer config={baseConfig} onAgentClick={onAgent} />, {
       wrapper: createWrapper([]),
     })
 
-    const searchButtons = screen.getAllByLabelText('Search or ask an agent')
-    fireEvent.click(searchButtons[0]!)
-    fireEvent.click(screen.getByLabelText('Open agent panel'))
-
-    expect(onSearch).toHaveBeenCalledOnce()
+    fireEvent.click(screen.getByLabelText('Open AI panel'))
     expect(onAgent).toHaveBeenCalledOnce()
   })
 
-  it('toggles app launcher via Cmd+K keyboard shortcut', () => {
-    render(<NavbarRenderer config={baseConfig} />, {
+  it('shows active state on Ask AI button when panel is open', () => {
+    render(<NavbarRenderer config={baseConfig} agentPanelOpen />, {
+      wrapper: createWrapper([]),
+    })
+
+    expect(screen.getByLabelText('Close AI panel')).toBeInTheDocument()
+  })
+
+  it('calls onSearchClick via Cmd+K keyboard shortcut', () => {
+    const onSearch = vi.fn()
+    render(<NavbarRenderer config={baseConfig} onSearchClick={onSearch} />, {
       wrapper: createWrapper([]),
     })
 
     fireEvent.keyDown(window, { key: 'k', metaKey: true })
-    // The AppLauncher mock renders null, so we just verify no crash
-    // and that the keyboard event handler was properly set up
+    expect(onSearch).toHaveBeenCalledOnce()
+  })
+
+  it('calls onAgentClick via Cmd+J keyboard shortcut', () => {
+    const onAgent = vi.fn()
+    render(<NavbarRenderer config={baseConfig} onAgentClick={onAgent} />, {
+      wrapper: createWrapper([]),
+    })
+
+    fireEvent.keyDown(window, { key: 'j', metaKey: true })
+    expect(onAgent).toHaveBeenCalledOnce()
   })
 })

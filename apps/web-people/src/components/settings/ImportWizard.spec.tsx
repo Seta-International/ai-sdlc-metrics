@@ -102,6 +102,24 @@ vi.mock('@future/ui', () => {
     return <div data-testid="progress" data-value={value} className={className} />
   }
 
+  function FileUploadDropzone({
+    description,
+    hint,
+    className,
+  }: {
+    description?: string
+    hint?: string
+    className?: string
+  }) {
+    return (
+      <div data-testid="file-upload-dropzone" className={className}>
+        {description ? <p>{description}</p> : null}
+        {hint ? <p>{hint}</p> : null}
+        <button type="button">Browse Files</button>
+      </div>
+    )
+  }
+
   return {
     Card,
     Button,
@@ -112,6 +130,7 @@ vi.mock('@future/ui', () => {
     SelectContent,
     SelectItem,
     Progress,
+    FileUploadDropzone,
   }
 })
 
