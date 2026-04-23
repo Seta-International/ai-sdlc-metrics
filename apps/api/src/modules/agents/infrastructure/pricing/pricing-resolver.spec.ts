@@ -79,7 +79,7 @@ describe('PricingResolver', () => {
     )
   })
 
-  it('returns cached result on second call (db.select called only once)', async () => {
+  it('returns cached result on second call for current-time lookup (db.select called only once)', async () => {
     const { db, selectFn } = buildDbMock([makeRow()])
     const resolver = new PricingResolver(db as never)
 
@@ -87,6 +87,17 @@ describe('PricingResolver', () => {
     await resolver.resolve({ modelId: MODEL_ID })
 
     expect(selectFn).toHaveBeenCalledTimes(1)
+  })
+
+  it('bypasses cache for historical at= queries (each call hits DB)', async () => {
+    const { db, selectFn } = buildDbMock([makeRow(), makeRow()])
+    const resolver = new PricingResolver(db as never)
+
+    const past = new Date('2024-06-01T00:00:00Z')
+    await resolver.resolve({ modelId: MODEL_ID, at: past })
+    await resolver.resolve({ modelId: MODEL_ID, at: past })
+
+    expect(selectFn).toHaveBeenCalledTimes(2)
   })
 
   it('bypasses cache after TTL expires', async () => {

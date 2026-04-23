@@ -19,12 +19,16 @@ export class PricingResolver {
   constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
   async resolve(opts: { modelId: string; at?: Date }): Promise<Pricing> {
+    const isHistorical = opts.at !== undefined
     const at = opts.at ?? new Date()
-    const cacheKey = opts.modelId
 
-    const cached = this.cache.get(cacheKey)
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.pricing
+    // Only cache current-time lookups. Historical `at` queries (used for audit/
+    // reconciliation) must never collide with the current-pricing cache entry.
+    if (!isHistorical) {
+      const cached = this.cache.get(opts.modelId)
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.pricing
+      }
     }
 
     const rows = await this.db
@@ -56,7 +60,7 @@ export class PricingResolver {
       effectiveFrom: row.effectiveFrom,
     }
 
-    this.cache.set(cacheKey, { pricing, expiresAt: Date.now() + CACHE_TTL_MS })
+    this.cache.set(opts.modelId, { pricing, expiresAt: Date.now() + CACHE_TTL_MS })
     return pricing
   }
 }
