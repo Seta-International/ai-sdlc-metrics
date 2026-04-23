@@ -126,7 +126,7 @@ describe('OpenAiUsageExtractor', () => {
       expect(extractor.detectDroppedFields(response, fakeExtracted)).toEqual(['inputCachedRead'])
     })
 
-    it('returns [] when cached_tokens is 0 (not a drop per R-05.6c)', () => {
+    it('returns [] when cached_tokens is 0 (not a drop per R-05.6c — vendor reported zero)', () => {
       const response = {
         usage: {
           prompt_tokens: 100,
@@ -137,6 +137,32 @@ describe('OpenAiUsageExtractor', () => {
       const fakeExtracted = { ...extractor.extract(response), inputCachedRead: 0 }
 
       expect(extractor.detectDroppedFields(response, fakeExtracted)).toEqual([])
+    })
+
+    it('returns [inputCachedWrite] when cache_creation_input_tokens present but extractor zeroed it', () => {
+      const response = {
+        usage: {
+          prompt_tokens: 100,
+          completion_tokens: 30,
+          prompt_tokens_details: { cached_tokens: 0, cache_creation_input_tokens: 10 },
+        },
+      }
+      const fakeExtracted = { ...extractor.extract(response), inputCachedWrite: 0 }
+
+      expect(extractor.detectDroppedFields(response, fakeExtracted)).toEqual(['inputCachedWrite'])
+    })
+
+    it('returns [outputReasoning] when reasoning_tokens present but extractor zeroed it', () => {
+      const response = {
+        usage: {
+          prompt_tokens: 50,
+          completion_tokens: 40,
+          completion_tokens_details: { reasoning_tokens: 15 },
+        },
+      }
+      const fakeExtracted = { ...extractor.extract(response), outputReasoning: 0 }
+
+      expect(extractor.detectDroppedFields(response, fakeExtracted)).toEqual(['outputReasoning'])
     })
   })
 })

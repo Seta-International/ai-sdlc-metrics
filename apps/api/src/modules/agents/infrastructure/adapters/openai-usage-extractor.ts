@@ -58,9 +58,35 @@ export class OpenAiUsageExtractor {
       : null
 
     if (promptDetails) {
-      const vendorCachedTokens = numberOrZero(promptDetails['cached_tokens'])
-      if (vendorCachedTokens > 0 && extracted.inputCachedRead === 0) {
+      // R-05.6c: presence check (not value-only), but suppress false positives on genuine zeros.
+      // A field is "dropped" when: vendor key exists AND vendor value is non-zero AND extractor zeroed it.
+      if (
+        'cached_tokens' in promptDetails &&
+        numberOrZero(promptDetails['cached_tokens']) !== 0 &&
+        extracted.inputCachedRead === 0
+      ) {
         dropped.push('inputCachedRead')
+      }
+      if (
+        'cache_creation_input_tokens' in promptDetails &&
+        numberOrZero(promptDetails['cache_creation_input_tokens']) !== 0 &&
+        extracted.inputCachedWrite === 0
+      ) {
+        dropped.push('inputCachedWrite')
+      }
+    }
+
+    const completionDetails = isObject(usage['completion_tokens_details'])
+      ? (usage['completion_tokens_details'] as Record<string, unknown>)
+      : null
+
+    if (completionDetails) {
+      if (
+        'reasoning_tokens' in completionDetails &&
+        numberOrZero(completionDetails['reasoning_tokens']) !== 0 &&
+        extracted.outputReasoning === 0
+      ) {
+        dropped.push('outputReasoning')
       }
     }
 
