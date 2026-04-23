@@ -278,6 +278,31 @@ describe('PermissionNarrativeBuilder', () => {
     expect(deniedVerbs.length).toBeLessThanOrEqual(5)
   })
 
+  it('6b. extracts verbs from dot-delimited planner ms_sync permission keys', async () => {
+    const grantedPerms = [
+      { permissionKey: 'planner.ms_sync.connect', isLocked: false, module: 'planner' },
+      { permissionKey: 'planner.ms_sync.conflict.resolve', isLocked: false, module: 'planner' },
+      { permissionKey: 'planner.ms_sync.force_resync', isLocked: false, module: 'planner' },
+    ]
+
+    let capturedText = ''
+    vi.mocked(kernelQuery.getRolePermissions).mockResolvedValue({
+      roleKey: ROLE_KEY,
+      permissions: grantedPerms,
+    })
+    vi.mocked(narrativeStore.appendIfMissing).mockImplementation(async (input) => {
+      capturedText = input.content
+      return { entry: makeEntry({ content: input.content }), wasAppended: true }
+    })
+
+    await builder.build({ tenantId: TENANT_ID, roleKey: ROLE_KEY, actorId: ACTOR_ID })
+
+    expect(capturedText).toContain('connect')
+    expect(capturedText).toContain('resolve')
+    expect(capturedText).toContain('force resync')
+    expect(capturedText).not.toContain('planner.ms_sync')
+  })
+
   // ── 7. Empty grant set ────────────────────────────────────────────────────
 
   it('7. zero granted permissions → narrative renders without crashing', async () => {

@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ResetRolePermissionsCommand } from './reset-role-permissions.command'
-import {
-  ResetRolePermissionsHandler,
-  DEFAULT_ROLE_PERMISSIONS,
-} from './reset-role-permissions.handler'
+import { ResetRolePermissionsHandler } from './reset-role-permissions.handler'
+import { DEFAULT_ROLE_PERMISSIONS } from '../../domain/constants/default-role-permissions'
 import type { IRolePermissionRepository } from '../../domain/repositories/role-permission.repository.port'
 import type { IAuditEventRepository } from '../../domain/repositories/audit-event.repository.port'
 
@@ -50,6 +48,43 @@ describe('ResetRolePermissionsHandler', () => {
       })),
     )
     expect(auditRepo.insert).toHaveBeenCalled()
+  })
+
+  it('resets tenant_admin with planner ms_sync permissions from the central defaults', async () => {
+    vi.mocked(permissionRepo.removeAllForRole).mockResolvedValue(undefined)
+    vi.mocked(permissionRepo.insertMany).mockResolvedValue(undefined)
+    vi.mocked(auditRepo.insert).mockResolvedValue(undefined)
+
+    await handler.execute(new ResetRolePermissionsCommand(TENANT_ID, 'tenant_admin', ACTOR_ID))
+
+    expect(permissionRepo.insertMany).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          roleKey: 'tenant_admin',
+          permissionKey: 'planner.ms_sync.connect',
+          isLocked: false,
+        }),
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          roleKey: 'tenant_admin',
+          permissionKey: 'planner.ms_sync.link_group',
+          isLocked: false,
+        }),
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          roleKey: 'tenant_admin',
+          permissionKey: 'planner.ms_sync.conflict.resolve',
+          isLocked: false,
+        }),
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          roleKey: 'tenant_admin',
+          permissionKey: 'planner.ms_sync.force_resync',
+          isLocked: false,
+        }),
+      ]),
+    )
   })
 
   it('throws when role has no default permissions defined', async () => {
