@@ -51,6 +51,8 @@ import { ListOnboardingTasksQuery } from '../../application/queries/list-onboard
 import { ListTemplatesQuery } from '../../application/queries/list-templates.query'
 import { ListContractVersionsQuery } from '../../application/queries/list-contract-versions.query'
 import { GetJobHistoryQuery } from '../../application/queries/get-job-history.query'
+import { GetOrgChartContextQuery } from '../../application/queries/get-org-chart-context.query'
+import { GetOrgChartChildrenQuery } from '../../application/queries/get-org-chart-children.query'
 
 import { PeopleTrpcService } from './people-trpc.service'
 import {
@@ -515,6 +517,22 @@ export function createPeopleRouter(
           )
         },
       ),
+
+    // ── Org chart ────────────────────────────────────────────────────────
+    orgChart: router({
+      context: permissionProtectedProcedure
+        .meta({ permission: 'people:org:read' })
+        .query(async ({ ctx }: { ctx: AuthContext }) => {
+          return svc().query(new GetOrgChartContextQuery(ctx.tenantId, ctx.actorId))
+        }),
+
+      children: permissionProtectedProcedure
+        .meta({ permission: 'people:org:read' })
+        .input(z.object({ employmentId: z.string().uuid() }))
+        .query(async ({ ctx, input }: { ctx: AuthContext; input: { employmentId: string } }) => {
+          return svc().query(new GetOrgChartChildrenQuery(ctx.tenantId, input.employmentId))
+        }),
+    }),
 
     // ── Directory ─────────────────────────────────────────────────────────
     directory: router({

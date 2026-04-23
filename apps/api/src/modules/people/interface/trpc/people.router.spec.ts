@@ -9,6 +9,8 @@ import type { PeopleQueryFacade } from '../../application/facades/people-query.f
 import { createProtectedProcedures } from '../../../../common/trpc/create-protected-procedures'
 import { PeopleTrpcService } from './people-trpc.service'
 import { RehireEmploymentCommand } from '../../application/commands/rehire-employment.command'
+import { GetOrgChartContextQuery } from '../../application/queries/get-org-chart-context.query'
+import { GetOrgChartChildrenQuery } from '../../application/queries/get-org-chart-children.query'
 
 const ACTOR_ID = '01900000-0000-7000-8000-000000000001'
 const TENANT_ID = '01900000-0000-7000-8000-000000000002'
@@ -134,5 +136,64 @@ describe('createPeopleRouter', () => {
         countryCode: 'VN',
       }),
     ).rejects.toThrow(TRPCError)
+  })
+
+  it('should expose org chart context protected by people:org:read', async () => {
+    const queryBus = {
+      execute: vi.fn().mockResolvedValue({
+        nodes: [],
+        rootEmploymentIds: [],
+        focusEmploymentId: null,
+      }),
+    }
+    const trpcService = new PeopleTrpcService({ execute: vi.fn() } as never, queryBus as never)
+    trpcService.onModuleInit()
+
+    const { peopleRouter, kernelFacade } = setup(true)
+    const caller = router({ people: peopleRouter }).createCaller({
+      actorId: ACTOR_ID,
+      tenantId: TENANT_ID,
+    } as any)
+
+    const result = await (caller.people as any).orgChart.context()
+
+    expect(result).toEqual({ nodes: [], rootEmploymentIds: [], focusEmploymentId: null })
+    expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'people:org:read', {
+      tenantId: TENANT_ID,
+    })
+    expect(queryBus.execute).toHaveBeenCalledWith(new GetOrgChartContextQuery(TENANT_ID, ACTOR_ID))
+  })
+
+  it('should expose org chart children protected by people:org:read', async () => {
+    const queryBus = { execute: vi.fn().mockResolvedValue([]) }
+    const trpcService = new PeopleTrpcService({ execute: vi.fn() } as never, queryBus as never)
+    trpcService.onModuleInit()
+
+    const { peopleRouter, kernelFacade } = setup(true)
+    const caller = router({ people: peopleRouter }).createCaller({
+      actorId: ACTOR_ID,
+      tenantId: TENANT_ID,
+    } as any)
+    const employmentId = '01900000-0000-7000-8000-000000000011'
+
+    const result = await (caller.people as any).orgChart.children({ employmentId })
+
+    expect(result).toEqual([])
+    expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'people:org:read', {
+      tenantId: TENANT_ID,
+    })
+    expect(queryBus.execute).toHaveBeenCalledWith(
+      new GetOrgChartChildrenQuery(TENANT_ID, employmentId),
+    )
+  })
+
+  it('should deny org chart context when permission is not granted', async () => {
+    const { peopleRouter } = setup(false)
+    const caller = router({ people: peopleRouter }).createCaller({
+      actorId: ACTOR_ID,
+      tenantId: TENANT_ID,
+    } as any)
+
+    await expect((caller.people as any).orgChart.context()).rejects.toThrow(TRPCError)
   })
 })

@@ -241,14 +241,24 @@ export type ChangeRequest = {
 }
 
 // --- Org Chart (P2) ---
+export type OrgChartRelationshipToViewer = 'self' | 'manager' | 'peer' | 'direct_report' | 'root'
+
 export type OrgChartNode = {
   employmentId: string
   personProfileId: string
   fullName: string
+  jobTitle: string | null
+  departmentName: string | null
+  locationName: string | null
   avatarUrl: string | null
-  jobTitle: string
-  department: string
+  managerEmploymentId: string | null
   directReportCount: number
-  managerId: string | null
-  children?: OrgChartNode[]
+  hasDirectReports: boolean
+  relationshipToViewer?: OrgChartRelationshipToViewer
+}
+
+export type OrgChartContext = {
+  nodes: OrgChartNode[]
+  rootEmploymentIds: string[]
+  focusEmploymentId: string | null
 }
