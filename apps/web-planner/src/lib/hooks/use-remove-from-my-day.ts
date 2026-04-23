@@ -1,8 +1,8 @@
 'use client'
 
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@future/api-client'
 import { useSession } from '@future/auth'
-import type { UseMutationResult } from '@tanstack/react-query'
+import type { UseMutationResult } from '@future/api-client'
 import type { MyDayTask } from '@future/api-client/planner'
 import { trpc } from '../trpc'
 import { myDayQueryKey } from './use-my-day'

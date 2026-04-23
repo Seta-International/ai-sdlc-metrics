@@ -13,7 +13,7 @@ import {
   SelectValue,
   Progress,
 } from '@future/ui'
-import { CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, XCircle } from '@future/ui/icons'
 
 type WizardStep = 'upload' | 'mapping' | 'validation' | 'preview' | 'processing'
 

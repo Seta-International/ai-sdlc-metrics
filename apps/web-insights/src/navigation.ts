@@ -1,4 +1,4 @@
-import { LineChart, LayoutDashboard, FileBarChart } from 'lucide-react'
+import { LineChart, LayoutDashboard, FileBarChart } from '@future/ui/icons'
 import type { NavigationConfig } from '@future/app-layout'
 
 export const insightsNavConfig: NavigationConfig = {

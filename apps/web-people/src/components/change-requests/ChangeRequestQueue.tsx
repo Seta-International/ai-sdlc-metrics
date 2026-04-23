@@ -2,7 +2,7 @@
 'use client'
 
 import * as React from 'react'
-import type { ColumnDef, CellContext } from '@tanstack/react-table'
+import type { ColumnDef, CellContext } from '@future/ui'
 import {
   DataTable,
   Badge,
@@ -25,7 +25,7 @@ import {
   type FutureTableState,
   defaultTableState,
 } from '@future/ui'
-import { Check, X } from 'lucide-react'
+import { Check, X } from '@future/ui/icons'
 import { AvatarNameCell } from '../AvatarNameCell'
 import type { ChangeRequestRow } from '../../lib/types-workflows'
 import { trpc } from '../../lib/trpc'

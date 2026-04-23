@@ -1,4 +1,4 @@
-import { Clock, CalendarDays, Timer, FileSpreadsheet } from 'lucide-react'
+import { Clock, CalendarDays, Timer, FileSpreadsheet } from '@future/ui/icons'
 import type { NavigationConfig } from '@future/app-layout'
 
 export const timeNavConfig: NavigationConfig = {

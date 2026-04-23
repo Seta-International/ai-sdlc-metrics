@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery } from '@future/api-client'
 import { useParams, usePathname } from 'next/navigation'
 import { useSession } from '@future/auth'
 import {

@@ -1,7 +1,7 @@
 'use client'
 
 import { AgentContextProvider, AgentBadge, AgentInlineAction, AgentBanner } from '@future/agent'
-import { Sparkles, UserMinus } from 'lucide-react'
+import { Sparkles, UserMinus } from '@future/ui/icons'
 
 export default function EmployeePage({ params }: { params: { id: string } }) {
   return (

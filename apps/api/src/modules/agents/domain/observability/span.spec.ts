@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { SpanStatusCode } from '@opentelemetry/api'
 import { NoOpSpan, OtelSpan, IDENTITY_KEY_DENYLIST } from './span'
 import type { UsageSnapshot } from './span'
 
@@ -70,8 +71,8 @@ describe('OtelSpan — identity-key denylist', () => {
 
   it('passes through setAttribute for non-denylist keys', () => {
     const { otelSpan, span } = makeOtelSpan()
-    span.setAttribute('span_type', 'TURN')
-    expect(otelSpan.setAttribute).toHaveBeenCalledWith('span_type', 'TURN')
+    span.setAttribute('custom_key', 'value')
+    expect(otelSpan.setAttribute).toHaveBeenCalledWith('custom_key', 'value')
   })
 
   it('throws when setAttributes contains a denylist key', () => {
@@ -81,10 +82,10 @@ describe('OtelSpan — identity-key denylist', () => {
 
   it('passes through setAttributes with no denylist keys', () => {
     const { otelSpan, span } = makeOtelSpan()
-    span.setAttributes({ span_type: 'TURN', entity_type: 'ROUTER' })
+    span.setAttributes({ custom_key: 'value', other_key: 42 })
     expect(otelSpan.setAttributes).toHaveBeenCalledWith({
-      span_type: 'TURN',
-      entity_type: 'ROUTER',
+      custom_key: 'value',
+      other_key: 42,
     })
   })
 })
@@ -154,7 +155,7 @@ describe('OtelSpan — end', () => {
   it('ends span with ok status', () => {
     const { otelSpan, span } = makeOtelSpan()
     span.end({ status: 'ok' })
-    expect(otelSpan.setStatus).toHaveBeenCalledWith({ code: expect.any(Number) })
+    expect(otelSpan.setStatus).toHaveBeenCalledWith({ code: SpanStatusCode.OK })
     expect(otelSpan.end).toHaveBeenCalled()
   })
 
@@ -163,7 +164,7 @@ describe('OtelSpan — end', () => {
     const err = new Error('fail')
     span.end({ status: 'error', error: err })
     expect(otelSpan.recordException).toHaveBeenCalledWith(err)
-    expect(otelSpan.setStatus).toHaveBeenCalledWith({ code: expect.any(Number), message: 'fail' })
+    expect(otelSpan.setStatus).toHaveBeenCalledWith({ code: SpanStatusCode.ERROR, message: 'fail' })
     expect(otelSpan.end).toHaveBeenCalled()
   })
 

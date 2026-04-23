@@ -1,5 +1,5 @@
 import { Alert, AlertDescription, AlertTitle } from '@future/ui'
-import { Clock } from 'lucide-react'
+import { Clock } from '@future/ui/icons'
 
 export function ComingSoon({ view, flag }: { view: string; flag: string }) {
   return (

@@ -1,5 +1,5 @@
 import { AgentContextProvider, AgentBadge, AgentInlineAction, AgentBanner } from '@future/agent'
-import { AlertTriangle, FileText } from 'lucide-react'
+import { AlertTriangle, FileText } from '@future/ui/icons'
 
 export default function ProjectPage({ params }: { params: { id: string } }) {
   return (

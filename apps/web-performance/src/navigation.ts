@@ -1,4 +1,4 @@
-import { BarChart3, Star, MessageSquare } from 'lucide-react'
+import { BarChart3, Star, MessageSquare } from '@future/ui/icons'
 import type { NavigationConfig } from '@future/app-layout'
 
 export const performanceNavConfig: NavigationConfig = {

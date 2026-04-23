@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery } from '@future/api-client'
 import { trpc } from '../trpc'
 import type { BoardSnapshot } from '../board-types'
 

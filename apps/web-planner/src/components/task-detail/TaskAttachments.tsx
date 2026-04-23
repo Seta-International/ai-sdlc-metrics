@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@future/api-client'
 import { useSession } from '@future/auth'
 import {
   Button,
@@ -12,8 +12,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@future/ui'
-import { Paperclip, Link, MoreHorizontal, Download, ImageIcon, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { Paperclip, Link, MoreHorizontal, Download, ImageIcon, Trash2 } from '@future/ui/icons'
+import { toast } from '@future/ui'
 import { trpc } from '@/lib/trpc'
 import type { AttachmentSnapshot } from '@/lib/board-types'
 import { useUpload } from '@/lib/hooks/useUpload'

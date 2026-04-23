@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@future/api-client'
 import { useSession } from '@future/auth'
 import { Button, Checkbox, Input, Spinner } from '@future/ui'
-import { GripVertical, Plus, Trash2 } from 'lucide-react'
+import { GripVertical, Plus, Trash2 } from '@future/ui/icons'
 import {
   DndContext,
   closestCenter,

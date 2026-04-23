@@ -1,5 +1,5 @@
 import { AgentContextProvider, AgentBadge, AgentInlineAction, AgentBanner } from '@future/agent'
-import { Star, MessageSquare } from 'lucide-react'
+import { Star, MessageSquare } from '@future/ui/icons'
 
 export default function CandidatePage({ params }: { params: { id: string } }) {
   return (

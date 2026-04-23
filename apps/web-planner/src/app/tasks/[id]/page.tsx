@@ -1,5 +1,5 @@
 import { AgentContextProvider, AgentBadge, AgentInlineAction, AgentBanner } from '@future/agent'
-import { ArrowUpCircle, Link as LinkIcon } from 'lucide-react'
+import { ArrowUpCircle, Link as LinkIcon } from '@future/ui/icons'
 
 export default function TaskPage({ params }: { params: { id: string } }) {
   return (

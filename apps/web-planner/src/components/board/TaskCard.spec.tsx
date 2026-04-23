@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider } from '@future/api-client'
 import React from 'react'
 import { TaskCard } from './TaskCard'
 import type { BoardTaskSnapshot, PlanLabel } from '../../lib/board-types'

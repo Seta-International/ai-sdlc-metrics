@@ -51,6 +51,20 @@ export class ObservabilityContextFactory {
     const otelRoot = tracer.startSpan('agents.context.root')
     const rootSpan = new OtelSpan(otelRoot, requestContext.traceId)
 
+    // Stamp identity attributes on the root span (same as child spans, minus span_type/entity_type)
+    const rootAttrs: Record<string, unknown> = {
+      tenant_id: requestContext.tenantId,
+      user_id: requestContext.userId,
+      trace_id: requestContext.traceId,
+      surface: requestContext.surface,
+      flow_id: flowId,
+      intent_slug: intentSlug,
+    }
+    if (requestContext.delegationId) {
+      rootAttrs['delegation_id'] = requestContext.delegationId
+    }
+    otelRoot.setAttributes(rootAttrs as Parameters<typeof otelRoot.setAttributes>[0])
+
     return this._makeRealContext(rootSpan, requestContext, flowId, intentSlug)
   }
 
@@ -82,7 +96,7 @@ export class ObservabilityContextFactory {
       intentSlug,
       createChildSpan: (childOpts) => {
         // Mark the parent as non-leaf
-        currentSpan._hasChildren = true
+        currentSpan.markHasChildren()
 
         // Strip any denylist keys from caller-supplied attrs (defense in depth)
         const denySet = new Set<string>(IDENTITY_KEY_DENYLIST)
@@ -108,7 +122,7 @@ export class ObservabilityContextFactory {
         }
 
         // Start an OTel child span under the current active context
-        const otelCtx = trace.setSpan(context.active(), currentSpan['_otel'])
+        const otelCtx = currentSpan.asOtelContext()
         let childOtelSpan: ReturnType<typeof tracer.startSpan>
         context.with(otelCtx, () => {
           childOtelSpan = tracer.startSpan(childOpts.name)

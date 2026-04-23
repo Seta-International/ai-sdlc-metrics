@@ -112,6 +112,26 @@ describe('ObservabilityContextFactory — real OTel path (capture=true)', () => 
     mockTracer.startSpan.mockClear()
   })
 
+  it('root span is stamped with identity attributes on create', () => {
+    factory.create({
+      requestContext: REQUEST_CONTEXT,
+      flowId: 'flow-root',
+      intentSlug: 'leave-apply',
+      capture: true,
+    })
+
+    expect(mockOtelSpan.setAttributes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenant_id: 'tenant-abc',
+        user_id: 'user-xyz',
+        trace_id: 'trace-000',
+        surface: 'web',
+        flow_id: 'flow-root',
+        intent_slug: 'leave-apply',
+      }),
+    )
+  })
+
   it('createChildSpan auto-stamps identity keys on the span', () => {
     const ctx = factory.create({
       requestContext: REQUEST_CONTEXT,

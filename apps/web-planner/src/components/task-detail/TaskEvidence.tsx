@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSession } from '@future/auth'
 import { Button, Input, Textarea, FileUploadTrigger } from '@future/ui'
-import { FileText, Link, StickyNote, ShieldCheck, Trash2, Plus } from 'lucide-react'
-import { toast } from 'sonner'
+import { FileText, Link, StickyNote, ShieldCheck, Trash2, Plus } from '@future/ui/icons'
+import { toast } from '@future/ui'
 import { trpc } from '@/lib/trpc'
 
 interface TaskEvidenceProps {

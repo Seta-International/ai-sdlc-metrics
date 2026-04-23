@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@future/api-client'
 import { useSession } from '@future/auth'
 import { trpc } from '../trpc'
 import type { TaskDetailSnapshot } from '../board-types'

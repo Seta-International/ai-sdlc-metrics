@@ -97,6 +97,35 @@ export * from './components/data-table/data-table-loading'
 export * from './components/data-table/data-table-error'
 export * from './components/data-table/data-table-toolbar'
 
+// sonner toast function re-export (Toaster component is in ./components/ui/sonner)
+export { toast } from 'sonner'
+export type { ExternalToast } from 'sonner'
+
+// @tanstack/react-table re-exports — consumers must import from @future/ui, not directly
+export {
+  useReactTable,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  getPaginationRowModel,
+  getExpandedRowModel,
+  flexRender,
+} from '@tanstack/react-table'
+export type {
+  ColumnDef,
+  CellContext,
+  HeaderContext,
+  Row,
+  Table as ReactTable,
+  SortingState,
+  VisibilityState,
+  ColumnPinningState,
+  RowSelectionState,
+  ExpandedState,
+  ColumnFiltersState,
+  PaginationState,
+} from '@tanstack/react-table'
+
 // Utilities
 export { cn } from './lib/utils'
 

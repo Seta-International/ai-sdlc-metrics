@@ -1,7 +1,8 @@
 'use client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Tabs, TabsList, TabsTrigger } from '@future/ui'
-import { LayoutGrid, LayoutList, Calendar, PieChart } from 'lucide-react'
+import { Calendar } from '@future/ui'
+import { LayoutGrid, LayoutList, PieChart } from '@future/ui/icons'
 import type { ViewKey } from '@/lib/view-state'
 
 export type ViewPickerFlags = { views: boolean; grid: boolean; schedule: boolean; charts: boolean }

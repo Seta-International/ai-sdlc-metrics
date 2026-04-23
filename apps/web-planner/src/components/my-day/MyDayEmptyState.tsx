@@ -1,4 +1,4 @@
-import { Sun } from 'lucide-react'
+import { Sun } from '@future/ui/icons'
 
 export function MyDayEmptyState() {
   return (

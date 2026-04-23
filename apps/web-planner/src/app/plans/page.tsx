@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
-import { PlusIcon, UsersIcon, LayoutGridIcon } from 'lucide-react'
+import { useQuery } from '@future/api-client'
+import { PlusIcon, UsersIcon, LayoutGridIcon } from '@future/ui/icons'
 import { useSession } from '@future/auth'
 import { Button, Card, Skeleton } from '@future/ui'
 import { trpc } from '../../lib/trpc'

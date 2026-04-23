@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Card, Button, Separator } from '@future/ui'
-import { CheckCircle2, Clock, AlertTriangle, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock, AlertTriangle, XCircle } from '@future/ui/icons'
 import type { ProbationRecord } from '../../lib/types'
 
 const probationStatusConfig: Record<string, { label: string; icon: typeof Clock; color: string }> =

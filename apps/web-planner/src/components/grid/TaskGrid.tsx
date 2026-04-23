@@ -7,7 +7,7 @@ import {
   flexRender,
   type Row,
   type RowSelectionState,
-} from '@tanstack/react-table'
+} from '@future/ui'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   Table,

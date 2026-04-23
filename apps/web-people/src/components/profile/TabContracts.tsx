@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Card, Badge, Button, Alert, Skeleton } from '@future/ui'
-import { FileText, Plus } from 'lucide-react'
+import { FileText, Plus } from '@future/ui/icons'
 import type { ContractVersion } from '../../lib/types'
 import { trpc } from '../../lib/trpc'
 

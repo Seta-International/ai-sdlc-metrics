@@ -1,5 +1,5 @@
 import { AgentContextProvider, AgentBadge, AgentInlineAction, AgentBanner } from '@future/agent'
-import { TrendingUp, Lightbulb } from 'lucide-react'
+import { TrendingUp, Lightbulb } from '@future/ui/icons'
 
 export default function OkrPage({ params }: { params: { id: string } }) {
   return (

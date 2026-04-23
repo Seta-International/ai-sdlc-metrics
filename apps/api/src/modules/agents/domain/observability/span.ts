@@ -9,7 +9,13 @@
  * Domain layer — zero NestJS/Drizzle imports.
  */
 
-import { SpanStatusCode, type Span as OtelApiSpan } from '@opentelemetry/api'
+import {
+  SpanStatusCode,
+  trace,
+  context,
+  type Span as OtelApiSpan,
+  type Context as OtelContext,
+} from '@opentelemetry/api'
 
 // ─── Identity-key denylist ────────────────────────────────────────────────────
 
@@ -26,9 +32,9 @@ export const IDENTITY_KEY_DENYLIST = [
   'schedule_id',
   'flow_id',
   'intent_slug',
+  'span_type',
+  'entity_type',
 ] as const
-
-type IdentityKey = (typeof IDENTITY_KEY_DENYLIST)[number]
 
 function assertNotDenylistKey(key: string): void {
   if ((IDENTITY_KEY_DENYLIST as readonly string[]).includes(key)) {
@@ -63,15 +69,13 @@ export interface Span {
 
 // ─── NoOpSpan ─────────────────────────────────────────────────────────────────
 
-let _noOpCounter = 0
-
 export class NoOpSpan implements Span {
   readonly spanId: string
   readonly traceId: string
 
   constructor(traceId: string) {
     this.traceId = traceId
-    this.spanId = `noop-${++_noOpCounter}`
+    this.spanId = `noop-${crypto.randomUUID()}`
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -112,7 +116,7 @@ export class OtelSpan implements Span {
    * Mutable flag: set to true when a child span is created from this span.
    * Used to enforce leaf-only recordUsage semantics.
    */
-  _hasChildren: boolean
+  private _hasChildren: boolean
 
   constructor(
     private readonly _otel: OtelApiSpan,
@@ -122,6 +126,16 @@ export class OtelSpan implements Span {
     this.traceId = traceId
     this._hasChildren = hasChildren
     this.spanId = _otel.spanContext().spanId
+  }
+
+  /** Marks this span as a non-leaf (has children). Called by ObservabilityContext.createChildSpan. */
+  markHasChildren(): void {
+    this._hasChildren = true
+  }
+
+  /** Returns an OTel Context with this span set as the active span. */
+  asOtelContext(): OtelContext {
+    return trace.setSpan(context.active(), this._otel)
   }
 
   setAttribute(key: string, value: unknown): void {

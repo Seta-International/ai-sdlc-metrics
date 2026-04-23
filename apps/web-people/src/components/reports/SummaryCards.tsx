@@ -1,6 +1,6 @@
 'use client'
 import { Card } from '@future/ui'
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus } from '@future/ui/icons'
 
 interface SummaryCardProps {
   label: string

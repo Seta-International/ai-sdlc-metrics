@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Card, Badge, Button, Progress, Separator, Skeleton } from '@future/ui'
-import { CheckCircle2, Clock, SkipForward } from 'lucide-react'
+import { CheckCircle2, Clock, SkipForward } from '@future/ui/icons'
 import { AvatarNameCell } from '../AvatarNameCell'
 import type { OnboardingCase, OffboardingCase, WorkflowTask } from '../../lib/types-workflows'
 import { trpc } from '../../lib/trpc'

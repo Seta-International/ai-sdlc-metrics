@@ -1,5 +1,5 @@
 'use client'
-import { AlertTriangle, Clock } from 'lucide-react'
+import { AlertTriangle, Clock } from '@future/ui/icons'
 import { Button } from '@future/ui'
 import { reduceLateUpcoming } from '@/lib/charts-data'
 import type { TaskFlat } from '@future/api-client/planner'

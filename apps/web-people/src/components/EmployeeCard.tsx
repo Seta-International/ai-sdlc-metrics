@@ -2,7 +2,7 @@
 
 import { Card } from '@future/ui'
 import Image from 'next/image'
-import { MapPin, Building2 } from 'lucide-react'
+import { MapPin, Building2 } from '@future/ui/icons'
 import { StatusBadge } from './StatusBadge'
 import type { DirectoryRow } from '../lib/types'
 

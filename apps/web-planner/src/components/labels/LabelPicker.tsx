@@ -1,6 +1,6 @@
 'use client'
 
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@future/api-client'
 import { Popover, PopoverContent, Button } from '@future/ui'
 import { trpc } from '../../lib/trpc'
 import type { BoardSnapshot, PlanLabel, BoardTaskSnapshot } from '../../lib/board-types'

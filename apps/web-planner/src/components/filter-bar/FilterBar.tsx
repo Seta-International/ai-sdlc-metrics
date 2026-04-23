@@ -1,6 +1,6 @@
 'use client'
 import { useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus } from '@future/ui/icons'
 import {
   Button,
   DropdownMenu,

@@ -1,4 +1,4 @@
-import { Target, TrendingUp, Flag } from 'lucide-react'
+import { Target, TrendingUp, Flag } from '@future/ui/icons'
 import type { NavigationConfig } from '@future/app-layout'
 
 export const goalsNavConfig: NavigationConfig = {

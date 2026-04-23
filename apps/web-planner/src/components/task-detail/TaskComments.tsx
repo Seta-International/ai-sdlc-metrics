@@ -12,8 +12,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@future/ui'
-import { MoreHorizontal, Send } from 'lucide-react'
-import { toast } from 'sonner'
+import { MoreHorizontal, Send } from '@future/ui/icons'
+import { toast } from '@future/ui'
 import { trpc } from '@/lib/trpc'
 
 interface TaskCommentsProps {

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Users } from 'lucide-react'
+import { Users } from '@future/ui/icons'
 import { Card } from '@future/ui'
 import { PersonalPlanBadge } from '../PersonalPlanBadge'
 

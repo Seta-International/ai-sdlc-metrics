@@ -1,5 +1,5 @@
 'use client'
-import type { ColumnDef, CellContext } from '@tanstack/react-table'
+import type { ColumnDef, CellContext } from '@future/ui'
 import { DataTable, Badge, defaultTableState } from '@future/ui'
 import type { BulkPreviewRow } from '../../lib/types-workflows'
 

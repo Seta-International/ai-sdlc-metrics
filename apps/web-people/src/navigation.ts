@@ -1,5 +1,13 @@
 // apps/web-people/src/navigation.ts
-import { Users, Network, UserPlus, UserMinus, FileCheck, BarChart3, Settings } from 'lucide-react'
+import {
+  Users,
+  Network,
+  UserPlus,
+  UserMinus,
+  FileCheck,
+  BarChart3,
+  Settings,
+} from '@future/ui/icons'
 import type { NavigationConfig } from '@future/app-layout'
 
 export const peopleNavConfig: NavigationConfig = {

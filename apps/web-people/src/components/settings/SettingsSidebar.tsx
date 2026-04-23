@@ -2,17 +2,17 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
+  Globe,
+  Sliders,
+  Eye,
+  Mail,
+  FileUp,
   Briefcase,
   UserPlus,
   UserMinus,
-  Globe,
-  Sliders,
   Shield,
-  Eye,
-  Mail,
   BarChart3,
-  FileUp,
-} from 'lucide-react'
+} from '@future/ui/icons'
 
 const settingsLinks = [
   { href: '/settings/job-catalog', label: 'Job Catalog', icon: Briefcase },

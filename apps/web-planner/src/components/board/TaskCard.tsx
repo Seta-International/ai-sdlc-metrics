@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@future/api-client'
 import type { BoardTaskSnapshot, PlanLabel, BoardSnapshot } from '../../lib/board-types'
 import { PriorityIcon, type Priority } from '../primitives/PriorityIcon'
 import { ProgressIcon, type Progress } from '../primitives/ProgressIcon'
@@ -16,7 +16,7 @@ import { PersonalPlanBadge } from '../PersonalPlanBadge'
 import { AssigneePicker } from '../assignees/AssigneePicker'
 import { LabelPicker } from '../labels/LabelPicker'
 import { trpc } from '../../lib/trpc'
-import { Paperclip, MessageSquare, ShieldCheck } from 'lucide-react'
+import { Paperclip, MessageSquare, ShieldCheck } from '@future/ui/icons'
 import {
   Button,
   Input,

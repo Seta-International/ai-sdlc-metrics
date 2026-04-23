@@ -1,4 +1,4 @@
-import { UserSearch, Briefcase, FileText, Users } from 'lucide-react'
+import { UserSearch, Briefcase, FileText, Users } from '@future/ui/icons'
 import type { NavigationConfig } from '@future/app-layout'
 
 export const hiringNavConfig: NavigationConfig = {

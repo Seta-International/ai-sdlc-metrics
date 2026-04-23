@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { Folder, User } from 'lucide-react'
+import { Folder, User } from '@future/ui/icons'
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarMenuSkeleton } from '@future/ui'
 import { useSession } from '@future/auth'
 import { usePersonalPlans, type PersonalPlanSummary } from '../../lib/hooks/usePersonalPlans'

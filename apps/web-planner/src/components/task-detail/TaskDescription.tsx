@@ -2,7 +2,7 @@
 
 import { useRef } from 'react'
 import { Textarea } from '@future/ui'
-import { toast } from 'sonner'
+import { toast } from '@future/ui'
 
 interface Props {
   value: string

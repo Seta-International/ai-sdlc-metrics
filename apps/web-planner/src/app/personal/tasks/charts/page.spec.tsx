@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider } from '@future/api-client'
 import { describe, it, expect, vi } from 'vitest'
 import React from 'react'
 import ChartsPage from './page'

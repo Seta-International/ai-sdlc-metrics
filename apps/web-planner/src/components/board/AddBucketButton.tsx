@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useRef, type KeyboardEvent } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@future/api-client'
 import { Button, Input } from '@future/ui'
-import { PlusIcon } from 'lucide-react'
+import { PlusIcon } from '@future/ui/icons'
 import { trpc } from '../../lib/trpc'
 
 interface AddBucketButtonProps {

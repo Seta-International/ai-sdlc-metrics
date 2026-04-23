@@ -1,5 +1,5 @@
 'use client'
-import { Check, EyeOff } from 'lucide-react'
+import { Check, EyeOff } from '@future/ui/icons'
 import { Button } from '@future/ui'
 
 export function IncludeCompletedChip({

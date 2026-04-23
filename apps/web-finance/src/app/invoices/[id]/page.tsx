@@ -1,5 +1,5 @@
 import { AgentContextProvider, AgentBadge, AgentInlineAction, AgentBanner } from '@future/agent'
-import { CheckCircle, Flag } from 'lucide-react'
+import { CheckCircle, Flag } from '@future/ui/icons'
 
 export default function InvoicePage({ params }: { params: { id: string } }) {
   return (

@@ -1,4 +1,4 @@
-import { FolderKanban, Users, Truck } from 'lucide-react'
+import { FolderKanban, Users, Truck } from '@future/ui/icons'
 import type { NavigationConfig } from '@future/app-layout'
 
 export const projectsNavConfig: NavigationConfig = {

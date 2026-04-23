@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Badge, Button, Separator } from '@future/ui'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight } from '@future/ui/icons'
 
 const eventTypeConfig: Record<
   string,
