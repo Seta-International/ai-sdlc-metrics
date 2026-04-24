@@ -102,7 +102,7 @@ export class OrgChartQueryService {
       tenantId,
     )
 
-    return [...nodes].sort((left, right) => left.fullName.localeCompare(right.fullName, 'en'))
+    return this.sortNodes(nodes, ['root'])
   }
 
   private async getRootContext(tenantId: string): Promise<OrgChartContextDto> {

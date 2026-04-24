@@ -353,6 +353,43 @@ describe('OrgChartQueryService', () => {
     expect(result.map((node) => node.fullName)).toEqual(['Alex Report', 'Zoe Report'])
   })
 
+  it('returns lazy children with duplicate names sorted by employment id tie-break', async () => {
+    const service = new OrgChartQueryService(
+      {
+        findById: vi.fn().mockResolvedValue(employment(selfEmploymentId)),
+        findManyByIds: vi
+          .fn()
+          .mockResolvedValue([employment(otherReportEmploymentId), employment(reportEmploymentId)]),
+      } as never,
+      {
+        findCurrentByManagerId: vi
+          .fn()
+          .mockResolvedValue([
+            assignment(otherReportEmploymentId, selfEmploymentId),
+            assignment(reportEmploymentId, selfEmploymentId),
+          ]),
+        findCurrentMany: vi
+          .fn()
+          .mockResolvedValue([
+            assignment(otherReportEmploymentId, selfEmploymentId),
+            assignment(reportEmploymentId, selfEmploymentId),
+          ]),
+        countCurrentByManagerId: vi.fn().mockResolvedValue(0),
+      } as never,
+      directoryRepo([
+        [otherReportEmploymentId, 'Jordan Report', 'Engineer'],
+        [reportEmploymentId, 'Jordan Report', 'Engineer'],
+      ]) as never,
+    )
+
+    const result = await service.getChildren(tenantId, selfEmploymentId)
+
+    expect(result.map((node) => node.employmentId)).toEqual([
+      reportEmploymentId,
+      otherReportEmploymentId,
+    ])
+  })
+
   it('drops self-referential cycles from lazy children payloads', async () => {
     const service = new OrgChartQueryService(
       {
