@@ -525,14 +525,14 @@ export const agentGoldenTrace = agentsSchema.table(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     title: text('title').notNull(),
-    fixtureTenantId: uuid('fixture_tenant_id').notNull(),
+    tenantId: uuid('tenant_id').notNull(),
     seedUserId: uuid('seed_user_id').notNull(),
     userUtterance: text('user_utterance').notNull(),
     expectedToolCalls: jsonb('expected_tool_calls').notNull().$type<string[]>(),
     expectedShape: text('expected_shape').notNull(),
     expectedPermissionKeys: jsonb('expected_permission_keys').notNull().$type<string[]>(),
     taintExpectation: boolean('taint_expectation').notNull(),
-    answerShapeContract: jsonb('answer_shape_contract').notNull(),
+    answerShapeContract: jsonb('answer_shape_contract').notNull().$type<Record<string, unknown>>(),
     adversarialCategory: text('adversarial_category'),
     createdBy: uuid('created_by').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -540,9 +540,8 @@ export const agentGoldenTrace = agentsSchema.table(
     removalReason: text('removal_reason'),
   },
   (t) => [
-    index('agent_golden_trace_fixture_tenant_idx').on(t.fixtureTenantId),
-    index('agent_golden_trace_fixture_tenant_active_idx')
-      .on(t.fixtureTenantId)
+    index('agent_golden_trace_tenant_active_idx')
+      .on(t.tenantId)
       .where(sql`removed_at IS NULL`),
     check(
       'agent_golden_trace_expected_shape_check',
@@ -583,6 +582,10 @@ export const agentScorerRegistration = agentsSchema.table(
       'agent_scorer_registration_status_check',
       sql`${t.status} IN ('provisional', 'gating_eligible')`,
     ),
+    check(
+      'agent_scorer_registration_meta_eval_range_check',
+      sql`${t.metaEvalAgreement} IS NULL OR (${t.metaEvalAgreement} >= 0 AND ${t.metaEvalAgreement} <= 1)`,
+    ),
   ],
 )
 
@@ -599,7 +602,7 @@ export const agentCanaryRun = agentsSchema.table(
     runAt: timestamp('run_at', { withTimezone: true }).notNull().defaultNow(),
     tier: text('tier').notNull(),
     canaryQueryId: uuid('canary_query_id').notNull(),
-    fixtureTenantId: uuid('fixture_tenant_id').notNull(),
+    tenantId: uuid('tenant_id').notNull(),
     traceId: uuid('trace_id').notNull(),
     outcome: text('outcome').notNull(),
     score: numeric('score', { precision: 5, scale: 4 }).notNull(),
@@ -609,6 +612,7 @@ export const agentCanaryRun = agentsSchema.table(
     index('agent_canary_run_tier_run_at_idx').on(t.tier, t.runAt.desc()),
     check('agent_canary_run_tier_check', sql`${t.tier} IN ('full', 'nano')`),
     check('agent_canary_run_outcome_check', sql`${t.outcome} IN ('passed', 'failed', 'error')`),
+    check('agent_canary_run_score_range_check', sql`${t.score} >= 0 AND ${t.score} <= 1`),
   ],
 )
 
@@ -625,7 +629,7 @@ export const agentCanaryQuery = agentsSchema.table(
     id: uuid('id').primaryKey().defaultRandom(),
     tier: text('tier').notNull(),
     utterance: text('utterance').notNull(),
-    fixtureTenantId: uuid('fixture_tenant_id').notNull(),
+    tenantId: uuid('tenant_id').notNull(),
     expectedAnswerContract: jsonb('expected_answer_contract').notNull(),
     rotationQuarter: text('rotation_quarter').notNull(),
     source: text('source').notNull(),
@@ -633,7 +637,7 @@ export const agentCanaryQuery = agentsSchema.table(
   },
   (t) => [
     index('agent_canary_query_tier_status_idx').on(t.tier, t.status),
-    index('agent_canary_query_fixture_tenant_quarter_idx').on(t.fixtureTenantId, t.rotationQuarter),
+    index('agent_canary_query_tenant_quarter_idx').on(t.tenantId, t.rotationQuarter),
     check('agent_canary_query_tier_check', sql`${t.tier} IN ('full', 'nano')`),
     check(
       'agent_canary_query_source_check',

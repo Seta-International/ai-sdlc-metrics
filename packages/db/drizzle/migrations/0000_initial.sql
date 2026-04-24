@@ -154,7 +154,7 @@ CREATE TABLE "agents"."agent_canary_query" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"tier" text NOT NULL,
 	"utterance" text NOT NULL,
-	"fixture_tenant_id" uuid NOT NULL,
+	"tenant_id" uuid NOT NULL,
 	"expected_answer_contract" jsonb NOT NULL,
 	"rotation_quarter" text NOT NULL,
 	"source" text NOT NULL,
@@ -169,13 +169,14 @@ CREATE TABLE "agents"."agent_canary_run" (
 	"run_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"tier" text NOT NULL,
 	"canary_query_id" uuid NOT NULL,
-	"fixture_tenant_id" uuid NOT NULL,
+	"tenant_id" uuid NOT NULL,
 	"trace_id" uuid NOT NULL,
 	"outcome" text NOT NULL,
 	"score" numeric(5, 4) NOT NULL,
 	"duration_ms" integer NOT NULL,
 	CONSTRAINT "agent_canary_run_tier_check" CHECK ("agents"."agent_canary_run"."tier" IN ('full', 'nano')),
-	CONSTRAINT "agent_canary_run_outcome_check" CHECK ("agents"."agent_canary_run"."outcome" IN ('passed', 'failed', 'error'))
+	CONSTRAINT "agent_canary_run_outcome_check" CHECK ("agents"."agent_canary_run"."outcome" IN ('passed', 'failed', 'error')),
+	CONSTRAINT "agent_canary_run_score_range_check" CHECK ("agents"."agent_canary_run"."score" >= 0 AND "agents"."agent_canary_run"."score" <= 1)
 );
 --> statement-breakpoint
 CREATE TABLE "agents"."agent_chat_message" (
@@ -261,7 +262,7 @@ CREATE TABLE "agents"."agent_cost_event" (
 CREATE TABLE "agents"."agent_golden_trace" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"title" text NOT NULL,
-	"fixture_tenant_id" uuid NOT NULL,
+	"tenant_id" uuid NOT NULL,
 	"seed_user_id" uuid NOT NULL,
 	"user_utterance" text NOT NULL,
 	"expected_tool_calls" jsonb NOT NULL,
@@ -353,7 +354,8 @@ CREATE TABLE "agents"."agent_scorer_registration" (
 	"status" text DEFAULT 'provisional' NOT NULL,
 	CONSTRAINT "agent_scorer_registration_kind_check" CHECK ("agents"."agent_scorer_registration"."kind" IN ('deterministic', 'llm-judge')),
 	CONSTRAINT "agent_scorer_registration_scope_check" CHECK ("agents"."agent_scorer_registration"."scope" IN ('live', 'trace', 'experiment', 'test')),
-	CONSTRAINT "agent_scorer_registration_status_check" CHECK ("agents"."agent_scorer_registration"."status" IN ('provisional', 'gating_eligible'))
+	CONSTRAINT "agent_scorer_registration_status_check" CHECK ("agents"."agent_scorer_registration"."status" IN ('provisional', 'gating_eligible')),
+	CONSTRAINT "agent_scorer_registration_meta_eval_range_check" CHECK ("agents"."agent_scorer_registration"."meta_eval_agreement" IS NULL OR ("agents"."agent_scorer_registration"."meta_eval_agreement" >= 0 AND "agents"."agent_scorer_registration"."meta_eval_agreement" <= 1))
 );
 --> statement-breakpoint
 CREATE TABLE "agents"."agent_scratchpad" (
@@ -1559,7 +1561,7 @@ CREATE INDEX "agent_tool_embedding_tool_name_idx" ON "agents"."agent_tool_embedd
 CREATE INDEX "agent_active_turn_tenant_started_idx" ON "agents"."agent_active_turn" USING btree ("tenant_id","started_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_active_turn_heartbeat_idx" ON "agents"."agent_active_turn" USING btree ("last_heartbeat_at");--> statement-breakpoint
 CREATE INDEX "agent_canary_query_tier_status_idx" ON "agents"."agent_canary_query" USING btree ("tier","status");--> statement-breakpoint
-CREATE INDEX "agent_canary_query_fixture_tenant_quarter_idx" ON "agents"."agent_canary_query" USING btree ("fixture_tenant_id","rotation_quarter");--> statement-breakpoint
+CREATE INDEX "agent_canary_query_tenant_quarter_idx" ON "agents"."agent_canary_query" USING btree ("tenant_id","rotation_quarter");--> statement-breakpoint
 CREATE INDEX "agent_canary_run_tier_run_at_idx" ON "agents"."agent_canary_run" USING btree ("tier","run_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_message_tenant_user_conv_created_idx" ON "agents"."agent_message" USING btree ("tenant_id","user_id","conversation_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "agent_conversation_scope_active_uidx" ON "agents"."agent_conversation" USING btree ("tenant_id","user_id","surface") WHERE status = 'active';--> statement-breakpoint
@@ -1567,8 +1569,7 @@ CREATE INDEX "agent_conversation_tenant_user_status_updated_idx" ON "agents"."ag
 CREATE INDEX "agent_cost_event_tenant_created_idx" ON "agents"."agent_cost_event" USING btree ("tenant_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_cost_event_tenant_user_created_idx" ON "agents"."agent_cost_event" USING btree ("tenant_id","user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_cost_event_tenant_schedule_idx" ON "agents"."agent_cost_event" USING btree ("tenant_id","via_schedule_id");--> statement-breakpoint
-CREATE INDEX "agent_golden_trace_fixture_tenant_idx" ON "agents"."agent_golden_trace" USING btree ("fixture_tenant_id");--> statement-breakpoint
-CREATE INDEX "agent_golden_trace_fixture_tenant_active_idx" ON "agents"."agent_golden_trace" USING btree ("fixture_tenant_id") WHERE removed_at IS NULL;--> statement-breakpoint
+CREATE INDEX "agent_golden_trace_tenant_active_idx" ON "agents"."agent_golden_trace" USING btree ("tenant_id") WHERE removed_at IS NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "agent_pricing_model_effective_from_uidx" ON "agents"."agent_pricing" USING btree ("model_id","effective_from");--> statement-breakpoint
 CREATE INDEX "agent_rate_limit_counter_lookup_idx" ON "agents"."agent_rate_limit_counter" USING btree ("tenant_id","user_id","limit_key","bucket");--> statement-breakpoint
 CREATE INDEX "agent_session_conversation_lookup_idx" ON "agents"."agent_session" USING btree ("tenant_id","user_id","conversation_id","started_at" DESC NULLS LAST);--> statement-breakpoint

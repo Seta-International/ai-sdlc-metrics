@@ -1,5 +1,5 @@
 {
-  "id": "92194c3d-2fb5-439f-8c3d-842373caeb64",
+  "id": "302c06fa-da76-48e0-98be-7a28d374b2d8",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -990,8 +990,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "fixture_tenant_id": {
-          "name": "fixture_tenant_id",
+        "tenant_id": {
+          "name": "tenant_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -1044,11 +1044,11 @@
           "method": "btree",
           "with": {}
         },
-        "agent_canary_query_fixture_tenant_quarter_idx": {
-          "name": "agent_canary_query_fixture_tenant_quarter_idx",
+        "agent_canary_query_tenant_quarter_idx": {
+          "name": "agent_canary_query_tenant_quarter_idx",
           "columns": [
             {
-              "expression": "fixture_tenant_id",
+              "expression": "tenant_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1116,8 +1116,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "fixture_tenant_id": {
-          "name": "fixture_tenant_id",
+        "tenant_id": {
+          "name": "tenant_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -1182,6 +1182,10 @@
         "agent_canary_run_outcome_check": {
           "name": "agent_canary_run_outcome_check",
           "value": "\"agents\".\"agent_canary_run\".\"outcome\" IN ('passed', 'failed', 'error')"
+        },
+        "agent_canary_run_score_range_check": {
+          "name": "agent_canary_run_score_range_check",
+          "value": "\"agents\".\"agent_canary_run\".\"score\" >= 0 AND \"agents\".\"agent_canary_run\".\"score\" <= 1"
         }
       },
       "isRLSEnabled": false
@@ -1844,8 +1848,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "fixture_tenant_id": {
-          "name": "fixture_tenant_id",
+        "tenant_id": {
+          "name": "tenant_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -1925,26 +1929,11 @@
         }
       },
       "indexes": {
-        "agent_golden_trace_fixture_tenant_idx": {
-          "name": "agent_golden_trace_fixture_tenant_idx",
+        "agent_golden_trace_tenant_active_idx": {
+          "name": "agent_golden_trace_tenant_active_idx",
           "columns": [
             {
-              "expression": "fixture_tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "agent_golden_trace_fixture_tenant_active_idx": {
-          "name": "agent_golden_trace_fixture_tenant_active_idx",
-          "columns": [
-            {
-              "expression": "fixture_tenant_id",
+              "expression": "tenant_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2462,6 +2451,10 @@
         "agent_scorer_registration_status_check": {
           "name": "agent_scorer_registration_status_check",
           "value": "\"agents\".\"agent_scorer_registration\".\"status\" IN ('provisional', 'gating_eligible')"
+        },
+        "agent_scorer_registration_meta_eval_range_check": {
+          "name": "agent_scorer_registration_meta_eval_range_check",
+          "value": "\"agents\".\"agent_scorer_registration\".\"meta_eval_agreement\" IS NULL OR (\"agents\".\"agent_scorer_registration\".\"meta_eval_agreement\" >= 0 AND \"agents\".\"agent_scorer_registration\".\"meta_eval_agreement\" <= 1)"
         }
       },
       "isRLSEnabled": false
