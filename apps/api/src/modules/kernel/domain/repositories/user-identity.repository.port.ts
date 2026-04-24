@@ -8,6 +8,7 @@ export interface IUserIdentityRepository {
   findBySsoSubject(ssoSubject: string, tenantId: string): Promise<UserIdentity | null>
   findByEmailAndTenant(email: string, tenantId: string): Promise<UserIdentity | null>
   insert(data: {
+    id?: string
     tenantId: string
     actorId: string
     email: string

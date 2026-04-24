@@ -3,7 +3,8 @@
   "compilerOptions": {
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
-    "paths": { "@/*": ["./src/*"] }
+    "paths": { "@/*": ["./src/*"] },
+    "types": ["vitest/globals"]
   },
   "include": ["src", "next.config.ts"],
   "exclude": ["node_modules"]

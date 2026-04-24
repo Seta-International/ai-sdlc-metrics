@@ -155,3 +155,45 @@ export const apiKey = identitySchema.table('api_key', {
   revokedAt: timestamp('revoked_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
+
+export const tenantDomain = identitySchema.table(
+  'tenant_domain',
+  {
+    id: uuid('id')
+      .$defaultFn(() => uuidv7())
+      .primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    domain: text('domain').notNull(),
+    status: text('status', { enum: ['pending', 'verified', 'disabled'] })
+      .notNull()
+      .default('pending'),
+    verificationTokenHash: text('verification_token_hash').notNull(),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('tenant_domain_domain_uidx').on(table.domain)],
+)
+
+export const oauthAuthorizationSession = identitySchema.table(
+  'oauth_authorization_session',
+  {
+    id: uuid('id')
+      .$defaultFn(() => uuidv7())
+      .primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    providerId: uuid('provider_id').notNull(),
+    providerType: text('provider_type', { enum: ['microsoft', 'google'] }).notNull(),
+    stateHash: text('state_hash').notNull(),
+    nonceHash: text('nonce_hash').notNull(),
+    callbackUri: text('callback_uri').notNull(),
+    redirectTo: text('redirect_to').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('oauth_authorization_session_state_uidx').on(table.stateHash),
+    index('oauth_authorization_session_tenant_idx').on(table.tenantId, table.createdAt),
+  ],
+)

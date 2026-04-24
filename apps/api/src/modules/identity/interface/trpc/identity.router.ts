@@ -1,6 +1,7 @@
 import * as z from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import type { AuthContext } from '../../../../common/trpc/auth-middleware'
+import { PERMISSIONS } from '../../../../common/auth/permissions'
 import { IdentityRouterService } from './identity-router.service'
 import { ConfigureIdentityProviderCommand } from '../../application/commands/configure-identity-provider.command'
 import { TestIdpConnectionCommand } from '../../application/commands/test-idp-connection.command'
@@ -48,7 +49,7 @@ export function createIdentityAdminRouter(
   return router({
     // --- IdP Configuration ---
     configureProvider: permissionProtectedProcedure
-      .meta({ permission: 'admin:idp:configure' })
+      .meta({ permission: PERMISSIONS.ADMIN_IDP_CONFIGURE })
       .input(
         z.object({
           providerType: z.enum(['microsoft', 'google']),
@@ -78,14 +79,14 @@ export function createIdentityAdminRouter(
       ),
 
     getProvider: permissionProtectedProcedure
-      .meta({ permission: 'admin:idp:read' })
+      .meta({ permission: PERMISSIONS.ADMIN_IDP_READ })
       .input(z.object({}))
       .query(({ ctx }: { ctx: AuthContext }) =>
         svc().query(new GetIdentityProviderQuery(ctx.tenantId)),
       ),
 
     testConnection: permissionProtectedProcedure
-      .meta({ permission: 'admin:idp:configure' })
+      .meta({ permission: PERMISSIONS.ADMIN_IDP_CONFIGURE })
       .input(
         z.object({
           providerId: z.string().uuid(),
@@ -98,21 +99,21 @@ export function createIdentityAdminRouter(
 
     // --- Group Mappings ---
     syncGroups: permissionProtectedProcedure
-      .meta({ permission: 'admin:idp:sync' })
+      .meta({ permission: PERMISSIONS.ADMIN_IDP_SYNC })
       .input(z.object({}))
       .mutation(({ ctx }: { ctx: AuthContext }) =>
         svc().command(new SyncIdpGroupsCommand(ctx.tenantId, ctx.actorId)),
       ),
 
     listGroupMappings: permissionProtectedProcedure
-      .meta({ permission: 'admin:idp:read' })
+      .meta({ permission: PERMISSIONS.ADMIN_IDP_READ })
       .input(z.object({}))
       .query(({ ctx }: { ctx: AuthContext }) =>
         svc().query(new ListGroupMappingsQuery(ctx.tenantId)),
       ),
 
     upsertGroupMapping: permissionProtectedProcedure
-      .meta({ permission: 'admin:idp:sync' })
+      .meta({ permission: PERMISSIONS.ADMIN_IDP_SYNC })
       .input(
         z.object({
           identityProviderId: z.string().uuid(),
@@ -140,7 +141,7 @@ export function createIdentityAdminRouter(
       ),
 
     removeGroupMapping: permissionProtectedProcedure
-      .meta({ permission: 'admin:idp:sync' })
+      .meta({ permission: PERMISSIONS.ADMIN_IDP_SYNC })
       .input(
         z.object({
           mappingId: z.string().uuid(),
@@ -153,7 +154,7 @@ export function createIdentityAdminRouter(
 
     // --- Local Accounts ---
     inviteLocalUser: permissionProtectedProcedure
-      .meta({ permission: 'admin:user:manage' })
+      .meta({ permission: PERMISSIONS.ADMIN_USER_MANAGE })
       .input(
         z.object({
           email: z.string().email(),
@@ -183,12 +184,12 @@ export function createIdentityAdminRouter(
       ),
 
     listLocalUsers: permissionProtectedProcedure
-      .meta({ permission: 'admin:user:read' })
+      .meta({ permission: PERMISSIONS.ADMIN_USER_READ })
       .input(z.object({}))
       .query(({ ctx }: { ctx: AuthContext }) => svc().query(new ListLocalUsersQuery(ctx.tenantId))),
 
     deactivateLocalUser: permissionProtectedProcedure
-      .meta({ permission: 'admin:user:manage' })
+      .meta({ permission: PERMISSIONS.ADMIN_USER_MANAGE })
       .input(
         z.object({
           targetActorId: z.string().uuid(),
@@ -203,12 +204,12 @@ export function createIdentityAdminRouter(
 
     // --- Sync Monitoring ---
     getSyncStatus: permissionProtectedProcedure
-      .meta({ permission: 'admin:idp:read' })
+      .meta({ permission: PERMISSIONS.ADMIN_IDP_READ })
       .input(z.object({}))
       .query(({ ctx }: { ctx: AuthContext }) => svc().query(new GetSyncStatusQuery(ctx.tenantId))),
 
     getSyncHistory: permissionProtectedProcedure
-      .meta({ permission: 'admin:idp:read' })
+      .meta({ permission: PERMISSIONS.ADMIN_IDP_READ })
       .input(
         z.object({
           limit: z.number().int().min(1).max(100).default(20),
@@ -221,7 +222,7 @@ export function createIdentityAdminRouter(
       ),
 
     triggerSync: permissionProtectedProcedure
-      .meta({ permission: 'admin:idp:sync' })
+      .meta({ permission: PERMISSIONS.ADMIN_IDP_SYNC })
       .input(z.object({}))
       .mutation(({ ctx }: { ctx: AuthContext }) =>
         svc().command(new TriggerDirectorySyncCommand(ctx.tenantId, ctx.actorId)),
@@ -229,7 +230,7 @@ export function createIdentityAdminRouter(
 
     // --- Agent Access ---
     createSystemActor: permissionProtectedProcedure
-      .meta({ permission: 'admin:agent:manage' })
+      .meta({ permission: PERMISSIONS.ADMIN_AGENT_MANAGE })
       .input(
         z.object({
           displayName: z.string().min(1).max(200),
@@ -241,7 +242,7 @@ export function createIdentityAdminRouter(
       ),
 
     createApiKey: permissionProtectedProcedure
-      .meta({ permission: 'admin:agent:manage' })
+      .meta({ permission: PERMISSIONS.ADMIN_AGENT_MANAGE })
       .input(
         z.object({
           systemActorId: z.string().uuid(),
@@ -267,12 +268,12 @@ export function createIdentityAdminRouter(
       ),
 
     listApiKeys: permissionProtectedProcedure
-      .meta({ permission: 'admin:agent:read' })
+      .meta({ permission: PERMISSIONS.ADMIN_AGENT_READ })
       .input(z.object({}))
       .query(({ ctx }: { ctx: AuthContext }) => svc().query(new ListApiKeysQuery(ctx.tenantId))),
 
     revokeApiKey: permissionProtectedProcedure
-      .meta({ permission: 'admin:agent:manage' })
+      .meta({ permission: PERMISSIONS.ADMIN_AGENT_MANAGE })
       .input(
         z.object({
           apiKeyId: z.string().uuid(),

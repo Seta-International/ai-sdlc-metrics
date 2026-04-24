@@ -1,13 +1,10 @@
-// @ts-expect-error -- test-only dependency is not installed in apps/web-admin in this workspace
 import { render, screen } from '@testing-library/react'
-// @ts-expect-error -- test-only dependency is not installed in apps/web-admin in this workspace
 import userEvent from '@testing-library/user-event'
-// @ts-expect-error -- test-only dependency is not installed in apps/web-admin in this workspace
 import { describe, expect, it, vi } from 'vitest'
 import { ConnectForm } from './connect-form'
 
 function setup(onSubmit = vi.fn()) {
-  const user = userEvent.setup()
+  const user = userEvent.setup({ delay: null })
   render(<ConnectForm onSubmit={onSubmit} isSubmitting={false} error={null} />)
   return { user, onSubmit }
 }

@@ -69,3 +69,10 @@ export class DirectorySyncAlreadyRunningException extends DomainException {
     super(`Directory sync is already running for provider: ${providerId}`)
   }
 }
+
+export class ProviderMisconfiguredException extends DomainException {
+  readonly code = 'PROVIDER_MISCONFIGURED'
+  constructor(reason: string) {
+    super(`Identity provider misconfigured: ${reason}`)
+  }
+}

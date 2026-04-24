@@ -10,6 +10,8 @@ import { API_KEY_REPOSITORY } from './domain/repositories/api-key.repository'
 import { SYNC_HISTORY_REPOSITORY } from './domain/repositories/sync-history.repository'
 import { IDP_GROUP_MEMBER_REPOSITORY } from './domain/repositories/idp-group-member.repository'
 import { MS_GRAPH_CREDENTIAL_REPOSITORY } from './domain/repositories/ms-graph-credential.repository'
+import { TENANT_DOMAIN_REPOSITORY } from './domain/repositories/tenant-domain.repository'
+import { OAUTH_AUTHORIZATION_SESSION_REPOSITORY } from './domain/repositories/oauth-authorization-session.repository'
 import { CRYPTO_PROVIDER } from './domain/ports/crypto-provider.port'
 import { JOB_SCHEDULER } from './domain/ports/job-scheduler.port'
 import { MAGIC_LINK_SENDER } from './domain/ports/magic-link-sender.port'
@@ -23,8 +25,11 @@ import { DrizzleApiKeyRepository } from './infrastructure/repositories/drizzle-a
 import { DrizzleSyncHistoryRepository } from './infrastructure/repositories/drizzle-sync-history.repository'
 import { DrizzleIdpGroupMemberRepository } from './infrastructure/repositories/drizzle-idp-group-member.repository'
 import { DrizzleMsGraphCredentialRepository } from './infrastructure/repositories/drizzle-ms-graph-credential.repository'
+import { DrizzleTenantDomainRepository } from './infrastructure/repositories/drizzle-tenant-domain.repository'
+import { DrizzleOAuthAuthorizationSessionRepository } from './infrastructure/repositories/drizzle-oauth-authorization-session.repository'
 
 import { DIRECTORY_PROVIDER_FACTORY } from './domain/ports/directory-provider.port'
+import { OAUTH_TOKEN_EXCHANGER } from './domain/ports/oauth-token-exchanger.port'
 import { DirectoryProviderFactory } from './infrastructure/providers/directory-provider.factory'
 import { MsGraphTokenAcquirer } from './infrastructure/providers/microsoft/ms-graph-token-acquirer'
 import { NodeCryptoProvider } from './infrastructure/providers/node-crypto.provider'
@@ -32,6 +37,7 @@ import { StubJobScheduler } from './infrastructure/jobs/stub-job-scheduler'
 import { MailMagicLinkSender } from './infrastructure/mailers/mail-magic-link.sender'
 import { DrizzleLocalUserQueryService } from './infrastructure/queries/drizzle-local-user-query.service'
 import { AwsSecretsStoreAdapter } from './infrastructure/secrets/aws-secrets-store.adapter'
+import { AuthorizationCodeExchanger } from './infrastructure/oauth/authorization-code-exchanger'
 
 import { ConfigureIdentityProviderHandler } from './application/commands/configure-identity-provider.handler'
 import { TestIdpConnectionHandler } from './application/commands/test-idp-connection.handler'
@@ -48,6 +54,8 @@ import { UpdateIdpGroupMappingHandler } from './application/commands/update-idp-
 import { RequestMagicLinkHandler } from './application/commands/request-magic-link.handler'
 import { ValidateMagicLinkHandler } from './application/commands/validate-magic-link.handler'
 import { RunDirectorySyncHandler } from './application/commands/run-directory-sync.handler'
+import { StartOAuthHandler } from './application/commands/start-oauth.handler'
+import { CompleteOAuthHandler } from './application/commands/complete-oauth.handler'
 
 import { GetIdentityProviderHandler } from './application/queries/get-identity-provider.handler'
 import { ListGroupMappingsHandler } from './application/queries/list-group-mappings.handler'
@@ -59,9 +67,9 @@ import { GetIdpGroupMappingsHandler } from './application/queries/get-idp-group-
 import { ValidateApiKeyHandler } from './application/queries/validate-api-key.handler'
 import { ListGroupMembersHandler } from './application/queries/list-group-members.handler'
 import { GetGraphCredentialHandler } from './application/queries/get-graph-credential.handler'
+import { GetLoginOptionsHandler } from './application/queries/get-login-options.handler'
 
 import { IdentityQueryFacade } from './application/facades/identity-query.facade'
-import { IdentityMsGraphCredentialFacade } from './application/facades/identity-ms-graph-credential.facade'
 import { IdentityRouterService } from './interface/trpc/identity-router.service'
 
 const CommandHandlers = [
@@ -80,6 +88,8 @@ const CommandHandlers = [
   RequestMagicLinkHandler,
   ValidateMagicLinkHandler,
   RunDirectorySyncHandler,
+  StartOAuthHandler,
+  CompleteOAuthHandler,
 ]
 
 const QueryHandlers = [
@@ -93,6 +103,7 @@ const QueryHandlers = [
   ValidateApiKeyHandler,
   ListGroupMembersHandler,
   GetGraphCredentialHandler,
+  GetLoginOptionsHandler,
 ]
 
 @Module({
@@ -105,7 +116,13 @@ const QueryHandlers = [
     { provide: SYNC_HISTORY_REPOSITORY, useClass: DrizzleSyncHistoryRepository },
     { provide: IDP_GROUP_MEMBER_REPOSITORY, useClass: DrizzleIdpGroupMemberRepository },
     { provide: MS_GRAPH_CREDENTIAL_REPOSITORY, useClass: DrizzleMsGraphCredentialRepository },
+    { provide: TENANT_DOMAIN_REPOSITORY, useClass: DrizzleTenantDomainRepository },
+    {
+      provide: OAUTH_AUTHORIZATION_SESSION_REPOSITORY,
+      useClass: DrizzleOAuthAuthorizationSessionRepository,
+    },
     { provide: DIRECTORY_PROVIDER_FACTORY, useClass: DirectoryProviderFactory },
+    { provide: OAUTH_TOKEN_EXCHANGER, useClass: AuthorizationCodeExchanger },
     {
       provide: SECRETS_STORE,
       useFactory: () =>
@@ -119,9 +136,8 @@ const QueryHandlers = [
     ...CommandHandlers,
     ...QueryHandlers,
     IdentityQueryFacade,
-    IdentityMsGraphCredentialFacade,
     IdentityRouterService,
   ],
-  exports: [IdentityQueryFacade, IdentityMsGraphCredentialFacade],
+  exports: [IdentityQueryFacade],
 })
 export class IdentityModule {}
