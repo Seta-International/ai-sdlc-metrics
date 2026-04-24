@@ -60,7 +60,9 @@ export function OrgChartTree() {
       await new Promise<void>((resolve) =>
         requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
       )
-      const canvas = await html2canvas(canvasRef.current, { scale: 2 })
+      const el = canvasRef.current
+      if (!el) return
+      const canvas = await html2canvas(el, { scale: 2 })
       const url = canvas.toDataURL('image/png')
       const a = document.createElement('a')
       a.href = url

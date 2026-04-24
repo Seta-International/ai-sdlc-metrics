@@ -49,15 +49,17 @@ export function OrgChartNodeComponent(props: OrgChartNodeProps) {
   return (
     <div className="flex flex-col items-center">
       {compact ? (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           aria-label={`${isExpanded ? 'Collapse' : 'Expand'} direct reports for ${node.fullName}`}
           onClick={() => {
             if (!node.hasDirectReports) return
             isExpanded ? onCollapse(node.employmentId) : onExpand(node.employmentId)
           }}
           className={[
-            'flex items-center gap-2 rounded-full border px-3 py-1.5',
+            'h-auto rounded-full border px-3 py-1.5',
             node.relationshipToViewer === 'self'
               ? 'border-primary/50 ring-1 ring-primary/20'
               : 'border-sidebar-border',
@@ -78,7 +80,7 @@ export function OrgChartNodeComponent(props: OrgChartNodeProps) {
           </div>
           <span className="text-sm font-510 text-fg-primary">{node.fullName}</span>
           {node.relationshipToViewer === 'self' && <Badge variant="subtle">You</Badge>}
-        </button>
+        </Button>
       ) : (
         <Card
           data-testid="org-card"
