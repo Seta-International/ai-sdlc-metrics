@@ -9,6 +9,8 @@ export interface PlanRow {
   name: string
   description: string
   containerType: string | null
+  containerRef: string | null
+  // Legacy columns kept during Plan 4.2 transition — not used for mapping
   msGroupId: string | null
   msRosterId: string | null
   msPlanId: string | null
@@ -28,11 +30,11 @@ export function planRowToEntity(
   members: PlanMember[],
 ): Plan {
   const container = PlanContainer.of(
-    row.containerType === 'group'
-      ? { type: 'group', externalId: row.msGroupId! }
-      : row.containerType === 'roster'
-        ? { type: 'roster', externalId: row.msRosterId! }
-        : { type: 'none' },
+    row.containerType === 'ms_group'
+      ? { type: 'ms_group', externalId: row.containerRef! }
+      : row.containerType === 'ms_roster'
+        ? { type: 'ms_roster', externalId: row.containerRef! }
+        : { type: 'future_only' },
   )
 
   return Plan.reconstitute({
@@ -61,8 +63,10 @@ export function planEntityToRow(plan: Plan): {
   name: string
   description: string
   containerType: string | null
-  msGroupId: string | null
-  msRosterId: string | null
+  containerRef: string | null
+  // Legacy columns kept during Plan 4.2 transition — written as null
+  msGroupId: null
+  msRosterId: null
   msPlanId: string | null
   msPlanEtag: string | null
   createdBy: string
@@ -72,14 +76,10 @@ export function planEntityToRow(plan: Plan): {
   ownerActorId: string | null
   syncEnabled: boolean
 } {
-  const containerType = plan.container.type === 'none' ? null : plan.container.type
-  const msGroupId =
-    plan.container.type === 'group'
-      ? (plan.container as { type: 'group'; externalId: string }).externalId
-      : null
-  const msRosterId =
-    plan.container.type === 'roster'
-      ? (plan.container as { type: 'roster'; externalId: string }).externalId
+  const containerType = plan.container.type === 'future_only' ? null : plan.container.type
+  const containerRef =
+    plan.container.type === 'ms_group' || plan.container.type === 'ms_roster'
+      ? (plan.container as { type: string; externalId: string }).externalId
       : null
 
   return {
@@ -88,8 +88,9 @@ export function planEntityToRow(plan: Plan): {
     name: plan.name,
     description: plan.description,
     containerType,
-    msGroupId,
-    msRosterId,
+    containerRef,
+    msGroupId: null,
+    msRosterId: null,
     msPlanId: plan.msPlanId,
     msPlanEtag: plan.msPlanEtag,
     createdBy: plan.createdBy,

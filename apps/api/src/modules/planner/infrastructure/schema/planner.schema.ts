@@ -343,7 +343,9 @@ export const plannerTaskEvidence = plannerSchema.table(
 export const msLinkedGroup = plannerSchema.table(
   'ms_linked_group',
   {
-    id: uuid('id').defaultRandom().primaryKey(),
+    id: uuid('id')
+      .$defaultFn(() => uuidv7())
+      .primaryKey(),
     tenantId: uuid('tenant_id').notNull(),
     msGroupId: text('ms_group_id').notNull(),
     displayName: text('display_name').notNull(),

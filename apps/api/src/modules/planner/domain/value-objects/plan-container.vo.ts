@@ -1,14 +1,14 @@
 import { DomainException } from '@future/core'
 
 export type PlanContainerData =
-  | { type: 'group'; externalId: string }
-  | { type: 'roster'; externalId: string }
-  | { type: 'none' }
+  | { type: 'ms_group'; externalId: string }
+  | { type: 'ms_roster'; externalId: string }
+  | { type: 'future_only' }
 
 type PlanContainerInput =
-  | { type: 'group'; externalId?: string }
-  | { type: 'roster'; externalId?: string }
-  | { type: 'none'; externalId?: string }
+  | { type: 'ms_group'; externalId?: string }
+  | { type: 'ms_roster'; externalId?: string }
+  | { type: 'future_only'; externalId?: string }
   | { type: string; externalId?: string }
 
 class InvalidPlanContainerException extends DomainException {
@@ -20,12 +20,12 @@ class InvalidPlanContainerException extends DomainException {
 
 /**
  * PlanContainer is a branded value object that wraps the validated container data.
- * For 'none' containers, the externalId property does not exist on the instance.
- * For 'group'/'roster' containers, externalId is present and non-empty.
+ * For 'future_only' containers, the externalId property does not exist on the instance.
+ * For 'ms_group'/'ms_roster' containers, externalId is present and non-empty.
  */
 export class PlanContainer {
   // Not declared as class fields — the validated data is stored by Object.assign.
-  // This ensures 'externalId' is not present on 'none' containers.
+  // This ensures 'externalId' is not present on 'future_only' containers.
   readonly type!: PlanContainerData['type']
 
   private constructor(data: PlanContainerData) {
@@ -37,16 +37,16 @@ export class PlanContainer {
     const { type } = input
     const externalId = (input as { externalId?: string }).externalId
 
-    if (type === 'none') {
+    if (type === 'future_only') {
       if (externalId !== undefined) {
         throw new InvalidPlanContainerException(
-          'PlanContainer with type "none" must not have an externalId',
+          'PlanContainer with type "future_only" must not have an externalId',
         )
       }
-      return new PlanContainer({ type: 'none' })
+      return new PlanContainer({ type: 'future_only' })
     }
 
-    if (type === 'group' || type === 'roster') {
+    if (type === 'ms_group' || type === 'ms_roster') {
       if (!externalId) {
         throw new InvalidPlanContainerException(
           `PlanContainer with type "${type}" requires a non-empty externalId`,
@@ -56,7 +56,7 @@ export class PlanContainer {
     }
 
     throw new InvalidPlanContainerException(
-      `PlanContainer type must be "group", "roster", or "none"; got "${type}"`,
+      `PlanContainer type must be "ms_group", "ms_roster", or "future_only"; got "${type}"`,
     )
   }
 }

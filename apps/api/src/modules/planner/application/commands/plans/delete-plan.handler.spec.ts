@@ -20,7 +20,7 @@ function makePlan() {
     id: PLAN_ID,
     tenantId: TENANT_ID,
     name: 'Test Plan',
-    container: PlanContainer.of({ type: 'none' }),
+    container: PlanContainer.of({ type: 'future_only' }),
     createdBy: ACTOR_ID,
     ownerActorId: ACTOR_ID,
   })

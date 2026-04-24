@@ -1316,7 +1316,7 @@ CREATE TABLE "people"."profile_share_link" (
 );
 --> statement-breakpoint
 CREATE TABLE "planner"."ms_linked_group" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"tenant_id" uuid NOT NULL,
 	"ms_group_id" text NOT NULL,
 	"display_name" text NOT NULL,
@@ -1707,6 +1707,28 @@ CREATE INDEX "idx_task_evidence_task_submitted" ON "planner"."task_evidence" USI
 CREATE INDEX "idx_task_evidence_tenant_submitted_by" ON "planner"."task_evidence" USING btree ("tenant_id","submitted_by");--> statement-breakpoint
 CREATE INDEX "saved_view_tenant_actor_resource_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key");--> statement-breakpoint
 CREATE UNIQUE INDEX "saved_view_unique_default_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key") WHERE is_default = true;
+--> statement-breakpoint
+ALTER TABLE planner.plan ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+ALTER TABLE planner.plan_label ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+ALTER TABLE planner.plan_member ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+ALTER TABLE planner.bucket ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+ALTER TABLE planner.task ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+ALTER TABLE planner.task_assignee ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+ALTER TABLE planner.task_applied_label ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+ALTER TABLE planner.task_checklist_item ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+ALTER TABLE planner.task_attachment ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+ALTER TABLE planner.task_comment ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+ALTER TABLE planner.task_evidence ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
 ALTER TABLE planner.ms_linked_group ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint

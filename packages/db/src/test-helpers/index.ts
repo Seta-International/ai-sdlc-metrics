@@ -305,6 +305,8 @@ export async function truncatePlannerSchema(db: Db): Promise<void> {
       planner.bucket,
       planner.plan_member,
       planner.plan_label,
+      planner.ms_plan_sync_state,
+      planner.ms_linked_group,
       planner.plan
     RESTART IDENTITY CASCADE`,
   )

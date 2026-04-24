@@ -314,5 +314,66 @@ describe('planner schema — RLS, tenant isolation, CHECK constraints', () => {
         ),
       ).rejects.toThrow()
     })
+
+    describe('chk_plan_container_xor', () => {
+      it('rejects container_type = ms_group with container_ref = NULL', async () => {
+        await setTenantContext(db, TENANT_A)
+        const badPlanId = uuidv7()
+        const createdBy = uuidv7()
+
+        await expect(
+          db.execute(
+            sql`INSERT INTO planner.plan
+                (id, tenant_id, name, description, container_type, container_ref, created_by, created_at, updated_at)
+                VALUES (${badPlanId}, ${TENANT_A}, 'Bad container', '', 'ms_group', NULL, ${createdBy}, NOW(), NOW())`,
+          ),
+        ).rejects.toThrow()
+      })
+
+      it('rejects container_type = future_only with a non-null container_ref', async () => {
+        await setTenantContext(db, TENANT_A)
+        const badPlanId = uuidv7()
+        const createdBy = uuidv7()
+
+        await expect(
+          db.execute(
+            sql`INSERT INTO planner.plan
+                (id, tenant_id, name, description, container_type, container_ref, created_by, created_at, updated_at)
+                VALUES (${badPlanId}, ${TENANT_A}, 'Bad container', '', 'future_only', 'some-ref', ${createdBy}, NOW(), NOW())`,
+          ),
+        ).rejects.toThrow()
+      })
+
+      it('allows container_type = NULL with a non-null container_ref (NULL check semantics — constraint evaluates to UNKNOWN, not FALSE)', async () => {
+        await setTenantContext(db, TENANT_A)
+        const planId2 = uuidv7()
+        const createdBy = uuidv7()
+
+        // PostgreSQL CHECK constraints pass when the expression evaluates to NULL (UNKNOWN).
+        // When container_type IS NULL, every equality comparison (= 'future_only', = 'ms_group', etc.)
+        // returns NULL, so the whole OR chain is NULL — the constraint does NOT reject this row.
+        await expect(
+          db.execute(
+            sql`INSERT INTO planner.plan
+                (id, tenant_id, name, description, container_type, container_ref, created_by, created_at, updated_at)
+                VALUES (${planId2}, ${TENANT_A}, 'Null type with ref', '', NULL, 'some-ref', ${createdBy}, NOW(), NOW())`,
+          ),
+        ).resolves.not.toThrow()
+      })
+
+      it('accepts container_type = ms_group with a non-null container_ref', async () => {
+        await setTenantContext(db, TENANT_A)
+        const goodPlanId = uuidv7()
+        const createdBy = uuidv7()
+
+        await expect(
+          db.execute(
+            sql`INSERT INTO planner.plan
+                (id, tenant_id, name, description, container_type, container_ref, created_by, created_at, updated_at)
+                VALUES (${goodPlanId}, ${TENANT_A}, 'Good container', '', 'ms_group', 'group-id-abc', ${createdBy}, NOW(), NOW())`,
+          ),
+        ).resolves.not.toThrow()
+      })
+    })
   })
 })

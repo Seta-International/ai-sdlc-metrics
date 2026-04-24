@@ -14,7 +14,9 @@ import {
 import type { Db } from '@future/db'
 import type { EventBus } from '@nestjs/cqrs'
 
-import { DrizzleOutboxEventRepository } from '../../kernel/infrastructure/repositories/drizzle-outbox-event.repository'
+interface OutboxRepo {
+  insert(data: { tenantId: string; eventName: string; payload: unknown }): Promise<void>
+}
 import { DrizzlePlanRepository } from '../infrastructure/repositories/drizzle-plan.repository'
 import { DrizzleBucketRepository } from '../infrastructure/repositories/drizzle-bucket.repository'
 import { DrizzleTaskRepository } from '../infrastructure/repositories/drizzle-task.repository'
@@ -119,11 +121,11 @@ import { RemoveEvidenceCommand } from '../application/commands/evidence/remove-e
 const TENANT_ID = '01900000-0000-7fff-8000-000000099001'
 const ACTOR_ID = uuidv7()
 const OTHER_ACTOR_ID = uuidv7()
-const CONTAINER = PlanContainer.of({ type: 'none' })
+const CONTAINER = PlanContainer.of({ type: 'future_only' })
 
 // ─── Outbox-capturing EventBus ────────────────────────────────────────────────
 
-function makeOutboxEventBus(outboxRepo: DrizzleOutboxEventRepository): EventBus {
+function makeOutboxEventBus(outboxRepo: OutboxRepo): EventBus {
   return {
     publish: vi.fn().mockImplementation(async (event: unknown) => {
       const ctor = (event as object).constructor as { eventName?: string }
@@ -210,7 +212,7 @@ describe('Planner outbox events — integration', () => {
   let attachmentRepo: DrizzleTaskAttachmentRepository
   let commentRepo: DrizzleTaskCommentRepository
   let evidenceRepo: DrizzleTaskEvidenceRepository
-  let outboxRepo: DrizzleOutboxEventRepository
+  let outboxRepo: OutboxRepo
 
   /** planId shared across most test cases; created once in beforeAll. */
   let planId: string
@@ -234,7 +236,14 @@ describe('Planner outbox events — integration', () => {
     attachmentRepo = new DrizzleTaskAttachmentRepository(db as never)
     commentRepo = new DrizzleTaskCommentRepository(db as never)
     evidenceRepo = new DrizzleTaskEvidenceRepository(db as never)
-    outboxRepo = new DrizzleOutboxEventRepository(db as never)
+    outboxRepo = {
+      async insert(data) {
+        await db.execute(
+          sql`INSERT INTO core.outbox_event (tenant_id, event_name, payload)
+              VALUES (${data.tenantId}::uuid, ${data.eventName}, ${JSON.stringify(data.payload)}::jsonb)`,
+        )
+      },
+    }
 
     // Seed the shared plan used by most handlers
     planId = uuidv7()

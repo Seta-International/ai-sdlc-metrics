@@ -64,7 +64,7 @@ export const planRouter = router({
             input.id,
             input.name,
             input.description,
-            PlanContainer.of({ type: 'none' }),
+            PlanContainer.of({ type: 'future_only' }),
             input.actorId,
             input.bucketId,
           ),

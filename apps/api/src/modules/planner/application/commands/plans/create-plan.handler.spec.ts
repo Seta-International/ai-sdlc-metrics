@@ -21,7 +21,7 @@ function makeCommand() {
     PLAN_ID,
     'My Plan',
     null,
-    PlanContainer.of({ type: 'none' }),
+    PlanContainer.of({ type: 'future_only' }),
     ACTOR_ID,
     BUCKET_ID,
   )

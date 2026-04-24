@@ -1,5 +1,5 @@
 {
-  "id": "0b5a15d2-d2f3-4df0-961e-c62c031d2180",
+  "id": "9fec1cc8-ac9e-4409-aa79-24d4b54732ad",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -8749,8 +8749,7 @@
           "name": "id",
           "type": "uuid",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+          "notNull": true
         },
         "tenant_id": {
           "name": "tenant_id",

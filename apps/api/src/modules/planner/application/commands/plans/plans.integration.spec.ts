@@ -35,7 +35,7 @@ import { RecolorPlanLabelCommand } from './recolor-plan-label.command'
 const TENANT_ID = '01900000-0000-7fff-8000-000000001000'
 const ACTOR_ID = uuidv7()
 const OTHER_ACTOR_ID = uuidv7()
-const CONTAINER = PlanContainer.of({ type: 'none' })
+const CONTAINER = PlanContainer.of({ type: 'future_only' })
 
 function makeEventBus(): EventBus {
   return { publish: vi.fn().mockResolvedValue(undefined) } as unknown as EventBus

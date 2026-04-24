@@ -125,7 +125,7 @@ export class Plan {
       props.tenantId,
       props.name,
       props.description ?? '',
-      PlanContainer.of({ type: 'none' }),
+      PlanContainer.of({ type: 'future_only' }),
       props.ownerActorId,
       now,
       now,
