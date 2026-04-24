@@ -48,7 +48,7 @@ Every plan file follows this structure. Sections marked _optional_ are present w
 | 02   | [Sub-agent declaration + router prompt + intent classifier + sub-agent retrieval](./02-sub-agents-router-prompt.md) | MVP                  | §3, §8, §2.2 EI-3/EI-4       | Shipped           |
 | 02.5 | [Tool retrieval inside sub-agents](./02.5-tool-retrieval.md)                                                        | MVP                  | §7, §2.2 EI-5                | Shipped           |
 | 03   | [Bounded DAG (Tier 0 direct + Tier 1 Phase-2 fan-out) + synthesizer](./03-two-phase-execution-synthesizer.md)       | MVP                  | §3, §9                       | Shipped           |
-| 04   | [Memory L1-L4 + L3.5 scratchpad + semantic recall + conversation state](./04-memory-conversation.md)                | MVP                  | §5, §6, §2.2 EI-9            | In Progress       |
+| 04   | [Memory L1-L4 + L3.5 scratchpad + semantic recall + conversation state](./04-memory-conversation.md)                | MVP                  | §5, §6, §2.2 EI-9            | Shipped           |
 | 05   | [Cost + ceilings + tier degradation + graceful-degradation ladder + rate limits](./05-cost-ceilings.md)             | MVP                  | §13                          | Shipped           |
 | 06   | [Streaming + SSE contract + cancellation](./06-streaming-cancellation.md)                                           | MVP                  | §15                          | In Progress       |
 | 07   | [Observability + sampling + flow_id + intent_slug + composition-attack monitor](./07-observability.md)              | MVP                  | §12, §2.2 EI-7               | Shipped           |
