@@ -2,9 +2,12 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Alert, AlertDescription, Button, Skeleton } from '@future/ui'
-import { ArrowUpCircle, GripVertical, Maximize2, Minus, Plus } from '@future/ui/icons'
+import { Alert, AlertDescription, Button, Skeleton, toast } from '@future/ui'
+import { ArrowUpCircle } from '@future/ui/icons'
+import html2canvas from 'html2canvas'
 import { OrgChartNodeComponent } from './OrgChartNode'
+import { OrgChartToolbar } from './OrgChartToolbar'
+import { OrgChartZoomControls } from './OrgChartZoomControls'
 import { useOrgChart } from '../lib/hooks/use-org-chart'
 import type { OrgChartNode } from '../lib/types'
 
@@ -12,16 +15,16 @@ const MIN_ZOOM = 0.5
 const MAX_ZOOM = 1.5
 const ZOOM_STEP = 0.1
 
-type PanState = {
-  x: number
-  y: number
-}
+type PanState = { x: number; y: number }
 
 export function OrgChartTree() {
   const router = useRouter()
   const chart = useOrgChart()
   const [zoom, setZoom] = React.useState(1)
   const [pan, setPan] = React.useState<PanState>({ x: 0, y: 0 })
+  const [isCompact, setIsCompact] = React.useState(false)
+  const [isExporting, setIsExporting] = React.useState(false)
+  const canvasRef = React.useRef<HTMLDivElement>(null)
   const dragStartRef = React.useRef<{
     pointerId: number
     x: number
@@ -31,14 +34,14 @@ export function OrgChartTree() {
 
   const rootNodes = React.useMemo(
     () =>
-      chart.visibleNodes.filter(
-        (node) => !node.managerEmploymentId || !chart.nodesById.has(node.managerEmploymentId),
-      ),
-    [chart.nodesById, chart.visibleNodes],
+      chart.rootEmploymentIds
+        .map((id) => chart.nodesById.get(id))
+        .filter((node): node is OrgChartNode => Boolean(node)),
+    [chart.nodesById, chart.rootEmploymentIds],
   )
 
   function zoomBy(delta: number) {
-    setZoom((previous) => clampZoom(roundZoom(previous + delta)))
+    setZoom((prev) => clampZoom(roundZoom(prev + delta)))
   }
 
   function resetView() {
@@ -46,7 +49,35 @@ export function OrgChartTree() {
     setPan({ x: 0, y: 0 })
   }
 
+  async function handleExport() {
+    if (!canvasRef.current || isExporting) return
+    setIsExporting(true)
+    const prevZoom = zoom
+    const prevPan = pan
+    setZoom(1)
+    setPan({ x: 0, y: 0 })
+    try {
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      )
+      const canvas = await html2canvas(canvasRef.current, { scale: 2 })
+      const url = canvas.toDataURL('image/png')
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'org-chart.png'
+      a.click()
+    } catch {
+      toast.error('Export failed — try again.')
+    } finally {
+      setZoom(prevZoom)
+      setPan(prevPan)
+      setIsExporting(false)
+    }
+  }
+
   function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    const target = event.target as HTMLElement
+    if (target.closest('button, a, input, textarea, select, [role="button"]')) return
     event.currentTarget.setPointerCapture(event.pointerId)
     dragStartRef.current = {
       pointerId: event.pointerId,
@@ -57,70 +88,29 @@ export function OrgChartTree() {
   }
 
   function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
-    const dragStart = dragStartRef.current
-    if (!dragStart || dragStart.pointerId !== event.pointerId) return
-
-    setPan({
-      x: dragStart.pan.x + event.clientX - dragStart.x,
-      y: dragStart.pan.y + event.clientY - dragStart.y,
-    })
+    const drag = dragStartRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    setPan({ x: drag.pan.x + event.clientX - drag.x, y: drag.pan.y + event.clientY - drag.y })
   }
 
   function handlePointerEnd(event: React.PointerEvent<HTMLDivElement>) {
-    const dragStart = dragStartRef.current
-    if (dragStart?.pointerId !== event.pointerId) return
+    const drag = dragStartRef.current
+    if (drag?.pointerId !== event.pointerId) return
     dragStartRef.current = null
     event.currentTarget.releasePointerCapture(event.pointerId)
   }
 
   return (
     <section className="space-y-3" aria-label="Org chart canvas">
-      <div className="flex flex-col gap-3 rounded-lg border border-sidebar-border bg-overlay/2 p-3 md:flex-row md:items-center md:justify-between">
-        <div className="space-y-1">
-          <p className="text-sm font-510 text-fg-primary">Reporting context</p>
-          <p className="text-xs text-fg-subtle">
-            Manual traversal only. Search remains in People Directory for V1.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => zoomBy(-ZOOM_STEP)}
-            disabled={zoom <= MIN_ZOOM}
-            aria-label="Zoom out"
-          >
-            <Minus className="size-3.5" />
-          </Button>
-          <span className="w-12 text-center text-xs font-510 tabular-nums text-fg-muted">
-            {Math.round(zoom * 100)}%
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => zoomBy(ZOOM_STEP)}
-            disabled={zoom >= MAX_ZOOM}
-            aria-label="Zoom in"
-          >
-            <Plus className="size-3.5" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={resetView}
-            aria-label="Reset view"
-          >
-            <Maximize2 className="size-3.5" />
-          </Button>
-          <Button type="button" variant="ghost" size="sm" onClick={resetView}>
-            Back to my context
-          </Button>
-        </div>
-      </div>
+      <OrgChartToolbar
+        teams={chart.availableTeams}
+        selectedTeamId={chart.selectedTeamId}
+        isCompact={isCompact}
+        isExporting={isExporting}
+        onTeamChange={chart.setSelectedTeamId}
+        onCompactToggle={() => setIsCompact((prev) => !prev)}
+        onExport={handleExport}
+      />
 
       <div
         className="relative min-h-content-lg overflow-hidden rounded-xl border border-sidebar-border bg-overlay/2 p-4"
@@ -129,12 +119,8 @@ export function OrgChartTree() {
         onPointerUp={handlePointerEnd}
         onPointerCancel={handlePointerEnd}
       >
-        <div className="pointer-events-none absolute left-4 top-4 flex items-center gap-2 rounded-full border border-sidebar-border bg-background/70 px-3 py-1 text-xs text-fg-subtle">
-          <GripVertical className="size-3" />
-          Drag canvas to pan
-        </div>
-
         <div
+          ref={canvasRef}
           className="flex min-h-content-lg items-center justify-center pt-10"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
@@ -144,10 +130,20 @@ export function OrgChartTree() {
           <OrgChartCanvasContent
             chart={chart}
             rootNodes={rootNodes}
+            compact={isCompact}
             onResetView={resetView}
-            onViewProfile={(employmentId) => router.push(`/profile/${employmentId}`)}
+            onViewProfile={(id) => router.push(`/profile/${id}`)}
           />
         </div>
+
+        <OrgChartZoomControls
+          zoom={zoom}
+          canZoomIn={zoom < MAX_ZOOM}
+          canZoomOut={zoom > MIN_ZOOM}
+          onZoomIn={() => zoomBy(ZOOM_STEP)}
+          onZoomOut={() => zoomBy(-ZOOM_STEP)}
+          onReset={resetView}
+        />
       </div>
     </section>
   )
@@ -156,13 +152,18 @@ export function OrgChartTree() {
 type OrgChartCanvasContentProps = {
   chart: ReturnType<typeof useOrgChart>
   rootNodes: OrgChartNode[]
+  compact: boolean
   onResetView: () => void
   onViewProfile: (employmentId: string) => void
 }
 
-function OrgChartCanvasContent(props: OrgChartCanvasContentProps) {
-  const { chart, rootNodes, onResetView, onViewProfile } = props
-
+function OrgChartCanvasContent({
+  chart,
+  rootNodes,
+  compact,
+  onResetView,
+  onViewProfile,
+}: OrgChartCanvasContentProps) {
   if (chart.isLoadingContext) {
     return (
       <div className="flex flex-col items-center gap-3">
@@ -216,6 +217,7 @@ function OrgChartCanvasContent(props: OrgChartCanvasContentProps) {
           expandedIds={chart.expandedIds}
           childLoadingIds={chart.childLoadingIds}
           childErrorsById={chart.childErrorsById}
+          compact={compact}
           onExpand={chart.expandNode}
           onCollapse={chart.collapseNode}
           onRetry={chart.retryChildren}
