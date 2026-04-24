@@ -1,6 +1,7 @@
 import * as z from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import type { AuthContext } from '../../../../common/trpc/auth-middleware'
+import { PERMISSIONS } from '../../../../common/auth/permissions'
 import { AdminRouterService } from './admin-router.service'
 import { QueryAuditLogQuery } from '../../application/queries/query-audit-log.query'
 import { ExportAuditLogQuery } from '../../application/queries/export-audit-log.query'
@@ -32,12 +33,12 @@ const permissionKeyRegex = /^[a-z]+:[a-z_]+(?::[a-z_]+)*$/
 export function createAdminRolesRouter(permissionProtectedProcedure: any) {
   return router({
     list: permissionProtectedProcedure
-      .meta({ permission: 'admin:role:read' })
+      .meta({ permission: PERMISSIONS.ADMIN_ROLE_READ })
       .input(z.object({}))
       .query(({ ctx }: { ctx: AuthContext }) => svc().kernelQuery.listRoles(ctx.tenantId)),
 
     getPermissions: permissionProtectedProcedure
-      .meta({ permission: 'admin:role:read' })
+      .meta({ permission: PERMISSIONS.ADMIN_ROLE_READ })
       .input(z.object({ roleKey: roleKeyEnum }))
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .query(({ ctx, input }: { ctx: AuthContext; input: any }) =>
@@ -45,7 +46,7 @@ export function createAdminRolesRouter(permissionProtectedProcedure: any) {
       ),
 
     addPermission: permissionProtectedProcedure
-      .meta({ permission: 'admin:role:manage' })
+      .meta({ permission: PERMISSIONS.ADMIN_ROLE_MANAGE })
       .input(
         z.object({
           roleKey: roleKeyEnum,
@@ -63,7 +64,7 @@ export function createAdminRolesRouter(permissionProtectedProcedure: any) {
       ),
 
     removePermission: permissionProtectedProcedure
-      .meta({ permission: 'admin:role:manage' })
+      .meta({ permission: PERMISSIONS.ADMIN_ROLE_MANAGE })
       .input(
         z.object({
           roleKey: roleKeyEnum,
@@ -81,7 +82,7 @@ export function createAdminRolesRouter(permissionProtectedProcedure: any) {
       ),
 
     resetToDefaults: permissionProtectedProcedure
-      .meta({ permission: 'admin:role:manage' })
+      .meta({ permission: PERMISSIONS.ADMIN_ROLE_MANAGE })
       .input(
         z.object({
           roleKey: roleKeyEnum,
@@ -98,7 +99,7 @@ export function createAdminRolesRouter(permissionProtectedProcedure: any) {
 export function createAdminAuditLogRouter(permissionProtectedProcedure: any) {
   return router({
     query: permissionProtectedProcedure
-      .meta({ permission: 'admin:audit:read' })
+      .meta({ permission: PERMISSIONS.ADMIN_AUDIT_READ })
       .input(
         z.object({
           actorId: z.string().uuid().optional(),
@@ -135,7 +136,7 @@ export function createAdminAuditLogRouter(permissionProtectedProcedure: any) {
       ),
 
     export: permissionProtectedProcedure
-      .meta({ permission: 'admin:audit:read' })
+      .meta({ permission: PERMISSIONS.ADMIN_AUDIT_READ })
       .input(
         z.object({
           actorId: z.string().uuid().optional(),
@@ -177,7 +178,7 @@ export function createAdminRouter(permissionProtectedProcedure: any) {
     auditLog: createAdminAuditLogRouter(permissionProtectedProcedure),
 
     getTenantTimezone: permissionProtectedProcedure
-      .meta({ permission: 'admin:tenant:read' })
+      .meta({ permission: PERMISSIONS.ADMIN_TENANT_READ })
       .input(z.object({}))
       .query(async ({ ctx }: { ctx: AuthContext }) => {
         const timezone = await svc().query(new GetTenantTimezoneQuery(ctx.tenantId))
@@ -185,7 +186,7 @@ export function createAdminRouter(permissionProtectedProcedure: any) {
       }),
 
     updateTimezone: permissionProtectedProcedure
-      .meta({ permission: 'admin:tenant:timezone:update' })
+      .meta({ permission: PERMISSIONS.ADMIN_TENANT_TIMEZONE_UPDATE })
       .input(z.object({ timezone: z.string().min(1).max(64) }))
       .mutation(async ({ ctx, input }: { ctx: AuthContext; input: { timezone: string } }) => {
         await svc().command(new UpdateTenantTimezoneCommand(ctx.tenantId, input.timezone))

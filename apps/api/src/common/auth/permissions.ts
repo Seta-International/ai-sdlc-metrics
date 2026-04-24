@@ -26,6 +26,13 @@ export const PERMISSIONS = {
   ADMIN_USER_MANAGE: 'admin:user:manage',
   ADMIN_AGENT_READ: 'admin:agent:read',
   ADMIN_AGENT_MANAGE: 'admin:agent:manage',
+  ADMIN_PLATFORM_READ: 'admin:platform:read',
+  ADMIN_PLATFORM_MANAGE: 'admin:platform:manage',
+  ADMIN_TENANT_SWITCH: 'admin:tenant:switch',
+  ADMIN_AI_READ: 'admin:ai:read',
+  ADMIN_AI_MANAGE: 'admin:ai:manage',
+  ADMIN_MODULE_READ: 'admin:module:read',
+  ADMIN_MODULE_MANAGE: 'admin:module:manage',
 
   // ── people (profiles, directory, settings) ────────────────────────────
   PEOPLE_PROFILE_READ: 'people:profile:read',

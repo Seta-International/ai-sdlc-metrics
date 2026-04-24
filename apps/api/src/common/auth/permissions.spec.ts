@@ -57,6 +57,18 @@ describe('permission registry — drift guard', () => {
   })
 })
 
+describe('admin permissions', () => {
+  it('registers platform and tenant admin permission keys', () => {
+    expect(PERMISSION_KEY_SET.has(PERMISSIONS.ADMIN_PLATFORM_READ)).toBe(true)
+    expect(PERMISSION_KEY_SET.has(PERMISSIONS.ADMIN_PLATFORM_MANAGE)).toBe(true)
+    expect(PERMISSION_KEY_SET.has(PERMISSIONS.ADMIN_TENANT_SWITCH)).toBe(true)
+    expect(PERMISSION_KEY_SET.has(PERMISSIONS.ADMIN_AI_READ)).toBe(true)
+    expect(PERMISSION_KEY_SET.has(PERMISSIONS.ADMIN_AI_MANAGE)).toBe(true)
+    expect(PERMISSION_KEY_SET.has(PERMISSIONS.ADMIN_MODULE_READ)).toBe(true)
+    expect(PERMISSION_KEY_SET.has(PERMISSIONS.ADMIN_MODULE_MANAGE)).toBe(true)
+  })
+})
+
 describe('PERMISSIONS — personal-hubs + timezone keys', () => {
   it('exposes planner:personal:read', () => {
     expect(PERMISSIONS.PLANNER_PERSONAL_READ).toBe('planner:personal:read')

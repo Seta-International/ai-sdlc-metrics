@@ -10,7 +10,7 @@ export const adminNavConfig: NavigationConfig = {
           label: 'Tenant Settings',
           icon: Settings,
           href: '/settings',
-          permission: 'admin:settings:read',
+          permission: 'admin:tenant:read',
         },
         { label: 'AI Config', icon: Cpu, href: '/ai-config', permission: 'admin:ai:read' },
         {
@@ -30,8 +30,8 @@ export const adminNavConfig: NavigationConfig = {
     {
       label: 'Agents',
       items: [
-        { label: 'Agent Definitions', icon: Bot, href: '/agents', permission: 'admin:agents:read' },
-        { label: 'Sessions', icon: Bot, href: '/agents/sessions', permission: 'admin:agents:read' },
+        { label: 'Agent Definitions', icon: Bot, href: '/agents', permission: 'admin:agent:read' },
+        { label: 'Sessions', icon: Bot, href: '/agents/sessions', permission: 'admin:agent:read' },
       ],
     },
     {
