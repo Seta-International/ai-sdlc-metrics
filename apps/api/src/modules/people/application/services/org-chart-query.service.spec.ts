@@ -390,6 +390,7 @@ describe('OrgChartQueryService', () => {
     ])
   })
 
+
   it('drops self-referential cycles from lazy children payloads', async () => {
     const service = new OrgChartQueryService(
       {
