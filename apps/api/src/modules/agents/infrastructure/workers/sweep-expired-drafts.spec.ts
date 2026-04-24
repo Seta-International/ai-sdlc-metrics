@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { DraftExpirySweeper } from './sweep-expired-drafts'
 import type { IDraftRepository } from '../../domain/repositories/draft.repository'
 import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'

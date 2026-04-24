@@ -142,12 +142,8 @@ import { DraftProposer } from './application/services/draft-proposer'
 import { DRAFT_REPOSITORY } from './domain/repositories/draft.repository'
 import { DrizzleDraftRepository } from './infrastructure/repositories/drizzle-draft.repository'
 import { NotificationsModule } from '../notifications/notifications.module'
-import { NotificationsWriteFacade } from '../notifications/application/facades/notifications-write.facade'
 import { ExecuteApprovedDraftWorker } from './infrastructure/workers/execute-approved-draft'
-import {
-  DraftExpirySweeper,
-  DRAFT_EXPIRY_SWEEPER_JOB_NAME,
-} from './infrastructure/workers/sweep-expired-drafts'
+import { DraftExpirySweeper } from './infrastructure/workers/sweep-expired-drafts'
 import type { ConversationRepository } from './domain/repositories/conversation.repository'
 import type { ConversationMessageRepository } from './domain/repositories/conversation-message.repository'
 import type { L3PreferenceRepository } from './domain/repositories/l3-preference.repository'
