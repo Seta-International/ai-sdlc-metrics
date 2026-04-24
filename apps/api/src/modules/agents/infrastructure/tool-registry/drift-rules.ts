@@ -2,20 +2,14 @@
  * drift-rules.ts — build-time drift checker for agent tool procedures.
  *
  * Walks any tRPC router (intended for use against the real app router or
- * seeded fixture routers) and returns violations for four rules:
+ * seeded fixture routers) and returns violations for six rules:
  *
  *   R-01.12 — required meta fields (whenToUse, whenNotToUse, examples)
  *   R-01.17 — example.callArgs parseable against the procedure's input schema
  *   R-01.18 — mutation procedures must declare approvalFreshness
+ *   R-01.19 — aggregate-returning tools must declare compositionSensitive.minGroupSize
+ *   R-01.19a — array-returning tools must declare collectionContract
  *   R-01.30 — input schema root shape must not contain tenant_id
- *
- * DEFERRED (not checked here — see plan 15):
- *   R-01.19  compositionSensitive on aggregate-returning tools — output-shape
- *            introspection is unreliable in tRPC v11; plan 15 will handle this
- *            once a stable output-schema contract exists.
- *   R-01.19a collectionContract on array-returning tools — same reason as
- *            R-01.19: array detection from tRPC v11 output shape is not safe
- *            at build time with the current router API.
  */
 
 import type { AgentToolMeta } from '../../../../common/trpc/agent-tool-meta'
@@ -30,6 +24,7 @@ interface ProcedureDef {
     agent?: AgentToolMeta
   }
   inputs: unknown[]
+  output?: unknown
 }
 
 interface ProcedureLike {
@@ -49,17 +44,93 @@ interface RouterLike {
 export interface DriftViolation {
   /** Dot-path name of the offending tRPC procedure, e.g. `planner.task.getBoard`. */
   toolName: string
-  /** Rule identifier, e.g. `R-01.12`, `R-01.17`, `R-01.18`, `R-01.30`. */
+  /** Rule identifier, e.g. `R-01.12`, `R-01.17`, `R-01.18`, `R-01.19`, `R-01.19a`, `R-01.30`. */
   rule: string
   /** Human-readable description of the specific violation. */
   detail: string
+}
+
+// ─── Output-shape introspection ──────────────────────────────────────────────
+
+const AGGREGATE_KEYS = new Set([
+  'average',
+  'avg',
+  'count',
+  'counts',
+  'max',
+  'min',
+  'sum',
+  'total',
+  'totals',
+])
+
+function zodType(schema: unknown): string | undefined {
+  if (typeof schema !== 'object' || schema === null || !('_def' in schema)) {
+    return undefined
+  }
+  return (schema as { _def?: { type?: string } })._def?.type
+}
+
+function resolveOutputSchema(schema: unknown): unknown {
+  const rootSchema = resolveRootSchema(schema)
+  if (typeof rootSchema !== 'object' || rootSchema === null || !('_def' in rootSchema)) {
+    return rootSchema
+  }
+
+  const def = (rootSchema as { _def?: { innerType?: unknown } })._def
+  if (def && 'innerType' in def) {
+    return resolveOutputSchema(def.innerType)
+  }
+
+  return rootSchema
+}
+
+function isZodArray(schema: unknown): boolean {
+  return zodType(schema) === 'array'
+}
+
+function isZodNumber(schema: unknown): boolean {
+  return zodType(schema) === 'number'
+}
+
+function objectShape(schema: unknown): Record<string, unknown> | undefined {
+  const rootSchema = resolveOutputSchema(schema)
+  if (!isZodObject(rootSchema)) {
+    return undefined
+  }
+  return rootSchema._def.shape
+}
+
+function hasTopLevelCollection(outputSchema: unknown): boolean {
+  const rootSchema = resolveOutputSchema(outputSchema)
+  if (isZodArray(rootSchema)) {
+    return true
+  }
+
+  const shape = objectShape(rootSchema)
+  if (!shape) {
+    return false
+  }
+
+  return Object.values(shape).some((value) => isZodArray(resolveOutputSchema(value)))
+}
+
+function isAggregateOutput(outputSchema: unknown): boolean {
+  const shape = objectShape(outputSchema)
+  if (!shape) {
+    return false
+  }
+
+  return Object.entries(shape).some(
+    ([key, value]) => AGGREGATE_KEYS.has(key) && isZodNumber(resolveOutputSchema(value)),
+  )
 }
 
 // ─── Walker ───────────────────────────────────────────────────────────────────
 
 /**
  * Walks every procedure in `router._def.procedures` that carries a
- * `.meta({ agent: {...} })` annotation and checks all four drift rules.
+ * `.meta({ agent: {...} })` annotation and checks all drift rules.
  *
  * Returns an array of `DriftViolation` objects — one entry per (tool, rule)
  * pair that is violated. An empty array means the router is clean.
@@ -169,6 +240,35 @@ export function checkDriftRules(router: unknown): DriftViolation[] {
         toolName: name,
         rule: 'R-01.18',
         detail: `[${name}] mutation procedures must declare meta.agent.approvalFreshness ('revalidate' | 'accept-stale')`,
+      })
+    }
+
+    // ── R-01.19: aggregate outputs must declare composition sensitivity ──────
+
+    const outputSchema = def.output
+    if (
+      outputSchema !== undefined &&
+      isAggregateOutput(outputSchema) &&
+      typeof agent.compositionSensitive?.minGroupSize !== 'number'
+    ) {
+      violations.push({
+        toolName: name,
+        rule: 'R-01.19',
+        detail: `[${name}] aggregate-returning tools must declare meta.agent.compositionSensitive.minGroupSize`,
+      })
+    }
+
+    // ── R-01.19a: array outputs must declare collection contract ─────────────
+
+    if (
+      outputSchema !== undefined &&
+      hasTopLevelCollection(outputSchema) &&
+      agent.collectionContract === undefined
+    ) {
+      violations.push({
+        toolName: name,
+        rule: 'R-01.19a',
+        detail: `[${name}] array-returning tools must declare meta.agent.collectionContract`,
       })
     }
 

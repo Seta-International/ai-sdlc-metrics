@@ -44,22 +44,22 @@ Every plan file follows this structure. Sections marked _optional_ are present w
 | #    | Plan                                                                                                                | Phase                | Design §§                    | Status            |
 | ---- | ------------------------------------------------------------------------------------------------------------------- | -------------------- | ---------------------------- | ----------------- |
 | 00   | [Foundation reference](./00-foundation-reference.md)                                                                | MVP                  | §8 stores + sanitizer        | Shipped (PR #73)  |
-| 01   | [Gateway processor pipeline + tool registry](./01-gateway-pipeline.md)                                              | MVP                  | §7, §4                       | Pending           |
-| 02   | [Sub-agent declaration + router prompt + intent classifier + sub-agent retrieval](./02-sub-agents-router-prompt.md) | MVP                  | §3, §8, §2.2 EI-3/EI-4       | Pending           |
-| 02.5 | [Tool retrieval inside sub-agents](./02.5-tool-retrieval.md)                                                        | MVP                  | §7, §2.2 EI-5                | Pending (new)     |
-| 03   | [Bounded DAG (Tier 0 direct + Tier 1 Phase-2 fan-out) + synthesizer](./03-two-phase-execution-synthesizer.md)       | MVP                  | §3, §9                       | Pending           |
-| 04   | [Memory L1-L4 + L3.5 scratchpad + semantic recall + conversation state](./04-memory-conversation.md)                | MVP                  | §5, §6, §2.2 EI-9            | Pending           |
-| 05   | [Cost + ceilings + tier degradation + graceful-degradation ladder + rate limits](./05-cost-ceilings.md)             | MVP                  | §13                          | Pending           |
-| 06   | [Streaming + SSE contract + cancellation](./06-streaming-cancellation.md)                                           | MVP                  | §15                          | Pending           |
-| 07   | [Observability + sampling + flow_id + intent_slug + composition-attack monitor](./07-observability.md)              | MVP                  | §12, §2.2 EI-7               | Pending           |
-| 08   | [Drafts + approval + delegation + per-flow approval policy](./08-drafts-approval.md)                                | MVP                  | §10, §2.2 EI-8               | Pending           |
-| 09   | [Async agents (MVP: read-only + draft-to-inbox)](./09-async-agents.md)                                              | MVP                  | §11                          | Pending           |
-| 10   | [Harness + replay + drift scorer + LLM-judge framework + quality canary](./10-harness-replay-canary.md)             | MVP                  | §8, §12, §14                 | Pending           |
+| 01   | [Gateway processor pipeline + tool registry](./01-gateway-pipeline.md)                                              | MVP                  | §7, §4                       | Shipped           |
+| 02   | [Sub-agent declaration + router prompt + intent classifier + sub-agent retrieval](./02-sub-agents-router-prompt.md) | MVP                  | §3, §8, §2.2 EI-3/EI-4       | Shipped           |
+| 02.5 | [Tool retrieval inside sub-agents](./02.5-tool-retrieval.md)                                                        | MVP                  | §7, §2.2 EI-5                | Shipped           |
+| 03   | [Bounded DAG (Tier 0 direct + Tier 1 Phase-2 fan-out) + synthesizer](./03-two-phase-execution-synthesizer.md)       | MVP                  | §3, §9                       | Shipped           |
+| 04   | [Memory L1-L4 + L3.5 scratchpad + semantic recall + conversation state](./04-memory-conversation.md)                | MVP                  | §5, §6, §2.2 EI-9            | In Progress       |
+| 05   | [Cost + ceilings + tier degradation + graceful-degradation ladder + rate limits](./05-cost-ceilings.md)             | MVP                  | §13                          | Shipped           |
+| 06   | [Streaming + SSE contract + cancellation](./06-streaming-cancellation.md)                                           | MVP                  | §15                          | In Progress       |
+| 07   | [Observability + sampling + flow_id + intent_slug + composition-attack monitor](./07-observability.md)              | MVP                  | §12, §2.2 EI-7               | Shipped           |
+| 08   | [Drafts + approval + delegation + per-flow approval policy](./08-drafts-approval.md)                                | MVP                  | §10, §2.2 EI-8               | In Progress       |
+| 09   | [Async agents (MVP: read-only + draft-to-inbox)](./09-async-agents.md)                                              | MVP                  | §11                          | In Progress       |
+| 10   | [Harness + replay + drift scorer + LLM-judge framework + quality canary](./10-harness-replay-canary.md)             | MVP                  | §8, §12, §14                 | In Progress       |
 | 11   | [Shadow-mode traffic + canary rollout mechanics](./11-shadow-mode-rollout.md)                                       | MVP                  | §14                          | Pending           |
-| 12   | [Iterative supervisor topology (Tier 2)](./12-iterative-topology.md)                                                | MVP                  | §3.1                         | Pending           |
-| 13   | [Production readiness validation + 12-module scale probe + EI audit](./13-production-readiness-validation.md)       | MVP (CI) / GA (gate) | §18, §2.2                    | Pending           |
-| 14   | [Semantic result cache](./14-semantic-result-cache.md)                                                              | MVP                  | §7                           | Pending (new)     |
-| 15   | [Governance — authoring lints + PR review protocol](./15-governance-authoring-lints.md)                             | MVP                  | §2.2 EI-10, §7, §17          | Pending (new)     |
+| 12   | [Iterative supervisor topology (Tier 2)](./12-iterative-topology.md)                                                | MVP                  | §3.1                         | In Progress       |
+| 13   | [Production readiness validation + 12-module scale probe + EI audit](./13-production-readiness-validation.md)       | MVP (CI) / GA (gate) | §18, §2.2                    | In Progress       |
+| 14   | [Semantic result cache](./14-semantic-result-cache.md)                                                              | MVP                  | §7                           | Pending           |
+| 15   | [Governance — authoring lints + PR review protocol](./15-governance-authoring-lints.md)                             | MVP                  | §2.2 EI-10, §7, §17          | In Progress       |
 | 16   | [Code-execution composition tier](./16-code-execution-composition.md)                                               | GA                   | §2.1, §7 (invariants locked) | Named; v1.5 spike |
 
 **Beta expansions (no new plans — each is a per-feature activation within an existing plan):**

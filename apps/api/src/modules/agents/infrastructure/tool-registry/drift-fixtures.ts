@@ -122,3 +122,151 @@ export function fixtureTenantIdInInput() {
     }),
   })
 }
+
+// ─── Fixture 5: R-01.19 — aggregate output without compositionSensitive ─────
+
+/**
+ * Violates R-01.19: the output schema is aggregate-shaped, but the agent metadata
+ * omits `compositionSensitive.minGroupSize`.
+ */
+export function fixtureAggregateNoCompositionSensitive() {
+  return r({
+    test: r({
+      badAggregate: p
+        .input(z.object({ departmentId: z.string() }))
+        .output(
+          z.object({
+            total: z.number(),
+            active: z.number(),
+            inactive: z.number(),
+          }),
+        )
+        .meta({
+          permission: 'test:bad:read',
+          agent: {
+            whenToUse: 'Use to summarize people by department',
+            whenNotToUse: 'Do not use to list individual people',
+            examples: [
+              { input: 'Summarize this department', callArgs: { departmentId: 'dept_1' } },
+            ],
+          },
+        })
+        .query(() => ({ total: 4, active: 3, inactive: 1 })),
+    }),
+  })
+}
+
+// ─── Fixture 6: R-01.19a — root array output without collectionContract ──────
+
+/**
+ * Violates R-01.19a: the output schema is a root array, but the agent metadata
+ * omits `collectionContract`.
+ */
+export function fixtureArrayOutputNoCollectionContract() {
+  return r({
+    test: r({
+      badArray: p
+        .input(z.object({ query: z.string() }))
+        .output(z.array(z.object({ id: z.string(), name: z.string() })))
+        .meta({
+          permission: 'test:bad:read',
+          agent: {
+            whenToUse: 'Use to search items',
+            whenNotToUse: 'Do not use for mutations',
+            examples: [{ input: 'Search for alpha', callArgs: { query: 'alpha' } }],
+          },
+        })
+        .query(() => []),
+    }),
+  })
+}
+
+// ─── Fixture 7: R-01.19a — top-level collection key without contract ─────────
+
+/**
+ * Violates R-01.19a: the output schema carries an array under a well-known
+ * top-level collection key, but the agent metadata omits `collectionContract`.
+ */
+export function fixtureObjectCollectionNoCollectionContract() {
+  return r({
+    test: r({
+      badObjectCollection: p
+        .input(z.object({ planId: z.string() }))
+        .output(
+          z.object({
+            items: z.array(z.object({ id: z.string(), title: z.string() })),
+            nextCursor: z.string().nullable(),
+          }),
+        )
+        .meta({
+          permission: 'test:bad:read',
+          agent: {
+            whenToUse: 'Use to list items in a plan',
+            whenNotToUse: 'Do not use for writes',
+            examples: [{ input: 'List plan items', callArgs: { planId: 'plan_1' } }],
+          },
+        })
+        .query(() => ({ items: [], nextCursor: null })),
+    }),
+  })
+}
+
+// ─── Fixture 8: R-01.19a — arbitrary top-level array key without contract ───
+
+/**
+ * Violates R-01.19a: the output schema carries an array under any top-level
+ * property name, but the agent metadata omits `collectionContract`.
+ */
+export function fixtureObjectAnyArrayNoCollectionContract() {
+  return r({
+    test: r({
+      badObjectAnyArray: p
+        .input(z.object({ planId: z.string() }))
+        .output(
+          z.object({
+            tasks: z.array(z.object({ id: z.string(), title: z.string() })),
+            nextCursor: z.string().nullable(),
+          }),
+        )
+        .meta({
+          permission: 'test:bad:read',
+          agent: {
+            whenToUse: 'Use to list tasks in a plan',
+            whenNotToUse: 'Do not use for writes',
+            examples: [{ input: 'List plan tasks', callArgs: { planId: 'plan_1' } }],
+          },
+        })
+        .query(() => ({ tasks: [], nextCursor: null })),
+    }),
+  })
+}
+
+// ─── Fixture 9: R-01.19a — wrapped top-level array without contract ─────────
+
+/**
+ * Violates R-01.19a: the output schema carries an array under a Zod wrapper
+ * such as `.optional()`, but the agent metadata omits `collectionContract`.
+ */
+export function fixtureObjectWrappedArrayNoCollectionContract() {
+  return r({
+    test: r({
+      badObjectWrappedArray: p
+        .input(z.object({ planId: z.string() }))
+        .output(
+          z.object({
+            tasks: z.array(z.object({ id: z.string(), title: z.string() })).optional(),
+            nextCursor: z.string().nullable(),
+          }),
+        )
+        .meta({
+          permission: 'test:bad:read',
+          agent: {
+            whenToUse: 'Use to list optional tasks in a plan',
+            whenNotToUse: 'Do not use for writes',
+            examples: [{ input: 'List optional plan tasks', callArgs: { planId: 'plan_1' } }],
+          },
+        })
+        .query(() => ({ tasks: [], nextCursor: null })),
+    }),
+  })
+}
