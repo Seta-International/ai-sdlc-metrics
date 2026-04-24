@@ -69,7 +69,10 @@ export class OrgChartQueryService {
     }
 
     return {
-      nodes: await this.buildNodes(uniqueIds, employments, assignments, relationshipById, tenantId),
+      nodes: this.sortNodes(
+        await this.buildNodes(uniqueIds, employments, assignments, relationshipById, tenantId),
+        ['manager', 'self', 'peer', 'direct_report'],
+      ),
       rootEmploymentIds: viewerAssignment?.managerId
         ? [viewerAssignment.managerId]
         : [viewerEmployment.id],
@@ -98,10 +101,14 @@ export class OrgChartQueryService {
     const relationships = new Map<string, OrgChartRelationshipToViewer>(
       rootIds.map((id) => [id, 'root' as const]),
     )
+    const nodes = this.sortNodes(
+      await this.buildNodes(rootIds, roots, assignments, relationships, tenantId),
+      ['root'],
+    )
 
     return {
-      nodes: await this.buildNodes(rootIds, roots, assignments, relationships, tenantId),
-      rootEmploymentIds: rootIds,
+      nodes,
+      rootEmploymentIds: nodes.map((node) => node.employmentId),
       focusEmploymentId: null,
     }
   }
@@ -147,5 +154,27 @@ export class OrgChartQueryService {
     }
 
     return nodes
+  }
+
+  private sortNodes(
+    nodes: OrgChartNodeDto[],
+    relationshipOrder: OrgChartRelationshipToViewer[],
+  ): OrgChartNodeDto[] {
+    const rankByRelationship = new Map(
+      relationshipOrder.map((relationship, index) => [relationship, index]),
+    )
+
+    return [...nodes].sort((left, right) => {
+      const leftRank =
+        rankByRelationship.get(left.relationshipToViewer ?? 'root') ?? Number.MAX_SAFE_INTEGER
+      const rightRank =
+        rankByRelationship.get(right.relationshipToViewer ?? 'root') ?? Number.MAX_SAFE_INTEGER
+      if (leftRank !== rightRank) return leftRank - rightRank
+
+      const nameComparison = left.fullName.localeCompare(right.fullName, 'en')
+      if (nameComparison !== 0) return nameComparison
+
+      return left.employmentId.localeCompare(right.employmentId, 'en')
+    })
   }
 }

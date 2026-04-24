@@ -121,6 +121,101 @@ describe('OrgChartQueryService', () => {
     })
   })
 
+  it('orders context as manager, self, peers, then direct reports by display name', async () => {
+    const service = new OrgChartQueryService(
+      {
+        findActiveByActorId: vi.fn().mockResolvedValue(employment(selfEmploymentId)),
+        findManyByIds: vi
+          .fn()
+          .mockResolvedValue([
+            employment(managerEmploymentId),
+            employment(selfEmploymentId),
+            employment(peerEmploymentId),
+            employment(reportEmploymentId),
+            employment(otherReportEmploymentId),
+          ]),
+        findActiveRootEmployments: vi.fn(),
+      } as never,
+      {
+        findCurrent: vi.fn().mockResolvedValue(assignment(selfEmploymentId, managerEmploymentId)),
+        findCurrentByManagerId: vi
+          .fn()
+          .mockResolvedValueOnce([
+            assignment(peerEmploymentId, managerEmploymentId),
+            assignment(selfEmploymentId, managerEmploymentId),
+          ])
+          .mockResolvedValueOnce([
+            assignment(otherReportEmploymentId, selfEmploymentId),
+            assignment(reportEmploymentId, selfEmploymentId),
+          ]),
+        findCurrentMany: vi
+          .fn()
+          .mockResolvedValue([
+            assignment(managerEmploymentId, null),
+            assignment(selfEmploymentId, managerEmploymentId),
+            assignment(peerEmploymentId, managerEmploymentId),
+            assignment(reportEmploymentId, selfEmploymentId),
+            assignment(otherReportEmploymentId, selfEmploymentId),
+          ]),
+        countCurrentByManagerId: vi
+          .fn()
+          .mockResolvedValueOnce(2)
+          .mockResolvedValueOnce(2)
+          .mockResolvedValueOnce(0)
+          .mockResolvedValueOnce(0)
+          .mockResolvedValueOnce(0),
+      } as never,
+      directoryRepo([
+        [managerEmploymentId, 'Morgan Manager', 'VP Engineering'],
+        [selfEmploymentId, 'Sam Self', 'Senior Engineer'],
+        [peerEmploymentId, 'Alex Peer', 'Designer'],
+        [reportEmploymentId, 'Jordan Report', 'Engineer'],
+        [otherReportEmploymentId, 'Riley Report', 'Engineer'],
+      ]) as never,
+    )
+
+    const result = await service.getContext(tenantId, viewerActorId)
+
+    expect(result.nodes.map((node) => node.fullName)).toEqual([
+      'Morgan Manager',
+      'Sam Self',
+      'Alex Peer',
+      'Jordan Report',
+      'Riley Report',
+    ])
+    expect(result.rootEmploymentIds).toEqual([managerEmploymentId])
+  })
+
+  it('returns sorted root nodes when the viewer has no org placement', async () => {
+    const service = new OrgChartQueryService(
+      {
+        findActiveByActorId: vi.fn().mockResolvedValue(null),
+        findActiveRootEmployments: vi
+          .fn()
+          .mockResolvedValue([employment(reportEmploymentId), employment(managerEmploymentId)]),
+      } as never,
+      {
+        findCurrentMany: vi
+          .fn()
+          .mockResolvedValue([
+            assignment(reportEmploymentId, null),
+            assignment(managerEmploymentId, null),
+          ]),
+        countCurrentByManagerId: vi.fn().mockResolvedValue(0),
+      } as never,
+      directoryRepo([
+        [reportEmploymentId, 'Zed Root', 'COO'],
+        [managerEmploymentId, 'Ada Root', 'CEO'],
+      ]) as never,
+    )
+
+    const result = await service.getContext(tenantId, viewerActorId)
+
+    expect(result.focusEmploymentId).toBeNull()
+    expect(result.nodes.map((node) => node.fullName)).toEqual(['Ada Root', 'Zed Root'])
+    expect(result.nodes.map((node) => node.relationshipToViewer)).toEqual(['root', 'root'])
+  })
+
   it('falls back to root nodes when the viewer has no active employment', async () => {
     const root = employment(managerEmploymentId)
     const service = new OrgChartQueryService(
