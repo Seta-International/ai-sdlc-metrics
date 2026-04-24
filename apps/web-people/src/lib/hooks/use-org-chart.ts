@@ -10,6 +10,7 @@ type UseOrgChartReturn = {
   nodesById: Map<string, OrgChartNode>
   childrenByParentId: Map<string, string[]>
   expandedIds: Set<string>
+  rootEmploymentIds: string[]
   focusEmploymentId: string | null
   isLoadingContext: boolean
   contextError: string | null
@@ -42,6 +43,7 @@ export function useOrgChart(): UseOrgChartReturn {
     () => new Map(),
   )
   const [expandedIds, setExpandedIds] = React.useState<Set<string>>(() => new Set())
+  const [rootEmploymentIds, setRootEmploymentIds] = React.useState<string[]>([])
   const [focusEmploymentId, setFocusEmploymentId] = React.useState<string | null>(null)
   const [isLoadingContext, setIsLoadingContext] = React.useState(true)
   const [contextError, setContextError] = React.useState<string | null>(null)
@@ -60,6 +62,7 @@ export function useOrgChart(): UseOrgChartReturn {
         setNodesById(new Map(result.nodes.map((node) => [node.employmentId, node])))
         setChildrenByParentId(buildInitialChildren(result.nodes))
         setExpandedIds(new Set(result.rootEmploymentIds))
+        setRootEmploymentIds(result.rootEmploymentIds)
         setFocusEmploymentId(result.focusEmploymentId)
       } catch (error) {
         if (!cancelled) setContextError(getErrorMessage(error))
@@ -125,6 +128,7 @@ export function useOrgChart(): UseOrgChartReturn {
     nodesById,
     childrenByParentId,
     expandedIds,
+    rootEmploymentIds,
     focusEmploymentId,
     isLoadingContext,
     contextError,
