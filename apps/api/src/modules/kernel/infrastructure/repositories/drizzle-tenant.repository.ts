@@ -37,11 +37,13 @@ export class DrizzleTenantRepository implements ITenantRepository {
     return rows[0] as Tenant
   }
 
-  async updateStatus(id: string, status: Tenant['status']): Promise<void> {
-    await this.db
+  async updateStatus(id: string, status: Tenant['status']): Promise<boolean> {
+    const rows = await this.db
       .update(tenant)
       .set({ status, updatedAt: sql`now()` })
       .where(eq(tenant.id, id))
+      .returning({ id: tenant.id })
+    return rows.length > 0
   }
 
   async upsertSystemTenant(data: { id: string; slug: string; name: string }): Promise<Tenant> {

@@ -23,6 +23,7 @@ import {
   type IRolePermissionRepository,
 } from '../../domain/repositories/role-permission.repository.port'
 import { DEFAULT_ROLE_PERMISSIONS } from '../../domain/constants/default-role-permissions'
+import { SYSTEM_TENANT_SLUG } from '../../domain/constants/system-tenant'
 import type { RoleKeyValue } from '../../domain/entities/role-grant.entity'
 import { BootstrapPlatformAdminCommand } from './bootstrap-platform-admin.command'
 
@@ -40,7 +41,6 @@ function deterministicUuid(seed: string): string {
   return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${p3}-${p4}-${hash.slice(20, 32)}`
 }
 
-const SYSTEM_TENANT_SLUG = 'future-system'
 const SYSTEM_TENANT_NAME = 'Future System'
 const PLATFORM_ADMIN_ROLE: RoleKeyValue = 'platform_admin'
 

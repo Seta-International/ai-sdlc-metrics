@@ -244,7 +244,12 @@ export const adminAuditLogRouter = router({
 export const adminPlatformRouter = router({
   listTenants: publicProcedure.input(z.object({})).query(() => []),
   updateTenantStatus: publicProcedure
-    .input(z.object({ tenantId: z.string(), status: z.string() }))
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        status: z.enum(['active', 'suspended', 'cancelled']),
+      }),
+    )
     .mutation(() => null),
 })
 

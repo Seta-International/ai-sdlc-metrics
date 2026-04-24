@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BadRequestException } from '@nestjs/common'
+import { DomainException } from '@future/core'
 import { UpdateTargetTenantStatusCommand } from './update-target-tenant-status.command'
 import { UpdateTargetTenantStatusHandler } from './update-target-tenant-status.handler'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
@@ -34,16 +35,16 @@ const makeSystemTenant = (): TenantSummaryDto => ({
 
 describe('UpdateTargetTenantStatusHandler', () => {
   let handler: UpdateTargetTenantStatusHandler
-  let kernelQuery: Pick<KernelQueryFacade, 'getTenant' | 'updateTenantStatus'>
-  let auditFacade: Pick<KernelAuditFacade, 'recordEvent'>
+  let kernelQuery: Pick<KernelQueryFacade, 'getTenant'>
+  let auditFacade: Pick<KernelAuditFacade, 'recordEvent' | 'updateTenantStatus'>
 
   beforeEach(() => {
     kernelQuery = {
       getTenant: vi.fn(),
-      updateTenantStatus: vi.fn(),
     }
     auditFacade = {
       recordEvent: vi.fn(),
+      updateTenantStatus: vi.fn(),
     }
     handler = new UpdateTargetTenantStatusHandler(
       kernelQuery as unknown as KernelQueryFacade,
@@ -55,7 +56,7 @@ describe('UpdateTargetTenantStatusHandler', () => {
     it('updates the target tenant status and records audit', async () => {
       const targetTenant = makeTargetTenant({ status: 'active' })
       vi.mocked(kernelQuery.getTenant).mockResolvedValue(targetTenant)
-      vi.mocked(kernelQuery.updateTenantStatus).mockResolvedValue(undefined)
+      vi.mocked(auditFacade.updateTenantStatus).mockResolvedValue(undefined)
       vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
 
       const command = new UpdateTargetTenantStatusCommand(
@@ -67,7 +68,7 @@ describe('UpdateTargetTenantStatusHandler', () => {
       await handler.execute(command)
 
       expect(kernelQuery.getTenant).toHaveBeenCalledWith(TARGET_TENANT_ID)
-      expect(kernelQuery.updateTenantStatus).toHaveBeenCalledWith(TARGET_TENANT_ID, 'suspended')
+      expect(auditFacade.updateTenantStatus).toHaveBeenCalledWith(TARGET_TENANT_ID, 'suspended')
       expect(auditFacade.recordEvent).toHaveBeenCalledWith({
         tenantId: TENANT_ID,
         actorId: ACTOR_ID,
@@ -85,7 +86,7 @@ describe('UpdateTargetTenantStatusHandler', () => {
     it('records audit payload with targetTenantId, previousStatus, nextStatus', async () => {
       const targetTenant = makeTargetTenant({ status: 'suspended' })
       vi.mocked(kernelQuery.getTenant).mockResolvedValue(targetTenant)
-      vi.mocked(kernelQuery.updateTenantStatus).mockResolvedValue(undefined)
+      vi.mocked(auditFacade.updateTenantStatus).mockResolvedValue(undefined)
       vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
 
       const command = new UpdateTargetTenantStatusCommand(
@@ -118,7 +119,7 @@ describe('UpdateTargetTenantStatusHandler', () => {
       )
 
       await expect(handler.execute(command)).rejects.toBeInstanceOf(BadRequestException)
-      expect(kernelQuery.updateTenantStatus).not.toHaveBeenCalled()
+      expect(auditFacade.updateTenantStatus).not.toHaveBeenCalled()
       expect(auditFacade.recordEvent).not.toHaveBeenCalled()
     })
 
@@ -134,7 +135,7 @@ describe('UpdateTargetTenantStatusHandler', () => {
       )
 
       await expect(handler.execute(command)).rejects.toBeInstanceOf(BadRequestException)
-      expect(kernelQuery.updateTenantStatus).not.toHaveBeenCalled()
+      expect(auditFacade.updateTenantStatus).not.toHaveBeenCalled()
     })
 
     it('allows re-activating the system tenant', async () => {
@@ -142,7 +143,7 @@ describe('UpdateTargetTenantStatusHandler', () => {
       // (though in practice this scenario would rarely happen)
       const systemTenant = makeSystemTenant()
       vi.mocked(kernelQuery.getTenant).mockResolvedValue(systemTenant)
-      vi.mocked(kernelQuery.updateTenantStatus).mockResolvedValue(undefined)
+      vi.mocked(auditFacade.updateTenantStatus).mockResolvedValue(undefined)
       vi.mocked(auditFacade.recordEvent).mockResolvedValue(undefined)
 
       const command = new UpdateTargetTenantStatusCommand(
@@ -157,7 +158,7 @@ describe('UpdateTargetTenantStatusHandler', () => {
   })
 
   describe('error paths', () => {
-    it('throws BadRequestException when target tenant does not exist', async () => {
+    it('throws DomainException when target tenant does not exist', async () => {
       vi.mocked(kernelQuery.getTenant).mockResolvedValue(null)
 
       const command = new UpdateTargetTenantStatusCommand(
@@ -167,8 +168,8 @@ describe('UpdateTargetTenantStatusHandler', () => {
         'suspended',
       )
 
-      await expect(handler.execute(command)).rejects.toBeInstanceOf(BadRequestException)
-      expect(kernelQuery.updateTenantStatus).not.toHaveBeenCalled()
+      await expect(handler.execute(command)).rejects.toBeInstanceOf(DomainException)
+      expect(auditFacade.updateTenantStatus).not.toHaveBeenCalled()
       expect(auditFacade.recordEvent).not.toHaveBeenCalled()
     })
   })

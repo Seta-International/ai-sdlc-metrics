@@ -142,12 +142,4 @@ export class KernelQueryFacade {
   getTenantBySlug(slug: string): Promise<Tenant | null> {
     return this.tenantRepo.findBySlug(slug)
   }
-
-  /**
-   * Update the status of a tenant. Platform admin operation.
-   * Caller is responsible for authorization and system-tenant guard.
-   */
-  updateTenantStatus(id: string, status: Tenant['status']): Promise<void> {
-    return this.tenantRepo.updateStatus(id, status)
-  }
 }

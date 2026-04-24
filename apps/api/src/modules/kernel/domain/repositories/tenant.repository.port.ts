@@ -15,6 +15,7 @@ export interface ITenantRepository {
   /**
    * Update the status of a tenant. Used by platform admin operations.
    * No RLS context required — the tenant table is not RLS-protected.
+   * Returns true if a row was updated, false if the tenant was not found.
    */
-  updateStatus(id: string, status: Tenant['status']): Promise<void>
+  updateStatus(id: string, status: Tenant['status']): Promise<boolean>
 }
