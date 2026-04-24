@@ -1,4 +1,9 @@
-import type { Draft, DraftStatus, NewDraft } from '../../application/services/draft-types'
+import type {
+  Draft,
+  DraftStatus,
+  DraftTier,
+  NewDraft,
+} from '../../application/services/draft-types'
 
 export const DRAFT_REPOSITORY = Symbol('DRAFT_REPOSITORY')
 
@@ -36,4 +41,17 @@ export interface IDraftRepository {
     approverId: string
     statuses?: DraftStatus[]
   }): Promise<Draft[]>
+  listAuditDrafts(opts: {
+    tenantId: string
+    initiatorUserId?: string
+    approverUserId?: string
+    tier?: DraftTier
+    statuses?: DraftStatus[]
+    domainKind?: string
+    approvedAtFrom?: Date
+    approvedAtTo?: Date
+    taintAtDraftTime?: boolean
+    page?: number
+    pageSize?: number
+  }): Promise<{ items: Draft[]; total: number }>
 }

@@ -57,6 +57,7 @@ import { setAgentSessionHandlers } from './interface/trpc/session.router'
 import { setAgentInsightHandlers } from './interface/trpc/insight.router'
 import { setPreferencesService } from './interface/trpc/preferences.router'
 import { setConversationRepository } from './interface/trpc/conversation.router'
+import { setDraftRepository } from './interface/trpc/draft-audit.router'
 // Permission narrative builder (Task 6)
 import {
   PermissionNarrativeBuilder,
@@ -152,6 +153,7 @@ import type { ConversationMessageRepository } from './domain/repositories/conver
 import type { L3PreferenceRepository } from './domain/repositories/l3-preference.repository'
 import type { ScratchpadRepository } from './domain/repositories/scratchpad.repository'
 import type { SemanticIndexRepository } from './domain/repositories/semantic-index.repository'
+import type { IDraftRepository } from './domain/repositories/draft.repository'
 import { PgBossService } from '../../common/jobs/pg-boss.service'
 // Module sub-agent barrels.
 //   • Adding a sub-agent to an EXISTING module: re-export it from that module's
@@ -393,6 +395,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly pgBossService: PgBossService,
     private readonly executeApprovedDraftWorker: ExecuteApprovedDraftWorker,
     private readonly draftExpirySweeper: DraftExpirySweeper,
+    @Inject(DRAFT_REPOSITORY) private readonly draftRepo: IDraftRepository,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -407,6 +410,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     })
     setPreferencesService(this.l3PreferenceService)
     setConversationRepository(this.conversationRepo)
+    setDraftRepository(this.draftRepo)
 
     // Step 1: Load agent tools from the assembled tRPC router.
     // TrpcModule.onModuleInit() must have run before AgentsModule.onModuleInit()

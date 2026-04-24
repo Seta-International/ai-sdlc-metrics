@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { and, eq, inArray, lt, sql } from 'drizzle-orm'
+import { and, count, eq, gte, inArray, like, lt, lte, sql } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { agentDraft } from '../schema/agent-draft.schema'
@@ -174,5 +174,66 @@ export class DrizzleDraftRepository implements IDraftRepository {
       .where(and(...conditions))
 
     return rows.map((row) => toDomain(row as AgentDraftRow))
+  }
+
+  async listAuditDrafts(opts: {
+    tenantId: string
+    initiatorUserId?: string
+    approverUserId?: string
+    tier?: DraftTier
+    statuses?: DraftStatus[]
+    domainKind?: string
+    approvedAtFrom?: Date
+    approvedAtTo?: Date
+    taintAtDraftTime?: boolean
+    page?: number
+    pageSize?: number
+  }): Promise<{ items: Draft[]; total: number }> {
+    const page = opts.page ?? 1
+    const pageSize = Math.min(opts.pageSize ?? 20, 100)
+    const offset = (page - 1) * pageSize
+
+    const conditions = [eq(agentDraft.tenantId, opts.tenantId)]
+
+    if (opts.initiatorUserId !== undefined) {
+      conditions.push(eq(agentDraft.initiatorUserId, opts.initiatorUserId))
+    }
+    if (opts.approverUserId !== undefined) {
+      conditions.push(eq(agentDraft.approverUserId, opts.approverUserId))
+    }
+    if (opts.tier !== undefined) {
+      conditions.push(eq(agentDraft.tier, opts.tier))
+    }
+    if (opts.statuses !== undefined && opts.statuses.length > 0) {
+      conditions.push(inArray(agentDraft.status, opts.statuses))
+    }
+    if (opts.domainKind !== undefined) {
+      conditions.push(like(agentDraft.toolName, `${opts.domainKind}.%`))
+    }
+    if (opts.approvedAtFrom !== undefined) {
+      conditions.push(gte(agentDraft.approvedAt, opts.approvedAtFrom))
+    }
+    if (opts.approvedAtTo !== undefined) {
+      conditions.push(lte(agentDraft.approvedAt, opts.approvedAtTo))
+    }
+    if (opts.taintAtDraftTime !== undefined) {
+      conditions.push(eq(agentDraft.taintAtDraftTime, opts.taintAtDraftTime))
+    }
+
+    const where = and(...conditions)
+
+    const totalRows = await this.db.select({ total: count() }).from(agentDraft).where(where)
+
+    const total = Number(totalRows[0]?.total ?? 0)
+
+    const rows = await this.db
+      .select()
+      .from(agentDraft)
+      .where(where)
+      .orderBy(agentDraft.draftedAt)
+      .limit(pageSize)
+      .offset(offset)
+
+    return { items: rows.map((row) => toDomain(row as AgentDraftRow)), total }
   }
 }
