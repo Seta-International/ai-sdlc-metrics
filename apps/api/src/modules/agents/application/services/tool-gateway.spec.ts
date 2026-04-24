@@ -932,11 +932,6 @@ describe('ToolGateway', () => {
   describe('R-04.3a — module-scoped L1 cache invalidation', () => {
     it('mutation success: same-module cached reads are invalidated', async () => {
       // Arrange: a people.getEmployee query is cached, then people.updateEmployee mutation fires.
-      const readDescriptor = makeDescriptor({
-        name: 'people.getEmployee',
-        procedure: 'query',
-        permission: 'people:employee:read',
-      })
       const writeDescriptor = makeDescriptor({
         name: 'people.updateEmployee',
         procedure: 'mutation',
