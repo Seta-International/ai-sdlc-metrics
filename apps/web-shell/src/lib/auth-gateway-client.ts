@@ -54,12 +54,7 @@ export interface CompleteOAuthResult {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-interface TrpcQueryResponse<T> {
-  result?: { data?: { json?: T } }
-  error?: { message?: string; code?: string }
-}
-
-interface TrpcMutationResponse<T> {
+interface TrpcResponse<T> {
   result?: { data?: { json?: T } }
   error?: { message?: string; code?: string }
 }
@@ -77,7 +72,11 @@ async function trpcQuery<T>(procedure: string, input: unknown): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
   })
 
-  const body = (await res.json()) as TrpcQueryResponse<T>
+  if (!res.ok && !res.headers.get('content-type')?.includes('application/json')) {
+    throw new Error(`HTTP ${res.status} ${res.statusText}`)
+  }
+
+  const body = (await res.json()) as TrpcResponse<T>
 
   if (body.error) {
     throw new Error(body.error.message ?? `tRPC error from ${procedure}`)
@@ -102,7 +101,11 @@ async function trpcMutation<T>(procedure: string, input: unknown): Promise<T> {
     body: JSON.stringify({ json: input }),
   })
 
-  const body = (await res.json()) as TrpcMutationResponse<T>
+  if (!res.ok && !res.headers.get('content-type')?.includes('application/json')) {
+    throw new Error(`HTTP ${res.status} ${res.statusText}`)
+  }
+
+  const body = (await res.json()) as TrpcResponse<T>
 
   if (body.error) {
     throw new Error(body.error.message ?? `tRPC error from ${procedure}`)

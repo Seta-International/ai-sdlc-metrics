@@ -25,6 +25,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
 
   const redirectTo = searchParams.get('redirectTo') ?? DEFAULT_POST_LOGIN_URL
+  const callbackError = searchParams.get('error')
 
   // ----- Tenant discovery -----
 
@@ -143,6 +144,8 @@ export default function LoginPage() {
   if (screen === 'providers' && loginOptions) {
     const microsoftMethod = loginOptions.methods.find((m) => m.type === 'microsoft')
     const emailForMagicLink = identity.includes('@') ? identity.trim() : ''
+    const hasVisibleMethods =
+      (microsoftMethod !== undefined && microsoftMethod.status === 'ready') || !!emailForMagicLink
 
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -201,10 +204,9 @@ export default function LoginPage() {
               </>
             )}
 
-            {loginOptions.methods.length === 0 && !emailForMagicLink && (
+            {!hasVisibleMethods && (
               <p className="text-muted-foreground text-center text-sm">
-                No sign-in methods are configured for this organisation. Please contact your
-                administrator.
+                No sign-in methods are currently available. Please contact your administrator.
               </p>
             )}
           </div>
@@ -234,6 +236,14 @@ export default function LoginPage() {
         <h1 className="text-h1 text-center">Sign in to Future</h1>
 
         <form onSubmit={handleDiscover} className="space-y-4">
+          {callbackError && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                Sign-in failed. Please try again or contact your administrator.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>

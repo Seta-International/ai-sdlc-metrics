@@ -26,7 +26,8 @@ export const API_BASE_URL = process.env['API_BASE_URL'] ?? 'http://localhost:300
  * authorization URL and verifies it again during completeOAuth.
  */
 export const MICROSOFT_CALLBACK_URL =
-  process.env['MICROSOFT_REDIRECT_URI'] ?? 'http://localhost:3000/auth/callback/microsoft'
+  process.env['NEXT_PUBLIC_MICROSOFT_REDIRECT_URI'] ??
+  'http://localhost:3000/auth/callback/microsoft'
 
 /**
  * Where to redirect the user after a successful login when no explicit redirectTo is present.
