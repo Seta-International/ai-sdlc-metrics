@@ -175,6 +175,39 @@ import { PgBossService } from '../../common/jobs/pg-boss.service'
 //   • Adding sub-agents for a NEW domain module: add a new import below and
 //     include the descriptor(s) in the `descriptors` array in onModuleInit().
 import { plannerReadOnlySubAgent } from '../planner/agent/sub-agents'
+// Plan 10 — Harness + Replay + Canary
+import { ReplayHarness, REPLAY_HARNESS } from './application/services/replay-harness'
+import { ScorerRegistry, SCORER_REGISTRY } from './application/services/scorer-registry'
+import { GoldenTraceRunner, GOLDEN_TRACE_RUNNER } from './application/services/golden-trace-runner'
+import {
+  QualityCanaryScheduler,
+  QUALITY_CANARY_SCHEDULER,
+} from './application/services/quality-canary-scheduler'
+import {
+  CanaryQueryRotator,
+  CANARY_QUERY_ROTATOR,
+} from './application/services/canary-query-rotator'
+import {
+  DegradedTierFallback,
+  DEGRADED_TIER_FALLBACK,
+} from './application/services/degraded-tier-fallback'
+import {
+  ConfidenceCalibrationService,
+  CONFIDENCE_CALIBRATION_SERVICE,
+} from './application/services/confidence-calibration-service'
+import {
+  IntentDriftScorer,
+  INTENT_DRIFT_SCORER,
+  TOOL_REGISTRY_TOKEN,
+} from './application/services/intent-drift-scorer'
+import { GOLDEN_TRACE_REPOSITORY } from './domain/repositories/golden-trace.repository'
+import { CANARY_RUN_REPOSITORY } from './domain/repositories/canary-run.repository'
+import { CANARY_QUERY_REPOSITORY } from './domain/repositories/canary-query.repository'
+import { SCORER_REGISTRATION_REPOSITORY } from './domain/repositories/scorer-registration.repository'
+import { DrizzleGoldenTraceRepository } from './infrastructure/repositories/drizzle-golden-trace.repository'
+import { DrizzleCanaryRunRepository } from './infrastructure/repositories/drizzle-canary-run.repository'
+import { DrizzleCanaryQueryRepository } from './infrastructure/repositories/drizzle-canary-query.repository'
+import { DrizzleScorerRegistrationRepository } from './infrastructure/repositories/drizzle-scorer-registration.repository'
 // Module intent barrels.
 //   • Adding an intent to an EXISTING module: re-export it from that module's
 //     barrel (agent/intents/index.ts). No changes here are needed.
@@ -370,6 +403,30 @@ class NullTenantLister implements TenantListerLike {
       provide: JwtService,
       useExisting: JWT_SERVICE,
     },
+    // ── Plan 10 — Harness + Replay + Canary ───────────────────────────────────
+    // Repositories
+    { provide: GOLDEN_TRACE_REPOSITORY, useClass: DrizzleGoldenTraceRepository },
+    { provide: CANARY_RUN_REPOSITORY, useClass: DrizzleCanaryRunRepository },
+    { provide: CANARY_QUERY_REPOSITORY, useClass: DrizzleCanaryQueryRepository },
+    { provide: SCORER_REGISTRATION_REPOSITORY, useClass: DrizzleScorerRegistrationRepository },
+    // Services
+    ScorerRegistry,
+    { provide: SCORER_REGISTRY, useExisting: ScorerRegistry },
+    ReplayHarness,
+    { provide: REPLAY_HARNESS, useExisting: ReplayHarness },
+    GoldenTraceRunner,
+    { provide: GOLDEN_TRACE_RUNNER, useExisting: GoldenTraceRunner },
+    QualityCanaryScheduler,
+    { provide: QUALITY_CANARY_SCHEDULER, useExisting: QualityCanaryScheduler },
+    CanaryQueryRotator,
+    { provide: CANARY_QUERY_ROTATOR, useExisting: CanaryQueryRotator },
+    DegradedTierFallback,
+    { provide: DEGRADED_TIER_FALLBACK, useExisting: DegradedTierFallback },
+    ConfidenceCalibrationService,
+    { provide: CONFIDENCE_CALIBRATION_SERVICE, useExisting: ConfidenceCalibrationService },
+    { provide: TOOL_REGISTRY_TOKEN, useExisting: ToolRegistry },
+    IntentDriftScorer,
+    { provide: INTENT_DRIFT_SCORER, useExisting: IntentDriftScorer },
   ],
   exports: [
     AgentsQueryFacade,
@@ -428,6 +485,10 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly delegationExpirySweeper: DelegationExpirySweeper,
     @Inject(SCHEDULE_RUN_REPOSITORY)
     private readonly scheduleRunRepository: IScheduleRunRepository,
+    // Plan 10 — Harness + Replay + Canary
+    private readonly scorerRegistry: ScorerRegistry,
+    private readonly intentDriftScorer: IntentDriftScorer,
+    private readonly qualityCanaryScheduler: QualityCanaryScheduler,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -560,5 +621,14 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     // Step 11: Register delegation expiry sweeper (Plan 09).
     // Runs daily at 01:00 UTC to expire stale delegations.
     await this.delegationExpirySweeper.registerJob(this.pgBossService)
+
+    // Step 12: Register Plan 10 IntentDriftScorer with ScorerRegistry
+    await this.scorerRegistry.register(this.intentDriftScorer)
+
+    // Step 13: Register quality canary hourly tick (Plan 10)
+    await this.pgBossService.schedule('agent.quality-canary-tick', '0 * * * *')
+    this.pgBossService.registerWorker('agent.quality-canary-tick', async (_jobs) => {
+      await this.qualityCanaryScheduler.tickHourly()
+    })
   }
 }
