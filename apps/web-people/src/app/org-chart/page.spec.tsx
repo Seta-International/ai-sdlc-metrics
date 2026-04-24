@@ -10,13 +10,15 @@ describe('OrgChartPage', () => {
   it('renders the org chart header, context description, and directory search hint', () => {
     render(<OrgChartPage />)
 
-    expect(screen.getByRole('heading', { name: 'Org chart' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Org chart' })).toBeDefined()
     expect(
-      screen.getByText(/starts from your reporting context: manager, peers, and direct reports/i),
-    ).toBeTruthy()
+      screen.getByText(
+        'This read-only view starts from your reporting context: manager, peers, and direct reports.',
+      ),
+    ).toBeDefined()
     expect(
-      screen.getByText(/Looking for someone by name\? Use People Directory search\./i),
-    ).toBeTruthy()
-    expect(screen.getByTestId('org-chart-tree')).toBeTruthy()
+      screen.getByText('Looking for someone by name? Use People Directory search.'),
+    ).toBeDefined()
+    expect(screen.getByTestId('org-chart-tree')).toBeDefined()
   })
 })
