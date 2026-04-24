@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Switch } from '@future/ui'
+import { Alert, AlertDescription, Switch } from '@future/ui'
 import { AdminPageHeader } from '@/components/admin-page-header'
+import { trpc } from '@/lib/trpc'
 
 interface ModulesPageProps {
   params: { tenantId: string }
@@ -67,13 +68,29 @@ const MODULE_LIST: ModuleConfig[] = [
   },
 ]
 
-export default function ModulesPage({ params: { tenantId: _tenantId } }: ModulesPageProps) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const adminTrpc = trpc.admin as any
+
+export default function ModulesPage({ params: { tenantId } }: ModulesPageProps) {
   const [toggles, setToggles] = useState<Record<string, boolean>>(
     Object.fromEntries(MODULE_LIST.map((m) => [m.key, m.defaultEnabled])),
   )
+  const [mutationError, setMutationError] = useState<string | null>(null)
 
-  const handleToggle = (key: string, value: boolean) => {
-    setToggles((prev) => ({ ...prev, [key]: value }))
+  const handleToggle = async (key: string, value: boolean) => {
+    const next = { ...toggles, [key]: value }
+    setToggles(next)
+    setMutationError(null)
+    try {
+      await adminTrpc.updateModuleToggles.mutate({
+        tenantId,
+        toggles: Object.entries(next).map(([moduleKey, enabled]) => ({ moduleKey, enabled })),
+      })
+    } catch (e: unknown) {
+      setMutationError(e instanceof Error ? e.message : 'Failed to update module toggles')
+      // Revert optimistic update on error
+      setToggles(toggles)
+    }
   }
 
   return (
@@ -83,7 +100,13 @@ export default function ModulesPage({ params: { tenantId: _tenantId } }: Modules
         description="Enable or disable modules for this tenant. Changes take effect immediately."
       />
 
-      <div className="mt-8 max-w-2xl">
+      <div className="mt-8 max-w-2xl space-y-4">
+        {mutationError && (
+          <Alert variant="destructive">
+            <AlertDescription>{mutationError}</AlertDescription>
+          </Alert>
+        )}
+
         <div className="divide-y rounded-lg border">
           {MODULE_LIST.map((mod) => (
             <div key={mod.key} className="flex items-center justify-between px-4 py-4">
@@ -93,7 +116,7 @@ export default function ModulesPage({ params: { tenantId: _tenantId } }: Modules
               </div>
               <Switch
                 checked={toggles[mod.key] ?? false}
-                onCheckedChange={(value) => handleToggle(mod.key, value)}
+                onCheckedChange={(value) => void handleToggle(mod.key, value)}
                 aria-label={`Toggle ${mod.label}`}
               />
             </div>

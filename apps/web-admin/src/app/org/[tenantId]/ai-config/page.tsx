@@ -1,8 +1,22 @@
 'use client'
 
 import { useState } from 'react'
-import { Badge, Button, Input, Label, Spinner } from '@future/ui'
+import {
+  Alert,
+  AlertDescription,
+  Badge,
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Spinner,
+} from '@future/ui'
 import { AdminPageHeader } from '@/components/admin-page-header'
+import { trpc } from '@/lib/trpc'
 
 interface AiConfigPageProps {
   params: { tenantId: string }
@@ -12,21 +26,43 @@ const REASONING_MODELS = ['gpt-5.4', 'gpt-4o', 'gpt-4-turbo']
 const CLASSIFICATION_MODELS = ['gpt-5.4-nano', 'gpt-4o-mini', 'gpt-3.5-turbo']
 const EMBEDDING_MODELS = ['text-embedding-3-small', 'text-embedding-3-large']
 
-export default function AiConfigPage({ params: { tenantId: _tenantId } }: AiConfigPageProps) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const adminTrpc = trpc.admin as any
+
+export default function AiConfigPage({ params: { tenantId } }: AiConfigPageProps) {
   const [isRotating, setIsRotating] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
   const [apiKey, setApiKey] = useState('')
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null)
+  const [mutationError, setMutationError] = useState<string | null>(null)
+  const [reasoningModel, setReasoningModel] = useState('gpt-5.4')
+  const [classificationModel, setClassificationModel] = useState('gpt-5.4-nano')
+  const [embeddingModel, setEmbeddingModel] = useState('text-embedding-3-small')
 
-  const handleRotate = () => {
+  const handleRotate = async () => {
     setIsRotating(true)
-    // Placeholder — mutation wired in full implementation
-    setTimeout(() => setIsRotating(false), 1000)
+    setMutationError(null)
+    setTestResult(null)
+    try {
+      await adminTrpc.upsertAiProviderConfig.mutate({
+        tenantId,
+        rawApiKey: apiKey,
+        providerType: 'openai' as const,
+        defaultReasoningModel: reasoningModel,
+        defaultClassificationModel: classificationModel,
+        embeddingModel,
+      })
+      setApiKey('')
+    } catch (e: unknown) {
+      setMutationError(e instanceof Error ? e.message : 'Failed to save AI configuration')
+    } finally {
+      setIsRotating(false)
+    }
   }
 
   const handleTest = () => {
     setIsTesting(true)
-    // Placeholder — mutation wired in full implementation
+    // Placeholder — real connection test wired when test-connection procedure is available
     setTimeout(() => {
       setIsTesting(false)
       setTestResult('success')
@@ -83,10 +119,19 @@ export default function AiConfigPage({ params: { tenantId: _tenantId } }: AiConf
           </div>
 
           {testResult === 'success' && (
-            <p className="text-sm text-green-600">Connection test passed.</p>
+            <Alert>
+              <AlertDescription>Connection test passed.</AlertDescription>
+            </Alert>
           )}
           {testResult === 'error' && (
-            <p className="text-sm text-destructive">Connection test failed. Check your key.</p>
+            <Alert variant="destructive">
+              <AlertDescription>Connection test failed. Check your key.</AlertDescription>
+            </Alert>
+          )}
+          {mutationError && (
+            <Alert variant="destructive">
+              <AlertDescription>{mutationError}</AlertDescription>
+            </Alert>
           )}
         </section>
 
@@ -96,47 +141,50 @@ export default function AiConfigPage({ params: { tenantId: _tenantId } }: AiConf
 
           <div className="space-y-2">
             <Label htmlFor="reasoning-model">Reasoning Model</Label>
-            <select
-              id="reasoning-model"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-              defaultValue="gpt-5.4"
-            >
-              {REASONING_MODELS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+            <Select value={reasoningModel} onValueChange={setReasoningModel}>
+              <SelectTrigger id="reasoning-model" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {REASONING_MODELS.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="classification-model">Classification Model</Label>
-            <select
-              id="classification-model"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-              defaultValue="gpt-5.4-nano"
-            >
-              {CLASSIFICATION_MODELS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+            <Select value={classificationModel} onValueChange={setClassificationModel}>
+              <SelectTrigger id="classification-model" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CLASSIFICATION_MODELS.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="embedding-model">Embedding Model</Label>
-            <select
-              id="embedding-model"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-              defaultValue="text-embedding-3-small"
-            >
-              {EMBEDDING_MODELS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+            <Select value={embeddingModel} onValueChange={setEmbeddingModel}>
+              <SelectTrigger id="embedding-model" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {EMBEDDING_MODELS.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </section>
       </div>

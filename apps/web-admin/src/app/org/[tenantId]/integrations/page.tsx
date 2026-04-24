@@ -1,6 +1,7 @@
 'use client'
 
-import { Badge } from '@future/ui'
+import Link from 'next/link'
+import { Badge, Button } from '@future/ui'
 import { AdminPageHeader } from '@/components/admin-page-header'
 
 interface IntegrationsPageProps {
@@ -69,9 +70,14 @@ export default function IntegrationsPage({
           </div>
           <p className="mt-3 text-sm text-muted-foreground">
             Configure IdP via{' '}
-            <a href="/integrations/microsoft" className="underline underline-offset-2">
-              Microsoft Entra
-            </a>{' '}
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="h-auto p-0 underline underline-offset-2 text-sm"
+            >
+              <Link href="/integrations/microsoft">Microsoft Entra</Link>
+            </Button>{' '}
             settings. Secrets are stored in AWS Secrets Manager — only the last{' '}
             <span className="font-mono">••••</span> 4 characters are shown.
           </p>
