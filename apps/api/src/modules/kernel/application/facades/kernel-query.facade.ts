@@ -26,6 +26,8 @@ import type { RoleSummaryDto } from '../queries/list-roles.handler'
 import { GetLocalUsersWithActorsQuery } from '../queries/get-local-users-with-actors.query'
 import type { LocalUserWithActorDto } from '../queries/get-local-users-with-actors.handler'
 import { GetUserIdentityByActorIdQuery } from '../queries/get-user-identity-by-actor-id.query'
+import { ListTenantsQuery } from '../queries/list-tenants.query'
+import type { TenantSummaryDto } from '../queries/list-tenants.handler'
 
 /**
  * KernelQueryFacade is the only cross-module import allowed from the kernel.
@@ -121,6 +123,15 @@ export class KernelQueryFacade {
   async listAllTenantIds(): Promise<string[]> {
     const tenants = await this.tenantRepo.findAll()
     return tenants.map((t) => t.id)
+  }
+
+  /**
+   * Returns all tenants (active, suspended, cancelled, hidden system tenant).
+   * Intended for platform_admin use — route-level auth enforcement is the caller's
+   * responsibility.
+   */
+  listTenants(requestorActorId: string): Promise<TenantSummaryDto[]> {
+    return this.queryBus.execute(new ListTenantsQuery(requestorActorId))
   }
 
   /**

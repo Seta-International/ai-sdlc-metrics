@@ -25,6 +25,7 @@ import { DevLoginHandler } from './application/commands/dev-login.handler'
 import { AddRolePermissionHandler } from './application/commands/add-role-permission.handler'
 import { RemoveRolePermissionHandler } from './application/commands/remove-role-permission.handler'
 import { ResetRolePermissionsHandler } from './application/commands/reset-role-permissions.handler'
+import { BootstrapPlatformAdminHandler } from './application/commands/bootstrap-platform-admin.handler'
 import { KernelQueryFacade } from './application/facades/kernel-query.facade'
 import { KernelAuditFacade } from './application/facades/kernel-audit.facade'
 import { KernelActorFacade } from './application/facades/kernel-actor.facade'
@@ -42,6 +43,7 @@ import { CanDoHandler } from './application/queries/can-do.handler'
 import { GetEffectivePermissionsHandler } from './application/queries/get-effective-permissions.handler'
 import { GetRolePermissionsHandler } from './application/queries/get-role-permissions.handler'
 import { ListRolesHandler } from './application/queries/list-roles.handler'
+import { ListTenantsHandler } from './application/queries/list-tenants.handler'
 import { DrizzleActorRepository } from './infrastructure/repositories/drizzle-actor.repository'
 import { DrizzleDecisionCaseRepository } from './infrastructure/repositories/drizzle-decision-case.repository'
 import { DrizzleDepartmentRepository } from './infrastructure/repositories/drizzle-department.repository'
@@ -87,6 +89,7 @@ import { DrizzleOutboxEventRepository } from './infrastructure/repositories/driz
     AddRolePermissionHandler,
     RemoveRolePermissionHandler,
     ResetRolePermissionsHandler,
+    BootstrapPlatformAdminHandler,
     GetActorHandler,
     GetTenantHandler,
     GetRoleGrantsHandler,
@@ -95,6 +98,7 @@ import { DrizzleOutboxEventRepository } from './infrastructure/repositories/driz
     GetEffectivePermissionsHandler,
     GetRolePermissionsHandler,
     ListRolesHandler,
+    ListTenantsHandler,
     GetLocalUsersWithActorsHandler,
     GetUserIdentityByActorIdHandler,
     KernelQueryFacade,
