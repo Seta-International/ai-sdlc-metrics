@@ -102,6 +102,10 @@ import { MyDayOrphanSweepJob } from './infrastructure/jobs/my-day-orphan-sweep.j
 import { MyDayOrphanSweepScheduler } from './infrastructure/jobs/my-day-orphan-sweep.scheduler'
 import { ConnectMsSyncHandler } from './application/commands/ms-sync/connect-ms-sync.handler'
 import { DisconnectMsSyncHandler } from './application/commands/ms-sync/disconnect-ms-sync.handler'
+import { MS_LINKED_GROUP_REPOSITORY } from './domain/repositories/ms-linked-group.repository'
+import { MS_PLAN_SYNC_STATE_REPOSITORY } from './domain/repositories/ms-plan-sync-state.repository'
+import { DrizzleMsLinkedGroupRepository } from './infrastructure/repositories/drizzle-ms-linked-group.repository'
+import { DrizzleMsPlanSyncStateRepository } from './infrastructure/repositories/drizzle-ms-plan-sync-state.repository'
 
 @Module({
   imports: [CqrsModule, KernelModule, AdminModule, IdentityModule, NotificationsModule],
@@ -193,6 +197,8 @@ import { DisconnectMsSyncHandler } from './application/commands/ms-sync/disconne
     MyDayOrphanSweepScheduler,
     ConnectMsSyncHandler,
     DisconnectMsSyncHandler,
+    { provide: MS_LINKED_GROUP_REPOSITORY, useClass: DrizzleMsLinkedGroupRepository },
+    { provide: MS_PLAN_SYNC_STATE_REPOSITORY, useClass: DrizzleMsPlanSyncStateRepository },
     PlannerQueryFacade,
     PlannerRouterService,
   ],
