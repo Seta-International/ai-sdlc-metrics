@@ -7,14 +7,9 @@ vi.mock('@future/api-client', () => ({
   useQuery: vi.fn(),
 }))
 
-vi.mock('@/lib/trpc', () => ({
-  trpc: {
-    admin: {
-      platform: {
-        listTenants: { query: vi.fn() },
-      },
-    },
-  },
+vi.mock('@/lib/admin-api', () => ({
+  listPlatformTenantsQueryKey: ['admin', 'platform', 'listTenants'],
+  listPlatformTenants: vi.fn(),
 }))
 
 vi.mock('@/components/admin-page-header', () => ({
@@ -28,10 +23,6 @@ vi.mock('@/components/system/org-context-switcher', () => ({
     activeOrgName: string | null
     activeOrgSlug: string | null
   }) => (activeOrgName ? <div data-testid="org-context-switcher">{activeOrgName}</div> : null),
-}))
-
-vi.mock('@/lib/admin-api', () => ({
-  listPlatformTenantsQueryKey: ['admin', 'platform', 'listTenants'],
 }))
 
 const mockedUseQuery = vi.mocked(useQuery)

@@ -11,19 +11,10 @@ vi.mock('@future/api-client', () => ({
   })),
 }))
 
-vi.mock('@/lib/trpc', () => ({
-  trpc: {
-    admin: {
-      platform: {
-        listTenants: { query: vi.fn() },
-        updateTenantStatus: { mutate: vi.fn() },
-      },
-    },
-  },
-}))
-
 vi.mock('@/lib/admin-api', () => ({
   listPlatformTenantsQueryKey: ['admin', 'platform', 'listTenants'],
+  listPlatformTenants: vi.fn(),
+  updateTenantStatus: vi.fn(),
 }))
 
 vi.mock('@/components/system/organization-table', () => ({

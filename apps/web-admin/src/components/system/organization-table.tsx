@@ -22,6 +22,12 @@ export interface TenantRow {
   planTier: 'starter' | 'professional' | 'enterprise'
   createdAt: Date
   updatedAt: Date
+  // Optional extended fields — populated when API returns them
+  primaryIdp?: string | null
+  verifiedDomainCount?: number | null
+  enabledModuleCount?: number | null
+  aiKeyConfigured?: boolean | null
+  lastAdminActivityAt?: Date | null
 }
 
 interface OrganizationTableProps {
@@ -44,6 +50,18 @@ const PLAN_LABEL: Record<TenantRow['planTier'], string> = {
   starter: 'Starter',
   professional: 'Professional',
   enterprise: 'Enterprise',
+}
+
+function formatRelativeDate(date: Date | null | undefined): string {
+  if (!date) return 'Never'
+  const diffMs = Date.now() - new Date(date).getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  if (diffDays === 0) return 'Today'
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 30) return `${diffDays}d ago`
+  const diffMonths = Math.floor(diffDays / 30)
+  if (diffMonths < 12) return `${diffMonths}mo ago`
+  return `${Math.floor(diffMonths / 12)}y ago`
 }
 
 function buildColumns(
@@ -80,12 +98,48 @@ function buildColumns(
       cell: ({ row }) => <span>{PLAN_LABEL[row.original.planTier]}</span>,
     },
     {
-      id: 'updatedAt',
-      accessorKey: 'updatedAt',
-      header: 'Last Updated',
+      id: 'primaryIdp',
+      accessorKey: 'primaryIdp',
+      header: 'Primary IdP',
+      cell: ({ row }) => <span className="text-sm">{row.original.primaryIdp ?? 'None'}</span>,
+    },
+    {
+      id: 'verifiedDomains',
+      accessorKey: 'verifiedDomainCount',
+      header: 'Verified Domains',
+      cell: ({ row }) => <span className="text-sm">{row.original.verifiedDomainCount ?? 0}</span>,
+    },
+    {
+      id: 'modules',
+      accessorKey: 'enabledModuleCount',
+      header: 'Modules',
+      cell: ({ row }) => (
+        <span className="text-sm">
+          {row.original.enabledModuleCount != null ? row.original.enabledModuleCount : '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'aiKey',
+      accessorKey: 'aiKeyConfigured',
+      header: 'AI Key',
+      cell: ({ row }) => {
+        const configured = row.original.aiKeyConfigured
+        if (configured == null) return <span className="text-sm text-muted-foreground">—</span>
+        return (
+          <Badge variant={configured ? 'success' : 'subtle'}>
+            {configured ? 'Configured' : 'None'}
+          </Badge>
+        )
+      },
+    },
+    {
+      id: 'lastAdminActivity',
+      accessorKey: 'lastAdminActivityAt',
+      header: 'Last Admin Activity',
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {new Date(row.original.updatedAt).toLocaleDateString()}
+          {formatRelativeDate(row.original.lastAdminActivityAt)}
         </span>
       ),
     },

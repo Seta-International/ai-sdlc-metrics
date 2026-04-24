@@ -4,11 +4,11 @@ import { useQuery } from '@future/api-client'
 import { Skeleton, Badge } from '@future/ui'
 import { AdminPageHeader } from '@/components/admin-page-header'
 import { OrgContextSwitcher } from '@/components/system/org-context-switcher'
-import { trpc } from '@/lib/trpc'
-import { listPlatformTenantsQueryKey, type PlatformTenant } from '@/lib/admin-api'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const adminPlatform = (trpc.admin as any).platform
+import {
+  listPlatformTenants,
+  listPlatformTenantsQueryKey,
+  type PlatformTenant,
+} from '@/lib/admin-api'
 
 interface OrgOverviewPageProps {
   params: { tenantId: string }
@@ -19,7 +19,7 @@ export default function OrgOverviewPage({ params }: OrgOverviewPageProps) {
 
   const { data: allTenants, isLoading } = useQuery({
     queryKey: listPlatformTenantsQueryKey,
-    queryFn: () => adminPlatform.listTenants.query({}) as Promise<PlatformTenant[]>,
+    queryFn: () => listPlatformTenants(),
   })
 
   const tenant = (allTenants as PlatformTenant[] | undefined)?.find((t) => t.id === tenantId)

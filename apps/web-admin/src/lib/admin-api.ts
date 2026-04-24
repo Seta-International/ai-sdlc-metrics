@@ -10,6 +10,13 @@ export interface PlatformTenant {
   planTier: 'starter' | 'professional' | 'enterprise'
   createdAt: Date
   updatedAt: Date
+  // Optional fields — not yet returned by the API.
+  // TODO: extend ListPlatformTenantsHandler / TenantSummaryDto to include these fields.
+  primaryIdp?: string | null
+  verifiedDomainCount?: number | null
+  enabledModuleCount?: number | null
+  aiKeyConfigured?: boolean | null
+  lastAdminActivityAt?: Date | null
 }
 
 /** Query key for react-query caching */
@@ -25,7 +32,7 @@ export async function listPlatformTenants(): Promise<PlatformTenant[]> {
   return result as PlatformTenant[]
 }
 
-export async function updatePlatformTenantStatus(input: {
+export async function updateTenantStatus(input: {
   tenantId: string
   status: TenantStatus
 }): Promise<void> {

@@ -1,26 +1,26 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@future/api-client'
-import { trpc } from '@/lib/trpc'
 import { OrganizationTable } from '@/components/system/organization-table'
 import { AdminPageHeader } from '@/components/admin-page-header'
-import { listPlatformTenantsQueryKey, type TenantStatus } from '@/lib/admin-api'
+import {
+  listPlatformTenants,
+  listPlatformTenantsQueryKey,
+  updateTenantStatus,
+  type TenantStatus,
+} from '@/lib/admin-api'
 import type { TenantRow } from '@/components/system/organization-table'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const adminPlatform = (trpc.admin as any).platform
 
 export default function PlatformAdminsPage() {
   const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
     queryKey: listPlatformTenantsQueryKey,
-    queryFn: () => adminPlatform.listTenants.query({}) as Promise<TenantRow[]>,
+    queryFn: () => listPlatformTenants() as Promise<TenantRow[]>,
   })
 
   const updateStatus = useMutation({
-    mutationFn: (input: { tenantId: string; status: TenantStatus }) =>
-      adminPlatform.updateTenantStatus.mutate(input) as Promise<void>,
+    mutationFn: (input: { tenantId: string; status: TenantStatus }) => updateTenantStatus(input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: listPlatformTenantsQueryKey })
     },
