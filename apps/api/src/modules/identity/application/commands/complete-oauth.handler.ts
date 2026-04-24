@@ -43,16 +43,23 @@ export class OAuthSessionConsumedException extends DomainException {
 }
 
 export class TenantNotActiveForCallbackException extends DomainException {
-  readonly code = 'TENANT_NOT_ACTIVE'
+  readonly code = 'OAUTH_COMPLETE_TENANT_NOT_ACTIVE'
   constructor(status: string) {
     super(`Tenant is ${status} — cannot complete OAuth flow`)
   }
 }
 
 export class TenantNotFoundForCallbackException extends DomainException {
-  readonly code = 'TENANT_NOT_FOUND'
+  readonly code = 'OAUTH_COMPLETE_TENANT_NOT_FOUND'
   constructor() {
     super('Tenant not found for OAuth session')
+  }
+}
+
+export class OAuthCallbackUriMismatchException extends DomainException {
+  readonly code = 'OAUTH_CALLBACK_URI_MISMATCH'
+  constructor() {
+    super('callbackUri does not match the value stored at OAuth session start')
   }
 }
 
@@ -87,6 +94,8 @@ export class CompleteOAuthHandler implements ICommandHandler<
   CompleteOAuthCommand,
   CompleteOAuthResult
 > {
+  private readonly jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>()
+
   constructor(
     private readonly kernelFacade: KernelQueryFacade,
     @Inject(IDENTITY_PROVIDER_REPOSITORY)
@@ -100,6 +109,14 @@ export class CompleteOAuthHandler implements ICommandHandler<
     @Inject(JWT_SERVICE)
     private readonly jwtService: JwtService,
   ) {}
+
+  private getJwks(directoryId: string): ReturnType<typeof createRemoteJWKSet> {
+    if (!this.jwksCache.has(directoryId)) {
+      const uri = new URL(`https://login.microsoftonline.com/${directoryId}/discovery/v2.0/keys`)
+      this.jwksCache.set(directoryId, createRemoteJWKSet(uri))
+    }
+    return this.jwksCache.get(directoryId)!
+  }
 
   async execute(command: CompleteOAuthCommand): Promise<CompleteOAuthResult> {
     // 1. Hash the raw state and look up the session
@@ -118,6 +135,11 @@ export class CompleteOAuthHandler implements ICommandHandler<
       throw new OAuthSessionConsumedException()
     }
 
+    // 2a. Pin callbackUri — reject if client supplies a different redirect_uri than was stored
+    if (session.callbackUri !== command.callbackUri) {
+      throw new OAuthCallbackUriMismatchException()
+    }
+
     // 3. Verify tenant is still active — caller MUST verify tenantId from session (cross-tenant guard)
     const tenant = await this.kernelFacade.getTenant(session.tenantId)
     if (!tenant) {
@@ -131,6 +153,9 @@ export class CompleteOAuthHandler implements ICommandHandler<
     const provider = await this.providerRepo.findById(session.providerId, session.tenantId)
     if (!provider) {
       throw new IdTokenValidationException('Provider not found for session')
+    }
+    if (!provider.directoryId) {
+      throw new IdTokenValidationException('Provider has no directoryId configured')
     }
 
     // 5. Load client secret via secrets store
@@ -148,10 +173,7 @@ export class CompleteOAuthHandler implements ICommandHandler<
     })
 
     // 7. Validate ID token — do NOT decode without validation
-    const jwksUri = new URL(
-      `https://login.microsoftonline.com/${provider.directoryId}/discovery/v2.0/keys`,
-    )
-    const JWKS = createRemoteJWKSet(jwksUri)
+    const JWKS = this.getJwks(provider.directoryId)
 
     let idTokenPayload: {
       sub: string
@@ -190,9 +212,11 @@ export class CompleteOAuthHandler implements ICommandHandler<
       throw new MicrosoftTenantMismatchException()
     }
 
-    // 10. Consume the session (mark as used) — must happen before any post-validation lookups
-    // to prevent replay if subsequent steps throw
-    await this.sessionRepo.consume(session.id, session.tenantId)
+    // 10. Atomically consume the session — returns false if a concurrent request already consumed it
+    const consumed = await this.sessionRepo.consume(session.id, session.tenantId)
+    if (!consumed) {
+      throw new OAuthSessionConsumedException()
+    }
 
     // 11. Resolve Future user identity
     const ssoSubject = (idTokenPayload.oid ?? idTokenPayload.sub)!

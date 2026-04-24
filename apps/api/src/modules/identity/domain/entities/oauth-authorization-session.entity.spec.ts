@@ -9,6 +9,7 @@ describe('OAuthAuthorizationSessionEntity', () => {
     providerType: 'microsoft' as const,
     nonceHash: 'nonce-hash',
     stateHash: 'state-hash',
+    callbackUri: 'http://localhost:3000/auth/callback/microsoft',
     redirectTo: 'http://localhost:3001',
     expiresAt: new Date('2026-04-24T10:00:00Z'),
     consumedAt: null,
@@ -24,6 +25,7 @@ describe('OAuthAuthorizationSessionEntity', () => {
         providerType: 'microsoft',
         nonceHash: 'nonce-hash',
         stateHash: 'state-hash',
+        callbackUri: 'http://localhost:3000/auth/callback/microsoft',
         redirectTo: 'http://localhost:3001',
         expiresAt: new Date('2026-04-24T10:00:00Z'),
       })
@@ -38,6 +40,7 @@ describe('OAuthAuthorizationSessionEntity', () => {
         providerType: 'microsoft',
         nonceHash: 'nonce-hash',
         stateHash: 'state-hash',
+        callbackUri: 'http://localhost:3000/auth/callback/microsoft',
         redirectTo: 'http://localhost:3001',
         expiresAt: new Date('2026-04-24T10:00:00Z'),
       })

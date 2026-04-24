@@ -46,6 +46,7 @@ const fakeSession: OAuthAuthorizationSessionEntity = {
   providerType: 'microsoft',
   stateHash: 'hash-of-state',
   nonceHash: 'hash-of-nonce',
+  callbackUri: 'http://localhost:3000/auth/callback/microsoft',
   redirectTo: 'http://localhost:3001',
   expiresAt: new Date(Date.now() + 10 * 60 * 1000),
   consumedAt: null,

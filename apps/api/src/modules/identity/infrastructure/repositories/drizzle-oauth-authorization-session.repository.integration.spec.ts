@@ -41,6 +41,7 @@ describe('DrizzleOAuthAuthorizationSessionRepository', () => {
         providerType: 'microsoft',
         stateHash: 'state-hash-001',
         nonceHash: 'nonce-hash-001',
+        callbackUri: 'http://localhost:3000/auth/callback/microsoft',
         redirectTo: 'http://localhost:3001/callback',
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       })
@@ -72,11 +73,13 @@ describe('DrizzleOAuthAuthorizationSessionRepository', () => {
         providerType: 'microsoft',
         stateHash: 'state-hash-consume-001',
         nonceHash: 'nonce-hash-consume-001',
+        callbackUri: 'http://localhost:3000/auth/callback/microsoft',
         redirectTo: 'http://localhost:3001/callback',
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       })
 
-      await repo.consume(session.id, TENANT_A)
+      const consumed = await repo.consume(session.id, TENANT_A)
+      expect(consumed).toBe(true)
 
       // Once consumed, findByStateHash should return null
       const found = await repo.findByStateHash('state-hash-consume-001')
@@ -92,15 +95,18 @@ describe('DrizzleOAuthAuthorizationSessionRepository', () => {
         providerType: 'google',
         stateHash: 'state-hash-once-001',
         nonceHash: 'nonce-hash-once-001',
+        callbackUri: 'http://localhost:3000/auth/callback/google',
         redirectTo: 'http://localhost:3001/callback',
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       })
 
-      // First consume succeeds
-      await repo.consume(session.id, TENANT_A)
+      // First consume returns true — session was consumed
+      const firstConsume = await repo.consume(session.id, TENANT_A)
+      expect(firstConsume).toBe(true)
 
-      // Second consume is a no-op (already consumed)
-      await repo.consume(session.id, TENANT_A)
+      // Second consume returns false — already consumed (race condition guard)
+      const secondConsume = await repo.consume(session.id, TENANT_A)
+      expect(secondConsume).toBe(false)
 
       const found = await repo.findByStateHash('state-hash-once-001')
       expect(found).toBeNull()
@@ -117,6 +123,7 @@ describe('DrizzleOAuthAuthorizationSessionRepository', () => {
         providerType: 'microsoft',
         stateHash: 'state-hash-expired-001',
         nonceHash: 'nonce-hash-expired-001',
+        callbackUri: 'http://localhost:3000/auth/callback/microsoft',
         redirectTo: 'http://localhost:3001/callback',
         expiresAt: new Date(Date.now() - 1000), // already expired
       })
@@ -136,6 +143,7 @@ describe('DrizzleOAuthAuthorizationSessionRepository', () => {
         providerType: 'microsoft',
         stateHash: 'state-hash-global-001',
         nonceHash: 'nonce-hash-global-001',
+        callbackUri: 'http://localhost:3000/auth/callback/microsoft',
         redirectTo: 'http://localhost:3001/callback',
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       })

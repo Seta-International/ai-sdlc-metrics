@@ -8,6 +8,14 @@ export class OAuthAuthorizationSessionEntity {
     public readonly providerType: IdpProviderType,
     public readonly stateHash: string,
     public readonly nonceHash: string,
+    /**
+     * OAuth redirect_uri used during the authorization request.
+     * Must be re-supplied on token exchange and validated against this stored value.
+     */
+    public readonly callbackUri: string,
+    /**
+     * Post-authentication redirect target within a Future zone.
+     */
     public readonly redirectTo: string,
     public readonly expiresAt: Date,
     public consumedAt: Date | null,
@@ -21,6 +29,7 @@ export class OAuthAuthorizationSessionEntity {
     providerType: IdpProviderType
     stateHash: string
     nonceHash: string
+    callbackUri: string
     redirectTo: string
     expiresAt: Date
     consumedAt?: Date | null
@@ -33,6 +42,7 @@ export class OAuthAuthorizationSessionEntity {
       props.providerType,
       props.stateHash,
       props.nonceHash,
+      props.callbackUri,
       props.redirectTo,
       props.expiresAt,
       props.consumedAt ?? null,
@@ -47,6 +57,7 @@ export class OAuthAuthorizationSessionEntity {
     providerType: IdpProviderType
     stateHash: string
     nonceHash: string
+    callbackUri: string
     redirectTo: string
     expiresAt: Date
     consumedAt: Date | null
@@ -59,6 +70,7 @@ export class OAuthAuthorizationSessionEntity {
       row.providerType,
       row.stateHash,
       row.nonceHash,
+      row.callbackUri,
       row.redirectTo,
       row.expiresAt,
       row.consumedAt,

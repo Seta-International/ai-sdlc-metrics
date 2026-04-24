@@ -10,6 +10,7 @@ export interface IOAuthAuthorizationSessionRepository {
     providerType: IdpProviderType
     stateHash: string
     nonceHash: string
+    callbackUri: string
     redirectTo: string
     expiresAt: Date
   }): Promise<OAuthAuthorizationSessionEntity>
@@ -20,5 +21,10 @@ export interface IOAuthAuthorizationSessionRepository {
    */
   findByStateHash(stateHash: string): Promise<OAuthAuthorizationSessionEntity | null>
   findByTenantId(tenantId: string): Promise<OAuthAuthorizationSessionEntity[]>
-  consume(id: string, tenantId: string): Promise<void>
+  /**
+   * Atomically marks the session as consumed.
+   * Returns `true` if this call consumed the session (1 row updated),
+   * `false` if it was already consumed (0 rows updated — race condition guard).
+   */
+  consume(id: string, tenantId: string): Promise<boolean>
 }

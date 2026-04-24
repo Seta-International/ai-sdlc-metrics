@@ -17,6 +17,7 @@ function toEntity(row: OAuthSessionRow): OAuthAuthorizationSessionEntity {
     providerType: row.providerType as IdpProviderType,
     stateHash: row.stateHash,
     nonceHash: row.nonceHash,
+    callbackUri: row.callbackUri,
     redirectTo: row.redirectTo,
     expiresAt: row.expiresAt,
     consumedAt: row.consumedAt ?? null,
@@ -34,6 +35,7 @@ export class DrizzleOAuthAuthorizationSessionRepository implements IOAuthAuthori
     providerType: IdpProviderType
     stateHash: string
     nonceHash: string
+    callbackUri: string
     redirectTo: string
     expiresAt: Date
   }): Promise<OAuthAuthorizationSessionEntity> {
@@ -45,6 +47,7 @@ export class DrizzleOAuthAuthorizationSessionRepository implements IOAuthAuthori
         providerType: data.providerType,
         stateHash: data.stateHash,
         nonceHash: data.nonceHash,
+        callbackUri: data.callbackUri,
         redirectTo: data.redirectTo,
         expiresAt: data.expiresAt,
       })
@@ -76,8 +79,8 @@ export class DrizzleOAuthAuthorizationSessionRepository implements IOAuthAuthori
     return (rows as OAuthSessionRow[]).map(toEntity)
   }
 
-  async consume(id: string, tenantId: string): Promise<void> {
-    await this.db
+  async consume(id: string, tenantId: string): Promise<boolean> {
+    const rows = await this.db
       .update(oauthAuthorizationSession)
       .set({ consumedAt: new Date() })
       .where(
@@ -87,5 +90,7 @@ export class DrizzleOAuthAuthorizationSessionRepository implements IOAuthAuthori
           isNull(oauthAuthorizationSession.consumedAt),
         ),
       )
+      .returning({ id: oauthAuthorizationSession.id })
+    return rows.length > 0
   }
 }

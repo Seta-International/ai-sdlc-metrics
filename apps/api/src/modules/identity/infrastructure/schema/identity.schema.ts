@@ -186,6 +186,7 @@ export const oauthAuthorizationSession = identitySchema.table(
     providerType: text('provider_type', { enum: ['microsoft', 'google'] }).notNull(),
     stateHash: text('state_hash').notNull(),
     nonceHash: text('nonce_hash').notNull(),
+    callbackUri: text('callback_uri').notNull(),
     redirectTo: text('redirect_to').notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     consumedAt: timestamp('consumed_at', { withTimezone: true }),

@@ -38,14 +38,14 @@ function isAllowedRedirectTarget(url: string): boolean {
 }
 
 export class TenantNotActiveException extends DomainException {
-  readonly code = 'TENANT_NOT_ACTIVE'
+  readonly code = 'OAUTH_START_TENANT_NOT_ACTIVE'
   constructor(tenantId: string, status: string) {
     super(`Tenant ${tenantId} is ${status} — OAuth flow not permitted`)
   }
 }
 
 export class TenantNotFoundException extends DomainException {
-  readonly code = 'TENANT_NOT_FOUND'
+  readonly code = 'OAUTH_START_TENANT_NOT_FOUND'
   constructor(tenantId: string) {
     super(`Tenant not found: ${tenantId}`)
   }
@@ -114,6 +114,7 @@ export class StartOAuthHandler implements ICommandHandler<StartOAuthCommand, Sta
       providerType: provider.providerType,
       stateHash,
       nonceHash,
+      callbackUri: command.callbackUri,
       redirectTo: command.redirectTo,
       expiresAt,
     })

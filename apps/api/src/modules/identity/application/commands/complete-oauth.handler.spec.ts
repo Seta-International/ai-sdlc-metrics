@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createHash } from 'node:crypto'
 import { CompleteOAuthCommand } from './complete-oauth.command'
-import { CompleteOAuthHandler, MicrosoftTenantMismatchException } from './complete-oauth.handler'
+import {
+  CompleteOAuthHandler,
+  MicrosoftTenantMismatchException,
+  OAuthCallbackUriMismatchException,
+} from './complete-oauth.handler'
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
 import type { IOAuthAuthorizationSessionRepository } from '../../domain/repositories/oauth-authorization-session.repository'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
@@ -57,7 +61,7 @@ const microsoftProvider: IdentityProviderEntity = {
 }
 
 function makeSession(
-  overrides?: Partial<ConstructorParameters<typeof OAuthAuthorizationSessionEntity>[0]>,
+  overrides?: Partial<Parameters<typeof OAuthAuthorizationSessionEntity.reconstruct>[0]>,
 ): OAuthAuthorizationSessionEntity {
   const now = new Date()
   return OAuthAuthorizationSessionEntity.reconstruct({
@@ -67,6 +71,7 @@ function makeSession(
     providerType: 'microsoft',
     stateHash: STATE_HASH,
     nonceHash: NONCE_HASH,
+    callbackUri: CALLBACK_URI,
     redirectTo: 'http://localhost:3001',
     expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
     consumedAt: null,
@@ -223,6 +228,46 @@ describe('CompleteOAuthHandler', () => {
         handler.execute(new CompleteOAuthCommand('code', RAW_STATE, CALLBACK_URI)),
       ).rejects.toThrow()
     })
+
+    it('throws OAuthCallbackUriMismatchException when callbackUri does not match stored value', async () => {
+      const session = makeSession()
+      vi.mocked(sessionRepo.findByStateHash).mockResolvedValue(session)
+
+      await expect(
+        handler.execute(
+          new CompleteOAuthCommand('code', RAW_STATE, 'http://attacker.example.com/callback'),
+        ),
+      ).rejects.toThrow(OAuthCallbackUriMismatchException)
+    })
+
+    it('throws OAuthSessionConsumedException when consume() returns false (concurrent request race)', async () => {
+      const session = makeSession()
+      vi.mocked(sessionRepo.findByStateHash).mockResolvedValue(session)
+      vi.mocked(kernelFacade.getTenant).mockResolvedValue(activeTenant)
+      vi.mocked(providerRepo.findById).mockResolvedValue(microsoftProvider)
+      vi.mocked(secretsStore.getSecret).mockResolvedValue('client-secret-value')
+      vi.mocked(tokenExchanger.exchange).mockResolvedValue({
+        idToken: FAKE_ID_TOKEN,
+        accessToken: FAKE_ACCESS_TOKEN,
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      })
+      vi.mocked(mockJwtVerify).mockResolvedValue({
+        payload: {
+          sub: 'aad-sub-abc',
+          oid: 'aad-oid-abc',
+          tid: 'aad-directory-id-456',
+          nonce: RAW_NONCE,
+        },
+        protectedHeader: { alg: 'RS256' },
+      } as Awaited<ReturnType<typeof mockJwtVerify>>)
+      // Simulate concurrent request consumed the session first
+      vi.mocked(sessionRepo.consume).mockResolvedValue(false)
+
+      await expect(
+        handler.execute(new CompleteOAuthCommand('auth-code', RAW_STATE, CALLBACK_URI)),
+      ).rejects.toThrow('already been consumed')
+    })
   })
 
   describe('tenantId verification', () => {
@@ -263,7 +308,7 @@ describe('CompleteOAuthHandler', () => {
         tokenType: 'Bearer',
         expiresIn: 3600,
       })
-      vi.mocked(sessionRepo.consume).mockResolvedValue(undefined)
+      vi.mocked(sessionRepo.consume).mockResolvedValue(true)
     }
 
     it('throws MicrosoftTenantMismatchException when tid does not match provider directoryId', async () => {
