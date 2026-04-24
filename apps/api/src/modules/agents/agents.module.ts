@@ -58,6 +58,13 @@ import { setAgentInsightHandlers } from './interface/trpc/insight.router'
 import { setPreferencesService } from './interface/trpc/preferences.router'
 import { setConversationRepository } from './interface/trpc/conversation.router'
 import { setDraftRepository } from './interface/trpc/draft-audit.router'
+import { setScheduleHandlers } from './interface/trpc/schedule-ui-facade'
+// Plan 09 — Async Agents + Scheduling
+import { SCHEDULE_REPOSITORY } from './domain/repositories/schedule.repository'
+import { DrizzleScheduleRepository } from './infrastructure/repositories/drizzle-schedule.repository'
+import { ScheduleRepository } from './application/services/schedule-repository'
+import { DelegationLifecycle } from './application/services/delegation-lifecycle'
+import { KernelDelegationFacade } from '../kernel/application/facades/kernel-delegation.facade'
 // Permission narrative builder (Task 6)
 import {
   PermissionNarrativeBuilder,
@@ -333,6 +340,10 @@ class NullTenantLister implements TenantListerLike {
     DraftProposer,
     ExecuteApprovedDraftWorker,
     DraftExpirySweeper,
+    // ── Plan 09 — Async Agents + Scheduling ───────────────────────────────────
+    { provide: SCHEDULE_REPOSITORY, useClass: DrizzleScheduleRepository },
+    ScheduleRepository,
+    DelegationLifecycle,
     // ── Plan 06 — Streaming + SSE + Cancellation ──────────────────────────────
     ActiveTurnRegistry,
     RequestContextDiscipline,
@@ -392,6 +403,10 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly executeApprovedDraftWorker: ExecuteApprovedDraftWorker,
     private readonly draftExpirySweeper: DraftExpirySweeper,
     @Inject(DRAFT_REPOSITORY) private readonly draftRepo: IDraftRepository,
+    // Plan 09 — Async Agents + Scheduling
+    private readonly scheduleRepository: ScheduleRepository,
+    private readonly delegationLifecycle: DelegationLifecycle,
+    private readonly kernelDelegationFacade: KernelDelegationFacade,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -407,6 +422,11 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     setPreferencesService(this.l3PreferenceService)
     setConversationRepository(this.conversationRepo)
     setDraftRepository(this.draftRepo)
+    setScheduleHandlers({
+      scheduleRepository: this.scheduleRepository,
+      delegationLifecycle: this.delegationLifecycle,
+      kernelDelegationFacade: this.kernelDelegationFacade,
+    })
 
     // Step 1: Load agent tools from the assembled tRPC router.
     // TrpcModule.onModuleInit() must have run before AgentsModule.onModuleInit()
