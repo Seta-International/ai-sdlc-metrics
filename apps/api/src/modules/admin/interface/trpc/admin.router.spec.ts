@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { publicProcedure } from '../../../../common/trpc/trpc-init'
+import { createProtectedProcedures } from '../../../../common/trpc/create-protected-procedures'
 import { AdminRouterService } from './admin-router.service'
 import { createAdminRouter } from './admin.router'
 import { GetTenantTimezoneQuery } from '../../application/queries/get-tenant-timezone.query'
@@ -8,6 +9,7 @@ import { ListPlatformTenantsQuery } from '../../application/queries/list-platfor
 import { UpdateTargetTenantStatusCommand } from '../../application/commands/update-target-tenant-status.command'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import type { KernelPermissionFacade } from '../../../kernel/application/facades/kernel-permission.facade'
+import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 
 const TENANT_ID = '01900000-0000-7fff-8000-000000009001'
 const ACTOR_ID = '01900000-0000-7fff-8000-000000009002'
@@ -141,6 +143,55 @@ describe('adminRouter — platform procedures (unit)', () => {
       await expect(
         caller.platform.updateTenantStatus({ tenantId: 'not-a-uuid', status: 'active' }),
       ).rejects.toBeDefined()
+      expect(commandBus.execute).not.toHaveBeenCalled()
+    })
+  })
+})
+
+describe('adminRouter — tenant_admin forbidden from platform procedures', () => {
+  let commandBus: { execute: ReturnType<typeof vi.fn> }
+  let queryBus: { execute: ReturnType<typeof vi.fn> }
+  let kernelFacade: { canDo: ReturnType<typeof vi.fn> }
+  let auditFacade: { recordEvent: ReturnType<typeof vi.fn> }
+  let router: ReturnType<typeof createAdminRouter>
+
+  beforeEach(() => {
+    commandBus = { execute: vi.fn() }
+    queryBus = { execute: vi.fn() }
+    // tenant_admin has no platform permissions: canDo always returns false
+    kernelFacade = { canDo: vi.fn().mockResolvedValue(false) }
+    auditFacade = { recordEvent: vi.fn().mockResolvedValue(undefined) }
+    const svc = new AdminRouterService(
+      commandBus as never,
+      queryBus as never,
+      {} as KernelQueryFacade,
+      {} as KernelPermissionFacade,
+    )
+    svc.onModuleInit()
+    const { permissionProtectedProcedure } = createProtectedProcedures(
+      publicProcedure,
+      kernelFacade as unknown as KernelQueryFacade,
+      auditFacade as unknown as KernelAuditFacade,
+    )
+    router = createAdminRouter(permissionProtectedProcedure)
+  })
+
+  describe('platform.listTenants', () => {
+    it('throws FORBIDDEN when caller lacks ADMIN_PLATFORM_READ', async () => {
+      const caller = router.createCaller(makeCtx())
+      await expect(caller.platform.listTenants({})).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+      })
+      expect(queryBus.execute).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('platform.updateTenantStatus', () => {
+    it('throws FORBIDDEN when caller lacks ADMIN_PLATFORM_MANAGE', async () => {
+      const caller = router.createCaller(makeCtx())
+      await expect(
+        caller.platform.updateTenantStatus({ tenantId: TARGET_TENANT_ID, status: 'suspended' }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' })
       expect(commandBus.execute).not.toHaveBeenCalled()
     })
   })

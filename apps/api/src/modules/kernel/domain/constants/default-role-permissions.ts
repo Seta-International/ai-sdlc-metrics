@@ -42,11 +42,33 @@ const TENANT_ADMIN_LOCKED_KEYS: readonly PermissionKey[] = [
 const TENANT_ADMIN_LOCKED_SET = new Set<PermissionKey>(TENANT_ADMIN_LOCKED_KEYS)
 
 /**
- * tenant_admin and platform_admin receive every key in the registry.
- * Adding a new permission to PERMISSIONS automatically grants it to admins —
+ * Platform-only permission keys — never granted to tenant_admin.
+ * These allow cross-tenant operations reserved for SETA operators only.
+ */
+const PLATFORM_ONLY_KEYS: ReadonlySet<PermissionKey> = new Set<PermissionKey>([
+  PERMISSIONS.ADMIN_PLATFORM_READ,
+  PERMISSIONS.ADMIN_PLATFORM_MANAGE,
+  PERMISSIONS.ADMIN_TENANT_SWITCH,
+])
+
+/**
+ * platform_admin receives every key in the registry (SETA operator access).
+ * Adding a new permission to PERMISSIONS automatically grants it to platform_admin —
  * no manual sync, no missing-permission denials when shipping a new route.
  */
-const ALL_AS_ADMIN_ENTRIES: DefaultPermissionEntry[] = ALL_PERMISSION_KEYS.map((key) => ({
+const ALL_AS_PLATFORM_ADMIN_ENTRIES: DefaultPermissionEntry[] = ALL_PERMISSION_KEYS.map((key) => ({
+  permissionKey: key,
+  isLocked: TENANT_ADMIN_LOCKED_SET.has(key),
+}))
+
+/**
+ * tenant_admin receives every key except platform-only keys.
+ * Platform-only keys (admin:platform:*, admin:tenant:switch) are reserved for
+ * SETA operators (platform_admin) and must never be granted to tenant admins.
+ */
+const TENANT_ADMIN_ENTRIES: DefaultPermissionEntry[] = ALL_PERMISSION_KEYS.filter(
+  (key) => !PLATFORM_ONLY_KEYS.has(key),
+).map((key) => ({
   permissionKey: key,
   isLocked: TENANT_ADMIN_LOCKED_SET.has(key),
 }))
@@ -74,7 +96,7 @@ export const DEFAULT_ROLE_PERMISSIONS: DefaultRolePermissionMap = {
     { permissionKey: PERMISSIONS.HIRING_CANDIDATE_READ, isLocked: false },
   ],
 
-  tenant_admin: ALL_AS_ADMIN_ENTRIES,
+  tenant_admin: TENANT_ADMIN_ENTRIES,
 
   recruiter: [
     ...EMPLOYEE_LOCKED,
@@ -96,7 +118,7 @@ export const DEFAULT_ROLE_PERMISSIONS: DefaultRolePermissionMap = {
     { permissionKey: PERMISSIONS.PROJECTS_STAFFING_READ, isLocked: false },
   ],
 
-  platform_admin: ALL_AS_ADMIN_ENTRIES,
+  platform_admin: ALL_AS_PLATFORM_ADMIN_ENTRIES,
 
   executive: [
     ...EMPLOYEE_LOCKED,
