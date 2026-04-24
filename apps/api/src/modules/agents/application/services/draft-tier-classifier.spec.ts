@@ -79,7 +79,6 @@ describe('DraftTierClassifier', () => {
 
       const result = classifier.classify({
         tool,
-        args: {},
         turnState: buildTurnState(false),
       })
 
@@ -92,7 +91,6 @@ describe('DraftTierClassifier', () => {
 
       const result = classifier.classify({
         tool,
-        args: {},
         turnState: buildTurnState(true),
       })
 
@@ -105,7 +103,6 @@ describe('DraftTierClassifier', () => {
 
       const result = classifier.classify({
         tool,
-        args: {},
         turnState: buildTurnState(true),
       })
 
@@ -123,7 +120,6 @@ describe('DraftTierClassifier', () => {
 
       const result = classifier.classify({
         tool,
-        args: {},
         turnState: buildTurnState(false),
         tenantPolicy: policy,
       })
@@ -153,7 +149,6 @@ describe('DraftTierClassifier', () => {
 
       const result = classifier.classify({
         tool,
-        args: {},
         turnState: buildTurnState(false),
         tenantPolicy: policy,
       })
@@ -175,7 +170,6 @@ describe('DraftTierClassifier', () => {
 
       const result = classifier.classify({
         tool,
-        args: {},
         turnState: buildTurnState(true),
         tenantPolicy: policy,
       })
@@ -189,7 +183,6 @@ describe('DraftTierClassifier', () => {
 
       const result = classifier.classify({
         tool,
-        args: {},
         turnState: buildTurnState(false),
       })
 
@@ -210,7 +203,6 @@ describe('DraftTierClassifier', () => {
 
       const result = classifier.classify({
         tool,
-        args: {},
         turnState: buildTurnState(false),
       })
 
@@ -231,7 +223,6 @@ describe('DraftTierClassifier', () => {
 
       const result = classifier.classify({
         tool,
-        args: {},
         turnState: buildTurnState(true),
       })
 

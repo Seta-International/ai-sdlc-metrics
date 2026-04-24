@@ -18,7 +18,6 @@ export class DraftTierClassifier {
    */
   classify(opts: {
     tool: AgentToolDescriptor
-    args: unknown
     turnState: TurnState
     tenantPolicy?: TenantApprovalPolicy
   }): { tier: DraftTier; reason: string } {
