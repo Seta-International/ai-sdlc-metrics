@@ -35,7 +35,7 @@ export class OAuthSessionExpiredException extends DomainException {
   }
 }
 
-export class OAuthSessionConsumedExcepetion extends DomainException {
+export class OAuthSessionConsumedException extends DomainException {
   readonly code = 'OAUTH_SESSION_ALREADY_CONSUMED'
   constructor() {
     super('OAuth authorization session has already been consumed')
@@ -115,7 +115,7 @@ export class CompleteOAuthHandler implements ICommandHandler<
       throw new OAuthSessionExpiredException()
     }
     if (session.isConsumed()) {
-      throw new OAuthSessionConsumedExcepetion()
+      throw new OAuthSessionConsumedException()
     }
 
     // 3. Verify tenant is still active — caller MUST verify tenantId from session (cross-tenant guard)
@@ -186,11 +186,15 @@ export class CompleteOAuthHandler implements ICommandHandler<
 
     // 9. Verify Microsoft tid matches provider directoryId
     const tid = idTokenPayload.tid
-    if (tid && provider.directoryId && tid !== provider.directoryId) {
+    if (!tid || tid !== provider.directoryId) {
       throw new MicrosoftTenantMismatchException()
     }
 
-    // 10. Resolve Future user identity
+    // 10. Consume the session (mark as used) — must happen before any post-validation lookups
+    // to prevent replay if subsequent steps throw
+    await this.sessionRepo.consume(session.id, session.tenantId)
+
+    // 11. Resolve Future user identity
     const ssoSubject = (idTokenPayload.oid ?? idTokenPayload.sub)!
     const userIdentity = await this.kernelFacade.getUserIdentityBySsoSubject(
       ssoSubject,
@@ -200,11 +204,8 @@ export class CompleteOAuthHandler implements ICommandHandler<
       throw new UserIdentityNotFoundException(ssoSubject)
     }
 
-    // 11. Load actor for display name
+    // 12. Load actor for display name
     const actor = await this.kernelFacade.getActor(userIdentity.actorId, session.tenantId)
-
-    // 12. Consume the session (mark as used)
-    await this.sessionRepo.consume(session.id, session.tenantId)
 
     // 13. Sign Future session JWT
     const sessionToken = await this.jwtService.sign({

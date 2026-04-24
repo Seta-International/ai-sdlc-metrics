@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createHash } from 'node:crypto'
 import { CompleteOAuthCommand } from './complete-oauth.command'
-import { CompleteOAuthHandler } from './complete-oauth.handler'
+import { CompleteOAuthHandler, MicrosoftTenantMismatchException } from './complete-oauth.handler'
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
 import type { IOAuthAuthorizationSessionRepository } from '../../domain/repositories/oauth-authorization-session.repository'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
@@ -10,6 +10,15 @@ import type { IOAuthTokenExchanger } from '../../domain/ports/oauth-token-exchan
 import type { JwtService } from '../../../../common/auth/jwt.service'
 import { OAuthAuthorizationSessionEntity } from '../../domain/entities/oauth-authorization-session.entity'
 import type { IdentityProviderEntity } from '../../domain/entities/identity-provider.entity'
+
+// Mock jose so tests can control the jwtVerify return payload without a real signed JWT
+vi.mock('jose', () => ({
+  createRemoteJWKSet: vi.fn(() => ({})),
+  jwtVerify: vi.fn(),
+}))
+
+// Typed reference to the mocked jwtVerify so individual tests can override the resolved payload
+import { jwtVerify as mockJwtVerify } from 'jose'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const PROVIDER_ID = '01900000-0000-7000-8000-000000000010'
@@ -238,6 +247,57 @@ describe('CompleteOAuthHandler', () => {
       await expect(
         handler.execute(new CompleteOAuthCommand('code', RAW_STATE, CALLBACK_URI)),
       ).rejects.toThrow()
+    })
+  })
+
+  describe('Microsoft tid validation', () => {
+    function setupUpToTokenExchange() {
+      const session = makeSession()
+      vi.mocked(sessionRepo.findByStateHash).mockResolvedValue(session)
+      vi.mocked(kernelFacade.getTenant).mockResolvedValue(activeTenant)
+      vi.mocked(providerRepo.findById).mockResolvedValue(microsoftProvider)
+      vi.mocked(secretsStore.getSecret).mockResolvedValue('client-secret-value')
+      vi.mocked(tokenExchanger.exchange).mockResolvedValue({
+        idToken: FAKE_ID_TOKEN,
+        accessToken: FAKE_ACCESS_TOKEN,
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      })
+      vi.mocked(sessionRepo.consume).mockResolvedValue(undefined)
+    }
+
+    it('throws MicrosoftTenantMismatchException when tid does not match provider directoryId', async () => {
+      setupUpToTokenExchange()
+      vi.mocked(mockJwtVerify).mockResolvedValue({
+        payload: {
+          sub: 'aad-sub-abc',
+          oid: 'aad-oid-abc',
+          tid: 'wrong-tenant-id',
+          nonce: RAW_NONCE,
+        },
+        protectedHeader: { alg: 'RS256' },
+      } as Awaited<ReturnType<typeof mockJwtVerify>>)
+
+      await expect(
+        handler.execute(new CompleteOAuthCommand('auth-code', RAW_STATE, CALLBACK_URI)),
+      ).rejects.toThrow(MicrosoftTenantMismatchException)
+    })
+
+    it('throws MicrosoftTenantMismatchException when tid is absent from the ID token', async () => {
+      setupUpToTokenExchange()
+      vi.mocked(mockJwtVerify).mockResolvedValue({
+        payload: {
+          sub: 'aad-sub-abc',
+          oid: 'aad-oid-abc',
+          // tid intentionally omitted
+          nonce: RAW_NONCE,
+        },
+        protectedHeader: { alg: 'RS256' },
+      } as Awaited<ReturnType<typeof mockJwtVerify>>)
+
+      await expect(
+        handler.execute(new CompleteOAuthCommand('auth-code', RAW_STATE, CALLBACK_URI)),
+      ).rejects.toThrow(MicrosoftTenantMismatchException)
     })
   })
 
