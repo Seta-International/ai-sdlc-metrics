@@ -91,6 +91,9 @@ export const PERMISSIONS = {
   AGENT_PREFERENCE_WRITE: 'agent:preference:write',
   AGENT_CONVERSATION_READ: 'agent:conversation:read',
   AGENT_CONVERSATION_ARCHIVE: 'agent:conversation:archive',
+
+  // ── agent drafts (Plan 08 — compliance audit surface) ─────────────────
+  AGENT_DRAFT_AUDIT_READ: 'agent:draft:audit:read',
 } as const
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

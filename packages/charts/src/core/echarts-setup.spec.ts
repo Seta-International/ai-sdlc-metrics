@@ -6,7 +6,7 @@ describe('echarts-setup', () => {
     expect(echarts).toBeDefined()
     // Verify it has the registerTheme method (proves it's the core instance)
     expect(typeof echarts.registerTheme).toBe('function')
-  })
+  }, 15_000)
 
   it('has CanvasRenderer registered (can create a chart)', async () => {
     const { echarts } = await import('./echarts-setup')

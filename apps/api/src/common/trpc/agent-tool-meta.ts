@@ -32,6 +32,16 @@ export interface AgentToolMeta {
   /** Optional, default 72h. Per-tool override for draft expiry. */
   readonly approvalTtl?: string
   /**
+   * Optional. 'always' forces the draft into high_risk_approval_required
+   * regardless of taint or tenant policy. Used for unconditionally sensitive actions.
+   */
+  readonly approvalRequired?: 'always'
+  /**
+   * Optional. Base approval tier for this tool when no taint or tenant-policy bump applies.
+   * Defaults to 'low_risk_auto' when absent.
+   */
+  readonly defaultTier?: 'low_risk_auto' | 'high_risk_approval_required'
+  /**
    * Required on aggregate-returning tools.
    * Author-time k-anonymity declaration.
    */

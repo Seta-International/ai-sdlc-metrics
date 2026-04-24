@@ -61,6 +61,9 @@ import {
   recordCacheLookup,
   recordL1Invalidation,
 } from '../../infrastructure/observability/gateway-metrics'
+import { FlowPolicyResolver, type EffectivePolicy } from './flow-policy-resolver'
+import { DraftProposer } from './draft-proposer'
+import type { DraftProposalResult } from './draft-types'
 
 // ─── Sanitization ─────────────────────────────────────────────────────────────
 
@@ -217,6 +220,8 @@ export class ToolGateway {
     // TrpcCallerImpl which implements it. This avoids needing a DI injection token.
     private readonly caller: TrpcCallerImpl,
     private readonly auditFacade: KernelAuditFacade,
+    private readonly flowPolicyResolver: FlowPolicyResolver,
+    private readonly draftProposer: DraftProposer,
   ) {}
 
   // ─── Public entrypoint ──────────────────────────────────────────────────────
@@ -279,6 +284,8 @@ export class ToolGateway {
       abortSignal,
       turnState,
       mode,
+      intentSlug,
+      flowId,
     } = input
 
     const { tenantId } = requestContext
@@ -408,6 +415,14 @@ export class ToolGateway {
     }
 
     const { descriptor } = resolveOutcome
+
+    // Plan 08 §5: Flow-policy resolution — inserted between Resolve and Ceiling pre-check.
+    // Only run for mutation tools; queries have no approval-freshness semantics.
+    // Result is used later in the mutation success path to pass effective TTL to DraftProposer.
+    let effectivePolicy: EffectivePolicy | undefined
+    if (descriptor.procedure === 'mutation') {
+      effectivePolicy = this.flowPolicyResolver.resolve(intentSlug ?? '', descriptor.meta)
+    }
 
     // Step 3: L1 cache lookup
     // Protocol: a caller passing `undefined` (no arg) is treated as `null` for hashing
@@ -813,7 +828,36 @@ export class ToolGateway {
 
     recordToolCall(tenantId, descriptor.name, 'success')
 
-    return ok(wrappedResult, false)
+    // Plan 08 §5: DraftProposer hookup — called on mutation tool success.
+    // Resilience contract: a DraftProposer failure is non-fatal — the tool call
+    // already succeeded and the audit row is written. Log the error and return
+    // without a draft rather than surfacing an infra_error to the caller.
+    let draft: DraftProposalResult | undefined
+    if (descriptor.procedure === 'mutation') {
+      try {
+        draft = await this.draftProposer.propose({
+          toolDescriptor: descriptor,
+          toolName: descriptor.name,
+          args,
+          turnState,
+          tenantId,
+          traceId: requestContext.traceId,
+          flowId: flowId ?? '',
+          initiatorUserId: requestContext.userId,
+          approvalTtlHours: effectivePolicy?.approvalTtlHours,
+          approvalFreshness: effectivePolicy?.approvalFreshness,
+          summary: `Draft action: ${descriptor.name}`,
+        })
+      } catch (draftErr: unknown) {
+        this.logger.error(
+          `ToolGateway: DraftProposer.propose() failed for tool="${descriptor.name}" — ` +
+            `draft not created but tool call succeeded.`,
+          draftErr instanceof Error ? draftErr.stack : String(draftErr),
+        )
+      }
+    }
+
+    return ok(wrappedResult, false, draft)
   }
 
   // ─── Tripwire handler (invoke failures) ─────────────────────────────────────

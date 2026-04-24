@@ -23,6 +23,7 @@ import { PgBossService, JOB_NOTIFICATIONS_SEND_EMAIL } from '../../common/jobs/p
 import { PeopleModule } from '../people/people.module'
 import { AdminModule } from '../admin/admin.module'
 import { NotificationsRouterService } from './interface/trpc/notifications-router.service'
+import { NotificationsWriteFacade } from './application/facades/notifications-write.facade'
 
 @Module({
   imports: [CqrsModule, PeopleModule, AdminModule],
@@ -42,8 +43,9 @@ import { NotificationsRouterService } from './interface/trpc/notifications-route
     SendNotificationEmailWorker,
     { provide: NOTIFICATION_REPOSITORY, useClass: DrizzleNotificationRepository },
     { provide: NOTIFICATION_PUBLISHER, useClass: RedisNotificationPublisher },
+    NotificationsWriteFacade,
   ],
-  exports: [NotificationsQueryFacade],
+  exports: [NotificationsQueryFacade, NotificationsWriteFacade],
   controllers: [NotificationSseController],
 })
 export class NotificationsModule implements OnApplicationBootstrap {

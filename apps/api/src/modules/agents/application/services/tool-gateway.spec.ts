@@ -56,6 +56,10 @@ ctxMgr.enable()
 context.setGlobalContextManager(ctxMgr)
 import type { ToolGatewayInvokeInput, TurnState, RequestContext } from './tool-gateway-contracts'
 import type { AgentToolDescriptor, AgentToolMeta } from '../../../../common/trpc/agent-tool-meta'
+import { FlowPolicyResolver } from './flow-policy-resolver'
+import type { DraftProposer } from './draft-proposer'
+import type { DraftProposalResult } from './draft-types'
+import type { IntentSlug } from './flow-id-propagation'
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -128,6 +132,53 @@ function makeCaller(
   return { caller, callFn }
 }
 
+function makeFlowPolicyResolver(): FlowPolicyResolver {
+  const resolver = new FlowPolicyResolver()
+  return resolver
+}
+
+function makeDraftProposer(result?: Partial<DraftProposalResult>): {
+  draftProposer: DraftProposer
+  proposeFn: ReturnType<typeof vi.fn>
+} {
+  const defaultResult: DraftProposalResult = {
+    draftId: 'draft-1',
+    actionId: 'draft-1',
+    tier: 'low_risk_auto',
+    requiresApproval: false,
+    summary: 'Draft action: planner.createTask',
+    provenance: {
+      triggered_by: 'user:user-1',
+      user_utterance: '',
+      drafted_at: new Date(),
+      derived_from_tainted_sources: [],
+    },
+    approvalFreshness: 'accept-stale',
+    approvalTtlHours: 72,
+    delegationId: 'del-1',
+    ...result,
+  }
+  const proposeFn = vi.fn().mockResolvedValue(defaultResult)
+  const draftProposer = { propose: proposeFn } as unknown as DraftProposer
+  return { draftProposer, proposeFn }
+}
+
+function makeGateway(
+  registry: ToolRegistry,
+  caller: TrpcCaller,
+  facade: KernelAuditFacade,
+  flowPolicyResolver?: FlowPolicyResolver,
+  draftProposer?: DraftProposer,
+): ToolGateway {
+  return new ToolGateway(
+    registry,
+    caller,
+    facade,
+    flowPolicyResolver ?? makeFlowPolicyResolver(),
+    draftProposer ?? makeDraftProposer().draftProposer,
+  )
+}
+
 function makeInput(overrides?: Partial<ToolGatewayInvokeInput>): ToolGatewayInvokeInput {
   return {
     toolName: 'planner.task.getBoard',
@@ -159,7 +210,7 @@ describe('ToolGateway', () => {
       const registry = makeRegistry(descriptor)
       const { facade, recordEvent } = makeAuditFacade()
       const { caller, callFn } = makeCaller({ tasks: [] })
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       // subAgentScope does NOT include 'planner:task:read' or any prefix of it
       const result = await gw.invoke(
@@ -181,7 +232,7 @@ describe('ToolGateway', () => {
       const registry = makeRegistry(undefined)
       const { facade, recordEvent } = makeAuditFacade()
       const { caller } = makeCaller({ tasks: [] })
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const result = await gw.invoke(makeInput({ toolName: 'unknown.tool' }))
 
@@ -201,7 +252,7 @@ describe('ToolGateway', () => {
       const { facade, recordEvent } = makeAuditFacade()
       const { caller, callFn } = makeCaller({ tasks: [{ id: '1' }] })
       const turnState = makeTurnState()
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const result = await gw.invoke(makeInput({ turnState }))
 
@@ -226,7 +277,7 @@ describe('ToolGateway', () => {
       const { facade, recordEvent } = makeAuditFacade()
       const { caller, callFn } = makeCaller({ tasks: [{ id: '1' }] })
       const turnState = makeTurnState()
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
       const input = makeInput({ turnState })
 
       const first = await gw.invoke(input)
@@ -261,7 +312,7 @@ describe('ToolGateway', () => {
       const caller = { call: callFn } as unknown as TrpcCaller
 
       const turnState = makeTurnState()
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
       const input = makeInput({ turnState })
 
       // Fire two concurrent calls before the first resolves
@@ -304,7 +355,7 @@ describe('ToolGateway', () => {
         () => new TRPCError({ code: 'FORBIDDEN', message: 'No access' }),
       )
       const turnState = makeTurnState()
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const result = await gw.invoke(makeInput({ turnState }))
 
@@ -332,7 +383,7 @@ describe('ToolGateway', () => {
         () => new TRPCError({ code: 'FORBIDDEN', message: 'No access' }),
       )
       const turnState = makeTurnState()
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       await gw.invoke(makeInput({ turnState }))
 
@@ -350,7 +401,7 @@ describe('ToolGateway', () => {
         () => new TRPCError({ code: 'FORBIDDEN', message: 'No access' }),
       )
       const turnState = makeTurnState()
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
       const input = makeInput({ turnState })
 
       // First call — sets breaker
@@ -387,7 +438,7 @@ describe('ToolGateway', () => {
       const turnState = makeTurnState({
         toolCeilingRemaining: new Map([['planner.task.getBoard', { bytes: 0 }]]),
       })
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const result = await gw.invoke(makeInput({ turnState }))
 
@@ -412,7 +463,7 @@ describe('ToolGateway', () => {
         toolCeilingRemaining: new Map([['planner.task.getBoard', { bytes: 0 }]]),
         retryCount: new Map([['planner.task.getBoard:ceiling', 1]]),
       })
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const result = await gw.invoke(makeInput({ turnState }))
 
@@ -436,7 +487,7 @@ describe('ToolGateway', () => {
           ['planner.task.getBoard', { ceilingBreached: true as const, brokenAt: Date.now() }],
         ]),
       })
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const result = await gw.invoke(makeInput({ turnState }))
 
@@ -463,7 +514,7 @@ describe('ToolGateway', () => {
       const { caller, callFn } = makeCaller({ ok: true })
       const abortController = new AbortController()
       abortController.abort('user cancelled')
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const result = await gw.invoke(
         makeInput({
@@ -495,7 +546,7 @@ describe('ToolGateway', () => {
         undefined,
         () => new TRPCError({ code: 'CONFLICT', message: rawMsg }),
       )
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const result = await gw.invoke(makeInput())
 
@@ -536,7 +587,7 @@ describe('ToolGateway', () => {
         .mockRejectedValueOnce(new Error('read ECONNRESET'))
         .mockResolvedValueOnce({ tasks: ['retry-success'] })
       const caller = { call: callFn } as unknown as TrpcCaller
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const invokePromise = gw.invoke(makeInput())
       // Advance timers to let the retry sleep pass
@@ -561,7 +612,7 @@ describe('ToolGateway', () => {
 
       const callFn = vi.fn().mockRejectedValue(new Error('read ECONNRESET'))
       const caller = { call: callFn } as unknown as TrpcCaller
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const invokePromise = gw.invoke(makeInput())
       await vi.runAllTimersAsync()
@@ -584,7 +635,7 @@ describe('ToolGateway', () => {
       const { facade } = makeAuditFacade()
       const callFn = vi.fn().mockResolvedValue({ tasks: [] })
       const caller = { call: callFn } as unknown as TrpcCaller
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const args = { planId: 'plan-xyz' }
       await gw.invoke(makeInput({ args }))
@@ -617,7 +668,7 @@ describe('ToolGateway', () => {
         toolCeilingRemaining: new Map([['planner.task.getBoard', { wallclockMs: 0 }]]),
         retryCount: new Map([['planner.task.getBoard:ceiling', 1]]),
       })
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       // Second ceiling breach — should trip the breaker with wallclock variant
       const secondResult = await gw.invoke(makeInput({ turnState }))
@@ -655,7 +706,7 @@ describe('ToolGateway', () => {
           ],
         ]),
       })
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const result = await gw.invoke(makeInput({ turnState }))
 
@@ -690,7 +741,7 @@ describe('ToolGateway', () => {
           ],
         ]),
       })
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const recordTripwireSpy = vi.spyOn(gatewayMetrics, 'recordTripwire')
       await gw.invoke(makeInput({ turnState }))
@@ -717,7 +768,7 @@ describe('ToolGateway', () => {
       const registry = makeRegistry(undefined) // tool not found
       const { facade } = makeAuditFacade()
       const { caller } = makeCaller({ tasks: [] })
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const recordTripwireSpy = vi.spyOn(gatewayMetrics, 'recordTripwire')
       const result = await gw.invoke(makeInput({ toolName: 'nonexistent.tool' }))
@@ -742,7 +793,7 @@ describe('ToolGateway', () => {
       const registry = makeRegistry(descriptor)
       const { facade } = makeAuditFacade()
       const { caller } = makeCaller({ tasks: [] })
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const recordTripwireSpy = vi.spyOn(gatewayMetrics, 'recordTripwire')
       const result = await gw.invoke(
@@ -779,7 +830,7 @@ describe('ToolGateway', () => {
       const caller = { call: callFn } as unknown as TrpcCaller
 
       const turnState = makeTurnState()
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
       const input = makeInput({ turnState })
 
       // Fire two concurrent calls
@@ -822,7 +873,7 @@ describe('ToolGateway', () => {
       const registry = makeRegistry(descriptor)
       const { facade } = makeAuditFacade()
       const { caller } = makeCaller({ tasks: [{ id: '1' }] })
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       await gw.invoke(makeInput())
 
@@ -856,7 +907,7 @@ describe('ToolGateway', () => {
         undefined,
         () => new TRPCError({ code: 'FORBIDDEN', message: 'No access' }),
       )
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       await gw.invoke(makeInput())
 
@@ -882,7 +933,7 @@ describe('ToolGateway', () => {
           ['planner.task.getBoard', { permissionDenied: true as const, brokenAt: Date.now() }],
         ]),
       })
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const result = await gw.invoke(makeInput({ turnState }))
 
@@ -910,7 +961,7 @@ describe('ToolGateway', () => {
           ['planner.task.getBoard', { ceilingBreached: true as const, brokenAt: Date.now() }],
         ]),
       })
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const result = await gw.invoke(makeInput({ turnState }))
 
@@ -950,7 +1001,7 @@ describe('ToolGateway', () => {
       const { caller } = makeCaller({ updated: true })
       const { facade } = makeAuditFacade()
       const registry = makeRegistry(writeDescriptor)
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const result = await gw.invoke(
         makeInput({
@@ -986,7 +1037,7 @@ describe('ToolGateway', () => {
       const { caller } = makeCaller({ updated: true })
       const { facade } = makeAuditFacade()
       const registry = makeRegistry(writeDescriptor)
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       await gw.invoke(
         makeInput({
@@ -1013,7 +1064,7 @@ describe('ToolGateway', () => {
       const { caller } = makeCaller({ updated: true })
       const { facade } = makeAuditFacade()
       const registry = makeRegistry(writeDescriptor)
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const recordL1Spy = vi.spyOn(gatewayMetrics, 'recordL1Invalidation')
 
@@ -1046,7 +1097,7 @@ describe('ToolGateway', () => {
       const { caller } = makeCaller({ id: 'emp-1', name: 'Alice' })
       const { facade } = makeAuditFacade()
       const registry = makeRegistry(readDescriptor)
-      const gw = new ToolGateway(registry, caller, facade)
+      const gw = makeGateway(registry, caller, facade)
 
       const recordL1Spy = vi.spyOn(gatewayMetrics, 'recordL1Invalidation')
 
@@ -1067,6 +1118,281 @@ describe('ToolGateway', () => {
 
       recordL1Spy.mockRestore()
     })
+  })
+})
+
+// ─── Plan 08 T6: FlowPolicyResolver integration ───────────────────────────────
+
+describe('FlowPolicyResolver integration (Plan 08 T6)', () => {
+  it('resolver.resolve() is called during a mutation tool invocation with the intentSlug from input', async () => {
+    const descriptor = makeDescriptor({
+      name: 'people.updateEmployee',
+      procedure: 'mutation',
+      permission: 'people:employee:write',
+      meta: { ...BASE_META, approvalFreshness: 'revalidate' },
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade } = makeAuditFacade()
+    const { caller } = makeCaller({ updated: true })
+
+    const flowPolicyResolver = makeFlowPolicyResolver()
+    const resolveSpy = vi.spyOn(flowPolicyResolver, 'resolve')
+
+    const { draftProposer } = makeDraftProposer()
+    const gw = makeGateway(registry, caller, facade, flowPolicyResolver, draftProposer)
+
+    await gw.invoke(
+      makeInput({
+        toolName: 'people.updateEmployee',
+        subAgentScope: ['people:employee'],
+        intentSlug: 'update-employee' as IntentSlug,
+      }),
+    )
+
+    expect(resolveSpy).toHaveBeenCalledTimes(1)
+    expect(resolveSpy).toHaveBeenCalledWith('update-employee', descriptor.meta)
+  })
+
+  it('resolver.resolve() is called even with no intentSlug (empty string fallback)', async () => {
+    const descriptor = makeDescriptor({
+      name: 'people.updateEmployee',
+      procedure: 'mutation',
+      permission: 'people:employee:write',
+      meta: { ...BASE_META, approvalFreshness: 'revalidate' },
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade } = makeAuditFacade()
+    const { caller } = makeCaller({ updated: true })
+
+    const flowPolicyResolver = makeFlowPolicyResolver()
+    const resolveSpy = vi.spyOn(flowPolicyResolver, 'resolve')
+
+    const { draftProposer } = makeDraftProposer()
+    const gw = makeGateway(registry, caller, facade, flowPolicyResolver, draftProposer)
+
+    await gw.invoke(
+      makeInput({
+        toolName: 'people.updateEmployee',
+        subAgentScope: ['people:employee'],
+        // no intentSlug — must still call resolve with ''
+      }),
+    )
+
+    expect(resolveSpy).toHaveBeenCalledTimes(1)
+    expect(resolveSpy).toHaveBeenCalledWith('', descriptor.meta)
+  })
+
+  it('resolver.resolve() is NOT called for query tools (only mutations)', async () => {
+    const descriptor = makeDescriptor({
+      name: 'planner.task.getBoard',
+      procedure: 'query',
+      permission: 'planner:task:read',
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade } = makeAuditFacade()
+    const { caller } = makeCaller({ tasks: [] })
+
+    const flowPolicyResolver = makeFlowPolicyResolver()
+    const resolveSpy = vi.spyOn(flowPolicyResolver, 'resolve')
+
+    const { draftProposer } = makeDraftProposer()
+    const gw = makeGateway(registry, caller, facade, flowPolicyResolver, draftProposer)
+
+    await gw.invoke(makeInput())
+
+    expect(resolveSpy).not.toHaveBeenCalled()
+  })
+})
+
+// ─── Plan 08 T6: DraftProposer integration ────────────────────────────────────
+
+describe('DraftProposer integration (Plan 08 T6)', () => {
+  it('DraftProposer.propose() is called when a mutation tool succeeds', async () => {
+    const descriptor = makeDescriptor({
+      name: 'people.updateEmployee',
+      procedure: 'mutation',
+      permission: 'people:employee:write',
+      meta: { ...BASE_META, approvalFreshness: 'revalidate' },
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade } = makeAuditFacade()
+    const { caller } = makeCaller({ updated: true })
+
+    const { draftProposer, proposeFn } = makeDraftProposer()
+    const gw = makeGateway(registry, caller, facade, undefined, draftProposer)
+
+    const result = await gw.invoke(
+      makeInput({
+        toolName: 'people.updateEmployee',
+        subAgentScope: ['people:employee'],
+        requestContext: { ...REQUEST_CONTEXT, userId: 'user-42' },
+      }),
+    )
+
+    expect(proposeFn).toHaveBeenCalledTimes(1)
+    expect(proposeFn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toolName: 'people.updateEmployee',
+        tenantId: 'tenant-1',
+        initiatorUserId: 'user-42',
+      }),
+    )
+    expect(result.kind).toBe('ok')
+    if (result.kind === 'ok') {
+      expect(result.draft).toBeDefined()
+      expect(result.draft?.draftId).toBe('draft-1')
+    }
+  })
+
+  it('DraftProposer.propose() is NOT called for query tools', async () => {
+    const descriptor = makeDescriptor({
+      name: 'planner.task.getBoard',
+      procedure: 'query',
+      permission: 'planner:task:read',
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade } = makeAuditFacade()
+    const { caller } = makeCaller({ tasks: [] })
+
+    const { draftProposer, proposeFn } = makeDraftProposer()
+    const gw = makeGateway(registry, caller, facade, undefined, draftProposer)
+
+    const result = await gw.invoke(makeInput())
+
+    expect(proposeFn).not.toHaveBeenCalled()
+    expect(result.kind).toBe('ok')
+    if (result.kind === 'ok') {
+      expect(result.draft).toBeUndefined()
+    }
+  })
+
+  it('DraftProposer.propose() is NOT called when mutation tool fails (invoke tripwire)', async () => {
+    const descriptor = makeDescriptor({
+      name: 'people.updateEmployee',
+      procedure: 'mutation',
+      permission: 'people:employee:write',
+      meta: { ...BASE_META, approvalFreshness: 'revalidate' },
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade } = makeAuditFacade()
+    const { caller } = makeCaller(
+      undefined,
+      () => new TRPCError({ code: 'FORBIDDEN', message: 'No access' }),
+    )
+
+    const { draftProposer, proposeFn } = makeDraftProposer()
+    const gw = makeGateway(registry, caller, facade, undefined, draftProposer)
+
+    const result = await gw.invoke(
+      makeInput({
+        toolName: 'people.updateEmployee',
+        subAgentScope: ['people:employee'],
+      }),
+    )
+
+    expect(proposeFn).not.toHaveBeenCalled()
+    expect(result.kind).toBe('tripwire')
+  })
+
+  it('DraftProposer.propose() is NOT called on query cache-hit path (fromCache=true)', async () => {
+    const descriptor = makeDescriptor({
+      name: 'planner.getBoard',
+      procedure: 'query',
+      permission: 'planner:task:read',
+      meta: BASE_META,
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade } = makeAuditFacade()
+    const { caller } = makeCaller({ tasks: [] })
+
+    const { draftProposer, proposeFn } = makeDraftProposer()
+    const turnState = makeTurnState()
+    const gw = makeGateway(registry, caller, facade, undefined, draftProposer)
+    const input = makeInput({
+      toolName: 'planner.getBoard',
+      subAgentScope: ['planner:task'],
+      turnState,
+    })
+
+    // First call — no draft (it's a query)
+    await gw.invoke(input)
+    expect(proposeFn).not.toHaveBeenCalled()
+
+    // Second call hits cache — still no draft
+    const second = await gw.invoke(input)
+    expect(proposeFn).not.toHaveBeenCalled()
+    expect(second.kind).toBe('ok')
+    if (second.kind === 'ok') {
+      expect(second.fromCache).toBe(true)
+      expect(second.draft).toBeUndefined()
+    }
+  })
+
+  it('DraftProposer failure does not break the gateway — result still ok', async () => {
+    const descriptor = makeDescriptor({
+      name: 'people.updateEmployee',
+      procedure: 'mutation',
+      permission: 'people:employee:write',
+      meta: { ...BASE_META, approvalFreshness: 'revalidate' },
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade } = makeAuditFacade()
+    const { caller } = makeCaller({ updated: true })
+
+    const { draftProposer } = makeDraftProposer()
+    vi.spyOn(draftProposer, 'propose').mockRejectedValue(new Error('DraftSink unavailable'))
+
+    const gw = makeGateway(registry, caller, facade, undefined, draftProposer)
+
+    const result = await gw.invoke(
+      makeInput({
+        toolName: 'people.updateEmployee',
+        subAgentScope: ['people:employee'],
+      }),
+    )
+
+    // Gateway must still return ok even if DraftProposer throws
+    expect(result.kind).toBe('ok')
+    if (result.kind === 'ok') {
+      // draft may be undefined on error path — resilient behaviour
+      expect(result.draft).toBeUndefined()
+    }
+  })
+
+  it('FlowPolicyResolver effective approvalTtlHours is passed through to DraftProposer', async () => {
+    const descriptor = makeDescriptor({
+      name: 'people.updateEmployee',
+      procedure: 'mutation',
+      permission: 'people:employee:write',
+      meta: { ...BASE_META, approvalFreshness: 'revalidate', approvalTtl: '48h' },
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade } = makeAuditFacade()
+    const { caller } = makeCaller({ updated: true })
+
+    // Register a flow policy that overrides TTL to 24h (stricter than tool's 48h)
+    const flowPolicyResolver = makeFlowPolicyResolver()
+    flowPolicyResolver.registerPolicy({
+      intent_slug: 'update-employee',
+      approvalTtlHours: 24,
+    })
+
+    const { draftProposer, proposeFn } = makeDraftProposer()
+    const gw = makeGateway(registry, caller, facade, flowPolicyResolver, draftProposer)
+
+    await gw.invoke(
+      makeInput({
+        toolName: 'people.updateEmployee',
+        subAgentScope: ['people:employee'],
+        intentSlug: 'update-employee' as IntentSlug,
+      }),
+    )
+
+    expect(proposeFn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approvalTtlHours: 24, // min(24h flow, 48h tool) = 24h
+      }),
+    )
   })
 })
 

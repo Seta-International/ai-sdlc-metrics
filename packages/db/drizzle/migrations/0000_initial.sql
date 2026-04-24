@@ -60,6 +60,33 @@ CREATE TABLE "admin"."tenant_settings" (
 	CONSTRAINT "tenant_settings_tenant_id_unique" UNIQUE("tenant_id")
 );
 --> statement-breakpoint
+CREATE TABLE "agents"."agent_draft" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"trace_id" uuid NOT NULL,
+	"flow_id" uuid NOT NULL,
+	"initiator_user_id" uuid NOT NULL,
+	"on_behalf_of" uuid,
+	"via_delegation_id" uuid NOT NULL,
+	"via_schedule_id" uuid,
+	"approver_user_id" uuid,
+	"tier" text NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"tool_name" text NOT NULL,
+	"args" jsonb NOT NULL,
+	"expected_output_shape" text,
+	"permission_envelope_at_draft_time" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"approval_freshness" text NOT NULL,
+	"approval_ttl" interval DEFAULT '72 hours' NOT NULL,
+	"drafted_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"approved_at" timestamp with time zone,
+	"executed_at" timestamp with time zone,
+	"execution_outcome" text,
+	"provenance" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"taint_at_draft_time" boolean DEFAULT false NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "agents"."agent_tool_embedding" (
 	"tool_name" text NOT NULL,
 	"content_hash" text NOT NULL,
@@ -442,6 +469,17 @@ CREATE TABLE "core"."actor" (
 	"status" text DEFAULT 'invited' NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "core"."agent_delegation" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"delegator_user_id" uuid,
+	"delegate" text NOT NULL,
+	"scope" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"status" text DEFAULT 'active' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "core"."audit_event" (
@@ -1404,6 +1442,9 @@ ALTER TABLE "planner"."task_attachment" ADD CONSTRAINT "task_attachment_task_id_
 ALTER TABLE "planner"."task_checklist_item" ADD CONSTRAINT "task_checklist_item_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "planner"."task_comment" ADD CONSTRAINT "task_comment_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "planner"."task_evidence" ADD CONSTRAINT "task_evidence_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "agent_draft_tenant_status_expires_idx" ON "agents"."agent_draft" USING btree ("tenant_id","status","expires_at");--> statement-breakpoint
+CREATE INDEX "agent_draft_tenant_approver_status_idx" ON "agents"."agent_draft" USING btree ("tenant_id","approver_user_id","status");--> statement-breakpoint
+CREATE INDEX "agent_draft_trace_idx" ON "agents"."agent_draft" USING btree ("trace_id");--> statement-breakpoint
 CREATE INDEX "agent_tool_embedding_tool_name_idx" ON "agents"."agent_tool_embedding" USING btree ("tool_name");--> statement-breakpoint
 CREATE INDEX "agent_active_turn_tenant_started_idx" ON "agents"."agent_active_turn" USING btree ("tenant_id","started_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_active_turn_heartbeat_idx" ON "agents"."agent_active_turn" USING btree ("last_heartbeat_at");--> statement-breakpoint
@@ -1428,6 +1469,8 @@ CREATE UNIQUE INDEX "uq_idp_group_mapping_role_scope_global" ON "identity"."idp_
 CREATE INDEX "idx_idp_group_member_lookup" ON "identity"."idp_group_member" USING btree ("tenant_id","external_group_id");--> statement-breakpoint
 CREATE INDEX "idx_magic_link_token_hash_unused" ON "identity"."magic_link_token" USING btree ("token_hash") WHERE "identity"."magic_link_token"."used_at" IS NULL;--> statement-breakpoint
 CREATE INDEX "idx_sync_history_tenant_started" ON "identity"."sync_history" USING btree ("tenant_id","started_at");--> statement-breakpoint
+CREATE INDEX "agent_delegation_tenant_delegator_status_idx" ON "core"."agent_delegation" USING btree ("tenant_id","delegator_user_id","status");--> statement-breakpoint
+CREATE INDEX "agent_delegation_tenant_status_expires_idx" ON "core"."agent_delegation" USING btree ("tenant_id","status","expires_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_role_permission_tenant_role_perm" ON "core"."role_permission" USING btree ("tenant_id","role_key","permission_key");--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_user_identity_tenant_sso_subject" ON "core"."user_identity" USING btree ("tenant_id","sso_subject");--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_notification_preference" ON "notifications"."notification_preference" USING btree ("tenant_id","actor_id","category");--> statement-breakpoint

@@ -85,6 +85,28 @@ describe('AgentToolMeta type', () => {
     expect(forward.collectionContract?.cursorStyle).toBe('forward')
     expect(bidirectional.collectionContract?.cursorStyle).toBe('bidirectional')
   })
+
+  it('accepts approvalRequired: always', () => {
+    const meta: AgentToolMeta = {
+      whenToUse: 'Delete sensitive data',
+      whenNotToUse: 'Read operations',
+      examples: [{ input: 'permanently delete record', callArgs: {} }],
+      approvalRequired: 'always',
+    }
+
+    expect(meta.approvalRequired).toBe('always')
+  })
+
+  it('accepts defaultTier: high_risk_approval_required', () => {
+    const meta: AgentToolMeta = {
+      whenToUse: 'Bulk operations',
+      whenNotToUse: 'Single lookups',
+      examples: [{ input: 'bulk update', callArgs: {} }],
+      defaultTier: 'high_risk_approval_required',
+    }
+
+    expect(meta.defaultTier).toBe('high_risk_approval_required')
+  })
 })
 
 describe('AgentToolDescriptor type', () => {

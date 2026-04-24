@@ -57,6 +57,7 @@ import { setAgentSessionHandlers } from './interface/trpc/session.router'
 import { setAgentInsightHandlers } from './interface/trpc/insight.router'
 import { setPreferencesService } from './interface/trpc/preferences.router'
 import { setConversationRepository } from './interface/trpc/conversation.router'
+import { setDraftRepository } from './interface/trpc/draft-audit.router'
 // Permission narrative builder (Task 6)
 import {
   PermissionNarrativeBuilder,
@@ -133,11 +134,22 @@ import { RateLimiter } from './application/services/rate-limiter'
 import { QualityCanarySubscription } from './application/services/quality-canary-subscription'
 import { ApprovalInboxThrottle } from './application/services/approval-inbox-throttle'
 import { AdminBudgetOps } from './application/commands/admin-budget-ops'
+import { ApprovalExecutorDelegationMinter } from './application/services/approval-executor-delegation-minter'
+import { DraftTierClassifier } from './application/services/draft-tier-classifier'
+import { FlowPolicyResolver } from './application/services/flow-policy-resolver'
+import { DraftSink } from './application/services/draft-sink'
+import { DraftProposer } from './application/services/draft-proposer'
+import { DRAFT_REPOSITORY } from './domain/repositories/draft.repository'
+import { DrizzleDraftRepository } from './infrastructure/repositories/drizzle-draft.repository'
+import { NotificationsModule } from '../notifications/notifications.module'
+import { ExecuteApprovedDraftWorker } from './infrastructure/workers/execute-approved-draft'
+import { DraftExpirySweeper } from './infrastructure/workers/sweep-expired-drafts'
 import type { ConversationRepository } from './domain/repositories/conversation.repository'
 import type { ConversationMessageRepository } from './domain/repositories/conversation-message.repository'
 import type { L3PreferenceRepository } from './domain/repositories/l3-preference.repository'
 import type { ScratchpadRepository } from './domain/repositories/scratchpad.repository'
 import type { SemanticIndexRepository } from './domain/repositories/semantic-index.repository'
+import type { IDraftRepository } from './domain/repositories/draft.repository'
 import { PgBossService } from '../../common/jobs/pg-boss.service'
 // Module sub-agent barrels.
 //   • Adding a sub-agent to an EXISTING module: re-export it from that module's
@@ -170,6 +182,7 @@ class NullTenantLister implements TenantListerLike {
 @Module({
   imports: [
     KernelModule,
+    NotificationsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -311,6 +324,15 @@ class NullTenantLister implements TenantListerLike {
     QualityCanarySubscription,
     ApprovalInboxThrottle,
     AdminBudgetOps,
+    // ── Plan 08 — Drafts + Approval ───────────────────────────────────────────
+    { provide: DRAFT_REPOSITORY, useClass: DrizzleDraftRepository },
+    ApprovalExecutorDelegationMinter,
+    DraftTierClassifier,
+    FlowPolicyResolver,
+    DraftSink,
+    DraftProposer,
+    ExecuteApprovedDraftWorker,
+    DraftExpirySweeper,
     // ── Plan 06 — Streaming + SSE + Cancellation ──────────────────────────────
     ActiveTurnRegistry,
     RequestContextDiscipline,
@@ -367,6 +389,9 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly compositionMonitorWorker: CompositionMonitorWorker,
     private readonly leakCanaryScheduler: LeakCanaryScheduler,
     private readonly pgBossService: PgBossService,
+    private readonly executeApprovedDraftWorker: ExecuteApprovedDraftWorker,
+    private readonly draftExpirySweeper: DraftExpirySweeper,
+    @Inject(DRAFT_REPOSITORY) private readonly draftRepo: IDraftRepository,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -381,6 +406,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     })
     setPreferencesService(this.l3PreferenceService)
     setConversationRepository(this.conversationRepo)
+    setDraftRepository(this.draftRepo)
 
     // Step 1: Load agent tools from the assembled tRPC router.
     // TrpcModule.onModuleInit() must have run before AgentsModule.onModuleInit()
@@ -463,5 +489,20 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     // Step 7: Register leak canary job (Plan 07 Task 7, R-07.§8).
     // Daily 3am UTC scan for cross-tenant trace leaks — MVP stub records 'clean'.
     await this.leakCanaryScheduler.registerJob()
+
+    // Step 8: Register execute-approved-draft worker (Plan 08 T5).
+    // Processes approved drafts enqueued by DraftProposer after approval.
+    await this.pgBossService.registerWorker<Parameters<ExecuteApprovedDraftWorker['handle']>[0]>(
+      'agents.execute-approved-draft',
+      async (jobs) => {
+        for (const job of jobs) {
+          await this.executeApprovedDraftWorker.handle(job.data)
+        }
+      },
+    )
+
+    // Step 9: Register draft expiry sweeper (Plan 08 T5).
+    // Runs every 15 minutes to mark pending-expired drafts as 'expired'.
+    await this.draftExpirySweeper.registerJob(this.pgBossService)
   }
 }

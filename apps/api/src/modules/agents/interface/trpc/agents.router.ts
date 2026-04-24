@@ -4,6 +4,7 @@ import { insightRouter } from './insight.router'
 import { definitionRouter } from './definition.router'
 import { preferencesRouter } from './preferences.router'
 import { conversationRouter } from './conversation.router'
+import { draftAuditRouter } from './draft-audit.router'
 
 export const agentsRouter = router({
   session: sessionRouter,
@@ -11,4 +12,5 @@ export const agentsRouter = router({
   definition: definitionRouter,
   preferences: preferencesRouter,
   conversation: conversationRouter,
+  drafts: draftAuditRouter,
 })

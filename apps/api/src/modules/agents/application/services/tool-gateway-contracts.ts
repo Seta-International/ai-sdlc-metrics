@@ -5,6 +5,7 @@
  */
 
 import type { L1Cache } from '../../infrastructure/cache/l1-cache'
+import type { IntentSlug } from './flow-id-propagation'
 
 // ─── RequestContext ────────────────────────────────────────────────────────────
 
@@ -102,4 +103,15 @@ export interface ToolGatewayInvokeInput {
    * MVP always uses `execute`; the interface must accept both per R-01.7.
    */
   readonly mode: 'execute' | 'dry-run'
+  /**
+   * Optional. The user-intent slug for the current flow, used by FlowPolicyResolver
+   * to merge flow-level approval policy with tool-level defaults (plan 08 §5).
+   * Absent when the gateway is invoked outside a named intent flow.
+   */
+  readonly intentSlug?: IntentSlug
+  /**
+   * Optional. The flow ID for the current multi-turn flow. Passed through to
+   * DraftProposer when a mutation tool is invoked successfully.
+   */
+  readonly flowId?: string
 }
