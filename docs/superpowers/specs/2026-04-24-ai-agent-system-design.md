@@ -76,33 +76,33 @@ MVP  ──►  Beta (modules 4–13, async delegation, iterative topology)
 ```mermaid
 flowchart LR
     subgraph CLIENT["Client Zones"]
-        panel["Chat Panel\nweb-shell"]
-        inline["Inline Copilot\nmodule zones"]
+        panel["Chat Panel<br/>web-shell"]
+        inline["Inline Copilot<br/>module zones"]
     end
 
     subgraph API["apps/api — NestJS"]
-        gateway_http["HTTP Layer\nPOST /agent/turn\nPOST /agent/turn/:id/cancel"]
-        stream_gw["StreamGateway\nSSE emitter + abort coordinator"]
-        router_svc["RouterService\nIntent classification + plan"]
-        exec_engine["ExecutionEngine\nTier 0 / 1 / 2 orchestrator"]
-        tool_gw["ToolGateway\n6-step pipeline + L1 cache"]
-        memory_svc["MemoryService\nL1–L4 + L3.5 + semantic"]
-        cost_svc["CostService\nCeilings + degradation ladder"]
-        draft_svc["DraftService\nApproval inbox + delegation"]
+        gateway_http["HTTP Layer<br/>POST /agent/turn<br/>POST /agent/turn/:id/cancel"]
+        stream_gw["StreamGateway<br/>SSE emitter + abort coordinator"]
+        router_svc["RouterService<br/>Intent classification + plan"]
+        exec_engine["ExecutionEngine<br/>Tier 0 / 1 / 2 orchestrator"]
+        tool_gw["ToolGateway<br/>6-step pipeline + L1 cache"]
+        memory_svc["MemoryService<br/>L1–L4 + L3.5 + semantic"]
+        cost_svc["CostService<br/>Ceilings + degradation ladder"]
+        draft_svc["DraftService<br/>Approval inbox + delegation"]
     end
 
     subgraph INFRA["Infrastructure"]
-        pg[("PostgreSQL 16\nRLS + per-schema modules")]
-        pgvector[("pgvector\nSemantic index")]
-        pgjobs["pg-boss\nAsync jobs + heartbeats"]
-        redis["Redis\nRate-limit counters"]
+        pg[("PostgreSQL 16<br/>RLS + per-schema modules")]
+        pgvector[("pgvector<br/>Semantic index")]
+        pgjobs["pg-boss<br/>Async jobs + heartbeats"]
+        redis["Redis<br/>Rate-limit counters"]
     end
 
     subgraph EXTERNAL["External Services"]
-        llm_reason["gpt-5.4\nReason model"]
-        llm_nano["gpt-5.4-nano\nClassify + summarize"]
-        embed["text-embedding-3-small\nTool + message vectors"]
-        otel["OTel Exporter\nTrace backend (vendor-neutral)"]
+        llm_reason["gpt-5.4<br/>Reason model"]
+        llm_nano["gpt-5.4-nano<br/>Classify + summarize"]
+        embed["text-embedding-3-small<br/>Tool + message vectors"]
+        otel["OTel Exporter<br/>Trace backend (vendor-neutral)"]
     end
 
     panel --> gateway_http
@@ -394,10 +394,10 @@ Before the router LLM call, the available sub-agent set is filtered to what the 
 
 ```mermaid
 flowchart LR
-    ALL["All registered\nsub-agents"] --> MOD["Stage 1: Module toggle\nDrop sub-agents whose tools\nlie in disabled modules"]
-    MOD --> PERM["Stage 2: Role permissions\nIntersect each sub-agent's\ntool scope vs canDo rules"]
-    PERM --> EMPTY["Stage 3: Empty-scope drop\nDrop sub-agents with zero\nresolvable tools after filter"]
-    EMPTY --> ROUTER_SET["Advertised set\nto router LLM"]
+    ALL["All registered<br/>sub-agents"] --> MOD["Stage 1: Module toggle<br/>Drop sub-agents whose tools<br/>lie in disabled modules"]
+    MOD --> PERM["Stage 2: Role permissions<br/>Intersect each sub-agent's<br/>tool scope vs canDo rules"]
+    PERM --> EMPTY["Stage 3: Empty-scope drop<br/>Drop sub-agents with zero<br/>resolvable tools after filter"]
+    EMPTY --> ROUTER_SET["Advertised set<br/>to router LLM"]
 ```
 
 Each dropped sub-agent is recorded with reason (`module_toggle` or `permission`). The router never sees sub-agents the user cannot use.
@@ -414,11 +414,11 @@ When the rendered router prompt would exceed the token budget, semantic retrieva
 
 ```mermaid
 flowchart TD
-    LLM["Router LLM call\n(structured output)"] --> T0["Topology: direct\nTier 0 — single tool,\nhigh confidence"]
-    LLM --> T1["Topology: bounded\nTier 1 — phase-1 fan-out\n+ optional phase-2"]
-    LLM --> T2["Topology: iterative\nTier 2 — supervisor loop\n(Beta-gated activation)"]
+    LLM["Router LLM call<br/>(structured output)"] --> T0["Topology: direct<br/>Tier 0 — single tool,<br/>high confidence"]
+    LLM --> T1["Topology: bounded<br/>Tier 1 — phase-1 fan-out<br/>+ optional phase-2"]
+    LLM --> T2["Topology: iterative<br/>Tier 2 — supervisor loop<br/>(Beta-gated activation)"]
 
-    T0 --> CONF["Confidence floor check\n< threshold → downgrade to bounded"]
+    T0 --> CONF["Confidence floor check<br/>< threshold → downgrade to bounded"]
     CONF --> T1
 ```
 
@@ -447,20 +447,20 @@ Router → single tool call via gateway → lightweight formatter → turn.ended
 
 ```mermaid
 flowchart TD
-    PLAN["Router Plan\nbounded topology"] --> P1["Phase 1: Up to 3 sub-agents\n(parallel fan-out)"]
-    P1 --> SA1["Sub-agent A\nReAct loop\n≤5 iterations"]
-    P1 --> SA2["Sub-agent B\nReAct loop\n≤5 iterations"]
-    P1 --> SA3["Sub-agent C\nReAct loop\n≤5 iterations"]
-    SA1 --> MERGE["Phase 1 outputs merged\n(project_to_schema per phase-2 sub-agent)"]
+    PLAN["Router Plan<br/>bounded topology"] --> P1["Phase 1: Up to 3 sub-agents<br/>(parallel fan-out)"]
+    P1 --> SA1["Sub-agent A<br/>ReAct loop<br/>≤5 iterations"]
+    P1 --> SA2["Sub-agent B<br/>ReAct loop<br/>≤5 iterations"]
+    P1 --> SA3["Sub-agent C<br/>ReAct loop<br/>≤5 iterations"]
+    SA1 --> MERGE["Phase 1 outputs merged<br/>(project_to_schema per phase-2 sub-agent)"]
     SA2 --> MERGE
     SA3 --> MERGE
-    MERGE --> REPLAN{"Phase 2 inputs\nsatisfiable?"}
-    REPLAN -- yes --> P2["Phase 2: Up to 3 sub-agents\n(parallel fan-out)"]
-    REPLAN -- no --> REPLANNER["RouterReplanner\none re-plan attempt"]
+    MERGE --> REPLAN{"Phase 2 inputs<br/>satisfiable?"}
+    REPLAN -- yes --> P2["Phase 2: Up to 3 sub-agents<br/>(parallel fan-out)"]
+    REPLAN -- no --> REPLANNER["RouterReplanner<br/>one re-plan attempt"]
     REPLANNER --> P2
-    REPLANNER -- still unsatisfiable --> DISAMBIG["Disambiguation\nask user for clarification"]
-    P2 --> SYNTH["Synthesizer\n(full-reason or nano model)"]
-    SYNTH --> ANSWER["Structured answer\nshort-answer | list | table | narrative | chart"]
+    REPLANNER -- still unsatisfiable --> DISAMBIG["Disambiguation<br/>ask user for clarification"]
+    P2 --> SYNTH["Synthesizer<br/>(full-reason or nano model)"]
+    SYNTH --> ANSWER["Structured answer<br/>short-answer | list | table | narrative | chart"]
 ```
 
 #### Sub-Agent ReAct Loop
@@ -525,18 +525,18 @@ Missing required fields → build failure.
 
 ```mermaid
 flowchart LR
-    CALL["Tool call\n(toolName + args)"] --> HASH["Canonical args hash"]
+    CALL["Tool call<br/>(toolName + args)"] --> HASH["Canonical args hash"]
     HASH --> HIT{"Cache hit?"}
-    HIT -- yes --> RETURN["Return cached result\nzero cost, <2ms"]
-    HIT -- no --> INFLIGHT{"Concurrent in-flight\nfor same hash?"}
-    INFLIGHT -- yes --> SHARED["Await shared promise\nonly first charges ceiling"]
+    HIT -- yes --> RETURN["Return cached result<br/>zero cost, <2ms"]
+    HIT -- no --> INFLIGHT{"Concurrent in-flight<br/>for same hash?"}
+    INFLIGHT -- yes --> SHARED["Await shared promise<br/>only first charges ceiling"]
     INFLIGHT -- no --> INVOKE["Invoke gateway pipeline"]
     INVOKE --> WRITE["Write result to L1"]
     INVOKE --> RETURN2["Return result"]
     WRITE --> RETURN2
 
-    WRITE --> INVAL{"Write mutation?\nSame module?"}
-    INVAL -- yes --> CLEAR["Invalidate all cached reads\nfrom same module\n(not global)"]
+    WRITE --> INVAL{"Write mutation?<br/>Same module?"}
+    INVAL -- yes --> CLEAR["Invalidate all cached reads<br/>from same module<br/>(not global)"]
 ```
 
 Cache scope: per-sub-agent, per-turn. Destroyed at turn end. Cross-module invalidation is module-scoped (write to `people.*` invalidates all cached `people.*` reads in the same sub-agent, but not `time.*`).
@@ -552,18 +552,18 @@ Cache scope: per-sub-agent, per-turn. Destroyed at turn end. Cross-module invali
 ```mermaid
 flowchart TD
     subgraph TURN["Turn Scope (dies at turn end)"]
-        L1["L1 — Turn Read Cache\nPer-sub-agent, per-turn\nCanonical args hash keyed\nConcurrent in-flight dedup"]
+        L1["L1 — Turn Read Cache<br/>Per-sub-agent, per-turn<br/>Canonical args hash keyed<br/>Concurrent in-flight dedup"]
     end
 
     subgraph SESSION["Session Scope (24h idle timeout)"]
-        L2["L2 — Conversation Messages\nagent_conversation + agent_message\nγ: last 3 verbatim + last 10 compressed + rolling summary\nα: last 5 verbatim"]
+        L2["L2 — Conversation Messages<br/>agent_conversation + agent_message<br/>γ: last 3 verbatim + last 10 compressed + rolling summary<br/>α: last 5 verbatim"]
     end
 
     subgraph PERSISTENT["Persistent Scope (across conversations)"]
-        L35["L3.5 — Agent Scratchpad\nKeyed: (tenant_id, user_id, field)\nSchema-allowlisted fields only\nKernel-audited writes + taint bit"]
-        L3["L3 — User Preferences\nAllowlisted keys only\ndisplay_format, currency, timezone, etc.\nMVP: user-initiated writes only"]
-        L4["L4 — Lazy Domain Fetch\nQueryFacade tools with .meta({ agent })\nOn-demand per sub-agent directive\nNever pre-injected at router level"]
-        SR["Semantic Recall\nPer-tenant isolated pgvector index\nFire-and-forget async write post-turn\nOpt-in sub-agent tool (not auto-injected)"]
+        L35["L3.5 — Agent Scratchpad<br/>Keyed: (tenant_id, user_id, field)<br/>Schema-allowlisted fields only<br/>Kernel-audited writes + taint bit"]
+        L3["L3 — User Preferences<br/>Allowlisted keys only<br/>display_format, currency, timezone, etc.<br/>MVP: user-initiated writes only"]
+        L4["L4 — Lazy Domain Fetch<br/>QueryFacade tools with .meta({ agent })<br/>On-demand per sub-agent directive<br/>Never pre-injected at router level"]
+        SR["Semantic Recall<br/>Per-tenant isolated pgvector index<br/>Fire-and-forget async write post-turn<br/>Opt-in sub-agent tool (not auto-injected)"]
     end
 
     L1 -. "turn ends, data discarded" .-> L2
@@ -599,13 +599,13 @@ Full erasure on user deletion request (multi-step compensating transaction):
 
 ```mermaid
 flowchart LR
-    TRIGGER["User deletion request"] --> MSG["MessageStore.hardDeleteContent\nnull content + summary"]
-    MSG --> L3D["L3Preferences.delete\nhard delete all preference rows"]
-    L3D --> SCRP["ScratchpadStore.deleteForUser\nhard delete all scratchpad entries"]
-    SCRP --> SEM["SemanticIndex.purgeForUser\nper-tenant pgvector purge"]
-    SEM --> LF["Langfuse.purgeByUserId\n3 retries with backoff"]
-    LF --> DONE["DB + L3 + L3.5 committed\n(regardless of Langfuse result)"]
-    LF -- exhausted retries --> TICKET["compliance_ticket_required: true\nkernel audit row"]
+    TRIGGER["User deletion request"] --> MSG["MessageStore.hardDeleteContent<br/>null content + summary"]
+    MSG --> L3D["L3Preferences.delete<br/>hard delete all preference rows"]
+    L3D --> SCRP["ScratchpadStore.deleteForUser<br/>hard delete all scratchpad entries"]
+    SCRP --> SEM["SemanticIndex.purgeForUser<br/>per-tenant pgvector purge"]
+    SEM --> LF["Langfuse.purgeByUserId<br/>3 retries with backoff"]
+    LF --> DONE["DB + L3 + L3.5 committed<br/>(regardless of Langfuse result)"]
+    LF -- exhausted retries --> TICKET["compliance_ticket_required: true<br/>kernel audit row"]
 ```
 
 DB, L3, and L3.5 are committed regardless of the Langfuse outcome. Langfuse failure opens a compliance audit ticket.
@@ -620,10 +620,10 @@ DB, L3, and L3.5 are committed regardless of the Langfuse outcome. Langfuse fail
 
 ```mermaid
 flowchart TD
-    USAGE["LLM provider response\ninputUncached + inputCachedRead\n+ inputCachedWrite + output\n+ outputReasoning"] --> ADAPTER["Provider adapter\nValidates field presence\nOver-bills on missing fields\n(revenue-safe)"]
-    ADAPTER --> PRICE["agent_pricing lookup\nVersioned rates\nappend-only table\nPriced at stamp on event"]
-    PRICE --> EVENT["agent_cost_event\nOne record per successful completion\nRetry attempts absorbed at zero cost\nTracks retry_count + attempt_duration"]
-    EVENT --> BUDGET["Budget deduction\nTenant daily + user daily\nAtomic compare-and-subtract"]
+    USAGE["LLM provider response<br/>inputUncached + inputCachedRead<br/>+ inputCachedWrite + output<br/>+ outputReasoning"] --> ADAPTER["Provider adapter<br/>Validates field presence<br/>Over-bills on missing fields<br/>(revenue-safe)"]
+    ADAPTER --> PRICE["agent_pricing lookup<br/>Versioned rates<br/>append-only table<br/>Priced at stamp on event"]
+    PRICE --> EVENT["agent_cost_event<br/>One record per successful completion<br/>Retry attempts absorbed at zero cost<br/>Tracks retry_count + attempt_duration"]
+    EVENT --> BUDGET["Budget deduction<br/>Tenant daily + user daily<br/>Atomic compare-and-subtract"]
 ```
 
 Pricing changes create new rows — historical events are never re-priced. Reconciliation is always possible via `pricing_id` + `priced_at` stamps.
@@ -647,17 +647,17 @@ Every step has a distinct trace tag and a user-facing message. Steps 1–3 are p
 
 ```mermaid
 flowchart TD
-    ERR["LLM / provider error"] --> S1["Step 1: Provider Retry\nSingle retry on 5xx/timeout\nNo user message (transient)"]
+    ERR["LLM / provider error"] --> S1["Step 1: Provider Retry<br/>Single retry on 5xx/timeout<br/>No user message (transient)"]
     S1 -- retry succeeds --> OK["Continue"]
-    S1 -- retry fails --> S2["Step 2: Provider Fallback\nSwitch to nano model\nUser: 'Switched to faster model'"]
+    S1 -- retry fails --> S2["Step 2: Provider Fallback<br/>Switch to nano model<br/>User: 'Switched to faster model'"]
     S2 -- nano succeeds --> OK2["Continue (nano)"]
-    S2 -- nano fails --> S3["Step 3: Provider Outage\nPartial-answer gate fires\nUser: 'Partial — model unavailable'"]
+    S2 -- nano fails --> S3["Step 3: Provider Outage<br/>Partial-answer gate fires<br/>User: 'Partial — model unavailable'"]
 
-    BUDGET["Budget / canary signal"] --> S4["Step 4: Tier Shift — Primary Degraded\nNew turns route to nano\nUser: 'Answering in simplified mode'"]
-    S4 --> S5["Step 5: Tier Shift — Both Degraded\nLeast-degraded tier\nUser: 'Service quality degraded'"]
-    S5 --> S6["Step 6: Hard Refuse — Canary Collapse\nBoth tiers <50% success\nRefuse with admin alert"]
+    BUDGET["Budget / canary signal"] --> S4["Step 4: Tier Shift — Primary Degraded<br/>New turns route to nano<br/>User: 'Answering in simplified mode'"]
+    S4 --> S5["Step 5: Tier Shift — Both Degraded<br/>Least-degraded tier<br/>User: 'Service quality degraded'"]
+    S5 --> S6["Step 6: Hard Refuse — Canary Collapse<br/>Both tiers <50% success<br/>Refuse with admin alert"]
 
-    DAILY["Daily budget exhausted"] --> S7["Step 7: Budget Refuse\nRefuse with 'Daily budget reached'\nNo retry button"]
+    DAILY["Daily budget exhausted"] --> S7["Step 7: Budget Refuse<br/>Refuse with 'Daily budget reached'<br/>No retry button"]
 ```
 
 **Critical distinction:** `tier_shift` (policy-driven: budget or canary) and `provider_fallback` (error-recovery: 5xx/overload) are never conflated in traces, even if both occur in a single turn.
@@ -700,12 +700,12 @@ All cancellation sources compose into a single `turnAbortSignal`:
 
 ```mermaid
 flowchart LR
-    UC["User cancel\nPOST /agent/turn/:id/cancel\nuserCancelController.abort()"] --> ANY["AbortSignal.any([...])\nturnAbortSignal"]
-    TO["Timeout\nAbortSignal.timeout(30_000)"] --> ANY
-    SYS["System abort\nBudget hit (plan 05)\nCanary collapse (plan 10)\nsystemAbortController.abort({ reason })"] --> ANY
+    UC["User cancel<br/>POST /agent/turn/:id/cancel<br/>userCancelController.abort()"] --> ANY["AbortSignal.any([...])<br/>turnAbortSignal"]
+    TO["Timeout<br/>AbortSignal.timeout(30_000)"] --> ANY
+    SYS["System abort<br/>Budget hit (plan 05)<br/>Canary collapse (plan 10)<br/>systemAbortController.abort({ reason })"] --> ANY
 
-    ANY --> REASON["AbortCoordinator.captureReason()\n'user' | 'timeout' | 'budget' | 'provider_outage' | 'quality_canary'"]
-    REASON --> DOWNSTREAM["Threaded as parameter\n(never via AsyncLocalStorage)"]
+    ANY --> REASON["AbortCoordinator.captureReason()<br/>'user' | 'timeout' | 'budget' | 'provider_outage' | 'quality_canary'"]
+    REASON --> DOWNSTREAM["Threaded as parameter<br/>(never via AsyncLocalStorage)"]
 ```
 
 `'unknown'` is not a valid cancellation reason — the enum is closed.
@@ -743,9 +743,9 @@ Three IDs travel together through every span, audit event, DB row, and pg-boss j
 
 ```mermaid
 flowchart LR
-    TURN_ROOT["Turn root span\n(one per turn)"] -- owns --> TID["trace_id (UUIDv7)\nChronologically sortable\nSingle ID to grep end-to-end"]
-    FLOW_ENTRY["First turn of user intent\n(minted at router entry)"] -- mints --> FID["flow_id (UUID)\nInherited by ALL subsequent turns\nin the same intent chain:\ndraft → approval → execution"]
-    ROUTER["Router LLM output\n(controlled vocabulary)"] -- emits --> SLUG["intent_slug\ne.g. people.headcount_query\nPropagated to all child spans"]
+    TURN_ROOT["Turn root span<br/>(one per turn)"] -- owns --> TID["trace_id (UUIDv7)<br/>Chronologically sortable<br/>Single ID to grep end-to-end"]
+    FLOW_ENTRY["First turn of user intent<br/>(minted at router entry)"] -- mints --> FID["flow_id (UUID)<br/>Inherited by ALL subsequent turns<br/>in the same intent chain:<br/>draft → approval → execution"]
+    ROUTER["Router LLM output<br/>(controlled vocabulary)"] -- emits --> SLUG["intent_slug<br/>e.g. people.headcount_query<br/>Propagated to all child spans"]
 ```
 
 A single user intent (utterance → draft → approver action → committed write) is linked by one `flow_id` with multiple `trace_id`s. This enables end-to-end flow reconstruction.
@@ -756,17 +756,17 @@ A single user intent (utterance → draft → approver action → committed writ
 flowchart TD
     TURN_END["turn.ended"] --> BASE["1% baseline sampling"]
     BASE --> TRIGGERS{"Any trigger matched?"}
-    TRIGGERS -- yes --> FULL["100% capture\n(retroactively escalate if sampled out)"]
+    TRIGGERS -- yes --> FULL["100% capture<br/>(retroactively escalate if sampled out)"]
     TRIGGERS -- no --> KEEP_DECISION["Keep sampling decision"]
 
     TRIGGERS --> T1["turn.ended.reason != 'completed'"]
     TRIGGERS --> T2["Ceiling hit (iteration / wallclock / cost)"]
     TRIGGERS --> T3["Taint flipped"]
     TRIGGERS --> T4["Approval-required draft submitted"]
-    TRIGGERS --> T5["Composition amplification\n≥2 compositionSensitive tools\nacross distinct aggregates"]
+    TRIGGERS --> T5["Composition amplification<br/>≥2 compositionSensitive tools<br/>across distinct aggregates"]
 
-    FULL --> QUOTA{"Tenant trace quota\nexceeded?"}
-    QUOTA -- yes --> FORCE_OUT["Force sample-out\nP2 alert at 80%\nP1 at 100%"]
+    FULL --> QUOTA{"Tenant trace quota<br/>exceeded?"}
+    QUOTA -- yes --> FORCE_OUT["Force sample-out<br/>P2 alert at 80%<br/>P1 at 100%"]
     QUOTA -- no --> EMIT["Emit spans to backend"]
 ```
 
@@ -1011,22 +1011,22 @@ Adding module 4 (e.g. `finance`) follows a pure PR-contained flow — no runtime
 ```mermaid
 flowchart TD
     subgraph MODULE_PR["Module PR changes only"]
-        SA["1. defineSubAgent()\nin modules/finance/agent/sub-agents/"]
-        TOOLS["2. .meta({ agent: {...} })\non tRPC procedures in\nmodules/finance/interface/trpc/"]
-        INTENTS["3. intents/*.ts\nControlled-vocabulary intent slugs"]
-        EMBED["4. Boot-time embedding\nNew tool descriptors auto-embedded\nby ToolDescriptorEmbedder"]
+        SA["1. defineSubAgent()<br/>in modules/finance/agent/sub-agents/"]
+        TOOLS["2. .meta({ agent: {...} })<br/>on tRPC procedures in<br/>modules/finance/interface/trpc/"]
+        INTENTS["3. intents/*.ts<br/>Controlled-vocabulary intent slugs"]
+        EMBED["4. Boot-time embedding<br/>New tool descriptors auto-embedded<br/>by ToolDescriptorEmbedder"]
     end
 
     subgraph BUILD_VALIDATE["Build-time validation (automatic)"]
-        LINT1["Governance lints\n(tool metadata completeness,\ncomposition declarations)"]
-        LINT2["Intent slug uniqueness\n(build fails on duplicate)"]
-        LINT3["EI-4 scale probe\n(12-sub-agent retrieval recall\nmust meet threshold)"]
+        LINT1["Governance lints<br/>(tool metadata completeness,<br/>composition declarations)"]
+        LINT2["Intent slug uniqueness<br/>(build fails on duplicate)"]
+        LINT3["EI-4 scale probe<br/>(12-sub-agent retrieval recall<br/>must meet threshold)"]
     end
 
     subgraph RUNTIME["Runtime (no changes needed)"]
-        REG["ToolRegistry auto-discovers\nall .meta({ agent }) procedures"]
-        REGSA["Sub-agent registry aggregates\nall defineSubAgent() calls"]
-        REGINT["Intent registry aggregates\nall intents/*.ts files"]
+        REG["ToolRegistry auto-discovers<br/>all .meta({ agent }) procedures"]
+        REGSA["Sub-agent registry aggregates<br/>all defineSubAgent() calls"]
+        REGINT["Intent registry aggregates<br/>all intents/*.ts files"]
     end
 
     SA --> REGSA
