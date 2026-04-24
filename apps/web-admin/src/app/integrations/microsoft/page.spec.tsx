@@ -1,8 +1,5 @@
-// @ts-expect-error -- test-only dependency is not installed in apps/web-admin in this workspace
 import { render, screen } from '@testing-library/react'
-// @ts-expect-error -- test-only dependency is not installed in apps/web-admin in this workspace
 import userEvent from '@testing-library/user-event'
-// @ts-expect-error -- test-only dependency is not installed in apps/web-admin in this workspace
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import MicrosoftIntegrationPage from './page'
 import { useSession } from '@future/auth'
@@ -15,6 +12,19 @@ vi.mock('@future/auth', () => ({
 vi.mock('@future/api-client', () => ({
   useQuery: vi.fn(),
   useMutation: vi.fn(),
+}))
+
+vi.mock('../../../lib/trpc', () => ({
+  trpc: {
+    planner: {
+      msSync: {
+        getStatus: { query: vi.fn() },
+        connect: { mutate: vi.fn() },
+        pause: { mutate: vi.fn() },
+        destroy: { mutate: vi.fn() },
+      },
+    },
+  },
 }))
 
 const mockedUseSession = vi.mocked(useSession)

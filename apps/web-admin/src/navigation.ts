@@ -1,9 +1,20 @@
-import { Settings, Cpu, ToggleRight, Shield, Bot, Link } from '@future/ui/icons'
+import { Settings, Cpu, ToggleRight, Shield, Bot, Link, Building2 } from '@future/ui/icons'
 import type { NavigationConfig } from '@future/app-layout'
 
 export const adminNavConfig: NavigationConfig = {
   navbar: { title: 'Admin', icon: Settings },
   sidebar: [
+    {
+      label: 'Platform',
+      items: [
+        {
+          label: 'Organizations',
+          icon: Building2,
+          href: '/system/platform-admins',
+          permission: 'admin:platform:read',
+        },
+      ],
+    },
     {
       items: [
         {

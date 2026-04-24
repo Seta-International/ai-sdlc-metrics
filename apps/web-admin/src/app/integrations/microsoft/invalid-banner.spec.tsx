@@ -1,8 +1,5 @@
-// @ts-expect-error -- test-only dependency is not installed in apps/web-admin in this workspace
 import { render, screen } from '@testing-library/react'
-// @ts-expect-error -- test-only dependency is not installed in apps/web-admin in this workspace
 import userEvent from '@testing-library/user-event'
-// @ts-expect-error -- test-only dependency is not installed in apps/web-admin in this workspace
 import { describe, expect, it, vi } from 'vitest'
 import { InvalidBanner } from './invalid-banner'
 

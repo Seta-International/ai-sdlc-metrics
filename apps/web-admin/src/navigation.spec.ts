@@ -27,6 +27,8 @@ const ADMIN_PERMISSION_KEYS = new Set([
   'admin:ai:manage',
   'admin:module:read',
   'admin:module:manage',
+  // Planner integration permissions used in sidebar
+  'planner.ms_sync.connect',
 ])
 
 type NavItem = {
@@ -97,5 +99,22 @@ describe('adminNavConfig', () => {
     const items = collectPermissions(adminNavConfig.sidebar as NavGroup[])
     const roles = items.find((i) => i.label === 'Roles & Permissions')
     expect(roles?.permission).toBe('admin:role:read')
+  })
+
+  it('Organizations uses admin:platform:read and links to /system/platform-admins', () => {
+    const items = collectPermissions(adminNavConfig.sidebar as NavGroup[])
+    const orgs = items.find((i) => i.label === 'Organizations')
+    expect(orgs?.permission).toBe('admin:platform:read')
+  })
+
+  it('Organizations href points to /system/platform-admins', () => {
+    const allItems: NavItem[] = []
+    for (const group of adminNavConfig.sidebar as NavGroup[]) {
+      if (group.items) {
+        allItems.push(...group.items)
+      }
+    }
+    const orgs = allItems.find((i) => i.label === 'Organizations')
+    expect(orgs?.href).toBe('/system/platform-admins')
   })
 })
