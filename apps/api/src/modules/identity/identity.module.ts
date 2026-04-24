@@ -10,6 +10,8 @@ import { API_KEY_REPOSITORY } from './domain/repositories/api-key.repository'
 import { SYNC_HISTORY_REPOSITORY } from './domain/repositories/sync-history.repository'
 import { IDP_GROUP_MEMBER_REPOSITORY } from './domain/repositories/idp-group-member.repository'
 import { MS_GRAPH_CREDENTIAL_REPOSITORY } from './domain/repositories/ms-graph-credential.repository'
+import { TENANT_DOMAIN_REPOSITORY } from './domain/repositories/tenant-domain.repository'
+import { OAUTH_AUTHORIZATION_SESSION_REPOSITORY } from './domain/repositories/oauth-authorization-session.repository'
 import { CRYPTO_PROVIDER } from './domain/ports/crypto-provider.port'
 import { JOB_SCHEDULER } from './domain/ports/job-scheduler.port'
 import { MAGIC_LINK_SENDER } from './domain/ports/magic-link-sender.port'
@@ -23,6 +25,8 @@ import { DrizzleApiKeyRepository } from './infrastructure/repositories/drizzle-a
 import { DrizzleSyncHistoryRepository } from './infrastructure/repositories/drizzle-sync-history.repository'
 import { DrizzleIdpGroupMemberRepository } from './infrastructure/repositories/drizzle-idp-group-member.repository'
 import { DrizzleMsGraphCredentialRepository } from './infrastructure/repositories/drizzle-ms-graph-credential.repository'
+import { DrizzleTenantDomainRepository } from './infrastructure/repositories/drizzle-tenant-domain.repository'
+import { DrizzleOAuthAuthorizationSessionRepository } from './infrastructure/repositories/drizzle-oauth-authorization-session.repository'
 
 import { DIRECTORY_PROVIDER_FACTORY } from './domain/ports/directory-provider.port'
 import { DirectoryProviderFactory } from './infrastructure/providers/directory-provider.factory'
@@ -105,6 +109,11 @@ const QueryHandlers = [
     { provide: SYNC_HISTORY_REPOSITORY, useClass: DrizzleSyncHistoryRepository },
     { provide: IDP_GROUP_MEMBER_REPOSITORY, useClass: DrizzleIdpGroupMemberRepository },
     { provide: MS_GRAPH_CREDENTIAL_REPOSITORY, useClass: DrizzleMsGraphCredentialRepository },
+    { provide: TENANT_DOMAIN_REPOSITORY, useClass: DrizzleTenantDomainRepository },
+    {
+      provide: OAUTH_AUTHORIZATION_SESSION_REPOSITORY,
+      useClass: DrizzleOAuthAuthorizationSessionRepository,
+    },
     { provide: DIRECTORY_PROVIDER_FACTORY, useClass: DirectoryProviderFactory },
     {
       provide: SECRETS_STORE,
