@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { scheduleUiRouter, setScheduleHandlers } from './schedule-ui-facade'
 import type { Schedule } from '../../domain/entities/schedule.entity'
 import type { AgentDelegation } from '../../../kernel/application/facades/kernel-delegation.facade'
