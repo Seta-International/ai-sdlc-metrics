@@ -556,10 +556,9 @@ async function main() {
   await enablePlanner(db, futureTenantId, FUTURE_TENANT.slug)
 
   // ── 3. Platform admin bootstrap ──────────────────────────────────────────
-  const platformAdminEmail = process.env['FUTURE_PLATFORM_ADMIN_EMAIL']
-  if (platformAdminEmail) {
-    await bootstrapPlatformAdmin(db, platformAdminEmail, now)
-  }
+  const platformAdminEmail =
+    process.env['FUTURE_PLATFORM_ADMIN_EMAIL'] ?? 'canh.ta@seta-international.vn'
+  await bootstrapPlatformAdmin(db, platformAdminEmail, now)
 
   console.log('Seed complete')
   console.log('Future tenant ID:', futureTenantId)
