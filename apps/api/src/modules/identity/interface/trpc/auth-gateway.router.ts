@@ -21,10 +21,14 @@ export function createAuthGatewayRouter(
      */
     getLoginOptions: baseProcedure
       .input(
-        z.object({
-          slug: z.string().min(1).max(100).nullable(),
-          emailDomain: z.string().min(1).max(253).nullable(),
-        }),
+        z
+          .object({
+            slug: z.string().min(1).max(100).nullable(),
+            emailDomain: z.string().min(1).max(253).nullable(),
+          })
+          .refine((v) => v.slug !== null || v.emailDomain !== null, {
+            message: 'Provide at least one of slug or emailDomain',
+          }),
       )
       .query(({ input }: { input: { slug: string | null; emailDomain: string | null } }) =>
         identityFacade.getLoginOptions(input.slug, input.emailDomain),

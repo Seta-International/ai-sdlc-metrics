@@ -26,6 +26,11 @@ const suspendedTenant = {
   status: 'suspended' as const,
 }
 
+const cancelledTenant = {
+  ...activeTenant,
+  status: 'cancelled' as const,
+}
+
 const fakeProvider: IdentityProviderEntity = {
   id: '01900000-0000-7000-8000-000000000010',
   tenantId: TENANT_ID,
@@ -149,6 +154,17 @@ describe('GetLoginOptionsHandler', () => {
 
       expect(result).not.toBeNull()
       expect(result!.tenant.status).toBe('suspended')
+      expect(result!.methods).toHaveLength(0)
+    })
+
+    it('returns no startable SSO methods for cancelled tenants', async () => {
+      vi.mocked(kernelFacade.getTenantBySlug).mockResolvedValue(cancelledTenant)
+      vi.mocked(providerRepo.findPrimaryByTenantId).mockResolvedValue(fakeProvider)
+
+      const result = await handler.execute(new GetLoginOptionsQuery(TENANT_SLUG, null))
+
+      expect(result).not.toBeNull()
+      expect(result!.tenant.status).toBe('cancelled')
       expect(result!.methods).toHaveLength(0)
     })
 

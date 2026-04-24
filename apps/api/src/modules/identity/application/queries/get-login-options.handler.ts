@@ -8,11 +8,12 @@ import {
   TENANT_DOMAIN_REPOSITORY,
   type ITenantDomainRepository,
 } from '../../domain/repositories/tenant-domain.repository'
+import { type IdpProviderType } from '../../domain/entities/identity-provider.entity'
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import { GetLoginOptionsQuery } from './get-login-options.query'
 
 export interface LoginOptionsMethodDto {
-  type: string
+  type: IdpProviderType
   displayName: string
   clientId: string
   directoryId: string | null
@@ -75,7 +76,11 @@ export class GetLoginOptionsHandler implements IQueryHandler<
             displayName: provider.displayName,
             clientId: provider.clientId,
             directoryId: provider.directoryId,
-            status: provider.syncStatus === 'failed' ? 'needs_attention' : 'ready',
+            status:
+              provider.syncStatus === 'failed'
+                ? 'needs_attention'
+                : // 'running' (mid-sync) is still usable for login
+                  'ready',
           },
         ]
       : []

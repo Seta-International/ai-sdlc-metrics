@@ -71,4 +71,18 @@ describe('authGatewayRouter — getLoginOptions invocation', () => {
     expect(fakeFacade.getLoginOptions).toHaveBeenCalledOnce()
     expect(result).toEqual(fakeLoginOptionsResult)
   })
+
+  it('rejects input where both slug and emailDomain are null', async () => {
+    const fakeFacade = {
+      getLoginOptions: vi.fn(),
+    } as unknown as IdentityQueryFacade
+
+    const r = createAuthGatewayRouter(publicProcedure, fakeFacade)
+    const ctx = { req: { headers: {} }, tenantId: null, actorId: null }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const caller = (r as any).createCaller(ctx)
+
+    await expect(caller.getLoginOptions({ slug: null, emailDomain: null })).rejects.toThrow()
+    expect(fakeFacade.getLoginOptions).not.toHaveBeenCalled()
+  })
 })
