@@ -17,6 +17,7 @@ import type {
   OrgChartContextDto,
   OrgChartNodeDto,
   OrgChartRelationshipToViewer,
+  OrgChartTreeDto,
 } from '../queries/org-chart.types'
 
 export const ORG_CHART_NODE_NOT_FOUND = 'ORG_CHART_NODE_NOT_FOUND'
@@ -105,6 +106,85 @@ export class OrgChartQueryService {
     )
 
     return this.sortNodes(nodes, ['root'])
+  }
+
+  async getTree(
+    tenantId: string,
+    actorId: string,
+    input: { teamId: string | null; depth: number },
+  ): Promise<OrgChartTreeDto> {
+    const context = await this.getContext(tenantId, actorId)
+    const depth = Math.max(2, Math.min(input.depth, 5))
+    const graph = await this.expandHierarchyGraph(
+      tenantId,
+      context.rootEmploymentIds,
+      depth,
+      input.teamId,
+    )
+    const employments = await this.employmentRepo.findManyByIds(
+      graph.orderedEmploymentIds,
+      tenantId,
+    )
+    const assignments = await this.assignmentRepo.findCurrentMany(
+      graph.orderedEmploymentIds,
+      tenantId,
+    )
+    const nodes = await this.buildNodes(
+      graph.orderedEmploymentIds,
+      employments,
+      assignments,
+      new Map(),
+      tenantId,
+    )
+    return {
+      rootIds: graph.rootIds,
+      nodesById: Object.fromEntries(nodes.map((node) => [node.employmentId, node])),
+      childrenByParentId: graph.childrenByParentId,
+      focusEmploymentId: context.focusEmploymentId,
+    }
+  }
+
+  private async expandHierarchyGraph(
+    tenantId: string,
+    rootIds: string[],
+    depth: number,
+    teamId: string | null,
+  ): Promise<{
+    rootIds: string[]
+    orderedEmploymentIds: string[]
+    childrenByParentId: Record<string, string[]>
+  }> {
+    const childrenByParentId: Record<string, string[]> = {}
+    const orderedEmploymentIds: string[] = [...rootIds]
+    const visited = new Set<string>(rootIds)
+    let currentLevel = [...rootIds]
+
+    for (let d = 0; d < depth - 1 && currentLevel.length > 0; d++) {
+      const nextLevel: string[] = []
+      for (const parentId of currentLevel) {
+        const childAssignments = await this.assignmentRepo.findCurrentByManagerId(
+          parentId,
+          tenantId,
+        )
+        const childIds = childAssignments
+          .filter((a) => a.employmentId !== parentId)
+          .filter((a) => teamId === null || a.departmentId === teamId)
+          .map((a) => a.employmentId)
+          .filter((id) => !visited.has(id))
+
+        if (childIds.length > 0) {
+          childrenByParentId[parentId] = childIds
+          for (const id of childIds) {
+            visited.add(id)
+            orderedEmploymentIds.push(id)
+            nextLevel.push(id)
+          }
+        }
+      }
+      currentLevel = nextLevel
+    }
+
+    return { rootIds, orderedEmploymentIds, childrenByParentId }
   }
 
   private async getRootContext(tenantId: string): Promise<OrgChartContextDto> {

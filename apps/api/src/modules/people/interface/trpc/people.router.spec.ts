@@ -220,4 +220,45 @@ describe('createPeopleRouter', () => {
 
     await expect((caller.people as any).orgChart.context()).rejects.toThrow(TRPCError)
   })
+
+  it('should expose org chart tree protected by people:org:read', async () => {
+    const queryBus = {
+      execute: vi.fn().mockResolvedValue({
+        rootIds: [],
+        nodesById: {},
+        childrenByParentId: {},
+        focusEmploymentId: null,
+      }),
+    }
+    const trpcService = new PeopleTrpcService({ execute: vi.fn() } as never, queryBus as never)
+    trpcService.onModuleInit()
+
+    const { peopleRouter, kernelFacade } = setup(true)
+    const caller = router({ people: peopleRouter }).createCaller({
+      actorId: ACTOR_ID,
+      tenantId: TENANT_ID,
+    } as any)
+
+    const result = await (caller.people as any).orgChart.tree({ depth: 3 })
+
+    expect(result).toEqual({
+      rootIds: [],
+      nodesById: {},
+      childrenByParentId: {},
+      focusEmploymentId: null,
+    })
+    expect(kernelFacade.canDo).toHaveBeenCalledWith(ACTOR_ID, 'people:org:read', {
+      tenantId: TENANT_ID,
+    })
+  })
+
+  it('should deny org chart tree when permission is not granted', async () => {
+    const { peopleRouter } = setup(false)
+    const caller = router({ people: peopleRouter }).createCaller({
+      actorId: ACTOR_ID,
+      tenantId: TENANT_ID,
+    } as any)
+
+    await expect((caller.people as any).orgChart.tree({ depth: 3 })).rejects.toThrow(TRPCError)
+  })
 })

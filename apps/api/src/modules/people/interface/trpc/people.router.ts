@@ -54,6 +54,7 @@ import { ListContractVersionsQuery } from '../../application/queries/list-contra
 import { GetJobHistoryQuery } from '../../application/queries/get-job-history.query'
 import { GetOrgChartContextQuery } from '../../application/queries/get-org-chart-context.query'
 import { GetOrgChartChildrenQuery } from '../../application/queries/get-org-chart-children.query'
+import { GetOrgChartTreeQuery } from '../../application/queries/get-org-chart-tree.query'
 import { ORG_CHART_NODE_NOT_FOUND } from '../../application/services/org-chart-query.service'
 
 import { PeopleTrpcService } from './people-trpc.service'
@@ -547,6 +548,33 @@ export function createPeopleRouter(
             throw error
           }
         }),
+
+      tree: permissionProtectedProcedure
+        .meta({ permission: 'people:org:read' })
+        .input(
+          z.object({
+            depth: z.number().int().min(1).max(5).default(3),
+            teamId: z.string().uuid().nullable().optional(),
+          }),
+        )
+        .query(
+          async ({
+            ctx,
+            input,
+          }: {
+            ctx: AuthContext
+            input: { depth: number; teamId?: string | null }
+          }) => {
+            return svc().query(
+              new GetOrgChartTreeQuery(
+                ctx.tenantId,
+                ctx.actorId,
+                input.teamId ?? null,
+                input.depth,
+              ),
+            )
+          },
+        ),
     }),
 
     // ── Directory ─────────────────────────────────────────────────────────

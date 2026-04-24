@@ -26,6 +26,7 @@ import { ExportDirectoryQuery } from '../../application/queries/export-directory
 import { ExportDirectoryHandler } from '../../application/queries/export-directory.handler'
 import { GetOrgChartContextQuery } from '../../application/queries/get-org-chart-context.query'
 import { GetOrgChartChildrenQuery } from '../../application/queries/get-org-chart-children.query'
+import { GetOrgChartTreeQuery } from '../../application/queries/get-org-chart-tree.query'
 import { OrgChartQueryService } from '../../application/services/org-chart-query.service'
 import { uuidv7 } from 'uuidv7'
 
@@ -643,6 +644,12 @@ describe('people.directory tRPC sub-router - hierarchy integration', () => {
           if (query instanceof GetOrgChartChildrenQuery) {
             return orgChart.getChildren(query.tenantId, query.employmentId)
           }
+          if (query instanceof GetOrgChartTreeQuery) {
+            return orgChart.getTree(query.tenantId, query.actorId, {
+              teamId: query.teamId,
+              depth: query.depth,
+            })
+          }
           throw new Error('Unexpected query')
         },
       } as never,
@@ -909,6 +916,28 @@ describe('people.directory tRPC sub-router - hierarchy integration', () => {
       [ROOT_FALLBACK_DIRECTOR_EMPLOYMENT, ROOT_FALLBACK_MANAGER_EMPLOYMENT].sort(),
     )
     expect(context.nodes.every((node) => node.relationshipToViewer === 'root')).toBe(true)
+  })
+
+  it('orgChart.tree returns preloaded tenant-scoped hierarchy with correct structure', async () => {
+    const orgCaller = createAuthorizedCaller(HIERARCHY_TENANT, ORG_VIEWER_ACTOR)
+
+    const tree = await orgCaller.orgChart.tree({ depth: 3 })
+
+    expect(tree.rootIds.length).toBeGreaterThan(0)
+    expect(tree.focusEmploymentId).toBe(ORG_VIEWER_EMPLOYMENT)
+    expect(tree.nodesById[ORG_VIEWER_EMPLOYMENT].fullName).toBe('Sam Self')
+    expect(tree.nodesById[ORG_MANAGER_EMPLOYMENT].fullName).toBe('Morgan Manager')
+    expect(
+      Object.values(tree.nodesById).every((n) => n.employmentId !== ORG_OTHER_EMPLOYMENT),
+    ).toBe(true)
+  })
+
+  it('orgChart.tree childrenByParentId links manager to viewer', async () => {
+    const orgCaller = createAuthorizedCaller(HIERARCHY_TENANT, ORG_VIEWER_ACTOR)
+
+    const tree = await orgCaller.orgChart.tree({ depth: 3 })
+
+    expect(tree.childrenByParentId[ORG_MANAGER_EMPLOYMENT]).toContain(ORG_VIEWER_EMPLOYMENT)
   })
 
   it('orgChart children maps missing nodes to a TRPC not-found error', async () => {

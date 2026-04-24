@@ -435,4 +435,106 @@ describe('OrgChartQueryService', () => {
       ORG_CHART_NODE_NOT_FOUND,
     )
   })
+
+  it('getTree builds a preloaded hierarchy with rootIds, nodesById, and childrenByParentId', async () => {
+    const self = employment(selfEmploymentId)
+    const manager = employment(managerEmploymentId)
+    const peer = employment(peerEmploymentId)
+    const report = employment(reportEmploymentId)
+
+    const service = new OrgChartQueryService(
+      {
+        findActiveByActorId: vi.fn().mockResolvedValue(self),
+        findById: vi.fn(),
+        findManyByIds: vi
+          .fn()
+          .mockResolvedValueOnce([manager, self, peer, report]) // for getContext
+          .mockResolvedValueOnce([manager, self, peer, report]), // for buildNodes in getTree
+        findActiveRootEmployments: vi.fn(),
+      } as never,
+      {
+        findCurrent: vi.fn().mockResolvedValue(assignment(selfEmploymentId, managerEmploymentId)),
+        findCurrentByManagerId: vi
+          .fn()
+          .mockResolvedValueOnce([
+            assignment(selfEmploymentId, managerEmploymentId),
+            assignment(peerEmploymentId, managerEmploymentId),
+          ]) // getContext: peers
+          .mockResolvedValueOnce([assignment(reportEmploymentId, selfEmploymentId)]) // getContext: direct reports
+          .mockResolvedValueOnce([
+            assignment(selfEmploymentId, managerEmploymentId),
+            assignment(peerEmploymentId, managerEmploymentId),
+          ]) // getTree BFS: manager's children
+          .mockResolvedValueOnce([assignment(reportEmploymentId, selfEmploymentId)]) // getTree BFS: self's children
+          .mockResolvedValueOnce([]) // getTree BFS: peer's children
+          .mockResolvedValue([]), // getTree BFS: report's children
+        findCurrentMany: vi
+          .fn()
+          .mockResolvedValue([
+            assignment(managerEmploymentId, null),
+            assignment(selfEmploymentId, managerEmploymentId),
+            assignment(peerEmploymentId, managerEmploymentId),
+            assignment(reportEmploymentId, selfEmploymentId),
+          ]),
+        countCurrentByManagerId: vi.fn().mockResolvedValue(0),
+      } as never,
+      directoryRepo([
+        [managerEmploymentId, 'Morgan Manager', 'VP Engineering'],
+        [selfEmploymentId, 'Sam Self', 'Senior Engineer'],
+        [peerEmploymentId, 'Pat Peer', 'Designer'],
+        [reportEmploymentId, 'Riley Report', 'Engineer'],
+      ]) as never,
+    )
+
+    const tree = await service.getTree(tenantId, viewerActorId, { teamId: null, depth: 3 })
+
+    expect(tree.rootIds).toEqual([managerEmploymentId])
+    expect(tree.focusEmploymentId).toBe(selfEmploymentId)
+    expect(Object.keys(tree.nodesById).length).toBeGreaterThan(0)
+    expect(tree.nodesById[selfEmploymentId].fullName).toBe('Sam Self')
+    expect(tree.childrenByParentId[managerEmploymentId]).toContain(selfEmploymentId)
+  })
+
+  it('getTree uses Unknown title fallback for missing jobTitle', async () => {
+    const self = employment(selfEmploymentId)
+    const manager = employment(managerEmploymentId)
+
+    const service = new OrgChartQueryService(
+      {
+        findActiveByActorId: vi.fn().mockResolvedValue(self),
+        findById: vi.fn(),
+        findManyByIds: vi
+          .fn()
+          .mockResolvedValueOnce([manager, self])
+          .mockResolvedValueOnce([manager, self]),
+        findActiveRootEmployments: vi.fn(),
+      } as never,
+      {
+        findCurrent: vi.fn().mockResolvedValue(assignment(selfEmploymentId, managerEmploymentId)),
+        findCurrentByManagerId: vi
+          .fn()
+          .mockResolvedValueOnce([assignment(selfEmploymentId, managerEmploymentId)])
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([assignment(selfEmploymentId, managerEmploymentId)])
+          .mockResolvedValueOnce([])
+          .mockResolvedValue([]),
+        findCurrentMany: vi
+          .fn()
+          .mockResolvedValue([
+            assignment(managerEmploymentId, null),
+            assignment(selfEmploymentId, managerEmploymentId),
+          ]),
+        countCurrentByManagerId: vi.fn().mockResolvedValue(0),
+      } as never,
+      {
+        list: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+      } as never,
+    )
+
+    const tree = await service.getTree(tenantId, viewerActorId, { teamId: null, depth: 2 })
+    const node = Object.values(tree.nodesById)[0]
+
+    expect(node).toBeDefined()
+    expect(node.jobTitle ?? 'Unknown title').toBeTruthy()
+  })
 })

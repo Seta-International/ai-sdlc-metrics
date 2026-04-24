@@ -37,10 +37,30 @@ function loadEnvIfNeeded() {
 // the lock is released (migrations already applied, so a no-op).
 const MIGRATION_LOCK_KEY = 1_000_000_007
 
+async function waitForDb(url: string, retries = 10, delayMs = 1000): Promise<void> {
+  for (let i = 0; i < retries; i++) {
+    const pool = new Pool({ connectionString: url })
+    try {
+      await pool.query('SELECT 1')
+      await pool.end()
+      return
+    } catch {
+      await pool.end().catch(() => {})
+      if (i < retries - 1) {
+        console.log(`[db] waiting for database... (${i + 1}/${retries})`)
+        await new Promise((r) => setTimeout(r, delayMs))
+      }
+    }
+  }
+  throw new Error('Database did not become ready in time')
+}
+
 export async function runMigrations(connectionString?: string): Promise<void> {
   loadEnvIfNeeded()
   const url = connectionString ?? process.env['DATABASE_URL']
   if (!url) throw new Error('DATABASE_URL is required')
+
+  await waitForDb(url)
 
   const pool = new Pool({ connectionString: url })
 
