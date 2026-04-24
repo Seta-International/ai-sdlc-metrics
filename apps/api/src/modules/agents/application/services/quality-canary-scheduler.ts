@@ -42,6 +42,9 @@ export class QualityCanaryScheduler {
   // In-memory degraded-since timestamps per tier
   private readonly degradedSince = new Map<ModelTier, Date>()
 
+  // In-memory health snapshot cache per tier (updated after each computeHealth call)
+  private readonly healthCache = new Map<ModelTier, TierHealthSnapshot>()
+
   // Round-robin last-used query ID per tier
   private readonly lastQueryId = new Map<ModelTier, string>()
 
@@ -123,13 +126,13 @@ export class QualityCanaryScheduler {
   }
 
   private _getCachedHealth(tier: ModelTier): TierHealthSnapshot {
-    const degradedFlag = this.degradedFlags.get(tier) ?? false
-    const degradedSince = this.degradedSince.get(tier)
+    const cached = this.healthCache.get(tier)
+    if (cached) return cached
+    // Default when computeHealth has not been called yet for this tier
     return {
       tier,
-      successRateRolling: degradedFlag ? 0 : 1,
-      degradedFlag,
-      degradedSince,
+      successRateRolling: 1.0,
+      degradedFlag: false,
       elevatedNoticeLevel: 'none',
     }
   }
@@ -175,13 +178,18 @@ export class QualityCanaryScheduler {
     // Update in-memory degraded flag cache
     this.degradedFlags.set(tier, degradedFlag)
 
-    return {
+    const snapshot: TierHealthSnapshot = {
       tier,
       successRateRolling,
       degradedFlag,
       ...(degradedSince ? { degradedSince } : {}),
       elevatedNoticeLevel,
     }
+
+    // Cache the full snapshot so _getCachedHealth returns real rolling rates
+    this.healthCache.set(tier, snapshot)
+
+    return snapshot
   }
 
   private async _getOtherTierRate(tier: ModelTier): Promise<number> {

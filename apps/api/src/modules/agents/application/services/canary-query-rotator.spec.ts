@@ -4,7 +4,7 @@
  * Unit tests for CanaryQueryRotator.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { CanaryQueryRotator } from './canary-query-rotator'
 import type {
   CanaryQueryRepository,
@@ -172,6 +172,12 @@ describe('CanaryQueryRotator.rotateQuarterly()', () => {
         }),
       }),
     )
+  })
+
+  it('4a. ingestFromProduction() returns empty array at MVP', () => {
+    const { rotator } = makeRotator()
+    const result = rotator.ingestFromProduction([{ trace: 'some-trace' }])
+    expect(result).toEqual([])
   })
 
   it('4. returns correct { retired, ingested, newQuarter }', async () => {

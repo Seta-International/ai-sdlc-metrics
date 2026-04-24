@@ -4,7 +4,7 @@
  * Unit tests for QualityCanaryScheduler.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { QualityCanaryScheduler } from './quality-canary-scheduler'
 import { QualityCanarySubscription } from './quality-canary-subscription'
 import type {
@@ -179,5 +179,105 @@ describe('QualityCanaryScheduler.tickHourly()', () => {
     expect(['full', 'nano']).toContain(firstCall.tier)
     expect(['full', 'nano']).toContain(secondCall.tier)
     expect(firstCall.tier).not.toBe(secondCall.tier)
+  })
+
+  it('6. (R-10.21) flag flips from false to true → subscription.publish called with severity != nominal', async () => {
+    // 8 of 10 runs failed → successRate 0.2 → degradedFlag: true
+    const degradedRuns = [
+      ...Array.from({ length: 2 }, (_, i) => makeRun({ id: `run-ok-${i}`, outcome: 'passed' })),
+      ...Array.from({ length: 8 }, (_, i) => makeRun({ id: `run-fail-${i}`, outcome: 'failed' })),
+    ]
+
+    const fullQuery = makeQuery({ id: 'query-full', tier: 'full' })
+
+    const findNextFn = vi.fn().mockImplementation((tier: string) => {
+      if (tier === 'full') return Promise.resolve(fullQuery)
+      return Promise.resolve(null) // nano has no queries
+    })
+
+    const findRecentFn = vi.fn().mockImplementation(({ tier }: { tier: string }) => {
+      if (tier === 'full') return Promise.resolve(degradedRuns)
+      return Promise.resolve([])
+    })
+
+    const { scheduler, subscription } = makeRepos({
+      canaryRunRepo: {
+        insert: vi.fn().mockResolvedValue(makeRun()),
+        findRecent: findRecentFn,
+      },
+      canaryQueryRepo: { findNextRoundRobin: findNextFn },
+    })
+
+    const publishSpy = vi.spyOn(subscription, 'publish')
+
+    await scheduler.tickHourly()
+
+    expect(publishSpy).toHaveBeenCalledOnce()
+    const event = publishSpy.mock.calls[0][0]
+    expect(event.severity).not.toBe('nominal')
+  })
+})
+
+// ─── elevatedNoticeLevel tests ─────────────────────────────────────────────────
+
+describe('QualityCanaryScheduler.computeHealth() — elevatedNoticeLevel', () => {
+  it('7. returns elevatedNoticeLevel: elevated when both tiers degraded with success rate >= 50%', async () => {
+    // Both tiers have 60% success rate (degraded, but >= 50%)
+    function make60PctRuns(tier: 'full' | 'nano'): ReturnType<typeof makeRun>[] {
+      return [
+        ...Array.from({ length: 6 }, (_, i) =>
+          makeRun({ id: `run-ok-${tier}-${i}`, tier, outcome: 'passed' }),
+        ),
+        ...Array.from({ length: 4 }, (_, i) =>
+          makeRun({ id: `run-fail-${tier}-${i}`, tier, outcome: 'failed' }),
+        ),
+      ]
+    }
+
+    const findRecentFn = vi.fn().mockImplementation(({ tier }: { tier: string }) => {
+      if (tier === 'full') return Promise.resolve(make60PctRuns('full'))
+      return Promise.resolve(make60PctRuns('nano'))
+    })
+
+    const { scheduler } = makeRepos({ canaryRunRepo: { findRecent: findRecentFn } })
+
+    // computeHealth for nano first so nano's degradedFlag is set in-memory
+    await scheduler.computeHealth('nano')
+
+    // Now compute for full — both flags are degraded, rate >= 50%
+    const result = await scheduler.computeHealth('full')
+
+    expect(result.degradedFlag).toBe(true)
+    expect(result.elevatedNoticeLevel).toBe('elevated')
+  })
+
+  it('8. returns elevatedNoticeLevel: hard_refusal when both tiers degraded with success rate < 50%', async () => {
+    // Both tiers have 30% success rate (degraded and < 50%)
+    function make30PctRuns(tier: 'full' | 'nano'): ReturnType<typeof makeRun>[] {
+      return [
+        ...Array.from({ length: 3 }, (_, i) =>
+          makeRun({ id: `run-ok-${tier}-${i}`, tier, outcome: 'passed' }),
+        ),
+        ...Array.from({ length: 7 }, (_, i) =>
+          makeRun({ id: `run-fail-${tier}-${i}`, tier, outcome: 'failed' }),
+        ),
+      ]
+    }
+
+    const findRecentFn = vi.fn().mockImplementation(({ tier }: { tier: string }) => {
+      if (tier === 'full') return Promise.resolve(make30PctRuns('full'))
+      return Promise.resolve(make30PctRuns('nano'))
+    })
+
+    const { scheduler } = makeRepos({ canaryRunRepo: { findRecent: findRecentFn } })
+
+    // computeHealth for nano first so nano's degradedFlag is set in-memory
+    await scheduler.computeHealth('nano')
+
+    // Now compute for full — both flags are degraded, rate < 50%
+    const result = await scheduler.computeHealth('full')
+
+    expect(result.degradedFlag).toBe(true)
+    expect(result.elevatedNoticeLevel).toBe('hard_refusal')
   })
 })

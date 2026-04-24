@@ -54,6 +54,12 @@ export class CanaryQueryRotator {
     return { retired, ingested, newQuarter: opts.newQuarter }
   }
 
+  // MVP stub — at MVP, caller passes pre-formed queries to rotateQuarterly.
+  // Production automation (anonymize → sample → author contract → ingest) is a Beta-phase operation.
+  ingestFromProduction(_anonymizedTraces: unknown[]): never[] {
+    return []
+  }
+
   // Compute current quarter string like '2026-Q2'
   static currentQuarter(now: Date): string {
     const year = now.getFullYear()
