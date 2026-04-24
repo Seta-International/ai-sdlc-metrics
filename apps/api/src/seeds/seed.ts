@@ -335,14 +335,28 @@ async function enablePlanner(
     })
 }
 
+/**
+ * Deterministic UUID using the bootstrap namespace — must match the namespace
+ * used by BootstrapPlatformAdminHandler so both code paths produce the same IDs.
+ */
+function bootstrapUuid(seed: string): string {
+  const hash = createHash('sha256')
+    .update('future-bootstrap-v1:' + seed)
+    .digest('hex')
+  const p3 = '5' + hash.slice(13, 16)
+  const variant = ((parseInt(hash.charAt(16), 16) & 0x3) | 0x8).toString(16)
+  const p4 = variant + hash.slice(17, 20)
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${p3}-${p4}-${hash.slice(20, 32)}`
+}
+
 async function bootstrapPlatformAdmin(
   db: ReturnType<typeof createDb>,
   platformAdminEmail: string,
   now: Date,
 ) {
-  const systemTenantId = deterministicUuid('bootstrap-v1:system-tenant')
-  const systemActorId = deterministicUuid('bootstrap-v1:actor:' + platformAdminEmail)
-  const systemIdentityId = deterministicUuid('bootstrap-v1:identity:' + platformAdminEmail)
+  const systemTenantId = bootstrapUuid('system-tenant')
+  const systemActorId = bootstrapUuid('actor:' + platformAdminEmail)
+  const systemIdentityId = bootstrapUuid('identity:' + platformAdminEmail)
 
   // Upsert hidden system tenant
   await db
@@ -394,7 +408,7 @@ async function bootstrapPlatformAdmin(
   await db
     .insert(roleGrant)
     .values({
-      id: deterministicUuid('bootstrap-v1:grant:' + platformAdminEmail + ':platform_admin'),
+      id: bootstrapUuid('grant:' + platformAdminEmail + ':platform_admin'),
       tenantId: systemTenantId,
       actorId: systemActorId,
       roleKey: 'platform_admin',
