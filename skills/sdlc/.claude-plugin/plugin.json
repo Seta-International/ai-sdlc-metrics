@@ -1,0 +1,8 @@
+{
+  "name": "sdlc",
+  "description": "Streamlines the SDLC lifecycle: ticket authoring (spec-to-backlog, triage-issue, create-ticket), starting work (fetch ticket, branch, status transition, route to the right superpowers skill), and finishing work (PR + cross-link + Jira status updates). Delegates to the atlassian plugin for Jira/Confluence writes when installed; falls back to markdown output when not. Enforces the Agile standards in references/standards.md (story-point table, Definition of Ready, required tags).",
+  "author": {
+    "name": "sdlc plugin"
+  },
+  "skills": "./skills/"
+}
