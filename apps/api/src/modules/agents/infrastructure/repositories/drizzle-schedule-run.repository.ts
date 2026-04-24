@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, count, desc, eq, gte, sum } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { agentScheduleRun } from '../schema/agent-schedule-run.schema'
@@ -119,6 +119,42 @@ export class DrizzleScheduleRunRepository implements IScheduleRunRepository {
       .limit(limit)
 
     return rows.map((row) => toDomain(row as AgentScheduleRunRow))
+  }
+
+  async countTodayBySchedule(opts: { tenantId: string; scheduleId: string }): Promise<number> {
+    const now = new Date()
+    const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+
+    const rows = await this.db
+      .select({ total: count() })
+      .from(agentScheduleRun)
+      .where(
+        and(
+          eq(agentScheduleRun.tenantId, opts.tenantId),
+          eq(agentScheduleRun.scheduleId, opts.scheduleId),
+          gte(agentScheduleRun.startedAt, todayUtc),
+        ),
+      )
+
+    return Number(rows[0]?.total ?? 0)
+  }
+
+  async sumTodayCostBySchedule(opts: { tenantId: string; scheduleId: string }): Promise<number> {
+    const now = new Date()
+    const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+
+    const rows = await this.db
+      .select({ total: sum(agentScheduleRun.costSpentUsd) })
+      .from(agentScheduleRun)
+      .where(
+        and(
+          eq(agentScheduleRun.tenantId, opts.tenantId),
+          eq(agentScheduleRun.scheduleId, opts.scheduleId),
+          gte(agentScheduleRun.startedAt, todayUtc),
+        ),
+      )
+
+    return parseFloat(rows[0]?.total ?? '0')
   }
 }
 

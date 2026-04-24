@@ -31,4 +31,8 @@ export interface IScheduleRunRepository {
     scheduleId: string
     limit?: number
   }): Promise<ScheduleRun[]>
+
+  countTodayBySchedule(opts: { tenantId: string; scheduleId: string }): Promise<number>
+
+  sumTodayCostBySchedule(opts: { tenantId: string; scheduleId: string }): Promise<number>
 }
