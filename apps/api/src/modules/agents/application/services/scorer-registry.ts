@@ -8,11 +8,17 @@
  *   2. kind: 'llm-judge' + scope != 'test' + metaEvalAgreement < 0.95 → rejected
  *   3. Duplicate id → rejected
  *
- * Audit event (R-10.9) is deferred to a later decorator/wrapper phase (MVP skip).
+ * Audit events (R-10.9): agent.scorer_registered on register, agent.scorer_demoted on demote.
+ * Persistence (R-10.10): upserts/demotes via ScorerRegistrationRepository.
  */
 
-import { Injectable } from '@nestjs/common'
+import { Injectable, Inject } from '@nestjs/common'
 import type { SetaScorer, ScorerKind } from '../../domain/scorer-types'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
+import {
+  SCORER_REGISTRATION_REPOSITORY,
+  type ScorerRegistrationRepository,
+} from '../../domain/repositories/scorer-registration.repository'
 
 // ─── DI token ─────────────────────────────────────────────────────────────────
 
@@ -49,14 +55,53 @@ export interface ScorerRegistrationOpts {
 export class ScorerRegistry {
   private readonly scorers = new Map<string, SetaScorer>()
 
+  constructor(
+    private readonly audit: KernelAuditFacade,
+    @Inject(SCORER_REGISTRATION_REPOSITORY)
+    private readonly scorerRegistrationRepo: ScorerRegistrationRepository,
+  ) {}
+
   /**
    * Register a scorer with optional role/metaEvalAgreement opts.
+   * Persists the registration and emits an audit event (R-10.9).
    *
    * @throws {ScorerRegistrationError} on any registration rule violation.
    */
-  register(scorer: SetaScorer, opts?: ScorerRegistrationOpts): void {
+  async register(scorer: SetaScorer, opts?: ScorerRegistrationOpts): Promise<void> {
     this.enforceRegistrationRules(scorer, opts)
     this.scorers.set(scorer.id, scorer)
+    await this.scorerRegistrationRepo.upsert({
+      scorerId: scorer.id,
+      name: scorer.name,
+      kind: scorer.kind,
+      scope: scorer.scope,
+      metaEvalAgreement: opts?.metaEvalAgreement ?? null,
+      status: 'provisional',
+    })
+    await this.audit.recordEvent({
+      tenantId: 'system',
+      actorId: 'system',
+      eventType: 'agent.scorer_registered',
+      module: 'agents',
+      subjectId: scorer.id,
+      payload: { name: scorer.name, kind: scorer.kind, scope: scorer.scope },
+    })
+  }
+
+  /**
+   * Demote a scorer: removes from in-memory map, persists demotion, emits audit event (R-10.10).
+   */
+  async demote(scorerId: string): Promise<void> {
+    this.scorers.delete(scorerId)
+    await this.scorerRegistrationRepo.demote(scorerId)
+    await this.audit.recordEvent({
+      tenantId: 'system',
+      actorId: 'system',
+      eventType: 'agent.scorer_demoted',
+      module: 'agents',
+      subjectId: scorerId,
+      payload: {},
+    })
   }
 
   /** All registered scorers, keyed by id. */
