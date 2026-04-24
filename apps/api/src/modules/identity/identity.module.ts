@@ -29,6 +29,7 @@ import { DrizzleTenantDomainRepository } from './infrastructure/repositories/dri
 import { DrizzleOAuthAuthorizationSessionRepository } from './infrastructure/repositories/drizzle-oauth-authorization-session.repository'
 
 import { DIRECTORY_PROVIDER_FACTORY } from './domain/ports/directory-provider.port'
+import { OAUTH_TOKEN_EXCHANGER } from './domain/ports/oauth-token-exchanger.port'
 import { DirectoryProviderFactory } from './infrastructure/providers/directory-provider.factory'
 import { MsGraphTokenAcquirer } from './infrastructure/providers/microsoft/ms-graph-token-acquirer'
 import { NodeCryptoProvider } from './infrastructure/providers/node-crypto.provider'
@@ -36,6 +37,7 @@ import { StubJobScheduler } from './infrastructure/jobs/stub-job-scheduler'
 import { MailMagicLinkSender } from './infrastructure/mailers/mail-magic-link.sender'
 import { DrizzleLocalUserQueryService } from './infrastructure/queries/drizzle-local-user-query.service'
 import { AwsSecretsStoreAdapter } from './infrastructure/secrets/aws-secrets-store.adapter'
+import { MicrosoftOAuthTokenExchanger } from './infrastructure/oauth/microsoft-oauth-token-exchanger'
 
 import { ConfigureIdentityProviderHandler } from './application/commands/configure-identity-provider.handler'
 import { TestIdpConnectionHandler } from './application/commands/test-idp-connection.handler'
@@ -52,6 +54,8 @@ import { UpdateIdpGroupMappingHandler } from './application/commands/update-idp-
 import { RequestMagicLinkHandler } from './application/commands/request-magic-link.handler'
 import { ValidateMagicLinkHandler } from './application/commands/validate-magic-link.handler'
 import { RunDirectorySyncHandler } from './application/commands/run-directory-sync.handler'
+import { StartOAuthHandler } from './application/commands/start-oauth.handler'
+import { CompleteOAuthHandler } from './application/commands/complete-oauth.handler'
 
 import { GetIdentityProviderHandler } from './application/queries/get-identity-provider.handler'
 import { ListGroupMappingsHandler } from './application/queries/list-group-mappings.handler'
@@ -84,6 +88,8 @@ const CommandHandlers = [
   RequestMagicLinkHandler,
   ValidateMagicLinkHandler,
   RunDirectorySyncHandler,
+  StartOAuthHandler,
+  CompleteOAuthHandler,
 ]
 
 const QueryHandlers = [
@@ -116,6 +122,7 @@ const QueryHandlers = [
       useClass: DrizzleOAuthAuthorizationSessionRepository,
     },
     { provide: DIRECTORY_PROVIDER_FACTORY, useClass: DirectoryProviderFactory },
+    { provide: OAUTH_TOKEN_EXCHANGER, useClass: MicrosoftOAuthTokenExchanger },
     {
       provide: SECRETS_STORE,
       useFactory: () =>
