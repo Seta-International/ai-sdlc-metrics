@@ -7,12 +7,16 @@ vi.mock('../../components/OrgChartTree', () => ({
 }))
 
 describe('OrgChartPage', () => {
-  it('renders V1 copy and directory search hint', () => {
+  it('renders the org chart header, context description, and directory search hint', () => {
     render(<OrgChartPage />)
 
     expect(screen.getByRole('heading', { name: 'Org chart' })).toBeTruthy()
-    expect(screen.getByText(/starts from your reporting context/i)).toBeTruthy()
-    expect(screen.getByText(/use People Directory/i)).toBeTruthy()
+    expect(
+      screen.getByText(/starts from your reporting context: manager, peers, and direct reports/i),
+    ).toBeTruthy()
+    expect(
+      screen.getByText(/Looking for someone by name\? Use People Directory search\./i),
+    ).toBeTruthy()
     expect(screen.getByTestId('org-chart-tree')).toBeTruthy()
   })
 })
