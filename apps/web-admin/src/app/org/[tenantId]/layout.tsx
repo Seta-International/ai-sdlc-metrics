@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 
 interface OrgLayoutProps {
   children: ReactNode
-  params: { tenantId: string }
 }
 
 /**

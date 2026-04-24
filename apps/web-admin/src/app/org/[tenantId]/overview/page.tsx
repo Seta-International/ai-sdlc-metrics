@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@future/api-client'
-import { Skeleton, Badge } from '@future/ui'
+import { Skeleton, Badge, Alert, AlertDescription } from '@future/ui'
 import { AdminPageHeader } from '@/components/admin-page-header'
 import { OrgContextSwitcher } from '@/components/system/org-context-switcher'
 import {
@@ -17,7 +17,11 @@ interface OrgOverviewPageProps {
 export default function OrgOverviewPage({ params }: OrgOverviewPageProps) {
   const { tenantId } = params
 
-  const { data: allTenants, isLoading } = useQuery({
+  const {
+    data: allTenants,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: listPlatformTenantsQueryKey,
     queryFn: () => listPlatformTenants(),
   })
@@ -89,7 +93,17 @@ export default function OrgOverviewPage({ params }: OrgOverviewPageProps) {
           </div>
         )}
 
-        {!isLoading && !tenant && <p className="text-muted-foreground">Tenant not found.</p>}
+        {isError && (
+          <Alert variant="destructive">
+            <AlertDescription>Failed to load organization. Please try again.</AlertDescription>
+          </Alert>
+        )}
+
+        {!isLoading && !isError && !tenant && (
+          <Alert variant="destructive">
+            <AlertDescription>Tenant not found.</AlertDescription>
+          </Alert>
+        )}
       </div>
     </main>
   )

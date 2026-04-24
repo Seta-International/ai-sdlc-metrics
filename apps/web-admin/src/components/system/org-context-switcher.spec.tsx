@@ -32,9 +32,8 @@ describe('<OrgContextSwitcher />', () => {
   it('shows a back-to-system link pointing to /system/platform-admins', () => {
     render(<OrgContextSwitcher activeOrgName="Acme Corp" activeOrgSlug="acme" />)
 
-    // Should have a link/button back to system
-    const links = screen.getAllByRole('button')
-    expect(links.length).toBeGreaterThan(0)
+    const backLink = screen.getByRole('link', { name: /back to platform/i })
+    expect(backLink).toHaveAttribute('href', '/system/platform-admins')
   })
 
   it('is not rendered for tenant admin (no platform admin context)', () => {

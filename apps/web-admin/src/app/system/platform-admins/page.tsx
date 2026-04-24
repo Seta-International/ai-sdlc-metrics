@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@future/api-client'
+import { Alert, AlertDescription } from '@future/ui'
 import { OrganizationTable } from '@/components/system/organization-table'
 import { AdminPageHeader } from '@/components/admin-page-header'
 import {
@@ -14,7 +15,7 @@ import type { TenantRow } from '@/components/system/organization-table'
 export default function PlatformAdminsPage() {
   const queryClient = useQueryClient()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: listPlatformTenantsQueryKey,
     queryFn: () => listPlatformTenants() as Promise<TenantRow[]>,
   })
@@ -35,6 +36,11 @@ export default function PlatformAdminsPage() {
         description="Manage all tenants on this platform."
       />
       <div className="mt-6">
+        {isError && (
+          <Alert variant="destructive">
+            <AlertDescription>Failed to load organizations. Please try again.</AlertDescription>
+          </Alert>
+        )}
         <OrganizationTable
           tenants={tenants}
           isLoading={isLoading}
