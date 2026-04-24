@@ -1,10 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import {
   DataTable,
   Button,
   Badge,
+  Spinner,
   defaultTableState,
   type ColumnDef,
   type FutureTableState,
@@ -96,9 +98,9 @@ function buildColumns(
         return (
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" asChild>
-              <a href={`/org/${id}/overview`}>
+              <Link href={`/org/${id}/overview`}>
                 Enter <ChevronRight className="ml-1 size-3" aria-hidden="true" />
-              </a>
+              </Link>
             </Button>
             {status === 'active' && (
               <Button
@@ -107,6 +109,7 @@ function buildColumns(
                 disabled={isUpdatingStatus}
                 onClick={() => onUpdateStatus(id, 'suspended')}
               >
+                {isUpdatingStatus && <Spinner className="size-4" />}
                 Suspend
               </Button>
             )}
@@ -117,6 +120,7 @@ function buildColumns(
                 disabled={isUpdatingStatus}
                 onClick={() => onUpdateStatus(id, 'active')}
               >
+                {isUpdatingStatus && <Spinner className="size-4" />}
                 Reactivate
               </Button>
             )}

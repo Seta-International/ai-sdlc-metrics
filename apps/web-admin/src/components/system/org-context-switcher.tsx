@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Button } from '@future/ui'
 import { ArrowLeft, Building2 } from '@future/ui/icons'
 
@@ -29,10 +30,10 @@ export function OrgContextSwitcher({ activeOrgName, activeOrgSlug }: OrgContextS
       <span className="flex-1 font-medium">{activeOrgName}</span>
       <span className="text-xs text-muted-foreground">/{activeOrgSlug}</span>
       <Button variant="ghost" size="sm" asChild>
-        <a href="/system/platform-admins">
+        <Link href="/system/platform-admins">
           <ArrowLeft className="mr-1 size-3" aria-hidden="true" />
           Back to Platform
-        </a>
+        </Link>
       </Button>
     </div>
   )
