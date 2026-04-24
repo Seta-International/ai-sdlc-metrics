@@ -1,13 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ScheduledTurnWorker, type ScheduledTurnJob } from './scheduled-turn-worker'
-import {
-  SCHEDULE_REPOSITORY,
-  type IScheduleRepository,
-} from '../../domain/repositories/schedule.repository'
-import {
-  SCHEDULE_RUN_REPOSITORY,
-  type IScheduleRunRepository,
-} from '../../domain/repositories/schedule-run.repository'
+import { type IScheduleRepository } from '../../domain/repositories/schedule.repository'
+import { type IScheduleRunRepository } from '../../domain/repositories/schedule-run.repository'
 import type { KernelDelegationFacade } from '../../../kernel/application/facades/kernel-delegation.facade'
 import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { NotificationsWriteFacade } from '../../../notifications/application/facades/notifications-write.facade'

@@ -1,4 +1,4 @@
-import { uuid, text, timestamp, jsonb, boolean, integer, numeric, index } from 'drizzle-orm/pg-core'
+import { uuid, text, timestamp, jsonb, integer, numeric, index } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 import { agentsSchema } from './agents.schema'
 
