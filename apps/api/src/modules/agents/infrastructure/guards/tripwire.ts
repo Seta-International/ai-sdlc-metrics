@@ -2,6 +2,8 @@
 // Per R-01.2: each pipeline step may tripwire by returning a discriminated-union result;
 // throwing a TripwireError is a runtime bug that must escalate to `turn.ended.reason: error`.
 
+import type { DraftProposalResult } from '../../application/services/draft-types'
+
 // ─── Variants ────────────────────────────────────────────────────────────────
 
 export type TripwireVariant =
@@ -67,6 +69,12 @@ export interface ToolGatewayOk {
   readonly kind: 'ok'
   readonly result: unknown
   readonly fromCache: boolean
+  /**
+   * Present when a mutation tool was successfully invoked and DraftProposer produced
+   * a draft proposal. Absent on query tools and cache-hit paths.
+   * Plan 08 §5: the sub-agent runner collects these to build SubAgentOutput.drafts.
+   */
+  readonly draft?: DraftProposalResult
 }
 
 export type ToolGatewayResult = ToolGatewayOk | Tripwire
@@ -75,8 +83,13 @@ export type ToolGatewayResult = ToolGatewayOk | Tripwire
 
 // `result` is opaque (unknown) — deep-freezing would be brittle and expensive;
 // the security-sensitive surface is `context` (on Tripwire), not `result`.
-export function ok(result: unknown, fromCache: boolean): ToolGatewayOk {
-  return Object.freeze({ kind: 'ok', result, fromCache })
+export function ok(
+  result: unknown,
+  fromCache: boolean,
+  draft?: DraftProposalResult,
+): ToolGatewayOk {
+  const base = { kind: 'ok' as const, result, fromCache }
+  return Object.freeze(draft !== undefined ? { ...base, draft } : base)
 }
 
 export function tripwire(

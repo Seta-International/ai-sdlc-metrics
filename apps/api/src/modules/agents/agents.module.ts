@@ -142,6 +142,11 @@ import { DRAFT_REPOSITORY } from './domain/repositories/draft.repository'
 import { DrizzleDraftRepository } from './infrastructure/repositories/drizzle-draft.repository'
 import { NotificationsModule } from '../notifications/notifications.module'
 import { NotificationsWriteFacade } from '../notifications/application/facades/notifications-write.facade'
+import { ExecuteApprovedDraftWorker } from './infrastructure/workers/execute-approved-draft'
+import {
+  DraftExpirySweeper,
+  DRAFT_EXPIRY_SWEEPER_JOB_NAME,
+} from './infrastructure/workers/sweep-expired-drafts'
 import type { ConversationRepository } from './domain/repositories/conversation.repository'
 import type { ConversationMessageRepository } from './domain/repositories/conversation-message.repository'
 import type { L3PreferenceRepository } from './domain/repositories/l3-preference.repository'
@@ -328,6 +333,8 @@ class NullTenantLister implements TenantListerLike {
     FlowPolicyResolver,
     DraftSink,
     DraftProposer,
+    ExecuteApprovedDraftWorker,
+    DraftExpirySweeper,
     // ── Plan 06 — Streaming + SSE + Cancellation ──────────────────────────────
     ActiveTurnRegistry,
     RequestContextDiscipline,
@@ -384,6 +391,8 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly compositionMonitorWorker: CompositionMonitorWorker,
     private readonly leakCanaryScheduler: LeakCanaryScheduler,
     private readonly pgBossService: PgBossService,
+    private readonly executeApprovedDraftWorker: ExecuteApprovedDraftWorker,
+    private readonly draftExpirySweeper: DraftExpirySweeper,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -480,5 +489,20 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     // Step 7: Register leak canary job (Plan 07 Task 7, R-07.§8).
     // Daily 3am UTC scan for cross-tenant trace leaks — MVP stub records 'clean'.
     await this.leakCanaryScheduler.registerJob()
+
+    // Step 8: Register execute-approved-draft worker (Plan 08 T5).
+    // Processes approved drafts enqueued by DraftProposer after approval.
+    await this.pgBossService.registerWorker<Parameters<ExecuteApprovedDraftWorker['handle']>[0]>(
+      'agents.execute-approved-draft',
+      async (jobs) => {
+        for (const job of jobs) {
+          await this.executeApprovedDraftWorker.handle(job.data)
+        }
+      },
+    )
+
+    // Step 9: Register draft expiry sweeper (Plan 08 T5).
+    // Runs every 15 minutes to mark pending-expired drafts as 'expired'.
+    await this.draftExpirySweeper.registerJob(this.pgBossService)
   }
 }

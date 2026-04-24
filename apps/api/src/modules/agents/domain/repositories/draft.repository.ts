@@ -15,7 +15,22 @@ export interface IDraftRepository {
       executionOutcome?: string
     }
   }): Promise<void>
+  /**
+   * Atomically transitions a draft from `fromStatus` to 'executed'.
+   * Returns true if the update affected a row (transition happened),
+   * false if the row was already in a different state (race condition / idempotence).
+   */
+  atomicTransitionToExecuted(opts: {
+    tenantId: string
+    draftId: string
+    fromStatus: DraftStatus
+  }): Promise<boolean>
   listPendingExpired(opts: { tenantId: string; now: Date }): Promise<Draft[]>
+  /**
+   * Cross-tenant query used by the system-wide expiry sweeper.
+   * No tenantId filter — returns all pending drafts whose expiresAt is before `now`.
+   */
+  listAllPendingExpired(opts: { now: Date }): Promise<Draft[]>
   listForApprover(opts: {
     tenantId: string
     approverId: string

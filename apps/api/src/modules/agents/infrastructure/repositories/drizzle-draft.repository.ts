@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { and, eq, inArray, lt } from 'drizzle-orm'
+import { and, eq, inArray, lt, sql } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { agentDraft } from '../schema/agent-draft.schema'
@@ -110,6 +110,26 @@ export class DrizzleDraftRepository implements IDraftRepository {
       .where(and(eq(agentDraft.tenantId, opts.tenantId), eq(agentDraft.id, opts.draftId)))
   }
 
+  async atomicTransitionToExecuted(opts: {
+    tenantId: string
+    draftId: string
+    fromStatus: DraftStatus
+  }): Promise<boolean> {
+    const rows = await this.db
+      .update(agentDraft)
+      .set({ status: 'executed', executedAt: sql`now()` })
+      .where(
+        and(
+          eq(agentDraft.tenantId, opts.tenantId),
+          eq(agentDraft.id, opts.draftId),
+          eq(agentDraft.status, opts.fromStatus),
+        ),
+      )
+      .returning({ id: agentDraft.id })
+
+    return rows.length > 0
+  }
+
   async listPendingExpired(opts: { tenantId: string; now: Date }): Promise<Draft[]> {
     const rows = await this.db
       .select()
@@ -121,6 +141,15 @@ export class DrizzleDraftRepository implements IDraftRepository {
           lt(agentDraft.expiresAt, opts.now),
         ),
       )
+
+    return rows.map((row) => toDomain(row as AgentDraftRow))
+  }
+
+  async listAllPendingExpired(opts: { now: Date }): Promise<Draft[]> {
+    const rows = await this.db
+      .select()
+      .from(agentDraft)
+      .where(and(eq(agentDraft.status, 'pending'), lt(agentDraft.expiresAt, opts.now)))
 
     return rows.map((row) => toDomain(row as AgentDraftRow))
   }
