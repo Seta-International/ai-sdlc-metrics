@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { trpc } from '../trpc'
-import type { OrgChartContext, OrgChartNode } from '../types'
+import type { OrgChartNode, OrgChartTree } from '../types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const anyTrpc = trpc as any
@@ -10,11 +10,15 @@ type UseOrgChartReturn = {
   nodesById: Map<string, OrgChartNode>
   childrenByParentId: Map<string, string[]>
   expandedIds: Set<string>
+  rootEmploymentIds: string[]
   focusEmploymentId: string | null
   isLoadingContext: boolean
   contextError: string | null
   childLoadingIds: Set<string>
   childErrorsById: Map<string, string>
+  selectedTeamId: string | null
+  setSelectedTeamId: (teamId: string | null) => void
+  availableTeams: Array<{ id: string; name: string }>
   expandNode: (employmentId: string) => Promise<void>
   collapseNode: (employmentId: string) => void
   retryContext: () => void
@@ -25,29 +29,20 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Failed to load org chart'
 }
 
-function buildInitialChildren(nodes: OrgChartNode[]): Map<string, string[]> {
-  const map = new Map<string, string[]>()
-  for (const node of nodes) {
-    if (!node.managerEmploymentId) continue
-    const existing = map.get(node.managerEmploymentId) ?? []
-    existing.push(node.employmentId)
-    map.set(node.managerEmploymentId, existing)
-  }
-  return map
-}
-
 export function useOrgChart(): UseOrgChartReturn {
   const [nodesById, setNodesById] = React.useState<Map<string, OrgChartNode>>(() => new Map())
   const [childrenByParentId, setChildrenByParentId] = React.useState<Map<string, string[]>>(
     () => new Map(),
   )
   const [expandedIds, setExpandedIds] = React.useState<Set<string>>(() => new Set())
+  const [rootEmploymentIds, setRootEmploymentIds] = React.useState<string[]>([])
   const [focusEmploymentId, setFocusEmploymentId] = React.useState<string | null>(null)
   const [isLoadingContext, setIsLoadingContext] = React.useState(true)
   const [contextError, setContextError] = React.useState<string | null>(null)
   const [childLoadingIds, setChildLoadingIds] = React.useState<Set<string>>(() => new Set())
   const [childErrorsById, setChildErrorsById] = React.useState<Map<string, string>>(() => new Map())
   const [contextReloadKey, setContextReloadKey] = React.useState(0)
+  const [selectedTeamId, setSelectedTeamId] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     let cancelled = false
@@ -55,11 +50,17 @@ export function useOrgChart(): UseOrgChartReturn {
       setIsLoadingContext(true)
       setContextError(null)
       try {
-        const result = (await anyTrpc.people.orgChart.context.query()) as OrgChartContext
+        const result = (await anyTrpc.people.orgChart.tree.query({
+          depth: 3,
+          teamId: selectedTeamId ?? undefined,
+        })) as OrgChartTree
         if (cancelled) return
-        setNodesById(new Map(result.nodes.map((node) => [node.employmentId, node])))
-        setChildrenByParentId(buildInitialChildren(result.nodes))
-        setExpandedIds(new Set(result.rootEmploymentIds))
+        const nodesMap = new Map(Object.entries(result.nodesById))
+        const childrenMap = new Map(Object.entries(result.childrenByParentId))
+        setNodesById(nodesMap)
+        setChildrenByParentId(childrenMap)
+        setExpandedIds(new Set(result.rootIds))
+        setRootEmploymentIds(result.rootIds)
         setFocusEmploymentId(result.focusEmploymentId)
       } catch (error) {
         if (!cancelled) setContextError(getErrorMessage(error))
@@ -70,7 +71,7 @@ export function useOrgChart(): UseOrgChartReturn {
     return () => {
       cancelled = true
     }
-  }, [contextReloadKey])
+  }, [contextReloadKey, selectedTeamId])
 
   const visibleNodes = React.useMemo(() => Array.from(nodesById.values()), [nodesById])
 
@@ -125,11 +126,15 @@ export function useOrgChart(): UseOrgChartReturn {
     nodesById,
     childrenByParentId,
     expandedIds,
+    rootEmploymentIds,
     focusEmploymentId,
     isLoadingContext,
     contextError,
     childLoadingIds,
     childErrorsById,
+    selectedTeamId,
+    setSelectedTeamId,
+    availableTeams: [],
     expandNode,
     collapseNode,
     retryContext: () => setContextReloadKey((key) => key + 1),

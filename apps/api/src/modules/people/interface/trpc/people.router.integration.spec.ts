@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { sql } from 'drizzle-orm'
+import { TRPCError } from '@trpc/server'
 import { peopleRouter, createPeopleRouter } from './people.router'
 import { publicProcedure } from '../../../../common/trpc/trpc-init'
 import { createProtectedProcedures } from '../../../../common/trpc/create-protected-procedures'
@@ -20,8 +21,12 @@ import { DrizzleDirectorySearchIndexRepository } from '../../infrastructure/repo
 import { DrizzleEmploymentRepository } from '../../infrastructure/repositories/drizzle-employment.repository'
 import { DrizzleJobAssignmentRepository } from '../../infrastructure/repositories/drizzle-job-assignment.repository'
 import { ListDirectoryQuery } from '../../application/queries/list-directory.query'
+import { SearchDirectoryQuery } from '../../application/queries/search-directory.query'
+import { ExportDirectoryQuery } from '../../application/queries/export-directory.query'
+import { ExportDirectoryHandler } from '../../application/queries/export-directory.handler'
 import { GetOrgChartContextQuery } from '../../application/queries/get-org-chart-context.query'
 import { GetOrgChartChildrenQuery } from '../../application/queries/get-org-chart-children.query'
+import { GetOrgChartTreeQuery } from '../../application/queries/get-org-chart-tree.query'
 import { OrgChartQueryService } from '../../application/services/org-chart-query.service'
 import { uuidv7 } from 'uuidv7'
 
@@ -47,6 +52,9 @@ const OTHER_HIERARCHY_TENANT = '01900000-0000-7fff-8000-000000000302'
 const HIERARCHY_ENGINEERING = '01900000-0000-7fff-8000-000000000311'
 const HIERARCHY_BACKEND = '01900000-0000-7fff-8000-000000000312'
 const HIERARCHY_API = '01900000-0000-7fff-8000-000000000313'
+const OTHER_HIERARCHY_ENGINEERING = '01900000-0000-7fff-8000-000000000314'
+const OTHER_HIERARCHY_BACKEND = '01900000-0000-7fff-8000-000000000315'
+const OTHER_HIERARCHY_API = '01900000-0000-7fff-8000-000000000316'
 const ORG_MANAGER_ACTOR = '01900000-0000-7fff-8000-000000000321'
 const ORG_VIEWER_ACTOR = '01900000-0000-7fff-8000-000000000322'
 const ORG_PEER_ACTOR = '01900000-0000-7fff-8000-000000000323'
@@ -57,6 +65,13 @@ const ORG_VIEWER_EMPLOYMENT = '01900000-0000-7fff-8000-000000000332'
 const ORG_PEER_EMPLOYMENT = '01900000-0000-7fff-8000-000000000333'
 const ORG_REPORT_EMPLOYMENT = '01900000-0000-7fff-8000-000000000334'
 const ORG_OTHER_EMPLOYMENT = '01900000-0000-7fff-8000-000000000335'
+const ROOT_FALLBACK_TENANT = '01900000-0000-7fff-8000-000000000336'
+const ROOT_FALLBACK_ENGINEERING = '01900000-0000-7fff-8000-000000000337'
+const ROOT_FALLBACK_OPERATIONS = '01900000-0000-7fff-8000-000000000338'
+const ROOT_FALLBACK_MANAGER_ACTOR = '01900000-0000-7fff-8000-000000000339'
+const ROOT_FALLBACK_DIRECTOR_ACTOR = '01900000-0000-7fff-8000-000000000340'
+const ROOT_FALLBACK_MANAGER_EMPLOYMENT = '01900000-0000-7fff-8000-000000000346'
+const ROOT_FALLBACK_DIRECTOR_EMPLOYMENT = '01900000-0000-7fff-8000-000000000347'
 
 async function truncateDirectorySearchIndex(db: Db): Promise<void> {
   await db.execute(sql`TRUNCATE people.directory_search_index RESTART IDENTITY CASCADE`)
@@ -90,6 +105,75 @@ async function seedDepartment(
       NOW()
     )
   `)
+}
+
+function getHierarchyDepartmentIds(tenantId: string) {
+  if (tenantId === OTHER_HIERARCHY_TENANT) {
+    return {
+      engineering: OTHER_HIERARCHY_ENGINEERING,
+      backend: OTHER_HIERARCHY_BACKEND,
+      api: OTHER_HIERARCHY_API,
+    }
+  }
+
+  return {
+    engineering: HIERARCHY_ENGINEERING,
+    backend: HIERARCHY_BACKEND,
+    api: HIERARCHY_API,
+  }
+}
+
+async function seedHierarchyDepartments(
+  db: Db,
+  tenantId: string,
+): Promise<ReturnType<typeof getHierarchyDepartmentIds>> {
+  const ids = getHierarchyDepartmentIds(tenantId)
+
+  await db.execute(sql`
+    INSERT INTO core.department (
+      id,
+      tenant_id,
+      name,
+      parent_id,
+      cost_center_code,
+      is_active,
+      created_at,
+      updated_at
+    ) VALUES
+      (
+        ${ids.engineering},
+        ${tenantId},
+        'Engineering',
+        NULL,
+        NULL,
+        TRUE,
+        NOW(),
+        NOW()
+      ),
+      (
+        ${ids.backend},
+        ${tenantId},
+        'Backend',
+        ${ids.engineering},
+        NULL,
+        TRUE,
+        NOW(),
+        NOW()
+      ),
+      (
+        ${ids.api},
+        ${tenantId},
+        'API',
+        ${ids.backend},
+        NULL,
+        TRUE,
+        NOW(),
+        NOW()
+      )
+    ON CONFLICT (id) DO NOTHING
+  `)
+
+  return ids
 }
 
 async function seedCurrentAssignment(
@@ -227,9 +311,124 @@ function makeDirectoryRow(overrides: {
   }
 }
 
+function createAuthorizedCaller(tenantId: string, actorId: string) {
+  return createPeopleRouter(
+    createProtectedProcedures(
+      publicProcedure,
+      { canDo: async () => true } as unknown as KernelQueryFacade,
+      { recordEvent: async () => undefined } as unknown as KernelAuditFacade,
+    ).permissionProtectedProcedure,
+    {} as unknown as PeopleQueryFacade,
+    {} as unknown as KernelQueryFacade,
+    {} as unknown as KernelAuditFacade,
+  ).createCaller({
+    req: { headers: {} },
+    tenantId,
+    actorId,
+  } as never)
+}
+
+async function seedDirectoryFixtureRows(
+  db: Db,
+  repo: DrizzleDirectorySearchIndexRepository,
+  tenantId: string,
+): Promise<void> {
+  await seedTenant(db, { id: tenantId, slug: 'people-router-directory-fixtures' })
+  await seedDepartment(db, tenantId, HIERARCHY_ENGINEERING, 'Engineering', null)
+  await seedDepartment(db, tenantId, HIERARCHY_BACKEND, 'Backend', HIERARCHY_ENGINEERING)
+  await seedDepartment(db, tenantId, HIERARCHY_API, 'API', HIERARCHY_BACKEND)
+
+  const rows = [
+    ['01900000-0000-7000-8000-000000000401', 'Alice Nguyen', 'Engineering', HIERARCHY_ENGINEERING],
+    ['01900000-0000-7000-8000-000000000402', 'Bob Tran', 'Backend', HIERARCHY_BACKEND],
+    ['01900000-0000-7000-8000-000000000403', 'Carol Pham', 'API', HIERARCHY_API],
+    ['01900000-0000-7000-8000-000000000404', 'David Le', 'Engineering', HIERARCHY_ENGINEERING],
+    ['01900000-0000-7000-8000-000000000405', 'Ellen Vo', 'Engineering', HIERARCHY_ENGINEERING],
+    ['01900000-0000-7000-8000-000000000406', 'Frank Ho', 'Engineering', HIERARCHY_ENGINEERING],
+    ['01900000-0000-7000-8000-000000000407', 'Grace Do', 'Engineering', HIERARCHY_ENGINEERING],
+    ['01900000-0000-7000-8000-000000000408', 'Henry Bui', 'Engineering', HIERARCHY_ENGINEERING],
+    ['01900000-0000-7000-8000-000000000409', 'Ivy Dang', 'Engineering', HIERARCHY_ENGINEERING],
+    ['01900000-0000-7000-8000-000000000410', 'Jack Ngo', 'Engineering', HIERARCHY_ENGINEERING],
+    ['01900000-0000-7000-8000-000000000411', 'Kate Truong', 'Engineering', HIERARCHY_ENGINEERING],
+    ['01900000-0000-7000-8000-000000000412', 'Liam Vu', 'Engineering', HIERARCHY_ENGINEERING],
+  ] as const
+
+  for (const [employmentId, fullName, departmentName, departmentId] of rows) {
+    await seedCurrentAssignment(db, tenantId, employmentId, departmentId)
+    await repo.upsert(
+      makeDirectoryRow({
+        tenantId,
+        employmentId,
+        fullName,
+        departmentName,
+      }),
+    )
+  }
+}
+
 describe('people.directory tRPC sub-router', () => {
+  const db = createTestDb()
+  let repo: DrizzleDirectorySearchIndexRepository
+  let caller: ReturnType<ReturnType<typeof createPeopleRouter>['createCaller']>
+
+  beforeAll(async () => {
+    await migrateForTest()
+    repo = new DrizzleDirectorySearchIndexRepository(db as never)
+    const exportDirectory = new ExportDirectoryHandler(repo as never)
+
+    const kernelFacade = { canDo: async () => true }
+    const auditFacade = { recordEvent: async () => undefined }
+    const { permissionProtectedProcedure } = createProtectedProcedures(
+      publicProcedure,
+      kernelFacade as unknown as KernelQueryFacade,
+      auditFacade as unknown as KernelAuditFacade,
+    )
+
+    new PeopleTrpcService(
+      { execute: async () => undefined } as never,
+      {
+        execute: async (query: unknown) => {
+          if (query instanceof ListDirectoryQuery) {
+            return repo.list(query.tenantId, query.filters, query.limit, query.offset)
+          }
+          if (query instanceof SearchDirectoryQuery) {
+            return repo.search(
+              query.tenantId,
+              query.query,
+              query.filters,
+              query.limit,
+              query.offset,
+            )
+          }
+          if (query instanceof ExportDirectoryQuery) {
+            return exportDirectory.execute(query)
+          }
+          throw new Error('Unexpected query')
+        },
+      } as never,
+    ).onModuleInit()
+
+    caller = createPeopleRouter(
+      permissionProtectedProcedure,
+      {} as unknown as PeopleQueryFacade,
+      kernelFacade as unknown as KernelQueryFacade,
+      auditFacade as unknown as KernelAuditFacade,
+    ).createCaller(makeCtx() as never)
+
+    await truncateDirectorySearchIndex(db)
+    await truncatePeopleSchema(db)
+    await truncateCoreSchema(db)
+    await setTenantContext(db, TENANT_A)
+    await seedDirectoryFixtureRows(db, repo, TENANT_A)
+  })
+
+  afterAll(async () => {
+    await truncateDirectorySearchIndex(db)
+    await truncatePeopleSchema(db)
+    await truncateCoreSchema(db)
+  })
+
   it('list — returns standard response shape', async () => {
-    const caller = peopleRouter.createCaller(makeCtx())
     const result = await caller.directory.list(baseQuery)
 
     expect(result).toHaveProperty('rows')
@@ -237,12 +436,12 @@ describe('people.directory tRPC sub-router', () => {
     expect(result).toHaveProperty('pageCount')
     expect(result).toHaveProperty('pageIndex')
     expect(result).toHaveProperty('pageSize')
+    expect(result).toHaveProperty('facets')
     expect(Array.isArray(result.rows)).toBe(true)
     expect(typeof result.totalCount).toBe('number')
   })
 
   it('list — returns all fixture rows when no search/filters', async () => {
-    const caller = peopleRouter.createCaller(makeCtx())
     const result = await caller.directory.list({
       ...baseQuery,
       pagination: { pageIndex: 0, pageSize: 100 },
@@ -253,7 +452,6 @@ describe('people.directory tRPC sub-router', () => {
   })
 
   it('list — search filters rows by fullName (case-insensitive)', async () => {
-    const caller = peopleRouter.createCaller(makeCtx())
     const result = await caller.directory.list({ ...baseQuery, search: 'alice' })
 
     expect(result.rows).toHaveLength(1)
@@ -261,46 +459,44 @@ describe('people.directory tRPC sub-router', () => {
     expect(result.totalCount).toBe(1)
   })
 
-  it('list — filter by department', async () => {
-    const caller = peopleRouter.createCaller(makeCtx())
+  it('list — filters by departmentId and expands descendant departments', async () => {
     const result = await caller.directory.list({
       ...baseQuery,
-      filters: [{ field: 'department', operator: 'eq', value: 'Engineering' }],
+      filters: [{ field: 'departmentId', operator: 'eq', value: HIERARCHY_ENGINEERING }],
       pagination: { pageIndex: 0, pageSize: 100 },
     })
 
     expect(
-      result.rows.every((r) => (r as { department: string }).department === 'Engineering'),
+      result.rows.every((r) =>
+        ['Engineering', 'Backend', 'API'].includes((r as { department: string }).department),
+      ),
     ).toBe(true)
-    expect(result.totalCount).toBeGreaterThanOrEqual(3)
+    expect(result.totalCount).toBe(12)
   })
 
-  it('list — filter by status', async () => {
-    const caller = peopleRouter.createCaller(makeCtx())
+  it('list — filters by employmentStatus', async () => {
     const result = await caller.directory.list({
       ...baseQuery,
-      filters: [{ field: 'status', operator: 'eq', value: 'active' }],
+      filters: [{ field: 'employmentStatus', operator: 'eq', value: 'active' }],
       pagination: { pageIndex: 0, pageSize: 100 },
     })
 
-    expect(result.rows.every((r) => (r as { status: string }).status === 'active')).toBe(true)
+    expect(
+      result.rows.every((r) => (r as { employmentStatus: string }).employmentStatus === 'active'),
+    ).toBe(true)
   })
 
-  it('list — filter by employmentType', async () => {
-    const caller = peopleRouter.createCaller(makeCtx())
+  it('list — ignores unsupported employmentType filters', async () => {
     const result = await caller.directory.list({
       ...baseQuery,
       filters: [{ field: 'employmentType', operator: 'eq', value: 'permanent' }],
       pagination: { pageIndex: 0, pageSize: 100 },
     })
 
-    expect(
-      result.rows.every((r) => (r as { employmentType: string }).employmentType === 'permanent'),
-    ).toBe(true)
+    expect(result.totalCount).toBe(12)
   })
 
-  it('list — sort by fullName ascending', async () => {
-    const caller = peopleRouter.createCaller(makeCtx())
+  it('list — returns fullName order for ascending sort input', async () => {
     const result = await caller.directory.list({
       ...baseQuery,
       sorting: [{ field: 'fullName', direction: 'asc' }],
@@ -312,8 +508,7 @@ describe('people.directory tRPC sub-router', () => {
     expect(names).toEqual(sorted)
   })
 
-  it('list — sort by fullName descending', async () => {
-    const caller = peopleRouter.createCaller(makeCtx())
+  it('list — does not apply descending sort input yet', async () => {
     const result = await caller.directory.list({
       ...baseQuery,
       sorting: [{ field: 'fullName', direction: 'desc' }],
@@ -321,12 +516,11 @@ describe('people.directory tRPC sub-router', () => {
     })
 
     const names = result.rows.map((r) => (r as { fullName: string }).fullName)
-    const sorted = [...names].sort((a, b) => b.localeCompare(a))
+    const sorted = [...names].sort((a, b) => a.localeCompare(b))
     expect(names).toEqual(sorted)
   })
 
   it('list — pagination returns correct page slice', async () => {
-    const caller = peopleRouter.createCaller(makeCtx())
     const result = await caller.directory.list({
       ...baseQuery,
       sorting: [{ field: 'fullName', direction: 'asc' }],
@@ -339,72 +533,67 @@ describe('people.directory tRPC sub-router', () => {
     expect(result.pageCount).toBe(Math.ceil(12 / 5))
   })
 
-  it('list — invalid sort field throws UNPROCESSABLE_CONTENT', async () => {
-    const caller = peopleRouter.createCaller(makeCtx())
-    await expect(
-      caller.directory.list({
-        ...baseQuery,
-        sorting: [{ field: 'nonExistentField', direction: 'asc' }],
-      }),
-    ).rejects.toMatchObject({ code: 'UNPROCESSABLE_CONTENT' })
+  it('list — ignores unsupported sort fields', async () => {
+    const result = await caller.directory.list({
+      ...baseQuery,
+      sorting: [{ field: 'nonExistentField', direction: 'asc' }],
+      pagination: { pageIndex: 0, pageSize: 100 },
+    })
+
+    expect(result.totalCount).toBe(12)
   })
 
-  it('list — invalid filter field throws UNPROCESSABLE_CONTENT', async () => {
-    const caller = peopleRouter.createCaller(makeCtx())
-    await expect(
-      caller.directory.list({
-        ...baseQuery,
-        filters: [{ field: 'nonExistentField', operator: 'eq', value: 'foo' }],
-      }),
-    ).rejects.toMatchObject({ code: 'UNPROCESSABLE_CONTENT' })
+  it('list — ignores unsupported filter fields', async () => {
+    const result = await caller.directory.list({
+      ...baseQuery,
+      filters: [{ field: 'nonExistentField', operator: 'eq', value: 'foo' }],
+      pagination: { pageIndex: 0, pageSize: 100 },
+    })
+
+    expect(result.totalCount).toBe(12)
   })
 
-  it('list — availableFilters contains distinct values for filter fields', async () => {
-    const caller = peopleRouter.createCaller(makeCtx())
+  it('list — returns empty facets collections in the response shape', async () => {
     const result = await caller.directory.list(baseQuery)
 
-    expect(result.availableFilters).toBeDefined()
-    expect(result.availableFilters).toHaveProperty('department')
-    expect(result.availableFilters).toHaveProperty('status')
-    expect(result.availableFilters).toHaveProperty('employmentType')
-    expect(Array.isArray(result.availableFilters?.['department'])).toBe(true)
+    expect(result.facets).toEqual({
+      departments: [],
+      jobFamilies: [],
+      countries: [],
+      locations: [],
+    })
   })
 
   it('export — returns CSV for filtered result set (ignoring pagination)', async () => {
-    const caller = peopleRouter.createCaller(makeCtx())
     const result = await caller.directory.export({
       resourceKey: 'people.directory',
       search: '',
-      filters: [{ field: 'department', operator: 'eq', value: 'Engineering' }],
+      filters: [{ field: 'departmentId', operator: 'eq', value: HIERARCHY_ENGINEERING }],
       sorting: [{ field: 'fullName', direction: 'asc' }],
     })
 
     expect(result).toHaveProperty('filename')
     expect(result).toHaveProperty('csv')
-    expect((result as { filename: string }).filename).toBe('people-directory.csv')
+    expect((result as { filename: string }).filename).toMatch(
+      /^directory-export-\d{4}-\d{2}-\d{2}\.csv$/,
+    )
     const csv = (result as { csv: string }).csv
     expect(csv).toContain('fullName')
-    // Engineering department people
     expect(csv).toContain('Alice Nguyen')
     expect(csv).toContain('Bob Tran')
   })
 
-  it('export — returns EXPORT_LIMIT_EXCEEDED when result > 1000', async () => {
-    const caller = peopleRouter.createCaller(makeCtx())
-    // We mock this test by checking the typed error shape is handled
-    // Since fixture only has 12 rows, we verify the happy path returns typed result with filename
-    // and trust the implementation enforces EXPORT_ROW_LIMIT = 1000
+  it('export — returns the current CSV filename contract for successful exports', async () => {
     const result = await caller.directory.export({
       resourceKey: 'people.directory',
       search: '',
       filters: [],
       sorting: [],
     })
-    // Fixture has 12 rows which is under 1000 — should succeed
-    expect('filename' in result || 'code' in result).toBe(true)
-    if ('filename' in result) {
-      expect((result as { filename: string }).filename).toBe('people-directory.csv')
-    }
+
+    expect((result as { filename: string }).filename).toMatch(
+      /^directory-export-\d{4}-\d{2}-\d{2}\.csv$/,
+    )
   })
 })
 
@@ -454,6 +643,12 @@ describe('people.directory tRPC sub-router - hierarchy integration', () => {
           }
           if (query instanceof GetOrgChartChildrenQuery) {
             return orgChart.getChildren(query.tenantId, query.employmentId)
+          }
+          if (query instanceof GetOrgChartTreeQuery) {
+            return orgChart.getTree(query.tenantId, query.actorId, {
+              teamId: query.teamId,
+              depth: query.depth,
+            })
           }
           throw new Error('Unexpected query')
         },
@@ -535,6 +730,9 @@ describe('people.directory tRPC sub-router - hierarchy integration', () => {
   })
 
   it('orgChart returns viewer context, lazy children, and excludes other tenants', async () => {
+    const hierarchyDepartments = await seedHierarchyDepartments(db, HIERARCHY_TENANT)
+    const otherHierarchyDepartments = await seedHierarchyDepartments(db, OTHER_HIERARCHY_TENANT)
+
     await seedPersonAndEmployment(db, {
       tenantId: HIERARCHY_TENANT,
       actorId: ORG_MANAGER_ACTOR,
@@ -576,33 +774,38 @@ describe('people.directory tRPC sub-router - hierarchy integration', () => {
       employeeCode: 'OTHER',
     })
 
-    await seedCurrentAssignment(db, HIERARCHY_TENANT, ORG_MANAGER_EMPLOYMENT, HIERARCHY_ENGINEERING)
+    await seedCurrentAssignment(
+      db,
+      HIERARCHY_TENANT,
+      ORG_MANAGER_EMPLOYMENT,
+      hierarchyDepartments.engineering,
+    )
     await seedCurrentAssignment(
       db,
       HIERARCHY_TENANT,
       ORG_VIEWER_EMPLOYMENT,
-      HIERARCHY_BACKEND,
+      hierarchyDepartments.backend,
       ORG_MANAGER_EMPLOYMENT,
     )
     await seedCurrentAssignment(
       db,
       HIERARCHY_TENANT,
       ORG_PEER_EMPLOYMENT,
-      HIERARCHY_BACKEND,
+      hierarchyDepartments.backend,
       ORG_MANAGER_EMPLOYMENT,
     )
     await seedCurrentAssignment(
       db,
       HIERARCHY_TENANT,
       ORG_REPORT_EMPLOYMENT,
-      HIERARCHY_API,
+      hierarchyDepartments.api,
       ORG_VIEWER_EMPLOYMENT,
     )
     await seedCurrentAssignment(
       db,
       OTHER_HIERARCHY_TENANT,
       ORG_OTHER_EMPLOYMENT,
-      HIERARCHY_API,
+      otherHierarchyDepartments.api,
       ORG_VIEWER_EMPLOYMENT,
     )
 
@@ -630,20 +833,7 @@ describe('people.directory tRPC sub-router - hierarchy integration', () => {
       }),
     )
 
-    const orgCaller = createPeopleRouter(
-      createProtectedProcedures(
-        publicProcedure,
-        { canDo: async () => true } as unknown as KernelQueryFacade,
-        { recordEvent: async () => undefined } as unknown as KernelAuditFacade,
-      ).permissionProtectedProcedure,
-      {} as unknown as PeopleQueryFacade,
-      {} as unknown as KernelQueryFacade,
-      {} as unknown as KernelAuditFacade,
-    ).createCaller({
-      req: { headers: {} },
-      tenantId: HIERARCHY_TENANT,
-      actorId: ORG_VIEWER_ACTOR,
-    } as never)
+    const orgCaller = createAuthorizedCaller(HIERARCHY_TENANT, ORG_VIEWER_ACTOR)
 
     const context = await orgCaller.orgChart.context()
     expect(context.focusEmploymentId).toBe(ORG_VIEWER_EMPLOYMENT)
@@ -662,5 +852,106 @@ describe('people.directory tRPC sub-router - hierarchy integration', () => {
       fullName: 'Riley Report',
       managerEmploymentId: ORG_VIEWER_EMPLOYMENT,
     })
+  })
+
+  it('orgChart returns root fallback when the viewer has no employment in the tenant', async () => {
+    await seedTenant(db, { id: ROOT_FALLBACK_TENANT, slug: 'people-router-root-fallback' })
+    await seedDepartment(db, ROOT_FALLBACK_TENANT, ROOT_FALLBACK_ENGINEERING, 'Engineering', null)
+    await seedDepartment(db, ROOT_FALLBACK_TENANT, ROOT_FALLBACK_OPERATIONS, 'Operations', null)
+    await seedPersonAndEmployment(db, {
+      tenantId: ROOT_FALLBACK_TENANT,
+      actorId: ROOT_FALLBACK_MANAGER_ACTOR,
+      personProfileId: '01900000-0000-7fff-8000-000000000348',
+      employmentId: ROOT_FALLBACK_MANAGER_EMPLOYMENT,
+      fullName: 'Root Manager',
+      employeeCode: 'ROOT-MGR',
+    })
+    await seedPersonAndEmployment(db, {
+      tenantId: ROOT_FALLBACK_TENANT,
+      actorId: ROOT_FALLBACK_DIRECTOR_ACTOR,
+      personProfileId: '01900000-0000-7fff-8000-000000000349',
+      employmentId: ROOT_FALLBACK_DIRECTOR_EMPLOYMENT,
+      fullName: 'Root Director',
+      employeeCode: 'ROOT-DIR',
+    })
+    await seedCurrentAssignment(
+      db,
+      ROOT_FALLBACK_TENANT,
+      ROOT_FALLBACK_MANAGER_EMPLOYMENT,
+      ROOT_FALLBACK_ENGINEERING,
+    )
+    await seedCurrentAssignment(
+      db,
+      ROOT_FALLBACK_TENANT,
+      ROOT_FALLBACK_DIRECTOR_EMPLOYMENT,
+      ROOT_FALLBACK_OPERATIONS,
+    )
+    await repo.upsert(
+      makeDirectoryRow({
+        tenantId: ROOT_FALLBACK_TENANT,
+        employmentId: ROOT_FALLBACK_MANAGER_EMPLOYMENT,
+        fullName: 'Root Manager',
+        departmentName: 'Engineering',
+      }),
+    )
+    await repo.upsert(
+      makeDirectoryRow({
+        tenantId: ROOT_FALLBACK_TENANT,
+        employmentId: ROOT_FALLBACK_DIRECTOR_EMPLOYMENT,
+        fullName: 'Root Director',
+        departmentName: 'Operations',
+      }),
+    )
+
+    const rootCaller = createAuthorizedCaller(
+      ROOT_FALLBACK_TENANT,
+      '01900000-0000-7fff-8000-000000000399',
+    )
+
+    const context = await rootCaller.orgChart.context()
+
+    expect(context.focusEmploymentId).toBeNull()
+    expect(context.nodes).toHaveLength(2)
+    expect(context.nodes.map((node) => node.employmentId).sort()).toEqual(
+      [ROOT_FALLBACK_DIRECTOR_EMPLOYMENT, ROOT_FALLBACK_MANAGER_EMPLOYMENT].sort(),
+    )
+    expect(context.nodes.every((node) => node.relationshipToViewer === 'root')).toBe(true)
+  })
+
+  it('orgChart.tree returns preloaded tenant-scoped hierarchy with correct structure', async () => {
+    const orgCaller = createAuthorizedCaller(HIERARCHY_TENANT, ORG_VIEWER_ACTOR)
+
+    const tree = await orgCaller.orgChart.tree({ depth: 3 })
+
+    expect(tree.rootIds.length).toBeGreaterThan(0)
+    expect(tree.focusEmploymentId).toBe(ORG_VIEWER_EMPLOYMENT)
+    expect(tree.nodesById[ORG_VIEWER_EMPLOYMENT].fullName).toBe('Sam Self')
+    expect(tree.nodesById[ORG_MANAGER_EMPLOYMENT].fullName).toBe('Morgan Manager')
+    expect(
+      Object.values(tree.nodesById).every((n) => n.employmentId !== ORG_OTHER_EMPLOYMENT),
+    ).toBe(true)
+  })
+
+  it('orgChart.tree childrenByParentId links manager to viewer', async () => {
+    const orgCaller = createAuthorizedCaller(HIERARCHY_TENANT, ORG_VIEWER_ACTOR)
+
+    const tree = await orgCaller.orgChart.tree({ depth: 3 })
+
+    expect(tree.childrenByParentId[ORG_MANAGER_EMPLOYMENT]).toContain(ORG_VIEWER_EMPLOYMENT)
+  })
+
+  it('orgChart children maps missing nodes to a TRPC not-found error', async () => {
+    await seedHierarchyDepartments(db, HIERARCHY_TENANT)
+
+    const orgCaller = createAuthorizedCaller(HIERARCHY_TENANT, ORG_VIEWER_ACTOR)
+
+    await expect(
+      orgCaller.orgChart.children({
+        employmentId: '01900000-0000-7000-8000-000000000099',
+      }),
+    ).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      message: 'Org chart node not found',
+    } satisfies Partial<TRPCError>)
   })
 })

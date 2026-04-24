@@ -182,6 +182,7 @@ import { ListJobProfilesHandler } from './application/queries/list-job-profiles.
 import { GetProbationRecordHandler } from './application/queries/get-probation-record.handler'
 import { GetOrgChartContextHandler } from './application/queries/get-org-chart-context.handler'
 import { GetOrgChartChildrenHandler } from './application/queries/get-org-chart-children.handler'
+import { GetOrgChartTreeHandler } from './application/queries/get-org-chart-tree.handler'
 
 // ── Legacy query handlers that still compile ───────────────────────────────
 // NOTE: Handlers that reference EMPLOYMENT_PROFILE_REPOSITORY (deleted) are excluded:
@@ -344,6 +345,7 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     GetProbationRecordHandler,
     GetOrgChartContextHandler,
     GetOrgChartChildrenHandler,
+    GetOrgChartTreeHandler,
 
     // ── Plan 04 query handlers ───────────────────────────────────────────
     ListExpiringDocumentsHandler,

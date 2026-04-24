@@ -9,7 +9,11 @@ import { roleGrant } from '../modules/kernel/infrastructure/schema/role-grant.sc
 import { rolePermission } from '../modules/kernel/infrastructure/schema/role-permission.schema'
 import { DEFAULT_ROLE_PERMISSIONS } from '../modules/kernel/domain/constants/default-role-permissions'
 import { PLACEHOLDER_SSO_SUBJECT_PREFIX } from '../modules/kernel/domain/repositories/user-identity.repository.port'
-import { personProfile, employment } from '../modules/people/infrastructure/schema/people.schema'
+import {
+  personProfile,
+  employment,
+  directorySearchIndex,
+} from '../modules/people/infrastructure/schema/people.schema'
 import { tenantSettings } from '../modules/admin/infrastructure/schema/admin.schema'
 import { identityProvider } from '../modules/identity/infrastructure/schema/identity.schema'
 
@@ -115,6 +119,7 @@ const FUTURE_TENANT = {
 const ROLE_OVERRIDES: Record<string, string[]> = {
   'canh.ta@seta-international.vn': ['tenant_admin', 'line_manager'],
   'canh.ta@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
+  'anh.nguyenviet@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
 }
 
 function getEmailDomain(email: string): string | null {
@@ -228,6 +233,8 @@ async function seedTenantEmployees(
       })
       .onConflictDoNothing()
 
+    const countryCode = tenantDomain === 'seta-international.vn' ? 'VN' : null
+
     await db
       .insert(employment)
       .values({
@@ -239,11 +246,36 @@ async function seedTenantEmployees(
         employmentType: 'permanent',
         employmentStatus,
         hireDate,
-        countryCode: tenantDomain === 'seta-international.vn' ? 'VN' : null,
+        countryCode,
         createdAt: now,
         updatedAt: now,
       })
       .onConflictDoNothing()
+
+    await db
+      .insert(directorySearchIndex)
+      .values({
+        tenantId,
+        employmentId,
+        fullName: emp.name,
+        fullNameUnaccented: stripDiacritics(emp.name),
+        companyEmail: emp.email,
+        jobTitle: null,
+        jobLevel: null,
+        departmentName: null,
+        locationName: null,
+        managerName: null,
+        workArrangement: 'onsite',
+        employmentStatus,
+        hireDate,
+        skills: [],
+        countryCode: countryCode ?? '',
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [directorySearchIndex.tenantId, directorySearchIndex.employmentId],
+        set: { updatedAt: now },
+      })
   }
 }
 

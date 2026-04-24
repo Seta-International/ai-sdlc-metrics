@@ -17,7 +17,10 @@ import type {
   OrgChartContextDto,
   OrgChartNodeDto,
   OrgChartRelationshipToViewer,
+  OrgChartTreeDto,
 } from '../queries/org-chart.types'
+
+export const ORG_CHART_NODE_NOT_FOUND = 'ORG_CHART_NODE_NOT_FOUND'
 
 @Injectable()
 export class OrgChartQueryService {
@@ -35,6 +38,7 @@ export class OrgChartQueryService {
     if (!viewerEmployment) return this.getRootContext(tenantId)
 
     const viewerAssignment = await this.assignmentRepo.findCurrent(viewerEmployment.id, tenantId)
+    if (!viewerAssignment) return this.getRootContext(tenantId)
     const peerAssignments = viewerAssignment?.managerId
       ? await this.assignmentRepo.findCurrentByManagerId(viewerAssignment.managerId, tenantId)
       : []
@@ -69,7 +73,10 @@ export class OrgChartQueryService {
     }
 
     return {
-      nodes: await this.buildNodes(uniqueIds, employments, assignments, relationshipById, tenantId),
+      nodes: this.sortNodes(
+        await this.buildNodes(uniqueIds, employments, assignments, relationshipById, tenantId),
+        ['manager', 'self', 'peer', 'direct_report'],
+      ),
       rootEmploymentIds: viewerAssignment?.managerId
         ? [viewerAssignment.managerId]
         : [viewerEmployment.id],
@@ -79,16 +86,105 @@ export class OrgChartQueryService {
 
   async getChildren(tenantId: string, employmentId: string): Promise<OrgChartNodeDto[]> {
     const parent = await this.employmentRepo.findById(employmentId, tenantId)
-    if (!parent) throw new Error('ORG_CHART_NODE_NOT_FOUND')
+    if (!parent) throw new Error(ORG_CHART_NODE_NOT_FOUND)
 
     const childAssignments = await this.assignmentRepo.findCurrentByManagerId(
       employmentId,
       tenantId,
     )
-    const childIds = childAssignments.map((assignment) => assignment.employmentId)
+    const childIds = childAssignments
+      .map((assignment) => assignment.employmentId)
+      .filter((childId) => childId !== employmentId)
     const childEmployments = await this.employmentRepo.findManyByIds(childIds, tenantId)
     const childCurrentAssignments = await this.assignmentRepo.findCurrentMany(childIds, tenantId)
-    return this.buildNodes(childIds, childEmployments, childCurrentAssignments, new Map(), tenantId)
+    const nodes = await this.buildNodes(
+      childIds,
+      childEmployments,
+      childCurrentAssignments,
+      new Map(),
+      tenantId,
+    )
+
+    return this.sortNodes(nodes, ['root'])
+  }
+
+  async getTree(
+    tenantId: string,
+    actorId: string,
+    input: { teamId: string | null; depth: number },
+  ): Promise<OrgChartTreeDto> {
+    const context = await this.getContext(tenantId, actorId)
+    const depth = Math.max(2, Math.min(input.depth, 5))
+    const graph = await this.expandHierarchyGraph(
+      tenantId,
+      context.rootEmploymentIds,
+      depth,
+      input.teamId,
+    )
+    const employments = await this.employmentRepo.findManyByIds(
+      graph.orderedEmploymentIds,
+      tenantId,
+    )
+    const assignments = await this.assignmentRepo.findCurrentMany(
+      graph.orderedEmploymentIds,
+      tenantId,
+    )
+    const nodes = await this.buildNodes(
+      graph.orderedEmploymentIds,
+      employments,
+      assignments,
+      new Map(),
+      tenantId,
+    )
+    return {
+      rootIds: graph.rootIds,
+      nodesById: Object.fromEntries(nodes.map((node) => [node.employmentId, node])),
+      childrenByParentId: graph.childrenByParentId,
+      focusEmploymentId: context.focusEmploymentId,
+    }
+  }
+
+  private async expandHierarchyGraph(
+    tenantId: string,
+    rootIds: string[],
+    depth: number,
+    teamId: string | null,
+  ): Promise<{
+    rootIds: string[]
+    orderedEmploymentIds: string[]
+    childrenByParentId: Record<string, string[]>
+  }> {
+    const childrenByParentId: Record<string, string[]> = {}
+    const orderedEmploymentIds: string[] = [...rootIds]
+    const visited = new Set<string>(rootIds)
+    let currentLevel = [...rootIds]
+
+    for (let d = 0; d < depth - 1 && currentLevel.length > 0; d++) {
+      const nextLevel: string[] = []
+      for (const parentId of currentLevel) {
+        const childAssignments = await this.assignmentRepo.findCurrentByManagerId(
+          parentId,
+          tenantId,
+        )
+        const childIds = childAssignments
+          .filter((a) => a.employmentId !== parentId)
+          .filter((a) => teamId === null || a.departmentId === teamId)
+          .map((a) => a.employmentId)
+          .filter((id) => !visited.has(id))
+
+        if (childIds.length > 0) {
+          childrenByParentId[parentId] = childIds
+          for (const id of childIds) {
+            visited.add(id)
+            orderedEmploymentIds.push(id)
+            nextLevel.push(id)
+          }
+        }
+      }
+      currentLevel = nextLevel
+    }
+
+    return { rootIds, orderedEmploymentIds, childrenByParentId }
   }
 
   private async getRootContext(tenantId: string): Promise<OrgChartContextDto> {
@@ -98,10 +194,14 @@ export class OrgChartQueryService {
     const relationships = new Map<string, OrgChartRelationshipToViewer>(
       rootIds.map((id) => [id, 'root' as const]),
     )
+    const nodes = this.sortNodes(
+      await this.buildNodes(rootIds, roots, assignments, relationships, tenantId),
+      ['root'],
+    )
 
     return {
-      nodes: await this.buildNodes(rootIds, roots, assignments, relationships, tenantId),
-      rootEmploymentIds: rootIds,
+      nodes,
+      rootEmploymentIds: nodes.map((node) => node.employmentId),
       focusEmploymentId: null,
     }
   }
@@ -147,5 +247,27 @@ export class OrgChartQueryService {
     }
 
     return nodes
+  }
+
+  private sortNodes(
+    nodes: OrgChartNodeDto[],
+    relationshipOrder: OrgChartRelationshipToViewer[],
+  ): OrgChartNodeDto[] {
+    const rankByRelationship = new Map(
+      relationshipOrder.map((relationship, index) => [relationship, index]),
+    )
+
+    return [...nodes].sort((left, right) => {
+      const leftRank =
+        rankByRelationship.get(left.relationshipToViewer ?? 'root') ?? Number.MAX_SAFE_INTEGER
+      const rightRank =
+        rankByRelationship.get(right.relationshipToViewer ?? 'root') ?? Number.MAX_SAFE_INTEGER
+      if (leftRank !== rightRank) return leftRank - rightRank
+
+      const nameComparison = left.fullName.localeCompare(right.fullName, 'en')
+      if (nameComparison !== 0) return nameComparison
+
+      return left.employmentId.localeCompare(right.employmentId, 'en')
+    })
   }
 }
