@@ -178,6 +178,7 @@ describe('GetLoginOptionsHandler', () => {
       expect(result!.methods).toHaveLength(1)
       const method = result!.methods[0]
       expect(method).toEqual({
+        id: '01900000-0000-7000-8000-000000000010',
         type: 'microsoft',
         displayName: 'SETA Entra',
         clientId: 'client-id-123',

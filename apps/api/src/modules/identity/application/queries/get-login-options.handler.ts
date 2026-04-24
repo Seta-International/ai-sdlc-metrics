@@ -13,6 +13,8 @@ import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-qu
 import { GetLoginOptionsQuery } from './get-login-options.query'
 
 export interface LoginOptionsMethodDto {
+  /** Provider entity id — used as `providerId` input to identity.auth.startOAuth */
+  id: string
   type: IdpProviderType
   displayName: string
   clientId: string
@@ -72,6 +74,7 @@ export class GetLoginOptionsHandler implements IQueryHandler<
     const methods: LoginOptionsMethodDto[] = provider
       ? [
           {
+            id: provider.id,
             type: provider.providerType,
             displayName: provider.displayName,
             clientId: provider.clientId,
