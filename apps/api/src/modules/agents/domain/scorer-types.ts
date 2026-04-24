@@ -75,6 +75,7 @@ export type ReplayResult = {
   toolOutputs?: ToolCallRecord[]
   pinnedVersions: Record<string, string>
   canonicalizerVersionHash: string
+  missedHashes: never // type-level guarantee: replay raises on any miss; this field can never be assigned
 }
 
 export type ReplayedTrace = {
