@@ -16,6 +16,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import type { ClsService } from 'nestjs-cls'
+import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { RequestContextDiscipline, IDENTITY_KEYS } from './request-context-discipline'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -42,7 +44,10 @@ describe('RequestContextDiscipline — dev mode (NODE_ENV=development)', () => {
   beforeEach(() => {
     vi.stubEnv('NODE_ENV', 'development')
     cls = makeMockCls()
-    svc = new RequestContextDiscipline(cls as any, makeMockAuditFacade() as any)
+    svc = new RequestContextDiscipline(
+      cls as unknown as ClsService,
+      makeMockAuditFacade() as unknown as KernelAuditFacade,
+    )
   })
 
   afterEach(() => {
@@ -101,7 +106,10 @@ describe('RequestContextDiscipline — prod mode (NODE_ENV=production)', () => {
     vi.stubEnv('NODE_ENV', 'production')
     cls = makeMockCls()
     mockAuditFacade = makeMockAuditFacade()
-    svc = new RequestContextDiscipline(cls as any, mockAuditFacade as any)
+    svc = new RequestContextDiscipline(
+      cls as unknown as ClsService,
+      mockAuditFacade as unknown as KernelAuditFacade,
+    )
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
   })
 
@@ -136,7 +144,10 @@ describe('RequestContextDiscipline — get', () => {
   beforeEach(() => {
     vi.stubEnv('NODE_ENV', 'development')
     cls = makeMockCls()
-    svc = new RequestContextDiscipline(cls as any, makeMockAuditFacade() as any)
+    svc = new RequestContextDiscipline(
+      cls as unknown as ClsService,
+      makeMockAuditFacade() as unknown as KernelAuditFacade,
+    )
   })
 
   afterEach(() => {
@@ -159,7 +170,10 @@ describe('RequestContextDiscipline — setIdentityKey (middleware bypass)', () =
   beforeEach(() => {
     vi.stubEnv('NODE_ENV', 'development')
     cls = makeMockCls()
-    svc = new RequestContextDiscipline(cls as any, makeMockAuditFacade() as any)
+    svc = new RequestContextDiscipline(
+      cls as unknown as ClsService,
+      makeMockAuditFacade() as unknown as KernelAuditFacade,
+    )
   })
 
   afterEach(() => {
@@ -188,7 +202,10 @@ describe('RequestContextDiscipline — multiple non-identity keys', () => {
   beforeEach(() => {
     vi.stubEnv('NODE_ENV', 'development')
     cls = makeMockCls()
-    svc = new RequestContextDiscipline(cls as any, makeMockAuditFacade() as any)
+    svc = new RequestContextDiscipline(
+      cls as unknown as ClsService,
+      makeMockAuditFacade() as unknown as KernelAuditFacade,
+    )
   })
 
   afterEach(() => {

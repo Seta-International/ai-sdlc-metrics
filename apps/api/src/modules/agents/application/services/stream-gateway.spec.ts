@@ -841,7 +841,7 @@ describe('createStreamGateway', () => {
   })
 
   it('progress allowed from refusal-sent state', () => {
-    const { writeFn, calls } = makeWriteFn()
+    const { writeFn } = makeWriteFn()
     const emitter = createStreamGateway(writeFn)
 
     emitter.emit({

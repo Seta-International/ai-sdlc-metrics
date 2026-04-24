@@ -7,7 +7,6 @@ import { EVENT_SCHEMA_VERSION } from '../../application/services/stream-gateway'
 
 const TENANT_ID = 'tid-001'
 const USER_ID = 'uid-001'
-const TRACE_ID = 'trace-uuid-001'
 
 function makeJwtService(session: object | null = { sub: USER_ID, tid: TENANT_ID, roles: [] }) {
   return {
