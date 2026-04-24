@@ -5,6 +5,57 @@
 
 export type DraftTier = 'low_risk_auto' | 'high_risk_approval_required'
 
+// ─── Domain model ─────────────────────────────────────────────────────────────
+
+export type Draft = {
+  readonly id: string
+  readonly tenantId: string
+  readonly traceId: string
+  readonly flowId: string
+  readonly initiatorUserId: string
+  readonly onBehalfOf: string | null
+  readonly viaDelegationId: string
+  readonly viaScheduleId: string | null
+  readonly approverUserId: string | null
+  readonly tier: DraftTier
+  readonly status: DraftStatus
+  readonly toolName: string
+  readonly args: unknown
+  readonly expectedOutputShape: string | null
+  readonly permissionEnvelopeAtDraftTime: Record<string, unknown>
+  readonly approvalFreshness: ApprovalFreshness
+  readonly approvalTtl: string
+  readonly draftedAt: Date
+  readonly expiresAt: Date
+  readonly approvedAt: Date | null
+  readonly executedAt: Date | null
+  readonly executionOutcome: string | null
+  readonly provenance: DraftProvenance
+  readonly taintAtDraftTime: boolean
+}
+
+export type NewDraft = {
+  readonly tenantId: string
+  readonly traceId: string
+  readonly flowId: string
+  readonly initiatorUserId: string
+  readonly onBehalfOf?: string | null
+  readonly viaDelegationId: string
+  readonly viaScheduleId?: string | null
+  readonly approverUserId?: string | null
+  readonly tier: DraftTier
+  readonly toolName: string
+  readonly args: unknown
+  readonly expectedOutputShape?: string | null
+  readonly permissionEnvelopeAtDraftTime: Record<string, unknown>
+  readonly approvalFreshness: ApprovalFreshness
+  readonly approvalTtlHours: number
+  readonly draftedAt: Date
+  readonly expiresAt: Date
+  readonly provenance: DraftProvenance
+  readonly taintAtDraftTime: boolean
+}
+
 export type DraftStatus =
   | 'pending'
   | 'approved'

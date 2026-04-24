@@ -1,0 +1,148 @@
+import { Inject, Injectable } from '@nestjs/common'
+import { and, eq, inArray, lt } from 'drizzle-orm'
+import type { Db } from '@future/db'
+import { DB_TOKEN } from '../../../../common/db/db.module'
+import { agentDraft } from '../schema/agent-draft.schema'
+import type { IDraftRepository } from '../../domain/repositories/draft.repository'
+import type {
+  Draft,
+  DraftProvenance,
+  DraftStatus,
+  DraftTier,
+  NewDraft,
+} from '../../application/services/draft-types'
+
+type AgentDraftRow = typeof agentDraft.$inferSelect
+
+function toDomain(row: AgentDraftRow): Draft {
+  return {
+    id: row.id,
+    tenantId: row.tenantId,
+    traceId: row.traceId,
+    flowId: row.flowId,
+    initiatorUserId: row.initiatorUserId,
+    onBehalfOf: row.onBehalfOf ?? null,
+    viaDelegationId: row.viaDelegationId,
+    viaScheduleId: row.viaScheduleId ?? null,
+    approverUserId: row.approverUserId ?? null,
+    tier: row.tier as DraftTier,
+    status: row.status as DraftStatus,
+    toolName: row.toolName,
+    args: row.args,
+    expectedOutputShape: row.expectedOutputShape ?? null,
+    permissionEnvelopeAtDraftTime: row.permissionEnvelopeAtDraftTime as Record<string, unknown>,
+    approvalFreshness: row.approvalFreshness as Draft['approvalFreshness'],
+    approvalTtl: row.approvalTtl as string,
+    draftedAt: row.draftedAt,
+    expiresAt: row.expiresAt,
+    approvedAt: row.approvedAt ?? null,
+    executedAt: row.executedAt ?? null,
+    executionOutcome: row.executionOutcome ?? null,
+    provenance: row.provenance as DraftProvenance,
+    taintAtDraftTime: row.taintAtDraftTime,
+  }
+}
+
+@Injectable()
+export class DrizzleDraftRepository implements IDraftRepository {
+  constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
+
+  async insert(draft: NewDraft): Promise<Draft> {
+    const rows = await this.db
+      .insert(agentDraft)
+      .values({
+        tenantId: draft.tenantId,
+        traceId: draft.traceId,
+        flowId: draft.flowId,
+        initiatorUserId: draft.initiatorUserId,
+        onBehalfOf: draft.onBehalfOf ?? null,
+        viaDelegationId: draft.viaDelegationId,
+        viaScheduleId: draft.viaScheduleId ?? null,
+        approverUserId: draft.approverUserId ?? null,
+        tier: draft.tier,
+        toolName: draft.toolName,
+        args: draft.args,
+        expectedOutputShape: draft.expectedOutputShape ?? null,
+        permissionEnvelopeAtDraftTime: draft.permissionEnvelopeAtDraftTime,
+        approvalFreshness: draft.approvalFreshness,
+        approvalTtl: `${draft.approvalTtlHours} hours`,
+        draftedAt: draft.draftedAt,
+        expiresAt: draft.expiresAt,
+        provenance: draft.provenance as Record<string, unknown>,
+        taintAtDraftTime: draft.taintAtDraftTime,
+      })
+      .returning()
+
+    return toDomain(rows[0] as AgentDraftRow)
+  }
+
+  async getById(opts: { tenantId: string; draftId: string }): Promise<Draft | null> {
+    const rows = await this.db
+      .select()
+      .from(agentDraft)
+      .where(and(eq(agentDraft.tenantId, opts.tenantId), eq(agentDraft.id, opts.draftId)))
+      .limit(1)
+
+    return rows[0] ? toDomain(rows[0] as AgentDraftRow) : null
+  }
+
+  async updateStatus(opts: {
+    tenantId: string
+    draftId: string
+    status: DraftStatus
+    extra?: {
+      approvedAt?: Date
+      executedAt?: Date
+      executionOutcome?: string
+    }
+  }): Promise<void> {
+    await this.db
+      .update(agentDraft)
+      .set({
+        status: opts.status,
+        ...(opts.extra?.approvedAt !== undefined ? { approvedAt: opts.extra.approvedAt } : {}),
+        ...(opts.extra?.executedAt !== undefined ? { executedAt: opts.extra.executedAt } : {}),
+        ...(opts.extra?.executionOutcome !== undefined
+          ? { executionOutcome: opts.extra.executionOutcome }
+          : {}),
+      })
+      .where(and(eq(agentDraft.tenantId, opts.tenantId), eq(agentDraft.id, opts.draftId)))
+  }
+
+  async listPendingExpired(opts: { tenantId: string; now: Date }): Promise<Draft[]> {
+    const rows = await this.db
+      .select()
+      .from(agentDraft)
+      .where(
+        and(
+          eq(agentDraft.tenantId, opts.tenantId),
+          eq(agentDraft.status, 'pending'),
+          lt(agentDraft.expiresAt, opts.now),
+        ),
+      )
+
+    return rows.map((row) => toDomain(row as AgentDraftRow))
+  }
+
+  async listForApprover(opts: {
+    tenantId: string
+    approverId: string
+    statuses?: DraftStatus[]
+  }): Promise<Draft[]> {
+    const conditions = [
+      eq(agentDraft.tenantId, opts.tenantId),
+      eq(agentDraft.approverUserId, opts.approverId),
+    ]
+
+    if (opts.statuses !== undefined && opts.statuses.length > 0) {
+      conditions.push(inArray(agentDraft.status, opts.statuses))
+    }
+
+    const rows = await this.db
+      .select()
+      .from(agentDraft)
+      .where(and(...conditions))
+
+    return rows.map((row) => toDomain(row as AgentDraftRow))
+  }
+}

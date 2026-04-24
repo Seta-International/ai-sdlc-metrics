@@ -136,6 +136,12 @@ import { AdminBudgetOps } from './application/commands/admin-budget-ops'
 import { ApprovalExecutorDelegationMinter } from './application/services/approval-executor-delegation-minter'
 import { DraftTierClassifier } from './application/services/draft-tier-classifier'
 import { FlowPolicyResolver } from './application/services/flow-policy-resolver'
+import { DraftSink } from './application/services/draft-sink'
+import { DraftProposer } from './application/services/draft-proposer'
+import { DRAFT_REPOSITORY } from './domain/repositories/draft.repository'
+import { DrizzleDraftRepository } from './infrastructure/repositories/drizzle-draft.repository'
+import { NotificationsModule } from '../notifications/notifications.module'
+import { NotificationsWriteFacade } from '../notifications/application/facades/notifications-write.facade'
 import type { ConversationRepository } from './domain/repositories/conversation.repository'
 import type { ConversationMessageRepository } from './domain/repositories/conversation-message.repository'
 import type { L3PreferenceRepository } from './domain/repositories/l3-preference.repository'
@@ -173,6 +179,7 @@ class NullTenantLister implements TenantListerLike {
 @Module({
   imports: [
     KernelModule,
+    NotificationsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -315,9 +322,12 @@ class NullTenantLister implements TenantListerLike {
     ApprovalInboxThrottle,
     AdminBudgetOps,
     // ── Plan 08 — Drafts + Approval ───────────────────────────────────────────
+    { provide: DRAFT_REPOSITORY, useClass: DrizzleDraftRepository },
     ApprovalExecutorDelegationMinter,
     DraftTierClassifier,
     FlowPolicyResolver,
+    DraftSink,
+    DraftProposer,
     // ── Plan 06 — Streaming + SSE + Cancellation ──────────────────────────────
     ActiveTurnRegistry,
     RequestContextDiscipline,
