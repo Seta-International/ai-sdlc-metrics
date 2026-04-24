@@ -133,6 +133,7 @@ import { RateLimiter } from './application/services/rate-limiter'
 import { QualityCanarySubscription } from './application/services/quality-canary-subscription'
 import { ApprovalInboxThrottle } from './application/services/approval-inbox-throttle'
 import { AdminBudgetOps } from './application/commands/admin-budget-ops'
+import { ApprovalExecutorDelegationMinter } from './application/services/approval-executor-delegation-minter'
 import type { ConversationRepository } from './domain/repositories/conversation.repository'
 import type { ConversationMessageRepository } from './domain/repositories/conversation-message.repository'
 import type { L3PreferenceRepository } from './domain/repositories/l3-preference.repository'
@@ -311,6 +312,8 @@ class NullTenantLister implements TenantListerLike {
     QualityCanarySubscription,
     ApprovalInboxThrottle,
     AdminBudgetOps,
+    // ── Plan 08 — Drafts + Approval ───────────────────────────────────────────
+    ApprovalExecutorDelegationMinter,
     // ── Plan 06 — Streaming + SSE + Cancellation ──────────────────────────────
     ActiveTurnRegistry,
     RequestContextDiscipline,
