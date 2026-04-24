@@ -6,6 +6,7 @@ export interface IActorRepository {
   findById(id: string, tenantId: string): Promise<Actor | null>
   findManyByIds(ids: string[], tenantId: string): Promise<Actor[]>
   insert(data: {
+    id?: string
     tenantId: string
     type: Actor['type']
     displayName: string

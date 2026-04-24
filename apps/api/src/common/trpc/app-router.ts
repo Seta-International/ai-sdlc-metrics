@@ -17,6 +17,7 @@ import { agentsRouter } from '../../modules/agents/interface/trpc/agents.router'
 import { plannerRouter } from '../../modules/planner/interface/trpc/planner.router'
 import { adminRouter as defaultAdminRouter } from '../../modules/admin/interface/trpc/admin.router'
 import { identityAdminRouter as defaultIdentityAdminRouter } from '../../modules/identity/interface/trpc/identity.router'
+import { authGatewayRouter as defaultAuthGatewayRouter } from '../../modules/identity/interface/trpc/auth-gateway.router'
 import {
   preferencesRouter as defaultPreferencesRouter,
   createPreferencesRouter,
@@ -45,6 +46,8 @@ let _preferencesRouter: any = defaultPreferencesRouter
 let _documentsRouter: any = defaultDocumentsRouter
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _notificationsRouter: any = defaultNotificationsRouter
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _authGatewayRouter: any = defaultAuthGatewayRouter
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function setKernelRouter(r: any): void {
@@ -81,14 +84,20 @@ export function setNotificationsRouter(r: any): void {
   _notificationsRouter = r
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function setAuthGatewayRouter(r: any): void {
+  _authGatewayRouter = r
+}
+
 export { createPreferencesRouter, createDocumentsRouter, createNotificationsRouter }
 
 function buildAppRouter() {
-  // Merge auth procedures from identityRouter with the admin sub-router.
+  // Merge auth procedures from identityRouter with the admin + auth-gateway sub-routers.
   const identityWithAdmin = router({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...(identityRouter._def.procedures as any),
     admin: _identityAdminRouter,
+    auth: _authGatewayRouter,
   })
 
   return router({

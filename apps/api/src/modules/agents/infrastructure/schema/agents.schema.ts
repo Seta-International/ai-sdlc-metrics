@@ -408,11 +408,19 @@ export const agentCostEvents = agentsSchema.table(
     retryCount: integer('retry_count').notNull().default(0),
     attemptDurationMs: integer('attempt_duration_ms').notNull().default(0),
     totalDurationMs: integer('total_duration_ms').notNull().default(0),
+    /**
+     * Plan 09 — Soft reference to agents.agent_schedule.id.
+     * Set when this cost event originates from a scheduled turn.
+     * NULL for interactive (non-scheduled) turns.
+     * Used for per-schedule daily spend aggregation (R-09.32).
+     */
+    viaScheduleId: uuid('via_schedule_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index('agent_cost_event_tenant_created_idx').on(t.tenantId, t.createdAt.desc()),
     index('agent_cost_event_tenant_user_created_idx').on(t.tenantId, t.userId, t.createdAt.desc()),
+    index('agent_cost_event_tenant_schedule_idx').on(t.tenantId, t.viaScheduleId),
     check(
       'agent_cost_event_layer_check',
       sql`${t.layer} IN ('router','synthesizer','summarizer') OR ${t.layer} LIKE 'sub_agent:%'`,
@@ -500,5 +508,141 @@ export const agentActiveTurns = agentsSchema.table(
   (t) => [
     index('agent_active_turn_tenant_started_idx').on(t.tenantId, t.startedAt.desc()),
     index('agent_active_turn_heartbeat_idx').on(t.lastHeartbeatAt),
+  ],
+)
+
+// ─── Plan 10 — Harness + Replay + Golden-trace CI + Quality Canary ────────────
+
+/**
+ * Plan 10 — CI-gating golden trace set (≤20 active rows).
+ *
+ * Each row defines a fixture utterance with expected tool calls, answer shape,
+ * permission keys, and taint expectation. The CI harness replays all active rows
+ * and gates the pipeline if any assertion fails.
+ */
+export const agentGoldenTrace = agentsSchema.table(
+  'agent_golden_trace',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    title: text('title').notNull(),
+    tenantId: uuid('tenant_id').notNull(),
+    seedUserId: uuid('seed_user_id').notNull(),
+    userUtterance: text('user_utterance').notNull(),
+    expectedToolCalls: jsonb('expected_tool_calls').notNull().$type<string[]>(),
+    expectedShape: text('expected_shape').notNull(),
+    expectedPermissionKeys: jsonb('expected_permission_keys').notNull().$type<string[]>(),
+    taintExpectation: boolean('taint_expectation').notNull(),
+    answerShapeContract: jsonb('answer_shape_contract').notNull().$type<Record<string, unknown>>(),
+    adversarialCategory: text('adversarial_category'),
+    createdBy: uuid('created_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    removedAt: timestamp('removed_at', { withTimezone: true }),
+    removalReason: text('removal_reason'),
+  },
+  (t) => [
+    index('agent_golden_trace_tenant_active_idx')
+      .on(t.tenantId)
+      .where(sql`removed_at IS NULL`),
+    check(
+      'agent_golden_trace_expected_shape_check',
+      sql`${t.expectedShape} IN ('short-answer', 'list', 'table', 'narrative', 'chart', 'refusal')`,
+    ),
+    check(
+      'agent_golden_trace_adversarial_category_check',
+      sql`${t.adversarialCategory} IS NULL OR ${t.adversarialCategory} IN ('sanitization-projection', 'taint-escalation', 'permission-denial', 'disambiguation', 'contradiction')`,
+    ),
+  ],
+)
+
+/**
+ * Plan 10 — Scorer registry.
+ *
+ * Tracks all registered scorers (deterministic or LLM-judge) with their scope,
+ * meta-evaluation agreement score, and promotion status. Only `gating_eligible`
+ * scorers are used in CI pass/fail decisions.
+ */
+export const agentScorerRegistration = agentsSchema.table(
+  'agent_scorer_registration',
+  {
+    scorerId: text('scorer_id').primaryKey(),
+    name: text('name').notNull(),
+    kind: text('kind').notNull(),
+    scope: text('scope').notNull(),
+    registeredAt: timestamp('registered_at', { withTimezone: true }).notNull().defaultNow(),
+    metaEvalAgreement: numeric('meta_eval_agreement', { precision: 5, scale: 4 }),
+    status: text('status').notNull().default('provisional'),
+  },
+  (t) => [
+    check('agent_scorer_registration_kind_check', sql`${t.kind} IN ('deterministic', 'llm-judge')`),
+    check(
+      'agent_scorer_registration_scope_check',
+      sql`${t.scope} IN ('live', 'trace', 'experiment', 'test')`,
+    ),
+    check(
+      'agent_scorer_registration_status_check',
+      sql`${t.status} IN ('provisional', 'gating_eligible')`,
+    ),
+    check(
+      'agent_scorer_registration_meta_eval_range_check',
+      sql`${t.metaEvalAgreement} IS NULL OR (${t.metaEvalAgreement} >= 0 AND ${t.metaEvalAgreement} <= 1)`,
+    ),
+  ],
+)
+
+/**
+ * Plan 10 — Per-tick canary execution record.
+ *
+ * One row per canary run. Stores the outcome, score, and duration so the
+ * quality canary dashboard can trend pass rates over time.
+ */
+export const agentCanaryRun = agentsSchema.table(
+  'agent_canary_run',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    runAt: timestamp('run_at', { withTimezone: true }).notNull().defaultNow(),
+    tier: text('tier').notNull(),
+    canaryQueryId: uuid('canary_query_id').notNull(),
+    tenantId: uuid('tenant_id').notNull(),
+    traceId: uuid('trace_id').notNull(),
+    outcome: text('outcome').notNull(),
+    score: numeric('score', { precision: 5, scale: 4 }).notNull(),
+    durationMs: integer('duration_ms').notNull(),
+  },
+  (t) => [
+    index('agent_canary_run_tier_run_at_idx').on(t.tier, t.runAt.desc()),
+    check('agent_canary_run_tier_check', sql`${t.tier} IN ('full', 'nano')`),
+    check('agent_canary_run_outcome_check', sql`${t.outcome} IN ('passed', 'failed', 'error')`),
+    check('agent_canary_run_score_range_check', sql`${t.score} >= 0 AND ${t.score} <= 1`),
+  ],
+)
+
+/**
+ * Plan 10 — Rotated canary query set.
+ *
+ * Each row is a single canary question with its expected answer contract.
+ * Queries are rotated quarterly and tagged by tier (full or nano) so the
+ * canary scheduler can select the correct subset.
+ */
+export const agentCanaryQuery = agentsSchema.table(
+  'agent_canary_query',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tier: text('tier').notNull(),
+    utterance: text('utterance').notNull(),
+    tenantId: uuid('tenant_id').notNull(),
+    expectedAnswerContract: jsonb('expected_answer_contract').notNull(),
+    rotationQuarter: text('rotation_quarter').notNull(),
+    source: text('source').notNull(),
+    status: text('status').notNull().default('active'),
+  },
+  (t) => [
+    index('agent_canary_query_tier_status_idx').on(t.tier, t.status),
+    index('agent_canary_query_tenant_quarter_idx').on(t.tenantId, t.rotationQuarter),
+    check('agent_canary_query_tier_check', sql`${t.tier} IN ('full', 'nano')`),
+    check(
+      'agent_canary_query_source_check',
+      sql`${t.source} IN ('production_anonymized', 'manually_authored')`,
+    ),
+    check('agent_canary_query_status_check', sql`${t.status} IN ('active', 'retired')`),
   ],
 )

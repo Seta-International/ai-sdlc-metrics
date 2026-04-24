@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { sql } from 'drizzle-orm'
 import { createDb } from '@future/db'
 import { tenant } from '../modules/kernel/infrastructure/schema/tenant.schema'
 import { actor } from '../modules/kernel/infrastructure/schema/actor.schema'
@@ -9,7 +10,11 @@ import { roleGrant } from '../modules/kernel/infrastructure/schema/role-grant.sc
 import { rolePermission } from '../modules/kernel/infrastructure/schema/role-permission.schema'
 import { DEFAULT_ROLE_PERMISSIONS } from '../modules/kernel/domain/constants/default-role-permissions'
 import { PLACEHOLDER_SSO_SUBJECT_PREFIX } from '../modules/kernel/domain/repositories/user-identity.repository.port'
-import { personProfile, employment } from '../modules/people/infrastructure/schema/people.schema'
+import {
+  personProfile,
+  employment,
+  directorySearchIndex,
+} from '../modules/people/infrastructure/schema/people.schema'
 import { tenantSettings } from '../modules/admin/infrastructure/schema/admin.schema'
 import { identityProvider } from '../modules/identity/infrastructure/schema/identity.schema'
 
@@ -115,6 +120,7 @@ const FUTURE_TENANT = {
 const ROLE_OVERRIDES: Record<string, string[]> = {
   'canh.ta@seta-international.vn': ['tenant_admin', 'line_manager'],
   'canh.ta@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
+  'anh.nguyenviet@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
 }
 
 function getEmailDomain(email: string): string | null {
@@ -228,6 +234,8 @@ async function seedTenantEmployees(
       })
       .onConflictDoNothing()
 
+    const countryCode = tenantDomain === 'seta-international.vn' ? 'VN' : null
+
     await db
       .insert(employment)
       .values({
@@ -239,11 +247,36 @@ async function seedTenantEmployees(
         employmentType: 'permanent',
         employmentStatus,
         hireDate,
-        countryCode: tenantDomain === 'seta-international.vn' ? 'VN' : null,
+        countryCode,
         createdAt: now,
         updatedAt: now,
       })
       .onConflictDoNothing()
+
+    await db
+      .insert(directorySearchIndex)
+      .values({
+        tenantId,
+        employmentId,
+        fullName: emp.name,
+        fullNameUnaccented: stripDiacritics(emp.name),
+        companyEmail: emp.email,
+        jobTitle: null,
+        jobLevel: null,
+        departmentName: null,
+        locationName: null,
+        managerName: null,
+        workArrangement: 'onsite',
+        employmentStatus,
+        hireDate,
+        skills: [],
+        countryCode: countryCode ?? '',
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [directorySearchIndex.tenantId, directorySearchIndex.employmentId],
+        set: { updatedAt: now },
+      })
   }
 }
 
@@ -300,6 +333,98 @@ async function enablePlanner(
         plannerPersonalEnabled: true,
       },
     })
+}
+
+/**
+ * Deterministic UUID using the bootstrap namespace — must match the namespace
+ * used by BootstrapPlatformAdminHandler so both code paths produce the same IDs.
+ */
+function bootstrapUuid(seed: string): string {
+  const hash = createHash('sha256')
+    .update('future-bootstrap-v1:' + seed)
+    .digest('hex')
+  const p3 = '5' + hash.slice(13, 16)
+  const variant = ((parseInt(hash.charAt(16), 16) & 0x3) | 0x8).toString(16)
+  const p4 = variant + hash.slice(17, 20)
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${p3}-${p4}-${hash.slice(20, 32)}`
+}
+
+async function bootstrapPlatformAdmin(
+  db: ReturnType<typeof createDb>,
+  platformAdminEmail: string,
+  now: Date,
+) {
+  const systemTenantId = bootstrapUuid('system-tenant')
+  const systemActorId = bootstrapUuid('actor:' + platformAdminEmail)
+  const systemIdentityId = bootstrapUuid('identity:' + platformAdminEmail)
+
+  // Upsert hidden system tenant
+  await db
+    .insert(tenant)
+    .values({
+      id: systemTenantId,
+      name: 'Future System',
+      slug: 'future-system',
+      planTier: 'enterprise',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: tenant.id,
+      set: { updatedAt: sql`now()` },
+    })
+
+  // Upsert person actor for the platform admin
+  await db
+    .insert(actor)
+    .values({
+      id: systemActorId,
+      tenantId: systemTenantId,
+      type: 'person',
+      displayName: platformAdminEmail,
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoNothing()
+
+  // Upsert local placeholder identity (no password, no raw secret)
+  await db
+    .insert(userIdentity)
+    .values({
+      id: systemIdentityId,
+      tenantId: systemTenantId,
+      actorId: systemActorId,
+      email: platformAdminEmail,
+      ssoSubject: PLACEHOLDER_SSO_SUBJECT_PREFIX + systemActorId,
+      provider: 'local',
+      status: 'active',
+      createdAt: now,
+    })
+    .onConflictDoNothing()
+
+  // Upsert platform_admin role grant
+  await db
+    .insert(roleGrant)
+    .values({
+      id: bootstrapUuid('grant:' + platformAdminEmail + ':platform_admin'),
+      tenantId: systemTenantId,
+      actorId: systemActorId,
+      roleKey: 'platform_admin',
+      scopeType: 'global',
+      scopeId: null,
+      grantedBy: systemActorId,
+      source: 'manual',
+      validFrom: now,
+    })
+    .onConflictDoNothing()
+
+  // Seed role permissions for the system tenant
+  await seedRolePermissions(db, systemTenantId, 'future-system', now)
+
+  console.log('Platform admin bootstrapped:', platformAdminEmail)
+  console.log('System tenant ID:', systemTenantId)
 }
 
 async function main() {
@@ -394,26 +519,29 @@ async function main() {
     })
     .onConflictDoNothing()
 
-  // Seed the Microsoft Entra identity provider for the future tenant
-  const entraClientId = process.env['ENTRA_CLIENT_ID'] ?? 'e8aff199-2c97-421e-805a-cd18ecb8de0c'
-  const entraClientSecret =
-    process.env['ENTRA_CLIENT_SECRET'] ?? 'yrX8Q~sgB6lB1pYOlI-qFfaQ.w76BUFkGhNPzdsW'
-  const entraDirectoryId = process.env['ENTRA_TENANT_ID'] ?? 'd7f9f1a0-2abd-4417-b315-f1997cdf424b'
+  // Seed the Microsoft Entra identity provider for the future tenant.
+  // clientSecretRef must be an AWS Secrets Manager key reference — never the raw secret.
+  // All three env vars are required to seed the IdP; skip if any are absent.
+  const entraClientId = process.env['ENTRA_CLIENT_ID']
+  const entraClientSecretRef = process.env['ENTRA_CLIENT_SECRET_REF']
+  const entraDirectoryId = process.env['ENTRA_TENANT_ID']
 
-  await db
-    .insert(identityProvider)
-    .values({
-      id: deterministicUuid('idp:' + FUTURE_TENANT.slug + ':microsoft'),
-      tenantId: futureTenantId,
-      providerType: 'microsoft',
-      displayName: 'Future Microsoft Entra',
-      clientId: entraClientId,
-      clientSecretRef: entraClientSecret,
-      directoryId: entraDirectoryId,
-      isPrimary: true,
-      syncEnabled: false,
-    })
-    .onConflictDoNothing()
+  if (entraClientId && entraClientSecretRef && entraDirectoryId) {
+    await db
+      .insert(identityProvider)
+      .values({
+        id: deterministicUuid('idp:' + FUTURE_TENANT.slug + ':microsoft'),
+        tenantId: futureTenantId,
+        providerType: 'microsoft',
+        displayName: 'Future Microsoft Entra',
+        clientId: entraClientId,
+        clientSecretRef: entraClientSecretRef,
+        directoryId: entraDirectoryId,
+        isPrimary: true,
+        syncEnabled: false,
+      })
+      .onConflictDoNothing()
+  }
 
   await seedTenantEmployees(
     db,
@@ -426,6 +554,11 @@ async function main() {
   )
   await seedRolePermissions(db, futureTenantId, FUTURE_TENANT.slug, now)
   await enablePlanner(db, futureTenantId, FUTURE_TENANT.slug)
+
+  // ── 3. Platform admin bootstrap ──────────────────────────────────────────
+  const platformAdminEmail =
+    process.env['FUTURE_PLATFORM_ADMIN_EMAIL'] ?? 'canh.ta@seta-international.vn'
+  await bootstrapPlatformAdmin(db, platformAdminEmail, now)
 
   console.log('Seed complete')
   console.log('Future tenant ID:', futureTenantId)

@@ -30,6 +30,23 @@ CREATE SCHEMA "projects";
 --> statement-breakpoint
 CREATE SCHEMA "time";
 --> statement-breakpoint
+CREATE TABLE "admin"."tenant_ai_provider_config" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"provider_type" text NOT NULL,
+	"api_key_ref" text NOT NULL,
+	"api_key_last_four" text,
+	"default_reasoning_model" text DEFAULT 'gpt-5.4' NOT NULL,
+	"default_classification_model" text DEFAULT 'gpt-5.4-nano' NOT NULL,
+	"embedding_model" text DEFAULT 'text-embedding-3-small' NOT NULL,
+	"status" text DEFAULT 'needs_attention' NOT NULL,
+	"last_validated_at" timestamp with time zone,
+	"last_error" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "tenant_ai_provider_config_tenant_id_unique" UNIQUE("tenant_id")
+);
+--> statement-breakpoint
 CREATE TABLE "admin"."tenant_email_config" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"tenant_id" uuid NOT NULL,
@@ -41,6 +58,15 @@ CREATE TABLE "admin"."tenant_email_config" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "tenant_email_config_tenant_id_unique" UNIQUE("tenant_id")
+);
+--> statement-breakpoint
+CREATE TABLE "admin"."tenant_module_toggle" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"module_key" text NOT NULL,
+	"enabled" boolean DEFAULT false NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_by" uuid NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "admin"."tenant_settings" (
@@ -56,6 +82,9 @@ CREATE TABLE "admin"."tenant_settings" (
 	"planner_ms_sync_enabled" boolean DEFAULT false NOT NULL,
 	"timezone" text DEFAULT 'Asia/Ho_Chi_Minh' NOT NULL,
 	"max_sampled_turns_per_day" integer DEFAULT 10000 NOT NULL,
+	"max_active_schedules" integer DEFAULT 100 NOT NULL,
+	"scheduled_spend_daily_limit_usd" numeric(10, 2),
+	"default_schedule_failure_alert_policy" text DEFAULT 'owner_and_admin' NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "tenant_settings_tenant_id_unique" UNIQUE("tenant_id")
@@ -88,6 +117,44 @@ CREATE TABLE "agents"."agent_draft" (
 	"taint_at_draft_time" boolean DEFAULT false NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "agents"."agent_schedule_run" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"schedule_id" uuid NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"trace_id" uuid NOT NULL,
+	"flow_id" uuid NOT NULL,
+	"pg_boss_job_id" text,
+	"started_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"ended_at" timestamp with time zone,
+	"outcome" text,
+	"taint_seeded" boolean DEFAULT false NOT NULL,
+	"pinned_versions" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"cost_spent_usd" numeric(12, 6) DEFAULT '0' NOT NULL,
+	"fired_by" text NOT NULL,
+	"parent_trace_id" uuid
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_schedule" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"kind" text NOT NULL,
+	"owner_user_id" uuid,
+	"created_by" uuid NOT NULL,
+	"trigger_kind" text NOT NULL,
+	"cron_expression" text,
+	"event_subscription" jsonb,
+	"prompt" text NOT NULL,
+	"delegation_id" uuid NOT NULL,
+	"cost_ceiling_daily_usd" numeric(10, 2) DEFAULT '1.00' NOT NULL,
+	"invocation_ceiling_daily" integer DEFAULT 10 NOT NULL,
+	"status" text DEFAULT 'active' NOT NULL,
+	"pause_reason" text,
+	"consecutive_failure_count" integer DEFAULT 0 NOT NULL,
+	"failure_alert_policy" text DEFAULT 'owner_and_admin' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "agents"."agent_tool_embedding" (
 	"tool_name" text NOT NULL,
 	"content_hash" text NOT NULL,
@@ -107,6 +174,35 @@ CREATE TABLE "agents"."agent_active_turn" (
 	"started_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"last_heartbeat_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"abort_pending" boolean DEFAULT false NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_canary_query" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"tier" text NOT NULL,
+	"utterance" text NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"expected_answer_contract" jsonb NOT NULL,
+	"rotation_quarter" text NOT NULL,
+	"source" text NOT NULL,
+	"status" text DEFAULT 'active' NOT NULL,
+	CONSTRAINT "agent_canary_query_tier_check" CHECK ("agents"."agent_canary_query"."tier" IN ('full', 'nano')),
+	CONSTRAINT "agent_canary_query_source_check" CHECK ("agents"."agent_canary_query"."source" IN ('production_anonymized', 'manually_authored')),
+	CONSTRAINT "agent_canary_query_status_check" CHECK ("agents"."agent_canary_query"."status" IN ('active', 'retired'))
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_canary_run" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"run_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"tier" text NOT NULL,
+	"canary_query_id" uuid NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"trace_id" uuid NOT NULL,
+	"outcome" text NOT NULL,
+	"score" numeric(5, 4) NOT NULL,
+	"duration_ms" integer NOT NULL,
+	CONSTRAINT "agent_canary_run_tier_check" CHECK ("agents"."agent_canary_run"."tier" IN ('full', 'nano')),
+	CONSTRAINT "agent_canary_run_outcome_check" CHECK ("agents"."agent_canary_run"."outcome" IN ('passed', 'failed', 'error')),
+	CONSTRAINT "agent_canary_run_score_range_check" CHECK ("agents"."agent_canary_run"."score" >= 0 AND "agents"."agent_canary_run"."score" <= 1)
 );
 --> statement-breakpoint
 CREATE TABLE "agents"."agent_chat_message" (
@@ -184,8 +280,29 @@ CREATE TABLE "agents"."agent_cost_event" (
 	"retry_count" integer DEFAULT 0 NOT NULL,
 	"attempt_duration_ms" integer DEFAULT 0 NOT NULL,
 	"total_duration_ms" integer DEFAULT 0 NOT NULL,
+	"via_schedule_id" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "agent_cost_event_layer_check" CHECK ("agents"."agent_cost_event"."layer" IN ('router','synthesizer','summarizer') OR "agents"."agent_cost_event"."layer" LIKE 'sub_agent:%')
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_golden_trace" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"title" text NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"seed_user_id" uuid NOT NULL,
+	"user_utterance" text NOT NULL,
+	"expected_tool_calls" jsonb NOT NULL,
+	"expected_shape" text NOT NULL,
+	"expected_permission_keys" jsonb NOT NULL,
+	"taint_expectation" boolean NOT NULL,
+	"answer_shape_contract" jsonb NOT NULL,
+	"adversarial_category" text,
+	"created_by" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"removed_at" timestamp with time zone,
+	"removal_reason" text,
+	CONSTRAINT "agent_golden_trace_expected_shape_check" CHECK ("agents"."agent_golden_trace"."expected_shape" IN ('short-answer', 'list', 'table', 'narrative', 'chart', 'refusal')),
+	CONSTRAINT "agent_golden_trace_adversarial_category_check" CHECK ("agents"."agent_golden_trace"."adversarial_category" IS NULL OR "agents"."agent_golden_trace"."adversarial_category" IN ('sanitization-projection', 'taint-escalation', 'permission-denial', 'disambiguation', 'contradiction'))
 );
 --> statement-breakpoint
 CREATE TABLE "agents"."agent_insight" (
@@ -251,6 +368,20 @@ CREATE TABLE "agents"."agent_rate_limit_counter" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "agent_rate_limit_counter_pk" PRIMARY KEY("tenant_id","user_id","limit_key","bucket"),
 	CONSTRAINT "agent_rate_limit_counter_limit_key_check" CHECK ("agents"."agent_rate_limit_counter"."limit_key" IN ('queries/user/min', 'l3_writes/user/day', 'schedule_creations/user/day'))
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_scorer_registration" (
+	"scorer_id" text PRIMARY KEY NOT NULL,
+	"name" text NOT NULL,
+	"kind" text NOT NULL,
+	"scope" text NOT NULL,
+	"registered_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"meta_eval_agreement" numeric(5, 4),
+	"status" text DEFAULT 'provisional' NOT NULL,
+	CONSTRAINT "agent_scorer_registration_kind_check" CHECK ("agents"."agent_scorer_registration"."kind" IN ('deterministic', 'llm-judge')),
+	CONSTRAINT "agent_scorer_registration_scope_check" CHECK ("agents"."agent_scorer_registration"."scope" IN ('live', 'trace', 'experiment', 'test')),
+	CONSTRAINT "agent_scorer_registration_status_check" CHECK ("agents"."agent_scorer_registration"."status" IN ('provisional', 'gating_eligible')),
+	CONSTRAINT "agent_scorer_registration_meta_eval_range_check" CHECK ("agents"."agent_scorer_registration"."meta_eval_agreement" IS NULL OR ("agents"."agent_scorer_registration"."meta_eval_agreement" >= 0 AND "agents"."agent_scorer_registration"."meta_eval_agreement" <= 1))
 );
 --> statement-breakpoint
 CREATE TABLE "agents"."agent_scratchpad" (
@@ -449,6 +580,20 @@ CREATE TABLE "identity"."ms_graph_credential" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "identity"."oauth_authorization_session" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"provider_id" uuid NOT NULL,
+	"provider_type" text NOT NULL,
+	"state_hash" text NOT NULL,
+	"nonce_hash" text NOT NULL,
+	"callback_uri" text NOT NULL,
+	"redirect_to" text NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"consumed_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "identity"."sync_history" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"tenant_id" uuid NOT NULL,
@@ -460,6 +605,17 @@ CREATE TABLE "identity"."sync_history" (
 	"error_message" text,
 	"started_at" timestamp NOT NULL,
 	"completed_at" timestamp NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "identity"."tenant_domain" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"domain" text NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"verification_token_hash" text NOT NULL,
+	"verified_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "core"."actor" (
@@ -480,6 +636,7 @@ CREATE TABLE "core"."agent_delegation" (
 	"scope" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	"status" text DEFAULT 'active' NOT NULL,
+	"autonomous_writes_allowed" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -489,7 +646,7 @@ CREATE TABLE "core"."audit_event" (
 	"actor_id" uuid NOT NULL,
 	"event_type" text NOT NULL,
 	"module" text NOT NULL,
-	"subject_id" uuid NOT NULL,
+	"subject_id" text NOT NULL,
 	"payload" jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
@@ -1443,17 +1600,28 @@ ALTER TABLE "planner"."task_attachment" ADD CONSTRAINT "task_attachment_task_id_
 ALTER TABLE "planner"."task_checklist_item" ADD CONSTRAINT "task_checklist_item_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "planner"."task_comment" ADD CONSTRAINT "task_comment_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "planner"."task_evidence" ADD CONSTRAINT "task_evidence_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX "tenant_module_toggle_tenant_module_idx" ON "admin"."tenant_module_toggle" USING btree ("tenant_id","module_key");--> statement-breakpoint
 CREATE INDEX "agent_draft_tenant_status_expires_idx" ON "agents"."agent_draft" USING btree ("tenant_id","status","expires_at");--> statement-breakpoint
 CREATE INDEX "agent_draft_tenant_approver_status_idx" ON "agents"."agent_draft" USING btree ("tenant_id","approver_user_id","status");--> statement-breakpoint
 CREATE INDEX "agent_draft_trace_idx" ON "agents"."agent_draft" USING btree ("trace_id");--> statement-breakpoint
+CREATE INDEX "agent_schedule_run_schedule_started_idx" ON "agents"."agent_schedule_run" USING btree ("schedule_id","started_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_schedule_run_tenant_trace_idx" ON "agents"."agent_schedule_run" USING btree ("tenant_id","trace_id");--> statement-breakpoint
+CREATE INDEX "agent_schedule_tenant_status_trigger_idx" ON "agents"."agent_schedule" USING btree ("tenant_id","status","trigger_kind");--> statement-breakpoint
+CREATE INDEX "agent_schedule_tenant_owner_status_idx" ON "agents"."agent_schedule" USING btree ("tenant_id","owner_user_id","status");--> statement-breakpoint
+CREATE INDEX "agent_schedule_tenant_delegation_idx" ON "agents"."agent_schedule" USING btree ("tenant_id","delegation_id");--> statement-breakpoint
 CREATE INDEX "agent_tool_embedding_tool_name_idx" ON "agents"."agent_tool_embedding" USING btree ("tool_name");--> statement-breakpoint
 CREATE INDEX "agent_active_turn_tenant_started_idx" ON "agents"."agent_active_turn" USING btree ("tenant_id","started_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_active_turn_heartbeat_idx" ON "agents"."agent_active_turn" USING btree ("last_heartbeat_at");--> statement-breakpoint
+CREATE INDEX "agent_canary_query_tier_status_idx" ON "agents"."agent_canary_query" USING btree ("tier","status");--> statement-breakpoint
+CREATE INDEX "agent_canary_query_tenant_quarter_idx" ON "agents"."agent_canary_query" USING btree ("tenant_id","rotation_quarter");--> statement-breakpoint
+CREATE INDEX "agent_canary_run_tier_run_at_idx" ON "agents"."agent_canary_run" USING btree ("tier","run_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_message_tenant_user_conv_created_idx" ON "agents"."agent_message" USING btree ("tenant_id","user_id","conversation_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "agent_conversation_scope_active_uidx" ON "agents"."agent_conversation" USING btree ("tenant_id","user_id","surface") WHERE status = 'active';--> statement-breakpoint
 CREATE INDEX "agent_conversation_tenant_user_status_updated_idx" ON "agents"."agent_conversation" USING btree ("tenant_id","user_id","status","updated_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_cost_event_tenant_created_idx" ON "agents"."agent_cost_event" USING btree ("tenant_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_cost_event_tenant_user_created_idx" ON "agents"."agent_cost_event" USING btree ("tenant_id","user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_cost_event_tenant_schedule_idx" ON "agents"."agent_cost_event" USING btree ("tenant_id","via_schedule_id");--> statement-breakpoint
+CREATE INDEX "agent_golden_trace_tenant_active_idx" ON "agents"."agent_golden_trace" USING btree ("tenant_id") WHERE removed_at IS NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "agent_pricing_model_effective_from_uidx" ON "agents"."agent_pricing" USING btree ("model_id","effective_from");--> statement-breakpoint
 CREATE INDEX "agent_rate_limit_counter_lookup_idx" ON "agents"."agent_rate_limit_counter" USING btree ("tenant_id","user_id","limit_key","bucket");--> statement-breakpoint
 CREATE INDEX "agent_session_conversation_lookup_idx" ON "agents"."agent_session" USING btree ("tenant_id","user_id","conversation_id","started_at" DESC NULLS LAST);--> statement-breakpoint
@@ -1469,7 +1637,10 @@ CREATE UNIQUE INDEX "uq_idp_group_mapping_role_scope_scoped" ON "identity"."idp_
 CREATE UNIQUE INDEX "uq_idp_group_mapping_role_scope_global" ON "identity"."idp_group_mapping" USING btree ("tenant_id","external_group_id","role_key","scope_type") WHERE "identity"."idp_group_mapping"."scope_id" IS NULL;--> statement-breakpoint
 CREATE INDEX "idx_idp_group_member_lookup" ON "identity"."idp_group_member" USING btree ("tenant_id","external_group_id");--> statement-breakpoint
 CREATE INDEX "idx_magic_link_token_hash_unused" ON "identity"."magic_link_token" USING btree ("token_hash") WHERE "identity"."magic_link_token"."used_at" IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "oauth_authorization_session_state_uidx" ON "identity"."oauth_authorization_session" USING btree ("state_hash");--> statement-breakpoint
+CREATE INDEX "oauth_authorization_session_tenant_idx" ON "identity"."oauth_authorization_session" USING btree ("tenant_id","created_at");--> statement-breakpoint
 CREATE INDEX "idx_sync_history_tenant_started" ON "identity"."sync_history" USING btree ("tenant_id","started_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "tenant_domain_domain_uidx" ON "identity"."tenant_domain" USING btree ("domain");--> statement-breakpoint
 CREATE INDEX "agent_delegation_tenant_delegator_status_idx" ON "core"."agent_delegation" USING btree ("tenant_id","delegator_user_id","status");--> statement-breakpoint
 CREATE INDEX "agent_delegation_tenant_status_expires_idx" ON "core"."agent_delegation" USING btree ("tenant_id","status","expires_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_role_permission_tenant_role_perm" ON "core"."role_permission" USING btree ("tenant_id","role_key","permission_key");--> statement-breakpoint

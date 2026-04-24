@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Home, Sun, Moon, Plus } from 'lucide-react'
+import { Home, Sun, Moon, Plus } from '@future/ui/icons'
 import { useTheme } from 'next-themes'
 import { cn } from '@future/ui'
 import { useCanAccess } from '../use-can-access'
@@ -28,7 +28,12 @@ export function NavbarRenderer({
   agentPanelOpen = false,
 }: NavbarRendererProps) {
   const { resolvedTheme, setTheme } = useTheme()
+  const [mounted, setMounted] = React.useState(false)
   const canDoAction = useCanAccess(config.action?.permission)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -93,7 +98,9 @@ export function NavbarRenderer({
         <button
           type="button"
           onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-          aria-label={resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label={
+            mounted && resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
+          }
           className={cn(
             'flex h-7 w-7 items-center justify-center rounded-md',
             'text-muted-foreground/60 transition-colors',
@@ -101,7 +108,7 @@ export function NavbarRenderer({
             'focus:outline-none focus:ring-2 focus:ring-ring/50',
           )}
         >
-          {resolvedTheme === 'dark' ? (
+          {mounted && resolvedTheme === 'dark' ? (
             <Sun className="h-3.5 w-3.5" />
           ) : (
             <Moon className="h-3.5 w-3.5" />

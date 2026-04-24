@@ -15,7 +15,8 @@
     "lint": "eslint src/",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
-    "seed": "bun run src/seeds/seed.ts"
+    "seed": "bun run src/seeds/seed.ts",
+    "test:golden-trace-ci": "vitest run --project integration --reporter=verbose 2>&1"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.53",

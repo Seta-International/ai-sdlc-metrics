@@ -100,7 +100,7 @@ Most common: API + the zones you're working on.
 bun run dev --filter=@future/api
 
 # API + shell + specific zones
-bun run dev --filter=@future/api --filter=@future/web-shell --filter=@future/web-people --filter=@future/web-planner
+bun run dev --filter=@future/api --filter=@future/web-shell --filter=@future/web-people --filter=@future/web-planner --filter=@future/web-admin
 
 # Everything (slow, use only if you need all zones)
 bun run dev

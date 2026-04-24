@@ -45,6 +45,12 @@ if [ "${1:-}" = "--clean" ]; then
   divider
   if docker info >/dev/null 2>&1; then
     docker compose -f docker-compose.local.yml down -v --remove-orphans
+    # Force-remove any containers that survived (e.g. started outside this compose project)
+    for cname in future-postgres future-redis; do
+      if docker ps -a --format '{{.Names}}' | grep -qx "$cname"; then
+        docker rm -f "$cname" && warn "Force-removed orphaned container: $cname"
+      fi
+    done
     info "Docker containers and volumes removed."
   else
     warn "Docker is not running — skipping."
@@ -165,27 +171,28 @@ ask_env "apps/api/.env" \
   "JWT signing secret for the API"
 
 echo ""
-warn "SSO keys (needed for Microsoft Entra login — skip for local dev with LOCAL_DEV=1):"
-ask_env "apps/web-shell/.env" \
-  "NEXT_PUBLIC_MICROSOFT_CLIENT_ID" \
-  "e8aff199-2c97-421e-805a-cd18ecb8de0c" \
-  "Entra app client ID (Azure portal → App registrations)"
-ask_env "apps/web-shell/.env" \
-  "MICROSOFT_CLIENT_SECRET" \
-  "yrX8Q~sgB6lB1pYOlI-qFfaQ.w76BUFkGhNPzdsW" \
-  "Entra app client secret"
-ask_env "apps/web-shell/.env" \
-  "NEXT_PUBLIC_MICROSOFT_TENANT_ID" \
-  "d7f9f1a0-2abd-4417-b315-f1997cdf424b" \
-  "Entra tenant ID"
-ask_env ".env" \
-  "ENTRA_TENANT_ID" \
-  "d7f9f1a0-2abd-4417-b315-f1997cdf424b" \
-  "Entra tenant ID for the API"
-ask_env ".env" \
+warn "Platform admin bootstrap — seeds a platform_admin account on first run:"
+ask_env "apps/api/.env" \
+  "FUTURE_PLATFORM_ADMIN_EMAIL" \
+  "" \
+  "Email for the initial platform admin account (leave blank to skip bootstrap)"
+
+echo ""
+warn "SSO — OAuth is now backend-owned. Configure IdP credentials via the admin portal after first login."
+warn "  Shell only needs the callback redirect URIs (already set in apps/web-shell/.env)."
+warn "  To seed an Entra IdP for the system tenant during setup, set the following (optional):"
+ask_env "apps/api/.env" \
   "ENTRA_CLIENT_ID" \
-  "e8aff199-2c97-421e-805a-cd18ecb8de0c" \
-  "Entra client ID for the API"
+  "" \
+  "Entra app client ID (leave blank to configure via admin portal later)"
+ask_env "apps/api/.env" \
+  "ENTRA_TENANT_ID" \
+  "" \
+  "Entra directory/tenant ID"
+ask_env "apps/api/.env" \
+  "ENTRA_CLIENT_SECRET_REF" \
+  "" \
+  "AWS Secrets Manager key name holding the Entra client secret (not the raw secret)"
 
 echo ""
 warn "AI keys (optional for local dev — agents will be disabled without OPENAI_API_KEY):"

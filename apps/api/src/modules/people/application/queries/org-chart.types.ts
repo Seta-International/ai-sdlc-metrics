@@ -19,3 +19,10 @@ export type OrgChartContextDto = {
   rootEmploymentIds: string[]
   focusEmploymentId: string | null
 }
+
+export type OrgChartTreeDto = {
+  rootIds: string[]
+  nodesById: Record<string, OrgChartNodeDto>
+  childrenByParentId: Record<string, string[]>
+  focusEmploymentId: string | null
+}

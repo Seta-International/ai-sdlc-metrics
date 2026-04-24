@@ -7,4 +7,6 @@ export {
   magicLinkToken,
   syncHistory,
   apiKey,
+  tenantDomain,
+  oauthAuthorizationSession,
 } from './identity.schema'

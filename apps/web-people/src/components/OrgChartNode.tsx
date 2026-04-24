@@ -13,6 +13,7 @@ type OrgChartNodeProps = {
   expandedIds: Set<string>
   childLoadingIds: Set<string>
   childErrorsById: Map<string, string>
+  compact?: boolean
   onExpand: (employmentId: string) => void
   onCollapse: (employmentId: string) => void
   onRetry: (employmentId: string) => void
@@ -27,6 +28,7 @@ export function OrgChartNodeComponent(props: OrgChartNodeProps) {
     expandedIds,
     childLoadingIds,
     childErrorsById,
+    compact,
     onExpand,
     onCollapse,
     onRetry,
@@ -38,6 +40,7 @@ export function OrgChartNodeComponent(props: OrgChartNodeProps) {
   const childError = childErrorsById.get(node.employmentId)
   const initials = node.fullName
     .split(' ')
+    .filter(Boolean)
     .map((part) => part[0])
     .join('')
     .slice(0, 2)
@@ -45,75 +48,112 @@ export function OrgChartNodeComponent(props: OrgChartNodeProps) {
 
   return (
     <div className="flex flex-col items-center">
-      <Card
-        className={[
-          'w-64 border-sidebar-border bg-overlay/2 shadow-sm',
-          node.relationshipToViewer === 'self' ? 'border-primary/50 ring-1 ring-primary/20' : '',
-        ].join(' ')}
-      >
-        <CardContent className="p-3">
-          <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-sidebar-border bg-sidebar-accent/30 text-sm font-510 text-fg-primary">
-              {node.avatarUrl ? (
-                <Image
-                  src={node.avatarUrl}
-                  alt={node.fullName}
-                  width={40}
-                  height={40}
-                  className="size-full rounded-full object-cover"
-                />
-              ) : (
-                initials
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <p className="truncate text-sm font-510 text-fg-primary">{node.fullName}</p>
-                {node.relationshipToViewer === 'self' && <Badge variant="subtle">You</Badge>}
-              </div>
-              <p className="truncate text-xs text-fg-muted">{node.jobTitle ?? 'No title'}</p>
-              <p className="truncate text-xs text-fg-subtle">
-                {[node.departmentName, node.locationName].filter(Boolean).join(' · ') ||
-                  'No org details'}
-              </p>
-            </div>
+      {compact ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-label={`${isExpanded ? 'Collapse' : 'Expand'} direct reports for ${node.fullName}`}
+          onClick={() => {
+            if (!node.hasDirectReports) return
+            if (isExpanded) onCollapse(node.employmentId)
+            else onExpand(node.employmentId)
+          }}
+          className={[
+            'h-auto rounded-full border px-3 py-1.5',
+            node.relationshipToViewer === 'self'
+              ? 'border-primary/50 ring-1 ring-primary/20'
+              : 'border-sidebar-border',
+          ].join(' ')}
+        >
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-full border border-sidebar-border bg-sidebar-accent/30 text-xs font-510 text-fg-primary">
+            {node.avatarUrl ? (
+              <Image
+                src={node.avatarUrl}
+                alt={node.fullName}
+                width={28}
+                height={28}
+                className="size-full rounded-full object-cover"
+              />
+            ) : (
+              initials
+            )}
           </div>
-          <div className="mt-3 flex items-center justify-between gap-2">
-            <Badge variant="subtle" className="gap-1">
-              <Users className="size-3" />
-              {node.directReportCount}
-            </Badge>
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => onViewProfile(node.employmentId)}
-                aria-label={`View profile for ${node.fullName}`}
-              >
-                <UserIcon className="size-3.5" />
-              </Button>
-              {node.hasDirectReports && (
+          <span className="text-sm font-510 text-fg-primary">{node.fullName}</span>
+          {node.relationshipToViewer === 'self' && <Badge variant="subtle">You</Badge>}
+        </Button>
+      ) : (
+        <Card
+          data-testid="org-card"
+          className={[
+            'w-64 border-sidebar-border bg-overlay/2 shadow-sm',
+            node.relationshipToViewer === 'self' ? 'border-primary/50 ring-1 ring-primary/20' : '',
+          ].join(' ')}
+        >
+          <CardContent className="p-3">
+            <div className="flex items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-sidebar-border bg-sidebar-accent/30 text-sm font-510 text-fg-primary">
+                {node.avatarUrl ? (
+                  <Image
+                    src={node.avatarUrl}
+                    alt={node.fullName}
+                    width={40}
+                    height={40}
+                    className="size-full rounded-full object-cover"
+                  />
+                ) : (
+                  initials
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <p className="truncate text-sm font-510 text-fg-primary">{node.fullName}</p>
+                  {node.relationshipToViewer === 'self' && <Badge variant="subtle">You</Badge>}
+                </div>
+                <p className="truncate text-xs text-fg-muted">{node.jobTitle ?? 'Unknown title'}</p>
+                <p className="truncate text-xs text-fg-subtle">
+                  {[node.departmentName, node.locationName].filter(Boolean).join(' · ') ||
+                    'Unknown org'}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <Badge variant="subtle" className="gap-1">
+                <Users className="size-3" />
+                {node.directReportCount}
+              </Badge>
+              <div className="flex items-center gap-1">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() =>
-                    isExpanded ? onCollapse(node.employmentId) : onExpand(node.employmentId)
-                  }
-                  aria-label={`${isExpanded ? 'Collapse' : 'Expand'} direct reports for ${node.fullName}`}
+                  onClick={() => onViewProfile(node.employmentId)}
+                  aria-label={`View profile for ${node.fullName}`}
                 >
-                  {isExpanded ? (
-                    <ChevronDown className="size-3.5" />
-                  ) : (
-                    <ChevronRight className="size-3.5" />
-                  )}
+                  <UserIcon className="size-3.5" />
                 </Button>
-              )}
+                {node.hasDirectReports && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      isExpanded ? onCollapse(node.employmentId) : onExpand(node.employmentId)
+                    }
+                    aria-label={`${isExpanded ? 'Collapse' : 'Expand'} direct reports for ${node.fullName}`}
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="size-3.5" />
+                    ) : (
+                      <ChevronRight className="size-3.5" />
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {isLoadingChildren && <Skeleton className="mt-3 h-6 w-32" />}
       {childError && (
@@ -135,15 +175,15 @@ export function OrgChartNodeComponent(props: OrgChartNodeProps) {
 
       {isExpanded && childIds.length > 0 && (
         <div className="mt-4 flex flex-col items-center">
-          <div className="h-4 w-px bg-sidebar-border" />
-          <div className="flex gap-6">
+          <div data-testid="org-connector" className="h-4 w-px bg-sidebar-border" />
+          <div className="flex gap-6 border-t border-sidebar-border">
             {childIds.map((childId) => {
               const child = nodesById.get(childId)
               if (!child) return null
               return (
                 <div key={childId} className="flex flex-col items-center">
-                  <div className="h-4 w-px bg-sidebar-border" />
-                  <OrgChartNodeComponent {...props} node={child} />
+                  <div data-testid="org-connector" className="h-4 w-px bg-sidebar-border" />
+                  <OrgChartNodeComponent {...props} node={child} compact={compact} />
                 </div>
               )
             })}

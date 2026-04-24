@@ -59,6 +59,7 @@ export class DrizzleUserIdentityRepository implements IUserIdentityRepository {
   }
 
   async insert(data: {
+    id?: string
     tenantId: string
     actorId: string
     email: string
@@ -68,6 +69,7 @@ export class DrizzleUserIdentityRepository implements IUserIdentityRepository {
     const rows = await this.db
       .insert(userIdentity)
       .values({
+        ...(data.id !== undefined ? { id: data.id } : {}),
         tenantId: data.tenantId,
         actorId: data.actorId,
         email: data.email,

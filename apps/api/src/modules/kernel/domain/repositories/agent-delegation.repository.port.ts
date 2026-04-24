@@ -19,4 +19,24 @@ export interface IAgentDelegationRepository {
     delegationId: string
     status: 'active' | 'expired' | 'revoked'
   }): Promise<void>
+
+  countActiveByDelegator(opts: { tenantId: string; delegatorUserId: string }): Promise<number>
+
+  listActiveByDelegator(opts: {
+    tenantId: string
+    delegatorUserId: string
+  }): Promise<AgentDelegation[]>
+
+  listActiveForTenant(opts: { tenantId: string }): Promise<AgentDelegation[]>
+
+  sweepExpired(opts: { beforeDate: Date }): Promise<{
+    expiredDelegationIds: string[]
+    affectedTenantIds: string[]
+  }>
+
+  bulkRevokeByDelegator(opts: {
+    tenantId: string
+    delegatorUserId: string
+    reason: string
+  }): Promise<{ revokedIds: string[] }>
 }

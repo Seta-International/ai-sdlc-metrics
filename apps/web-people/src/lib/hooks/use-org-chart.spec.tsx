@@ -3,8 +3,8 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useOrgChart } from './use-org-chart'
 
-const { contextQuery, childrenQuery } = vi.hoisted(() => ({
-  contextQuery: vi.fn(),
+const { treeQuery, childrenQuery } = vi.hoisted(() => ({
+  treeQuery: vi.fn(),
   childrenQuery: vi.fn(),
 }))
 
@@ -12,7 +12,7 @@ vi.mock('../trpc', () => ({
   trpc: {
     people: {
       orgChart: {
-        context: { query: contextQuery },
+        tree: { query: treeQuery },
         children: { query: childrenQuery },
       },
     },
@@ -26,12 +26,16 @@ function Harness() {
       <div data-testid="loading">{String(chart.isLoadingContext)}</div>
       <div data-testid="error">{chart.contextError ?? ''}</div>
       <div data-testid="nodes">{chart.visibleNodes.map((node) => node.fullName).join(',')}</div>
+      <div data-testid="roots">{chart.rootEmploymentIds.join(',')}</div>
       <div data-testid="focus">{chart.focusEmploymentId ?? ''}</div>
       <button type="button" onClick={() => void chart.expandNode('self-1')}>
         expand self
       </button>
       <button type="button" onClick={() => chart.collapseNode('self-1')}>
         collapse self
+      </button>
+      <button type="button" onClick={() => chart.setSelectedTeamId('team-engineering')}>
+        set team engineering
       </button>
     </div>
   )
@@ -47,6 +51,18 @@ function ErrorHarness() {
       </button>
       <button type="button" onClick={() => void chart.retryChildren('self-1')}>
         retry self
+      </button>
+    </div>
+  )
+}
+
+function RetryHarness() {
+  const chart = useOrgChart()
+  return (
+    <div>
+      <div data-testid="error">{chart.contextError ?? ''}</div>
+      <button type="button" onClick={chart.retryContext}>
+        retry context
       </button>
     </div>
   )
@@ -68,9 +84,10 @@ const self = {
 
 describe('useOrgChart', () => {
   beforeEach(() => {
-    contextQuery.mockResolvedValue({
-      nodes: [self],
-      rootEmploymentIds: ['manager-1'],
+    treeQuery.mockResolvedValue({
+      rootIds: ['manager-1'],
+      nodesById: { 'self-1': self },
+      childrenByParentId: {},
       focusEmploymentId: 'self-1',
     })
     childrenQuery.mockResolvedValue([])
@@ -85,11 +102,34 @@ describe('useOrgChart', () => {
     render(<Harness />)
 
     expect(screen.getByTestId('loading').textContent).toBe('true')
-    await waitFor(() => expect(contextQuery).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(treeQuery).toHaveBeenCalledTimes(1))
 
     expect(screen.getByTestId('loading').textContent).toBe('false')
     expect(screen.getByTestId('nodes').textContent).toBe('Sam Self')
     expect(screen.getByTestId('focus').textContent).toBe('self-1')
+  })
+
+  it('uses root employment ids from the API when the viewer has no focus node', async () => {
+    treeQuery.mockResolvedValueOnce({
+      rootIds: ['root-1'],
+      nodesById: {
+        'root-1': {
+          ...self,
+          employmentId: 'root-1',
+          fullName: 'Ada Root',
+          managerEmploymentId: null,
+          relationshipToViewer: 'root',
+        },
+      },
+      childrenByParentId: {},
+      focusEmploymentId: null,
+    })
+
+    render(<Harness />)
+
+    await waitFor(() => expect(screen.getByTestId('nodes').textContent).toContain('Ada Root'))
+    expect(screen.getByTestId('roots').textContent).toBe('root-1')
+    expect(screen.getByTestId('focus').textContent).toBe('')
   })
 
   it('lazy-loads children once and keeps cached children after collapse', async () => {
@@ -119,11 +159,26 @@ describe('useOrgChart', () => {
     expect(childrenQuery).toHaveBeenCalledTimes(1)
   })
 
+  it('retries the whole context request after an initial failure', async () => {
+    treeQuery.mockRejectedValueOnce(new Error('Context failed')).mockResolvedValueOnce({
+      rootIds: ['manager-1'],
+      nodesById: { 'self-1': self },
+      childrenByParentId: {},
+      focusEmploymentId: 'self-1',
+    })
+
+    render(<RetryHarness />)
+    await waitFor(() => expect(screen.getByTestId('error').textContent).toBe('Context failed'))
+
+    screen.getByRole('button', { name: 'retry context' }).click()
+    await waitFor(() => expect(treeQuery).toHaveBeenCalledTimes(2))
+  })
+
   it('stores per-node child loading errors and retries failed children', async () => {
     childrenQuery.mockRejectedValueOnce(new Error('Branch failed')).mockResolvedValueOnce([])
 
     render(<ErrorHarness />)
-    await waitFor(() => expect(contextQuery).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(treeQuery).toHaveBeenCalledTimes(1))
 
     screen.getByRole('button', { name: 'expand self' }).click()
     await waitFor(() => expect(screen.getByTestId('child-error').textContent).toBe('Branch failed'))
@@ -131,5 +186,36 @@ describe('useOrgChart', () => {
     screen.getByRole('button', { name: 'retry self' }).click()
     await waitFor(() => expect(childrenQuery).toHaveBeenCalledTimes(2))
     expect(screen.getByTestId('child-error').textContent).toBe('')
+  })
+
+  it('loads tree response and exposes root ids', async () => {
+    const rootNode = {
+      employmentId: 'root-1',
+      personProfileId: 'profile-root',
+      fullName: 'Ada Root',
+      jobTitle: 'Director',
+      departmentName: 'Engineering',
+      locationName: null,
+      avatarUrl: null,
+      managerEmploymentId: null,
+      directReportCount: 1,
+      hasDirectReports: true,
+      relationshipToViewer: 'root' as const,
+    }
+    treeQuery.mockResolvedValueOnce({
+      rootIds: ['root-1'],
+      nodesById: { 'root-1': rootNode },
+      childrenByParentId: {},
+      focusEmploymentId: 'self-1',
+    })
+    render(<Harness />)
+    await waitFor(() => expect(screen.getByTestId('roots').textContent).toBe('root-1'))
+  })
+
+  it('refetches tree when selectedTeamId changes', async () => {
+    render(<Harness />)
+    await waitFor(() => expect(treeQuery).toHaveBeenCalledTimes(1))
+    screen.getByRole('button', { name: 'set team engineering' }).click()
+    await waitFor(() => expect(treeQuery).toHaveBeenCalledTimes(2))
   })
 })

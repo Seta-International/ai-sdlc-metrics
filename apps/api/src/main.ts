@@ -45,7 +45,8 @@ async function bootstrap() {
   // Mount tRPC on the raw Fastify instance before listen.
   // app.init() above has called TrpcModule.onModuleInit, so getAppRouter() returns
   // the permission-wired router at this point.
-  const fastify = adapter.getInstance()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fastify = adapter.getInstance<any>()
   await fastify.register(fastifyTRPCPlugin, {
     prefix: '/trpc',
     trpcOptions: {
