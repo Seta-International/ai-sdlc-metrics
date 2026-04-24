@@ -76,6 +76,23 @@ describe('DegradedTierFallback.shouldFallback()', () => {
     const svc = new DegradedTierFallback(makeScheduler({ fullDegraded: true, nanoDegraded: true }))
     expect(svc.shouldFallback('nano')).toBe('both_degraded')
   })
+
+  it('6. nano requested, neither degraded → returns nano', () => {
+    const svc = new DegradedTierFallback(
+      makeScheduler({ fullDegraded: false, nanoDegraded: false }),
+    )
+    expect(svc.shouldFallback('nano')).toBe('nano')
+  })
+
+  it('7. nano requested, only full is degraded (nano ok) → returns nano (no fallback needed)', () => {
+    const svc = new DegradedTierFallback(makeScheduler({ fullDegraded: true, nanoDegraded: false }))
+    expect(svc.shouldFallback('nano')).toBe('nano')
+  })
+
+  it('8. full requested, only nano is degraded (full ok) → returns full (no fallback needed)', () => {
+    const svc = new DegradedTierFallback(makeScheduler({ fullDegraded: false, nanoDegraded: true }))
+    expect(svc.shouldFallback('full')).toBe('full')
+  })
 })
 
 // ─── getElevatedNoticeLevel tests ─────────────────────────────────────────────

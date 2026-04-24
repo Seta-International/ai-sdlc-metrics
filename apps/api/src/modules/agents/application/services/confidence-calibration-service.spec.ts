@@ -53,19 +53,30 @@ describe('ConfidenceCalibrationService.correlate()', () => {
 // ─── isInverted static method tests ──────────────────────────────────────────
 
 describe('ConfidenceCalibrationService.isInverted()', () => {
-  it('3. returns true when high thumbsDown >= low thumbsDown (both have count > 0)', () => {
-    // high has worse rate than low — ordering inverted
+  it('3. returns true when high.thumbsDown >= med.thumbsDown (even if med < low)', () => {
+    // high is >= med — first link of chain is broken
     const stats = makeByTier(
       makeStats(0.3, 50), // high — unexpectedly high thumbs-down
-      makeStats(0.2, 40), // med
-      makeStats(0.1, 60), // low — unexpectedly low thumbs-down
+      makeStats(0.2, 40), // med — lower than high (inversion!)
+      makeStats(0.4, 60), // low — correct relative to med
     )
 
     expect(ConfidenceCalibrationService.isInverted(stats)).toBe(true)
   })
 
-  it('4. returns false when ordering is correct (high < low)', () => {
-    // Expected ordering: high < low
+  it('4. returns true when med.thumbsDown >= low.thumbsDown (even if high < med)', () => {
+    // med is >= low — second link of chain is broken
+    const stats = makeByTier(
+      makeStats(0.05, 50), // high — correct
+      makeStats(0.25, 40), // med — higher than low (inversion!)
+      makeStats(0.15, 60), // low — unexpectedly low thumbs-down
+    )
+
+    expect(ConfidenceCalibrationService.isInverted(stats)).toBe(true)
+  })
+
+  it('5. returns false when high < med < low (strict ordering — all pass)', () => {
+    // Expected ordering: high < med < low — no inversion
     const stats = makeByTier(
       makeStats(0.05, 50), // high — low thumbs-down (confident, correct)
       makeStats(0.12, 40), // med
@@ -75,8 +86,8 @@ describe('ConfidenceCalibrationService.isInverted()', () => {
     expect(ConfidenceCalibrationService.isInverted(stats)).toBe(false)
   })
 
-  it('5. returns false when counts are zero (not enough data)', () => {
-    // Equal rates but no data — should not report inversion
+  it('6. returns false when any count is 0 (insufficient data)', () => {
+    // Any tier with zero count → not enough data — should not report inversion
     const stats = makeByTier(
       makeStats(0.5, 0), // high — zero count
       makeStats(0.2, 10), // med

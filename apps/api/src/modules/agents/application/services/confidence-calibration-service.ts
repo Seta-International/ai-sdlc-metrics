@@ -12,7 +12,7 @@ export type TierCalibrationStats = {
 
 export type CalibrationResult = {
   byTier: Record<ConfidenceTier, TierCalibrationStats>
-  /** true if thumbsDown(high) >= thumbsDown(low) — unexpected ordering inversion (R-10.25/R-10.26) */
+  /** true if any inversion detected in chain high < med < low (R-10.25/R-10.26) */
   invertedOrdering: boolean
 }
 
@@ -51,15 +51,14 @@ export class ConfidenceCalibrationService {
   }
 
   /**
-   * Returns true if the thumbs-down ordering is inverted (unexpected: high >= low).
-   * Only meaningful when both high and low have count > 0.
+   * Returns true if ANY inversion is detected in the expected chain high < med < low.
+   * Only meaningful when all three tiers have count > 0.
    */
   static isInverted(stats: Record<ConfidenceTier, TierCalibrationStats>): boolean {
-    // Expected: thumbsDown(high) < thumbsDown(low)
-    // Inverted: high >= low (unexpected — signals confidence derivation rule issue)
-    if (stats.high.count === 0 || stats.low.count === 0) {
-      return false
-    }
-    return stats.high.thumbsDownRate >= stats.low.thumbsDownRate
+    // Expected ordering: thumbsDown(high) < thumbsDown(med) < thumbsDown(low)
+    // Only check when sufficient data present (count > 0)
+    const { high, med, low } = stats
+    if (high.count === 0 || med.count === 0 || low.count === 0) return false
+    return high.thumbsDownRate >= med.thumbsDownRate || med.thumbsDownRate >= low.thumbsDownRate
   }
 }
