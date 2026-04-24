@@ -18,7 +18,7 @@ import { createKernelRouter } from '../../modules/kernel/interface/trpc/kernel.r
 import { createPeopleRouter } from '../../modules/people/interface/trpc/people.router'
 import { createIdentityAdminRouter } from '../../modules/identity/interface/trpc/identity.router'
 import { createAuthGatewayRouter } from '../../modules/identity/interface/trpc/auth-gateway.router'
-import { GetLoginOptionsHandler } from '../../modules/identity/application/queries/get-login-options.handler'
+import { IdentityQueryFacade } from '../../modules/identity/application/facades/identity-query.facade'
 import { createAdminRouter } from '../../modules/admin/interface/trpc/admin.router'
 import { setIdentityJwtService } from '../../modules/kernel/interface/trpc/identity.router'
 import {
@@ -54,7 +54,7 @@ export class TrpcModule implements OnModuleInit {
     private readonly auditFacade: KernelAuditFacade,
     private readonly peopleFacade: PeopleQueryFacade,
     private readonly preferencesFacade: PreferencesQueryFacade,
-    private readonly getLoginOptionsHandler: GetLoginOptionsHandler,
+    private readonly identityFacade: IdentityQueryFacade,
   ) {}
 
   onModuleInit() {
@@ -77,7 +77,7 @@ export class TrpcModule implements OnModuleInit {
       ),
     )
     setIdentityAdminRouter(createIdentityAdminRouter(permissionProtectedProcedure))
-    setAuthGatewayRouter(createAuthGatewayRouter(publicProcedure, this.getLoginOptionsHandler))
+    setAuthGatewayRouter(createAuthGatewayRouter(publicProcedure, this.identityFacade))
     setAdminRouter(createAdminRouter(permissionProtectedProcedure))
     setPreferencesRouter(
       createPreferencesRouter(permissionProtectedProcedure, this.preferencesFacade),

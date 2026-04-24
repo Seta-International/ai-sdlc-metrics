@@ -46,7 +46,7 @@ export class GetLoginOptionsHandler implements IQueryHandler<
     // Require at least one lookup key
     if (!query.slug && !query.emailDomain) return null
 
-    let tenant: Tenant | null = null
+    let tenant: Awaited<ReturnType<KernelQueryFacade['getTenantBySlug']>> = null
 
     if (query.slug) {
       tenant = await this.kernelFacade.getTenantBySlug(query.slug)

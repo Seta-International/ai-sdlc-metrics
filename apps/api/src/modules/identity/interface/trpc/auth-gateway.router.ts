@@ -1,7 +1,7 @@
 import * as z from 'zod'
-import { router } from '../../../../common/trpc/trpc-init'
-import type { GetLoginOptionsHandler } from '../../application/queries/get-login-options.handler'
-import { GetLoginOptionsQuery } from '../../application/queries/get-login-options.query'
+import { TRPCError } from '@trpc/server'
+import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
+import type { IdentityQueryFacade } from '../../application/facades/identity-query.facade'
 
 /**
  * Auth gateway router — all procedures use publicProcedure (no Future session required).
@@ -12,7 +12,7 @@ import { GetLoginOptionsQuery } from '../../application/queries/get-login-option
 export function createAuthGatewayRouter(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   baseProcedure: any,
-  getLoginOptionsHandler: GetLoginOptionsHandler,
+  identityFacade: IdentityQueryFacade,
 ) {
   return router({
     /**
@@ -27,16 +27,48 @@ export function createAuthGatewayRouter(
         }),
       )
       .query(({ input }: { input: { slug: string | null; emailDomain: string | null } }) =>
-        getLoginOptionsHandler.execute(new GetLoginOptionsQuery(input.slug, input.emailDomain)),
+        identityFacade.getLoginOptions(input.slug, input.emailDomain),
       ),
+
+    /**
+     * Placeholder — Task 5 will implement OAuth flow initiation.
+     * Starts an OAuth authorization code flow for the given tenant IdP.
+     */
+    startOAuth: baseProcedure
+      .input(
+        z.object({
+          tenantId: z.string().uuid(),
+          providerId: z.string().uuid(),
+        }),
+      )
+      .mutation(() => {
+        throw new TRPCError({ code: 'NOT_IMPLEMENTED', message: 'startOAuth: not yet implemented' })
+      }),
+
+    /**
+     * Placeholder — Task 5 will implement OAuth callback handling.
+     * Completes the OAuth authorization code flow and issues a session.
+     */
+    completeOAuth: baseProcedure
+      .input(
+        z.object({
+          code: z.string().min(1),
+          state: z.string().min(1),
+        }),
+      )
+      .mutation(() => {
+        throw new TRPCError({
+          code: 'NOT_IMPLEMENTED',
+          message: 'completeOAuth: not yet implemented',
+        })
+      }),
   })
 }
 
-// Static default export — replaced at runtime by TrpcModule with injected handler
+// Static default export — replaced at runtime by TrpcModule with injected facade
 // Placeholder mirrors the shape so AppRouter type inference is stable
-import { publicProcedure } from '../../../../common/trpc/trpc-init'
+const noopFacade = {
+  getLoginOptions: () => Promise.resolve(null),
+} as unknown as IdentityQueryFacade
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const noopHandler = { execute: () => Promise.resolve(null) } as any
-
-export const authGatewayRouter = createAuthGatewayRouter(publicProcedure, noopHandler)
+export const authGatewayRouter = createAuthGatewayRouter(publicProcedure, noopFacade)

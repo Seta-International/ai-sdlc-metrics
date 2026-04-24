@@ -131,6 +131,6 @@ const QueryHandlers = [
     IdentityQueryFacade,
     IdentityRouterService,
   ],
-  exports: [IdentityQueryFacade, GetLoginOptionsHandler],
+  exports: [IdentityQueryFacade],
 })
 export class IdentityModule {}
