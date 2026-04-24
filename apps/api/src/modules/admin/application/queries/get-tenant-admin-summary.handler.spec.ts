@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ForbiddenException } from '@nestjs/common'
 import type { Db } from '@future/db'
 import { GetTenantAdminSummaryQuery } from './get-tenant-admin-summary.query'
@@ -35,25 +35,7 @@ const makeAiRow = (tenantId = TENANT_ID) => ({
   updatedAt: new Date('2025-06-01'),
 })
 
-interface SelectBuilder {
-  from: ReturnType<typeof vi.fn>
-  where: ReturnType<typeof vi.fn>
-  limit: ReturnType<typeof vi.fn>
-}
-
 function makeDb(aiRows: unknown[] = [], toggleRows: unknown[] = []): Db {
-  let callCount = 0
-  const limit = vi.fn().mockImplementation(() => {
-    callCount++
-    return Promise.resolve(callCount === 1 ? aiRows : toggleRows)
-  })
-  const where = vi.fn().mockReturnValue({ limit })
-  const selectBuilder: SelectBuilder = {
-    from: vi.fn().mockReturnValue({ where }),
-    where,
-    limit,
-  }
-  // Second select call (for toggles) resolves directly with toggleRows
   let selectCallCount = 0
   const select = vi.fn().mockImplementation(() => {
     selectCallCount++

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common'
+import { ForbiddenException, Inject, Injectable } from '@nestjs/common'
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
@@ -20,6 +20,13 @@ export class UpsertAiProviderConfigHandler implements ICommandHandler<
   ) {}
 
   async execute(command: UpsertAiProviderConfigCommand): Promise<void> {
+    if (
+      !command.callerRoles.includes('platform_admin') &&
+      command.callerTenantId !== command.tenantId
+    ) {
+      throw new ForbiddenException('tenant_admin may only update their own tenant AI config')
+    }
+
     const secretName = `future/tenant/${command.tenantId}/ai-provider-api-key`
     const { ref: apiKeyRef } = await this.secretsStore.putSecret({
       name: secretName,

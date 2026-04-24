@@ -253,7 +253,15 @@ export function createAdminRouter(permissionProtectedProcedure: any) {
       )
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
-        svc().command(new UpdateModuleTogglesCommand(input.tenantId, ctx.actorId, input.toggles)),
+        svc().command(
+          new UpdateModuleTogglesCommand(
+            input.tenantId,
+            ctx.actorId,
+            input.toggles,
+            ctx.tenantId,
+            ctx.roles,
+          ),
+        ),
       ),
 
     upsertAiProviderConfig: permissionProtectedProcedure
@@ -279,6 +287,8 @@ export function createAdminRouter(permissionProtectedProcedure: any) {
             input.defaultReasoningModel,
             input.defaultClassificationModel,
             input.embeddingModel,
+            ctx.tenantId,
+            ctx.roles,
           ),
         ),
       ),

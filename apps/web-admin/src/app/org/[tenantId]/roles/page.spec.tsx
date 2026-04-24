@@ -48,7 +48,7 @@ describe('<RolesPage />', () => {
     expect(mockedUseQuery).toHaveBeenCalled()
   })
 
-  it('shows loading state', () => {
+  it('shows skeleton loading state', () => {
     mockedUseQuery.mockReturnValue({
       data: undefined,
       isLoading: true,
@@ -57,6 +57,7 @@ describe('<RolesPage />', () => {
     } as unknown as ReturnType<typeof useQuery>)
 
     render(<RolesPage params={{ tenantId: 'tenant-1' }} />)
-    expect(screen.getByText(/Loading/i)).toBeInTheDocument()
+    const skeletons = document.querySelectorAll('[data-slot="skeleton"]')
+    expect(skeletons.length).toBeGreaterThan(0)
   })
 })

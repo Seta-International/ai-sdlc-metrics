@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common'
+import { ForbiddenException, Inject, Injectable } from '@nestjs/common'
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
@@ -18,6 +18,13 @@ export class UpdateModuleTogglesHandler implements ICommandHandler<
   ) {}
 
   async execute(command: UpdateModuleTogglesCommand): Promise<void> {
+    if (
+      !command.callerRoles.includes('platform_admin') &&
+      command.callerTenantId !== command.tenantId
+    ) {
+      throw new ForbiddenException('tenant_admin may only update their own tenant module toggles')
+    }
+
     for (const toggle of command.toggles) {
       await this.db
         .insert(tenantModuleToggle)

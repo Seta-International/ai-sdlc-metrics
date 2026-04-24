@@ -31,9 +31,7 @@ const adminTrpc = trpc.admin as any
 
 export default function AiConfigPage({ params: { tenantId } }: AiConfigPageProps) {
   const [isRotating, setIsRotating] = useState(false)
-  const [isTesting, setIsTesting] = useState(false)
   const [apiKey, setApiKey] = useState('')
-  const [testResult, setTestResult] = useState<'success' | 'error' | null>(null)
   const [mutationError, setMutationError] = useState<string | null>(null)
   const [reasoningModel, setReasoningModel] = useState('gpt-5.4')
   const [classificationModel, setClassificationModel] = useState('gpt-5.4-nano')
@@ -42,7 +40,6 @@ export default function AiConfigPage({ params: { tenantId } }: AiConfigPageProps
   const handleRotate = async () => {
     setIsRotating(true)
     setMutationError(null)
-    setTestResult(null)
     try {
       await adminTrpc.upsertAiProviderConfig.mutate({
         tenantId,
@@ -58,15 +55,6 @@ export default function AiConfigPage({ params: { tenantId } }: AiConfigPageProps
     } finally {
       setIsRotating(false)
     }
-  }
-
-  const handleTest = () => {
-    setIsTesting(true)
-    // Placeholder — real connection test wired when test-connection procedure is available
-    setTimeout(() => {
-      setIsTesting(false)
-      setTestResult('success')
-    }, 1000)
   }
 
   return (
@@ -112,22 +100,8 @@ export default function AiConfigPage({ params: { tenantId } }: AiConfigPageProps
               {isRotating && <Spinner className="size-4" />}
               Rotate Key
             </Button>
-            <Button onClick={handleTest} disabled={isTesting} variant="outline">
-              {isTesting && <Spinner className="size-4" />}
-              Test Connection
-            </Button>
           </div>
 
-          {testResult === 'success' && (
-            <Alert>
-              <AlertDescription>Connection test passed.</AlertDescription>
-            </Alert>
-          )}
-          {testResult === 'error' && (
-            <Alert variant="destructive">
-              <AlertDescription>Connection test failed. Check your key.</AlertDescription>
-            </Alert>
-          )}
           {mutationError && (
             <Alert variant="destructive">
               <AlertDescription>{mutationError}</AlertDescription>

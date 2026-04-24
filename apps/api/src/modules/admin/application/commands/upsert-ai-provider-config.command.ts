@@ -8,5 +8,7 @@ export class UpsertAiProviderConfigCommand {
     readonly defaultReasoningModel: string,
     readonly defaultClassificationModel: string,
     readonly embeddingModel: string,
+    readonly callerTenantId: string,
+    readonly callerRoles: readonly string[],
   ) {}
 }

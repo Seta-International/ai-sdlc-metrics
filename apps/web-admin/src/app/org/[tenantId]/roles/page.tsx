@@ -7,6 +7,7 @@ import {
   AlertDescription,
   Badge,
   DataTable,
+  Skeleton,
   defaultTableState,
   type ColumnDef,
   type FutureTableState,
@@ -75,7 +76,13 @@ export default function RolesPage({ params: { tenantId: _tenantId } }: RolesPage
           </Alert>
         )}
 
-        {isLoading && <p className="text-sm text-muted-foreground">Loading roles…</p>}
+        {isLoading && (
+          <div className="space-y-3">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        )}
 
         {!isLoading && !isError && (
           <DataTable

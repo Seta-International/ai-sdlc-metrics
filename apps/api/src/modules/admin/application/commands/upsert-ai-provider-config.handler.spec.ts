@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ForbiddenException } from '@nestjs/common'
 import type { Db } from '@future/db'
 import { UpsertAiProviderConfigCommand } from './upsert-ai-provider-config.command'
 import { UpsertAiProviderConfigHandler } from './upsert-ai-provider-config.handler'
@@ -6,6 +7,7 @@ import type { KernelAuditFacade } from '../../../kernel/application/facades/kern
 import type { ISecretsStore } from '../../domain/ports/secrets-store.port'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
+const OTHER_TENANT_ID = '01900000-0000-7000-8000-000000000002'
 const ACTOR_ID = '01900000-0000-7000-8000-000000000010'
 const FAKE_ARN = 'arn:aws:secretsmanager:ap-southeast-1:123456:secret:future/tenant/xxx'
 
@@ -47,6 +49,47 @@ describe('UpsertAiProviderConfigHandler', () => {
     )
   })
 
+  describe('tenant isolation', () => {
+    it('throws ForbiddenException when tenant_admin writes to a different tenant', async () => {
+      const command = new UpsertAiProviderConfigCommand(
+        OTHER_TENANT_ID,
+        ACTOR_ID,
+        'sk-key-1234',
+        'openai',
+        'gpt-5.4',
+        'gpt-5.4-nano',
+        'text-embedding-3-small',
+        TENANT_ID,
+        ['tenant_admin'],
+      )
+
+      await expect(handler.execute(command)).rejects.toBeInstanceOf(ForbiddenException)
+      expect(secretsStore.putSecret).not.toHaveBeenCalled()
+      expect(mock.insert).not.toHaveBeenCalled()
+      expect(auditFacade.recordEvent).not.toHaveBeenCalled()
+    })
+
+    it('allows platform_admin to write to any tenant', async () => {
+      const command = new UpsertAiProviderConfigCommand(
+        OTHER_TENANT_ID,
+        ACTOR_ID,
+        'sk-key-1234',
+        'openai',
+        'gpt-5.4',
+        'gpt-5.4-nano',
+        'text-embedding-3-small',
+        TENANT_ID,
+        ['platform_admin'],
+      )
+
+      await handler.execute(command)
+
+      expect(secretsStore.putSecret).toHaveBeenCalledOnce()
+      expect(mock.insert).toHaveBeenCalledOnce()
+      expect(auditFacade.recordEvent).toHaveBeenCalledOnce()
+    })
+  })
+
   describe('on create/rotate', () => {
     it('stores API key in secrets manager and saves only ref in DB', async () => {
       const command = new UpsertAiProviderConfigCommand(
@@ -57,6 +100,8 @@ describe('UpsertAiProviderConfigHandler', () => {
         'gpt-5.4',
         'gpt-5.4-nano',
         'text-embedding-3-small',
+        TENANT_ID,
+        ['tenant_admin'],
       )
 
       await handler.execute(command)
@@ -85,6 +130,8 @@ describe('UpsertAiProviderConfigHandler', () => {
         'gpt-5.4',
         'gpt-5.4-nano',
         'text-embedding-3-small',
+        TENANT_ID,
+        ['tenant_admin'],
       )
 
       await handler.execute(command)
@@ -101,6 +148,8 @@ describe('UpsertAiProviderConfigHandler', () => {
         'gpt-5.4',
         'gpt-5.4-nano',
         'text-embedding-3-small',
+        TENANT_ID,
+        ['tenant_admin'],
       )
 
       await handler.execute(command)
@@ -130,6 +179,8 @@ describe('UpsertAiProviderConfigHandler', () => {
         'gpt-5.4',
         'gpt-5.4-nano',
         'text-embedding-3-small',
+        TENANT_ID,
+        ['tenant_admin'],
       )
 
       await handler.execute(command)

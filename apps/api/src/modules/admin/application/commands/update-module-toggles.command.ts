@@ -8,5 +8,7 @@ export class UpdateModuleTogglesCommand {
     readonly tenantId: string,
     readonly actorId: string,
     readonly toggles: ModuleToggleInput[],
+    readonly callerTenantId: string,
+    readonly callerRoles: readonly string[],
   ) {}
 }

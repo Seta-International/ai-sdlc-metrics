@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ForbiddenException } from '@nestjs/common'
 import type { Db } from '@future/db'
 import { UpdateModuleTogglesCommand } from './update-module-toggles.command'
 import { UpdateModuleTogglesHandler } from './update-module-toggles.handler'
 import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
+const OTHER_TENANT_ID = '01900000-0000-7000-8000-000000000002'
 const ACTOR_ID = '01900000-0000-7000-8000-000000000010'
 
 interface MockDb {
@@ -35,13 +37,46 @@ describe('UpdateModuleTogglesHandler', () => {
     handler = new UpdateModuleTogglesHandler(made.db, auditFacade as unknown as KernelAuditFacade)
   })
 
+  describe('tenant isolation', () => {
+    it('throws ForbiddenException when tenant_admin writes to a different tenant', async () => {
+      const command = new UpdateModuleTogglesCommand(
+        OTHER_TENANT_ID,
+        ACTOR_ID,
+        [{ moduleKey: 'people', enabled: true }],
+        TENANT_ID,
+        ['tenant_admin'],
+      )
+
+      await expect(handler.execute(command)).rejects.toBeInstanceOf(ForbiddenException)
+      expect(mock.insert).not.toHaveBeenCalled()
+      expect(auditFacade.recordEvent).not.toHaveBeenCalled()
+    })
+
+    it('allows platform_admin to write to any tenant', async () => {
+      const command = new UpdateModuleTogglesCommand(
+        OTHER_TENANT_ID,
+        ACTOR_ID,
+        [{ moduleKey: 'people', enabled: true }],
+        TENANT_ID,
+        ['platform_admin'],
+      )
+
+      await handler.execute(command)
+
+      expect(mock.insert).toHaveBeenCalledOnce()
+      expect(auditFacade.recordEvent).toHaveBeenCalledOnce()
+    })
+  })
+
   describe('happy path', () => {
     it('upserts each toggle sequentially and writes audit', async () => {
       const toggles = [
         { moduleKey: 'people', enabled: true },
         { moduleKey: 'hiring', enabled: false },
       ]
-      const command = new UpdateModuleTogglesCommand(TENANT_ID, ACTOR_ID, toggles)
+      const command = new UpdateModuleTogglesCommand(TENANT_ID, ACTOR_ID, toggles, TENANT_ID, [
+        'tenant_admin',
+      ])
 
       await handler.execute(command)
 
@@ -59,7 +94,9 @@ describe('UpdateModuleTogglesHandler', () => {
 
     it('writes audit with correct event type and payload', async () => {
       const toggles = [{ moduleKey: 'time', enabled: true }]
-      const command = new UpdateModuleTogglesCommand(TENANT_ID, ACTOR_ID, toggles)
+      const command = new UpdateModuleTogglesCommand(TENANT_ID, ACTOR_ID, toggles, TENANT_ID, [
+        'tenant_admin',
+      ])
 
       await handler.execute(command)
 
@@ -74,7 +111,9 @@ describe('UpdateModuleTogglesHandler', () => {
     })
 
     it('handles empty toggles array (no-op writes, still writes audit)', async () => {
-      const command = new UpdateModuleTogglesCommand(TENANT_ID, ACTOR_ID, [])
+      const command = new UpdateModuleTogglesCommand(TENANT_ID, ACTOR_ID, [], TENANT_ID, [
+        'tenant_admin',
+      ])
       await handler.execute(command)
       expect(mock.insert).not.toHaveBeenCalled()
       expect(auditFacade.recordEvent).toHaveBeenCalledOnce()
