@@ -56,7 +56,8 @@ export function OrgChartNodeComponent(props: OrgChartNodeProps) {
           aria-label={`${isExpanded ? 'Collapse' : 'Expand'} direct reports for ${node.fullName}`}
           onClick={() => {
             if (!node.hasDirectReports) return
-            isExpanded ? onCollapse(node.employmentId) : onExpand(node.employmentId)
+            if (isExpanded) onCollapse(node.employmentId)
+            else onExpand(node.employmentId)
           }}
           className={[
             'h-auto rounded-full border px-3 py-1.5',
