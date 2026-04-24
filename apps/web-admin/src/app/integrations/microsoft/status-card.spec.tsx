@@ -1,8 +1,8 @@
-// @ts-ignore -- test-only dependency is not installed in apps/web-admin in this workspace
+// @ts-expect-error -- test-only dependency is not installed in apps/web-admin in this workspace
 import { render, screen } from '@testing-library/react'
-// @ts-ignore -- test-only dependency is not installed in apps/web-admin in this workspace
+// @ts-expect-error -- test-only dependency is not installed in apps/web-admin in this workspace
 import userEvent from '@testing-library/user-event'
-// @ts-ignore -- test-only dependency is not installed in apps/web-admin in this workspace
+// @ts-expect-error -- test-only dependency is not installed in apps/web-admin in this workspace
 import { describe, expect, it, vi } from 'vitest'
 import { StatusCard } from './status-card'
 
