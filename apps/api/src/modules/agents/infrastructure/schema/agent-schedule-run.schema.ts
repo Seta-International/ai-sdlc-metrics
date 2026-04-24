@@ -60,6 +60,11 @@ export const agentScheduleRun = agentsSchema.table(
      * Format: 'cron' | 'event:<event_type>'
      */
     firedBy: text('fired_by').notNull(),
+    /**
+     * Trace id of the schedule-creation turn that originated this schedule.
+     * Nullable — populated when the schedule was created from an agent turn.
+     */
+    parentTraceId: uuid('parent_trace_id'),
   },
   (t) => [
     /** Schedule history — most recent runs first for a given schedule. */

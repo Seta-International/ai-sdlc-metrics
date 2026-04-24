@@ -23,6 +23,7 @@ function toDomain(row: AgentScheduleRunRow): ScheduleRun {
     pinnedVersions: row.pinnedVersions as ScheduleRun['pinnedVersions'],
     costSpentUsd: row.costSpentUsd as string,
     firedBy: row.firedBy,
+    parentTraceId: row.parentTraceId ?? null,
   }
 }
 
@@ -39,6 +40,7 @@ export class DrizzleScheduleRunRepository implements IScheduleRunRepository {
     taintSeeded: boolean
     pinnedVersions: Record<string, string>
     firedBy: string
+    parentTraceId?: string
   }): Promise<ScheduleRun> {
     const rows = await this.db
       .insert(agentScheduleRun)
@@ -51,6 +53,7 @@ export class DrizzleScheduleRunRepository implements IScheduleRunRepository {
         taintSeeded: opts.taintSeeded,
         pinnedVersions: opts.pinnedVersions as Record<string, unknown>,
         firedBy: opts.firedBy,
+        parentTraceId: opts.parentTraceId ?? null,
       })
       .returning()
 

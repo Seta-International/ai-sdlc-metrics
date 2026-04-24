@@ -61,7 +61,10 @@ import { setDraftRepository } from './interface/trpc/draft-audit.router'
 import { setScheduleHandlers } from './interface/trpc/schedule-ui-facade'
 // Plan 09 — Async Agents + Scheduling
 import { SCHEDULE_REPOSITORY } from './domain/repositories/schedule.repository'
-import { SCHEDULE_RUN_REPOSITORY } from './domain/repositories/schedule-run.repository'
+import {
+  SCHEDULE_RUN_REPOSITORY,
+  type IScheduleRunRepository,
+} from './domain/repositories/schedule-run.repository'
 import { DrizzleScheduleRepository } from './infrastructure/repositories/drizzle-schedule.repository'
 import { DrizzleScheduleRunRepository } from './infrastructure/repositories/drizzle-schedule-run.repository'
 import { ScheduleRepository } from './application/services/schedule-repository'
@@ -423,6 +426,8 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly kernelDelegationFacade: KernelDelegationFacade,
     private readonly scheduledTurnWorker: ScheduledTurnWorker,
     private readonly delegationExpirySweeper: DelegationExpirySweeper,
+    @Inject(SCHEDULE_RUN_REPOSITORY)
+    private readonly scheduleRunRepository: IScheduleRunRepository,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -442,6 +447,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
       scheduleRepository: this.scheduleRepository,
       delegationLifecycle: this.delegationLifecycle,
       kernelDelegationFacade: this.kernelDelegationFacade,
+      scheduleRunRepository: this.scheduleRunRepository,
     })
 
     // Step 1: Load agent tools from the assembled tRPC router.

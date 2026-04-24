@@ -1,10 +1,11 @@
-import { Injectable, Inject } from '@nestjs/common'
+import { Injectable, Inject, Logger } from '@nestjs/common'
 import {
   SCHEDULE_REPOSITORY,
   type IScheduleRepository,
 } from '../../domain/repositories/schedule.repository'
 import { DelegationLifecycle } from './delegation-lifecycle'
 import { KernelDelegationFacade } from '../../../kernel/application/facades/kernel-delegation.facade'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { Schedule } from '../../domain/entities/schedule.entity'
 import type { AgentDelegation } from '../../../kernel/application/facades/kernel-delegation.facade'
 
@@ -16,6 +17,11 @@ export type DelegationScope = {
   notes?: string
   admin_approved_by?: string
 }
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+// Maximum active schedules per tenant (actual admin config reading is deferred).
+const MAX_ACTIVE_SCHEDULES = 100
 
 // ─── ScheduleRepository (application service) ────────────────────────────────
 
@@ -29,6 +35,8 @@ export type DelegationScope = {
  */
 @Injectable()
 export class ScheduleRepository {
+  private readonly logger = new Logger(ScheduleRepository.name)
+
   constructor(
     @Inject(SCHEDULE_REPOSITORY)
     private readonly scheduleRepo: IScheduleRepository,
@@ -36,6 +44,7 @@ export class ScheduleRepository {
     // KernelDelegationFacade is injected here for future scope-update operations
     // (e.g. patching delegation scope with the real schedule_id after creation).
     private readonly kernelDelegationFacade: KernelDelegationFacade,
+    private readonly kernelAuditFacade: KernelAuditFacade,
   ) {}
 
   // ─── create() ─────────────────────────────────────────────────────────────
@@ -52,6 +61,7 @@ export class ScheduleRepository {
     delegationScope: DelegationScope
     costCeilingDailyUsd: number
     invocationCeilingDaily: number
+    failureAlertPolicy?: string
   }): Promise<{ schedule: Schedule; delegation: AgentDelegation }> {
     const {
       tenantId,
@@ -65,7 +75,19 @@ export class ScheduleRepository {
       delegationScope,
       costCeilingDailyUsd,
       invocationCeilingDaily,
+      failureAlertPolicy,
     } = opts
+
+    // Step 0: Enforce tenant active-schedule cap.
+    const activeCount = await this.scheduleRepo.countActiveForTenant({ tenantId })
+    if (activeCount >= MAX_ACTIVE_SCHEDULES) {
+      throw new Error('tenant_schedule_cap_exceeded')
+    }
+    if (activeCount >= MAX_ACTIVE_SCHEDULES * 0.8) {
+      this.logger.warn(
+        `ScheduleRepository: tenant ${tenantId} approaching active schedule cap (${activeCount}/${MAX_ACTIVE_SCHEDULES})`,
+      )
+    }
 
     // Step 1: Create delegation first — scope has schedule_id: 'pending' initially.
     // TODO: After schedule creation, patch delegation scope with the real schedule id
@@ -91,6 +113,22 @@ export class ScheduleRepository {
       delegationId: delegation.id,
       costCeilingDailyUsd,
       invocationCeilingDaily,
+      failureAlertPolicy,
+    })
+
+    // Step 3: Emit schedule_created audit.
+    await this.kernelAuditFacade.recordEvent({
+      tenantId,
+      actorId: createdBy,
+      eventType: 'agent.schedule_created',
+      module: 'agents',
+      subjectId: schedule.id,
+      payload: {
+        scheduleId: schedule.id,
+        kind,
+        triggerKind,
+        delegationId: delegation.id,
+      },
     })
 
     return { schedule, delegation }
@@ -105,6 +143,15 @@ export class ScheduleRepository {
       status: 'paused',
       pauseReason: opts.reason ?? 'owner_requested',
     })
+
+    await this.kernelAuditFacade.recordEvent({
+      tenantId: opts.tenantId,
+      actorId: 'system',
+      eventType: 'agent.schedule_paused',
+      module: 'agents',
+      subjectId: opts.scheduleId,
+      payload: { scheduleId: opts.scheduleId, reason: opts.reason ?? 'owner_requested' },
+    })
   }
 
   // ─── resume() ─────────────────────────────────────────────────────────────
@@ -115,6 +162,15 @@ export class ScheduleRepository {
       scheduleId: opts.scheduleId,
       status: 'active',
       pauseReason: null,
+    })
+
+    await this.kernelAuditFacade.recordEvent({
+      tenantId: opts.tenantId,
+      actorId: 'system',
+      eventType: 'agent.schedule_resumed',
+      module: 'agents',
+      subjectId: opts.scheduleId,
+      payload: { scheduleId: opts.scheduleId },
     })
   }
 
@@ -139,6 +195,37 @@ export class ScheduleRepository {
       tenantId,
       delegationId: schedule.delegationId,
       reason: 'schedule_deleted',
+    })
+
+    await this.kernelAuditFacade.recordEvent({
+      tenantId,
+      actorId: 'system',
+      eventType: 'agent.schedule_deleted',
+      module: 'agents',
+      subjectId: scheduleId,
+      payload: { scheduleId, delegationId: schedule.delegationId },
+    })
+  }
+
+  // ─── update() ─────────────────────────────────────────────────────────────
+
+  async update(opts: {
+    tenantId: string
+    scheduleId: string
+    prompt?: string
+    cronExpression?: string
+    costCeilingDailyUsd?: number
+    invocationCeilingDaily?: number
+    failureAlertPolicy?: string
+  }): Promise<void> {
+    await this.scheduleRepo.update({
+      tenantId: opts.tenantId,
+      scheduleId: opts.scheduleId,
+      prompt: opts.prompt,
+      cronExpression: opts.cronExpression,
+      costCeilingDailyUsd: opts.costCeilingDailyUsd,
+      invocationCeilingDaily: opts.invocationCeilingDaily,
+      failureAlertPolicy: opts.failureAlertPolicy,
     })
   }
 

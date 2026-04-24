@@ -12,6 +12,7 @@ export interface IScheduleRunRepository {
     taintSeeded: boolean
     pinnedVersions: Record<string, string>
     firedBy: string
+    parentTraceId?: string
   }): Promise<ScheduleRun>
 
   updateOutcome(opts: {

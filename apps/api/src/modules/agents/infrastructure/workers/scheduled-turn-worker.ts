@@ -14,6 +14,9 @@ import { NotificationsWriteFacade } from '../../../notifications/application/fac
 
 export const SCHEDULED_TURN_JOB_NAME = 'agent.scheduled-turn'
 
+// Feature flag — default off at MVP. When on + delegation.autonomousWritesAllowed=true: Beta path.
+const ASYNC_AUTONOMOUS_WRITES_ENABLED = false
+
 export type ScheduledTurnJob = {
   tenant_id: string
   user_on_behalf_of: string | null
@@ -132,6 +135,8 @@ export class ScheduledTurnWorker {
           costCeilingRemainingUsd: job.cost_ceiling_remaining_usd,
           invocationCeilingRemaining: job.invocation_ceiling_remaining,
           pinnedVersions: job.pinned_versions,
+          feature_flag: 'feature.agent.async_autonomous_writes',
+          flag_enabled: ASYNC_AUTONOMOUS_WRITES_ENABLED,
           note: 'MVP dry-run: full turn pipeline not invoked from worker context',
         },
       })
@@ -215,24 +220,33 @@ export class ScheduledTurnWorker {
         ...(shouldPause ? { status: 'paused' as const, pauseReason: 'consecutive_failures' } : {}),
       })
 
-      // Notify owner about auto-pause if applicable
-      if (shouldPause) {
-        const notifyUserId = schedule.ownerUserId ?? job.user_on_behalf_of
-        if (notifyUserId !== null) {
-          try {
-            await this.notificationsWriteFacade.sendDraftApprovalNotification({
-              tenantId,
-              draftId: `schedule-paused:${scheduleId}`,
-              approverId: notifyUserId,
-              toolName: 'agents.schedule_auto_paused',
-              summary: `Schedule ${scheduleId} auto-paused after ${newFailureCount} consecutive failures`,
-              tier: 'low_risk',
-            })
-          } catch (notifyErr) {
-            this.logger.warn(
-              `ScheduledTurnWorker: pause notification failed for scheduleId=${scheduleId} — ${String(notifyErr)}`,
-            )
-          }
+      // Notify owner per failure (counts 1, 2, and auto-pause at 3+), respecting failureAlertPolicy
+      const policy = schedule.failureAlertPolicy ?? 'owner_and_admin'
+      const shouldNotifyOwner = policy !== 'silent' && policy !== 'admin_only'
+      const notifyUserId = schedule.ownerUserId ?? job.user_on_behalf_of
+
+      if (shouldNotifyOwner && notifyUserId !== null) {
+        const summary = shouldPause
+          ? `Schedule ${scheduleId} auto-paused after ${newFailureCount} consecutive failures`
+          : `Schedule ${scheduleId} failed (consecutive failure ${newFailureCount})`
+        const draftId = shouldPause
+          ? `schedule-paused:${scheduleId}`
+          : `schedule-failure:${scheduleId}:${newFailureCount}`
+        const toolName = shouldPause ? 'agents.schedule_auto_paused' : 'agents.schedule_failure'
+
+        try {
+          await this.notificationsWriteFacade.sendDraftApprovalNotification({
+            tenantId,
+            draftId,
+            approverId: notifyUserId,
+            toolName,
+            summary,
+            tier: 'low_risk',
+          })
+        } catch (notifyErr) {
+          this.logger.warn(
+            `ScheduledTurnWorker: failure notification failed for scheduleId=${scheduleId} count=${newFailureCount} — ${String(notifyErr)}`,
+          )
         }
       }
 

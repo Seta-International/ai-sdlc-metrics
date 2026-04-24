@@ -26,6 +26,11 @@ export interface IScheduleRepository {
     status?: 'active' | 'paused' | 'deleted'
     pauseReason?: string | null
     consecutiveFailureCount?: number
+    prompt?: string
+    cronExpression?: string
+    costCeilingDailyUsd?: number
+    invocationCeilingDaily?: number
+    failureAlertPolicy?: string
     updatedAt?: Date
   }): Promise<void>
 

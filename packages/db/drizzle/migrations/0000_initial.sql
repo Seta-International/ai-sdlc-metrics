@@ -1538,7 +1538,8 @@ CREATE TABLE "agents"."agent_schedule_run" (
 	"taint_seeded" boolean DEFAULT false NOT NULL,
 	"pinned_versions" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"cost_spent_usd" numeric(12, 6) DEFAULT '0' NOT NULL,
-	"fired_by" text NOT NULL
+	"fired_by" text NOT NULL,
+	"parent_trace_id" uuid
 );
 --> statement-breakpoint
 ALTER TABLE "core"."agent_delegation" ADD COLUMN "autonomous_writes_allowed" boolean DEFAULT false NOT NULL;

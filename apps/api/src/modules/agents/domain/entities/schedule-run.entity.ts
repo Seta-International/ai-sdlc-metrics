@@ -24,4 +24,5 @@ export type ScheduleRun = {
   }
   readonly costSpentUsd: string // numeric comes back as string from Drizzle
   readonly firedBy: string // 'cron' | `event:${string}`
+  readonly parentTraceId: string | null
 }

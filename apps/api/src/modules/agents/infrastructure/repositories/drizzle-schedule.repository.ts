@@ -90,6 +90,11 @@ export class DrizzleScheduleRepository implements IScheduleRepository {
     status?: 'active' | 'paused' | 'deleted'
     pauseReason?: string | null
     consecutiveFailureCount?: number
+    prompt?: string
+    cronExpression?: string
+    costCeilingDailyUsd?: number
+    invocationCeilingDaily?: number
+    failureAlertPolicy?: string
     updatedAt?: Date
   }): Promise<void> {
     await this.db
@@ -99,6 +104,17 @@ export class DrizzleScheduleRepository implements IScheduleRepository {
         ...(opts.pauseReason !== undefined ? { pauseReason: opts.pauseReason } : {}),
         ...(opts.consecutiveFailureCount !== undefined
           ? { consecutiveFailureCount: opts.consecutiveFailureCount }
+          : {}),
+        ...(opts.prompt !== undefined ? { prompt: opts.prompt } : {}),
+        ...(opts.cronExpression !== undefined ? { cronExpression: opts.cronExpression } : {}),
+        ...(opts.costCeilingDailyUsd !== undefined
+          ? { costCeilingDailyUsd: String(opts.costCeilingDailyUsd) }
+          : {}),
+        ...(opts.invocationCeilingDaily !== undefined
+          ? { invocationCeilingDaily: opts.invocationCeilingDaily }
+          : {}),
+        ...(opts.failureAlertPolicy !== undefined
+          ? { failureAlertPolicy: opts.failureAlertPolicy }
           : {}),
         updatedAt: opts.updatedAt ?? new Date(),
       })

@@ -474,6 +474,56 @@ describe('DelegationLifecycle', () => {
 
       expect(result).toEqual({ expiredCount: 0 })
     })
+
+    it('emits agent.delegation_expired audit for each expired delegation', async () => {
+      const DELEGATION_ID_1 = '01900000-0000-7fff-8000-000000000011'
+      const DELEGATION_ID_2 = '01900000-0000-7fff-8000-000000000012'
+
+      delegationFacade.sweepExpired.mockResolvedValue({
+        expiredDelegationIds: [DELEGATION_ID_1, DELEGATION_ID_2],
+        affectedTenantIds: [TENANT_ID],
+      })
+      scheduleRepo.listForTenant.mockResolvedValue([])
+      auditFacade.recordEvent.mockResolvedValue(undefined)
+
+      await service.sweepExpired()
+
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'agent.delegation_expired',
+          subjectId: DELEGATION_ID_1,
+          payload: expect.objectContaining({ delegationId: DELEGATION_ID_1 }),
+        }),
+      )
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'agent.delegation_expired',
+          subjectId: DELEGATION_ID_2,
+          payload: expect.objectContaining({ delegationId: DELEGATION_ID_2 }),
+        }),
+      )
+    })
+
+    it('uses tenantId=system and actorId=system for delegation_expired audit', async () => {
+      const DELEGATION_ID_1 = '01900000-0000-7fff-8000-000000000013'
+
+      delegationFacade.sweepExpired.mockResolvedValue({
+        expiredDelegationIds: [DELEGATION_ID_1],
+        affectedTenantIds: [TENANT_ID],
+      })
+      scheduleRepo.listForTenant.mockResolvedValue([])
+      auditFacade.recordEvent.mockResolvedValue(undefined)
+
+      await service.sweepExpired()
+
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'system',
+          actorId: 'system',
+          eventType: 'agent.delegation_expired',
+        }),
+      )
+    })
   })
 
   // ─── handleUserOffboarding() ──────────────────────────────────────────────────

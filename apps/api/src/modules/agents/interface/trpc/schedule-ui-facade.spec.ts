@@ -44,6 +44,8 @@ const mockDelegation: AgentDelegation = {
   createdAt: new Date('2026-01-01T00:00:00Z'),
 }
 
+const RUN_ID = 'a1b2c3d4-e5f6-4a1b-8c3d-000000000005'
+
 function buildMockHandlers() {
   return {
     scheduleRepository: {
@@ -53,6 +55,7 @@ function buildMockHandlers() {
       pause: jest.fn().mockResolvedValue(undefined),
       resume: jest.fn().mockResolvedValue(undefined),
       delete: jest.fn().mockResolvedValue(undefined),
+      update: jest.fn().mockResolvedValue(undefined),
     },
     delegationLifecycle: {
       listActive: jest.fn().mockResolvedValue([mockDelegation]),
@@ -60,6 +63,9 @@ function buildMockHandlers() {
     },
     kernelDelegationFacade: {
       revokeDelegation: jest.fn().mockResolvedValue(undefined),
+    },
+    scheduleRunRepository: {
+      updateOutcome: jest.fn().mockResolvedValue(undefined),
     },
   }
 }
@@ -89,6 +95,8 @@ describe('schedule-ui-facade', () => {
       expect(procedures['pause']).toBeDefined()
       expect(procedures['resume']).toBeDefined()
       expect(procedures['delete']).toBeDefined()
+      expect(procedures['update']).toBeDefined()
+      expect(procedures['cancelRun']).toBeDefined()
       expect(procedures['listDelegations']).toBeDefined()
       expect(procedures['revokeDelegation']).toBeDefined()
     })
@@ -311,6 +319,121 @@ describe('schedule-ui-facade', () => {
       await expect(caller.revokeDelegation({ delegationId: DELEGATION_ID })).rejects.toMatchObject({
         code: 'UNAUTHORIZED',
       })
+    })
+  })
+
+  describe('update procedure', () => {
+    it('calls scheduleRepository.update with correct params', async () => {
+      const handlers = buildMockHandlers()
+      setScheduleHandlers(handlers as Parameters<typeof setScheduleHandlers>[0])
+
+      const caller = scheduleUiRouter.createCaller({
+        req: { headers: {} },
+        tenantId: TENANT_ID,
+        actorId: USER_ID,
+      })
+
+      await caller.update({
+        scheduleId: SCHEDULE_ID,
+        prompt: 'updated prompt',
+        costCeilingDailyUsd: 10,
+        failureAlertPolicy: 'silent',
+      })
+
+      expect(handlers.scheduleRepository.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          scheduleId: SCHEDULE_ID,
+          prompt: 'updated prompt',
+          costCeilingDailyUsd: 10,
+          failureAlertPolicy: 'silent',
+        }),
+      )
+    })
+
+    it('throws UNAUTHORIZED when tenantId is missing', async () => {
+      const handlers = buildMockHandlers()
+      setScheduleHandlers(handlers as Parameters<typeof setScheduleHandlers>[0])
+
+      const caller = scheduleUiRouter.createCaller({
+        req: { headers: {} },
+        tenantId: null,
+        actorId: USER_ID,
+      })
+
+      await expect(caller.update({ scheduleId: SCHEDULE_ID })).rejects.toMatchObject({
+        code: 'UNAUTHORIZED',
+      })
+    })
+  })
+
+  describe('cancelRun procedure', () => {
+    it('calls scheduleRunRepository.updateOutcome with cancelled_per_run', async () => {
+      const handlers = buildMockHandlers()
+      setScheduleHandlers(handlers as Parameters<typeof setScheduleHandlers>[0])
+
+      const caller = scheduleUiRouter.createCaller({
+        req: { headers: {} },
+        tenantId: TENANT_ID,
+        actorId: USER_ID,
+      })
+
+      await caller.cancelRun({
+        scheduleId: SCHEDULE_ID,
+        runId: RUN_ID,
+      })
+
+      expect(handlers.scheduleRunRepository.updateOutcome).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          runId: RUN_ID,
+          outcome: 'cancelled_per_run',
+        }),
+      )
+    })
+
+    it('throws UNAUTHORIZED when tenantId is missing', async () => {
+      const handlers = buildMockHandlers()
+      setScheduleHandlers(handlers as Parameters<typeof setScheduleHandlers>[0])
+
+      const caller = scheduleUiRouter.createCaller({
+        req: { headers: {} },
+        tenantId: null,
+        actorId: USER_ID,
+      })
+
+      await expect(
+        caller.cancelRun({ scheduleId: SCHEDULE_ID, runId: RUN_ID }),
+      ).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+    })
+  })
+
+  describe('create procedure — failureAlertPolicy forwarding', () => {
+    it('forwards failureAlertPolicy to scheduleRepository.create', async () => {
+      const handlers = buildMockHandlers()
+      setScheduleHandlers(handlers as Parameters<typeof setScheduleHandlers>[0])
+
+      const caller = scheduleUiRouter.createCaller({
+        req: { headers: {} },
+        tenantId: TENANT_ID,
+        actorId: USER_ID,
+      })
+
+      await caller.create({
+        kind: 'personal',
+        ownerUserId: USER_ID,
+        triggerKind: 'cron',
+        cronExpression: '0 9 * * 1',
+        prompt: 'Weekly report',
+        delegationScope: {},
+        costCeilingDailyUsd: 5,
+        invocationCeilingDaily: 10,
+        failureAlertPolicy: 'admin_only',
+      })
+
+      expect(handlers.scheduleRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ failureAlertPolicy: 'admin_only' }),
+      )
     })
   })
 

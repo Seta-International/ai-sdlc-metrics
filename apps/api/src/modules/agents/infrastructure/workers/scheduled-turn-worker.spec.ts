@@ -420,5 +420,127 @@ describe('ScheduledTurnWorker', () => {
         }),
       )
     })
+
+    it('dry-run audit includes feature_flag and flag_enabled fields', async () => {
+      await worker.handle(makeJob())
+
+      const recordEventMock = auditFacade.recordEvent as ReturnType<typeof vi.fn>
+      const dryRunCall = recordEventMock.mock.calls.find(
+        (c: [{ eventType: string }]) => c[0].eventType === 'agent.async_dry_run_would_have_written',
+      )
+      expect(dryRunCall).toBeDefined()
+      expect(dryRunCall![0].payload).toMatchObject({
+        feature_flag: 'feature.agent.async_autonomous_writes',
+        flag_enabled: false,
+      })
+    })
+
+    it('failure count=1 notifies owner when policy=owner', async () => {
+      const error = new Error('first failure')
+      scheduleRepo = makeScheduleRepo({
+        getById: vi
+          .fn()
+          .mockResolvedValue(
+            makeSchedule({ consecutiveFailureCount: 0, failureAlertPolicy: 'owner' }),
+          ),
+      })
+      scheduleRunRepo = makeScheduleRunRepo({
+        insert: vi.fn().mockResolvedValue(makeScheduleRun()),
+        updateOutcome: vi.fn().mockRejectedValue(error),
+      })
+      worker = new ScheduledTurnWorker(
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+      )
+
+      await expect(worker.handle(makeJob())).rejects.toThrow('first failure')
+
+      expect(notificationsFacade.sendDraftApprovalNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: TENANT_ID }),
+      )
+    })
+
+    it('failure count=2 notifies owner when policy=owner_and_admin', async () => {
+      const error = new Error('second failure')
+      scheduleRepo = makeScheduleRepo({
+        getById: vi
+          .fn()
+          .mockResolvedValue(
+            makeSchedule({ consecutiveFailureCount: 1, failureAlertPolicy: 'owner_and_admin' }),
+          ),
+      })
+      scheduleRunRepo = makeScheduleRunRepo({
+        insert: vi.fn().mockResolvedValue(makeScheduleRun()),
+        updateOutcome: vi.fn().mockRejectedValue(error),
+      })
+      worker = new ScheduledTurnWorker(
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+      )
+
+      await expect(worker.handle(makeJob())).rejects.toThrow('second failure')
+
+      expect(notificationsFacade.sendDraftApprovalNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: TENANT_ID }),
+      )
+    })
+
+    it('failure count=1 does NOT notify when policy=silent', async () => {
+      const error = new Error('silent failure')
+      scheduleRepo = makeScheduleRepo({
+        getById: vi
+          .fn()
+          .mockResolvedValue(
+            makeSchedule({ consecutiveFailureCount: 0, failureAlertPolicy: 'silent' }),
+          ),
+      })
+      scheduleRunRepo = makeScheduleRunRepo({
+        insert: vi.fn().mockResolvedValue(makeScheduleRun()),
+        updateOutcome: vi.fn().mockRejectedValue(error),
+      })
+      worker = new ScheduledTurnWorker(
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+      )
+
+      await expect(worker.handle(makeJob())).rejects.toThrow('silent failure')
+
+      expect(notificationsFacade.sendDraftApprovalNotification).not.toHaveBeenCalled()
+    })
+
+    it('failure count=1 does NOT notify owner when policy=admin_only', async () => {
+      const error = new Error('admin-only failure')
+      scheduleRepo = makeScheduleRepo({
+        getById: vi
+          .fn()
+          .mockResolvedValue(
+            makeSchedule({ consecutiveFailureCount: 0, failureAlertPolicy: 'admin_only' }),
+          ),
+      })
+      scheduleRunRepo = makeScheduleRunRepo({
+        insert: vi.fn().mockResolvedValue(makeScheduleRun()),
+        updateOutcome: vi.fn().mockRejectedValue(error),
+      })
+      worker = new ScheduledTurnWorker(
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+      )
+
+      await expect(worker.handle(makeJob())).rejects.toThrow('admin-only failure')
+
+      expect(notificationsFacade.sendDraftApprovalNotification).not.toHaveBeenCalled()
+    })
   })
 })

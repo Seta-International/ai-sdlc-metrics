@@ -4,16 +4,18 @@ import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import type { ScheduleRepository } from '../../application/services/schedule-repository'
 import type { DelegationLifecycle } from '../../application/services/delegation-lifecycle'
 import type { KernelDelegationFacade } from '../../../kernel/application/facades/kernel-delegation.facade'
+import type { IScheduleRunRepository } from '../../domain/repositories/schedule-run.repository'
 
 // ─── Handler types ────────────────────────────────────────────────────────────
 
 export type ScheduleHandlers = {
   scheduleRepository: Pick<
     ScheduleRepository,
-    'listForTenant' | 'listForUser' | 'create' | 'pause' | 'resume' | 'delete'
+    'listForTenant' | 'listForUser' | 'create' | 'pause' | 'resume' | 'delete' | 'update'
   >
   delegationLifecycle: Pick<DelegationLifecycle, 'listActive' | 'revoke'>
   kernelDelegationFacade: Pick<KernelDelegationFacade, 'revokeDelegation'>
+  scheduleRunRepository: Pick<IScheduleRunRepository, 'updateOutcome'>
 }
 
 // ─── Module-level handler slot ────────────────────────────────────────────────
@@ -56,6 +58,20 @@ const pauseScheduleInput = z.object({
 
 const resumeOrDeleteInput = z.object({
   scheduleId: z.string().uuid(),
+})
+
+const updateScheduleInput = z.object({
+  scheduleId: z.string().uuid(),
+  prompt: z.string().min(1).max(2000).optional(),
+  cronExpression: z.string().optional(),
+  costCeilingDailyUsd: z.number().positive().max(100).optional(),
+  invocationCeilingDaily: z.number().int().positive().max(1000).optional(),
+  failureAlertPolicy: z.enum(['owner', 'owner_and_admin', 'admin_only', 'silent']).optional(),
+})
+
+const cancelRunInput = z.object({
+  scheduleId: z.string().uuid(),
+  runId: z.string().uuid(),
 })
 
 const listDelegationsInput = z.object({
@@ -103,6 +119,7 @@ export const scheduleUiRouter = router({
       delegationScope: input.delegationScope,
       costCeilingDailyUsd: input.costCeilingDailyUsd,
       invocationCeilingDaily: input.invocationCeilingDaily,
+      failureAlertPolicy: input.failureAlertPolicy,
     })
   }),
 
@@ -140,6 +157,37 @@ export const scheduleUiRouter = router({
     return h().scheduleRepository.delete({
       tenantId: ctx.tenantId,
       scheduleId: input.scheduleId,
+    })
+  }),
+
+  // ── update ────────────────────────────────────────────────────────────────
+
+  update: publicProcedure.input(updateScheduleInput).mutation(({ input, ctx }) => {
+    if (!ctx.tenantId) {
+      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing tenant context' })
+    }
+    return h().scheduleRepository.update({
+      tenantId: ctx.tenantId,
+      scheduleId: input.scheduleId,
+      prompt: input.prompt,
+      cronExpression: input.cronExpression,
+      costCeilingDailyUsd: input.costCeilingDailyUsd,
+      invocationCeilingDaily: input.invocationCeilingDaily,
+      failureAlertPolicy: input.failureAlertPolicy,
+    })
+  }),
+
+  // ── cancelRun ─────────────────────────────────────────────────────────────
+
+  cancelRun: publicProcedure.input(cancelRunInput).mutation(({ input, ctx }) => {
+    if (!ctx.tenantId) {
+      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing tenant context' })
+    }
+    return h().scheduleRunRepository.updateOutcome({
+      tenantId: ctx.tenantId,
+      runId: input.runId,
+      outcome: 'cancelled_per_run',
+      endedAt: new Date(),
     })
   }),
 
