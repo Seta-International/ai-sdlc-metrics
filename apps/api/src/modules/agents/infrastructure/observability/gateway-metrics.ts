@@ -97,6 +97,11 @@ interface GatewayInstruments {
    *   (low double digits at most). This is a documented exception.
    */
   subAgentInvokedTotal: Counter
+  /**
+   * Counts L1 module-scoped cache invalidations triggered by successful mutations (R-04.3a).
+   * Labels: sub_agent_key, module.
+   */
+  l1InvalidationTotal: Counter
 }
 
 let _instruments: GatewayInstruments | undefined
@@ -204,6 +209,24 @@ function getInstruments(): GatewayInstruments {
      */
     subAgentInvokedTotal: meter.createCounter('agent_sub_agent_invoked_total', {
       description: 'Sub-agent invocation events per tenant, key, and phase.',
+      valueType: ValueType.INT,
+    }),
+
+    /**
+     * Counts L1 module-scoped cache invalidations triggered by successful mutations (R-04.3a).
+     * Labels: sub_agent_key, module.
+     *
+     * `sub_agent_key` IS a label — cardinality is bounded by the number of registered
+     * sub-agents (low double digits), same exception granted to `subAgentInvokedTotal`.
+     * Anomalous spikes on a (sub_agent_key, module) pair indicate a read tool wrongly
+     * declared as a mutation.
+     *
+     * `tenant_id` is intentionally omitted: invalidation is a structural gateway event
+     * with no per-tenant security or billing consequence.
+     */
+    l1InvalidationTotal: meter.createCounter('agent_l1_invalidation_total', {
+      description:
+        'L1 module-scoped cache invalidations fired after successful mutations (R-04.3a).',
       valueType: ValueType.INT,
     }),
   }
@@ -334,4 +357,13 @@ export function recordSubAgentInvoked(
     sub_agent_key: subAgentKey,
     phase,
   })
+}
+
+/**
+ * Record an L1 module-scoped cache invalidation event (R-04.3a).
+ * Called once per successful mutation, using the first dot-segment of the tool
+ * name as the `module` label (e.g. `people.updateEmployee` → module=`people`).
+ */
+export function recordL1Invalidation(subAgentKey: string, module: string): void {
+  getInstruments().l1InvalidationTotal.add(1, { sub_agent_key: subAgentKey, module })
 }

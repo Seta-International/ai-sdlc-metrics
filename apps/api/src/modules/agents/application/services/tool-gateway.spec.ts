@@ -926,6 +926,153 @@ describe('ToolGateway', () => {
       expect(resolveSpan?.attributes['cb_reason']).toBe('ceiling_breached')
     })
   })
+
+  // ─── R-04.3a: module-scoped L1 cache invalidation on mutation success ────────
+
+  describe('R-04.3a — module-scoped L1 cache invalidation', () => {
+    it('mutation success: same-module cached reads are invalidated', async () => {
+      // Arrange: a people.getEmployee query is cached, then people.updateEmployee mutation fires.
+      const readDescriptor = makeDescriptor({
+        name: 'people.getEmployee',
+        procedure: 'query',
+        permission: 'people:employee:read',
+      })
+      const writeDescriptor = makeDescriptor({
+        name: 'people.updateEmployee',
+        procedure: 'mutation',
+        permission: 'people:employee:write',
+        meta: MUTATION_META,
+      })
+
+      const turnState = makeTurnState()
+
+      // Seed the L1 cache with a completed people.getEmployee entry
+      const handle = turnState.l1Cache.registerInFlight('people.getEmployee', 'h-read')
+      handle.complete({ id: 'emp-1', name: 'Alice' })
+      expect(turnState.l1Cache.lookup('people.getEmployee', 'h-read')?.kind).toBe('completed')
+
+      // Invoke the mutation
+      const { caller } = makeCaller({ updated: true })
+      const { facade } = makeAuditFacade()
+      const registry = makeRegistry(writeDescriptor)
+      const gw = new ToolGateway(registry, caller, facade)
+
+      const result = await gw.invoke(
+        makeInput({
+          toolName: 'people.updateEmployee',
+          args: { employeeId: 'emp-1', name: 'Alice Updated' },
+          subAgentKey: 'people-agent',
+          subAgentScope: ['people:employee'],
+          turnState,
+        }),
+      )
+
+      expect(result.kind).toBe('ok')
+
+      // Same-module read must have been evicted
+      expect(turnState.l1Cache.lookup('people.getEmployee', 'h-read')).toBeUndefined()
+    })
+
+    it('mutation success: cross-module reads are NOT invalidated', async () => {
+      // A time.getLeaveBalance entry must survive when people.updateEmployee fires.
+      const writeDescriptor = makeDescriptor({
+        name: 'people.updateEmployee',
+        procedure: 'mutation',
+        permission: 'people:employee:write',
+        meta: MUTATION_META,
+      })
+
+      const turnState = makeTurnState()
+
+      // Seed the L1 cache with a completed time.getLeaveBalance entry
+      const handle = turnState.l1Cache.registerInFlight('time.getLeaveBalance', 'h-time')
+      handle.complete({ balance: 10 })
+
+      const { caller } = makeCaller({ updated: true })
+      const { facade } = makeAuditFacade()
+      const registry = makeRegistry(writeDescriptor)
+      const gw = new ToolGateway(registry, caller, facade)
+
+      await gw.invoke(
+        makeInput({
+          toolName: 'people.updateEmployee',
+          args: { employeeId: 'emp-1' },
+          subAgentKey: 'people-agent',
+          subAgentScope: ['people:employee'],
+          turnState,
+        }),
+      )
+
+      // Cross-module read must be untouched
+      expect(turnState.l1Cache.lookup('time.getLeaveBalance', 'h-time')?.kind).toBe('completed')
+    })
+
+    it('mutation success: agent_l1_invalidation_total metric fires with correct labels', async () => {
+      const writeDescriptor = makeDescriptor({
+        name: 'people.updateEmployee',
+        procedure: 'mutation',
+        permission: 'people:employee:write',
+        meta: MUTATION_META,
+      })
+
+      const { caller } = makeCaller({ updated: true })
+      const { facade } = makeAuditFacade()
+      const registry = makeRegistry(writeDescriptor)
+      const gw = new ToolGateway(registry, caller, facade)
+
+      const recordL1Spy = vi.spyOn(gatewayMetrics, 'recordL1Invalidation')
+
+      await gw.invoke(
+        makeInput({
+          toolName: 'people.updateEmployee',
+          args: { employeeId: 'emp-1' },
+          subAgentKey: 'people-agent',
+          subAgentScope: ['people:employee'],
+        }),
+      )
+
+      expect(recordL1Spy).toHaveBeenCalledTimes(1)
+      expect(recordL1Spy).toHaveBeenCalledWith('people-agent', 'people')
+
+      recordL1Spy.mockRestore()
+    })
+
+    it('query success: does NOT invalidate same-module reads or emit invalidation metric', async () => {
+      const readDescriptor = makeDescriptor({
+        name: 'people.getEmployee',
+        procedure: 'query',
+        permission: 'people:employee:read',
+      })
+
+      const turnState = makeTurnState()
+      const handle = turnState.l1Cache.registerInFlight('people.listEmployees', 'h-list')
+      handle.complete([{ id: 'emp-1' }])
+
+      const { caller } = makeCaller({ id: 'emp-1', name: 'Alice' })
+      const { facade } = makeAuditFacade()
+      const registry = makeRegistry(readDescriptor)
+      const gw = new ToolGateway(registry, caller, facade)
+
+      const recordL1Spy = vi.spyOn(gatewayMetrics, 'recordL1Invalidation')
+
+      await gw.invoke(
+        makeInput({
+          toolName: 'people.getEmployee',
+          args: { employeeId: 'emp-1' },
+          subAgentKey: 'people-agent',
+          subAgentScope: ['people:employee'],
+          turnState,
+        }),
+      )
+
+      // Cache entry from the same module is still present
+      expect(turnState.l1Cache.lookup('people.listEmployees', 'h-list')?.kind).toBe('completed')
+      // Metric must NOT have fired
+      expect(recordL1Spy).not.toHaveBeenCalled()
+
+      recordL1Spy.mockRestore()
+    })
+  })
 })
 
 // ─── sanitizeTripwireContext unit tests ───────────────────────────────────────

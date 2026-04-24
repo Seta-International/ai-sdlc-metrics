@@ -59,6 +59,7 @@ import {
   recordTripwire,
   recordStepDuration,
   recordCacheLookup,
+  recordL1Invalidation,
 } from '../../infrastructure/observability/gateway-metrics'
 
 // ─── Sanitization ─────────────────────────────────────────────────────────────
@@ -759,6 +760,18 @@ export class ToolGateway {
 
     if (cacheHandle) {
       cacheHandle.complete(result)
+    }
+
+    // R-04.3a: module-scoped L1 cache invalidation on mutation success.
+    // A write call to `<module>.<op>` invalidates all cached reads matching
+    // `<module>.*` in this sub-agent's turn cache. Cross-module writes do NOT
+    // cascade — only the first dot-segment is used as the prefix.
+    if (descriptor.procedure === 'mutation') {
+      const modulePrefix = descriptor.name.split('.')[0]
+      if (modulePrefix) {
+        turnState.l1Cache.invalidate(modulePrefix)
+        recordL1Invalidation(subAgentKey, modulePrefix)
+      }
     }
 
     // Ceiling budget decrement
