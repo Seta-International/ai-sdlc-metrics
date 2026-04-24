@@ -65,6 +65,9 @@ export class FlowPolicyResolver {
     return {
       approvalFreshness: effectiveFreshness,
       approvalTtlHours: effectiveTtl,
+      // tierBump: tool-side tier bump is handled by DraftTierClassifier.classify()
+      // via approvalRequired: 'always' or taint_bump; FlowPolicyResolver only
+      // propagates flow-policy-declared bumps (independent classification layer).
       ...(flow.bump !== undefined ? { tierBump: flow.bump } : {}),
     }
   }

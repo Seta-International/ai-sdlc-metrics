@@ -156,5 +156,25 @@ describe('FlowPolicyResolver', () => {
       expect(result.approvalFreshness).toBe('accept-stale')
       expect(result.approvalTtlHours).toBe(72)
     })
+
+    it('11. no flow policy exists → tierBump is undefined even if tool has approvalRequired: always', () => {
+      // This test clarifies that tool-side tier bump (approvalRequired: 'always')
+      // is handled independently by DraftTierClassifier, NOT by FlowPolicyResolver.
+      // FlowPolicyResolver only propagates flow-policy-declared bumps. The two
+      // classification layers are orthogonal.
+      const resolver = new FlowPolicyResolver()
+      const meta = buildMeta({
+        approvalFreshness: 'accept-stale',
+        approvalTtl: '48h',
+        // Note: AgentToolMeta does NOT have an approvalRequired field — that's
+        // checked by DraftTierClassifier via tool.meta.approvalRequired.
+      })
+
+      const result = resolver.resolve('some.intent', meta)
+
+      // Even though a tool might have approvalRequired: 'always', that's
+      // classified by DraftTierClassifier.classify(), not FlowPolicyResolver.
+      expect(result.tierBump).toBeUndefined()
+    })
   })
 })

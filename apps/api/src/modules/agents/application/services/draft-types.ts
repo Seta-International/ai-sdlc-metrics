@@ -39,9 +39,14 @@ export type DraftProposalResult = {
   readonly actionId: string
   readonly tier: DraftTier
   readonly requiresApproval: boolean
+  // Business-intent language summary (R-08.25a): human-readable description of what
+  // this draft will do. Never raw args — must be plain-English intent suitable for
+  // display in approval UI and audit logs.
   readonly summary: string
   readonly provenance: DraftProvenance
   readonly approvalFreshness: ApprovalFreshness
   readonly approvalTtlHours: number
+  // Needed by DraftSink to store via_delegation_id on the draft row. Identifies
+  // which delegation (and thus authority) this draft executes under.
   readonly delegationId: string
 }
