@@ -11,31 +11,14 @@ import {
 import { KernelDelegationFacade } from '../../../kernel/application/facades/kernel-delegation.facade'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { NotificationsWriteFacade } from '../../../notifications/application/facades/notifications-write.facade'
+import { type ScheduledTurnJob } from '../../application/services/scheduled-turn-contracts'
+
+export { type ScheduledTurnJob }
 
 export const SCHEDULED_TURN_JOB_NAME = 'agent.scheduled-turn'
 
 // Feature flag — default off at MVP. When on + delegation.autonomousWritesAllowed=true: Beta path.
 const ASYNC_AUTONOMOUS_WRITES_ENABLED = false
-
-export type ScheduledTurnJob = {
-  tenant_id: string
-  user_on_behalf_of: string | null
-  actor_principal: 'user' | 'agent:scheduler'
-  schedule_id: string
-  delegation_id: string
-  flow_id: string
-  taint_seeded: boolean
-  cost_ceiling_remaining_usd: number
-  invocation_ceiling_remaining: number
-  pinned_versions: {
-    router_version: string
-    sub_agent_version: string
-    tool_meta_version: string
-    model_id: string
-  }
-  fired_by: string
-  event_payload?: unknown
-}
 
 @Injectable()
 export class ScheduledTurnWorker {

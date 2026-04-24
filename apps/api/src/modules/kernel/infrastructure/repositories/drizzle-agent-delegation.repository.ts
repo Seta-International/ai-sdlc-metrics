@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { and, eq, lt } from 'drizzle-orm'
+import { and, count, eq, lt } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { agentDelegation } from '../schema/agent-delegation.schema'
@@ -19,7 +19,7 @@ export class DrizzleAgentDelegationRepository implements IAgentDelegationReposit
     expiresAt: Date
     status?: string
   }): Promise<{ id: string }> {
-    const [row] = await this.db
+    const rows = await this.db
       .insert(agentDelegation)
       .values({
         tenantId: delegation.tenantId,
@@ -31,7 +31,9 @@ export class DrizzleAgentDelegationRepository implements IAgentDelegationReposit
       })
       .returning({ id: agentDelegation.id })
 
-    return { id: row!.id }
+    const row = rows[0]
+    if (!row) throw new Error('insert returned no rows')
+    return { id: row.id }
   }
 
   async getById(opts: { tenantId: string; delegationId: string }): Promise<AgentDelegation | null> {
@@ -78,7 +80,7 @@ export class DrizzleAgentDelegationRepository implements IAgentDelegationReposit
     delegatorUserId: string
   }): Promise<number> {
     const rows = await this.db
-      .select({ id: agentDelegation.id })
+      .select({ total: count() })
       .from(agentDelegation)
       .where(
         and(
@@ -87,7 +89,7 @@ export class DrizzleAgentDelegationRepository implements IAgentDelegationReposit
           eq(agentDelegation.status, 'active'),
         ),
       )
-    return rows.length
+    return Number(rows[0]?.total ?? 0)
   }
 
   async listActiveByDelegator(opts: {

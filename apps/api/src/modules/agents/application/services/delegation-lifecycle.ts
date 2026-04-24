@@ -191,15 +191,18 @@ export class DelegationLifecycle {
       }
     }
 
-    // Emit per-delegation expired audit
-    for (const delegationId of expiredDelegationIds) {
+    // Emit per-tenant expired audit — one event per affected tenant using real tenant IDs.
+    // actorId uses the nil UUID because this is a system-originated background sweep;
+    // the schema requires actorId to be a UUID (no free-form strings allowed).
+    const SYSTEM_ACTOR_ID = '00000000-0000-0000-0000-000000000000'
+    for (const tenantId of affectedTenantIds) {
       await this.auditFacade.recordEvent({
-        tenantId: 'system',
-        actorId: 'system',
+        tenantId,
+        actorId: SYSTEM_ACTOR_ID,
         eventType: 'agent.delegation_expired',
         module: 'agents',
-        subjectId: delegationId,
-        payload: { delegationId },
+        subjectId: tenantId,
+        payload: { expiredCount: expiredDelegationIds.length, delegationIds: expiredDelegationIds },
       })
     }
 

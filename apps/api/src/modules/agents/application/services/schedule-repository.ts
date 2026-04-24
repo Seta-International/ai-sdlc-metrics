@@ -41,8 +41,6 @@ export class ScheduleRepository {
     @Inject(SCHEDULE_REPOSITORY)
     private readonly scheduleRepo: IScheduleRepository,
     private readonly delegationLifecycle: DelegationLifecycle,
-    // KernelDelegationFacade is injected here for future scope-update operations
-    // (e.g. patching delegation scope with the real schedule_id after creation).
     private readonly kernelDelegationFacade: KernelDelegationFacade,
     private readonly kernelAuditFacade: KernelAuditFacade,
   ) {}
@@ -89,9 +87,11 @@ export class ScheduleRepository {
       )
     }
 
-    // Step 1: Create delegation first — scope has schedule_id: 'pending' initially.
-    // TODO: After schedule creation, patch delegation scope with the real schedule id
-    //       once IAgentDelegationRepository exposes an updateScope() method.
+    // Step 1: Create delegation first — scope carries schedule_id: 'pending' as a
+    // placeholder. The actual schedule ID is set at delegation create time and cannot
+    // be patched back because KernelDelegationFacade does not expose an updateScope()
+    // method. This is intentional: the real schedule↔delegation association is enforced
+    // via the agent_schedule.delegation_id foreign key, not via the scope JSON.
     const delegation = await this.delegationLifecycle.create({
       tenantId,
       delegatorUserId: kind === 'personal' ? ownerUserId : undefined,

@@ -57,7 +57,9 @@ export class DrizzleScheduleRunRepository implements IScheduleRunRepository {
       })
       .returning()
 
-    return toDomain(rows[0] as AgentScheduleRunRow)
+    const row = rows[0]
+    if (!row) throw new Error('insert returned no rows')
+    return toDomain(row as AgentScheduleRunRow)
   }
 
   async updateOutcome(opts: {

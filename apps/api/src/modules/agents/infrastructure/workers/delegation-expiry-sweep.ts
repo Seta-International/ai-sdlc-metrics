@@ -6,7 +6,7 @@ export const DELEGATION_EXPIRY_SWEEP_JOB_NAME = 'agents.delegation-expiry-sweep'
 
 @Injectable()
 export class DelegationExpirySweeper {
-  readonly logger = new Logger(DelegationExpirySweeper.name)
+  private readonly logger = new Logger(DelegationExpirySweeper.name)
 
   constructor(private readonly delegationLifecycle: DelegationLifecycle) {}
 

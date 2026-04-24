@@ -475,36 +475,42 @@ describe('DelegationLifecycle', () => {
       expect(result).toEqual({ expiredCount: 0 })
     })
 
-    it('emits agent.delegation_expired audit for each expired delegation', async () => {
+    it('emits one agent.delegation_expired audit per affected tenant', async () => {
       const DELEGATION_ID_1 = '01900000-0000-7fff-8000-000000000011'
       const DELEGATION_ID_2 = '01900000-0000-7fff-8000-000000000012'
+      const TENANT_ID_2 = '01900000-0000-7fff-8000-000000000020'
 
       delegationFacade.sweepExpired.mockResolvedValue({
         expiredDelegationIds: [DELEGATION_ID_1, DELEGATION_ID_2],
-        affectedTenantIds: [TENANT_ID],
+        affectedTenantIds: [TENANT_ID, TENANT_ID_2],
       })
       scheduleRepo.listForTenant.mockResolvedValue([])
       auditFacade.recordEvent.mockResolvedValue(undefined)
 
       await service.sweepExpired()
 
+      // One audit per affected tenant, not per delegation
+      expect(auditFacade.recordEvent).toHaveBeenCalledTimes(2)
       expect(auditFacade.recordEvent).toHaveBeenCalledWith(
         expect.objectContaining({
+          tenantId: TENANT_ID,
           eventType: 'agent.delegation_expired',
-          subjectId: DELEGATION_ID_1,
-          payload: expect.objectContaining({ delegationId: DELEGATION_ID_1 }),
+          subjectId: TENANT_ID,
+          payload: expect.objectContaining({
+            delegationIds: [DELEGATION_ID_1, DELEGATION_ID_2],
+          }),
         }),
       )
       expect(auditFacade.recordEvent).toHaveBeenCalledWith(
         expect.objectContaining({
+          tenantId: TENANT_ID_2,
           eventType: 'agent.delegation_expired',
-          subjectId: DELEGATION_ID_2,
-          payload: expect.objectContaining({ delegationId: DELEGATION_ID_2 }),
+          subjectId: TENANT_ID_2,
         }),
       )
     })
 
-    it('uses tenantId=system and actorId=system for delegation_expired audit', async () => {
+    it('uses real tenantId and nil UUID actorId for delegation_expired audit', async () => {
       const DELEGATION_ID_1 = '01900000-0000-7fff-8000-000000000013'
 
       delegationFacade.sweepExpired.mockResolvedValue({
@@ -518,8 +524,8 @@ describe('DelegationLifecycle', () => {
 
       expect(auditFacade.recordEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          tenantId: 'system',
-          actorId: 'system',
+          tenantId: TENANT_ID,
+          actorId: '00000000-0000-0000-0000-000000000000',
           eventType: 'agent.delegation_expired',
         }),
       )

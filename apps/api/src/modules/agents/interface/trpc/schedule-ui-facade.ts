@@ -3,7 +3,6 @@ import { TRPCError } from '@trpc/server'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import type { ScheduleRepository } from '../../application/services/schedule-repository'
 import type { DelegationLifecycle } from '../../application/services/delegation-lifecycle'
-import type { KernelDelegationFacade } from '../../../kernel/application/facades/kernel-delegation.facade'
 import type { IScheduleRunRepository } from '../../domain/repositories/schedule-run.repository'
 
 // ─── Handler types ────────────────────────────────────────────────────────────
@@ -14,7 +13,6 @@ export type ScheduleHandlers = {
     'listForTenant' | 'listForUser' | 'create' | 'pause' | 'resume' | 'delete' | 'update'
   >
   delegationLifecycle: Pick<DelegationLifecycle, 'listActive' | 'revoke'>
-  kernelDelegationFacade: Pick<KernelDelegationFacade, 'revokeDelegation'>
   scheduleRunRepository: Pick<IScheduleRunRepository, 'updateOutcome'>
 }
 
@@ -209,7 +207,7 @@ export const scheduleUiRouter = router({
     if (!ctx.tenantId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing tenant context' })
     }
-    return h().kernelDelegationFacade.revokeDelegation({
+    return h().delegationLifecycle.revoke({
       tenantId: ctx.tenantId,
       delegationId: input.delegationId,
       reason: 'user_revoked',

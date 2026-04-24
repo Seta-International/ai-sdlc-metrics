@@ -10,12 +10,11 @@ import { TaintSeedDetector } from './taint-seed-detector'
 import { SchedulerPrincipal } from './scheduler-principal'
 import { PgBossService } from '../../../../common/jobs/pg-boss.service'
 import type { Schedule } from '../../domain/entities/schedule.entity'
-
-// ─── Queue name ───────────────────────────────────────────────────────────────
-
-export const SCHEDULED_TURN_QUEUE = 'agent.scheduled-turn'
+import { SCHEDULED_TURN_QUEUE, type ScheduledTurnJob } from './scheduled-turn-contracts'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+export { SCHEDULED_TURN_QUEUE, type ScheduledTurnJob }
 
 export interface SpawnResult {
   spawned: boolean
@@ -27,21 +26,6 @@ export type PinnedVersions = {
   sub_agent_version: string
   tool_meta_version: string
   model_id: string
-}
-
-export type ScheduledTurnJob = {
-  tenant_id: string
-  user_on_behalf_of: string | null
-  actor_principal: 'user' | 'agent:scheduler'
-  schedule_id: string
-  delegation_id: string
-  flow_id: string
-  taint_seeded: boolean
-  cost_ceiling_remaining_usd: number
-  invocation_ceiling_remaining: number
-  pinned_versions: PinnedVersions
-  fired_by: string
-  event_payload?: unknown
 }
 
 // ─── PinnedVersionsResolver ───────────────────────────────────────────────────
@@ -185,7 +169,7 @@ export class ScheduledTurnSpawner {
       },
     })
 
-    // Step 9: Return success
+    // Step 10: Return success
     return { spawned: true }
   }
 }

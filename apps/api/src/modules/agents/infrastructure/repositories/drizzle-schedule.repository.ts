@@ -71,7 +71,9 @@ export class DrizzleScheduleRepository implements IScheduleRepository {
       })
       .returning()
 
-    return toDomain(rows[0] as AgentScheduleRow)
+    const row = rows[0]
+    if (!row) throw new Error('insert returned no rows')
+    return toDomain(row as AgentScheduleRow)
   }
 
   async getById(opts: { tenantId: string; scheduleId: string }): Promise<Schedule | null> {

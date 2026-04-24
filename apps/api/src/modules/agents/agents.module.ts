@@ -446,7 +446,6 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     setScheduleHandlers({
       scheduleRepository: this.scheduleRepository,
       delegationLifecycle: this.delegationLifecycle,
-      kernelDelegationFacade: this.kernelDelegationFacade,
       scheduleRunRepository: this.scheduleRunRepository,
     })
 

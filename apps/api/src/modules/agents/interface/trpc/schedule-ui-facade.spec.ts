@@ -61,9 +61,6 @@ function buildMockHandlers() {
       listActive: jest.fn().mockResolvedValue([mockDelegation]),
       revoke: jest.fn().mockResolvedValue(undefined),
     },
-    kernelDelegationFacade: {
-      revokeDelegation: jest.fn().mockResolvedValue(undefined),
-    },
     scheduleRunRepository: {
       updateOutcome: jest.fn().mockResolvedValue(undefined),
     },
@@ -285,7 +282,7 @@ describe('schedule-ui-facade', () => {
   })
 
   describe('revokeDelegation procedure', () => {
-    it('calls kernelDelegationFacade.revokeDelegation with correct params', async () => {
+    it('calls delegationLifecycle.revoke with correct params', async () => {
       const handlers = buildMockHandlers()
       setScheduleHandlers(handlers as Parameters<typeof setScheduleHandlers>[0])
 
@@ -299,7 +296,7 @@ describe('schedule-ui-facade', () => {
         delegationId: DELEGATION_ID,
       })
 
-      expect(handlers.kernelDelegationFacade.revokeDelegation).toHaveBeenCalledWith({
+      expect(handlers.delegationLifecycle.revoke).toHaveBeenCalledWith({
         tenantId: TENANT_ID,
         delegationId: DELEGATION_ID,
         reason: 'user_revoked',
