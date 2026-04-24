@@ -82,6 +82,24 @@ describe('SeedRolePermissionsHandler', () => {
     })
   })
 
+  it('inserts planner ms_sync permissions for tenant_admin', async () => {
+    await handler.execute(new SeedRolePermissionsCommand(TENANT_ID))
+
+    for (const permissionKey of [
+      'planner.ms_sync.connect',
+      'planner.ms_sync.link_group',
+      'planner.ms_sync.conflict.resolve',
+      'planner.ms_sync.force_resync',
+    ]) {
+      expect(rolePermissionRepo.insert).toHaveBeenCalledWith({
+        tenantId: TENANT_ID,
+        roleKey: 'tenant_admin',
+        permissionKey,
+        isLocked: false,
+      })
+    }
+  })
+
   it('inserts line_manager specific locked permissions', async () => {
     await handler.execute(new SeedRolePermissionsCommand(TENANT_ID))
 

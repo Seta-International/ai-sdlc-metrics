@@ -17,6 +17,7 @@ import type { NarrativeStore } from '../../domain/ports/narrative-store.port'
 import { NARRATIVE_STORE } from '../../domain/ports/narrative-store.port'
 import { canonicalize } from '../../infrastructure/cache/canonical-args'
 import { ALL_PERMISSION_KEYS } from '../../../../common/auth/permissions'
+import { getPermissionVerb } from '../../../../common/auth/permission-key'
 import { recordNarrativeCache } from '../../infrastructure/observability/gateway-metrics'
 
 // ─── DI token ─────────────────────────────────────────────────────────────────
@@ -45,20 +46,19 @@ export interface BuildNarrativeResult {
  * Extracts the human-readable "verb" from a permission key.
  *
  * Rules:
- *  - Take the last colon-delimited segment.
- *  - Replace hyphens with spaces.
+ *  - Take the last colon- or dot-delimited segment.
+ *  - Replace hyphens and underscores with spaces.
  *  - Lower-case the result.
  *
  * Examples:
  *  "planner:plan:create"          → "create"
  *  "planner:agent:list-my-tasks"  → "list my tasks"
+ *  "planner.ms_sync.force_resync" → "force resync"
  *  "people:profile:self:read"     → "read"
  *  "people:admin"                 → "admin"
  */
 function extractVerb(permissionKey: string): string {
-  const segments = permissionKey.split(':')
-  const last = segments[segments.length - 1] ?? permissionKey
-  return last.replace(/-/g, ' ').toLowerCase()
+  return getPermissionVerb(permissionKey)
 }
 
 /**

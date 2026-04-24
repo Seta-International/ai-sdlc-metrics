@@ -23,6 +23,14 @@ const fakePermissions: RolePermission[] = [
     isLocked: false,
     createdAt: new Date(),
   },
+  {
+    id: '01900000-0000-7000-8000-000000000032',
+    tenantId: TENANT_ID,
+    roleKey: 'employee',
+    permissionKey: 'planner.ms_sync.connect',
+    isLocked: false,
+    createdAt: new Date(),
+  },
 ]
 
 describe('GetRolePermissionsHandler', () => {
@@ -54,6 +62,7 @@ describe('GetRolePermissionsHandler', () => {
       permissions: [
         { permissionKey: 'people:profile:self:read', isLocked: true, module: 'people' },
         { permissionKey: 'planner:task:self:manage', isLocked: false, module: 'planner' },
+        { permissionKey: 'planner.ms_sync.connect', isLocked: false, module: 'planner' },
       ],
     })
   })

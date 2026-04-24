@@ -53,6 +53,7 @@ CREATE TABLE "admin"."tenant_settings" (
 	"planner_charts_enabled" boolean DEFAULT false NOT NULL,
 	"planner_charts_trends_enabled" boolean DEFAULT false NOT NULL,
 	"planner_personal_enabled" boolean DEFAULT false NOT NULL,
+	"planner_ms_sync_enabled" boolean DEFAULT false NOT NULL,
 	"timezone" text DEFAULT 'Asia/Ho_Chi_Minh' NOT NULL,
 	"max_sampled_turns_per_day" integer DEFAULT 10000 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,

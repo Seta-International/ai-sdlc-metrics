@@ -61,6 +61,7 @@ import { ListGroupMembersHandler } from './application/queries/list-group-member
 import { GetGraphCredentialHandler } from './application/queries/get-graph-credential.handler'
 
 import { IdentityQueryFacade } from './application/facades/identity-query.facade'
+import { IdentityMsGraphCredentialFacade } from './application/facades/identity-ms-graph-credential.facade'
 import { IdentityRouterService } from './interface/trpc/identity-router.service'
 
 const CommandHandlers = [
@@ -118,8 +119,9 @@ const QueryHandlers = [
     ...CommandHandlers,
     ...QueryHandlers,
     IdentityQueryFacade,
+    IdentityMsGraphCredentialFacade,
     IdentityRouterService,
   ],
-  exports: [IdentityQueryFacade],
+  exports: [IdentityQueryFacade, IdentityMsGraphCredentialFacade],
 })
 export class IdentityModule {}

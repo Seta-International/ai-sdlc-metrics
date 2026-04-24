@@ -4,6 +4,10 @@ export const MS_GRAPH_CREDENTIAL_REPOSITORY = Symbol('IMsGraphCredentialReposito
 
 export interface IMsGraphCredentialRepository {
   get(tenantId: string): Promise<MsGraphCredentialEntity | null>
-  upsert(credential: MsGraphCredentialEntity): Promise<void>
-  delete(tenantId: string): Promise<void>
+  insertIfAbsent(credential: MsGraphCredentialEntity): Promise<boolean>
+  updateIfSecretRef(
+    credential: MsGraphCredentialEntity,
+    expectedClientSecretRef: string,
+  ): Promise<boolean>
+  deleteIfSecretRef(tenantId: string, expectedClientSecretRef: string): Promise<boolean>
 }

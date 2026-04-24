@@ -24,7 +24,7 @@ export class MsGraphTokenAcquirer {
     clientSecretRef: string
     scopes: readonly string[]
   }): Promise<string> {
-    const key = `${cred.tenantAdId}:${cred.clientId}`
+    const key = `${cred.tenantAdId}:${cred.clientId}:${cred.clientSecretRef}`
     const now = this.clock()
     const cached = this.cache.get(key)
     if (cached && cached.expiresAt.getTime() - now.getTime() > this.expirySkewMs) {
@@ -62,6 +62,10 @@ export class MsGraphTokenAcquirer {
   }
 
   invalidate(tenantAdId: string, clientId: string): void {
-    this.cache.delete(`${tenantAdId}:${clientId}`)
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(`${tenantAdId}:${clientId}:`)) {
+        this.cache.delete(key)
+      }
+    }
   }
 }

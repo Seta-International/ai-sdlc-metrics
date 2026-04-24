@@ -5,4 +5,5 @@ export interface PlannerViewFlags {
   chartsEnabled: boolean
   trendsEnabled: boolean
   personalEnabled: boolean
+  msSyncEnabled: boolean
 }

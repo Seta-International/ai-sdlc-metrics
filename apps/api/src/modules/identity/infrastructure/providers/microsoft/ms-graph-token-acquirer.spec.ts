@@ -72,6 +72,28 @@ describe('MsGraphTokenAcquirer', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
+  it('does not reuse cached tokens across different secret refs', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ access_token: 'tok-old', expires_in: 3600 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ access_token: 'tok-new', expires_in: 3600 }),
+      })
+    const acquirer = new MsGraphTokenAcquirer(secrets, () => new Date('2026-04-21T00:00:00Z'))
+
+    const oldToken = await acquirer.acquire({ ...cred, clientSecretRef: 'arn-old' })
+    const newToken = await acquirer.acquire({ ...cred, clientSecretRef: 'arn-new' })
+
+    expect(oldToken).toBe('tok-old')
+    expect(newToken).toBe('tok-new')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(secrets.getSecret).toHaveBeenCalledWith('arn-old')
+    expect(secrets.getSecret).toHaveBeenCalledWith('arn-new')
+  })
+
   it('throws on non-2xx with body included', async () => {
     fetchMock.mockResolvedValue({
       ok: false,

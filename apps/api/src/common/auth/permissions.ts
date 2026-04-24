@@ -80,6 +80,10 @@ export const PERMISSIONS = {
   PLANNER_TASK_COMPLETE_ANY: 'planner:task:complete-any',
   PLANNER_PERSONAL_READ: 'planner:personal:read',
   PLANNER_PERSONAL_WRITE: 'planner:personal:write',
+  PLANNER_MS_SYNC_CONNECT: 'planner.ms_sync.connect',
+  PLANNER_MS_SYNC_LINK_GROUP: 'planner.ms_sync.link_group',
+  PLANNER_MS_SYNC_CONFLICT_RESOLVE: 'planner.ms_sync.conflict.resolve',
+  PLANNER_MS_SYNC_FORCE_RESYNC: 'planner.ms_sync.force_resync',
   // Agent-exposed read procedures (Plan 02 §13 — planner.read-only sub-agent toolScope)
   PLANNER_AGENT_LIST_MY_TASKS: 'planner:agent:list-my-tasks',
   PLANNER_AGENT_LIST_MY_PLANS: 'planner:agent:list-my-plans',

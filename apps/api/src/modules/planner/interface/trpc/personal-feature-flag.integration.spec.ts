@@ -88,7 +88,8 @@ describe('Planner feature flag — planner_personal_enabled', () => {
       async getPlannerViewFlags(tenantId: string): Promise<PlannerViewFlags> {
         const rows = await db.execute(
           sql`SELECT planner_views_enabled, planner_grid_enabled, planner_schedule_enabled,
-                     planner_charts_enabled, planner_charts_trends_enabled, planner_personal_enabled
+                     planner_charts_enabled, planner_charts_trends_enabled, planner_personal_enabled,
+                     planner_ms_sync_enabled
               FROM admin.tenant_settings
               WHERE tenant_id = ${tenantId}
               LIMIT 1`,
@@ -101,6 +102,7 @@ describe('Planner feature flag — planner_personal_enabled', () => {
               planner_charts_enabled: boolean
               planner_charts_trends_enabled: boolean
               planner_personal_enabled: boolean
+              planner_ms_sync_enabled: boolean
             }
           | undefined
         return {
@@ -110,6 +112,7 @@ describe('Planner feature flag — planner_personal_enabled', () => {
           chartsEnabled: row?.planner_charts_enabled ?? false,
           trendsEnabled: row?.planner_charts_trends_enabled ?? false,
           personalEnabled: row?.planner_personal_enabled ?? false,
+          msSyncEnabled: row?.planner_ms_sync_enabled ?? false,
         }
       },
     }

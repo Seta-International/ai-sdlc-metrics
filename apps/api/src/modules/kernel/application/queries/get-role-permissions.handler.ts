@@ -4,6 +4,7 @@ import {
   ROLE_PERMISSION_REPOSITORY,
   type IRolePermissionRepository,
 } from '../../domain/repositories/role-permission.repository.port'
+import { getPermissionModule } from '../../../../common/auth/permission-key'
 import { GetRolePermissionsQuery } from './get-role-permissions.query'
 
 export interface PermissionDto {
@@ -35,7 +36,7 @@ export class GetRolePermissionsHandler implements IQueryHandler<
       permissions: permissions.map((p) => ({
         permissionKey: p.permissionKey,
         isLocked: p.isLocked,
-        module: p.permissionKey.split(':')[0] ?? '',
+        module: getPermissionModule(p.permissionKey),
       })),
     }
   }

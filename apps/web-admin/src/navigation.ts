@@ -1,4 +1,4 @@
-import { Settings, Cpu, ToggleRight, Shield, Bot } from '@future/ui/icons'
+import { Settings, Cpu, ToggleRight, Shield, Bot, Link } from '@future/ui/icons'
 import type { NavigationConfig } from '@future/app-layout'
 
 export const adminNavConfig: NavigationConfig = {
@@ -32,6 +32,17 @@ export const adminNavConfig: NavigationConfig = {
       items: [
         { label: 'Agent Definitions', icon: Bot, href: '/agents', permission: 'admin:agents:read' },
         { label: 'Sessions', icon: Bot, href: '/agents/sessions', permission: 'admin:agents:read' },
+      ],
+    },
+    {
+      label: 'Integrations',
+      items: [
+        {
+          label: 'Microsoft 365',
+          icon: Link,
+          href: '/integrations/microsoft',
+          permission: 'planner.ms_sync.connect',
+        },
       ],
     },
   ],

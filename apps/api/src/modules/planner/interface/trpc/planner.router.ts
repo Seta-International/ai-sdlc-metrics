@@ -8,6 +8,7 @@ import { attachmentRouter } from './attachment.router'
 import { commentRouter } from './comment.router'
 import { evidenceRouter } from './evidence.router'
 import { personalRouter } from './personal.router'
+import { msSyncRouter } from './ms-sync.router'
 
 export const plannerRouter = router({
   plans: planRouter,
@@ -19,4 +20,5 @@ export const plannerRouter = router({
   comments: commentRouter,
   evidence: evidenceRouter,
   personal: personalRouter,
+  msSync: msSyncRouter,
 })
