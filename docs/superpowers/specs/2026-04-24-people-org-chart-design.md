@@ -1,138 +1,236 @@
-# People Org Chart UI/UX Rebuild + Data Correctness Design
+# People Org Chart UI/UX Pass — Design Spec
 
 ## Problem
 
-The Org Chart feature does not match the approved mockup and currently shows incomplete card data (for example: unnamed employee, missing title, missing org details). Hierarchy links between leaders and reports are also not consistently rendered as a connected structure.
+The Org Chart content area does not match the approved mockup. The current implementation has:
 
-This pass targets the **Org Chart content area only** and must:
-
-1. Match the approved visual direction from the mockup.
-2. Preload and render at least 2+ levels with visible reporting connectors.
-3. Fix card data reliability by sourcing authoritative person/job/org fields.
-4. Make **Team filter functional** and keep **Location filter visual-only**.
-5. Support both light and dark themes.
+- A "Reporting context" panel with descriptive text, a raw `<select>` team filter, a Location text badge, zoom buttons, and a "Back to my context" button — none of which match the mockup
+- Individual vertical connector lines per child with no horizontal rail between siblings
+- No compact view mode
+- No export capability
+- A "Drag canvas to pan" hint strip that is not in the mockup
 
 ## Scope
 
 ### In scope
 
-- Org Chart content-area UI/UX rebuild.
-- New backend tree query for preload hierarchy.
-- Correct node field hydration for employee cards.
-- Connector rendering based on explicit parent-child maps.
-- Team filter behavior.
-- Light/dark mode support.
-- Test updates for backend, frontend, and E2E paths.
+- `OrgChartToolbar` — new component replacing the current "Reporting context" panel
+- `OrgChartZoomControls` — new floating component replacing the top-panel zoom buttons
+- `OrgChartNode` compact mode — `compact` prop switches the dense card to a 1-line pill
+- Connector line fix — horizontal rail + vertical drops replacing isolated per-child verticals
+- Export — PNG capture via `html2canvas`
+- Test updates for all changed components
 
 ### Out of scope
 
-- Whole-zone shell/sidebar redesign.
-- Replacing existing directory search behavior.
-- Full functional location filtering in this pass.
+- Backend changes (tree query API already implemented)
+- Location filter functionality (visual-only this pass)
+- PDF export
+- Scroll-to-zoom
+- Page-level heading block (`page.tsx` h1 + subtitles)
+- Whole-zone shell/sidebar redesign
 
-## Recommended Approach (Selected)
+---
 
-Use an **API-first hierarchy DTO** and switch Org Chart initial rendering to a dedicated tree endpoint. Keep deeper expansion available via children loading if needed, but preload enough depth for mockup-like first paint.
+## Component Design
 
-## Architecture
+### 1. `OrgChartToolbar` (new file)
 
-### Frontend boundary
+Replaces the "Reporting context" `div` block in `OrgChartTree`.
 
-- Keep `OrgChartTree` and `OrgChartNode` as main UI surface components.
-- Replace current initial data source with new `people.orgChart.tree` query response.
-- Continue to use normalized client structures:
-  - `nodesById`
-  - `childrenByParentId`
-  - `rootEmploymentIds`
+**Props:**
 
-### Backend boundary
+```ts
+type OrgChartToolbarProps = {
+  teams: { id: string; name: string }[]
+  selectedTeamId: string | null
+  isCompact: boolean
+  isExporting: boolean
+  onTeamChange: (teamId: string | null) => void
+  onCompactToggle: () => void
+  onExport: () => void
+}
+```
 
-- Add `people.orgChart.tree` query with input:
-  - `teamId?: string`
-  - `depth: number` (default 2 or 3 in server-side handler)
-- Keep `people.orgChart.children` available for optional expansion beyond preload depth.
+**Layout:** Single flex row, space-between.
 
-## Data Flow & Field Mapping
+**Left side — filter chips:**
 
-### Hierarchy construction
+- **Team chip (active):** Dismissible pill showing `Team · {name}` with an `×` button that calls `onTeamChange(null)`. When no team selected, renders a ghost "Team" chip that opens a `Popover` + `Command` list to pick a team.
+- **Location chip:** Static pill reading `Location · All`. No interaction. Styled with `text-fg-subtle` to signal visual-only status. No dismiss button.
 
-1. Build manager-report graph from current job assignments (`managerId` relationships).
-2. Resolve initial roots for selected context/team.
-3. Expand tree to configured preload depth.
-4. Return deterministic ordering for children so connectors and card rows are stable.
+**Right side:**
 
-### Node hydration source of truth
+- **Compact view toggle:** `Button variant="outline" size="sm"` with a grid icon. Active state: `variant="secondary"`. Label: `"Compact view"`. Calls `onCompactToggle`.
+- **Export button:** `Button variant="default" size="sm"` with a download icon. Label: `"Export"` / `"Exporting…"` (with `<Spinner />`). Disabled when `isExporting`. Calls `onExport`.
 
-Org Chart card identity and org details must come from authoritative module data (not from `directory_search_index` dependency):
+**Removes:** The current "Reporting context" heading, `<p>` subtitles, raw `<select>` team dropdown, Location text badge, "Back to my context" button.
 
-- `fullName` ← person profile computed display name
-- `jobTitle` ← current job profile title
-- `departmentName` ← department read
-- `locationName` ← location read
-- `avatarUrl` ← person profile photo when present
+---
 
-### DTO shape (conceptual)
+### 2. `OrgChartZoomControls` (new file)
 
-- `rootIds: string[]`
-- `nodesById: Record<string, OrgChartNode>`
-- `childrenByParentId: Record<string, string[]>`
-- `focusEmploymentId: string | null`
+Floating pill anchored `absolute bottom-3.5 right-3.5` inside the canvas `div`.
 
-This shape is connector-friendly and avoids client-side inference errors.
+**Props:**
 
-## UI/UX Design (Content Area)
+```ts
+type OrgChartZoomControlsProps = {
+  zoom: number
+  canZoomIn: boolean
+  canZoomOut: boolean
+  onZoomIn: () => void
+  onZoomOut: () => void
+  onReset: () => void
+}
+```
 
-1. Toolbar in chart content includes:
-   - Team filter (**functional**)
-   - Location chip (**visual-only**)
-   - Compact view toggle styling retained
-2. Card style follows mockup density:
-   - Horizontal compact pills
-   - Avatar/initials + name + role
-3. Connectors:
-   - Explicit vertical/horizontal lines between manager and reports
-   - No visually detached nodes
-4. Initial render:
-   - Starts from top leadership context
-   - Shows 2+ levels without manual expand
-5. Theming:
-   - Dark mode uses dark canvas
-   - Light mode uses light canvas
-   - Shared structure and spacing in both themes
+**Layout:** Pill with `bg-background/80 backdrop-blur-sm border border-sidebar-border rounded-full px-2.5 py-1.5`. Contains: zoom-out button, zoom % span (tabular-nums, `w-10 text-center`), zoom-in button, divider, reset button. All buttons use `Button variant="ghost" size="sm"`.
 
-## Error Handling & Edge Cases
+**Pointer events:** No special CSS needed. The canvas `handlePointerDown` already bails out when `target.closest('button')` matches, so zoom control button clicks never trigger panning.
 
-1. Missing partial fields show explicit fallback labels (for example: `Unknown title`) instead of collapsing to generic missing identity when person exists.
-2. Orphan nodes (missing manager in current slice) are grouped under deterministic fallback root label (`Unassigned chain`) so records remain visible.
-3. Team filter with no matches shows contextual empty state.
-4. Tree query failure shows destructive alert + retry at canvas level.
+**Removes from top panel:** Zoom in/out buttons, zoom % span, reset/Maximize2 button.
+
+---
+
+### 3. `OrgChartNode` — compact mode
+
+**Prop added:** `compact?: boolean` to `OrgChartNodeProps`.
+
+**Compact render (when `compact=true`):**
+
+- Replace the `<Card>` with a pill: `flex items-center gap-2 px-3 py-1.5 rounded-full border`.
+- Content: avatar (size-7, same initials/image logic), name (`text-sm font-510`), You badge (if `relationshipToViewer === 'self'`).
+- Title, dept·location line, report count badge, profile button, and expand/collapse button are hidden.
+- The entire pill is wrapped in a `<button>` that calls `onExpand` / `onCollapse`.
+- Self highlight: `border-primary/50 ring-1 ring-primary/20` (same as dense card).
+
+**Dense card (when `compact=false` or undefined):** Unchanged.
+
+**Prop threading:** `compact` is lifted to `OrgChartTree` state as `isCompact: boolean`, passed through `OrgChartCanvasContent` → `OrgChartNodeComponent` (and recursively to child nodes).
+
+---
+
+### 4. Connector lines
+
+**Change:** Replace the current isolated per-child vertical connectors with a horizontal rail + vertical drops.
+
+**Before (current):**
+
+```tsx
+<div className="mt-4 flex flex-col items-center">
+  <div className="h-4 w-px bg-sidebar-border" />   {/* stem from parent */}
+  <div className="flex gap-6">
+    {childIds.map((childId) => (
+      <div key={childId} className="flex flex-col items-center">
+        <div className="h-4 w-px bg-sidebar-border" />  {/* isolated vertical */}
+        <OrgChartNodeComponent ... />
+      </div>
+    ))}
+  </div>
+</div>
+```
+
+**After (proposed):**
+
+```tsx
+<div className="mt-4 flex flex-col items-center">
+  <div className="h-4 w-px bg-sidebar-border" />   {/* stem from parent to rail */}
+  <div className="flex gap-6 border-t border-sidebar-border">  {/* horizontal rail */}
+    {childIds.map((childId) => (
+      <div key={childId} className="flex flex-col items-center">
+        <div className="h-4 w-px bg-sidebar-border" />  {/* drop from rail to child */}
+        <OrgChartNodeComponent ... />
+      </div>
+    ))}
+  </div>
+</div>
+```
+
+**Single child:** When `childIds.length === 1`, the rail is a single-point `border-t` which renders as a straight vertical — visually identical to the current single-child connector, no special case needed.
+
+**Colour:** `border-sidebar-border` / `bg-sidebar-border` — already used, adapts to light/dark theme automatically.
+
+---
+
+### 5. Export (PNG)
+
+**Library:** `html2canvas` (`bun add html2canvas`).
+
+**Flow:**
+
+1. User clicks Export → `isExporting` set to `true`; button shows `<Spinner />` + "Exporting…", disabled.
+2. `OrgChartTree` saves current zoom/pan, then sets zoom to `1` and pan to `{ x: 0, y: 0 }`.
+3. Wait for React to flush and the browser to repaint: `await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))`. This ensures the DOM reflects zoom=1 before capture.
+4. `html2canvas(canvasRef.current, { scale: 2 })` captures the canvas wrapper div (toolbar and floating controls are outside this ref and are excluded automatically).
+5. Canvas converts to PNG data URL. An invisible `<a download="org-chart.png">` is clicked and removed.
+6. Zoom and pan restored to saved values. `isExporting` reset to `false`.
+7. On failure: zoom/pan restored, `isExporting` reset, destructive toast shown: "Export failed — try again."
+
+**Ref:** `canvasRef = useRef<HTMLDivElement>(null)` attached to the pannable/zoomable inner `div` in `OrgChartTree`. Passed to `OrgChartToolbar` as `onExport` callback closure.
+
+---
+
+## File Changes
+
+| File                                       | Change                                                                                                            |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `components/OrgChartToolbar.tsx`           | **Create** — filter chips, compact toggle, export button                                                          |
+| `components/OrgChartToolbar.spec.tsx`      | **Create** — unit tests                                                                                           |
+| `components/OrgChartZoomControls.tsx`      | **Create** — floating zoom pill                                                                                   |
+| `components/OrgChartZoomControls.spec.tsx` | **Create** — unit tests                                                                                           |
+| `components/OrgChartNode.tsx`              | **Modify** — add `compact` prop, compact pill render branch                                                       |
+| `components/OrgChartNode.spec.tsx`         | **Modify** — add compact mode tests                                                                               |
+| `components/OrgChartTree.tsx`              | **Modify** — wire toolbar + zoom controls, add `isCompact` + `isExporting` state, fix connectors, add `canvasRef` |
+| `components/OrgChartTree.spec.tsx`         | **Modify** — add compact toggle + connector tests                                                                 |
+| `apps/e2e/tests/people-org-chart.spec.ts`  | **Modify** — verify toolbar chips, compact toggle, connector presence                                             |
+
+---
+
+## Error Handling
+
+| Scenario                       | Behaviour                                                             |
+| ------------------------------ | --------------------------------------------------------------------- |
+| Export capture fails           | `isExporting` reset; destructive toast "Export failed — try again."   |
+| Team filter returns no results | Existing empty state in canvas ("No org placement found") — unchanged |
+| No team selected               | Team chip renders as ghost pill; clicking opens team picker popover   |
+
+---
 
 ## Testing Strategy
 
-### Backend
+### Unit (`OrgChartToolbar`)
 
-- Unit/integration tests for tree query:
-  - Parent-child graph correctness
-  - Node field hydration correctness
-  - Orphan handling behavior
-  - Tenant isolation
+- Renders Team chip with name + dismiss button when `selectedTeamId` is set
+- Renders ghost Team chip when `selectedTeamId` is null
+- Calls `onTeamChange(null)` when × clicked
+- Renders Location chip as non-interactive
+- Compact toggle calls `onCompactToggle`; active state when `isCompact=true`
+- Export button disabled + shows spinner when `isExporting=true`
 
-### Frontend
+### Unit (`OrgChartZoomControls`)
 
-- Unit tests for:
-  - Connector rendering from normalized maps
-  - Theme-aware rendering (light/dark)
-  - Team filter behavior in tree visibility
+- Zoom-in disabled when `canZoomIn=false`; zoom-out disabled when `canZoomOut=false`
+- Calls correct callbacks on button clicks
+- Displays `zoom` as rounded percentage
+
+### Unit (`OrgChartNode`)
+
+- Dense card renders title, dept/location, badge, profile + expand buttons
+- Compact pill renders avatar + name only; hides title, dept, badge, buttons
+- Compact pill: You badge shown when `relationshipToViewer === 'self'`
+- Compact pill: clicking calls `onExpand` / `onCollapse`
+
+### Unit (`OrgChartTree`)
+
+- Compact toggle flips `isCompact` state and passes it to nodes
+- Connector wrapper has `border-t` class when children are expanded
+- `canvasRef` is attached to the canvas div
 
 ### E2E
 
-- Update org chart flow to verify:
-  - Initial preload renders connected hierarchy
-  - Cards show employee identity and role/org details
-  - Team filter changes visible tree result set
-
-## Implementation Notes
-
-- Preserve existing design-system component usage (`@future/ui` primitives).
-- Keep behavior deterministic and testable by avoiding implicit hierarchy reconstruction in UI.
-- Avoid new dependency on stale search-index rows for core org-chart identity fields.
+- Toolbar renders Team chip and Location chip
+- Dismissing Team chip clears the filter
+- Compact toggle switches node rendering to pills
+- Horizontal connector rail is present between siblings
+- Export button triggers file download (mocked in E2E)
