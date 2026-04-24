@@ -845,6 +845,7 @@ export class ToolGateway {
           flowId: flowId ?? '',
           initiatorUserId: requestContext.userId,
           approvalTtlHours: effectivePolicy?.approvalTtlHours,
+          approvalFreshness: effectivePolicy?.approvalFreshness,
           summary: `Draft action: ${descriptor.name}`,
         })
       } catch (draftErr: unknown) {

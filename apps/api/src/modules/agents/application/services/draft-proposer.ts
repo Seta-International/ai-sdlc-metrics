@@ -2,7 +2,12 @@ import { Injectable } from '@nestjs/common'
 import { uuidv7 } from 'uuidv7'
 import type { AgentToolDescriptor } from '../../../../common/trpc/agent-tool-meta'
 import type { TurnState } from './tool-gateway-contracts'
-import type { DraftProposalResult, DraftProvenance, TenantApprovalPolicy } from './draft-types'
+import type {
+  ApprovalFreshness,
+  DraftProposalResult,
+  DraftProvenance,
+  TenantApprovalPolicy,
+} from './draft-types'
 import { DraftTierClassifier } from './draft-tier-classifier'
 import { ApprovalExecutorDelegationMinter } from './approval-executor-delegation-minter'
 import { DraftSink } from './draft-sink'
@@ -36,6 +41,7 @@ export class DraftProposer {
     summary: string
     resolveApprover?: (toolName: string) => Promise<string | null>
     tenantPolicy?: TenantApprovalPolicy
+    approvalFreshness?: ApprovalFreshness
   }): Promise<DraftProposalResult> {
     const { tier } = this.draftTierClassifier.classify({
       tool: opts.toolDescriptor,
@@ -108,7 +114,9 @@ export class DraftProposer {
     }
 
     const approvalFreshness =
-      opts.toolDescriptor.meta.approvalFreshness ?? DEFAULT_APPROVAL_FRESHNESS
+      opts.approvalFreshness ??
+      opts.toolDescriptor.meta.approvalFreshness ??
+      DEFAULT_APPROVAL_FRESHNESS
 
     await this.draftSink.submit({
       draftId,

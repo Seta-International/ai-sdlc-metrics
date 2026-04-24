@@ -253,4 +253,57 @@ describe('DraftProposer', () => {
     const submitArg = vi.mocked(sink.submit).mock.calls[0][0]
     expect(submitArg.approverUserId).toBe('some-approver-id')
   })
+
+  it('uses flow-level approvalFreshness when provided in opts', async () => {
+    const result = await proposer.propose(baseOpts({ approvalFreshness: 'revalidate' }))
+
+    expect(result.approvalFreshness).toBe('revalidate')
+
+    const submitArg = vi.mocked(sink.submit).mock.calls[0][0]
+    expect(submitArg.approvalFreshness).toBe('revalidate')
+  })
+
+  it('prefers opts.approvalFreshness over toolDescriptor.meta.approvalFreshness', async () => {
+    const toolWithMeta = {
+      ...TOOL_DESCRIPTOR,
+      meta: {
+        ...TOOL_DESCRIPTOR.meta,
+        approvalFreshness: 'accept-stale' as const,
+      },
+    }
+
+    const result = await proposer.propose(
+      baseOpts({
+        toolDescriptor: toolWithMeta,
+        approvalFreshness: 'revalidate',
+      }),
+    )
+
+    expect(result.approvalFreshness).toBe('revalidate')
+
+    const submitArg = vi.mocked(sink.submit).mock.calls[0][0]
+    expect(submitArg.approvalFreshness).toBe('revalidate')
+  })
+
+  it('falls back to toolDescriptor.meta.approvalFreshness when opts.approvalFreshness absent', async () => {
+    const toolWithMeta = {
+      ...TOOL_DESCRIPTOR,
+      meta: {
+        ...TOOL_DESCRIPTOR.meta,
+        approvalFreshness: 'revalidate' as const,
+      },
+    }
+
+    const result = await proposer.propose(
+      baseOpts({
+        toolDescriptor: toolWithMeta,
+        // no approvalFreshness in opts
+      }),
+    )
+
+    expect(result.approvalFreshness).toBe('revalidate')
+
+    const submitArg = vi.mocked(sink.submit).mock.calls[0][0]
+    expect(submitArg.approvalFreshness).toBe('revalidate')
+  })
 })

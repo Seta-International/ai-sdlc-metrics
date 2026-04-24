@@ -79,7 +79,7 @@ export class FlowPolicyResolver {
 function parseApprovalTtlHours(ttl: string | undefined): number | undefined {
   if (ttl === undefined) return undefined
   const match = /^(\d+)h$/i.exec(ttl)
-  if (match === null) return undefined
+  if (match === null || match[1] === undefined) return undefined
   return parseInt(match[1], 10)
 }
 
