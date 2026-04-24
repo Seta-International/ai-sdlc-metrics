@@ -203,4 +203,9 @@ export class QualityCanaryScheduler {
   degradedFlag(tier: ModelTier): boolean {
     return this.degradedFlags.get(tier) ?? false
   }
+
+  // Expose cached health snapshot for synchronous consumers (e.g. DegradedTierFallback hot path)
+  getCachedHealth(tier: ModelTier): TierHealthSnapshot | undefined {
+    return this.healthCache.get(tier)
+  }
 }
