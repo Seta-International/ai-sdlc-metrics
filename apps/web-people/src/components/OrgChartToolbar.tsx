@@ -46,25 +46,29 @@ export function OrgChartToolbar({
           <div className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs">
             <span className="text-fg-subtle">Team</span>
             <span className="font-510 text-fg-primary">{selectedTeam.name}</span>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               aria-label="Clear team filter"
               onClick={() => onTeamChange(null)}
-              className="ml-1 rounded-full p-0.5 text-fg-muted hover:text-fg-primary"
+              className="ml-1 size-4 rounded-full p-0.5 text-fg-muted hover:text-fg-primary"
             >
               <X className="size-3" />
-            </button>
+            </Button>
           </div>
         ) : (
           <Popover open={teamOpen} onOpenChange={setTeamOpen}>
             <PopoverTrigger asChild>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 aria-label="Team filter"
-                className="flex items-center rounded-full border border-sidebar-border bg-transparent px-3 py-1 text-xs text-fg-subtle hover:text-fg-primary"
+                className="rounded-full border border-sidebar-border px-3 py-1 text-xs text-fg-subtle hover:text-fg-primary"
               >
                 Team
-              </button>
+              </Button>
             </PopoverTrigger>
             <PopoverContent className="w-48 p-0" align="start">
               <Command>

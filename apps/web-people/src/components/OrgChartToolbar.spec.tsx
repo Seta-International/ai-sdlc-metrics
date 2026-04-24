@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OrgChartToolbar } from './OrgChartToolbar'
 
 const teams = [
@@ -19,6 +19,9 @@ const defaults = {
 
 describe('OrgChartToolbar', () => {
   afterEach(cleanup)
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
 
   it('renders ghost Team chip when no team is selected', () => {
     render(<OrgChartToolbar {...defaults} />)
