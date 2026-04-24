@@ -51,6 +51,9 @@ const OTHER_HIERARCHY_TENANT = '01900000-0000-7fff-8000-000000000302'
 const HIERARCHY_ENGINEERING = '01900000-0000-7fff-8000-000000000311'
 const HIERARCHY_BACKEND = '01900000-0000-7fff-8000-000000000312'
 const HIERARCHY_API = '01900000-0000-7fff-8000-000000000313'
+const OTHER_HIERARCHY_ENGINEERING = '01900000-0000-7fff-8000-000000000314'
+const OTHER_HIERARCHY_BACKEND = '01900000-0000-7fff-8000-000000000315'
+const OTHER_HIERARCHY_API = '01900000-0000-7fff-8000-000000000316'
 const ORG_MANAGER_ACTOR = '01900000-0000-7fff-8000-000000000321'
 const ORG_VIEWER_ACTOR = '01900000-0000-7fff-8000-000000000322'
 const ORG_PEER_ACTOR = '01900000-0000-7fff-8000-000000000323'
@@ -103,7 +106,28 @@ async function seedDepartment(
   `)
 }
 
-async function seedHierarchyDepartments(db: Db, tenantId: string): Promise<void> {
+function getHierarchyDepartmentIds(tenantId: string) {
+  if (tenantId === OTHER_HIERARCHY_TENANT) {
+    return {
+      engineering: OTHER_HIERARCHY_ENGINEERING,
+      backend: OTHER_HIERARCHY_BACKEND,
+      api: OTHER_HIERARCHY_API,
+    }
+  }
+
+  return {
+    engineering: HIERARCHY_ENGINEERING,
+    backend: HIERARCHY_BACKEND,
+    api: HIERARCHY_API,
+  }
+}
+
+async function seedHierarchyDepartments(
+  db: Db,
+  tenantId: string,
+): Promise<ReturnType<typeof getHierarchyDepartmentIds>> {
+  const ids = getHierarchyDepartmentIds(tenantId)
+
   await db.execute(sql`
     INSERT INTO core.department (
       id,
@@ -116,7 +140,7 @@ async function seedHierarchyDepartments(db: Db, tenantId: string): Promise<void>
       updated_at
     ) VALUES
       (
-        ${HIERARCHY_ENGINEERING},
+        ${ids.engineering},
         ${tenantId},
         'Engineering',
         NULL,
@@ -126,20 +150,20 @@ async function seedHierarchyDepartments(db: Db, tenantId: string): Promise<void>
         NOW()
       ),
       (
-        ${HIERARCHY_BACKEND},
+        ${ids.backend},
         ${tenantId},
         'Backend',
-        ${HIERARCHY_ENGINEERING},
+        ${ids.engineering},
         NULL,
         TRUE,
         NOW(),
         NOW()
       ),
       (
-        ${HIERARCHY_API},
+        ${ids.api},
         ${tenantId},
         'API',
-        ${HIERARCHY_BACKEND},
+        ${ids.backend},
         NULL,
         TRUE,
         NOW(),
@@ -147,6 +171,8 @@ async function seedHierarchyDepartments(db: Db, tenantId: string): Promise<void>
       )
     ON CONFLICT (id) DO NOTHING
   `)
+
+  return ids
 }
 
 async function seedCurrentAssignment(
@@ -697,8 +723,8 @@ describe('people.directory tRPC sub-router - hierarchy integration', () => {
   })
 
   it('orgChart returns viewer context, lazy children, and excludes other tenants', async () => {
-    await seedHierarchyDepartments(db, HIERARCHY_TENANT)
-    await seedHierarchyDepartments(db, OTHER_HIERARCHY_TENANT)
+    const hierarchyDepartments = await seedHierarchyDepartments(db, HIERARCHY_TENANT)
+    const otherHierarchyDepartments = await seedHierarchyDepartments(db, OTHER_HIERARCHY_TENANT)
 
     await seedPersonAndEmployment(db, {
       tenantId: HIERARCHY_TENANT,
@@ -741,33 +767,38 @@ describe('people.directory tRPC sub-router - hierarchy integration', () => {
       employeeCode: 'OTHER',
     })
 
-    await seedCurrentAssignment(db, HIERARCHY_TENANT, ORG_MANAGER_EMPLOYMENT, HIERARCHY_ENGINEERING)
+    await seedCurrentAssignment(
+      db,
+      HIERARCHY_TENANT,
+      ORG_MANAGER_EMPLOYMENT,
+      hierarchyDepartments.engineering,
+    )
     await seedCurrentAssignment(
       db,
       HIERARCHY_TENANT,
       ORG_VIEWER_EMPLOYMENT,
-      HIERARCHY_BACKEND,
+      hierarchyDepartments.backend,
       ORG_MANAGER_EMPLOYMENT,
     )
     await seedCurrentAssignment(
       db,
       HIERARCHY_TENANT,
       ORG_PEER_EMPLOYMENT,
-      HIERARCHY_BACKEND,
+      hierarchyDepartments.backend,
       ORG_MANAGER_EMPLOYMENT,
     )
     await seedCurrentAssignment(
       db,
       HIERARCHY_TENANT,
       ORG_REPORT_EMPLOYMENT,
-      HIERARCHY_API,
+      hierarchyDepartments.api,
       ORG_VIEWER_EMPLOYMENT,
     )
     await seedCurrentAssignment(
       db,
       OTHER_HIERARCHY_TENANT,
       ORG_OTHER_EMPLOYMENT,
-      HIERARCHY_API,
+      otherHierarchyDepartments.api,
       ORG_VIEWER_EMPLOYMENT,
     )
 
