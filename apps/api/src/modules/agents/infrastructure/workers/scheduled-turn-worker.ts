@@ -150,7 +150,7 @@ export class ScheduledTurnWorker {
             approverId: notifyUserId,
             toolName: 'agents.schedule_run',
             summary: `Scheduled agent run completed for schedule ${scheduleId}`,
-            tier: 'low_risk',
+            tier: 'low_risk_auto',
           })
         } catch (notifyErr) {
           this.logger.warn(
@@ -224,7 +224,7 @@ export class ScheduledTurnWorker {
             approverId: notifyUserId,
             toolName,
             summary,
-            tier: 'low_risk',
+            tier: 'low_risk_auto',
           })
         } catch (notifyErr) {
           this.logger.warn(

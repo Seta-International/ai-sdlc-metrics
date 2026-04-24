@@ -259,7 +259,7 @@ export class DelegationLifecycle {
       approverId: offboardingActorId,
       toolName: 'agents.offboarding',
       summary: `User ${userId} offboarded: ${revokedIds.length} delegation(s) revoked, ${pausedScheduleCount} schedule(s) paused.`,
-      tier: 'high_risk_approval',
+      tier: 'high_risk_approval_required',
     })
 
     return {
