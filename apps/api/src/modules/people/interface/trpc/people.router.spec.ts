@@ -187,6 +187,26 @@ describe('createPeopleRouter', () => {
     )
   })
 
+  it('should surface a not-found TRPC error when children are requested for an unknown node', async () => {
+    const queryBus = {
+      execute: vi.fn().mockRejectedValueOnce(new Error('ORG_CHART_NODE_NOT_FOUND')),
+    }
+    const trpcService = new PeopleTrpcService({ execute: vi.fn() } as never, queryBus as never)
+    trpcService.onModuleInit()
+
+    const { peopleRouter } = setup(true)
+    const caller = router({ people: peopleRouter }).createCaller({
+      actorId: ACTOR_ID,
+      tenantId: TENANT_ID,
+    } as any)
+
+    await expect(
+      (caller.people as any).orgChart.children({
+        employmentId: '01900000-0000-7000-8000-000000000099',
+      }),
+    ).rejects.toThrow(TRPCError)
+  })
+
   it('should deny org chart context when permission is not granted', async () => {
     const { peopleRouter } = setup(false)
     const caller = router({ people: peopleRouter }).createCaller({

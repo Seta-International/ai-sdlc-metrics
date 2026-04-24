@@ -1,4 +1,5 @@
 import * as z from 'zod'
+import { TRPCError } from '@trpc/server'
 import { publicProcedure, router } from '../../../../common/trpc/trpc-init'
 import type { AuthContext } from '../../../../common/trpc/auth-middleware'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
@@ -535,7 +536,15 @@ export function createPeopleRouter(
         .meta({ permission: 'people:org:read' })
         .input(z.object({ employmentId: z.string().uuid() }))
         .query(async ({ ctx, input }: { ctx: AuthContext; input: { employmentId: string } }) => {
-          return svc().query(new GetOrgChartChildrenQuery(ctx.tenantId, input.employmentId))
+          try {
+            return await svc().query(new GetOrgChartChildrenQuery(ctx.tenantId, input.employmentId))
+          } catch (error) {
+            if (error instanceof Error && error.message === 'ORG_CHART_NODE_NOT_FOUND') {
+              throw new TRPCError({ code: 'NOT_FOUND', message: 'Org chart node not found' })
+            }
+
+            throw error
+          }
         }),
     }),
 

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { sql } from 'drizzle-orm'
+import { TRPCError } from '@trpc/server'
 import { peopleRouter, createPeopleRouter } from './people.router'
 import { publicProcedure } from '../../../../common/trpc/trpc-init'
 import { createProtectedProcedures } from '../../../../common/trpc/create-protected-procedures'
@@ -662,5 +663,50 @@ describe('people.directory tRPC sub-router - hierarchy integration', () => {
       fullName: 'Riley Report',
       managerEmploymentId: ORG_VIEWER_EMPLOYMENT,
     })
+  })
+
+  it('orgChart returns root fallback when the viewer has no employment in the tenant', async () => {
+    const rootCaller = createPeopleRouter(
+      createProtectedProcedures(
+        publicProcedure,
+        { canDo: async () => true } as unknown as KernelQueryFacade,
+        { recordEvent: async () => undefined } as unknown as KernelAuditFacade,
+      ).permissionProtectedProcedure,
+      {} as unknown as PeopleQueryFacade,
+      {} as unknown as KernelQueryFacade,
+      {} as unknown as KernelAuditFacade,
+    ).createCaller({
+      req: { headers: {} },
+      tenantId: HIERARCHY_TENANT,
+      actorId: '01900000-0000-7fff-8000-000000000399',
+    } as never)
+
+    const context = await rootCaller.orgChart.context()
+
+    expect(context.focusEmploymentId).toBeNull()
+    expect(context.nodes.every((node) => node.relationshipToViewer === 'root')).toBe(true)
+  })
+
+  it('orgChart children maps missing nodes to a TRPC not-found error', async () => {
+    const orgCaller = createPeopleRouter(
+      createProtectedProcedures(
+        publicProcedure,
+        { canDo: async () => true } as unknown as KernelQueryFacade,
+        { recordEvent: async () => undefined } as unknown as KernelAuditFacade,
+      ).permissionProtectedProcedure,
+      {} as unknown as PeopleQueryFacade,
+      {} as unknown as KernelQueryFacade,
+      {} as unknown as KernelAuditFacade,
+    ).createCaller({
+      req: { headers: {} },
+      tenantId: HIERARCHY_TENANT,
+      actorId: ORG_VIEWER_ACTOR,
+    } as never)
+
+    await expect(
+      orgCaller.orgChart.children({
+        employmentId: '01900000-0000-7000-8000-000000000099',
+      }),
+    ).rejects.toThrow(TRPCError)
   })
 })
