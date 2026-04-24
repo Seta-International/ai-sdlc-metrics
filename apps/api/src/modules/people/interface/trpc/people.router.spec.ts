@@ -11,6 +11,7 @@ import { PeopleTrpcService } from './people-trpc.service'
 import { RehireEmploymentCommand } from '../../application/commands/rehire-employment.command'
 import { GetOrgChartContextQuery } from '../../application/queries/get-org-chart-context.query'
 import { GetOrgChartChildrenQuery } from '../../application/queries/get-org-chart-children.query'
+import { ORG_CHART_NODE_NOT_FOUND } from '../../application/services/org-chart-query.service'
 
 const ACTOR_ID = '01900000-0000-7000-8000-000000000001'
 const TENANT_ID = '01900000-0000-7000-8000-000000000002'
@@ -189,7 +190,7 @@ describe('createPeopleRouter', () => {
 
   it('should surface a not-found TRPC error when children are requested for an unknown node', async () => {
     const queryBus = {
-      execute: vi.fn().mockRejectedValueOnce(new Error('ORG_CHART_NODE_NOT_FOUND')),
+      execute: vi.fn().mockRejectedValueOnce(new Error(ORG_CHART_NODE_NOT_FOUND)),
     }
     const trpcService = new PeopleTrpcService({ execute: vi.fn() } as never, queryBus as never)
     trpcService.onModuleInit()

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { OrgChartQueryService } from './org-chart-query.service'
+import { ORG_CHART_NODE_NOT_FOUND, OrgChartQueryService } from './org-chart-query.service'
 
 const tenantId = '01900000-0000-7000-8000-000000000001'
 const viewerActorId = '01900000-0000-7000-8000-000000000002'
@@ -432,7 +432,7 @@ describe('OrgChartQueryService', () => {
     )
 
     await expect(service.getChildren(tenantId, selfEmploymentId)).rejects.toThrow(
-      'ORG_CHART_NODE_NOT_FOUND',
+      ORG_CHART_NODE_NOT_FOUND,
     )
   })
 })

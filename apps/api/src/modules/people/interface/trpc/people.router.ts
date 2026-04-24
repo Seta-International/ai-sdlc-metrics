@@ -54,6 +54,7 @@ import { ListContractVersionsQuery } from '../../application/queries/list-contra
 import { GetJobHistoryQuery } from '../../application/queries/get-job-history.query'
 import { GetOrgChartContextQuery } from '../../application/queries/get-org-chart-context.query'
 import { GetOrgChartChildrenQuery } from '../../application/queries/get-org-chart-children.query'
+import { ORG_CHART_NODE_NOT_FOUND } from '../../application/services/org-chart-query.service'
 
 import { PeopleTrpcService } from './people-trpc.service'
 import {
@@ -539,7 +540,7 @@ export function createPeopleRouter(
           try {
             return await svc().query(new GetOrgChartChildrenQuery(ctx.tenantId, input.employmentId))
           } catch (error) {
-            if (error instanceof Error && error.message === 'ORG_CHART_NODE_NOT_FOUND') {
+            if (error instanceof Error && error.message === ORG_CHART_NODE_NOT_FOUND) {
               throw new TRPCError({ code: 'NOT_FOUND', message: 'Org chart node not found' })
             }
 

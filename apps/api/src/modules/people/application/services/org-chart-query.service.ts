@@ -19,6 +19,8 @@ import type {
   OrgChartRelationshipToViewer,
 } from '../queries/org-chart.types'
 
+export const ORG_CHART_NODE_NOT_FOUND = 'ORG_CHART_NODE_NOT_FOUND'
+
 @Injectable()
 export class OrgChartQueryService {
   constructor(
@@ -83,7 +85,7 @@ export class OrgChartQueryService {
 
   async getChildren(tenantId: string, employmentId: string): Promise<OrgChartNodeDto[]> {
     const parent = await this.employmentRepo.findById(employmentId, tenantId)
-    if (!parent) throw new Error('ORG_CHART_NODE_NOT_FOUND')
+    if (!parent) throw new Error(ORG_CHART_NODE_NOT_FOUND)
 
     const childAssignments = await this.assignmentRepo.findCurrentByManagerId(
       employmentId,

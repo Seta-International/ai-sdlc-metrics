@@ -103,6 +103,52 @@ async function seedDepartment(
   `)
 }
 
+async function seedHierarchyDepartments(db: Db, tenantId: string): Promise<void> {
+  await db.execute(sql`
+    INSERT INTO core.department (
+      id,
+      tenant_id,
+      name,
+      parent_id,
+      cost_center_code,
+      is_active,
+      created_at,
+      updated_at
+    ) VALUES
+      (
+        ${HIERARCHY_ENGINEERING},
+        ${tenantId},
+        'Engineering',
+        NULL,
+        NULL,
+        TRUE,
+        NOW(),
+        NOW()
+      ),
+      (
+        ${HIERARCHY_BACKEND},
+        ${tenantId},
+        'Backend',
+        ${HIERARCHY_ENGINEERING},
+        NULL,
+        TRUE,
+        NOW(),
+        NOW()
+      ),
+      (
+        ${HIERARCHY_API},
+        ${tenantId},
+        'API',
+        ${HIERARCHY_BACKEND},
+        NULL,
+        TRUE,
+        NOW(),
+        NOW()
+      )
+    ON CONFLICT (id) DO NOTHING
+  `)
+}
+
 async function seedCurrentAssignment(
   db: Db,
   tenantId: string,
@@ -651,6 +697,9 @@ describe('people.directory tRPC sub-router - hierarchy integration', () => {
   })
 
   it('orgChart returns viewer context, lazy children, and excludes other tenants', async () => {
+    await seedHierarchyDepartments(db, HIERARCHY_TENANT)
+    await seedHierarchyDepartments(db, OTHER_HIERARCHY_TENANT)
+
     await seedPersonAndEmployment(db, {
       tenantId: HIERARCHY_TENANT,
       actorId: ORG_MANAGER_ACTOR,
@@ -832,6 +881,8 @@ describe('people.directory tRPC sub-router - hierarchy integration', () => {
   })
 
   it('orgChart children maps missing nodes to a TRPC not-found error', async () => {
+    await seedHierarchyDepartments(db, HIERARCHY_TENANT)
+
     const orgCaller = createAuthorizedCaller(HIERARCHY_TENANT, ORG_VIEWER_ACTOR)
 
     await expect(
