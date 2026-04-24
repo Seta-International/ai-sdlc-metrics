@@ -12,6 +12,7 @@ import {
   jsonb,
   check,
   primaryKey,
+  integer,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import { uuidv7 } from 'uuidv7'
@@ -28,10 +29,12 @@ export const plannerPlan = plannerSchema.table(
     name: text('name').notNull(),
     description: text('description').notNull().default(''),
     containerType: text('container_type'),
+    containerRef: text('container_ref'),
     msGroupId: text('ms_group_id'),
     msRosterId: text('ms_roster_id'),
     msPlanId: text('ms_plan_id'),
     msPlanEtag: text('ms_plan_etag'),
+    isMsArchived: boolean('is_ms_archived').notNull().default(false),
     ownerActorId: uuid('owner_actor_id'), // nullable — null for team plans, set for personal plans
     syncEnabled: boolean('sync_enabled').notNull().default(true), // true for team; handler overrides to false for personal
     createdBy: uuid('created_by').notNull(),
@@ -43,9 +46,10 @@ export const plannerPlan = plannerSchema.table(
     check('chk_plan_description_length', sql`char_length(${table.description}) <= 32000`),
     check(
       'chk_plan_container_xor',
-      sql`(${table.containerType} IS NULL AND ${table.msGroupId} IS NULL AND ${table.msRosterId} IS NULL)
-        OR (${table.containerType} = 'group' AND ${table.msGroupId} IS NOT NULL AND ${table.msRosterId} IS NULL)
-        OR (${table.containerType} = 'roster' AND ${table.msRosterId} IS NOT NULL AND ${table.msGroupId} IS NULL)`,
+      sql`(${table.containerType} IS NULL AND ${table.containerRef} IS NULL)
+        OR (${table.containerType} = 'future_only' AND ${table.containerRef} IS NULL)
+        OR (${table.containerType} = 'ms_group' AND ${table.containerRef} IS NOT NULL)
+        OR (${table.containerType} = 'ms_roster' AND ${table.containerRef} IS NOT NULL)`,
     ),
     index('idx_plan_tenant_deleted')
       .on(table.tenantId, table.deletedAt)
@@ -155,6 +159,7 @@ export const plannerTask = plannerSchema.table(
     msTaskId: text('ms_task_id'),
     msTaskEtag: text('ms_task_etag'),
     msTaskDetailsEtag: text('ms_task_details_etag'),
+    msSoftDeletedAt: timestamp('ms_soft_deleted_at', { withTimezone: true }),
     pendingMsAssignments: jsonb('pending_ms_assignments')
       .notNull()
       .default(sql`'[]'::jsonb`),
@@ -333,6 +338,40 @@ export const plannerTaskEvidence = plannerSchema.table(
     index('idx_task_evidence_task_submitted').on(table.taskId, table.submittedAt),
     index('idx_task_evidence_tenant_submitted_by').on(table.tenantId, table.submittedBy),
   ],
+)
+
+export const msLinkedGroup = plannerSchema.table(
+  'ms_linked_group',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    msGroupId: text('ms_group_id').notNull(),
+    displayName: text('display_name').notNull(),
+    linkedByActorId: uuid('linked_by_actor_id').notNull(),
+    linkedAt: timestamp('linked_at', { withTimezone: true }).notNull().defaultNow(),
+    syncEnabled: boolean('sync_enabled').notNull().default(true),
+    backfillingAt: timestamp('backfilling_at', { withTimezone: true }),
+    backfillJobId: text('backfill_job_id'),
+    unlinkedAt: timestamp('unlinked_at', { withTimezone: true }),
+  },
+  (t) => [uniqueIndex('uniq_ms_linked_group_tenant_msgroup').on(t.tenantId, t.msGroupId)],
+)
+
+export const msPlanSyncState = plannerSchema.table(
+  'ms_plan_sync_state',
+  {
+    planId: uuid('plan_id').primaryKey().notNull(),
+    tenantId: uuid('tenant_id').notNull(),
+    msPlanId: text('ms_plan_id').notNull(),
+    msPlanEtag: text('ms_plan_etag'),
+    lastPolledAt: timestamp('last_polled_at', { withTimezone: true }),
+    lastSuccessfulPollAt: timestamp('last_successful_poll_at', { withTimezone: true }),
+    consecutiveErrorCount: integer('consecutive_error_count').notNull().default(0),
+    lastErrorCode: text('last_error_code'),
+    lastErrorMessage: text('last_error_message'),
+    pollPausedUntil: timestamp('poll_paused_until', { withTimezone: true }),
+  },
+  (t) => [uniqueIndex('uniq_ms_plan_sync_state_tenant_msplan').on(t.tenantId, t.msPlanId)],
 )
 
 export const plannerMyDayEntry = plannerSchema.table(

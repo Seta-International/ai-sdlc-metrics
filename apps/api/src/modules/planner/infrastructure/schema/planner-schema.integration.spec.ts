@@ -44,6 +44,8 @@ describe('planner schema — RLS, tenant isolation, CHECK constraints', () => {
       'task_attachment',
       'task_comment',
       'task_evidence',
+      'ms_linked_group',
+      'ms_plan_sync_state',
     ]
 
     for (const tableName of tables) {
