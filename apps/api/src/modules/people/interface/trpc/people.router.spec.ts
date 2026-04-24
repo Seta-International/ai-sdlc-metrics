@@ -204,7 +204,10 @@ describe('createPeopleRouter', () => {
       (caller.people as any).orgChart.children({
         employmentId: '01900000-0000-7000-8000-000000000099',
       }),
-    ).rejects.toThrow(TRPCError)
+    ).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      message: 'Org chart node not found',
+    } satisfies Partial<TRPCError>)
   })
 
   it('should deny org chart context when permission is not granted', async () => {
