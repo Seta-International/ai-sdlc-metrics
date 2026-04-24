@@ -37,13 +37,19 @@ export function createAgentChatAdapter(opts: AgentChatAdapterOptions): ChatModel
         body,
         signal: abortSignal,
         onmessage(ev) {
-          const parsed = sseEventSchema.safeParse(JSON.parse(ev.data))
+          let raw: unknown
+          try {
+            raw = JSON.parse(ev.data)
+          } catch {
+            return
+          }
+          const parsed = sseEventSchema.safeParse(raw)
           if (!parsed.success) return
 
           const event = parsed.data
 
-          if (event.type === 'answer.delta') {
-            accumulatedText += event.text
+          if (event.type === 'answer.token') {
+            accumulatedText += event.payload.text
             chunks.push({ content: [{ type: 'text', text: accumulatedText }] })
           } else {
             opts.store.getState().dispatch(event)

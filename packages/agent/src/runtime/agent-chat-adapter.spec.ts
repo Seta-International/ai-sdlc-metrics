@@ -11,6 +11,14 @@ import { fetchEventSource } from '@microsoft/fetch-event-source'
 
 const mockFetchEventSource = vi.mocked(fetchEventSource)
 
+const minUsage = {
+  input_tokens: 10,
+  output_tokens: 5,
+  input_cached_read: 0,
+  input_cached_write: 0,
+  output_reasoning: 0,
+}
+
 describe('AgentChatAdapter', () => {
   let store: ReturnType<typeof createAgentTurnStore>
 
@@ -22,7 +30,11 @@ describe('AgentChatAdapter', () => {
   it('calls POST /agent/turn with correct payload', async () => {
     mockFetchEventSource.mockImplementation(async (_url, opts) => {
       opts?.onmessage?.({
-        data: JSON.stringify({ type: 'turn.ended', reason: 'completed' }),
+        data: JSON.stringify({
+          seq: 1,
+          type: 'turn.ended',
+          payload: { reason: 'completed', usage: minUsage },
+        }),
         event: '',
         id: '',
         retry: undefined,
@@ -52,22 +64,26 @@ describe('AgentChatAdapter', () => {
     )
   })
 
-  it('yields accumulated text for answer.delta events', async () => {
+  it('yields accumulated text for answer.token events', async () => {
     mockFetchEventSource.mockImplementation(async (_url, opts) => {
       opts?.onmessage?.({
-        data: JSON.stringify({ type: 'answer.delta', text: 'Hello' }),
+        data: JSON.stringify({ seq: 1, type: 'answer.token', payload: { text: 'Hello' } }),
         event: '',
         id: '',
         retry: undefined,
       })
       opts?.onmessage?.({
-        data: JSON.stringify({ type: 'answer.delta', text: ' world' }),
+        data: JSON.stringify({ seq: 2, type: 'answer.token', payload: { text: ' world' } }),
         event: '',
         id: '',
         retry: undefined,
       })
       opts?.onmessage?.({
-        data: JSON.stringify({ type: 'turn.ended', reason: 'completed' }),
+        data: JSON.stringify({
+          seq: 3,
+          type: 'turn.ended',
+          payload: { reason: 'completed', usage: minUsage },
+        }),
         event: '',
         id: '',
         retry: undefined,
@@ -91,16 +107,24 @@ describe('AgentChatAdapter', () => {
     expect(results[1].content[0]).toEqual({ type: 'text', text: 'Hello world' })
   })
 
-  it('dispatches phase.started to the store', async () => {
+  it('dispatches phase.started to the store with sub_agents', async () => {
     mockFetchEventSource.mockImplementation(async (_url, opts) => {
       opts?.onmessage?.({
-        data: JSON.stringify({ type: 'phase.started', phase: 1, subAgents: ['planner'] }),
+        data: JSON.stringify({
+          seq: 1,
+          type: 'phase.started',
+          payload: { phase: 1, sub_agents: [{ domain: 'planner' }] },
+        }),
         event: '',
         id: '',
         retry: undefined,
       })
       opts?.onmessage?.({
-        data: JSON.stringify({ type: 'turn.ended', reason: 'completed' }),
+        data: JSON.stringify({
+          seq: 2,
+          type: 'turn.ended',
+          payload: { reason: 'completed', usage: minUsage },
+        }),
         event: '',
         id: '',
         retry: undefined,
@@ -121,21 +145,30 @@ describe('AgentChatAdapter', () => {
     expect(store.getState().activeSubAgents).toEqual(['planner'])
   })
 
-  it('dispatches draft.proposed to the store', async () => {
+  it('dispatches draft.proposed to the store with new shape', async () => {
     mockFetchEventSource.mockImplementation(async (_url, opts) => {
       opts?.onmessage?.({
         data: JSON.stringify({
+          seq: 1,
           type: 'draft.proposed',
-          draftId: 'dr-1',
-          commandType: 'tasks.create',
-          payload: {},
+          payload: {
+            action_id: 'act-1',
+            summary: 'Create a task',
+            tier: 'low',
+            requires_approval: false,
+            provenance: { sub_agent_domain: 'planner', trace_id: 'tr-1' },
+          },
         }),
         event: '',
         id: '',
         retry: undefined,
       })
       opts?.onmessage?.({
-        data: JSON.stringify({ type: 'turn.ended', reason: 'completed' }),
+        data: JSON.stringify({
+          seq: 2,
+          type: 'turn.ended',
+          payload: { reason: 'completed', usage: minUsage },
+        }),
         event: '',
         id: '',
         retry: undefined,
@@ -153,16 +186,24 @@ describe('AgentChatAdapter', () => {
     }
 
     expect(store.getState().drafts).toHaveLength(1)
-    expect(store.getState().drafts[0].draftId).toBe('dr-1')
+    expect(store.getState().drafts[0].action_id).toBe('act-1')
   })
 
   it('resets store at start of each run', async () => {
     // Put some state in the store first
-    store.getState().dispatch({ type: 'phase.started', phase: 2, subAgents: ['old'] })
+    store.getState().dispatch({
+      seq: 1,
+      type: 'phase.started',
+      payload: { phase: 2, sub_agents: [{ domain: 'old' }] },
+    })
 
     mockFetchEventSource.mockImplementation(async (_url, opts) => {
       opts?.onmessage?.({
-        data: JSON.stringify({ type: 'turn.ended', reason: 'completed' }),
+        data: JSON.stringify({
+          seq: 1,
+          type: 'turn.ended',
+          payload: { reason: 'completed', usage: minUsage },
+        }),
         event: '',
         id: '',
         retry: undefined,
@@ -208,7 +249,11 @@ describe('AgentChatAdapter', () => {
   it('passes abortSignal to fetchEventSource', async () => {
     mockFetchEventSource.mockImplementation(async (_url, opts) => {
       opts?.onmessage?.({
-        data: JSON.stringify({ type: 'turn.ended', reason: 'cancelled' }),
+        data: JSON.stringify({
+          seq: 1,
+          type: 'turn.ended',
+          payload: { reason: 'cancelled', usage: minUsage },
+        }),
         event: '',
         id: '',
         retry: undefined,

@@ -1,6 +1,14 @@
 import { Inject, Module, type OnModuleInit, type OnApplicationBootstrap } from '@nestjs/common'
 import { JwtModule } from '@nestjs/jwt'
 import { ConfigModule, ConfigService } from '@nestjs/config'
+// Plan 06 — Streaming + SSE + Cancellation
+import { ActiveTurnRegistry } from './application/services/active-turn-registry'
+import { RequestContextDiscipline } from './application/services/request-context-discipline'
+import { CrossPodCancelService } from './infrastructure/cross-pod-cancel'
+import { AgentTurnController } from './interface/http/agent-turn-controller'
+import { AgentCancelController } from './interface/http/agent-cancel-controller'
+import { JwtService } from '../../common/auth/jwt.service'
+import { JWT_SERVICE } from '../../common/auth/auth.module'
 import { AgentsQueryFacade } from './application/facades/agents-query.facade'
 import { AgentPermissionService } from './application/services/agent-permission.service'
 import { AgentToolExecutor } from './application/services/agent-tool-executor'
@@ -171,6 +179,7 @@ class NullTenantLister implements TenantListerLike {
       }),
     }),
   ],
+  controllers: [AgentTurnController, AgentCancelController],
   providers: [
     // ── Pre-Plan 04 repositories ───────────────────────────────────────────────
     { provide: AGENT_CHAT_SESSION_REPOSITORY, useClass: DrizzleAgentChatSessionRepository },
@@ -302,6 +311,15 @@ class NullTenantLister implements TenantListerLike {
     QualityCanarySubscription,
     ApprovalInboxThrottle,
     AdminBudgetOps,
+    // ── Plan 06 — Streaming + SSE + Cancellation ──────────────────────────────
+    ActiveTurnRegistry,
+    RequestContextDiscipline,
+    CrossPodCancelService,
+    // JwtService (custom, common/auth) — forward from global JWT_SERVICE token
+    {
+      provide: JwtService,
+      useExisting: JWT_SERVICE,
+    },
   ],
   exports: [
     AgentsQueryFacade,
