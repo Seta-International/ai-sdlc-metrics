@@ -11,7 +11,7 @@ export const auditEvent = coreSchema.table('audit_event', {
   actorId: uuid('actor_id').notNull(),
   eventType: text('event_type').notNull(),
   module: text('module').notNull(),
-  subjectId: uuid('subject_id').notNull(),
+  subjectId: text('subject_id').notNull(),
   payload: jsonb('payload').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })

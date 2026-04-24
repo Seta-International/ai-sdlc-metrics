@@ -70,6 +70,7 @@ import { GetGraphCredentialHandler } from './application/queries/get-graph-crede
 import { GetLoginOptionsHandler } from './application/queries/get-login-options.handler'
 
 import { IdentityQueryFacade } from './application/facades/identity-query.facade'
+import { IdentityMsGraphCredentialFacade } from './application/facades/identity-ms-graph-credential.facade'
 import { IdentityRouterService } from './interface/trpc/identity-router.service'
 
 const CommandHandlers = [
@@ -136,8 +137,9 @@ const QueryHandlers = [
     ...CommandHandlers,
     ...QueryHandlers,
     IdentityQueryFacade,
+    IdentityMsGraphCredentialFacade,
     IdentityRouterService,
   ],
-  exports: [IdentityQueryFacade],
+  exports: [IdentityQueryFacade, IdentityMsGraphCredentialFacade],
 })
 export class IdentityModule {}

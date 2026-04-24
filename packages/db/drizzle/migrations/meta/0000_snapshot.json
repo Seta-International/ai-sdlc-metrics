@@ -1,5 +1,5 @@
 {
-  "id": "37652f17-aab8-4b21-9e7b-309236978d12",
+  "id": "322e74ed-b1f5-42d8-99be-52119325269c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -4623,7 +4623,7 @@
         },
         "subject_id": {
           "name": "subject_id",
-          "type": "uuid",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },

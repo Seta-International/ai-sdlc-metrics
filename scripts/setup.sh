@@ -45,6 +45,12 @@ if [ "${1:-}" = "--clean" ]; then
   divider
   if docker info >/dev/null 2>&1; then
     docker compose -f docker-compose.local.yml down -v --remove-orphans
+    # Force-remove any containers that survived (e.g. started outside this compose project)
+    for cname in future-postgres future-redis; do
+      if docker ps -a --format '{{.Names}}' | grep -qx "$cname"; then
+        docker rm -f "$cname" && warn "Force-removed orphaned container: $cname"
+      fi
+    done
     info "Docker containers and volumes removed."
   else
     warn "Docker is not running — skipping."

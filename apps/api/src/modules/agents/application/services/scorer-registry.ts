@@ -24,6 +24,13 @@ import {
 
 export const SCORER_REGISTRY = Symbol('SCORER_REGISTRY')
 
+// ─── System identity constants ────────────────────────────────────────────────
+// Nil-UUID-based stable identifiers for system-level audit events that have
+// no real tenant or human actor (e.g. scorer registration at boot time).
+
+const SCORER_SYSTEM_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+const SCORER_SYSTEM_ACTOR_ID = '00000000-0000-0000-0000-000000000000'
+
 // ─── Error ─────────────────────────────────────────────────────────────────────
 
 export class ScorerRegistrationError extends Error {
@@ -79,8 +86,8 @@ export class ScorerRegistry {
       status: 'provisional',
     })
     await this.audit.recordEvent({
-      tenantId: 'system',
-      actorId: 'system',
+      tenantId: SCORER_SYSTEM_TENANT_ID,
+      actorId: SCORER_SYSTEM_ACTOR_ID,
       eventType: 'agent.scorer_registered',
       module: 'agents',
       subjectId: scorer.id,
@@ -95,8 +102,8 @@ export class ScorerRegistry {
     this.scorers.delete(scorerId)
     await this.scorerRegistrationRepo.demote(scorerId)
     await this.audit.recordEvent({
-      tenantId: 'system',
-      actorId: 'system',
+      tenantId: SCORER_SYSTEM_TENANT_ID,
+      actorId: SCORER_SYSTEM_ACTOR_ID,
       eventType: 'agent.scorer_demoted',
       module: 'agents',
       subjectId: scorerId,

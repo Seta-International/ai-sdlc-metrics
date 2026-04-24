@@ -646,7 +646,7 @@ CREATE TABLE "core"."audit_event" (
 	"actor_id" uuid NOT NULL,
 	"event_type" text NOT NULL,
 	"module" text NOT NULL,
-	"subject_id" uuid NOT NULL,
+	"subject_id" text NOT NULL,
 	"payload" jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
