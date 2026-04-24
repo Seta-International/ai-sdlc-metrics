@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { scheduleUiRouter, setScheduleHandlers } from './schedule-ui-facade'
 import type { Schedule } from '../../domain/entities/schedule.entity'
 import type { AgentDelegation } from '../../../kernel/application/facades/kernel-delegation.facade'
@@ -49,20 +50,20 @@ const RUN_ID = 'a1b2c3d4-e5f6-4a1b-8c3d-000000000005'
 function buildMockHandlers() {
   return {
     scheduleRepository: {
-      listForTenant: jest.fn().mockResolvedValue([mockSchedule]),
-      listForUser: jest.fn().mockResolvedValue([mockSchedule]),
-      create: jest.fn().mockResolvedValue({ schedule: mockSchedule, delegation: mockDelegation }),
-      pause: jest.fn().mockResolvedValue(undefined),
-      resume: jest.fn().mockResolvedValue(undefined),
-      delete: jest.fn().mockResolvedValue(undefined),
-      update: jest.fn().mockResolvedValue(undefined),
+      listForTenant: vi.fn().mockResolvedValue([mockSchedule]),
+      listForUser: vi.fn().mockResolvedValue([mockSchedule]),
+      create: vi.fn().mockResolvedValue({ schedule: mockSchedule, delegation: mockDelegation }),
+      pause: vi.fn().mockResolvedValue(undefined),
+      resume: vi.fn().mockResolvedValue(undefined),
+      delete: vi.fn().mockResolvedValue(undefined),
+      update: vi.fn().mockResolvedValue(undefined),
     },
     delegationLifecycle: {
-      listActive: jest.fn().mockResolvedValue([mockDelegation]),
-      revoke: jest.fn().mockResolvedValue(undefined),
+      listActive: vi.fn().mockResolvedValue([mockDelegation]),
+      revoke: vi.fn().mockResolvedValue(undefined),
     },
     scheduleRunRepository: {
-      updateOutcome: jest.fn().mockResolvedValue(undefined),
+      updateOutcome: vi.fn().mockResolvedValue(undefined),
     },
   }
 }
