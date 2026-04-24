@@ -35,6 +35,7 @@ export class OrgChartQueryService {
     if (!viewerEmployment) return this.getRootContext(tenantId)
 
     const viewerAssignment = await this.assignmentRepo.findCurrent(viewerEmployment.id, tenantId)
+    if (!viewerAssignment) return this.getRootContext(tenantId)
     const peerAssignments = viewerAssignment?.managerId
       ? await this.assignmentRepo.findCurrentByManagerId(viewerAssignment.managerId, tenantId)
       : []
