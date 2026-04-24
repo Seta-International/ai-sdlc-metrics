@@ -230,7 +230,7 @@ export class DrizzleDraftRepository implements IDraftRepository {
       .select()
       .from(agentDraft)
       .where(where)
-      .orderBy(agentDraft.draftedAt)
+      .orderBy(agentDraft.draftedAt, agentDraft.id)
       .limit(pageSize)
       .offset(offset)
 

@@ -1,4 +1,5 @@
 import * as z from 'zod'
+import { TRPCError } from '@trpc/server'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import { PERMISSIONS } from '../../../../common/auth/permissions'
 import type { IDraftRepository } from '../../domain/repositories/draft.repository'
@@ -44,8 +45,12 @@ export const draftAuditRouter = router({
     .meta({ permission: PERMISSIONS.AGENT_DRAFT_AUDIT_READ })
     .input(DraftAuditQueryInput)
     .query(({ input, ctx }) => {
+      if (!ctx.tenantId) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing tenant context' })
+      }
+      const tenantId = ctx.tenantId
       return repo().listAuditDrafts({
-        tenantId: ctx.tenantId ?? '',
+        tenantId,
         initiatorUserId: input.initiatorUserId,
         approverUserId: input.approverUserId,
         tier: input.tier,

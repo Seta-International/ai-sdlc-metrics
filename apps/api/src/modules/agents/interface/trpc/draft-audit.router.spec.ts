@@ -16,12 +16,20 @@ const USER_ID = '01900000-0000-7000-8000-000000000010'
 const APPROVER_ID = '01900000-0000-7000-8000-000000000020'
 const DRAFT_ID = '01900000-0000-7000-8000-000000000099'
 
-function makeCtx(tenantId = TENANT_A) {
+function makeCtx(tenantId: string | null = TENANT_A) {
   return {
     req: { headers: {} as Record<string, string | undefined> },
     tenantId,
     actorId: USER_ID,
   }
+}
+
+function createCaller(ctx: { tenantId: string | null; actorId: string | null }) {
+  return draftAuditRouter.createCaller({
+    req: { headers: {} as Record<string, string | undefined> },
+    tenantId: ctx.tenantId,
+    actorId: ctx.actorId,
+  })
 }
 
 function makeDraft(overrides?: Partial<Draft>): Draft {
@@ -215,6 +223,13 @@ describe('draftAuditRouter', () => {
 
     expect(result.total).toBe(0)
     expect(result.items).toHaveLength(0)
+  })
+
+  // ── auth guard ────────────────────────────────────────────────────────────
+
+  it('throws UNAUTHORIZED when tenantId is missing from context', async () => {
+    const caller = createCaller({ tenantId: null, actorId: null })
+    await expect(caller.list({})).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
   })
 
   // ── no agent meta ─────────────────────────────────────────────────────────
