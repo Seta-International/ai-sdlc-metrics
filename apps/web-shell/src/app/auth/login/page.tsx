@@ -3,7 +3,11 @@
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Alert, AlertDescription, Button, Input, Spinner } from '@future/ui'
-import { MICROSOFT_CALLBACK_URL, DEFAULT_POST_LOGIN_URL } from '../../../lib/auth-config'
+import {
+  MICROSOFT_CALLBACK_URL,
+  GOOGLE_CALLBACK_URL,
+  DEFAULT_POST_LOGIN_URL,
+} from '../../../lib/auth-config'
 import {
   getLoginOptions,
   startOAuth,
@@ -87,6 +91,31 @@ export default function LoginPage() {
     }
   }
 
+  // ----- Google OAuth -----
+
+  async function handleGoogleLogin() {
+    if (!loginOptions) return
+    const googleMethod = loginOptions.methods.find((m) => m.type === 'google')
+    if (!googleMethod) return
+
+    setOauthLoading(true)
+    setError(null)
+
+    try {
+      const result = await startOAuth({
+        tenantId: loginOptions.tenant.id,
+        providerId: googleMethod.id,
+        callbackUri: GOOGLE_CALLBACK_URL,
+        redirectTo,
+      })
+
+      window.location.href = result.authorizationUrl
+    } catch {
+      setError('Failed to start Google sign-in. Please try again.')
+      setOauthLoading(false)
+    }
+  }
+
   // ----- Magic link -----
 
   async function handleMagicLink() {
@@ -143,9 +172,12 @@ export default function LoginPage() {
 
   if (screen === 'providers' && loginOptions) {
     const microsoftMethod = loginOptions.methods.find((m) => m.type === 'microsoft')
+    const googleMethod = loginOptions.methods.find((m) => m.type === 'google')
     const emailForMagicLink = identity.includes('@') ? identity.trim() : ''
-    const hasVisibleMethods =
-      (microsoftMethod !== undefined && microsoftMethod.status === 'ready') || !!emailForMagicLink
+    const hasSsoMethod =
+      (microsoftMethod !== undefined && microsoftMethod.status === 'ready') ||
+      (googleMethod !== undefined && googleMethod.status === 'ready')
+    const hasVisibleMethods = hasSsoMethod || !!emailForMagicLink
 
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -177,9 +209,22 @@ export default function LoginPage() {
               </Button>
             )}
 
+            {googleMethod && googleMethod.status === 'ready' && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={oauthLoading || magicLinkLoading}
+                onClick={handleGoogleLogin}
+              >
+                {oauthLoading && <Spinner className="size-4" />}
+                Continue with Google
+              </Button>
+            )}
+
             {emailForMagicLink && (
               <>
-                {microsoftMethod && (
+                {hasSsoMethod && (
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
                       <div className="w-full border-t border-border" />

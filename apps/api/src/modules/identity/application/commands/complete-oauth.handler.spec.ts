@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { CompleteOAuthCommand } from './complete-oauth.command'
 import {
   CompleteOAuthHandler,
+  GoogleWorkspaceDomainMismatchException,
   MicrosoftTenantMismatchException,
   OAuthCallbackUriMismatchException,
 } from './complete-oauth.handler'
@@ -33,6 +34,7 @@ const STATE_HASH = createHash('sha256').update(RAW_STATE).digest('hex')
 const RAW_NONCE = 'raw-nonce-value-xyz456'
 const NONCE_HASH = createHash('sha256').update(RAW_NONCE).digest('hex')
 const CALLBACK_URI = 'http://localhost:3000/auth/callback/microsoft'
+const GOOGLE_CALLBACK_URI = 'http://localhost:3000/auth/callback/google'
 
 const activeTenant = {
   id: TENANT_ID,
@@ -60,6 +62,22 @@ const microsoftProvider: IdentityProviderEntity = {
   updatedAt: new Date(),
 }
 
+const googleProvider: IdentityProviderEntity = {
+  id: PROVIDER_ID,
+  tenantId: TENANT_ID,
+  providerType: 'google',
+  displayName: 'SETA Google Workspace',
+  clientId: 'google-client-id-789',
+  clientSecretRef: 'arn:aws:secretsmanager:ap-southeast-1:123:secret:google',
+  directoryId: 'seta-international.vn',
+  isPrimary: false,
+  syncEnabled: false,
+  lastSyncAt: null,
+  syncStatus: 'idle',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+}
+
 function makeSession(
   overrides?: Partial<Parameters<typeof OAuthAuthorizationSessionEntity.reconstruct>[0]>,
 ): OAuthAuthorizationSessionEntity {
@@ -72,6 +90,26 @@ function makeSession(
     stateHash: STATE_HASH,
     nonceHash: NONCE_HASH,
     callbackUri: CALLBACK_URI,
+    redirectTo: 'http://localhost:3001',
+    expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
+    consumedAt: null,
+    createdAt: now,
+    ...overrides,
+  })
+}
+
+function makeGoogleSession(
+  overrides?: Partial<Parameters<typeof OAuthAuthorizationSessionEntity.reconstruct>[0]>,
+): OAuthAuthorizationSessionEntity {
+  const now = new Date()
+  return OAuthAuthorizationSessionEntity.reconstruct({
+    id: 'session-id-google',
+    tenantId: TENANT_ID,
+    providerId: PROVIDER_ID,
+    providerType: 'google',
+    stateHash: STATE_HASH,
+    nonceHash: NONCE_HASH,
+    callbackUri: GOOGLE_CALLBACK_URI,
     redirectTo: 'http://localhost:3001',
     expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
     consumedAt: null,
@@ -416,6 +454,147 @@ describe('CompleteOAuthHandler', () => {
       await expect(
         handler.execute(new CompleteOAuthCommand('auth-code', RAW_STATE, CALLBACK_URI)),
       ).rejects.toThrow()
+    })
+  })
+
+  describe('Google hd (hosted domain) validation', () => {
+    function setupGoogleUpToTokenExchange() {
+      const session = makeGoogleSession()
+      vi.mocked(sessionRepo.findByStateHash).mockResolvedValue(session)
+      vi.mocked(kernelFacade.getTenant).mockResolvedValue(activeTenant)
+      vi.mocked(providerRepo.findById).mockResolvedValue(googleProvider)
+      vi.mocked(secretsStore.getSecret).mockResolvedValue('google-client-secret-value')
+      vi.mocked(tokenExchanger.exchange).mockResolvedValue({
+        idToken: FAKE_ID_TOKEN,
+        accessToken: FAKE_ACCESS_TOKEN,
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      })
+      vi.mocked(sessionRepo.consume).mockResolvedValue(true)
+    }
+
+    it('throws GoogleWorkspaceDomainMismatchException when hd does not match provider directoryId', async () => {
+      setupGoogleUpToTokenExchange()
+      vi.mocked(mockJwtVerify).mockResolvedValue({
+        payload: {
+          sub: 'google-sub-abc',
+          hd: 'wrong-domain.com',
+          nonce: RAW_NONCE,
+        },
+        protectedHeader: { alg: 'RS256' },
+      } as Awaited<ReturnType<typeof mockJwtVerify>>)
+
+      await expect(
+        handler.execute(new CompleteOAuthCommand('auth-code', RAW_STATE, GOOGLE_CALLBACK_URI)),
+      ).rejects.toThrow(GoogleWorkspaceDomainMismatchException)
+    })
+
+    it('throws GoogleWorkspaceDomainMismatchException when hd is absent but directoryId is set', async () => {
+      setupGoogleUpToTokenExchange()
+      vi.mocked(mockJwtVerify).mockResolvedValue({
+        payload: {
+          sub: 'google-sub-abc',
+          // hd intentionally absent — consumer Google account
+          nonce: RAW_NONCE,
+        },
+        protectedHeader: { alg: 'RS256' },
+      } as Awaited<ReturnType<typeof mockJwtVerify>>)
+
+      await expect(
+        handler.execute(new CompleteOAuthCommand('auth-code', RAW_STATE, GOOGLE_CALLBACK_URI)),
+      ).rejects.toThrow(GoogleWorkspaceDomainMismatchException)
+    })
+
+    it('succeeds when hd matches provider directoryId', async () => {
+      setupGoogleUpToTokenExchange()
+      vi.mocked(mockJwtVerify).mockResolvedValue({
+        payload: {
+          sub: 'google-sub-abc',
+          hd: 'seta-international.vn',
+          nonce: RAW_NONCE,
+        },
+        protectedHeader: { alg: 'RS256' },
+      } as Awaited<ReturnType<typeof mockJwtVerify>>)
+      vi.mocked(kernelFacade.getUserIdentityBySsoSubject).mockResolvedValue({
+        id: 'uid-google',
+        tenantId: TENANT_ID,
+        actorId: ACTOR_ID,
+        email: 'user@seta-international.vn',
+        ssoSubject: 'google-sub-abc',
+        provider: 'google',
+        status: 'active',
+        lastLoginAt: null,
+        createdAt: new Date(),
+      })
+      vi.mocked(kernelFacade.getActor).mockResolvedValue({
+        id: ACTOR_ID,
+        tenantId: TENANT_ID,
+        displayName: 'Google User',
+        type: 'user',
+        status: 'active',
+        createdAt: new Date(),
+      })
+      vi.mocked(jwtService.sign).mockResolvedValue('future-google-session-jwt')
+
+      const result = await handler.execute(
+        new CompleteOAuthCommand('auth-code', RAW_STATE, GOOGLE_CALLBACK_URI),
+      )
+
+      expect(result.sessionToken).toBe('future-google-session-jwt')
+      expect(result.redirectTo).toBe('http://localhost:3001')
+    })
+
+    it('does not check hd when provider directoryId is null (plain Google OAuth, no Workspace enforcement)', async () => {
+      const googleProviderNoDirectory: IdentityProviderEntity = {
+        ...googleProvider,
+        directoryId: null,
+      }
+      const session = makeGoogleSession()
+      vi.mocked(sessionRepo.findByStateHash).mockResolvedValue(session)
+      vi.mocked(kernelFacade.getTenant).mockResolvedValue(activeTenant)
+      vi.mocked(providerRepo.findById).mockResolvedValue(googleProviderNoDirectory)
+      vi.mocked(secretsStore.getSecret).mockResolvedValue('google-client-secret-value')
+      vi.mocked(tokenExchanger.exchange).mockResolvedValue({
+        idToken: FAKE_ID_TOKEN,
+        accessToken: FAKE_ACCESS_TOKEN,
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      })
+      vi.mocked(sessionRepo.consume).mockResolvedValue(true)
+      vi.mocked(mockJwtVerify).mockResolvedValue({
+        payload: {
+          sub: 'google-consumer-sub',
+          // no hd — consumer account
+          nonce: RAW_NONCE,
+        },
+        protectedHeader: { alg: 'RS256' },
+      } as Awaited<ReturnType<typeof mockJwtVerify>>)
+      vi.mocked(kernelFacade.getUserIdentityBySsoSubject).mockResolvedValue({
+        id: 'uid-google-consumer',
+        tenantId: TENANT_ID,
+        actorId: ACTOR_ID,
+        email: 'user@gmail.com',
+        ssoSubject: 'google-consumer-sub',
+        provider: 'google',
+        status: 'active',
+        lastLoginAt: null,
+        createdAt: new Date(),
+      })
+      vi.mocked(kernelFacade.getActor).mockResolvedValue({
+        id: ACTOR_ID,
+        tenantId: TENANT_ID,
+        displayName: 'Consumer User',
+        type: 'user',
+        status: 'active',
+        createdAt: new Date(),
+      })
+      vi.mocked(jwtService.sign).mockResolvedValue('future-session-jwt')
+
+      const result = await handler.execute(
+        new CompleteOAuthCommand('auth-code', RAW_STATE, GOOGLE_CALLBACK_URI),
+      )
+
+      expect(result.sessionToken).toBe('future-session-jwt')
     })
   })
 })

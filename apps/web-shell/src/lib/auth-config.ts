@@ -9,15 +9,6 @@ export const COOKIE_OPTIONS = {
   path: '/',
 }
 
-export const GOOGLE_CONFIG = {
-  clientId: process.env['GOOGLE_CLIENT_ID'] ?? '',
-  clientSecret: process.env['GOOGLE_CLIENT_SECRET'] ?? '',
-  redirectUri: process.env['GOOGLE_REDIRECT_URI'] ?? 'http://localhost:3000/auth/callback/google',
-  scope: 'openid profile email',
-  authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-  tokenEndpoint: 'https://oauth2.googleapis.com/token',
-}
-
 export const API_BASE_URL = process.env['API_BASE_URL'] ?? 'http://localhost:3001'
 
 /**
@@ -28,6 +19,14 @@ export const API_BASE_URL = process.env['API_BASE_URL'] ?? 'http://localhost:300
 export const MICROSOFT_CALLBACK_URL =
   process.env['NEXT_PUBLIC_MICROSOFT_REDIRECT_URI'] ??
   'http://localhost:3000/auth/callback/microsoft'
+
+/**
+ * The Google OAuth callback URL registered on the IdP app.
+ * Shell passes this to the API's startOAuth procedure; the API embeds it in the
+ * authorization URL and verifies it again during completeOAuth.
+ */
+export const GOOGLE_CALLBACK_URL =
+  process.env['NEXT_PUBLIC_GOOGLE_REDIRECT_URI'] ?? 'http://localhost:3000/auth/callback/google'
 
 /**
  * Where to redirect the user after a successful login when no explicit redirectTo is present.

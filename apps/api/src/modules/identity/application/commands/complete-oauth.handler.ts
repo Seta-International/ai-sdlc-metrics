@@ -77,6 +77,13 @@ export class MicrosoftTenantMismatchException extends DomainException {
   }
 }
 
+export class GoogleWorkspaceDomainMismatchException extends DomainException {
+  readonly code = 'GOOGLE_WORKSPACE_DOMAIN_MISMATCH'
+  constructor() {
+    super('Google hd claim does not match the required hosted domain')
+  }
+}
+
 export class UserIdentityNotFoundException extends DomainException {
   readonly code = 'USER_IDENTITY_NOT_FOUND'
   constructor(ssoSubject: string) {
@@ -110,12 +117,22 @@ export class CompleteOAuthHandler implements ICommandHandler<
     private readonly jwtService: JwtService,
   ) {}
 
-  private getJwks(directoryId: string): ReturnType<typeof createRemoteJWKSet> {
-    if (!this.jwksCache.has(directoryId)) {
+  private getMicrosoftJwks(directoryId: string): ReturnType<typeof createRemoteJWKSet> {
+    const cacheKey = `ms:${directoryId}`
+    if (!this.jwksCache.has(cacheKey)) {
       const uri = new URL(`https://login.microsoftonline.com/${directoryId}/discovery/v2.0/keys`)
-      this.jwksCache.set(directoryId, createRemoteJWKSet(uri))
+      this.jwksCache.set(cacheKey, createRemoteJWKSet(uri))
     }
-    return this.jwksCache.get(directoryId)!
+    return this.jwksCache.get(cacheKey)!
+  }
+
+  private getGoogleJwks(): ReturnType<typeof createRemoteJWKSet> {
+    const cacheKey = 'google'
+    if (!this.jwksCache.has(cacheKey)) {
+      const uri = new URL('https://www.googleapis.com/oauth2/v3/certs')
+      this.jwksCache.set(cacheKey, createRemoteJWKSet(uri))
+    }
+    return this.jwksCache.get(cacheKey)!
   }
 
   async execute(command: CompleteOAuthCommand): Promise<CompleteOAuthResult> {
@@ -154,15 +171,21 @@ export class CompleteOAuthHandler implements ICommandHandler<
     if (!provider) {
       throw new IdTokenValidationException('Provider not found for session')
     }
-    if (!provider.directoryId) {
-      throw new IdTokenValidationException('Provider has no directoryId configured')
-    }
 
     // 5. Load client secret via secrets store
     const clientSecret = await this.secretsStore.getSecret(provider.clientSecretRef)
 
-    // 6. Exchange authorization code for tokens
-    const tokenEndpoint = `https://login.microsoftonline.com/${provider.directoryId}/oauth2/v2.0/token`
+    // 6. Exchange authorization code for tokens (provider-specific endpoint)
+    let tokenEndpoint: string
+    if (provider.providerType === 'google') {
+      tokenEndpoint = 'https://oauth2.googleapis.com/token'
+    } else {
+      if (!provider.directoryId) {
+        throw new IdTokenValidationException('Provider has no directoryId configured')
+      }
+      tokenEndpoint = `https://login.microsoftonline.com/${provider.directoryId}/oauth2/v2.0/token`
+    }
+
     const tokenResult = await this.tokenExchanger.exchange({
       tokenEndpoint,
       clientId: provider.clientId,
@@ -173,12 +196,11 @@ export class CompleteOAuthHandler implements ICommandHandler<
     })
 
     // 7. Validate ID token — do NOT decode without validation
-    const JWKS = this.getJwks(provider.directoryId)
-
     let idTokenPayload: {
       sub: string
       oid?: string
       tid?: string
+      hd?: string
       email?: string
       preferred_username?: string
       name?: string
@@ -186,14 +208,29 @@ export class CompleteOAuthHandler implements ICommandHandler<
       exp?: number
     }
 
-    try {
-      const { payload } = await jwtVerify(tokenResult.idToken, JWKS, {
-        issuer: `https://login.microsoftonline.com/${provider.directoryId}/v2.0`,
-        audience: provider.clientId,
-      })
-      idTokenPayload = payload as typeof idTokenPayload
-    } catch (err) {
-      throw new IdTokenValidationException(err instanceof Error ? err.message : String(err))
+    if (provider.providerType === 'google') {
+      const JWKS = this.getGoogleJwks()
+      try {
+        const { payload } = await jwtVerify(tokenResult.idToken, JWKS, {
+          issuer: 'https://accounts.google.com',
+          audience: provider.clientId,
+        })
+        idTokenPayload = payload as typeof idTokenPayload
+      } catch (err) {
+        throw new IdTokenValidationException(err instanceof Error ? err.message : String(err))
+      }
+    } else {
+      // Microsoft — directoryId is required (already validated above)
+      const JWKS = this.getMicrosoftJwks(provider.directoryId!)
+      try {
+        const { payload } = await jwtVerify(tokenResult.idToken, JWKS, {
+          issuer: `https://login.microsoftonline.com/${provider.directoryId}/v2.0`,
+          audience: provider.clientId,
+        })
+        idTokenPayload = payload as typeof idTokenPayload
+      } catch (err) {
+        throw new IdTokenValidationException(err instanceof Error ? err.message : String(err))
+      }
     }
 
     // 8. Verify nonce — compare nonce claim against stored nonceHash
@@ -206,10 +243,21 @@ export class CompleteOAuthHandler implements ICommandHandler<
       throw new IdTokenValidationException('nonce mismatch')
     }
 
-    // 9. Verify Microsoft tid matches provider directoryId
-    const tid = idTokenPayload.tid
-    if (!tid || tid !== provider.directoryId) {
-      throw new MicrosoftTenantMismatchException()
+    // 9. Provider-specific tenant/domain verification
+    if (provider.providerType === 'google') {
+      // For Google Workspace: require hd claim to match provider.directoryId when set
+      if (provider.directoryId) {
+        const hd = idTokenPayload.hd
+        if (!hd || hd !== provider.directoryId) {
+          throw new GoogleWorkspaceDomainMismatchException()
+        }
+      }
+    } else {
+      // Microsoft: verify tid matches provider directoryId
+      const tid = idTokenPayload.tid
+      if (!tid || tid !== provider.directoryId) {
+        throw new MicrosoftTenantMismatchException()
+      }
     }
 
     // 10. Atomically consume the session — returns false if a concurrent request already consumed it
@@ -219,7 +267,11 @@ export class CompleteOAuthHandler implements ICommandHandler<
     }
 
     // 11. Resolve Future user identity
-    const ssoSubject = (idTokenPayload.oid ?? idTokenPayload.sub)!
+    // For Microsoft, prefer oid (stable object ID) over sub. For Google, sub is the stable identifier.
+    const ssoSubject =
+      provider.providerType === 'google'
+        ? idTokenPayload.sub
+        : (idTokenPayload.oid ?? idTokenPayload.sub)!
     const userIdentity = await this.kernelFacade.getUserIdentityBySsoSubject(
       ssoSubject,
       session.tenantId,
@@ -239,7 +291,7 @@ export class CompleteOAuthHandler implements ICommandHandler<
       displayName: actor?.displayName ?? idTokenPayload.name ?? '',
       email: userIdentity.email,
       roles: [],
-      provider: 'microsoft',
+      provider: provider.providerType,
     })
 
     return {

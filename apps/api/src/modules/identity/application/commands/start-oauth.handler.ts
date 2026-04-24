@@ -119,17 +119,31 @@ export class StartOAuthHandler implements ICommandHandler<StartOAuthCommand, Sta
       expiresAt,
     })
 
-    // Build Microsoft authorization URL from provider metadata, not env vars
-    const authorizationUrl = new URL(
-      `https://login.microsoftonline.com/${provider.directoryId}/oauth2/v2.0/authorize`,
-    )
-    authorizationUrl.searchParams.set('client_id', provider.clientId)
-    authorizationUrl.searchParams.set('response_type', 'code')
-    authorizationUrl.searchParams.set('redirect_uri', command.callbackUri)
-    authorizationUrl.searchParams.set('scope', 'openid profile email')
-    authorizationUrl.searchParams.set('response_mode', 'query')
-    authorizationUrl.searchParams.set('state', rawState)
-    authorizationUrl.searchParams.set('nonce', rawNonce)
+    // Build provider-specific authorization URL from provider metadata, not env vars
+    let authorizationUrl: URL
+
+    if (provider.providerType === 'google') {
+      authorizationUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth')
+      authorizationUrl.searchParams.set('client_id', provider.clientId)
+      authorizationUrl.searchParams.set('response_type', 'code')
+      authorizationUrl.searchParams.set('redirect_uri', command.callbackUri)
+      authorizationUrl.searchParams.set('scope', 'openid profile email')
+      authorizationUrl.searchParams.set('state', rawState)
+      authorizationUrl.searchParams.set('nonce', rawNonce)
+      authorizationUrl.searchParams.set('access_type', 'online')
+    } else {
+      // Microsoft
+      authorizationUrl = new URL(
+        `https://login.microsoftonline.com/${provider.directoryId}/oauth2/v2.0/authorize`,
+      )
+      authorizationUrl.searchParams.set('client_id', provider.clientId)
+      authorizationUrl.searchParams.set('response_type', 'code')
+      authorizationUrl.searchParams.set('redirect_uri', command.callbackUri)
+      authorizationUrl.searchParams.set('scope', 'openid profile email')
+      authorizationUrl.searchParams.set('response_mode', 'query')
+      authorizationUrl.searchParams.set('state', rawState)
+      authorizationUrl.searchParams.set('nonce', rawNonce)
+    }
 
     return { authorizationUrl: authorizationUrl.toString() }
   }

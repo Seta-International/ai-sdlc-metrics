@@ -39,6 +39,22 @@ const microsoftProvider: IdentityProviderEntity = {
   updatedAt: new Date(),
 }
 
+const googleProvider: IdentityProviderEntity = {
+  id: PROVIDER_ID,
+  tenantId: TENANT_ID,
+  providerType: 'google',
+  displayName: 'SETA Google Workspace',
+  clientId: 'google-client-id-789',
+  clientSecretRef: 'arn:aws:secretsmanager:ap-southeast-1:123:secret:google',
+  directoryId: 'seta-international.vn',
+  isPrimary: false,
+  syncEnabled: false,
+  lastSyncAt: null,
+  syncStatus: 'idle',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+}
+
 const fakeSession: OAuthAuthorizationSessionEntity = {
   id: 'session-id-1',
   tenantId: TENANT_ID,
@@ -243,6 +259,76 @@ describe('StartOAuthHandler', () => {
           ),
         ),
       ).resolves.toBeDefined()
+    })
+  })
+
+  describe('happy path — Google', () => {
+    it('returns a Google authorization URL for an active tenant with a Google provider', async () => {
+      vi.mocked(kernelFacade.getTenant).mockResolvedValue(activeTenant)
+      vi.mocked(providerRepo.findById).mockResolvedValue(googleProvider)
+      vi.mocked(sessionRepo.insert).mockResolvedValue({
+        ...fakeSession,
+        providerType: 'google',
+        callbackUri: 'http://localhost:3000/auth/callback/google',
+      })
+
+      const result = await handler.execute(
+        new StartOAuthCommand(
+          TENANT_ID,
+          PROVIDER_ID,
+          'http://localhost:3000/auth/callback/google',
+          'http://localhost:3001',
+        ),
+      )
+
+      expect(result.authorizationUrl).toContain('https://accounts.google.com/o/oauth2/v2/auth')
+      expect(result.authorizationUrl).toContain('client_id=google-client-id-789')
+      expect(result.authorizationUrl).toContain('response_type=code')
+      expect(result.authorizationUrl).toContain('openid')
+      expect(result.authorizationUrl).toContain('access_type=online')
+    })
+
+    it('does NOT include response_mode=query for Google (Google does not support it)', async () => {
+      vi.mocked(kernelFacade.getTenant).mockResolvedValue(activeTenant)
+      vi.mocked(providerRepo.findById).mockResolvedValue(googleProvider)
+      vi.mocked(sessionRepo.insert).mockResolvedValue({
+        ...fakeSession,
+        providerType: 'google',
+        callbackUri: 'http://localhost:3000/auth/callback/google',
+      })
+
+      const result = await handler.execute(
+        new StartOAuthCommand(
+          TENANT_ID,
+          PROVIDER_ID,
+          'http://localhost:3000/auth/callback/google',
+          'http://localhost:3001',
+        ),
+      )
+
+      expect(result.authorizationUrl).not.toContain('response_mode')
+    })
+
+    it('stores session with providerType google', async () => {
+      vi.mocked(kernelFacade.getTenant).mockResolvedValue(activeTenant)
+      vi.mocked(providerRepo.findById).mockResolvedValue(googleProvider)
+      vi.mocked(sessionRepo.insert).mockResolvedValue({
+        ...fakeSession,
+        providerType: 'google',
+        callbackUri: 'http://localhost:3000/auth/callback/google',
+      })
+
+      await handler.execute(
+        new StartOAuthCommand(
+          TENANT_ID,
+          PROVIDER_ID,
+          'http://localhost:3000/auth/callback/google',
+          'http://localhost:3001',
+        ),
+      )
+
+      const insertCall = vi.mocked(sessionRepo.insert).mock.calls[0][0]
+      expect(insertCall.providerType).toBe('google')
     })
   })
 })
