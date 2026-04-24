@@ -1,7 +1,7 @@
 import { Inject, Module, OnModuleInit } from '@nestjs/common'
 import { JWT_SERVICE } from '../auth/auth.module'
 import type { JwtService } from '../auth/jwt.service'
-import { createAuthenticatedProcedure } from './trpc-init'
+import { createAuthenticatedProcedure, publicProcedure } from './trpc-init'
 import { createProtectedProcedures } from './create-protected-procedures'
 import { KernelModule } from '../../modules/kernel/kernel.module'
 import { KernelQueryFacade } from '../../modules/kernel/application/facades/kernel-query.facade'
@@ -17,6 +17,8 @@ import { NotificationsModule } from '../../modules/notifications/notifications.m
 import { createKernelRouter } from '../../modules/kernel/interface/trpc/kernel.router'
 import { createPeopleRouter } from '../../modules/people/interface/trpc/people.router'
 import { createIdentityAdminRouter } from '../../modules/identity/interface/trpc/identity.router'
+import { createAuthGatewayRouter } from '../../modules/identity/interface/trpc/auth-gateway.router'
+import { GetLoginOptionsHandler } from '../../modules/identity/application/queries/get-login-options.handler'
 import { createAdminRouter } from '../../modules/admin/interface/trpc/admin.router'
 import { setIdentityJwtService } from '../../modules/kernel/interface/trpc/identity.router'
 import {
@@ -24,6 +26,7 @@ import {
   setPeopleRouter,
   setIdentityAdminRouter,
   setAdminRouter,
+  setAuthGatewayRouter,
   setPreferencesRouter,
   createPreferencesRouter,
   setDocumentsRouter,
@@ -51,6 +54,7 @@ export class TrpcModule implements OnModuleInit {
     private readonly auditFacade: KernelAuditFacade,
     private readonly peopleFacade: PeopleQueryFacade,
     private readonly preferencesFacade: PreferencesQueryFacade,
+    private readonly getLoginOptionsHandler: GetLoginOptionsHandler,
   ) {}
 
   onModuleInit() {
@@ -73,6 +77,7 @@ export class TrpcModule implements OnModuleInit {
       ),
     )
     setIdentityAdminRouter(createIdentityAdminRouter(permissionProtectedProcedure))
+    setAuthGatewayRouter(createAuthGatewayRouter(publicProcedure, this.getLoginOptionsHandler))
     setAdminRouter(createAdminRouter(permissionProtectedProcedure))
     setPreferencesRouter(
       createPreferencesRouter(permissionProtectedProcedure, this.preferencesFacade),

@@ -13,9 +13,12 @@ import type { ValidateApiKeyResult } from '../queries/validate-api-key.handler'
 import type { MsGraphCredentialEntity } from '../../domain/entities/ms-graph-credential.entity'
 import type { GroupMemberResolution } from '../queries/list-group-members.handler'
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
+import { GetLoginOptionsQuery } from '../queries/get-login-options.query'
+import type { LoginOptionsResult } from '../queries/get-login-options.handler'
 
 export type { GroupMemberResolution } from '../queries/list-group-members.handler'
 export type { MsGraphCredentialEntity } from '../../domain/entities/ms-graph-credential.entity'
+export type { LoginOptionsResult } from '../queries/get-login-options.handler'
 
 @Injectable()
 export class IdentityQueryFacade {
@@ -63,5 +66,16 @@ export class IdentityQueryFacade {
   async getActorIdByExternalUserId(aadUserId: string, tenantId: string): Promise<string | null> {
     const identity = await this.kernelQueryFacade.getUserIdentityBySsoSubject(aadUserId, tenantId)
     return identity?.actorId ?? null
+  }
+
+  /**
+   * Public login discovery: resolves tenant + available SSO methods by slug or email domain.
+   * Does not require a session. Returns null if the tenant cannot be found.
+   */
+  getLoginOptions(
+    slug: string | null,
+    emailDomain: string | null,
+  ): Promise<LoginOptionsResult | null> {
+    return this.queryBus.execute(new GetLoginOptionsQuery(slug, emailDomain))
   }
 }

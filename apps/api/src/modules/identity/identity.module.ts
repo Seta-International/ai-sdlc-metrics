@@ -63,9 +63,9 @@ import { GetIdpGroupMappingsHandler } from './application/queries/get-idp-group-
 import { ValidateApiKeyHandler } from './application/queries/validate-api-key.handler'
 import { ListGroupMembersHandler } from './application/queries/list-group-members.handler'
 import { GetGraphCredentialHandler } from './application/queries/get-graph-credential.handler'
+import { GetLoginOptionsHandler } from './application/queries/get-login-options.handler'
 
 import { IdentityQueryFacade } from './application/facades/identity-query.facade'
-import { IdentityMsGraphCredentialFacade } from './application/facades/identity-ms-graph-credential.facade'
 import { IdentityRouterService } from './interface/trpc/identity-router.service'
 
 const CommandHandlers = [
@@ -97,6 +97,7 @@ const QueryHandlers = [
   ValidateApiKeyHandler,
   ListGroupMembersHandler,
   GetGraphCredentialHandler,
+  GetLoginOptionsHandler,
 ]
 
 @Module({
@@ -128,9 +129,8 @@ const QueryHandlers = [
     ...CommandHandlers,
     ...QueryHandlers,
     IdentityQueryFacade,
-    IdentityMsGraphCredentialFacade,
     IdentityRouterService,
   ],
-  exports: [IdentityQueryFacade, IdentityMsGraphCredentialFacade],
+  exports: [IdentityQueryFacade, GetLoginOptionsHandler],
 })
 export class IdentityModule {}

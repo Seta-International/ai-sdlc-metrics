@@ -1,0 +1,66 @@
+import { describe, expect, it, vi } from 'vitest'
+import { createAuthGatewayRouter } from './auth-gateway.router'
+import { publicProcedure } from '../../../../common/trpc/trpc-init'
+import type { GetLoginOptionsHandler } from '../../application/queries/get-login-options.handler'
+import type { LoginOptionsResult } from '../../application/queries/get-login-options.handler'
+
+const TENANT_ID = '01900000-0000-7000-8000-000000000001'
+
+const fakeLoginOptionsResult: LoginOptionsResult = {
+  tenant: {
+    id: TENANT_ID,
+    slug: 'seta',
+    name: 'SETA International',
+    status: 'active',
+  },
+  methods: [
+    {
+      type: 'microsoft',
+      displayName: 'SETA Entra',
+      clientId: 'client-id-123',
+      directoryId: 'directory-id-456',
+      status: 'ready',
+    },
+  ],
+}
+
+describe('authGatewayRouter — structural', () => {
+  const fakeHandler = {
+    execute: vi.fn(),
+  } as unknown as GetLoginOptionsHandler
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const r = createAuthGatewayRouter(publicProcedure, fakeHandler) as any
+  const procs = r._def.procedures
+
+  it('router is constructible', () => {
+    expect(r).toBeDefined()
+    expect(procs).toBeDefined()
+  })
+
+  it('exposes getLoginOptions procedure', () => {
+    expect(procs['getLoginOptions']).toBeDefined()
+  })
+
+  it('getLoginOptions has no permission meta (public procedure)', () => {
+    // Public auth-gateway procedures must not require a Future session
+    expect(procs['getLoginOptions']?.meta?.permission).toBeUndefined()
+  })
+})
+
+describe('authGatewayRouter — getLoginOptions invocation', () => {
+  it('delegates to the handler and returns its result', async () => {
+    const fakeHandler = {
+      execute: vi.fn().mockResolvedValue(fakeLoginOptionsResult),
+    } as unknown as GetLoginOptionsHandler
+
+    const r = createAuthGatewayRouter(publicProcedure, fakeHandler)
+    const ctx = { req: { headers: {} }, tenantId: null, actorId: null }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const caller = (r as any).createCaller(ctx)
+    const result = await caller.getLoginOptions({ slug: 'seta', emailDomain: null })
+
+    expect(fakeHandler.execute).toHaveBeenCalledOnce()
+    expect(result).toEqual(fakeLoginOptionsResult)
+  })
+})

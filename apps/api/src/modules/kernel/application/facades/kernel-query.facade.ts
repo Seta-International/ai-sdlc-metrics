@@ -122,4 +122,13 @@ export class KernelQueryFacade {
     const tenants = await this.tenantRepo.findAll()
     return tenants.map((t) => t.id)
   }
+
+  /**
+   * Look up a tenant by its URL slug (e.g. "seta").
+   * Returns null if no tenant with that slug exists.
+   * Used by the auth-gateway discovery flow — no RLS context required.
+   */
+  getTenantBySlug(slug: string): Promise<Tenant | null> {
+    return this.tenantRepo.findBySlug(slug)
+  }
 }
