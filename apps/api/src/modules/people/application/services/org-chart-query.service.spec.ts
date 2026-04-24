@@ -224,29 +224,34 @@ describe('OrgChartQueryService', () => {
   })
 
   it('returns sorted root nodes when the viewer has no active employment', async () => {
-    const root = employment(managerEmploymentId)
     const service = new OrgChartQueryService(
       {
         findActiveByActorId: vi.fn().mockResolvedValue(null),
-        findManyByIds: vi.fn().mockResolvedValue([root]),
-        findActiveRootEmployments: vi.fn().mockResolvedValue([root]),
+        findActiveRootEmployments: vi
+          .fn()
+          .mockResolvedValue([employment(reportEmploymentId), employment(managerEmploymentId)]),
       } as never,
       {
-        findCurrentMany: vi.fn().mockResolvedValue([assignment(managerEmploymentId, null)]),
+        findCurrentMany: vi
+          .fn()
+          .mockResolvedValue([
+            assignment(reportEmploymentId, null),
+            assignment(managerEmploymentId, null),
+          ]),
         countCurrentByManagerId: vi.fn().mockResolvedValue(0),
       } as never,
-      directoryRepo([[managerEmploymentId, 'Chris Root', 'CEO']]) as never,
+      directoryRepo([
+        [reportEmploymentId, 'Zed Root', 'COO'],
+        [managerEmploymentId, 'Ada Root', 'CEO'],
+      ]) as never,
     )
 
     const result = await service.getContext(tenantId, viewerActorId)
 
     expect(result.focusEmploymentId).toBeNull()
-    expect(result.rootEmploymentIds).toEqual([managerEmploymentId])
-    expect(result.nodes[0]).toMatchObject({
-      relationshipToViewer: 'root',
-      fullName: 'Chris Root',
-      jobTitle: 'CEO',
-    })
+    expect(result.rootEmploymentIds).toEqual([managerEmploymentId, reportEmploymentId])
+    expect(result.nodes.map((node) => node.fullName)).toEqual(['Ada Root', 'Zed Root'])
+    expect(result.nodes.map((node) => node.relationshipToViewer)).toEqual(['root', 'root'])
   })
 
   it('falls back to root nodes when the viewer has no active employment', async () => {
