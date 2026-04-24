@@ -40,6 +40,7 @@ export function OrgChartNodeComponent(props: OrgChartNodeProps) {
   const childError = childErrorsById.get(node.employmentId)
   const initials = node.fullName
     .split(' ')
+    .filter(Boolean)
     .map((part) => part[0])
     .join('')
     .slice(0, 2)
@@ -51,7 +52,10 @@ export function OrgChartNodeComponent(props: OrgChartNodeProps) {
         <button
           type="button"
           aria-label={`${isExpanded ? 'Collapse' : 'Expand'} direct reports for ${node.fullName}`}
-          onClick={() => (isExpanded ? onCollapse(node.employmentId) : onExpand(node.employmentId))}
+          onClick={() => {
+            if (!node.hasDirectReports) return
+            isExpanded ? onCollapse(node.employmentId) : onExpand(node.employmentId)
+          }}
           className={[
             'flex items-center gap-2 rounded-full border px-3 py-1.5',
             node.relationshipToViewer === 'self'
