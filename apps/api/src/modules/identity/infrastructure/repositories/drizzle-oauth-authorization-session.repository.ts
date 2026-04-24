@@ -1,10 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common'
 import type { Db } from '@future/db'
 import { and, eq, gt, isNull } from 'drizzle-orm'
-import {
-  OAuthAuthorizationSessionEntity,
-  OAuthProviderType,
-} from '../../domain/entities/oauth-authorization-session.entity'
+import { OAuthAuthorizationSessionEntity } from '../../domain/entities/oauth-authorization-session.entity'
+import type { IdpProviderType } from '../../domain/entities/identity-provider.entity'
 import type { IOAuthAuthorizationSessionRepository } from '../../domain/repositories/oauth-authorization-session.repository'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { oauthAuthorizationSession } from '../schema/index'
@@ -16,7 +14,7 @@ function toEntity(row: OAuthSessionRow): OAuthAuthorizationSessionEntity {
     id: row.id,
     tenantId: row.tenantId,
     providerId: row.providerId,
-    providerType: row.providerType as OAuthProviderType,
+    providerType: row.providerType as IdpProviderType,
     stateHash: row.stateHash,
     nonceHash: row.nonceHash,
     redirectTo: row.redirectTo,
@@ -33,7 +31,7 @@ export class DrizzleOAuthAuthorizationSessionRepository implements IOAuthAuthori
   async insert(data: {
     tenantId: string
     providerId: string
-    providerType: OAuthProviderType
+    providerType: IdpProviderType
     stateHash: string
     nonceHash: string
     redirectTo: string

@@ -1,11 +1,11 @@
-export type OAuthProviderType = 'microsoft' | 'google'
+import type { IdpProviderType } from './identity-provider.entity'
 
 export class OAuthAuthorizationSessionEntity {
   constructor(
     public readonly id: string,
     public readonly tenantId: string,
     public readonly providerId: string,
-    public readonly providerType: OAuthProviderType,
+    public readonly providerType: IdpProviderType,
     public readonly stateHash: string,
     public readonly nonceHash: string,
     public readonly redirectTo: string,
@@ -18,7 +18,7 @@ export class OAuthAuthorizationSessionEntity {
     id?: string
     tenantId: string
     providerId: string
-    providerType: OAuthProviderType
+    providerType: IdpProviderType
     stateHash: string
     nonceHash: string
     redirectTo: string
@@ -44,7 +44,7 @@ export class OAuthAuthorizationSessionEntity {
     id: string
     tenantId: string
     providerId: string
-    providerType: OAuthProviderType
+    providerType: IdpProviderType
     stateHash: string
     nonceHash: string
     redirectTo: string
