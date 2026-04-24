@@ -21,13 +21,9 @@ export const agentDraft = agentsSchema.table(
     id: uuid('id')
       .$defaultFn(() => uuidv7())
       .primaryKey(),
-    /** RLS isolation column — required on every table. */
     tenantId: uuid('tenant_id').notNull(),
-    /** OTel trace that produced this draft — links to agent_tool_invocation. */
     traceId: uuid('trace_id').notNull(),
-    /** Workflow / planning flow that triggered the draft. */
     flowId: uuid('flow_id').notNull(),
-    /** The user whose session initiated the async flow. */
     initiatorUserId: uuid('initiator_user_id').notNull(),
     /**
      * The user on whose behalf the action will be executed.
@@ -98,11 +94,8 @@ export const agentDraft = agentsSchema.table(
     taintAtDraftTime: boolean('taint_at_draft_time').notNull().default(false),
   },
   (t) => [
-    /** TTL sweeper scans by (tenant, status, expires_at). */
     index('agent_draft_tenant_status_expires_idx').on(t.tenantId, t.status, t.expiresAt),
-    /** Approval-inbox queries filter by (tenant, approver, status). */
     index('agent_draft_tenant_approver_status_idx').on(t.tenantId, t.approverUserId, t.status),
-    /** Trace correlation — joins with agent_tool_invocation. */
     index('agent_draft_trace_idx').on(t.traceId),
   ],
 )

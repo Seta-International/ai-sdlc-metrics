@@ -19,7 +19,6 @@ export const agentDelegation = coreSchema.table(
     id: uuid('id')
       .$defaultFn(() => uuidv7())
       .primaryKey(),
-    /** RLS isolation column — required on every table. */
     tenantId: uuid('tenant_id').notNull(),
     /**
      * The human user on whose behalf the agent is acting.

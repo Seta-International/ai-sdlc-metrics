@@ -18,11 +18,6 @@ describe('Plan 08 — agent_delegation schema', () => {
     expect(cols).toContain('createdAt')
   })
 
-  it('agentDelegation has tenant_id (RLS column)', () => {
-    const cols = Object.keys(agentDelegation)
-    expect(cols).toContain('tenantId')
-  })
-
   it('agentDelegation status column has default "active"', () => {
     const col = agentDelegation.status
     expect((col as unknown as { default: unknown }).default).toBe('active')

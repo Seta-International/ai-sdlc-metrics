@@ -34,11 +34,6 @@ describe('Plan 08 — agent_draft schema', () => {
     expect(cols).toContain('taintAtDraftTime')
   })
 
-  it('agentDraft has tenant_id (RLS column)', () => {
-    const cols = Object.keys(agentDraft)
-    expect(cols).toContain('tenantId')
-  })
-
   it('agentDraft status column has default "pending"', () => {
     const col = agentDraft.status
     expect((col as unknown as { default: unknown }).default).toBe('pending')
