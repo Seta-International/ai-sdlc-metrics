@@ -7,13 +7,30 @@ import {
 import type { Tenant } from '../../domain/entities/tenant.entity'
 import { ListTenantsQuery } from './list-tenants.query'
 
-export type TenantSummaryDto = Tenant
+export interface TenantSummaryDto {
+  id: string
+  slug: string
+  name: string
+  status: Tenant['status']
+  planTier: Tenant['planTier']
+  createdAt: Date
+  updatedAt: Date
+}
 
 @QueryHandler(ListTenantsQuery)
 export class ListTenantsHandler implements IQueryHandler<ListTenantsQuery, TenantSummaryDto[]> {
   constructor(@Inject(TENANT_REPOSITORY) private readonly tenantRepo: ITenantRepository) {}
 
-  execute(_query: ListTenantsQuery): Promise<TenantSummaryDto[]> {
-    return this.tenantRepo.findAll()
+  async execute(_query: ListTenantsQuery): Promise<TenantSummaryDto[]> {
+    const tenants = await this.tenantRepo.findAll()
+    return tenants.map((t) => ({
+      id: t.id,
+      slug: t.slug,
+      name: t.name,
+      status: t.status,
+      planTier: t.planTier,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
+    }))
   }
 }

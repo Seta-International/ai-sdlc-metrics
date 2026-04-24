@@ -1,3 +1,1 @@
-export class ListTenantsQuery {
-  constructor(readonly requestorActorId: string) {}
-}
+export class ListTenantsQuery {}

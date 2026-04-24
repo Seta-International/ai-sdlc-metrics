@@ -5,7 +5,6 @@ import type { Tenant } from '../../domain/entities/tenant.entity'
 import type { ITenantRepository } from '../../domain/repositories/tenant.repository.port'
 
 const SYSTEM_TENANT_ID = '01900000-0000-7000-8000-aaaaaaaaaaaa'
-const ACTOR_ID = '01900000-0000-7000-8000-bbbbbbbbbbbb'
 
 const fakeSystemTenant: Tenant = {
   id: SYSTEM_TENANT_ID,
@@ -67,7 +66,7 @@ describe('ListTenantsHandler', () => {
   it('returns all tenants including active, suspended, and cancelled', async () => {
     vi.mocked(tenantRepo.findAll).mockResolvedValue(fakeTenants)
 
-    const result = await handler.execute(new ListTenantsQuery(ACTOR_ID))
+    const result = await handler.execute(new ListTenantsQuery())
 
     expect(result).toHaveLength(4)
     expect(result.map((t) => t.status)).toEqual(
@@ -78,7 +77,7 @@ describe('ListTenantsHandler', () => {
   it('includes system tenant in the results', async () => {
     vi.mocked(tenantRepo.findAll).mockResolvedValue(fakeTenants)
 
-    const result = await handler.execute(new ListTenantsQuery(ACTOR_ID))
+    const result = await handler.execute(new ListTenantsQuery())
 
     expect(result.some((t) => t.slug === 'future-system')).toBe(true)
   })
@@ -86,7 +85,7 @@ describe('ListTenantsHandler', () => {
   it('returns empty array when no tenants exist', async () => {
     vi.mocked(tenantRepo.findAll).mockResolvedValue([])
 
-    const result = await handler.execute(new ListTenantsQuery(ACTOR_ID))
+    const result = await handler.execute(new ListTenantsQuery())
 
     expect(result).toEqual([])
   })
@@ -94,7 +93,7 @@ describe('ListTenantsHandler', () => {
   it('exposes id, name, slug, status, planTier, createdAt, updatedAt fields', async () => {
     vi.mocked(tenantRepo.findAll).mockResolvedValue([fakeTenants[0]!])
 
-    const result = await handler.execute(new ListTenantsQuery(ACTOR_ID))
+    const result = await handler.execute(new ListTenantsQuery())
 
     const t = result[0]!
     expect(t).toHaveProperty('id')

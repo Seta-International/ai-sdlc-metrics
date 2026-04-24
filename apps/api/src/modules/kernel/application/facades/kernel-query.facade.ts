@@ -130,8 +130,8 @@ export class KernelQueryFacade {
    * Intended for platform_admin use — route-level auth enforcement is the caller's
    * responsibility.
    */
-  listTenants(requestorActorId: string): Promise<TenantSummaryDto[]> {
-    return this.queryBus.execute(new ListTenantsQuery(requestorActorId))
+  listTenants(): Promise<TenantSummaryDto[]> {
+    return this.queryBus.execute(new ListTenantsQuery())
   }
 
   /**

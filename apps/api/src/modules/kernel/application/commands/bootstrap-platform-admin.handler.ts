@@ -69,7 +69,9 @@ export class BootstrapPlatformAdminHandler implements ICommandHandler<
       name: SYSTEM_TENANT_NAME,
     })
 
-    // 2. Find or create the actor+identity for the platform admin email
+    // 2. Find or create the actor+identity for the platform admin email.
+    //    IDs are deterministic so this path is idempotent across API calls and
+    //    seed.ts runs — both produce the same actor/identity IDs for a given email.
     const existingIdentity = await this.identityRepo.findByEmailAndTenant(
       platformAdminEmail,
       systemTenant.id,
@@ -81,17 +83,22 @@ export class BootstrapPlatformAdminHandler implements ICommandHandler<
       // Actor already provisioned — reuse it
       actorId = existingIdentity.actorId
     } else {
+      // Deterministic actor ID — matches bootstrapUuid('actor:' + email) in seed.ts
+      actorId = deterministicUuid('actor:' + platformAdminEmail)
+      const identityId = deterministicUuid('identity:' + platformAdminEmail)
+
       // Create a new person actor for this email
-      const newActor = await this.actorRepo.insert({
+      await this.actorRepo.insert({
+        id: actorId,
         tenantId: systemTenant.id,
         type: 'person',
         displayName: platformAdminEmail,
         status: 'active',
       })
-      actorId = newActor.id
 
       // Create a local placeholder identity (no password, no raw secret)
       await this.identityRepo.insert({
+        id: identityId,
         tenantId: systemTenant.id,
         actorId,
         email: platformAdminEmail,
@@ -116,20 +123,16 @@ export class BootstrapPlatformAdminHandler implements ICommandHandler<
       })
     }
 
-    // 4. Seed role permissions for platform_admin in the system tenant if missing
-    const existingPermissions = await this.rolePermissionRepo.findByTenantId(systemTenant.id)
-    const hasPlatformAdminPerms = existingPermissions.some((p) => p.roleKey === PLATFORM_ADMIN_ROLE)
-
-    if (!hasPlatformAdminPerms) {
-      const entries = DEFAULT_ROLE_PERMISSIONS[PLATFORM_ADMIN_ROLE] ?? []
-      for (const entry of entries) {
-        await this.rolePermissionRepo.insert({
-          tenantId: systemTenant.id,
-          roleKey: PLATFORM_ADMIN_ROLE,
-          permissionKey: entry.permissionKey,
-          isLocked: entry.isLocked,
-        })
-      }
-    }
+    // 4. Seed role permissions for platform_admin — ON CONFLICT DO NOTHING handles
+    //    duplicates, so re-runs are additive (new permissions are always inserted).
+    const entries = DEFAULT_ROLE_PERMISSIONS[PLATFORM_ADMIN_ROLE] ?? []
+    await this.rolePermissionRepo.insertMany(
+      entries.map((entry) => ({
+        tenantId: systemTenant.id,
+        roleKey: PLATFORM_ADMIN_ROLE,
+        permissionKey: entry.permissionKey,
+        isLocked: entry.isLocked,
+      })),
+    )
   }
 }

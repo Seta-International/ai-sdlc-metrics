@@ -29,6 +29,7 @@ export class DrizzleActorRepository implements IActorRepository {
   }
 
   async insert(data: {
+    id?: string
     tenantId: string
     type: Actor['type']
     displayName: string
@@ -37,6 +38,7 @@ export class DrizzleActorRepository implements IActorRepository {
     const rows = await this.db
       .insert(actor)
       .values({
+        ...(data.id !== undefined ? { id: data.id } : {}),
         tenantId: data.tenantId,
         type: data.type,
         displayName: data.displayName,
