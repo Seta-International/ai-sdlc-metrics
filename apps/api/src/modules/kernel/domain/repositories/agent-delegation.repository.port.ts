@@ -1,4 +1,4 @@
-import type { AgentDelegationRow } from '../../infrastructure/schema/agent-delegation.schema'
+import type { AgentDelegation } from '../entities/agent-delegation.entity'
 
 export const AGENT_DELEGATION_REPOSITORY = Symbol('IAgentDelegationRepository')
 
@@ -12,7 +12,7 @@ export interface IAgentDelegationRepository {
     status?: string
   }): Promise<{ id: string }>
 
-  getById(opts: { tenantId: string; delegationId: string }): Promise<AgentDelegationRow | null>
+  getById(opts: { tenantId: string; delegationId: string }): Promise<AgentDelegation | null>
 
   updateStatus(opts: {
     tenantId: string

@@ -5,6 +5,7 @@ import { DB_TOKEN } from '../../../../common/db/db.module'
 import { agentDelegation } from '../schema/agent-delegation.schema'
 import type { AgentDelegationRow } from '../schema/agent-delegation.schema'
 import type { IAgentDelegationRepository } from '../../domain/repositories/agent-delegation.repository.port'
+import type { AgentDelegation } from '../../domain/entities/agent-delegation.entity'
 
 @Injectable()
 export class DrizzleAgentDelegationRepository implements IAgentDelegationRepository {
@@ -26,17 +27,14 @@ export class DrizzleAgentDelegationRepository implements IAgentDelegationReposit
         delegate: delegation.delegate,
         scope: delegation.scope,
         expiresAt: delegation.expiresAt,
-        ...(delegation.status ? { status: delegation.status } : {}),
+        ...(delegation.status !== undefined ? { status: delegation.status } : {}),
       })
       .returning({ id: agentDelegation.id })
 
     return { id: row!.id }
   }
 
-  async getById(opts: {
-    tenantId: string
-    delegationId: string
-  }): Promise<AgentDelegationRow | null> {
+  async getById(opts: { tenantId: string; delegationId: string }): Promise<AgentDelegation | null> {
     const rows = await this.db
       .select()
       .from(agentDelegation)
@@ -44,7 +42,21 @@ export class DrizzleAgentDelegationRepository implements IAgentDelegationReposit
         and(eq(agentDelegation.tenantId, opts.tenantId), eq(agentDelegation.id, opts.delegationId)),
       )
 
-    return rows[0] ?? null
+    const row = rows[0]
+    return row ? this.toDomain(row) : null
+  }
+
+  private toDomain(row: AgentDelegationRow): AgentDelegation {
+    return {
+      id: row.id,
+      tenantId: row.tenantId,
+      delegatorUserId: row.delegatorUserId,
+      delegate: row.delegate,
+      scope: row.scope as Record<string, unknown>,
+      expiresAt: row.expiresAt,
+      status: row.status as 'active' | 'expired' | 'revoked',
+      createdAt: row.createdAt,
+    }
   }
 
   async updateStatus(opts: {

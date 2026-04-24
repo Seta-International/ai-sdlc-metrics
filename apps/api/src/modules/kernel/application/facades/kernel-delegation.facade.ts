@@ -3,7 +3,7 @@ import {
   AGENT_DELEGATION_REPOSITORY,
   type IAgentDelegationRepository,
 } from '../../domain/repositories/agent-delegation.repository.port'
-import type { AgentDelegationRow } from '../../infrastructure/schema/agent-delegation.schema'
+import type { AgentDelegation } from '../../domain/entities/agent-delegation.entity'
 
 /**
  * KernelDelegationFacade — the only cross-module write interface for agent delegation grants.
@@ -39,10 +39,7 @@ export class KernelDelegationFacade {
     })
   }
 
-  getDelegation(opts: {
-    tenantId: string
-    delegationId: string
-  }): Promise<AgentDelegationRow | null> {
+  getDelegation(opts: { tenantId: string; delegationId: string }): Promise<AgentDelegation | null> {
     return this.delegationRepo.getById(opts)
   }
 }

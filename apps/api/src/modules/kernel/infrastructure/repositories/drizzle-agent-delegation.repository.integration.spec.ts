@@ -98,7 +98,6 @@ describe('DrizzleAgentDelegationRepository', () => {
         expiresAt,
       })
 
-      // Query with tenant B — should return null even though the row exists for tenant A
       const row = await repo.getById({ tenantId: TENANT_B, delegationId: id })
       expect(row).toBeNull()
     })
