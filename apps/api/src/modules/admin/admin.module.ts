@@ -11,8 +11,13 @@ import { GetTenantTimezoneHandler } from './application/queries/get-tenant-timez
 import { UpdateTenantTimezoneHandler } from './application/commands/update-tenant-timezone.handler'
 import { ListPlatformTenantsHandler } from './application/queries/list-platform-tenants.handler'
 import { UpdateTargetTenantStatusHandler } from './application/commands/update-target-tenant-status.handler'
+import { GetTenantAdminSummaryHandler } from './application/queries/get-tenant-admin-summary.handler'
+import { UpdateModuleTogglesHandler } from './application/commands/update-module-toggles.handler'
+import { UpsertAiProviderConfigHandler } from './application/commands/upsert-ai-provider-config.handler'
 import { DrizzleTenantEmailConfigRepository } from './infrastructure/repositories/drizzle-tenant-email-config.repository'
 import { TENANT_EMAIL_CONFIG_REPOSITORY } from './domain/repositories/tenant-email-config.repository.port'
+import { SECRETS_STORE } from './domain/ports/secrets-store.port'
+import { AdminAwsSecretsStoreAdapter } from './infrastructure/secrets/admin-aws-secrets-store.adapter'
 
 @Module({
   imports: [CqrsModule, KernelModule],
@@ -27,9 +32,19 @@ import { TENANT_EMAIL_CONFIG_REPOSITORY } from './domain/repositories/tenant-ema
     UpdateTenantTimezoneHandler,
     ListPlatformTenantsHandler,
     UpdateTargetTenantStatusHandler,
+    GetTenantAdminSummaryHandler,
+    UpdateModuleTogglesHandler,
+    UpsertAiProviderConfigHandler,
     {
       provide: TENANT_EMAIL_CONFIG_REPOSITORY,
       useClass: DrizzleTenantEmailConfigRepository,
+    },
+    {
+      provide: SECRETS_STORE,
+      useFactory: () =>
+        new AdminAwsSecretsStoreAdapter({
+          region: process.env['AWS_REGION'] ?? 'ap-southeast-1',
+        }),
     },
   ],
   exports: [AdminQueryFacade],

@@ -30,6 +30,23 @@ CREATE SCHEMA "projects";
 --> statement-breakpoint
 CREATE SCHEMA "time";
 --> statement-breakpoint
+CREATE TABLE "admin"."tenant_ai_provider_config" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"provider_type" text NOT NULL,
+	"api_key_ref" text NOT NULL,
+	"api_key_last_four" text,
+	"default_reasoning_model" text DEFAULT 'gpt-5.4' NOT NULL,
+	"default_classification_model" text DEFAULT 'gpt-5.4-nano' NOT NULL,
+	"embedding_model" text DEFAULT 'text-embedding-3-small' NOT NULL,
+	"status" text DEFAULT 'needs_attention' NOT NULL,
+	"last_validated_at" timestamp with time zone,
+	"last_error" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "tenant_ai_provider_config_tenant_id_unique" UNIQUE("tenant_id")
+);
+--> statement-breakpoint
 CREATE TABLE "admin"."tenant_email_config" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"tenant_id" uuid NOT NULL,
@@ -41,6 +58,15 @@ CREATE TABLE "admin"."tenant_email_config" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "tenant_email_config_tenant_id_unique" UNIQUE("tenant_id")
+);
+--> statement-breakpoint
+CREATE TABLE "admin"."tenant_module_toggle" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"module_key" text NOT NULL,
+	"enabled" boolean DEFAULT false NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_by" uuid NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "admin"."tenant_settings" (
@@ -1549,6 +1575,7 @@ ALTER TABLE "planner"."task_attachment" ADD CONSTRAINT "task_attachment_task_id_
 ALTER TABLE "planner"."task_checklist_item" ADD CONSTRAINT "task_checklist_item_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "planner"."task_comment" ADD CONSTRAINT "task_comment_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "planner"."task_evidence" ADD CONSTRAINT "task_evidence_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX "tenant_module_toggle_tenant_module_idx" ON "admin"."tenant_module_toggle" USING btree ("tenant_id","module_key");--> statement-breakpoint
 CREATE INDEX "agent_draft_tenant_status_expires_idx" ON "agents"."agent_draft" USING btree ("tenant_id","status","expires_at");--> statement-breakpoint
 CREATE INDEX "agent_draft_tenant_approver_status_idx" ON "agents"."agent_draft" USING btree ("tenant_id","approver_user_id","status");--> statement-breakpoint
 CREATE INDEX "agent_draft_trace_idx" ON "agents"."agent_draft" USING btree ("trace_id");--> statement-breakpoint

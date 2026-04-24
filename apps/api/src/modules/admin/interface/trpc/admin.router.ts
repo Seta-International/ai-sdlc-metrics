@@ -9,6 +9,9 @@ import { GetTenantTimezoneQuery } from '../../application/queries/get-tenant-tim
 import { UpdateTenantTimezoneCommand } from '../../application/commands/update-tenant-timezone.command'
 import { ListPlatformTenantsQuery } from '../../application/queries/list-platform-tenants.query'
 import { UpdateTargetTenantStatusCommand } from '../../application/commands/update-target-tenant-status.command'
+import { GetTenantAdminSummaryQuery } from '../../application/queries/get-tenant-admin-summary.query'
+import { UpdateModuleTogglesCommand } from '../../application/commands/update-module-toggles.command'
+import { UpsertAiProviderConfigCommand } from '../../application/commands/upsert-ai-provider-config.command'
 
 function svc() {
   return AdminRouterService.getInstance()
@@ -224,6 +227,61 @@ export function createAdminRouter(permissionProtectedProcedure: any) {
       .mutation(async ({ ctx, input }: { ctx: AuthContext; input: { timezone: string } }) => {
         await svc().command(new UpdateTenantTimezoneCommand(ctx.tenantId, input.timezone))
       }),
+
+    getTenantAdminSummary: permissionProtectedProcedure
+      .meta({ permission: PERMISSIONS.ADMIN_TENANT_READ })
+      .input(z.object({ tenantId: z.string().uuid() }))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .query(({ ctx, input }: { ctx: AuthContext; input: any }) =>
+        svc().query(
+          new GetTenantAdminSummaryQuery(ctx.tenantId, ctx.actorId, ctx.roles, input.tenantId),
+        ),
+      ),
+
+    updateModuleToggles: permissionProtectedProcedure
+      .meta({ permission: PERMISSIONS.ADMIN_MODULE_MANAGE })
+      .input(
+        z.object({
+          tenantId: z.string().uuid(),
+          toggles: z.array(
+            z.object({
+              moduleKey: z.string().min(1).max(64),
+              enabled: z.boolean(),
+            }),
+          ),
+        }),
+      )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
+        svc().command(new UpdateModuleTogglesCommand(input.tenantId, ctx.actorId, input.toggles)),
+      ),
+
+    upsertAiProviderConfig: permissionProtectedProcedure
+      .meta({ permission: PERMISSIONS.ADMIN_AI_MANAGE })
+      .input(
+        z.object({
+          tenantId: z.string().uuid(),
+          rawApiKey: z.string().min(1),
+          providerType: z.enum(['openai']),
+          defaultReasoningModel: z.string().min(1).max(128).default('gpt-5.4'),
+          defaultClassificationModel: z.string().min(1).max(128).default('gpt-5.4-nano'),
+          embeddingModel: z.string().min(1).max(128).default('text-embedding-3-small'),
+        }),
+      )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
+        svc().command(
+          new UpsertAiProviderConfigCommand(
+            input.tenantId,
+            ctx.actorId,
+            input.rawApiKey,
+            input.providerType,
+            input.defaultReasoningModel,
+            input.defaultClassificationModel,
+            input.embeddingModel,
+          ),
+        ),
+      ),
   })
 }
 
@@ -259,4 +317,27 @@ export const adminRouter = router({
   platform: adminPlatformRouter,
   getTenantTimezone: publicProcedure.input(z.object({})).query(() => ({ timezone: '' })),
   updateTimezone: publicProcedure.input(z.object({ timezone: z.string() })).mutation(() => null),
+  getTenantAdminSummary: publicProcedure
+    .input(z.object({ tenantId: z.string().uuid() }))
+    .query(() => null),
+  updateModuleToggles: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        toggles: z.array(z.object({ moduleKey: z.string(), enabled: z.boolean() })),
+      }),
+    )
+    .mutation(() => null),
+  upsertAiProviderConfig: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        rawApiKey: z.string(),
+        providerType: z.enum(['openai']),
+        defaultReasoningModel: z.string().default('gpt-5.4'),
+        defaultClassificationModel: z.string().default('gpt-5.4-nano'),
+        embeddingModel: z.string().default('text-embedding-3-small'),
+      }),
+    )
+    .mutation(() => null),
 })
