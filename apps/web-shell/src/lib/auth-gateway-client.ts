@@ -3,7 +3,7 @@
  *
  * These procedures are public (no session required) and are called from:
  *   - The login page (getLoginOptions, startOAuth) — client-side
- *   - The Microsoft callback route (completeOAuth) — server-side
+ *   - The SSO callback route (completeOAuth) — server-side
  *
  * We use raw fetch rather than the full @future/api-client tRPC proxy because
  * web-shell is a standalone Next.js zone and the full typed client would pull in
@@ -137,7 +137,7 @@ export async function getLoginOptions(
 }
 
 /**
- * Initiate a Microsoft OAuth authorization code flow for the given tenant IdP.
+ * Initiate an OAuth authorization code flow for the given tenant IdP.
  * Returns the authorization URL to redirect the user to.
  */
 export async function startOAuth(input: {
@@ -151,7 +151,7 @@ export async function startOAuth(input: {
 
 /**
  * Complete the OAuth authorization code flow and issue a Future session token.
- * Called from the server-side Microsoft callback route.
+ * Called from the server-side OAuth callback route.
  */
 export async function completeOAuth(input: {
   code: string

@@ -2,6 +2,7 @@ import { Inject } from '@nestjs/common'
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import { randomBytes, createHash } from 'node:crypto'
 import { DomainException } from '@future/core'
+import { ProviderMisconfiguredException } from '../../domain/exceptions/identity.exceptions'
 import { StartOAuthCommand } from './start-oauth.command'
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import {
@@ -133,6 +134,9 @@ export class StartOAuthHandler implements ICommandHandler<StartOAuthCommand, Sta
       authorizationUrl.searchParams.set('access_type', 'online')
     } else {
       // Microsoft
+      if (!provider.directoryId) {
+        throw new ProviderMisconfiguredException('Microsoft provider requires a directoryId')
+      }
       authorizationUrl = new URL(
         `https://login.microsoftonline.com/${provider.directoryId}/oauth2/v2.0/authorize`,
       )

@@ -37,7 +37,7 @@ import { StubJobScheduler } from './infrastructure/jobs/stub-job-scheduler'
 import { MailMagicLinkSender } from './infrastructure/mailers/mail-magic-link.sender'
 import { DrizzleLocalUserQueryService } from './infrastructure/queries/drizzle-local-user-query.service'
 import { AwsSecretsStoreAdapter } from './infrastructure/secrets/aws-secrets-store.adapter'
-import { ProviderOAuthTokenExchanger } from './infrastructure/oauth/provider-oauth-token-exchanger'
+import { AuthorizationCodeExchanger } from './infrastructure/oauth/authorization-code-exchanger'
 
 import { ConfigureIdentityProviderHandler } from './application/commands/configure-identity-provider.handler'
 import { TestIdpConnectionHandler } from './application/commands/test-idp-connection.handler'
@@ -122,7 +122,7 @@ const QueryHandlers = [
       useClass: DrizzleOAuthAuthorizationSessionRepository,
     },
     { provide: DIRECTORY_PROVIDER_FACTORY, useClass: DirectoryProviderFactory },
-    { provide: OAUTH_TOKEN_EXCHANGER, useClass: ProviderOAuthTokenExchanger },
+    { provide: OAUTH_TOKEN_EXCHANGER, useClass: AuthorizationCodeExchanger },
     {
       provide: SECRETS_STORE,
       useFactory: () =>

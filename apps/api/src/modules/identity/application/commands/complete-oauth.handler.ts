@@ -3,6 +3,7 @@ import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import { createHash } from 'node:crypto'
 import { createRemoteJWKSet, jwtVerify } from 'jose'
 import { DomainException } from '@future/core'
+import { ProviderMisconfiguredException } from '../../domain/exceptions/identity.exceptions'
 import { CompleteOAuthCommand } from './complete-oauth.command'
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import {
@@ -245,12 +246,15 @@ export class CompleteOAuthHandler implements ICommandHandler<
 
     // 9. Provider-specific tenant/domain verification
     if (provider.providerType === 'google') {
-      // For Google Workspace: require hd claim to match provider.directoryId when set
-      if (provider.directoryId) {
-        const hd = idTokenPayload.hd
-        if (!hd || hd !== provider.directoryId) {
-          throw new GoogleWorkspaceDomainMismatchException()
-        }
+      // Google Workspace: directoryId (hosted domain) is mandatory — reject misconfigured providers
+      if (!provider.directoryId) {
+        throw new ProviderMisconfiguredException(
+          'Google Workspace provider requires a directoryId (hosted domain)',
+        )
+      }
+      const hd = idTokenPayload.hd
+      if (!hd || hd !== provider.directoryId) {
+        throw new GoogleWorkspaceDomainMismatchException()
       }
     } else {
       // Microsoft: verify tid matches provider directoryId

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createHash } from 'node:crypto'
 import { StartOAuthCommand } from './start-oauth.command'
 import { StartOAuthHandler } from './start-oauth.handler'
+import { ProviderMisconfiguredException } from '../../domain/exceptions/identity.exceptions'
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
 import type { IOAuthAuthorizationSessionRepository } from '../../domain/repositories/oauth-authorization-session.repository'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
@@ -242,6 +243,23 @@ describe('StartOAuthHandler', () => {
           ),
         ),
       ).rejects.toThrow('redirectTo')
+    })
+
+    it('throws ProviderMisconfiguredException when Microsoft provider has null directoryId', async () => {
+      const misconfiguredMicrosoftProvider = { ...microsoftProvider, directoryId: null }
+      vi.mocked(kernelFacade.getTenant).mockResolvedValue(activeTenant)
+      vi.mocked(providerRepo.findById).mockResolvedValue(misconfiguredMicrosoftProvider)
+
+      await expect(
+        handler.execute(
+          new StartOAuthCommand(
+            TENANT_ID,
+            PROVIDER_ID,
+            'http://localhost:3000/auth/callback/microsoft',
+            'http://localhost:3001',
+          ),
+        ),
+      ).rejects.toThrow(ProviderMisconfiguredException)
     })
 
     it('accepts production Future zone URLs as valid redirectTo', async () => {

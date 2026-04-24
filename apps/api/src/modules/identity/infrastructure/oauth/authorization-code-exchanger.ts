@@ -5,8 +5,12 @@ import type {
   OAuthTokenExchangeResult,
 } from '../../domain/ports/oauth-token-exchanger.port'
 
+/**
+ * Provider-neutral RFC 6749 authorization_code grant exchanger.
+ * Works with any compliant token endpoint — Microsoft Entra, Google, etc.
+ */
 @Injectable()
-export class MicrosoftOAuthTokenExchanger implements IOAuthTokenExchanger {
+export class AuthorizationCodeExchanger implements IOAuthTokenExchanger {
   async exchange(input: OAuthTokenExchangeInput): Promise<OAuthTokenExchangeResult> {
     const body = new URLSearchParams({
       grant_type: 'authorization_code',

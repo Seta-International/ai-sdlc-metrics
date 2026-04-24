@@ -7,6 +7,7 @@ import {
   MicrosoftTenantMismatchException,
   OAuthCallbackUriMismatchException,
 } from './complete-oauth.handler'
+import { ProviderMisconfiguredException } from '../../domain/exceptions/identity.exceptions'
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
 import type { IOAuthAuthorizationSessionRepository } from '../../domain/repositories/oauth-authorization-session.repository'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
@@ -544,7 +545,7 @@ describe('CompleteOAuthHandler', () => {
       expect(result.redirectTo).toBe('http://localhost:3001')
     })
 
-    it('does not check hd when provider directoryId is null (plain Google OAuth, no Workspace enforcement)', async () => {
+    it('throws ProviderMisconfiguredException when Google provider directoryId is null (Workspace enforcement required)', async () => {
       const googleProviderNoDirectory: IdentityProviderEntity = {
         ...googleProvider,
         directoryId: null,
@@ -569,32 +570,10 @@ describe('CompleteOAuthHandler', () => {
         },
         protectedHeader: { alg: 'RS256' },
       } as Awaited<ReturnType<typeof mockJwtVerify>>)
-      vi.mocked(kernelFacade.getUserIdentityBySsoSubject).mockResolvedValue({
-        id: 'uid-google-consumer',
-        tenantId: TENANT_ID,
-        actorId: ACTOR_ID,
-        email: 'user@gmail.com',
-        ssoSubject: 'google-consumer-sub',
-        provider: 'google',
-        status: 'active',
-        lastLoginAt: null,
-        createdAt: new Date(),
-      })
-      vi.mocked(kernelFacade.getActor).mockResolvedValue({
-        id: ACTOR_ID,
-        tenantId: TENANT_ID,
-        displayName: 'Consumer User',
-        type: 'user',
-        status: 'active',
-        createdAt: new Date(),
-      })
-      vi.mocked(jwtService.sign).mockResolvedValue('future-session-jwt')
 
-      const result = await handler.execute(
-        new CompleteOAuthCommand('auth-code', RAW_STATE, GOOGLE_CALLBACK_URI),
-      )
-
-      expect(result.sessionToken).toBe('future-session-jwt')
+      await expect(
+        handler.execute(new CompleteOAuthCommand('auth-code', RAW_STATE, GOOGLE_CALLBACK_URI)),
+      ).rejects.toThrow(ProviderMisconfiguredException)
     })
   })
 })

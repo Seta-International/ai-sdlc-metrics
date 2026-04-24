@@ -24,7 +24,7 @@ export default function LoginPage() {
   const [loginOptions, setLoginOptions] = useState<LoginOptionsResult | null>(null)
 
   const [discovering, setDiscovering] = useState(false)
-  const [oauthLoading, setOauthLoading] = useState(false)
+  const [oauthLoading, setOauthLoading] = useState<'microsoft' | 'google' | null>(null)
   const [magicLinkLoading, setMagicLinkLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -73,7 +73,7 @@ export default function LoginPage() {
     const microsoftMethod = loginOptions.methods.find((m) => m.type === 'microsoft')
     if (!microsoftMethod) return
 
-    setOauthLoading(true)
+    setOauthLoading('microsoft')
     setError(null)
 
     try {
@@ -87,7 +87,7 @@ export default function LoginPage() {
       window.location.href = result.authorizationUrl
     } catch {
       setError('Failed to start Microsoft sign-in. Please try again.')
-      setOauthLoading(false)
+      setOauthLoading(null)
     }
   }
 
@@ -98,7 +98,7 @@ export default function LoginPage() {
     const googleMethod = loginOptions.methods.find((m) => m.type === 'google')
     if (!googleMethod) return
 
-    setOauthLoading(true)
+    setOauthLoading('google')
     setError(null)
 
     try {
@@ -112,7 +112,7 @@ export default function LoginPage() {
       window.location.href = result.authorizationUrl
     } catch {
       setError('Failed to start Google sign-in. Please try again.')
-      setOauthLoading(false)
+      setOauthLoading(null)
     }
   }
 
@@ -201,10 +201,10 @@ export default function LoginPage() {
                 type="button"
                 variant="outline"
                 className="w-full"
-                disabled={oauthLoading || magicLinkLoading}
+                disabled={oauthLoading !== null || magicLinkLoading}
                 onClick={handleMicrosoftLogin}
               >
-                {oauthLoading && <Spinner className="size-4" />}
+                {oauthLoading === 'microsoft' && <Spinner className="size-4" />}
                 Continue with Microsoft
               </Button>
             )}
@@ -214,10 +214,10 @@ export default function LoginPage() {
                 type="button"
                 variant="outline"
                 className="w-full"
-                disabled={oauthLoading || magicLinkLoading}
+                disabled={oauthLoading !== null || magicLinkLoading}
                 onClick={handleGoogleLogin}
               >
-                {oauthLoading && <Spinner className="size-4" />}
+                {oauthLoading === 'google' && <Spinner className="size-4" />}
                 Continue with Google
               </Button>
             )}
@@ -240,7 +240,7 @@ export default function LoginPage() {
                   type="button"
                   variant="outline"
                   className="w-full"
-                  disabled={oauthLoading || magicLinkLoading}
+                  disabled={oauthLoading !== null || magicLinkLoading}
                   onClick={handleMagicLink}
                 >
                   {magicLinkLoading && <Spinner className="size-4" />}
