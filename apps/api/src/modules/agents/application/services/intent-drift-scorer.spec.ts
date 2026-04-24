@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { checkIntentDrift, IntentDriftScorer, TOOL_REGISTRY_TOKEN } from './intent-drift-scorer'
+import { checkIntentDrift, IntentDriftScorer } from './intent-drift-scorer'
 import type { ReplayedTrace } from '../../domain/scorer-types'
 import type { ToolRegistry } from '../../infrastructure/tool-registry/tool-registry'
 import type { AgentToolDescriptor } from '../../../../common/trpc/agent-tool-meta'

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { and, asc, eq, gt, sql } from 'drizzle-orm'
+import { and, asc, eq, gt } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { agentCanaryQuery } from '../schema/agents.schema'

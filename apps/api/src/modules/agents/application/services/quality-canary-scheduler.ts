@@ -95,7 +95,7 @@ export class QualityCanaryScheduler {
     }
   }
 
-  private _publishStateChange(changed: TierHealthSnapshot): void {
+  private _publishStateChange(_changed: TierHealthSnapshot): void {
     const fullHealth = this._getCachedHealth('full')
     const nanoHealth = this._getCachedHealth('nano')
 
