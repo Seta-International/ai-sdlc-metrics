@@ -61,11 +61,12 @@ describe('<AiConfigPage />', () => {
 
     render(<AiConfigPage params={{ tenantId: 'tenant-1' }} />)
 
+    const user = userEvent.setup({ delay: null })
     const input = screen.getByPlaceholderText(/sk-/i)
-    await userEvent.type(input, 'sk-test-key-abcd')
+    await user.type(input, 'sk-test-key-abcd')
 
     const rotateBtn = screen.getByRole('button', { name: /Rotate/i })
-    await userEvent.click(rotateBtn)
+    await user.click(rotateBtn)
 
     expect(mutateMock).toHaveBeenCalledWith(
       expect.objectContaining({

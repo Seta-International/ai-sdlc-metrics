@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { ConnectForm } from './connect-form'
 
 function setup(onSubmit = vi.fn()) {
-  const user = userEvent.setup()
+  const user = userEvent.setup({ delay: null })
   render(<ConnectForm onSubmit={onSubmit} isSubmitting={false} error={null} />)
   return { user, onSubmit }
 }

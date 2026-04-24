@@ -1,4 +1,13 @@
-import { pgSchema, uuid, text, integer, timestamp, boolean, uniqueIndex, numeric } from 'drizzle-orm/pg-core'
+import {
+  pgSchema,
+  uuid,
+  text,
+  integer,
+  timestamp,
+  boolean,
+  uniqueIndex,
+  numeric,
+} from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const adminSchema = pgSchema('admin')
