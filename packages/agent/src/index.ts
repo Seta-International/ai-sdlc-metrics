@@ -29,7 +29,18 @@ export type { AgentChatAdapterOptions } from './runtime/agent-chat-adapter'
 export { createAgentTurnStore } from './runtime/agent-turn-store'
 export type { AgentTurnStore, AgentTurnState } from './runtime/agent-turn-store'
 export { sseEventSchema } from './runtime/sse-event-schema'
-export type { SseEvent, TurnEndReason, DraftPayload } from './runtime/sse-event-schema'
+export type {
+  SseEvent,
+  TurnEndReason,
+  RefusalReason,
+  CancellationReason,
+  UsageSnapshot,
+  ScorerResult,
+  DraftProvenance,
+  DraftPayload,
+} from './runtime/sse-event-schema'
+export { createAgentEventConsumer } from './runtime/event-consumer'
+export type { AgentEventConsumer } from './runtime/event-consumer'
 
 // Thread
 export { AgentThread } from './thread/agent-thread'

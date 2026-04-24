@@ -481,3 +481,24 @@ export const agentRateLimitCounter = agentsSchema.table(
     ),
   ],
 )
+
+// ─── Plan 06 ───────────────────────────────────────────────────────────────────
+
+export const agentActiveTurns = agentsSchema.table(
+  'agent_active_turn',
+  {
+    traceId: uuid('trace_id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    conversationId: uuid('conversation_id'),
+    podId: text('pod_id').notNull(),
+    surface: text('surface').notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    lastHeartbeatAt: timestamp('last_heartbeat_at', { withTimezone: true }).notNull().defaultNow(),
+    abortPending: boolean('abort_pending').notNull().default(false),
+  },
+  (t) => [
+    index('agent_active_turn_tenant_started_idx').on(t.tenantId, t.startedAt.desc()),
+    index('agent_active_turn_heartbeat_idx').on(t.lastHeartbeatAt),
+  ],
+)

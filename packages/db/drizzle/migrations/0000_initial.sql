@@ -69,6 +69,18 @@ CREATE TABLE "agents"."agent_tool_embedding" (
 	CONSTRAINT "agent_tool_embedding_tool_name_content_hash_pk" PRIMARY KEY("tool_name","content_hash")
 );
 --> statement-breakpoint
+CREATE TABLE "agents"."agent_active_turn" (
+	"trace_id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"conversation_id" uuid,
+	"pod_id" text NOT NULL,
+	"surface" text NOT NULL,
+	"started_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"last_heartbeat_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"abort_pending" boolean DEFAULT false NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "agents"."agent_chat_message" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"session_id" uuid NOT NULL,
@@ -1393,6 +1405,8 @@ ALTER TABLE "planner"."task_checklist_item" ADD CONSTRAINT "task_checklist_item_
 ALTER TABLE "planner"."task_comment" ADD CONSTRAINT "task_comment_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "planner"."task_evidence" ADD CONSTRAINT "task_evidence_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "agent_tool_embedding_tool_name_idx" ON "agents"."agent_tool_embedding" USING btree ("tool_name");--> statement-breakpoint
+CREATE INDEX "agent_active_turn_tenant_started_idx" ON "agents"."agent_active_turn" USING btree ("tenant_id","started_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_active_turn_heartbeat_idx" ON "agents"."agent_active_turn" USING btree ("last_heartbeat_at");--> statement-breakpoint
 CREATE INDEX "agent_message_tenant_user_conv_created_idx" ON "agents"."agent_message" USING btree ("tenant_id","user_id","conversation_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "agent_conversation_scope_active_uidx" ON "agents"."agent_conversation" USING btree ("tenant_id","user_id","surface") WHERE status = 'active';--> statement-breakpoint
 CREATE INDEX "agent_conversation_tenant_user_status_updated_idx" ON "agents"."agent_conversation" USING btree ("tenant_id","user_id","status","updated_at" DESC NULLS LAST);--> statement-breakpoint

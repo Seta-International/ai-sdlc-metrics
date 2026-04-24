@@ -14,7 +14,12 @@ export type Confidence = 'high' | 'med' | 'low'
 
 export type AnswerShape = 'short-answer' | 'list' | 'table' | 'narrative' | 'chart'
 
-export type CancellationReason = 'user_cancelled' | 'timeout' | 'budget' | 'system_shutdown'
+export type CancellationReason =
+  | 'user'
+  | 'timeout'
+  | 'budget'
+  | 'provider_outage'
+  | 'quality_canary'
 
 export type ToolName = string
 export type SubAgentKey = string

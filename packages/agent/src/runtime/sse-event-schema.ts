@@ -1,57 +1,215 @@
 import * as z from 'zod'
 
-const answerDeltaEvent = z.object({
-  type: z.literal('answer.delta'),
-  text: z.string(),
+// ── Shared value types ────────────────────────────────────────────────────────
+
+const usageSnapshotSchema = z.object({
+  input_tokens: z.number(),
+  output_tokens: z.number(),
+  input_cached_read: z.number(),
+  input_cached_write: z.number(),
+  output_reasoning: z.number(),
 })
 
-const answerCompleteEvent = z.object({
-  type: z.literal('answer.complete'),
+const refusalReasonSchema = z.enum([
+  'daily_budget',
+  'insufficient_minimum',
+  'rate_limit',
+  'disambiguation',
+  'model_policy',
+  'internal',
+])
+
+const turnEndReasonSchema = z.enum([
+  'completed',
+  'cancelled',
+  'timeout',
+  'refused',
+  'error',
+  'budget',
+  'provider_outage',
+  'quality_canary',
+])
+
+// Used by server-side AbortCoordinator — not part of the event union
+export const cancellationReasonSchema = z.enum([
+  'user',
+  'timeout',
+  'budget',
+  'provider_outage',
+  'quality_canary',
+])
+
+const scorerResultSchema = z.object({
+  scorer: z.string(),
+  passed: z.boolean(),
+  score: z.number().optional(),
 })
 
-const answerShapeDeclaredEvent = z.object({
-  type: z.literal('answer.shape_declared'),
-  shape: z.string(),
+const draftProvenanceSchema = z.object({
+  sub_agent_domain: z.string(),
+  trace_id: z.string(),
+})
+
+const metadataSchema = z.record(z.string(), z.unknown()).optional()
+
+// ── Event schemas ─────────────────────────────────────────────────────────────
+
+const turnStartedEvent = z.object({
+  seq: z.number(),
+  type: z.literal('turn.started'),
+  payload: z.object({
+    trace_id: z.string(),
+    conversation_id: z.string().nullable(),
+    topology: z.enum(['bounded', 'iterative']),
+  }),
+  metadata: metadataSchema,
 })
 
 const phaseStartedEvent = z.object({
+  seq: z.number(),
   type: z.literal('phase.started'),
-  phase: z.union([z.literal(1), z.literal(2)]),
-  subAgents: z.array(z.string()),
+  payload: z.object({
+    phase: z.union([z.literal(1), z.literal(2)]),
+    sub_agents: z.array(
+      z.object({
+        domain: z.string(),
+        name: z.string().optional(),
+      }),
+    ),
+  }),
+  metadata: metadataSchema,
 })
 
-const refusalEvent = z.object({
-  type: z.literal('refusal'),
-  reason: z.string(),
+const iterationStartedEvent = z.object({
+  seq: z.number(),
+  type: z.literal('iteration.started'),
+  payload: z.object({
+    n: z.number(),
+    sub_agent_domain: z.string(),
+    selection_reason: z.string(),
+  }),
+  metadata: metadataSchema,
+})
+
+const iterationValidatedEvent = z.object({
+  seq: z.number(),
+  type: z.literal('iteration.validated'),
+  payload: z.object({
+    n: z.number(),
+    passed: z.boolean(),
+    scorer_results: z.array(scorerResultSchema),
+    max_iterations_reached: z.boolean(),
+  }),
+  metadata: metadataSchema,
+})
+
+const iterationEndedEvent = z.object({
+  seq: z.number(),
+  type: z.literal('iteration.ended'),
+  payload: z.object({
+    n: z.number(),
+    is_complete: z.boolean(),
+    usage: usageSnapshotSchema,
+  }),
+  metadata: metadataSchema,
+})
+
+const progressEvent = z.object({
+  seq: z.number(),
+  type: z.literal('progress'),
+  payload: z.object({
+    message: z.string(),
+    cause: z.enum(['vendor_retry', 'fallback', 'long_tool']).optional(),
+  }),
+  metadata: metadataSchema,
+})
+
+const refusalStartedEvent = z.object({
+  seq: z.number(),
+  type: z.literal('refusal.started'),
+  payload: z.object({
+    reason: refusalReasonSchema,
+    processor_id: z.string().optional(),
+    retry_allowed: z.boolean(),
+  }),
+  metadata: metadataSchema,
+})
+
+const answerShapeDeclaredEvent = z.object({
+  seq: z.number(),
+  type: z.literal('answer.shape_declared'),
+  payload: z.object({
+    shape: z.string(),
+    skeleton: z.unknown().optional(),
+  }),
+  metadata: metadataSchema,
+})
+
+const answerTokenEvent = z.object({
+  seq: z.number(),
+  type: z.literal('answer.token'),
+  payload: z.object({
+    text: z.string(),
+  }),
+  metadata: metadataSchema,
+})
+
+const answerCompleteEvent = z.object({
+  seq: z.number(),
+  type: z.literal('answer.complete'),
+  payload: z.object({
+    shape: z.string(),
+    content: z.unknown(),
+    citations: z.array(z.unknown()),
+  }),
+  metadata: metadataSchema,
 })
 
 const draftProposedEvent = z.object({
+  seq: z.number(),
   type: z.literal('draft.proposed'),
-  draftId: z.string(),
-  commandType: z.string(),
-  payload: z.unknown(),
+  payload: z.object({
+    action_id: z.string(),
+    summary: z.string(),
+    tier: z.enum(['low', 'high']),
+    requires_approval: z.boolean(),
+    provenance: draftProvenanceSchema,
+  }),
+  metadata: metadataSchema,
 })
 
 const turnEndedEvent = z.object({
+  seq: z.number(),
   type: z.literal('turn.ended'),
-  reason: z.enum(['completed', 'refused', 'budget', 'moderation', 'cancelled', 'ceiling']),
+  payload: z.object({
+    reason: turnEndReasonSchema,
+    usage: usageSnapshotSchema,
+    cancelled_by: z.string().optional(),
+  }),
+  metadata: metadataSchema,
 })
 
 export const sseEventSchema = z.discriminatedUnion('type', [
-  answerDeltaEvent,
-  answerCompleteEvent,
-  answerShapeDeclaredEvent,
+  turnStartedEvent,
   phaseStartedEvent,
-  refusalEvent,
+  iterationStartedEvent,
+  iterationValidatedEvent,
+  iterationEndedEvent,
+  progressEvent,
+  refusalStartedEvent,
+  answerShapeDeclaredEvent,
+  answerTokenEvent,
+  answerCompleteEvent,
   draftProposedEvent,
   turnEndedEvent,
 ])
 
 export type SseEvent = z.infer<typeof sseEventSchema>
-export type TurnEndReason = z.infer<typeof turnEndedEvent>['reason']
+export type UsageSnapshot = z.infer<typeof usageSnapshotSchema>
+export type RefusalReason = z.infer<typeof refusalReasonSchema>
+export type TurnEndReason = z.infer<typeof turnEndReasonSchema>
+export type CancellationReason = z.infer<typeof cancellationReasonSchema>
+export type ScorerResult = z.infer<typeof scorerResultSchema>
+export type DraftProvenance = z.infer<typeof draftProvenanceSchema>
 
-export type DraftPayload = {
-  draftId: string
-  commandType: string
-  payload: unknown
-}
+export type DraftPayload = z.infer<typeof draftProposedEvent>['payload']
