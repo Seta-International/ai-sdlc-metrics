@@ -6,5 +6,6 @@ export type AgentDelegation = {
   readonly scope: Record<string, unknown>
   readonly expiresAt: Date
   readonly status: 'active' | 'expired' | 'revoked'
+  readonly autonomousWritesAllowed: boolean
   readonly createdAt: Date
 }

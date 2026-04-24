@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, lt } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { agentDelegation } from '../schema/agent-delegation.schema'
@@ -55,6 +55,7 @@ export class DrizzleAgentDelegationRepository implements IAgentDelegationReposit
       scope: row.scope as Record<string, unknown>,
       expiresAt: row.expiresAt,
       status: row.status as 'active' | 'expired' | 'revoked',
+      autonomousWritesAllowed: row.autonomousWritesAllowed,
       createdAt: row.createdAt,
     }
   }
@@ -70,5 +71,84 @@ export class DrizzleAgentDelegationRepository implements IAgentDelegationReposit
       .where(
         and(eq(agentDelegation.tenantId, opts.tenantId), eq(agentDelegation.id, opts.delegationId)),
       )
+  }
+
+  async countActiveByDelegator(opts: {
+    tenantId: string
+    delegatorUserId: string
+  }): Promise<number> {
+    const rows = await this.db
+      .select({ id: agentDelegation.id })
+      .from(agentDelegation)
+      .where(
+        and(
+          eq(agentDelegation.tenantId, opts.tenantId),
+          eq(agentDelegation.delegatorUserId, opts.delegatorUserId),
+          eq(agentDelegation.status, 'active'),
+        ),
+      )
+    return rows.length
+  }
+
+  async listActiveByDelegator(opts: {
+    tenantId: string
+    delegatorUserId: string
+  }): Promise<AgentDelegation[]> {
+    const rows = await this.db
+      .select()
+      .from(agentDelegation)
+      .where(
+        and(
+          eq(agentDelegation.tenantId, opts.tenantId),
+          eq(agentDelegation.delegatorUserId, opts.delegatorUserId),
+          eq(agentDelegation.status, 'active'),
+        ),
+      )
+    return rows.map((r) => this.toDomain(r))
+  }
+
+  async listActiveForTenant(opts: { tenantId: string }): Promise<AgentDelegation[]> {
+    const rows = await this.db
+      .select()
+      .from(agentDelegation)
+      .where(and(eq(agentDelegation.tenantId, opts.tenantId), eq(agentDelegation.status, 'active')))
+    return rows.map((r) => this.toDomain(r))
+  }
+
+  async sweepExpired(opts: { beforeDate: Date }): Promise<{
+    expiredDelegationIds: string[]
+    affectedTenantIds: string[]
+  }> {
+    const rows = await this.db
+      .update(agentDelegation)
+      .set({ status: 'expired' })
+      .where(
+        and(eq(agentDelegation.status, 'active'), lt(agentDelegation.expiresAt, opts.beforeDate)),
+      )
+      .returning({ id: agentDelegation.id, tenantId: agentDelegation.tenantId })
+
+    const expiredDelegationIds = rows.map((r) => r.id)
+    const affectedTenantIds = [...new Set(rows.map((r) => r.tenantId))]
+    return { expiredDelegationIds, affectedTenantIds }
+  }
+
+  async bulkRevokeByDelegator(opts: {
+    tenantId: string
+    delegatorUserId: string
+    reason: string
+  }): Promise<{ revokedIds: string[] }> {
+    const rows = await this.db
+      .update(agentDelegation)
+      .set({ status: 'revoked' })
+      .where(
+        and(
+          eq(agentDelegation.tenantId, opts.tenantId),
+          eq(agentDelegation.delegatorUserId, opts.delegatorUserId),
+          eq(agentDelegation.status, 'active'),
+        ),
+      )
+      .returning({ id: agentDelegation.id })
+
+    return { revokedIds: rows.map((r) => r.id) }
   }
 }
