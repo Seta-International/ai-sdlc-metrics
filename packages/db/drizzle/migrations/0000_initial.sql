@@ -580,6 +580,20 @@ CREATE TABLE "identity"."ms_graph_credential" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "identity"."oauth_authorization_session" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"provider_id" uuid NOT NULL,
+	"provider_type" text NOT NULL,
+	"state_hash" text NOT NULL,
+	"nonce_hash" text NOT NULL,
+	"callback_uri" text NOT NULL,
+	"redirect_to" text NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"consumed_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "identity"."sync_history" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"tenant_id" uuid NOT NULL,
@@ -591,6 +605,17 @@ CREATE TABLE "identity"."sync_history" (
 	"error_message" text,
 	"started_at" timestamp NOT NULL,
 	"completed_at" timestamp NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "identity"."tenant_domain" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"domain" text NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"verification_token_hash" text NOT NULL,
+	"verified_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "core"."actor" (
@@ -1612,7 +1637,10 @@ CREATE UNIQUE INDEX "uq_idp_group_mapping_role_scope_scoped" ON "identity"."idp_
 CREATE UNIQUE INDEX "uq_idp_group_mapping_role_scope_global" ON "identity"."idp_group_mapping" USING btree ("tenant_id","external_group_id","role_key","scope_type") WHERE "identity"."idp_group_mapping"."scope_id" IS NULL;--> statement-breakpoint
 CREATE INDEX "idx_idp_group_member_lookup" ON "identity"."idp_group_member" USING btree ("tenant_id","external_group_id");--> statement-breakpoint
 CREATE INDEX "idx_magic_link_token_hash_unused" ON "identity"."magic_link_token" USING btree ("token_hash") WHERE "identity"."magic_link_token"."used_at" IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "oauth_authorization_session_state_uidx" ON "identity"."oauth_authorization_session" USING btree ("state_hash");--> statement-breakpoint
+CREATE INDEX "oauth_authorization_session_tenant_idx" ON "identity"."oauth_authorization_session" USING btree ("tenant_id","created_at");--> statement-breakpoint
 CREATE INDEX "idx_sync_history_tenant_started" ON "identity"."sync_history" USING btree ("tenant_id","started_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "tenant_domain_domain_uidx" ON "identity"."tenant_domain" USING btree ("domain");--> statement-breakpoint
 CREATE INDEX "agent_delegation_tenant_delegator_status_idx" ON "core"."agent_delegation" USING btree ("tenant_id","delegator_user_id","status");--> statement-breakpoint
 CREATE INDEX "agent_delegation_tenant_status_expires_idx" ON "core"."agent_delegation" USING btree ("tenant_id","status","expires_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_role_permission_tenant_role_perm" ON "core"."role_permission" USING btree ("tenant_id","role_key","permission_key");--> statement-breakpoint
