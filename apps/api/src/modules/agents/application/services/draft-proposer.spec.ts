@@ -1,17 +1,3 @@
-/**
- * draft-proposer.spec.ts
- *
- * Unit tests for DraftProposer.
- *
- * Covers:
- *  1. Calls DraftTierClassifier with correct tool/turnState
- *  2. Builds provenance with triggered_by = 'user:' + userId
- *  3. Reuses existing delegation when viaScheduleId + existingDelegationId given (no minter call)
- *  4. Mints new delegation for live session (minter called)
- *  5. Returns DraftProposalResult with all fields populated
- *  6. Throws when existing delegation is not active
- */
-
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { DraftProposer } from './draft-proposer'
 import type { DraftTierClassifier } from './draft-tier-classifier'
@@ -114,7 +100,6 @@ describe('DraftProposer', () => {
       tenantId: TENANT_ID,
       traceId: TRACE_ID,
       flowId: FLOW_ID,
-      intentSlug: 'planner:create-task',
       initiatorUserId: USER_ID,
       summary: 'Create a task to build the feature',
       ...overrides,
@@ -175,6 +160,18 @@ describe('DraftProposer', () => {
     })
   })
 
+  it('mints a new delegation when viaScheduleId present but existingDelegationId absent', async () => {
+    await proposer.propose(
+      baseOpts({
+        viaScheduleId: SCHEDULE_ID,
+        // no existingDelegationId
+      }),
+    )
+
+    expect(minter.mintForDraft).toHaveBeenCalledOnce()
+    expect(kernelDelegationFacade.getDelegation).not.toHaveBeenCalled()
+  })
+
   it('throws when existing delegation is not active', async () => {
     vi.mocked(kernelDelegationFacade.getDelegation).mockResolvedValue({
       ...makeActiveDelegation(DELEGATION_ID),
@@ -204,10 +201,12 @@ describe('DraftProposer', () => {
     ).rejects.toThrow()
   })
 
-  it('returns a fully populated DraftProposalResult', async () => {
+  it('returns a fully populated DraftProposalResult with actionId equal to draftId', async () => {
     const result = await proposer.propose(baseOpts())
 
-    expect(result.draftId).toBe(DRAFT_ID)
+    // actionId must be the same value as draftId (correlation handle)
+    expect(result.actionId).toBe(result.draftId)
+    expect(result.actionId).toBeTruthy()
     expect(result.tier).toBe('low_risk_auto')
     expect(result.requiresApproval).toBe(false)
     expect(result.summary).toBe('Create a task to build the feature')
@@ -215,7 +214,6 @@ describe('DraftProposer', () => {
     expect(result.approvalFreshness).toBeDefined()
     expect(result.approvalTtlHours).toBeTypeOf('number')
     expect(result.provenance).toBeDefined()
-    expect(result.actionId).toBeTruthy()
   })
 
   it('sets requiresApproval=true for high_risk_approval_required tier', async () => {
@@ -230,7 +228,22 @@ describe('DraftProposer', () => {
     expect(result.requiresApproval).toBe(true)
   })
 
-  it('calls resolveApprover when provided', async () => {
+  it('does not call resolveApprover for low_risk_auto tier even when provided', async () => {
+    const resolveApprover = vi.fn().mockResolvedValue('some-approver-id')
+
+    await proposer.propose(baseOpts({ resolveApprover }))
+
+    expect(resolveApprover).not.toHaveBeenCalled()
+
+    const submitArg = vi.mocked(sink.submit).mock.calls[0][0]
+    expect(submitArg.approverUserId).toBeNull()
+  })
+
+  it('calls resolveApprover only for high_risk_approval_required tier', async () => {
+    vi.mocked(classifier.classify).mockReturnValue({
+      tier: 'high_risk_approval_required',
+      reason: 'tool_always_requires_approval',
+    })
     const resolveApprover = vi.fn().mockResolvedValue('some-approver-id')
 
     await proposer.propose(baseOpts({ resolveApprover }))

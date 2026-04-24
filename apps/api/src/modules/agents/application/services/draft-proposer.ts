@@ -28,7 +28,6 @@ export class DraftProposer {
     tenantId: string
     traceId: string
     flowId: string
-    intentSlug: string
     initiatorUserId: string
     onBehalfOf?: string
     viaScheduleId?: string
@@ -44,6 +43,7 @@ export class DraftProposer {
       tenantPolicy: opts.tenantPolicy,
     })
 
+    const draftId = uuidv7()
     const approvalTtlHours = opts.approvalTtlHours ?? DEFAULT_APPROVAL_TTL_HOURS
     const draftedAt = new Date()
     const expiresAt = new Date(draftedAt.getTime() + approvalTtlHours * 3600_000)
@@ -55,57 +55,77 @@ export class DraftProposer {
       derived_from_tainted_sources: [],
     }
 
-    const approverUserId = opts.resolveApprover ? await opts.resolveApprover(opts.toolName) : null
+    const approverUserId =
+      tier === 'high_risk_approval_required' && opts.resolveApprover
+        ? await opts.resolveApprover(opts.toolName)
+        : null
+
+    const { tenantId, initiatorUserId, toolName } = opts
 
     let delegationId: string
-    if (opts.viaScheduleId !== undefined && opts.existingDelegationId !== undefined) {
-      const existing = await this.kernelDelegationFacade.getDelegation({
-        tenantId: opts.tenantId,
-        delegationId: opts.existingDelegationId,
-      })
+    if (opts.viaScheduleId !== undefined) {
+      // scheduled context — reuse or verify existing delegation
+      if (opts.existingDelegationId) {
+        const existing = await this.kernelDelegationFacade.getDelegation({
+          tenantId,
+          delegationId: opts.existingDelegationId,
+        })
 
-      if (existing === null) {
-        throw new Error(
-          `Delegation ${opts.existingDelegationId} not found for tenant ${opts.tenantId}`,
-        )
+        if (existing === null) {
+          throw new Error(
+            `Delegation ${opts.existingDelegationId} not found for tenant ${tenantId}`,
+          )
+        }
+
+        if (existing.status !== 'active') {
+          throw new Error(
+            `Delegation ${opts.existingDelegationId} is not active (status: ${existing.status})`,
+          )
+        }
+
+        delegationId = existing.id
+      } else {
+        // scheduled but no prior delegation — mint a new one
+        const minted = await this.approvalExecutorDelegationMinter.mintForDraft({
+          draftId,
+          tenantId,
+          initiatorUserId,
+          toolName,
+          expiresAt,
+        })
+        delegationId = minted.delegationId
       }
-
-      if (existing.status !== 'active') {
-        throw new Error(
-          `Delegation ${opts.existingDelegationId} is not active (status: ${existing.status})`,
-        )
-      }
-
-      delegationId = existing.id
     } else {
-      const actionId = uuidv7()
-      const { delegationId: minted } = await this.approvalExecutorDelegationMinter.mintForDraft({
-        draftId: actionId,
-        tenantId: opts.tenantId,
-        initiatorUserId: opts.initiatorUserId,
-        toolName: opts.toolName,
+      // live session — always mint
+      const minted = await this.approvalExecutorDelegationMinter.mintForDraft({
+        draftId,
+        tenantId,
+        initiatorUserId,
+        toolName,
         expiresAt,
       })
-      delegationId = minted
+      delegationId = minted.delegationId
     }
 
     const approvalFreshness =
       opts.toolDescriptor.meta.approvalFreshness ?? DEFAULT_APPROVAL_FRESHNESS
 
-    const { draftId } = await this.draftSink.submit({
+    await this.draftSink.submit({
+      draftId,
       tier,
       provenance,
       approvalFreshness,
       approvalTtlHours,
-      tenantId: opts.tenantId,
+      expiresAt,
+      tenantId,
       traceId: opts.traceId,
       flowId: opts.flowId,
-      initiatorUserId: opts.initiatorUserId,
+      initiatorUserId,
       onBehalfOf: opts.onBehalfOf,
       approverUserId,
       delegationId,
       tainted: opts.turnState.tainted.value,
-      toolName: opts.toolName,
+      toolName,
       args: opts.args,
       viaScheduleId: opts.viaScheduleId,
       summary: opts.summary,
@@ -113,7 +133,7 @@ export class DraftProposer {
 
     return {
       draftId,
-      actionId: uuidv7(),
+      actionId: draftId,
       tier,
       requiresApproval: tier === 'high_risk_approval_required',
       summary: opts.summary,

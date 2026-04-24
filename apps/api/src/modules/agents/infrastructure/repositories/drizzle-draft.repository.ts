@@ -51,6 +51,7 @@ export class DrizzleDraftRepository implements IDraftRepository {
     const rows = await this.db
       .insert(agentDraft)
       .values({
+        ...(draft.id !== undefined ? { id: draft.id } : {}),
         tenantId: draft.tenantId,
         traceId: draft.traceId,
         flowId: draft.flowId,

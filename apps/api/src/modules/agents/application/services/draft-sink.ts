@@ -13,10 +13,12 @@ export class DraftSink {
   ) {}
 
   async submit(opts: {
+    draftId?: string
     tier: DraftTier
     provenance: DraftProvenance
     approvalFreshness: ApprovalFreshness
     approvalTtlHours: number
+    expiresAt?: Date
     tenantId: string
     traceId: string
     flowId: string
@@ -32,7 +34,12 @@ export class DraftSink {
     viaScheduleId?: string
     summary: string
   }): Promise<{ draftId: string }> {
+    const resolvedExpiresAt =
+      opts.expiresAt ??
+      new Date(opts.provenance.drafted_at.getTime() + opts.approvalTtlHours * 3600_000)
+
     const draft = await this.draftRepo.insert({
+      ...(opts.draftId !== undefined ? { id: opts.draftId } : {}),
       tenantId: opts.tenantId,
       traceId: opts.traceId,
       flowId: opts.flowId,
@@ -49,7 +56,7 @@ export class DraftSink {
       approvalFreshness: opts.approvalFreshness,
       approvalTtlHours: opts.approvalTtlHours,
       draftedAt: opts.provenance.drafted_at,
-      expiresAt: new Date(opts.provenance.drafted_at.getTime() + opts.approvalTtlHours * 3600_000),
+      expiresAt: resolvedExpiresAt,
       provenance: opts.provenance,
       taintAtDraftTime: opts.tainted,
     })

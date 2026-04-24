@@ -1,14 +1,3 @@
-/**
- * draft-sink.spec.ts
- *
- * Unit tests for DraftSink.
- *
- * Covers:
- *  1. Happy path low-risk: insert row + audit event emitted; no notification
- *  2. Happy path high-risk with approver: insert row + audit + notification
- *  3. permissionEnvelopeAtDraftTime defaults to {} if not provided
- */
-
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { DraftSink } from './draft-sink'
 import type { IDraftRepository } from '../../domain/repositories/draft.repository'
@@ -204,5 +193,14 @@ describe('DraftSink', () => {
 
     const insertArg = vi.mocked(draftRepo.insert).mock.calls[0][0] as NewDraft
     expect(insertArg.permissionEnvelopeAtDraftTime).toEqual(envelope)
+  })
+
+  it('includes tainted flag in audit event payload when tainted', async () => {
+    vi.mocked(draftRepo.insert).mockResolvedValue(makeFakeDraft({ taintAtDraftTime: true }))
+
+    await sink.submit(baseOpts({ tainted: true }))
+
+    const auditPayload = vi.mocked(kernelAuditFacade.recordEvent).mock.calls[0][0].payload
+    expect(auditPayload.tainted).toBe(true)
   })
 })

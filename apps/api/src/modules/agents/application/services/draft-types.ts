@@ -35,6 +35,7 @@ export type Draft = {
 }
 
 export type NewDraft = {
+  readonly id?: string
   readonly tenantId: string
   readonly traceId: string
   readonly flowId: string

@@ -20,6 +20,7 @@ export class NotificationsWriteFacade {
       draftId: opts.draftId,
       approverId: opts.approverId,
       toolName: opts.toolName,
+      summary: opts.summary,
       tier: opts.tier,
     })
   }
