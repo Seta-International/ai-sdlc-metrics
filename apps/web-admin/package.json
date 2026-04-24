@@ -6,7 +6,8 @@
     "build": "next build",
     "dev": "next dev --port 3010",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "test:unit": "vitest run"
   },
   "dependencies": {
     "@future/agent": "workspace:*",
