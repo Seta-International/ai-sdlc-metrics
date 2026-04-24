@@ -1,2 +1,6 @@
 export { agentDraft } from './agent-draft.schema'
 export type { AgentDraftRow, NewAgentDraftRow } from './agent-draft.schema'
+export { agentSchedule } from './agent-schedule.schema'
+export type { AgentScheduleRow, NewAgentScheduleRow } from './agent-schedule.schema'
+export { agentScheduleRun } from './agent-schedule-run.schema'
+export type { AgentScheduleRunRow, NewAgentScheduleRunRow } from './agent-schedule-run.schema'

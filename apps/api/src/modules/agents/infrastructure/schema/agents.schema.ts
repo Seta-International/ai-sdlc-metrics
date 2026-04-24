@@ -408,11 +408,19 @@ export const agentCostEvents = agentsSchema.table(
     retryCount: integer('retry_count').notNull().default(0),
     attemptDurationMs: integer('attempt_duration_ms').notNull().default(0),
     totalDurationMs: integer('total_duration_ms').notNull().default(0),
+    /**
+     * Plan 09 — Soft reference to agents.agent_schedule.id.
+     * Set when this cost event originates from a scheduled turn.
+     * NULL for interactive (non-scheduled) turns.
+     * Used for per-schedule daily spend aggregation (R-09.32).
+     */
+    viaScheduleId: uuid('via_schedule_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index('agent_cost_event_tenant_created_idx').on(t.tenantId, t.createdAt.desc()),
     index('agent_cost_event_tenant_user_created_idx').on(t.tenantId, t.userId, t.createdAt.desc()),
+    index('agent_cost_event_tenant_schedule_idx').on(t.tenantId, t.viaScheduleId),
     check(
       'agent_cost_event_layer_check',
       sql`${t.layer} IN ('router','synthesizer','summarizer') OR ${t.layer} LIKE 'sub_agent:%'`,

@@ -1,4 +1,4 @@
-import { pgSchema, uuid, text, integer, timestamp, boolean } from 'drizzle-orm/pg-core'
+import { pgSchema, uuid, text, integer, timestamp, boolean, numeric } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 
 export const adminSchema = pgSchema('admin')
@@ -32,6 +32,27 @@ export const tenantSettings = adminSchema.table('tenant_settings', {
   plannerMsSyncEnabled: boolean('planner_ms_sync_enabled').notNull().default(false),
   timezone: text('timezone').notNull().default('Asia/Ho_Chi_Minh'),
   maxSampledTurnsPerDay: integer('max_sampled_turns_per_day').notNull().default(10000),
+  /**
+   * Plan 09 — Maximum number of active (non-deleted, non-paused) schedules
+   * allowed across the tenant. Scheduler refuses schedule creation once reached.
+   */
+  maxActiveSchedules: integer('max_active_schedules').notNull().default(100),
+  /**
+   * Plan 09 — Tenant-wide daily spend ceiling across all scheduled turns.
+   * NULL means no tenant-level cap (per-schedule ceilings still apply).
+   */
+  scheduledSpendDailyLimitUsd: numeric('scheduled_spend_daily_limit_usd', {
+    precision: 10,
+    scale: 2,
+  }),
+  /**
+   * Plan 09 — Default failure alert policy applied to new schedules at creation
+   * time when the creator does not specify one.
+   * Allowed values: 'owner' | 'owner_and_admin' | 'admin_only' | 'silent'
+   */
+  defaultScheduleFailureAlertPolicy: text('default_schedule_failure_alert_policy')
+    .notNull()
+    .default('owner_and_admin'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })

@@ -1503,4 +1503,62 @@ CREATE INDEX "idx_task_comment_task_posted" ON "planner"."task_comment" USING bt
 CREATE INDEX "idx_task_evidence_task_submitted" ON "planner"."task_evidence" USING btree ("task_id","submitted_at");--> statement-breakpoint
 CREATE INDEX "idx_task_evidence_tenant_submitted_by" ON "planner"."task_evidence" USING btree ("tenant_id","submitted_by");--> statement-breakpoint
 CREATE INDEX "saved_view_tenant_actor_resource_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key");--> statement-breakpoint
-CREATE UNIQUE INDEX "saved_view_unique_default_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key") WHERE is_default = true;
+CREATE UNIQUE INDEX "saved_view_unique_default_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key") WHERE is_default = true;--> statement-breakpoint
+CREATE TABLE "agents"."agent_schedule" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"kind" text NOT NULL,
+	"owner_user_id" uuid,
+	"created_by" uuid NOT NULL,
+	"trigger_kind" text NOT NULL,
+	"cron_expression" text,
+	"event_subscription" jsonb,
+	"prompt" text NOT NULL,
+	"delegation_id" uuid NOT NULL,
+	"cost_ceiling_daily_usd" numeric(10, 2) DEFAULT '1.00' NOT NULL,
+	"invocation_ceiling_daily" integer DEFAULT 10 NOT NULL,
+	"status" text DEFAULT 'active' NOT NULL,
+	"pause_reason" text,
+	"consecutive_failure_count" integer DEFAULT 0 NOT NULL,
+	"failure_alert_policy" text DEFAULT 'owner_and_admin' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_schedule_run" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"schedule_id" uuid NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"trace_id" uuid NOT NULL,
+	"flow_id" uuid NOT NULL,
+	"pg_boss_job_id" text,
+	"started_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"ended_at" timestamp with time zone,
+	"outcome" text,
+	"taint_seeded" boolean DEFAULT false NOT NULL,
+	"pinned_versions" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"cost_spent_usd" numeric(12, 6) DEFAULT '0' NOT NULL,
+	"fired_by" text NOT NULL
+);
+--> statement-breakpoint
+ALTER TABLE "core"."agent_delegation" ADD COLUMN "autonomous_writes_allowed" boolean DEFAULT false NOT NULL;
+--> statement-breakpoint
+ALTER TABLE "agents"."agent_cost_event" ADD COLUMN "via_schedule_id" uuid;
+--> statement-breakpoint
+ALTER TABLE "admin"."tenant_settings" ADD COLUMN "max_active_schedules" integer DEFAULT 100 NOT NULL;
+--> statement-breakpoint
+ALTER TABLE "admin"."tenant_settings" ADD COLUMN "scheduled_spend_daily_limit_usd" numeric(10, 2);
+--> statement-breakpoint
+ALTER TABLE "admin"."tenant_settings" ADD COLUMN "default_schedule_failure_alert_policy" text DEFAULT 'owner_and_admin' NOT NULL;
+--> statement-breakpoint
+CREATE INDEX "agent_schedule_tenant_status_trigger_idx" ON "agents"."agent_schedule" USING btree ("tenant_id","status","trigger_kind");
+--> statement-breakpoint
+CREATE INDEX "agent_schedule_tenant_owner_status_idx" ON "agents"."agent_schedule" USING btree ("tenant_id","owner_user_id","status");
+--> statement-breakpoint
+CREATE INDEX "agent_schedule_tenant_delegation_idx" ON "agents"."agent_schedule" USING btree ("tenant_id","delegation_id");
+--> statement-breakpoint
+CREATE INDEX "agent_schedule_run_schedule_started_idx" ON "agents"."agent_schedule_run" USING btree ("schedule_id","started_at" DESC NULLS LAST);
+--> statement-breakpoint
+CREATE INDEX "agent_schedule_run_tenant_trace_idx" ON "agents"."agent_schedule_run" USING btree ("tenant_id","trace_id");
+--> statement-breakpoint
+CREATE INDEX "agent_cost_event_tenant_schedule_idx" ON "agents"."agent_cost_event" USING btree ("tenant_id","via_schedule_id");

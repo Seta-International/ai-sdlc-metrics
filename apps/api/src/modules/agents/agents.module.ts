@@ -61,9 +61,17 @@ import { setDraftRepository } from './interface/trpc/draft-audit.router'
 import { setScheduleHandlers } from './interface/trpc/schedule-ui-facade'
 // Plan 09 — Async Agents + Scheduling
 import { SCHEDULE_REPOSITORY } from './domain/repositories/schedule.repository'
+import { SCHEDULE_RUN_REPOSITORY } from './domain/repositories/schedule-run.repository'
 import { DrizzleScheduleRepository } from './infrastructure/repositories/drizzle-schedule.repository'
+import { DrizzleScheduleRunRepository } from './infrastructure/repositories/drizzle-schedule-run.repository'
 import { ScheduleRepository } from './application/services/schedule-repository'
 import { DelegationLifecycle } from './application/services/delegation-lifecycle'
+import { SchedulerPrincipal } from './application/services/scheduler-principal'
+import { TaintSeedDetector } from './application/services/taint-seed-detector'
+import { ScheduledTurnSpawner } from './application/services/scheduled-turn-spawner'
+import { ScheduledTurnWorker } from './infrastructure/workers/scheduled-turn-worker'
+import type { ScheduledTurnJob } from './infrastructure/workers/scheduled-turn-worker'
+import { DelegationExpirySweeper } from './infrastructure/workers/delegation-expiry-sweep'
 import { KernelDelegationFacade } from '../kernel/application/facades/kernel-delegation.facade'
 // Permission narrative builder (Task 6)
 import {
@@ -342,8 +350,14 @@ class NullTenantLister implements TenantListerLike {
     DraftExpirySweeper,
     // ── Plan 09 — Async Agents + Scheduling ───────────────────────────────────
     { provide: SCHEDULE_REPOSITORY, useClass: DrizzleScheduleRepository },
+    { provide: SCHEDULE_RUN_REPOSITORY, useClass: DrizzleScheduleRunRepository },
     ScheduleRepository,
     DelegationLifecycle,
+    SchedulerPrincipal,
+    TaintSeedDetector,
+    ScheduledTurnSpawner,
+    ScheduledTurnWorker,
+    DelegationExpirySweeper,
     // ── Plan 06 — Streaming + SSE + Cancellation ──────────────────────────────
     ActiveTurnRegistry,
     RequestContextDiscipline,
@@ -407,6 +421,8 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly scheduleRepository: ScheduleRepository,
     private readonly delegationLifecycle: DelegationLifecycle,
     private readonly kernelDelegationFacade: KernelDelegationFacade,
+    private readonly scheduledTurnWorker: ScheduledTurnWorker,
+    private readonly delegationExpirySweeper: DelegationExpirySweeper,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -524,5 +540,20 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     // Step 9: Register draft expiry sweeper (Plan 08 T5).
     // Runs every 15 minutes to mark pending-expired drafts as 'expired'.
     await this.draftExpirySweeper.registerJob(this.pgBossService)
+
+    // Step 10: Register scheduled-turn worker (Plan 09).
+    // Processes agent.scheduled-turn jobs enqueued by ScheduledTurnSpawner.
+    await this.pgBossService.registerWorker<ScheduledTurnJob>(
+      'agent.scheduled-turn',
+      async (jobs) => {
+        for (const job of jobs) {
+          await this.scheduledTurnWorker.handle(job.data)
+        }
+      },
+    )
+
+    // Step 11: Register delegation expiry sweeper (Plan 09).
+    // Runs daily at 01:00 UTC to expire stale delegations.
+    await this.delegationExpirySweeper.registerJob(this.pgBossService)
   }
 }

@@ -1,4 +1,4 @@
-import { uuid, text, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
+import { uuid, text, timestamp, jsonb, boolean, index } from 'drizzle-orm/pg-core'
 import { uuidv7 } from 'uuidv7'
 import { coreSchema } from './actor.schema'
 
@@ -36,6 +36,13 @@ export const agentDelegation = coreSchema.table(
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     /** Lifecycle state. Default 'active'; sweep job sets 'expired'. */
     status: text('status').notNull().default('active'),
+    /**
+     * Plan 09 — When true the agent may execute write-class tools autonomously
+     * within the scope of this delegation without drafting for human approval.
+     * Default false; must be explicitly granted by a platform_admin or tenant
+     * admin with sufficient authority.
+     */
+    autonomousWritesAllowed: boolean('autonomous_writes_allowed').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
