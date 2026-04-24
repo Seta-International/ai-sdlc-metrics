@@ -9,6 +9,8 @@ import { IsPlannerEnabledHandler } from './application/queries/is-planner-enable
 import { GetPlannerViewFlagsHandler } from './application/queries/get-planner-view-flags.handler'
 import { GetTenantTimezoneHandler } from './application/queries/get-tenant-timezone.handler'
 import { UpdateTenantTimezoneHandler } from './application/commands/update-tenant-timezone.handler'
+import { ListPlatformTenantsHandler } from './application/queries/list-platform-tenants.handler'
+import { UpdateTargetTenantStatusHandler } from './application/commands/update-target-tenant-status.handler'
 import { DrizzleTenantEmailConfigRepository } from './infrastructure/repositories/drizzle-tenant-email-config.repository'
 import { TENANT_EMAIL_CONFIG_REPOSITORY } from './domain/repositories/tenant-email-config.repository.port'
 
@@ -23,6 +25,8 @@ import { TENANT_EMAIL_CONFIG_REPOSITORY } from './domain/repositories/tenant-ema
     GetPlannerViewFlagsHandler,
     GetTenantTimezoneHandler,
     UpdateTenantTimezoneHandler,
+    ListPlatformTenantsHandler,
+    UpdateTargetTenantStatusHandler,
     {
       provide: TENANT_EMAIL_CONFIG_REPOSITORY,
       useClass: DrizzleTenantEmailConfigRepository,

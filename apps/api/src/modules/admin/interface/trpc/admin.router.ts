@@ -7,6 +7,8 @@ import { QueryAuditLogQuery } from '../../application/queries/query-audit-log.qu
 import { ExportAuditLogQuery } from '../../application/queries/export-audit-log.query'
 import { GetTenantTimezoneQuery } from '../../application/queries/get-tenant-timezone.query'
 import { UpdateTenantTimezoneCommand } from '../../application/commands/update-tenant-timezone.command'
+import { ListPlatformTenantsQuery } from '../../application/queries/list-platform-tenants.query'
+import { UpdateTargetTenantStatusCommand } from '../../application/commands/update-target-tenant-status.command'
 
 function svc() {
   return AdminRouterService.getInstance()
@@ -172,10 +174,41 @@ export function createAdminAuditLogRouter(permissionProtectedProcedure: any) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createAdminPlatformRouter(permissionProtectedProcedure: any) {
+  return router({
+    listTenants: permissionProtectedProcedure
+      .meta({ permission: PERMISSIONS.ADMIN_PLATFORM_READ })
+      .input(z.object({}))
+      .query(() => svc().query(new ListPlatformTenantsQuery())),
+
+    updateTenantStatus: permissionProtectedProcedure
+      .meta({ permission: PERMISSIONS.ADMIN_PLATFORM_MANAGE })
+      .input(
+        z.object({
+          tenantId: z.string().uuid(),
+          status: z.enum(['active', 'suspended', 'cancelled']),
+        }),
+      )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .mutation(({ ctx, input }: { ctx: AuthContext; input: any }) =>
+        svc().command(
+          new UpdateTargetTenantStatusCommand(
+            ctx.tenantId,
+            ctx.actorId,
+            input.tenantId,
+            input.status,
+          ),
+        ),
+      ),
+  })
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createAdminRouter(permissionProtectedProcedure: any) {
   return router({
     roles: createAdminRolesRouter(permissionProtectedProcedure),
     auditLog: createAdminAuditLogRouter(permissionProtectedProcedure),
+    platform: createAdminPlatformRouter(permissionProtectedProcedure),
 
     getTenantTimezone: permissionProtectedProcedure
       .meta({ permission: PERMISSIONS.ADMIN_TENANT_READ })
@@ -208,9 +241,17 @@ export const adminAuditLogRouter = router({
   export: publicProcedure.input(z.object({})).query(() => null),
 })
 
+export const adminPlatformRouter = router({
+  listTenants: publicProcedure.input(z.object({})).query(() => []),
+  updateTenantStatus: publicProcedure
+    .input(z.object({ tenantId: z.string(), status: z.string() }))
+    .mutation(() => null),
+})
+
 export const adminRouter = router({
   roles: adminRolesRouter,
   auditLog: adminAuditLogRouter,
+  platform: adminPlatformRouter,
   getTenantTimezone: publicProcedure.input(z.object({})).query(() => ({ timezone: '' })),
   updateTimezone: publicProcedure.input(z.object({ timezone: z.string() })).mutation(() => null),
 })

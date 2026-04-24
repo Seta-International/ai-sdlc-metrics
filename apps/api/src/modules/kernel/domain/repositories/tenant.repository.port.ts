@@ -12,4 +12,9 @@ export interface ITenantRepository {
    * Used only by the bootstrap command — no RLS context required.
    */
   upsertSystemTenant(data: { id: string; slug: string; name: string }): Promise<Tenant>
+  /**
+   * Update the status of a tenant. Used by platform admin operations.
+   * No RLS context required — the tenant table is not RLS-protected.
+   */
+  updateStatus(id: string, status: Tenant['status']): Promise<void>
 }
