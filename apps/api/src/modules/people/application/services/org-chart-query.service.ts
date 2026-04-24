@@ -89,10 +89,20 @@ export class OrgChartQueryService {
       employmentId,
       tenantId,
     )
-    const childIds = childAssignments.map((assignment) => assignment.employmentId)
+    const childIds = childAssignments
+      .map((assignment) => assignment.employmentId)
+      .filter((childId) => childId !== employmentId)
     const childEmployments = await this.employmentRepo.findManyByIds(childIds, tenantId)
     const childCurrentAssignments = await this.assignmentRepo.findCurrentMany(childIds, tenantId)
-    return this.buildNodes(childIds, childEmployments, childCurrentAssignments, new Map(), tenantId)
+    const nodes = await this.buildNodes(
+      childIds,
+      childEmployments,
+      childCurrentAssignments,
+      new Map(),
+      tenantId,
+    )
+
+    return [...nodes].sort((left, right) => left.fullName.localeCompare(right.fullName, 'en'))
   }
 
   private async getRootContext(tenantId: string): Promise<OrgChartContextDto> {

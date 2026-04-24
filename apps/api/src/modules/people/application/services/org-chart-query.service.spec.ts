@@ -319,6 +319,74 @@ describe('OrgChartQueryService', () => {
     expect(result.map((node) => node.relationshipToViewer)).toEqual([undefined, undefined])
   })
 
+  it('returns lazy children sorted by display name', async () => {
+    const service = new OrgChartQueryService(
+      {
+        findById: vi.fn().mockResolvedValue(employment(selfEmploymentId)),
+        findManyByIds: vi
+          .fn()
+          .mockResolvedValue([employment(reportEmploymentId), employment(otherReportEmploymentId)]),
+      } as never,
+      {
+        findCurrentByManagerId: vi
+          .fn()
+          .mockResolvedValue([
+            assignment(otherReportEmploymentId, selfEmploymentId),
+            assignment(reportEmploymentId, selfEmploymentId),
+          ]),
+        findCurrentMany: vi
+          .fn()
+          .mockResolvedValue([
+            assignment(otherReportEmploymentId, selfEmploymentId),
+            assignment(reportEmploymentId, selfEmploymentId),
+          ]),
+        countCurrentByManagerId: vi.fn().mockResolvedValue(0),
+      } as never,
+      directoryRepo([
+        [reportEmploymentId, 'Alex Report', 'Engineer'],
+        [otherReportEmploymentId, 'Zoe Report', 'Engineer'],
+      ]) as never,
+    )
+
+    const result = await service.getChildren(tenantId, selfEmploymentId)
+
+    expect(result.map((node) => node.fullName)).toEqual(['Alex Report', 'Zoe Report'])
+  })
+
+  it('drops self-referential cycles from lazy children payloads', async () => {
+    const service = new OrgChartQueryService(
+      {
+        findById: vi.fn().mockResolvedValue(employment(selfEmploymentId)),
+        findManyByIds: vi
+          .fn()
+          .mockResolvedValue([employment(selfEmploymentId), employment(reportEmploymentId)]),
+      } as never,
+      {
+        findCurrentByManagerId: vi
+          .fn()
+          .mockResolvedValue([
+            assignment(selfEmploymentId, selfEmploymentId),
+            assignment(reportEmploymentId, selfEmploymentId),
+          ]),
+        findCurrentMany: vi
+          .fn()
+          .mockResolvedValue([
+            assignment(selfEmploymentId, selfEmploymentId),
+            assignment(reportEmploymentId, selfEmploymentId),
+          ]),
+        countCurrentByManagerId: vi.fn().mockResolvedValue(0),
+      } as never,
+      directoryRepo([
+        [selfEmploymentId, 'Sam Self', 'Senior Engineer'],
+        [reportEmploymentId, 'Riley Report', 'Engineer'],
+      ]) as never,
+    )
+
+    const result = await service.getChildren(tenantId, selfEmploymentId)
+
+    expect(result.map((node) => node.employmentId)).toEqual([reportEmploymentId])
+  })
+
   it('throws when lazy children are requested for a missing node', async () => {
     const service = new OrgChartQueryService(
       { findById: vi.fn().mockResolvedValue(null) } as never,
