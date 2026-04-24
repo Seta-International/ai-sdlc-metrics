@@ -3,5 +3,13 @@
     "context7@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true,
     "atlassian@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "future-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "Seta-International/Future"
+      }
+    }
   }
 }
