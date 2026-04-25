@@ -1,11 +1,9 @@
-import type { PlanContainerData } from '../../../domain/value-objects/plan-container.vo'
-
 export interface MappedMsPlan {
   tenantId: string
   msPlanId: string
   msPlanEtag: string
   title: string
-  containerType: PlanContainerData['type']
+  containerType: 'ms_group' | 'ms_roster'
   containerRef: string
 }
 
@@ -13,7 +11,7 @@ export function mapMsPlanToDomain(ms: any, ctx: { tenantId: string }): MappedMsP
   if (!ms?.id) throw new Error('plannerPlan.id missing')
   if (!ms.container?.containerId) throw new Error('plannerPlan.container.containerId missing')
 
-  const kind: PlanContainerData['type'] =
+  const kind: 'ms_group' | 'ms_roster' =
     ms.container.type === 'group'
       ? 'ms_group'
       : ms.container.type === 'roster'

@@ -416,7 +416,7 @@ export class DrizzleTaskRepository implements ITaskRepository {
           pendingMsAssignments: props.pendingMsAssignments,
         })
         .returning({ id: plannerTask.id })
-      taskId = rows[0].id
+      taskId = rows[0]!.id
     }
 
     await this.db

@@ -17,7 +17,7 @@ export class DrizzleMsPlanSyncStateRepository implements IMsPlanSyncStateReposit
       .from(msPlanSyncState)
       .where(eq(msPlanSyncState.planId, planId))
       .limit(1)
-    return rows.length > 0 ? rowToEntity(rows[0]) : null
+    return rows.length > 0 ? rowToEntity(rows[0]!) : null
   }
 
   async findByMsPlanId(tenantId: string, msPlanId: string): Promise<MsPlanSyncStateEntity | null> {
@@ -26,7 +26,7 @@ export class DrizzleMsPlanSyncStateRepository implements IMsPlanSyncStateReposit
       .from(msPlanSyncState)
       .where(and(eq(msPlanSyncState.tenantId, tenantId), eq(msPlanSyncState.msPlanId, msPlanId)))
       .limit(1)
-    return rows.length > 0 ? rowToEntity(rows[0]) : null
+    return rows.length > 0 ? rowToEntity(rows[0]!) : null
   }
 
   async upsertState(entity: MsPlanSyncStateEntity): Promise<void> {

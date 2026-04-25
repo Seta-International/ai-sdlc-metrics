@@ -12,7 +12,7 @@ export class DrizzleMsLinkedGroupRepository implements IMsLinkedGroupRepository 
 
   async findById(id: string): Promise<MsLinkedGroupEntity | null> {
     const rows = await this.db.select().from(msLinkedGroup).where(eq(msLinkedGroup.id, id)).limit(1)
-    return rows.length > 0 ? rowToEntity(rows[0]) : null
+    return rows.length > 0 ? rowToEntity(rows[0]!) : null
   }
 
   async findByTenantAndGroup(
@@ -24,7 +24,7 @@ export class DrizzleMsLinkedGroupRepository implements IMsLinkedGroupRepository 
       .from(msLinkedGroup)
       .where(and(eq(msLinkedGroup.tenantId, tenantId), eq(msLinkedGroup.msGroupId, msGroupId)))
       .limit(1)
-    return rows.length > 0 ? rowToEntity(rows[0]) : null
+    return rows.length > 0 ? rowToEntity(rows[0]!) : null
   }
 
   async listForTenant(tenantId: string): Promise<MsLinkedGroupEntity[]> {

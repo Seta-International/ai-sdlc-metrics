@@ -224,6 +224,6 @@ export class DrizzlePlanRepository implements IPlanRepository {
         createdBy: props.tenantId,
       })
       .returning({ id: plannerPlan.id })
-    return { id: rows[0].id }
+    return { id: rows[0]!.id }
   }
 }

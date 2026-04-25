@@ -1,5 +1,6 @@
-import type { IPlanRepository } from '../../domain/repositories/plan.repository'
+import type { IPlanRepository, MsPlanUpsertProps } from '../../domain/repositories/plan.repository'
 import { Plan } from '../../domain/entities/plan.entity'
+import { PlanContainer } from '../../domain/value-objects/plan-container.vo'
 
 export class InMemoryPlanRepository implements IPlanRepository {
   private readonly store = new Map<string, Plan>()
@@ -58,6 +59,39 @@ export class InMemoryPlanRepository implements IPlanRepository {
         }),
       )
     }
+  }
+
+  async upsertFromMs(props: MsPlanUpsertProps, _opts: { origin: string }): Promise<{ id: string }> {
+    const existing = [...this.store.values()].find(
+      (p) => p.tenantId === props.tenantId && p.msPlanId === props.msPlanId,
+    )
+    if (existing) return { id: existing.id }
+    const now = new Date()
+    const id = `plan-${props.msPlanId}`
+    const plan = Plan.reconstitute({
+      id,
+      tenantId: props.tenantId,
+      name: props.title,
+      description: '',
+      container: PlanContainer.of({ type: props.containerType, externalId: props.containerRef }),
+      createdBy: 'ms-sync',
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+      msPlanId: props.msPlanId,
+      msPlanEtag: props.msPlanEtag,
+      buckets: [],
+      labels: [],
+      members: [],
+      ownerActorId: null,
+      syncEnabled: true,
+    })
+    this.store.set(id, plan)
+    return { id }
+  }
+
+  async convertAllToFutureOnly(_tenantId: string): Promise<void> {
+    // no-op in tests
   }
 
   /** Test helper: get all plans regardless of deletedAt */

@@ -92,13 +92,14 @@ export class MsGraphClient {
     const collected: T[] = []
     let url: string | undefined = (opts.useBeta ? BETA : V1) + path
     while (url) {
-      const page = await this.requestAbsolute<{ value: T[]; '@odata.nextLink'?: string }>(
-        tenantId,
-        'GET',
-        url,
-        undefined,
-        { ifNoneMatch: opts.ifNoneMatch },
-      )
+      const page: GraphResponse<{ value: T[]; '@odata.nextLink'?: string }> =
+        await this.requestAbsolute<{ value: T[]; '@odata.nextLink'?: string }>(
+          tenantId,
+          'GET',
+          url,
+          undefined,
+          { ifNoneMatch: opts.ifNoneMatch },
+        )
       if (page.body?.value) collected.push(...page.body.value)
       url = page.body?.['@odata.nextLink']
     }
