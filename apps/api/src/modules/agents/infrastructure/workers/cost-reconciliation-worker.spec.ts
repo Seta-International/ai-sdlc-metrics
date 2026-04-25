@@ -33,12 +33,10 @@ describe('CostReconciliationWorker', () => {
     const worker = new CostReconciliationWorker(
       mockBoss as unknown as PgBossService,
       job,
-      db as unknown as Parameters<
-        typeof CostReconciliationWorker.prototype.onApplicationBootstrap
-      >[0],
+      db as unknown as Parameters<typeof CostReconciliationWorker.prototype.registerWorker>[0],
     )
 
-    await worker.onApplicationBootstrap()
+    await worker.registerWorker()
 
     expect(mockBoss.schedule).toHaveBeenCalledTimes(1)
     expect(mockBoss.schedule).toHaveBeenCalledWith(COST_RECONCILIATION_JOB, '0 8 * * 1')
@@ -60,12 +58,10 @@ describe('CostReconciliationWorker', () => {
     const worker = new CostReconciliationWorker(
       mockBoss as unknown as PgBossService,
       job,
-      db as unknown as Parameters<
-        typeof CostReconciliationWorker.prototype.onApplicationBootstrap
-      >[0],
+      db as unknown as Parameters<typeof CostReconciliationWorker.prototype.registerWorker>[0],
     )
 
-    await worker.onApplicationBootstrap()
+    await worker.registerWorker()
 
     const handler = mockBoss.registerScheduledWorker.mock.calls[0][1] as () => Promise<void>
     await handler()
@@ -94,12 +90,10 @@ describe('CostReconciliationWorker', () => {
     const worker = new CostReconciliationWorker(
       mockBoss as unknown as PgBossService,
       job,
-      db as unknown as Parameters<
-        typeof CostReconciliationWorker.prototype.onApplicationBootstrap
-      >[0],
+      db as unknown as Parameters<typeof CostReconciliationWorker.prototype.registerWorker>[0],
     )
 
-    await worker.onApplicationBootstrap()
+    await worker.registerWorker()
 
     const handler = mockBoss.registerScheduledWorker.mock.calls[0][1] as () => Promise<void>
     await expect(handler()).rejects.toThrow('reconciliation boom')
@@ -124,14 +118,12 @@ describe('CostReconciliationWorker', () => {
     const worker = new CostReconciliationWorker(
       mockBoss as unknown as PgBossService,
       job,
-      db as unknown as Parameters<
-        typeof CostReconciliationWorker.prototype.onApplicationBootstrap
-      >[0],
+      db as unknown as Parameters<typeof CostReconciliationWorker.prototype.registerWorker>[0],
     )
 
     const warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {})
 
-    await worker.onApplicationBootstrap()
+    await worker.registerWorker()
 
     const handler = mockBoss.registerScheduledWorker.mock.calls[0][1] as () => Promise<void>
     await handler()
@@ -158,12 +150,10 @@ describe('CostReconciliationWorker', () => {
     const worker = new CostReconciliationWorker(
       mockBoss as unknown as PgBossService,
       job,
-      db as unknown as Parameters<
-        typeof CostReconciliationWorker.prototype.onApplicationBootstrap
-      >[0],
+      db as unknown as Parameters<typeof CostReconciliationWorker.prototype.registerWorker>[0],
     )
 
-    await worker.onApplicationBootstrap()
+    await worker.registerWorker()
 
     const handler = mockBoss.registerScheduledWorker.mock.calls[0][1] as () => Promise<void>
     await handler()
@@ -190,9 +180,7 @@ describe('CostReconciliationWorker', () => {
       const worker = new CostReconciliationWorker(
         mockBoss as unknown as PgBossService,
         job,
-        db as unknown as Parameters<
-          typeof CostReconciliationWorker.prototype.onApplicationBootstrap
-        >[0],
+        db as unknown as Parameters<typeof CostReconciliationWorker.prototype.registerWorker>[0],
       )
 
       const { weekStart, weekEnd } = (

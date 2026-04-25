@@ -33,7 +33,7 @@ describe('FlowCorrelationWorker', () => {
 
     const worker = new FlowCorrelationWorker(mockBoss as unknown as PgBossService, probe)
 
-    await worker.onApplicationBootstrap()
+    await worker.registerWorker()
 
     expect(mockBoss.schedule).toHaveBeenCalledTimes(1)
     expect(mockBoss.schedule).toHaveBeenCalledWith(FLOW_CORRELATION_JOB, '0 6 1 * *')
@@ -53,7 +53,7 @@ describe('FlowCorrelationWorker', () => {
 
     const worker = new FlowCorrelationWorker(mockBoss as unknown as PgBossService, probe)
 
-    await worker.onApplicationBootstrap()
+    await worker.registerWorker()
 
     const handler = mockBoss.registerScheduledWorker.mock.calls[0][1] as () => Promise<void>
     await handler()
@@ -80,7 +80,7 @@ describe('FlowCorrelationWorker', () => {
     const worker = new FlowCorrelationWorker(mockBoss as unknown as PgBossService, probe)
     const warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {})
 
-    await worker.onApplicationBootstrap()
+    await worker.registerWorker()
 
     const handler = mockBoss.registerScheduledWorker.mock.calls[0][1] as () => Promise<void>
     await handler()
@@ -97,7 +97,7 @@ describe('FlowCorrelationWorker', () => {
 
     const worker = new FlowCorrelationWorker(mockBoss as unknown as PgBossService, probe)
 
-    await worker.onApplicationBootstrap()
+    await worker.registerWorker()
 
     const handler = mockBoss.registerScheduledWorker.mock.calls[0][1] as () => Promise<void>
     await expect(handler()).rejects.toThrow('probe boom')
