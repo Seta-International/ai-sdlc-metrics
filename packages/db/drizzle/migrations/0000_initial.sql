@@ -1729,4 +1729,20 @@ CREATE INDEX "idx_task_comment_task_posted" ON "planner"."task_comment" USING bt
 CREATE INDEX "idx_task_evidence_task_submitted" ON "planner"."task_evidence" USING btree ("task_id","submitted_at");--> statement-breakpoint
 CREATE INDEX "idx_task_evidence_tenant_submitted_by" ON "planner"."task_evidence" USING btree ("tenant_id","submitted_by");--> statement-breakpoint
 CREATE INDEX "saved_view_tenant_actor_resource_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key");--> statement-breakpoint
-CREATE UNIQUE INDEX "saved_view_unique_default_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key") WHERE is_default = true;
+CREATE UNIQUE INDEX "saved_view_unique_default_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key") WHERE is_default = true;--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "agents"."agent_iteration" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"trace_id" uuid NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"turn_id" uuid NOT NULL,
+	"iteration_number" integer NOT NULL,
+	"sub_agent_key" text NOT NULL,
+	"selection_reason" text NOT NULL,
+	"completion_scorer_results" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"is_complete" boolean DEFAULT false NOT NULL,
+	"started_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"ended_at" timestamp with time zone,
+	"usage" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"taint_at_start" boolean DEFAULT false NOT NULL
+);--> statement-breakpoint
+CREATE INDEX "idx_agent_iteration_turn" ON "agents"."agent_iteration" USING btree ("turn_id","iteration_number");

@@ -35,6 +35,7 @@ import type { AgentSessionEntry } from '../../domain/ports/agent-session.port'
 import type { RouterPlan } from '../../domain/value-objects/router-plan-schema'
 import type { WindowedSummaries } from '../../domain/value-objects/windowed-summaries'
 import type { SubAgentKey } from '../../domain/services/sub-agent-types'
+import type { PhaseExecutionResult } from './phase-executor-contracts'
 import { estimateTokens } from './sub-agent-retriever'
 
 // ─── OTel span capture setup ──────────────────────────────────────────────────
@@ -71,11 +72,13 @@ const {
   mockRecordRouterParseRetry,
   mockRecordSubAgentInvoked,
   mockRecordNarrativeCache,
+  mockRecordTopologyDowngradeCandidateTotal,
 } = vi.hoisted(() => ({
   mockRecordRouterDecision: vi.fn(),
   mockRecordRouterParseRetry: vi.fn(),
   mockRecordSubAgentInvoked: vi.fn(),
   mockRecordNarrativeCache: vi.fn(),
+  mockRecordTopologyDowngradeCandidateTotal: vi.fn(),
 }))
 
 vi.mock('../../infrastructure/observability/gateway-metrics', () => ({
@@ -84,6 +87,7 @@ vi.mock('../../infrastructure/observability/gateway-metrics', () => ({
   recordSubAgentInvoked: mockRecordSubAgentInvoked,
   recordNarrativeCache: mockRecordNarrativeCache,
   recordSubAgentHidden: vi.fn(),
+  recordTopologyDowngradeCandidateTotal: mockRecordTopologyDowngradeCandidateTotal,
 }))
 
 // ─── Mock router-budget ───────────────────────────────────────────────────────
@@ -218,6 +222,8 @@ function buildOrchestrator(opts: {
   resolvedSubAgents?: ReturnType<typeof makeResolvedSubAgent>[]
   narrowedConfigs?: Array<{ key: string }>
   promptHash?: string
+  canDoResult?: boolean
+  iterativeOrchestratorResult?: PhaseExecutionResult
 }) {
   const {
     existingSession = null,
@@ -226,6 +232,8 @@ function buildOrchestrator(opts: {
     resolvedSubAgents = [makeResolvedSubAgent('planner.read-only')],
     narrowedConfigs,
     promptHash = 'rebuilt-prompt-hash',
+    canDoResult = true,
+    iterativeOrchestratorResult,
   } = opts
 
   let llmCallCount = 0
@@ -329,6 +337,20 @@ function buildOrchestrator(opts: {
       }),
   }
 
+  const kernelQueryFacadeMock = {
+    canDo: vi.fn().mockResolvedValue(canDoResult),
+  }
+
+  const iterativeOrchestratorMock = {
+    execute: vi.fn().mockResolvedValue(
+      iterativeOrchestratorResult ?? {
+        kind: 'synthesized',
+        answer: { text: 'done' },
+        drafts: [],
+      },
+    ),
+  }
+
   const orchestrator = new RouterSessionOrchestrator(
     agentSessionPort as never,
     permissionNarrativeBuilder as never,
@@ -339,6 +361,8 @@ function buildOrchestrator(opts: {
     llmClient as never,
     toolRegistry as never,
     kernelAuditFacade as never,
+    kernelQueryFacadeMock as never,
+    iterativeOrchestratorMock as never,
   )
 
   return {
@@ -352,6 +376,8 @@ function buildOrchestrator(opts: {
     parser,
     toolRegistry,
     kernelAuditFacade,
+    kernelQueryFacade: kernelQueryFacadeMock,
+    iterativeOrchestrator: iterativeOrchestratorMock,
     sessionCreated,
     auditEvents,
   }
@@ -365,6 +391,7 @@ describe('RouterSessionOrchestrator', () => {
     mockRecordRouterDecision.mockReset()
     mockRecordRouterParseRetry.mockReset()
     mockRecordSubAgentInvoked.mockReset()
+    mockRecordTopologyDowngradeCandidateTotal.mockReset()
     // Default: return well below ceiling so retrieval is dormant in most tests
     vi.mocked(estimateTokens).mockReturnValue(1_000)
     // Reset span exporter between tests so spans don't bleed across test cases
@@ -809,5 +836,245 @@ describe('RouterSessionOrchestrator', () => {
     const result = await orchestrator.routeTurn(BASE_OPTS)
 
     expect(result.kind).toBe('bounded')
+  })
+})
+
+// ─── Plan 12 Task 5: Inline surface guard + permission gate ─────────────────
+
+const ITERATIVE_PLAN: RouterPlan = {
+  topology: 'iterative',
+  intent_slug: 'planner.list-my-tasks',
+  flow_id: FLOW_ID,
+  initialDirective: {
+    sub_agent_key: 'planner.read-only',
+    input: { utterance: 'refine plan' },
+    reason: 'iterative refinement',
+  },
+  completionCriteria: {
+    scorerIds: ['scorer-det-1'],
+    strategy: 'all',
+    maxIterations: 3,
+    hintToRouter: 'done when refined',
+  },
+}
+
+describe('RouterSessionOrchestrator — Plan 12 Task 5: inline surface guard + permission gate', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockRecordRouterDecision.mockReset()
+    mockRecordRouterParseRetry.mockReset()
+    mockRecordSubAgentInvoked.mockReset()
+    mockRecordTopologyDowngradeCandidateTotal.mockReset()
+    vi.mocked(estimateTokens).mockReturnValue(1_000)
+    spanExporter.reset()
+  })
+
+  // ── 4. Inline surface + iterative plan → second iterative → disambiguation ──
+
+  it('4a. inline surface + first iterative plan → re-invokes router with inline hint', async () => {
+    // First parse returns iterative, second parse returns bounded
+    const { orchestrator, llmClient } = buildOrchestrator({
+      llmResults: [
+        { kind: 'ok', plan: ITERATIVE_PLAN },
+        { kind: 'ok', plan: VALID_PLAN }, // second call: router returns bounded
+        { kind: 'ok', plan: VALID_PLAN }, // third call (after inline retry): bounded
+      ],
+      parseResults: [
+        { kind: 'ok', plan: ITERATIVE_PLAN }, // attempt 1: iterative (inline surface → retry)
+        { kind: 'ok', plan: VALID_PLAN }, // attempt 2: bounded — ok
+      ],
+    })
+
+    const result = await orchestrator.routeTurn({
+      ...BASE_OPTS,
+      surface: 'inline',
+    })
+
+    // The router was re-invoked at least twice (original + inline hint call)
+    expect(llmClient.generate).toHaveBeenCalledTimes(2)
+    // Second LLM call's system prompt must contain the inline hint
+    const secondCallArgs = llmClient.generate.mock.calls[1]![0] as { systemPrompt: string }
+    expect(secondCallArgs.systemPrompt).toContain('Use bounded topology')
+    // Final result should be bounded (second attempt returned bounded)
+    expect(result.kind).toBe('bounded')
+  })
+
+  it('4b. inline surface + iterative AGAIN on second attempt → disambiguation', async () => {
+    const { orchestrator } = buildOrchestrator({
+      llmResults: [
+        { kind: 'ok', plan: ITERATIVE_PLAN },
+        { kind: 'ok', plan: ITERATIVE_PLAN }, // second call: still iterative
+      ],
+      parseResults: [
+        { kind: 'ok', plan: ITERATIVE_PLAN }, // attempt 1: iterative
+        { kind: 'ok', plan: ITERATIVE_PLAN }, // inline-retry attempt: still iterative
+      ],
+    })
+
+    const result = await orchestrator.routeTurn({
+      ...BASE_OPTS,
+      surface: 'inline',
+    })
+
+    expect(result.kind).toBe('disambiguation')
+    if (result.kind === 'disambiguation') {
+      expect(result.reason).toContain('inline')
+    }
+  })
+
+  it('4c. global-chat surface + iterative plan → dispatches IterativeOrchestrator (no inline block)', async () => {
+    const { orchestrator, iterativeOrchestrator } = buildOrchestrator({
+      llmResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
+      parseResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
+      canDoResult: true,
+    })
+
+    await orchestrator.routeTurn({
+      ...BASE_OPTS,
+      surface: 'global-chat',
+    })
+
+    expect(iterativeOrchestrator.execute).toHaveBeenCalledOnce()
+  })
+
+  // ── 5. canDo('agent.iterative') denied → disambiguation (not bounded downgrade) ──
+
+  it('5a. canDo denied → returns disambiguation (not a silent bounded downgrade)', async () => {
+    const { orchestrator, kernelQueryFacade, kernelAuditFacade } = buildOrchestrator({
+      llmResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
+      parseResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
+      canDoResult: false,
+    })
+
+    const result = await orchestrator.routeTurn({
+      ...BASE_OPTS,
+      surface: 'global-chat',
+    })
+
+    expect(result.kind).toBe('disambiguation')
+    if (result.kind === 'disambiguation') {
+      // Must be explicit message about the feature gate — not a generic "parse error"
+      expect(result.reason).toContain('iterative')
+    }
+    // canDo must have been called with the correct permission
+    expect(kernelQueryFacade.canDo).toHaveBeenCalledWith(
+      USER_ID,
+      'agent.iterative',
+      expect.objectContaining({ tenantId: TENANT_ID }),
+    )
+    // Audit event must be emitted on permission denial
+    expect(kernelAuditFacade.recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'refusal.started',
+        payload: expect.objectContaining({
+          underlying_reason: 'iterative_permission_denied',
+        }),
+      }),
+    )
+  })
+
+  it('5b. canDo denied → IterativeOrchestrator NOT invoked', async () => {
+    const { orchestrator, iterativeOrchestrator } = buildOrchestrator({
+      llmResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
+      parseResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
+      canDoResult: false,
+    })
+
+    await orchestrator.routeTurn({
+      ...BASE_OPTS,
+      surface: 'global-chat',
+    })
+
+    expect(iterativeOrchestrator.execute).not.toHaveBeenCalled()
+  })
+
+  it('5c. canDo granted + global-chat → IterativeOrchestrator.execute called with correct args', async () => {
+    const mockIterativeResult: import('./phase-executor-contracts').PhaseExecutionResult = {
+      kind: 'synthesized',
+      answer: { text: 'mock iterative answer' },
+      drafts: [],
+    }
+    const { orchestrator, iterativeOrchestrator } = buildOrchestrator({
+      llmResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
+      parseResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
+      canDoResult: true,
+      iterativeOrchestratorResult: mockIterativeResult,
+    })
+
+    const result = await orchestrator.routeTurn({
+      ...BASE_OPTS,
+      surface: 'global-chat',
+    })
+
+    expect(iterativeOrchestrator.execute).toHaveBeenCalledOnce()
+    const execCall = iterativeOrchestrator.execute.mock.calls[0]![0] as Record<string, unknown>
+    expect(execCall['initialPlan']).toEqual(ITERATIVE_PLAN)
+    expect(execCall['userUtterance']).toBe(BASE_OPTS.utterance)
+    // Assert RouteTurnResult shape
+    expect(result.kind).toBe('iterative')
+    if (result.kind === 'iterative') {
+      expect(result.result).toEqual(mockIterativeResult)
+    }
+  })
+
+  // ── 6. Topology-downgrade signal (R-12.20, R-12.21) ─────────────────────────
+
+  it('6a. iterative turn with routerReplanCount=1 → topology_downgrade_candidate span attr + metric', async () => {
+    // Simulate the iterative orchestrator doing a bounded re-plan by incrementing
+    // turnState.routerReplanCount to 1 during execution.
+    const mockIterativeResult: import('./phase-executor-contracts').PhaseExecutionResult = {
+      kind: 'synthesized',
+      answer: { text: 'answer after replan' },
+      drafts: [],
+    }
+    const { orchestrator, iterativeOrchestrator } = buildOrchestrator({
+      llmResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
+      parseResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
+      canDoResult: true,
+    })
+
+    // Override execute to also mutate turnState.routerReplanCount = 1
+    iterativeOrchestrator.execute.mockImplementation(
+      async (opts: { turnState: { routerReplanCount: 0 | 1 } }) => {
+        opts.turnState.routerReplanCount = 1
+        return mockIterativeResult
+      },
+    )
+
+    const result = await orchestrator.routeTurn({
+      ...BASE_OPTS,
+      surface: 'global-chat',
+    })
+
+    expect(result.kind).toBe('iterative')
+    // topology-downgrade metric must fire
+    expect(mockRecordTopologyDowngradeCandidateTotal).toHaveBeenCalledOnce()
+    expect(mockRecordTopologyDowngradeCandidateTotal).toHaveBeenCalledWith(TENANT_ID)
+    // topology_downgrade_candidate span attribute must be set
+    const finished = spanExporter.getFinishedSpans() as ReadableSpan[]
+    const routerPlanSpan = finished.find((s) => s.name === 'ROUTER_PLAN')
+    expect(routerPlanSpan?.attributes['topology_downgrade_candidate']).toBe(true)
+  })
+
+  it('6b. iterative turn with routerReplanCount=0 (no replan) → NO topology-downgrade signal', async () => {
+    const { orchestrator } = buildOrchestrator({
+      llmResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
+      parseResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
+      canDoResult: true,
+      iterativeOrchestratorResult: {
+        kind: 'synthesized',
+        answer: { text: 'clean iterative answer' },
+        drafts: [],
+      },
+    })
+
+    const result = await orchestrator.routeTurn({
+      ...BASE_OPTS,
+      surface: 'global-chat',
+    })
+
+    expect(result.kind).toBe('iterative')
+    // topology-downgrade metric must NOT fire when no re-plan happened
+    expect(mockRecordTopologyDowngradeCandidateTotal).not.toHaveBeenCalled()
   })
 })

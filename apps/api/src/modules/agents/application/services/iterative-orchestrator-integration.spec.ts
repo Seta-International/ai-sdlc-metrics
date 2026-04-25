@@ -1,0 +1,588 @@
+/**
+ * iterative-orchestrator.integration.spec.ts — Plan 12 Task 7
+ *
+ * Integration tests for IterativeOrchestrator wired with real CompletionScorerRunner
+ * and ScorerRegistry (deterministic scorers only). SubAgentRunner, Synthesizer, and
+ * IterativeRePlanner are mocked for isolation.
+ *
+ * NOTE: These tests do NOT require a test DB. They test orchestrator logic with
+ * real in-process services (CompletionScorerRunner + ScorerRegistry) and mocked
+ * LLM-touching services (SubAgentRunner, Synthesizer, IterativeRePlanner).
+ *
+ * To run: bun run --filter @future/api test:unit
+ *
+ * Scenarios:
+ *   1. Happy 3-iteration turn: scorer passes at iteration 3 → { kind: 'synthesized' }
+ *   2. Max-iterations exit: scorer never passes → { kind: 'partial', reason: 'limit_reached' }
+ *   3. Taint persistence: iteration 1 sets taint → later iterations inherit taint_at_start=true
+ *   4. Inline rejection: surface='inline' → orchestrator itself is surface-capped
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { IterativeOrchestrator } from './iterative-orchestrator'
+import { IterationCeilingEnforcer } from './iteration-ceiling-enforcer'
+import { CompletionScorerRunner } from './completion-scorer-runner'
+import { IterativeRePlanner } from './iterative-replanner'
+import type {
+  PhaseExecutorTurnState,
+  SubAgentOutput,
+  SynthesizerOutput,
+} from './phase-executor-contracts'
+import type { IterativePlan } from '../../domain/value-objects/router-plan-schema'
+import type { StreamEmitter } from './stream-gateway'
+import type { ISubAgentRunner, ISynthesizer } from './iterative-orchestrator'
+import type { SetaScorer } from '../../domain/scorer-types'
+import type { ReplanResult } from './iterative-replanner'
+
+// ─── Mock gateway-metrics so tests do not need OTel configured ────────────────
+
+vi.mock('../../infrastructure/observability/gateway-metrics', () => ({
+  recordIterativeTurnTotal: vi.fn(),
+  recordIterationCountExceeded: vi.fn(),
+  recordIterationsTotalHistogram: vi.fn(),
+  recordReplanLlmCallTotal: vi.fn(),
+  recordCompletionScorerFail: vi.fn(),
+}))
+
+// ─── Deterministic KPI scorer fixture ────────────────────────────────────────
+
+/**
+ * Deterministic scorer that passes when SubAgentOutput.structured contains
+ * { kpiAnswered: true }. Used to exercise the 3-iteration happy path.
+ */
+function makeKpiAnswerShapeScorer(id = 'kpi-answer-shape-deterministic'): SetaScorer {
+  return {
+    id,
+    name: 'KPI Answer Shape (deterministic)',
+    kind: 'deterministic',
+    scope: 'test',
+    definitionSource: 'code',
+    async run(ctx) {
+      const structured = ctx.output as SubAgentOutput
+      const data = structured.structured as Record<string, unknown> | null
+      const passed = Boolean(data?.['kpiAnswered'])
+      return { score: passed ? 1 : 0, passed, reason: passed ? 'kpi answered' : 'kpi not answered' }
+    },
+  }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function makeIterativePlan(
+  maxIterations = 5,
+  scorerIds = ['kpi-answer-shape-deterministic'],
+): IterativePlan {
+  return {
+    topology: 'iterative',
+    intent_slug: 'goals.kpi',
+    flow_id: '00000000-0000-0000-0000-000000000001',
+    initialDirective: {
+      sub_agent_key: 'goals.analyst',
+      input: { question: 'why did my KPI regress?' },
+      reason: 'initial investigation',
+    },
+    completionCriteria: {
+      scorerIds,
+      strategy: 'all',
+      maxIterations,
+      hintToRouter: 'KPI regression root cause identified with supporting data',
+    },
+  }
+}
+
+function makeTurnState(
+  surface: PhaseExecutorTurnState['surface'] = 'global-chat',
+): PhaseExecutorTurnState {
+  return {
+    traceId: 'integration-trace-001',
+    tenantId: '01900000-0000-7fff-8000-000000000099',
+    userId: '01900000-0000-7fff-8000-0000000000b1',
+    conversationId: 'conv-integration-001',
+    sessionId: 'sess-integration-001',
+    surface,
+    tainted: { value: false },
+    routerReplanCount: 0,
+  }
+}
+
+function makeSubAgentOutput(kpiAnswered = false): SubAgentOutput {
+  return {
+    kind: 'completed',
+    summary: kpiAnswered
+      ? 'KPI regression identified: revenue dropped 12% due to churn'
+      : 'Investigating KPI...',
+    semantics: 'kpi-regression-analysis',
+    confidence: kpiAnswered ? 'high' : 'med',
+    sourceToolProvenance: [],
+    structured: { kpiAnswered },
+    circuitBreakerState: {},
+    usageTotals: {
+      inputTokens: 200,
+      outputTokens: 100,
+      inputCachedRead: 0,
+      inputCachedWrite: 0,
+      outputReasoning: 0,
+      costUsd: 0.02,
+    },
+  }
+}
+
+function makeSynthesizerOutput(
+  turnEndedReason: 'completed' | 'partial' = 'completed',
+): SynthesizerOutput {
+  return {
+    shape: 'narrative',
+    content: 'KPI regression analysis complete.',
+    citations: [],
+    confidence: 'high',
+    turnEndedReason,
+  }
+}
+
+function makeNoopStreamEmitter(): StreamEmitter {
+  return {
+    emit: vi.fn(),
+    close: vi.fn(),
+    error: vi.fn(),
+  }
+}
+
+// ─── Test-scoped ScorerRegistry stub ─────────────────────────────────────────
+
+/**
+ * Lightweight in-memory ScorerRegistry that does not require DB or audit wiring.
+ * Supports register (in-memory only) and findById.
+ */
+class TestScorerRegistry {
+  private readonly scorers = new Map<string, SetaScorer>()
+
+  register(scorer: SetaScorer): void {
+    this.scorers.set(scorer.id, scorer)
+  }
+
+  findById(id: string): SetaScorer | undefined {
+    return this.scorers.get(id)
+  }
+}
+
+// ─── Tests ─────────────────────────────────────────────────────────────────────
+
+describe('IterativeOrchestrator (integration — real CompletionScorerRunner)', () => {
+  let ceilingEnforcer: IterationCeilingEnforcer
+  let replanner: { replan: ReturnType<typeof vi.fn> }
+  let subAgentRunner: { run: ReturnType<typeof vi.fn> }
+  let synthesizer: { synthesize: ReturnType<typeof vi.fn> }
+  let scorerRegistry: TestScorerRegistry
+  let scorerRunner: CompletionScorerRunner
+  let orchestrator: IterativeOrchestrator
+
+  beforeEach(() => {
+    ceilingEnforcer = new IterationCeilingEnforcer()
+    scorerRegistry = new TestScorerRegistry()
+    scorerRunner = new CompletionScorerRunner(scorerRegistry as never)
+    replanner = { replan: vi.fn() }
+    subAgentRunner = { run: vi.fn() }
+    synthesizer = { synthesize: vi.fn() }
+
+    orchestrator = new IterativeOrchestrator(
+      subAgentRunner as unknown as ISubAgentRunner,
+      synthesizer as unknown as ISynthesizer,
+      scorerRunner,
+      ceilingEnforcer,
+      replanner as unknown as IterativeRePlanner,
+    )
+  })
+
+  // ── 1. Happy 3-iteration turn ─────────────────────────────────────────────────
+
+  it('1. happy 3-iteration turn: scorer passes at iteration 3 → { kind: "synthesized" }', async () => {
+    const scorer = makeKpiAnswerShapeScorer()
+    scorerRegistry.register(scorer)
+
+    const plan = makeIterativePlan(5)
+    const turnState = makeTurnState()
+    const emitter = makeNoopStreamEmitter()
+    const abortController = new AbortController()
+
+    // Iterations 1 and 2: KPI not yet answered
+    // Iteration 3: KPI answered → scorer passes
+    subAgentRunner.run
+      .mockResolvedValueOnce(makeSubAgentOutput(false)) // iter 1
+      .mockResolvedValueOnce(makeSubAgentOutput(false)) // iter 2
+      .mockResolvedValueOnce(makeSubAgentOutput(true)) // iter 3 → passes scorer
+
+    const continueResult: ReplanResult = {
+      kind: 'continue',
+      nextDirective: {
+        sub_agent_key: 'goals.analyst',
+        input: { query: 'investigate further' },
+        reason: 'kpi not yet answered',
+      },
+    }
+    replanner.replan
+      .mockResolvedValueOnce(continueResult) // after iter 1
+      .mockResolvedValueOnce(continueResult) // after iter 2
+
+    const synthOutput = makeSynthesizerOutput('completed')
+    synthesizer.synthesize.mockResolvedValue(synthOutput)
+
+    const result = await orchestrator.execute({
+      initialPlan: plan,
+      userUtterance: 'Why did my KPI regress?',
+      turnState,
+      abortSignal: abortController.signal,
+      streamEmitter: emitter,
+    })
+
+    expect(result.kind).toBe('synthesized')
+    if (result.kind === 'synthesized') {
+      expect(result.answer).toBe(synthOutput)
+    }
+
+    // Ran 3 iterations; scorer was real (not mocked)
+    expect(subAgentRunner.run).toHaveBeenCalledTimes(3)
+    expect(replanner.replan).toHaveBeenCalledTimes(2)
+    expect(synthesizer.synthesize).toHaveBeenCalledTimes(1)
+  })
+
+  // ── 2. Max-iterations exit (10 iterations, scorer never passes) ───────────────
+
+  it('2. max-iterations exit: 10 iterations, scorer never passes → { kind: "partial", reason: "limit_reached" }', async () => {
+    const scorer = makeKpiAnswerShapeScorer()
+    scorerRegistry.register(scorer)
+
+    const plan = makeIterativePlan(10)
+    const turnState = makeTurnState()
+    const emitter = makeNoopStreamEmitter()
+    const abortController = new AbortController()
+
+    // All 10 iterations return kpiAnswered=false → scorer never passes
+    subAgentRunner.run.mockResolvedValue(makeSubAgentOutput(false))
+
+    const continueResult: ReplanResult = {
+      kind: 'continue',
+      nextDirective: {
+        sub_agent_key: 'goals.analyst',
+        input: { query: 'retry' },
+        reason: 'still investigating',
+      },
+    }
+    replanner.replan.mockResolvedValue(continueResult)
+
+    const synthOutput = makeSynthesizerOutput('partial')
+    synthesizer.synthesize.mockResolvedValue(synthOutput)
+
+    const result = await orchestrator.execute({
+      initialPlan: plan,
+      userUtterance: 'Why did my KPI regress?',
+      turnState,
+      abortSignal: abortController.signal,
+      streamEmitter: emitter,
+    })
+
+    expect(result.kind).toBe('partial')
+    if (result.kind === 'partial') {
+      expect(result.reason).toBe('limit_reached')
+    }
+
+    // Ran exactly 10 iterations (plan maxIterations = surface cap for global-chat)
+    expect(subAgentRunner.run).toHaveBeenCalledTimes(10)
+    // Replanner called 9 times (not called after final iteration when max is hit)
+    expect(replanner.replan).toHaveBeenCalledTimes(9)
+  })
+
+  // ── 3. Taint persistence across iterations ────────────────────────────────────
+
+  it('3. taint persistence: iteration 1 sets turnState.tainted.value → later SSE events report taint_at_start=true', async () => {
+    const scorer = makeKpiAnswerShapeScorer()
+    scorerRegistry.register(scorer)
+
+    const plan = makeIterativePlan(3)
+    const turnState = makeTurnState()
+    const streamEmitter = makeNoopStreamEmitter()
+    const emittedEvents: Array<{ type: string; payload: Record<string, unknown> }> = []
+    ;(streamEmitter.emit as ReturnType<typeof vi.fn>).mockImplementation(
+      (event: { type: string; payload: Record<string, unknown> }) => {
+        emittedEvents.push({ type: event.type, payload: event.payload })
+      },
+    )
+    const abortController = new AbortController()
+
+    // Iteration 1: not answered — side-effect: flip taint during runner execution
+    subAgentRunner.run.mockImplementationOnce(async () => {
+      // Simulate a taint-seed detection during sub-agent execution
+      turnState.tainted.value = true
+      return makeSubAgentOutput(false)
+    })
+    // Iteration 2: not answered
+    subAgentRunner.run.mockImplementationOnce(async () => {
+      return makeSubAgentOutput(false)
+    })
+    // Iteration 3: answered → scorer passes
+    subAgentRunner.run.mockImplementationOnce(async () => {
+      return makeSubAgentOutput(true)
+    })
+
+    const continueResult: ReplanResult = {
+      kind: 'continue',
+      nextDirective: {
+        sub_agent_key: 'goals.analyst',
+        input: {},
+        reason: 'continue',
+      },
+    }
+    replanner.replan
+      .mockResolvedValueOnce(continueResult) // after iter 1
+      .mockResolvedValueOnce(continueResult) // after iter 2
+
+    const synthOutput = makeSynthesizerOutput('completed')
+    synthesizer.synthesize.mockResolvedValue(synthOutput)
+
+    await orchestrator.execute({
+      initialPlan: plan,
+      userUtterance: 'Why did my KPI regress?',
+      turnState,
+      abortSignal: abortController.signal,
+      streamEmitter,
+    })
+
+    // Collect all iteration.started events
+    const startedEvents = emittedEvents.filter((e) => e.type === 'iteration.started')
+    expect(startedEvents).toHaveLength(3)
+
+    // Iteration 1: taint_at_start=false (taint was not yet set at start of iter 1)
+    expect(startedEvents[0]!.payload['taint_at_start']).toBe(false)
+
+    // Iterations 2 and 3: taint_at_start=true (taint was flipped during iteration 1)
+    expect(startedEvents[1]!.payload['taint_at_start']).toBe(true)
+    expect(startedEvents[2]!.payload['taint_at_start']).toBe(true)
+  })
+
+  // ── 4. Inline surface cap (surface='inline', plan maxIterations=15) ──────────
+
+  it('4. inline surface: plan maxIterations=15 is capped to surface max 10 → runner called exactly 10 times', async () => {
+    const scorer = makeKpiAnswerShapeScorer()
+    scorerRegistry.register(scorer)
+
+    // inline surface has max 10; plan requests 15 → Math.min(15, 10) = 10
+    const plan = makeIterativePlan(15)
+    const turnState = makeTurnState('inline')
+    const emitter = makeNoopStreamEmitter()
+    const abortController = new AbortController()
+
+    // Scorer never passes → run up to surface cap
+    subAgentRunner.run.mockResolvedValue(makeSubAgentOutput(false))
+
+    const continueResult: ReplanResult = {
+      kind: 'continue',
+      nextDirective: { sub_agent_key: 'goals.analyst', input: {}, reason: 'continue' },
+    }
+    replanner.replan.mockResolvedValue(continueResult)
+
+    const synthOutput = makeSynthesizerOutput('partial')
+    synthesizer.synthesize.mockResolvedValue(synthOutput)
+
+    const result = await orchestrator.execute({
+      initialPlan: plan,
+      userUtterance: 'Inline question',
+      turnState,
+      abortSignal: abortController.signal,
+      streamEmitter: emitter,
+    })
+
+    // Surface cap for inline is 10, plan maxIterations is 15 → effective=10
+    expect(result.kind).toBe('partial')
+    // Runner must be called exactly 10 times (not 15) — surface cap exercised
+    expect(subAgentRunner.run).toHaveBeenCalledTimes(10)
+  })
+
+  // ── 5. Unknown scorer ID: scorer not found → error result (passed=false) ─────
+
+  it('5. unknown scorer ID: scorer not found in registry → isComplete=false (not a throw)', async () => {
+    // Do NOT register any scorer
+    const plan = makeIterativePlan(2, ['non-existent-scorer'])
+    const turnState = makeTurnState()
+    const emitter = makeNoopStreamEmitter()
+    const abortController = new AbortController()
+
+    subAgentRunner.run.mockResolvedValue(makeSubAgentOutput(false))
+
+    const continueResult: ReplanResult = {
+      kind: 'continue',
+      nextDirective: { sub_agent_key: 'goals.analyst', input: {}, reason: 'continue' },
+    }
+    replanner.replan.mockResolvedValue(continueResult)
+
+    const synthOutput = makeSynthesizerOutput('partial')
+    synthesizer.synthesize.mockResolvedValue(synthOutput)
+
+    const result = await orchestrator.execute({
+      initialPlan: plan,
+      userUtterance: 'Test',
+      turnState,
+      abortSignal: abortController.signal,
+      streamEmitter: emitter,
+    })
+
+    // Runs maxIterations=2 without throwing; scorer not found → passes=false → partial
+    expect(result.kind).toBe('partial')
+    expect(subAgentRunner.run).toHaveBeenCalledTimes(2)
+  })
+
+  // ── 6. Cumulative cost exhausted ─────────────────────────────────────────────
+
+  it('6. cumulative cost exhausted: after 2 iterations at 3.0 USD each, ceiling blocks iter 3 → { kind: "partial", reason: "limit_reached" }', async () => {
+    const scorer = makeKpiAnswerShapeScorer()
+    scorerRegistry.register(scorer)
+
+    // Large enough maxIterations so the cost ceiling, not the count ceiling, trips first.
+    const plan = makeIterativePlan(10)
+    const turnState = makeTurnState()
+    const emitter = makeNoopStreamEmitter()
+    const abortController = new AbortController()
+
+    // Each iteration costs 3.0 USD:
+    //   After iter 1: cumulative = 3.0  → before iter 2: 3.0 >= 5.0 → false → continue
+    //   After iter 2: cumulative = 6.0  → before iter 3: 6.0 >= 5.0 → blocked (cumulative_cost)
+    subAgentRunner.run.mockResolvedValue({
+      ...makeSubAgentOutput(false),
+      usageTotals: {
+        inputTokens: 1000,
+        outputTokens: 500,
+        inputCachedRead: 0,
+        inputCachedWrite: 0,
+        outputReasoning: 0,
+        costUsd: 3.0,
+      },
+    })
+
+    const continueResult: ReplanResult = {
+      kind: 'continue',
+      nextDirective: {
+        sub_agent_key: 'goals.analyst',
+        input: { query: 'retry' },
+        reason: 'kpi not answered',
+      },
+    }
+    replanner.replan.mockResolvedValue(continueResult)
+
+    const synthOutput = makeSynthesizerOutput('partial')
+    synthesizer.synthesize.mockResolvedValue(synthOutput)
+
+    const result = await orchestrator.execute({
+      initialPlan: plan,
+      userUtterance: 'Why did my KPI regress?',
+      turnState,
+      abortSignal: abortController.signal,
+      streamEmitter: emitter,
+    })
+
+    expect(result.kind).toBe('partial')
+    if (result.kind === 'partial') {
+      expect(result.reason).toBe('limit_reached')
+    }
+
+    // Ceiling blocks before iteration 3 — sub-agent was called exactly twice
+    expect(subAgentRunner.run).toHaveBeenCalledTimes(2)
+    // Replanner called twice: after iter 1 (→ continue) and after iter 2 (→ continue).
+    // The ceiling fires at the top of the loop BEFORE iter 3 starts, so the loop body
+    // (including replanner) completes for both iter 1 and iter 2 before being blocked.
+    expect(replanner.replan).toHaveBeenCalledTimes(2)
+  })
+
+  // ── 7. Re-plan returns disambiguation → early exit, no synthesis ──────────────
+
+  it('7. replanner returns disambiguation after first iteration → { kind: "disambiguation" }, synthesizer NOT called', async () => {
+    const scorer = makeKpiAnswerShapeScorer()
+    scorerRegistry.register(scorer)
+
+    const plan = makeIterativePlan(5)
+    const turnState = makeTurnState()
+    const emitter = makeNoopStreamEmitter()
+    const abortController = new AbortController()
+
+    // Iteration 1: not answered → scorer does not pass → replanner is consulted
+    subAgentRunner.run.mockResolvedValueOnce(makeSubAgentOutput(false))
+
+    // Replanner always returns disambiguation exit
+    const disambiguationExit: ReplanResult = {
+      kind: 'exit',
+      reason: 'disambiguation',
+      disambiguationQuestion: 'What do you mean?',
+    }
+    replanner.replan.mockResolvedValue(disambiguationExit)
+
+    const result = await orchestrator.execute({
+      initialPlan: plan,
+      userUtterance: 'Clarify this please',
+      turnState,
+      abortSignal: abortController.signal,
+      streamEmitter: emitter,
+    })
+
+    expect(result.kind).toBe('disambiguation')
+    if (result.kind === 'disambiguation') {
+      expect(result.question).toBe('What do you mean?')
+    }
+
+    // SubAgent was called exactly once (the first iteration ran before replanner was consulted)
+    expect(subAgentRunner.run).toHaveBeenCalledTimes(1)
+    // Synthesizer must NOT be called — disambiguation exits immediately
+    expect(synthesizer.synthesize).not.toHaveBeenCalled()
+  })
+
+  // ── 8. Taint at start recorded in SSE payload ─────────────────────────────────
+
+  it('8. taint at start: iteration 1 sets taint → iteration.started SSE for iteration 2 carries taint_at_start=true', async () => {
+    const scorer = makeKpiAnswerShapeScorer()
+    scorerRegistry.register(scorer)
+
+    const plan = makeIterativePlan(3)
+    const turnState = makeTurnState()
+    const streamEmitter = makeNoopStreamEmitter()
+    const capturedEvents: Array<{ type: string; payload: Record<string, unknown> }> = []
+    ;(streamEmitter.emit as ReturnType<typeof vi.fn>).mockImplementation(
+      (event: { type: string; payload: Record<string, unknown> }) => {
+        capturedEvents.push({ type: event.type, payload: { ...event.payload } })
+      },
+    )
+    const abortController = new AbortController()
+
+    // Iteration 1: taint is flipped as a side effect of the sub-agent run
+    subAgentRunner.run.mockImplementationOnce(async () => {
+      turnState.tainted.value = true
+      return makeSubAgentOutput(false)
+    })
+    // Iteration 2: answered → scorer passes → loop ends
+    subAgentRunner.run.mockImplementationOnce(async () => makeSubAgentOutput(true))
+
+    const continueResult: ReplanResult = {
+      kind: 'continue',
+      nextDirective: {
+        sub_agent_key: 'goals.analyst',
+        input: {},
+        reason: 'continue',
+      },
+    }
+    replanner.replan.mockResolvedValueOnce(continueResult)
+
+    synthesizer.synthesize.mockResolvedValue(makeSynthesizerOutput('completed'))
+
+    await orchestrator.execute({
+      initialPlan: plan,
+      userUtterance: 'Check KPI',
+      turnState,
+      abortSignal: abortController.signal,
+      streamEmitter,
+    })
+
+    const startedEvents = capturedEvents.filter((e) => e.type === 'iteration.started')
+    expect(startedEvents).toHaveLength(2)
+
+    // iteration 1 starts before taint is flipped → taint_at_start = false
+    expect(startedEvents[0]!.payload['taint_at_start']).toBe(false)
+
+    // iteration 2 starts after taint was flipped in iteration 1 → taint_at_start = true
+    expect(startedEvents[1]!.payload['taint_at_start']).toBe(true)
+  })
+})

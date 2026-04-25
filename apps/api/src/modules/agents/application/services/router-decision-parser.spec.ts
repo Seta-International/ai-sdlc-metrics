@@ -86,9 +86,15 @@ function buildRegistries() {
   return { intentRegistry, subAgentRegistry }
 }
 
+// Minimal ScorerRegistry stub for existing bounded-plan tests.
+// The scorer validation path is only reached for iterative plans.
+const stubScorerRegistry = {
+  findById: (_id: string) => undefined,
+} as never
+
 function makeParser() {
   const { intentRegistry, subAgentRegistry } = buildRegistries()
-  return new RouterDecisionParser(intentRegistry, subAgentRegistry)
+  return new RouterDecisionParser(intentRegistry, subAgentRegistry, stubScorerRegistry)
 }
 
 // ─── Minimal valid plan helpers ────────────────────────────────────────────────

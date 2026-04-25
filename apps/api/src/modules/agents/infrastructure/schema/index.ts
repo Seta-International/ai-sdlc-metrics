@@ -1,5 +1,7 @@
 export { agentDraft } from './agent-draft.schema'
 export type { AgentDraftRow, NewAgentDraftRow } from './agent-draft.schema'
+export { agentIteration } from './agent-iteration.schema'
+export type { AgentIterationRow, NewAgentIterationRow } from './agent-iteration.schema'
 export { agentSchedule } from './agent-schedule.schema'
 export type { AgentScheduleRow, NewAgentScheduleRow } from './agent-schedule.schema'
 export { agentScheduleRun } from './agent-schedule-run.schema'

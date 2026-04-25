@@ -28,7 +28,11 @@ import {
   RouterPlanSchema,
   ROUTER_PLAN_JSON_SCHEMA_PLACEHOLDER,
 } from '../../domain/value-objects/router-plan-schema'
-import type { RouterPlan, BoundedPlan } from '../../domain/value-objects/router-plan-schema'
+import type {
+  RouterPlan,
+  BoundedPlan,
+  IterativePlan,
+} from '../../domain/value-objects/router-plan-schema'
 import {
   INTENT_REGISTRY,
   IntentRegistry,
@@ -37,6 +41,7 @@ import {
   SUB_AGENT_REGISTRY,
   SubAgentRegistry,
 } from '../../infrastructure/registry/sub-agent-registry'
+import { SCORER_REGISTRY, ScorerRegistry } from './scorer-registry'
 
 // ─── DI token ─────────────────────────────────────────────────────────────────
 
@@ -77,6 +82,7 @@ export class RouterDecisionParser {
   constructor(
     @Inject(INTENT_REGISTRY) private readonly intentRegistry: IntentRegistry,
     @Inject(SUB_AGENT_REGISTRY) private readonly subAgentRegistry: SubAgentRegistry,
+    @Inject(SCORER_REGISTRY) private readonly scorerRegistry: ScorerRegistry,
   ) {}
 
   // ─── Full pipeline ────────────────────────────────────────────────────────
@@ -143,7 +149,12 @@ export class RouterDecisionParser {
    *      - If disambiguation is absent: phase1 must have at least 1 directive.
    */
   private _semanticCheck(plan: RouterPlan): ParseResult {
-    // Non-bounded topologies: accept after Zod structural validation
+    // Iterative topology: validate completionCriteria.scorerIds (Plan 12 R-12.10)
+    if (plan.topology === 'iterative') {
+      return this._semanticCheckIterative(plan as IterativePlan)
+    }
+
+    // Direct topology: accept after Zod structural validation
     if (plan.topology !== 'bounded') {
       return { kind: 'ok', plan }
     }
@@ -199,6 +210,41 @@ export class RouterDecisionParser {
         '"phase1" is empty and "disambiguation" is absent. ' +
         'Either provide at least one phase1 directive or set "disambiguation".'
       return { kind: 'retry', reason, schemaInjectedPrompt: buildSchemaInjectedPrompt(reason) }
+    }
+
+    return { kind: 'ok', plan }
+  }
+
+  // ─── Iterative-specific semantic checks ──────────────────────────────────────
+
+  /**
+   * Validates an IterativePlan's completionCriteria.scorerIds against the
+   * ScorerRegistry (Plan 12 R-12.10).
+   *
+   * Rules:
+   *   1. All scorer IDs must exist in the ScorerRegistry.
+   *   2. All scorer IDs must reference a scorer with kind === 'deterministic'.
+   *      Non-deterministic scorers (llm-judge) are prohibited as iterative exit gates.
+   *
+   * Unknown scorer → retry with "Unknown scorer: <id>"
+   * Non-deterministic scorer → retry with "Scorer <id> is kind <kind>, only deterministic scorers
+   *   allowed (plan 12 R-12.10)"
+   */
+  private _semanticCheckIterative(plan: IterativePlan): ParseResult {
+    for (const scorerId of plan.completionCriteria.scorerIds) {
+      const scorer = this.scorerRegistry.findById(scorerId)
+
+      if (!scorer) {
+        const reason = `Unknown scorer: ${scorerId}`
+        return { kind: 'retry', reason, schemaInjectedPrompt: buildSchemaInjectedPrompt(reason) }
+      }
+
+      if (scorer.kind !== 'deterministic') {
+        const reason =
+          `Scorer ${scorerId} is kind ${scorer.kind}, only deterministic scorers allowed ` +
+          `(plan 12 R-12.10)`
+        return { kind: 'retry', reason, schemaInjectedPrompt: buildSchemaInjectedPrompt(reason) }
+      }
     }
 
     return { kind: 'ok', plan }

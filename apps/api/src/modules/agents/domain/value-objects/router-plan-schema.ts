@@ -126,12 +126,48 @@ export const BoundedPlanSchema = z.object({
 
 export type BoundedPlan = z.infer<typeof BoundedPlanSchema>
 
+// ─── CompletionSpec (Plan 12) ─────────────────────────────────────────────────
+
+/**
+ * Specifies the exit criteria for an iterative supervisor loop.
+ *
+ * `scorerIds` — references registered deterministic scorers (plan 10).
+ * `strategy`  — 'all' requires every scorer to pass; 'any' requires at least one.
+ * `maxIterations` — upper bound on loop iterations. No schema-level cap; runtime
+ *   enforces surface-specific limits (≤10 interactive, ≤20 async).
+ * `hintToRouter` — prose description of "done" passed as context to the router
+ *   on each re-entry to help it decide when to stop.
+ */
+export const CompletionSpecSchema = z.object({
+  /** Non-empty list of scorer IDs from the scorer registry (plan 10). */
+  scorerIds: z.array(z.string().min(1)).min(1),
+  /** Exit strategy: all scorers must pass ('all') or at least one ('any'). */
+  strategy: z.enum(['all', 'any']),
+  /**
+   * Maximum number of loop iterations before forced termination.
+   * No upper-bound validation at schema level — enforced at runtime by the orchestrator.
+   */
+  maxIterations: z.number().int().min(1),
+  /** Natural-language description of what "done" means for this task. Passed to the router. */
+  hintToRouter: z.string().min(1),
+})
+
+export type CompletionSpec = z.infer<typeof CompletionSpecSchema>
+
 // ─── IterativePlan (Tier 2, Plan 12) ──────────────────────────────────────────
 
 /**
- * Tier 2 plan — iterative supervisor loop.
- * Shape is owned by Plan 12. This is a minimal placeholder that allows the
- * phase-executor to recognize and dispatch the topology; Plan 12 extends the shape.
+ * Tier 2 plan — iterative supervisor loop (Plan 12 §2).
+ *
+ * The router emits this plan when the intent requires repeated sub-agent
+ * invocations with completion scoring between iterations.  The orchestrator
+ * drives the loop: dispatch `initialDirective`, score the output via
+ * `completionCriteria`, and re-route until criteria are met or `maxIterations`
+ * is exhausted.
+ *
+ * `disambiguation` — optional clarifying question surfaced when the router
+ * cannot unambiguously classify the intent.  Mutually exclusive with a fully
+ * populated `initialDirective` (enforced semantically, not at schema level).
  */
 export const IterativePlanSchema = z.object({
   topology: z.literal('iterative'),
@@ -145,6 +181,15 @@ export const IterativePlanSchema = z.object({
     }),
   /** UUID correlation ID for distributed tracing. */
   flow_id: z.string().uuid(),
+  /** The first sub-agent to invoke at iteration 1. */
+  initialDirective: SubAgentDirectiveSchema,
+  /** Scoring + exit criteria for the supervisor loop. */
+  completionCriteria: CompletionSpecSchema,
+  /**
+   * Optional clarifying question when the router cannot classify the intent.
+   * When set, the orchestrator surfaces this to the user before starting the loop.
+   */
+  disambiguation: z.string().min(1).optional(),
 })
 
 export type IterativePlan = z.infer<typeof IterativePlanSchema>

@@ -185,6 +185,20 @@ import { ShadowExecutor } from './application/services/shadow-executor'
 import { ShadowTurnWorker } from './infrastructure/workers/shadow-turn-worker'
 import { RegressionSignalMonitor } from './application/services/regression-signal-monitor'
 import { AutoRollbackOrchestrator } from './application/services/auto-rollback-orchestrator'
+// Plan 12 — Iterative Supervisor Topology
+import {
+  IterativeOrchestrator,
+  ITERATIVE_ORCHESTRATOR,
+  I_SUB_AGENT_RUNNER,
+  I_SYNTHESIZER,
+} from './application/services/iterative-orchestrator'
+import { SubAgentRunnerAdapter } from './application/services/sub-agent-runner-adapter'
+import { SynthesizerAdapter } from './application/services/synthesizer-adapter'
+import { IterationCeilingEnforcer } from './application/services/iteration-ceiling-enforcer'
+import { CompletionScorerRunner } from './application/services/completion-scorer-runner'
+import { IterativeRePlanner } from './application/services/iterative-replanner'
+import { AGENT_ITERATION_REPOSITORY } from './domain/repositories/agent-iteration.repository'
+import { DrizzleAgentIterationRepository } from './infrastructure/repositories/drizzle-agent-iteration.repository'
 // Plan 10 — Harness + Replay + Canary
 import { ReplayHarness, REPLAY_HARNESS } from './application/services/replay-harness'
 import { ScorerRegistry, SCORER_REGISTRY } from './application/services/scorer-registry'
@@ -444,6 +458,26 @@ class NullTenantLister implements TenantListerLike {
     ShadowTurnWorker,
     RegressionSignalMonitor,
     AutoRollbackOrchestrator,
+    // ── Plan 12 — Iterative Supervisor Topology ────────────────────────────────
+    // Repository
+    { provide: AGENT_ITERATION_REPOSITORY, useClass: DrizzleAgentIterationRepository },
+    // Pure services (no special DI tokens needed at injection site)
+    IterationCeilingEnforcer,
+    CompletionScorerRunner,
+    IterativeRePlanner,
+    // SubAgentRunnerAdapter — resolves ValidatedSubAgentConfig from SubAgentRegistry
+    // and forwards to the sub-agent execution pipeline (full ReAct loop deferred to
+    // phase-executor integration layer). Throws on unknown sub_agent_key — never silent.
+    SubAgentRunnerAdapter,
+    { provide: I_SUB_AGENT_RUNNER, useExisting: SubAgentRunnerAdapter },
+    // SynthesizerAdapter — merges iteration outputs into a SynthesizerOutput using
+    // the pure deterministic synthesis functions. Full LLM-synthesis path deferred to
+    // the phase-executor integration layer.
+    SynthesizerAdapter,
+    { provide: I_SYNTHESIZER, useExisting: SynthesizerAdapter },
+    // IterativeOrchestrator — the main service; uses I_SUB_AGENT_RUNNER and I_SYNTHESIZER tokens
+    IterativeOrchestrator,
+    { provide: ITERATIVE_ORCHESTRATOR, useExisting: IterativeOrchestrator },
   ],
   exports: [
     AgentsQueryFacade,
