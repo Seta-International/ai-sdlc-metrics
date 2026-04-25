@@ -37,6 +37,10 @@ export class SynthesizerAdapter implements ISynthesizer {
         ? summaries + ' ' + disclosures.join(' ')
         : summaries || 'No data retrieved.'
 
+    // Confidence caps at 'med' conservatively: the synthesizer merges outputs from
+    // multiple sub-agents and cannot assert the same certainty as a single focused
+    // sub-agent run. Only contradiction detection can drive it lower ('low'). The
+    // LLM-synthesis path (deferred) may apply finer-grained confidence derivation.
     return {
       shape: 'narrative',
       content,

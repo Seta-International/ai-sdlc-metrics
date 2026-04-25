@@ -15,16 +15,14 @@ export class DrizzleAgentIterationRepository implements AgentIterationRepository
 
     const saved = rows[0]
     if (!saved) throw new Error('DrizzleAgentIterationRepository.save: insert returned no rows')
-    return saved as AgentIterationRow
+    return saved
   }
 
   async findByTurnId(turnId: string): Promise<AgentIterationRow[]> {
-    const rows = await this.db
+    return this.db
       .select()
       .from(agentIteration)
       .where(eq(agentIteration.turnId, turnId))
       .orderBy(agentIteration.iterationNumber)
-
-    return rows as AgentIterationRow[]
   }
 }

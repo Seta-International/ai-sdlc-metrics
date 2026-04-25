@@ -105,7 +105,7 @@ function makeTurnState(
   }
 }
 
-function makeSubAgentOutput(kpiAnswered = false, taintFlip = false): SubAgentOutput {
+function makeSubAgentOutput(kpiAnswered = false): SubAgentOutput {
   return {
     kind: 'completed',
     summary: kpiAnswered
@@ -124,7 +124,6 @@ function makeSubAgentOutput(kpiAnswered = false, taintFlip = false): SubAgentOut
       outputReasoning: 0,
       costUsd: 0.02,
     },
-    ...(taintFlip ? {} : {}),
   }
 }
 
@@ -359,14 +358,14 @@ describe('IterativeOrchestrator (integration — real CompletionScorerRunner)', 
     expect(startedEvents[2]!.payload['taint_at_start']).toBe(true)
   })
 
-  // ── 4. Inline surface cap (surface='inline', plan maxIterations=10) ──────────
+  // ── 4. Inline surface cap (surface='inline', plan maxIterations=15) ──────────
 
-  it('4. inline surface: maxIterations capped at 10 even when plan specifies 10 (surface cap matches)', async () => {
+  it('4. inline surface: plan maxIterations=15 is capped to surface max 10 → runner called exactly 10 times', async () => {
     const scorer = makeKpiAnswerShapeScorer()
     scorerRegistry.register(scorer)
 
-    // inline surface has max 10 — same as global-chat — verify cap is applied
-    const plan = makeIterativePlan(10)
+    // inline surface has max 10; plan requests 15 → Math.min(15, 10) = 10
+    const plan = makeIterativePlan(15)
     const turnState = makeTurnState('inline')
     const emitter = makeNoopStreamEmitter()
     const abortController = new AbortController()
@@ -391,8 +390,9 @@ describe('IterativeOrchestrator (integration — real CompletionScorerRunner)', 
       streamEmitter: emitter,
     })
 
-    // Surface cap for inline is 10, plan maxIterations is 10 → effective=10
+    // Surface cap for inline is 10, plan maxIterations is 15 → effective=10
     expect(result.kind).toBe('partial')
+    // Runner must be called exactly 10 times (not 15) — surface cap exercised
     expect(subAgentRunner.run).toHaveBeenCalledTimes(10)
   })
 
