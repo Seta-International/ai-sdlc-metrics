@@ -328,7 +328,7 @@ function getInstruments(): GatewayInstruments {
      * Histogram of iteration counts per iterative turn (Plan 12 §8).
      * Labels: tenant_id.
      */
-    iterationsTotalHistogram: meter.createHistogram('agent_iterations_total', {
+    iterationsTotalHistogram: meter.createHistogram('agent_turn_iterations_total', {
       description: 'Number of iterations executed per iterative turn, per tenant.',
       valueType: ValueType.INT,
     }),

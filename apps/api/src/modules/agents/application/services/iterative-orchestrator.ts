@@ -124,7 +124,9 @@ export class IterativeOrchestrator {
 
     // ── Guard: abort signal already fired ─────────────────────────────────────
     if (abortSignal.aborted) {
-      return { kind: 'aborted', reason: 'user' }
+      const result: PhaseExecutionResult = { kind: 'aborted', reason: 'user' }
+      this._recordTurnMetrics(turnState.tenantId, result, [])
+      return result
     }
 
     // ── Surface-specific iteration cap (R-12.5) ───────────────────────────────
@@ -312,7 +314,7 @@ export class IterativeOrchestrator {
    *
    * Emits:
    *   - agent_iterative_turn_total{tenant_id, outcome}
-   *   - agent_iterations_total histogram{tenant_id} with the iteration count
+   *   - agent_turn_iterations_total histogram{tenant_id} with the iteration count
    *   - agent_iteration_count_exceeded_p95 gauge if maxIterationsBreached
    *
    * Errors from OTel calls are swallowed — metrics must never fail a user turn.

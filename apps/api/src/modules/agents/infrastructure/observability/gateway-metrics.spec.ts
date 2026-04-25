@@ -430,10 +430,10 @@ describe('recordCompletionScorerFail', () => {
 })
 
 describe('recordIterationsTotalHistogram', () => {
-  it('records agent_iterations_total histogram with tenant_id and iteration count', async () => {
+  it('records agent_turn_iterations_total histogram with tenant_id and iteration count', async () => {
     recordIterationsTotalHistogram('tenant-ith-1', 5)
 
-    const points = await flushAndGetPoints('agent_iterations_total')
+    const points = await flushAndGetPoints('agent_turn_iterations_total')
     const point = points.find((p) => p.attributes['tenant_id'] === 'tenant-ith-1')
     expect(point).toBeDefined()
     // flushAndGetPoints returns histogram sum — 5 in a single record
@@ -444,7 +444,7 @@ describe('recordIterationsTotalHistogram', () => {
     recordIterationsTotalHistogram('tenant-ith-2', 3)
     recordIterationsTotalHistogram('tenant-ith-2', 7)
 
-    const points = await flushAndGetPoints('agent_iterations_total')
+    const points = await flushAndGetPoints('agent_turn_iterations_total')
     const point = points.find((p) => p.attributes['tenant_id'] === 'tenant-ith-2')
     expect(point).toBeDefined()
     expect(point!.value).toBe(10)

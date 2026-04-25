@@ -10,6 +10,12 @@ import type { ScorerRegistry } from './scorer-registry'
 import type { SetaScorer, ScorerResult } from '../../domain/scorer-types'
 import type { SubAgentOutput, PhaseExecutorTurnState } from './phase-executor-contracts'
 
+vi.mock('../../infrastructure/observability/gateway-metrics', () => ({
+  recordCompletionScorerFail: vi.fn(),
+}))
+
+import { recordCompletionScorerFail } from '../../infrastructure/observability/gateway-metrics'
+
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 function makeDeterministicScorer(id: string, result: ScorerResult): SetaScorer {
@@ -85,6 +91,8 @@ describe('CompletionScorerRunner', () => {
   let runner: CompletionScorerRunner
 
   beforeEach(() => {
+    vi.clearAllMocks()
+
     registry = {
       findById: vi.fn(),
       register: vi.fn(),
@@ -192,6 +200,7 @@ describe('CompletionScorerRunner', () => {
       strategy: 'all',
       iterationOutput: makeIterationOutput(),
       turnState: makeTurnState(),
+      tenantId: 'tenant-test',
     })
 
     expect(result.results).toHaveLength(2)
@@ -200,6 +209,7 @@ describe('CompletionScorerRunner', () => {
     expect(errorResult?.score).toBe(0)
     expect(errorResult?.passed).toBe(false)
     expect(errorResult?.reason).toContain('s1 threw: internal error')
+    expect(vi.mocked(recordCompletionScorerFail)).toHaveBeenCalledWith('tenant-test', 's1')
   })
 
   it('6. unknown scorerId → result has scorer not found error entry', async () => {
