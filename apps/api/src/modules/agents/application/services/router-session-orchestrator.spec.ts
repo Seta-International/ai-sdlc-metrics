@@ -330,6 +330,14 @@ function buildOrchestrator(opts: {
       }),
   }
 
+  const kernelQueryFacadeMock = {
+    canDo: vi.fn().mockResolvedValue(true),
+  }
+
+  const iterativeOrchestratorMock = {
+    execute: vi.fn(),
+  }
+
   const orchestrator = new RouterSessionOrchestrator(
     agentSessionPort as never,
     permissionNarrativeBuilder as never,
@@ -340,6 +348,8 @@ function buildOrchestrator(opts: {
     llmClient as never,
     toolRegistry as never,
     kernelAuditFacade as never,
+    kernelQueryFacadeMock as never,
+    iterativeOrchestratorMock as never,
   )
 
   return {
@@ -1032,6 +1042,9 @@ describe('RouterSessionOrchestrator — Plan 12 Task 5: inline surface guard + p
 
     // The router was re-invoked at least twice (original + inline hint call)
     expect(llmClient.generate).toHaveBeenCalledTimes(2)
+    // Second LLM call's system prompt must contain the inline hint
+    const secondCallArgs = llmClient.generate.mock.calls[1]![0] as { systemPrompt: string }
+    expect(secondCallArgs.systemPrompt).toContain('Use bounded topology')
     // Final result should be bounded (second attempt returned bounded)
     expect(result.kind).toBe('bounded')
   })
@@ -1117,13 +1130,19 @@ describe('RouterSessionOrchestrator — Plan 12 Task 5: inline surface guard + p
   })
 
   it('5c. canDo granted + global-chat → IterativeOrchestrator.execute called with correct args', async () => {
+    const mockIterativeResult: import('./phase-executor-contracts').PhaseExecutionResult = {
+      kind: 'synthesized',
+      answer: { text: 'mock iterative answer' },
+      drafts: [],
+    }
     const { orchestrator, iterativeOrchestrator } = buildOrchestratorPlan12({
       llmResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
       parseResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
       canDoResult: true,
+      iterativeOrchestratorResult: mockIterativeResult,
     })
 
-    await orchestrator.routeTurn({
+    const result = await orchestrator.routeTurn({
       ...BASE_OPTS,
       surface: 'global-chat',
     })
@@ -1132,5 +1151,10 @@ describe('RouterSessionOrchestrator — Plan 12 Task 5: inline surface guard + p
     const execCall = iterativeOrchestrator.execute.mock.calls[0]![0] as Record<string, unknown>
     expect(execCall['initialPlan']).toEqual(ITERATIVE_PLAN)
     expect(execCall['userUtterance']).toBe(BASE_OPTS.utterance)
+    // Assert RouteTurnResult shape
+    expect(result.kind).toBe('iterative')
+    if (result.kind === 'iterative') {
+      expect(result.result).toEqual(mockIterativeResult)
+    }
   })
 })
