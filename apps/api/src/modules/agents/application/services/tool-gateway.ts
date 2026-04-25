@@ -60,10 +60,18 @@ import {
   recordStepDuration,
   recordCacheLookup,
   recordL1Invalidation,
+  recordSemanticCacheLookup,
+  recordSemanticCacheInvalidationLag,
 } from '../../infrastructure/observability/gateway-metrics'
 import { FlowPolicyResolver, type EffectivePolicy } from './flow-policy-resolver'
 import { DraftProposer } from './draft-proposer'
 import type { DraftProposalResult } from './draft-types'
+import { SemanticResultCache } from '../../infrastructure/cache/semantic-result-cache'
+
+// ─── Plan 14 constants ────────────────────────────────────────────────────────
+
+const SEMANTIC_CACHE_EMBEDDING_MODEL = 'text-embedding-3-small'
+const DEFAULT_SEMANTIC_DISTANCE_THRESHOLD = 0.97
 
 // ─── Sanitization ─────────────────────────────────────────────────────────────
 
@@ -222,6 +230,7 @@ export class ToolGateway {
     private readonly auditFacade: KernelAuditFacade,
     private readonly flowPolicyResolver: FlowPolicyResolver,
     private readonly draftProposer: DraftProposer,
+    private readonly semanticCache: SemanticResultCache,
   ) {}
 
   // ─── Public entrypoint ──────────────────────────────────────────────────────
@@ -534,6 +543,60 @@ export class ToolGateway {
     // Cache miss
     recordCacheLookup(tenantId, descriptor.name, 'miss')
 
+    // Semantic cache check (Plan 14) — after L1 miss, before ceiling pre-check
+    if (descriptor.meta.cacheable) {
+      const semanticCacheStart = Date.now()
+      let semanticHit: Awaited<ReturnType<typeof this.semanticCache.get>>
+      try {
+        semanticHit = await withGatewayStep(
+          'semantic-cache',
+          { tool_name: descriptor.name, cached_args_hash: argsHash },
+          async () => {
+            return this.semanticCache.get({
+              tenantId,
+              toolName: descriptor.name,
+              args: argsForHash,
+              embeddingModel: SEMANTIC_CACHE_EMBEDDING_MODEL,
+              distanceThreshold:
+                descriptor.meta.cacheable!.distanceThreshold ?? DEFAULT_SEMANTIC_DISTANCE_THRESHOLD,
+            })
+          },
+        )
+      } catch {
+        // Fail-open: if withGatewayStep throws (shouldn't happen), proceed without semantic cache
+        semanticHit = undefined
+      }
+      recordStepDuration('semantic-cache', Date.now() - semanticCacheStart)
+
+      if (semanticHit) {
+        recordSemanticCacheLookup(tenantId, descriptor.name, semanticHit.hitKind)
+        // Taint-wrap and audit the cached hit
+        const { fieldsToWrap: fw } = prepareTaintWrap({ descriptor })
+        const { wrappedResult, fieldsWrapped, taintFlipped } = applyTaintWrap({
+          result: semanticHit.result,
+          fieldsToWrap: fw,
+          turnState,
+        })
+        await auditEmit({
+          descriptor,
+          requestContext,
+          resultStatus: 'success',
+          extraAttrs: {
+            fromSemanticCache: true,
+            cacheHitKind: semanticHit.hitKind,
+            fieldsWrapped,
+            taintFlipped,
+          },
+          auditFacade: this.auditFacade,
+          logger: this.logger,
+        })
+        recordToolCall(tenantId, descriptor.name, 'success')
+        return ok(wrappedResult, false)
+      } else {
+        recordSemanticCacheLookup(tenantId, descriptor.name, 'miss')
+      }
+    }
+
     // ── Phase B ─────────────────────────────────────────────────────────────
 
     // Step 4: prepareTaintWrap — pure sync step; called directly (no await) to
@@ -777,6 +840,25 @@ export class ToolGateway {
       cacheHandle.complete(result)
     }
 
+    // Semantic cache put (Plan 14) — fire-and-forget, only for cacheable tools
+    if (descriptor.meta.cacheable) {
+      void this.semanticCache
+        .put({
+          tenantId,
+          toolName: descriptor.name,
+          args: argsForHash,
+          result,
+          ttlSeconds: descriptor.meta.cacheable.ttlSeconds,
+          embeddingModel: SEMANTIC_CACHE_EMBEDDING_MODEL,
+        })
+        .catch((err: unknown) => {
+          this.logger.error(
+            `ToolGateway: semantic cache put failed for tool="${descriptor.name}"`,
+            err instanceof Error ? err.stack : String(err),
+          )
+        })
+    }
+
     // R-04.3a: module-scoped L1 cache invalidation on mutation success.
     // A write call to `<module>.<op>` invalidates all cached reads matching
     // `<module>.*` in this sub-agent's turn cache. Cross-module writes do NOT
@@ -786,6 +868,14 @@ export class ToolGateway {
       if (modulePrefix) {
         turnState.l1Cache.invalidate(modulePrefix)
         recordL1Invalidation(subAgentKey, modulePrefix)
+
+        // Semantic cache domain invalidation (Plan 14) — fire-and-forget
+        const invalidateStart = Date.now()
+        void this.semanticCache
+          .invalidateDomain({ tenantId, domain: modulePrefix })
+          .then(({ purgedCount: _count }) => {
+            recordSemanticCacheInvalidationLag(Date.now() - invalidateStart)
+          })
       }
     }
 
