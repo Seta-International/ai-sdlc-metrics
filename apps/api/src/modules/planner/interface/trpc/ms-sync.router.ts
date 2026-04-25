@@ -3,6 +3,10 @@ import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import { GetGraphCredentialQuery } from '../../../identity/application/queries/get-graph-credential.query'
 import { ConnectMsSyncCommand } from '../../application/commands/ms-sync/connect-ms-sync.command'
 import { DisconnectMsSyncCommand } from '../../application/commands/ms-sync/disconnect-ms-sync.command'
+import { LinkMsGroupCommand } from '../../application/commands/ms-sync/link-ms-group.command'
+import { UnlinkMsGroupCommand } from '../../application/commands/ms-sync/unlink-ms-group.command'
+import { ListAvailableGroupsQuery } from '../../application/queries/ms-sync/list-available-groups.query'
+import { ListLinkedGroupsQuery } from '../../application/queries/ms-sync/list-linked-groups.query'
 import { PlannerRouterService } from './planner-router.service'
 import { toPlannerTrpcError } from './planner-trpc-error'
 
@@ -54,6 +58,50 @@ export const msSyncRouter = router({
           throw toPlannerTrpcError(e)
         })
     }),
+  }),
+
+  groups: router({
+    listAvailable: publicProcedure
+      .input(z.object({ tenantId: z.string().uuid() }))
+      .query(async ({ input }) => {
+        return svc()
+          .query(new ListAvailableGroupsQuery(input.tenantId))
+          .catch((e) => {
+            throw toPlannerTrpcError(e)
+          })
+      }),
+
+    link: publicProcedure
+      .input(msSyncBaseInput.extend({ msGroupId: z.string().min(1) }))
+      .mutation(async ({ input }) => {
+        const result = await svc()
+          .command(new LinkMsGroupCommand(input.tenantId, input.actorId, input.msGroupId))
+          .catch((e) => {
+            throw toPlannerTrpcError(e)
+          })
+        const r = result as { id: string; backfillJobId: string }
+        return { linkedGroupId: r.id, backfillJobId: r.backfillJobId }
+      }),
+
+    unlink: publicProcedure
+      .input(msSyncBaseInput.extend({ msGroupId: z.string().min(1) }))
+      .mutation(async ({ input }) => {
+        await svc()
+          .command(new UnlinkMsGroupCommand(input.tenantId, input.actorId, input.msGroupId))
+          .catch((e) => {
+            throw toPlannerTrpcError(e)
+          })
+      }),
+
+    listLinked: publicProcedure
+      .input(z.object({ tenantId: z.string().uuid() }))
+      .query(async ({ input }) => {
+        return svc()
+          .query(new ListLinkedGroupsQuery(input.tenantId))
+          .catch((e) => {
+            throw toPlannerTrpcError(e)
+          })
+      }),
   }),
 
   status: publicProcedure
