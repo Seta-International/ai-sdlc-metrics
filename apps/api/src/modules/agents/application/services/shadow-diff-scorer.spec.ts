@@ -114,7 +114,7 @@ describe('ShadowDiffScorer.score()', () => {
     expect(result.category).toBe('minor_difference')
   })
 
-  it('5. shadow errored (candidateOutput: null) → category: shadow_errored, score: 0', () => {
+  it('5. shadow errored (candidateOutput: null) → category: shadow_errored, score: 1', () => {
     const baseline = makeTurnResult({
       toolCallNames: ['people.list'],
       permissionKeys: ['people:read'],
@@ -123,7 +123,7 @@ describe('ShadowDiffScorer.score()', () => {
 
     const result = scorer.score({ baselineOutput: baseline, candidateOutput: null })
 
-    expect(result.score).toBe(0)
+    expect(result.score).toBe(1)
     expect(result.category).toBe('shadow_errored')
     expect(result.componentDiffs.toolCallOverlap).toBe(0)
     expect(result.componentDiffs.shapeDiff).toBe(0)
@@ -172,14 +172,11 @@ describe('ShadowDiffScorer.score()', () => {
     expect(result.category).toBe('identical')
   })
 
-  it('8b. category boundary: score ~0.39 → minor_difference', () => {
-    // Need score ≈ 0.39 < 0.4
-    // toolCallOverlap=1, shapeDiff=1, permissionKeyOverlap=0.5
-    // score = 0*0.5 + 1*0.3 + 0.5*0.2 = 0 + 0.3 + 0.1 = 0.4 — that's major
-    // Try: toolCallOverlap=1, shapeDiff=0, permissionKeyOverlap=0.5
-    // score = 0 + 0 + 0.5*0.2 = 0.1 — too low
-    // Try: toolCallOverlap=0.5, shapeDiff=0, permissionKeyOverlap=0.5
-    // score = 0.5*0.5 + 0 + 0.5*0.2 = 0.25 + 0.1 = 0.35 → minor_difference
+  it('8b. category boundary: mixed divergence → major_difference', () => {
+    // intersection tools = {b} = 1, union = {a,b,c} = 3 → toolCallOverlap = 1/3
+    // intersection perms = {perm-b} = 1, union = {perm-a,perm-b,perm-c} = 3 → permissionKeyOverlap = 1/3
+    // shapeDiff = 0 (same shape)
+    // score = (1-1/3)*0.5 + 0*0.3 + (1-1/3)*0.2 = (2/3)*0.5 + (2/3)*0.2 ≈ 0.467 → major_difference
     const baseline = makeTurnResult({
       toolCallNames: ['a', 'b'],
       permissionKeys: ['perm-a', 'perm-b'],
@@ -193,14 +190,8 @@ describe('ShadowDiffScorer.score()', () => {
 
     const result = scorer.score({ baselineOutput: baseline, candidateOutput: candidate })
 
-    // intersection tools = {b} = 1, union = {a,b,c} = 3 → overlap = 1/3
-    // intersection perms = {perm-b} = 1, union = {perm-a,perm-b,perm-c} = 3 → overlap = 1/3
-    // score = (1-1/3)*0.5 + 0*0.3 + (1-1/3)*0.2 = (2/3)*0.5 + 0 + (2/3)*0.2
-    //       = 1/3 + 2/15 ≈ 0.333 + 0.133 = 0.467 — that's major_difference
-    // Let me re-verify the actual score and just check the category
-    expect(result.score).toBeGreaterThan(0)
+    expect(result.score).toBeGreaterThan(0.4)
     expect(result.score).toBeLessThan(1)
-    // This case overlaps 1/3, so score ≈ 0.467 → major_difference
     expect(result.category).toBe('major_difference')
   })
 

@@ -49,7 +49,7 @@ function shouldRouteToCandidate(
  * receives for a specific change class.
  *
  * Stability key rules (§14):
- *   - changeClass === 'sub_agent_prompt' → stabilityKey = tenantId + userId
+ *   - changeClass === 'sub_agent_prompt' → stabilityKey = tenantId + ':' + userId (userId required)
  *   - all other classes                  → stabilityKey = tenantId
  *
  * Safe fallback (§13 Backout): when no active rollout exists, always return
@@ -74,6 +74,7 @@ export class RolloutResolver {
           eq(agentRolloutConfig.changeClass, changeClass),
         ),
       )
+      .limit(1)
 
     // ── pg-boss retry bypass (§5) ──────────────────────────────────────────
     // Sticky version: if the caller passes retryContextVersion, return it verbatim.
@@ -93,8 +94,11 @@ export class RolloutResolver {
     }
 
     // ── Compute stability key ─────────────────────────────────────────────
+    if (changeClass === 'sub_agent_prompt' && userId === undefined) {
+      throw new Error('RolloutResolver: userId is required for changeClass=sub_agent_prompt')
+    }
     const stabilityKeyValue =
-      changeClass === 'sub_agent_prompt' ? `${tenantId}${userId ?? ''}` : tenantId
+      changeClass === 'sub_agent_prompt' ? `${tenantId}:${userId ?? ''}` : tenantId
 
     // ── Hash-based deterministic routing ─────────────────────────────────
     const trafficPct = Number(config.trafficPercentage)

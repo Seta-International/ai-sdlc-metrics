@@ -39,18 +39,18 @@ export interface DiffResult {
 
 /** Returned when shadow turn errored and there is no candidate output to compare */
 export interface ShadowErroredResult {
-  score: 0
+  score: 1
   category: 'shadow_errored'
   componentDiffs: { toolCallOverlap: 0; shapeDiff: 0; permissionKeyOverlap: 0 }
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const SHADOW_ERRORED_RESULT: ShadowErroredResult = {
-  score: 0,
-  category: 'shadow_errored',
-  componentDiffs: { toolCallOverlap: 0, shapeDiff: 0, permissionKeyOverlap: 0 },
-}
+const SHADOW_ERRORED_RESULT: ShadowErroredResult = Object.freeze({
+  score: 1,
+  category: 'shadow_errored' as const,
+  componentDiffs: Object.freeze({ toolCallOverlap: 0, shapeDiff: 0, permissionKeyOverlap: 0 }),
+})
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 

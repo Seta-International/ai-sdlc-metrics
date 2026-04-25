@@ -26,10 +26,11 @@ const TENANT_CANDIDATE_AT_1 = 'tenant-test-58'
 const CONFIG_BASELINE_AT_1 = 'cfg-test-17'
 const TENANT_BASELINE_AT_1 = 'tenant-test-17'
 
-// sub_agent_prompt stability key fixtures
-// sha256('cfg-sub-test-1:tenant-sub-1user-sub-a') mod 100 = 3  → candidate when pct >= 4
-// sha256('cfg-sub-test-1:tenant-sub-1user-sub-b') mod 100 = 44 → baseline when pct < 45
+// sub_agent_prompt stability key fixtures (stability key = tenantId + ':' + userId)
+// sha256('cfg-sub-test-1:tenant-sub-1:user-sub-a') mod 100 = 11 → candidate when pct >= 12, baseline when pct <= 11
+// sha256('cfg-sub-test-1:tenant-sub-1:user-sub-b') mod 100 = 6  → candidate when pct >= 7,  baseline when pct <= 6
 // sha256('cfg-sub-test-1:tenant-sub-1') mod 100 = 8 (tenant-only key, for model class)
+// At pct=9: user-a (11 >= 9) → baseline; user-b (6 < 9) → candidate (different assignments)
 const CONFIG_SUB = 'cfg-sub-test-1'
 const TENANT_SUB = 'tenant-sub-1'
 const USER_A = 'user-sub-a'
@@ -44,13 +45,14 @@ const CONFIG_B_ID = 'rollout-config-b'
 // ─── Mock DB factory ──────────────────────────────────────────────────────────
 
 /**
- * Builds a DB mock where select().from().where() returns the provided rows array.
+ * Builds a DB mock where select().from().where().limit() returns the provided rows array.
  */
 function buildDb(rows: Record<string, unknown>[]) {
-  const whereMock = vi.fn().mockResolvedValue(rows)
+  const limitMock = vi.fn().mockResolvedValue(rows)
+  const whereMock = vi.fn().mockReturnValue({ limit: limitMock })
   const fromMock = vi.fn().mockReturnValue({ where: whereMock })
   const selectMock = vi.fn().mockReturnValue({ from: fromMock })
-  return { db: { select: selectMock } as never, whereMock }
+  return { db: { select: selectMock } as never, whereMock, limitMock }
 }
 
 function makeConfig(overrides: Partial<Record<string, unknown>> = {}): Record<string, unknown> {
@@ -203,38 +205,15 @@ describe('RolloutResolver', () => {
 
   // ── Test 6a: Stability key — sub_agent_prompt uses tenantId+userId ────────
 
-  it('6a. sub_agent_prompt stability key: different userId → different assignment (user-a gets candidate at pct=4)', async () => {
-    // sha256('cfg-sub-test-1:tenant-sub-1user-sub-a') mod 100 = 3 → 3 < 4 → candidate
+  it('6a. sub_agent_prompt stability key: different userId → different assignment (user-b gets candidate at pct=9)', async () => {
+    // sha256('cfg-sub-test-1:tenant-sub-1:user-sub-b') mod 100 = 6 → 6 < 9 → candidate
     const config = makeConfig({
       id: CONFIG_SUB,
       tenantId: TENANT_SUB,
       changeClass: 'sub_agent_prompt',
       candidateVersion: 'v-cand',
       baselineVersion: 'v-base',
-      trafficPercentage: '4',
-    })
-    const { db } = buildDb([config])
-    const resolver = new RolloutResolver(db)
-
-    const result = await resolver.resolveVersion({
-      changeClass: 'sub_agent_prompt',
-      tenantId: TENANT_SUB,
-      userId: USER_A,
-    })
-
-    expect(result.fromCandidate).toBe(true)
-    expect(result.version).toBe('v-cand')
-  })
-
-  it('6b. sub_agent_prompt stability key: different userId → different assignment (user-b gets baseline at pct=4)', async () => {
-    // sha256('cfg-sub-test-1:tenant-sub-1user-sub-b') mod 100 = 44 → 44 >= 4 → baseline
-    const config = makeConfig({
-      id: CONFIG_SUB,
-      tenantId: TENANT_SUB,
-      changeClass: 'sub_agent_prompt',
-      candidateVersion: 'v-cand',
-      baselineVersion: 'v-base',
-      trafficPercentage: '4',
+      trafficPercentage: '9',
     })
     const { db } = buildDb([config])
     const resolver = new RolloutResolver(db)
@@ -245,13 +224,36 @@ describe('RolloutResolver', () => {
       userId: USER_B,
     })
 
+    expect(result.fromCandidate).toBe(true)
+    expect(result.version).toBe('v-cand')
+  })
+
+  it('6b. sub_agent_prompt stability key: different userId → different assignment (user-a gets baseline at pct=9)', async () => {
+    // sha256('cfg-sub-test-1:tenant-sub-1:user-sub-a') mod 100 = 11 → 11 >= 9 → baseline
+    const config = makeConfig({
+      id: CONFIG_SUB,
+      tenantId: TENANT_SUB,
+      changeClass: 'sub_agent_prompt',
+      candidateVersion: 'v-cand',
+      baselineVersion: 'v-base',
+      trafficPercentage: '9',
+    })
+    const { db } = buildDb([config])
+    const resolver = new RolloutResolver(db)
+
+    const result = await resolver.resolveVersion({
+      changeClass: 'sub_agent_prompt',
+      tenantId: TENANT_SUB,
+      userId: USER_A,
+    })
+
     expect(result.fromCandidate).toBe(false)
     expect(result.version).toBe('v-base')
   })
 
   it('6c. model class uses tenantId only as stability key (ignores userId)', async () => {
     // sha256('cfg-sub-test-1:tenant-sub-1') mod 100 = 8 → at pct=10 → candidate
-    // sha256('cfg-sub-test-1:tenant-sub-1user-sub-a') mod 100 = 3 → different key, but same outcome at pct=10
+    // sha256('cfg-sub-test-1:tenant-sub-1:user-sub-a') mod 100 = 11 → different key, but model class ignores userId
     // The key test: passing different userIds to a non-sub_agent_prompt class yields same result
     const config = makeConfig({
       id: CONFIG_SUB,
@@ -283,6 +285,25 @@ describe('RolloutResolver', () => {
     expect(r1.version).toBe(r2.version)
     // And the tenant-only hash (8 < 10) → candidate
     expect(r1.fromCandidate).toBe(true)
+  })
+
+  // ── Test 6d: Missing userId for sub_agent_prompt throws ──────────────────
+
+  it('6d. throws when sub_agent_prompt called without userId', async () => {
+    const config = makeConfig({
+      id: CONFIG_SUB,
+      tenantId: TENANT_SUB,
+      changeClass: 'sub_agent_prompt',
+      candidateVersion: 'v-cand',
+      baselineVersion: 'v-base',
+      trafficPercentage: '50',
+    })
+    const { db } = buildDb([config])
+    const resolver = new RolloutResolver(db)
+
+    await expect(
+      resolver.resolveVersion({ changeClass: 'sub_agent_prompt', tenantId: TENANT_SUB }),
+    ).rejects.toThrow('userId is required')
   })
 
   // ── Test 7: No active rollout returns a non-empty version string ──────────
