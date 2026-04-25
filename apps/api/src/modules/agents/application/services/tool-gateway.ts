@@ -876,6 +876,12 @@ export class ToolGateway {
           .then(({ purgedCount: _count }) => {
             recordSemanticCacheInvalidationLag(Date.now() - invalidateStart)
           })
+          .catch((err: unknown) => {
+            this.logger.error(
+              `ToolGateway: semantic cache invalidateDomain failed for domain="${modulePrefix}"`,
+              err instanceof Error ? err.stack : String(err),
+            )
+          })
       }
     }
 
