@@ -20,8 +20,8 @@ describe('IterationCeilingEnforcer', () => {
       maxIterations: 5,
       cumulativeCostUsd: 1.0,
       cumulativeWallclockMs: 1000,
-      perTurnCostBudgetUsd: 1.0,
-      perTurnWallclockBudgetMs: 60_000,
+      totalCostBudgetUsd: 1.0,
+      totalWallclockBudgetMs: 60_000,
     })
 
     expect(result).toEqual({ allowed: false, reason: 'cumulative_cost' })
@@ -34,8 +34,8 @@ describe('IterationCeilingEnforcer', () => {
       cumulativeCostUsd: 0.8,
       cumulativeWallclockMs: 1000,
       estimatedNextCostUsd: 0.3,
-      perTurnCostBudgetUsd: 1.0,
-      perTurnWallclockBudgetMs: 60_000,
+      totalCostBudgetUsd: 1.0,
+      totalWallclockBudgetMs: 60_000,
     })
 
     expect(result).toEqual({ allowed: false, reason: 'cumulative_cost' })
@@ -47,8 +47,8 @@ describe('IterationCeilingEnforcer', () => {
       maxIterations: 5,
       cumulativeCostUsd: 0.1,
       cumulativeWallclockMs: 1000,
-      perTurnCostBudgetUsd: 10.0,
-      perTurnWallclockBudgetMs: 60_000,
+      totalCostBudgetUsd: 10.0,
+      totalWallclockBudgetMs: 60_000,
     })
 
     expect(result).toEqual({ allowed: false, reason: 'max_iterations' })
@@ -60,8 +60,8 @@ describe('IterationCeilingEnforcer', () => {
       maxIterations: 5,
       cumulativeCostUsd: 0.1,
       cumulativeWallclockMs: 60_000,
-      perTurnCostBudgetUsd: 10.0,
-      perTurnWallclockBudgetMs: 60_000,
+      totalCostBudgetUsd: 10.0,
+      totalWallclockBudgetMs: 60_000,
     })
 
     expect(result).toEqual({ allowed: false, reason: 'cumulative_wallclock' })
@@ -73,8 +73,8 @@ describe('IterationCeilingEnforcer', () => {
       maxIterations: 5,
       cumulativeCostUsd: 0.5,
       cumulativeWallclockMs: 30_000,
-      perTurnCostBudgetUsd: 2.0,
-      perTurnWallclockBudgetMs: 120_000,
+      totalCostBudgetUsd: 2.0,
+      totalWallclockBudgetMs: 120_000,
     })
 
     expect(result).toEqual({ allowed: true })
@@ -86,8 +86,8 @@ describe('IterationCeilingEnforcer', () => {
       maxIterations: 5,
       cumulativeCostUsd: 0,
       cumulativeWallclockMs: 0,
-      perTurnCostBudgetUsd: 1.0,
-      perTurnWallclockBudgetMs: 60_000,
+      totalCostBudgetUsd: 1.0,
+      totalWallclockBudgetMs: 60_000,
     })
 
     expect(result).toEqual({ allowed: true })
@@ -99,8 +99,8 @@ describe('IterationCeilingEnforcer', () => {
       maxIterations: 10,
       cumulativeCostUsd: 5.0,
       cumulativeWallclockMs: 100,
-      perTurnCostBudgetUsd: 5.0,
-      perTurnWallclockBudgetMs: 100_000,
+      totalCostBudgetUsd: 5.0,
+      totalWallclockBudgetMs: 100_000,
     })
 
     expect(result).toEqual({ allowed: false, reason: 'cumulative_cost' })
@@ -113,8 +113,8 @@ describe('IterationCeilingEnforcer', () => {
       cumulativeCostUsd: 0.4,
       cumulativeWallclockMs: 1000,
       estimatedNextCostUsd: 0.5,
-      perTurnCostBudgetUsd: 1.0,
-      perTurnWallclockBudgetMs: 60_000,
+      totalCostBudgetUsd: 1.0,
+      totalWallclockBudgetMs: 60_000,
     })
 
     // 0.4 + 0.5 = 0.9 which is NOT > 1.0, so allowed
@@ -129,8 +129,8 @@ describe('IterationCeilingEnforcer', () => {
       maxIterations: 5,
       cumulativeCostUsd: 100.0,
       cumulativeWallclockMs: 999_999,
-      perTurnCostBudgetUsd: 1.0,
-      perTurnWallclockBudgetMs: 1.0,
+      totalCostBudgetUsd: 1.0,
+      totalWallclockBudgetMs: 1.0,
     })
 
     expect(result).toEqual({ allowed: false, reason: 'max_iterations' })

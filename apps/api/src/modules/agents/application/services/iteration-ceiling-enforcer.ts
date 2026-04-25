@@ -24,14 +24,14 @@ export interface CheckBeforeIterationOpts {
   /**
    * Optional cost hint for the upcoming iteration.
    * When provided, an additional check ensures the remaining headroom is
-   * sufficient: if cumulativeCostUsd + estimatedNextCostUsd > perTurnCostBudgetUsd
+   * sufficient: if cumulativeCostUsd + estimatedNextCostUsd > totalCostBudgetUsd
    * the iteration is blocked (cumulative_cost).
    */
   estimatedNextCostUsd?: number
   /** Hard ceiling on cumulative LLM cost in USD for all iterations combined. */
-  perTurnCostBudgetUsd: number
+  totalCostBudgetUsd: number
   /** Hard ceiling on cumulative wall-clock time in ms for all iterations combined. */
-  perTurnWallclockBudgetMs: number
+  totalWallclockBudgetMs: number
 }
 
 export interface CeilingCheckResult {
@@ -47,11 +47,11 @@ export class IterationCeilingEnforcer {
    * Checks whether the supervisor loop may proceed with the next iteration.
    *
    * Order of checks:
-   *   1. iterationNumber > maxIterations          → max_iterations
-   *   2. cumulativeCostUsd >= perTurnCostBudgetUsd → cumulative_cost
+   *   1. iterationNumber > maxIterations         → max_iterations
+   *   2. cumulativeCostUsd >= totalCostBudgetUsd → cumulative_cost
    *   2b. if estimatedNextCostUsd provided:
-   *       cumulativeCostUsd + estimatedNextCostUsd > perTurnCostBudgetUsd → cumulative_cost
-   *   3. cumulativeWallclockMs >= perTurnWallclockBudgetMs → cumulative_wallclock
+   *       cumulativeCostUsd + estimatedNextCostUsd > totalCostBudgetUsd → cumulative_cost
+   *   3. cumulativeWallclockMs >= totalWallclockBudgetMs → cumulative_wallclock
    *   4. Otherwise → allowed
    */
   checkBeforeIteration(opts: CheckBeforeIterationOpts): CeilingCheckResult {
@@ -61,26 +61,26 @@ export class IterationCeilingEnforcer {
       cumulativeCostUsd,
       cumulativeWallclockMs,
       estimatedNextCostUsd,
-      perTurnCostBudgetUsd,
-      perTurnWallclockBudgetMs,
+      totalCostBudgetUsd,
+      totalWallclockBudgetMs,
     } = opts
 
     if (iterationNumber > maxIterations) {
       return { allowed: false, reason: 'max_iterations' }
     }
 
-    if (cumulativeCostUsd >= perTurnCostBudgetUsd) {
+    if (cumulativeCostUsd >= totalCostBudgetUsd) {
       return { allowed: false, reason: 'cumulative_cost' }
     }
 
     if (
       estimatedNextCostUsd !== undefined &&
-      cumulativeCostUsd + estimatedNextCostUsd > perTurnCostBudgetUsd
+      cumulativeCostUsd + estimatedNextCostUsd > totalCostBudgetUsd
     ) {
       return { allowed: false, reason: 'cumulative_cost' }
     }
 
-    if (cumulativeWallclockMs >= perTurnWallclockBudgetMs) {
+    if (cumulativeWallclockMs >= totalWallclockBudgetMs) {
       return { allowed: false, reason: 'cumulative_wallclock' }
     }
 

@@ -8,8 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { CompletionScorerRunner } from './completion-scorer-runner'
 import type { ScorerRegistry } from './scorer-registry'
 import type { SetaScorer, ScorerResult } from '../../domain/scorer-types'
-import type { SubAgentOutput } from './phase-executor-contracts'
-import type { PhaseExecutorTurnState } from './phase-executor-contracts'
+import type { SubAgentOutput, PhaseExecutorTurnState } from './phase-executor-contracts'
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 

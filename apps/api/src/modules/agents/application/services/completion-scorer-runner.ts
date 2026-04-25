@@ -76,6 +76,11 @@ export class CompletionScorerRunner {
 
       const ctx = {
         traceId: turnState.traceId,
+        // For iterative-topology exit-gate scorers, the relevant evaluation
+        // payload is the iteration output — there is no separate "input" object.
+        // ScorerContext is a generic shape; the exit-gate scorer kind evaluates
+        // the output that was produced, not the directive that triggered it.
+        // input mirrors output intentionally so the generic interface is satisfied.
         input: iterationOutput,
         output: iterationOutput,
         requestContext: {
