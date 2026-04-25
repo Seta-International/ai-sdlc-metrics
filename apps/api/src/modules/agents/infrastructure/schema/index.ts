@@ -43,3 +43,8 @@ export type {
   AgentCostReconciliationRow,
   NewAgentCostReconciliationRow,
 } from './agent-readiness.schema'
+export { agentToolResultCache } from './agent-tool-result-cache.schema'
+export type {
+  AgentToolResultCacheRow,
+  NewAgentToolResultCacheRow,
+} from './agent-tool-result-cache.schema'
