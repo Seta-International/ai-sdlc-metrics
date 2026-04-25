@@ -32,6 +32,12 @@ import {
   recordStepDuration,
   recordCacheLookup,
   recordSubAgentHidden,
+  recordIterativeTurnTotal,
+  recordIterationCountExceeded,
+  recordTopologyDowngradeCandidateTotal,
+  recordReplanLlmCallTotal,
+  recordCompletionScorerFail,
+  recordIterationsTotalHistogram,
   __INTERNAL_resetInstruments,
 } from './gateway-metrics'
 
@@ -275,5 +281,172 @@ describe('recordSubAgentHidden', () => {
     )
     expect(point).toBeDefined()
     expect(point!.value).toBe(3)
+  })
+})
+
+// ─── Plan 12 §8 iterative-topology metrics ────────────────────────────────────
+
+describe('recordIterativeTurnTotal', () => {
+  it('increments agent_iterative_turn_total with tenant_id and outcome=synthesized', async () => {
+    recordIterativeTurnTotal('tenant-it-1', 'synthesized')
+
+    const points = await flushAndGetPoints('agent_iterative_turn_total')
+    const point = points.find(
+      (p) =>
+        p.attributes['tenant_id'] === 'tenant-it-1' && p.attributes['outcome'] === 'synthesized',
+    )
+    expect(point).toBeDefined()
+    expect(point!.value).toBe(1)
+  })
+
+  it('increments agent_iterative_turn_total with outcome=partial', async () => {
+    recordIterativeTurnTotal('tenant-it-2', 'partial')
+
+    const points = await flushAndGetPoints('agent_iterative_turn_total')
+    const point = points.find(
+      (p) => p.attributes['tenant_id'] === 'tenant-it-2' && p.attributes['outcome'] === 'partial',
+    )
+    expect(point).toBeDefined()
+    expect(point!.value).toBe(1)
+  })
+
+  it('increments agent_iterative_turn_total with outcome=aborted', async () => {
+    recordIterativeTurnTotal('tenant-it-3', 'aborted')
+
+    const points = await flushAndGetPoints('agent_iterative_turn_total')
+    const point = points.find(
+      (p) => p.attributes['tenant_id'] === 'tenant-it-3' && p.attributes['outcome'] === 'aborted',
+    )
+    expect(point).toBeDefined()
+    expect(point!.value).toBe(1)
+  })
+
+  it('increments agent_iterative_turn_total with outcome=disambiguation', async () => {
+    recordIterativeTurnTotal('tenant-it-4', 'disambiguation')
+
+    const points = await flushAndGetPoints('agent_iterative_turn_total')
+    const point = points.find(
+      (p) =>
+        p.attributes['tenant_id'] === 'tenant-it-4' && p.attributes['outcome'] === 'disambiguation',
+    )
+    expect(point).toBeDefined()
+    expect(point!.value).toBe(1)
+  })
+
+  it('accumulates count across multiple calls for the same labels', async () => {
+    recordIterativeTurnTotal('tenant-it-acc', 'synthesized')
+    recordIterativeTurnTotal('tenant-it-acc', 'synthesized')
+
+    const points = await flushAndGetPoints('agent_iterative_turn_total')
+    const point = points.find(
+      (p) =>
+        p.attributes['tenant_id'] === 'tenant-it-acc' && p.attributes['outcome'] === 'synthesized',
+    )
+    expect(point?.value).toBe(2)
+  })
+})
+
+describe('recordIterationCountExceeded', () => {
+  it('records agent_iteration_count_exceeded_p95 gauge with tenant_id', async () => {
+    recordIterationCountExceeded('tenant-ice-1')
+
+    const points = await flushAndGetPoints('agent_iteration_count_exceeded_p95')
+    const point = points.find((p) => p.attributes['tenant_id'] === 'tenant-ice-1')
+    expect(point).toBeDefined()
+    expect(point!.value).toBe(1)
+  })
+})
+
+describe('recordTopologyDowngradeCandidateTotal', () => {
+  it('increments agent_topology_downgrade_candidate_total with tenant_id', async () => {
+    recordTopologyDowngradeCandidateTotal('tenant-tdc-1')
+
+    const points = await flushAndGetPoints('agent_topology_downgrade_candidate_total')
+    const point = points.find((p) => p.attributes['tenant_id'] === 'tenant-tdc-1')
+    expect(point).toBeDefined()
+    expect(point!.value).toBe(1)
+  })
+
+  it('accumulates across multiple calls', async () => {
+    recordTopologyDowngradeCandidateTotal('tenant-tdc-2')
+    recordTopologyDowngradeCandidateTotal('tenant-tdc-2')
+
+    const points = await flushAndGetPoints('agent_topology_downgrade_candidate_total')
+    const point = points.find((p) => p.attributes['tenant_id'] === 'tenant-tdc-2')
+    expect(point?.value).toBe(2)
+  })
+})
+
+describe('recordReplanLlmCallTotal', () => {
+  const outcomes = [
+    'continue',
+    'exit_complete',
+    'exit_stuck',
+    'exit_disambiguation',
+    'parse_error',
+  ] as const
+
+  for (const outcome of outcomes) {
+    it(`increments agent_replan_llm_call_total with outcome=${outcome}`, async () => {
+      recordReplanLlmCallTotal(`tenant-rpl-${outcome}`, outcome)
+
+      const points = await flushAndGetPoints('agent_replan_llm_call_total')
+      const point = points.find(
+        (p) =>
+          p.attributes['tenant_id'] === `tenant-rpl-${outcome}` &&
+          p.attributes['outcome'] === outcome,
+      )
+      expect(point).toBeDefined()
+      expect(point!.value).toBe(1)
+    })
+  }
+})
+
+describe('recordCompletionScorerFail', () => {
+  it('increments agent_completion_scorer_fail_total with tenant_id and scorer_id', async () => {
+    recordCompletionScorerFail('tenant-csf-1', 'scorer-threshold')
+
+    const points = await flushAndGetPoints('agent_completion_scorer_fail_total')
+    const point = points.find(
+      (p) =>
+        p.attributes['tenant_id'] === 'tenant-csf-1' &&
+        p.attributes['scorer_id'] === 'scorer-threshold',
+    )
+    expect(point).toBeDefined()
+    expect(point!.value).toBe(1)
+  })
+
+  it('label set is exactly {tenant_id, scorer_id}', async () => {
+    recordCompletionScorerFail('tenant-csf-2', 'scorer-regex')
+
+    const points = await flushAndGetPoints('agent_completion_scorer_fail_total')
+    const point = points.find((p) => p.attributes['tenant_id'] === 'tenant-csf-2')
+    expect(point).toBeDefined()
+    const keys = Object.keys(point!.attributes)
+    expect(keys).toHaveLength(2)
+    expect(keys).toContain('tenant_id')
+    expect(keys).toContain('scorer_id')
+  })
+})
+
+describe('recordIterationsTotalHistogram', () => {
+  it('records agent_iterations_total histogram with tenant_id and iteration count', async () => {
+    recordIterationsTotalHistogram('tenant-ith-1', 5)
+
+    const points = await flushAndGetPoints('agent_iterations_total')
+    const point = points.find((p) => p.attributes['tenant_id'] === 'tenant-ith-1')
+    expect(point).toBeDefined()
+    // flushAndGetPoints returns histogram sum — 5 in a single record
+    expect(point!.value).toBe(5)
+  })
+
+  it('accumulates sum across multiple records', async () => {
+    recordIterationsTotalHistogram('tenant-ith-2', 3)
+    recordIterationsTotalHistogram('tenant-ith-2', 7)
+
+    const points = await flushAndGetPoints('agent_iterations_total')
+    const point = points.find((p) => p.attributes['tenant_id'] === 'tenant-ith-2')
+    expect(point).toBeDefined()
+    expect(point!.value).toBe(10)
   })
 })

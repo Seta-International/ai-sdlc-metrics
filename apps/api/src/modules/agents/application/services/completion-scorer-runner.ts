@@ -11,6 +11,7 @@
 
 import { Injectable } from '@nestjs/common'
 import { ScorerRegistry } from './scorer-registry'
+import { recordCompletionScorerFail } from '../../infrastructure/observability/gateway-metrics'
 import type { ScorerResult } from '../../domain/scorer-types'
 import type { SubAgentOutput, PhaseExecutorTurnState } from './phase-executor-contracts'
 
@@ -29,6 +30,11 @@ export interface RunScorersOpts {
   iterationOutput: SubAgentOutput
   /** Shared turn-state threaded through all phase-03 components. */
   turnState: PhaseExecutorTurnState
+  /**
+   * Tenant ID for metric recording (Plan 12 §8).
+   * Optional — if omitted, scorer-fail metrics are skipped (non-iterative paths).
+   */
+  tenantId?: string
 }
 
 export interface RunScorersResult {
@@ -57,7 +63,7 @@ export class CompletionScorerRunner {
    *   - `'any'`: `isComplete = results.some(r => r.passed)` (vacuously false for empty list).
    */
   async runScorers(opts: RunScorersOpts): Promise<RunScorersResult> {
-    const { scorerIds, strategy, iterationOutput, turnState } = opts
+    const { scorerIds, strategy, iterationOutput, turnState, tenantId } = opts
     const results: ScorerResult[] = []
 
     for (const scorerId of scorerIds) {
@@ -96,6 +102,14 @@ export class CompletionScorerRunner {
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err)
         results.push({ score: 0, passed: false, reason: `scorer ${scorerId} threw: ${message}` })
+        // Record metric when a scorer throws (Plan 12 §8)
+        if (tenantId) {
+          try {
+            recordCompletionScorerFail(tenantId, scorerId)
+          } catch {
+            // Metric emission must never fail a user turn
+          }
+        }
       }
     }
 

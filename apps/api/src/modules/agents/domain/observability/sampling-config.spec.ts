@@ -9,6 +9,7 @@ import {
   taintFlippedTrigger,
   approvalRequiredTrigger,
   compositionAmplificationTrigger,
+  iterativeTopologyTrigger,
   STRATIFIED_MVP_CONFIG,
   ALWAYS_CAPTURE_CONFIG,
 } from './sampling-config'
@@ -109,6 +110,22 @@ describe('compositionAmplificationTrigger', () => {
   })
 })
 
+// ─── iterativeTopologyTrigger ─────────────────────────────────────────────────
+
+describe('iterativeTopologyTrigger (R-12.18)', () => {
+  it('fires when iterativeTopology is true', () => {
+    expect(iterativeTopologyTrigger({ ...baseCtx, iterativeTopology: true })).toBe(true)
+  })
+
+  it('does not fire when iterativeTopology is false', () => {
+    expect(iterativeTopologyTrigger({ ...baseCtx, iterativeTopology: false })).toBe(false)
+  })
+
+  it('does not fire when iterativeTopology is undefined (non-iterative turn)', () => {
+    expect(iterativeTopologyTrigger(baseCtx)).toBe(false)
+  })
+})
+
 // ─── Named exports are named functions ───────────────────────────────────────
 
 describe('trigger predicate function names', () => {
@@ -118,6 +135,7 @@ describe('trigger predicate function names', () => {
     expect(taintFlippedTrigger.name).toBe('taintFlippedTrigger')
     expect(approvalRequiredTrigger.name).toBe('approvalRequiredTrigger')
     expect(compositionAmplificationTrigger.name).toBe('compositionAmplificationTrigger')
+    expect(iterativeTopologyTrigger.name).toBe('iterativeTopologyTrigger')
   })
 })
 
@@ -128,8 +146,25 @@ describe('STRATIFIED_MVP_CONFIG', () => {
     expect(STRATIFIED_MVP_CONFIG.type).toBe('triggered')
     if (STRATIFIED_MVP_CONFIG.type === 'triggered') {
       expect(STRATIFIED_MVP_CONFIG.baselineProbability).toBe(0.01)
-      expect(STRATIFIED_MVP_CONFIG.triggers).toHaveLength(5)
+      expect(STRATIFIED_MVP_CONFIG.triggers).toHaveLength(6)
     }
+  })
+
+  it('R-12.18: iterativeTopologyTrigger is included in STRATIFIED_MVP_CONFIG', () => {
+    if (STRATIFIED_MVP_CONFIG.type === 'triggered') {
+      const names = STRATIFIED_MVP_CONFIG.triggers.map((t) => t.name)
+      expect(names).toContain('iterativeTopologyTrigger')
+    }
+  })
+
+  it('R-12.18: iterative topology forces 100% capture via STRATIFIED_MVP_CONFIG', () => {
+    if (STRATIFIED_MVP_CONFIG.type !== 'triggered') return
+
+    const ctx: TriggerPredicateContext = { ...baseCtx, iterativeTopology: true }
+    const matched = STRATIFIED_MVP_CONFIG.triggers
+      .filter((trigger) => trigger(ctx))
+      .map((trigger) => trigger.name)
+    expect(matched).toContain('iterativeTopologyTrigger')
   })
 })
 

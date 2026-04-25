@@ -33,6 +33,7 @@ import type {
   IterationRecord,
   PhaseExecutorTurnState,
 } from './phase-executor-contracts'
+import { recordReplanLlmCallTotal } from '../../infrastructure/observability/gateway-metrics'
 
 // ─── Result type ──────────────────────────────────────────────────────────────
 
@@ -58,6 +59,11 @@ export interface ReplanOpts {
   readonly completionCriteria: CompletionSpec
   readonly userUtterance: string
   readonly abortSignal: AbortSignal
+  /**
+   * Tenant ID for metric recording (Plan 12 §8).
+   * Optional — if omitted, replan LLM call metrics are skipped.
+   */
+  readonly tenantId?: string
 }
 
 // ─── Zod schema for LLM response ─────────────────────────────────────────────
@@ -122,8 +128,14 @@ export class IterativeRePlanner implements OnModuleInit {
    * correction prompt. On second failure returns the fallback exit result.
    */
   async replan(opts: ReplanOpts): Promise<ReplanResult> {
-    const { priorIteration, iterationHistory, completionCriteria, userUtterance, abortSignal } =
-      opts
+    const {
+      priorIteration,
+      iterationHistory,
+      completionCriteria,
+      userUtterance,
+      abortSignal,
+      tenantId,
+    } = opts
 
     const systemPrompt = _buildSystemPrompt(completionCriteria)
     const userMessage = _buildUserMessage(userUtterance, priorIteration, iterationHistory)
@@ -131,17 +143,28 @@ export class IterativeRePlanner implements OnModuleInit {
     // Attempt 1
     const firstDecision = await _callLlm(systemPrompt, userMessage, abortSignal)
     if (firstDecision.kind === 'ok') {
-      return _toReplanResult(firstDecision.decision)
+      const result = _toReplanResult(firstDecision.decision)
+      _safeRecordReplanMetric(tenantId, result)
+      return result
     }
 
     // Attempt 2: error-correction retry
     const correctionMessage = _buildCorrectionMessage(userMessage, firstDecision.error)
     const secondDecision = await _callLlm(systemPrompt, correctionMessage, abortSignal)
     if (secondDecision.kind === 'ok') {
-      return _toReplanResult(secondDecision.decision)
+      const result = _toReplanResult(secondDecision.decision)
+      _safeRecordReplanMetric(tenantId, result)
+      return result
     }
 
     // Both attempts failed — surface as disambiguation
+    if (tenantId) {
+      try {
+        recordReplanLlmCallTotal(tenantId, 'parse_error')
+      } catch {
+        // Metric emission must never fail a user turn
+      }
+    }
     return {
       kind: 'exit',
       reason: 'disambiguation',
@@ -298,5 +321,30 @@ function _toReplanResult(decision: ReplanDecision): ReplanResult {
     kind: 'exit',
     reason: decision.exit_reason,
     disambiguationQuestion: decision.disambiguation_question,
+  }
+}
+
+// ─── Metric helper ────────────────────────────────────────────────────────────
+
+/**
+ * Records the replan LLM call outcome metric (Plan 12 §8).
+ * Swallows errors — metric emission must never fail a user turn.
+ */
+function _safeRecordReplanMetric(tenantId: string | undefined, result: ReplanResult): void {
+  if (!tenantId) return
+
+  const outcome =
+    result.kind === 'continue'
+      ? 'continue'
+      : result.reason === 'complete'
+        ? 'exit_complete'
+        : result.reason === 'stuck'
+          ? 'exit_stuck'
+          : 'exit_disambiguation'
+
+  try {
+    recordReplanLlmCallTotal(tenantId, outcome)
+  } catch {
+    // Metric emission must never fail a user turn
   }
 }

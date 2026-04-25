@@ -14,6 +14,7 @@
  *  8.  abortSignal fired → { kind: 'aborted', reason: 'user' }
  *  9.  Surface cap clamps maxIterations (R-12.5): plan maxIterations=50 on global-chat → capped at 10
  * 10.  Replanner returns exit(complete) → synthesizer runs → { kind: 'partial' } (scorer is authoritative)
+ * 11. (Plan 12 §8) Metrics: iterative turn total, iteration count, iteration exceeded recorded
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -28,6 +29,26 @@ import type { IterativePlan } from '../../domain/value-objects/router-plan-schem
 import type { StreamEmitter } from './stream-gateway'
 import type { RunScorersResult } from './completion-scorer-runner'
 import type { ReplanResult } from './iterative-replanner'
+
+// ─── Mock gateway-metrics ─────────────────────────────────────────────────────
+
+const {
+  mockRecordIterativeTurnTotal,
+  mockRecordIterationCountExceeded,
+  mockRecordIterationsTotalHistogram,
+} = vi.hoisted(() => ({
+  mockRecordIterativeTurnTotal: vi.fn(),
+  mockRecordIterationCountExceeded: vi.fn(),
+  mockRecordIterationsTotalHistogram: vi.fn(),
+}))
+
+vi.mock('../../infrastructure/observability/gateway-metrics', () => ({
+  recordIterativeTurnTotal: mockRecordIterativeTurnTotal,
+  recordIterationCountExceeded: mockRecordIterationCountExceeded,
+  recordIterationsTotalHistogram: mockRecordIterationsTotalHistogram,
+  recordReplanLlmCallTotal: vi.fn(),
+  recordCompletionScorerFail: vi.fn(),
+}))
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -137,6 +158,11 @@ describe('IterativeOrchestrator', () => {
       iterationCeilingEnforcer as never,
       iterativeRePlanner as never,
     )
+
+    // Reset metric mocks
+    mockRecordIterativeTurnTotal.mockReset()
+    mockRecordIterationCountExceeded.mockReset()
+    mockRecordIterationsTotalHistogram.mockReset()
   })
 
   // ── 1. Happy 3-iteration path ────────────────────────────────────────────────
@@ -706,5 +732,123 @@ describe('IterativeOrchestrator', () => {
     expect(synthesizer.synthesize).toHaveBeenCalledTimes(1)
     // Replanner was called once (after iteration 1)
     expect(iterativeRePlanner.replan).toHaveBeenCalledTimes(1)
+  })
+
+  // ── 11. Plan 12 §8 metrics ───────────────────────────────────────────────────
+
+  it('11a. synthesized result → recordIterativeTurnTotal called with outcome=synthesized', async () => {
+    const plan = makeIterativePlan()
+    const turnState = makeTurnState()
+    const emitter = makeStreamEmitter()
+    const abortSignal = new AbortController().signal
+
+    const subOutput = makeSubAgentOutput()
+    const synthOutput = makeSynthesizerOutput()
+
+    iterationCeilingEnforcer.checkBeforeIteration.mockReturnValue({ allowed: true })
+    subAgentRunner.run.mockResolvedValue(subOutput)
+
+    const passResult: RunScorersResult = {
+      isComplete: true,
+      results: [{ score: 1, passed: true, reason: 'done' }],
+    }
+    completionScorerRunner.runScorers.mockResolvedValue(passResult)
+    synthesizer.synthesize.mockResolvedValue(synthOutput)
+
+    await orchestrator.execute({
+      initialPlan: plan,
+      userUtterance: 'Test utterance',
+      turnState,
+      abortSignal,
+      streamEmitter: emitter,
+    })
+
+    expect(mockRecordIterativeTurnTotal).toHaveBeenCalledWith('tenant-abc', 'synthesized')
+    expect(mockRecordIterationsTotalHistogram).toHaveBeenCalledWith('tenant-abc', 1)
+    // No max iterations breach
+    expect(mockRecordIterationCountExceeded).not.toHaveBeenCalled()
+  })
+
+  it('11b. partial result from max iterations → recordIterativeTurnTotal(partial) + recordIterationCountExceeded', async () => {
+    const plan = makeIterativePlan({
+      completionCriteria: {
+        scorerIds: ['scorer-a'],
+        strategy: 'all',
+        maxIterations: 2,
+        hintToRouter: 'done',
+      },
+    })
+    const turnState = makeTurnState()
+    const emitter = makeStreamEmitter()
+    const abortSignal = new AbortController().signal
+
+    const subOutput = makeSubAgentOutput()
+    const synthOutput: SynthesizerOutput = {
+      ...makeSynthesizerOutput(),
+      turnEndedReason: 'partial',
+    }
+
+    iterationCeilingEnforcer.checkBeforeIteration.mockReturnValue({ allowed: true })
+    subAgentRunner.run.mockResolvedValue(subOutput)
+
+    const failResult: RunScorersResult = {
+      isComplete: false,
+      results: [{ score: 0, passed: false, reason: 'not done' }],
+    }
+    completionScorerRunner.runScorers.mockResolvedValue(failResult)
+
+    const continueResult: ReplanResult = {
+      kind: 'continue',
+      nextDirective: { sub_agent_key: 'planner.worker', input: {}, reason: 'continue' },
+    }
+    iterativeRePlanner.replan.mockResolvedValue(continueResult)
+    synthesizer.synthesize.mockResolvedValue(synthOutput)
+
+    await orchestrator.execute({
+      initialPlan: plan,
+      userUtterance: 'Test utterance',
+      turnState,
+      abortSignal,
+      streamEmitter: emitter,
+    })
+
+    expect(mockRecordIterativeTurnTotal).toHaveBeenCalledWith('tenant-abc', 'partial')
+    expect(mockRecordIterationsTotalHistogram).toHaveBeenCalledWith('tenant-abc', 2)
+    expect(mockRecordIterationCountExceeded).toHaveBeenCalledWith('tenant-abc')
+  })
+
+  it('11c. disambiguation result → recordIterativeTurnTotal(disambiguation)', async () => {
+    const plan = makeIterativePlan()
+    const turnState = makeTurnState()
+    const emitter = makeStreamEmitter()
+    const abortSignal = new AbortController().signal
+
+    const subOutput = makeSubAgentOutput()
+
+    iterationCeilingEnforcer.checkBeforeIteration.mockReturnValue({ allowed: true })
+    subAgentRunner.run.mockResolvedValue(subOutput)
+
+    const failResult: RunScorersResult = {
+      isComplete: false,
+      results: [{ score: 0, passed: false }],
+    }
+    completionScorerRunner.runScorers.mockResolvedValue(failResult)
+
+    const disambiguationResult: ReplanResult = {
+      kind: 'exit',
+      reason: 'disambiguation',
+      disambiguationQuestion: 'Which project?',
+    }
+    iterativeRePlanner.replan.mockResolvedValue(disambiguationResult)
+
+    await orchestrator.execute({
+      initialPlan: plan,
+      userUtterance: 'Test utterance',
+      turnState,
+      abortSignal,
+      streamEmitter: emitter,
+    })
+
+    expect(mockRecordIterativeTurnTotal).toHaveBeenCalledWith('tenant-abc', 'disambiguation')
   })
 })

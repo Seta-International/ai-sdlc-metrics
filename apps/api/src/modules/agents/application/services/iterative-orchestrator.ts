@@ -43,6 +43,13 @@ import type { StreamEmitter } from './stream-gateway'
 import type { IterationCeilingEnforcer } from './iteration-ceiling-enforcer'
 import type { CompletionScorerRunner } from './completion-scorer-runner'
 import type { IterativeRePlanner } from './iterative-replanner'
+import {
+  recordIterativeTurnTotal,
+  recordIterationCountExceeded,
+  recordIterationsTotalHistogram,
+  recordReplanLlmCallTotal,
+  recordCompletionScorerFail,
+} from '../../infrastructure/observability/gateway-metrics'
 
 // ─── Surface-specific iteration caps (R-12.5) ────────────────────────────────
 
@@ -138,6 +145,8 @@ export class IterativeOrchestrator {
     const allOutputs = new Map<string, SubAgentOutput>()
 
     let currentDirective: SubAgentDirective = initialDirective
+    // Track whether the loop exited due to max iterations being reached
+    let maxIterationsBreached = false
 
     // ── Main loop ─────────────────────────────────────────────────────────────
     for (;;) {
@@ -145,7 +154,9 @@ export class IterativeOrchestrator {
 
       // Step (a): Check abort signal
       if (abortSignal.aborted) {
-        return { kind: 'aborted', reason: 'user' }
+        const result: PhaseExecutionResult = { kind: 'aborted', reason: 'user' }
+        this._recordTurnMetrics(turnState.tenantId, result, iterationHistory)
+        return result
       }
 
       // Step (b): Ceiling enforcer
@@ -160,7 +171,9 @@ export class IterativeOrchestrator {
 
       if (!ceilingResult.allowed) {
         // Exit with partial — check for drafts
-        return await this._exitWithCeilingBreach(allOutputs, iterationHistory, opts)
+        const result = await this._exitWithCeilingBreach(allOutputs, iterationHistory, opts)
+        this._recordTurnMetrics(turnState.tenantId, result, iterationHistory)
+        return result
       }
 
       // Step (c): Emit SSE: iteration.started
@@ -201,6 +214,7 @@ export class IterativeOrchestrator {
         strategy: completionCriteria.strategy,
         iterationOutput: subOutput,
         turnState,
+        tenantId: turnState.tenantId,
       })
 
       const iterRecord: IterationRecord = {
@@ -244,11 +258,16 @@ export class IterativeOrchestrator {
 
       // Step (j): Check abort signal again
       if (abortSignal.aborted) {
-        return { kind: 'aborted', reason: 'user' }
+        const result: PhaseExecutionResult = { kind: 'aborted', reason: 'user' }
+        this._recordTurnMetrics(turnState.tenantId, result, iterationHistory)
+        return result
       }
 
       // Step (k): Check exit conditions (scorer complete or maxIterations reached)
       if (scorerResult.isComplete || n >= effectiveMaxIterations) {
+        if (n >= effectiveMaxIterations && !scorerResult.isComplete) {
+          maxIterationsBreached = true
+        }
         break
       }
 
@@ -260,14 +279,17 @@ export class IterativeOrchestrator {
         completionCriteria,
         userUtterance,
         abortSignal,
+        tenantId: turnState.tenantId,
       })
 
       if (replanResult.kind === 'exit') {
         if (replanResult.reason === 'disambiguation') {
-          return {
+          const result: PhaseExecutionResult = {
             kind: 'disambiguation',
             question: replanResult.disambiguationQuestion ?? 'Please clarify your request.',
           }
+          this._recordTurnMetrics(turnState.tenantId, result, iterationHistory)
+          return result
         }
         // stuck or complete → break to synthesizer
         break
@@ -279,7 +301,39 @@ export class IterativeOrchestrator {
     }
 
     // ── Post-loop: synthesize all iteration outputs ────────────────────────────
-    return await this._synthesize(allOutputs, iterationHistory, opts)
+    const result = await this._synthesize(allOutputs, iterationHistory, opts)
+
+    // Record turn metrics (including iteration count exceeded if applicable)
+    this._recordTurnMetrics(turnState.tenantId, result, iterationHistory, maxIterationsBreached)
+
+    return result
+  }
+
+  /**
+   * Records turn-end metrics for the iterative topology (Plan 12 §8).
+   *
+   * Emits:
+   *   - agent_iterative_turn_total{tenant_id, outcome}
+   *   - agent_iterations_total histogram{tenant_id} with the iteration count
+   *   - agent_iteration_count_exceeded_p95 gauge if maxIterationsBreached
+   *
+   * Errors from OTel calls are swallowed — metrics must never fail a user turn.
+   */
+  private _recordTurnMetrics(
+    tenantId: string,
+    result: PhaseExecutionResult,
+    iterationHistory: IterationRecord[],
+    maxIterationsBreached = false,
+  ): void {
+    try {
+      recordIterativeTurnTotal(tenantId, result.kind)
+      recordIterationsTotalHistogram(tenantId, iterationHistory.length)
+      if (maxIterationsBreached) {
+        recordIterationCountExceeded(tenantId)
+      }
+    } catch {
+      // Metric emission must never fail a user turn
+    }
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────────

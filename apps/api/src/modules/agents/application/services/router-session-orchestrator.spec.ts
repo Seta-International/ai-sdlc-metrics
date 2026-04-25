@@ -72,11 +72,13 @@ const {
   mockRecordRouterParseRetry,
   mockRecordSubAgentInvoked,
   mockRecordNarrativeCache,
+  mockRecordTopologyDowngradeCandidateTotal,
 } = vi.hoisted(() => ({
   mockRecordRouterDecision: vi.fn(),
   mockRecordRouterParseRetry: vi.fn(),
   mockRecordSubAgentInvoked: vi.fn(),
   mockRecordNarrativeCache: vi.fn(),
+  mockRecordTopologyDowngradeCandidateTotal: vi.fn(),
 }))
 
 vi.mock('../../infrastructure/observability/gateway-metrics', () => ({
@@ -85,6 +87,7 @@ vi.mock('../../infrastructure/observability/gateway-metrics', () => ({
   recordSubAgentInvoked: mockRecordSubAgentInvoked,
   recordNarrativeCache: mockRecordNarrativeCache,
   recordSubAgentHidden: vi.fn(),
+  recordTopologyDowngradeCandidateTotal: mockRecordTopologyDowngradeCandidateTotal,
 }))
 
 // ─── Mock router-budget ───────────────────────────────────────────────────────
@@ -388,6 +391,7 @@ describe('RouterSessionOrchestrator', () => {
     mockRecordRouterDecision.mockReset()
     mockRecordRouterParseRetry.mockReset()
     mockRecordSubAgentInvoked.mockReset()
+    mockRecordTopologyDowngradeCandidateTotal.mockReset()
     // Default: return well below ceiling so retrieval is dormant in most tests
     vi.mocked(estimateTokens).mockReturnValue(1_000)
     // Reset span exporter between tests so spans don't bleed across test cases
@@ -860,6 +864,7 @@ describe('RouterSessionOrchestrator — Plan 12 Task 5: inline surface guard + p
     mockRecordRouterDecision.mockReset()
     mockRecordRouterParseRetry.mockReset()
     mockRecordSubAgentInvoked.mockReset()
+    mockRecordTopologyDowngradeCandidateTotal.mockReset()
     vi.mocked(estimateTokens).mockReturnValue(1_000)
     spanExporter.reset()
   })
@@ -1010,5 +1015,66 @@ describe('RouterSessionOrchestrator — Plan 12 Task 5: inline surface guard + p
     if (result.kind === 'iterative') {
       expect(result.result).toEqual(mockIterativeResult)
     }
+  })
+
+  // ── 6. Topology-downgrade signal (R-12.20, R-12.21) ─────────────────────────
+
+  it('6a. iterative turn with routerReplanCount=1 → topology_downgrade_candidate span attr + metric', async () => {
+    // Simulate the iterative orchestrator doing a bounded re-plan by incrementing
+    // turnState.routerReplanCount to 1 during execution.
+    const mockIterativeResult: import('./phase-executor-contracts').PhaseExecutionResult = {
+      kind: 'synthesized',
+      answer: { text: 'answer after replan' },
+      drafts: [],
+    }
+    const { orchestrator, iterativeOrchestrator } = buildOrchestrator({
+      llmResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
+      parseResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
+      canDoResult: true,
+    })
+
+    // Override execute to also mutate turnState.routerReplanCount = 1
+    iterativeOrchestrator.execute.mockImplementation(
+      async (opts: { turnState: { routerReplanCount: 0 | 1 } }) => {
+        opts.turnState.routerReplanCount = 1
+        return mockIterativeResult
+      },
+    )
+
+    const result = await orchestrator.routeTurn({
+      ...BASE_OPTS,
+      surface: 'global-chat',
+    })
+
+    expect(result.kind).toBe('iterative')
+    // topology-downgrade metric must fire
+    expect(mockRecordTopologyDowngradeCandidateTotal).toHaveBeenCalledOnce()
+    expect(mockRecordTopologyDowngradeCandidateTotal).toHaveBeenCalledWith(TENANT_ID)
+    // topology_downgrade_candidate span attribute must be set
+    const finished = spanExporter.getFinishedSpans() as ReadableSpan[]
+    const routerPlanSpan = finished.find((s) => s.name === 'ROUTER_PLAN')
+    expect(routerPlanSpan?.attributes['topology_downgrade_candidate']).toBe(true)
+  })
+
+  it('6b. iterative turn with routerReplanCount=0 (no replan) → NO topology-downgrade signal', async () => {
+    const { orchestrator } = buildOrchestrator({
+      llmResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
+      parseResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
+      canDoResult: true,
+      iterativeOrchestratorResult: {
+        kind: 'synthesized',
+        answer: { text: 'clean iterative answer' },
+        drafts: [],
+      },
+    })
+
+    const result = await orchestrator.routeTurn({
+      ...BASE_OPTS,
+      surface: 'global-chat',
+    })
+
+    expect(result.kind).toBe('iterative')
+    // topology-downgrade metric must NOT fire when no re-plan happened
+    expect(mockRecordTopologyDowngradeCandidateTotal).not.toHaveBeenCalled()
   })
 })

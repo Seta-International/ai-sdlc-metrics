@@ -15,6 +15,11 @@ export type TriggerPredicateContext = {
   iterationCeilingHit: boolean
   wallclockCeilingHit: boolean
   costCeilingHit: boolean
+  /**
+   * R-12.18: Set to true when the turn was executed on the iterative topology.
+   * Forces 100% sampling to capture all iterative-topology turns for debugging.
+   */
+  iterativeTopology?: boolean
   // Beta signals (always false at MVP — kept for forward-compat typing)
   iterationCountExceededP95?: boolean
   routerRechoseAfterReplan?: boolean
@@ -66,11 +71,23 @@ export const compositionAmplificationTrigger: TriggerPredicate =
     return ctx.compositionAmplification
   }
 
+/**
+ * R-12.18: iterative topology — forces 100% sampling for turns executed on the
+ * iterative topology so all iterative turns are fully captured for debugging
+ * and observability during the Plan 12 rollout.
+ */
+export const iterativeTopologyTrigger: TriggerPredicate = function iterativeTopologyTrigger(
+  ctx,
+): boolean {
+  return ctx.iterativeTopology === true
+}
+
 // ─── Default Configs ──────────────────────────────────────────────────────────
 
 /**
- * MVP production config: stratified — 1% baseline + 100% on any of the 5 triggers.
+ * MVP production config: stratified — 1% baseline + 100% on any of the 6 triggers.
  * R-07.17: Baseline sampling rate = 1% for completed turns.
+ * R-12.18: iterativeTopologyTrigger forces 100% capture for iterative topology turns.
  */
 export const STRATIFIED_MVP_CONFIG: SamplingConfig = {
   type: 'triggered',
@@ -81,6 +98,7 @@ export const STRATIFIED_MVP_CONFIG: SamplingConfig = {
     taintFlippedTrigger,
     approvalRequiredTrigger,
     compositionAmplificationTrigger,
+    iterativeTopologyTrigger,
   ],
 }
 

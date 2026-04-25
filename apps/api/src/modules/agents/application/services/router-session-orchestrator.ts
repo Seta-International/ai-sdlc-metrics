@@ -51,6 +51,7 @@ import {
   recordRouterDecision,
   recordRouterParseRetry,
   recordSubAgentInvoked,
+  recordTopologyDowngradeCandidateTotal,
 } from '../../infrastructure/observability/gateway-metrics'
 import { IterativeOrchestrator, ITERATIVE_ORCHESTRATOR } from './iterative-orchestrator'
 import type { IterativeOrchestratorOpts } from './iterative-orchestrator'
@@ -695,6 +696,16 @@ export class RouterSessionOrchestrator {
         abortSignal: abortController.signal,
         streamEmitter: _noopStreamEmitter,
       } satisfies IterativeOrchestratorOpts)
+
+      // ── Topology-downgrade signal (R-12.20, R-12.21) ─────────────────────────
+      // If a bounded re-plan fired during iterative execution, routerReplanCount
+      // will have been incremented to 1. This marks the turn as a topology-downgrade
+      // candidate for observability — the iterative topology had to fall back to a
+      // bounded re-plan, which suggests the task may be better served by bounded.
+      if (turnState.routerReplanCount === 1) {
+        parentSpan?.setAttributes({ topology_downgrade_candidate: true })
+        this._safeMetric(() => recordTopologyDowngradeCandidateTotal(tenantId))
+      }
 
       return { kind: 'iterative', result: iterativeResult, sessionId, parseRetries }
     }
