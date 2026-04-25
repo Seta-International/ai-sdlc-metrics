@@ -108,6 +108,9 @@ export const PERMISSIONS = {
 
   // ── agent rollout (Plan 11 — canary rollout management, admin-tier) ────
   AGENT_ROLLOUT_MANAGE: 'agent:rollout:manage',
+
+  // ── agent readiness (Plan 13 — production readiness validation harness) ──
+  AGENT_READINESS_READ: 'agent:readiness:read',
 } as const
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

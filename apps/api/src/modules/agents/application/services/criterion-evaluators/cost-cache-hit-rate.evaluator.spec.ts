@@ -1,0 +1,54 @@
+import { describe, it, expect, vi } from 'vitest'
+import { CostCacheHitRateEvaluator } from './cost-cache-hit-rate.evaluator'
+import type { MetricsQueryPort } from '../../../domain/ports/metrics-query.port'
+import type { EvalWindow } from './criterion-evaluator.types'
+
+const WINDOW: EvalWindow = { start: new Date('2026-03-26'), end: new Date('2026-04-25') }
+
+function buildMetrics(response: number | null): MetricsQueryPort {
+  return {
+    sumCounter: vi.fn().mockResolvedValue(response),
+  }
+}
+
+describe('CostCacheHitRateEvaluator', () => {
+  it('passes when cache hit rate >= 0.60', async () => {
+    const metrics = buildMetrics(0.75)
+    const evaluator = new CostCacheHitRateEvaluator(metrics)
+
+    const result = await evaluator.evaluate(WINDOW)
+
+    expect(result.passed).toBe(true)
+    expect(result.observedValue).toBe('0.7500')
+    expect(result.unableToEvaluate).toBeUndefined()
+  })
+
+  it('fails when cache hit rate < 0.60', async () => {
+    const metrics = buildMetrics(0.45)
+    const evaluator = new CostCacheHitRateEvaluator(metrics)
+
+    const result = await evaluator.evaluate(WINDOW)
+
+    expect(result.passed).toBe(false)
+    expect(result.observedValue).toBe('0.4500')
+    expect(result.unableToEvaluate).toBeUndefined()
+  })
+
+  it('returns unableToEvaluate when metric is null', async () => {
+    const metrics = buildMetrics(null)
+    const evaluator = new CostCacheHitRateEvaluator(metrics)
+
+    const result = await evaluator.evaluate(WINDOW)
+
+    expect(result.passed).toBe(false)
+    expect(result.unableToEvaluate).toBe(true)
+    expect(result.observedValue).toBe('unknown')
+  })
+
+  it('has the correct id and section', () => {
+    const metrics = buildMetrics(0)
+    const evaluator = new CostCacheHitRateEvaluator(metrics)
+    expect(evaluator.id).toBe('18.3.cache_hit_rate_hot_sessions')
+    expect(evaluator.section).toBe('18.3')
+  })
+})

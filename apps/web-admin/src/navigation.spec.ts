@@ -29,6 +29,8 @@ const ADMIN_PERMISSION_KEYS = new Set([
   'admin:module:manage',
   // Planner integration permissions used in sidebar
   'planner.ms_sync.connect',
+  // Agents readiness (Plan 13)
+  'agent:readiness:read',
 ])
 
 type NavItem = {

@@ -60,6 +60,7 @@ import { setConversationRepository } from './interface/trpc/conversation.router'
 import { setDraftRepository } from './interface/trpc/draft-audit.router'
 import { setScheduleHandlers } from './interface/trpc/schedule-ui-facade'
 import { setRolloutHandlers } from './interface/trpc/rollout.router'
+import { setReadinessHandlers } from './interface/trpc/readiness.router'
 // Plan 09 — Async Agents + Scheduling
 import { SCHEDULE_REPOSITORY } from './domain/repositories/schedule.repository'
 import {
@@ -199,6 +200,69 @@ import { CompletionScorerRunner } from './application/services/completion-scorer
 import { IterativeRePlanner } from './application/services/iterative-replanner'
 import { AGENT_ITERATION_REPOSITORY } from './domain/repositories/agent-iteration.repository'
 import { DrizzleAgentIterationRepository } from './infrastructure/repositories/drizzle-agent-iteration.repository'
+// Plan 13 — Production Readiness Validation Harness
+import {
+  READINESS_CHECK_REPOSITORY,
+  type ReadinessCheckRepository,
+} from './domain/repositories/readiness-check.repository'
+import {
+  GA_READINESS_STATE_REPOSITORY,
+  type GaReadinessStateRepository,
+} from './domain/repositories/ga-readiness-state.repository'
+import { RUNBOOK_DRY_RUN_REPOSITORY } from './domain/repositories/runbook-dry-run.repository'
+import { P1_INCIDENT_REPOSITORY } from './domain/repositories/p1-incident.repository'
+import { COST_RECONCILIATION_REPOSITORY } from './domain/repositories/cost-reconciliation.repository'
+import { METRICS_QUERY_PORT } from './domain/ports/metrics-query.port'
+import { CI_STATE_PORT } from './domain/ports/ci-state.port'
+import { GA_METRICS_PORT } from './domain/ports/ga-metrics.port'
+import { DrizzleReadinessCheckRepository } from './infrastructure/repositories/drizzle-readiness-check.repository'
+import { DrizzleGaReadinessStateRepository } from './infrastructure/repositories/drizzle-ga-readiness-state.repository'
+import { DrizzleRunbookDryRunRepository } from './infrastructure/repositories/drizzle-runbook-dry-run.repository'
+import { DrizzleP1IncidentRepository } from './infrastructure/repositories/drizzle-p1-incident.repository'
+import { DrizzleCostReconciliationRepository } from './infrastructure/repositories/drizzle-cost-reconciliation.repository'
+import { StubMetricsQuery } from './infrastructure/metrics/stub-metrics-query'
+import { StubGaMetrics } from './infrastructure/metrics/stub-ga-metrics'
+import { StubCiState } from './infrastructure/ci/stub-ci-state'
+import {
+  ReadinessValidator,
+  CRITERION_EVALUATORS,
+} from './application/services/readiness-validator'
+import { GaReadinessComputer } from './application/services/ga-readiness-computer'
+import { RunbookDryRunScheduler } from './application/services/runbook-dry-run-scheduler'
+import { CostReconciliationJob } from './application/services/cost-reconciliation-job'
+import { QuarterlyRedTeamDrill } from './application/services/quarterly-red-team-drill'
+import { ScaleProbeRunner } from './application/services/scale-probe-runner'
+import { ExtensibilityInvariantAudit } from './application/services/extensibility-invariant-audit'
+import { FlowCorrelationProbe } from './application/services/flow-correlation-probe'
+import { ReadinessHourlyWorker } from './infrastructure/workers/readiness-hourly-worker'
+import { CostReconciliationWorker } from './infrastructure/workers/cost-reconciliation-worker'
+import { FlowCorrelationWorker } from './infrastructure/workers/flow-correlation-worker'
+// Plan 13 — 25 criterion evaluators
+import { ReliabilityTurnCompletedRateEvaluator } from './application/services/criterion-evaluators/reliability-turn-completed-rate.evaluator'
+import { ReliabilityUncaughtErrorRateEvaluator } from './application/services/criterion-evaluators/reliability-uncaught-error-rate.evaluator'
+import { ReliabilityProviderFallbackRateEvaluator } from './application/services/criterion-evaluators/reliability-provider-fallback-rate.evaluator'
+import { ReliabilitySingleAbortPathEvaluator } from './application/services/criterion-evaluators/reliability-single-abort-path.evaluator'
+import { ReliabilityDraftsDiscardedOnAbortEvaluator } from './application/services/criterion-evaluators/reliability-drafts-discarded-on-abort.evaluator'
+import { SecurityCrossTenantLeakSuiteEvaluator } from './application/services/criterion-evaluators/security-cross-tenant-leak-suite.evaluator'
+import { SecurityRlsUnbypassableEvaluator } from './application/services/criterion-evaluators/security-rls-unbypassable.evaluator'
+import { SecurityIdentityKeyWriteDisciplineEvaluator } from './application/services/criterion-evaluators/security-identity-key-write-discipline.evaluator'
+import { SecurityTaintPropagatesApprovalEvaluator } from './application/services/criterion-evaluators/security-taint-propagates-approval.evaluator'
+import { SecurityKernelAuditPerToolCallEvaluator } from './application/services/criterion-evaluators/security-kernel-audit-per-tool-call.evaluator'
+import { CostPerTurnVarianceEvaluator } from './application/services/criterion-evaluators/cost-per-turn-variance.evaluator'
+import { CostCacheHitRateEvaluator } from './application/services/criterion-evaluators/cost-cache-hit-rate.evaluator'
+import { CostBudgetRefusalPrecisionEvaluator } from './application/services/criterion-evaluators/cost-budget-refusal-precision.evaluator'
+import { CostAdapterDroppedCacheFieldsEvaluator } from './application/services/criterion-evaluators/cost-adapter-dropped-cache-fields.evaluator'
+import { CostTierShiftUserNoticeRateEvaluator } from './application/services/criterion-evaluators/cost-tier-shift-user-notice-rate.evaluator'
+import { ObservabilityTraceCorrelationEvaluator } from './application/services/criterion-evaluators/observability-trace-correlation.evaluator'
+import { ObservabilitySamplingTriggerCoverageEvaluator } from './application/services/criterion-evaluators/observability-sampling-trigger-coverage.evaluator'
+import { ObservabilityCanaryDetectsDegradationEvaluator } from './application/services/criterion-evaluators/observability-canary-detects-degradation.evaluator'
+import { ObservabilityPiiRedactionEvaluator } from './application/services/criterion-evaluators/observability-pii-redaction.evaluator'
+import { ObservabilityReplayCoverageEvaluator } from './application/services/criterion-evaluators/observability-replay-coverage.evaluator'
+import { RolloutGoldenTraceCiGateEvaluator } from './application/services/criterion-evaluators/rollout-golden-trace-ci-gate.evaluator'
+import { RolloutCanaryStagesEvaluator } from './application/services/criterion-evaluators/rollout-canary-stages.evaluator'
+import { RolloutShadowModeExercisedEvaluator } from './application/services/criterion-evaluators/rollout-shadow-mode-exercised.evaluator'
+import { RolloutVersionPinningComplianceEvaluator } from './application/services/criterion-evaluators/rollout-version-pinning-compliance.evaluator'
+import { RolloutIntentSlugCoverageEvaluator } from './application/services/criterion-evaluators/rollout-intent-slug-coverage.evaluator'
 // Plan 10 — Harness + Replay + Canary
 import { ReplayHarness, REPLAY_HARNESS } from './application/services/replay-harness'
 import { ScorerRegistry, SCORER_REGISTRY } from './application/services/scorer-registry'
@@ -478,6 +542,141 @@ class NullTenantLister implements TenantListerLike {
     // IterativeOrchestrator — the main service; uses I_SUB_AGENT_RUNNER and I_SYNTHESIZER tokens
     IterativeOrchestrator,
     { provide: ITERATIVE_ORCHESTRATOR, useExisting: IterativeOrchestrator },
+    // ── Plan 13 — Production Readiness Validation Harness ──────────────────────
+    // Domain repositories
+    { provide: READINESS_CHECK_REPOSITORY, useClass: DrizzleReadinessCheckRepository },
+    { provide: GA_READINESS_STATE_REPOSITORY, useClass: DrizzleGaReadinessStateRepository },
+    { provide: RUNBOOK_DRY_RUN_REPOSITORY, useClass: DrizzleRunbookDryRunRepository },
+    { provide: P1_INCIDENT_REPOSITORY, useClass: DrizzleP1IncidentRepository },
+    { provide: COST_RECONCILIATION_REPOSITORY, useClass: DrizzleCostReconciliationRepository },
+    // Ports — stub implementations for MVP (replaced by real adapters post-MVP)
+    { provide: METRICS_QUERY_PORT, useClass: StubMetricsQuery },
+    { provide: CI_STATE_PORT, useClass: StubCiState },
+    { provide: GA_METRICS_PORT, useClass: StubGaMetrics },
+    // 25 criterion evaluator classes — each injects METRICS_QUERY_PORT or CI_STATE_PORT
+    ReliabilityTurnCompletedRateEvaluator,
+    ReliabilityUncaughtErrorRateEvaluator,
+    ReliabilityProviderFallbackRateEvaluator,
+    ReliabilitySingleAbortPathEvaluator,
+    ReliabilityDraftsDiscardedOnAbortEvaluator,
+    SecurityCrossTenantLeakSuiteEvaluator,
+    SecurityRlsUnbypassableEvaluator,
+    SecurityIdentityKeyWriteDisciplineEvaluator,
+    SecurityTaintPropagatesApprovalEvaluator,
+    SecurityKernelAuditPerToolCallEvaluator,
+    CostPerTurnVarianceEvaluator,
+    CostCacheHitRateEvaluator,
+    CostBudgetRefusalPrecisionEvaluator,
+    CostAdapterDroppedCacheFieldsEvaluator,
+    CostTierShiftUserNoticeRateEvaluator,
+    ObservabilityTraceCorrelationEvaluator,
+    ObservabilitySamplingTriggerCoverageEvaluator,
+    ObservabilityCanaryDetectsDegradationEvaluator,
+    ObservabilityPiiRedactionEvaluator,
+    ObservabilityReplayCoverageEvaluator,
+    RolloutGoldenTraceCiGateEvaluator,
+    RolloutCanaryStagesEvaluator,
+    RolloutShadowModeExercisedEvaluator,
+    RolloutVersionPinningComplianceEvaluator,
+    RolloutIntentSlugCoverageEvaluator,
+    // CRITERION_EVALUATORS multi-provider — assembled from the 25 evaluator classes.
+    // ReadinessValidator injects this token to receive the full ordered list.
+    {
+      provide: CRITERION_EVALUATORS,
+      useFactory: (
+        e1: ReliabilityTurnCompletedRateEvaluator,
+        e2: ReliabilityUncaughtErrorRateEvaluator,
+        e3: ReliabilityProviderFallbackRateEvaluator,
+        e4: ReliabilitySingleAbortPathEvaluator,
+        e5: ReliabilityDraftsDiscardedOnAbortEvaluator,
+        e6: SecurityCrossTenantLeakSuiteEvaluator,
+        e7: SecurityRlsUnbypassableEvaluator,
+        e8: SecurityIdentityKeyWriteDisciplineEvaluator,
+        e9: SecurityTaintPropagatesApprovalEvaluator,
+        e10: SecurityKernelAuditPerToolCallEvaluator,
+        e11: CostPerTurnVarianceEvaluator,
+        e12: CostCacheHitRateEvaluator,
+        e13: CostBudgetRefusalPrecisionEvaluator,
+        e14: CostAdapterDroppedCacheFieldsEvaluator,
+        e15: CostTierShiftUserNoticeRateEvaluator,
+        e16: ObservabilityTraceCorrelationEvaluator,
+        e17: ObservabilitySamplingTriggerCoverageEvaluator,
+        e18: ObservabilityCanaryDetectsDegradationEvaluator,
+        e19: ObservabilityPiiRedactionEvaluator,
+        e20: ObservabilityReplayCoverageEvaluator,
+        e21: RolloutGoldenTraceCiGateEvaluator,
+        e22: RolloutCanaryStagesEvaluator,
+        e23: RolloutShadowModeExercisedEvaluator,
+        e24: RolloutVersionPinningComplianceEvaluator,
+        e25: RolloutIntentSlugCoverageEvaluator,
+      ) => [
+        e1,
+        e2,
+        e3,
+        e4,
+        e5,
+        e6,
+        e7,
+        e8,
+        e9,
+        e10,
+        e11,
+        e12,
+        e13,
+        e14,
+        e15,
+        e16,
+        e17,
+        e18,
+        e19,
+        e20,
+        e21,
+        e22,
+        e23,
+        e24,
+        e25,
+      ],
+      inject: [
+        ReliabilityTurnCompletedRateEvaluator,
+        ReliabilityUncaughtErrorRateEvaluator,
+        ReliabilityProviderFallbackRateEvaluator,
+        ReliabilitySingleAbortPathEvaluator,
+        ReliabilityDraftsDiscardedOnAbortEvaluator,
+        SecurityCrossTenantLeakSuiteEvaluator,
+        SecurityRlsUnbypassableEvaluator,
+        SecurityIdentityKeyWriteDisciplineEvaluator,
+        SecurityTaintPropagatesApprovalEvaluator,
+        SecurityKernelAuditPerToolCallEvaluator,
+        CostPerTurnVarianceEvaluator,
+        CostCacheHitRateEvaluator,
+        CostBudgetRefusalPrecisionEvaluator,
+        CostAdapterDroppedCacheFieldsEvaluator,
+        CostTierShiftUserNoticeRateEvaluator,
+        ObservabilityTraceCorrelationEvaluator,
+        ObservabilitySamplingTriggerCoverageEvaluator,
+        ObservabilityCanaryDetectsDegradationEvaluator,
+        ObservabilityPiiRedactionEvaluator,
+        ObservabilityReplayCoverageEvaluator,
+        RolloutGoldenTraceCiGateEvaluator,
+        RolloutCanaryStagesEvaluator,
+        RolloutShadowModeExercisedEvaluator,
+        RolloutVersionPinningComplianceEvaluator,
+        RolloutIntentSlugCoverageEvaluator,
+      ],
+    },
+    // Application services
+    ReadinessValidator,
+    GaReadinessComputer,
+    RunbookDryRunScheduler,
+    CostReconciliationJob,
+    QuarterlyRedTeamDrill,
+    ScaleProbeRunner,
+    ExtensibilityInvariantAudit,
+    FlowCorrelationProbe,
+    // Workers — registered in onApplicationBootstrap
+    ReadinessHourlyWorker,
+    CostReconciliationWorker,
+    FlowCorrelationWorker,
   ],
   exports: [
     AgentsQueryFacade,
@@ -545,6 +744,15 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     @Inject(DB_TOKEN) private readonly db: Db,
     private readonly kernelAuditFacade: KernelAuditFacade,
     private readonly autoRollbackOrchestrator: AutoRollbackOrchestrator,
+    // Plan 13 — Production Readiness Validation Harness
+    private readonly readinessHourlyWorker: ReadinessHourlyWorker,
+    private readonly costReconciliationWorker: CostReconciliationWorker,
+    private readonly flowCorrelationWorker: FlowCorrelationWorker,
+    private readonly runbookScheduler: RunbookDryRunScheduler,
+    @Inject(GA_READINESS_STATE_REPOSITORY)
+    private readonly gaReadinessStateRepo: GaReadinessStateRepository,
+    @Inject(READINESS_CHECK_REPOSITORY)
+    private readonly readinessCheckRepo: ReadinessCheckRepository,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -569,6 +777,11 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
       db: this.db,
       kernelAuditFacade: this.kernelAuditFacade,
       autoRollbackOrchestrator: this.autoRollbackOrchestrator,
+    })
+    setReadinessHandlers({
+      gaReadinessStateRepo: this.gaReadinessStateRepo,
+      readinessCheckRepo: this.readinessCheckRepo,
+      runbookScheduler: this.runbookScheduler,
     })
 
     // Step 1: Load agent tools from the assembled tRPC router.
@@ -691,5 +904,14 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     this.pgBossService.registerWorker('agent.quality-canary-tick', async (_jobs) => {
       await this.qualityCanaryScheduler.tickHourly()
     })
+
+    // Step 14: Register Plan 13 hourly readiness evaluation worker
+    await this.readinessHourlyWorker.registerWorker()
+
+    // Step 15: Register Plan 13 weekly cost reconciliation worker
+    await this.costReconciliationWorker.registerWorker()
+
+    // Step 16: Register Plan 13 monthly flow correlation worker
+    await this.flowCorrelationWorker.registerWorker()
   }
 }

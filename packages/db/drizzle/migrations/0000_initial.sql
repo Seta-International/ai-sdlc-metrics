@@ -1745,4 +1745,65 @@ CREATE TABLE IF NOT EXISTS "agents"."agent_iteration" (
 	"usage" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"taint_at_start" boolean DEFAULT false NOT NULL
 );--> statement-breakpoint
-CREATE INDEX "idx_agent_iteration_turn" ON "agents"."agent_iteration" USING btree ("turn_id","iteration_number");
+CREATE INDEX "idx_agent_iteration_turn" ON "agents"."agent_iteration" USING btree ("turn_id","iteration_number");--> statement-breakpoint
+CREATE TABLE "agents"."agent_readiness_check" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"criterion_id" text NOT NULL,
+	"window_start" timestamp with time zone NOT NULL,
+	"window_end" timestamp with time zone NOT NULL,
+	"observed_value" text NOT NULL,
+	"threshold" text NOT NULL,
+	"passed" boolean NOT NULL,
+	"notes" text,
+	"computed_at" timestamp with time zone NOT NULL
+);--> statement-breakpoint
+CREATE TABLE "agents"."agent_runbook_dry_run" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"runbook_id" text NOT NULL,
+	"executed_at" timestamp with time zone NOT NULL,
+	"executed_by" uuid NOT NULL,
+	"outcome" text NOT NULL,
+	"post_mortem_url" text,
+	"time_to_recovery_minutes" integer,
+	CONSTRAINT "agent_runbook_dry_run_outcome_check" CHECK ("agents"."agent_runbook_dry_run"."outcome" IN ('pass', 'pass_with_notes', 'fail')),
+	CONSTRAINT "agent_runbook_dry_run_runbook_id_check" CHECK ("agents"."agent_runbook_dry_run"."runbook_id" IN ('provider_outage', 'budget_exhaustion_midflight', 'quality_canary_degradation', 'cross_tenant_leak_alert', 'content_hash_store_miss', 'adapter_dropped_cache_fields', 'approval_inbox_flood', 'gdpr_erasure_partial_success'))
+);--> statement-breakpoint
+CREATE TABLE "agents"."agent_ga_readiness_state" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"is_ga_ready" boolean NOT NULL,
+	"computed_at" timestamp with time zone NOT NULL,
+	"missing_criteria" jsonb NOT NULL,
+	"consecutive_windows_met" integer DEFAULT 0 NOT NULL,
+	"window_started_passing_at" timestamp with time zone,
+	"tenant_count" integer NOT NULL,
+	"interactive_turns_per_day" integer NOT NULL,
+	"p1_security_incidents_last_90d" integer NOT NULL
+);--> statement-breakpoint
+CREATE TABLE "agents"."agent_p1_incident_log" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"opened_at" timestamp with time zone NOT NULL,
+	"closed_at" timestamp with time zone,
+	"severity" text NOT NULL,
+	"category" text NOT NULL,
+	"summary" text NOT NULL,
+	"post_mortem_url" text,
+	CONSTRAINT "agent_p1_incident_log_severity_check" CHECK ("agents"."agent_p1_incident_log"."severity" IN ('P1', 'P2')),
+	CONSTRAINT "agent_p1_incident_log_category_check" CHECK ("agents"."agent_p1_incident_log"."category" IN ('security', 'reliability', 'cost', 'observability'))
+);--> statement-breakpoint
+CREATE TABLE "agents"."agent_cost_reconciliation" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"week_start" date NOT NULL,
+	"agent_cost_event_sum_usd" numeric(12, 6) NOT NULL,
+	"vendor_invoice_sum_usd" numeric(12, 6) NOT NULL,
+	"divergence_pct" numeric(8, 4) NOT NULL,
+	"divergence_over_threshold" boolean NOT NULL,
+	"computed_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "agent_cost_reconciliation_divergence_pct_check" CHECK ("agents"."agent_cost_reconciliation"."divergence_pct" >= -100 AND "agents"."agent_cost_reconciliation"."divergence_pct" <= 100)
+);--> statement-breakpoint
+CREATE INDEX "agent_readiness_check_criterion_window_idx" ON "agents"."agent_readiness_check" USING btree ("criterion_id","window_end" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_runbook_dry_run_runbook_executed_idx" ON "agents"."agent_runbook_dry_run" USING btree ("runbook_id","executed_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_runbook_dry_run_tenant_executed_idx" ON "agents"."agent_runbook_dry_run" USING btree ("tenant_id","executed_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_p1_incident_log_severity_opened_idx" ON "agents"."agent_p1_incident_log" USING btree ("severity","opened_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_cost_reconciliation_week_start_idx" ON "agents"."agent_cost_reconciliation" USING btree ("week_start");

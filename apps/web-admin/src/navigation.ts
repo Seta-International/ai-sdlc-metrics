@@ -1,4 +1,13 @@
-import { Settings, Cpu, ToggleRight, Shield, Bot, Link, Building2 } from '@future/ui/icons'
+import {
+  Settings,
+  Cpu,
+  ToggleRight,
+  Shield,
+  Bot,
+  Link,
+  Building2,
+  ShieldCheck,
+} from '@future/ui/icons'
 import type { NavigationConfig } from '@future/app-layout'
 
 export const adminNavConfig: NavigationConfig = {
@@ -43,6 +52,12 @@ export const adminNavConfig: NavigationConfig = {
       items: [
         { label: 'Agent Definitions', icon: Bot, href: '/agents', permission: 'admin:agent:read' },
         { label: 'Sessions', icon: Bot, href: '/agents/sessions', permission: 'admin:agent:read' },
+        {
+          label: 'GA Readiness',
+          icon: ShieldCheck,
+          href: '/agents/readiness',
+          permission: 'agent:readiness:read',
+        },
       ],
     },
     {

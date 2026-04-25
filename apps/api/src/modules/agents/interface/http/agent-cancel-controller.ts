@@ -1,6 +1,15 @@
 import { Controller, Post, Req, Res, Param } from '@nestjs/common'
-import type { FastifyRequest, FastifyReply } from 'fastify'
 import { JwtService } from '../../../../common/auth/jwt.service'
+
+// Minimal structural types — avoids a direct `fastify` package import that
+// bun does not hoist into node_modules (fastify is a peer dep of platform-fastify).
+interface FastifyRequest {
+  headers: Record<string, string | string[] | undefined>
+}
+interface FastifyReply {
+  status(code: number): this
+  send(body?: unknown): void
+}
 import { ActiveTurnRegistry } from '../../application/services/active-turn-registry'
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
