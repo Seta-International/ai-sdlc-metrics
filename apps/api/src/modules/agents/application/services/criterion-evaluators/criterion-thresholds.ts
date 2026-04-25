@@ -112,3 +112,6 @@ export const CRITERION_THRESHOLDS = {
 } as const
 
 export type CriterionId = keyof typeof CRITERION_THRESHOLDS
+
+/** Token budget ceiling for the scale-probe EI-6 check (router prompt must stay below this). */
+export const SCALE_PROBE_ROUTER_BUDGET_TOKENS = 8000
