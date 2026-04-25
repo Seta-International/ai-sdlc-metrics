@@ -61,7 +61,6 @@ export class ShadowTurnWorker implements OnModuleInit {
       baselineVersion,
       rolloutConfigId,
       tenantId,
-      userId,
     } = job.data
 
     try {

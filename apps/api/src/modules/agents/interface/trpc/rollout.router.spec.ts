@@ -8,8 +8,7 @@
  * delegation.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { TRPCError } from '@trpc/server'
+import { describe, it, expect, vi } from 'vitest'
 import { rolloutRouter, setRolloutHandlers } from './rollout.router'
 import type { RolloutHandlers } from './rollout.router'
 import type { AgentRolloutConfigRow } from '../../infrastructure/schema/agents.schema'
