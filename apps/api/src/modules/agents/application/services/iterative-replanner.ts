@@ -23,7 +23,7 @@
  *   - Sequential awaits only; no Promise.all.
  */
 
-import { Injectable } from '@nestjs/common'
+import { Injectable, OnModuleInit } from '@nestjs/common'
 import { generateObject } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import * as z from 'zod'
@@ -84,10 +84,36 @@ const ReplanDecisionSchema = z.discriminatedUnion('action', [
 
 type ReplanDecision = z.infer<typeof ReplanDecisionSchema>
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/**
+ * Fallback message surfaced to the user when both LLM attempts fail to produce
+ * a valid replan decision. Exported so tests reference the same string without
+ * risk of silent drift between implementation and assertions.
+ */
+export const FALLBACK_DISAMBIGUATION_MESSAGE = 'Unable to determine next step.'
+
 // ─── IterativeRePlanner ───────────────────────────────────────────────────────
 
 @Injectable()
-export class IterativeRePlanner {
+export class IterativeRePlanner implements OnModuleInit {
+  /**
+   * Validates that OPENAI_API_KEY is present in the environment.
+   * Called once at module init (NestJS lifecycle hook) so the failure is loud
+   * and immediate at boot rather than silently failing on the first request.
+   *
+   * Per the sourcing contract: the key originates in AWS Secrets Manager;
+   * Terraform/ECS maps it into the container environment. It must never appear
+   * in a committed file, .env, DB, or build artifact.
+   */
+  onModuleInit(): void {
+    if (!process.env['OPENAI_API_KEY'] && !process.env['LOCAL_DEV']) {
+      throw new Error(
+        'OPENAI_API_KEY missing — required to be provided via ECS Secrets Manager mapping per CLAUDE.md secrets rule',
+      )
+    }
+  }
+
   /**
    * Decides whether the supervisor loop should continue or exit after
    * `priorIteration` completes.
@@ -96,14 +122,8 @@ export class IterativeRePlanner {
    * correction prompt. On second failure returns the fallback exit result.
    */
   async replan(opts: ReplanOpts): Promise<ReplanResult> {
-    const {
-      turnState,
-      priorIteration,
-      iterationHistory,
-      completionCriteria,
-      userUtterance,
-      abortSignal,
-    } = opts
+    const { priorIteration, iterationHistory, completionCriteria, userUtterance, abortSignal } =
+      opts
 
     const systemPrompt = _buildSystemPrompt(completionCriteria)
     const userMessage = _buildUserMessage(userUtterance, priorIteration, iterationHistory)
@@ -125,7 +145,7 @@ export class IterativeRePlanner {
     return {
       kind: 'exit',
       reason: 'disambiguation',
-      disambiguationQuestion: 'Unable to determine next step.',
+      disambiguationQuestion: FALLBACK_DISAMBIGUATION_MESSAGE,
     }
   }
 }
@@ -135,12 +155,13 @@ export class IterativeRePlanner {
 type LlmCallResult = { kind: 'ok'; decision: ReplanDecision } | { kind: 'error'; error: string }
 
 /**
- * Calls the router LLM with a fixed OpenAI model and parses the response via
- * ReplanDecisionSchema. Returns `{ kind: 'error' }` on any failure so the
+ * Calls the router LLM with a configurable OpenAI model and parses the response
+ * via ReplanDecisionSchema. Returns `{ kind: 'error' }` on any failure so the
  * caller can apply retry logic without throwing.
  *
- * Model: gpt-5.4 (reasoning model). At MVP we use the same model as the router
- * (the plan specifies gpt-5.4; gpt-4o is substituted in development/testing).
+ * Model: resolved from process.env.OPENAI_REPLAN_MODEL (defaults to 'gpt-5.4').
+ * Configure via ECS task-definition environment to switch models without a
+ * code change — same contract as OPENAI_API_KEY injection.
  *
  * API key: sourced from process.env.OPENAI_API_KEY exactly as RouterLlmClient
  * does — injected at runtime by ECS Secrets Manager mapping.
@@ -152,7 +173,8 @@ async function _callLlm(
 ): Promise<LlmCallResult> {
   try {
     const openai = createOpenAI({ apiKey: process.env['OPENAI_API_KEY'] })
-    const model = openai('gpt-5.4')
+    const modelName = process.env['OPENAI_REPLAN_MODEL'] ?? 'gpt-5.4'
+    const model = openai(modelName)
 
     const result = await generateObject({
       model,

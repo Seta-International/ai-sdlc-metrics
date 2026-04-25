@@ -38,7 +38,7 @@ vi.mock('@ai-sdk/openai', () => ({
 // Ensure OPENAI_API_KEY is present for the test environment
 vi.stubEnv('OPENAI_API_KEY', 'test-key-for-unit-tests')
 
-import { IterativeRePlanner } from './iterative-replanner'
+import { IterativeRePlanner, FALLBACK_DISAMBIGUATION_MESSAGE } from './iterative-replanner'
 import type { ReplanOpts, ReplanResult } from './iterative-replanner'
 import type {
   PhaseExecutorTurnState,
@@ -166,6 +166,32 @@ describe('IterativeRePlanner', () => {
     mockCreateOpenAI.mockReturnValue(vi.fn(() => 'mock-language-model'))
   })
 
+  // ── 0. onModuleInit API key guard ─────────────────────────────────────────
+
+  it('0. onModuleInit throws when OPENAI_API_KEY and LOCAL_DEV are both absent', () => {
+    vi.stubEnv('OPENAI_API_KEY', '')
+    vi.stubEnv('LOCAL_DEV', '')
+    const freshReplanner = new IterativeRePlanner()
+    expect(() => freshReplanner.onModuleInit()).toThrow('OPENAI_API_KEY missing')
+    // Restore the key for subsequent tests
+    vi.stubEnv('OPENAI_API_KEY', 'test-key-for-unit-tests')
+    vi.unstubAllEnvs()
+    vi.stubEnv('OPENAI_API_KEY', 'test-key-for-unit-tests')
+  })
+
+  it('0b. onModuleInit does not throw when OPENAI_API_KEY is present', () => {
+    vi.stubEnv('OPENAI_API_KEY', 'test-key')
+    const freshReplanner = new IterativeRePlanner()
+    expect(() => freshReplanner.onModuleInit()).not.toThrow()
+  })
+
+  it('0c. onModuleInit does not throw when LOCAL_DEV is set (even without OPENAI_API_KEY)', () => {
+    vi.stubEnv('OPENAI_API_KEY', '')
+    vi.stubEnv('LOCAL_DEV', 'true')
+    const freshReplanner = new IterativeRePlanner()
+    expect(() => freshReplanner.onModuleInit()).not.toThrow()
+  })
+
   // ── 1. Happy path: continue ────────────────────────────────────────────────
 
   it('1. returns { kind: "continue", nextDirective } when LLM returns action=continue', async () => {
@@ -258,7 +284,7 @@ describe('IterativeRePlanner', () => {
 
   // ── 6. Both parses fail → fallback exit ───────────────────────────────────
 
-  it('6. returns { kind: "exit", reason: "disambiguation", disambiguationQuestion: "Unable to determine next step." } when both calls fail', async () => {
+  it('6. returns { kind: "exit", reason: "disambiguation", disambiguationQuestion: FALLBACK_DISAMBIGUATION_MESSAGE } when both calls fail', async () => {
     mockGenerateObject.mockRejectedValueOnce(new Error('first failure'))
     mockGenerateObject.mockRejectedValueOnce(new Error('second failure'))
 
@@ -268,7 +294,7 @@ describe('IterativeRePlanner', () => {
     expect(result.kind).toBe('exit')
     if (result.kind === 'exit') {
       expect(result.reason).toBe('disambiguation')
-      expect(result.disambiguationQuestion).toBe('Unable to determine next step.')
+      expect(result.disambiguationQuestion).toBe(FALLBACK_DISAMBIGUATION_MESSAGE)
     }
   })
 
@@ -321,8 +347,8 @@ describe('IterativeRePlanner', () => {
   it('includes the prior iteration summary in the LLM prompt', async () => {
     mockGenerateObject.mockResolvedValueOnce(mockContinueResponse())
 
+    // makeIterationRecord defaults output.summary to 'Found 3 open tasks'
     const priorIteration = makeIterationRecord()
-    priorIteration.output.summary // 'Found 3 open tasks'
     await replanner.replan(makeReplanOpts({ priorIteration }))
 
     const callArgs = mockGenerateObject.mock.calls[0][0] as {
