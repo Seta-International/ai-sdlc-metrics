@@ -320,6 +320,7 @@ async function enablePlanner(
       plannerChartsEnabled: true,
       plannerChartsTrendsEnabled: true,
       plannerPersonalEnabled: true,
+      plannerMsSyncEnabled: true,
     })
     .onConflictDoUpdate({
       target: tenantSettings.tenantId,
@@ -331,6 +332,7 @@ async function enablePlanner(
         plannerChartsEnabled: true,
         plannerChartsTrendsEnabled: true,
         plannerPersonalEnabled: true,
+        plannerMsSyncEnabled: true,
       },
     })
 }
