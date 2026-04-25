@@ -36,7 +36,12 @@ export function ContainerPicker({ value, onChange }: ContainerPickerProps) {
   const session = useSession()
   const { data: linkedGroups = [] } = useQuery({
     queryKey: ['msSync.groups.listLinked', session?.tenantId],
-    queryFn: () => trpc.planner.msSync.groups.listLinked.query({ tenantId: session!.tenantId }),
+    queryFn: async (): Promise<Array<{ msGroupId: string; displayName: string }>> => {
+      const result = await trpc.planner.msSync.groups.listLinked.query({
+        tenantId: session!.tenantId,
+      })
+      return result as Array<{ msGroupId: string; displayName: string }>
+    },
     enabled: !!session,
     staleTime: 5 * 60 * 1000,
   })
