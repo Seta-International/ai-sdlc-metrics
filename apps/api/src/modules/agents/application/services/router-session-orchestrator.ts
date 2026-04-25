@@ -360,6 +360,8 @@ export class RouterSessionOrchestrator {
           roleKey,
           turnTraceId,
           0,
+          conversationId,
+          surface,
         )
       }
       // Permission gate + iterative dispatch or regular bounded/disambig
@@ -373,6 +375,8 @@ export class RouterSessionOrchestrator {
         turnTraceId,
         utterance,
         0,
+        conversationId,
+        surface,
       )
     }
 
@@ -413,6 +417,8 @@ export class RouterSessionOrchestrator {
           roleKey,
           turnTraceId,
           1,
+          conversationId,
+          surface,
         )
       }
       return this._handleBoundedOrDisambig(
@@ -425,6 +431,8 @@ export class RouterSessionOrchestrator {
         turnTraceId,
         utterance,
         1,
+        conversationId,
+        surface,
       )
     }
 
@@ -553,6 +561,8 @@ export class RouterSessionOrchestrator {
     roleKey: string,
     turnTraceId: UUID,
     parseRetries: 0 | 1,
+    conversationId: UUID,
+    surface: RouteTurnOpts['surface'],
   ): Promise<RouteTurnResult> {
     const inlineHint = 'This is an inline surface. Use bounded topology with single sub-agent.'
     const augmentedSystem = systemPrompt + '\n\n' + inlineHint
@@ -601,6 +611,8 @@ export class RouterSessionOrchestrator {
       turnTraceId,
       utterance,
       parseRetries,
+      conversationId,
+      surface,
     )
   }
 
@@ -616,6 +628,8 @@ export class RouterSessionOrchestrator {
     turnTraceId: UUID,
     utterance: string,
     parseRetries: 0 | 1,
+    conversationId: UUID,
+    surface: RouteTurnOpts['surface'],
   ): Promise<RouteTurnResult> {
     const parentSpan = trace.getActiveSpan()
 
@@ -632,6 +646,19 @@ export class RouterSessionOrchestrator {
       // Permission gate (R-12.4b): explicit disambiguation — NOT silent bounded downgrade
       const allowed = await this.kernelQueryFacade.canDo(userId, 'agent.iterative', { tenantId })
       if (!allowed) {
+        await this._safeAudit({
+          tenantId,
+          actorId: userId,
+          eventType: 'refusal.started',
+          module: 'agents',
+          subjectId: sessionId,
+          payload: {
+            reason: 'disambiguation',
+            turn_trace_id: turnTraceId,
+            session_id: sessionId,
+            underlying_reason: 'iterative_permission_denied',
+          },
+        })
         this._safeMetric(() => recordRouterDecision(tenantId, 'disambiguation'))
         return {
           kind: 'disambiguation',
@@ -653,9 +680,9 @@ export class RouterSessionOrchestrator {
         traceId: turnTraceId,
         tenantId,
         userId,
-        conversationId: '',
+        conversationId,
         sessionId,
-        surface: 'global-chat',
+        surface,
         tainted: { value: false },
         routerReplanCount: 0,
       }

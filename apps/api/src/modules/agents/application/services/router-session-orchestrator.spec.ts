@@ -219,6 +219,8 @@ function buildOrchestrator(opts: {
   resolvedSubAgents?: ReturnType<typeof makeResolvedSubAgent>[]
   narrowedConfigs?: Array<{ key: string }>
   promptHash?: string
+  canDoResult?: boolean
+  iterativeOrchestratorResult?: PhaseExecutionResult
 }) {
   const {
     existingSession = null,
@@ -227,6 +229,8 @@ function buildOrchestrator(opts: {
     resolvedSubAgents = [makeResolvedSubAgent('planner.read-only')],
     narrowedConfigs,
     promptHash = 'rebuilt-prompt-hash',
+    canDoResult = true,
+    iterativeOrchestratorResult,
   } = opts
 
   let llmCallCount = 0
@@ -331,11 +335,17 @@ function buildOrchestrator(opts: {
   }
 
   const kernelQueryFacadeMock = {
-    canDo: vi.fn().mockResolvedValue(true),
+    canDo: vi.fn().mockResolvedValue(canDoResult),
   }
 
   const iterativeOrchestratorMock = {
-    execute: vi.fn(),
+    execute: vi.fn().mockResolvedValue(
+      iterativeOrchestratorResult ?? {
+        kind: 'synthesized',
+        answer: { text: 'done' },
+        drafts: [],
+      },
+    ),
   }
 
   const orchestrator = new RouterSessionOrchestrator(
@@ -363,6 +373,8 @@ function buildOrchestrator(opts: {
     parser,
     toolRegistry,
     kernelAuditFacade,
+    kernelQueryFacade: kernelQueryFacadeMock,
+    iterativeOrchestrator: iterativeOrchestratorMock,
     sessionCreated,
     auditEvents,
   }
@@ -824,11 +836,6 @@ describe('RouterSessionOrchestrator', () => {
 })
 
 // ─── Plan 12 Task 5: Inline surface guard + permission gate ─────────────────
-//
-// These tests use a separate `buildOrchestratorPlan12` helper that wires in
-// the new KernelQueryFacade and IterativeOrchestrator dependencies added in
-// Task 5. The original buildOrchestrator is preserved unchanged for backward
-// compatibility with existing tests above.
 
 const ITERATIVE_PLAN: RouterPlan = {
   topology: 'iterative',
@@ -847,168 +854,6 @@ const ITERATIVE_PLAN: RouterPlan = {
   },
 }
 
-function buildOrchestratorPlan12(opts: {
-  existingSession?: AgentSessionEntry | null
-  llmResults?: Array<
-    | {
-        kind: 'ok'
-        plan: RouterPlan
-        usage?: { promptTokens: number; completionTokens: number; totalTokens: number }
-      }
-    | { kind: 'malformed'; error: Error; rawText: null }
-  >
-  parseResults?: Array<
-    | { kind: 'ok'; plan: RouterPlan }
-    | { kind: 'retry'; reason: string; schemaInjectedPrompt: string }
-  >
-  resolvedSubAgents?: ReturnType<typeof makeResolvedSubAgent>[]
-  promptHash?: string
-  canDoResult?: boolean
-  iterativeOrchestratorResult?: import('./phase-executor-contracts').PhaseExecutionResult
-}) {
-  const {
-    existingSession = null,
-    llmResults = [{ kind: 'ok', plan: VALID_PLAN, usage: DEFAULT_LLM_USAGE }],
-    parseResults,
-    resolvedSubAgents = [makeResolvedSubAgent('planner.read-only')],
-    promptHash = 'rebuilt-prompt-hash',
-    canDoResult = true,
-    iterativeOrchestratorResult,
-  } = opts
-
-  let llmCallCount = 0
-  let parseCallCount = 0
-
-  const sessionCreated: Partial<AgentSessionEntry>[] = []
-  const auditEvents: Array<{ eventType: string; payload: unknown }> = []
-
-  const agentSessionPort = {
-    findByConversation: vi.fn().mockImplementation(async () => {
-      if (sessionCreated.length > 0 && !existingSession) {
-        return { ...sessionCreated[0], startedAt: new Date(), endedAt: null } as AgentSessionEntry
-      }
-      return existingSession
-    }),
-    create: vi
-      .fn()
-      .mockImplementation(async (entry: Omit<AgentSessionEntry, 'startedAt' | 'endedAt'>) => {
-        const created = { ...entry, startedAt: new Date(), endedAt: null }
-        sessionCreated.push(created)
-        return created as AgentSessionEntry
-      }),
-    endSession: vi.fn(),
-  }
-
-  const permissionNarrativeBuilder = {
-    build: vi.fn().mockResolvedValue({
-      narrativeHash: existingSession?.permissionNarrativeHash ?? 'narrative-hash',
-      text: 'Acting as employee.',
-      fromCache: false,
-    }),
-  }
-
-  const subAgentRegistry = {
-    resolveForSession: vi.fn().mockReturnValue(resolvedSubAgents),
-    has: vi.fn().mockReturnValue(true),
-  }
-
-  const routerPromptBuilder = {
-    build: vi.fn().mockReturnValue({
-      systemPrompt: 'system prompt',
-      developerMessage: 'dev message',
-      routerPromptHash: promptHash,
-    }),
-  }
-
-  const subAgentRetriever = {
-    retrieve: vi.fn().mockResolvedValue(resolvedSubAgents.map((r) => r.config)),
-    estimateTokens: vi.fn(),
-  }
-
-  const llmClient = {
-    generate: vi.fn().mockImplementation(async () => {
-      const result = llmResults[llmCallCount] ?? llmResults[llmResults.length - 1]
-      llmCallCount++
-      if (result && result.kind === 'ok' && !('usage' in result)) {
-        return { ...result, usage: DEFAULT_LLM_USAGE }
-      }
-      return result
-    }),
-  }
-
-  const defaultParseResults = [
-    { kind: 'ok', plan: VALID_PLAN },
-    { kind: 'ok', plan: VALID_PLAN },
-  ]
-  const effectiveParseResults = parseResults ?? defaultParseResults
-
-  const parser = {
-    parsePlan: vi.fn().mockImplementation(() => {
-      const result =
-        effectiveParseResults[parseCallCount] ??
-        effectiveParseResults[effectiveParseResults.length - 1]
-      parseCallCount++
-      return result
-    }),
-  }
-
-  const toolRegistry = {
-    listAgentTools: vi
-      .fn()
-      .mockReturnValue([
-        { name: 'planner.personal.listTasks', permission: 'planner:tasks:read', meta: {} },
-      ]),
-  }
-
-  const kernelAuditFacade = {
-    recordEvent: vi
-      .fn()
-      .mockImplementation(async (event: { eventType: string; payload: unknown }) => {
-        auditEvents.push(event)
-      }),
-  }
-
-  const kernelQueryFacade = {
-    canDo: vi.fn().mockResolvedValue(canDoResult),
-  }
-
-  const iterativeOrchestrator = {
-    execute: vi.fn().mockResolvedValue(
-      iterativeOrchestratorResult ?? {
-        kind: 'synthesized',
-        answer: { text: 'done' },
-        drafts: [],
-      },
-    ),
-  }
-
-  vi.mocked(estimateTokens).mockReturnValue(1_000)
-
-  const orchestrator = new RouterSessionOrchestrator(
-    agentSessionPort as never,
-    permissionNarrativeBuilder as never,
-    subAgentRegistry as never,
-    routerPromptBuilder as never,
-    subAgentRetriever as never,
-    parser as never,
-    llmClient as never,
-    toolRegistry as never,
-    kernelAuditFacade as never,
-    kernelQueryFacade as never,
-    iterativeOrchestrator as never,
-  )
-
-  return {
-    orchestrator,
-    llmClient,
-    parser,
-    kernelQueryFacade,
-    iterativeOrchestrator,
-    auditEvents,
-    sessionCreated,
-  }
-}
-
 describe('RouterSessionOrchestrator — Plan 12 Task 5: inline surface guard + permission gate', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -1023,7 +868,7 @@ describe('RouterSessionOrchestrator — Plan 12 Task 5: inline surface guard + p
 
   it('4a. inline surface + first iterative plan → re-invokes router with inline hint', async () => {
     // First parse returns iterative, second parse returns bounded
-    const { orchestrator, llmClient } = buildOrchestratorPlan12({
+    const { orchestrator, llmClient } = buildOrchestrator({
       llmResults: [
         { kind: 'ok', plan: ITERATIVE_PLAN },
         { kind: 'ok', plan: VALID_PLAN }, // second call: router returns bounded
@@ -1050,7 +895,7 @@ describe('RouterSessionOrchestrator — Plan 12 Task 5: inline surface guard + p
   })
 
   it('4b. inline surface + iterative AGAIN on second attempt → disambiguation', async () => {
-    const { orchestrator } = buildOrchestratorPlan12({
+    const { orchestrator } = buildOrchestrator({
       llmResults: [
         { kind: 'ok', plan: ITERATIVE_PLAN },
         { kind: 'ok', plan: ITERATIVE_PLAN }, // second call: still iterative
@@ -1073,7 +918,7 @@ describe('RouterSessionOrchestrator — Plan 12 Task 5: inline surface guard + p
   })
 
   it('4c. global-chat surface + iterative plan → dispatches IterativeOrchestrator (no inline block)', async () => {
-    const { orchestrator, iterativeOrchestrator } = buildOrchestratorPlan12({
+    const { orchestrator, iterativeOrchestrator } = buildOrchestrator({
       llmResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
       parseResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
       canDoResult: true,
@@ -1090,7 +935,7 @@ describe('RouterSessionOrchestrator — Plan 12 Task 5: inline surface guard + p
   // ── 5. canDo('agent.iterative') denied → disambiguation (not bounded downgrade) ──
 
   it('5a. canDo denied → returns disambiguation (not a silent bounded downgrade)', async () => {
-    const { orchestrator, kernelQueryFacade } = buildOrchestratorPlan12({
+    const { orchestrator, kernelQueryFacade, kernelAuditFacade } = buildOrchestrator({
       llmResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
       parseResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
       canDoResult: false,
@@ -1112,10 +957,19 @@ describe('RouterSessionOrchestrator — Plan 12 Task 5: inline surface guard + p
       'agent.iterative',
       expect.objectContaining({ tenantId: TENANT_ID }),
     )
+    // Audit event must be emitted on permission denial
+    expect(kernelAuditFacade.recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'refusal.started',
+        payload: expect.objectContaining({
+          underlying_reason: 'iterative_permission_denied',
+        }),
+      }),
+    )
   })
 
   it('5b. canDo denied → IterativeOrchestrator NOT invoked', async () => {
-    const { orchestrator, iterativeOrchestrator } = buildOrchestratorPlan12({
+    const { orchestrator, iterativeOrchestrator } = buildOrchestrator({
       llmResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
       parseResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
       canDoResult: false,
@@ -1135,7 +989,7 @@ describe('RouterSessionOrchestrator — Plan 12 Task 5: inline surface guard + p
       answer: { text: 'mock iterative answer' },
       drafts: [],
     }
-    const { orchestrator, iterativeOrchestrator } = buildOrchestratorPlan12({
+    const { orchestrator, iterativeOrchestrator } = buildOrchestrator({
       llmResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
       parseResults: [{ kind: 'ok', plan: ITERATIVE_PLAN }],
       canDoResult: true,
