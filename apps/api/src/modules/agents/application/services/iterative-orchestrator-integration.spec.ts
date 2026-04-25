@@ -428,4 +428,161 @@ describe('IterativeOrchestrator (integration — real CompletionScorerRunner)', 
     expect(result.kind).toBe('partial')
     expect(subAgentRunner.run).toHaveBeenCalledTimes(2)
   })
+
+  // ── 6. Cumulative cost exhausted ─────────────────────────────────────────────
+
+  it('6. cumulative cost exhausted: after 2 iterations at 3.0 USD each, ceiling blocks iter 3 → { kind: "partial", reason: "limit_reached" }', async () => {
+    const scorer = makeKpiAnswerShapeScorer()
+    scorerRegistry.register(scorer)
+
+    // Large enough maxIterations so the cost ceiling, not the count ceiling, trips first.
+    const plan = makeIterativePlan(10)
+    const turnState = makeTurnState()
+    const emitter = makeNoopStreamEmitter()
+    const abortController = new AbortController()
+
+    // Each iteration costs 3.0 USD:
+    //   After iter 1: cumulative = 3.0  → before iter 2: 3.0 >= 5.0 → false → continue
+    //   After iter 2: cumulative = 6.0  → before iter 3: 6.0 >= 5.0 → blocked (cumulative_cost)
+    subAgentRunner.run.mockResolvedValue({
+      ...makeSubAgentOutput(false),
+      usageTotals: {
+        inputTokens: 1000,
+        outputTokens: 500,
+        inputCachedRead: 0,
+        inputCachedWrite: 0,
+        outputReasoning: 0,
+        costUsd: 3.0,
+      },
+    })
+
+    const continueResult: ReplanResult = {
+      kind: 'continue',
+      nextDirective: {
+        sub_agent_key: 'goals.analyst',
+        input: { query: 'retry' },
+        reason: 'kpi not answered',
+      },
+    }
+    replanner.replan.mockResolvedValue(continueResult)
+
+    const synthOutput = makeSynthesizerOutput('partial')
+    synthesizer.synthesize.mockResolvedValue(synthOutput)
+
+    const result = await orchestrator.execute({
+      initialPlan: plan,
+      userUtterance: 'Why did my KPI regress?',
+      turnState,
+      abortSignal: abortController.signal,
+      streamEmitter: emitter,
+    })
+
+    expect(result.kind).toBe('partial')
+    if (result.kind === 'partial') {
+      expect(result.reason).toBe('limit_reached')
+    }
+
+    // Ceiling blocks before iteration 3 — sub-agent was called exactly twice
+    expect(subAgentRunner.run).toHaveBeenCalledTimes(2)
+    // Replanner called twice: after iter 1 (→ continue) and after iter 2 (→ continue).
+    // The ceiling fires at the top of the loop BEFORE iter 3 starts, so the loop body
+    // (including replanner) completes for both iter 1 and iter 2 before being blocked.
+    expect(replanner.replan).toHaveBeenCalledTimes(2)
+  })
+
+  // ── 7. Re-plan returns disambiguation → early exit, no synthesis ──────────────
+
+  it('7. replanner returns disambiguation after first iteration → { kind: "disambiguation" }, synthesizer NOT called', async () => {
+    const scorer = makeKpiAnswerShapeScorer()
+    scorerRegistry.register(scorer)
+
+    const plan = makeIterativePlan(5)
+    const turnState = makeTurnState()
+    const emitter = makeNoopStreamEmitter()
+    const abortController = new AbortController()
+
+    // Iteration 1: not answered → scorer does not pass → replanner is consulted
+    subAgentRunner.run.mockResolvedValueOnce(makeSubAgentOutput(false))
+
+    // Replanner always returns disambiguation exit
+    const disambiguationExit: ReplanResult = {
+      kind: 'exit',
+      reason: 'disambiguation',
+      disambiguationQuestion: 'What do you mean?',
+    }
+    replanner.replan.mockResolvedValue(disambiguationExit)
+
+    const result = await orchestrator.execute({
+      initialPlan: plan,
+      userUtterance: 'Clarify this please',
+      turnState,
+      abortSignal: abortController.signal,
+      streamEmitter: emitter,
+    })
+
+    expect(result.kind).toBe('disambiguation')
+    if (result.kind === 'disambiguation') {
+      expect(result.question).toBe('What do you mean?')
+    }
+
+    // SubAgent was called exactly once (the first iteration ran before replanner was consulted)
+    expect(subAgentRunner.run).toHaveBeenCalledTimes(1)
+    // Synthesizer must NOT be called — disambiguation exits immediately
+    expect(synthesizer.synthesize).not.toHaveBeenCalled()
+  })
+
+  // ── 8. Taint at start recorded in SSE payload ─────────────────────────────────
+
+  it('8. taint at start: iteration 1 sets taint → iteration.started SSE for iteration 2 carries taint_at_start=true', async () => {
+    const scorer = makeKpiAnswerShapeScorer()
+    scorerRegistry.register(scorer)
+
+    const plan = makeIterativePlan(3)
+    const turnState = makeTurnState()
+    const streamEmitter = makeNoopStreamEmitter()
+    const capturedEvents: Array<{ type: string; payload: Record<string, unknown> }> = []
+    ;(streamEmitter.emit as ReturnType<typeof vi.fn>).mockImplementation(
+      (event: { type: string; payload: Record<string, unknown> }) => {
+        capturedEvents.push({ type: event.type, payload: { ...event.payload } })
+      },
+    )
+    const abortController = new AbortController()
+
+    // Iteration 1: taint is flipped as a side effect of the sub-agent run
+    subAgentRunner.run.mockImplementationOnce(async () => {
+      turnState.tainted.value = true
+      return makeSubAgentOutput(false)
+    })
+    // Iteration 2: answered → scorer passes → loop ends
+    subAgentRunner.run.mockImplementationOnce(async () => makeSubAgentOutput(true))
+
+    const continueResult: ReplanResult = {
+      kind: 'continue',
+      nextDirective: {
+        sub_agent_key: 'goals.analyst',
+        input: {},
+        reason: 'continue',
+      },
+    }
+    replanner.replan.mockResolvedValueOnce(continueResult)
+
+    synthesizer.synthesize.mockResolvedValue(makeSynthesizerOutput('completed'))
+
+    await orchestrator.execute({
+      initialPlan: plan,
+      userUtterance: 'Check KPI',
+      turnState,
+      abortSignal: abortController.signal,
+      streamEmitter,
+    })
+
+    const startedEvents = capturedEvents.filter((e) => e.type === 'iteration.started')
+    expect(startedEvents).toHaveLength(2)
+
+    // iteration 1 starts before taint is flipped → taint_at_start = false
+    expect(startedEvents[0]!.payload['taint_at_start']).toBe(false)
+
+    // iteration 2 starts after taint was flipped in iteration 1 → taint_at_start = true
+    expect(startedEvents[1]!.payload['taint_at_start']).toBe(true)
+  })
 })

@@ -192,7 +192,8 @@ import {
   I_SUB_AGENT_RUNNER,
   I_SYNTHESIZER,
 } from './application/services/iterative-orchestrator'
-import type { ISubAgentRunner, ISynthesizer } from './application/services/iterative-orchestrator'
+import { SubAgentRunnerAdapter } from './application/services/sub-agent-runner-adapter'
+import { SynthesizerAdapter } from './application/services/synthesizer-adapter'
 import { IterationCeilingEnforcer } from './application/services/iteration-ceiling-enforcer'
 import { CompletionScorerRunner } from './application/services/completion-scorer-runner'
 import { IterativeRePlanner } from './application/services/iterative-replanner'
@@ -468,65 +469,16 @@ class NullTenantLister implements TenantListerLike {
     IterationCeilingEnforcer,
     CompletionScorerRunner,
     IterativeRePlanner,
-    // ISubAgentRunner adapter — satisfies ISubAgentRunner for DI wiring.
-    // SubAgentRunner has no @Injectable class; the full ReAct loop wiring is deferred
-    // to the phase-executor integration layer. This production stub returns a minimal
-    // completed output so the IterativeOrchestrator pipeline can be exercised
-    // end-to-end without a live LLM. Integration tests replace this via module override.
-    {
-      provide: I_SUB_AGENT_RUNNER,
-      useValue: {
-        run: async (opts: Parameters<ISubAgentRunner['run']>[0]) => ({
-          kind: 'completed' as const,
-          summary: `[stub] ${opts.directive.sub_agent_key}`,
-          semantics: opts.directive.sub_agent_key,
-          confidence: 'med' as const,
-          sourceToolProvenance: [],
-          structured: {},
-          drafts: [],
-          circuitBreakerState: {},
-          usageTotals: {
-            inputTokens: 0,
-            outputTokens: 0,
-            inputCachedRead: 0,
-            inputCachedWrite: 0,
-            outputReasoning: 0,
-            costUsd: 0,
-          },
-        }),
-      } satisfies ISubAgentRunner,
-    },
-    // ISynthesizer adapter — assembles iteration summaries behind ISynthesizer.
-    // Full LLM-synthesis wiring (same as bounded path) is deferred to the
-    // phase-executor integration layer. Integration tests override this token.
-    {
-      provide: I_SYNTHESIZER,
-      useValue: {
-        synthesize: async (opts: Parameters<ISynthesizer['synthesize']>[0]) => {
-          const { detectContradiction, buildCitations, buildDisclosureStatements } =
-            await import('./application/services/synthesizer')
-          const allOutputs = new Map([...opts.phase1Outputs, ...opts.phase2Outputs])
-          const hasContradiction = detectContradiction(allOutputs)
-          const citations = buildCitations(allOutputs)
-          const disclosures = buildDisclosureStatements(allOutputs)
-          const summaries = [...allOutputs.values()]
-            .filter((o) => o.kind === 'completed' || o.kind === 'ceiling_hit')
-            .map((o) => o.summary)
-            .join(' ')
-          const content =
-            disclosures.length > 0
-              ? summaries + ' ' + disclosures.join(' ')
-              : summaries || 'No data retrieved.'
-          return {
-            shape: 'narrative' as const,
-            content,
-            citations,
-            confidence: (hasContradiction ? 'low' : 'med') as 'low' | 'med',
-            turnEndedReason: 'completed' as const,
-          }
-        },
-      } satisfies ISynthesizer,
-    },
+    // SubAgentRunnerAdapter — resolves ValidatedSubAgentConfig from SubAgentRegistry
+    // and forwards to the sub-agent execution pipeline (full ReAct loop deferred to
+    // phase-executor integration layer). Throws on unknown sub_agent_key — never silent.
+    SubAgentRunnerAdapter,
+    { provide: I_SUB_AGENT_RUNNER, useExisting: SubAgentRunnerAdapter },
+    // SynthesizerAdapter — merges iteration outputs into a SynthesizerOutput using
+    // the pure deterministic synthesis functions. Full LLM-synthesis path deferred to
+    // the phase-executor integration layer.
+    SynthesizerAdapter,
+    { provide: I_SYNTHESIZER, useExisting: SynthesizerAdapter },
     // IterativeOrchestrator — the main service; uses I_SUB_AGENT_RUNNER and I_SYNTHESIZER tokens
     IterativeOrchestrator,
     { provide: ITERATIVE_ORCHESTRATOR, useExisting: IterativeOrchestrator },
