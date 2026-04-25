@@ -47,8 +47,6 @@ import {
   recordIterativeTurnTotal,
   recordIterationCountExceeded,
   recordIterationsTotalHistogram,
-  recordReplanLlmCallTotal,
-  recordCompletionScorerFail,
 } from '../../infrastructure/observability/gateway-metrics'
 
 // ─── Surface-specific iteration caps (R-12.5) ────────────────────────────────
