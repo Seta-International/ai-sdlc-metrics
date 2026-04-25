@@ -1,5 +1,5 @@
 {
-  "id": "d8cbd2c7-3c5d-4c33-b3a8-a3c8b149900b",
+  "id": "313c67c1-5de1-4e1e-aa72-f96373214871",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2662,8 +2662,8 @@
         }
       },
       "indexes": {
-        "agent_rollout_config_tenant_status_idx": {
-          "name": "agent_rollout_config_tenant_status_idx",
+        "agent_rollout_config_tenant_status_class_idx": {
+          "name": "agent_rollout_config_tenant_status_class_idx",
           "columns": [
             {
               "expression": "tenant_id",
@@ -2673,6 +2673,12 @@
             },
             {
               "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "change_class",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -3217,6 +3223,10 @@
         "agent_shadow_run_diff_category_check": {
           "name": "agent_shadow_run_diff_category_check",
           "value": "\"agents\".\"agent_shadow_run\".\"diff_category\" IN ('identical', 'minor_difference', 'major_difference', 'shadow_errored')"
+        },
+        "agent_shadow_run_diff_score_range_check": {
+          "name": "agent_shadow_run_diff_score_range_check",
+          "value": "\"agents\".\"agent_shadow_run\".\"diff_score\" >= 0 AND \"agents\".\"agent_shadow_run\".\"diff_score\" <= 1"
         }
       },
       "isRLSEnabled": false

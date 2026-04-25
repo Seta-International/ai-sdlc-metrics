@@ -455,7 +455,8 @@ CREATE TABLE "agents"."agent_shadow_run" (
 	"diff_score" numeric(5, 4) NOT NULL,
 	"diff_category" text NOT NULL,
 	"ts" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "agent_shadow_run_diff_category_check" CHECK ("agents"."agent_shadow_run"."diff_category" IN ('identical', 'minor_difference', 'major_difference', 'shadow_errored'))
+	CONSTRAINT "agent_shadow_run_diff_category_check" CHECK ("agents"."agent_shadow_run"."diff_category" IN ('identical', 'minor_difference', 'major_difference', 'shadow_errored')),
+	CONSTRAINT "agent_shadow_run_diff_score_range_check" CHECK ("agents"."agent_shadow_run"."diff_score" >= 0 AND "agents"."agent_shadow_run"."diff_score" <= 1)
 );
 --> statement-breakpoint
 CREATE TABLE "agents"."agent_stored_sub_agent" (
@@ -1673,7 +1674,7 @@ CREATE INDEX "agent_cost_event_tenant_schedule_idx" ON "agents"."agent_cost_even
 CREATE INDEX "agent_golden_trace_tenant_active_idx" ON "agents"."agent_golden_trace" USING btree ("tenant_id") WHERE removed_at IS NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "agent_pricing_model_effective_from_uidx" ON "agents"."agent_pricing" USING btree ("model_id","effective_from");--> statement-breakpoint
 CREATE INDEX "agent_rate_limit_counter_lookup_idx" ON "agents"."agent_rate_limit_counter" USING btree ("tenant_id","user_id","limit_key","bucket");--> statement-breakpoint
-CREATE INDEX "agent_rollout_config_tenant_status_idx" ON "agents"."agent_rollout_config" USING btree ("tenant_id","status");--> statement-breakpoint
+CREATE INDEX "agent_rollout_config_tenant_status_class_idx" ON "agents"."agent_rollout_config" USING btree ("tenant_id","status","change_class");--> statement-breakpoint
 CREATE INDEX "agent_rollout_event_config_ts_idx" ON "agents"."agent_rollout_event" USING btree ("rollout_config_id","ts" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_rollout_event_tenant_ts_idx" ON "agents"."agent_rollout_event" USING btree ("tenant_id","ts" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_session_conversation_lookup_idx" ON "agents"."agent_session" USING btree ("tenant_id","user_id","conversation_id","started_at" DESC NULLS LAST);--> statement-breakpoint

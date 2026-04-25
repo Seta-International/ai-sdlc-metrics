@@ -655,13 +655,13 @@ export const agentCanaryQuery = agentsSchema.table(
  */
 export interface RegressionThresholds {
   /** Maximum acceptable error rate for candidate (e.g. 0.02 = 2%). */
-  errorRateMax: number
+  error_rate_max: number
   /** Maximum acceptable cost increase as a fraction (e.g. 0.20 = 20%). */
-  costDeltaPctMax: number
+  cost_delta_pct_max: number
   /** Maximum acceptable drop in initiator approval rate in percentage points (e.g. 0.10 = 10pp). */
-  initiatorApprovalDropMax: number
+  initiator_approval_drop_max: number
   /** Maximum acceptable drop in router accuracy signal (e.g. 0.15 = 15%). */
-  routerAccuracySignalMax: number
+  router_accuracy_signal_max: number
 }
 
 /**
@@ -693,7 +693,7 @@ export const agentRolloutConfig = agentsSchema.table(
     createdBy: uuid('created_by').notNull(),
   },
   (t) => [
-    index('agent_rollout_config_tenant_status_idx').on(t.tenantId, t.status),
+    index('agent_rollout_config_tenant_status_class_idx').on(t.tenantId, t.status, t.changeClass),
     check(
       'agent_rollout_config_change_class_check',
       sql`${t.changeClass} IN ('router', 'planner', 'model', 'tool_meta', 'sub_agent_prompt')`,
@@ -773,9 +773,16 @@ export const agentShadowRun = agentsSchema.table(
       'agent_shadow_run_diff_category_check',
       sql`${t.diffCategory} IN ('identical', 'minor_difference', 'major_difference', 'shadow_errored')`,
     ),
+    check(
+      'agent_shadow_run_diff_score_range_check',
+      sql`${t.diffScore} >= 0 AND ${t.diffScore} <= 1`,
+    ),
   ],
 )
 
 export type AgentRolloutConfigRow = typeof agentRolloutConfig.$inferSelect
 export type AgentRolloutEventRow = typeof agentRolloutEvent.$inferSelect
 export type AgentShadowRunRow = typeof agentShadowRun.$inferSelect
+export type NewAgentRolloutConfigRow = typeof agentRolloutConfig.$inferInsert
+export type NewAgentRolloutEventRow = typeof agentRolloutEvent.$inferInsert
+export type NewAgentShadowRunRow = typeof agentShadowRun.$inferInsert

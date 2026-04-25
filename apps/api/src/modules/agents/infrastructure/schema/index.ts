@@ -18,4 +18,7 @@ export type {
   AgentRolloutConfigRow,
   AgentRolloutEventRow,
   AgentShadowRunRow,
+  NewAgentRolloutConfigRow,
+  NewAgentRolloutEventRow,
+  NewAgentShadowRunRow,
 } from './agents.schema'
