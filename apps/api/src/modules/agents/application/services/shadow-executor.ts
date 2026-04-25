@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { PgBossService } from '../../../../common/jobs/pg-boss.service'
 import type { TurnResult } from './shadow-diff-scorer'
-import { SHADOW_TURN_JOB_NAME } from '../../infrastructure/workers/shadow-turn-worker'
+import { SHADOW_TURN_JOB_NAME, type ShadowTurnJob } from './shadow-turn-contracts'
 
 // ─── Option types ─────────────────────────────────────────────────────────────
 
@@ -18,16 +18,6 @@ export interface ShadowShouldOpts {
 }
 
 export interface ShadowRunOpts {
-  baselineTraceId: string
-  baselineOutput: TurnResult
-  candidateVersion: string
-  baselineVersion: string
-  rolloutConfigId: string
-  tenantId: string
-  userId?: string
-}
-
-export interface ShadowTurnJob {
   baselineTraceId: string
   baselineOutput: TurnResult
   candidateVersion: string

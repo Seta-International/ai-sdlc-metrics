@@ -175,6 +175,11 @@ import { PgBossService } from '../../common/jobs/pg-boss.service'
 //   • Adding sub-agents for a NEW domain module: add a new import below and
 //     include the descriptor(s) in the `descriptors` array in onModuleInit().
 import { plannerReadOnlySubAgent } from '../planner/agent/sub-agents'
+// Plan 11 — Shadow-mode Traffic + Canary Rollout
+import { RolloutResolver } from './application/services/rollout-resolver'
+import { ShadowDiffScorer } from './application/services/shadow-diff-scorer'
+import { ShadowExecutor } from './application/services/shadow-executor'
+import { ShadowTurnWorker } from './infrastructure/workers/shadow-turn-worker'
 // Plan 10 — Harness + Replay + Canary
 import { ReplayHarness, REPLAY_HARNESS } from './application/services/replay-harness'
 import { ScorerRegistry, SCORER_REGISTRY } from './application/services/scorer-registry'
@@ -427,6 +432,11 @@ class NullTenantLister implements TenantListerLike {
     { provide: TOOL_REGISTRY_TOKEN, useExisting: ToolRegistry },
     IntentDriftScorer,
     { provide: INTENT_DRIFT_SCORER, useExisting: IntentDriftScorer },
+    // ── Plan 11 — Shadow-mode Traffic + Canary Rollout ─────────────────────────
+    RolloutResolver,
+    ShadowDiffScorer,
+    ShadowExecutor,
+    ShadowTurnWorker,
   ],
   exports: [
     AgentsQueryFacade,
@@ -489,6 +499,8 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly scorerRegistry: ScorerRegistry,
     private readonly intentDriftScorer: IntentDriftScorer,
     private readonly qualityCanaryScheduler: QualityCanaryScheduler,
+    // Plan 11 — Shadow-mode Traffic + Canary Rollout
+    private readonly shadowTurnWorker: ShadowTurnWorker,
   ) {}
 
   async onModuleInit(): Promise<void> {

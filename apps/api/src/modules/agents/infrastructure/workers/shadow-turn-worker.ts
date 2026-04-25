@@ -5,23 +5,18 @@ import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { PgBossService } from '../../../../common/jobs/pg-boss.service'
 import { ShadowDiffScorer, type TurnResult } from '../../application/services/shadow-diff-scorer'
+import {
+  SHADOW_TURN_JOB_NAME,
+  type ShadowTurnJob,
+} from '../../application/services/shadow-turn-contracts'
 import { agentShadowRun } from '../schema/agents.schema'
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Re-exports for callers that import from this module ──────────────────────
 
-export const SHADOW_TURN_JOB_NAME = 'agent.shadow-turn'
-
-// ─── Job payload ──────────────────────────────────────────────────────────────
-
-export interface ShadowTurnJob {
-  baselineTraceId: string
-  baselineOutput: TurnResult
-  candidateVersion: string
-  baselineVersion: string
-  rolloutConfigId: string
-  tenantId: string
-  userId?: string
-}
+export {
+  SHADOW_TURN_JOB_NAME,
+  type ShadowTurnJob,
+} from '../../application/services/shadow-turn-contracts'
 
 // ─── ShadowTurnWorker ─────────────────────────────────────────────────────────
 
