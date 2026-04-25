@@ -12,6 +12,8 @@
  *  6.  Replanner returns exit(disambiguation) → { kind: 'disambiguation', question: ... }
  *  7.  SSE events emitted in correct order: started → validated → ended for each iteration
  *  8.  abortSignal fired → { kind: 'aborted', reason: 'user' }
+ *  9.  Surface cap clamps maxIterations (R-12.5): plan maxIterations=50 on global-chat → capped at 10
+ * 10.  Replanner returns exit(complete) → synthesizer runs → { kind: 'partial' } (scorer is authoritative)
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -186,6 +188,7 @@ describe('IterativeOrchestrator', () => {
 
     const result = await orchestrator.execute({
       initialPlan: plan,
+      userUtterance: 'list overdue tasks',
       turnState,
       abortSignal,
       streamEmitter: emitter,
@@ -253,6 +256,7 @@ describe('IterativeOrchestrator', () => {
 
     const result = await orchestrator.execute({
       initialPlan: plan,
+      userUtterance: 'Test utterance',
       turnState,
       abortSignal,
       streamEmitter: emitter,
@@ -302,6 +306,7 @@ describe('IterativeOrchestrator', () => {
 
     const result = await orchestrator.execute({
       initialPlan: plan,
+      userUtterance: 'Test utterance',
       turnState,
       abortSignal,
       streamEmitter: emitter,
@@ -347,6 +352,7 @@ describe('IterativeOrchestrator', () => {
 
     const result = await orchestrator.execute({
       initialPlan: plan,
+      userUtterance: 'Test utterance',
       turnState,
       abortSignal,
       streamEmitter: emitter,
@@ -390,6 +396,7 @@ describe('IterativeOrchestrator', () => {
 
     const result = await orchestrator.execute({
       initialPlan: plan,
+      userUtterance: 'Test utterance',
       turnState,
       abortSignal,
       streamEmitter: emitter,
@@ -430,6 +437,7 @@ describe('IterativeOrchestrator', () => {
 
     const result = await orchestrator.execute({
       initialPlan: plan,
+      userUtterance: 'Test utterance',
       turnState,
       abortSignal,
       streamEmitter: emitter,
@@ -486,6 +494,7 @@ describe('IterativeOrchestrator', () => {
 
     await orchestrator.execute({
       initialPlan: plan,
+      userUtterance: 'Test utterance',
       turnState,
       abortSignal,
       streamEmitter: emitter,
@@ -528,6 +537,7 @@ describe('IterativeOrchestrator', () => {
 
     const result = await orchestrator.execute({
       initialPlan: plan,
+      userUtterance: 'Test utterance',
       turnState,
       abortSignal,
       streamEmitter: emitter,
@@ -542,6 +552,7 @@ describe('IterativeOrchestrator', () => {
   })
 
   // ── 9. Surface cap clamps maxIterations (R-12.5) ────────────────────────────
+  // Verify the last ceiling check received maxIterations=10, not 50 (from plan with maxIterations: 50).
 
   it('9. surface cap: plan maxIterations=50 on global-chat surface → capped at 10', async () => {
     const plan = makeIterativePlan({
@@ -584,6 +595,7 @@ describe('IterativeOrchestrator', () => {
 
     const result = await orchestrator.execute({
       initialPlan: plan,
+      userUtterance: 'Test utterance',
       turnState,
       abortSignal,
       streamEmitter: emitter,
@@ -596,9 +608,9 @@ describe('IterativeOrchestrator', () => {
       expect(result.reason).toBe('limit_reached')
     }
 
-    // The 11th ceiling check should have been passed effectiveMaxIterations=10,
+    // The last ceiling check should have been passed effectiveMaxIterations=10,
     // so the loop breaks at n=10 before calling the runner an 11th time.
-    // Verify the ceiling enforcer received maxIterations=10, not 50.
+    // Verify the ceiling enforcer received maxIterations=10, not 50 (from plan with maxIterations: 50).
     const lastCeilingCall =
       iterationCeilingEnforcer.checkBeforeIteration.mock.calls[
         iterationCeilingEnforcer.checkBeforeIteration.mock.calls.length - 1
@@ -633,6 +645,7 @@ describe('IterativeOrchestrator', () => {
 
     const result = await orchestrator.execute({
       initialPlan: plan,
+      userUtterance: 'Test utterance',
       turnState,
       abortSignal,
       streamEmitter: emitter,
@@ -642,5 +655,56 @@ describe('IterativeOrchestrator', () => {
     if (result.kind === 'aborted') {
       expect(result.reason).toBe('user')
     }
+  })
+
+  // ── 10. Replanner exit(complete) → partial (scorer is authoritative) ─────────
+
+  it('10. replanner exit(complete) → synthesizer runs → partial (scorer is authoritative for completion)', async () => {
+    // exit(complete) from replanner means "no more useful iterations", NOT "task succeeded".
+    // wasCompleted is determined by the scorer, not the replanner exit reason.
+    const plan = makeIterativePlan()
+    const turnState = makeTurnState()
+    const emitter = makeStreamEmitter()
+    const abortSignal = new AbortController().signal
+
+    const subOutput = makeSubAgentOutput()
+    const synthOutput: SynthesizerOutput = {
+      ...makeSynthesizerOutput(),
+      turnEndedReason: 'partial',
+    }
+
+    iterationCeilingEnforcer.checkBeforeIteration.mockReturnValue({ allowed: true })
+    subAgentRunner.run.mockResolvedValue(subOutput)
+
+    // Scorer never passes → wasCompleted will be false
+    const failResult: RunScorersResult = {
+      isComplete: false,
+      results: [{ score: 0, passed: false, reason: 'not done' }],
+    }
+    completionScorerRunner.runScorers.mockResolvedValue(failResult)
+
+    // Replanner signals exit(complete) after one iteration
+    const completeExitResult: ReplanResult = { kind: 'exit', reason: 'complete' }
+    iterativeRePlanner.replan.mockResolvedValue(completeExitResult)
+
+    synthesizer.synthesize.mockResolvedValue(synthOutput)
+
+    const result = await orchestrator.execute({
+      initialPlan: plan,
+      userUtterance: 'Test utterance',
+      turnState,
+      abortSignal,
+      streamEmitter: emitter,
+    })
+
+    // Replanner exit(complete) should NOT produce { kind: 'synthesized' }
+    // because the scorer never confirmed completion — result is partial
+    expect(result.kind).toBe('partial')
+    if (result.kind === 'partial') {
+      expect(result.reason).toBe('limit_reached')
+    }
+    expect(synthesizer.synthesize).toHaveBeenCalledTimes(1)
+    // Replanner was called once (after iteration 1)
+    expect(iterativeRePlanner.replan).toHaveBeenCalledTimes(1)
   })
 })

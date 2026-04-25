@@ -6,16 +6,18 @@
  * Algorithm (plan 12 §5):
  *   1. Set iterationNumber = 1
  *   2. Loop:
- *      a. CeilingEnforcer.checkBeforeIteration() — exit with partial if blocked
- *      b. Emit SSE: iteration.started
- *      c. SubAgentRunner.run() with current directive
- *      d. Collect SubAgentOutput; push to iterationHistory
- *      e. Update cumulativeCostUsd + cumulativeWallclockMs
- *      f. CompletionScorerRunner.runScorers() against iteration output
- *      g. Emit SSE: iteration.validated
- *      h. Emit SSE: iteration.ended
- *      i. If isComplete OR iterationNumber >= maxIterations → break
- *      j. IterativeRePlanner.replan():
+ *      a. Check abort signal — exit aborted(user) if fired
+ *      b. CeilingEnforcer.checkBeforeIteration() — exit with partial if blocked
+ *      c. Emit SSE: iteration.started
+ *      d. SubAgentRunner.run() with current directive
+ *      e. Collect SubAgentOutput; push to iterationHistory
+ *      f. Update cumulativeCostUsd + cumulativeWallclockMs
+ *      g. CompletionScorerRunner.runScorers() against iteration output
+ *      h. Emit SSE: iteration.validated
+ *      i. Emit SSE: iteration.ended
+ *      j. Check abort signal again after SSE emissions
+ *      k. If isComplete OR iterationNumber >= maxIterations → break
+ *      l. IterativeRePlanner.replan():
  *         - continue → increment iterationNumber, use nextDirective, loop
  *         - exit(disambiguation) → return disambiguation result
  *         - exit(stuck|complete) → break (go to post-loop synthesizer)
@@ -33,21 +35,41 @@ import type {
   IterationRecord,
   DraftProposal,
 } from './phase-executor-contracts'
-import type { IterativePlan } from '../../domain/value-objects/router-plan-schema'
-import type { SubAgentDirective } from '../../domain/value-objects/router-plan-schema'
+import type {
+  IterativePlan,
+  SubAgentDirective,
+} from '../../domain/value-objects/router-plan-schema'
 import type { StreamEmitter } from './stream-gateway'
 import type { IterationCeilingEnforcer } from './iteration-ceiling-enforcer'
 import type { CompletionScorerRunner } from './completion-scorer-runner'
 import type { IterativeRePlanner } from './iterative-replanner'
 
+// ─── Surface-specific iteration caps (R-12.5) ────────────────────────────────
+
+/**
+ * Hard ceiling on iterations per surface type.
+ * Async surfaces get more room; interactive surfaces are capped tightly.
+ */
+const SURFACE_MAX_ITERATIONS: Record<PhaseExecutorTurnState['surface'], number> = {
+  'global-chat': 10,
+  inline: 10,
+  async: 20,
+}
+
 // ─── Runner / Synthesizer interface types ─────────────────────────────────────
+
+/**
+ * Subset of SubAgentRunnerOpts used by IterativeOrchestrator.
+ * Config resolution is the runner's responsibility — the orchestrator does not own it.
+ */
+export type IterativeSubAgentRunOpts = Omit<SubAgentRunnerOpts, 'config'>
 
 /**
  * Thin interface for the sub-agent runner, decoupled from the full ReAct loop.
  * Implemented by SubAgentRunner (pure function wrapper) or mocked in tests.
  */
 export interface ISubAgentRunner {
-  run(opts: SubAgentRunnerOpts): Promise<SubAgentOutput>
+  run(opts: IterativeSubAgentRunOpts): Promise<SubAgentOutput>
 }
 
 /**
@@ -73,6 +95,7 @@ const DEFAULT_TOTAL_WALLCLOCK_BUDGET_MS = 60_000
 
 export interface IterativeOrchestratorOpts {
   readonly initialPlan: IterativePlan
+  readonly userUtterance: string
   readonly turnState: PhaseExecutorTurnState
   readonly abortSignal: AbortSignal
   readonly streamEmitter: StreamEmitter
@@ -91,7 +114,7 @@ export class IterativeOrchestrator {
   ) {}
 
   async execute(opts: IterativeOrchestratorOpts): Promise<PhaseExecutionResult> {
-    const { initialPlan, turnState, abortSignal, streamEmitter } = opts
+    const { initialPlan, userUtterance, turnState, abortSignal, streamEmitter } = opts
     const { completionCriteria, initialDirective } = initialPlan
 
     // ── Guard: abort signal already fired ─────────────────────────────────────
@@ -100,11 +123,6 @@ export class IterativeOrchestrator {
     }
 
     // ── Surface-specific iteration cap (R-12.5) ───────────────────────────────
-    const SURFACE_MAX_ITERATIONS: Record<PhaseExecutorTurnState['surface'], number> = {
-      'global-chat': 10,
-      inline: 10,
-      async: 20,
-    }
     const surfaceCap = SURFACE_MAX_ITERATIONS[turnState.surface]
     const effectiveMaxIterations = Math.min(completionCriteria.maxIterations, surfaceCap)
 
@@ -130,7 +148,7 @@ export class IterativeOrchestrator {
         return { kind: 'aborted', reason: 'user' }
       }
 
-      // Step (b): Ceiling check
+      // Step (b): Ceiling enforcer
       const ceilingResult = this.ceilingEnforcer.checkBeforeIteration({
         iterationNumber: n,
         maxIterations: effectiveMaxIterations,
@@ -145,7 +163,7 @@ export class IterativeOrchestrator {
         return await this._exitWithCeilingBreach(allOutputs, iterationHistory, opts)
       }
 
-      // Step (c): Emit iteration.started
+      // Step (c): Emit SSE: iteration.started
       streamEmitter.emit({
         type: 'iteration.started',
         payload: {
@@ -156,12 +174,11 @@ export class IterativeOrchestrator {
         },
       })
 
-      // Step (d): Run SubAgent
+      // Step (d): Run SubAgentRunner
       const iterationStartMs = Date.now()
 
       const subOutput = await this.subAgentRunner.run({
         directive: currentDirective,
-        config: {} as never, // config resolved by runner from registry
         phase: 1,
         abortSignal,
         turnState,
@@ -169,16 +186,16 @@ export class IterativeOrchestrator {
 
       const iterationDurationMs = Date.now() - iterationStartMs
 
-      // Step (e): Push output to history
+      // Step (e): Collect SubAgentOutput; push to iterationHistory
       const iterKey = `iteration-${n}-${currentDirective.sub_agent_key}`
       allOutputs.set(iterKey, subOutput)
 
-      // Step (f): Update cumulative cost + wallclock
+      // Step (f): Update cumulativeCostUsd + cumulativeWallclockMs
       turnState.cumulativeCostUsd =
         (turnState.cumulativeCostUsd ?? 0) + (subOutput.usageTotals.costUsd ?? 0)
       turnState.cumulativeWallclockMs = (turnState.cumulativeWallclockMs ?? 0) + iterationDurationMs
 
-      // Step (g): Run completion scorers
+      // Step (g): Run CompletionScorerRunner
       const scorerResult = await this.completionScorerRunner.runScorers({
         scorerIds: completionCriteria.scorerIds,
         strategy: completionCriteria.strategy,
@@ -198,7 +215,7 @@ export class IterativeOrchestrator {
       iterationHistory.push(iterRecord)
       turnState.iterationHistory = iterationHistory
 
-      // Step (h): Emit iteration.validated
+      // Step (h): Emit SSE: iteration.validated
       streamEmitter.emit({
         type: 'iteration.validated',
         payload: {
@@ -209,7 +226,7 @@ export class IterativeOrchestrator {
         },
       })
 
-      // Step (i): Emit iteration.ended
+      // Step (i): Emit SSE: iteration.ended
       streamEmitter.emit({
         type: 'iteration.ended',
         payload: {
@@ -225,23 +242,23 @@ export class IterativeOrchestrator {
         },
       })
 
-      // Step (j): Check abort signal again after SSE emissions
+      // Step (j): Check abort signal again
       if (abortSignal.aborted) {
         return { kind: 'aborted', reason: 'user' }
       }
 
-      // Step (k): Exit conditions
+      // Step (k): Check exit conditions (scorer complete or maxIterations reached)
       if (scorerResult.isComplete || n >= effectiveMaxIterations) {
         break
       }
 
-      // Step (l): Replan
+      // Step (l): IterativeRePlanner.replan()
       const replanResult = await this.replanner.replan({
         turnState,
         priorIteration: iterRecord,
         iterationHistory: iterationHistory.slice(0, -1), // exclude current from history arg
         completionCriteria,
-        userUtterance: initialPlan.flow_id, // flow_id as proxy for utterance (full utterance not available here)
+        userUtterance,
         abortSignal,
       })
 
@@ -301,7 +318,7 @@ export class IterativeOrchestrator {
     iterationHistory: IterationRecord[],
     opts: IterativeOrchestratorOpts,
   ): Promise<PhaseExecutionResult> {
-    const { initialPlan, turnState, abortSignal } = opts
+    const { initialPlan, userUtterance, turnState, abortSignal } = opts
 
     // Build a BoundedPlan-compatible directive so Synthesizer.synthesize() can accept it
     const syntheticBoundedDirective = {
@@ -316,7 +333,7 @@ export class IterativeOrchestrator {
       directive: syntheticBoundedDirective,
       phase1Outputs: allOutputs,
       phase2Outputs: new Map(),
-      userUtterance: initialPlan.flow_id,
+      userUtterance,
       abortSignal,
       turnState,
     })
@@ -329,7 +346,9 @@ export class IterativeOrchestrator {
       }
     }
 
-    // Determine if this was a full completion or partial
+    // Determine if this was a full completion or partial.
+    // scorer result is authoritative for completion classification;
+    // replanner exit(complete) means "no more iterations" not "succeeded".
     const wasCompleted =
       iterationHistory.length > 0 && iterationHistory[iterationHistory.length - 1]!.isComplete
 
