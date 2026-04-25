@@ -381,6 +381,7 @@ describe('RouterLlmClient', () => {
 
   it('19a. onModuleInit throws when OPENAI_API_KEY is missing', () => {
     vi.stubEnv('OPENAI_API_KEY', '')
+    vi.stubEnv('LOCAL_DEV', '') // clear local-dev bypass so guard fires
     const freshClient = new RouterLlmClient()
     expect(() => freshClient.onModuleInit()).toThrow(/OPENAI_API_KEY missing/)
     vi.unstubAllEnvs()
