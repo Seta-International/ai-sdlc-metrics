@@ -71,6 +71,7 @@ export class RegressionSignalMonitor {
       .where(
         and(
           eq(agentShadowRun.rolloutConfigId, opts.rolloutConfigId),
+          eq(agentShadowRun.tenantId, config.tenantId),
           gte(agentShadowRun.ts, windowStart),
         ),
       )
@@ -84,8 +85,9 @@ export class RegressionSignalMonitor {
       .where(
         and(
           eq(agentShadowRun.rolloutConfigId, opts.rolloutConfigId),
-          gte(agentShadowRun.ts, windowStart),
+          eq(agentShadowRun.tenantId, config.tenantId),
           eq(agentShadowRun.diffCategory, 'shadow_errored'),
+          gte(agentShadowRun.ts, windowStart),
         ),
       )
 

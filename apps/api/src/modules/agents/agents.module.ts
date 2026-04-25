@@ -180,6 +180,8 @@ import { RolloutResolver } from './application/services/rollout-resolver'
 import { ShadowDiffScorer } from './application/services/shadow-diff-scorer'
 import { ShadowExecutor } from './application/services/shadow-executor'
 import { ShadowTurnWorker } from './infrastructure/workers/shadow-turn-worker'
+import { RegressionSignalMonitor } from './application/services/regression-signal-monitor'
+import { AutoRollbackOrchestrator } from './application/services/auto-rollback-orchestrator'
 // Plan 10 — Harness + Replay + Canary
 import { ReplayHarness, REPLAY_HARNESS } from './application/services/replay-harness'
 import { ScorerRegistry, SCORER_REGISTRY } from './application/services/scorer-registry'
@@ -437,6 +439,8 @@ class NullTenantLister implements TenantListerLike {
     ShadowDiffScorer,
     ShadowExecutor,
     ShadowTurnWorker,
+    RegressionSignalMonitor,
+    AutoRollbackOrchestrator,
   ],
   exports: [
     AgentsQueryFacade,

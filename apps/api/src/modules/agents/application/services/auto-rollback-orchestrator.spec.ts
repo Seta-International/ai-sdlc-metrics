@@ -8,6 +8,8 @@
  *  4. Manual rollback → event_type='manually_rolled_back', triggered_by='human:manual', reason='manual rollback'
  *  5. Config not found → returns without error
  *  6. Already completed config → returns without DB writes (idempotent)
+ *  7. Audit payload includes trippedSignals and fromPercentage
+ *  8. Auto rollback skipped when autoRollbackEnabled=false
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -31,6 +33,7 @@ function makeConfig(overrides: Record<string, unknown> = {}): Record<string, unk
     tenantId: TENANT_ID,
     trafficPercentage: '25.00',
     status: 'active',
+    autoRollbackEnabled: true,
     createdBy: CREATED_BY,
     ...overrides,
   }
@@ -258,5 +261,25 @@ describe('AutoRollbackOrchestrator', () => {
         }),
       }),
     )
+  })
+
+  // ── 8. Auto rollback skipped when autoRollbackEnabled=false ───────────────
+
+  it('8. auto rollback skipped when autoRollbackEnabled=false', async () => {
+    const { db, updateMock, insertMock } = buildDb([
+      makeConfig({ autoRollbackEnabled: false, status: 'active' }),
+    ])
+    const { audit } = makeAudit()
+    const orchestrator = new AutoRollbackOrchestrator(db, audit)
+
+    await orchestrator.rollback({
+      rolloutConfigId: ROLLOUT_CONFIG_ID,
+      trippedSignals: SAMPLE_TRIPPED_SIGNALS,
+      triggeredBy: 'auto',
+    })
+
+    expect(updateMock).not.toHaveBeenCalled()
+    expect(insertMock).not.toHaveBeenCalled()
+    expect(audit.recordEvent).not.toHaveBeenCalled()
   })
 })
