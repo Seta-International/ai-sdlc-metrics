@@ -66,7 +66,10 @@ import {
 import { FlowPolicyResolver, type EffectivePolicy } from './flow-policy-resolver'
 import { DraftProposer } from './draft-proposer'
 import type { DraftProposalResult } from './draft-types'
-import { SemanticResultCache } from '../../infrastructure/cache/semantic-result-cache'
+import {
+  SemanticResultCache,
+  type CacheHit,
+} from '../../infrastructure/cache/semantic-result-cache'
 
 // ─── Plan 14 constants ────────────────────────────────────────────────────────
 
@@ -546,7 +549,7 @@ export class ToolGateway {
     // Semantic cache check (Plan 14) — after L1 miss, before ceiling pre-check
     if (descriptor.meta.cacheable) {
       const semanticCacheStart = Date.now()
-      let semanticHit: Awaited<ReturnType<typeof this.semanticCache.get>>
+      let semanticHit: CacheHit | undefined
       try {
         semanticHit = await withGatewayStep(
           'semantic-cache',
