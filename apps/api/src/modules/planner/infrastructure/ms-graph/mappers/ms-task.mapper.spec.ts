@@ -57,11 +57,13 @@ describe('mapMsTaskToDomain', () => {
   })
 
   it('throws on missing id', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(() => mapMsTaskToDomain({ planId: 'p1' } as any, { tenantId: 't1' })).toThrow(/id/)
   })
 
   it('defaults nulls correctly', () => {
     const minimal = { id: 't2', planId: 'p2' }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = mapMsTaskToDomain(minimal as any, { tenantId: 't1' })
     expect(result.msBucketId).toBeNull()
     expect(result.title).toBe('(untitled)')

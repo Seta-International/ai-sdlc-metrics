@@ -9,6 +9,7 @@ export interface MappedMsBucket {
 }
 
 export function mapMsBucketToDomain(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ms: any,
   ctx: { tenantId: string; localPlanId: string },
 ): MappedMsBucket {

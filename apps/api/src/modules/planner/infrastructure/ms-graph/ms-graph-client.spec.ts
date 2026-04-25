@@ -2,16 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MsGraphClient } from './ms-graph-client'
 import {
   GraphPreconditionFailedError,
-  GraphThrottledError,
   GraphAuthError,
-  GraphQuotaError,
   GraphNotFoundError,
   GraphServerError,
 } from './errors'
 
 describe('MsGraphClient', () => {
   let fetchMock: ReturnType<typeof vi.fn>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let identityFacade: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let tokenAcquirer: any
 
   beforeEach(() => {

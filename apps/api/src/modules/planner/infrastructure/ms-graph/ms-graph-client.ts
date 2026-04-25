@@ -164,7 +164,9 @@ export class MsGraphClient {
     const parsedBody = contentType.includes('application/json')
       ? ((await response.json()) as T)
       : null
-    const etag = (parsedBody as any)?.['@odata.etag'] ?? response.headers.get('etag')
+    const etag =
+      ((parsedBody as Record<string, unknown>)?.['@odata.etag'] as string) ??
+      response.headers.get('etag')
     return { status: response.status, body: parsedBody, etag }
   }
 
@@ -191,7 +193,8 @@ export class MsGraphClient {
       throw new GraphAuthError('401 Unauthorized', status, parsed ?? text)
     }
     if (status === 403) {
-      const limitCode = (parsed as any)?.error?.code
+      const parsedError = (parsed as Record<string, Record<string, unknown>> | null)?.['error']
+      const limitCode = parsedError?.['code']
       if (typeof limitCode === 'string' && PLANNER_QUOTA_CODES.has(limitCode)) {
         throw new GraphQuotaError(`403 Quota: ${limitCode}`, parsed, limitCode)
       }

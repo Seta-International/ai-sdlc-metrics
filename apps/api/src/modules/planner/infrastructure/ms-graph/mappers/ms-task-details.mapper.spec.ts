@@ -53,29 +53,34 @@ describe('mapMsTaskDetailsToDomain', () => {
   })
 
   it('throws on missing id', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(() => mapMsTaskDetailsToDomain({ description: 'x' } as any)).toThrow(/id/)
   })
 
   it('defaults description to null when missing', () => {
     const ms = { id: 't4', '@odata.etag': 'W/"e"' }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = mapMsTaskDetailsToDomain(ms as any)
     expect(result.description).toBeNull()
   })
 
   it('defaults previewType to automatic when missing', () => {
     const ms = { id: 't5', '@odata.etag': 'W/"e"' }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = mapMsTaskDetailsToDomain(ms as any)
     expect(result.previewType).toBe('automatic')
   })
 
   it('defaults etag to empty string when missing', () => {
     const ms = { id: 't6' }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = mapMsTaskDetailsToDomain(ms as any)
     expect(result.msDetailsEtag).toBe('')
   })
 
   it('defaults checklist and references to empty arrays when missing', () => {
     const ms = { id: 't7' }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = mapMsTaskDetailsToDomain(ms as any)
     expect(result.checklist).toEqual([])
     expect(result.references).toEqual([])
@@ -88,6 +93,7 @@ describe('mapMsTaskDetailsToDomain', () => {
         'https%3A%2F%2Fexample.com': {},
       },
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = mapMsTaskDetailsToDomain(ms as any)
     expect(result.references[0].alias).toBeNull()
     expect(result.references[0].type).toBeNull()

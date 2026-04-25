@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { BackfillGroupWorker } from './backfill-group.worker'
 import type { MsGraphClient } from '../ms-graph-client'
-import type { PlanIngestor } from './plan-ingestor'
-import type { IMsLinkedGroupRepository } from '../../../domain/repositories/ms-linked-group.repository'
 import { MsLinkedGroupEntity } from '../../../domain/entities/ms-linked-group.entity'
 import {
   MS_SYNC_BACKFILL_PROGRESS_EVENT,
@@ -38,20 +36,24 @@ describe('BackfillGroupWorker', () => {
     vi.clearAllMocks()
     vi.useFakeTimers()
 
+    /* eslint-disable @typescript-eslint/no-explicit-any */
     graph = { getAllPages: vi.fn() } as any
     ingestor = { ingestPlan: vi.fn().mockResolvedValue(undefined) } as any
     groupRepo = {
       findById: vi.fn(),
       upsert: vi.fn().mockResolvedValue(undefined),
     } as any
+    /* eslint-enable @typescript-eslint/no-explicit-any */
     eventBus = { publish: vi.fn() }
 
+    /* eslint-disable @typescript-eslint/no-explicit-any */
     worker = new BackfillGroupWorker(
       graph as any,
       ingestor as any,
       groupRepo as any,
       eventBus as any,
     )
+    /* eslint-enable @typescript-eslint/no-explicit-any */
   })
 
   afterEach(() => {

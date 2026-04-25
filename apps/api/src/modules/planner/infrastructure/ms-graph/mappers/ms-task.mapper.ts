@@ -16,14 +16,15 @@ export interface MappedMsTask {
   aadAssignments: Record<string, { orderHint: string }>
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mapMsTaskToDomain(ms: any, ctx: { tenantId: string }): MappedMsTask {
   if (!ms?.id) throw new Error('plannerTask.id missing')
 
   const assignments: Record<string, { orderHint: string }> = {}
   if (ms.assignments && typeof ms.assignments === 'object') {
     for (const [aadId, val] of Object.entries(ms.assignments)) {
-      if (val && typeof val === 'object' && 'orderHint' in (val as any)) {
-        assignments[aadId] = { orderHint: (val as any).orderHint }
+      if (val && typeof val === 'object' && 'orderHint' in val) {
+        assignments[aadId] = { orderHint: (val as Record<string, unknown>).orderHint as string }
       }
     }
   }

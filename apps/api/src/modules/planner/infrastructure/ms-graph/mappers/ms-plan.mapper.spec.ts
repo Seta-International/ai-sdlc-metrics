@@ -33,6 +33,7 @@ describe('mapMsPlanToDomain', () => {
   })
 
   it('throws on missing id', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(() => mapMsPlanToDomain({ title: 'x' } as any, { tenantId: 't1' })).toThrow(/id/)
   })
 
@@ -49,12 +50,14 @@ describe('mapMsPlanToDomain', () => {
 
   it('throws on missing containerId', () => {
     expect(() =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mapMsPlanToDomain({ id: 'p4', container: { type: 'group' } } as any, { tenantId: 't1' }),
     ).toThrow(/containerId/)
   })
 
   it('throws on unsupported container type', () => {
     expect(() =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mapMsPlanToDomain({ id: 'p5', container: { type: 'team', containerId: 'x' } } as any, {
         tenantId: 't1',
       }),

@@ -33,6 +33,7 @@ export class PlanIngestor {
   async ingestPlan(input: IngestPlanInput): Promise<void> {
     const existingState = await this.syncStateRepo.findByMsPlanId(input.tenantId, input.msPlanId)
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const planRes = await this.graph.get<any>(
       input.tenantId,
       `/planner/plans/${encodeURIComponent(input.msPlanId)}`,
@@ -63,6 +64,7 @@ export class PlanIngestor {
 
     if (!localPlan) return
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const buckets = await this.graph.getAllPages<any>(
       input.tenantId,
       `/planner/plans/${encodeURIComponent(input.msPlanId)}/buckets`,
@@ -75,6 +77,7 @@ export class PlanIngestor {
       await this.bucketRepo.upsertFromMs(mapped, { origin: input.origin })
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tasks = await this.graph.getAllPages<any>(
       input.tenantId,
       `/planner/plans/${encodeURIComponent(input.msPlanId)}/tasks`,
@@ -104,6 +107,7 @@ export class PlanIngestor {
       )
 
       if (taskEtagChanged || !existingTask || !existingTask.msDetailsEtag) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const detailsRes = await this.graph.get<any>(
           input.tenantId,
           `/planner/tasks/${encodeURIComponent(mapped.msTaskId)}/details`,
@@ -119,6 +123,7 @@ export class PlanIngestor {
       }
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const msTaskIds = new Set(tasks.map((t: any) => t.id))
     const localTasks = await this.taskRepo.listByPlan(localPlan.id, { onlySynced: true })
     for (const local of localTasks) {

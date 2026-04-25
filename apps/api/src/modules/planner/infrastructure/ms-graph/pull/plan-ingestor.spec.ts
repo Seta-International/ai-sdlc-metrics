@@ -50,10 +50,6 @@ const MS_DETAILS = (taskId: string) => ({
   references: {},
 })
 
-function makeGraph(overrides: Partial<typeof mockGraph> = {}): typeof mockGraph {
-  return { ...mockGraph, ...overrides }
-}
-
 const mockGraph = {
   get: vi.fn(),
   getAllPages: vi.fn(),

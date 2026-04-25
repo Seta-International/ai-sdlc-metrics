@@ -7,6 +7,7 @@ export interface MappedMsPlan {
   containerRef: string
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mapMsPlanToDomain(ms: any, ctx: { tenantId: string }): MappedMsPlan {
   if (!ms?.id) throw new Error('plannerPlan.id missing')
   if (!ms.container?.containerId) throw new Error('plannerPlan.container.containerId missing')

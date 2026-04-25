@@ -15,12 +15,14 @@ describe('LinkMsGroupHandler', () => {
     const pgBoss = { send: vi.fn().mockResolvedValue('job-123') }
     const eventBus = { publish: vi.fn() }
 
+    /* eslint-disable @typescript-eslint/no-explicit-any */
     const handler = new LinkMsGroupHandler(
       graph as any,
       groupRepo as any,
       pgBoss as any,
       eventBus as any,
     )
+    /* eslint-enable @typescript-eslint/no-explicit-any */
     await handler.execute(new LinkMsGroupCommand('t1', 'a1', 'g1'))
 
     expect(graph.get).toHaveBeenCalledWith('t1', '/groups/g1?$select=id,displayName')
@@ -43,12 +45,14 @@ describe('LinkMsGroupHandler', () => {
     const pgBoss = { send: vi.fn() }
     const eventBus = { publish: vi.fn() }
 
+    /* eslint-disable @typescript-eslint/no-explicit-any */
     const handler = new LinkMsGroupHandler(
       graph as any,
       groupRepo as any,
       pgBoss as any,
       eventBus as any,
     )
+    /* eslint-enable @typescript-eslint/no-explicit-any */
     await expect(handler.execute(new LinkMsGroupCommand('t1', 'a1', 'g1'))).rejects.toThrow(
       /already linked/i,
     )

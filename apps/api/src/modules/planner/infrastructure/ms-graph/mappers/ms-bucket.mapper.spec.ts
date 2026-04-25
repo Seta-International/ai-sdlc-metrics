@@ -22,6 +22,7 @@ describe('mapMsBucketToDomain', () => {
 
   it('throws on missing id', () => {
     expect(() =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mapMsBucketToDomain({ name: 'No id', planId: 'p1' } as any, {
         tenantId: 't1',
         localPlanId: 'lp1',
@@ -37,12 +38,14 @@ describe('mapMsBucketToDomain', () => {
 
   it('defaults name to empty string when missing', () => {
     const ms = { id: 'b3', planId: 'p3', orderHint: ' !' }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = mapMsBucketToDomain(ms as any, { tenantId: 't1', localPlanId: 'lp3' })
     expect(result.name).toBe('')
   })
 
   it('defaults orderHint to empty string when missing', () => {
     const ms = { id: 'b4', name: 'Done', planId: 'p4' }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = mapMsBucketToDomain(ms as any, { tenantId: 't1', localPlanId: 'lp4' })
     expect(result.orderHint).toBe('')
   })
