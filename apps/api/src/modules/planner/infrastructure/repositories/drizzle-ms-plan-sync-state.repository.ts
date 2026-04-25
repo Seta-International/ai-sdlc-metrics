@@ -20,6 +20,15 @@ export class DrizzleMsPlanSyncStateRepository implements IMsPlanSyncStateReposit
     return rows.length > 0 ? rowToEntity(rows[0]) : null
   }
 
+  async findByMsPlanId(tenantId: string, msPlanId: string): Promise<MsPlanSyncStateEntity | null> {
+    const rows = await this.db
+      .select()
+      .from(msPlanSyncState)
+      .where(and(eq(msPlanSyncState.tenantId, tenantId), eq(msPlanSyncState.msPlanId, msPlanId)))
+      .limit(1)
+    return rows.length > 0 ? rowToEntity(rows[0]) : null
+  }
+
   async upsertState(entity: MsPlanSyncStateEntity): Promise<void> {
     await this.db
       .insert(msPlanSyncState)

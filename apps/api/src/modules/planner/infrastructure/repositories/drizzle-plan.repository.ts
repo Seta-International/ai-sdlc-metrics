@@ -10,6 +10,7 @@ import {
   plannerPlanLabel,
   plannerPlanMember,
 } from '../schema/planner.schema'
+import type { MsPlanUpsertProps } from '../../domain/repositories/plan.repository'
 import { planRowToEntity, planEntityToRow } from './mappers/plan.mapper'
 import { bucketRowToEntity } from './mappers/bucket.mapper'
 import { planLabelRowToEntity } from './mappers/plan-label.mapper'
@@ -179,5 +180,43 @@ export class DrizzlePlanRepository implements IPlanRepository {
           isNull(plannerPlan.deletedAt),
         ),
       )
+  }
+
+  async upsertFromMs(props: MsPlanUpsertProps, _opts: { origin: string }): Promise<{ id: string }> {
+    const existing = await this.db
+      .select({ id: plannerPlan.id })
+      .from(plannerPlan)
+      .where(
+        and(eq(plannerPlan.tenantId, props.tenantId), eq(plannerPlan.msPlanId, props.msPlanId)),
+      )
+      .limit(1)
+
+    if (existing[0]) {
+      await this.db
+        .update(plannerPlan)
+        .set({
+          name: props.title,
+          containerType: props.containerType,
+          containerRef: props.containerRef,
+          msPlanEtag: props.msPlanEtag,
+          updatedAt: sql`NOW()`,
+        })
+        .where(eq(plannerPlan.id, existing[0].id))
+      return { id: existing[0].id }
+    }
+
+    const rows = await this.db
+      .insert(plannerPlan)
+      .values({
+        tenantId: props.tenantId,
+        name: props.title,
+        containerType: props.containerType,
+        containerRef: props.containerRef,
+        msPlanId: props.msPlanId,
+        msPlanEtag: props.msPlanEtag,
+        createdBy: props.tenantId,
+      })
+      .returning({ id: plannerPlan.id })
+    return { id: rows[0].id }
   }
 }

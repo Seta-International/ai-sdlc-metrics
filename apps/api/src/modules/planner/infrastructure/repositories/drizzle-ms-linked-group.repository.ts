@@ -10,6 +10,11 @@ import { msLinkedGroup } from '../schema/planner.schema'
 export class DrizzleMsLinkedGroupRepository implements IMsLinkedGroupRepository {
   constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
+  async findById(id: string): Promise<MsLinkedGroupEntity | null> {
+    const rows = await this.db.select().from(msLinkedGroup).where(eq(msLinkedGroup.id, id)).limit(1)
+    return rows.length > 0 ? rowToEntity(rows[0]) : null
+  }
+
   async findByTenantAndGroup(
     tenantId: string,
     msGroupId: string,

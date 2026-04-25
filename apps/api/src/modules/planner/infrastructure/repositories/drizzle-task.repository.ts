@@ -2,12 +2,23 @@ import { Injectable, Inject } from '@nestjs/common'
 import type { Db } from '@future/db'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { DB_TOKEN } from '../../../../common/db/db.module'
-import type { ITaskRepository } from '../../domain/repositories/task.repository'
+import type {
+  ITaskRepository,
+  MsTaskUpsertProps,
+  MsTaskDetailsUpsertProps,
+  MsSyncedTaskRef,
+} from '../../domain/repositories/task.repository'
 import { Task } from '../../domain/entities/task.entity'
 import { TaskAssignee } from '../../domain/entities/task-assignee.value-object'
 import { LabelSlot } from '../../domain/value-objects/label-slot.vo'
 import { ConcurrentModificationException } from '../../domain/exceptions/concurrent-modification.exception'
-import { plannerTask, plannerTaskAssignee, plannerTaskAppliedLabel } from '../schema/planner.schema'
+import {
+  plannerTask,
+  plannerTaskAssignee,
+  plannerTaskAppliedLabel,
+  plannerBucket,
+  plannerTaskChecklistItem,
+} from '../schema/planner.schema'
 import { taskRowToEntity } from './mappers/task.mapper'
 
 @Injectable()
@@ -307,5 +318,198 @@ export class DrizzleTaskRepository implements ITaskRepository {
       .returning({ id: plannerTask.id })
 
     return rows.map((r) => r.id)
+  }
+
+  async findByMsTaskId(
+    tenantId: string,
+    msTaskId: string,
+  ): Promise<{
+    id: string
+    msTaskEtag: string | null
+    msDetailsEtag: string | null
+    msSoftDeletedAt: Date | null
+  } | null> {
+    const rows = await this.db
+      .select({
+        id: plannerTask.id,
+        msTaskEtag: plannerTask.msTaskEtag,
+        msDetailsEtag: plannerTask.msTaskDetailsEtag,
+        msSoftDeletedAt: plannerTask.msSoftDeletedAt,
+      })
+      .from(plannerTask)
+      .where(and(eq(plannerTask.tenantId, tenantId), eq(plannerTask.msTaskId, msTaskId)))
+      .limit(1)
+    if (!rows[0]) return null
+    return {
+      id: rows[0].id,
+      msTaskEtag: rows[0].msTaskEtag ?? null,
+      msDetailsEtag: rows[0].msDetailsEtag ?? null,
+      msSoftDeletedAt: rows[0].msSoftDeletedAt ?? null,
+    }
+  }
+
+  async upsertFromMs(props: MsTaskUpsertProps, _opts: { origin: string }): Promise<{ id: string }> {
+    let bucketId: string | null = null
+    if (props.msBucketId) {
+      const row = await this.db
+        .select({ id: plannerBucket.id })
+        .from(plannerBucket)
+        .where(
+          and(
+            eq(plannerBucket.tenantId, props.tenantId),
+            eq(plannerBucket.msBucketId, props.msBucketId),
+          ),
+        )
+        .limit(1)
+      bucketId = row[0]?.id ?? null
+    }
+    if (!bucketId) throw new Error(`Bucket not found for msBucketId=${props.msBucketId}`)
+
+    const progress: 0 | 50 | 100 =
+      props.percentComplete >= 75 ? 100 : props.percentComplete >= 25 ? 50 : 0
+    const completedAt = progress === 100 ? (props.completedDateTime ?? new Date()) : null
+
+    const existing = await this.db
+      .select({ id: plannerTask.id })
+      .from(plannerTask)
+      .where(
+        and(eq(plannerTask.tenantId, props.tenantId), eq(plannerTask.msTaskId, props.msTaskId)),
+      )
+      .limit(1)
+
+    let taskId: string
+    if (existing[0]) {
+      taskId = existing[0].id
+      await this.db
+        .update(plannerTask)
+        .set({
+          bucketId,
+          title: props.title,
+          orderHint: props.orderHint,
+          progress,
+          priority: props.priority as 1 | 3 | 5 | 9,
+          startDate: props.startDateTime ? props.startDateTime.toISOString().split('T')[0] : null,
+          dueDate: props.dueDateTime ? props.dueDateTime.toISOString().split('T')[0] : null,
+          completedAt,
+          msTaskEtag: props.msTaskEtag,
+          pendingMsAssignments: props.pendingMsAssignments,
+          updatedAt: sql`NOW()`,
+        })
+        .where(eq(plannerTask.id, taskId))
+    } else {
+      const rows = await this.db
+        .insert(plannerTask)
+        .values({
+          tenantId: props.tenantId,
+          planId: props.localPlanId,
+          bucketId,
+          title: props.title,
+          orderHint: props.orderHint,
+          progress,
+          priority: props.priority as 1 | 3 | 5 | 9,
+          startDate: props.startDateTime ? props.startDateTime.toISOString().split('T')[0] : null,
+          dueDate: props.dueDateTime ? props.dueDateTime.toISOString().split('T')[0] : null,
+          completedAt,
+          createdBy: props.tenantId,
+          msTaskId: props.msTaskId,
+          msTaskEtag: props.msTaskEtag,
+          pendingMsAssignments: props.pendingMsAssignments,
+        })
+        .returning({ id: plannerTask.id })
+      taskId = rows[0].id
+    }
+
+    await this.db
+      .delete(plannerTaskAssignee)
+      .where(
+        and(
+          eq(plannerTaskAssignee.taskId, taskId),
+          eq(plannerTaskAssignee.tenantId, props.tenantId),
+        ),
+      )
+    for (const actorId of props.assigneeActorIds) {
+      await this.db.insert(plannerTaskAssignee).values({
+        taskId,
+        actorId,
+        assignedBy: props.tenantId,
+        tenantId: props.tenantId,
+      })
+    }
+
+    return { id: taskId }
+  }
+
+  async upsertDetailsFromMs(
+    props: MsTaskDetailsUpsertProps,
+    _opts: { origin: string },
+  ): Promise<void> {
+    const taskRow = await this.db
+      .select({ tenantId: plannerTask.tenantId })
+      .from(plannerTask)
+      .where(eq(plannerTask.id, props.taskId))
+      .limit(1)
+    const tenantId = taskRow[0]?.tenantId ?? ''
+
+    const checkedCount = props.checklist.filter((c) => c.isChecked).length
+
+    await this.db
+      .update(plannerTask)
+      .set({
+        msTaskDetailsEtag: props.msDetailsEtag,
+        checklistItemCount: props.checklist.length,
+        checklistCheckedCount: checkedCount,
+        updatedAt: sql`NOW()`,
+      })
+      .where(eq(plannerTask.id, props.taskId))
+
+    await this.db
+      .delete(plannerTaskChecklistItem)
+      .where(eq(plannerTaskChecklistItem.taskId, props.taskId))
+
+    for (const item of props.checklist) {
+      await this.db.insert(plannerTaskChecklistItem).values({
+        taskId: props.taskId,
+        title: item.title,
+        isChecked: item.isChecked,
+        orderHint: item.orderHint,
+        tenantId,
+        createdBy: tenantId,
+      })
+    }
+  }
+
+  async softDeleteFromMs(id: string, _opts: { origin: string }): Promise<void> {
+    await this.db
+      .update(plannerTask)
+      .set({ msSoftDeletedAt: sql`NOW()`, updatedAt: sql`NOW()` })
+      .where(eq(plannerTask.id, id))
+  }
+
+  async listByPlan(planId: string, opts: { onlySynced: boolean }): Promise<MsSyncedTaskRef[]> {
+    const rows = await this.db
+      .select({
+        id: plannerTask.id,
+        msTaskId: plannerTask.msTaskId,
+        msTaskEtag: plannerTask.msTaskEtag,
+        msDetailsEtag: plannerTask.msTaskDetailsEtag,
+        msSoftDeletedAt: plannerTask.msSoftDeletedAt,
+      })
+      .from(plannerTask)
+      .where(
+        opts.onlySynced
+          ? and(
+              eq(plannerTask.planId, planId),
+              isNull(plannerTask.deletedAt),
+              sql`${plannerTask.msTaskId} IS NOT NULL`,
+            )
+          : and(eq(plannerTask.planId, planId), isNull(plannerTask.deletedAt)),
+      )
+    return rows.map((r) => ({
+      id: r.id,
+      msTaskId: r.msTaskId ?? null,
+      msTaskEtag: r.msTaskEtag ?? null,
+      msDetailsEtag: r.msDetailsEtag ?? null,
+      msSoftDeletedAt: r.msSoftDeletedAt ?? null,
+    }))
   }
 }
