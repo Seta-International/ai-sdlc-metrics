@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { ReadinessValidator } from './readiness-validator'
 import type {
   CriterionEvaluator,
