@@ -394,6 +394,7 @@ CREATE TABLE "agents"."agent_rollout_config" (
 --> statement-breakpoint
 CREATE TABLE "agents"."agent_rollout_event" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"tenant_id" uuid NOT NULL,
 	"rollout_config_id" uuid NOT NULL,
 	"event_type" text NOT NULL,
 	"from_percentage" numeric(5, 2),
@@ -1674,6 +1675,7 @@ CREATE UNIQUE INDEX "agent_pricing_model_effective_from_uidx" ON "agents"."agent
 CREATE INDEX "agent_rate_limit_counter_lookup_idx" ON "agents"."agent_rate_limit_counter" USING btree ("tenant_id","user_id","limit_key","bucket");--> statement-breakpoint
 CREATE INDEX "agent_rollout_config_tenant_status_idx" ON "agents"."agent_rollout_config" USING btree ("tenant_id","status");--> statement-breakpoint
 CREATE INDEX "agent_rollout_event_config_ts_idx" ON "agents"."agent_rollout_event" USING btree ("rollout_config_id","ts" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_rollout_event_tenant_ts_idx" ON "agents"."agent_rollout_event" USING btree ("tenant_id","ts" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_session_conversation_lookup_idx" ON "agents"."agent_session" USING btree ("tenant_id","user_id","conversation_id","started_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE UNIQUE INDEX "agent_session_conversation_active_uq" ON "agents"."agent_session" USING btree ("tenant_id","conversation_id") WHERE ended_at IS NULL;--> statement-breakpoint
 CREATE INDEX "agent_shadow_run_config_ts_idx" ON "agents"."agent_shadow_run" USING btree ("rollout_config_id","ts" DESC NULLS LAST);--> statement-breakpoint

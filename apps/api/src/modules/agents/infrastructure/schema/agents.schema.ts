@@ -725,6 +725,7 @@ export const agentRolloutEvent = agentsSchema.table(
   'agent_rollout_event',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull(),
     rolloutConfigId: uuid('rollout_config_id').notNull(),
     eventType: text('event_type').notNull(),
     fromPercentage: numeric('from_percentage', { precision: 5, scale: 2 }),
@@ -735,6 +736,7 @@ export const agentRolloutEvent = agentsSchema.table(
   },
   (t) => [
     index('agent_rollout_event_config_ts_idx').on(t.rolloutConfigId, t.ts.desc()),
+    index('agent_rollout_event_tenant_ts_idx').on(t.tenantId, t.ts.desc()),
     check(
       'agent_rollout_event_event_type_check',
       sql`${t.eventType} IN ('activated', 'percentage_shifted', 'auto_rolled_back', 'manually_rolled_back', 'completed')`,

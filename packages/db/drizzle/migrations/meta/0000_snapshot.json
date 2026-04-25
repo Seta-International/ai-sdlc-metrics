@@ -1,5 +1,5 @@
 {
-  "id": "1a47c396-91ae-40a9-81c3-d4d182fe34e4",
+  "id": "d8cbd2c7-3c5d-4c33-b3a8-a3c8b149900b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2719,6 +2719,12 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "rollout_config_id": {
           "name": "rollout_config_id",
           "type": "uuid",
@@ -2769,6 +2775,27 @@
           "columns": [
             {
               "expression": "rollout_config_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ts",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "agent_rollout_event_tenant_ts_idx": {
+          "name": "agent_rollout_event_tenant_ts_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
