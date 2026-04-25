@@ -9,4 +9,16 @@ export {
   agentScorerRegistration,
   agentCanaryRun,
   agentCanaryQuery,
+  agentRolloutConfig,
+  agentRolloutEvent,
+  agentShadowRun,
+} from './agents.schema'
+export type {
+  RegressionThresholds,
+  AgentRolloutConfigRow,
+  AgentRolloutEventRow,
+  AgentShadowRunRow,
+  NewAgentRolloutConfigRow,
+  NewAgentRolloutEventRow,
+  NewAgentShadowRunRow,
 } from './agents.schema'

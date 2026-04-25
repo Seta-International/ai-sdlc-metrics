@@ -105,6 +105,9 @@ export const PERMISSIONS = {
 
   // ── agent drafts (Plan 08 — compliance audit surface) ─────────────────
   AGENT_DRAFT_AUDIT_READ: 'agent:draft:audit:read',
+
+  // ── agent rollout (Plan 11 — canary rollout management, admin-tier) ────
+  AGENT_ROLLOUT_MANAGE: 'agent:rollout:manage',
 } as const
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

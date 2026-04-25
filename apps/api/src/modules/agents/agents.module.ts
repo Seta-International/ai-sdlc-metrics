@@ -59,6 +59,7 @@ import { setPreferencesService } from './interface/trpc/preferences.router'
 import { setConversationRepository } from './interface/trpc/conversation.router'
 import { setDraftRepository } from './interface/trpc/draft-audit.router'
 import { setScheduleHandlers } from './interface/trpc/schedule-ui-facade'
+import { setRolloutHandlers } from './interface/trpc/rollout.router'
 // Plan 09 — Async Agents + Scheduling
 import { SCHEDULE_REPOSITORY } from './domain/repositories/schedule.repository'
 import {
@@ -169,12 +170,21 @@ import type { ScratchpadRepository } from './domain/repositories/scratchpad.repo
 import type { SemanticIndexRepository } from './domain/repositories/semantic-index.repository'
 import type { IDraftRepository } from './domain/repositories/draft.repository'
 import { PgBossService } from '../../common/jobs/pg-boss.service'
+import { DB_TOKEN } from '../../common/db/db.module'
+import type { Db } from '@future/db'
 // Module sub-agent barrels.
 //   • Adding a sub-agent to an EXISTING module: re-export it from that module's
 //     barrel (agent/sub-agents/index.ts). No changes here are needed.
 //   • Adding sub-agents for a NEW domain module: add a new import below and
 //     include the descriptor(s) in the `descriptors` array in onModuleInit().
 import { plannerReadOnlySubAgent } from '../planner/agent/sub-agents'
+// Plan 11 — Shadow-mode Traffic + Canary Rollout
+import { RolloutResolver } from './application/services/rollout-resolver'
+import { ShadowDiffScorer } from './application/services/shadow-diff-scorer'
+import { ShadowExecutor } from './application/services/shadow-executor'
+import { ShadowTurnWorker } from './infrastructure/workers/shadow-turn-worker'
+import { RegressionSignalMonitor } from './application/services/regression-signal-monitor'
+import { AutoRollbackOrchestrator } from './application/services/auto-rollback-orchestrator'
 // Plan 10 — Harness + Replay + Canary
 import { ReplayHarness, REPLAY_HARNESS } from './application/services/replay-harness'
 import { ScorerRegistry, SCORER_REGISTRY } from './application/services/scorer-registry'
@@ -427,6 +437,13 @@ class NullTenantLister implements TenantListerLike {
     { provide: TOOL_REGISTRY_TOKEN, useExisting: ToolRegistry },
     IntentDriftScorer,
     { provide: INTENT_DRIFT_SCORER, useExisting: IntentDriftScorer },
+    // ── Plan 11 — Shadow-mode Traffic + Canary Rollout ─────────────────────────
+    RolloutResolver,
+    ShadowDiffScorer,
+    ShadowExecutor,
+    ShadowTurnWorker,
+    RegressionSignalMonitor,
+    AutoRollbackOrchestrator,
   ],
   exports: [
     AgentsQueryFacade,
@@ -489,6 +506,11 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly scorerRegistry: ScorerRegistry,
     private readonly intentDriftScorer: IntentDriftScorer,
     private readonly qualityCanaryScheduler: QualityCanaryScheduler,
+    // Plan 11 — Shadow-mode Traffic + Canary Rollout
+    private readonly shadowTurnWorker: ShadowTurnWorker,
+    @Inject(DB_TOKEN) private readonly db: Db,
+    private readonly kernelAuditFacade: KernelAuditFacade,
+    private readonly autoRollbackOrchestrator: AutoRollbackOrchestrator,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -508,6 +530,11 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
       scheduleRepository: this.scheduleRepository,
       delegationLifecycle: this.delegationLifecycle,
       scheduleRunRepository: this.scheduleRunRepository,
+    })
+    setRolloutHandlers({
+      db: this.db,
+      kernelAuditFacade: this.kernelAuditFacade,
+      autoRollbackOrchestrator: this.autoRollbackOrchestrator,
     })
 
     // Step 1: Load agent tools from the assembled tRPC router.

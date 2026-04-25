@@ -11,8 +11,21 @@ const config: Linter.Config[] = [
   reactPlugin.configs['recommended-typescript'] as Linter.Config,
   // Next.js-specific rules
   nextPlugin.configs['recommended'] as Linter.Config,
-  // Tailwind CSS design system enforcement — bans all arbitrary values
-  ...(tailwindcss.configs['flat/recommended'] as Linter.Config[]),
+  // Tailwind CSS design system enforcement — bans all arbitrary values.
+  // eslint-plugin-tailwindcss@3.18.3 bug: flat/recommended registers only 2/8 rules in its
+  // plugin object. Patch by replacing that entry's plugin registration with the full export.
+  ...(() => {
+    const flat = tailwindcss.configs['flat/recommended'] as Linter.Config[]
+    return [
+      {
+        ...flat[0],
+        plugins: {
+          tailwindcss: tailwindcss as unknown as NonNullable<Linter.Config['plugins']>[string],
+        },
+      },
+      ...flat.slice(1),
+    ]
+  })(),
   {
     settings: {
       tailwindcss: {
@@ -32,6 +45,8 @@ const config: Linter.Config[] = [
       // Tailwind v4 uses CSS-based @theme config — plugin cannot read it, so all design tokens
       // are flagged as unknown. Disable until eslint-plugin-tailwindcss adds v4 CSS config support.
       'tailwindcss/no-custom-classname': 'off',
+      // Not relevant in Tailwind v4 (negative values use different syntax)
+      'tailwindcss/enforces-negative-arbitrary-values': 'off',
     },
   },
   prettier,

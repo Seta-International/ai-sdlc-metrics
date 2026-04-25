@@ -1,5 +1,5 @@
 {
-  "id": "322e74ed-b1f5-42d8-99be-52119325269c",
+  "id": "313c67c1-5de1-4e1e-aa72-f96373214871",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2561,6 +2561,276 @@
       },
       "isRLSEnabled": false
     },
+    "agents.agent_rollout_config": {
+      "name": "agent_rollout_config",
+      "schema": "agents",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "change_class": {
+          "name": "change_class",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "candidate_version": {
+          "name": "candidate_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "baseline_version": {
+          "name": "baseline_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stability_key": {
+          "name": "stability_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "traffic_percentage": {
+          "name": "traffic_percentage",
+          "type": "numeric(5, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "shadow_enabled": {
+          "name": "shadow_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "auto_rollback_enabled": {
+          "name": "auto_rollback_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "regression_thresholds": {
+          "name": "regression_thresholds",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'drafting'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "activated_at": {
+          "name": "activated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_or_rolled_back_at": {
+          "name": "completed_or_rolled_back_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "agent_rollout_config_tenant_status_class_idx": {
+          "name": "agent_rollout_config_tenant_status_class_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "change_class",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "agent_rollout_config_change_class_check": {
+          "name": "agent_rollout_config_change_class_check",
+          "value": "\"agents\".\"agent_rollout_config\".\"change_class\" IN ('router', 'planner', 'model', 'tool_meta', 'sub_agent_prompt')"
+        },
+        "agent_rollout_config_stability_key_check": {
+          "name": "agent_rollout_config_stability_key_check",
+          "value": "\"agents\".\"agent_rollout_config\".\"stability_key\" IN ('tenant_id', 'tenant_id+user_id')"
+        },
+        "agent_rollout_config_traffic_percentage_check": {
+          "name": "agent_rollout_config_traffic_percentage_check",
+          "value": "\"agents\".\"agent_rollout_config\".\"traffic_percentage\" >= 0 AND \"agents\".\"agent_rollout_config\".\"traffic_percentage\" <= 100"
+        },
+        "agent_rollout_config_status_check": {
+          "name": "agent_rollout_config_status_check",
+          "value": "\"agents\".\"agent_rollout_config\".\"status\" IN ('drafting', 'active', 'rolled_back', 'completed')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "agents.agent_rollout_event": {
+      "name": "agent_rollout_event",
+      "schema": "agents",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rollout_config_id": {
+          "name": "rollout_config_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_percentage": {
+          "name": "from_percentage",
+          "type": "numeric(5, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "to_percentage": {
+          "name": "to_percentage",
+          "type": "numeric(5, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "triggered_by": {
+          "name": "triggered_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ts": {
+          "name": "ts",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "agent_rollout_event_config_ts_idx": {
+          "name": "agent_rollout_event_config_ts_idx",
+          "columns": [
+            {
+              "expression": "rollout_config_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ts",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "agent_rollout_event_tenant_ts_idx": {
+          "name": "agent_rollout_event_tenant_ts_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ts",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "agent_rollout_event_event_type_check": {
+          "name": "agent_rollout_event_event_type_check",
+          "value": "\"agents\".\"agent_rollout_event\".\"event_type\" IN ('activated', 'percentage_shifted', 'auto_rolled_back', 'manually_rolled_back', 'completed')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "agents.agent_scorer_registration": {
       "name": "agent_scorer_registration",
       "schema": "agents",
@@ -2832,6 +3102,133 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "agents.agent_shadow_run": {
+      "name": "agent_shadow_run",
+      "schema": "agents",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "baseline_trace_id": {
+          "name": "baseline_trace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "shadow_trace_id": {
+          "name": "shadow_trace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rollout_config_id": {
+          "name": "rollout_config_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "candidate_version": {
+          "name": "candidate_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "baseline_version": {
+          "name": "baseline_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "diff_score": {
+          "name": "diff_score",
+          "type": "numeric(5, 4)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "diff_category": {
+          "name": "diff_category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ts": {
+          "name": "ts",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "agent_shadow_run_config_ts_idx": {
+          "name": "agent_shadow_run_config_ts_idx",
+          "columns": [
+            {
+              "expression": "rollout_config_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ts",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "agent_shadow_run_tenant_ts_idx": {
+          "name": "agent_shadow_run_tenant_ts_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ts",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "agent_shadow_run_diff_category_check": {
+          "name": "agent_shadow_run_diff_category_check",
+          "value": "\"agents\".\"agent_shadow_run\".\"diff_category\" IN ('identical', 'minor_difference', 'major_difference', 'shadow_errored')"
+        },
+        "agent_shadow_run_diff_score_range_check": {
+          "name": "agent_shadow_run_diff_score_range_check",
+          "value": "\"agents\".\"agent_shadow_run\".\"diff_score\" >= 0 AND \"agents\".\"agent_shadow_run\".\"diff_score\" <= 1"
+        }
+      },
       "isRLSEnabled": false
     },
     "agents.agent_stored_sub_agent": {

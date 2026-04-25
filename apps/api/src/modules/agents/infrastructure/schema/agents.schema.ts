@@ -646,3 +646,143 @@ export const agentCanaryQuery = agentsSchema.table(
     check('agent_canary_query_status_check', sql`${t.status} IN ('active', 'retired')`),
   ],
 )
+
+// ─── Plan 11 — Shadow-mode Traffic + Canary Rollout Mechanics ─────────────────
+
+/**
+ * Shape of regression thresholds stored in agent_rollout_config.
+ * All values are ratios or fractional percentages (e.g. 0.02 = 2%).
+ */
+export interface RegressionThresholds {
+  /** Maximum acceptable error rate for candidate (e.g. 0.02 = 2%). */
+  error_rate_max: number
+  /** Maximum acceptable cost increase as a fraction (e.g. 0.20 = 20%). */
+  cost_delta_pct_max: number
+  /** Maximum acceptable drop in initiator approval rate in percentage points (e.g. 0.10 = 10pp). */
+  initiator_approval_drop_max: number
+  /** Maximum acceptable drop in router accuracy signal (e.g. 0.15 = 15%). */
+  router_accuracy_signal_max: number
+}
+
+/**
+ * Plan 11 — Rollout configuration for a single candidate change class.
+ *
+ * One row per active rollout (e.g. a new router version going from 0% → 100%).
+ * The `status` lifecycle: drafting → active → (rolled_back | completed).
+ * Shadow mode is an optional parallel-execution layer that fires the candidate
+ * silently alongside the baseline and records diff scores without serving the
+ * candidate response to the user.
+ */
+export const agentRolloutConfig = agentsSchema.table(
+  'agent_rollout_config',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull(),
+    changeClass: text('change_class').notNull(),
+    candidateVersion: text('candidate_version').notNull(),
+    baselineVersion: text('baseline_version').notNull(),
+    stabilityKey: text('stability_key').notNull(),
+    trafficPercentage: numeric('traffic_percentage', { precision: 5, scale: 2 }).notNull(),
+    shadowEnabled: boolean('shadow_enabled').notNull().default(false),
+    autoRollbackEnabled: boolean('auto_rollback_enabled').notNull().default(true),
+    regressionThresholds: jsonb('regression_thresholds').notNull().$type<RegressionThresholds>(),
+    status: text('status').notNull().default('drafting'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    activatedAt: timestamp('activated_at', { withTimezone: true }),
+    completedOrRolledBackAt: timestamp('completed_or_rolled_back_at', { withTimezone: true }),
+    createdBy: uuid('created_by').notNull(),
+  },
+  (t) => [
+    index('agent_rollout_config_tenant_status_class_idx').on(t.tenantId, t.status, t.changeClass),
+    check(
+      'agent_rollout_config_change_class_check',
+      sql`${t.changeClass} IN ('router', 'planner', 'model', 'tool_meta', 'sub_agent_prompt')`,
+    ),
+    check(
+      'agent_rollout_config_stability_key_check',
+      sql`${t.stabilityKey} IN ('tenant_id', 'tenant_id+user_id')`,
+    ),
+    check(
+      'agent_rollout_config_traffic_percentage_check',
+      sql`${t.trafficPercentage} >= 0 AND ${t.trafficPercentage} <= 100`,
+    ),
+    check(
+      'agent_rollout_config_status_check',
+      sql`${t.status} IN ('drafting', 'active', 'rolled_back', 'completed')`,
+    ),
+  ],
+)
+
+/**
+ * Plan 11 — Append-only audit trail of lifecycle events for a rollout config.
+ *
+ * One row per state transition (activation, percentage shift, rollback,
+ * completion). The `triggered_by` field uses a structured prefix:
+ *   'human:<user_id>' — operator action
+ *   'auto:<signal_name>' — automated rollback signal
+ */
+export const agentRolloutEvent = agentsSchema.table(
+  'agent_rollout_event',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull(),
+    rolloutConfigId: uuid('rollout_config_id').notNull(),
+    eventType: text('event_type').notNull(),
+    fromPercentage: numeric('from_percentage', { precision: 5, scale: 2 }),
+    toPercentage: numeric('to_percentage', { precision: 5, scale: 2 }),
+    reason: text('reason').notNull(),
+    triggeredBy: text('triggered_by').notNull(),
+    ts: timestamp('ts', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('agent_rollout_event_config_ts_idx').on(t.rolloutConfigId, t.ts.desc()),
+    index('agent_rollout_event_tenant_ts_idx').on(t.tenantId, t.ts.desc()),
+    check(
+      'agent_rollout_event_event_type_check',
+      sql`${t.eventType} IN ('activated', 'percentage_shifted', 'auto_rolled_back', 'manually_rolled_back', 'completed')`,
+    ),
+  ],
+)
+
+/**
+ * Plan 11 — Per-request shadow execution comparison record.
+ *
+ * One row for every request where the candidate was silently fired in parallel
+ * with the baseline. Stores a diff score (0.0 = identical output, 1.0 = fully
+ * diverged) and a categorical diff label so regression dashboards can triage
+ * by severity without re-running the comparison.
+ */
+export const agentShadowRun = agentsSchema.table(
+  'agent_shadow_run',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull(),
+    baselineTraceId: uuid('baseline_trace_id').notNull(),
+    shadowTraceId: uuid('shadow_trace_id').notNull(),
+    rolloutConfigId: uuid('rollout_config_id').notNull(),
+    candidateVersion: text('candidate_version').notNull(),
+    baselineVersion: text('baseline_version').notNull(),
+    diffScore: numeric('diff_score', { precision: 5, scale: 4 }).notNull(),
+    diffCategory: text('diff_category').notNull(),
+    ts: timestamp('ts', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('agent_shadow_run_config_ts_idx').on(t.rolloutConfigId, t.ts.desc()),
+    index('agent_shadow_run_tenant_ts_idx').on(t.tenantId, t.ts.desc()),
+    check(
+      'agent_shadow_run_diff_category_check',
+      sql`${t.diffCategory} IN ('identical', 'minor_difference', 'major_difference', 'shadow_errored')`,
+    ),
+    check(
+      'agent_shadow_run_diff_score_range_check',
+      sql`${t.diffScore} >= 0 AND ${t.diffScore} <= 1`,
+    ),
+  ],
+)
+
+export type AgentRolloutConfigRow = typeof agentRolloutConfig.$inferSelect
+export type AgentRolloutEventRow = typeof agentRolloutEvent.$inferSelect
+export type AgentShadowRunRow = typeof agentShadowRun.$inferSelect
+export type NewAgentRolloutConfigRow = typeof agentRolloutConfig.$inferInsert
+export type NewAgentRolloutEventRow = typeof agentRolloutEvent.$inferInsert
+export type NewAgentShadowRunRow = typeof agentShadowRun.$inferInsert
