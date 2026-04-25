@@ -19,4 +19,5 @@ export interface IPlanRepository {
   save(plan: Plan): Promise<void>
   softDelete(id: string, tenantId: string): Promise<void>
   upsertFromMs(props: MsPlanUpsertProps, opts: { origin: string }): Promise<{ id: string }>
+  convertAllToFutureOnly(tenantId: string): Promise<void>
 }

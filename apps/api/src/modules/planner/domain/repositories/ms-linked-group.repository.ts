@@ -8,4 +8,5 @@ export interface IMsLinkedGroupRepository {
   listForTenant(tenantId: string): Promise<MsLinkedGroupEntity[]>
   upsert(entity: MsLinkedGroupEntity): Promise<void>
   remove(id: string, tenantId: string): Promise<void>
+  removeAllForTenant(tenantId: string): Promise<void>
 }

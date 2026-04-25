@@ -9,4 +9,5 @@ export interface IMsPlanSyncStateRepository {
   listForTenant(tenantId: string): Promise<MsPlanSyncStateEntity[]>
   /** Returns states whose pollPausedUntil has elapsed — ready to resume polling. */
   listPausable(tenantId: string): Promise<MsPlanSyncStateEntity[]>
+  removeAllForTenant(tenantId: string): Promise<void>
 }

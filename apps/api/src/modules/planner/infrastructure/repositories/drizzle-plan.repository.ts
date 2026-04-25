@@ -182,6 +182,13 @@ export class DrizzlePlanRepository implements IPlanRepository {
       )
   }
 
+  async convertAllToFutureOnly(tenantId: string): Promise<void> {
+    await this.db
+      .update(plannerPlan)
+      .set({ containerType: 'future_only', containerRef: null, msPlanId: null, msPlanEtag: null })
+      .where(eq(plannerPlan.tenantId, tenantId))
+  }
+
   async upsertFromMs(props: MsPlanUpsertProps, _opts: { origin: string }): Promise<{ id: string }> {
     const existing = await this.db
       .select({ id: plannerPlan.id })

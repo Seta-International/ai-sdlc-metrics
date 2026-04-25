@@ -67,6 +67,10 @@ export class DrizzleMsLinkedGroupRepository implements IMsLinkedGroupRepository 
       .delete(msLinkedGroup)
       .where(and(eq(msLinkedGroup.id, id), eq(msLinkedGroup.tenantId, tenantId)))
   }
+
+  async removeAllForTenant(tenantId: string): Promise<void> {
+    await this.db.delete(msLinkedGroup).where(eq(msLinkedGroup.tenantId, tenantId))
+  }
 }
 
 type MsLinkedGroupRow = typeof msLinkedGroup.$inferSelect

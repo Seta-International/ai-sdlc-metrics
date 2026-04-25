@@ -79,6 +79,10 @@ export class DrizzleMsPlanSyncStateRepository implements IMsPlanSyncStateReposit
       )
     return rows.map(rowToEntity)
   }
+
+  async removeAllForTenant(tenantId: string): Promise<void> {
+    await this.db.delete(msPlanSyncState).where(eq(msPlanSyncState.tenantId, tenantId))
+  }
 }
 
 type MsPlanSyncStateRow = typeof msPlanSyncState.$inferSelect
