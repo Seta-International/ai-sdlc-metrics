@@ -1,0 +1,237 @@
+/**
+ * IterativeRePlanner — Plan 12 Task 3
+ *
+ * Called after each supervisor-loop iteration to decide whether to continue or
+ * exit. Sends a prompt to the router LLM (same OpenAI model as the router)
+ * containing:
+ *   - The original user utterance
+ *   - The completion criteria hint (CompletionSpec.hintToRouter)
+ *   - The prior iteration summary and scorer results
+ *   - Whether the last iteration was complete
+ *
+ * Parse-retry semantics (same pattern as Plan 02 RouterDecisionParser):
+ *   - On first LLM/parse failure: retry once with an error-correction prompt.
+ *   - On second failure: return { kind: 'exit', reason: 'disambiguation',
+ *     disambiguationQuestion: 'Unable to determine next step.' }
+ *
+ * Design notes:
+ *   - Uses a dedicated Zod schema (ReplanDecisionSchema) separate from RouterPlanSchema.
+ *   - Calls generateObject from the Vercel AI SDK directly (same pattern as RouterLlmClient)
+ *     because RouterLlmClient.generate() is locked to RouterPlanSchema.
+ *   - @Injectable() for NestJS DI. No constructor arguments required at MVP — the
+ *     model and API key are resolved from process.env (same contract as RouterLlmClient).
+ *   - Sequential awaits only; no Promise.all.
+ */
+
+import { Injectable } from '@nestjs/common'
+import { generateObject } from 'ai'
+import { createOpenAI } from '@ai-sdk/openai'
+import * as z from 'zod'
+import type { SubAgentDirective } from '../../domain/value-objects/router-plan-schema'
+import type {
+  CompletionSpec,
+  IterationRecord,
+  PhaseExecutorTurnState,
+} from './phase-executor-contracts'
+
+// ─── Result type ──────────────────────────────────────────────────────────────
+
+export type ReplanResult =
+  | { kind: 'continue'; nextDirective: SubAgentDirective }
+  | {
+      kind: 'exit'
+      reason: 'complete' | 'stuck' | 'disambiguation'
+      disambiguationQuestion?: string
+    }
+
+// ─── Options ──────────────────────────────────────────────────────────────────
+
+export interface ReplanOpts {
+  readonly turnState: PhaseExecutorTurnState
+  readonly priorIteration: IterationRecord
+  readonly completionCriteria: CompletionSpec
+  readonly userUtterance: string
+  readonly abortSignal: AbortSignal
+}
+
+// ─── Zod schema for LLM response ─────────────────────────────────────────────
+
+/**
+ * Discriminated union emitted by the router LLM for replan decisions.
+ *
+ * `continue` → dispatch a new sub-agent with the given key, input, and reason.
+ * `exit`     → terminate the loop with a reason code.
+ */
+const ReplanDecisionSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('continue'),
+    next_sub_agent_key: z.string().min(1),
+    next_reason: z.string().min(1),
+    next_input: z.record(z.string(), z.unknown()),
+  }),
+  z.object({
+    action: z.literal('exit'),
+    exit_reason: z.enum(['complete', 'stuck', 'disambiguation']),
+    disambiguation_question: z.string().min(1).optional(),
+  }),
+])
+
+type ReplanDecision = z.infer<typeof ReplanDecisionSchema>
+
+// ─── IterativeRePlanner ───────────────────────────────────────────────────────
+
+@Injectable()
+export class IterativeRePlanner {
+  /**
+   * Decides whether the supervisor loop should continue or exit after
+   * `priorIteration` completes.
+   *
+   * Calls the router LLM once. On parse failure retries once with an error-
+   * correction prompt. On second failure returns the fallback exit result.
+   */
+  async replan(opts: ReplanOpts): Promise<ReplanResult> {
+    const { turnState, priorIteration, completionCriteria, userUtterance, abortSignal } = opts
+
+    const systemPrompt = _buildSystemPrompt(completionCriteria)
+    const userMessage = _buildUserMessage(userUtterance, priorIteration)
+
+    // Attempt 1
+    const firstDecision = await _callLlm(systemPrompt, userMessage, abortSignal)
+    if (firstDecision.kind === 'ok') {
+      return _toReplanResult(firstDecision.decision)
+    }
+
+    // Attempt 2: error-correction retry
+    const correctionMessage = _buildCorrectionMessage(userMessage, firstDecision.error)
+    const secondDecision = await _callLlm(systemPrompt, correctionMessage, abortSignal)
+    if (secondDecision.kind === 'ok') {
+      return _toReplanResult(secondDecision.decision)
+    }
+
+    // Both attempts failed — surface as disambiguation
+    return {
+      kind: 'exit',
+      reason: 'disambiguation',
+      disambiguationQuestion: 'Unable to determine next step.',
+    }
+  }
+}
+
+// ─── LLM call ────────────────────────────────────────────────────────────────
+
+type LlmCallResult = { kind: 'ok'; decision: ReplanDecision } | { kind: 'error'; error: string }
+
+/**
+ * Calls the router LLM with a fixed OpenAI model and parses the response via
+ * ReplanDecisionSchema. Returns `{ kind: 'error' }` on any failure so the
+ * caller can apply retry logic without throwing.
+ *
+ * Model: gpt-5.4 (reasoning model). At MVP we use the same model as the router
+ * (the plan specifies gpt-5.4; gpt-4o is substituted in development/testing).
+ *
+ * API key: sourced from process.env.OPENAI_API_KEY exactly as RouterLlmClient
+ * does — injected at runtime by ECS Secrets Manager mapping.
+ */
+async function _callLlm(
+  systemPrompt: string,
+  userMessage: string,
+  abortSignal: AbortSignal,
+): Promise<LlmCallResult> {
+  try {
+    const openai = createOpenAI({ apiKey: process.env['OPENAI_API_KEY'] })
+    const model = openai('gpt-5.4')
+
+    const result = await generateObject({
+      model,
+      schema: ReplanDecisionSchema,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }],
+      abortSignal,
+    })
+
+    return { kind: 'ok', decision: result.object }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { kind: 'error', error: message }
+  }
+}
+
+// ─── Prompt builders ──────────────────────────────────────────────────────────
+
+/**
+ * Builds the system prompt for the iterative replan LLM call.
+ *
+ * Contains the completion-criteria hint so the model understands what "done"
+ * means for this specific task.
+ */
+function _buildSystemPrompt(completionCriteria: CompletionSpec): string {
+  return (
+    `You are a supervisor agent deciding whether an iterative task loop should continue or exit.\n\n` +
+    `Completion criteria: ${completionCriteria.hintToRouter}\n\n` +
+    `You MUST respond with a JSON object matching the following discriminated union:\n` +
+    `  { "action": "continue", "next_sub_agent_key": "<key>", "next_reason": "<why>", "next_input": { ... } }\n` +
+    `  { "action": "exit", "exit_reason": "complete" | "stuck" | "disambiguation", "disambiguation_question": "<optional>" }\n\n` +
+    `Choose "continue" when more work is needed to meet the completion criteria.\n` +
+    `Choose "exit" with reason "complete" when the criteria are fully met.\n` +
+    `Choose "exit" with reason "stuck" when further iterations cannot make progress.\n` +
+    `Choose "exit" with reason "disambiguation" when you need clarification from the user.\n` +
+    `Emit only a JSON object. No markdown fences, no prose before or after.`
+  )
+}
+
+/**
+ * Builds the user message summarising the prior iteration and asking for a
+ * replan decision.
+ */
+function _buildUserMessage(userUtterance: string, priorIteration: IterationRecord): string {
+  const scorerSummary = priorIteration.scorerResults
+    .map((r) => `  - score=${r.score}, passed=${r.passed}, reason=${r.reason}`)
+    .join('\n')
+
+  return (
+    `Original user request: ${userUtterance}\n\n` +
+    `Iteration ${priorIteration.iterationNumber} results:\n` +
+    `  Sub-agent: ${priorIteration.subAgentKey}\n` +
+    `  Summary: ${priorIteration.output.summary}\n` +
+    `  Completion scorers:\n${scorerSummary}\n` +
+    `  Is complete: ${priorIteration.isComplete}\n\n` +
+    `Given the above, what should happen next?`
+  )
+}
+
+/**
+ * Builds the error-correction user message for the second LLM attempt.
+ *
+ * Includes the original user message and the failure reason so the model
+ * understands exactly what went wrong with the previous response.
+ */
+function _buildCorrectionMessage(originalUserMessage: string, errorMessage: string): string {
+  return (
+    `Your previous response did not match the required schema.\n` +
+    `Reason the last output failed: ${errorMessage}\n\n` +
+    `Please try again. Original context:\n${originalUserMessage}\n\n` +
+    `Emit only a JSON object matching the schema. No markdown fences, no prose before or after.`
+  )
+}
+
+// ─── Result mapper ────────────────────────────────────────────────────────────
+
+/**
+ * Maps a validated ReplanDecision to a ReplanResult.
+ */
+function _toReplanResult(decision: ReplanDecision): ReplanResult {
+  if (decision.action === 'continue') {
+    const nextDirective: SubAgentDirective = {
+      sub_agent_key: decision.next_sub_agent_key,
+      input: decision.next_input,
+      reason: decision.next_reason,
+    }
+    return { kind: 'continue', nextDirective }
+  }
+
+  return {
+    kind: 'exit',
+    reason: decision.exit_reason,
+    disambiguationQuestion: decision.disambiguation_question,
+  }
+}
