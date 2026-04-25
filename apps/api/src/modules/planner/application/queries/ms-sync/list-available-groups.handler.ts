@@ -1,6 +1,6 @@
 import { Inject } from '@nestjs/common'
 import { QueryHandler, type IQueryHandler } from '@nestjs/cqrs'
-import type { IdentityMsGraphCredentialFacade } from '../../../../identity/application/facades/identity-ms-graph-credential.facade'
+import { IdentityMsGraphCredentialFacade } from '../../../../identity/application/facades/identity-ms-graph-credential.facade'
 import {
   MS_LINKED_GROUP_REPOSITORY,
   type IMsLinkedGroupRepository,
