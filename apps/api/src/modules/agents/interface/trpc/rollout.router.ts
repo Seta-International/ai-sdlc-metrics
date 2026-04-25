@@ -9,7 +9,7 @@
 
 import * as z from 'zod'
 import { TRPCError } from '@trpc/server'
-import { eq, and, gte, lte } from 'drizzle-orm'
+import { eq, and, gte, lte, desc } from 'drizzle-orm'
 import { uuidv7 } from 'uuidv7'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import { PERMISSIONS } from '../../../../common/auth/permissions'
@@ -347,7 +347,7 @@ export const rolloutRouter = router({
         .select()
         .from(agentRolloutConfig)
         .where(eq(agentRolloutConfig.tenantId, ctx.tenantId))
-        .orderBy(agentRolloutConfig.createdAt)
+        .orderBy(desc(agentRolloutConfig.createdAt))
     }),
 
   // ── get ─────────────────────────────────────────────────────────────────────
