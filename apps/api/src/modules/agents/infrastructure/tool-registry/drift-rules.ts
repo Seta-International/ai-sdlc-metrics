@@ -10,6 +10,7 @@
  *   R-01.19 — aggregate-returning tools must declare compositionSensitive.minGroupSize
  *   R-01.19a — array-returning tools must declare collectionContract
  *   R-01.30 — input schema root shape must not contain tenant_id
+ *   R-14.2  — cacheable must not appear on mutation procedures
  */
 
 import type { AgentToolMeta } from '../../../../common/trpc/agent-tool-meta'
@@ -286,6 +287,16 @@ export function checkDriftRules(router: unknown): DriftViolation[] {
           })
         }
       }
+    }
+
+    // ── R-14.2: cacheable must not appear on mutation procedures ─────────────
+
+    if (def.type === 'mutation' && agent.cacheable !== undefined) {
+      violations.push({
+        toolName: name,
+        rule: 'R-14.2',
+        detail: `[${name}] cacheable must not appear on mutation procedures — caching write results is forbidden`,
+      })
     }
   }
 
