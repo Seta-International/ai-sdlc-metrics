@@ -99,6 +99,15 @@ export class IterativeOrchestrator {
       return { kind: 'aborted', reason: 'user' }
     }
 
+    // ── Surface-specific iteration cap (R-12.5) ───────────────────────────────
+    const SURFACE_MAX_ITERATIONS: Record<PhaseExecutorTurnState['surface'], number> = {
+      'global-chat': 10,
+      inline: 10,
+      async: 20,
+    }
+    const surfaceCap = SURFACE_MAX_ITERATIONS[turnState.surface]
+    const effectiveMaxIterations = Math.min(completionCriteria.maxIterations, surfaceCap)
+
     // ── Initialise iterative turn state ───────────────────────────────────────
     turnState.iterationNumber = 1
     turnState.completionCriteria = completionCriteria
@@ -124,7 +133,7 @@ export class IterativeOrchestrator {
       // Step (b): Ceiling check
       const ceilingResult = this.ceilingEnforcer.checkBeforeIteration({
         iterationNumber: n,
-        maxIterations: completionCriteria.maxIterations,
+        maxIterations: effectiveMaxIterations,
         cumulativeCostUsd: turnState.cumulativeCostUsd!,
         cumulativeWallclockMs: turnState.cumulativeWallclockMs!,
         totalCostBudgetUsd: DEFAULT_TOTAL_COST_BUDGET_USD,
@@ -196,7 +205,7 @@ export class IterativeOrchestrator {
           n,
           passed: scorerResult.isComplete,
           scorer_results: scorerResult.results,
-          max_iterations_reached: n >= completionCriteria.maxIterations,
+          max_iterations_reached: n >= effectiveMaxIterations,
         },
       })
 
@@ -222,7 +231,7 @@ export class IterativeOrchestrator {
       }
 
       // Step (k): Exit conditions
-      if (scorerResult.isComplete || n >= completionCriteria.maxIterations) {
+      if (scorerResult.isComplete || n >= effectiveMaxIterations) {
         break
       }
 

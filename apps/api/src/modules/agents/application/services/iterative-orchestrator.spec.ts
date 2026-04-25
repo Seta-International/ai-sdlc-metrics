@@ -541,6 +541,71 @@ describe('IterativeOrchestrator', () => {
     expect(subAgentRunner.run).not.toHaveBeenCalled()
   })
 
+  // ── 9. Surface cap clamps maxIterations (R-12.5) ────────────────────────────
+
+  it('9. surface cap: plan maxIterations=50 on global-chat surface → capped at 10', async () => {
+    const plan = makeIterativePlan({
+      completionCriteria: {
+        scorerIds: ['scorer-a'],
+        strategy: 'all',
+        maxIterations: 50,
+        hintToRouter: 'all tasks reviewed',
+      },
+    })
+    const turnState = makeTurnState({ surface: 'global-chat' })
+    const emitter = makeStreamEmitter()
+    const abortSignal = new AbortController().signal
+
+    const subOutput = makeSubAgentOutput()
+    const synthOutput: SynthesizerOutput = {
+      ...makeSynthesizerOutput(),
+      turnEndedReason: 'partial',
+    }
+
+    // All ceiling checks pass until the orchestrator stops itself at the surface cap
+    iterationCeilingEnforcer.checkBeforeIteration.mockReturnValue({ allowed: true })
+    subAgentRunner.run.mockResolvedValue(subOutput)
+
+    // Scorer never passes
+    const failResult: RunScorersResult = {
+      isComplete: false,
+      results: [{ score: 0, passed: false, reason: 'not done' }],
+    }
+    completionScorerRunner.runScorers.mockResolvedValue(failResult)
+
+    // Replanner always says continue
+    const continueResult: ReplanResult = {
+      kind: 'continue',
+      nextDirective: { sub_agent_key: 'planner.worker', input: {}, reason: 'continue' },
+    }
+    iterativeRePlanner.replan.mockResolvedValue(continueResult)
+
+    synthesizer.synthesize.mockResolvedValue(synthOutput)
+
+    const result = await orchestrator.execute({
+      initialPlan: plan,
+      turnState,
+      abortSignal,
+      streamEmitter: emitter,
+    })
+
+    // Should stop at 10 iterations (surface cap), not 50 (plan maxIterations)
+    expect(subAgentRunner.run).toHaveBeenCalledTimes(10)
+    expect(result.kind).toBe('partial')
+    if (result.kind === 'partial') {
+      expect(result.reason).toBe('limit_reached')
+    }
+
+    // The 11th ceiling check should have been passed effectiveMaxIterations=10,
+    // so the loop breaks at n=10 before calling the runner an 11th time.
+    // Verify the ceiling enforcer received maxIterations=10, not 50.
+    const lastCeilingCall =
+      iterationCeilingEnforcer.checkBeforeIteration.mock.calls[
+        iterationCeilingEnforcer.checkBeforeIteration.mock.calls.length - 1
+      ]
+    expect(lastCeilingCall[0].maxIterations).toBe(10)
+  })
+
   it('8b. abortSignal fired after first iteration starts → aborted reason=user', async () => {
     const plan = makeIterativePlan()
     const turnState = makeTurnState()
