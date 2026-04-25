@@ -156,7 +156,7 @@ describe('<LinkGroupDrawer />', () => {
 
     await waitFor(() => {
       expect(onLinked).toHaveBeenCalledTimes(1)
-      expect(onBackfillStarted).toHaveBeenCalledWith('job-42')
+      expect(onBackfillStarted).toHaveBeenCalledWith('lg-1')
     })
   })
 })

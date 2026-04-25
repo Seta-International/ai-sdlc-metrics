@@ -19,7 +19,7 @@ import { trpc } from '../../../lib/trpc'
 import { ConnectForm } from './connect-form'
 import { InvalidBanner } from './invalid-banner'
 import { StatusCard } from './status-card'
-import { LinkedGroupsTable } from './linked-groups-table'
+import { LinkedGroupsTable, type LinkedGroupDto } from './linked-groups-table'
 import { LinkGroupDrawer } from './link-group-drawer'
 import { BackfillProgressSlideover } from './backfill-progress-slideover'
 
@@ -29,17 +29,6 @@ interface MsSyncStatus {
   tenantAdId: string | null
   clientId: string | null
   connectedAt: string | null
-  lastError: string | null
-}
-
-interface LinkedGroupDto {
-  id: string
-  msGroupId: string
-  displayName: string
-  syncEnabled: boolean
-  backfillingAt: Date | null
-  planCount: number
-  lastPolledAt: Date | null
   lastError: string | null
 }
 
@@ -128,7 +117,8 @@ export default function MicrosoftIntegrationPage() {
   const linkedGroupsQuery = useQuery({
     queryKey: ['planner.msSync.groups.listLinked', session?.tenantId],
     queryFn: () => planner.msSync.groups.listLinked.query({ tenantId: session!.tenantId }),
-    enabled: !!session,
+    enabled:
+      !!session && statusQuery.data?.connected === true && statusQuery.data?.status !== 'invalid',
   })
 
   const unlinkMutation = useMutation({

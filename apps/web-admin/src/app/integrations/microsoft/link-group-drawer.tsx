@@ -88,7 +88,7 @@ export function LinkGroupDrawer({
     let lastJobId: string | null = null
     for (const msGroupId of ids) {
       const result = await linkMutation.mutateAsync(msGroupId)
-      lastJobId = result.backfillJobId
+      lastJobId = result.linkedGroupId
     }
     setCheckedIds(new Set())
     onLinked()
