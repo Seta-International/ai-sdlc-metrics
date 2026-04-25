@@ -25,7 +25,7 @@
  *   4. Return PhaseExecutionResult
  */
 
-import { Injectable } from '@nestjs/common'
+import { Injectable, Inject } from '@nestjs/common'
 import type {
   PhaseExecutorTurnState,
   PhaseExecutionResult,
@@ -111,8 +111,8 @@ export interface IterativeOrchestratorOpts {
 @Injectable()
 export class IterativeOrchestrator {
   constructor(
-    private readonly subAgentRunner: ISubAgentRunner,
-    private readonly synthesizer: ISynthesizer,
+    @Inject(I_SUB_AGENT_RUNNER) private readonly subAgentRunner: ISubAgentRunner,
+    @Inject(I_SYNTHESIZER) private readonly synthesizer: ISynthesizer,
     private readonly completionScorerRunner: CompletionScorerRunner,
     private readonly ceilingEnforcer: IterationCeilingEnforcer,
     private readonly replanner: IterativeRePlanner,

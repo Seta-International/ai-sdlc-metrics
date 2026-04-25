@@ -185,6 +185,23 @@ import { ShadowExecutor } from './application/services/shadow-executor'
 import { ShadowTurnWorker } from './infrastructure/workers/shadow-turn-worker'
 import { RegressionSignalMonitor } from './application/services/regression-signal-monitor'
 import { AutoRollbackOrchestrator } from './application/services/auto-rollback-orchestrator'
+// Plan 12 — Iterative Supervisor Topology
+import {
+  IterativeOrchestrator,
+  ITERATIVE_ORCHESTRATOR,
+  I_SUB_AGENT_RUNNER,
+  I_SYNTHESIZER,
+} from './application/services/iterative-orchestrator'
+import type { ISubAgentRunner, ISynthesizer } from './application/services/iterative-orchestrator'
+import { IterationCeilingEnforcer } from './application/services/iteration-ceiling-enforcer'
+import { CompletionScorerRunner } from './application/services/completion-scorer-runner'
+import { IterativeRePlanner } from './application/services/iterative-replanner'
+import {
+  AGENT_ITERATION_REPOSITORY,
+  type AgentIterationRepository,
+} from './domain/repositories/agent-iteration.repository'
+import { DrizzleAgentIterationRepository } from './infrastructure/repositories/drizzle-agent-iteration.repository'
+import { KernelQueryFacade } from '../kernel/application/facades/kernel-query.facade'
 // Plan 10 — Harness + Replay + Canary
 import { ReplayHarness, REPLAY_HARNESS } from './application/services/replay-harness'
 import { ScorerRegistry, SCORER_REGISTRY } from './application/services/scorer-registry'
@@ -444,6 +461,75 @@ class NullTenantLister implements TenantListerLike {
     ShadowTurnWorker,
     RegressionSignalMonitor,
     AutoRollbackOrchestrator,
+    // ── Plan 12 — Iterative Supervisor Topology ────────────────────────────────
+    // Repository
+    { provide: AGENT_ITERATION_REPOSITORY, useClass: DrizzleAgentIterationRepository },
+    // Pure services (no special DI tokens needed at injection site)
+    IterationCeilingEnforcer,
+    CompletionScorerRunner,
+    IterativeRePlanner,
+    // ISubAgentRunner adapter — satisfies ISubAgentRunner for DI wiring.
+    // SubAgentRunner has no @Injectable class; the full ReAct loop wiring is deferred
+    // to the phase-executor integration layer. This production stub returns a minimal
+    // completed output so the IterativeOrchestrator pipeline can be exercised
+    // end-to-end without a live LLM. Integration tests replace this via module override.
+    {
+      provide: I_SUB_AGENT_RUNNER,
+      useValue: {
+        run: async (opts: Parameters<ISubAgentRunner['run']>[0]) => ({
+          kind: 'completed' as const,
+          summary: `[stub] ${opts.directive.sub_agent_key}`,
+          semantics: opts.directive.sub_agent_key,
+          confidence: 'med' as const,
+          sourceToolProvenance: [],
+          structured: {},
+          drafts: [],
+          circuitBreakerState: {},
+          usageTotals: {
+            inputTokens: 0,
+            outputTokens: 0,
+            inputCachedRead: 0,
+            inputCachedWrite: 0,
+            outputReasoning: 0,
+            costUsd: 0,
+          },
+        }),
+      } satisfies ISubAgentRunner,
+    },
+    // ISynthesizer adapter — assembles iteration summaries behind ISynthesizer.
+    // Full LLM-synthesis wiring (same as bounded path) is deferred to the
+    // phase-executor integration layer. Integration tests override this token.
+    {
+      provide: I_SYNTHESIZER,
+      useValue: {
+        synthesize: async (opts: Parameters<ISynthesizer['synthesize']>[0]) => {
+          const { detectContradiction, buildCitations, buildDisclosureStatements } =
+            await import('./application/services/synthesizer')
+          const allOutputs = new Map([...opts.phase1Outputs, ...opts.phase2Outputs])
+          const hasContradiction = detectContradiction(allOutputs)
+          const citations = buildCitations(allOutputs)
+          const disclosures = buildDisclosureStatements(allOutputs)
+          const summaries = [...allOutputs.values()]
+            .filter((o) => o.kind === 'completed' || o.kind === 'ceiling_hit')
+            .map((o) => o.summary)
+            .join(' ')
+          const content =
+            disclosures.length > 0
+              ? summaries + ' ' + disclosures.join(' ')
+              : summaries || 'No data retrieved.'
+          return {
+            shape: 'narrative' as const,
+            content,
+            citations,
+            confidence: (hasContradiction ? 'low' : 'med') as 'low' | 'med',
+            turnEndedReason: 'completed' as const,
+          }
+        },
+      } satisfies ISynthesizer,
+    },
+    // IterativeOrchestrator — the main service; uses I_SUB_AGENT_RUNNER and I_SYNTHESIZER tokens
+    IterativeOrchestrator,
+    { provide: ITERATIVE_ORCHESTRATOR, useExisting: IterativeOrchestrator },
   ],
   exports: [
     AgentsQueryFacade,
