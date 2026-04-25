@@ -12,6 +12,7 @@ export interface GaReadinessStateEntity {
   computedAt: Date
   missingCriteria: { criterionId: string; reason: string }[]
   consecutiveWindowsMet: number
+  windowStartedPassingAt: Date | null
   tenantCount: number
   interactiveTurnsPerDay: number
   p1SecurityIncidentsLast90d: number

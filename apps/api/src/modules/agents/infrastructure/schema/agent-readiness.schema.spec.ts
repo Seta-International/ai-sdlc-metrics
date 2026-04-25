@@ -91,6 +91,7 @@ describe('Plan 13 — agent_ga_readiness_state schema', () => {
     expect(cols).toContain('computedAt')
     expect(cols).toContain('missingCriteria')
     expect(cols).toContain('consecutiveWindowsMet')
+    expect(cols).toContain('windowStartedPassingAt')
     expect(cols).toContain('tenantCount')
     expect(cols).toContain('interactiveTurnsPerDay')
     expect(cols).toContain('p1SecurityIncidentsLast90d')
@@ -104,6 +105,12 @@ describe('Plan 13 — agent_ga_readiness_state schema', () => {
   it('consecutiveWindowsMet has default 0', () => {
     const col = agentGaReadinessState.consecutiveWindowsMet
     expect((col as unknown as { default: unknown }).default).toBe(0)
+  })
+
+  it('windowStartedPassingAt is nullable (no notNull)', () => {
+    const col = agentGaReadinessState.windowStartedPassingAt
+    expect(col).toBeDefined()
+    expect((col as unknown as { notNull: boolean }).notNull).toBeFalsy()
   })
 
   it('missingCriteria is jsonb', () => {

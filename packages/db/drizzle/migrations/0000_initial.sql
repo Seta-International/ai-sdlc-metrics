@@ -1775,6 +1775,7 @@ CREATE TABLE "agents"."agent_ga_readiness_state" (
 	"computed_at" timestamp with time zone NOT NULL,
 	"missing_criteria" jsonb NOT NULL,
 	"consecutive_windows_met" integer DEFAULT 0 NOT NULL,
+	"window_started_passing_at" timestamp with time zone,
 	"tenant_count" integer NOT NULL,
 	"interactive_turns_per_day" integer NOT NULL,
 	"p1_security_incidents_last_90d" integer NOT NULL

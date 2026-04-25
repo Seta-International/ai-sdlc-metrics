@@ -114,6 +114,7 @@ export const agentGaReadinessState = agentsSchema.table('agent_ga_readiness_stat
     .notNull()
     .$type<{ criterionId: string; reason: string }[]>(),
   consecutiveWindowsMet: integer('consecutive_windows_met').notNull().default(0),
+  windowStartedPassingAt: timestamp('window_started_passing_at', { withTimezone: true }),
   tenantCount: integer('tenant_count').notNull(),
   interactiveTurnsPerDay: integer('interactive_turns_per_day').notNull(),
   p1SecurityIncidentsLast90d: integer('p1_security_incidents_last_90d').notNull(),
