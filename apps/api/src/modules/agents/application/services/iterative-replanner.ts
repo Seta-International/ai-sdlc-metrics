@@ -49,6 +49,12 @@ export type ReplanResult =
 export interface ReplanOpts {
   readonly turnState: PhaseExecutorTurnState
   readonly priorIteration: IterationRecord
+  /**
+   * Full ordered history of completed iterations (excluding the current
+   * `priorIteration`). The user-message builder caps this to the last 5
+   * entries to prevent prompt bloat (Plan 12 §7, default N=5).
+   */
+  readonly iterationHistory: IterationRecord[]
   readonly completionCriteria: CompletionSpec
   readonly userUtterance: string
   readonly abortSignal: AbortSignal
@@ -90,10 +96,17 @@ export class IterativeRePlanner {
    * correction prompt. On second failure returns the fallback exit result.
    */
   async replan(opts: ReplanOpts): Promise<ReplanResult> {
-    const { turnState, priorIteration, completionCriteria, userUtterance, abortSignal } = opts
+    const {
+      turnState,
+      priorIteration,
+      iterationHistory,
+      completionCriteria,
+      userUtterance,
+      abortSignal,
+    } = opts
 
     const systemPrompt = _buildSystemPrompt(completionCriteria)
-    const userMessage = _buildUserMessage(userUtterance, priorIteration)
+    const userMessage = _buildUserMessage(userUtterance, priorIteration, iterationHistory)
 
     // Attempt 1
     const firstDecision = await _callLlm(systemPrompt, userMessage, abortSignal)
@@ -180,16 +193,46 @@ function _buildSystemPrompt(completionCriteria: CompletionSpec): string {
 }
 
 /**
- * Builds the user message summarising the prior iteration and asking for a
- * replan decision.
+ * Builds the user message summarising the iteration history and prior
+ * iteration, then asks for a replan decision.
+ *
+ * History is capped to the last 5 entries (Plan 12 §7, default N=5) to
+ * prevent prompt bloat. Each history entry includes the iteration number,
+ * sub-agent key, completion status, and a truncated summary (~200 chars).
  */
-function _buildUserMessage(userUtterance: string, priorIteration: IterationRecord): string {
+function _buildUserMessage(
+  userUtterance: string,
+  priorIteration: IterationRecord,
+  iterationHistory: IterationRecord[],
+): string {
+  const HISTORY_CAP = 5
+  const SUMMARY_MAX = 200
+
+  const historySection =
+    iterationHistory.length === 0
+      ? ''
+      : (() => {
+          const capped = iterationHistory.slice(-HISTORY_CAP)
+          const lines = capped.map((rec) => {
+            const summary =
+              rec.output.summary.length > SUMMARY_MAX
+                ? rec.output.summary.slice(0, SUMMARY_MAX) + '…'
+                : rec.output.summary
+            return (
+              `  Iteration ${rec.iterationNumber}: sub-agent=${rec.subAgentKey}, ` +
+              `complete=${rec.isComplete}, summary="${summary}"`
+            )
+          })
+          return `Iteration history (last ${capped.length}):\n${lines.join('\n')}\n\n`
+        })()
+
   const scorerSummary = priorIteration.scorerResults
     .map((r) => `  - score=${r.score}, passed=${r.passed}, reason=${r.reason}`)
     .join('\n')
 
   return (
     `Original user request: ${userUtterance}\n\n` +
+    historySection +
     `Iteration ${priorIteration.iterationNumber} results:\n` +
     `  Sub-agent: ${priorIteration.subAgentKey}\n` +
     `  Summary: ${priorIteration.output.summary}\n` +

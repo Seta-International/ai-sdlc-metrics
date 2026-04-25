@@ -114,6 +114,7 @@ function makeReplanOpts(overrides: Partial<ReplanOpts> = {}): ReplanOpts {
   return {
     turnState: makeTurnState(),
     priorIteration: makeIterationRecord(),
+    iterationHistory: [],
     completionCriteria: makeCompletionSpec(),
     userUtterance: 'Close all my open tasks',
     abortSignal: new AbortController().signal,
@@ -329,5 +330,114 @@ describe('IterativeRePlanner', () => {
     }
     const allContent = callArgs.messages.map((m) => m.content).join('\n')
     expect(allContent).toContain('Found 3 open tasks')
+  })
+
+  // ── History section inclusion ─────────────────────────────────────────────
+
+  it('8. includes iterationHistory in the LLM prompt when non-empty', async () => {
+    mockGenerateObject.mockResolvedValueOnce(mockContinueResponse())
+
+    const historyRecord1 = makeIterationRecord({
+      iterationNumber: 1,
+      subAgentKey: 'planner.reader',
+      output: makeSubAgentOutput('Retrieved task list from the board'),
+      isComplete: false,
+    })
+    const historyRecord2 = makeIterationRecord({
+      iterationNumber: 2,
+      subAgentKey: 'planner.analyzer',
+      output: makeSubAgentOutput('Identified 5 overdue tasks needing closure'),
+      isComplete: false,
+    })
+
+    const priorIteration = makeIterationRecord({
+      iterationNumber: 3,
+      subAgentKey: 'planner.writer',
+      output: makeSubAgentOutput('Closed 3 out of 5 tasks'),
+      isComplete: false,
+    })
+
+    await replanner.replan(
+      makeReplanOpts({
+        iterationHistory: [historyRecord1, historyRecord2],
+        priorIteration,
+      }),
+    )
+
+    const callArgs = mockGenerateObject.mock.calls[0][0] as {
+      messages: Array<{ role: string; content: string }>
+    }
+    const allContent = callArgs.messages.map((m) => m.content).join('\n')
+
+    // History section header
+    expect(allContent).toContain('Iteration history')
+    // First history entry
+    expect(allContent).toContain('sub-agent=planner.reader')
+    expect(allContent).toContain('Retrieved task list from the board')
+    // Second history entry
+    expect(allContent).toContain('sub-agent=planner.analyzer')
+    expect(allContent).toContain('Identified 5 overdue tasks needing closure')
+    // Prior iteration still present
+    expect(allContent).toContain('Closed 3 out of 5 tasks')
+  })
+
+  it('8b. omits the history section when iterationHistory is empty', async () => {
+    mockGenerateObject.mockResolvedValueOnce(mockContinueResponse())
+
+    await replanner.replan(makeReplanOpts({ iterationHistory: [] }))
+
+    const callArgs = mockGenerateObject.mock.calls[0][0] as {
+      messages: Array<{ role: string; content: string }>
+    }
+    const allContent = callArgs.messages.map((m) => m.content).join('\n')
+    expect(allContent).not.toContain('Iteration history')
+  })
+
+  it('8c. caps iterationHistory to the last 5 entries', async () => {
+    mockGenerateObject.mockResolvedValueOnce(mockContinueResponse())
+
+    // Build 7 history entries — only the last 5 should appear in the prompt
+    const history: IterationRecord[] = Array.from({ length: 7 }, (_, i) =>
+      makeIterationRecord({
+        iterationNumber: i + 1,
+        subAgentKey: `agent.step${i + 1}`,
+        output: makeSubAgentOutput(`Output of step ${i + 1}`),
+      }),
+    )
+
+    await replanner.replan(makeReplanOpts({ iterationHistory: history }))
+
+    const callArgs = mockGenerateObject.mock.calls[0][0] as {
+      messages: Array<{ role: string; content: string }>
+    }
+    const allContent = callArgs.messages.map((m) => m.content).join('\n')
+
+    // Entries 1 and 2 should be dropped (beyond cap of 5)
+    expect(allContent).not.toContain('agent.step1')
+    expect(allContent).not.toContain('agent.step2')
+    // Entries 3–7 should be present
+    expect(allContent).toContain('agent.step3')
+    expect(allContent).toContain('agent.step7')
+  })
+
+  it('8d. truncates long summaries in history to ~200 chars', async () => {
+    mockGenerateObject.mockResolvedValueOnce(mockContinueResponse())
+
+    const longSummary = 'x'.repeat(300)
+    const historyRecord = makeIterationRecord({
+      iterationNumber: 1,
+      output: makeSubAgentOutput(longSummary),
+    })
+
+    await replanner.replan(makeReplanOpts({ iterationHistory: [historyRecord] }))
+
+    const callArgs = mockGenerateObject.mock.calls[0][0] as {
+      messages: Array<{ role: string; content: string }>
+    }
+    const allContent = callArgs.messages.map((m) => m.content).join('\n')
+
+    // The full 300-char summary should NOT appear verbatim; truncation marker should be present
+    expect(allContent).not.toContain(longSummary)
+    expect(allContent).toContain('…')
   })
 })
