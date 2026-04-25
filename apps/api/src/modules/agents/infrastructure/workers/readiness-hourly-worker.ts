@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { PgBossService } from '../../../../common/jobs/pg-boss.service'
 import { ReadinessValidator } from '../../application/services/readiness-validator'
 import { GaReadinessComputer } from '../../application/services/ga-readiness-computer'
@@ -8,7 +8,7 @@ export const READINESS_HOURLY_JOB = 'agent.readiness-hourly-eval'
 const CRON = '0 * * * *'
 
 @Injectable()
-export class ReadinessHourlyWorker implements OnApplicationBootstrap {
+export class ReadinessHourlyWorker {
   private readonly logger = new Logger(ReadinessHourlyWorker.name)
 
   constructor(
@@ -17,7 +17,7 @@ export class ReadinessHourlyWorker implements OnApplicationBootstrap {
     private readonly computer: GaReadinessComputer,
   ) {}
 
-  async onApplicationBootstrap(): Promise<void> {
+  async registerWorker(): Promise<void> {
     await this.pgBoss.schedule(READINESS_HOURLY_JOB, CRON)
 
     this.pgBoss.registerScheduledWorker<Record<string, never>>(

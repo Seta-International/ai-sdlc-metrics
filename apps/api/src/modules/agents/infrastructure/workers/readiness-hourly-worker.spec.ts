@@ -30,7 +30,7 @@ describe('ReadinessHourlyWorker', () => {
       computer,
     )
 
-    await worker.onApplicationBootstrap()
+    await worker.registerWorker()
 
     expect(mockBoss.schedule).toHaveBeenCalledTimes(1)
     expect(mockBoss.schedule).toHaveBeenCalledWith(READINESS_HOURLY_JOB, '0 * * * *')
@@ -61,7 +61,7 @@ describe('ReadinessHourlyWorker', () => {
       computer,
     )
 
-    await scheduler.onApplicationBootstrap()
+    await scheduler.registerWorker()
 
     const handler = mockBoss.registerScheduledWorker.mock.calls[0][1] as () => Promise<void>
     await handler()
@@ -84,7 +84,7 @@ describe('ReadinessHourlyWorker', () => {
       computer,
     )
 
-    await scheduler.onApplicationBootstrap()
+    await scheduler.registerWorker()
 
     const handler = mockBoss.registerScheduledWorker.mock.calls[0][1] as () => Promise<void>
     await expect(handler()).rejects.toThrow('validator boom')

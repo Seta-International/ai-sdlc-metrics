@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common'
+import { Inject, Injectable, Logger } from '@nestjs/common'
 import { and, gte, lt, sum as drizzleSum } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
@@ -11,7 +11,7 @@ export const COST_RECONCILIATION_JOB = 'agent.cost-reconciliation-weekly'
 const CRON = '0 8 * * 1'
 
 @Injectable()
-export class CostReconciliationWorker implements OnApplicationBootstrap {
+export class CostReconciliationWorker {
   private readonly logger = new Logger(CostReconciliationWorker.name)
 
   constructor(
@@ -41,7 +41,7 @@ export class CostReconciliationWorker implements OnApplicationBootstrap {
     return { weekStart: lastMonday, weekEnd: thisMonday }
   }
 
-  async onApplicationBootstrap(): Promise<void> {
+  async registerWorker(): Promise<void> {
     await this.pgBoss.schedule(COST_RECONCILIATION_JOB, CRON)
 
     this.pgBoss.registerScheduledWorker<Record<string, never>>(

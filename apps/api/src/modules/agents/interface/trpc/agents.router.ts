@@ -7,6 +7,7 @@ import { conversationRouter } from './conversation.router'
 import { draftAuditRouter } from './draft-audit.router'
 import { scheduleUiRouter } from './schedule-ui-facade'
 import { rolloutRouter } from './rollout.router'
+import { readinessRouter } from './readiness.router'
 
 export const agentsRouter = router({
   session: sessionRouter,
@@ -17,4 +18,5 @@ export const agentsRouter = router({
   drafts: draftAuditRouter,
   schedule: scheduleUiRouter,
   rollout: rolloutRouter,
+  readiness: readinessRouter,
 })

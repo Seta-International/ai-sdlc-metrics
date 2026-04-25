@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { PgBossService } from '../../../../common/jobs/pg-boss.service'
 import { FlowCorrelationProbe } from '../../application/services/flow-correlation-probe'
 
@@ -7,7 +7,7 @@ export const FLOW_CORRELATION_JOB = 'agent.flow-correlation-monthly'
 const CRON = '0 6 1 * *'
 
 @Injectable()
-export class FlowCorrelationWorker implements OnApplicationBootstrap {
+export class FlowCorrelationWorker {
   private readonly logger = new Logger(FlowCorrelationWorker.name)
 
   constructor(
@@ -15,7 +15,7 @@ export class FlowCorrelationWorker implements OnApplicationBootstrap {
     private readonly probe: FlowCorrelationProbe,
   ) {}
 
-  async onApplicationBootstrap(): Promise<void> {
+  async registerWorker(): Promise<void> {
     await this.pgBoss.schedule(FLOW_CORRELATION_JOB, CRON)
 
     this.pgBoss.registerScheduledWorker<Record<string, never>>(
