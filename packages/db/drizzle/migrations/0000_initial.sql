@@ -1755,7 +1755,7 @@ CREATE INDEX "agent_schedule_tenant_status_trigger_idx" ON "agents"."agent_sched
 CREATE INDEX "agent_schedule_tenant_owner_status_idx" ON "agents"."agent_schedule" USING btree ("tenant_id","owner_user_id","status");--> statement-breakpoint
 CREATE INDEX "agent_schedule_tenant_delegation_idx" ON "agents"."agent_schedule" USING btree ("tenant_id","delegation_id");--> statement-breakpoint
 CREATE INDEX "agent_tool_embedding_tool_name_idx" ON "agents"."agent_tool_embedding" USING btree ("tool_name");--> statement-breakpoint
-CREATE INDEX "agent_tool_result_cache_exact_idx" ON "agents"."agent_tool_result_cache" USING btree ("tenant_id","tool_name","canonical_args_hash");--> statement-breakpoint
+CREATE UNIQUE INDEX "agent_tool_result_cache_exact_uidx" ON "agents"."agent_tool_result_cache" USING btree ("tenant_id","tool_name","canonical_args_hash");--> statement-breakpoint
 CREATE INDEX "agent_tool_result_cache_tenant_tool_idx" ON "agents"."agent_tool_result_cache" USING btree ("tenant_id","tool_name");--> statement-breakpoint
 CREATE INDEX "agent_active_turn_tenant_started_idx" ON "agents"."agent_active_turn" USING btree ("tenant_id","started_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_active_turn_heartbeat_idx" ON "agents"."agent_active_turn" USING btree ("last_heartbeat_at");--> statement-breakpoint
@@ -1833,5 +1833,5 @@ ALTER TABLE agents.agent_tool_result_cache ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agents.agent_tool_result_cache FORCE ROW LEVEL SECURITY;
 CREATE POLICY agent_tool_result_cache_tenant_isolation
   ON agents.agent_tool_result_cache
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
-  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = current_setting('app.tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id')::uuid);
