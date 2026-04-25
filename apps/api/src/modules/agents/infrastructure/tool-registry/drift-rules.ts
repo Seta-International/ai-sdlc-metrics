@@ -45,7 +45,7 @@ interface RouterLike {
 export interface DriftViolation {
   /** Dot-path name of the offending tRPC procedure, e.g. `planner.task.getBoard`. */
   toolName: string
-  /** Rule identifier, e.g. `R-01.12`, `R-01.17`, `R-01.18`, `R-01.19`, `R-01.19a`, `R-01.30`. */
+  /** Rule identifier, e.g. `R-01.12`, `R-01.17`, `R-01.18`, `R-01.19`, `R-01.19a`, `R-01.30`, `R-14.2`. */
   rule: string
   /** Human-readable description of the specific violation. */
   detail: string
