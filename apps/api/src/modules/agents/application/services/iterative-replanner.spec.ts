@@ -39,7 +39,7 @@ vi.mock('@ai-sdk/openai', () => ({
 vi.stubEnv('OPENAI_API_KEY', 'test-key-for-unit-tests')
 
 import { IterativeRePlanner, FALLBACK_DISAMBIGUATION_MESSAGE } from './iterative-replanner'
-import type { ReplanOpts, ReplanResult } from './iterative-replanner'
+import type { ReplanOpts } from './iterative-replanner'
 import type {
   PhaseExecutorTurnState,
   CompletionSpec,

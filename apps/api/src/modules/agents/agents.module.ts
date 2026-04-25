@@ -197,12 +197,8 @@ import { SynthesizerAdapter } from './application/services/synthesizer-adapter'
 import { IterationCeilingEnforcer } from './application/services/iteration-ceiling-enforcer'
 import { CompletionScorerRunner } from './application/services/completion-scorer-runner'
 import { IterativeRePlanner } from './application/services/iterative-replanner'
-import {
-  AGENT_ITERATION_REPOSITORY,
-  type AgentIterationRepository,
-} from './domain/repositories/agent-iteration.repository'
+import { AGENT_ITERATION_REPOSITORY } from './domain/repositories/agent-iteration.repository'
 import { DrizzleAgentIterationRepository } from './infrastructure/repositories/drizzle-agent-iteration.repository'
-import { KernelQueryFacade } from '../kernel/application/facades/kernel-query.facade'
 // Plan 10 — Harness + Replay + Canary
 import { ReplayHarness, REPLAY_HARNESS } from './application/services/replay-harness'
 import { ScorerRegistry, SCORER_REGISTRY } from './application/services/scorer-registry'
