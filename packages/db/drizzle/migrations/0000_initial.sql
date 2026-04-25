@@ -370,6 +370,41 @@ CREATE TABLE "agents"."agent_rate_limit_counter" (
 	CONSTRAINT "agent_rate_limit_counter_limit_key_check" CHECK ("agents"."agent_rate_limit_counter"."limit_key" IN ('queries/user/min', 'l3_writes/user/day', 'schedule_creations/user/day'))
 );
 --> statement-breakpoint
+CREATE TABLE "agents"."agent_rollout_config" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"change_class" text NOT NULL,
+	"candidate_version" text NOT NULL,
+	"baseline_version" text NOT NULL,
+	"stability_key" text NOT NULL,
+	"traffic_percentage" numeric(5, 2) NOT NULL,
+	"shadow_enabled" boolean DEFAULT false NOT NULL,
+	"auto_rollback_enabled" boolean DEFAULT true NOT NULL,
+	"regression_thresholds" jsonb NOT NULL,
+	"status" text DEFAULT 'drafting' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"activated_at" timestamp with time zone,
+	"completed_or_rolled_back_at" timestamp with time zone,
+	"created_by" uuid NOT NULL,
+	CONSTRAINT "agent_rollout_config_change_class_check" CHECK ("agents"."agent_rollout_config"."change_class" IN ('router', 'planner', 'model', 'tool_meta', 'sub_agent_prompt')),
+	CONSTRAINT "agent_rollout_config_stability_key_check" CHECK ("agents"."agent_rollout_config"."stability_key" IN ('tenant_id', 'tenant_id+user_id')),
+	CONSTRAINT "agent_rollout_config_traffic_percentage_check" CHECK ("agents"."agent_rollout_config"."traffic_percentage" >= 0 AND "agents"."agent_rollout_config"."traffic_percentage" <= 100),
+	CONSTRAINT "agent_rollout_config_status_check" CHECK ("agents"."agent_rollout_config"."status" IN ('drafting', 'active', 'rolled_back', 'completed'))
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_rollout_event" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"rollout_config_id" uuid NOT NULL,
+	"event_type" text NOT NULL,
+	"from_percentage" numeric(5, 2),
+	"to_percentage" numeric(5, 2),
+	"reason" text NOT NULL,
+	"triggered_by" text NOT NULL,
+	"ts" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "agent_rollout_event_event_type_check" CHECK ("agents"."agent_rollout_event"."event_type" IN ('activated', 'percentage_shifted', 'auto_rolled_back', 'manually_rolled_back', 'completed'))
+);
+--> statement-breakpoint
 CREATE TABLE "agents"."agent_scorer_registration" (
 	"scorer_id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
@@ -407,6 +442,21 @@ CREATE TABLE "agents"."agent_session" (
 	"pinned_sub_agent_prompt_hashes" jsonb NOT NULL,
 	"started_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"ended_at" timestamp with time zone
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_shadow_run" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"baseline_trace_id" uuid NOT NULL,
+	"shadow_trace_id" uuid NOT NULL,
+	"rollout_config_id" uuid NOT NULL,
+	"candidate_version" text NOT NULL,
+	"baseline_version" text NOT NULL,
+	"diff_score" numeric(5, 4) NOT NULL,
+	"diff_category" text NOT NULL,
+	"ts" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "agent_shadow_run_diff_category_check" CHECK ("agents"."agent_shadow_run"."diff_category" IN ('identical', 'minor_difference', 'major_difference', 'shadow_errored')),
+	CONSTRAINT "agent_shadow_run_diff_score_range_check" CHECK ("agents"."agent_shadow_run"."diff_score" >= 0 AND "agents"."agent_shadow_run"."diff_score" <= 1)
 );
 --> statement-breakpoint
 CREATE TABLE "agents"."agent_stored_sub_agent" (
@@ -1654,8 +1704,13 @@ CREATE INDEX "agent_cost_event_tenant_schedule_idx" ON "agents"."agent_cost_even
 CREATE INDEX "agent_golden_trace_tenant_active_idx" ON "agents"."agent_golden_trace" USING btree ("tenant_id") WHERE removed_at IS NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "agent_pricing_model_effective_from_uidx" ON "agents"."agent_pricing" USING btree ("model_id","effective_from");--> statement-breakpoint
 CREATE INDEX "agent_rate_limit_counter_lookup_idx" ON "agents"."agent_rate_limit_counter" USING btree ("tenant_id","user_id","limit_key","bucket");--> statement-breakpoint
+CREATE INDEX "agent_rollout_config_tenant_status_class_idx" ON "agents"."agent_rollout_config" USING btree ("tenant_id","status","change_class");--> statement-breakpoint
+CREATE INDEX "agent_rollout_event_config_ts_idx" ON "agents"."agent_rollout_event" USING btree ("rollout_config_id","ts" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_rollout_event_tenant_ts_idx" ON "agents"."agent_rollout_event" USING btree ("tenant_id","ts" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_session_conversation_lookup_idx" ON "agents"."agent_session" USING btree ("tenant_id","user_id","conversation_id","started_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE UNIQUE INDEX "agent_session_conversation_active_uq" ON "agents"."agent_session" USING btree ("tenant_id","conversation_id") WHERE ended_at IS NULL;--> statement-breakpoint
+CREATE INDEX "agent_shadow_run_config_ts_idx" ON "agents"."agent_shadow_run" USING btree ("rollout_config_id","ts" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_shadow_run_tenant_ts_idx" ON "agents"."agent_shadow_run" USING btree ("tenant_id","ts" DESC NULLS LAST);--> statement-breakpoint
 CREATE UNIQUE INDEX "agent_stored_sub_agent_tenant_key_version_uidx" ON "agents"."agent_stored_sub_agent" USING btree ("tenant_id","key","version");--> statement-breakpoint
 CREATE INDEX "agent_stored_sub_agent_tenant_key_status_idx" ON "agents"."agent_stored_sub_agent" USING btree ("tenant_id","key","status");--> statement-breakpoint
 CREATE INDEX "agent_stored_sub_agent_tenant_key_version_desc_idx" ON "agents"."agent_stored_sub_agent" USING btree ("tenant_id","key","version" DESC NULLS LAST);--> statement-breakpoint
@@ -1706,8 +1761,84 @@ CREATE INDEX "idx_task_comment_task_posted" ON "planner"."task_comment" USING bt
 CREATE INDEX "idx_task_evidence_task_submitted" ON "planner"."task_evidence" USING btree ("task_id","submitted_at");--> statement-breakpoint
 CREATE INDEX "idx_task_evidence_tenant_submitted_by" ON "planner"."task_evidence" USING btree ("tenant_id","submitted_by");--> statement-breakpoint
 CREATE INDEX "saved_view_tenant_actor_resource_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key");--> statement-breakpoint
-CREATE UNIQUE INDEX "saved_view_unique_default_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key") WHERE is_default = true;
---> statement-breakpoint
+CREATE UNIQUE INDEX "saved_view_unique_default_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key") WHERE is_default = true;--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "agents"."agent_iteration" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"trace_id" uuid NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"turn_id" uuid NOT NULL,
+	"iteration_number" integer NOT NULL,
+	"sub_agent_key" text NOT NULL,
+	"selection_reason" text NOT NULL,
+	"completion_scorer_results" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"is_complete" boolean DEFAULT false NOT NULL,
+	"started_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"ended_at" timestamp with time zone,
+	"usage" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"taint_at_start" boolean DEFAULT false NOT NULL
+);--> statement-breakpoint
+CREATE INDEX "idx_agent_iteration_turn" ON "agents"."agent_iteration" USING btree ("turn_id","iteration_number");--> statement-breakpoint
+CREATE TABLE "agents"."agent_readiness_check" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"criterion_id" text NOT NULL,
+	"window_start" timestamp with time zone NOT NULL,
+	"window_end" timestamp with time zone NOT NULL,
+	"observed_value" text NOT NULL,
+	"threshold" text NOT NULL,
+	"passed" boolean NOT NULL,
+	"notes" text,
+	"computed_at" timestamp with time zone NOT NULL
+);--> statement-breakpoint
+CREATE TABLE "agents"."agent_runbook_dry_run" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"runbook_id" text NOT NULL,
+	"executed_at" timestamp with time zone NOT NULL,
+	"executed_by" uuid NOT NULL,
+	"outcome" text NOT NULL,
+	"post_mortem_url" text,
+	"time_to_recovery_minutes" integer,
+	CONSTRAINT "agent_runbook_dry_run_outcome_check" CHECK ("agents"."agent_runbook_dry_run"."outcome" IN ('pass', 'pass_with_notes', 'fail')),
+	CONSTRAINT "agent_runbook_dry_run_runbook_id_check" CHECK ("agents"."agent_runbook_dry_run"."runbook_id" IN ('provider_outage', 'budget_exhaustion_midflight', 'quality_canary_degradation', 'cross_tenant_leak_alert', 'content_hash_store_miss', 'adapter_dropped_cache_fields', 'approval_inbox_flood', 'gdpr_erasure_partial_success'))
+);--> statement-breakpoint
+CREATE TABLE "agents"."agent_ga_readiness_state" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"is_ga_ready" boolean NOT NULL,
+	"computed_at" timestamp with time zone NOT NULL,
+	"missing_criteria" jsonb NOT NULL,
+	"consecutive_windows_met" integer DEFAULT 0 NOT NULL,
+	"window_started_passing_at" timestamp with time zone,
+	"tenant_count" integer NOT NULL,
+	"interactive_turns_per_day" integer NOT NULL,
+	"p1_security_incidents_last_90d" integer NOT NULL
+);--> statement-breakpoint
+CREATE TABLE "agents"."agent_p1_incident_log" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"opened_at" timestamp with time zone NOT NULL,
+	"closed_at" timestamp with time zone,
+	"severity" text NOT NULL,
+	"category" text NOT NULL,
+	"summary" text NOT NULL,
+	"post_mortem_url" text,
+	CONSTRAINT "agent_p1_incident_log_severity_check" CHECK ("agents"."agent_p1_incident_log"."severity" IN ('P1', 'P2')),
+	CONSTRAINT "agent_p1_incident_log_category_check" CHECK ("agents"."agent_p1_incident_log"."category" IN ('security', 'reliability', 'cost', 'observability'))
+);--> statement-breakpoint
+CREATE TABLE "agents"."agent_cost_reconciliation" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"week_start" date NOT NULL,
+	"agent_cost_event_sum_usd" numeric(12, 6) NOT NULL,
+	"vendor_invoice_sum_usd" numeric(12, 6) NOT NULL,
+	"divergence_pct" numeric(8, 4) NOT NULL,
+	"divergence_over_threshold" boolean NOT NULL,
+	"computed_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "agent_cost_reconciliation_divergence_pct_check" CHECK ("agents"."agent_cost_reconciliation"."divergence_pct" >= -100 AND "agents"."agent_cost_reconciliation"."divergence_pct" <= 100)
+);--> statement-breakpoint
+CREATE INDEX "agent_readiness_check_criterion_window_idx" ON "agents"."agent_readiness_check" USING btree ("criterion_id","window_end" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_runbook_dry_run_runbook_executed_idx" ON "agents"."agent_runbook_dry_run" USING btree ("runbook_id","executed_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_runbook_dry_run_tenant_executed_idx" ON "agents"."agent_runbook_dry_run" USING btree ("tenant_id","executed_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_p1_incident_log_severity_opened_idx" ON "agents"."agent_p1_incident_log" USING btree ("severity","opened_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_cost_reconciliation_week_start_idx" ON "agents"."agent_cost_reconciliation" USING btree ("week_start");--> statement-breakpoint
 ALTER TABLE planner.plan ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
 ALTER TABLE planner.plan_label ENABLE ROW LEVEL SECURITY;

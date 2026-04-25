@@ -40,7 +40,7 @@
  * served via trace spans which carry `sub_agent_key` as a span attribute.
  */
 
-import { metrics, ValueType, type Counter, type Histogram } from '@opentelemetry/api'
+import { metrics, ValueType, type Counter, type Histogram, type Gauge } from '@opentelemetry/api'
 
 // ─── Lazy instrument cache ────────────────────────────────────────────────────
 
@@ -102,6 +102,47 @@ interface GatewayInstruments {
    * Labels: sub_agent_key, module.
    */
   l1InvalidationTotal: Counter
+
+  // ─── Plan 12 §8 iterative-topology metrics ────────────────────────────────
+
+  /**
+   * Counts iterative turn completions by outcome (Plan 12 §8).
+   * Labels: tenant_id, outcome.
+   * outcome ∈ 'synthesized' | 'partial' | 'aborted' | 'disambiguation'
+   */
+  iterativeTurnTotal: Counter
+
+  /**
+   * Gauge — set to 1 when an iterative turn's iteration count reaches or
+   * exceeds the p95 threshold (Plan 12 §8, agent_iteration_count_exceeded_p95).
+   * Labels: tenant_id.
+   */
+  iterationCountExceededGauge: Gauge
+
+  /**
+   * Counts bounded re-plans that are topology-downgrade candidates (R-12.20, R-12.21).
+   * Labels: tenant_id.
+   */
+  topologyDowngradeCandidateTotal: Counter
+
+  /**
+   * Counts replan LLM call outcomes (Plan 12 §8).
+   * Labels: tenant_id, outcome.
+   * outcome ∈ 'continue' | 'exit_complete' | 'exit_stuck' | 'exit_disambiguation' | 'parse_error'
+   */
+  replanLlmCallTotal: Counter
+
+  /**
+   * Counts completion scorer failures (throws) per scorer (Plan 12 §8).
+   * Labels: tenant_id, scorer_id.
+   */
+  completionScorerFailTotal: Counter
+
+  /**
+   * Histogram of iteration counts per iterative turn (Plan 12 §8).
+   * Labels: tenant_id.
+   */
+  iterationsTotalHistogram: Histogram
 }
 
 let _instruments: GatewayInstruments | undefined
@@ -227,6 +268,68 @@ function getInstruments(): GatewayInstruments {
     l1InvalidationTotal: meter.createCounter('agent_l1_invalidation_total', {
       description:
         'L1 module-scoped cache invalidations fired after successful mutations (R-04.3a).',
+      valueType: ValueType.INT,
+    }),
+
+    // ─── Plan 12 §8 iterative-topology metrics ──────────────────────────────
+
+    /**
+     * Counts iterative turn completions by outcome (Plan 12 §8).
+     * Labels: tenant_id, outcome.
+     */
+    iterativeTurnTotal: meter.createCounter('agent_iterative_turn_total', {
+      description: 'Iterative turn completions by outcome per tenant.',
+      valueType: ValueType.INT,
+    }),
+
+    /**
+     * Gauge set to 1 when an iterative turn reaches or exceeds the p95 iteration
+     * count threshold (Plan 12 §8, agent_iteration_count_exceeded_p95).
+     * Labels: tenant_id.
+     */
+    iterationCountExceededGauge: meter.createGauge('agent_iteration_count_exceeded_p95', {
+      description:
+        'Gauge — set to 1 when an iterative turn iteration count exceeds the p95 threshold.',
+      valueType: ValueType.INT,
+    }),
+
+    /**
+     * Counts bounded re-plans that are topology-downgrade candidates (R-12.20, R-12.21).
+     * Labels: tenant_id.
+     */
+    topologyDowngradeCandidateTotal: meter.createCounter(
+      'agent_topology_downgrade_candidate_total',
+      {
+        description:
+          'Bounded re-plans triggered on an iterative turn — topology-downgrade candidates.',
+        valueType: ValueType.INT,
+      },
+    ),
+
+    /**
+     * Counts replan LLM call outcomes (Plan 12 §8).
+     * Labels: tenant_id, outcome.
+     */
+    replanLlmCallTotal: meter.createCounter('agent_replan_llm_call_total', {
+      description: 'Replan LLM call outcomes per tenant.',
+      valueType: ValueType.INT,
+    }),
+
+    /**
+     * Counts completion scorer failures (throws) per scorer (Plan 12 §8).
+     * Labels: tenant_id, scorer_id.
+     */
+    completionScorerFailTotal: meter.createCounter('agent_completion_scorer_fail_total', {
+      description: 'Completion scorer failures (throws) per tenant and scorer ID.',
+      valueType: ValueType.INT,
+    }),
+
+    /**
+     * Histogram of iteration counts per iterative turn (Plan 12 §8).
+     * Labels: tenant_id.
+     */
+    iterationsTotalHistogram: meter.createHistogram('agent_turn_iterations_total', {
+      description: 'Number of iterations executed per iterative turn, per tenant.',
       valueType: ValueType.INT,
     }),
   }
@@ -366,4 +469,59 @@ export function recordSubAgentInvoked(
  */
 export function recordL1Invalidation(subAgentKey: string, module: string): void {
   getInstruments().l1InvalidationTotal.add(1, { sub_agent_key: subAgentKey, module })
+}
+
+// ─── Plan 12 §8 iterative-topology helpers ───────────────────────────────────
+
+/**
+ * Record an iterative turn completion by outcome (Plan 12 §8).
+ * outcome ∈ 'synthesized' | 'partial' | 'aborted' | 'disambiguation'
+ */
+export function recordIterativeTurnTotal(
+  tenantId: string,
+  outcome: 'synthesized' | 'partial' | 'aborted' | 'disambiguation',
+): void {
+  getInstruments().iterativeTurnTotal.add(1, { tenant_id: tenantId, outcome })
+}
+
+/**
+ * Set the agent_iteration_count_exceeded_p95 gauge to 1 for the given tenant.
+ * Called when an iterative turn's iteration count reaches or exceeds the p95 threshold.
+ */
+export function recordIterationCountExceeded(tenantId: string): void {
+  getInstruments().iterationCountExceededGauge.record(1, { tenant_id: tenantId })
+}
+
+/**
+ * Increment the topology-downgrade candidate counter for the given tenant (R-12.20, R-12.21).
+ * Called when a bounded re-plan fires on an iterative-topology turn.
+ */
+export function recordTopologyDowngradeCandidateTotal(tenantId: string): void {
+  getInstruments().topologyDowngradeCandidateTotal.add(1, { tenant_id: tenantId })
+}
+
+/**
+ * Record a replan LLM call outcome (Plan 12 §8).
+ * outcome ∈ 'continue' | 'exit_complete' | 'exit_stuck' | 'exit_disambiguation' | 'parse_error'
+ */
+export function recordReplanLlmCallTotal(
+  tenantId: string,
+  outcome: 'continue' | 'exit_complete' | 'exit_stuck' | 'exit_disambiguation' | 'parse_error',
+): void {
+  getInstruments().replanLlmCallTotal.add(1, { tenant_id: tenantId, outcome })
+}
+
+/**
+ * Record a completion scorer failure (throw) for a specific scorer (Plan 12 §8).
+ */
+export function recordCompletionScorerFail(tenantId: string, scorerId: string): void {
+  getInstruments().completionScorerFailTotal.add(1, { tenant_id: tenantId, scorer_id: scorerId })
+}
+
+/**
+ * Record the iteration count histogram for an iterative turn (Plan 12 §8).
+ * Called once at the end of the turn with the total number of iterations executed.
+ */
+export function recordIterationsTotalHistogram(tenantId: string, iterationCount: number): void {
+  getInstruments().iterationsTotalHistogram.record(iterationCount, { tenant_id: tenantId })
 }

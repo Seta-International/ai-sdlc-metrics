@@ -1,6 +1,17 @@
 import { Controller, Post, Req, Res } from '@nestjs/common'
-import type { FastifyRequest, FastifyReply } from 'fastify'
+import type { IncomingMessage, ServerResponse } from 'http'
 import { JwtService } from '../../../../common/auth/jwt.service'
+
+// Minimal structural types — avoids a direct `fastify` package import that
+// bun does not hoist into node_modules (fastify is a peer dep of platform-fastify).
+interface FastifyRequest<RouteGeneric extends { Body?: unknown } = { Body?: unknown }> {
+  headers: Record<string, string | string[] | undefined>
+  body: RouteGeneric['Body']
+  raw: IncomingMessage
+}
+interface FastifyReply {
+  raw: ServerResponse
+}
 import { ActiveTurnRegistry } from '../../application/services/active-turn-registry'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { composeTurnAbortSignal, ZERO_USAGE } from '../../application/services/abort-coordinator'

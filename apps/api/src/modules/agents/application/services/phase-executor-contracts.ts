@@ -7,6 +7,7 @@
 
 import type { BoundedPlan, SubAgentDirective } from '../../domain/value-objects/router-plan-schema'
 import type { ValidatedSubAgentConfig } from '../../domain/services/sub-agent-types'
+import type { ScorerResult } from '../../domain/scorer-types'
 
 // ─── Primitive types ──────────────────────────────────────────────────────────
 
@@ -176,6 +177,34 @@ export type PartialAnswerDecision =
   | 'suppress_partial' // ceiling hit + writes drafted → suppress, drafts only (R-03.20)
   | 'no_ceiling' // no sub-agent hit a ceiling; full synthesis proceeds
 
+// ─── CompletionSpec (Plan 12) ─────────────────────────────────────────────────
+
+/**
+ * Exit criteria for the iterative supervisor loop (Plan 12 §2).
+ * Pure TypeScript mirror of the Zod CompletionSpecSchema in router-plan-schema.
+ */
+export type CompletionSpec = {
+  readonly scorerIds: string[]
+  readonly strategy: 'all' | 'any'
+  readonly maxIterations: number
+  readonly hintToRouter: string
+}
+
+// ─── IterationRecord (Plan 12) ────────────────────────────────────────────────
+
+/**
+ * Immutable record of a single completed iteration in the supervisor loop.
+ * Appended to `PhaseExecutorTurnState.iterationHistory` after each iteration.
+ */
+export type IterationRecord = {
+  readonly iterationNumber: number
+  readonly subAgentKey: string
+  readonly directive: SubAgentDirective
+  readonly output: SubAgentOutput
+  readonly scorerResults: ScorerResult[]
+  readonly isComplete: boolean
+}
+
 // ─── Phase executor opts ──────────────────────────────────────────────────────
 
 /**
@@ -192,6 +221,17 @@ export interface PhaseExecutorTurnState {
   /** Shared mutable taint flag — any sub-agent can flip it to true. */
   readonly tainted: { value: boolean }
   routerReplanCount: 0 | 1
+  // Added for iterative topology (plan 12)
+  /** Current 1-based iteration number (mutable). Undefined for non-iterative topologies. */
+  iterationNumber?: number
+  /** Exit criteria for the supervisor loop. Undefined for non-iterative topologies. */
+  completionCriteria?: CompletionSpec
+  /** Ordered history of completed iterations. Undefined for non-iterative topologies. */
+  iterationHistory?: IterationRecord[]
+  /** Cumulative LLM cost in USD across all iterations so far (mutable). */
+  cumulativeCostUsd?: number
+  /** Cumulative wall-clock time in milliseconds across all iterations so far (mutable). */
+  cumulativeWallclockMs?: number
 }
 
 // ─── SubAgentRunnerOpts ───────────────────────────────────────────────────────

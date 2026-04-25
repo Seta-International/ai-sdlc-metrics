@@ -20,10 +20,15 @@ import { Injectable, Inject, Logger } from '@nestjs/common'
 import { trace, SpanStatusCode, context, type Span } from '@opentelemetry/api'
 import { uuidv7 } from 'uuidv7'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
+import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import type { AgentSessionPort } from '../../domain/ports/agent-session.port'
 import { AGENT_SESSION_PORT } from '../../domain/ports/agent-session.port'
 import type { WindowedSummaries } from '../../domain/value-objects/windowed-summaries'
-import type { RouterPlan, BoundedPlan } from '../../domain/value-objects/router-plan-schema'
+import type {
+  RouterPlan,
+  BoundedPlan,
+  IterativePlan,
+} from '../../domain/value-objects/router-plan-schema'
 import { ROUTER_PLAN_JSON_SCHEMA_PLACEHOLDER } from '../../domain/value-objects/router-plan-schema'
 import type { SubAgentKey } from '../../domain/services/sub-agent-types'
 import { canonicalize, CANONICALIZER_VERSION_HASH } from '../../infrastructure/cache/canonical-args'
@@ -46,7 +51,12 @@ import {
   recordRouterDecision,
   recordRouterParseRetry,
   recordSubAgentInvoked,
+  recordTopologyDowngradeCandidateTotal,
 } from '../../infrastructure/observability/gateway-metrics'
+import { IterativeOrchestrator, ITERATIVE_ORCHESTRATOR } from './iterative-orchestrator'
+import type { IterativeOrchestratorOpts } from './iterative-orchestrator'
+import type { PhaseExecutionResult, PhaseExecutorTurnState } from './phase-executor-contracts'
+import type { StreamEmitter } from './stream-gateway'
 
 // ─── DI token ─────────────────────────────────────────────────────────────────
 
@@ -72,6 +82,7 @@ export interface RouteTurnOpts {
 
 export type RouteTurnResult =
   | { kind: 'bounded'; plan: RouterPlan; sessionId: UUID; parseRetries: 0 | 1 }
+  | { kind: 'iterative'; result: PhaseExecutionResult; sessionId: UUID; parseRetries: 0 | 1 }
   | { kind: 'disambiguation'; reason: string; sessionId: UUID; parseRetries: 0 | 1 }
 
 // ─── Tracer ───────────────────────────────────────────────────────────────────
@@ -102,6 +113,8 @@ export class RouterSessionOrchestrator {
     @Inject(ROUTER_LLM_CLIENT) private readonly llmClient: RouterLlmClient,
     private readonly toolRegistry: ToolRegistry,
     private readonly kernelAuditFacade: KernelAuditFacade,
+    private readonly kernelQueryFacade: KernelQueryFacade,
+    @Inject(ITERATIVE_ORCHESTRATOR) private readonly iterativeOrchestrator: IterativeOrchestrator,
   ) {}
 
   // ─── Main entry ──────────────────────────────────────────────────────────────
@@ -334,6 +347,25 @@ export class RouterSessionOrchestrator {
 
     if (parseResult1.kind === 'ok') {
       parentSpan.setAttributes({ router_parse_retries: 0 })
+      // ── Inline surface guard: iterative plan on inline surface → retry with hint ──
+      if (parseResult1.plan.topology === 'iterative' && surface === 'inline') {
+        return this._applyInlineSurfaceGuard(
+          resolvedModel,
+          systemPrompt,
+          developerMessage,
+          utterance,
+          sessionId,
+          pinnedSubAgentPromptHashes,
+          tenantId,
+          userId,
+          roleKey,
+          turnTraceId,
+          0,
+          conversationId,
+          surface,
+        )
+      }
+      // Permission gate + iterative dispatch or regular bounded/disambig
       return this._handleBoundedOrDisambig(
         parseResult1.plan,
         sessionId,
@@ -342,7 +374,10 @@ export class RouterSessionOrchestrator {
         userId,
         roleKey,
         turnTraceId,
+        utterance,
         0,
+        conversationId,
+        surface,
       )
     }
 
@@ -369,6 +404,24 @@ export class RouterSessionOrchestrator {
 
     if (parseResult2.kind === 'ok') {
       parentSpan.setAttributes({ router_parse_retries: 1 })
+      // ── Inline surface guard for attempt 2 ──────────────────────────────────────
+      if (parseResult2.plan.topology === 'iterative' && surface === 'inline') {
+        return this._applyInlineSurfaceGuard(
+          resolvedModel,
+          systemPrompt,
+          developerMessage,
+          utterance,
+          sessionId,
+          pinnedSubAgentPromptHashes,
+          tenantId,
+          userId,
+          roleKey,
+          turnTraceId,
+          1,
+          conversationId,
+          surface,
+        )
+      }
       return this._handleBoundedOrDisambig(
         parseResult2.plan,
         sessionId,
@@ -377,7 +430,10 @@ export class RouterSessionOrchestrator {
         userId,
         roleKey,
         turnTraceId,
+        utterance,
         1,
+        conversationId,
+        surface,
       )
     }
 
@@ -479,7 +535,89 @@ export class RouterSessionOrchestrator {
     return { result, parseResult }
   }
 
-  // ─── Handle ok plan (bounded or LLM-emitted disambiguation) ──────────────────
+  // ─── Inline surface guard ─────────────────────────────────────────────────────
+
+  /**
+   * Handles the inline surface guard for iterative plans (Plan 12 R-12.4a).
+   *
+   * When the router emits an iterative plan on an inline surface:
+   *   1. Re-invoke the router with an explicit inline hint.
+   *   2. If the result is still iterative (or parse failed) → hard disambiguation refusal.
+   *   3. If the result is non-iterative → route it normally via _handleBoundedOrDisambig.
+   *
+   * Always returns a RouteTurnResult — the caller should return it directly.
+   *
+   * NOTE: This guard is ONLY called when `plan.topology === 'iterative' && surface === 'inline'`.
+   *       The caller is responsible for that pre-check.
+   */
+  private async _applyInlineSurfaceGuard(
+    resolvedModel: { provider: 'openai' | 'anthropic'; model: string },
+    systemPrompt: string,
+    developerMessage: string,
+    utterance: string,
+    sessionId: UUID,
+    pinnedSubAgentPromptHashes: Record<string, string>,
+    tenantId: string,
+    userId: string,
+    roleKey: string,
+    turnTraceId: UUID,
+    parseRetries: 0 | 1,
+    conversationId: UUID,
+    surface: RouteTurnOpts['surface'],
+  ): Promise<RouteTurnResult> {
+    const inlineHint = 'This is an inline surface. Use bounded topology with single sub-agent.'
+    const augmentedSystem = systemPrompt + '\n\n' + inlineHint
+
+    const { parseResult: inlineParseResult } = await this._llmCallAndParse(
+      resolvedModel,
+      augmentedSystem,
+      developerMessage,
+      utterance,
+      // Treated as a schema-retry attempt — use attempt 2 slot
+      2,
+    )
+
+    if (inlineParseResult.kind !== 'ok' || inlineParseResult.plan.topology === 'iterative') {
+      // Still iterative (or parse failed) → hard disambiguation refusal
+      await this._safeAudit({
+        tenantId,
+        actorId: userId,
+        eventType: 'refusal.started',
+        module: 'agents',
+        subjectId: sessionId,
+        payload: {
+          reason: 'disambiguation',
+          turn_trace_id: turnTraceId,
+          session_id: sessionId,
+          underlying_reason: 'inline_surface_iterative_plan',
+        },
+      })
+      this._safeMetric(() => recordRouterDecision(tenantId, 'disambiguation'))
+      return {
+        kind: 'disambiguation',
+        reason: 'This request is too complex for inline. Please open global chat.',
+        sessionId,
+        parseRetries,
+      }
+    }
+
+    // Retry yielded a non-iterative plan → route it normally
+    return this._handleBoundedOrDisambig(
+      inlineParseResult.plan,
+      sessionId,
+      pinnedSubAgentPromptHashes,
+      tenantId,
+      userId,
+      roleKey,
+      turnTraceId,
+      utterance,
+      parseRetries,
+      conversationId,
+      surface,
+    )
+  }
+
+  // ─── Handle ok plan (bounded, direct, iterative, or LLM-emitted disambiguation) ──
 
   private async _handleBoundedOrDisambig(
     plan: RouterPlan,
@@ -489,28 +627,99 @@ export class RouterSessionOrchestrator {
     userId: string,
     roleKey: string,
     turnTraceId: UUID,
+    utterance: string,
     parseRetries: 0 | 1,
+    conversationId: UUID,
+    surface: RouteTurnOpts['surface'],
   ): Promise<RouteTurnResult> {
     const parentSpan = trace.getActiveSpan()
 
-    // Only bounded plans reach here — direct/iterative topologies are handled by PhaseExecutor.
-    // For now the orchestrator only handles bounded plans (the router LLM only emits bounded).
-    if (plan.topology !== 'bounded') {
-      // Non-bounded plans emitted by the router are passed through unchanged.
-      // PhaseExecutor dispatches on topology.
+    // ── Iterative topology: permission gate + dispatch ──────────────────────────
+    if (plan.topology === 'iterative') {
       parentSpan?.setAttributes({
         router_parse_retries: parseRetries,
         router_escalated_to_disambiguation: false,
         intent_slug: plan.intent_slug,
         flow_id: plan.flow_id,
-        plan_topology: plan.topology,
+        plan_topology: 'iterative',
       })
-      this._safeMetric(() =>
-        recordRouterDecision(
+
+      // Permission gate (R-12.4b): explicit disambiguation — NOT silent bounded downgrade
+      const allowed = await this.kernelQueryFacade.canDo(userId, 'agent.iterative', { tenantId })
+      if (!allowed) {
+        await this._safeAudit({
           tenantId,
-          plan.topology === 'direct' ? 'direct_plan' : 'iterative_plan',
-        ),
-      )
+          actorId: userId,
+          eventType: 'refusal.started',
+          module: 'agents',
+          subjectId: sessionId,
+          payload: {
+            reason: 'disambiguation',
+            turn_trace_id: turnTraceId,
+            session_id: sessionId,
+            underlying_reason: 'iterative_permission_denied',
+          },
+        })
+        this._safeMetric(() => recordRouterDecision(tenantId, 'disambiguation'))
+        return {
+          kind: 'disambiguation',
+          reason:
+            'The iterative agent feature is not enabled for your account. ' +
+            'Please contact your administrator.',
+          sessionId,
+          parseRetries,
+        }
+      }
+
+      this._safeMetric(() => recordRouterDecision(tenantId, 'iterative_plan'))
+
+      // Dispatch to IterativeOrchestrator
+      // NOTE: PhaseExecutorTurnState is owned by the phase executor layer.
+      // The minimal turn state below satisfies the IterativeOrchestrator's type
+      // contract. Full wiring with the real HTTP request context happens in Task 7.
+      const turnState: PhaseExecutorTurnState = {
+        traceId: turnTraceId,
+        tenantId,
+        userId,
+        conversationId,
+        sessionId,
+        surface,
+        tainted: { value: false },
+        routerReplanCount: 0,
+      }
+      const abortController = new AbortController()
+
+      const iterativeResult = await this.iterativeOrchestrator.execute({
+        initialPlan: plan as IterativePlan,
+        userUtterance: utterance,
+        turnState,
+        abortSignal: abortController.signal,
+        streamEmitter: _noopStreamEmitter,
+      } satisfies IterativeOrchestratorOpts)
+
+      // ── Topology-downgrade signal (R-12.20, R-12.21) ─────────────────────────
+      // If a bounded re-plan fired during iterative execution, routerReplanCount
+      // will have been incremented to 1. This marks the turn as a topology-downgrade
+      // candidate for observability — the iterative topology had to fall back to a
+      // bounded re-plan, which suggests the task may be better served by bounded.
+      if (turnState.routerReplanCount === 1) {
+        parentSpan?.setAttributes({ topology_downgrade_candidate: true })
+        this._safeMetric(() => recordTopologyDowngradeCandidateTotal(tenantId))
+      }
+
+      return { kind: 'iterative', result: iterativeResult, sessionId, parseRetries }
+    }
+
+    // ── Direct topology: pass through ──────────────────────────────────────────
+    if (plan.topology === 'direct') {
+      parentSpan?.setAttributes({
+        router_parse_retries: parseRetries,
+        router_escalated_to_disambiguation: false,
+        intent_slug: plan.intent_slug,
+        flow_id: plan.flow_id,
+        plan_topology: 'direct',
+      })
+      this._safeMetric(() => recordRouterDecision(tenantId, 'direct_plan'))
       return { kind: 'bounded', plan, sessionId, parseRetries }
     }
 
@@ -748,4 +957,15 @@ function _buildFallbackSchemaPrompt(): string {
     `Emit only a valid JSON object matching:\n${schemaJson}\n` +
     `No markdown fences. No prose before or after.`
   )
+}
+
+/**
+ * No-op StreamEmitter used when RouterSessionOrchestrator dispatches an
+ * IterativeOrchestrator.execute() call directly. The full SSE wiring lives
+ * in the HTTP controller layer (Task 7). This stub satisfies the type contract.
+ */
+const _noopStreamEmitter: StreamEmitter = {
+  emit: () => {},
+  close: () => {},
+  error: () => {},
 }

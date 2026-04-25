@@ -44,6 +44,8 @@ import { RouterPromptBuilder } from './router-prompt-builder'
 import { SubAgentRetriever } from './sub-agent-retriever'
 import { RouterDecisionParser } from './router-decision-parser'
 import { RouterSessionOrchestrator } from './router-session-orchestrator'
+import type { ScorerRegistry } from './scorer-registry'
+import type { IterativeOrchestrator } from './iterative-orchestrator'
 import type { RouterPlan } from '../../domain/value-objects/router-plan-schema'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
@@ -436,7 +438,14 @@ export function buildRealOrchestrator(opts: {
 
   const routerPromptBuilder = new RouterPromptBuilder()
   const subAgentRetriever = new SubAgentRetriever()
-  const parser = new RouterDecisionParser(registries.intentRegistry, registries.subAgentRegistry)
+  const scorerRegistry = {
+    findById: vi.fn().mockReturnValue(undefined),
+  } as unknown as ScorerRegistry
+  const parser = new RouterDecisionParser(
+    registries.intentRegistry,
+    registries.subAgentRegistry,
+    scorerRegistry,
+  )
 
   let callCount = 0
   const llmClient = {
@@ -461,6 +470,8 @@ export function buildRealOrchestrator(opts: {
     llmClient as never,
     registries.toolRegistry,
     auditCapture as unknown as KernelAuditFacade,
+    kernelQuery,
+    { execute: vi.fn() } as unknown as IterativeOrchestrator,
   )
 
   return { orchestrator, sessionStore, auditCapture, narrativeStore }

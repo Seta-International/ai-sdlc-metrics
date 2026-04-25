@@ -1,0 +1,53 @@
+import { describe, it, expect, vi } from 'vitest'
+import { ReliabilitySingleAbortPathEvaluator } from './reliability-single-abort-path.evaluator'
+import type { MetricsQueryPort } from '../../../domain/ports/metrics-query.port'
+import type { EvalWindow } from './criterion-evaluator.types'
+
+const WINDOW: EvalWindow = { start: new Date('2026-03-26'), end: new Date('2026-04-25') }
+
+function buildMetrics(response: number | null): MetricsQueryPort {
+  return {
+    sumCounter: vi.fn().mockResolvedValue(response),
+  }
+}
+
+describe('ReliabilitySingleAbortPathEvaluator', () => {
+  it('passes when bypass total = 0 (all aborts via AbortCoordinator)', async () => {
+    const metrics = buildMetrics(0)
+    const evaluator = new ReliabilitySingleAbortPathEvaluator(metrics)
+
+    const result = await evaluator.evaluate(WINDOW)
+
+    expect(result.passed).toBe(true)
+    expect(result.observedValue).toBe('0')
+    expect(result.unableToEvaluate).toBeUndefined()
+  })
+
+  it('fails when bypass total > 0 (direct aborts detected)', async () => {
+    const metrics = buildMetrics(3)
+    const evaluator = new ReliabilitySingleAbortPathEvaluator(metrics)
+
+    const result = await evaluator.evaluate(WINDOW)
+
+    expect(result.passed).toBe(false)
+    expect(result.observedValue).toBe('3')
+  })
+
+  it('returns unableToEvaluate when metrics are unavailable', async () => {
+    const metrics = buildMetrics(null)
+    const evaluator = new ReliabilitySingleAbortPathEvaluator(metrics)
+
+    const result = await evaluator.evaluate(WINDOW)
+
+    expect(result.passed).toBe(false)
+    expect(result.unableToEvaluate).toBe(true)
+    expect(result.observedValue).toBe('unknown')
+  })
+
+  it('has the correct id and section', () => {
+    const metrics = buildMetrics(0)
+    const evaluator = new ReliabilitySingleAbortPathEvaluator(metrics)
+    expect(evaluator.id).toBe('18.1.single_abort_path_compliance')
+    expect(evaluator.section).toBe('18.1')
+  })
+})
