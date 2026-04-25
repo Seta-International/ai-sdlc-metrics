@@ -123,7 +123,7 @@ export class IterativeOrchestrator {
 
     // ── Main loop ─────────────────────────────────────────────────────────────
     for (;;) {
-      const n = turnState.iterationNumber!
+      const n: number = turnState.iterationNumber!
 
       // Step (a): Check abort signal
       if (abortSignal.aborted) {
