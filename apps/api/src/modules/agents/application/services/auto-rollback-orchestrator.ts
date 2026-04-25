@@ -22,6 +22,8 @@ export interface RollbackOpts {
   /** Signal results from RegressionSignalMonitor. Empty array for manual rollbacks. */
   trippedSignals: SignalResult[]
   triggeredBy: 'auto' | 'manual'
+  /** If provided, overrides the derived reason string in the event row and audit payload. */
+  reason?: string
 }
 
 // ─── AutoRollbackOrchestrator ─────────────────────────────────────────────────
@@ -95,9 +97,11 @@ export class AutoRollbackOrchestrator {
       opts.triggeredBy === 'auto' ? 'auto:regression_monitor' : 'human:manual'
 
     const reason =
-      opts.triggeredBy === 'auto' && opts.trippedSignals.length > 0
-        ? opts.trippedSignals.map((s) => `${s.signal}=${s.observed}>${s.threshold}`).join(', ')
-        : 'manual rollback'
+      opts.reason ??
+      (opts.triggeredBy === 'auto'
+        ? opts.trippedSignals.map((s) => `${s.signal}=${s.observed}>${s.threshold}`).join(', ') ||
+          'auto rollback triggered'
+        : 'manual rollback')
 
     // Step 7: Insert rollout event
     await this.db.insert(agentRolloutEvent).values({

@@ -471,6 +471,14 @@ describe('rolloutRouter', () => {
       await expect(caller.complete(completeInput)).rejects.toMatchObject({ code: 'BAD_REQUEST' })
     })
 
+    it('complete on already-completed config returns BAD_REQUEST', async () => {
+      const { handlers } = buildCompleteHandlers({ status: 'completed' })
+      setRolloutHandlers(handlers)
+
+      const caller = rolloutRouter.createCaller(makeCtx())
+      await expect(caller.complete(completeInput)).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+    })
+
     it('throws BAD_REQUEST when trafficPercentage < 100', async () => {
       const { handlers } = buildCompleteHandlers({
         status: 'active',
@@ -585,30 +593,19 @@ describe('rolloutRouter', () => {
     it('aggregates shadow run diff categories and returns DiffReport', async () => {
       const handlers = buildMockHandlers()
 
-      // Mock returns individual shadow run rows (one per request, as stored in DB).
+      // Mock returns GROUP BY aggregated rows (one per diff category).
       // 10 identical, 3 minor, 1 major, 2 shadow_errored = 16 total.
-      const shadowRunRows = [
-        ...Array.from({ length: 10 }, (_, i) => ({
-          id: `row-${i}`,
-          diffCategory: 'identical',
-        })),
-        ...Array.from({ length: 3 }, (_, i) => ({
-          id: `row-${10 + i}`,
-          diffCategory: 'minor_difference',
-        })),
-        ...Array.from({ length: 1 }, (_, i) => ({
-          id: `row-${13 + i}`,
-          diffCategory: 'major_difference',
-        })),
-        ...Array.from({ length: 2 }, (_, i) => ({
-          id: `row-${14 + i}`,
-          diffCategory: 'shadow_errored',
-        })),
+      const groupByRows = [
+        { diffCategory: 'identical', count: 10 },
+        { diffCategory: 'minor_difference', count: 3 },
+        { diffCategory: 'major_difference', count: 1 },
+        { diffCategory: 'shadow_errored', count: 2 },
       ]
 
       const mockSelectChain = {
         from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockResolvedValue(shadowRunRows),
+        where: vi.fn().mockReturnThis(),
+        groupBy: vi.fn().mockResolvedValue(groupByRows),
       }
       ;(handlers.db.select as ReturnType<typeof vi.fn>).mockReturnValue(mockSelectChain)
       setRolloutHandlers(handlers)
@@ -632,7 +629,8 @@ describe('rolloutRouter', () => {
       const handlers = buildMockHandlers()
       const mockSelectChain = {
         from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockResolvedValue([]),
+        where: vi.fn().mockReturnThis(),
+        groupBy: vi.fn().mockResolvedValue([]),
       }
       ;(handlers.db.select as ReturnType<typeof vi.fn>).mockReturnValue(mockSelectChain)
       setRolloutHandlers(handlers)
@@ -652,6 +650,20 @@ describe('rolloutRouter', () => {
 
       const caller = rolloutRouter.createCaller(makeCtx(null))
       await expect(caller.getDiffReport(diffInput)).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+    })
+
+    it('throws BAD_REQUEST when fromTs is not before toTs', async () => {
+      const handlers = buildMockHandlers()
+      setRolloutHandlers(handlers)
+
+      const caller = rolloutRouter.createCaller(makeCtx())
+      await expect(
+        caller.getDiffReport({
+          rolloutConfigId: ROLLOUT_ID,
+          fromTs: new Date('2026-01-02T00:00:00Z'),
+          toTs: new Date('2026-01-01T00:00:00Z'),
+        }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
     })
   })
 

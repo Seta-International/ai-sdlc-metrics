@@ -282,4 +282,22 @@ describe('AutoRollbackOrchestrator', () => {
     expect(insertMock).not.toHaveBeenCalled()
     expect(audit.recordEvent).not.toHaveBeenCalled()
   })
+
+  // ── 9. Provided reason overrides derived reason ───────────────────────────
+
+  it('9. provided reason overrides derived reason in event row', async () => {
+    const { db, insertValuesMock } = buildDb([makeConfig()])
+    const { audit } = makeAudit()
+    const orchestrator = new AutoRollbackOrchestrator(db, audit)
+
+    await orchestrator.rollback({
+      rolloutConfigId: ROLLOUT_CONFIG_ID,
+      trippedSignals: SAMPLE_TRIPPED_SIGNALS,
+      triggeredBy: 'manual',
+      reason: 'operator override: bad deploy',
+    })
+
+    const insertArg = insertValuesMock.mock.calls[0][0] as Record<string, unknown>
+    expect(insertArg.reason).toBe('operator override: bad deploy')
+  })
 })

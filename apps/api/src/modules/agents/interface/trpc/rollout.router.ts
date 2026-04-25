@@ -9,7 +9,7 @@
 
 import * as z from 'zod'
 import { TRPCError } from '@trpc/server'
-import { eq, and, gte, lte, desc } from 'drizzle-orm'
+import { eq, and, gte, lte, desc, sql } from 'drizzle-orm'
 import { uuidv7 } from 'uuidv7'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import { PERMISSIONS } from '../../../../common/auth/permissions'
@@ -94,11 +94,16 @@ const GetInput = z.object({
   rolloutConfigId: z.string().uuid(),
 })
 
-const GetDiffReportInput = z.object({
-  rolloutConfigId: z.string().uuid(),
-  fromTs: z.coerce.date(),
-  toTs: z.coerce.date(),
-})
+const GetDiffReportInput = z
+  .object({
+    rolloutConfigId: z.string().uuid(),
+    fromTs: z.coerce.date(),
+    toTs: z.coerce.date(),
+  })
+  .refine((data) => data.fromTs < data.toTs, {
+    message: 'fromTs must be before toTs',
+    path: ['fromTs'],
+  })
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
@@ -207,7 +212,12 @@ export const rolloutRouter = router({
           trafficPercentage: String(input.toPercentage),
           ...(isDrafting ? { status: 'active', activatedAt: new Date() } : {}),
         })
-        .where(eq(agentRolloutConfig.id, input.rolloutConfigId))
+        .where(
+          and(
+            eq(agentRolloutConfig.id, input.rolloutConfigId),
+            eq(agentRolloutConfig.tenantId, ctx.tenantId),
+          ),
+        )
 
       // Insert 'activated' event if this is the first shift (was drafting)
       if (isDrafting) {
@@ -266,6 +276,7 @@ export const rolloutRouter = router({
         rolloutConfigId: input.rolloutConfigId,
         trippedSignals: [],
         triggeredBy: 'manual',
+        reason: input.reason,
       })
     }),
 
@@ -309,7 +320,12 @@ export const rolloutRouter = router({
           status: 'completed',
           completedOrRolledBackAt: new Date(),
         })
-        .where(eq(agentRolloutConfig.id, input.rolloutConfigId))
+        .where(
+          and(
+            eq(agentRolloutConfig.id, input.rolloutConfigId),
+            eq(agentRolloutConfig.tenantId, ctx.tenantId),
+          ),
+        )
 
       await db.insert(agentRolloutEvent).values({
         id: uuidv7(),
@@ -385,13 +401,11 @@ export const rolloutRouter = router({
 
       const { db } = h()
 
-      // Query all shadow runs for this rollout config in the time window.
-      // We fetch all matching rows and aggregate in-memory to avoid GROUP BY
-      // complexity while respecting the sequential-query rule.
+      // SQL GROUP BY aggregation: returns at most 4 rows (one per diff category).
       const rows = await db
         .select({
           diffCategory: agentShadowRun.diffCategory,
-          count: agentShadowRun.id,
+          count: sql<number>`cast(count(*) as int)`,
         })
         .from(agentShadowRun)
         .where(
@@ -402,32 +416,29 @@ export const rolloutRouter = router({
             lte(agentShadowRun.ts, input.toTs),
           ),
         )
+        .groupBy(agentShadowRun.diffCategory)
 
-      // Aggregate counts per category
-      const counts: Record<string, number> = {
+      // Aggregate the at-most 4 rows in memory
+      const counts = {
         identical: 0,
         minor_difference: 0,
         major_difference: 0,
         shadow_errored: 0,
       }
-
       for (const row of rows) {
-        const cat = row.diffCategory as string
-        counts[cat] = (counts[cat] ?? 0) + 1
+        counts[row.diffCategory as keyof typeof counts] = row.count
       }
-
-      const totalRuns =
-        counts.identical + counts.minor_difference + counts.major_difference + counts.shadow_errored
+      const total = Object.values(counts).reduce((a, b) => a + b, 0)
 
       return {
         rolloutConfigId: input.rolloutConfigId,
-        totalRuns,
+        totalRuns: total,
         identicalCount: counts.identical,
         minorDifferenceCount: counts.minor_difference,
         majorDifferenceCount: counts.major_difference,
         shadowErroredCount: counts.shadow_errored,
-        identicalPct: totalRuns > 0 ? counts.identical / totalRuns : 0,
-        majorDifferencePct: totalRuns > 0 ? counts.major_difference / totalRuns : 0,
+        identicalPct: total === 0 ? 0 : counts.identical / total,
+        majorDifferencePct: total === 0 ? 0 : counts.major_difference / total,
         fromTs: input.fromTs,
         toTs: input.toTs,
       }
