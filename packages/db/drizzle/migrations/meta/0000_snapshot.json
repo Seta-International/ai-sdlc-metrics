@@ -1,5 +1,5 @@
 {
-  "id": "331bf97e-8228-493b-b052-40e8d25bed0a",
+  "id": "47d97e73-3253-43cd-aeb1-10021334b98a",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1659,8 +1659,8 @@
         }
       },
       "indexes": {
-        "agent_tool_result_cache_exact_idx": {
-          "name": "agent_tool_result_cache_exact_idx",
+        "agent_tool_result_cache_exact_uidx": {
+          "name": "agent_tool_result_cache_exact_uidx",
           "columns": [
             {
               "expression": "tenant_id",
@@ -1681,7 +1681,7 @@
               "nulls": "last"
             }
           ],
-          "isUnique": false,
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -2309,6 +2309,21 @@
           "isUnique": false,
           "concurrently": false,
           "method": "btree",
+          "with": {}
+        },
+        "agent_message_fts_idx": {
+          "name": "agent_message_fts_idx",
+          "columns": [
+            {
+              "expression": "to_tsvector('simple', CASE WHEN \"role\" = 'user' THEN coalesce(\"content\"->>'text','') ELSE '' END || ' ' || coalesce(\"summary\",''))",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gin",
           "with": {}
         }
       },
@@ -5709,6 +5724,18 @@
           "primaryKey": false,
           "notNull": true
         },
+        "flow_id": {
+          "name": "flow_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "intent_slug": {
+          "name": "intent_slug",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -5717,7 +5744,38 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "audit_event_flow_id_idx": {
+          "name": "audit_event_flow_id_idx",
+          "columns": [
+            {
+              "expression": "flow_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "audit_event_intent_slug_idx": {
+          "name": "audit_event_intent_slug_idx",
+          "columns": [
+            {
+              "expression": "intent_slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},

@@ -40,6 +40,10 @@ export class KernelAuditFacade {
     module: string
     subjectId: string
     payload: unknown
+    /** Plan 07 §3 — optional flow correlation id */
+    flowId?: string | null
+    /** Plan 07 §3 — optional intent slug (max 120 chars) */
+    intentSlug?: string | null
   }): Promise<void> {
     return this.auditRepo.insert(data)
   }

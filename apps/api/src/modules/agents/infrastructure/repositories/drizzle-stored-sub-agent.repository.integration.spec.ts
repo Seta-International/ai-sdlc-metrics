@@ -147,16 +147,28 @@ describe('DrizzleStoredSubAgentRepository', () => {
     expect(rlsRows.rows[0]!.relrowsecurity).toBe(true)
     expect(rlsRows.rows[0]!.relforcerowsecurity).toBe(true)
 
-    // CHECK constraint — inserting an invalid status must fail.
+    // CHECK constraint — inserting an invalid status must fail with a PG check
+    // violation (code 23514). The Drizzle db layer wraps PG errors in a
+    // "Failed query: ..." message; inspect the underlying cause instead.
     await setTenantContext(db, TENANT_A)
-    await expect(
-      db.execute(sql`
+    let thrownError: unknown
+    try {
+      await db.execute(sql`
         INSERT INTO agents.agent_stored_sub_agent
           (id, tenant_id, key, config, version, status, created_by)
         VALUES
           (${uuidv7()}, ${TENANT_A}, ${'bad-status'}, ${'{}'}::jsonb, 1, 'invalid', ${CREATOR})
-      `),
-    ).rejects.toThrow(/check constraint/i)
+      `)
+    } catch (err) {
+      thrownError = err
+    }
+    expect(thrownError).toBeDefined()
+    // PG check violation code = 23514; Drizzle may wrap the error but the
+    // original PG error is accessible via the 'cause' property or the
+    // serialized error carries the constraint name.
+    const errMsg = String(thrownError)
+    const causeMsg = thrownError instanceof Error ? String(thrownError.cause ?? '') : ''
+    expect(errMsg + causeMsg).toMatch(/check.constraint|23514|agent_stored_sub_agent_status_check/i)
   })
 
   it('cross-tenant RLS: active row seeded under TENANT_B is invisible to TENANT_A', async () => {

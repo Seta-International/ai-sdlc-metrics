@@ -19,6 +19,10 @@ export interface AuditEventRow {
   module: string
   subjectId: string
   payload: unknown
+  /** Plan 07 §3 — nullable flow correlation id */
+  flowId: string | null
+  /** Plan 07 §3 — nullable intent slug */
+  intentSlug: string | null
   createdAt: Date
 }
 

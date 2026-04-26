@@ -37,6 +37,8 @@ describe('DrizzleAuditEventRepository', () => {
       module: data.module,
       subjectId: data.subjectId,
       payload: data.payload,
+      flowId: null,
+      intentSlug: null,
     })
   })
 

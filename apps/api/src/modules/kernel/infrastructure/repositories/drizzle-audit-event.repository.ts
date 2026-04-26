@@ -21,6 +21,8 @@ export class DrizzleAuditEventRepository implements IAuditEventRepository {
     module: string
     subjectId: string
     payload: unknown
+    flowId?: string | null
+    intentSlug?: string | null
   }): Promise<void> {
     await this.db.insert(auditEvent).values({
       tenantId: data.tenantId,
@@ -29,6 +31,8 @@ export class DrizzleAuditEventRepository implements IAuditEventRepository {
       module: data.module,
       subjectId: data.subjectId,
       payload: data.payload,
+      flowId: data.flowId ?? null,
+      intentSlug: data.intentSlug ?? null,
     })
   }
 
@@ -63,6 +67,8 @@ export class DrizzleAuditEventRepository implements IAuditEventRepository {
         module: row.module,
         subjectId: row.subjectId,
         payload: row.payload,
+        flowId: row.flowId,
+        intentSlug: row.intentSlug,
         createdAt: row.createdAt,
       })),
       total: Number(countResult[0]?.value ?? 0),
@@ -92,6 +98,8 @@ export class DrizzleAuditEventRepository implements IAuditEventRepository {
       module: row.module,
       subjectId: row.subjectId,
       payload: row.payload,
+      flowId: row.flowId,
+      intentSlug: row.intentSlug,
       createdAt: row.createdAt,
     }))
   }

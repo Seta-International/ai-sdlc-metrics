@@ -22,7 +22,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
-    "generate": "drizzle-kit generate",
+    "generate": "drizzle-kit generate && bun run src/append-rls.ts",
     "migrate": "bun run src/migrate.ts"
   },
   "dependencies": {

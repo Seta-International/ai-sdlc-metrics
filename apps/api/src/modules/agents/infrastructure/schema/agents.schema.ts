@@ -234,6 +234,17 @@ export const agentConversationMessages = agentsSchema.table(
       t.conversationId,
       t.createdAt,
     ),
+    /**
+     * Plan 04 R-04.8 — GIN FTS index covering user utterances and summaries only.
+     * Raw tool-result content is intentionally excluded: only role='user' content
+     * text and the summary column are indexed for full-text search.
+     * Uses 'simple' dictionary (no language stemming) for consistent cross-tenant
+     * behaviour.
+     */
+    index('agent_message_fts_idx').using(
+      'gin',
+      sql`to_tsvector('simple', CASE WHEN ${t.role} = 'user' THEN coalesce(${t.content}->>'text','') ELSE '' END || ' ' || coalesce(${t.summary},''))`,
+    ),
     check('agent_message_role_check', sql`${t.role} IN ('user', 'assistant', 'system')`),
   ],
 )
