@@ -8,7 +8,7 @@ export const syntheticWorkerSubAgent = defineSubAgent({
   description:
     'A synthetic sub-agent for testing that the lint runner discovers new modules automatically without central registration.',
   whenToUse:
-    'Use when testing the EI-10 lint runner discovery mechanism. This agent is intentionally minimal.',
+    'Use to verify that the lint runner can discover and check this module automatically. List, fetch, or validate synthetic data entries to confirm EI-10 glob coverage.',
   promptTemplate: {
     body: 'You are a synthetic worker agent.',
     variables: z.object({ testVar: z.string() }),

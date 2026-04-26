@@ -9,7 +9,6 @@
 import { readFileSync } from 'fs'
 import * as path from 'path'
 import type { LintContext, LintFinding, LintRule, LintScope } from './types'
-import { lintConfig } from './config'
 import {
   toolMetaWhenToUseRule,
   toolMetaWhenNotToUseRule,
@@ -126,13 +125,12 @@ interface FileFindingGroup {
   suppressed: LintFinding[]
 }
 
-function lintFile(filePath: string, source: string, scope: LintScope): FileFindingGroup[] {
-  const ctx = buildContext(filePath, source, scope)
+function lintFileWithContext(ctx: LintContext, source: string): FileFindingGroup[] {
   const overrides = parseOverrideComments(source)
   const groups: FileFindingGroup[] = []
 
   for (const rule of PER_FILE_RULES) {
-    if (!ruleApplies(rule, scope)) continue
+    if (!ruleApplies(rule, ctx.scope)) continue
 
     const result = rule.check(ctx)
     // Apply overrides — R-15.11 cannot suppress itself (handled inside the rule)
@@ -214,17 +212,18 @@ export async function runLinter(options: RunLinterOptions = {}): Promise<LinterR
 
     if (!scope) continue
 
-    // Collect for aggregated rules
+    // Build context once — reuse for both aggregation and per-file rules
+    const ctx = buildContext(filePath, source, scope)
+
+    // Collect for aggregated rules (reuse already-parsed data from ctx)
     if (scope === 'intent') {
-      const intents = parseIntents(filePath, source)
-      allIntents.push(...(intents ?? []))
+      allIntents.push(...(ctx.intents ?? []))
     } else if (scope === 'flow-policy') {
-      const policies = parseFlowPolicies(filePath, source)
-      allFlowPolicies.push(...(policies ?? []))
+      allFlowPolicies.push(...(ctx.flowPolicies ?? []))
     }
 
-    // Per-file rules
-    const groups = lintFile(filePath, source, scope)
+    // Per-file rules (pass pre-built context)
+    const groups = lintFileWithContext(ctx, source)
     for (const group of groups) {
       for (const f of group.findings) {
         allFindings.push({ ...f, ruleId: group.ruleId, severity: group.severity })
