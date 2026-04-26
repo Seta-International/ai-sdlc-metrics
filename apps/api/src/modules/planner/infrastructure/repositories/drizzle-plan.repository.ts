@@ -2,7 +2,12 @@ import { Injectable, Inject } from '@nestjs/common'
 import type { Db } from '@future/db'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { DB_TOKEN } from '../../../../common/db/db.module'
-import type { IPlanRepository } from '../../domain/repositories/plan.repository'
+import type {
+  IPlanRepository,
+  ListByContainerParams,
+  MsPlanUpsertProps,
+  PlanContainerRow,
+} from '../../domain/repositories/plan.repository'
 import type { Plan } from '../../domain/entities/plan.entity'
 import {
   plannerPlan,
@@ -10,7 +15,6 @@ import {
   plannerPlanLabel,
   plannerPlanMember,
 } from '../schema/planner.schema'
-import type { MsPlanUpsertProps } from '../../domain/repositories/plan.repository'
 import { planRowToEntity, planEntityToRow } from './mappers/plan.mapper'
 import { bucketRowToEntity } from './mappers/bucket.mapper'
 import { planLabelRowToEntity } from './mappers/plan-label.mapper'
@@ -187,6 +191,31 @@ export class DrizzlePlanRepository implements IPlanRepository {
       .update(plannerPlan)
       .set({ containerType: 'future_only', containerRef: null, msPlanId: null, msPlanEtag: null })
       .where(eq(plannerPlan.tenantId, tenantId))
+  }
+
+  async listByContainer(params: ListByContainerParams): Promise<PlanContainerRow[]> {
+    return this.db
+      .select({
+        id: plannerPlan.id,
+        msPlanId: plannerPlan.msPlanId,
+        isMsArchived: plannerPlan.isMsArchived,
+      })
+      .from(plannerPlan)
+      .where(
+        and(
+          eq(plannerPlan.tenantId, params.tenantId),
+          eq(plannerPlan.containerType, params.containerType),
+          eq(plannerPlan.containerRef, params.containerRef),
+          isNull(plannerPlan.deletedAt),
+        ),
+      )
+  }
+
+  async markArchived(id: string, _opts: { origin: string }): Promise<void> {
+    await this.db
+      .update(plannerPlan)
+      .set({ isMsArchived: true, updatedAt: sql`NOW()` })
+      .where(eq(plannerPlan.id, id))
   }
 
   async upsertFromMs(props: MsPlanUpsertProps, _opts: { origin: string }): Promise<{ id: string }> {

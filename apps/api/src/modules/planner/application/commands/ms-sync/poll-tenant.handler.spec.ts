@@ -45,6 +45,7 @@ function makeHandler(overrides: {
     {} as any,
     {} as any,
     {} as any,
+    {} as any,
     identityFacade as any,
     { publish: vi.fn() } as any,
   )
@@ -76,5 +77,55 @@ describe('PollTenantHandler', () => {
     const spy = vi.spyOn(handler as any, 'pollGroup').mockResolvedValue(undefined)
     await handler.execute(new PollTenantCommand('t1'))
     expect(spy).toHaveBeenCalledWith('t1', group)
+  })
+
+  it('lists group plans, calls PlanIngestor per plan, detects archived plans', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const graph = { getAllPages: vi.fn() as any }
+    const ingestor = { ingestPlan: vi.fn() }
+    const planRepo = { listByContainer: vi.fn(), markArchived: vi.fn() }
+    const identityFacade = {
+      getGraphCredential: vi.fn().mockResolvedValue({ status: 'active' }),
+    }
+    const groupRepo = {
+      listActiveForTenant: vi.fn().mockResolvedValue([makeGroup()]),
+    }
+
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const handler = new PollTenantHandler(
+      groupRepo as any,
+      {} as any,
+      graph as any,
+      ingestor as any,
+      planRepo as any,
+      identityFacade as any,
+      { publish: vi.fn() } as any,
+    )
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+
+    graph.getAllPages.mockResolvedValue([
+      { id: 'ms-plan-1', title: 'Plan A' },
+      { id: 'ms-plan-2', title: 'Plan B' },
+    ])
+    ingestor.ingestPlan.mockResolvedValue(undefined)
+    planRepo.listByContainer.mockResolvedValue([
+      { id: 'local-1', msPlanId: 'ms-plan-1' },
+      { id: 'local-2', msPlanId: 'ms-plan-2' },
+      { id: 'local-3', msPlanId: 'ms-plan-gone' },
+    ])
+
+    await handler.execute(new PollTenantCommand('t1'))
+
+    expect(ingestor.ingestPlan).toHaveBeenCalledWith({
+      tenantId: 't1',
+      msPlanId: 'ms-plan-1',
+      origin: 'ms-sync-pull',
+    })
+    expect(ingestor.ingestPlan).toHaveBeenCalledWith({
+      tenantId: 't1',
+      msPlanId: 'ms-plan-2',
+      origin: 'ms-sync-pull',
+    })
+    expect(planRepo.markArchived).toHaveBeenCalledWith('local-3', { origin: 'ms-sync-pull' })
   })
 })

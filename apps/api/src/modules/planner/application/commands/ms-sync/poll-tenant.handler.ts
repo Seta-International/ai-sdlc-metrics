@@ -8,6 +8,7 @@ import {
   MS_PLAN_SYNC_STATE_REPOSITORY,
   type IMsPlanSyncStateRepository,
 } from '../../../domain/repositories/ms-plan-sync-state.repository'
+import { PLAN_REPOSITORY, type IPlanRepository } from '../../../domain/repositories/plan.repository'
 import type { MsGraphClient } from '../../../infrastructure/ms-graph/ms-graph-client'
 import type { PlanIngestor } from '../../../infrastructure/ms-graph/pull/plan-ingestor'
 import type { IdentityQueryFacade } from '../../../../identity/application/facades/identity-query.facade'
@@ -25,6 +26,8 @@ export class PollTenantHandler implements ICommandHandler<PollTenantCommand> {
     private readonly syncStateRepo: IMsPlanSyncStateRepository,
     private readonly graph: MsGraphClient,
     private readonly ingestor: PlanIngestor,
+    @Inject(PLAN_REPOSITORY)
+    private readonly planRepo: IPlanRepository,
     private readonly identityFacade: IdentityQueryFacade,
     private readonly eventBus: EventBus,
   ) {}
@@ -49,8 +52,28 @@ export class PollTenantHandler implements ICommandHandler<PollTenantCommand> {
     }
   }
 
-  async pollGroup(_tenantId: string, _group: MsLinkedGroupEntity): Promise<void> {
-    // implemented in Task 2
+  private async pollGroup(tenantId: string, group: MsLinkedGroupEntity): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const plansResponse = await this.graph.getAllPages<any>(
+      tenantId,
+      `/groups/${encodeURIComponent(group.msGroupId)}/planner/plans`,
+    )
+    const msPlanIds = new Set(plansResponse.map((p) => p.id as string))
+
+    for (const p of plansResponse) {
+      await this.ingestor.ingestPlan({ tenantId, msPlanId: p.id, origin: 'ms-sync-pull' })
+    }
+
+    const locals = await this.planRepo.listByContainer({
+      tenantId,
+      containerType: 'ms_group',
+      containerRef: group.msGroupId,
+    })
+    for (const local of locals) {
+      if (local.msPlanId && !msPlanIds.has(local.msPlanId) && !local.isMsArchived) {
+        await this.planRepo.markArchived(local.id, { origin: 'ms-sync-pull' })
+      }
+    }
   }
 
   async handlePollError(

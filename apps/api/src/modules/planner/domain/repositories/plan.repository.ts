@@ -11,6 +11,18 @@ export interface MsPlanUpsertProps {
   containerRef: string
 }
 
+export interface ListByContainerParams {
+  tenantId: string
+  containerType: 'ms_group' | 'ms_roster'
+  containerRef: string
+}
+
+export interface PlanContainerRow {
+  id: string
+  msPlanId: string | null
+  isMsArchived: boolean
+}
+
 export interface IPlanRepository {
   findById(id: string, tenantId: string): Promise<Plan | null>
   findByTenantId(tenantId: string): Promise<Plan[]>
@@ -20,4 +32,6 @@ export interface IPlanRepository {
   softDelete(id: string, tenantId: string): Promise<void>
   upsertFromMs(props: MsPlanUpsertProps, opts: { origin: string }): Promise<{ id: string }>
   convertAllToFutureOnly(tenantId: string): Promise<void>
+  listByContainer(params: ListByContainerParams): Promise<PlanContainerRow[]>
+  markArchived(id: string, opts: { origin: string }): Promise<void>
 }
