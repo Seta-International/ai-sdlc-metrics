@@ -7,7 +7,7 @@
  * - '@ai-sdk/openai' createOpenAI: mocked via vi.mock / vi.hoisted
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Logger } from '@nestjs/common'
 
 // ─── Mock AI SDK before importing the service ─────────────────────────────────
