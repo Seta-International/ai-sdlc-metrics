@@ -101,6 +101,7 @@ import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-sna
 import { MyDayOrphanSweepJob } from './infrastructure/jobs/my-day-orphan-sweep.job'
 import { MyDayOrphanSweepScheduler } from './infrastructure/jobs/my-day-orphan-sweep.scheduler'
 import { MsSyncPollTenantRegistrar } from './infrastructure/jobs/ms-sync-poll-tenant.registrar'
+import { MsSyncResolvePendingRegistrar } from './infrastructure/jobs/ms-sync-resolve-pending.registrar'
 import { MsGraphClient } from './infrastructure/ms-graph/ms-graph-client'
 import { PlanIngestor } from './infrastructure/ms-graph/pull/plan-ingestor'
 import { MsGraphTokenAcquirerAdapter } from './infrastructure/ms-graph/ms-graph-token-acquirer.adapter'
@@ -112,6 +113,8 @@ import { ConnectMsSyncHandler } from './application/commands/ms-sync/connect-ms-
 import { PollTenantHandler } from './application/commands/ms-sync/poll-tenant.handler'
 import { DisconnectMsSyncHandler } from './application/commands/ms-sync/disconnect-ms-sync.handler'
 import { UnlinkMsGroupHandler } from './application/commands/ms-sync/unlink-ms-group.handler'
+import { ResolvePendingAssignmentsHandler } from './application/commands/ms-sync/resolve-pending-assignments.handler'
+import { IdentityDirectorySyncedListener } from './application/event-handlers/identity-directory-synced.listener'
 import { ListAvailableGroupsHandler } from './application/queries/ms-sync/list-available-groups.handler'
 import { ListLinkedGroupsHandler } from './application/queries/ms-sync/list-linked-groups.handler'
 import { MS_LINKED_GROUP_REPOSITORY } from './domain/repositories/ms-linked-group.repository'
@@ -212,6 +215,8 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     ConnectMsSyncHandler,
     DisconnectMsSyncHandler,
     UnlinkMsGroupHandler,
+    ResolvePendingAssignmentsHandler,
+    IdentityDirectorySyncedListener,
     ListAvailableGroupsHandler,
     ListLinkedGroupsHandler,
     { provide: MS_LINKED_GROUP_REPOSITORY, useClass: DrizzleMsLinkedGroupRepository },
@@ -230,6 +235,7 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     MsGraphClient,
     PlanIngestor,
     MsSyncPollTenantRegistrar,
+    MsSyncResolvePendingRegistrar,
     PollTenantHandler,
     PlannerQueryFacade,
     PlannerRouterService,

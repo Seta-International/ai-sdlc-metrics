@@ -4,6 +4,7 @@ import type {
   MsSyncedTaskRef,
   MsTaskDetailsUpsertProps,
   MsTaskUpsertProps,
+  PendingTaskRef,
 } from '../../domain/repositories/task.repository'
 import { Task } from '../../domain/entities/task.entity'
 
@@ -151,6 +152,19 @@ export class InMemoryTaskRepository implements ITaskRepository {
         msDetailsEtag: t.msTaskDetailsEtag,
         msSoftDeletedAt: null,
       }))
+  }
+
+  async listWithPendingAssignments(tenantId: string): Promise<PendingTaskRef[]> {
+    return [...this.store.values()]
+      .filter((t) => t.tenantId === tenantId && !t.deletedAt && t.pendingMsAssignments.length > 0)
+      .map((t) => ({ id: t.id, planId: t.planId, pendingMsAssignments: t.pendingMsAssignments }))
+  }
+
+  async applyPendingResolution(
+    taskId: string,
+    _resolution: { newAssignees: string[]; stillPending: string[]; origin: string },
+  ): Promise<void> {
+    void taskId
   }
 
   /** Test helper: clear all data */
