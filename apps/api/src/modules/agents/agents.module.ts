@@ -77,6 +77,8 @@ import { ScheduledTurnSpawner } from './application/services/scheduled-turn-spaw
 import { ScheduledTurnWorker } from './infrastructure/workers/scheduled-turn-worker'
 import type { ScheduledTurnJob } from './infrastructure/workers/scheduled-turn-worker'
 import { DelegationExpirySweeper } from './infrastructure/workers/delegation-expiry-sweep'
+import { SemanticResultCache } from './infrastructure/cache/semantic-result-cache'
+import { SemanticCacheSweeper } from './infrastructure/workers/semantic-cache-sweeper'
 import { KernelDelegationFacade } from '../kernel/application/facades/kernel-delegation.facade'
 // Permission narrative builder (Task 6)
 import {
@@ -482,6 +484,8 @@ class NullTenantLister implements TenantListerLike {
     ScheduledTurnSpawner,
     ScheduledTurnWorker,
     DelegationExpirySweeper,
+    SemanticResultCache,
+    SemanticCacheSweeper,
     // ── Plan 06 — Streaming + SSE + Cancellation ──────────────────────────────
     ActiveTurnRegistry,
     RequestContextDiscipline,
@@ -753,6 +757,8 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly gaReadinessStateRepo: GaReadinessStateRepository,
     @Inject(READINESS_CHECK_REPOSITORY)
     private readonly readinessCheckRepo: ReadinessCheckRepository,
+    // Plan 14 — Semantic Result Cache
+    private readonly semanticCacheSweeper: SemanticCacheSweeper,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -913,5 +919,8 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
 
     // Step 16: Register Plan 13 monthly flow correlation worker
     await this.flowCorrelationWorker.registerWorker()
+
+    // Step 17: Register Plan 14 semantic cache sweeper (5-minute sweep of expired cache rows)
+    await this.semanticCacheSweeper.registerJob(this.pgBossService)
   }
 }

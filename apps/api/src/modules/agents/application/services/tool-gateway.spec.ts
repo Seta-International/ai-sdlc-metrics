@@ -60,6 +60,7 @@ import { FlowPolicyResolver } from './flow-policy-resolver'
 import type { DraftProposer } from './draft-proposer'
 import type { DraftProposalResult } from './draft-types'
 import type { IntentSlug } from './flow-id-propagation'
+import type { SemanticResultCache } from '../../infrastructure/cache/semantic-result-cache'
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,11 @@ const BASE_META: AgentToolMeta = {
 const MUTATION_META: AgentToolMeta = {
   ...BASE_META,
   approvalFreshness: 'revalidate',
+}
+
+const CACHEABLE_META: AgentToolMeta = {
+  ...BASE_META,
+  cacheable: { ttlSeconds: 300, distanceThreshold: 0.97 },
 }
 
 function makeDescriptor(overrides?: Partial<AgentToolDescriptor>): AgentToolDescriptor {
@@ -163,12 +169,34 @@ function makeDraftProposer(result?: Partial<DraftProposalResult>): {
   return { draftProposer, proposeFn }
 }
 
+function makeSemanticCache(hitResult?: {
+  result: unknown
+  hitKind: 'exact' | 'semantic'
+  storedAt: Date
+}): {
+  semanticCache: SemanticResultCache
+  getFn: ReturnType<typeof vi.fn>
+  putFn: ReturnType<typeof vi.fn>
+  invalidateDomainFn: ReturnType<typeof vi.fn>
+} {
+  const getFn = vi.fn().mockResolvedValue(hitResult ?? undefined)
+  const putFn = vi.fn().mockResolvedValue(undefined)
+  const invalidateDomainFn = vi.fn().mockResolvedValue({ purgedCount: 0 })
+  const semanticCache = {
+    get: getFn,
+    put: putFn,
+    invalidateDomain: invalidateDomainFn,
+  } as unknown as SemanticResultCache
+  return { semanticCache, getFn, putFn, invalidateDomainFn }
+}
+
 function makeGateway(
   registry: ToolRegistry,
   caller: TrpcCaller,
   facade: KernelAuditFacade,
   flowPolicyResolver?: FlowPolicyResolver,
   draftProposer?: DraftProposer,
+  semanticCache?: SemanticResultCache,
 ): ToolGateway {
   return new ToolGateway(
     registry,
@@ -176,6 +204,7 @@ function makeGateway(
     facade,
     flowPolicyResolver ?? makeFlowPolicyResolver(),
     draftProposer ?? makeDraftProposer().draftProposer,
+    semanticCache ?? makeSemanticCache().semanticCache,
   )
 }
 
@@ -1393,6 +1422,260 @@ describe('DraftProposer integration (Plan 08 T6)', () => {
         approvalTtlHours: 24, // min(24h flow, 48h tool) = 24h
       }),
     )
+  })
+})
+
+// ─── Plan 14: SemanticResultCache integration ─────────────────────────────────
+
+describe('SemanticResultCache integration (Plan 14)', () => {
+  it('non-cacheable tool: semanticCache.get() is NOT called', async () => {
+    // BASE_META has no cacheable field
+    const descriptor = makeDescriptor({
+      name: 'planner.task.getBoard',
+      procedure: 'query',
+      permission: 'planner:task:read',
+      meta: BASE_META,
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade } = makeAuditFacade()
+    const { caller } = makeCaller({ tasks: [] })
+    const { semanticCache, getFn } = makeSemanticCache()
+    const gw = makeGateway(registry, caller, facade, undefined, undefined, semanticCache)
+
+    const result = await gw.invoke(makeInput())
+
+    expect(result.kind).toBe('ok')
+    expect(getFn).not.toHaveBeenCalled()
+  })
+
+  it('non-cacheable tool: semanticCache.put() is NOT called after invoke', async () => {
+    const descriptor = makeDescriptor({
+      name: 'planner.task.getBoard',
+      procedure: 'query',
+      permission: 'planner:task:read',
+      meta: BASE_META,
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade } = makeAuditFacade()
+    const { caller } = makeCaller({ tasks: [] })
+    const { semanticCache, putFn } = makeSemanticCache()
+    const gw = makeGateway(registry, caller, facade, undefined, undefined, semanticCache)
+
+    await gw.invoke(makeInput())
+
+    // Allow any fire-and-forget promises to settle
+    await Promise.resolve()
+    expect(putFn).not.toHaveBeenCalled()
+  })
+
+  it('cacheable tool — semantic cache hit: get() called, result returned, put() NOT called', async () => {
+    const cachedResult = { tasks: [{ id: 'cached-1' }] }
+    const descriptor = makeDescriptor({
+      name: 'planner.task.getBoard',
+      procedure: 'query',
+      permission: 'planner:task:read',
+      meta: CACHEABLE_META,
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade, recordEvent } = makeAuditFacade()
+    const { caller, callFn } = makeCaller({ tasks: [] })
+    const { semanticCache, getFn, putFn } = makeSemanticCache({
+      result: cachedResult,
+      hitKind: 'semantic',
+      storedAt: new Date(),
+    })
+    const gw = makeGateway(registry, caller, facade, undefined, undefined, semanticCache)
+
+    const result = await gw.invoke(makeInput())
+
+    expect(result.kind).toBe('ok')
+    if (result.kind === 'ok') {
+      // fromCache is false on semantic cache hit (not L1)
+      expect(result.fromCache).toBe(false)
+    }
+    expect(getFn).toHaveBeenCalledTimes(1)
+    expect(getFn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: 'tenant-1',
+        toolName: 'planner.task.getBoard',
+        embeddingModel: 'text-embedding-3-small',
+      }),
+    )
+    // Underlying caller must NOT have been invoked (cache hit)
+    expect(callFn).not.toHaveBeenCalled()
+    // put() must NOT be called (we got a hit, no new result to store)
+    await Promise.resolve()
+    expect(putFn).not.toHaveBeenCalled()
+    // Audit must have been emitted with fromSemanticCache=true
+    expect(recordEvent).toHaveBeenCalledTimes(1)
+    const auditPayload = (
+      recordEvent.mock.calls[0] as [{ payload: { extraAttrs: Record<string, unknown> } }]
+    )[0].payload.extraAttrs
+    expect(auditPayload?.['fromSemanticCache']).toBe(true)
+    expect(auditPayload?.['cacheHitKind']).toBe('semantic')
+  })
+
+  it('cacheable tool — exact semantic cache hit: hitKind=exact recorded in audit', async () => {
+    const cachedResult = { tasks: [{ id: 'exact-1' }] }
+    const descriptor = makeDescriptor({
+      name: 'planner.task.getBoard',
+      procedure: 'query',
+      permission: 'planner:task:read',
+      meta: CACHEABLE_META,
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade, recordEvent } = makeAuditFacade()
+    const { caller } = makeCaller({ tasks: [] })
+    const { semanticCache } = makeSemanticCache({
+      result: cachedResult,
+      hitKind: 'exact',
+      storedAt: new Date(),
+    })
+    const gw = makeGateway(registry, caller, facade, undefined, undefined, semanticCache)
+
+    await gw.invoke(makeInput())
+
+    const auditPayload = (
+      recordEvent.mock.calls[0] as [{ payload: { extraAttrs: Record<string, unknown> } }]
+    )[0].payload.extraAttrs
+    expect(auditPayload?.['cacheHitKind']).toBe('exact')
+  })
+
+  it('cacheable tool — semantic cache miss: get() called, invoke proceeds, put() called after', async () => {
+    const descriptor = makeDescriptor({
+      name: 'planner.task.getBoard',
+      procedure: 'query',
+      permission: 'planner:task:read',
+      meta: CACHEABLE_META,
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade } = makeAuditFacade()
+    const { caller, callFn } = makeCaller({ tasks: [{ id: 'live-1' }] })
+    // getFn returns undefined → cache miss
+    const { semanticCache, getFn, putFn } = makeSemanticCache(undefined)
+    const gw = makeGateway(registry, caller, facade, undefined, undefined, semanticCache)
+
+    const result = await gw.invoke(makeInput())
+
+    expect(result.kind).toBe('ok')
+    expect(getFn).toHaveBeenCalledTimes(1)
+    // Caller invoked on cache miss
+    expect(callFn).toHaveBeenCalledTimes(1)
+    // Allow fire-and-forget put to settle
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(putFn).toHaveBeenCalledTimes(1)
+    expect(putFn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: 'tenant-1',
+        toolName: 'planner.task.getBoard',
+        ttlSeconds: 300,
+        embeddingModel: 'text-embedding-3-small',
+      }),
+    )
+  })
+
+  it('mutation success: invalidateDomain() called with correct domain', async () => {
+    const descriptor = makeDescriptor({
+      name: 'people.updateEmployee',
+      procedure: 'mutation',
+      permission: 'people:employee:write',
+      meta: MUTATION_META,
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade } = makeAuditFacade()
+    const { caller } = makeCaller({ updated: true })
+    const { semanticCache, invalidateDomainFn } = makeSemanticCache()
+    const gw = makeGateway(registry, caller, facade, undefined, undefined, semanticCache)
+
+    const result = await gw.invoke(
+      makeInput({
+        toolName: 'people.updateEmployee',
+        args: { employeeId: 'emp-1' },
+        subAgentScope: ['people:employee'],
+      }),
+    )
+
+    expect(result.kind).toBe('ok')
+    // Allow fire-and-forget invalidation to settle
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(invalidateDomainFn).toHaveBeenCalledTimes(1)
+    expect(invalidateDomainFn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: 'tenant-1',
+        domain: 'people',
+      }),
+    )
+  })
+
+  it('query success: invalidateDomain() is NOT called', async () => {
+    const descriptor = makeDescriptor({
+      name: 'planner.task.getBoard',
+      procedure: 'query',
+      permission: 'planner:task:read',
+      meta: BASE_META,
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade } = makeAuditFacade()
+    const { caller } = makeCaller({ tasks: [] })
+    const { semanticCache, invalidateDomainFn } = makeSemanticCache()
+    const gw = makeGateway(registry, caller, facade, undefined, undefined, semanticCache)
+
+    await gw.invoke(makeInput())
+
+    await Promise.resolve()
+    expect(invalidateDomainFn).not.toHaveBeenCalled()
+  })
+
+  it('recordSemanticCacheLookup metric fires with hit_kind=semantic on semantic hit', async () => {
+    const descriptor = makeDescriptor({
+      name: 'planner.task.getBoard',
+      procedure: 'query',
+      permission: 'planner:task:read',
+      meta: CACHEABLE_META,
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade } = makeAuditFacade()
+    const { caller } = makeCaller({ tasks: [] })
+    const { semanticCache } = makeSemanticCache({
+      result: { tasks: [] },
+      hitKind: 'semantic',
+      storedAt: new Date(),
+    })
+    const gw = makeGateway(registry, caller, facade, undefined, undefined, semanticCache)
+
+    const recordSemanticSpy = vi.spyOn(gatewayMetrics, 'recordSemanticCacheLookup')
+    await gw.invoke(makeInput())
+
+    const call = recordSemanticSpy.mock.calls.find(([, , hitKind]) => hitKind === 'semantic')
+    expect(call).toBeDefined()
+    expect(call?.[0]).toBe('tenant-1')
+    expect(call?.[1]).toBe('planner.task.getBoard')
+
+    recordSemanticSpy.mockRestore()
+  })
+
+  it('recordSemanticCacheLookup metric fires with hit_kind=miss on semantic cache miss', async () => {
+    const descriptor = makeDescriptor({
+      name: 'planner.task.getBoard',
+      procedure: 'query',
+      permission: 'planner:task:read',
+      meta: CACHEABLE_META,
+    })
+    const registry = makeRegistry(descriptor)
+    const { facade } = makeAuditFacade()
+    const { caller } = makeCaller({ tasks: [] })
+    const { semanticCache } = makeSemanticCache(undefined)
+    const gw = makeGateway(registry, caller, facade, undefined, undefined, semanticCache)
+
+    const recordSemanticSpy = vi.spyOn(gatewayMetrics, 'recordSemanticCacheLookup')
+    await gw.invoke(makeInput())
+
+    const call = recordSemanticSpy.mock.calls.find(([, , hitKind]) => hitKind === 'miss')
+    expect(call).toBeDefined()
+
+    recordSemanticSpy.mockRestore()
   })
 })
 

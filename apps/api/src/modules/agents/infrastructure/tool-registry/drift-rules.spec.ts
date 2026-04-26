@@ -26,6 +26,9 @@ import {
   fixtureObjectCollectionNoCollectionContract,
   fixtureObjectAnyArrayNoCollectionContract,
   fixtureObjectWrappedArrayNoCollectionContract,
+  fixtureMutationWithCacheable,
+  fixtureQueryWithCacheable,
+  fixtureMutationWithoutCacheable,
 } from './drift-fixtures'
 import type { AgentToolMeta } from '../../../../common/trpc/agent-tool-meta'
 
@@ -33,7 +36,7 @@ import type { AgentToolMeta } from '../../../../common/trpc/agent-tool-meta'
 
 describe('agent tool drift rules — against the real app router', () => {
   it(
-    'every .meta({ agent }) tool passes R-01.12 + R-01.17 + R-01.18 + R-01.19 + R-01.19a + R-01.30' +
+    'every .meta({ agent }) tool passes R-01.12 + R-01.17 + R-01.18 + R-01.19 + R-01.19a + R-01.30 + R-14.2' +
       ' (vacuously passes pre-Plan 02 — no agent tools registered yet)',
     () => {
       // Use the static `appRouter` export (built at module load time from default routers).
@@ -176,6 +179,41 @@ describe('drift walker — seeded failures', () => {
     expect(r0119a.length).toBeGreaterThan(0)
     expect(r0119a[0].detail).toContain('test.badObjectWrappedArray')
     expect(r0119a[0].detail).toMatch(/collectionContract/)
+  })
+
+  // ── Fixture 10: R-14.2 — mutation with cacheable set ────────────────────────
+
+  it('R-14.2: fails for mutation with cacheable set — violation names the bad tool', () => {
+    const router = fixtureMutationWithCacheable()
+    const violations = checkDriftRules(router)
+
+    expect(violations.length).toBeGreaterThan(0)
+
+    const r142 = violations.filter((v) => v.rule === 'R-14.2')
+    expect(r142.length).toBeGreaterThan(0)
+    expect(r142[0].detail).toContain('test.badCacheMutation')
+    expect(r142[0].detail).toMatch(/cacheable/)
+    expect(r142[0].detail).toMatch(/mutation/)
+  })
+
+  // ── Fixture 11: R-14.2 — query with cacheable set (clean) ────────────────────
+
+  it('R-14.2: passes for query with cacheable set — no R-14.2 violation', () => {
+    const router = fixtureQueryWithCacheable()
+    const violations = checkDriftRules(router)
+
+    const r142 = violations.filter((v) => v.rule === 'R-14.2')
+    expect(r142).toEqual([])
+  })
+
+  // ── Fixture 12: R-14.2 — mutation without cacheable (clean) ──────────────────
+
+  it('R-14.2: passes for mutation without cacheable — no R-14.2 violation', () => {
+    const router = fixtureMutationWithoutCacheable()
+    const violations = checkDriftRules(router)
+
+    const r142 = violations.filter((v) => v.rule === 'R-14.2')
+    expect(r142).toEqual([])
   })
 
   // ── Sanity: clean router returns no violations ────────────────────────────────

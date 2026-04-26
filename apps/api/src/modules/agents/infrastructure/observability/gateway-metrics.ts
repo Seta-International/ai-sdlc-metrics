@@ -143,6 +143,21 @@ interface GatewayInstruments {
    * Labels: tenant_id.
    */
   iterationsTotalHistogram: Histogram
+
+  // ─── Plan 14 §8 semantic cache metrics ───────────────────────────────────
+
+  /**
+   * Counts semantic cache lookups by hit kind (Plan 14 §8).
+   * Labels: tenant_id, tool_name, hit_kind.
+   * hit_kind ∈ 'exact' | 'semantic' | 'miss'
+   */
+  semanticCacheLookupTotal: Counter
+
+  /**
+   * Histogram of time from mutation commit to semantic cache domain invalidation
+   * completion, in ms (Plan 14 §8).
+   */
+  semanticCacheInvalidationLagMs: Histogram
 }
 
 let _instruments: GatewayInstruments | undefined
@@ -332,6 +347,31 @@ function getInstruments(): GatewayInstruments {
       description: 'Number of iterations executed per iterative turn, per tenant.',
       valueType: ValueType.INT,
     }),
+
+    // ─── Plan 14 §8 semantic cache metrics ──────────────────────────────────
+
+    /**
+     * Counts semantic cache lookups by hit kind (Plan 14 §8).
+     * Labels: tenant_id, tool_name, hit_kind.
+     * hit_kind ∈ 'exact' | 'semantic' | 'miss'
+     */
+    semanticCacheLookupTotal: meter.createCounter('agent_semantic_cache_lookup_total', {
+      description: 'Semantic cache lookup outcomes (exact/semantic/miss) per tenant and tool.',
+      valueType: ValueType.INT,
+    }),
+
+    /**
+     * Histogram of semantic cache domain invalidation lag in ms (Plan 14 §8).
+     */
+    semanticCacheInvalidationLagMs: meter.createHistogram(
+      'agent_semantic_cache_invalidation_lag_ms',
+      {
+        description:
+          'Time from mutation commit to semantic cache domain invalidation completion, in ms.',
+        unit: 'ms',
+        valueType: ValueType.DOUBLE,
+      },
+    ),
   }
 
   return _instruments
@@ -524,4 +564,30 @@ export function recordCompletionScorerFail(tenantId: string, scorerId: string): 
  */
 export function recordIterationsTotalHistogram(tenantId: string, iterationCount: number): void {
   getInstruments().iterationsTotalHistogram.record(iterationCount, { tenant_id: tenantId })
+}
+
+// ─── Plan 14 §8 semantic cache helpers ───────────────────────────────────────
+
+/**
+ * Record a semantic cache lookup outcome (Plan 14 §8).
+ * hitKind ∈ 'exact' | 'semantic' | 'miss'
+ */
+export function recordSemanticCacheLookup(
+  tenantId: string,
+  toolName: string,
+  hitKind: 'exact' | 'semantic' | 'miss',
+): void {
+  getInstruments().semanticCacheLookupTotal.add(1, {
+    tenant_id: tenantId,
+    tool_name: toolName,
+    hit_kind: hitKind,
+  })
+}
+
+/**
+ * Record semantic cache domain invalidation lag (Plan 14 §8).
+ * durationMs is the wall-time from mutation commit to invalidation completion.
+ */
+export function recordSemanticCacheInvalidationLag(durationMs: number): void {
+  getInstruments().semanticCacheInvalidationLagMs.record(durationMs)
 }
