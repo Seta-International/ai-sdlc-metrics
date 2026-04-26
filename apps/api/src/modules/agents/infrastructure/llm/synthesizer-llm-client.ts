@@ -17,6 +17,10 @@
  * Plan 18 §1 reframes Plan 17's original `generateObject` design: the wrapper
  * MUST be streaming so the live turn pipeline can surface incremental tokens.
  *
+ * Stream errors propagate via both `partialObjectStream` (next-pull throw) and
+ * `finalObject` (rejection); the adapter (Task 11) is responsible for try/catch
+ * around both.
+ *
  * `OnModuleInit` boot validation + exhaustive provider switch mirror
  * `RouterLlmClient` and `OpenAiSubAgentLlmClient`.
  */
@@ -37,6 +41,7 @@ import type { ZodType } from 'zod'
 import type { ModelChoice } from '../../domain/services/sub-agent-types'
 import type { SubAgentUsage } from '../../application/services/phase-executor-contracts'
 import type { SynthesizerLlmOutput } from '../../domain/value-objects/synthesizer-output-schema'
+import { mapLanguageModelUsage, type LanguageModelUsageLike } from './usage'
 
 // ─── DI token ─────────────────────────────────────────────────────────────────
 
@@ -59,6 +64,10 @@ export interface SynthesizerLlmClientOpts {
  *   emission is the FULL partial-so-far, not a delta — adapter computes diffs
  *   to emit incremental `answer.token` events for narrative/short-answer/list
  *   shapes; table/chart hold partials and emit one atomic JSON token at the end.
+ *
+ *   Throws when consumed if the upstream stream errors; consumers must catch
+ *   around the `for-await` loop. The same upstream error also rejects
+ *   `finalObject`.
  * - `finalObject` resolves once the schema-validated object is complete; rejects
  *   on schema-validation or stream failure (caller handles fallback).
  * - `usage` resolves with token totals once the stream completes.
@@ -96,17 +105,6 @@ function resolveModel(choice: ModelChoice) {
   }
 }
 
-function mapUsage(u: { inputTokens?: number; outputTokens?: number }): SubAgentUsage {
-  return {
-    inputTokens: u.inputTokens ?? 0,
-    outputTokens: u.outputTokens ?? 0,
-    inputCachedRead: 0,
-    inputCachedWrite: 0,
-    outputReasoning: 0,
-    costUsd: 0, // populated downstream by cost-recorder
-  }
-}
-
 // ─── OpenAiSynthesizerLlmClient ───────────────────────────────────────────────
 
 @Injectable()
@@ -131,6 +129,9 @@ export class OpenAiSynthesizerLlmClient implements SynthesizerLlmClient, OnModul
   synthesize(opts: SynthesizerLlmClientOpts): SynthesizerStreamResult {
     const model = resolveModel(opts.model)
 
+    // NOTE: `streamObject` is @deprecated in ai SDK ≥6 in favor of `streamText` with output settings.
+    // Plan 18 §1 mandates streamObject for the partialObjectStream semantics; revisit when streamText reaches typed-schema parity.
+    //
     // Cast is load-bearing: the SDK's `streamObject` input type is a deeply
     // nested intersection over `FlexibleSchema<unknown>` × output-mode unions,
     // so a generic `ZodType` opts.schema is not assignable without widening.
@@ -149,9 +150,7 @@ export class OpenAiSynthesizerLlmClient implements SynthesizerLlmClient, OnModul
         Partial<SynthesizerLlmOutput>
       >,
       finalObject: stream.object as Promise<SynthesizerLlmOutput>,
-      usage: stream.usage.then((u) =>
-        mapUsage(u as { inputTokens?: number; outputTokens?: number }),
-      ),
+      usage: stream.usage.then((u) => mapLanguageModelUsage(u as LanguageModelUsageLike)),
     }
   }
 }
