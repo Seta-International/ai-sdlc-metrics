@@ -1,3 +1,5 @@
+import type { EventOrigin } from './ms-sync/field-names'
+
 export class BucketRenamedEvent {
   static readonly eventName = 'planner.bucket-renamed'
   constructor(
@@ -6,5 +8,7 @@ export class BucketRenamedEvent {
     public readonly planId: string,
     public readonly bucketId: string,
     public readonly name: string,
+    public readonly changedFields: readonly string[],
+    public readonly origin: EventOrigin,
   ) {}
 }

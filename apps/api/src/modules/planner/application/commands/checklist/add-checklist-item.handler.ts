@@ -51,6 +51,8 @@ export class AddChecklistItemHandler implements ICommandHandler<AddChecklistItem
         command.taskId,
         command.itemId,
         command.title,
+        ['checklist'],
+        'user',
       ),
     )
   }

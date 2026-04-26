@@ -41,6 +41,8 @@ export class RenameBucketHandler implements ICommandHandler<RenameBucketCommand>
         command.planId,
         command.bucketId,
         command.name,
+        ['name'],
+        'user',
       ),
     )
   }

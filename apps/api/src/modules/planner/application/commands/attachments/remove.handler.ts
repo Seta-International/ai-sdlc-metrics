@@ -46,6 +46,8 @@ export class RemoveAttachmentHandler implements ICommandHandler<RemoveAttachment
         command.taskId,
         command.attachmentId,
         attachment.storageKey ?? null,
+        ['attachments'],
+        'user',
       ),
     )
   }

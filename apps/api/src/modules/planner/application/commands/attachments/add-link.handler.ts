@@ -57,6 +57,8 @@ export class AddLinkHandler implements ICommandHandler<AddLinkCommand> {
         command.taskId,
         command.attachmentId,
         'link',
+        ['attachments'],
+        'user',
       ),
     )
   }

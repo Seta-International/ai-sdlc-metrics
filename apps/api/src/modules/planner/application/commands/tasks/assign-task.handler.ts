@@ -31,6 +31,8 @@ export class AssignTaskHandler implements ICommandHandler<AssignTaskCommand> {
         command.taskId,
         command.planId,
         command.assigneeId,
+        ['assignees'],
+        'user',
       ),
     )
   }

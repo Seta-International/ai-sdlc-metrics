@@ -36,6 +36,8 @@ export class ReorderBucketHandler implements ICommandHandler<ReorderBucketComman
         command.planId,
         command.bucketId,
         orderHint,
+        ['orderHint'],
+        'user',
       ),
     )
   }

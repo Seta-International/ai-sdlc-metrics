@@ -26,7 +26,14 @@ export class SetTaskPriorityHandler implements ICommandHandler<SetTaskPriorityCo
     await this.taskRepo.update(task, command.expectedVersion)
 
     await this.eventBus.publish(
-      new TaskUpdatedEvent(command.tenantId, command.actorId, command.taskId, command.planId),
+      new TaskUpdatedEvent(
+        command.tenantId,
+        command.actorId,
+        command.taskId,
+        command.planId,
+        ['priority'],
+        'user',
+      ),
     )
   }
 }

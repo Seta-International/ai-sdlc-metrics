@@ -42,6 +42,8 @@ export class ToggleChecklistItemHandler implements ICommandHandler<ToggleCheckli
         command.taskId,
         command.itemId,
         command.isChecked,
+        ['checklist'],
+        'user',
       ),
     )
   }

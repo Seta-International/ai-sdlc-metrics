@@ -42,6 +42,8 @@ export class UpdateChecklistItemHandler implements ICommandHandler<UpdateCheckli
         command.taskId,
         command.itemId,
         command.title,
+        ['checklist'],
+        'user',
       ),
     )
   }

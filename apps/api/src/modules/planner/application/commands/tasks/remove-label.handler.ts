@@ -40,6 +40,8 @@ export class RemoveLabelHandler implements ICommandHandler<RemoveLabelCommand> {
         command.taskId,
         command.planId,
         command.slot,
+        ['appliedCategories'],
+        'user',
       ),
     )
   }

@@ -61,8 +61,23 @@ export class UpdateTaskHandler implements ICommandHandler<UpdateTaskCommand> {
 
     await this.taskRepo.update(task, command.expectedVersion)
 
+    const changedFields: string[] = []
+    if (command.title !== undefined) changedFields.push('title')
+    if (command.description !== undefined) changedFields.push('description')
+    if (command.progress !== undefined) changedFields.push('percentComplete')
+    if (command.priority !== undefined) changedFields.push('priority')
+    if (command.startDate !== undefined) changedFields.push('startDate')
+    if (command.dueDate !== undefined) changedFields.push('dueDate')
+
     await this.eventBus.publish(
-      new TaskUpdatedEvent(command.tenantId, command.actorId, command.taskId, command.planId),
+      new TaskUpdatedEvent(
+        command.tenantId,
+        command.actorId,
+        command.taskId,
+        command.planId,
+        changedFields,
+        'user',
+      ),
     )
   }
 }

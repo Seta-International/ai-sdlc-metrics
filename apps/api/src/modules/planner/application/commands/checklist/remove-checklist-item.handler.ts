@@ -40,6 +40,8 @@ export class RemoveChecklistItemHandler implements ICommandHandler<RemoveCheckli
         command.actorId,
         command.taskId,
         command.itemId,
+        ['checklist'],
+        'user',
       ),
     )
   }

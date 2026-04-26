@@ -1,3 +1,5 @@
+import type { EventOrigin } from './ms-sync/field-names'
+
 export class TaskCreatedEvent {
   static readonly eventName = 'planner.task-created'
   constructor(
@@ -7,5 +9,7 @@ export class TaskCreatedEvent {
     public readonly title: string,
     public readonly kpiId: string | null,
     public readonly dueDate: string | null,
+    public readonly changedFields: readonly string[],
+    public readonly origin: EventOrigin,
   ) {}
 }

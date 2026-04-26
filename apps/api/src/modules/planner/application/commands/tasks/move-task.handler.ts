@@ -50,6 +50,8 @@ export class MoveTaskHandler implements ICommandHandler<MoveTaskCommand> {
         command.planId,
         command.toBucketId,
         orderHint,
+        ['bucketId', 'orderHint'],
+        'user',
       ),
     )
   }

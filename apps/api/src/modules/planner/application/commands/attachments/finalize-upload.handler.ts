@@ -69,6 +69,8 @@ export class FinalizeUploadHandler implements ICommandHandler<FinalizeUploadComm
         command.taskId,
         command.attachmentId,
         'file',
+        ['attachments'],
+        'user',
       ),
     )
   }

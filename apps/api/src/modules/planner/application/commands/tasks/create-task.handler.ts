@@ -57,6 +57,8 @@ export class CreateTaskHandler implements ICommandHandler<CreateTaskCommand> {
         command.title,
         null,
         null,
+        ['title'],
+        'user',
       ),
     )
   }
