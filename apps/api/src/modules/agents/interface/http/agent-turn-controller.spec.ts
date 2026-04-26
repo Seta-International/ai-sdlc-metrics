@@ -11,6 +11,13 @@ import { NoOpSpan, OtelSpan, IDENTITY_KEY_DENYLIST } from '../../domain/observab
 import type { Span } from '../../domain/observability/span'
 import { EVENT_SCHEMA_VERSION } from '../../application/services/stream-gateway'
 
+// ─── Mock streaming-metrics for abort source tests ───────────────────────────
+vi.mock('../../infrastructure/observability/streaming-metrics', () => ({
+  recordTurnTotal: vi.fn(),
+  recordTurnDuration: vi.fn(),
+  recordAbortTotal: vi.fn(),
+}))
+
 const TENANT_ID = 'tid-001'
 const USER_ID = 'uid-001'
 
@@ -643,5 +650,43 @@ describe('AgentTurnController — Theme B wiring (R-05.1, R-07.43, R-07.44)', ()
     await controller.streamTurn(req as never, res as never)
 
     expect(budgetChecker.preTurnCheck).not.toHaveBeenCalled()
+  })
+})
+
+// ─── Issue 2: abort source uses captureReason() — not always 'user' ──────────
+
+describe('AgentTurnController — abort source correctness (Issue 2)', () => {
+  it('I2-1: system abort (budget/quality_canary) emits source=system via captureReason()', async () => {
+    // We use a registry whose register() fires the systemAbortController before
+    // composeTurnAbortSignal returns. We achieve this by intercepting via
+    // AbortCoordinator's composeTurnAbortSignal: the controller exposes the
+    // systemAbortController in the registry.register call, so we abort it there.
+    const { recordAbortTotal } =
+      await import('../../infrastructure/observability/streaming-metrics')
+
+    const systemAbortRegistry = {
+      register: vi
+        .fn()
+        .mockImplementation(async (opts: { systemAbortController: AbortController }) => {
+          // Simulate budget abort from systemAbortController (plan 05 mid-turn check)
+          opts.systemAbortController.abort('budget')
+        }),
+      unregister: vi.fn().mockResolvedValue(undefined),
+      cancel: vi.fn(),
+      getEntry: vi.fn(),
+    } as unknown as ActiveTurnRegistry
+
+    const { controller } = makeController({ registry: systemAbortRegistry })
+    const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    // abort source must be 'system', NOT 'user'
+    expect(recordAbortTotal).toHaveBeenCalledWith(TENANT_ID, 'system', expect.any(String))
+    // Must NOT have been called with source='user' for this abort
+    const calls = (recordAbortTotal as ReturnType<typeof vi.fn>).mock.calls
+    const hasUserSource = calls.some(([, source]: [string, string, string]) => source === 'user')
+    expect(hasUserSource).toBe(false)
   })
 })

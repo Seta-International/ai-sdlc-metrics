@@ -14,8 +14,17 @@
  * agent_cost_usd_total{tenant_id, layer, model_id, pricing_id}           counter
  *   Records dollar cost per successful LLM call (R-05.6a: once per success only).
  *
+ * agent_usage_tokens_total{tenant_id, model_id, kind}                    counter
+ *   Tokens consumed per successful LLM call (Plan 05 §8).
+ *   kind ∈ {input_uncached, input_cached_read, input_cached_write, output, output_reasoning}.
+ *   No user_id (R-05.30).
+ *
  * agent_budget_remaining_usd{tenant_id}                                   observable gauge
  *   Snapshots remaining USD budget per tenant after each cost deduction.
+ *
+ * agent_budget_user_remaining_usd{tenant_id}                              observable gauge
+ *   Aggregated per-user remaining budget, reported per tenant (no user_id label per R-05.30).
+ *   Updated alongside agent_budget_remaining_usd by BudgetChecker / CostRecorder.
  *
  * agent_tier_shift_total{tenant_id, from_tier, to_tier, reason}           counter
  *   Policy-driven tier downgrades (R-05.19). reason ∈ {budget, quality_canary}.
@@ -50,6 +59,11 @@
  *   Per-degradation-step occurrences (Plan 05 §8). step ∈ 1..7.
  *   trace_tag ∈ {provider_retry, provider_fallback, provider_outage, tier_shift, refused}.
  *
+ * agent_ladder_transition_latency_ms{step}                                histogram
+ *   Time to execute a ladder step transition (Plan 05 §8). step ∈ 1..7.
+ *   Emitted by GracefulDegradationLadder.evaluate() around each step dispatch.
+ *   No tenant_id — ladder-evaluation is CPU-bound; per-step timing is the signal.
+ *
  * ── Label cardinality guardrail (R-05.30 / R-05.31) ─────────────────────────
  *
  * BLOCKED_LABELS = [user_id, conversation_id, trace_id, delegation_id, schedule_id]
@@ -70,8 +84,12 @@ import {
 interface CostInstruments {
   /** agent_cost_usd_total{tenant_id, layer, model_id, pricing_id} */
   costUsdTotal: Counter
+  /** agent_usage_tokens_total{tenant_id, model_id, kind} */
+  usageTokensTotal: Counter
   /** agent_budget_remaining_usd{tenant_id} — observable gauge */
   budgetRemainingUsd: ObservableGauge
+  /** agent_budget_user_remaining_usd{tenant_id} — observable gauge (aggregated; no user_id) */
+  budgetUserRemainingUsd: ObservableGauge
   /** agent_tier_shift_total{tenant_id, from_tier, to_tier, reason} */
   tierShiftTotal: Counter
   /** agent_provider_fallback_total{tenant_id, model_id, error_class} */
@@ -92,12 +110,17 @@ interface CostInstruments {
   budgetRefillTotal: Counter
   /** agent_ladder_step_total{tenant_id, step, trace_tag} */
   ladderStepTotal: Counter
+  /** agent_ladder_transition_latency_ms{step} — histogram */
+  ladderTransitionLatencyMs: Histogram
 }
 
 // ─── Module-level state ───────────────────────────────────────────────────────
 
 /** Per-tenant remaining USD budget (0 or positive). Updated by setBudgetRemaining. */
 const _budgetRemainingMap = new Map<string, number>()
+
+/** Per-tenant aggregated user remaining USD budget. Updated by setBudgetUserRemaining. */
+const _budgetUserRemainingMap = new Map<string, number>()
 
 /** Per-tenant approval inbox depth. Updated by setApprovalInboxDepth. */
 const _approvalInboxDepthMap = new Map<string, number>()
@@ -119,10 +142,28 @@ function getInstruments(): CostInstruments {
     valueType: ValueType.DOUBLE,
   })
 
+  const usageTokensTotal = meter.createCounter('agent_usage_tokens_total', {
+    description:
+      'Tokens consumed per successful LLM call (Plan 05 §8). ' +
+      'kind ∈ {input_uncached, input_cached_read, input_cached_write, output, output_reasoning}. ' +
+      'Incremented once per success alongside agent_cost_usd_total (R-05.6a). ' +
+      'No user_id label (R-05.30).',
+    valueType: ValueType.INT,
+  })
+
   const budgetRemainingUsd = meter.createObservableGauge('agent_budget_remaining_usd', {
     description:
       'Remaining daily USD budget per tenant, snapshotted after each cost deduction. ' +
       'No user_id label (R-05.30).',
+    unit: 'USD',
+    valueType: ValueType.DOUBLE,
+  })
+
+  const budgetUserRemainingUsd = meter.createObservableGauge('agent_budget_user_remaining_usd', {
+    description:
+      'Aggregated per-user remaining USD budget, reported per tenant (Plan 05 §8). ' +
+      'No user_id label — aggregated at tenant level to avoid cardinality explosion (R-05.30). ' +
+      'Updated alongside agent_budget_remaining_usd by BudgetChecker after each cost deduction.',
     unit: 'USD',
     valueType: ValueType.DOUBLE,
   })
@@ -203,21 +244,34 @@ function getInstruments(): CostInstruments {
     valueType: ValueType.INT,
   })
 
+  const ladderTransitionLatencyMs = meter.createHistogram('agent_ladder_transition_latency_ms', {
+    description:
+      'Time to execute a graceful-degradation ladder step transition (Plan 05 §8). ' +
+      'step ∈ 1..7. No tenant_id — ladder evaluation is CPU-bound; per-step timing is the signal.',
+    unit: 'ms',
+    valueType: ValueType.DOUBLE,
+  })
+
   meter.addBatchObservableCallback(
     (result: BatchObservableResult) => {
       for (const [tenantId, remaining] of _budgetRemainingMap) {
         result.observe(budgetRemainingUsd, remaining, { tenant_id: tenantId })
       }
+      for (const [tenantId, remaining] of _budgetUserRemainingMap) {
+        result.observe(budgetUserRemainingUsd, remaining, { tenant_id: tenantId })
+      }
       for (const [tenantId, depth] of _approvalInboxDepthMap) {
         result.observe(approvalInboxDepth, depth, { tenant_id: tenantId })
       }
     },
-    [budgetRemainingUsd, approvalInboxDepth],
+    [budgetRemainingUsd, budgetUserRemainingUsd, approvalInboxDepth],
   )
 
   _instruments = {
     costUsdTotal,
+    usageTokensTotal,
     budgetRemainingUsd,
+    budgetUserRemainingUsd,
     tierShiftTotal,
     providerFallbackTotal,
     llmCallAttemptDurationMs,
@@ -228,6 +282,7 @@ function getInstruments(): CostInstruments {
     approvalInboxDepth,
     budgetRefillTotal,
     ladderStepTotal,
+    ladderTransitionLatencyMs,
   }
 
   return _instruments
@@ -243,6 +298,7 @@ function getInstruments(): CostInstruments {
 export function __INTERNAL_resetInstruments(): void {
   _instruments = undefined
   _budgetRemainingMap.clear()
+  _budgetUserRemainingMap.clear()
   _approvalInboxDepthMap.clear()
 }
 
@@ -271,6 +327,32 @@ export function recordCostUsd(
 }
 
 /**
+ * Record token counts for a successful LLM call (Plan 05 §8).
+ * Call once per success alongside recordCostUsd — never per retry attempt (R-05.6a).
+ *
+ * Labels: tenant_id, model_id, kind.
+ * kind ∈ 'input_uncached' | 'input_cached_read' | 'input_cached_write' | 'output' | 'output_reasoning'.
+ * No user_id (R-05.30).
+ */
+export function recordUsageTokens(
+  tenantId: string,
+  modelId: string,
+  kind:
+    | 'input_uncached'
+    | 'input_cached_read'
+    | 'input_cached_write'
+    | 'output'
+    | 'output_reasoning',
+  count: number,
+): void {
+  getInstruments().usageTokensTotal.add(count, {
+    tenant_id: tenantId,
+    model_id: modelId,
+    kind,
+  })
+}
+
+/**
  * Update the remaining budget gauge for a tenant (Plan 05 §8).
  * Call after each cost deduction or after a budget refill.
  *
@@ -279,6 +361,20 @@ export function recordCostUsd(
  */
 export function setBudgetRemaining(tenantId: string, remainingUsd: number): void {
   _budgetRemainingMap.set(tenantId, remainingUsd)
+  // Ensure instruments (and the observable callback) are initialised.
+  getInstruments()
+}
+
+/**
+ * Update the per-user remaining budget gauge for a tenant (Plan 05 §8).
+ * Aggregated at tenant level — no user_id label (R-05.30 cardinality guardrail).
+ * Call alongside setBudgetRemaining after each cost deduction / budget refill.
+ *
+ * Labels: tenant_id. No user_id.
+ * unit: USD.
+ */
+export function setBudgetUserRemaining(tenantId: string, remainingUsd: number): void {
+  _budgetUserRemainingMap.set(tenantId, remainingUsd)
   // Ensure instruments (and the observable callback) are initialised.
   getInstruments()
 }
@@ -458,4 +554,19 @@ export function recordLadderStep(
     step,
     trace_tag: traceTag,
   })
+}
+
+/**
+ * Record the latency of a graceful-degradation ladder step transition (Plan 05 §8).
+ * Called by GracefulDegradationLadder.evaluate() wrapping each step dispatch.
+ * No tenant_id — per-step CPU timing is the signal; tenant attribution is on ladderStepTotal.
+ *
+ * Labels: step (1..7).
+ * unit: ms.
+ */
+export function recordLadderTransitionLatency(
+  step: 1 | 2 | 3 | 4 | 5 | 6 | 7,
+  latencyMs: number,
+): void {
+  getInstruments().ladderTransitionLatencyMs.record(latencyMs, { step })
 }

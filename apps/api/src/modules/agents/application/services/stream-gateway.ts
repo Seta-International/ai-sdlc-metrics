@@ -178,6 +178,17 @@ export function createStreamGateway(
   let seq = 0
 
   function write(event: SseEventWithSeq): void {
+    // TODO(backpressure-gap): Plan 06 §8 / §7 names agent_sse_backpressure_total as a required
+    // instrument. The metric is defined in streaming-metrics.ts (recordSseBackpressure) and the
+    // failure-mode table (§7) specifies: overflow → turn.ended.reason:'error', cause='client_backpressure'.
+    //
+    // Detection requires a backpressure-aware write queue (e.g. check Node.js
+    // ServerResponse.writableNeedDrain / stream high-watermark after each write). The current
+    // fire-and-forget writeFn does not expose queue depth, so backpressure cannot be detected
+    // here without a structural change to the SSE transport layer. This is deferred to a
+    // dedicated infrastructure task (Path B per Theme I spec-gap review 2026-04-26).
+    //
+    // Tracking: fix(agents): wire agent_sse_backpressure_total detection in SSE write layer
     writeFn(JSON.stringify(event))
   }
 

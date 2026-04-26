@@ -11,7 +11,9 @@
  * ── Instruments under test (Plan 05 §8) ──────────────────────────────────────
  *
  * agent_cost_usd_total{tenant_id, layer, model_id, pricing_id}           counter
+ * agent_usage_tokens_total{tenant_id, model_id, kind}                    counter
  * agent_budget_remaining_usd{tenant_id}                                   observable gauge
+ * agent_budget_user_remaining_usd{tenant_id}                              observable gauge
  * agent_tier_shift_total{tenant_id, from_tier, to_tier, reason}           counter
  * agent_provider_fallback_total{tenant_id, model_id, error_class}         counter
  * agent_llm_call_attempt_duration_ms{tenant_id, model_id, layer}          histogram
@@ -22,6 +24,7 @@
  * agent_approval_inbox_depth{tenant_id}                                   observable gauge
  * agent_budget_refill_total{tenant_id, source}                            counter
  * agent_ladder_step_total{tenant_id, step, trace_tag}                     counter
+ * agent_ladder_transition_latency_ms{step}                                histogram
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
@@ -34,7 +37,9 @@ import {
 import { metrics } from '@opentelemetry/api'
 import {
   recordCostUsd,
+  recordUsageTokens,
   setBudgetRemaining,
+  setBudgetUserRemaining,
   recordTierShift,
   recordProviderFallback,
   recordLlmCallAttemptDuration,
@@ -45,6 +50,7 @@ import {
   setApprovalInboxDepth,
   recordBudgetRefill,
   recordLadderStep,
+  recordLadderTransitionLatency,
   __INTERNAL_resetInstruments,
 } from './cost-metrics'
 
@@ -508,5 +514,143 @@ describe('recordLadderStep', () => {
       (p) => p.attributes['tenant_id'] === 'tenant-ls-2' && p.attributes['step'] === 1,
     )
     expect(point?.value).toBe(2)
+  })
+})
+
+// ─── agent_usage_tokens_total (Issue 1) ─────────────────────────────────────
+
+describe('recordUsageTokens', () => {
+  it('increments agent_usage_tokens_total with tenant_id, model_id, kind labels', async () => {
+    recordUsageTokens('tenant-ut-1', 'gpt-5.4', 'input_uncached', 1000)
+
+    const points = await flushAndGetPoints('agent_usage_tokens_total')
+    const point = points.find(
+      (p) =>
+        p.attributes['tenant_id'] === 'tenant-ut-1' &&
+        p.attributes['model_id'] === 'gpt-5.4' &&
+        p.attributes['kind'] === 'input_uncached',
+    )
+    expect(point).toBeDefined()
+    expect(point!.value).toBe(1000)
+  })
+
+  it('records all valid kind values', async () => {
+    const kinds = [
+      'input_uncached',
+      'input_cached_read',
+      'input_cached_write',
+      'output',
+      'output_reasoning',
+    ] as const
+
+    for (const kind of kinds) {
+      recordUsageTokens(`tenant-ut-kind-${kind}`, 'gpt-5.4-nano', kind, 500)
+    }
+
+    const points = await flushAndGetPoints('agent_usage_tokens_total')
+    for (const kind of kinds) {
+      const point = points.find(
+        (p) =>
+          p.attributes['tenant_id'] === `tenant-ut-kind-${kind}` && p.attributes['kind'] === kind,
+      )
+      expect(point).toBeDefined()
+    }
+  })
+
+  it('accumulates across multiple calls with the same labels', async () => {
+    recordUsageTokens('tenant-ut-acc', 'gpt-5.4', 'output', 300)
+    recordUsageTokens('tenant-ut-acc', 'gpt-5.4', 'output', 200)
+
+    const points = await flushAndGetPoints('agent_usage_tokens_total')
+    const point = points.find(
+      (p) => p.attributes['tenant_id'] === 'tenant-ut-acc' && p.attributes['kind'] === 'output',
+    )
+    expect(point?.value).toBe(500)
+  })
+
+  it('R-05.30: does NOT carry user_id label', async () => {
+    recordUsageTokens('tenant-ut-card', 'gpt-5.4', 'input_uncached', 100)
+
+    const points = await flushAndGetPoints('agent_usage_tokens_total')
+    const point = points.find((p) => p.attributes['tenant_id'] === 'tenant-ut-card')
+    expect(point).toBeDefined()
+    expect('user_id' in point!.attributes).toBe(false)
+  })
+})
+
+// ─── agent_budget_user_remaining_usd (Issue 1) ──────────────────────────────
+
+describe('setBudgetUserRemaining', () => {
+  it('reports agent_budget_user_remaining_usd gauge with tenant_id label (no user_id)', async () => {
+    setBudgetUserRemaining('tenant-bur-1', 25.75)
+
+    const points = await flushAndGetPoints('agent_budget_user_remaining_usd')
+    const point = points.find((p) => p.attributes['tenant_id'] === 'tenant-bur-1')
+    expect(point).toBeDefined()
+    expect(point!.value).toBeCloseTo(25.75)
+  })
+
+  it('updates gauge when called twice for the same tenant', async () => {
+    setBudgetUserRemaining('tenant-bur-2', 80.0)
+    await flushAndGetPoints('agent_budget_user_remaining_usd')
+    exporter.reset()
+
+    setBudgetUserRemaining('tenant-bur-2', 40.0)
+    const points = await flushAndGetPoints('agent_budget_user_remaining_usd')
+    const point = points.find((p) => p.attributes['tenant_id'] === 'tenant-bur-2')
+    expect(point).toBeDefined()
+    expect(point!.value).toBeCloseTo(40.0)
+  })
+
+  it('R-05.30: no user_id label on gauge (aggregated per tenant)', async () => {
+    setBudgetUserRemaining('tenant-bur-3', 10.0)
+
+    const points = await flushAndGetPoints('agent_budget_user_remaining_usd')
+    const point = points.find((p) => p.attributes['tenant_id'] === 'tenant-bur-3')
+    expect(point).toBeDefined()
+    expect('user_id' in point!.attributes).toBe(false)
+  })
+})
+
+// ─── agent_ladder_transition_latency_ms (Issue 1) ────────────────────────────
+
+describe('recordLadderTransitionLatency', () => {
+  it('records agent_ladder_transition_latency_ms histogram with step label', async () => {
+    recordLadderTransitionLatency(2, 45)
+
+    const points = await flushAndGetPoints('agent_ladder_transition_latency_ms')
+    const point = points.find((p) => p.attributes['step'] === 2)
+    expect(point).toBeDefined()
+    expect(point!.value).toBe(45)
+  })
+
+  it('records all valid step values 1–7', async () => {
+    for (let step = 1; step <= 7; step++) {
+      recordLadderTransitionLatency(step as 1 | 2 | 3 | 4 | 5 | 6 | 7, step * 10)
+    }
+
+    const points = await flushAndGetPoints('agent_ladder_transition_latency_ms')
+    for (let step = 1; step <= 7; step++) {
+      const point = points.find((p) => p.attributes['step'] === step)
+      expect(point).toBeDefined()
+    }
+  })
+
+  it('accumulates sum across multiple recordings for the same step', async () => {
+    // Use step 4 — chosen so it does not overlap with steps 1..7 recorded by the
+    // previous test in this suite; the shared cumulative exporter would otherwise
+    // add that observation into this assertion window.
+    recordLadderTransitionLatency(4, 100)
+    recordLadderTransitionLatency(4, 150)
+
+    const points = await flushAndGetPoints('agent_ladder_transition_latency_ms')
+    // Find the point that received exactly our two recordings (step 4).
+    // The previous test already recorded step 4 with value 40 (step * 10 = 4 * 10),
+    // so the cumulative sum here is 40 + 100 + 150 = 290. We use toBeGreaterThanOrEqual
+    // to stay robust across test execution orders; the important assertion is that
+    // multiple records DO accumulate (value > 100).
+    const point = points.find((p) => p.attributes['step'] === 4)
+    expect(point).toBeDefined()
+    expect(point!.value).toBeGreaterThanOrEqual(250) // 100 + 150 at minimum
   })
 })

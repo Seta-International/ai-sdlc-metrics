@@ -146,9 +146,10 @@ export class AgentTurnController {
       res.raw.write(`data: ${raw}\n\n`)
     }
 
-    const { signal, userCancelController, systemAbortController } = composeTurnAbortSignal({
-      wallclockMs: 30_000,
-    })
+    const { signal, userCancelController, systemAbortController, captureReason } =
+      composeTurnAbortSignal({
+        wallclockMs: 30_000,
+      })
 
     req.raw.on('close', () => {
       userCancelController.abort()
@@ -232,9 +233,17 @@ export class AgentTurnController {
       recordTurnTotal(tenantId, 'bounded', turnEndReason)
       recordTurnDuration(tenantId, turnEndReason, durationMs)
 
-      // Emit abort metric when signal fired (captures source from abort controller state)
+      // Emit abort metric when signal fired.
+      // captureReason() returns which root signal fired first:
+      //   'user'    → userCancelController was aborted (client cancel / EPIPE disconnect)
+      //   'timeout' → AbortSignal.timeout wallclock fired
+      //   'budget' | 'provider_outage' | 'quality_canary' → systemAbortController (mapped to 'system')
+      // Plan 06 §8: source ∈ 'user' | 'timeout' | 'system'.
       if (signal.aborted) {
-        recordAbortTotal(tenantId, 'user', turnEndReason)
+        const reason = captureReason()
+        const source: 'user' | 'timeout' | 'system' =
+          reason === 'user' ? 'user' : reason === 'timeout' ? 'timeout' : 'system'
+        recordAbortTotal(tenantId, source, turnEndReason)
       }
 
       await this.activeTurnRegistry.unregister(traceId)

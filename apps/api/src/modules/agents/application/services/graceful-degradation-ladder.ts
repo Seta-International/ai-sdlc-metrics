@@ -6,6 +6,7 @@ import type {
 } from '../../domain/cost/cost-types'
 import {
   recordLadderStep,
+  recordLadderTransitionLatency,
   recordTierShift,
   recordProviderFallback,
 } from '../../infrastructure/observability/cost-metrics'
@@ -37,6 +38,8 @@ export class GracefulDegradationLadder {
   _stepMessages: Record<number, string> = { ...DEFAULT_STEP_MESSAGES }
 
   private readonly consecutiveOverloadCount = new Map<string, number>()
+  /** Tracks the last error class that incremented the consecutive-overload counter per model. */
+  private readonly lastOverloadErrorClass = new Map<string, VendorErrorClass>()
   private fallbackActive = false
   private fallbackModelId: string | null = null
 
@@ -50,12 +53,15 @@ export class GracefulDegradationLadder {
   }): LadderStepState {
     const { tenantId, trigger, modelId, iteration: _iteration, tenantState: _tenantState } = opts
 
+    const stepStart = Date.now()
+
     // Step 7 — budget refuse (highest priority check, trigger-based)
     if (trigger === 'budget_exhausted') {
       const step = this._buildStep(7, trigger, 'refused', { cancellationReason: 'budget' })
       // Emit ladder step + tier shift metrics (Plan 05 §8)
       recordLadderStep(tenantId, 7, 'refused')
       recordTierShift(tenantId, opts.currentTier, 'refused', 'budget')
+      recordLadderTransitionLatency(7, Date.now() - stepStart)
       return step
     }
 
@@ -64,6 +70,7 @@ export class GracefulDegradationLadder {
       const step = this._buildStep(6, trigger, 'refused', { cancellationReason: 'quality_canary' })
       recordLadderStep(tenantId, 6, 'refused')
       recordTierShift(tenantId, opts.currentTier, 'refused', 'quality_canary')
+      recordLadderTransitionLatency(6, Date.now() - stepStart)
       return step
     }
 
@@ -72,6 +79,7 @@ export class GracefulDegradationLadder {
       const step = this._buildStep(5, trigger, 'tier_shift')
       recordLadderStep(tenantId, 5, 'tier_shift')
       recordTierShift(tenantId, 'full', 'nano', 'quality_canary')
+      recordLadderTransitionLatency(5, Date.now() - stepStart)
       return step
     }
 
@@ -80,6 +88,7 @@ export class GracefulDegradationLadder {
       const step = this._buildStep(4, trigger, 'tier_shift')
       recordLadderStep(tenantId, 4, 'tier_shift')
       recordTierShift(tenantId, 'full', 'nano', 'quality_canary')
+      recordLadderTransitionLatency(4, Date.now() - stepStart)
       return step
     }
 
@@ -87,10 +96,11 @@ export class GracefulDegradationLadder {
     if (trigger === 'nano_5xx') {
       const step = this._buildStep(3, trigger, 'provider_outage')
       recordLadderStep(tenantId, 3, 'provider_outage')
+      recordLadderTransitionLatency(3, Date.now() - stepStart)
       return step
     }
 
-    // Step 2 — provider_fallback (3+ consecutive overloads)
+    // Step 2 — provider_fallback (3+ consecutive overloads / server errors)
     if (trigger === 'provider_5xx' && this.shouldFallback(modelId)) {
       if (!this.fallbackActive) {
         this.fallbackActive = true
@@ -98,21 +108,27 @@ export class GracefulDegradationLadder {
       }
       const step = this._buildStep(2, trigger, 'provider_fallback')
       recordLadderStep(tenantId, 2, 'provider_fallback')
-      // provider_fallback metric: the error class driving this fallback is unknown at this
-      // level (the caller drives recordError separately). Emit as vendor_overload since
-      // step 2 is only reached via shouldFallback which counts vendor_overload / vendor_server_error.
-      recordProviderFallback(tenantId, modelId, 'vendor_overload')
+      // Use the actual error class that triggered the fallback (R-05.20a).
+      // lastOverloadErrorClass tracks whichever class (vendor_overload or vendor_server_error)
+      // last incremented the consecutive counter — it is the correct discriminator for the
+      // provider_fallback_total metric. Defaulting to 'vendor_overload' here would corrupt
+      // the error-class dashboard for vendor_server_error-driven fallbacks.
+      const errorClass = this.lastOverloadErrorClass.get(modelId) ?? 'vendor_overload'
+      recordProviderFallback(tenantId, modelId, errorClass)
+      recordLadderTransitionLatency(2, Date.now() - stepStart)
       return step
     }
 
     // Step 1 — provider_retry (first attempt, transient)
     const step = this._buildStep(1, trigger, 'provider_retry')
     recordLadderStep(tenantId, 1, 'provider_retry')
+    recordLadderTransitionLatency(1, Date.now() - stepStart)
     return step
   }
 
   recordSuccess(modelId: string): void {
     this.consecutiveOverloadCount.set(modelId, 0)
+    this.lastOverloadErrorClass.delete(modelId)
   }
 
   recordError(modelId: string, errorClass: VendorErrorClass): void {
@@ -121,6 +137,10 @@ export class GracefulDegradationLadder {
     if (isOverload) {
       const current = this.consecutiveOverloadCount.get(modelId) ?? 0
       this.consecutiveOverloadCount.set(modelId, current + 1)
+      // Track the last error class so evaluate() can emit the correct error_class
+      // on the provider_fallback metric (R-05.20a). Mixed sequences (overload then
+      // server_error) record the class of the most recent counted failure.
+      this.lastOverloadErrorClass.set(modelId, errorClass)
     }
   }
 
