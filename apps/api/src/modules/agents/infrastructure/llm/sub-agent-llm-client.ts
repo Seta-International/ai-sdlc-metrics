@@ -18,7 +18,7 @@
 //     secure source (1Password, AWS CLI session). NEVER commit a .env file
 //     containing this key.
 
-import { Injectable } from '@nestjs/common'
+import { Injectable, OnModuleInit } from '@nestjs/common'
 import { generateText, generateObject, stepCountIs, Output } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { ZodType } from 'zod'
@@ -75,8 +75,18 @@ function resolveModel(choice: ModelChoice) {
       const client = createOpenAI({ apiKey: process.env['OPENAI_API_KEY'] })
       return client(choice.model)
     }
-    default:
-      throw new Error(`Unsupported provider "${choice.provider}" in SubAgentLlmClient`)
+    case 'anthropic': {
+      // Anthropic provider support is deferred to Plan 12.
+      throw new Error(
+        `SubAgentLlmClient: provider "anthropic" is not yet supported. ` +
+          `Add @ai-sdk/anthropic and wire it here when Plan 12 ships.`,
+      )
+    }
+    default: {
+      // Exhaustive check — TypeScript will catch this if ModelChoice gains a new provider.
+      const _exhaustive: never = choice.provider
+      throw new Error(`SubAgentLlmClient: unknown model provider "${String(_exhaustive)}"`)
+    }
   }
 }
 
@@ -98,10 +108,33 @@ function mapUsage(u: {
 // ─── OpenAiSubAgentLlmClient ─────────────────────────────────────────────────
 
 @Injectable()
-export class OpenAiSubAgentLlmClient implements SubAgentLlmClient {
+export class OpenAiSubAgentLlmClient implements SubAgentLlmClient, OnModuleInit {
+  /**
+   * Validates that OPENAI_API_KEY is present in the environment.
+   * Called once at module init (NestJS lifecycle hook) so the failure is loud
+   * and immediate at boot rather than silently failing on the first request.
+   *
+   * Per the sourcing contract above: the key originates in AWS Secrets Manager;
+   * Terraform/ECS maps it into the container environment. It must never appear
+   * in a committed file, .env, DB, or build artifact.
+   */
+  onModuleInit(): void {
+    if (!process.env['OPENAI_API_KEY'] && !process.env['LOCAL_DEV']) {
+      throw new Error(
+        'OPENAI_API_KEY missing — required to be provided via ECS Secrets Manager mapping per CLAUDE.md secrets rule',
+      )
+    }
+  }
+
   async runWithTools(opts: SubAgentLlmClientOpts): Promise<SubAgentLlmClientResult> {
     const model = resolveModel(opts.model)
 
+    // Cast is load-bearing: the SDK's `ToolSet` index signature is invariant
+    // over the per-tool input/output generics, so a generic
+    // `Record<string, AiSdkTool>` (where `AiSdkTool` widens to `unknown`-shaped
+    // tools) is not assignable. `experimental_output` is also not yet on the
+    // public input type. Both narrow once the SDK exposes a covariant ToolSet
+    // helper and promotes experimental_output to GenerateTextOptions.
     const result = await generateText({
       model,
       system: opts.system,
