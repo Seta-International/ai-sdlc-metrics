@@ -7,6 +7,7 @@
 import type { L1Cache } from '../../infrastructure/cache/l1-cache'
 import type { IntentSlug } from './flow-id-propagation'
 import type { TurnPolicy } from '../../domain/value-objects/turn-policy'
+import type { ToolGatewayResult } from '../../infrastructure/guards/tripwire'
 
 // ─── RequestContext ────────────────────────────────────────────────────────────
 
@@ -157,3 +158,21 @@ export interface ToolGatewayInvokeInput {
    */
   readonly userUtterance?: string
 }
+
+// ─── ToolGatewayPort ──────────────────────────────────────────────────────────
+
+/**
+ * Public interface implemented by the production `ToolGateway` and the
+ * `ReplayModeToolGateway` used by the golden-trace CI runner. Keeping a
+ * narrow port lets us substitute implementations without leaking the
+ * gateway's private orchestration internals.
+ */
+export interface ToolGatewayPort {
+  invoke(input: ToolGatewayInvokeInput): Promise<ToolGatewayResult>
+}
+
+/**
+ * DI token for `ToolGatewayPort`. Used by services that depend on the gateway
+ * via the narrow port (TurnPipelineRunner — Task 2; SubAgentRunnerAdapter — Task 6).
+ */
+export const TOOL_GATEWAY = Symbol('TOOL_GATEWAY')

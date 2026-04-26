@@ -52,7 +52,7 @@ import {
 import { canonicalize } from '../../infrastructure/cache/canonical-args'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { TrpcCallerImpl } from './trpc-caller'
-import type { ToolGatewayInvokeInput } from './tool-gateway-contracts'
+import type { ToolGatewayInvokeInput, ToolGatewayPort } from './tool-gateway-contracts'
 import { withGatewayStep, recordStepAttrs } from '../../infrastructure/observability/gateway-spans'
 import {
   recordToolCall,
@@ -227,7 +227,7 @@ function sleep(ms: number): Promise<void> {
  * Consumers: Plan 03 / 08 AgentRuntime (not yet wired — exported by AgentsModule later).
  */
 @Injectable()
-export class ToolGateway {
+export class ToolGateway implements ToolGatewayPort {
   private readonly logger = new Logger(ToolGateway.name)
 
   constructor(
