@@ -244,9 +244,9 @@ describe('PollTenantHandler', () => {
     })
 
     it('poll skips plans whose pollPausedUntil is in the future', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const graph = {
-        getAllPages: vi.fn().mockResolvedValue([{ id: 'ms-plan-1', title: 'Plan A' }]) as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getAllPages: vi.fn().mockResolvedValue([{ id: 'ms-plan-1', title: 'Plan A' }] as any),
       }
       const syncStateRepo = {
         findByMsPlanId: vi

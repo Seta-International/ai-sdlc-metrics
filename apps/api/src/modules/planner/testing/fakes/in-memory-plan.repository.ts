@@ -110,7 +110,7 @@ export class InMemoryPlanRepository implements IPlanRepository {
       .map((p) => ({ id: p.id, msPlanId: p.msPlanId, isMsArchived: false }))
   }
 
-  async markArchived(id: string, _opts: { origin: string }): Promise<void> {
+  async markArchived(_id: string, _opts: { origin: string }): Promise<void> {
     // no-op in tests
   }
 
