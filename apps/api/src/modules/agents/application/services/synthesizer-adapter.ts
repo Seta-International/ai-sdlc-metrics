@@ -83,9 +83,9 @@ export class SynthesizerAdapter implements ISynthesizer {
     )
     const surface = opts.turnState.surface
 
-    const hasContradiction = detectContradiction(asMutableMap(allOutputs))
-    const citations = buildCitations(asMutableMap(allOutputs))
-    const disclosures = buildDisclosureStatements(asMutableMap(allOutputs))
+    const hasContradiction = detectContradiction(allOutputs)
+    const citations = buildCitations(allOutputs)
+    const disclosures = buildDisclosureStatements(allOutputs)
 
     const userContext = buildSynthesizerPrompt({
       allOutputs,
@@ -111,6 +111,7 @@ export class SynthesizerAdapter implements ISynthesizer {
     let declaredShape: SynthesizerLlmOutput['shape'] | null = null
     let lastEmittedContentLen = 0
     let lastEmittedItemCount = 0
+    let tokensEmitted = false
 
     // ── Phase A: drain partialObjectStream ────────────────────────────────────
     try {
@@ -135,6 +136,7 @@ export class SynthesizerAdapter implements ISynthesizer {
                 payload: { token: delta },
               })
               lastEmittedContentLen = content.length
+              tokensEmitted = true
             }
           } else if (declaredShape === 'list') {
             const items = (partial as { items?: ReadonlyArray<string> }).items ?? []
@@ -143,6 +145,7 @@ export class SynthesizerAdapter implements ISynthesizer {
                 type: 'answer.token',
                 payload: { token: `- ${items[i]}\n` },
               })
+              tokensEmitted = true
             }
             lastEmittedItemCount = items.length
           }
@@ -153,10 +156,14 @@ export class SynthesizerAdapter implements ISynthesizer {
       // - declaredShape === null → no shape ever surfaced → pre-shape failure → rethrow
       // - declaredShape !== null → tokens already emitted → post-shape failure → fallback
       if (declaredShape === null) {
-        recordSynthesizerFallback({ cause: 'pre_shape_failure' })
-        throw new SynthesizerStreamFailureError('pre_shape_failure', {
-          cause: err instanceof Error ? err.message : String(err),
+        // Suppress the orphaned `stream.usage` rejection: pre-shape failure
+        // means usage is moot, but Node.js would otherwise see it as
+        // unhandled and crash the process.
+        void stream.usage.catch(() => {
+          /* swallowed: pre-shape failure makes usage moot */
         })
+        recordSynthesizerFallback({ cause: 'pre_shape_failure' })
+        throw new SynthesizerStreamFailureError('pre_shape_failure', err)
       }
       return this._fallback({
         outputs: allOutputs,
@@ -176,10 +183,12 @@ export class SynthesizerAdapter implements ISynthesizer {
     } catch (err) {
       if (declaredShape === null) {
         // Stream completed empty — no partials, no shape, finalObject failed.
-        recordSynthesizerFallback({ cause: 'pre_shape_failure' })
-        throw new SynthesizerStreamFailureError('pre_shape_failure', {
-          cause: err instanceof Error ? err.message : String(err),
+        // Same as the partial-stream branch: suppress orphaned usage promise.
+        void stream.usage.catch(() => {
+          /* swallowed: pre-shape failure makes usage moot */
         })
+        recordSynthesizerFallback({ cause: 'pre_shape_failure' })
+        throw new SynthesizerStreamFailureError('pre_shape_failure', err)
       }
       // Schema validation failed AFTER partials emitted: distinguish from raw
       // stream errors so observability can attribute to "model produced
@@ -198,6 +207,17 @@ export class SynthesizerAdapter implements ISynthesizer {
       opts.streamEmitter.emit({
         type: 'answer.token',
         payload: { token: JSON.stringify(finalObject), format: 'json' },
+      })
+    } else if (!tokensEmitted) {
+      // Degenerate stream: a streaming shape was declared but no partials ever
+      // grew `content`/`items`. The state machine requires at least one
+      // `answer.token` (transitioning shape-declared → tokens-streaming) before
+      // `answer.complete` is valid. Synthesize one from the final object so we
+      // don't trip an "Invalid transition" runtime throw at the gateway.
+      const synthetic = synthesizeTerminalToken(finalObject)
+      opts.streamEmitter.emit({
+        type: 'answer.token',
+        payload: { token: synthetic },
       })
     }
     opts.streamEmitter.emit({ type: 'answer.complete', payload: {} })
@@ -225,7 +245,7 @@ export class SynthesizerAdapter implements ISynthesizer {
   }): SynthesizerOutput {
     recordSynthesizerFallback({ cause: args.cause })
 
-    const clarityProse = renderContradictionClarity(asMutableMap(args.outputs))
+    const clarityProse = renderContradictionClarity(args.outputs)
     const tail = args.disclosures.length > 0 ? ' ' + args.disclosures.join(' ') : ''
     const content = (clarityProse + tail).trim() || 'No data retrieved.'
 
@@ -244,17 +264,6 @@ export class SynthesizerAdapter implements ISynthesizer {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * `synthesizer.ts` helpers were written before the `ReadonlyMap` migration and
- * accept `Map<...>`. They never mutate, so a structural cast is safe; this
- * shim documents that intent rather than burying the cast inline.
- */
-function asMutableMap(
-  m: ReadonlyMap<SubAgentKey, SubAgentOutput>,
-): Map<SubAgentKey, SubAgentOutput> {
-  return m as Map<SubAgentKey, SubAgentOutput>
-}
-
 function extractContent(out: SynthesizerLlmOutput): unknown {
   switch (out.shape) {
     case 'short-answer':
@@ -267,5 +276,25 @@ function extractContent(out: SynthesizerLlmOutput): unknown {
       return { columns: out.columns, rows: out.rows }
     case 'chart':
       return { series: out.series, axes: out.axes }
+  }
+}
+
+/**
+ * Build a single token for a streaming-shape final whose partials never grew
+ * incremental deltas. Used only on the degenerate `shape-declared → answer.complete`
+ * path, where the state machine requires at least one `answer.token` first.
+ */
+function synthesizeTerminalToken(out: SynthesizerLlmOutput): string {
+  switch (out.shape) {
+    case 'narrative':
+    case 'short-answer':
+      return out.content && out.content.length > 0 ? out.content : '(no content)'
+    case 'list':
+      return out.items.length > 0 ? out.items.map((i) => `- ${i}\n`).join('') : '(no items)'
+    // Atomic shapes are handled in the caller; synthesizeTerminalToken is only
+    // invoked for streaming shapes.
+    case 'table':
+    case 'chart':
+      return JSON.stringify(out)
   }
 }

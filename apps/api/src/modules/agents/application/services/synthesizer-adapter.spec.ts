@@ -401,7 +401,34 @@ describe('SynthesizerAdapter', () => {
     expect(out.turnEndedReason).toBe('completed')
   })
 
-  it('9. contradiction caps confidence to low even with high inputs', async () => {
+  it('10. emits a synthetic answer.token when streaming-shape final has content but partials never grew', async () => {
+    // Partials declare narrative but never grow `content`. The final object
+    // resolves with full content. State machine requires shape-declared →
+    // tokens-streaming → answer-complete, so the adapter must synthesize one
+    // token from the final or `answer.complete` would throw Invalid transition.
+    const { client } = makeLlmClient({
+      partials: [{ shape: 'narrative' }],
+      finalObject: { shape: 'narrative', content: 'final text' },
+    })
+    const emitter = makeStreamEmitter()
+    const adapter = new SynthesizerAdapter(client)
+
+    const out = await adapter.synthesize(makeOpts({ streamEmitter: emitter }))
+
+    expect(out.turnEndedReason).toBe('completed')
+
+    const events = vi.mocked(emitter.emit).mock.calls.map((c) => c[0])
+    const types = events.map((e) => e.type)
+    expect(types).toEqual(['answer.shape_declared', 'answer.token', 'answer.complete'])
+
+    const tokenEvent = events.find((e) => e.type === 'answer.token')
+    expect(tokenEvent).toMatchObject({
+      type: 'answer.token',
+      payload: { token: 'final text' },
+    })
+  })
+
+  it('11. contradiction caps confidence to low even with high inputs', async () => {
     const outputs = new Map([
       ['iter-1-analyst', makeCompletedOutput('kpi-regression', 'A', 'high')],
       ['iter-2-benchmarker', makeCompletedOutput('benchmark-comparison', 'B', 'high')],
