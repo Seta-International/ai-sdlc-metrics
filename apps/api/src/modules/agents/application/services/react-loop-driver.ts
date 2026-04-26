@@ -22,6 +22,7 @@ import {
   type BridgeAccumulator,
 } from '../../infrastructure/tool-gateway/tool-gateway-bridge'
 import type {
+  AiSdkTool,
   SubAgentLlmClient,
   SubAgentLlmClientResult,
 } from '../../infrastructure/llm/sub-agent-llm-client'
@@ -105,11 +106,13 @@ export async function runReactLoop(opts: ReactLoopDriverOpts): Promise<ReactLoop
       model: opts.model,
       system: opts.system,
       userMessage: opts.userMessage,
-      // Load-bearing cast: the driver intentionally types `tools` as
-      // `Record<ToolName, unknown>` to avoid leaking AI SDK internals; the
-      // SubAgentLlmClient signature accepts a more specific record. The
-      // narrower type is statically guaranteed by `buildSubAgentTools` (Task 4).
-      tools: opts.tools as Record<string, never>,
+      // Load-bearing cast: the driver's `ReactLoopDriverOpts.tools` is
+      // `Record<ToolName, unknown>` to keep this layer opaque to the AI SDK's
+      // internal `ToolSet` shape. The bridge (`buildSubAgentTools`, Task 4)
+      // produces values that are structurally `AiSdkTool`; we re-assert that
+      // shape here so the LLM client receives the type it expects
+      // (`Record<string, AiSdkTool>` per `sub-agent-llm-client.ts`).
+      tools: opts.tools as Record<string, AiSdkTool>,
       outputSchema: opts.outputSchema,
       maxIterations: opts.maxIterations,
       abortSignal: opts.abortSignal,
