@@ -238,9 +238,12 @@ describe('Planner outbox events — integration', () => {
     evidenceRepo = new DrizzleTaskEvidenceRepository(db as never)
     outboxRepo = {
       async insert(data) {
+        const id = uuidv7()
+        const raw = data.payload as Record<string, unknown>
+        const payload = { ...raw, origin: (raw.origin as string | undefined) ?? 'user' }
         await db.execute(
-          sql`INSERT INTO core.outbox_event (tenant_id, event_name, payload)
-              VALUES (${data.tenantId}::uuid, ${data.eventName}, ${JSON.stringify(data.payload)}::jsonb)`,
+          sql`INSERT INTO core.outbox_event (id, tenant_id, event_name, payload)
+              VALUES (${id}::uuid, ${data.tenantId}::uuid, ${data.eventName}, ${JSON.stringify(payload)}::jsonb)`,
         )
       },
     }
@@ -1258,6 +1261,38 @@ describe('Planner outbox events — integration', () => {
     expect(row!.payload.actorId).toBe(ACTOR_ID)
     expect(row!.payload.taskId).toBe(taskId)
     expect(row!.payload.evidenceId).toBe(evidenceId)
+  })
+
+  // ── Echo-suppression origin field ─────────────────────────────────────────────
+
+  it('pull-origin: ms-sync outbox events carry origin starting with ms-sync-', async () => {
+    // PlanIngestor writes DB rows only; it does not publish to the outbox yet.
+    // Forward contract: once the pull path emits events, they must carry an origin
+    // that starts with 'ms-sync-'. Passes vacuously until the pull path is wired.
+    const result = await db.execute<{ payload: Record<string, unknown> }>(
+      sql`SELECT payload FROM core.outbox_event
+          WHERE tenant_id = ${TENANT_ID}
+            AND (payload->>'origin') LIKE 'ms-sync-%'`,
+    )
+    expect(result.rows.every((e) => String(e.payload.origin ?? '').startsWith('ms-sync-'))).toBe(
+      true,
+    )
+  })
+
+  it('user-origin: SetTaskProgressCommand writes payload.origin=user', async () => {
+    const { taskId, version } = await createTask('Task for user-origin check')
+    const handler = new SetTaskProgressHandler(
+      taskRepo,
+      makeAuthSvc(),
+      makeOutboxEventBus(outboxRepo),
+    )
+    await handler.execute(
+      new SetTaskProgressCommand(TENANT_ID, planId, taskId, ACTOR_ID, version, 50),
+    )
+
+    const row = await latestOutboxRow(db, 'planner.task-progress-set')
+    expect(row).not.toBeNull()
+    expect(row!.payload.origin).toBe('user')
   })
 
   // ── DeletePlanHandler (last — deletes shared plan) ────────────────────────────

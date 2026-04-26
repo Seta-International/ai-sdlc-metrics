@@ -1,10 +1,16 @@
-import { Injectable } from '@nestjs/common'
-import type { MsGraphClient } from '../ms-graph-client'
-import type { IPlanRepository } from '../../../domain/repositories/plan.repository'
-import type { IBucketRepository } from '../../../domain/repositories/bucket.repository'
-import type { ITaskRepository } from '../../../domain/repositories/task.repository'
-import type { IMsPlanSyncStateRepository } from '../../../domain/repositories/ms-plan-sync-state.repository'
-import type { IdentityQueryFacade } from '../../../../identity/application/facades/identity-query.facade'
+import { Inject, Injectable } from '@nestjs/common'
+import { MsGraphClient } from '../ms-graph-client'
+import { PLAN_REPOSITORY, type IPlanRepository } from '../../../domain/repositories/plan.repository'
+import {
+  BUCKET_REPOSITORY,
+  type IBucketRepository,
+} from '../../../domain/repositories/bucket.repository'
+import { TASK_REPOSITORY, type ITaskRepository } from '../../../domain/repositories/task.repository'
+import {
+  MS_PLAN_SYNC_STATE_REPOSITORY,
+  type IMsPlanSyncStateRepository,
+} from '../../../domain/repositories/ms-plan-sync-state.repository'
+import { IdentityQueryFacade } from '../../../../identity/application/facades/identity-query.facade'
 import { MsPlanSyncStateEntity } from '../../../domain/entities/ms-plan-sync-state.entity'
 import { mapMsPlanToDomain } from '../mappers/ms-plan.mapper'
 import { mapMsBucketToDomain } from '../mappers/ms-bucket.mapper'
@@ -23,9 +29,13 @@ export interface IngestPlanInput {
 export class PlanIngestor {
   constructor(
     private readonly graph: MsGraphClient,
+    @Inject(PLAN_REPOSITORY)
     private readonly planRepo: IPlanRepository,
+    @Inject(BUCKET_REPOSITORY)
     private readonly bucketRepo: IBucketRepository,
+    @Inject(TASK_REPOSITORY)
     private readonly taskRepo: ITaskRepository,
+    @Inject(MS_PLAN_SYNC_STATE_REPOSITORY)
     private readonly syncStateRepo: IMsPlanSyncStateRepository,
     private readonly identityFacade: IdentityQueryFacade,
   ) {}

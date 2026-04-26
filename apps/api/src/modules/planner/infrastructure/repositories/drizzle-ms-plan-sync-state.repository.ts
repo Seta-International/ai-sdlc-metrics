@@ -83,6 +83,62 @@ export class DrizzleMsPlanSyncStateRepository implements IMsPlanSyncStateReposit
   async removeAllForTenant(tenantId: string): Promise<void> {
     await this.db.delete(msPlanSyncState).where(eq(msPlanSyncState.tenantId, tenantId))
   }
+
+  async pauseAllPlansForGroup(tenantId: string, groupId: string, until: Date): Promise<void> {
+    await this.db.execute(sql`
+      UPDATE planner.ms_plan_sync_state
+      SET poll_paused_until = ${until}
+      WHERE tenant_id = ${tenantId}
+        AND plan_id IN (
+          SELECT id FROM planner.plan
+          WHERE tenant_id = ${tenantId}
+            AND container_ref = (
+              SELECT ms_group_id FROM planner.ms_linked_group
+              WHERE id = ${groupId} AND tenant_id = ${tenantId}
+            )
+        )
+    `)
+  }
+
+  async incrementErrorCountForGroup(
+    tenantId: string,
+    groupId: string,
+    message: string,
+  ): Promise<void> {
+    await this.db.execute(sql`
+      UPDATE planner.ms_plan_sync_state
+      SET consecutive_error_count = consecutive_error_count + 1,
+          last_error_message = ${message},
+          last_polled_at = NOW()
+      WHERE tenant_id = ${tenantId}
+        AND plan_id IN (
+          SELECT id FROM planner.plan
+          WHERE tenant_id = ${tenantId}
+            AND container_ref = (
+              SELECT ms_group_id FROM planner.ms_linked_group
+              WHERE id = ${groupId} AND tenant_id = ${tenantId}
+            )
+        )
+    `)
+  }
+
+  async maxConsecutiveErrorCountForGroup(tenantId: string, groupId: string): Promise<number> {
+    const result = await this.db.execute<{ max_count: number }>(sql`
+      SELECT COALESCE(MAX(consecutive_error_count), 0) AS max_count
+      FROM planner.ms_plan_sync_state
+      WHERE tenant_id = ${tenantId}
+        AND plan_id IN (
+          SELECT id FROM planner.plan
+          WHERE tenant_id = ${tenantId}
+            AND container_ref = (
+              SELECT ms_group_id FROM planner.ms_linked_group
+              WHERE id = ${groupId} AND tenant_id = ${tenantId}
+            )
+        )
+    `)
+    const row = result.rows[0]
+    return row ? Number(row.max_count) : 0
+  }
 }
 
 type MsPlanSyncStateRow = typeof msPlanSyncState.$inferSelect

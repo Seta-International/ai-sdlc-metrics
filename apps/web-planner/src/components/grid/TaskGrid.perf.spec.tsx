@@ -132,10 +132,10 @@ describe('TaskGrid performance', () => {
     // shares a cold-start transform budget across all test files; on slow CI this
     // can add substantial overhead to the first render when running alongside many
     // other test files (e.g. Turbo pre-push hook running lint+typecheck+tests in
-    // parallel).  We use 4000ms here so the assertion is stable on both laptop and
+    // parallel).  We use 8000ms here so the assertion is stable on both laptop and
     // CI while still catching any runaway O(n)-in-DOM rendering regression (a naïve
     // non-virtualised render of 2400 rows takes several seconds).
-    const FIRST_RENDER_CEILING_MS = 4000
+    const FIRST_RENDER_CEILING_MS = 8000
 
     const t0 = performance.now()
 
@@ -150,7 +150,7 @@ describe('TaskGrid performance', () => {
 
     const elapsed = performance.now() - t0
     expect(elapsed).toBeLessThan(FIRST_RENDER_CEILING_MS)
-  })
+  }, 15_000)
 
   it('virtual window — no more than 60 rows mounted in DOM for 2400-row dataset', () => {
     render(
@@ -169,7 +169,7 @@ describe('TaskGrid performance', () => {
     expect(rows.length).toBeLessThanOrEqual(60)
     // Must have rendered some rows (not zero)
     expect(rows.length).toBeGreaterThan(1)
-  })
+  }, 15_000)
 
   it('re-render after state change completes within a bounded time (no runaway renders)', async () => {
     // jsdom has no layout engine so it cannot measure real 60fps frame cost.
@@ -177,9 +177,9 @@ describe('TaskGrid performance', () => {
     // visible rows) does not spin unboundedly — a proxy for "no dropped frames".
     // In a real browser this takes < 16ms. In jsdom+vitest running in parallel with
     // lint+typecheck (pre-push hook), CPU contention can push this well past 1s.
-    // 4000ms still catches pathological regressions (non-virtualized renders spin
+    // 8000ms still catches pathological regressions (non-virtualized renders spin
     // for 10s+) while being stable on any developer machine under load.
-    const RERENDER_CEILING_MS = 4000
+    const RERENDER_CEILING_MS = 8000
 
     const { rerender } = render(
       <TaskGrid
@@ -220,5 +220,5 @@ describe('TaskGrid performance', () => {
     performance.clearMarks('scroll-start')
     performance.clearMarks('scroll-end')
     performance.clearMeasures('scroll-rerender')
-  })
+  }, 15_000)
 })

@@ -1,4 +1,9 @@
-import type { IPlanRepository, MsPlanUpsertProps } from '../../domain/repositories/plan.repository'
+import type {
+  IPlanRepository,
+  ListByContainerParams,
+  MsPlanUpsertProps,
+  PlanContainerRow,
+} from '../../domain/repositories/plan.repository'
 import { Plan } from '../../domain/entities/plan.entity'
 import { PlanContainer } from '../../domain/value-objects/plan-container.vo'
 
@@ -91,6 +96,21 @@ export class InMemoryPlanRepository implements IPlanRepository {
   }
 
   async convertAllToFutureOnly(_tenantId: string): Promise<void> {
+    // no-op in tests
+  }
+
+  async listByContainer(params: ListByContainerParams): Promise<PlanContainerRow[]> {
+    return [...this.store.values()]
+      .filter((p) => {
+        if (p.tenantId !== params.tenantId || p.deletedAt) return false
+        if (!p.container || p.container.type !== params.containerType) return false
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return (p.container as any).externalId === params.containerRef
+      })
+      .map((p) => ({ id: p.id, msPlanId: p.msPlanId, isMsArchived: false }))
+  }
+
+  async markArchived(_id: string, _opts: { origin: string }): Promise<void> {
     // no-op in tests
   }
 

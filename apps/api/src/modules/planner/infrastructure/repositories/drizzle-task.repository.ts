@@ -7,6 +7,7 @@ import type {
   MsTaskUpsertProps,
   MsTaskDetailsUpsertProps,
   MsSyncedTaskRef,
+  PendingTaskRef,
 } from '../../domain/repositories/task.repository'
 import { Task } from '../../domain/entities/task.entity'
 import { TaskAssignee } from '../../domain/entities/task-assignee.value-object'
@@ -483,6 +484,57 @@ export class DrizzleTaskRepository implements ITaskRepository {
       .update(plannerTask)
       .set({ msSoftDeletedAt: sql`NOW()`, updatedAt: sql`NOW()` })
       .where(eq(plannerTask.id, id))
+  }
+
+  async listWithPendingAssignments(tenantId: string): Promise<PendingTaskRef[]> {
+    const rows = await this.db
+      .select({
+        id: plannerTask.id,
+        planId: plannerTask.planId,
+        pendingMsAssignments: plannerTask.pendingMsAssignments,
+      })
+      .from(plannerTask)
+      .where(
+        and(
+          eq(plannerTask.tenantId, tenantId),
+          isNull(plannerTask.deletedAt),
+          sql`${plannerTask.pendingMsAssignments} != '[]'::jsonb`,
+        ),
+      )
+
+    return rows.map((r) => ({
+      id: r.id,
+      planId: r.planId,
+      pendingMsAssignments: Array.isArray(r.pendingMsAssignments)
+        ? (r.pendingMsAssignments as string[])
+        : [],
+    }))
+  }
+
+  async applyPendingResolution(
+    taskId: string,
+    resolution: { newAssignees: string[]; stillPending: string[]; origin: string },
+  ): Promise<void> {
+    const taskRow = await this.db
+      .select({ tenantId: plannerTask.tenantId })
+      .from(plannerTask)
+      .where(eq(plannerTask.id, taskId))
+      .limit(1)
+
+    const tenantId = taskRow[0]?.tenantId
+    if (!tenantId) return
+
+    await this.db
+      .update(plannerTask)
+      .set({ pendingMsAssignments: resolution.stillPending, updatedAt: sql`NOW()` })
+      .where(eq(plannerTask.id, taskId))
+
+    for (const actorId of resolution.newAssignees) {
+      await this.db
+        .insert(plannerTaskAssignee)
+        .values({ taskId, actorId, assignedBy: tenantId, tenantId })
+        .onConflictDoNothing()
+    }
   }
 
   async listByPlan(planId: string, opts: { onlySynced: boolean }): Promise<MsSyncedTaskRef[]> {

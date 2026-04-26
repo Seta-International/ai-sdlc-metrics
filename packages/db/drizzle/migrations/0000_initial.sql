@@ -1497,6 +1497,24 @@ CREATE TABLE "planner"."ms_plan_sync_state" (
 	"poll_paused_until" timestamp with time zone
 );
 --> statement-breakpoint
+CREATE TABLE "planner"."ms_sync_conflict" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"kind" text NOT NULL,
+	"task_id" uuid,
+	"plan_id" uuid,
+	"field" text,
+	"mine_value" jsonb,
+	"theirs_value" jsonb,
+	"mine_changed_at" timestamp with time zone,
+	"theirs_changed_at" timestamp with time zone,
+	"resolution" text,
+	"resolved_by_actor_id" uuid,
+	"resolved_at" timestamp with time zone,
+	"raw_error" jsonb,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "planner"."bucket" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"tenant_id" uuid NOT NULL,
@@ -1861,6 +1879,7 @@ CREATE UNIQUE INDEX "job_history_tenant_profile_from_uidx" ON "people"."job_hist
 CREATE UNIQUE INDEX "person_profile_tenant_actor_uidx" ON "people"."person_profile" USING btree ("tenant_id","actor_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "uniq_ms_linked_group_tenant_msgroup" ON "planner"."ms_linked_group" USING btree ("tenant_id","ms_group_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "uniq_ms_plan_sync_state_tenant_msplan" ON "planner"."ms_plan_sync_state" USING btree ("tenant_id","ms_plan_id");--> statement-breakpoint
+CREATE INDEX "idx_ms_sync_conflict_tenant" ON "planner"."ms_sync_conflict" USING btree ("tenant_id","resolved_at","created_at");--> statement-breakpoint
 CREATE INDEX "idx_bucket_plan_deleted_order" ON "planner"."bucket" USING btree ("plan_id","deleted_at","order_hint") WHERE "planner"."bucket"."deleted_at" IS NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_bucket_tenant_ms_bucket_id" ON "planner"."bucket" USING btree ("tenant_id","ms_bucket_id") WHERE "planner"."bucket"."ms_bucket_id" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX "idx_my_day_entry_today" ON "planner"."my_day_entry" USING btree ("tenant_id","actor_id","added_date");--> statement-breakpoint

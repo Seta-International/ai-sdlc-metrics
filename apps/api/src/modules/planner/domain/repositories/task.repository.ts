@@ -2,6 +2,12 @@ import type { Task } from '../entities/task.entity'
 
 export const TASK_REPOSITORY = Symbol('ITaskRepository')
 
+export interface PendingTaskRef {
+  id: string
+  planId: string
+  pendingMsAssignments: string[]
+}
+
 export interface MsTaskUpsertProps {
   tenantId: string
   msTaskId: string
@@ -71,4 +77,9 @@ export interface ITaskRepository {
   upsertDetailsFromMs(props: MsTaskDetailsUpsertProps, opts: { origin: string }): Promise<void>
   softDeleteFromMs(id: string, opts: { origin: string }): Promise<void>
   listByPlan(planId: string, opts: { onlySynced: boolean }): Promise<MsSyncedTaskRef[]>
+  listWithPendingAssignments(tenantId: string): Promise<PendingTaskRef[]>
+  applyPendingResolution(
+    taskId: string,
+    resolution: { newAssignees: string[]; stillPending: string[]; origin: string },
+  ): Promise<void>
 }

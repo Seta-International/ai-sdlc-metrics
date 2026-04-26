@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import {
   GraphAuthError,
   GraphNotFoundError,
@@ -8,8 +8,11 @@ import {
   GraphThrottledError,
   GraphUnknownError,
 } from './errors'
-import type { IdentityQueryFacade } from '../../../identity/application/facades/identity-query.facade'
-import type { IMsGraphTokenAcquirer } from '../../domain/ports/ms-graph-token-acquirer.port'
+import { IdentityQueryFacade } from '../../../identity/application/facades/identity-query.facade'
+import {
+  MS_GRAPH_TOKEN_ACQUIRER,
+  type IMsGraphTokenAcquirer,
+} from '../../domain/ports/ms-graph-token-acquirer.port'
 
 export interface GraphResponse<T> {
   status: number
@@ -48,6 +51,7 @@ const PLANNER_QUOTA_CODES = new Set([
 export class MsGraphClient {
   constructor(
     private readonly identityFacade: IdentityQueryFacade,
+    @Inject(MS_GRAPH_TOKEN_ACQUIRER)
     private readonly tokenAcquirer: IMsGraphTokenAcquirer,
   ) {}
 

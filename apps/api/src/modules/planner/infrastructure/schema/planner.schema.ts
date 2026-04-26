@@ -392,3 +392,25 @@ export const plannerMyDayEntry = plannerSchema.table(
     index('idx_my_day_entry_task').on(table.taskId),
   ],
 )
+
+export const msSyncConflict = plannerSchema.table(
+  'ms_sync_conflict',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    kind: text('kind').notNull(),
+    taskId: uuid('task_id'),
+    planId: uuid('plan_id'),
+    field: text('field'),
+    mineValue: jsonb('mine_value'),
+    theirsValue: jsonb('theirs_value'),
+    mineChangedAt: timestamp('mine_changed_at', { withTimezone: true }),
+    theirsChangedAt: timestamp('theirs_changed_at', { withTimezone: true }),
+    resolution: text('resolution'),
+    resolvedByActorId: uuid('resolved_by_actor_id'),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    rawError: jsonb('raw_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('idx_ms_sync_conflict_tenant').on(t.tenantId, t.resolvedAt, t.createdAt)],
+)

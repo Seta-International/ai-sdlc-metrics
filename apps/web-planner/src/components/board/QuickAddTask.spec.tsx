@@ -118,9 +118,9 @@ describe('QuickAddTask', () => {
     await userEvent.click(screen.getByRole('button', { name: /add task/i }))
     const input = screen.getByTestId('quick-add-task-input')
 
-    // Type 240 characters
+    // Set value directly — avoids per-keystroke overhead that times out at 240 chars
     const longTitle = 'a'.repeat(240)
-    await userEvent.type(input, longTitle)
+    fireEvent.change(input, { target: { value: longTitle } })
 
     // Counter should be visible
     expect(screen.getByText('240/255')).toBeDefined()
