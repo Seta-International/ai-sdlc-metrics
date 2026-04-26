@@ -64,8 +64,13 @@ import type { SubAgentDirective } from '../../domain/value-objects/router-plan-s
 /**
  * Builds a deterministic user message for the sub-agent. Encodes the directive's
  * input (treated as the user goal) plus the LLM's rationale for dispatch.
+ *
+ * `phaseContextNote` is appended as the trailing line when defined — set by
+ * `BoundedExecutor` before phase-2 dispatch to surface circuit-breaker context
+ * (R-03.18, Plan 18 §5). Order matters: the runtime note follows the static
+ * directive content so prior sections are not shifted.
  */
-function buildSubAgentUserMessage(directive: SubAgentDirective): string {
+function buildSubAgentUserMessage(directive: SubAgentDirective, phaseContextNote?: string): string {
   const utterance =
     typeof directive.input === 'object' &&
     directive.input !== null &&
@@ -84,6 +89,9 @@ function buildSubAgentUserMessage(directive: SubAgentDirective): string {
   // Always include the raw input payload as a structured fallback so the LLM can
   // recover sub-agent inputs that don't fit the utterance shape.
   lines.push(`Input: ${JSON.stringify(directive.input)}`)
+  if (phaseContextNote) {
+    lines.push(`Phase context: ${phaseContextNote}`)
+  }
   return lines.join('\n')
 }
 
@@ -245,7 +253,7 @@ export class SubAgentRunnerAdapter implements ISubAgentRunner {
       llmClient: this.llmClient,
       model,
       system: config.promptTemplate.body,
-      userMessage: buildSubAgentUserMessage(directive),
+      userMessage: buildSubAgentUserMessage(directive, turnState.phaseContextNote),
       tools,
       outputSchema: config.outputSchema,
       maxIterations: config.budgets.maxIterations,
