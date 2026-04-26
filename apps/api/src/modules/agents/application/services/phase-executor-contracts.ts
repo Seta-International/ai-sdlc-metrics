@@ -8,6 +8,7 @@
 import type { BoundedPlan, SubAgentDirective } from '../../domain/value-objects/router-plan-schema'
 import type { ValidatedSubAgentConfig } from '../../domain/services/sub-agent-types'
 import type { ScorerResult } from '../../domain/scorer-types'
+import type { StreamEmitter } from './stream-gateway'
 
 // ─── Primitive types ──────────────────────────────────────────────────────────
 
@@ -129,6 +130,11 @@ export interface SubAgentOutput {
 
 /**
  * Output produced by Synthesizer.synthesize() (Plan 03 §4, §9).
+ *
+ * Plan 18 §1 amendment: `turnEndedReason` widened to include `'errored'` so the
+ * post-shape stream-failure fallback path can return a structurally valid result
+ * without raising. `usage` is populated when the LLM stream resolves successfully;
+ * it is `undefined` on the deterministic fallback path.
  */
 export interface SynthesizerOutput {
   readonly shape: AnswerShape
@@ -137,7 +143,9 @@ export interface SynthesizerOutput {
   readonly citations: Citation[]
   /** MIN across contributing sub-agents + one-step demotion on contradiction (R-03.22). */
   readonly confidence: Confidence
-  readonly turnEndedReason: 'completed' | 'partial'
+  readonly turnEndedReason: 'completed' | 'partial' | 'errored'
+  /** Token usage from the LLM stream. Undefined on the deterministic fallback path. */
+  readonly usage?: SubAgentUsage
 }
 
 // ─── PhaseExecutionResult ─────────────────────────────────────────────────────
@@ -253,13 +261,21 @@ export interface SubAgentRunnerOpts {
 
 // ─── SynthesizerOpts ─────────────────────────────────────────────────────────
 
+/**
+ * Plan 18 §1 amendment — the artificial phase1/phase2 split is collapsed into a
+ * single `outputs` map. The synthesizer no longer cares whether a given output
+ * came from phase 1 or phase 2; iterative orchestration already produced one
+ * keyed map per iteration, and bounded execution can flatten its two phases the
+ * same way at the call site. `streamEmitter` is required so the adapter can emit
+ * per-shape `answer.token` events as the LLM streams.
+ */
 export interface SynthesizerOpts {
   readonly directive: BoundedPlan
-  readonly phase1Outputs: Map<SubAgentKey, SubAgentOutput>
-  readonly phase2Outputs: Map<SubAgentKey, SubAgentOutput>
+  readonly outputs: ReadonlyMap<SubAgentKey, SubAgentOutput>
   readonly userUtterance: string
   readonly abortSignal: AbortSignal
   readonly turnState: PhaseExecutorTurnState
+  readonly streamEmitter: StreamEmitter
 }
 
 // ─── PhaseShapeMismatch ───────────────────────────────────────────────────────
