@@ -1,0 +1,81 @@
+name: Contract Tests (MS Planner sandbox)
+
+on:
+  schedule:
+    # Nightly at 02:00 UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    # Never block main — this job is informational only
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build workspace packages
+        run: bun run --filter "@future/*" build
+
+      - name: Run contract tests
+        id: contract
+        working-directory: apps/api
+        env:
+          MS_SANDBOX_TENANT_AD_ID: ${{ secrets.MS_SANDBOX_TENANT_AD_ID }}
+          MS_SANDBOX_CLIENT_ID: ${{ secrets.MS_SANDBOX_CLIENT_ID }}
+          MS_SANDBOX_CLIENT_SECRET: ${{ secrets.MS_SANDBOX_CLIENT_SECRET }}
+          MS_SANDBOX_PLAN_ID: ${{ secrets.MS_SANDBOX_PLAN_ID }}
+        run: >
+          bun vitest run
+          --reporter=verbose
+          src/modules/planner/infrastructure/ms-graph/__contract__
+
+      - name: Open issue on failure
+        if: failure() && steps.contract.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `[Contract] MS Planner sandbox tests failed — ${new Date().toISOString().slice(0, 10)}`;
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'contract-test-failure',
+              state: 'open',
+            });
+            if (existing.data.length > 0) {
+              // Add a comment to the already-open issue rather than creating a duplicate
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.data[0].number,
+                body: `Still failing as of ${new Date().toISOString()}. Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                labels: ['contract-test-failure'],
+                body: [
+                  '## MS Planner contract tests failed',
+                  '',
+                  `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                  '',
+                  '**Spec:** `apps/api/src/modules/planner/infrastructure/ms-graph/__contract__/poll-tenant.contract.spec.ts`',
+                  '',
+                  'Possible causes:',
+                  '- Sandbox credentials rotated or expired',
+                  '- MS Graph API shape change',
+                  '- Sandbox plan / tasks deleted or renamed',
+                  '',
+                  'See `apps/api/docs/ms-sync-sandbox.md` for re-provisioning steps.',
+                ].join('\n'),
+              });
+            }
