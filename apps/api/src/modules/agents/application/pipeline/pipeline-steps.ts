@@ -463,6 +463,8 @@ export async function auditEmit(input: {
     | 'timeout'
     | 'ceiling_hit'
     | 'aborted'
+    /** Plan 09 R-09.6a: mutation tool refused under read-only policy envelope. */
+    | 'policy_violation'
   resultHash?: string
   extraAttrs?: Readonly<Record<string, unknown>>
   auditFacade: KernelAuditFacade

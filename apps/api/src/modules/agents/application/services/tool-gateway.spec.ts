@@ -1724,3 +1724,132 @@ describe('sanitizeTripwireContext', () => {
     expect(typeof result['retryHint']).toBe('string')
   })
 })
+
+// ─── Plan 09 R-09.6a — Read-only policy envelope tests ───────────────────────
+
+describe('ToolGateway read-only policy envelope (Plan 09 R-09.6a)', () => {
+  // ── Test: mutation tool refused under readOnly policy ──────────────────────
+
+  it('refuses a mutation tool under readOnly policy — returns policy_violation tripwire', async () => {
+    const mutationDescriptor = makeDescriptor({
+      name: 'people.updateEmployee',
+      procedure: 'mutation',
+      permission: 'people:employee:write',
+      meta: MUTATION_META,
+    })
+    const registry = makeRegistry(mutationDescriptor)
+    const { facade, recordEvent } = makeAuditFacade()
+    const { caller, callFn } = makeCaller({ success: true })
+    const gw = makeGateway(registry, caller, facade)
+
+    const result = await gw.invoke(
+      makeInput({
+        toolName: 'people.updateEmployee',
+        subAgentScope: ['people:employee:write'],
+        policy: { readOnly: true },
+      }),
+    )
+
+    expect(result.kind).toBe('tripwire')
+    if (result.kind === 'tripwire') {
+      expect(result.variant).toBe('policy_violation')
+      expect(result.disposition).toBe('abort')
+      expect(result.context['toolName']).toBe('people.updateEmployee')
+      expect(result.context['reason']).toBe('read_only_policy')
+    }
+
+    // The caller must NOT have been invoked — no domain side-effects
+    expect(callFn).not.toHaveBeenCalled()
+
+    // A kernel audit event must have been emitted for the violation
+    expect(recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'agent.tool_called',
+        payload: expect.objectContaining({
+          resultStatus: 'policy_violation',
+          extraAttrs: expect.objectContaining({ policy: 'read_only' }),
+        }),
+      }),
+    )
+  })
+
+  // ── Test: read-only (query) tool allowed under readOnly policy ─────────────
+
+  it('allows a query tool under readOnly policy — proceeds to invoke', async () => {
+    const queryDescriptor = makeDescriptor({
+      name: 'planner.task.getBoard',
+      procedure: 'query',
+      permission: 'planner:task:read',
+      meta: BASE_META,
+    })
+    const registry = makeRegistry(queryDescriptor)
+    const { facade } = makeAuditFacade()
+    const { caller, callFn } = makeCaller({ tasks: [] })
+    const gw = makeGateway(registry, caller, facade)
+
+    const result = await gw.invoke(
+      makeInput({
+        toolName: 'planner.task.getBoard',
+        subAgentScope: ['planner:task'],
+        policy: { readOnly: true },
+      }),
+    )
+
+    // Query tool should succeed — caller was invoked
+    expect(result.kind).toBe('ok')
+    expect(callFn).toHaveBeenCalledOnce()
+  })
+
+  // ── Test: mutation tool allowed when policy.readOnly is false ──────────────
+
+  it('allows a mutation tool when policy.readOnly is false (interactive path)', async () => {
+    const mutationDescriptor = makeDescriptor({
+      name: 'people.updateEmployee',
+      procedure: 'mutation',
+      permission: 'people:employee:write',
+      meta: MUTATION_META,
+    })
+    const registry = makeRegistry(mutationDescriptor)
+    const { facade } = makeAuditFacade()
+    const { caller, callFn } = makeCaller({ success: true })
+    const gw = makeGateway(registry, caller, facade)
+
+    const result = await gw.invoke(
+      makeInput({
+        toolName: 'people.updateEmployee',
+        subAgentScope: ['people:employee:write'],
+        policy: { readOnly: false },
+      }),
+    )
+
+    // Interactive path allows mutations
+    expect(result.kind).toBe('ok')
+    expect(callFn).toHaveBeenCalledOnce()
+  })
+
+  // ── Test: mutation tool allowed when policy is absent ─────────────────────
+
+  it('allows a mutation tool when no policy is specified (backward-compat default)', async () => {
+    const mutationDescriptor = makeDescriptor({
+      name: 'people.updateEmployee',
+      procedure: 'mutation',
+      permission: 'people:employee:write',
+      meta: MUTATION_META,
+    })
+    const registry = makeRegistry(mutationDescriptor)
+    const { facade } = makeAuditFacade()
+    const { caller, callFn } = makeCaller({ success: true })
+    const gw = makeGateway(registry, caller, facade)
+
+    const result = await gw.invoke(
+      makeInput({
+        toolName: 'people.updateEmployee',
+        subAgentScope: ['people:employee:write'],
+        // policy is absent
+      }),
+    )
+
+    expect(result.kind).toBe('ok')
+    expect(callFn).toHaveBeenCalledOnce()
+  })
+})

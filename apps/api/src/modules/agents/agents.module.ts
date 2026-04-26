@@ -74,6 +74,7 @@ import { DelegationLifecycle } from './application/services/delegation-lifecycle
 import { SchedulerPrincipal } from './application/services/scheduler-principal'
 import { TaintSeedDetector } from './application/services/taint-seed-detector'
 import { ScheduledTurnSpawner } from './application/services/scheduled-turn-spawner'
+import { ScheduledTurnService } from './application/services/scheduled-turn-service'
 import { ScheduledTurnWorker } from './infrastructure/workers/scheduled-turn-worker'
 import type { ScheduledTurnJob } from './infrastructure/workers/scheduled-turn-worker'
 import { DelegationExpirySweeper } from './infrastructure/workers/delegation-expiry-sweep'
@@ -488,6 +489,7 @@ class NullTenantLister implements TenantListerLike {
     SchedulerPrincipal,
     TaintSeedDetector,
     ScheduledTurnSpawner,
+    ScheduledTurnService,
     ScheduledTurnWorker,
     DelegationExpirySweeper,
     SemanticResultCache,

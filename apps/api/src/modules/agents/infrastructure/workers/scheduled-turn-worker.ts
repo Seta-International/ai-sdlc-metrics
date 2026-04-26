@@ -12,13 +12,11 @@ import { KernelDelegationFacade } from '../../../kernel/application/facades/kern
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { NotificationsWriteFacade } from '../../../notifications/application/facades/notifications-write.facade'
 import { type ScheduledTurnJob } from '../../application/services/scheduled-turn-contracts'
+import { ScheduledTurnService } from '../../application/services/scheduled-turn-service'
 
 export { type ScheduledTurnJob }
 
 export const SCHEDULED_TURN_JOB_NAME = 'agent.scheduled-turn'
-
-// Feature flag — default off at MVP. When on + delegation.autonomousWritesAllowed=true: Beta path.
-const ASYNC_AUTONOMOUS_WRITES_ENABLED = false
 
 @Injectable()
 export class ScheduledTurnWorker {
@@ -30,6 +28,7 @@ export class ScheduledTurnWorker {
     private readonly kernelDelegationFacade: KernelDelegationFacade,
     private readonly kernelAuditFacade: KernelAuditFacade,
     private readonly notificationsWriteFacade: NotificationsWriteFacade,
+    private readonly scheduledTurnService: ScheduledTurnService,
   ) {}
 
   async handle(job: ScheduledTurnJob): Promise<void> {
@@ -77,6 +76,11 @@ export class ScheduledTurnWorker {
       firedBy: job.fired_by,
     })
 
+    // Resolve permitted tools from delegation scope
+    const permittedTools: string[] = Array.isArray(delegation.scope?.permitted_tools)
+      ? (delegation.scope.permitted_tools as string[])
+      : []
+
     try {
       // Step 4: Emit schedule_run_started audit
       await this.kernelAuditFacade.recordEvent({
@@ -98,47 +102,64 @@ export class ScheduledTurnWorker {
         },
       })
 
-      // Step 5: Emit dry-run audit (MVP stub — would-have-executed record)
-      await this.kernelAuditFacade.recordEvent({
+      // Step 5: Execute real turn pipeline under read-only policy envelope (R-09.6a)
+      // This replaces the dry-run stub. The ScheduledTurnService calls ToolGateway
+      // with READ_ONLY_POLICY, which refuses any mutation tool (policy_violation tripwire).
+      const turnResult = await this.scheduledTurnService.executeScheduledTurn({
         tenantId,
-        actorId: job.actor_principal,
-        eventType: 'agent.async_dry_run_would_have_written',
-        module: 'agents',
-        subjectId: run.id,
-        payload: {
-          scheduleId,
-          runId: run.id,
-          traceId,
-          delegationId,
-          prompt: schedule.prompt,
-          flowId: job.flow_id,
-          actorPrincipal: job.actor_principal,
-          userOnBehalfOf: job.user_on_behalf_of,
-          taintSeeded: job.taint_seeded,
-          costCeilingRemainingUsd: job.cost_ceiling_remaining_usd,
-          invocationCeilingRemaining: job.invocation_ceiling_remaining,
-          pinnedVersions: job.pinned_versions,
-          feature_flag: 'feature.agent.async_autonomous_writes',
-          flag_enabled: ASYNC_AUTONOMOUS_WRITES_ENABLED,
-          note: 'MVP dry-run: full turn pipeline not invoked from worker context',
-        },
+        userOnBehalfOf: job.user_on_behalf_of,
+        actorPrincipal: job.actor_principal,
+        delegationId,
+        scheduleId,
+        flowId: job.flow_id,
+        traceId,
+        taintSeeded: job.taint_seeded,
+        prompt: schedule.prompt,
+        permittedTools,
+        modelId: job.pinned_versions.model_id,
       })
 
-      // Step 6: Update run outcome to 'completed'
+      // Step 6: Map turn outcome to schedule_run outcome
+      const runOutcome =
+        turnResult.outcome === 'completed'
+          ? 'completed'
+          : turnResult.outcome === 'refused'
+            ? 'refused'
+            : 'error'
+
       await this.scheduleRunRepo.updateOutcome({
         tenantId,
         runId: run.id,
-        outcome: 'completed',
+        outcome: runOutcome,
         endedAt: new Date(),
-        costSpentUsd: 0,
+        costSpentUsd: turnResult.costSpentUsd,
       })
 
-      // Step 7: Reset consecutive failure count
-      await this.scheduleRepo.update({
-        tenantId,
-        scheduleId,
-        consecutiveFailureCount: 0,
-      })
+      // Step 7: Reset consecutive failure count on any non-error outcome
+      if (runOutcome !== 'error') {
+        await this.scheduleRepo.update({
+          tenantId,
+          scheduleId,
+          consecutiveFailureCount: 0,
+        })
+      } else {
+        // Pipeline returned error outcome — treat same as infrastructure error
+        const newFailureCount = schedule.consecutiveFailureCount + 1
+        const shouldPause = newFailureCount >= 3
+        await this.scheduleRepo.update({
+          tenantId,
+          scheduleId,
+          consecutiveFailureCount: newFailureCount,
+          ...(shouldPause
+            ? { status: 'paused' as const, pauseReason: 'consecutive_failures' }
+            : {}),
+        })
+        if (shouldPause) {
+          this.logger.warn(
+            `ScheduledTurnWorker: schedule auto-paused after ${newFailureCount} consecutive failures scheduleId=${scheduleId}`,
+          )
+        }
+      }
 
       // Step 8: Notify owner (personal schedule) or log for tenant-wide
       const notifyUserId = schedule.ownerUserId ?? job.user_on_behalf_of
@@ -149,7 +170,7 @@ export class ScheduledTurnWorker {
             draftId: `schedule-run:${run.id}`,
             approverId: notifyUserId,
             toolName: 'agents.schedule_run',
-            summary: `Scheduled agent run completed for schedule ${scheduleId}`,
+            summary: `Scheduled agent run ${runOutcome} for schedule ${scheduleId}`,
             tier: 'low_risk_auto',
           })
         } catch (notifyErr) {
@@ -170,7 +191,10 @@ export class ScheduledTurnWorker {
           scheduleId,
           runId: run.id,
           traceId,
-          outcome: 'completed',
+          outcome: runOutcome,
+          ...(turnResult.refusedToolName !== undefined
+            ? { refusedToolName: turnResult.refusedToolName }
+            : {}),
         },
       })
     } catch (err) {

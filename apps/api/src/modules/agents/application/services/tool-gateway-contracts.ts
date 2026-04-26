@@ -6,6 +6,7 @@
 
 import type { L1Cache } from '../../infrastructure/cache/l1-cache'
 import type { IntentSlug } from './flow-id-propagation'
+import type { TurnPolicy } from '../../domain/value-objects/turn-policy'
 
 // ─── RequestContext ────────────────────────────────────────────────────────────
 
@@ -114,4 +115,16 @@ export interface ToolGatewayInvokeInput {
    * DraftProposer when a mutation tool is invoked successfully.
    */
   readonly flowId?: string
+  /**
+   * Optional. Runtime policy envelope for this turn.
+   * When policy.readOnly === true, the gateway refuses any tool whose
+   * descriptor.procedure === 'mutation' with variant 'policy_violation'.
+   * Draft-creation (plan 08) is still allowed because drafts are proposals;
+   * the actual write happens at approval time.
+   *
+   * Plan 09 R-09.6a: scheduled async turns pass READ_ONLY_POLICY here.
+   * Interactive turns pass INTERACTIVE_POLICY (readOnly: false) or omit the field.
+   * Absent = no additional policy gate (same as INTERACTIVE_POLICY).
+   */
+  readonly policy?: TurnPolicy
 }

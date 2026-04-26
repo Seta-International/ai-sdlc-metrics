@@ -19,6 +19,12 @@ export type TripwireVariant =
   | 'infra_error'
   | 'transient_infra_error'
   | 'invocation_timeout'
+  /**
+   * Plan 09 R-09.6a — read-only policy envelope violation.
+   * Emitted when a mutation tool is invoked under a read-only TurnPolicy
+   * (e.g. scheduled async turns). The turn ends with reason 'refused'.
+   */
+  | 'policy_violation'
 
 export type TripwireDisposition = 'abort' | 'retry'
 
@@ -36,6 +42,8 @@ const FIXED_ABORT_VARIANTS: ReadonlySet<TripwireVariant> = new Set([
   'procedure_out_of_sub_agent_scope',
   'business_rule_violation',
   'infra_error',
+  // Plan 09 R-09.6a: read-only policy violations always abort — never retry.
+  'policy_violation',
 ])
 
 /**
