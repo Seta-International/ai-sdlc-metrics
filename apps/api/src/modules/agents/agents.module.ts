@@ -76,6 +76,7 @@ import { SchedulerPrincipal } from './application/services/scheduler-principal'
 import { TaintSeedDetector } from './application/services/taint-seed-detector'
 import { ScheduledTurnSpawner } from './application/services/scheduled-turn-spawner'
 import { ScheduledTurnService } from './application/services/scheduled-turn-service'
+import { AgentEventRouter } from './application/services/agent-event-router'
 import { ScheduledTurnWorker } from './infrastructure/workers/scheduled-turn-worker'
 import {
   SCHEDULED_TURN_QUEUE,
@@ -517,6 +518,7 @@ class NullTenantLister implements TenantListerLike {
     TaintSeedDetector,
     ScheduledTurnSpawner,
     ScheduledTurnService,
+    AgentEventRouter,
     ScheduledTurnWorker,
     DelegationExpirySweeper,
     SemanticResultCache,
