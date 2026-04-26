@@ -115,6 +115,7 @@ import { DisconnectMsSyncHandler } from './application/commands/ms-sync/disconne
 import { UnlinkMsGroupHandler } from './application/commands/ms-sync/unlink-ms-group.handler'
 import { ResolvePendingAssignmentsHandler } from './application/commands/ms-sync/resolve-pending-assignments.handler'
 import { IdentityDirectorySyncedListener } from './application/event-handlers/identity-directory-synced.listener'
+import { MsSyncPushListener } from './application/event-handlers/ms-sync-push.listener'
 import { ListAvailableGroupsHandler } from './application/queries/ms-sync/list-available-groups.handler'
 import { ListLinkedGroupsHandler } from './application/queries/ms-sync/list-linked-groups.handler'
 import { MS_LINKED_GROUP_REPOSITORY } from './domain/repositories/ms-linked-group.repository'
@@ -207,6 +208,8 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     ListTaskEvidenceHandler,
     OnTaskAssignedHandler,
     OnTaskProgressCompletedHandler,
+    IdentityDirectorySyncedListener,
+    MsSyncPushListener,
     { provide: TASK_DAILY_SNAPSHOT_REPOSITORY, useClass: DrizzleTaskDailySnapshotRepository },
     TaskDailySnapshotWorker,
     TaskDailySnapshotScheduler,
@@ -216,7 +219,6 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     DisconnectMsSyncHandler,
     UnlinkMsGroupHandler,
     ResolvePendingAssignmentsHandler,
-    IdentityDirectorySyncedListener,
     ListAvailableGroupsHandler,
     ListLinkedGroupsHandler,
     { provide: MS_LINKED_GROUP_REPOSITORY, useClass: DrizzleMsLinkedGroupRepository },

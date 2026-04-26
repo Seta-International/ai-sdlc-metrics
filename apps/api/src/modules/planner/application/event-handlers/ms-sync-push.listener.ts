@@ -14,6 +14,8 @@ interface PlannerMutationEvent {
 
 // Intentionally broad: planner mutation events share no single discriminant.
 // The credential and plan.container.type checks downstream are the real gates.
+// Events without planId (task-created, checklist, attachment events) bypass the
+// container check here — the push worker validates plan linkage before calling MS Graph.
 function isPlannerMutationEvent(event: unknown): event is PlannerMutationEvent {
   if (!event || typeof event !== 'object') return false
   const e = event as Record<string, unknown>
