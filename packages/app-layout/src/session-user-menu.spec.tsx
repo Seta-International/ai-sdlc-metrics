@@ -99,7 +99,7 @@ describe('SessionUserMenu', () => {
     globalThis.fetch = mockFetchOk(baseClaims({ displayName: '' })) as unknown as typeof fetch
     render(<SessionUserMenu />)
     const trigger = await screen.findByRole('button', { name: /User menu for/ })
-    expect(trigger).toHaveTextContent('?')
+    await waitFor(() => expect(trigger).toHaveTextContent('?'))
   })
 
   it('uses first two chars uppercased when displayName is a single word', async () => {
