@@ -53,7 +53,7 @@ import {
   recordSynthesizerFallback,
   recordSynthesizerLatency,
 } from '../../infrastructure/observability/synthesizer-metrics'
-import { SynthesizerStreamFailureError } from './synthesizer-errors'
+import { SynthesizerStreamFailureError } from './pipeline-errors'
 
 // ─── Model choices ────────────────────────────────────────────────────────────
 
