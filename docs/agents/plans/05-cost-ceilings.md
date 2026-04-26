@@ -49,7 +49,7 @@ Cost is dollar-denominated, not token-denominated, because cache-read (~0.1× in
 
 Pricing is **versioned**. Every cost event stamps `pricing_id` (FK into an append-only pricing table) + `priced_at` timestamp. Vendor pricing changes → new `pricing_id` row → historical cost events retain their original rates for audit-safe re-pricing. Without this, any retroactive budget analysis on a day vendor rates change produces wrong numbers silently.
 
-**Adapter validation** is the P1 guardrail. Mastra's AI SDK v4 usage converter silently drops `cachedInputTokens` (spike 09). Under-billing is the class that doesn't surface until someone audits the Langfuse vs Stripe divergence. Our adapter emits `adapter_dropped_cache_fields` kernel audit + monitoring alert on any mismatch between vendor report and captured usage.
+**Adapter validation** is the P1 guardrail. Mastra's AI SDK v4 usage converter silently drops `cachedInputTokens` (spike 09). Under-billing is the class that doesn't surface until someone audits the trace backend vs Stripe divergence. Our adapter emits `adapter_dropped_cache_fields` kernel audit + monitoring alert on any mismatch between vendor report and captured usage.
 
 **Tier degradation is separate from provider fallback.** `tier_shift` = policy decision (budget crossed → use nano); `provider_fallback` = error recovery (provider 5xx → try alt model). Conflating them hides budget pressure behind provider flakiness. Distinct finish reasons + distinct alert paths.
 
@@ -83,7 +83,7 @@ Pricing is **versioned**. Every cost event stamps `pricing_id` (FK into an appen
 ### `agent_cost_event` (append-only)
 
 - `id UUID PK`
-- `trace_id UUID` (FK-style, no hard FK; Langfuse owns the trace)
+- `trace_id UUID` (FK-style, no hard FK; trace backend owns the trace)
 - `tenant_id UUID` (RLS)
 - `user_id UUID` (for per-user daily; NULL for tenant-wide scheduler)
 - `pricing_id UUID FK → agent_pricing`
@@ -545,7 +545,7 @@ Steps 1–3 are per-call; steps 4–6 are tenant-wide and set by the canary subs
 | Vendor 529 / capacity overload, 1-2 occurrences in turn                        | `VendorError.class: vendor_overload`; counter increments            | Retry per backoff policy. No cost. Counter resets on any successful response (consecutive-only).                                                                                |
 | Vendor 529 / capacity overload, ≥3 consecutive                                 | `provider_fallback` tag on trace; sticky for rest of turn           | Route subsequent calls to `gpt-5.4-nano` (or configured fallback). `error_class: vendor_overload` on the fallback signal.                                                       |
 | Vendor returns malformed response (missing required fields / bad JSON)         | `VendorError.class: vendor_invalid_response`                        | Immediate tripwire, no retry. P1 audit + alert — indicates adapter/vendor contract drift. Zero cost.                                                                            |
-| Runner double-records cost (bug — records on retry before success)             | `agent_cost_event` count > actual successful LLM calls              | Regression test for R-05.6a. Reconciliation job surfaces as `cost_event_count_exceeds_langfuse_success_count` if deployed in error.                                             |
+| Runner double-records cost (bug — records on retry before success)             | `agent_cost_event` count > actual successful LLM calls              | Regression test for R-05.6a. Reconciliation job surfaces as `cost_event_count_exceeds_trace_backend_success_count` if deployed in error.                                        |
 | User hits soft 80% warning mid-conversation                                    | UI banner on next turn                                              | No action needed; informational.                                                                                                                                                |
 | Per-tool ceiling seeded too tight                                              | Tripwire retries fail repeatedly                                    | Adjust `.meta({ agent: { ceilings } })` via tool-author PR; ship hotfix. Meanwhile, circuit breaker disables the tool.                                                          |
 | Ladder step 1 — provider retry masks persistent primary outage                 | Primary 5xx on call 1 retry succeeds; call 2 fails fresh            | Expected per-call scope. Ladder is per-call; aggregate primary-5xx burst visible on `agent_vendor_retry_total{error_class}` dashboard.                                          |
@@ -672,7 +672,7 @@ Cost-path overhead per LLM call ≤ 20ms p99. Pre-turn check ≤ 40ms p99 (adds 
 ## 12. Acceptance Criteria
 
 - All unit + integration + property tests pass.
-- Cost events sum equals Langfuse-reported totals (reconciliation within rounding).
+- Cost events sum equals trace-backend-reported totals (reconciliation within rounding).
 - Retry-cost invariant verified: N vendor-error retries + 1 success produces exactly 1 `agent_cost_event`; reconciliation job flags any divergence.
 - `vendor_retry_after` honored within ±0.5s of header-specified reset time (mocked-clock test).
 - `provider_fallback` fires only on consecutive-same-error ≥3 and remains sticky for rest of turn.

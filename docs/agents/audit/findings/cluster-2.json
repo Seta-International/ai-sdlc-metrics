@@ -35,13 +35,13 @@
   {
     "plan_id": "04",
     "plan_section": "§6 R-04.29 / §5 GDPR erasure",
-    "severity": "P0",
-    "finding_type": "missing-impl",
+    "severity": "INFO",
+    "finding_type": "intentional-deferral",
     "file": "apps/api/src/modules/agents/application/services/gdpr-erasure.ts",
     "line": 68,
-    "description": "The plan's GDPR erasure pipeline (R-04.29) requires a Langfuse purgeByUserId call with 3x retry (1s/4s/16s backoff) and a compliance_ticket_required: true kernel audit row on exhaustion. The GDPRErasurePipeline implementation has no Langfuse step whatsoever — the pipeline jumps from semantic index purge directly to user_erased_complete. The EraseResult interface has no langfusePurgeStatus field. The §12 acceptance criteria 'GDPR exhausted-Langfuse scenario produces compliance_ticket_required: true audit row' cannot be satisfied.",
-    "evidence": "gdpr-erasure.ts:68-135 — no Langfuse import, no purgeByUserId call, no langfusePurgeStatus in EraseResult. gdpr-erasure.spec.ts has no test for Langfuse retry. grep -rn 'langfuse|purgeByUserId|langfusePurgeStatus' apps/api/src/modules/agents/ returns no results.",
-    "suggested_action": "Add a LangfusePurgeFacadeLike dependency to GDPRErasurePipeline. Implement step (f) from §5: 3x retry with 1s/4s/16s backoff, on exhaustion set langfusePurgeStatus: 'failed', emit compliance_ticket_required: true kernel audit row. Add langfusePurgeStatus to EraseResult. Add test for exhausted-Langfuse scenario."
+    "description": "User-directed deferral (2026-04-26): Langfuse is not deployed at MVP. The GDPR erasure pipeline previously required a Langfuse purgeByUserId step (R-04.29 original). Per user directive, Langfuse has been removed from the codebase and plans entirely. Plan 04 R-04.29 has been rewritten to cover DB + L3 + L3.5 + semantic index only. Trace-backend purge-by-user semantics are deferred to when a trace backend is selected and deployed.",
+    "evidence": "User directive 2026-04-26: 'no langfuse here, remove it completely'. Plan 04 R-04.29 updated. gdpr-erasure.ts current implementation covers all in-scope stores (DB, L3, L3.5, semantic index) without a Langfuse step.",
+    "suggested_action": "When a trace backend is selected and deployed, revisit GDPR erasure pipeline to add purge-by-user-id semantics for that backend. The EraseResult interface and pipeline should be extended at that time."
   },
   {
     "plan_id": "04",
@@ -112,13 +112,13 @@
   {
     "plan_id": "04",
     "plan_section": "§4 / §6 R-04.29",
-    "severity": "P1",
-    "finding_type": "contract-drift",
+    "severity": "INFO",
+    "finding_type": "intentional-deferral",
     "file": "apps/api/src/modules/agents/application/services/gdpr-erasure.ts",
     "line": 37,
-    "description": "EraseResult interface is missing the langfusePurgeStatus field specified in plan §4: 'langfusePurgeStatus: ok | partial | failed'. The contract diverges from the plan.",
-    "evidence": "gdpr-erasure.ts:36-48: EraseResult does not include langfusePurgeStatus. Plan §4 GDPRErasurePipeline interface explicitly lists it.",
-    "suggested_action": "Add langfusePurgeStatus: 'ok' | 'partial' | 'failed' to EraseResult. Implement the Langfuse step."
+    "description": "User-directed deferral (2026-04-26): langfusePurgeStatus field removed from EraseResult per user directive removing Langfuse entirely. Plan §4 GDPRErasurePipeline interface has been updated to drop this field. No contract drift remains — plan and code are now in alignment.",
+    "evidence": "User directive 2026-04-26. Plan 04 §4 updated to remove langfusePurgeStatus from EraseResult interface.",
+    "suggested_action": "None. When trace backend is selected, revisit whether a purge-status field should be added for that backend."
   },
   {
     "plan_id": "14",

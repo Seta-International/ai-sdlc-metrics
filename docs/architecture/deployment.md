@@ -23,7 +23,7 @@ This document captures the agreed deployment infrastructure for Future — AWS r
 - **No Multi-AZ** — RDS single-AZ with automated backups + point-in-time recovery. Enable Multi-AZ only when first enterprise tenant requires written SLA commitments.
 - **OIDC for CI/CD** — GitHub Actions assumes scoped IAM roles via OIDC. No static AWS credentials stored anywhere.
 - **ECS auto-heals** — container crashes restart automatically. No server management, no SSH, no OS patching. The 2-4 person team focuses on product, not infrastructure ops.
-- **Full platform from day one** — lakehouse (S3 + Glue + Iceberg + Athena), agent runtime (Teams + Slack + SSE), and observability (Langfuse) all operational from initial deployment.
+- **Full platform from day one** — lakehouse (S3 + Glue + Iceberg + Athena), agent runtime (Teams + Slack + SSE) all operational from initial deployment. Observability trace backend deferred per CLAUDE.md.
 
 ---
 
@@ -65,19 +65,16 @@ ap-southeast-1 (Singapore)
 │     ├── web-planner      0.25 vCPU / 0.5GB — Spot
 │     ├── cubejs           1 vCPU / 2GB      — On-Demand
 │     ├── web-admin        0.25 vCPU / 0.5GB — On-Demand (admin portal, low traffic)
-│     └── langfuse         0.5 vCPU / 1GB    — On-Demand
 │
 ├── RDS PostgreSQL 16 — OLTP (db.t4g.medium, Graviton, single-AZ)
 │     ├── RDS Proxy    → connection pooling + RLS session context (NestJS API only)
 │     └── Read Replica (db.t4g.medium) → Cube.js direct connection (bypasses Proxy)
 │
-├── RDS PostgreSQL 16 — Langfuse (db.t4g.micro, Graviton, single-AZ)
-│     └── Isolated from OLTP — trace write volume must not impact business queries
 │
 ├── ElastiCache Redis (cache.t4g.small)  → Cube.js query cache only
 │                                          (agent sessions stored in PostgreSQL agents.agent_session)
 │
-├── ECR                → one repo per service (15 repos: api + web-shell + 10 zones + cubejs + langfuse)
+├── ECR                → one repo per service (14 repos: api + web-shell + 10 zones + cubejs + web-admin)
 ├── S3
 │     ├── future-tf-state-{env}     → Terraform state (versioned)
 │     └── future-lakehouse-{env}    → bronze/ + gold/ (Parquet + Iceberg)
@@ -88,7 +85,7 @@ ap-southeast-1 (Singapore)
 ├── DynamoDB                       → Terraform state lock table
 ├── Secrets Manager                → DB credentials, OPENAI_API_KEY (platform default),
 │                                    per-tenant BYO keys at future/{env}/tenant/{tenantId}/openai-api-key,
-│                                    Langfuse keys, Slack signing secret,
+│                                    Slack signing secret,
 │                                    Teams bot credentials
 ├── CloudWatch                     → logs, basic metrics, EventBridge scheduled scaling
 └── Route 53 + ACM                 → Wildcard DNS `*.seta-international.com` + wildcard TLS cert
@@ -118,10 +115,8 @@ Each zone is an independent ECS service, ECR repo, and GitHub Actions deployment
 | ECS 8 domain zones (people, time, hiring, perf, projects, finance, goals, planner) | 0.25 vCPU / 0.5GB, Graviton, Spot      | ~$32            |
 | ECS web-insights                                                                   | 0.5 vCPU / 1GB, Graviton, Spot         | ~$8             |
 | ECS cubejs                                                                         | 1 vCPU / 2GB, Graviton, On-Demand      | ~$30            |
-| ECS langfuse                                                                       | 0.5 vCPU / 1GB, Graviton, On-Demand    | ~$17            |
 | RDS OLTP (db.t4g.medium)                                                           | PostgreSQL 16, single-AZ, Graviton     | ~$55            |
 | RDS Read Replica (db.t4g.medium)                                                   | Cube.js direct connection              | ~$55            |
-| RDS Langfuse (db.t4g.micro)                                                        | Isolated trace storage, single-AZ      | ~$15            |
 | RDS Proxy                                                                          | NestJS API connection pooling + RLS    | ~$22            |
 | ElastiCache (cache.t4g.small)                                                      | Cube.js query cache only               | ~$20            |
 | ALB                                                                                |                                        | ~$20            |
@@ -138,13 +133,12 @@ Each zone is an independent ECS service, ECR repo, and GitHub Actions deployment
 | ECS all services (14 services)  | Scale-to-zero off SGT business hours (~50hrs/week active) | ~$28            |
 | RDS OLTP (db.t4g.micro)         | Smaller instance, single-AZ                               | ~$20            |
 | RDS Read Replica (db.t4g.micro) |                                                           | ~$20            |
-| RDS Langfuse (db.t4g.micro)     |                                                           | ~$15            |
 | ElastiCache (cache.t4g.micro)   |                                                           | ~$15            |
 | ALB                             |                                                           | ~$18            |
 | Glue + Athena + S3 + misc       |                                                           | ~$8             |
-| **Total staging**               |                                                           | **~$127/month** |
+| **Total staging**               |                                                           | **~$109/month** |
 
-**Total both environments: ~$476/month**
+**Total both environments: ~$426/month** (trace backend deferred; cost will be revised when backend is selected)
 
 ---
 
@@ -155,7 +149,6 @@ See **Architecture Overview — Multi-Tenancy Contract** for the full RLS + tena
 ```
 NestJS API → RDS Proxy → PostgreSQL Primary  (set_config + RLS enforced per request)
 Cube.js    →            → RDS Read Replica   (queryTransformer tenant filter)
-Langfuse   →            → Langfuse RDS        (isolated, no OLTP impact)
 ```
 
 ### Connection Pool Budget
@@ -321,7 +314,7 @@ RDS staging instance runs 24/7 (cold start is 5-10 min, cost at t4g.micro is neg
 | Data protection       | RDS automated backups (7-day), point-in-time recovery, snapshot before migrations                                                                        |
 | CloudFront            | Not now — ALB only. Add when performance is a real user complaint.                                                                                       |
 | Terraform bootstrap   | `infra/bootstrap/` one-time module for S3 + DynamoDB                                                                                                     |
-| Langfuse RDS          | Separate db.t4g.micro — isolated from OLTP trace write volume                                                                                            |
+| Trace backend         | Deferred per CLAUDE.md — selection and deployment TBD before Phase 4                                                                                     |
 | LLM provider          | OpenAI API key (`OPENAI_API_KEY`) in Secrets Manager for platform default; per-tenant BYO keys stored at `future/{env}/tenant/{tenantId}/openai-api-key` |
 | Agent channels        | Teams bot credentials + Slack signing secret in Secrets Manager                                                                                          |
 | Admin zone            | `web-admin` — On-Demand Fargate (0.25 vCPU / 0.5GB), own ECR repo and GitHub Actions workflow                                                            |

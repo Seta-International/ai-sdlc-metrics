@@ -52,7 +52,7 @@ Lives on the tRPC procedure definition, not in a DB table. Persists only via cod
 - `whenToUse: string` — required. Router decision hint. Shown inline in router prompt.
 - `whenNotToUse: string` — required. Negative examples for the router.
 - `examples: { input: string, callArgs: object }[]` — required, ≥1 entry. Grounds the model in expected usage.
-- `tenantAuthoredFreeText?: string[]` — optional. Field names whose content is user-authored; triggers taint flip + delimiter wrap + Langfuse redaction.
+- `tenantAuthoredFreeText?: string[]` — optional. Field names whose content is user-authored; triggers taint flip + delimiter wrap + exporter-side redaction.
 - `approvalFreshness?: 'revalidate' | 'accept-stale'` — required on `.mutation()` procedures exposed as agent tools. Drives §10 revalidation contract.
 - `approvalTtl?: string` — optional, default 72h. Per-tool override for draft expiry.
 - `compositionSensitive?: { minGroupSize: number }` — required on aggregate-returning tools. Author-time k-anonymity declaration.
@@ -222,7 +222,7 @@ For variants where `context` carries tRPC-originated error detail — `validatio
 | R-01.12  | Required `agent` fields: `whenToUse`, `whenNotToUse`, `examples` (≥1)                                                                                                                                                                                                                                                                                              | §7           |
 | R-01.13  | `.mutation()` procedures exposed as agent tools MUST declare `approvalFreshness`                                                                                                                                                                                                                                                                                   | §7           |
 | R-01.14  | Aggregate-returning tools MUST declare `compositionSensitive.minGroupSize`                                                                                                                                                                                                                                                                                         | §7, Tenet #8 |
-| R-01.15  | `tenantAuthoredFreeText: string[]` triggers taint wrap + Langfuse redaction + delimiter render (triple duty)                                                                                                                                                                                                                                                       | §2, §7       |
+| R-01.15  | `tenantAuthoredFreeText: string[]` triggers taint wrap + trace-backend redaction + delimiter render (triple duty)                                                                                                                                                                                                                                                  | §2, §7       |
 | R-01.16  | `ceilings` optional; required on escape-hatch + bulk tools                                                                                                                                                                                                                                                                                                         | §7           |
 | R-01.17  | Build fails if an `agent` block references a procedure with mismatched schema field names                                                                                                                                                                                                                                                                          | §7           |
 | R-01.18  | Build fails if a `.mutation()` agent tool omits `approvalFreshness`                                                                                                                                                                                                                                                                                                | §7           |
@@ -323,7 +323,7 @@ Per §13 R-05.30 / R-05.31: metrics MUST NOT carry `user_id` / `conversation_id`
 - **Audit emit on failure** — missing audit on a successful tool call is a compliance-critical gap; §18.2 requires zero tool-call spans without matching audit rows.
 - **No plugin seam at MVP** — prevents user-extensible pipeline steps that could weaken the security boundary. Beta reconsideration permits output-post-processors only (e.g. PII redaction), never input pre-processors.
 - **Tenant isolation (single source of truth).** `tenant_id` flows only through `RequestContext` → `RlsMiddleware` → DB session. Tool args are banned from carrying `tenant_id` (R-01.30, drift-tested). A compromised sub-agent cannot escalate to a sibling tenant by forging an args field; the gateway has nothing to forge, because there is no args field to forge. Cross-tenant operations (platform_admin only) require an explicit separate `crossTenant: true` meta flag — banned at MVP.
-- **Model-facing error sanitization (R-01.29).** Tripwire `context` for variants carrying tRPC-originated error strings passes through `project_to_schema`. Without this, a business-rule error like "employee Jane Doe (id X) has overlapping leave 2026-04-15" would enter the sub-agent's next prompt turn verbatim — a PII bleed vector that survives the gateway and lands in Langfuse traces and in any synthesizer output. Sanitized context preserves re-plan signal (error class, offending field name) without row-level values.
+- **Model-facing error sanitization (R-01.29).** Tripwire `context` for variants carrying tRPC-originated error strings passes through `project_to_schema`. Without this, a business-rule error like "employee Jane Doe (id X) has overlapping leave 2026-04-15" would enter the sub-agent's next prompt turn verbatim — a PII bleed vector that survives the gateway and lands in trace-backend spans and in any synthesizer output. Sanitized context preserves re-plan signal (error class, offending field name) without row-level values.
 
 ---
 
@@ -395,7 +395,7 @@ Gateway overhead budget is **5% of the per-sub-agent wallclock ceiling** (15s de
 
 - All unit + integration tests pass.
 - Build fails on seeded violation PRs (drift-test coverage verified).
-- Langfuse trace shows 6 `gateway:*` child spans in correct order for every tool call; missing span = P1 bug.
+- Trace backend shows 6 `gateway:*` child spans in correct order for every tool call; missing span = P1 bug.
 - Cross-tenant seed test passes (no shared L1 state).
 - Gateway overhead p99 ≤35ms measured against a baseline 3-tool turn.
 - Cache-hit rate ≥30% on second invocation of same tool within a sub-agent turn (simple benchmark).
@@ -403,7 +403,7 @@ Gateway overhead budget is **5% of the per-sub-agent wallclock ceiling** (15s de
 - Every successful tool call has a matching kernel audit row (audit-trail join test in plan 07).
 - Circuit-broken re-invocations emit audit rows and consume zero tRPC capacity; verified in integration.
 - Concurrent in-flight dedup verified: `cache_coalesced` attribute observable in audit for secondary waiters; zero duplicate tRPC calls under concurrent identical-arg load.
-- Sanitized tripwire context verified PII-free in Langfuse traces on a sampled business-rule-violation path.
+- Sanitized tripwire context verified PII-free in trace-backend spans on a sampled business-rule-violation path.
 
 ---
 
@@ -433,7 +433,7 @@ Gateway overhead budget is **5% of the per-sub-agent wallclock ceiling** (15s de
 - `packages/trpc-meta-types` (or equivalent) — typed `TrpcMeta.agent` shape exported.
 - CI drift-test runner — invoked on every PR via turbo task.
 - Kernel module — `KernelAuditFacade.emit()` consumed by step 6.
-- Langfuse OTel — child span API consumed.
+- OTel trace exporter — child span API consumed.
 - Plan 06 — `abortSignal` threaded in.
 - Plan 04 — L1 cache interface consumed.
 
@@ -453,6 +453,6 @@ MVP. Ships with first production turn.
 ## 18. Open Questions
 
 - **Canonicalizer version attribute.** Stamp as trace attr from day one? Recommend yes — trivial cost, forward-compatible. Owner: this plan's implementer.
-- **Retry-round span cardinality.** If a ceiling-tripwire returns `retry` and the model retries, the same tool-call gets two span trees. Verify Langfuse UI groups legibly; if not, stamp `retry_index` explicitly. Owner: plan 07 integration.
+- **Retry-round span cardinality.** If a ceiling-tripwire returns `retry` and the model retries, the same tool-call gets two span trees. Verify trace backend groups legibly; if not, stamp `retry_index` explicitly. Owner: plan 07 integration.
 - **Cache invalidation rule scope** on writes — domain-wide or per-entity? Pinned in implementation doc. Owner: implementation doc owner, resolve before MVP ship.
 - **Beta `ProcessorProvider`-style output seam.** Capture interface shape (not implementation) at MVP so retrofit is a one-line add later. Shape: `(result: unknown, context) => result`. Open: naming, registration surface. Owner: Beta-phase author.

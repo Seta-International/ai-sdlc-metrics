@@ -21,7 +21,7 @@ Additions are surgical and stay under the 30% envelope. Structure of §§1–18 
 ### In
 
 - OpenTelemetry SDK wiring at `apps/api` bootstrap (plan 00 shipped OTel base; this plan completes the agent-layer spans).
-- **Trace backend is vendor-agnostic at this plan's contract layer.** Span emission uses OTel SDK with stable attribute names; an adapter at the exporter boundary maps to the chosen backend (Langfuse, self-hosted OTel→ClickHouse/Tempo, or equivalent). Backend selection is **deferred** per CLAUDE.md roadmap; this plan does not name one.
+- **Trace backend is vendor-agnostic at this plan's contract layer.** Span emission uses OTel SDK with stable attribute names; an adapter at the exporter boundary maps to the chosen backend (self-hosted OTel collector → ClickHouse/Tempo, or equivalent). Backend selection is **deferred** per CLAUDE.md roadmap; this plan does not name one.
 - Two-dimensional span taxonomy: `span_type` × `entity_type`.
 - Typed `SamplingConfig` discriminated union with trace-level atomicity invariant.
 - Stratified sampling: 1% baseline + 100% on 5 MVP triggers.
@@ -65,7 +65,7 @@ Observability is **tenet #6** — version-tagged, trace-correlated, tenant-parti
 
 **PII redaction at capture, not query.** Retrospective scrubbing after a GDPR request is a nightmare; we redact `tenantAuthoredFreeText` fields pre-capture. User's own utterance requires a separate purge-by-user-id operation (plan 04 owns the erasure pipeline; this plan exposes the exporter-adapter hook that invokes whichever backend is wired).
 
-**Vendor-agnostic span emission.** Source code emits OTel spans with **stable, source-owned attribute names** (e.g. `tenant_id`, `span_type`, `tool_name`). A thin **exporter adapter** at the boundary maps these names to whichever backend (Langfuse, ClickHouse/OTel, Tempo, etc.) is ultimately selected. This is the §2.5 vendor-neutrality invariant: backend selection or replacement never requires touching span-emission code.
+**Vendor-agnostic span emission.** Source code emits OTel spans with **stable, source-owned attribute names** (e.g. `tenant_id`, `span_type`, `tool_name`). A thin **exporter adapter** at the boundary maps these names to whichever backend is ultimately selected. This is the §2.5 vendor-neutrality invariant: backend selection or replacement never requires touching span-emission code.
 
 **What this is NOT:** a general-purpose tracing library. It is a configured, backend-agnostic observability pipeline with specific sampling rules, specific attribute conventions, and specific dashboards.
 
@@ -712,6 +712,6 @@ MVP. Ships with first production turn. The new 2026-04-22 dimensions — `flow_i
 - **Async trace-joining for pg-boss reminders.** New trace with `parent_trace_id` link attribute vs joining an open trace. Recommend: new trace with link; avoids multi-day unclosed traces. Owner: plan 09 integration.
 - **`entity_version_id` vs content hash duplication.** Both on every trace. Redundancy confirms replay. Keep both at MVP; revisit if storage cost is meaningful.
 - **Trace retention vs kernel audit retention.** 30d vs 90d. Document explicitly: audit is authoritative post-30-day; trace backend is query/replay convenience. Owner: legal + ops.
-- **Trace-backend selection.** Deferred per CLAUDE.md. Candidates include Langfuse (self-hosted or cloud), self-hosted OTel collector → ClickHouse/Tempo, etc. Decision criteria: RLS-compatible tenant filtering, `purgeByUserId` semantics, retention configurability, cost at tenant scale. Owner: ops + platform eng; deadline TBD before Phase 4.
-- **Single vs multi-exporter adapter registry.** Should we support multiple backends simultaneously (e.g. cheap ClickHouse bulk + expensive Langfuse high-fidelity) via a composite exporter? Defer until single-backend pattern is operating smoothly; adds ops surface area. Recommend: single backend at MVP; composite deferred.
+- **Trace-backend selection.** Deferred per CLAUDE.md. Candidates include self-hosted OTel collector → ClickHouse/Tempo or equivalent. Decision criteria: RLS-compatible tenant filtering, purge-by-user-id semantics, retention configurability, cost at tenant scale. Owner: ops + platform eng; deadline TBD before Phase 4.
+- **Single vs multi-exporter adapter registry.** Should we support multiple backends simultaneously via a composite exporter? Defer until single-backend pattern is operating smoothly; adds ops surface area. Recommend: single backend at MVP; composite deferred.
 - **Meta-eval corpus for LLM-judge promotion (plan 10 dep).** This plan's `agent_tool_invocation` retention supports corpus mining; verify we don't prematurely delete incident-class traces before meta-eval gate clears. Owner: plan 10 author.
