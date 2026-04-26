@@ -20,6 +20,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import type { ISynthesizer } from './iterative-orchestrator'
 import type {
+  PhaseExecutorTurnState,
   SubAgentKey,
   SubAgentOutput,
   SubAgentUsage,
@@ -50,6 +51,7 @@ import {
 import {
   recordSynthesizerCall,
   recordSynthesizerFallback,
+  recordSynthesizerLatency,
 } from '../../infrastructure/observability/synthesizer-metrics'
 import { SynthesizerStreamFailureError } from './synthesizer-errors'
 
@@ -77,11 +79,38 @@ export class SynthesizerAdapter implements ISynthesizer {
   constructor(@Inject(SYNTHESIZER_LLM_CLIENT) private readonly llm: SynthesizerLlmClient) {}
 
   async synthesize(opts: SynthesizerOpts): Promise<SynthesizerOutput> {
+    const startMs = Date.now()
+    const surface = opts.turnState.surface
+    let latencyShape = 'unknown'
+    let latencyOutcome: 'completed' | 'errored' = 'completed'
+
+    try {
+      return await this._synthesizeInner(opts, surface, (resolved) => {
+        if (resolved.shape !== undefined) latencyShape = resolved.shape
+        if (resolved.outcome !== undefined) latencyOutcome = resolved.outcome
+      })
+    } catch (err) {
+      latencyOutcome = 'errored'
+      throw err
+    } finally {
+      recordSynthesizerLatency({
+        shape: latencyShape,
+        surface,
+        outcome: latencyOutcome,
+        durationMs: Date.now() - startMs,
+      })
+    }
+  }
+
+  private async _synthesizeInner(
+    opts: SynthesizerOpts,
+    surface: PhaseExecutorTurnState['surface'],
+    onResolved: (r: { shape?: string; outcome?: 'completed' | 'errored' }) => void,
+  ): Promise<SynthesizerOutput> {
     const allOutputs = opts.outputs
     const expectedShape = extractExpectedShape(
       opts.directive as { expectedOutputShape?: SynthesizerLlmOutput['shape'] | null },
     )
-    const surface = opts.turnState.surface
 
     const hasContradiction = detectContradiction(allOutputs)
     const citations = buildCitations(allOutputs)
@@ -165,6 +194,7 @@ export class SynthesizerAdapter implements ISynthesizer {
         recordSynthesizerFallback({ cause: 'pre_shape_failure' })
         throw new SynthesizerStreamFailureError('pre_shape_failure', err)
       }
+      onResolved({ shape: 'narrative', outcome: 'errored' })
       return this._fallback({
         outputs: allOutputs,
         citations,
@@ -193,6 +223,7 @@ export class SynthesizerAdapter implements ISynthesizer {
       // Schema validation failed AFTER partials emitted: distinguish from raw
       // stream errors so observability can attribute to "model produced
       // schema-invalid object" vs "transport blew up".
+      onResolved({ shape: 'narrative', outcome: 'errored' })
       return this._fallback({
         outputs: allOutputs,
         citations,
@@ -223,6 +254,7 @@ export class SynthesizerAdapter implements ISynthesizer {
     opts.streamEmitter.emit({ type: 'answer.complete', payload: {} })
 
     recordSynthesizerCall({ shape: finalObject.shape, surface, outcome: 'completed' })
+    onResolved({ shape: finalObject.shape, outcome: 'completed' })
 
     const finalConfidence = hasContradiction ? 'low' : deriveAggregateConfidence(allOutputs)
 

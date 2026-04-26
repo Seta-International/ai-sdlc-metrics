@@ -120,6 +120,11 @@ import {
   OpenAiSubAgentLlmClient,
   SUB_AGENT_LLM_CLIENT,
 } from './infrastructure/llm/sub-agent-llm-client'
+// Plan 17 PR 3 — synthesizer LLM client
+import {
+  OpenAiSynthesizerLlmClient,
+  SYNTHESIZER_LLM_CLIENT,
+} from './infrastructure/llm/synthesizer-llm-client'
 import { getAppRouter } from '../../common/trpc/app-router'
 // Sub-agent registry (Task 3)
 import { SubAgentRegistry, SUB_AGENT_REGISTRY } from './infrastructure/registry/sub-agent-registry'
@@ -415,6 +420,9 @@ class NullTenantLister implements TenantListerLike {
     // ── Plan 17 PR 2 — Sub-agent LLM client (real ReAct loop wiring) ───────────
     OpenAiSubAgentLlmClient,
     { provide: SUB_AGENT_LLM_CLIENT, useExisting: OpenAiSubAgentLlmClient },
+    // ── Plan 17 PR 3 — Synthesizer LLM client (streaming structured output) ────
+    OpenAiSynthesizerLlmClient,
+    { provide: SYNTHESIZER_LLM_CLIENT, useExisting: OpenAiSynthesizerLlmClient },
     // ── Sub-agent registry (Task 3) ────────────────────────────────────────────
     SubAgentRegistry,
     { provide: SUB_AGENT_REGISTRY, useExisting: SubAgentRegistry },

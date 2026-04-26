@@ -19,6 +19,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('../../infrastructure/observability/synthesizer-metrics', () => ({
   recordSynthesizerCall: vi.fn(),
   recordSynthesizerFallback: vi.fn(),
+  recordSynthesizerLatency: vi.fn(),
 }))
 
 import { SynthesizerAdapter } from './synthesizer-adapter'
@@ -40,6 +41,7 @@ import { SynthesizerOutputSchema } from '../../domain/value-objects/synthesizer-
 import {
   recordSynthesizerCall,
   recordSynthesizerFallback,
+  recordSynthesizerLatency,
 } from '../../infrastructure/observability/synthesizer-metrics'
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -177,6 +179,7 @@ function makeOpts(args: MakeOptsArgs = {}): SynthesizerOpts {
 beforeEach(() => {
   vi.mocked(recordSynthesizerCall).mockClear()
   vi.mocked(recordSynthesizerFallback).mockClear()
+  vi.mocked(recordSynthesizerLatency).mockClear()
 })
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -442,5 +445,64 @@ describe('SynthesizerAdapter', () => {
     const out = await adapter.synthesize(makeOpts({ outputs }))
 
     expect(out.confidence).toBe('low')
+  })
+
+  it('12. records synthesizer latency on the happy narrative path', async () => {
+    const { client } = makeLlmClient({
+      partials: [{ shape: 'narrative' }, { shape: 'narrative', content: 'hi' }],
+      finalObject: { shape: 'narrative', content: 'hi' },
+    })
+    const adapter = new SynthesizerAdapter(client)
+
+    await adapter.synthesize(makeOpts())
+
+    expect(recordSynthesizerLatency).toHaveBeenCalledTimes(1)
+    expect(recordSynthesizerLatency).toHaveBeenCalledWith({
+      shape: 'narrative',
+      surface: 'global-chat',
+      outcome: 'completed',
+      durationMs: expect.any(Number),
+    })
+  })
+
+  it('13. records synthesizer latency on the post-shape fallback path with outcome=errored', async () => {
+    const { client } = makeLlmClient({
+      partials: [{ shape: 'narrative' }, { shape: 'narrative', content: 'partial' }],
+      finalObject: { shape: 'narrative', content: 'unused' },
+      partialError: new Error('mid-stream-blow-up'),
+      errorAfterIndex: 2,
+    })
+    const adapter = new SynthesizerAdapter(client)
+
+    await adapter.synthesize(makeOpts())
+
+    expect(recordSynthesizerLatency).toHaveBeenCalledTimes(1)
+    expect(recordSynthesizerLatency).toHaveBeenCalledWith({
+      shape: 'narrative',
+      surface: 'global-chat',
+      outcome: 'errored',
+      durationMs: expect.any(Number),
+    })
+  })
+
+  it('14. records synthesizer latency on pre-shape throw with outcome=errored', async () => {
+    const { client } = makeLlmClient({
+      partials: [],
+      finalObject: { shape: 'narrative', content: 'unused' },
+      partialError: new Error('boom-before-shape'),
+    })
+    const adapter = new SynthesizerAdapter(client)
+
+    await expect(adapter.synthesize(makeOpts())).rejects.toBeInstanceOf(
+      SynthesizerStreamFailureError,
+    )
+
+    expect(recordSynthesizerLatency).toHaveBeenCalledTimes(1)
+    expect(recordSynthesizerLatency).toHaveBeenCalledWith({
+      shape: 'unknown',
+      surface: 'global-chat',
+      outcome: 'errored',
+      durationMs: expect.any(Number),
+    })
   })
 })
