@@ -10,7 +10,7 @@
  * embedding_model are ignored during semantic lookup (R-14.10).
  */
 
-import { uuid, text, timestamp, jsonb, integer, index } from 'drizzle-orm/pg-core'
+import { uuid, text, timestamp, jsonb, integer, index, uniqueIndex } from 'drizzle-orm/pg-core'
 import { agentsSchema } from './agents.schema'
 
 export const agentToolResultCache = agentsSchema.table(
@@ -42,11 +42,16 @@ export const agentToolResultCache = agentsSchema.table(
   },
   (t) => [
     /**
-     * B-tree index for exact-match cache lookups:
-     *   SELECT * FROM agent_tool_result_cache
-     *   WHERE tenant_id = $1 AND tool_name = $2 AND canonical_args_hash = $3
+     * Unique constraint on (tenant_id, tool_name, canonical_args_hash).
+     * Required so `onConflictDoNothing()` in SemanticResultCache.put() has an
+     * actual conflict target — without a unique index concurrent puts insert
+     * duplicates instead of idempotently skipping (Plan 14 §3).
      */
-    index('agent_tool_result_cache_exact_idx').on(t.tenantId, t.toolName, t.canonicalArgsHash),
+    uniqueIndex('agent_tool_result_cache_exact_uidx').on(
+      t.tenantId,
+      t.toolName,
+      t.canonicalArgsHash,
+    ),
     /**
      * Index for fetching candidate rows for semantic nearest-neighbor comparison
      * in the application layer (no pgvector at MVP — cosine similarity runs in TS).

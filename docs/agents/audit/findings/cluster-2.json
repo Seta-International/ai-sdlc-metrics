@@ -1,0 +1,211 @@
+[
+  {
+    "plan_id": "04",
+    "plan_section": "§3 / §9",
+    "severity": "P0",
+    "finding_type": "tenant-isolation-gap",
+    "file": "packages/db/drizzle/migrations/0000_initial.sql",
+    "line": 326,
+    "description": "agent_message, agent_conversation, agent_l3_preference, and agent_scratchpad tables have NO ENABLE ROW LEVEL SECURITY / FORCE ROW LEVEL SECURITY / CREATE POLICY statements in the migration. The plan mandates RLS relforcerowsecurity=true on all four tables (R-04.4, R-04.15, §3). The integration test asserts relforcerowsecurity=true on agent_conversation (line 360) but this assertion will fail because the DDL was never applied.",
+    "evidence": "grep -n 'ENABLE ROW LEVEL\\|FORCE ROW LEVEL\\|CREATE POLICY' 0000_initial.sql returns only the Plan 14 agent_tool_result_cache entries (lines 1832-1836). Lines 326-352 (agent_message, agent_conversation), 413-420 (agent_l3_preference), 511-519 (agent_scratchpad) contain no RLS DDL.",
+    "suggested_action": "Add ENABLE ROW LEVEL SECURITY; FORCE ROW LEVEL SECURITY; CREATE POLICY ... USING (tenant_id = current_setting('app.tenant_id')::uuid) WITH CHECK (...) for agent_conversation, agent_message, agent_l3_preference, and agent_scratchpad. Regenerate migration per CLAUDE.md (squash into 0000_initial.sql)."
+  },
+  {
+    "plan_id": "04",
+    "plan_section": "§3",
+    "severity": "P0",
+    "finding_type": "missing-impl",
+    "file": "packages/db/drizzle/migrations/0000_initial.sql",
+    "line": 326,
+    "description": "R-04.8 requires a GIN FTS index on agent_message covering only user utterances and summaries (to_tsvector on role='user' content text + summary). No such index exists in the migration SQL. The repository performs a runtime to_tsvector query (drizzle-conversation-message.repository.ts:187) without a supporting index, meaning FTS is a full-table scan in production.",
+    "evidence": "grep -n 'tsvector|GIN|gin|fts' 0000_initial.sql returns no results. drizzle-conversation-message.repository.ts:187 constructs an inline tsvector at query time with no index backing.",
+    "suggested_action": "Add a GIN functional index: CREATE INDEX agent_message_fts_idx ON agents.agent_message USING gin(to_tsvector('simple', CASE WHEN role='user' THEN coalesce(content->>'text','') ELSE '' END || ' ' || coalesce(summary,''))) in the migration."
+  },
+  {
+    "plan_id": "04",
+    "plan_section": "§3 / §6 R-04.36",
+    "severity": "P0",
+    "finding_type": "missing-impl",
+    "file": "apps/api/src/modules/agents/infrastructure/repositories/null-semantic-index.repository.ts",
+    "line": 13,
+    "description": "Plan 04 §3 mandates a per-tenant physical table agent_semantic_index_<tenant> (or equivalent per-tenant isolation) for the semantic recall index. No such table schema exists in the migration. NullSemanticIndexRepository is wired as the production binding with no DrizzleSemanticIndexRepository replacement path. While the activation gate says opt-in per sub-agent and day-1 defaults to off, the plan promotes semantic recall to MVP — the per-tenant schema and Drizzle implementation must exist even if no sub-agent opts in at day-1. The purgeForUser always returns count 0, making the GDPR erasure pipeline silently incomplete for any tenant that does opt-in.",
+    "evidence": "agents.module.ts:351 { provide: SEMANTIC_INDEX_REPOSITORY, useClass: NullSemanticIndexRepository }. null-semantic-index.repository.ts:14 purgeForUser returns { count: 0 }. No agent_semantic_index_* table in migrations. NullSemanticIndexRepository comment says 'Replace with DrizzleSemanticIndexRepository when pgvector extension is provisioned'.",
+    "suggested_action": "Implement DrizzleSemanticIndexRepository backed by a per-tenant partitioned table or dynamic table naming. Wire it conditionally or keep NullSemanticIndexRepository with a TODO tagged P0 for the activation path. At minimum, GDPR erasure must not silently claim 0 purged rows if the index is in use."
+  },
+  {
+    "plan_id": "04",
+    "plan_section": "§6 R-04.29 / §5 GDPR erasure",
+    "severity": "INFO",
+    "finding_type": "intentional-deferral",
+    "file": "apps/api/src/modules/agents/application/services/gdpr-erasure.ts",
+    "line": 68,
+    "description": "User-directed deferral (2026-04-26): Langfuse is not deployed at MVP. The GDPR erasure pipeline previously required a Langfuse purgeByUserId step (R-04.29 original). Per user directive, Langfuse has been removed from the codebase and plans entirely. Plan 04 R-04.29 has been rewritten to cover DB + L3 + L3.5 + semantic index only. Trace-backend purge-by-user semantics are deferred to when a trace backend is selected and deployed.",
+    "evidence": "User directive 2026-04-26: 'no langfuse here, remove it completely'. Plan 04 R-04.29 updated. gdpr-erasure.ts current implementation covers all in-scope stores (DB, L3, L3.5, semantic index) without a Langfuse step.",
+    "suggested_action": "When a trace backend is selected and deployed, revisit GDPR erasure pipeline to add purge-by-user-id semantics for that backend. The EraseResult interface and pipeline should be extended at that time."
+  },
+  {
+    "plan_id": "04",
+    "plan_section": "§6 R-04.30 / §12",
+    "severity": "P0",
+    "finding_type": "missing-impl",
+    "file": "apps/api/src/modules/agents/application/services/gdpr-erasure.ts",
+    "line": 110,
+    "description": "l35ScratchpadDeleted is hardcoded to 1 regardless of how many scratchpad rows were actually deleted. ScratchpadRepository.deleteForUser returns void (not a count). This makes the compliance audit log report incorrect counts, violating R-04.30 ('partial success is a compliance incident; logged with runbook trigger').",
+    "evidence": "gdpr-erasure.ts:110-111: 'await this.scratchpadRepo.deleteForUser(tenantId, userId); const l35ScratchpadDeleted = 1'. ScratchpadRepository.deleteForUser signature returns Promise<void>.",
+    "suggested_action": "Update ScratchpadRepository.deleteForUser to return { count: number }. Update gdpr-erasure.ts to use the returned count instead of the constant 1."
+  },
+  {
+    "plan_id": "04",
+    "plan_section": "§8",
+    "severity": "P1",
+    "finding_type": "observability-gap",
+    "file": "apps/api/src/modules/agents/application/services",
+    "line": null,
+    "description": "All nine Plan 04 named spans (MEMORY:conversation-resolve, MEMORY:save-queue-enqueue, MEMORY:save-queue-flush, MEMORY:window-build, MEMORY:l3-read, MEMORY:l3-write, MEMORY:l4-fetch, MEMORY:gdpr-erasure, SUMMARIZER:turn-summary) are not emitted anywhere in the codebase. The Plan 04 services (SaveQueue, WindowBuilder, Summarizer, GDPRErasurePipeline, L3PreferenceService) have no OTel span instrumentation.",
+    "evidence": "grep -rn 'MEMORY:|SUMMARIZER:turn' apps/api/ returns no results. SaveQueue.ts, window-builder.ts, summarizer.ts, gdpr-erasure.ts contain no @opentelemetry/api imports or span calls.",
+    "suggested_action": "Instrument each Plan 04 service with the named spans per §8. Use withGatewayStep pattern from gateway-spans.ts as the template, or a MEMORY-specific tracer."
+  },
+  {
+    "plan_id": "04",
+    "plan_section": "§8",
+    "severity": "P1",
+    "finding_type": "observability-gap",
+    "file": "apps/api/src/modules/agents/application/services",
+    "line": null,
+    "description": "Seven Plan 04 named metrics are not instrumented: agent_conversation_total{tenant_id,surface,status}, agent_save_queue_depth{tenant_id}, agent_save_queue_flush_duration_ms, agent_summary_generation_failed_total{tenant_id,reason}, agent_l3_write_rejected_total{tenant_id,key_category}, agent_gdpr_erasure_total{tenant_id,status}, agent_l4_fetch_denied_total{tenant_id,facade}, agent_window_build_duration_ms{type}. Only agent_summary_circuit_broken_total is mentioned in a comment (summarizer.ts:259) but not actually implemented.",
+    "evidence": "grep for all above metric names in apps/api/ --include='*.ts' returns no results except a comment string at summarizer.ts:259.",
+    "suggested_action": "Implement all Plan 04 metrics in a new memory-metrics.ts module (matching gateway-metrics.ts pattern). Wire emit calls into each service."
+  },
+  {
+    "plan_id": "04",
+    "plan_section": "§11 / §12",
+    "severity": "P1",
+    "finding_type": "missing-test",
+    "file": "apps/api/src/modules/agents",
+    "line": null,
+    "description": "No E2E test exists for the Plan 04 §11 E2E layer: 'Full turn: user message → save queue → persist → router reads γ → tool calls → synthesizer output → save → turn.ended → summarization scheduled → summary appears 3s later.' The §12 acceptance criterion 'cross-device consolidation verified manually (two browsers, same user, same surface)' has no automated test.",
+    "evidence": "find apps/api/src/modules/agents -name '*.e2e*' returns no results. No Playwright test file found for agent conversation flow.",
+    "suggested_action": "Add at least one E2E / integration-level test covering the full turn → save-queue → summarization pipeline per §11 E2E section. Cross-device test should use two concurrent loadOrCreateActive calls."
+  },
+  {
+    "plan_id": "04",
+    "plan_section": "§14 / §6 R-04.27",
+    "severity": "P1",
+    "finding_type": "missing-impl",
+    "file": "apps/api/src/modules/agents/agents.module.ts",
+    "line": 451,
+    "description": "ConversationRetentionScheduler is wired with NullTenantLister which always returns an empty list. The retention job runs on a cron schedule but never actually archives any conversations because it has no tenant IDs to process. The admin_tenant_config table (with conversation_retention_days, conversation_retention_mode fields required by R-04.27) does not exist in the migration SQL.",
+    "evidence": "agents.module.ts:317-321: NullTenantLister.listActiveTenantIds() returns []. agents.module.ts:451: new ConversationRetentionScheduler(pgBoss, convRepo, new NullTenantLister()). No admin_tenant_config table in 0000_initial.sql.",
+    "suggested_action": "Replace NullTenantLister with a real implementation that queries active tenant IDs. Add admin_tenant_config table with the required fields to the migration and wire configProvider into ConversationRetentionScheduler."
+  },
+  {
+    "plan_id": "04",
+    "plan_section": "§14 / §6 R-04.26a",
+    "severity": "P1",
+    "finding_type": "observability-gap",
+    "file": "apps/api/src/modules/agents/application/services/summarizer.ts",
+    "line": 258,
+    "description": "The circuit breaker alert (R-04.26a) calls emitCircuitBreakerAlert() which only logs to console.error with no actual metric emission. The plan requires agent_summary_circuit_broken_total{tenant_id} counter. The comment says 'In production: metrics.increment(...)' but it is not implemented.",
+    "evidence": "summarizer.ts:258-264: private emitCircuitBreakerAlert() { console.error('[P2 ALERT] ...') } with no OTel counter increment.",
+    "suggested_action": "Implement the agent_summary_circuit_broken_total counter in memory-metrics.ts and call it from emitCircuitBreakerAlert()."
+  },
+  {
+    "plan_id": "04",
+    "plan_section": "§4 / §6 R-04.29",
+    "severity": "INFO",
+    "finding_type": "intentional-deferral",
+    "file": "apps/api/src/modules/agents/application/services/gdpr-erasure.ts",
+    "line": 37,
+    "description": "User-directed deferral (2026-04-26): langfusePurgeStatus field removed from EraseResult per user directive removing Langfuse entirely. Plan §4 GDPRErasurePipeline interface has been updated to drop this field. No contract drift remains — plan and code are now in alignment.",
+    "evidence": "User directive 2026-04-26. Plan 04 §4 updated to remove langfusePurgeStatus from EraseResult interface.",
+    "suggested_action": "None. When trace backend is selected, revisit whether a purge-status field should be added for that backend."
+  },
+  {
+    "plan_id": "14",
+    "plan_section": "§3",
+    "severity": "P0",
+    "finding_type": "tenant-isolation-gap",
+    "file": "packages/db/drizzle/migrations/0000_initial.sql",
+    "line": null,
+    "description": "The agent_tool_result_cache schema in Drizzle (agent-tool-result-cache.schema.ts) does not include a unique constraint on (tenant_id, tool_name, canonical_args_hash). The onConflictDoNothing() in put() (semantic-result-cache.ts:231) relies on a conflict target but no such unique index exists — only a B-tree index exists. Without a unique constraint, concurrent puts for the same key insert duplicate rows, and the exact lookup (step 2 in get()) may return multiple rows, taking only the first.",
+    "evidence": "agent-tool-result-cache.schema.ts:43-55: only two plain index() declarations, no uniqueIndex(). semantic-result-cache.ts:231: .onConflictDoNothing() with no target specified. Drizzle's onConflictDoNothing() without a target column list is a no-op constraint check that requires at least one unique/PK constraint.",
+    "suggested_action": "Add uniqueIndex('agent_tool_result_cache_exact_uidx').on(t.tenantId, t.toolName, t.canonicalArgsHash) to the schema. Update migration. Update put() to onConflictDoUpdate or onConflictDoNothing with proper target."
+  },
+  {
+    "plan_id": "14",
+    "plan_section": "§8",
+    "severity": "P1",
+    "finding_type": "observability-gap",
+    "file": "apps/api/src/modules/agents/infrastructure/observability/gateway-metrics.ts",
+    "line": 147,
+    "description": "Plan 14 §8 names three metrics that are not implemented: agent_semantic_cache_hit_rate{tool_name, hit_kind} (named differently in code as agent_semantic_cache_lookup_total — acceptable), agent_semantic_cache_cost_saved_usd, and agent_semantic_cache_put_failures_total{reason}. The latter two are entirely absent. R-14.7 also requires cache_distance attribute on semantic hits and cache_stored_at_age_seconds on the gateway:semantic-cache span — neither is stamped.",
+    "evidence": "gateway-metrics.ts defines semanticCacheLookupTotal and semanticCacheInvalidationLagMs but no cost_saved_usd or put_failures_total instruments. tool-gateway.ts:554-600 gateway:semantic-cache step stamps only { tool_name, cached_args_hash } as initial attrs; no cache_coalesced, cache_hit_kind, cache_distance, or cache_stored_at_age_seconds are set on the span.",
+    "suggested_action": "Add agent_semantic_cache_cost_saved_usd counter and agent_semantic_cache_put_failures_total{reason} counter to gateway-metrics.ts. Stamp cache_hit_kind, cache_distance (on semantic hits), and cache_stored_at_age_seconds attributes on the gateway:semantic-cache span in tool-gateway.ts."
+  },
+  {
+    "plan_id": "14",
+    "plan_section": "§8 / R-14.7",
+    "severity": "P1",
+    "finding_type": "observability-gap",
+    "file": "apps/api/src/modules/agents/application/services/tool-gateway.ts",
+    "line": 554,
+    "description": "R-14.7 requires every cacheable invocation to stamp cache_coalesced: true|false and cache_hit_kind: 'exact' | 'semantic' | 'miss' on the gateway:semantic-cache child span. The current implementation stamps neither attribute on the span. cache_hit_kind is recorded as a metric label but not as a span attribute.",
+    "evidence": "tool-gateway.ts:554-556: withGatewayStep('semantic-cache', { tool_name: descriptor.name, cached_args_hash: argsHash }, ...) — initial attrs do not include cache_coalesced or cache_hit_kind. recordStepAttrs() is not called within the semantic-cache step body to add these attributes.",
+    "suggested_action": "Add recordStepAttrs({ cache_coalesced: !!semanticHit, cache_hit_kind: semanticHit?.hitKind ?? 'miss' }) inside the withGatewayStep callback. Add cache_distance on semantic hits."
+  },
+  {
+    "plan_id": "14",
+    "plan_section": "§11 / §12",
+    "severity": "P1",
+    "finding_type": "missing-test",
+    "file": "apps/api/src/modules/agents/infrastructure/cache/semantic-result-cache.integration.spec.ts",
+    "line": 1,
+    "description": "The §11 pipeline step ordering test ('cache check runs after Resolve and before Ceiling pre-check — plan 01's span-ordering assertion harness') is not present. The §12 acceptance criterion 'golden-trace CI (plan 10) passes with semantic cache enabled' cannot be verified at this stage as no tool has cacheable: true in the registry.",
+    "evidence": "semantic-result-cache.integration.spec.ts covers RLS isolation, exact hit, semantic hit, expiry, sweeper. No pipeline ordering assertion. No cacheable tool in tool-registry/.",
+    "suggested_action": "Add pipeline ordering integration test asserting the semantic-cache step appears between resolve and ceiling-check spans. Add at least one tool with cacheable: { ttlSeconds: 60 } to the drift-fixtures or test registry for the rollout path."
+  },
+  {
+    "plan_id": "14",
+    "plan_section": "§3 / R-14.1",
+    "severity": "P1",
+    "finding_type": "contract-drift",
+    "file": "apps/api/src/modules/agents/infrastructure/cache/semantic-result-cache.ts",
+    "line": 239,
+    "description": "invalidateDomain() deletes ALL rows matching domain prefix (including non-expired ones) as intended, but the plan says it should return the purgedCount for observability (R-14.6, §4). The invalidation lag metric (agent_semantic_cache_invalidation_lag_ms) is recorded in tool-gateway.ts but does not receive the purgedCount for further audit use. Minor but the metric should also emit a 'purged_count' attribute on the span.",
+    "evidence": "semantic-result-cache.ts:248: returns { purgedCount }. tool-gateway.ts:879: recordSemanticCacheInvalidationLag(Date.now() - invalidateStart) — does not record purgedCount on the span.",
+    "suggested_action": "Add recordStepAttrs({ purged_count: count }) in the invalidateDomain then-handler in tool-gateway.ts."
+  },
+  {
+    "plan_id": "04",
+    "plan_section": "§17",
+    "severity": "INFO",
+    "finding_type": "intentional-deferral",
+    "file": "apps/api/src/modules/agents/infrastructure/repositories/null-semantic-index.repository.ts",
+    "line": 13,
+    "description": "NullSemanticIndexRepository as the default day-1 wiring is consistent with the activation gate: 'semantic recall ships opt-in per sub-agent — only sub-agents that include the recall tool in toolScope can invoke it; day-1 opt-ins are a module-local decision per the MVP 3-module set and default to off.' This is intentional per plan §16.",
+    "evidence": "Plan 04 §16: 'Semantic recall ships opt-in per sub-agent — day-1 opt-ins... default to off.' null-semantic-index.repository.ts comment confirms this intent.",
+    "suggested_action": "None for null wiring itself. However, the DrizzleSemanticIndexRepository must be built before any sub-agent can opt in. Track as a pending implementation item."
+  },
+  {
+    "plan_id": "14",
+    "plan_section": "§16",
+    "severity": "INFO",
+    "finding_type": "intentional-deferral",
+    "file": "apps/api/src/modules/agents/infrastructure/tool-registry",
+    "line": null,
+    "description": "No tool in the tool registry currently has cacheable: true in its meta. This is intentional per plan §13 rollout step 1: 'Ship the cache infrastructure with the enabled-tool set empty; cacheable meta present on zero tools.' The infrastructure is fully present and validated.",
+    "evidence": "Plan 14 §13 step 1. drift-rules.spec.ts tests cacheable-on-mutation rejection. No production tool carries cacheable in the real router.",
+    "suggested_action": "None — per plan. Rollout step 2 enables the first tool."
+  },
+  {
+    "plan_id": "04",
+    "plan_section": "§17",
+    "severity": "INFO",
+    "finding_type": "intentional-deferral",
+    "file": "apps/api/src/modules/agents/application/services/window-builder.ts",
+    "line": 108,
+    "description": "The compressed tier in buildGlobal() is a concat placeholder (not a nano-summarizer call). This is explicitly noted in the code and aligns with plan §13 Phase 4: 'enable post-turn summarization; γ compressed layer activates.' Phase 4 has not shipped.",
+    "evidence": "window-builder.ts:108: '// MVP compressed tier: concatenation placeholder (Phase 4 will call the nano summarizer)'. Plan §13 lists Phase 4 as a future rollout step.",
+    "suggested_action": "None — intentional. Track as Phase 4 work item."
+  }
+]

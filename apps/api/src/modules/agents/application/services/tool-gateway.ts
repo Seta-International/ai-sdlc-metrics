@@ -92,6 +92,8 @@ const RETRY_HINTS: Partial<Record<TripwireVariant, string>> = {
   ceiling_breach_wallclock: 'reduce the query scope — wallclock ceiling exhausted for this tool',
   permission_denied: 'you do not have permission to use this tool',
   permission_denied_disabled: 'this tool is disabled for the current turn due to a prior denial',
+  policy_violation:
+    'this tool performs writes and cannot be executed in a read-only scheduled turn; use a read-only tool instead',
 }
 
 /**
@@ -102,6 +104,8 @@ const STRUCTURALLY_SAFE_VARIANTS: ReadonlySet<TripwireVariant> = new Set([
   'procedure_not_agent_exposed',
   'procedure_out_of_sub_agent_scope',
   'abort_pre_write',
+  // policy_violation context is { toolName, reason } — no raw error strings, structurally safe.
+  'policy_violation',
 ])
 
 /**
@@ -189,6 +193,8 @@ function variantToAuditStatus(variant: TripwireVariant): AuditResultStatus {
       return 'ceiling_hit'
     case 'abort_pre_write':
       return 'aborted'
+    case 'policy_violation':
+      return 'policy_violation'
     default:
       return 'infra_error'
   }
@@ -298,6 +304,7 @@ export class ToolGateway {
       mode,
       intentSlug,
       flowId,
+      userUtterance,
     } = input
 
     const { tenantId } = requestContext
@@ -427,6 +434,66 @@ export class ToolGateway {
     }
 
     const { descriptor } = resolveOutcome
+
+    // Plan 09 R-09.6a: Read-only policy envelope — refuse mutation tools for direct dispatch.
+    // Enforced at the worker/gateway boundary BEFORE ceiling pre-check so the cost meter
+    // never starts on a refused mutation call.
+    // Draft-creation is NOT refused here because drafts are proposals (plan 08); the
+    // actual write happens at approval time. Only direct `mutation` procedure execution
+    // is refused under a read-only policy.
+    if (input.policy.readOnly === true && descriptor.procedure === 'mutation') {
+      const rawContext = { toolName: descriptor.name, reason: 'read_only_policy' }
+      const auditStart = Date.now()
+      await withGatewayStep(
+        'audit-emit',
+        { result_status: 'policy_violation', audit_row_id: undefined },
+        () =>
+          auditEmit({
+            descriptor,
+            requestContext,
+            resultStatus: 'policy_violation',
+            extraAttrs: { policy: 'read_only', reason: 'mutation_refused_under_read_only_policy' },
+            auditFacade: this.auditFacade,
+            logger: this.logger,
+          }),
+      )
+      recordStepDuration('audit-emit', Date.now() - auditStart)
+      recordToolCall(tenantId, descriptor.name, 'policy_violation')
+      recordTripwire(tenantId, 'policy_violation', 'abort')
+      return tripwire('policy_violation', 'abort', rawContext)
+    }
+
+    // Plan 08 R-08.36: Domain allowlist check for mutation tools.
+    // `people.*` mutations are gated behind `feature.agent.people_writes` (default off).
+    // `planner.*` and `projects.*` are enabled day-1.
+    // Non-whitelisted domains reject BEFORE tier classification.
+    if (descriptor.procedure === 'mutation') {
+      const domainPrefix = descriptor.name.split('.')[0] ?? ''
+      if (domainPrefix === 'people' && !input.policy.agentPeopleWritesEnabled) {
+        const rawContext = { toolName: descriptor.name, reason: 'people_writes_disabled' }
+        const auditStart = Date.now()
+        await withGatewayStep(
+          'audit-emit',
+          { result_status: 'policy_violation', audit_row_id: undefined },
+          () =>
+            auditEmit({
+              descriptor,
+              requestContext,
+              resultStatus: 'policy_violation',
+              extraAttrs: {
+                policy: 'people_writes_disabled',
+                reason: 'feature.agent.people_writes_flag_off',
+              },
+              auditFacade: this.auditFacade,
+              logger: this.logger,
+            }),
+        )
+        recordStepDuration('audit-emit', Date.now() - auditStart)
+        recordToolCall(tenantId, descriptor.name, 'policy_violation')
+        recordTripwire(tenantId, 'policy_violation', 'abort')
+        return tripwire('policy_violation', 'abort', rawContext)
+      }
+    }
 
     // Plan 08 §5: Flow-policy resolution — inserted between Resolve and Ceiling pre-check.
     // Only run for mutation tools; queries have no approval-freshness semantics.
@@ -946,6 +1013,7 @@ export class ToolGateway {
           approvalTtlHours: effectivePolicy?.approvalTtlHours,
           approvalFreshness: effectivePolicy?.approvalFreshness,
           summary: `Draft action: ${descriptor.name}`,
+          userUtterance,
         })
       } catch (draftErr: unknown) {
         this.logger.error(

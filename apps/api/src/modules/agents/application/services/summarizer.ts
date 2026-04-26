@@ -257,7 +257,7 @@ export class Summarizer {
   /** Emit a P2 alert metric. Concrete implementation would call a metrics client. */
   private emitCircuitBreakerAlert(conversationId: string, tenantId: string): void {
     // In production: metrics.increment('agent_summary_circuit_broken_total', { tenantId })
-    // Logging as a fallback for MVP observability (Langfuse/OTEL deferred per CLAUDE.md)
+    // Logging as a fallback for MVP observability (trace backend deferred per CLAUDE.md)
     console.error(
       `[P2 ALERT] Summary circuit breaker tripped: conversationId=${conversationId} tenantId=${tenantId}`,
     )

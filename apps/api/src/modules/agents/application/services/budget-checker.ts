@@ -3,6 +3,11 @@ import { and, eq } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { agentTenantBudget, agentUserBudget } from '../../infrastructure/schema/agents.schema'
+import {
+  setBudgetRemaining,
+  setBudgetUserRemaining,
+  recordTierShift,
+} from '../../infrastructure/observability/cost-metrics'
 
 // ─── Return types ─────────────────────────────────────────────────────────────
 
@@ -68,22 +73,39 @@ export class BudgetChecker {
       return { allowed: false, tier: 'refused', reason: 'user_daily_budget' }
     }
 
+    // Compute user-scoped remaining for the gauge (Plan 05 §6).
+    // When a user budget row exists, use its remaining balance.
+    // When no user budget row is present, the user has no per-user cap — snapshot
+    // the tenant remaining as a proxy (bounded by the tenant ceiling).
+    const userRemainingUsd = userBudget !== undefined ? Number(userBudget.remainingUsd) : remaining
+
     // Step 5 — check tenant 100%
     if (remaining <= 0) {
+      // Snapshot remaining budget gauges (both tenant and user-scoped) at 0
+      setBudgetRemaining(opts.tenantId, 0)
+      setBudgetUserRemaining(opts.tenantId, 0)
       return { allowed: false, tier: 'refused', reason: 'tenant_daily_budget' }
     }
 
     // Step 6 — check 95–100% range → downgrade to nano (spec §5: before insufficient_minimum)
     if (usedPct >= 0.95) {
+      // Snapshot remaining budget + user-scoped gauge, then emit tier shift metric (budget origin)
+      setBudgetRemaining(opts.tenantId, remaining)
+      setBudgetUserRemaining(opts.tenantId, userRemainingUsd)
+      recordTierShift(opts.tenantId, 'full', 'nano', 'budget')
       return { allowed: true, tier: 'nano', tierShift: true }
     }
 
     // Step 7 — check insufficient minimum ($0.10)
     if (remaining < 0.1) {
+      setBudgetRemaining(opts.tenantId, remaining)
+      setBudgetUserRemaining(opts.tenantId, userRemainingUsd)
       return { allowed: false, tier: 'refused', reason: 'insufficient_minimum' }
     }
 
     // Step 8 — default: full tier
+    setBudgetRemaining(opts.tenantId, remaining)
+    setBudgetUserRemaining(opts.tenantId, userRemainingUsd)
     return { allowed: true, tier: 'full', tierShift: false }
   }
 

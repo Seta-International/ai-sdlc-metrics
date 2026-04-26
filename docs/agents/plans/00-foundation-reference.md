@@ -13,7 +13,7 @@
 - `agent_prompt_store` Drizzle migrations + RLS + append-only repository (content-hash primary key).
 - `agent_narrative_store` Drizzle migrations + RLS + append-only repository (permission narrative cache).
 - `project_to_schema` pure sanitization function (field-drop projection; errors on shape mismatch).
-- Langfuse OTel wiring at module bootstrap.
+- OTel trace exporter wiring at module bootstrap.
 - Kernel audit events on first-write to either store.
 
 ### Out
@@ -103,25 +103,25 @@ project_to_schema<T>(source: unknown, schema: ZodType<T>): T
 | R-00.4 | First-write emits kernel audit event                                              | §8        |
 | R-00.5 | `project_to_schema` is pure: same inputs → same outputs, no side effects          | §3        |
 | R-00.6 | `project_to_schema` raises on schema mismatch rather than silently coercing       | §3        |
-| R-00.7 | Langfuse OTel exporter wired at `apps/api` bootstrap with `tenant_id` inheritance | §12       |
+| R-00.7 | OTel trace exporter wired at `apps/api` bootstrap with `tenant_id` inheritance    | §12       |
 
 ---
 
 ## 7. Failure Modes & Recovery
 
-| Failure                               | Symptom                      | Recovery                                                               |
-| ------------------------------------- | ---------------------------- | ---------------------------------------------------------------------- |
-| Concurrent appends with same hash     | Unique constraint violation  | Idempotent; second insert treated as no-op.                            |
-| Kernel audit write fails              | Partial observability        | Log; retry via outbox (plan 11 or caller-driven).                      |
-| `project_to_schema` schema mismatch   | `SchemaMismatchError` raised | Caller catches + handles (typically a bug, treat as programmer error). |
-| Langfuse exporter unreachable at boot | Spans buffer in memory       | Bounded buffer; drop oldest; alert.                                    |
+| Failure                             | Symptom                      | Recovery                                                               |
+| ----------------------------------- | ---------------------------- | ---------------------------------------------------------------------- |
+| Concurrent appends with same hash   | Unique constraint violation  | Idempotent; second insert treated as no-op.                            |
+| Kernel audit write fails            | Partial observability        | Log; retry via outbox (plan 11 or caller-driven).                      |
+| `project_to_schema` schema mismatch | `SchemaMismatchError` raised | Caller catches + handles (typically a bug, treat as programmer error). |
+| Trace exporter unreachable at boot  | Spans buffer in memory       | Bounded buffer; drop oldest; alert.                                    |
 
 ---
 
 ## 8. Observability Surface
 
 - Kernel audit: `agent.prompt_stored`, `agent.narrative_stored` with `content_hash`.
-- Langfuse wiring emits trace spans from `apps/api` bootstrap forward.
+- Trace exporter wiring emits trace spans from `apps/api` bootstrap forward.
 - Metric `agent_prompt_store_append_total{layer}` (shipped).
 
 ---
@@ -149,7 +149,7 @@ Shipped. Tests cover:
 - Kernel audit emission on first-write only.
 - `project_to_schema` drops unknown fields + raises on mismatch.
 - Cross-tenant RLS isolation.
-- Langfuse bootstrap smoke test.
+- Trace exporter bootstrap smoke test.
 
 ---
 
@@ -159,7 +159,7 @@ Shipped (PR #73 merged):
 
 - Migration applies cleanly with `FORCE ROW LEVEL SECURITY`.
 - Unit tests green; RLS integration test green.
-- Langfuse traces produce at startup smoke test with `tenant_id`.
+- Trace exporter produces spans at startup smoke test with `tenant_id`.
 
 ---
 
@@ -180,7 +180,7 @@ None — foundation layer.
 - `apps/api/src/modules/agents/infrastructure/repositories/` — store repos.
 - `apps/api/src/modules/agents/domain/services/sanitizer.ts` — `project_to_schema`.
 - `apps/api/src/modules/kernel/` — audit facade.
-- Langfuse OTel — `apps/api` bootstrap.
+- OTel trace exporter — `apps/api` bootstrap.
 
 ## 16. Activation Gate
 

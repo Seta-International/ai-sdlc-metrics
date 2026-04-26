@@ -53,7 +53,7 @@ Every decision in this document derives from these. If a future change violates 
 - **Propagates across async boundary.** If an event-triggered schedule fires due to tenant-authored content, the async turn starts tainted; seeded at job spawn in the pg-boss row.
 - **Rendered narratively, not as a flag.** See §8.
 
-**`tenantAuthoredFreeText` does triple duty** (one declaration, three uses): (a) gateway wraps these fields in `<tenant_authored>` delimiters in prompts; (b) gateway flips the turn's taint flag; (c) Langfuse pre-capture hook redacts these fields from stored traces.
+**`tenantAuthoredFreeText` does triple duty** (one declaration, three uses): (a) gateway wraps these fields in `<tenant_authored>` delimiters in prompts; (b) gateway flips the turn's taint flag; (c) trace-backend pre-capture hook redacts these fields from stored traces.
 
 **Downward DI invariant:** The agent module's dependency surface includes `TrpcCaller` only. Domain service class imports from the agent module are banned at lint level. "Perf optimization by injecting the domain service directly" is a security gap in disguise — it bypasses the entire middleware chain.
 
@@ -316,10 +316,10 @@ Four conceptual layers. v1 scope:
 
 **GDPR / right-to-erasure:**
 
-- **Hard-delete content, retain anonymized shell.** `agent_message.content`, `agent_message.summary`, L3 memory entries, and any tool-output previews containing the user's personal data are hard-deleted (nulled or overwritten, not soft-flagged). The row shell (`id`, `trace_id`, `created_at`, `conversation_id`) survives so kernel audit events and Langfuse trace joins do not dangle — these fields carry no personal data on their own.
-- **Redact + retain:** audit trail and Langfuse traces under documented legitimate-interest retention (duration pinned explicitly per compliance policy). Content fields are redacted on erasure; structural fields (trace_id, timestamps, tool name, permission key) survive for compliance defensibility.
-- **Purge-by-user-id operation against Langfuse** — required because the user's own utterance is their personal data and is not covered by `tenantAuthoredFreeText` redaction (which targets _other_ tenant users' text). Wired to the same erasure pipeline as DB deletes.
-- **Single erasure pipeline.** One request fans out to: DB hard-delete (content only), Langfuse purge-by-user-id, L3 delete. Partial success is a compliance incident; the pipeline must be transactional or compensating.
+- **Hard-delete content, retain anonymized shell.** `agent_message.content`, `agent_message.summary`, L3 memory entries, and any tool-output previews containing the user's personal data are hard-deleted (nulled or overwritten, not soft-flagged). The row shell (`id`, `trace_id`, `created_at`, `conversation_id`) survives so kernel audit events and trace-backend joins do not dangle — these fields carry no personal data on their own.
+- **Redact + retain:** audit trail and trace-backend traces under documented legitimate-interest retention (duration pinned explicitly per compliance policy). Content fields are redacted on erasure; structural fields (trace_id, timestamps, tool name, permission key) survive for compliance defensibility.
+- **Trace-backend purge support** — the trace backend selection is deferred per CLAUDE.md. Trace backend providers supporting user-scoped purge are preferred during vendor selection. This is required because the user's own utterance is their personal data and is not covered by `tenantAuthoredFreeText` redaction (which targets _other_ tenant users' text).
+- **Single erasure pipeline.** One request fans out to: DB hard-delete (content only), trace-backend purge (if supported by selected vendor), L3 delete. Partial success is a compliance incident; the pipeline must be transactional or compensating.
 
 ---
 
@@ -428,7 +428,7 @@ Rationale: at ~10 tools per sub-agent the accuracy cliff begins (§3 rationale).
 - **Tripwire is structured, not thrown.** Each tripwire returns a discriminated variant matching §4's error classes. Uncaught throws are runtime bugs, not a control-flow path — they escalate to the `error` turn-end reason.
 - **Tripwire carries a disposition: `abort | retry`.** `abort` terminates the tool call and surfaces the error to the model (default). `retry` returns structured feedback to the model so it can re-issue the call with narrower args (applies to tool-scope ceiling breach and soft validation failures; never to permission denials or pre-write abort-signal). Retry disposition prevents one ceiling bump from terminating an otherwise-healthy sub-agent. Taint-wrap is idempotent across retries; span cardinality is capped (see below). Inspired by mastra's `TripWireOptions.retry` (spike 07-processors).
 - **No plugin seam at MVP.** The pipeline is fixed; new steps require a design change reviewed against the shadow-ready invariant and the single-abort-path contract. Extension points are deliberate, not free. Beta reconsideration: output post-processors only (e.g. PII redaction), never input pre-processors that could weaken the security boundary.
-- **Every step is a child span.** Observability parity across pipeline steps is non-negotiable — retrofitting span coverage on a gateway that pre-dates it is measurably more expensive (Tenet #6). **Span naming convention: `gateway:<step-name>`** (e.g. `gateway:resolve`, `gateway:taint-wrap`, `gateway:ceiling-check`) — parallels mastra's `input processor: <id>` / `output processor: <id>` pattern and keeps Langfuse hierarchy scannable.
+- **Every step is a child span.** Observability parity across pipeline steps is non-negotiable — retrofitting span coverage on a gateway that pre-dates it is measurably more expensive (Tenet #6). **Span naming convention: `gateway:<step-name>`** (e.g. `gateway:resolve`, `gateway:taint-wrap`, `gateway:ceiling-check`) — parallels mastra's `input processor: <id>` / `output processor: <id>` pattern and keeps trace-backend hierarchy scannable.
 - **Per-step attribute recording.** Each pipeline step records its mutations to the outbound tool-call as span attributes (e.g. `taint_wrap.fields_wrapped: ["notes", "comment"]`, `ceiling.bytes_remaining: 48_392_100`). Debuggability without inferring from trace deltas.
 
 **Tool results stored pre-render** — as structured objects. `<tenant_authored>` wrappers are applied at inject time, not on storage. Re-rendering strategy can change without re-sanitizing historical data.
@@ -706,7 +706,7 @@ In both cases the pg-boss job carries a delegation token, not copied credentials
 
 ## 12. Observability
 
-**Collector: Langfuse (self-hosted).** LLM-native span-level tracing, prompt/response capture, per-trace metadata, sampling rules, retention.
+**Collector: Trace backend (vendor deferred).** LLM-native span-level tracing, prompt/response capture, per-trace metadata, sampling rules, retention. Selection deferred per CLAUDE.md; OTel trace exporter for vendor-neutral integration.
 
 **Tier strategy:**
 
@@ -727,17 +727,17 @@ Uniform 1% misses the rare high-signal events — exactly the ones you need for 
 
 **Trace attributes (not just span attributes):**
 
-- `tenant_id` — required, stamped at router entry, inherited by every child span. Langfuse's tenant-scoped views depend on this.
+- `tenant_id` — required, stamped at router entry, inherited by every child span. Trace backend's tenant-scoped views depend on this.
 - `trace_id` — single UUID generated at router entry, stamped on:
   - `agent_message.trace_id`
   - every kernel audit event for tools called this turn
-  - the Langfuse trace
+  - the trace-backend trace
   - the pg-boss job row (for async)
 - `flow_id` — single UUID generated at router entry, scoped to the **user intent** (distinct from `trace_id` which is per-turn; a multi-turn flow like draft → approval → execute shares one `flow_id` across multiple `trace_id`s). Stamped on:
   - every span in the turn (including every `gateway:<step>` child span)
   - every kernel audit event for tools called this turn
   - every draft / approval / execution event related to the flow
-  - the Langfuse trace as `metadata.flow_id` + `tags=[intent:<slug>]` (vendor-agnostic; Langfuse renders `tags` as filterable facets)
+  - the trace-backend trace as `metadata.flow_id` + `tags=[intent:<slug>]` (vendor-agnostic; trace backend renders `tags` as filterable facets)
 - `intent_slug` — from the module-declared slug registry (§2.2 EI-3). A controlled vocabulary — new slugs only via a `modules/<X>/agent/intents/*.ts` declaration reviewed at PR. Stamped on the same surfaces as `flow_id`.
 - **Four IDs to grep.** `tenant_id` / `trace_id` / `flow_id` / `intent_slug`. End-to-end correlation across every log surface; per-intent dashboards are a direct query rather than post-hoc inference from tool sequences.
 
@@ -754,9 +754,9 @@ Captured explicitly at trace-emit time, not inferred from timestamps. "Did v8 re
 - User's own utterance requires a separate purge-by-user-id operation for GDPR (covered in §6).
 - Retrospective scrubbing after a GDPR request is a nightmare; do it at write time.
 
-**Tool-output audit trail (separate from Langfuse, kernel-owned):**
+**Tool-output audit trail (separate from trace backend, kernel-owned):**
 
-Every tool call stores: `name, args, result_preview (first N bytes), result_hash, byte_count`. Tenant-partitioned via RLS. Correlation to Langfuse via shared `trace_id`.
+Every tool call stores: `name, args, result_preview (first N bytes), result_hash, byte_count`. Tenant-partitioned via RLS. Correlation to trace backend via shared `trace_id`.
 
 Rationale: a successful injection is invisible in postmortem without this. You cannot reconstruct "what was in context when the agent drafted this write" from traces alone. Cheap insurance.
 
@@ -1055,7 +1055,7 @@ Registration-time enforcement means a dev cannot accidentally ship an LLM-judge 
 
 **Does not stream:**
 
-- **Sub-agent ReAct traces** — Langfuse only. Exposing intermediate hallucinations and retries pollutes UX and trains users to distrust the agent.
+- **Sub-agent ReAct traces** — captured in trace backend only. Exposing intermediate hallucinations and retries pollutes UX and trains users to distrust the agent.
 - **Drafted writes** — atomic "pending action" card after synthesizer decides. Partial-draft streams let users click approve on incomplete drafts.
 
 **Phase-event granularity:**
@@ -1173,7 +1173,7 @@ Drafts fire after `answer.complete` to avoid half-rendered state: the UI commits
 ### 15.6 UI Deep-Linking
 
 - **End users:** deep-link from conversation message → audit-trail summary (redacted-safe view).
-- **Dev users:** deep-link from conversation message → Langfuse trace (full context) + replay harness (§8) for 100%-captured turns.
+- **Dev users:** deep-link from conversation message → trace-backend trace (full context) + replay harness (§8) for 100%-captured turns.
 
 One `trace_id` namespace end-to-end makes all of this cheap.
 
@@ -1312,7 +1312,7 @@ These do not block production readiness — they are scheduling-and-process ques
 - **Implicit memory inheritance from parent agent.** Mastra silently assigns parent memory to sub-agent with none (`agent.ts:3305-3306`). Our `memoryScope` is explicit, opt-in per tier.
 - **Free-text `additionalInstructions` router-prompt addendum.** Breaks prompt-hash stability (§8) and is a latent injection surface. Tenant routing variation belongs in `whenToUse` per sub-agent (§3).
 - **`mastra-versions-key` per-request version override via context.** Our A/B stability keys resolve via `tenant_id` hashing (§14); per-request override defeats stability.
-- **Exporter plugin framework for observability.** We commit to Langfuse directly; thin `ObservabilityExporter` interface is over-engineering for a single backend.
+- **Observability backend selection.** Trace backend selection is deferred per CLAUDE.md; integration via standard OTel trace exporter for vendor neutrality.
 - **Streaming tool-call args to client.** Our sub-agent tool calls are hidden from client UX (§15.1). Mastra streams because their tools are user-observable — different contract, correct divergence.
 
 **Closed in this revision:** sub-agent declaration site (§3), gateway processor pipeline (§7), tool-result caching semantics (§7), confidence calibration signal (§12), prior-art review scope (§17). **Closed in implementation doc:** agent module internal structure.
@@ -1355,13 +1355,13 @@ Observable thresholds the runtime must meet to be called production-ready. **Cri
 
 ### 18.4 Observability
 
-| Criterion                                         | Evidence                                                                                                                                       |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `trace_id` correlation end-to-end                 | Sample 100 random traces monthly; every trace has matching rows in `agent_message`, `kernel_audit`, Langfuse, pg-boss (if async). Zero dangle. |
-| Stratified-sampling trigger coverage              | All 5 MVP triggers (+ Beta/GA additions) fire 100%-capture in the last 30 days with verifiable count ≥1 each.                                  |
-| Canary detects ≥1 planted degradation per quarter | Quarterly red-team: deliberately-broken prompt deployed to fixture tenant; canary flags degraded within 30 minutes.                            |
-| PII redaction at capture                          | Every 100%-captured trace scanned for `tenantAuthoredFreeText` leakage; zero hits.                                                             |
-| Replay coverage on 100%-captured turns            | 100% — every 100%-sample trace can be replay-reconstructed without any `lookup_miss` error.                                                    |
+| Criterion                                         | Evidence                                                                                                                                            |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `trace_id` correlation end-to-end                 | Sample 100 random traces monthly; every trace has matching rows in `agent_message`, `kernel_audit`, trace backend, pg-boss (if async). Zero dangle. |
+| Stratified-sampling trigger coverage              | All 5 MVP triggers (+ Beta/GA additions) fire 100%-capture in the last 30 days with verifiable count ≥1 each.                                       |
+| Canary detects ≥1 planted degradation per quarter | Quarterly red-team: deliberately-broken prompt deployed to fixture tenant; canary flags degraded within 30 minutes.                                 |
+| PII redaction at capture                          | Every 100%-captured trace scanned for `tenantAuthoredFreeText` leakage; zero hits.                                                                  |
+| Replay coverage on 100%-captured turns            | 100% — every 100%-sample trace can be replay-reconstructed without any `lookup_miss` error.                                                         |
 
 ### 18.5 Rollout safety
 
@@ -1416,7 +1416,7 @@ Pre-GA (MVP / Beta) operates under the same architectural invariants; the differ
 - **Shadow-ready gateway** — gateway interface accepts `mode: 'execute' | 'dry-run'` from v1, enabling v1.5 shadow-mode traffic without surface-wide retrofit.
 - **Two-phase bounded execution** — router plan with Phase 1 (parallel ≤3 sub-agents) + optional Phase 2 (parallel ≤3 sub-agents consuming Phase 1's sanitized output). Tier 1 of the topology taxonomy. No phase 3; no in-phase branching.
 - **Tier 0 / Tier 1 / Tier 2 / Tier 3** — topology taxonomy (§3). Tier 0 = direct execution (single tool call, no sub-agent); Tier 1 = bounded DAG; Tier 2 = iterative supervisor (§3.1); Tier 3 = async autonomous (§11).
-- **`flow_id`** — per-user-intent UUID, trace-level attribute. A multi-turn flow (draft → approval → execute) shares one `flow_id` across multiple `trace_id`s. Stamped on every span, every kernel audit event, and Langfuse metadata (§12).
+- **`flow_id`** — per-user-intent UUID, trace-level attribute. A multi-turn flow (draft → approval → execute) shares one `flow_id` across multiple `trace_id`s. Stamped on every span, every kernel audit event, and trace-backend metadata (§12).
 - **`intent_slug`** — controlled-vocabulary identifier of the user's intent; declared per-module via `modules/<X>/agent/intents/*.ts`. Stamped alongside `flow_id`.
 - **`directExecutable`** — tool-meta field marking a tool as eligible for Tier-0 direct execution. Rejected by drift test on mutations and tainted-output tools.
 - **`cacheable`** — tool-meta field enabling semantic result cache participation (plan 14). Rejected by drift test on mutations.

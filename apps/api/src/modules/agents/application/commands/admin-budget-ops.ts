@@ -4,6 +4,7 @@ import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { agentTenantBudget } from '../../infrastructure/schema/agents.schema'
+import { recordBudgetRefill } from '../../infrastructure/observability/cost-metrics'
 
 // ─── AdminBudgetOps ───────────────────────────────────────────────────────────
 
@@ -50,6 +51,9 @@ export class AdminBudgetOps {
         reason: opts.reason,
       },
     })
+
+    // Emit budget refill metric (Plan 05 §8, R-05.33–R-05.34).
+    recordBudgetRefill(opts.tenantId, 'admin_topup')
   }
 
   /**

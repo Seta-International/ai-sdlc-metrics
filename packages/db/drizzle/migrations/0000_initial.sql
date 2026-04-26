@@ -232,6 +232,21 @@ CREATE TABLE "agents"."agent_schedule" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "agents"."agent_semantic_index" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"sub_agent_id" text,
+	"source_id" uuid NOT NULL,
+	"source_type" text NOT NULL,
+	"chunk_text" text NOT NULL,
+	"embedding" jsonb NOT NULL,
+	"embedding_model" text NOT NULL,
+	"retention_policy" text DEFAULT '90d' NOT NULL,
+	"metadata" jsonb,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "agents"."agent_tool_embedding" (
 	"tool_name" text NOT NULL,
 	"content_hash" text NOT NULL,
@@ -787,6 +802,8 @@ CREATE TABLE "core"."audit_event" (
 	"module" text NOT NULL,
 	"subject_id" text NOT NULL,
 	"payload" jsonb NOT NULL,
+	"flow_id" uuid,
+	"intent_slug" varchar(120),
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -1784,8 +1801,11 @@ CREATE INDEX "agent_schedule_run_tenant_trace_idx" ON "agents"."agent_schedule_r
 CREATE INDEX "agent_schedule_tenant_status_trigger_idx" ON "agents"."agent_schedule" USING btree ("tenant_id","status","trigger_kind");--> statement-breakpoint
 CREATE INDEX "agent_schedule_tenant_owner_status_idx" ON "agents"."agent_schedule" USING btree ("tenant_id","owner_user_id","status");--> statement-breakpoint
 CREATE INDEX "agent_schedule_tenant_delegation_idx" ON "agents"."agent_schedule" USING btree ("tenant_id","delegation_id");--> statement-breakpoint
+CREATE INDEX "agent_semantic_index_tenant_user_idx" ON "agents"."agent_semantic_index" USING btree ("tenant_id","user_id");--> statement-breakpoint
+CREATE INDEX "agent_semantic_index_tenant_user_subagent_idx" ON "agents"."agent_semantic_index" USING btree ("tenant_id","user_id","sub_agent_id");--> statement-breakpoint
+CREATE INDEX "agent_semantic_index_source_idx" ON "agents"."agent_semantic_index" USING btree ("tenant_id","source_id");--> statement-breakpoint
 CREATE INDEX "agent_tool_embedding_tool_name_idx" ON "agents"."agent_tool_embedding" USING btree ("tool_name");--> statement-breakpoint
-CREATE INDEX "agent_tool_result_cache_exact_idx" ON "agents"."agent_tool_result_cache" USING btree ("tenant_id","tool_name","canonical_args_hash");--> statement-breakpoint
+CREATE UNIQUE INDEX "agent_tool_result_cache_exact_uidx" ON "agents"."agent_tool_result_cache" USING btree ("tenant_id","tool_name","canonical_args_hash");--> statement-breakpoint
 CREATE INDEX "agent_tool_result_cache_tenant_tool_idx" ON "agents"."agent_tool_result_cache" USING btree ("tenant_id","tool_name");--> statement-breakpoint
 CREATE INDEX "agent_active_turn_tenant_started_idx" ON "agents"."agent_active_turn" USING btree ("tenant_id","started_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_active_turn_heartbeat_idx" ON "agents"."agent_active_turn" USING btree ("last_heartbeat_at");--> statement-breakpoint
@@ -1793,6 +1813,7 @@ CREATE INDEX "agent_canary_query_tier_status_idx" ON "agents"."agent_canary_quer
 CREATE INDEX "agent_canary_query_tenant_quarter_idx" ON "agents"."agent_canary_query" USING btree ("tenant_id","rotation_quarter");--> statement-breakpoint
 CREATE INDEX "agent_canary_run_tier_run_at_idx" ON "agents"."agent_canary_run" USING btree ("tier","run_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_message_tenant_user_conv_created_idx" ON "agents"."agent_message" USING btree ("tenant_id","user_id","conversation_id","created_at");--> statement-breakpoint
+CREATE INDEX "agent_message_fts_idx" ON "agents"."agent_message" USING gin (to_tsvector('simple', CASE WHEN "role" = 'user' THEN coalesce("content"->>'text','') ELSE '' END || ' ' || coalesce("summary",'')));--> statement-breakpoint
 CREATE UNIQUE INDEX "agent_conversation_scope_active_uidx" ON "agents"."agent_conversation" USING btree ("tenant_id","user_id","surface") WHERE status = 'active';--> statement-breakpoint
 CREATE INDEX "agent_conversation_tenant_user_status_updated_idx" ON "agents"."agent_conversation" USING btree ("tenant_id","user_id","status","updated_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_cost_event_tenant_created_idx" ON "agents"."agent_cost_event" USING btree ("tenant_id","created_at" DESC NULLS LAST);--> statement-breakpoint
@@ -1825,6 +1846,8 @@ CREATE INDEX "idx_sync_history_tenant_started" ON "identity"."sync_history" USIN
 CREATE UNIQUE INDEX "tenant_domain_domain_uidx" ON "identity"."tenant_domain" USING btree ("domain");--> statement-breakpoint
 CREATE INDEX "agent_delegation_tenant_delegator_status_idx" ON "core"."agent_delegation" USING btree ("tenant_id","delegator_user_id","status");--> statement-breakpoint
 CREATE INDEX "agent_delegation_tenant_status_expires_idx" ON "core"."agent_delegation" USING btree ("tenant_id","status","expires_at");--> statement-breakpoint
+CREATE INDEX "audit_event_flow_id_idx" ON "core"."audit_event" USING btree ("flow_id");--> statement-breakpoint
+CREATE INDEX "audit_event_intent_slug_idx" ON "core"."audit_event" USING btree ("intent_slug");--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_role_permission_tenant_role_perm" ON "core"."role_permission" USING btree ("tenant_id","role_key","permission_key");--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_user_identity_tenant_sso_subject" ON "core"."user_identity" USING btree ("tenant_id","sso_subject");--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_notification_preference" ON "notifications"."notification_preference" USING btree ("tenant_id","actor_id","category");--> statement-breakpoint
@@ -1859,3 +1882,269 @@ CREATE INDEX "idx_task_evidence_task_submitted" ON "planner"."task_evidence" USI
 CREATE INDEX "idx_task_evidence_tenant_submitted_by" ON "planner"."task_evidence" USING btree ("tenant_id","submitted_by");--> statement-breakpoint
 CREATE INDEX "saved_view_tenant_actor_resource_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key");--> statement-breakpoint
 CREATE UNIQUE INDEX "saved_view_unique_default_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key") WHERE is_default = true;
+-- BEGIN RLS DDL (generated by packages/db/src/append-rls.ts) — DO NOT EDIT
+-- Generated by packages/db/src/append-rls.ts — do not edit manually.
+
+-- agents.agent_chat_session
+ALTER TABLE agents.agent_chat_session ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_chat_session FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_chat_session_tenant_isolation
+  ON agents.agent_chat_session
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_chat_message
+ALTER TABLE agents.agent_chat_message ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_chat_message FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_chat_message_tenant_isolation
+  ON agents.agent_chat_message
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_insight
+ALTER TABLE agents.agent_insight ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_insight FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_insight_tenant_isolation
+  ON agents.agent_insight
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_prompt_store
+ALTER TABLE agents.agent_prompt_store ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_prompt_store FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_prompt_store_tenant_isolation
+  ON agents.agent_prompt_store
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_narrative_store
+ALTER TABLE agents.agent_narrative_store ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_narrative_store FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_narrative_store_tenant_isolation
+  ON agents.agent_narrative_store
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_session
+ALTER TABLE agents.agent_session ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_session FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_session_tenant_isolation
+  ON agents.agent_session
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_stored_sub_agent
+ALTER TABLE agents.agent_stored_sub_agent ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_stored_sub_agent FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_stored_sub_agent_tenant_isolation
+  ON agents.agent_stored_sub_agent
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_conversation
+ALTER TABLE agents.agent_conversation ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_conversation FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_conversation_tenant_isolation
+  ON agents.agent_conversation
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_message
+ALTER TABLE agents.agent_message ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_message FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_message_tenant_isolation
+  ON agents.agent_message
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_l3_preference
+ALTER TABLE agents.agent_l3_preference ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_l3_preference FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_l3_preference_tenant_isolation
+  ON agents.agent_l3_preference
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_scratchpad
+ALTER TABLE agents.agent_scratchpad ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_scratchpad FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_scratchpad_tenant_isolation
+  ON agents.agent_scratchpad
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_tool_invocation
+ALTER TABLE agents.agent_tool_invocation ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_tool_invocation FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_tool_invocation_tenant_isolation
+  ON agents.agent_tool_invocation
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_turn_sampling_decision
+ALTER TABLE agents.agent_turn_sampling_decision ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_turn_sampling_decision FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_turn_sampling_decision_tenant_isolation
+  ON agents.agent_turn_sampling_decision
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_cost_event
+ALTER TABLE agents.agent_cost_event ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_cost_event FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_cost_event_tenant_isolation
+  ON agents.agent_cost_event
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_tenant_budget
+ALTER TABLE agents.agent_tenant_budget ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_tenant_budget FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_tenant_budget_tenant_isolation
+  ON agents.agent_tenant_budget
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_user_budget
+ALTER TABLE agents.agent_user_budget ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_user_budget FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_user_budget_tenant_isolation
+  ON agents.agent_user_budget
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_rate_limit_counter
+ALTER TABLE agents.agent_rate_limit_counter ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_rate_limit_counter FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_rate_limit_counter_tenant_isolation
+  ON agents.agent_rate_limit_counter
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_active_turn
+ALTER TABLE agents.agent_active_turn ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_active_turn FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_active_turn_tenant_isolation
+  ON agents.agent_active_turn
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_golden_trace
+ALTER TABLE agents.agent_golden_trace ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_golden_trace FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_golden_trace_tenant_isolation
+  ON agents.agent_golden_trace
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_canary_run
+ALTER TABLE agents.agent_canary_run ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_canary_run FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_canary_run_tenant_isolation
+  ON agents.agent_canary_run
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_canary_query
+ALTER TABLE agents.agent_canary_query ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_canary_query FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_canary_query_tenant_isolation
+  ON agents.agent_canary_query
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_rollout_config
+ALTER TABLE agents.agent_rollout_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_rollout_config FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_rollout_config_tenant_isolation
+  ON agents.agent_rollout_config
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_rollout_event
+ALTER TABLE agents.agent_rollout_event ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_rollout_event FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_rollout_event_tenant_isolation
+  ON agents.agent_rollout_event
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_shadow_run
+ALTER TABLE agents.agent_shadow_run ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_shadow_run FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_shadow_run_tenant_isolation
+  ON agents.agent_shadow_run
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_tool_result_cache
+ALTER TABLE agents.agent_tool_result_cache ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_tool_result_cache FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_tool_result_cache_tenant_isolation
+  ON agents.agent_tool_result_cache
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_draft
+ALTER TABLE agents.agent_draft ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_draft FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_draft_tenant_isolation
+  ON agents.agent_draft
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_iteration
+ALTER TABLE agents.agent_iteration ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_iteration FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_iteration_tenant_isolation
+  ON agents.agent_iteration
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_schedule
+ALTER TABLE agents.agent_schedule ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_schedule FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_schedule_tenant_isolation
+  ON agents.agent_schedule
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_schedule_run
+ALTER TABLE agents.agent_schedule_run ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_schedule_run FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_schedule_run_tenant_isolation
+  ON agents.agent_schedule_run
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_runbook_dry_run
+ALTER TABLE agents.agent_runbook_dry_run ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_runbook_dry_run FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_runbook_dry_run_tenant_isolation
+  ON agents.agent_runbook_dry_run
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_p1_incident_log
+ALTER TABLE agents.agent_p1_incident_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_p1_incident_log FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_p1_incident_log_tenant_isolation
+  ON agents.agent_p1_incident_log
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_semantic_index
+ALTER TABLE agents.agent_semantic_index ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_semantic_index FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_semantic_index_tenant_isolation
+  ON agents.agent_semantic_index
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- core.agent_delegation
+ALTER TABLE core.agent_delegation ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.agent_delegation FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_delegation_tenant_isolation
+  ON core.agent_delegation
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);

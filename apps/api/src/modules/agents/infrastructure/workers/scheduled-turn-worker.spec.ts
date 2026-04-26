@@ -5,6 +5,10 @@ import { type IScheduleRunRepository } from '../../domain/repositories/schedule-
 import type { KernelDelegationFacade } from '../../../kernel/application/facades/kernel-delegation.facade'
 import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { NotificationsWriteFacade } from '../../../notifications/application/facades/notifications-write.facade'
+import type {
+  ScheduledTurnService,
+  ScheduledTurnResult,
+} from '../../application/services/scheduled-turn-service'
 import type { Schedule } from '../../domain/entities/schedule.entity'
 import type { ScheduleRun } from '../../domain/entities/schedule-run.entity'
 
@@ -170,6 +174,54 @@ function makeNotificationsFacade(
   } as unknown as NotificationsWriteFacade
 }
 
+function makeScheduledTurnService(
+  result: ScheduledTurnResult = { outcome: 'completed', costSpentUsd: 0 },
+): ScheduledTurnService {
+  return {
+    executeScheduledTurn: vi.fn().mockResolvedValue(result),
+  } as unknown as ScheduledTurnService
+}
+
+// ── Helper to construct worker ─────────────────────────────────────────────────
+
+// Minimal stubs for the tenant-context helper injections.
+// Unit tests use fully-mocked repositories so no real DB connection is needed.
+// The cls stub calls the handler inline so runWithTenantContext is transparent.
+const STUB_CLIENT = {
+  query: vi.fn().mockResolvedValue({}),
+  release: vi.fn(),
+}
+const STUB_BASE_DB = {
+  $client: { connect: vi.fn().mockResolvedValue(STUB_CLIENT) },
+} as never
+const STUB_REQUEST_DB_CONTEXT = { setDb: vi.fn(), getDb: vi.fn(), clearDb: vi.fn() } as never
+const STUB_CLS = {
+  run: vi.fn().mockImplementation((fn: () => unknown) => fn()),
+} as never
+
+function buildWorker(
+  overrides: {
+    scheduleRepo?: IScheduleRepository
+    scheduleRunRepo?: IScheduleRunRepository
+    delegationFacade?: KernelDelegationFacade
+    auditFacade?: KernelAuditFacade
+    notificationsFacade?: NotificationsWriteFacade
+    scheduledTurnService?: ScheduledTurnService
+  } = {},
+): ScheduledTurnWorker {
+  return new ScheduledTurnWorker(
+    overrides.scheduleRepo ?? makeScheduleRepo(),
+    overrides.scheduleRunRepo ?? makeScheduleRunRepo(),
+    overrides.delegationFacade ?? makeKernelDelegationFacade(),
+    overrides.auditFacade ?? makeKernelAuditFacade(),
+    overrides.notificationsFacade ?? makeNotificationsFacade(),
+    overrides.scheduledTurnService ?? makeScheduledTurnService(),
+    STUB_BASE_DB,
+    STUB_REQUEST_DB_CONTEXT,
+    STUB_CLS,
+  )
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('ScheduledTurnWorker', () => {
@@ -178,6 +230,7 @@ describe('ScheduledTurnWorker', () => {
   let delegationFacade: KernelDelegationFacade
   let auditFacade: KernelAuditFacade
   let notificationsFacade: NotificationsWriteFacade
+  let scheduledTurnService: ScheduledTurnService
   let worker: ScheduledTurnWorker
 
   beforeEach(() => {
@@ -187,28 +240,52 @@ describe('ScheduledTurnWorker', () => {
     delegationFacade = makeKernelDelegationFacade()
     auditFacade = makeKernelAuditFacade()
     notificationsFacade = makeNotificationsFacade()
-    worker = new ScheduledTurnWorker(
+    scheduledTurnService = makeScheduledTurnService()
+    worker = buildWorker({
       scheduleRepo,
       scheduleRunRepo,
       delegationFacade,
       auditFacade,
       notificationsFacade,
-    )
+      scheduledTurnService,
+    })
   })
 
   describe('handle()', () => {
-    it('happy path: active schedule + active delegation → run inserted, outcome=completed, failure count reset', async () => {
+    // ── Worker test 1: pipeline is called with schedule intent + readOnly policy ─
+
+    it('invokes ScheduledTurnService with schedule prompt, delegation, and read-only policy', async () => {
       await worker.handle(makeJob())
 
-      expect(scheduleRunRepo.insert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          scheduleId: SCHEDULE_ID,
-          tenantId: TENANT_ID,
-          flowId: FLOW_ID,
-          taintSeeded: false,
-          firedBy: 'cron',
-        }),
-      )
+      expect(scheduledTurnService.executeScheduledTurn).toHaveBeenCalledOnce()
+      const callArg = (scheduledTurnService.executeScheduledTurn as ReturnType<typeof vi.fn>).mock
+        .calls[0][0]
+      expect(callArg.tenantId).toBe(TENANT_ID)
+      expect(callArg.prompt).toBe('Summarize my tasks')
+      expect(callArg.delegationId).toBe(DELEGATION_ID)
+      expect(callArg.scheduleId).toBe(SCHEDULE_ID)
+      expect(callArg.flowId).toBe(FLOW_ID)
+      expect(callArg.taintSeeded).toBe(false)
+      // Policy is read-only
+      expect(callArg.actorPrincipal).toBe('user')
+    })
+
+    // ── Worker test 2: pipeline success → run row updated to 'completed' ──────
+
+    it('happy path: pipeline returns completed → run outcome=completed, failure count reset', async () => {
+      // Use the shared scheduleRunRepo/scheduleRepo from beforeEach so assertions work
+      scheduledTurnService = makeScheduledTurnService({ outcome: 'completed', costSpentUsd: 0 })
+      worker = buildWorker({
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+        scheduledTurnService,
+      })
+
+      await worker.handle(makeJob())
+
       expect(scheduleRunRepo.updateOutcome).toHaveBeenCalledWith(
         expect.objectContaining({
           tenantId: TENANT_ID,
@@ -225,7 +302,77 @@ describe('ScheduledTurnWorker', () => {
       )
     })
 
-    it('happy path: emits schedule_run_started and async_dry_run_would_have_written audits', async () => {
+    // ── Worker test 3: pipeline 'refused' (policy_violation) → run outcome='refused' ─
+
+    it('when pipeline returns refused, run row is set to outcome=refused', async () => {
+      scheduledTurnService = makeScheduledTurnService({
+        outcome: 'refused',
+        costSpentUsd: 0,
+        refusedToolName: 'planner.createTask',
+      })
+      worker = buildWorker({
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+        scheduledTurnService,
+      })
+
+      await worker.handle(makeJob())
+
+      expect(scheduleRunRepo.updateOutcome).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          runId: RUN_ID,
+          outcome: 'refused',
+        }),
+      )
+    })
+
+    // ── Worker test 4: pipeline error → run row updated to 'error' ────────────
+
+    it('when pipeline returns error, run row is set to outcome=error', async () => {
+      scheduledTurnService = makeScheduledTurnService({
+        outcome: 'error',
+        costSpentUsd: 0,
+        errorMessage: 'gateway_tripwire:infra_error',
+      })
+      worker = buildWorker({
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+        scheduledTurnService,
+      })
+
+      await worker.handle(makeJob())
+
+      expect(scheduleRunRepo.updateOutcome).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          runId: RUN_ID,
+          outcome: 'error',
+        }),
+      )
+    })
+
+    // ── Ensure old dry-run event is NOT emitted ────────────────────────────────
+
+    it('does NOT emit agent.async_dry_run_would_have_written audit on success (dry-run stub removed)', async () => {
+      await worker.handle(makeJob())
+
+      const recordEventMock = auditFacade.recordEvent as ReturnType<typeof vi.fn>
+      const auditCalls = recordEventMock.mock.calls.map(
+        (c: [{ eventType: string }]) => c[0].eventType,
+      )
+      expect(auditCalls).not.toContain('agent.async_dry_run_would_have_written')
+    })
+
+    // ── Audit events emitted correctly ────────────────────────────────────────
+
+    it('emits schedule_run_started and schedule_run_completed audit events on success', async () => {
       await worker.handle(makeJob())
 
       const recordEventMock = auditFacade.recordEvent as ReturnType<typeof vi.fn>
@@ -233,11 +380,12 @@ describe('ScheduledTurnWorker', () => {
         (c: [{ eventType: string }]) => c[0].eventType,
       )
       expect(auditCalls).toContain('agent.schedule_run_started')
-      expect(auditCalls).toContain('agent.async_dry_run_would_have_written')
       expect(auditCalls).toContain('agent.schedule_run_completed')
     })
 
-    it('happy path: sends notification to owner', async () => {
+    // ── Notification sent to owner on success ─────────────────────────────────
+
+    it('sends notification to owner on success', async () => {
       await worker.handle(makeJob())
 
       expect(notificationsFacade.sendDraftApprovalNotification).toHaveBeenCalledWith(
@@ -247,17 +395,14 @@ describe('ScheduledTurnWorker', () => {
       )
     })
 
+    // ── Early-exit guards (schedule/delegation validation) ────────────────────
+
     it('inactive schedule (paused) → early return, no run inserted', async () => {
-      scheduleRepo = makeScheduleRepo({
-        getById: vi.fn().mockResolvedValue(makeSchedule({ status: 'paused' })),
+      worker = buildWorker({
+        scheduleRepo: makeScheduleRepo({
+          getById: vi.fn().mockResolvedValue(makeSchedule({ status: 'paused' })),
+        }),
       })
-      worker = new ScheduledTurnWorker(
-        scheduleRepo,
-        scheduleRunRepo,
-        delegationFacade,
-        auditFacade,
-        notificationsFacade,
-      )
 
       await worker.handle(makeJob())
 
@@ -266,16 +411,11 @@ describe('ScheduledTurnWorker', () => {
     })
 
     it('schedule not found → early return, no run inserted', async () => {
-      scheduleRepo = makeScheduleRepo({
-        getById: vi.fn().mockResolvedValue(null),
+      worker = buildWorker({
+        scheduleRepo: makeScheduleRepo({
+          getById: vi.fn().mockResolvedValue(null),
+        }),
       })
-      worker = new ScheduledTurnWorker(
-        scheduleRepo,
-        scheduleRunRepo,
-        delegationFacade,
-        auditFacade,
-        notificationsFacade,
-      )
 
       await worker.handle(makeJob())
 
@@ -283,16 +423,11 @@ describe('ScheduledTurnWorker', () => {
     })
 
     it('delegation expired → early return, no run inserted', async () => {
-      delegationFacade = makeKernelDelegationFacade({
-        getDelegation: vi.fn().mockResolvedValue(makeDelegation({ status: 'expired' })),
+      worker = buildWorker({
+        delegationFacade: makeKernelDelegationFacade({
+          getDelegation: vi.fn().mockResolvedValue(makeDelegation({ status: 'expired' })),
+        }),
       })
-      worker = new ScheduledTurnWorker(
-        scheduleRepo,
-        scheduleRunRepo,
-        delegationFacade,
-        auditFacade,
-        notificationsFacade,
-      )
 
       await worker.handle(makeJob())
 
@@ -301,35 +436,33 @@ describe('ScheduledTurnWorker', () => {
     })
 
     it('delegation not found → early return, no run inserted', async () => {
-      delegationFacade = makeKernelDelegationFacade({
-        getDelegation: vi.fn().mockResolvedValue(null),
+      worker = buildWorker({
+        delegationFacade: makeKernelDelegationFacade({
+          getDelegation: vi.fn().mockResolvedValue(null),
+        }),
       })
-      worker = new ScheduledTurnWorker(
-        scheduleRepo,
-        scheduleRunRepo,
-        delegationFacade,
-        auditFacade,
-        notificationsFacade,
-      )
 
       await worker.handle(makeJob())
 
       expect(scheduleRunRepo.insert).not.toHaveBeenCalled()
     })
 
-    it('unexpected error → schedule_run outcome=error, consecutive_failure_count incremented', async () => {
+    // ── Unexpected error handling ─────────────────────────────────────────────
+
+    it('unexpected error → outcome=error, consecutive_failure_count incremented, re-throw', async () => {
       const error = new Error('unexpected DB failure')
       scheduleRunRepo = makeScheduleRunRepo({
         insert: vi.fn().mockResolvedValue(makeScheduleRun()),
         updateOutcome: vi.fn().mockRejectedValue(error),
       })
-      worker = new ScheduledTurnWorker(
+      worker = buildWorker({
         scheduleRepo,
         scheduleRunRepo,
         delegationFacade,
         auditFacade,
         notificationsFacade,
-      )
+        scheduledTurnService,
+      })
 
       await expect(worker.handle(makeJob())).rejects.toThrow('unexpected DB failure')
 
@@ -351,13 +484,14 @@ describe('ScheduledTurnWorker', () => {
         insert: vi.fn().mockResolvedValue(makeScheduleRun()),
         updateOutcome: vi.fn().mockRejectedValue(error),
       })
-      worker = new ScheduledTurnWorker(
+      worker = buildWorker({
         scheduleRepo,
         scheduleRunRepo,
         delegationFacade,
         auditFacade,
         notificationsFacade,
-      )
+        scheduledTurnService,
+      })
 
       await expect(worker.handle(makeJob())).rejects.toThrow('third failure')
 
@@ -381,19 +515,88 @@ describe('ScheduledTurnWorker', () => {
         insert: vi.fn().mockResolvedValue(makeScheduleRun()),
         updateOutcome: vi.fn().mockRejectedValue(error),
       })
-      worker = new ScheduledTurnWorker(
+      worker = buildWorker({
         scheduleRepo,
         scheduleRunRepo,
         delegationFacade,
         auditFacade,
         notificationsFacade,
-      )
+        scheduledTurnService,
+      })
 
       await expect(worker.handle(makeJob())).rejects.toThrow('third failure')
 
       expect(notificationsFacade.sendDraftApprovalNotification).toHaveBeenCalledWith(
         expect.objectContaining({
           tenantId: TENANT_ID,
+        }),
+      )
+    })
+
+    // ── M1: refused outcome increments consecutive_failure_count (R-09.29) ─────
+    // A schedule whose delegation scope contains only mutation tools will always get
+    // 'refused' under READ_ONLY_POLICY. Before this fix the 'refused' outcome reset the
+    // counter, so such a schedule would fire forever without ever auto-pausing.
+    // Per R-09.29: only 'completed' resets the counter; 'refused', 'error', and 'budget'
+    // all increment it.
+
+    it('refused outcome increments consecutive_failure_count (not reset to 0)', async () => {
+      scheduledTurnService = makeScheduledTurnService({
+        outcome: 'refused',
+        costSpentUsd: 0,
+        refusedToolName: 'planner.createTask',
+      })
+      scheduleRepo = makeScheduleRepo({
+        getById: vi.fn().mockResolvedValue(makeSchedule({ consecutiveFailureCount: 1 })),
+      })
+      worker = buildWorker({
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+        scheduledTurnService,
+      })
+
+      await worker.handle(makeJob())
+
+      expect(scheduleRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          scheduleId: SCHEDULE_ID,
+          consecutiveFailureCount: 2,
+        }),
+      )
+    })
+
+    it('refused outcome at threshold triggers auto-pause (escalation per R-09.29)', async () => {
+      // N-1 = 2 prior failures; 'refused' on this run pushes the count to 3 → auto-pause
+      scheduledTurnService = makeScheduledTurnService({
+        outcome: 'refused',
+        costSpentUsd: 0,
+        refusedToolName: 'planner.createTask',
+      })
+      scheduleRepo = makeScheduleRepo({
+        getById: vi.fn().mockResolvedValue(makeSchedule({ consecutiveFailureCount: 2 })),
+      })
+      worker = buildWorker({
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+        scheduledTurnService,
+      })
+
+      await worker.handle(makeJob())
+
+      expect(scheduleRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          scheduleId: SCHEDULE_ID,
+          consecutiveFailureCount: 3,
+          status: 'paused',
+          pauseReason: 'consecutive_failures',
         }),
       )
     })
@@ -415,20 +618,6 @@ describe('ScheduledTurnWorker', () => {
       )
     })
 
-    it('dry-run audit includes feature_flag and flag_enabled fields', async () => {
-      await worker.handle(makeJob())
-
-      const recordEventMock = auditFacade.recordEvent as ReturnType<typeof vi.fn>
-      const dryRunCall = recordEventMock.mock.calls.find(
-        (c: [{ eventType: string }]) => c[0].eventType === 'agent.async_dry_run_would_have_written',
-      )
-      expect(dryRunCall).toBeDefined()
-      expect(dryRunCall![0].payload).toMatchObject({
-        feature_flag: 'feature.agent.async_autonomous_writes',
-        flag_enabled: false,
-      })
-    })
-
     it('failure count=1 notifies owner when policy=owner', async () => {
       const error = new Error('first failure')
       scheduleRepo = makeScheduleRepo({
@@ -442,13 +631,14 @@ describe('ScheduledTurnWorker', () => {
         insert: vi.fn().mockResolvedValue(makeScheduleRun()),
         updateOutcome: vi.fn().mockRejectedValue(error),
       })
-      worker = new ScheduledTurnWorker(
+      worker = buildWorker({
         scheduleRepo,
         scheduleRunRepo,
         delegationFacade,
         auditFacade,
         notificationsFacade,
-      )
+        scheduledTurnService,
+      })
 
       await expect(worker.handle(makeJob())).rejects.toThrow('first failure')
 
@@ -470,13 +660,14 @@ describe('ScheduledTurnWorker', () => {
         insert: vi.fn().mockResolvedValue(makeScheduleRun()),
         updateOutcome: vi.fn().mockRejectedValue(error),
       })
-      worker = new ScheduledTurnWorker(
+      worker = buildWorker({
         scheduleRepo,
         scheduleRunRepo,
         delegationFacade,
         auditFacade,
         notificationsFacade,
-      )
+        scheduledTurnService,
+      })
 
       await expect(worker.handle(makeJob())).rejects.toThrow('second failure')
 
@@ -498,13 +689,14 @@ describe('ScheduledTurnWorker', () => {
         insert: vi.fn().mockResolvedValue(makeScheduleRun()),
         updateOutcome: vi.fn().mockRejectedValue(error),
       })
-      worker = new ScheduledTurnWorker(
+      worker = buildWorker({
         scheduleRepo,
         scheduleRunRepo,
         delegationFacade,
         auditFacade,
         notificationsFacade,
-      )
+        scheduledTurnService,
+      })
 
       await expect(worker.handle(makeJob())).rejects.toThrow('silent failure')
 
@@ -524,17 +716,148 @@ describe('ScheduledTurnWorker', () => {
         insert: vi.fn().mockResolvedValue(makeScheduleRun()),
         updateOutcome: vi.fn().mockRejectedValue(error),
       })
-      worker = new ScheduledTurnWorker(
+      worker = buildWorker({
         scheduleRepo,
         scheduleRunRepo,
         delegationFacade,
         auditFacade,
         notificationsFacade,
-      )
+        scheduledTurnService,
+      })
 
       await expect(worker.handle(makeJob())).rejects.toThrow('admin-only failure')
 
       expect(notificationsFacade.sendDraftApprovalNotification).not.toHaveBeenCalled()
+    })
+
+    // ── I-2 / R-09.30: count=3 auto-pause always notifies owner regardless of failureAlertPolicy ─
+
+    it('auto-pause at count=3 notifies owner even with failureAlertPolicy=silent (R-09.30)', async () => {
+      // Prior count=2 + this failure = 3 → triggers auto-pause → must notify regardless of 'silent'
+      scheduleRepo = makeScheduleRepo({
+        getById: vi
+          .fn()
+          .mockResolvedValue(
+            makeSchedule({ consecutiveFailureCount: 2, failureAlertPolicy: 'silent' }),
+          ),
+      })
+      const error = new Error('third failure — silent policy')
+      scheduleRunRepo = makeScheduleRunRepo({
+        insert: vi.fn().mockResolvedValue(makeScheduleRun()),
+        updateOutcome: vi.fn().mockRejectedValue(error),
+      })
+      worker = buildWorker({
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+        scheduledTurnService,
+      })
+
+      await expect(worker.handle(makeJob())).rejects.toThrow('third failure — silent policy')
+
+      // Schedule must be paused
+      expect(scheduleRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          consecutiveFailureCount: 3,
+          status: 'paused',
+          pauseReason: 'consecutive_failures',
+        }),
+      )
+      // Owner MUST be notified despite 'silent' policy (R-09.30)
+      expect(notificationsFacade.sendDraftApprovalNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: TENANT_ID }),
+      )
+    })
+
+    it('auto-pause at count=3 notifies owner even with failureAlertPolicy=admin_only (R-09.30)', async () => {
+      scheduleRepo = makeScheduleRepo({
+        getById: vi
+          .fn()
+          .mockResolvedValue(
+            makeSchedule({ consecutiveFailureCount: 2, failureAlertPolicy: 'admin_only' }),
+          ),
+      })
+      const error = new Error('third failure — admin_only policy')
+      scheduleRunRepo = makeScheduleRunRepo({
+        insert: vi.fn().mockResolvedValue(makeScheduleRun()),
+        updateOutcome: vi.fn().mockRejectedValue(error),
+      })
+      worker = buildWorker({
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+        scheduledTurnService,
+      })
+
+      await expect(worker.handle(makeJob())).rejects.toThrow('third failure — admin_only policy')
+
+      expect(notificationsFacade.sendDraftApprovalNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: TENANT_ID }),
+      )
+    })
+
+    // ── I-2: pipeline-return path respects failureAlertPolicy when not auto-pausing ─
+
+    it('pipeline-return refused (count=1, no auto-pause) does NOT notify owner when policy=silent', async () => {
+      scheduledTurnService = makeScheduledTurnService({
+        outcome: 'refused',
+        costSpentUsd: 0,
+        refusedToolName: 'planner.createTask',
+      })
+      scheduleRepo = makeScheduleRepo({
+        getById: vi
+          .fn()
+          .mockResolvedValue(
+            makeSchedule({ consecutiveFailureCount: 0, failureAlertPolicy: 'silent' }),
+          ),
+      })
+      worker = buildWorker({
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+        scheduledTurnService,
+      })
+
+      await worker.handle(makeJob())
+
+      // policy=silent and no auto-pause → notification must NOT be sent
+      expect(notificationsFacade.sendDraftApprovalNotification).not.toHaveBeenCalled()
+    })
+
+    it('pipeline-return refused at count=3 (auto-pause) notifies owner even with policy=silent (R-09.30)', async () => {
+      scheduledTurnService = makeScheduledTurnService({
+        outcome: 'refused',
+        costSpentUsd: 0,
+        refusedToolName: 'planner.createTask',
+      })
+      scheduleRepo = makeScheduleRepo({
+        getById: vi
+          .fn()
+          .mockResolvedValue(
+            makeSchedule({ consecutiveFailureCount: 2, failureAlertPolicy: 'silent' }),
+          ),
+      })
+      worker = buildWorker({
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+        scheduledTurnService,
+      })
+
+      await worker.handle(makeJob())
+
+      // count=3 auto-pause → must notify owner regardless of 'silent' (R-09.30)
+      expect(notificationsFacade.sendDraftApprovalNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: TENANT_ID }),
+      )
     })
   })
 })

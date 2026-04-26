@@ -8,7 +8,7 @@
  *  2. write with allowlisted field: succeeds
  *  3. write with non-allowlisted field: throws (field validation via allowedFields param)
  *  4. taint flag is preserved: write tainted=true → read returns tainted=true
- *  5. deleteForUser: removes all entries for user
+ *  5. deleteForUser: removes all entries for user and returns accurate count
  *  6. Cross-tenant RLS isolation
  */
 
@@ -230,7 +230,7 @@ describe('DrizzleScratchpadRepository', () => {
     it('removes all entries for the user (GDPR path)', async () => {
       await setTenantContext(db, TENANT_A)
 
-      const GDPR_USER = '01900000-0000-7fff-8000-0000000000g1'.replace('g', 'a')
+      const GDPR_USER = '01900000-0000-7fff-8000-0000000000a1'
 
       await repo.write(TENANT_A, GDPR_USER, 'pinned_context', 'some context', {
         tainted: false,
@@ -253,6 +253,47 @@ describe('DrizzleScratchpadRepository', () => {
 
       expect(c).toBeNull()
       expect(t).toBeNull()
+    })
+
+    it('returns the actual count of rows deleted (N rows)', async () => {
+      await setTenantContext(db, TENANT_A)
+
+      const COUNT_USER = '01900000-0000-7fff-8000-0000000000c1'
+
+      await repo.write(TENANT_A, COUNT_USER, 'pinned_context', 'value 1', {
+        tainted: false,
+        allowedFields: ALLOWED_FIELDS,
+        subAgentKey: SUB_AGENT_KEY,
+        traceId: TRACE_ID,
+      })
+
+      await repo.write(TENANT_A, COUNT_USER, 'last_reviewed_task', 'value 2', {
+        tainted: false,
+        allowedFields: ALLOWED_FIELDS,
+        subAgentKey: SUB_AGENT_KEY,
+        traceId: TRACE_ID,
+      })
+
+      await repo.write(TENANT_A, COUNT_USER, 'user_intent_summary', 'value 3', {
+        tainted: false,
+        allowedFields: ALLOWED_FIELDS,
+        subAgentKey: SUB_AGENT_KEY,
+        traceId: TRACE_ID,
+      })
+
+      const result = await repo.deleteForUser(TENANT_A, COUNT_USER)
+
+      expect(result.count).toBe(3)
+    })
+
+    it('returns count 0 when no rows exist for the user', async () => {
+      await setTenantContext(db, TENANT_A)
+
+      const ABSENT_USER = '01900000-0000-7fff-8000-0000000000c2'
+
+      const result = await repo.deleteForUser(TENANT_A, ABSENT_USER)
+
+      expect(result.count).toBe(0)
     })
 
     it('does not delete entries for other users in the same tenant', async () => {

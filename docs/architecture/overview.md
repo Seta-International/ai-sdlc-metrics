@@ -82,12 +82,12 @@ flowchart TB
 **What this architecture includes**
 
 - Shared edge layer with Route 53, ACM, and one ALB per environment using path-based routing.
-- ECS Fargate Graviton ARM64 hosts the web zones (12 Next.js services including `web-admin`), NestJS API, Cube.js, and Langfuse. Fargate Spot for all stateless web zones; On-Demand baseline for API and Cube.js.
+- ECS Fargate Graviton ARM64 hosts the web zones (12 Next.js services including `web-admin`), NestJS API, and Cube.js. Fargate Spot for all stateless web zones; On-Demand baseline for API and Cube.js.
 - The API reaches PostgreSQL through RDS Proxy for connection pooling and tenant context injection via `set_config` + RLS.
 - Cube.js reads from two explicit data sources: RDS read replica (operational queries, last 30 days) and Amazon Athena (historical trends, cross-module analytics over S3 Gold Iceberg tables).
 - AWS Glue ETL runs hourly: reads changed rows from RDS module schemas, writes Parquet to S3 Bronze, merges into S3 Gold using Apache Iceberg. ~$2/month.
 - Redis (ElastiCache) supports Cube.js query caching only. Agent sessions are stored in PostgreSQL `agents.agent_session`.
-- Langfuse self-hosted on ECS Fargate with its own isolated RDS db.t4g.micro — trace write volume is fully isolated from OLTP.
+- Trace backend selection deferred per CLAUDE.md roadmap.
 - ECR (one repo per service), Secrets Manager, CloudWatch, S3, DynamoDB, and EventBridge support delivery, observability, and staging cost control.
 - Staging scale-to-zero via EventBridge: 9am–8pm SGT weekdays only.
 

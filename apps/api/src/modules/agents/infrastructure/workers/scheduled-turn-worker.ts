@@ -1,4 +1,6 @@
 import { Injectable, Inject, Logger } from '@nestjs/common'
+import { ClsService } from 'nestjs-cls'
+import type { Db } from '@future/db'
 import { uuidv7 } from 'uuidv7'
 import {
   SCHEDULE_REPOSITORY,
@@ -12,13 +14,12 @@ import { KernelDelegationFacade } from '../../../kernel/application/facades/kern
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { NotificationsWriteFacade } from '../../../notifications/application/facades/notifications-write.facade'
 import { type ScheduledTurnJob } from '../../application/services/scheduled-turn-contracts'
+import { ScheduledTurnService } from '../../application/services/scheduled-turn-service'
+import { BASE_DB_TOKEN } from '../../../../common/db/db.module'
+import { RequestDbContextService } from '../../../../common/db/request-db-context.service'
+import { runWithTenantContext } from '../../../../common/jobs/run-with-tenant-context'
 
 export { type ScheduledTurnJob }
-
-export const SCHEDULED_TURN_JOB_NAME = 'agent.scheduled-turn'
-
-// Feature flag — default off at MVP. When on + delegation.autonomousWritesAllowed=true: Beta path.
-const ASYNC_AUTONOMOUS_WRITES_ENABLED = false
 
 @Injectable()
 export class ScheduledTurnWorker {
@@ -30,9 +31,25 @@ export class ScheduledTurnWorker {
     private readonly kernelDelegationFacade: KernelDelegationFacade,
     private readonly kernelAuditFacade: KernelAuditFacade,
     private readonly notificationsWriteFacade: NotificationsWriteFacade,
+    private readonly scheduledTurnService: ScheduledTurnService,
+    @Inject(BASE_DB_TOKEN) private readonly baseDb: Db,
+    private readonly requestDbContext: RequestDbContextService,
+    private readonly cls: ClsService,
   ) {}
 
   async handle(job: ScheduledTurnJob): Promise<void> {
+    await runWithTenantContext(
+      {
+        tenantId: job.tenant_id,
+        baseDb: this.baseDb,
+        requestDbContext: this.requestDbContext,
+        cls: this.cls,
+      },
+      () => this._handleInContext(job),
+    )
+  }
+
+  private async _handleInContext(job: ScheduledTurnJob): Promise<void> {
     const { tenant_id: tenantId, schedule_id: scheduleId, delegation_id: delegationId } = job
 
     // Step 1: Validate schedule is active
@@ -77,6 +94,11 @@ export class ScheduledTurnWorker {
       firedBy: job.fired_by,
     })
 
+    // Resolve permitted tools from delegation scope
+    const permittedTools: string[] = Array.isArray(delegation.scope?.permitted_tools)
+      ? (delegation.scope.permitted_tools as string[])
+      : []
+
     try {
       // Step 4: Emit schedule_run_started audit
       await this.kernelAuditFacade.recordEvent({
@@ -98,58 +120,95 @@ export class ScheduledTurnWorker {
         },
       })
 
-      // Step 5: Emit dry-run audit (MVP stub — would-have-executed record)
-      await this.kernelAuditFacade.recordEvent({
+      // Step 5: Execute real turn pipeline under read-only policy envelope (R-09.6a)
+      // This replaces the dry-run stub. The ScheduledTurnService calls ToolGateway
+      // calling real ToolGateway.invoke for the first permitted tool (MVP deterministic
+      // path; full LLM ReAct loop deferred to Plan 03 integration).
+      // READ_ONLY_POLICY refuses any mutation tool (policy_violation tripwire).
+      const turnResult = await this.scheduledTurnService.executeScheduledTurn({
         tenantId,
-        actorId: job.actor_principal,
-        eventType: 'agent.async_dry_run_would_have_written',
-        module: 'agents',
-        subjectId: run.id,
-        payload: {
-          scheduleId,
-          runId: run.id,
-          traceId,
-          delegationId,
-          prompt: schedule.prompt,
-          flowId: job.flow_id,
-          actorPrincipal: job.actor_principal,
-          userOnBehalfOf: job.user_on_behalf_of,
-          taintSeeded: job.taint_seeded,
-          costCeilingRemainingUsd: job.cost_ceiling_remaining_usd,
-          invocationCeilingRemaining: job.invocation_ceiling_remaining,
-          pinnedVersions: job.pinned_versions,
-          feature_flag: 'feature.agent.async_autonomous_writes',
-          flag_enabled: ASYNC_AUTONOMOUS_WRITES_ENABLED,
-          note: 'MVP dry-run: full turn pipeline not invoked from worker context',
-        },
+        userOnBehalfOf: job.user_on_behalf_of,
+        actorPrincipal: job.actor_principal,
+        delegationId,
+        scheduleId,
+        flowId: job.flow_id,
+        traceId,
+        taintSeeded: job.taint_seeded,
+        prompt: schedule.prompt,
+        permittedTools,
+        modelId: job.pinned_versions.model_id,
       })
 
-      // Step 6: Update run outcome to 'completed'
+      // Step 6: Map turn outcome to schedule_run outcome
+      const runOutcome =
+        turnResult.outcome === 'completed'
+          ? 'completed'
+          : turnResult.outcome === 'refused'
+            ? 'refused'
+            : 'error'
+
       await this.scheduleRunRepo.updateOutcome({
         tenantId,
         runId: run.id,
-        outcome: 'completed',
+        outcome: runOutcome,
         endedAt: new Date(),
-        costSpentUsd: 0,
+        costSpentUsd: turnResult.costSpentUsd,
       })
 
-      // Step 7: Reset consecutive failure count
-      await this.scheduleRepo.update({
-        tenantId,
-        scheduleId,
-        consecutiveFailureCount: 0,
-      })
+      // Step 7: Reset consecutive failure count ONLY on 'completed' outcome (R-09.29).
+      // 'refused' and 'error' both increment the counter so a schedule that is
+      // permanently broken (e.g. delegation scope contains only mutation tools which
+      // will always be refused under READ_ONLY_POLICY) will still auto-pause after
+      // the threshold is reached.
+      if (runOutcome === 'completed') {
+        await this.scheduleRepo.update({
+          tenantId,
+          scheduleId,
+          consecutiveFailureCount: 0,
+        })
+      } else {
+        // Pipeline returned non-completed outcome ('refused' or 'error') — increment counter.
+        const newFailureCount = schedule.consecutiveFailureCount + 1
+        const shouldPause = newFailureCount >= 3
+        await this.scheduleRepo.update({
+          tenantId,
+          scheduleId,
+          consecutiveFailureCount: newFailureCount,
+          ...(shouldPause
+            ? { status: 'paused' as const, pauseReason: 'consecutive_failures' }
+            : {}),
+        })
+        if (shouldPause) {
+          this.logger.warn(
+            `ScheduledTurnWorker: schedule auto-paused after ${newFailureCount} consecutive failures scheduleId=${scheduleId}`,
+          )
+        }
+      }
 
-      // Step 8: Notify owner (personal schedule) or log for tenant-wide
+      // Step 8: Notify owner — behaviour depends on outcome:
+      //   • completed: always notify (owner awareness of run result)
+      //   • non-completed: respect failureAlertPolicy UNLESS this run triggered auto-pause
+      //     (count=3), in which case always notify regardless of policy (R-09.30).
       const notifyUserId = schedule.ownerUserId ?? job.user_on_behalf_of
-      if (notifyUserId !== null) {
+      let shouldNotifyOwner: boolean
+      if (runOutcome === 'completed') {
+        shouldNotifyOwner = true
+      } else {
+        const newFailureCount = schedule.consecutiveFailureCount + 1
+        const shouldPause = newFailureCount >= 3
+        const policy = schedule.failureAlertPolicy ?? 'owner_and_admin'
+        shouldNotifyOwner = shouldPause
+          ? true // R-09.30: count=3 always notifies regardless of policy
+          : policy !== 'silent' && policy !== 'admin_only'
+      }
+      if (shouldNotifyOwner && notifyUserId !== null) {
         try {
           await this.notificationsWriteFacade.sendDraftApprovalNotification({
             tenantId,
             draftId: `schedule-run:${run.id}`,
             approverId: notifyUserId,
             toolName: 'agents.schedule_run',
-            summary: `Scheduled agent run completed for schedule ${scheduleId}`,
+            summary: `Scheduled agent run ${runOutcome} for schedule ${scheduleId}`,
             tier: 'low_risk_auto',
           })
         } catch (notifyErr) {
@@ -170,7 +229,10 @@ export class ScheduledTurnWorker {
           scheduleId,
           runId: run.id,
           traceId,
-          outcome: 'completed',
+          outcome: runOutcome,
+          ...(turnResult.refusedToolName !== undefined
+            ? { refusedToolName: turnResult.refusedToolName }
+            : {}),
         },
       })
     } catch (err) {
@@ -203,9 +265,12 @@ export class ScheduledTurnWorker {
         ...(shouldPause ? { status: 'paused' as const, pauseReason: 'consecutive_failures' } : {}),
       })
 
-      // Notify owner per failure (counts 1, 2, and auto-pause at 3+), respecting failureAlertPolicy
+      // Notify owner per failure, respecting failureAlertPolicy — EXCEPT at the count=3 auto-pause
+      // threshold which always notifies the owner regardless of policy (R-09.30).
       const policy = schedule.failureAlertPolicy ?? 'owner_and_admin'
-      const shouldNotifyOwner = policy !== 'silent' && policy !== 'admin_only'
+      const shouldNotifyOwner = shouldPause
+        ? true // R-09.30: count=3 always notifies regardless of policy
+        : policy !== 'silent' && policy !== 'admin_only'
       const notifyUserId = schedule.ownerUserId ?? job.user_on_behalf_of
 
       if (shouldNotifyOwner && notifyUserId !== null) {

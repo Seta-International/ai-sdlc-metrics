@@ -44,7 +44,7 @@ import { DrizzleConversationRepository } from './infrastructure/repositories/dri
 import { DrizzleConversationMessageRepository } from './infrastructure/repositories/drizzle-conversation-message.repository'
 import { DrizzleL3PreferenceRepository } from './infrastructure/repositories/drizzle-l3-preference.repository'
 import { DrizzleScratchpadRepository } from './infrastructure/repositories/drizzle-scratchpad.repository'
-import { NullSemanticIndexRepository } from './infrastructure/repositories/null-semantic-index.repository'
+import { DrizzleSemanticIndexRepository } from './infrastructure/repositories/drizzle-semantic-index.repository'
 // Command handlers
 import { CreateSessionHandler } from './application/commands/create-session.handler'
 import { SendMessageHandler } from './application/commands/send-message.handler'
@@ -58,6 +58,7 @@ import { setAgentInsightHandlers } from './interface/trpc/insight.router'
 import { setPreferencesService } from './interface/trpc/preferences.router'
 import { setConversationRepository } from './interface/trpc/conversation.router'
 import { setDraftRepository } from './interface/trpc/draft-audit.router'
+import { setDraftApprovalService } from './interface/trpc/draft-approval.router'
 import { setScheduleHandlers } from './interface/trpc/schedule-ui-facade'
 import { setRolloutHandlers } from './interface/trpc/rollout.router'
 import { setReadinessHandlers } from './interface/trpc/readiness.router'
@@ -74,8 +75,13 @@ import { DelegationLifecycle } from './application/services/delegation-lifecycle
 import { SchedulerPrincipal } from './application/services/scheduler-principal'
 import { TaintSeedDetector } from './application/services/taint-seed-detector'
 import { ScheduledTurnSpawner } from './application/services/scheduled-turn-spawner'
+import { ScheduledTurnService } from './application/services/scheduled-turn-service'
+import { AgentEventRouter } from './application/services/agent-event-router'
 import { ScheduledTurnWorker } from './infrastructure/workers/scheduled-turn-worker'
-import type { ScheduledTurnJob } from './infrastructure/workers/scheduled-turn-worker'
+import {
+  SCHEDULED_TURN_QUEUE,
+  type ScheduledTurnJob,
+} from './application/services/scheduled-turn-contracts'
 import { DelegationExpirySweeper } from './infrastructure/workers/delegation-expiry-sweep'
 import { SemanticResultCache } from './infrastructure/cache/semantic-result-cache'
 import { SemanticCacheSweeper } from './infrastructure/workers/semantic-cache-sweeper'
@@ -147,6 +153,9 @@ import {
 import { LeakCanaryScheduler } from './infrastructure/jobs/leak-canary.scheduler'
 import { TurnSamplingDecisionRecorder } from './application/services/turn-sampling-decision-recorder'
 import { ToolInvocationAuditRecorder } from './application/services/tool-invocation-audit-recorder'
+// Plan 07 — ObservabilityContextFactory + FlowIdPropagation (controller wiring)
+import { ObservabilityContextFactory } from './application/services/observability-context'
+import { FlowIdPropagation } from './application/services/flow-id-propagation'
 // Plan 05 services
 import { PricingResolver } from './infrastructure/pricing/pricing-resolver'
 import { OpenAiUsageExtractor } from './infrastructure/adapters/openai-usage-extractor'
@@ -164,8 +173,10 @@ import { DraftProposer } from './application/services/draft-proposer'
 import { DRAFT_REPOSITORY } from './domain/repositories/draft.repository'
 import { DrizzleDraftRepository } from './infrastructure/repositories/drizzle-draft.repository'
 import { NotificationsModule } from '../notifications/notifications.module'
+import { NotificationsWriteFacade } from '../notifications/application/facades/notifications-write.facade'
 import { ExecuteApprovedDraftWorker } from './infrastructure/workers/execute-approved-draft'
 import { DraftExpirySweeper } from './infrastructure/workers/sweep-expired-drafts'
+import { DraftApprovalService } from './application/services/draft-approval.service'
 import type { ConversationRepository } from './domain/repositories/conversation.repository'
 import type { ConversationMessageRepository } from './domain/repositories/conversation-message.repository'
 import type { L3PreferenceRepository } from './domain/repositories/l3-preference.repository'
@@ -173,7 +184,7 @@ import type { ScratchpadRepository } from './domain/repositories/scratchpad.repo
 import type { SemanticIndexRepository } from './domain/repositories/semantic-index.repository'
 import type { IDraftRepository } from './domain/repositories/draft.repository'
 import { PgBossService } from '../../common/jobs/pg-boss.service'
-import { DB_TOKEN } from '../../common/db/db.module'
+import { DB_TOKEN, BASE_DB_TOKEN } from '../../common/db/db.module'
 import type { Db } from '@future/db'
 // Module sub-agent barrels.
 //   • Adding a sub-agent to an EXISTING module: re-export it from that module's
@@ -348,7 +359,7 @@ class NullTenantLister implements TenantListerLike {
     { provide: CONVERSATION_MESSAGE_REPOSITORY, useClass: DrizzleConversationMessageRepository },
     { provide: L3_PREFERENCE_REPOSITORY, useClass: DrizzleL3PreferenceRepository },
     { provide: SCRATCHPAD_REPOSITORY, useClass: DrizzleScratchpadRepository },
-    { provide: SEMANTIC_INDEX_REPOSITORY, useClass: NullSemanticIndexRepository },
+    { provide: SEMANTIC_INDEX_REPOSITORY, useClass: DrizzleSemanticIndexRepository },
     // ── Command handlers ───────────────────────────────────────────────────────
     CreateSessionHandler,
     SendMessageHandler,
@@ -383,7 +394,15 @@ class NullTenantLister implements TenantListerLike {
     { provide: ROUTER_SESSION_ORCHESTRATOR, useExisting: RouterSessionOrchestrator },
     // ── Gateway pipeline (Task 5) ──────────────────────────────────────────────
     ToolRegistry,
-    TrpcCallerImpl,
+    // TrpcCallerImpl requires BASE_DB_TOKEN (raw pool — not the request-bound DB_TOKEN proxy)
+    // so that gateway-invoked dry-run calls open a real Postgres transaction for rollback
+    // isolation (Plan 11 R-11.1). Using DB_TOKEN would cause nested-transaction issues with
+    // RLS session state and violate the single-PoolClient-per-request rule.
+    {
+      provide: TrpcCallerImpl,
+      inject: [BASE_DB_TOKEN],
+      useFactory: (db: Db) => new TrpcCallerImpl(undefined, db),
+    },
     ToolGateway,
     // ── Sub-agent registry (Task 3) ────────────────────────────────────────────
     SubAgentRegistry,
@@ -452,6 +471,9 @@ class NullTenantLister implements TenantListerLike {
     },
     // ── Composition-attack monitor (Plan 07 Task 6) ───────────────────────────
     CompositionMonitorWorker,
+    // ── Plan 07 — ObservabilityContextFactory + FlowIdPropagation (controller seam) ──
+    ObservabilityContextFactory,
+    FlowIdPropagation,
     // ── Plan 07 Task 7 — Observability meta-metrics + quota recorder ──────────
     TurnSamplingDecisionRecorder,
     LeakCanaryScheduler,
@@ -474,6 +496,19 @@ class NullTenantLister implements TenantListerLike {
     DraftProposer,
     ExecuteApprovedDraftWorker,
     DraftExpirySweeper,
+    {
+      provide: DraftApprovalService,
+      inject: [DRAFT_REPOSITORY, KernelAuditFacade, NotificationsWriteFacade, PgBossService],
+      useFactory: (
+        draftRepo: IDraftRepository,
+        kernelAudit: KernelAuditFacade,
+        notificationsWrite: NotificationsWriteFacade,
+        pgBoss: PgBossService,
+      ) =>
+        new DraftApprovalService(draftRepo, kernelAudit, notificationsWrite, async (name, data) => {
+          await pgBoss.enqueue(name, data as Record<string, unknown>)
+        }),
+    },
     // ── Plan 09 — Async Agents + Scheduling ───────────────────────────────────
     { provide: SCHEDULE_REPOSITORY, useClass: DrizzleScheduleRepository },
     { provide: SCHEDULE_RUN_REPOSITORY, useClass: DrizzleScheduleRunRepository },
@@ -482,6 +517,8 @@ class NullTenantLister implements TenantListerLike {
     SchedulerPrincipal,
     TaintSeedDetector,
     ScheduledTurnSpawner,
+    ScheduledTurnService,
+    AgentEventRouter,
     ScheduledTurnWorker,
     DelegationExpirySweeper,
     SemanticResultCache,
@@ -730,6 +767,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly pgBossService: PgBossService,
     private readonly executeApprovedDraftWorker: ExecuteApprovedDraftWorker,
     private readonly draftExpirySweeper: DraftExpirySweeper,
+    private readonly draftApprovalService: DraftApprovalService,
     @Inject(DRAFT_REPOSITORY) private readonly draftRepo: IDraftRepository,
     // Plan 09 — Async Agents + Scheduling
     private readonly scheduleRepository: ScheduleRepository,
@@ -774,6 +812,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     setPreferencesService(this.l3PreferenceService)
     setConversationRepository(this.conversationRepo)
     setDraftRepository(this.draftRepo)
+    setDraftApprovalService(this.draftApprovalService)
     setScheduleHandlers({
       scheduleRepository: this.scheduleRepository,
       delegationLifecycle: this.delegationLifecycle,
@@ -890,7 +929,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     // Step 10: Register scheduled-turn worker (Plan 09).
     // Processes agent.scheduled-turn jobs enqueued by ScheduledTurnSpawner.
     await this.pgBossService.registerWorker<ScheduledTurnJob>(
-      'agent.scheduled-turn',
+      SCHEDULED_TURN_QUEUE,
       async (jobs) => {
         for (const job of jobs) {
           await this.scheduledTurnWorker.handle(job.data)

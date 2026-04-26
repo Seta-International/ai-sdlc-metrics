@@ -44,6 +44,8 @@ export class DrizzleAuditEventQueryRepository implements IAuditEventQueryReposit
         module: row.module,
         subjectId: row.subjectId,
         payload: row.payload,
+        flowId: row.flowId,
+        intentSlug: row.intentSlug,
         createdAt: row.createdAt,
       })),
       total: Number(countResult[0]?.value ?? 0),
@@ -73,6 +75,8 @@ export class DrizzleAuditEventQueryRepository implements IAuditEventQueryReposit
       module: row.module,
       subjectId: row.subjectId,
       payload: row.payload,
+      flowId: row.flowId,
+      intentSlug: row.intentSlug,
       createdAt: row.createdAt,
     }))
   }

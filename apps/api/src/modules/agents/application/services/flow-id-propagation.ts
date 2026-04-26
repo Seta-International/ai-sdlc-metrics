@@ -7,6 +7,7 @@
  * per-turn. Multiple `trace_id`s in a multi-turn flow all share the same `flow_id`.
  */
 
+import { Injectable } from '@nestjs/common'
 import { uuidv7 } from 'uuidv7'
 import type { RequestContext } from './tool-gateway-contracts'
 
@@ -22,6 +23,7 @@ export type IntentSlug = string & { readonly [_intentSlug]: true }
 
 // ─── FlowIdPropagation ─────────────────────────────────────────────────────────
 
+@Injectable()
 export class FlowIdPropagation {
   /**
    * Mint a new FlowId — called **exactly once** at router entry of the FIRST

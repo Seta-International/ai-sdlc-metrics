@@ -3,6 +3,15 @@ import { GracefulDegradationLadder } from './graceful-degradation-ladder'
 import { QualityCanarySubscription } from './quality-canary-subscription'
 import type { CanaryStateChange } from '../../domain/cost/cost-types'
 
+// Isolate from OTel metric calls — matching the pattern used in
+// graceful-degradation-ladder.spec.ts (C-1 fix).
+vi.mock('../../infrastructure/observability/cost-metrics', () => ({
+  recordLadderStep: vi.fn(),
+  recordTierShift: vi.fn(),
+  recordProviderFallback: vi.fn(),
+  recordLadderTransitionLatency: vi.fn(),
+}))
+
 function makeEvent(overrides?: Partial<CanaryStateChange>): CanaryStateChange {
   return {
     windowId: 'win-1',
@@ -75,6 +84,8 @@ describe('QualityCanarySubscription', () => {
   })
 })
 
+const CANARY_TENANT = 'tenant-canary-test'
+
 describe('R-05.42 integration — canary event drives ladder steps 4/5/6', () => {
   it('primary_degraded event → ladder step 4', () => {
     const subscription = new QualityCanarySubscription()
@@ -83,6 +94,7 @@ describe('R-05.42 integration — canary event drives ladder steps 4/5/6', () =>
     subscription.publish(makeEvent({ severity: 'primary_degraded', windowId: 'win-int-1' }))
 
     const result = ladder.evaluate({
+      tenantId: CANARY_TENANT,
       trigger: 'canary_degraded_primary',
       modelId: 'gpt-5.4',
       iteration: 1,
@@ -100,6 +112,7 @@ describe('R-05.42 integration — canary event drives ladder steps 4/5/6', () =>
     subscription.publish(makeEvent({ severity: 'both_degraded', windowId: 'win-int-2' }))
 
     const result = ladder.evaluate({
+      tenantId: CANARY_TENANT,
       trigger: 'canary_degraded_both',
       modelId: 'gpt-5.4',
       iteration: 1,
@@ -117,6 +130,7 @@ describe('R-05.42 integration — canary event drives ladder steps 4/5/6', () =>
     subscription.publish(makeEvent({ severity: 'collapse', windowId: 'win-int-3' }))
 
     const result = ladder.evaluate({
+      tenantId: CANARY_TENANT,
       trigger: 'canary_collapse',
       modelId: 'gpt-5.4',
       iteration: 1,

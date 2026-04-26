@@ -107,8 +107,10 @@ export class GDPRErasurePipeline {
     await this.l3Repo.delete({ userId, tenantId })
 
     // d. L3.5 scratchpad
-    await this.scratchpadRepo.deleteForUser(tenantId, userId)
-    const l35ScratchpadDeleted = 1
+    const { count: l35ScratchpadDeleted } = await this.scratchpadRepo.deleteForUser(
+      tenantId,
+      userId,
+    )
 
     // e. Semantic index purge
     const { count: semanticIndexPurged } = await this.semanticIndex.purgeForUser({

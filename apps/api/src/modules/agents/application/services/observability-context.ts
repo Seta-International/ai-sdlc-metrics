@@ -5,9 +5,10 @@
  * flowId, and intentSlug through all child spans, and auto-stamps identity
  * attributes (tenant_id, user_id, etc.) on every span at creation.
  *
- * Application layer — may import from domain. Zero NestJS decorators.
+ * Application layer — may import from domain.
  */
 
+import { Injectable } from '@nestjs/common'
 import { trace, context } from '@opentelemetry/api'
 import { NoOpSpan, OtelSpan, IDENTITY_KEY_DENYLIST } from '../../domain/observability/span'
 import type { Span } from '../../domain/observability/span'
@@ -33,6 +34,7 @@ export type ObservabilityContext = {
 
 const tracer = trace.getTracer('agents.observability')
 
+@Injectable()
 export class ObservabilityContextFactory {
   create(opts: {
     requestContext: RequestContext

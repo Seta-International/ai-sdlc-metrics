@@ -228,7 +228,13 @@ export class SemanticResultCache implements OnModuleInit {
           result: result as Record<string, unknown>,
           ttlSeconds,
         })
-        .onConflictDoNothing()
+        .onConflictDoNothing({
+          target: [
+            agentToolResultCache.tenantId,
+            agentToolResultCache.toolName,
+            agentToolResultCache.canonicalArgsHash,
+          ],
+        })
     } catch (err) {
       this.logger.error(
         `SemanticResultCache.put: error storing cache entry — non-fatal. ` +

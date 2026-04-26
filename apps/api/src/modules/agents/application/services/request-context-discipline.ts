@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { ClsService } from 'nestjs-cls'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
+import { recordIdentityKeyWriteAttempted } from '../../infrastructure/observability/streaming-metrics'
 
 export const IDENTITY_KEYS = [
   'tenant_id',
@@ -31,7 +32,8 @@ export class RequestContextDiscipline {
           `RequestContext identity write blocked: attempt to set '${key}' from non-middleware code`,
         )
       }
-      // Prod: drop write, log warning, persist security audit event
+      // Prod: drop write, log warning, persist security audit event + increment P1 metric
+      recordIdentityKeyWriteAttempted()
       console.error(`[SECURITY] identity_key_write_attempted: key="${key}" dropped`)
       const tenantId = this.cls.get<string>('tenantId') ?? 'unknown'
       const actorId = this.cls.get<string>('actorId') ?? 'unknown'

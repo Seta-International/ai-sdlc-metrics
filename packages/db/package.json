@@ -16,13 +16,17 @@
     "./test-helpers": {
       "import": "./src/test-helpers/index.ts",
       "types": "./src/test-helpers/index.ts"
+    },
+    "./rls-tables": {
+      "import": "./src/append-rls.ts",
+      "types": "./src/append-rls.ts"
     }
   },
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
-    "generate": "drizzle-kit generate",
+    "generate": "drizzle-kit generate && bun run src/append-rls.ts",
     "migrate": "bun run src/migrate.ts"
   },
   "dependencies": {

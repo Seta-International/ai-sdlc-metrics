@@ -15,6 +15,7 @@ import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-qu
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { CrossPodCancelService } from '../../infrastructure/cross-pod-cancel'
 import { extractSessionToken } from './session-token-extractor'
+import { recordTurnForceStopped } from '../../infrastructure/observability/streaming-metrics'
 
 @Controller()
 export class AgentCancelController {
@@ -119,6 +120,10 @@ export class AgentCancelController {
       subjectId: traceId,
       payload: { cancelled_by: userId, turn_owner: entry.userId },
     })
+
+    // Emit force-stop metric (Plan 06 §8, R-06.2). Self-cancels excluded above.
+    const actorRole: 'admin' | 'platform_admin' = isPlatformAdmin ? 'platform_admin' : 'admin'
+    recordTurnForceStopped(tenantId, actorRole)
 
     res.send({ cancelled: true, eventual: false })
   }

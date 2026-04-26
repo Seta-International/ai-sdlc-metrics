@@ -6,6 +6,7 @@
 
 import type { L1Cache } from '../../infrastructure/cache/l1-cache'
 import type { IntentSlug } from './flow-id-propagation'
+import type { TurnPolicy } from '../../domain/value-objects/turn-policy'
 
 // ─── RequestContext ────────────────────────────────────────────────────────────
 
@@ -25,6 +26,19 @@ export interface RequestContext {
 // ─── TurnState ────────────────────────────────────────────────────────────────
 
 /**
+ * A single taint source entry — records which tool call introduced tenant-authored
+ * free text into the LLM context (R-08.2, plan 08 §5 provenance build step).
+ */
+export interface TaintSource {
+  /** The tool whose result contained tenant-authored free text. */
+  readonly tool: string
+  /** Field refs from the tainted tool result (e.g. ["body", "title"]). */
+  readonly refs: ReadonlyArray<string>
+  /** User who authored the tainted content, if determinable. */
+  readonly authored_by: string | null
+}
+
+/**
  * Mutable bag passed through every tool invocation in a single sub-agent turn.
  * Lifetime: one sub-agent execution; never shared across sub-agents.
  */
@@ -34,6 +48,14 @@ export interface TurnState {
    * A tainted turn means tenant-authored free text was included in LLM context.
    */
   readonly tainted: { value: boolean }
+
+  /**
+   * Ordered list of taint sources accumulated during this sub-agent turn.
+   * Populated by the taint-wrap pipeline step when `tainted.value` is flipped.
+   * Consumed by DraftProposer to populate `provenance.derived_from_tainted_sources`.
+   * Mutable array — pipeline steps push entries; never reassigned.
+   */
+  readonly taintSources: TaintSource[]
 
   /**
    * Per-tool circuit-breaker state within this sub-agent turn.
@@ -114,4 +136,24 @@ export interface ToolGatewayInvokeInput {
    * DraftProposer when a mutation tool is invoked successfully.
    */
   readonly flowId?: string
+  /**
+   * Runtime policy envelope for this turn. REQUIRED — callers must always be
+   * explicit about the policy so there is no silent unrestricted fallback.
+   *
+   * When policy.readOnly === true, the gateway refuses any tool whose
+   * descriptor.procedure === 'mutation' with variant 'policy_violation'.
+   * Draft-creation (plan 08) is still allowed because drafts are proposals;
+   * the actual write happens at approval time.
+   *
+   * Plan 09 R-09.6a: scheduled async turns pass READ_ONLY_POLICY here.
+   * Interactive turns pass INTERACTIVE_POLICY (readOnly: false).
+   */
+  readonly policy: TurnPolicy
+  /**
+   * The raw user utterance that triggered this turn (R-08.2, R-08.24).
+   * Forwarded to DraftProposer when a mutation tool succeeds, so the provenance
+   * block is populated with the actual utterance (sanitized when approver ≠ initiator).
+   * Optional — when absent, provenance.user_utterance is set to empty string.
+   */
+  readonly userUtterance?: string
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { RequestContext, TurnState, ToolGatewayInvokeInput } from './tool-gateway-contracts'
 import { L1Cache } from '../../infrastructure/cache/l1-cache'
+import { INTERACTIVE_POLICY, READ_ONLY_POLICY } from '../../domain/value-objects/turn-policy'
 
 describe('RequestContext type', () => {
   it('compiles with all required fields', () => {
@@ -35,6 +36,7 @@ describe('TurnState type', () => {
   it('compiles against a fully-populated sample', () => {
     const state: TurnState = {
       tainted: { value: false },
+      taintSources: [],
       circuitBreaker: new Map([
         ['people.listEmployees', { permissionDenied: true, brokenAt: Date.now() }],
         ['time.listLeave', { ceilingBreached: true, brokenAt: Date.now() }],
@@ -58,6 +60,7 @@ describe('TurnState type', () => {
   it('tainted wrapper value is mutable', () => {
     const state: TurnState = {
       tainted: { value: false },
+      taintSources: [],
       circuitBreaker: new Map(),
       retryCount: new Map(),
       toolCeilingRemaining: new Map(),
@@ -71,6 +74,7 @@ describe('TurnState type', () => {
   it('circuitBreaker entry can represent both permissionDenied and ceilingBreached', () => {
     const state: TurnState = {
       tainted: { value: false },
+      taintSources: [],
       circuitBreaker: new Map([
         ['tool-a', { permissionDenied: true, brokenAt: 1000 }],
         [
@@ -94,7 +98,7 @@ describe('TurnState type', () => {
 })
 
 describe('ToolGatewayInvokeInput type', () => {
-  it('compiles with mode: execute', () => {
+  it('compiles with mode: execute and INTERACTIVE_POLICY', () => {
     const abortController = new AbortController()
 
     const input: ToolGatewayInvokeInput = {
@@ -111,20 +115,24 @@ describe('ToolGatewayInvokeInput type', () => {
       abortSignal: abortController.signal,
       turnState: {
         tainted: { value: false },
+        taintSources: [],
         circuitBreaker: new Map(),
         retryCount: new Map(),
         toolCeilingRemaining: new Map(),
         l1Cache: new L1Cache(),
       },
       mode: 'execute',
+      policy: INTERACTIVE_POLICY,
     }
 
     expect(input.toolName).toBe('people.listEmployees')
     expect(input.mode).toBe('execute')
     expect(input.abortSignal.aborted).toBe(false)
+    expect(input.policy).toBe(INTERACTIVE_POLICY)
+    expect(input.policy.readOnly).toBe(false)
   })
 
-  it('compiles with mode: dry-run', () => {
+  it('compiles with mode: dry-run and READ_ONLY_POLICY', () => {
     const abortController = new AbortController()
 
     const input: ToolGatewayInvokeInput = {
@@ -142,15 +150,19 @@ describe('ToolGatewayInvokeInput type', () => {
       abortSignal: abortController.signal,
       turnState: {
         tainted: { value: false },
+        taintSources: [],
         circuitBreaker: new Map(),
         retryCount: new Map(),
         toolCeilingRemaining: new Map(),
         l1Cache: new L1Cache(),
       },
       mode: 'dry-run',
+      policy: READ_ONLY_POLICY,
     }
 
     expect(input.mode).toBe('dry-run')
     expect(input.requestContext.delegationId).toBe('delegation-uuid')
+    expect(input.policy).toBe(READ_ONLY_POLICY)
+    expect(input.policy.readOnly).toBe(true)
   })
 })

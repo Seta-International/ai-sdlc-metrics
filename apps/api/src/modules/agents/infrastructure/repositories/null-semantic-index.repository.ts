@@ -4,11 +4,12 @@ import type {
 } from '../../domain/repositories/semantic-index.repository'
 
 /**
- * No-op semantic index — default wiring at MVP (activation gate: opt-in per sub-agent,
- * no day-1 modules declare toolScope inclusion).
+ * No-op semantic index — kept for test mocking and as a safe fallback if the
+ * DB binding is swapped out in tests. Production wiring uses
+ * DrizzleSemanticIndexRepository (agents.module.ts).
  *
- * Replace with DrizzleSemanticIndexRepository when pgvector extension is
- * provisioned and a sub-agent opts in via toolScope.
+ * Note: purgeForUser always returns count 0 — this stub must NEVER be wired
+ * in production because it makes the GDPR erasure pipeline silently incomplete.
  */
 export class NullSemanticIndexRepository implements SemanticIndexRepository {
   async index(): Promise<void> {

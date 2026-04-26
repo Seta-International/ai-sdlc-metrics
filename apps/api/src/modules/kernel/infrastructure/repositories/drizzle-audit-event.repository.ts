@@ -21,6 +21,8 @@ export class DrizzleAuditEventRepository implements IAuditEventRepository {
     module: string
     subjectId: string
     payload: unknown
+    flowId?: string | null
+    intentSlug?: string | null
   }): Promise<void> {
     await this.db.insert(auditEvent).values({
       tenantId: data.tenantId,
@@ -29,6 +31,8 @@ export class DrizzleAuditEventRepository implements IAuditEventRepository {
       module: data.module,
       subjectId: data.subjectId,
       payload: data.payload,
+      flowId: data.flowId ?? null,
+      intentSlug: data.intentSlug ?? null,
     })
   }
 
@@ -43,16 +47,18 @@ export class DrizzleAuditEventRepository implements IAuditEventRepository {
 
     const where = and(...conditions)
 
-    const [items, countResult] = await Promise.all([
-      this.db
-        .select()
-        .from(auditEvent)
-        .where(where)
-        .orderBy(auditEvent.createdAt)
-        .limit(filter.limit)
-        .offset(filter.offset),
-      this.db.select({ value: count() }).from(auditEvent).where(where),
-    ])
+    // Sequential awaits — the request-bound DB uses a single PoolClient per
+    // request; concurrent queries on the same client cause pg errors. Match
+    // the pattern used by DrizzleAuditEventQueryRepository.
+    const items = await this.db
+      .select()
+      .from(auditEvent)
+      .where(where)
+      .orderBy(auditEvent.createdAt)
+      .limit(filter.limit)
+      .offset(filter.offset)
+
+    const countResult = await this.db.select({ value: count() }).from(auditEvent).where(where)
 
     return {
       items: items.map((row) => ({
@@ -63,6 +69,8 @@ export class DrizzleAuditEventRepository implements IAuditEventRepository {
         module: row.module,
         subjectId: row.subjectId,
         payload: row.payload,
+        flowId: row.flowId,
+        intentSlug: row.intentSlug,
         createdAt: row.createdAt,
       })),
       total: Number(countResult[0]?.value ?? 0),
@@ -92,6 +100,8 @@ export class DrizzleAuditEventRepository implements IAuditEventRepository {
       module: row.module,
       subjectId: row.subjectId,
       payload: row.payload,
+      flowId: row.flowId,
+      intentSlug: row.intentSlug,
       createdAt: row.createdAt,
     }))
   }

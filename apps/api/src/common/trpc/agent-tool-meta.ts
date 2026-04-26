@@ -21,7 +21,7 @@ export interface AgentToolMeta {
   }>
   /**
    * Optional. Field names whose content is user-authored.
-   * Triggers taint flip + delimiter wrap + Langfuse redaction.
+   * Triggers taint flip + delimiter wrap + trace-backend redaction.
    */
   readonly tenantAuthoredFreeText?: ReadonlyArray<string>
   /**

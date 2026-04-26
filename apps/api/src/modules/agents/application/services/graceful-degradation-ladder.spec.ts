@@ -1,18 +1,37 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GracefulDegradationLadder, LadderInvariantError } from './graceful-degradation-ladder'
 import type { TenantLadderState } from '../../domain/cost/cost-types'
+import {
+  recordProviderFallback,
+  recordLadderTransitionLatency,
+} from '../../infrastructure/observability/cost-metrics'
 
+// Isolate this unit from OTel metric calls — the metric instruments are tested
+// independently in cost-metrics.spec.ts.
+vi.mock('../../infrastructure/observability/cost-metrics', () => ({
+  recordLadderStep: vi.fn(),
+  recordTierShift: vi.fn(),
+  recordProviderFallback: vi.fn(),
+  recordLadderTransitionLatency: vi.fn(),
+}))
+
+const TEST_TENANT = 'tenant-123'
 const nominalState: TenantLadderState = { severity: 'nominal' }
 
 function makeLadder() {
   return new GracefulDegradationLadder()
 }
 
+beforeEach(() => {
+  vi.clearAllMocks()
+})
+
 describe('GracefulDegradationLadder', () => {
   describe('Step 1 — provider_retry', () => {
     it('fires on provider_5xx trigger when no fallback active', () => {
       const ladder = makeLadder()
       const result = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'provider_5xx',
         modelId: 'gpt-5.4',
         iteration: 1,
@@ -39,6 +58,7 @@ describe('GracefulDegradationLadder', () => {
       expect(ladder.shouldFallback(modelId)).toBe(true)
 
       const result = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'provider_5xx',
         modelId,
         iteration: 2,
@@ -55,6 +75,7 @@ describe('GracefulDegradationLadder', () => {
     it('fires on nano_5xx trigger', () => {
       const ladder = makeLadder()
       const result = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'nano_5xx',
         modelId: 'gpt-5.4-nano',
         iteration: 1,
@@ -71,6 +92,7 @@ describe('GracefulDegradationLadder', () => {
     it('fires on canary_degraded_primary tenant state', () => {
       const ladder = makeLadder()
       const result = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'canary_degraded_primary',
         modelId: 'gpt-5.4',
         iteration: 1,
@@ -89,6 +111,7 @@ describe('GracefulDegradationLadder', () => {
     it('fires on canary_degraded_both tenant state with elevated notice', () => {
       const ladder = makeLadder()
       const result = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'canary_degraded_both',
         modelId: 'gpt-5.4',
         iteration: 1,
@@ -105,6 +128,7 @@ describe('GracefulDegradationLadder', () => {
     it('fires on canary_collapse trigger with quality_canary cancellation', () => {
       const ladder = makeLadder()
       const result = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'canary_collapse',
         modelId: 'gpt-5.4',
         iteration: 1,
@@ -122,6 +146,7 @@ describe('GracefulDegradationLadder', () => {
     it('fires on budget_exhausted trigger with budget cancellation', () => {
       const ladder = makeLadder()
       const result = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'budget_exhausted',
         modelId: 'gpt-5.4',
         iteration: 1,
@@ -155,6 +180,7 @@ describe('GracefulDegradationLadder', () => {
 
       expect(() =>
         ladder.evaluate({
+          tenantId: TEST_TENANT,
           trigger: 'provider_5xx',
           modelId: 'model-x',
           iteration: 2,
@@ -207,6 +233,7 @@ describe('GracefulDegradationLadder', () => {
       ladder.recordError(modelId, 'vendor_overload')
 
       const call1 = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'provider_5xx',
         modelId,
         iteration: 2,
@@ -216,6 +243,7 @@ describe('GracefulDegradationLadder', () => {
 
       // Second call with tier_shift condition
       const call2 = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'canary_degraded_primary',
         modelId,
         iteration: 3,
@@ -226,6 +254,126 @@ describe('GracefulDegradationLadder', () => {
       expect(call1.traceTag).toBe('provider_fallback')
       expect(call2.traceTag).toBe('tier_shift')
       expect(call1.traceTag).not.toBe(call2.traceTag)
+    })
+  })
+
+  // ─── Issue 3: recordProviderFallback must use real errorClass ──────────────
+
+  describe('Issue 3 — recordProviderFallback uses actual error_class (R-05.20a)', () => {
+    it('step 2 via vendor_server_error emits error_class=vendor_server_error (not vendor_overload)', () => {
+      const ladder = makeLadder()
+      const modelId = 'gpt-5.4'
+
+      // Record 3 consecutive vendor_server_error errors (not vendor_overload)
+      ladder.recordError(modelId, 'vendor_server_error')
+      ladder.recordError(modelId, 'vendor_server_error')
+      ladder.recordError(modelId, 'vendor_server_error')
+
+      ladder.evaluate({
+        tenantId: TEST_TENANT,
+        trigger: 'provider_5xx',
+        modelId,
+        iteration: 2,
+        currentTier: 'full',
+        tenantState: nominalState,
+      })
+
+      expect(recordProviderFallback).toHaveBeenCalledWith(
+        TEST_TENANT,
+        modelId,
+        'vendor_server_error',
+      )
+    })
+
+    it('step 2 via vendor_overload emits error_class=vendor_overload', () => {
+      const ladder = makeLadder()
+      const modelId = 'gpt-5.4'
+
+      ladder.recordError(modelId, 'vendor_overload')
+      ladder.recordError(modelId, 'vendor_overload')
+      ladder.recordError(modelId, 'vendor_overload')
+
+      ladder.evaluate({
+        tenantId: TEST_TENANT,
+        trigger: 'provider_5xx',
+        modelId,
+        iteration: 2,
+        currentTier: 'full',
+        tenantState: nominalState,
+      })
+
+      expect(recordProviderFallback).toHaveBeenCalledWith(TEST_TENANT, modelId, 'vendor_overload')
+    })
+  })
+
+  // ─── Issue 3 (I-3): mixed-sequence → most-recent-error-class wins rule ────────
+
+  describe('I-3 — lastOverloadErrorClass mixed-sequence test', () => {
+    it('2× vendor_overload then 1× vendor_server_error → recordProviderFallback with error_class=vendor_server_error', () => {
+      const ladder = makeLadder()
+      const modelId = 'gpt-5.4'
+
+      // Step 1: 2× vendor_overload
+      ladder.recordError(modelId, 'vendor_overload')
+      ladder.recordError(modelId, 'vendor_overload')
+      // Step 2: 1× vendor_server_error — becomes the most-recent counted failure
+      ladder.recordError(modelId, 'vendor_server_error')
+
+      // Step 3: trigger fallback evaluate
+      ladder.evaluate({
+        tenantId: TEST_TENANT,
+        trigger: 'provider_5xx',
+        modelId,
+        iteration: 2,
+        currentTier: 'full',
+        tenantState: nominalState,
+      })
+
+      // Step 4: assert most-recent-error-class wins (vendor_server_error, not vendor_overload)
+      expect(recordProviderFallback).toHaveBeenCalledWith(
+        TEST_TENANT,
+        modelId,
+        'vendor_server_error',
+      )
+      expect(recordProviderFallback).not.toHaveBeenCalledWith(
+        TEST_TENANT,
+        modelId,
+        'vendor_overload',
+      )
+    })
+  })
+
+  // ─── Issue 1: agent_ladder_transition_latency_ms fires on step transitions ─
+
+  describe('Issue 1 — agent_ladder_transition_latency_ms fires on each step transition', () => {
+    it('emits recordLadderTransitionLatency when evaluate() returns a step', () => {
+      const ladder = makeLadder()
+
+      ladder.evaluate({
+        tenantId: TEST_TENANT,
+        trigger: 'provider_5xx',
+        modelId: 'gpt-5.4',
+        iteration: 1,
+        currentTier: 'full',
+        tenantState: nominalState,
+      })
+
+      expect(recordLadderTransitionLatency).toHaveBeenCalledWith(1, expect.any(Number))
+    })
+
+    it('emits the correct step number in recordLadderTransitionLatency for step 7', () => {
+      const ladder = makeLadder()
+
+      ladder.evaluate({
+        tenantId: TEST_TENANT,
+        trigger: 'budget_exhausted',
+        modelId: 'gpt-5.4',
+        iteration: 1,
+        currentTier: 'full',
+        tenantState: nominalState,
+      })
+
+      expect(recordLadderTransitionLatency).toHaveBeenCalledWith(7, expect.any(Number))
     })
   })
 })
