@@ -147,6 +147,9 @@ import {
 import { LeakCanaryScheduler } from './infrastructure/jobs/leak-canary.scheduler'
 import { TurnSamplingDecisionRecorder } from './application/services/turn-sampling-decision-recorder'
 import { ToolInvocationAuditRecorder } from './application/services/tool-invocation-audit-recorder'
+// Plan 07 — ObservabilityContextFactory + FlowIdPropagation (controller wiring)
+import { ObservabilityContextFactory } from './application/services/observability-context'
+import { FlowIdPropagation } from './application/services/flow-id-propagation'
 // Plan 05 services
 import { PricingResolver } from './infrastructure/pricing/pricing-resolver'
 import { OpenAiUsageExtractor } from './infrastructure/adapters/openai-usage-extractor'
@@ -452,6 +455,9 @@ class NullTenantLister implements TenantListerLike {
     },
     // ── Composition-attack monitor (Plan 07 Task 6) ───────────────────────────
     CompositionMonitorWorker,
+    // ── Plan 07 — ObservabilityContextFactory + FlowIdPropagation (controller seam) ──
+    ObservabilityContextFactory,
+    FlowIdPropagation,
     // ── Plan 07 Task 7 — Observability meta-metrics + quota recorder ──────────
     TurnSamplingDecisionRecorder,
     LeakCanaryScheduler,

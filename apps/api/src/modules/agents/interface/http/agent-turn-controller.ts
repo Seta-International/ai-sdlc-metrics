@@ -20,6 +20,13 @@ import {
   EVENT_SCHEMA_VERSION,
 } from '../../application/services/stream-gateway'
 import { extractSessionToken } from './session-token-extractor'
+import { BudgetChecker } from '../../application/services/budget-checker'
+import { ObservabilityContextFactory } from '../../application/services/observability-context'
+import { FlowIdPropagation } from '../../application/services/flow-id-propagation'
+import type { IntentSlug } from '../../application/services/flow-id-propagation'
+
+// Fallback intent slug used before the router resolves the actual intent
+const UNCLASSIFIED_INTENT = 'unclassified' as IntentSlug
 
 interface TurnRequestBody {
   surface: string
@@ -34,6 +41,9 @@ export class AgentTurnController {
     private readonly jwtService: JwtService,
     private readonly activeTurnRegistry: ActiveTurnRegistry,
     private readonly kernelAuditFacade: KernelAuditFacade,
+    private readonly budgetChecker: BudgetChecker,
+    private readonly observabilityContextFactory: ObservabilityContextFactory,
+    private readonly flowIdPropagation: FlowIdPropagation,
   ) {}
 
   @Post('/api/agent/turn')
@@ -63,6 +73,61 @@ export class AgentTurnController {
     const conversationId = body?.conversation_id ?? null
     const surface = body?.surface ?? 'global-chat'
 
+    // ── R-07.44: Mint a flow_id for this turn ─────────────────────────────────
+    // intentSlug will be resolved by the router later; use 'unclassified' as the
+    // pre-router placeholder (§18.5 — ≤2% unclassified threshold monitors this).
+    const requestContext = { tenantId, userId, traceId, surface }
+    const flowId = this.flowIdPropagation.mint({
+      requestContext,
+      intentSlug: UNCLASSIFIED_INTENT,
+    })
+
+    // ── R-07.43: Create the root TURN span ────────────────────────────────────
+    const obsCtx = this.observabilityContextFactory.create({
+      requestContext,
+      flowId,
+      intentSlug: UNCLASSIFIED_INTENT,
+      capture: true,
+    })
+
+    // ── R-05.1: Pre-turn budget gate ──────────────────────────────────────────
+    const budgetResult = await this.budgetChecker.preTurnCheck({ tenantId, userId })
+
+    if (!budgetResult.allowed) {
+      // Emit kernel audit event before refusing
+      await this.kernelAuditFacade.recordEvent({
+        tenantId,
+        actorId: userId,
+        eventType: 'agent.turn_refused_budget',
+        module: 'agents',
+        subjectId: traceId,
+        payload: { reason: budgetResult.reason, tier: budgetResult.tier, traceId },
+        flowId,
+        intentSlug: UNCLASSIFIED_INTENT,
+      })
+
+      // Close the root span with error status (budget refused = turn never started)
+      obsCtx.currentSpan.end({ status: 'error' })
+
+      res.raw.writeHead(429, { 'Content-Type': 'application/json' })
+      res.raw.end(
+        JSON.stringify({
+          message: 'Budget exceeded',
+          reason: 'budget_exceeded',
+          budgetReason: budgetResult.reason,
+        }),
+      )
+      return
+    }
+
+    // ── Degraded tier: pass through for downstream use ────────────────────────
+    // budgetResult.tier ('full' | 'nano') is available to the pipeline. When the
+    // router / sub-agent runner integrates, they read it from TurnState (Task 4).
+    // For now we surface it as an attribute on the root span so it's traceable.
+    if (budgetResult.tierShift) {
+      obsCtx.currentSpan.setAttribute('budget_tier', budgetResult.tier)
+    }
+
     res.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -84,6 +149,7 @@ export class AgentTurnController {
 
     const gateway = createStreamGateway(writeSseEvent)
 
+    let turnError: Error | undefined
     try {
       await this.activeTurnRegistry.register({
         traceId,
@@ -102,7 +168,7 @@ export class AgentTurnController {
         return
       }
 
-      gateway.emit({ type: 'turn.started', payload: { trace_id: traceId } })
+      gateway.emit({ type: 'turn.started', payload: { trace_id: traceId, flow_id: flowId } })
 
       if (signal.aborted) {
         gateway.close('cancelled', ZERO_USAGE)
@@ -127,13 +193,21 @@ export class AgentTurnController {
       }
 
       gateway.close('completed', ZERO_USAGE)
-    } catch {
+    } catch (err) {
+      turnError = err instanceof Error ? err : new Error(String(err))
       if (!signal.aborted) {
         gateway.error('internal_error', ZERO_USAGE)
       } else {
         gateway.close('cancelled', ZERO_USAGE)
       }
     } finally {
+      // ── R-07.43: Close root span with appropriate status ───────────────────
+      if (turnError) {
+        obsCtx.currentSpan.end({ status: 'error', error: turnError })
+      } else {
+        obsCtx.currentSpan.end({ status: 'ok' })
+      }
+
       await this.activeTurnRegistry.unregister(traceId)
       if (!res.raw.writableEnded) {
         res.raw.end()

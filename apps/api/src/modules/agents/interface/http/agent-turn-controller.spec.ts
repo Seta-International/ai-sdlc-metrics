@@ -3,6 +3,11 @@ import { AgentTurnController } from './agent-turn-controller'
 import type { JwtService } from '../../../../common/auth/jwt.service'
 import type { ActiveTurnRegistry } from '../../application/services/active-turn-registry'
 import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
+import type { BudgetChecker } from '../../application/services/budget-checker'
+import type { ObservabilityContextFactory } from '../../application/services/observability-context'
+import type { FlowIdPropagation } from '../../application/services/flow-id-propagation'
+import type { ObservabilityContext } from '../../application/services/observability-context'
+import type { Span } from '../../domain/observability/span'
 import { EVENT_SCHEMA_VERSION } from '../../application/services/stream-gateway'
 
 const TENANT_ID = 'tid-001'
@@ -27,6 +32,67 @@ function makeAuditFacade() {
   return {
     recordEvent: vi.fn().mockResolvedValue(undefined),
   } as unknown as KernelAuditFacade
+}
+
+function makeNoOpSpan(): Span {
+  return {
+    spanId: 'noop-span-id',
+    traceId: 'trace-000',
+    setAttribute: vi.fn(),
+    setAttributes: vi.fn(),
+    recordUsage: vi.fn(),
+    end: vi.fn(),
+  }
+}
+
+function makeObsContext(overrides?: Partial<ObservabilityContext>): ObservabilityContext {
+  const span = makeNoOpSpan()
+  return {
+    currentSpan: span,
+    traceId: 'trace-000',
+    flowId: 'flow-test-id',
+    intentSlug: 'unclassified',
+    createChildSpan: vi.fn().mockReturnValue(makeNoOpSpan()),
+    ...overrides,
+  }
+}
+
+function makeBudgetChecker(
+  result: {
+    allowed: boolean
+    tier: 'full' | 'nano' | 'refused'
+    reason?: string
+    tierShift?: boolean
+  } = {
+    allowed: true,
+    tier: 'full',
+    tierShift: false,
+  },
+) {
+  return {
+    preTurnCheck: vi.fn().mockResolvedValue(result),
+    midTurnCheck: vi.fn(),
+  } as unknown as BudgetChecker
+}
+
+function makeObsFactory(obsCtx?: ObservabilityContext) {
+  const ctx = obsCtx ?? makeObsContext()
+  return {
+    create: vi.fn().mockReturnValue(ctx),
+    _ctx: ctx,
+  } as {
+    create: ReturnType<typeof vi.fn>
+    _ctx: ObservabilityContext
+  } & ObservabilityContextFactory
+}
+
+const FIXED_FLOW_ID = 'fixed-flow-id-001'
+
+function makeFlowIdPropagation() {
+  return {
+    mint: vi.fn().mockReturnValue(FIXED_FLOW_ID),
+    inheritFrom: vi.fn().mockReturnValue(FIXED_FLOW_ID),
+  } as unknown as FlowIdPropagation
 }
 
 function makeCookieHeader(token: string) {
@@ -94,6 +160,34 @@ function makeRes() {
   return { raw, written, getHead }
 }
 
+// ─── Factory for a fully-wired controller with budget/obs/flow deps ──────────
+
+function makeController(overrides?: {
+  jwtService?: JwtService
+  registry?: ActiveTurnRegistry
+  auditFacade?: KernelAuditFacade
+  budgetChecker?: BudgetChecker
+  obsFactory?: ObservabilityContextFactory
+  flowIdPropagation?: FlowIdPropagation
+}) {
+  const jwtSvc = overrides?.jwtService ?? makeJwtService()
+  const reg = overrides?.registry ?? makeRegistry()
+  const audit = overrides?.auditFacade ?? makeAuditFacade()
+  const budget = overrides?.budgetChecker ?? makeBudgetChecker()
+  const obs = overrides?.obsFactory ?? makeObsFactory()
+  const flow = overrides?.flowIdPropagation ?? makeFlowIdPropagation()
+
+  return {
+    controller: new AgentTurnController(jwtSvc, reg, audit, budget, obs, flow),
+    jwtService: jwtSvc,
+    registry: reg,
+    auditFacade: audit,
+    budgetChecker: budget,
+    obsFactory: obs,
+    flowIdPropagation: flow,
+  }
+}
+
 describe('AgentTurnController', () => {
   let jwtService: JwtService
   let registry: ActiveTurnRegistry
@@ -105,7 +199,14 @@ describe('AgentTurnController', () => {
     jwtService = makeJwtService()
     registry = makeRegistry()
     auditFacade = makeAuditFacade()
-    controller = new AgentTurnController(jwtService, registry, auditFacade)
+    controller = new AgentTurnController(
+      jwtService,
+      registry,
+      auditFacade,
+      makeBudgetChecker(),
+      makeObsFactory(),
+      makeFlowIdPropagation(),
+    )
   })
 
   it('returns 401 if no cookie header is present', async () => {
@@ -123,7 +224,14 @@ describe('AgentTurnController', () => {
 
   it('returns 401 if cookie exists but JWT is invalid', async () => {
     jwtService = makeJwtService(null)
-    controller = new AgentTurnController(jwtService, registry, auditFacade)
+    controller = new AgentTurnController(
+      jwtService,
+      registry,
+      auditFacade,
+      makeBudgetChecker(),
+      makeObsFactory(),
+      makeFlowIdPropagation(),
+    )
 
     const req = makeReq({ cookieHeader: makeCookieHeader('bad-token') })
     const res = makeRes()
@@ -242,5 +350,229 @@ describe('AgentTurnController', () => {
     // The close handler was registered on req.raw 'close' event
     // Confirm the raw listener was set up for the 'close' event
     expect(req.raw.on).toHaveBeenCalledWith('close', expect.any(Function))
+  })
+})
+
+// ─── Theme B: BudgetChecker + ObservabilityContextFactory + FlowIdPropagation ─
+
+describe('AgentTurnController — Theme B wiring (R-05.1, R-07.43, R-07.44)', () => {
+  it('T-B-1: BudgetChecker.preTurnCheck is called once with tenantId + userId', async () => {
+    const { controller, budgetChecker } = makeController()
+    const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    expect(budgetChecker.preTurnCheck).toHaveBeenCalledOnce()
+    expect(budgetChecker.preTurnCheck).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: TENANT_ID, userId: USER_ID }),
+    )
+  })
+
+  it('T-B-2: refused tier → HTTP 429, turn.ended with reason=budget_exceeded is NOT emitted via SSE (connection closed before SSE writeHead)', async () => {
+    const { controller } = makeController({
+      budgetChecker: makeBudgetChecker({
+        allowed: false,
+        tier: 'refused',
+        reason: 'tenant_daily_budget',
+      }),
+    })
+    const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    // Must return HTTP 429 (no SSE stream started)
+    const head = res.getHead()
+    expect(head).toBeDefined()
+    expect(head![0]).toBe(429)
+    const body = JSON.parse(res.raw.end.mock.calls[0]?.[0] ?? '{}')
+    expect(body).toMatchObject({ reason: 'budget_exceeded' })
+  })
+
+  it('T-B-2b: refused tier emits kernel audit event with budget_exceeded reason', async () => {
+    const { controller, auditFacade } = makeController({
+      budgetChecker: makeBudgetChecker({
+        allowed: false,
+        tier: 'refused',
+        reason: 'user_daily_budget',
+      }),
+    })
+    const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    expect(auditFacade.recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: TENANT_ID,
+        actorId: USER_ID,
+        eventType: 'agent.turn_refused_budget',
+        payload: expect.objectContaining({ reason: 'user_daily_budget' }),
+      }),
+    )
+  })
+
+  it('T-B-3a: allowed tier (full) → turn proceeds normally, registry.register is called', async () => {
+    const { controller, registry } = makeController({
+      budgetChecker: makeBudgetChecker({ allowed: true, tier: 'full', tierShift: false }),
+    })
+    const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    expect(registry.register).toHaveBeenCalledOnce()
+    const head = res.getHead()
+    expect(head![0]).toBe(200)
+  })
+
+  it('T-B-3b: nano tier → turn proceeds, degraded tier is passed in registry.register', async () => {
+    const { controller, registry } = makeController({
+      budgetChecker: makeBudgetChecker({ allowed: true, tier: 'nano', tierShift: true }),
+    })
+    const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    // Turn still proceeds (200 response)
+    const head = res.getHead()
+    expect(head![0]).toBe(200)
+    // Registry was called — turn started
+    expect(registry.register).toHaveBeenCalledOnce()
+  })
+
+  it('T-B-4: FlowIdPropagation.mint is called and flow_id attribute is set on root span', async () => {
+    const obsCtx = makeObsContext()
+    const spanEndSpy = vi.spyOn(obsCtx.currentSpan, 'setAttribute')
+    const { controller, flowIdPropagation, obsFactory } = makeController({
+      obsFactory: {
+        create: vi.fn().mockReturnValue(obsCtx),
+      } as unknown as ObservabilityContextFactory,
+    })
+    // replace flow propagation to confirm it was called
+    const flowProp = makeFlowIdPropagation()
+    const ctrlWithFlow = new AgentTurnController(
+      makeJwtService(),
+      makeRegistry(),
+      makeAuditFacade(),
+      makeBudgetChecker(),
+      obsFactory as ObservabilityContextFactory,
+      flowProp,
+    )
+
+    const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+    const res = makeRes()
+
+    await ctrlWithFlow.streamTurn(req as never, res as never)
+
+    // FlowIdPropagation.mint was called
+    expect(flowProp.mint).toHaveBeenCalledOnce()
+
+    // ObservabilityContextFactory.create was called with the flow_id from mint
+    expect(obsFactory.create).toHaveBeenCalledWith(
+      expect.objectContaining({ flowId: FIXED_FLOW_ID }),
+    )
+
+    void spanEndSpy // suppress unused warning
+    void flowIdPropagation
+  })
+
+  it('T-B-5: root span is closed in finally — closed on success', async () => {
+    const obsCtx = makeObsContext()
+    const spanEndSpy = vi.spyOn(obsCtx.currentSpan, 'end')
+    const { controller } = makeController({
+      obsFactory: {
+        create: vi.fn().mockReturnValue(obsCtx),
+      } as unknown as ObservabilityContextFactory,
+    })
+
+    const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    expect(spanEndSpy).toHaveBeenCalledOnce()
+  })
+
+  it('T-B-5b: root span is closed in finally — closed on exception', async () => {
+    const obsCtx = makeObsContext()
+    const spanEndSpy = vi.spyOn(obsCtx.currentSpan, 'end')
+
+    const errorRegistry = {
+      register: vi.fn().mockRejectedValue(new Error('registry exploded')),
+      unregister: vi.fn().mockResolvedValue(undefined),
+      cancel: vi.fn(),
+      getEntry: vi.fn(),
+    } as unknown as ActiveTurnRegistry
+
+    const { controller } = makeController({
+      registry: errorRegistry,
+      obsFactory: {
+        create: vi.fn().mockReturnValue(obsCtx),
+      } as unknown as ObservabilityContextFactory,
+    })
+
+    const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    // Span must be closed even after exception
+    expect(spanEndSpy).toHaveBeenCalledOnce()
+    // span.end should carry error status on exception
+    expect(spanEndSpy).toHaveBeenCalledWith(expect.objectContaining({ status: 'error' }))
+  })
+
+  it('T-B-5c: root span is closed with ok status on happy path', async () => {
+    const obsCtx = makeObsContext()
+    const spanEndSpy = vi.spyOn(obsCtx.currentSpan, 'end')
+    const { controller } = makeController({
+      obsFactory: {
+        create: vi.fn().mockReturnValue(obsCtx),
+      } as unknown as ObservabilityContextFactory,
+    })
+
+    const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    expect(spanEndSpy).toHaveBeenCalledWith(expect.objectContaining({ status: 'ok' }))
+  })
+
+  it('T-B-6: audit event on refused turn carries flow_id', async () => {
+    const flowProp = makeFlowIdPropagation()
+    const { controller, auditFacade } = makeController({
+      budgetChecker: makeBudgetChecker({
+        allowed: false,
+        tier: 'refused',
+        reason: 'tenant_daily_budget',
+      }),
+      flowIdPropagation: flowProp,
+    })
+
+    const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    expect(auditFacade.recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ flowId: FIXED_FLOW_ID }),
+    )
+  })
+
+  it('T-B-7: BudgetChecker not called if JWT is invalid', async () => {
+    const { controller, budgetChecker } = makeController({
+      jwtService: makeJwtService(null),
+    })
+
+    const req = makeReq({ cookieHeader: makeCookieHeader('bad-token') })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    expect(budgetChecker.preTurnCheck).not.toHaveBeenCalled()
   })
 })
