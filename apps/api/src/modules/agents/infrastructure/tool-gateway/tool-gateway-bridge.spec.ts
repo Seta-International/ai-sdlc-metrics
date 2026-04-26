@@ -153,6 +153,7 @@ describe('buildSubAgentTools.execute()', () => {
 
     expect(result).toBe('hello')
     expect(accumulator.toolResultCount).toBe(1)
+    expect(accumulator.callCount).toBe(1)
     expect(accumulator.sourceToolProvenance).toHaveLength(1)
     expect(accumulator.sourceToolProvenance[0]).toMatchObject({
       toolName: 't1',
@@ -239,7 +240,7 @@ describe('buildSubAgentTools.execute()', () => {
     expect(accumulator.drafts[0]).toEqual({ id: 'd1', toolName: 't1', args: { x: '1' } })
   })
 
-  it('returns {error, message} for soft (retry) tripwire and increments toolFailureCount', async () => {
+  it('returns {error, message} for soft (retry) tripwire and increments toolFailureCount only', async () => {
     const accumulator = newAccumulator()
     const gateway = makeGateway(async () =>
       tripwire('validation_failed', 'retry', { message: 'bad input' }),
@@ -257,7 +258,33 @@ describe('buildSubAgentTools.execute()', () => {
     ).execute({ x: '1' }, {})
     expect(result).toEqual({ error: 'validation_failed', message: 'bad input' })
     expect(accumulator.toolFailureCount).toBe(1)
+    // I-1: soft tripwires must NOT increment toolResultCount (it counts ok results only).
+    expect(accumulator.toolResultCount).toBe(0)
     expect(accumulator.ceilingHit).toBe(false)
+  })
+
+  it('counts toolResultCount strictly for ok results across an ok→soft→ok sequence (I-1)', async () => {
+    const accumulator = newAccumulator()
+    let call = 0
+    const gateway = makeGateway(async () => {
+      call += 1
+      if (call === 2) return tripwire('validation_failed', 'retry', { message: 'oops' })
+      return ok(`v${call}`, false)
+    })
+    const tools = buildSubAgentTools({
+      toolScope: ['t1'],
+      registry: makeRegistry({ t1: makeDescriptor('t1') }),
+      toolGateway: gateway,
+      invokeContext,
+      accumulator,
+    })
+    const exec = (tools['t1'] as { execute: (a: unknown, o: unknown) => Promise<unknown> }).execute
+    await exec({ x: '1' }, {})
+    await exec({ x: '2' }, {})
+    await exec({ x: '3' }, {})
+
+    expect(accumulator.toolResultCount).toBe(2)
+    expect(accumulator.toolFailureCount).toBe(1)
   })
 
   it('sets ceilingHit on ceiling_breach_bytes soft tripwire', async () => {
@@ -319,7 +346,7 @@ describe('buildSubAgentTools.execute()', () => {
     expect(tools['missing']).toBeUndefined()
   })
 
-  it('increments iteration counter per tool across calls', async () => {
+  it('increments iteration counter monotonically across repeated calls to the same tool', async () => {
     const accumulator = newAccumulator()
     const gateway = makeGateway(async () => ok('v', false))
     const tools = buildSubAgentTools({
@@ -333,6 +360,104 @@ describe('buildSubAgentTools.execute()', () => {
     await exec({ x: '1' }, {})
     await exec({ x: '2' }, {})
     expect(accumulator.sourceToolProvenance.map((c) => c.iteration)).toEqual([1, 2])
+    expect(accumulator.callCount).toBe(2)
+  })
+
+  it('iteration counter is global across tools (I-3): t1, t2, t1 → 1, 2, 3', async () => {
+    const accumulator = newAccumulator()
+    const gateway = makeGateway(async () => ok('v', false))
+    const tools = buildSubAgentTools({
+      toolScope: ['t1', 't2'],
+      registry: makeRegistry({ t1: makeDescriptor('t1'), t2: makeDescriptor('t2') }),
+      toolGateway: gateway,
+      invokeContext,
+      accumulator,
+    })
+    const exec1 = (tools['t1'] as { execute: (a: unknown, o: unknown) => Promise<unknown> }).execute
+    const exec2 = (tools['t2'] as { execute: (a: unknown, o: unknown) => Promise<unknown> }).execute
+    await exec1({ x: '1' }, {})
+    await exec2({ x: '2' }, {})
+    await exec1({ x: '3' }, {})
+
+    expect(
+      accumulator.sourceToolProvenance.map((c) => ({
+        toolName: c.toolName,
+        iteration: c.iteration,
+      })),
+    ).toEqual([
+      { toolName: 't1', iteration: 1 },
+      { toolName: 't2', iteration: 2 },
+      { toolName: 't1', iteration: 3 },
+    ])
+    expect(accumulator.callCount).toBe(3)
+  })
+
+  it('wraps thrown gateway error into HardTripwireError(infra_error) and leaves accumulator unchanged (I-2)', async () => {
+    const accumulator = newAccumulator()
+    const gateway: ToolGatewayPort = {
+      invoke: vi.fn(async () => {
+        throw new Error('boom')
+      }),
+    }
+    const tools = buildSubAgentTools({
+      toolScope: ['t1'],
+      registry: makeRegistry({ t1: makeDescriptor('t1') }),
+      toolGateway: gateway,
+      invokeContext,
+      accumulator,
+    })
+
+    let captured: unknown
+    try {
+      await (tools['t1'] as { execute: (a: unknown, o: unknown) => Promise<unknown> }).execute(
+        { x: '1' },
+        {},
+      )
+    } catch (e) {
+      captured = e
+    }
+    expect(captured).toBeInstanceOf(HardTripwireError)
+    const err = captured as HardTripwireError
+    expect(err.toolName).toBe('t1')
+    expect(err.tripwire.variant).toBe('infra_error')
+    expect(err.tripwire.disposition).toBe('abort')
+    expect(err.tripwire.context['message']).toBe('boom')
+    expect(err.tripwire.context['cause']).toBe('Error')
+
+    // Accumulator unchanged: failures aren't double-counted (the throw covers it).
+    expect(accumulator.toolResultCount).toBe(0)
+    expect(accumulator.toolFailureCount).toBe(0)
+    expect(accumulator.sourceToolProvenance).toHaveLength(0)
+    expect(accumulator.drafts).toHaveLength(0)
+  })
+
+  it('rethrows an existing HardTripwireError as-is (I-2 identity)', async () => {
+    const accumulator = newAccumulator()
+    const realHardTrip = tripwire('infra_error', 'abort', { message: 'existing' })
+    const original = new HardTripwireError(realHardTrip, 't1')
+    const gateway: ToolGatewayPort = {
+      invoke: vi.fn(async () => {
+        throw original
+      }),
+    }
+    const tools = buildSubAgentTools({
+      toolScope: ['t1'],
+      registry: makeRegistry({ t1: makeDescriptor('t1') }),
+      toolGateway: gateway,
+      invokeContext,
+      accumulator,
+    })
+
+    let captured: unknown
+    try {
+      await (tools['t1'] as { execute: (a: unknown, o: unknown) => Promise<unknown> }).execute(
+        { x: '1' },
+        {},
+      )
+    } catch (e) {
+      captured = e
+    }
+    expect(captured).toBe(original)
   })
 })
 

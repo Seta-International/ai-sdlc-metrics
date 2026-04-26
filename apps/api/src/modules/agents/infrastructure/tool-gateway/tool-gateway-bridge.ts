@@ -34,6 +34,7 @@ import type {
   ToolCall,
   ToolName,
 } from '../../application/services/phase-executor-contracts'
+import { tripwire as buildTripwire } from '../guards/tripwire'
 import type { Tripwire, ToolGatewayResult } from '../guards/tripwire'
 import type { ToolRegistry } from '../tool-registry/tool-registry'
 import type { AiSdkTool } from '../llm/sub-agent-llm-client'
@@ -52,8 +53,21 @@ import type { AiSdkTool } from '../llm/sub-agent-llm-client'
  * externally by the runner adapter.
  */
 export interface BridgeAccumulator {
+  /**
+   * Count of successful tool invocations (`kind: 'ok'` returned by the
+   * gateway). Soft and hard tripwires are tracked in `toolFailureCount` /
+   * thrown `HardTripwireError` respectively — they never increment this.
+   */
   toolResultCount: number
   toolFailureCount: number
+  /**
+   * 1-indexed monotonic counter of tool invocations within this bridge build
+   * (i.e. one sub-agent ReAct loop). Shared across every tool wired by this
+   * `buildSubAgentTools()` call so that `ToolCall.iteration` and
+   * `DraftProposal.taintSource.flippedAtIteration` use the same coordinate.
+   * Incremented at the entry of each `execute()` regardless of outcome.
+   */
+  callCount: number
   /**
    * Counter that tracks the number of soft (retry-disposition) tripwires
    * surfaced to the LLM during this run. Distinct from `toolFailureCount`
@@ -79,6 +93,7 @@ export function newAccumulator(): BridgeAccumulator {
   return {
     toolResultCount: 0,
     toolFailureCount: 0,
+    callCount: 0,
     retryCount: 0,
     taintFlippedDuringRun: false,
     ceilingHit: false,
@@ -150,25 +165,37 @@ export function buildSubAgentTools(opts: BuildSubAgentToolsOpts): Record<ToolNam
     const descriptor = registry.getDescriptor(toolName)
     if (!descriptor) continue
 
-    let iteration = 0
-
     const wrapped = tool({
       description: descriptor.meta.whenToUse,
       inputSchema: descriptor.inputSchema as never,
       execute: async (args: unknown) => {
-        iteration += 1
+        accumulator.callCount += 1
+        const iteration = accumulator.callCount
         const startMs = Date.now()
         const wasTainted = invokeContext.turnState.tainted.value
 
-        accumulator.toolResultCount += 1
-
-        const result = await toolGateway.invoke({
-          ...invokeContext,
-          toolName,
-          args,
-        })
+        let result: ToolGatewayResult
+        try {
+          result = await toolGateway.invoke({
+            ...invokeContext,
+            toolName,
+            args,
+          })
+        } catch (caught) {
+          // I-2: a thrown gateway error must surface as a HardTripwireError so the
+          // ReAct loop's hard-abort path can short-circuit. Pre-existing
+          // HardTripwireErrors (e.g. nested gateway plumbing) are rethrown as-is
+          // to preserve their identity and original tripwire context.
+          if (caught instanceof HardTripwireError) throw caught
+          const err = caught as { message?: unknown; name?: unknown }
+          const message = typeof err.message === 'string' ? err.message : 'gateway threw'
+          const cause = typeof err.name === 'string' ? err.name : 'Error'
+          const synthetic = buildTripwire('infra_error', 'abort', { message, cause })
+          throw new HardTripwireError(synthetic, toolName)
+        }
 
         if (result.kind === 'ok') {
+          accumulator.toolResultCount += 1
           accumulator.sourceToolProvenance.push({
             toolName,
             args,
