@@ -188,4 +188,28 @@ describe('buildSubAgentOutput', () => {
     expect(result.sourceToolProvenance).toHaveLength(1)
     expect(result.sourceToolProvenance[0]!.toolName).toBe('planner.listTasks')
   })
+
+  it('propagates usageTotals through the success branch', () => {
+    const usage = {
+      inputTokens: 123,
+      outputTokens: 456,
+      inputCachedRead: 0,
+      inputCachedWrite: 0,
+      outputReasoning: 7,
+      costUsd: 0.0089,
+    }
+    const out = buildSubAgentOutput({
+      rawStructured: { taskCount: 1, tasks: ['T1'] },
+      outputSchema: OUTPUT_SCHEMA,
+      signals: baseSignals(),
+      summary: 's',
+      semantics: 'k',
+      sourceToolProvenance: [],
+      circuitBreakerState: {},
+      usageTotals: usage,
+    })
+
+    expect(out.kind).toBe('completed')
+    expect(out.usageTotals).toEqual(usage)
+  })
 })

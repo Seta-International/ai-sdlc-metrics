@@ -157,6 +157,6 @@ export function buildSubAgentOutput(opts: BuildSubAgentOutputOpts): SubAgentOutp
     structured: parsed.data,
     drafts,
     circuitBreakerState,
-    usageTotals: ZERO_USAGE,
+    usageTotals,
   }
 }
