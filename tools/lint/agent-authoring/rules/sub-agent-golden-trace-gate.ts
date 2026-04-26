@@ -113,9 +113,11 @@ export function createSubAgentGoldenTraceGateRule(
 // ---------------------------------------------------------------------------
 
 function defaultGetNewSubAgentFiles(): string[] {
-  // List only Added (not Renamed) files from the last commit diff
-  // This works in CI (PR context) where HEAD~1 is the base commit
-  const stdout = execSync('git diff --diff-filter=A --name-only HEAD~1..HEAD', {
+  // In CI (GitHub Actions pull_request), use GITHUB_BASE_REF for a full PR diff.
+  // Locally (no GITHUB_BASE_REF), fall back to HEAD~1..HEAD for a single-commit diff.
+  const baseRef = process.env.GITHUB_BASE_REF
+  const range = baseRef ? `origin/${baseRef}...HEAD` : 'HEAD~1..HEAD'
+  const stdout = execSync(`git diff --diff-filter=A --name-only ${range}`, {
     encoding: 'utf-8',
   })
   return stdout
