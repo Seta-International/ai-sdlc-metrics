@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Job } from 'pg-boss'
 import { ShadowTurnWorker, SHADOW_TURN_JOB_NAME, type ShadowTurnJob } from './shadow-turn-worker'
 import type { ShadowDiffScorer } from '../../application/services/shadow-diff-scorer'
+import type { TrpcCaller } from '../../application/pipeline/pipeline-steps'
 import type { PgBossService } from '../../../../common/jobs/pg-boss.service'
 import type { Db } from '@future/db'
 
@@ -21,14 +22,16 @@ const BASELINE_TRACE_ID = '00000000-0000-7000-8000-000000000004'
 const CANDIDATE_VERSION = 'v2'
 const BASELINE_VERSION = 'v1'
 
+const BASELINE_OUTPUT = {
+  toolCallNames: ['planner.list_tasks'],
+  permissionKeys: ['tasks.read'],
+  answerShape: 'list' as const,
+}
+
 function makeJobPayload(overrides: Partial<ShadowTurnJob> = {}): ShadowTurnJob {
   return {
     baselineTraceId: BASELINE_TRACE_ID,
-    baselineOutput: {
-      toolCallNames: ['planner.list_tasks'],
-      permissionKeys: ['tasks.read'],
-      answerShape: 'list',
-    },
+    baselineOutput: BASELINE_OUTPUT,
     candidateVersion: CANDIDATE_VERSION,
     baselineVersion: BASELINE_VERSION,
     rolloutConfigId: ROLLOUT_CONFIG_ID,
@@ -59,12 +62,22 @@ function makePgBossService(): PgBossService {
   } as unknown as PgBossService
 }
 
+/** Diff scorer that returns 'identical' for non-null candidate, 'shadow_errored' for null. */
 function makeDiffScorer(): ShadowDiffScorer {
   return {
-    score: vi.fn().mockReturnValue({
-      score: 1,
-      category: 'shadow_errored',
-      componentDiffs: { toolCallOverlap: 0, shapeDiff: 0, permissionKeyOverlap: 0 },
+    score: vi.fn().mockImplementation(({ candidateOutput }) => {
+      if (candidateOutput === null) {
+        return {
+          score: 1,
+          category: 'shadow_errored',
+          componentDiffs: { toolCallOverlap: 0, shapeDiff: 0, permissionKeyOverlap: 0 },
+        }
+      }
+      return {
+        score: 0,
+        category: 'identical',
+        componentDiffs: { toolCallOverlap: 1, shapeDiff: 0, permissionKeyOverlap: 1 },
+      }
     }),
   } as unknown as ShadowDiffScorer
 }
@@ -78,12 +91,28 @@ function makeDb(): Db {
   } as unknown as Db
 }
 
+/**
+ * TrpcCaller that succeeds for all tool names in the given list and returns a
+ * plausible TurnResult-shaped value. Any tool not in the list throws.
+ */
+function makeTrpcCaller(toolsToSimulate: string[] = ['planner.list_tasks']): TrpcCaller {
+  return {
+    call: vi.fn().mockImplementation(async ({ toolName }: { toolName: string }) => {
+      if (toolsToSimulate.includes(toolName)) {
+        return { ok: true }
+      }
+      throw new Error(`No procedure for ${toolName}`)
+    }),
+  } as unknown as TrpcCaller
+}
+
 // ── Tests ──────────────────────────────────────────────────────────────────────
 
 describe('ShadowTurnWorker', () => {
   let pgBossService: PgBossService
   let diffScorer: ShadowDiffScorer
   let db: Db
+  let trpcCaller: TrpcCaller
   let worker: ShadowTurnWorker
 
   beforeEach(() => {
@@ -91,7 +120,8 @@ describe('ShadowTurnWorker', () => {
     pgBossService = makePgBossService()
     diffScorer = makeDiffScorer()
     db = makeDb()
-    worker = new ShadowTurnWorker(pgBossService, diffScorer, db)
+    trpcCaller = makeTrpcCaller()
+    worker = new ShadowTurnWorker(pgBossService, diffScorer, db, trpcCaller)
   })
 
   describe('SHADOW_TURN_JOB_NAME constant', () => {
@@ -101,14 +131,28 @@ describe('ShadowTurnWorker', () => {
   })
 
   describe('handle()', () => {
-    it('calls diffScorer.score with baselineOutput and null candidateOutput (MVP stub)', async () => {
+    it('calls diffScorer.score with baselineOutput and a non-null candidateOutput', async () => {
       const payload = makeJobPayload()
       await worker.handle([makeJob(payload)])
 
-      expect(diffScorer.score).toHaveBeenCalledWith({
-        baselineOutput: payload.baselineOutput,
-        candidateOutput: null,
-      })
+      expect(diffScorer.score).toHaveBeenCalledOnce()
+      const call = (diffScorer.score as ReturnType<typeof vi.fn>).mock.calls[0][0]
+      expect(call.baselineOutput).toEqual(payload.baselineOutput)
+      // candidateOutput must be non-null — simulateShadowExecution now executes real dry-run
+      expect(call.candidateOutput).not.toBeNull()
+    })
+
+    it('invokes the trpcCaller in dry-run mode for each baseline tool', async () => {
+      const payload = makeJobPayload()
+      await worker.handle([makeJob(payload)])
+
+      const callerCallMock = trpcCaller.call as ReturnType<typeof vi.fn>
+      expect(callerCallMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          toolName: 'planner.list_tasks',
+          mode: 'dry-run',
+        }),
+      )
     })
 
     it('writes an agent_shadow_run row to the DB with required fields', async () => {
@@ -128,14 +172,13 @@ describe('ShadowTurnWorker', () => {
         candidateVersion: CANDIDATE_VERSION,
         baselineVersion: BASELINE_VERSION,
       })
-      // ID and shadowTraceId should be UUIDs (non-empty strings)
       expect(typeof insertedRow.id).toBe('string')
       expect(insertedRow.id.length).toBeGreaterThan(0)
       expect(typeof insertedRow.shadowTraceId).toBe('string')
       expect(insertedRow.shadowTraceId.length).toBeGreaterThan(0)
     })
 
-    it('writes diff_category=shadow_errored and diff_score=1 when MVP stub returns null candidate', async () => {
+    it('writes diff_category=shadow_completed (not shadow_errored) when candidate runs successfully', async () => {
       const payload = makeJobPayload()
       await worker.handle([makeJob(payload)])
 
@@ -143,8 +186,36 @@ describe('ShadowTurnWorker', () => {
       const valuesMock = dbInsertMock.mock.results[0].value.values as ReturnType<typeof vi.fn>
       const insertedRow = valuesMock.mock.calls[0][0]
 
+      // Candidate ran successfully → category reflects real diff (not shadow_errored)
+      expect(insertedRow.diffCategory).not.toBe('shadow_errored')
+    })
+
+    it('writes diff_category=shadow_errored when trpcCaller fails for all tools', async () => {
+      const failingCaller: TrpcCaller = {
+        call: vi.fn().mockRejectedValue(new Error('caller unavailable')),
+      } as unknown as TrpcCaller
+
+      const failingDiffScorer: ShadowDiffScorer = {
+        score: vi.fn().mockReturnValue({
+          score: 1,
+          category: 'shadow_errored',
+          componentDiffs: { toolCallOverlap: 0, shapeDiff: 0, permissionKeyOverlap: 0 },
+        }),
+      } as unknown as ShadowDiffScorer
+
+      const failingWorker = new ShadowTurnWorker(
+        pgBossService,
+        failingDiffScorer,
+        db,
+        failingCaller,
+      )
+      const payload = makeJobPayload()
+      await failingWorker.handle([makeJob(payload)])
+
+      const dbInsertMock = db.insert as ReturnType<typeof vi.fn>
+      const valuesMock = dbInsertMock.mock.results[0].value.values as ReturnType<typeof vi.fn>
+      const insertedRow = valuesMock.mock.calls[0][0]
       expect(insertedRow.diffCategory).toBe('shadow_errored')
-      expect(Number(insertedRow.diffScore)).toBe(1)
     })
 
     it('generates a unique shadowTraceId UUID for each job', async () => {
@@ -152,12 +223,9 @@ describe('ShadowTurnWorker', () => {
       await worker.handle([makeJob(payload)])
       await worker.handle([makeJob(payload)])
 
-      // Both calls go through db.insert → .values(row). The values() mock accumulates
-      // all calls since the same insertResult object is reused.
       const dbInsertMock = db.insert as ReturnType<typeof vi.fn>
       const valuesMock = dbInsertMock.mock.results[0].value.values as ReturnType<typeof vi.fn>
 
-      // Two handle() calls → two .values() invocations
       expect(valuesMock.mock.calls).toHaveLength(2)
       const firstShadowTraceId = valuesMock.mock.calls[0][0].shadowTraceId
       const secondShadowTraceId = valuesMock.mock.calls[1][0].shadowTraceId
@@ -174,7 +242,12 @@ describe('ShadowTurnWorker', () => {
         }),
       } as unknown as ShadowDiffScorer
 
-      const workerWithFailingScorer = new ShadowTurnWorker(pgBossService, scorerWithError, db)
+      const workerWithFailingScorer = new ShadowTurnWorker(
+        pgBossService,
+        scorerWithError,
+        db,
+        trpcCaller,
+      )
       const payload = makeJobPayload()
 
       await expect(workerWithFailingScorer.handle([makeJob(payload)])).resolves.not.toThrow()
@@ -187,7 +260,12 @@ describe('ShadowTurnWorker', () => {
         }),
       } as unknown as Db
 
-      const workerWithFailingDb = new ShadowTurnWorker(pgBossService, diffScorer, dbWithError)
+      const workerWithFailingDb = new ShadowTurnWorker(
+        pgBossService,
+        diffScorer,
+        dbWithError,
+        trpcCaller,
+      )
       const payload = makeJobPayload()
 
       await expect(workerWithFailingDb.handle([makeJob(payload)])).resolves.not.toThrow()
@@ -222,6 +300,7 @@ describe('ShadowTurnWorker', () => {
         pgBossService,
         scorerThatFailsOnFirst,
         db,
+        trpcCaller,
       )
       const jobs = [makeJob(makeJobPayload()), makeJob(makeJobPayload())]
 

@@ -151,17 +151,35 @@ describe('TrpcCallerImpl', () => {
     })
   })
 
-  describe('dry-run guard', () => {
-    it('throws a clear error when mode is dry-run', async () => {
+  describe('dry-run mode', () => {
+    it('succeeds and returns a result (no throw) when mode is dry-run', async () => {
       const caller = makeCallerImpl()
-      await expect(
-        caller.call({
-          toolName: 'planner.task.getBoard',
-          args: {},
-          requestContext: REQUEST_CONTEXT,
-          mode: 'dry-run',
-        }),
-      ).rejects.toThrow(/dry-run not supported at MVP/)
+      // dry-run must execute and return a result — not throw.
+      // No db provided → falls back to execute path without transaction wrapping.
+      const result = await caller.call({
+        toolName: 'planner.task.getBoard',
+        args: { planId: 'p-1' },
+        requestContext: REQUEST_CONTEXT,
+        mode: 'dry-run',
+      })
+      expect(result).toEqual({ ok: true, args: { planId: 'p-1' } })
+    })
+
+    it('dry-run returns same output as execute for a read procedure', async () => {
+      const caller = makeCallerImpl()
+      const executeResult = await caller.call({
+        toolName: 'planner.task.getBoard',
+        args: { planId: 'same' },
+        requestContext: REQUEST_CONTEXT,
+        mode: 'execute',
+      })
+      const dryRunResult = await caller.call({
+        toolName: 'planner.task.getBoard',
+        args: { planId: 'same' },
+        requestContext: REQUEST_CONTEXT,
+        mode: 'dry-run',
+      })
+      expect(dryRunResult).toEqual(executeResult)
     })
   })
 
