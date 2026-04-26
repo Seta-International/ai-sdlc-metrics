@@ -26,7 +26,7 @@ import {
   recordSynthesizerLatency,
   __INTERNAL_resetInstruments,
 } from './synthesizer-metrics'
-import type { SynthesizerStreamFailureCause } from '../../application/services/synthesizer-errors'
+import type { SynthesizerStreamFailureCause } from '../../application/services/pipeline-errors'
 
 const exporter = new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE)
 const meterProvider = new MeterProvider({

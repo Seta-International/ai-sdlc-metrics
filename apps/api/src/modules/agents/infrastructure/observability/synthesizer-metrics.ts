@@ -17,7 +17,7 @@
  *
  *   agent_synthesizer_fallback_total{cause}                          counter
  *     Per-fallback event. cause matches the SynthesizerStreamFailureCause
- *     union exported from synthesizer-errors.ts:
+ *     union exported from pipeline-errors.ts:
  *     'pre_shape_failure' | 'stream_error' | 'schema_validation'.
  *
  * Lazy-init pattern matches sub-agent-metrics.ts / cost-metrics.ts: instruments
@@ -33,7 +33,7 @@
 
 import { metrics } from '@opentelemetry/api'
 import type { Counter, Histogram } from '@opentelemetry/api'
-import type { SynthesizerStreamFailureCause } from '../../application/services/synthesizer-errors'
+import type { SynthesizerStreamFailureCause } from '../../application/services/pipeline-errors'
 
 const METER_NAME = 'agents.synthesizer'
 

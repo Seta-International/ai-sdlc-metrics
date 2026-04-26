@@ -23,7 +23,7 @@ vi.mock('../../infrastructure/observability/synthesizer-metrics', () => ({
 }))
 
 import { SynthesizerAdapter } from './synthesizer-adapter'
-import { SynthesizerStreamFailureError } from './synthesizer-errors'
+import { SynthesizerStreamFailureError } from './pipeline-errors'
 import type {
   PhaseExecutorTurnState,
   SubAgentOutput,
