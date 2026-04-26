@@ -13,9 +13,10 @@
  *   6. UsageTotals flow through driver into result on both happy + ceiling paths
  */
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as z from 'zod'
 import { SubAgentRunnerAdapter } from './sub-agent-runner-adapter'
+import * as subAgentMetrics from '../../infrastructure/observability/sub-agent-metrics'
 import type { SubAgentRegistry } from '../../infrastructure/registry/sub-agent-registry'
 import type { ValidatedSubAgentConfig } from '../../domain/services/sub-agent-types'
 import type { IterativeSubAgentRunOpts } from './iterative-orchestrator'
@@ -146,6 +147,16 @@ function happyResult(overrides: Partial<SubAgentLlmClientResult> = {}): SubAgent
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('SubAgentRunnerAdapter', () => {
+  let iterationSpy: ReturnType<typeof vi.spyOn>
+  let toolFailureSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    iterationSpy = vi.spyOn(subAgentMetrics, 'recordSubAgentIteration').mockImplementation(() => {})
+    toolFailureSpy = vi
+      .spyOn(subAgentMetrics, 'recordSubAgentToolFailure')
+      .mockImplementation(() => {})
+  })
+
   it('1. happy path: returns kind=completed with usageTotals.inputTokens === 50', async () => {
     const registry = makeRegistry(makeConfig('goals.analyst'))
     const llm = makeLlmClient(async () => happyResult())
@@ -160,6 +171,11 @@ describe('SubAgentRunnerAdapter', () => {
     expect(output.usageTotals.outputTokens).toBe(20)
     expect(output.semantics).toBe('goals.analyst')
     expect(registry.get).toHaveBeenCalledWith('goals.analyst')
+    expect(iterationSpy).toHaveBeenCalledWith({
+      subAgentKey: 'goals.analyst',
+      outcome: 'completed',
+    })
+    expect(toolFailureSpy).not.toHaveBeenCalled()
   })
 
   it('2. unknown sub_agent_key → throws descriptive error', async () => {
@@ -195,6 +211,10 @@ describe('SubAgentRunnerAdapter', () => {
     expect(output.abortReason).toBe('user')
     // LLM must NOT be called when pre-aborted
     expect((llm.runWithTools as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0)
+    expect(iterationSpy).toHaveBeenCalledWith({
+      subAgentKey: 'goals.analyst',
+      outcome: 'aborted',
+    })
   })
 
   it('4. hard tripwire from LLM client → kind=errored', async () => {
@@ -220,6 +240,16 @@ describe('SubAgentRunnerAdapter', () => {
 
     expect(output.kind).toBe('errored')
     expect(output.summary).toContain('infra_error')
+    expect(iterationSpy).toHaveBeenCalledWith({
+      subAgentKey: 'goals.analyst',
+      outcome: 'errored',
+    })
+    expect(toolFailureSpy).toHaveBeenCalledWith({
+      subAgentKey: 'goals.analyst',
+      toolName: 't1',
+      tripwireKind: 'infra_error',
+      severity: 'hard',
+    })
   })
 
   it('5. ceiling-hit (finishReason=tool-calls) → kind=ceiling_hit', async () => {
@@ -248,6 +278,10 @@ describe('SubAgentRunnerAdapter', () => {
     const output = await adapter.run(makeOpts('goals.analyst'))
 
     expect(output.kind).toBe('ceiling_hit')
+    expect(iterationSpy).toHaveBeenCalledWith({
+      subAgentKey: 'goals.analyst',
+      outcome: 'ceiling_hit',
+    })
   })
 
   it('6. usageTotals flows through driver into result on both happy and ceiling-hit paths', async () => {

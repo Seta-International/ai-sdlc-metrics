@@ -38,6 +38,7 @@ import { tripwire as buildTripwire } from '../guards/tripwire'
 import type { Tripwire, ToolGatewayResult } from '../guards/tripwire'
 import type { ToolRegistry } from '../tool-registry/tool-registry'
 import type { AiSdkTool } from '../llm/sub-agent-llm-client'
+import { recordSubAgentToolFailure } from '../observability/sub-agent-metrics'
 
 // ─── Accumulator ──────────────────────────────────────────────────────────────
 
@@ -230,6 +231,12 @@ export function buildSubAgentTools(opts: BuildSubAgentToolsOpts): Record<ToolNam
         if (CEILING_VARIANTS.has(result.variant)) {
           accumulator.ceilingHit = true
         }
+        recordSubAgentToolFailure({
+          subAgentKey: invokeContext.subAgentKey,
+          toolName,
+          tripwireKind: result.variant,
+          severity: 'soft',
+        })
 
         const message = result.context['message']
         return {

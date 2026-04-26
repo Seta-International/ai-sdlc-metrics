@@ -48,6 +48,10 @@ import { TOOL_GATEWAY, type ToolGatewayPort } from './tool-gateway-contracts'
 import type { RequestContext, TurnState, ToolGatewayInvokeInput } from './tool-gateway-contracts'
 import { INTERACTIVE_POLICY } from '../../domain/value-objects/turn-policy'
 import { L1Cache } from '../../infrastructure/cache/l1-cache'
+import {
+  recordSubAgentIteration,
+  recordSubAgentToolFailure,
+} from '../../infrastructure/observability/sub-agent-metrics'
 import type {
   ModelChoice,
   TenantContext,
@@ -187,6 +191,7 @@ export class SubAgentRunnerAdapter implements ISubAgentRunner {
     const accumulator = newAccumulator()
 
     if (abortSignal.aborted) {
+      recordSubAgentIteration({ subAgentKey, outcome: 'aborted' })
       return abortedOutput(subAgentKey, accumulator, config.outputSchema)
     }
 
@@ -250,10 +255,18 @@ export class SubAgentRunnerAdapter implements ISubAgentRunner {
 
     // ── Branch on driverResult ────────────────────────────────────────────────
     if (driverResult.aborted) {
+      recordSubAgentIteration({ subAgentKey, outcome: 'aborted' })
       return abortedOutput(subAgentKey, accumulator, config.outputSchema)
     }
 
     if (driverResult.hardTripwire) {
+      recordSubAgentIteration({ subAgentKey, outcome: 'errored' })
+      recordSubAgentToolFailure({
+        subAgentKey,
+        toolName: driverResult.hardTripwire.toolName,
+        tripwireKind: driverResult.hardTripwire.tripwire.variant,
+        severity: 'hard',
+      })
       // Schema parse against {} → fails → kind='errored' via buildSubAgentOutput.
       return buildSubAgentOutput({
         rawStructured: {},
@@ -271,7 +284,7 @@ export class SubAgentRunnerAdapter implements ISubAgentRunner {
       })
     }
 
-    return buildSubAgentOutput({
+    const result = buildSubAgentOutput({
       rawStructured: driverResult.rawStructured,
       outputSchema: config.outputSchema,
       signals: driverResult.signals,
@@ -282,5 +295,13 @@ export class SubAgentRunnerAdapter implements ISubAgentRunner {
       drafts: accumulator.drafts,
       usageTotals: driverResult.usageTotals,
     })
+    // buildSubAgentOutput resolves to one of {completed, ceiling_hit, errored}
+    // (precedence in sub-agent-runner.ts: ceilingHit → schema-fail → completed).
+    // The 'aborted' / 'all_tools_disabled' kinds are produced elsewhere.
+    recordSubAgentIteration({
+      subAgentKey,
+      outcome: result.kind as 'completed' | 'ceiling_hit' | 'errored' | 'aborted',
+    })
+    return result
   }
 }
