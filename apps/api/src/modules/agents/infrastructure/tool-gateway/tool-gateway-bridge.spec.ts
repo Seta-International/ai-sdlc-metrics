@@ -26,6 +26,7 @@ import {
   isHardTripwire,
   newAccumulator,
 } from './tool-gateway-bridge'
+import * as subAgentMetrics from '../observability/sub-agent-metrics'
 
 // ─── Test fixtures ────────────────────────────────────────────────────────────
 
@@ -245,6 +246,9 @@ describe('buildSubAgentTools.execute()', () => {
     const gateway = makeGateway(async () =>
       tripwire('validation_failed', 'retry', { message: 'bad input' }),
     )
+    const failureSpy = vi
+      .spyOn(subAgentMetrics, 'recordSubAgentToolFailure')
+      .mockImplementation(() => {})
     const tools = buildSubAgentTools({
       toolScope: ['t1'],
       registry: makeRegistry({ t1: makeDescriptor('t1') }),
@@ -261,6 +265,13 @@ describe('buildSubAgentTools.execute()', () => {
     // I-1: soft tripwires must NOT increment toolResultCount (it counts ok results only).
     expect(accumulator.toolResultCount).toBe(0)
     expect(accumulator.ceilingHit).toBe(false)
+    expect(failureSpy).toHaveBeenCalledWith({
+      subAgentKey: 'sub-1',
+      toolName: 't1',
+      tripwireKind: 'validation_failed',
+      severity: 'soft',
+    })
+    failureSpy.mockRestore()
   })
 
   it('counts toolResultCount strictly for ok results across an ok→soft→ok sequence (I-1)', async () => {
