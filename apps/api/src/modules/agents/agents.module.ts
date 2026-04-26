@@ -115,8 +115,9 @@ import {
   type RouteTurnOpts,
   type RouteTurnResult,
 } from './application/services/router-session-orchestrator'
-// Plan 18 Task 5/6/7 — Bounded executor + turn pipeline runner + render helpers
+// Plan 18 Task 5/6/7/9 — Bounded executor + turn pipeline runner + render helpers + pipeline metrics
 import { BoundedExecutor, BOUNDED_EXECUTOR } from './application/services/bounded-executor'
+import { recordPipelineDispatch } from './infrastructure/observability/pipeline-metrics'
 import {
   TurnPipelineRunner,
   TURN_PIPELINE_RUNNER,
@@ -463,84 +464,106 @@ class NullTenantLister implements TenantListerLike {
             turnState,
           } = input
 
-          // ── Sequential pre-router reads (CLAUDE.md DB rule) ──────────────────
-          const recentSummary =
-            requestContext.surface === 'inline'
-              ? await windowBuilder.buildInline({
-                  conversationId,
-                  tenantId: requestContext.tenantId,
-                })
-              : await windowBuilder.buildGlobal({
-                  conversationId,
-                  tenantId: requestContext.tenantId,
-                })
-          const rolePermissions = await kernelQuery.getRolePermissions(
-            requestContext.roleKey,
-            requestContext.tenantId,
-          )
-          const enabledModules = await adminQuery.listEnabledModules(requestContext.tenantId)
+          // Plan 18 Task 9 — record dispatch outcome on every exit path. Default
+          // kind=bounded (most common); update once routed.kind is known. outcome
+          // is overridden by the actual TurnPipelineResult.turnEndReason on
+          // success paths and forced to 'error' in the catch block.
+          let dispatchKind: 'bounded' | 'iterative' | 'disambiguation' = 'bounded'
+          let dispatchOutcome: 'completed' | 'cancelled' | 'refused' | 'error' = 'completed'
 
-          const roleAllowedPermissions: ReadonlySet<string> = new Set(
-            rolePermissions.permissions.map((p) => p.permissionKey),
-          )
-
-          const routeOpts: RouteTurnOpts = {
-            tenantId: requestContext.tenantId,
-            userId: requestContext.userId,
-            roleKey: requestContext.roleKey,
-            roleAllowedPermissions,
-            enabledModules,
-            surface: requestContext.surface,
-            conversationId,
-            turnTraceId: requestContext.traceId,
-            utterance: userUtterance,
-            recentSummary,
-            promptVariables: new Map<SubAgentKey, Record<string, unknown>>(),
-          }
-
-          // RouterSessionOrchestrator.routeTurn throws RouterLlmFailureError on
-          // infra failure (Plan 18 R-18.24). Let it propagate to the controller.
-          const routed: RouteTurnResult = await routerOrchestrator.routeTurn(routeOpts)
-
-          if (routed.kind === 'disambiguation') {
-            return {
-              toolCallNames: [],
-              shape: 'refusal',
-              permissionKeys: [],
-              taintFlipped: turnState.tainted.value,
-              renderedAssistantMessage: routed.reason,
-              turnEndReason: 'refused',
-              drafts: [],
-            }
-          }
-
-          if (routed.kind === 'iterative') {
-            // The router orchestrator already executed the iterative supervisor
-            // loop; results have been streamed by IterativeOrchestrator. Translate
-            // PhaseExecutionResult into TurnPipelineResult without re-emitting
-            // SSE events.
-            return phaseResultToPipelineResult(routed.result, turnState.tainted.value)
-          }
-
-          // routed.kind === 'bounded' — plan.topology may be 'bounded' or 'direct'.
-          // Direct execution (Tier 0, single tool, no synthesizer) is not yet
-          // wired to a live executor — Plan 18 scope covers bounded + iterative.
-          if (routed.plan.topology !== 'bounded') {
-            throw new Error(
-              `RUN_PIPELINE_FN: topology '${routed.plan.topology}' not yet supported by live pipeline`,
+          try {
+            // ── Sequential pre-router reads (CLAUDE.md DB rule) ──────────────────
+            const recentSummary =
+              requestContext.surface === 'inline'
+                ? await windowBuilder.buildInline({
+                    conversationId,
+                    tenantId: requestContext.tenantId,
+                  })
+                : await windowBuilder.buildGlobal({
+                    conversationId,
+                    tenantId: requestContext.tenantId,
+                  })
+            const rolePermissions = await kernelQuery.getRolePermissions(
+              requestContext.roleKey,
+              requestContext.tenantId,
             )
+            const enabledModules = await adminQuery.listEnabledModules(requestContext.tenantId)
+
+            const roleAllowedPermissions: ReadonlySet<string> = new Set(
+              rolePermissions.permissions.map((p) => p.permissionKey),
+            )
+
+            const routeOpts: RouteTurnOpts = {
+              tenantId: requestContext.tenantId,
+              userId: requestContext.userId,
+              roleKey: requestContext.roleKey,
+              roleAllowedPermissions,
+              enabledModules,
+              surface: requestContext.surface,
+              conversationId,
+              turnTraceId: requestContext.traceId,
+              utterance: userUtterance,
+              recentSummary,
+              promptVariables: new Map<SubAgentKey, Record<string, unknown>>(),
+            }
+
+            // RouterSessionOrchestrator.routeTurn throws RouterLlmFailureError on
+            // infra failure (Plan 18 R-18.24). Let it propagate to the controller.
+            const routed: RouteTurnResult = await routerOrchestrator.routeTurn(routeOpts)
+
+            if (routed.kind === 'disambiguation') {
+              dispatchKind = 'disambiguation'
+              dispatchOutcome = 'refused'
+              return {
+                toolCallNames: [],
+                shape: 'refusal',
+                permissionKeys: [],
+                taintFlipped: turnState.tainted.value,
+                renderedAssistantMessage: routed.reason,
+                turnEndReason: 'refused',
+                drafts: [],
+              }
+            }
+
+            if (routed.kind === 'iterative') {
+              // The router orchestrator already executed the iterative supervisor
+              // loop; results have been streamed by IterativeOrchestrator. Translate
+              // PhaseExecutionResult into TurnPipelineResult without re-emitting
+              // SSE events.
+              dispatchKind = 'iterative'
+              const result = phaseResultToPipelineResult(routed.result, turnState.tainted.value)
+              dispatchOutcome = result.turnEndReason
+              return result
+            }
+
+            // routed.kind === 'bounded' — plan.topology may be 'bounded' or 'direct'.
+            // Direct execution (Tier 0, single tool, no synthesizer) is not yet
+            // wired to a live executor — Plan 18 scope covers bounded + iterative.
+            dispatchKind = 'bounded'
+            if (routed.plan.topology !== 'bounded') {
+              throw new Error(
+                `RUN_PIPELINE_FN: topology '${routed.plan.topology}' not yet supported by live pipeline`,
+              )
+            }
+
+            const boundedPlan = routed.plan as BoundedPlan
+            const phaseResult = await boundedExecutor.execute({
+              plan: boundedPlan,
+              userUtterance,
+              turnState,
+              abortSignal,
+              streamEmitter,
+            })
+
+            const result = phaseResultToPipelineResult(phaseResult, turnState.tainted.value)
+            dispatchOutcome = result.turnEndReason
+            return result
+          } catch (err) {
+            dispatchOutcome = 'error'
+            throw err
+          } finally {
+            recordPipelineDispatch({ kind: dispatchKind, outcome: dispatchOutcome })
           }
-
-          const boundedPlan = routed.plan as BoundedPlan
-          const phaseResult = await boundedExecutor.execute({
-            plan: boundedPlan,
-            userUtterance,
-            turnState,
-            abortSignal,
-            streamEmitter,
-          })
-
-          return phaseResultToPipelineResult(phaseResult, turnState.tainted.value)
         }
       },
     },

@@ -18,6 +18,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { BoundedExecutor } from './bounded-executor'
+import * as pipelineMetrics from '../../infrastructure/observability/pipeline-metrics'
 import type {
   PhaseExecutorTurnState,
   SubAgentOutput,
@@ -411,5 +412,113 @@ describe('BoundedExecutor', () => {
     // No legacy keys
     expect(synthOpts).not.toHaveProperty('phase1Outputs')
     expect(synthOpts).not.toHaveProperty('phase2Outputs')
+  })
+
+  // ── 10. OTel: phase-1 duration emitted with outcome=completed ──────────────
+
+  it('10. emits phase-1 duration with outcome=completed on happy path', async () => {
+    const phaseSpy = vi
+      .spyOn(pipelineMetrics, 'recordBoundedExecutorPhaseDuration')
+      .mockImplementation(() => {})
+
+    const plan = makeBoundedPlan({ phase1: [makeDirective('a')] })
+    const turnState = makeTurnState()
+    const emitter = makeStreamEmitter()
+    const abortSignal = new AbortController().signal
+
+    subAgentRunner.run.mockResolvedValue(makeSubAgentOutput())
+    synthesizer.synthesize.mockResolvedValue(makeSynthesizerOutput())
+
+    await executor.execute({
+      plan,
+      userUtterance: 'q',
+      turnState,
+      abortSignal,
+      streamEmitter: emitter,
+    })
+
+    const phase1Calls = phaseSpy.mock.calls.filter(([arg]) => arg.phase === 'phase-1')
+    expect(phase1Calls).toHaveLength(1)
+    expect(phase1Calls[0]![0].outcome).toBe('completed')
+    expect(phase1Calls[0]![0].durationMs).toBeGreaterThanOrEqual(0)
+
+    phaseSpy.mockRestore()
+  })
+
+  // ── 11. OTel: phase-1 duration emitted with outcome=cancelled on abort ─────
+
+  it('11. emits phase-1 duration with outcome=cancelled when aborted mid-loop', async () => {
+    const phaseSpy = vi
+      .spyOn(pipelineMetrics, 'recordBoundedExecutorPhaseDuration')
+      .mockImplementation(() => {})
+
+    const plan = makeBoundedPlan({
+      phase1: [makeDirective('a'), makeDirective('b'), makeDirective('c')],
+    })
+    const turnState = makeTurnState()
+    const emitter = makeStreamEmitter()
+    const ctrl = new AbortController()
+
+    let calledTimes = 0
+    subAgentRunner.run.mockImplementation(async () => {
+      calledTimes++
+      if (calledTimes === 1) {
+        ctrl.abort()
+      }
+      return makeSubAgentOutput()
+    })
+
+    await executor.execute({
+      plan,
+      userUtterance: 'q',
+      turnState,
+      abortSignal: ctrl.signal,
+      streamEmitter: emitter,
+    })
+
+    const phase1Calls = phaseSpy.mock.calls.filter(([arg]) => arg.phase === 'phase-1')
+    expect(phase1Calls).toHaveLength(1)
+    expect(phase1Calls[0]![0].outcome).toBe('cancelled')
+
+    phaseSpy.mockRestore()
+  })
+
+  // ── 12. OTel: drafts counter called when sub-agent returns drafts ──────────
+
+  it('12. emits drafts counter when a sub-agent returns drafts', async () => {
+    const draftsSpy = vi
+      .spyOn(pipelineMetrics, 'recordBoundedExecutorDrafts')
+      .mockImplementation(() => {})
+
+    const plan = makeBoundedPlan({ phase1: [makeDirective('a'), makeDirective('b')] })
+    const turnState = makeTurnState()
+    const emitter = makeStreamEmitter()
+    const abortSignal = new AbortController().signal
+
+    const drafts: DraftProposal[] = [
+      { id: 'd1', toolName: 'tool.create', args: {} },
+      { id: 'd2', toolName: 'tool.update', args: {} },
+    ]
+    subAgentRunner.run
+      .mockResolvedValueOnce(makeSubAgentOutput({ drafts }))
+      .mockResolvedValueOnce(makeSubAgentOutput()) // no drafts → no-op
+    synthesizer.synthesize.mockResolvedValue(makeSynthesizerOutput())
+
+    await executor.execute({
+      plan,
+      userUtterance: 'q',
+      turnState,
+      abortSignal,
+      streamEmitter: emitter,
+    })
+
+    expect(draftsSpy).toHaveBeenCalledTimes(1)
+    expect(draftsSpy).toHaveBeenCalledWith({
+      phase: 'phase-1',
+      subAgentKey: 'a',
+      count: 2,
+    })
+
+    draftsSpy.mockRestore()
   })
 })

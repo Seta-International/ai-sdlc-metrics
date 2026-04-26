@@ -34,6 +34,10 @@ import {
   type ISubAgentRunner,
   type ISynthesizer,
 } from './iterative-orchestrator'
+import {
+  recordBoundedExecutorPhaseDuration,
+  recordBoundedExecutorDrafts,
+} from '../../infrastructure/observability/pipeline-metrics'
 
 // ─── DI token ─────────────────────────────────────────────────────────────────
 
@@ -70,18 +74,48 @@ export class BoundedExecutor {
     const outputs = new Map<SubAgentKey, SubAgentOutput>()
 
     // ── Phase 1: sequential fan-out ───────────────────────────────────────────
-    for (const directive of plan.phase1) {
-      if (abortSignal.aborted) {
-        return { kind: 'aborted', reason: 'user' }
+    const phase1Start = Date.now()
+    let phase1Outcome: 'completed' | 'cancelled' | 'errored' = 'completed'
+    try {
+      for (const directive of plan.phase1) {
+        if (abortSignal.aborted) {
+          phase1Outcome = 'cancelled'
+          recordBoundedExecutorPhaseDuration({
+            phase: 'phase-1',
+            outcome: phase1Outcome,
+            durationMs: Date.now() - phase1Start,
+          })
+          return { kind: 'aborted', reason: 'user' }
+        }
+        const out = await this.subAgentRunner.run({
+          directive,
+          phase: 1,
+          abortSignal,
+          turnState,
+        })
+        outputs.set(directive.sub_agent_key, out)
+        if (out.drafts && out.drafts.length > 0) {
+          recordBoundedExecutorDrafts({
+            phase: 'phase-1',
+            subAgentKey: directive.sub_agent_key,
+            count: out.drafts.length,
+          })
+        }
       }
-      const out = await this.subAgentRunner.run({
-        directive,
-        phase: 1,
-        abortSignal,
-        turnState,
+    } catch (err) {
+      phase1Outcome = 'errored'
+      recordBoundedExecutorPhaseDuration({
+        phase: 'phase-1',
+        outcome: phase1Outcome,
+        durationMs: Date.now() - phase1Start,
       })
-      outputs.set(directive.sub_agent_key, out)
+      throw err
     }
+    recordBoundedExecutorPhaseDuration({
+      phase: 'phase-1',
+      outcome: phase1Outcome,
+      durationMs: Date.now() - phase1Start,
+    })
 
     // ── Partial-answer gate ───────────────────────────────────────────────────
     const gate = evaluatePartialAnswerGate(outputs)
@@ -124,9 +158,12 @@ export class BoundedExecutor {
       // the sub-agent user message — set it before phase-2 dispatch.
       turnState.phaseContextNote = cbNote ? cbNote : undefined
 
+      const phase2Start = Date.now()
+      let phase2Outcome: 'completed' | 'cancelled' | 'errored' = 'completed'
       try {
         for (const directive of plan.phase2) {
           if (abortSignal.aborted) {
+            phase2Outcome = 'cancelled'
             return { kind: 'aborted', reason: 'user' }
           }
           const out = await this.subAgentRunner.run({
@@ -136,10 +173,28 @@ export class BoundedExecutor {
             turnState,
           })
           outputs.set(directive.sub_agent_key, out)
+          if (out.drafts && out.drafts.length > 0) {
+            recordBoundedExecutorDrafts({
+              phase: 'phase-2',
+              subAgentKey: directive.sub_agent_key,
+              count: out.drafts.length,
+            })
+          }
         }
+      } catch (err) {
+        phase2Outcome = 'errored'
+        throw err
       } finally {
         // Clear after phase-2 — prevents leak into the synthesizer call.
         turnState.phaseContextNote = undefined
+        // Record duration on every exit path that actually started phase-2
+        // (completed, cancelled, errored). Phase-2 is gated on `plan.phase2.length > 0`
+        // above, so we never reach this point with a zero-iteration loop.
+        recordBoundedExecutorPhaseDuration({
+          phase: 'phase-2',
+          outcome: phase2Outcome,
+          durationMs: Date.now() - phase2Start,
+        })
       }
     }
 
