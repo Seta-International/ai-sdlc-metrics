@@ -18,6 +18,13 @@
 import { describe, it, expect, vi } from 'vitest'
 import { BudgetChecker } from './budget-checker'
 
+// Isolate OTel metric calls
+vi.mock('../../infrastructure/observability/cost-metrics', () => ({
+  setBudgetRemaining: vi.fn(),
+  setBudgetUserRemaining: vi.fn(),
+  recordTierShift: vi.fn(),
+}))
+
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
@@ -148,6 +155,39 @@ describe('BudgetChecker', () => {
       const result = await checker.preTurnCheck({ tenantId: TENANT_ID, userId: USER_ID })
 
       expect(result).toEqual({ allowed: true, tier: 'nano', tierShift: true })
+    })
+  })
+
+  // ── I-1: setBudgetUserRemaining emitted alongside setBudgetRemaining ──────────
+
+  describe('setBudgetUserRemaining metric (I-1)', () => {
+    it('emits setBudgetUserRemaining with user remaining_usd when user budget row exists on full-tier path', async () => {
+      const { setBudgetUserRemaining } =
+        await import('../../infrastructure/observability/cost-metrics')
+
+      // tenant at 50% (full tier), user has $30 remaining
+      const { db } = buildPreTurnDb(
+        [{ dailyLimitUsd: '100', remainingUsd: '50' }],
+        [{ remainingUsd: '30', dailyLimitUsd: '50' }],
+      )
+      const checker = new BudgetChecker(db)
+
+      await checker.preTurnCheck({ tenantId: TENANT_ID, userId: USER_ID })
+
+      expect(setBudgetUserRemaining).toHaveBeenCalledWith(TENANT_ID, 30)
+    })
+
+    it('emits setBudgetUserRemaining with 0 when tenant budget is exhausted', async () => {
+      const { setBudgetUserRemaining } =
+        await import('../../infrastructure/observability/cost-metrics')
+
+      // tenant at 100% → refused, user budget snapshot at 0
+      const { db } = buildPreTurnDb([{ dailyLimitUsd: '100', remainingUsd: '0' }], [])
+      const checker = new BudgetChecker(db)
+
+      await checker.preTurnCheck({ tenantId: TENANT_ID, userId: USER_ID })
+
+      expect(setBudgetUserRemaining).toHaveBeenCalledWith(TENANT_ID, 0)
     })
   })
 

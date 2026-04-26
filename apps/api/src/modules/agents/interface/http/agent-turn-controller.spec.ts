@@ -689,4 +689,73 @@ describe('AgentTurnController — abort source correctness (Issue 2)', () => {
     const hasUserSource = calls.some(([, source]: [string, string, string]) => source === 'user')
     expect(hasUserSource).toBe(false)
   })
+
+  it('I2-2: user cancel (req.raw close event) emits source=user via captureReason()', async () => {
+    const { recordAbortTotal } =
+      await import('../../infrastructure/observability/streaming-metrics')
+
+    // The registry.register() fires the userCancelController (simulating the
+    // req.raw 'close' event — client disconnect) by invoking it after capture.
+    const userCancelRegistry = {
+      register: vi
+        .fn()
+        .mockImplementation(async (opts: { userCancelController: AbortController }) => {
+          // Simulate client disconnect → triggers close handler → aborts userCancelController
+          opts.userCancelController.abort()
+        }),
+      unregister: vi.fn().mockResolvedValue(undefined),
+      cancel: vi.fn(),
+      getEntry: vi.fn(),
+    } as unknown as ActiveTurnRegistry
+
+    const { controller } = makeController({ registry: userCancelRegistry })
+    const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    // abort source must be 'user'
+    expect(recordAbortTotal).toHaveBeenCalledWith(TENANT_ID, 'user', expect.any(String))
+  })
+
+  it('I2-3: wallclock timeout emits source=timeout via captureReason()', async () => {
+    const { recordAbortTotal } =
+      await import('../../infrastructure/observability/streaming-metrics')
+    vi.clearAllMocks()
+
+    // The controller hardcodes wallclockMs=30_000 — too long for a test.
+    // To simulate the timeout path we patch AbortSignal.timeout to return a
+    // controlled signal, then fire it from inside registry.register() — which
+    // is the first await AFTER composeTurnAbortSignal has been called and its
+    // event listeners have been attached to the patched timeoutSignal.
+    const originalTimeout = AbortSignal.timeout
+    const timeoutCtrl = new AbortController()
+
+    AbortSignal.timeout = () => timeoutCtrl.signal
+
+    const timeoutRegistry = {
+      register: vi.fn().mockImplementation(async () => {
+        // At this point composeTurnAbortSignal has already set up its
+        // 'abort' listener on timeoutCtrl.signal. Aborting here causes
+        // capturedReason = 'timeout'.
+        timeoutCtrl.abort()
+      }),
+      unregister: vi.fn().mockResolvedValue(undefined),
+      cancel: vi.fn(),
+      getEntry: vi.fn(),
+    } as unknown as ActiveTurnRegistry
+
+    try {
+      const { controller } = makeController({ registry: timeoutRegistry })
+      const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+      const res = makeRes()
+
+      await controller.streamTurn(req as never, res as never)
+
+      // abort source must be 'timeout'
+      expect(recordAbortTotal).toHaveBeenCalledWith(TENANT_ID, 'timeout', expect.any(String))
+    } finally {
+      AbortSignal.timeout = originalTimeout
+    }
+  })
 })

@@ -12,6 +12,7 @@ import {
 import type { Pricing, UsageTokens } from '../../domain/cost/cost-types'
 import {
   recordCostUsd,
+  recordUsageTokens,
   recordAdapterDrop,
   setBudgetRemaining,
   recordLlmCallAttemptDuration,
@@ -127,6 +128,35 @@ export class CostRecorder {
     // Step 5 — emit metrics (Plan 05 §8, R-05.6a: once per success)
     // agent_cost_usd_total: cost for this successful call
     recordCostUsd(opts.tenantId, opts.layer, opts.modelId, opts.pricing.pricingId, opts.costUsd)
+
+    // agent_usage_tokens_total: one data point per non-zero token kind (Plan 05 §8).
+    // kind ∈ {input_uncached, input_cached_read, input_cached_write, output, output_reasoning}.
+    // Emitted alongside recordCostUsd — never per retry attempt (R-05.6a).
+    if (opts.usage.inputUncached > 0) {
+      recordUsageTokens(opts.tenantId, opts.modelId, 'input_uncached', opts.usage.inputUncached)
+    }
+    if (opts.usage.inputCachedRead > 0) {
+      recordUsageTokens(
+        opts.tenantId,
+        opts.modelId,
+        'input_cached_read',
+        opts.usage.inputCachedRead,
+      )
+    }
+    if (opts.usage.inputCachedWrite > 0) {
+      recordUsageTokens(
+        opts.tenantId,
+        opts.modelId,
+        'input_cached_write',
+        opts.usage.inputCachedWrite,
+      )
+    }
+    if (opts.usage.output > 0) {
+      recordUsageTokens(opts.tenantId, opts.modelId, 'output', opts.usage.output)
+    }
+    if (opts.usage.outputReasoning > 0) {
+      recordUsageTokens(opts.tenantId, opts.modelId, 'output_reasoning', opts.usage.outputReasoning)
+    }
 
     // agent_llm_call_attempt_duration_ms: terminal successful attempt latency SLO
     if (opts.attemptDurationMs !== undefined && opts.attemptDurationMs > 0) {

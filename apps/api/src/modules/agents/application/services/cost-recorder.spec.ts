@@ -2,6 +2,16 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { CostRecorder } from './cost-recorder'
 import type { Pricing, UsageTokens } from '../../domain/cost/cost-types'
 
+// Isolate OTel metric calls so assertions are precise
+vi.mock('../../infrastructure/observability/cost-metrics', () => ({
+  recordCostUsd: vi.fn(),
+  recordAdapterDrop: vi.fn(),
+  setBudgetRemaining: vi.fn(),
+  recordLlmCallAttemptDuration: vi.fn(),
+  recordLlmCallTotalDuration: vi.fn(),
+  recordUsageTokens: vi.fn(),
+}))
+
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
 
 const PRICING: Pricing = {
@@ -203,5 +213,47 @@ describe('CostRecorder', () => {
     // Cost event and budget writes still happen despite audit failure
     expect(mockDb.insert).toHaveBeenCalledTimes(2)
     expect(mockDb.update).toHaveBeenCalledTimes(1)
+  })
+
+  // ─── 8. I-1: recordUsageTokens emitted for each non-zero kind ────────────────
+  it('emits recordUsageTokens for each non-zero usage kind alongside recordCostUsd', async () => {
+    const { recordUsageTokens } = await import('../../infrastructure/observability/cost-metrics')
+
+    await service.record(BASE_OPTS)
+
+    // USAGE has: inputUncached=1000, inputCachedRead=200, inputCachedWrite=100,
+    //            output=500, outputReasoning=50
+    expect(recordUsageTokens).toHaveBeenCalledWith(
+      BASE_OPTS.tenantId,
+      BASE_OPTS.modelId,
+      'input_uncached',
+      USAGE.inputUncached,
+    )
+    expect(recordUsageTokens).toHaveBeenCalledWith(
+      BASE_OPTS.tenantId,
+      BASE_OPTS.modelId,
+      'input_cached_read',
+      USAGE.inputCachedRead,
+    )
+    expect(recordUsageTokens).toHaveBeenCalledWith(
+      BASE_OPTS.tenantId,
+      BASE_OPTS.modelId,
+      'input_cached_write',
+      USAGE.inputCachedWrite,
+    )
+    expect(recordUsageTokens).toHaveBeenCalledWith(
+      BASE_OPTS.tenantId,
+      BASE_OPTS.modelId,
+      'output',
+      USAGE.output,
+    )
+    expect(recordUsageTokens).toHaveBeenCalledWith(
+      BASE_OPTS.tenantId,
+      BASE_OPTS.modelId,
+      'output_reasoning',
+      USAGE.outputReasoning,
+    )
+    // One call per non-zero kind (all five are non-zero in BASE_OPTS)
+    expect(recordUsageTokens).toHaveBeenCalledTimes(5)
   })
 })

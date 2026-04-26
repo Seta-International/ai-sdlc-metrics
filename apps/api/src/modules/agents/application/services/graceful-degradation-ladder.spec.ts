@@ -306,6 +306,43 @@ describe('GracefulDegradationLadder', () => {
     })
   })
 
+  // ─── Issue 3 (I-3): mixed-sequence → most-recent-error-class wins rule ────────
+
+  describe('I-3 — lastOverloadErrorClass mixed-sequence test', () => {
+    it('2× vendor_overload then 1× vendor_server_error → recordProviderFallback with error_class=vendor_server_error', () => {
+      const ladder = makeLadder()
+      const modelId = 'gpt-5.4'
+
+      // Step 1: 2× vendor_overload
+      ladder.recordError(modelId, 'vendor_overload')
+      ladder.recordError(modelId, 'vendor_overload')
+      // Step 2: 1× vendor_server_error — becomes the most-recent counted failure
+      ladder.recordError(modelId, 'vendor_server_error')
+
+      // Step 3: trigger fallback evaluate
+      ladder.evaluate({
+        tenantId: TEST_TENANT,
+        trigger: 'provider_5xx',
+        modelId,
+        iteration: 2,
+        currentTier: 'full',
+        tenantState: nominalState,
+      })
+
+      // Step 4: assert most-recent-error-class wins (vendor_server_error, not vendor_overload)
+      expect(recordProviderFallback).toHaveBeenCalledWith(
+        TEST_TENANT,
+        modelId,
+        'vendor_server_error',
+      )
+      expect(recordProviderFallback).not.toHaveBeenCalledWith(
+        TEST_TENANT,
+        modelId,
+        'vendor_overload',
+      )
+    })
+  })
+
   // ─── Issue 1: agent_ladder_transition_latency_ms fires on step transitions ─
 
   describe('Issue 1 — agent_ladder_transition_latency_ms fires on each step transition', () => {
