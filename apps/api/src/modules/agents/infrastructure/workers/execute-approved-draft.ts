@@ -1,8 +1,13 @@
 import { Inject, Injectable, Logger } from '@nestjs/common'
+import { ClsService } from 'nestjs-cls'
+import type { Db } from '@future/db'
 import { DRAFT_REPOSITORY, type IDraftRepository } from '../../domain/repositories/draft.repository'
 import { KernelDelegationFacade } from '../../../kernel/application/facades/kernel-delegation.facade'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { NotificationsWriteFacade } from '../../../notifications/application/facades/notifications-write.facade'
+import { BASE_DB_TOKEN } from '../../../../common/db/db.module'
+import { RequestDbContextService } from '../../../../common/db/request-db-context.service'
+import { runWithTenantContext } from '../../../../common/jobs/run-with-tenant-context'
 
 export type ExecuteApprovedDraftJob = {
   draft_id: string
@@ -67,6 +72,9 @@ export class ExecuteApprovedDraftWorker {
     private readonly kernelDelegationFacade: KernelDelegationFacade,
     private readonly kernelAuditFacade: KernelAuditFacade,
     private readonly notificationsWriteFacade: NotificationsWriteFacade,
+    @Inject(BASE_DB_TOKEN) private readonly baseDb: Db,
+    private readonly requestDbContext: RequestDbContextService,
+    private readonly cls: ClsService,
   ) {}
 
   /**
@@ -89,6 +97,18 @@ export class ExecuteApprovedDraftWorker {
   }
 
   async handle(job: ExecuteApprovedDraftJob): Promise<void> {
+    await runWithTenantContext(
+      {
+        tenantId: job.tenant_id,
+        baseDb: this.baseDb,
+        requestDbContext: this.requestDbContext,
+        cls: this.cls,
+      },
+      () => this._handleInContext(job),
+    )
+  }
+
+  private async _handleInContext(job: ExecuteApprovedDraftJob): Promise<void> {
     const tenantId = job.tenant_id
     const draftId = job.draft_id
 

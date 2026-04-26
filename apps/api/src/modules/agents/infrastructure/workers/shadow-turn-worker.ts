@@ -2,8 +2,11 @@ import { Inject, Injectable, Logger, Optional, type OnModuleInit } from '@nestjs
 import type { Job } from 'pg-boss'
 import { uuidv7 } from 'uuidv7'
 import type { Db } from '@future/db'
-import { DB_TOKEN } from '../../../../common/db/db.module'
+import { ClsService } from 'nestjs-cls'
+import { DB_TOKEN, BASE_DB_TOKEN } from '../../../../common/db/db.module'
+import { RequestDbContextService } from '../../../../common/db/request-db-context.service'
 import { PgBossService } from '../../../../common/jobs/pg-boss.service'
+import { runWithTenantContext } from '../../../../common/jobs/run-with-tenant-context'
 import { ShadowDiffScorer, type TurnResult } from '../../application/services/shadow-diff-scorer'
 import type { TrpcCaller } from '../../application/pipeline/pipeline-steps'
 import { TrpcCallerImpl } from '../../application/services/trpc-caller'
@@ -50,6 +53,9 @@ export class ShadowTurnWorker implements OnModuleInit {
     private readonly pgBossService: PgBossService,
     private readonly diffScorer: ShadowDiffScorer,
     @Inject(DB_TOKEN) private readonly db: Db,
+    @Inject(BASE_DB_TOKEN) private readonly baseDb: Db,
+    private readonly requestDbContext: RequestDbContextService,
+    private readonly cls: ClsService,
     /**
      * Optional TrpcCaller for testing — tests inject a mock or minimal caller.
      * Production code omits this; the worker constructs a TrpcCallerImpl with the
@@ -73,6 +79,18 @@ export class ShadowTurnWorker implements OnModuleInit {
   }
 
   private async processJob(job: Job<ShadowTurnJob>): Promise<void> {
+    await runWithTenantContext(
+      {
+        tenantId: job.data.tenantId,
+        baseDb: this.baseDb,
+        requestDbContext: this.requestDbContext,
+        cls: this.cls,
+      },
+      () => this._processJobInContext(job),
+    )
+  }
+
+  private async _processJobInContext(job: Job<ShadowTurnJob>): Promise<void> {
     const {
       baselineTraceId,
       baselineOutput,

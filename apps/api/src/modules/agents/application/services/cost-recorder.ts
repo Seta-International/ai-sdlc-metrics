@@ -95,14 +95,16 @@ export class CostRecorder {
       totalDurationMs: opts.totalDurationMs ?? 0,
     })
 
-    // Step 3 — decrement tenant budget atomically
-    await this.db
+    // Step 3 — decrement tenant budget atomically; capture the post-deduction
+    // remaining amount so the observable gauge can be updated (R-05.6a Theme I).
+    const updatedBudgetRows = await this.db
       .update(agentTenantBudget)
       .set({
         remainingUsd: sql`${agentTenantBudget.remainingUsd} - ${opts.costUsd}`,
         updatedAt: sql`NOW()`,
       })
       .where(eq(agentTenantBudget.tenantId, opts.tenantId))
+      .returning({ remainingUsd: agentTenantBudget.remainingUsd })
 
     // Step 4 — upsert per-user daily budget (only if userId provided)
     if (opts.userId !== undefined) {
@@ -125,7 +127,14 @@ export class CostRecorder {
         })
     }
 
-    // Step 5 — emit metrics (Plan 05 §8, R-05.6a: once per success)
+    // Step 5 — update agent_budget_remaining_usd observable gauge (Theme I).
+    // Only update when the budget row exists (tenant with no budget row is skipped).
+    if (updatedBudgetRows.length > 0) {
+      const newRemaining = parseFloat(updatedBudgetRows[0]!.remainingUsd as string)
+      setBudgetRemaining(opts.tenantId, newRemaining)
+    }
+
+    // Step 6 — emit metrics (Plan 05 §8, R-05.6a: once per success)
     // agent_cost_usd_total: cost for this successful call
     recordCostUsd(opts.tenantId, opts.layer, opts.modelId, opts.pricing.pricingId, opts.costUsd)
 

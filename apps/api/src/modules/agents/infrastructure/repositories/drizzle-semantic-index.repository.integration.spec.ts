@@ -330,6 +330,61 @@ describe('DrizzleSemanticIndexRepository', () => {
     })
   })
 
+  // ─── Cross-user isolation ──────────────────────────────────────────────────
+
+  describe('Cross-user isolation', () => {
+    it('search() for USER_A does not return rows belonging to USER_B in the same tenant', async () => {
+      await setTenantContext(db, TENANT_A)
+
+      // Seed distinct rows for USER_A and USER_B under TENANT_A
+      await repo.index({
+        tenantId: TENANT_A,
+        userId: USER_A,
+        sourceId: SOURCE_2,
+        sourceType: 'agent_message',
+        text: 'user A task summary',
+        embedding: EMBEDDING_SIMILAR_A,
+        embeddingModel: MODEL,
+      })
+
+      await repo.index({
+        tenantId: TENANT_A,
+        userId: USER_B,
+        sourceId: SOURCE_3,
+        sourceType: 'agent_message',
+        text: 'user B task summary',
+        embedding: EMBEDDING_SIMILAR_A,
+        embeddingModel: MODEL,
+      })
+
+      // Query as USER_A — must NOT see USER_B's SOURCE_3 row
+      const resultsA = await repo.search({
+        tenantId: TENANT_A,
+        userId: USER_A,
+        queryEmbedding: QUERY_EMBEDDING,
+        embeddingModel: MODEL,
+        topK: 10,
+      })
+
+      const sourceIds = resultsA.map((r) => r.sourceId)
+      expect(sourceIds).toContain(SOURCE_2)
+      expect(sourceIds).not.toContain(SOURCE_3)
+
+      // Query as USER_B — must NOT see USER_A's SOURCE_2 row
+      const resultsB = await repo.search({
+        tenantId: TENANT_A,
+        userId: USER_B,
+        queryEmbedding: QUERY_EMBEDDING,
+        embeddingModel: MODEL,
+        topK: 10,
+      })
+
+      const sourceBIds = resultsB.map((r) => r.sourceId)
+      expect(sourceBIds).toContain(SOURCE_3)
+      expect(sourceBIds).not.toContain(SOURCE_2)
+    })
+  })
+
   // ─── Cross-tenant RLS isolation ────────────────────────────────────────────
 
   describe('Cross-tenant RLS isolation', () => {

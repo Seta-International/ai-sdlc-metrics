@@ -49,6 +49,21 @@ function makeJob(payload: ShadowTurnJob): Job<ShadowTurnJob> {
   } as Job<ShadowTurnJob>
 }
 
+// ── Tenant-context stubs ───────────────────────────────────────────────────────
+// Unit tests use a fully-mocked DB so no real pool connection is needed.
+// The cls stub calls the handler inline so runWithTenantContext is transparent.
+const STUB_CLIENT = {
+  query: vi.fn().mockResolvedValue({}),
+  release: vi.fn(),
+}
+const STUB_BASE_DB = {
+  $client: { connect: vi.fn().mockResolvedValue(STUB_CLIENT) },
+} as unknown as Db
+const STUB_REQUEST_DB_CONTEXT = { setDb: vi.fn(), getDb: vi.fn(), clearDb: vi.fn() } as never
+const STUB_CLS = {
+  run: vi.fn().mockImplementation((fn: () => unknown) => fn()),
+} as never
+
 // ── Mocks ──────────────────────────────────────────────────────────────────────
 
 function makePgBossService(): PgBossService {
@@ -121,7 +136,15 @@ describe('ShadowTurnWorker', () => {
     diffScorer = makeDiffScorer()
     db = makeDb()
     trpcCaller = makeTrpcCaller()
-    worker = new ShadowTurnWorker(pgBossService, diffScorer, db, trpcCaller)
+    worker = new ShadowTurnWorker(
+      pgBossService,
+      diffScorer,
+      db,
+      STUB_BASE_DB,
+      STUB_REQUEST_DB_CONTEXT,
+      STUB_CLS,
+      trpcCaller,
+    )
   })
 
   describe('SHADOW_TURN_JOB_NAME constant', () => {
@@ -208,6 +231,9 @@ describe('ShadowTurnWorker', () => {
         pgBossService,
         failingDiffScorer,
         db,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
         failingCaller,
       )
       const payload = makeJobPayload()
@@ -247,6 +273,9 @@ describe('ShadowTurnWorker', () => {
         pgBossService,
         scorerWithError,
         db,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
         trpcCaller,
       )
       const payload = makeJobPayload()
@@ -265,6 +294,9 @@ describe('ShadowTurnWorker', () => {
         pgBossService,
         diffScorer,
         dbWithError,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
         trpcCaller,
       )
       const payload = makeJobPayload()
@@ -301,6 +333,9 @@ describe('ShadowTurnWorker', () => {
         pgBossService,
         scorerThatFailsOnFirst,
         db,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
         trpcCaller,
       )
       const jobs = [makeJob(makeJobPayload()), makeJob(makeJobPayload())]

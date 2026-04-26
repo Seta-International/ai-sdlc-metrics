@@ -54,9 +54,11 @@ function makeInsertChain() {
 function makeUpdateChain() {
   const chain = {
     set: vi.fn(),
-    where: vi.fn().mockResolvedValue(undefined),
+    where: vi.fn(),
+    returning: vi.fn().mockResolvedValue([]),
   }
   chain.set.mockReturnValue(chain)
+  chain.where.mockReturnValue(chain)
   return chain
 }
 
@@ -182,9 +184,11 @@ describe('CostRecorder', () => {
       return insertOnConflict
     })
 
-    const updateWhere = vi.fn().mockImplementation(async () => {
+    const updateReturning = vi.fn().mockImplementation(async () => {
       callOrder.push('update-tenant-budget')
+      return []
     })
+    const updateWhere = vi.fn().mockReturnValue({ returning: updateReturning })
     const updateSet = vi.fn().mockReturnValue({ where: updateWhere })
     mockDb.update.mockReturnValue({ set: updateSet })
 

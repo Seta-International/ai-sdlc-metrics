@@ -83,6 +83,21 @@ function makeDelegation(overrides: Partial<AgentDelegation> = {}): AgentDelegati
   }
 }
 
+// ── Tenant-context stubs ───────────────────────────────────────────────────────
+// Unit tests use fully-mocked repositories so no real DB connection is needed.
+// The cls stub calls the handler inline so runWithTenantContext is transparent.
+const STUB_CLIENT = {
+  query: vi.fn().mockResolvedValue({}),
+  release: vi.fn(),
+}
+const STUB_BASE_DB = {
+  $client: { connect: vi.fn().mockResolvedValue(STUB_CLIENT) },
+} as never
+const STUB_REQUEST_DB_CONTEXT = { setDb: vi.fn(), getDb: vi.fn(), clearDb: vi.fn() } as never
+const STUB_CLS = {
+  run: vi.fn().mockImplementation((fn: () => unknown) => fn()),
+} as never
+
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 function makeDraftRepo(overrides: Partial<IDraftRepository> = {}): IDraftRepository {
@@ -148,6 +163,9 @@ describe('ExecuteApprovedDraftWorker', () => {
       delegationFacade,
       auditFacade,
       notificationsFacade,
+      STUB_BASE_DB,
+      STUB_REQUEST_DB_CONTEXT,
+      STUB_CLS,
     )
   })
 
@@ -174,6 +192,9 @@ describe('ExecuteApprovedDraftWorker', () => {
         delegationFacade,
         auditFacade,
         notificationsFacade,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
       )
 
       await worker.handle(makeJob())
@@ -192,6 +213,9 @@ describe('ExecuteApprovedDraftWorker', () => {
         delegationFacade,
         auditFacade,
         notificationsFacade,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
       )
 
       await worker.handle(makeJob())
@@ -217,6 +241,9 @@ describe('ExecuteApprovedDraftWorker', () => {
         delegationFacade,
         auditFacade,
         notificationsFacade,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
       )
 
       await worker.handle(makeJob())
@@ -250,6 +277,9 @@ describe('ExecuteApprovedDraftWorker', () => {
         delegationFacade,
         auditFacade,
         notificationsFacade,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
       )
 
       await worker.handle(makeJob({ permission_envelope_at_draft_time: narrowEnvelope }))
@@ -269,6 +299,9 @@ describe('ExecuteApprovedDraftWorker', () => {
         delegationFacade,
         auditFacade,
         notificationsFacade,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
       )
 
       await worker.handle(makeJob())
@@ -287,6 +320,9 @@ describe('ExecuteApprovedDraftWorker', () => {
         delegationFacade,
         auditFacade,
         notificationsFacade,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
       )
 
       await worker.handle(makeJob())
@@ -305,6 +341,9 @@ describe('ExecuteApprovedDraftWorker', () => {
         delegationFacade,
         auditFacade,
         notificationsFacade,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
       )
 
       await worker.handle(makeJob())
@@ -334,6 +373,9 @@ describe('ExecuteApprovedDraftWorker', () => {
         delegationFacade,
         auditFacade,
         notificationsFacade,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
       )
 
       await worker.handle(makeJob())
@@ -359,6 +401,9 @@ describe('ExecuteApprovedDraftWorker', () => {
         delegationFacade,
         auditFacade,
         notificationsFacade,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
       )
 
       await worker.handle(makeJob())
@@ -381,6 +426,9 @@ describe('ExecuteApprovedDraftWorker', () => {
         delegationFacade,
         auditFacade,
         notificationsFacade,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
       )
 
       await worker.handle(makeJob())
@@ -397,6 +445,9 @@ describe('ExecuteApprovedDraftWorker', () => {
         delegationFacade,
         auditFacade,
         notificationsFacade,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
       )
 
       await worker.handle(makeJob())
@@ -413,6 +464,9 @@ describe('ExecuteApprovedDraftWorker', () => {
         delegationFacade,
         auditFacade,
         notificationsFacade,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
       )
 
       await worker.handle(makeJob())
@@ -438,6 +492,9 @@ describe('ExecuteApprovedDraftWorker', () => {
         delegationFacade,
         auditFacade,
         notificationsFacade,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
       )
 
       await worker.handle(makeJob())
@@ -459,6 +516,9 @@ describe('ExecuteApprovedDraftWorker', () => {
         delegationFacade,
         auditFacade,
         notificationsFacade,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
       )
 
       await worker.handle(makeJob())
@@ -491,6 +551,9 @@ describe('ExecuteApprovedDraftWorker', () => {
         delegationFacade,
         auditFacade,
         notificationsFacade,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
       )
       const job = makeJob({ approved_by: APPROVER_ID })
 
@@ -518,6 +581,9 @@ describe('ExecuteApprovedDraftWorker', () => {
         delegationFacade,
         auditFacade,
         notificationsFacade,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
       )
 
       await worker.handle(makeJob())
@@ -542,6 +608,9 @@ describe('ExecuteApprovedDraftWorker', () => {
         delegationFacade,
         auditFacade,
         notificationsFacade,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
       )
 
       await worker.handle(makeJob())

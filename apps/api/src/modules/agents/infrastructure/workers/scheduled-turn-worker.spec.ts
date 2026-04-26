@@ -184,6 +184,21 @@ function makeScheduledTurnService(
 
 // ── Helper to construct worker ─────────────────────────────────────────────────
 
+// Minimal stubs for the tenant-context helper injections.
+// Unit tests use fully-mocked repositories so no real DB connection is needed.
+// The cls stub calls the handler inline so runWithTenantContext is transparent.
+const STUB_CLIENT = {
+  query: vi.fn().mockResolvedValue({}),
+  release: vi.fn(),
+}
+const STUB_BASE_DB = {
+  $client: { connect: vi.fn().mockResolvedValue(STUB_CLIENT) },
+} as never
+const STUB_REQUEST_DB_CONTEXT = { setDb: vi.fn(), getDb: vi.fn(), clearDb: vi.fn() } as never
+const STUB_CLS = {
+  run: vi.fn().mockImplementation((fn: () => unknown) => fn()),
+} as never
+
 function buildWorker(
   overrides: {
     scheduleRepo?: IScheduleRepository
@@ -201,6 +216,9 @@ function buildWorker(
     overrides.auditFacade ?? makeKernelAuditFacade(),
     overrides.notificationsFacade ?? makeNotificationsFacade(),
     overrides.scheduledTurnService ?? makeScheduledTurnService(),
+    STUB_BASE_DB,
+    STUB_REQUEST_DB_CONTEXT,
+    STUB_CLS,
   )
 }
 

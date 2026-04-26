@@ -61,7 +61,6 @@ import type { DraftProposer } from './draft-proposer'
 import type { DraftProposalResult } from './draft-types'
 import type { IntentSlug } from './flow-id-propagation'
 import type { SemanticResultCache } from '../../infrastructure/cache/semantic-result-cache'
-import { INTERACTIVE_POLICY } from '../../domain/value-objects/turn-policy'
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
 

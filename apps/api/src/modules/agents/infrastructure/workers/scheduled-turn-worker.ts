@@ -1,4 +1,6 @@
 import { Injectable, Inject, Logger } from '@nestjs/common'
+import { ClsService } from 'nestjs-cls'
+import type { Db } from '@future/db'
 import { uuidv7 } from 'uuidv7'
 import {
   SCHEDULE_REPOSITORY,
@@ -13,6 +15,9 @@ import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-au
 import { NotificationsWriteFacade } from '../../../notifications/application/facades/notifications-write.facade'
 import { type ScheduledTurnJob } from '../../application/services/scheduled-turn-contracts'
 import { ScheduledTurnService } from '../../application/services/scheduled-turn-service'
+import { BASE_DB_TOKEN } from '../../../../common/db/db.module'
+import { RequestDbContextService } from '../../../../common/db/request-db-context.service'
+import { runWithTenantContext } from '../../../../common/jobs/run-with-tenant-context'
 
 export { type ScheduledTurnJob }
 
@@ -27,9 +32,24 @@ export class ScheduledTurnWorker {
     private readonly kernelAuditFacade: KernelAuditFacade,
     private readonly notificationsWriteFacade: NotificationsWriteFacade,
     private readonly scheduledTurnService: ScheduledTurnService,
+    @Inject(BASE_DB_TOKEN) private readonly baseDb: Db,
+    private readonly requestDbContext: RequestDbContextService,
+    private readonly cls: ClsService,
   ) {}
 
   async handle(job: ScheduledTurnJob): Promise<void> {
+    await runWithTenantContext(
+      {
+        tenantId: job.tenant_id,
+        baseDb: this.baseDb,
+        requestDbContext: this.requestDbContext,
+        cls: this.cls,
+      },
+      () => this._handleInContext(job),
+    )
+  }
+
+  private async _handleInContext(job: ScheduledTurnJob): Promise<void> {
     const { tenant_id: tenantId, schedule_id: scheduleId, delegation_id: delegationId } = job
 
     // Step 1: Validate schedule is active
