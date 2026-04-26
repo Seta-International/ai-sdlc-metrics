@@ -32,6 +32,11 @@ export interface ToolCall {
   readonly toolName: ToolName
   readonly args: unknown
   readonly result: unknown
+  /**
+   * 1-indexed monotonic counter shared across all tool calls within a single
+   * sub-agent ReAct loop. Matches `DraftProposal.taintSource.flippedAtIteration`
+   * so taint provenance and call provenance use the same coordinate.
+   */
   readonly iteration: number
   readonly durationMs: number
 }
