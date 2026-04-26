@@ -1,0 +1,82 @@
+name: Agent Authoring PR Review Bot
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  post-review-checklist:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check for agent file changes
+        id: check-changes
+        run: |
+          # Get list of changed files in this PR
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+
+          # Check if any changed file is under modules/*/agent/**
+          AGENT_FILES=$(echo "$CHANGED_FILES" | grep -E '^apps/api/src/modules/[^/]+/agent/' || true)
+
+          if [ -n "$AGENT_FILES" ]; then
+            echo "has_agent_changes=true" >> $GITHUB_OUTPUT
+            # Format as a list for the comment
+            AGENT_LIST=$(echo "$AGENT_FILES" | sed 's/^/- `/' | sed 's/$/'\''/`/')
+            echo "agent_files<<EOF" >> $GITHUB_OUTPUT
+            echo "$AGENT_LIST" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "has_agent_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Post review checklist
+        if: steps.check-changes.outputs.has_agent_changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs')
+            const checklist = fs.readFileSync('tools/lint/agent-authoring/review-checklist.md', 'utf8')
+            const agentFiles = `${{ steps.check-changes.outputs.agent_files }}`
+
+            const body = [
+              '<!-- agent-authoring-review-bot -->',
+              '### Changed Agent Files',
+              '',
+              agentFiles,
+              '',
+              checklist,
+            ].join('\n')
+
+            // Find existing bot comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            })
+
+            const existingComment = comments.data.find(c =>
+              c.body.includes('<!-- agent-authoring-review-bot -->')
+            )
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body,
+              })
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              })
+            }
