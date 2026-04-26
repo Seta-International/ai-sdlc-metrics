@@ -3,6 +3,14 @@ import type { AgentToolDescriptor, AgentToolMeta } from '../../../../common/trpc
 import { permissionMatchesAnyPrefix } from './permission-match'
 import { isZodObject, resolveRootSchema } from './zod-schema-utils'
 
+// ─── DI token ─────────────────────────────────────────────────────────────────
+
+/**
+ * DI token for `ToolRegistry`. Used by services that depend on the registry
+ * via constructor injection (SubAgentRunnerAdapter — Plan 17 PR 2 Task 6).
+ */
+export const TOOL_REGISTRY = Symbol('TOOL_REGISTRY')
+
 // ─── Validation Error ─────────────────────────────────────────────────────────
 
 /**

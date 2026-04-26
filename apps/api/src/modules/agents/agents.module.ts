@@ -111,9 +111,15 @@ import {
   ROUTER_SESSION_ORCHESTRATOR,
 } from './application/services/router-session-orchestrator'
 // Gateway pipeline (Task 5)
-import { ToolRegistry } from './infrastructure/tool-registry/tool-registry'
+import { ToolRegistry, TOOL_REGISTRY } from './infrastructure/tool-registry/tool-registry'
 import { TrpcCallerImpl } from './application/services/trpc-caller'
 import { ToolGateway } from './application/services/tool-gateway'
+import { TOOL_GATEWAY } from './application/services/tool-gateway-contracts'
+// Plan 17 PR 2 — sub-agent ReAct loop dependencies
+import {
+  OpenAiSubAgentLlmClient,
+  SUB_AGENT_LLM_CLIENT,
+} from './infrastructure/llm/sub-agent-llm-client'
 import { getAppRouter } from '../../common/trpc/app-router'
 // Sub-agent registry (Task 3)
 import { SubAgentRegistry, SUB_AGENT_REGISTRY } from './infrastructure/registry/sub-agent-registry'
@@ -404,6 +410,11 @@ class NullTenantLister implements TenantListerLike {
       useFactory: (db: Db) => new TrpcCallerImpl(undefined, db),
     },
     ToolGateway,
+    { provide: TOOL_GATEWAY, useExisting: ToolGateway },
+    { provide: TOOL_REGISTRY, useExisting: ToolRegistry },
+    // ── Plan 17 PR 2 — Sub-agent LLM client (real ReAct loop wiring) ───────────
+    OpenAiSubAgentLlmClient,
+    { provide: SUB_AGENT_LLM_CLIENT, useExisting: OpenAiSubAgentLlmClient },
     // ── Sub-agent registry (Task 3) ────────────────────────────────────────────
     SubAgentRegistry,
     { provide: SUB_AGENT_REGISTRY, useExisting: SubAgentRegistry },
