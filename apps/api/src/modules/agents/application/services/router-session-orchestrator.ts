@@ -57,6 +57,7 @@ import { IterativeOrchestrator, ITERATIVE_ORCHESTRATOR } from './iterative-orche
 import type { IterativeOrchestratorOpts } from './iterative-orchestrator'
 import type { PhaseExecutionResult, PhaseExecutorTurnState } from './phase-executor-contracts'
 import type { StreamEmitter } from './stream-gateway'
+import { RouterLlmFailureError, type RouterLlmFailureCause } from './pipeline-errors'
 
 // ─── DI token ─────────────────────────────────────────────────────────────────
 
@@ -335,9 +336,10 @@ export class RouterSessionOrchestrator {
     // ── Step 7: LLM call + parse-retry loop ────────────────────────────────────
     const resolvedModel = this._resolveRouterModel()
 
-    // Attempt 1
-    let attempt1SchemaPrompt: string | undefined
-    const { result: llmResult1, parseResult: parseResult1 } = await this._llmCallAndParse(
+    // Attempt 1 — RouterLlmFailureError thrown by _llmCallAndParse on infra
+    // failure (Plan 18 R-18.24); propagates to controller. Only ok/retry
+    // ParseResult shapes reach the post-call branches below.
+    const { parseResult: parseResult1 } = await this._llmCallAndParse(
       resolvedModel,
       systemPrompt,
       developerMessage,
@@ -381,13 +383,10 @@ export class RouterSessionOrchestrator {
       )
     }
 
-    // Attempt 1 failed — collect retry hint
-    if (llmResult1.kind === 'ok') {
-      // parsePlan returned retry — schemaInjectedPrompt is available
-      attempt1SchemaPrompt =
-        parseResult1.kind === 'retry' ? parseResult1.schemaInjectedPrompt : undefined
-    }
-    // llmResult1.kind === 'malformed' → use fallback schema prompt
+    // Attempt 1 returned parse-retry — schemaInjectedPrompt is provided by
+    // the parser. Fall back to a generic schema prompt if absent (defensive).
+    const attempt1SchemaPrompt =
+      parseResult1.kind === 'retry' ? parseResult1.schemaInjectedPrompt : undefined
 
     // Attempt 2 (retry)
     this._safeMetric(() => recordRouterParseRetry(tenantId))
@@ -481,10 +480,7 @@ export class RouterSessionOrchestrator {
     developerMessage: string,
     userMessage: string,
     attempt: 1 | 2,
-  ): Promise<{
-    result: Awaited<ReturnType<RouterLlmClient['generate']>>
-    parseResult: ParseResult
-  }> {
+  ): Promise<{ parseResult: ParseResult }> {
     const llmSpan = tracer.startSpan('router-llm:call')
     llmSpan.setAttributes({
       'model.provider': model.provider,
@@ -508,18 +504,11 @@ export class RouterSessionOrchestrator {
     }
 
     if (result.kind === 'malformed') {
-      // LLM call itself failed — treat as retry
-      const parseSpan = tracer.startSpan('router-decision:parse')
-      parseSpan.setAttributes({ retry_round: attempt - 1, parse_outcome: 'retry' })
-      parseSpan.end()
-      return {
-        result,
-        parseResult: {
-          kind: 'retry',
-          reason: result.error.message,
-          schemaInjectedPrompt: _buildFallbackSchemaPrompt(),
-        },
-      }
+      // Plan 18 R-18.24 hard cutover — LLM call infra failures (5xx, timeout,
+      // auth) are typed throws, no longer swallowed into a disambiguation
+      // result. The controller (Plan 18 Task 8) catches RouterLlmFailureError
+      // and maps it to an SSE close-error.
+      throw new RouterLlmFailureError(classifyLlmError(result.error), result.error)
     }
 
     const parseSpan = tracer.startSpan('router-decision:parse')
@@ -532,7 +521,7 @@ export class RouterSessionOrchestrator {
       parseSpan.end()
     }
 
-    return { result, parseResult }
+    return { parseResult }
   }
 
   // ─── Inline surface guard ─────────────────────────────────────────────────────
@@ -949,6 +938,29 @@ export class RouterSessionOrchestrator {
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Plan 18 R-18.24 — classify a router-LLM call failure into one of three
+ * `RouterLlmFailureCause` buckets. The Vercel AI SDK's `APICallError` exposes
+ * `statusCode`; AbortController-driven timeouts surface as `AbortError`.
+ * Some upstream wrappers may use `status` instead of `statusCode`, so we
+ * accept both. Unknown failures fall back to `llm_5xx` (transient retry
+ * semantics at the caller layer).
+ */
+function classifyLlmError(err: unknown): RouterLlmFailureCause {
+  if (typeof err === 'object' && err !== null) {
+    const e = err as { status?: number; statusCode?: number; name?: string; message?: string }
+    const status = e.status ?? e.statusCode
+    if (status === 401 || status === 403) return 'auth_error'
+    if (status !== undefined && status >= 500) return 'llm_5xx'
+    if (e.name === 'AbortError' || e.name === 'TimeoutError') return 'llm_timeout'
+    // RouterLlmClient wraps abort/timeout errors with a recognizable marker in
+    // the message (see router-llm-client.ts) — fall back to message inspection
+    // when no `name` survived the wrap.
+    if (typeof e.message === 'string' && /aborted|timeout/i.test(e.message)) return 'llm_timeout'
+  }
+  return 'llm_5xx'
+}
 
 function _buildFallbackSchemaPrompt(): string {
   const schemaJson = JSON.stringify(ROUTER_PLAN_JSON_SCHEMA_PLACEHOLDER, null, 2)
