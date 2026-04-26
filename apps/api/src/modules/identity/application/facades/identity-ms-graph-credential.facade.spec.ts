@@ -593,4 +593,40 @@ describe('IdentityMsGraphCredentialFacade', () => {
     expect(credentialRepo.deleteIfSecretRef).toHaveBeenCalledWith(TENANT_ID, SECRET_REF)
     expect(credentialRepo.insertIfAbsent).not.toHaveBeenCalled()
   })
+
+  describe('listGroupsFromDirectory', () => {
+    it('calls listGroupsWithMembers via the directory factory using stored credential', async () => {
+      const storedCredential = {
+        tenantId: TENANT_ID,
+        clientId: INPUT.clientId,
+        clientSecretRef: SECRET_REF,
+        tenantAdId: INPUT.tenantAdId,
+      }
+      credentialRepo.get.mockResolvedValue(storedCredential)
+      const mockProvider = {
+        listGroupsWithMembers: vi
+          .fn()
+          .mockResolvedValue([
+            { externalGroupId: 'g1', displayName: 'Marketing', memberExternalIds: ['u1', 'u2'] },
+          ]),
+      }
+      directoryFactory.create.mockResolvedValue(mockProvider)
+
+      const result = await facade.listGroupsFromDirectory(TENANT_ID)
+
+      expect(directoryFactory.create).toHaveBeenCalledOnce()
+      expect(mockProvider.listGroupsWithMembers).toHaveBeenCalledOnce()
+      expect(result).toHaveLength(1)
+      expect(result[0].externalGroupId).toBe('g1')
+    })
+
+    it('returns empty array when no MS Graph credential is stored', async () => {
+      credentialRepo.get.mockResolvedValue(null)
+
+      const result = await facade.listGroupsFromDirectory(TENANT_ID)
+
+      expect(directoryFactory.create).not.toHaveBeenCalled()
+      expect(result).toEqual([])
+    })
+  })
 })

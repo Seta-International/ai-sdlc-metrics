@@ -39,6 +39,7 @@ import { GetActorHandler } from './application/queries/get-actor.handler'
 import { GetRoleGrantsHandler } from './application/queries/get-role-grants.handler'
 import { GetTenantHandler } from './application/queries/get-tenant.handler'
 import { GetUserIdentityBySsoSubjectHandler } from './application/queries/get-user-identity-by-sso-subject.handler'
+import { GetUserIdentityByEmailAndTenantHandler } from './application/queries/get-user-identity-by-email-and-tenant.handler'
 import { CanDoHandler } from './application/queries/can-do.handler'
 import { GetEffectivePermissionsHandler } from './application/queries/get-effective-permissions.handler'
 import { GetRolePermissionsHandler } from './application/queries/get-role-permissions.handler'
@@ -94,6 +95,7 @@ import { DrizzleOutboxEventRepository } from './infrastructure/repositories/driz
     GetTenantHandler,
     GetRoleGrantsHandler,
     GetUserIdentityBySsoSubjectHandler,
+    GetUserIdentityByEmailAndTenantHandler,
     CanDoHandler,
     GetEffectivePermissionsHandler,
     GetRolePermissionsHandler,

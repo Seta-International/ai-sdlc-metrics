@@ -16,7 +16,7 @@ const makePlan = () => {
     id: uuidv7(),
     tenantId: uuidv7(),
     name: 'Sprint 1',
-    container: PlanContainer.of({ type: 'none' }),
+    container: PlanContainer.of({ type: 'future_only' }),
     createdBy: ownerActorId,
     ownerActorId,
   })
@@ -31,7 +31,7 @@ describe('Plan aggregate', () => {
         id: uuidv7(),
         tenantId: uuidv7(),
         name: 'My Plan',
-        container: PlanContainer.of({ type: 'none' }),
+        container: PlanContainer.of({ type: 'future_only' }),
         createdBy: ownerActorId,
         ownerActorId,
       })

@@ -19,6 +19,9 @@ import { trpc } from '../../../lib/trpc'
 import { ConnectForm } from './connect-form'
 import { InvalidBanner } from './invalid-banner'
 import { StatusCard } from './status-card'
+import { LinkedGroupsTable, type LinkedGroupDto } from './linked-groups-table'
+import { LinkGroupDrawer } from './link-group-drawer'
+import { BackfillProgressSlideover } from './backfill-progress-slideover'
 
 interface MsSyncStatus {
   connected: boolean
@@ -45,6 +48,12 @@ interface PlannerTrpcSlice {
       pause: { mutate: (input: { tenantId: string; actorId: string }) => Promise<void> }
       destroy: { mutate: (input: { tenantId: string; actorId: string }) => Promise<void> }
     }
+    groups: {
+      listLinked: { query: (input: { tenantId: string }) => Promise<LinkedGroupDto[]> }
+      unlink: {
+        mutate: (input: { tenantId: string; actorId: string; msGroupId: string }) => Promise<void>
+      }
+    }
   }
 }
 
@@ -54,6 +63,9 @@ export default function MicrosoftIntegrationPage() {
   const session = useSession()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
+  const [linkDrawerOpen, setLinkDrawerOpen] = useState(false)
+  const [backfillSlideoverOpen, setBackfillSlideoverOpen] = useState(false)
+  const [backfillJobId, setBackfillJobId] = useState<string | null>(null)
 
   const planner = trpc.planner as unknown as PlannerTrpcSlice
 
@@ -99,6 +111,25 @@ export default function MicrosoftIntegrationPage() {
       }),
     onSuccess: async () => {
       await statusQuery.refetch()
+    },
+  })
+
+  const linkedGroupsQuery = useQuery({
+    queryKey: ['planner.msSync.groups.listLinked', session?.tenantId],
+    queryFn: () => planner.msSync.groups.listLinked.query({ tenantId: session!.tenantId }),
+    enabled:
+      !!session && statusQuery.data?.connected === true && statusQuery.data?.status !== 'invalid',
+  })
+
+  const unlinkMutation = useMutation({
+    mutationFn: (msGroupId: string) =>
+      planner.msSync.groups.unlink.mutate({
+        tenantId: session!.tenantId,
+        actorId: session!.actorId,
+        msGroupId,
+      }),
+    onSuccess: async () => {
+      await linkedGroupsQuery.refetch()
     },
   })
 
@@ -229,19 +260,58 @@ export default function MicrosoftIntegrationPage() {
           </Dialog>
         </>
       ) : (
-        <StatusCard
-          connectedAt={status.connectedAt}
-          tenantAdId={status.tenantAdId ?? ''}
-          onPause={() => {
-            if (pauseMutation.isPending || destroyMutation.isPending) return
-            pauseMutation.mutate()
-          }}
-          onDestroy={() => {
-            if (pauseMutation.isPending || destroyMutation.isPending) return
-            if (!confirm('Disconnect and keep data as Future-only? This cannot be undone.')) return
-            destroyMutation.mutate()
-          }}
-        />
+        <>
+          <StatusCard
+            connectedAt={status.connectedAt}
+            tenantAdId={status.tenantAdId ?? ''}
+            onPause={() => {
+              if (pauseMutation.isPending || destroyMutation.isPending) return
+              pauseMutation.mutate()
+            }}
+            onDestroy={() => {
+              if (pauseMutation.isPending || destroyMutation.isPending) return
+              if (!confirm('Disconnect and keep data as Future-only? This cannot be undone.'))
+                return
+              destroyMutation.mutate()
+            }}
+          />
+
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-h3">Linked Groups</h2>
+              <Button size="sm" onClick={() => setLinkDrawerOpen(true)}>
+                Link Group
+              </Button>
+            </div>
+            <LinkedGroupsTable
+              groups={linkedGroupsQuery.data ?? []}
+              isLoading={linkedGroupsQuery.isLoading}
+              error={linkedGroupsQuery.isError ? 'Failed to load linked groups' : undefined}
+              onUnlink={(msGroupId) => unlinkMutation.mutate(msGroupId)}
+              onRetry={() => linkedGroupsQuery.refetch()}
+            />
+          </section>
+
+          <LinkGroupDrawer
+            open={linkDrawerOpen}
+            onOpenChange={setLinkDrawerOpen}
+            tenantId={session.tenantId}
+            actorId={session.actorId}
+            onLinked={() => linkedGroupsQuery.refetch()}
+            onBackfillStarted={(jobId) => {
+              setBackfillJobId(jobId)
+              setBackfillSlideoverOpen(true)
+            }}
+          />
+
+          {backfillJobId && (
+            <BackfillProgressSlideover
+              open={backfillSlideoverOpen}
+              onOpenChange={setBackfillSlideoverOpen}
+              jobId={backfillJobId}
+            />
+          )}
+        </>
       )}
 
       {isPending ? (

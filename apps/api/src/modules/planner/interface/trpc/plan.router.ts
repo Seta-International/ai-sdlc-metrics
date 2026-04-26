@@ -53,10 +53,16 @@ export const planRouter = router({
         bucketId: z.string().uuid(),
         name: z.string().min(1).max(255),
         description: z.string().max(32000).nullable().default(null),
+        containerType: z.enum(['future_only', 'ms_group']).default('future_only'),
+        containerRef: z.string().min(1).nullable().default(null),
       }),
     )
     .mutation(async ({ input }) => {
       await svc().assertPlannerEnabled(input.tenantId)
+      const container =
+        input.containerType === 'ms_group' && input.containerRef
+          ? PlanContainer.of({ type: 'ms_group', externalId: input.containerRef })
+          : PlanContainer.of({ type: 'future_only' })
       return svc()
         .command(
           new CreatePlanCommand(
@@ -64,7 +70,7 @@ export const planRouter = router({
             input.id,
             input.name,
             input.description,
-            PlanContainer.of({ type: 'none' }),
+            container,
             input.actorId,
             input.bucketId,
           ),

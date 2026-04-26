@@ -121,6 +121,7 @@ const ROLE_OVERRIDES: Record<string, string[]> = {
   'canh.ta@seta-international.vn': ['tenant_admin', 'line_manager'],
   'canh.ta@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
   'anh.nguyenviet@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
+  'thang.tran@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
 }
 
 function getEmailDomain(email: string): string | null {
@@ -320,6 +321,7 @@ async function enablePlanner(
       plannerChartsEnabled: true,
       plannerChartsTrendsEnabled: true,
       plannerPersonalEnabled: true,
+      plannerMsSyncEnabled: true,
     })
     .onConflictDoUpdate({
       target: tenantSettings.tenantId,
@@ -331,6 +333,7 @@ async function enablePlanner(
         plannerChartsEnabled: true,
         plannerChartsTrendsEnabled: true,
         plannerPersonalEnabled: true,
+        plannerMsSyncEnabled: true,
       },
     })
 }

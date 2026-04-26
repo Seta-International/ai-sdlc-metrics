@@ -348,9 +348,9 @@ describe('ShadowTurnWorker', () => {
     })
   })
 
-  describe('onModuleInit()', () => {
+  describe('onApplicationBootstrap()', () => {
     it('registers a worker for agent.shadow-turn queue', () => {
-      worker.onModuleInit()
+      worker.onApplicationBootstrap()
 
       expect(pgBossService.registerWorker).toHaveBeenCalledWith(
         SHADOW_TURN_JOB_NAME,

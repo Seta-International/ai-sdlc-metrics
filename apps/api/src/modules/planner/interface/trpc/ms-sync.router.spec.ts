@@ -4,7 +4,11 @@ import { PlannerRouterService } from './planner-router.service'
 import { plannerRouter } from './planner.router'
 import { ConnectMsSyncCommand } from '../../application/commands/ms-sync/connect-ms-sync.command'
 import { DisconnectMsSyncCommand } from '../../application/commands/ms-sync/disconnect-ms-sync.command'
+import { LinkMsGroupCommand } from '../../application/commands/ms-sync/link-ms-group.command'
+import { UnlinkMsGroupCommand } from '../../application/commands/ms-sync/unlink-ms-group.command'
 import { GetGraphCredentialQuery } from '../../../identity/application/queries/get-graph-credential.query'
+import { ListAvailableGroupsQuery } from '../../application/queries/ms-sync/list-available-groups.query'
+import { ListLinkedGroupsQuery } from '../../application/queries/ms-sync/list-linked-groups.query'
 import type { AdminQueryFacade } from '../../../admin/application/facades/admin-query.facade'
 
 const TENANT_ID = '01900000-0000-7fff-8000-000000005001'
@@ -198,6 +202,87 @@ describe('msSyncRouter — unit (mocked command/query bus)', () => {
       connectedAt: '2026-04-24T07:00:00.000Z',
       lastError: null,
     })
+  })
+
+  it('planner.msSync.groups.listAvailable dispatches ListAvailableGroupsQuery', async () => {
+    queryBus.execute.mockResolvedValue([
+      { externalGroupId: 'g1', displayName: 'Marketing', memberCount: 5 },
+    ])
+
+    const caller = plannerRouter.createCaller(makeCtx())
+    const result = await caller.msSync.groups.listAvailable({ tenantId: TENANT_ID })
+
+    expect(queryBus.execute).toHaveBeenCalledOnce()
+    const dispatched = queryBus.execute.mock.calls[0][0]
+    expect(dispatched).toBeInstanceOf(ListAvailableGroupsQuery)
+    expect(dispatched.tenantId).toBe(TENANT_ID)
+    expect(result).toEqual([{ externalGroupId: 'g1', displayName: 'Marketing', memberCount: 5 }])
+  })
+
+  it('planner.msSync.groups.link dispatches LinkMsGroupCommand and returns IDs', async () => {
+    commandBus.execute.mockResolvedValue({
+      id: 'linked-id-1',
+      displayName: 'Marketing',
+      backfillJobId: 'job-abc',
+    })
+
+    const caller = plannerRouter.createCaller(makeCtx())
+    const result = await caller.msSync.groups.link({
+      tenantId: TENANT_ID,
+      actorId: ACTOR_ID,
+      msGroupId: 'aad-group-uuid-1',
+    })
+
+    expect(commandBus.execute).toHaveBeenCalledOnce()
+    const dispatched = commandBus.execute.mock.calls[0][0]
+    expect(dispatched).toBeInstanceOf(LinkMsGroupCommand)
+    expect(dispatched.msGroupId).toBe('aad-group-uuid-1')
+    expect(result).toEqual({ linkedGroupId: 'linked-id-1', backfillJobId: 'job-abc' })
+  })
+
+  it('planner.msSync.groups.unlink dispatches UnlinkMsGroupCommand', async () => {
+    commandBus.execute.mockResolvedValue(undefined)
+
+    const caller = plannerRouter.createCaller(makeCtx())
+    await caller.msSync.groups.unlink({
+      tenantId: TENANT_ID,
+      actorId: ACTOR_ID,
+      msGroupId: 'aad-group-uuid-2',
+    })
+
+    expect(commandBus.execute).toHaveBeenCalledOnce()
+    const dispatched = commandBus.execute.mock.calls[0][0]
+    expect(dispatched).toBeInstanceOf(UnlinkMsGroupCommand)
+    expect(dispatched.msGroupId).toBe('aad-group-uuid-2')
+    expect(dispatched.tenantId).toBe(TENANT_ID)
+    expect(dispatched.actorId).toBe(ACTOR_ID)
+  })
+
+  it('planner.msSync.groups.listLinked dispatches ListLinkedGroupsQuery', async () => {
+    const now = new Date('2026-04-25T10:00:00Z')
+    queryBus.execute.mockResolvedValue([
+      {
+        id: 'grp-id-1',
+        msGroupId: 'g1',
+        displayName: 'Marketing',
+        syncEnabled: true,
+        backfillingAt: null,
+        planCount: 3,
+        lastPolledAt: now,
+        lastError: null,
+      },
+    ])
+
+    const caller = plannerRouter.createCaller(makeCtx())
+    const result = await caller.msSync.groups.listLinked({ tenantId: TENANT_ID })
+
+    expect(queryBus.execute).toHaveBeenCalledOnce()
+    const dispatched = queryBus.execute.mock.calls[0][0]
+    expect(dispatched).toBeInstanceOf(ListLinkedGroupsQuery)
+    expect(dispatched.tenantId).toBe(TENANT_ID)
+    expect(result).toHaveLength(1)
+    expect(result[0].msGroupId).toBe('g1')
+    expect(result[0].planCount).toBe(3)
   })
 
   it('planner.msSync.disconnect.destroy -> status returns connected=false', async () => {

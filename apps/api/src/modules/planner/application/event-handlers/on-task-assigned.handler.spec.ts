@@ -47,7 +47,7 @@ describe('OnTaskAssignedHandler', () => {
       id: 'plan-7',
       tenantId: 'tenant-1',
       name: 'Q3 Sprint',
-      container: PlanContainer.of({ type: 'none' }),
+      container: PlanContainer.of({ type: 'future_only' }),
       createdBy: 'actor-1',
       ownerActorId: 'actor-1',
     })

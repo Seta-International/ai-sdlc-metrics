@@ -19,9 +19,20 @@ vi.mock('../../../lib/trpc', () => ({
     planner: {
       msSync: {
         getStatus: { query: vi.fn() },
+        status: { query: vi.fn() },
         connect: { mutate: vi.fn() },
         pause: { mutate: vi.fn() },
         destroy: { mutate: vi.fn() },
+        groups: {
+          listLinked: { query: vi.fn() },
+          listAvailable: { query: vi.fn() },
+          link: { mutate: vi.fn() },
+          unlink: { mutate: vi.fn() },
+        },
+        disconnect: {
+          pause: { mutate: vi.fn() },
+          destroy: { mutate: vi.fn() },
+        },
       },
     },
   },
@@ -147,7 +158,7 @@ describe('<MicrosoftIntegrationPage />', () => {
   })
 
   it('renders connected status card state', () => {
-    mockedUseQuery.mockReturnValue({
+    const statusData = {
       data: {
         connected: true,
         status: 'active',
@@ -160,7 +171,20 @@ describe('<MicrosoftIntegrationPage />', () => {
       isError: false,
       error: null,
       refetch: vi.fn(),
-    } as unknown as ReturnType<typeof useQuery>)
+    } as unknown as ReturnType<typeof useQuery>
+
+    const linkedGroupsData = {
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useQuery>
+
+    mockedUseQuery
+      .mockReturnValueOnce(statusData)
+      .mockReturnValueOnce(linkedGroupsData)
+      .mockReturnValue(linkedGroupsData)
 
     render(<MicrosoftIntegrationPage />)
 

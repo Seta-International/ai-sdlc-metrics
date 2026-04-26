@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, Optional, type OnModuleInit } from '@nestjs/common'
+import { Inject, Injectable, Logger, Optional, OnApplicationBootstrap } from '@nestjs/common'
 import type { Job } from 'pg-boss'
 import { uuidv7 } from 'uuidv7'
 import type { Db } from '@future/db'
@@ -45,7 +45,7 @@ export {
  *   The candidate output (TurnResult) is captured from the dry-run result for diffing.
  */
 @Injectable()
-export class ShadowTurnWorker implements OnModuleInit {
+export class ShadowTurnWorker implements OnApplicationBootstrap {
   private readonly logger = new Logger(ShadowTurnWorker.name)
   private readonly trpcCaller: TrpcCaller
 
@@ -68,7 +68,7 @@ export class ShadowTurnWorker implements OnModuleInit {
     this.trpcCaller = trpcCaller ?? new TrpcCallerImpl(undefined, this.db)
   }
 
-  onModuleInit(): void {
+  onApplicationBootstrap(): void {
     this.pgBossService.registerWorker<ShadowTurnJob>(SHADOW_TURN_JOB_NAME, this.handle.bind(this))
   }
 

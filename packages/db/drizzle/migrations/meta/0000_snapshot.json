@@ -1,5 +1,5 @@
 {
-  "id": "8d2aa06a-4124-400d-8992-0ebc54e77442",
+  "id": "ba9ec5d2-e486-4730-bf54-ba114b89294d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -10033,6 +10033,199 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "planner.ms_linked_group": {
+      "name": "ms_linked_group",
+      "schema": "planner",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ms_group_id": {
+          "name": "ms_group_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "linked_by_actor_id": {
+          "name": "linked_by_actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "linked_at": {
+          "name": "linked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "sync_enabled": {
+          "name": "sync_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "backfilling_at": {
+          "name": "backfilling_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "backfill_job_id": {
+          "name": "backfill_job_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "unlinked_at": {
+          "name": "unlinked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "uniq_ms_linked_group_tenant_msgroup": {
+          "name": "uniq_ms_linked_group_tenant_msgroup",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ms_group_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "planner.ms_plan_sync_state": {
+      "name": "ms_plan_sync_state",
+      "schema": "planner",
+      "columns": {
+        "plan_id": {
+          "name": "plan_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ms_plan_id": {
+          "name": "ms_plan_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ms_plan_etag": {
+          "name": "ms_plan_etag",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_polled_at": {
+          "name": "last_polled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_successful_poll_at": {
+          "name": "last_successful_poll_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "consecutive_error_count": {
+          "name": "consecutive_error_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "last_error_code": {
+          "name": "last_error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_error_message": {
+          "name": "last_error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "poll_paused_until": {
+          "name": "poll_paused_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "uniq_ms_plan_sync_state_tenant_msplan": {
+          "name": "uniq_ms_plan_sync_state_tenant_msplan",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ms_plan_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "planner.bucket": {
       "name": "bucket",
       "schema": "planner",
@@ -10303,6 +10496,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "container_ref": {
+          "name": "container_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "ms_group_id": {
           "name": "ms_group_id",
           "type": "text",
@@ -10326,6 +10525,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "is_ms_archived": {
+          "name": "is_ms_archived",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "owner_actor_id": {
           "name": "owner_actor_id",
@@ -10467,7 +10673,7 @@
         },
         "chk_plan_container_xor": {
           "name": "chk_plan_container_xor",
-          "value": "(\"planner\".\"plan\".\"container_type\" IS NULL AND \"planner\".\"plan\".\"ms_group_id\" IS NULL AND \"planner\".\"plan\".\"ms_roster_id\" IS NULL)\n        OR (\"planner\".\"plan\".\"container_type\" = 'group' AND \"planner\".\"plan\".\"ms_group_id\" IS NOT NULL AND \"planner\".\"plan\".\"ms_roster_id\" IS NULL)\n        OR (\"planner\".\"plan\".\"container_type\" = 'roster' AND \"planner\".\"plan\".\"ms_roster_id\" IS NOT NULL AND \"planner\".\"plan\".\"ms_group_id\" IS NULL)"
+          "value": "(\"planner\".\"plan\".\"container_type\" IS NULL AND \"planner\".\"plan\".\"container_ref\" IS NULL)\n        OR (\"planner\".\"plan\".\"container_type\" = 'future_only' AND \"planner\".\"plan\".\"container_ref\" IS NULL)\n        OR (\"planner\".\"plan\".\"container_type\" = 'ms_group' AND \"planner\".\"plan\".\"container_ref\" IS NOT NULL)\n        OR (\"planner\".\"plan\".\"container_type\" = 'ms_roster' AND \"planner\".\"plan\".\"container_ref\" IS NOT NULL)"
         }
       },
       "isRLSEnabled": false
@@ -10770,6 +10976,12 @@
         "ms_task_details_etag": {
           "name": "ms_task_details_etag",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ms_soft_deleted_at": {
+          "name": "ms_soft_deleted_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },

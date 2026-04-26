@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MS_SYNC_DISABLED_EVENT } from '@future/event-contracts'
 import { IdentityMsGraphCredentialFacade } from '../../../../identity/application/facades/identity-ms-graph-credential.facade'
 import type { KernelAuditFacade } from '../../../../kernel/application/facades/kernel-audit.facade'
+import type { IPlanRepository } from '../../../domain/repositories/plan.repository'
+import type { IMsLinkedGroupRepository } from '../../../domain/repositories/ms-linked-group.repository'
+import type { IMsPlanSyncStateRepository } from '../../../domain/repositories/ms-plan-sync-state.repository'
 import { DisconnectMsSyncCommand } from './disconnect-ms-sync.command'
 import { DisconnectMsSyncHandler } from './disconnect-ms-sync.handler'
 
@@ -17,6 +20,9 @@ describe('DisconnectMsSyncHandler', () => {
   let identityGraphFacade: { disconnectMicrosoftGraphCredential: ReturnType<typeof vi.fn> }
   let auditFacade: { publishOutboxEvent: ReturnType<typeof vi.fn> }
   let eventBus: { publish: ReturnType<typeof vi.fn> }
+  let planRepo: { convertAllToFutureOnly: ReturnType<typeof vi.fn> }
+  let groupRepo: { removeAllForTenant: ReturnType<typeof vi.fn> }
+  let syncStateRepo: { removeAllForTenant: ReturnType<typeof vi.fn> }
   let handler: DisconnectMsSyncHandler
 
   beforeEach(() => {
@@ -28,10 +34,16 @@ describe('DisconnectMsSyncHandler', () => {
     }
     auditFacade = { publishOutboxEvent: vi.fn().mockResolvedValue(undefined) }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
+    planRepo = { convertAllToFutureOnly: vi.fn().mockResolvedValue(undefined) }
+    groupRepo = { removeAllForTenant: vi.fn().mockResolvedValue(undefined) }
+    syncStateRepo = { removeAllForTenant: vi.fn().mockResolvedValue(undefined) }
     handler = new DisconnectMsSyncHandler(
       identityGraphFacade as unknown as IdentityMsGraphCredentialFacade,
       auditFacade as unknown as KernelAuditFacade,
       eventBus as unknown as EventBus,
+      planRepo as unknown as IPlanRepository,
+      groupRepo as unknown as IMsLinkedGroupRepository,
+      syncStateRepo as unknown as IMsPlanSyncStateRepository,
     )
   })
 
@@ -137,5 +149,21 @@ describe('DisconnectMsSyncHandler', () => {
 
     expect(auditFacade.publishOutboxEvent).toHaveBeenCalledOnce()
     expect(eventBus.publish).not.toHaveBeenCalled()
+  })
+
+  it('destroy: converts all MS-linked plans to future_only and removes ms_linked_group and sync-state rows', async () => {
+    await handler.execute(makeCommand('destroy'))
+
+    expect(planRepo.convertAllToFutureOnly).toHaveBeenCalledWith(TENANT_ID)
+    expect(groupRepo.removeAllForTenant).toHaveBeenCalledWith(TENANT_ID)
+    expect(syncStateRepo.removeAllForTenant).toHaveBeenCalledWith(TENANT_ID)
+  })
+
+  it('pause: does not convert plans or remove linked-group rows', async () => {
+    await handler.execute(makeCommand('pause'))
+
+    expect(planRepo.convertAllToFutureOnly).not.toHaveBeenCalled()
+    expect(groupRepo.removeAllForTenant).not.toHaveBeenCalled()
+    expect(syncStateRepo.removeAllForTenant).not.toHaveBeenCalled()
   })
 })

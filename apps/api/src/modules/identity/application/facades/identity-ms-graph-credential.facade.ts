@@ -3,6 +3,7 @@ import type { IdentityProviderEntity } from '../../domain/entities/identity-prov
 import { MsGraphCredentialEntity } from '../../domain/entities/ms-graph-credential.entity'
 import {
   DIRECTORY_PROVIDER_FACTORY,
+  type IdpGroup,
   type IDirectoryProviderFactory,
 } from '../../domain/ports/directory-provider.port'
 import { SECRETS_STORE, type ISecretsStore } from '../../domain/ports/secrets-store.port'
@@ -128,6 +129,14 @@ export class IdentityMsGraphCredentialFacade {
     }
   }
 
+  async listGroupsFromDirectory(tenantId: string): Promise<IdpGroup[]> {
+    const credential = await this.credentialRepo.get(tenantId)
+    if (!credential) return []
+    const providerConfig = this.credentialToProviderConfig(credential)
+    const provider = await this.directoryFactory.create(providerConfig)
+    return provider.listGroupsWithMembers()
+  }
+
   async disconnectMicrosoftGraphCredential(
     input: DisconnectMicrosoftGraphCredentialInput,
     options: DisconnectMicrosoftGraphCredentialOptions = {},
@@ -178,6 +187,25 @@ export class IdentityMsGraphCredentialFacade {
     }
 
     return true
+  }
+
+  private credentialToProviderConfig(credential: MsGraphCredentialEntity): IdentityProviderEntity {
+    const now = new Date()
+    return {
+      id: `ms-graph-${credential.tenantId}`,
+      tenantId: credential.tenantId,
+      providerType: 'microsoft',
+      displayName: 'Microsoft 365 Planner sync',
+      clientId: credential.clientId,
+      clientSecretRef: credential.clientSecretRef,
+      directoryId: credential.tenantAdId,
+      isPrimary: false,
+      syncEnabled: false,
+      lastSyncAt: null,
+      syncStatus: 'idle',
+      createdAt: now,
+      updatedAt: now,
+    }
   }
 
   private createMicrosoftProviderConfig(

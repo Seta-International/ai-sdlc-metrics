@@ -11,6 +11,7 @@ import { ProviderMisconfiguredException } from '../../domain/exceptions/identity
 import type { IIdentityProviderRepository } from '../../domain/repositories/identity-provider.repository'
 import type { IOAuthAuthorizationSessionRepository } from '../../domain/repositories/oauth-authorization-session.repository'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
+import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { ISecretsStore } from '../../domain/ports/secrets-store.port'
 import type { IOAuthTokenExchanger } from '../../domain/ports/oauth-token-exchanger.port'
 import type { JwtService } from '../../../../common/auth/jwt.service'
@@ -128,8 +129,9 @@ describe('CompleteOAuthHandler', () => {
   let handler: CompleteOAuthHandler
   let kernelFacade: Pick<
     KernelQueryFacade,
-    'getTenant' | 'getUserIdentityBySsoSubject' | 'getActor'
+    'getTenant' | 'getUserIdentityBySsoSubject' | 'getActor' | 'getUserIdentityByEmailAndTenant'
   >
+  let kernelAuditFacade: Pick<KernelAuditFacade, 'claimSsoSubjectIfPlaceholder'>
   let providerRepo: IIdentityProviderRepository
   let sessionRepo: IOAuthAuthorizationSessionRepository
   let secretsStore: ISecretsStore
@@ -140,7 +142,11 @@ describe('CompleteOAuthHandler', () => {
     kernelFacade = {
       getTenant: vi.fn(),
       getUserIdentityBySsoSubject: vi.fn(),
+      getUserIdentityByEmailAndTenant: vi.fn(),
       getActor: vi.fn(),
+    }
+    kernelAuditFacade = {
+      claimSsoSubjectIfPlaceholder: vi.fn().mockResolvedValue(false),
     }
     providerRepo = {
       findById: vi.fn(),
@@ -171,6 +177,7 @@ describe('CompleteOAuthHandler', () => {
 
     handler = new CompleteOAuthHandler(
       kernelFacade as unknown as KernelQueryFacade,
+      kernelAuditFacade as unknown as KernelAuditFacade,
       providerRepo,
       sessionRepo,
       secretsStore,
