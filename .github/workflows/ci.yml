@@ -23,6 +23,9 @@ jobs:
       - name: Typecheck (affected)
         run: bun turbo typecheck --filter='[HEAD^1]'
 
+      - name: Agent authoring lints
+        run: bun run lint:agent-authoring
+
       - name: Unit tests
         run: bun vitest run --project unit
         working-directory: apps/api
