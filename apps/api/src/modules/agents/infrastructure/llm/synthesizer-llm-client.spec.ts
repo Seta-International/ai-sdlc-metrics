@@ -111,6 +111,58 @@ describe('OpenAiSynthesizerLlmClient', () => {
     expect(usage.costUsd).toBe(0)
   })
 
+  it('propagates cache-read, cache-write, and reasoning token details into SubAgentUsage', async () => {
+    mockStreamObject.mockReturnValueOnce({
+      partialObjectStream: asyncFrom([finalNarrative]),
+      object: Promise.resolve(finalNarrative),
+      usage: Promise.resolve({
+        inputTokens: 100,
+        outputTokens: 200,
+        inputTokenDetails: { cacheReadTokens: 30, cacheWriteTokens: 10 },
+        outputTokenDetails: { reasoningTokens: 50 },
+      }),
+    })
+
+    const client = new OpenAiSynthesizerLlmClient()
+    const result = client.synthesize(baseOpts)
+
+    await expect(result.usage).resolves.toEqual({
+      inputTokens: 100,
+      outputTokens: 200,
+      inputCachedRead: 30,
+      inputCachedWrite: 10,
+      outputReasoning: 50,
+      costUsd: 0,
+    })
+  })
+
+  it('partialObjectStream throws on mid-flight upstream error and finalObject rejects', async () => {
+    const upstreamError = new Error('stream broke')
+    mockStreamObject.mockReturnValueOnce({
+      partialObjectStream: (async function* () {
+        yield { shape: 'narrative' as const }
+        throw upstreamError
+      })(),
+      object: Promise.reject(upstreamError),
+      usage: Promise.reject(upstreamError),
+    })
+
+    const client = new OpenAiSynthesizerLlmClient()
+    const result = client.synthesize(baseOpts)
+
+    const collected: unknown[] = []
+    await expect(async () => {
+      for await (const partial of result.partialObjectStream) {
+        collected.push(partial)
+      }
+    }).rejects.toBe(upstreamError)
+    expect(collected).toEqual([{ shape: 'narrative' }])
+
+    await expect(result.finalObject).rejects.toBe(upstreamError)
+    // Drain `usage` rejection to avoid an unhandled rejection warning.
+    await expect(result.usage).rejects.toBe(upstreamError)
+  })
+
   it('partialObjectStream yields progressive partials (full-grow semantics, not deltas)', async () => {
     const partials = [
       { shape: 'narrative' as const },
