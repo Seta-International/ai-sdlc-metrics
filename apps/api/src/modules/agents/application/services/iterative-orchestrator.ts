@@ -40,9 +40,9 @@ import type {
   SubAgentDirective,
 } from '../../domain/value-objects/router-plan-schema'
 import type { StreamEmitter } from './stream-gateway'
-import type { IterationCeilingEnforcer } from './iteration-ceiling-enforcer'
-import type { CompletionScorerRunner } from './completion-scorer-runner'
-import type { IterativeRePlanner } from './iterative-replanner'
+import { IterationCeilingEnforcer } from './iteration-ceiling-enforcer'
+import { CompletionScorerRunner } from './completion-scorer-runner'
+import { IterativeRePlanner } from './iterative-replanner'
 import {
   recordIterativeTurnTotal,
   recordIterationCountExceeded,

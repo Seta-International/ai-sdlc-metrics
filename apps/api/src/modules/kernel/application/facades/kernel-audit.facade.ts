@@ -12,6 +12,12 @@ import {
   TENANT_REPOSITORY,
   type ITenantRepository,
 } from '../../domain/repositories/tenant.repository.port'
+import {
+  USER_IDENTITY_REPOSITORY,
+  type IUserIdentityRepository,
+  PLACEHOLDER_SSO_SUBJECT_PREFIX,
+} from '../../domain/repositories/user-identity.repository.port'
+import type { UserIdentity } from '../../domain/entities/user-identity.entity'
 import type { Tenant } from '../../domain/entities/tenant.entity'
 import { TenantNotFoundException } from '../../domain/exceptions/tenant.exceptions'
 export { SYSTEM_TENANT_SLUG } from '../../domain/constants/system-tenant'
@@ -31,6 +37,8 @@ export class KernelAuditFacade {
     private readonly outboxRepo: IOutboxEventRepository,
     @Inject(TENANT_REPOSITORY)
     private readonly tenantRepo: ITenantRepository,
+    @Inject(USER_IDENTITY_REPOSITORY)
+    private readonly userIdentityRepo: IUserIdentityRepository,
   ) {}
 
   recordEvent(data: {
@@ -94,6 +102,29 @@ export class KernelAuditFacade {
       dateFrom: filters.dateFrom,
       dateTo: filters.dateTo,
     })
+  }
+
+  /**
+   * Binds a real SSO subject to a seeded placeholder identity.
+   * Returns true if the claim was applied (subject had the placeholder prefix),
+   * false if the identity already had a real subject.
+   * Called once on the user's first real SSO login.
+   */
+  async claimSsoSubjectIfPlaceholder(
+    identity: { id: string; tenantId: string; ssoSubject: string },
+    realSsoSubject: string,
+    provider: UserIdentity['provider'],
+  ): Promise<boolean> {
+    if (!identity.ssoSubject.startsWith(PLACEHOLDER_SSO_SUBJECT_PREFIX)) {
+      return false
+    }
+    await this.userIdentityRepo.claimSsoSubject(
+      identity.id,
+      identity.tenantId,
+      realSsoSubject,
+      provider,
+    )
+    return true
   }
 
   /**

@@ -55,7 +55,7 @@ export interface CompleteOAuthResult {
 // ---------------------------------------------------------------------------
 
 interface TrpcResponse<T> {
-  result?: { data?: { json?: T } }
+  result?: { data?: T }
   error?: { message?: string; code?: string }
 }
 
@@ -65,7 +65,7 @@ interface TrpcResponse<T> {
  */
 async function trpcQuery<T>(procedure: string, input: unknown): Promise<T> {
   const url = new URL(`${API_BASE_URL}/trpc/${procedure}`)
-  url.searchParams.set('input', JSON.stringify({ json: input }))
+  url.searchParams.set('input', JSON.stringify(input))
 
   const res = await fetch(url.toString(), {
     method: 'GET',
@@ -82,7 +82,7 @@ async function trpcQuery<T>(procedure: string, input: unknown): Promise<T> {
     throw new Error(body.error.message ?? `tRPC error from ${procedure}`)
   }
 
-  const data = body.result?.data?.json
+  const data = body.result?.data
   if (data === undefined || data === null) {
     // null means "not found" for optional queries (e.g. getLoginOptions returns null when tenant unknown)
     return data as T
@@ -98,7 +98,7 @@ async function trpcMutation<T>(procedure: string, input: unknown): Promise<T> {
   const res = await fetch(`${API_BASE_URL}/trpc/${procedure}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ json: input }),
+    body: JSON.stringify(input),
   })
 
   if (!res.ok && !res.headers.get('content-type')?.includes('application/json')) {
@@ -111,7 +111,7 @@ async function trpcMutation<T>(procedure: string, input: unknown): Promise<T> {
     throw new Error(body.error.message ?? `tRPC error from ${procedure}`)
   }
 
-  const data = body.result?.data?.json
+  const data = body.result?.data
   if (data === undefined) {
     throw new Error(`Unexpected empty response from ${procedure}`)
   }

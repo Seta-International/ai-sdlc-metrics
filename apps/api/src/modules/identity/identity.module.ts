@@ -17,6 +17,7 @@ import { JOB_SCHEDULER } from './domain/ports/job-scheduler.port'
 import { MAGIC_LINK_SENDER } from './domain/ports/magic-link-sender.port'
 import { LOCAL_USER_QUERY_PORT } from './domain/ports/local-user-query.port'
 import { SECRETS_STORE } from './domain/ports/secrets-store.port'
+import { LocalDevSecretsStoreAdapter } from '../../common/secrets/local-dev-secrets-store.adapter'
 
 import { DrizzleIdentityProviderRepository } from './infrastructure/repositories/drizzle-identity-provider.repository'
 import { DrizzleIdpGroupMappingRepository } from './infrastructure/repositories/drizzle-idp-group-mapping.repository'
@@ -127,7 +128,9 @@ const QueryHandlers = [
     {
       provide: SECRETS_STORE,
       useFactory: () =>
-        new AwsSecretsStoreAdapter({ region: process.env.AWS_REGION ?? 'ap-southeast-1' }),
+        process.env['LOCAL_DEV'] === '1'
+          ? new LocalDevSecretsStoreAdapter()
+          : new AwsSecretsStoreAdapter({ region: process.env.AWS_REGION ?? 'ap-southeast-1' }),
     },
     { provide: CRYPTO_PROVIDER, useClass: NodeCryptoProvider },
     { provide: JOB_SCHEDULER, useClass: StubJobScheduler },
