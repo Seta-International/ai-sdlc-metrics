@@ -363,16 +363,17 @@ export class IterativeOrchestrator {
   /**
    * Runs the synthesizer over all iteration outputs.
    *
-   * For the iterative topology, all sub-agent outputs are passed as `phase1Outputs`
-   * (plan 12 §5: "Synthesizer input is iteration outputs — multi-source, same shape
-   * as bounded's phase1+phase2").
+   * Plan 18 §1 collapsed the artificial phase1/phase2 split: iterative
+   * orchestration always produced a single keyed map, so the synthesizer now
+   * takes one `outputs` map plus a `streamEmitter` (already plumbed through
+   * `IterativeOrchestratorOpts`) for per-shape `answer.token` events.
    */
   private async _synthesize(
     allOutputs: Map<string, SubAgentOutput>,
     iterationHistory: IterationRecord[],
     opts: IterativeOrchestratorOpts,
   ): Promise<PhaseExecutionResult> {
-    const { initialPlan, userUtterance, turnState, abortSignal } = opts
+    const { initialPlan, userUtterance, turnState, abortSignal, streamEmitter } = opts
 
     // Build a BoundedPlan-compatible directive so Synthesizer.synthesize() can accept it
     const syntheticBoundedDirective = {
@@ -385,11 +386,11 @@ export class IterativeOrchestrator {
 
     const synthOutput = await this.synthesizer.synthesize({
       directive: syntheticBoundedDirective,
-      phase1Outputs: allOutputs,
-      phase2Outputs: new Map(),
+      outputs: allOutputs,
       userUtterance,
       abortSignal,
       turnState,
+      streamEmitter,
     })
 
     // Collect all drafts from iteration outputs
