@@ -100,6 +100,7 @@ import { TaskDailySnapshotWorker } from './infrastructure/jobs/task-daily-snapsh
 import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-snapshot.scheduler'
 import { MyDayOrphanSweepJob } from './infrastructure/jobs/my-day-orphan-sweep.job'
 import { MyDayOrphanSweepScheduler } from './infrastructure/jobs/my-day-orphan-sweep.scheduler'
+import { MsSyncPollTenantRegistrar } from './infrastructure/jobs/ms-sync-poll-tenant.registrar'
 import { MsGraphClient } from './infrastructure/ms-graph/ms-graph-client'
 import { PlanIngestor } from './infrastructure/ms-graph/pull/plan-ingestor'
 import { MsGraphTokenAcquirerAdapter } from './infrastructure/ms-graph/ms-graph-token-acquirer.adapter'
@@ -228,6 +229,7 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     { provide: MS_GRAPH_TOKEN_ACQUIRER, useClass: MsGraphTokenAcquirerAdapter },
     MsGraphClient,
     PlanIngestor,
+    MsSyncPollTenantRegistrar,
     PollTenantHandler,
     PlannerQueryFacade,
     PlannerRouterService,

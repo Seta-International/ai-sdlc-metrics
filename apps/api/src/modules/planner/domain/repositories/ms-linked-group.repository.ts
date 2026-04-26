@@ -7,6 +7,7 @@ export interface IMsLinkedGroupRepository {
   findByTenantAndGroup(tenantId: string, msGroupId: string): Promise<MsLinkedGroupEntity | null>
   listForTenant(tenantId: string): Promise<MsLinkedGroupEntity[]>
   listActiveForTenant(tenantId: string): Promise<MsLinkedGroupEntity[]>
+  listDistinctActiveTenantIds(): Promise<string[]>
   upsert(entity: MsLinkedGroupEntity): Promise<void>
   remove(id: string, tenantId: string): Promise<void>
   removeAllForTenant(tenantId: string): Promise<void>

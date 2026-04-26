@@ -54,6 +54,20 @@ export class PgBossService implements OnApplicationBootstrap, OnApplicationShutd
    * (e.g. teamSize, teamConcurrency). Use this in preference to registerWorker when you
    * need to pass WorkOptions. The existing registerWorker is kept for backward compatibility.
    */
+  async scheduleWithData<T extends object | null>(
+    name: string,
+    cron: string,
+    data: T,
+    opts: Parameters<PgBoss['schedule']>[3] = {},
+  ): Promise<void> {
+    await this.boss.createQueue(name)
+    await this.boss.schedule(name, cron, data, { tz: 'UTC', ...opts })
+  }
+
+  async unschedule(name: string, key?: string): Promise<void> {
+    await this.boss.unschedule(name, key)
+  }
+
   registerScheduledWorker<T extends object>(
     jobName: string,
     handler: (jobs: Job<T>[]) => Promise<void>,

@@ -43,6 +43,14 @@ export class DrizzleMsLinkedGroupRepository implements IMsLinkedGroupRepository 
     return rows.map(rowToEntity)
   }
 
+  async listDistinctActiveTenantIds(): Promise<string[]> {
+    const rows = await this.db
+      .selectDistinct({ tenantId: msLinkedGroup.tenantId })
+      .from(msLinkedGroup)
+      .where(isNull(msLinkedGroup.unlinkedAt))
+    return rows.map((r) => r.tenantId)
+  }
+
   async upsert(entity: MsLinkedGroupEntity): Promise<void> {
     await this.db
       .insert(msLinkedGroup)
