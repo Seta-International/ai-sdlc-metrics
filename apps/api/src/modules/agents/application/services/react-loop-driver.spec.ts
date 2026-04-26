@@ -138,6 +138,23 @@ describe('runReactLoop', () => {
     expect(result.signals.ceilingHit).toBe(false)
   })
 
+  it('returns aborted=true when signal is aborted even if a non-AbortError is thrown', async () => {
+    const ac = new AbortController()
+    ac.abort()
+    const client = makeClient(async () => {
+      // Plain error — name !== 'AbortError'. The aborted-signal short-circuit
+      // in `isAbortError` should still classify this as an abort.
+      throw new Error('boom')
+    })
+
+    const result = await runReactLoop(baseOpts(client, newAccumulator(), ac.signal))
+
+    expect(result.aborted).toBe(true)
+    expect(result.hardTripwire).toBeUndefined()
+    expect(result.usageTotals.inputTokens).toBe(0)
+    expect(result.signals.ceilingHit).toBe(false)
+  })
+
   it('propagates accumulator.taintFlippedDuringRun into signals', async () => {
     const acc = newAccumulator()
     acc.taintFlippedDuringRun = true
