@@ -14,8 +14,8 @@ import {
 } from '../../../domain/repositories/ms-sync-conflict.repository'
 import { PLAN_REPOSITORY, type IPlanRepository } from '../../../domain/repositories/plan.repository'
 import { MsSyncConflictEntity } from '../../../domain/entities/ms-sync-conflict.entity'
-import type { MsGraphClient } from '../../../infrastructure/ms-graph/ms-graph-client'
-import type { PlanIngestor } from '../../../infrastructure/ms-graph/pull/plan-ingestor'
+import { MsGraphClient } from '../../../infrastructure/ms-graph/ms-graph-client'
+import { PlanIngestor } from '../../../infrastructure/ms-graph/pull/plan-ingestor'
 import {
   GraphAuthError,
   GraphError,
@@ -23,8 +23,8 @@ import {
   GraphServerError,
   GraphThrottledError,
 } from '../../../infrastructure/ms-graph/errors'
-import type { IdentityQueryFacade } from '../../../../identity/application/facades/identity-query.facade'
-import type { IdentityMsGraphCredentialFacade } from '../../../../identity/application/facades/identity-ms-graph-credential.facade'
+import { IdentityQueryFacade } from '../../../../identity/application/facades/identity-query.facade'
+import { IdentityMsGraphCredentialFacade } from '../../../../identity/application/facades/identity-ms-graph-credential.facade'
 import type { MsLinkedGroupEntity } from '../../../domain/entities/ms-linked-group.entity'
 import { createMsSyncCredentialInvalidatedEvent } from '@future/event-contracts'
 import { PollTenantCommand } from './poll-tenant.command'

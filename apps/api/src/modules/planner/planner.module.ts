@@ -100,6 +100,13 @@ import { TaskDailySnapshotWorker } from './infrastructure/jobs/task-daily-snapsh
 import { TaskDailySnapshotScheduler } from './infrastructure/jobs/task-daily-snapshot.scheduler'
 import { MyDayOrphanSweepJob } from './infrastructure/jobs/my-day-orphan-sweep.job'
 import { MyDayOrphanSweepScheduler } from './infrastructure/jobs/my-day-orphan-sweep.scheduler'
+import { MsGraphClient } from './infrastructure/ms-graph/ms-graph-client'
+import { PlanIngestor } from './infrastructure/ms-graph/pull/plan-ingestor'
+import { MsGraphTokenAcquirerAdapter } from './infrastructure/ms-graph/ms-graph-token-acquirer.adapter'
+import { PLANNER_SECRETS_STORE } from './domain/ports/secrets-store.port'
+import { MS_GRAPH_TOKEN_ACQUIRER } from './domain/ports/ms-graph-token-acquirer.port'
+import { PlannerAwsSecretsStoreAdapter } from './infrastructure/secrets/planner-aws-secrets-store.adapter'
+import { LocalDevSecretsStoreAdapter } from '../../common/secrets/local-dev-secrets-store.adapter'
 import { ConnectMsSyncHandler } from './application/commands/ms-sync/connect-ms-sync.handler'
 import { PollTenantHandler } from './application/commands/ms-sync/poll-tenant.handler'
 import { DisconnectMsSyncHandler } from './application/commands/ms-sync/disconnect-ms-sync.handler'
@@ -209,6 +216,18 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     { provide: MS_LINKED_GROUP_REPOSITORY, useClass: DrizzleMsLinkedGroupRepository },
     { provide: MS_PLAN_SYNC_STATE_REPOSITORY, useClass: DrizzleMsPlanSyncStateRepository },
     { provide: MS_SYNC_CONFLICT_REPOSITORY, useClass: DrizzleMsSyncConflictRepository },
+    {
+      provide: PLANNER_SECRETS_STORE,
+      useFactory: () =>
+        process.env['LOCAL_DEV'] === '1'
+          ? new LocalDevSecretsStoreAdapter()
+          : new PlannerAwsSecretsStoreAdapter({
+              region: process.env['AWS_REGION'] ?? 'ap-southeast-1',
+            }),
+    },
+    { provide: MS_GRAPH_TOKEN_ACQUIRER, useClass: MsGraphTokenAcquirerAdapter },
+    MsGraphClient,
+    PlanIngestor,
     PollTenantHandler,
     PlannerQueryFacade,
     PlannerRouterService,
