@@ -4,6 +4,11 @@ import type {
   TenantLadderState,
   VendorErrorClass,
 } from '../../domain/cost/cost-types'
+import {
+  recordLadderStep,
+  recordTierShift,
+  recordProviderFallback,
+} from '../../infrastructure/observability/cost-metrics'
 
 export class LadderInvariantError extends Error {
   constructor(step: number) {
@@ -36,37 +41,53 @@ export class GracefulDegradationLadder {
   private fallbackModelId: string | null = null
 
   evaluate(opts: {
+    tenantId: string
     trigger: LadderTrigger
     modelId: string
     iteration: number
     currentTier: 'full' | 'nano'
     tenantState: TenantLadderState
   }): LadderStepState {
-    const { trigger, modelId, iteration: _iteration, tenantState: _tenantState } = opts
+    const { tenantId, trigger, modelId, iteration: _iteration, tenantState: _tenantState } = opts
 
     // Step 7 — budget refuse (highest priority check, trigger-based)
     if (trigger === 'budget_exhausted') {
-      return this._buildStep(7, trigger, 'refused', { cancellationReason: 'budget' })
+      const step = this._buildStep(7, trigger, 'refused', { cancellationReason: 'budget' })
+      // Emit ladder step + tier shift metrics (Plan 05 §8)
+      recordLadderStep(tenantId, 7, 'refused')
+      recordTierShift(tenantId, opts.currentTier, 'refused', 'budget')
+      return step
     }
 
     // Step 6 — canary collapse refuse
     if (trigger === 'canary_collapse') {
-      return this._buildStep(6, trigger, 'refused', { cancellationReason: 'quality_canary' })
+      const step = this._buildStep(6, trigger, 'refused', { cancellationReason: 'quality_canary' })
+      recordLadderStep(tenantId, 6, 'refused')
+      recordTierShift(tenantId, opts.currentTier, 'refused', 'quality_canary')
+      return step
     }
 
     // Step 5 — both tiers degraded
     if (trigger === 'canary_degraded_both') {
-      return this._buildStep(5, trigger, 'tier_shift')
+      const step = this._buildStep(5, trigger, 'tier_shift')
+      recordLadderStep(tenantId, 5, 'tier_shift')
+      recordTierShift(tenantId, 'full', 'nano', 'quality_canary')
+      return step
     }
 
     // Step 4 — primary tier degraded
     if (trigger === 'canary_degraded_primary') {
-      return this._buildStep(4, trigger, 'tier_shift')
+      const step = this._buildStep(4, trigger, 'tier_shift')
+      recordLadderStep(tenantId, 4, 'tier_shift')
+      recordTierShift(tenantId, 'full', 'nano', 'quality_canary')
+      return step
     }
 
     // Step 3 — nano outage
     if (trigger === 'nano_5xx') {
-      return this._buildStep(3, trigger, 'provider_outage')
+      const step = this._buildStep(3, trigger, 'provider_outage')
+      recordLadderStep(tenantId, 3, 'provider_outage')
+      return step
     }
 
     // Step 2 — provider_fallback (3+ consecutive overloads)
@@ -75,11 +96,19 @@ export class GracefulDegradationLadder {
         this.fallbackActive = true
         this.fallbackModelId = `${modelId}-nano`
       }
-      return this._buildStep(2, trigger, 'provider_fallback')
+      const step = this._buildStep(2, trigger, 'provider_fallback')
+      recordLadderStep(tenantId, 2, 'provider_fallback')
+      // provider_fallback metric: the error class driving this fallback is unknown at this
+      // level (the caller drives recordError separately). Emit as vendor_overload since
+      // step 2 is only reached via shouldFallback which counts vendor_overload / vendor_server_error.
+      recordProviderFallback(tenantId, modelId, 'vendor_overload')
+      return step
     }
 
     // Step 1 — provider_retry (first attempt, transient)
-    return this._buildStep(1, trigger, 'provider_retry')
+    const step = this._buildStep(1, trigger, 'provider_retry')
+    recordLadderStep(tenantId, 1, 'provider_retry')
+    return step
   }
 
   recordSuccess(modelId: string): void {

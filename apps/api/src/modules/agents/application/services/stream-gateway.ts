@@ -1,4 +1,8 @@
 // ─── Local types (structural match for @future/agent SseEvent — no import) ────
+import {
+  recordOrderingViolation,
+  recordProgressEvent,
+} from '../../infrastructure/observability/streaming-metrics'
 
 export const EVENT_SCHEMA_VERSION = '1.0.0'
 
@@ -166,7 +170,10 @@ export interface StreamEmitter {
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
-export function createStreamGateway(writeFn: (raw: string) => void): StreamEmitter {
+export function createStreamGateway(
+  writeFn: (raw: string) => void,
+  tenantId?: string,
+): StreamEmitter {
   let state: StreamState = 'turn-not-started'
   let seq = 0
 
@@ -180,9 +187,24 @@ export function createStreamGateway(writeFn: (raw: string) => void): StreamEmitt
       try {
         next = nextState(state, event.type)
       } catch (err) {
+        // Record ordering violation metric (Plan 06 §8). Producer is the event type
+        // that caused the invalid transition — the call stack identifies the emitting component.
+        // P2 alert fires on any positive value in steady state.
+        recordOrderingViolation(event.type)
         state = 'stream-errored'
         throw err
       }
+
+      // Record progress event metric (Plan 06 §8, R-06.35a).
+      // progress events carry a `cause` in their payload; extract it for the metric label.
+      if (event.type === 'progress' && tenantId !== undefined) {
+        const payload = event.payload as { cause?: string } | undefined
+        const cause = payload?.cause
+        if (cause === 'vendor_retry' || cause === 'fallback' || cause === 'long_tool') {
+          recordProgressEvent(tenantId, cause)
+        }
+      }
+
       seq += 1
       write({ ...event, seq })
       state = next

@@ -1,6 +1,11 @@
 import { Controller, Post, Req, Res } from '@nestjs/common'
 import type { IncomingMessage, ServerResponse } from 'http'
 import { JwtService } from '../../../../common/auth/jwt.service'
+import {
+  recordTurnTotal,
+  recordTurnDuration,
+  recordAbortTotal,
+} from '../../infrastructure/observability/streaming-metrics'
 
 // Minimal structural types — avoids a direct `fastify` package import that
 // bun does not hoist into node_modules (fastify is a peer dep of platform-fastify).
@@ -149,7 +154,11 @@ export class AgentTurnController {
       userCancelController.abort()
     })
 
-    const gateway = createStreamGateway(writeSseEvent)
+    const gateway = createStreamGateway(writeSseEvent, tenantId)
+
+    // Track turn start time for duration metric (Plan 06 §8).
+    const turnStartMs = Date.now()
+    let turnEndReason = 'completed'
 
     let turnError: Error | undefined
     try {
@@ -170,6 +179,7 @@ export class AgentTurnController {
       })
 
       if (signal.aborted) {
+        turnEndReason = 'cancelled'
         gateway.close('cancelled', ZERO_USAGE)
         return
       }
@@ -177,6 +187,7 @@ export class AgentTurnController {
       gateway.emit({ type: 'turn.started', payload: { trace_id: traceId, flow_id: flowId } })
 
       if (signal.aborted) {
+        turnEndReason = 'cancelled'
         gateway.close('cancelled', ZERO_USAGE)
         return
       }
@@ -202,8 +213,10 @@ export class AgentTurnController {
     } catch (err) {
       turnError = err instanceof Error ? err : new Error(String(err))
       if (!signal.aborted) {
+        turnEndReason = 'error'
         gateway.error('internal_error', ZERO_USAGE)
       } else {
+        turnEndReason = 'cancelled'
         gateway.close('cancelled', ZERO_USAGE)
       }
     } finally {
@@ -212,6 +225,16 @@ export class AgentTurnController {
         obsCtx.currentSpan.end({ status: 'error', error: turnError })
       } else {
         obsCtx.currentSpan.end({ status: 'ok' })
+      }
+
+      // ── Plan 06 §8: Emit turn total + duration metrics ────────────────────
+      const durationMs = Date.now() - turnStartMs
+      recordTurnTotal(tenantId, 'bounded', turnEndReason)
+      recordTurnDuration(tenantId, turnEndReason, durationMs)
+
+      // Emit abort metric when signal fired (captures source from abort controller state)
+      if (signal.aborted) {
+        recordAbortTotal(tenantId, 'user', turnEndReason)
       }
 
       await this.activeTurnRegistry.unregister(traceId)

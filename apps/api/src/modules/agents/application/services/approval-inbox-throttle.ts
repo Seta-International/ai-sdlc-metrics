@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common'
 import { sql } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
+import { setApprovalInboxDepth } from '../../infrastructure/observability/cost-metrics'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,6 +68,10 @@ export class ApprovalInboxThrottle {
       const initiatorPair = parseInt(pairResult.rows[0]?.count ?? '0', 10)
       const approverAggregate = parseInt(approverResult.rows[0]?.count ?? '0', 10)
       const pendingCounts = { initiatorPair, approverAggregate }
+
+      // Update approval inbox depth gauge with the approver-aggregate count (Plan 05 §8).
+      // No user_id label — aggregate only (R-05.30).
+      setApprovalInboxDepth(opts.tenantId, approverAggregate)
 
       // R-05.27: initiator pair threshold checked first
       if (initiatorPair >= INITIATOR_PAIR_LIMIT) {

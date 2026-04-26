@@ -1,18 +1,32 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GracefulDegradationLadder, LadderInvariantError } from './graceful-degradation-ladder'
 import type { TenantLadderState } from '../../domain/cost/cost-types'
 
+// Isolate this unit from OTel metric calls — the metric instruments are tested
+// independently in cost-metrics.spec.ts.
+vi.mock('../../infrastructure/observability/cost-metrics', () => ({
+  recordLadderStep: vi.fn(),
+  recordTierShift: vi.fn(),
+  recordProviderFallback: vi.fn(),
+}))
+
+const TEST_TENANT = 'tenant-123'
 const nominalState: TenantLadderState = { severity: 'nominal' }
 
 function makeLadder() {
   return new GracefulDegradationLadder()
 }
 
+beforeEach(() => {
+  vi.clearAllMocks()
+})
+
 describe('GracefulDegradationLadder', () => {
   describe('Step 1 — provider_retry', () => {
     it('fires on provider_5xx trigger when no fallback active', () => {
       const ladder = makeLadder()
       const result = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'provider_5xx',
         modelId: 'gpt-5.4',
         iteration: 1,
@@ -39,6 +53,7 @@ describe('GracefulDegradationLadder', () => {
       expect(ladder.shouldFallback(modelId)).toBe(true)
 
       const result = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'provider_5xx',
         modelId,
         iteration: 2,
@@ -55,6 +70,7 @@ describe('GracefulDegradationLadder', () => {
     it('fires on nano_5xx trigger', () => {
       const ladder = makeLadder()
       const result = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'nano_5xx',
         modelId: 'gpt-5.4-nano',
         iteration: 1,
@@ -71,6 +87,7 @@ describe('GracefulDegradationLadder', () => {
     it('fires on canary_degraded_primary tenant state', () => {
       const ladder = makeLadder()
       const result = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'canary_degraded_primary',
         modelId: 'gpt-5.4',
         iteration: 1,
@@ -89,6 +106,7 @@ describe('GracefulDegradationLadder', () => {
     it('fires on canary_degraded_both tenant state with elevated notice', () => {
       const ladder = makeLadder()
       const result = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'canary_degraded_both',
         modelId: 'gpt-5.4',
         iteration: 1,
@@ -105,6 +123,7 @@ describe('GracefulDegradationLadder', () => {
     it('fires on canary_collapse trigger with quality_canary cancellation', () => {
       const ladder = makeLadder()
       const result = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'canary_collapse',
         modelId: 'gpt-5.4',
         iteration: 1,
@@ -122,6 +141,7 @@ describe('GracefulDegradationLadder', () => {
     it('fires on budget_exhausted trigger with budget cancellation', () => {
       const ladder = makeLadder()
       const result = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'budget_exhausted',
         modelId: 'gpt-5.4',
         iteration: 1,
@@ -155,6 +175,7 @@ describe('GracefulDegradationLadder', () => {
 
       expect(() =>
         ladder.evaluate({
+          tenantId: TEST_TENANT,
           trigger: 'provider_5xx',
           modelId: 'model-x',
           iteration: 2,
@@ -207,6 +228,7 @@ describe('GracefulDegradationLadder', () => {
       ladder.recordError(modelId, 'vendor_overload')
 
       const call1 = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'provider_5xx',
         modelId,
         iteration: 2,
@@ -216,6 +238,7 @@ describe('GracefulDegradationLadder', () => {
 
       // Second call with tier_shift condition
       const call2 = ladder.evaluate({
+        tenantId: TEST_TENANT,
         trigger: 'canary_degraded_primary',
         modelId,
         iteration: 3,

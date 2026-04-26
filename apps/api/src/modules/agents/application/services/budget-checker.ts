@@ -3,6 +3,10 @@ import { and, eq } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { agentTenantBudget, agentUserBudget } from '../../infrastructure/schema/agents.schema'
+import {
+  setBudgetRemaining,
+  recordTierShift,
+} from '../../infrastructure/observability/cost-metrics'
 
 // ─── Return types ─────────────────────────────────────────────────────────────
 
@@ -70,20 +74,27 @@ export class BudgetChecker {
 
     // Step 5 — check tenant 100%
     if (remaining <= 0) {
+      // Snapshot remaining budget gauge (at 0)
+      setBudgetRemaining(opts.tenantId, 0)
       return { allowed: false, tier: 'refused', reason: 'tenant_daily_budget' }
     }
 
     // Step 6 — check 95–100% range → downgrade to nano (spec §5: before insufficient_minimum)
     if (usedPct >= 0.95) {
+      // Snapshot remaining budget + emit tier shift metric (budget origin)
+      setBudgetRemaining(opts.tenantId, remaining)
+      recordTierShift(opts.tenantId, 'full', 'nano', 'budget')
       return { allowed: true, tier: 'nano', tierShift: true }
     }
 
     // Step 7 — check insufficient minimum ($0.10)
     if (remaining < 0.1) {
+      setBudgetRemaining(opts.tenantId, remaining)
       return { allowed: false, tier: 'refused', reason: 'insufficient_minimum' }
     }
 
     // Step 8 — default: full tier
+    setBudgetRemaining(opts.tenantId, remaining)
     return { allowed: true, tier: 'full', tierShift: false }
   }
 

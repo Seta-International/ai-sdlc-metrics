@@ -3,6 +3,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { agentRateLimitCounter } from '../../infrastructure/schema/agents.schema'
+import { recordRateLimitRejected } from '../../infrastructure/observability/cost-metrics'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -86,6 +87,8 @@ export class RateLimiter {
       const count = row?.count ?? 1
 
       if (count > limit) {
+        // Emit rate-limit rejection metric (Plan 05 §8). No user_id label (R-05.30).
+        recordRateLimitRejected(opts.tenantId, opts.limitKey)
         return { allowed: false, remaining: 0, resetAt }
       }
 

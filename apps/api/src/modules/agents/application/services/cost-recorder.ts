@@ -10,6 +10,13 @@ import {
   agentUserBudget,
 } from '../../infrastructure/schema/agents.schema'
 import type { Pricing, UsageTokens } from '../../domain/cost/cost-types'
+import {
+  recordCostUsd,
+  recordAdapterDrop,
+  setBudgetRemaining,
+  recordLlmCallAttemptDuration,
+  recordLlmCallTotalDuration,
+} from '../../infrastructure/observability/cost-metrics'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -43,6 +50,10 @@ export class CostRecorder {
     if (opts.rawProviderResponse !== undefined) {
       const dropped = this.usageExtractor.detectDroppedFields(opts.rawProviderResponse, opts.usage)
       if (dropped.length > 0) {
+        // Emit adapter-drop metric (Plan 05 §8 — P1 alert on any non-zero value)
+        for (const field of dropped) {
+          recordAdapterDrop('openai', field)
+        }
         try {
           await this.auditFacade.recordEvent({
             tenantId: opts.tenantId,
@@ -111,6 +122,20 @@ export class CostRecorder {
             updatedAt: sql`NOW()`,
           },
         })
+    }
+
+    // Step 5 — emit metrics (Plan 05 §8, R-05.6a: once per success)
+    // agent_cost_usd_total: cost for this successful call
+    recordCostUsd(opts.tenantId, opts.layer, opts.modelId, opts.pricing.pricingId, opts.costUsd)
+
+    // agent_llm_call_attempt_duration_ms: terminal successful attempt latency SLO
+    if (opts.attemptDurationMs !== undefined && opts.attemptDurationMs > 0) {
+      recordLlmCallAttemptDuration(opts.tenantId, opts.modelId, opts.layer, opts.attemptDurationMs)
+    }
+
+    // agent_llm_call_total_duration_ms: total including retries — reliability analysis
+    if (opts.totalDurationMs !== undefined && opts.totalDurationMs > 0) {
+      recordLlmCallTotalDuration(opts.tenantId, opts.modelId, opts.layer, opts.totalDurationMs)
     }
   }
 }
