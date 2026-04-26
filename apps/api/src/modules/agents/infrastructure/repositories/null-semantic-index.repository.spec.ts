@@ -1,10 +1,10 @@
 /**
  * null-semantic-index.repository.spec.ts
  *
- * Unit tests for NullSemanticIndexRepository (R-04.36..R-04.40, activation-gate default-off).
+ * Unit tests for NullSemanticIndexRepository.
  *
- * The stub ships as the default wiring at MVP. Sub-agents opt-in per toolScope;
- * day-1 modules default to off, so no real embedding calls are made in Phase 1.
+ * The Null implementation is kept for test mocking. Production wiring uses
+ * DrizzleSemanticIndexRepository. This spec verifies the no-op contract.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -17,15 +17,24 @@ describe('NullSemanticIndexRepository', () => {
     await expect(
       repo.index({
         tenantId: 'tenant-1',
+        userId: 'user-1',
         sourceId: 'source-1',
         sourceType: 'agent_message',
         text: 'hello world',
+        embedding: [1.0, 0.0, 0.0],
+        embeddingModel: 'text-embedding-3-small',
       }),
     ).resolves.toBeUndefined()
   })
 
   it('search() returns an empty array', async () => {
-    const results = await repo.search({ tenantId: 'tenant-1', query: 'tasks', topK: 5 })
+    const results = await repo.search({
+      tenantId: 'tenant-1',
+      userId: 'user-1',
+      queryEmbedding: [1.0, 0.0, 0.0],
+      embeddingModel: 'text-embedding-3-small',
+      topK: 5,
+    })
     expect(results).toEqual([])
   })
 

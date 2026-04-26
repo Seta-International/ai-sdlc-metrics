@@ -232,6 +232,21 @@ CREATE TABLE "agents"."agent_schedule" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "agents"."agent_semantic_index" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"sub_agent_id" text,
+	"source_id" uuid NOT NULL,
+	"source_type" text NOT NULL,
+	"chunk_text" text NOT NULL,
+	"embedding" jsonb NOT NULL,
+	"embedding_model" text NOT NULL,
+	"retention_policy" text DEFAULT '90d' NOT NULL,
+	"metadata" jsonb,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "agents"."agent_tool_embedding" (
 	"tool_name" text NOT NULL,
 	"content_hash" text NOT NULL,
@@ -1756,6 +1771,9 @@ CREATE INDEX "agent_schedule_run_tenant_trace_idx" ON "agents"."agent_schedule_r
 CREATE INDEX "agent_schedule_tenant_status_trigger_idx" ON "agents"."agent_schedule" USING btree ("tenant_id","status","trigger_kind");--> statement-breakpoint
 CREATE INDEX "agent_schedule_tenant_owner_status_idx" ON "agents"."agent_schedule" USING btree ("tenant_id","owner_user_id","status");--> statement-breakpoint
 CREATE INDEX "agent_schedule_tenant_delegation_idx" ON "agents"."agent_schedule" USING btree ("tenant_id","delegation_id");--> statement-breakpoint
+CREATE INDEX "agent_semantic_index_tenant_user_idx" ON "agents"."agent_semantic_index" USING btree ("tenant_id","user_id");--> statement-breakpoint
+CREATE INDEX "agent_semantic_index_tenant_user_subagent_idx" ON "agents"."agent_semantic_index" USING btree ("tenant_id","user_id","sub_agent_id");--> statement-breakpoint
+CREATE INDEX "agent_semantic_index_source_idx" ON "agents"."agent_semantic_index" USING btree ("tenant_id","source_id");--> statement-breakpoint
 CREATE INDEX "agent_tool_embedding_tool_name_idx" ON "agents"."agent_tool_embedding" USING btree ("tool_name");--> statement-breakpoint
 CREATE UNIQUE INDEX "agent_tool_result_cache_exact_uidx" ON "agents"."agent_tool_result_cache" USING btree ("tenant_id","tool_name","canonical_args_hash");--> statement-breakpoint
 CREATE INDEX "agent_tool_result_cache_tenant_tool_idx" ON "agents"."agent_tool_result_cache" USING btree ("tenant_id","tool_name");--> statement-breakpoint
@@ -2080,6 +2098,14 @@ ALTER TABLE agents.agent_p1_incident_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agents.agent_p1_incident_log FORCE ROW LEVEL SECURITY;
 CREATE POLICY agent_p1_incident_log_tenant_isolation
   ON agents.agent_p1_incident_log
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_semantic_index
+ALTER TABLE agents.agent_semantic_index ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_semantic_index FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_semantic_index_tenant_isolation
+  ON agents.agent_semantic_index
   USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
   WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
 

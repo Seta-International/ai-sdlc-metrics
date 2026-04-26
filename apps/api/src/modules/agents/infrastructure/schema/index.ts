@@ -48,3 +48,5 @@ export type {
   AgentToolResultCacheRow,
   NewAgentToolResultCacheRow,
 } from './agent-tool-result-cache.schema'
+export { agentSemanticIndex } from './agent-semantic-index.schema'
+export type { AgentSemanticIndexRow, NewAgentSemanticIndexRow } from './agent-semantic-index.schema'

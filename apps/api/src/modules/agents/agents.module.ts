@@ -44,7 +44,7 @@ import { DrizzleConversationRepository } from './infrastructure/repositories/dri
 import { DrizzleConversationMessageRepository } from './infrastructure/repositories/drizzle-conversation-message.repository'
 import { DrizzleL3PreferenceRepository } from './infrastructure/repositories/drizzle-l3-preference.repository'
 import { DrizzleScratchpadRepository } from './infrastructure/repositories/drizzle-scratchpad.repository'
-import { NullSemanticIndexRepository } from './infrastructure/repositories/null-semantic-index.repository'
+import { DrizzleSemanticIndexRepository } from './infrastructure/repositories/drizzle-semantic-index.repository'
 // Command handlers
 import { CreateSessionHandler } from './application/commands/create-session.handler'
 import { SendMessageHandler } from './application/commands/send-message.handler'
@@ -359,7 +359,7 @@ class NullTenantLister implements TenantListerLike {
     { provide: CONVERSATION_MESSAGE_REPOSITORY, useClass: DrizzleConversationMessageRepository },
     { provide: L3_PREFERENCE_REPOSITORY, useClass: DrizzleL3PreferenceRepository },
     { provide: SCRATCHPAD_REPOSITORY, useClass: DrizzleScratchpadRepository },
-    { provide: SEMANTIC_INDEX_REPOSITORY, useClass: NullSemanticIndexRepository },
+    { provide: SEMANTIC_INDEX_REPOSITORY, useClass: DrizzleSemanticIndexRepository },
     // ── Command handlers ───────────────────────────────────────────────────────
     CreateSessionHandler,
     SendMessageHandler,
