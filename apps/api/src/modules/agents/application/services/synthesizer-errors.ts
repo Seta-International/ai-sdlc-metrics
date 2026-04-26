@@ -9,6 +9,10 @@
  * validation) are recoverable: the adapter falls back to deterministic prose
  * and returns `turnEndedReason: 'errored'` instead of throwing. This file
  * defines the error type used only on the rethrow path.
+ *
+ * `failureCause` is the discriminator (renamed from `cause` to avoid colliding
+ * with the standard `Error.cause` slot, which we use here to preserve the
+ * underlying error and its stack trace).
  */
 
 export type SynthesizerStreamFailureCause =
@@ -19,9 +23,13 @@ export type SynthesizerStreamFailureCause =
 export class SynthesizerStreamFailureError extends Error {
   constructor(
     public readonly failureCause: SynthesizerStreamFailureCause,
-    public readonly meta: { cause: string },
+    underlyingCause: unknown,
   ) {
-    super(`SynthesizerStreamFailure: ${failureCause} — ${meta.cause}`)
+    const causeMsg =
+      underlyingCause instanceof Error ? underlyingCause.message : String(underlyingCause)
+    super(`SynthesizerStreamFailure: ${failureCause} — ${causeMsg}`, {
+      cause: underlyingCause instanceof Error ? underlyingCause : new Error(causeMsg),
+    })
     this.name = 'SynthesizerStreamFailureError'
   }
 }
