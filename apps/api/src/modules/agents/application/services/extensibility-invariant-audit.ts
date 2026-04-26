@@ -4,8 +4,6 @@
  * CI suite verifying EI-1..EI-10 against the synthetic 12-module fixture and
  * the three MVP modules (planner, people, projects).
  *
- * All checks are static/deterministic — no LLM calls, no DB queries, no file I/O.
- *
  * EI definitions (§2.2):
  *   EI-1  Unique sub-agent keys
  *   EI-2  Non-empty intent slugs
@@ -13,13 +11,15 @@
  *   EI-4  Sub-agent retrieval recall ≥ 0.95
  *   EI-5  Tool retrieval recall ≥ 0.95
  *   EI-6  Router prompt fits within budget ceiling
- *   EI-7  Every span carries tenant_id attribute
- *   EI-8  Budget allocation enforced per tenant
- *   EI-9  Module-scoped memory never crosses module boundaries
- *   EI-10 No deprecated aliases or backward-compat shims
+ *   EI-7  Every span carries tenant_id attribute (static: denylist + auto-stamp inspection)
+ *   EI-8  Budget allocation enforced per tenant (static: schema + BudgetChecker inspection)
+ *   EI-9  Module-scoped memory never crosses module boundaries (filesystem lint)
+ *   EI-10 No deprecated aliases or backward-compat shims (filesystem grep)
  */
 
 import { Injectable } from '@nestjs/common'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { join, relative } from 'node:path'
 import {
   SYNTHETIC_MODULE_KEYS,
   SYNTHETIC_SUB_AGENTS,
@@ -29,10 +29,19 @@ import {
   CRITERION_THRESHOLDS,
   SCALE_PROBE_ROUTER_BUDGET_TOKENS,
 } from './criterion-evaluators/criterion-thresholds'
+import { IDENTITY_KEY_DENYLIST } from '../../domain/observability/span'
+import { agentTenantBudget } from '../../infrastructure/schema/agents.schema'
+import { BudgetChecker } from './budget-checker'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const AVG_TOKENS_PER_TOOL_DESCRIPTION = 30
 const ROUTER_OVERHEAD_TOKENS = 500
+
+/**
+ * Absolute path to the `apps/api/src/modules` directory.
+ * Used by EI-9 and EI-10 filesystem scans.
+ */
+const MODULES_ROOT = join(__dirname, '../../../../../modules')
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -52,6 +61,7 @@ export type InvariantCheckResult = {
   invariantId: ExtensibilityInvariantId
   passed: boolean
   evidence: string
+  failures?: string[]
 }
 
 export type AuditResult = {
@@ -74,6 +84,163 @@ export interface ExtensibilityAuditOverrides {
    * Inject a duplicate to trigger an EI-1 failure.
    */
   moduleKeys?: readonly string[]
+
+  /**
+   * EI-7 override: force the check to fail by simulating a missing tenant_id
+   * in the span identity key denylist.
+   *
+   * Production: always undefined (real check runs).
+   */
+  forceEi7Fail?: boolean
+
+  /**
+   * EI-8 override: force the check to fail by simulating a missing budget table
+   * or BudgetChecker enforcement.
+   *
+   * Production: always undefined (real check runs).
+   */
+  forceEi8Fail?: boolean
+
+  /**
+   * EI-9 override: additional synthetic cross-module import lines to inject
+   * into the scan results, as if they were found on the filesystem.
+   * Use to test that the check actually flags violations.
+   *
+   * Production: always undefined.
+   */
+  extraCrossModuleImportLines?: string[]
+
+  /**
+   * EI-10 override: additional synthetic @deprecated occurrences to inject
+   * into the scan results, as if found in production source files.
+   * Use to test that the check actually flags violations.
+   *
+   * Production: always undefined.
+   */
+  extraDeprecatedLines?: string[]
+}
+
+// ─── Filesystem helpers ───────────────────────────────────────────────────────
+
+/**
+ * Recursively collect all `.ts` files under `dir`, excluding `.spec.ts`.
+ */
+function collectTsFiles(dir: string): string[] {
+  const result: string[] = []
+  let entries: string[]
+  try {
+    entries = readdirSync(dir)
+  } catch {
+    // Directory may not exist in some test environments — treat as empty.
+    return result
+  }
+  for (const entry of entries) {
+    const full = join(dir, entry)
+    let s
+    try {
+      s = statSync(full)
+    } catch {
+      continue
+    }
+    if (s.isDirectory()) {
+      result.push(...collectTsFiles(full))
+    } else if (entry.endsWith('.ts') && !entry.endsWith('.spec.ts')) {
+      result.push(full)
+    }
+  }
+  return result
+}
+
+/**
+ * Returns the list of module names directly under MODULES_ROOT.
+ */
+function listModules(modulesRoot: string): string[] {
+  try {
+    return readdirSync(modulesRoot).filter((entry) => {
+      try {
+        return statSync(join(modulesRoot, entry)).isDirectory()
+      } catch {
+        return false
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Scans all production TypeScript files under MODULES_ROOT and returns any
+ * line that imports from another module's `domain/` or `infrastructure/`
+ * subtree directly (forbidden cross-module import).
+ *
+ * Format of a violation: `<relPath>:<lineNo>: <importStatement>`
+ */
+function findCrossModuleImports(modulesRoot: string): string[] {
+  const modules = listModules(modulesRoot)
+  const violations: string[] = []
+
+  for (const mod of modules) {
+    const modDir = join(modulesRoot, mod)
+    const files = collectTsFiles(modDir)
+
+    for (const file of files) {
+      let source: string
+      try {
+        source = readFileSync(file, 'utf-8')
+      } catch {
+        continue
+      }
+      const lines = source.split('\n')
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i]!
+        // Match: from '...modules/<OTHER_MODULE>/domain/...' or /infrastructure/...
+        // where OTHER_MODULE is a different module than the current one.
+        const match = line.match(
+          /from\s+['"].*\/modules\/([^/'"]+)\/(domain|infrastructure)\/[^'"]*['"]/,
+        )
+        if (match) {
+          const importedModule = match[1]!
+          if (importedModule !== mod) {
+            const relPath = relative(modulesRoot, file)
+            violations.push(`${relPath}:${i + 1}: ${line.trim()}`)
+          }
+        }
+      }
+    }
+  }
+
+  return violations
+}
+
+/**
+ * Scans all production TypeScript files in the agents module and returns any
+ * occurrence of `@deprecated` JSDoc tags.
+ *
+ * Format: `<relPath>:<lineNo>: <trimmedLine>`
+ */
+function findDeprecatedAnnotations(modulesRoot: string): string[] {
+  const agentsDir = join(modulesRoot, 'agents')
+  const files = collectTsFiles(agentsDir)
+  const hits: string[] = []
+
+  for (const file of files) {
+    let source: string
+    try {
+      source = readFileSync(file, 'utf-8')
+    } catch {
+      continue
+    }
+    const lines = source.split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!
+      if (/@deprecated/i.test(line)) {
+        const relPath = relative(modulesRoot, file)
+        hits.push(`${relPath}:${i + 1}: ${line.trim()}`)
+      }
+    }
+  }
+
+  return hits
 }
 
 // ─── ExtensibilityInvariantAudit ─────────────────────────────────────────────
@@ -203,56 +370,164 @@ export class ExtensibilityInvariantAudit {
     }
   }
 
-  // MVP stub: always passes. Full implementation requires OTel span schema inspection.
-  // See: R-13.20, §2.2 EI-7/8/9/10. Deferred until observability backend is wired (Plan 07).
-
   // ── EI-7: Every span carries tenant_id attribute ─────────────────────────────
+  //
+  // Static check: verify the IDENTITY_KEY_DENYLIST (imported from domain/observability/span)
+  // contains 'tenant_id', proving it is auto-stamped and cannot be overridden by callers.
+  //
+  // The denylist is the structural mechanism that enforces the invariant:
+  //   1. ObservabilityContextFactory.createChildSpan() copies all identity keys onto
+  //      every span (root and child) from the RequestContext.
+  //   2. OtelSpan.setAttribute/setAttributes reject denylist keys so callers cannot
+  //      accidentally overwrite tenant_id with a different value.
+  // Together these guarantee every span carries tenant_id — no runtime trace scan needed.
 
-  private _checkEi7(_overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
-    // Static assertion: ObservabilityContextFactory stamps `tenant_id` on every
-    // span at creation (see observability-context.ts line ~57).
-    // This is a contract assertion, not a runtime check.
+  private _checkEi7(overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
+    if (overrides?.forceEi7Fail) {
+      return {
+        invariantId: 'EI-7',
+        passed: false,
+        evidence: `EI-7 forced failure via override (test-only)`,
+        failures: ['tenant_id missing from IDENTITY_KEY_DENYLIST (simulated)'],
+      }
+    }
+
+    const denylistContainsTenantId = (IDENTITY_KEY_DENYLIST as readonly string[]).includes(
+      'tenant_id',
+    )
+
+    if (!denylistContainsTenantId) {
+      return {
+        invariantId: 'EI-7',
+        passed: false,
+        evidence: `IDENTITY_KEY_DENYLIST does not contain 'tenant_id' — auto-stamp invariant broken`,
+        failures: [`'tenant_id' absent from IDENTITY_KEY_DENYLIST in domain/observability/span.ts`],
+      }
+    }
+
     return {
       invariantId: 'EI-7',
       passed: true,
-      evidence: `ObservabilityContext span attribute contract includes tenant_id`,
+      evidence: `'tenant_id' is in IDENTITY_KEY_DENYLIST (${IDENTITY_KEY_DENYLIST.length} keys); auto-stamped on every span by ObservabilityContextFactory`,
     }
   }
 
   // ── EI-8: Budget allocation is respected per tenant ──────────────────────────
+  //
+  // Static check: verify that:
+  //   1. The agent_tenant_budget table exists in the schema (agentTenantBudget is defined
+  //      and has a 'tenantId' column — the per-tenant partition key).
+  //   2. The BudgetChecker service has a preTurnCheck method, confirming the gate is wired.
+  //
+  // These two structural facts confirm the budget enforcement pipeline exists and is not
+  // a silent stub — real enforcement requires both a table and a checker calling it.
 
-  private _checkEi8(_overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
-    // Static assertion: BudgetChecker enforces the agent_tenant_budget table
-    // gate on every turn (see budget-checker.ts).
+  private _checkEi8(overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
+    if (overrides?.forceEi8Fail) {
+      return {
+        invariantId: 'EI-8',
+        passed: false,
+        evidence: `EI-8 forced failure via override (test-only)`,
+        failures: ['agentTenantBudget schema or BudgetChecker preTurnCheck absent (simulated)'],
+      }
+    }
+
+    const failures: string[] = []
+
+    // Check 1: agentTenantBudget schema object exists and has a 'tenantId' column
+    // (Drizzle table objects expose column names as own enumerable properties).
+    const hasTenantIdColumn =
+      typeof agentTenantBudget === 'object' &&
+      agentTenantBudget !== null &&
+      'tenantId' in agentTenantBudget
+
+    if (!hasTenantIdColumn) {
+      failures.push(
+        'agentTenantBudget schema symbol is missing or lacks tenantId column in agents.schema',
+      )
+    }
+
+    // Check 2: BudgetChecker has preTurnCheck method
+    const hasPreturnCheck =
+      typeof BudgetChecker === 'function' &&
+      typeof BudgetChecker.prototype.preTurnCheck === 'function'
+    if (!hasPreturnCheck) {
+      failures.push('BudgetChecker.preTurnCheck method is not defined')
+    }
+
+    if (failures.length > 0) {
+      return {
+        invariantId: 'EI-8',
+        passed: false,
+        evidence: `Budget enforcement structural check failed: ${failures.join('; ')}`,
+        failures,
+      }
+    }
+
     return {
       invariantId: 'EI-8',
       passed: true,
-      evidence: `tenant budget gate enforced by BudgetChecker`,
+      evidence: `agentTenantBudget schema verified (tenantId column present); BudgetChecker.preTurnCheck enforces per-tenant gate on every turn`,
     }
   }
 
   // ── EI-9: Module-scoped memory never crosses module boundaries ───────────────
+  //
+  // Real filesystem lint: scan all production TypeScript files under modules/
+  // and flag any import from another module's domain/ or infrastructure/ subtree.
+  //
+  // Cross-module reads must go through QueryFacades (exported symbols only).
+  // Violations indicate a DDD boundary breach.
 
-  private _checkEi9(_overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
-    // Static assertion: DDD boundary lint. The repo enforces no cross-module
-    // infrastructure imports (see CLAUDE.md DDD Module Boundaries rule).
+  private _checkEi9(overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
+    const fsViolations = findCrossModuleImports(MODULES_ROOT)
+    const injected = overrides?.extraCrossModuleImportLines ?? []
+    const allViolations = [...fsViolations, ...injected]
+
+    if (allViolations.length > 0) {
+      return {
+        invariantId: 'EI-9',
+        passed: false,
+        evidence: `DDD boundary lint FAILED: ${allViolations.length} cross-module domain/infrastructure import(s) detected`,
+        failures: allViolations,
+      }
+    }
+
     return {
       invariantId: 'EI-9',
       passed: true,
-      evidence: `DDD boundary lint passed (no cross-module infrastructure imports)`,
+      evidence: `DDD boundary lint passed — 0 cross-module domain/infrastructure imports found across ${listModules(MODULES_ROOT).length} modules`,
     }
   }
 
   // ── EI-10: No deprecated aliases or backward-compat shims ───────────────────
+  //
+  // Real filesystem grep: scan all production TypeScript files in the agents module
+  // for @deprecated JSDoc tags. CLAUDE.md "No Backward Compatibility" rule prohibits
+  // these; any occurrence is a policy violation that must be removed.
 
-  private _checkEi10(_overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
-    // Static assertion: CLAUDE.md "No Backward Compatibility" rule prohibits
-    // @deprecated annotations and backward-compat shims. This check enforces
-    // the policy at audit time.
+  private _checkEi10(overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
+    const fsHits = findDeprecatedAnnotations(MODULES_ROOT)
+    // Filter out lines from this file itself (the evidence string mentions @deprecated)
+    const productionHits = fsHits.filter(
+      (line) => !line.includes('extensibility-invariant-audit.ts'),
+    )
+    const injected = overrides?.extraDeprecatedLines ?? []
+    const allHits = [...productionHits, ...injected]
+
+    if (allHits.length > 0) {
+      return {
+        invariantId: 'EI-10',
+        passed: false,
+        evidence: `@deprecated annotation(s) found in production code: ${allHits.length} occurrence(s)`,
+        failures: allHits,
+      }
+    }
+
     return {
       invariantId: 'EI-10',
       passed: true,
-      evidence: `0 @deprecated symbols detected (no-backward-compat policy enforced)`,
+      evidence: `0 @deprecated symbols detected in agents module production code (no-backward-compat policy enforced)`,
     }
   }
 }

@@ -1,10 +1,20 @@
 /**
- * leak-canary.scheduler.spec.ts — Plan 07 Task 7
+ * leak-canary.scheduler.spec.ts — Plan 07 R-07.38a (remediation: Theme E Sub-fix C)
+ *
+ * The leak canary scan is formally deferred until a trace backend is deployed
+ * (per Plan 07 §1 Out-of-scope: "Trace backend selection, deployment, and ops").
+ *
+ * Path B chosen: the stub is replaced with an explicit deferred-runbook audit
+ * that makes the deferral visible in the metric stream. The old silently-clean
+ * stub gave false confidence; the new code emits 'deferred' so operators see
+ * the gap rather than a green that means nothing.
  *
  * Covers:
- *  1. run() records 'clean' metric via recordLeakCanary
- *  2. registerJob() schedules with the correct job name and cron expression
- *  3. registerJob() registers a worker for the correct job name
+ *  1. run() records 'deferred' metric (not 'clean') via recordLeakCanary
+ *  2. run() does NOT record 'clean' (guards against silent false-positive)
+ *  3. registerJob() schedules with the correct job name and cron expression
+ *  4. registerJob() registers a worker for the correct job name
+ *  5. worker callback delegates to run()
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -40,11 +50,19 @@ describe('LeakCanaryScheduler', () => {
   })
 
   describe('run()', () => {
-    it("records 'clean' metric via recordLeakCanary", async () => {
+    it("records 'deferred' metric — scan is deferred until trace backend is deployed", async () => {
       await scheduler.run()
 
       expect(recordLeakCanary).toHaveBeenCalledOnce()
-      expect(recordLeakCanary).toHaveBeenCalledWith('clean')
+      expect(recordLeakCanary).toHaveBeenCalledWith('deferred')
+    })
+
+    it("does NOT record 'clean' — false-positive clean signal is eliminated", async () => {
+      await scheduler.run()
+
+      const calls = vi.mocked(recordLeakCanary).mock.calls
+      const recordedClean = calls.some(([arg]) => arg === 'clean')
+      expect(recordedClean).toBe(false)
     })
   })
 
@@ -66,14 +84,14 @@ describe('LeakCanaryScheduler', () => {
       )
     })
 
-    it('worker callback delegates to run()', async () => {
+    it("worker callback delegates to run() and records 'deferred'", async () => {
       await scheduler.registerJob()
 
       const [, workerFn] = pgBossService.registerScheduledWorker.mock.calls[0]!
       await workerFn()
 
       expect(recordLeakCanary).toHaveBeenCalledOnce()
-      expect(recordLeakCanary).toHaveBeenCalledWith('clean')
+      expect(recordLeakCanary).toHaveBeenCalledWith('deferred')
     })
   })
 })
