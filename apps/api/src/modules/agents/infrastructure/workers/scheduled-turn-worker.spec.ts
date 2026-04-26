@@ -515,6 +515,74 @@ describe('ScheduledTurnWorker', () => {
       )
     })
 
+    // ── M1: refused outcome increments consecutive_failure_count (R-09.29) ─────
+    // A schedule whose delegation scope contains only mutation tools will always get
+    // 'refused' under READ_ONLY_POLICY. Before this fix the 'refused' outcome reset the
+    // counter, so such a schedule would fire forever without ever auto-pausing.
+    // Per R-09.29: only 'completed' resets the counter; 'refused', 'error', and 'budget'
+    // all increment it.
+
+    it('refused outcome increments consecutive_failure_count (not reset to 0)', async () => {
+      scheduledTurnService = makeScheduledTurnService({
+        outcome: 'refused',
+        costSpentUsd: 0,
+        refusedToolName: 'planner.createTask',
+      })
+      scheduleRepo = makeScheduleRepo({
+        getById: vi.fn().mockResolvedValue(makeSchedule({ consecutiveFailureCount: 1 })),
+      })
+      worker = buildWorker({
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+        scheduledTurnService,
+      })
+
+      await worker.handle(makeJob())
+
+      expect(scheduleRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          scheduleId: SCHEDULE_ID,
+          consecutiveFailureCount: 2,
+        }),
+      )
+    })
+
+    it('refused outcome at threshold triggers auto-pause (escalation per R-09.29)', async () => {
+      // N-1 = 2 prior failures; 'refused' on this run pushes the count to 3 → auto-pause
+      scheduledTurnService = makeScheduledTurnService({
+        outcome: 'refused',
+        costSpentUsd: 0,
+        refusedToolName: 'planner.createTask',
+      })
+      scheduleRepo = makeScheduleRepo({
+        getById: vi.fn().mockResolvedValue(makeSchedule({ consecutiveFailureCount: 2 })),
+      })
+      worker = buildWorker({
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+        scheduledTurnService,
+      })
+
+      await worker.handle(makeJob())
+
+      expect(scheduleRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          scheduleId: SCHEDULE_ID,
+          consecutiveFailureCount: 3,
+          status: 'paused',
+          pauseReason: 'consecutive_failures',
+        }),
+      )
+    })
+
     it('pinned_versions are passed through to schedule_run insert', async () => {
       const pinnedVersions = {
         router_version: 'v2',

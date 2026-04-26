@@ -135,15 +135,19 @@ export class ScheduledTurnWorker {
         costSpentUsd: turnResult.costSpentUsd,
       })
 
-      // Step 7: Reset consecutive failure count on any non-error outcome
-      if (runOutcome !== 'error') {
+      // Step 7: Reset consecutive failure count ONLY on 'completed' outcome (R-09.29).
+      // 'refused' and 'error' both increment the counter so a schedule that is
+      // permanently broken (e.g. delegation scope contains only mutation tools which
+      // will always be refused under READ_ONLY_POLICY) will still auto-pause after
+      // the threshold is reached.
+      if (runOutcome === 'completed') {
         await this.scheduleRepo.update({
           tenantId,
           scheduleId,
           consecutiveFailureCount: 0,
         })
       } else {
-        // Pipeline returned error outcome — treat same as infrastructure error
+        // Pipeline returned non-completed outcome ('refused' or 'error') — increment counter.
         const newFailureCount = schedule.consecutiveFailureCount + 1
         const shouldPause = newFailureCount >= 3
         await this.scheduleRepo.update({

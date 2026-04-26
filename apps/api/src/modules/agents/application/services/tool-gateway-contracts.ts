@@ -116,15 +116,16 @@ export interface ToolGatewayInvokeInput {
    */
   readonly flowId?: string
   /**
-   * Optional. Runtime policy envelope for this turn.
+   * Runtime policy envelope for this turn. REQUIRED — callers must always be
+   * explicit about the policy so there is no silent unrestricted fallback.
+   *
    * When policy.readOnly === true, the gateway refuses any tool whose
    * descriptor.procedure === 'mutation' with variant 'policy_violation'.
    * Draft-creation (plan 08) is still allowed because drafts are proposals;
    * the actual write happens at approval time.
    *
    * Plan 09 R-09.6a: scheduled async turns pass READ_ONLY_POLICY here.
-   * Interactive turns pass INTERACTIVE_POLICY (readOnly: false) or omit the field.
-   * Absent = no additional policy gate (same as INTERACTIVE_POLICY).
+   * Interactive turns pass INTERACTIVE_POLICY (readOnly: false).
    */
-  readonly policy?: TurnPolicy
+  readonly policy: TurnPolicy
 }

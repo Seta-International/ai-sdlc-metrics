@@ -100,8 +100,11 @@ export class ScheduledTurnService {
    *      - If query: invoke via ToolGateway (read-only policy enforced there too).
    *   4. Return result with outcome + cost.
    *
-   * The dry-run audit (agent.async_dry_run_would_have_written) is emitted
-   * separately by the worker after the turn for beta-path soak observation.
+   * Policy-violation outcomes are captured via agent.tool_called audit events with
+   * resultStatus: 'policy_violation' emitted by ToolGateway, and via the
+   * agent.schedule_run_policy_violation event emitted below. These events substitute
+   * for the dry-run audit stream (agent.async_dry_run_would_have_written) referenced
+   * in Plan 09 §16 — equivalent signal, different event name.
    *
    * NOTE: At MVP this does not run a full LLM ReAct loop (plan 03 integration
    * is a separate task). It validates the policy envelope is in place and
