@@ -57,6 +57,7 @@ import {
   type SubAgentLlmClient,
   type SubAgentLlmClientOpts,
 } from './sub-agent-llm-client'
+import type { ModelChoice } from '../../domain/services/sub-agent-types'
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -165,5 +166,35 @@ describe('OpenAiSubAgentLlmClient', () => {
     const client = new OpenAiSubAgentLlmClient()
     await client.runWithTools({ ...baseOpts, abortSignal: ac.signal })
     expect(mockGenerateText).toHaveBeenCalledTimes(1)
+  })
+
+  it('throws when runWithTools is called with an unsupported provider', async () => {
+    const client = new OpenAiSubAgentLlmClient()
+    const unsupportedOpts: SubAgentLlmClientOpts = {
+      ...baseOpts,
+      model: { provider: 'anthropic', model: 'claude-sonnet' } as ModelChoice,
+    }
+    await expect(client.runWithTools(unsupportedOpts)).rejects.toThrow(/anthropic/)
+  })
+
+  // ── onModuleInit — OPENAI_API_KEY assertion ────────────────────────────────
+
+  describe('onModuleInit', () => {
+    it('throws when OPENAI_API_KEY is missing', () => {
+      vi.stubEnv('OPENAI_API_KEY', '')
+      vi.stubEnv('LOCAL_DEV', '') // clear local-dev bypass so guard fires
+      const freshClient = new OpenAiSubAgentLlmClient()
+      expect(() => freshClient.onModuleInit()).toThrow(/OPENAI_API_KEY missing/)
+      vi.unstubAllEnvs()
+      vi.stubEnv('OPENAI_API_KEY', 'test-key-for-unit-tests')
+    })
+
+    it('does NOT throw when OPENAI_API_KEY is present', () => {
+      vi.stubEnv('OPENAI_API_KEY', 'sk-test-1234')
+      const freshClient = new OpenAiSubAgentLlmClient()
+      expect(() => freshClient.onModuleInit()).not.toThrow()
+      vi.unstubAllEnvs()
+      vi.stubEnv('OPENAI_API_KEY', 'test-key-for-unit-tests')
+    })
   })
 })
