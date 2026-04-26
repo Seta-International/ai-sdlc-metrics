@@ -120,10 +120,12 @@ export class AgentTurnController {
       return
     }
 
-    // ── Degraded tier: pass through for downstream use ────────────────────────
-    // budgetResult.tier ('full' | 'nano') is available to the pipeline. When the
-    // router / sub-agent runner integrates, they read it from TurnState (Task 4).
-    // For now we surface it as an attribute on the root span so it's traceable.
+    // ── R-05.1: Stamp root span identity + tier attributes ────────────────────
+    // flow_id and intent_slug are stamped on the span so they are traceable even
+    // when the OTel backend is no-op (test mode). budget_tier is stamped only on
+    // a tier shift so the trace tag distinguishes degraded vs full turns.
+    obsCtx.currentSpan.setAttribute('flow_id', flowId)
+    obsCtx.currentSpan.setAttribute('intent_slug', UNCLASSIFIED_INTENT)
     if (budgetResult.tierShift) {
       obsCtx.currentSpan.setAttribute('budget_tier', budgetResult.tier)
     }
@@ -151,12 +153,16 @@ export class AgentTurnController {
 
     let turnError: Error | undefined
     try {
+      // budgetResult.tier is 'full' | 'nano' here — 'refused' exits above via 429
+      const activeTier = budgetResult.tier as 'full' | 'nano'
+
       await this.activeTurnRegistry.register({
         traceId,
         tenantId,
         userId,
         conversationId,
         surface,
+        tier: activeTier,
         userCancelController,
         systemAbortController,
         turnAbortSignal: signal,

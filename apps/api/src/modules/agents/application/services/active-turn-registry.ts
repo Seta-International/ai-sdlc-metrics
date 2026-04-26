@@ -7,6 +7,8 @@ import type { UsageSnapshot } from './abort-coordinator'
 
 export interface TurnEntry {
   userId: string
+  /** Budget tier assigned at turn start. Downstream services (sub-agent runner, synthesizer) read this to select the appropriate model. */
+  tier: 'full' | 'nano'
   userCancelController: AbortController
   systemAbortController: AbortController
   turnAbortSignal: AbortSignal
@@ -26,6 +28,8 @@ export class ActiveTurnRegistry {
     userId: string
     conversationId: string | null
     surface: string
+    /** Budget tier from BudgetChecker.preTurnCheck — 'full' or 'nano'. Stored in-memory for downstream use within this pod. */
+    tier: 'full' | 'nano'
     userCancelController: AbortController
     systemAbortController: AbortController
     turnAbortSignal: AbortSignal
@@ -51,6 +55,7 @@ export class ActiveTurnRegistry {
 
     this.turns.set(opts.traceId, {
       userId: opts.userId,
+      tier: opts.tier,
       userCancelController: opts.userCancelController,
       systemAbortController: opts.systemAbortController,
       turnAbortSignal: opts.turnAbortSignal,

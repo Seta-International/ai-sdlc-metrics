@@ -260,15 +260,26 @@ describe('AgentTurnController', () => {
   })
 
   it('emits turn.started as first SSE event', async () => {
+    const flowProp = makeFlowIdPropagation()
+    const localController = new AgentTurnController(
+      jwtService,
+      registry,
+      auditFacade,
+      makeBudgetChecker(),
+      makeObsFactory(),
+      flowProp,
+    )
     const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
     const res = makeRes()
 
-    await controller.streamTurn(req as never, res as never)
+    await localController.streamTurn(req as never, res as never)
 
     expect(res.written.length).toBeGreaterThan(0)
     const firstEvent = JSON.parse(res.written[0].replace(/^data: /, '').trim())
     expect(firstEvent.type).toBe('turn.started')
     expect(firstEvent.payload).toHaveProperty('trace_id')
+    expect(firstEvent.payload).toHaveProperty('flow_id')
+    expect(firstEvent.payload.flow_id).toBe(FIXED_FLOW_ID)
   })
 
   it('turn.ended is the last emitted SSE event (R-06.18)', async () => {
@@ -439,26 +450,24 @@ describe('AgentTurnController — Theme B wiring (R-05.1, R-07.43, R-07.44)', ()
     // Turn still proceeds (200 response)
     const head = res.getHead()
     expect(head![0]).toBe(200)
-    // Registry was called — turn started
+    // Registry was called with tier so downstream can act on degraded mode
     expect(registry.register).toHaveBeenCalledOnce()
+    expect(registry.register).toHaveBeenCalledWith(expect.objectContaining({ tier: 'nano' }))
   })
 
-  it('T-B-4: FlowIdPropagation.mint is called and flow_id attribute is set on root span', async () => {
+  it('T-B-4: FlowIdPropagation.mint is called; flow_id and intent_slug attributes are set on root span via factory', async () => {
     const obsCtx = makeObsContext()
-    const spanEndSpy = vi.spyOn(obsCtx.currentSpan, 'setAttribute')
-    const { controller, flowIdPropagation, obsFactory } = makeController({
-      obsFactory: {
-        create: vi.fn().mockReturnValue(obsCtx),
-      } as unknown as ObservabilityContextFactory,
-    })
-    // replace flow propagation to confirm it was called
+    const setAttributeSpy = vi.spyOn(obsCtx.currentSpan, 'setAttribute')
+    const obsFactory = {
+      create: vi.fn().mockReturnValue(obsCtx),
+    } as unknown as ObservabilityContextFactory
     const flowProp = makeFlowIdPropagation()
     const ctrlWithFlow = new AgentTurnController(
       makeJwtService(),
       makeRegistry(),
       makeAuditFacade(),
       makeBudgetChecker(),
-      obsFactory as ObservabilityContextFactory,
+      obsFactory,
       flowProp,
     )
 
@@ -470,13 +479,17 @@ describe('AgentTurnController — Theme B wiring (R-05.1, R-07.43, R-07.44)', ()
     // FlowIdPropagation.mint was called
     expect(flowProp.mint).toHaveBeenCalledOnce()
 
-    // ObservabilityContextFactory.create was called with the flow_id from mint
+    // ObservabilityContextFactory.create was called with flow_id and intent_slug
     expect(obsFactory.create).toHaveBeenCalledWith(
       expect.objectContaining({ flowId: FIXED_FLOW_ID }),
     )
+    expect(obsFactory.create).toHaveBeenCalledWith(
+      expect.objectContaining({ intentSlug: 'unclassified' }),
+    )
 
-    void spanEndSpy // suppress unused warning
-    void flowIdPropagation
+    // The root span carries flow_id and intent_slug as attributes
+    expect(setAttributeSpy).toHaveBeenCalledWith('flow_id', FIXED_FLOW_ID)
+    expect(setAttributeSpy).toHaveBeenCalledWith('intent_slug', 'unclassified')
   })
 
   it('T-B-5: root span is closed in finally — closed on success', async () => {
