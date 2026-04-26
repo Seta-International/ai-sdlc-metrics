@@ -103,8 +103,10 @@ export const PERMISSIONS = {
   AGENT_CONVERSATION_READ: 'agent:conversation:read',
   AGENT_CONVERSATION_ARCHIVE: 'agent:conversation:archive',
 
-  // ── agent drafts (Plan 08 — compliance audit surface) ─────────────────
+  // ── agent drafts (Plan 08 — compliance audit surface + approval actions) ─
   AGENT_DRAFT_AUDIT_READ: 'agent:draft:audit:read',
+  AGENT_DRAFT_APPROVE: 'agent:draft:approve',
+  AGENT_DRAFT_REJECT: 'agent:draft:reject',
 
   // ── agent rollout (Plan 11 — canary rollout management, admin-tier) ────
   AGENT_ROLLOUT_MANAGE: 'agent:rollout:manage',

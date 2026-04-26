@@ -76,11 +76,25 @@ export class ExecuteApprovedDraftWorker {
     })
 
     if (delegation === null) {
+      const outcome = 'delegation_not_found'
       await this.draftRepo.updateStatus({
         tenantId,
         draftId,
         status: 'execution_failed',
-        extra: { executionOutcome: 'delegation_not_found' },
+        extra: { executionOutcome: outcome },
+      })
+      await this.kernelAuditFacade.recordEvent({
+        tenantId,
+        actorId: job.user_on_behalf_of,
+        eventType: 'agent.draft_execution_failed',
+        module: 'agents',
+        subjectId: draftId,
+        payload: {
+          draftId,
+          toolName: draft.toolName,
+          outcome,
+          traceId: job.trace_id,
+        },
       })
       await this.notificationsWriteFacade.sendDraftApprovalNotification({
         tenantId,
@@ -94,11 +108,25 @@ export class ExecuteApprovedDraftWorker {
     }
 
     if (delegation.status !== 'active') {
+      const outcome = 'delegation_expired'
       await this.draftRepo.updateStatus({
         tenantId,
         draftId,
         status: 'execution_failed',
-        extra: { executionOutcome: 'delegation_expired' },
+        extra: { executionOutcome: outcome },
+      })
+      await this.kernelAuditFacade.recordEvent({
+        tenantId,
+        actorId: job.user_on_behalf_of,
+        eventType: 'agent.draft_execution_failed',
+        module: 'agents',
+        subjectId: draftId,
+        payload: {
+          draftId,
+          toolName: draft.toolName,
+          outcome,
+          traceId: job.trace_id,
+        },
       })
       await this.notificationsWriteFacade.sendDraftApprovalNotification({
         tenantId,

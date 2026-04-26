@@ -58,6 +58,7 @@ import { setAgentInsightHandlers } from './interface/trpc/insight.router'
 import { setPreferencesService } from './interface/trpc/preferences.router'
 import { setConversationRepository } from './interface/trpc/conversation.router'
 import { setDraftRepository } from './interface/trpc/draft-audit.router'
+import { setDraftApprovalService } from './interface/trpc/draft-approval.router'
 import { setScheduleHandlers } from './interface/trpc/schedule-ui-facade'
 import { setRolloutHandlers } from './interface/trpc/rollout.router'
 import { setReadinessHandlers } from './interface/trpc/readiness.router'
@@ -171,8 +172,10 @@ import { DraftProposer } from './application/services/draft-proposer'
 import { DRAFT_REPOSITORY } from './domain/repositories/draft.repository'
 import { DrizzleDraftRepository } from './infrastructure/repositories/drizzle-draft.repository'
 import { NotificationsModule } from '../notifications/notifications.module'
+import { NotificationsWriteFacade } from '../notifications/application/facades/notifications-write.facade'
 import { ExecuteApprovedDraftWorker } from './infrastructure/workers/execute-approved-draft'
 import { DraftExpirySweeper } from './infrastructure/workers/sweep-expired-drafts'
+import { DraftApprovalService } from './application/services/draft-approval.service'
 import type { ConversationRepository } from './domain/repositories/conversation.repository'
 import type { ConversationMessageRepository } from './domain/repositories/conversation-message.repository'
 import type { L3PreferenceRepository } from './domain/repositories/l3-preference.repository'
@@ -492,6 +495,19 @@ class NullTenantLister implements TenantListerLike {
     DraftProposer,
     ExecuteApprovedDraftWorker,
     DraftExpirySweeper,
+    {
+      provide: DraftApprovalService,
+      inject: [DRAFT_REPOSITORY, KernelAuditFacade, NotificationsWriteFacade, PgBossService],
+      useFactory: (
+        draftRepo: IDraftRepository,
+        kernelAudit: KernelAuditFacade,
+        notificationsWrite: NotificationsWriteFacade,
+        pgBoss: PgBossService,
+      ) =>
+        new DraftApprovalService(draftRepo, kernelAudit, notificationsWrite, async (name, data) => {
+          await pgBoss.enqueue(name, data as Record<string, unknown>)
+        }),
+    },
     // ── Plan 09 — Async Agents + Scheduling ───────────────────────────────────
     { provide: SCHEDULE_REPOSITORY, useClass: DrizzleScheduleRepository },
     { provide: SCHEDULE_RUN_REPOSITORY, useClass: DrizzleScheduleRunRepository },
@@ -749,6 +765,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly pgBossService: PgBossService,
     private readonly executeApprovedDraftWorker: ExecuteApprovedDraftWorker,
     private readonly draftExpirySweeper: DraftExpirySweeper,
+    private readonly draftApprovalService: DraftApprovalService,
     @Inject(DRAFT_REPOSITORY) private readonly draftRepo: IDraftRepository,
     // Plan 09 — Async Agents + Scheduling
     private readonly scheduleRepository: ScheduleRepository,
@@ -793,6 +810,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     setPreferencesService(this.l3PreferenceService)
     setConversationRepository(this.conversationRepo)
     setDraftRepository(this.draftRepo)
+    setDraftApprovalService(this.draftApprovalService)
     setScheduleHandlers({
       scheduleRepository: this.scheduleRepository,
       delegationLifecycle: this.delegationLifecycle,

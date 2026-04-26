@@ -293,5 +293,138 @@ describe('ExecuteApprovedDraftWorker', () => {
 
       expect(auditFacade.recordEvent).not.toHaveBeenCalled()
     })
+
+    // ── agent.draft_execution_failed ─────────────────────────────────────
+
+    it('delegation not found → emits agent.draft_execution_failed with outcome delegation_not_found', async () => {
+      delegationFacade = makeKernelDelegationFacade({
+        getDelegation: vi.fn().mockResolvedValue(null),
+      })
+      worker = new ExecuteApprovedDraftWorker(
+        draftRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+      )
+
+      await worker.handle(makeJob())
+
+      expect(auditFacade.recordEvent).toHaveBeenCalledOnce()
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          actorId: INITIATOR_ID,
+          eventType: 'agent.draft_execution_failed',
+          module: 'agents',
+          subjectId: DRAFT_ID,
+          payload: expect.objectContaining({
+            draftId: DRAFT_ID,
+            outcome: 'delegation_not_found',
+          }),
+        }),
+      )
+    })
+
+    it('delegation expired → emits agent.draft_execution_failed with outcome delegation_expired', async () => {
+      delegationFacade = makeKernelDelegationFacade({
+        getDelegation: vi.fn().mockResolvedValue(makeDelegation({ status: 'expired' })),
+      })
+      worker = new ExecuteApprovedDraftWorker(
+        draftRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+      )
+
+      await worker.handle(makeJob())
+
+      expect(auditFacade.recordEvent).toHaveBeenCalledOnce()
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'agent.draft_execution_failed',
+          payload: expect.objectContaining({
+            draftId: DRAFT_ID,
+            outcome: 'delegation_expired',
+          }),
+        }),
+      )
+    })
+
+    it('delegation revoked → emits agent.draft_execution_failed with outcome delegation_expired', async () => {
+      delegationFacade = makeKernelDelegationFacade({
+        getDelegation: vi.fn().mockResolvedValue(makeDelegation({ status: 'revoked' })),
+      })
+      worker = new ExecuteApprovedDraftWorker(
+        draftRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+      )
+
+      await worker.handle(makeJob())
+
+      expect(auditFacade.recordEvent).toHaveBeenCalledOnce()
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'agent.draft_execution_failed',
+          payload: expect.objectContaining({ outcome: 'delegation_expired' }),
+        }),
+      )
+    })
+
+    it('draft not found → does NOT emit agent.draft_execution_failed (nothing to fail)', async () => {
+      draftRepo = makeDraftRepo({
+        getById: vi.fn().mockResolvedValue(null),
+      })
+      worker = new ExecuteApprovedDraftWorker(
+        draftRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+      )
+
+      await worker.handle(makeJob())
+
+      expect(auditFacade.recordEvent).not.toHaveBeenCalled()
+    })
+
+    it('idempotence path (status already executed) → does NOT emit agent.draft_execution_failed', async () => {
+      draftRepo = makeDraftRepo({
+        getById: vi.fn().mockResolvedValue(makeDraft({ status: 'executed' })),
+      })
+      worker = new ExecuteApprovedDraftWorker(
+        draftRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+      )
+
+      await worker.handle(makeJob())
+
+      expect(auditFacade.recordEvent).not.toHaveBeenCalled()
+    })
+
+    it('happy path execution_failed audit event includes traceId and toolName', async () => {
+      delegationFacade = makeKernelDelegationFacade({
+        getDelegation: vi.fn().mockResolvedValue(null),
+      })
+      worker = new ExecuteApprovedDraftWorker(
+        draftRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+      )
+
+      await worker.handle(makeJob())
+
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            traceId: TRACE_ID,
+            toolName: 'planner.create_task',
+          }),
+        }),
+      )
+    })
   })
 })
