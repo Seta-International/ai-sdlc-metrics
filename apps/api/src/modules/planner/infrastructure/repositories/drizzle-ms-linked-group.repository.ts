@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { IMsLinkedGroupRepository } from '../../domain/repositories/ms-linked-group.repository'
@@ -32,6 +32,14 @@ export class DrizzleMsLinkedGroupRepository implements IMsLinkedGroupRepository 
       .select()
       .from(msLinkedGroup)
       .where(eq(msLinkedGroup.tenantId, tenantId))
+    return rows.map(rowToEntity)
+  }
+
+  async listActiveForTenant(tenantId: string): Promise<MsLinkedGroupEntity[]> {
+    const rows = await this.db
+      .select()
+      .from(msLinkedGroup)
+      .where(and(eq(msLinkedGroup.tenantId, tenantId), isNull(msLinkedGroup.unlinkedAt)))
     return rows.map(rowToEntity)
   }
 
