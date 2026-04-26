@@ -16,6 +16,7 @@ import { GetActorQuery } from '../queries/get-actor.query'
 import { GetRoleGrantsQuery } from '../queries/get-role-grants.query'
 import { GetTenantQuery } from '../queries/get-tenant.query'
 import { GetUserIdentityBySsoSubjectQuery } from '../queries/get-user-identity-by-sso-subject.query'
+import { GetUserIdentityByEmailAndTenantQuery } from '../queries/get-user-identity-by-email-and-tenant.query'
 import { CanDoQuery, type CanDoContext } from '../queries/can-do.query'
 export type { CanDoContext } from '../queries/can-do.query'
 import { GetEffectivePermissionsQuery } from '../queries/get-effective-permissions.query'
@@ -69,6 +70,10 @@ export class KernelQueryFacade {
 
   getUserIdentityBySsoSubject(ssoSubject: string, tenantId: string): Promise<UserIdentity | null> {
     return this.queryBus.execute(new GetUserIdentityBySsoSubjectQuery(ssoSubject, tenantId))
+  }
+
+  getUserIdentityByEmailAndTenant(email: string, tenantId: string): Promise<UserIdentity | null> {
+    return this.queryBus.execute(new GetUserIdentityByEmailAndTenantQuery(email, tenantId))
   }
 
   canDo(actorId: string, permission: string, context: CanDoContext): Promise<boolean> {

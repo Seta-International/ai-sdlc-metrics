@@ -21,7 +21,7 @@ function makePlan(tenantId: string, overrides: Partial<{ id: string; name: strin
     id: overrides.id ?? uuidv7(),
     tenantId,
     name: overrides.name ?? 'Test Plan',
-    container: PlanContainer.of({ type: 'none' }),
+    container: PlanContainer.of({ type: 'future_only' }),
     createdBy: uuidv7(),
     ownerActorId: uuidv7(),
   })

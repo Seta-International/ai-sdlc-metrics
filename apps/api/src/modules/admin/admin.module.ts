@@ -18,6 +18,7 @@ import { DrizzleTenantEmailConfigRepository } from './infrastructure/repositorie
 import { TENANT_EMAIL_CONFIG_REPOSITORY } from './domain/repositories/tenant-email-config.repository.port'
 import { SECRETS_STORE } from './domain/ports/secrets-store.port'
 import { AdminAwsSecretsStoreAdapter } from './infrastructure/secrets/admin-aws-secrets-store.adapter'
+import { LocalDevSecretsStoreAdapter } from '../../common/secrets/local-dev-secrets-store.adapter'
 
 @Module({
   imports: [CqrsModule, KernelModule],
@@ -42,9 +43,11 @@ import { AdminAwsSecretsStoreAdapter } from './infrastructure/secrets/admin-aws-
     {
       provide: SECRETS_STORE,
       useFactory: () =>
-        new AdminAwsSecretsStoreAdapter({
-          region: process.env['AWS_REGION'] ?? 'ap-southeast-1',
-        }),
+        process.env['LOCAL_DEV'] === '1'
+          ? new LocalDevSecretsStoreAdapter()
+          : new AdminAwsSecretsStoreAdapter({
+              region: process.env['AWS_REGION'] ?? 'ap-southeast-1',
+            }),
     },
   ],
   exports: [AdminQueryFacade],

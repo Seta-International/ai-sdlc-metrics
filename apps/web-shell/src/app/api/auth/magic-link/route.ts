@@ -14,20 +14,20 @@ export async function POST(request: NextRequest) {
       const apiRes = await fetch(`${API_BASE_URL}/trpc/identity.devLogin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ json: { email } }),
+        body: JSON.stringify({ email }),
       })
       if (!apiRes.ok) {
         const data = (await apiRes.json()) as { error?: { message?: string } }
         return NextResponse.json({ error: data.error?.message ?? 'Login failed' }, { status: 401 })
       }
       const apiData = (await apiRes.json()) as {
-        result?: { data?: { json?: { token?: string } } }
+        result?: { data?: { token?: string } }
         error?: unknown
       }
       if (apiData.error) {
         return NextResponse.json({ error: 'Login failed' }, { status: 401 })
       }
-      const token = apiData.result?.data?.json?.token
+      const token = apiData.result?.data?.token
       if (!token) return NextResponse.json({ error: 'No token returned' }, { status: 500 })
 
       const response = NextResponse.json({ ok: true, dev: true })
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const apiRes = await fetch(`${API_BASE_URL}/trpc/identity.requestMagicLink`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ json: { email, tenantId } }),
+      body: JSON.stringify({ email, tenantId }),
     })
 
     if (!apiRes.ok) {
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     const apiData = (await apiRes.json()) as {
-      result?: { data?: { json?: { sent?: boolean } } }
+      result?: { data?: { sent?: boolean } }
       error?: unknown
     }
 

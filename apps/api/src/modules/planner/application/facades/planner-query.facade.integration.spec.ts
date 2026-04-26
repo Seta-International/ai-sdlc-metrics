@@ -60,7 +60,7 @@ describe('PlannerQueryFacade.countOpenTasksForActor — integration', () => {
       id: planId,
       tenantId,
       name: 'Count Test Plan',
-      container: PlanContainer.of({ type: 'none' }),
+      container: PlanContainer.of({ type: 'future_only' }),
       createdBy,
       ownerActorId: createdBy,
     })

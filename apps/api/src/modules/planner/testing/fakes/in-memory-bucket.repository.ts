@@ -1,4 +1,7 @@
-import type { IBucketRepository } from '../../domain/repositories/bucket.repository'
+import type {
+  IBucketRepository,
+  MsBucketUpsertProps,
+} from '../../domain/repositories/bucket.repository'
 import { Bucket } from '../../domain/entities/bucket.entity'
 
 export class InMemoryBucketRepository implements IBucketRepository {
@@ -38,6 +41,29 @@ export class InMemoryBucketRepository implements IBucketRepository {
         }),
       )
     }
+  }
+
+  async upsertFromMs(props: MsBucketUpsertProps, _opts: { origin: string }): Promise<void> {
+    const existing = [...this.store.values()].find(
+      (b) => b.tenantId === props.tenantId && b.msBucketId === props.msBucketId,
+    )
+    const now = new Date()
+    const id = existing?.id ?? `bucket-${props.msBucketId}`
+    this.store.set(
+      id,
+      Bucket.reconstitute({
+        id,
+        tenantId: props.tenantId,
+        planId: props.localPlanId,
+        name: props.name,
+        orderHint: props.orderHint,
+        msBucketId: props.msBucketId,
+        msBucketEtag: props.msBucketEtag,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+        deletedAt: existing?.deletedAt ?? null,
+      }),
+    )
   }
 
   /** Test helper: clear all data */

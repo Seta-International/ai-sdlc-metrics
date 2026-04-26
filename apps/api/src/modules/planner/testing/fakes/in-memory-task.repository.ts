@@ -1,6 +1,11 @@
 import { ConcurrentModificationException } from '../../domain/exceptions/concurrent-modification.exception'
-import type { ITaskRepository } from '../../domain/repositories/task.repository'
-import type { Task } from '../../domain/entities/task.entity'
+import type {
+  ITaskRepository,
+  MsSyncedTaskRef,
+  MsTaskDetailsUpsertProps,
+  MsTaskUpsertProps,
+} from '../../domain/repositories/task.repository'
+import { Task } from '../../domain/entities/task.entity'
 
 export class InMemoryTaskRepository implements ITaskRepository {
   private readonly store = new Map<string, Task>()
@@ -58,6 +63,94 @@ export class InMemoryTaskRepository implements ITaskRepository {
     }
     void now
     return deletedIds
+  }
+
+  async findByMsTaskId(
+    tenantId: string,
+    msTaskId: string,
+  ): Promise<{
+    id: string
+    msTaskEtag: string | null
+    msDetailsEtag: string | null
+    msSoftDeletedAt: Date | null
+  } | null> {
+    const task = [...this.store.values()].find(
+      (t) => t.tenantId === tenantId && t.msTaskId === msTaskId,
+    )
+    if (!task) return null
+    return {
+      id: task.id,
+      msTaskEtag: task.msTaskEtag,
+      msDetailsEtag: task.msTaskDetailsEtag,
+      msSoftDeletedAt: null,
+    }
+  }
+
+  async upsertFromMs(props: MsTaskUpsertProps, _opts: { origin: string }): Promise<{ id: string }> {
+    const existing = [...this.store.values()].find(
+      (t) => t.tenantId === props.tenantId && t.msTaskId === props.msTaskId,
+    )
+    if (existing) return { id: existing.id }
+    const now = new Date()
+    const id = `task-${props.msTaskId}`
+    const task = Task.reconstitute({
+      id,
+      tenantId: props.tenantId,
+      planId: props.localPlanId,
+      bucketId: props.msBucketId ?? props.localPlanId,
+      title: props.title,
+      description: '',
+      progress: props.percentComplete as 0 | 50 | 100,
+      priority: props.priority as 1 | 3 | 5 | 9,
+      startDate: props.startDateTime,
+      dueDate: props.dueDateTime,
+      orderHint: props.orderHint,
+      createdBy: 'ms-sync',
+      createdAt: now,
+      updatedAt: now,
+      completedBy: null,
+      completedAt: props.completedDateTime,
+      deletedAt: null,
+      checklistItemCount: 0,
+      checklistCheckedCount: 0,
+      checklistItems: [],
+      assignees: [],
+      appliedLabels: [],
+      coverAttachmentId: null,
+      msTaskId: props.msTaskId,
+      msTaskEtag: props.msTaskEtag,
+      msTaskDetailsEtag: null,
+      pendingMsAssignments: props.pendingMsAssignments,
+    })
+    this.store.set(id, task)
+    return { id }
+  }
+
+  async upsertDetailsFromMs(
+    _props: MsTaskDetailsUpsertProps,
+    _opts: { origin: string },
+  ): Promise<void> {
+    // no-op in tests
+  }
+
+  async softDeleteFromMs(id: string, _opts: { origin: string }): Promise<void> {
+    const task = this.store.get(id)
+    if (task && !task.deletedAt) {
+      task.softDelete('ms-sync')
+    }
+  }
+
+  async listByPlan(planId: string, opts: { onlySynced: boolean }): Promise<MsSyncedTaskRef[]> {
+    return [...this.store.values()]
+      .filter((t) => t.planId === planId && !t.deletedAt)
+      .filter((t) => !opts.onlySynced || t.msTaskId !== null)
+      .map((t) => ({
+        id: t.id,
+        msTaskId: t.msTaskId,
+        msTaskEtag: t.msTaskEtag,
+        msDetailsEtag: t.msTaskDetailsEtag,
+        msSoftDeletedAt: null,
+      }))
   }
 
   /** Test helper: clear all data */

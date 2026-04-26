@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common'
+import { Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common'
 import type { Job } from 'pg-boss'
 import { uuidv7 } from 'uuidv7'
 import type { Db } from '@future/db'
@@ -34,7 +34,7 @@ export {
  * will be upgraded to wire in real turn pipeline execution in a later sub-plan.
  */
 @Injectable()
-export class ShadowTurnWorker implements OnModuleInit {
+export class ShadowTurnWorker implements OnApplicationBootstrap {
   private readonly logger = new Logger(ShadowTurnWorker.name)
 
   constructor(
@@ -43,7 +43,7 @@ export class ShadowTurnWorker implements OnModuleInit {
     @Inject(DB_TOKEN) private readonly db: Db,
   ) {}
 
-  onModuleInit(): void {
+  onApplicationBootstrap(): void {
     this.pgBossService.registerWorker<ShadowTurnJob>(SHADOW_TURN_JOB_NAME, this.handle.bind(this))
   }
 

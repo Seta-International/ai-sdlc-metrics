@@ -3,7 +3,10 @@ import type { Db } from '@future/db'
 import { and, eq, isNull } from 'drizzle-orm'
 import { sql } from 'drizzle-orm'
 import { DB_TOKEN } from '../../../../common/db/db.module'
-import type { IBucketRepository } from '../../domain/repositories/bucket.repository'
+import type {
+  IBucketRepository,
+  MsBucketUpsertProps,
+} from '../../domain/repositories/bucket.repository'
 import type { Bucket } from '../../domain/entities/bucket.entity'
 import { plannerBucket } from '../schema/planner.schema'
 import { bucketRowToEntity, bucketEntityToRow } from './mappers/bucket.mapper'
@@ -81,5 +84,40 @@ export class DrizzleBucketRepository implements IBucketRepository {
           isNull(plannerBucket.deletedAt),
         ),
       )
+  }
+
+  async upsertFromMs(props: MsBucketUpsertProps, _opts: { origin: string }): Promise<void> {
+    const existing = await this.db
+      .select({ id: plannerBucket.id })
+      .from(plannerBucket)
+      .where(
+        and(
+          eq(plannerBucket.tenantId, props.tenantId),
+          eq(plannerBucket.msBucketId, props.msBucketId),
+        ),
+      )
+      .limit(1)
+
+    if (existing[0]) {
+      await this.db
+        .update(plannerBucket)
+        .set({
+          name: props.name,
+          orderHint: props.orderHint,
+          msBucketEtag: props.msBucketEtag,
+          updatedAt: sql`NOW()`,
+        })
+        .where(eq(plannerBucket.id, existing[0].id))
+      return
+    }
+
+    await this.db.insert(plannerBucket).values({
+      tenantId: props.tenantId,
+      planId: props.localPlanId,
+      name: props.name,
+      orderHint: props.orderHint,
+      msBucketId: props.msBucketId,
+      msBucketEtag: props.msBucketEtag,
+    })
   }
 }

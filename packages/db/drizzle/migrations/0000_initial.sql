@@ -1454,6 +1454,32 @@ CREATE TABLE "people"."profile_share_link" (
 	"revoked_at" timestamp
 );
 --> statement-breakpoint
+CREATE TABLE "planner"."ms_linked_group" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"ms_group_id" text NOT NULL,
+	"display_name" text NOT NULL,
+	"linked_by_actor_id" uuid NOT NULL,
+	"linked_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"sync_enabled" boolean DEFAULT true NOT NULL,
+	"backfilling_at" timestamp with time zone,
+	"backfill_job_id" text,
+	"unlinked_at" timestamp with time zone
+);
+--> statement-breakpoint
+CREATE TABLE "planner"."ms_plan_sync_state" (
+	"plan_id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"ms_plan_id" text NOT NULL,
+	"ms_plan_etag" text,
+	"last_polled_at" timestamp with time zone,
+	"last_successful_poll_at" timestamp with time zone,
+	"consecutive_error_count" integer DEFAULT 0 NOT NULL,
+	"last_error_code" text,
+	"last_error_message" text,
+	"poll_paused_until" timestamp with time zone
+);
+--> statement-breakpoint
 CREATE TABLE "planner"."bucket" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"tenant_id" uuid NOT NULL,
@@ -1483,10 +1509,12 @@ CREATE TABLE "planner"."plan" (
 	"name" text NOT NULL,
 	"description" text DEFAULT '' NOT NULL,
 	"container_type" text,
+	"container_ref" text,
 	"ms_group_id" text,
 	"ms_roster_id" text,
 	"ms_plan_id" text,
 	"ms_plan_etag" text,
+	"is_ms_archived" boolean DEFAULT false NOT NULL,
 	"owner_actor_id" uuid,
 	"sync_enabled" boolean DEFAULT true NOT NULL,
 	"created_by" uuid NOT NULL,
@@ -1494,9 +1522,10 @@ CREATE TABLE "planner"."plan" (
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	"deleted_at" timestamp,
 	CONSTRAINT "chk_plan_description_length" CHECK (char_length("planner"."plan"."description") <= 32000),
-	CONSTRAINT "chk_plan_container_xor" CHECK (("planner"."plan"."container_type" IS NULL AND "planner"."plan"."ms_group_id" IS NULL AND "planner"."plan"."ms_roster_id" IS NULL)
-        OR ("planner"."plan"."container_type" = 'group' AND "planner"."plan"."ms_group_id" IS NOT NULL AND "planner"."plan"."ms_roster_id" IS NULL)
-        OR ("planner"."plan"."container_type" = 'roster' AND "planner"."plan"."ms_roster_id" IS NOT NULL AND "planner"."plan"."ms_group_id" IS NULL))
+	CONSTRAINT "chk_plan_container_xor" CHECK (("planner"."plan"."container_type" IS NULL AND "planner"."plan"."container_ref" IS NULL)
+        OR ("planner"."plan"."container_type" = 'future_only' AND "planner"."plan"."container_ref" IS NULL)
+        OR ("planner"."plan"."container_type" = 'ms_group' AND "planner"."plan"."container_ref" IS NOT NULL)
+        OR ("planner"."plan"."container_type" = 'ms_roster' AND "planner"."plan"."container_ref" IS NOT NULL))
 );
 --> statement-breakpoint
 CREATE TABLE "planner"."plan_label" (
@@ -1543,6 +1572,7 @@ CREATE TABLE "planner"."task" (
 	"ms_task_id" text,
 	"ms_task_etag" text,
 	"ms_task_details_etag" text,
+	"ms_soft_deleted_at" timestamp with time zone,
 	"pending_ms_assignments" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	CONSTRAINT "chk_task_progress" CHECK ("planner"."task"."progress" IN (0, 50, 100)),
 	CONSTRAINT "chk_task_priority" CHECK ("planner"."task"."priority" IN (1, 3, 5, 9)),
@@ -1755,7 +1785,7 @@ CREATE INDEX "agent_schedule_tenant_status_trigger_idx" ON "agents"."agent_sched
 CREATE INDEX "agent_schedule_tenant_owner_status_idx" ON "agents"."agent_schedule" USING btree ("tenant_id","owner_user_id","status");--> statement-breakpoint
 CREATE INDEX "agent_schedule_tenant_delegation_idx" ON "agents"."agent_schedule" USING btree ("tenant_id","delegation_id");--> statement-breakpoint
 CREATE INDEX "agent_tool_embedding_tool_name_idx" ON "agents"."agent_tool_embedding" USING btree ("tool_name");--> statement-breakpoint
-CREATE UNIQUE INDEX "agent_tool_result_cache_exact_uidx" ON "agents"."agent_tool_result_cache" USING btree ("tenant_id","tool_name","canonical_args_hash");--> statement-breakpoint
+CREATE INDEX "agent_tool_result_cache_exact_idx" ON "agents"."agent_tool_result_cache" USING btree ("tenant_id","tool_name","canonical_args_hash");--> statement-breakpoint
 CREATE INDEX "agent_tool_result_cache_tenant_tool_idx" ON "agents"."agent_tool_result_cache" USING btree ("tenant_id","tool_name");--> statement-breakpoint
 CREATE INDEX "agent_active_turn_tenant_started_idx" ON "agents"."agent_active_turn" USING btree ("tenant_id","started_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_active_turn_heartbeat_idx" ON "agents"."agent_active_turn" USING btree ("last_heartbeat_at");--> statement-breakpoint
@@ -1806,6 +1836,8 @@ CREATE UNIQUE INDEX "uq_directory_search_index_employment" ON "people"."director
 CREATE UNIQUE INDEX "employment_detail_tenant_employment_uidx" ON "people"."employment_detail" USING btree ("tenant_id","employment_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "job_history_tenant_profile_from_uidx" ON "people"."job_history" USING btree ("tenant_id","profile_id","effective_from");--> statement-breakpoint
 CREATE UNIQUE INDEX "person_profile_tenant_actor_uidx" ON "people"."person_profile" USING btree ("tenant_id","actor_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "uniq_ms_linked_group_tenant_msgroup" ON "planner"."ms_linked_group" USING btree ("tenant_id","ms_group_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "uniq_ms_plan_sync_state_tenant_msplan" ON "planner"."ms_plan_sync_state" USING btree ("tenant_id","ms_plan_id");--> statement-breakpoint
 CREATE INDEX "idx_bucket_plan_deleted_order" ON "planner"."bucket" USING btree ("plan_id","deleted_at","order_hint") WHERE "planner"."bucket"."deleted_at" IS NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_bucket_tenant_ms_bucket_id" ON "planner"."bucket" USING btree ("tenant_id","ms_bucket_id") WHERE "planner"."bucket"."ms_bucket_id" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX "idx_my_day_entry_today" ON "planner"."my_day_entry" USING btree ("tenant_id","actor_id","added_date");--> statement-breakpoint
@@ -1827,11 +1859,3 @@ CREATE INDEX "idx_task_evidence_task_submitted" ON "planner"."task_evidence" USI
 CREATE INDEX "idx_task_evidence_tenant_submitted_by" ON "planner"."task_evidence" USING btree ("tenant_id","submitted_by");--> statement-breakpoint
 CREATE INDEX "saved_view_tenant_actor_resource_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key");--> statement-breakpoint
 CREATE UNIQUE INDEX "saved_view_unique_default_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key") WHERE is_default = true;
-
--- Plan 14: RLS for agent_tool_result_cache
-ALTER TABLE agents.agent_tool_result_cache ENABLE ROW LEVEL SECURITY;
-ALTER TABLE agents.agent_tool_result_cache FORCE ROW LEVEL SECURITY;
-CREATE POLICY agent_tool_result_cache_tenant_isolation
-  ON agents.agent_tool_result_cache
-  USING (tenant_id = current_setting('app.tenant_id')::uuid)
-  WITH CHECK (tenant_id = current_setting('app.tenant_id')::uuid);

@@ -138,7 +138,7 @@ describe('checklist command handlers — integration', () => {
     planId = uuidv7()
     const bucketId = uuidv7()
     taskId = uuidv7()
-    const container = PlanContainer.of({ type: 'none' })
+    const container = PlanContainer.of({ type: 'future_only' })
 
     const createPlanHandler = new CreatePlanHandler(
       planRepo as never,

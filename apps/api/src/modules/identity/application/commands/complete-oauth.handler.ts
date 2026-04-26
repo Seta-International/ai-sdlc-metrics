@@ -6,6 +6,7 @@ import { DomainException } from '@future/core'
 import { ProviderMisconfiguredException } from '../../domain/exceptions/identity.exceptions'
 import { CompleteOAuthCommand } from './complete-oauth.command'
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import {
   IDENTITY_PROVIDER_REPOSITORY,
   type IIdentityProviderRepository,
@@ -106,6 +107,7 @@ export class CompleteOAuthHandler implements ICommandHandler<
 
   constructor(
     private readonly kernelFacade: KernelQueryFacade,
+    private readonly kernelAuditFacade: KernelAuditFacade,
     @Inject(IDENTITY_PROVIDER_REPOSITORY)
     private readonly providerRepo: IIdentityProviderRepository,
     @Inject(OAUTH_AUTHORIZATION_SESSION_REPOSITORY)
@@ -276,10 +278,32 @@ export class CompleteOAuthHandler implements ICommandHandler<
       provider.providerType === 'google'
         ? idTokenPayload.sub
         : (idTokenPayload.oid ?? idTokenPayload.sub)!
-    const userIdentity = await this.kernelFacade.getUserIdentityBySsoSubject(
+
+    let userIdentity = await this.kernelFacade.getUserIdentityBySsoSubject(
       ssoSubject,
       session.tenantId,
     )
+
+    // Auto-claim: on first real SSO login the seed stores a placeholder subject.
+    // Fall back to email lookup and bind the real SSO subject if the placeholder matches.
+    if (!userIdentity) {
+      const email = idTokenPayload.email ?? idTokenPayload.preferred_username ?? ''
+      const byEmail = email
+        ? await this.kernelFacade.getUserIdentityByEmailAndTenant(email, session.tenantId)
+        : null
+
+      if (byEmail) {
+        const claimed = await this.kernelAuditFacade.claimSsoSubjectIfPlaceholder(
+          byEmail,
+          ssoSubject,
+          provider.providerType,
+        )
+        if (claimed) {
+          userIdentity = { ...byEmail, ssoSubject, provider: provider.providerType }
+        }
+      }
+    }
+
     if (!userIdentity) {
       throw new UserIdentityNotFoundException(ssoSubject)
     }
