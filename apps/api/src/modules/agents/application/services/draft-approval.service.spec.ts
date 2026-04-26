@@ -318,4 +318,138 @@ describe('DraftApprovalService', () => {
       expect(enqueue).not.toHaveBeenCalledWith(EXECUTION_JOB_ID, expect.anything())
     })
   })
+
+  // ── R-08.29: on_behalf_of, via_delegation, via_schedule in payloads ───────
+
+  describe('R-08.29 audit payload completeness', () => {
+    const SCHEDULE_ID = '00000000-0000-7000-8000-000000000010'
+    const ON_BEHALF_OF_ID = '00000000-0000-7000-8000-000000000099'
+
+    it('draft_approved payload includes on_behalf_of=initiatorUserId when onBehalfOf is null', async () => {
+      await service.approveDraft({
+        tenantId: TENANT_ID,
+        draftId: DRAFT_ID,
+        approverId: APPROVER_ID,
+      })
+
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'agent.draft_approved',
+          payload: expect.objectContaining({
+            on_behalf_of: INITIATOR_ID,
+            via_delegation: DELEGATION_ID,
+          }),
+        }),
+      )
+    })
+
+    it('draft_approved payload includes on_behalf_of from draft.onBehalfOf when set', async () => {
+      draftRepo = makeDraftRepo({
+        getById: vi.fn().mockResolvedValue(makePendingDraft({ onBehalfOf: ON_BEHALF_OF_ID })),
+      })
+      service = new DraftApprovalService(draftRepo, auditFacade, notificationsFacade, enqueue)
+
+      await service.approveDraft({
+        tenantId: TENANT_ID,
+        draftId: DRAFT_ID,
+        approverId: APPROVER_ID,
+      })
+
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'agent.draft_approved',
+          payload: expect.objectContaining({
+            on_behalf_of: ON_BEHALF_OF_ID,
+          }),
+        }),
+      )
+    })
+
+    it('draft_approved payload includes via_schedule when viaScheduleId is set', async () => {
+      draftRepo = makeDraftRepo({
+        getById: vi.fn().mockResolvedValue(makePendingDraft({ viaScheduleId: SCHEDULE_ID })),
+      })
+      service = new DraftApprovalService(draftRepo, auditFacade, notificationsFacade, enqueue)
+
+      await service.approveDraft({
+        tenantId: TENANT_ID,
+        draftId: DRAFT_ID,
+        approverId: APPROVER_ID,
+      })
+
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'agent.draft_approved',
+          payload: expect.objectContaining({
+            via_schedule: SCHEDULE_ID,
+          }),
+        }),
+      )
+    })
+
+    it('draft_approved payload omits via_schedule when viaScheduleId is null', async () => {
+      await service.approveDraft({
+        tenantId: TENANT_ID,
+        draftId: DRAFT_ID,
+        approverId: APPROVER_ID,
+      })
+
+      const call = vi.mocked(auditFacade.recordEvent).mock.calls[0][0]
+      expect(call.payload).not.toHaveProperty('via_schedule')
+    })
+
+    it('draft_rejected payload includes on_behalf_of and via_delegation', async () => {
+      await service.rejectDraft({
+        tenantId: TENANT_ID,
+        draftId: DRAFT_ID,
+        rejecterId: APPROVER_ID,
+        reason: 'not_needed',
+      })
+
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'agent.draft_rejected',
+          payload: expect.objectContaining({
+            on_behalf_of: INITIATOR_ID,
+            via_delegation: DELEGATION_ID,
+          }),
+        }),
+      )
+    })
+
+    it('draft_rejected payload includes via_schedule when viaScheduleId is set', async () => {
+      draftRepo = makeDraftRepo({
+        getById: vi.fn().mockResolvedValue(makePendingDraft({ viaScheduleId: SCHEDULE_ID })),
+      })
+      service = new DraftApprovalService(draftRepo, auditFacade, notificationsFacade, enqueue)
+
+      await service.rejectDraft({
+        tenantId: TENANT_ID,
+        draftId: DRAFT_ID,
+        rejecterId: APPROVER_ID,
+        reason: 'not_needed',
+      })
+
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'agent.draft_rejected',
+          payload: expect.objectContaining({
+            via_schedule: SCHEDULE_ID,
+          }),
+        }),
+      )
+    })
+
+    it('draft_rejected payload omits via_schedule when viaScheduleId is null', async () => {
+      await service.rejectDraft({
+        tenantId: TENANT_ID,
+        draftId: DRAFT_ID,
+        rejecterId: APPROVER_ID,
+        reason: 'not_needed',
+      })
+
+      const call = vi.mocked(auditFacade.recordEvent).mock.calls[0][0]
+      expect(call.payload).not.toHaveProperty('via_schedule')
+    })
+  })
 })

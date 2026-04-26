@@ -92,6 +92,9 @@ export class DraftApprovalService {
         traceId: draft.traceId,
         approvedAt: approvedAt.toISOString(),
         initiatorUserId: draft.initiatorUserId,
+        on_behalf_of: draft.onBehalfOf ?? draft.initiatorUserId,
+        via_delegation: draft.viaDelegationId,
+        ...(draft.viaScheduleId !== null ? { via_schedule: draft.viaScheduleId } : {}),
       },
     })
   }
@@ -144,6 +147,9 @@ export class DraftApprovalService {
         traceId: draft.traceId,
         reason: opts.reason,
         initiatorUserId: draft.initiatorUserId,
+        on_behalf_of: draft.onBehalfOf ?? draft.initiatorUserId,
+        via_delegation: draft.viaDelegationId,
+        ...(draft.viaScheduleId !== null ? { via_schedule: draft.viaScheduleId } : {}),
       },
     })
 

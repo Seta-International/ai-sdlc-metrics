@@ -89,11 +89,16 @@ export class ExecuteApprovedDraftWorker {
         eventType: 'agent.draft_execution_failed',
         module: 'agents',
         subjectId: draftId,
+        flowId: draft.flowId,
         payload: {
           draftId,
           toolName: draft.toolName,
           outcome,
           traceId: job.trace_id,
+          on_behalf_of: draft.onBehalfOf ?? draft.initiatorUserId,
+          via_delegation: draft.viaDelegationId,
+          ...(draft.viaScheduleId !== null ? { via_schedule: draft.viaScheduleId } : {}),
+          approved_by: job.approved_by,
         },
       })
       await this.notificationsWriteFacade.sendDraftApprovalNotification({
@@ -121,11 +126,16 @@ export class ExecuteApprovedDraftWorker {
         eventType: 'agent.draft_execution_failed',
         module: 'agents',
         subjectId: draftId,
+        flowId: draft.flowId,
         payload: {
           draftId,
           toolName: draft.toolName,
           outcome,
           traceId: job.trace_id,
+          on_behalf_of: draft.onBehalfOf ?? draft.initiatorUserId,
+          via_delegation: draft.viaDelegationId,
+          ...(draft.viaScheduleId !== null ? { via_schedule: draft.viaScheduleId } : {}),
+          approved_by: job.approved_by,
         },
       })
       await this.notificationsWriteFacade.sendDraftApprovalNotification({
