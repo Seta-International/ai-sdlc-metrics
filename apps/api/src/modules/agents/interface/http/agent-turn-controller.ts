@@ -120,12 +120,12 @@ export class AgentTurnController {
       return
     }
 
-    // ── R-05.1: Stamp root span identity + tier attributes ────────────────────
-    // flow_id and intent_slug are stamped on the span so they are traceable even
-    // when the OTel backend is no-op (test mode). budget_tier is stamped only on
-    // a tier shift so the trace tag distinguishes degraded vs full turns.
-    obsCtx.currentSpan.setAttribute('flow_id', flowId)
-    obsCtx.currentSpan.setAttribute('intent_slug', UNCLASSIFIED_INTENT)
+    // ── R-05.1: Stamp budget_tier on tier shift ───────────────────────────────
+    // flow_id and intent_slug are already stamped by ObservabilityContextFactory.create
+    // via otelRoot.setAttributes (bypassing the denylist wrapper — that is intentional
+    // for middleware-owned identity keys). The controller must NOT duplicate those calls
+    // via setAttribute, which would throw via IDENTITY_KEY_DENYLIST on a real OtelSpan.
+    // budget_tier is NOT on the denylist and is gated on tierShift so it is safe here.
     if (budgetResult.tierShift) {
       obsCtx.currentSpan.setAttribute('budget_tier', budgetResult.tier)
     }

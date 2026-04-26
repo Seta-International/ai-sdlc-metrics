@@ -7,6 +7,7 @@ import type { BudgetChecker } from '../../application/services/budget-checker'
 import type { ObservabilityContextFactory } from '../../application/services/observability-context'
 import type { FlowIdPropagation } from '../../application/services/flow-id-propagation'
 import type { ObservabilityContext } from '../../application/services/observability-context'
+import { NoOpSpan, OtelSpan, IDENTITY_KEY_DENYLIST } from '../../domain/observability/span'
 import type { Span } from '../../domain/observability/span'
 import { EVENT_SCHEMA_VERSION } from '../../application/services/stream-gateway'
 
@@ -34,15 +35,22 @@ function makeAuditFacade() {
   } as unknown as KernelAuditFacade
 }
 
+/**
+ * I-1: Use a NoOpSpan wrapper that enforces the denylist at the mock level.
+ *
+ * The real NoOpSpan from the domain is a silent no-op (does NOT enforce the
+ * denylist — that enforcement is OtelSpan-only by design). To make the spec
+ * seam realistic we wrap it with spies so we can assert call counts and args,
+ * while the IDENTITY_KEY_DENYLIST enforcement test (see below) uses OtelSpan
+ * directly to verify the contract that caught C-1.
+ */
 function makeNoOpSpan(): Span {
-  return {
-    spanId: 'noop-span-id',
-    traceId: 'trace-000',
-    setAttribute: vi.fn(),
-    setAttributes: vi.fn(),
-    recordUsage: vi.fn(),
-    end: vi.fn(),
-  }
+  const span = new NoOpSpan('trace-000')
+  vi.spyOn(span, 'setAttribute')
+  vi.spyOn(span, 'setAttributes')
+  vi.spyOn(span, 'recordUsage')
+  vi.spyOn(span, 'end')
+  return span
 }
 
 function makeObsContext(overrides?: Partial<ObservabilityContext>): ObservabilityContext {
@@ -381,12 +389,17 @@ describe('AgentTurnController — Theme B wiring (R-05.1, R-07.43, R-07.44)', ()
   })
 
   it('T-B-2: refused tier → HTTP 429, turn.ended with reason=budget_exceeded is NOT emitted via SSE (connection closed before SSE writeHead)', async () => {
+    const obsCtx = makeObsContext()
+    const spanEndSpy = vi.spyOn(obsCtx.currentSpan, 'end')
     const { controller } = makeController({
       budgetChecker: makeBudgetChecker({
         allowed: false,
         tier: 'refused',
         reason: 'tenant_daily_budget',
       }),
+      obsFactory: {
+        create: vi.fn().mockReturnValue(obsCtx),
+      } as unknown as ObservabilityContextFactory,
     })
     const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
     const res = makeRes()
@@ -399,6 +412,13 @@ describe('AgentTurnController — Theme B wiring (R-05.1, R-07.43, R-07.44)', ()
     expect(head![0]).toBe(429)
     const body = JSON.parse(res.raw.end.mock.calls[0]?.[0] ?? '{}')
     expect(body).toMatchObject({ reason: 'budget_exceeded' })
+
+    // Span must be closed with error status before the 429 is returned
+    expect(spanEndSpy).toHaveBeenCalledOnce()
+    expect(spanEndSpy).toHaveBeenCalledWith(expect.objectContaining({ status: 'error' }))
+
+    // No SSE events emitted (SSE stream was never started)
+    expect(res.written).toHaveLength(0)
   })
 
   it('T-B-2b: refused tier emits kernel audit event with budget_exceeded reason', async () => {
@@ -438,9 +458,14 @@ describe('AgentTurnController — Theme B wiring (R-05.1, R-07.43, R-07.44)', ()
     expect(head![0]).toBe(200)
   })
 
-  it('T-B-3b: nano tier → turn proceeds, degraded tier is passed in registry.register', async () => {
+  it('T-B-3b: nano tier → turn proceeds, degraded tier is passed in registry.register and budget_tier attribute is set on root span', async () => {
+    const obsCtx = makeObsContext()
+    const setAttributeSpy = vi.spyOn(obsCtx.currentSpan, 'setAttribute')
     const { controller, registry } = makeController({
       budgetChecker: makeBudgetChecker({ allowed: true, tier: 'nano', tierShift: true }),
+      obsFactory: {
+        create: vi.fn().mockReturnValue(obsCtx),
+      } as unknown as ObservabilityContextFactory,
     })
     const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
     const res = makeRes()
@@ -453,9 +478,11 @@ describe('AgentTurnController — Theme B wiring (R-05.1, R-07.43, R-07.44)', ()
     // Registry was called with tier so downstream can act on degraded mode
     expect(registry.register).toHaveBeenCalledOnce()
     expect(registry.register).toHaveBeenCalledWith(expect.objectContaining({ tier: 'nano' }))
+    // budget_tier is the only conditional setAttribute on the happy path (gated on tierShift)
+    expect(setAttributeSpy).toHaveBeenCalledWith('budget_tier', 'nano')
   })
 
-  it('T-B-4: FlowIdPropagation.mint is called; flow_id and intent_slug attributes are set on root span via factory', async () => {
+  it('T-B-4: FlowIdPropagation.mint is called; factory.create receives correct flowId + intentSlug (controller must NOT setAttribute denylist keys)', async () => {
     const obsCtx = makeObsContext()
     const setAttributeSpy = vi.spyOn(obsCtx.currentSpan, 'setAttribute')
     const obsFactory = {
@@ -479,17 +506,46 @@ describe('AgentTurnController — Theme B wiring (R-05.1, R-07.43, R-07.44)', ()
     // FlowIdPropagation.mint was called
     expect(flowProp.mint).toHaveBeenCalledOnce()
 
-    // ObservabilityContextFactory.create was called with flow_id and intent_slug
+    // The contract that matters at the controller seam: factory.create receives
+    // the correct flowId and intentSlug. The factory owns stamping them on the
+    // underlying OTel span — the controller must NOT duplicate that work by
+    // calling setAttribute on the wrapped span (which would throw via denylist).
     expect(obsFactory.create).toHaveBeenCalledWith(
-      expect.objectContaining({ flowId: FIXED_FLOW_ID }),
-    )
-    expect(obsFactory.create).toHaveBeenCalledWith(
-      expect.objectContaining({ intentSlug: 'unclassified' }),
+      expect.objectContaining({ flowId: FIXED_FLOW_ID, intentSlug: 'unclassified' }),
     )
 
-    // The root span carries flow_id and intent_slug as attributes
-    expect(setAttributeSpy).toHaveBeenCalledWith('flow_id', FIXED_FLOW_ID)
-    expect(setAttributeSpy).toHaveBeenCalledWith('intent_slug', 'unclassified')
+    // Controller must never call setAttribute with denylist keys on the span
+    const deniedCalls = (setAttributeSpy.mock.calls as [string, unknown][]).filter(([key]) =>
+      (IDENTITY_KEY_DENYLIST as readonly string[]).includes(key),
+    )
+    expect(deniedCalls).toHaveLength(0)
+  })
+
+  it('T-B-4b: OtelSpan enforces denylist — setAttribute with flow_id or intent_slug throws', () => {
+    // I-1: verify that the denylist guard is live on OtelSpan so future accidental
+    // setAttribute('flow_id', ...) calls in the controller are caught at test time,
+    // not in production.
+    const stubOtelSpan = {
+      spanContext: () => ({ traceId: 'trace-x', spanId: 'span-x', traceFlags: 1 }),
+      setAttribute: vi.fn(),
+      setAttributes: vi.fn(),
+      setStatus: vi.fn(),
+      recordException: vi.fn(),
+      end: vi.fn(),
+      addEvent: vi.fn(),
+      isRecording: vi.fn().mockReturnValue(true),
+      updateName: vi.fn(),
+    }
+    const span = new OtelSpan(stubOtelSpan as never, 'trace-x')
+
+    expect(() => span.setAttribute('flow_id', 'some-flow')).toThrow(
+      /reserved identity key "flow_id"/,
+    )
+    expect(() => span.setAttribute('intent_slug', 'unclassified')).toThrow(
+      /reserved identity key "intent_slug"/,
+    )
+    // Non-denylist keys must not throw
+    expect(() => span.setAttribute('budget_tier', 'nano')).not.toThrow()
   })
 
   it('T-B-5: root span is closed in finally — closed on success', async () => {
