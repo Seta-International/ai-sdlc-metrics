@@ -10,6 +10,15 @@ import type { ObservabilityContext } from '../../application/services/observabil
 import { NoOpSpan, OtelSpan, IDENTITY_KEY_DENYLIST } from '../../domain/observability/span'
 import type { Span } from '../../domain/observability/span'
 import { EVENT_SCHEMA_VERSION } from '../../application/services/stream-gateway'
+import type {
+  TurnPipelineRunner,
+  TurnPipelineResult,
+} from '../../application/services/turn-pipeline-runner'
+import type { SaveQueue } from '../../application/services/save-queue'
+import {
+  RouterLlmFailureError,
+  SynthesizerStreamFailureError,
+} from '../../application/services/pipeline-errors'
 
 // ─── Mock streaming-metrics for abort source tests ───────────────────────────
 vi.mock('../../infrastructure/observability/streaming-metrics', () => ({
@@ -110,6 +119,38 @@ function makeFlowIdPropagation() {
   } as unknown as FlowIdPropagation
 }
 
+function makeDefaultPipelineResult(overrides?: Partial<TurnPipelineResult>): TurnPipelineResult {
+  return {
+    toolCallNames: [],
+    shape: 'narrative',
+    permissionKeys: [],
+    taintFlipped: false,
+    renderedAssistantMessage: 'hello',
+    turnEndReason: 'completed',
+    drafts: [],
+    ...overrides,
+  }
+}
+
+function makePipelineRunner(result?: TurnPipelineResult | (() => Promise<TurnPipelineResult>)) {
+  const run =
+    typeof result === 'function'
+      ? vi.fn().mockImplementation(result)
+      : vi.fn().mockResolvedValue(result ?? makeDefaultPipelineResult())
+  return {
+    run,
+    runWithReplay: vi.fn(),
+  } as unknown as TurnPipelineRunner & { run: ReturnType<typeof vi.fn> }
+}
+
+function makeSaveQueue() {
+  return {
+    enqueue: vi.fn(),
+    flushByConversation: vi.fn().mockResolvedValue(undefined),
+    drain: vi.fn().mockResolvedValue(undefined),
+  } as unknown as SaveQueue & { enqueue: ReturnType<typeof vi.fn> }
+}
+
 function makeCookieHeader(token: string) {
   return `_future_session=${token}; other=val`
 }
@@ -184,6 +225,8 @@ function makeController(overrides?: {
   budgetChecker?: BudgetChecker
   obsFactory?: ObservabilityContextFactory
   flowIdPropagation?: FlowIdPropagation
+  pipelineRunner?: TurnPipelineRunner & { run: ReturnType<typeof vi.fn> }
+  saveQueue?: SaveQueue & { enqueue: ReturnType<typeof vi.fn> }
 }) {
   const jwtSvc = overrides?.jwtService ?? makeJwtService()
   const reg = overrides?.registry ?? makeRegistry()
@@ -191,15 +234,19 @@ function makeController(overrides?: {
   const budget = overrides?.budgetChecker ?? makeBudgetChecker()
   const obs = overrides?.obsFactory ?? makeObsFactory()
   const flow = overrides?.flowIdPropagation ?? makeFlowIdPropagation()
+  const runner = overrides?.pipelineRunner ?? makePipelineRunner()
+  const saveQueue = overrides?.saveQueue ?? makeSaveQueue()
 
   return {
-    controller: new AgentTurnController(jwtSvc, reg, audit, budget, obs, flow),
+    controller: new AgentTurnController(jwtSvc, reg, audit, budget, obs, flow, runner, saveQueue),
     jwtService: jwtSvc,
     registry: reg,
     auditFacade: audit,
     budgetChecker: budget,
     obsFactory: obs,
     flowIdPropagation: flow,
+    pipelineRunner: runner,
+    saveQueue,
   }
 }
 
@@ -221,6 +268,8 @@ describe('AgentTurnController', () => {
       makeBudgetChecker(),
       makeObsFactory(),
       makeFlowIdPropagation(),
+      makePipelineRunner(),
+      makeSaveQueue(),
     )
   })
 
@@ -246,6 +295,8 @@ describe('AgentTurnController', () => {
       makeBudgetChecker(),
       makeObsFactory(),
       makeFlowIdPropagation(),
+      makePipelineRunner(),
+      makeSaveQueue(),
     )
 
     const req = makeReq({ cookieHeader: makeCookieHeader('bad-token') })
@@ -283,6 +334,8 @@ describe('AgentTurnController', () => {
       makeBudgetChecker(),
       makeObsFactory(),
       flowProp,
+      makePipelineRunner(),
+      makeSaveQueue(),
     )
     const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
     const res = makeRes()
@@ -503,6 +556,8 @@ describe('AgentTurnController — Theme B wiring (R-05.1, R-07.43, R-07.44)', ()
       makeBudgetChecker(),
       obsFactory,
       flowProp,
+      makePipelineRunner(),
+      makeSaveQueue(),
     )
 
     const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
@@ -757,5 +812,212 @@ describe('AgentTurnController — abort source correctness (Issue 2)', () => {
     } finally {
       AbortSignal.timeout = originalTimeout
     }
+  })
+})
+
+// ─── Plan 18 §4.6 — live pipeline invocation ─────────────────────────────────
+
+describe('AgentTurnController — Plan 18 live pipeline (R-18.1, R-18.2, R-18.3, R-18.12)', () => {
+  function lastEvent(written: string[]): {
+    type: string
+    payload: { reason?: string; cause?: string }
+  } {
+    const last = written[written.length - 1]
+    return JSON.parse(last.replace(/^data: /, '').trim())
+  }
+
+  it('enqueues user message before invoking the runner', async () => {
+    const { controller, pipelineRunner, saveQueue } = makeController()
+    const req = makeReq({
+      cookieHeader: makeCookieHeader('valid-token'),
+      body: {
+        surface: 'global-chat',
+        conversation_id: 'conv-1',
+        user_utterance: 'What is the time?',
+        context: { current_screen: '/home' },
+      },
+    })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    // saveQueue.enqueue was called with role: 'user' before runner.run
+    const enqueueOrders = (saveQueue.enqueue as ReturnType<typeof vi.fn>).mock.invocationCallOrder
+    const runOrders = (pipelineRunner.run as ReturnType<typeof vi.fn>).mock.invocationCallOrder
+
+    expect(enqueueOrders.length).toBeGreaterThan(0)
+    expect(runOrders.length).toBeGreaterThan(0)
+    expect(enqueueOrders[0]).toBeLessThan(runOrders[0])
+
+    const firstCall = (saveQueue.enqueue as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]
+    expect(firstCall.message.role).toBe('user')
+    expect(firstCall.message.content.text).toBe('What is the time?')
+    expect(firstCall.message.tenantId).toBe(TENANT_ID)
+    expect(firstCall.message.userId).toBe(USER_ID)
+    expect(firstCall.message.conversationId).toBe('conv-1')
+  })
+
+  it('invokes turnPipelineRunner.run with the gateway as streamEmitter and turn state', async () => {
+    const { controller, pipelineRunner } = makeController()
+    const req = makeReq({
+      cookieHeader: makeCookieHeader('valid-token'),
+      body: {
+        surface: 'global-chat',
+        conversation_id: 'conv-7',
+        user_utterance: 'Hi',
+        context: { current_screen: '/home' },
+      },
+    })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    expect(pipelineRunner.run).toHaveBeenCalledOnce()
+    const arg = (pipelineRunner.run as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]
+    expect(arg.userUtterance).toBe('Hi')
+    expect(arg.conversationId).toBe('conv-7')
+    expect(arg.requestContext).toMatchObject({
+      tenantId: TENANT_ID,
+      userId: USER_ID,
+      surface: 'global-chat',
+    })
+    expect(arg.abortSignal).toBeDefined()
+    expect(arg.streamEmitter).toBeDefined()
+    expect(typeof arg.streamEmitter.emit).toBe('function')
+    expect(typeof arg.streamEmitter.close).toBe('function')
+    expect(arg.turnState).toMatchObject({
+      tenantId: TENANT_ID,
+      userId: USER_ID,
+      conversationId: 'conv-7',
+      surface: 'global-chat',
+      tainted: { value: false },
+      routerReplanCount: 0,
+    })
+  })
+
+  it('enqueues assistant message after runner returns when renderedAssistantMessage is non-empty', async () => {
+    const pipelineRunner = makePipelineRunner(
+      makeDefaultPipelineResult({
+        renderedAssistantMessage: 'the answer is 42',
+        shape: 'narrative',
+        turnEndReason: 'completed',
+      }),
+    )
+    const { controller, saveQueue } = makeController({ pipelineRunner })
+    const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    const calls = (saveQueue.enqueue as ReturnType<typeof vi.fn>).mock.calls
+    const assistantCall = calls.find(([arg]) => arg.message.role === 'assistant')
+    expect(assistantCall).toBeDefined()
+    expect(assistantCall![0].message.content.text).toBe('the answer is 42')
+    expect(assistantCall![0].message.content.shape).toBe('narrative')
+
+    // Assistant enqueue must come AFTER the runner returns
+    const enqueueOrders = (saveQueue.enqueue as ReturnType<typeof vi.fn>).mock.invocationCallOrder
+    const runOrders = (pipelineRunner.run as ReturnType<typeof vi.fn>).mock.invocationCallOrder
+    // Last enqueue is the assistant; it should be after runner.run was invoked.
+    expect(enqueueOrders[enqueueOrders.length - 1]).toBeGreaterThan(runOrders[0])
+  })
+
+  it('skips assistant enqueue when renderedAssistantMessage is empty (cancelled turn)', async () => {
+    const pipelineRunner = makePipelineRunner(
+      makeDefaultPipelineResult({
+        renderedAssistantMessage: '',
+        shape: 'aborted',
+        turnEndReason: 'cancelled',
+      }),
+    )
+    const { controller, saveQueue } = makeController({ pipelineRunner })
+    const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    const calls = (saveQueue.enqueue as ReturnType<typeof vi.fn>).mock.calls
+    const assistantCall = calls.find(([arg]) => arg.message.role === 'assistant')
+    expect(assistantCall).toBeUndefined()
+    // user message still enqueued
+    const userCall = calls.find(([arg]) => arg.message.role === 'user')
+    expect(userCall).toBeDefined()
+  })
+
+  it.each([
+    ['completed', 'turn.ended', 'completed', undefined],
+    ['cancelled', 'turn.ended', 'cancelled', undefined],
+    ['refused', 'turn.ended', 'refused', undefined],
+    ['error', 'turn.ended', 'error', 'internal_error'],
+  ] as const)(
+    'translates pipelineResult.turnEndReason=%s to gateway %s with reason=%s',
+    async (turnEndReason, expectedType, expectedReason, expectedCause) => {
+      const pipelineRunner = makePipelineRunner(
+        makeDefaultPipelineResult({
+          turnEndReason,
+          renderedAssistantMessage: turnEndReason === 'completed' ? 'ok' : '',
+        }),
+      )
+      const { controller } = makeController({ pipelineRunner })
+      const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+      const res = makeRes()
+
+      await controller.streamTurn(req as never, res as never)
+
+      const evt = lastEvent(res.written)
+      expect(evt.type).toBe(expectedType)
+      expect(evt.payload.reason).toBe(expectedReason)
+      if (expectedCause !== undefined) {
+        expect(evt.payload.cause).toBe(expectedCause)
+      }
+    },
+  )
+
+  it('classifies untyped throw as internal_error via classifyPipelineError', async () => {
+    const pipelineRunner = makePipelineRunner(() => {
+      throw new Error('something blew up')
+    })
+    const { controller } = makeController({ pipelineRunner })
+    const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    const evt = lastEvent(res.written)
+    expect(evt.type).toBe('turn.ended')
+    expect(evt.payload.reason).toBe('error')
+    expect(evt.payload.cause).toBe('internal_error')
+  })
+
+  it('classifies RouterLlmFailureError thrown by runner as router_failure', async () => {
+    const pipelineRunner = makePipelineRunner(() => {
+      throw new RouterLlmFailureError('llm_5xx')
+    })
+    const { controller } = makeController({ pipelineRunner })
+    const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    const evt = lastEvent(res.written)
+    expect(evt.type).toBe('turn.ended')
+    expect(evt.payload.reason).toBe('error')
+    expect(evt.payload.cause).toBe('router_failure')
+  })
+
+  it('classifies SynthesizerStreamFailureError thrown by runner as synthesizer_failure', async () => {
+    const pipelineRunner = makePipelineRunner(() => {
+      throw new SynthesizerStreamFailureError('stream_error', new Error('LLM stream blew up'))
+    })
+    const { controller } = makeController({ pipelineRunner })
+    const req = makeReq({ cookieHeader: makeCookieHeader('valid-token') })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    const evt = lastEvent(res.written)
+    expect(evt.type).toBe('turn.ended')
+    expect(evt.payload.reason).toBe('error')
+    expect(evt.payload.cause).toBe('synthesizer_failure')
   })
 })
