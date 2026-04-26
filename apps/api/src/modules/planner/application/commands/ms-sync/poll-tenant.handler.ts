@@ -8,11 +8,25 @@ import {
   MS_PLAN_SYNC_STATE_REPOSITORY,
   type IMsPlanSyncStateRepository,
 } from '../../../domain/repositories/ms-plan-sync-state.repository'
+import {
+  MS_SYNC_CONFLICT_REPOSITORY,
+  type IMsSyncConflictRepository,
+} from '../../../domain/repositories/ms-sync-conflict.repository'
 import { PLAN_REPOSITORY, type IPlanRepository } from '../../../domain/repositories/plan.repository'
+import { MsSyncConflictEntity } from '../../../domain/entities/ms-sync-conflict.entity'
 import type { MsGraphClient } from '../../../infrastructure/ms-graph/ms-graph-client'
 import type { PlanIngestor } from '../../../infrastructure/ms-graph/pull/plan-ingestor'
+import {
+  GraphAuthError,
+  GraphError,
+  GraphQuotaError,
+  GraphServerError,
+  GraphThrottledError,
+} from '../../../infrastructure/ms-graph/errors'
 import type { IdentityQueryFacade } from '../../../../identity/application/facades/identity-query.facade'
+import type { IdentityMsGraphCredentialFacade } from '../../../../identity/application/facades/identity-ms-graph-credential.facade'
 import type { MsLinkedGroupEntity } from '../../../domain/entities/ms-linked-group.entity'
+import { createMsSyncCredentialInvalidatedEvent } from '@future/event-contracts'
 import { PollTenantCommand } from './poll-tenant.command'
 
 @CommandHandler(PollTenantCommand)
@@ -29,6 +43,9 @@ export class PollTenantHandler implements ICommandHandler<PollTenantCommand> {
     @Inject(PLAN_REPOSITORY)
     private readonly planRepo: IPlanRepository,
     private readonly identityFacade: IdentityQueryFacade,
+    private readonly credentialFacade: IdentityMsGraphCredentialFacade,
+    @Inject(MS_SYNC_CONFLICT_REPOSITORY)
+    private readonly conflictRepo: IMsSyncConflictRepository,
     private readonly eventBus: EventBus,
   ) {}
 
@@ -61,6 +78,8 @@ export class PollTenantHandler implements ICommandHandler<PollTenantCommand> {
     const msPlanIds = new Set(plansResponse.map((p) => p.id as string))
 
     for (const p of plansResponse) {
+      const state = await this.syncStateRepo.findByMsPlanId(tenantId, p.id)
+      if (state?.pollPausedUntil && state.pollPausedUntil > new Date()) continue
       await this.ingestor.ingestPlan({ tenantId, msPlanId: p.id, origin: 'ms-sync-pull' })
     }
 
@@ -76,11 +95,49 @@ export class PollTenantHandler implements ICommandHandler<PollTenantCommand> {
     }
   }
 
-  async handlePollError(
-    _tenantId: string,
-    _group: MsLinkedGroupEntity,
-    _error: Error,
+  private async handlePollError(
+    tenantId: string,
+    group: MsLinkedGroupEntity,
+    error: Error,
   ): Promise<void> {
-    // implemented in Task 3
+    this.logger.warn(`Poll error for tenant=${tenantId} group=${group.msGroupId}: ${error.message}`)
+
+    if (error instanceof GraphThrottledError) {
+      const pauseUntil = new Date(Date.now() + error.retryAfterSeconds * 1000)
+      await this.syncStateRepo.pauseAllPlansForGroup(tenantId, group.id, pauseUntil)
+      return
+    }
+
+    if (error instanceof GraphAuthError) {
+      await this.credentialFacade.invalidateCredential(tenantId, error.message)
+      this.eventBus.publish(
+        createMsSyncCredentialInvalidatedEvent({
+          tenantId,
+          reason: error.message,
+          occurredAt: new Date().toISOString(),
+        }),
+      )
+      return
+    }
+
+    if (error instanceof GraphQuotaError) {
+      await this.conflictRepo.insert(
+        MsSyncConflictEntity.forPush403Quota({
+          tenantId,
+          limitCode: error.limitCode,
+          rawError: error.body,
+        }),
+      )
+      return
+    }
+
+    if (error instanceof GraphServerError || !(error instanceof GraphError)) {
+      await this.syncStateRepo.incrementErrorCountForGroup(tenantId, group.id, error.message)
+      const count = await this.syncStateRepo.maxConsecutiveErrorCountForGroup(tenantId, group.id)
+      if (count >= 10) {
+        const pauseUntil = new Date(Date.now() + 60 * 60 * 1000)
+        await this.syncStateRepo.pauseAllPlansForGroup(tenantId, group.id, pauseUntil)
+      }
+    }
   }
 }

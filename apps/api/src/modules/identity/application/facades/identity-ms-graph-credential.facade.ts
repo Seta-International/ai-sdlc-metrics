@@ -137,6 +137,13 @@ export class IdentityMsGraphCredentialFacade {
     return provider.listGroupsWithMembers()
   }
 
+  async invalidateCredential(tenantId: string, reason: string): Promise<void> {
+    const cred = await this.credentialRepo.get(tenantId)
+    if (!cred) return
+    cred.markInvalid(reason)
+    await this.credentialRepo.updateIfSecretRef(cred, cred.clientSecretRef)
+  }
+
   async disconnectMicrosoftGraphCredential(
     input: DisconnectMicrosoftGraphCredentialInput,
     options: DisconnectMicrosoftGraphCredentialOptions = {},

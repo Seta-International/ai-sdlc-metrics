@@ -10,4 +10,10 @@ export interface IMsPlanSyncStateRepository {
   /** Returns states whose pollPausedUntil has elapsed — ready to resume polling. */
   listPausable(tenantId: string): Promise<MsPlanSyncStateEntity[]>
   removeAllForTenant(tenantId: string): Promise<void>
+  /** Sets pollPausedUntil on all sync states for plans belonging to the given linked group. */
+  pauseAllPlansForGroup(tenantId: string, groupId: string, until: Date): Promise<void>
+  /** Increments consecutiveErrorCount on all sync states for plans belonging to the given linked group. */
+  incrementErrorCountForGroup(tenantId: string, groupId: string, message: string): Promise<void>
+  /** Returns the maximum consecutiveErrorCount across all sync states for plans in the given group. */
+  maxConsecutiveErrorCountForGroup(tenantId: string, groupId: string): Promise<number>
 }
