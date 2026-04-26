@@ -183,8 +183,18 @@ describe('Migration squash — P0 audit findings', () => {
     it(`agents.${table}: policy ${table}_tenant_isolation exists in pg_policies with current_setting`, async () => {
       const policy = await getPolicy(db, 'agents', table, `${table}_tenant_isolation`)
       expect(policy, `${table}: policy row in pg_policies`).not.toBeNull()
+      // Assert the 2-arg form current_setting('app.tenant_id', true) is used.
+      // The 'true' arg makes the call return NULL when unset instead of raising
+      // an error — a regression to the 1-arg form would not be caught otherwise.
       expect(policy!.qual, `${table}: USING clause`).toContain('current_setting')
+      expect(policy!.qual, `${table}: USING clause must use 2-arg current_setting`).toContain(
+        ', true)',
+      )
       expect(policy!.with_check, `${table}: WITH CHECK clause`).toContain('current_setting')
+      expect(
+        policy!.with_check,
+        `${table}: WITH CHECK clause must use 2-arg current_setting`,
+      ).toContain(', true)')
     })
   }
 
@@ -196,10 +206,18 @@ describe('Migration squash — P0 audit findings', () => {
       expect(policy!.qual, `${table}: USING clause must reference current_setting`).toContain(
         'current_setting',
       )
+      // Verify 2-arg form — 'true' makes unset return NULL instead of erroring.
+      expect(policy!.qual, `${table}: USING clause must use 2-arg current_setting`).toContain(
+        ', true)',
+      )
       expect(
         policy!.with_check,
         `${table}: WITH CHECK clause must reference current_setting`,
       ).toContain('current_setting')
+      expect(
+        policy!.with_check,
+        `${table}: WITH CHECK clause must use 2-arg current_setting`,
+      ).toContain(', true)')
     }
   })
 
@@ -212,7 +230,14 @@ describe('Migration squash — P0 audit findings', () => {
     )
     expect(policy, 'agent_delegation: policy row in pg_policies').not.toBeNull()
     expect(policy!.qual, 'agent_delegation: USING clause').toContain('current_setting')
+    expect(policy!.qual, 'agent_delegation: USING clause must use 2-arg current_setting').toContain(
+      ', true)',
+    )
     expect(policy!.with_check, 'agent_delegation: WITH CHECK clause').toContain('current_setting')
+    expect(
+      policy!.with_check,
+      'agent_delegation: WITH CHECK clause must use 2-arg current_setting',
+    ).toContain(', true)')
   })
 
   // ─── Sub-fix F: Unset tenant evaluates to empty result, not an error (C-1) ─
@@ -222,16 +247,21 @@ describe('Migration squash — P0 audit findings', () => {
   // PostgreSQL ERROR like "unrecognized configuration parameter 'app.tenant_id'".
 
   it('agents.agent_chat_session: query with app.tenant_id unset returns 0 rows, no error', async () => {
-    // Explicitly clear the session variable so we test the unset-path.
-    // current_setting('app.tenant_id', true) returns NULL when unset.
-    await db.execute(sql`SET LOCAL app.tenant_id = ''`)
-    await db.execute(sql`RESET app.tenant_id`)
+    // Use a transaction to pin all statements to a single physical connection.
+    // This avoids pool-reuse luck: SET LOCAL / RESET / SELECT all run inside
+    // the same pg client, so the session variable state is deterministic.
+    // We never call SET app.tenant_id here — testing the truly-never-set path.
+    await db.transaction(async (tx) => {
+      // Ensure the variable is unset for this connection (RESET is idempotent
+      // when the variable was never set).
+      await tx.execute(sql`RESET app.tenant_id`)
 
-    // Querying should not throw — it should return an empty result set.
-    const result = (await db.execute(
-      sql`SELECT * FROM agents.agent_chat_session LIMIT 1`,
-    )) as unknown as { rows: unknown[] }
+      // Querying should not throw — it should return an empty result set.
+      const result = (await tx.execute(
+        sql`SELECT * FROM agents.agent_chat_session LIMIT 1`,
+      )) as unknown as { rows: unknown[] }
 
-    expect(result.rows).toHaveLength(0)
+      expect(result.rows).toHaveLength(0)
+    })
   })
 })
