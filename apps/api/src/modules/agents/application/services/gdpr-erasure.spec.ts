@@ -4,7 +4,7 @@
  * Covers:
  *  1. Full success: all steps complete → audit 'user_erased_complete'
  *  2. Partial failure on DB step: fires 'user_erased_partial' with failed step detail
- *  3. Returns correct counts: dbMessagesScrubbed, l3Deleted, semanticIndexPurged
+ *  3. Returns correct counts: dbMessagesScrubbed, l3Deleted, l35ScratchpadDeleted, semanticIndexPurged
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -45,7 +45,7 @@ function makeScratchpadRepo(): ScratchpadRepository {
   return {
     read: vi.fn(),
     write: vi.fn(),
-    deleteForUser: vi.fn().mockResolvedValue(undefined),
+    deleteForUser: vi.fn().mockResolvedValue({ count: 3 }),
   }
 }
 
@@ -211,20 +211,43 @@ describe('GDPRErasurePipeline', () => {
       expect(result.l3Deleted).toBe(3)
     })
 
-    it('l35ScratchpadDeleted is 1 when scratchpad deletion succeeds', async () => {
+    it('l35ScratchpadDeleted reflects the actual count returned by deleteForUser', async () => {
+      ;(scratchpadRepo.deleteForUser as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 3 })
+
       const result = await pipeline.erase({ userId: USER_ID, tenantId: TENANT_ID })
 
-      expect(result.l35ScratchpadDeleted).toBe(1)
+      expect(result.l35ScratchpadDeleted).toBe(3)
+    })
+
+    it('l35ScratchpadDeleted is 0 when deleteForUser returns count 0', async () => {
+      ;(scratchpadRepo.deleteForUser as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 })
+
+      const result = await pipeline.erase({ userId: USER_ID, tenantId: TENANT_ID })
+
+      expect(result.l35ScratchpadDeleted).toBe(0)
+    })
+
+    it('audit event metadata includes accurate l35ScratchpadDeleted count', async () => {
+      ;(scratchpadRepo.deleteForUser as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 5 })
+
+      await pipeline.erase({ userId: USER_ID, tenantId: TENANT_ID })
+
+      const auditCalls = (kernelAudit.recordEvent as ReturnType<typeof vi.fn>).mock.calls
+      const completeEvent = auditCalls.find((call) => call[0].eventType === 'user_erased_complete')
+      expect(completeEvent).toBeDefined()
+      expect(completeEvent?.[0].metadata?.l35ScratchpadDeleted).toBe(5)
     })
 
     it('returns zero counts when all repos return zero', async () => {
       ;(messageRepo.hardDeleteContent as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 })
       ;(l3Repo.getAll as ReturnType<typeof vi.fn>).mockResolvedValue({})
+      ;(scratchpadRepo.deleteForUser as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 })
 
       const result = await pipeline.erase({ userId: USER_ID, tenantId: TENANT_ID })
 
       expect(result.dbMessagesScrubbed).toBe(0)
       expect(result.l3Deleted).toBe(0)
+      expect(result.l35ScratchpadDeleted).toBe(0)
     })
 
     it('semanticIndexPurged matches count from purgeForUser', async () => {

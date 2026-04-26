@@ -11,7 +11,7 @@ export interface ScratchpadRepository {
     opts: { tainted: boolean },
   ): Promise<void>
 
-  deleteForUser(tenantId: string, userId: string): Promise<void>
+  deleteForUser(tenantId: string, userId: string): Promise<{ count: number }>
 }
 
 export const SCRATCHPAD_REPOSITORY = Symbol('SCRATCHPAD_REPOSITORY')

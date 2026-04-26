@@ -110,9 +110,11 @@ export class DrizzleScratchpadRepository implements ScratchpadRepository {
     })
   }
 
-  async deleteForUser(tenantId: string, userId: string): Promise<void> {
-    await this.db
+  async deleteForUser(tenantId: string, userId: string): Promise<{ count: number }> {
+    const rows = await this.db
       .delete(agentScratchpad)
       .where(and(eq(agentScratchpad.tenantId, tenantId), eq(agentScratchpad.userId, userId)))
+      .returning({ field: agentScratchpad.field })
+    return { count: rows.length }
   }
 }
