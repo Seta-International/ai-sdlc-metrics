@@ -65,7 +65,6 @@ describe('MsSyncPushListener', () => {
 
   it('skips when credential status is not active (e.g. paused)', async () => {
     identityFacade.getGraphCredential.mockResolvedValue({ status: 'paused' })
-    planRepo.findById.mockResolvedValue(makeMsGroupPlan())
 
     await listener.handle({
       tenantId: TENANT_ID,

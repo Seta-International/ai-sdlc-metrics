@@ -12,6 +12,8 @@ interface PlannerMutationEvent {
   bucketId?: string
 }
 
+// Intentionally broad: planner mutation events share no single discriminant.
+// The credential and plan.container.type checks downstream are the real gates.
 function isPlannerMutationEvent(event: unknown): event is PlannerMutationEvent {
   if (!event || typeof event !== 'object') return false
   const e = event as Record<string, unknown>
