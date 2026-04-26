@@ -9,6 +9,7 @@ export const overrideJustificationRule: LintRule = {
   id: 'R-15.11',
   scope: ['tool-meta', 'sub-agent', 'intent', 'flow-policy'],
   severity: 'error',
+  // Intentionally does not call applyOverrides — this rule cannot be overridden by itself
   check(context: LintContext): LintResult {
     const overrides = parseOverrideComments(context.source)
     const findings = []

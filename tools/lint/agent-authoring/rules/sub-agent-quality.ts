@@ -1,5 +1,6 @@
 import type { LintRule, LintContext, LintResult } from '../types'
 import { lintConfig } from '../config'
+import { hasActionVerb } from '../lib'
 
 export const subAgentQualityRule: LintRule = {
   id: 'R-15.4',
@@ -18,13 +19,15 @@ export const subAgentQualityRule: LintRule = {
       // Check description quality
       const trimmedDescription = agent.description.trim()
 
-      if (
-        trimmedDescription === '' ||
-        lintConfig.placeholderStrings.includes(trimmedDescription.toLowerCase())
-      ) {
+      if (trimmedDescription === '') {
         findings.push({
           locator,
-          message: `Sub-agent description is empty or a placeholder string (e.g. 'TBD'). Provide a meaningful description.`,
+          message: `Sub-agent description is empty`,
+        })
+      } else if (lintConfig.placeholderStrings.includes(trimmedDescription.toLowerCase())) {
+        findings.push({
+          locator,
+          message: `Sub-agent description is a placeholder string — replace it with a meaningful description`,
         })
       } else if (trimmedDescription.length < lintConfig.minWhenToUseChars) {
         findings.push({
@@ -35,24 +38,29 @@ export const subAgentQualityRule: LintRule = {
         })
       }
 
-      // Check whenToUse quality (mirrors R-15.1 on sub-agent surface)
+      // Check whenToUse quality (mirrors R-15.1 on sub-agent surface).
+      // Length is the primary check; if it fails we skip the verb check because
+      // the fix (expanding the text) will also resolve any missing verb.
       if (agent.whenToUse.length < lintConfig.minWhenToUseChars) {
         findings.push({
           locator,
           message: `Sub-agent 'whenToUse' must be at least ${lintConfig.minWhenToUseChars} characters. Current: ${agent.whenToUse.length} characters.`,
           suggestion: 'Provide clear guidance on when this sub-agent should be used.',
         })
+        // Skip the verb check — fixing the length will resolve any missing verb too.
+        // Check promptTemplate.variables before continuing to the next agent.
+        if (agent.promptTemplateVariables.length === 0) {
+          findings.push({
+            locator,
+            message: `Sub-agent must declare at least one prompt template variable.`,
+            suggestion: 'Declare at least one prompt template variable (e.g. userDisplayName)',
+          })
+        }
+        continue
       }
 
-      // Check for action verbs in whenToUse (case-insensitive, word boundary match)
-      const whenToUseLower = agent.whenToUse.toLowerCase()
-      const hasActionVerb = lintConfig.actionVerbs.some((verb) => {
-        // Word boundary regex: \b matches word boundaries
-        const regex = new RegExp(`\\b${verb}\\b`)
-        return regex.test(whenToUseLower)
-      })
-
-      if (!hasActionVerb) {
+      // FAIL if no action verb from lintConfig.actionVerbs appears (word boundary match, case-insensitive)
+      if (!hasActionVerb(agent.whenToUse)) {
         findings.push({
           locator,
           message: `Sub-agent 'whenToUse' must contain at least one action verb (e.g. ${lintConfig.actionVerbs.slice(0, 3).join(', ')}).`,

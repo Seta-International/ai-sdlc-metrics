@@ -1,5 +1,6 @@
 import type { LintRule, LintContext, LintResult } from '../types'
 import { lintConfig } from '../config'
+import { hasActionVerb } from '../lib'
 
 export const toolMetaWhenToUseRule: LintRule = {
   id: 'R-15.1',
@@ -28,12 +29,7 @@ export const toolMetaWhenToUseRule: LintRule = {
       }
 
       // FAIL if no action verb from lintConfig.actionVerbs appears (word boundary match, case-insensitive)
-      const lc = meta.whenToUse.toLowerCase()
-      const hasActionVerb = lintConfig.actionVerbs.some((verb) =>
-        new RegExp(`\\b${verb}\\b`).test(lc),
-      )
-
-      if (!hasActionVerb) {
+      if (!hasActionVerb(meta.whenToUse)) {
         findings.push({
           locator,
           message: `'whenToUse' on procedure '${meta.procedureName}' contains no recognized action verb.`,

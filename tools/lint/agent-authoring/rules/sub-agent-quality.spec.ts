@@ -92,7 +92,7 @@ describe('subAgentQualityRule (R-15.4)', () => {
 
     expect(result.passed).toBe(false)
     expect(result.findings).toHaveLength(1)
-    expect(result.findings[0].message).toContain('placeholder')
+    expect(result.findings[0].message).toContain('empty')
   })
 
   it('FAIL: description is whitespace only', () => {
@@ -112,7 +112,7 @@ describe('subAgentQualityRule (R-15.4)', () => {
 
     expect(result.passed).toBe(false)
     expect(result.findings).toHaveLength(1)
-    expect(result.findings[0].message).toContain('placeholder')
+    expect(result.findings[0].message).toContain('empty')
   })
 
   it('FAIL: whenToUse too short (< 80 chars)', () => {
