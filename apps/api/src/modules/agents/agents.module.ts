@@ -17,6 +17,9 @@ import { ExposureContractGuard } from './infrastructure/guards/exposure-contract
 import { ToolPermissionGuard } from './infrastructure/guards/tool-permission.guard'
 import { KernelModule } from '../kernel/kernel.module'
 import { KernelAuditFacade } from '../kernel/application/facades/kernel-audit.facade'
+import { KernelQueryFacade } from '../kernel/application/facades/kernel-query.facade'
+import { AdminModule } from '../admin/admin.module'
+import { AdminQueryFacade } from '../admin/application/facades/admin-query.facade'
 // Repository tokens — pre-Plan 04
 import { AGENT_CHAT_SESSION_REPOSITORY } from './domain/repositories/agent-chat-session.repository'
 import { AGENT_SESSION_PORT } from './domain/ports/agent-session.port'
@@ -109,7 +112,26 @@ import { RouterLlmClient, ROUTER_LLM_CLIENT } from './infrastructure/llm/router-
 import {
   RouterSessionOrchestrator,
   ROUTER_SESSION_ORCHESTRATOR,
+  type RouteTurnOpts,
+  type RouteTurnResult,
 } from './application/services/router-session-orchestrator'
+// Plan 18 Task 5/6/7 — Bounded executor + turn pipeline runner + render helpers
+import { BoundedExecutor, BOUNDED_EXECUTOR } from './application/services/bounded-executor'
+import {
+  TurnPipelineRunner,
+  TURN_PIPELINE_RUNNER,
+  RUN_PIPELINE_FN,
+  type RunPipelineFn,
+  type TurnPipelineResult,
+} from './application/services/turn-pipeline-runner'
+import {
+  collectPermissionKeys,
+  collectToolNames,
+  renderAnswerToMarkdown,
+} from './application/services/render-answer'
+import type { PhaseExecutionResult } from './application/services/phase-executor-contracts'
+import type { SubAgentKey } from './domain/services/sub-agent-types'
+import type { BoundedPlan } from './domain/value-objects/router-plan-schema'
 // Gateway pipeline (Task 5)
 import { ToolRegistry, TOOL_REGISTRY } from './infrastructure/tool-registry/tool-registry'
 import { TrpcCallerImpl } from './application/services/trpc-caller'
@@ -345,6 +367,7 @@ class NullTenantLister implements TenantListerLike {
 @Module({
   imports: [
     KernelModule,
+    AdminModule,
     NotificationsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -403,6 +426,124 @@ class NullTenantLister implements TenantListerLike {
     // ── Router session orchestrator (Task 10) ──────────────────────────────────
     RouterSessionOrchestrator,
     { provide: ROUTER_SESSION_ORCHESTRATOR, useExisting: RouterSessionOrchestrator },
+    // ── Plan 18 — Bounded executor + live turn pipeline runner ────────────────
+    BoundedExecutor,
+    { provide: BOUNDED_EXECUTOR, useExisting: BoundedExecutor },
+    TurnPipelineRunner,
+    { provide: TURN_PIPELINE_RUNNER, useExisting: TurnPipelineRunner },
+    {
+      // RUN_PIPELINE_FN — the live composition closure consumed by
+      // TurnPipelineRunner. Composes RouterSessionOrchestrator (router LLM +
+      // iterative dispatch) + BoundedExecutor (bounded fan-out) + WindowBuilder
+      // (γ/α memory) + KernelQueryFacade (role permissions) + AdminQueryFacade
+      // (enabled module set). Pre-router DB reads are sequential per CLAUDE.md
+      // (request-bound PoolClient, no Promise.all).
+      provide: RUN_PIPELINE_FN,
+      inject: [
+        ROUTER_SESSION_ORCHESTRATOR,
+        BOUNDED_EXECUTOR,
+        WINDOW_BUILDER,
+        KernelQueryFacade,
+        AdminQueryFacade,
+      ],
+      useFactory: (
+        routerOrchestrator: RouterSessionOrchestrator,
+        boundedExecutor: BoundedExecutor,
+        windowBuilder: WindowBuilder,
+        kernelQuery: KernelQueryFacade,
+        adminQuery: AdminQueryFacade,
+      ): RunPipelineFn => {
+        return async (input) => {
+          const {
+            userUtterance,
+            conversationId,
+            requestContext,
+            abortSignal,
+            streamEmitter,
+            turnState,
+          } = input
+
+          // ── Sequential pre-router reads (CLAUDE.md DB rule) ──────────────────
+          const recentSummary =
+            requestContext.surface === 'inline'
+              ? await windowBuilder.buildInline({
+                  conversationId,
+                  tenantId: requestContext.tenantId,
+                })
+              : await windowBuilder.buildGlobal({
+                  conversationId,
+                  tenantId: requestContext.tenantId,
+                })
+          const rolePermissions = await kernelQuery.getRolePermissions(
+            requestContext.roleKey,
+            requestContext.tenantId,
+          )
+          const enabledModules = await adminQuery.listEnabledModules(requestContext.tenantId)
+
+          const roleAllowedPermissions: ReadonlySet<string> = new Set(
+            rolePermissions.permissions.map((p) => p.permissionKey),
+          )
+
+          const routeOpts: RouteTurnOpts = {
+            tenantId: requestContext.tenantId,
+            userId: requestContext.userId,
+            roleKey: requestContext.roleKey,
+            roleAllowedPermissions,
+            enabledModules,
+            surface: requestContext.surface,
+            conversationId,
+            turnTraceId: requestContext.traceId,
+            utterance: userUtterance,
+            recentSummary,
+            promptVariables: new Map<SubAgentKey, Record<string, unknown>>(),
+          }
+
+          // RouterSessionOrchestrator.routeTurn throws RouterLlmFailureError on
+          // infra failure (Plan 18 R-18.24). Let it propagate to the controller.
+          const routed: RouteTurnResult = await routerOrchestrator.routeTurn(routeOpts)
+
+          if (routed.kind === 'disambiguation') {
+            return {
+              toolCallNames: [],
+              shape: 'refusal',
+              permissionKeys: [],
+              taintFlipped: turnState.tainted.value,
+              renderedAssistantMessage: routed.reason,
+              turnEndReason: 'refused',
+              drafts: [],
+            }
+          }
+
+          if (routed.kind === 'iterative') {
+            // The router orchestrator already executed the iterative supervisor
+            // loop; results have been streamed by IterativeOrchestrator. Translate
+            // PhaseExecutionResult into TurnPipelineResult without re-emitting
+            // SSE events.
+            return phaseResultToPipelineResult(routed.result, turnState.tainted.value)
+          }
+
+          // routed.kind === 'bounded' — plan.topology may be 'bounded' or 'direct'.
+          // Direct execution (Tier 0, single tool, no synthesizer) is not yet
+          // wired to a live executor — Plan 18 scope covers bounded + iterative.
+          if (routed.plan.topology !== 'bounded') {
+            throw new Error(
+              `RUN_PIPELINE_FN: topology '${routed.plan.topology}' not yet supported by live pipeline`,
+            )
+          }
+
+          const boundedPlan = routed.plan as BoundedPlan
+          const phaseResult = await boundedExecutor.execute({
+            plan: boundedPlan,
+            userUtterance,
+            turnState,
+            abortSignal,
+            streamEmitter,
+          })
+
+          return phaseResultToPipelineResult(phaseResult, turnState.tainted.value)
+        }
+      },
+    },
     // ── Gateway pipeline (Task 5) ──────────────────────────────────────────────
     ToolRegistry,
     // TrpcCallerImpl requires BASE_DB_TOKEN (raw pool — not the request-bound DB_TOKEN proxy)
@@ -980,5 +1121,65 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
 
     // Step 17: Register Plan 14 semantic cache sweeper (5-minute sweep of expired cache rows)
     await this.semanticCacheSweeper.registerJob(this.pgBossService)
+  }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Translate a PhaseExecutionResult into a TurnPipelineResult.
+ *
+ * Used by the RUN_PIPELINE_FN factory above for both bounded (BoundedExecutor)
+ * and iterative (already executed inside RouterSessionOrchestrator) paths.
+ *
+ * `taintFlipped` reflects the request-bound `turnState.tainted.value` at the
+ * time the result is produced — any sub-agent flipping the flag during ReAct
+ * propagates here.
+ */
+function phaseResultToPipelineResult(
+  r: PhaseExecutionResult,
+  taintFlipped: boolean,
+): TurnPipelineResult {
+  switch (r.kind) {
+    case 'synthesized':
+      return {
+        toolCallNames: collectToolNames(r.answer),
+        shape: r.answer.shape,
+        permissionKeys: collectPermissionKeys(r.answer),
+        taintFlipped,
+        renderedAssistantMessage: renderAnswerToMarkdown(r.answer),
+        turnEndReason: 'completed',
+        drafts: r.drafts,
+      }
+    case 'partial':
+      return {
+        toolCallNames: collectToolNames(r.answer),
+        shape: r.answer.shape,
+        permissionKeys: collectPermissionKeys(r.answer),
+        taintFlipped,
+        renderedAssistantMessage: renderAnswerToMarkdown(r.answer),
+        turnEndReason: 'completed',
+        drafts: [],
+      }
+    case 'disambiguation':
+      return {
+        toolCallNames: [],
+        shape: 'refusal',
+        permissionKeys: [],
+        taintFlipped,
+        renderedAssistantMessage: r.question,
+        turnEndReason: 'refused',
+        drafts: [],
+      }
+    case 'aborted':
+      return {
+        toolCallNames: [],
+        shape: 'aborted',
+        permissionKeys: [],
+        taintFlipped,
+        renderedAssistantMessage: '',
+        turnEndReason: 'cancelled',
+        drafts: [],
+      }
   }
 }

@@ -8,6 +8,7 @@ import { ExportAuditLogHandler } from './application/queries/export-audit-log.ha
 import { IsPlannerEnabledHandler } from './application/queries/is-planner-enabled.handler'
 import { GetPlannerViewFlagsHandler } from './application/queries/get-planner-view-flags.handler'
 import { GetTenantTimezoneHandler } from './application/queries/get-tenant-timezone.handler'
+import { ListEnabledModulesHandler } from './application/queries/list-enabled-modules.handler'
 import { UpdateTenantTimezoneHandler } from './application/commands/update-tenant-timezone.handler'
 import { ListPlatformTenantsHandler } from './application/queries/list-platform-tenants.handler'
 import { UpdateTargetTenantStatusHandler } from './application/commands/update-target-tenant-status.handler'
@@ -30,6 +31,7 @@ import { LocalDevSecretsStoreAdapter } from '../../common/secrets/local-dev-secr
     IsPlannerEnabledHandler,
     GetPlannerViewFlagsHandler,
     GetTenantTimezoneHandler,
+    ListEnabledModulesHandler,
     UpdateTenantTimezoneHandler,
     ListPlatformTenantsHandler,
     UpdateTargetTenantStatusHandler,
