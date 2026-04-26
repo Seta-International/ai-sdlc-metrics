@@ -1829,9 +1829,9 @@ describe('ToolGateway read-only policy envelope (Plan 09 R-09.6a)', () => {
     expect(callFn).toHaveBeenCalledOnce()
   })
 
-  // ── Test: mutation tool allowed when policy is absent ─────────────────────
+  // ── Test: mutation tool allowed when policy is INTERACTIVE_POLICY (readOnly: false) ──────────
 
-  it('allows a mutation tool when no policy is specified (backward-compat default)', async () => {
+  it('allows a mutation tool under INTERACTIVE_POLICY (readOnly: false)', async () => {
     const mutationDescriptor = makeDescriptor({
       name: 'people.updateEmployee',
       procedure: 'mutation',
@@ -1847,7 +1847,7 @@ describe('ToolGateway read-only policy envelope (Plan 09 R-09.6a)', () => {
       makeInput({
         toolName: 'people.updateEmployee',
         subAgentScope: ['people:employee:write'],
-        // policy is absent
+        // policy defaults to INTERACTIVE_POLICY (readOnly: false) via makeInput
       }),
     )
 

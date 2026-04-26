@@ -440,7 +440,7 @@ export class ToolGateway {
     // Draft-creation is NOT refused here because drafts are proposals (plan 08); the
     // actual write happens at approval time. Only direct `mutation` procedure execution
     // is refused under a read-only policy.
-    if (input.policy?.readOnly === true && descriptor.procedure === 'mutation') {
+    if (input.policy.readOnly === true && descriptor.procedure === 'mutation') {
       const rawContext = { toolName: descriptor.name, reason: 'read_only_policy' }
       const auditStart = Date.now()
       await withGatewayStep(

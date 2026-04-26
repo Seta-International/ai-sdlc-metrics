@@ -711,5 +711,135 @@ describe('ScheduledTurnWorker', () => {
 
       expect(notificationsFacade.sendDraftApprovalNotification).not.toHaveBeenCalled()
     })
+
+    // ── I-2 / R-09.30: count=3 auto-pause always notifies owner regardless of failureAlertPolicy ─
+
+    it('auto-pause at count=3 notifies owner even with failureAlertPolicy=silent (R-09.30)', async () => {
+      // Prior count=2 + this failure = 3 → triggers auto-pause → must notify regardless of 'silent'
+      scheduleRepo = makeScheduleRepo({
+        getById: vi
+          .fn()
+          .mockResolvedValue(
+            makeSchedule({ consecutiveFailureCount: 2, failureAlertPolicy: 'silent' }),
+          ),
+      })
+      const error = new Error('third failure — silent policy')
+      scheduleRunRepo = makeScheduleRunRepo({
+        insert: vi.fn().mockResolvedValue(makeScheduleRun()),
+        updateOutcome: vi.fn().mockRejectedValue(error),
+      })
+      worker = buildWorker({
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+        scheduledTurnService,
+      })
+
+      await expect(worker.handle(makeJob())).rejects.toThrow('third failure — silent policy')
+
+      // Schedule must be paused
+      expect(scheduleRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          consecutiveFailureCount: 3,
+          status: 'paused',
+          pauseReason: 'consecutive_failures',
+        }),
+      )
+      // Owner MUST be notified despite 'silent' policy (R-09.30)
+      expect(notificationsFacade.sendDraftApprovalNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: TENANT_ID }),
+      )
+    })
+
+    it('auto-pause at count=3 notifies owner even with failureAlertPolicy=admin_only (R-09.30)', async () => {
+      scheduleRepo = makeScheduleRepo({
+        getById: vi
+          .fn()
+          .mockResolvedValue(
+            makeSchedule({ consecutiveFailureCount: 2, failureAlertPolicy: 'admin_only' }),
+          ),
+      })
+      const error = new Error('third failure — admin_only policy')
+      scheduleRunRepo = makeScheduleRunRepo({
+        insert: vi.fn().mockResolvedValue(makeScheduleRun()),
+        updateOutcome: vi.fn().mockRejectedValue(error),
+      })
+      worker = buildWorker({
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+        scheduledTurnService,
+      })
+
+      await expect(worker.handle(makeJob())).rejects.toThrow('third failure — admin_only policy')
+
+      expect(notificationsFacade.sendDraftApprovalNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: TENANT_ID }),
+      )
+    })
+
+    // ── I-2: pipeline-return path respects failureAlertPolicy when not auto-pausing ─
+
+    it('pipeline-return refused (count=1, no auto-pause) does NOT notify owner when policy=silent', async () => {
+      scheduledTurnService = makeScheduledTurnService({
+        outcome: 'refused',
+        costSpentUsd: 0,
+        refusedToolName: 'planner.createTask',
+      })
+      scheduleRepo = makeScheduleRepo({
+        getById: vi
+          .fn()
+          .mockResolvedValue(
+            makeSchedule({ consecutiveFailureCount: 0, failureAlertPolicy: 'silent' }),
+          ),
+      })
+      worker = buildWorker({
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+        scheduledTurnService,
+      })
+
+      await worker.handle(makeJob())
+
+      // policy=silent and no auto-pause → notification must NOT be sent
+      expect(notificationsFacade.sendDraftApprovalNotification).not.toHaveBeenCalled()
+    })
+
+    it('pipeline-return refused at count=3 (auto-pause) notifies owner even with policy=silent (R-09.30)', async () => {
+      scheduledTurnService = makeScheduledTurnService({
+        outcome: 'refused',
+        costSpentUsd: 0,
+        refusedToolName: 'planner.createTask',
+      })
+      scheduleRepo = makeScheduleRepo({
+        getById: vi
+          .fn()
+          .mockResolvedValue(
+            makeSchedule({ consecutiveFailureCount: 2, failureAlertPolicy: 'silent' }),
+          ),
+      })
+      worker = buildWorker({
+        scheduleRepo,
+        scheduleRunRepo,
+        delegationFacade,
+        auditFacade,
+        notificationsFacade,
+        scheduledTurnService,
+      })
+
+      await worker.handle(makeJob())
+
+      // count=3 auto-pause → must notify owner regardless of 'silent' (R-09.30)
+      expect(notificationsFacade.sendDraftApprovalNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: TENANT_ID }),
+      )
+    })
   })
 })

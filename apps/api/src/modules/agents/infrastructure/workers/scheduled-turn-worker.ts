@@ -16,8 +16,6 @@ import { ScheduledTurnService } from '../../application/services/scheduled-turn-
 
 export { type ScheduledTurnJob }
 
-export const SCHEDULED_TURN_JOB_NAME = 'agent.scheduled-turn'
-
 @Injectable()
 export class ScheduledTurnWorker {
   private readonly logger = new Logger(ScheduledTurnWorker.name)
@@ -104,7 +102,9 @@ export class ScheduledTurnWorker {
 
       // Step 5: Execute real turn pipeline under read-only policy envelope (R-09.6a)
       // This replaces the dry-run stub. The ScheduledTurnService calls ToolGateway
-      // with READ_ONLY_POLICY, which refuses any mutation tool (policy_violation tripwire).
+      // calling real ToolGateway.invoke for the first permitted tool (MVP deterministic
+      // path; full LLM ReAct loop deferred to Plan 03 integration).
+      // READ_ONLY_POLICY refuses any mutation tool (policy_violation tripwire).
       const turnResult = await this.scheduledTurnService.executeScheduledTurn({
         tenantId,
         userOnBehalfOf: job.user_on_behalf_of,
@@ -165,9 +165,23 @@ export class ScheduledTurnWorker {
         }
       }
 
-      // Step 8: Notify owner (personal schedule) or log for tenant-wide
+      // Step 8: Notify owner — behaviour depends on outcome:
+      //   • completed: always notify (owner awareness of run result)
+      //   • non-completed: respect failureAlertPolicy UNLESS this run triggered auto-pause
+      //     (count=3), in which case always notify regardless of policy (R-09.30).
       const notifyUserId = schedule.ownerUserId ?? job.user_on_behalf_of
-      if (notifyUserId !== null) {
+      let shouldNotifyOwner: boolean
+      if (runOutcome === 'completed') {
+        shouldNotifyOwner = true
+      } else {
+        const newFailureCount = schedule.consecutiveFailureCount + 1
+        const shouldPause = newFailureCount >= 3
+        const policy = schedule.failureAlertPolicy ?? 'owner_and_admin'
+        shouldNotifyOwner = shouldPause
+          ? true // R-09.30: count=3 always notifies regardless of policy
+          : policy !== 'silent' && policy !== 'admin_only'
+      }
+      if (shouldNotifyOwner && notifyUserId !== null) {
         try {
           await this.notificationsWriteFacade.sendDraftApprovalNotification({
             tenantId,
@@ -231,9 +245,12 @@ export class ScheduledTurnWorker {
         ...(shouldPause ? { status: 'paused' as const, pauseReason: 'consecutive_failures' } : {}),
       })
 
-      // Notify owner per failure (counts 1, 2, and auto-pause at 3+), respecting failureAlertPolicy
+      // Notify owner per failure, respecting failureAlertPolicy — EXCEPT at the count=3 auto-pause
+      // threshold which always notifies the owner regardless of policy (R-09.30).
       const policy = schedule.failureAlertPolicy ?? 'owner_and_admin'
-      const shouldNotifyOwner = policy !== 'silent' && policy !== 'admin_only'
+      const shouldNotifyOwner = shouldPause
+        ? true // R-09.30: count=3 always notifies regardless of policy
+        : policy !== 'silent' && policy !== 'admin_only'
       const notifyUserId = schedule.ownerUserId ?? job.user_on_behalf_of
 
       if (shouldNotifyOwner && notifyUserId !== null) {

@@ -18,7 +18,6 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common'
-import { uuidv7 } from 'uuidv7'
 import { ToolGateway } from './tool-gateway'
 import { READ_ONLY_POLICY } from '../../domain/value-objects/turn-policy'
 import { L1Cache } from '../../infrastructure/cache/l1-cache'
@@ -228,13 +227,5 @@ export class ScheduledTurnService {
 
     // Success
     return { outcome: 'completed', costSpentUsd: 0 }
-  }
-
-  /**
-   * Generate the trace ID for this scheduled run.
-   * Exposed so callers can stamp the run row before calling executeScheduledTurn.
-   */
-  static mintTraceId(): string {
-    return uuidv7()
   }
 }

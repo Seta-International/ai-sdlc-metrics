@@ -76,7 +76,10 @@ import { TaintSeedDetector } from './application/services/taint-seed-detector'
 import { ScheduledTurnSpawner } from './application/services/scheduled-turn-spawner'
 import { ScheduledTurnService } from './application/services/scheduled-turn-service'
 import { ScheduledTurnWorker } from './infrastructure/workers/scheduled-turn-worker'
-import type { ScheduledTurnJob } from './infrastructure/workers/scheduled-turn-worker'
+import {
+  SCHEDULED_TURN_QUEUE,
+  type ScheduledTurnJob,
+} from './application/services/scheduled-turn-contracts'
 import { DelegationExpirySweeper } from './infrastructure/workers/delegation-expiry-sweep'
 import { SemanticResultCache } from './infrastructure/cache/semantic-result-cache'
 import { SemanticCacheSweeper } from './infrastructure/workers/semantic-cache-sweeper'
@@ -898,7 +901,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     // Step 10: Register scheduled-turn worker (Plan 09).
     // Processes agent.scheduled-turn jobs enqueued by ScheduledTurnSpawner.
     await this.pgBossService.registerWorker<ScheduledTurnJob>(
-      'agent.scheduled-turn',
+      SCHEDULED_TURN_QUEUE,
       async (jobs) => {
         for (const job of jobs) {
           await this.scheduledTurnWorker.handle(job.data)
