@@ -31,6 +31,7 @@ import { trace, context } from '@opentelemetry/api'
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks'
 import { RouterSessionOrchestrator } from './router-session-orchestrator'
 import type { RouteTurnOpts } from './router-session-orchestrator'
+import { RouterLlmFailureError } from './pipeline-errors'
 import type { AgentSessionEntry } from '../../domain/ports/agent-session.port'
 import type { RouterPlan } from '../../domain/value-objects/router-plan-schema'
 import type { WindowedSummaries } from '../../domain/value-objects/windowed-summaries'
@@ -441,26 +442,10 @@ describe('RouterSessionOrchestrator', () => {
 
   // ── 3. Retry path ──────────────────────────────────────────────────────────
 
-  it('retry: first LLM call malformed → second succeeds → parseRetries=1', async () => {
-    const { orchestrator } = buildOrchestrator({
-      llmResults: [
-        { kind: 'malformed', error: new Error('sdk error'), rawText: null },
-        { kind: 'ok', plan: VALID_PLAN },
-      ],
-      parseResults: [
-        { kind: 'ok', plan: VALID_PLAN }, // second call parse
-      ],
-    })
-
-    const result = await orchestrator.routeTurn(BASE_OPTS)
-
-    expect(result.kind).toBe('bounded')
-    if (result.kind === 'bounded') {
-      expect(result.parseRetries).toBe(1)
-    }
-    expect(mockRecordRouterParseRetry).toHaveBeenCalledOnce()
-    expect(mockRecordRouterParseRetry).toHaveBeenCalledWith(TENANT_ID)
-  })
+  // NOTE: Plan 18 R-18.24 — LLM-call malformed results (from RouterLlmClient.generate)
+  // now throw RouterLlmFailureError instead of triggering a retry. The
+  // schema-parse retry path (parser.parsePlan returning kind: 'retry') is
+  // preserved — see test below.
 
   it('retry: first parse returns retry → second LLM + parse succeeds → parseRetries=1', async () => {
     const { orchestrator } = buildOrchestrator({
@@ -485,32 +470,10 @@ describe('RouterSessionOrchestrator', () => {
 
   // ── 4. Escalation ──────────────────────────────────────────────────────────
 
-  it('escalation: both attempts fail → disambiguation + parse_escalated metric', async () => {
-    const { orchestrator, kernelAuditFacade } = buildOrchestrator({
-      llmResults: [
-        { kind: 'malformed', error: new Error('fail1'), rawText: null },
-        { kind: 'malformed', error: new Error('fail2'), rawText: null },
-      ],
-    })
-
-    const result = await orchestrator.routeTurn(BASE_OPTS)
-
-    expect(result.kind).toBe('disambiguation')
-    if (result.kind === 'disambiguation') {
-      expect(result.parseRetries).toBe(1)
-      expect(result.reason).toBe('parse_escalated_after_retry')
-    }
-    expect(kernelAuditFacade.recordEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventType: 'refusal.started',
-        payload: expect.objectContaining({
-          reason: 'disambiguation',
-          underlying_reason: 'parse_escalated_after_retry',
-        }),
-      }),
-    )
-    expect(mockRecordRouterDecision).toHaveBeenCalledWith(TENANT_ID, 'parse_escalated')
-  })
+  // NOTE: Plan 18 R-18.24 — the "both LLM calls malformed → disambiguation"
+  // path is gone; the first malformed result throws RouterLlmFailureError
+  // before a retry is attempted. The escalation path that REMAINS is when
+  // BOTH parser.parsePlan attempts return kind: 'retry' (see test below).
 
   it('escalation via parse: both parse calls return retry → escalate', async () => {
     const { orchestrator, kernelAuditFacade } = buildOrchestrator({
@@ -748,8 +711,12 @@ describe('RouterSessionOrchestrator', () => {
   it('escalation: emits router-decision:parse span with parse_outcome=escalate (Plan 02 §8)', async () => {
     const { orchestrator } = buildOrchestrator({
       llmResults: [
-        { kind: 'malformed', error: new Error('fail1'), rawText: null },
-        { kind: 'malformed', error: new Error('fail2'), rawText: null },
+        { kind: 'ok', plan: VALID_PLAN },
+        { kind: 'ok', plan: VALID_PLAN },
+      ],
+      parseResults: [
+        { kind: 'retry', reason: 'fail1', schemaInjectedPrompt: 'fix' },
+        { kind: 'retry', reason: 'fail2', schemaInjectedPrompt: 'fix again' },
       ],
     })
 
@@ -758,8 +725,7 @@ describe('RouterSessionOrchestrator', () => {
     const finished = spanExporter.getFinishedSpans() as ReadableSpan[]
     const parseSpans = finished.filter((s) => s.name === 'router-decision:parse')
 
-    // Attempt 1 fail → parse_outcome='retry', attempt 2 fail → parse_outcome='retry',
-    // then escalation → parse_outcome='escalate'
+    // Both parse attempts return retry → escalation → parse_outcome='escalate'
     const escalateSpan = parseSpans.find((s) => s.attributes['parse_outcome'] === 'escalate')
     expect(escalateSpan).toBeDefined()
     expect(escalateSpan?.attributes['retry_round']).toBe(1)
@@ -804,11 +770,15 @@ describe('RouterSessionOrchestrator', () => {
     expect(result.kind).toBe('bounded')
   })
 
-  it('audit error boundary: recordEvent throws on escalation → routeTurn returns disambiguation ok', async () => {
+  it('audit error boundary: recordEvent throws on parse-escalation → routeTurn returns disambiguation ok', async () => {
     const { orchestrator, kernelAuditFacade } = buildOrchestrator({
       llmResults: [
-        { kind: 'malformed', error: new Error('fail1'), rawText: null },
-        { kind: 'malformed', error: new Error('fail2'), rawText: null },
+        { kind: 'ok', plan: VALID_PLAN },
+        { kind: 'ok', plan: VALID_PLAN },
+      ],
+      parseResults: [
+        { kind: 'retry', reason: 'fail1', schemaInjectedPrompt: 'fix' },
+        { kind: 'retry', reason: 'fail2', schemaInjectedPrompt: 'fix again' },
       ],
     })
 
@@ -821,6 +791,65 @@ describe('RouterSessionOrchestrator', () => {
   })
 
   // ── 16. Metric error boundary (P1.2) ───────────────────────────────────────
+
+  // ── Plan 18 R-18.24: typed throw on router LLM infra failures ───────────────
+
+  it('Plan 18 R-18.24: LLM 5xx → throws RouterLlmFailureError(failureCause: llm_5xx)', async () => {
+    const llm5xx = Object.assign(new Error('upstream 503'), { statusCode: 503 })
+    const { orchestrator } = buildOrchestrator({
+      llmResults: [{ kind: 'malformed', error: llm5xx, rawText: null }],
+    })
+
+    await expect(orchestrator.routeTurn(BASE_OPTS)).rejects.toBeInstanceOf(RouterLlmFailureError)
+    await expect(orchestrator.routeTurn(BASE_OPTS)).rejects.toMatchObject({
+      failureCause: 'llm_5xx',
+    })
+  })
+
+  it('Plan 18 R-18.24: LLM timeout (AbortError) → failureCause: llm_timeout', async () => {
+    const abortErr = Object.assign(new Error('aborted'), { name: 'AbortError' })
+    const { orchestrator } = buildOrchestrator({
+      llmResults: [{ kind: 'malformed', error: abortErr, rawText: null }],
+    })
+
+    await expect(orchestrator.routeTurn(BASE_OPTS)).rejects.toMatchObject({
+      failureCause: 'llm_timeout',
+    })
+  })
+
+  it('Plan 18 R-18.24: LLM auth error (401) → failureCause: auth_error', async () => {
+    const authErr = Object.assign(new Error('unauthorized'), { statusCode: 401 })
+    const { orchestrator } = buildOrchestrator({
+      llmResults: [{ kind: 'malformed', error: authErr, rawText: null }],
+    })
+
+    await expect(orchestrator.routeTurn(BASE_OPTS)).rejects.toMatchObject({
+      failureCause: 'auth_error',
+    })
+  })
+
+  it('Plan 18 R-18.24: LLM auth error (403) → failureCause: auth_error', async () => {
+    const authErr = Object.assign(new Error('forbidden'), { statusCode: 403 })
+    const { orchestrator } = buildOrchestrator({
+      llmResults: [{ kind: 'malformed', error: authErr, rawText: null }],
+    })
+
+    await expect(orchestrator.routeTurn(BASE_OPTS)).rejects.toMatchObject({
+      failureCause: 'auth_error',
+    })
+  })
+
+  it('Plan 18 R-18.24: underlying error preserved on standard Error.cause', async () => {
+    const origin = Object.assign(new Error('upstream 502'), { statusCode: 502 })
+    const { orchestrator } = buildOrchestrator({
+      llmResults: [{ kind: 'malformed', error: origin, rawText: null }],
+    })
+
+    await expect(orchestrator.routeTurn(BASE_OPTS)).rejects.toMatchObject({
+      failureCause: 'llm_5xx',
+      cause: origin,
+    })
+  })
 
   it('metric error boundary: recordRouterDecision throws → routeTurn still returns bounded ok', async () => {
     const { orchestrator } = buildOrchestrator({
