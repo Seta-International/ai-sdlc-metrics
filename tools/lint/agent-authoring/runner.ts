@@ -18,6 +18,7 @@ import {
   intentSlugUniquenessRule,
   flowPolicyKeyUniquenessRule,
   overrideJustificationRule,
+  subAgentGoldenTraceGateRule,
 } from './rules/index'
 import {
   parseToolMetas,
@@ -73,7 +74,6 @@ export function detectScope(filePath: string, source: string): LintScope | null 
 
 /**
  * Per-file rules — run against each file independently.
- * R-15.10 (golden-trace) is Task 7; not yet implemented.
  */
 const PER_FILE_RULES: LintRule[] = [
   toolMetaWhenToUseRule, // R-15.1
@@ -81,6 +81,7 @@ const PER_FILE_RULES: LintRule[] = [
   toolMetaExamplesNegativeRule, // R-15.3
   subAgentQualityRule, // R-15.4
   toolMetaContradictionRule, // R-15.9
+  subAgentGoldenTraceGateRule, // R-15.10
   overrideJustificationRule, // R-15.11
 ]
 
