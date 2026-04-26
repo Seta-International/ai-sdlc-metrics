@@ -178,7 +178,7 @@ describe('ShadowTurnWorker', () => {
       expect(insertedRow.shadowTraceId.length).toBeGreaterThan(0)
     })
 
-    it('writes diff_category=shadow_completed (not shadow_errored) when candidate runs successfully', async () => {
+    it("writes diff_category='identical' when candidate runs successfully (mock scorer returns 'identical' for non-null output)", async () => {
       const payload = makeJobPayload()
       await worker.handle([makeJob(payload)])
 
@@ -186,8 +186,9 @@ describe('ShadowTurnWorker', () => {
       const valuesMock = dbInsertMock.mock.results[0].value.values as ReturnType<typeof vi.fn>
       const insertedRow = valuesMock.mock.calls[0][0]
 
-      // Candidate ran successfully → category reflects real diff (not shadow_errored)
-      expect(insertedRow.diffCategory).not.toBe('shadow_errored')
+      // Mock scorer returns 'identical' for non-null candidateOutput (see makeDiffScorer above).
+      // Valid diffCategory values: identical | minor_difference | major_difference | shadow_errored
+      expect(insertedRow.diffCategory).toBe('identical')
     })
 
     it('writes diff_category=shadow_errored when trpcCaller fails for all tools', async () => {

@@ -99,6 +99,11 @@ export class TrpcCallerImpl implements TrpcCaller {
     const { toolName, args, requestContext, mode } = input
 
     if (mode === 'dry-run' && this.db !== undefined) {
+      // TODO(follow-up): Every production write procedure must use `ctx.dryRunTx ?? baseDb`
+      // to inherit this rollback isolation. Procedures that inject DB_TOKEN directly (via
+      // NestJS DI) are NOT covered by this transaction — their writes will commit even in
+      // dry-run mode. This is a P1 incident risk per Plan 11 §7. Track adoption of
+      // `ctx.dryRunTx ?? baseDb` in all domain write procedures as a prerequisite for GA.
       return this.callInRollbackTransaction(toolName, args, requestContext)
     }
 
@@ -143,7 +148,7 @@ export class TrpcCallerImpl implements TrpcCaller {
     }
 
     // Unreachable — the transaction always either throws sentinel or an error
-    /* istanbul ignore next */
+    /* v8 ignore next */
     throw new Error('TrpcCallerImpl: unexpected execution path in dry-run transaction')
   }
 

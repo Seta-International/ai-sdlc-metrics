@@ -180,7 +180,7 @@ import type { ScratchpadRepository } from './domain/repositories/scratchpad.repo
 import type { SemanticIndexRepository } from './domain/repositories/semantic-index.repository'
 import type { IDraftRepository } from './domain/repositories/draft.repository'
 import { PgBossService } from '../../common/jobs/pg-boss.service'
-import { DB_TOKEN } from '../../common/db/db.module'
+import { DB_TOKEN, BASE_DB_TOKEN } from '../../common/db/db.module'
 import type { Db } from '@future/db'
 // Module sub-agent barrels.
 //   • Adding a sub-agent to an EXISTING module: re-export it from that module's
@@ -390,7 +390,15 @@ class NullTenantLister implements TenantListerLike {
     { provide: ROUTER_SESSION_ORCHESTRATOR, useExisting: RouterSessionOrchestrator },
     // ── Gateway pipeline (Task 5) ──────────────────────────────────────────────
     ToolRegistry,
-    TrpcCallerImpl,
+    // TrpcCallerImpl requires BASE_DB_TOKEN (raw pool — not the request-bound DB_TOKEN proxy)
+    // so that gateway-invoked dry-run calls open a real Postgres transaction for rollback
+    // isolation (Plan 11 R-11.1). Using DB_TOKEN would cause nested-transaction issues with
+    // RLS session state and violate the single-PoolClient-per-request rule.
+    {
+      provide: TrpcCallerImpl,
+      inject: [BASE_DB_TOKEN],
+      useFactory: (db: Db) => new TrpcCallerImpl(undefined, db),
+    },
     ToolGateway,
     // ── Sub-agent registry (Task 3) ────────────────────────────────────────────
     SubAgentRegistry,

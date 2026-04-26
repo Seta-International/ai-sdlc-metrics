@@ -99,7 +99,7 @@ function buildAdversarialRouter(baseDb: Db) {
 
 // ── Test ──────────────────────────────────────────────────────────────────────
 
-describe('TrpcCallerImpl — adversarial dry-run side-effect isolation (R-11.1)', () => {
+describe('TrpcCallerImpl — adversarial dry-run rollback mechanism (R-11.1 — mechanism only; production-procedure adoption tracked separately)', () => {
   let db: Db
 
   beforeAll(async () => {
