@@ -7,10 +7,14 @@
  *   B) kernel audit_event has flow_id and intent_slug columns (with indexes)
  *   C) agent_message_fts_idx GIN FTS index exists
  *   D) agent_tool_result_cache unique constraint exists
+ *   E) pg_policies: a <table>_tenant_isolation policy exists for every
+ *      RLS-protected table, with USING/WITH CHECK referencing current_setting
+ *   F) Unset tenant_id returns empty results (no PostgreSQL error)
  */
 import { sql } from 'drizzle-orm'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { createTestDb, migrateForTest } from '@future/db/test-helpers'
+import { AGENTS_TABLES } from '@future/db/rls-tables'
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -77,6 +81,30 @@ async function uniqueConstraintExists(
   return rows.rows.length > 0
 }
 
+/**
+ * Query pg_policies for a specific policy on a given table+schema.
+ * Returns the policy row (qual = USING expression, with_check = WITH CHECK expression).
+ */
+async function getPolicy(
+  db: ReturnType<typeof createTestDb>,
+  schema: string,
+  table: string,
+  policyName: string,
+): Promise<{ qual: string | null; with_check: string | null } | null> {
+  // Use the pg_policies system view (not pg_policy catalog) — it exposes
+  // qual and with_check as human-readable text expressions.
+  const rows = (await db.execute(sql`
+    SELECT qual, with_check
+    FROM pg_policies
+    WHERE schemaname = ${schema}
+      AND tablename  = ${table}
+      AND policyname = ${policyName}
+  `)) as unknown as {
+    rows: Array<{ qual: string | null; with_check: string | null }>
+  }
+  return rows.rows[0] ?? null
+}
+
 // ─── setup ────────────────────────────────────────────────────────────────────
 
 describe('Migration squash — P0 audit findings', () => {
@@ -88,41 +116,7 @@ describe('Migration squash — P0 audit findings', () => {
 
   // ─── Sub-fix A: RLS on all tenant-scoped agents.* tables ──────────────────
 
-  const AGENTS_TABLES_WITH_TENANT_ID = [
-    'agent_chat_session',
-    'agent_chat_message',
-    'agent_insight',
-    'agent_prompt_store',
-    'agent_narrative_store',
-    'agent_session',
-    'agent_stored_sub_agent',
-    'agent_conversation',
-    'agent_message',
-    'agent_l3_preference',
-    'agent_scratchpad',
-    'agent_tool_invocation',
-    'agent_turn_sampling_decision',
-    'agent_cost_event',
-    'agent_tenant_budget',
-    'agent_user_budget',
-    'agent_rate_limit_counter',
-    'agent_active_turn',
-    'agent_golden_trace',
-    'agent_canary_run',
-    'agent_canary_query',
-    'agent_rollout_config',
-    'agent_rollout_event',
-    'agent_shadow_run',
-    'agent_tool_result_cache',
-    'agent_draft',
-    'agent_iteration',
-    'agent_schedule',
-    'agent_schedule_run',
-    'agent_runbook_dry_run',
-    'agent_p1_incident_log',
-  ] as const
-
-  for (const table of AGENTS_TABLES_WITH_TENANT_ID) {
+  for (const table of AGENTS_TABLES) {
     it(`agents.${table}: RLS enabled and forced`, async () => {
       const row = await checkRls(db, 'agents', table)
       expect(row.relrowsecurity, `${table}.relrowsecurity`).toBe(true)
@@ -170,5 +164,74 @@ describe('Migration squash — P0 audit findings', () => {
   it('agents.agent_tool_result_cache_exact_uidx unique index exists', async () => {
     const exists = await uniqueConstraintExists(db, 'agents', 'agent_tool_result_cache_exact_uidx')
     expect(exists).toBe(true)
+  })
+
+  // ─── Sub-fix E: pg_policies — verify CREATE POLICY executed (M-1) ─────────
+  //
+  // Spot-check 5 representative tables first, then loop all to ensure no table
+  // was silently skipped.
+
+  const REPRESENTATIVE_TABLES = [
+    'agent_chat_session',
+    'agent_message',
+    'agent_tool_result_cache',
+    'agent_session',
+    'agent_cost_event',
+  ] as const
+
+  for (const table of REPRESENTATIVE_TABLES) {
+    it(`agents.${table}: policy ${table}_tenant_isolation exists in pg_policies with current_setting`, async () => {
+      const policy = await getPolicy(db, 'agents', table, `${table}_tenant_isolation`)
+      expect(policy, `${table}: policy row in pg_policies`).not.toBeNull()
+      expect(policy!.qual, `${table}: USING clause`).toContain('current_setting')
+      expect(policy!.with_check, `${table}: WITH CHECK clause`).toContain('current_setting')
+    })
+  }
+
+  it('all AGENTS_TABLES have a <table>_tenant_isolation policy in pg_policies', async () => {
+    for (const table of AGENTS_TABLES) {
+      const policyName = `${table}_tenant_isolation`
+      const policy = await getPolicy(db, 'agents', table, policyName)
+      expect(policy, `${table}: missing policy ${policyName}`).not.toBeNull()
+      expect(policy!.qual, `${table}: USING clause must reference current_setting`).toContain(
+        'current_setting',
+      )
+      expect(
+        policy!.with_check,
+        `${table}: WITH CHECK clause must reference current_setting`,
+      ).toContain('current_setting')
+    }
+  })
+
+  it('core.agent_delegation: policy agent_delegation_tenant_isolation exists in pg_policies', async () => {
+    const policy = await getPolicy(
+      db,
+      'core',
+      'agent_delegation',
+      'agent_delegation_tenant_isolation',
+    )
+    expect(policy, 'agent_delegation: policy row in pg_policies').not.toBeNull()
+    expect(policy!.qual, 'agent_delegation: USING clause').toContain('current_setting')
+    expect(policy!.with_check, 'agent_delegation: WITH CHECK clause').toContain('current_setting')
+  })
+
+  // ─── Sub-fix F: Unset tenant evaluates to empty result, not an error (C-1) ─
+  //
+  // With app.tenant_id NOT set, querying any RLS-protected table must return
+  // 0 rows (the predicate is NULL != uuid = FALSE) rather than raising a hard
+  // PostgreSQL ERROR like "unrecognized configuration parameter 'app.tenant_id'".
+
+  it('agents.agent_chat_session: query with app.tenant_id unset returns 0 rows, no error', async () => {
+    // Explicitly clear the session variable so we test the unset-path.
+    // current_setting('app.tenant_id', true) returns NULL when unset.
+    await db.execute(sql`SET LOCAL app.tenant_id = ''`)
+    await db.execute(sql`RESET app.tenant_id`)
+
+    // Querying should not throw — it should return an empty result set.
+    const result = (await db.execute(
+      sql`SELECT * FROM agents.agent_chat_session LIMIT 1`,
+    )) as unknown as { rows: unknown[] }
+
+    expect(result.rows).toHaveLength(0)
   })
 })

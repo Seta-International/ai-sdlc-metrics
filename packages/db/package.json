@@ -16,6 +16,10 @@
     "./test-helpers": {
       "import": "./src/test-helpers/index.ts",
       "types": "./src/test-helpers/index.ts"
+    },
+    "./rls-tables": {
+      "import": "./src/append-rls.ts",
+      "types": "./src/append-rls.ts"
     }
   },
   "scripts": {

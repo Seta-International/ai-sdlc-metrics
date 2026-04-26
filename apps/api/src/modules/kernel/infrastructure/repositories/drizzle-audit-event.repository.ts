@@ -47,16 +47,18 @@ export class DrizzleAuditEventRepository implements IAuditEventRepository {
 
     const where = and(...conditions)
 
-    const [items, countResult] = await Promise.all([
-      this.db
-        .select()
-        .from(auditEvent)
-        .where(where)
-        .orderBy(auditEvent.createdAt)
-        .limit(filter.limit)
-        .offset(filter.offset),
-      this.db.select({ value: count() }).from(auditEvent).where(where),
-    ])
+    // Sequential awaits — the request-bound DB uses a single PoolClient per
+    // request; concurrent queries on the same client cause pg errors. Match
+    // the pattern used by DrizzleAuditEventQueryRepository.
+    const items = await this.db
+      .select()
+      .from(auditEvent)
+      .where(where)
+      .orderBy(auditEvent.createdAt)
+      .limit(filter.limit)
+      .offset(filter.offset)
+
+    const countResult = await this.db.select({ value: count() }).from(auditEvent).where(where)
 
     return {
       items: items.map((row) => ({
