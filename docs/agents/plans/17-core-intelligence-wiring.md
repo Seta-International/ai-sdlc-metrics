@@ -4,6 +4,8 @@
 
 **Status:** Spec — closes the "Theme C — Core intelligence layer is stubbed" and "Theme E remainder — golden-trace-runner stub" findings from `docs/agents/audit/2026-04-26-INDEX.md`. The `sub-agent-runner.ts:160` `usageTotals` bug is a separate pre-PR landed independently.
 
+**Erratum (2026-04-26, post-Task 1):** During Task 2 setup we discovered the audit's Theme C extends deeper than sub-agent stubs: `agent-turn-controller.streamTurn()` has NO real pipeline body — it emits placeholder SSE events (`turn.started` → `phase.started` → empty `answer.token` → `answer.complete`) and closes the stream. The router, phase-executor, and synthesizer services are DI-registered but never invoked from the live request path. This means "production-ready" requires a separate, scoped plan ("Plan 18 — Live Turn Pipeline Composition") covering: (a) controller refactor to call `TurnPipelineRunner.run()`, (b) `RUN_PIPELINE_FN` factory composing router → phase-executor → synthesizer, (c) SSE event protocol bridge from synthesizer output, (d) error-path integration (budget refusal already wired by PR #105; add router/executor/synthesizer error handling), (e) integration tests covering the full live path. Plan 17 PRs 2 and 3 produce the real sub-agent runner and synthesizer that Plan 18 composes; Plan 17 PR 4 (golden-trace) consumes the same `TurnPipelineRunner` via `runWithReplay`. **Task 2 is reframed**: Plan 17 PR 1 ships the `TurnPipelineRunner` class + DI seam without the controller wiring (which moves to Plan 18). Plan 18 must brainstorm before implementation — the SSE protocol bridge and synthesizer-to-token streaming has real design questions.
+
 ---
 
 ## 1. Scope
