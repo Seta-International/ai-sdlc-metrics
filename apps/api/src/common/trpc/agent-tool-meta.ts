@@ -67,6 +67,16 @@ export interface AgentToolMeta {
     readonly requiredFields: ReadonlyArray<string>
     readonly optionalFields?: ReadonlyArray<string>
   }
+  /**
+   * Optional. When present, marks this query procedure as eligible for the
+   * semantic result cache (plan 14). Must NOT appear on `.mutation()` procedures
+   * (enforced by drift rule R-14.2).
+   *
+   * ttlSeconds: how long a cached result is valid.
+   * distanceThreshold: cosine similarity threshold for semantic match (0–1, higher = stricter).
+   *   Conservative default 0.97 if omitted — high precision, low recall.
+   */
+  readonly cacheable?: { readonly ttlSeconds: number; readonly distanceThreshold?: number }
 }
 
 /**

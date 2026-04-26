@@ -27,6 +27,7 @@ export type GatewayStepName =
   | 'taint-wrap-result'
   | 'audit-emit'
   | 'cache-hit'
+  | 'semantic-cache'
 
 /**
  * Wrap `fn` in a `gateway:<name>` child span.

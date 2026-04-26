@@ -270,3 +270,80 @@ export function fixtureObjectWrappedArrayNoCollectionContract() {
     }),
   })
 }
+
+// ─── Fixture 10: R-14.2 — mutation with cacheable set ────────────────────────
+
+/**
+ * Violates R-14.2: a `.mutation()` agent tool has `cacheable` set.
+ * Caching write results is forbidden — only queries may be cached.
+ */
+export function fixtureMutationWithCacheable() {
+  return r({
+    test: r({
+      badCacheMutation: p
+        .input(z.object({ title: z.string() }))
+        .meta({
+          permission: 'test:bad:create',
+          agent: {
+            whenToUse: 'Use to create an item',
+            whenNotToUse: 'Do not use for reads',
+            examples: [{ input: 'Create item titled "Foo"', callArgs: { title: 'Foo' } }],
+            approvalFreshness: 'revalidate',
+            cacheable: { ttlSeconds: 300 }, // VIOLATION: cacheable on a mutation
+          },
+        })
+        .mutation(() => ({ id: '1' })),
+    }),
+  })
+}
+
+// ─── Fixture 11: R-14.2 — query with cacheable set (clean) ───────────────────
+
+/**
+ * Does NOT violate R-14.2: a `.query()` agent tool has `cacheable` set.
+ * This is the intended usage — cacheable is valid on queries only.
+ */
+export function fixtureQueryWithCacheable() {
+  return r({
+    test: r({
+      goodCacheQuery: p
+        .input(z.object({ id: z.string() }))
+        .meta({
+          permission: 'test:good:read',
+          agent: {
+            whenToUse: 'Use to fetch an item by id',
+            whenNotToUse: 'Do not use for writes',
+            examples: [{ input: 'Get item abc', callArgs: { id: 'abc' } }],
+            cacheable: { ttlSeconds: 600, distanceThreshold: 0.97 },
+          },
+        })
+        .query(() => null),
+    }),
+  })
+}
+
+// ─── Fixture 12: R-14.2 — mutation without cacheable (clean) ─────────────────
+
+/**
+ * Does NOT violate R-14.2: a `.mutation()` agent tool has no `cacheable` field.
+ * Normal mutation — no cache violation.
+ */
+export function fixtureMutationWithoutCacheable() {
+  return r({
+    test: r({
+      goodMutation: p
+        .input(z.object({ title: z.string() }))
+        .meta({
+          permission: 'test:good:create',
+          agent: {
+            whenToUse: 'Use to create an item',
+            whenNotToUse: 'Do not use for reads',
+            examples: [{ input: 'Create item titled "Foo"', callArgs: { title: 'Foo' } }],
+            approvalFreshness: 'revalidate',
+            // cacheable intentionally absent — no violation
+          },
+        })
+        .mutation(() => ({ id: '1' })),
+    }),
+  })
+}
