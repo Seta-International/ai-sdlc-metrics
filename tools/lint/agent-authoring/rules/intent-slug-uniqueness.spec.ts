@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest'
 import type { ParsedIntent } from '../types'
 import { intentSlugUniquenessRule } from './intent-slug-uniqueness'
 

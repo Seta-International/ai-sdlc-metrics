@@ -2,6 +2,7 @@
 
 import { describe, it, expect } from 'vitest'
 import * as path from 'path'
+import type { LintScope } from './types'
 import { runLinter, detectScope, REPO_ROOT } from './runner'
 
 // ── Scope detection ───────────────────────────────────────────────────────────
@@ -83,14 +84,20 @@ describe('EI-10: glob discovery', () => {
       p.includes('_synthetic/agent/flow-policies/synthetic-policy.ts'),
     )
 
+    const syntheticTool = discoveredPaths.find((p) =>
+      p.includes('_synthetic/agent/tools/synthetic-tool.ts'),
+    )
+
     expect(syntheticSubAgent).toBeDefined()
     expect(syntheticIntent).toBeDefined()
     expect(syntheticPolicy).toBeDefined()
+    expect(syntheticTool).toBeDefined()
 
     // Verify scopes are correctly detected
     expect(result.fileScopes.get(syntheticSubAgent!)).toBe('sub-agent')
     expect(result.fileScopes.get(syntheticIntent!)).toBe('intent')
     expect(result.fileScopes.get(syntheticPolicy!)).toBe('flow-policy')
+    expect(result.fileScopes.get(syntheticTool!)).toBe('tool-meta')
   })
 
   it('index.ts files are skipped (scope is null)', async () => {
