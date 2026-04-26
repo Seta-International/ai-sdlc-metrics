@@ -245,6 +245,16 @@ export interface PhaseExecutorTurnState {
   cumulativeCostUsd?: number
   /** Cumulative wall-clock time in milliseconds across all iterations so far (mutable). */
   cumulativeWallclockMs?: number
+  /**
+   * Runtime context note appended to the user message of phase-2 sub-agents.
+   * Set by BoundedExecutor before phase-2 dispatch (Plan 03 R-03.18, Plan 18 §5).
+   * Read by SubAgentRunnerAdapter when constructing the sub-agent user message.
+   * Undefined for phase-1 dispatch (or when no circuit-breaker context exists).
+   *
+   * Optional + mutable to match the `routerReplanCount`/`iterationNumber` style
+   * used elsewhere in this interface.
+   */
+  phaseContextNote?: string
 }
 
 // ─── SubAgentRunnerOpts ───────────────────────────────────────────────────────

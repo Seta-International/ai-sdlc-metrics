@@ -284,6 +284,34 @@ describe('SubAgentRunnerAdapter', () => {
     })
   })
 
+  it('7. appends phaseContextNote to user message when set on turnState', async () => {
+    const registry = makeRegistry(makeConfig('goals.analyst'))
+    let captured: string | undefined
+    const llm = makeLlmClient(async (input) => {
+      captured = input.userMessage
+      return happyResult()
+    })
+    const adapter = new SubAgentRunnerAdapter(
+      registry,
+      llm,
+      makeGateway(),
+      makeToolRegistry({ 'goals.getKpi': makeDescriptor('goals.getKpi') }),
+    )
+
+    const opts = makeOpts('goals.analyst')
+    const turnState: PhaseExecutorTurnState = {
+      ...opts.turnState,
+      phaseContextNote: 'Tool X disabled by circuit breaker — proceed without it',
+    }
+
+    await adapter.run({ ...opts, turnState })
+
+    expect(captured).toBeDefined()
+    expect(captured).toContain(
+      'Phase context: Tool X disabled by circuit breaker — proceed without it',
+    )
+  })
+
   it('6. usageTotals flows through driver into result on both happy and ceiling-hit paths', async () => {
     // Happy path → 50 input tokens
     {
