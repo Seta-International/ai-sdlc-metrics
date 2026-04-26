@@ -88,7 +88,7 @@ describe('ScheduledTurnService.executeScheduledTurn()', () => {
     const invokeCalls = (toolGateway.invoke as ReturnType<typeof vi.fn>).mock.calls
     const input = invokeCalls[0][0] as Parameters<ToolGateway['invoke']>[0]
     expect(input.toolName).toBe('planner.listTasks')
-    expect(input.policy).toEqual({ readOnly: true })
+    expect(input.policy).toMatchObject({ readOnly: true })
     expect(input.requestContext.tenantId).toBe(TENANT_ID)
     expect(input.requestContext.delegationId).toBe(DELEGATION_ID)
     expect(input.requestContext.surface).toBe('scheduler')

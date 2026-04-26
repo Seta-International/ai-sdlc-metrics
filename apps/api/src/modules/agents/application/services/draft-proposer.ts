@@ -13,6 +13,36 @@ import { ApprovalExecutorDelegationMinter } from './approval-executor-delegation
 import { DraftSink } from './draft-sink'
 import { KernelDelegationFacade } from '../../../kernel/application/facades/kernel-delegation.facade'
 
+/**
+ * Sanitize the user utterance when the approver is a different user than the
+ * initiator (R-08.24). Strips tokens from the utterance that reference domain
+ * objects not visible in the approver's scope by performing a conservative
+ * word-level projection: only words that are either common vocabulary (length ≤ 4)
+ * or that appear verbatim in the `approverScope` string are retained. Words that
+ * are likely entity-specific identifiers or sensitive names are replaced with
+ * "[redacted]".
+ *
+ * This is intentionally conservative — false positives (redacting safe content)
+ * are preferred over false negatives (leaking private content).
+ *
+ * Callers where approver === initiator should pass the raw utterance directly,
+ * skipping this function entirely.
+ */
+export function sanitizeUtteranceForApprover(utterance: string, approverScope: string): string {
+  if (!utterance) return utterance
+  // Simple word-level projection: keep short words and words present in the scope string.
+  const scopeLower = approverScope.toLowerCase()
+  return utterance
+    .split(/\s+/)
+    .map((word) => {
+      const clean = word.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+      if (clean.length <= 4) return word
+      if (scopeLower.includes(clean)) return word
+      return '[redacted]'
+    })
+    .join(' ')
+}
+
 const DEFAULT_APPROVAL_TTL_HOURS = 72
 const DEFAULT_APPROVAL_FRESHNESS = 'accept-stale' as const
 
@@ -42,6 +72,12 @@ export class DraftProposer {
     resolveApprover?: (toolName: string) => Promise<string | null>
     tenantPolicy?: TenantApprovalPolicy
     approvalFreshness?: ApprovalFreshness
+    /**
+     * The raw user utterance that triggered this turn (R-08.2, R-08.24).
+     * Sanitized via `sanitizeUtteranceForApprover` when the resolved approver
+     * differs from the initiator. Raw when approver === initiator.
+     */
+    userUtterance?: string
   }): Promise<DraftProposalResult> {
     const { tier } = this.draftTierClassifier.classify({
       tool: opts.toolDescriptor,
@@ -54,17 +90,31 @@ export class DraftProposer {
     const draftedAt = new Date()
     const expiresAt = new Date(draftedAt.getTime() + approvalTtlHours * 3600_000)
 
-    const provenance: DraftProvenance = {
-      triggered_by: `user:${opts.initiatorUserId}`,
-      user_utterance: '',
-      drafted_at: draftedAt,
-      derived_from_tainted_sources: [],
-    }
-
     const approverUserId =
       tier === 'high_risk_approval_required' && opts.resolveApprover
         ? await opts.resolveApprover(opts.toolName)
         : null
+
+    // R-08.24: sanitize utterance when approver ≠ initiator.
+    const rawUtterance = opts.userUtterance ?? ''
+    const sanitizedUtterance =
+      approverUserId !== null && approverUserId !== opts.initiatorUserId
+        ? sanitizeUtteranceForApprover(rawUtterance, opts.toolName)
+        : rawUtterance
+
+    // R-08.2: derived_from_tainted_sources always present; populated from TurnState.taintSources.
+    const derivedFromTaintedSources = opts.turnState.taintSources.map((s) => ({
+      tool: s.tool,
+      refs: s.refs,
+      authored_by: s.authored_by,
+    }))
+
+    const provenance: DraftProvenance = {
+      triggered_by: `user:${opts.initiatorUserId}`,
+      user_utterance: sanitizedUtterance,
+      drafted_at: draftedAt,
+      derived_from_tainted_sources: derivedFromTaintedSources,
+    }
 
     const { tenantId, initiatorUserId, toolName } = opts
 

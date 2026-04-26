@@ -22,6 +22,7 @@ import { DraftTierClassifier } from './draft-tier-classifier'
 function buildTurnState(tainted: boolean): TurnState {
   return {
     tainted: { value: tainted },
+    taintSources: [],
     circuitBreaker: new Map(),
     retryCount: new Map(),
     toolCeilingRemaining: new Map(),

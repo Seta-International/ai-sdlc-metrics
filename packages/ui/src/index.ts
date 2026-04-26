@@ -1,4 +1,12 @@
 // Custom components
+export { AgentDraftCard } from './components/agent-draft-card'
+export type {
+  AgentDraftCardProps,
+  AgentDraftPayload,
+  DraftProvenancePayload,
+  DraftTier,
+  TaintedSource,
+} from './components/agent-draft-card'
 export { GlobalNav, AgentStrip } from './components/global-nav'
 export type { GlobalNavProps, AgentStripProps } from './components/global-nav'
 export {

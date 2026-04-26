@@ -36,6 +36,7 @@ describe('TurnState type', () => {
   it('compiles against a fully-populated sample', () => {
     const state: TurnState = {
       tainted: { value: false },
+      taintSources: [],
       circuitBreaker: new Map([
         ['people.listEmployees', { permissionDenied: true, brokenAt: Date.now() }],
         ['time.listLeave', { ceilingBreached: true, brokenAt: Date.now() }],
@@ -59,6 +60,7 @@ describe('TurnState type', () => {
   it('tainted wrapper value is mutable', () => {
     const state: TurnState = {
       tainted: { value: false },
+      taintSources: [],
       circuitBreaker: new Map(),
       retryCount: new Map(),
       toolCeilingRemaining: new Map(),
@@ -72,6 +74,7 @@ describe('TurnState type', () => {
   it('circuitBreaker entry can represent both permissionDenied and ceilingBreached', () => {
     const state: TurnState = {
       tainted: { value: false },
+      taintSources: [],
       circuitBreaker: new Map([
         ['tool-a', { permissionDenied: true, brokenAt: 1000 }],
         [
@@ -112,6 +115,7 @@ describe('ToolGatewayInvokeInput type', () => {
       abortSignal: abortController.signal,
       turnState: {
         tainted: { value: false },
+        taintSources: [],
         circuitBreaker: new Map(),
         retryCount: new Map(),
         toolCeilingRemaining: new Map(),
@@ -146,6 +150,7 @@ describe('ToolGatewayInvokeInput type', () => {
       abortSignal: abortController.signal,
       turnState: {
         tainted: { value: false },
+        taintSources: [],
         circuitBreaker: new Map(),
         retryCount: new Map(),
         toolCeilingRemaining: new Map(),

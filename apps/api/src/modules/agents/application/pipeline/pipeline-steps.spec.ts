@@ -38,6 +38,7 @@ function makeDescriptor(overrides?: Partial<AgentToolDescriptor>): AgentToolDesc
 function makeTurnState(overrides?: Partial<TurnState>): TurnState {
   return {
     tainted: { value: false },
+    taintSources: [],
     circuitBreaker: new Map(),
     retryCount: new Map(),
     toolCeilingRemaining: new Map(),

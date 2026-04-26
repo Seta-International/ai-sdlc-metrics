@@ -304,6 +304,7 @@ export class ToolGateway {
       mode,
       intentSlug,
       flowId,
+      userUtterance,
     } = input
 
     const { tenantId } = requestContext
@@ -460,6 +461,38 @@ export class ToolGateway {
       recordToolCall(tenantId, descriptor.name, 'policy_violation')
       recordTripwire(tenantId, 'policy_violation', 'abort')
       return tripwire('policy_violation', 'abort', rawContext)
+    }
+
+    // Plan 08 R-08.36: Domain allowlist check for mutation tools.
+    // `people.*` mutations are gated behind `feature.agent.people_writes` (default off).
+    // `planner.*` and `projects.*` are enabled day-1.
+    // Non-whitelisted domains reject BEFORE tier classification.
+    if (descriptor.procedure === 'mutation') {
+      const domainPrefix = descriptor.name.split('.')[0] ?? ''
+      if (domainPrefix === 'people' && !input.policy.agentPeopleWritesEnabled) {
+        const rawContext = { toolName: descriptor.name, reason: 'people_writes_disabled' }
+        const auditStart = Date.now()
+        await withGatewayStep(
+          'audit-emit',
+          { result_status: 'policy_violation', audit_row_id: undefined },
+          () =>
+            auditEmit({
+              descriptor,
+              requestContext,
+              resultStatus: 'policy_violation',
+              extraAttrs: {
+                policy: 'people_writes_disabled',
+                reason: 'feature.agent.people_writes_flag_off',
+              },
+              auditFacade: this.auditFacade,
+              logger: this.logger,
+            }),
+        )
+        recordStepDuration('audit-emit', Date.now() - auditStart)
+        recordToolCall(tenantId, descriptor.name, 'policy_violation')
+        recordTripwire(tenantId, 'policy_violation', 'abort')
+        return tripwire('policy_violation', 'abort', rawContext)
+      }
     }
 
     // Plan 08 §5: Flow-policy resolution — inserted between Resolve and Ceiling pre-check.
@@ -980,6 +1013,7 @@ export class ToolGateway {
           approvalTtlHours: effectivePolicy?.approvalTtlHours,
           approvalFreshness: effectivePolicy?.approvalFreshness,
           summary: `Draft action: ${descriptor.name}`,
+          userUtterance,
         })
       } catch (draftErr: unknown) {
         this.logger.error(

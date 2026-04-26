@@ -119,6 +119,7 @@ function makeAuditFacade(): { facade: KernelAuditFacade; recordEvent: ReturnType
 function makeTurnState(overrides?: Partial<TurnState>): TurnState {
   return {
     tainted: { value: false },
+    taintSources: [],
     circuitBreaker: new Map(),
     retryCount: new Map(),
     toolCeilingRemaining: new Map(),
@@ -209,6 +210,13 @@ function makeGateway(
   )
 }
 
+// Policy that allows people.* mutations — used for tests that are NOT testing
+// the R-08.36 people_writes allowlist check (L1 cache, flow-policy, DraftProposer, etc.)
+const INTERACTIVE_POLICY_PEOPLE_ENABLED = Object.freeze({
+  readOnly: false,
+  agentPeopleWritesEnabled: true,
+})
+
 function makeInput(overrides?: Partial<ToolGatewayInvokeInput>): ToolGatewayInvokeInput {
   return {
     toolName: 'planner.task.getBoard',
@@ -219,7 +227,10 @@ function makeInput(overrides?: Partial<ToolGatewayInvokeInput>): ToolGatewayInvo
     abortSignal: new AbortController().signal,
     turnState: makeTurnState(),
     mode: 'execute',
-    policy: INTERACTIVE_POLICY,
+    // Default policy allows people.* mutations so existing tests using people.updateEmployee
+    // as a test fixture continue to work. R-08.36 allowlist tests set agentPeopleWritesEnabled
+    // explicitly to false to test the refusal behavior.
+    policy: INTERACTIVE_POLICY_PEOPLE_ENABLED,
     ...overrides,
   }
 }
@@ -1748,7 +1759,7 @@ describe('ToolGateway read-only policy envelope (Plan 09 R-09.6a)', () => {
       makeInput({
         toolName: 'people.updateEmployee',
         subAgentScope: ['people:employee:write'],
-        policy: { readOnly: true },
+        policy: { readOnly: true, agentPeopleWritesEnabled: true },
       }),
     )
 
@@ -1793,7 +1804,7 @@ describe('ToolGateway read-only policy envelope (Plan 09 R-09.6a)', () => {
       makeInput({
         toolName: 'planner.task.getBoard',
         subAgentScope: ['planner:task'],
-        policy: { readOnly: true },
+        policy: { readOnly: true, agentPeopleWritesEnabled: false },
       }),
     )
 
@@ -1820,7 +1831,7 @@ describe('ToolGateway read-only policy envelope (Plan 09 R-09.6a)', () => {
       makeInput({
         toolName: 'people.updateEmployee',
         subAgentScope: ['people:employee:write'],
-        policy: { readOnly: false },
+        policy: { readOnly: false, agentPeopleWritesEnabled: true },
       }),
     )
 
@@ -1847,7 +1858,157 @@ describe('ToolGateway read-only policy envelope (Plan 09 R-09.6a)', () => {
       makeInput({
         toolName: 'people.updateEmployee',
         subAgentScope: ['people:employee:write'],
-        // policy defaults to INTERACTIVE_POLICY (readOnly: false) via makeInput
+        // makeInput defaults to INTERACTIVE_POLICY_PEOPLE_ENABLED (readOnly: false, agentPeopleWritesEnabled: true)
+      }),
+    )
+
+    expect(result.kind).toBe('ok')
+    expect(callFn).toHaveBeenCalledOnce()
+  })
+})
+
+// ─── Plan 08 R-08.36: domain allowlist — people.* write scope gate ─────────────
+
+describe('R-08.36 — people.* domain allowlist', () => {
+  // ── people.* mutation refused when agentPeopleWritesEnabled = false ──────────
+
+  it('refuses people.* mutation with policy_violation when agentPeopleWritesEnabled = false', async () => {
+    const mutationDescriptor = makeDescriptor({
+      name: 'people.updateEmployee',
+      procedure: 'mutation',
+      permission: 'people:employee:write',
+      meta: MUTATION_META,
+    })
+    const registry = makeRegistry(mutationDescriptor)
+    const { facade, recordEvent } = makeAuditFacade()
+    const { caller, callFn } = makeCaller({ success: true })
+    const gw = makeGateway(registry, caller, facade)
+
+    const result = await gw.invoke(
+      makeInput({
+        toolName: 'people.updateEmployee',
+        subAgentScope: ['people:employee:write'],
+        policy: { readOnly: false, agentPeopleWritesEnabled: false },
+      }),
+    )
+
+    expect(result.kind).toBe('tripwire')
+    if (result.kind === 'tripwire') {
+      expect(result.variant).toBe('policy_violation')
+      expect(result.disposition).toBe('abort')
+      expect(result.context['toolName']).toBe('people.updateEmployee')
+      expect(result.context['reason']).toBe('people_writes_disabled')
+    }
+    // The caller must NOT have been invoked
+    expect(callFn).not.toHaveBeenCalled()
+    // A kernel audit event must have been emitted for the violation
+    expect(recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          resultStatus: 'policy_violation',
+          extraAttrs: expect.objectContaining({ policy: 'people_writes_disabled' }),
+        }),
+      }),
+    )
+  })
+
+  // ── people.* mutation allowed when agentPeopleWritesEnabled = true ────────────
+
+  it('allows people.* mutation when agentPeopleWritesEnabled = true', async () => {
+    const mutationDescriptor = makeDescriptor({
+      name: 'people.updateEmployee',
+      procedure: 'mutation',
+      permission: 'people:employee:write',
+      meta: MUTATION_META,
+    })
+    const registry = makeRegistry(mutationDescriptor)
+    const { facade } = makeAuditFacade()
+    const { caller, callFn } = makeCaller({ success: true })
+    const gw = makeGateway(registry, caller, facade)
+
+    const result = await gw.invoke(
+      makeInput({
+        toolName: 'people.updateEmployee',
+        subAgentScope: ['people:employee:write'],
+        policy: { readOnly: false, agentPeopleWritesEnabled: true },
+      }),
+    )
+
+    expect(result.kind).toBe('ok')
+    expect(callFn).toHaveBeenCalledOnce()
+  })
+
+  // ── planner.* mutation always allowed (day-1 domain) ─────────────────────────
+
+  it('always allows planner.* mutations regardless of agentPeopleWritesEnabled', async () => {
+    const mutationDescriptor = makeDescriptor({
+      name: 'planner.createTask',
+      procedure: 'mutation',
+      permission: 'planner:task:write',
+      meta: MUTATION_META,
+    })
+    const registry = makeRegistry(mutationDescriptor)
+    const { facade } = makeAuditFacade()
+    const { caller, callFn } = makeCaller({ taskId: 'task-1' })
+    const gw = makeGateway(registry, caller, facade)
+
+    const result = await gw.invoke(
+      makeInput({
+        toolName: 'planner.createTask',
+        subAgentScope: ['planner:task:write'],
+        policy: { readOnly: false, agentPeopleWritesEnabled: false },
+      }),
+    )
+
+    expect(result.kind).toBe('ok')
+    expect(callFn).toHaveBeenCalledOnce()
+  })
+
+  // ── projects.* mutation always allowed (day-1 domain) ────────────────────────
+
+  it('always allows projects.* mutations regardless of agentPeopleWritesEnabled', async () => {
+    const mutationDescriptor = makeDescriptor({
+      name: 'projects.updateAssignment',
+      procedure: 'mutation',
+      permission: 'projects:assignment:write',
+      meta: MUTATION_META,
+    })
+    const registry = makeRegistry(mutationDescriptor)
+    const { facade } = makeAuditFacade()
+    const { caller, callFn } = makeCaller({ assignmentId: 'a-1' })
+    const gw = makeGateway(registry, caller, facade)
+
+    const result = await gw.invoke(
+      makeInput({
+        toolName: 'projects.updateAssignment',
+        subAgentScope: ['projects:assignment:write'],
+        policy: { readOnly: false, agentPeopleWritesEnabled: false },
+      }),
+    )
+
+    expect(result.kind).toBe('ok')
+    expect(callFn).toHaveBeenCalledOnce()
+  })
+
+  // ── people.* query always allowed (read-only, not a write) ───────────────────
+
+  it('allows people.* query tools regardless of agentPeopleWritesEnabled', async () => {
+    const queryDescriptor = makeDescriptor({
+      name: 'people.listEmployees',
+      procedure: 'query',
+      permission: 'people:employee:read',
+      meta: BASE_META,
+    })
+    const registry = makeRegistry(queryDescriptor)
+    const { facade } = makeAuditFacade()
+    const { caller, callFn } = makeCaller([{ id: 'emp-1' }])
+    const gw = makeGateway(registry, caller, facade)
+
+    const result = await gw.invoke(
+      makeInput({
+        toolName: 'people.listEmployees',
+        subAgentScope: ['people:employee:read'],
+        policy: { readOnly: false, agentPeopleWritesEnabled: false },
       }),
     )
 

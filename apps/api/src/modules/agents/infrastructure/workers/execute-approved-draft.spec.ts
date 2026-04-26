@@ -549,5 +549,91 @@ describe('ExecuteApprovedDraftWorker', () => {
       const call = vi.mocked(auditFacade.recordEvent).mock.calls[0][0]
       expect(call.payload).not.toHaveProperty('via_schedule')
     })
+
+    // ── R-08.16: domain revalidation ─────────────────────────────────────────
+
+    it('R-08.16: revalidate path calls the registered revalidator when approval_freshness = revalidate', async () => {
+      const revalidator = vi.fn().mockResolvedValue({ ok: true })
+      worker.registerRevalidator('planner.create_task', revalidator)
+
+      await worker.handle(makeJob({ approval_freshness: 'revalidate' }))
+
+      expect(revalidator).toHaveBeenCalledOnce()
+      expect(revalidator).toHaveBeenCalledWith(
+        expect.objectContaining({ toolName: 'planner.create_task', tenantId: TENANT_ID }),
+      )
+      // Execution proceeds when revalidation passes
+      expect(draftRepo.atomicTransitionToExecuted).toHaveBeenCalled()
+    })
+
+    it('R-08.16: accept-stale path does NOT call any revalidator', async () => {
+      const revalidator = vi.fn().mockResolvedValue({ ok: true })
+      worker.registerRevalidator('planner.create_task', revalidator)
+
+      await worker.handle(makeJob({ approval_freshness: 'accept-stale' }))
+
+      expect(revalidator).not.toHaveBeenCalled()
+      // Execution still proceeds
+      expect(draftRepo.atomicTransitionToExecuted).toHaveBeenCalled()
+    })
+
+    it('R-08.16: revalidation failure sets status=execution_failed with outcome=revalidation_failed', async () => {
+      const revalidator = vi.fn().mockResolvedValue({ ok: false, reason: 'project was closed' })
+      worker.registerRevalidator('planner.create_task', revalidator)
+
+      await worker.handle(makeJob({ approval_freshness: 'revalidate' }))
+
+      // Draft status must be updated to execution_failed
+      expect(draftRepo.updateStatus).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          draftId: DRAFT_ID,
+          status: 'execution_failed',
+          extra: expect.objectContaining({ executionOutcome: 'revalidation_failed' }),
+        }),
+      )
+      // Execution must NOT proceed
+      expect(draftRepo.atomicTransitionToExecuted).not.toHaveBeenCalled()
+    })
+
+    it('R-08.16: revalidation failure emits agent.draft_execution_failed with outcome=revalidation_failed', async () => {
+      const revalidator = vi.fn().mockResolvedValue({ ok: false, reason: 'entity deleted' })
+      worker.registerRevalidator('planner.create_task', revalidator)
+
+      await worker.handle(makeJob({ approval_freshness: 'revalidate' }))
+
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'agent.draft_execution_failed',
+          payload: expect.objectContaining({
+            outcome: 'revalidation_failed',
+            revalidationFailReason: 'entity deleted',
+          }),
+        }),
+      )
+    })
+
+    it('R-08.16: revalidation failure notifies the initiator', async () => {
+      const revalidator = vi.fn().mockResolvedValue({ ok: false, reason: 'precondition failed' })
+      worker.registerRevalidator('planner.create_task', revalidator)
+
+      await worker.handle(makeJob({ approval_freshness: 'revalidate' }))
+
+      expect(notificationsFacade.sendDraftApprovalNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          draftId: DRAFT_ID,
+          approverId: INITIATOR_ID,
+        }),
+      )
+    })
+
+    it('R-08.16: revalidate path with no registered revalidator passes through to execute', async () => {
+      // No revalidator registered for the tool
+      await worker.handle(makeJob({ approval_freshness: 'revalidate' }))
+
+      // Should still execute — unregistered tool passes validation
+      expect(draftRepo.atomicTransitionToExecuted).toHaveBeenCalled()
+    })
   })
 })

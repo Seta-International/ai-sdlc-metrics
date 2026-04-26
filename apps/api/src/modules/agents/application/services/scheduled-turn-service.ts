@@ -136,6 +136,7 @@ export class ScheduledTurnService {
     // Build TurnState — taint is seeded before any tool call (R-09.10)
     const turnState = {
       tainted: { value: taintSeeded },
+      taintSources: [],
       circuitBreaker: new Map(),
       retryCount: new Map(),
       toolCeilingRemaining: new Map(),

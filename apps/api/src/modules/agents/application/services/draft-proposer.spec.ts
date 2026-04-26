@@ -42,6 +42,7 @@ const TOOL_DESCRIPTOR: AgentToolDescriptor = {
 function makeTurnState(tainted = false): TurnState {
   return {
     tainted: { value: tainted },
+    taintSources: [],
     circuitBreaker: new Map(),
     retryCount: new Map(),
     toolCeilingRemaining: new Map(),
@@ -135,6 +136,76 @@ describe('DraftProposer', () => {
     expect(submitArg.provenance.user_utterance).toBe('')
     expect(submitArg.provenance.derived_from_tainted_sources).toEqual([])
     expect(submitArg.provenance.drafted_at).toBeInstanceOf(Date)
+  })
+
+  // ── R-08.2: provenance.user_utterance + derived_from_tainted_sources ─────
+
+  it('R-08.2: user_utterance populated from opts.userUtterance when initiator approves own draft', async () => {
+    const result = await proposer.propose(
+      baseOpts({ userUtterance: 'Create a task for onboarding' }),
+    )
+
+    const submitArg = vi.mocked(sink.submit).mock.calls[0][0]
+    // Low-risk → no approver → approverUserId === null → initiator IS approver → raw utterance
+    expect(submitArg.provenance.user_utterance).toBe('Create a task for onboarding')
+    expect(result.provenance.user_utterance).toBe('Create a task for onboarding')
+  })
+
+  it('R-08.2: derived_from_tainted_sources populated from turnState.taintSources', async () => {
+    const taintedTurnState = makeTurnState()
+    taintedTurnState.taintSources.push(
+      { tool: 'people.getProfile', refs: ['bio', 'notes'], authored_by: 'alice' },
+      { tool: 'planner.getTask', refs: ['description'], authored_by: null },
+    )
+
+    await proposer.propose(baseOpts({ turnState: taintedTurnState }))
+
+    const submitArg = vi.mocked(sink.submit).mock.calls[0][0]
+    expect(submitArg.provenance.derived_from_tainted_sources).toEqual([
+      { tool: 'people.getProfile', refs: ['bio', 'notes'], authored_by: 'alice' },
+      { tool: 'planner.getTask', refs: ['description'], authored_by: null },
+    ])
+  })
+
+  it('R-08.24: user_utterance sanitized when approver !== initiator', async () => {
+    const APPROVER_ID = '01900000-0000-7fff-8000-000000000099'
+    vi.mocked(classifier.classify).mockReturnValue({
+      tier: 'high_risk_approval_required',
+      reason: 'tool_always_requires_approval',
+    })
+    const resolveApprover = vi.fn().mockResolvedValue(APPROVER_ID)
+
+    await proposer.propose(
+      baseOpts({
+        userUtterance: 'Please update Alice personal details in system',
+        resolveApprover,
+      }),
+    )
+
+    const submitArg = vi.mocked(sink.submit).mock.calls[0][0]
+    // Approver !== initiator → sanitized utterance; "Alice" and "personal" and "details" are
+    // long words not in the tool scope string so they should be redacted.
+    expect(submitArg.provenance.user_utterance).not.toContain('Alice')
+  })
+
+  it('R-08.24: user_utterance NOT sanitized when approver === initiator', async () => {
+    vi.mocked(classifier.classify).mockReturnValue({
+      tier: 'high_risk_approval_required',
+      reason: 'tool_always_requires_approval',
+    })
+    // Approver = same user as initiator
+    const resolveApprover = vi.fn().mockResolvedValue(USER_ID)
+
+    await proposer.propose(
+      baseOpts({
+        userUtterance: 'Create a task for Alice',
+        resolveApprover,
+      }),
+    )
+
+    const submitArg = vi.mocked(sink.submit).mock.calls[0][0]
+    // Approver === initiator → raw utterance
+    expect(submitArg.provenance.user_utterance).toBe('Create a task for Alice')
   })
 
   it('mints a new delegation for a live session (no viaScheduleId)', async () => {
