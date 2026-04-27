@@ -3,6 +3,11 @@ import { EventsHandler, type IEventHandler } from '@nestjs/cqrs'
 import { IdentityQueryFacade } from '../../../identity/application/facades/identity-query.facade'
 import { PLAN_REPOSITORY, type IPlanRepository } from '../../domain/repositories/plan.repository'
 import { PgBossService } from '../../../../common/jobs/pg-boss.service'
+import {
+  MS_SYNC_PUSH_TASK_JOB,
+  MS_SYNC_PUSH_PLAN_JOB,
+  MS_SYNC_PUSH_BUCKET_JOB,
+} from '../../infrastructure/jobs/pg-boss.registrar'
 
 interface PlannerMutationEvent {
   origin: string
@@ -50,19 +55,19 @@ export class MsSyncPushListener implements IEventHandler {
     // Route to job — task takes priority over bucket and plan
     if (taskId) {
       await this.pgBoss.enqueue(
-        'ms-sync-push-task',
+        MS_SYNC_PUSH_TASK_JOB,
         { tenantId, taskId },
         { singletonKey: `push-task:${taskId}`, startAfter: 2 },
       )
     } else if (bucketId) {
       await this.pgBoss.enqueue(
-        'ms-sync-push-bucket',
+        MS_SYNC_PUSH_BUCKET_JOB,
         { tenantId, bucketId },
         { singletonKey: `push-bucket:${bucketId}`, startAfter: 2 },
       )
     } else if (planId) {
       await this.pgBoss.enqueue(
-        'ms-sync-push-plan',
+        MS_SYNC_PUSH_PLAN_JOB,
         { tenantId, planId },
         { singletonKey: `push-plan:${planId}`, startAfter: 2 },
       )

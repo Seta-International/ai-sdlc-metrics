@@ -114,6 +114,14 @@ export class InMemoryPlanRepository implements IPlanRepository {
     // no-op in tests
   }
 
+  async linkToMs(
+    _id: string,
+    _tenantId: string,
+    _props: { msPlanId: string; msPlanEtag: string; origin: string },
+  ): Promise<void> {
+    // no-op in tests
+  }
+
   /** Test helper: get all plans regardless of deletedAt */
   all(): Plan[] {
     return [...this.store.values()]

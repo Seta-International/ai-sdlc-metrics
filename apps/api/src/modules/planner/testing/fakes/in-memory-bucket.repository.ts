@@ -66,6 +66,14 @@ export class InMemoryBucketRepository implements IBucketRepository {
     )
   }
 
+  async linkToMs(
+    _id: string,
+    _tenantId: string,
+    _props: { msBucketId: string; msBucketEtag: string; origin: string },
+  ): Promise<void> {
+    // no-op in tests
+  }
+
   /** Test helper: clear all data */
   clear(): void {
     this.store.clear()

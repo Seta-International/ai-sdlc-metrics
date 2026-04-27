@@ -86,6 +86,21 @@ export class DrizzleBucketRepository implements IBucketRepository {
       )
   }
 
+  async linkToMs(
+    id: string,
+    tenantId: string,
+    props: { msBucketId: string; msBucketEtag: string; origin: string },
+  ): Promise<void> {
+    await this.db
+      .update(plannerBucket)
+      .set({
+        msBucketId: props.msBucketId,
+        msBucketEtag: props.msBucketEtag,
+        updatedAt: sql`NOW()`,
+      })
+      .where(and(eq(plannerBucket.id, id), eq(plannerBucket.tenantId, tenantId)))
+  }
+
   async upsertFromMs(props: MsBucketUpsertProps, _opts: { origin: string }): Promise<void> {
     const existing = await this.db
       .select({ id: plannerBucket.id })

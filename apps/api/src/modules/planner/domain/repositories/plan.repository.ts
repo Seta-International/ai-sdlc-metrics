@@ -34,4 +34,9 @@ export interface IPlanRepository {
   convertAllToFutureOnly(tenantId: string): Promise<void>
   listByContainer(params: ListByContainerParams): Promise<PlanContainerRow[]>
   markArchived(id: string, opts: { origin: string }): Promise<void>
+  linkToMs(
+    id: string,
+    tenantId: string,
+    props: { msPlanId: string; msPlanEtag: string; origin: string },
+  ): Promise<void>
 }

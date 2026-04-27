@@ -115,7 +115,10 @@ import { DisconnectMsSyncHandler } from './application/commands/ms-sync/disconne
 import { UnlinkMsGroupHandler } from './application/commands/ms-sync/unlink-ms-group.handler'
 import { ResolvePendingAssignmentsHandler } from './application/commands/ms-sync/resolve-pending-assignments.handler'
 import { PushTaskHandler } from './application/commands/ms-sync/push-task.handler'
+import { PushPlanHandler } from './application/commands/ms-sync/push-plan.handler'
+import { PushBucketHandler } from './application/commands/ms-sync/push-bucket.handler'
 import { OutboxDirtyFieldsQuery } from './infrastructure/outbox/outbox-dirty-fields.query'
+import { MsSyncJobRegistrar } from './infrastructure/jobs/pg-boss.registrar'
 import { IdentityDirectorySyncedListener } from './application/event-handlers/identity-directory-synced.listener'
 import { MsSyncPushListener } from './application/event-handlers/ms-sync-push.listener'
 import { ListAvailableGroupsHandler } from './application/queries/ms-sync/list-available-groups.handler'
@@ -222,7 +225,10 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     UnlinkMsGroupHandler,
     ResolvePendingAssignmentsHandler,
     PushTaskHandler,
+    PushPlanHandler,
+    PushBucketHandler,
     OutboxDirtyFieldsQuery,
+    MsSyncJobRegistrar,
     ListAvailableGroupsHandler,
     ListLinkedGroupsHandler,
     { provide: MS_LINKED_GROUP_REPOSITORY, useClass: DrizzleMsLinkedGroupRepository },

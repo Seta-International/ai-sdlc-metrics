@@ -169,6 +169,11 @@ export class InMemoryTaskRepository implements ITaskRepository {
 
   async markPushed(_id: string, _pushedAt: Date): Promise<void> {}
 
+  async linkToMs(
+    _id: string,
+    _props: { msTaskId: string; msTaskEtag: string; origin: string },
+  ): Promise<void> {}
+
   async updateMsEtag(
     _id: string,
     _etags: { msTaskEtag?: string | null; msDetailsEtag?: string | null },
