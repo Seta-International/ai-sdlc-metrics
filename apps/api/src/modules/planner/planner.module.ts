@@ -114,6 +114,8 @@ import { PollTenantHandler } from './application/commands/ms-sync/poll-tenant.ha
 import { DisconnectMsSyncHandler } from './application/commands/ms-sync/disconnect-ms-sync.handler'
 import { UnlinkMsGroupHandler } from './application/commands/ms-sync/unlink-ms-group.handler'
 import { ResolvePendingAssignmentsHandler } from './application/commands/ms-sync/resolve-pending-assignments.handler'
+import { PushTaskHandler } from './application/commands/ms-sync/push-task.handler'
+import { OutboxDirtyFieldsQuery } from './infrastructure/outbox/outbox-dirty-fields.query'
 import { IdentityDirectorySyncedListener } from './application/event-handlers/identity-directory-synced.listener'
 import { MsSyncPushListener } from './application/event-handlers/ms-sync-push.listener'
 import { ListAvailableGroupsHandler } from './application/queries/ms-sync/list-available-groups.handler'
@@ -219,6 +221,8 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     DisconnectMsSyncHandler,
     UnlinkMsGroupHandler,
     ResolvePendingAssignmentsHandler,
+    PushTaskHandler,
+    OutboxDirtyFieldsQuery,
     ListAvailableGroupsHandler,
     ListLinkedGroupsHandler,
     { provide: MS_LINKED_GROUP_REPOSITORY, useClass: DrizzleMsLinkedGroupRepository },
