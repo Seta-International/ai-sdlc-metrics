@@ -83,6 +83,10 @@ export interface ITaskRepository {
     resolution: { newAssignees: string[]; stillPending: string[]; origin: string },
   ): Promise<void>
   markPushed(id: string, pushedAt: Date): Promise<void>
+  linkToMs(
+    id: string,
+    props: { msTaskId: string; msTaskEtag: string; origin: string },
+  ): Promise<void>
   updateMsEtag(
     id: string,
     etags: { msTaskEtag?: string | null; msDetailsEtag?: string | null },

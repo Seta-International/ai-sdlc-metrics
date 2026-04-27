@@ -345,8 +345,82 @@ export class PushTaskHandler implements ICommandHandler<PushTaskCommand> {
     )
   }
 
-  // Task 4.5 will implement task creation push
-  private async createTaskOnMs(_tenantId: string, _plan: Plan, _task: Task): Promise<void> {
-    this.logger.log(`createTaskOnMs: not yet implemented for task ${_task.id}`)
+  private async createTaskOnMs(tenantId: string, plan: Plan, task: Task): Promise<void> {
+    // 1. Resolve assignees to AAD user IDs
+    const assignments: Record<string, { orderHint: string }> = {}
+    for (const a of task.assignees) {
+      const aadId = await this.identityFacade.getExternalUserId(a.actorId, tenantId)
+      if (!aadId) {
+        throw new AssigneeBlockedError(a.actorId)
+      }
+      assignments[aadId] = { orderHint: ' !' }
+    }
+
+    // 2. Look up bucket for msBucketId
+    const bucket = await this.bucketRepo.findById(task.bucketId, tenantId)
+
+    // 3. POST to MS Planner
+    const res = await this.graph.post<Record<string, unknown>>(
+      tenantId,
+      '/planner/tasks',
+      {
+        planId: plan.msPlanId,
+        bucketId: bucket?.msBucketId ?? undefined,
+        title: task.title,
+        orderHint: task.orderHint,
+        priority: task.priority,
+        percentComplete: task.progress,
+        startDateTime: task.startDate?.toISOString() ?? undefined,
+        dueDateTime: task.dueDate?.toISOString() ?? undefined,
+        appliedCategories: {},
+        assignments: Object.keys(assignments).length > 0 ? assignments : undefined,
+      },
+      { preferReturnRepresentation: true },
+    )
+
+    // 4. Validate response
+    if (!res.body?.id) {
+      throw new Error('plannerTask create returned no id')
+    }
+    const msTaskId = res.body.id as string
+    const msTaskEtag = (res.body['@odata.etag'] as string | undefined) ?? res.etag ?? ''
+
+    // 5. Link task to MS
+    await this.taskRepo.linkToMs(task.id, { msTaskId, msTaskEtag, origin: 'ms-sync-push' })
+
+    // 6. PATCH /details if description or checklist items exist
+    if (task.description || task.checklistItems.length > 0) {
+      const detailsRes = await this.graph.patch<Record<string, unknown>>(
+        tenantId,
+        `/planner/tasks/${encodeURIComponent(msTaskId)}/details`,
+        {
+          description: task.description || undefined,
+          previewType: 'automatic',
+          checklist:
+            task.checklistItems.length > 0
+              ? Object.fromEntries(
+                  task.checklistItems.map((i) => [
+                    i.id,
+                    {
+                      '@odata.type': '#microsoft.graph.plannerChecklistItem',
+                      title: i.title,
+                      isChecked: i.isChecked,
+                      orderHint: i.orderHint,
+                    },
+                  ]),
+                )
+              : undefined,
+        },
+        { ifMatch: '*', preferReturnRepresentation: true },
+      )
+      const detailsEtag =
+        (detailsRes.body?.['@odata.etag'] as string | undefined) ?? detailsRes.etag ?? ''
+      if (detailsEtag) {
+        await this.taskRepo.updateMsEtag(task.id, { msDetailsEtag: detailsEtag })
+      }
+    }
+
+    // 7. Mark as pushed
+    await this.taskRepo.markPushed(task.id, new Date())
   }
 }

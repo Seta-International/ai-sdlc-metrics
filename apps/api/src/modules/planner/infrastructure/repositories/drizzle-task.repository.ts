@@ -573,6 +573,16 @@ export class DrizzleTaskRepository implements ITaskRepository {
       .where(eq(plannerTask.id, id))
   }
 
+  async linkToMs(
+    id: string,
+    props: { msTaskId: string; msTaskEtag: string; origin: string },
+  ): Promise<void> {
+    await this.db
+      .update(plannerTask)
+      .set({ msTaskId: props.msTaskId, msTaskEtag: props.msTaskEtag })
+      .where(eq(plannerTask.id, id))
+  }
+
   async updateMsEtag(
     id: string,
     etags: { msTaskEtag?: string | null; msDetailsEtag?: string | null },

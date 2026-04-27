@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { EventBus } from '@nestjs/cqrs'
 import { Task } from '../../../domain/entities/task.entity'
+import { TaskAssignee } from '../../../domain/entities/task-assignee.value-object'
+import { ChecklistItem } from '../../../domain/entities/checklist-item.value-object'
 import { PlanContainer } from '../../../domain/value-objects/plan-container.vo'
 import { Plan } from '../../../domain/entities/plan.entity'
 import { Bucket } from '../../../domain/entities/bucket.entity'
@@ -20,7 +22,7 @@ import {
   GraphThrottledError,
 } from '../../../infrastructure/ms-graph/errors'
 import { PushTaskCommand } from './push-task.command'
-import { PushTaskHandler, TenantPushPausedError } from './push-task.handler'
+import { PushTaskHandler, AssigneeBlockedError, TenantPushPausedError } from './push-task.handler'
 
 const TENANT_ID = 'tenant-1'
 const TASK_ID = 'task-1'
@@ -127,11 +129,16 @@ describe('PushTaskHandler', () => {
     markPushed: ReturnType<typeof vi.fn>
     updateMsEtag: ReturnType<typeof vi.fn>
     applyMsWonFields: ReturnType<typeof vi.fn>
+    linkToMs: ReturnType<typeof vi.fn>
   }
   let planRepo: { findById: ReturnType<typeof vi.fn> }
   let bucketRepo: { findById: ReturnType<typeof vi.fn> }
   let conflictRepo: { insert: ReturnType<typeof vi.fn> }
-  let graph: { patch: ReturnType<typeof vi.fn>; get: ReturnType<typeof vi.fn> }
+  let graph: {
+    post: ReturnType<typeof vi.fn>
+    patch: ReturnType<typeof vi.fn>
+    get: ReturnType<typeof vi.fn>
+  }
   let dirtyQuery: { forTask: ReturnType<typeof vi.fn> }
   let identityFacade: {
     getGraphCredential: ReturnType<typeof vi.fn>
@@ -152,11 +159,17 @@ describe('PushTaskHandler', () => {
       markPushed: vi.fn().mockResolvedValue(undefined),
       updateMsEtag: vi.fn().mockResolvedValue(undefined),
       applyMsWonFields: vi.fn().mockResolvedValue(undefined),
+      linkToMs: vi.fn().mockResolvedValue(undefined),
     }
     planRepo = { findById: vi.fn().mockResolvedValue(makeMsGroupPlan()) }
     bucketRepo = { findById: vi.fn().mockResolvedValue(makeBucket()) }
     conflictRepo = { insert: vi.fn().mockResolvedValue(undefined) }
     graph = {
+      post: vi.fn().mockResolvedValue({
+        status: 201,
+        body: { id: 'new-ms-task-id', '@odata.etag': '"new-task-etag"' },
+        etag: '"new-task-etag"',
+      }),
       patch: vi.fn().mockResolvedValue({
         status: 200,
         body: { '@odata.etag': '"new-etag"' },
@@ -462,6 +475,92 @@ describe('PushTaskHandler', () => {
       expect(conflictRepo.insert).toHaveBeenCalledOnce()
       const conflict = conflictRepo.insert.mock.calls[0][0]
       expect(conflict.kind).toBe('push_failed')
+    })
+  })
+
+  describe('createTaskOnMs', () => {
+    it('no msTaskId + MS-linked plan → POSTs task, calls linkToMs, then markPushed', async () => {
+      taskRepo.findById.mockResolvedValue(makeTask({ msTaskId: null }))
+
+      await handler.execute(new PushTaskCommand(TASK_ID, TENANT_ID))
+
+      expect(graph.post).toHaveBeenCalledOnce()
+      expect(graph.post).toHaveBeenCalledWith(
+        TENANT_ID,
+        '/planner/tasks',
+        expect.objectContaining({
+          planId: 'ms-plan-1',
+          title: 'My Task',
+          priority: 5,
+          percentComplete: 0,
+        }),
+        expect.objectContaining({ preferReturnRepresentation: true }),
+      )
+      expect(taskRepo.linkToMs).toHaveBeenCalledWith(
+        TASK_ID,
+        expect.objectContaining({ msTaskId: 'new-ms-task-id', origin: 'ms-sync-push' }),
+      )
+      expect(taskRepo.markPushed).toHaveBeenCalledWith(TASK_ID, expect.any(Date))
+    })
+
+    it('no msTaskId + description → POSTs task then PATCHes /details with If-Match: *', async () => {
+      const checklistItems = [
+        ChecklistItem.reconstitute({
+          id: 'ci-1',
+          title: 'Step 1',
+          isChecked: false,
+          orderHint: ' !',
+        }),
+      ]
+      taskRepo.findById.mockResolvedValue(
+        makeTask({ msTaskId: null, description: 'Do the thing', checklistItems }),
+      )
+      graph.patch.mockResolvedValue({
+        status: 200,
+        body: { '@odata.etag': '"details-etag"' },
+        etag: '"details-etag"',
+      })
+
+      await handler.execute(new PushTaskCommand(TASK_ID, TENANT_ID))
+
+      expect(graph.post).toHaveBeenCalledOnce()
+      expect(graph.patch).toHaveBeenCalledOnce()
+      expect(graph.patch).toHaveBeenCalledWith(
+        TENANT_ID,
+        `/planner/tasks/${encodeURIComponent('new-ms-task-id')}/details`,
+        expect.objectContaining({ description: 'Do the thing', previewType: 'automatic' }),
+        expect.objectContaining({ ifMatch: '*', preferReturnRepresentation: true }),
+      )
+      expect(taskRepo.updateMsEtag).toHaveBeenCalledWith(
+        TASK_ID,
+        expect.objectContaining({ msDetailsEtag: '"details-etag"' }),
+      )
+      expect(taskRepo.markPushed).toHaveBeenCalledWith(TASK_ID, expect.any(Date))
+    })
+
+    it('unresolvable assignee → AssigneeBlockedError', async () => {
+      taskRepo.findById.mockResolvedValue(
+        makeTask({
+          msTaskId: null,
+          assignees: [TaskAssignee.create('actor-x', 'actor-1')],
+        }),
+      )
+      identityFacade.getExternalUserId.mockResolvedValue(null)
+
+      await expect(handler.execute(new PushTaskCommand(TASK_ID, TENANT_ID))).rejects.toThrow(
+        AssigneeBlockedError,
+      )
+      expect(graph.post).not.toHaveBeenCalled()
+    })
+
+    it('future_only plan → no-op (no POST)', async () => {
+      taskRepo.findById.mockResolvedValue(makeTask({ msTaskId: null }))
+      planRepo.findById.mockResolvedValue(makeFutureOnlyPlan())
+
+      await handler.execute(new PushTaskCommand(TASK_ID, TENANT_ID))
+
+      expect(graph.post).not.toHaveBeenCalled()
+      expect(taskRepo.markPushed).not.toHaveBeenCalled()
     })
   })
 })
