@@ -129,7 +129,7 @@ export class OpenAiSynthesizerLlmClient implements SynthesizerLlmClient, OnModul
   synthesize(opts: SynthesizerLlmClientOpts): SynthesizerStreamResult {
     const model = resolveModel(opts.model)
 
-    // NOTE: `streamObject` is @deprecated in ai SDK ≥6 in favor of `streamText` with output settings.
+    // NOTE: `streamObject` is marked deprecated in ai SDK ≥6 in favor of `streamText` with output settings.
     // Plan 18 §1 mandates streamObject for the partialObjectStream semantics; revisit when streamText reaches typed-schema parity.
     //
     // Cast is load-bearing: the SDK's `streamObject` input type is a deeply
