@@ -9,9 +9,9 @@ import { describe, it, expect, vi } from 'vitest'
 import { initTRPC, TRPCError } from '@trpc/server'
 import * as z from 'zod'
 import type { Db } from '@future/db'
-import { TrpcCallerImpl, ShadowDryRunMutationRefusedError } from './trpc-caller'
+import { TrpcCallerImpl } from './trpc-caller'
 import { BASE_DB_TOKEN } from '../../../../common/db/db.module'
-import type { AgentToolMeta } from '../../../../common/trpc/agent-tool-meta'
+import type { RequestDbContextService } from '../../../../common/db/request-db-context.service'
 
 // ─── Test router setup ────────────────────────────────────────────────────────
 
@@ -221,18 +221,25 @@ describe('TrpcCallerImpl', () => {
      * registers for TrpcCallerImpl, proving the wiring is correct without
      * requiring a full NestJS testing module bootstrap.
      */
-    it('factory function (as registered in agents.module.ts) passes db to TrpcCallerImpl', () => {
-      // Simulate the BASE_DB_TOKEN value (a real Db-shaped object would be injected in prod)
+    it('factory function (as registered in agents.module.ts) passes db and requestDbContext to TrpcCallerImpl', () => {
       const mockDb = {} as unknown as Db
+      const mockCtx = {
+        getDb: () => null,
+        setDb: () => {},
+        clearDb: () => {},
+      } as unknown as RequestDbContextService
 
-      // This is exactly the factory registered in agents.module.ts:
-      //   { provide: TrpcCallerImpl, inject: [BASE_DB_TOKEN], useFactory: (db: Db) => new TrpcCallerImpl(undefined, db) }
-      const factory = (db: Db) => new TrpcCallerImpl(undefined, db)
-      const instance = factory(mockDb)
+      // Mirror of agents.module.ts:
+      //   { inject: [BASE_DB_TOKEN, RequestDbContextService],
+      //     useFactory: (db, ctx) => new TrpcCallerImpl(undefined, db, ctx) }
+      const factory = (db: Db, ctx: RequestDbContextService) =>
+        new TrpcCallerImpl(undefined, db, ctx)
+      const instance = factory(mockDb, mockCtx)
 
-      // The private db field must be set — proves NestJS will inject BASE_DB_TOKEN correctly
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((instance as any).db).toBe(mockDb)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((instance as any).requestDbContext).toBe(mockCtx)
     })
 
     it('factory is keyed on BASE_DB_TOKEN (not DB_TOKEN)', () => {
@@ -242,75 +249,57 @@ describe('TrpcCallerImpl', () => {
       expect(BASE_DB_TOKEN.toString()).toContain('BaseDb')
     })
 
-    it('refuses a mutation that has not declared shadowSafe meta (audit Theme F guard rail)', async () => {
-      // Build a router with a mutation lacking meta.agent.shadowSafe. Default behaviour
-      // must be: refuse dry-run invocation so writes can never silently commit through
-      // a DI'd DB_TOKEN connection that is outside the rollback transaction.
-      const tMeta = initTRPC
-        .context<Record<string, unknown>>()
-        .meta<{ agent: AgentToolMeta }>()
-        .create()
-
-      let mutationCalled = false
-      const router = tMeta.router({
-        unsafeWrite: tMeta.procedure
-          .meta({
-            agent: {
-              whenToUse: 'noop',
-              whenNotToUse: 'noop',
-              examples: [{ input: 'x', callArgs: {} }],
-              approvalFreshness: 'revalidate',
-            },
-          })
-          .input(z.object({}).passthrough())
-          .mutation(() => {
-            mutationCalled = true
-            return { ok: true }
-          }),
+    it('publishes the tx into RequestDbContextService for the duration of the dry-run, then restores the previous slot', async () => {
+      const testT = initTRPC.context<Record<string, unknown>>().create()
+      const testRouter = testT.router({
+        ping: testT.procedure.query(() => 'pong'),
       })
 
+      const txStub = { execute: vi.fn().mockResolvedValue({ rows: [] }) } as unknown as Db
       const mockDb = {
-        transaction: vi.fn(),
+        transaction: vi
+          .fn()
+          .mockImplementation(async (callback: (tx: Db) => Promise<unknown>) => callback(txStub)),
       } as unknown as Db
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const caller = new TrpcCallerImpl(() => router as any, mockDb)
 
-      await expect(
-        caller.call({
-          toolName: 'unsafeWrite',
-          args: {},
-          requestContext: { tenantId: 't1', userId: 'u1', traceId: 'tr1', surface: 'shadow' },
-          mode: 'dry-run',
+      const previousDbSentinel = { _sentinel: 'previous' } as unknown as Db
+      const observedInsideCall: Array<Db | null> = []
+
+      const requestDbContext: Pick<RequestDbContextService, 'getDb' | 'setDb' | 'clearDb'> = {
+        getDb: vi.fn(() => previousDbSentinel),
+        setDb: vi.fn((db: Db) => {
+          observedInsideCall.push(db)
         }),
-      ).rejects.toBeInstanceOf(ShadowDryRunMutationRefusedError)
+        clearDb: vi.fn(),
+      }
 
-      expect(mockDb.transaction).not.toHaveBeenCalled()
-      expect(mutationCalled).toBe(false)
+      // Cast to the full service type to satisfy the constructor signature; the
+      // unit under test only ever uses the three methods stubbed above.
+      const instance = new TrpcCallerImpl(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        () => testRouter as any,
+        mockDb,
+        requestDbContext as RequestDbContextService,
+      )
+
+      await instance.call({
+        toolName: 'ping',
+        args: undefined,
+        requestContext: { tenantId: 't1', userId: 'u1', traceId: 'tr1', surface: 'shadow' },
+        mode: 'dry-run',
+      })
+
+      // The tx must have been pushed into CLS so DI'd DB_TOKEN proxies route through it.
+      expect(requestDbContext.setDb).toHaveBeenCalledWith(txStub)
+      expect(observedInsideCall[0]).toBe(txStub)
+      // After the dry-run completes, the previous CLS slot must be restored.
+      expect(requestDbContext.setDb).toHaveBeenLastCalledWith(previousDbSentinel)
     })
 
-    it('allows a mutation declared shadowSafe: true to run under dry-run (rollback path)', async () => {
-      const tMeta = initTRPC
-        .context<Record<string, unknown>>()
-        .meta<{ agent: AgentToolMeta }>()
-        .create()
-
-      let mutationCalled = false
-      const router = tMeta.router({
-        safeWrite: tMeta.procedure
-          .meta({
-            agent: {
-              whenToUse: 'noop',
-              whenNotToUse: 'noop',
-              examples: [{ input: 'x', callArgs: {} }],
-              approvalFreshness: 'revalidate',
-              shadowSafe: true,
-            },
-          })
-          .input(z.object({}).passthrough())
-          .mutation(() => {
-            mutationCalled = true
-            return { ok: true }
-          }),
+    it('clears the CLS slot when the previous value was null (no outer scope had set a Db)', async () => {
+      const testT = initTRPC.context<Record<string, unknown>>().create()
+      const testRouter = testT.router({
+        ping: testT.procedure.query(() => 'pong'),
       })
 
       const mockDb = {
@@ -320,29 +309,77 @@ describe('TrpcCallerImpl', () => {
         }),
       } as unknown as Db
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const caller = new TrpcCallerImpl(() => router as any, mockDb)
-      await caller.call({
-        toolName: 'safeWrite',
-        args: {},
+      const requestDbContext: Pick<RequestDbContextService, 'getDb' | 'setDb' | 'clearDb'> = {
+        getDb: vi.fn(() => null),
+        setDb: vi.fn(),
+        clearDb: vi.fn(),
+      }
+
+      const instance = new TrpcCallerImpl(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        () => testRouter as any,
+        mockDb,
+        requestDbContext as RequestDbContextService,
+      )
+
+      await instance.call({
+        toolName: 'ping',
+        args: undefined,
         requestContext: { tenantId: 't1', userId: 'u1', traceId: 'tr1', surface: 'shadow' },
         mode: 'dry-run',
       })
 
-      expect(mockDb.transaction).toHaveBeenCalledOnce()
-      expect(mutationCalled).toBe(true)
+      expect(requestDbContext.clearDb).toHaveBeenCalledOnce()
     })
 
-    it('instance constructed by factory uses dry-run path (not execute fallback) when mode=dry-run', async () => {
-      // Build a minimal router that returns a known value
+    it('restores the previous CLS slot even when the procedure throws a real error', async () => {
+      const testT = initTRPC.context<Record<string, unknown>>().create()
+      const testRouter = testT.router({
+        boom: testT.procedure.query(() => {
+          throw new Error('procedure exploded')
+        }),
+      })
+
+      const mockDb = {
+        transaction: vi.fn().mockImplementation(async (callback: (tx: Db) => Promise<unknown>) => {
+          const tx = { execute: vi.fn().mockResolvedValue({ rows: [] }) } as unknown as Db
+          return callback(tx)
+        }),
+      } as unknown as Db
+
+      const previousDbSentinel = { _sentinel: 'previous' } as unknown as Db
+      const requestDbContext: Pick<RequestDbContextService, 'getDb' | 'setDb' | 'clearDb'> = {
+        getDb: vi.fn(() => previousDbSentinel),
+        setDb: vi.fn(),
+        clearDb: vi.fn(),
+      }
+
+      const instance = new TrpcCallerImpl(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        () => testRouter as any,
+        mockDb,
+        requestDbContext as RequestDbContextService,
+      )
+
+      await expect(
+        instance.call({
+          toolName: 'boom',
+          args: undefined,
+          requestContext: { tenantId: 't1', userId: 'u1', traceId: 'tr1', surface: 'shadow' },
+          mode: 'dry-run',
+        }),
+      ).rejects.toThrow('procedure exploded')
+
+      // Restoration must run even on the error path.
+      expect(requestDbContext.setDb).toHaveBeenLastCalledWith(previousDbSentinel)
+    })
+
+    it('instance constructed by factory uses dry-run path (opens a real transaction) when mode=dry-run', async () => {
       const testT = initTRPC.context<Record<string, unknown>>().create()
       const testRouter = testT.router({
         ping: testT.procedure.query(() => 'pong'),
       })
 
-      // Track whether db.transaction() was called — this is the key assertion.
-      // TrpcCallerImpl calls db.transaction() only when mode=dry-run AND db !== undefined.
-      // The mock re-throws whatever the callback throws so the sentinel propagates correctly.
       let transactionCalled = false
       const mockDb = {
         transaction: vi.fn().mockImplementation(async (callback: (tx: Db) => Promise<unknown>) => {
@@ -350,14 +387,18 @@ describe('TrpcCallerImpl', () => {
           const tx = {
             execute: vi.fn().mockResolvedValue({ rows: [] }),
           } as unknown as Db
-          // Propagate the callback's throw (including the DRY_RUN_ROLLBACK sentinel)
-          // so TrpcCallerImpl's outer catch can unwrap the result.
           return callback(tx)
         }),
       } as unknown as Db
 
+      const requestDbContext = {
+        getDb: vi.fn(() => null),
+        setDb: vi.fn(),
+        clearDb: vi.fn(),
+      } as unknown as RequestDbContextService
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const instance = new TrpcCallerImpl(() => testRouter as any, mockDb)
+      const instance = new TrpcCallerImpl(() => testRouter as any, mockDb, requestDbContext)
       await instance.call({
         toolName: 'ping',
         args: undefined,
@@ -365,7 +406,6 @@ describe('TrpcCallerImpl', () => {
         mode: 'dry-run',
       })
 
-      // dry-run path must have opened a transaction — proving db is wired and used
       expect(transactionCalled).toBe(true)
     })
   })
