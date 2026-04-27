@@ -43,6 +43,7 @@ interface TaskProps {
   msTaskEtag: string | null
   msTaskDetailsEtag: string | null
   pendingMsAssignments: string[]
+  lastPushedAt: Date | null
 }
 
 export class Task {
@@ -74,6 +75,7 @@ export class Task {
   readonly msTaskEtag: string | null
   readonly msTaskDetailsEtag: string | null
   readonly pendingMsAssignments: string[]
+  readonly lastPushedAt: Date | null
 
   private constructor(props: TaskProps) {
     this.id = props.id
@@ -103,6 +105,7 @@ export class Task {
     this.msTaskEtag = props.msTaskEtag
     this.msTaskDetailsEtag = props.msTaskDetailsEtag
     this.pendingMsAssignments = props.pendingMsAssignments
+    this.lastPushedAt = props.lastPushedAt
   }
 
   // ─── Getters ──────────────────────────────────────────────────────────────
@@ -221,6 +224,7 @@ export class Task {
       msTaskEtag: null,
       msTaskDetailsEtag: null,
       pendingMsAssignments: [],
+      lastPushedAt: null,
     })
   }
 
@@ -252,6 +256,7 @@ export class Task {
     msTaskEtag: string | null
     msTaskDetailsEtag: string | null
     pendingMsAssignments: string[]
+    lastPushedAt?: Date | null
   }): Task {
     return new Task({
       id: props.id,
@@ -281,6 +286,7 @@ export class Task {
       msTaskEtag: props.msTaskEtag,
       msTaskDetailsEtag: props.msTaskDetailsEtag,
       pendingMsAssignments: props.pendingMsAssignments,
+      lastPushedAt: props.lastPushedAt ?? null,
     })
   }
 
