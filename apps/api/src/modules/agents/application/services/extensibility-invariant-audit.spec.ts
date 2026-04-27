@@ -16,12 +16,12 @@ describe('ExtensibilityInvariantAudit', () => {
   const audit = new ExtensibilityInvariantAudit()
 
   describe('run() on synthetic fixture (no violations)', () => {
-    it('returns exactly 10 invariant results', async () => {
+    it('returns exactly 13 invariant results', async () => {
       const result = await audit.run()
-      expect(result.perInvariant).toHaveLength(10)
+      expect(result.perInvariant).toHaveLength(13)
     })
 
-    it('all 10 invariants pass on the synthetic fixture', async () => {
+    it('all 13 invariants pass on the synthetic fixture', async () => {
       const result = await audit.run()
       for (const inv of result.perInvariant) {
         expect(inv.passed, `${inv.invariantId} should pass`).toBe(true)
@@ -48,7 +48,7 @@ describe('ExtensibilityInvariantAudit', () => {
       expect(result.ranAt).toBeInstanceOf(Date)
     })
 
-    it('invariant IDs cover EI-1 through EI-10', async () => {
+    it('invariant IDs cover EI-1 through EI-13', async () => {
       const result = await audit.run()
       const ids = result.perInvariant.map((r) => r.invariantId)
       const expected = [
@@ -62,6 +62,9 @@ describe('ExtensibilityInvariantAudit', () => {
         'EI-8',
         'EI-9',
         'EI-10',
+        'EI-11',
+        'EI-12',
+        'EI-13',
       ]
       for (const id of expected) {
         expect(ids).toContain(id)
@@ -303,6 +306,54 @@ describe('ExtensibilityInvariantAudit', () => {
       })
       const ei10 = result.perInvariant.find((r) => r.invariantId === 'EI-10')
       expect(ei10!.evidence).toMatch(/2/)
+    })
+  })
+
+  describe('EI-11 — sub-agent runner adapter is wired (no rawStructured:{}/all-zero stub)', () => {
+    it('passes when adapter does not match the stub signature', async () => {
+      const audit = new ExtensibilityInvariantAudit()
+      const result = await audit.run()
+      const ei11 = result.perInvariant.find((r) => r.invariantId === 'EI-11')
+      expect(ei11?.passed).toBe(true)
+    })
+
+    it('fails when override forces a stub-signature match', async () => {
+      const audit = new ExtensibilityInvariantAudit()
+      const result = await audit.run({ forceEi11Fail: true })
+      const ei11 = result.perInvariant.find((r) => r.invariantId === 'EI-11')
+      expect(ei11?.passed).toBe(false)
+    })
+  })
+
+  describe('EI-12 — synthesizer adapter calls SynthesizerLlmClient', () => {
+    it('passes when synthesizer-adapter.ts contains a SynthesizerLlmClient call', async () => {
+      const audit = new ExtensibilityInvariantAudit()
+      const result = await audit.run()
+      const ei12 = result.perInvariant.find((r) => r.invariantId === 'EI-12')
+      expect(ei12?.passed).toBe(true)
+    })
+
+    it('fails on override', async () => {
+      const audit = new ExtensibilityInvariantAudit()
+      const result = await audit.run({ forceEi12Fail: true })
+      const ei12 = result.perInvariant.find((r) => r.invariantId === 'EI-12')
+      expect(ei12?.passed).toBe(false)
+    })
+  })
+
+  describe('EI-13 — golden-trace runner is wired (no actualFingerprint = {...expectedFingerprint})', () => {
+    it('passes when runCiGate does not contain the stub line', async () => {
+      const audit = new ExtensibilityInvariantAudit()
+      const result = await audit.run()
+      const ei13 = result.perInvariant.find((r) => r.invariantId === 'EI-13')
+      expect(ei13?.passed).toBe(true)
+    })
+
+    it('fails on override', async () => {
+      const audit = new ExtensibilityInvariantAudit()
+      const result = await audit.run({ forceEi13Fail: true })
+      const ei13 = result.perInvariant.find((r) => r.invariantId === 'EI-13')
+      expect(ei13?.passed).toBe(false)
     })
   })
 })
