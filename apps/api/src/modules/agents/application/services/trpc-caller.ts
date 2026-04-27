@@ -1,6 +1,5 @@
 /**
  * TrpcCallerImpl — server-side tRPC caller for the ToolGateway pipeline.
- * Task 5, Plan 01.
  *
  * Wraps `getAppRouter().createCaller(ctx)` and resolves dot-path tool names
  * (e.g. `planner.task.getBoard`) to nested router procedures.
@@ -14,37 +13,47 @@
  *   `tenantId` are already resolved by `RlsMiddleware` and flow directly via ctx — so
  *   the synthetic cookie is safe and intentional.
  *
- * Dry-run (Plan 11 R-11.1):
+ * Dry-run (Plan 11 R-11.1 + audit Theme F closure):
  *   When mode is 'dry-run', the procedure is executed inside a Postgres transaction
- *   that ALWAYS rolls back after completion (Option A — transaction rollback).
- *   This allows the candidate pipeline to run realistically (reads see the writes
- *   within the transaction; the procedure can produce a meaningful result for diffing)
- *   while guaranteeing that nothing is committed.
+ *   that ALWAYS rolls back after completion. Drizzle rolls back when the transaction
+ *   callback throws — we throw a sentinel symbol after capturing the procedure's
+ *   return value, then unwrap it in the outer catch.
  *
- *   The transaction-bound Db instance is injected into the tRPC context as `dryRunTx`
- *   so procedures that explicitly opt in to dry-run isolation can use it. Test
- *   procedures use `ctx.dryRunTx ?? baseDb` to demonstrate the rollback guarantee.
- *   Production procedures that do not check `ctx.dryRunTx` remain isolated from the
- *   shadow transaction (they use their own NestJS-injected DB_TOKEN connection).
+ *   The transaction-bound Db is published into the request CLS scope via
+ *   RequestDbContextService.setDb(). Every production handler reads its `Db` via
+ *   `@Inject(DB_TOKEN)` — the DB_TOKEN provider is a Proxy over BASE_DB_TOKEN that
+ *   delegates each property access to whatever `requestDbContext.getDb()` returns.
+ *   Pushing the tx into CLS therefore makes every DI'd repository / command handler
+ *   transparently route through the rollback transaction for the duration of the
+ *   dry-run, with no per-procedure opt-in. After the procedure returns (or throws),
+ *   the previous CLS slot is restored so subsequent code in the same request scope
+ *   is unaffected.
  *
- *   If no `db` is provided to the constructor (test or legacy instantiation), dry-run
- *   falls back to execute mode — the call proceeds without transaction wrapping. This
- *   maintains backward compatibility for unit tests that do not need isolation guarantees.
+ *   Known escape hatches that the rollback does NOT cover (intentional, out of scope):
+ *     - pg-boss job enqueue (writes to pgboss schema via the boss pool, outside the tx)
+ *     - external HTTP / email / S3 calls (no DB at all)
+ *   A procedure that issues those side effects under shadow mode will leak them.
+ *   None of the agent-invokable production tools currently do so; this is a contract
+ *   that should be enforced at PR review until a "shadow-mode" CLS flag is added that
+ *   the side-effect services can check.
+ *
+ *   For unit tests that do not need a real transaction, omit `db` and `requestDbContext`
+ *   from the constructor — dry-run will fall back to the execute path.
  */
 
-import { Injectable, Optional } from '@nestjs/common'
+import { Inject, Injectable, Optional } from '@nestjs/common'
 import { sql } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import type { TrpcCaller } from '../pipeline/pipeline-steps'
 import type { RequestContext } from './tool-gateway-contracts'
 import type { TrpcContext } from '../../../../common/trpc/trpc-init'
 import { getAppRouter } from '../../../../common/trpc/app-router'
+import { RequestDbContextService } from '../../../../common/db/request-db-context.service'
 
 // ─── Router shape (minimal for navigation) ────────────────────────────────────
 
 type AnyRouter = {
-  createCaller: (ctx: TrpcContext & { dryRunTx?: Db }) => Record<string, unknown>
-  _def: { procedures: Record<string, unknown> }
+  createCaller: (ctx: TrpcContext) => Record<string, unknown>
 }
 
 // ─── Rollback sentinel ────────────────────────────────────────────────────────
@@ -69,25 +78,20 @@ function isDryRunRollbackSignal(v: unknown): v is DryRunRollbackSignal {
 
 // ─── TrpcCallerImpl ───────────────────────────────────────────────────────────
 
-/**
- * NestJS-injectable implementation of the `TrpcCaller` interface.
- *
- * Accepts an optional `routerProvider` constructor parameter for testing —
- * tests inject a small `initTRPC`-built router instead of `getAppRouter()`.
- * Production code omits `routerProvider` and defaults to `getAppRouter`.
- *
- * Accepts an optional `db` (base DB pool) for dry-run transaction wrapping.
- * When provided, dry-run calls are wrapped in a transaction that always rolls
- * back (Plan 11 R-11.1 Option A). When absent, dry-run falls back to execute.
- */
 @Injectable()
 export class TrpcCallerImpl implements TrpcCaller {
   private readonly routerProvider: () => AnyRouter
   private readonly db: Db | undefined
+  private readonly requestDbContext: RequestDbContextService | undefined
 
-  constructor(@Optional() routerProvider?: () => AnyRouter, @Optional() db?: Db) {
+  constructor(
+    @Optional() routerProvider?: () => AnyRouter,
+    @Optional() db?: Db,
+    @Optional() @Inject(RequestDbContextService) requestDbContext?: RequestDbContextService,
+  ) {
     this.routerProvider = routerProvider ?? (getAppRouter as () => AnyRouter)
     this.db = db
+    this.requestDbContext = requestDbContext
   }
 
   async call(input: {
@@ -98,29 +102,21 @@ export class TrpcCallerImpl implements TrpcCaller {
   }): Promise<unknown> {
     const { toolName, args, requestContext, mode } = input
 
-    if (mode === 'dry-run' && this.db !== undefined) {
-      // TODO(follow-up): Every production write procedure must use `ctx.dryRunTx ?? baseDb`
-      // to inherit this rollback isolation. Procedures that inject DB_TOKEN directly (via
-      // NestJS DI) are NOT covered by this transaction — their writes will commit even in
-      // dry-run mode. This is a P1 incident risk per Plan 11 §7. Track adoption of
-      // `ctx.dryRunTx ?? baseDb` in all domain write procedures as a prerequisite for GA.
+    if (mode === 'dry-run' && this.db !== undefined && this.requestDbContext !== undefined) {
       return this.callInRollbackTransaction(toolName, args, requestContext)
     }
 
-    // execute mode (or dry-run without db — falls back to normal execution)
-    return this.callProcedure(toolName, args, requestContext, undefined)
+    // execute mode (or dry-run on a test instance lacking db / requestDbContext)
+    return this.callProcedure(toolName, args, requestContext)
   }
 
   /**
    * Executes the procedure inside a Postgres transaction that ALWAYS rolls back.
    *
-   * The transaction-bound Db is passed as `dryRunTx` in the tRPC context so
-   * procedures that opt in to dry-run isolation can use it for writes (which will
-   * be visible within the transaction but never committed).
-   *
-   * Mechanism: throw a sentinel object inside the transaction callback after
-   * capturing the result. `db.transaction()` rolls back when the callback throws.
-   * The outer catch extracts the result from the sentinel.
+   * The transaction-bound Db is published into the request CLS scope so DI'd
+   * `DB_TOKEN` proxies route through it for the duration of the procedure call.
+   * The previous CLS slot is restored on the way out — both on the rollback path
+   * and when the procedure throws a real error.
    */
   private async callInRollbackTransaction(
     toolName: string,
@@ -128,52 +124,55 @@ export class TrpcCallerImpl implements TrpcCaller {
     requestContext: RequestContext,
   ): Promise<unknown> {
     const db = this.db!
+    const requestDbContext = this.requestDbContext!
 
     try {
       await db.transaction(async (tx) => {
-        // Set tenant context on the transaction connection
+        // Set tenant context on the transaction connection so RLS policies match.
         await tx.execute(sql`SELECT set_config('app.tenant_id', ${requestContext.tenantId}, false)`)
 
-        const result = await this.callProcedure(toolName, args, requestContext, tx as unknown as Db)
-        // Throw sentinel to force rollback — Drizzle rolls back when the callback throws
-        throw { sentinel: DRY_RUN_ROLLBACK, result } satisfies DryRunRollbackSignal
+        const previousDb = requestDbContext.getDb()
+        requestDbContext.setDb(tx as unknown as Db)
+        try {
+          const result = await this.callProcedure(toolName, args, requestContext)
+          // Throw sentinel to force rollback — Drizzle rolls back when the callback throws.
+          throw { sentinel: DRY_RUN_ROLLBACK, result } satisfies DryRunRollbackSignal
+        } finally {
+          if (previousDb !== null) {
+            requestDbContext.setDb(previousDb)
+          } else {
+            requestDbContext.clearDb()
+          }
+        }
       })
     } catch (err: unknown) {
       if (isDryRunRollbackSignal(err)) {
-        // Expected rollback path — return the captured result
         return err.result
       }
-      // Re-throw genuine errors (procedure errors, DB errors, etc.)
       throw err
     }
 
-    // Unreachable — the transaction always either throws sentinel or an error
     /* v8 ignore next */
     throw new Error('TrpcCallerImpl: unexpected execution path in dry-run transaction')
   }
 
   /**
-   * Core procedure navigation and invocation logic.
-   * Shared between execute mode and dry-run (with or without transaction wrapping).
-   *
-   * @param dryRunTx - Optional transaction-bound Db injected into tRPC ctx as dryRunTx.
-   *                   Procedures that opt in to dry-run isolation use this for writes.
+   * Core procedure navigation and invocation logic. Shared between execute mode
+   * and the inner body of dry-run (the rollback transaction wraps this call).
    */
   private async callProcedure(
     toolName: string,
     args: unknown,
     requestContext: RequestContext,
-    dryRunTx: Db | undefined,
   ): Promise<unknown> {
     const router = this.routerProvider()
 
     // Build ctx — tenantId/actorId are already resolved; cookie header is synthetic
     // (not used in server-side callers; JWT extraction only occurs at HTTP boundary).
-    const ctx: TrpcContext & { dryRunTx?: Db } = {
+    const ctx: TrpcContext = {
       req: { headers: { cookie: '' } },
       tenantId: requestContext.tenantId,
       actorId: requestContext.userId,
-      ...(dryRunTx !== undefined ? { dryRunTx } : {}),
     }
 
     const caller = router.createCaller(ctx)

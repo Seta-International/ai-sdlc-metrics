@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common'
+import { Injectable, Inject, Logger } from '@nestjs/common'
 import type { Db } from '@future/db'
 import { eq } from 'drizzle-orm'
 import { DB_TOKEN } from '../../../../common/db/db.module'
@@ -19,6 +19,7 @@ export interface TurnEntry {
 @Injectable()
 export class ActiveTurnRegistry {
   private readonly turns = new Map<string, TurnEntry>()
+  private readonly logger = new Logger(ActiveTurnRegistry.name)
 
   constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
@@ -47,10 +48,25 @@ export class ActiveTurnRegistry {
     })
 
     const heartbeatTimer = setInterval(async () => {
-      await this.db
+      // Only tick while the entry is live; unregister clears the timer but a
+      // tick already in flight could still race past the clearInterval call.
+      if (!this.turns.has(opts.traceId)) return
+
+      const rows = await this.db
         .update(agentActiveTurns)
         .set({ lastHeartbeatAt: new Date() })
         .where(eq(agentActiveTurns.traceId, opts.traceId))
+        .returning({ abortPending: agentActiveTurns.abortPending })
+
+      if (rows[0]?.abortPending !== true) return
+
+      const entry = this.turns.get(opts.traceId)
+      if (!entry || entry.userCancelController.signal.aborted) return
+
+      this.logger.log(
+        `cross-pod cancel detected via abort_pending — aborting traceId=${opts.traceId}`,
+      )
+      entry.userCancelController.abort()
     }, 5_000)
 
     this.turns.set(opts.traceId, {

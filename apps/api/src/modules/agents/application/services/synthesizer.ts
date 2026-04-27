@@ -29,7 +29,7 @@ import type { SubAgentOutput, Citation } from './phase-executor-contracts'
  *
  * A single sub-agent or all sub-agents sharing semantics → no contradiction.
  */
-export function detectContradiction(outputs: Map<string, SubAgentOutput>): boolean {
+export function detectContradiction(outputs: ReadonlyMap<string, SubAgentOutput>): boolean {
   if (outputs.size <= 1) return false
 
   const semanticsValues = [...outputs.values()].map((o) => o.semantics)
@@ -51,7 +51,7 @@ export function detectContradiction(outputs: Map<string, SubAgentOutput>): boole
  *
  * NEVER uses "disagree", "conflict", or "inconsistent" framing (§9 transparency tenet).
  */
-export function renderContradictionClarity(outputs: Map<string, SubAgentOutput>): string {
+export function renderContradictionClarity(outputs: ReadonlyMap<string, SubAgentOutput>): string {
   // Only include sub-agents with actual data. Failed agents (errored, all_tools_disabled, aborted)
   // are covered by buildDisclosureStatements — including their empty/error summaries here
   // would produce garbage prose clauses like " (tasks by status).".
@@ -80,7 +80,7 @@ export function renderContradictionClarity(outputs: Map<string, SubAgentOutput>)
  * One citation record per sub-agent that has non-empty tool provenance.
  * The claim uses the sub-agent's summary as the paragraph-level anchor.
  */
-export function buildCitations(outputs: Map<string, SubAgentOutput>): Citation[] {
+export function buildCitations(outputs: ReadonlyMap<string, SubAgentOutput>): Citation[] {
   const citations: Citation[] = []
 
   for (const [subAgentKey, output] of outputs) {
@@ -109,7 +109,7 @@ export function buildCitations(outputs: Map<string, SubAgentOutput>): Citation[]
  * Rationale: a permission gap or abort is actionable information the user can follow up
  * on with an admin (transparency over coherence).
  */
-export function buildDisclosureStatements(outputs: Map<string, SubAgentOutput>): string[] {
+export function buildDisclosureStatements(outputs: ReadonlyMap<string, SubAgentOutput>): string[] {
   const disclosures: string[] = []
 
   for (const [subAgentKey, output] of outputs) {

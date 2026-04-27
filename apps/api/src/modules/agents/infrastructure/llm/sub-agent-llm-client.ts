@@ -24,6 +24,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 import type { ZodType } from 'zod'
 import type { ModelChoice } from '../../domain/services/sub-agent-types'
 import type { SubAgentUsage } from '../../application/services/phase-executor-contracts'
+import { mapLanguageModelUsage, type LanguageModelUsageLike } from './usage'
 
 // ─── DI token ─────────────────────────────────────────────────────────────────
 
@@ -90,21 +91,6 @@ function resolveModel(choice: ModelChoice) {
   }
 }
 
-function mapUsage(u: {
-  inputTokens?: number
-  outputTokens?: number
-  totalTokens?: number
-}): SubAgentUsage {
-  return {
-    inputTokens: u.inputTokens ?? 0,
-    outputTokens: u.outputTokens ?? 0,
-    inputCachedRead: 0,
-    inputCachedWrite: 0,
-    outputReasoning: 0,
-    costUsd: 0, // populated downstream by cost-recorder
-  }
-}
-
 // ─── OpenAiSubAgentLlmClient ─────────────────────────────────────────────────
 
 @Injectable()
@@ -164,9 +150,7 @@ export class OpenAiSubAgentLlmClient implements SubAgentLlmClient, OnModuleInit 
       rawStructured,
       text: result.text,
       steps: result.steps as unknown as ReadonlyArray<unknown>,
-      usage: mapUsage(
-        result.usage as { inputTokens?: number; outputTokens?: number; totalTokens?: number },
-      ),
+      usage: mapLanguageModelUsage(result.usage as LanguageModelUsageLike),
       finishReason: result.finishReason as SubAgentLlmClientResult['finishReason'],
     }
   }

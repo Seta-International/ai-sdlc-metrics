@@ -1,4 +1,4 @@
-import { Controller, Post, Req, Res } from '@nestjs/common'
+import { Controller, Inject, Post, Req, Res } from '@nestjs/common'
 import type { IncomingMessage, ServerResponse } from 'http'
 import { JwtService } from '../../../../common/auth/jwt.service'
 import {
@@ -6,6 +6,13 @@ import {
   recordTurnDuration,
   recordAbortTotal,
 } from '../../infrastructure/observability/streaming-metrics'
+import {
+  TurnPipelineRunner,
+  TURN_PIPELINE_RUNNER,
+} from '../../application/services/turn-pipeline-runner'
+import { SaveQueue } from '../../application/services/save-queue'
+import { classifyPipelineError } from '../../application/services/pipeline-errors'
+import type { PhaseExecutorTurnState } from '../../application/services/phase-executor-contracts'
 
 // Minimal structural types — avoids a direct `fastify` package import that
 // bun does not hoist into node_modules (fastify is a peer dep of platform-fastify).
@@ -49,6 +56,8 @@ export class AgentTurnController {
     private readonly budgetChecker: BudgetChecker,
     private readonly observabilityContextFactory: ObservabilityContextFactory,
     private readonly flowIdPropagation: FlowIdPropagation,
+    @Inject(TURN_PIPELINE_RUNNER) private readonly turnPipelineRunner: TurnPipelineRunner,
+    private readonly saveQueue: SaveQueue,
   ) {}
 
   @Post('/api/agent/turn')
@@ -193,32 +202,106 @@ export class AgentTurnController {
         return
       }
 
-      gateway.emit({ type: 'phase.started', payload: { phase: 'routing' } })
+      // ── Persist user message via SaveQueue (fire-and-forget, before runner)
+      // so the user message is durable even if the pipeline crashes.
+      const userMessageContent = body?.user_utterance ?? ''
+      this.saveQueue.enqueue({
+        conversationId: conversationId ?? '',
+        tenantId,
+        message: {
+          tenantId,
+          userId,
+          conversationId: conversationId ?? '',
+          traceId,
+          role: 'user',
+          content: { text: userMessageContent },
+          summary: null,
+        },
+      })
 
-      if (!signal.aborted) {
-        gateway.emit({
-          type: 'answer.shape_declared',
-          payload: { format: 'markdown', locale: 'en' },
+      // ── Build runtime turn state for the pipeline ──────────────────────────
+      const turnState: PhaseExecutorTurnState = {
+        traceId,
+        tenantId,
+        userId,
+        conversationId: conversationId ?? '',
+        sessionId: '', // populated by RouterSessionOrchestrator after session load
+        surface: surface as 'global-chat' | 'inline' | 'async',
+        tainted: { value: false },
+        routerReplanCount: 0,
+      }
+
+      const pipelineRequestContext = {
+        tenantId,
+        userId,
+        traceId,
+        surface: surface as 'global-chat' | 'inline' | 'async',
+        // TODO(plan-18-followup): SessionPayload exposes `roles: string[]` but
+        // no canonical roleKey. The pipeline downstream (KernelQueryFacade.
+        // getRolePermissions, RouterPromptBuilder) needs a single roleKey;
+        // resolution rule (primary role? highest-tier?) must be defined and
+        // surfaced via JwtService.verify so this cast disappears.
+        roleKey: (session as { roleKey?: string }).roleKey ?? '',
+      }
+
+      // ── Invoke the pipeline runner — emits SSE events via streamEmitter ────
+      const pipelineResult = await this.turnPipelineRunner.run({
+        userUtterance: userMessageContent,
+        conversationId: conversationId ?? '',
+        requestContext: pipelineRequestContext,
+        abortSignal: signal,
+        streamEmitter: gateway,
+        turnState,
+      })
+
+      // ── Persist assistant message (only when non-empty) ────────────────────
+      if (pipelineResult.renderedAssistantMessage) {
+        this.saveQueue.enqueue({
+          conversationId: conversationId ?? '',
+          tenantId,
+          message: {
+            tenantId,
+            userId,
+            conversationId: conversationId ?? '',
+            traceId,
+            role: 'assistant',
+            content: {
+              text: pipelineResult.renderedAssistantMessage,
+              shape: pipelineResult.shape,
+            },
+            summary: null,
+          },
         })
       }
 
-      if (!signal.aborted) {
-        gateway.emit({ type: 'answer.token', payload: { token: '' } })
+      // ── Translate pipeline turnEndReason to SSE close/error ────────────────
+      const usage = pipelineResult.usage ?? ZERO_USAGE
+      switch (pipelineResult.turnEndReason) {
+        case 'cancelled':
+          turnEndReason = 'cancelled'
+          gateway.close('cancelled', usage)
+          break
+        case 'refused':
+          turnEndReason = 'refused'
+          gateway.close('refused', usage)
+          break
+        case 'error':
+          turnEndReason = 'error'
+          gateway.error('internal_error', usage)
+          break
+        case 'completed':
+        default:
+          turnEndReason = 'completed'
+          gateway.close('completed', usage)
       }
-
-      if (!signal.aborted) {
-        gateway.emit({ type: 'answer.complete', payload: {} })
-      }
-
-      gateway.close('completed', ZERO_USAGE)
     } catch (err) {
       turnError = err instanceof Error ? err : new Error(String(err))
-      if (!signal.aborted) {
-        turnEndReason = 'error'
-        gateway.error('internal_error', ZERO_USAGE)
-      } else {
+      if (signal.aborted) {
         turnEndReason = 'cancelled'
         gateway.close('cancelled', ZERO_USAGE)
+      } else {
+        turnEndReason = 'error'
+        gateway.error(classifyPipelineError(err), ZERO_USAGE)
       }
     } finally {
       // ── R-07.43: Close root span with appropriate status ───────────────────

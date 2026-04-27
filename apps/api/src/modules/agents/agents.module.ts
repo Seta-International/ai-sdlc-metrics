@@ -17,6 +17,9 @@ import { ExposureContractGuard } from './infrastructure/guards/exposure-contract
 import { ToolPermissionGuard } from './infrastructure/guards/tool-permission.guard'
 import { KernelModule } from '../kernel/kernel.module'
 import { KernelAuditFacade } from '../kernel/application/facades/kernel-audit.facade'
+import { KernelQueryFacade } from '../kernel/application/facades/kernel-query.facade'
+import { AdminModule } from '../admin/admin.module'
+import { AdminQueryFacade } from '../admin/application/facades/admin-query.facade'
 // Repository tokens — pre-Plan 04
 import { AGENT_CHAT_SESSION_REPOSITORY } from './domain/repositories/agent-chat-session.repository'
 import { AGENT_SESSION_PORT } from './domain/ports/agent-session.port'
@@ -110,6 +113,14 @@ import {
   RouterSessionOrchestrator,
   ROUTER_SESSION_ORCHESTRATOR,
 } from './application/services/router-session-orchestrator'
+// Plan 18 Task 5/7/9 — Bounded executor + turn pipeline runner + run-pipeline factory
+import { BoundedExecutor, BOUNDED_EXECUTOR } from './application/services/bounded-executor'
+import {
+  TurnPipelineRunner,
+  TURN_PIPELINE_RUNNER,
+  RUN_PIPELINE_FN,
+} from './application/services/turn-pipeline-runner'
+import { createRunPipelineFn } from './application/factories/run-pipeline.factory'
 // Gateway pipeline (Task 5)
 import { ToolRegistry, TOOL_REGISTRY } from './infrastructure/tool-registry/tool-registry'
 import { TrpcCallerImpl } from './application/services/trpc-caller'
@@ -120,6 +131,11 @@ import {
   OpenAiSubAgentLlmClient,
   SUB_AGENT_LLM_CLIENT,
 } from './infrastructure/llm/sub-agent-llm-client'
+// Plan 17 PR 3 — synthesizer LLM client
+import {
+  OpenAiSynthesizerLlmClient,
+  SYNTHESIZER_LLM_CLIENT,
+} from './infrastructure/llm/synthesizer-llm-client'
 import { getAppRouter } from '../../common/trpc/app-router'
 // Sub-agent registry (Task 3)
 import { SubAgentRegistry, SUB_AGENT_REGISTRY } from './infrastructure/registry/sub-agent-registry'
@@ -191,6 +207,7 @@ import type { SemanticIndexRepository } from './domain/repositories/semantic-ind
 import type { IDraftRepository } from './domain/repositories/draft.repository'
 import { PgBossService } from '../../common/jobs/pg-boss.service'
 import { DB_TOKEN, BASE_DB_TOKEN } from '../../common/db/db.module'
+import { RequestDbContextService } from '../../common/db/request-db-context.service'
 import type { Db } from '@future/db'
 // Module sub-agent barrels.
 //   • Adding a sub-agent to an EXISTING module: re-export it from that module's
@@ -340,6 +357,7 @@ class NullTenantLister implements TenantListerLike {
 @Module({
   imports: [
     KernelModule,
+    AdminModule,
     NotificationsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -398,16 +416,56 @@ class NullTenantLister implements TenantListerLike {
     // ── Router session orchestrator (Task 10) ──────────────────────────────────
     RouterSessionOrchestrator,
     { provide: ROUTER_SESSION_ORCHESTRATOR, useExisting: RouterSessionOrchestrator },
+    // ── Plan 18 — Bounded executor + live turn pipeline runner ────────────────
+    BoundedExecutor,
+    { provide: BOUNDED_EXECUTOR, useExisting: BoundedExecutor },
+    TurnPipelineRunner,
+    { provide: TURN_PIPELINE_RUNNER, useExisting: TurnPipelineRunner },
+    {
+      // RUN_PIPELINE_FN — the live composition closure consumed by
+      // TurnPipelineRunner. Logic lives in `application/factories/run-pipeline.factory.ts`
+      // so this file stays focused on DI wiring; the closure composes
+      // RouterSessionOrchestrator, BoundedExecutor, WindowBuilder, plus
+      // KernelQueryFacade + AdminQueryFacade (cross-module reads via public
+      // facades only — see CLAUDE.md DDD rule).
+      provide: RUN_PIPELINE_FN,
+      inject: [
+        ROUTER_SESSION_ORCHESTRATOR,
+        BOUNDED_EXECUTOR,
+        WINDOW_BUILDER,
+        KernelQueryFacade,
+        AdminQueryFacade,
+      ],
+      useFactory: (
+        routerOrchestrator: RouterSessionOrchestrator,
+        boundedExecutor: BoundedExecutor,
+        windowBuilder: WindowBuilder,
+        kernelQuery: KernelQueryFacade,
+        adminQuery: AdminQueryFacade,
+      ) =>
+        createRunPipelineFn({
+          routerOrchestrator,
+          boundedExecutor,
+          windowBuilder,
+          kernelQuery,
+          adminQuery,
+        }),
+    },
     // ── Gateway pipeline (Task 5) ──────────────────────────────────────────────
     ToolRegistry,
     // TrpcCallerImpl requires BASE_DB_TOKEN (raw pool — not the request-bound DB_TOKEN proxy)
     // so that gateway-invoked dry-run calls open a real Postgres transaction for rollback
     // isolation (Plan 11 R-11.1). Using DB_TOKEN would cause nested-transaction issues with
     // RLS session state and violate the single-PoolClient-per-request rule.
+    //
+    // RequestDbContextService is also injected so dry-run can publish the transaction-bound
+    // Db into the request CLS scope — DI'd DB_TOKEN proxies then route through the rollback
+    // tx for the duration of the procedure call (audit Theme F closure).
     {
       provide: TrpcCallerImpl,
-      inject: [BASE_DB_TOKEN],
-      useFactory: (db: Db) => new TrpcCallerImpl(undefined, db),
+      inject: [BASE_DB_TOKEN, RequestDbContextService],
+      useFactory: (db: Db, requestDbContext: RequestDbContextService) =>
+        new TrpcCallerImpl(undefined, db, requestDbContext),
     },
     ToolGateway,
     { provide: TOOL_GATEWAY, useExisting: ToolGateway },
@@ -415,6 +473,9 @@ class NullTenantLister implements TenantListerLike {
     // ── Plan 17 PR 2 — Sub-agent LLM client (real ReAct loop wiring) ───────────
     OpenAiSubAgentLlmClient,
     { provide: SUB_AGENT_LLM_CLIENT, useExisting: OpenAiSubAgentLlmClient },
+    // ── Plan 17 PR 3 — Synthesizer LLM client (streaming structured output) ────
+    OpenAiSynthesizerLlmClient,
+    { provide: SYNTHESIZER_LLM_CLIENT, useExisting: OpenAiSynthesizerLlmClient },
     // ── Sub-agent registry (Task 3) ────────────────────────────────────────────
     SubAgentRegistry,
     { provide: SUB_AGENT_REGISTRY, useExisting: SubAgentRegistry },

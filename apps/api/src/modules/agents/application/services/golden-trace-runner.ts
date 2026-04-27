@@ -1,20 +1,21 @@
 /**
- * golden-trace-runner.ts — Plan 10 Task 6
+ * golden-trace-runner.ts — Plan 10 Task 6 + Plan 17 PR 4 Task 14.
  *
  * Runs the CI gate against the active golden-trace set (R-10.11 – R-10.15).
  *
- * MVP stub: the "actual" fingerprint is derived from the trace's own expected
- * values because full pipeline execution is not yet wired (added in Task 9).
- * This means runCiGate() always returns passed: true with empty regressions
- * at MVP — but the structural plumbing (cap enforcement, scorer invocation,
- * fingerprint comparison) is fully implemented so integration tests can verify
- * the plumbing.
+ * Drives the full pipeline through ReplayHarness + TurnPipelineRunner +
+ * ReplayModeToolGateway: for each active trace, replays its captured prompts
+ * and tool outputs, executes the real pipeline against a replay-mode gateway,
+ * and compares the produced Fingerprint against the trace's expected values.
+ * Replay failures yield MARKER_REPLAY_FAILED so a missed lookup surfaces as
+ * a regression rather than a silent pass.
  *
  * Design §§: §4 GoldenTraceRunner, R-10.11 through R-10.15.
  */
 
 import { Inject, Injectable } from '@nestjs/common'
-import type { Fingerprint } from '../../domain/scorer-types'
+import type { AnswerShape, Fingerprint } from '../../domain/scorer-types'
+import { MARKER_REPLAY_FAILED } from '../../domain/scorer-types'
 import type { GoldenTraceEntity } from '../../domain/repositories/golden-trace.repository'
 import {
   GOLDEN_TRACE_REPOSITORY,
@@ -23,6 +24,13 @@ import {
 import { ScorerRegistry } from './scorer-registry'
 import type { ReplayHarness } from './replay-harness'
 import { REPLAY_HARNESS } from './replay-harness'
+import { TURN_PIPELINE_RUNNER, type TurnPipelineRunner } from './turn-pipeline-runner'
+import { ReplayModeToolGateway } from '../../infrastructure/tool-gateway/replay-mode-tool-gateway'
+import { canonicalize } from '../../infrastructure/cache/canonical-args'
+import {
+  recordGoldenTraceCiRun,
+  recordReplayMiss,
+} from '../../infrastructure/observability/golden-trace-metrics'
 
 // ─── DI token ─────────────────────────────────────────────────────────────────
 
@@ -109,22 +117,22 @@ export class GoldenTraceRunner {
     @Inject(GOLDEN_TRACE_REPOSITORY) private readonly repo: GoldenTraceRepository,
     private readonly scorerRegistry: ScorerRegistry,
     @Inject(REPLAY_HARNESS) private readonly replayHarness: ReplayHarness,
+    @Inject(TURN_PIPELINE_RUNNER) private readonly turnPipelineRunner: TurnPipelineRunner,
   ) {}
 
   /**
    * Runs the CI gate against all active golden traces.
    *
    * For each trace:
-   *   1. Build the expected Fingerprint.
-   *   2. Run all registered deterministic scorers against a ScorerContext
-   *      derived from the trace's expected values.
-   *   3. Run all registered LLM-judge scorers in observe-only mode
-   *      (results never gate CI at MVP per R-10.30).
-   *   4. Any deterministic scorer returning passed: false → record regression.
-   *
-   * MVP stub: "actual" fingerprint equals "expected" fingerprint (no real
-   * execution). Returns passed: true with empty regressions until Task 9
-   * wires real pipeline execution.
+   *   1. Replay the trace via ReplayHarness (mode=full) to recover the captured
+   *      LLM messages, pinned versions, and tool outputs.
+   *   2. Drive the pipeline through TurnPipelineRunner.runWithReplay() with a
+   *      ReplayModeToolGateway backed by the captured tool outputs.
+   *   3. Build the actual Fingerprint from the pipeline result.
+   *   4. Run all registered deterministic scorers; passed:false → regression.
+   *   5. Run all registered LLM-judge scorers in observe-only mode (R-10.30).
+   *   6. Replay failures yield MARKER_REPLAY_FAILED + a regression report so
+   *      missed lookups surface in the gate output.
    */
   async runCiGate(opts: { branch: string; commit: string }): Promise<CiGateResult> {
     const startMs = Date.now()
@@ -137,11 +145,52 @@ export class GoldenTraceRunner {
     for (const trace of traces) {
       const expectedFingerprint = buildExpectedFingerprint(trace)
 
-      // MVP: actual fingerprint = expected (no real execution yet).
-      // Task 9 replaces this with real pipeline output.
-      const actualFingerprint: Fingerprint = { ...expectedFingerprint }
+      let actualFingerprint: Fingerprint
+      let replayFailed = false
+      try {
+        const replay = await this.replayHarness.replay({ traceId: trace.id, mode: 'full' })
+        if (!replay.toolOutputs) {
+          throw new Error('replay returned no toolOutputs (mode=full required)')
+        }
+        const gateway = new ReplayModeToolGateway(
+          replay.toolOutputs,
+          (args) => canonicalize(args).hash,
+        )
+        // ReplayResult.messages is LlmMessageArray[] (role may include 'tool', content may be null);
+        // TurnPipelineRunner.runWithReplay only consumes user/assistant/system text, so flatten +
+        // narrow to the pipeline shape and drop tool / null-content rows.
+        const replayMessages = replay.messages
+          .flat()
+          .filter(
+            (m): m is { role: 'user' | 'assistant' | 'system'; content: string } =>
+              m.role !== 'tool' && typeof m.content === 'string',
+          )
+          .map((m) => ({ role: m.role, content: m.content }))
+        const result = await this.turnPipelineRunner.runWithReplay({
+          messages: replayMessages,
+          pinnedVersions: replay.pinnedVersions,
+          toolGatewayOverride: gateway,
+        })
+        if (result.shape === 'aborted') {
+          throw new Error(
+            'replay pipeline returned aborted shape — should not happen in replay mode',
+          )
+        }
+        actualFingerprint = {
+          toolCallsSorted: [...result.toolCallNames].sort(),
+          shape: result.shape as AnswerShape,
+          permissionKeys: [...result.permissionKeys].sort(),
+          taintFlipped: result.taintFlipped,
+        }
+      } catch {
+        replayFailed = true
+        actualFingerprint = MARKER_REPLAY_FAILED
+        // '*' sentinel — the catch block has no tool context (the throw could
+        // be a replay miss, a pipeline error, or the aborted-shape guard above).
+        recordReplayMiss({ toolName: '*', traceId: trace.id })
+      }
 
-      // Run deterministic scorers — gate on their results.
+      let traceFailed = false
       for (const scorer of deterministicScorers) {
         const ctx = {
           traceId: trace.id,
@@ -157,18 +206,20 @@ export class GoldenTraceRunner {
         try {
           result = await scorer.run(ctx)
         } catch {
-          // Scorer threw — treat as failed (surface error in regression report).
           result = { passed: false }
         }
         if (!result.passed) {
-          const report = computeRegressionReport(trace, actualFingerprint)
-          regressions.push(report)
-          // One regression per trace is sufficient; don't duplicate.
+          regressions.push(computeRegressionReport(trace, actualFingerprint))
+          traceFailed = true
           break
         }
       }
 
-      // Run LLM-judge scorers in observe-only mode — never gate.
+      // Replay failure itself is a regression even if no deterministic scorer flagged it.
+      if (!traceFailed && replayFailed) {
+        regressions.push(computeRegressionReport(trace, actualFingerprint))
+      }
+
       for (const scorer of llmJudgeScorers) {
         const ctx = {
           traceId: trace.id,
@@ -181,20 +232,23 @@ export class GoldenTraceRunner {
           output: { actualFingerprint },
         }
         try {
-          // Result is intentionally discarded — observe-only at MVP (R-10.30).
           await scorer.run(ctx)
         } catch {
-          // Observe-only failures are silently swallowed; never affect gate.
+          /* observe-only — never gate */
         }
       }
     }
 
     const durationMs = Date.now() - startMs
 
-    return {
-      passed: regressions.length === 0,
-      regressions,
-      durationMs,
-    }
+    const passed = regressions.length === 0
+    recordGoldenTraceCiRun({
+      result: passed
+        ? 'pass'
+        : regressions.some((r) => r.actualFingerprint === MARKER_REPLAY_FAILED)
+          ? 'replay_failed'
+          : 'regression',
+    })
+    return { passed, regressions, durationMs }
   }
 }

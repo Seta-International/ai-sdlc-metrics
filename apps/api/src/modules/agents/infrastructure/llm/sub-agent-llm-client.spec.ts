@@ -126,6 +126,33 @@ describe('OpenAiSubAgentLlmClient', () => {
     expect(result.finishReason).toBe('stop')
   })
 
+  it('propagates cache-read, cache-write, and reasoning token details into SubAgentUsage', async () => {
+    mockGenerateText.mockResolvedValueOnce({
+      text: '',
+      steps: [],
+      usage: {
+        inputTokens: 100,
+        outputTokens: 200,
+        inputTokenDetails: { cacheReadTokens: 30, cacheWriteTokens: 10 },
+        outputTokenDetails: { reasoningTokens: 50 },
+      },
+      finishReason: 'stop',
+      experimental_output: { ok: true },
+    })
+
+    const client = new OpenAiSubAgentLlmClient()
+    const result = await client.runWithTools(baseOpts)
+
+    expect(result.usage).toEqual({
+      inputTokens: 100,
+      outputTokens: 200,
+      inputCachedRead: 30,
+      inputCachedWrite: 10,
+      outputReasoning: 50,
+      costUsd: 0,
+    })
+  })
+
   it('falls back to generateObject when experimental_output is unavailable', async () => {
     mockGenerateText.mockResolvedValueOnce({
       text: '{"ok":true}',

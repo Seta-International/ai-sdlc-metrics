@@ -47,6 +47,7 @@ import {
 } from './router-test-harness'
 import type { RouterLlmResult } from './router-test-harness'
 import type { RouteTurnOpts } from './router-session-orchestrator'
+import { RouterLlmFailureError } from './pipeline-errors'
 import type { RouterPlan } from '../../domain/value-objects/router-plan-schema'
 import type { SubAgentKey } from '../../domain/services/sub-agent-types'
 
@@ -335,14 +336,16 @@ describe('Case 4: Cross-tenant narrative hash isolation', () => {
   })
 })
 
-// ─── Case 5: Malformed-then-valid retry ───────────────────────────────────────
+// ─── Case 5: LLM infra failure throws RouterLlmFailureError (Plan 18 R-18.24) ──
 
-describe('Case 5: Malformed-then-valid retry', () => {
-  it('LLM first returns malformed, second returns valid → bounded, parseRetries=1', async () => {
-    const plan = makePlan()
+describe('Case 5: Router LLM infra failure throws RouterLlmFailureError', () => {
+  it('LLM call malformed (timeout) → throws RouterLlmFailureError(failureCause: llm_timeout)', async () => {
     const llmResults: RouterLlmResult[] = [
-      { kind: 'malformed', error: new Error('sdk timeout'), rawText: null },
-      { kind: 'ok', plan },
+      {
+        kind: 'malformed',
+        error: Object.assign(new Error('sdk timeout'), { name: 'AbortError' }),
+        rawText: null,
+      },
     ]
 
     const { orchestrator } = buildRealOrchestrator({
@@ -351,28 +354,28 @@ describe('Case 5: Malformed-then-valid retry', () => {
       permissionsByRole: EMPLOYEE_PERMISSIONS,
     })
 
-    const result = await orchestrator.routeTurn(makeTurnOpts())
-
-    expect(result.kind).toBe('bounded')
-    if (result.kind === 'bounded') {
-      expect(result.parseRetries).toBe(1)
-    }
-
-    // Metric: agent_router_parse_retry_total must be 1
-    const retryPoints = await flushMetricPoints('agent_router_parse_retry_total')
-    const tenantRetry = retryPoints.find((p) => p.attributes['tenant_id'] === TENANT_A)
-    expect(tenantRetry).toBeDefined()
-    expect(tenantRetry!.value).toBe(1)
+    await expect(orchestrator.routeTurn(makeTurnOpts())).rejects.toBeInstanceOf(
+      RouterLlmFailureError,
+    )
+    await expect(orchestrator.routeTurn(makeTurnOpts())).rejects.toMatchObject({
+      failureCause: 'llm_timeout',
+    })
   })
 })
 
 // ─── Case 6: Double parse failure → disambiguation ────────────────────────────
 
 describe('Case 6: Double parse failure → escalation', () => {
-  it('both LLM calls malformed → disambiguation, parse_escalated metric, audit event', async () => {
+  it('both parser results return retry → disambiguation, parse_escalated metric, audit event', async () => {
+    // Plan 18 R-18.24 — LLM-call infra failures now throw. The escalation
+    // path remaining is a structural parse failure on both attempts. We feed
+    // two `kind: 'ok'` results that carry a structurally invalid RouterPlan
+    // (missing required fields) so the real RouterDecisionParser returns
+    // `kind: 'retry'` for both attempts → escalation.
+    const invalidPlan = { topology: 'bounded' } as unknown as RouterPlan
     const llmResults: RouterLlmResult[] = [
-      { kind: 'malformed', error: new Error('fail1'), rawText: null },
-      { kind: 'malformed', error: new Error('fail2'), rawText: null },
+      { kind: 'ok', plan: invalidPlan },
+      { kind: 'ok', plan: invalidPlan },
     ]
 
     const auditCapture = new InMemoryAuditCapture()
@@ -450,15 +453,18 @@ describe('Case 7: LLM-emitted disambiguation plan', () => {
   })
 })
 
-// ─── Case 8: Fuzzy-repair rejected (parser rejects malformed) ─────────────────
+// ─── Case 8: Parser-retry loop on structurally invalid first plan ─────────────
 
-describe('Case 8: Fuzzy-repair rejected — retry loop triggered', () => {
-  it('malformed LLM output → parser rejects → orchestrator retries → second attempt succeeds', async () => {
-    // First result is malformed (LLM SDK failed) → parser cannot fix → retry
-    // Second result is valid → bounded
+describe('Case 8: Parser-retry loop — first plan invalid, second valid → bounded', () => {
+  it('invalid plan → parser returns retry → orchestrator retries → second attempt succeeds', async () => {
+    // Plan 18 R-18.24 — LLM-call malformed now throws. The retained retry
+    // semantics are around the parser: a structurally invalid `kind: 'ok'`
+    // plan triggers parser.parsePlan to return `kind: 'retry'`, the
+    // orchestrator retries, and the second valid plan completes the turn.
     const plan = makePlan()
+    const invalidPlan = { topology: 'bounded' } as unknown as RouterPlan
     const llmResults: RouterLlmResult[] = [
-      { kind: 'malformed', error: new Error('trailing comma in JSON'), rawText: null },
+      { kind: 'ok', plan: invalidPlan },
       { kind: 'ok', plan },
     ]
 

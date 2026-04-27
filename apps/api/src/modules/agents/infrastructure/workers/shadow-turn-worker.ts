@@ -38,11 +38,12 @@ export {
  *
  * Errors are swallowed (shadow is lossy-okay per plan §7).
  *
- * Dry-run isolation (R-11.1):
+ * Dry-run isolation (R-11.1 + audit Theme F closure):
  *   Each baseline tool is invoked via TrpcCallerImpl with mode:'dry-run'.
- *   TrpcCallerImpl wraps the call in a Postgres transaction that ALWAYS rolls back,
- *   so writes within the candidate pipeline are never committed to the DB.
- *   The candidate output (TurnResult) is captured from the dry-run result for diffing.
+ *   TrpcCallerImpl wraps the call in a Postgres transaction that ALWAYS rolls back
+ *   AND publishes the transaction-bound Db into the request CLS scope, so every
+ *   handler reading `Db` via @Inject(DB_TOKEN) routes through the rollback tx for
+ *   the duration of the procedure. No per-procedure opt-in required.
  */
 @Injectable()
 export class ShadowTurnWorker implements OnApplicationBootstrap {
@@ -63,9 +64,12 @@ export class ShadowTurnWorker implements OnApplicationBootstrap {
      */
     @Optional() trpcCaller?: TrpcCaller,
   ) {
-    // If no caller is injected (production path), build one with the DB so
-    // dry-run transaction wrapping works correctly (R-11.1).
-    this.trpcCaller = trpcCaller ?? new TrpcCallerImpl(undefined, this.db)
+    // If no caller is injected (production path), build one wired with the raw
+    // base-pool DB and the request CLS context so dry-run opens a real rollback
+    // transaction AND publishes the tx into CLS for every DI'd handler underneath
+    // (R-11.1 + audit Theme F closure).
+    this.trpcCaller =
+      trpcCaller ?? new TrpcCallerImpl(undefined, this.baseDb, this.requestDbContext)
   }
 
   onApplicationBootstrap(): void {
@@ -183,9 +187,9 @@ export class ShadowTurnWorker implements OnApplicationBootstrap {
         })
         succeededTools.push(toolName)
       } catch {
-        // Tool call failed in dry-run — do not include in candidate output.
-        // This is expected for tools that require specific args; the failure
-        // is recorded by excluding the tool from succeededTools.
+        // Tool call failed in dry-run (e.g. args mismatch, RLS policy violation,
+        // procedure-level error). Excluded from succeededTools so the diff scorer
+        // sees the gap; shadow is lossy-okay per plan §7.
         this.logger.debug(
           `ShadowTurnWorker: dry-run tool call failed for ${toolName} — excluding from candidate output`,
         )
