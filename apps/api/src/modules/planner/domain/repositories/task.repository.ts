@@ -87,4 +87,9 @@ export interface ITaskRepository {
     id: string,
     etags: { msTaskEtag?: string | null; msDetailsEtag?: string | null },
   ): Promise<void>
+  applyMsWonFields(
+    taskId: string,
+    freshMsBody: Record<string, unknown>,
+    opts: { origin: string },
+  ): Promise<void>
 }

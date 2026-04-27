@@ -11,6 +11,14 @@ import type { IMsSyncConflictRepository } from '../../../domain/repositories/ms-
 import type { MsGraphClient } from '../../../infrastructure/ms-graph/ms-graph-client'
 import type { OutboxDirtyFieldsQuery } from '../../../infrastructure/outbox/outbox-dirty-fields.query'
 import type { IdentityQueryFacade } from '../../../../identity/application/facades/identity-query.facade'
+import type { IdentityMsGraphCredentialFacade } from '../../../../identity/application/facades/identity-ms-graph-credential.facade'
+import {
+  GraphAuthError,
+  GraphPreconditionFailedError,
+  GraphQuotaError,
+  GraphServerError,
+  GraphThrottledError,
+} from '../../../infrastructure/ms-graph/errors'
 import { PushTaskCommand } from './push-task.command'
 import { PushTaskHandler, TenantPushPausedError } from './push-task.handler'
 
@@ -118,15 +126,20 @@ describe('PushTaskHandler', () => {
     findById: ReturnType<typeof vi.fn>
     markPushed: ReturnType<typeof vi.fn>
     updateMsEtag: ReturnType<typeof vi.fn>
+    applyMsWonFields: ReturnType<typeof vi.fn>
   }
   let planRepo: { findById: ReturnType<typeof vi.fn> }
   let bucketRepo: { findById: ReturnType<typeof vi.fn> }
   let conflictRepo: { insert: ReturnType<typeof vi.fn> }
-  let graph: { patch: ReturnType<typeof vi.fn> }
+  let graph: { patch: ReturnType<typeof vi.fn>; get: ReturnType<typeof vi.fn> }
   let dirtyQuery: { forTask: ReturnType<typeof vi.fn> }
   let identityFacade: {
     getGraphCredential: ReturnType<typeof vi.fn>
     getExternalUserId: ReturnType<typeof vi.fn>
+  }
+  let msCredFacade: {
+    markCredentialInvalid: ReturnType<typeof vi.fn>
+    setPushPausedUntil: ReturnType<typeof vi.fn>
   }
   let eventBus: { publish: ReturnType<typeof vi.fn> }
   let handler: PushTaskHandler
@@ -138,6 +151,7 @@ describe('PushTaskHandler', () => {
       findById: vi.fn().mockResolvedValue(makeTask()),
       markPushed: vi.fn().mockResolvedValue(undefined),
       updateMsEtag: vi.fn().mockResolvedValue(undefined),
+      applyMsWonFields: vi.fn().mockResolvedValue(undefined),
     }
     planRepo = { findById: vi.fn().mockResolvedValue(makeMsGroupPlan()) }
     bucketRepo = { findById: vi.fn().mockResolvedValue(makeBucket()) }
@@ -148,11 +162,20 @@ describe('PushTaskHandler', () => {
         body: { '@odata.etag': '"new-etag"' },
         etag: '"new-etag"',
       }),
+      get: vi.fn().mockResolvedValue({
+        status: 200,
+        body: { '@odata.etag': '"fresh-etag"' },
+        etag: '"fresh-etag"',
+      }),
     }
     dirtyQuery = { forTask: vi.fn().mockResolvedValue(new Set()) }
     identityFacade = {
       getGraphCredential: vi.fn().mockResolvedValue(activeCredential),
       getExternalUserId: vi.fn().mockResolvedValue('aad-user-1'),
+    }
+    msCredFacade = {
+      markCredentialInvalid: vi.fn().mockResolvedValue(undefined),
+      setPushPausedUntil: vi.fn().mockResolvedValue(undefined),
     }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
 
@@ -164,6 +187,7 @@ describe('PushTaskHandler', () => {
       graph as unknown as MsGraphClient,
       dirtyQuery as unknown as OutboxDirtyFieldsQuery,
       identityFacade as unknown as IdentityQueryFacade,
+      msCredFacade as unknown as IdentityMsGraphCredentialFacade,
       eventBus as unknown as EventBus,
     )
   })
@@ -249,5 +273,193 @@ describe('PushTaskHandler', () => {
       TenantPushPausedError,
     )
     expect(graph.patch).not.toHaveBeenCalled()
+  })
+
+  describe('412 recovery', () => {
+    const FRESH_ETAG = '"fresh-etag-after-412"'
+
+    it('412: MS field unchanged → merged patch retried with fresh etag, etag updated', async () => {
+      const task = makeTask({ progress: 75 })
+      taskRepo.findById.mockResolvedValue(task)
+      dirtyQuery.forTask.mockResolvedValue(new Set(['percentComplete']))
+
+      graph.patch
+        .mockRejectedValueOnce(new GraphPreconditionFailedError('412', 412, {}))
+        .mockResolvedValueOnce({
+          status: 200,
+          body: { '@odata.etag': '"retry-etag"' },
+          etag: '"retry-etag"',
+        })
+
+      graph.get.mockResolvedValueOnce({
+        status: 200,
+        body: { '@odata.etag': FRESH_ETAG, percentComplete: 75 },
+        etag: FRESH_ETAG,
+      })
+
+      await handler.execute(new PushTaskCommand(TASK_ID, TENANT_ID))
+
+      expect(graph.get).toHaveBeenCalledOnce()
+      expect(graph.patch).toHaveBeenCalledTimes(2)
+      const retryCall = graph.patch.mock.calls[1]
+      expect(retryCall[2]).toMatchObject({ percentComplete: 75 })
+      expect(retryCall[3]).toMatchObject({ ifMatch: FRESH_ETAG })
+      expect(taskRepo.updateMsEtag).toHaveBeenCalledWith(TASK_ID, { msTaskEtag: '"retry-etag"' })
+      expect(conflictRepo.insert).not.toHaveBeenCalled()
+    })
+
+    it('412: MS field changed → field_lww conflict written, no retry PATCH', async () => {
+      const task = makeTask({ progress: 75 })
+      taskRepo.findById.mockResolvedValue(task)
+      dirtyQuery.forTask.mockResolvedValue(new Set(['percentComplete']))
+
+      graph.patch.mockRejectedValueOnce(new GraphPreconditionFailedError('412', 412, {}))
+
+      graph.get.mockResolvedValueOnce({
+        status: 200,
+        body: { '@odata.etag': FRESH_ETAG, percentComplete: 60 },
+        etag: FRESH_ETAG,
+      })
+
+      await handler.execute(new PushTaskCommand(TASK_ID, TENANT_ID))
+
+      expect(graph.patch).toHaveBeenCalledOnce()
+      expect(conflictRepo.insert).toHaveBeenCalledOnce()
+      const conflict = conflictRepo.insert.mock.calls[0][0]
+      expect(conflict.kind).toBe('field_lww')
+      expect(conflict.field).toBe('percentComplete')
+    })
+
+    it('412: all MS fields changed → two conflict rows, no retry PATCH, applyMsWonFields NOT called', async () => {
+      dirtyQuery.forTask.mockResolvedValue(new Set(['percentComplete', 'title']))
+
+      graph.patch.mockRejectedValueOnce(new GraphPreconditionFailedError('412', 412, {}))
+
+      graph.get.mockResolvedValueOnce({
+        status: 200,
+        body: { '@odata.etag': FRESH_ETAG, percentComplete: 60, title: 'MS Changed Title' },
+        etag: FRESH_ETAG,
+      })
+
+      await handler.execute(new PushTaskCommand(TASK_ID, TENANT_ID))
+
+      expect(graph.patch).toHaveBeenCalledOnce()
+      expect(conflictRepo.insert).toHaveBeenCalledTimes(2)
+      const kinds = conflictRepo.insert.mock.calls.map((c: any[]) => c[0].kind)
+      expect(kinds).toEqual(['field_lww', 'field_lww'])
+      expect(taskRepo.applyMsWonFields).not.toHaveBeenCalled()
+    })
+
+    it('412 on retry (attempt=1) → push_412_exhausted conflict, no further PATCH', async () => {
+      const task = makeTask({ progress: 75 })
+      taskRepo.findById.mockResolvedValue(task)
+      dirtyQuery.forTask.mockResolvedValue(new Set(['percentComplete']))
+
+      graph.patch
+        .mockRejectedValueOnce(
+          new GraphPreconditionFailedError('412 first', 412, { code: 'first' }),
+        )
+        .mockRejectedValueOnce(
+          new GraphPreconditionFailedError('412 retry', 412, { code: 'retry' }),
+        )
+
+      graph.get.mockResolvedValueOnce({
+        status: 200,
+        body: { '@odata.etag': FRESH_ETAG, percentComplete: 75 },
+        etag: FRESH_ETAG,
+      })
+
+      await handler.execute(new PushTaskCommand(TASK_ID, TENANT_ID))
+
+      expect(graph.patch).toHaveBeenCalledTimes(2)
+      expect(conflictRepo.insert).toHaveBeenCalledOnce()
+      const conflict = conflictRepo.insert.mock.calls[0][0]
+      expect(conflict.kind).toBe('push_412_exhausted')
+    })
+
+    it('412 then 429 on retry → setPushPausedUntil called, TenantPushPausedError thrown', async () => {
+      const task = makeTask({ progress: 75 })
+      taskRepo.findById.mockResolvedValue(task)
+      dirtyQuery.forTask.mockResolvedValue(new Set(['percentComplete']))
+
+      graph.patch
+        .mockRejectedValueOnce(new GraphPreconditionFailedError('412', 412, {}))
+        .mockRejectedValueOnce(new GraphThrottledError('429', {}, 60))
+
+      graph.get.mockResolvedValueOnce({
+        status: 200,
+        body: { '@odata.etag': FRESH_ETAG, percentComplete: 75 },
+        etag: FRESH_ETAG,
+      })
+
+      await expect(handler.execute(new PushTaskCommand(TASK_ID, TENANT_ID))).rejects.toThrow(
+        TenantPushPausedError,
+      )
+      expect(msCredFacade.setPushPausedUntil).toHaveBeenCalledOnce()
+      const [, pauseUntil] = msCredFacade.setPushPausedUntil.mock.calls[0]
+      expect(pauseUntil).toBeInstanceOf(Date)
+    })
+  })
+
+  describe('handlePushError — initial error routing', () => {
+    it('429 (throttled) → setPushPausedUntil + TenantPushPausedError', async () => {
+      dirtyQuery.forTask.mockResolvedValue(new Set(['title']))
+      graph.patch.mockRejectedValueOnce(new GraphThrottledError('429', {}, 30))
+
+      await expect(handler.execute(new PushTaskCommand(TASK_ID, TENANT_ID))).rejects.toThrow(
+        TenantPushPausedError,
+      )
+      expect(msCredFacade.setPushPausedUntil).toHaveBeenCalledOnce()
+      const [tenantIdArg, pauseUntilArg] = msCredFacade.setPushPausedUntil.mock.calls[0]
+      expect(tenantIdArg).toBe(TENANT_ID)
+      expect(pauseUntilArg).toBeInstanceOf(Date)
+    })
+
+    it('401 (auth) → markCredentialInvalid called + credential_invalidated event published', async () => {
+      dirtyQuery.forTask.mockResolvedValue(new Set(['title']))
+      graph.patch.mockRejectedValueOnce(new GraphAuthError('401 Unauthorized', 401, {}))
+
+      await handler.execute(new PushTaskCommand(TASK_ID, TENANT_ID))
+
+      expect(msCredFacade.markCredentialInvalid).toHaveBeenCalledWith(TENANT_ID, '401 Unauthorized')
+      expect(eventBus.publish).toHaveBeenCalledOnce()
+      const event = eventBus.publish.mock.calls[0][0]
+      expect(event.type).toBe('planner.ms_sync.credential_invalidated')
+      expect(event.tenantId).toBe(TENANT_ID)
+    })
+
+    it('403 quota → push_403_quota conflict, no throw', async () => {
+      dirtyQuery.forTask.mockResolvedValue(new Set(['title']))
+      graph.patch.mockRejectedValueOnce(
+        new GraphQuotaError('403 Quota', {}, 'MaximumTasksInProject'),
+      )
+
+      await handler.execute(new PushTaskCommand(TASK_ID, TENANT_ID))
+
+      expect(conflictRepo.insert).toHaveBeenCalledOnce()
+      const conflict = conflictRepo.insert.mock.calls[0][0]
+      expect(conflict.kind).toBe('push_403_quota')
+    })
+
+    it('5xx server error → rethrown so pg-boss retries', async () => {
+      dirtyQuery.forTask.mockResolvedValue(new Set(['title']))
+      const serverErr = new GraphServerError('500', 500, {})
+      graph.patch.mockRejectedValueOnce(serverErr)
+
+      await expect(handler.execute(new PushTaskCommand(TASK_ID, TENANT_ID))).rejects.toThrow(
+        serverErr,
+      )
+    })
+
+    it('unknown error → push_failed conflict, no throw', async () => {
+      dirtyQuery.forTask.mockResolvedValue(new Set(['title']))
+      graph.patch.mockRejectedValueOnce(new Error('network timeout'))
+
+      await handler.execute(new PushTaskCommand(TASK_ID, TENANT_ID))
+
+      expect(conflictRepo.insert).toHaveBeenCalledOnce()
+      const conflict = conflictRepo.insert.mock.calls[0][0]
+      expect(conflict.kind).toBe('push_failed')
+    })
   })
 })

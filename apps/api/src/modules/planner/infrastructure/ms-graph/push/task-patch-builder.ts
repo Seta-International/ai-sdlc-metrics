@@ -22,7 +22,7 @@ export interface TaskPatchResult {
   detailsScopePatch: Record<string, unknown> | null
 }
 
-const TASK_SCOPE_FIELDS = new Set<SyncableTaskField>([
+export const TASK_SCOPE_FIELDS = new Set<SyncableTaskField>([
   'title',
   'bucketId',
   'percentComplete',
@@ -36,7 +36,7 @@ const TASK_SCOPE_FIELDS = new Set<SyncableTaskField>([
   'assigneePriority',
 ])
 
-const DETAILS_SCOPE_FIELDS = new Set<SyncableTaskField>([
+export const DETAILS_SCOPE_FIELDS = new Set<SyncableTaskField>([
   'description',
   'checklist',
   'references',

@@ -334,6 +334,14 @@ export class IdentityMsGraphCredentialFacade {
     }
   }
 
+  async markCredentialInvalid(tenantId: string, reason: string): Promise<void> {
+    await this.credentialRepo.markInvalid(tenantId, reason)
+  }
+
+  async setPushPausedUntil(tenantId: string, until: Date): Promise<void> {
+    await this.credentialRepo.setPushPausedUntil(tenantId, until)
+  }
+
   private withCleanupFailures(message: string, cleanupFailures: string[]): Error {
     if (cleanupFailures.length === 0) {
       return new Error(message)
