@@ -89,7 +89,7 @@ export class PushTaskHandler implements ICommandHandler<PushTaskCommand> {
     const dirty = await this.dirtyQuery.forTask(command.taskId, since)
     if (dirty.size === 0) return
 
-    let aadAssignments: Record<string, { orderHint: string }> = {}
+    const aadAssignments: Record<string, { orderHint: string }> = {}
     if (dirty.has('assignees')) {
       for (const assignee of task.assignees) {
         const aadId = await this.identityFacade.getExternalUserId(

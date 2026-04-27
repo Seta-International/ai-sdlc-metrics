@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { SyncableTaskField } from '@future/event-contracts'
 import { mapDomainFieldToMsField } from './map-domain-field'
 
 describe('mapDomainFieldToMsField', () => {
@@ -8,7 +9,7 @@ describe('mapDomainFieldToMsField', () => {
     ['completedDate', 'completedDateTime'],
     ['assignees', 'assignments'],
   ])('%s → %s (renamed)', (domain, ms) => {
-    expect(mapDomainFieldToMsField(domain as any)).toBe(ms)
+    expect(mapDomainFieldToMsField(domain as SyncableTaskField)).toBe(ms)
   })
 
   it.each([
@@ -24,6 +25,6 @@ describe('mapDomainFieldToMsField', () => {
     'references',
     'previewType',
   ])('%s → %s (passthrough)', (field) => {
-    expect(mapDomainFieldToMsField(field as any)).toBe(field)
+    expect(mapDomainFieldToMsField(field as SyncableTaskField)).toBe(field)
   })
 })

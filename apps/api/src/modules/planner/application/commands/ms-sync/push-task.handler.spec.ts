@@ -345,7 +345,9 @@ describe('PushTaskHandler', () => {
 
       expect(graph.patch).toHaveBeenCalledOnce()
       expect(conflictRepo.insert).toHaveBeenCalledTimes(2)
-      const kinds = conflictRepo.insert.mock.calls.map((c: any[]) => c[0].kind)
+      const kinds = conflictRepo.insert.mock.calls.map(
+        (c: unknown[]) => (c[0] as { kind: string }).kind,
+      )
       expect(kinds).toEqual(['field_lww', 'field_lww'])
       expect(taskRepo.applyMsWonFields).not.toHaveBeenCalled()
     })
