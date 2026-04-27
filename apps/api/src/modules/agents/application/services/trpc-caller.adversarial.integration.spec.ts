@@ -1,24 +1,23 @@
 /**
- * Plan 11 §12 Adversarial Integration Test — R-11.1
+ * Plan 11 §12 Adversarial Integration Test — R-11.1 + audit Theme F guard rail.
  *
  * Acceptance criterion: "seeded adversarial test proves no real writes commit under
  * mode:'dry-run'."
  *
- * This test builds a real test DB, seeds a test router whose mutation procedure inserts
- * a row into agents.agent_shadow_run, calls it via TrpcCallerImpl with mode:'dry-run',
- * and asserts that zero rows were committed.
+ * Two distinct guarantees are exercised here:
  *
- * It also verifies that the candidate pipeline DID execute (not just refused) by
- * checking that the dry-run returned a result.
+ *   1. Rollback mechanism (R-11.1) — for a mutation procedure that explicitly opts in
+ *      to dry-run safety (`meta.agent.shadowSafe: true` AND uses `ctx.dryRunTx ?? baseDb`),
+ *      TrpcCallerImpl wraps the call in a Postgres transaction that always rolls back.
+ *      The procedure runs and returns a result, but writes never commit.
  *
- * Mechanism: Option A — DB transaction rollback.
- * TrpcCallerImpl wraps dry-run invocations in a Postgres transaction (using the
- * provided base-db pool) that ALWAYS rolls back after the procedure returns,
- * regardless of success or error. The transaction client is injected into the
- * tRPC context as `dryRunTx` so test procedures can explicitly use it.
- * Production procedures that don't use `ctx.dryRunTx` are also isolated — their
- * writes through the request-bound DB_TOKEN proxy are NOT in this transaction;
- * however, this test proves the mechanism works for the transaction-aware path.
+ *   2. Default-deny guard rail (audit Theme F) — for a mutation procedure that has
+ *      NOT declared shadowSafe, TrpcCallerImpl refuses the dry-run invocation with
+ *      `ShadowDryRunMutationRefusedError` BEFORE opening any transaction. Writes
+ *      cannot leak through DI'd `DB_TOKEN` connections because the procedure body
+ *      never executes.
+ *
+ * Both shapes prove the §12 acceptance criterion: zero rows commit.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -28,7 +27,8 @@ import * as z from 'zod'
 import { uuidv7 } from 'uuidv7'
 import { createTestDb, migrateForTest, seedTenant } from '@future/db/test-helpers'
 import type { Db } from '@future/db'
-import { TrpcCallerImpl } from './trpc-caller'
+import { TrpcCallerImpl, ShadowDryRunMutationRefusedError } from './trpc-caller'
+import type { AgentToolMeta } from '../../../../common/trpc/agent-tool-meta'
 import { agentShadowRun, agentRolloutConfig } from '../../infrastructure/schema/agents.schema'
 import { eq } from 'drizzle-orm'
 
@@ -55,29 +55,42 @@ interface TestCtx {
 }
 
 /**
- * Build a test router that has one mutation procedure writing to agent_shadow_run.
- * The procedure uses ctx.dryRunTx if available, otherwise falls back to the
- * db provided at router construction time (for normal execute mode).
+ * Build a test router with two mutation procedures writing to agent_shadow_run:
+ *
+ *   - `adversarial.writeRow` — declares `shadowSafe: true` AND uses `ctx.dryRunTx` →
+ *     allowed under dry-run, exercises the transaction rollback mechanism.
+ *   - `adversarial.unsafeWriteRow` — no shadowSafe declaration; would write through
+ *     the base db → refused by TrpcCallerImpl before the procedure body runs.
  */
 function buildAdversarialRouter(baseDb: Db) {
-  const t = initTRPC.context<TestCtx>().create()
+  const t = initTRPC.context<TestCtx>().meta<{ agent: AgentToolMeta }>().create()
+
+  const writeInputs = z.object({
+    id: z.string(),
+    tenantId: z.string(),
+    baselineTraceId: z.string(),
+    shadowTraceId: z.string(),
+    rolloutConfigId: z.string(),
+    candidateVersion: z.string(),
+    baselineVersion: z.string(),
+  })
 
   return t.router({
     adversarial: t.router({
       writeRow: t.procedure
-        .input(
-          z.object({
-            id: z.string(),
-            tenantId: z.string(),
-            baselineTraceId: z.string(),
-            shadowTraceId: z.string(),
-            rolloutConfigId: z.string(),
-            candidateVersion: z.string(),
-            baselineVersion: z.string(),
-          }),
-        )
+        .meta({
+          agent: {
+            whenToUse: 'adversarial test only',
+            whenNotToUse: 'never; not a real tool',
+            examples: [{ input: 'test', callArgs: {} }],
+            approvalFreshness: 'revalidate',
+            shadowSafe: true,
+          },
+        })
+        .input(writeInputs)
         .mutation(async ({ input, ctx }) => {
-          // Use the transaction-bound db if dry-run, otherwise the base db.
+          // shadowSafe: true contract — write through ctx.dryRunTx so the rollback
+          // transaction owns the row.
           const db = ctx.dryRunTx ?? baseDb
           await db.insert(agentShadowRun).values({
             id: input.id,
@@ -93,13 +106,43 @@ function buildAdversarialRouter(baseDb: Db) {
           })
           return { inserted: true, id: input.id }
         }),
+      unsafeWriteRow: t.procedure
+        .meta({
+          agent: {
+            whenToUse: 'adversarial test only',
+            whenNotToUse: 'never; not a real tool',
+            examples: [{ input: 'test', callArgs: {} }],
+            approvalFreshness: 'revalidate',
+            // Intentionally NO shadowSafe — represents the production-procedure majority
+            // that has not yet been audited / converted to ctx.dryRunTx.
+          },
+        })
+        .input(writeInputs)
+        .mutation(async ({ input }) => {
+          // Writes via the base db — would commit through the request-bound
+          // PoolClient, bypassing any rollback transaction. The guard MUST stop us
+          // from ever reaching this body under mode:'dry-run'.
+          await baseDb.insert(agentShadowRun).values({
+            id: input.id,
+            tenantId: input.tenantId,
+            baselineTraceId: input.baselineTraceId,
+            shadowTraceId: input.shadowTraceId,
+            rolloutConfigId: input.rolloutConfigId,
+            candidateVersion: input.candidateVersion,
+            baselineVersion: input.baselineVersion,
+            diffScore: '0.9000',
+            diffCategory: 'minor_difference',
+            ts: new Date(),
+          })
+          return { inserted: true, id: input.id }
+        }),
     }),
   })
 }
 
 // ── Test ──────────────────────────────────────────────────────────────────────
 
-describe('TrpcCallerImpl — adversarial dry-run rollback mechanism (R-11.1 — mechanism only; production-procedure adoption tracked separately)', () => {
+describe('TrpcCallerImpl — adversarial dry-run safety (R-11.1 rollback + audit Theme F default-deny guard)', () => {
   let db: Db
 
   beforeAll(async () => {
@@ -200,6 +243,43 @@ describe('TrpcCallerImpl — adversarial dry-run rollback mechanism (R-11.1 — 
       .from(agentShadowRun)
       .where(eq(agentShadowRun.id, adversarialRowId))
 
+    expect(rows).toHaveLength(0)
+  })
+
+  it('dry-run guard: a mutation WITHOUT shadowSafe is refused before the procedure body runs (audit Theme F)', async () => {
+    const adversarialRowId = uuidv7()
+    const router = buildAdversarialRouter(db)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const caller = new TrpcCallerImpl(() => router as any, db)
+
+    await expect(
+      caller.call({
+        toolName: 'adversarial.unsafeWriteRow',
+        args: {
+          id: adversarialRowId,
+          tenantId: TENANT_ID,
+          baselineTraceId: BASELINE_TRACE_ID,
+          shadowTraceId: SHADOW_TRACE_ID,
+          rolloutConfigId: ROLLOUT_ID,
+          candidateVersion: 'v2',
+          baselineVersion: 'v1',
+        },
+        requestContext: {
+          tenantId: TENANT_ID,
+          userId: USER_ID,
+          traceId: 'tr-1',
+          surface: 'shadow',
+        },
+        mode: 'dry-run',
+      }),
+    ).rejects.toBeInstanceOf(ShadowDryRunMutationRefusedError)
+
+    // The procedure never ran — zero rows in the table for this id.
+    await db.execute(sql`SELECT set_config('app.tenant_id', ${TENANT_ID}, false)`)
+    const rows = await db
+      .select()
+      .from(agentShadowRun)
+      .where(eq(agentShadowRun.id, adversarialRowId))
     expect(rows).toHaveLength(0)
   })
 

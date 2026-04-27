@@ -16,20 +16,24 @@
  *
  * Dry-run (Plan 11 R-11.1):
  *   When mode is 'dry-run', the procedure is executed inside a Postgres transaction
- *   that ALWAYS rolls back after completion (Option A — transaction rollback).
- *   This allows the candidate pipeline to run realistically (reads see the writes
- *   within the transaction; the procedure can produce a meaningful result for diffing)
- *   while guaranteeing that nothing is committed.
+ *   that ALWAYS rolls back after completion (Option A — transaction rollback). The
+ *   transaction-bound Db is injected into the tRPC context as `dryRunTx` so procedures
+ *   that opt in to dry-run isolation can route writes through it. Procedures that take
+ *   their `Db` via NestJS DI (`DB_TOKEN`) are NOT covered by the rollback — their
+ *   writes commit through the request-bound `pg.PoolClient`.
  *
- *   The transaction-bound Db instance is injected into the tRPC context as `dryRunTx`
- *   so procedures that explicitly opt in to dry-run isolation can use it. Test
- *   procedures use `ctx.dryRunTx ?? baseDb` to demonstrate the rollback guarantee.
- *   Production procedures that do not check `ctx.dryRunTx` remain isolated from the
- *   shadow transaction (they use their own NestJS-injected DB_TOKEN connection).
+ *   Until every mutation procedure has been audited and converted to read DB via
+ *   `ctx.dryRunTx ?? baseDb`, the dry-run path REFUSES mutation invocations whose
+ *   `meta.agent.shadowSafe` is not explicitly `true`. The refusal raises
+ *   `ShadowDryRunMutationRefusedError` and never opens a transaction. This is the
+ *   audit Theme F (Plan 11 §12) guard rail — no silent commits while the broader
+ *   ALS-aware DB token retrofit is being designed (tracked separately).
+ *
+ *   Queries are always allowed in dry-run mode (no writes, no risk).
  *
  *   If no `db` is provided to the constructor (test or legacy instantiation), dry-run
- *   falls back to execute mode — the call proceeds without transaction wrapping. This
- *   maintains backward compatibility for unit tests that do not need isolation guarantees.
+ *   falls back to execute mode for queries — the call proceeds without transaction
+ *   wrapping. Mutations are still gated by the shadowSafe check.
  */
 
 import { Injectable, Optional } from '@nestjs/common'
@@ -42,9 +46,36 @@ import { getAppRouter } from '../../../../common/trpc/app-router'
 
 // ─── Router shape (minimal for navigation) ────────────────────────────────────
 
+interface ProcedureDef {
+  type?: 'query' | 'mutation' | 'subscription'
+  meta?: { agent?: { shadowSafe?: boolean } }
+}
+
 type AnyRouter = {
   createCaller: (ctx: TrpcContext & { dryRunTx?: Db }) => Record<string, unknown>
-  _def: { procedures: Record<string, unknown> }
+  _def: { procedures: Record<string, { _def?: ProcedureDef }> }
+}
+
+// ─── Errors ───────────────────────────────────────────────────────────────────
+
+/**
+ * Thrown when a `mode: 'dry-run'` invocation targets a `.mutation()` procedure
+ * that has not declared `meta.agent.shadowSafe: true`. Audit Theme F guard rail
+ * (Plan 11 §12 / R-11.1). Callers — primarily the shadow-turn worker — should
+ * catch this and treat it as an expected skip, not a fault.
+ */
+export class ShadowDryRunMutationRefusedError extends Error {
+  readonly toolName: string
+
+  constructor(toolName: string) {
+    super(
+      `Refused to invoke mutation "${toolName}" under mode:'dry-run' — ` +
+        'procedure has not declared meta.agent.shadowSafe: true. ' +
+        'See agent-tool-meta.ts for the opt-in contract.',
+    )
+    this.name = 'ShadowDryRunMutationRefusedError'
+    this.toolName = toolName
+  }
 }
 
 // ─── Rollback sentinel ────────────────────────────────────────────────────────
@@ -98,17 +129,35 @@ export class TrpcCallerImpl implements TrpcCaller {
   }): Promise<unknown> {
     const { toolName, args, requestContext, mode } = input
 
-    if (mode === 'dry-run' && this.db !== undefined) {
-      // TODO(follow-up): Every production write procedure must use `ctx.dryRunTx ?? baseDb`
-      // to inherit this rollback isolation. Procedures that inject DB_TOKEN directly (via
-      // NestJS DI) are NOT covered by this transaction — their writes will commit even in
-      // dry-run mode. This is a P1 incident risk per Plan 11 §7. Track adoption of
-      // `ctx.dryRunTx ?? baseDb` in all domain write procedures as a prerequisite for GA.
-      return this.callInRollbackTransaction(toolName, args, requestContext)
+    if (mode === 'dry-run') {
+      // Audit Theme F guard rail — refuse mutations that have not been audited and
+      // explicitly opted in via meta.agent.shadowSafe. Procedures that take their Db
+      // via NestJS DI bypass the rollback transaction; without the opt-in we cannot
+      // distinguish a procedure that's been retrofitted from one that will commit
+      // through DB_TOKEN. Default-deny is the only safe stance.
+      const def = this.lookupProcedureDef(toolName)
+      if (def?.type === 'mutation' && def.meta?.agent?.shadowSafe !== true) {
+        throw new ShadowDryRunMutationRefusedError(toolName)
+      }
+
+      if (this.db !== undefined) {
+        return this.callInRollbackTransaction(toolName, args, requestContext)
+      }
     }
 
-    // execute mode (or dry-run without db — falls back to normal execution)
+    // execute mode (or dry-run on a query / dry-run without db — execute path)
     return this.callProcedure(toolName, args, requestContext, undefined)
+  }
+
+  /**
+   * Resolves a dot-path tool name to its tRPC procedure definition by reading
+   * `router._def.procedures[name]._def`. Returns `undefined` if the procedure is
+   * not found — in that case the downstream `callProcedure` navigation will surface
+   * the same problem with a clearer error message, so we don't pre-emptively throw here.
+   */
+  private lookupProcedureDef(toolName: string): ProcedureDef | undefined {
+    const router = this.routerProvider()
+    return router._def.procedures[toolName]?._def
   }
 
   /**

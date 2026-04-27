@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Job } from 'pg-boss'
 import { ShadowTurnWorker, SHADOW_TURN_JOB_NAME, type ShadowTurnJob } from './shadow-turn-worker'
+import { ShadowDryRunMutationRefusedError } from '../../application/services/trpc-caller'
 import type { ShadowDiffScorer } from '../../application/services/shadow-diff-scorer'
 import type { TrpcCaller } from '../../application/pipeline/pipeline-steps'
 import type { PgBossService } from '../../../../common/jobs/pg-boss.service'
@@ -345,6 +346,34 @@ describe('ShadowTurnWorker', () => {
       // Second job should still insert
       const dbInsertMock = db.insert as ReturnType<typeof vi.fn>
       expect(dbInsertMock).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('audit Theme F guard rail — ShadowDryRunMutationRefusedError handling', () => {
+    it('treats a refusal as an expected skip (does not crash; row still written)', async () => {
+      const refusingCaller: TrpcCaller = {
+        call: vi.fn().mockRejectedValue(new ShadowDryRunMutationRefusedError('planner.list_tasks')),
+      } as unknown as TrpcCaller
+
+      const refusalWorker = new ShadowTurnWorker(
+        pgBossService,
+        diffScorer,
+        db,
+        STUB_BASE_DB,
+        STUB_REQUEST_DB_CONTEXT,
+        STUB_CLS,
+        refusingCaller,
+      )
+
+      await expect(refusalWorker.handle([makeJob(makeJobPayload())])).resolves.not.toThrow()
+
+      // The single tool was refused → succeededTools is empty → candidateOutput is null
+      // → the diff scorer is given null and categorises as 'shadow_errored'.
+      expect(diffScorer.score).toHaveBeenCalledWith(
+        expect.objectContaining({ candidateOutput: null }),
+      )
+      // The shadow_run row is still written so operators can see the refusal.
+      expect(db.insert).toHaveBeenCalledTimes(1)
     })
   })
 
