@@ -15,6 +15,9 @@
  *   EI-8  Budget allocation enforced per tenant (static: schema + BudgetChecker inspection)
  *   EI-9  Module-scoped memory never crosses module boundaries (filesystem lint)
  *   EI-10 No deprecated aliases or backward-compat shims (filesystem grep)
+ *   EI-11 sub-agent runner adapter is wired (no rawStructured:{}/all-zero stub)
+ *   EI-12 synthesizer adapter calls SynthesizerLlmClient
+ *   EI-13 golden-trace runner is wired (no actualFingerprint = {...expectedFingerprint} stub)
  */
 
 import { Injectable } from '@nestjs/common'
@@ -43,6 +46,18 @@ const ROUTER_OVERHEAD_TOKENS = 500
  */
 const MODULES_ROOT = join(__dirname, '../../../../../modules')
 
+/**
+ * Absolute path to the agents-module services directory.
+ * Used by EI-11, EI-12, and EI-13 to read specific source files.
+ *
+ * NOTE: this is computed independently from MODULES_ROOT because the latter
+ * predates these checks and points to a path that doesn't exist on disk
+ * (apps/api/modules instead of apps/api/src/modules) — a separate cleanup task.
+ * The existing EI-9/EI-10 helpers tolerate the missing directory via try/catch;
+ * the new stub-pattern checks need the real path to read individual files.
+ */
+const AGENTS_SERVICES_DIR = __dirname
+
 // ─── Public types ─────────────────────────────────────────────────────────────
 
 export type ExtensibilityInvariantId =
@@ -56,6 +71,9 @@ export type ExtensibilityInvariantId =
   | 'EI-8'
   | 'EI-9'
   | 'EI-10'
+  | 'EI-11'
+  | 'EI-12'
+  | 'EI-13'
 
 export type InvariantCheckResult = {
   invariantId: ExtensibilityInvariantId
@@ -118,6 +136,31 @@ export interface ExtensibilityAuditOverrides {
    * Production: always undefined.
    */
   extraDeprecatedLines?: string[]
+
+  /**
+   * EI-11 override: force the check to fail by simulating a stub-signature match
+   * in sub-agent-runner-adapter.ts.
+   *
+   * Production: always undefined (real check runs).
+   */
+  forceEi11Fail?: boolean
+
+  /**
+   * EI-12 override: force the check to fail by simulating a missing
+   * SynthesizerLlmClient call in synthesizer-adapter.ts.
+   *
+   * Production: always undefined (real check runs).
+   */
+  forceEi12Fail?: boolean
+
+  /**
+   * EI-13 override: force the check to fail by simulating the
+   * actualFingerprint = {...expectedFingerprint} stub line in
+   * golden-trace-runner.ts.
+   *
+   * Production: always undefined (real check runs).
+   */
+  forceEi13Fail?: boolean
 }
 
 // ─── Filesystem helpers ───────────────────────────────────────────────────────
@@ -248,7 +291,7 @@ function findDeprecatedAnnotations(modulesRoot: string): string[] {
 @Injectable()
 export class ExtensibilityInvariantAudit {
   /**
-   * Evaluate all EI-1..EI-10 invariants.
+   * Evaluate all EI-1..EI-13 invariants.
    *
    * Accepts optional overrides for testing controlled violation scenarios.
    */
@@ -276,6 +319,9 @@ export class ExtensibilityInvariantAudit {
       this._checkEi8.bind(this),
       this._checkEi9.bind(this),
       this._checkEi10.bind(this),
+      this._checkEi11.bind(this),
+      this._checkEi12.bind(this),
+      this._checkEi13.bind(this),
     ]
     return checkers.map((fn) => fn(overrides))
   }
@@ -528,6 +574,132 @@ export class ExtensibilityInvariantAudit {
       invariantId: 'EI-10',
       passed: true,
       evidence: `0 @deprecated symbols detected in agents module production code (no-backward-compat policy enforced)`,
+    }
+  }
+
+  // ── EI-11: sub-agent runner adapter is wired (no rawStructured:{}/all-zero stub) ─
+
+  private _checkEi11(overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
+    if (overrides?.forceEi11Fail) {
+      return {
+        invariantId: 'EI-11',
+        passed: false,
+        evidence: 'EI-11 forced failure via override (test-only)',
+        failures: ['stub pattern detected (simulated)'],
+      }
+    }
+    const path = join(AGENTS_SERVICES_DIR, 'sub-agent-runner-adapter.ts')
+    let content = ''
+    try {
+      content = readFileSync(path, 'utf-8')
+    } catch {
+      return {
+        invariantId: 'EI-11',
+        passed: false,
+        evidence: `sub-agent-runner-adapter.ts not found at ${path}`,
+        failures: ['file missing'],
+      }
+    }
+    // Stub signature: rawStructured: {} alongside toolResultCount: 0 within ~400 chars
+    // (the original Plan 17 audit identified rawStructured:{} + all-zero signals as
+    // the stub pattern). The real adapter wires toolResultCount to accumulator state.
+    const stubPattern = /rawStructured:\s*\{\}\s*,[\s\S]{0,400}toolResultCount:\s*0\b/
+    if (stubPattern.test(content)) {
+      return {
+        invariantId: 'EI-11',
+        passed: false,
+        evidence:
+          'sub-agent-runner-adapter.ts still contains the rawStructured:{} + toolResultCount:0 stub pattern',
+        failures: ['stub pattern detected'],
+      }
+    }
+    return {
+      invariantId: 'EI-11',
+      passed: true,
+      evidence:
+        'sub-agent-runner-adapter.ts no longer matches the rawStructured:{} + all-zero-signals stub pattern',
+    }
+  }
+
+  // ── EI-12: synthesizer adapter calls SynthesizerLlmClient ────────────────────
+
+  private _checkEi12(overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
+    if (overrides?.forceEi12Fail) {
+      return {
+        invariantId: 'EI-12',
+        passed: false,
+        evidence: 'EI-12 forced failure via override (test-only)',
+        failures: ['LLM call missing (simulated)'],
+      }
+    }
+    const path = join(AGENTS_SERVICES_DIR, 'synthesizer-adapter.ts')
+    let content = ''
+    try {
+      content = readFileSync(path, 'utf-8')
+    } catch {
+      return {
+        invariantId: 'EI-12',
+        passed: false,
+        evidence: `synthesizer-adapter.ts not found at ${path}`,
+        failures: ['file missing'],
+      }
+    }
+    // The real synthesizer must call into SynthesizerLlmClient via this.llm.synthesize(...).
+    if (!/this\.llm\.synthesize\s*\(/.test(content)) {
+      return {
+        invariantId: 'EI-12',
+        passed: false,
+        evidence: 'synthesizer-adapter.ts does not call this.llm.synthesize(...)',
+        failures: ['LLM call missing'],
+      }
+    }
+    return {
+      invariantId: 'EI-12',
+      passed: true,
+      evidence: 'synthesizer-adapter.ts calls SynthesizerLlmClient (this.llm.synthesize(...))',
+    }
+  }
+
+  // ── EI-13: golden-trace runner is wired (no actualFingerprint = {...expectedFingerprint}) ─
+
+  private _checkEi13(overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
+    if (overrides?.forceEi13Fail) {
+      return {
+        invariantId: 'EI-13',
+        passed: false,
+        evidence: 'EI-13 forced failure via override (test-only)',
+        failures: ['stub line detected (simulated)'],
+      }
+    }
+    const path = join(AGENTS_SERVICES_DIR, 'golden-trace-runner.ts')
+    let content = ''
+    try {
+      content = readFileSync(path, 'utf-8')
+    } catch {
+      return {
+        invariantId: 'EI-13',
+        passed: false,
+        evidence: `golden-trace-runner.ts not found at ${path}`,
+        failures: ['file missing'],
+      }
+    }
+    // Original Plan 10 stub: const actualFingerprint: Fingerprint = { ...expectedFingerprint }
+    if (
+      /actualFingerprint:?\s*Fingerprint\s*=\s*\{\s*\.\.\.expectedFingerprint\s*\}/.test(content)
+    ) {
+      return {
+        invariantId: 'EI-13',
+        passed: false,
+        evidence:
+          'golden-trace-runner.ts still contains actualFingerprint = {...expectedFingerprint} stub',
+        failures: ['stub line detected'],
+      }
+    }
+    return {
+      invariantId: 'EI-13',
+      passed: true,
+      evidence:
+        'golden-trace-runner.ts no longer matches the actualFingerprint = {...expectedFingerprint} stub line',
     }
   }
 }
