@@ -17,7 +17,37 @@ import type {
 } from '../../domain/repositories/golden-trace.repository'
 import type { ScorerRegistry } from './scorer-registry'
 import type { ReplayHarness } from './replay-harness'
-import type { Fingerprint } from '../../domain/scorer-types'
+import type { TurnPipelineRunner, TurnPipelineResult } from './turn-pipeline-runner'
+import { MARKER_REPLAY_FAILED, type Fingerprint } from '../../domain/scorer-types'
+
+function makeReplayResult(
+  toolOutputs: Array<{ toolName: string; args: Record<string, unknown>; result?: unknown }> = [],
+) {
+  return {
+    messages: [
+      [
+        { role: 'system' as const, content: 'sys' },
+        { role: 'user' as const, content: 'u' },
+      ],
+    ],
+    toolOutputs,
+    pinnedVersions: { routerPrompt: 'h-router' },
+    canonicalizerVersionHash: 'cv-1',
+  }
+}
+
+function makePipelineResult(overrides: Partial<TurnPipelineResult> = {}): TurnPipelineResult {
+  return {
+    toolCallNames: [],
+    shape: 'list',
+    permissionKeys: [],
+    taintFlipped: false,
+    renderedAssistantMessage: '',
+    turnEndReason: 'completed',
+    drafts: [],
+    ...overrides,
+  }
+}
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -170,6 +200,7 @@ describe('GoldenTraceRunner', () => {
   let repo: GoldenTraceRepository
   let scorerRegistry: ScorerRegistry
   let replayHarness: ReplayHarness
+  let turnPipelineRunner: TurnPipelineRunner
   let runner: GoldenTraceRunner
 
   beforeEach(() => {
@@ -191,10 +222,15 @@ describe('GoldenTraceRunner', () => {
     } as unknown as ScorerRegistry
 
     replayHarness = {
-      replay: vi.fn(),
+      replay: vi.fn().mockResolvedValue(makeReplayResult()),
     } as unknown as ReplayHarness
 
-    runner = new GoldenTraceRunner(repo, scorerRegistry, replayHarness)
+    turnPipelineRunner = {
+      run: vi.fn(),
+      runWithReplay: vi.fn().mockResolvedValue(makePipelineResult()),
+    } as unknown as TurnPipelineRunner
+
+    runner = new GoldenTraceRunner(repo, scorerRegistry, replayHarness, turnPipelineRunner)
   })
 
   it('10. loads active traces from repo', async () => {
@@ -227,6 +263,14 @@ describe('GoldenTraceRunner', () => {
   it('13. deterministic scorer returning passed: true → no regression recorded', async () => {
     const trace = makeTrace()
     vi.mocked(repo.findActive).mockResolvedValue([trace])
+    vi.mocked(turnPipelineRunner.runWithReplay).mockResolvedValue(
+      makePipelineResult({
+        toolCallNames: ['planner.listTasks', 'kernel.checkPermission'],
+        shape: 'list',
+        permissionKeys: ['planner.read', 'kernel.read'],
+        taintFlipped: false,
+      }),
+    )
     const passingScorer = {
       id: 'det-scorer',
       name: 'Passing scorer',
@@ -267,6 +311,14 @@ describe('GoldenTraceRunner', () => {
   it('15. llm-judge scorer returning passed: false → NOT gating (passed: true, no regression)', async () => {
     const trace = makeTrace()
     vi.mocked(repo.findActive).mockResolvedValue([trace])
+    vi.mocked(turnPipelineRunner.runWithReplay).mockResolvedValue(
+      makePipelineResult({
+        toolCallNames: ['planner.listTasks', 'kernel.checkPermission'],
+        shape: 'list',
+        permissionKeys: ['planner.read', 'kernel.read'],
+        taintFlipped: false,
+      }),
+    )
     vi.mocked(scorerRegistry.getDeterministic).mockReturnValue([])
     const llmJudgeScorer = {
       id: 'llm-judge-observe',
@@ -297,6 +349,14 @@ describe('GoldenTraceRunner', () => {
   it('17. deterministic scorer that throws → regression recorded, runner does not throw', async () => {
     const trace = makeTrace()
     vi.mocked(repo.findActive).mockResolvedValue([trace])
+    vi.mocked(turnPipelineRunner.runWithReplay).mockResolvedValue(
+      makePipelineResult({
+        toolCallNames: ['planner.listTasks', 'kernel.checkPermission'],
+        shape: 'list',
+        permissionKeys: ['planner.read', 'kernel.read'],
+        taintFlipped: false,
+      }),
+    )
     const throwingScorer = {
       id: 'det-throwing',
       name: 'Throwing scorer',
@@ -312,5 +372,93 @@ describe('GoldenTraceRunner', () => {
     // A throwing scorer is treated as failed — regression reported, suite continues.
     expect(result.passed).toBe(false)
     expect(result.regressions).toHaveLength(1)
+  })
+
+  it('18. builds actualFingerprint from real pipeline result when replay succeeds', async () => {
+    const trace = makeTrace()
+    vi.mocked(repo.findActive).mockResolvedValue([trace])
+    vi.mocked(replayHarness.replay).mockResolvedValue(
+      makeReplayResult([{ toolName: 'planner.listTasks', args: {}, result: [] }]),
+    )
+    vi.mocked(turnPipelineRunner.runWithReplay).mockResolvedValue(
+      makePipelineResult({
+        toolCallNames: ['planner.listTasks', 'kernel.checkPermission'],
+        shape: 'list',
+        permissionKeys: ['planner.read', 'kernel.read'],
+        taintFlipped: false,
+      }),
+    )
+    const passingScorer = {
+      id: 'det-fp-pass',
+      name: 'Fingerprint pass',
+      kind: 'deterministic' as const,
+      scope: 'trace' as const,
+      definitionSource: 'code' as const,
+      run: vi.fn().mockResolvedValue({ score: 1, passed: true }),
+    }
+    vi.mocked(scorerRegistry.getDeterministic).mockReturnValue([passingScorer])
+
+    const result = await runner.runCiGate({ branch: 'main', commit: 'abc123' })
+
+    expect(result.passed).toBe(true)
+    expect(result.regressions).toEqual([])
+    expect(turnPipelineRunner.runWithReplay).toHaveBeenCalledOnce()
+
+    const ctx = vi.mocked(passingScorer.run).mock.calls[0]?.[0] as {
+      output: { actualFingerprint: Fingerprint }
+    }
+    expect(ctx.output.actualFingerprint.toolCallsSorted).toEqual([
+      'kernel.checkPermission',
+      'planner.listTasks',
+    ])
+    expect(ctx.output.actualFingerprint.shape).toBe('list')
+    expect(ctx.output.actualFingerprint.permissionKeys).toEqual(['kernel.read', 'planner.read'])
+    expect(ctx.output.actualFingerprint.taintFlipped).toBe(false)
+  })
+
+  it('19. flags regression when actual fingerprint diverges from expected', async () => {
+    const trace = makeTrace()
+    vi.mocked(repo.findActive).mockResolvedValue([trace])
+    vi.mocked(replayHarness.replay).mockResolvedValue(
+      makeReplayResult([{ toolName: 'planner.listTasks', args: {}, result: [] }]),
+    )
+    vi.mocked(turnPipelineRunner.runWithReplay).mockResolvedValue(
+      makePipelineResult({
+        toolCallNames: ['some.other.tool'],
+        shape: 'narrative',
+        permissionKeys: ['planner.read', 'kernel.read'],
+        taintFlipped: false,
+      }),
+    )
+    const failingScorer = {
+      id: 'det-fp-fail',
+      name: 'Fingerprint fail',
+      kind: 'deterministic' as const,
+      scope: 'trace' as const,
+      definitionSource: 'code' as const,
+      run: vi.fn().mockResolvedValue({ score: 0, passed: false, reason: 'diverged' }),
+    }
+    vi.mocked(scorerRegistry.getDeterministic).mockReturnValue([failingScorer])
+
+    const result = await runner.runCiGate({ branch: 'main', commit: 'abc123' })
+
+    expect(result.passed).toBe(false)
+    expect(result.regressions).toHaveLength(1)
+    expect(result.regressions[0]?.divergedFields).toContain('toolCallsSorted')
+    expect(result.regressions[0]?.divergedFields).toContain('shape')
+  })
+
+  it('20. uses MARKER_REPLAY_FAILED when replay throws', async () => {
+    const trace = makeTrace()
+    vi.mocked(repo.findActive).mockResolvedValue([trace])
+    vi.mocked(replayHarness.replay).mockRejectedValue(new Error('lookup miss'))
+    vi.mocked(scorerRegistry.getDeterministic).mockReturnValue([])
+
+    const result = await runner.runCiGate({ branch: 'main', commit: 'abc123' })
+
+    expect(result.passed).toBe(false)
+    expect(result.regressions).toHaveLength(1)
+    expect(result.regressions[0]?.actualFingerprint).toBe(MARKER_REPLAY_FAILED)
+    expect(turnPipelineRunner.runWithReplay).not.toHaveBeenCalled()
   })
 })

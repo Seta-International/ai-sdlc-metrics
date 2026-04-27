@@ -44,6 +44,21 @@ export type Fingerprint = {
   taintFlipped: boolean
 }
 
+/**
+ * Sentinel fingerprint emitted when ReplayHarness fails (lookup miss / tool-output miss).
+ * Plan 17 §4.5 — the golden-trace runner uses this so a replay failure produces a
+ * visible regression report rather than silently passing.
+ *
+ * Cast required because the `__replay_failed__` literal is intentionally outside the
+ * AnswerShape union — this value is never a real answer shape, only a divergence sentinel.
+ */
+export const MARKER_REPLAY_FAILED: Fingerprint = {
+  toolCallsSorted: ['__REPLAY_FAILED__'],
+  shape: '__replay_failed__' as AnswerShape,
+  permissionKeys: ['__REPLAY_FAILED__'],
+  taintFlipped: false,
+}
+
 export type ModelTier = 'full' | 'nano'
 export type ElevatedNoticeLevel = 'none' | 'elevated' | 'hard_refusal'
 
