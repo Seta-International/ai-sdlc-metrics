@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util'
 import { CommandHandler, EventBus, type ICommandHandler } from '@nestjs/cqrs'
 import { Inject, Logger } from '@nestjs/common'
 import { TASK_REPOSITORY, type ITaskRepository } from '../../../domain/repositories/task.repository'
@@ -15,16 +16,28 @@ import { MsGraphClient } from '../../../infrastructure/ms-graph/ms-graph-client'
 import { OutboxDirtyFieldsQuery } from '../../../infrastructure/outbox/outbox-dirty-fields.query'
 import {
   buildTaskPatches,
+  TASK_SCOPE_FIELDS,
+  DETAILS_SCOPE_FIELDS,
   type PushTaskData,
 } from '../../../infrastructure/ms-graph/push/task-patch-builder'
+import { mapDomainFieldToMsField } from '../../../infrastructure/ms-graph/push/map-domain-field'
 import { IdentityQueryFacade } from '../../../../identity/application/facades/identity-query.facade'
+import { IdentityMsGraphCredentialFacade } from '../../../../identity/application/facades/identity-ms-graph-credential.facade'
+import {
+  GraphPreconditionFailedError,
+  GraphThrottledError,
+  GraphAuthError,
+  GraphQuotaError,
+  GraphServerError,
+} from '../../../infrastructure/ms-graph/errors'
+import { createMsSyncCredentialInvalidatedEvent } from '@future/event-contracts'
 import type { SyncableTaskField } from '@future/event-contracts'
 import type { Task } from '../../../domain/entities/task.entity'
 import type { Plan } from '../../../domain/entities/plan.entity'
 import { PushTaskCommand } from './push-task.command'
 
 export class TenantPushPausedError extends Error {
-  constructor() {
+  constructor(public readonly pausedUntil?: Date) {
     super('MS Graph push is paused for this tenant')
     this.name = 'TenantPushPausedError'
   }
@@ -49,6 +62,7 @@ export class PushTaskHandler implements ICommandHandler<PushTaskCommand> {
     private readonly graph: MsGraphClient,
     private readonly dirtyQuery: OutboxDirtyFieldsQuery,
     private readonly identityFacade: IdentityQueryFacade,
+    private readonly msCredFacade: IdentityMsGraphCredentialFacade,
     private readonly eventBus: EventBus,
   ) {}
 
@@ -137,6 +151,12 @@ export class PushTaskHandler implements ICommandHandler<PushTaskCommand> {
     patch: Record<string, unknown>,
     dirty: Set<SyncableTaskField>,
   ): Promise<void> {
+    const prePushValues: Record<string, unknown> = {}
+    for (const field of dirty) {
+      if (TASK_SCOPE_FIELDS.has(field)) {
+        prePushValues[field] = patch[mapDomainFieldToMsField(field)]
+      }
+    }
     try {
       const res = await this.graph.patch<Record<string, unknown>>(
         tenantId,
@@ -149,7 +169,7 @@ export class PushTaskHandler implements ICommandHandler<PushTaskCommand> {
         await this.taskRepo.updateMsEtag(task.id, { msTaskEtag: newEtag })
       }
     } catch (e) {
-      await this.handlePushError(tenantId, task, 'task', patch, dirty, e as Error)
+      await this.handlePushError(tenantId, task, 'task', patch, dirty, prePushValues, e as Error, 0)
     }
   }
 
@@ -159,6 +179,12 @@ export class PushTaskHandler implements ICommandHandler<PushTaskCommand> {
     patch: Record<string, unknown>,
     dirty: Set<SyncableTaskField>,
   ): Promise<void> {
+    const prePushValues: Record<string, unknown> = {}
+    for (const field of dirty) {
+      if (DETAILS_SCOPE_FIELDS.has(field)) {
+        prePushValues[field] = patch[mapDomainFieldToMsField(field)]
+      }
+    }
     try {
       const res = await this.graph.patch<Record<string, unknown>>(
         tenantId,
@@ -171,21 +197,152 @@ export class PushTaskHandler implements ICommandHandler<PushTaskCommand> {
         await this.taskRepo.updateMsEtag(task.id, { msDetailsEtag: newEtag })
       }
     } catch (e) {
-      await this.handlePushError(tenantId, task, 'details', patch, dirty, e as Error)
+      await this.handlePushError(
+        tenantId,
+        task,
+        'details',
+        patch,
+        dirty,
+        prePushValues,
+        e as Error,
+        0,
+      )
     }
   }
 
-  // Task 4 will implement full error handling (412 retry, conflict recording, throttle back-off)
   private async handlePushError(
-    _tenantId: string,
-    _task: Task,
-    _scope: 'task' | 'details',
-    _patch: Record<string, unknown>,
-    _dirty: Set<SyncableTaskField>,
+    tenantId: string,
+    task: Task,
+    scope: 'task' | 'details',
+    originalPatch: Record<string, unknown>,
+    dirty: Set<SyncableTaskField>,
+    prePushValues: Record<string, unknown>,
     error: Error,
+    attempt: number,
   ): Promise<void> {
-    this.logger.error(`Push error (${_scope}): ${error.message}`)
-    throw error
+    if (error instanceof GraphPreconditionFailedError) {
+      if (attempt >= 1) {
+        await this.conflictRepo.insert(
+          MsSyncConflictEntity.forPush412Exhausted({
+            tenantId,
+            taskId: task.id,
+            rawError: (error as GraphPreconditionFailedError).body,
+          }),
+        )
+        return
+      }
+
+      const freshRes = await this.graph.get<Record<string, unknown>>(
+        tenantId,
+        scope === 'task'
+          ? `/planner/tasks/${encodeURIComponent(task.msTaskId!)}`
+          : `/planner/tasks/${encodeURIComponent(task.msTaskId!)}/details`,
+      )
+      const freshBody = freshRes.body!
+      const freshEtag = freshBody['@odata.etag'] as string
+
+      const scopeFields = scope === 'task' ? TASK_SCOPE_FIELDS : DETAILS_SCOPE_FIELDS
+      const mergedPatch: Record<string, unknown> = {}
+
+      for (const field of dirty) {
+        if (!scopeFields.has(field)) continue
+        const msField = mapDomainFieldToMsField(field)
+        const prePushMsValue = prePushValues[field]
+        const freshMsValue = freshBody[msField]
+
+        if (isDeepStrictEqual(prePushMsValue, freshMsValue)) {
+          mergedPatch[msField] = originalPatch[msField]
+        } else {
+          await this.conflictRepo.insert(
+            MsSyncConflictEntity.forFieldLww({
+              tenantId,
+              taskId: task.id,
+              field,
+              mineValue: originalPatch[msField],
+              theirsValue: freshMsValue,
+            }),
+          )
+        }
+      }
+
+      if (Object.keys(mergedPatch).length === 0) {
+        return
+      }
+
+      await this.taskRepo.applyMsWonFields(task.id, freshBody, { origin: 'ms-sync-pull' })
+
+      try {
+        const res = await this.graph.patch<Record<string, unknown>>(
+          tenantId,
+          scope === 'task'
+            ? `/planner/tasks/${encodeURIComponent(task.msTaskId!)}`
+            : `/planner/tasks/${encodeURIComponent(task.msTaskId!)}/details`,
+          mergedPatch,
+          { ifMatch: freshEtag, preferReturnRepresentation: true },
+        )
+        const newEtag = (res.body?.['@odata.etag'] as string) ?? res.etag
+        if (newEtag) {
+          await this.taskRepo.updateMsEtag(
+            task.id,
+            scope === 'task' ? { msTaskEtag: newEtag } : { msDetailsEtag: newEtag },
+          )
+        }
+      } catch (retryError) {
+        await this.handlePushError(
+          tenantId,
+          task,
+          scope,
+          mergedPatch,
+          dirty,
+          prePushValues,
+          retryError as Error,
+          attempt + 1,
+        )
+      }
+      return
+    }
+
+    if (error instanceof GraphThrottledError) {
+      const pauseUntil = new Date(Date.now() + error.retryAfterSeconds * 1000)
+      await this.msCredFacade.setPushPausedUntil(tenantId, pauseUntil)
+      throw new TenantPushPausedError(pauseUntil)
+    }
+
+    if (error instanceof GraphAuthError) {
+      await this.msCredFacade.markCredentialInvalid(tenantId, error.message)
+      this.eventBus.publish(
+        createMsSyncCredentialInvalidatedEvent({
+          tenantId,
+          reason: error.message,
+          occurredAt: new Date().toISOString(),
+        }),
+      )
+      return
+    }
+
+    if (error instanceof GraphQuotaError) {
+      await this.conflictRepo.insert(
+        MsSyncConflictEntity.forPush403Quota({
+          tenantId,
+          taskId: task.id,
+          limitCode: error.limitCode,
+          rawError: error.body,
+        }),
+      )
+      return
+    }
+
+    if (error instanceof GraphServerError) {
+      throw error
+    }
+
+    await this.conflictRepo.insert(
+      MsSyncConflictEntity.forPushFailed({
+        tenantId,
+        taskId: task.id,
+        rawError: { message: error.message },
+      }),
+    )
   }
 
   // Task 4.5 will implement task creation push

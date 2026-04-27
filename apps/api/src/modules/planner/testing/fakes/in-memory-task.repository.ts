@@ -174,6 +174,12 @@ export class InMemoryTaskRepository implements ITaskRepository {
     _etags: { msTaskEtag?: string | null; msDetailsEtag?: string | null },
   ): Promise<void> {}
 
+  async applyMsWonFields(
+    _taskId: string,
+    _freshMsBody: Record<string, unknown>,
+    _opts: { origin: string },
+  ): Promise<void> {}
+
   /** Test helper: clear all data */
   clear(): void {
     this.store.clear()

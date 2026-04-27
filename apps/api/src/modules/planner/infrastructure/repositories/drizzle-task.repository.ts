@@ -583,4 +583,12 @@ export class DrizzleTaskRepository implements ITaskRepository {
     if (Object.keys(patch).length === 0) return
     await this.db.update(plannerTask).set(patch).where(eq(plannerTask.id, id))
   }
+
+  async applyMsWonFields(
+    _taskId: string,
+    _freshMsBody: Record<string, unknown>,
+    _opts: { origin: string },
+  ): Promise<void> {
+    // Placeholder — full field mapping from MS body implemented in Plan 4.5
+  }
 }
