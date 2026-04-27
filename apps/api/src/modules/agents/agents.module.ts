@@ -207,6 +207,7 @@ import type { SemanticIndexRepository } from './domain/repositories/semantic-ind
 import type { IDraftRepository } from './domain/repositories/draft.repository'
 import { PgBossService } from '../../common/jobs/pg-boss.service'
 import { DB_TOKEN, BASE_DB_TOKEN } from '../../common/db/db.module'
+import { RequestDbContextService } from '../../common/db/request-db-context.service'
 import type { Db } from '@future/db'
 // Module sub-agent barrels.
 //   • Adding a sub-agent to an EXISTING module: re-export it from that module's
@@ -456,10 +457,15 @@ class NullTenantLister implements TenantListerLike {
     // so that gateway-invoked dry-run calls open a real Postgres transaction for rollback
     // isolation (Plan 11 R-11.1). Using DB_TOKEN would cause nested-transaction issues with
     // RLS session state and violate the single-PoolClient-per-request rule.
+    //
+    // RequestDbContextService is also injected so dry-run can publish the transaction-bound
+    // Db into the request CLS scope — DI'd DB_TOKEN proxies then route through the rollback
+    // tx for the duration of the procedure call (audit Theme F closure).
     {
       provide: TrpcCallerImpl,
-      inject: [BASE_DB_TOKEN],
-      useFactory: (db: Db) => new TrpcCallerImpl(undefined, db),
+      inject: [BASE_DB_TOKEN, RequestDbContextService],
+      useFactory: (db: Db, requestDbContext: RequestDbContextService) =>
+        new TrpcCallerImpl(undefined, db, requestDbContext),
     },
     ToolGateway,
     { provide: TOOL_GATEWAY, useExisting: ToolGateway },
