@@ -27,6 +27,10 @@ import { REPLAY_HARNESS } from './replay-harness'
 import { TURN_PIPELINE_RUNNER, type TurnPipelineRunner } from './turn-pipeline-runner'
 import { ReplayModeToolGateway } from '../../infrastructure/tool-gateway/replay-mode-tool-gateway'
 import { canonicalize } from '../../infrastructure/cache/canonical-args'
+import {
+  recordGoldenTraceCiRun,
+  recordReplayMiss,
+} from '../../infrastructure/observability/golden-trace-metrics'
 
 // ─── DI token ─────────────────────────────────────────────────────────────────
 
@@ -181,6 +185,9 @@ export class GoldenTraceRunner {
       } catch {
         replayFailed = true
         actualFingerprint = MARKER_REPLAY_FAILED
+        // '*' sentinel — the catch block has no tool context (the throw could
+        // be a replay miss, a pipeline error, or the aborted-shape guard above).
+        recordReplayMiss({ toolName: '*', traceId: trace.id })
       }
 
       let traceFailed = false
@@ -234,10 +241,14 @@ export class GoldenTraceRunner {
 
     const durationMs = Date.now() - startMs
 
-    return {
-      passed: regressions.length === 0,
-      regressions,
-      durationMs,
-    }
+    const passed = regressions.length === 0
+    recordGoldenTraceCiRun({
+      result: passed
+        ? 'pass'
+        : regressions.some((r) => r.actualFingerprint === MARKER_REPLAY_FAILED)
+          ? 'replay_failed'
+          : 'regression',
+    })
+    return { passed, regressions, durationMs }
   }
 }
