@@ -9,7 +9,10 @@ import { PgBossService } from '../../../../common/jobs/pg-boss.service'
 import { runWithTenantContext } from '../../../../common/jobs/run-with-tenant-context'
 import { ShadowDiffScorer, type TurnResult } from '../../application/services/shadow-diff-scorer'
 import type { TrpcCaller } from '../../application/pipeline/pipeline-steps'
-import { TrpcCallerImpl } from '../../application/services/trpc-caller'
+import {
+  TrpcCallerImpl,
+  ShadowDryRunMutationRefusedError,
+} from '../../application/services/trpc-caller'
 import {
   SHADOW_TURN_JOB_NAME,
   type ShadowTurnJob,
@@ -182,13 +185,21 @@ export class ShadowTurnWorker implements OnApplicationBootstrap {
           mode: 'dry-run',
         })
         succeededTools.push(toolName)
-      } catch {
-        // Tool call failed in dry-run — do not include in candidate output.
-        // This is expected for tools that require specific args; the failure
-        // is recorded by excluding the tool from succeededTools.
-        this.logger.debug(
-          `ShadowTurnWorker: dry-run tool call failed for ${toolName} — excluding from candidate output`,
-        )
+      } catch (err) {
+        if (err instanceof ShadowDryRunMutationRefusedError) {
+          // Audit Theme F guard rail tripped — mutation is not yet shadowSafe.
+          // Expected outcome until the ALS-aware DB token retrofit lands; log at info
+          // so operators can see how many baseline tools are still being skipped.
+          this.logger.log(
+            `ShadowTurnWorker: shadow skipped mutation ${toolName} — not yet declared shadowSafe (Plan 11 Theme F)`,
+          )
+        } else {
+          // Tool call failed in dry-run for some other reason (e.g. args mismatch).
+          // Excluded from succeededTools so the diff scorer sees the gap.
+          this.logger.debug(
+            `ShadowTurnWorker: dry-run tool call failed for ${toolName} — excluding from candidate output`,
+          )
+        }
       }
     }
 

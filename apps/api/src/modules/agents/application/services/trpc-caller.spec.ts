@@ -9,8 +9,9 @@ import { describe, it, expect, vi } from 'vitest'
 import { initTRPC, TRPCError } from '@trpc/server'
 import * as z from 'zod'
 import type { Db } from '@future/db'
-import { TrpcCallerImpl } from './trpc-caller'
+import { TrpcCallerImpl, ShadowDryRunMutationRefusedError } from './trpc-caller'
 import { BASE_DB_TOKEN } from '../../../../common/db/db.module'
+import type { AgentToolMeta } from '../../../../common/trpc/agent-tool-meta'
 
 // ─── Test router setup ────────────────────────────────────────────────────────
 
@@ -239,6 +240,97 @@ describe('TrpcCallerImpl', () => {
       // (DB_TOKEN is request-bound; BASE_DB_TOKEN is the raw pool — correct for dry-run tx)
       expect(typeof BASE_DB_TOKEN).toBe('symbol')
       expect(BASE_DB_TOKEN.toString()).toContain('BaseDb')
+    })
+
+    it('refuses a mutation that has not declared shadowSafe meta (audit Theme F guard rail)', async () => {
+      // Build a router with a mutation lacking meta.agent.shadowSafe. Default behaviour
+      // must be: refuse dry-run invocation so writes can never silently commit through
+      // a DI'd DB_TOKEN connection that is outside the rollback transaction.
+      const tMeta = initTRPC
+        .context<Record<string, unknown>>()
+        .meta<{ agent: AgentToolMeta }>()
+        .create()
+
+      let mutationCalled = false
+      const router = tMeta.router({
+        unsafeWrite: tMeta.procedure
+          .meta({
+            agent: {
+              whenToUse: 'noop',
+              whenNotToUse: 'noop',
+              examples: [{ input: 'x', callArgs: {} }],
+              approvalFreshness: 'revalidate',
+            },
+          })
+          .input(z.object({}).passthrough())
+          .mutation(() => {
+            mutationCalled = true
+            return { ok: true }
+          }),
+      })
+
+      const mockDb = {
+        transaction: vi.fn(),
+      } as unknown as Db
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const caller = new TrpcCallerImpl(() => router as any, mockDb)
+
+      await expect(
+        caller.call({
+          toolName: 'unsafeWrite',
+          args: {},
+          requestContext: { tenantId: 't1', userId: 'u1', traceId: 'tr1', surface: 'shadow' },
+          mode: 'dry-run',
+        }),
+      ).rejects.toBeInstanceOf(ShadowDryRunMutationRefusedError)
+
+      expect(mockDb.transaction).not.toHaveBeenCalled()
+      expect(mutationCalled).toBe(false)
+    })
+
+    it('allows a mutation declared shadowSafe: true to run under dry-run (rollback path)', async () => {
+      const tMeta = initTRPC
+        .context<Record<string, unknown>>()
+        .meta<{ agent: AgentToolMeta }>()
+        .create()
+
+      let mutationCalled = false
+      const router = tMeta.router({
+        safeWrite: tMeta.procedure
+          .meta({
+            agent: {
+              whenToUse: 'noop',
+              whenNotToUse: 'noop',
+              examples: [{ input: 'x', callArgs: {} }],
+              approvalFreshness: 'revalidate',
+              shadowSafe: true,
+            },
+          })
+          .input(z.object({}).passthrough())
+          .mutation(() => {
+            mutationCalled = true
+            return { ok: true }
+          }),
+      })
+
+      const mockDb = {
+        transaction: vi.fn().mockImplementation(async (callback: (tx: Db) => Promise<unknown>) => {
+          const tx = { execute: vi.fn().mockResolvedValue({ rows: [] }) } as unknown as Db
+          return callback(tx)
+        }),
+      } as unknown as Db
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const caller = new TrpcCallerImpl(() => router as any, mockDb)
+      await caller.call({
+        toolName: 'safeWrite',
+        args: {},
+        requestContext: { tenantId: 't1', userId: 'u1', traceId: 'tr1', surface: 'shadow' },
+        mode: 'dry-run',
+      })
+
+      expect(mockDb.transaction).toHaveBeenCalledOnce()
+      expect(mutationCalled).toBe(true)
     })
 
     it('instance constructed by factory uses dry-run path (not execute fallback) when mode=dry-run', async () => {

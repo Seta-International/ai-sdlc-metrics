@@ -77,6 +77,28 @@ export interface AgentToolMeta {
    *   Conservative default 0.97 if omitted — high precision, low recall.
    */
   readonly cacheable?: { readonly ttlSeconds: number; readonly distanceThreshold?: number }
+  /**
+   * Plan 11 R-11.1 / audit Theme F follow-up — opt-in flag declaring that this
+   * mutation procedure is safe to invoke under shadow mode (`mode: 'dry-run'`).
+   *
+   * Default: undefined / false. The shadow path uses Postgres transaction rollback
+   * to isolate writes — but only writes routed through `ctx.dryRunTx` participate
+   * in that transaction. Procedures that take their `Db` via NestJS DI (`DB_TOKEN`)
+   * commit through the request-bound `pg.PoolClient` and bypass the rollback.
+   *
+   * To set this to `true` a mutation procedure MUST:
+   *   1. Read the DB via `ctx.dryRunTx ?? <baseDb>` — never via the DI'd `DB_TOKEN`
+   *      directly when servicing an agent invocation.
+   *   2. Pass that `db` reference into every command handler / repository call it
+   *      makes for the duration of the request.
+   *
+   * Until a mutation procedure has been audited and converted, leaving this unset
+   * causes `TrpcCallerImpl` to refuse the dry-run invocation (no rollback +
+   * uncovered DI = silently committed writes). The refusal raises
+   * `ShadowDryRunMutationRefusedError`, which the shadow worker logs as an
+   * expected skip rather than treating as a fault.
+   */
+  readonly shadowSafe?: boolean
 }
 
 /**
