@@ -40,8 +40,11 @@ const ROUTER_OVERHEAD_TOKENS = 500
 /**
  * Absolute path to the `apps/api/src/modules` directory.
  * Used by EI-9 and EI-10 filesystem scans.
+ *
+ * Path math from this file's location (`agents/application/services`):
+ *   services → application → agents → modules (4 levels up)
  */
-const MODULES_ROOT = join(__dirname, '../../../../../modules')
+const MODULES_ROOT = join(__dirname, '../../../../modules')
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
