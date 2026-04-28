@@ -36,8 +36,11 @@ vi.mock('../rail/SideRail', () => ({
 }))
 
 vi.mock('@future/ui', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Input: ({ ...props }: any) => <input {...props} />,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Spinner: ({ className }: any) => <div data-testid="spinner" className={className} />,
   toast: {
     error: vi.fn(),
