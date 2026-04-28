@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, waitFor, cleanup } from '@testing-library/react'
+import { render, waitFor, cleanup } from '@testing-library/react'
 import { ProfilePage } from './ProfilePage'
 
 const { mockGetEmployment, mockGetProfilePermissions } = vi.hoisted(() => ({
@@ -118,14 +118,6 @@ describe('ProfilePage', () => {
       canViewSalary: true,
       canApproveChanges: false,
     })
-
-    let capturedCanViewSalary: boolean | undefined
-    vi.doMock('./tabs/TabCompensation', () => ({
-      TabCompensation: ({ canViewSalary }: { canViewSalary: boolean }) => {
-        capturedCanViewSalary = canViewSalary
-        return null
-      },
-    }))
 
     render(<ProfilePage employmentId="emp-1" />)
     await waitFor(() => expect(mockGetProfilePermissions).toHaveBeenCalled())
