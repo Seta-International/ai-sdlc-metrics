@@ -269,3 +269,20 @@ export type OrgChartTree = {
   childrenByParentId: Record<string, string[]>
   focusEmploymentId: string | null
 }
+
+// --- Profile redesign types ---
+
+export type DirectReport = {
+  employmentId: string
+  fullName: string
+  jobTitle: string | null
+  avatarUrl: string | null
+}
+
+export type ActivityEvent = {
+  id: string
+  eventType: string
+  description: string
+  actorName: string
+  occurredAt: string
+}
