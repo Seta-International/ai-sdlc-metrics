@@ -5,6 +5,7 @@ import { IdentityModule } from '../identity/identity.module'
 import { S3StorageClient } from '@future/storage'
 import { PeopleQueryFacade } from './application/facades/people-query.facade'
 import { SyncMicrosoftProfileHandler } from './application/commands/sync-microsoft-profile.handler'
+import { UpdatePersonalProfileHandler } from './application/commands/update-personal-profile.handler'
 import { PEOPLE_STORAGE_CLIENT } from './domain/ports/people-storage-client.port'
 
 // ── New repositories ───────────────────────────────────────────────────────
@@ -378,6 +379,7 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
 
     // ── Microsoft profile sync ───────────────────────────────────────────
     SyncMicrosoftProfileHandler,
+    UpdatePersonalProfileHandler,
     {
       provide: PEOPLE_STORAGE_CLIENT,
       useFactory: () =>

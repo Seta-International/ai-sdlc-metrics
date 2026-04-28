@@ -61,6 +61,7 @@ import { ORG_CHART_NODE_NOT_FOUND } from '../../application/services/org-chart-q
 
 import type { IdentityQueryFacade } from '../../../identity/application/facades/identity-query.facade'
 import { SyncMicrosoftProfileCommand } from '../../application/commands/sync-microsoft-profile.command'
+import { UpdatePersonalProfileCommand } from '../../application/commands/update-personal-profile.command'
 import type { SyncResult } from '../../application/commands/sync-microsoft-profile.handler'
 import { PeopleTrpcService } from './people-trpc.service'
 import {
@@ -1260,6 +1261,131 @@ export function createPeopleRouter(
           new SyncMicrosoftProfileCommand(ctx.tenantId, input.employmentId, ctx.actorId),
         ) as Promise<SyncResult>
       }),
+
+    // ── Update personal profile mutation ──────────────────────────────────
+    updatePersonalProfile: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:read' })
+      .input(
+        z.object({
+          employmentId: z.string().uuid(),
+          preferredName: z.string().nullable().optional(),
+          dateOfBirth: z.string().date().nullable().optional(),
+          gender: z
+            .enum(['male', 'female', 'non_binary', 'prefer_not_to_say'])
+            .nullable()
+            .optional(),
+          nationality: z.string().nullable().optional(),
+          maritalStatus: z
+            .enum(['single', 'married', 'divorced', 'widowed', 'separated'])
+            .nullable()
+            .optional(),
+          nameDisplayOrder: z.enum(['family_first', 'given_first']).optional(),
+          personalEmail: z.string().email().nullable().optional(),
+          personalPhone: z.string().nullable().optional(),
+          permanentAddress: z.record(z.unknown()).nullable().optional(),
+          currentAddress: z.record(z.unknown()).nullable().optional(),
+          nationalId: z.string().nullable().optional(),
+          nationalIdType: z.string().nullable().optional(),
+          nationalIdIssuedDate: z.string().date().nullable().optional(),
+          nationalIdExpiryDate: z.string().date().nullable().optional(),
+          passportNumber: z.string().nullable().optional(),
+          passportExpiryDate: z.string().date().nullable().optional(),
+          bankAccountNumber: z.string().nullable().optional(),
+          bankName: z.string().nullable().optional(),
+          bankBranch: z.string().nullable().optional(),
+          bankSwiftCode: z.string().nullable().optional(),
+          bankAccountHolder: z.string().nullable().optional(),
+          emergencyContacts: z.array(z.record(z.unknown())).nullable().optional(),
+        }),
+      )
+      .mutation(
+        async ({
+          ctx,
+          input,
+        }: {
+          ctx: AuthContext
+          input: {
+            employmentId: string
+            preferredName?: string | null
+            dateOfBirth?: string | null
+            gender?: string | null
+            nationality?: string | null
+            maritalStatus?: string | null
+            nameDisplayOrder?: 'family_first' | 'given_first'
+            personalEmail?: string | null
+            personalPhone?: string | null
+            permanentAddress?: Record<string, unknown> | null
+            currentAddress?: Record<string, unknown> | null
+            nationalId?: string | null
+            nationalIdType?: string | null
+            nationalIdIssuedDate?: string | null
+            nationalIdExpiryDate?: string | null
+            passportNumber?: string | null
+            passportExpiryDate?: string | null
+            bankAccountNumber?: string | null
+            bankName?: string | null
+            bankBranch?: string | null
+            bankSwiftCode?: string | null
+            bankAccountHolder?: string | null
+            emergencyContacts?: Array<Record<string, unknown>> | null
+          }
+        }) => {
+          const employment = await peopleFacade.getEmployment(ctx.tenantId, input.employmentId)
+          const isSelf = employment?.personProfile?.actorId === ctx.actorId
+          const perms = await kernelFacade.getEffectivePermissions(ctx.actorId, ctx.tenantId)
+          const has = (p: string) => perms.includes(p)
+          const isAdmin = has('people:admin')
+          const canEdit = isAdmin || has('people:profile:update')
+          const canEditBank = isAdmin || has('people:profile:update')
+
+          const hasBankFields =
+            input.bankAccountNumber !== undefined ||
+            input.bankName !== undefined ||
+            input.bankBranch !== undefined ||
+            input.bankSwiftCode !== undefined ||
+            input.bankAccountHolder !== undefined
+
+          if (hasBankFields && !canEditBank) {
+            throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot edit bank details' })
+          }
+
+          if (!isSelf && !canEdit) {
+            throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot edit this profile' })
+          }
+
+          const toDate = (s: string | null | undefined) => (s ? new Date(s) : s)
+
+          return svc().command(
+            new UpdatePersonalProfileCommand(
+              ctx.tenantId,
+              input.employmentId,
+              ctx.actorId,
+              input.preferredName,
+              toDate(input.dateOfBirth) as Date | null | undefined,
+              input.gender,
+              input.nationality,
+              input.maritalStatus,
+              input.nameDisplayOrder,
+              input.personalEmail,
+              input.personalPhone,
+              input.permanentAddress,
+              input.currentAddress,
+              input.nationalId,
+              input.nationalIdType,
+              toDate(input.nationalIdIssuedDate) as Date | null | undefined,
+              toDate(input.nationalIdExpiryDate) as Date | null | undefined,
+              input.passportNumber,
+              toDate(input.passportExpiryDate) as Date | null | undefined,
+              input.bankAccountNumber,
+              input.bankName,
+              input.bankBranch,
+              input.bankSwiftCode,
+              input.bankAccountHolder,
+              input.emergencyContacts,
+            ),
+          )
+        },
+      ),
 
     // ── Lifecycle mutations ────────────────────────────────────────────────
     rehire: permissionProtectedProcedure
