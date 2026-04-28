@@ -7,6 +7,9 @@ import { SideRail } from '../rail/SideRail'
 import { trpc } from '../../../lib/trpc'
 import type { EmployeeProfile } from '../../../lib/types'
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const anyTrpc = trpc as any
+
 interface TabOverviewProps {
   profile: EmployeeProfile
   employmentId: string
@@ -55,7 +58,7 @@ export function TabOverview({
   async function saveAbout() {
     setIsAboutPending(true)
     try {
-      await trpc.people.updatePersonalProfile.mutate({
+      await anyTrpc.people.updatePersonalProfile.mutate({
         employmentId,
         preferredName: aboutForm.preferredName || null,
         dateOfBirth: aboutForm.dateOfBirth || null,
@@ -74,7 +77,7 @@ export function TabOverview({
   async function saveContact() {
     setIsContactPending(true)
     try {
-      await trpc.people.updatePersonalProfile.mutate({
+      await anyTrpc.people.updatePersonalProfile.mutate({
         employmentId,
         personalEmail: contactForm.personalEmail || null,
         personalPhone: contactForm.personalPhone || null,
