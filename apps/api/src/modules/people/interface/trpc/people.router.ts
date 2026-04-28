@@ -1340,6 +1340,13 @@ export const peopleRouter = router({
 
   // listPeriodicReviews: removed — periodic reviews feature removed per spec (Plan 06)
 
+  profile: router({
+    // Stub — returns empty until GetEmployeeDocumentsQuery is implemented.
+    documents: publicProcedure
+      .input(z.object({ employmentId: z.string().uuid() }))
+      .query(() => ({ documents: [], requirements: [] })),
+  }),
+
   // ── Profile mutations ──────────────────────────────────────────────────
 
   createPersonProfile: publicProcedure

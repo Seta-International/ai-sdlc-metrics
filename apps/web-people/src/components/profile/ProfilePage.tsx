@@ -171,12 +171,17 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
         <TabsContent value="overview">
           <TabOverview
             profile={profile}
+            employmentId={employmentId}
             canEditPersonal={permissions.canEditPersonal}
             canViewSalary={permissions.canViewSalary}
           />
         </TabsContent>
         <TabsContent value="job-history">
-          <TabJobHistory profileId={profile.personProfile.id} canEdit={permissions.canEdit} />
+          <TabJobHistory
+            profileId={profile.personProfile.id}
+            canEdit={permissions.canEdit}
+            hireDate={profile.employment.hireDate}
+          />
         </TabsContent>
         <TabsContent value="documents">
           <TabDocuments employmentId={employmentId} canUpload={permissions.canUploadDocuments} />
