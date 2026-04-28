@@ -4,6 +4,8 @@ import { FinalizeUploadHandler } from './finalize-upload.handler'
 import { FinalizeUploadCommand } from './finalize-upload.command'
 import { Task } from '../../../domain/entities/task.entity'
 import { TaskAttachment } from '../../../domain/entities/task-attachment.entity'
+import { Plan } from '../../../domain/entities/plan.entity'
+import { PlanContainer } from '../../../domain/value-objects/plan-container.vo'
 import { AttachmentAddedEvent } from '@future/event-contracts'
 import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unauthorized-plan-access.exception'
 import { TaskNotFoundException } from '../../../domain/exceptions/task-not-found.exception'
@@ -11,6 +13,7 @@ import { InvalidStorageKeyException } from '../../../domain/exceptions/invalid-s
 import { StorageKeyNotFoundException } from '../../../domain/exceptions/storage-key-not-found.exception'
 import type { ITaskRepository } from '../../../domain/repositories/task.repository'
 import type { ITaskAttachmentRepository } from '../../../domain/repositories/task-attachment.repository'
+import type { IPlanRepository } from '../../../domain/repositories/plan.repository'
 import type { StorageClient } from '@future/storage'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 
@@ -33,10 +36,29 @@ function makeTask(): Task {
   })
 }
 
+function makePlan(containerType: 'future_only' | 'ms_group' | 'ms_roster'): Plan {
+  const container =
+    containerType === 'future_only'
+      ? PlanContainer.of({ type: 'future_only' })
+      : PlanContainer.of({ type: containerType, externalId: 'ext-1' })
+  return Plan.create({
+    id: PLAN_ID,
+    tenantId: TENANT_ID,
+    name: 'Test Plan',
+    container,
+    createdBy: ACTOR_ID,
+    ownerActorId: ACTOR_ID,
+  })
+}
+
 describe('FinalizeUploadHandler', () => {
   let handler: FinalizeUploadHandler
   let taskRepo: { findById: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> }
-  let attachmentRepo: { add: ReturnType<typeof vi.fn> }
+  let attachmentRepo: {
+    add: ReturnType<typeof vi.fn>
+    setSyncState: ReturnType<typeof vi.fn>
+  }
+  let planRepo: { findById: ReturnType<typeof vi.fn> }
   let storageClient: { headObject: ReturnType<typeof vi.fn> }
   let authSvc: { assertCanEditPlan: ReturnType<typeof vi.fn> }
   let eventBus: { publish: ReturnType<typeof vi.fn> }
@@ -46,7 +68,11 @@ describe('FinalizeUploadHandler', () => {
       findById: vi.fn().mockResolvedValue(makeTask()),
       update: vi.fn().mockResolvedValue(undefined),
     }
-    attachmentRepo = { add: vi.fn().mockResolvedValue(undefined) }
+    attachmentRepo = {
+      add: vi.fn().mockResolvedValue(undefined),
+      setSyncState: vi.fn().mockResolvedValue(undefined),
+    }
+    planRepo = { findById: vi.fn().mockResolvedValue(makePlan('future_only')) }
     storageClient = {
       headObject: vi.fn().mockResolvedValue({
         key: VALID_KEY,
@@ -63,6 +89,7 @@ describe('FinalizeUploadHandler', () => {
       storageClient as unknown as StorageClient,
       authSvc as unknown as PlanAuthorizationService,
       eventBus as unknown as EventBus,
+      planRepo as unknown as IPlanRepository,
     )
   })
 
@@ -221,5 +248,78 @@ describe('FinalizeUploadHandler', () => {
     await expect(handler.execute(command)).rejects.toThrow(UnauthorizedPlanAccessException)
     expect(attachmentRepo.add).not.toHaveBeenCalled()
     expect(eventBus.publish).not.toHaveBeenCalled()
+  })
+
+  describe('MS sync routing', () => {
+    function makeCommand() {
+      return new FinalizeUploadCommand(
+        TENANT_ID,
+        PLAN_ID,
+        TASK_ID,
+        ATTACHMENT_ID,
+        ACTOR_ID,
+        VALID_KEY,
+        'document.pdf',
+        'application/pdf',
+        1024,
+      )
+    }
+
+    it('future_only plan → attachment added with msSyncState synced, no setSyncState called', async () => {
+      planRepo.findById.mockResolvedValue(makePlan('future_only'))
+
+      await handler.execute(makeCommand())
+
+      expect(attachmentRepo.add).toHaveBeenCalledOnce()
+      const saved: TaskAttachment = attachmentRepo.add.mock.calls[0][0]
+      expect(saved.msSyncState).toBe('synced')
+      expect(attachmentRepo.setSyncState).not.toHaveBeenCalled()
+    })
+
+    it('ms_group plan → attachment added then setSyncState called with pending_upload', async () => {
+      planRepo.findById.mockResolvedValue(makePlan('ms_group'))
+      const callOrder: string[] = []
+      attachmentRepo.add.mockImplementation(async () => {
+        callOrder.push('add')
+      })
+      attachmentRepo.setSyncState.mockImplementation(async () => {
+        callOrder.push('setSyncState')
+      })
+
+      await handler.execute(makeCommand())
+
+      expect(attachmentRepo.add).toHaveBeenCalledOnce()
+      expect(attachmentRepo.setSyncState).toHaveBeenCalledOnce()
+      expect(attachmentRepo.setSyncState).toHaveBeenCalledWith(
+        ATTACHMENT_ID,
+        TENANT_ID,
+        'pending_upload',
+      )
+      expect(callOrder).toEqual(['add', 'setSyncState'])
+    })
+
+    it('ms_roster plan → attachment added then setSyncState called with not_syncable', async () => {
+      planRepo.findById.mockResolvedValue(makePlan('ms_roster'))
+
+      await handler.execute(makeCommand())
+
+      expect(attachmentRepo.add).toHaveBeenCalledOnce()
+      expect(attachmentRepo.setSyncState).toHaveBeenCalledOnce()
+      expect(attachmentRepo.setSyncState).toHaveBeenCalledWith(
+        ATTACHMENT_ID,
+        TENANT_ID,
+        'not_syncable',
+      )
+    })
+
+    it('null plan (plan not found) → no setSyncState called, event still published', async () => {
+      planRepo.findById.mockResolvedValue(null)
+
+      await handler.execute(makeCommand())
+
+      expect(attachmentRepo.add).toHaveBeenCalledOnce()
+      expect(attachmentRepo.setSyncState).not.toHaveBeenCalled()
+      expect(eventBus.publish).toHaveBeenCalledWith(expect.any(AttachmentAddedEvent))
+    })
   })
 })
