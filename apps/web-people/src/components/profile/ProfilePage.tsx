@@ -27,7 +27,6 @@ export type ProfilePermissions = {
   canCreateContract: boolean
   canViewSalary: boolean
   canApproveChanges: boolean
-  canSyncFromMicrosoft: boolean
 }
 
 const defaultPermissions: ProfilePermissions = {
@@ -41,7 +40,6 @@ const defaultPermissions: ProfilePermissions = {
   canCreateContract: false,
   canViewSalary: false,
   canApproveChanges: false,
-  canSyncFromMicrosoft: false,
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -122,25 +120,19 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
   const [profile, setProfile] = React.useState<EmployeeProfile | null>(null)
   const [permissions, setPermissions] = React.useState<ProfilePermissions>(defaultPermissions)
   const [isLoading, setIsLoading] = React.useState(true)
-  const [isEditing, setIsEditing] = React.useState(false)
-
-  const fetchProfile = React.useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const [result, perms] = await Promise.all([
-        anyTrpc.people.getEmployment.query({ employmentId }),
-        anyTrpc.people.getProfilePermissions.query({ employmentId }),
-      ])
-      setProfile(toEmployeeProfile(result))
-      setPermissions(perms ?? defaultPermissions)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [employmentId])
 
   React.useEffect(() => {
-    void fetchProfile()
-  }, [fetchProfile])
+    void (async () => {
+      setIsLoading(true)
+      try {
+        const result = await anyTrpc.people.getEmployment.query({ employmentId })
+        setProfile(toEmployeeProfile(result))
+        setPermissions(defaultPermissions)
+      } finally {
+        setIsLoading(false)
+      }
+    })()
+  }, [employmentId])
 
   function handleTabChange(tab: string) {
     const p = new URLSearchParams(searchParams.toString())
@@ -172,31 +164,19 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
         <ProfileHero
           profile={profile}
           permissions={permissions}
-          isEditing={isEditing}
-          onEdit={() => setIsEditing(true)}
-          onDoneEditing={() => setIsEditing(false)}
+          onEdit={() => {}}
           onShare={() => {}}
           onStartOffboarding={permissions.canManage ? () => {} : undefined}
         />
         <TabsContent value="overview">
           <TabOverview
             profile={profile}
-            employmentId={employmentId}
             canEditPersonal={permissions.canEditPersonal}
-            canEditBank={permissions.canEditBank}
             canViewSalary={permissions.canViewSalary}
-            isEditing={isEditing}
-            onSaved={() => {
-              void fetchProfile()
-            }}
           />
         </TabsContent>
         <TabsContent value="job-history">
-          <TabJobHistory
-            profileId={profile.personProfile.id}
-            canEdit={permissions.canEdit}
-            hireDate={profile.employment.hireDate}
-          />
+          <TabJobHistory profileId={profile.personProfile.id} canEdit={permissions.canEdit} />
         </TabsContent>
         <TabsContent value="documents">
           <TabDocuments employmentId={employmentId} canUpload={permissions.canUploadDocuments} />
