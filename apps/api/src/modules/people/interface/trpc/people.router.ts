@@ -52,6 +52,8 @@ import { ListOnboardingTasksQuery } from '../../application/queries/list-onboard
 import { ListTemplatesQuery } from '../../application/queries/list-templates.query'
 import { ListContractVersionsQuery } from '../../application/queries/list-contract-versions.query'
 import { GetJobHistoryQuery } from '../../application/queries/get-job-history.query'
+import { GetDirectReportsQuery } from '../../application/queries/get-direct-reports.query'
+import { GetActivityFeedQuery } from '../../application/queries/get-activity-feed.query'
 import { GetOrgChartContextQuery } from '../../application/queries/get-org-chart-context.query'
 import { GetOrgChartChildrenQuery } from '../../application/queries/get-org-chart-children.query'
 import { GetOrgChartTreeQuery } from '../../application/queries/get-org-chart-tree.query'
@@ -184,6 +186,36 @@ export function createPeopleRouter(
       .query(async ({ ctx, input }: { ctx: AuthContext; input: { profileId: string } }) => {
         return svc().query(new GetJobHistoryQuery(input.profileId, ctx.tenantId))
       }),
+
+    getDirectReports: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:read' })
+      .input(z.object({ employmentId: z.string().uuid() }))
+      .query(async ({ ctx, input }: { ctx: AuthContext; input: { employmentId: string } }) => {
+        return svc().query(new GetDirectReportsQuery(input.employmentId, ctx.tenantId))
+      }),
+
+    getActivityFeed: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:read' })
+      .input(
+        z.object({
+          employmentId: z.string().uuid(),
+          limit: z.number().int().min(1).max(50).default(20),
+          cursor: z.string().optional(),
+        }),
+      )
+      .query(
+        async ({
+          ctx,
+          input,
+        }: {
+          ctx: AuthContext
+          input: { employmentId: string; limit: number; cursor?: string }
+        }) => {
+          return svc().query(
+            new GetActivityFeedQuery(input.employmentId, ctx.tenantId, input.limit, input.cursor),
+          )
+        },
+      ),
 
     listJobProfiles: permissionProtectedProcedure
       .meta({ permission: 'people:profile:read' })

@@ -177,6 +177,8 @@ import { GetPersonProfileHandler } from './application/queries/get-person-profil
 import { GetEmploymentHandler } from './application/queries/get-employment.handler'
 import { GetCurrentJobAssignmentHandler } from './application/queries/get-current-job-assignment.handler'
 import { GetJobHistoryHandler } from './application/queries/get-job-history.handler'
+import { GetDirectReportsHandler } from './application/queries/get-direct-reports.handler'
+import { GetActivityFeedHandler } from './application/queries/get-activity-feed.handler'
 import { ListEmploymentsHandler } from './application/queries/list-employments.handler'
 import { ListJobProfilesHandler } from './application/queries/list-job-profiles.handler'
 import { GetProbationRecordHandler } from './application/queries/get-probation-record.handler'
@@ -340,6 +342,8 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     GetEmploymentHandler,
     GetCurrentJobAssignmentHandler,
     GetJobHistoryHandler,
+    GetDirectReportsHandler,
+    GetActivityFeedHandler,
     ListEmploymentsHandler,
     ListJobProfilesHandler,
     GetProbationRecordHandler,
