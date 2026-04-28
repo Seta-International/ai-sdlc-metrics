@@ -8,9 +8,10 @@ export interface ITaskAttachmentRepository {
   list(taskId: string, tenantId: string): Promise<TaskAttachment[]>
   findById(id: string, tenantId: string): Promise<TaskAttachment | null>
   remove(id: string, tenantId: string): Promise<void>
-  setSyncState(id: string, state: MsSyncState): Promise<void>
+  setSyncState(id: string, tenantId: string, state: MsSyncState): Promise<void>
   markSynced(
     id: string,
+    tenantId: string,
     input: {
       msReferenceUrl: string
       msSharepointDriveId: string

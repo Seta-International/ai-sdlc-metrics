@@ -41,7 +41,7 @@ export class PushAttachmentHandler implements ICommandHandler<PushAttachmentComm
     if (plan.container.type === 'future_only') return
 
     if (plan.container.type === 'ms_roster') {
-      await this.attachmentRepo.setSyncState(attachment.id, 'not_syncable')
+      await this.attachmentRepo.setSyncState(attachment.id, command.tenantId, 'not_syncable')
       return
     }
 
@@ -119,7 +119,7 @@ export class PushAttachmentHandler implements ICommandHandler<PushAttachmentComm
       }
     }
 
-    await this.attachmentRepo.markSynced(attachment.id, {
+    await this.attachmentRepo.markSynced(attachment.id, command.tenantId, {
       msReferenceUrl: uploadResult.webUrl,
       msSharepointDriveId: uploadResult.driveId,
       msSharepointItemId: uploadResult.itemId,

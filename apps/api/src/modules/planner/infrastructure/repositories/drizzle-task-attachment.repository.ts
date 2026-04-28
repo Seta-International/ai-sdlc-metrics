@@ -101,15 +101,16 @@ export class DrizzleTaskAttachmentRepository implements ITaskAttachmentRepositor
       .where(and(eq(plannerTaskAttachment.id, id), eq(plannerTaskAttachment.tenantId, tenantId)))
   }
 
-  async setSyncState(id: string, state: MsSyncState): Promise<void> {
+  async setSyncState(id: string, tenantId: string, state: MsSyncState): Promise<void> {
     await this.db
       .update(plannerTaskAttachment)
       .set({ msSyncState: state })
-      .where(eq(plannerTaskAttachment.id, id))
+      .where(and(eq(plannerTaskAttachment.id, id), eq(plannerTaskAttachment.tenantId, tenantId)))
   }
 
   async markSynced(
     id: string,
+    tenantId: string,
     input: { msReferenceUrl: string; msSharepointDriveId: string; msSharepointItemId: string },
   ): Promise<void> {
     await this.db
@@ -120,6 +121,6 @@ export class DrizzleTaskAttachmentRepository implements ITaskAttachmentRepositor
         msSharepointDriveId: input.msSharepointDriveId,
         msSharepointItemId: input.msSharepointItemId,
       })
-      .where(eq(plannerTaskAttachment.id, id))
+      .where(and(eq(plannerTaskAttachment.id, id), eq(plannerTaskAttachment.tenantId, tenantId)))
   }
 }

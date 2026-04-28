@@ -128,7 +128,7 @@ describe('PushAttachmentHandler', () => {
     const { handler, attachmentRepo, planRepo } = makeHandler()
     planRepo.findById.mockResolvedValue(makePlan('ms_roster'))
     await handler.execute(new PushAttachmentCommand(attachmentId, tenantId))
-    expect(attachmentRepo.setSyncState).toHaveBeenCalledWith(attachmentId, 'not_syncable')
+    expect(attachmentRepo.setSyncState).toHaveBeenCalledWith(attachmentId, tenantId, 'not_syncable')
     expect(attachmentRepo.markSynced).not.toHaveBeenCalled()
   })
 
@@ -145,7 +145,7 @@ describe('PushAttachmentHandler', () => {
     await handler.execute(new PushAttachmentCommand(attachmentId, tenantId))
     expect(sharepoint.uploadSmall).toHaveBeenCalled()
     expect(sharepoint.createUploadSession).not.toHaveBeenCalled()
-    expect(attachmentRepo.markSynced).toHaveBeenCalledWith(attachmentId, {
+    expect(attachmentRepo.markSynced).toHaveBeenCalledWith(attachmentId, tenantId, {
       msReferenceUrl: 'https://sp/file.pdf',
       msSharepointDriveId: 'drive-1',
       msSharepointItemId: 'item-1',
