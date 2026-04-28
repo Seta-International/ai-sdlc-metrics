@@ -75,14 +75,9 @@ function makeHandler(overrides: Record<string, unknown> = {}) {
     findById: vi.fn().mockResolvedValue(makePlan('ms_group')),
   }
   const storage = {
-    getObjectStream: vi.fn().mockResolvedValue(
-      new ReadableStream({
-        start(controller) {
-          controller.enqueue(new TextEncoder().encode('hello file content'))
-          controller.close()
-        },
-      }),
-    ),
+    getDownloadUrl: vi
+      .fn()
+      .mockResolvedValue({ url: 'https://s3/presigned', expiresAt: new Date() }),
   }
   const sharepoint = {
     getGroupDefaultDriveId: vi.fn().mockResolvedValue({ siteId: 'site-1', driveId: 'drive-1' }),
@@ -124,6 +119,13 @@ function makeHandler(overrides: Record<string, unknown> = {}) {
 }
 
 describe('PushAttachmentHandler', () => {
+  beforeEach(() => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: async () => new ArrayBuffer(1000),
+    })
+  })
+
   it('ms_roster plan → marks not_syncable and returns', async () => {
     const { handler, attachmentRepo, planRepo } = makeHandler()
     planRepo.findById.mockResolvedValue(makePlan('ms_roster'))

@@ -57,17 +57,19 @@ export class PushAttachmentHandler implements ICommandHandler<PushAttachmentComm
     await this.sharepoint.ensureFolder(command.tenantId, driveId, folderPath)
     const filePath = `${folderPath}/${attachment.filename!}`
 
-    const s3Stream = await this.storage.getObjectStream(attachment.storageKey!)
-    const fileSize = attachment.sizeBytes ?? 0
+    const { url: presignedUrl } = await this.storage.getDownloadUrl(attachment.storageKey!)
+    const s3Response = await fetch(presignedUrl)
+    if (!s3Response.ok) throw new Error(`S3 download failed ${s3Response.status}`)
+    const fileBuffer = Buffer.from(await s3Response.arrayBuffer())
+    const fileSize = fileBuffer.length
 
     let uploadResult: { itemId: string; webUrl: string; driveId: string }
     if (fileSize <= SMALL_FILE_THRESHOLD) {
-      const body = await this.collectStream(s3Stream)
       uploadResult = await this.sharepoint.uploadSmall(
         command.tenantId,
         driveId,
         filePath,
-        body,
+        fileBuffer,
         attachment.contentType ?? 'application/octet-stream',
       )
     } else {
@@ -76,7 +78,7 @@ export class PushAttachmentHandler implements ICommandHandler<PushAttachmentComm
         driveId,
         filePath,
       )
-      uploadResult = await this.uploadInChunks(uploadUrl, s3Stream, fileSize)
+      uploadResult = await this.uploadInChunks(uploadUrl, fileBuffer, fileSize)
     }
 
     const encodedUrl = encodeURIComponent(uploadResult.webUrl)
@@ -128,68 +130,23 @@ export class PushAttachmentHandler implements ICommandHandler<PushAttachmentComm
 
   private async uploadInChunks(
     uploadUrl: string,
-    stream: ReadableStream,
+    data: Buffer,
     totalSize: number,
   ): Promise<{ itemId: string; webUrl: string; driveId: string }> {
-    const reader = stream.getReader()
     let offset = 0
     let lastResult: Awaited<ReturnType<typeof this.sharepoint.uploadChunk>> | null = null
-    const buffer: Uint8Array[] = []
-    let bufferedSize = 0
 
-    const flush = async (final: boolean) => {
-      while (bufferedSize >= CHUNK_SIZE || (final && bufferedSize > 0)) {
-        const toTake = Math.min(CHUNK_SIZE, bufferedSize)
-        const chunk = this.takeChunk(buffer, toTake)
-        lastResult = await this.sharepoint.uploadChunk(uploadUrl, chunk, offset, totalSize)
-        offset += chunk.length
-        bufferedSize -= chunk.length
-      }
+    while (offset < totalSize) {
+      const end = Math.min(offset + CHUNK_SIZE, totalSize)
+      const chunk = data.subarray(offset, end)
+      lastResult = await this.sharepoint.uploadChunk(uploadUrl, chunk, offset, totalSize)
+      offset = end
     }
-
-    while (true) {
-      const { value, done } = await reader.read()
-      if (done) break
-      buffer.push(value)
-      bufferedSize += value.length
-      await flush(false)
-    }
-    await flush(true)
 
     if (!lastResult || lastResult.status === 202 || !lastResult.itemId) {
       throw new Error('chunked upload finished without completion response')
     }
     return { itemId: lastResult.itemId, webUrl: lastResult.webUrl!, driveId: lastResult.driveId! }
-  }
-
-  private takeChunk(buffer: Uint8Array[], bytes: number): Uint8Array {
-    const out = new Uint8Array(bytes)
-    let copied = 0
-    while (copied < bytes) {
-      const first = buffer[0]!
-      const remaining = bytes - copied
-      if (first.length <= remaining) {
-        out.set(first, copied)
-        copied += first.length
-        buffer.shift()
-      } else {
-        out.set(first.subarray(0, remaining), copied)
-        buffer[0] = first.subarray(remaining)
-        copied += remaining
-      }
-    }
-    return out
-  }
-
-  private async collectStream(stream: ReadableStream): Promise<Buffer> {
-    const chunks: Uint8Array[] = []
-    const reader = stream.getReader()
-    while (true) {
-      const { value, done } = await reader.read()
-      if (done) break
-      chunks.push(value)
-    }
-    return Buffer.concat(chunks)
   }
 
   private inferReferenceType(mimeType: string): string {
