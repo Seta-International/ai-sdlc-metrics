@@ -51,10 +51,7 @@ vi.mock('../../../lib/trpc', () => ({
       getDirectReports: { query: vi.fn().mockResolvedValue([]) },
       getActivityFeed: { query: vi.fn().mockResolvedValue({ events: [], nextCursor: null }) },
       updatePersonalProfile: {
-        useMutation: vi.fn(() => ({
-          mutate: vi.fn(),
-          isPending: false,
-        })),
+        mutate: vi.fn().mockResolvedValue({}),
       },
     },
   },
@@ -257,12 +254,6 @@ describe('TabOverview — edit mode', () => {
 
   it('calls updatePersonalProfile mutation on Save', async () => {
     const { trpc } = await import('../../../lib/trpc')
-    const mutateMock = vi.fn()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(trpc as any).people.updatePersonalProfile.useMutation.mockReturnValue({
-      mutate: mutateMock,
-      isPending: false,
-    })
 
     render(
       <TabOverview
@@ -283,9 +274,9 @@ describe('TabOverview — edit mode', () => {
     fireEvent.click(aboutSaveButton!)
 
     await waitFor(() => {
-      expect(mutateMock).toHaveBeenCalledWith(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((trpc as any).people.updatePersonalProfile.mutate).toHaveBeenCalledWith(
         expect.objectContaining({ employmentId: 'emp-1', preferredName: 'An Nguyen' }),
-        expect.anything(),
       )
     })
   })
