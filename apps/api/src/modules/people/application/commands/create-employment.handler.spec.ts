@@ -81,6 +81,8 @@ function makeDetail(): EmploymentDetail {
     emergencyContacts: null,
     countryData: null,
     customFields: null,
+    officeLocation: null,
+    workPhone: null,
   }
 }
 
