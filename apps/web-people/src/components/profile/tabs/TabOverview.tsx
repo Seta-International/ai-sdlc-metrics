@@ -7,9 +7,6 @@ import { SideRail } from '../rail/SideRail'
 import { trpc } from '../../../lib/trpc'
 import type { EmployeeProfile } from '../../../lib/types'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const anyTrpc = trpc as any
-
 interface TabOverviewProps {
   profile: EmployeeProfile
   employmentId: string
@@ -52,50 +49,43 @@ export function TabOverview({
     })
   }, [personProfile])
 
-  const updateAboutMutation = anyTrpc.people.updatePersonalProfile.useMutation({
-    onError: () => {
-      toast.error('Failed to save — please try again')
-    },
-  })
+  const [isAboutPending, setIsAboutPending] = React.useState(false)
+  const [isContactPending, setIsContactPending] = React.useState(false)
 
-  const updateContactMutation = anyTrpc.people.updatePersonalProfile.useMutation({
-    onError: () => {
-      toast.error('Failed to save — please try again')
-    },
-  })
-
-  function saveAbout() {
-    updateAboutMutation.mutate(
-      {
+  async function saveAbout() {
+    setIsAboutPending(true)
+    try {
+      await trpc.people.updatePersonalProfile.mutate({
         employmentId,
         preferredName: aboutForm.preferredName || null,
         dateOfBirth: aboutForm.dateOfBirth || null,
         nationality: aboutForm.nationality || null,
         nameDisplayOrder: aboutForm.nameDisplayOrder,
-      },
-      {
-        onSuccess: () => {
-          toast.success('About section saved')
-          onSaved()
-        },
-      },
-    )
+      })
+      toast.success('About section saved')
+      onSaved()
+    } catch {
+      toast.error('Failed to save — please try again')
+    } finally {
+      setIsAboutPending(false)
+    }
   }
 
-  function saveContact() {
-    updateContactMutation.mutate(
-      {
+  async function saveContact() {
+    setIsContactPending(true)
+    try {
+      await trpc.people.updatePersonalProfile.mutate({
         employmentId,
         personalEmail: contactForm.personalEmail || null,
         personalPhone: contactForm.personalPhone || null,
-      },
-      {
-        onSuccess: () => {
-          toast.success('Contact saved')
-          onSaved()
-        },
-      },
-    )
+      })
+      toast.success('Contact saved')
+      onSaved()
+    } catch {
+      toast.error('Failed to save — please try again')
+    } finally {
+      setIsContactPending(false)
+    }
   }
 
   return (
@@ -153,10 +143,10 @@ export function TabOverview({
                 <Button
                   size="sm"
                   className="h-7 px-2 text-xs gap-1"
-                  disabled={updateAboutMutation.isPending}
+                  disabled={isAboutPending}
                   onClick={saveAbout}
                 >
-                  {updateAboutMutation.isPending && <Spinner className="size-3" />}
+                  {isAboutPending && <Spinner className="size-3" />}
                   Save
                 </Button>
               </div>
@@ -224,10 +214,10 @@ export function TabOverview({
                 <Button
                   size="sm"
                   className="h-7 px-2 text-xs gap-1"
-                  disabled={updateContactMutation.isPending}
+                  disabled={isContactPending}
                   onClick={saveContact}
                 >
-                  {updateContactMutation.isPending && <Spinner className="size-3" />}
+                  {isContactPending && <Spinner className="size-3" />}
                   Save
                 </Button>
               </div>
