@@ -1,6 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common'
 import type { Db } from '@future/db'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray, lt } from 'drizzle-orm'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { ITaskAttachmentRepository } from '../../domain/repositories/task-attachment.repository'
 import { TaskAttachment, type MsSyncState } from '../../domain/entities/task-attachment.entity'
@@ -138,5 +138,24 @@ export class DrizzleTaskAttachmentRepository implements ITaskAttachmentRepositor
         msSharepointItemId: input.msSharepointItemId,
       })
       .where(and(eq(plannerTaskAttachment.id, id), eq(plannerTaskAttachment.tenantId, tenantId)))
+  }
+
+  async listPendingOlderThan(
+    tenantId: string,
+    states: MsSyncState[],
+    olderThanMinutes: number,
+  ): Promise<Array<{ id: string; msSyncState: MsSyncState }>> {
+    const cutoff = new Date(Date.now() - olderThanMinutes * 60 * 1000)
+    const rows = await this.db
+      .select({ id: plannerTaskAttachment.id, msSyncState: plannerTaskAttachment.msSyncState })
+      .from(plannerTaskAttachment)
+      .where(
+        and(
+          eq(plannerTaskAttachment.tenantId, tenantId),
+          inArray(plannerTaskAttachment.msSyncState, states),
+          lt(plannerTaskAttachment.createdAt, cutoff),
+        ),
+      )
+    return rows as Array<{ id: string; msSyncState: MsSyncState }>
   }
 }

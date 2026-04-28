@@ -102,6 +102,7 @@ import { MyDayOrphanSweepJob } from './infrastructure/jobs/my-day-orphan-sweep.j
 import { MyDayOrphanSweepScheduler } from './infrastructure/jobs/my-day-orphan-sweep.scheduler'
 import { MsSyncPollTenantRegistrar } from './infrastructure/jobs/ms-sync-poll-tenant.registrar'
 import { MsSyncResolvePendingRegistrar } from './infrastructure/jobs/ms-sync-resolve-pending.registrar'
+import { MsSyncRetryAttachmentsRegistrar } from './infrastructure/jobs/ms-sync-retry-attachments.registrar'
 import { MsGraphClient } from './infrastructure/ms-graph/ms-graph-client'
 import { MsSharePointClient } from './infrastructure/ms-graph/ms-sharepoint-client'
 import { PlanIngestor } from './infrastructure/ms-graph/pull/plan-ingestor'
@@ -121,6 +122,7 @@ import { PushPlanHandler } from './application/commands/ms-sync/push-plan.handle
 import { PushBucketHandler } from './application/commands/ms-sync/push-bucket.handler'
 import { PushAttachmentHandler } from './application/commands/ms-sync/push-attachment.handler'
 import { PullAttachmentHandler } from './application/commands/ms-sync/pull-attachment.handler'
+import { RetryPendingAttachmentsHandler } from './application/commands/ms-sync/retry-pending-attachments.handler'
 import { OutboxDirtyFieldsQuery } from './infrastructure/outbox/outbox-dirty-fields.query'
 import { MsSyncJobRegistrar } from './infrastructure/jobs/pg-boss.registrar'
 import { IdentityDirectorySyncedListener } from './application/event-handlers/identity-directory-synced.listener'
@@ -256,6 +258,8 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     BackfillGroupWorker,
     MsSyncPollTenantRegistrar,
     MsSyncResolvePendingRegistrar,
+    MsSyncRetryAttachmentsRegistrar,
+    RetryPendingAttachmentsHandler,
     PollTenantHandler,
     PlannerQueryFacade,
     PlannerRouterService,

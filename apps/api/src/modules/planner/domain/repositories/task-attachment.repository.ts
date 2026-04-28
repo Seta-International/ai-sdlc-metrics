@@ -23,4 +23,9 @@ export interface ITaskAttachmentRepository {
     tenantId: string,
     input: { s3Key: string; sizeBytes: number; mimeType: string },
   ): Promise<void>
+  listPendingOlderThan(
+    tenantId: string,
+    states: MsSyncState[],
+    olderThanMinutes: number,
+  ): Promise<Array<{ id: string; msSyncState: MsSyncState }>>
 }
