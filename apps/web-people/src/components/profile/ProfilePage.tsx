@@ -122,22 +122,25 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
   const [profile, setProfile] = React.useState<EmployeeProfile | null>(null)
   const [permissions, setPermissions] = React.useState<ProfilePermissions>(defaultPermissions)
   const [isLoading, setIsLoading] = React.useState(true)
+  const [isEditing, setIsEditing] = React.useState(false)
+
+  const fetchProfile = React.useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const [result, perms] = await Promise.all([
+        anyTrpc.people.getEmployment.query({ employmentId }),
+        anyTrpc.people.getProfilePermissions.query({ employmentId }),
+      ])
+      setProfile(toEmployeeProfile(result))
+      setPermissions(perms ?? defaultPermissions)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [employmentId])
 
   React.useEffect(() => {
-    void (async () => {
-      setIsLoading(true)
-      try {
-        const [result, perms] = await Promise.all([
-          anyTrpc.people.getEmployment.query({ employmentId }),
-          anyTrpc.people.getProfilePermissions.query({ employmentId }),
-        ])
-        setProfile(toEmployeeProfile(result))
-        setPermissions(perms ?? defaultPermissions)
-      } finally {
-        setIsLoading(false)
-      }
-    })()
-  }, [employmentId])
+    void fetchProfile()
+  }, [fetchProfile])
 
   function handleTabChange(tab: string) {
     const p = new URLSearchParams(searchParams.toString())
@@ -169,7 +172,9 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
         <ProfileHero
           profile={profile}
           permissions={permissions}
-          onEdit={() => {}}
+          isEditing={isEditing}
+          onEdit={() => setIsEditing(true)}
+          onDoneEditing={() => setIsEditing(false)}
           onShare={() => {}}
           onStartOffboarding={permissions.canManage ? () => {} : undefined}
         />
@@ -178,7 +183,12 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
             profile={profile}
             employmentId={employmentId}
             canEditPersonal={permissions.canEditPersonal}
+            canEditBank={permissions.canEditBank}
             canViewSalary={permissions.canViewSalary}
+            isEditing={isEditing}
+            onSaved={() => {
+              void fetchProfile()
+            }}
           />
         </TabsContent>
         <TabsContent value="job-history">
