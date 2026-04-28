@@ -1,8 +1,27 @@
 'use client'
 
-import { InfoCard } from './InfoCard'
+import * as React from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@future/ui'
 import { FieldRenderer, FieldGroupRenderer } from '../FieldRenderer'
 import type { EmployeeProfile } from '../../lib/types'
+
+function InfoCard({
+  title,
+  children,
+}: {
+  title: string
+  editable?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  )
+}
 
 interface TabOverviewProps {
   profile: EmployeeProfile

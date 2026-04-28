@@ -1,43 +1,24 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, waitFor, cleanup } from '@testing-library/react'
+import { render, cleanup } from '@testing-library/react'
 import EmployeeProfilePage from './page'
 
-const { mockGetEmploymentQuery, mockLegacyProfileGetQuery } = vi.hoisted(() => ({
-  mockGetEmploymentQuery: vi.fn().mockResolvedValue({
-    employment: null,
-    personProfile: null,
-    currentAssignment: null,
-    detail: null,
-    sections: [],
-  }),
-  mockLegacyProfileGetQuery: vi.fn().mockResolvedValue({
-    profile: null,
-    permissions: {},
-  }),
-}))
-
 vi.mock('next/navigation', () => ({
-  useParams: () => ({ employmentId: '01900000-0000-7000-8000-000000000010' }),
+  useParams: () => ({ employmentId: 'emp-abc' }),
   useSearchParams: () => ({ get: () => null, toString: () => '' }),
-  usePathname: () => '/profile/01900000-0000-7000-8000-000000000010',
+  usePathname: () => '/profile/emp-abc',
   useRouter: () => ({ replace: vi.fn() }),
 }))
 
 vi.mock('../../../lib/trpc', () => ({
   trpc: {
-    people: {
-      getEmployment: { query: mockGetEmploymentQuery },
-      profile: { get: { query: mockLegacyProfileGetQuery } },
-    },
+    people: { getEmployment: { query: vi.fn().mockResolvedValue(null) } },
   },
 }))
 
-vi.mock('../../../components/profile/ProfileHeader', () => ({
-  ProfileHeader: () => null,
-}))
-
-vi.mock('../../../components/profile/ProfileTabs', () => ({
-  ProfileTabs: () => null,
+vi.mock('../../../components/profile', () => ({
+  ProfilePage: ({ employmentId }: { employmentId: string }) => (
+    <div data-testid="profile-page">{employmentId}</div>
+  ),
 }))
 
 afterEach(() => {
@@ -46,14 +27,8 @@ afterEach(() => {
 })
 
 describe('EmployeeProfilePage', () => {
-  it('loads employee data via people.getEmployment', async () => {
-    render(<EmployeeProfilePage />)
-
-    await waitFor(() =>
-      expect(mockGetEmploymentQuery).toHaveBeenCalledWith({
-        employmentId: '01900000-0000-7000-8000-000000000010',
-      }),
-    )
-    expect(mockLegacyProfileGetQuery).not.toHaveBeenCalled()
+  it('renders ProfilePage with the employmentId from route params', () => {
+    const { getByTestId } = render(<EmployeeProfilePage />)
+    expect(getByTestId('profile-page').textContent).toBe('emp-abc')
   })
 })
