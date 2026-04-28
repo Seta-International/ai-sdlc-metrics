@@ -1,39 +1,170 @@
 'use client'
 
+import * as React from 'react'
+import { Button, Input, Spinner } from '@future/ui'
+import { toast } from '@future/ui'
 import { ProfileCard, KVRow } from '../cards/ProfileCard'
 import { SideRail } from '../rail/SideRail'
+import { trpc } from '../../../lib/trpc'
 import type { EmployeeProfile } from '../../../lib/types'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const anyTrpc = trpc as any
 
 interface TabOverviewProps {
   profile: EmployeeProfile
   employmentId: string
   canEditPersonal: boolean
+  canEditBank: boolean
   canViewSalary: boolean
+  isEditing: boolean
+  onSaved: () => void
 }
 
 export function TabOverview({
   profile,
   employmentId,
   canEditPersonal,
+  canEditBank: _canEditBank,
   canViewSalary,
+  isEditing,
+  onSaved,
 }: TabOverviewProps) {
   const { personProfile, employment, currentJob, emergencyContacts } = profile
 
+  const [aboutForm, setAboutForm] = React.useState({
+    preferredName: personProfile.preferredName ?? '',
+    dateOfBirth: personProfile.dateOfBirth ?? '',
+    nationality: personProfile.nationality ?? '',
+    nameDisplayOrder: personProfile.nameDisplayOrder,
+  })
+
+  const [contactForm, setContactForm] = React.useState({
+    personalEmail: '',
+    personalPhone: '',
+  })
+
+  React.useEffect(() => {
+    setAboutForm({
+      preferredName: personProfile.preferredName ?? '',
+      dateOfBirth: personProfile.dateOfBirth ?? '',
+      nationality: personProfile.nationality ?? '',
+      nameDisplayOrder: personProfile.nameDisplayOrder,
+    })
+  }, [personProfile])
+
+  const updateMutation = anyTrpc.people.updatePersonalProfile.useMutation({
+    onError: () => {
+      toast.error('Failed to save — please try again')
+    },
+  })
+
+  function saveAbout() {
+    updateMutation.mutate(
+      {
+        employmentId,
+        preferredName: aboutForm.preferredName || null,
+        dateOfBirth: aboutForm.dateOfBirth || null,
+        nationality: aboutForm.nationality || null,
+        nameDisplayOrder: aboutForm.nameDisplayOrder,
+      },
+      {
+        onSuccess: () => {
+          toast.success('About section saved')
+          onSaved()
+        },
+      },
+    )
+  }
+
+  function saveContact() {
+    updateMutation.mutate(
+      {
+        employmentId,
+        personalEmail: contactForm.personalEmail || null,
+        personalPhone: contactForm.personalPhone || null,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Contact saved')
+          onSaved()
+        },
+      },
+    )
+  }
+
   return (
     <div className="grid gap-8 p-8" style={{ gridTemplateColumns: '1fr 300px' }}>
-      {/* Main column */}
       <div className="flex flex-col gap-5">
-        {/* About */}
         <ProfileCard
           title="About"
-          action={canEditPersonal ? { label: 'Edit', onClick: () => {} } : undefined}
+          action={!isEditing && canEditPersonal ? { label: 'Edit', onClick: () => {} } : undefined}
         >
-          <KVRow label="Preferred name" value={personProfile.preferredName} />
-          <KVRow label="Start date" value={employment.hireDate} />
-          <KVRow label="Employee ID" value={employment.employeeCode} mono />
+          {isEditing && canEditPersonal ? (
+            <div className="space-y-2 py-1.5">
+              <div className="grid" style={{ gridTemplateColumns: '160px 1fr' }}>
+                <span className="text-xs text-muted-foreground self-center">Preferred name</span>
+                <Input
+                  value={aboutForm.preferredName}
+                  onChange={(e) => setAboutForm((f) => ({ ...f, preferredName: e.target.value }))}
+                  placeholder="Preferred name"
+                  className="h-7 text-xs"
+                />
+              </div>
+              <div className="grid" style={{ gridTemplateColumns: '160px 1fr' }}>
+                <span className="text-xs text-muted-foreground self-center">Date of birth</span>
+                <Input
+                  type="date"
+                  value={aboutForm.dateOfBirth}
+                  onChange={(e) => setAboutForm((f) => ({ ...f, dateOfBirth: e.target.value }))}
+                  className="h-7 text-xs"
+                />
+              </div>
+              <div className="grid" style={{ gridTemplateColumns: '160px 1fr' }}>
+                <span className="text-xs text-muted-foreground self-center">Nationality</span>
+                <Input
+                  value={aboutForm.nationality}
+                  onChange={(e) => setAboutForm((f) => ({ ...f, nationality: e.target.value }))}
+                  placeholder="Nationality"
+                  className="h-7 text-xs"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() =>
+                    setAboutForm({
+                      preferredName: personProfile.preferredName ?? '',
+                      dateOfBirth: personProfile.dateOfBirth ?? '',
+                      nationality: personProfile.nationality ?? '',
+                      nameDisplayOrder: personProfile.nameDisplayOrder,
+                    })
+                  }
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-7 px-2 text-xs gap-1"
+                  disabled={updateMutation.isPending}
+                  onClick={saveAbout}
+                >
+                  {updateMutation.isPending && <Spinner className="size-3" />}
+                  Save
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <KVRow label="Preferred name" value={personProfile.preferredName} />
+              <KVRow label="Start date" value={employment.hireDate} />
+              <KVRow label="Employee ID" value={employment.employeeCode} mono />
+            </>
+          )}
         </ProfileCard>
 
-        {/* Job */}
         <ProfileCard title="Job">
           <KVRow label="Job title" value={currentJob?.jobTitle ?? null} />
           <KVRow label="Level" value={currentJob?.jobLevel ?? null} mono />
@@ -42,7 +173,6 @@ export function TabOverview({
           <KVRow label="Work arrangement" value={employment.workArrangement} />
         </ProfileCard>
 
-        {/* Compensation */}
         <ProfileCard title="Compensation" locked={!canViewSalary}>
           {!canViewSalary ? (
             <p className="py-1.5 text-xs text-muted-foreground">
@@ -55,7 +185,51 @@ export function TabOverview({
           )}
         </ProfileCard>
 
-        {/* Emergency contacts */}
+        {isEditing && canEditPersonal && (
+          <ProfileCard title="Contact">
+            <div className="space-y-2 py-1.5">
+              <div className="grid" style={{ gridTemplateColumns: '160px 1fr' }}>
+                <span className="text-xs text-muted-foreground self-center">Personal email</span>
+                <Input
+                  type="email"
+                  value={contactForm.personalEmail}
+                  onChange={(e) => setContactForm((f) => ({ ...f, personalEmail: e.target.value }))}
+                  placeholder="personal@email.com"
+                  className="h-7 text-xs"
+                />
+              </div>
+              <div className="grid" style={{ gridTemplateColumns: '160px 1fr' }}>
+                <span className="text-xs text-muted-foreground self-center">Personal phone</span>
+                <Input
+                  value={contactForm.personalPhone}
+                  onChange={(e) => setContactForm((f) => ({ ...f, personalPhone: e.target.value }))}
+                  placeholder="+84901234567"
+                  className="h-7 text-xs"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setContactForm({ personalEmail: '', personalPhone: '' })}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-7 px-2 text-xs gap-1"
+                  disabled={updateMutation.isPending}
+                  onClick={saveContact}
+                >
+                  {updateMutation.isPending && <Spinner className="size-3" />}
+                  Save
+                </Button>
+              </div>
+            </div>
+          </ProfileCard>
+        )}
+
         <ProfileCard
           title="Emergency contacts"
           action={canEditPersonal ? { label: 'Add', onClick: () => {} } : undefined}
@@ -92,7 +266,6 @@ export function TabOverview({
         </ProfileCard>
       </div>
 
-      {/* Side rail */}
       <SideRail profile={profile} employmentId={employmentId} onViewAll={() => {}} />
     </div>
   )
