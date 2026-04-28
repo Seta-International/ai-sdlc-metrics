@@ -324,4 +324,20 @@ describe('ProfileHero — editing mode', () => {
     expect(screen.getByRole('button', { name: /edit profile/i })).toBeDefined()
     expect(screen.queryByRole('button', { name: /done editing/i })).toBeNull()
   })
+
+  it('calls onDoneEditing when Done editing is clicked', async () => {
+    const onDoneEditing = vi.fn()
+    render(
+      <ProfileHero
+        profile={baseProfile}
+        permissions={{ ...noPerms, canEdit: true }}
+        isEditing={true}
+        onEdit={vi.fn()}
+        onDoneEditing={onDoneEditing}
+        onShare={vi.fn()}
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: /done editing/i }))
+    expect(onDoneEditing).toHaveBeenCalledOnce()
+  })
 })
