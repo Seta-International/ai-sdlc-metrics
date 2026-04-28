@@ -1,7 +1,11 @@
 import { Module } from '@nestjs/common'
 import { CqrsModule } from '@nestjs/cqrs'
 import { KernelModule } from '../kernel/kernel.module'
+import { IdentityModule } from '../identity/identity.module'
+import { S3StorageClient } from '@future/storage'
 import { PeopleQueryFacade } from './application/facades/people-query.facade'
+import { SyncMicrosoftProfileHandler } from './application/commands/sync-microsoft-profile.handler'
+import { PEOPLE_STORAGE_CLIENT } from './domain/ports/people-storage-client.port'
 
 // ── New repositories ───────────────────────────────────────────────────────
 import { DrizzlePersonProfileRepository } from './infrastructure/repositories/drizzle-person-profile.repository'
@@ -205,7 +209,7 @@ import { OnCandidateHiredHandler } from './application/event-handlers/on-candida
 import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
 
 @Module({
-  imports: [CqrsModule, KernelModule],
+  imports: [CqrsModule, KernelModule, IdentityModule],
   providers: [
     // ── New repositories ─────────────────────────────────────────────────
     { provide: PERSON_PROFILE_REPOSITORY, useClass: DrizzlePersonProfileRepository },
@@ -371,6 +375,17 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
 
     // ── Event handlers ────────────────────────────────────────────────────
     OnCandidateHiredHandler,
+
+    // ── Microsoft profile sync ───────────────────────────────────────────
+    SyncMicrosoftProfileHandler,
+    {
+      provide: PEOPLE_STORAGE_CLIENT,
+      useFactory: () =>
+        new S3StorageClient({
+          bucket: process.env['PEOPLE_ASSETS_BUCKET'] ?? 'future-people-assets',
+          region: process.env['AWS_REGION'] ?? 'ap-southeast-1',
+        }),
+    },
 
     // ── Facades & services ───────────────────────────────────────────────
     PeopleQueryFacade,
