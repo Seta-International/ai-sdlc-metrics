@@ -22,7 +22,7 @@ import { mapMsBucketToDomain } from '../mappers/ms-bucket.mapper'
 import { mapMsTaskToDomain } from '../mappers/ms-task.mapper'
 import { mapMsTaskDetailsToDomain } from '../mappers/ms-task-details.mapper'
 import { PgBossService } from '../../../../../common/jobs/pg-boss.service'
-import { MS_SYNC_PULL_ATTACHMENT_JOB } from '../../jobs/pg-boss.registrar'
+import { MS_SYNC_PULL_ATTACHMENT_JOB } from '../../jobs/job-names'
 import { uuidv7 } from 'uuidv7'
 
 export type PullOrigin = 'ms-sync-backfill' | 'ms-sync-pull'

@@ -12,13 +12,23 @@ import { PushPlanCommand } from '../../application/commands/ms-sync/push-plan.co
 import { PushBucketCommand } from '../../application/commands/ms-sync/push-bucket.command'
 import { PushAttachmentCommand } from '../../application/commands/ms-sync/push-attachment.command'
 import { PullAttachmentCommand } from '../../application/commands/ms-sync/pull-attachment.command'
+import {
+  MS_SYNC_BACKFILL_JOB,
+  MS_SYNC_PUSH_TASK_JOB,
+  MS_SYNC_PUSH_PLAN_JOB,
+  MS_SYNC_PUSH_BUCKET_JOB,
+  MS_SYNC_PUSH_ATTACHMENT_JOB,
+  MS_SYNC_PULL_ATTACHMENT_JOB,
+} from './job-names'
 
-export const MS_SYNC_BACKFILL_JOB = 'ms-sync-backfill-group'
-export const MS_SYNC_PUSH_TASK_JOB = 'ms-sync-push-task'
-export const MS_SYNC_PUSH_PLAN_JOB = 'ms-sync-push-plan'
-export const MS_SYNC_PUSH_BUCKET_JOB = 'ms-sync-push-bucket'
-export const MS_SYNC_PUSH_ATTACHMENT_JOB = 'ms-sync-push-attachment'
-export const MS_SYNC_PULL_ATTACHMENT_JOB = 'ms-sync-pull-attachment'
+export {
+  MS_SYNC_BACKFILL_JOB,
+  MS_SYNC_PUSH_TASK_JOB,
+  MS_SYNC_PUSH_PLAN_JOB,
+  MS_SYNC_PUSH_BUCKET_JOB,
+  MS_SYNC_PUSH_ATTACHMENT_JOB,
+  MS_SYNC_PULL_ATTACHMENT_JOB,
+}
 
 interface PushTaskJobData {
   taskId: string
