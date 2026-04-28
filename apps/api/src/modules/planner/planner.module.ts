@@ -104,6 +104,7 @@ import { MsSyncPollTenantRegistrar } from './infrastructure/jobs/ms-sync-poll-te
 import { MsSyncResolvePendingRegistrar } from './infrastructure/jobs/ms-sync-resolve-pending.registrar'
 import { MsGraphClient } from './infrastructure/ms-graph/ms-graph-client'
 import { PlanIngestor } from './infrastructure/ms-graph/pull/plan-ingestor'
+import { BackfillGroupWorker } from './infrastructure/ms-graph/pull/backfill-group.worker'
 import { MsGraphTokenAcquirerAdapter } from './infrastructure/ms-graph/ms-graph-token-acquirer.adapter'
 import { PLANNER_SECRETS_STORE } from './domain/ports/secrets-store.port'
 import { MS_GRAPH_TOKEN_ACQUIRER } from './domain/ports/ms-graph-token-acquirer.port'
@@ -114,7 +115,13 @@ import { PollTenantHandler } from './application/commands/ms-sync/poll-tenant.ha
 import { DisconnectMsSyncHandler } from './application/commands/ms-sync/disconnect-ms-sync.handler'
 import { UnlinkMsGroupHandler } from './application/commands/ms-sync/unlink-ms-group.handler'
 import { ResolvePendingAssignmentsHandler } from './application/commands/ms-sync/resolve-pending-assignments.handler'
+import { PushTaskHandler } from './application/commands/ms-sync/push-task.handler'
+import { PushPlanHandler } from './application/commands/ms-sync/push-plan.handler'
+import { PushBucketHandler } from './application/commands/ms-sync/push-bucket.handler'
+import { OutboxDirtyFieldsQuery } from './infrastructure/outbox/outbox-dirty-fields.query'
+import { MsSyncJobRegistrar } from './infrastructure/jobs/pg-boss.registrar'
 import { IdentityDirectorySyncedListener } from './application/event-handlers/identity-directory-synced.listener'
+import { MsSyncPushListener } from './application/event-handlers/ms-sync-push.listener'
 import { ListAvailableGroupsHandler } from './application/queries/ms-sync/list-available-groups.handler'
 import { ListLinkedGroupsHandler } from './application/queries/ms-sync/list-linked-groups.handler'
 import { MS_LINKED_GROUP_REPOSITORY } from './domain/repositories/ms-linked-group.repository'
@@ -207,6 +214,8 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     ListTaskEvidenceHandler,
     OnTaskAssignedHandler,
     OnTaskProgressCompletedHandler,
+    IdentityDirectorySyncedListener,
+    MsSyncPushListener,
     { provide: TASK_DAILY_SNAPSHOT_REPOSITORY, useClass: DrizzleTaskDailySnapshotRepository },
     TaskDailySnapshotWorker,
     TaskDailySnapshotScheduler,
@@ -216,7 +225,11 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     DisconnectMsSyncHandler,
     UnlinkMsGroupHandler,
     ResolvePendingAssignmentsHandler,
-    IdentityDirectorySyncedListener,
+    PushTaskHandler,
+    PushPlanHandler,
+    PushBucketHandler,
+    OutboxDirtyFieldsQuery,
+    MsSyncJobRegistrar,
     ListAvailableGroupsHandler,
     ListLinkedGroupsHandler,
     { provide: MS_LINKED_GROUP_REPOSITORY, useClass: DrizzleMsLinkedGroupRepository },
@@ -234,6 +247,7 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     { provide: MS_GRAPH_TOKEN_ACQUIRER, useClass: MsGraphTokenAcquirerAdapter },
     MsGraphClient,
     PlanIngestor,
+    BackfillGroupWorker,
     MsSyncPollTenantRegistrar,
     MsSyncResolvePendingRegistrar,
     PollTenantHandler,

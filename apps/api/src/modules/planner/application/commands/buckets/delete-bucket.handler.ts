@@ -32,7 +32,7 @@ export class DeleteBucketHandler implements ICommandHandler<DeleteBucketCommand>
 
     for (const taskId of deletedTaskIds) {
       await this.eventBus.publish(
-        new TaskDeletedEvent(command.tenantId, command.actorId, taskId, deletedAt),
+        new TaskDeletedEvent(command.tenantId, command.actorId, taskId, deletedAt, [], 'user'),
       )
     }
 
@@ -43,6 +43,8 @@ export class DeleteBucketHandler implements ICommandHandler<DeleteBucketCommand>
         command.planId,
         command.bucketId,
         deletedAt,
+        [],
+        'user',
       ),
     )
   }

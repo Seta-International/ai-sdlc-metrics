@@ -47,6 +47,8 @@ export class SetTaskProgressHandler implements ICommandHandler<SetTaskProgressCo
         command.taskId,
         command.planId,
         command.progress,
+        ['percentComplete'],
+        'user',
       ),
     )
 
@@ -57,11 +59,20 @@ export class SetTaskProgressHandler implements ICommandHandler<SetTaskProgressCo
           command.actorId,
           command.taskId,
           new Date().toISOString(),
+          ['percentComplete', 'completedDate'],
+          'user',
         ),
       )
     } else if (command.progress < 100 && wasCompleted) {
       await this.eventBus.publish(
-        new TaskReopenedEvent(command.tenantId, command.actorId, command.taskId, command.planId),
+        new TaskReopenedEvent(
+          command.tenantId,
+          command.actorId,
+          command.taskId,
+          command.planId,
+          ['percentComplete', 'completedDate'],
+          'user',
+        ),
       )
     }
   }

@@ -28,6 +28,8 @@ export class DeleteTaskHandler implements ICommandHandler<DeleteTaskCommand> {
         command.actorId,
         command.taskId,
         new Date().toISOString(),
+        [],
+        'user',
       ),
     )
   }

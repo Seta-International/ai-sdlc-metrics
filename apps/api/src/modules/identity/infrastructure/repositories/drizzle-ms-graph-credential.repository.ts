@@ -92,4 +92,18 @@ export class DrizzleMsGraphCredentialRepository implements IMsGraphCredentialRep
 
     return deleted.length === 1
   }
+
+  async markInvalid(tenantId: string, reason: string): Promise<void> {
+    await this.db
+      .update(msGraphCredential)
+      .set({ status: 'invalid', lastError: reason, updatedAt: new Date() })
+      .where(eq(msGraphCredential.tenantId, tenantId))
+  }
+
+  async setPushPausedUntil(tenantId: string, until: Date): Promise<void> {
+    await this.db
+      .update(msGraphCredential)
+      .set({ tenantPushPausedUntil: until, updatedAt: new Date() })
+      .where(eq(msGraphCredential.tenantId, tenantId))
+  }
 }

@@ -39,6 +39,8 @@ export class ReorderChecklistItemHandler implements ICommandHandler<ReorderCheck
         command.taskId,
         command.itemId,
         newHint,
+        ['checklist'],
+        'user',
       ),
     )
   }

@@ -10,4 +10,6 @@ export interface IMsGraphCredentialRepository {
     expectedClientSecretRef: string,
   ): Promise<boolean>
   deleteIfSecretRef(tenantId: string, expectedClientSecretRef: string): Promise<boolean>
+  markInvalid(tenantId: string, reason: string): Promise<void>
+  setPushPausedUntil(tenantId: string, until: Date): Promise<void>
 }

@@ -1,3 +1,5 @@
+import type { EventOrigin } from './ms-sync/field-names'
+
 export class TaskProgressSetEvent {
   static readonly eventName = 'planner.task-progress-set'
   constructor(
@@ -6,5 +8,7 @@ export class TaskProgressSetEvent {
     public readonly taskId: string,
     public readonly planId: string,
     public readonly progress: 0 | 50 | 100,
+    public readonly changedFields: readonly string[],
+    public readonly origin: EventOrigin,
   ) {}
 }

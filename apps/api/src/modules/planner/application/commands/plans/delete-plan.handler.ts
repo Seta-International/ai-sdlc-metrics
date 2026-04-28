@@ -25,7 +25,7 @@ export class DeletePlanHandler implements ICommandHandler<DeletePlanCommand> {
     await this.planRepo.softDelete(command.planId, command.tenantId)
 
     await this.eventBus.publish(
-      new PlanDeletedEvent(command.tenantId, command.actorId, command.planId),
+      new PlanDeletedEvent(command.tenantId, command.actorId, command.planId, [], 'user'),
     )
   }
 }

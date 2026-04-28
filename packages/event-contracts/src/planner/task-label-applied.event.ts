@@ -1,3 +1,5 @@
+import type { EventOrigin } from './ms-sync/field-names'
+
 export class TaskLabelAppliedEvent {
   static readonly eventName = 'planner.task-label-applied'
   constructor(
@@ -6,5 +8,7 @@ export class TaskLabelAppliedEvent {
     public readonly taskId: string,
     public readonly planId: string,
     public readonly slot: string,
+    public readonly changedFields: readonly string[],
+    public readonly origin: EventOrigin,
   ) {}
 }

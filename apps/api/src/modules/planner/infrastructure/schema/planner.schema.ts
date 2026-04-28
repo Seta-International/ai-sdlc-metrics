@@ -160,6 +160,7 @@ export const plannerTask = plannerSchema.table(
     msTaskEtag: text('ms_task_etag'),
     msTaskDetailsEtag: text('ms_task_details_etag'),
     msSoftDeletedAt: timestamp('ms_soft_deleted_at', { withTimezone: true }),
+    msSyncPushedAt: timestamp('ms_sync_pushed_at', { withTimezone: true }),
     pendingMsAssignments: jsonb('pending_ms_assignments')
       .notNull()
       .default(sql`'[]'::jsonb`),

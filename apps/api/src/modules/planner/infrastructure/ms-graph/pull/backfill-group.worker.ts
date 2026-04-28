@@ -1,12 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common'
-import type { EventBus } from '@nestjs/cqrs'
-import type { MsGraphClient } from '../ms-graph-client'
-import type { IMsLinkedGroupRepository } from '../../../domain/repositories/ms-linked-group.repository'
+import { Injectable, Inject, Logger } from '@nestjs/common'
+import { EventBus } from '@nestjs/cqrs'
+import { MsGraphClient } from '../ms-graph-client'
+import {
+  MS_LINKED_GROUP_REPOSITORY,
+  type IMsLinkedGroupRepository,
+} from '../../../domain/repositories/ms-linked-group.repository'
 import {
   createBackfillProgressEvent,
   createMsGroupBackfillCompletedEvent,
 } from '@future/event-contracts'
-import type { PlanIngestor } from './plan-ingestor'
+import { PlanIngestor } from './plan-ingestor'
 
 export interface BackfillJobData {
   tenantId: string
@@ -22,6 +25,7 @@ export class BackfillGroupWorker {
   constructor(
     private readonly graph: MsGraphClient,
     private readonly ingestor: PlanIngestor,
+    @Inject(MS_LINKED_GROUP_REPOSITORY)
     private readonly groupRepo: IMsLinkedGroupRepository,
     private readonly eventBus: EventBus,
   ) {}

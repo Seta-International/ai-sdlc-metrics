@@ -167,6 +167,24 @@ export class InMemoryTaskRepository implements ITaskRepository {
     void taskId
   }
 
+  async markPushed(_id: string, _pushedAt: Date): Promise<void> {}
+
+  async linkToMs(
+    _id: string,
+    _props: { msTaskId: string; msTaskEtag: string; origin: string },
+  ): Promise<void> {}
+
+  async updateMsEtag(
+    _id: string,
+    _etags: { msTaskEtag?: string | null; msDetailsEtag?: string | null },
+  ): Promise<void> {}
+
+  async applyMsWonFields(
+    _taskId: string,
+    _freshMsBody: Record<string, unknown>,
+    _opts: { origin: string },
+  ): Promise<void> {}
+
   /** Test helper: clear all data */
   clear(): void {
     this.store.clear()

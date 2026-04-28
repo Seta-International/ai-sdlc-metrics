@@ -32,7 +32,14 @@ export class RenamePlanHandler implements ICommandHandler<RenamePlanCommand> {
     await this.planRepo.save(plan)
 
     await this.eventBus.publish(
-      new PlanRenamedEvent(command.tenantId, command.actorId, command.planId, command.name),
+      new PlanRenamedEvent(
+        command.tenantId,
+        command.actorId,
+        command.planId,
+        command.name,
+        ['title'],
+        'user',
+      ),
     )
   }
 }

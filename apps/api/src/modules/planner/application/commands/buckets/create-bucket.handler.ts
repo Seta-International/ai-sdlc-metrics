@@ -49,6 +49,8 @@ export class CreateBucketHandler implements ICommandHandler<CreateBucketCommand>
         command.bucketId,
         command.name,
         orderHint,
+        ['name', 'orderHint'],
+        'user',
       ),
     )
   }

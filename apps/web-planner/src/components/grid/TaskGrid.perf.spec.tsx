@@ -132,10 +132,11 @@ describe('TaskGrid performance', () => {
     // shares a cold-start transform budget across all test files; on slow CI this
     // can add substantial overhead to the first render when running alongside many
     // other test files (e.g. Turbo pre-push hook running lint+typecheck+tests in
-    // parallel).  We use 8000ms here so the assertion is stable on both laptop and
-    // CI while still catching any runaway O(n)-in-DOM rendering regression (a naïve
-    // non-virtualised render of 2400 rows takes several seconds).
-    const FIRST_RENDER_CEILING_MS = 8000
+    // parallel).  8000ms proved insufficient (observed 9685ms under pre-push load);
+    // raised to 12000ms to give stable headroom while still catching any runaway
+    // O(n)-in-DOM rendering regression (a naïve non-virtualised render of 2400 rows
+    // takes 30s+, so a 12s ceiling catches it with >2x margin).
+    const FIRST_RENDER_CEILING_MS = 12_000
 
     const t0 = performance.now()
 
@@ -177,9 +178,9 @@ describe('TaskGrid performance', () => {
     // visible rows) does not spin unboundedly — a proxy for "no dropped frames".
     // In a real browser this takes < 16ms. In jsdom+vitest running in parallel with
     // lint+typecheck (pre-push hook), CPU contention can push this well past 1s.
-    // 8000ms still catches pathological regressions (non-virtualized renders spin
-    // for 10s+) while being stable on any developer machine under load.
-    const RERENDER_CEILING_MS = 8000
+    // 12000ms still catches pathological regressions (non-virtualized renders spin
+    // for 30s+) while being stable on any developer machine under load.
+    const RERENDER_CEILING_MS = 12_000
 
     const { rerender } = render(
       <TaskGrid

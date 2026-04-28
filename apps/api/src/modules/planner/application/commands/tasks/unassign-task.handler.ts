@@ -31,6 +31,8 @@ export class UnassignTaskHandler implements ICommandHandler<UnassignTaskCommand>
         command.taskId,
         command.planId,
         command.assigneeId,
+        ['assignees'],
+        'user',
       ),
     )
   }

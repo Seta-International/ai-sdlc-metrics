@@ -45,7 +45,14 @@ export class CreatePlanHandler implements ICommandHandler<CreatePlanCommand> {
     await this.bucketRepo.save(bucket)
 
     await this.eventBus.publish(
-      new PlanCreatedEvent(command.tenantId, command.createdBy, command.id, command.name),
+      new PlanCreatedEvent(
+        command.tenantId,
+        command.createdBy,
+        command.id,
+        command.name,
+        ['title'],
+        'user',
+      ),
     )
   }
 }

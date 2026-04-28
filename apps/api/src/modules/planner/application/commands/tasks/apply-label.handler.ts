@@ -46,6 +46,8 @@ export class ApplyLabelHandler implements ICommandHandler<ApplyLabelCommand> {
         command.taskId,
         command.planId,
         command.slot,
+        ['appliedCategories'],
+        'user',
       ),
     )
   }

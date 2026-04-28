@@ -1,5 +1,4 @@
-import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import AiConfigPage from './page'
 import { trpc } from '@/lib/trpc'
@@ -54,19 +53,18 @@ describe('<AiConfigPage />', () => {
     expect(screen.getByText(/Classification Model/i)).toBeInTheDocument()
   })
 
-  it('calls upsertAiProviderConfig mutation when Rotate Key is submitted', async () => {
+  it('calls upsertAiProviderConfig mutation when Rotate Key is submitted', () => {
     const mutateMock = vi.fn().mockResolvedValue(undefined)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(trpc.admin as any).upsertAiProviderConfig.mutate = mutateMock
 
     render(<AiConfigPage params={{ tenantId: 'tenant-1' }} />)
 
-    const user = userEvent.setup({ delay: null })
     const input = screen.getByPlaceholderText(/sk-/i)
-    await user.type(input, 'sk-test-key-abcd')
+    fireEvent.change(input, { target: { value: 'sk-test-key-abcd' } })
 
     const rotateBtn = screen.getByRole('button', { name: /Rotate/i })
-    await user.click(rotateBtn)
+    fireEvent.click(rotateBtn)
 
     expect(mutateMock).toHaveBeenCalledWith(
       expect.objectContaining({

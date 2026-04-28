@@ -84,6 +84,7 @@ export const msGraphCredential = identitySchema.table('ms_graph_credential', {
   consentedAt: timestamp('consented_at', { withTimezone: true }).notNull(),
   lastValidatedAt: timestamp('last_validated_at', { withTimezone: true }),
   lastError: text('last_error'),
+  tenantPushPausedUntil: timestamp('tenant_push_paused_until', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })

@@ -18,4 +18,9 @@ export interface IBucketRepository {
   save(bucket: Bucket): Promise<void>
   softDelete(id: string, tenantId: string): Promise<void>
   upsertFromMs(props: MsBucketUpsertProps, opts: { origin: string }): Promise<void>
+  linkToMs(
+    id: string,
+    tenantId: string,
+    props: { msBucketId: string; msBucketEtag: string; origin: string },
+  ): Promise<void>
 }

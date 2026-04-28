@@ -81,6 +81,7 @@ export class DrizzleTaskRepository implements ITaskRepository {
       pendingMsAssignments: Array.isArray(row.pendingMsAssignments)
         ? (row.pendingMsAssignments as string[])
         : [],
+      lastPushedAt: row.msSyncPushedAt ?? null,
       assignees: assigneeRows.map((a) =>
         TaskAssignee.create(a.actorId, a.assignedBy, a.assignedAt),
       ),
@@ -563,5 +564,41 @@ export class DrizzleTaskRepository implements ITaskRepository {
       msDetailsEtag: r.msDetailsEtag ?? null,
       msSoftDeletedAt: r.msSoftDeletedAt ?? null,
     }))
+  }
+
+  async markPushed(id: string, pushedAt: Date): Promise<void> {
+    await this.db
+      .update(plannerTask)
+      .set({ msSyncPushedAt: pushedAt })
+      .where(eq(plannerTask.id, id))
+  }
+
+  async linkToMs(
+    id: string,
+    props: { msTaskId: string; msTaskEtag: string; origin: string },
+  ): Promise<void> {
+    await this.db
+      .update(plannerTask)
+      .set({ msTaskId: props.msTaskId, msTaskEtag: props.msTaskEtag })
+      .where(eq(plannerTask.id, id))
+  }
+
+  async updateMsEtag(
+    id: string,
+    etags: { msTaskEtag?: string | null; msDetailsEtag?: string | null },
+  ): Promise<void> {
+    const patch: Partial<typeof plannerTask.$inferInsert> = {}
+    if (etags.msTaskEtag !== undefined) patch.msTaskEtag = etags.msTaskEtag
+    if (etags.msDetailsEtag !== undefined) patch.msTaskDetailsEtag = etags.msDetailsEtag
+    if (Object.keys(patch).length === 0) return
+    await this.db.update(plannerTask).set(patch).where(eq(plannerTask.id, id))
+  }
+
+  async applyMsWonFields(
+    _taskId: string,
+    _freshMsBody: Record<string, unknown>,
+    _opts: { origin: string },
+  ): Promise<void> {
+    // Placeholder — full field mapping from MS body implemented in Plan 4.5
   }
 }

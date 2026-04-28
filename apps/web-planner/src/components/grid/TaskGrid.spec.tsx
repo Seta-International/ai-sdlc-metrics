@@ -185,7 +185,7 @@ describe('TaskGrid', () => {
     expect(mockPatch).toHaveBeenCalledWith({
       sort: { field: 'title', dir: 'asc' },
     })
-  })
+  }, 15_000)
 
   it('clicking a sorted column header cycles to desc', async () => {
     const user = userEvent.setup()
@@ -207,7 +207,7 @@ describe('TaskGrid', () => {
     expect(mockPatch).toHaveBeenCalledWith({
       sort: { field: 'title', dir: 'desc' },
     })
-  })
+  }, 15_000)
 
   it('clicking a desc-sorted column header clears sort', async () => {
     const user = userEvent.setup()

@@ -218,6 +218,17 @@ export class DrizzlePlanRepository implements IPlanRepository {
       .where(eq(plannerPlan.id, id))
   }
 
+  async linkToMs(
+    id: string,
+    tenantId: string,
+    props: { msPlanId: string; msPlanEtag: string; origin: string },
+  ): Promise<void> {
+    await this.db
+      .update(plannerPlan)
+      .set({ msPlanId: props.msPlanId, msPlanEtag: props.msPlanEtag, updatedAt: sql`NOW()` })
+      .where(and(eq(plannerPlan.id, id), eq(plannerPlan.tenantId, tenantId)))
+  }
+
   async upsertFromMs(props: MsPlanUpsertProps, _opts: { origin: string }): Promise<{ id: string }> {
     const existing = await this.db
       .select({ id: plannerPlan.id })
