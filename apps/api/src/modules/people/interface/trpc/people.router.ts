@@ -1387,6 +1387,7 @@ export function createPeopleRouter(
         },
       ),
 
+
     // ── Lifecycle mutations ────────────────────────────────────────────────
     rehire: permissionProtectedProcedure
       .meta({ permission: 'people:employment:rehire' })
