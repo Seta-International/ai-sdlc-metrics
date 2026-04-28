@@ -348,7 +348,9 @@ export const plannerTaskEvidence = plannerSchema.table(
 export const msLinkedRoster = plannerSchema.table(
   'ms_linked_roster',
   {
-    id: uuid('id').defaultRandom().primaryKey(),
+    id: uuid('id')
+      .$defaultFn(() => uuidv7())
+      .primaryKey(),
     tenantId: uuid('tenant_id').notNull(),
     msRosterId: text('ms_roster_id').notNull(),
     displayName: text('display_name').notNull(),

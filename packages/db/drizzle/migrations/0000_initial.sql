@@ -1488,7 +1488,7 @@ CREATE TABLE "planner"."ms_linked_group" (
 );
 --> statement-breakpoint
 CREATE TABLE "planner"."ms_linked_roster" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"tenant_id" uuid NOT NULL,
 	"ms_roster_id" text NOT NULL,
 	"display_name" text NOT NULL,
