@@ -35,6 +35,9 @@ interface MsSyncStatus {
 interface PlannerTrpcSlice {
   msSync: {
     status: { query: (input: { tenantId: string }) => Promise<MsSyncStatus> }
+    flags: {
+      query: (input: { tenantId: string }) => Promise<{ msSyncAttachmentsEnabled: boolean }>
+    }
     connect: {
       mutate: (input: {
         tenantId: string
@@ -72,6 +75,12 @@ export default function MicrosoftIntegrationPage() {
   const statusQuery = useQuery({
     queryKey: ['planner.msSync.status', session?.tenantId],
     queryFn: () => planner.msSync.status.query({ tenantId: session!.tenantId }),
+    enabled: !!session,
+  })
+
+  const flagsQuery = useQuery({
+    queryKey: ['planner.msSync.flags', session?.tenantId],
+    queryFn: () => planner.msSync.flags.query({ tenantId: session!.tenantId }),
     enabled: !!session,
   })
 
@@ -261,6 +270,15 @@ export default function MicrosoftIntegrationPage() {
         </>
       ) : (
         <>
+          {flagsQuery.data?.msSyncAttachmentsEnabled === false && (
+            <Alert>
+              <AlertTitle>Attachment sync disabled</AlertTitle>
+              <AlertDescription>
+                Attachment sync is disabled by SETA. Existing files remain downloadable; new files
+                stay in Future.
+              </AlertDescription>
+            </Alert>
+          )}
           <StatusCard
             connectedAt={status.connectedAt}
             tenantAdId={status.tenantAdId ?? ''}
