@@ -3,7 +3,7 @@ import type { Db } from '@future/db'
 import { and, desc, eq } from 'drizzle-orm'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { ITaskAttachmentRepository } from '../../domain/repositories/task-attachment.repository'
-import { TaskAttachment } from '../../domain/entities/task-attachment.entity'
+import { TaskAttachment, type MsSyncState } from '../../domain/entities/task-attachment.entity'
 import { plannerTaskAttachment } from '../schema/planner.schema'
 
 @Injectable()
@@ -99,5 +99,27 @@ export class DrizzleTaskAttachmentRepository implements ITaskAttachmentRepositor
     await this.db
       .delete(plannerTaskAttachment)
       .where(and(eq(plannerTaskAttachment.id, id), eq(plannerTaskAttachment.tenantId, tenantId)))
+  }
+
+  async setSyncState(id: string, state: MsSyncState): Promise<void> {
+    await this.db
+      .update(plannerTaskAttachment)
+      .set({ msSyncState: state })
+      .where(eq(plannerTaskAttachment.id, id))
+  }
+
+  async markSynced(
+    id: string,
+    input: { msReferenceUrl: string; msSharepointDriveId: string; msSharepointItemId: string },
+  ): Promise<void> {
+    await this.db
+      .update(plannerTaskAttachment)
+      .set({
+        msSyncState: 'synced',
+        msReferenceUrl: input.msReferenceUrl,
+        msSharepointDriveId: input.msSharepointDriveId,
+        msSharepointItemId: input.msSharepointItemId,
+      })
+      .where(eq(plannerTaskAttachment.id, id))
   }
 }
