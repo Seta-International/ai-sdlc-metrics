@@ -114,7 +114,7 @@ export function createPeopleRouter(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   permissionProtectedProcedure: any,
   peopleFacade: PeopleQueryFacade,
-  _kernelFacade: KernelQueryFacade,
+  kernelFacade: KernelQueryFacade,
   _auditFacade: KernelAuditFacade,
 ) {
   return router({
@@ -137,6 +137,27 @@ export function createPeopleRouter(
       .input(z.object({ employmentId: z.string().uuid() }))
       .query(async ({ ctx, input }: { ctx: AuthContext; input: { employmentId: string } }) => {
         return peopleFacade.getEmployment(ctx.tenantId, input.employmentId)
+      }),
+
+    getProfilePermissions: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:read' })
+      .input(z.object({ employmentId: z.string().uuid() }))
+      .query(async ({ ctx }: { ctx: AuthContext }) => {
+        const perms = await kernelFacade.getEffectivePermissions(ctx.actorId, ctx.tenantId)
+        const has = (p: string) => perms.includes(p)
+        const isAdmin = has('people:admin')
+        return {
+          canEdit: isAdmin || has('people:profile:update'),
+          canManage: isAdmin,
+          isSelf: false,
+          canEditPersonal: isAdmin || has('people:profile:update'),
+          canEditEmployment: isAdmin || has('people:profile:update'),
+          canEditBank: isAdmin || has('people:profile:update'),
+          canUploadDocuments: isAdmin || has('people:profile:update'),
+          canCreateContract: isAdmin || has('people:profile:update'),
+          canViewSalary: isAdmin || has('people:salary:read'),
+          canApproveChanges: isAdmin,
+        }
       }),
 
     listEmployments: permissionProtectedProcedure
