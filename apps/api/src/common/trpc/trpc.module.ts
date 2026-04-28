@@ -74,6 +74,7 @@ export class TrpcModule implements OnModuleInit {
         this.peopleFacade,
         this.kernelFacade,
         this.auditFacade,
+        this.identityFacade,
       ),
     )
     setIdentityAdminRouter(createIdentityAdminRouter(permissionProtectedProcedure))

@@ -59,6 +59,9 @@ import { GetOrgChartChildrenQuery } from '../../application/queries/get-org-char
 import { GetOrgChartTreeQuery } from '../../application/queries/get-org-chart-tree.query'
 import { ORG_CHART_NODE_NOT_FOUND } from '../../application/services/org-chart-query.service'
 
+import type { IdentityQueryFacade } from '../../../identity/application/facades/identity-query.facade'
+import { SyncMicrosoftProfileCommand } from '../../application/commands/sync-microsoft-profile.command'
+import type { SyncResult } from '../../application/commands/sync-microsoft-profile.handler'
 import { PeopleTrpcService } from './people-trpc.service'
 import {
   futureListQuerySchema,
@@ -116,6 +119,7 @@ export function createPeopleRouter(
   peopleFacade: PeopleQueryFacade,
   kernelFacade: KernelQueryFacade,
   _auditFacade: KernelAuditFacade,
+  identityFacade: IdentityQueryFacade,
 ) {
   return router({
     // ── Profile queries ────────────────────────────────────────────────────
@@ -148,6 +152,13 @@ export function createPeopleRouter(
         const perms = await kernelFacade.getEffectivePermissions(ctx.actorId, ctx.tenantId)
         const has = (p: string) => perms.includes(p)
         const isAdmin = has('people:admin')
+
+        const graphCredential = await identityFacade.getGraphCredential(ctx.tenantId)
+        const msExternalUserId =
+          employment?.personProfile?.actorId && graphCredential?.status === 'active'
+            ? await identityFacade.getExternalUserId(employment.personProfile.actorId, ctx.tenantId)
+            : null
+
         return {
           canEdit: isAdmin || has('people:profile:update'),
           canManage: isAdmin,
@@ -159,6 +170,10 @@ export function createPeopleRouter(
           canCreateContract: isAdmin || has('people:profile:update'),
           canViewSalary: isSelf || isAdmin || has('people:salary:read'),
           canApproveChanges: isAdmin,
+          canSyncFromMicrosoft:
+            graphCredential?.status === 'active' &&
+            msExternalUserId !== null &&
+            (isSelf || isAdmin || has('people:profile:update')),
         }
       }),
 
@@ -1214,6 +1229,37 @@ export function createPeopleRouter(
           return peopleFacade.listFieldEditPolicies(ctx.tenantId)
         }),
     }),
+
+    // ── Microsoft sync mutation ────────────────────────────────────────────
+    syncFromMicrosoft: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:read' })
+      .input(z.object({ employmentId: z.string().uuid() }))
+      .mutation(async ({ ctx, input }: { ctx: AuthContext; input: { employmentId: string } }) => {
+        const employment = await peopleFacade.getEmployment(ctx.tenantId, input.employmentId)
+        const isSelf = employment?.personProfile?.actorId === ctx.actorId
+        const perms = await kernelFacade.getEffectivePermissions(ctx.actorId, ctx.tenantId)
+        const has = (p: string) => perms.includes(p)
+        const isAdmin = has('people:admin')
+
+        const graphCredential = await identityFacade.getGraphCredential(ctx.tenantId)
+        const msExternalUserId =
+          graphCredential?.status === 'active' && employment?.personProfile?.actorId
+            ? await identityFacade.getExternalUserId(employment.personProfile.actorId, ctx.tenantId)
+            : null
+
+        const canSync =
+          graphCredential?.status === 'active' &&
+          msExternalUserId !== null &&
+          (isSelf || isAdmin || has('people:profile:update'))
+
+        if (!canSync) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot sync this profile' })
+        }
+
+        return svc().command(
+          new SyncMicrosoftProfileCommand(ctx.tenantId, input.employmentId, ctx.actorId),
+        ) as Promise<SyncResult>
+      }),
 
     // ── Lifecycle mutations ────────────────────────────────────────────────
     rehire: permissionProtectedProcedure
