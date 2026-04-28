@@ -24,6 +24,9 @@ const EMPLOYEE_LOCKED: DefaultPermissionEntry[] = [
 ]
 
 const EMPLOYEE_DEFAULTS: DefaultPermissionEntry[] = [
+  { permissionKey: PERMISSIONS.PEOPLE_PROFILE_READ, isLocked: false },
+  { permissionKey: PERMISSIONS.PEOPLE_DIRECTORY_READ, isLocked: false },
+  { permissionKey: PERMISSIONS.PEOPLE_ORG_READ, isLocked: false },
   { permissionKey: PERMISSIONS.PLANNER_TASK_SELF_MANAGE, isLocked: false },
   { permissionKey: PERMISSIONS.PLANNER_PLAN_CREATE, isLocked: false },
   { permissionKey: PERMISSIONS.PLANNER_PERSONAL_READ, isLocked: false },
@@ -78,6 +81,7 @@ export const DEFAULT_ROLE_PERMISSIONS: DefaultRolePermissionMap = {
 
   line_manager: [
     ...EMPLOYEE_LOCKED,
+    { permissionKey: PERMISSIONS.PEOPLE_PROFILE_READ, isLocked: false },
     { permissionKey: PERMISSIONS.PEOPLE_PROFILE_TEAM_READ, isLocked: true },
     { permissionKey: PERMISSIONS.PEOPLE_DIRECTORY_READ, isLocked: false },
     { permissionKey: PERMISSIONS.TIME_LEAVE_APPROVE, isLocked: false },

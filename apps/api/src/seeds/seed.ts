@@ -120,7 +120,7 @@ const FUTURE_TENANT = {
 const ROLE_OVERRIDES: Record<string, string[]> = {
   'canh.ta@seta-international.vn': ['tenant_admin', 'line_manager'],
   'canh.ta@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
-  'anh.nguyenviet@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
+  'anh.nguyenviet@setafuture.onmicrosoft.com': ['employee', 'line_manager'],
   'thang.tran@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
 }
 
