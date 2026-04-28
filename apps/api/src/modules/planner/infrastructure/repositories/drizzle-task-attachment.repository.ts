@@ -1,9 +1,9 @@
 import { Injectable, Inject } from '@nestjs/common'
 import type { Db } from '@future/db'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray, lt } from 'drizzle-orm'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { ITaskAttachmentRepository } from '../../domain/repositories/task-attachment.repository'
-import { TaskAttachment } from '../../domain/entities/task-attachment.entity'
+import { TaskAttachment, type MsSyncState } from '../../domain/entities/task-attachment.entity'
 import { plannerTaskAttachment } from '../schema/planner.schema'
 
 @Injectable()
@@ -25,6 +25,10 @@ export class DrizzleTaskAttachmentRepository implements ITaskAttachmentRepositor
       linkTitle: attachment.linkTitle ?? null,
       previewType: attachment.previewType ?? null,
       createdAt: attachment.createdAt,
+      msReferenceUrl: attachment.msReferenceUrl ?? null,
+      msSharepointDriveId: attachment.msSharepointDriveId ?? null,
+      msSharepointItemId: attachment.msSharepointItemId ?? null,
+      msSyncState: attachment.msSyncState,
     })
   }
 
@@ -52,6 +56,10 @@ export class DrizzleTaskAttachmentRepository implements ITaskAttachmentRepositor
         linkTitle: row.linkTitle,
         previewType: row.previewType,
         createdAt: row.createdAt,
+        msSyncState: row.msSyncState,
+        msReferenceUrl: row.msReferenceUrl,
+        msSharepointDriveId: row.msSharepointDriveId,
+        msSharepointItemId: row.msSharepointItemId,
       }),
     )
   }
@@ -80,6 +88,10 @@ export class DrizzleTaskAttachmentRepository implements ITaskAttachmentRepositor
       linkTitle: row.linkTitle,
       previewType: row.previewType,
       createdAt: row.createdAt,
+      msSyncState: row.msSyncState,
+      msReferenceUrl: row.msReferenceUrl,
+      msSharepointDriveId: row.msSharepointDriveId,
+      msSharepointItemId: row.msSharepointItemId,
     })
   }
 
@@ -87,5 +99,63 @@ export class DrizzleTaskAttachmentRepository implements ITaskAttachmentRepositor
     await this.db
       .delete(plannerTaskAttachment)
       .where(and(eq(plannerTaskAttachment.id, id), eq(plannerTaskAttachment.tenantId, tenantId)))
+  }
+
+  async setSyncState(id: string, tenantId: string, state: MsSyncState): Promise<void> {
+    await this.db
+      .update(plannerTaskAttachment)
+      .set({ msSyncState: state })
+      .where(and(eq(plannerTaskAttachment.id, id), eq(plannerTaskAttachment.tenantId, tenantId)))
+  }
+
+  async markDownloaded(
+    id: string,
+    tenantId: string,
+    input: { s3Key: string; sizeBytes: number; mimeType: string },
+  ): Promise<void> {
+    await this.db
+      .update(plannerTaskAttachment)
+      .set({
+        msSyncState: 'synced',
+        storageKey: input.s3Key,
+        sizeBytes: input.sizeBytes,
+        contentType: input.mimeType,
+      })
+      .where(and(eq(plannerTaskAttachment.id, id), eq(plannerTaskAttachment.tenantId, tenantId)))
+  }
+
+  async markSynced(
+    id: string,
+    tenantId: string,
+    input: { msReferenceUrl: string; msSharepointDriveId: string; msSharepointItemId: string },
+  ): Promise<void> {
+    await this.db
+      .update(plannerTaskAttachment)
+      .set({
+        msSyncState: 'synced',
+        msReferenceUrl: input.msReferenceUrl,
+        msSharepointDriveId: input.msSharepointDriveId,
+        msSharepointItemId: input.msSharepointItemId,
+      })
+      .where(and(eq(plannerTaskAttachment.id, id), eq(plannerTaskAttachment.tenantId, tenantId)))
+  }
+
+  async listPendingOlderThan(
+    tenantId: string,
+    states: MsSyncState[],
+    olderThanMinutes: number,
+  ): Promise<Array<{ id: string; msSyncState: MsSyncState }>> {
+    const cutoff = new Date(Date.now() - olderThanMinutes * 60 * 1000)
+    const rows = await this.db
+      .select({ id: plannerTaskAttachment.id, msSyncState: plannerTaskAttachment.msSyncState })
+      .from(plannerTaskAttachment)
+      .where(
+        and(
+          eq(plannerTaskAttachment.tenantId, tenantId),
+          inArray(plannerTaskAttachment.msSyncState, states),
+          lt(plannerTaskAttachment.createdAt, cutoff),
+        ),
+      )
+    return rows as Array<{ id: string; msSyncState: MsSyncState }>
   }
 }

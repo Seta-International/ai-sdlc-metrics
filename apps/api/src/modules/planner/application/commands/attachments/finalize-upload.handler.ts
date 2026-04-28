@@ -6,6 +6,7 @@ import {
   TASK_ATTACHMENT_REPOSITORY,
   type ITaskAttachmentRepository,
 } from '../../../domain/repositories/task-attachment.repository'
+import { PLAN_REPOSITORY, type IPlanRepository } from '../../../domain/repositories/plan.repository'
 import { TaskAttachment } from '../../../domain/entities/task-attachment.entity'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 import { TaskNotFoundException } from '../../../domain/exceptions/task-not-found.exception'
@@ -24,6 +25,7 @@ export class FinalizeUploadHandler implements ICommandHandler<FinalizeUploadComm
     @Inject(STORAGE_CLIENT) private readonly storageClient: StorageClient,
     private readonly authSvc: PlanAuthorizationService,
     private readonly eventBus: EventBus,
+    @Inject(PLAN_REPOSITORY) private readonly planRepo: IPlanRepository,
   ) {}
 
   async execute(command: FinalizeUploadCommand): Promise<void> {
@@ -61,6 +63,15 @@ export class FinalizeUploadHandler implements ICommandHandler<FinalizeUploadComm
     })
 
     await this.attachmentRepo.add(attachment)
+
+    // Route MS sync state based on parent plan's container type
+    const plan = await this.planRepo.findById(task.planId, command.tenantId)
+    if (plan?.container.type === 'ms_group') {
+      await this.attachmentRepo.setSyncState(attachment.id, command.tenantId, 'pending_upload')
+    } else if (plan?.container.type === 'ms_roster') {
+      await this.attachmentRepo.setSyncState(attachment.id, command.tenantId, 'not_syncable')
+    }
+    // future_only (or null plan) → stay 'synced', no action needed
 
     await this.eventBus.publish(
       new AttachmentAddedEvent(

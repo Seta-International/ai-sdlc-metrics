@@ -45,6 +45,7 @@ function makeTask(overrides: Partial<BoardTaskSnapshot> = {}): BoardTaskSnapshot
     attachmentCount: 0,
     commentCount: 0,
     evidenceCount: 0,
+    hasPendingAttachment: false,
     coverAttachmentId: null,
     appliedLabels: [],
     assignees: [],

@@ -76,6 +76,9 @@ export const tenantSettings = adminSchema.table('tenant_settings', {
   plannerChartsTrendsEnabled: boolean('planner_charts_trends_enabled').notNull().default(false),
   plannerPersonalEnabled: boolean('planner_personal_enabled').notNull().default(false),
   plannerMsSyncEnabled: boolean('planner_ms_sync_enabled').notNull().default(false),
+  plannerMsSyncAttachmentsEnabled: boolean('planner_ms_sync_attachments_enabled')
+    .notNull()
+    .default(true),
   timezone: text('timezone').notNull().default('Asia/Ho_Chi_Minh'),
   maxSampledTurnsPerDay: integer('max_sampled_turns_per_day').notNull().default(10000),
   /**

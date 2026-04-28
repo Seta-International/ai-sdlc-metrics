@@ -18,6 +18,7 @@ import { LabelPicker } from '../labels/LabelPicker'
 import { trpc } from '../../lib/trpc'
 import { Paperclip, MessageSquare, ShieldCheck } from '@future/ui/icons'
 import {
+  Badge,
   Button,
   Input,
   DropdownMenu,
@@ -503,6 +504,13 @@ export function TaskCard({
 
             {/* Due date badge */}
             {task.dueDate && <DueBadge dueDate={new Date(task.dueDate)} />}
+
+            {/* Pending upload badge */}
+            {task.hasPendingAttachment && (
+              <Badge variant="warning" data-testid="pending-upload-badge">
+                Attachment pending upload
+              </Badge>
+            )}
           </div>
         </div>
       </div>

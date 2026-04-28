@@ -59,6 +59,7 @@ function makeFileAttachment(
     url: 'https://example.com/presigned/report.pdf',
     createdBy: 'actor-1',
     createdAt: BASE_DATE,
+    msSyncState: 'synced',
     ...overrides,
   }
 }
@@ -72,6 +73,7 @@ function makeLinkAttachment(
     url: 'https://example.com',
     createdBy: 'actor-1',
     createdAt: BASE_DATE,
+    msSyncState: 'synced',
     ...overrides,
   }
 }
@@ -356,5 +358,54 @@ describe('TaskAttachments', () => {
     expect(mockRequestUploadMutate).toHaveBeenCalledTimes(2)
 
     globalThis.XMLHttpRequest = OriginalXHR
+  })
+
+  it('shows spinner + "Uploading to Microsoft 365" for pending_upload attachment', () => {
+    const att = makeFileAttachment({ msSyncState: 'pending_upload' })
+    mockTask = makeTask({ attachments: [att] })
+    render(
+      <Wrapper>
+        <TaskAttachments taskId="task-1" planId="plan-1" />
+      </Wrapper>,
+    )
+    expect(screen.getByTestId('sync-state-pending-upload')).toBeDefined()
+    expect(screen.getByText('Uploading to Microsoft 365')).toBeDefined()
+  })
+
+  it('shows spinner + "Downloading from Microsoft 365" for pending_download attachment', () => {
+    const att = makeFileAttachment({ msSyncState: 'pending_download' })
+    mockTask = makeTask({ attachments: [att] })
+    render(
+      <Wrapper>
+        <TaskAttachments taskId="task-1" planId="plan-1" />
+      </Wrapper>,
+    )
+    expect(screen.getByTestId('sync-state-pending-download')).toBeDefined()
+    expect(screen.getByText('Downloading from Microsoft 365')).toBeDefined()
+  })
+
+  it('shows "Stays in Future" badge for not_syncable attachment', () => {
+    const att = makeFileAttachment({ msSyncState: 'not_syncable' })
+    mockTask = makeTask({ attachments: [att] })
+    render(
+      <Wrapper>
+        <TaskAttachments taskId="task-1" planId="plan-1" />
+      </Wrapper>,
+    )
+    expect(screen.getByTestId('sync-state-not-syncable')).toBeDefined()
+    expect(screen.getByText('Stays in Future')).toBeDefined()
+  })
+
+  it('shows no sync badge for synced attachment', () => {
+    const att = makeFileAttachment({ msSyncState: 'synced' })
+    mockTask = makeTask({ attachments: [att] })
+    render(
+      <Wrapper>
+        <TaskAttachments taskId="task-1" planId="plan-1" />
+      </Wrapper>,
+    )
+    expect(screen.queryByTestId('sync-state-pending-upload')).toBeNull()
+    expect(screen.queryByTestId('sync-state-pending-download')).toBeNull()
+    expect(screen.queryByTestId('sync-state-not-syncable')).toBeNull()
   })
 })

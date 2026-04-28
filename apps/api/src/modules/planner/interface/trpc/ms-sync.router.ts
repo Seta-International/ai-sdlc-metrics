@@ -145,4 +145,15 @@ export const msSyncRouter = router({
         lastError: c.lastError,
       }
     }),
+
+  flags: publicProcedure
+    .input(z.object({ tenantId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const flags = await svc()
+        .getPlannerViewFlags(input.tenantId)
+        .catch((e) => {
+          throw toPlannerTrpcError(e)
+        })
+      return { msSyncAttachmentsEnabled: flags.msSyncAttachmentsEnabled }
+    }),
 })

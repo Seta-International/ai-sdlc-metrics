@@ -64,13 +64,13 @@ describe('MsSyncPollTenantRegistrar', () => {
       MS_SYNC_POLL_JOB,
       '*/3 * * * *',
       { tenantId: 'tenant-1' },
-      expect.objectContaining({ key: 'poll-tenant:tenant-1' }),
+      expect.objectContaining({ key: 'poll-tenant/tenant-1' }),
     )
     expect(pgBoss.scheduleWithData).toHaveBeenCalledWith(
       MS_SYNC_POLL_JOB,
       '*/3 * * * *',
       { tenantId: 'tenant-2' },
-      expect.objectContaining({ key: 'poll-tenant:tenant-2' }),
+      expect.objectContaining({ key: 'poll-tenant/tenant-2' }),
     )
   })
 
@@ -91,7 +91,7 @@ describe('MsSyncPollTenantRegistrar', () => {
       MS_SYNC_POLL_JOB,
       '*/3 * * * *',
       { tenantId: 'tenant-new' },
-      expect.objectContaining({ key: 'poll-tenant:tenant-new' }),
+      expect.objectContaining({ key: 'poll-tenant/tenant-new' }),
     )
   })
 
@@ -107,7 +107,7 @@ describe('MsSyncPollTenantRegistrar', () => {
       occurredAt: new Date().toISOString(),
     })
 
-    expect(pgBoss.unschedule).toHaveBeenCalledWith(MS_SYNC_POLL_JOB, 'poll-tenant:tenant-off')
+    expect(pgBoss.unschedule).toHaveBeenCalledWith(MS_SYNC_POLL_JOB, 'poll-tenant/tenant-off')
   })
 
   it('subscribes MsSyncCredentialInvalidatedEvent → unschedules cron for the tenant', async () => {
@@ -121,7 +121,7 @@ describe('MsSyncPollTenantRegistrar', () => {
       occurredAt: new Date().toISOString(),
     })
 
-    expect(pgBoss.unschedule).toHaveBeenCalledWith(MS_SYNC_POLL_JOB, 'poll-tenant:tenant-invalid')
+    expect(pgBoss.unschedule).toHaveBeenCalledWith(MS_SYNC_POLL_JOB, 'poll-tenant/tenant-invalid')
   })
 
   it('worker executes PollTenantCommand for each job', async () => {

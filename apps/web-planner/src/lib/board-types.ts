@@ -28,6 +28,7 @@ export interface BoardTaskSnapshot {
   attachmentCount: number
   commentCount: number
   evidenceCount: number
+  hasPendingAttachment: boolean
   coverAttachmentId: string | null
   appliedLabels: string[]
   assignees: BoardAssignee[]
@@ -80,6 +81,7 @@ export type AttachmentSnapshot =
       url: string
       createdBy: string
       createdAt: Date
+      msSyncState: 'synced' | 'pending_upload' | 'pending_download' | 'not_syncable'
     }
   | {
       kind: 'link'
@@ -88,6 +90,7 @@ export type AttachmentSnapshot =
       linkTitle?: string
       createdBy: string
       createdAt: Date
+      msSyncState: 'synced' | 'pending_upload' | 'pending_download' | 'not_syncable'
     }
 
 export interface TaskDetailSnapshot {

@@ -2,6 +2,8 @@ import { AttachmentKindViolationException } from '../exceptions/attachment-kind-
 
 export type AttachmentKind = 'file' | 'link'
 
+export type MsSyncState = 'synced' | 'pending_upload' | 'pending_download' | 'not_syncable'
+
 interface FileAttachmentProps {
   id: string
   taskId: string
@@ -16,6 +18,10 @@ interface FileAttachmentProps {
   linkTitle: undefined
   previewType: string | undefined
   createdAt: Date
+  msSyncState: MsSyncState
+  msReferenceUrl?: string | null
+  msSharepointDriveId?: string | null
+  msSharepointItemId?: string | null
 }
 
 interface LinkAttachmentProps {
@@ -32,6 +38,10 @@ interface LinkAttachmentProps {
   linkTitle: string | undefined
   previewType: string | undefined
   createdAt: Date
+  msSyncState: MsSyncState
+  msReferenceUrl?: string | null
+  msSharepointDriveId?: string | null
+  msSharepointItemId?: string | null
 }
 
 type AttachmentProps = FileAttachmentProps | LinkAttachmentProps
@@ -50,6 +60,10 @@ export class TaskAttachment {
   readonly linkTitle: string | undefined
   readonly previewType: string | undefined
   readonly createdAt: Date
+  readonly msSyncState: MsSyncState
+  readonly msReferenceUrl: string | null | undefined
+  readonly msSharepointDriveId: string | null | undefined
+  readonly msSharepointItemId: string | null | undefined
 
   private constructor(props: AttachmentProps) {
     this.id = props.id
@@ -65,6 +79,10 @@ export class TaskAttachment {
     this.linkTitle = props.linkTitle
     this.previewType = props.previewType
     this.createdAt = props.createdAt
+    this.msSyncState = props.msSyncState
+    this.msReferenceUrl = props.msReferenceUrl
+    this.msSharepointDriveId = props.msSharepointDriveId
+    this.msSharepointItemId = props.msSharepointItemId
     Object.freeze(this)
   }
 
@@ -78,6 +96,10 @@ export class TaskAttachment {
     contentType: string
     sizeBytes: number
     previewType?: string
+    msSyncState?: MsSyncState
+    msReferenceUrl?: string | null
+    msSharepointDriveId?: string | null
+    msSharepointItemId?: string | null
   }): TaskAttachment {
     if (!input.storageKey) {
       throw new AttachmentKindViolationException('storageKey')
@@ -106,6 +128,10 @@ export class TaskAttachment {
       linkTitle: undefined,
       previewType: input.previewType,
       createdAt: new Date(),
+      msSyncState: input.msSyncState ?? 'synced',
+      msReferenceUrl: input.msReferenceUrl,
+      msSharepointDriveId: input.msSharepointDriveId,
+      msSharepointItemId: input.msSharepointItemId,
     })
   }
 
@@ -117,6 +143,10 @@ export class TaskAttachment {
     url: string
     linkTitle?: string
     previewType?: string
+    msSyncState?: MsSyncState
+    msReferenceUrl?: string | null
+    msSharepointDriveId?: string | null
+    msSharepointItemId?: string | null
   }): TaskAttachment {
     if (!input.url) {
       throw new AttachmentKindViolationException('url')
@@ -136,6 +166,10 @@ export class TaskAttachment {
       linkTitle: input.linkTitle,
       previewType: input.previewType,
       createdAt: new Date(),
+      msSyncState: input.msSyncState ?? 'synced',
+      msReferenceUrl: input.msReferenceUrl,
+      msSharepointDriveId: input.msSharepointDriveId,
+      msSharepointItemId: input.msSharepointItemId,
     })
   }
 
@@ -153,11 +187,16 @@ export class TaskAttachment {
     linkTitle: string | undefined | null
     previewType: string | undefined | null
     createdAt: Date
+    msSyncState?: string | null
+    msReferenceUrl?: string | null
+    msSharepointDriveId?: string | null
+    msSharepointItemId?: string | null
   }): TaskAttachment {
     const kind = props.kind as AttachmentKind
     if (kind !== 'file' && kind !== 'link') {
       throw new AttachmentKindViolationException(String(props.kind))
     }
+    const msSyncState = (props.msSyncState ?? 'synced') as MsSyncState
     if (kind === 'file') {
       return new TaskAttachment({
         id: props.id,
@@ -173,6 +212,10 @@ export class TaskAttachment {
         linkTitle: undefined,
         previewType: props.previewType ?? undefined,
         createdAt: props.createdAt,
+        msSyncState,
+        msReferenceUrl: props.msReferenceUrl,
+        msSharepointDriveId: props.msSharepointDriveId,
+        msSharepointItemId: props.msSharepointItemId,
       })
     }
 
@@ -190,6 +233,10 @@ export class TaskAttachment {
       linkTitle: props.linkTitle ?? undefined,
       previewType: props.previewType ?? undefined,
       createdAt: props.createdAt,
+      msSyncState,
+      msReferenceUrl: props.msReferenceUrl,
+      msSharepointDriveId: props.msSharepointDriveId,
+      msSharepointItemId: props.msSharepointItemId,
     })
   }
 }

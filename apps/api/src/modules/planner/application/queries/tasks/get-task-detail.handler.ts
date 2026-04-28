@@ -8,6 +8,7 @@ import { UnauthorizedPlanAccessException } from '../../../domain/exceptions/unau
 import { TaskNotFoundException } from '../../../domain/exceptions/task-not-found.exception'
 import { STORAGE_CLIENT, type StorageClient } from '../../../domain/ports/storage-client.port'
 import { GetTaskDetailQuery, type TaskDetailSnapshot } from './get-task-detail.query'
+import type { MsSyncState } from '../../../domain/entities/task-attachment.entity'
 
 @QueryHandler(GetTaskDetailQuery)
 export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, TaskDetailSnapshot> {
@@ -133,8 +134,9 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
       link_title: string | null
       created_by: string
       created_at: Date
+      ms_sync_state: string | null
     }>(
-      sql`SELECT id, kind, storage_key, filename, content_type, size_bytes, url, link_title, created_by, created_at
+      sql`SELECT id, kind, storage_key, filename, content_type, size_bytes, url, link_title, created_by, created_at, ms_sync_state
           FROM planner.task_attachment
           WHERE task_id = ${taskId}
             AND tenant_id = ${tenantId}
@@ -203,6 +205,7 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
         linkTitle: row.link_title ?? undefined,
         createdBy: row.created_by,
         createdAt: row.created_at,
+        msSyncState: (row.ms_sync_state ?? 'synced') as MsSyncState,
       })
     }
 
