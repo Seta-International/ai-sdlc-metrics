@@ -1,8 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PushAttachmentHandler } from './push-attachment.handler'
 import { PushAttachmentCommand } from './push-attachment.command'
-import { TaskAttachment } from '../../../domain/entities/task-attachment.entity'
+import { TaskAttachment, type MsSyncState } from '../../../domain/entities/task-attachment.entity'
 import { PlanContainer } from '../../../domain/value-objects/plan-container.vo'
+import type { ITaskAttachmentRepository } from '../../../domain/repositories/task-attachment.repository'
+import type { ITaskRepository } from '../../../domain/repositories/task.repository'
+import type { IPlanRepository } from '../../../domain/repositories/plan.repository'
+import type { StorageClient } from '../../../domain/ports/storage-client.port'
+import type { MsSharePointClient } from '../../../infrastructure/ms-graph/ms-sharepoint-client'
+import type { MsGraphClient } from '../../../infrastructure/ms-graph/ms-graph-client'
 
 const tenantId = 'tenant-1'
 const attachmentId = 'attach-1'
@@ -32,7 +38,7 @@ function makeFileAttachment(
     linkTitle: null,
     previewType: null,
     createdAt: new Date(),
-    msSyncState: (overrides.msSyncState ?? 'pending_upload') as any,
+    msSyncState: (overrides.msSyncState ?? 'pending_upload') as MsSyncState,
     msReferenceUrl: overrides.msReferenceUrl ?? null,
     msSharepointDriveId: overrides.msSharepointDriveId ?? null,
     msSharepointItemId: overrides.msSharepointItemId ?? null,
@@ -101,12 +107,12 @@ function makeHandler(overrides: Record<string, unknown> = {}) {
   }
   return {
     handler: new PushAttachmentHandler(
-      attachmentRepo as any,
-      taskRepo as any,
-      planRepo as any,
-      storage as any,
-      sharepoint as any,
-      graph as any,
+      attachmentRepo as unknown as ITaskAttachmentRepository,
+      taskRepo as unknown as ITaskRepository,
+      planRepo as unknown as IPlanRepository,
+      storage as unknown as StorageClient,
+      sharepoint as unknown as MsSharePointClient,
+      graph as unknown as MsGraphClient,
     ),
     attachmentRepo,
     taskRepo,

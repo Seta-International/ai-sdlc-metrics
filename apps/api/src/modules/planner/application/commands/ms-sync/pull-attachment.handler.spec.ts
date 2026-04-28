@@ -1,7 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { PullAttachmentHandler } from './pull-attachment.handler'
 import { PullAttachmentCommand } from './pull-attachment.command'
 import { TaskAttachment } from '../../../domain/entities/task-attachment.entity'
+import type { ITaskAttachmentRepository } from '../../../domain/repositories/task-attachment.repository'
+import type { MsSharePointClient } from '../../../infrastructure/ms-graph/ms-sharepoint-client'
+import type { StorageClient } from '../../../domain/ports/storage-client.port'
 
 const tenantId = 'tenant-1'
 const attachmentId = 'attach-1'
@@ -53,7 +56,11 @@ function makeHandler() {
     putObject: vi.fn().mockResolvedValue(undefined),
   }
   return {
-    handler: new PullAttachmentHandler(attachmentRepo as any, sharepoint as any, storage as any),
+    handler: new PullAttachmentHandler(
+      attachmentRepo as unknown as ITaskAttachmentRepository,
+      sharepoint as unknown as MsSharePointClient,
+      storage as unknown as StorageClient,
+    ),
     attachmentRepo,
     sharepoint,
     storage,

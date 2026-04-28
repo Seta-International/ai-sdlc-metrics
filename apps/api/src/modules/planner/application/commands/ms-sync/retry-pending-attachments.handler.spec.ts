@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { RetryPendingAttachmentsHandler } from './retry-pending-attachments.handler'
 import { RetryPendingAttachmentsCommand } from './retry-pending-attachments.command'
+import type { ITaskAttachmentRepository } from '../../../domain/repositories/task-attachment.repository'
+import type { PgBossService } from '../../../../../common/jobs/pg-boss.service'
 
 describe('RetryPendingAttachmentsHandler', () => {
   it('re-enqueues push job for pending_upload attachments', async () => {
@@ -13,7 +15,10 @@ describe('RetryPendingAttachmentsHandler', () => {
     const pgBoss = {
       enqueue: vi.fn().mockResolvedValue(undefined),
     }
-    const handler = new RetryPendingAttachmentsHandler(attachmentRepo as any, pgBoss as any)
+    const handler = new RetryPendingAttachmentsHandler(
+      attachmentRepo as unknown as ITaskAttachmentRepository,
+      pgBoss as unknown as PgBossService,
+    )
     await handler.execute(new RetryPendingAttachmentsCommand('tenant-1'))
     expect(attachmentRepo.listPendingOlderThan).toHaveBeenCalledWith(
       'tenant-1',
@@ -32,7 +37,10 @@ describe('RetryPendingAttachmentsHandler', () => {
     const pgBoss = {
       enqueue: vi.fn().mockResolvedValue(undefined),
     }
-    const handler = new RetryPendingAttachmentsHandler(attachmentRepo as any, pgBoss as any)
+    const handler = new RetryPendingAttachmentsHandler(
+      attachmentRepo as unknown as ITaskAttachmentRepository,
+      pgBoss as unknown as PgBossService,
+    )
     await handler.execute(new RetryPendingAttachmentsCommand('tenant-1'))
     expect(pgBoss.enqueue).toHaveBeenCalledWith(
       'ms-sync-pull-attachment',
@@ -46,7 +54,10 @@ describe('RetryPendingAttachmentsHandler', () => {
       listPendingOlderThan: vi.fn().mockResolvedValue([]),
     }
     const pgBoss = { enqueue: vi.fn() }
-    const handler = new RetryPendingAttachmentsHandler(attachmentRepo as any, pgBoss as any)
+    const handler = new RetryPendingAttachmentsHandler(
+      attachmentRepo as unknown as ITaskAttachmentRepository,
+      pgBoss as unknown as PgBossService,
+    )
     await handler.execute(new RetryPendingAttachmentsCommand('tenant-1'))
     expect(pgBoss.enqueue).not.toHaveBeenCalled()
   })
