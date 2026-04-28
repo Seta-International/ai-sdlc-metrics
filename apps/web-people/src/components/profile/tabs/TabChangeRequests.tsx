@@ -76,7 +76,7 @@ export function TabChangeRequests({ canApprove }: TabChangeRequestsProps) {
   const active = MOCK_REQUESTS.find((r) => r.id === selectedId) ?? MOCK_REQUESTS[0]!
 
   return (
-    <div className="grid h-full grid-cols-[1fr_420px]">
+    <div className="grid h-full" style={{ gridTemplateColumns: '1fr 420px' }}>
       {/* List panel */}
       <div>
         {/* Filter pills */}

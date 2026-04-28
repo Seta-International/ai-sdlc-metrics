@@ -20,7 +20,7 @@ export function TabOverview({
   const { personProfile, employment, currentJob, emergencyContacts } = profile
 
   return (
-    <div className="grid grid-cols-[1fr_300px] gap-8 p-8">
+    <div className="grid gap-8 p-8" style={{ gridTemplateColumns: '1fr 300px' }}>
       {/* Main column */}
       <div className="flex flex-col gap-5">
         {/* About */}

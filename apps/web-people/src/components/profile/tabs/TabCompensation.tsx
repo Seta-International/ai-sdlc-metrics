@@ -50,7 +50,7 @@ export function TabCompensation({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-[1fr_300px] gap-8 p-6">
+      <div className="grid gap-8 p-6" style={{ gridTemplateColumns: '1fr 300px' }}>
         <div className="space-y-4">
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-48 w-full" />
@@ -65,7 +65,7 @@ export function TabCompensation({
   )
 
   return (
-    <div className="grid grid-cols-[1fr_300px] gap-8 p-6">
+    <div className="grid gap-8 p-6" style={{ gridTemplateColumns: '1fr 300px' }}>
       {/* Main column */}
       <div className="flex flex-col gap-5">
         {/* Current */}

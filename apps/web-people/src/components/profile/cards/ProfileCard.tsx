@@ -48,7 +48,10 @@ interface KVRowProps {
 
 export function KVRow({ label, value, mono }: KVRowProps) {
   return (
-    <div className="grid grid-cols-[160px_1fr] border-b border-border/40 py-1.5 last:border-0">
+    <div
+      className="grid border-b border-border/40 py-1.5 last:border-0"
+      style={{ gridTemplateColumns: '160px 1fr' }}
+    >
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className={`text-xs text-secondary-foreground ${mono ? 'font-mono' : ''}`}>
         {value ?? '—'}

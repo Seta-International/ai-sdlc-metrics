@@ -68,7 +68,7 @@ export function TabJobHistory({ profileId, canEdit, hireDate }: TabJobHistoryPro
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-[1fr_300px] gap-8 p-6">
+      <div className="grid gap-8 p-6" style={{ gridTemplateColumns: '1fr 300px' }}>
         <div className="space-y-4">
           {[1, 2, 3].map((k) => (
             <Skeleton key={k} className="h-24 w-full" />
@@ -79,7 +79,7 @@ export function TabJobHistory({ profileId, canEdit, hireDate }: TabJobHistoryPro
   }
 
   return (
-    <div className="grid grid-cols-[1fr_300px] gap-8 p-6">
+    <div className="grid gap-8 p-6" style={{ gridTemplateColumns: '1fr 300px' }}>
       {/* Main column */}
       <div>
         {/* Header */}
@@ -112,7 +112,10 @@ export function TabJobHistory({ profileId, canEdit, hireDate }: TabJobHistoryPro
         ) : (
           <div className="relative pl-6">
             {/* Vertical rail */}
-            <div className="absolute bottom-2 left-[0.5625rem] top-2 w-px bg-border/40" />
+            <div
+              className="absolute bottom-2 top-2 w-px bg-border/40"
+              style={{ left: '0.5625rem' }}
+            />
 
             {entries.map((entry, i) => {
               const cfg = EVENT_CONFIG[entry.eventType] ?? fallbackConfig(entry.eventType)
@@ -122,8 +125,13 @@ export function TabJobHistory({ profileId, canEdit, hireDate }: TabJobHistoryPro
                 <div key={entry.id} className={`relative ${i < entries.length - 1 ? 'pb-5' : ''}`}>
                   {/* Icon dot */}
                   <div
-                    className="absolute -left-6 flex h-[1.125rem] w-[1.125rem] items-center justify-center rounded-full"
-                    style={{ background: `${color}22`, border: `1px solid ${color}55` }}
+                    className="absolute -left-6 flex items-center justify-center rounded-full"
+                    style={{
+                      height: '1.125rem',
+                      width: '1.125rem',
+                      background: `${color}22`,
+                      border: `1px solid ${color}55`,
+                    }}
                   >
                     <Icon className="h-2.5 w-2.5" style={{ color }} />
                   </div>
