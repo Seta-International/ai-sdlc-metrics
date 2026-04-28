@@ -1,6 +1,6 @@
 'use client'
 
-import { Pencil, Check, File, Users, FileText } from '@future/ui/icons'
+import { Pencil, Check, FileText, Users } from '@future/ui/icons'
 
 // TODO: replace with real people.getActivityFeed query once backend is wired
 
@@ -53,7 +53,7 @@ const MOCK_EVENTS: MockActivityEvent[] = [
 const EVENT_ICON: Record<string, React.ElementType> = {
   edit: Pencil,
   approval: Check,
-  document: File,
+  document: FileText,
   org_change: Users,
   contract: FileText,
 }
