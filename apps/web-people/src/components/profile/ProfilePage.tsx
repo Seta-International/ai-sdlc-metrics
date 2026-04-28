@@ -125,9 +125,12 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
     void (async () => {
       setIsLoading(true)
       try {
-        const result = await anyTrpc.people.getEmployment.query({ employmentId })
+        const [result, perms] = await Promise.all([
+          anyTrpc.people.getEmployment.query({ employmentId }),
+          anyTrpc.people.getProfilePermissions.query({ employmentId }),
+        ])
         setProfile(toEmployeeProfile(result))
-        setPermissions(defaultPermissions)
+        setPermissions(perms ?? defaultPermissions)
       } finally {
         setIsLoading(false)
       }
