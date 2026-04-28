@@ -5,10 +5,6 @@ import { ProfileHero } from './ProfileHero'
 import type { EmployeeProfile } from '../../../lib/types'
 import type { ProfilePermissions } from '../ProfilePage'
 
-vi.mock('../../../lib/trpc', () => ({
-  trpc: {},
-}))
-
 vi.mock('../../../components/StatusBadge', () => ({
   StatusBadge: ({ status }: { status: string }) => <span>{status}</span>,
 }))
@@ -100,7 +96,6 @@ const noPerms: ProfilePermissions = {
   canCreateContract: false,
   canViewSalary: false,
   canApproveChanges: false,
-  canSyncFromMicrosoft: false,
 }
 
 describe('ProfileHero', () => {
@@ -109,9 +104,7 @@ describe('ProfileHero', () => {
       <ProfileHero
         profile={baseProfile}
         permissions={noPerms}
-        isEditing={false}
         onEdit={vi.fn()}
-        onDoneEditing={vi.fn()}
         onShare={vi.fn()}
       />,
     )
@@ -123,9 +116,7 @@ describe('ProfileHero', () => {
       <ProfileHero
         profile={baseProfile}
         permissions={noPerms}
-        isEditing={false}
         onEdit={vi.fn()}
-        onDoneEditing={vi.fn()}
         onShare={vi.fn()}
       />,
     )
@@ -137,9 +128,7 @@ describe('ProfileHero', () => {
       <ProfileHero
         profile={baseProfile}
         permissions={noPerms}
-        isEditing={false}
         onEdit={vi.fn()}
-        onDoneEditing={vi.fn()}
         onShare={vi.fn()}
       />,
     )
@@ -152,9 +141,7 @@ describe('ProfileHero', () => {
       <ProfileHero
         profile={baseProfile}
         permissions={noPerms}
-        isEditing={false}
         onEdit={vi.fn()}
-        onDoneEditing={vi.fn()}
         onShare={vi.fn()}
       />,
     )
@@ -166,9 +153,7 @@ describe('ProfileHero', () => {
       <ProfileHero
         profile={baseProfile}
         permissions={noPerms}
-        isEditing={false}
         onEdit={vi.fn()}
-        onDoneEditing={vi.fn()}
         onShare={vi.fn()}
       />,
     )
@@ -181,9 +166,7 @@ describe('ProfileHero', () => {
       <ProfileHero
         profile={baseProfile}
         permissions={noPerms}
-        isEditing={false}
         onEdit={vi.fn()}
-        onDoneEditing={vi.fn()}
         onShare={vi.fn()}
       />,
     )
@@ -195,9 +178,7 @@ describe('ProfileHero', () => {
       <ProfileHero
         profile={baseProfile}
         permissions={{ ...noPerms, canEdit: true }}
-        isEditing={false}
         onEdit={vi.fn()}
-        onDoneEditing={vi.fn()}
         onShare={vi.fn()}
       />,
     )
@@ -215,14 +196,7 @@ describe('ProfileHero', () => {
       },
     }
     render(
-      <ProfileHero
-        profile={terminated}
-        permissions={noPerms}
-        isEditing={false}
-        onEdit={vi.fn()}
-        onDoneEditing={vi.fn()}
-        onShare={vi.fn()}
-      />,
+      <ProfileHero profile={terminated} permissions={noPerms} onEdit={vi.fn()} onShare={vi.fn()} />,
     )
     expect(screen.getByText(/Employment ended/)).toBeTruthy()
     expect(screen.getByText('Rehire')).toBeTruthy()
@@ -233,9 +207,7 @@ describe('ProfileHero', () => {
       <ProfileHero
         profile={baseProfile}
         permissions={noPerms}
-        isEditing={false}
         onEdit={vi.fn()}
-        onDoneEditing={vi.fn()}
         onShare={vi.fn()}
       />,
     )
@@ -253,91 +225,9 @@ describe('ProfileHero', () => {
       },
     }
     render(
-      <ProfileHero
-        profile={terminated}
-        permissions={noPerms}
-        isEditing={false}
-        onEdit={vi.fn()}
-        onDoneEditing={vi.fn()}
-        onShare={vi.fn()}
-      />,
+      <ProfileHero profile={terminated} permissions={noPerms} onEdit={vi.fn()} onShare={vi.fn()} />,
     )
     await userEvent.click(screen.getByText('Rehire'))
     expect(screen.getByTestId('rehire-dialog')).toBeTruthy()
-  })
-
-  it('does not render Sync from Microsoft button when canSyncFromMicrosoft is false', () => {
-    render(
-      <ProfileHero
-        profile={baseProfile}
-        permissions={noPerms}
-        isEditing={false}
-        onEdit={vi.fn()}
-        onDoneEditing={vi.fn()}
-        onShare={vi.fn()}
-      />,
-    )
-    expect(screen.queryByText('Sync from Microsoft')).toBeNull()
-  })
-
-  it('renders Sync from Microsoft button when canSyncFromMicrosoft is true', () => {
-    render(
-      <ProfileHero
-        profile={baseProfile}
-        permissions={{ ...noPerms, canSyncFromMicrosoft: true }}
-        isEditing={false}
-        onEdit={vi.fn()}
-        onDoneEditing={vi.fn()}
-        onShare={vi.fn()}
-      />,
-    )
-    expect(screen.getByText('Sync from Microsoft')).toBeTruthy()
-  })
-})
-
-describe('ProfileHero — editing mode', () => {
-  it('shows "Done editing" button when isEditing is true', () => {
-    render(
-      <ProfileHero
-        profile={baseProfile}
-        permissions={{ ...noPerms, canEdit: true }}
-        isEditing={true}
-        onEdit={vi.fn()}
-        onDoneEditing={vi.fn()}
-        onShare={vi.fn()}
-      />,
-    )
-    expect(screen.getByRole('button', { name: /done editing/i })).toBeDefined()
-  })
-
-  it('shows "Edit profile" button when isEditing is false', () => {
-    render(
-      <ProfileHero
-        profile={baseProfile}
-        permissions={{ ...noPerms, canEdit: true }}
-        isEditing={false}
-        onEdit={vi.fn()}
-        onDoneEditing={vi.fn()}
-        onShare={vi.fn()}
-      />,
-    )
-    expect(screen.getByRole('button', { name: /edit profile/i })).toBeDefined()
-    expect(screen.queryByRole('button', { name: /done editing/i })).toBeNull()
-  })
-
-  it('calls onDoneEditing when Done editing is clicked', async () => {
-    const onDoneEditing = vi.fn()
-    render(
-      <ProfileHero
-        profile={baseProfile}
-        permissions={{ ...noPerms, canEdit: true }}
-        isEditing={true}
-        onEdit={vi.fn()}
-        onDoneEditing={onDoneEditing}
-        onShare={vi.fn()}
-      />,
-    )
-    await userEvent.click(screen.getByRole('button', { name: /done editing/i }))
-    expect(onDoneEditing).toHaveBeenCalledOnce()
   })
 })
