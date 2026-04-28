@@ -50,7 +50,7 @@ export class PushAttachmentHandler implements ICommandHandler<PushAttachmentComm
     const taskRef = await this.taskRepo.findByMsTaskId(command.tenantId, task.msTaskId)
     if (!taskRef?.msDetailsEtag) return
 
-    const externalId = (plan.container as { externalId: string }).externalId
+    const externalId = (plan.container as unknown as { externalId: string }).externalId
     const { driveId } = await this.sharepoint.getGroupDefaultDriveId(command.tenantId, externalId)
     const safeName = plan.name.replace(/[^A-Za-z0-9 _.-]/g, '_')
     const folderPath = `/Planner/${safeName}`

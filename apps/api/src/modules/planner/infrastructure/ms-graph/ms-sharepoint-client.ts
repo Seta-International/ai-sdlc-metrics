@@ -83,7 +83,7 @@ export class MsSharePointClient {
     tenantId: string,
     driveId: string,
     path: string,
-    body: Uint8Array | Buffer,
+    body: Uint8Array,
     mimeType: string,
   ): Promise<{ itemId: string; webUrl: string; driveId: string }> {
     const encoded = path.split('/').filter(Boolean).map(encodeURIComponent).join('/')
@@ -92,7 +92,7 @@ export class MsSharePointClient {
     const response = await fetch(url, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': mimeType },
-      body,
+      body: body as unknown as BodyInit,
     })
     if (!response.ok) throw new Error(`uploadSmall ${response.status}: ${await response.text()}`)
     const json = (await response.json()) as {
@@ -134,7 +134,7 @@ export class MsSharePointClient {
 
   async uploadChunk(
     uploadUrl: string,
-    bytes: Uint8Array | Buffer,
+    bytes: Uint8Array,
     rangeStart: number,
     totalSize: number,
   ): Promise<{ status: number; itemId?: string; webUrl?: string; driveId?: string }> {
@@ -145,7 +145,7 @@ export class MsSharePointClient {
         'Content-Length': String(bytes.length),
         'Content-Range': `bytes ${rangeStart}-${rangeEnd}/${totalSize}`,
       },
-      body: bytes,
+      body: bytes as unknown as BodyInit,
     })
     if (response.status === 201 || response.status === 200) {
       const json = (await response.json()) as {
