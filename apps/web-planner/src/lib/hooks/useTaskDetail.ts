@@ -17,6 +17,7 @@ interface RawAttachmentFile {
   url: string
   createdBy: string
   createdAt: Date | string
+  msSyncState?: string
 }
 
 interface RawAttachmentLink {
@@ -26,6 +27,7 @@ interface RawAttachmentLink {
   linkTitle?: string
   createdBy: string
   createdAt: Date | string
+  msSyncState?: string
 }
 
 type RawAttachmentSnapshot = RawAttachmentFile | RawAttachmentLink
@@ -56,6 +58,19 @@ function toISOStringSafe(value: Date | string): string {
   return toDate(value).toISOString()
 }
 
+type MsSyncState = 'synced' | 'pending_upload' | 'pending_download' | 'not_syncable'
+
+const VALID_MS_SYNC_STATES: ReadonlySet<string> = new Set<MsSyncState>([
+  'synced',
+  'pending_upload',
+  'pending_download',
+  'not_syncable',
+])
+
+function toMsSyncState(value: string | undefined): MsSyncState {
+  return value !== undefined && VALID_MS_SYNC_STATES.has(value) ? (value as MsSyncState) : 'synced'
+}
+
 function normalizeTaskDetail(raw: RawTaskDetailSnapshot): TaskDetailSnapshot {
   return {
     ...raw,
@@ -66,6 +81,7 @@ function normalizeTaskDetail(raw: RawTaskDetailSnapshot): TaskDetailSnapshot {
     attachments: raw.attachments.map((attachment) => ({
       ...attachment,
       createdAt: toDate(attachment.createdAt),
+      msSyncState: toMsSyncState(attachment.msSyncState),
     })),
   }
 }

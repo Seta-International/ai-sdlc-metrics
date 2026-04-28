@@ -53,5 +53,6 @@ export interface TaskDetailSnapshot {
     linkTitle?: string
     createdBy: string
     createdAt: Date
+    msSyncState: 'synced' | 'pending_upload' | 'pending_download' | 'not_syncable'
   }>
 }

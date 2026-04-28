@@ -24,6 +24,7 @@ export interface BoardTaskSnapshot {
   attachmentCount: number
   commentCount: number
   evidenceCount: number
+  hasPendingAttachment: boolean
   coverAttachmentId: string | null
   appliedLabels: string[]
   assignees: Array<{ actorId: string; name?: string; avatarUrl?: string }>
@@ -147,6 +148,7 @@ export class GetBoardHandler implements IQueryHandler<GetBoardQuery, BoardSnapsh
         attachmentCount: taskCountMap.get(taskRow.id)?.attachment ?? 0,
         commentCount: taskCountMap.get(taskRow.id)?.comment ?? 0,
         evidenceCount: taskCountMap.get(taskRow.id)?.evidence ?? 0,
+        hasPendingAttachment: (taskCountMap.get(taskRow.id)?.pendingAttachment ?? 0) > 0,
         coverAttachmentId: taskRow.coverAttachmentId,
         appliedLabels: labelsByTaskId.get(taskRow.id) ?? [],
         assignees,
@@ -449,7 +451,12 @@ export class GetBoardHandler implements IQueryHandler<GetBoardQuery, BoardSnapsh
   private async fetchTaskCounts(
     planId: string,
     tenantId: string,
-  ): Promise<Map<string, { attachment: number; comment: number; evidence: number }>> {
+  ): Promise<
+    Map<
+      string,
+      { attachment: number; comment: number; evidence: number; pendingAttachment: number }
+    >
+  > {
     const result = await this.db.execute<{
       task_id: string
       kind: string
@@ -482,15 +489,33 @@ export class GetBoardHandler implements IQueryHandler<GetBoardQuery, BoardSnapsh
           FROM planner.task_evidence
           WHERE task_id IN (SELECT id FROM task_ids)
             AND tenant_id = ${tenantId}
+          GROUP BY task_id
+
+          UNION ALL
+
+          SELECT task_id, 'pending_attachment' AS kind, COUNT(*)::int AS cnt
+          FROM planner.task_attachment
+          WHERE task_id IN (SELECT id FROM task_ids)
+            AND tenant_id = ${tenantId}
+            AND ms_sync_state = 'pending_upload'
           GROUP BY task_id`,
     )
 
-    const map = new Map<string, { attachment: number; comment: number; evidence: number }>()
+    const map = new Map<
+      string,
+      { attachment: number; comment: number; evidence: number; pendingAttachment: number }
+    >()
     for (const row of result.rows) {
-      const entry = map.get(row.task_id) ?? { attachment: 0, comment: 0, evidence: 0 }
+      const entry = map.get(row.task_id) ?? {
+        attachment: 0,
+        comment: 0,
+        evidence: 0,
+        pendingAttachment: 0,
+      }
       if (row.kind === 'attachment') entry.attachment = Number(row.cnt)
       else if (row.kind === 'comment') entry.comment = Number(row.cnt)
       else if (row.kind === 'evidence') entry.evidence = Number(row.cnt)
+      else if (row.kind === 'pending_attachment') entry.pendingAttachment = Number(row.cnt)
       map.set(row.task_id, entry)
     }
     return map
