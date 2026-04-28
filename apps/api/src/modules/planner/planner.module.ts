@@ -115,6 +115,7 @@ import { LocalDevSecretsStoreAdapter } from '../../common/secrets/local-dev-secr
 import { ConnectMsSyncHandler } from './application/commands/ms-sync/connect-ms-sync.handler'
 import { PollTenantHandler } from './application/commands/ms-sync/poll-tenant.handler'
 import { DisconnectMsSyncHandler } from './application/commands/ms-sync/disconnect-ms-sync.handler'
+import { LinkMsGroupHandler } from './application/commands/ms-sync/link-ms-group.handler'
 import { UnlinkMsGroupHandler } from './application/commands/ms-sync/unlink-ms-group.handler'
 import { ResolvePendingAssignmentsHandler } from './application/commands/ms-sync/resolve-pending-assignments.handler'
 import { PushTaskHandler } from './application/commands/ms-sync/push-task.handler'
@@ -228,6 +229,7 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     MyDayOrphanSweepScheduler,
     ConnectMsSyncHandler,
     DisconnectMsSyncHandler,
+    LinkMsGroupHandler,
     UnlinkMsGroupHandler,
     ResolvePendingAssignmentsHandler,
     PushTaskHandler,
