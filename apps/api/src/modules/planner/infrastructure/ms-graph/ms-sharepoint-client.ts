@@ -1,4 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common'
+import { GraphAuthError } from './errors'
 import { IdentityQueryFacade } from '../../../identity/application/facades/identity-query.facade'
 import {
   MS_GRAPH_TOKEN_ACQUIRER,
@@ -39,7 +40,6 @@ export class MsSharePointClient {
     const encoded = segments.map(encodeURIComponent).join('/')
     const token = await this.acquireToken(tenantId)
 
-    // Try to get the full nested path in one request
     const checkUrl = `${GRAPH_V1}/drives/${driveId}/root:/${encoded}`
     const checkRes = await fetch(checkUrl, {
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
@@ -52,7 +52,6 @@ export class MsSharePointClient {
       throw new Error(`ensureFolder check ${checkRes.status}: ${await checkRes.text()}`)
     }
 
-    // 404 — create the final segment under the parent path
     const parentSegments = segments.slice(0, -1)
     const leafName = segments[segments.length - 1]!
     const parentPath =
@@ -177,8 +176,9 @@ export class MsSharePointClient {
     )
     if (!response.ok)
       throw new Error(`downloadContent ${response.status}: ${await response.text()}`)
+    if (!response.body) throw new Error(`downloadContent: response has no body`)
     return {
-      stream: response.body!,
+      stream: response.body,
       size: parseInt(response.headers.get('content-length') ?? '0', 10),
       contentType: response.headers.get('content-type') ?? 'application/octet-stream',
     }
@@ -203,7 +203,7 @@ export class MsSharePointClient {
 
   private async acquireToken(tenantId: string): Promise<string> {
     const cred = await this.identityFacade.getGraphCredential(tenantId)
-    if (!cred) throw new Error(`No Graph credential for tenant ${tenantId}`)
+    if (!cred) throw new GraphAuthError(`No Graph credential for tenant ${tenantId}`, 401, null)
     return this.tokenAcquirer.acquire(cred)
   }
 

@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MsSharePointClient } from './ms-sharepoint-client'
+import type { IdentityQueryFacade } from '../../../../identity/application/facades/identity-query.facade'
+import {
+  MS_GRAPH_TOKEN_ACQUIRER,
+  type IMsGraphTokenAcquirer,
+} from '../../domain/ports/ms-graph-token-acquirer.port'
 
 const mockIdentityFacade = {
   getGraphCredential: vi.fn().mockResolvedValue({
@@ -30,8 +35,13 @@ beforeEach(() => {
   mockTokenAcquirer.acquire.mockResolvedValue('test-token')
 })
 
+void MS_GRAPH_TOKEN_ACQUIRER // ensure import is used
+
 function makeClient(): MsSharePointClient {
-  return new MsSharePointClient(mockIdentityFacade as any, mockTokenAcquirer as any)
+  return new MsSharePointClient(
+    mockIdentityFacade as unknown as IdentityQueryFacade,
+    mockTokenAcquirer as unknown as IMsGraphTokenAcquirer,
+  )
 }
 
 describe('MsSharePointClient', () => {
@@ -52,13 +62,18 @@ describe('MsSharePointClient', () => {
     )
   })
 
-  it('ensureFolder: 404 on GET → PUT to create', async () => {
+  it('ensureFolder: 404 on GET → POST to create', async () => {
     fetchMock
       .mockResolvedValueOnce({ ok: false, status: 404, text: async () => '' })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'folder-id' }) })
     const c = makeClient()
     const r = await c.ensureFolder('t1', 'drive-1', '/Planner/MyPlan')
     expect(r.itemId).toBe('folder-id')
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('/drives/drive-1/'),
+      expect.objectContaining({ method: 'POST' }),
+    )
   })
 
   it('uploadSmall: PUT /drives/{id}/root:/path:/content with body', async () => {
@@ -133,5 +148,27 @@ describe('MsSharePointClient', () => {
     mockIdentityFacade.getGraphCredential.mockResolvedValue(null)
     const c = makeClient()
     await expect(c.getGroupDefaultDriveId('t1', 'group-xyz')).rejects.toThrow()
+  })
+
+  it('uploadChunk: returns 202 for in-progress', async () => {
+    fetchMock.mockResolvedValue({ status: 202 })
+    const c = makeClient()
+    const r = await c.uploadChunk('https://sp/upload', Buffer.from('hello'), 0, 100)
+    expect(r.status).toBe(202)
+  })
+
+  it('uploadChunk: returns itemId/webUrl on 201 complete', async () => {
+    fetchMock.mockResolvedValue({
+      status: 201,
+      json: async () => ({
+        id: 'item-1',
+        webUrl: 'https://sp/x',
+        parentReference: { driveId: 'drive-1' },
+      }),
+    })
+    const c = makeClient()
+    const r = await c.uploadChunk('https://sp/upload', Buffer.from('hello'), 0, 5)
+    expect(r.itemId).toBe('item-1')
+    expect(r.webUrl).toBe('https://sp/x')
   })
 })
