@@ -103,6 +103,7 @@ import { MyDayOrphanSweepScheduler } from './infrastructure/jobs/my-day-orphan-s
 import { MsSyncPollTenantRegistrar } from './infrastructure/jobs/ms-sync-poll-tenant.registrar'
 import { MsSyncResolvePendingRegistrar } from './infrastructure/jobs/ms-sync-resolve-pending.registrar'
 import { MsGraphClient } from './infrastructure/ms-graph/ms-graph-client'
+import { MsSharePointClient } from './infrastructure/ms-graph/ms-sharepoint-client'
 import { PlanIngestor } from './infrastructure/ms-graph/pull/plan-ingestor'
 import { BackfillGroupWorker } from './infrastructure/ms-graph/pull/backfill-group.worker'
 import { MsGraphTokenAcquirerAdapter } from './infrastructure/ms-graph/ms-graph-token-acquirer.adapter'
@@ -246,6 +247,7 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     },
     { provide: MS_GRAPH_TOKEN_ACQUIRER, useClass: MsGraphTokenAcquirerAdapter },
     MsGraphClient,
+    MsSharePointClient,
     PlanIngestor,
     BackfillGroupWorker,
     MsSyncPollTenantRegistrar,
