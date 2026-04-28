@@ -25,6 +25,10 @@ export class DrizzleTaskAttachmentRepository implements ITaskAttachmentRepositor
       linkTitle: attachment.linkTitle ?? null,
       previewType: attachment.previewType ?? null,
       createdAt: attachment.createdAt,
+      msReferenceUrl: attachment.msReferenceUrl ?? null,
+      msSharepointDriveId: attachment.msSharepointDriveId ?? null,
+      msSharepointItemId: attachment.msSharepointItemId ?? null,
+      msSyncState: attachment.msSyncState,
     })
   }
 
@@ -52,6 +56,10 @@ export class DrizzleTaskAttachmentRepository implements ITaskAttachmentRepositor
         linkTitle: row.linkTitle,
         previewType: row.previewType,
         createdAt: row.createdAt,
+        msSyncState: row.msSyncState,
+        msReferenceUrl: row.msReferenceUrl,
+        msSharepointDriveId: row.msSharepointDriveId,
+        msSharepointItemId: row.msSharepointItemId,
       }),
     )
   }
@@ -80,6 +88,10 @@ export class DrizzleTaskAttachmentRepository implements ITaskAttachmentRepositor
       linkTitle: row.linkTitle,
       previewType: row.previewType,
       createdAt: row.createdAt,
+      msSyncState: row.msSyncState,
+      msReferenceUrl: row.msReferenceUrl,
+      msSharepointDriveId: row.msSharepointDriveId,
+      msSharepointItemId: row.msSharepointItemId,
     })
   }
 

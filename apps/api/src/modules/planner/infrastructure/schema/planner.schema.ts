@@ -258,11 +258,15 @@ export const plannerTaskAttachment = plannerSchema.table(
     tenantId: uuid('tenant_id').notNull(),
     createdBy: uuid('created_by').notNull(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
+    msReferenceUrl: text('ms_reference_url'),
+    msSharepointDriveId: text('ms_sharepoint_drive_id'),
+    msSharepointItemId: text('ms_sharepoint_item_id'),
+    msSyncState: text('ms_sync_state').notNull().default('synced'),
   },
   (table) => [
     check(
       'chk_task_attachment_kind_xor',
-      sql`(${table.kind} = 'file' AND ${table.storageKey} IS NOT NULL AND ${table.url} IS NULL)
+      sql`(${table.kind} = 'file' AND (${table.storageKey} IS NOT NULL OR ${table.msSyncState} = 'pending_download') AND ${table.url} IS NULL)
         OR (${table.kind} = 'link' AND ${table.url} IS NOT NULL AND ${table.storageKey} IS NULL)`,
     ),
     index('idx_task_attachment_task').on(table.taskId),
