@@ -23,6 +23,7 @@ import { mapMsTaskToDomain } from '../mappers/ms-task.mapper'
 import { mapMsTaskDetailsToDomain } from '../mappers/ms-task-details.mapper'
 import { PgBossService } from '../../../../../common/jobs/pg-boss.service'
 import { MS_SYNC_PULL_ATTACHMENT_JOB } from '../../jobs/pg-boss.registrar'
+import { uuidv7 } from 'uuidv7'
 
 export type PullOrigin = 'ms-sync-backfill' | 'ms-sync-pull'
 
@@ -172,7 +173,6 @@ export class PlanIngestor {
       const url = decodeURIComponent(ref.encodedUrl)
       if (existingUrls.has(url)) continue
 
-      const { uuidv7 } = await import('uuidv7')
       const id = uuidv7()
       const attachment = TaskAttachment.reconstitute({
         id,
