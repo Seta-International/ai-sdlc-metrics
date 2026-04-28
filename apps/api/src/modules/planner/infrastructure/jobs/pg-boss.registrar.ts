@@ -11,12 +11,14 @@ import { PushTaskCommand } from '../../application/commands/ms-sync/push-task.co
 import { PushPlanCommand } from '../../application/commands/ms-sync/push-plan.command'
 import { PushBucketCommand } from '../../application/commands/ms-sync/push-bucket.command'
 import { PushAttachmentCommand } from '../../application/commands/ms-sync/push-attachment.command'
+import { PullAttachmentCommand } from '../../application/commands/ms-sync/pull-attachment.command'
 
 export const MS_SYNC_BACKFILL_JOB = 'ms-sync-backfill-group'
 export const MS_SYNC_PUSH_TASK_JOB = 'ms-sync-push-task'
 export const MS_SYNC_PUSH_PLAN_JOB = 'ms-sync-push-plan'
 export const MS_SYNC_PUSH_BUCKET_JOB = 'ms-sync-push-bucket'
 export const MS_SYNC_PUSH_ATTACHMENT_JOB = 'ms-sync-push-attachment'
+export const MS_SYNC_PULL_ATTACHMENT_JOB = 'ms-sync-pull-attachment'
 
 interface PushTaskJobData {
   taskId: string
@@ -34,6 +36,11 @@ interface PushBucketJobData {
 }
 
 interface PushAttachmentJobData {
+  attachmentId: string
+  tenantId: string
+}
+
+interface PullAttachmentJobData {
   attachmentId: string
   tenantId: string
 }
@@ -167,6 +174,32 @@ export class MsSyncJobRegistrar implements OnApplicationBootstrap {
             } catch (err) {
               this.logger.error(
                 `Push attachment failed id=${job.data.attachmentId} tenant=${job.data.tenantId}`,
+                err,
+              )
+              throw err
+            }
+          },
+        )
+      }
+    })
+
+    this.pgBoss.registerWorker<PullAttachmentJobData>(MS_SYNC_PULL_ATTACHMENT_JOB, async (jobs) => {
+      for (const job of jobs) {
+        await runWithTenantContext(
+          {
+            tenantId: job.data.tenantId,
+            baseDb: this.baseDb,
+            requestDbContext: this.requestDbContext,
+            cls: this.cls,
+          },
+          async () => {
+            try {
+              await this.commandBus.execute(
+                new PullAttachmentCommand(job.data.attachmentId, job.data.tenantId),
+              )
+            } catch (err) {
+              this.logger.error(
+                `Pull attachment failed id=${job.data.attachmentId} tenant=${job.data.tenantId}`,
                 err,
               )
               throw err

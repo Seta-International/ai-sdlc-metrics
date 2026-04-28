@@ -108,6 +108,22 @@ export class DrizzleTaskAttachmentRepository implements ITaskAttachmentRepositor
       .where(and(eq(plannerTaskAttachment.id, id), eq(plannerTaskAttachment.tenantId, tenantId)))
   }
 
+  async markDownloaded(
+    id: string,
+    tenantId: string,
+    input: { s3Key: string; sizeBytes: number; mimeType: string },
+  ): Promise<void> {
+    await this.db
+      .update(plannerTaskAttachment)
+      .set({
+        msSyncState: 'synced',
+        storageKey: input.s3Key,
+        sizeBytes: input.sizeBytes,
+        contentType: input.mimeType,
+      })
+      .where(and(eq(plannerTaskAttachment.id, id), eq(plannerTaskAttachment.tenantId, tenantId)))
+  }
+
   async markSynced(
     id: string,
     tenantId: string,

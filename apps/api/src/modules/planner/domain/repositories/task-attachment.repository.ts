@@ -18,4 +18,9 @@ export interface ITaskAttachmentRepository {
       msSharepointItemId: string
     },
   ): Promise<void>
+  markDownloaded(
+    id: string,
+    tenantId: string,
+    input: { s3Key: string; sizeBytes: number; mimeType: string },
+  ): Promise<void>
 }
