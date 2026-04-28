@@ -289,4 +289,27 @@ describe('TabOverview — edit mode', () => {
       )
     })
   })
+
+  it('Cancel resets About form to saved profile values', async () => {
+    render(
+      <TabOverview
+        profile={baseProfile}
+        employmentId="emp-1"
+        canEditPersonal={true}
+        canEditBank={false}
+        canViewSalary={false}
+        isEditing={true}
+        onSaved={() => {}}
+      />,
+    )
+    const preferredNameInput = screen.getByPlaceholderText(/preferred name/i) as HTMLInputElement
+    fireEvent.change(preferredNameInput, { target: { value: 'Changed Name' } })
+    expect(preferredNameInput.value).toBe('Changed Name')
+
+    const cancelButton = screen.getAllByRole('button', { name: /cancel/i })[0]!
+    fireEvent.click(cancelButton)
+
+    // Should restore to baseProfile value (baseProfile.personProfile.preferredName = 'Ali')
+    expect(preferredNameInput.value).toBe('Ali')
+  })
 })

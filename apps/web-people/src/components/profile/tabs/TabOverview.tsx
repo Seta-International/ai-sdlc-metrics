@@ -1,8 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Button, Input, Spinner } from '@future/ui'
-import { toast } from '@future/ui'
+import { Button, Input, Spinner, toast } from '@future/ui'
 import { ProfileCard, KVRow } from '../cards/ProfileCard'
 import { SideRail } from '../rail/SideRail'
 import { trpc } from '../../../lib/trpc'
@@ -53,14 +52,20 @@ export function TabOverview({
     })
   }, [personProfile])
 
-  const updateMutation = anyTrpc.people.updatePersonalProfile.useMutation({
+  const updateAboutMutation = anyTrpc.people.updatePersonalProfile.useMutation({
+    onError: () => {
+      toast.error('Failed to save — please try again')
+    },
+  })
+
+  const updateContactMutation = anyTrpc.people.updatePersonalProfile.useMutation({
     onError: () => {
       toast.error('Failed to save — please try again')
     },
   })
 
   function saveAbout() {
-    updateMutation.mutate(
+    updateAboutMutation.mutate(
       {
         employmentId,
         preferredName: aboutForm.preferredName || null,
@@ -78,7 +83,7 @@ export function TabOverview({
   }
 
   function saveContact() {
-    updateMutation.mutate(
+    updateContactMutation.mutate(
       {
         employmentId,
         personalEmail: contactForm.personalEmail || null,
@@ -148,10 +153,10 @@ export function TabOverview({
                 <Button
                   size="sm"
                   className="h-7 px-2 text-xs gap-1"
-                  disabled={updateMutation.isPending}
+                  disabled={updateAboutMutation.isPending}
                   onClick={saveAbout}
                 >
-                  {updateMutation.isPending && <Spinner className="size-3" />}
+                  {updateAboutMutation.isPending && <Spinner className="size-3" />}
                   Save
                 </Button>
               </div>
@@ -219,10 +224,10 @@ export function TabOverview({
                 <Button
                   size="sm"
                   className="h-7 px-2 text-xs gap-1"
-                  disabled={updateMutation.isPending}
+                  disabled={updateContactMutation.isPending}
                   onClick={saveContact}
                 >
-                  {updateMutation.isPending && <Spinner className="size-3" />}
+                  {updateContactMutation.isPending && <Spinner className="size-3" />}
                   Save
                 </Button>
               </div>
