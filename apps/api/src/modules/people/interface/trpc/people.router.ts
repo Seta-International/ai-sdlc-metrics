@@ -1282,8 +1282,8 @@ export function createPeopleRouter(
           nameDisplayOrder: z.enum(['family_first', 'given_first']).optional(),
           personalEmail: z.string().email().nullable().optional(),
           personalPhone: z.string().nullable().optional(),
-          permanentAddress: z.record(z.unknown()).nullable().optional(),
-          currentAddress: z.record(z.unknown()).nullable().optional(),
+          permanentAddress: z.record(z.string(), z.unknown()).nullable().optional(),
+          currentAddress: z.record(z.string(), z.unknown()).nullable().optional(),
           nationalId: z.string().nullable().optional(),
           nationalIdType: z.string().nullable().optional(),
           nationalIdIssuedDate: z.string().date().nullable().optional(),
@@ -1295,7 +1295,7 @@ export function createPeopleRouter(
           bankBranch: z.string().nullable().optional(),
           bankSwiftCode: z.string().nullable().optional(),
           bankAccountHolder: z.string().nullable().optional(),
-          emergencyContacts: z.array(z.record(z.unknown())).nullable().optional(),
+          emergencyContacts: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
         }),
       )
       .mutation(
