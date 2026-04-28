@@ -28,6 +28,7 @@ export class GetPlannerViewFlagsHandler implements IQueryHandler<
         plannerPersonalEnabled: tenantSettings.plannerPersonalEnabled,
         plannerMsSyncEnabled: tenantSettings.plannerMsSyncEnabled,
         plannerMsSyncAttachmentsEnabled: tenantSettings.plannerMsSyncAttachmentsEnabled,
+        plannerMsSyncRostersEnabled: tenantSettings.plannerMsSyncRostersEnabled,
       })
       .from(tenantSettings)
       .where(eq(tenantSettings.tenantId, query.tenantId))
@@ -43,6 +44,7 @@ export class GetPlannerViewFlagsHandler implements IQueryHandler<
       personalEnabled: row?.plannerPersonalEnabled ?? false,
       msSyncEnabled: row?.plannerMsSyncEnabled ?? false,
       msSyncAttachmentsEnabled: row?.plannerMsSyncAttachmentsEnabled ?? true,
+      msSyncRostersEnabled: row?.plannerMsSyncRostersEnabled ?? false,
     }
   }
 }
