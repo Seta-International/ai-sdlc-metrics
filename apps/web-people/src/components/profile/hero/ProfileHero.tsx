@@ -35,7 +35,9 @@ const anyTrpc = trpc as any
 interface ProfileHeroProps {
   profile: EmployeeProfile
   permissions: ProfilePermissions
+  isEditing: boolean
   onEdit: () => void
+  onDoneEditing: () => void
   onShare: () => void
   onStartOffboarding?: () => void
 }
@@ -43,7 +45,9 @@ interface ProfileHeroProps {
 export function ProfileHero({
   profile,
   permissions,
+  isEditing,
   onEdit,
+  onDoneEditing,
   onShare,
   onStartOffboarding,
 }: ProfileHeroProps) {
@@ -86,12 +90,17 @@ export function ProfileHero({
       <div className="px-8 pt-6">
         {/* Action buttons — top right */}
         <div className="flex justify-end gap-2 mb-4">
-          {permissions.canEdit && (
-            <Button variant="default" size="sm" onClick={onEdit} className="gap-1.5">
-              <Edit className="h-3.5 w-3.5" />
-              Edit profile
-            </Button>
-          )}
+          {permissions.canEdit &&
+            (isEditing ? (
+              <Button variant="default" size="sm" onClick={onDoneEditing} className="gap-1.5">
+                Done editing
+              </Button>
+            ) : (
+              <Button variant="default" size="sm" onClick={onEdit} className="gap-1.5">
+                <Edit className="h-3.5 w-3.5" />
+                Edit profile
+              </Button>
+            ))}
           {permissions.canSyncFromMicrosoft && (
             <Button
               variant="outline"
