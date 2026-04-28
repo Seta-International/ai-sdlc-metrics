@@ -142,20 +142,22 @@ export function createPeopleRouter(
     getProfilePermissions: permissionProtectedProcedure
       .meta({ permission: 'people:profile:read' })
       .input(z.object({ employmentId: z.string().uuid() }))
-      .query(async ({ ctx }: { ctx: AuthContext }) => {
+      .query(async ({ ctx, input }: { ctx: AuthContext; input: { employmentId: string } }) => {
+        const employment = await peopleFacade.getEmployment(ctx.tenantId, input.employmentId)
+        const isSelf = employment?.personProfile?.actorId === ctx.actorId
         const perms = await kernelFacade.getEffectivePermissions(ctx.actorId, ctx.tenantId)
         const has = (p: string) => perms.includes(p)
         const isAdmin = has('people:admin')
         return {
           canEdit: isAdmin || has('people:profile:update'),
           canManage: isAdmin,
-          isSelf: false,
+          isSelf,
           canEditPersonal: isAdmin || has('people:profile:update'),
           canEditEmployment: isAdmin || has('people:profile:update'),
           canEditBank: isAdmin || has('people:profile:update'),
           canUploadDocuments: isAdmin || has('people:profile:update'),
           canCreateContract: isAdmin || has('people:profile:update'),
-          canViewSalary: isAdmin || has('people:salary:read'),
+          canViewSalary: isSelf || isAdmin || has('people:salary:read'),
           canApproveChanges: isAdmin,
         }
       }),
