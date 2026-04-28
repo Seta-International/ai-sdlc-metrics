@@ -6,6 +6,8 @@ import type { IBucketRepository } from '../../../domain/repositories/bucket.repo
 import type { ITaskRepository } from '../../../domain/repositories/task.repository'
 import type { IMsPlanSyncStateRepository } from '../../../domain/repositories/ms-plan-sync-state.repository'
 import type { IdentityQueryFacade } from '../../../../identity/application/facades/identity-query.facade'
+import type { ITaskAttachmentRepository } from '../../../domain/repositories/task-attachment.repository'
+import type { PgBossService } from '../../../../../common/jobs/pg-boss.service'
 
 const MS_PLAN = {
   id: 'ms-plan-1',
@@ -103,6 +105,21 @@ const mockIdentityFacade = {
   getActorIdByExternalUserId: vi.fn(),
 } as unknown as IdentityQueryFacade
 
+const mockAttachmentRepo = {
+  list: vi.fn(),
+  add: vi.fn(),
+  remove: vi.fn(),
+  findById: vi.fn(),
+  setSyncState: vi.fn(),
+  markSynced: vi.fn(),
+  markDownloaded: vi.fn(),
+  listPendingOlderThan: vi.fn(),
+} as unknown as ITaskAttachmentRepository
+
+const mockPgBoss = {
+  enqueue: vi.fn(),
+} as unknown as PgBossService
+
 describe('PlanIngestor', () => {
   let ingestor: PlanIngestor
 
@@ -123,6 +140,8 @@ describe('PlanIngestor', () => {
     vi.mocked(mockTaskRepo.upsertDetailsFromMs).mockResolvedValue(undefined)
     vi.mocked(mockTaskRepo.listByPlan).mockResolvedValue([])
     vi.mocked(mockIdentityFacade.getActorIdByExternalUserId).mockResolvedValue(null)
+    vi.mocked(mockAttachmentRepo.list).mockResolvedValue([])
+    vi.mocked(mockPgBoss.enqueue).mockResolvedValue(undefined)
 
     ingestor = new PlanIngestor(
       mockGraph,
@@ -130,7 +149,9 @@ describe('PlanIngestor', () => {
       mockBucketRepo,
       mockTaskRepo,
       mockSyncStateRepo,
+      mockAttachmentRepo,
       mockIdentityFacade,
+      mockPgBoss,
     )
   })
 
@@ -206,6 +227,34 @@ describe('PlanIngestor', () => {
         pendingMsAssignments: ['unknown-aad-oid'],
       }),
       expect.anything(),
+    )
+  })
+
+  it('enqueues pending_download attachment for each new MS reference in task details', async () => {
+    const refUrl = 'https%3A//sharepoint.example.com/sites/team/file.pdf'
+    vi.mocked(mockGraph.get).mockImplementation(async (_t: string, path: string) => {
+      if (path.includes('/details'))
+        return {
+          status: 200,
+          body: {
+            ...MS_DETAILS('t1'),
+            references: {
+              [refUrl]: { alias: 'file.pdf', type: 'other' },
+            },
+          },
+          etag: null,
+        }
+      return { status: 200, body: MS_PLAN, etag: 'etag-plan-1' }
+    })
+    vi.mocked(mockAttachmentRepo.list).mockResolvedValue([])
+
+    await ingestor.ingestPlan({ tenantId: 't1', msPlanId: 'ms-plan-1', origin: 'ms-sync-backfill' })
+
+    expect(mockAttachmentRepo.add).toHaveBeenCalledOnce()
+    expect(mockPgBoss.enqueue).toHaveBeenCalledWith(
+      'ms-sync-pull-attachment',
+      expect.objectContaining({ tenantId: 't1' }),
+      expect.any(Object),
     )
   })
 

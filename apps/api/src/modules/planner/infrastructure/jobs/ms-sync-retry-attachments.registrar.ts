@@ -46,7 +46,7 @@ export class MsSyncRetryAttachmentsRegistrar implements OnApplicationBootstrap {
       MS_SYNC_RETRY_ATTACHMENTS_JOB,
       CRON,
       { tenantId },
-      { key: `retry-attachments:${tenantId}` },
+      { key: `retry-attachments/${tenantId}` },
     )
     this.logger.log(`Scheduled ms-sync-retry-attachments for tenant=${tenantId}`)
   }

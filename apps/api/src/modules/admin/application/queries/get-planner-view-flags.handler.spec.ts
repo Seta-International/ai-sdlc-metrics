@@ -16,6 +16,7 @@ function makeDb(
     plannerChartsTrendsEnabled: boolean
     plannerPersonalEnabled: boolean
     plannerMsSyncEnabled: boolean
+    plannerMsSyncAttachmentsEnabled: boolean
   }>,
 ): Db {
   const selectFn = vi.fn().mockReturnValue({
@@ -36,7 +37,7 @@ describe('GetPlannerViewFlagsHandler', () => {
       handler = new GetPlannerViewFlagsHandler(makeDb([]))
     })
 
-    it('returns all flags as false', async () => {
+    it('returns all flags as false (msSyncAttachmentsEnabled defaults true)', async () => {
       const result = await handler.execute(new GetPlannerViewFlagsQuery(OTHER_TENANT_ID))
       expect(result).toEqual({
         viewsEnabled: false,
@@ -46,6 +47,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         trendsEnabled: false,
         personalEnabled: false,
         msSyncEnabled: false,
+        msSyncAttachmentsEnabled: true,
       })
     })
   })
@@ -62,6 +64,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerChartsTrendsEnabled: false,
             plannerPersonalEnabled: false,
             plannerMsSyncEnabled: false,
+            plannerMsSyncAttachmentsEnabled: false,
           },
         ]),
       )
@@ -77,6 +80,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         trendsEnabled: false,
         personalEnabled: false,
         msSyncEnabled: false,
+        msSyncAttachmentsEnabled: false,
       })
     })
   })
@@ -93,6 +97,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerChartsTrendsEnabled: true,
             plannerPersonalEnabled: true,
             plannerMsSyncEnabled: true,
+            plannerMsSyncAttachmentsEnabled: true,
           },
         ]),
       )
@@ -108,6 +113,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         trendsEnabled: true,
         personalEnabled: true,
         msSyncEnabled: true,
+        msSyncAttachmentsEnabled: true,
       })
     })
   })
@@ -124,6 +130,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerChartsTrendsEnabled: true,
             plannerPersonalEnabled: false,
             plannerMsSyncEnabled: false,
+            plannerMsSyncAttachmentsEnabled: false,
           },
         ]),
       )
@@ -139,6 +146,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         trendsEnabled: true,
         personalEnabled: false,
         msSyncEnabled: false,
+        msSyncAttachmentsEnabled: false,
       })
     })
   })
@@ -155,6 +163,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerChartsTrendsEnabled: false,
             plannerPersonalEnabled: true,
             plannerMsSyncEnabled: false,
+            plannerMsSyncAttachmentsEnabled: false,
           },
         ]),
       )
@@ -170,7 +179,32 @@ describe('GetPlannerViewFlagsHandler', () => {
         trendsEnabled: false,
         personalEnabled: true,
         msSyncEnabled: false,
+        msSyncAttachmentsEnabled: false,
       })
+    })
+  })
+
+  describe('when row exists with plannerMsSyncAttachmentsEnabled = false (kill-switch off)', () => {
+    beforeEach(() => {
+      handler = new GetPlannerViewFlagsHandler(
+        makeDb([
+          {
+            plannerViewsEnabled: false,
+            plannerGridEnabled: false,
+            plannerScheduleEnabled: false,
+            plannerChartsEnabled: false,
+            plannerChartsTrendsEnabled: false,
+            plannerPersonalEnabled: false,
+            plannerMsSyncEnabled: true,
+            plannerMsSyncAttachmentsEnabled: false,
+          },
+        ]),
+      )
+    })
+
+    it('returns msSyncAttachmentsEnabled = false', async () => {
+      const result = await handler.execute(new GetPlannerViewFlagsQuery(TENANT_ID))
+      expect(result.msSyncAttachmentsEnabled).toBe(false)
     })
   })
 
@@ -186,6 +220,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerChartsTrendsEnabled: false,
             plannerPersonalEnabled: false,
             plannerMsSyncEnabled: true,
+            plannerMsSyncAttachmentsEnabled: false,
           },
         ]),
       )
@@ -201,6 +236,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         trendsEnabled: false,
         personalEnabled: false,
         msSyncEnabled: true,
+        msSyncAttachmentsEnabled: false,
       })
     })
   })
