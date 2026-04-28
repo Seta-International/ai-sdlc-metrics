@@ -1,5 +1,5 @@
 {
-  "id": "66d028e8-4de8-4d4e-876a-8fea6bad2d90",
+  "id": "4a023d01-196f-4f24-b9de-7284d8853045",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -5331,6 +5331,12 @@
         "last_error": {
           "name": "last_error",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tenant_push_paused_until": {
+          "name": "tenant_push_paused_until",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -11114,6 +11120,12 @@
         },
         "ms_soft_deleted_at": {
           "name": "ms_soft_deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ms_sync_pushed_at": {
+          "name": "ms_sync_pushed_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false

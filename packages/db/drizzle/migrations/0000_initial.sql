@@ -730,6 +730,7 @@ CREATE TABLE "identity"."ms_graph_credential" (
 	"consented_at" timestamp with time zone NOT NULL,
 	"last_validated_at" timestamp with time zone,
 	"last_error" text,
+	"tenant_push_paused_until" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -1608,6 +1609,7 @@ CREATE TABLE "planner"."task" (
 	"ms_task_etag" text,
 	"ms_task_details_etag" text,
 	"ms_soft_deleted_at" timestamp with time zone,
+	"ms_sync_pushed_at" timestamp with time zone,
 	"pending_ms_assignments" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	CONSTRAINT "chk_task_progress" CHECK ("planner"."task"."progress" IN (0, 50, 100)),
 	CONSTRAINT "chk_task_priority" CHECK ("planner"."task"."priority" IN (1, 3, 5, 9)),
