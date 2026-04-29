@@ -22,6 +22,7 @@ import { StatusCard } from './status-card'
 import { LinkedGroupsTable, type LinkedGroupDto } from './linked-groups-table'
 import { LinkGroupDrawer } from './link-group-drawer'
 import { BackfillProgressSlideover } from './backfill-progress-slideover'
+import { DirectorySyncCard } from './directory-sync-card'
 
 interface MsSyncStatus {
   connected: boolean
@@ -275,6 +276,8 @@ export default function MicrosoftIntegrationPage() {
               destroyMutation.mutate()
             }}
           />
+
+          <DirectorySyncCard />
 
           <section className="space-y-3">
             <div className="flex items-center justify-between">
