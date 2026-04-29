@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { and, eq } from 'drizzle-orm'
+import { and, count, eq } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { MsStagedUser, MsStagedUserStatus } from '../../domain/entities/ms-staged-user.entity'
@@ -103,9 +103,9 @@ export class DrizzleMsStagedUserRepository implements IMsStagedUserRepository {
 
   async countByStatus(tenantId: string, status: MsStagedUserStatus): Promise<number> {
     const rows = await this.db
-      .select({ count: msStagedUser.id })
+      .select({ count: count() })
       .from(msStagedUser)
       .where(and(eq(msStagedUser.tenantId, tenantId), eq(msStagedUser.status, status)))
-    return rows.length
+    return rows[0]?.count ?? 0
   }
 }

@@ -144,7 +144,7 @@ describe('DrizzleMsStagedUserRepository', () => {
   it('countByStatus returns count of rows', async () => {
     const selectChain = {
       from: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue([{ count: 'some-id' }, { count: 'other-id' }]),
+        where: vi.fn().mockResolvedValue([{ count: 2 }]),
       }),
     }
     mockDb.select.mockReturnValue(selectChain)
