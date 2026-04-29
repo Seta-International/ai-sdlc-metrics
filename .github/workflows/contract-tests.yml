@@ -68,7 +68,11 @@ jobs:
                   '',
                   `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
                   '',
-                  '**Spec:** `apps/api/src/modules/planner/infrastructure/ms-graph/__contract__/poll-tenant.contract.spec.ts`',
+                  '**Specs:**',
+                  '- `apps/api/src/modules/planner/infrastructure/ms-graph/__contract__/poll-tenant.contract.spec.ts`',
+                  '- `apps/api/src/modules/planner/infrastructure/ms-graph/__contract__/ms-planner-push.contract.spec.ts`',
+                  '- `apps/api/src/modules/planner/infrastructure/ms-graph/__contract__/ms-planner-attachments.contract.spec.ts`',
+                  '- `apps/api/src/modules/planner/infrastructure/ms-graph/__contract__/ms-planner-roster.contract.spec.ts`',
                   '',
                   'Possible causes:',
                   '- Sandbox credentials rotated or expired',
@@ -79,3 +83,12 @@ jobs:
                 ].join('\n'),
               });
             }
+
+      - name: Slack notify on failure
+        if: failure() && steps.contract.outcome == 'failure' && env.SLACK_WEBHOOK != ''
+        run: |
+          curl -s -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"MS sync contract tests failed — <${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}|view run>\"}" \
+            "$SLACK_WEBHOOK"
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_CONTRACT_ALERTS_WEBHOOK }}
