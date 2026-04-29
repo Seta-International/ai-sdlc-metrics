@@ -27,6 +27,7 @@ describe('DrizzleMsProfileSyncStateRepository', () => {
         set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
       }),
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     repo = new DrizzleMsProfileSyncStateRepository(mockDb as any)
   })
 

@@ -7,7 +7,10 @@ const MANAGER_ID = '01900000-0000-7000-8000-000000000020'
 
 describe('DrizzleJobAssignmentRepository.updateManagerId', () => {
   let repo: DrizzleJobAssignmentRepository
-  let mockDb: any
+  let mockDb: {
+    select: ReturnType<typeof vi.fn>
+    update: ReturnType<typeof vi.fn>
+  }
 
   beforeEach(() => {
     mockDb = {

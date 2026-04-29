@@ -6,7 +6,11 @@ const STAGED_USER_ID = '01900000-0000-7000-8000-000000000010'
 
 describe('DrizzleMsStagedUserRepository', () => {
   let repo: DrizzleMsStagedUserRepository
-  let mockDb: any
+  let mockDb: {
+    select: ReturnType<typeof vi.fn>
+    insert: ReturnType<typeof vi.fn>
+    update: ReturnType<typeof vi.fn>
+  }
 
   beforeEach(() => {
     mockDb = {
