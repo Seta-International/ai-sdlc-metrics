@@ -170,7 +170,9 @@ describe('TaskGrid performance', () => {
     expect(rows.length).toBeLessThanOrEqual(60)
     // Must have rendered some rows (not zero)
     expect(rows.length).toBeGreaterThan(1)
-  }, 15_000)
+    // 30 000ms: render alone can take ~12s under pre-push CPU load (lint+typecheck
+    // running in parallel); getAllByRole adds another DOM traversal pass on top.
+  }, 30_000)
 
   it('re-render after state change completes within a bounded time (no runaway renders)', async () => {
     // jsdom has no layout engine so it cannot measure real 60fps frame cost.
