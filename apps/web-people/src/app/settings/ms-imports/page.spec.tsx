@@ -1,54 +1,74 @@
 // apps/web-people/src/app/settings/ms-imports/page.spec.tsx
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { render, screen, cleanup, waitFor } from '@testing-library/react'
 import MsImportsPage from './page'
 
-vi.mock('../../../lib/trpc', () => ({
-  trpc: {},
+const {
+  mockGetMsSyncStatus,
+  mockListStagedMsUsers,
+  mockImportStagedMsUser,
+  mockSkipStagedMsUser,
+  mockBulkImportStagedMsUsers,
+  mockBulkSkipStagedMsUsers,
+} = vi.hoisted(() => ({
+  mockGetMsSyncStatus: vi.fn(),
+  mockListStagedMsUsers: vi.fn(),
+  mockImportStagedMsUser: vi.fn(),
+  mockSkipStagedMsUser: vi.fn(),
+  mockBulkImportStagedMsUsers: vi.fn(),
+  mockBulkSkipStagedMsUsers: vi.fn(),
 }))
 
-const mockStatus = { lastSyncedAt: '2026-04-29T10:00:00Z', pendingCount: 2, importedCount: 1 }
-const mockUsers = [
-  {
-    id: 'su1',
-    displayName: 'Alice',
-    email: 'alice@co.com',
-    jobTitle: 'Eng',
-    department: 'R&D',
-    status: 'pending',
-    msExternalId: 'aad-1',
-    tenantId: 't1',
-    officeLocation: null,
-    mobilePhone: null,
-    workPhone: null,
-    managerMsId: null,
-    photoDocumentId: null,
-    importedEmploymentId: null,
-    lastSeenAt: '2026-04-29T10:00:00Z',
-    createdAt: '2026-04-29T10:00:00Z',
+vi.mock('../../../lib/trpc', () => ({
+  trpc: {
+    people: {
+      getMsSyncStatus: { query: mockGetMsSyncStatus },
+      listStagedMsUsers: { query: mockListStagedMsUsers },
+      importStagedMsUser: { mutate: mockImportStagedMsUser },
+      skipStagedMsUser: { mutate: mockSkipStagedMsUser },
+      bulkImportStagedMsUsers: { mutate: mockBulkImportStagedMsUsers },
+      bulkSkipStagedMsUsers: { mutate: mockBulkSkipStagedMsUsers },
+    },
   },
-]
+}))
+
+vi.mock('../../../components/settings/MsImportsTable', () => ({
+  MsImportsTable: () => <div data-testid="ms-imports-table" />,
+}))
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
+
+const mockStatus = { lastSyncedAt: '2026-04-29T10:00:00Z', pendingCount: 2, importedCount: 1 }
+const emptyList = { items: [], total: 0 }
 
 describe('MsImportsPage', () => {
-  beforeEach(() => {
-    vi.stubGlobal('anyTrpcMock', {
-      people: {
-        getMsSyncStatus: { query: vi.fn().mockResolvedValue(mockStatus) },
-        listStagedMsUsers: { query: vi.fn().mockResolvedValue({ items: mockUsers, total: 2 }) },
-        importStagedMsUser: { mutate: vi.fn().mockResolvedValue('e1') },
-        skipStagedMsUser: { mutate: vi.fn().mockResolvedValue(undefined) },
-        bulkImportStagedMsUsers: {
-          mutate: vi.fn().mockResolvedValue([{ id: 'su1', employmentId: 'e1' }]),
-        },
-        bulkSkipStagedMsUsers: { mutate: vi.fn().mockResolvedValue([{ id: 'su1' }]) },
-      },
-    })
-  })
-
   it('renders the page heading', async () => {
+    mockGetMsSyncStatus.mockResolvedValue(mockStatus)
+    mockListStagedMsUsers.mockResolvedValue(emptyList)
     render(<MsImportsPage />)
     await waitFor(() => {
       expect(screen.getByText('Microsoft 365 Imports')).toBeTruthy()
+    })
+  })
+
+  it('shows sync status after loading', async () => {
+    mockGetMsSyncStatus.mockResolvedValue(mockStatus)
+    mockListStagedMsUsers.mockResolvedValue(emptyList)
+    render(<MsImportsPage />)
+    await waitFor(() => {
+      expect(screen.getByText(/2 pending/)).toBeTruthy()
+    })
+  })
+
+  it('shows not-connected alert when getMsSyncStatus rejects', async () => {
+    mockGetMsSyncStatus.mockRejectedValue(new Error('no connection'))
+    mockListStagedMsUsers.mockRejectedValue(new Error('no connection'))
+    render(<MsImportsPage />)
+    await waitFor(() => {
+      expect(screen.getByText(/Microsoft 365 is not connected/)).toBeTruthy()
     })
   })
 })
