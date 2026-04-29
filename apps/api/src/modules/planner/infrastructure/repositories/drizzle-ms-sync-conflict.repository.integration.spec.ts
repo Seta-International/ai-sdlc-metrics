@@ -32,7 +32,7 @@ describe('DrizzleMsSyncConflictRepository', () => {
     await truncateCoreSchema(db)
   })
 
-  describe('insert() + listOpenForTenant()', () => {
+  describe('insert() + list()', () => {
     it('inserts a conflict and lists it as open', async () => {
       await setTenantContext(db, TENANT_A)
       const entity = MsSyncConflictEntity.forPush403Quota({
@@ -42,7 +42,7 @@ describe('DrizzleMsSyncConflictRepository', () => {
       })
       await repo.insert(entity)
 
-      const open = await repo.listOpenForTenant(TENANT_A)
+      const open = await repo.list(TENANT_A, { resolved: 'open', limit: 100 })
       expect(open.length).toBeGreaterThanOrEqual(1)
       const found = open.find((c) => c.id === entity.id)
       expect(found).toBeDefined()
@@ -59,7 +59,7 @@ describe('DrizzleMsSyncConflictRepository', () => {
       await repo.insert(entity)
 
       await setTenantContext(db, TENANT_A)
-      const openForA = await repo.listOpenForTenant(TENANT_A)
+      const openForA = await repo.list(TENANT_A, { resolved: 'open', limit: 100 })
       expect(openForA.every((c) => c.tenantId === TENANT_A)).toBe(true)
     })
   })
@@ -74,13 +74,13 @@ describe('DrizzleMsSyncConflictRepository', () => {
       })
       await repo.insert(entity)
 
-      const before = await repo.listOpenForTenant(TENANT_A)
+      const before = await repo.list(TENANT_A, { resolved: 'open', limit: 100 })
       const conflict = before.find((c) => c.id === entity.id)
       expect(conflict).toBeDefined()
 
       await repo.markResolved(entity.id, TENANT_A, 'acknowledged')
 
-      const after = await repo.listOpenForTenant(TENANT_A)
+      const after = await repo.list(TENANT_A, { resolved: 'open', limit: 100 })
       expect(after.find((c) => c.id === entity.id)).toBeUndefined()
     })
   })

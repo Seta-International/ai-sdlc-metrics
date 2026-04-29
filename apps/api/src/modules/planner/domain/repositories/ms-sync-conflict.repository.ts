@@ -4,8 +4,7 @@ export const MS_SYNC_CONFLICT_REPOSITORY = Symbol('IMsSyncConflictRepository')
 
 export interface IMsSyncConflictRepository {
   insert(entity: MsSyncConflictEntity): Promise<void>
-  get(id: string): Promise<MsSyncConflictEntity | null>
-  listOpenForTenant(tenantId: string): Promise<MsSyncConflictEntity[]>
+  get(id: string, tenantId?: string): Promise<MsSyncConflictEntity | null>
   list(
     tenantId: string,
     opts: { resolved: 'open' | 'all'; limit: number; before?: Date },

@@ -76,9 +76,12 @@ describe('RetryConflictHandler', () => {
     )
   })
 
-  it('enqueues push-attachment job for attachment_upload_failed conflicts', async () => {
-    const rawError = { attachmentId: 'att-1' }
-    const conflict = makeConflict({ kind: 'attachment_upload_failed', rawError, taskId: 'task-1' })
+  it('enqueues push-attachment job for attachment_upload_failed conflicts using field column', async () => {
+    const conflict = makeConflict({
+      kind: 'attachment_upload_failed',
+      field: 'att-1',
+      taskId: 'task-1',
+    })
     const conflictRepo: Partial<IMsSyncConflictRepository> = {
       get: vi.fn().mockResolvedValue(conflict),
       markResolved: vi.fn().mockResolvedValue(undefined),
@@ -159,8 +162,51 @@ describe('RetryConflictHandler', () => {
     ).rejects.toThrow('Not found')
   })
 
-  it('throws if conflict belongs to different tenant', async () => {
-    const conflict = makeConflict({ tenantId: 'other-tenant' })
+  it('throws if conflict belongs to different tenant (get returns null with tenantId filter)', async () => {
+    const conflictRepo: Partial<IMsSyncConflictRepository> = {
+      get: vi.fn().mockResolvedValue(null),
+      markResolved: vi.fn(),
+    }
+    const pgBoss: Partial<PgBossService> = {
+      enqueue: vi.fn(),
+    }
+    const handler = new RetryConflictHandler(
+      conflictRepo as IMsSyncConflictRepository,
+      pgBoss as PgBossService,
+    )
+
+    await expect(
+      handler.execute(new RetryConflictCommand('tenant-1', 'actor-1', 'conflict-1')),
+    ).rejects.toThrow('Not found')
+    expect(conflictRepo.get).toHaveBeenCalledWith('conflict-1', 'tenant-1')
+  })
+
+  it('enqueues push-task job for push_403_quota conflicts with valid taskId', async () => {
+    const conflict = makeConflict({ kind: 'push_403_quota', taskId: 'task-quota' })
+    const conflictRepo: Partial<IMsSyncConflictRepository> = {
+      get: vi.fn().mockResolvedValue(conflict),
+      markResolved: vi.fn().mockResolvedValue(undefined),
+    }
+    const pgBoss: Partial<PgBossService> = {
+      enqueue: vi.fn().mockResolvedValue(undefined),
+    }
+    const handler = new RetryConflictHandler(
+      conflictRepo as IMsSyncConflictRepository,
+      pgBoss as PgBossService,
+    )
+
+    await handler.execute(new RetryConflictCommand('tenant-1', 'actor-1', 'conflict-1'))
+
+    expect(pgBoss.enqueue).toHaveBeenCalledWith(
+      'ms-sync-push-task',
+      { tenantId: 'tenant-1', taskId: 'task-quota' },
+      { singletonKey: 'push-task:task-quota' },
+    )
+    expect(conflictRepo.markResolved).toHaveBeenCalledWith('conflict-1', 'actor-1', 'applied_mine')
+  })
+
+  it('throws for push_403_quota conflicts with null taskId', async () => {
+    const conflict = makeConflict({ kind: 'push_403_quota', taskId: null })
     const conflictRepo: Partial<IMsSyncConflictRepository> = {
       get: vi.fn().mockResolvedValue(conflict),
       markResolved: vi.fn(),
@@ -175,6 +221,48 @@ describe('RetryConflictHandler', () => {
 
     await expect(
       handler.execute(new RetryConflictCommand('tenant-1', 'actor-1', 'conflict-1')),
-    ).rejects.toThrow('Not found')
+    ).rejects.toThrow('Cannot retry plan-level quota conflict — resolve in Microsoft 365 first')
+    expect(pgBoss.enqueue).not.toHaveBeenCalled()
+    expect(conflictRepo.markResolved).not.toHaveBeenCalled()
+  })
+
+  it('throws for credential_invalidated conflicts (cannot retry)', async () => {
+    const conflict = makeConflict({ kind: 'credential_invalidated', taskId: null })
+    const conflictRepo: Partial<IMsSyncConflictRepository> = {
+      get: vi.fn().mockResolvedValue(conflict),
+      markResolved: vi.fn(),
+    }
+    const pgBoss: Partial<PgBossService> = {
+      enqueue: vi.fn(),
+    }
+    const handler = new RetryConflictHandler(
+      conflictRepo as IMsSyncConflictRepository,
+      pgBoss as PgBossService,
+    )
+
+    await expect(
+      handler.execute(new RetryConflictCommand('tenant-1', 'actor-1', 'conflict-1')),
+    ).rejects.toThrow('Cannot retry conflict kind=credential_invalidated')
+    expect(conflictRepo.markResolved).not.toHaveBeenCalled()
+  })
+
+  it('throws for pull_unresolved_assignee conflicts (cannot retry)', async () => {
+    const conflict = makeConflict({ kind: 'pull_unresolved_assignee', taskId: 'task-1' })
+    const conflictRepo: Partial<IMsSyncConflictRepository> = {
+      get: vi.fn().mockResolvedValue(conflict),
+      markResolved: vi.fn(),
+    }
+    const pgBoss: Partial<PgBossService> = {
+      enqueue: vi.fn(),
+    }
+    const handler = new RetryConflictHandler(
+      conflictRepo as IMsSyncConflictRepository,
+      pgBoss as PgBossService,
+    )
+
+    await expect(
+      handler.execute(new RetryConflictCommand('tenant-1', 'actor-1', 'conflict-1')),
+    ).rejects.toThrow('Cannot retry conflict kind=pull_unresolved_assignee')
+    expect(conflictRepo.markResolved).not.toHaveBeenCalled()
   })
 })

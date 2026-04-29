@@ -30,12 +30,11 @@ export class DrizzleMsSyncConflictRepository implements IMsSyncConflictRepositor
     })
   }
 
-  async get(id: string): Promise<MsSyncConflictEntity | null> {
-    const rows = await this.db
-      .select()
-      .from(msSyncConflict)
-      .where(eq(msSyncConflict.id, id))
-      .limit(1)
+  async get(id: string, tenantId?: string): Promise<MsSyncConflictEntity | null> {
+    const condition = tenantId
+      ? and(eq(msSyncConflict.id, id), eq(msSyncConflict.tenantId, tenantId))
+      : eq(msSyncConflict.id, id)
+    const rows = await this.db.select().from(msSyncConflict).where(condition).limit(1)
     return rows[0] ? rowToEntity(rows[0]) : null
   }
 
@@ -56,14 +55,6 @@ export class DrizzleMsSyncConflictRepository implements IMsSyncConflictRepositor
       .where(and(...conditions))
       .orderBy(desc(msSyncConflict.createdAt))
       .limit(opts.limit)
-    return rows.map(rowToEntity)
-  }
-
-  async listOpenForTenant(tenantId: string): Promise<MsSyncConflictEntity[]> {
-    const rows = await this.db
-      .select()
-      .from(msSyncConflict)
-      .where(and(eq(msSyncConflict.tenantId, tenantId), isNull(msSyncConflict.resolvedAt)))
     return rows.map(rowToEntity)
   }
 

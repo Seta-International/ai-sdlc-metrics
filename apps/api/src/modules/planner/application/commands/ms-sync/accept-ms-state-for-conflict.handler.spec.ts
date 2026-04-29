@@ -96,8 +96,27 @@ describe('AcceptMsStateForConflictHandler', () => {
     ).rejects.toThrow('Not found')
   })
 
-  it('throws if conflict belongs to different tenant', async () => {
-    const conflict = makeConflict({ tenantId: 'other-tenant' })
+  it('throws if conflict belongs to different tenant (get returns null with tenantId filter)', async () => {
+    const conflictRepo: Partial<IMsSyncConflictRepository> = {
+      get: vi.fn().mockResolvedValue(null),
+      markResolved: vi.fn(),
+    }
+    const taskRepo: Partial<ITaskRepository> = {
+      applyMsWonFields: vi.fn(),
+    }
+    const handler = new AcceptMsStateForConflictHandler(
+      conflictRepo as IMsSyncConflictRepository,
+      taskRepo as ITaskRepository,
+    )
+
+    await expect(
+      handler.execute(new AcceptMsStateForConflictCommand('tenant-1', 'actor-1', 'conflict-1')),
+    ).rejects.toThrow('Not found')
+    expect(conflictRepo.get).toHaveBeenCalledWith('conflict-1', 'tenant-1')
+  })
+
+  it('throws if taskId is null', async () => {
+    const conflict = makeConflict({ taskId: null })
     const conflictRepo: Partial<IMsSyncConflictRepository> = {
       get: vi.fn().mockResolvedValue(conflict),
       markResolved: vi.fn(),
@@ -112,6 +131,29 @@ describe('AcceptMsStateForConflictHandler', () => {
 
     await expect(
       handler.execute(new AcceptMsStateForConflictCommand('tenant-1', 'actor-1', 'conflict-1')),
-    ).rejects.toThrow('Not found')
+    ).rejects.toThrow('Cannot accept MS state for a non-task conflict')
+    expect(taskRepo.applyMsWonFields).not.toHaveBeenCalled()
+    expect(conflictRepo.markResolved).not.toHaveBeenCalled()
+  })
+
+  it('throws if theirsValue is null', async () => {
+    const conflict = makeConflict({ theirsValue: null })
+    const conflictRepo: Partial<IMsSyncConflictRepository> = {
+      get: vi.fn().mockResolvedValue(conflict),
+      markResolved: vi.fn(),
+    }
+    const taskRepo: Partial<ITaskRepository> = {
+      applyMsWonFields: vi.fn(),
+    }
+    const handler = new AcceptMsStateForConflictHandler(
+      conflictRepo as IMsSyncConflictRepository,
+      taskRepo as ITaskRepository,
+    )
+
+    await expect(
+      handler.execute(new AcceptMsStateForConflictCommand('tenant-1', 'actor-1', 'conflict-1')),
+    ).rejects.toThrow('No MS state to accept for this conflict kind')
+    expect(taskRepo.applyMsWonFields).not.toHaveBeenCalled()
+    expect(conflictRepo.markResolved).not.toHaveBeenCalled()
   })
 })
