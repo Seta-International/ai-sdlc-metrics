@@ -227,7 +227,7 @@ describe('<MicrosoftIntegrationPage />', () => {
 
     render(<MicrosoftIntegrationPage />)
 
-    expect(screen.getByTestId('directory-sync-card')).toBeTruthy()
+    expect(screen.getByTestId('directory-sync-card')).toBeInTheDocument()
   })
 
   it('renders coming-soon message when feature flag is disabled', () => {
