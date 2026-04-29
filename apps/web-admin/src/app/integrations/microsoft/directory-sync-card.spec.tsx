@@ -146,6 +146,25 @@ describe('DirectorySyncCard', () => {
     expect(screen.getByText(/Failed to load sync status/)).toBeInTheDocument()
   })
 
+  it('disables Sync Now button when mutation isPending', () => {
+    mockedUseQuery.mockReturnValue(
+      makeQueryResult({
+        data: {
+          syncEnabled: true,
+          syncStatus: 'idle',
+          lastSyncAt: null,
+          nextScheduledAt: null,
+          lastSyncStats: null,
+        },
+      }),
+    )
+    mockedUseMutation.mockReturnValue(makeMutationResult({ isPending: true }))
+
+    render(<DirectorySyncCard />)
+
+    expect(screen.getByRole('button', { name: /sync now/i })).toBeDisabled()
+  })
+
   it('shows lastSyncStats.errorMessage when present', () => {
     mockedUseQuery.mockReturnValue(
       makeQueryResult({

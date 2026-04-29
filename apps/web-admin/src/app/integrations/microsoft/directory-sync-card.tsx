@@ -16,7 +16,9 @@ import {
 } from '@future/ui'
 import { trpc } from '../../../lib/trpc'
 
-interface SyncStatusDto {
+// mirrors identity.getSyncStatus return shape
+// (identityAdminRouter stub returns null at type level; real return type is from GetSyncStatusHandler)
+interface SyncStatusResponse {
   syncEnabled: boolean
   syncStatus: string | null
   lastSyncAt: string | null
@@ -30,24 +32,19 @@ interface SyncStatusDto {
   } | null
 }
 
+// HACK: identity router stub returns null at the type level; remove once identityAdminRouter
+// is typed with real return types in app-router.ts.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const identityTrpc = (trpc as any).identity
+
 export function DirectorySyncCard() {
   const syncStatusQuery = useQuery({
     queryKey: ['identity.getSyncStatus'],
-    queryFn: () =>
-      (
-        trpc as unknown as {
-          identity: { getSyncStatus: { query: (i: object) => Promise<SyncStatusDto> } }
-        }
-      ).identity.getSyncStatus.query({}) as Promise<SyncStatusDto>,
+    queryFn: () => identityTrpc.getSyncStatus.query({}) as Promise<SyncStatusResponse>,
   })
 
   const triggerMutation = useMutation({
-    mutationFn: () =>
-      (
-        trpc as unknown as {
-          identity: { triggerSync: { mutate: (i: object) => Promise<{ jobId: string }> } }
-        }
-      ).identity.triggerSync.mutate({}) as Promise<{ jobId: string }>,
+    mutationFn: () => identityTrpc.triggerSync.mutate({}) as Promise<{ jobId: string }>,
     onSuccess: () => {
       toast.success('Directory sync triggered — this may take a few minutes')
       void syncStatusQuery.refetch()
