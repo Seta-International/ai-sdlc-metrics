@@ -286,3 +286,22 @@ export type ActivityEvent = {
   actorName: string
   occurredAt: string
 }
+
+export interface MsStagedUser {
+  id: string
+  tenantId: string
+  msExternalId: string
+  displayName: string
+  email: string | null
+  jobTitle: string | null
+  department: string | null
+  officeLocation: string | null
+  mobilePhone: string | null
+  workPhone: string | null
+  managerMsId: string | null
+  photoDocumentId: string | null
+  status: 'pending' | 'imported' | 'skipped'
+  importedEmploymentId: string | null
+  lastSeenAt: string
+  createdAt: string
+}
