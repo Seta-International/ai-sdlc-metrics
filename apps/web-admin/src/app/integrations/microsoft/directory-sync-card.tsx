@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useQuery, useMutation } from '@future/api-client'
 import {
+  Alert,
+  AlertDescription,
   Badge,
   Button,
   Card,
@@ -13,9 +15,6 @@ import {
   toast,
 } from '@future/ui'
 import { trpc } from '../../../lib/trpc'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const anyTrpc = trpc as any
 
 interface SyncStatusDto {
   syncEnabled: boolean
@@ -32,41 +31,35 @@ interface SyncStatusDto {
 }
 
 export function DirectorySyncCard() {
-  const [status, setStatus] = useState<SyncStatusDto | null>(null)
-  const [isLoadingStatus, setIsLoadingStatus] = useState(true)
-  const [isMutating, setIsMutating] = useState(false)
+  const syncStatusQuery = useQuery({
+    queryKey: ['identity.getSyncStatus'],
+    queryFn: () =>
+      (
+        trpc as unknown as {
+          identity: { getSyncStatus: { query: (i: object) => Promise<SyncStatusDto> } }
+        }
+      ).identity.getSyncStatus.query({}) as Promise<SyncStatusDto>,
+  })
 
-  async function loadStatus() {
-    setIsLoadingStatus(true)
-    try {
-      const s = await (anyTrpc.identity.getSyncStatus.query({}) as Promise<SyncStatusDto>)
-      setStatus(s)
-    } catch {
-      setStatus(null)
-    } finally {
-      setIsLoadingStatus(false)
-    }
-  }
-
-  useEffect(() => {
-    void loadStatus()
-  }, [])
-
-  async function handleTriggerSync() {
-    setIsMutating(true)
-    try {
-      await (anyTrpc.identity.triggerSync.mutate({}) as Promise<{ jobId: string }>)
+  const triggerMutation = useMutation({
+    mutationFn: () =>
+      (
+        trpc as unknown as {
+          identity: { triggerSync: { mutate: (i: object) => Promise<{ jobId: string }> } }
+        }
+      ).identity.triggerSync.mutate({}) as Promise<{ jobId: string }>,
+    onSuccess: () => {
       toast.success('Directory sync triggered — this may take a few minutes')
-      void loadStatus()
-    } catch (err) {
+      void syncStatusQuery.refetch()
+    },
+    onError: (err: unknown) => {
       toast.error(err instanceof Error ? err.message : 'Failed to trigger sync')
-    } finally {
-      setIsMutating(false)
-    }
-  }
+    },
+  })
 
+  const status = syncStatusQuery.data
   const isRunning = status?.syncStatus === 'running'
-  const isBusy = isRunning || isMutating
+  const isBusy = isRunning || triggerMutation.isPending
 
   const lastSyncLabel = status?.lastSyncAt ? new Date(status.lastSyncAt).toLocaleString() : 'Never'
 
@@ -78,7 +71,7 @@ export function DirectorySyncCard() {
         : 'subtle'
 
   return (
-    <Card>
+    <Card data-testid="directory-sync-card">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
@@ -87,7 +80,7 @@ export function DirectorySyncCard() {
               Sync user profiles from Microsoft Entra ID into Future
             </CardDescription>
           </div>
-          {!isLoadingStatus && status && (
+          {!syncStatusQuery.isLoading && status && (
             <Badge variant={statusBadgeVariant} className="capitalize">
               {status.syncStatus ?? 'idle'}
             </Badge>
@@ -95,9 +88,14 @@ export function DirectorySyncCard() {
         </div>
       </CardHeader>
       <CardContent>
+        {syncStatusQuery.isError && (
+          <Alert variant="destructive" className="mb-3">
+            <AlertDescription>Failed to load sync status</AlertDescription>
+          </Alert>
+        )}
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            {isLoadingStatus ? (
+            {syncStatusQuery.isLoading ? (
               <span className="flex items-center gap-1.5">
                 <Spinner className="size-3" />
                 Loading…
@@ -111,14 +109,14 @@ export function DirectorySyncCard() {
           <Button
             size="sm"
             variant="outline"
-            disabled={isBusy || isLoadingStatus}
-            onClick={() => void handleTriggerSync()}
+            disabled={isBusy || syncStatusQuery.isLoading}
+            onClick={() => triggerMutation.mutate()}
           >
             {isBusy && <Spinner className="size-3.5 mr-1.5" />}
             Sync Now
           </Button>
         </div>
-        {status?.lastSyncStats && status.lastSyncStats.errorMessage && (
+        {status?.lastSyncStats?.errorMessage && (
           <p className="mt-2 text-xs text-destructive">{status.lastSyncStats.errorMessage}</p>
         )}
       </CardContent>
