@@ -17,6 +17,7 @@ import { trpc } from '../../lib/trpc'
 export type ContainerValue =
   | { containerType: 'future_only'; containerRef: null }
   | { containerType: 'ms_group'; containerRef: string }
+  | { containerType: 'ms_roster'; containerRef: string }
 
 interface ContainerPickerProps {
   value: ContainerValue
@@ -24,12 +25,16 @@ interface ContainerPickerProps {
 }
 
 function encode(v: ContainerValue): string {
-  return v.containerType === 'future_only' ? 'future_only' : `ms_group:${v.containerRef}`
+  if (v.containerType === 'future_only') return 'future_only'
+  if (v.containerType === 'ms_group') return `ms_group:${v.containerRef}`
+  return `ms_roster:${v.containerRef}`
 }
 
 function decode(s: string): ContainerValue {
   if (s === 'future_only') return { containerType: 'future_only', containerRef: null }
-  return { containerType: 'ms_group', containerRef: s.slice('ms_group:'.length) }
+  if (s.startsWith('ms_group:'))
+    return { containerType: 'ms_group', containerRef: s.slice('ms_group:'.length) }
+  return { containerType: 'ms_roster', containerRef: s.slice('ms_roster:'.length) }
 }
 
 export function ContainerPicker({ value, onChange }: ContainerPickerProps) {
@@ -41,6 +46,17 @@ export function ContainerPicker({ value, onChange }: ContainerPickerProps) {
         tenantId: session!.tenantId,
       })
       return result as Array<{ msGroupId: string; displayName: string }>
+    },
+    enabled: !!session,
+    staleTime: 5 * 60 * 1000,
+  })
+  const { data: linkedRosters = [] } = useQuery({
+    queryKey: ['msSync.rosters.listLinked', session?.tenantId],
+    queryFn: async (): Promise<Array<{ msRosterId: string; displayName: string }>> => {
+      const result = await (trpc.planner.msSync as any).rosters.listLinked.query({
+        tenantId: session!.tenantId,
+      })
+      return result as Array<{ msRosterId: string; displayName: string }>
     },
     enabled: !!session,
     staleTime: 5 * 60 * 1000,
@@ -63,6 +79,19 @@ export function ContainerPicker({ value, onChange }: ContainerPickerProps) {
               {linkedGroups.map((group) => (
                 <SelectItem key={group.msGroupId} value={`ms_group:${group.msGroupId}`}>
                   {group.displayName}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </>
+        )}
+        {linkedRosters.length > 0 && (
+          <>
+            <SelectSeparator />
+            <SelectGroup>
+              <SelectLabel>Roster Plans</SelectLabel>
+              {linkedRosters.map((roster) => (
+                <SelectItem key={roster.msRosterId} value={`ms_roster:${roster.msRosterId}`}>
+                  {roster.displayName}
                 </SelectItem>
               ))}
             </SelectGroup>
