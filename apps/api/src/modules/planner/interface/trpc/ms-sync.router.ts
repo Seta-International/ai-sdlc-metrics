@@ -8,6 +8,7 @@ import { UnlinkMsGroupCommand } from '../../application/commands/ms-sync/unlink-
 import { MintMsRosterCommand } from '../../application/commands/ms-sync/mint-ms-roster.command'
 import { LinkExistingRosterCommand } from '../../application/commands/ms-sync/link-existing-roster.command'
 import { UnlinkRosterCommand } from '../../application/commands/ms-sync/unlink-roster.command'
+import { ForceResyncTaskCommand } from '../../application/commands/ms-sync/force-resync-task.command'
 import { ListAvailableGroupsQuery } from '../../application/queries/ms-sync/list-available-groups.query'
 import { ListLinkedGroupsQuery } from '../../application/queries/ms-sync/list-linked-groups.query'
 import { ListLinkedRostersQuery } from '../../application/queries/ms-sync/list-linked-rosters.query'
@@ -242,5 +243,21 @@ export const msSyncRouter = router({
         msSyncAttachmentsEnabled: flags.msSyncAttachmentsEnabled,
         msSyncRostersEnabled: flags.msSyncRostersEnabled,
       }
+    }),
+
+  forceResyncTask: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        actorId: z.string().uuid(),
+        taskId: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      await svc()
+        .command(new ForceResyncTaskCommand(input.tenantId, input.actorId, input.taskId))
+        .catch((e) => {
+          throw toPlannerTrpcError(e)
+        })
     }),
 })
