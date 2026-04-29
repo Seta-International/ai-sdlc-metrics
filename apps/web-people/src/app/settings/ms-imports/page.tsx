@@ -107,6 +107,19 @@ export default function MsImportsPage() {
     }
   }
 
+  async function handleReset(id: string) {
+    setIsMutating(true)
+    try {
+      await anyTrpc.people.resetStagedMsUser.mutate({ id })
+      toast.success('User reset to pending')
+      void load()
+    } catch {
+      toast.error('Reset failed')
+    } finally {
+      setIsMutating(false)
+    }
+  }
+
   async function handleBulkImport(ids: string[]) {
     setIsMutating(true)
     try {
@@ -186,6 +199,7 @@ export default function MsImportsPage() {
 
         <TabsContent value="pending" className="mt-4">
           <MsImportsTable
+            mode="pending"
             users={pendingResult.items}
             onImport={(id) => void handleImport(id)}
             onSkip={(id) => void handleSkip(id)}
@@ -196,24 +210,15 @@ export default function MsImportsPage() {
         </TabsContent>
 
         <TabsContent value="imported" className="mt-4">
-          <MsImportsTable
-            users={importedResult.items}
-            onImport={() => {}}
-            onSkip={() => {}}
-            onBulkImport={() => {}}
-            onBulkSkip={() => {}}
-            isLoading={false}
-          />
+          <MsImportsTable mode="imported" users={importedResult.items} isLoading={false} />
         </TabsContent>
 
         <TabsContent value="skipped" className="mt-4">
           <MsImportsTable
+            mode="skipped"
             users={skippedResult.items}
-            onImport={() => {}}
-            onSkip={() => {}}
-            onBulkImport={() => {}}
-            onBulkSkip={() => {}}
-            isLoading={false}
+            onReset={(id) => void handleReset(id)}
+            isLoading={isMutating}
           />
         </TabsContent>
       </Tabs>

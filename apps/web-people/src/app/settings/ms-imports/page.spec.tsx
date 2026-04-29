@@ -10,6 +10,7 @@ const {
   mockSkipStagedMsUser,
   mockBulkImportStagedMsUsers,
   mockBulkSkipStagedMsUsers,
+  mockResetStagedMsUser,
 } = vi.hoisted(() => ({
   mockGetMsSyncStatus: vi.fn(),
   mockListStagedMsUsers: vi.fn(),
@@ -17,6 +18,7 @@ const {
   mockSkipStagedMsUser: vi.fn(),
   mockBulkImportStagedMsUsers: vi.fn(),
   mockBulkSkipStagedMsUsers: vi.fn(),
+  mockResetStagedMsUser: vi.fn(),
 }))
 
 vi.mock('../../../lib/trpc', () => ({
@@ -28,6 +30,7 @@ vi.mock('../../../lib/trpc', () => ({
       skipStagedMsUser: { mutate: mockSkipStagedMsUser },
       bulkImportStagedMsUsers: { mutate: mockBulkImportStagedMsUsers },
       bulkSkipStagedMsUsers: { mutate: mockBulkSkipStagedMsUsers },
+      resetStagedMsUser: { mutate: mockResetStagedMsUser },
     },
   },
 }))

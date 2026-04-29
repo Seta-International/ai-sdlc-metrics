@@ -110,6 +110,7 @@ import { ValidateImportCommand } from '../../application/commands/validate-impor
 import { CommitImportCommand } from '../../application/commands/commit-import.command'
 import { ImportStagedMsUserCommand } from '../../application/commands/import-staged-ms-user.command'
 import { SkipStagedMsUserCommand } from '../../application/commands/skip-staged-ms-user.command'
+import { ResetStagedMsUserCommand } from '../../application/commands/reset-staged-ms-user.command'
 import { ListStagedMsUsersQuery } from '../../application/queries/list-staged-ms-users.query'
 import { GetMsSyncStatusQuery } from '../../application/queries/get-ms-sync-status.query'
 
@@ -1299,6 +1300,13 @@ export function createPeopleRouter(
         return results
       }),
 
+    resetStagedMsUser: permissionProtectedProcedure
+      .meta({ permission: 'people:admin' })
+      .input(z.object({ id: z.string().uuid() }))
+      .mutation(async ({ ctx, input }: { ctx: AuthContext; input: { id: string } }) => {
+        return svc().command(new ResetStagedMsUserCommand(ctx.tenantId, input.id))
+      }),
+
     // ── Update personal profile mutation ──────────────────────────────────
     updatePersonalProfile: permissionProtectedProcedure
       .meta({ permission: 'people:profile:read' })
@@ -1423,7 +1431,6 @@ export function createPeopleRouter(
           )
         },
       ),
-
 
     // ── Lifecycle mutations ────────────────────────────────────────────────
     rehire: permissionProtectedProcedure

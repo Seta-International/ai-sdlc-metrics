@@ -134,6 +134,7 @@ describe('MsImportsTable', () => {
   it('renders user row with name, email, job title', () => {
     render(
       <MsImportsTable
+        mode="pending"
         users={[mockUser]}
         onImport={vi.fn()}
         onSkip={vi.fn()}
@@ -151,6 +152,7 @@ describe('MsImportsTable', () => {
     const onImport = vi.fn()
     render(
       <MsImportsTable
+        mode="pending"
         users={[mockUser]}
         onImport={onImport}
         onSkip={vi.fn()}
@@ -166,6 +168,7 @@ describe('MsImportsTable', () => {
   it('disables bulk action buttons when no rows selected', () => {
     render(
       <MsImportsTable
+        mode="pending"
         users={[mockUser]}
         onImport={vi.fn()}
         onSkip={vi.fn()}
@@ -182,6 +185,7 @@ describe('MsImportsTable', () => {
     const onBulkImport = vi.fn()
     render(
       <MsImportsTable
+        mode="pending"
         users={[mockUser]}
         onImport={vi.fn()}
         onSkip={vi.fn()}
@@ -198,5 +202,26 @@ describe('MsImportsTable', () => {
     expect(bulkImportBtn).not.toBeDisabled()
     await userEvent.click(bulkImportBtn)
     expect(onBulkImport).toHaveBeenCalledWith(['su1'])
+  })
+
+  it('shows Reset to pending button in skipped mode', async () => {
+    const onReset = vi.fn()
+    render(<MsImportsTable mode="skipped" users={[mockUser]} onReset={onReset} isLoading={false} />)
+    const resetBtn = screen.getByRole('button', { name: /reset to pending/i })
+    await userEvent.click(resetBtn)
+    expect(onReset).toHaveBeenCalledWith('su1')
+  })
+
+  it('hides Import and Skip buttons in skipped mode', () => {
+    render(<MsImportsTable mode="skipped" users={[mockUser]} onReset={vi.fn()} isLoading={false} />)
+    expect(screen.queryByRole('button', { name: /^import$/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^skip$/i })).toBeNull()
+  })
+
+  it('shows no action buttons in imported mode', () => {
+    render(<MsImportsTable mode="imported" users={[mockUser]} isLoading={false} />)
+    expect(screen.queryByRole('button', { name: /^import$/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^skip$/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /reset to pending/i })).toBeNull()
   })
 })
