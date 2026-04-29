@@ -5,6 +5,13 @@ import { ResolvePendingAssignmentsHandler } from './resolve-pending-assignments.
 function makeHandler(opts: {
   tasks?: Array<{ id: string; planId: string; pendingMsAssignments: string[] }>
   resolvedMap?: Record<string, string | null>
+  unresolvedMembers?: Array<{
+    tenantId: string
+    msRosterId: string
+    ssoSubject: string
+    actorId: null
+    syncedAt: Date
+  }>
 }) {
   const taskRepo = {
     listWithPendingAssignments: vi.fn().mockResolvedValue(opts.tasks ?? []),
@@ -15,10 +22,18 @@ function makeHandler(opts: {
       .fn()
       .mockImplementation((aadOid: string) => Promise.resolve(opts.resolvedMap?.[aadOid] ?? null)),
   }
+  const memberRepo = {
+    listUnresolved: vi.fn().mockResolvedValue(opts.unresolvedMembers ?? []),
+    resolveMember: vi.fn().mockResolvedValue(undefined),
+  }
   /* eslint-disable @typescript-eslint/no-explicit-any */
-  const handler = new ResolvePendingAssignmentsHandler(taskRepo as any, identityFacade as any)
+  const handler = new ResolvePendingAssignmentsHandler(
+    taskRepo as any,
+    identityFacade as any,
+    memberRepo as any,
+  )
   /* eslint-enable @typescript-eslint/no-explicit-any */
-  return { handler, taskRepo, identityFacade }
+  return { handler, taskRepo, identityFacade, memberRepo }
 }
 
 describe('ResolvePendingAssignmentsHandler', () => {
@@ -74,5 +89,44 @@ describe('ResolvePendingAssignmentsHandler', () => {
     await handler.execute(new ResolvePendingAssignmentsCommand('tenant-1'))
 
     expect(taskRepo.applyPendingResolution).not.toHaveBeenCalled()
+  })
+
+  it('resolves unresolved roster members when actorId found', async () => {
+    const { handler, memberRepo, identityFacade } = makeHandler({
+      unresolvedMembers: [
+        {
+          tenantId: 't1',
+          msRosterId: 'r1',
+          ssoSubject: 'user@test.com',
+          actorId: null,
+          syncedAt: new Date(),
+        },
+      ],
+      resolvedMap: { 'user@test.com': 'actor-1' },
+    })
+
+    await handler.execute(new ResolvePendingAssignmentsCommand('t1'))
+
+    expect(identityFacade.getActorIdByExternalUserId).toHaveBeenCalledWith('user@test.com', 't1')
+    expect(memberRepo.resolveMember).toHaveBeenCalledWith('t1', 'r1', 'user@test.com', 'actor-1')
+  })
+
+  it('skips roster member when actorId not resolvable', async () => {
+    const { handler, memberRepo } = makeHandler({
+      unresolvedMembers: [
+        {
+          tenantId: 't1',
+          msRosterId: 'r1',
+          ssoSubject: 'user@test.com',
+          actorId: null,
+          syncedAt: new Date(),
+        },
+      ],
+      resolvedMap: { 'user@test.com': null },
+    })
+
+    await handler.execute(new ResolvePendingAssignmentsCommand('t1'))
+
+    expect(memberRepo.resolveMember).not.toHaveBeenCalled()
   })
 })

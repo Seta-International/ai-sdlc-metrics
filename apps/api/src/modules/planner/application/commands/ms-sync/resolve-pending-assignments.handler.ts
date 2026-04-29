@@ -1,6 +1,10 @@
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
 import { Inject } from '@nestjs/common'
 import { TASK_REPOSITORY, type ITaskRepository } from '../../../domain/repositories/task.repository'
+import {
+  ROSTER_MEMBER_REPOSITORY,
+  type IRosterMemberRepository,
+} from '../../../domain/repositories/roster-member.repository'
 import { IdentityQueryFacade } from '../../../../identity/application/facades/identity-query.facade'
 import { ResolvePendingAssignmentsCommand } from './resolve-pending-assignments.command'
 
@@ -9,6 +13,7 @@ export class ResolvePendingAssignmentsHandler implements ICommandHandler<Resolve
   constructor(
     @Inject(TASK_REPOSITORY) private readonly taskRepo: ITaskRepository,
     private readonly identityFacade: IdentityQueryFacade,
+    @Inject(ROSTER_MEMBER_REPOSITORY) private readonly memberRepo: IRosterMemberRepository,
   ) {}
 
   async execute(cmd: ResolvePendingAssignmentsCommand): Promise<void> {
@@ -27,6 +32,21 @@ export class ResolvePendingAssignmentsHandler implements ICommandHandler<Resolve
           stillPending,
           origin: 'ms-sync-pull',
         })
+      }
+    }
+    const unresolvedMembers = await this.memberRepo.listUnresolved(cmd.tenantId)
+    for (const member of unresolvedMembers) {
+      const actorId = await this.identityFacade.getActorIdByExternalUserId(
+        member.ssoSubject,
+        cmd.tenantId,
+      )
+      if (actorId) {
+        await this.memberRepo.resolveMember(
+          cmd.tenantId,
+          member.msRosterId,
+          member.ssoSubject,
+          actorId,
+        )
       }
     }
   }
