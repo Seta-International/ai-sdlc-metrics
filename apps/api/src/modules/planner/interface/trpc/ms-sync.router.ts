@@ -154,6 +154,7 @@ export const msSyncRouter = router({
     listLinked: publicProcedure
       .input(z.object({ tenantId: z.string().uuid() }))
       .query(async ({ input }) => {
+        await svc().assertRostersEnabled(input.tenantId)
         return svc()
           .query(new ListLinkedRostersQuery(input.tenantId))
           .catch((e) => {
@@ -171,6 +172,7 @@ export const msSyncRouter = router({
         }),
       )
       .mutation(async ({ input }) => {
+        await svc().assertRostersEnabled(input.tenantId)
         return svc()
           .command(
             new MintMsRosterCommand(
@@ -195,6 +197,7 @@ export const msSyncRouter = router({
         }),
       )
       .mutation(async ({ input }) => {
+        await svc().assertRostersEnabled(input.tenantId)
         await svc()
           .command(
             new LinkExistingRosterCommand(
@@ -218,6 +221,7 @@ export const msSyncRouter = router({
         }),
       )
       .mutation(async ({ input }) => {
+        await svc().assertRostersEnabled(input.tenantId)
         await svc()
           .command(new UnlinkRosterCommand(input.tenantId, input.actorId, input.msRosterId))
           .catch((e) => {

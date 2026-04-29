@@ -44,6 +44,16 @@ export class PlannerRouterService implements OnModuleInit {
     }
   }
 
+  async assertRostersEnabled(tenantId: string): Promise<void> {
+    const flags = await this.adminQueryFacade.getPlannerViewFlags(tenantId)
+    if (!flags.msSyncRostersEnabled) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Roster sync is not enabled for this tenant',
+      })
+    }
+  }
+
   getPlannerViewFlags(tenantId: string): Promise<PlannerViewFlags> {
     return this.adminQueryFacade.getPlannerViewFlags(tenantId)
   }

@@ -34,8 +34,19 @@ describe('msSyncRouter — unit (mocked command/query bus)', () => {
     commandBus = { execute: vi.fn() }
     queryBus = { execute: vi.fn() }
 
-    const adminQueryFacade: Pick<AdminQueryFacade, 'isPlannerEnabled'> = {
+    const adminQueryFacade: Pick<AdminQueryFacade, 'isPlannerEnabled' | 'getPlannerViewFlags'> = {
       isPlannerEnabled: vi.fn().mockResolvedValue(true),
+      getPlannerViewFlags: vi.fn().mockResolvedValue({
+        viewsEnabled: true,
+        gridEnabled: true,
+        scheduleEnabled: true,
+        chartsEnabled: true,
+        trendsEnabled: true,
+        personalEnabled: true,
+        msSyncEnabled: true,
+        msSyncAttachmentsEnabled: true,
+        msSyncRostersEnabled: true,
+      }),
     }
 
     const svc = new PlannerRouterService(

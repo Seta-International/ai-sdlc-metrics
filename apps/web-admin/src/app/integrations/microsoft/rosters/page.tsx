@@ -126,11 +126,14 @@ export default function RostersPage() {
     },
   })
 
-  if (!session) {
+  if (!session || flagsQuery.isLoading) {
     return (
       <main className="max-w-3xl space-y-4 p-8">
         <h1 className="text-h2">Rosters</h1>
-        <p className="text-sm text-muted-foreground">Loading session…</p>
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner className="size-4" />
+          Loading…
+        </p>
       </main>
     )
   }
