@@ -107,6 +107,7 @@ import { MsGraphClient } from './infrastructure/ms-graph/ms-graph-client'
 import { MsSharePointClient } from './infrastructure/ms-graph/ms-sharepoint-client'
 import { PlanIngestor } from './infrastructure/ms-graph/pull/plan-ingestor'
 import { BackfillGroupWorker } from './infrastructure/ms-graph/pull/backfill-group.worker'
+import { BackfillRosterWorker } from './infrastructure/ms-graph/pull/backfill-roster.worker'
 import { MsGraphTokenAcquirerAdapter } from './infrastructure/ms-graph/ms-graph-token-acquirer.adapter'
 import { PLANNER_SECRETS_STORE } from './domain/ports/secrets-store.port'
 import { MS_GRAPH_TOKEN_ACQUIRER } from './domain/ports/ms-graph-token-acquirer.port'
@@ -117,6 +118,8 @@ import { PollTenantHandler } from './application/commands/ms-sync/poll-tenant.ha
 import { DisconnectMsSyncHandler } from './application/commands/ms-sync/disconnect-ms-sync.handler'
 import { LinkMsGroupHandler } from './application/commands/ms-sync/link-ms-group.handler'
 import { UnlinkMsGroupHandler } from './application/commands/ms-sync/unlink-ms-group.handler'
+import { LinkExistingRosterHandler } from './application/commands/ms-sync/link-existing-roster.handler'
+import { UnlinkRosterHandler } from './application/commands/ms-sync/unlink-roster.handler'
 import { ResolvePendingAssignmentsHandler } from './application/commands/ms-sync/resolve-pending-assignments.handler'
 import { PushTaskHandler } from './application/commands/ms-sync/push-task.handler'
 import { PushPlanHandler } from './application/commands/ms-sync/push-plan.handler'
@@ -236,6 +239,8 @@ import { DrizzleRosterMemberRepository } from './infrastructure/repositories/dri
     DisconnectMsSyncHandler,
     LinkMsGroupHandler,
     UnlinkMsGroupHandler,
+    LinkExistingRosterHandler,
+    UnlinkRosterHandler,
     ResolvePendingAssignmentsHandler,
     PushTaskHandler,
     PushPlanHandler,
@@ -265,6 +270,7 @@ import { DrizzleRosterMemberRepository } from './infrastructure/repositories/dri
     MsSharePointClient,
     PlanIngestor,
     BackfillGroupWorker,
+    BackfillRosterWorker,
     MsSyncPollTenantRegistrar,
     MsSyncResolvePendingRegistrar,
     MsSyncRetryAttachmentsRegistrar,

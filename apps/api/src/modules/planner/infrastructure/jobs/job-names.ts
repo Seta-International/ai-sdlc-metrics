@@ -1,4 +1,5 @@
 export const MS_SYNC_BACKFILL_JOB = 'ms-sync-backfill-group'
+export const MS_SYNC_BACKFILL_ROSTER_JOB = 'ms-sync-backfill-roster'
 export const MS_SYNC_PUSH_TASK_JOB = 'ms-sync-push-task'
 export const MS_SYNC_PUSH_PLAN_JOB = 'ms-sync-push-plan'
 export const MS_SYNC_PUSH_BUCKET_JOB = 'ms-sync-push-bucket'

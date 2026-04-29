@@ -7,6 +7,10 @@ import { BASE_DB_TOKEN } from '../../../../common/db/db.module'
 import { RequestDbContextService } from '../../../../common/db/request-db-context.service'
 import { runWithTenantContext } from '../../../../common/jobs/run-with-tenant-context'
 import { BackfillGroupWorker, type BackfillJobData } from '../ms-graph/pull/backfill-group.worker'
+import {
+  BackfillRosterWorker,
+  type BackfillRosterJobData,
+} from '../ms-graph/pull/backfill-roster.worker'
 import { PushTaskCommand } from '../../application/commands/ms-sync/push-task.command'
 import { PushPlanCommand } from '../../application/commands/ms-sync/push-plan.command'
 import { PushBucketCommand } from '../../application/commands/ms-sync/push-bucket.command'
@@ -14,6 +18,7 @@ import { PushAttachmentCommand } from '../../application/commands/ms-sync/push-a
 import { PullAttachmentCommand } from '../../application/commands/ms-sync/pull-attachment.command'
 import {
   MS_SYNC_BACKFILL_JOB,
+  MS_SYNC_BACKFILL_ROSTER_JOB,
   MS_SYNC_PUSH_TASK_JOB,
   MS_SYNC_PUSH_PLAN_JOB,
   MS_SYNC_PUSH_BUCKET_JOB,
@@ -23,6 +28,7 @@ import {
 
 export {
   MS_SYNC_BACKFILL_JOB,
+  MS_SYNC_BACKFILL_ROSTER_JOB,
   MS_SYNC_PUSH_TASK_JOB,
   MS_SYNC_PUSH_PLAN_JOB,
   MS_SYNC_PUSH_BUCKET_JOB,
@@ -62,6 +68,7 @@ export class MsSyncJobRegistrar implements OnApplicationBootstrap {
   constructor(
     private readonly pgBoss: PgBossService,
     private readonly backfillWorker: BackfillGroupWorker,
+    private readonly backfillRosterWorker: BackfillRosterWorker,
     private readonly commandBus: CommandBus,
     @Inject(BASE_DB_TOKEN) private readonly baseDb: Db,
     private readonly requestDbContext: RequestDbContextService,
@@ -84,6 +91,30 @@ export class MsSyncJobRegistrar implements OnApplicationBootstrap {
             } catch (err) {
               this.logger.error(
                 `Backfill failed tenant=${job.data.tenantId} group=${job.data.msGroupId}`,
+                err,
+              )
+              throw err
+            }
+          },
+        )
+      }
+    })
+
+    this.pgBoss.registerWorker<BackfillRosterJobData>(MS_SYNC_BACKFILL_ROSTER_JOB, async (jobs) => {
+      for (const job of jobs) {
+        await runWithTenantContext(
+          {
+            tenantId: job.data.tenantId,
+            baseDb: this.baseDb,
+            requestDbContext: this.requestDbContext,
+            cls: this.cls,
+          },
+          async () => {
+            try {
+              await this.backfillRosterWorker.run(job.data)
+            } catch (err) {
+              this.logger.error(
+                `Backfill roster failed tenant=${job.data.tenantId} roster=${job.data.msRosterId}`,
                 err,
               )
               throw err
