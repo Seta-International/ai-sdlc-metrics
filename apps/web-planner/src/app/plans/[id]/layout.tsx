@@ -19,12 +19,14 @@ import { trpc } from '../../../lib/trpc'
 import { ViewPicker } from '@/components/view-picker/ViewPicker'
 import { FilterBar } from '@/components/filter-bar/FilterBar'
 import { GroupByPicker } from '@/components/group-by/GroupByPicker'
+import { MsSyncBadge } from '@/components/board/MsSyncBadge'
 import type { ViewKey } from '@/lib/view-state'
 import type { PlanContext } from '@/components/filter-bar/types'
 
 interface PlanHeader {
   id: string
   name: string
+  msPlanId: string | null
 }
 
 /**
@@ -50,8 +52,8 @@ export default function PlanLayout({ children }: { children: React.ReactNode }) 
         .query({ actorId: session!.actorId, tenantId: session!.tenantId, planId })
         .then((data) => {
           if (!data) return null
-          const p = data as { id: string; name: string }
-          return { id: p.id, name: p.name } as PlanHeader
+          const p = data as { id: string; name: string; msPlanId?: string | null }
+          return { id: p.id, name: p.name, msPlanId: p.msPlanId ?? null } as PlanHeader
         }),
     enabled: !!session && !!planId,
   })
@@ -109,6 +111,8 @@ export default function PlanLayout({ children }: { children: React.ReactNode }) 
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
+
+          {plan?.msPlanId && <MsSyncBadge state="synced" />}
 
           <div className="ml-auto">
             <Button variant="ghost" size="sm" asChild>
