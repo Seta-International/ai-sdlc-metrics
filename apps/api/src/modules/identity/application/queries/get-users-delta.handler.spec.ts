@@ -81,6 +81,8 @@ describe('GetUsersDeltaHandler', () => {
 
     const result = await handler.execute(new GetUsersDeltaQuery(TENANT_ID, undefined))
 
+    expect(credentialRepo.get).toHaveBeenCalledWith(TENANT_ID)
+    expect(providerRepo.findPrimary).toHaveBeenCalledWith(TENANT_ID)
     expect(result).not.toBeNull()
     expect(result!.users).toHaveLength(1)
     expect(result!.nextDeltaToken).toContain('deltaToken')
