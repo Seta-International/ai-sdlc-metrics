@@ -95,3 +95,111 @@ describe('MicrosoftGraphProvider', () => {
     })
   })
 })
+
+describe('MicrosoftGraphProvider.listUsersDelta', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
+  let acquirer: MsGraphTokenAcquirer
+  const cred = {
+    tenantId: 't1',
+    clientId: 'c1',
+    clientSecretRef: 'ref1',
+    tenantAdId: 'aad-t1',
+    scopes: [],
+  } as MsGraphCredentialEntity
+  const providerEntity = {} as IdentityProviderEntity
+
+  beforeEach(() => {
+    fetchMock = vi.fn()
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    acquirer = {
+      acquire: vi.fn().mockResolvedValue('mock-token'),
+    } as unknown as MsGraphTokenAcquirer
+  })
+
+  it('returns users and nextDeltaToken on first run (no deltaToken)', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          value: [
+            {
+              id: 'u1',
+              displayName: 'Alice',
+              mail: 'alice@co.com',
+              accountEnabled: true,
+              jobTitle: 'Engineer',
+              department: 'Eng',
+              officeLocation: 'HCM',
+              mobilePhone: '0901',
+              businessPhones: ['0902'],
+            },
+          ],
+          '@odata.deltaLink': 'https://graph.microsoft.com/v1.0/users/delta?$deltaToken=tok123',
+        }),
+      })
+      .mockResolvedValueOnce({
+        // manager fetch for u1
+        ok: true,
+        json: async () => ({ id: 'mgr1' }),
+      })
+
+    const provider = new MicrosoftGraphProvider(providerEntity, cred, acquirer)
+    const result = await provider.listUsersDelta()
+
+    expect(result.users).toHaveLength(1)
+    expect(result.users[0]!.externalId).toBe('u1')
+    expect(result.users[0]!.managerMsId).toBe('mgr1')
+    expect(result.nextDeltaToken).toBe(
+      'https://graph.microsoft.com/v1.0/users/delta?$deltaToken=tok123',
+    )
+    expect(result.deletedIds).toEqual([])
+  })
+
+  it('extracts deleted users with @removed flag', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        value: [{ id: 'd1', '@removed': { reason: 'deleted' } }],
+        '@odata.deltaLink': 'https://graph.microsoft.com/v1.0/users/delta?$deltaToken=tok2',
+      }),
+    })
+
+    const provider = new MicrosoftGraphProvider(providerEntity, cred, acquirer)
+    const result = await provider.listUsersDelta('https://prev-delta-url')
+
+    expect(result.deletedIds).toEqual(['d1'])
+    expect(result.users).toHaveLength(0)
+  })
+
+  it('throws on 410 Gone (expired delta token)', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 410,
+      text: async () => 'Gone',
+    })
+
+    const provider = new MicrosoftGraphProvider(providerEntity, cred, acquirer)
+    await expect(provider.listUsersDelta('expired-token')).rejects.toThrow('Graph 410')
+  })
+
+  it('skips manager link when manager returns 404', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          value: [{ id: 'u2', displayName: 'Bob', accountEnabled: true }],
+          '@odata.deltaLink': 'https://graph.microsoft.com/v1.0/users/delta?$deltaToken=tok3',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: async () => 'Not Found',
+      })
+
+    const provider = new MicrosoftGraphProvider(providerEntity, cred, acquirer)
+    const result = await provider.listUsersDelta()
+
+    expect(result.users[0]!.managerMsId).toBeNull()
+  })
+})

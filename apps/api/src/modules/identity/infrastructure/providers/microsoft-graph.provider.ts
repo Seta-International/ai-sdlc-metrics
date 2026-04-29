@@ -39,6 +39,45 @@ export interface GraphUserProfile {
   businessPhones: string[]
 }
 
+interface GraphDeltaUser {
+  id: string
+  mail?: string | null
+  userPrincipalName?: string
+  displayName?: string
+  accountEnabled?: boolean
+  jobTitle?: string | null
+  department?: string | null
+  officeLocation?: string | null
+  mobilePhone?: string | null
+  businessPhones?: string[]
+  '@removed'?: { reason: string }
+}
+
+interface GraphDeltaResponse {
+  value: GraphDeltaUser[]
+  '@odata.nextLink'?: string
+  '@odata.deltaLink'?: string
+}
+
+export interface IdpUserWithProfile {
+  externalId: string
+  email: string
+  displayName: string
+  isActive: boolean
+  jobTitle: string | null
+  department: string | null
+  officeLocation: string | null
+  mobilePhone: string | null
+  businessPhone: string | null
+  managerMsId: string | null
+}
+
+export interface UsersDeltaResult {
+  users: IdpUserWithProfile[]
+  deletedIds: string[]
+  nextDeltaToken: string
+}
+
 @Injectable()
 export class MicrosoftGraphProvider implements IDirectoryProvider {
   private readonly baseUrl = 'https://graph.microsoft.com/v1.0'
@@ -108,6 +147,73 @@ export class MicrosoftGraphProvider implements IDirectoryProvider {
     )
     const photo = await this.fetchUserPhoto(msUserId)
     return { user, photo }
+  }
+
+  async listUsersDelta(deltaToken?: string): Promise<UsersDeltaResult> {
+    const $select =
+      'id,displayName,mail,accountEnabled,jobTitle,department,officeLocation,mobilePhone,businessPhones,userPrincipalName'
+    const initialUrl = deltaToken ?? `${this.baseUrl}/users/delta?$select=${$select}`
+
+    const collected: GraphDeltaUser[] = []
+    let finalDeltaToken: string | undefined
+    let url: string | undefined = initialUrl
+
+    while (url) {
+      const page: GraphDeltaResponse = await this.graphFetchAbsolute<GraphDeltaResponse>(url)
+      collected.push(...page.value)
+      if (page['@odata.deltaLink']) {
+        finalDeltaToken = page['@odata.deltaLink']
+        break
+      }
+      url = page['@odata.nextLink']
+    }
+
+    if (!finalDeltaToken) throw new Error('MS Graph delta query completed without a deltaLink')
+
+    const deletedIds: string[] = []
+    const changedUsers: GraphDeltaUser[] = []
+    for (const u of collected) {
+      if (u['@removed']) {
+        deletedIds.push(u.id)
+      } else {
+        changedUsers.push(u)
+      }
+    }
+
+    const users: IdpUserWithProfile[] = []
+    for (const u of changedUsers) {
+      const managerMsId = await this.fetchManagerId(u.id)
+      users.push({
+        externalId: u.id,
+        email: u.mail ?? u.userPrincipalName ?? '',
+        displayName: u.displayName ?? '',
+        isActive: u.accountEnabled !== false,
+        jobTitle: u.jobTitle ?? null,
+        department: u.department ?? null,
+        officeLocation: u.officeLocation ?? null,
+        mobilePhone: u.mobilePhone ?? null,
+        businessPhone: u.businessPhones?.[0] ?? null,
+        managerMsId,
+      })
+    }
+
+    return { users, deletedIds, nextDeltaToken: finalDeltaToken }
+  }
+
+  private async fetchManagerId(msUserId: string): Promise<string | null> {
+    const token = await this.tokenAcquirer.acquire({
+      tenantAdId: this.credential.tenantAdId,
+      clientId: this.credential.clientId,
+      clientSecretRef: this.credential.clientSecretRef,
+      scopes: this.credential.scopes,
+    })
+    const response = await fetch(
+      `${this.baseUrl}/users/${encodeURIComponent(msUserId)}/manager?$select=id`,
+      { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } },
+    )
+    if (!response.ok) return null
+    const data = (await response.json()) as { id?: string }
+    return data.id ?? null
   }
 
   private async fetchUserPhoto(msUserId: string): Promise<Buffer | null> {
