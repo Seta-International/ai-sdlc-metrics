@@ -52,6 +52,11 @@ import { DrizzleMsStagedUserRepository } from './infrastructure/repositories/dri
 import { MS_PROFILE_SYNC_STATE_REPOSITORY } from './domain/repositories/ms-profile-sync-state.repository'
 import { MS_STAGED_USER_REPOSITORY } from './domain/repositories/ms-staged-user.repository'
 
+// ── MS Sync application handlers ──────────────────────────────────────────
+import { BulkSyncMsProfilesHandler } from './application/commands/bulk-sync-ms-profiles.handler'
+import { OnDirectorySyncCompletedListener } from './application/event-handlers/on-directory-sync-completed.listener'
+import { PeopleMsSyncRegistrar } from './infrastructure/jobs/people-ms-sync.registrar'
+
 // ── Legacy repositories (still functional) ────────────────────────────────
 import { DrizzleProfileSectionRepository } from './infrastructure/repositories/drizzle-profile-section.repository'
 import { DrizzleProfileChangeRequestRepository } from './infrastructure/repositories/drizzle-profile-change-request.repository'
@@ -256,6 +261,11 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     // ── MS Sync repositories ─────────────────────────────────────────────
     { provide: MS_PROFILE_SYNC_STATE_REPOSITORY, useClass: DrizzleMsProfileSyncStateRepository },
     { provide: MS_STAGED_USER_REPOSITORY, useClass: DrizzleMsStagedUserRepository },
+
+    // ── MS Sync handlers & worker ─────────────────────────────────────────────
+    BulkSyncMsProfilesHandler,
+    OnDirectorySyncCompletedListener,
+    PeopleMsSyncRegistrar,
 
     // ── Plan 01 repositories ─────────────────────────────────────────────
     { provide: JOB_HISTORY_REPOSITORY, useClass: JobHistoryRepositoryImpl },
