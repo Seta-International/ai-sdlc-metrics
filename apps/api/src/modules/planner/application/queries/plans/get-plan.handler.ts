@@ -11,6 +11,7 @@ export interface PlanDetail {
   description: string
   createdBy: string
   updatedAt: Date
+  msPlanId: string | null
   members: Array<{ actorId: string; role: 'owner' | 'editor' | 'viewer' }>
   labels: Array<{ slot: string; name: string; color: string }>
 }
@@ -37,6 +38,7 @@ export class GetPlanHandler implements IQueryHandler<GetPlanQuery, PlanDetail | 
       description: plan.description,
       createdBy: plan.createdBy,
       updatedAt: plan.updatedAt,
+      msPlanId: plan.msPlanId,
       members: plan.members.map((m) => ({ actorId: m.actorId, role: m.role })),
       labels: plan.labels.map((l) => ({ slot: l.slot.value, name: l.name, color: l.color })),
     }

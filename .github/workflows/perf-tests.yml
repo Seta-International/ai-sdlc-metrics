@@ -1,0 +1,24 @@
+name: Planner MS Sync — Performance Budgets
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/modules/planner/**'
+
+jobs:
+  perf:
+    name: Performance budget tests
+    runs-on: ubuntu-latest
+    env:
+      PERF_BUDGETS_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Build workspace packages
+        run: bun run --filter "@future/*" build
+      - name: Run perf budget tests
+        run: bun run --filter @future/api test:unit --testPathPattern "__perf__"

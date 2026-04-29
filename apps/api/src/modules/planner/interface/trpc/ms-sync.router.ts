@@ -8,9 +8,14 @@ import { UnlinkMsGroupCommand } from '../../application/commands/ms-sync/unlink-
 import { MintMsRosterCommand } from '../../application/commands/ms-sync/mint-ms-roster.command'
 import { LinkExistingRosterCommand } from '../../application/commands/ms-sync/link-existing-roster.command'
 import { UnlinkRosterCommand } from '../../application/commands/ms-sync/unlink-roster.command'
+import { ForceResyncTaskCommand } from '../../application/commands/ms-sync/force-resync-task.command'
 import { ListAvailableGroupsQuery } from '../../application/queries/ms-sync/list-available-groups.query'
 import { ListLinkedGroupsQuery } from '../../application/queries/ms-sync/list-linked-groups.query'
 import { ListLinkedRostersQuery } from '../../application/queries/ms-sync/list-linked-rosters.query'
+import { ListConflictsQuery } from '../../application/queries/ms-sync/list-conflicts.query'
+import { RetryConflictCommand } from '../../application/commands/ms-sync/retry-conflict.command'
+import { AcceptMsStateForConflictCommand } from '../../application/commands/ms-sync/accept-ms-state-for-conflict.command'
+import { GetTenantSyncHealthQuery } from '../../application/queries/ms-sync/get-tenant-sync-health.query'
 import { PlannerRouterService } from './planner-router.service'
 import { toPlannerTrpcError } from './planner-trpc-error'
 
@@ -242,5 +247,88 @@ export const msSyncRouter = router({
         msSyncAttachmentsEnabled: flags.msSyncAttachmentsEnabled,
         msSyncRostersEnabled: flags.msSyncRostersEnabled,
       }
+    }),
+
+  tenantSyncHealth: publicProcedure.query(async () => {
+    return svc()
+      .query(new GetTenantSyncHealthQuery())
+      .catch((e) => {
+        throw toPlannerTrpcError(e)
+      })
+  }),
+
+  conflicts: router({
+    list: publicProcedure
+      .input(
+        z.object({
+          tenantId: z.string().uuid(),
+          resolved: z.enum(['open', 'all']).default('open'),
+          limit: z.number().int().min(1).max(200).default(100),
+          cursor: z.string().optional(),
+        }),
+      )
+      .query(async ({ input }) => {
+        return svc()
+          .query(
+            new ListConflictsQuery(input.tenantId, {
+              resolved: input.resolved,
+              limit: input.limit,
+              cursor: input.cursor,
+            }),
+          )
+          .catch((e) => {
+            throw toPlannerTrpcError(e)
+          })
+      }),
+
+    retry: publicProcedure
+      .input(
+        z.object({
+          tenantId: z.string().uuid(),
+          actorId: z.string().uuid(),
+          conflictId: z.string().uuid(),
+        }),
+      )
+      .mutation(async ({ input }) => {
+        await svc()
+          .command(new RetryConflictCommand(input.tenantId, input.actorId, input.conflictId))
+          .catch((e) => {
+            throw toPlannerTrpcError(e)
+          })
+      }),
+
+    acceptMsState: publicProcedure
+      .input(
+        z.object({
+          tenantId: z.string().uuid(),
+          actorId: z.string().uuid(),
+          conflictId: z.string().uuid(),
+        }),
+      )
+      .mutation(async ({ input }) => {
+        await svc()
+          .command(
+            new AcceptMsStateForConflictCommand(input.tenantId, input.actorId, input.conflictId),
+          )
+          .catch((e) => {
+            throw toPlannerTrpcError(e)
+          })
+      }),
+  }),
+
+  forceResyncTask: publicProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        actorId: z.string().uuid(),
+        taskId: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      await svc()
+        .command(new ForceResyncTaskCommand(input.tenantId, input.actorId, input.taskId))
+        .catch((e) => {
+          throw toPlannerTrpcError(e)
+        })
     }),
 })

@@ -302,6 +302,19 @@ Reality summary (re-read the "MS Graph Planner API reality" section above). The 
 - Phase 4.5: Group-thread comment sync (OR split as 4b).
 - Phase 4.6: Admin "sync issues" UI + polish.
 
+### Sub-project #4a — SHIPPED (2026-04-29)
+
+- Feature flags: `planner.ms_sync.enabled`, `planner.ms_sync.attachments.enabled`, `planner.ms_sync.rosters.enabled`
+- Admin conflict viewer with Retry / Accept MS state / detail drawer
+- Force re-sync from task detail (admin-gated, destructive)
+- Plan header + task card sync-state badges
+- Platform_admin per-tenant sync health column
+- Performance budget CI specs (gated by `PERF_BUDGETS_ENABLED`)
+- E2E Playwright flow (gated by `MS_E2E_ENABLED`)
+- Contract test expansion + nightly CI failure routing
+- Rollout runbook: `apps/api/docs/ms-sync-rollout-watch.md`
+- Known deferred: task comments (#4b), guest-user sync (blocked on identity), full perf harness wiring
+
 ---
 
 # Sub-Project #5 — Premium Features (Timeline/Gantt, Dependencies, Goals/KPI, AI Planner Agent)
