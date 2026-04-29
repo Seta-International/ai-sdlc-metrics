@@ -132,6 +132,7 @@ import { AcceptMsStateForConflictHandler } from './application/commands/ms-sync/
 import { MintMsRosterHandler } from './application/commands/ms-sync/mint-ms-roster.handler'
 import { ListConflictsHandler } from './application/queries/ms-sync/list-conflicts.handler'
 import { ForceResyncTaskHandler } from './application/commands/ms-sync/force-resync-task.handler'
+import { SendDailySyncHealthReportHandler } from './application/commands/ms-sync/send-daily-sync-health-report.handler'
 import { OutboxDirtyFieldsQuery } from './infrastructure/outbox/outbox-dirty-fields.query'
 import { MsSyncJobRegistrar } from './infrastructure/jobs/pg-boss.registrar'
 import { IdentityDirectorySyncedListener } from './application/event-handlers/identity-directory-synced.listener'
@@ -288,6 +289,7 @@ import { DrizzleRosterMemberRepository } from './infrastructure/repositories/dri
     ListConflictsHandler,
     MintMsRosterHandler,
     ForceResyncTaskHandler,
+    SendDailySyncHealthReportHandler,
     PollTenantHandler,
     PlannerQueryFacade,
     PlannerRouterService,
