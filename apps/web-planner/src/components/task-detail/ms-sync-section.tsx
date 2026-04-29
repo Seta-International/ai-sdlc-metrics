@@ -20,6 +20,16 @@ import {
 import { useSession } from '@future/auth'
 import { trpc } from '../../lib/trpc'
 
+interface MsSyncTrpcSlice {
+  planner: {
+    msSync: {
+      forceResyncTask: {
+        mutate: (input: { tenantId: string; actorId: string; taskId: string }) => Promise<void>
+      }
+    }
+  }
+}
+
 interface MsSyncSectionProps {
   task: {
     id: string
@@ -34,9 +44,11 @@ export function MsSyncSection({ task, onSyncComplete }: MsSyncSectionProps) {
   const session = useSession()
   const [confirmOpen, setConfirmOpen] = useState(false)
 
+  const t = trpc as unknown as MsSyncTrpcSlice
+
   const forceResync = useMutation({
     mutationFn: () =>
-      trpc.planner.msSync.forceResyncTask.mutate({
+      t.planner.msSync.forceResyncTask.mutate({
         tenantId: session!.tenantId,
         actorId: session!.actorId,
         taskId: task.id,
