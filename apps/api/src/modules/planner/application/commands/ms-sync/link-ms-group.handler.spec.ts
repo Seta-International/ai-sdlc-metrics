@@ -12,7 +12,7 @@ describe('LinkMsGroupHandler', () => {
       }),
     }
     const groupRepo = { findByTenantAndGroup: vi.fn().mockResolvedValue(null), upsert: vi.fn() }
-    const pgBoss = { send: vi.fn().mockResolvedValue('job-123') }
+    const pgBoss = { enqueue: vi.fn().mockResolvedValue('job-123') }
     const eventBus = { publish: vi.fn() }
 
     /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -29,7 +29,7 @@ describe('LinkMsGroupHandler', () => {
     expect(groupRepo.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId: 't1', msGroupId: 'g1', displayName: 'Marketing' }),
     )
-    expect(pgBoss.send).toHaveBeenCalledWith(
+    expect(pgBoss.enqueue).toHaveBeenCalledWith(
       'ms-sync-backfill-group',
       expect.objectContaining({ tenantId: 't1', msGroupId: 'g1' }),
       expect.objectContaining({ singletonKey: expect.stringContaining('g1') }),
@@ -42,7 +42,7 @@ describe('LinkMsGroupHandler', () => {
       findByTenantAndGroup: vi.fn().mockResolvedValue({ msGroupId: 'g1' }),
       upsert: vi.fn(),
     }
-    const pgBoss = { send: vi.fn() }
+    const pgBoss = { enqueue: vi.fn() }
     const eventBus = { publish: vi.fn() }
 
     /* eslint-disable @typescript-eslint/no-explicit-any */

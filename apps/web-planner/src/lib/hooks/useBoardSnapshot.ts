@@ -22,6 +22,7 @@ interface RawBoardTaskSnapshot {
   attachmentCount: number
   commentCount: number
   evidenceCount: number
+  hasPendingAttachment: boolean
   coverAttachmentId: string | null
   appliedLabels: string[]
   assignees: Array<{ actorId: string; name?: string; avatarUrl?: string }>

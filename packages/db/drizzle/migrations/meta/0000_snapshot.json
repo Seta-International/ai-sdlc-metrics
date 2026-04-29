@@ -1,5 +1,5 @@
 {
-  "id": "1afae34f-75c8-4961-83f8-8c1e5c4fec0b",
+  "id": "91bd37c6-1d74-40cf-97a2-34f32ebfa6d5",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -326,6 +326,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "planner_ms_sync_attachments_enabled": {
+          "name": "planner_ms_sync_attachments_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
         },
         "timezone": {
           "name": "timezone",
@@ -11514,6 +11521,31 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "ms_reference_url": {
+          "name": "ms_reference_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ms_sharepoint_drive_id": {
+          "name": "ms_sharepoint_drive_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ms_sharepoint_item_id": {
+          "name": "ms_sharepoint_item_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ms_sync_state": {
+          "name": "ms_sync_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'synced'"
         }
       },
       "indexes": {
@@ -11551,7 +11583,7 @@
       "checkConstraints": {
         "chk_task_attachment_kind_xor": {
           "name": "chk_task_attachment_kind_xor",
-          "value": "(\"planner\".\"task_attachment\".\"kind\" = 'file' AND \"planner\".\"task_attachment\".\"storage_key\" IS NOT NULL AND \"planner\".\"task_attachment\".\"url\" IS NULL)\n        OR (\"planner\".\"task_attachment\".\"kind\" = 'link' AND \"planner\".\"task_attachment\".\"url\" IS NOT NULL AND \"planner\".\"task_attachment\".\"storage_key\" IS NULL)"
+          "value": "(\"planner\".\"task_attachment\".\"kind\" = 'file' AND (\"planner\".\"task_attachment\".\"storage_key\" IS NOT NULL OR \"planner\".\"task_attachment\".\"ms_sync_state\" = 'pending_download') AND \"planner\".\"task_attachment\".\"url\" IS NULL)\n        OR (\"planner\".\"task_attachment\".\"kind\" = 'link' AND \"planner\".\"task_attachment\".\"url\" IS NOT NULL AND \"planner\".\"task_attachment\".\"storage_key\" IS NULL)"
         }
       },
       "isRLSEnabled": false

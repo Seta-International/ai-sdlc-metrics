@@ -10,12 +10,20 @@ import {
   MS_PLAN_SYNC_STATE_REPOSITORY,
   type IMsPlanSyncStateRepository,
 } from '../../../domain/repositories/ms-plan-sync-state.repository'
+import {
+  TASK_ATTACHMENT_REPOSITORY,
+  type ITaskAttachmentRepository,
+} from '../../../domain/repositories/task-attachment.repository'
 import { IdentityQueryFacade } from '../../../../identity/application/facades/identity-query.facade'
 import { MsPlanSyncStateEntity } from '../../../domain/entities/ms-plan-sync-state.entity'
+import { TaskAttachment } from '../../../domain/entities/task-attachment.entity'
 import { mapMsPlanToDomain } from '../mappers/ms-plan.mapper'
 import { mapMsBucketToDomain } from '../mappers/ms-bucket.mapper'
 import { mapMsTaskToDomain } from '../mappers/ms-task.mapper'
 import { mapMsTaskDetailsToDomain } from '../mappers/ms-task-details.mapper'
+import { PgBossService } from '../../../../../common/jobs/pg-boss.service'
+import { MS_SYNC_PULL_ATTACHMENT_JOB } from '../../jobs/job-names'
+import { uuidv7 } from 'uuidv7'
 
 export type PullOrigin = 'ms-sync-backfill' | 'ms-sync-pull'
 
@@ -37,7 +45,10 @@ export class PlanIngestor {
     private readonly taskRepo: ITaskRepository,
     @Inject(MS_PLAN_SYNC_STATE_REPOSITORY)
     private readonly syncStateRepo: IMsPlanSyncStateRepository,
+    @Inject(TASK_ATTACHMENT_REPOSITORY)
+    private readonly attachmentRepo: ITaskAttachmentRepository,
     private readonly identityFacade: IdentityQueryFacade,
+    private readonly pgBoss: PgBossService,
   ) {}
 
   async ingestPlan(input: IngestPlanInput): Promise<void> {
@@ -129,6 +140,12 @@ export class PlanIngestor {
             { taskId: upsertedTask.id, ...details },
             { origin: input.origin },
           )
+          await this.syncReferences(
+            input.tenantId,
+            upsertedTask.id,
+            details.references,
+            input.origin,
+          )
         }
       }
     }
@@ -139,6 +156,56 @@ export class PlanIngestor {
     for (const local of localTasks) {
       if (local.msTaskId && !msTaskIds.has(local.msTaskId) && !local.msSoftDeletedAt) {
         await this.taskRepo.softDeleteFromMs(local.id, { origin: input.origin })
+      }
+    }
+  }
+
+  private async syncReferences(
+    tenantId: string,
+    taskId: string,
+    references: Array<{ encodedUrl: string; alias: string | null; type: string | null }>,
+    _origin: string,
+  ): Promise<void> {
+    const existing = await this.attachmentRepo.list(taskId, tenantId)
+    const existingUrls = new Set(existing.map((a) => a.msReferenceUrl).filter(Boolean))
+
+    for (const ref of references) {
+      const url = decodeURIComponent(ref.encodedUrl)
+      if (existingUrls.has(url)) continue
+
+      const id = uuidv7()
+      const attachment = TaskAttachment.reconstitute({
+        id,
+        taskId,
+        tenantId,
+        createdBy: 'ms-sync',
+        kind: 'file',
+        storageKey: null,
+        filename: ref.alias ?? 'attachment',
+        contentType: null,
+        sizeBytes: null,
+        url: null,
+        linkTitle: null,
+        previewType: null,
+        createdAt: new Date(),
+        msSyncState: 'pending_download',
+        msReferenceUrl: url,
+        msSharepointDriveId: null,
+        msSharepointItemId: null,
+      })
+      await this.attachmentRepo.add(attachment)
+      await this.pgBoss.enqueue(
+        MS_SYNC_PULL_ATTACHMENT_JOB,
+        { attachmentId: id, tenantId },
+        { singletonKey: `pull-attachment:${id}` },
+      )
+    }
+
+    // Soft-delete attachments whose MS reference no longer exists
+    const refUrls = new Set(references.map((r) => decodeURIComponent(r.encodedUrl)))
+    for (const att of existing) {
+      if (att.msReferenceUrl && !refUrls.has(att.msReferenceUrl)) {
+        await this.attachmentRepo.remove(att.id, tenantId)
       }
     }
   }

@@ -87,6 +87,7 @@ function makeTask(overrides: Partial<BoardTaskSnapshot> = {}): BoardTaskSnapshot
     attachmentCount: 0,
     commentCount: 0,
     evidenceCount: 0,
+    hasPendingAttachment: false,
     coverAttachmentId: null,
     appliedLabels: [],
     assignees: [],
@@ -256,5 +257,29 @@ describe('TaskCard', () => {
     await user.click(screen.getByTestId('task-card-menu-btn'))
 
     expect(screen.getByText('Focus today')).toBeDefined()
+  })
+
+  it('shows "Attachment pending upload" badge when hasPendingAttachment is true', () => {
+    render(
+      <TaskCard
+        task={makeTask({ hasPendingAttachment: true })}
+        planLabels={emptyLabels}
+        {...TASK_PROPS}
+      />,
+      { wrapper: Wrapper },
+    )
+    expect(screen.getByTestId('pending-upload-badge')).toBeDefined()
+  })
+
+  it('does NOT show pending upload badge when hasPendingAttachment is false', () => {
+    render(
+      <TaskCard
+        task={makeTask({ hasPendingAttachment: false })}
+        planLabels={emptyLabels}
+        {...TASK_PROPS}
+      />,
+      { wrapper: Wrapper },
+    )
+    expect(screen.queryByTestId('pending-upload-badge')).toBeNull()
   })
 })

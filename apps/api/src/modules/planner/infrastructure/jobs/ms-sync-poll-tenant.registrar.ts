@@ -64,13 +64,13 @@ export class MsSyncPollTenantRegistrar implements OnApplicationBootstrap {
       MS_SYNC_POLL_JOB,
       CRON,
       { tenantId },
-      { key: `poll-tenant:${tenantId}`, startAfter: jitterSeconds },
+      { key: `poll-tenant/${tenantId}`, startAfter: jitterSeconds },
     )
     this.logger.log(`Scheduled ms-sync-poll-tenant for tenant=${tenantId} jitter=${jitterSeconds}s`)
   }
 
   private async cancelForTenant(tenantId: string): Promise<void> {
-    await this.pgBoss.unschedule(MS_SYNC_POLL_JOB, `poll-tenant:${tenantId}`)
+    await this.pgBoss.unschedule(MS_SYNC_POLL_JOB, `poll-tenant/${tenantId}`)
     this.logger.log(`Unscheduled ms-sync-poll-tenant for tenant=${tenantId}`)
   }
 }

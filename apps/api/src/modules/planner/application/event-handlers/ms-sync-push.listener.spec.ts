@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MsSyncPushListener } from './ms-sync-push.listener'
 import type { IPlanRepository } from '../../domain/repositories/plan.repository'
 import type { IdentityQueryFacade } from '../../../identity/application/facades/identity-query.facade'
+import type { AdminQueryFacade } from '../../../admin/application/facades/admin-query.facade'
 import type { PgBossService } from '../../../../common/jobs/pg-boss.service'
 import { PlanContainer } from '../../domain/value-objects/plan-container.vo'
 
@@ -9,6 +10,7 @@ const TENANT_ID = 'tenant-abc'
 const PLAN_ID = 'plan-123'
 const TASK_ID = 'task-456'
 const BUCKET_ID = 'bucket-789'
+const ATTACHMENT_ID = 'attach-abc'
 
 function makeMsGroupPlan() {
   return {
@@ -26,16 +28,21 @@ describe('MsSyncPushListener', () => {
   let pgBoss: { enqueue: ReturnType<typeof vi.fn> }
   let planRepo: { findById: ReturnType<typeof vi.fn> }
   let identityFacade: { getGraphCredential: ReturnType<typeof vi.fn> }
+  let adminFacade: { getPlannerViewFlags: ReturnType<typeof vi.fn> }
   let listener: MsSyncPushListener
 
   beforeEach(() => {
     pgBoss = { enqueue: vi.fn().mockResolvedValue('job-id') }
     planRepo = { findById: vi.fn() }
     identityFacade = { getGraphCredential: vi.fn() }
+    adminFacade = {
+      getPlannerViewFlags: vi.fn().mockResolvedValue({ msSyncAttachmentsEnabled: true }),
+    }
     listener = new MsSyncPushListener(
       pgBoss as unknown as PgBossService,
       planRepo as unknown as IPlanRepository,
       identityFacade as unknown as IdentityQueryFacade,
+      adminFacade as unknown as AdminQueryFacade,
     )
   })
 
@@ -190,5 +197,37 @@ describe('MsSyncPushListener', () => {
       { tenantId: TENANT_ID, taskId: TASK_ID },
       { singletonKey: `push-task:${TASK_ID}`, startAfter: 2 },
     )
+  })
+
+  it('attachment event + flag on → enqueues ms-sync-push-attachment', async () => {
+    identityFacade.getGraphCredential.mockResolvedValue({ status: 'active' })
+    adminFacade.getPlannerViewFlags.mockResolvedValue({ msSyncAttachmentsEnabled: true })
+
+    await listener.handle({
+      tenantId: TENANT_ID,
+      taskId: TASK_ID,
+      attachmentId: ATTACHMENT_ID,
+      origin: 'user',
+    })
+
+    expect(pgBoss.enqueue).toHaveBeenCalledWith(
+      'ms-sync-push-attachment',
+      { attachmentId: ATTACHMENT_ID, tenantId: TENANT_ID },
+      { singletonKey: `push-attachment:${ATTACHMENT_ID}` },
+    )
+  })
+
+  it('attachment event + flag off → no-op', async () => {
+    identityFacade.getGraphCredential.mockResolvedValue({ status: 'active' })
+    adminFacade.getPlannerViewFlags.mockResolvedValue({ msSyncAttachmentsEnabled: false })
+
+    await listener.handle({
+      tenantId: TENANT_ID,
+      taskId: TASK_ID,
+      attachmentId: ATTACHMENT_ID,
+      origin: 'user',
+    })
+
+    expect(pgBoss.enqueue).not.toHaveBeenCalled()
   })
 })

@@ -102,7 +102,9 @@ import { MyDayOrphanSweepJob } from './infrastructure/jobs/my-day-orphan-sweep.j
 import { MyDayOrphanSweepScheduler } from './infrastructure/jobs/my-day-orphan-sweep.scheduler'
 import { MsSyncPollTenantRegistrar } from './infrastructure/jobs/ms-sync-poll-tenant.registrar'
 import { MsSyncResolvePendingRegistrar } from './infrastructure/jobs/ms-sync-resolve-pending.registrar'
+import { MsSyncRetryAttachmentsRegistrar } from './infrastructure/jobs/ms-sync-retry-attachments.registrar'
 import { MsGraphClient } from './infrastructure/ms-graph/ms-graph-client'
+import { MsSharePointClient } from './infrastructure/ms-graph/ms-sharepoint-client'
 import { PlanIngestor } from './infrastructure/ms-graph/pull/plan-ingestor'
 import { BackfillGroupWorker } from './infrastructure/ms-graph/pull/backfill-group.worker'
 import { MsGraphTokenAcquirerAdapter } from './infrastructure/ms-graph/ms-graph-token-acquirer.adapter'
@@ -113,11 +115,15 @@ import { LocalDevSecretsStoreAdapter } from '../../common/secrets/local-dev-secr
 import { ConnectMsSyncHandler } from './application/commands/ms-sync/connect-ms-sync.handler'
 import { PollTenantHandler } from './application/commands/ms-sync/poll-tenant.handler'
 import { DisconnectMsSyncHandler } from './application/commands/ms-sync/disconnect-ms-sync.handler'
+import { LinkMsGroupHandler } from './application/commands/ms-sync/link-ms-group.handler'
 import { UnlinkMsGroupHandler } from './application/commands/ms-sync/unlink-ms-group.handler'
 import { ResolvePendingAssignmentsHandler } from './application/commands/ms-sync/resolve-pending-assignments.handler'
 import { PushTaskHandler } from './application/commands/ms-sync/push-task.handler'
 import { PushPlanHandler } from './application/commands/ms-sync/push-plan.handler'
 import { PushBucketHandler } from './application/commands/ms-sync/push-bucket.handler'
+import { PushAttachmentHandler } from './application/commands/ms-sync/push-attachment.handler'
+import { PullAttachmentHandler } from './application/commands/ms-sync/pull-attachment.handler'
+import { RetryPendingAttachmentsHandler } from './application/commands/ms-sync/retry-pending-attachments.handler'
 import { OutboxDirtyFieldsQuery } from './infrastructure/outbox/outbox-dirty-fields.query'
 import { MsSyncJobRegistrar } from './infrastructure/jobs/pg-boss.registrar'
 import { IdentityDirectorySyncedListener } from './application/event-handlers/identity-directory-synced.listener'
@@ -223,11 +229,14 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     MyDayOrphanSweepScheduler,
     ConnectMsSyncHandler,
     DisconnectMsSyncHandler,
+    LinkMsGroupHandler,
     UnlinkMsGroupHandler,
     ResolvePendingAssignmentsHandler,
     PushTaskHandler,
     PushPlanHandler,
     PushBucketHandler,
+    PushAttachmentHandler,
+    PullAttachmentHandler,
     OutboxDirtyFieldsQuery,
     MsSyncJobRegistrar,
     ListAvailableGroupsHandler,
@@ -246,10 +255,13 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     },
     { provide: MS_GRAPH_TOKEN_ACQUIRER, useClass: MsGraphTokenAcquirerAdapter },
     MsGraphClient,
+    MsSharePointClient,
     PlanIngestor,
     BackfillGroupWorker,
     MsSyncPollTenantRegistrar,
     MsSyncResolvePendingRegistrar,
+    MsSyncRetryAttachmentsRegistrar,
+    RetryPendingAttachmentsHandler,
     PollTenantHandler,
     PlannerQueryFacade,
     PlannerRouterService,

@@ -80,6 +80,7 @@ CREATE TABLE "admin"."tenant_settings" (
 	"planner_charts_trends_enabled" boolean DEFAULT false NOT NULL,
 	"planner_personal_enabled" boolean DEFAULT false NOT NULL,
 	"planner_ms_sync_enabled" boolean DEFAULT false NOT NULL,
+	"planner_ms_sync_attachments_enabled" boolean DEFAULT true NOT NULL,
 	"timezone" text DEFAULT 'Asia/Ho_Chi_Minh' NOT NULL,
 	"max_sampled_turns_per_day" integer DEFAULT 10000 NOT NULL,
 	"max_active_schedules" integer DEFAULT 100 NOT NULL,
@@ -1650,7 +1651,11 @@ CREATE TABLE "planner"."task_attachment" (
 	"tenant_id" uuid NOT NULL,
 	"created_by" uuid NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "chk_task_attachment_kind_xor" CHECK (("planner"."task_attachment"."kind" = 'file' AND "planner"."task_attachment"."storage_key" IS NOT NULL AND "planner"."task_attachment"."url" IS NULL)
+	"ms_reference_url" text,
+	"ms_sharepoint_drive_id" text,
+	"ms_sharepoint_item_id" text,
+	"ms_sync_state" text DEFAULT 'synced' NOT NULL,
+	CONSTRAINT "chk_task_attachment_kind_xor" CHECK (("planner"."task_attachment"."kind" = 'file' AND ("planner"."task_attachment"."storage_key" IS NOT NULL OR "planner"."task_attachment"."ms_sync_state" = 'pending_download') AND "planner"."task_attachment"."url" IS NULL)
         OR ("planner"."task_attachment"."kind" = 'link' AND "planner"."task_attachment"."url" IS NOT NULL AND "planner"."task_attachment"."storage_key" IS NULL))
 );
 --> statement-breakpoint

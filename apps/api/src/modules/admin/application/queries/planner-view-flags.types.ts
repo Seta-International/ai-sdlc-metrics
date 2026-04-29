@@ -6,4 +6,5 @@ export interface PlannerViewFlags {
   trendsEnabled: boolean
   personalEnabled: boolean
   msSyncEnabled: boolean
+  msSyncAttachmentsEnabled: boolean
 }

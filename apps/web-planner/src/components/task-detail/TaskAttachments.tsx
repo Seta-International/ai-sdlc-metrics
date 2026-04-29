@@ -4,6 +4,8 @@ import { useRef, useState } from 'react'
 import { useQueryClient } from '@future/api-client'
 import { useSession } from '@future/auth'
 import {
+  Badge,
+  Spinner,
   Button,
   Input,
   FileUploadTrigger,
@@ -11,6 +13,10 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
 } from '@future/ui'
 import { Paperclip, Link, MoreHorizontal, Download, ImageIcon, Trash2 } from '@future/ui/icons'
 import { toast } from '@future/ui'
@@ -38,6 +44,7 @@ interface AttachmentRowProps {
   attachment: AttachmentSnapshot
   isCover: boolean
   mutating: boolean
+  msSyncState: 'synced' | 'pending_upload' | 'pending_download' | 'not_syncable'
   onSetCover: (id: string) => void
   onRemove: (id: string) => void
 }
@@ -46,6 +53,7 @@ function AttachmentRow({
   attachment,
   isCover,
   mutating,
+  msSyncState,
   onSetCover,
   onRemove,
 }: AttachmentRowProps) {
@@ -70,6 +78,36 @@ function AttachmentRow({
           {attachment.kind === 'file' ? `${formatBytes(attachment.sizeBytes)} · ` : ''}
           {formatDate(attachment.createdAt)}
         </span>
+        {msSyncState === 'pending_upload' && (
+          <div
+            className="flex items-center gap-1 text-xs text-fg-muted"
+            data-testid="sync-state-pending-upload"
+          >
+            <Spinner className="size-3.5" />
+            Uploading to Microsoft 365
+          </div>
+        )}
+        {msSyncState === 'pending_download' && (
+          <div
+            className="flex items-center gap-1 text-xs text-fg-muted"
+            data-testid="sync-state-pending-download"
+          >
+            <Spinner className="size-3.5" />
+            Downloading from Microsoft 365
+          </div>
+        )}
+        {msSyncState === 'not_syncable' && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="subtle" data-testid="sync-state-not-syncable">
+                  Stays in Future
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>This attachment cannot be synced to Microsoft 365</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
 
       <DropdownMenu>
@@ -355,6 +393,7 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
                 attachment={att}
                 isCover={task?.coverAttachmentId === att.id}
                 mutating={mutating}
+                msSyncState={att.msSyncState ?? 'synced'}
                 onSetCover={handleSetCover}
                 onRemove={handleRemove}
               />
