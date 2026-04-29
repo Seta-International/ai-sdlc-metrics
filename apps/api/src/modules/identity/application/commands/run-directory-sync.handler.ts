@@ -1,5 +1,6 @@
 import { Inject } from '@nestjs/common'
-import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, EventBus, type ICommandHandler } from '@nestjs/cqrs'
+import { DirectorySyncCompletedEvent } from '@future/event-contracts'
 import {
   IdentityProviderNotFoundException,
   DirectorySyncAlreadyRunningException,
@@ -35,6 +36,7 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
     private readonly directoryProviderFactory: IDirectoryProviderFactory,
     private readonly actorFacade: KernelActorFacade,
     private readonly userIdentityFacade: KernelUserIdentityFacade,
+    private readonly eventBus: EventBus,
   ) {}
 
   async execute(command: RunDirectorySyncCommand): Promise<void> {
@@ -112,6 +114,16 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
         subjectId: command.identityProviderId,
         payload: { usersProcessed: idpUsers.length, groupsProcessed: idpGroups.length },
       })
+
+      await this.eventBus.publish(
+        new DirectorySyncCompletedEvent(
+          command.tenantId,
+          command.identityProviderId,
+          idpUsers.length,
+          idpGroups.length,
+          new Date().toISOString(),
+        ),
+      )
     } catch (err) {
       await this.providerRepo.update(command.identityProviderId, command.tenantId, {
         syncStatus: 'failed',
