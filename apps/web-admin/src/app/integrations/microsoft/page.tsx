@@ -315,6 +315,7 @@ export default function MicrosoftIntegrationPage() {
   const status = statusQuery.data
   const isPending =
     connectMutation.isPending || pauseMutation.isPending || destroyMutation.isPending
+  const openConflictCount = openConflictsQuery.data?.conflicts?.length ?? 0
 
   return (
     <main className="max-w-3xl space-y-6 p-8">
@@ -419,14 +420,9 @@ export default function MicrosoftIntegrationPage() {
               {flagsQuery.data?.msSyncRostersEnabled === true && (
                 <TabsTrigger value="rosters">Linked Rosters</TabsTrigger>
               )}
-              {(() => {
-                const openCount = openConflictsQuery.data?.conflicts?.length ?? 0
-                return (
-                  <TabsTrigger value="conflicts">
-                    Conflicts{openCount > 0 ? ` (${openCount})` : ''}
-                  </TabsTrigger>
-                )
-              })()}
+              <TabsTrigger value="conflicts">
+                Conflicts{openConflictCount > 0 ? ` (${openConflictCount})` : ''}
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="groups" className="mt-4">
