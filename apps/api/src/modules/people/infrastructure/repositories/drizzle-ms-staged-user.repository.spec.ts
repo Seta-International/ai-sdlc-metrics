@@ -54,6 +54,70 @@ describe('DrizzleMsStagedUserRepository', () => {
     ).rejects.toThrow('Upsert failed')
   })
 
+  it('findById returns a record when one exists', async () => {
+    const fakeRow = {
+      id: STAGED_USER_ID,
+      tenantId: TENANT_ID,
+      msExternalId: 'ext-id',
+      displayName: 'Test',
+      status: 'pending',
+    }
+    mockDb.select.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([fakeRow]) }),
+      }),
+    })
+    const result = await repo.findById(STAGED_USER_ID, TENANT_ID)
+    expect(result).toEqual(fakeRow)
+  })
+
+  it('findByMsExternalId returns a record when one exists', async () => {
+    const fakeRow = {
+      id: STAGED_USER_ID,
+      tenantId: TENANT_ID,
+      msExternalId: 'ext-id',
+      displayName: 'Test',
+      status: 'pending',
+    }
+    mockDb.select.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([fakeRow]) }),
+      }),
+    })
+    const result = await repo.findByMsExternalId('ext-id', TENANT_ID)
+    expect(result).toEqual(fakeRow)
+  })
+
+  it('upsertPending returns the created staged user', async () => {
+    const fakeRow = {
+      id: STAGED_USER_ID,
+      tenantId: TENANT_ID,
+      msExternalId: 'ext-id',
+      displayName: 'Test',
+      status: 'pending',
+    }
+    mockDb.insert.mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        onConflictDoUpdate: vi
+          .fn()
+          .mockReturnValue({ returning: vi.fn().mockResolvedValue([fakeRow]) }),
+      }),
+    })
+    const result = await repo.upsertPending(TENANT_ID, {
+      msExternalId: 'ext-id',
+      displayName: 'Test',
+      email: null,
+      jobTitle: null,
+      department: null,
+      officeLocation: null,
+      mobilePhone: null,
+      workPhone: null,
+      managerMsId: null,
+      photoDocumentId: null,
+    })
+    expect(result).toEqual(fakeRow)
+  })
+
   it('updateStatus calls update on db', async () => {
     await repo.updateStatus(STAGED_USER_ID, TENANT_ID, 'imported')
     expect(mockDb.update).toHaveBeenCalled()
