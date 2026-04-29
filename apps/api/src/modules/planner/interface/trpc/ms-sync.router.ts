@@ -15,6 +15,7 @@ import { ListLinkedRostersQuery } from '../../application/queries/ms-sync/list-l
 import { ListConflictsQuery } from '../../application/queries/ms-sync/list-conflicts.query'
 import { RetryConflictCommand } from '../../application/commands/ms-sync/retry-conflict.command'
 import { AcceptMsStateForConflictCommand } from '../../application/commands/ms-sync/accept-ms-state-for-conflict.command'
+import { GetTenantSyncHealthQuery } from '../../application/queries/ms-sync/get-tenant-sync-health.query'
 import { PlannerRouterService } from './planner-router.service'
 import { toPlannerTrpcError } from './planner-trpc-error'
 
@@ -247,6 +248,14 @@ export const msSyncRouter = router({
         msSyncRostersEnabled: flags.msSyncRostersEnabled,
       }
     }),
+
+  tenantSyncHealth: publicProcedure.query(async () => {
+    return svc()
+      .query(new GetTenantSyncHealthQuery())
+      .catch((e) => {
+        throw toPlannerTrpcError(e)
+      })
+  }),
 
   conflicts: router({
     list: publicProcedure

@@ -19,11 +19,24 @@ export interface PlatformTenant {
   lastAdminActivityAt?: Date | null
 }
 
+export interface TenantSyncHealthRow {
+  tenantId: string
+  linkedGroups: number
+  openConflicts: number
+  status: 'active' | 'disconnected'
+}
+
 /** Query key for react-query caching */
 export const listPlatformTenantsQueryKey = ['admin', 'platform', 'listTenants'] as const
 
+/** Query key for MS sync health data */
+export const tenantSyncHealthQueryKey = ['planner', 'msSync', 'tenantSyncHealth'] as const
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const adminPlatform = (trpc.admin as any).platform
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const plannerMsSync = (trpc.planner as any).msSync
 
 export async function listPlatformTenants(): Promise<PlatformTenant[]> {
   // Cast: router type uses public stub; real runtime router has nested platform sub-router.
@@ -38,4 +51,9 @@ export async function updateTenantStatus(input: {
 }): Promise<void> {
   // Cast: same reason as above.
   await adminPlatform.updateTenantStatus.mutate(input)
+}
+
+export async function listTenantSyncHealth(): Promise<TenantSyncHealthRow[]> {
+  const result = await plannerMsSync.tenantSyncHealth.query()
+  return result as TenantSyncHealthRow[]
 }
