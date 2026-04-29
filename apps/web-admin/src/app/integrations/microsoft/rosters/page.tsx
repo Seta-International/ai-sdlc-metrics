@@ -135,6 +135,21 @@ export default function RostersPage() {
     )
   }
 
+  if (flagsQuery.data?.msSyncRostersEnabled === false) {
+    return (
+      <main className="max-w-3xl space-y-4 p-8">
+        <h1 className="text-h2">Rosters</h1>
+        <Alert>
+          <AlertTitle>Roster sync not enabled</AlertTitle>
+          <AlertDescription>
+            Ask a platform admin to enable the <code>planner.ms_sync.rosters.enabled</code> flag for
+            this tenant.
+          </AlertDescription>
+        </Alert>
+      </main>
+    )
+  }
+
   if (rostersQuery.isLoading) {
     return (
       <main className="max-w-3xl space-y-4 p-8">
@@ -155,13 +170,6 @@ export default function RostersPage() {
           Manage Microsoft Planner rosters linked to Future.
         </p>
       </header>
-
-      {flagsQuery.data?.msSyncRostersEnabled === false && (
-        <Alert>
-          <AlertTitle>Roster sync disabled</AlertTitle>
-          <AlertDescription>Roster sync is disabled.</AlertDescription>
-        </Alert>
-      )}
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
