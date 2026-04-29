@@ -393,4 +393,14 @@ describe('msSyncRouter — unit (mocked command/query bus)', () => {
     expect(dispatched).toBeInstanceOf(UnlinkRosterCommand)
     expect(dispatched.msRosterId).toBe('roster-xyz')
   })
+
+  it('planner.msSync.flags returns msSyncAttachmentsEnabled and msSyncRostersEnabled', async () => {
+    const caller = plannerRouter.createCaller(makeCtx())
+    const result = await caller.msSync.flags({ tenantId: TENANT_ID })
+
+    expect(result).toEqual({
+      msSyncAttachmentsEnabled: true,
+      msSyncRostersEnabled: true,
+    })
+  })
 })
