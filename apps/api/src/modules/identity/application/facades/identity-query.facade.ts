@@ -17,6 +17,9 @@ import { GetLoginOptionsQuery } from '../queries/get-login-options.query'
 import type { LoginOptionsResult } from '../queries/get-login-options.handler'
 import { GetMicrosoftUserDataQuery } from '../queries/get-microsoft-user-data.query'
 import type { MicrosoftUserData } from '../queries/get-microsoft-user-data.handler'
+import { GetUsersDeltaQuery } from '../queries/get-users-delta.query'
+import type { UsersDeltaResult } from '../queries/get-users-delta.handler'
+export type { UsersDeltaResult, IdpUserWithProfile } from '../queries/get-users-delta.handler'
 
 export type { GroupMemberResolution } from '../queries/list-group-members.handler'
 export type { MsGraphCredentialEntity } from '../../domain/entities/ms-graph-credential.entity'
@@ -84,5 +87,9 @@ export class IdentityQueryFacade {
 
   getMicrosoftUserData(actorId: string, tenantId: string): Promise<MicrosoftUserData | null> {
     return this.queryBus.execute(new GetMicrosoftUserDataQuery(actorId, tenantId))
+  }
+
+  listUsersDelta(tenantId: string, deltaToken?: string): Promise<UsersDeltaResult | null> {
+    return this.queryBus.execute(new GetUsersDeltaQuery(tenantId, deltaToken))
   }
 }

@@ -1298,6 +1298,34 @@ CREATE TABLE "people"."job_profile" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "people"."ms_profile_sync_state" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"delta_token" text,
+	"last_synced_at" timestamp,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "ms_profile_sync_state_tenant_id_unique" UNIQUE("tenant_id")
+);
+--> statement-breakpoint
+CREATE TABLE "people"."ms_staged_user" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"ms_external_id" text NOT NULL,
+	"display_name" text NOT NULL,
+	"email" text,
+	"job_title" text,
+	"department" text,
+	"office_location" text,
+	"mobile_phone" text,
+	"work_phone" text,
+	"manager_ms_id" text,
+	"photo_document_id" uuid,
+	"status" text NOT NULL,
+	"imported_employment_id" uuid,
+	"last_seen_at" timestamp NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "people"."offboarding_case" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"tenant_id" uuid NOT NULL,
@@ -1907,6 +1935,7 @@ CREATE UNIQUE INDEX "field_visibility_config_tenant_path_uidx" ON "people"."fiel
 CREATE UNIQUE INDEX "uq_directory_search_index_employment" ON "people"."directory_search_index" USING btree ("tenant_id","employment_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "employment_detail_tenant_employment_uidx" ON "people"."employment_detail" USING btree ("tenant_id","employment_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "job_history_tenant_profile_from_uidx" ON "people"."job_history" USING btree ("tenant_id","profile_id","effective_from");--> statement-breakpoint
+CREATE UNIQUE INDEX "ms_staged_user_tenant_external_uidx" ON "people"."ms_staged_user" USING btree ("tenant_id","ms_external_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "person_profile_tenant_actor_uidx" ON "people"."person_profile" USING btree ("tenant_id","actor_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "uniq_ms_linked_group_tenant_msgroup" ON "planner"."ms_linked_group" USING btree ("tenant_id","ms_group_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "uniq_ms_linked_roster_tenant_msroster" ON "planner"."ms_linked_roster" USING btree ("tenant_id","ms_roster_id");--> statement-breakpoint

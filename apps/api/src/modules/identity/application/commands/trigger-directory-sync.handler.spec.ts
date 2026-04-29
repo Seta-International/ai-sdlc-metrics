@@ -61,7 +61,7 @@ describe('TriggerDirectorySyncHandler', () => {
     const result = await handler.execute(new TriggerDirectorySyncCommand(TENANT_ID, ACTOR_ID))
 
     expect(result).toEqual({ jobId: JOB_ID })
-    expect(jobScheduler.enqueueDirectorySync).toHaveBeenCalledWith(TENANT_ID)
+    expect(jobScheduler.enqueueDirectorySync).toHaveBeenCalledWith(TENANT_ID, PROVIDER_ID)
   })
 
   it('throws when no provider configured', async () => {

@@ -2,15 +2,17 @@ import { Injectable, Logger } from '@nestjs/common'
 import type { IJobScheduler } from '../../domain/ports/job-scheduler.port'
 
 /**
- * Stub implementation — pg-boss job scheduling for directory sync not yet wired up.
- * Replace with PgBossJobScheduler once the jobs table is set up.
+ * Stub implementation — used only in tests and legacy wiring.
+ * Production: see PgBossJobScheduler.
  */
 @Injectable()
 export class StubJobScheduler implements IJobScheduler {
   private readonly logger = new Logger(StubJobScheduler.name)
 
-  async enqueueDirectorySync(tenantId: string): Promise<string> {
-    this.logger.warn(`StubJobScheduler.enqueueDirectorySync() — tenantId: ${tenantId}`)
+  async enqueueDirectorySync(tenantId: string, identityProviderId: string): Promise<string> {
+    this.logger.warn(
+      `StubJobScheduler.enqueueDirectorySync() — tenantId: ${tenantId} providerId: ${identityProviderId}`,
+    )
     return 'stub-job-id'
   }
 

@@ -5,10 +5,6 @@ import { ProfileHero } from './ProfileHero'
 import type { EmployeeProfile } from '../../../lib/types'
 import type { ProfilePermissions } from '../ProfilePage'
 
-vi.mock('../../../lib/trpc', () => ({
-  trpc: {},
-}))
-
 vi.mock('../../../components/StatusBadge', () => ({
   StatusBadge: ({ status }: { status: string }) => <span>{status}</span>,
 }))
@@ -100,7 +96,6 @@ const noPerms: ProfilePermissions = {
   canCreateContract: false,
   canViewSalary: false,
   canApproveChanges: false,
-  canSyncFromMicrosoft: false,
 }
 
 describe('ProfileHero', () => {
@@ -266,7 +261,7 @@ describe('ProfileHero', () => {
     expect(screen.getByTestId('rehire-dialog')).toBeTruthy()
   })
 
-  it('does not render Sync from Microsoft button when canSyncFromMicrosoft is false', () => {
+  it('does not render Sync from Microsoft button', () => {
     render(
       <ProfileHero
         profile={baseProfile}
@@ -278,20 +273,6 @@ describe('ProfileHero', () => {
       />,
     )
     expect(screen.queryByText('Sync from Microsoft')).toBeNull()
-  })
-
-  it('renders Sync from Microsoft button when canSyncFromMicrosoft is true', () => {
-    render(
-      <ProfileHero
-        profile={baseProfile}
-        permissions={{ ...noPerms, canSyncFromMicrosoft: true }}
-        isEditing={false}
-        onEdit={vi.fn()}
-        onDoneEditing={vi.fn()}
-        onShare={vi.fn()}
-      />,
-    )
-    expect(screen.getByText('Sync from Microsoft')).toBeTruthy()
   })
 })
 

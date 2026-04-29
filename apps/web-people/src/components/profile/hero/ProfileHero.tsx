@@ -8,10 +8,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Spinner,
   TabsList,
   TabsTrigger,
-  toast,
 } from '@future/ui'
 import {
   Edit,
@@ -21,16 +19,11 @@ import {
   UserMinus,
   Mail,
   CalendarDays,
-  RefreshCw,
 } from '@future/ui/icons'
 import { StatusBadge } from '../../StatusBadge'
 import { RehireDialog } from './RehireDialog'
 import type { EmployeeProfile } from '../../../lib/types'
 import type { ProfilePermissions } from '../ProfilePage'
-import { trpc } from '../../../lib/trpc'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const anyTrpc = trpc as any
 
 interface ProfileHeroProps {
   profile: EmployeeProfile
@@ -53,25 +46,7 @@ export function ProfileHero({
 }: ProfileHeroProps) {
   const { personProfile, employment, currentJob } = profile
   const [showRehire, setShowRehire] = React.useState(false)
-  const [isSyncing, setIsSyncing] = React.useState(false)
   const isTerminated = employment.employmentStatus === 'terminated'
-
-  async function handleSyncFromMicrosoft() {
-    if (isSyncing) return
-    setIsSyncing(true)
-    try {
-      const result = await anyTrpc.people.syncFromMicrosoft.mutate({ employmentId: employment.id })
-      if (result.updatedFields.length > 0) {
-        toast.success(`Synced ${result.updatedFields.length} fields from Microsoft`)
-      } else {
-        toast.info('No changes — profile is already up to date')
-      }
-    } catch {
-      toast.error('Sync failed — check Microsoft connection and try again')
-    } finally {
-      setIsSyncing(false)
-    }
-  }
 
   const initials = personProfile.fullName
     .split(' ')
@@ -101,18 +76,6 @@ export function ProfileHero({
                 Edit profile
               </Button>
             ))}
-          {permissions.canSyncFromMicrosoft && (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isSyncing}
-              onClick={() => void handleSyncFromMicrosoft()}
-              className="gap-1.5"
-            >
-              {isSyncing ? <Spinner className="size-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
-              Sync from Microsoft
-            </Button>
-          )}
           <Button variant="ghost" size="sm" onClick={onShare} className="gap-1.5">
             <Share2 className="h-3.5 w-3.5" />
             Share

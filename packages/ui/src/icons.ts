@@ -22,6 +22,7 @@ export {
   ChevronRight,
   ChevronUp,
   Clock,
+  Cloud,
   Copy,
   Cpu,
   DollarSign,
