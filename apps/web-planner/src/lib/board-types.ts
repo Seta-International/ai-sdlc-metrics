@@ -33,6 +33,8 @@ export interface BoardTaskSnapshot {
   appliedLabels: string[]
   assignees: BoardAssignee[]
   updatedAt: Date
+  /** Present when the plan is linked to MS 365 Planner. Indicates per-task sync state. */
+  msSyncState?: 'synced' | 'pending_upload' | 'pending_download' | 'assignee_blocked' | null
 }
 
 export interface BoardBucketSnapshot {

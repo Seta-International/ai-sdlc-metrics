@@ -13,6 +13,7 @@ import { AssigneeAvatarStack } from '../primitives/AssigneeAvatarStack'
 import { LabelPill } from '../primitives/LabelPill'
 import { TaskCardCover } from './TaskCardCover'
 import { PersonalPlanBadge } from '../PersonalPlanBadge'
+import { AssigneeBlockedIndicator } from './AssigneeBlockedIndicator'
 import { AssigneePicker } from '../assignees/AssigneePicker'
 import { LabelPicker } from '../labels/LabelPicker'
 import { trpc } from '../../lib/trpc'
@@ -434,7 +435,10 @@ export function TaskCard({
 
         {/* Footer: assignees + due date + checklist badge */}
         <div className="flex items-center justify-between gap-2">
-          <AssigneeAvatarStack assignees={task.assignees} maxVisible={3} />
+          <div className="flex items-center gap-1">
+            <AssigneeAvatarStack assignees={task.assignees} maxVisible={3} />
+            {task.msSyncState === 'assignee_blocked' && <AssigneeBlockedIndicator />}
+          </div>
 
           <div className="flex items-center gap-1.5 ml-auto">
             {/* Checklist badge */}

@@ -103,6 +103,7 @@ export {
   UserPlus,
   UserPlusIcon,
   UserSearch,
+  UserX,
   Users,
   UsersIcon,
   Wallet,
