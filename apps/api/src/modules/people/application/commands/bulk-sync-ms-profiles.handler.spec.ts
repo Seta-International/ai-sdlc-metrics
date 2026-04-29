@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { CommandBus } from '@nestjs/cqrs'
 import { BulkSyncMsProfilesHandler } from './bulk-sync-ms-profiles.handler'
 import { BulkSyncMsProfilesCommand } from './bulk-sync-ms-profiles.command'
@@ -124,6 +124,7 @@ describe('BulkSyncMsProfilesHandler', () => {
       tenantId: TENANT_ID,
       personProfileId: 'pp1',
       employmentStatus: 'active',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
 
     const handler = new BulkSyncMsProfilesHandler(
@@ -176,6 +177,7 @@ describe('BulkSyncMsProfilesHandler', () => {
       tenantId: TENANT_ID,
       msExternalId: 'ms-del-1',
       status: 'pending',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
 
     const handler = new BulkSyncMsProfilesHandler(
@@ -231,6 +233,7 @@ describe('BulkSyncMsProfilesHandler', () => {
     vi.mocked(mocks.employmentRepo.findActiveByActorId!).mockResolvedValue({
       id: EMPLOYMENT_ID,
       tenantId: TENANT_ID,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
     vi.mocked(mocks.commandBus.execute).mockRejectedValueOnce(new Error('sync failed'))
 

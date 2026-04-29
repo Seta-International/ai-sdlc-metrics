@@ -37,11 +37,13 @@ describe('GetMsSyncStatusHandler', () => {
   })
 
   it('returns connected=true when credential status is active', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(identityFacade.getGraphCredential).mockResolvedValue({ status: 'active' } as any)
     vi.mocked(syncStateRepo.findByTenantId).mockResolvedValue({
       tenantId: TENANT,
       deltaToken: null,
       lastSyncedAt: new Date('2026-01-01T10:00:00Z'),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
     vi.mocked(stagedUserRepo.countByStatus).mockResolvedValueOnce(3).mockResolvedValueOnce(7)
 
@@ -65,6 +67,7 @@ describe('GetMsSyncStatusHandler', () => {
   })
 
   it('returns connected=false when credential status is invalid', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(identityFacade.getGraphCredential).mockResolvedValue({ status: 'invalid' } as any)
     vi.mocked(syncStateRepo.findByTenantId).mockResolvedValue(null)
     vi.mocked(stagedUserRepo.countByStatus).mockResolvedValue(0)

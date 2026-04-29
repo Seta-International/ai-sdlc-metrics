@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { EventBus } from '@nestjs/cqrs'
 import { PersonHiredEvent } from '@future/event-contracts'
 import { ImportStagedMsUserHandler } from './import-staged-ms-user.handler'
@@ -133,6 +133,7 @@ describe('ImportStagedMsUserHandler', () => {
     vi.mocked(mocks.identityFacade.getActorIdByExternalUserId!).mockResolvedValue('existing-actor')
     vi.mocked(mocks.employmentRepo.findActiveByActorId!).mockResolvedValue({
       id: 'existing-emp',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
 
     await expect(
