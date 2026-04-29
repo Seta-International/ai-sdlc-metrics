@@ -34,7 +34,8 @@ import { OAUTH_TOKEN_EXCHANGER } from './domain/ports/oauth-token-exchanger.port
 import { DirectoryProviderFactory } from './infrastructure/providers/directory-provider.factory'
 import { MsGraphTokenAcquirer } from './infrastructure/providers/microsoft/ms-graph-token-acquirer'
 import { NodeCryptoProvider } from './infrastructure/providers/node-crypto.provider'
-import { StubJobScheduler } from './infrastructure/jobs/stub-job-scheduler'
+import { PgBossJobScheduler } from './infrastructure/jobs/pg-boss-job-scheduler'
+import { IdentityDirectorySyncRegistrar } from './infrastructure/jobs/identity-directory-sync.registrar'
 import { MailMagicLinkSender } from './infrastructure/mailers/mail-magic-link.sender'
 import { DrizzleLocalUserQueryService } from './infrastructure/queries/drizzle-local-user-query.service'
 import { AwsSecretsStoreAdapter } from './infrastructure/secrets/aws-secrets-store.adapter'
@@ -137,7 +138,8 @@ const QueryHandlers = [
           : new AwsSecretsStoreAdapter({ region: process.env.AWS_REGION ?? 'ap-southeast-1' }),
     },
     { provide: CRYPTO_PROVIDER, useClass: NodeCryptoProvider },
-    { provide: JOB_SCHEDULER, useClass: StubJobScheduler },
+    { provide: JOB_SCHEDULER, useClass: PgBossJobScheduler },
+    IdentityDirectorySyncRegistrar,
     { provide: MAGIC_LINK_SENDER, useClass: MailMagicLinkSender },
     { provide: LOCAL_USER_QUERY_PORT, useClass: DrizzleLocalUserQueryService },
     MsGraphTokenAcquirer,
