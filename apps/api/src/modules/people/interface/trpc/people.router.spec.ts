@@ -6,7 +6,6 @@ import { publicProcedure, router } from '../../../../common/trpc/trpc-init'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { PeopleQueryFacade } from '../../application/facades/people-query.facade'
-import type { IdentityQueryFacade } from '../../../identity/application/facades/identity-query.facade'
 import { createProtectedProcedures } from '../../../../common/trpc/create-protected-procedures'
 import { PeopleTrpcService } from './people-trpc.service'
 import { RehireEmploymentCommand } from '../../application/commands/rehire-employment.command'
@@ -36,7 +35,6 @@ describe('createPeopleRouter', () => {
       peopleFacade as unknown as PeopleQueryFacade,
       kernelFacade as unknown as KernelQueryFacade,
       auditFacade as unknown as KernelAuditFacade,
-      {} as unknown as IdentityQueryFacade,
     )
     return { peopleRouter, kernelFacade, auditFacade, peopleFacade }
   }
@@ -293,16 +291,11 @@ describe('createPeopleRouter', () => {
         kernelFacade as unknown as KernelQueryFacade,
         auditFacade as unknown as KernelAuditFacade,
       )
-      const identityFacade = {
-        getGraphCredential: vi.fn().mockResolvedValue(null),
-        getExternalUserId: vi.fn().mockResolvedValue(null),
-      }
       const peopleRouter = createPeopleRouter(
         permissionProtectedProcedure,
         peopleFacade as unknown as PeopleQueryFacade,
         kernelFacade as unknown as KernelQueryFacade,
         auditFacade as unknown as KernelAuditFacade,
-        identityFacade as unknown as IdentityQueryFacade,
       )
       const caller = router({ people: peopleRouter }).createCaller({
         actorId: opts.viewerActorId ?? ACTOR_ID,
