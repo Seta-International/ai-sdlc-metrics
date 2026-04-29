@@ -27,7 +27,6 @@ export type ProfilePermissions = {
   canCreateContract: boolean
   canViewSalary: boolean
   canApproveChanges: boolean
-  canSyncFromMicrosoft: boolean
 }
 
 const defaultPermissions: ProfilePermissions = {
@@ -41,7 +40,6 @@ const defaultPermissions: ProfilePermissions = {
   canCreateContract: false,
   canViewSalary: false,
   canApproveChanges: false,
-  canSyncFromMicrosoft: false,
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

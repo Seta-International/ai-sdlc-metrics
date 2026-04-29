@@ -96,7 +96,6 @@ const noPerms: ProfilePermissions = {
   canCreateContract: false,
   canViewSalary: false,
   canApproveChanges: false,
-  canSyncFromMicrosoft: false,
 }
 
 describe('ProfileHero', () => {
