@@ -128,6 +128,7 @@ import { PushAttachmentHandler } from './application/commands/ms-sync/push-attac
 import { PullAttachmentHandler } from './application/commands/ms-sync/pull-attachment.handler'
 import { RetryPendingAttachmentsHandler } from './application/commands/ms-sync/retry-pending-attachments.handler'
 import { MintMsRosterHandler } from './application/commands/ms-sync/mint-ms-roster.handler'
+import { SendDailySyncHealthReportHandler } from './application/commands/ms-sync/send-daily-sync-health-report.handler'
 import { OutboxDirtyFieldsQuery } from './infrastructure/outbox/outbox-dirty-fields.query'
 import { MsSyncJobRegistrar } from './infrastructure/jobs/pg-boss.registrar'
 import { IdentityDirectorySyncedListener } from './application/event-handlers/identity-directory-synced.listener'
@@ -278,6 +279,7 @@ import { DrizzleRosterMemberRepository } from './infrastructure/repositories/dri
     MsSyncRetryAttachmentsRegistrar,
     RetryPendingAttachmentsHandler,
     MintMsRosterHandler,
+    SendDailySyncHealthReportHandler,
     PollTenantHandler,
     PlannerQueryFacade,
     PlannerRouterService,
