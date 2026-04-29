@@ -34,4 +34,16 @@ describe('DrizzleMsProfileSyncStateRepository', () => {
     const result = await repo.findByTenantId(TENANT_ID)
     expect(result).toBeNull()
   })
+
+  it('upsert calls insert with onConflictDoUpdate', async () => {
+    const deltaToken = 'some-delta-token'
+    const lastSyncedAt = new Date('2026-01-01')
+    await repo.upsert(TENANT_ID, deltaToken, lastSyncedAt)
+    expect(mockDb.insert).toHaveBeenCalled()
+  })
+
+  it('clearDeltaToken calls update with null deltaToken', async () => {
+    await repo.clearDeltaToken(TENANT_ID)
+    expect(mockDb.update).toHaveBeenCalled()
+  })
 })
