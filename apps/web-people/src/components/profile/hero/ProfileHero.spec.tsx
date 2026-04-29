@@ -266,7 +266,7 @@ describe('ProfileHero', () => {
     expect(screen.getByTestId('rehire-dialog')).toBeTruthy()
   })
 
-  it('does not render Sync from Microsoft button when canSyncFromMicrosoft is false', () => {
+  it('does not render Sync from Microsoft button', () => {
     render(
       <ProfileHero
         profile={baseProfile}
@@ -280,18 +280,18 @@ describe('ProfileHero', () => {
     expect(screen.queryByText('Sync from Microsoft')).toBeNull()
   })
 
-  it('renders Sync from Microsoft button when canSyncFromMicrosoft is true', () => {
-    render(
+  it('does not render a Sync from Microsoft button', () => {
+    const { queryByText } = render(
       <ProfileHero
-        profile={baseProfile}
-        permissions={{ ...noPerms, canSyncFromMicrosoft: true }}
+        profile={baseProfile as any}
+        permissions={noPerms}
         isEditing={false}
-        onEdit={vi.fn()}
-        onDoneEditing={vi.fn()}
-        onShare={vi.fn()}
+        onEdit={() => {}}
+        onDoneEditing={() => {}}
+        onShare={() => {}}
       />,
     )
-    expect(screen.getByText('Sync from Microsoft')).toBeTruthy()
+    expect(queryByText(/sync from microsoft/i)).toBeNull()
   })
 })
 
