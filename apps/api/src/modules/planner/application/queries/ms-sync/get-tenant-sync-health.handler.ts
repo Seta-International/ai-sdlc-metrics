@@ -36,7 +36,10 @@ export class GetTenantSyncHealthHandler implements IQueryHandler<
 
     for (const tenantId of tenantIds) {
       const groups = await this.groupRepo.listActiveForTenant(tenantId)
-      const openConflictRows = await this.conflictRepo.listOpenForTenant(tenantId)
+      const openConflictRows = await this.conflictRepo.list(tenantId, {
+        resolved: 'open',
+        limit: 200,
+      })
 
       results.push({
         tenantId,
