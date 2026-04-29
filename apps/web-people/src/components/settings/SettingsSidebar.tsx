@@ -1,4 +1,5 @@
 'use client'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -12,7 +13,12 @@ import {
   UserMinus,
   Shield,
   BarChart3,
+  Cloud,
 } from '@future/ui/icons'
+import { trpc } from '../../lib/trpc'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const anyTrpc = trpc as any
 
 const settingsLinks = [
   { href: '/settings/job-catalog', label: 'Job Catalog', icon: Briefcase },
@@ -29,9 +35,21 @@ const settingsLinks = [
 
 export function SettingsSidebar() {
   const pathname = usePathname()
+  const [msConnected, setMsConnected] = useState(false)
+
+  useEffect(() => {
+    ;(anyTrpc.people.getMsSyncStatus.query() as Promise<{ connected: boolean }>)
+      .then((s) => setMsConnected(s.connected))
+      .catch(() => setMsConnected(false))
+  }, [])
+
+  const links = msConnected
+    ? [...settingsLinks, { href: '/settings/ms-imports', label: 'Microsoft Imports', icon: Cloud }]
+    : settingsLinks
+
   return (
     <nav className="w-56 shrink-0 space-y-1">
-      {settingsLinks.map((link) => {
+      {links.map((link) => {
         const isActive = pathname.startsWith(link.href)
         const Icon = link.icon
         return (
