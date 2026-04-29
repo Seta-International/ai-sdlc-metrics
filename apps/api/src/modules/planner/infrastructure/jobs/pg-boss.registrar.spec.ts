@@ -5,6 +5,7 @@ import type { Db } from '@future/db'
 import type { ClsService } from 'nestjs-cls'
 import type { RequestDbContextService } from '../../../../common/db/request-db-context.service'
 import type { BackfillGroupWorker } from '../ms-graph/pull/backfill-group.worker'
+import type { BackfillRosterWorker } from '../ms-graph/pull/backfill-roster.worker'
 import {
   MS_SYNC_PUSH_TASK_JOB,
   MS_SYNC_PUSH_PLAN_JOB,
@@ -33,6 +34,10 @@ function makeMocks() {
     run: vi.fn().mockResolvedValue(undefined),
   } as unknown as BackfillGroupWorker
 
+  const backfillRosterWorker = {
+    run: vi.fn().mockResolvedValue(undefined),
+  } as unknown as BackfillRosterWorker
+
   const baseDb = {} as unknown as Db
   const requestDbContext = {} as unknown as RequestDbContextService
   const cls = {} as unknown as ClsService
@@ -40,13 +45,14 @@ function makeMocks() {
   const registrar = new MsSyncJobRegistrar(
     pgBoss,
     backfillWorker,
+    backfillRosterWorker,
     commandBus,
     baseDb,
     requestDbContext,
     cls,
   )
 
-  return { pgBoss, commandBus, backfillWorker, registrar }
+  return { pgBoss, commandBus, backfillWorker, backfillRosterWorker, registrar }
 }
 
 /**
