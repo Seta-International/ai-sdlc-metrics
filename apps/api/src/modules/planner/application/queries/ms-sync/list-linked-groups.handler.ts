@@ -38,7 +38,7 @@ export class ListLinkedGroupsHandler implements IQueryHandler<
   ) {}
 
   async execute(query: ListLinkedGroupsQuery): Promise<LinkedGroupDto[]> {
-    const groups = await this.groupRepo.listForTenant(query.tenantId)
+    const groups = await this.groupRepo.listActiveForTenant(query.tenantId)
     const plans = await this.planRepo.findByTenantId(query.tenantId)
     const syncStates = await this.syncRepo.listForTenant(query.tenantId)
 

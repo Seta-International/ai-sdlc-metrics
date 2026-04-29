@@ -2,11 +2,12 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { LinkGroupDrawer } from './link-group-drawer'
-import { useQuery, useMutation } from '@future/api-client'
+import { useQuery, useMutation, useQueryClient } from '@future/api-client'
 
 vi.mock('@future/api-client', () => ({
   useQuery: vi.fn(),
   useMutation: vi.fn(),
+  useQueryClient: vi.fn(),
 }))
 
 vi.mock('../../../lib/trpc', () => ({
@@ -24,6 +25,7 @@ vi.mock('../../../lib/trpc', () => ({
 
 const mockedUseQuery = vi.mocked(useQuery)
 const mockedUseMutation = vi.mocked(useMutation)
+const mockedUseQueryClient = vi.mocked(useQueryClient)
 
 const DEFAULT_PROPS = {
   open: true,
@@ -37,6 +39,7 @@ const DEFAULT_PROPS = {
 describe('<LinkGroupDrawer />', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockedUseQueryClient.mockReturnValue({ removeQueries: vi.fn() } as never)
     mockedUseMutation.mockReturnValue({
       mutate: vi.fn(),
       mutateAsync: vi.fn().mockResolvedValue({ linkedGroupId: 'lg-1', backfillJobId: 'job-1' }),
@@ -119,6 +122,32 @@ describe('<LinkGroupDrawer />', () => {
 
     await waitFor(() => {
       expect(mutateAsync).toHaveBeenCalledWith('g1')
+    })
+  })
+
+  it('removes available groups cache after successful link so drawer reopens fresh', async () => {
+    const user = userEvent.setup()
+    const removeQueries = vi.fn()
+    mockedUseQueryClient.mockReturnValue({ removeQueries } as never)
+
+    mockedUseQuery.mockReturnValue({
+      data: [{ externalGroupId: 'g1', displayName: 'Engineering', memberCount: 10 }],
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useQuery>)
+
+    render(<LinkGroupDrawer {...DEFAULT_PROPS} />)
+
+    await user.click(screen.getByRole('checkbox', { hidden: true }))
+    await user.click(screen.getByRole('button', { name: /Link/i }))
+
+    await waitFor(() => {
+      expect(removeQueries).toHaveBeenCalledWith(
+        expect.objectContaining({
+          queryKey: ['planner.msSync.groups.listAvailable', DEFAULT_PROPS.tenantId],
+        }),
+      )
     })
   })
 

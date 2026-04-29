@@ -57,4 +57,39 @@ describe('LinkMsGroupHandler', () => {
       /already linked/i,
     )
   })
+
+  it('relinks a previously unlinked group reusing its existing id', async () => {
+    const existingId = 'existing-uuid-g1'
+    const graph = {
+      get: vi.fn().mockResolvedValue({
+        status: 200,
+        body: { id: 'g1', displayName: 'Marketing' },
+        etag: null,
+      }),
+    }
+    const groupRepo = {
+      findByTenantAndGroup: vi.fn().mockResolvedValue({
+        id: existingId,
+        msGroupId: 'g1',
+        unlinkedAt: new Date(),
+      }),
+      upsert: vi.fn(),
+    }
+    const pgBoss = { enqueue: vi.fn().mockResolvedValue('job-456') }
+    const eventBus = { publish: vi.fn() }
+
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const handler = new LinkMsGroupHandler(
+      graph as any,
+      groupRepo as any,
+      pgBoss as any,
+      eventBus as any,
+    )
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+    await handler.execute(new LinkMsGroupCommand('t1', 'a1', 'g1'))
+
+    expect(groupRepo.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: existingId, tenantId: 't1', msGroupId: 'g1' }),
+    )
+  })
 })

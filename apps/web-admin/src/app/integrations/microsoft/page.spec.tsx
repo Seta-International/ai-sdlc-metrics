@@ -12,6 +12,7 @@ vi.mock('@future/auth', () => ({
 vi.mock('@future/api-client', () => ({
   useQuery: vi.fn(),
   useMutation: vi.fn(),
+  useQueryClient: vi.fn(() => ({ removeQueries: vi.fn() })),
 }))
 
 vi.mock('./directory-sync-card', () => ({
