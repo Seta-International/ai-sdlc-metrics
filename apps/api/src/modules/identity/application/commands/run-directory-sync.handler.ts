@@ -16,6 +16,7 @@ import {
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
 import { KernelUserIdentityFacade } from '../../../kernel/application/facades/kernel-user-identity.facade'
+import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import {
   DIRECTORY_PROVIDER_FACTORY,
   type IDirectoryProviderFactory,
@@ -36,6 +37,7 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
     private readonly directoryProviderFactory: IDirectoryProviderFactory,
     private readonly actorFacade: KernelActorFacade,
     private readonly userIdentityFacade: KernelUserIdentityFacade,
+    private readonly kernelQueryFacade: KernelQueryFacade,
     private readonly eventBus: EventBus,
   ) {}
 
@@ -65,6 +67,12 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
       // Provision / deactivate users
       for (const user of idpUsers) {
         if (user.isActive) {
+          const existing = await this.kernelQueryFacade.getUserIdentityBySsoSubject(
+            user.externalId,
+            command.tenantId,
+          )
+          if (existing) continue
+
           const actorId = await this.actorFacade.createActor(
             command.tenantId,
             'person',

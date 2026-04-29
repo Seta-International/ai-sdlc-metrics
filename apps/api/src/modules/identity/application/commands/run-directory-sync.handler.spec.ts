@@ -12,6 +12,7 @@ import type { IIdpGroupMappingRepository } from '../../domain/repositories/idp-g
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
 import { KernelUserIdentityFacade } from '../../../kernel/application/facades/kernel-user-identity.facade'
+import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import type {
   IDirectoryProvider,
   IdpUser,
@@ -46,6 +47,7 @@ describe('RunDirectorySyncHandler', () => {
   let actorFacade: KernelActorFacade
   let userIdentityFacade: KernelUserIdentityFacade
   let directoryProvider: IDirectoryProvider
+  let kernelQueryFacade: KernelQueryFacade
   let directoryProviderFactory: { create: ReturnType<typeof vi.fn> }
   let eventBus: { publish: ReturnType<typeof vi.fn> }
 
@@ -80,6 +82,9 @@ describe('RunDirectorySyncHandler', () => {
       createUserIdentity: vi.fn(),
       deprovisionUserIdentity: vi.fn(),
     } as unknown as KernelUserIdentityFacade
+    kernelQueryFacade = {
+      getUserIdentityBySsoSubject: vi.fn().mockResolvedValue(null),
+    } as unknown as KernelQueryFacade
     directoryProvider = {
       testConnection: vi.fn(),
       listUsers: vi.fn(),
@@ -94,6 +99,7 @@ describe('RunDirectorySyncHandler', () => {
       directoryProviderFactory as never,
       actorFacade,
       userIdentityFacade,
+      kernelQueryFacade,
       eventBus as unknown as EventBus,
     )
   })
@@ -110,6 +116,25 @@ describe('RunDirectorySyncHandler', () => {
     await expect(
       handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID)),
     ).rejects.toThrow(DirectorySyncAlreadyRunningException)
+  })
+
+  it('skips provisioning when user identity already exists', async () => {
+    vi.mocked(providerRepo.findById).mockResolvedValue(makeProvider())
+    vi.mocked(providerRepo.update).mockResolvedValue(undefined)
+    const idpUsers: IdpUser[] = [
+      { externalId: 'ext-user-001', email: 'alice@seta.vn', displayName: 'Alice', isActive: true },
+    ]
+    vi.mocked(directoryProvider.listUsers).mockResolvedValue(idpUsers)
+    vi.mocked(directoryProvider.listGroupsWithMembers).mockResolvedValue([])
+    vi.mocked(mappingRepo.findByProviderId).mockResolvedValue([])
+    vi.mocked(kernelQueryFacade.getUserIdentityBySsoSubject).mockResolvedValue({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+
+    await handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID))
+
+    expect(actorFacade.createActor).not.toHaveBeenCalled()
+    expect(userIdentityFacade.createUserIdentity).not.toHaveBeenCalled()
   })
 
   it('provisions new users from IdP via KernelActorFacade', async () => {
