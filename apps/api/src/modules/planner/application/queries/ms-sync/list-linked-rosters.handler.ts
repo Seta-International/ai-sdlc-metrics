@@ -26,7 +26,7 @@ export class ListLinkedRostersHandler implements IQueryHandler<
   ) {}
 
   async execute(query: ListLinkedRostersQuery): Promise<LinkedRosterDto[]> {
-    const rosters = await this.rosterRepo.listForTenant(query.tenantId)
+    const rosters = await this.rosterRepo.listActiveForTenant(query.tenantId)
     return rosters.map((r) => ({
       id: r.id,
       msRosterId: r.msRosterId,

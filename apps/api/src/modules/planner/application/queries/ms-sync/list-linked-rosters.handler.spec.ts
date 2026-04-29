@@ -27,7 +27,7 @@ function makeRoster(
 describe('ListLinkedRostersHandler', () => {
   it('returns mapped DTOs for all tenant rosters', async () => {
     const rosterRepo = {
-      listForTenant: vi
+      listActiveForTenant: vi
         .fn()
         .mockResolvedValue([
           makeRoster('roster-1'),
@@ -38,7 +38,7 @@ describe('ListLinkedRostersHandler', () => {
     const handler = new ListLinkedRostersHandler(rosterRepo)
     const result = await handler.execute(new ListLinkedRostersQuery(TENANT_ID))
 
-    expect(rosterRepo.listForTenant).toHaveBeenCalledWith(TENANT_ID)
+    expect(rosterRepo.listActiveForTenant).toHaveBeenCalledWith(TENANT_ID)
     expect(result).toHaveLength(2)
     expect(result[0].msRosterId).toBe('roster-1')
     expect(result[0].mintedByFutureAt).toBeNull()
@@ -47,7 +47,7 @@ describe('ListLinkedRostersHandler', () => {
   })
 
   it('returns empty array when no rosters linked', async () => {
-    const rosterRepo = { listForTenant: vi.fn().mockResolvedValue([]) } as any
+    const rosterRepo = { listActiveForTenant: vi.fn().mockResolvedValue([]) } as any
     const handler = new ListLinkedRostersHandler(rosterRepo)
     const result = await handler.execute(new ListLinkedRostersQuery(TENANT_ID))
     expect(result).toEqual([])
