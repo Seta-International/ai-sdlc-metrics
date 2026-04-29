@@ -11,6 +11,7 @@ import { UnlinkRosterCommand } from '../../application/commands/ms-sync/unlink-r
 import { ListAvailableGroupsQuery } from '../../application/queries/ms-sync/list-available-groups.query'
 import { ListLinkedGroupsQuery } from '../../application/queries/ms-sync/list-linked-groups.query'
 import { ListLinkedRostersQuery } from '../../application/queries/ms-sync/list-linked-rosters.query'
+import { GetTenantSyncHealthQuery } from '../../application/queries/ms-sync/get-tenant-sync-health.query'
 import { PlannerRouterService } from './planner-router.service'
 import { toPlannerTrpcError } from './planner-trpc-error'
 
@@ -243,4 +244,12 @@ export const msSyncRouter = router({
         msSyncRostersEnabled: flags.msSyncRostersEnabled,
       }
     }),
+
+  tenantSyncHealth: publicProcedure.query(async () => {
+    return svc()
+      .query(new GetTenantSyncHealthQuery())
+      .catch((e) => {
+        throw toPlannerTrpcError(e)
+      })
+  }),
 })
