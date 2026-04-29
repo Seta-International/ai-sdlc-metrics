@@ -53,7 +53,7 @@ export function ContainerPicker({ value, onChange }: ContainerPickerProps) {
   const { data: linkedRosters = [] } = useQuery({
     queryKey: ['msSync.rosters.listLinked', session?.tenantId],
     queryFn: async (): Promise<Array<{ msRosterId: string; displayName: string }>> => {
-      const result = await (trpc.planner.msSync as any).rosters.listLinked.query({
+      const result = await trpc.planner.msSync.rosters.listLinked.query({
         tenantId: session!.tenantId,
       })
       return result as Array<{ msRosterId: string; displayName: string }>
