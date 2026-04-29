@@ -64,6 +64,11 @@ export class KernelAuditFacade {
     return this.outboxRepo.insert(data)
   }
 
+  async getLatestOutboxPayload(jobId: string, eventName: string): Promise<unknown | null> {
+    const row = await this.outboxRepo.findLatestByJobId(jobId, eventName)
+    return row?.payload ?? null
+  }
+
   queryAuditLog(
     tenantId: string,
     filters: {

@@ -520,6 +520,7 @@ export default function MicrosoftIntegrationPage() {
               open={backfillSlideoverOpen}
               onOpenChange={setBackfillSlideoverOpen}
               jobId={backfillJobId}
+              tenantId={session.tenantId}
             />
           )}
 

@@ -14,6 +14,7 @@ import { ListAvailableGroupsQuery } from '../../application/queries/ms-sync/list
 import { ListLinkedGroupsQuery } from '../../application/queries/ms-sync/list-linked-groups.query'
 import { ListLinkedRostersQuery } from '../../application/queries/ms-sync/list-linked-rosters.query'
 import type { AdminQueryFacade } from '../../../admin/application/facades/admin-query.facade'
+import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 
 const TENANT_ID = '01900000-0000-7fff-8000-000000005001'
 const ACTOR_ID = uuidv7()
@@ -29,10 +30,12 @@ function makeCtx() {
 describe('msSyncRouter — unit (mocked command/query bus)', () => {
   let commandBus: { execute: ReturnType<typeof vi.fn> }
   let queryBus: { execute: ReturnType<typeof vi.fn> }
+  let kernelAuditFacade: Pick<KernelAuditFacade, 'getLatestOutboxPayload'>
 
   beforeEach(() => {
     commandBus = { execute: vi.fn() }
     queryBus = { execute: vi.fn() }
+    kernelAuditFacade = { getLatestOutboxPayload: vi.fn().mockResolvedValue(null) }
 
     const adminQueryFacade: Pick<AdminQueryFacade, 'isPlannerEnabled' | 'getPlannerViewFlags'> = {
       isPlannerEnabled: vi.fn().mockResolvedValue(true),
@@ -53,6 +56,7 @@ describe('msSyncRouter — unit (mocked command/query bus)', () => {
       commandBus as never,
       queryBus as never,
       adminQueryFacade as AdminQueryFacade,
+      kernelAuditFacade as KernelAuditFacade,
     )
     svc.onModuleInit()
   })
@@ -402,5 +406,43 @@ describe('msSyncRouter — unit (mocked command/query bus)', () => {
       msSyncAttachmentsEnabled: true,
       msSyncRostersEnabled: true,
     })
+  })
+
+  it('planner.msSync.groups.backfillProgress returns null when no outbox event exists', async () => {
+    vi.mocked(kernelAuditFacade.getLatestOutboxPayload).mockResolvedValue(null)
+
+    const caller = plannerRouter.createCaller(makeCtx())
+    const result = await caller.msSync.groups.backfillProgress({
+      tenantId: TENANT_ID,
+      jobId: uuidv7(),
+    })
+
+    expect(result).toBeNull()
+  })
+
+  it('planner.msSync.groups.backfillProgress returns progress and completed=false when not done', async () => {
+    const jobId = uuidv7()
+    vi.mocked(kernelAuditFacade.getLatestOutboxPayload).mockResolvedValue({
+      processed: 3,
+      total: 10,
+    })
+
+    const caller = plannerRouter.createCaller(makeCtx())
+    const result = await caller.msSync.groups.backfillProgress({ tenantId: TENANT_ID, jobId })
+
+    expect(result).toEqual({ processed: 3, total: 10, completed: false })
+  })
+
+  it('planner.msSync.groups.backfillProgress returns completed=true when processed >= total', async () => {
+    const jobId = uuidv7()
+    vi.mocked(kernelAuditFacade.getLatestOutboxPayload).mockResolvedValue({
+      processed: 5,
+      total: 5,
+    })
+
+    const caller = plannerRouter.createCaller(makeCtx())
+    const result = await caller.msSync.groups.backfillProgress({ tenantId: TENANT_ID, jobId })
+
+    expect(result).toEqual({ processed: 5, total: 5, completed: true })
   })
 })
