@@ -40,7 +40,7 @@ describe('GetTenantSyncHealthHandler', () => {
     listActiveForTenant: ReturnType<typeof vi.fn>
   }
   let conflictRepo: {
-    listOpenForTenant: ReturnType<typeof vi.fn>
+    list: ReturnType<typeof vi.fn>
   }
   let handler: GetTenantSyncHealthHandler
 
@@ -50,7 +50,7 @@ describe('GetTenantSyncHealthHandler', () => {
       listActiveForTenant: vi.fn(),
     }
     conflictRepo = {
-      listOpenForTenant: vi.fn(),
+      list: vi.fn(),
     }
     handler = new GetTenantSyncHealthHandler(groupRepo as never, conflictRepo as never)
   })
@@ -62,7 +62,7 @@ describe('GetTenantSyncHealthHandler', () => {
 
     expect(result).toEqual([])
     expect(groupRepo.listActiveForTenant).not.toHaveBeenCalled()
-    expect(conflictRepo.listOpenForTenant).not.toHaveBeenCalled()
+    expect(conflictRepo.list).not.toHaveBeenCalled()
   })
 
   it('returns one row per tenant with correct counts', async () => {
@@ -73,7 +73,7 @@ describe('GetTenantSyncHealthHandler', () => {
     groupRepo.listActiveForTenant
       .mockResolvedValueOnce([makeGroup(TENANT_A, 'g1'), makeGroup(TENANT_A, 'g2')])
       .mockResolvedValueOnce([makeGroup(TENANT_B, 'g3')])
-    conflictRepo.listOpenForTenant
+    conflictRepo.list
       .mockResolvedValueOnce([makeConflict(TENANT_A, 'c1')])
       .mockResolvedValueOnce([])
 
@@ -97,7 +97,7 @@ describe('GetTenantSyncHealthHandler', () => {
 
     groupRepo.listDistinctActiveTenantIds.mockResolvedValue([TENANT_ID])
     groupRepo.listActiveForTenant.mockResolvedValue([])
-    conflictRepo.listOpenForTenant.mockResolvedValue([])
+    conflictRepo.list.mockResolvedValue([])
 
     const result = await handler.execute(new GetTenantSyncHealthQuery())
 
