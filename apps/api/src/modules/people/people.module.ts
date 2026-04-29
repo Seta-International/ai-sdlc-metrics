@@ -46,6 +46,12 @@ import { EMPLOYEE_DOCUMENT_REPOSITORY } from './domain/repositories/employee-doc
 import { DOCUMENT_REQUIREMENT_REPOSITORY } from './domain/repositories/document-requirement.repository'
 import { COMPLETENESS_RULE_REPOSITORY } from './domain/repositories/completeness-rule.repository'
 
+// ── MS Sync repositories ───────────────────────────────────────────────────
+import { DrizzleMsProfileSyncStateRepository } from './infrastructure/repositories/drizzle-ms-profile-sync-state.repository'
+import { DrizzleMsStagedUserRepository } from './infrastructure/repositories/drizzle-ms-staged-user.repository'
+import { MS_PROFILE_SYNC_STATE_REPOSITORY } from './domain/repositories/ms-profile-sync-state.repository'
+import { MS_STAGED_USER_REPOSITORY } from './domain/repositories/ms-staged-user.repository'
+
 // ── Legacy repositories (still functional) ────────────────────────────────
 import { DrizzleProfileSectionRepository } from './infrastructure/repositories/drizzle-profile-section.repository'
 import { DrizzleProfileChangeRequestRepository } from './infrastructure/repositories/drizzle-profile-change-request.repository'
@@ -246,6 +252,10 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     { provide: EMPLOYEE_DOCUMENT_REPOSITORY, useClass: DrizzleEmployeeDocumentRepository },
     { provide: DOCUMENT_REQUIREMENT_REPOSITORY, useClass: DrizzleDocumentRequirementRepository },
     { provide: COMPLETENESS_RULE_REPOSITORY, useClass: DrizzleCompletenessRuleRepository },
+
+    // ── MS Sync repositories ─────────────────────────────────────────────
+    { provide: MS_PROFILE_SYNC_STATE_REPOSITORY, useClass: DrizzleMsProfileSyncStateRepository },
+    { provide: MS_STAGED_USER_REPOSITORY, useClass: DrizzleMsStagedUserRepository },
 
     // ── Plan 01 repositories ─────────────────────────────────────────────
     { provide: JOB_HISTORY_REPOSITORY, useClass: JobHistoryRepositoryImpl },
