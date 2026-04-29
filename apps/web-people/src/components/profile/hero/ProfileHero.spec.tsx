@@ -5,10 +5,6 @@ import { ProfileHero } from './ProfileHero'
 import type { EmployeeProfile } from '../../../lib/types'
 import type { ProfilePermissions } from '../ProfilePage'
 
-vi.mock('../../../lib/trpc', () => ({
-  trpc: {},
-}))
-
 vi.mock('../../../components/StatusBadge', () => ({
   StatusBadge: ({ status }: { status: string }) => <span>{status}</span>,
 }))
@@ -278,20 +274,6 @@ describe('ProfileHero', () => {
       />,
     )
     expect(screen.queryByText('Sync from Microsoft')).toBeNull()
-  })
-
-  it('does not render a Sync from Microsoft button', () => {
-    const { queryByText } = render(
-      <ProfileHero
-        profile={baseProfile as any}
-        permissions={noPerms}
-        isEditing={false}
-        onEdit={() => {}}
-        onDoneEditing={() => {}}
-        onShare={() => {}}
-      />,
-    )
-    expect(queryByText(/sync from microsoft/i)).toBeNull()
   })
 })
 
