@@ -46,7 +46,7 @@ export class TriggerDirectorySyncHandler implements ICommandHandler<
       throw new SyncAlreadyRunningException()
     }
 
-    const jobId = await this.jobScheduler.enqueueDirectorySync(command.tenantId)
+    const jobId = await this.jobScheduler.enqueueDirectorySync(command.tenantId, provider.id)
 
     await this.auditFacade.recordEvent({
       tenantId: command.tenantId,
