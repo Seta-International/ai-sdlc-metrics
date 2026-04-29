@@ -22,4 +22,6 @@ export interface EmploymentDetail {
   emergencyContacts: Array<Record<string, unknown>> | null
   countryData: Record<string, unknown> | null
   customFields: Record<string, unknown> | null
+  officeLocation: string | null
+  workPhone: string | null
 }

@@ -155,6 +155,8 @@ export const employmentDetail = peopleSchema.table(
     emergencyContacts: jsonb('emergency_contacts'),
     countryData: jsonb('country_data'),
     customFields: jsonb('custom_fields'),
+    officeLocation: text('office_location'),
+    workPhone: text('work_phone'),
   },
   (table) => [
     uniqueIndex('employment_detail_tenant_employment_uidx').on(table.tenantId, table.employmentId),

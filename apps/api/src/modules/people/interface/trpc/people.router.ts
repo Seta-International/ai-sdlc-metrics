@@ -52,11 +52,17 @@ import { ListOnboardingTasksQuery } from '../../application/queries/list-onboard
 import { ListTemplatesQuery } from '../../application/queries/list-templates.query'
 import { ListContractVersionsQuery } from '../../application/queries/list-contract-versions.query'
 import { GetJobHistoryQuery } from '../../application/queries/get-job-history.query'
+import { GetDirectReportsQuery } from '../../application/queries/get-direct-reports.query'
+import { GetActivityFeedQuery } from '../../application/queries/get-activity-feed.query'
 import { GetOrgChartContextQuery } from '../../application/queries/get-org-chart-context.query'
 import { GetOrgChartChildrenQuery } from '../../application/queries/get-org-chart-children.query'
 import { GetOrgChartTreeQuery } from '../../application/queries/get-org-chart-tree.query'
 import { ORG_CHART_NODE_NOT_FOUND } from '../../application/services/org-chart-query.service'
 
+import type { IdentityQueryFacade } from '../../../identity/application/facades/identity-query.facade'
+import { SyncMicrosoftProfileCommand } from '../../application/commands/sync-microsoft-profile.command'
+import { UpdatePersonalProfileCommand } from '../../application/commands/update-personal-profile.command'
+import type { SyncResult } from '../../application/commands/sync-microsoft-profile.handler'
 import { PeopleTrpcService } from './people-trpc.service'
 import {
   futureListQuerySchema,
@@ -112,8 +118,9 @@ export function createPeopleRouter(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   permissionProtectedProcedure: any,
   peopleFacade: PeopleQueryFacade,
-  _kernelFacade: KernelQueryFacade,
+  kernelFacade: KernelQueryFacade,
   _auditFacade: KernelAuditFacade,
+  identityFacade: IdentityQueryFacade,
 ) {
   return router({
     // ── Profile queries ────────────────────────────────────────────────────
@@ -135,6 +142,40 @@ export function createPeopleRouter(
       .input(z.object({ employmentId: z.string().uuid() }))
       .query(async ({ ctx, input }: { ctx: AuthContext; input: { employmentId: string } }) => {
         return peopleFacade.getEmployment(ctx.tenantId, input.employmentId)
+      }),
+
+    getProfilePermissions: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:read' })
+      .input(z.object({ employmentId: z.string().uuid() }))
+      .query(async ({ ctx, input }: { ctx: AuthContext; input: { employmentId: string } }) => {
+        const employment = await peopleFacade.getEmployment(ctx.tenantId, input.employmentId)
+        const isSelf = employment?.personProfile?.actorId === ctx.actorId
+        const perms = await kernelFacade.getEffectivePermissions(ctx.actorId, ctx.tenantId)
+        const has = (p: string) => perms.includes(p)
+        const isAdmin = has('people:admin')
+
+        const graphCredential = await identityFacade.getGraphCredential(ctx.tenantId)
+        const msExternalUserId =
+          employment?.personProfile?.actorId && graphCredential?.status === 'active'
+            ? await identityFacade.getExternalUserId(employment.personProfile.actorId, ctx.tenantId)
+            : null
+
+        return {
+          canEdit: isAdmin || has('people:profile:update'),
+          canManage: isAdmin,
+          isSelf,
+          canEditPersonal: isAdmin || has('people:profile:update'),
+          canEditEmployment: isAdmin || has('people:profile:update'),
+          canEditBank: isAdmin || has('people:profile:update'),
+          canUploadDocuments: isAdmin || has('people:profile:update'),
+          canCreateContract: isAdmin || has('people:profile:update'),
+          canViewSalary: isSelf || isAdmin || has('people:salary:read'),
+          canApproveChanges: isAdmin,
+          canSyncFromMicrosoft:
+            graphCredential?.status === 'active' &&
+            msExternalUserId !== null &&
+            (isSelf || isAdmin || has('people:profile:update')),
+        }
       }),
 
     listEmployments: permissionProtectedProcedure
@@ -184,6 +225,36 @@ export function createPeopleRouter(
       .query(async ({ ctx, input }: { ctx: AuthContext; input: { profileId: string } }) => {
         return svc().query(new GetJobHistoryQuery(input.profileId, ctx.tenantId))
       }),
+
+    getDirectReports: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:read' })
+      .input(z.object({ employmentId: z.string().uuid() }))
+      .query(async ({ ctx, input }: { ctx: AuthContext; input: { employmentId: string } }) => {
+        return svc().query(new GetDirectReportsQuery(input.employmentId, ctx.tenantId))
+      }),
+
+    getActivityFeed: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:read' })
+      .input(
+        z.object({
+          employmentId: z.string().uuid(),
+          limit: z.number().int().min(1).max(50).default(20),
+          cursor: z.string().optional(),
+        }),
+      )
+      .query(
+        async ({
+          ctx,
+          input,
+        }: {
+          ctx: AuthContext
+          input: { employmentId: string; limit: number; cursor?: string }
+        }) => {
+          return svc().query(
+            new GetActivityFeedQuery(input.employmentId, ctx.tenantId, input.limit, input.cursor),
+          )
+        },
+      ),
 
     listJobProfiles: permissionProtectedProcedure
       .meta({ permission: 'people:profile:read' })
@@ -1160,6 +1231,162 @@ export function createPeopleRouter(
         }),
     }),
 
+    // ── Microsoft sync mutation ────────────────────────────────────────────
+    syncFromMicrosoft: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:read' })
+      .input(z.object({ employmentId: z.string().uuid() }))
+      .mutation(async ({ ctx, input }: { ctx: AuthContext; input: { employmentId: string } }) => {
+        const employment = await peopleFacade.getEmployment(ctx.tenantId, input.employmentId)
+        const isSelf = employment?.personProfile?.actorId === ctx.actorId
+        const perms = await kernelFacade.getEffectivePermissions(ctx.actorId, ctx.tenantId)
+        const has = (p: string) => perms.includes(p)
+        const isAdmin = has('people:admin')
+
+        const graphCredential = await identityFacade.getGraphCredential(ctx.tenantId)
+        const msExternalUserId =
+          graphCredential?.status === 'active' && employment?.personProfile?.actorId
+            ? await identityFacade.getExternalUserId(employment.personProfile.actorId, ctx.tenantId)
+            : null
+
+        const canSync =
+          graphCredential?.status === 'active' &&
+          msExternalUserId !== null &&
+          (isSelf || isAdmin || has('people:profile:update'))
+
+        if (!canSync) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot sync this profile' })
+        }
+
+        return svc().command(
+          new SyncMicrosoftProfileCommand(ctx.tenantId, input.employmentId, ctx.actorId),
+        ) as Promise<SyncResult>
+      }),
+
+    // ── Update personal profile mutation ──────────────────────────────────
+    updatePersonalProfile: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:read' })
+      .input(
+        z.object({
+          employmentId: z.string().uuid(),
+          preferredName: z.string().nullable().optional(),
+          dateOfBirth: z.string().date().nullable().optional(),
+          gender: z
+            .enum(['male', 'female', 'non_binary', 'prefer_not_to_say'])
+            .nullable()
+            .optional(),
+          nationality: z.string().nullable().optional(),
+          maritalStatus: z
+            .enum(['single', 'married', 'divorced', 'widowed', 'separated'])
+            .nullable()
+            .optional(),
+          nameDisplayOrder: z.enum(['family_first', 'given_first']).optional(),
+          personalEmail: z.string().email().nullable().optional(),
+          personalPhone: z.string().nullable().optional(),
+          permanentAddress: z.record(z.string(), z.unknown()).nullable().optional(),
+          currentAddress: z.record(z.string(), z.unknown()).nullable().optional(),
+          nationalId: z.string().nullable().optional(),
+          nationalIdType: z.string().nullable().optional(),
+          nationalIdIssuedDate: z.string().date().nullable().optional(),
+          nationalIdExpiryDate: z.string().date().nullable().optional(),
+          passportNumber: z.string().nullable().optional(),
+          passportExpiryDate: z.string().date().nullable().optional(),
+          bankAccountNumber: z.string().nullable().optional(),
+          bankName: z.string().nullable().optional(),
+          bankBranch: z.string().nullable().optional(),
+          bankSwiftCode: z.string().nullable().optional(),
+          bankAccountHolder: z.string().nullable().optional(),
+          emergencyContacts: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
+        }),
+      )
+      .mutation(
+        async ({
+          ctx,
+          input,
+        }: {
+          ctx: AuthContext
+          input: {
+            employmentId: string
+            preferredName?: string | null
+            dateOfBirth?: string | null
+            gender?: string | null
+            nationality?: string | null
+            maritalStatus?: string | null
+            nameDisplayOrder?: 'family_first' | 'given_first'
+            personalEmail?: string | null
+            personalPhone?: string | null
+            permanentAddress?: Record<string, unknown> | null
+            currentAddress?: Record<string, unknown> | null
+            nationalId?: string | null
+            nationalIdType?: string | null
+            nationalIdIssuedDate?: string | null
+            nationalIdExpiryDate?: string | null
+            passportNumber?: string | null
+            passportExpiryDate?: string | null
+            bankAccountNumber?: string | null
+            bankName?: string | null
+            bankBranch?: string | null
+            bankSwiftCode?: string | null
+            bankAccountHolder?: string | null
+            emergencyContacts?: Array<Record<string, unknown>> | null
+          }
+        }) => {
+          const employment = await peopleFacade.getEmployment(ctx.tenantId, input.employmentId)
+          const isSelf = employment?.personProfile?.actorId === ctx.actorId
+          const perms = await kernelFacade.getEffectivePermissions(ctx.actorId, ctx.tenantId)
+          const has = (p: string) => perms.includes(p)
+          const isAdmin = has('people:admin')
+          const canEdit = isAdmin || has('people:profile:update')
+          const canEditBank = isAdmin || has('people:profile:update')
+
+          const hasBankFields =
+            input.bankAccountNumber !== undefined ||
+            input.bankName !== undefined ||
+            input.bankBranch !== undefined ||
+            input.bankSwiftCode !== undefined ||
+            input.bankAccountHolder !== undefined
+
+          if (hasBankFields && !canEditBank) {
+            throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot edit bank details' })
+          }
+
+          if (!isSelf && !canEdit) {
+            throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot edit this profile' })
+          }
+
+          const toDate = (s: string | null | undefined) => (s ? new Date(s) : s)
+
+          return svc().command(
+            new UpdatePersonalProfileCommand(
+              ctx.tenantId,
+              input.employmentId,
+              ctx.actorId,
+              input.preferredName,
+              toDate(input.dateOfBirth) as Date | null | undefined,
+              input.gender,
+              input.nationality,
+              input.maritalStatus,
+              input.nameDisplayOrder,
+              input.personalEmail,
+              input.personalPhone,
+              input.permanentAddress,
+              input.currentAddress,
+              input.nationalId,
+              input.nationalIdType,
+              toDate(input.nationalIdIssuedDate) as Date | null | undefined,
+              toDate(input.nationalIdExpiryDate) as Date | null | undefined,
+              input.passportNumber,
+              toDate(input.passportExpiryDate) as Date | null | undefined,
+              input.bankAccountNumber,
+              input.bankName,
+              input.bankBranch,
+              input.bankSwiftCode,
+              input.bankAccountHolder,
+              input.emergencyContacts,
+            ),
+          )
+        },
+      ),
+
     // ── Lifecycle mutations ────────────────────────────────────────────────
     rehire: permissionProtectedProcedure
       .meta({ permission: 'people:employment:rehire' })
@@ -1307,6 +1534,13 @@ export const peopleRouter = router({
   }),
 
   // listPeriodicReviews: removed — periodic reviews feature removed per spec (Plan 06)
+
+  profile: router({
+    // Stub — returns empty until GetEmployeeDocumentsQuery is implemented.
+    documents: publicProcedure
+      .input(z.object({ employmentId: z.string().uuid() }))
+      .query(() => ({ documents: [], requirements: [] })),
+  }),
 
   // ── Profile mutations ──────────────────────────────────────────────────
 

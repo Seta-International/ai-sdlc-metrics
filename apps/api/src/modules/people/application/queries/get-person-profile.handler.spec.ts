@@ -114,6 +114,8 @@ const mockDetail: EmploymentDetail = {
   emergencyContacts: null,
   countryData: null,
   customFields: null,
+  officeLocation: null,
+  workPhone: null,
 }
 
 describe('GetPersonProfileHandler', () => {

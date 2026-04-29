@@ -69,6 +69,7 @@ export {
   Plus,
   PlusIcon,
   Receipt,
+  RefreshCw,
   Search,
   Send,
   Settings,

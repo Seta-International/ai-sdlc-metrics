@@ -1213,7 +1213,9 @@ CREATE TABLE "people"."employment_detail" (
 	"current_address" jsonb,
 	"emergency_contacts" jsonb,
 	"country_data" jsonb,
-	"custom_fields" jsonb
+	"custom_fields" jsonb,
+	"office_location" text,
+	"work_phone" text
 );
 --> statement-breakpoint
 CREATE TABLE "people"."import_job" (

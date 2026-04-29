@@ -75,6 +75,8 @@ export class CreateEmploymentHandler implements ICommandHandler<
       emergencyContacts: null,
       countryData: null,
       customFields: null,
+      officeLocation: null,
+      workPhone: null,
     })
 
     await this.eventBus.publish(

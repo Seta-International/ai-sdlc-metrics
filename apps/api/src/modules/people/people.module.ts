@@ -1,7 +1,12 @@
 import { Module } from '@nestjs/common'
 import { CqrsModule } from '@nestjs/cqrs'
 import { KernelModule } from '../kernel/kernel.module'
+import { IdentityModule } from '../identity/identity.module'
+import { S3StorageClient } from '@future/storage'
 import { PeopleQueryFacade } from './application/facades/people-query.facade'
+import { SyncMicrosoftProfileHandler } from './application/commands/sync-microsoft-profile.handler'
+import { UpdatePersonalProfileHandler } from './application/commands/update-personal-profile.handler'
+import { PEOPLE_STORAGE_CLIENT } from './domain/ports/people-storage-client.port'
 
 // ── New repositories ───────────────────────────────────────────────────────
 import { DrizzlePersonProfileRepository } from './infrastructure/repositories/drizzle-person-profile.repository'
@@ -177,6 +182,8 @@ import { GetPersonProfileHandler } from './application/queries/get-person-profil
 import { GetEmploymentHandler } from './application/queries/get-employment.handler'
 import { GetCurrentJobAssignmentHandler } from './application/queries/get-current-job-assignment.handler'
 import { GetJobHistoryHandler } from './application/queries/get-job-history.handler'
+import { GetDirectReportsHandler } from './application/queries/get-direct-reports.handler'
+import { GetActivityFeedHandler } from './application/queries/get-activity-feed.handler'
 import { ListEmploymentsHandler } from './application/queries/list-employments.handler'
 import { ListJobProfilesHandler } from './application/queries/list-job-profiles.handler'
 import { GetProbationRecordHandler } from './application/queries/get-probation-record.handler'
@@ -203,7 +210,7 @@ import { OnCandidateHiredHandler } from './application/event-handlers/on-candida
 import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
 
 @Module({
-  imports: [CqrsModule, KernelModule],
+  imports: [CqrsModule, KernelModule, IdentityModule],
   providers: [
     // ── New repositories ─────────────────────────────────────────────────
     { provide: PERSON_PROFILE_REPOSITORY, useClass: DrizzlePersonProfileRepository },
@@ -340,6 +347,8 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     GetEmploymentHandler,
     GetCurrentJobAssignmentHandler,
     GetJobHistoryHandler,
+    GetDirectReportsHandler,
+    GetActivityFeedHandler,
     ListEmploymentsHandler,
     ListJobProfilesHandler,
     GetProbationRecordHandler,
@@ -367,6 +376,18 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
 
     // ── Event handlers ────────────────────────────────────────────────────
     OnCandidateHiredHandler,
+
+    // ── Microsoft profile sync ───────────────────────────────────────────
+    SyncMicrosoftProfileHandler,
+    UpdatePersonalProfileHandler,
+    {
+      provide: PEOPLE_STORAGE_CLIENT,
+      useFactory: () =>
+        new S3StorageClient({
+          bucket: process.env['PEOPLE_ASSETS_BUCKET'] ?? 'future-people-assets',
+          region: process.env['AWS_REGION'] ?? 'ap-southeast-1',
+        }),
+    },
 
     // ── Facades & services ───────────────────────────────────────────────
     PeopleQueryFacade,

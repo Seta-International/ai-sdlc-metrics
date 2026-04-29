@@ -69,6 +69,7 @@ import { ValidateApiKeyHandler } from './application/queries/validate-api-key.ha
 import { ListGroupMembersHandler } from './application/queries/list-group-members.handler'
 import { GetGraphCredentialHandler } from './application/queries/get-graph-credential.handler'
 import { GetLoginOptionsHandler } from './application/queries/get-login-options.handler'
+import { GetMicrosoftUserDataHandler } from './application/queries/get-microsoft-user-data.handler'
 
 import { IdentityQueryFacade } from './application/facades/identity-query.facade'
 import { IdentityMsGraphCredentialFacade } from './application/facades/identity-ms-graph-credential.facade'
@@ -106,6 +107,7 @@ const QueryHandlers = [
   ListGroupMembersHandler,
   GetGraphCredentialHandler,
   GetLoginOptionsHandler,
+  GetMicrosoftUserDataHandler,
 ]
 
 @Module({

@@ -15,10 +15,13 @@ import type { GroupMemberResolution } from '../queries/list-group-members.handle
 import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import { GetLoginOptionsQuery } from '../queries/get-login-options.query'
 import type { LoginOptionsResult } from '../queries/get-login-options.handler'
+import { GetMicrosoftUserDataQuery } from '../queries/get-microsoft-user-data.query'
+import type { MicrosoftUserData } from '../queries/get-microsoft-user-data.handler'
 
 export type { GroupMemberResolution } from '../queries/list-group-members.handler'
 export type { MsGraphCredentialEntity } from '../../domain/entities/ms-graph-credential.entity'
 export type { LoginOptionsResult } from '../queries/get-login-options.handler'
+export type { MicrosoftUserData } from '../queries/get-microsoft-user-data.handler'
 
 @Injectable()
 export class IdentityQueryFacade {
@@ -77,5 +80,9 @@ export class IdentityQueryFacade {
     emailDomain: string | null,
   ): Promise<LoginOptionsResult | null> {
     return this.queryBus.execute(new GetLoginOptionsQuery(slug, emailDomain))
+  }
+
+  getMicrosoftUserData(actorId: string, tenantId: string): Promise<MicrosoftUserData | null> {
+    return this.queryBus.execute(new GetMicrosoftUserDataQuery(actorId, tenantId))
   }
 }

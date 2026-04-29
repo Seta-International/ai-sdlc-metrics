@@ -30,6 +30,15 @@ interface GraphDirectoryObject {
   id: string
 }
 
+export interface GraphUserProfile {
+  id: string
+  displayName: string | null
+  mail: string | null
+  officeLocation: string | null
+  mobilePhone: string | null
+  businessPhones: string[]
+}
+
 @Injectable()
 export class MicrosoftGraphProvider implements IDirectoryProvider {
   private readonly baseUrl = 'https://graph.microsoft.com/v1.0'
@@ -89,6 +98,31 @@ export class MicrosoftGraphProvider implements IDirectoryProvider {
     }
 
     return results
+  }
+
+  async getUserWithProfile(
+    msUserId: string,
+  ): Promise<{ user: GraphUserProfile; photo: Buffer | null }> {
+    const user = await this.graphFetch<GraphUserProfile>(
+      `/users/${encodeURIComponent(msUserId)}?$select=id,displayName,mail,officeLocation,mobilePhone,businessPhones`,
+    )
+    const photo = await this.fetchUserPhoto(msUserId)
+    return { user, photo }
+  }
+
+  private async fetchUserPhoto(msUserId: string): Promise<Buffer | null> {
+    const token = await this.tokenAcquirer.acquire({
+      tenantAdId: this.credential.tenantAdId,
+      clientId: this.credential.clientId,
+      clientSecretRef: this.credential.clientSecretRef,
+      scopes: this.credential.scopes,
+    })
+    const response = await fetch(
+      `${this.baseUrl}/users/${encodeURIComponent(msUserId)}/photo/$value`,
+      { headers: { Authorization: `Bearer ${token}`, Accept: 'image/jpeg' } },
+    )
+    if (!response.ok) return null
+    return Buffer.from(await response.arrayBuffer())
   }
 
   private async listGroupMembers(externalGroupId: string): Promise<string[]> {

@@ -5341,12 +5341,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "tenant_push_paused_until": {
-          "name": "tenant_push_paused_until",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -8464,6 +8458,18 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
+        },
+        "office_location": {
+          "name": "office_location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "work_phone": {
+          "name": "work_phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -11127,12 +11133,6 @@
         },
         "ms_soft_deleted_at": {
           "name": "ms_soft_deleted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ms_sync_pushed_at": {
-          "name": "ms_sync_pushed_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false

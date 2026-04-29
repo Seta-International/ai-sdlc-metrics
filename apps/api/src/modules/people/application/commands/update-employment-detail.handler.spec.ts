@@ -56,6 +56,8 @@ function makeDetail(overrides: Partial<EmploymentDetail> = {}): EmploymentDetail
     emergencyContacts: null,
     countryData: null,
     customFields: null,
+    officeLocation: null,
+    workPhone: null,
     ...overrides,
   }
 }

@@ -6,6 +6,7 @@ import { publicProcedure, router } from '../../../../common/trpc/trpc-init'
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { PeopleQueryFacade } from '../../application/facades/people-query.facade'
+import type { IdentityQueryFacade } from '../../../identity/application/facades/identity-query.facade'
 import { createProtectedProcedures } from '../../../../common/trpc/create-protected-procedures'
 import { PeopleTrpcService } from './people-trpc.service'
 import { RehireEmploymentCommand } from '../../application/commands/rehire-employment.command'
@@ -35,6 +36,7 @@ describe('createPeopleRouter', () => {
       peopleFacade as unknown as PeopleQueryFacade,
       kernelFacade as unknown as KernelQueryFacade,
       auditFacade as unknown as KernelAuditFacade,
+      {} as unknown as IdentityQueryFacade,
     )
     return { peopleRouter, kernelFacade, auditFacade, peopleFacade }
   }
@@ -260,5 +262,104 @@ describe('createPeopleRouter', () => {
     } as any)
 
     await expect((caller.people as any).orgChart.tree({ depth: 3 })).rejects.toThrow(TRPCError)
+  })
+
+  describe('getProfilePermissions', () => {
+    const EMP_ID = '01900000-0000-7000-8000-000000000010'
+    const OTHER_ACTOR_ID = '01900000-0000-7000-8000-000000000099'
+
+    function setupPermissions(opts: {
+      effectivePerms: string[]
+      profileActorId: string
+      viewerActorId?: string
+    }) {
+      const kernelFacade = {
+        canDo: vi.fn().mockResolvedValue(true),
+        getEffectivePermissions: vi.fn().mockResolvedValue(opts.effectivePerms),
+      }
+      const auditFacade = { recordEvent: vi.fn().mockResolvedValue(undefined) }
+      const peopleFacade = {
+        getPersonProfile: vi.fn().mockResolvedValue(null),
+        getEmployment: vi.fn().mockResolvedValue({
+          employment: { id: EMP_ID },
+          personProfile: { actorId: opts.profileActorId },
+          currentAssignment: null,
+          detail: null,
+          sections: [],
+        }),
+      }
+      const { permissionProtectedProcedure } = createProtectedProcedures(
+        publicProcedure,
+        kernelFacade as unknown as KernelQueryFacade,
+        auditFacade as unknown as KernelAuditFacade,
+      )
+      const identityFacade = {
+        getGraphCredential: vi.fn().mockResolvedValue(null),
+        getExternalUserId: vi.fn().mockResolvedValue(null),
+      }
+      const peopleRouter = createPeopleRouter(
+        permissionProtectedProcedure,
+        peopleFacade as unknown as PeopleQueryFacade,
+        kernelFacade as unknown as KernelQueryFacade,
+        auditFacade as unknown as KernelAuditFacade,
+        identityFacade as unknown as IdentityQueryFacade,
+      )
+      const caller = router({ people: peopleRouter }).createCaller({
+        actorId: opts.viewerActorId ?? ACTOR_ID,
+        tenantId: TENANT_ID,
+      } as any)
+      return { caller, kernelFacade }
+    }
+
+    it('sets canViewSalary=true when viewer is the profile owner (isSelf)', async () => {
+      const { caller } = setupPermissions({
+        effectivePerms: ['people:profile:read'],
+        profileActorId: ACTOR_ID,
+        viewerActorId: ACTOR_ID,
+      })
+      const result = await (caller.people as any).getProfilePermissions({ employmentId: EMP_ID })
+      expect(result.canViewSalary).toBe(true)
+      expect(result.isSelf).toBe(true)
+    })
+
+    it('sets canViewSalary=false when viewer is not the owner and lacks people:salary:read', async () => {
+      const { caller } = setupPermissions({
+        effectivePerms: ['people:profile:read', 'people:profile:update'],
+        profileActorId: OTHER_ACTOR_ID,
+        viewerActorId: ACTOR_ID,
+      })
+      const result = await (caller.people as any).getProfilePermissions({ employmentId: EMP_ID })
+      expect(result.canViewSalary).toBe(false)
+      expect(result.isSelf).toBe(false)
+    })
+
+    it('sets canViewSalary=true when viewer has people:salary:read even if not the owner', async () => {
+      const { caller } = setupPermissions({
+        effectivePerms: ['people:profile:read', 'people:salary:read'],
+        profileActorId: OTHER_ACTOR_ID,
+        viewerActorId: ACTOR_ID,
+      })
+      const result = await (caller.people as any).getProfilePermissions({ employmentId: EMP_ID })
+      expect(result.canViewSalary).toBe(true)
+      expect(result.isSelf).toBe(false)
+    })
+
+    it('sets canEdit=true when viewer has people:profile:update', async () => {
+      const { caller } = setupPermissions({
+        effectivePerms: ['people:profile:read', 'people:profile:update'],
+        profileActorId: OTHER_ACTOR_ID,
+      })
+      const result = await (caller.people as any).getProfilePermissions({ employmentId: EMP_ID })
+      expect(result.canEdit).toBe(true)
+    })
+
+    it('sets canEdit=false when viewer only has people:profile:read', async () => {
+      const { caller } = setupPermissions({
+        effectivePerms: ['people:profile:read'],
+        profileActorId: OTHER_ACTOR_ID,
+      })
+      const result = await (caller.people as any).getProfilePermissions({ employmentId: EMP_ID })
+      expect(result.canEdit).toBe(false)
+    })
   })
 })
