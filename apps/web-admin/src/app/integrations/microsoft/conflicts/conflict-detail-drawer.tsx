@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useMutation } from '@future/api-client'
 import { useSession } from '@future/auth'
 import {
@@ -231,7 +232,7 @@ export function ConflictDetailDrawer({
 
             {conflict.kind === 'credential_invalidated' && (
               <Button size="sm" variant="outline" asChild>
-                <a href="/integrations/microsoft">Reconnect</a>
+                <Link href="/integrations/microsoft">Reconnect</Link>
               </Button>
             )}
 

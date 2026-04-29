@@ -139,6 +139,35 @@ describe('<ConflictDetailDrawer />', () => {
     expect(retryMutate).toHaveBeenCalledWith('conflict-abc')
   })
 
+  it('calls acceptMsState mutation on Accept MS state click for push_412_exhausted', async () => {
+    const user = userEvent.setup()
+    const retryMutate = vi.fn()
+    const acceptMutate = vi.fn()
+    mockedUseMutation
+      .mockReturnValueOnce({
+        mutate: retryMutate,
+        mutateAsync: vi.fn(),
+        isPending: false,
+      } as unknown as ReturnType<typeof useMutation>)
+      .mockReturnValueOnce({
+        mutate: acceptMutate,
+        mutateAsync: vi.fn(),
+        isPending: false,
+      } as unknown as ReturnType<typeof useMutation>)
+
+    render(
+      <ConflictDetailDrawer
+        conflict={makeConflict({ kind: 'push_412_exhausted', id: 'conflict-abc' })}
+        open={true}
+        onOpenChange={vi.fn()}
+        onActionSuccess={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /Accept MS state/i }))
+    expect(acceptMutate).toHaveBeenCalledWith('conflict-abc')
+  })
+
   it('shows Retry upload button for attachment_upload_failed', () => {
     render(
       <ConflictDetailDrawer

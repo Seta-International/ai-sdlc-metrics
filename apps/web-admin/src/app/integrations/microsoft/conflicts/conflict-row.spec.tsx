@@ -69,4 +69,14 @@ describe('formatRelativeTime', () => {
     const oneMinuteAgo = new Date(Date.now() - 61 * 1000).toISOString()
     expect(formatRelativeTime(oneMinuteAgo)).toBe('1 minute ago')
   })
+
+  it('returns "2 months ago" for timestamp 65 days ago', () => {
+    const sixtyFiveDaysAgo = new Date(Date.now() - 65 * 24 * 60 * 60 * 1000).toISOString()
+    expect(formatRelativeTime(sixtyFiveDaysAgo)).toBe('2 months ago')
+  })
+
+  it('returns "2 years ago" for timestamp 2 years ago', () => {
+    const twoYearsAgo = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString()
+    expect(formatRelativeTime(twoYearsAgo)).toBe('2 years ago')
+  })
 })

@@ -1,8 +1,10 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 import { useMutation, useQuery } from '@future/api-client'
 import { useSession } from '@future/auth'
+import { ArrowRight } from '@future/ui/icons'
 import {
   Alert,
   AlertDescription,
@@ -30,6 +32,7 @@ import { LinkedRostersTable, type LinkedRosterDto } from './rosters/linked-roste
 import { MintRosterForm } from './rosters/mint-roster-form'
 import { LinkExistingRosterForm } from './rosters/link-existing-roster-form'
 import { ConflictTable } from './conflicts/conflict-table'
+import type { ConflictDto } from './conflicts/conflict-row'
 
 interface MsSyncStatus {
   connected: boolean
@@ -38,22 +41,6 @@ interface MsSyncStatus {
   clientId: string | null
   connectedAt: string | null
   lastError: string | null
-}
-
-interface ConflictDto {
-  id: string
-  kind: string
-  createdAt: string
-  taskId: string | null
-  taskTitle: string | null
-  planTitle: string | null
-  field: string | null
-  mineValue: unknown
-  theirsValue: unknown
-  limitCode: string | null
-  resolution: string | null
-  resolvedAt: string | null
-  rawError: unknown
 }
 
 interface PlannerTrpcSlice {
@@ -506,6 +493,14 @@ export default function MicrosoftIntegrationPage() {
                 onRetry={() => openConflictsQuery.refetch()}
                 onActionSuccess={() => openConflictsQuery.refetch()}
               />
+              <div className="mt-3 flex justify-end">
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/integrations/microsoft/conflicts">
+                    View full history
+                    <ArrowRight className="ml-1 size-3" />
+                  </Link>
+                </Button>
+              </div>
             </TabsContent>
           </Tabs>
 
