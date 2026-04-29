@@ -134,6 +134,7 @@ import { IdentityDirectorySyncedListener } from './application/event-handlers/id
 import { MsSyncPushListener } from './application/event-handlers/ms-sync-push.listener'
 import { ListAvailableGroupsHandler } from './application/queries/ms-sync/list-available-groups.handler'
 import { ListLinkedGroupsHandler } from './application/queries/ms-sync/list-linked-groups.handler'
+import { ListLinkedRostersHandler } from './application/queries/ms-sync/list-linked-rosters.handler'
 import { MS_LINKED_GROUP_REPOSITORY } from './domain/repositories/ms-linked-group.repository'
 import { MS_PLAN_SYNC_STATE_REPOSITORY } from './domain/repositories/ms-plan-sync-state.repository'
 import { MS_SYNC_CONFLICT_REPOSITORY } from './domain/repositories/ms-sync-conflict.repository'
@@ -251,6 +252,7 @@ import { DrizzleRosterMemberRepository } from './infrastructure/repositories/dri
     MsSyncJobRegistrar,
     ListAvailableGroupsHandler,
     ListLinkedGroupsHandler,
+    ListLinkedRostersHandler,
     { provide: MS_LINKED_GROUP_REPOSITORY, useClass: DrizzleMsLinkedGroupRepository },
     { provide: MS_PLAN_SYNC_STATE_REPOSITORY, useClass: DrizzleMsPlanSyncStateRepository },
     { provide: MS_SYNC_CONFLICT_REPOSITORY, useClass: DrizzleMsSyncConflictRepository },
