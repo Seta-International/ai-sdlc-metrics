@@ -152,7 +152,7 @@ export class MicrosoftGraphProvider implements IDirectoryProvider {
   async listUsersDelta(deltaToken?: string): Promise<UsersDeltaResult> {
     const $select =
       'id,displayName,mail,accountEnabled,jobTitle,department,officeLocation,mobilePhone,businessPhones,userPrincipalName'
-    const initialUrl = deltaToken ?? `${this.baseUrl}/users/delta?$select=${$select}`
+    const initialUrl = deltaToken ?? `${this.baseUrl}/users/delta?$select=${$select}&$top=999`
 
     const collected: GraphDeltaUser[] = []
     let finalDeltaToken: string | undefined

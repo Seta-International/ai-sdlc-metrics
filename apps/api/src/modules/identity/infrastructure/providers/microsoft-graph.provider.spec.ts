@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { IdentityProviderEntity } from '../../domain/entities/identity-provider.entity'
 import type { MsGraphCredentialEntity } from '../../domain/entities/ms-graph-credential.entity'
 import type { MsGraphTokenAcquirer } from './microsoft/ms-graph-token-acquirer'
@@ -116,6 +116,10 @@ describe('MicrosoftGraphProvider.listUsersDelta', () => {
     } as unknown as MsGraphTokenAcquirer
   })
 
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('returns users and nextDeltaToken on first run (no deltaToken)', async () => {
     fetchMock
       .mockResolvedValueOnce({
@@ -201,5 +205,30 @@ describe('MicrosoftGraphProvider.listUsersDelta', () => {
     const result = await provider.listUsersDelta()
 
     expect(result.users[0]!.managerMsId).toBeNull()
+  })
+
+  it('paginates @odata.nextLink before collecting @odata.deltaLink', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          value: [{ id: 'u1', displayName: 'A', accountEnabled: true }],
+          '@odata.nextLink': 'https://graph.microsoft.com/v1.0/users/delta?$skiptoken=abc',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          value: [{ id: 'u2', displayName: 'B', accountEnabled: true }],
+          '@odata.deltaLink': 'https://graph.microsoft.com/v1.0/users/delta?$deltaToken=final',
+        }),
+      })
+      .mockResolvedValue({ ok: false, status: 404, text: async () => '' })
+
+    const provider = new MicrosoftGraphProvider(providerEntity, cred, acquirer)
+    const result = await provider.listUsersDelta()
+
+    expect(result.users).toHaveLength(2)
+    expect(result.nextDeltaToken).toContain('final')
   })
 })
