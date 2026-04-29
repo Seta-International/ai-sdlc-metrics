@@ -210,7 +210,12 @@ export default function MsImportsPage() {
         </TabsContent>
 
         <TabsContent value="imported" className="mt-4">
-          <MsImportsTable mode="imported" users={importedResult.items} isLoading={false} />
+          <MsImportsTable
+            mode="imported"
+            users={importedResult.items}
+            onReset={(id) => void handleReset(id)}
+            isLoading={isMutating}
+          />
         </TabsContent>
 
         <TabsContent value="skipped" className="mt-4">

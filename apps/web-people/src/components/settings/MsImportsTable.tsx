@@ -41,6 +41,7 @@ type SkippedProps = {
 type ImportedProps = {
   mode: 'imported'
   users: MsStagedUserRow[]
+  onReset: (id: string) => void
   isLoading: boolean
 }
 
@@ -123,7 +124,7 @@ export function MsImportsTable(props: MsImportsTableProps) {
               <TableHead className="px-3 py-2 text-left font-510 text-muted-foreground">
                 Dept
               </TableHead>
-              {props.mode !== 'imported' && <TableHead className="w-32 px-3 py-2" />}
+              <TableHead className="w-32 px-3 py-2" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -170,7 +171,7 @@ export function MsImportsTable(props: MsImportsTableProps) {
                     </div>
                   </TableCell>
                 )}
-                {props.mode === 'skipped' && (
+                {(props.mode === 'skipped' || props.mode === 'imported') && (
                   <TableCell className="px-3 py-2">
                     <div className="flex items-center justify-end">
                       <Button
@@ -189,7 +190,7 @@ export function MsImportsTable(props: MsImportsTableProps) {
             {props.users.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={props.mode === 'pending' ? 6 : props.mode === 'skipped' ? 6 : 4}
+                  colSpan={props.mode === 'pending' ? 6 : 5}
                   className="px-3 py-8 text-center text-sm text-muted-foreground"
                 >
                   No users to show.

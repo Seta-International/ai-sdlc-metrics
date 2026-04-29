@@ -218,10 +218,21 @@ describe('MsImportsTable', () => {
     expect(screen.queryByRole('button', { name: /^skip$/i })).toBeNull()
   })
 
-  it('shows no action buttons in imported mode', () => {
-    render(<MsImportsTable mode="imported" users={[mockUser]} isLoading={false} />)
+  it('shows Reset to pending button in imported mode', async () => {
+    const onReset = vi.fn()
+    render(
+      <MsImportsTable mode="imported" users={[mockUser]} onReset={onReset} isLoading={false} />,
+    )
+    const resetBtn = screen.getByRole('button', { name: /reset to pending/i })
+    await userEvent.click(resetBtn)
+    expect(onReset).toHaveBeenCalledWith('su1')
+  })
+
+  it('hides Import and Skip buttons in imported mode', () => {
+    render(
+      <MsImportsTable mode="imported" users={[mockUser]} onReset={vi.fn()} isLoading={false} />,
+    )
     expect(screen.queryByRole('button', { name: /^import$/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /^skip$/i })).toBeNull()
-    expect(screen.queryByRole('button', { name: /reset to pending/i })).toBeNull()
   })
 })
