@@ -133,9 +133,13 @@ import { ListLinkedGroupsHandler } from './application/queries/ms-sync/list-link
 import { MS_LINKED_GROUP_REPOSITORY } from './domain/repositories/ms-linked-group.repository'
 import { MS_PLAN_SYNC_STATE_REPOSITORY } from './domain/repositories/ms-plan-sync-state.repository'
 import { MS_SYNC_CONFLICT_REPOSITORY } from './domain/repositories/ms-sync-conflict.repository'
+import { MS_LINKED_ROSTER_REPOSITORY } from './domain/repositories/ms-linked-roster.repository'
+import { ROSTER_MEMBER_REPOSITORY } from './domain/repositories/roster-member.repository'
 import { DrizzleMsLinkedGroupRepository } from './infrastructure/repositories/drizzle-ms-linked-group.repository'
 import { DrizzleMsPlanSyncStateRepository } from './infrastructure/repositories/drizzle-ms-plan-sync-state.repository'
 import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/drizzle-ms-sync-conflict.repository'
+import { DrizzleMsLinkedRosterRepository } from './infrastructure/repositories/drizzle-ms-linked-roster.repository'
+import { DrizzleRosterMemberRepository } from './infrastructure/repositories/drizzle-roster-member.repository'
 
 @Module({
   imports: [CqrsModule, KernelModule, AdminModule, IdentityModule, NotificationsModule],
@@ -244,6 +248,8 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     { provide: MS_LINKED_GROUP_REPOSITORY, useClass: DrizzleMsLinkedGroupRepository },
     { provide: MS_PLAN_SYNC_STATE_REPOSITORY, useClass: DrizzleMsPlanSyncStateRepository },
     { provide: MS_SYNC_CONFLICT_REPOSITORY, useClass: DrizzleMsSyncConflictRepository },
+    { provide: MS_LINKED_ROSTER_REPOSITORY, useClass: DrizzleMsLinkedRosterRepository },
+    { provide: ROSTER_MEMBER_REPOSITORY, useClass: DrizzleRosterMemberRepository },
     {
       provide: PLANNER_SECRETS_STORE,
       useFactory: () =>
