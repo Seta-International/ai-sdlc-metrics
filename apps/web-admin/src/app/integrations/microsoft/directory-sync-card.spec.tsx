@@ -12,8 +12,10 @@ vi.mock('@future/api-client', () => ({
 vi.mock('../../../lib/trpc', () => ({
   trpc: {
     identity: {
-      getSyncStatus: { query: vi.fn() },
-      triggerSync: { mutate: vi.fn() },
+      admin: {
+        getSyncStatus: { query: vi.fn() },
+        triggerSync: { mutate: vi.fn() },
+      },
     },
   },
 }))

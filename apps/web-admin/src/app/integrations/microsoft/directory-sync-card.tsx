@@ -35,11 +35,11 @@ interface SyncStatusResponse {
 // HACK: identity router stub returns null at the type level; remove once identityAdminRouter
 // is typed with real return types in app-router.ts.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const identityTrpc = (trpc as any).identity
+const identityTrpc = (trpc as any).identity.admin
 
 export function DirectorySyncCard() {
   const syncStatusQuery = useQuery({
-    queryKey: ['identity.getSyncStatus'],
+    queryKey: ['identity.admin.getSyncStatus'],
     queryFn: () => identityTrpc.getSyncStatus.query({}) as Promise<SyncStatusResponse>,
   })
 
