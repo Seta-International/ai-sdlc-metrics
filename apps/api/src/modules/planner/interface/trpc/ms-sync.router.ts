@@ -11,6 +11,9 @@ import { UnlinkRosterCommand } from '../../application/commands/ms-sync/unlink-r
 import { ListAvailableGroupsQuery } from '../../application/queries/ms-sync/list-available-groups.query'
 import { ListLinkedGroupsQuery } from '../../application/queries/ms-sync/list-linked-groups.query'
 import { ListLinkedRostersQuery } from '../../application/queries/ms-sync/list-linked-rosters.query'
+import { ListConflictsQuery } from '../../application/queries/ms-sync/list-conflicts.query'
+import { RetryConflictCommand } from '../../application/commands/ms-sync/retry-conflict.command'
+import { AcceptMsStateForConflictCommand } from '../../application/commands/ms-sync/accept-ms-state-for-conflict.command'
 import { PlannerRouterService } from './planner-router.service'
 import { toPlannerTrpcError } from './planner-trpc-error'
 
@@ -243,4 +246,63 @@ export const msSyncRouter = router({
         msSyncRostersEnabled: flags.msSyncRostersEnabled,
       }
     }),
+
+  conflicts: router({
+    list: publicProcedure
+      .input(
+        z.object({
+          tenantId: z.string().uuid(),
+          resolved: z.enum(['open', 'all']).default('open'),
+          limit: z.number().int().min(1).max(200).default(100),
+          cursor: z.string().optional(),
+        }),
+      )
+      .query(async ({ input }) => {
+        return svc()
+          .query(
+            new ListConflictsQuery(input.tenantId, {
+              resolved: input.resolved,
+              limit: input.limit,
+              cursor: input.cursor,
+            }),
+          )
+          .catch((e) => {
+            throw toPlannerTrpcError(e)
+          })
+      }),
+
+    retry: publicProcedure
+      .input(
+        z.object({
+          tenantId: z.string().uuid(),
+          actorId: z.string().uuid(),
+          conflictId: z.string().uuid(),
+        }),
+      )
+      .mutation(async ({ input }) => {
+        await svc()
+          .command(new RetryConflictCommand(input.tenantId, input.actorId, input.conflictId))
+          .catch((e) => {
+            throw toPlannerTrpcError(e)
+          })
+      }),
+
+    acceptMsState: publicProcedure
+      .input(
+        z.object({
+          tenantId: z.string().uuid(),
+          actorId: z.string().uuid(),
+          conflictId: z.string().uuid(),
+        }),
+      )
+      .mutation(async ({ input }) => {
+        await svc()
+          .command(
+            new AcceptMsStateForConflictCommand(input.tenantId, input.actorId, input.conflictId),
+          )
+          .catch((e) => {
+            throw toPlannerTrpcError(e)
+          })
+      }),
+  }),
 })

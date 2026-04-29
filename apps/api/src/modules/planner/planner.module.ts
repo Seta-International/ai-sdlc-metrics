@@ -127,7 +127,10 @@ import { PushBucketHandler } from './application/commands/ms-sync/push-bucket.ha
 import { PushAttachmentHandler } from './application/commands/ms-sync/push-attachment.handler'
 import { PullAttachmentHandler } from './application/commands/ms-sync/pull-attachment.handler'
 import { RetryPendingAttachmentsHandler } from './application/commands/ms-sync/retry-pending-attachments.handler'
+import { RetryConflictHandler } from './application/commands/ms-sync/retry-conflict.handler'
+import { AcceptMsStateForConflictHandler } from './application/commands/ms-sync/accept-ms-state-for-conflict.handler'
 import { MintMsRosterHandler } from './application/commands/ms-sync/mint-ms-roster.handler'
+import { ListConflictsHandler } from './application/queries/ms-sync/list-conflicts.handler'
 import { OutboxDirtyFieldsQuery } from './infrastructure/outbox/outbox-dirty-fields.query'
 import { MsSyncJobRegistrar } from './infrastructure/jobs/pg-boss.registrar'
 import { IdentityDirectorySyncedListener } from './application/event-handlers/identity-directory-synced.listener'
@@ -277,6 +280,9 @@ import { DrizzleRosterMemberRepository } from './infrastructure/repositories/dri
     MsSyncResolvePendingRegistrar,
     MsSyncRetryAttachmentsRegistrar,
     RetryPendingAttachmentsHandler,
+    RetryConflictHandler,
+    AcceptMsStateForConflictHandler,
+    ListConflictsHandler,
     MintMsRosterHandler,
     PollTenantHandler,
     PlannerQueryFacade,

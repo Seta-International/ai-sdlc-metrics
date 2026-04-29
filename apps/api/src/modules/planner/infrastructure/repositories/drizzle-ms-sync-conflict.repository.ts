@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common'
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, isNull, lt, sql } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { IMsSyncConflictRepository } from '../../domain/repositories/ms-sync-conflict.repository'
@@ -28,6 +28,35 @@ export class DrizzleMsSyncConflictRepository implements IMsSyncConflictRepositor
       rawError: entity.rawError ?? undefined,
       createdAt: entity.createdAt,
     })
+  }
+
+  async get(id: string): Promise<MsSyncConflictEntity | null> {
+    const rows = await this.db
+      .select()
+      .from(msSyncConflict)
+      .where(eq(msSyncConflict.id, id))
+      .limit(1)
+    return rows[0] ? rowToEntity(rows[0]) : null
+  }
+
+  async list(
+    tenantId: string,
+    opts: { resolved: 'open' | 'all'; limit: number; before?: Date },
+  ): Promise<MsSyncConflictEntity[]> {
+    const conditions = [eq(msSyncConflict.tenantId, tenantId)]
+    if (opts.resolved === 'open') {
+      conditions.push(isNull(msSyncConflict.resolvedAt))
+    }
+    if (opts.before) {
+      conditions.push(lt(msSyncConflict.createdAt, opts.before))
+    }
+    const rows = await this.db
+      .select()
+      .from(msSyncConflict)
+      .where(and(...conditions))
+      .orderBy(desc(msSyncConflict.createdAt))
+      .limit(opts.limit)
+    return rows.map(rowToEntity)
   }
 
   async listOpenForTenant(tenantId: string): Promise<MsSyncConflictEntity[]> {
