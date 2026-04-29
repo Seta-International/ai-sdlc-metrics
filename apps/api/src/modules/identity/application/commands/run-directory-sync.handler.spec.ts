@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EventBus } from '@nestjs/cqrs'
+import { DirectorySyncCompletedEvent } from '@future/event-contracts'
 import { RunDirectorySyncCommand } from './run-directory-sync.command'
 import { RunDirectorySyncHandler } from './run-directory-sync.handler'
 import {
@@ -45,6 +47,7 @@ describe('RunDirectorySyncHandler', () => {
   let userIdentityFacade: KernelUserIdentityFacade
   let directoryProvider: IDirectoryProvider
   let directoryProviderFactory: { create: ReturnType<typeof vi.fn> }
+  let eventBus: { publish: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     providerRepo = {
@@ -83,6 +86,7 @@ describe('RunDirectorySyncHandler', () => {
       listGroupsWithMembers: vi.fn(),
     }
     directoryProviderFactory = { create: vi.fn().mockResolvedValue(directoryProvider) }
+    eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
     handler = new RunDirectorySyncHandler(
       providerRepo,
       mappingRepo,
@@ -90,6 +94,7 @@ describe('RunDirectorySyncHandler', () => {
       directoryProviderFactory as never,
       actorFacade,
       userIdentityFacade,
+      eventBus as unknown as EventBus,
     )
   })
 
@@ -192,5 +197,32 @@ describe('RunDirectorySyncHandler', () => {
       TENANT_ID,
       expect.objectContaining({ syncStatus: 'failed' }),
     )
+  })
+
+  it('publishes DirectorySyncCompletedEvent after successful sync', async () => {
+    vi.mocked(providerRepo.findById).mockResolvedValue(makeProvider())
+    vi.mocked(providerRepo.update).mockResolvedValue(undefined)
+    vi.mocked(directoryProvider.listUsers).mockResolvedValue([])
+    vi.mocked(directoryProvider.listGroupsWithMembers).mockResolvedValue([])
+    vi.mocked(mappingRepo.findByProviderId).mockResolvedValue([])
+
+    await handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID))
+
+    expect(eventBus.publish).toHaveBeenCalledWith(expect.any(DirectorySyncCompletedEvent))
+    const publishedEvent = eventBus.publish.mock.calls[0][0] as DirectorySyncCompletedEvent
+    expect(publishedEvent.tenantId).toBe(TENANT_ID)
+    expect(publishedEvent.identityProviderId).toBe(PROVIDER_ID)
+  })
+
+  it('does NOT publish event when sync throws', async () => {
+    vi.mocked(providerRepo.findById).mockResolvedValue(makeProvider())
+    vi.mocked(providerRepo.update).mockResolvedValue(undefined)
+    vi.mocked(directoryProviderFactory.create).mockRejectedValue(new Error('provider error'))
+
+    await expect(
+      handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID)),
+    ).rejects.toThrow('provider error')
+
+    expect(eventBus.publish).not.toHaveBeenCalled()
   })
 })
