@@ -59,10 +59,7 @@ import { GetOrgChartChildrenQuery } from '../../application/queries/get-org-char
 import { GetOrgChartTreeQuery } from '../../application/queries/get-org-chart-tree.query'
 import { ORG_CHART_NODE_NOT_FOUND } from '../../application/services/org-chart-query.service'
 
-import type { IdentityQueryFacade } from '../../../identity/application/facades/identity-query.facade'
-import { SyncMicrosoftProfileCommand } from '../../application/commands/sync-microsoft-profile.command'
 import { UpdatePersonalProfileCommand } from '../../application/commands/update-personal-profile.command'
-import type { SyncResult } from '../../application/commands/sync-microsoft-profile.handler'
 import { PeopleTrpcService } from './people-trpc.service'
 import {
   futureListQuerySchema,
@@ -111,6 +108,10 @@ import { UploadImportFileCommand } from '../../application/commands/upload-impor
 import { MapImportColumnsCommand } from '../../application/commands/map-import-columns.command'
 import { ValidateImportCommand } from '../../application/commands/validate-import.command'
 import { CommitImportCommand } from '../../application/commands/commit-import.command'
+import { ImportStagedMsUserCommand } from '../../application/commands/import-staged-ms-user.command'
+import { SkipStagedMsUserCommand } from '../../application/commands/skip-staged-ms-user.command'
+import { ListStagedMsUsersQuery } from '../../application/queries/list-staged-ms-users.query'
+import { GetMsSyncStatusQuery } from '../../application/queries/get-ms-sync-status.query'
 
 const svc = () => PeopleTrpcService.getInstance()
 
@@ -120,7 +121,6 @@ export function createPeopleRouter(
   peopleFacade: PeopleQueryFacade,
   kernelFacade: KernelQueryFacade,
   _auditFacade: KernelAuditFacade,
-  identityFacade: IdentityQueryFacade,
 ) {
   return router({
     // ── Profile queries ────────────────────────────────────────────────────
@@ -154,12 +154,6 @@ export function createPeopleRouter(
         const has = (p: string) => perms.includes(p)
         const isAdmin = has('people:admin')
 
-        const graphCredential = await identityFacade.getGraphCredential(ctx.tenantId)
-        const msExternalUserId =
-          employment?.personProfile?.actorId && graphCredential?.status === 'active'
-            ? await identityFacade.getExternalUserId(employment.personProfile.actorId, ctx.tenantId)
-            : null
-
         return {
           canEdit: isAdmin || has('people:profile:update'),
           canManage: isAdmin,
@@ -171,10 +165,6 @@ export function createPeopleRouter(
           canCreateContract: isAdmin || has('people:profile:update'),
           canViewSalary: isSelf || isAdmin || has('people:salary:read'),
           canApproveChanges: isAdmin,
-          canSyncFromMicrosoft:
-            graphCredential?.status === 'active' &&
-            msExternalUserId !== null &&
-            (isSelf || isAdmin || has('people:profile:update')),
         }
       }),
 
@@ -1231,35 +1221,82 @@ export function createPeopleRouter(
         }),
     }),
 
-    // ── Microsoft sync mutation ────────────────────────────────────────────
-    syncFromMicrosoft: permissionProtectedProcedure
-      .meta({ permission: 'people:profile:read' })
-      .input(z.object({ employmentId: z.string().uuid() }))
-      .mutation(async ({ ctx, input }: { ctx: AuthContext; input: { employmentId: string } }) => {
-        const employment = await peopleFacade.getEmployment(ctx.tenantId, input.employmentId)
-        const isSelf = employment?.personProfile?.actorId === ctx.actorId
-        const perms = await kernelFacade.getEffectivePermissions(ctx.actorId, ctx.tenantId)
-        const has = (p: string) => perms.includes(p)
-        const isAdmin = has('people:admin')
+    // ── MS staged import routes ────────────────────────────────────────────
+    getMsSyncStatus: permissionProtectedProcedure
+      .meta({ permission: 'people:admin' })
+      .query(async ({ ctx }: { ctx: AuthContext }) => {
+        return svc().query(new GetMsSyncStatusQuery(ctx.tenantId))
+      }),
 
-        const graphCredential = await identityFacade.getGraphCredential(ctx.tenantId)
-        const msExternalUserId =
-          graphCredential?.status === 'active' && employment?.personProfile?.actorId
-            ? await identityFacade.getExternalUserId(employment.personProfile.actorId, ctx.tenantId)
-            : null
+    listStagedMsUsers: permissionProtectedProcedure
+      .meta({ permission: 'people:admin' })
+      .input(
+        z.object({
+          status: z.enum(['pending', 'imported', 'skipped']).default('pending'),
+          limit: z.number().int().min(1).max(100).default(20),
+          offset: z.number().int().min(0).default(0),
+        }),
+      )
+      .query(
+        async ({
+          ctx,
+          input,
+        }: {
+          ctx: AuthContext
+          input: { status: 'pending' | 'imported' | 'skipped'; limit: number; offset: number }
+        }) => {
+          return svc().query(
+            new ListStagedMsUsersQuery(ctx.tenantId, input.status, input.limit, input.offset),
+          )
+        },
+      ),
 
-        const canSync =
-          graphCredential?.status === 'active' &&
-          msExternalUserId !== null &&
-          (isSelf || isAdmin || has('people:profile:update'))
+    importStagedMsUser: permissionProtectedProcedure
+      .meta({ permission: 'people:admin' })
+      .input(z.object({ id: z.string().uuid() }))
+      .mutation(async ({ ctx, input }: { ctx: AuthContext; input: { id: string } }) => {
+        return svc().command(new ImportStagedMsUserCommand(ctx.tenantId, input.id, ctx.actorId))
+      }),
 
-        if (!canSync) {
-          throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot sync this profile' })
+    skipStagedMsUser: permissionProtectedProcedure
+      .meta({ permission: 'people:admin' })
+      .input(z.object({ id: z.string().uuid() }))
+      .mutation(async ({ ctx, input }: { ctx: AuthContext; input: { id: string } }) => {
+        return svc().command(new SkipStagedMsUserCommand(ctx.tenantId, input.id))
+      }),
+
+    bulkImportStagedMsUsers: permissionProtectedProcedure
+      .meta({ permission: 'people:admin' })
+      .input(z.object({ ids: z.array(z.string().uuid()).min(1).max(50) }))
+      .mutation(async ({ ctx, input }: { ctx: AuthContext; input: { ids: string[] } }) => {
+        const results: Array<{ id: string; employmentId?: string; error?: string }> = []
+        for (const id of input.ids) {
+          try {
+            const employmentId = (await svc().command(
+              new ImportStagedMsUserCommand(ctx.tenantId, id, ctx.actorId),
+            )) as string
+            results.push({ id, employmentId })
+          } catch (err) {
+            results.push({ id, error: (err as Error).message })
+          }
         }
+        return results
+      }),
 
-        return svc().command(
-          new SyncMicrosoftProfileCommand(ctx.tenantId, input.employmentId, ctx.actorId),
-        ) as Promise<SyncResult>
+    bulkSkipStagedMsUsers: permissionProtectedProcedure
+      .meta({ permission: 'people:admin' })
+      .input(z.object({ ids: z.array(z.string().uuid()).min(1).max(50) }))
+      .mutation(async ({ ctx, input }: { ctx: AuthContext; input: { ids: string[] } }) => {
+        const results: Array<{ id: string; error?: string }> = []
+        for (const id of input.ids) {
+          try {
+            await svc().command(new SkipStagedMsUserCommand(ctx.tenantId, id))
+            results.push({ id })
+          } catch (err) {
+            results.push({ id, error: (err as Error).message })
+          }
+        }
+        return results
       }),
 
     // ── Update personal profile mutation ──────────────────────────────────
