@@ -79,6 +79,7 @@ export const tenantSettings = adminSchema.table('tenant_settings', {
   plannerMsSyncAttachmentsEnabled: boolean('planner_ms_sync_attachments_enabled')
     .notNull()
     .default(true),
+  plannerMsSyncRostersEnabled: boolean('planner_ms_sync_rosters_enabled').notNull().default(false),
   timezone: text('timezone').notNull().default('Asia/Ho_Chi_Minh'),
   maxSampledTurnsPerDay: integer('max_sampled_turns_per_day').notNull().default(10000),
   /**

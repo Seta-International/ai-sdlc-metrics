@@ -7,4 +7,5 @@ export interface PlannerViewFlags {
   personalEnabled: boolean
   msSyncEnabled: boolean
   msSyncAttachmentsEnabled: boolean
+  msSyncRostersEnabled: boolean
 }

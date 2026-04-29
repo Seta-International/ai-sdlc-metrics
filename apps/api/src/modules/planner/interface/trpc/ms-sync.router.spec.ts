@@ -6,9 +6,13 @@ import { ConnectMsSyncCommand } from '../../application/commands/ms-sync/connect
 import { DisconnectMsSyncCommand } from '../../application/commands/ms-sync/disconnect-ms-sync.command'
 import { LinkMsGroupCommand } from '../../application/commands/ms-sync/link-ms-group.command'
 import { UnlinkMsGroupCommand } from '../../application/commands/ms-sync/unlink-ms-group.command'
+import { MintMsRosterCommand } from '../../application/commands/ms-sync/mint-ms-roster.command'
+import { LinkExistingRosterCommand } from '../../application/commands/ms-sync/link-existing-roster.command'
+import { UnlinkRosterCommand } from '../../application/commands/ms-sync/unlink-roster.command'
 import { GetGraphCredentialQuery } from '../../../identity/application/queries/get-graph-credential.query'
 import { ListAvailableGroupsQuery } from '../../application/queries/ms-sync/list-available-groups.query'
 import { ListLinkedGroupsQuery } from '../../application/queries/ms-sync/list-linked-groups.query'
+import { ListLinkedRostersQuery } from '../../application/queries/ms-sync/list-linked-rosters.query'
 import type { AdminQueryFacade } from '../../../admin/application/facades/admin-query.facade'
 
 const TENANT_ID = '01900000-0000-7fff-8000-000000005001'
@@ -30,8 +34,19 @@ describe('msSyncRouter — unit (mocked command/query bus)', () => {
     commandBus = { execute: vi.fn() }
     queryBus = { execute: vi.fn() }
 
-    const adminQueryFacade: Pick<AdminQueryFacade, 'isPlannerEnabled'> = {
+    const adminQueryFacade: Pick<AdminQueryFacade, 'isPlannerEnabled' | 'getPlannerViewFlags'> = {
       isPlannerEnabled: vi.fn().mockResolvedValue(true),
+      getPlannerViewFlags: vi.fn().mockResolvedValue({
+        viewsEnabled: true,
+        gridEnabled: true,
+        scheduleEnabled: true,
+        chartsEnabled: true,
+        trendsEnabled: true,
+        personalEnabled: true,
+        msSyncEnabled: true,
+        msSyncAttachmentsEnabled: true,
+        msSyncRostersEnabled: true,
+      }),
     }
 
     const svc = new PlannerRouterService(
@@ -306,6 +321,86 @@ describe('msSyncRouter — unit (mocked command/query bus)', () => {
       clientId: null,
       connectedAt: null,
       lastError: null,
+    })
+  })
+
+  it('planner.msSync.rosters.listLinked dispatches ListLinkedRostersQuery', async () => {
+    queryBus.execute.mockResolvedValue([
+      {
+        id: 'roster-id-1',
+        msRosterId: 'r1',
+        displayName: 'Test',
+        syncEnabled: true,
+        mintedByFutureAt: null,
+        unlinkedAt: null,
+      },
+    ])
+
+    const caller = plannerRouter.createCaller(makeCtx())
+    const result = await caller.msSync.rosters.listLinked({ tenantId: TENANT_ID })
+
+    const dispatched = queryBus.execute.mock.calls[0][0]
+    expect(dispatched).toBeInstanceOf(ListLinkedRostersQuery)
+    expect(dispatched.tenantId).toBe(TENANT_ID)
+    expect(result).toHaveLength(1)
+    expect(result[0].msRosterId).toBe('r1')
+  })
+
+  it('planner.msSync.rosters.mint dispatches MintMsRosterCommand', async () => {
+    commandBus.execute.mockResolvedValue({ msRosterId: 'r1', localId: 'local-1' })
+
+    const caller = plannerRouter.createCaller(makeCtx())
+    const result = await caller.msSync.rosters.mint({
+      tenantId: TENANT_ID,
+      actorId: ACTOR_ID,
+      displayName: 'My Roster',
+      initialMemberActorIds: [],
+    })
+
+    const dispatched = commandBus.execute.mock.calls[0][0]
+    expect(dispatched).toBeInstanceOf(MintMsRosterCommand)
+    expect(dispatched.displayName).toBe('My Roster')
+    expect(result).toEqual({ msRosterId: 'r1', localId: 'local-1' })
+  })
+
+  it('planner.msSync.rosters.linkExisting dispatches LinkExistingRosterCommand', async () => {
+    commandBus.execute.mockResolvedValue(undefined)
+
+    const caller = plannerRouter.createCaller(makeCtx())
+    await caller.msSync.rosters.linkExisting({
+      tenantId: TENANT_ID,
+      actorId: ACTOR_ID,
+      msRosterId: 'roster-abc',
+    })
+
+    const dispatched = commandBus.execute.mock.calls[0][0]
+    expect(dispatched).toBeInstanceOf(LinkExistingRosterCommand)
+    expect(dispatched.msRosterId).toBe('roster-abc')
+    expect(dispatched.tenantId).toBe(TENANT_ID)
+  })
+
+  it('planner.msSync.rosters.unlink dispatches UnlinkRosterCommand', async () => {
+    commandBus.execute.mockResolvedValue(undefined)
+
+    const caller = plannerRouter.createCaller(makeCtx())
+    await caller.msSync.rosters.unlink({
+      tenantId: TENANT_ID,
+      actorId: ACTOR_ID,
+      msRosterId: 'roster-xyz',
+    })
+
+    const dispatched = commandBus.execute.mock.calls[0][0]
+    expect(dispatched).toBeInstanceOf(UnlinkRosterCommand)
+    expect(dispatched.msRosterId).toBe('roster-xyz')
+  })
+
+  it('planner.msSync.flags returns msSyncAttachmentsEnabled and msSyncRostersEnabled', async () => {
+    const caller = plannerRouter.createCaller(makeCtx())
+    const result = await caller.msSync.flags({ tenantId: TENANT_ID })
+
+    expect(result).toEqual({
+      msSyncAttachmentsEnabled: true,
+      msSyncRostersEnabled: true,
     })
   })
 })

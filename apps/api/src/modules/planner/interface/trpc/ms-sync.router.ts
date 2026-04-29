@@ -5,8 +5,12 @@ import { ConnectMsSyncCommand } from '../../application/commands/ms-sync/connect
 import { DisconnectMsSyncCommand } from '../../application/commands/ms-sync/disconnect-ms-sync.command'
 import { LinkMsGroupCommand } from '../../application/commands/ms-sync/link-ms-group.command'
 import { UnlinkMsGroupCommand } from '../../application/commands/ms-sync/unlink-ms-group.command'
+import { MintMsRosterCommand } from '../../application/commands/ms-sync/mint-ms-roster.command'
+import { LinkExistingRosterCommand } from '../../application/commands/ms-sync/link-existing-roster.command'
+import { UnlinkRosterCommand } from '../../application/commands/ms-sync/unlink-roster.command'
 import { ListAvailableGroupsQuery } from '../../application/queries/ms-sync/list-available-groups.query'
 import { ListLinkedGroupsQuery } from '../../application/queries/ms-sync/list-linked-groups.query'
+import { ListLinkedRostersQuery } from '../../application/queries/ms-sync/list-linked-rosters.query'
 import { PlannerRouterService } from './planner-router.service'
 import { toPlannerTrpcError } from './planner-trpc-error'
 
@@ -146,6 +150,86 @@ export const msSyncRouter = router({
       }
     }),
 
+  rosters: router({
+    listLinked: publicProcedure
+      .input(z.object({ tenantId: z.string().uuid() }))
+      .query(async ({ input }) => {
+        await svc().assertRostersEnabled(input.tenantId)
+        return svc()
+          .query(new ListLinkedRostersQuery(input.tenantId))
+          .catch((e) => {
+            throw toPlannerTrpcError(e)
+          })
+      }),
+
+    mint: publicProcedure
+      .input(
+        z.object({
+          tenantId: z.string().uuid(),
+          actorId: z.string().uuid(),
+          displayName: z.string().min(1),
+          initialMemberActorIds: z.array(z.string().uuid()).default([]),
+        }),
+      )
+      .mutation(async ({ input }) => {
+        await svc().assertRostersEnabled(input.tenantId)
+        return svc()
+          .command(
+            new MintMsRosterCommand(
+              input.tenantId,
+              input.actorId,
+              input.displayName,
+              input.initialMemberActorIds,
+            ),
+          )
+          .catch((e) => {
+            throw toPlannerTrpcError(e)
+          })
+      }),
+
+    linkExisting: publicProcedure
+      .input(
+        z.object({
+          tenantId: z.string().uuid(),
+          actorId: z.string().uuid(),
+          msRosterId: z.string().min(1),
+          displayName: z.string().optional(),
+        }),
+      )
+      .mutation(async ({ input }) => {
+        await svc().assertRostersEnabled(input.tenantId)
+        await svc()
+          .command(
+            new LinkExistingRosterCommand(
+              input.tenantId,
+              input.actorId,
+              input.msRosterId,
+              input.displayName ?? null,
+            ),
+          )
+          .catch((e) => {
+            throw toPlannerTrpcError(e)
+          })
+      }),
+
+    unlink: publicProcedure
+      .input(
+        z.object({
+          tenantId: z.string().uuid(),
+          actorId: z.string().uuid(),
+          msRosterId: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ input }) => {
+        await svc().assertRostersEnabled(input.tenantId)
+        await svc()
+          .command(new UnlinkRosterCommand(input.tenantId, input.actorId, input.msRosterId))
+          .catch((e) => {
+            throw toPlannerTrpcError(e)
+          })
+      }),
+  }),
+
   flags: publicProcedure
     .input(z.object({ tenantId: z.string().uuid() }))
     .query(async ({ input }) => {
@@ -154,6 +238,9 @@ export const msSyncRouter = router({
         .catch((e) => {
           throw toPlannerTrpcError(e)
         })
-      return { msSyncAttachmentsEnabled: flags.msSyncAttachmentsEnabled }
+      return {
+        msSyncAttachmentsEnabled: flags.msSyncAttachmentsEnabled,
+        msSyncRostersEnabled: flags.msSyncRostersEnabled,
+      }
     }),
 })

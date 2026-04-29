@@ -81,6 +81,11 @@ export const AGENTS_TABLES = [
 // core schema tables that also need RLS
 const CORE_TABLES = ['agent_delegation'] as const
 
+/**
+ * planner.* tables that carry a tenant_id column and require row-level security.
+ */
+export const PLANNER_TABLES = ['ms_linked_roster', 'roster_member'] as const
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
@@ -160,6 +165,12 @@ function main(): void {
     blocks.push('')
   }
 
+  for (const table of PLANNER_TABLES) {
+    blocks.push(`-- planner.${table}`)
+    blocks.push(rlsDdl('planner', table))
+    blocks.push('')
+  }
+
   const rls = blocks.join('\n')
 
   fs.appendFileSync(migrationFile, rls, 'utf8')
@@ -192,7 +203,7 @@ function main(): void {
   }
 
   console.log(
-    `[rls] Appended RLS DDL for ${AGENTS_TABLES.length} agents tables + ${CORE_TABLES.length} core tables to ${path.join(MIGRATIONS_DIR, '0000_initial.sql')}`,
+    `[rls] Appended RLS DDL for ${AGENTS_TABLES.length} agents tables + ${CORE_TABLES.length} core tables + ${PLANNER_TABLES.length} planner tables to ${path.join(MIGRATIONS_DIR, '0000_initial.sql')}`,
   )
 }
 

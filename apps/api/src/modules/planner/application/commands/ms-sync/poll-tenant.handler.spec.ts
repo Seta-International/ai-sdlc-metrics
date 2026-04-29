@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { PollTenantCommand } from './poll-tenant.command'
 import { PollTenantHandler } from './poll-tenant.handler'
 import { MsLinkedGroupEntity } from '../../../domain/entities/ms-linked-group.entity'
+import { MsLinkedRosterEntity } from '../../../domain/entities/ms-linked-roster.entity'
 import {
   GraphAuthError,
   GraphQuotaError,
@@ -27,9 +28,25 @@ function makeGroup(
   })
 }
 
+function makeRoster(overrides: Partial<{ msRosterId: string }> = {}): MsLinkedRosterEntity {
+  return MsLinkedRosterEntity.reconstitute({
+    id: 'r1',
+    tenantId: 't1',
+    msRosterId: overrides.msRosterId ?? 'ms-roster-1',
+    displayName: 'Test Roster',
+    linkedByActorId: 'a1',
+    linkedAt: new Date(),
+    syncEnabled: true,
+    mintedByFutureAt: null,
+    unlinkedAt: null,
+  })
+}
+
 function makeHandler(overrides: {
   credStatus?: string | null
   groups?: MsLinkedGroupEntity[]
+  msSyncRostersEnabled?: boolean
+  rosters?: MsLinkedRosterEntity[]
 }): PollTenantHandler {
   const identityFacade = {
     getGraphCredential: vi
@@ -45,6 +62,17 @@ function makeHandler(overrides: {
   const groupRepo = {
     listActiveForTenant: vi.fn().mockResolvedValue(overrides.groups ?? []),
   }
+  const rosterRepo = {
+    listActiveForTenant: vi.fn().mockResolvedValue(overrides.rosters ?? []),
+  }
+  const memberRepo = {
+    replaceForRoster: vi.fn().mockResolvedValue(undefined),
+  }
+  const adminFacade = {
+    getPlannerViewFlags: vi
+      .fn()
+      .mockResolvedValue({ msSyncRostersEnabled: overrides.msSyncRostersEnabled ?? false }),
+  }
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
   return new PollTenantHandler(
@@ -57,6 +85,9 @@ function makeHandler(overrides: {
     {} as any,
     {} as any,
     { publish: vi.fn() } as any,
+    rosterRepo as any,
+    memberRepo as any,
+    adminFacade as any,
   )
   /* eslint-enable @typescript-eslint/no-explicit-any */
 }
@@ -112,6 +143,9 @@ describe('PollTenantHandler', () => {
       {} as any,
       {} as any,
       { publish: vi.fn() } as any,
+      { listActiveForTenant: vi.fn().mockResolvedValue([]) } as any,
+      {} as any,
+      { getPlannerViewFlags: vi.fn().mockResolvedValue({ msSyncRostersEnabled: false }) } as any,
     )
     /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -139,6 +173,23 @@ describe('PollTenantHandler', () => {
       origin: 'ms-sync-pull',
     })
     expect(planRepo.markArchived).toHaveBeenCalledWith('local-3', { origin: 'ms-sync-pull' })
+  })
+
+  it('iterates linked rosters when msSyncRostersEnabled flag is true', async () => {
+    const roster = makeRoster()
+    const handler = makeHandler({ msSyncRostersEnabled: true, rosters: [roster] })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const spy = vi.spyOn(handler as any, 'pollRoster').mockResolvedValue(undefined)
+    await handler.execute(new PollTenantCommand('t1'))
+    expect(spy).toHaveBeenCalledWith('t1', roster)
+  })
+
+  it('skips roster loop when msSyncRostersEnabled is false', async () => {
+    const handler = makeHandler({ msSyncRostersEnabled: false })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rosterRepo = (handler as any).rosterRepo
+    await handler.execute(new PollTenantCommand('t1'))
+    expect(rosterRepo.listActiveForTenant).not.toHaveBeenCalled()
   })
 
   describe('handlePollError', () => {
@@ -182,6 +233,9 @@ describe('PollTenantHandler', () => {
         credentialFacade as any,
         conflictRepo as any,
         eventBus as any,
+        { listActiveForTenant: vi.fn().mockResolvedValue([]) } as any,
+        {} as any,
+        { getPlannerViewFlags: vi.fn().mockResolvedValue({ msSyncRostersEnabled: false }) } as any,
       )
       return { handler, syncStateRepo, conflictRepo, credentialFacade, eventBus }
     }
@@ -273,6 +327,9 @@ describe('PollTenantHandler', () => {
         {} as any,
         {} as any,
         { publish: vi.fn() } as any,
+        { listActiveForTenant: vi.fn().mockResolvedValue([]) } as any,
+        {} as any,
+        { getPlannerViewFlags: vi.fn().mockResolvedValue({ msSyncRostersEnabled: false }) } as any,
       )
       /* eslint-enable @typescript-eslint/no-explicit-any */
 

@@ -4,9 +4,15 @@ import userEvent from '@testing-library/user-event'
 import React from 'react'
 
 let mockLinkedGroups: { msGroupId: string; displayName: string }[] = []
+let mockLinkedRosters: { msRosterId: string; displayName: string }[] = []
 
 vi.mock('@future/api-client', () => ({
-  useQuery: () => ({ data: mockLinkedGroups, isLoading: false }),
+  useQuery: ({ queryKey }: { queryKey: string[] }) => {
+    if (queryKey[0] === 'msSync.rosters.listLinked') {
+      return { data: mockLinkedRosters, isLoading: false }
+    }
+    return { data: mockLinkedGroups, isLoading: false }
+  },
   useMutation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
 }))
 
@@ -15,6 +21,9 @@ vi.mock('../../lib/trpc', () => ({
     planner: {
       msSync: {
         groups: {
+          listLinked: { query: vi.fn().mockResolvedValue([]) },
+        },
+        rosters: {
           listLinked: { query: vi.fn().mockResolvedValue([]) },
         },
       },
@@ -31,6 +40,7 @@ const { ContainerPicker } = await import('./container-picker')
 afterEach(cleanup)
 beforeEach(() => {
   mockLinkedGroups = []
+  mockLinkedRosters = []
 })
 
 describe('ContainerPicker', () => {
@@ -124,5 +134,39 @@ describe('ContainerPicker', () => {
     await user.click(screen.getByRole('option', { name: 'Future-only' }))
 
     expect(onChange).toHaveBeenCalledWith({ containerType: 'future_only', containerRef: null })
+  })
+
+  it('shows Roster Plans label when linked rosters exist', async () => {
+    const user = userEvent.setup()
+    mockLinkedRosters = [{ msRosterId: 'r-1', displayName: 'Roster A' }]
+
+    render(
+      <ContainerPicker
+        value={{ containerType: 'future_only', containerRef: null }}
+        onChange={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('combobox'))
+    expect(screen.getByText('Roster Plans')).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Roster A' })).toBeDefined()
+  })
+
+  it('calls onChange with ms_roster value when roster is selected', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    mockLinkedRosters = [{ msRosterId: 'r-1', displayName: 'Roster A' }]
+
+    render(
+      <ContainerPicker
+        value={{ containerType: 'future_only', containerRef: null }}
+        onChange={onChange}
+      />,
+    )
+
+    await user.click(screen.getByRole('combobox'))
+    await user.click(screen.getByRole('option', { name: 'Roster A' }))
+
+    expect(onChange).toHaveBeenCalledWith({ containerType: 'ms_roster', containerRef: 'r-1' })
   })
 })

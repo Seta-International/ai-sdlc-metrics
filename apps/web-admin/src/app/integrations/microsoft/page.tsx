@@ -22,6 +22,9 @@ import { StatusCard } from './status-card'
 import { LinkedGroupsTable, type LinkedGroupDto } from './linked-groups-table'
 import { LinkGroupDrawer } from './link-group-drawer'
 import { BackfillProgressSlideover } from './backfill-progress-slideover'
+import { LinkedRostersTable, type LinkedRosterDto } from './rosters/linked-rosters-table'
+import { MintRosterForm } from './rosters/mint-roster-form'
+import { LinkExistingRosterForm } from './rosters/link-existing-roster-form'
 
 interface MsSyncStatus {
   connected: boolean
@@ -36,7 +39,10 @@ interface PlannerTrpcSlice {
   msSync: {
     status: { query: (input: { tenantId: string }) => Promise<MsSyncStatus> }
     flags: {
-      query: (input: { tenantId: string }) => Promise<{ msSyncAttachmentsEnabled: boolean }>
+      query: (input: { tenantId: string }) => Promise<{
+        msSyncAttachmentsEnabled: boolean
+        msSyncRostersEnabled: boolean
+      }>
     }
     connect: {
       mutate: (input: {
@@ -57,6 +63,28 @@ interface PlannerTrpcSlice {
         mutate: (input: { tenantId: string; actorId: string; msGroupId: string }) => Promise<void>
       }
     }
+    rosters: {
+      listLinked: { query: (input: { tenantId: string }) => Promise<LinkedRosterDto[]> }
+      mint: {
+        mutate: (input: {
+          tenantId: string
+          actorId: string
+          displayName: string
+          initialMemberActorIds: string[]
+        }) => Promise<{ msRosterId: string; localId: string }>
+      }
+      linkExisting: {
+        mutate: (input: {
+          tenantId: string
+          actorId: string
+          msRosterId: string
+          displayName?: string
+        }) => Promise<void>
+      }
+      unlink: {
+        mutate: (input: { tenantId: string; actorId: string; msRosterId: string }) => Promise<void>
+      }
+    }
   }
 }
 
@@ -69,6 +97,10 @@ export default function MicrosoftIntegrationPage() {
   const [linkDrawerOpen, setLinkDrawerOpen] = useState(false)
   const [backfillSlideoverOpen, setBackfillSlideoverOpen] = useState(false)
   const [backfillJobId, setBackfillJobId] = useState<string | null>(null)
+  const [mintRosterDialogOpen, setMintRosterDialogOpen] = useState(false)
+  const [linkRosterDialogOpen, setLinkRosterDialogOpen] = useState(false)
+  const [mintRosterError, setMintRosterError] = useState<string | null>(null)
+  const [linkRosterError, setLinkRosterError] = useState<string | null>(null)
 
   const planner = trpc.planner as unknown as PlannerTrpcSlice
 
@@ -139,6 +171,63 @@ export default function MicrosoftIntegrationPage() {
       }),
     onSuccess: async () => {
       await linkedGroupsQuery.refetch()
+    },
+  })
+
+  const linkedRostersQuery = useQuery({
+    queryKey: ['planner.msSync.rosters.listLinked', session?.tenantId],
+    queryFn: () => planner.msSync.rosters.listLinked.query({ tenantId: session!.tenantId }),
+    enabled:
+      !!session &&
+      statusQuery.data?.connected === true &&
+      statusQuery.data?.status !== 'invalid' &&
+      flagsQuery.data?.msSyncRostersEnabled === true,
+  })
+
+  const mintRosterMutation = useMutation({
+    mutationFn: (values: { displayName: string }) =>
+      planner.msSync.rosters.mint.mutate({
+        tenantId: session!.tenantId,
+        actorId: session!.actorId,
+        displayName: values.displayName,
+        initialMemberActorIds: [],
+      }),
+    onSuccess: async () => {
+      setMintRosterDialogOpen(false)
+      setMintRosterError(null)
+      await linkedRostersQuery.refetch()
+    },
+    onError: (error: unknown) => {
+      setMintRosterError(error instanceof Error ? error.message : 'Failed to create roster')
+    },
+  })
+
+  const linkRosterMutation = useMutation({
+    mutationFn: (values: { msRosterId: string; displayName?: string }) =>
+      planner.msSync.rosters.linkExisting.mutate({
+        tenantId: session!.tenantId,
+        actorId: session!.actorId,
+        ...values,
+      }),
+    onSuccess: async () => {
+      setLinkRosterDialogOpen(false)
+      setLinkRosterError(null)
+      await linkedRostersQuery.refetch()
+    },
+    onError: (error: unknown) => {
+      setLinkRosterError(error instanceof Error ? error.message : 'Failed to link roster')
+    },
+  })
+
+  const unlinkRosterMutation = useMutation({
+    mutationFn: (msRosterId: string) =>
+      planner.msSync.rosters.unlink.mutate({
+        tenantId: session!.tenantId,
+        actorId: session!.actorId,
+        msRosterId,
+      }),
+    onSuccess: async () => {
+      await linkedRostersQuery.refetch()
     },
   })
 
@@ -328,6 +417,88 @@ export default function MicrosoftIntegrationPage() {
               onOpenChange={setBackfillSlideoverOpen}
               jobId={backfillJobId}
             />
+          )}
+
+          {flagsQuery.data?.msSyncRostersEnabled === true && (
+            <>
+              <section className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-h3">Linked Rosters</h2>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setLinkRosterError(null)
+                        setLinkRosterDialogOpen(true)
+                      }}
+                    >
+                      Link Existing
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setMintRosterError(null)
+                        setMintRosterDialogOpen(true)
+                      }}
+                    >
+                      Mint
+                    </Button>
+                  </div>
+                </div>
+                <LinkedRostersTable
+                  rosters={linkedRostersQuery.data ?? []}
+                  isLoading={linkedRostersQuery.isLoading}
+                  error={linkedRostersQuery.isError ? 'Failed to load linked rosters' : undefined}
+                  onUnlink={(msRosterId) => unlinkRosterMutation.mutate(msRosterId)}
+                  onRetry={() => linkedRostersQuery.refetch()}
+                />
+              </section>
+
+              <Dialog
+                open={mintRosterDialogOpen}
+                onOpenChange={(open) => {
+                  setMintRosterDialogOpen(open)
+                  if (!open) setMintRosterError(null)
+                }}
+              >
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Mint Roster</DialogTitle>
+                    <DialogDescription>
+                      Create a new Microsoft Planner roster managed by Future.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <MintRosterForm
+                    isSubmitting={mintRosterMutation.isPending}
+                    error={mintRosterError}
+                    onSubmit={(values) => mintRosterMutation.mutate(values)}
+                  />
+                </DialogContent>
+              </Dialog>
+
+              <Dialog
+                open={linkRosterDialogOpen}
+                onOpenChange={(open) => {
+                  setLinkRosterDialogOpen(open)
+                  if (!open) setLinkRosterError(null)
+                }}
+              >
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Link Existing Roster</DialogTitle>
+                    <DialogDescription>
+                      Connect an existing Microsoft Planner roster to Future by its ID.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <LinkExistingRosterForm
+                    isSubmitting={linkRosterMutation.isPending}
+                    error={linkRosterError}
+                    onSubmit={(values) => linkRosterMutation.mutate(values)}
+                  />
+                </DialogContent>
+              </Dialog>
+            </>
           )}
         </>
       )}

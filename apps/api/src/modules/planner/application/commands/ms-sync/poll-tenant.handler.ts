@@ -13,7 +13,16 @@ import {
   type IMsSyncConflictRepository,
 } from '../../../domain/repositories/ms-sync-conflict.repository'
 import { PLAN_REPOSITORY, type IPlanRepository } from '../../../domain/repositories/plan.repository'
+import {
+  MS_LINKED_ROSTER_REPOSITORY,
+  type IMsLinkedRosterRepository,
+} from '../../../domain/repositories/ms-linked-roster.repository'
+import {
+  ROSTER_MEMBER_REPOSITORY,
+  type IRosterMemberRepository,
+} from '../../../domain/repositories/roster-member.repository'
 import { MsSyncConflictEntity } from '../../../domain/entities/ms-sync-conflict.entity'
+import type { MsLinkedRosterEntity } from '../../../domain/entities/ms-linked-roster.entity'
 import { MsGraphClient } from '../../../infrastructure/ms-graph/ms-graph-client'
 import { PlanIngestor } from '../../../infrastructure/ms-graph/pull/plan-ingestor'
 import {
@@ -25,6 +34,7 @@ import {
 } from '../../../infrastructure/ms-graph/errors'
 import { IdentityQueryFacade } from '../../../../identity/application/facades/identity-query.facade'
 import { IdentityMsGraphCredentialFacade } from '../../../../identity/application/facades/identity-ms-graph-credential.facade'
+import { AdminQueryFacade } from '../../../../admin/application/facades/admin-query.facade'
 import type { MsLinkedGroupEntity } from '../../../domain/entities/ms-linked-group.entity'
 import { createMsSyncCredentialInvalidatedEvent } from '@future/event-contracts'
 import { PollTenantCommand } from './poll-tenant.command'
@@ -47,6 +57,11 @@ export class PollTenantHandler implements ICommandHandler<PollTenantCommand> {
     @Inject(MS_SYNC_CONFLICT_REPOSITORY)
     private readonly conflictRepo: IMsSyncConflictRepository,
     private readonly eventBus: EventBus,
+    @Inject(MS_LINKED_ROSTER_REPOSITORY)
+    private readonly rosterRepo: IMsLinkedRosterRepository,
+    @Inject(ROSTER_MEMBER_REPOSITORY)
+    private readonly memberRepo: IRosterMemberRepository,
+    private readonly adminFacade: AdminQueryFacade,
   ) {}
 
   async execute(command: PollTenantCommand): Promise<void> {
@@ -65,6 +80,19 @@ export class PollTenantHandler implements ICommandHandler<PollTenantCommand> {
         await this.pollGroup(command.tenantId, group)
       } catch (e) {
         await this.handlePollError(command.tenantId, group, e as Error)
+      }
+    }
+
+    const flags = await this.adminFacade.getPlannerViewFlags(command.tenantId)
+    if (flags.msSyncRostersEnabled) {
+      const rosters = await this.rosterRepo.listActiveForTenant(command.tenantId)
+      for (const roster of rosters) {
+        try {
+          await this.pollRoster(command.tenantId, roster)
+        } catch (e) {
+          // swallow individual roster errors — don't let one broken roster stop others
+          this.logger.warn(`Roster poll error for ${roster.msRosterId}: ${(e as Error).message}`)
+        }
       }
     }
   }
@@ -93,6 +121,30 @@ export class PollTenantHandler implements ICommandHandler<PollTenantCommand> {
         await this.planRepo.markArchived(local.id, { origin: 'ms-sync-pull' })
       }
     }
+  }
+
+  private async pollRoster(tenantId: string, roster: MsLinkedRosterEntity): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const plans = await this.graph.getAllPages<any>(
+      tenantId,
+      `/planner/rosters/${encodeURIComponent(roster.msRosterId)}/plans`,
+      { useBeta: true },
+    )
+    for (const p of plans) {
+      await this.ingestor.ingestPlan({ tenantId, msPlanId: p.id, origin: 'ms-sync-pull' })
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const membersRes = await this.graph.getAllPages<any>(
+      tenantId,
+      `/planner/rosters/${encodeURIComponent(roster.msRosterId)}/members`,
+      { useBeta: true },
+    )
+    await this.memberRepo.replaceForRoster({
+      tenantId,
+      msRosterId: roster.msRosterId,
+      ssoSubjects: membersRes.map((m: { userId: string }) => m.userId),
+    })
   }
 
   private async handlePollError(

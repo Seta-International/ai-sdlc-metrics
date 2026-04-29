@@ -107,6 +107,7 @@ import { MsGraphClient } from './infrastructure/ms-graph/ms-graph-client'
 import { MsSharePointClient } from './infrastructure/ms-graph/ms-sharepoint-client'
 import { PlanIngestor } from './infrastructure/ms-graph/pull/plan-ingestor'
 import { BackfillGroupWorker } from './infrastructure/ms-graph/pull/backfill-group.worker'
+import { BackfillRosterWorker } from './infrastructure/ms-graph/pull/backfill-roster.worker'
 import { MsGraphTokenAcquirerAdapter } from './infrastructure/ms-graph/ms-graph-token-acquirer.adapter'
 import { PLANNER_SECRETS_STORE } from './domain/ports/secrets-store.port'
 import { MS_GRAPH_TOKEN_ACQUIRER } from './domain/ports/ms-graph-token-acquirer.port'
@@ -117,6 +118,8 @@ import { PollTenantHandler } from './application/commands/ms-sync/poll-tenant.ha
 import { DisconnectMsSyncHandler } from './application/commands/ms-sync/disconnect-ms-sync.handler'
 import { LinkMsGroupHandler } from './application/commands/ms-sync/link-ms-group.handler'
 import { UnlinkMsGroupHandler } from './application/commands/ms-sync/unlink-ms-group.handler'
+import { LinkExistingRosterHandler } from './application/commands/ms-sync/link-existing-roster.handler'
+import { UnlinkRosterHandler } from './application/commands/ms-sync/unlink-roster.handler'
 import { ResolvePendingAssignmentsHandler } from './application/commands/ms-sync/resolve-pending-assignments.handler'
 import { PushTaskHandler } from './application/commands/ms-sync/push-task.handler'
 import { PushPlanHandler } from './application/commands/ms-sync/push-plan.handler'
@@ -124,18 +127,24 @@ import { PushBucketHandler } from './application/commands/ms-sync/push-bucket.ha
 import { PushAttachmentHandler } from './application/commands/ms-sync/push-attachment.handler'
 import { PullAttachmentHandler } from './application/commands/ms-sync/pull-attachment.handler'
 import { RetryPendingAttachmentsHandler } from './application/commands/ms-sync/retry-pending-attachments.handler'
+import { MintMsRosterHandler } from './application/commands/ms-sync/mint-ms-roster.handler'
 import { OutboxDirtyFieldsQuery } from './infrastructure/outbox/outbox-dirty-fields.query'
 import { MsSyncJobRegistrar } from './infrastructure/jobs/pg-boss.registrar'
 import { IdentityDirectorySyncedListener } from './application/event-handlers/identity-directory-synced.listener'
 import { MsSyncPushListener } from './application/event-handlers/ms-sync-push.listener'
 import { ListAvailableGroupsHandler } from './application/queries/ms-sync/list-available-groups.handler'
 import { ListLinkedGroupsHandler } from './application/queries/ms-sync/list-linked-groups.handler'
+import { ListLinkedRostersHandler } from './application/queries/ms-sync/list-linked-rosters.handler'
 import { MS_LINKED_GROUP_REPOSITORY } from './domain/repositories/ms-linked-group.repository'
 import { MS_PLAN_SYNC_STATE_REPOSITORY } from './domain/repositories/ms-plan-sync-state.repository'
 import { MS_SYNC_CONFLICT_REPOSITORY } from './domain/repositories/ms-sync-conflict.repository'
+import { MS_LINKED_ROSTER_REPOSITORY } from './domain/repositories/ms-linked-roster.repository'
+import { ROSTER_MEMBER_REPOSITORY } from './domain/repositories/roster-member.repository'
 import { DrizzleMsLinkedGroupRepository } from './infrastructure/repositories/drizzle-ms-linked-group.repository'
 import { DrizzleMsPlanSyncStateRepository } from './infrastructure/repositories/drizzle-ms-plan-sync-state.repository'
 import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/drizzle-ms-sync-conflict.repository'
+import { DrizzleMsLinkedRosterRepository } from './infrastructure/repositories/drizzle-ms-linked-roster.repository'
+import { DrizzleRosterMemberRepository } from './infrastructure/repositories/drizzle-roster-member.repository'
 
 @Module({
   imports: [CqrsModule, KernelModule, AdminModule, IdentityModule, NotificationsModule],
@@ -231,6 +240,8 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     DisconnectMsSyncHandler,
     LinkMsGroupHandler,
     UnlinkMsGroupHandler,
+    LinkExistingRosterHandler,
+    UnlinkRosterHandler,
     ResolvePendingAssignmentsHandler,
     PushTaskHandler,
     PushPlanHandler,
@@ -241,9 +252,12 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     MsSyncJobRegistrar,
     ListAvailableGroupsHandler,
     ListLinkedGroupsHandler,
+    ListLinkedRostersHandler,
     { provide: MS_LINKED_GROUP_REPOSITORY, useClass: DrizzleMsLinkedGroupRepository },
     { provide: MS_PLAN_SYNC_STATE_REPOSITORY, useClass: DrizzleMsPlanSyncStateRepository },
     { provide: MS_SYNC_CONFLICT_REPOSITORY, useClass: DrizzleMsSyncConflictRepository },
+    { provide: MS_LINKED_ROSTER_REPOSITORY, useClass: DrizzleMsLinkedRosterRepository },
+    { provide: ROSTER_MEMBER_REPOSITORY, useClass: DrizzleRosterMemberRepository },
     {
       provide: PLANNER_SECRETS_STORE,
       useFactory: () =>
@@ -258,10 +272,12 @@ import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/d
     MsSharePointClient,
     PlanIngestor,
     BackfillGroupWorker,
+    BackfillRosterWorker,
     MsSyncPollTenantRegistrar,
     MsSyncResolvePendingRegistrar,
     MsSyncRetryAttachmentsRegistrar,
     RetryPendingAttachmentsHandler,
+    MintMsRosterHandler,
     PollTenantHandler,
     PlannerQueryFacade,
     PlannerRouterService,

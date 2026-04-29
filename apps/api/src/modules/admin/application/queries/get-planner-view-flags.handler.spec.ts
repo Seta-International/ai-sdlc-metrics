@@ -17,6 +17,7 @@ function makeDb(
     plannerPersonalEnabled: boolean
     plannerMsSyncEnabled: boolean
     plannerMsSyncAttachmentsEnabled: boolean
+    plannerMsSyncRostersEnabled: boolean
   }>,
 ): Db {
   const selectFn = vi.fn().mockReturnValue({
@@ -48,6 +49,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         personalEnabled: false,
         msSyncEnabled: false,
         msSyncAttachmentsEnabled: true,
+        msSyncRostersEnabled: false,
       })
     })
   })
@@ -65,6 +67,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerPersonalEnabled: false,
             plannerMsSyncEnabled: false,
             plannerMsSyncAttachmentsEnabled: false,
+            plannerMsSyncRostersEnabled: false,
           },
         ]),
       )
@@ -81,6 +84,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         personalEnabled: false,
         msSyncEnabled: false,
         msSyncAttachmentsEnabled: false,
+        msSyncRostersEnabled: false,
       })
     })
   })
@@ -98,6 +102,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerPersonalEnabled: true,
             plannerMsSyncEnabled: true,
             plannerMsSyncAttachmentsEnabled: true,
+            plannerMsSyncRostersEnabled: true,
           },
         ]),
       )
@@ -114,6 +119,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         personalEnabled: true,
         msSyncEnabled: true,
         msSyncAttachmentsEnabled: true,
+        msSyncRostersEnabled: true,
       })
     })
   })
@@ -131,6 +137,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerPersonalEnabled: false,
             plannerMsSyncEnabled: false,
             plannerMsSyncAttachmentsEnabled: false,
+            plannerMsSyncRostersEnabled: false,
           },
         ]),
       )
@@ -147,6 +154,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         personalEnabled: false,
         msSyncEnabled: false,
         msSyncAttachmentsEnabled: false,
+        msSyncRostersEnabled: false,
       })
     })
   })
@@ -164,6 +172,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerPersonalEnabled: true,
             plannerMsSyncEnabled: false,
             plannerMsSyncAttachmentsEnabled: false,
+            plannerMsSyncRostersEnabled: false,
           },
         ]),
       )
@@ -180,6 +189,7 @@ describe('GetPlannerViewFlagsHandler', () => {
         personalEnabled: true,
         msSyncEnabled: false,
         msSyncAttachmentsEnabled: false,
+        msSyncRostersEnabled: false,
       })
     })
   })
@@ -197,6 +207,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerPersonalEnabled: false,
             plannerMsSyncEnabled: true,
             plannerMsSyncAttachmentsEnabled: false,
+            plannerMsSyncRostersEnabled: false,
           },
         ]),
       )
@@ -221,6 +232,7 @@ describe('GetPlannerViewFlagsHandler', () => {
             plannerPersonalEnabled: false,
             plannerMsSyncEnabled: true,
             plannerMsSyncAttachmentsEnabled: false,
+            plannerMsSyncRostersEnabled: false,
           },
         ]),
       )
@@ -237,7 +249,68 @@ describe('GetPlannerViewFlagsHandler', () => {
         personalEnabled: false,
         msSyncEnabled: true,
         msSyncAttachmentsEnabled: false,
+        msSyncRostersEnabled: false,
       })
+    })
+  })
+
+  describe('when row exists with plannerMsSyncRostersEnabled = true only', () => {
+    beforeEach(() => {
+      handler = new GetPlannerViewFlagsHandler(
+        makeDb([
+          {
+            plannerViewsEnabled: false,
+            plannerGridEnabled: false,
+            plannerScheduleEnabled: false,
+            plannerChartsEnabled: false,
+            plannerChartsTrendsEnabled: false,
+            plannerPersonalEnabled: false,
+            plannerMsSyncEnabled: false,
+            plannerMsSyncAttachmentsEnabled: false,
+            plannerMsSyncRostersEnabled: true,
+          },
+        ]),
+      )
+    })
+
+    it('returns msSyncRostersEnabled = true and others = false', async () => {
+      const result = await handler.execute(new GetPlannerViewFlagsQuery(TENANT_ID))
+      expect(result).toEqual({
+        viewsEnabled: false,
+        gridEnabled: false,
+        scheduleEnabled: false,
+        chartsEnabled: false,
+        trendsEnabled: false,
+        personalEnabled: false,
+        msSyncEnabled: false,
+        msSyncAttachmentsEnabled: false,
+        msSyncRostersEnabled: true,
+      })
+    })
+  })
+
+  describe('when row exists with plannerMsSyncRostersEnabled = false (kill-switch off)', () => {
+    beforeEach(() => {
+      handler = new GetPlannerViewFlagsHandler(
+        makeDb([
+          {
+            plannerViewsEnabled: false,
+            plannerGridEnabled: false,
+            plannerScheduleEnabled: false,
+            plannerChartsEnabled: false,
+            plannerChartsTrendsEnabled: false,
+            plannerPersonalEnabled: false,
+            plannerMsSyncEnabled: true,
+            plannerMsSyncAttachmentsEnabled: false,
+            plannerMsSyncRostersEnabled: false,
+          },
+        ]),
+      )
+    })
+
+    it('returns msSyncRostersEnabled = false', async () => {
+      const result = await handler.execute(new GetPlannerViewFlagsQuery(TENANT_ID))
+      expect(result.msSyncRostersEnabled).toBe(false)
     })
   })
 })

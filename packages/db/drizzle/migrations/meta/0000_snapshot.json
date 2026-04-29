@@ -1,5 +1,5 @@
 {
-  "id": "91bd37c6-1d74-40cf-97a2-34f32ebfa6d5",
+  "id": "4ed152d7-efde-44da-b42e-b5c31150e011",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -333,6 +333,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": true
+        },
+        "planner_ms_sync_rosters_enabled": {
+          "name": "planner_ms_sync_rosters_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "timezone": {
           "name": "timezone",
@@ -10149,6 +10156,97 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "planner.ms_linked_roster": {
+      "name": "ms_linked_roster",
+      "schema": "planner",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ms_roster_id": {
+          "name": "ms_roster_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "linked_by_actor_id": {
+          "name": "linked_by_actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "linked_at": {
+          "name": "linked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "sync_enabled": {
+          "name": "sync_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "minted_by_future_at": {
+          "name": "minted_by_future_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "unlinked_at": {
+          "name": "unlinked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "uniq_ms_linked_roster_tenant_msroster": {
+          "name": "uniq_ms_linked_roster_tenant_msroster",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ms_roster_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "planner.ms_plan_sync_state": {
       "name": "ms_plan_sync_state",
       "schema": "planner",
@@ -11990,6 +12088,77 @@
           "value": "(\"planner\".\"task_evidence\".\"verified_by\" IS NULL AND \"planner\".\"task_evidence\".\"verified_at\" IS NULL) OR (\"planner\".\"task_evidence\".\"verified_by\" IS NOT NULL AND \"planner\".\"task_evidence\".\"verified_at\" IS NOT NULL)"
         }
       },
+      "isRLSEnabled": false
+    },
+    "planner.roster_member": {
+      "name": "roster_member",
+      "schema": "planner",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ms_roster_id": {
+          "name": "ms_roster_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sso_subject": {
+          "name": "sso_subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "synced_at": {
+          "name": "synced_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_roster_member_lookup": {
+          "name": "idx_roster_member_lookup",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ms_roster_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "roster_member_tenant_id_ms_roster_id_sso_subject_pk": {
+          "name": "roster_member_tenant_id_ms_roster_id_sso_subject_pk",
+          "columns": ["tenant_id", "ms_roster_id", "sso_subject"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "planner.task_daily_snapshot": {

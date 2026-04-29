@@ -345,6 +345,39 @@ export const plannerTaskEvidence = plannerSchema.table(
   ],
 )
 
+export const msLinkedRoster = plannerSchema.table(
+  'ms_linked_roster',
+  {
+    id: uuid('id')
+      .$defaultFn(() => uuidv7())
+      .primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    msRosterId: text('ms_roster_id').notNull(),
+    displayName: text('display_name').notNull(),
+    linkedByActorId: uuid('linked_by_actor_id').notNull(),
+    linkedAt: timestamp('linked_at', { withTimezone: true }).notNull().defaultNow(),
+    syncEnabled: boolean('sync_enabled').notNull().default(true),
+    mintedByFutureAt: timestamp('minted_by_future_at', { withTimezone: true }),
+    unlinkedAt: timestamp('unlinked_at', { withTimezone: true }),
+  },
+  (t) => [uniqueIndex('uniq_ms_linked_roster_tenant_msroster').on(t.tenantId, t.msRosterId)],
+)
+
+export const rosterMember = plannerSchema.table(
+  'roster_member',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    msRosterId: text('ms_roster_id').notNull(),
+    actorId: uuid('actor_id'),
+    ssoSubject: text('sso_subject').notNull(),
+    syncedAt: timestamp('synced_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.tenantId, t.msRosterId, t.ssoSubject] }),
+    index('idx_roster_member_lookup').on(t.tenantId, t.msRosterId),
+  ],
+)
+
 export const msLinkedGroup = plannerSchema.table(
   'ms_linked_group',
   {
