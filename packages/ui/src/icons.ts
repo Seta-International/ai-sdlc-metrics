@@ -27,6 +27,7 @@ export {
   DollarSign,
   Download,
   Edit,
+  ExternalLink,
   Eye,
   EyeOff,
   FileBarChart,

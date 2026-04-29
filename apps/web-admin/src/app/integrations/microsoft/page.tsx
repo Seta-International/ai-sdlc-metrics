@@ -14,6 +14,10 @@ import {
   DialogHeader,
   DialogTitle,
   Spinner,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
 } from '@future/ui'
 import { trpc } from '../../../lib/trpc'
 import { ConnectForm } from './connect-form'
@@ -25,6 +29,7 @@ import { BackfillProgressSlideover } from './backfill-progress-slideover'
 import { LinkedRostersTable, type LinkedRosterDto } from './rosters/linked-rosters-table'
 import { MintRosterForm } from './rosters/mint-roster-form'
 import { LinkExistingRosterForm } from './rosters/link-existing-roster-form'
+import { ConflictTable } from './conflicts/conflict-table'
 
 interface MsSyncStatus {
   connected: boolean
@@ -33,6 +38,22 @@ interface MsSyncStatus {
   clientId: string | null
   connectedAt: string | null
   lastError: string | null
+}
+
+interface ConflictDto {
+  id: string
+  kind: string
+  createdAt: string
+  taskId: string | null
+  taskTitle: string | null
+  planTitle: string | null
+  field: string | null
+  mineValue: unknown
+  theirsValue: unknown
+  limitCode: string | null
+  resolution: string | null
+  resolvedAt: string | null
+  rawError: unknown
 }
 
 interface PlannerTrpcSlice {
@@ -85,6 +106,15 @@ interface PlannerTrpcSlice {
         mutate: (input: { tenantId: string; actorId: string; msRosterId: string }) => Promise<void>
       }
     }
+    conflicts: {
+      list: {
+        query: (input: {
+          tenantId: string
+          resolved: 'open' | 'all'
+          limit?: number
+        }) => Promise<{ conflicts: ConflictDto[]; nextCursor: string | null }>
+      }
+    }
   }
 }
 
@@ -101,6 +131,7 @@ export default function MicrosoftIntegrationPage() {
   const [linkRosterDialogOpen, setLinkRosterDialogOpen] = useState(false)
   const [mintRosterError, setMintRosterError] = useState<string | null>(null)
   const [linkRosterError, setLinkRosterError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'groups' | 'rosters' | 'conflicts'>('groups')
 
   const planner = trpc.planner as unknown as PlannerTrpcSlice
 
@@ -229,6 +260,18 @@ export default function MicrosoftIntegrationPage() {
     onSuccess: async () => {
       await linkedRostersQuery.refetch()
     },
+  })
+
+  const openConflictsQuery = useQuery({
+    queryKey: ['planner.msSync.conflicts.list.open', session?.tenantId],
+    queryFn: () =>
+      planner.msSync.conflicts.list.query({
+        tenantId: session!.tenantId,
+        resolved: 'open',
+        limit: 100,
+      }),
+    enabled:
+      !!session && statusQuery.data?.connected === true && statusQuery.data?.status !== 'invalid',
   })
 
   if (!session) {
@@ -383,21 +426,88 @@ export default function MicrosoftIntegrationPage() {
             }}
           />
 
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-h3">Linked Groups</h2>
-              <Button size="sm" onClick={() => setLinkDrawerOpen(true)}>
-                Link Group
-              </Button>
-            </div>
-            <LinkedGroupsTable
-              groups={linkedGroupsQuery.data ?? []}
-              isLoading={linkedGroupsQuery.isLoading}
-              error={linkedGroupsQuery.isError ? 'Failed to load linked groups' : undefined}
-              onUnlink={(msGroupId) => unlinkMutation.mutate(msGroupId)}
-              onRetry={() => linkedGroupsQuery.refetch()}
-            />
-          </section>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+            <TabsList>
+              <TabsTrigger value="groups">Linked Groups</TabsTrigger>
+              {flagsQuery.data?.msSyncRostersEnabled === true && (
+                <TabsTrigger value="rosters">Linked Rosters</TabsTrigger>
+              )}
+              {(() => {
+                const openCount = openConflictsQuery.data?.conflicts?.length ?? 0
+                return (
+                  <TabsTrigger value="conflicts">
+                    Conflicts{openCount > 0 ? ` (${openCount})` : ''}
+                  </TabsTrigger>
+                )
+              })()}
+            </TabsList>
+
+            <TabsContent value="groups" className="mt-4">
+              <section className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-h3">Linked Groups</h2>
+                  <Button size="sm" onClick={() => setLinkDrawerOpen(true)}>
+                    Link Group
+                  </Button>
+                </div>
+                <LinkedGroupsTable
+                  groups={linkedGroupsQuery.data ?? []}
+                  isLoading={linkedGroupsQuery.isLoading}
+                  error={linkedGroupsQuery.isError ? 'Failed to load linked groups' : undefined}
+                  onUnlink={(msGroupId) => unlinkMutation.mutate(msGroupId)}
+                  onRetry={() => linkedGroupsQuery.refetch()}
+                />
+              </section>
+            </TabsContent>
+
+            {flagsQuery.data?.msSyncRostersEnabled === true && (
+              <TabsContent value="rosters" className="mt-4">
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-h3">Linked Rosters</h2>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setLinkRosterError(null)
+                          setLinkRosterDialogOpen(true)
+                        }}
+                      >
+                        Link Existing
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setMintRosterError(null)
+                          setMintRosterDialogOpen(true)
+                        }}
+                      >
+                        Mint
+                      </Button>
+                    </div>
+                  </div>
+                  <LinkedRostersTable
+                    rosters={linkedRostersQuery.data ?? []}
+                    isLoading={linkedRostersQuery.isLoading}
+                    error={linkedRostersQuery.isError ? 'Failed to load linked rosters' : undefined}
+                    onUnlink={(msRosterId) => unlinkRosterMutation.mutate(msRosterId)}
+                    onRetry={() => linkedRostersQuery.refetch()}
+                  />
+                </section>
+              </TabsContent>
+            )}
+
+            <TabsContent value="conflicts" className="mt-4">
+              <ConflictTable
+                conflicts={openConflictsQuery.data?.conflicts ?? []}
+                isLoading={openConflictsQuery.isLoading}
+                error={openConflictsQuery.isError ? 'Failed to load conflicts' : undefined}
+                onRetry={() => openConflictsQuery.refetch()}
+                onActionSuccess={() => openConflictsQuery.refetch()}
+              />
+            </TabsContent>
+          </Tabs>
 
           <LinkGroupDrawer
             open={linkDrawerOpen}
@@ -421,40 +531,6 @@ export default function MicrosoftIntegrationPage() {
 
           {flagsQuery.data?.msSyncRostersEnabled === true && (
             <>
-              <section className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-h3">Linked Rosters</h2>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setLinkRosterError(null)
-                        setLinkRosterDialogOpen(true)
-                      }}
-                    >
-                      Link Existing
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setMintRosterError(null)
-                        setMintRosterDialogOpen(true)
-                      }}
-                    >
-                      Mint
-                    </Button>
-                  </div>
-                </div>
-                <LinkedRostersTable
-                  rosters={linkedRostersQuery.data ?? []}
-                  isLoading={linkedRostersQuery.isLoading}
-                  error={linkedRostersQuery.isError ? 'Failed to load linked rosters' : undefined}
-                  onUnlink={(msRosterId) => unlinkRosterMutation.mutate(msRosterId)}
-                  onRetry={() => linkedRostersQuery.refetch()}
-                />
-              </section>
-
               <Dialog
                 open={mintRosterDialogOpen}
                 onOpenChange={(open) => {

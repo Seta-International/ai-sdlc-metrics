@@ -33,6 +33,11 @@ vi.mock('../../../lib/trpc', () => ({
           pause: { mutate: vi.fn() },
           destroy: { mutate: vi.fn() },
         },
+        conflicts: {
+          list: { query: vi.fn() },
+          retry: { mutate: vi.fn() },
+          acceptMsState: { mutate: vi.fn() },
+        },
       },
     },
   },
