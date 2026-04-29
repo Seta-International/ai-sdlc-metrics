@@ -25,6 +25,7 @@ import { BackfillProgressSlideover } from './backfill-progress-slideover'
 import { LinkedRostersTable, type LinkedRosterDto } from './rosters/linked-rosters-table'
 import { MintRosterForm } from './rosters/mint-roster-form'
 import { LinkExistingRosterForm } from './rosters/link-existing-roster-form'
+import { DirectorySyncCard } from './directory-sync-card'
 
 interface MsSyncStatus {
   connected: boolean
@@ -382,6 +383,8 @@ export default function MicrosoftIntegrationPage() {
               destroyMutation.mutate()
             }}
           />
+
+          <DirectorySyncCard />
 
           <section className="space-y-3">
             <div className="flex items-center justify-between">
