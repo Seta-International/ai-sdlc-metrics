@@ -54,6 +54,10 @@ import { MS_STAGED_USER_REPOSITORY } from './domain/repositories/ms-staged-user.
 
 // ── MS Sync application handlers ──────────────────────────────────────────
 import { BulkSyncMsProfilesHandler } from './application/commands/bulk-sync-ms-profiles.handler'
+import { ImportStagedMsUserHandler } from './application/commands/import-staged-ms-user.handler'
+import { SkipStagedMsUserHandler } from './application/commands/skip-staged-ms-user.handler'
+import { ListStagedMsUsersHandler } from './application/queries/list-staged-ms-users.handler'
+import { GetMsSyncStatusHandler } from './application/queries/get-ms-sync-status.handler'
 import { OnDirectorySyncCompletedListener } from './application/event-handlers/on-directory-sync-completed.listener'
 import { PeopleMsSyncRegistrar } from './infrastructure/jobs/people-ms-sync.registrar'
 
@@ -264,6 +268,10 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
 
     // ── MS Sync handlers & worker ─────────────────────────────────────────────
     BulkSyncMsProfilesHandler,
+    ImportStagedMsUserHandler,
+    SkipStagedMsUserHandler,
+    ListStagedMsUsersHandler,
+    GetMsSyncStatusHandler,
     OnDirectorySyncCompletedListener,
     PeopleMsSyncRegistrar,
 
