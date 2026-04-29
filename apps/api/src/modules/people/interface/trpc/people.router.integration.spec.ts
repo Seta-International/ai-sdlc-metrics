@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { sql } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { peopleRouter, createPeopleRouter } from './people.router'
@@ -7,7 +7,6 @@ import { createProtectedProcedures } from '../../../../common/trpc/create-protec
 import type { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { PeopleQueryFacade } from '../../application/facades/people-query.facade'
-import type { IdentityQueryFacade } from '../../../identity/application/facades/identity-query.facade'
 import { PeopleTrpcService } from './people-trpc.service'
 import {
   createTestDb,
@@ -322,7 +321,6 @@ function createAuthorizedCaller(tenantId: string, actorId: string) {
     {} as unknown as PeopleQueryFacade,
     {} as unknown as KernelQueryFacade,
     {} as unknown as KernelAuditFacade,
-    {} as unknown as IdentityQueryFacade,
   ).createCaller({
     req: { headers: {} },
     tenantId,
@@ -415,7 +413,6 @@ describe('people.directory tRPC sub-router', () => {
       {} as unknown as PeopleQueryFacade,
       kernelFacade as unknown as KernelQueryFacade,
       auditFacade as unknown as KernelAuditFacade,
-      {} as unknown as IdentityQueryFacade,
     ).createCaller(makeCtx() as never)
 
     await truncateDirectorySearchIndex(db)
@@ -632,7 +629,6 @@ describe('people.directory tRPC sub-router - hierarchy integration', () => {
       peopleFacade,
       kernelFacade as unknown as KernelQueryFacade,
       auditFacade as unknown as KernelAuditFacade,
-      {} as unknown as IdentityQueryFacade,
     )
 
     new PeopleTrpcService(
@@ -956,104 +952,6 @@ describe('people.directory tRPC sub-router - hierarchy integration', () => {
     ).rejects.toMatchObject({
       code: 'NOT_FOUND',
       message: 'Org chart node not found',
-    } satisfies Partial<TRPCError>)
-  })
-})
-
-const SYNC_TENANT = '01900000-0000-7fff-8000-000000000501'
-const SYNC_ACTOR = '01900000-0000-7fff-8000-000000000502'
-const SYNC_PROFILE_ID = '01900000-0000-7fff-8000-000000000503'
-const SYNC_EMPLOYMENT_ID = '01900000-0000-7fff-8000-000000000504'
-
-describe('people.getProfilePermissions and syncFromMicrosoft — Microsoft sync', () => {
-  const db = createTestDb()
-
-  beforeAll(async () => {
-    await migrateForTest()
-    await truncatePeopleSchema(db)
-    await truncateCoreSchema(db)
-    await seedTenant(db, { id: SYNC_TENANT, slug: 'people-router-sync' })
-    await setTenantContext(db, SYNC_TENANT)
-    await seedPersonAndEmployment(db, {
-      tenantId: SYNC_TENANT,
-      actorId: SYNC_ACTOR,
-      personProfileId: SYNC_PROFILE_ID,
-      employmentId: SYNC_EMPLOYMENT_ID,
-      fullName: 'Sync User',
-      employeeCode: 'SYNC01',
-    })
-  })
-
-  afterAll(async () => {
-    await truncatePeopleSchema(db)
-    await truncateCoreSchema(db)
-  })
-
-  function makeSyncCaller(identityFacadeStub: IdentityQueryFacade, actorId = SYNC_ACTOR) {
-    const peopleFacadeStub = {
-      getEmployment: vi.fn().mockResolvedValue({
-        id: SYNC_EMPLOYMENT_ID,
-        tenantId: SYNC_TENANT,
-        personProfile: { actorId: SYNC_ACTOR },
-      }),
-    } as unknown as PeopleQueryFacade
-
-    const kernelFacadeStub = {
-      canDo: async () => true,
-      getEffectivePermissions: vi.fn().mockResolvedValue(['people:admin', 'people:profile:read']),
-    } as unknown as KernelQueryFacade
-
-    const auditFacadeStub = {
-      recordEvent: async () => undefined,
-    } as unknown as KernelAuditFacade
-
-    const { permissionProtectedProcedure } = createProtectedProcedures(
-      publicProcedure,
-      kernelFacadeStub,
-      auditFacadeStub,
-    )
-
-    return createPeopleRouter(
-      permissionProtectedProcedure,
-      peopleFacadeStub,
-      kernelFacadeStub,
-      auditFacadeStub,
-      identityFacadeStub,
-    ).createCaller({
-      req: { headers: {} },
-      tenantId: SYNC_TENANT,
-      actorId,
-    } as never)
-  }
-
-  it('getProfilePermissions returns canSyncFromMicrosoft: true when graph credential is active and user has external ID and is admin', async () => {
-    const identityFacadeStub = {
-      getGraphCredential: vi.fn().mockResolvedValue({ status: 'active' }),
-      getExternalUserId: vi.fn().mockResolvedValue('aad-oid-123'),
-      getMicrosoftUserData: vi.fn().mockResolvedValue(null),
-    } as unknown as IdentityQueryFacade
-
-    const caller = makeSyncCaller(identityFacadeStub)
-
-    const result = await caller.getProfilePermissions({ employmentId: SYNC_EMPLOYMENT_ID })
-
-    expect(result.canSyncFromMicrosoft).toBe(true)
-  })
-
-  it('syncFromMicrosoft throws FORBIDDEN when graph credential is inactive', async () => {
-    const identityFacadeStub = {
-      getGraphCredential: vi.fn().mockResolvedValue({ status: 'inactive' }),
-      getExternalUserId: vi.fn(),
-      getMicrosoftUserData: vi.fn(),
-    } as unknown as IdentityQueryFacade
-
-    const caller = makeSyncCaller(identityFacadeStub)
-
-    await expect(
-      caller.syncFromMicrosoft({ employmentId: SYNC_EMPLOYMENT_ID }),
-    ).rejects.toMatchObject({
-      code: 'FORBIDDEN',
-      message: 'Cannot sync this profile',
     } satisfies Partial<TRPCError>)
   })
 })

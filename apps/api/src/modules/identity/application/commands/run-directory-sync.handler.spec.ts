@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EventBus } from '@nestjs/cqrs'
+import { DirectorySyncCompletedEvent } from '@future/event-contracts'
 import { RunDirectorySyncCommand } from './run-directory-sync.command'
 import { RunDirectorySyncHandler } from './run-directory-sync.handler'
 import {
@@ -10,6 +12,7 @@ import type { IIdpGroupMappingRepository } from '../../domain/repositories/idp-g
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
 import { KernelUserIdentityFacade } from '../../../kernel/application/facades/kernel-user-identity.facade'
+import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import type {
   IDirectoryProvider,
   IdpUser,
@@ -44,7 +47,9 @@ describe('RunDirectorySyncHandler', () => {
   let actorFacade: KernelActorFacade
   let userIdentityFacade: KernelUserIdentityFacade
   let directoryProvider: IDirectoryProvider
+  let kernelQueryFacade: KernelQueryFacade
   let directoryProviderFactory: { create: ReturnType<typeof vi.fn> }
+  let eventBus: { publish: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     providerRepo = {
@@ -77,12 +82,16 @@ describe('RunDirectorySyncHandler', () => {
       createUserIdentity: vi.fn(),
       deprovisionUserIdentity: vi.fn(),
     } as unknown as KernelUserIdentityFacade
+    kernelQueryFacade = {
+      getUserIdentityBySsoSubject: vi.fn().mockResolvedValue(null),
+    } as unknown as KernelQueryFacade
     directoryProvider = {
       testConnection: vi.fn(),
       listUsers: vi.fn(),
       listGroupsWithMembers: vi.fn(),
     }
     directoryProviderFactory = { create: vi.fn().mockResolvedValue(directoryProvider) }
+    eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
     handler = new RunDirectorySyncHandler(
       providerRepo,
       mappingRepo,
@@ -90,6 +99,8 @@ describe('RunDirectorySyncHandler', () => {
       directoryProviderFactory as never,
       actorFacade,
       userIdentityFacade,
+      kernelQueryFacade,
+      eventBus as unknown as EventBus,
     )
   })
 
@@ -105,6 +116,25 @@ describe('RunDirectorySyncHandler', () => {
     await expect(
       handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID)),
     ).rejects.toThrow(DirectorySyncAlreadyRunningException)
+  })
+
+  it('skips provisioning when user identity already exists', async () => {
+    vi.mocked(providerRepo.findById).mockResolvedValue(makeProvider())
+    vi.mocked(providerRepo.update).mockResolvedValue(undefined)
+    const idpUsers: IdpUser[] = [
+      { externalId: 'ext-user-001', email: 'alice@seta.vn', displayName: 'Alice', isActive: true },
+    ]
+    vi.mocked(directoryProvider.listUsers).mockResolvedValue(idpUsers)
+    vi.mocked(directoryProvider.listGroupsWithMembers).mockResolvedValue([])
+    vi.mocked(mappingRepo.findByProviderId).mockResolvedValue([])
+    vi.mocked(kernelQueryFacade.getUserIdentityBySsoSubject).mockResolvedValue({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+
+    await handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID))
+
+    expect(actorFacade.createActor).not.toHaveBeenCalled()
+    expect(userIdentityFacade.createUserIdentity).not.toHaveBeenCalled()
   })
 
   it('provisions new users from IdP via KernelActorFacade', async () => {
@@ -192,5 +222,32 @@ describe('RunDirectorySyncHandler', () => {
       TENANT_ID,
       expect.objectContaining({ syncStatus: 'failed' }),
     )
+  })
+
+  it('publishes DirectorySyncCompletedEvent after successful sync', async () => {
+    vi.mocked(providerRepo.findById).mockResolvedValue(makeProvider())
+    vi.mocked(providerRepo.update).mockResolvedValue(undefined)
+    vi.mocked(directoryProvider.listUsers).mockResolvedValue([])
+    vi.mocked(directoryProvider.listGroupsWithMembers).mockResolvedValue([])
+    vi.mocked(mappingRepo.findByProviderId).mockResolvedValue([])
+
+    await handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID))
+
+    expect(eventBus.publish).toHaveBeenCalledWith(expect.any(DirectorySyncCompletedEvent))
+    const publishedEvent = eventBus.publish.mock.calls[0][0] as DirectorySyncCompletedEvent
+    expect(publishedEvent.tenantId).toBe(TENANT_ID)
+    expect(publishedEvent.identityProviderId).toBe(PROVIDER_ID)
+  })
+
+  it('does NOT publish event when sync throws', async () => {
+    vi.mocked(providerRepo.findById).mockResolvedValue(makeProvider())
+    vi.mocked(providerRepo.update).mockResolvedValue(undefined)
+    vi.mocked(directoryProviderFactory.create).mockRejectedValue(new Error('provider error'))
+
+    await expect(
+      handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID)),
+    ).rejects.toThrow('provider error')
+
+    expect(eventBus.publish).not.toHaveBeenCalled()
   })
 })

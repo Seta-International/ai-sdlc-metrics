@@ -160,3 +160,24 @@ export class InvalidRehireException extends DomainException {
     super(`Cannot rehire: employment for profile ${profileId} is not terminated`)
   }
 }
+
+export class StagedMsUserNotFoundException extends DomainException {
+  readonly code = 'STAGED_MS_USER_NOT_FOUND'
+  constructor(id: string) {
+    super(`Staged MS user not found: ${id}`)
+  }
+}
+
+export class StagedMsUserNotPendingException extends DomainException {
+  readonly code = 'STAGED_MS_USER_NOT_PENDING'
+  constructor(id: string, status: string) {
+    super(`Staged MS user ${id} is not pending (status=${status})`)
+  }
+}
+
+export class StagedMsUserAlreadyExistsAsEmploymentException extends DomainException {
+  readonly code = 'STAGED_MS_USER_EMPLOYMENT_EXISTS'
+  constructor(msExternalId: string) {
+    super(`An active employment already exists for MS user ${msExternalId}`)
+  }
+}

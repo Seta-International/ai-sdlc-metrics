@@ -1,5 +1,6 @@
 import { Inject } from '@nestjs/common'
-import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs'
+import { CommandHandler, EventBus, type ICommandHandler } from '@nestjs/cqrs'
+import { DirectorySyncCompletedEvent } from '@future/event-contracts'
 import {
   IdentityProviderNotFoundException,
   DirectorySyncAlreadyRunningException,
@@ -15,6 +16,7 @@ import {
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
 import { KernelUserIdentityFacade } from '../../../kernel/application/facades/kernel-user-identity.facade'
+import { KernelQueryFacade } from '../../../kernel/application/facades/kernel-query.facade'
 import {
   DIRECTORY_PROVIDER_FACTORY,
   type IDirectoryProviderFactory,
@@ -35,6 +37,8 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
     private readonly directoryProviderFactory: IDirectoryProviderFactory,
     private readonly actorFacade: KernelActorFacade,
     private readonly userIdentityFacade: KernelUserIdentityFacade,
+    private readonly kernelQueryFacade: KernelQueryFacade,
+    private readonly eventBus: EventBus,
   ) {}
 
   async execute(command: RunDirectorySyncCommand): Promise<void> {
@@ -63,6 +67,12 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
       // Provision / deactivate users
       for (const user of idpUsers) {
         if (user.isActive) {
+          const existing = await this.kernelQueryFacade.getUserIdentityBySsoSubject(
+            user.externalId,
+            command.tenantId,
+          )
+          if (existing) continue
+
           const actorId = await this.actorFacade.createActor(
             command.tenantId,
             'person',
@@ -112,6 +122,16 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
         subjectId: command.identityProviderId,
         payload: { usersProcessed: idpUsers.length, groupsProcessed: idpGroups.length },
       })
+
+      await this.eventBus.publish(
+        new DirectorySyncCompletedEvent(
+          command.tenantId,
+          command.identityProviderId,
+          idpUsers.length,
+          idpGroups.length,
+          new Date().toISOString(),
+        ),
+      )
     } catch (err) {
       await this.providerRepo.update(command.identityProviderId, command.tenantId, {
         syncStatus: 'failed',

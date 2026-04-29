@@ -33,6 +33,7 @@ import { MintRosterForm } from './rosters/mint-roster-form'
 import { LinkExistingRosterForm } from './rosters/link-existing-roster-form'
 import { ConflictTable } from './conflicts/conflict-table'
 import type { ConflictDto } from './conflicts/conflict-row'
+import { DirectorySyncCard } from './directory-sync-card'
 
 interface MsSyncStatus {
   connected: boolean
@@ -413,6 +414,8 @@ export default function MicrosoftIntegrationPage() {
               destroyMutation.mutate()
             }}
           />
+
+          <DirectorySyncCard />
 
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
             <TabsList>

@@ -14,6 +14,10 @@ vi.mock('@future/api-client', () => ({
   useMutation: vi.fn(),
 }))
 
+vi.mock('./directory-sync-card', () => ({
+  DirectorySyncCard: () => <div data-testid="directory-sync-card" />,
+}))
+
 vi.mock('../../../lib/trpc', () => ({
   trpc: {
     planner: {
@@ -195,6 +199,40 @@ describe('<MicrosoftIntegrationPage />', () => {
 
     expect(screen.getByText(/Microsoft 365 integration/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Disconnect/i })).toBeInTheDocument()
+  })
+
+  it('renders DirectorySyncCard when MS365 is connected and active', () => {
+    const statusData = {
+      data: {
+        connected: true,
+        status: 'active',
+        tenantAdId: '11111111-1111-1111-1111-111111111111',
+        clientId: '22222222-2222-2222-2222-222222222222',
+        connectedAt: '2026-04-24T08:00:00.000Z',
+        lastError: null,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useQuery>
+
+    const linkedGroupsData = {
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useQuery>
+
+    mockedUseQuery
+      .mockReturnValueOnce(statusData)
+      .mockReturnValueOnce(linkedGroupsData)
+      .mockReturnValue(linkedGroupsData)
+
+    render(<MicrosoftIntegrationPage />)
+
+    expect(screen.getByTestId('directory-sync-card')).toBeInTheDocument()
   })
 
   it('renders coming-soon message when feature flag is disabled', () => {

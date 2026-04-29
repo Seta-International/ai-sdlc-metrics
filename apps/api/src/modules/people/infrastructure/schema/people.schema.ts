@@ -648,3 +648,44 @@ export const jobHistory = peopleSchema.table(
     ),
   ],
 )
+
+// ─── MS Profile Sync State ─────────────────────────────────────────────────
+
+export const msProfileSyncState = peopleSchema.table('ms_profile_sync_state', {
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull().unique(),
+  deltaToken: text('delta_token'),
+  lastSyncedAt: timestamp('last_synced_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+// ─── MS Staged User ────────────────────────────────────────────────────────
+
+export const msStagedUser = peopleSchema.table(
+  'ms_staged_user',
+  {
+    id: uuid('id')
+      .$defaultFn(() => uuidv7())
+      .primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    msExternalId: text('ms_external_id').notNull(),
+    displayName: text('display_name').notNull(),
+    email: text('email'),
+    jobTitle: text('job_title'),
+    department: text('department'),
+    officeLocation: text('office_location'),
+    mobilePhone: text('mobile_phone'),
+    workPhone: text('work_phone'),
+    managerMsId: text('manager_ms_id'),
+    photoDocumentId: uuid('photo_document_id'),
+    status: text('status', { enum: ['pending', 'imported', 'skipped'] }).notNull(),
+    importedEmploymentId: uuid('imported_employment_id'),
+    lastSeenAt: timestamp('last_seen_at').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('ms_staged_user_tenant_external_uidx').on(table.tenantId, table.msExternalId),
+  ],
+)
