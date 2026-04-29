@@ -127,4 +127,17 @@ export class DrizzleJobAssignmentRepository implements IJobAssignmentRepository 
       .delete(jobAssignment)
       .where(and(eq(jobAssignment.id, id), eq(jobAssignment.tenantId, tenantId)))
   }
+
+  async updateManagerId(
+    employmentId: string,
+    managerId: string | null,
+    tenantId: string,
+  ): Promise<void> {
+    const current = await this.findCurrent(employmentId, tenantId)
+    if (!current) return
+    await this.db
+      .update(jobAssignment)
+      .set({ managerId })
+      .where(and(eq(jobAssignment.id, current.id), eq(jobAssignment.tenantId, tenantId)))
+  }
 }

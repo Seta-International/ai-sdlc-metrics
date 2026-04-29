@@ -13,4 +13,5 @@ export interface IJobAssignmentRepository {
   insert(data: Omit<JobAssignment, 'id' | 'createdAt'>): Promise<JobAssignment>
   closeAssignment(id: string, tenantId: string, effectiveTo: Date): Promise<void>
   delete(id: string, tenantId: string): Promise<void>
+  updateManagerId(employmentId: string, managerId: string | null, tenantId: string): Promise<void>
 }
