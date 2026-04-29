@@ -114,8 +114,8 @@ export function DirectorySyncCard() {
             disabled={isBusy || isLoadingStatus}
             onClick={() => void handleTriggerSync()}
           >
-            {isMutating && <Spinner className="size-3.5 mr-1.5" />}
-            {isRunning ? 'Syncing…' : 'Sync Now'}
+            {isBusy && <Spinner className="size-3.5 mr-1.5" />}
+            Sync Now
           </Button>
         </div>
         {status?.lastSyncStats && status.lastSyncStats.errorMessage && (
