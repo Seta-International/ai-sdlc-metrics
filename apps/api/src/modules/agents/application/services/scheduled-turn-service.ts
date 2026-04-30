@@ -1,18 +1,18 @@
 /**
- * ScheduledTurnService — non-HTTP turn pipeline entry for scheduled agent runs.
+ * Non-HTTP turn pipeline entry for scheduled agent runs.
  *
- * Plan 09 §5 / R-09.6a:
+ * Behaviour:
  *   - Runs a full agent turn using the ToolGateway under a read-only policy envelope.
  *   - Any mutation tool invocation is refused with variant 'policy_violation'.
- *   - Draft-creation (plan 08) is allowed because drafts are proposals; the actual
- *     write happens at approval time (governed by plan 08), not here.
+ *   - Draft-creation is allowed because drafts are proposals; the actual write
+ *     happens at approval time (governed by the drafts module), not here.
  *   - Taint is seeded per taint_seeded flag from the job payload.
  *
  * This service is intentionally thin: it constructs the RequestContext + TurnState
  * for the scheduled run, then delegates to ToolGateway for each tool invocation
- * the LLM emits. Full ReAct loop / phase execution is out of scope for plan 09
- * MVP (plan 03 integration lands in a later task); at MVP the service runs a
- * single-step "execute the schedule's prompt once" path via the gateway.
+ * the LLM emits. At MVP the service runs a single-step "execute the schedule's
+ * prompt once" path via the gateway; full ReAct/phase-executor integration is
+ * layered on later.
  *
  * Returns a ScheduledTurnResult describing the outcome and cost.
  */
@@ -23,8 +23,6 @@ import { READ_ONLY_POLICY } from '../../domain/value-objects/turn-policy'
 import { L1Cache } from '../../infrastructure/cache/l1-cache'
 import type { RequestContext } from './tool-gateway-contracts'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface ScheduledTurnInput {
   /** Tenant the schedule belongs to. */
@@ -42,8 +40,8 @@ export interface ScheduledTurnInput {
   /** Trace ID for this specific run. */
   traceId: string
   /**
-   * If true, the turn starts tainted (tenant-authored content in the event payload).
-   * Plan 09 R-09.10: worker sets turn_state.tainted = true before any tool call.
+   * If true, the turn starts tainted (tenant-authored content in the event
+   * payload). Worker sets turn_state.tainted = true before any tool call.
    */
   taintSeeded: boolean
   /**
@@ -77,8 +75,6 @@ export interface ScheduledTurnResult {
   errorMessage?: string
 }
 
-// ─── Service ─────────────────────────────────────────────────────────────────
-
 @Injectable()
 export class ScheduledTurnService {
   private readonly logger = new Logger(ScheduledTurnService.name)
@@ -91,7 +87,7 @@ export class ScheduledTurnService {
   /**
    * Execute a scheduled agent turn under the read-only policy envelope.
    *
-   * Plan 09 §5 MVP path:
+   * Pipeline:
    *   1. Build RequestContext with tenant + delegation identity.
    *   2. Build TurnState with taint seeded from job payload.
    *   3. For each tool the schedule's permitted_tools includes:
@@ -99,16 +95,14 @@ export class ScheduledTurnService {
    *      - If query: invoke via ToolGateway (read-only policy enforced there too).
    *   4. Return result with outcome + cost.
    *
-   * Policy-violation outcomes are captured via agent.tool_called audit events with
-   * resultStatus: 'policy_violation' emitted by ToolGateway, and via the
-   * agent.schedule_run_policy_violation event emitted below. These events substitute
-   * for the dry-run audit stream (agent.async_dry_run_would_have_written) referenced
-   * in Plan 09 §16 — equivalent signal, different event name.
+   * Policy-violation outcomes are captured via agent.tool_called audit events
+   * with resultStatus: 'policy_violation' emitted by ToolGateway, and via the
+   * agent.schedule_run_policy_violation event emitted below.
    *
-   * NOTE: At MVP this does not run a full LLM ReAct loop (plan 03 integration
-   * is a separate task). It validates the policy envelope is in place and
-   * demonstrates the read-only gate. Full LLM execution will be layered on top
-   * when plan 03's phase-executor is wired to the scheduled turn path.
+   * NOTE: At MVP this does not run a full LLM ReAct loop. It validates the
+   * policy envelope is in place and demonstrates the read-only gate. Full LLM
+   * execution will be layered on top when the phase-executor is wired to the
+   * scheduled turn path.
    */
   async executeScheduledTurn(input: ScheduledTurnInput): Promise<ScheduledTurnResult> {
     const {
@@ -133,7 +127,7 @@ export class ScheduledTurnService {
       delegationId,
     }
 
-    // Build TurnState — taint is seeded before any tool call (R-09.10)
+    // Build TurnState — taint is seeded before any tool call.
     const turnState = {
       tainted: { value: taintSeeded },
       taintSources: [],
@@ -157,18 +151,18 @@ export class ScheduledTurnService {
     // When no tools are listed or all are queries, outcome is 'completed'.
     // When any tool is a mutation, ToolGateway returns policy_violation → outcome 'refused'.
     //
-    // Full LLM ReAct execution (plan 03 phase-executor integration) is a separate task.
-    // For now we demonstrate the gateway can be called with the read-only policy and
-    // a real (non-stub) invocation is made for each permitted tool.
+    // Full LLM ReAct execution (phase-executor integration) is a separate task.
+    // For now we demonstrate the gateway can be called with the read-only policy
+    // and a real (non-stub) invocation is made for each permitted tool.
     //
     // If there are no permitted tools: still counts as completed (no-op schedule).
     if (permittedTools.length === 0) {
       return { outcome: 'completed', costSpentUsd: 0 }
     }
 
-    // Invoke first permitted tool as the primary action — this is the gateway entry point.
-    // The tool receives the schedule's prompt as args (simplified for MVP; plan 03
-    // will replace this with a proper LLM-driven tool selection).
+    // Invoke first permitted tool as the primary action — this is the gateway
+    // entry point. The tool receives the schedule's prompt as args (simplified
+    // for MVP; later work replaces this with proper LLM-driven tool selection).
     const primaryTool = permittedTools[0]
     if (primaryTool === undefined) {
       return { outcome: 'completed', costSpentUsd: 0 }

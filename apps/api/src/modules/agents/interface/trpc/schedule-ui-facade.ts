@@ -5,8 +5,6 @@ import type { ScheduleRepository } from '../../application/services/schedule-rep
 import type { DelegationLifecycle } from '../../application/services/delegation-lifecycle'
 import type { IScheduleRunRepository } from '../../domain/repositories/schedule-run.repository'
 
-// ─── Handler types ────────────────────────────────────────────────────────────
-
 export type ScheduleHandlers = {
   scheduleRepository: Pick<
     ScheduleRepository,
@@ -15,8 +13,6 @@ export type ScheduleHandlers = {
   delegationLifecycle: Pick<DelegationLifecycle, 'listActive' | 'revoke'>
   scheduleRunRepository: Pick<IScheduleRunRepository, 'updateOutcome'>
 }
-
-// ─── Module-level handler slot ────────────────────────────────────────────────
 
 let handlers: ScheduleHandlers | undefined
 
@@ -28,8 +24,6 @@ function h(): ScheduleHandlers {
   if (!handlers) throw new Error('scheduleHandlers not wired — boot failure')
   return handlers
 }
-
-// ─── Input schemas ────────────────────────────────────────────────────────────
 
 const createScheduleInput = z.object({
   kind: z.enum(['personal', 'tenant_wide']),
@@ -80,8 +74,6 @@ const revokeDelegationInput = z.object({
   delegationId: z.string().uuid(),
 })
 
-// ─── Router ───────────────────────────────────────────────────────────────────
-
 /**
  * ScheduleUiFacade — tRPC procedures for schedule CRUD and delegation management.
  *
@@ -90,16 +82,12 @@ const revokeDelegationInput = z.object({
  * MVP: use publicProcedure (same pattern as existing routers in this directory).
  */
 export const scheduleUiRouter = router({
-  // ── list ──────────────────────────────────────────────────────────────────
-
   list: publicProcedure.query(({ ctx }) => {
     if (!ctx.tenantId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing tenant context' })
     }
     return h().scheduleRepository.listForTenant({ tenantId: ctx.tenantId })
   }),
-
-  // ── create ────────────────────────────────────────────────────────────────
 
   create: publicProcedure.input(createScheduleInput).mutation(({ input, ctx }) => {
     if (!ctx.tenantId || !ctx.actorId) {
@@ -121,8 +109,6 @@ export const scheduleUiRouter = router({
     })
   }),
 
-  // ── pause ─────────────────────────────────────────────────────────────────
-
   pause: publicProcedure.input(pauseScheduleInput).mutation(({ input, ctx }) => {
     if (!ctx.tenantId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing tenant context' })
@@ -134,8 +120,6 @@ export const scheduleUiRouter = router({
     })
   }),
 
-  // ── resume ────────────────────────────────────────────────────────────────
-
   resume: publicProcedure.input(resumeOrDeleteInput).mutation(({ input, ctx }) => {
     if (!ctx.tenantId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing tenant context' })
@@ -146,8 +130,6 @@ export const scheduleUiRouter = router({
     })
   }),
 
-  // ── delete ────────────────────────────────────────────────────────────────
-
   delete: publicProcedure.input(resumeOrDeleteInput).mutation(({ input, ctx }) => {
     if (!ctx.tenantId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing tenant context' })
@@ -157,8 +139,6 @@ export const scheduleUiRouter = router({
       scheduleId: input.scheduleId,
     })
   }),
-
-  // ── update ────────────────────────────────────────────────────────────────
 
   update: publicProcedure.input(updateScheduleInput).mutation(({ input, ctx }) => {
     if (!ctx.tenantId) {
@@ -175,8 +155,6 @@ export const scheduleUiRouter = router({
     })
   }),
 
-  // ── cancelRun ─────────────────────────────────────────────────────────────
-
   cancelRun: publicProcedure.input(cancelRunInput).mutation(({ input, ctx }) => {
     if (!ctx.tenantId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing tenant context' })
@@ -189,8 +167,6 @@ export const scheduleUiRouter = router({
     })
   }),
 
-  // ── listDelegations ───────────────────────────────────────────────────────
-
   listDelegations: publicProcedure.input(listDelegationsInput).query(({ input, ctx }) => {
     if (!ctx.tenantId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing tenant context' })
@@ -200,8 +176,6 @@ export const scheduleUiRouter = router({
       userId: input.userId,
     })
   }),
-
-  // ── revokeDelegation ──────────────────────────────────────────────────────
 
   revokeDelegation: publicProcedure.input(revokeDelegationInput).mutation(({ input, ctx }) => {
     if (!ctx.tenantId) {
