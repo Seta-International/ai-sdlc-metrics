@@ -1,5 +1,5 @@
 /**
- * Summarizer — post-turn async nano summarizer (Plan 04, R-04.24..R-04.26a)
+ * Summarizer — post-turn async nano summarizer.
  *
  * - scheduleSummarizeTurn: enqueues a pg-boss job `agents.summarize-turn`
  * - summarizeTurn: actual LLM call (nano model) — returns { summaryId, summaryText }
@@ -8,7 +8,7 @@
  * - clearSummaryCircuitBreaker: admin runbook — clears the disabled flag + resets streak
  * - registerWorkers: wire up pg-boss workers (called from module init)
  *
- * Circuit breaker (R-04.26a):
+ * Circuit breaker:
  *   After 3 retry failures → increment summary_failure_streak.
  *   At streak ≥ 5 → set summary_disabled_at, fire P2 alert metric.
  *   Future jobs for that conversation no-op until admin clears via clearSummaryCircuitBreaker.
@@ -19,17 +19,13 @@ import type { ConversationRepository } from '../../domain/repositories/conversat
 import type { ConversationMessageRepository } from '../../domain/repositories/conversation-message.repository'
 import type { ConversationMessageEntity } from '../../domain/entities/conversation-message.entity'
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 export const JOB_SUMMARIZE_TURN = 'agents.summarize-turn'
 
-/** Streak threshold above which the circuit breaks (R-04.26a). */
+/** Streak threshold above which the circuit breaks. */
 const CIRCUIT_BREAK_STREAK = 5
 
 /** Maximum number of LLM call attempts per turn. */
 const MAX_ATTEMPTS = 3
-
-// ─── Interfaces ───────────────────────────────────────────────────────────────
 
 /**
  * Injected AI client interface — allows tests to mock without coupling to a
@@ -85,8 +81,6 @@ export interface SummarizeTurnResult {
   summaryText: string
 }
 
-// ─── Implementation ───────────────────────────────────────────────────────────
-
 /**
  * Summarizer service.
  *
@@ -101,12 +95,10 @@ export class Summarizer {
     private readonly messageRepo: ConversationMessageRepository,
   ) {}
 
-  // ─── Public API ─────────────────────────────────────────────────────────────
-
   /**
    * Enqueue a pg-boss job to summarize the messages from a completed turn.
    * Fire-and-forget from the caller's perspective — the job runs asynchronously
-   * and does NOT block the user-visible response (R-04.24, R-04.25).
+   * and does NOT block the user-visible response.
    */
   async scheduleSummarizeTurn(opts: {
     conversationId: string
@@ -165,14 +157,12 @@ export class Summarizer {
   async handleSummarizeJob(opts: HandleSummarizeJobOpts): Promise<void> {
     const { conversationId, tenantId, traceId, turnMessages } = opts
 
-    // ── Circuit-breaker guard ──────────────────────────────────────────────
     const conversation = await this.conversationRepo.loadById({ id: conversationId, tenantId })
     if (conversation?.summaryDisabledAt != null) {
       // No-op — circuit is open; admin must clear
       return
     }
 
-    // ── Attempt summarization with retry ──────────────────────────────────
     try {
       const { summaryText, summaryId } = await this.summarizeTurn({
         turnMessages,
@@ -190,10 +180,9 @@ export class Summarizer {
         summary: summaryText,
       })
 
-      // Reset streak on success (R-04.26a)
       await this.conversationRepo.resetSummaryFailureStreak({ id: conversationId, tenantId })
     } catch {
-      // ── Terminal failure — increment streak, potentially trip breaker ──
+      // Terminal failure — increment streak, potentially trip breaker.
       const newStreak = await this.conversationRepo.incrementSummaryFailureStreak({
         id: conversationId,
         tenantId,
@@ -234,8 +223,6 @@ export class Summarizer {
       }
     })
   }
-
-  // ─── Internal ───────────────────────────────────────────────────────────────
 
   private buildSummarizationPrompt(messages: ConversationMessageEntity[]): string {
     const parts = messages.map((m) => {

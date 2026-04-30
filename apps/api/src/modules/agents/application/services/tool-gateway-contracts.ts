@@ -1,15 +1,12 @@
 /**
  * Pure type contracts for the ToolGateway pipeline runtime input.
  * No classes, no NestJS decorators, no side effects.
- * Per plan 01 §4 Interface Contracts.
  */
 
 import type { L1Cache } from '../../infrastructure/cache/l1-cache'
 import type { IntentSlug } from './flow-id-propagation'
 import type { TurnPolicy } from '../../domain/value-objects/turn-policy'
 import type { ToolGatewayResult } from '../../infrastructure/guards/tripwire'
-
-// ─── RequestContext ────────────────────────────────────────────────────────────
 
 /**
  * Caller identity + tracing metadata threaded through every gateway invocation.
@@ -24,11 +21,9 @@ export interface RequestContext {
   readonly delegationId?: string
 }
 
-// ─── TurnState ────────────────────────────────────────────────────────────────
-
 /**
  * A single taint source entry — records which tool call introduced tenant-authored
- * free text into the LLM context (R-08.2, plan 08 §5 provenance build step).
+ * free text into the LLM context.
  */
 export interface TaintSource {
   /** The tool whose result contained tenant-authored free text. */
@@ -99,11 +94,8 @@ export interface TurnState {
   readonly l1Cache: L1Cache
 }
 
-// ─── ToolGatewayInvokeInput ───────────────────────────────────────────────────
-
 /**
  * The full input shape for a single `ToolGateway.invoke()` call.
- * Per plan 01 §4 ToolGateway signature.
  */
 export interface ToolGatewayInvokeInput {
   readonly toolName: string
@@ -113,7 +105,7 @@ export interface ToolGatewayInvokeInput {
    * Permission-key prefixes this sub-agent is allowed to call.
    * Example: `['planner:task', 'people:profile:read']`.
    * The gateway passes this to `resolve()` to enforce sub-agent scope isolation.
-   * Provided by the AgentRuntime (Plan 03) when building the per-turn invoke function;
+   * Provided by the AgentRuntime when building the per-turn invoke function;
    * sourced from the sub-agent config in the DB.
    */
   readonly subAgentScope: ReadonlyArray<string>
@@ -123,12 +115,12 @@ export interface ToolGatewayInvokeInput {
   /**
    * `execute` — normal path; domain side-effects apply.
    * `dry-run` — runs validation + canDo but does not execute domain side-effects.
-   * MVP always uses `execute`; the interface must accept both per R-01.7.
+   * MVP always uses `execute`; the interface must accept both.
    */
   readonly mode: 'execute' | 'dry-run'
   /**
    * Optional. The user-intent slug for the current flow, used by FlowPolicyResolver
-   * to merge flow-level approval policy with tool-level defaults (plan 08 §5).
+   * to merge flow-level approval policy with tool-level defaults.
    * Absent when the gateway is invoked outside a named intent flow.
    */
   readonly intentSlug?: IntentSlug
@@ -146,20 +138,18 @@ export interface ToolGatewayInvokeInput {
    * Draft-creation (plan 08) is still allowed because drafts are proposals;
    * the actual write happens at approval time.
    *
-   * Plan 09 R-09.6a: scheduled async turns pass READ_ONLY_POLICY here.
-   * Interactive turns pass INTERACTIVE_POLICY (readOnly: false).
+   * Scheduled async turns pass READ_ONLY_POLICY here. Interactive turns pass
+   * INTERACTIVE_POLICY (readOnly: false).
    */
   readonly policy: TurnPolicy
   /**
-   * The raw user utterance that triggered this turn (R-08.2, R-08.24).
+   * The raw user utterance that triggered this turn.
    * Forwarded to DraftProposer when a mutation tool succeeds, so the provenance
    * block is populated with the actual utterance (sanitized when approver ≠ initiator).
    * Optional — when absent, provenance.user_utterance is set to empty string.
    */
   readonly userUtterance?: string
 }
-
-// ─── ToolGatewayPort ──────────────────────────────────────────────────────────
 
 /**
  * Public interface implemented by the production `ToolGateway` and the
@@ -173,6 +163,6 @@ export interface ToolGatewayPort {
 
 /**
  * DI token for `ToolGatewayPort`. Used by services that depend on the gateway
- * via the narrow port (TurnPipelineRunner — Task 2; SubAgentRunnerAdapter — Task 6).
+ * via the narrow port (TurnPipelineRunner; SubAgentRunnerAdapter).
  */
 export const TOOL_GATEWAY = Symbol('TOOL_GATEWAY')

@@ -5,8 +5,6 @@
  * Domain layer — zero NestJS/Drizzle imports.
  */
 
-// ─── Context ──────────────────────────────────────────────────────────────────
-
 export type TriggerPredicateContext = {
   turnEndedReason?: string // e.g. 'completed' | 'refused' | 'budget' | 'error' | 'user_cancel' | 'timeout' | 'quality_canary'
   taintFlipped: boolean
@@ -16,8 +14,8 @@ export type TriggerPredicateContext = {
   wallclockCeilingHit: boolean
   costCeilingHit: boolean
   /**
-   * R-12.18: Set to true when the turn was executed on the iterative topology.
-   * Forces 100% sampling to capture all iterative-topology turns for debugging.
+   * Set to true when the turn was executed on the iterative topology. Forces
+   * 100% sampling to capture all iterative-topology turns for debugging.
    */
   iterativeTopology?: boolean
   // Beta signals (always false at MVP — kept for forward-compat typing)
@@ -26,11 +24,7 @@ export type TriggerPredicateContext = {
   topologyDowngradeCandidate?: boolean
 }
 
-// ─── TriggerPredicate ─────────────────────────────────────────────────────────
-
 export type TriggerPredicate = (ctx: TriggerPredicateContext) => boolean
-
-// ─── SamplingConfig ───────────────────────────────────────────────────────────
 
 export type SamplingConfig =
   | { type: 'always' }
@@ -39,42 +33,39 @@ export type SamplingConfig =
   | { type: 'triggered'; triggers: TriggerPredicate[]; baselineProbability: number }
   | { type: 'composite'; configs: SamplingConfig[]; strategy: 'any' | 'all' }
 
-// ─── MVP Trigger Predicates ───────────────────────────────────────────────────
-
-/** R-07.12: turn ended reason is not 'completed' */
+/** Turn ended reason is not 'completed'. */
 export const turnNotCompletedTrigger: TriggerPredicate = function turnNotCompletedTrigger(
   ctx,
 ): boolean {
   return ctx.turnEndedReason !== undefined && ctx.turnEndedReason !== 'completed'
 }
 
-/** R-07.13: any ceiling hit */
+/** Any ceiling hit. */
 export const ceilingHitTrigger: TriggerPredicate = function ceilingHitTrigger(ctx): boolean {
   return ctx.iterationCeilingHit || ctx.wallclockCeilingHit || ctx.costCeilingHit
 }
 
-/** R-07.14: taint flipped */
+/** Taint flipped. */
 export const taintFlippedTrigger: TriggerPredicate = function taintFlippedTrigger(ctx): boolean {
   return ctx.taintFlipped
 }
 
-/** R-07.15: approval-required draft submitted */
+/** Approval-required draft submitted. */
 export const approvalRequiredTrigger: TriggerPredicate = function approvalRequiredTrigger(
   ctx,
 ): boolean {
   return ctx.approvalRequiredDraftSubmitted
 }
 
-/** R-07.16: composition amplification */
+/** Composition amplification. */
 export const compositionAmplificationTrigger: TriggerPredicate =
   function compositionAmplificationTrigger(ctx): boolean {
     return ctx.compositionAmplification
   }
 
 /**
- * R-12.18: iterative topology — forces 100% sampling for turns executed on the
- * iterative topology so all iterative turns are fully captured for debugging
- * and observability during the Plan 12 rollout.
+ * Forces 100% sampling for turns executed on the iterative topology so all
+ * iterative turns are fully captured for debugging and observability.
  */
 export const iterativeTopologyTrigger: TriggerPredicate = function iterativeTopologyTrigger(
   ctx,
@@ -82,12 +73,9 @@ export const iterativeTopologyTrigger: TriggerPredicate = function iterativeTopo
   return ctx.iterativeTopology === true
 }
 
-// ─── Default Configs ──────────────────────────────────────────────────────────
-
 /**
  * MVP production config: stratified — 1% baseline + 100% on any of the 6 triggers.
- * R-07.17: Baseline sampling rate = 1% for completed turns.
- * R-12.18: iterativeTopologyTrigger forces 100% capture for iterative topology turns.
+ * iterativeTopologyTrigger forces 100% capture for iterative topology turns.
  */
 export const STRATIFIED_MVP_CONFIG: SamplingConfig = {
   type: 'triggered',

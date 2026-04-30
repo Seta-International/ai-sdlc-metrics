@@ -1,5 +1,5 @@
 /**
- * RetrievalQualityScorer — CI scorer for tool retrieval recall (Plan 02.5 §4, R-02.5.8).
+ * CI scorer for tool retrieval recall.
  *
  * Given a sub-agent key and a set of labeled golden traces, invokes ToolRetriever
  * for each trace and computes per-trace and aggregate recall:
@@ -15,11 +15,6 @@
  *
  * DB queries inside retrieve() are sequential per CLAUDE.md rule — do NOT call
  * retrieve() via Promise.all. The scorer already loops sequentially.
- *
- * Consumed by:
- *   - Plan 10 CI harness: score() against the EI-5 golden-trace fixture; hard-fails
- *     when aggregate recall < target.
- *   - Future scheduled scorer: rolling golden-trace window over production traces.
  */
 
 import { Inject, Injectable } from '@nestjs/common'
@@ -27,11 +22,7 @@ import type { AgentToolDescriptor } from '../../../../common/trpc/agent-tool-met
 import type { SubAgentKey } from '../../domain/services/sub-agent-types'
 import { TOOL_RETRIEVER, type ToolRetriever } from '../../infrastructure/retrieval/tool-retriever'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const RETRIEVAL_QUALITY_SCORER = Symbol('RETRIEVAL_QUALITY_SCORER')
-
-// ─── GoldenTrace ──────────────────────────────────────────────────────────────
 
 /**
  * A labeled test case for retrieval quality measurement.
@@ -58,8 +49,6 @@ export interface GoldenTrace {
   readonly expectedToolNames: ReadonlyArray<string>
 }
 
-// ─── ScoreResult ──────────────────────────────────────────────────────────────
-
 export interface ScoreResult {
   /** Arithmetic mean of per-trace recalls across all golden traces. */
   readonly recall: number
@@ -67,11 +56,7 @@ export interface ScoreResult {
   readonly perTraceRecall: Record<string, number>
 }
 
-// ─── Retriever interface (structural) ─────────────────────────────────────────
-
 type RetrieverSurface = Pick<ToolRetriever, 'retrieve'>
-
-// ─── RetrievalQualityScorer ───────────────────────────────────────────────────
 
 @Injectable()
 export class RetrievalQualityScorer {

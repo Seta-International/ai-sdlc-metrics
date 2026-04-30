@@ -1,12 +1,10 @@
 /**
- * Pure canonical serialisation + SHA-256 hash for tool-invocation argument deduplication.
- * R-01.23 — deterministic key sort, undefined-drop, null-preserve,
+ * Pure canonical serialisation + SHA-256 hash for tool-invocation argument
+ * deduplication. Deterministic key sort, undefined-drop, null-preserve,
  * ISO-datetime UTC-normalisation, array-order preservation, no numeric coercion.
  */
 
 import { createHash } from 'node:crypto'
-
-// ─── Error class ──────────────────────────────────────────────────────────────
 
 /**
  * Thrown by `canonicalize()` when the input cannot be serialised to a canonical
@@ -19,8 +17,6 @@ export class CanonicalizeError extends TypeError {
     this.name = 'CanonicalizeError'
   }
 }
-
-// ─── ISO-datetime detection ────────────────────────────────────────────────────
 
 /**
  * Matches strings that look like a datetime (date + 'T' suffix).
@@ -42,8 +38,6 @@ function normaliseIsoDatetime(value: string): string {
 
   return d.toISOString() // always UTC-Z, millisecond precision
 }
-
-// ─── Core recursive canonicalise ──────────────────────────────────────────────
 
 function canonicaliseValue(value: unknown): unknown {
   if (value === null) return null
@@ -124,8 +118,6 @@ function canonicaliseValue(value: unknown): unknown {
   throw new CanonicalizeError(`unsupported value type "${t}"`)
 }
 
-// ─── Public API ────────────────────────────────────────────────────────────────
-
 export interface CanonicalizeResult {
   canonical: string
   hash: string
@@ -137,7 +129,7 @@ export interface CanonicalizeResult {
  * Computed once at module load from a deterministic sentinel object. When the
  * canonicalisation rules change (e.g. a new normalisation pass is added) this
  * constant MUST be updated so existing `agent_session` rows with mismatched hashes
- * are detected as drift by the orchestrator (T10).
+ * are detected as drift by the orchestrator.
  *
  * Do NOT derive this from Date.now() or Math.random() — it must be stable across
  * restarts.
@@ -157,7 +149,7 @@ function _computeCanonicalVersion(): CanonicalizeResult {
 /**
  * Deterministically serialise `args` to a stable JSON string + SHA-256 hex hash.
  *
- * Rules (R-01.23):
+ * Rules:
  * - Object keys sorted alphabetically ascending (deep)
  * - `undefined` values dropped; `null` preserved
  * - No numeric coercion (`"1"` ≠ `1`)

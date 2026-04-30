@@ -1,5 +1,5 @@
 /**
- * Pipeline typed errors + classifyPipelineError — Plan 18 §1.
+ * Pipeline typed errors + classifyPipelineError.
  *
  * Each pipeline service throws one of three typed errors when its turn slice
  * fails irrecoverably. The controller catches these at the top of the live
@@ -10,8 +10,6 @@
  * to avoid colliding with the standard `Error.cause` slot, which we use to
  * preserve the underlying error and its stack trace).
  */
-
-// ─── Router errors ────────────────────────────────────────────────────────────
 
 export type RouterLlmFailureCause = 'llm_5xx' | 'llm_timeout' | 'auth_error'
 
@@ -42,8 +40,6 @@ export class RouterParseEscalationError extends Error {
   }
 }
 
-// ─── Synthesizer errors ───────────────────────────────────────────────────────
-
 export type SynthesizerStreamFailureCause =
   | 'pre_shape_failure'
   | 'stream_error'
@@ -62,8 +58,6 @@ export class SynthesizerStreamFailureError extends Error {
     this.name = 'SynthesizerStreamFailureError'
   }
 }
-
-// ─── Classifier ───────────────────────────────────────────────────────────────
 
 export type SseErrorCause = 'router_failure' | 'synthesizer_failure' | 'internal_error'
 

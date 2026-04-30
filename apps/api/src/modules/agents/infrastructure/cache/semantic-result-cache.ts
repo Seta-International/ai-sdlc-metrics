@@ -1,12 +1,12 @@
 /**
- * SemanticResultCache — Plan 14 Semantic Result Cache service.
+ * Semantic Result Cache service.
  *
  * Two-tier lookup:
  *   1. Exact key (tenant_id, tool_name, canonical_args_hash) → CacheHit 'exact'
  *   2. Semantic nearest-neighbor using cosine similarity on embedding vectors → CacheHit 'semantic'
  *
- * Fail-open (R-14.8): DB errors and embedding provider errors never throw to callers.
- * Rows with a different embedding_model are ignored (R-14.10).
+ * Fail-open: DB errors and embedding provider errors never throw to callers.
+ * Rows with a different embedding_model are ignored.
  */
 
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common'
@@ -19,11 +19,7 @@ import { canonicalize } from './canonical-args'
 import { cosineSimilarity } from '../retrieval/cosine'
 import { agentToolResultCache } from '../schema/agent-tool-result-cache.schema'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const SEMANTIC_RESULT_CACHE = Symbol('SEMANTIC_RESULT_CACHE')
-
-// ─── Public interfaces ────────────────────────────────────────────────────────
 
 export interface CacheHit {
   result: unknown
@@ -35,7 +31,7 @@ export interface SemanticCacheGetInput {
   tenantId: string
   toolName: string
   args: unknown
-  /** Current embedding model (R-14.10: skip rows with different model). */
+  /** Current embedding model — rows with a different model are skipped. */
   embeddingModel: string
   /** 0–1, cosine similarity threshold for semantic match. */
   distanceThreshold: number
@@ -55,8 +51,6 @@ export interface SemanticCacheInvalidateDomainInput {
   /** First dot-segment of tool name, e.g. "projects". */
   domain: string
 }
-
-// ─── SemanticResultCache ──────────────────────────────────────────────────────
 
 @Injectable()
 export class SemanticResultCache implements OnModuleInit {
@@ -79,21 +73,17 @@ export class SemanticResultCache implements OnModuleInit {
     this.openai = createOpenAI({ apiKey })
   }
 
-  // ─── get() ────────────────────────────────────────────────────────────────
-
   /**
-   * R-14.4: Try exact key first before computing any embedding.
-   * R-14.8: Fail-open — any DB or embedding error returns undefined.
-   * R-14.10: Only consider rows whose embedding_model matches input.
+   * Try exact key first before computing any embedding.
+   * Fail-open — any DB or embedding error returns undefined.
+   * Only considers rows whose embedding_model matches input.
    */
   async get(input: SemanticCacheGetInput): Promise<CacheHit | undefined> {
     const { tenantId, toolName, args, embeddingModel, distanceThreshold } = input
 
     try {
-      // ── Step 1: Canonicalize args ─────────────────────────────────────────
       const { canonical, hash } = canonicalize(args)
 
-      // ── Step 2: Exact-key lookup (R-14.4) ────────────────────────────────
       const notExpiredFilter = sql`${agentToolResultCache.storedAt} + ${agentToolResultCache.ttlSeconds} * interval '1 second' > NOW()`
 
       const exactRows = await this.db
@@ -117,7 +107,6 @@ export class SemanticResultCache implements OnModuleInit {
         }
       }
 
-      // ── Step 3: Compute embedding for semantic lookup ─────────────────────
       if (!this.openai) {
         // No embedding provider — skip semantic lookup
         return undefined
@@ -138,7 +127,6 @@ export class SemanticResultCache implements OnModuleInit {
         return undefined
       }
 
-      // ── Step 4: Fetch candidates (same tenant, tool, model, not expired) ──
       const candidateRows = await this.db
         .select()
         .from(agentToolResultCache)
@@ -152,7 +140,6 @@ export class SemanticResultCache implements OnModuleInit {
           ),
         )
 
-      // ── Step 5: Find nearest neighbour ────────────────────────────────────
       let bestScore = -Infinity
       let bestRow: (typeof candidateRows)[number] | undefined
 
@@ -183,10 +170,8 @@ export class SemanticResultCache implements OnModuleInit {
     }
   }
 
-  // ─── put() ────────────────────────────────────────────────────────────────
-
   /**
-   * Store a pre-rendered tool result (R-14.9).
+   * Store a pre-rendered tool result.
    * Fire-and-forget: errors are logged, never thrown.
    * If embedding fails, row is stored without embedding (exact-only fallback).
    */
@@ -194,10 +179,8 @@ export class SemanticResultCache implements OnModuleInit {
     const { tenantId, toolName, args, result, ttlSeconds, embeddingModel } = input
 
     try {
-      // ── Step 1: Canonicalize args ─────────────────────────────────────────
       const { canonical, hash } = canonicalize(args)
 
-      // ── Step 2: Try to compute embedding ─────────────────────────────────
       let semanticEmbedding: number[] | null = null
 
       if (this.openai) {
@@ -216,7 +199,6 @@ export class SemanticResultCache implements OnModuleInit {
         }
       }
 
-      // ── Step 3: Insert row (onConflictDoNothing handles concurrent puts) ──
       await this.db
         .insert(agentToolResultCache)
         .values({
@@ -242,8 +224,6 @@ export class SemanticResultCache implements OnModuleInit {
       )
     }
   }
-
-  // ─── invalidateDomain() ───────────────────────────────────────────────────
 
   /**
    * Delete all cache rows for a domain (first dot-segment of tool_name).

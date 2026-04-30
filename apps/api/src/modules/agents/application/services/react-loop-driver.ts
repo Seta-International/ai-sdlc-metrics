@@ -1,9 +1,6 @@
 /**
- * react-loop-driver — Plan 17 PR 2 Task 5.
- *
- * Pure ReAct driver that wraps `SubAgentLlmClient.runWithTools` (Task 3) and
- * translates the result + `BridgeAccumulator` (Task 4) state into a typed
- * `ReactLoopDriverResult`.
+ * Pure ReAct driver that wraps `SubAgentLlmClient.runWithTools` and translates
+ * the result + `BridgeAccumulator` state into a typed `ReactLoopDriverResult`.
  *
  * Termination dispatch:
  *   - Normal return                → result with `aborted: false`,
@@ -12,8 +9,7 @@
  *   - `AbortError` (or aborted)    → result with `aborted: true` and ZERO_USAGE.
  *   - Any other thrown error       → re-thrown to the caller (no swallowing).
  *
- * Zero NestJS, zero Drizzle, zero AI SDK. Task 6 (sub-agent-runner-adapter)
- * is the only consumer.
+ * Zero NestJS, zero Drizzle, zero AI SDK.
  */
 
 import type { ZodType } from 'zod'
@@ -30,8 +26,6 @@ import type { Tripwire } from '../../infrastructure/guards/tripwire'
 import type { ModelChoice } from '../../domain/services/sub-agent-types'
 import type { ConfidenceSignals, SubAgentUsage, ToolName } from './phase-executor-contracts'
 
-// ─── ZERO_USAGE ───────────────────────────────────────────────────────────────
-
 /** Canonical zero-usage record (mirrors `sub-agent-runner.ts`). */
 const ZERO_USAGE: SubAgentUsage = {
   inputTokens: 0,
@@ -42,15 +36,13 @@ const ZERO_USAGE: SubAgentUsage = {
   costUsd: 0,
 }
 
-// ─── Driver opts + result ─────────────────────────────────────────────────────
-
 export interface ReactLoopDriverOpts {
   readonly llmClient: SubAgentLlmClient
   readonly model: ModelChoice
   readonly system: string
   readonly userMessage: string
   /**
-   * The Vercel AI SDK tool record built by `buildSubAgentTools` (Task 4).
+   * The Vercel AI SDK tool record built by `buildSubAgentTools`.
    * Typed as `Record<ToolName, unknown>` here to keep this driver decoupled
    * from the AI SDK's internal `ToolSet` typing; the load-bearing cast at the
    * call site below bridges it back to what `SubAgentLlmClient` expects.
@@ -70,8 +62,6 @@ export interface ReactLoopDriverResult {
   readonly hardTripwire?: { tripwire: Tripwire; toolName: ToolName }
   readonly aborted: boolean
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
  * Maps `BridgeAccumulator` fields directly onto the `ConfidenceSignals` shape.
@@ -97,8 +87,6 @@ function isAbortError(err: unknown, signal: AbortSignal): boolean {
   return name === 'AbortError'
 }
 
-// ─── runReactLoop ─────────────────────────────────────────────────────────────
-
 export async function runReactLoop(opts: ReactLoopDriverOpts): Promise<ReactLoopDriverResult> {
   let result: SubAgentLlmClientResult
   try {
@@ -108,9 +96,9 @@ export async function runReactLoop(opts: ReactLoopDriverOpts): Promise<ReactLoop
       userMessage: opts.userMessage,
       // Load-bearing cast: the driver's `ReactLoopDriverOpts.tools` is
       // `Record<ToolName, unknown>` to keep this layer opaque to the AI SDK's
-      // internal `ToolSet` shape. The bridge (`buildSubAgentTools`, Task 4)
-      // produces values that are structurally `AiSdkTool`; we re-assert that
-      // shape here so the LLM client receives the type it expects
+      // internal `ToolSet` shape. The bridge (`buildSubAgentTools`) produces
+      // values that are structurally `AiSdkTool`; we re-assert that shape here
+      // so the LLM client receives the type it expects
       // (`Record<string, AiSdkTool>` per `sub-agent-llm-client.ts`).
       tools: opts.tools as Record<string, AiSdkTool>,
       outputSchema: opts.outputSchema,

@@ -1,30 +1,30 @@
 /**
- * RouterPlan Zod schema — canonical definition (Plan 02 §4 Task 9, Plan 03 §3 revision).
+ * RouterPlan Zod schema — canonical definition.
  *
- * Plan 03 revision (2026-04-22):
- *   - RouterPlan is now a discriminated union over `topology`:
- *       'direct'   — Tier 0 single-tool deterministic execution (Plan 03 §5 Tier 0)
- *       'bounded'  — Tier 1 phase-1 + optional phase-2 fan-out (Plan 02 §4, Plan 03 §5)
- *       'iterative'— Tier 2 supervisor loop (Plan 12; minimal placeholder here)
- *   - BoundedPlan.phase2 is now SubAgentDirective[] (0..3) instead of a single optional directive.
- *     Phase 2 fan-out allows up to 3 parallel sub-agents (Plan 03 §3 R-03.37).
- *   - Disambiguation remains a field inside BoundedPlan (not a separate topology).
- *     Mutual-exclusivity rule — if disambiguation is set, phase1 must be empty and phase2 empty —
- *     is enforced semantically by RouterDecisionParser, not at schema level.
+ * RouterPlan is a discriminated union over `topology`:
+ *   'direct'    — Tier 0 single-tool deterministic execution
+ *   'bounded'   — Tier 1 phase-1 + optional phase-2 fan-out
+ *   'iterative' — Tier 2 supervisor loop
  *
- * Disambiguation vs phase1 design note:
- *   `phase1` is min(0) at schema level to allow an empty array in the disambiguation path.
- *   The rule "if disambiguation absent then phase1 non-empty" is enforced in RouterDecisionParser.
+ * BoundedPlan.phase2 is SubAgentDirective[] (0..3). Phase 2 fan-out allows up
+ * to 3 parallel sub-agents.
  *
- * intent_slug note:
- *   `INTENT_SLUG_REGEX` validates FORMAT only. Full registry-membership check lives in
- *   RouterDecisionParser. The special fallback slug 'unclassified' is allowed explicitly.
+ * Disambiguation remains a field inside BoundedPlan (not a separate topology).
+ * Mutual-exclusivity rule — if disambiguation is set, phase1 must be empty
+ * and phase2 empty — is enforced semantically by RouterDecisionParser, not at
+ * schema level.
+ *
+ * `phase1` is min(0) at schema level to allow an empty array in the
+ * disambiguation path. The rule "if disambiguation absent then phase1
+ * non-empty" is enforced in RouterDecisionParser.
+ *
+ * `INTENT_SLUG_REGEX` validates FORMAT only. Full registry-membership check
+ * lives in RouterDecisionParser. The special fallback slug 'unclassified' is
+ * allowed explicitly.
  */
 
 import * as z from 'zod'
 import { INTENT_SLUG_REGEX } from '../../infrastructure/registry/intents/intent-registry'
-
-// ─── SubAgentDirective ────────────────────────────────────────────────────────
 
 export const SubAgentDirectiveSchema = z.object({
   /**
@@ -46,11 +46,9 @@ export const SubAgentDirectiveSchema = z.object({
 
 export type SubAgentDirective = z.infer<typeof SubAgentDirectiveSchema>
 
-// ─── DirectExecutionPlan (Tier 0) ─────────────────────────────────────────────
-
 /**
  * Tier 0 plan — single tool call, zero sub-agents, zero synthesizer.
- * Tool must declare `directExecutable: true` in tool meta (Plan 03 §5, R-03.35).
+ * Tool must declare `directExecutable: true` in tool meta.
  */
 export const DirectExecutionPlanSchema = z.object({
   topology: z.literal('direct'),
@@ -74,15 +72,13 @@ export const DirectExecutionPlanSchema = z.object({
 
 export type DirectExecutionPlan = z.infer<typeof DirectExecutionPlanSchema>
 
-// ─── BoundedPlan (Tier 1) ─────────────────────────────────────────────────────
-
 /**
  * Tier 1 plan — phase-1 fan-out (1..3 sub-agents) + optional phase-2 fan-out (0..3).
  *
- * Phase-2 shape change (Plan 03 §3 R-03.37, R-03.38):
- *   `phase2` is now SubAgentDirective[] (min 0, max 3). An empty array means no phase 2.
- *   Each phase-2 sub-agent receives its own per-sub-agent sanitized input (not a shared
- *   global projection). Sanitizer runs once per phase-2 entry, not once globally.
+ * `phase2` is SubAgentDirective[] (min 0, max 3). An empty array means no phase 2.
+ * Each phase-2 sub-agent receives its own per-sub-agent sanitized input (not a
+ * shared global projection). Sanitizer runs once per phase-2 entry, not once
+ * globally.
  */
 export const BoundedPlanSchema = z.object({
   topology: z.literal('bounded'),
@@ -113,7 +109,7 @@ export const BoundedPlanSchema = z.object({
    * Optional second-pass sub-agent invocations (0..3).
    * Empty array = no phase 2. Each entry is dispatched sequentially by the orchestrator
    * (audit events) and the phase executor owns actual fan-out scheduling.
-   * Per R-03.37: max 3 enforced at schema level AND re-validated at phase-executor entry.
+   * Max 3 enforced at schema level AND re-validated at phase-executor entry.
    */
   phase2: z.array(SubAgentDirectiveSchema).min(0).max(3),
 
@@ -126,12 +122,10 @@ export const BoundedPlanSchema = z.object({
 
 export type BoundedPlan = z.infer<typeof BoundedPlanSchema>
 
-// ─── CompletionSpec (Plan 12) ─────────────────────────────────────────────────
-
 /**
  * Specifies the exit criteria for an iterative supervisor loop.
  *
- * `scorerIds` — references registered deterministic scorers (plan 10).
+ * `scorerIds` — references registered deterministic scorers.
  * `strategy`  — 'all' requires every scorer to pass; 'any' requires at least one.
  * `maxIterations` — upper bound on loop iterations. No schema-level cap; runtime
  *   enforces surface-specific limits (≤10 interactive, ≤20 async).
@@ -139,7 +133,7 @@ export type BoundedPlan = z.infer<typeof BoundedPlanSchema>
  *   on each re-entry to help it decide when to stop.
  */
 export const CompletionSpecSchema = z.object({
-  /** Non-empty list of scorer IDs from the scorer registry (plan 10). */
+  /** Non-empty list of scorer IDs from the scorer registry. */
   scorerIds: z.array(z.string().min(1)).min(1),
   /** Exit strategy: all scorers must pass ('all') or at least one ('any'). */
   strategy: z.enum(['all', 'any']),
@@ -154,10 +148,8 @@ export const CompletionSpecSchema = z.object({
 
 export type CompletionSpec = z.infer<typeof CompletionSpecSchema>
 
-// ─── IterativePlan (Tier 2, Plan 12) ──────────────────────────────────────────
-
 /**
- * Tier 2 plan — iterative supervisor loop (Plan 12 §2).
+ * Tier 2 plan — iterative supervisor loop.
  *
  * The router emits this plan when the intent requires repeated sub-agent
  * invocations with completion scoring between iterations.  The orchestrator
@@ -194,8 +186,6 @@ export const IterativePlanSchema = z.object({
 
 export type IterativePlan = z.infer<typeof IterativePlanSchema>
 
-// ─── RouterPlan discriminated union ───────────────────────────────────────────
-
 export const RouterPlanSchema = z.discriminatedUnion('topology', [
   DirectExecutionPlanSchema,
   BoundedPlanSchema,
@@ -204,15 +194,12 @@ export const RouterPlanSchema = z.discriminatedUnion('topology', [
 
 export type RouterPlan = z.infer<typeof RouterPlanSchema>
 
-// ─── JSON Schema derivation ───────────────────────────────────────────────────
-
 /**
  * Live JSON Schema derived from `RouterPlanSchema` via Zod v4's native
  * `z.toJSONSchema()`. Cached at module load time (pure, deterministic).
  *
- * Named `ROUTER_PLAN_JSON_SCHEMA_PLACEHOLDER` to keep the T7 import path stable.
- * The "PLACEHOLDER" suffix is preserved for backward-import-path compatibility —
- * this is now the canonical live schema, not a placeholder.
+ * Named `ROUTER_PLAN_JSON_SCHEMA_PLACEHOLDER` for import-path stability — this
+ * is the canonical live schema, not a placeholder.
  */
 export const ROUTER_PLAN_JSON_SCHEMA_PLACEHOLDER: Record<string, unknown> = z.toJSONSchema(
   RouterPlanSchema,

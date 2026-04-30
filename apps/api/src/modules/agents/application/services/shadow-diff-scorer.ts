@@ -1,16 +1,12 @@
 /**
- * shadow-diff-scorer.ts — Plan 11 Task 4
- *
  * Deterministic rule-based service that compares a baseline turn output against
  * a candidate (shadow) turn output and produces a diff score and category.
  *
- * MVP only — LLM-judge diff is GA-activation-gated (R-11.14).
+ * MVP only — LLM-judge diff is GA-activation-gated.
  * No DB access, no external calls, no NestJS injection required.
  */
 
 import { Injectable } from '@nestjs/common'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface TurnResult {
   /** Ordered list of tool names called during the turn */
@@ -44,19 +40,15 @@ export interface ShadowErroredResult {
   componentDiffs: { toolCallOverlap: 0; shapeDiff: 0; permissionKeyOverlap: 0 }
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const SHADOW_ERRORED_RESULT: ShadowErroredResult = Object.freeze({
   score: 1,
   category: 'shadow_errored' as const,
   componentDiffs: Object.freeze({ toolCallOverlap: 0, shapeDiff: 0, permissionKeyOverlap: 0 }),
 })
 
-// ─── Pure helpers ─────────────────────────────────────────────────────────────
-
 /**
  * Jaccard similarity of two arrays treated as sets.
- * If both are empty → 1.0 (treat as identical empty sets, per R-11.14 spec).
+ * If both are empty → 1.0 (treat as identical empty sets).
  */
 function jaccardOverlap(a: string[], b: string[]): number {
   const setA = new Set(a)
@@ -91,8 +83,6 @@ function classifyScore(score: number): 'identical' | 'minor_difference' | 'major
   return 'major_difference'
 }
 
-// ─── ShadowDiffScorer ─────────────────────────────────────────────────────────
-
 @Injectable()
 export class ShadowDiffScorer {
   /**
@@ -109,8 +99,6 @@ export class ShadowDiffScorer {
 
     const { baselineOutput, candidateOutput } = opts
 
-    // ── Component scores ──────────────────────────────────────────────────────
-
     const toolCallOverlap = jaccardOverlap(
       baselineOutput.toolCallNames,
       candidateOutput.toolCallNames,
@@ -123,7 +111,7 @@ export class ShadowDiffScorer {
       candidateOutput.permissionKeys,
     )
 
-    // ── Weighted composite score (lower = more similar) ───────────────────────
+    // Weighted composite score (lower = more similar):
     // score = (1 - toolCallOverlap) * 0.5
     //       + shapeDiff * 0.3
     //       + (1 - permissionKeyOverlap) * 0.2

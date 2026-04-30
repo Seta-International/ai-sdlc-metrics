@@ -1,7 +1,5 @@
 /**
- * golden-trace-runner.ts — Plan 10 Task 6 + Plan 17 PR 4 Task 14.
- *
- * Runs the CI gate against the active golden-trace set (R-10.11 – R-10.15).
+ * Runs the CI gate against the active golden-trace set.
  *
  * Drives the full pipeline through ReplayHarness + TurnPipelineRunner +
  * ReplayModeToolGateway: for each active trace, replays its captured prompts
@@ -9,8 +7,6 @@
  * and compares the produced Fingerprint against the trace's expected values.
  * Replay failures yield MARKER_REPLAY_FAILED so a missed lookup surfaces as
  * a regression rather than a silent pass.
- *
- * Design §§: §4 GoldenTraceRunner, R-10.11 through R-10.15.
  */
 
 import { Inject, Injectable } from '@nestjs/common'
@@ -32,11 +28,7 @@ import {
   recordReplayMiss,
 } from '../../infrastructure/observability/golden-trace-metrics'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const GOLDEN_TRACE_RUNNER = Symbol('GOLDEN_TRACE_RUNNER')
-
-// ─── Report types ─────────────────────────────────────────────────────────────
 
 export type RegressionReport = {
   goldenTraceId: string
@@ -50,8 +42,6 @@ export type CiGateResult = {
   regressions: RegressionReport[]
   durationMs: number
 }
-
-// ─── Pure helpers ─────────────────────────────────────────────────────────────
 
 /**
  * Builds a Fingerprint from a GoldenTraceEntity's expected values.
@@ -109,8 +99,6 @@ export function computeRegressionReport(
   }
 }
 
-// ─── GoldenTraceRunner ────────────────────────────────────────────────────────
-
 @Injectable()
 export class GoldenTraceRunner {
   constructor(
@@ -130,7 +118,7 @@ export class GoldenTraceRunner {
    *      ReplayModeToolGateway backed by the captured tool outputs.
    *   3. Build the actual Fingerprint from the pipeline result.
    *   4. Run all registered deterministic scorers; passed:false → regression.
-   *   5. Run all registered LLM-judge scorers in observe-only mode (R-10.30).
+   *   5. Run all registered LLM-judge scorers in observe-only mode.
    *   6. Replay failures yield MARKER_REPLAY_FAILED + a regression report so
    *      missed lookups surface in the gate output.
    */

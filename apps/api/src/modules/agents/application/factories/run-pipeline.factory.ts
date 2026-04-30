@@ -1,6 +1,4 @@
 /**
- * createRunPipelineFn — Plan 18 §4.5 / Task 7+9.
- *
  * The live composition closure consumed by {@link TurnPipelineRunner} via the
  * `RUN_PIPELINE_FN` DI token. Composes:
  *
@@ -14,13 +12,6 @@
  *
  * Pre-router DB reads are sequential `await` (CLAUDE.md DB rule — request-bound
  * `pg.PoolClient` cannot run queries in parallel).
- *
- * Extracted from `agents.module.ts` (PR #113) so that:
- *   • the module file stays focused on DI wiring (no inlined logic);
- *   • the factory body is independently unit-testable without the full
- *     NestJS DI graph;
- *   • the result-translator helper lives next to the only caller that
- *     needs it.
  */
 
 import type { AdminQueryFacade } from '../../../admin/application/facades/admin-query.facade'
@@ -67,15 +58,15 @@ export function createRunPipelineFn(deps: RunPipelineDeps): RunPipelineFn {
     const { userUtterance, conversationId, requestContext, abortSignal, streamEmitter, turnState } =
       input
 
-    // Plan 18 Task 9 — record dispatch outcome on every exit path. Default
-    // kind=bounded (most common); update once routed.kind is known. outcome
-    // is overridden by the actual TurnPipelineResult.turnEndReason on
-    // success paths and forced to 'error' in the catch block.
+    // Record dispatch outcome on every exit path. Default kind=bounded (most
+    // common); update once routed.kind is known. Outcome is overridden by the
+    // actual TurnPipelineResult.turnEndReason on success paths and forced to
+    // 'error' in the catch block.
     let dispatchKind: 'bounded' | 'iterative' | 'disambiguation' = 'bounded'
     let dispatchOutcome: 'completed' | 'cancelled' | 'refused' | 'error' = 'completed'
 
     try {
-      // ── Sequential pre-router reads (CLAUDE.md DB rule) ──────────────────
+      // Sequential pre-router reads (CLAUDE.md DB rule).
       const recentSummary =
         requestContext.surface === 'inline'
           ? await windowBuilder.buildInline({
@@ -111,7 +102,7 @@ export function createRunPipelineFn(deps: RunPipelineDeps): RunPipelineFn {
       }
 
       // RouterSessionOrchestrator.routeTurn throws RouterLlmFailureError on
-      // infra failure (Plan 18 R-18.24). Let it propagate to the controller.
+      // infra failure. Let it propagate to the controller.
       const routed: RouteTurnResult = await routerOrchestrator.routeTurn(routeOpts)
 
       if (routed.kind === 'disambiguation') {
@@ -141,7 +132,7 @@ export function createRunPipelineFn(deps: RunPipelineDeps): RunPipelineFn {
 
       // routed.kind === 'bounded' — plan.topology may be 'bounded' or 'direct'.
       // Direct execution (Tier 0, single tool, no synthesizer) is not yet
-      // wired to a live executor — Plan 18 scope covers bounded + iterative.
+      // wired to a live executor.
       dispatchKind = 'bounded'
       const boundedPlan = assertBoundedTopology(routed.plan)
 

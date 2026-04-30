@@ -1,9 +1,9 @@
 /**
- * Sub-agent type vocabulary — Plan 02.
+ * Sub-agent type vocabulary.
  *
  * Pure TypeScript; zero NestJS / Drizzle dependencies.
  *
- * Phase-1 output subset check (R-02.5 + R-02.10):
+ * Phase-1 output subset check:
  * The canonical phase-1 output schema is defined in
  * `domain/value-objects/phase1-output-schema.ts` as `Phase1OutputSchema`
  * (MVP: `{ utterance: string }`). The subset check is enforced at compile time
@@ -11,15 +11,13 @@
  * any `defineSubAgent` call whose `inputSchema` does not include `utterance`
  * as a required field produces a `tsc` error at the call site.
  *
- * Runtime drift check (R-02.11):
+ * Runtime drift check:
  * `sub-agent-registry.spec.ts` contains a CI-breaking test that iterates all
  * booted sub-agents and parses `{ utterance: 'hello world' }` against each
  * inputSchema — ensuring no drift between compile-time constraint and runtime.
  */
 
 import type { ZodType } from 'zod'
-
-// ─── Memory levels ─────────────────────────────────────────────────────────────
 
 export type MemoryReadLevel = 'L1' | 'L2' | 'L3' | 'L4'
 
@@ -29,16 +27,12 @@ export type MemoryReadLevel = 'L1' | 'L2' | 'L3' | 'L4'
  */
 export type MemoryWriteLevel = 'L1' | 'L2' | 'L3'
 
-// ─── Branded key ───────────────────────────────────────────────────────────────
-
 /**
  * Branded string for sub-agent registry keys.
  * `defineSubAgent` accepts a plain `string` and returns a config whose `key`
  * field is `SubAgentKey`, preventing accidental construction elsewhere.
  */
 export type SubAgentKey = string & { readonly __brand: 'SubAgentKey' }
-
-// ─── Model selection ───────────────────────────────────────────────────────────
 
 /**
  * Minimal model selector. Kept thin per spec — richer model config can extend
@@ -66,8 +60,6 @@ export type TenantContext = {
  * evaluated at session start. Never evaluated inside `defineSubAgent`.
  */
 export type DynamicArgument<T, Ctx> = T | ((ctx: Ctx) => T)
-
-// ─── Validated config ─────────────────────────────────────────────────────────
 
 /**
  * The return type of `defineSubAgent`. Consumers (SubAgentRegistry, RouterPromptBuilder,

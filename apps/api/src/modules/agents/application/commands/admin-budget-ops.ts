@@ -6,14 +6,11 @@ import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-au
 import { agentTenantBudget } from '../../infrastructure/schema/agents.schema'
 import { recordBudgetRefill } from '../../infrastructure/observability/cost-metrics'
 
-// ─── AdminBudgetOps ───────────────────────────────────────────────────────────
-
 /**
  * Admin write operations for tenant budget management.
  *
- * Authorization (`canDo('admin.budget.topup')`) is enforced at the tRPC layer
- * (Plan 09 wiring). This service is responsible for data mutations and audit
- * trail only.
+ * Authorization (`canDo('admin.budget.topup')`) is enforced at the tRPC layer.
+ * This service is responsible for data mutations and audit trail only.
  */
 @Injectable()
 export class AdminBudgetOps {
@@ -52,7 +49,6 @@ export class AdminBudgetOps {
       },
     })
 
-    // Emit budget refill metric (Plan 05 §8, R-05.33–R-05.34).
     recordBudgetRefill(opts.tenantId, 'admin_topup')
   }
 

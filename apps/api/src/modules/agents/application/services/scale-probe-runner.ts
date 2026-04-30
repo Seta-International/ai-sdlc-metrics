@@ -1,6 +1,4 @@
 /**
- * scale-probe-runner.ts — Plan 13 Task 7
- *
  * CI probe exercising EI-4, EI-5, EI-6 against a synthetic 12-module registry.
  * All checks are fully deterministic — no LLM calls, no external I/O.
  *
@@ -26,16 +24,12 @@ import {
   SCALE_PROBE_ROUTER_BUDGET_TOKENS,
 } from './criterion-evaluators/criterion-thresholds'
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 /**
  * Conservative average tokens per tool description (key + short summary).
  * 12 × 20 × 30 + 500 = 7700, safely within the 8000 budget.
  */
 const AVG_TOKENS_PER_TOOL_DESCRIPTION = 30
 const ROUTER_OVERHEAD_TOKENS = 500
-
-// ─── Result types ─────────────────────────────────────────────────────────────
 
 export type ScaleProbeInvariantId = 'EI-4' | 'EI-5' | 'EI-6'
 
@@ -55,8 +49,6 @@ export type ScaleProbeResult = {
   allPassed: boolean
 }
 
-// ─── ScaleProbeRunner ─────────────────────────────────────────────────────────
-
 @Injectable()
 export class ScaleProbeRunner {
   constructor(
@@ -67,7 +59,7 @@ export class ScaleProbeRunner {
   async run(): Promise<ScaleProbeResult> {
     const ranAt = new Date()
 
-    // ── EI-4: Sub-agent retrieval recall ─────────────────────────────────────
+    // EI-4: Sub-agent retrieval recall.
     // Deterministic: the synthetic fixture is an in-memory list; every key is
     // always found, so recall = 1.0.
     const ei4Threshold = parseFloat(CRITERION_THRESHOLDS['18.5.scale_probe.EI-4'].threshold)
@@ -85,7 +77,7 @@ export class ScaleProbeRunner {
       },
     }
 
-    // ── EI-5: Tool retrieval recall ───────────────────────────────────────────
+    // EI-5: Tool retrieval recall.
     // All 240 tool names are resident in memory; any lookup is trivially a hit.
     const ei5Threshold = parseFloat(CRITERION_THRESHOLDS['18.5.scale_probe.EI-5'].threshold)
     const ei5Observed = 1.0
@@ -102,7 +94,7 @@ export class ScaleProbeRunner {
       },
     }
 
-    // ── EI-6: Router prompt budget ceiling ────────────────────────────────────
+    // EI-6: Router prompt budget ceiling.
     // Estimate tokens consumed when all 12 sub-agents × 20 tools appear in
     // the router prompt. Uses a conservative per-tool heuristic.
     const estimatedTokens =
@@ -125,7 +117,7 @@ export class ScaleProbeRunner {
     const perInvariant: ReadonlyArray<ScaleProbeInvariantResult> = [ei4, ei5, ei6]
     const allPassed = perInvariant.every((r) => r.passed)
 
-    // ── Persist one readiness check row per invariant (sequential per rule) ───
+    // Persist one readiness check row per invariant (sequential per rule).
     // Point-in-time probe: windowStart === windowEnd signals "no range" to dashboards.
     const windowStart = ranAt
     const windowEnd = ranAt

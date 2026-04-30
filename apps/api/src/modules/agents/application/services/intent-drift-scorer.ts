@@ -1,12 +1,10 @@
 /**
- * intent-drift-scorer.ts — Plan 10 Task 4
- *
  * Deterministic scorer: for each (tool_name, invocation_context) pair in a
  * ReplayedTrace, checks whether the context matches the tool's `whenNotToUse`
  * declaration.
  *
  * Runs on every CI build against the golden-trace replay set.
- * Any violation → passed: false, which blocks merge (R-10.29).
+ * Any violation → passed: false, which blocks merge.
  *
  * Matching is intentionally simple (substring, no LLM) — catches obvious
  * violations without false positives from fuzzy heuristics.
@@ -21,13 +19,9 @@ import type {
 } from '../../domain/scorer-types'
 import { ToolRegistry } from '../../infrastructure/tool-registry/tool-registry'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const TOOL_REGISTRY_TOKEN = Symbol('TOOL_REGISTRY_TOKEN')
 
 export const INTENT_DRIFT_SCORER = Symbol('INTENT_DRIFT_SCORER')
-
-// ─── Result type ──────────────────────────────────────────────────────────────
 
 export type IntentDriftResult = {
   violatingPairs: Array<{
@@ -36,8 +30,6 @@ export type IntentDriftResult = {
     matchedClause: string
   }>
 }
-
-// ─── Pure drift-check function ────────────────────────────────────────────────
 
 /**
  * Standalone drift checker — no NestJS injection required.
@@ -56,8 +48,8 @@ export function checkIntentDrift(
   for (const toolCall of toolCallsObserved) {
     const descriptor = toolRegistry.getDescriptor(toolCall.toolName)
 
-    // Tool not found in registry → no agent meta to check — skip (R-10.29 caveat: unknown tools
-    // are not scored; they may not have agent declarations)
+    // Tool not found in registry → no agent meta to check — skip. Unknown
+    // tools are not scored; they may not have agent declarations.
     if (!descriptor) {
       continue
     }
@@ -120,8 +112,6 @@ export function contextMatchesWhenNotToUse(
 
   return false
 }
-
-// ─── IntentDriftScorer ────────────────────────────────────────────────────────
 
 @Injectable()
 export class IntentDriftScorer implements SetaScorer<ReplayedTrace, IntentDriftResult> {

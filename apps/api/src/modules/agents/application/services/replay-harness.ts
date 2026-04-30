@@ -1,6 +1,4 @@
 /**
- * ReplayHarness — Plan 10 Task 3
- *
  * Reconstructs the full LLM message array for a given trace_id by resolving
  * all pinned hashes from the agent session. Errors explicitly on any lookup
  * miss — no silent fallback, no fuzzy match.
@@ -21,8 +19,6 @@ import {
   agentToolInvocations,
 } from '../../infrastructure/schema/agents.schema'
 import type { ReplayResult, LlmMessageArray, ToolCallRecord } from '../../domain/scorer-types'
-
-// ─── Error types ──────────────────────────────────────────────────────────────
 
 export class ReplayLookupMissError extends Error {
   constructor(
@@ -45,18 +41,12 @@ export class ReplayToolOutputMissError extends Error {
   }
 }
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const REPLAY_HARNESS = Symbol('REPLAY_HARNESS')
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ReplayOpts = {
   traceId: string
   mode: 'prompt-only' | 'full'
 }
-
-// ─── Service ──────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class ReplayHarness {
@@ -70,8 +60,8 @@ export class ReplayHarness {
   async replay(opts: ReplayOpts): Promise<ReplayResult> {
     const { traceId, mode } = opts
 
-    // ── Step 1: load the user message for this traceId ────────────────────────
-    // We need conversationId + tenantId + userId to look up the session.
+    // Load the user message for this traceId — we need conversationId +
+    // tenantId + userId to look up the session.
     const messageRows = await this.db
       .select()
       .from(agentConversationMessages)
@@ -91,7 +81,6 @@ export class ReplayHarness {
     const { tenantId, userId, conversationId } = messageRow
     const userContent = (messageRow.content as { text?: string } | null)?.text ?? ''
 
-    // ── Step 2: load the agent session ────────────────────────────────────────
     const session = await this.sessionPort.findByConversation({
       tenantId,
       userId,
@@ -110,25 +99,21 @@ export class ReplayHarness {
       pinnedSubAgentPromptHashes,
     } = session
 
-    // ── Step 3: resolve router prompt ─────────────────────────────────────────
     const routerPromptEntry = await this.promptStore.get(routerPromptHash, tenantId)
     if (!routerPromptEntry) {
       throw new ReplayLookupMissError(routerPromptHash, 'router', traceId)
     }
 
-    // ── Step 4: resolve permission narrative ──────────────────────────────────
     const narrativeEntry = await this.narrativeStore.get(permissionNarrativeHash, tenantId)
     if (!narrativeEntry) {
       throw new ReplayLookupMissError(permissionNarrativeHash, 'permission_narrative', traceId)
     }
 
-    // ── Step 5: resolve tool catalog ──────────────────────────────────────────
     const toolCatalogEntry = await this.promptStore.get(toolCatalogHash, tenantId)
     if (!toolCatalogEntry) {
       throw new ReplayLookupMissError(toolCatalogHash, 'tool_catalog', traceId)
     }
 
-    // ── Step 6: resolve pinned sub-agent prompts ──────────────────────────────
     const resolvedSubAgentHashes: Record<string, string> = {}
     for (const [key, hash] of Object.entries(pinnedSubAgentPromptHashes)) {
       const entry = await this.promptStore.get(hash, tenantId)
@@ -138,7 +123,6 @@ export class ReplayHarness {
       resolvedSubAgentHashes[key] = hash
     }
 
-    // ── Step 7: assemble the LLM message array ────────────────────────────────
     const systemContent = [
       routerPromptEntry.content,
       narrativeEntry.content,
@@ -152,7 +136,7 @@ export class ReplayHarness {
       { role: 'user', content: userContent },
     ]
 
-    // ── Step 8: tool outputs (full mode only) ─────────────────────────────────
+    // Tool outputs (full mode only).
     let toolOutputs: ToolCallRecord[] | undefined
 
     if (mode === 'full') {
@@ -188,7 +172,6 @@ export class ReplayHarness {
       toolOutputs = records
     }
 
-    // ── Step 9: build pinnedVersions ──────────────────────────────────────────
     const pinnedVersions: Record<string, string> = {
       routerPrompt: routerPromptHash,
       permissionNarrative: permissionNarrativeHash,

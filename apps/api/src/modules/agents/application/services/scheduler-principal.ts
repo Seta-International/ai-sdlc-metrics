@@ -2,16 +2,12 @@ import { Injectable } from '@nestjs/common'
 import type { Schedule } from '../../domain/entities/schedule.entity'
 import type { AgentDelegation } from '../../../kernel/application/facades/kernel-delegation.facade'
 
-// ─── Result type ─────────────────────────────────────────────────────────────
-
 export interface SchedulerPrincipalResult {
   actorPrincipal: 'user' | 'agent:scheduler'
   userOnBehalfOf: string | null
   delegationId: string
   canDoBasis: 'delegator' | 'scheduler'
 }
-
-// ─── SchedulerPrincipal ───────────────────────────────────────────────────────
 
 /**
  * Resolves the effective identity for a scheduled agent run at spawn time.
