@@ -89,7 +89,7 @@ export interface TurnState {
 
   /**
    * Turn-scoped L1 read cache with in-flight promise coalescing.
-   * One instance per (turn, sub-agent) pair — created by the orchestrator (Task 5).
+   * One instance per (turn, sub-agent) pair — created by the orchestrator.
    */
   readonly l1Cache: L1Cache
 }

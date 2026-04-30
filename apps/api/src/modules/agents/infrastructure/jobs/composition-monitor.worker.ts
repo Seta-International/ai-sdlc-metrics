@@ -14,7 +14,7 @@ export interface CompositionMonitorJobData {
 }
 
 /**
- * Empty at MVP — populated when Plan 01 ships tool metadata.
+ * Empty at MVP — will be populated when tool metadata ships.
  * Injected via 'COMPOSITION_SENSITIVE_TOOLS' token for testability.
  */
 export const DEFAULT_COMPOSITION_SENSITIVE_TOOLS: ReadonlySet<string> = new Set()

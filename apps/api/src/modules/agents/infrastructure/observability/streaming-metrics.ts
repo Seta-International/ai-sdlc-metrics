@@ -1,5 +1,5 @@
 /**
- * Streaming / SSE / cancellation metrics for Plan 06 §8.
+ * Streaming / SSE / cancellation metrics.
  *
  * Instruments are initialised lazily on first use via `getInstruments()`.
  * This ensures the global MeterProvider is already registered by the time
@@ -36,7 +36,7 @@
  *   Self-cancel excluded — only administrative force-stops are counted here.
  *
  * agent_active_turn_sweep_total{tenant_id, cause}            counter
- *   Plan 09 sweep of dead/orphaned active-turn rows.
+ *   Sweep of dead/orphaned active-turn rows.
  *   cause ∈ 'heartbeat_expired' | 'pod_crash_detected'.
  *
  * agent_draft_persist_failure_total{tenant_id}               counter
@@ -171,7 +171,7 @@ function getInstruments(): StreamingInstruments {
     }),
 
     /**
-     * Counts Plan 09 active-turn sweep events.
+     * Counts active-turn sweep events.
      * Labels: tenant_id, cause.
      * cause ∈ 'heartbeat_expired' | 'pod_crash_detected'.
      * P2 alert on sustained positive rate (indicates pod instability).
@@ -308,7 +308,7 @@ export function recordTurnForceStopped(
 }
 
 /**
- * Record a Plan 09 active-turn sweep event.
+ * Record an active-turn sweep event.
  * Call in the sweep job when a stale row is cleaned up.
  *
  * Labels: tenant_id, cause. cause ∈ 'heartbeat_expired' | 'pod_crash_detected'.

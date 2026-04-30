@@ -101,7 +101,7 @@ interface GatewayInstruments {
    */
   l1InvalidationTotal: Counter
 
-  // ─── Plan 12 §8 iterative-topology metrics ────────────────────────────────
+  // ─── Iterative-topology metrics ───────────────────────────────────────────
 
   /**
    * Counts iterative turn completions by outcome.
@@ -142,7 +142,7 @@ interface GatewayInstruments {
    */
   iterationsTotalHistogram: Histogram
 
-  // ─── Plan 14 §8 semantic cache metrics ───────────────────────────────────
+  // ─── Semantic cache metrics ──────────────────────────────────────────────
 
   /**
    * Counts semantic cache lookups by hit kind.
@@ -283,7 +283,7 @@ function getInstruments(): GatewayInstruments {
       valueType: ValueType.INT,
     }),
 
-    // ─── Plan 12 §8 iterative-topology metrics ──────────────────────────────
+    // ─── Iterative-topology metrics ─────────────────────────────────────────
 
     /**
      * Counts iterative turn completions by outcome.
@@ -345,7 +345,7 @@ function getInstruments(): GatewayInstruments {
       valueType: ValueType.INT,
     }),
 
-    // ─── Plan 14 §8 semantic cache metrics ──────────────────────────────────
+    // ─── Semantic cache metrics ─────────────────────────────────────────────
 
     /**
      * Counts semantic cache lookups by hit kind.

@@ -150,9 +150,9 @@ export function recordTraceAuditJoinMiss(): void {
  * Values:
  *   'clean'        — scan ran and found no leak (requires a deployed trace backend).
  *   'leak_detected' — scan found a cross-tenant span; P0 incident; read plane disabled.
- *   'deferred'     — scan is formally deferred until the trace backend is deployed
- *. Emitting 'deferred' keeps the gap
- *                    visible in dashboards rather than silently reporting 'clean'.
+ *   'deferred'     — scan is formally deferred until the trace backend is deployed;
+ *                    emitting 'deferred' keeps the gap visible in dashboards rather
+ *                    than silently reporting 'clean'.
  */
 export function recordLeakCanary(result: 'clean' | 'leak_detected' | 'deferred'): void {
   getInstruments().leakCanaryTotal.add(1, { result })

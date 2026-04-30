@@ -83,11 +83,15 @@ src/
 
 ### 4.3 Wiring
 
-- Meta strip reads from `useAgentTurnStore(s => s.currentFlow)` → `{ flowId, model, tokensTotal, costUsd }` (already populated by `event-consumer` from `usage_snapshot` events).
-- New-thread button → `trpc.agents.session.create.mutate({ tenantId, actorId, contextModule, contextEntity, contextEntityId })`, then resets local turn-store + `useAgentState.setSessionId`.
-- Live badge: green when `useAgentTurnStore(s => s.streaming) === true`, dim otherwise.
-- Task context text: `useAgentContext().contextEntity`.
-- Collapse toggle: `useAgentState.setCollapsed(true)` — Plan 6 implements the rail; Plan 1 stubs the slot.
+The current `agent-turn-store.ts` exposes `traceId, topology, phase, activeSubAgents, shape, drafts, isRefused, refusalReason, isEnded, endReason`. Plan 1 extends it with `streaming: boolean` (true between `turn.started` and `turn.ended`) and `usage: UsageSnapshot | null` (last snapshot from `iteration.ended`/`turn.ended`). Plan 1 also adds a `getModel(): string` helper that derives the model from `metadata.model` if present (the existing schema attaches a free-form `metadata` field on every event).
+
+The current `use-agent-state.tsx` exposes `panelOpen, activeSessionId, insights`. Plan 1 extends it with `collapsed: boolean` + `setCollapsed(boolean)` (per-zone localStorage-backed in Plan 6; Plan 1 keeps it in-memory).
+
+- Meta strip reads from the turn-store: `traceId` (rendered abbreviated as `flow_{first8}…`), `getModel()`, last `usage` (`input_tokens + output_tokens` for "tokens" cell; cost = `null` placeholder dash until Plan 5 wires actual cost — design's `$0.019` is informational, no backend cost rollup currently exists).
+- New-thread button → `trpc.agents.session.create.useMutation()`. Args derived from `useAgentContext()`: `{ tenantId: ctx?.metadata?.tenantId ?? '', actorId: ctx?.metadata?.actorId ?? '', contextModule: ctx?.module, contextEntity: ctx?.entity, contextEntityId: ctx?.id, contextMetadata: ctx?.metadata }`. On success: reset local turn-store + `setActiveSessionId(newSession.id)`.
+- Live badge: green when `useAgentTurnStore(s => s.streaming) === true`, muted gray when `isEnded`, hidden until first `turn.started`.
+- Task context text: `useAgentContext()?.entity` (e.g. "Refactor token export pipeline"). Hides when context is null.
+- Collapse toggle: `useAgentState().setCollapsed(true)` — Plan 6 implements the rail and persistence; Plan 1 wires the state and renders an empty placeholder div when `collapsed === true`.
 
 ### 4.4 Test coverage
 
@@ -99,7 +103,7 @@ src/
 
 ## 5. Plan 2 — Streaming visualization
 
-**Goal:** Render `router_plan` and `phase` SSE events as first-class assistant-ui parts: a `PlanCard` and a stream of collapsible `ToolCall` rows, ending in an `AnswerBubble` from `synthesizer_token`s.
+**Goal:** Render `turn.started`/`phase.started` as a `PlanCard`, `iteration.*` as collapsible `IterationStep` rows, `answer.token` as a streaming `AnswerBubble`. Existing SSE schema (`packages/agent/src/runtime/sse-event-schema.ts`) drives the visuals — no schema or backend agent-runtime changes.
 
 ### 5.1 Files
 
@@ -113,25 +117,31 @@ src/
     agent-message.tsx            [NEW] assistant-message wrapper (PlanCard slot, parts, ActionFooter slot)
     agent-message.spec.tsx
   thread/cards/                  [NEW]
-    plan-card.tsx                router_plan visualization
-    tool-call.tsx                phase[].toolCalls visualization (uses tool-call-shell)
-    answer-bubble.tsx            synthesizer text (assistant-ui Text part)
+    plan-card.tsx                turn.started + phase.started visualization
+    iteration-step.tsx           iteration.started/validated/ended visualization
+    answer-bubble.tsx            answer.token stream (assistant-ui Text part)
     user-turn.tsx                user message bubble
     cards.spec.tsx
 ```
 
 ### 5.2 SSE → assistant-ui mapping
 
-`@assistant-ui/react`'s `LocalRuntimeAdapter` takes `convertMessage`/`run` callbacks. Today the adapter flattens everything to a single text part. New mapping:
+The adapter currently flattens everything to a single text part (`agent-chat-adapter.ts:51-56`). New mapping using the actual event union from `sseEventSchema`:
 
-| SSE event                      | assistant-ui part                                                                                                                             |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `router_plan`                  | `tool-call` part, `toolName: "agent.plan"`, `args: { intent_slug, flow_id, sub_agent, topology, iteration }`                                  |
-| `phase` (per tool call inside) | one `tool-call` part per call, `toolName: phase.tool`, `args: phase.input`, `result: phase.output`, `state: running\|done\|error`, `duration` |
-| `synthesizer_token`            | append to streaming `text` part                                                                                                               |
-| `draft_phase`                  | `tool-call` part, `toolName: "agent.draft"` (Plan 3 renders)                                                                                  |
-| `usage_snapshot`               | metadata on message: `{ tokensTotal, costUsd, model }` (Plan 1 meta strip consumes)                                                           |
-| `turn_end`                     | finalize message; emit `endReason`                                                                                                            |
+| SSE event               | assistant-ui treatment                                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `turn.started`          | seed message metadata `{ traceId, conversationId, topology }`; emit a `tool-call` part `toolName: "agent.plan"` (PlanCard renders)   |
+| `phase.started`         | extend `agent.plan` part's args with `phase` + `subAgents[]`                                                                         |
+| `iteration.started`     | append a `tool-call` part `toolName: "agent.iteration"`, args `{ n, subAgentDomain, selectionReason }`, state `running`              |
+| `iteration.validated`   | mutate the matching iteration part: set `passed`, `scorerResults`, state `done` if `passed === true` else `error`                    |
+| `iteration.ended`       | mutate matching iteration part: set `usage` (tokens) + `isComplete`                                                                  |
+| `progress`              | append a transient text-line annotation on the message (ephemeral; cleared on next event of any other type)                          |
+| `refusal.started`       | replace the assistant text part with a refusal block (red accent, reason); finalize on `turn.ended`                                  |
+| `answer.shape_declared` | metadata only — record `shape` on the message                                                                                        |
+| `answer.token`          | append `payload.text` to streaming `text` part                                                                                       |
+| `answer.complete`       | finalize streaming `text` part with full `content`                                                                                   |
+| `draft.proposed`        | append a `tool-call` part `toolName: "agent.draft"`, args `{ actionId, summary, tier, requiresApproval, provenance }` (Plan 3 wires) |
+| `turn.ended`            | finalize message: `{ endReason, usage }` written to message metadata; meta strip (Plan 1) reads `usage` to display tokens / cost     |
 
 ### 5.3 Tool UI registrations
 
@@ -139,43 +149,59 @@ In `AgentThread`:
 
 ```ts
 useAssistantToolUI({ toolName: 'agent.plan', render: PlanCard })
+useAssistantToolUI({ toolName: 'agent.iteration', render: IterationStep })
 useAssistantToolUI({ toolName: 'agent.draft', render: DraftCard }) // Plan 3 wires
-// Generic tool calls (planner.create_task, etc.) fall through to default ToolCall renderer.
 ```
+
+There are no generic tool-call events emitted by the backend, so no fallback renderer is needed.
 
 ### 5.4 Component contracts
 
-`PlanCard` props:
+`PlanCard` props (from `turn.started` + `phase.started`):
 
-- `intent: string` (accent color)
-- `flow: string` (mono, e.g. `flow_7c…be`)
-- `subAgent: string`
-- `topology: 'direct' | 'plan' | 'loop'`
-- `iteration?: number`
+- `traceId: string` (mono, abbreviated to first 8 chars + ellipsis)
+- `conversationId: string | null`
+- `topology: 'bounded' | 'iterative'` — accent tag
+- `phase: 1 | 2 | null` — `1 = router/select`, `2 = synthesize`
+- `subAgents: { domain: string; name?: string }[]`
+- `iteration?: number` — set after first `iteration.started` arrives
 
-`ToolCall` props:
+`IterationStep` props (from `iteration.started/validated/ended`):
 
-- `name: string`, `module: string` (e.g. `planner.list_tasks`)
-- `args`, `result` (rendered as `<pre>` JSON inside collapsible)
-- `status: 'running' | 'done' | 'error'`
-- `duration?: number` (ms)
-- defaults to closed; chevron toggles.
+- `n: number` — iteration number (1-indexed)
+- `subAgentDomain: string` — e.g. `planner`, `people`
+- `selectionReason: string` — short string (router's reason for selecting this domain)
+- `state: 'running' | 'passed' | 'failed'` — driven by `validated.passed` (running until validated)
+- `scorerResults?: { scorer: string; passed: boolean; score?: number }[]` — populated on validated
+- `usage?: { input_tokens, output_tokens, ... }` — populated on ended
+- `isComplete?: boolean` — populated on ended; true when `iteration.ended.is_complete`
+- collapsible: header always visible (`{n}. {subAgentDomain}` + status icon); body shows `selectionReason`, `scorerResults`, `usage` when expanded
+- defaults to closed when `state !== 'running'`; auto-opens while running
+
+`AnswerBubble` props:
+
+- `text: string` (streaming or finalized — assistant-ui's `MessagePrimitive.Content` handles both)
+- `shape?: string` (from `answer.shape_declared`) — rendered as small mono caption above the bubble when present
+
+`UserTurn` props: `text: string` only.
 
 ### 5.5 Test coverage
 
-- Adapter unit: each SSE event → expected assistant-ui part shape (parameterized).
-- `PlanCard` renders intent/flow/sub-agent/topology, iteration tag only when present.
-- `ToolCall` toggles open/closed, shows correct status icon (loader/check/warn) per state.
-- `AgentThread` renders user turns, plan card, tool-call rows, answer bubble in correct order from a fixed event sequence.
+- Adapter unit (parameterized): for each event in `sseEventSchema`, the adapter emits the expected assistant-ui part shape and message-metadata mutation.
+- `PlanCard` renders all subAgents; topology tag colors per value; iteration tag hidden when undefined.
+- `IterationStep` shows correct status icon per state (loader/check/warn); auto-opens on `running`; collapses on `passed`; stays expanded on `failed`.
+- `IterationStep` renders `scorerResults` rows as `name → passed/failed` only when present.
+- `AgentThread` renders, for a fixed event sequence (turn.started → phase.started → iteration.started → iteration.validated → iteration.ended → answer.token×N → answer.complete → turn.ended): UserTurn, PlanCard (1), IterationStep (1), AnswerBubble — in that order.
+- `AgentThread` renders refusal block when `refusal.started` fires; meta strip shows `endReason: 'refused'`.
 
 ## 6. Plan 3 — DraftCard + approval
 
-**Goal:** Render `draft_phase` events as an inline `DraftCard` that supports approve/reject directly in the panel, gated by permission.
+**Goal:** Render `draft.proposed` events as an inline `DraftCard` that supports approve/reject directly in the panel, gated by permission. The SSE event payload (`{ action_id, summary, tier, requires_approval, provenance }`) is too shallow to populate the card's fields/warnings; the card fetches the full draft row via a new query.
 
 ### 6.1 Files
 
 ```
-src/
+packages/agent/src/
   thread/cards/
     draft-card.tsx               [NEW]
     draft-card.spec.tsx
@@ -183,24 +209,42 @@ src/
   hooks/
     use-can-approve-drafts.ts    [NEW] permission lookup wrapper
     use-can-approve-drafts.spec.ts
+    use-draft-row.ts             [NEW] tRPC query wrapper for agents.drafts.getById
+    use-draft-row.spec.ts
+
+apps/api/src/modules/agents/
+  domain/repositories/draft.repository.ts          EXTEND — add getDetailById signature
+  infrastructure/drizzle-draft.repository.ts       EXTEND — implement getDetailById
+  interface/trpc/draft-audit.router.ts             EXTEND — add getById query
+  interface/trpc/draft-approval.router.ts          EXTEND — accept optional `note` on reject
+  application/services/draft-approval.service.ts   EXTEND — forward `note` to repo
+  infrastructure/schema/agent-draft.schema.ts      EXTEND — add executionOutcomeNote column
 ```
 
 ### 6.2 DraftCard layout
 
 ```
 ┌──────────────────────────────────────────────────┐
-│ ● Draft · awaiting you      [proposed]   {module}.{kind}
+│ ● Draft · awaiting you   [pending]   {sub_agent_domain}.{toolName}
 ├──────────────────────────────────────────────────┤
-│ {title}                                          │
-│ key1   value1                                    │
-│ key2   value2                                    │
-│ ⚠ {warning1}  {warning2}                         │
+│ {summary}                                        │
+│ tool      {toolName}                             │
+│ tier      {low_risk_auto | high_risk_approval_required}
+│ args      {key1: value1}                         │
+│           {key2: value2}                         │
+│ ⚠ tainted at draft time  (only when taintAtDraftTime === true)
 ├──────────────────────────────────────────────────┤
 │           [Reject ▾]  [Approve]                  │
 └──────────────────────────────────────────────────┘
 ```
 
-State pill: `proposed → amber`, `approved → green`, `rejected → red` — mapped to design tokens.
+Field sources (after `agents.drafts.getById` returns the row):
+
+- `sub_agent_domain` ← `provenance.sub_agent_domain` from SSE event
+- `toolName`, `tier`, `args` ← draft row
+- Warnings: render `tainted at draft time` when `taintAtDraftTime === true` (from draft row).
+
+State pill: `pending → amber`, `approved → green`, `rejected → red`, `expired → muted gray`, `executed → green`, `execution_failed → red`, `cancelled → muted` — mapped to design tokens.
 
 ### 6.3 Permission gating
 
@@ -217,8 +261,9 @@ State pill: `proposed → amber`, `approved → green`, `rejected → red` — m
 - Approve → `trpc.agents.draftApproval.approve.mutate({ draftId })`. Optimistically transition `state: 'approved'`; backend refresh via SSE.
 - Reject → opens `RejectReasonPicker`. 4 enum options: `not_needed`, `wrong_entity`, `wrong_value`, `other_with_note`. On `other_with_note`, exposes a free-text note input. Calls `draftApproval.reject.mutate({ draftId, reason, note? })`.
 
-**Backend extension (in this plan):**
+**Backend extensions (in this plan):**
 
+- `agents.drafts.getById({ draftId })` — new query on `draftAuditRouter`. Permission: `AGENT_DRAFT_AUDIT_READ`. Returns the full draft row (id, traceId, flowId, toolName, args, tier, status, taintAtDraftTime, executionOutcome, draftedAt, expiresAt, etc.). DraftCard fetches this on mount keyed off `action_id` from the SSE event.
 - `agents.draftApproval.reject` input schema gains optional `note: z.string().max(500).optional()`.
 - `DraftApprovalService.rejectDraft({ ..., note? })` accepts the note and forwards it to the repo.
 - `agent_draft.schema.ts` gains a sibling column `executionOutcomeNote text NULL`. The existing `executionOutcome text` column keeps storing the enum reason; the note is independent so we don't conflate enum vs free-text content.
@@ -297,7 +342,7 @@ Permission: `AGENT_CONVERSATION_READ`.
 
 ### 7.5 Frontend wiring
 
-- `idle-state` mounts when `useAgentTurnStore(s => s.turns.length === 0)`.
+- `idle-state` mounts when assistant-ui's `useThread().messages.length === 0` (the turn-store doesn't track per-thread messages — assistant-ui owns the message list).
 - Fetched via `trpc.agents.suggestions.list.useQuery({ surface, contextEntity, contextEntityId })` from `useAgentContext()`.
 - Click chip → `composer.setValue(suggestion.text)` + `composer.submit()` (assistant-ui composer slots).
 - Loading → 4 skeleton chips. Error → render welcome block, hide suggestions list.

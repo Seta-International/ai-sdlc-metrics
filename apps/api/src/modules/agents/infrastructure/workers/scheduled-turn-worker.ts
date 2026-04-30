@@ -192,7 +192,7 @@ export class ScheduledTurnWorker {
         const shouldPause = newFailureCount >= 3
         const policy = schedule.failureAlertPolicy ?? 'owner_and_admin'
         shouldNotifyOwner = shouldPause
-          ? true // R-09.30: count=3 always notifies regardless of policy
+          ? true // count=3 always notifies regardless of policy
           : policy !== 'silent' && policy !== 'admin_only'
       }
       if (shouldNotifyOwner && notifyUserId !== null) {
@@ -262,7 +262,7 @@ export class ScheduledTurnWorker {
       // threshold which always notifies the owner regardless of policy.
       const policy = schedule.failureAlertPolicy ?? 'owner_and_admin'
       const shouldNotifyOwner = shouldPause
-        ? true // R-09.30: count=3 always notifies regardless of policy
+        ? true // count=3 always notifies regardless of policy
         : policy !== 'silent' && policy !== 'admin_only'
       const notifyUserId = schedule.ownerUserId ?? job.user_on_behalf_of
 

@@ -1,5 +1,5 @@
 /**
- * ToolRetriever — per-invocation nearest-neighbour tool selector (Plan 02.5 Task 2).
+ * ToolRetriever — per-invocation nearest-neighbour tool selector.
  *
  * Given a sub-agent directive (goal + constraints), computes a directive embedding
  * and ranks the tool scope by cosine similarity against pre-built tool descriptor

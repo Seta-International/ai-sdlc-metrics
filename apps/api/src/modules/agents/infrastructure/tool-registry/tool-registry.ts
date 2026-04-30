@@ -5,7 +5,7 @@ import { isZodObject, resolveRootSchema } from './zod-schema-utils'
 
 /**
  * DI token for `ToolRegistry`. Used by services that depend on the registry
- * via constructor injection (SubAgentRunnerAdapter — Plan 17 PR 2 Task 6).
+ * via constructor injection (e.g. `SubAgentRunnerAdapter`).
  */
 export const TOOL_REGISTRY = Symbol('TOOL_REGISTRY')
 
@@ -59,9 +59,9 @@ export interface ResolveMenuOptions {
  *
  * Usage:
  *   const registry = new ToolRegistry()
- *   registry.loadFromRouter(getAppRouter())  // called in AgentsModule.onModuleInit (Task 5)
+ *   registry.loadFromRouter(getAppRouter())  // called in AgentsModule.onModuleInit
  *
- * Task 5 wiring note: AgentsModule should inject ToolRegistry, then in onModuleInit call
+ * Wiring note: AgentsModule should inject ToolRegistry, then in onModuleInit call
  *   this.toolRegistry.loadFromRouter(getAppRouter())
  * after the permission-enforcing routers have been swapped in (i.e. after TrpcModule.onModuleInit).
  * NestJS module init order must be: TrpcModule first, AgentsModule second.

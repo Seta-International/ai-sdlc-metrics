@@ -1,7 +1,7 @@
 /**
  * ToolDescriptorEmbedder — boot-time service that ensures every agent tool
  * descriptor has an up-to-date embedding vector in the `agent_tool_embedding`
- * table, then exposes an in-memory lookup map for retrieval (Plan 02.5 Task 1).
+ * table, then exposes an in-memory lookup map for retrieval.
  *
  * Boot-time pipeline (R-02.5.12):
  *   1. For each descriptor, compute a SHA-256 content_hash of its

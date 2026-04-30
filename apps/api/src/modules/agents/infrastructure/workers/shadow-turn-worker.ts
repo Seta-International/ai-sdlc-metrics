@@ -22,17 +22,17 @@ export {
 } from '../../application/services/shadow-turn-contracts'
 
 /**
- * ShadowTurnWorker — Plan 11 Task 3 (Part B) — updated for R-11.1
+ * ShadowTurnWorker
  *
  * pg-boss worker for queue `agent.shadow-turn`.
  *
  * For each job:
  *   1. Simulate candidate execution via dry-run (calls each baseline tool with
- *      mode:'dry-run' so no side effects commit — Plan 11 R-11.1)
+ *      mode:'dry-run' so no side effects commit — R-11.1)
  *   2. Score the diff against the baseline output
  *   3. Write an `agent_shadow_run` row
  *
- * Errors are swallowed (shadow is lossy-okay per plan §7).
+ * Errors are swallowed (shadow is lossy-okay).
  *
  * Dry-run isolation (R-11.1 + audit Theme F closure):
  *   Each baseline tool is invoked via TrpcCallerImpl with mode:'dry-run'.
