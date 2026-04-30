@@ -25,28 +25,22 @@ function makeByTier(
   return { high, med, low }
 }
 
-// ─── correlate (MVP stub) tests ────────────────────────────────────────────────
+// ─── correlate (explicit-disabled) tests ──────────────────────────────────────
 
 describe('ConfidenceCalibrationService.correlate()', () => {
   const db = {} as never
   const svc = new ConfidenceCalibrationService(db)
 
-  it('1. MVP stub returns zeros for all tiers', async () => {
-    const result = await svc.correlate({
-      dateRange: { from: new Date('2026-01-01'), to: new Date('2026-04-01') },
-    })
-
-    expect(result.byTier.high).toEqual({ thumbsDownRate: 0, initiatorApprovalRate: 0, count: 0 })
-    expect(result.byTier.med).toEqual({ thumbsDownRate: 0, initiatorApprovalRate: 0, count: 0 })
-    expect(result.byTier.low).toEqual({ thumbsDownRate: 0, initiatorApprovalRate: 0, count: 0 })
+  it('1. isEnabled() returns false until Plan 08 feedback tables are wired', () => {
+    expect(svc.isEnabled()).toBe(false)
   })
 
-  it('2. invertedOrdering: false when all counts are zero', async () => {
-    const result = await svc.correlate({
-      dateRange: { from: new Date('2026-01-01'), to: new Date('2026-04-01') },
-    })
-
-    expect(result.invertedOrdering).toBe(false)
+  it('2. correlate() throws when invoked without an enabled feedback pipeline', async () => {
+    await expect(
+      svc.correlate({
+        dateRange: { from: new Date('2026-01-01'), to: new Date('2026-04-01') },
+      }),
+    ).rejects.toThrow(/disabled — Plan 08 feedback tables/)
   })
 })
 
