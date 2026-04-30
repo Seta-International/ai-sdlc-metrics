@@ -4,7 +4,7 @@
  * Pure helpers used by SynthesizerAdapter to:
  *   - assemble the LLM userContext from per-sub-agent outputs
  *   - extract the expectedOutputShape from the directive (if pinned)
- *   - derive aggregate confidence from per-sub-agent confidences (rule-based, R-03.22)
+ *   - derive aggregate confidence from per-sub-agent confidences (rule-based)
  */
 
 import type {

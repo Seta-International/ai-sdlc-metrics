@@ -1,15 +1,10 @@
 /**
- * WhenToUseCollisionLinter — authoring-time lint for whenToUse descriptor collisions
- * (Plan 02.5 §4, R-02.5.9).
+ * Authoring-time lint for whenToUse descriptor collisions.
  *
  * Computes pairwise cosine similarity between tool descriptor embeddings within a
  * given toolScope. Returns pairs whose similarity meets or exceeds the configured
  * threshold — these pairs have near-duplicate whenToUse semantics, which makes the
  * retriever's ranking ambiguous between them.
- *
- * Consumed by:
- *   - Plan 02 aggregator boot (boot-time lint warning on boot log)
- *   - Plan 10 CI harness (PR hard-fail after threshold tuning completes)
  *
  * Tools with no embedding in the in-memory index are silently skipped —
  * this happens when ensureEmbedded has not yet run for a given descriptor.
@@ -21,19 +16,15 @@ import type { AgentToolDescriptor } from '../../../../common/trpc/agent-tool-met
 import { TOOL_DESCRIPTOR_EMBEDDER } from '../../infrastructure/retrieval/tool-descriptor-embedder'
 import { cosineSimilarity } from '../../infrastructure/retrieval/cosine'
 
-// ─── Constants ─────────────────────────────────────────────────────────────────
-
 /**
  * Default similarity threshold for collision detection.
  *
- * Open question (plan 02.5 §18): the exact value is pending empirical tuning
- * against the seeded collision pairs in the 12-sub-agent EI-5 fixture. 0.92 is
- * the seed value from internal tool-search research; the Beta reviewer finalises
- * this before enabling the lint gate in plan 10 CI.
+ * The exact value is pending empirical tuning against the seeded collision
+ * pairs in the 12-sub-agent fixture. 0.92 is the seed value from internal
+ * tool-search research; the Beta reviewer finalises this before enabling the
+ * lint gate in CI.
  */
 export const DEFAULT_COLLISION_THRESHOLD = 0.92
-
-// ─── Embedder interface (structural) ───────────────────────────────────────────
 
 /**
  * Minimal structural interface consumed by the linter.
@@ -44,15 +35,11 @@ export interface EmbeddingIndex {
   getEmbedding(toolName: string): number[] | undefined
 }
 
-// ─── CollisionPair ─────────────────────────────────────────────────────────────
-
 export interface CollisionPair {
   readonly toolA: string
   readonly toolB: string
   readonly similarity: number
 }
-
-// ─── WhenToUseCollisionLinter ─────────────────────────────────────────────────
 
 export const WHEN_TO_USE_COLLISION_LINTER = Symbol('WHEN_TO_USE_COLLISION_LINTER')
 

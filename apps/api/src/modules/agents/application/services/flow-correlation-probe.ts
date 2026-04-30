@@ -1,6 +1,4 @@
 /**
- * flow-correlation-probe.ts — Plan 13 Task 7
- *
  * Monthly probe sampling N flows for `flow_id` consistency.
  *
  * Samples distinct flow_id values from agent_draft and checks that each
@@ -22,8 +20,6 @@ import {
 } from '../../domain/repositories/readiness-check.repository'
 import { agentDraft } from '../../infrastructure/schema/agent-draft.schema'
 
-// ─── Result types ─────────────────────────────────────────────────────────────
-
 export type FlowDangle = {
   flowId: string
   missingFrom: ReadonlyArray<'span' | 'audit' | 'draft' | 'approval' | 'execution'>
@@ -35,8 +31,6 @@ export type CorrelationResult = {
   dangles: ReadonlyArray<FlowDangle>
   zeroDangle: boolean
 }
-
-// ─── FlowCorrelationProbe ─────────────────────────────────────────────────────
 
 @Injectable()
 export class FlowCorrelationProbe {

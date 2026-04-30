@@ -1,10 +1,10 @@
 /**
- * drizzle-golden-trace.repository.ts — Plan 10 Task 6
+ * drizzle-golden-trace.repository.ts
  *
  * Drizzle-backed implementation of GoldenTraceRepository.
  *
- * Enforces the ≤20 active rows cap (R-10.11) at insert time.
- * Rows are never hard-deleted — retirement sets removedAt + removalReason (R-10.13).
+ * Enforces the ≤20 active rows cap at insert time.
+ * Rows are never hard-deleted — retirement sets removedAt + removalReason.
  */
 
 import { Inject, Injectable } from '@nestjs/common'
@@ -19,8 +19,6 @@ import {
 } from '../../domain/repositories/golden-trace.repository'
 import type { AnswerShape, AdversarialCategory } from '../../domain/scorer-types'
 
-// ─── Cap error ────────────────────────────────────────────────────────────────
-
 export class GoldenTraceCapExceededError extends Error {
   constructor() {
     super(
@@ -29,8 +27,6 @@ export class GoldenTraceCapExceededError extends Error {
     this.name = 'GoldenTraceCapExceededError'
   }
 }
-
-// ─── Row → domain mapper ──────────────────────────────────────────────────────
 
 type AgentGoldenTraceRow = typeof agentGoldenTrace.$inferSelect
 
@@ -53,8 +49,6 @@ function toDomain(row: AgentGoldenTraceRow): GoldenTraceEntity {
     removalReason: row.removalReason ?? null,
   }
 }
-
-// ─── Repository ───────────────────────────────────────────────────────────────
 
 @Injectable()
 export class DrizzleGoldenTraceRepository implements GoldenTraceRepository {

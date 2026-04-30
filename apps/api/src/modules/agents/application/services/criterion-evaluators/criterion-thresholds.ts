@@ -1,7 +1,7 @@
 /**
  * Plan 13 — Production Readiness Validation Harness
  *
- * Criterion threshold configuration (R-13.15).
+ * Criterion threshold configuration.
  * All threshold changes must go through a PR — no runtime mutation.
  */
 

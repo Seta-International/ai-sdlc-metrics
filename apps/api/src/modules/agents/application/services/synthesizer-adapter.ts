@@ -1,6 +1,4 @@
 /**
- * SynthesizerAdapter — Plan 17 PR 3 Task 11 (Plan 18 §1 amendments).
- *
  * Streams a discriminated-union answer object via `SynthesizerLlmClient` and
  * bridges per-shape into `StreamEmitter` events:
  *
@@ -13,8 +11,8 @@
  * errors after a shape was declared, or `finalObject` schema-validation) fall
  * back to deterministic prose with `turnEndedReason: 'errored'`.
  *
- * Confidence is rule-derived (R-03.22): MIN across contributing sub-agents,
- * one-step demotion to 'low' on contradiction. The LLM never self-assesses.
+ * Confidence is rule-derived: MIN across contributing sub-agents, one-step
+ * demotion to 'low' on contradiction. The LLM never self-assesses.
  */
 
 import { Inject, Injectable } from '@nestjs/common'
@@ -55,8 +53,6 @@ import {
 } from '../../infrastructure/observability/synthesizer-metrics'
 import { SynthesizerStreamFailureError } from './pipeline-errors'
 
-// ─── Model choices ────────────────────────────────────────────────────────────
-
 const NANO_MODEL = { provider: 'openai' as const, model: 'gpt-5.4-nano' as const }
 const REASONING_MODEL = { provider: 'openai' as const, model: 'gpt-5.4' as const }
 
@@ -71,8 +67,6 @@ const STREAMING_SHAPES = new Set<SynthesizerLlmOutput['shape']>([
   'list',
   'narrative',
 ])
-
-// ─── Adapter ──────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class SynthesizerAdapter implements ISynthesizer {
@@ -142,7 +136,6 @@ export class SynthesizerAdapter implements ISynthesizer {
     let lastEmittedItemCount = 0
     let tokensEmitted = false
 
-    // ── Phase A: drain partialObjectStream ────────────────────────────────────
     try {
       for await (const partial of stream.partialObjectStream) {
         if (declaredShape === null && partial.shape) {
@@ -204,7 +197,6 @@ export class SynthesizerAdapter implements ISynthesizer {
       })
     }
 
-    // ── Phase B: await finalObject + usage ────────────────────────────────────
     let finalObject: SynthesizerLlmOutput
     let usage: SubAgentUsage
     try {
@@ -233,7 +225,7 @@ export class SynthesizerAdapter implements ISynthesizer {
       })
     }
 
-    // ── Atomic shapes: emit one JSON token now that finalObject resolved ──────
+    // Atomic shapes: emit one JSON token now that finalObject resolved.
     if (!STREAMING_SHAPES.has(finalObject.shape)) {
       opts.streamEmitter.emit({
         type: 'answer.token',
@@ -293,8 +285,6 @@ export class SynthesizerAdapter implements ISynthesizer {
     }
   }
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function extractContent(out: SynthesizerLlmOutput): unknown {
   switch (out.shape) {

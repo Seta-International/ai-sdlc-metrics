@@ -16,29 +16,25 @@ import {
 } from '../../application/services/shadow-turn-contracts'
 import { agentShadowRun } from '../schema/agents.schema'
 
-// ─── Re-exports for callers that import from this module ──────────────────────
-
 export {
   SHADOW_TURN_JOB_NAME,
   type ShadowTurnJob,
 } from '../../application/services/shadow-turn-contracts'
 
-// ─── ShadowTurnWorker ─────────────────────────────────────────────────────────
-
 /**
- * ShadowTurnWorker — Plan 11 Task 3 (Part B) — updated for R-11.1
+ * ShadowTurnWorker
  *
  * pg-boss worker for queue `agent.shadow-turn`.
  *
  * For each job:
  *   1. Simulate candidate execution via dry-run (calls each baseline tool with
- *      mode:'dry-run' so no side effects commit — Plan 11 R-11.1)
+ *      mode:'dry-run' so no side effects commit)
  *   2. Score the diff against the baseline output
  *   3. Write an `agent_shadow_run` row
  *
- * Errors are swallowed (shadow is lossy-okay per plan §7).
+ * Errors are swallowed (shadow is lossy-okay).
  *
- * Dry-run isolation (R-11.1 + audit Theme F closure):
+ * Dry-run isolation (audit Theme F closure):
  *   Each baseline tool is invoked via TrpcCallerImpl with mode:'dry-run'.
  *   TrpcCallerImpl wraps the call in a Postgres transaction that ALWAYS rolls back
  *   AND publishes the transaction-bound Db into the request CLS scope, so every
@@ -67,7 +63,7 @@ export class ShadowTurnWorker implements OnApplicationBootstrap {
     // If no caller is injected (production path), build one wired with the raw
     // base-pool DB and the request CLS context so dry-run opens a real rollback
     // transaction AND publishes the tx into CLS for every DI'd handler underneath
-    // (R-11.1 + audit Theme F closure).
+    // (audit Theme F closure).
     this.trpcCaller =
       trpcCaller ?? new TrpcCallerImpl(undefined, this.baseDb, this.requestDbContext)
   }
@@ -106,7 +102,7 @@ export class ShadowTurnWorker implements OnApplicationBootstrap {
     } = job.data
 
     try {
-      // Step 1: Simulate candidate shadow execution via dry-run (R-11.1)
+      // Step 1: Simulate candidate shadow execution via dry-run
       const candidateOutput = await this.simulateShadowExecution({
         baselineOutput,
         tenantId,
@@ -146,7 +142,7 @@ export class ShadowTurnWorker implements OnApplicationBootstrap {
   }
 
   /**
-   * Simulates candidate shadow execution via dry-run (Plan 11 R-11.1).
+   * Simulates candidate shadow execution via dry-run.
    *
    * Calls each tool from the baseline output's toolCallNames via TrpcCaller with
    * mode:'dry-run'. TrpcCallerImpl wraps each call in a Postgres transaction that

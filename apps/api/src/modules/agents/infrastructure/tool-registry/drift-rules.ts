@@ -2,21 +2,19 @@
  * drift-rules.ts — build-time drift checker for agent tool procedures.
  *
  * Walks any tRPC router (intended for use against the real app router or
- * seeded fixture routers) and returns violations for six rules:
+ * seeded fixture routers) and returns violations for these rules:
  *
- *   R-01.12 — required meta fields (whenToUse, whenNotToUse, examples)
- *   R-01.17 — example.callArgs parseable against the procedure's input schema
- *   R-01.18 — mutation procedures must declare approvalFreshness
- *   R-01.19 — aggregate-returning tools must declare compositionSensitive.minGroupSize
- *   R-01.19a — array-returning tools must declare collectionContract
- *   R-01.30 — input schema root shape must not contain tenant_id
- *   R-14.2  — cacheable must not appear on mutation procedures
+ *   - required meta fields (whenToUse, whenNotToUse, examples)
+ *   - example.callArgs parseable against the procedure's input schema
+ *   - mutation procedures must declare approvalFreshness
+ *   - aggregate-returning tools must declare compositionSensitive.minGroupSize
+ *   - array-returning tools must declare collectionContract
+ *   - input schema root shape must not contain tenant_id
+ *   - cacheable must not appear on mutation procedures
  */
 
 import type { AgentToolMeta } from '../../../../common/trpc/agent-tool-meta'
 import { isZodObject, resolveRootSchema, hasSafeParse } from './zod-schema-utils'
-
-// ─── Internal tRPC shape types ────────────────────────────────────────────────
 
 interface ProcedureDef {
   type: 'query' | 'mutation' | 'subscription'
@@ -40,18 +38,14 @@ interface RouterLike {
   _def: RouterDef
 }
 
-// ─── Violation shape ──────────────────────────────────────────────────────────
-
 export interface DriftViolation {
   /** Dot-path name of the offending tRPC procedure, e.g. `planner.task.getBoard`. */
   toolName: string
-  /** Rule identifier, e.g. `R-01.12`, `R-01.17`, `R-01.18`, `R-01.19`, `R-01.19a`, `R-01.30`, `R-14.2`. */
+  /** Rule identifier string. */
   rule: string
   /** Human-readable description of the specific violation. */
   detail: string
 }
-
-// ─── Output-shape introspection ──────────────────────────────────────────────
 
 const AGGREGATE_KEYS = new Set([
   'average',
@@ -127,8 +121,6 @@ function isAggregateOutput(outputSchema: unknown): boolean {
   )
 }
 
-// ─── Walker ───────────────────────────────────────────────────────────────────
-
 /**
  * Walks every procedure in `router._def.procedures` that carries a
  * `.meta({ agent: {...} })` annotation and checks all drift rules.
@@ -164,7 +156,7 @@ export function checkDriftRules(router: unknown): DriftViolation[] {
 
     const agent = meta.agent
 
-    // ── R-01.12: required meta fields ────────────────────────────────────────
+    // ── required meta fields ────────────────────────────────────────────────
 
     if (!agent.whenToUse || agent.whenToUse.trim() === '') {
       violations.push({
@@ -206,7 +198,7 @@ export function checkDriftRules(router: unknown): DriftViolation[] {
         }
       })
 
-      // ── R-01.17: example callArgs parseable by input schema ───────────────
+      // ── example callArgs parseable by input schema ──────────────────────────
 
       const inputs = def.inputs
       if (Array.isArray(inputs) && inputs.length > 0) {
@@ -218,7 +210,7 @@ export function checkDriftRules(router: unknown): DriftViolation[] {
               ex.callArgs === null ||
               Array.isArray(ex.callArgs)
             ) {
-              // Already reported above as R-01.12; skip here to avoid double-counting.
+              // Already reported above for missing meta fields; skip to avoid double-counting.
               return
             }
             const result = inputSchema.safeParse(ex.callArgs)
@@ -234,7 +226,7 @@ export function checkDriftRules(router: unknown): DriftViolation[] {
       }
     }
 
-    // ── R-01.18: mutation must declare approvalFreshness ──────────────────────
+    // ── mutation must declare approvalFreshness ─────────────────────────────
 
     if (def.type === 'mutation' && agent.approvalFreshness === undefined) {
       violations.push({
@@ -244,7 +236,7 @@ export function checkDriftRules(router: unknown): DriftViolation[] {
       })
     }
 
-    // ── R-01.19: aggregate outputs must declare composition sensitivity ──────
+    // ── aggregate outputs must declare composition sensitivity ──────────────
 
     const outputSchema = def.output
     if (
@@ -259,7 +251,7 @@ export function checkDriftRules(router: unknown): DriftViolation[] {
       })
     }
 
-    // ── R-01.19a: array outputs must declare collection contract ─────────────
+    // ── array outputs must declare collection contract ──────────────────────
 
     if (
       outputSchema !== undefined &&
@@ -273,7 +265,7 @@ export function checkDriftRules(router: unknown): DriftViolation[] {
       })
     }
 
-    // ── R-01.30: tenant_id ban — shallow check on root Zod object ────────────
+    // ── tenant_id ban — shallow check on root Zod object ────────────────────
 
     const inputs = def.inputs
     if (Array.isArray(inputs) && inputs.length > 0) {
@@ -289,7 +281,7 @@ export function checkDriftRules(router: unknown): DriftViolation[] {
       }
     }
 
-    // ── R-14.2: cacheable must not appear on mutation procedures ─────────────
+    // ── cacheable must not appear on mutation procedures ────────────────────
 
     if (def.type === 'mutation' && agent.cacheable !== undefined) {
       violations.push({

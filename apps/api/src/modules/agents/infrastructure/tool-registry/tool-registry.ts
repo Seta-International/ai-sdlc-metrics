@@ -3,19 +3,15 @@ import type { AgentToolDescriptor, AgentToolMeta } from '../../../../common/trpc
 import { permissionMatchesAnyPrefix } from './permission-match'
 import { isZodObject, resolveRootSchema } from './zod-schema-utils'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 /**
  * DI token for `ToolRegistry`. Used by services that depend on the registry
- * via constructor injection (SubAgentRunnerAdapter — Plan 17 PR 2 Task 6).
+ * via constructor injection (e.g. `SubAgentRunnerAdapter`).
  */
 export const TOOL_REGISTRY = Symbol('TOOL_REGISTRY')
 
-// ─── Validation Error ─────────────────────────────────────────────────────────
-
 /**
  * Thrown by `loadFromRouter` when one or more agent tool procedures fail
- * boot-time validation. Boot must fail loud (R-01.12).
+ * boot-time validation. Boot must fail loud.
  */
 export class ToolRegistryValidationError extends Error {
   constructor(message: string) {
@@ -23,8 +19,6 @@ export class ToolRegistryValidationError extends Error {
     this.name = 'ToolRegistryValidationError'
   }
 }
-
-// ─── Internal shape helpers ───────────────────────────────────────────────────
 
 /**
  * tRPC v11 procedure definition as accessed via `router._def.procedures[name]._def`.
@@ -51,8 +45,6 @@ interface RouterLike {
   _def: RouterDef
 }
 
-// ─── resolveMenuFor options ───────────────────────────────────────────────────
-
 export interface ResolveMenuOptions {
   /** Permission-key prefixes scoped to the sub-agent, e.g. ['planner:task', 'people:profile:read'] */
   subAgentScope: ReadonlyArray<string>
@@ -61,17 +53,15 @@ export interface ResolveMenuOptions {
   surfaceContext: { screen: string; selection?: unknown }
 }
 
-// ─── ToolRegistry ─────────────────────────────────────────────────────────────
-
 /**
  * ToolRegistry — harvests tRPC procedures carrying `.meta({ agent: {...} })` from
  * the app router at boot and exposes lookup + scoped menu resolution for sub-agents.
  *
  * Usage:
  *   const registry = new ToolRegistry()
- *   registry.loadFromRouter(getAppRouter())  // called in AgentsModule.onModuleInit (Task 5)
+ *   registry.loadFromRouter(getAppRouter())  // called in AgentsModule.onModuleInit
  *
- * Task 5 wiring note: AgentsModule should inject ToolRegistry, then in onModuleInit call
+ * Wiring note: AgentsModule should inject ToolRegistry, then in onModuleInit call
  *   this.toolRegistry.loadFromRouter(getAppRouter())
  * after the permission-enforcing routers have been swapped in (i.e. after TrpcModule.onModuleInit).
  * NestJS module init order must be: TrpcModule first, AgentsModule second.
@@ -86,7 +76,7 @@ export class ToolRegistry {
 
   /**
    * Walks the tRPC app router, harvests procedures with `.meta.agent` set,
-   * validates required fields (R-01.12), and builds the in-memory descriptor table.
+   * validates required fields, and builds the in-memory descriptor table.
    *
    * Idempotence policy: calling `loadFromRouter` a second time with the same
    * router is a no-op (returns immediately). This prevents accidental accumulation
@@ -117,7 +107,7 @@ export class ToolRegistry {
       const def = proc._def
       const meta = def.meta
 
-      // Only register procedures that have agent metadata (R-01.11)
+      // Only register procedures that have agent metadata
       if (!meta?.agent) {
         continue
       }
@@ -125,7 +115,7 @@ export class ToolRegistry {
       const agent = meta.agent
       const procViolations: string[] = []
 
-      // ── R-01.12: required fields ───────────────────────────────────────────
+      // ── required fields ────────────────────────────────────────────────────
 
       if (!meta.permission || meta.permission.trim() === '') {
         procViolations.push('meta.permission is missing or empty')
@@ -156,7 +146,7 @@ export class ToolRegistry {
         })
       }
 
-      // ── R-01.18: mutations must declare approvalFreshness ──────────────────
+      // ── mutations must declare approvalFreshness ───────────────────────────
 
       if (def.type === 'mutation' && agent.approvalFreshness === undefined) {
         procViolations.push(
@@ -165,7 +155,7 @@ export class ToolRegistry {
         )
       }
 
-      // ── R-01.30: tenant_id ban — shallow check on root zod object ──────────
+      // ── tenant_id ban — shallow check on root zod object ───────────────────
 
       const inputs = def.inputs
       if (Array.isArray(inputs) && inputs.length > 0) {
@@ -219,7 +209,7 @@ export class ToolRegistry {
   }
 
   /**
-   * Deterministic pre-LLM menu scoping (R-01.20).
+   * Deterministic pre-LLM menu scoping.
    *
    * Returns descriptors satisfying ALL THREE filters:
    * 1. Sub-agent scope  — permission starts with one of the `subAgentScope` prefixes
@@ -260,5 +250,4 @@ export class ToolRegistry {
   }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 // isPermissionInScope logic lives in permission-match.ts (shared with pipeline steps).

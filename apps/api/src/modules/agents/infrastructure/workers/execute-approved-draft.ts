@@ -24,7 +24,7 @@ export type ExecuteApprovedDraftJob = {
 }
 
 /**
- * Domain-revalidation hook (R-08.16).
+ * Domain-revalidation hook.
  *
  * Called by `ExecuteApprovedDraftWorker.handle()` when `approval_freshness === 'revalidate'`.
  * Domain owners register revalidation functions at job-creation time.
@@ -78,7 +78,7 @@ export class ExecuteApprovedDraftWorker {
   ) {}
 
   /**
-   * Optional domain-revalidation hook registry (R-08.16).
+   * Optional domain-revalidation hook registry.
    * Domain services register a revalidator for their tool names at module init.
    * Keyed by tool_name. At execution time, the worker looks up the registered
    * revalidator for the draft's tool_name and calls it when approval_freshness === 'revalidate'.
@@ -89,7 +89,7 @@ export class ExecuteApprovedDraftWorker {
   private readonly revalidators = new Map<string, DraftRevalidator>()
 
   /**
-   * Register a domain revalidation function for a specific tool name (R-08.16).
+   * Register a domain revalidation function for a specific tool name.
    * Called at module initialization time by domain services that own write tools.
    */
   registerRevalidator(toolName: string, revalidator: DraftRevalidator): void {
@@ -225,7 +225,7 @@ export class ExecuteApprovedDraftWorker {
       })
     }
 
-    // R-08.16: Domain-revalidation step.
+    // Domain-revalidation step.
     // When approval_freshness === 'revalidate', invoke the registered revalidator
     // (if any) to check that preconditions still hold against live data.
     // When approval_freshness === 'accept-stale', skip revalidation entirely.

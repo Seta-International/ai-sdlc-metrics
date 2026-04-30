@@ -1,10 +1,8 @@
 // Tripwires are returned values, never thrown. Do NOT create a TripwireError extends Error class.
-// Per R-01.2: each pipeline step may tripwire by returning a discriminated-union result;
+// Each pipeline step may tripwire by returning a discriminated-union result;
 // throwing a TripwireError is a runtime bug that must escalate to `turn.ended.reason: error`.
 
 import type { DraftProposalResult } from '../../application/services/draft-types'
-
-// ─── Variants ────────────────────────────────────────────────────────────────
 
 export type TripwireVariant =
   | 'procedure_not_agent_exposed'
@@ -20,7 +18,7 @@ export type TripwireVariant =
   | 'transient_infra_error'
   | 'invocation_timeout'
   /**
-   * Plan 09 R-09.6a — read-only policy envelope violation.
+   * Read-only policy envelope violation.
    * Emitted when a mutation tool is invoked under a read-only TurnPolicy
    * (e.g. scheduled async turns). The turn ends with reason 'refused'.
    */
@@ -28,10 +26,8 @@ export type TripwireVariant =
 
 export type TripwireDisposition = 'abort' | 'retry'
 
-// ─── Fixed-disposition variants ──────────────────────────────────────────────
-
 /**
- * These variants always carry disposition `abort`, per §4.
+ * These variants always carry disposition `abort`.
  * Misuse is caught at construction time by `enforceFixedDisposition`.
  */
 const FIXED_ABORT_VARIANTS: ReadonlySet<TripwireVariant> = new Set([
@@ -42,7 +38,7 @@ const FIXED_ABORT_VARIANTS: ReadonlySet<TripwireVariant> = new Set([
   'procedure_out_of_sub_agent_scope',
   'business_rule_violation',
   'infra_error',
-  // Plan 09 R-09.6a: read-only policy violations always abort — never retry.
+  // Read-only policy violations always abort — never retry.
   'policy_violation',
 ])
 
@@ -64,8 +60,6 @@ export function enforceFixedDisposition(
   return disposition
 }
 
-// ─── Result types ─────────────────────────────────────────────────────────────
-
 export interface Tripwire {
   readonly kind: 'tripwire'
   readonly variant: TripwireVariant
@@ -80,14 +74,12 @@ export interface ToolGatewayOk {
   /**
    * Present when a mutation tool was successfully invoked and DraftProposer produced
    * a draft proposal. Absent on query tools and cache-hit paths.
-   * Plan 08 §5: the sub-agent runner collects these to build SubAgentOutput.drafts.
+   * The sub-agent runner collects these to build SubAgentOutput.drafts.
    */
   readonly draft?: DraftProposalResult
 }
 
 export type ToolGatewayResult = ToolGatewayOk | Tripwire
-
-// ─── Construction helpers ─────────────────────────────────────────────────────
 
 // `result` is opaque (unknown) — deep-freezing would be brittle and expensive;
 // the security-sensitive surface is `context` (on Tripwire), not `result`.
@@ -113,8 +105,6 @@ export function tripwire(
     context: Object.freeze({ ...context }),
   })
 }
-
-// ─── Type predicates ──────────────────────────────────────────────────────────
 
 export function isOk(r: ToolGatewayResult): r is ToolGatewayOk {
   return r.kind === 'ok'

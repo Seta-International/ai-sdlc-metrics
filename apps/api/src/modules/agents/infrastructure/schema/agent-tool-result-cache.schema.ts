@@ -7,7 +7,7 @@
  *
  * semantic_embedding is nullable: a put() can succeed without an embedding when
  * the embedding provider is down (exact-only mode). Rows with a stale
- * embedding_model are ignored during semantic lookup (R-14.10).
+ * embedding_model are ignored during semantic lookup.
  */
 
 import { uuid, text, timestamp, jsonb, integer, index, uniqueIndex } from 'drizzle-orm/pg-core'
@@ -31,7 +31,7 @@ export const agentToolResultCache = agentsSchema.table(
     semanticEmbedding: jsonb('semantic_embedding').$type<number[] | null>(),
     /**
      * Model used to generate the embedding (e.g. 'text-embedding-3-small').
-     * Rows with a stale model are skipped during semantic lookup (R-14.10).
+     * Rows with a stale model are skipped during semantic lookup.
      */
     embeddingModel: text('embedding_model').notNull(),
     /** Pre-rendered tool result (already redacted/wrapped). */

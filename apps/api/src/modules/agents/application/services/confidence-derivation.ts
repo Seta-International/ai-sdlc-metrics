@@ -1,10 +1,10 @@
 /**
- * Confidence derivation — Plan 03 §5 "Confidence derivation (rule-based)".
+ * Confidence derivation.
  *
  * Pure functions. Zero side-effects. No LLM calls.
  *
- * R-03.22: Confidence is rule-derived from observable trace signals, NOT from
- * LLM self-assessment. LLM-reported confidence is noisy and under-reports on
+ * Confidence is rule-derived from observable trace signals, NOT from LLM
+ * self-assessment. LLM-reported confidence is noisy and under-reports on
  * wrong answers.
  */
 
@@ -33,12 +33,11 @@ import type { Confidence, ConfidenceSignals } from './phase-executor-contracts'
  *   - no taint, no ceiling, no conflict
  */
 export function deriveConfidence(signals: ConfidenceSignals): Confidence {
-  // LOW — highest precedence
+  // LOW — highest precedence.
   if (signals.taintFlippedDuringRun || signals.ceilingHit || signals.semanticConflictWithSibling) {
     return 'low'
   }
 
-  // MED
   if (
     signals.toolResultCount === 0 ||
     signals.retryCount > 0 ||
@@ -48,14 +47,13 @@ export function deriveConfidence(signals: ConfidenceSignals): Confidence {
     return 'med'
   }
 
-  // HIGH
   return 'high'
 }
 
 /**
  * Compute final synthesizer confidence across all contributing sub-agents.
  *
- * Algorithm (R-03.22):
+ * Algorithm:
  *   1. Take MIN of all per-sub-agent confidences.
  *   2. Apply one-step demotion if contradiction detected:
  *      high → med, med → low, low → low (floor).
@@ -78,8 +76,6 @@ export function computeFinalConfidence(
 
   return demoteConfidence(min)
 }
-
-// ─── Private helpers ──────────────────────────────────────────────────────────
 
 const CONFIDENCE_ORDER: Record<Confidence, number> = { low: 0, med: 1, high: 2 }
 

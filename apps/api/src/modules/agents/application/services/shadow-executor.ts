@@ -3,8 +3,6 @@ import { PgBossService } from '../../../../common/jobs/pg-boss.service'
 import type { TurnResult } from './shadow-diff-scorer'
 import { SHADOW_TURN_JOB_NAME, type ShadowTurnJob } from './shadow-turn-contracts'
 
-// ─── Option types ─────────────────────────────────────────────────────────────
-
 export interface ShadowShouldOpts {
   rolloutConfig: {
     id: string
@@ -27,11 +25,7 @@ export interface ShadowRunOpts {
   userId?: string
 }
 
-// ─── ShadowExecutor ───────────────────────────────────────────────────────────
-
 /**
- * ShadowExecutor — Plan 11 Task 3 (Part A)
- *
  * Decides whether to shadow-execute for a given request and, if so,
  * enqueues an `agent.shadow-turn` pg-boss job for async processing.
  *
@@ -48,8 +42,8 @@ export class ShadowExecutor {
    *   3. fromCandidate === true
    *
    * trafficPercentage sampling is intentionally NOT applied here at MVP —
-   * the deterministic gate (percentage hash) will be layered on in a later sub-plan
-   * once the traffic-split harness is wired end-to-end (R-11.15).
+   * the deterministic gate (percentage hash) will be layered on once the
+   * traffic-split harness is wired end-to-end.
    */
   shouldShadow(opts: ShadowShouldOpts): boolean {
     return (

@@ -210,9 +210,9 @@ export const agentConversations = agentsSchema.table(
 /**
  * Plan 04 — Per-turn agent messages with JSONB content and async summary.
  *
- * user_id is denormalized from agent_conversation for keyset pagination (R-04.10)
+ * user_id is denormalized from agent_conversation for keyset pagination
  * without requiring a join. FTS index covers user utterances + summaries only;
- * raw tool-result content is NEVER indexed (R-04.8).
+ * raw tool-result content is NEVER indexed.
  */
 export const agentConversationMessages = agentsSchema.table(
   'agent_message',
@@ -235,7 +235,7 @@ export const agentConversationMessages = agentsSchema.table(
       t.createdAt,
     ),
     /**
-     * Plan 04 R-04.8 — GIN FTS index covering user utterances and summaries only.
+     * Plan 04 — GIN FTS index covering user utterances and summaries only.
      * Raw tool-result content is intentionally excluded: only role='user' content
      * text and the summary column are indexed for full-text search.
      * Uses 'simple' dictionary (no language stemming) for consistent cross-tenant
@@ -274,7 +274,7 @@ export const agentL3Preferences = agentsSchema.table(
  *
  * Schema-allowlisted fields per sub-agent (not free-form markdown). Taint flag
  * travels with the value so downstream consumption can bump approval-tier.
- * Written exclusively via the kernel-audited scratchpad.write tool (R-04.33).
+ * Written exclusively via the kernel-audited scratchpad.write tool.
  * Scope key: (tenant_id, user_id) — never (tenant_id, module) per EI-9.
  */
 export const agentScratchpad = agentsSchema.table(
@@ -293,7 +293,7 @@ export const agentScratchpad = agentsSchema.table(
 // ─── Plan 07 — Observability ───────────────────────────────────────────────────
 
 /**
- * Plan 07 — Tool-output audit trail (R-07.32–35).
+ * Plan 07 — Tool-output audit trail.
  *
  * Stores a canonicalized copy of every tool invocation: args, result preview
  * (first 16 KB as BYTEA), SHA-256 hash of full result, and correlation to the
@@ -329,7 +329,7 @@ export const agentToolInvocations = agentsSchema.table(
 )
 
 /**
- * Plan 07 — Per-turn sampling decision diagnostic (R-07.17a).
+ * Plan 07 — Per-turn sampling decision diagnostic.
  *
  * One row per turn (trace_id is the PK). Records why a turn was or was not
  * captured so quota exhaustion and trigger matching can be audited after the
@@ -423,7 +423,7 @@ export const agentCostEvents = agentsSchema.table(
      * Plan 09 — Soft reference to agents.agent_schedule.id.
      * Set when this cost event originates from a scheduled turn.
      * NULL for interactive (non-scheduled) turns.
-     * Used for per-schedule daily spend aggregation (R-09.32).
+     * Used for per-schedule daily spend aggregation.
      */
     viaScheduleId: uuid('via_schedule_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

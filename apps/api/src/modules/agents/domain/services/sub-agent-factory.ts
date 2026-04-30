@@ -1,5 +1,5 @@
 /**
- * defineSubAgent — typed factory for sub-agent configurations (Plan 02).
+ * defineSubAgent — typed factory for sub-agent configurations.
  *
  * Invariants captured at declaration site (not runtime discovery):
  *   - Required fields → compile error (missing required prop).
@@ -41,11 +41,9 @@ export type {
   ValidatedSubAgentConfig,
 } from './sub-agent-types'
 
-// ─── Phase-1 subset constraint (R-02.5 + R-02.10) ────────────────────────────
-
 /**
- * Compile-enforces R-02.5 / R-02.10: the sub-agent's inputSchema must accept
- * (as REQUIRED fields) everything in the canonical phase-1 output schema.
+ * The sub-agent's inputSchema must accept (as REQUIRED fields) everything in
+ * the canonical phase-1 output schema.
  *
  * The check uses `Phase1Output extends z.infer<TInputSchema>`:
  *   "The canonical phase-1 output object is assignable to the inputSchema's
@@ -61,11 +59,9 @@ type AssertSubsetOfPhase1<TInputSchema extends ZodType> =
   Phase1Output extends import('zod').infer<TInputSchema>
     ? TInputSchema
     : {
-        __error: 'inputSchema missing required Phase1Output fields (R-02.5)'
+        __error: 'inputSchema missing required Phase1Output fields'
         __required: Phase1Output
       }
-
-// ─── Key format ────────────────────────────────────────────────────────────────
 
 /**
  * Allowed key format: `<domain>.<name>` where each segment is a lowercase
@@ -75,8 +71,6 @@ type AssertSubsetOfPhase1<TInputSchema extends ZodType> =
  * Rejected: `planner.read-only-`, `planner-.read-only`.
  */
 const SUB_AGENT_KEY_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
-
-// ─── Raw input type ────────────────────────────────────────────────────────────
 
 /**
  * Input accepted by `defineSubAgent`. The `key` is a plain `string` here; the
@@ -95,7 +89,7 @@ interface SubAgentInput<TInputSchema extends ZodType, TOutputSchema extends ZodT
     readonly variables: ZodType
   }
   /**
-   * R-02.5 / R-02.10: must accept all canonical Phase1Output fields as required.
+   * Must accept all canonical Phase1Output fields as required.
    * `AssertSubsetOfPhase1<TInputSchema>` resolves to a structural error type
    * (not assignable to `TInputSchema`) when `utterance: string` is absent,
    * producing a compile error here at the call site.
@@ -126,13 +120,9 @@ interface SubAgentInput<TInputSchema extends ZodType, TOutputSchema extends ZodT
   readonly coreTools?: ReadonlyArray<string>
 }
 
-// ─── Deep freeze helpers ───────────────────────────────────────────────────────
-
 function freezeArray<T>(arr: ReadonlyArray<T>): ReadonlyArray<T> {
   return Object.freeze([...arr])
 }
-
-// ─── Factory ───────────────────────────────────────────────────────────────────
 
 /**
  * Constructs a `ValidatedSubAgentConfig` from the given input.
@@ -155,7 +145,6 @@ function freezeArray<T>(arr: ReadonlyArray<T>): ReadonlyArray<T> {
 export function defineSubAgent<TInputSchema extends ZodType, TOutputSchema extends ZodType>(
   config: SubAgentInput<TInputSchema, TOutputSchema>,
 ): ValidatedSubAgentConfig<TInputSchema, TOutputSchema> {
-  // ── Key validation ────────────────────────────────────────────────────────
   if (!SUB_AGENT_KEY_RE.test(config.key)) {
     throw new RangeError(
       `defineSubAgent: key "${config.key}" is invalid. ` +
@@ -164,20 +153,17 @@ export function defineSubAgent<TInputSchema extends ZodType, TOutputSchema exten
     )
   }
 
-  // ── promptTemplate.variables runtime guard ────────────────────────────────
   if (!(config.promptTemplate.variables instanceof ZodType)) {
     throw new RangeError(
       `defineSubAgent: promptTemplate.variables must be a Zod schema. Got: ${typeof config.promptTemplate.variables}`,
     )
   }
 
-  // ── Budget validations ─────────────────────────────────────────────────────
   const { maxIterations, wallclockMs, costUsd } = config.budgets
 
   if (maxIterations !== 4 && maxIterations !== 5) {
     throw new RangeError(
-      `defineSubAgent: budgets.maxIterations must be 4 or 5 (plan §4 constraint). ` +
-        `Got: ${maxIterations}`,
+      `defineSubAgent: budgets.maxIterations must be 4 or 5. Got: ${maxIterations}`,
     )
   }
 
@@ -189,7 +175,6 @@ export function defineSubAgent<TInputSchema extends ZodType, TOutputSchema exten
     throw new RangeError(`defineSubAgent: budgets.costUsd must be > 0. Got: ${costUsd}`)
   }
 
-  // ── Build frozen config ───────────────────────────────────────────────────
   // `config.inputSchema` is typed as `AssertSubsetOfPhase1<TInputSchema>` (which
   // resolves to `TInputSchema` when the constraint passes). The cast is safe:
   // the conditional type proves the constraint holds at the call site.

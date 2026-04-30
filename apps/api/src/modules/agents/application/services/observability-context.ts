@@ -15,8 +15,6 @@ import type { Span } from '../../domain/observability/span'
 import type { SpanType, EntityType } from '../../domain/observability/span-types'
 import type { RequestContext } from './tool-gateway-contracts'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export type ObservabilityContext = {
   readonly currentSpan: Span
   readonly traceId: string
@@ -29,8 +27,6 @@ export type ObservabilityContext = {
     attrs?: Record<string, unknown>
   }): Span
 }
-
-// ─── Factory ──────────────────────────────────────────────────────────────────
 
 const tracer = trace.getTracer('agents.observability')
 

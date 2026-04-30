@@ -1,9 +1,9 @@
 /**
  * ToolDescriptorEmbedder — boot-time service that ensures every agent tool
  * descriptor has an up-to-date embedding vector in the `agent_tool_embedding`
- * table, then exposes an in-memory lookup map for retrieval (Plan 02.5 Task 1).
+ * table, then exposes an in-memory lookup map for retrieval.
  *
- * Boot-time pipeline (R-02.5.12):
+ * Boot-time pipeline:
  *   1. For each descriptor, compute a SHA-256 content_hash of its
  *      { whenToUse, whenNotToUse } fields using canonicalize().
  *   2. Query existing rows from DB by tool_name (sequential, per CLAUDE.md rule).
@@ -12,7 +12,7 @@
  *   4. Insert each new row sequentially (one per missing descriptor).
  *   5. Return { embedded, reused } counts.
  *
- * Refusal contract (R-02.5.12):
+ * Refusal contract:
  *   If the embedding provider is unreachable AND any descriptor lacks a DB row,
  *   throw — do NOT start in degraded mode. If all rows exist in DB, boot
  *   succeeds even if the provider is down.
@@ -35,11 +35,7 @@ import { canonicalize } from '../cache/canonical-args'
 import { agentToolEmbeddings } from '../schema/agent-tool-embedding.schema'
 import { RETRIEVAL_EMBEDDING_MODEL } from './retrieval-constants'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const TOOL_DESCRIPTOR_EMBEDDER = Symbol('TOOL_DESCRIPTOR_EMBEDDER')
-
-// ─── Result type ──────────────────────────────────────────────────────────────
 
 export interface EnsureEmbeddedResult {
   /** Number of new (tool_name, content_hash) rows inserted this boot. */
@@ -47,8 +43,6 @@ export interface EnsureEmbeddedResult {
   /** Number of descriptors whose hash already existed in the DB (no call made). */
   readonly reused: number
 }
-
-// ─── ToolDescriptorEmbedder ───────────────────────────────────────────────────
 
 @Injectable()
 export class ToolDescriptorEmbedder implements OnModuleInit {
@@ -73,8 +67,6 @@ export class ToolDescriptorEmbedder implements OnModuleInit {
     this.openai = createOpenAI({ apiKey })
   }
 
-  // ─── Content hash ────────────────────────────────────────────────────────────
-
   /**
    * Compute a deterministic SHA-256 content hash from the tool descriptor's
    * semantic fields. Key sort and datetime normalisation are handled by canonicalize().
@@ -91,8 +83,6 @@ export class ToolDescriptorEmbedder implements OnModuleInit {
     return createHash('sha256').update(canonical).digest('hex')
   }
 
-  // ─── ensureEmbedded ──────────────────────────────────────────────────────────
-
   /**
    * Main boot-time pipeline. Must be called after onModuleInit().
    *
@@ -100,7 +90,7 @@ export class ToolDescriptorEmbedder implements OnModuleInit {
    * The embedMany call is NOT a DB query — batch it in one shot for efficiency.
    *
    * @throws {Error} if the embedding provider is unreachable AND any descriptor
-   *   has no existing DB row (R-02.5.12 boot-time refusal).
+   *   has no existing DB row (boot-time refusal).
    */
   async ensureEmbedded(
     descriptors: ReadonlyArray<AgentToolDescriptor>,
@@ -109,13 +99,11 @@ export class ToolDescriptorEmbedder implements OnModuleInit {
       return { embedded: 0, reused: 0 }
     }
 
-    // ── Step 1: Compute content hashes for all descriptors ────────────────────
     const hashMap = new Map<string, string>() // tool_name → content_hash
     for (const descriptor of descriptors) {
       hashMap.set(descriptor.name, this.computeContentHash(descriptor))
     }
 
-    // ── Step 2: Query existing rows from DB — one batch inArray SELECT ────────
     // Only fetch (tool_name, content_hash) — embedding blob not needed here.
     const allNames = descriptors.map((d) => d.name)
     const existingPairs = new Set<string>() // key: `${toolName}::${contentHash}`
@@ -132,7 +120,6 @@ export class ToolDescriptorEmbedder implements OnModuleInit {
       existingPairs.add(`${row.toolName}::${row.contentHash}`)
     }
 
-    // ── Step 3: Determine which descriptors need new embeddings ───────────────
     const missing: AgentToolDescriptor[] = []
     for (const descriptor of descriptors) {
       const hash = hashMap.get(descriptor.name)!
@@ -150,7 +137,6 @@ export class ToolDescriptorEmbedder implements OnModuleInit {
       return { embedded: 0, reused }
     }
 
-    // ── Step 4: Call embedMany for all missing descriptors in one batch ───────
     // embedMany is NOT a DB query — Promise.all / batch call is fine here.
     // Text uses only the two fields that form the content_hash: whenToUse + whenNotToUse.
     const texts = missing.map((d) => {
@@ -175,7 +161,7 @@ export class ToolDescriptorEmbedder implements OnModuleInit {
       })
       newEmbeddings = embeddings
     } catch (err) {
-      // R-02.5.12: if provider is unreachable AND some descriptors have no DB row,
+      // If provider is unreachable AND some descriptors have no DB row,
       // throw — do NOT boot in degraded mode.
       throw new Error(
         `ToolDescriptorEmbedder: embedding provider unreachable at boot and ` +
@@ -184,7 +170,6 @@ export class ToolDescriptorEmbedder implements OnModuleInit {
       )
     }
 
-    // ── Step 5: Bulk-insert all new rows in one statement ────────────────────
     const newRows = missing.map((descriptor, i) => ({
       toolName: descriptor.name,
       contentHash: hashMap.get(descriptor.name)!,
@@ -215,8 +200,6 @@ export class ToolDescriptorEmbedder implements OnModuleInit {
 
     return { embedded, reused }
   }
-
-  // ─── buildInMemoryIndex ──────────────────────────────────────────────────────
 
   /**
    * Loads the latest-hash embedding per tool_name from DB into the in-memory
@@ -256,8 +239,6 @@ export class ToolDescriptorEmbedder implements OnModuleInit {
       `ToolDescriptorEmbedder: in-memory index built with ${this._index.size} tool(s).`,
     )
   }
-
-  // ─── getEmbedding ─────────────────────────────────────────────────────────────
 
   /**
    * Returns the latest embedding vector for the given tool_name, or `undefined`

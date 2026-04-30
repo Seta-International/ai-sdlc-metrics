@@ -5,8 +5,7 @@
  *   • Module-local intent files (e.g. modules/planner/agent/intents/*.ts)
  *     via the public re-export in modules/agents/declare.ts.
  *   • IntentRegistry (infrastructure) — validates and stores descriptors.
- *   • Task 9 RouterPlan validator — uses the slug to stamp child spans
- *     (R-02.29).
+ *   • Task 9 RouterPlan validator — uses the slug to stamp child spans.
  *
  * Lives in domain/value-objects/ because it is a pure type — zero NestJS,
  * zero Drizzle, zero external dependencies. Downstream modules import it
@@ -22,7 +21,7 @@ export type IntentDescriptor = {
    * Regex: /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)+$/
    *
    * Exception: the literal slug `'unclassified'` is allowed without a
-   * domain prefix (R-02.29 fallback bucket, owned by the agents module).
+   * domain prefix (fallback bucket, owned by the agents module).
    */
   slug: string
 

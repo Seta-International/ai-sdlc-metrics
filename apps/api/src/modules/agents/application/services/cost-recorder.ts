@@ -19,8 +19,6 @@ import {
   recordLlmCallTotalDuration,
 } from '../../infrastructure/observability/cost-metrics'
 
-// ─── Types ─────────────────────────────────────────────────────────────────────
-
 export interface CostRecordOpts {
   traceId: string
   tenantId: string
@@ -36,8 +34,6 @@ export interface CostRecordOpts {
   rawProviderResponse?: unknown
 }
 
-// ─── CostRecorder ──────────────────────────────────────────────────────────────
-
 @Injectable()
 export class CostRecorder {
   constructor(
@@ -47,11 +43,10 @@ export class CostRecorder {
   ) {}
 
   async record(opts: CostRecordOpts): Promise<void> {
-    // Step 1 — adapter-drop detection (best-effort; audit failure must never abort recording)
+    // Adapter-drop detection (best-effort; audit failure must never abort recording).
     if (opts.rawProviderResponse !== undefined) {
       const dropped = this.usageExtractor.detectDroppedFields(opts.rawProviderResponse, opts.usage)
       if (dropped.length > 0) {
-        // Emit adapter-drop metric (Plan 05 §8 — P1 alert on any non-zero value)
         for (const field of dropped) {
           recordAdapterDrop('openai', field)
         }
@@ -69,13 +64,12 @@ export class CostRecorder {
             },
           })
         } catch {
-          // R-05.6: capture continues even when audit emission fails.
-          // The cost event and budget decrement proceed regardless.
+          // Capture continues even when audit emission fails. The cost event
+          // and budget decrement proceed regardless.
         }
       }
     }
 
-    // Step 2 — insert cost event
     await this.db.insert(agentCostEvents).values({
       traceId: opts.traceId,
       tenantId: opts.tenantId,
@@ -95,8 +89,8 @@ export class CostRecorder {
       totalDurationMs: opts.totalDurationMs ?? 0,
     })
 
-    // Step 3 — decrement tenant budget atomically; capture the post-deduction
-    // remaining amount so the observable gauge can be updated (R-05.6a Theme I).
+    // Decrement tenant budget atomically; capture the post-deduction
+    // remaining amount so the observable gauge can be updated.
     const updatedBudgetRows = await this.db
       .update(agentTenantBudget)
       .set({
@@ -106,7 +100,6 @@ export class CostRecorder {
       .where(eq(agentTenantBudget.tenantId, opts.tenantId))
       .returning({ remainingUsd: agentTenantBudget.remainingUsd })
 
-    // Step 4 — upsert per-user daily budget (only if userId provided)
     if (opts.userId !== undefined) {
       await this.db
         .insert(agentUserBudget)
@@ -127,20 +120,17 @@ export class CostRecorder {
         })
     }
 
-    // Step 5 — update agent_budget_remaining_usd observable gauge (Theme I).
-    // Only update when the budget row exists (tenant with no budget row is skipped).
+    // Update agent_budget_remaining_usd observable gauge. Only update when the
+    // budget row exists (tenant with no budget row is skipped).
     if (updatedBudgetRows.length > 0) {
       const newRemaining = parseFloat(updatedBudgetRows[0]!.remainingUsd as string)
       setBudgetRemaining(opts.tenantId, newRemaining)
     }
 
-    // Step 6 — emit metrics (Plan 05 §8, R-05.6a: once per success)
-    // agent_cost_usd_total: cost for this successful call
+    // Emit metrics once per success — never per retry attempt.
     recordCostUsd(opts.tenantId, opts.layer, opts.modelId, opts.pricing.pricingId, opts.costUsd)
 
-    // agent_usage_tokens_total: one data point per non-zero token kind (Plan 05 §8).
-    // kind ∈ {input_uncached, input_cached_read, input_cached_write, output, output_reasoning}.
-    // Emitted alongside recordCostUsd — never per retry attempt (R-05.6a).
+    // agent_usage_tokens_total: one data point per non-zero token kind.
     if (opts.usage.inputUncached > 0) {
       recordUsageTokens(opts.tenantId, opts.modelId, 'input_uncached', opts.usage.inputUncached)
     }
@@ -167,12 +157,12 @@ export class CostRecorder {
       recordUsageTokens(opts.tenantId, opts.modelId, 'output_reasoning', opts.usage.outputReasoning)
     }
 
-    // agent_llm_call_attempt_duration_ms: terminal successful attempt latency SLO
+    // Terminal successful attempt latency SLO.
     if (opts.attemptDurationMs !== undefined && opts.attemptDurationMs > 0) {
       recordLlmCallAttemptDuration(opts.tenantId, opts.modelId, opts.layer, opts.attemptDurationMs)
     }
 
-    // agent_llm_call_total_duration_ms: total including retries — reliability analysis
+    // Total including retries — reliability analysis.
     if (opts.totalDurationMs !== undefined && opts.totalDurationMs > 0) {
       recordLlmCallTotalDuration(opts.tenantId, opts.modelId, opts.layer, opts.totalDurationMs)
     }

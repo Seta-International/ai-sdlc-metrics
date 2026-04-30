@@ -1,16 +1,12 @@
 /**
- * llm-judge-scorer.ts — Plan 10 Task 5
- *
  * LlmJudgeScorer — observe-only stub at MVP.
  *
- * R-10.30: The registration path, typed prompts, and stub implementation exist at MVP
+ * The registration path, typed prompts, and stub implementation exist at MVP
  * but are observe-only — never gates CI, merge, or routing until Beta promotion
- * criteria are met (R-10.31).
+ * criteria are met. Activation to gating role requires SetaGoldenCorpus ≥ 100
+ * hand-labeled rows AND meta_eval_agreement ≥ 0.95.
  *
- * R-10.31: Activation to gating role requires SetaGoldenCorpus ≥ 100 hand-labeled rows
- * AND meta_eval_agreement ≥ 0.95.
- *
- * R-10.32: Iterative-topology exit-gate registration is rejected at the ScorerRegistry
+ * Iterative-topology exit-gate registration is rejected at the ScorerRegistry
  * level — LlmJudgeScorer itself doesn't need to enforce this.
  */
 
@@ -22,11 +18,7 @@ import type {
   ReplayedTrace,
 } from '../../domain/scorer-types'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const LLM_JUDGE_SCORER = Symbol('LLM_JUDGE_SCORER')
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 /**
  * Typed wrapper for LLM judge prompts.
@@ -47,8 +39,6 @@ export type JudgeResult = {
   passed: boolean
   reason: string
 }
-
-// ─── LlmJudgeScorer ──────────────────────────────────────────────────────────
 
 /**
  * Observe-only LLM judge scorer stub.
@@ -88,7 +78,7 @@ export class LlmJudgeScorer implements SetaScorer<ReplayedTrace, JudgeResult> {
    * Observe-only stub — never returns a real score at MVP.
    *
    * Returns { score: 0, passed: true, reason: 'observe-only' } always.
-   * passed: true is required — a false here would falsely gate CI (R-10.30).
+   * passed: true is required — a false here would falsely gate CI.
    *
    * When Beta activation criteria are met (≥100 labeled rows + agreement ≥0.95),
    * this stub is replaced with a real LLM judge call.

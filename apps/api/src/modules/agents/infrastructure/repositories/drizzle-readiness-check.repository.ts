@@ -1,5 +1,5 @@
 /**
- * drizzle-readiness-check.repository.ts — Plan 13 Task 2
+ * drizzle-readiness-check.repository.ts
  *
  * Drizzle-backed implementation of ReadinessCheckRepository.
  *
@@ -20,8 +20,6 @@ import {
   type ReadinessCheckEntity,
 } from '../../domain/repositories/readiness-check.repository'
 
-// ─── Row → domain mapper ──────────────────────────────────────────────────────
-
 type AgentReadinessCheckRow = typeof agentReadinessCheck.$inferSelect
 
 function toDomain(row: AgentReadinessCheckRow): ReadinessCheckEntity {
@@ -37,8 +35,6 @@ function toDomain(row: AgentReadinessCheckRow): ReadinessCheckEntity {
     computedAt: row.computedAt,
   }
 }
-
-// ─── Repository ───────────────────────────────────────────────────────────────
 
 @Injectable()
 export class DrizzleReadinessCheckRepository implements ReadinessCheckRepository {

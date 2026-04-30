@@ -1,7 +1,7 @@
 /**
  * agent_semantic_index — Drizzle schema for Plan 04 semantic recall index.
  *
- * Plan 04 R-04.36 requires per-tenant isolation for the semantic recall index.
+ * Plan 04 requires per-tenant isolation for the semantic recall index.
  * This implementation follows Option A: a single shared table with tenant_id +
  * RLS, consistent with every other table in this module. The "per-tenant
  * physical table" phrasing in Plan 04 §3 was aspirational — RLS-enforced
@@ -27,9 +27,9 @@ import { agentsSchema } from './agents.schema'
  * sub_agent_id) with provenance back to the originating agent_message.id.
  *
  * Writes come exclusively from the post-turn `index-turn-semantic` pg-boss job
- * (fire-and-forget, never inline on saveMessages — R-04.37). Reads come
+ * (fire-and-forget, never inline on saveMessages). Reads come
  * exclusively from sub-agents that have opted into semantic recall as a tool
- * call — never pre-injected at router level (R-04.38).
+ * call — never pre-injected at router level.
  */
 export const agentSemanticIndex = agentsSchema.table(
   'agent_semantic_index',

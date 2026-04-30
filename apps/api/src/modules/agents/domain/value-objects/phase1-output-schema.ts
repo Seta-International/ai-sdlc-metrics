@@ -11,7 +11,7 @@
  * outputs) may be added in future plans; sub-agents consuming them must
  * declare them in their own inputSchema explicitly.
  *
- * Plan 02 §3 + R-02.5 + R-02.10 contract.
+ * Plan 02 §3 contract.
  */
 
 import * as z from 'zod'

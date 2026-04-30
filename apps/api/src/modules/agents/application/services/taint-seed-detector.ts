@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import type { Schedule } from '../../domain/entities/schedule.entity'
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 /**
  * Substrings in an event type that indicate user-authored content is carried
  * in the event payload. Checked via `.includes()` against the event type string.
@@ -28,8 +26,6 @@ const USER_AUTHORED_PAYLOAD_FIELDS = new Set([
   'description',
   'comment',
 ])
-
-// ─── TaintSeedDetector ────────────────────────────────────────────────────────
 
 /**
  * Heuristic classifier that decides whether a scheduled agent run should have

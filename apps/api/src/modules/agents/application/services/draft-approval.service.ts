@@ -5,12 +5,12 @@ import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-au
 import { NotificationsWriteFacade } from '../../../notifications/application/facades/notifications-write.facade'
 
 /**
- * Plan 08 R-08.28 — emits `agent.draft_approved` / `agent.draft_rejected` kernel
+ * Plan 08 — emits `agent.draft_approved` / `agent.draft_rejected` kernel
  * audit events on successful state transitions only.
  *
  * These mutations are tRPC tenant-scoped admin actions (not part of an agent turn),
  * so there is no obsCtx / flowId from the calling request.  The flowId is inherited
- * from the draft row itself (R-08.34) so it survives across the approval step.
+ * from the draft row itself so it survives across the approval step.
  *
  * Audit is emitted ONLY after the status update succeeds — no spurious audit on failed
  * transitions (draft not found, wrong status).
@@ -75,7 +75,7 @@ export class DraftApprovalService {
       trace_id: draft.traceId,
     })
 
-    // 3. Emit kernel audit event — R-08.28.  flowId inherited from the draft row (R-08.34).
+    // 3. Emit kernel audit event. flowId inherited from the draft row.
     await this.kernelAuditFacade.recordEvent({
       tenantId: opts.tenantId,
       actorId: opts.approverId,
@@ -130,7 +130,7 @@ export class DraftApprovalService {
       extra: { executionOutcome: opts.reason },
     })
 
-    // 2. Emit kernel audit event — R-08.28.  flowId inherited from the draft row (R-08.34).
+    // 2. Emit kernel audit event. flowId inherited from the draft row.
     await this.kernelAuditFacade.recordEvent({
       tenantId: opts.tenantId,
       actorId: opts.rejecterId,

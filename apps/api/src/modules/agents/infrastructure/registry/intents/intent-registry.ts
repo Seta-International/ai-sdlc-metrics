@@ -1,8 +1,8 @@
 /**
  * IntentRegistry — aggregates, validates, and freezes intent-slug declarations
- * at module boot time (Plan 02 §4, EI-3).
+ * at module boot time.
  *
- * Descriptor aggregation convention (R-02.27):
+ * Descriptor aggregation convention:
  *   Each domain module owns a `agent/intents/` directory with a barrel
  *   `index.ts` that re-exports all `IntentDescriptor` constants. The
  *   `agents.module.ts` imports from every module barrel and concatenates the
@@ -16,19 +16,15 @@
  * Lives in `infrastructure/` because it is NestJS-injectable; it has zero
  * domain logic — it is purely a lookup/validation container.
  *
- * Special case: the `'unclassified'` slug (R-02.29 fallback bucket) does not
- * follow the `domain.name` format — it is the explicit unclassified bucket
- * and its format exception is baked into the boot validation.
+ * Special case: the `'unclassified'` slug fallback bucket does not follow the
+ * `domain.name` format — it is the explicit unclassified bucket and its format
+ * exception is baked into the boot validation.
  */
 
 import { Injectable, Logger } from '@nestjs/common'
 import type { IntentDescriptor } from '../../../domain/value-objects/intent-descriptor'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const INTENT_REGISTRY = Symbol('INTENT_REGISTRY')
-
-// ─── Slug validation regex ─────────────────────────────────────────────────────
 
 /**
  * Valid intent slug pattern: `domain.name(.name)+`
@@ -46,15 +42,12 @@ export const INTENT_REGISTRY = Symbol('INTENT_REGISTRY')
 export const INTENT_SLUG_REGEX =
   /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)+$/
 
-/** The one slug that is exempt from the domain.name format rule (R-02.29). */
+/** The one slug that is exempt from the domain.name format rule. */
 const UNCLASSIFIED_SLUG = 'unclassified'
 
-// ─── Validation error ──────────────────────────────────────────────────────────
-
 /**
- * Thrown by `IntentRegistry.boot` when any invariant (R-02.27..R-02.29) is
- * violated. Boot must fail loud — a misconfigured registry must never serve
- * a production request.
+ * Thrown by `IntentRegistry.boot` when any invariant is violated. Boot must
+ * fail loud — a misconfigured registry must never serve a production request.
  */
 export class IntentRegistryValidationError extends Error {
   constructor(message: string) {
@@ -63,15 +56,11 @@ export class IntentRegistryValidationError extends Error {
   }
 }
 
-// ─── IntentRegistry ───────────────────────────────────────────────────────────
-
 @Injectable()
 export class IntentRegistry {
   private readonly logger = new Logger(IntentRegistry.name)
   private readonly _map = new Map<string, IntentDescriptor>()
   private _frozen = false
-
-  // ─── Boot ────────────────────────────────────────────────────────────────────
 
   /**
    * Aggregates, validates, and freezes the intent registry.
@@ -83,7 +72,7 @@ export class IntentRegistry {
    *   Empty list      — at least one intent descriptor is required.
    *   Slug format     — each slug must match INTENT_SLUG_REGEX or be the
    *                     special `'unclassified'` fallback.
-   *   R-02.27         — Duplicate slugs across modules are not allowed.
+   *   Duplicate slugs — duplicate slugs across modules are not allowed.
    *   Domain mismatch — slug must start with `domain + '.'` (except for
    *                     `'unclassified'` which has domain `'agents'`).
    *
@@ -114,7 +103,6 @@ export class IntentRegistry {
     for (const descriptor of descriptors) {
       const { slug, domain } = descriptor
 
-      // ── Slug format check ────────────────────────────────────────────────────
       const isUnclassified = slug === UNCLASSIFIED_SLUG
       if (!isUnclassified && !INTENT_SLUG_REGEX.test(slug)) {
         violations.push(
@@ -124,7 +112,6 @@ export class IntentRegistry {
         continue
       }
 
-      // ── Unclassified domain guard ─────────────────────────────────────────────
       // 'unclassified' must always declare domain 'agents' — it is owned by the
       // agents module. Any other domain is a misconfiguration.
       if (isUnclassified && domain !== 'agents') {
@@ -135,7 +122,6 @@ export class IntentRegistry {
         continue
       }
 
-      // ── Duplicate slug check (R-02.27) ───────────────────────────────────────
       if (seenSlugs.has(slug)) {
         violations.push(
           `Duplicate intent slug "${slug}": each intent slug must be unique across all modules.`,
@@ -143,7 +129,6 @@ export class IntentRegistry {
         continue
       }
 
-      // ── Domain mismatch check ─────────────────────────────────────────────────
       // 'unclassified' belongs to 'agents' domain — it never has a dot prefix.
       // All other slugs must start with their declared domain followed by a dot.
       if (!isUnclassified && !slug.startsWith(`${domain}.`)) {
@@ -173,8 +158,6 @@ export class IntentRegistry {
         [...this._map.keys()].join(', '),
     )
   }
-
-  // ─── Public surface ───────────────────────────────────────────────────────────
 
   /**
    * Returns a frozen snapshot of all registered intent descriptors.

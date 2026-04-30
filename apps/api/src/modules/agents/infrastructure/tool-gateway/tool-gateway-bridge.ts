@@ -1,16 +1,16 @@
 /**
- * tool-gateway-bridge — Plan 17 PR 2 Task 4.
+ * tool-gateway-bridge
  *
  * Bridges `ToolGateway.invoke()` results onto Vercel AI SDK `tool({})`
  * semantics:
  *   - Hard tripwires (disposition === 'abort') throw `HardTripwireError` so the
- *     ReAct loop driver (Task 5) can short-circuit.
+ *     ReAct loop driver (`runReactLoop`) can short-circuit.
  *   - Soft tripwires (disposition === 'retry') return `{ error, message }` to
  *     the LLM so it can reason about the failure and retry on its own terms.
  *   - Successes return the gateway's `result` payload directly.
  *
  * Side-effects of each invocation are accumulated into a `BridgeAccumulator`
- * that the runner adapter (Task 6) consumes to build `SubAgentOutput` —
+ * that `SubAgentRunnerAdapter` consumes to build `SubAgentOutput` —
  * specifically `sourceToolProvenance`, `drafts`, and the rule-based confidence
  * signals (toolResultCount, toolFailureCount, taintFlippedDuringRun, ceilingHit).
  *
@@ -40,11 +40,9 @@ import type { ToolRegistry } from '../tool-registry/tool-registry'
 import type { AiSdkTool } from '../llm/sub-agent-llm-client'
 import { recordSubAgentToolFailure } from '../observability/sub-agent-metrics'
 
-// ─── Accumulator ──────────────────────────────────────────────────────────────
-
 /**
  * Mutable bag accumulated across every gateway-bridged tool call within a
- * single sub-agent's ReAct loop. The runner adapter (Task 6) reads this when
+ * single sub-agent's ReAct loop. `SubAgentRunnerAdapter` reads this when
  * the loop terminates to construct `SubAgentOutput` and the
  * `ConfidenceSignals` consumed by `deriveConfidence`.
  *
@@ -74,19 +72,20 @@ export interface BridgeAccumulator {
    * surfaced to the LLM during this run. Distinct from `toolFailureCount`
    * because confidence signals will eventually distinguish "LLM-visible
    * retry hint" from raw failures; for MVP they are incremented in lockstep
-   * via `toolFailureCount`. Kept here as a separate scalar so Task 6 can
-   * thread it into `ConfidenceSignals.retryCount` without re-deriving it.
+   * via `toolFailureCount`. Kept here as a separate scalar so the runner
+   * adapter can thread it into `ConfidenceSignals.retryCount` without
+   * re-deriving it.
    */
   retryCount: number
   taintFlippedDuringRun: boolean
   ceilingHit: boolean
-  /** Set externally by Task 6 after sibling outputs have been compared. */
+  /** Set externally by `SubAgentRunnerAdapter` after sibling outputs have been compared. */
   semanticConflictWithSibling: boolean
-  /** Set externally by Task 6 from `turnState.circuitBreaker` deltas. */
+  /** Set externally by `SubAgentRunnerAdapter` from `turnState.circuitBreaker` deltas. */
   circuitBreakerEventOccurred: boolean
   sourceToolProvenance: ToolCall[]
   drafts: DraftProposal[]
-  /** Populated externally by Task 6 from the final `turnState.circuitBreaker`. */
+  /** Populated externally by `SubAgentRunnerAdapter` from the final `turnState.circuitBreaker`. */
   circuitBreakerState: Record<ToolName, { disabled: boolean; reason: string }>
 }
 
@@ -106,8 +105,6 @@ export function newAccumulator(): BridgeAccumulator {
   }
 }
 
-// ─── HardTripwireError ────────────────────────────────────────────────────────
-
 /**
  * Thrown by `execute()` when the gateway returns a tripwire with
  * `disposition === 'abort'`. The ReAct loop driver catches this and ends the
@@ -123,8 +120,6 @@ export class HardTripwireError extends Error {
   }
 }
 
-// ─── Classifier ───────────────────────────────────────────────────────────────
-
 /**
  * Hard = abort. Soft = retry. There are exactly two dispositions
  * (`TripwireDisposition`); `disposition === 'abort'` is sufficient.
@@ -136,8 +131,6 @@ export class HardTripwireError extends Error {
 export function isHardTripwire(result: ToolGatewayResult): boolean {
   return result.kind === 'tripwire' && result.disposition === 'abort'
 }
-
-// ─── buildSubAgentTools ───────────────────────────────────────────────────────
 
 export interface BuildSubAgentToolsOpts {
   readonly toolScope: ReadonlyArray<ToolName>

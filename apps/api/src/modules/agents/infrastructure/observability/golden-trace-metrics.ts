@@ -16,7 +16,7 @@
  *
  * Label cardinality: result has 3 values; tool_name is bounded by the registered
  * tool catalog; trace_id is high-cardinality but bounded per CI run (<= one per
- * golden trace). No tenant_id / user_id labels (R-05.30).
+ * golden trace). No tenant_id / user_id labels.
  */
 import { metrics } from '@opentelemetry/api'
 import type { Counter } from '@opentelemetry/api'

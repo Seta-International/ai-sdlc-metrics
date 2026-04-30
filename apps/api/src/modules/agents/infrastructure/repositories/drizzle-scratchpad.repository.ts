@@ -20,9 +20,9 @@ export interface ScratchpadWriteOpts {
  *
  * write() validates the field against the caller-supplied allowedFields (the
  * sub-agent's registry-pinned list). Unknown fields are rejected before any DB
- * interaction (R-04.31). Every successful write emits kernel audit event
- * `agent.scratchpad_written` carrying `{ sub_agent_key, field, tainted, trace_id }` (R-04.33).
- * The taint flag is stored alongside the value and returned on read() (R-04.32).
+ * interaction. Every successful write emits kernel audit event
+ * `agent.scratchpad_written` carrying `{ sub_agent_key, field, tainted, trace_id }`.
+ * The taint flag is stored alongside the value and returned on read().
  *
  * GDPR path: deleteForUser() hard-deletes all scratchpad entries for the user.
  */
