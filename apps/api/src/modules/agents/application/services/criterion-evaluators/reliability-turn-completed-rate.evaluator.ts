@@ -23,6 +23,10 @@ export class ReliabilityTurnCompletedRateEvaluator implements CriterionEvaluator
   constructor(@Inject(METRICS_QUERY_PORT) private readonly metrics: MetricsQueryPort) {}
 
   async evaluate(window: EvalWindow): Promise<CriterionResult> {
+    if (!this.metrics.isEnabled()) {
+      return { observedValue: 'unknown', threshold, passed: false, unableToEvaluate: true }
+    }
+
     const completed = await this.metrics.sumCounter({
       metricName: 'agent_turn_total',
       labels: { reason: 'completed' },

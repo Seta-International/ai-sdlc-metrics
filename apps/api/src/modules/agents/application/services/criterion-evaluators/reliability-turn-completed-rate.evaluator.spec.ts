@@ -8,6 +8,7 @@ const WINDOW: EvalWindow = { start: new Date('2026-03-26'), end: new Date('2026-
 function buildMetrics(responses: (number | null)[]): MetricsQueryPort {
   let callIdx = 0
   return {
+    isEnabled: vi.fn().mockReturnValue(true),
     sumCounter: vi.fn().mockImplementation(() => Promise.resolve(responses[callIdx++])),
   }
 }
@@ -67,6 +68,20 @@ describe('ReliabilityTurnCompletedRateEvaluator', () => {
     expect(result.passed).toBe(true)
     expect(result.observedValue).toBe('1.0')
     expect(result.unableToEvaluate).toBeUndefined()
+  })
+
+  it('returns unableToEvaluate when port is disabled and does not invoke sumCounter', async () => {
+    const metrics: MetricsQueryPort = {
+      isEnabled: vi.fn().mockReturnValue(false),
+      sumCounter: vi.fn(),
+    }
+    const evaluator = new ReliabilityTurnCompletedRateEvaluator(metrics)
+
+    const result = await evaluator.evaluate(WINDOW)
+
+    expect(result.passed).toBe(false)
+    expect(result.unableToEvaluate).toBe(true)
+    expect(metrics.sumCounter).not.toHaveBeenCalled()
   })
 
   it('has the correct id and section', () => {
