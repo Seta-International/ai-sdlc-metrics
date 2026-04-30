@@ -12,8 +12,6 @@ import {
 } from '../../domain/repositories/canary-query.repository'
 import type { ModelTier } from '../../domain/scorer-types'
 
-// ─── Row → domain mapper ──────────────────────────────────────────────────────
-
 type AgentCanaryQueryRow = typeof agentCanaryQuery.$inferSelect
 
 function toDomain(row: AgentCanaryQueryRow): CanaryQueryEntity {
@@ -28,8 +26,6 @@ function toDomain(row: AgentCanaryQueryRow): CanaryQueryEntity {
     status: row.status as CanaryQueryStatus,
   }
 }
-
-// ─── Repository ───────────────────────────────────────────────────────────────
 
 @Injectable()
 export class DrizzleCanaryQueryRepository implements CanaryQueryRepository {

@@ -1,20 +1,15 @@
 /**
- * RouterLlmClient — Plan 02 Task 9, Part C (Plan §5 "Router LLM call")
- *
  * Thin wrapper around Vercel AI SDK's `generateObject` that:
  *   1. Accepts a resolved `ModelChoice` + assembled prompt messages.
  *   2. Calls `generateObject` with `RouterPlanSchema` as the Zod schema.
  *   3. Returns either the validated RouterPlan or a `malformed` error so that
- *      the orchestrator (T10) can route to `RouterDecisionParser.parseRaw()`
- *      for retry semantics.
+ *      the orchestrator can route to `RouterDecisionParser.parseRaw()` for
+ *      retry semantics.
  *
- * Design decision — model resolution:
- *   The wrapper receives a CONCRETE `ModelChoice` (already resolved by T5's
- *   `SubAgentRegistry.resolveForSession`). It does NOT evaluate function-valued
- *   models. Keeping model resolution outside this wrapper ensures the orchestrator
- *   controls tenancy and model selection.
- *
- * The `ROUTER_LLM_CLIENT` DI token is exported for injection into T10 orchestrator.
+ * Model resolution: the wrapper receives a CONCRETE `ModelChoice` (already
+ * resolved by `SubAgentRegistry.resolveForSession`). It does NOT evaluate
+ * function-valued models. Keeping model resolution outside this wrapper
+ * ensures the orchestrator controls tenancy and model selection.
  */
 
 // OPENAI_API_KEY sourcing contract:
@@ -35,11 +30,7 @@ import type { RouterPlan } from '../../domain/value-objects/router-plan-schema'
 import type { ModelChoice } from '../../domain/services/sub-agent-types'
 import { ROUTER_LLM_TIMEOUT_MS } from '../../application/services/router-budget'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const ROUTER_LLM_CLIENT = Symbol('ROUTER_LLM_CLIENT')
-
-// ─── Input type ───────────────────────────────────────────────────────────────
 
 export interface RouterLlmClientOpts {
   /** Concrete model choice, already resolved by T5's resolveForSession. */
@@ -51,8 +42,6 @@ export interface RouterLlmClientOpts {
   /** The raw user utterance. */
   readonly userMessage: string
 }
-
-// ─── Result type ──────────────────────────────────────────────────────────────
 
 /**
  * LLM token usage, mapped from Vercel AI SDK v6's `LanguageModelUsage`
@@ -69,8 +58,6 @@ export interface RouterLlmUsage {
 export type RouterLlmResult =
   | { kind: 'ok'; plan: RouterPlan; usage: RouterLlmUsage }
   | { kind: 'malformed'; error: Error; rawText: string | null }
-
-// ─── RouterLlmClient ─────────────────────────────────────────────────────────
 
 @Injectable()
 export class RouterLlmClient implements OnModuleInit {
@@ -177,8 +164,6 @@ export class RouterLlmClient implements OnModuleInit {
     }
   }
 
-  // ─── Private helpers ────────────────────────────────────────────────────────
-
   /**
    * Resolves the `ModelChoice` to a Vercel AI SDK `LanguageModel`.
    *
@@ -187,7 +172,7 @@ export class RouterLlmClient implements OnModuleInit {
    * default — no explicit key passing required here.
    *
    * Adding a new provider (e.g. 'anthropic') requires adding a new branch
-   * and the corresponding `@ai-sdk/anthropic` package (Plan 12 scope).
+   * and the corresponding `@ai-sdk/anthropic` package.
    */
   private _resolveModel(modelChoice: ModelChoice) {
     switch (modelChoice.provider) {
@@ -200,10 +185,10 @@ export class RouterLlmClient implements OnModuleInit {
         return openaiClient(modelChoice.model)
       }
       case 'anthropic': {
-        // Anthropic provider support is deferred to Plan 12.
+        // Anthropic provider support is deferred.
         throw new Error(
           `RouterLlmClient: provider "anthropic" is not yet supported. ` +
-            `Add @ai-sdk/anthropic and wire it here when Plan 12 ships.`,
+            `Add @ai-sdk/anthropic and wire it here.`,
         )
       }
       default: {

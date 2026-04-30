@@ -40,8 +40,6 @@ import type { ToolRegistry } from '../tool-registry/tool-registry'
 import type { AiSdkTool } from '../llm/sub-agent-llm-client'
 import { recordSubAgentToolFailure } from '../observability/sub-agent-metrics'
 
-// ─── Accumulator ──────────────────────────────────────────────────────────────
-
 /**
  * Mutable bag accumulated across every gateway-bridged tool call within a
  * single sub-agent's ReAct loop. The runner adapter (Task 6) reads this when
@@ -106,8 +104,6 @@ export function newAccumulator(): BridgeAccumulator {
   }
 }
 
-// ─── HardTripwireError ────────────────────────────────────────────────────────
-
 /**
  * Thrown by `execute()` when the gateway returns a tripwire with
  * `disposition === 'abort'`. The ReAct loop driver catches this and ends the
@@ -123,8 +119,6 @@ export class HardTripwireError extends Error {
   }
 }
 
-// ─── Classifier ───────────────────────────────────────────────────────────────
-
 /**
  * Hard = abort. Soft = retry. There are exactly two dispositions
  * (`TripwireDisposition`); `disposition === 'abort'` is sufficient.
@@ -136,8 +130,6 @@ export class HardTripwireError extends Error {
 export function isHardTripwire(result: ToolGatewayResult): boolean {
   return result.kind === 'tripwire' && result.disposition === 'abort'
 }
-
-// ─── buildSubAgentTools ───────────────────────────────────────────────────────
 
 export interface BuildSubAgentToolsOpts {
   readonly toolScope: ReadonlyArray<ToolName>

@@ -25,8 +25,6 @@ import {
   type BatchObservableResult,
 } from '@opentelemetry/api'
 
-// ─── Instrument interface ──────────────────────────────────────────────────────
-
 interface ObservabilityInstruments {
   /** agent_sampling_decision_total{capture, reason} */
   samplingDecisionTotal: Counter
@@ -42,14 +40,10 @@ interface ObservabilityInstruments {
   tenantTraceQuotaUsed: ObservableGauge
 }
 
-// ─── Module-level state ────────────────────────────────────────────────────────
-
 /** Per-tenant quota fraction (0.0–1.0) reported by setTenantTraceQuotaUsed. */
 const _tenantQuotaMap = new Map<string, number>()
 
 let _instruments: ObservabilityInstruments | undefined
-
-// ─── Lazy instrument cache ─────────────────────────────────────────────────────
 
 function getInstruments(): ObservabilityInstruments {
   if (_instruments) return _instruments
@@ -107,8 +101,6 @@ function getInstruments(): ObservabilityInstruments {
   return _instruments
 }
 
-// ─── Test-only reset ───────────────────────────────────────────────────────────
-
 /**
  * @internal — test-only. Clears the cached instrument instances and the quota
  * Map so the next helper call re-acquires a fresh meter from the currently
@@ -118,8 +110,6 @@ export function __INTERNAL_resetInstruments(): void {
   _instruments = undefined
   _tenantQuotaMap.clear()
 }
-
-// ─── Helper functions ──────────────────────────────────────────────────────────
 
 /**
  * Records a turn sampling decision.
@@ -161,7 +151,7 @@ export function recordTraceAuditJoinMiss(): void {
  *   'clean'        — scan ran and found no leak (requires a deployed trace backend).
  *   'leak_detected' — scan found a cross-tenant span; P0 incident; read plane disabled.
  *   'deferred'     — scan is formally deferred until the trace backend is deployed
- *                    (Plan 07 §1 out-of-scope). Emitting 'deferred' keeps the gap
+ *. Emitting 'deferred' keeps the gap
  *                    visible in dashboards rather than silently reporting 'clean'.
  */
 export function recordLeakCanary(result: 'clean' | 'leak_detected' | 'deferred'): void {

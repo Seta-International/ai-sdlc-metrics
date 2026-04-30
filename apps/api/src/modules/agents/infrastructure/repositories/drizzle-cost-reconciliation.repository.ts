@@ -1,5 +1,5 @@
 /**
- * drizzle-cost-reconciliation.repository.ts — Plan 13 Task 2
+ * drizzle-cost-reconciliation.repository.ts
  *
  * Drizzle-backed implementation of CostReconciliationRepository.
  *
@@ -18,8 +18,6 @@ import {
   type CostReconciliationEntity,
 } from '../../domain/repositories/cost-reconciliation.repository'
 
-// ─── Row → domain mapper ──────────────────────────────────────────────────────
-
 type AgentCostReconciliationRow = typeof agentCostReconciliation.$inferSelect
 
 function toDomain(row: AgentCostReconciliationRow): CostReconciliationEntity {
@@ -34,8 +32,6 @@ function toDomain(row: AgentCostReconciliationRow): CostReconciliationEntity {
     computedAt: row.computedAt,
   }
 }
-
-// ─── Repository ───────────────────────────────────────────────────────────────
 
 @Injectable()
 export class DrizzleCostReconciliationRepository implements CostReconciliationRepository {

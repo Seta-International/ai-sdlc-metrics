@@ -36,13 +36,12 @@ export class CompositionMonitorWorker {
   async handle(job: PgBoss.Job<CompositionMonitorJobData>): Promise<void> {
     const { traceId, tenantId, userId, flowId } = job.data
     try {
-      // Step 1: Query all invocations for this trace (sequential — single pooled client).
+      // Query all invocations for this trace (sequential — single pooled client).
       const invocations = await this.db
         .select()
         .from(agentToolInvocations)
         .where(eq(agentToolInvocations.traceId, traceId))
 
-      // Step 2: Filter to composition-sensitive tools.
       const sensitiveToolNames = [...this.sensitiveTools]
       const sensitiveInvocations =
         sensitiveToolNames.length === 0
@@ -53,7 +52,7 @@ export class CompositionMonitorWorker {
         return
       }
 
-      // Step 3: Turn-level signal — ≥2 invocations with distinct subAgentKey values.
+      // Turn-level signal — ≥2 invocations with distinct subAgentKey values.
       const distinctSubAgentKeys = new Set(
         sensitiveInvocations.map((r) => r.subAgentKey).filter(Boolean),
       )
@@ -69,7 +68,7 @@ export class CompositionMonitorWorker {
         return
       }
 
-      // Step 4: Cross-turn rate signal — count recent sensitive invocations for tenant.
+      // Cross-turn rate signal — count recent sensitive invocations for tenant.
       const windowStart = new Date(Date.now() - 15 * 60 * 1000)
       const recentInvocations = await this.db
         .select()

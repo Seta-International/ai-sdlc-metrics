@@ -16,14 +16,10 @@ import {
 } from '../../application/services/shadow-turn-contracts'
 import { agentShadowRun } from '../schema/agents.schema'
 
-// ─── Re-exports for callers that import from this module ──────────────────────
-
 export {
   SHADOW_TURN_JOB_NAME,
   type ShadowTurnJob,
 } from '../../application/services/shadow-turn-contracts'
-
-// ─── ShadowTurnWorker ─────────────────────────────────────────────────────────
 
 /**
  * ShadowTurnWorker — Plan 11 Task 3 (Part B) — updated for R-11.1
@@ -106,7 +102,7 @@ export class ShadowTurnWorker implements OnApplicationBootstrap {
     } = job.data
 
     try {
-      // Step 1: Simulate candidate shadow execution via dry-run (R-11.1)
+      // Step 1: Simulate candidate shadow execution via dry-run
       const candidateOutput = await this.simulateShadowExecution({
         baselineOutput,
         tenantId,
@@ -146,7 +142,7 @@ export class ShadowTurnWorker implements OnApplicationBootstrap {
   }
 
   /**
-   * Simulates candidate shadow execution via dry-run (Plan 11 R-11.1).
+   * Simulates candidate shadow execution via dry-run.
    *
    * Calls each tool from the baseline output's toolCallNames via TrpcCaller with
    * mode:'dry-run'. TrpcCallerImpl wraps each call in a Postgres transaction that

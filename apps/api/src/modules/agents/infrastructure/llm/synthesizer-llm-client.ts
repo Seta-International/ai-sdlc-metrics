@@ -1,5 +1,5 @@
 /**
- * SynthesizerLlmClient — Plan 17 PR 3 Task 9 (Plan 18 §1 amendment).
+ * SynthesizerLlmClient — Plan 17 PR 3 Task 9.
  *
  * Wraps Vercel AI SDK `streamObject` for the synthesizer's discriminated-union
  * output (Task 8 — `SynthesizerOutputSchema`). Returns a streaming primitive
@@ -43,11 +43,7 @@ import type { SubAgentUsage } from '../../application/services/phase-executor-co
 import type { SynthesizerLlmOutput } from '../../domain/value-objects/synthesizer-output-schema'
 import { mapLanguageModelUsage, type LanguageModelUsageLike } from './usage'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const SYNTHESIZER_LLM_CLIENT = Symbol('SYNTHESIZER_LLM_CLIENT')
-
-// ─── Input + Result types ─────────────────────────────────────────────────────
 
 export interface SynthesizerLlmClientOpts {
   readonly model: ModelChoice
@@ -82,8 +78,6 @@ export interface SynthesizerLlmClient {
   synthesize(opts: SynthesizerLlmClientOpts): SynthesizerStreamResult
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function resolveModel(choice: ModelChoice) {
   switch (choice.provider) {
     case 'openai': {
@@ -104,8 +98,6 @@ function resolveModel(choice: ModelChoice) {
     }
   }
 }
-
-// ─── OpenAiSynthesizerLlmClient ───────────────────────────────────────────────
 
 @Injectable()
 export class OpenAiSynthesizerLlmClient implements SynthesizerLlmClient, OnModuleInit {

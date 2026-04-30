@@ -16,8 +16,6 @@
 import type { AgentToolMeta } from '../../../../common/trpc/agent-tool-meta'
 import { isZodObject, resolveRootSchema, hasSafeParse } from './zod-schema-utils'
 
-// ─── Internal tRPC shape types ────────────────────────────────────────────────
-
 interface ProcedureDef {
   type: 'query' | 'mutation' | 'subscription'
   meta?: {
@@ -40,8 +38,6 @@ interface RouterLike {
   _def: RouterDef
 }
 
-// ─── Violation shape ──────────────────────────────────────────────────────────
-
 export interface DriftViolation {
   /** Dot-path name of the offending tRPC procedure, e.g. `planner.task.getBoard`. */
   toolName: string
@@ -50,8 +46,6 @@ export interface DriftViolation {
   /** Human-readable description of the specific violation. */
   detail: string
 }
-
-// ─── Output-shape introspection ──────────────────────────────────────────────
 
 const AGGREGATE_KEYS = new Set([
   'average',
@@ -126,8 +120,6 @@ function isAggregateOutput(outputSchema: unknown): boolean {
     ([key, value]) => AGGREGATE_KEYS.has(key) && isZodNumber(resolveOutputSchema(value)),
   )
 }
-
-// ─── Walker ───────────────────────────────────────────────────────────────────
 
 /**
  * Walks every procedure in `router._def.procedures` that carries a

@@ -9,7 +9,7 @@
  *
  * For background on the lazy-init pattern, see gateway-metrics.ts.
  *
- * ── Instruments (Plan 06 §8) ──────────────────────────────────────────────────
+ * ── Instruments ──────────────────────────────────────────────────
  *
  * agent_turn_total{tenant_id, topology, reason}              counter
  *   Total turns started and concluded by reason.
@@ -32,11 +32,11 @@
  *   SSE writes that stall due to slow client (R-06 §7 backpressure).
  *
  * agent_turn_force_stopped_total{tenant_id, actor_role}      counter
- *   Non-self cancels. actor_role ∈ 'admin' | 'platform_admin' (R-06.2).
+ *   Non-self cancels. actor_role ∈ 'admin' | 'platform_admin'.
  *   Self-cancel excluded — only administrative force-stops are counted here.
  *
  * agent_active_turn_sweep_total{tenant_id, cause}            counter
- *   Plan 09 sweep of dead/orphaned active-turn rows (R-06.39).
+ *   Plan 09 sweep of dead/orphaned active-turn rows.
  *   cause ∈ 'heartbeat_expired' | 'pod_crash_detected'.
  *
  * agent_draft_persist_failure_total{tenant_id}               counter
@@ -54,8 +54,6 @@
  */
 
 import { metrics, ValueType, type Counter, type Histogram } from '@opentelemetry/api'
-
-// ─── Instrument interface ─────────────────────────────────────────────────────
 
 interface StreamingInstruments {
   /** agent_turn_total{tenant_id, topology, reason} */
@@ -82,8 +80,6 @@ interface StreamingInstruments {
 
 let _instruments: StreamingInstruments | undefined
 
-// ─── Lazy instrument cache ────────────────────────────────────────────────────
-
 function getInstruments(): StreamingInstruments {
   if (_instruments) return _instruments
 
@@ -91,63 +87,61 @@ function getInstruments(): StreamingInstruments {
 
   _instruments = {
     /**
-     * Counts turns concluded by end reason (Plan 06 §8).
+     * Counts turns concluded by end reason.
      * Labels: tenant_id, topology, reason.
      * topology ∈ 'bounded' | 'iterative'. reason = TurnEndReason.
-     * No user_id (R-05.30).
+     * No user_id.
      */
     turnTotal: meter.createCounter('agent_turn_total', {
       description:
-        'Total turns concluded per tenant, topology, and end reason (Plan 06 §8). ' +
-        'No user_id label (R-05.30).',
+        'Total turns concluded per tenant, topology, and end reason. ' + 'No user_id label.',
       valueType: ValueType.INT,
     }),
 
     /**
-     * Histogram of turn wall-time in ms (Plan 06 §8).
+     * Histogram of turn wall-time in ms.
      * Labels: tenant_id, reason.
      * unit: ms.
      */
     turnDurationMs: meter.createHistogram('agent_turn_duration_ms', {
-      description: 'Turn duration in ms per tenant and end reason (Plan 06 §8).',
+      description: 'Turn duration in ms per tenant and end reason.',
       unit: 'ms',
       valueType: ValueType.DOUBLE,
     }),
 
     /**
-     * Counts aborted turns (Plan 06 §8).
+     * Counts aborted turns.
      * Labels: tenant_id, source, reason.
      * source ∈ 'user' | 'timeout' | 'system'.
-     * No user_id (R-05.30).
+     * No user_id.
      */
     abortTotal: meter.createCounter('agent_abort_total', {
       description:
-        'Aborted turns per tenant, abort source, and cancellation reason (Plan 06 §8). ' +
-        'No user_id label (R-05.30).',
+        'Aborted turns per tenant, abort source, and cancellation reason. ' + 'No user_id label.',
       valueType: ValueType.INT,
     }),
 
     /**
-     * Counts SSE state-machine ordering violations (Plan 06 §8).
+     * Counts SSE state-machine ordering violations.
      * Labels: producer (identifies the emitting component).
      * P2 alert on any positive value in steady state.
      */
     orderingViolationTotal: meter.createCounter('agent_ordering_violation_total', {
       description:
-        'SSE state-machine ordering violations per producing component (Plan 06 §8). ' +
+        'SSE state-machine ordering violations per producing component. ' +
         'P2 alert on any positive value.',
       valueType: ValueType.INT,
     }),
 
     /**
-     * Counts identity-key write attempts at the RequestContextDiscipline layer (Plan 06 §8).
+     * Counts identity-key write attempts at the RequestContextDiscipline layer.
      * No labels — P1 alert on any positive value. High-cardinality info lives on traces.
      */
     identityKeyWriteAttemptedTotal: meter.createCounter(
       'agent_identity_key_write_attempted_total',
       {
         description:
-          'Identity-key write attempts caught by RequestContextDiscipline (Plan 06 §8, R-06.37). ' +
+          'Identity-key write attempts caught by RequestContextDiscipline. ' +
           'No labels — P1 alert on any positive value. ' +
           'Per-attempt detail lives on the security audit trace.',
         valueType: ValueType.INT,
@@ -155,49 +149,49 @@ function getInstruments(): StreamingInstruments {
     ),
 
     /**
-     * Counts SSE write backpressure events (Plan 06 §8, §7 backpressure).
+     * Counts SSE write backpressure events.
      * Labels: tenant_id.
      */
     sseBackpressureTotal: meter.createCounter('agent_sse_backpressure_total', {
-      description: 'SSE write events throttled by client backpressure per tenant (Plan 06 §8, §7).',
+      description: 'SSE write events throttled by client backpressure per tenant.',
       valueType: ValueType.INT,
     }),
 
     /**
-     * Counts administrative force-stops (Plan 06 §8, R-06.2).
+     * Counts administrative force-stops.
      * Labels: tenant_id, actor_role.
      * actor_role ∈ 'admin' | 'platform_admin'. Self-cancel is excluded.
      * Trends inform force-stop UX tuning.
      */
     turnForceStoppedTotal: meter.createCounter('agent_turn_force_stopped_total', {
       description:
-        'Administrative force-stop events per tenant and actor role (Plan 06 §8, R-06.2). ' +
+        'Administrative force-stop events per tenant and actor role. ' +
         'Self-cancels excluded. actor_role ∈ {admin, platform_admin}.',
       valueType: ValueType.INT,
     }),
 
     /**
-     * Counts Plan 09 active-turn sweep events (Plan 06 §8, R-06.39).
+     * Counts Plan 09 active-turn sweep events.
      * Labels: tenant_id, cause.
      * cause ∈ 'heartbeat_expired' | 'pod_crash_detected'.
      * P2 alert on sustained positive rate (indicates pod instability).
      */
     activeTurnSweepTotal: meter.createCounter('agent_active_turn_sweep_total', {
       description:
-        'Active-turn registry sweep events per tenant and cause (Plan 06 §8, R-06.39). ' +
+        'Active-turn registry sweep events per tenant and cause. ' +
         'cause ∈ {heartbeat_expired, pod_crash_detected}. ' +
         'P2 alert on sustained positive rate.',
       valueType: ValueType.INT,
     }),
 
     /**
-     * Counts draft persist failures that trigger R-06.14a fallback path (Plan 06 §8).
+     * Counts draft persist failures that trigger R-06.14a fallback path.
      * Labels: tenant_id.
      * Non-zero ⇒ P2 alert.
      */
     draftPersistFailureTotal: meter.createCounter('agent_draft_persist_failure_total', {
       description:
-        'Draft DB write failures that invoked the R-06.14a fallback path per tenant (Plan 06 §8). ' +
+        'Draft DB write failures that invoked the R-06.14a fallback path per tenant. ' +
         'Non-zero triggers P2 alert.',
       valueType: ValueType.INT,
     }),
@@ -210,7 +204,7 @@ function getInstruments(): StreamingInstruments {
      */
     progressEventTotal: meter.createCounter('agent_progress_event_total', {
       description:
-        'Progress events emitted per tenant and cause (Plan 06 §8, R-06.35a). ' +
+        'Progress events emitted per tenant and cause. ' +
         'cause ∈ {vendor_retry, fallback, long_tool}.',
       valueType: ValueType.INT,
     }),
@@ -218,8 +212,6 @@ function getInstruments(): StreamingInstruments {
 
   return _instruments
 }
-
-// ─── Test-only reset ──────────────────────────────────────────────────────────
 
 /**
  * @internal — test-only. Clears the cached instrument instances so the next
@@ -230,13 +222,11 @@ export function __INTERNAL_resetInstruments(): void {
   _instruments = undefined
 }
 
-// ─── Helper functions ─────────────────────────────────────────────────────────
-
 /**
- * Record a concluded turn (Plan 06 §8).
+ * Record a concluded turn.
  * Call once per turn at StreamEmitter.close or StreamEmitter.error.
  *
- * Labels: tenant_id, topology, reason. No user_id (R-05.30).
+ * Labels: tenant_id, topology, reason. No user_id.
  */
 export function recordTurnTotal(
   tenantId: string,
@@ -247,7 +237,7 @@ export function recordTurnTotal(
 }
 
 /**
- * Record turn wall-time (Plan 06 §8).
+ * Record turn wall-time.
  * Call once per turn at StreamEmitter.close or StreamEmitter.error.
  *
  * Labels: tenant_id, reason.
@@ -258,11 +248,11 @@ export function recordTurnDuration(tenantId: string, reason: string, durationMs:
 }
 
 /**
- * Record an aborted turn (Plan 06 §8).
+ * Record an aborted turn.
  * Call when AbortCoordinator.captureReason returns a non-undefined reason.
  *
  * Labels: tenant_id, source, reason.
- * source ∈ 'user' | 'timeout' | 'system'. No user_id (R-05.30).
+ * source ∈ 'user' | 'timeout' | 'system'. No user_id.
  */
 export function recordAbortTotal(
   tenantId: string,
@@ -273,7 +263,7 @@ export function recordAbortTotal(
 }
 
 /**
- * Record an SSE state-machine ordering violation (Plan 06 §8).
+ * Record an SSE state-machine ordering violation.
  * Call inside nextState() when an invalid transition is detected.
  * producer identifies the component that emitted the out-of-order event.
  *
@@ -284,7 +274,7 @@ export function recordOrderingViolation(producer: string): void {
 }
 
 /**
- * Record an identity-key write attempt caught by RequestContextDiscipline (Plan 06 §8, R-06.37).
+ * Record an identity-key write attempt caught by RequestContextDiscipline.
  * Call from RequestContextDiscipline.set when an identity key is detected.
  *
  * No labels — P1 alert on any positive value.
@@ -294,7 +284,7 @@ export function recordIdentityKeyWriteAttempted(): void {
 }
 
 /**
- * Record an SSE write backpressure event (Plan 06 §8, §7).
+ * Record an SSE write backpressure event.
  * Call when the Fastify write queue saturates for a given tenant's SSE response.
  *
  * Labels: tenant_id.
@@ -304,7 +294,7 @@ export function recordSseBackpressure(tenantId: string): void {
 }
 
 /**
- * Record an administrative force-stop (Plan 06 §8, R-06.2).
+ * Record an administrative force-stop.
  * Call in AgentCancelController after a successful non-self cancel.
  * Self-cancels are excluded — only admin/platform-admin force-stops here.
  *
@@ -318,7 +308,7 @@ export function recordTurnForceStopped(
 }
 
 /**
- * Record a Plan 09 active-turn sweep event (Plan 06 §8, R-06.39).
+ * Record a Plan 09 active-turn sweep event.
  * Call in the sweep job when a stale row is cleaned up.
  *
  * Labels: tenant_id, cause. cause ∈ 'heartbeat_expired' | 'pod_crash_detected'.
@@ -331,7 +321,7 @@ export function recordActiveTurnSweep(
 }
 
 /**
- * Record a draft persist failure (Plan 06 §8, R-06.14a).
+ * Record a draft persist failure.
  * Call in the catch block of the approval-inbox insert inside the turn handler.
  * Non-zero triggers a P2 alert.
  *
@@ -342,7 +332,7 @@ export function recordDraftPersistFailure(tenantId: string): void {
 }
 
 /**
- * Record a progress event emitted to the SSE stream (Plan 06 §8, R-06.35a).
+ * Record a progress event emitted to the SSE stream.
  * Call whenever StreamEmitter.emit({ type: 'progress' }) is called.
  *
  * Labels: tenant_id, cause. cause ∈ 'vendor_retry' | 'fallback' | 'long_tool'.
