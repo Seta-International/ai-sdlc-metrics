@@ -117,6 +117,7 @@ import {
   OpenAiSynthesizerLlmClient,
   SYNTHESIZER_LLM_CLIENT,
 } from './infrastructure/llm/synthesizer-llm-client'
+import { DisabledSummarizerAiClient } from './infrastructure/llm/disabled-summarizer-client'
 import { getAppRouter } from '../../common/trpc/app-router'
 import { SubAgentRegistry, SUB_AGENT_REGISTRY } from './infrastructure/registry/sub-agent-registry'
 import { IntentRegistry, INTENT_REGISTRY } from './infrastructure/registry/intents/intent-registry'
@@ -446,7 +447,7 @@ class NullTenantLister implements TenantListerLike {
       inject: [CONVERSATION_MESSAGE_REPOSITORY],
       useFactory: (msgRepo: ConversationMessageRepository) => new WindowBuilder(msgRepo),
     },
-    // AiClient stub: no-op until summarization activates.
+    // AiClient: disabled adapter — throws on invocation until Phase-4 wires the real client.
     {
       provide: SUMMARIZER,
       inject: [PgBossService, CONVERSATION_REPOSITORY, CONVERSATION_MESSAGE_REPOSITORY],
@@ -454,7 +455,7 @@ class NullTenantLister implements TenantListerLike {
         pgBoss: PgBossService,
         convRepo: ConversationRepository,
         msgRepo: ConversationMessageRepository,
-      ) => new Summarizer(pgBoss, { generateText: async () => '' }, convRepo, msgRepo),
+      ) => new Summarizer(pgBoss, new DisabledSummarizerAiClient(), convRepo, msgRepo),
     },
     {
       provide: GDPR_ERASURE_PIPELINE,
