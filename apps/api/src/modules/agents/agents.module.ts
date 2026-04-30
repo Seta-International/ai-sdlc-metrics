@@ -139,10 +139,7 @@ import { L3PreferenceService } from './application/services/l3-preferences'
 import { WindowBuilder } from './application/services/window-builder'
 import { Summarizer } from './application/services/summarizer'
 import { GDPRErasurePipeline } from './application/services/gdpr-erasure'
-import {
-  ConversationRetentionScheduler,
-  type TenantListerLike,
-} from './application/services/conversation-retention-scheduler'
+import { ConversationRetentionScheduler } from './application/services/conversation-retention-scheduler'
 import {
   CompositionMonitorWorker,
   type CompositionMonitorJobData,
@@ -154,6 +151,7 @@ import { ObservabilityContextFactory } from './application/services/observabilit
 import { FlowIdPropagation } from './application/services/flow-id-propagation'
 import { PricingResolver } from './infrastructure/pricing/pricing-resolver'
 import { OpenAiUsageExtractor } from './infrastructure/adapters/openai-usage-extractor'
+import { KernelTenantLister } from './infrastructure/adapters/kernel-tenant-lister'
 import { CostRecorder } from './application/services/cost-recorder'
 import { BudgetChecker } from './application/services/budget-checker'
 import { RateLimiter } from './application/services/rate-limiter'
@@ -315,12 +313,6 @@ export const SUMMARIZER = Symbol('SUMMARIZER')
 export const GDPR_ERASURE_PIPELINE = Symbol('GDPR_ERASURE_PIPELINE')
 export const CONVERSATION_RETENTION_SCHEDULER = Symbol('CONVERSATION_RETENTION_SCHEDULER')
 
-class NullTenantLister implements TenantListerLike {
-  async listActiveTenantIds(): Promise<string[]> {
-    return []
-  }
-}
-
 @Module({
   imports: [
     KernelModule,
@@ -475,11 +467,15 @@ class NullTenantLister implements TenantListerLike {
       ) => new GDPRErasurePipeline(msgRepo, l3Repo, scratchpadRepo, semanticIndex, kernelAudit),
     },
     // ConversationRetentionScheduler: plain class — daily pg-boss cron for 90-day archive
+    KernelTenantLister,
     {
       provide: CONVERSATION_RETENTION_SCHEDULER,
-      inject: [PgBossService, CONVERSATION_REPOSITORY],
-      useFactory: (pgBoss: PgBossService, convRepo: ConversationRepository) =>
-        new ConversationRetentionScheduler(pgBoss, convRepo, new NullTenantLister()),
+      inject: [PgBossService, CONVERSATION_REPOSITORY, KernelTenantLister],
+      useFactory: (
+        pgBoss: PgBossService,
+        convRepo: ConversationRepository,
+        tenantLister: KernelTenantLister,
+      ) => new ConversationRetentionScheduler(pgBoss, convRepo, tenantLister),
     },
     CompositionMonitorWorker,
     ObservabilityContextFactory,
