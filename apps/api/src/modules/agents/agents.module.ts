@@ -8,7 +8,6 @@ import { AgentTurnController } from './interface/http/agent-turn-controller'
 import { AgentCancelController } from './interface/http/agent-cancel-controller'
 import { JwtService } from '../../common/auth/jwt.service'
 import { JWT_SERVICE } from '../../common/auth/auth.module'
-import { AgentsQueryFacade } from './application/facades/agents-query.facade'
 import { AgentPermissionService } from './application/services/agent-permission.service'
 import { AgentToolExecutor } from './application/services/agent-tool-executor'
 import { McpAuthGuard } from './infrastructure/guards/mcp-auth.guard'
@@ -346,7 +345,6 @@ export const CONVERSATION_RETENTION_SCHEDULER = Symbol('CONVERSATION_RETENTION_S
     DismissInsightHandler,
     ListSessionsHandler,
     ListInsightsHandler,
-    AgentsQueryFacade,
     AgentPermissionService,
     AgentToolExecutor,
     McpAuthGuard,
@@ -709,7 +707,6 @@ export const CONVERSATION_RETENTION_SCHEDULER = Symbol('CONVERSATION_RETENTION_S
     FlowCorrelationWorker,
   ],
   exports: [
-    AgentsQueryFacade,
     SUB_AGENT_REGISTRY,
     INTENT_REGISTRY,
     PERMISSION_NARRATIVE_BUILDER,
