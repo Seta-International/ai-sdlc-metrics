@@ -174,10 +174,16 @@ describe('CanaryQueryRotator.rotateQuarterly()', () => {
     )
   })
 
-  it('4a. ingestFromProduction() returns empty array at MVP', () => {
+  it('4a. isIngestFromProductionEnabled() returns false until the Beta pipeline ships', () => {
     const { rotator } = makeRotator()
-    const result = rotator.ingestFromProduction([{ trace: 'some-trace' }])
-    expect(result).toEqual([])
+    expect(rotator.isIngestFromProductionEnabled()).toBe(false)
+  })
+
+  it('4b. ingestFromProduction() throws when invoked while disabled', () => {
+    const { rotator } = makeRotator()
+    expect(() => rotator.ingestFromProduction([{ trace: 'some-trace' }])).toThrow(
+      /disabled — Beta-phase pipeline/,
+    )
   })
 
   it('4. returns correct { retired, ingested, newQuarter }', async () => {
