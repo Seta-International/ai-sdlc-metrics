@@ -1,5 +1,5 @@
 /**
- * regression-signal-monitor.ts — Plan 11 Task 5
+ * regression-signal-monitor.ts
  *
  * Evaluates regression signals over a rolling window for an active rollout config.
  * Used by AutoRollbackOrchestrator to decide whether to trigger an automatic rollback.
@@ -13,8 +13,6 @@ import { and, count, eq, gte } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { agentRolloutConfig, agentShadowRun } from '../../infrastructure/schema/agents.schema'
-
-// ─── Public interfaces ────────────────────────────────────────────────────────
 
 export interface SignalResult {
   signal: string
@@ -33,8 +31,6 @@ export interface EvaluateOpts {
   windowMs: number
 }
 
-// ─── RegressionSignalMonitor ──────────────────────────────────────────────────
-
 @Injectable()
 export class RegressionSignalMonitor {
   constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
@@ -49,14 +45,12 @@ export class RegressionSignalMonitor {
    * All DB queries are awaited sequentially (single pg.PoolClient per request).
    */
   async evaluate(opts: EvaluateOpts): Promise<EvaluateResult> {
-    // Step 1: Query rollout config
     const [config] = await this.db
       .select()
       .from(agentRolloutConfig)
       .where(eq(agentRolloutConfig.id, opts.rolloutConfigId))
       .limit(1)
 
-    // Step 2: Guard — inactive or missing config
     if (!config || config.status !== 'active') {
       return { tripped: false, trippedSignals: [] }
     }
@@ -64,7 +58,6 @@ export class RegressionSignalMonitor {
     const thresholds = config.regressionThresholds
     const windowStart = new Date(Date.now() - opts.windowMs)
 
-    // Step 3: Count total shadow runs in window
     const totalRows = await this.db
       .select({ count: count() })
       .from(agentShadowRun)
@@ -78,7 +71,6 @@ export class RegressionSignalMonitor {
 
     const totalCount = Number(totalRows[0]?.count ?? 0)
 
-    // Step 4: Count shadow_errored runs in window
     const errorRows = await this.db
       .select({ count: count() })
       .from(agentShadowRun)
@@ -93,7 +85,6 @@ export class RegressionSignalMonitor {
 
     const errorCount = Number(errorRows[0]?.count ?? 0)
 
-    // Step 5: Compute signals
     const observedErrorRate = totalCount === 0 ? 0 : errorCount / totalCount
 
     const signals: SignalResult[] = [
@@ -120,7 +111,6 @@ export class RegressionSignalMonitor {
       },
     ]
 
-    // Step 6: Collect tripped signals (observed > threshold)
     const trippedSignals = signals.filter((s) => s.observed > s.threshold)
 
     return {
