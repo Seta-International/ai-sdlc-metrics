@@ -725,16 +725,6 @@ class NullTenantLister implements TenantListerLike {
     TOOL_RETRIEVER,
     WHEN_TO_USE_COLLISION_LINTER,
     RETRIEVAL_QUALITY_SCORER,
-    CONVERSATION_REPOSITORY,
-    CONVERSATION_MESSAGE_REPOSITORY,
-    L3_PREFERENCE_REPOSITORY,
-    SCRATCHPAD_REPOSITORY,
-    SEMANTIC_INDEX_REPOSITORY,
-    SaveQueue,
-    L3PreferenceService,
-    WINDOW_BUILDER,
-    SUMMARIZER,
-    GDPR_ERASURE_PIPELINE,
   ],
 })
 export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
