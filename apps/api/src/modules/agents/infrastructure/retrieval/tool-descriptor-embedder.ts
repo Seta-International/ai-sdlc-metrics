@@ -185,7 +185,8 @@ export class ToolDescriptorEmbedder implements OnModuleInit {
     await this.db.insert(agentToolEmbeddings).values(newRows).onConflictDoNothing()
 
     // Emit one audit log per newly inserted row (audit loop, not a DB loop).
-    // TODO plan 07: replace with KernelAuditFacade.emit('agent.tool_descriptor_embedded')
+    // DEFERRED: replace with KernelAuditFacade.emit('agent.tool_descriptor_embedded')
+    // once Plan 07 exposes the audit emit surface.
     for (const row of newRows) {
       this.logger.log(
         `audit:agent.tool_descriptor_embedded toolName=${row.toolName} contentHash=${row.contentHash}`,

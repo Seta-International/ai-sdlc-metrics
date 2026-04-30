@@ -950,7 +950,7 @@ export class ToolGateway implements ToolGatewayPort {
       'audit-emit',
       {
         result_status: 'success',
-        // TODO-plan-07: audit_row_id will be available once plan 07 exposes the
+        // DEFERRED: audit_row_id will be available once Plan 07 exposes the
         // audit record ID via KernelAuditFacade. Until then, set to null.
         audit_row_id: undefined,
       },
@@ -1060,7 +1060,7 @@ export class ToolGateway implements ToolGatewayPort {
       'audit-emit',
       {
         result_status: auditStatus,
-        // TODO-plan-07: audit_row_id will be available once plan 07 exposes the
+        // DEFERRED: audit_row_id will be available once Plan 07 exposes the
         // audit record ID via KernelAuditFacade. Until then, set to null.
         audit_row_id: undefined,
       },
