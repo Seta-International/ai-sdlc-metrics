@@ -1,5 +1,5 @@
 /**
- * unclassified — tenant-neutral fallback intent (R-02.29).
+ * unclassified — tenant-neutral fallback intent.
  *
  * This is the explicit "unclassified" bucket: the router emits this slug
  * when no other intent matches the user's utterance. It is the only intent

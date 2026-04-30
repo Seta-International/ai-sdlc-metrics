@@ -40,14 +40,14 @@
  *   cause ∈ 'heartbeat_expired' | 'pod_crash_detected'.
  *
  * agent_draft_persist_failure_total{tenant_id}               counter
- *   Draft DB write failures that trigger the R-06.14a fallback path.
+ *   Draft DB write failures that trigger the fallback path.
  *   Non-zero ⇒ P2 alert.
  *
  * agent_progress_event_total{tenant_id, cause}               counter
- *   Progress events emitted per R-06.35a (≥500ms retry/fallback visibility).
+ *   Progress events emitted for retry/fallback visibility (≥500ms).
  *   cause ∈ 'vendor_retry' | 'fallback' | 'long_tool'.
  *
- * ── Label cardinality guardrail (R-05.30 / R-05.31) ─────────────────────────
+ * ── Label cardinality guardrail ─────────────────────────────────────────────
  *
  * BLOCKED_LABELS = [user_id, conversation_id, trace_id, delegation_id, schedule_id]
  * None of the above labels appear on any instrument defined here.
@@ -185,22 +185,22 @@ function getInstruments(): StreamingInstruments {
     }),
 
     /**
-     * Counts draft persist failures that trigger R-06.14a fallback path.
+     * Counts draft persist failures that trigger the fallback path.
      * Labels: tenant_id.
      * Non-zero ⇒ P2 alert.
      */
     draftPersistFailureTotal: meter.createCounter('agent_draft_persist_failure_total', {
       description:
-        'Draft DB write failures that invoked the R-06.14a fallback path per tenant. ' +
+        'Draft DB write failures that invoked the fallback path per tenant. ' +
         'Non-zero triggers P2 alert.',
       valueType: ValueType.INT,
     }),
 
     /**
-     * Counts progress events emitted under R-06.35a (≥500ms retry/fallback visibility).
+     * Counts progress events emitted for retry/fallback visibility (≥500ms).
      * Labels: tenant_id, cause.
      * cause ∈ 'vendor_retry' | 'fallback' | 'long_tool'.
-     * Lets dashboards quantify perceived-latency events driven by R-06.35a.
+     * Lets dashboards quantify perceived-latency events.
      */
     progressEventTotal: meter.createCounter('agent_progress_event_total', {
       description:

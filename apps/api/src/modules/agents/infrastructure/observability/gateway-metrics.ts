@@ -12,7 +12,7 @@
  * created from a `NoopMeter` remain no-ops permanently even after a real provider
  * is registered later. Lazy initialisation sidesteps this limitation.
  *
- * ── Label discipline (R-05.30 / R-05.31) ──────────────────────────────────
+ * ── Label discipline ──────────────────────────────────────────────────────
  *
  * `agent_tool_call_total`        — labels: tenant_id, tool_name, result_status
  * `agent_tool_tripwire_total`    — labels: tenant_id, variant, disposition
@@ -66,7 +66,7 @@ interface GatewayInstruments {
    *
    * Plan §8 specifies agent_narrative_cache_hit_ratio as a gauge, but OTel
    * semantics favour two counters (hit + miss) with the ratio computed in
-   * the dashboard via PromQL / OTTL. This is R-02.17..R-02.19.
+   * the dashboard via PromQL / OTTL.
    */
   narrativeCacheTotal: Counter
   /**
@@ -118,7 +118,7 @@ interface GatewayInstruments {
   iterationCountExceededGauge: Gauge
 
   /**
-   * Counts bounded re-plans that are topology-downgrade candidates (R-12.20, R-12.21).
+   * Counts bounded re-plans that are topology-downgrade candidates.
    * Labels: tenant_id.
    */
   topologyDowngradeCandidateTotal: Counter
@@ -306,7 +306,7 @@ function getInstruments(): GatewayInstruments {
     }),
 
     /**
-     * Counts bounded re-plans that are topology-downgrade candidates (R-12.20, R-12.21).
+     * Counts bounded re-plans that are topology-downgrade candidates.
      * Labels: tenant_id.
      */
     topologyDowngradeCandidateTotal: meter.createCounter(
@@ -525,7 +525,7 @@ export function recordIterationCountExceeded(tenantId: string): void {
 }
 
 /**
- * Increment the topology-downgrade candidate counter for the given tenant (R-12.20, R-12.21).
+ * Increment the topology-downgrade candidate counter for the given tenant.
  * Called when a bounded re-plan fires on an iterative-topology turn.
  */
 export function recordTopologyDowngradeCandidateTotal(tenantId: string): void {

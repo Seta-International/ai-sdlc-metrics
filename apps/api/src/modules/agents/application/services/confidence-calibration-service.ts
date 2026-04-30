@@ -12,7 +12,7 @@ export type TierCalibrationStats = {
 
 export type CalibrationResult = {
   byTier: Record<ConfidenceTier, TierCalibrationStats>
-  /** true if any inversion detected in chain high < med < low (R-10.25/R-10.26) */
+  /** true if any inversion detected in chain high < med < low */
   invertedOrdering: boolean
 }
 
@@ -30,8 +30,8 @@ export class ConfidenceCalibrationService {
   /**
    * Correlates synthesizer confidence tier against thumbs-down rate and initiator-approval rate.
    *
-   * Expected ordering (R-10.25): thumbsDown(high) < thumbsDown(med) < thumbsDown(low).
-   * Inversion triggers §9 confidence-derivation-rule refinement review (R-10.26).
+   * Expected ordering: thumbsDown(high) < thumbsDown(med) < thumbsDown(low).
+   * Inversion triggers §9 confidence-derivation-rule refinement review.
    *
    * MVP stub: thumbs-down and initiator-approval data comes from Plan 08's feedback tables.
    * Wire real queries when Plan 08 feedback data is available.

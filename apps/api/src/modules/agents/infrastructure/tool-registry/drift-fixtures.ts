@@ -18,7 +18,7 @@ const r = t.router
 const p = t.procedure
 
 /**
- * Violates R-01.12: `whenToUse` is empty.
+ * Violates required-meta-fields: `whenToUse` is empty.
  * The drift walker must report a violation naming this tool.
  */
 export function fixtureEmptyWhenToUse() {
@@ -40,7 +40,7 @@ export function fixtureEmptyWhenToUse() {
 }
 
 /**
- * Violates R-01.18: a `.mutation()` agent tool has no `approvalFreshness`.
+ * Violates approval-freshness: a `.mutation()` agent tool has no `approvalFreshness`.
  * The drift walker must report a violation naming this tool.
  */
 export function fixtureMutationNoApprovalFreshness() {
@@ -63,7 +63,7 @@ export function fixtureMutationNoApprovalFreshness() {
 }
 
 /**
- * Violates R-01.17: `example.callArgs` contains a field (`count`) that is the
+ * Violates example-schema-parsing: `example.callArgs` contains a field (`count`) that is the
  * wrong type (string instead of number) per the input schema.
  * The drift walker must report a violation naming this tool.
  */
@@ -91,7 +91,7 @@ export function fixtureCallArgsSchemaMismatch() {
 }
 
 /**
- * Violates R-01.30: the input schema's root shape includes `tenant_id`.
+ * Violates tenant_id-ban: the input schema's root shape includes `tenant_id`.
  * Tenant context must be injected via RLS, never passed as an explicit arg.
  * The drift walker must report a violation naming this tool.
  */
@@ -114,7 +114,7 @@ export function fixtureTenantIdInInput() {
 }
 
 /**
- * Violates R-01.19: the output schema is aggregate-shaped, but the agent metadata
+ * Violates aggregate-composition-sensitive: the output schema is aggregate-shaped, but the agent metadata
  * omits `compositionSensitive.minGroupSize`.
  */
 export function fixtureAggregateNoCompositionSensitive() {
@@ -145,7 +145,7 @@ export function fixtureAggregateNoCompositionSensitive() {
 }
 
 /**
- * Violates R-01.19a: the output schema is a root array, but the agent metadata
+ * Violates collection-contract: the output schema is a root array, but the agent metadata
  * omits `collectionContract`.
  */
 export function fixtureArrayOutputNoCollectionContract() {
@@ -168,7 +168,7 @@ export function fixtureArrayOutputNoCollectionContract() {
 }
 
 /**
- * Violates R-01.19a: the output schema carries an array under a well-known
+ * Violates collection-contract: the output schema carries an array under a well-known
  * top-level collection key, but the agent metadata omits `collectionContract`.
  */
 export function fixtureObjectCollectionNoCollectionContract() {
@@ -196,7 +196,7 @@ export function fixtureObjectCollectionNoCollectionContract() {
 }
 
 /**
- * Violates R-01.19a: the output schema carries an array under any top-level
+ * Violates collection-contract: the output schema carries an array under any top-level
  * property name, but the agent metadata omits `collectionContract`.
  */
 export function fixtureObjectAnyArrayNoCollectionContract() {
@@ -224,7 +224,7 @@ export function fixtureObjectAnyArrayNoCollectionContract() {
 }
 
 /**
- * Violates R-01.19a: the output schema carries an array under a Zod wrapper
+ * Violates collection-contract: the output schema carries an array under a Zod wrapper
  * such as `.optional()`, but the agent metadata omits `collectionContract`.
  */
 export function fixtureObjectWrappedArrayNoCollectionContract() {
@@ -252,7 +252,7 @@ export function fixtureObjectWrappedArrayNoCollectionContract() {
 }
 
 /**
- * Violates R-14.2: a `.mutation()` agent tool has `cacheable` set.
+ * Violates cacheable-on-mutation ban: a `.mutation()` agent tool has `cacheable` set.
  * Caching write results is forbidden — only queries may be cached.
  */
 export function fixtureMutationWithCacheable() {
@@ -276,7 +276,7 @@ export function fixtureMutationWithCacheable() {
 }
 
 /**
- * Does NOT violate R-14.2: a `.query()` agent tool has `cacheable` set.
+ * Does NOT violate cacheable-on-mutation ban: a `.query()` agent tool has `cacheable` set.
  * This is the intended usage — cacheable is valid on queries only.
  */
 export function fixtureQueryWithCacheable() {
@@ -299,7 +299,7 @@ export function fixtureQueryWithCacheable() {
 }
 
 /**
- * Does NOT violate R-14.2: a `.mutation()` agent tool has no `cacheable` field.
+ * Does NOT violate cacheable-on-mutation ban: a `.mutation()` agent tool has no `cacheable` field.
  * Normal mutation — no cache violation.
  */
 export function fixtureMutationWithoutCacheable() {

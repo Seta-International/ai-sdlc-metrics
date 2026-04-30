@@ -6,7 +6,7 @@
  *   'bounded'   — Tier 1 phase-1 + optional phase-2 fan-out
  *   'iterative' — Tier 2 supervisor loop
  *
- * BoundedPlan.phase2 is SubAgentDirective[] (0..3). Phase 2 fan-out allows up
+ * BoundedPlan.phase2 is SubAgentDirective[] (0..3). The fan-out array allows up
  * to 3 parallel sub-agents.
  *
  * Disambiguation remains a field inside BoundedPlan (not a separate topology).

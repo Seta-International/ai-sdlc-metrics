@@ -152,7 +152,7 @@ export class DrizzleConversationMessageRepository implements ConversationMessage
   async hardDeleteContent(opts: { userId: string; tenantId: string }): Promise<{ count: number }> {
     // NULL out content and summary for all messages belonging to this user.
     // Retain row shells: id, conversation_id, tenant_id, user_id, role, trace_id, created_at.
-    // This satisfies GDPR erasure (R-04.28) while preserving audit join capability.
+    // This satisfies GDPR erasure while preserving audit join capability.
     const rows = await this.db
       .update(agentConversationMessages)
       .set({
@@ -176,7 +176,7 @@ export class DrizzleConversationMessageRepository implements ConversationMessage
     query: string
     limit: number
   }): Promise<ConversationMessageEntity[]> {
-    // FTS search over the agent_message_fts_idx (R-04.8):
+    // FTS search over the agent_message_fts_idx:
     // - user role: searches content->>'text'
     // - all roles: searches summary
     // NEVER searches raw tool-result content.

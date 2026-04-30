@@ -408,7 +408,7 @@ class NullTenantLister implements TenantListerLike {
     ToolRegistry,
     // TrpcCallerImpl requires BASE_DB_TOKEN (raw pool — not the request-bound DB_TOKEN proxy)
     // so that gateway-invoked dry-run calls open a real Postgres transaction for rollback
-    // isolation (Plan 11 R-11.1). Using DB_TOKEN would cause nested-transaction issues with
+    // isolation. Using DB_TOKEN would cause nested-transaction issues with
     // RLS session state and violate the single-PoolClient-per-request rule.
     //
     // RequestDbContextService is also injected so dry-run can publish the transaction-bound
@@ -446,7 +446,7 @@ class NullTenantLister implements TenantListerLike {
       inject: [CONVERSATION_MESSAGE_REPOSITORY],
       useFactory: (msgRepo: ConversationMessageRepository) => new WindowBuilder(msgRepo),
     },
-    // AiClient stub: no-op at Phase 1; replaced in Phase 4 when summarization activates.
+    // AiClient stub: no-op until summarization activates.
     {
       provide: SUMMARIZER,
       inject: [PgBossService, CONVERSATION_REPOSITORY, CONVERSATION_MESSAGE_REPOSITORY],
@@ -867,11 +867,11 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     this.intentRegistry.boot(intentDescriptors)
   }
   async onApplicationBootstrap(): Promise<void> {
-    // Summarizer worker fires post-turn to generate async summaries (R-04.24).
+    // Summarizer worker fires post-turn to generate async summaries.
     // SUMMARIZER token is a Symbol so we use the injected instance directly.
     await this.summarizer.registerWorkers()
 
-    // Daily cron to archive idle conversations (R-04.27).
+    // Daily cron to archive idle conversations.
     await this.retentionScheduler.registerWorkers()
 
     // Best-effort, post-turn async job — never blocks tool calls (Tenet #9).

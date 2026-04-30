@@ -28,13 +28,13 @@ export {
  *
  * For each job:
  *   1. Simulate candidate execution via dry-run (calls each baseline tool with
- *      mode:'dry-run' so no side effects commit — R-11.1)
+ *      mode:'dry-run' so no side effects commit)
  *   2. Score the diff against the baseline output
  *   3. Write an `agent_shadow_run` row
  *
  * Errors are swallowed (shadow is lossy-okay).
  *
- * Dry-run isolation (R-11.1 + audit Theme F closure):
+ * Dry-run isolation (audit Theme F closure):
  *   Each baseline tool is invoked via TrpcCallerImpl with mode:'dry-run'.
  *   TrpcCallerImpl wraps the call in a Postgres transaction that ALWAYS rolls back
  *   AND publishes the transaction-bound Db into the request CLS scope, so every
@@ -63,7 +63,7 @@ export class ShadowTurnWorker implements OnApplicationBootstrap {
     // If no caller is injected (production path), build one wired with the raw
     // base-pool DB and the request CLS context so dry-run opens a real rollback
     // transaction AND publishes the tx into CLS for every DI'd handler underneath
-    // (R-11.1 + audit Theme F closure).
+    // (audit Theme F closure).
     this.trpcCaller =
       trpcCaller ?? new TrpcCallerImpl(undefined, this.baseDb, this.requestDbContext)
   }

@@ -3,11 +3,11 @@
  * `invoke(input): Promise<ToolGatewayResult>` entrypoint.
  *
  * Responsibilities:
- *  - Phase A: resolve, circuit-breaker check, L1 cache lookup / coalescing.
- *  - Phase B: prepareTaintWrap, ceilingPreCheck, preWriteAbortCheck, register in-flight,
- *             invoke (+ transient single-retry), ceiling budget decrement, applyTaintWrap,
- *             auditEmit, retryCount bookkeeping, circuit-breaker setting.
- *  - Phase C: outermost catch — fail cache handle, audit, return infra_error.
+ *  - Resolve, circuit-breaker check, L1 cache lookup / coalescing.
+ *  - prepareTaintWrap, ceilingPreCheck, preWriteAbortCheck, register in-flight,
+ *    invoke (+ transient single-retry), ceiling budget decrement, applyTaintWrap,
+ *    auditEmit, retryCount bookkeeping, circuit-breaker setting.
+ *  - Outermost catch — fail cache handle, audit, return infra_error.
  *
  * Sanitization:
  *  - Audit rows carry raw context (audit trail is sanctuary).
@@ -227,7 +227,7 @@ export class ToolGateway implements ToolGatewayPort {
   ) {}
 
   async invoke(input: ToolGatewayInvokeInput): Promise<ToolGatewayResult> {
-    // Phase C outermost guard — unexpected throws must never surface to the caller.
+    // Outermost guard — unexpected throws must never surface to the caller.
     // Normal operation never throws: every error path returns a Tripwire.
     // This catch exists only for programming bugs (registry throws, etc.).
     let phaseCCacheHandle: ReturnType<typeof input.turnState.l1Cache.registerInFlight> | undefined
@@ -269,7 +269,7 @@ export class ToolGateway implements ToolGatewayPort {
     }
   }
 
-  // Separated so Phase C catch can see cacheHandle.
+  // Separated so the outer catch can see cacheHandle.
   private async invokeInner(
     input: ToolGatewayInvokeInput,
     onCacheHandle: (handle: ReturnType<typeof input.turnState.l1Cache.registerInFlight>) => void,
@@ -290,7 +290,7 @@ export class ToolGateway implements ToolGatewayPort {
 
     const { tenantId } = requestContext
 
-    // Phase A: resolve + cache.
+    // Resolve + cache.
     // Resolve + circuit-breaker check live inside the same gateway:resolve span.
     // The circuit_broken: true attribute must land on this span (for dashboards +
     // trace filtering). The closure returns a tagged union so the outer code branches
@@ -646,7 +646,7 @@ export class ToolGateway implements ToolGatewayPort {
       }
     }
 
-    // Phase B: invoke + cache write.
+    // Invoke + cache write.
     // prepareTaintWrap is a pure sync step; called directly (no await) to preserve
     // the cache-coalescing timing guarantee. The L1 cache's registerInFlight call
     // below must happen in the same microtask as the cache-miss decision so a
@@ -805,7 +805,7 @@ export class ToolGateway implements ToolGatewayPort {
     let cacheHandle: ReturnType<typeof turnState.l1Cache.registerInFlight> | undefined
     try {
       cacheHandle = turnState.l1Cache.registerInFlight(descriptor.name, argsHash)
-      // Expose the handle to the Phase C catch so it can fail it on unexpected throws
+      // Expose the handle to the outer catch so it can fail it on unexpected throws
       onCacheHandle(cacheHandle)
     } catch (regErr: unknown) {
       // Double-registration is a programming bug — log and fall through without cache

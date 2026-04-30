@@ -12,7 +12,7 @@
  * ── Instruments ──────────────────────────────────────────────────
  *
  * agent_cost_usd_total{tenant_id, layer, model_id, pricing_id}           counter
- *   Records dollar cost per successful LLM call (R-05.6a: once per success only).
+ *   Records dollar cost per successful LLM call (once per success only, never per retry).
  *
  * agent_usage_tokens_total{tenant_id, model_id, kind}                    counter
  *   Tokens consumed per successful LLM call.
@@ -23,7 +23,7 @@
  *   Snapshots remaining USD budget per tenant after each cost deduction.
  *
  * agent_budget_user_remaining_usd{tenant_id}                              observable gauge
- *   Aggregated per-user remaining budget, reported per tenant (no user_id label per R-05.30).
+ *   Aggregated per-user remaining budget, reported per tenant (no user_id label — cardinality guardrail).
  *   Updated alongside agent_budget_remaining_usd by BudgetChecker / CostRecorder.
  *
  * agent_tier_shift_total{tenant_id, from_tier, to_tier, reason}           counter
@@ -33,13 +33,13 @@
  *   Error-recovery fallbacks. error_class per VendorError taxonomy.
  *
  * agent_llm_call_attempt_duration_ms{tenant_id, model_id, layer}          histogram
- *   Duration of the terminal successful attempt only (R-05.6b latency SLO source).
+ *   Duration of the terminal successful attempt only (latency SLO source).
  *
  * agent_llm_call_total_duration_ms{tenant_id, model_id, layer}            histogram
- *   Total duration across all attempts (R-05.6b reliability analysis source).
+ *   Total duration across all attempts (reliability analysis source).
  *
  * agent_vendor_retry_total{tenant_id, model_id, error_class}              counter
- *   Internal vendor retries before success (R-05.6a / R-05.20b). Zero cost impact.
+ *   Internal vendor retries before success. Zero cost impact.
  *
  * agent_rate_limit_rejected_total{tenant_id, limit_key}                   counter
  *   Rate-limit rejections per tenant. limit_key ∈ {queries/user/min,
@@ -50,7 +50,7 @@
  *   No tenant_id — adapter-level signal, not tenant-attributed.
  *
  * agent_approval_inbox_depth{tenant_id}                                   observable gauge
- *   Approver-aggregate pending draft count (no user_id label per R-05.30).
+ *   Approver-aggregate pending draft count (no user_id label — cardinality guardrail).
  *
  * agent_budget_refill_total{tenant_id, source}                            counter
  *   Budget refill events. source ∈ {midnight, admin_topup}.
@@ -64,7 +64,7 @@
  *   Emitted by GracefulDegradationLadder.evaluate() around each step dispatch.
  *   No tenant_id — ladder-evaluation is CPU-bound; per-step timing is the signal.
  *
- * ── Label cardinality guardrail (R-05.30 / R-05.31) ─────────────────────────
+ * ── Label cardinality guardrail ─────────────────────────────────────────────
  *
  * BLOCKED_LABELS = [user_id, conversation_id, trace_id, delegation_id, schedule_id]
  * None of the above labels appear on any instrument defined here.
@@ -131,7 +131,7 @@ function getInstruments(): CostInstruments {
   const costUsdTotal = meter.createCounter('agent_cost_usd_total', {
     description:
       'Dollar cost per successful LLM call, labelled by tenant, layer, model, and pricing version. ' +
-      'Incremented once per success (R-05.6a — never per retry attempt).',
+      'Incremented once per success — never per retry attempt.',
     unit: 'USD',
     valueType: ValueType.DOUBLE,
   })
@@ -195,14 +195,14 @@ function getInstruments(): CostInstruments {
 
   const vendorRetryTotal = meter.createCounter('agent_vendor_retry_total', {
     description:
-      'Internal vendor retries before a successful response (R-05.6a / R-05.20b). ' +
+      'Internal vendor retries before a successful response. ' +
       'Zero cost impact — never incremented for the successful attempt.',
     valueType: ValueType.INT,
   })
 
   const rateLimitRejectedTotal = meter.createCounter('agent_rate_limit_rejected_total', {
     description:
-      'Rate-limit rejections per tenant and limit key (R-05.23–R-05.26). ' +
+      'Rate-limit rejections per tenant and limit key. ' +
       'limit_key ∈ {queries/user/min, l3_writes/user/day, schedule_creations/user/day}. ' +
       'No user_id label.',
     valueType: ValueType.INT,
@@ -223,8 +223,7 @@ function getInstruments(): CostInstruments {
 
   const budgetRefillTotal = meter.createCounter('agent_budget_refill_total', {
     description:
-      'Budget refill events per tenant and source. ' +
-      'source ∈ {midnight, admin_topup} (R-05.33–R-05.34).',
+      'Budget refill events per tenant and source. ' + 'source ∈ {midnight, admin_topup}.',
     valueType: ValueType.INT,
   })
 
@@ -355,7 +354,7 @@ export function setBudgetRemaining(tenantId: string, remainingUsd: number): void
 
 /**
  * Update the per-user remaining budget gauge for a tenant.
- * Aggregated at tenant level — no user_id label (R-05.30 cardinality guardrail).
+ * Aggregated at tenant level — no user_id label (cardinality guardrail).
  * Call alongside setBudgetRemaining after each cost deduction / budget refill.
  *
  * Labels: tenant_id. No user_id.
@@ -393,7 +392,7 @@ export function recordTierShift(
  * Triggered by consecutive-same-error ≥3. Sticky for the turn.
  *
  * Labels: tenant_id, model_id, error_class.
- * error_class ∈ VendorError['class'] per R-05.20a.
+ * error_class ∈ VendorError['class'].
  */
 export function recordProviderFallback(
   tenantId: string,

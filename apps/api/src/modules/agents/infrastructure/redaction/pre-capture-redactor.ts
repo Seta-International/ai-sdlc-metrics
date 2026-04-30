@@ -2,7 +2,7 @@
  * PreCaptureRedactor — strips fields declared as `tenantAuthoredFreeText`
  * from span attribute objects **before** the span leaves the process.
  *
- * Rationale (R-07.29): no trace backend ever receives raw tenant-authored
+ * Rationale: no trace backend ever receives raw tenant-authored
  * content via the trace plane. The un-redacted result is stored separately
  * in `agent_tool_invocation.result_preview` (kernel-owned, RLS-protected).
  *

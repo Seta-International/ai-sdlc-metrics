@@ -115,7 +115,7 @@ export class ToolRegistry {
       const agent = meta.agent
       const procViolations: string[] = []
 
-      // ── R-01.12: required fields ───────────────────────────────────────────
+      // ── required fields ────────────────────────────────────────────────────
 
       if (!meta.permission || meta.permission.trim() === '') {
         procViolations.push('meta.permission is missing or empty')
@@ -146,7 +146,7 @@ export class ToolRegistry {
         })
       }
 
-      // ── R-01.18: mutations must declare approvalFreshness ──────────────────
+      // ── mutations must declare approvalFreshness ───────────────────────────
 
       if (def.type === 'mutation' && agent.approvalFreshness === undefined) {
         procViolations.push(
@@ -155,7 +155,7 @@ export class ToolRegistry {
         )
       }
 
-      // ── R-01.30: tenant_id ban — shallow check on root zod object ──────────
+      // ── tenant_id ban — shallow check on root zod object ───────────────────
 
       const inputs = def.inputs
       if (Array.isArray(inputs) && inputs.length > 0) {

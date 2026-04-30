@@ -3,7 +3,7 @@
  * descriptor has an up-to-date embedding vector in the `agent_tool_embedding`
  * table, then exposes an in-memory lookup map for retrieval.
  *
- * Boot-time pipeline (R-02.5.12):
+ * Boot-time pipeline:
  *   1. For each descriptor, compute a SHA-256 content_hash of its
  *      { whenToUse, whenNotToUse } fields using canonicalize().
  *   2. Query existing rows from DB by tool_name (sequential, per CLAUDE.md rule).
@@ -12,7 +12,7 @@
  *   4. Insert each new row sequentially (one per missing descriptor).
  *   5. Return { embedded, reused } counts.
  *
- * Refusal contract (R-02.5.12):
+ * Refusal contract:
  *   If the embedding provider is unreachable AND any descriptor lacks a DB row,
  *   throw — do NOT start in degraded mode. If all rows exist in DB, boot
  *   succeeds even if the provider is down.
@@ -90,7 +90,7 @@ export class ToolDescriptorEmbedder implements OnModuleInit {
    * The embedMany call is NOT a DB query — batch it in one shot for efficiency.
    *
    * @throws {Error} if the embedding provider is unreachable AND any descriptor
-   *   has no existing DB row (R-02.5.12 boot-time refusal).
+   *   has no existing DB row (boot-time refusal).
    */
   async ensureEmbedded(
     descriptors: ReadonlyArray<AgentToolDescriptor>,

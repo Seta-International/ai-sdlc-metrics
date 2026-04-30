@@ -16,7 +16,7 @@
  *   Incremented by AgentEventRouter when event.tenant_id !== schedule.tenant_id.
  *   Labels: tenant_id (the event's tenant), event_type (the domain event type string).
  *
- * ── Label cardinality guardrail (R-05.30 / R-05.31) ─────────────────────────
+ * ── Label cardinality guardrail ─────────────────────────────────────────────
  *
  * BLOCKED_LABELS = [user_id, conversation_id, trace_id, delegation_id, schedule_id]
  * None of the above labels appear on any instrument defined here.
