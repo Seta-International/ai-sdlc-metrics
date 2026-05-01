@@ -10,6 +10,8 @@
  */
 
 export interface GaMetricsPort {
+  /** Returns false when the GA metrics backend is not yet deployed. Gate calls with this. */
+  isEnabled(): boolean
   getTenantCount(): Promise<number>
   getInteractiveTurnsPerDay(): Promise<number>
 }

@@ -8,7 +8,6 @@ import { AgentTurnController } from './interface/http/agent-turn-controller'
 import { AgentCancelController } from './interface/http/agent-cancel-controller'
 import { JwtService } from '../../common/auth/jwt.service'
 import { JWT_SERVICE } from '../../common/auth/auth.module'
-import { AgentsQueryFacade } from './application/facades/agents-query.facade'
 import { AgentPermissionService } from './application/services/agent-permission.service'
 import { AgentToolExecutor } from './application/services/agent-tool-executor'
 import { McpAuthGuard } from './infrastructure/guards/mcp-auth.guard'
@@ -117,6 +116,7 @@ import {
   OpenAiSynthesizerLlmClient,
   SYNTHESIZER_LLM_CLIENT,
 } from './infrastructure/llm/synthesizer-llm-client'
+import { DisabledSummarizerAiClient } from './infrastructure/llm/disabled-summarizer-client'
 import { getAppRouter } from '../../common/trpc/app-router'
 import { SubAgentRegistry, SUB_AGENT_REGISTRY } from './infrastructure/registry/sub-agent-registry'
 import { IntentRegistry, INTENT_REGISTRY } from './infrastructure/registry/intents/intent-registry'
@@ -138,10 +138,7 @@ import { L3PreferenceService } from './application/services/l3-preferences'
 import { WindowBuilder } from './application/services/window-builder'
 import { Summarizer } from './application/services/summarizer'
 import { GDPRErasurePipeline } from './application/services/gdpr-erasure'
-import {
-  ConversationRetentionScheduler,
-  type TenantListerLike,
-} from './application/services/conversation-retention-scheduler'
+import { ConversationRetentionScheduler } from './application/services/conversation-retention-scheduler'
 import {
   CompositionMonitorWorker,
   type CompositionMonitorJobData,
@@ -153,6 +150,7 @@ import { ObservabilityContextFactory } from './application/services/observabilit
 import { FlowIdPropagation } from './application/services/flow-id-propagation'
 import { PricingResolver } from './infrastructure/pricing/pricing-resolver'
 import { OpenAiUsageExtractor } from './infrastructure/adapters/openai-usage-extractor'
+import { KernelTenantLister } from './infrastructure/adapters/kernel-tenant-lister'
 import { CostRecorder } from './application/services/cost-recorder'
 import { BudgetChecker } from './application/services/budget-checker'
 import { RateLimiter } from './application/services/rate-limiter'
@@ -314,12 +312,6 @@ export const SUMMARIZER = Symbol('SUMMARIZER')
 export const GDPR_ERASURE_PIPELINE = Symbol('GDPR_ERASURE_PIPELINE')
 export const CONVERSATION_RETENTION_SCHEDULER = Symbol('CONVERSATION_RETENTION_SCHEDULER')
 
-class NullTenantLister implements TenantListerLike {
-  async listActiveTenantIds(): Promise<string[]> {
-    return []
-  }
-}
-
 @Module({
   imports: [
     KernelModule,
@@ -353,7 +345,6 @@ class NullTenantLister implements TenantListerLike {
     DismissInsightHandler,
     ListSessionsHandler,
     ListInsightsHandler,
-    AgentsQueryFacade,
     AgentPermissionService,
     AgentToolExecutor,
     McpAuthGuard,
@@ -446,7 +437,7 @@ class NullTenantLister implements TenantListerLike {
       inject: [CONVERSATION_MESSAGE_REPOSITORY],
       useFactory: (msgRepo: ConversationMessageRepository) => new WindowBuilder(msgRepo),
     },
-    // AiClient stub: no-op until summarization activates.
+    // AiClient: disabled adapter — throws on invocation until Phase-4 wires the real client.
     {
       provide: SUMMARIZER,
       inject: [PgBossService, CONVERSATION_REPOSITORY, CONVERSATION_MESSAGE_REPOSITORY],
@@ -454,7 +445,7 @@ class NullTenantLister implements TenantListerLike {
         pgBoss: PgBossService,
         convRepo: ConversationRepository,
         msgRepo: ConversationMessageRepository,
-      ) => new Summarizer(pgBoss, { generateText: async () => '' }, convRepo, msgRepo),
+      ) => new Summarizer(pgBoss, new DisabledSummarizerAiClient(), convRepo, msgRepo),
     },
     {
       provide: GDPR_ERASURE_PIPELINE,
@@ -474,11 +465,15 @@ class NullTenantLister implements TenantListerLike {
       ) => new GDPRErasurePipeline(msgRepo, l3Repo, scratchpadRepo, semanticIndex, kernelAudit),
     },
     // ConversationRetentionScheduler: plain class — daily pg-boss cron for 90-day archive
+    KernelTenantLister,
     {
       provide: CONVERSATION_RETENTION_SCHEDULER,
-      inject: [PgBossService, CONVERSATION_REPOSITORY],
-      useFactory: (pgBoss: PgBossService, convRepo: ConversationRepository) =>
-        new ConversationRetentionScheduler(pgBoss, convRepo, new NullTenantLister()),
+      inject: [PgBossService, CONVERSATION_REPOSITORY, KernelTenantLister],
+      useFactory: (
+        pgBoss: PgBossService,
+        convRepo: ConversationRepository,
+        tenantLister: KernelTenantLister,
+      ) => new ConversationRetentionScheduler(pgBoss, convRepo, tenantLister),
     },
     CompositionMonitorWorker,
     ObservabilityContextFactory,
@@ -712,7 +707,6 @@ class NullTenantLister implements TenantListerLike {
     FlowCorrelationWorker,
   ],
   exports: [
-    AgentsQueryFacade,
     SUB_AGENT_REGISTRY,
     INTENT_REGISTRY,
     PERMISSION_NARRATIVE_BUILDER,
@@ -725,16 +719,6 @@ class NullTenantLister implements TenantListerLike {
     TOOL_RETRIEVER,
     WHEN_TO_USE_COLLISION_LINTER,
     RETRIEVAL_QUALITY_SCORER,
-    CONVERSATION_REPOSITORY,
-    CONVERSATION_MESSAGE_REPOSITORY,
-    L3_PREFERENCE_REPOSITORY,
-    SCRATCHPAD_REPOSITORY,
-    SEMANTIC_INDEX_REPOSITORY,
-    SaveQueue,
-    L3PreferenceService,
-    WINDOW_BUILDER,
-    SUMMARIZER,
-    GDPR_ERASURE_PIPELINE,
   ],
 })
 export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {

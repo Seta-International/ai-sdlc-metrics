@@ -138,7 +138,8 @@ export class ToolRetriever implements OnModuleInit {
           `ToolRetriever: embedding provider unreachable for subAgent=${subAgentKey}. ` +
             `Falling back to full toolScope (${toolScope.length} tools). Error: ${String(error)}`,
         )
-        // TODO plan 07: replace with metric counter agent_tool_retrieval_fallback_fired_total{cause}
+        // DEFERRED: replace with metric counter agent_tool_retrieval_fallback_fired_total{cause}
+        // once Plan 07 metrics infrastructure ships.
         this.logger.warn(
           `tool.retrieval.fallback_fired cause=${error instanceof Error && error.message.includes('timeout') ? 'provider_timeout' : 'provider_error'} sub_agent_key=${subAgentKey}`,
         )

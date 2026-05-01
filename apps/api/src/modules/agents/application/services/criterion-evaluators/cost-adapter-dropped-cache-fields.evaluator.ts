@@ -22,6 +22,10 @@ export class CostAdapterDroppedCacheFieldsEvaluator implements CriterionEvaluato
   constructor(@Inject(METRICS_QUERY_PORT) private readonly metricsQuery: MetricsQueryPort) {}
 
   async evaluate(window: EvalWindow): Promise<CriterionResult> {
+    if (!this.metricsQuery.isEnabled()) {
+      return { observedValue: 'unknown', threshold, passed: false, unableToEvaluate: true }
+    }
+
     const count = await this.metricsQuery.sumCounter({
       metricName: 'agent_adapter_drop_total',
       window,

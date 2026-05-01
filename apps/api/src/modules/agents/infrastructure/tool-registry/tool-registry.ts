@@ -222,7 +222,7 @@ export class ToolRegistry {
    */
   resolveMenuFor(opts: ResolveMenuOptions): ReadonlyArray<AgentToolDescriptor> {
     const { subAgentScope, roleAllowedPermissions, surfaceContext } = opts
-    // TODO plan-02: refine screen-relevance heuristic once router stubs exist
+    // DEFERRED: refine screen-relevance heuristic once Plan 02 router stubs exist.
     const screenSegments = new Set(surfaceContext.screen.split('/').filter(Boolean))
 
     const results: AgentToolDescriptor[] = []

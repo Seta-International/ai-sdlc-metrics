@@ -172,12 +172,12 @@ export function createStreamGateway(
   let seq = 0
 
   function write(event: SseEventWithSeq): void {
-    // TODO(backpressure-gap): agent_sse_backpressure_total is required but
-    // detection needs a backpressure-aware write queue (e.g. check Node.js
+    // DEFERRED: agent_sse_backpressure_total counter is required but detection
+    // needs a backpressure-aware write queue (e.g. check Node.js
     // ServerResponse.writableNeedDrain / stream high-watermark after each
     // write). The current fire-and-forget writeFn does not expose queue depth,
     // so backpressure cannot be detected here without a structural change to
-    // the SSE transport layer. Deferred to a dedicated infrastructure task.
+    // the SSE transport layer. Unblocks once that change ships.
     writeFn(JSON.stringify(event))
   }
 
