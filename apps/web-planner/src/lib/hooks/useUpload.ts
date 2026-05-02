@@ -5,6 +5,7 @@ import { useQueryClient } from '@future/api-client'
 import { useSession } from '@future/auth'
 import { toast } from '@future/ui'
 import { trpc } from '../trpc'
+import { taskKeys } from '../query-keys'
 
 interface UseUploadOptions {
   taskId: string
@@ -121,7 +122,7 @@ export function useUpload({ taskId, planId }: UseUploadOptions): {
     }
 
     setUploadState({ uploading: false, progress: 100, error: null })
-    void queryClient.invalidateQueries({ queryKey: ['tasks.getDetail', taskId] })
+    void queryClient.invalidateQueries({ queryKey: taskKeys.detailBase(taskId) })
   }
 
   return { uploadState, uploadFile, reset }

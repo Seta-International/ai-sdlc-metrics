@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@future/api-client'
 import { useSession } from '@future/auth'
 import { trpc } from '../trpc'
+import { taskKeys } from '../query-keys'
 import type { TaskDetailSnapshot } from '../board-types'
 
 type DateLike = Date | string | null | undefined
@@ -117,7 +118,7 @@ export function useTaskDetail({ taskId, planId }: UseTaskDetailInput): UseTaskDe
   const actorId = session?.actorId ?? ''
   const tenantId = session?.tenantId ?? ''
 
-  const queryKey = ['tasks.getDetail', taskId, actorId, tenantId] as const
+  const queryKey = taskKeys.detail(taskId, actorId, tenantId)
 
   const query = useQuery({
     queryKey,
@@ -169,7 +170,7 @@ export function useTaskDetail({ taskId, planId }: UseTaskDetailInput): UseTaskDe
 
     runUpdate(patch, toISOStringSafe(task.updatedAt))
       .then(() => {
-        void queryClient.invalidateQueries({ queryKey: ['tasks.getDetail', taskId] as const })
+        void queryClient.invalidateQueries({ queryKey: taskKeys.detailBase(taskId) })
         setSaving(false)
       })
       .catch((err: unknown) => {
@@ -193,7 +194,7 @@ export function useTaskDetail({ taskId, planId }: UseTaskDetailInput): UseTaskDe
                 runUpdate(patch, toISOStringSafe(fresh.updatedAt))
                   .then(() => {
                     void queryClient.invalidateQueries({
-                      queryKey: ['tasks.getDetail', taskId] as const,
+                      queryKey: taskKeys.detailBase(taskId),
                     })
                     setSaving(false)
                   })

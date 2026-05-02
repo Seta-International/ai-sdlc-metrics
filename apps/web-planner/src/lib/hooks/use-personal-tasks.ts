@@ -6,6 +6,7 @@ import { useSession } from '@future/auth'
 import type { TaskFlatWithPlan } from '@future/api-client/planner'
 import type { TaskGroup } from '../task-group'
 import { trpc } from '../trpc'
+import { personalKeys } from '../query-keys'
 import { applyTaskFilter } from '../task-filter'
 import { sortTasks } from '../task-sort'
 import { groupTasks } from '../task-group'
@@ -37,7 +38,7 @@ export function usePersonalTasks({
   const tenantId = session?.tenantId ?? ''
 
   const query = useQuery({
-    queryKey: ['personal.listTasks', actorId, tenantId, includeCompleted] as const,
+    queryKey: personalKeys.listTasks(actorId, tenantId, includeCompleted),
     queryFn: () =>
       trpc.planner.personal.listTasks.query({
         actorId,

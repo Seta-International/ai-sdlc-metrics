@@ -4,6 +4,7 @@ import { useQuery } from '@future/api-client'
 import { Alert, AlertDescription, Skeleton } from '@future/ui'
 import { useSession } from '@future/auth'
 import { trpc } from '../../../../lib/trpc'
+import { plannerKeys } from '../../../../lib/query-keys'
 import { useFlatTasks } from '@/lib/hooks/useFlatTasks'
 import { ChartsGrid } from '@/components/charts/ChartsGrid'
 
@@ -14,7 +15,7 @@ export default function ChartsPage({ params }: { params: { id: string } }) {
   const { processed, isLoading, error } = useFlatTasks({ planId: params.id })
 
   const { data: viewFlags } = useQuery({
-    queryKey: ['planner.plans.getViewFlags', session?.tenantId],
+    queryKey: plannerKeys.viewFlags(session?.tenantId),
     queryFn: () => trpc.planner.plans.getViewFlags.query({ tenantId: session!.tenantId }),
     enabled: !!session,
   })

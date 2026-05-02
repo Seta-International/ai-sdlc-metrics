@@ -23,6 +23,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { cn } from '@future/ui'
 import { trpc } from '@/lib/trpc'
+import { taskKeys } from '@/lib/query-keys'
 import type { ChecklistItemSnapshot, TaskDetailSnapshot } from '@/lib/board-types'
 
 interface TaskChecklistProps {
@@ -125,7 +126,7 @@ export function TaskChecklist({ taskId, planId }: TaskChecklistProps) {
   const actorId = session?.actorId ?? ''
   const tenantId = session?.tenantId ?? ''
 
-  const queryKey = ['tasks.getDetail', taskId, actorId, tenantId] as const
+  const queryKey = taskKeys.detail(taskId, actorId, tenantId)
   const task = queryClient.getQueryData<TaskDetailSnapshot>(queryKey)
 
   const [addValue, setAddValue] = useState('')
@@ -142,7 +143,7 @@ export function TaskChecklist({ taskId, planId }: TaskChecklistProps) {
   }
 
   function invalidate() {
-    void queryClient.invalidateQueries({ queryKey: ['tasks.getDetail', taskId] })
+    void queryClient.invalidateQueries({ queryKey: taskKeys.detailBase(taskId) })
   }
 
   const checklist = [...(task?.checklist ?? [])].sort((a, b) =>

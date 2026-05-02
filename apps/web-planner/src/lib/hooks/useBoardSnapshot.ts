@@ -2,6 +2,7 @@
 
 import { useQuery } from '@future/api-client'
 import { trpc } from '../trpc'
+import { taskKeys } from '../query-keys'
 import type { BoardSnapshot } from '../board-types'
 
 type DateLike = Date | string | null | undefined
@@ -91,7 +92,7 @@ export function useBoardSnapshot({
   tenantId,
 }: UseBoardSnapshotInput): UseBoardSnapshotResult {
   const query = useQuery({
-    queryKey: ['tasks.getBoard', planId, actorId, tenantId] as const,
+    queryKey: taskKeys.board(planId, actorId, tenantId),
     queryFn: async () =>
       normalizeBoardSnapshot(
         (await trpc.planner.tasks.getBoard.query({

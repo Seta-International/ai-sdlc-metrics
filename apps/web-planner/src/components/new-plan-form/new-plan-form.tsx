@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useMutation } from '@future/api-client'
+import { useMutation, useQueryClient } from '@future/api-client'
 import { useSession } from '@future/auth'
 import {
   Button,
@@ -18,6 +18,7 @@ import {
   Textarea,
 } from '@future/ui'
 import { trpc } from '../../lib/trpc'
+import { personalKeys } from '../../lib/query-keys'
 import { ContainerPicker, type ContainerValue } from './container-picker'
 
 export function NewPlanForm() {
@@ -29,6 +30,8 @@ export function NewPlanForm() {
     containerType: 'future_only',
     containerRef: null,
   })
+
+  const queryClient = useQueryClient()
 
   const createMutation = useMutation({
     mutationFn: ({ planId, bucketId }: { planId: string; bucketId: string }) =>
@@ -43,6 +46,9 @@ export function NewPlanForm() {
         containerRef: container.containerRef,
       }),
     onSuccess: (_data, { planId }) => {
+      queryClient.invalidateQueries({
+        queryKey: personalKeys.listPlans(session?.actorId, session?.tenantId),
+      })
       router.push(`/plans/${planId}/board`)
     },
   })

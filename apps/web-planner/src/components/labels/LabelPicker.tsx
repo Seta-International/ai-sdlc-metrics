@@ -3,6 +3,7 @@
 import { useQueryClient } from '@future/api-client'
 import { Popover, PopoverContent, Button } from '@future/ui'
 import { trpc } from '../../lib/trpc'
+import { taskKeys } from '../../lib/query-keys'
 import type { BoardSnapshot, PlanLabel, BoardTaskSnapshot } from '../../lib/board-types'
 
 const ALL_SLOTS = Array.from({ length: 25 }, (_, i) => `category${i + 1}`)
@@ -21,7 +22,7 @@ interface LabelPickerProps {
  */
 export function LabelPicker({ task, planId, actorId, tenantId, onClose }: LabelPickerProps) {
   const queryClient = useQueryClient()
-  const queryKey = ['tasks.getBoard', planId, actorId, tenantId] as const
+  const queryKey = taskKeys.board(planId, actorId, tenantId)
 
   const snapshot = queryClient.getQueryData<BoardSnapshot>(queryKey)
   const planLabels: PlanLabel[] = snapshot?.plan.labels ?? []

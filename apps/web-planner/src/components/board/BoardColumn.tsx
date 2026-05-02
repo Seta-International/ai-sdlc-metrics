@@ -6,6 +6,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-
 import { CSS } from '@dnd-kit/utilities'
 import { useQueryClient } from '@future/api-client'
 import { trpc } from '../../lib/trpc'
+import { taskKeys } from '../../lib/query-keys'
 import type { BoardBucketSnapshot, PlanLabel, BoardSnapshot } from '../../lib/board-types'
 import type { Progress } from '../primitives/ProgressIcon'
 import { TaskCard } from './TaskCard'
@@ -63,7 +64,7 @@ export function BoardColumn({
 
   const renameInputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
-  const queryKey = ['tasks.getBoard', planId, actorId, tenantId] as const
+  const queryKey = taskKeys.board(planId, actorId, tenantId)
 
   const taskIds = bucket.tasks.map((t) => t.id)
 

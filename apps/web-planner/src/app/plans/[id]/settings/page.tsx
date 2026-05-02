@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@future/ui'
 import { trpc } from '../../../../lib/trpc'
+import { planKeys } from '../../../../lib/query-keys'
 import { LabelEditor } from '../../../../components/LabelEditor'
 
 interface PlanDetail {
@@ -46,7 +47,7 @@ export default function PlanSettingsPage() {
   const [memberError, setMemberError] = useState<string | null>(null)
   const [mutationError, setMutationError] = useState<string | null>(null)
 
-  const planQueryKey = ['plans.get', planId, session?.actorId, session?.tenantId]
+  const planQueryKey = planKeys.get(planId, session?.actorId, session?.tenantId)
 
   const { data: plan, isLoading } = useQuery({
     queryKey: planQueryKey,

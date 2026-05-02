@@ -16,6 +16,7 @@ import {
   BreadcrumbPage,
 } from '@future/ui'
 import { trpc } from '../../../lib/trpc'
+import { planKeys, plannerKeys } from '../../../lib/query-keys'
 import { ViewPicker } from '@/components/view-picker/ViewPicker'
 import { FilterBar } from '@/components/filter-bar/FilterBar'
 import { GroupByPicker } from '@/components/group-by/GroupByPicker'
@@ -46,7 +47,7 @@ export default function PlanLayout({ children }: { children: React.ReactNode }) 
   const pathname = usePathname()
 
   const { data: plan } = useQuery({
-    queryKey: ['plans.get', planId, session?.actorId, session?.tenantId],
+    queryKey: planKeys.get(planId, session?.actorId, session?.tenantId),
     queryFn: () =>
       trpc.planner.plans.get
         .query({ actorId: session!.actorId, tenantId: session!.tenantId, planId })
@@ -59,7 +60,7 @@ export default function PlanLayout({ children }: { children: React.ReactNode }) 
   })
 
   const { data: viewFlags } = useQuery({
-    queryKey: ['planner.plans.getViewFlags', session?.tenantId],
+    queryKey: plannerKeys.viewFlags(session?.tenantId),
     queryFn: () => trpc.planner.plans.getViewFlags.query({ tenantId: session!.tenantId }),
     enabled: !!session,
   })

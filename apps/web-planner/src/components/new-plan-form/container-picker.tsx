@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@future/ui'
 import { trpc } from '../../lib/trpc'
+import { msSyncKeys } from '../../lib/query-keys'
 
 export type ContainerValue =
   | { containerType: 'future_only'; containerRef: null }
@@ -40,13 +41,13 @@ function decode(s: string): ContainerValue {
 export function ContainerPicker({ value, onChange }: ContainerPickerProps) {
   const session = useSession()
   const { data: flags } = useQuery({
-    queryKey: ['msSync.flags', session?.tenantId],
+    queryKey: msSyncKeys.flags(session?.tenantId),
     queryFn: () => trpc.planner.msSync.flags.query({ tenantId: session!.tenantId }),
     enabled: !!session,
     staleTime: 5 * 60 * 1000,
   })
   const { data: linkedGroups = [] } = useQuery({
-    queryKey: ['msSync.groups.listLinked', session?.tenantId],
+    queryKey: msSyncKeys.groupsLinked(session?.tenantId),
     queryFn: async (): Promise<Array<{ msGroupId: string; displayName: string }>> => {
       const result = await trpc.planner.msSync.groups.listLinked.query({
         tenantId: session!.tenantId,
@@ -57,7 +58,7 @@ export function ContainerPicker({ value, onChange }: ContainerPickerProps) {
     staleTime: 5 * 60 * 1000,
   })
   const { data: linkedRosters = [] } = useQuery({
-    queryKey: ['msSync.rosters.listLinked', session?.tenantId],
+    queryKey: msSyncKeys.rostersLinked(session?.tenantId),
     queryFn: async (): Promise<Array<{ msRosterId: string; displayName: string }>> => {
       const result = await trpc.planner.msSync.rosters.listLinked.query({
         tenantId: session!.tenantId,

@@ -3,6 +3,7 @@
 import { useQueryClient } from '@future/api-client'
 import { Popover, PopoverContent, Avatar, AvatarImage, AvatarFallback, Button } from '@future/ui'
 import { trpc } from '../../lib/trpc'
+import { taskKeys } from '../../lib/query-keys'
 import type { BoardSnapshot, PlanMember, BoardTaskSnapshot } from '../../lib/board-types'
 
 interface AssigneePickerProps {
@@ -20,7 +21,7 @@ interface AssigneePickerProps {
  */
 export function AssigneePicker({ task, planId, actorId, tenantId, onClose }: AssigneePickerProps) {
   const queryClient = useQueryClient()
-  const queryKey = ['tasks.getBoard', planId, actorId, tenantId] as const
+  const queryKey = taskKeys.board(planId, actorId, tenantId)
 
   const snapshot = queryClient.getQueryData<BoardSnapshot>(queryKey)
   const members: PlanMember[] = snapshot?.plan.members ?? []

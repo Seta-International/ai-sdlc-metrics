@@ -21,6 +21,7 @@ import {
 import { Paperclip, Link, MoreHorizontal, Download, ImageIcon, Trash2 } from '@future/ui/icons'
 import { toast } from '@future/ui'
 import { trpc } from '@/lib/trpc'
+import { taskKeys } from '@/lib/query-keys'
 import type { AttachmentSnapshot } from '@/lib/board-types'
 import { useUpload } from '@/lib/hooks/useUpload'
 import { useTaskDetail } from '@/lib/hooks/useTaskDetail'
@@ -165,7 +166,7 @@ export function TaskAttachments({ taskId, planId }: TaskAttachmentsProps) {
   const { uploadState, uploadFile } = useUpload({ taskId, planId })
 
   function invalidate() {
-    void queryClient.invalidateQueries({ queryKey: ['tasks.getDetail', taskId] })
+    void queryClient.invalidateQueries({ queryKey: taskKeys.detailBase(taskId) })
   }
 
   async function handleFileChange(files: FileList) {

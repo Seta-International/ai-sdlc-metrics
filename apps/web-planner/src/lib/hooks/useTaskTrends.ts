@@ -3,6 +3,7 @@
 import { useQuery } from '@future/api-client'
 import { useSession } from '@future/auth'
 import { trpc } from '../trpc'
+import { taskKeys } from '../query-keys'
 import type { TaskTrends, TrendRange } from '@future/api-client/planner'
 
 export interface UseTaskTrendsResult {
@@ -28,7 +29,7 @@ export function useTaskTrends({
   const tenantId = session?.tenantId ?? ''
 
   const query = useQuery({
-    queryKey: ['tasks.getTrends', planId, actorId, tenantId, range] as const,
+    queryKey: taskKeys.trends(planId, actorId, tenantId, range),
     queryFn: () =>
       trpc.planner.tasks.getTrends.query({
         planId,

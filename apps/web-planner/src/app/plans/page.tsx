@@ -6,6 +6,7 @@ import { PlusIcon, UsersIcon, LayoutGridIcon } from '@future/ui/icons'
 import { useSession } from '@future/auth'
 import { Button, Card, Skeleton } from '@future/ui'
 import { trpc } from '../../lib/trpc'
+import { planKeys } from '../../lib/query-keys'
 
 interface PlanSummary {
   id: string
@@ -35,7 +36,7 @@ export default function PlansPage() {
   const session = useSession()
 
   const { data: plans = [], isLoading } = useQuery({
-    queryKey: ['plans.list', session?.actorId, session?.tenantId],
+    queryKey: planKeys.list(session?.actorId, session?.tenantId),
     queryFn: () =>
       trpc.planner.plans.list
         .query({ actorId: session!.actorId, tenantId: session!.tenantId })

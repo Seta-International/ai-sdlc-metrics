@@ -17,6 +17,7 @@ import { AssigneeBlockedIndicator } from './AssigneeBlockedIndicator'
 import { AssigneePicker } from '../assignees/AssigneePicker'
 import { LabelPicker } from '../labels/LabelPicker'
 import { trpc } from '../../lib/trpc'
+import { taskKeys } from '../../lib/query-keys'
 import { Paperclip, MessageSquare, ShieldCheck } from '@future/ui/icons'
 import {
   Badge,
@@ -80,7 +81,7 @@ export function TaskCard({
   const [priorityOpen, setPriorityOpen] = useState(false)
   const pickerRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
-  const queryKey = ['tasks.getBoard', planId, actorId, tenantId] as const
+  const queryKey = taskKeys.board(planId, actorId, tenantId)
 
   const style = {
     transform: CSS.Transform.toString(transform),
