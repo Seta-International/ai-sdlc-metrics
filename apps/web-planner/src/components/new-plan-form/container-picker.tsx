@@ -39,6 +39,12 @@ function decode(s: string): ContainerValue {
 
 export function ContainerPicker({ value, onChange }: ContainerPickerProps) {
   const session = useSession()
+  const { data: flags } = useQuery({
+    queryKey: ['msSync.flags', session?.tenantId],
+    queryFn: () => trpc.planner.msSync.flags.query({ tenantId: session!.tenantId }),
+    enabled: !!session,
+    staleTime: 5 * 60 * 1000,
+  })
   const { data: linkedGroups = [] } = useQuery({
     queryKey: ['msSync.groups.listLinked', session?.tenantId],
     queryFn: async (): Promise<Array<{ msGroupId: string; displayName: string }>> => {
@@ -58,7 +64,7 @@ export function ContainerPicker({ value, onChange }: ContainerPickerProps) {
       })
       return result as Array<{ msRosterId: string; displayName: string }>
     },
-    enabled: !!session,
+    enabled: !!session && !!flags?.msSyncRostersEnabled,
     staleTime: 5 * 60 * 1000,
   })
 
