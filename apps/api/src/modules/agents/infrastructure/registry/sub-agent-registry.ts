@@ -1,9 +1,9 @@
 /**
  * SubAgentRegistry — aggregates, validates, and freezes sub-agent declarations
- * at module boot time (Plan 02 §4).
+ * at module boot time.
  *
- * Descriptor aggregation convention (R-02.6 — registry built from module-scoped
- * barrel files, aggregated by agents.module.ts):
+ * Descriptor aggregation convention — registry built from module-scoped
+ * barrel files, aggregated by agents.module.ts:
  *   Each domain module owns an `agent/sub-agents/` directory with a barrel
  *   `index.ts` that re-exports all `defineSubAgent(...)` results. The
  *   `agents.module.ts` imports from every module barrel and concatenates the
@@ -26,16 +26,11 @@ import { canonicalize } from '../cache/canonical-args'
 import { recordSubAgentHidden } from '../observability/gateway-metrics'
 import type { ToolRegistry } from '../tool-registry/tool-registry'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const SUB_AGENT_REGISTRY = Symbol('SUB_AGENT_REGISTRY')
 
-// ─── Validation error ──────────────────────────────────────────────────────────
-
 /**
- * Thrown by `SubAgentRegistry.boot` when any invariant (R-02.6..R-02.9) is
- * violated. Boot must fail loud — a misconfigured registry must never serve
- * a production request.
+ * Thrown by `SubAgentRegistry.boot` when any invariant is violated. Boot must
+ * fail loud — a misconfigured registry must never serve a production request.
  */
 export class SubAgentRegistryValidationError extends Error {
   constructor(message: string) {
@@ -44,13 +39,11 @@ export class SubAgentRegistryValidationError extends Error {
   }
 }
 
-// ─── resolveForSession types ──────────────────────────────────────────────────
-
 /**
- * Options accepted by `SubAgentRegistry.resolveForSession` (Plan 02 §4).
+ * Options accepted by `SubAgentRegistry.resolveForSession`.
  *
- * `surface` is required — the caller (Task 10 orchestrator) knows the originating
- * surface and must pass it explicitly. No default is applied here.
+ * `surface` is required — the caller knows the originating surface and must
+ * pass it explicitly. No default is applied here.
  */
 export interface ResolveForSessionOpts {
   readonly tenantId: string
@@ -91,12 +84,10 @@ export interface ResolvedSubAgent {
   readonly resolvedPromptBody: string
   /**
    * SHA-256 hex hash of `{ key, resolvedPromptBody, toolScope }`.
-   * Deterministic — same inputs always produce the same hash (R-02.15, R-02.16).
+   * Deterministic — same inputs always produce the same hash.
    */
   readonly subAgentPromptHash: string
 }
-
-// ─── SubAgentRegistry ─────────────────────────────────────────────────────────
 
 @Injectable()
 export class SubAgentRegistry {
@@ -105,18 +96,16 @@ export class SubAgentRegistry {
   private _frozen = false
   private _toolRegistry: ToolRegistry | undefined
 
-  // ─── Boot ────────────────────────────────────────────────────────────────────
-
   /**
    * Aggregates, validates, and freezes the sub-agent registry.
    *
    * Must be called exactly once after `ToolRegistry.loadFromRouter` has run,
-   * because the tool-resolvability check (R-02.9) queries the tool registry.
+   * because the tool-resolvability check queries the tool registry.
    *
    * Invariants enforced (any violation throws `SubAgentRegistryValidationError`):
-   *   R-02.7  — Duplicate keys across modules are not allowed.
-   *   R-02.9  — Each sub-agent must declare a non-empty `toolScope` and every
-   *              tool name in it must exist in the ToolRegistry.
+   *   - Duplicate keys across modules are not allowed.
+   *   - Each sub-agent must declare a non-empty `toolScope` and every tool
+   *     name in it must exist in the ToolRegistry.
    *
    * Calling `boot` a second time throws immediately — double-boot is a bug.
    *
@@ -142,7 +131,7 @@ export class SubAgentRegistry {
     for (const descriptor of descriptors) {
       const key = descriptor.key as string
 
-      // R-02.7: key collision across modules is not allowed.
+      // Key collision across modules is not allowed.
       if (this._map.has(key)) {
         violations.push(
           `Duplicate sub-agent key "${key}": each sub-agent key must be unique across all modules.`,
@@ -150,7 +139,7 @@ export class SubAgentRegistry {
         continue
       }
 
-      // R-02.9: toolScope must be non-empty and every tool must be resolvable.
+      // toolScope must be non-empty and every tool must be resolvable.
       if (descriptor.toolScope.length === 0) {
         violations.push(
           `Sub-agent "${key}" has an empty toolScope. Each sub-agent must declare at least one tool.`,
@@ -166,14 +155,14 @@ export class SubAgentRegistry {
         }
       }
 
-      // R-02.5.5: toolScope > 10 tools requires toolRetrieval.enabled: true.
+      // toolScope > 10 tools requires toolRetrieval.enabled: true.
       // Large toolScopes without retrieval force the router to include all tool
       // descriptions in every prompt, inflating context and degrading accuracy.
       if (descriptor.toolScope.length > 10 && descriptor.toolRetrieval?.enabled !== true) {
         violations.push(
           `Sub-agent "${key}": toolScope has ${descriptor.toolScope.length} tools but ` +
             `toolRetrieval.enabled is not true. toolRetrieval must be enabled when toolScope ` +
-            `exceeds 10 tools (plan 02.5 R-02.5.5).`,
+            `exceeds 10 tools.`,
         )
       }
 
@@ -197,8 +186,6 @@ export class SubAgentRegistry {
     )
   }
 
-  // ─── Public surface ───────────────────────────────────────────────────────────
-
   /**
    * Returns a frozen snapshot of all registered sub-agent configs.
    * The returned array is new on each call but its contents are frozen configs.
@@ -221,12 +208,10 @@ export class SubAgentRegistry {
     return this._map.has(key)
   }
 
-  // ─── resolveForSession ────────────────────────────────────────────────────────
-
   /**
    * Returns the tenant-resolved subset of sub-agents for a given session context.
    *
-   * Applies a 3-stage filter (R-02.9a) to each registered sub-agent:
+   * Applies a 3-stage filter to each registered sub-agent:
    *
    *   Stage (a) — Module toggle: if EVERY tool in the sub-agent's `toolScope`
    *     belongs to a tenant-disabled module, the sub-agent is dropped entirely.
@@ -273,7 +258,7 @@ export class SubAgentRegistry {
     for (const config of this._map.values()) {
       const key = config.key as string
 
-      // ── Stage (a): Module toggle filter ─────────────────────────────────────
+      // Stage (a) — Module toggle filter.
       // A sub-agent is dropped if EVERY tool in its toolScope belongs to a
       // disabled module. Mixed scopes (tools spanning enabled + disabled modules)
       // survive; only those tools in disabled modules are excluded in stage (b).
@@ -295,7 +280,7 @@ export class SubAgentRegistry {
         continue
       }
 
-      // ── Stage (b): Role permission filter + enabled-module filter ────────────
+      // Stage (b) — Role permission filter + enabled-module filter.
       // Build the effective tool scope: only tools that satisfy BOTH conditions:
       //   1. The tool's module (first dot-separated segment) is in enabledModules.
       //   2. The tool's `.meta.permission` key is in roleAllowedPermissions.
@@ -310,7 +295,7 @@ export class SubAgentRegistry {
         return roleAllowedPermissions.has(descriptor.permission)
       })
 
-      // ── Stage (c): Empty-scope drop ───────────────────────────────────────────
+      // Stage (c) — Empty-scope drop.
       if (effectiveToolScope.length === 0) {
         hiddenByPermission.push(key)
         recordSubAgentHidden(tenantId, 'permission_empty_scope')
@@ -320,12 +305,10 @@ export class SubAgentRegistry {
         continue
       }
 
-      // ── Model resolution ──────────────────────────────────────────────────────
       const tenantContext: TenantContext = { tenantId, surface }
       const resolvedModel: ModelChoice =
         typeof config.model === 'function' ? config.model(tenantContext) : config.model
 
-      // ── Prompt body rendering ─────────────────────────────────────────────────
       const rawVars = promptVariables.get(config.key) ?? {}
       const parseResult = config.promptTemplate.variables.safeParse(rawVars)
       if (!parseResult.success) {
@@ -347,7 +330,7 @@ export class SubAgentRegistry {
         },
       )
 
-      // ── Sub-agent prompt hash ─────────────────────────────────────────────────
+      // Sub-agent prompt hash.
       // Input: { key, resolvedPromptBody, toolScope: [...config.toolScope] }
       // Uses the full config.toolScope (not the filtered effectiveToolScope) so
       // the hash is stable across role changes — per-sub-agent hash pins the
@@ -362,7 +345,6 @@ export class SubAgentRegistry {
       resolved.push({ config, resolvedModel, resolvedPromptBody, subAgentPromptHash })
     }
 
-    // ── Observability: span attributes ────────────────────────────────────────
     const activeSpan = trace.getActiveSpan()
     if (activeSpan) {
       activeSpan.setAttributes({

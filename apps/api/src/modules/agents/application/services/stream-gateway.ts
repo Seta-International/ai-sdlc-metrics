@@ -1,4 +1,4 @@
-// ─── Local types (structural match for @future/agent SseEvent — no import) ────
+// Local types — structural match for @future/agent SseEvent (no import).
 import {
   recordOrderingViolation,
   recordProgressEvent,
@@ -32,8 +32,6 @@ type SseEventInput = {
 }
 
 type SseEventWithSeq = SseEventInput & { seq: number }
-
-// ─── State machine ────────────────────────────────────────────────────────────
 
 type StreamState =
   | 'turn-not-started'
@@ -160,15 +158,11 @@ function nextState(current: StreamState, eventType: string): StreamState {
   }
 }
 
-// ─── StreamEmitter interface ──────────────────────────────────────────────────
-
 export interface StreamEmitter {
   emit(event: SseEventInput): void
   close(reason: TurnEndReason, usage: UsageSnapshot): void
   error(cause: string, usage?: UsageSnapshot): void
 }
-
-// ─── Factory ──────────────────────────────────────────────────────────────────
 
 export function createStreamGateway(
   writeFn: (raw: string) => void,
@@ -178,17 +172,12 @@ export function createStreamGateway(
   let seq = 0
 
   function write(event: SseEventWithSeq): void {
-    // TODO(backpressure-gap): Plan 06 §8 / §7 names agent_sse_backpressure_total as a required
-    // instrument. The metric is defined in streaming-metrics.ts (recordSseBackpressure) and the
-    // failure-mode table (§7) specifies: overflow → turn.ended.reason:'error', cause='client_backpressure'.
-    //
-    // Detection requires a backpressure-aware write queue (e.g. check Node.js
-    // ServerResponse.writableNeedDrain / stream high-watermark after each write). The current
-    // fire-and-forget writeFn does not expose queue depth, so backpressure cannot be detected
-    // here without a structural change to the SSE transport layer. This is deferred to a
-    // dedicated infrastructure task (Path B per Theme I spec-gap review 2026-04-26).
-    //
-    // Tracking: fix(agents): wire agent_sse_backpressure_total detection in SSE write layer
+    // DEFERRED: agent_sse_backpressure_total counter is required but detection
+    // needs a backpressure-aware write queue (e.g. check Node.js
+    // ServerResponse.writableNeedDrain / stream high-watermark after each
+    // write). The current fire-and-forget writeFn does not expose queue depth,
+    // so backpressure cannot be detected here without a structural change to
+    // the SSE transport layer. Unblocks once that change ships.
     writeFn(JSON.stringify(event))
   }
 
@@ -198,16 +187,16 @@ export function createStreamGateway(
       try {
         next = nextState(state, event.type)
       } catch (err) {
-        // Record ordering violation metric (Plan 06 §8). Producer is the event type
-        // that caused the invalid transition — the call stack identifies the emitting component.
-        // P2 alert fires on any positive value in steady state.
+        // Producer is the event type that caused the invalid transition — the
+        // call stack identifies the emitting component. P2 alert fires on any
+        // positive value in steady state.
         recordOrderingViolation(event.type)
         state = 'stream-errored'
         throw err
       }
 
-      // Record progress event metric (Plan 06 §8, R-06.35a).
-      // progress events carry a `cause` in their payload; extract it for the metric label.
+      // progress events carry a `cause` in their payload; extract it for the
+      // metric label.
       if (event.type === 'progress' && tenantId !== undefined) {
         const payload = event.payload as { cause?: string } | undefined
         const cause = payload?.cause

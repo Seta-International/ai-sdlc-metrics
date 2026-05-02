@@ -139,8 +139,6 @@ export function recordStepAttrs(attrs: Attributes): void {
   trace.getActiveSpan()?.setAttributes(attrs)
 }
 
-// ─── Internal type guard ─────────────────────────────────────────────────────
-
 /**
  * Structural check that works on `unknown` values coming out of the generic
  * `fn` return. We cannot use the imported `isTripwire` predicate here because

@@ -9,8 +9,6 @@ import {
   recordTierShift,
 } from '../../infrastructure/observability/cost-metrics'
 
-// ─── Return types ─────────────────────────────────────────────────────────────
-
 export interface PreTurnCheckResult {
   allowed: boolean
   tier: 'full' | 'nano' | 'refused'
@@ -24,20 +22,17 @@ export interface MidTurnCheckResult {
   shouldAbort: boolean
 }
 
-// ─── BudgetChecker ────────────────────────────────────────────────────────────
-
 @Injectable()
 export class BudgetChecker {
   constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
   /**
-   * Pre-turn budget check (Plan 05 §4).
+   * Pre-turn budget check.
    *
    * Returns tier and allow/refuse decision before starting a turn.
    * All DB queries are awaited sequentially (single pg.PoolClient per request).
    */
   async preTurnCheck(opts: { tenantId: string; userId: string }): Promise<PreTurnCheckResult> {
-    // Step 1 — query tenant budget
     const [tenantBudget] = await this.db
       .select()
       .from(agentTenantBudget)
@@ -48,12 +43,10 @@ export class BudgetChecker {
       return { allowed: true, tier: 'full' }
     }
 
-    // Step 2 — compute tenant usage percentage
     const dailyLimit = Number(tenantBudget.dailyLimitUsd)
     const remaining = Number(tenantBudget.remainingUsd)
     const usedPct = dailyLimit > 0 ? 1 - remaining / dailyLimit : 1
 
-    // Step 3 — check user budget (agentUserBudget pre-aggregated by CostRecorder)
     const todayMidnightUtc = new Date()
     todayMidnightUtc.setUTCHours(0, 0, 0, 0)
     const todayUtc = todayMidnightUtc.toISOString().slice(0, 10) // YYYY-MM-DD
@@ -73,44 +66,38 @@ export class BudgetChecker {
       return { allowed: false, tier: 'refused', reason: 'user_daily_budget' }
     }
 
-    // Compute user-scoped remaining for the gauge (Plan 05 §6).
-    // When a user budget row exists, use its remaining balance.
     // When no user budget row is present, the user has no per-user cap — snapshot
     // the tenant remaining as a proxy (bounded by the tenant ceiling).
     const userRemainingUsd = userBudget !== undefined ? Number(userBudget.remainingUsd) : remaining
 
-    // Step 5 — check tenant 100%
     if (remaining <= 0) {
-      // Snapshot remaining budget gauges (both tenant and user-scoped) at 0
       setBudgetRemaining(opts.tenantId, 0)
       setBudgetUserRemaining(opts.tenantId, 0)
       return { allowed: false, tier: 'refused', reason: 'tenant_daily_budget' }
     }
 
-    // Step 6 — check 95–100% range → downgrade to nano (spec §5: before insufficient_minimum)
+    // 95–100% range → downgrade to nano (must run before insufficient_minimum)
     if (usedPct >= 0.95) {
-      // Snapshot remaining budget + user-scoped gauge, then emit tier shift metric (budget origin)
       setBudgetRemaining(opts.tenantId, remaining)
       setBudgetUserRemaining(opts.tenantId, userRemainingUsd)
       recordTierShift(opts.tenantId, 'full', 'nano', 'budget')
       return { allowed: true, tier: 'nano', tierShift: true }
     }
 
-    // Step 7 — check insufficient minimum ($0.10)
+    // Insufficient minimum ($0.10)
     if (remaining < 0.1) {
       setBudgetRemaining(opts.tenantId, remaining)
       setBudgetUserRemaining(opts.tenantId, userRemainingUsd)
       return { allowed: false, tier: 'refused', reason: 'insufficient_minimum' }
     }
 
-    // Step 8 — default: full tier
     setBudgetRemaining(opts.tenantId, remaining)
     setBudgetUserRemaining(opts.tenantId, userRemainingUsd)
     return { allowed: true, tier: 'full', tierShift: false }
   }
 
   /**
-   * Mid-turn budget check (Plan 05 §4).
+   * Mid-turn budget check.
    *
    * Called during an ongoing turn to decide whether to abort based on
    * consumed cost so far.

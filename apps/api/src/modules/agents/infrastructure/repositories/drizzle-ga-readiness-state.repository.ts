@@ -1,5 +1,5 @@
 /**
- * drizzle-ga-readiness-state.repository.ts — Plan 13 Task 2
+ * drizzle-ga-readiness-state.repository.ts
  *
  * Drizzle-backed implementation of GaReadinessStateRepository.
  *
@@ -19,8 +19,6 @@ import {
   type GaReadinessStateEntity,
 } from '../../domain/repositories/ga-readiness-state.repository'
 
-// ─── Row → domain mapper ──────────────────────────────────────────────────────
-
 type AgentGaReadinessStateRow = typeof agentGaReadinessState.$inferSelect
 
 function toDomain(row: AgentGaReadinessStateRow): GaReadinessStateEntity {
@@ -36,8 +34,6 @@ function toDomain(row: AgentGaReadinessStateRow): GaReadinessStateEntity {
     p1SecurityIncidentsLast90d: row.p1SecurityIncidentsLast90d,
   }
 }
-
-// ─── Repository ───────────────────────────────────────────────────────────────
 
 @Injectable()
 export class DrizzleGaReadinessStateRepository implements GaReadinessStateRepository {

@@ -1,7 +1,5 @@
 /**
- * extensibility-invariant-audit.ts — Plan 13 Task 7
- *
- * CI suite verifying EI-1..EI-10 against the synthetic 12-module fixture and
+ * CI suite verifying EI-1..EI-13 against the synthetic 12-module fixture and
  * the three MVP modules (planner, people, projects).
  *
  * EI definitions (§2.2):
@@ -36,7 +34,6 @@ import { IDENTITY_KEY_DENYLIST } from '../../domain/observability/span'
 import { agentTenantBudget } from '../../infrastructure/schema/agents.schema'
 import { BudgetChecker } from './budget-checker'
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 const AVG_TOKENS_PER_TOOL_DESCRIPTION = 30
 const ROUTER_OVERHEAD_TOKENS = 500
 
@@ -54,14 +51,12 @@ const MODULES_ROOT = join(__dirname, '../../../../modules')
  * Used by EI-11, EI-12, and EI-13 to read specific source files.
  *
  * NOTE: this is computed independently from MODULES_ROOT because the latter
- * predates these checks and points to a path that doesn't exist on disk
- * (apps/api/modules instead of apps/api/src/modules) — a separate cleanup task.
- * The existing EI-9/EI-10 helpers tolerate the missing directory via try/catch;
- * the new stub-pattern checks need the real path to read individual files.
+ * points to a path that doesn't exist on disk (apps/api/modules instead of
+ * apps/api/src/modules). The existing EI-9/EI-10 helpers tolerate the missing
+ * directory via try/catch; the stub-pattern checks need the real path to read
+ * individual files.
  */
 const AGENTS_SERVICES_DIR = __dirname
-
-// ─── Public types ─────────────────────────────────────────────────────────────
 
 export type ExtensibilityInvariantId =
   | 'EI-1'
@@ -90,8 +85,6 @@ export type AuditResult = {
   perInvariant: ReadonlyArray<InvariantCheckResult>
   allPassed: boolean
 }
-
-// ─── Internal check helpers ───────────────────────────────────────────────────
 
 type CheckFn = (overrides?: ExtensibilityAuditOverrides) => InvariantCheckResult
 
@@ -165,8 +158,6 @@ export interface ExtensibilityAuditOverrides {
    */
   forceEi13Fail?: boolean
 }
-
-// ─── Filesystem helpers ───────────────────────────────────────────────────────
 
 /**
  * Recursively collect all `.ts` files under `dir`, excluding `.spec.ts`.
@@ -289,8 +280,6 @@ function findDeprecatedAnnotations(modulesRoot: string): string[] {
   return hits
 }
 
-// ─── ExtensibilityInvariantAudit ─────────────────────────────────────────────
-
 @Injectable()
 export class ExtensibilityInvariantAudit {
   /**
@@ -307,8 +296,6 @@ export class ExtensibilityInvariantAudit {
       allPassed: checks.every((c) => c.passed),
     }
   }
-
-  // ─── Evaluation ─────────────────────────────────────────────────────────────
 
   private _evaluateAll(overrides?: ExtensibilityAuditOverrides): InvariantCheckResult[] {
     const checkers: CheckFn[] = [
@@ -329,8 +316,6 @@ export class ExtensibilityInvariantAudit {
     return checkers.map((fn) => fn(overrides))
   }
 
-  // ── EI-1: Every sub-agent has a unique key ───────────────────────────────────
-
   private _checkEi1(overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
     const keys = overrides?.moduleKeys ?? SYNTHETIC_MODULE_KEYS
     const unique = new Set(keys)
@@ -344,8 +329,6 @@ export class ExtensibilityInvariantAudit {
         : `${unique.size} unique keys verified`,
     }
   }
-
-  // ── EI-2: Every sub-agent has a non-empty intent slug ────────────────────────
 
   private _checkEi2(overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
     const keys = overrides?.moduleKeys ?? (SYNTHETIC_MODULE_KEYS as readonly string[])
@@ -362,8 +345,6 @@ export class ExtensibilityInvariantAudit {
     }
   }
 
-  // ── EI-3: No slug is 'unclassified' ─────────────────────────────────────────
-
   private _checkEi3(_overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
     const unclassifiedCount = SYNTHETIC_SUB_AGENTS.filter(
       (a) => a.intentSlug === 'unclassified',
@@ -378,8 +359,6 @@ export class ExtensibilityInvariantAudit {
     }
   }
 
-  // ── EI-4: Sub-agent retrieval recall ≥ 95% ──────────────────────────────────
-
   private _checkEi4(_overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
     // Deterministic: all 12 synthetic sub-agents are in-memory; recall = 1.0.
     const observed = 1.0
@@ -390,8 +369,6 @@ export class ExtensibilityInvariantAudit {
       evidence: `recall=${observed.toFixed(2)} on ${SYNTHETIC_MODULE_KEYS.length}-module fixture`,
     }
   }
-
-  // ── EI-5: Tool retrieval recall ≥ 95% ───────────────────────────────────────
 
   private _checkEi5(_overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
     const totalTools = SYNTHETIC_MODULE_KEYS.length * TOOL_SUFFIXES.length
@@ -405,8 +382,6 @@ export class ExtensibilityInvariantAudit {
     }
   }
 
-  // ── EI-6: Router prompt fits within budget ceiling ───────────────────────────
-
   private _checkEi6(_overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
     const estimatedTokens =
       SYNTHETIC_MODULE_KEYS.length * TOOL_SUFFIXES.length * AVG_TOKENS_PER_TOOL_DESCRIPTION +
@@ -419,9 +394,7 @@ export class ExtensibilityInvariantAudit {
     }
   }
 
-  // ── EI-7: Every span carries tenant_id attribute ─────────────────────────────
-  //
-  // Static check: verify the IDENTITY_KEY_DENYLIST (imported from domain/observability/span)
+  // EI-7: verify the IDENTITY_KEY_DENYLIST (imported from domain/observability/span)
   // contains 'tenant_id', proving it is auto-stamped and cannot be overridden by callers.
   //
   // The denylist is the structural mechanism that enforces the invariant:
@@ -430,7 +403,6 @@ export class ExtensibilityInvariantAudit {
   //   2. OtelSpan.setAttribute/setAttributes reject denylist keys so callers cannot
   //      accidentally overwrite tenant_id with a different value.
   // Together these guarantee every span carries tenant_id — no runtime trace scan needed.
-
   private _checkEi7(overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
     if (overrides?.forceEi7Fail) {
       return {
@@ -461,16 +433,13 @@ export class ExtensibilityInvariantAudit {
     }
   }
 
-  // ── EI-8: Budget allocation is respected per tenant ──────────────────────────
-  //
-  // Static check: verify that:
+  // EI-8: verify that:
   //   1. The agent_tenant_budget table exists in the schema (agentTenantBudget is defined
   //      and has a 'tenantId' column — the per-tenant partition key).
   //   2. The BudgetChecker service has a preTurnCheck method, confirming the gate is wired.
   //
   // These two structural facts confirm the budget enforcement pipeline exists and is not
   // a silent stub — real enforcement requires both a table and a checker calling it.
-
   private _checkEi8(overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
     if (overrides?.forceEi8Fail) {
       return {
@@ -520,14 +489,10 @@ export class ExtensibilityInvariantAudit {
     }
   }
 
-  // ── EI-9: Module-scoped memory never crosses module boundaries ───────────────
-  //
-  // Real filesystem lint: scan all production TypeScript files under modules/
-  // and flag any import from another module's domain/ or infrastructure/ subtree.
-  //
-  // Cross-module reads must go through QueryFacades (exported symbols only).
-  // Violations indicate a DDD boundary breach.
-
+  // EI-9: scan all production TypeScript files under modules/ and flag any import
+  // from another module's domain/ or infrastructure/ subtree. Cross-module reads
+  // must go through QueryFacades (exported symbols only); violations indicate a
+  // DDD boundary breach.
   private _checkEi9(overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
     const fsViolations = findCrossModuleImports(MODULES_ROOT)
     const injected = overrides?.extraCrossModuleImportLines ?? []
@@ -549,12 +514,9 @@ export class ExtensibilityInvariantAudit {
     }
   }
 
-  // ── EI-10: No deprecated aliases or backward-compat shims ───────────────────
-  //
-  // Real filesystem grep: scan all production TypeScript files in the agents module
-  // for @deprecated JSDoc tags. CLAUDE.md "No Backward Compatibility" rule prohibits
+  // EI-10: scan all production TypeScript files in the agents module for
+  // @deprecated JSDoc tags. CLAUDE.md "No Backward Compatibility" rule prohibits
   // these; any occurrence is a policy violation that must be removed.
-
   private _checkEi10(overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
     const fsHits = findDeprecatedAnnotations(MODULES_ROOT)
     // Filter out lines from this file itself (the evidence string mentions @deprecated)
@@ -580,8 +542,6 @@ export class ExtensibilityInvariantAudit {
     }
   }
 
-  // ── EI-11: sub-agent runner adapter is wired (no rawStructured:{}/all-zero stub) ─
-
   private _checkEi11(overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
     if (overrides?.forceEi11Fail) {
       return {
@@ -603,9 +563,8 @@ export class ExtensibilityInvariantAudit {
         failures: ['file missing'],
       }
     }
-    // Stub signature: rawStructured: {} alongside toolResultCount: 0 within ~400 chars
-    // (the original Plan 17 audit identified rawStructured:{} + all-zero signals as
-    // the stub pattern). The real adapter wires toolResultCount to accumulator state.
+    // Stub signature: rawStructured: {} alongside toolResultCount: 0 within ~400 chars.
+    // The real adapter wires toolResultCount to accumulator state.
     const stubPattern = /rawStructured:\s*\{\}\s*,[\s\S]{0,400}toolResultCount:\s*0\b/
     if (stubPattern.test(content)) {
       return {
@@ -623,8 +582,6 @@ export class ExtensibilityInvariantAudit {
         'sub-agent-runner-adapter.ts no longer matches the rawStructured:{} + all-zero-signals stub pattern',
     }
   }
-
-  // ── EI-12: synthesizer adapter calls SynthesizerLlmClient ────────────────────
 
   private _checkEi12(overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
     if (overrides?.forceEi12Fail) {
@@ -663,8 +620,6 @@ export class ExtensibilityInvariantAudit {
     }
   }
 
-  // ── EI-13: golden-trace runner is wired (no actualFingerprint = {...expectedFingerprint}) ─
-
   private _checkEi13(overrides?: ExtensibilityAuditOverrides): InvariantCheckResult {
     if (overrides?.forceEi13Fail) {
       return {
@@ -686,7 +641,7 @@ export class ExtensibilityInvariantAudit {
         failures: ['file missing'],
       }
     }
-    // Original Plan 10 stub: const actualFingerprint: Fingerprint = { ...expectedFingerprint }
+    // Stub line: const actualFingerprint: Fingerprint = { ...expectedFingerprint }
     if (
       /actualFingerprint:?\s*Fingerprint\s*=\s*\{\s*\.\.\.expectedFingerprint\s*\}/.test(content)
     ) {

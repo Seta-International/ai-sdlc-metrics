@@ -7,7 +7,7 @@ export interface L3PreferenceEntity {
   updatedBy: string
 }
 
-/** Keys writable at MVP. Unknown keys are rejected at the service layer (R-04.19). */
+/** Keys writable at MVP. Unknown keys are rejected at the service layer. */
 export const L3_PREFERENCE_ALLOWLIST = [
   'display_format',
   'currency_display',

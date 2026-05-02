@@ -1,6 +1,4 @@
 /**
- * IterativeRePlanner — Plan 12 Task 3
- *
  * Called after each supervisor-loop iteration to decide whether to continue or
  * exit. Sends a prompt to the router LLM (same OpenAI model as the router)
  * containing:
@@ -9,17 +7,16 @@
  *   - The prior iteration summary and scorer results
  *   - Whether the last iteration was complete
  *
- * Parse-retry semantics (same pattern as Plan 02 RouterDecisionParser):
+ * Parse-retry semantics:
  *   - On first LLM/parse failure: retry once with an error-correction prompt.
  *   - On second failure: return { kind: 'exit', reason: 'disambiguation',
  *     disambiguationQuestion: 'Unable to determine next step.' }
  *
  * Design notes:
  *   - Uses a dedicated Zod schema (ReplanDecisionSchema) separate from RouterPlanSchema.
- *   - Calls generateObject from the Vercel AI SDK directly (same pattern as RouterLlmClient)
- *     because RouterLlmClient.generate() is locked to RouterPlanSchema.
- *   - @Injectable() for NestJS DI. No constructor arguments required at MVP — the
- *     model and API key are resolved from process.env (same contract as RouterLlmClient).
+ *   - Calls generateObject from the Vercel AI SDK directly because
+ *     RouterLlmClient.generate() is locked to RouterPlanSchema.
+ *   - Model and API key are resolved from process.env (same contract as RouterLlmClient).
  *   - Sequential awaits only; no Promise.all.
  */
 
@@ -35,8 +32,6 @@ import type {
 } from './phase-executor-contracts'
 import { recordReplanLlmCallTotal } from '../../infrastructure/observability/gateway-metrics'
 
-// ─── Result type ──────────────────────────────────────────────────────────────
-
 export type ReplanResult =
   | { kind: 'continue'; nextDirective: SubAgentDirective }
   | {
@@ -45,28 +40,24 @@ export type ReplanResult =
       disambiguationQuestion?: string
     }
 
-// ─── Options ──────────────────────────────────────────────────────────────────
-
 export interface ReplanOpts {
   readonly turnState: PhaseExecutorTurnState
   readonly priorIteration: IterationRecord
   /**
    * Full ordered history of completed iterations (excluding the current
    * `priorIteration`). The user-message builder caps this to the last 5
-   * entries to prevent prompt bloat (Plan 12 §7, default N=5).
+   * entries to prevent prompt bloat.
    */
   readonly iterationHistory: IterationRecord[]
   readonly completionCriteria: CompletionSpec
   readonly userUtterance: string
   readonly abortSignal: AbortSignal
   /**
-   * Tenant ID for metric recording (Plan 12 §8).
+   * Tenant ID for metric recording.
    * Optional — if omitted, replan LLM call metrics are skipped.
    */
   readonly tenantId?: string
 }
-
-// ─── Zod schema for LLM response ─────────────────────────────────────────────
 
 /**
  * Discriminated union emitted by the router LLM for replan decisions.
@@ -90,16 +81,12 @@ const ReplanDecisionSchema = z.discriminatedUnion('action', [
 
 type ReplanDecision = z.infer<typeof ReplanDecisionSchema>
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 /**
  * Fallback message surfaced to the user when both LLM attempts fail to produce
  * a valid replan decision. Exported so tests reference the same string without
  * risk of silent drift between implementation and assertions.
  */
 export const FALLBACK_DISAMBIGUATION_MESSAGE = 'Unable to determine next step.'
-
-// ─── IterativeRePlanner ───────────────────────────────────────────────────────
 
 @Injectable()
 export class IterativeRePlanner implements OnModuleInit {
@@ -140,7 +127,6 @@ export class IterativeRePlanner implements OnModuleInit {
     const systemPrompt = _buildSystemPrompt(completionCriteria)
     const userMessage = _buildUserMessage(userUtterance, priorIteration, iterationHistory)
 
-    // Attempt 1
     const firstDecision = await _callLlm(systemPrompt, userMessage, abortSignal)
     if (firstDecision.kind === 'ok') {
       const result = _toReplanResult(firstDecision.decision)
@@ -148,7 +134,7 @@ export class IterativeRePlanner implements OnModuleInit {
       return result
     }
 
-    // Attempt 2: error-correction retry
+    // Error-correction retry.
     const correctionMessage = _buildCorrectionMessage(userMessage, firstDecision.error)
     const secondDecision = await _callLlm(systemPrompt, correctionMessage, abortSignal)
     if (secondDecision.kind === 'ok') {
@@ -172,8 +158,6 @@ export class IterativeRePlanner implements OnModuleInit {
     }
   }
 }
-
-// ─── LLM call ────────────────────────────────────────────────────────────────
 
 type LlmCallResult = { kind: 'ok'; decision: ReplanDecision } | { kind: 'error'; error: string }
 
@@ -214,8 +198,6 @@ async function _callLlm(
   }
 }
 
-// ─── Prompt builders ──────────────────────────────────────────────────────────
-
 /**
  * Builds the system prompt for the iterative replan LLM call.
  *
@@ -241,9 +223,9 @@ function _buildSystemPrompt(completionCriteria: CompletionSpec): string {
  * Builds the user message summarising the iteration history and prior
  * iteration, then asks for a replan decision.
  *
- * History is capped to the last 5 entries (Plan 12 §7, default N=5) to
- * prevent prompt bloat. Each history entry includes the iteration number,
- * sub-agent key, completion status, and a truncated summary (~200 chars).
+ * History is capped to the last 5 entries to prevent prompt bloat. Each entry
+ * includes the iteration number, sub-agent key, completion status, and a
+ * truncated summary (~200 chars).
  */
 function _buildUserMessage(
   userUtterance: string,
@@ -302,8 +284,6 @@ function _buildCorrectionMessage(originalUserMessage: string, errorMessage: stri
   )
 }
 
-// ─── Result mapper ────────────────────────────────────────────────────────────
-
 /**
  * Maps a validated ReplanDecision to a ReplanResult.
  */
@@ -324,10 +304,8 @@ function _toReplanResult(decision: ReplanDecision): ReplanResult {
   }
 }
 
-// ─── Metric helper ────────────────────────────────────────────────────────────
-
 /**
- * Records the replan LLM call outcome metric (Plan 12 §8).
+ * Records the replan LLM call outcome metric.
  * Swallows errors — metric emission must never fail a user turn.
  */
 function _safeRecordReplanMetric(tenantId: string | undefined, result: ReplanResult): void {

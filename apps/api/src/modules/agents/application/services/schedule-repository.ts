@@ -9,8 +9,6 @@ import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-au
 import type { Schedule } from '../../domain/entities/schedule.entity'
 import type { AgentDelegation } from '../../../kernel/application/facades/kernel-delegation.facade'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export type DelegationScope = {
   permitted_tools?: string[]
   permitted_domains?: string[]
@@ -18,12 +16,8 @@ export type DelegationScope = {
   admin_approved_by?: string
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 // Maximum active schedules per tenant (actual admin config reading is deferred).
 const MAX_ACTIVE_SCHEDULES = 100
-
-// ─── ScheduleRepository (application service) ────────────────────────────────
 
 /**
  * Application-layer orchestrator for schedule CRUD.
@@ -44,8 +38,6 @@ export class ScheduleRepository {
     private readonly kernelDelegationFacade: KernelDelegationFacade,
     private readonly kernelAuditFacade: KernelAuditFacade,
   ) {}
-
-  // ─── create() ─────────────────────────────────────────────────────────────
 
   async create(opts: {
     tenantId: string
@@ -76,7 +68,6 @@ export class ScheduleRepository {
       failureAlertPolicy,
     } = opts
 
-    // Step 0: Enforce tenant active-schedule cap.
     const activeCount = await this.scheduleRepo.countActiveForTenant({ tenantId })
     if (activeCount >= MAX_ACTIVE_SCHEDULES) {
       throw new Error('tenant_schedule_cap_exceeded')
@@ -87,7 +78,7 @@ export class ScheduleRepository {
       )
     }
 
-    // Step 1: Create delegation first — scope carries schedule_id: 'pending' as a
+    // Create delegation first — scope carries schedule_id: 'pending' as a
     // placeholder. The actual schedule ID is set at delegation create time and cannot
     // be patched back because KernelDelegationFacade does not expose an updateScope()
     // method. This is intentional: the real schedule↔delegation association is enforced
@@ -100,7 +91,6 @@ export class ScheduleRepository {
       expiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
     })
 
-    // Step 2: Create schedule with the delegation id we just obtained.
     const schedule = await this.scheduleRepo.insert({
       tenantId,
       kind,
@@ -116,7 +106,6 @@ export class ScheduleRepository {
       failureAlertPolicy,
     })
 
-    // Step 3: Emit schedule_created audit.
     await this.kernelAuditFacade.recordEvent({
       tenantId,
       actorId: createdBy,
@@ -133,8 +122,6 @@ export class ScheduleRepository {
 
     return { schedule, delegation }
   }
-
-  // ─── pause() ──────────────────────────────────────────────────────────────
 
   async pause(opts: { tenantId: string; scheduleId: string; reason?: string }): Promise<void> {
     await this.scheduleRepo.update({
@@ -154,8 +141,6 @@ export class ScheduleRepository {
     })
   }
 
-  // ─── resume() ─────────────────────────────────────────────────────────────
-
   async resume(opts: { tenantId: string; scheduleId: string }): Promise<void> {
     await this.scheduleRepo.update({
       tenantId: opts.tenantId,
@@ -173,8 +158,6 @@ export class ScheduleRepository {
       payload: { scheduleId: opts.scheduleId },
     })
   }
-
-  // ─── delete() ─────────────────────────────────────────────────────────────
 
   async delete(opts: { tenantId: string; scheduleId: string }): Promise<void> {
     const { tenantId, scheduleId } = opts
@@ -207,8 +190,6 @@ export class ScheduleRepository {
     })
   }
 
-  // ─── update() ─────────────────────────────────────────────────────────────
-
   async update(opts: {
     tenantId: string
     scheduleId: string
@@ -229,13 +210,9 @@ export class ScheduleRepository {
     })
   }
 
-  // ─── listForUser() ────────────────────────────────────────────────────────
-
   listForUser(opts: { tenantId: string; userId: string }): Promise<Schedule[]> {
     return this.scheduleRepo.listForUser(opts)
   }
-
-  // ─── listForTenant() ──────────────────────────────────────────────────────
 
   listForTenant(opts: { tenantId: string }): Promise<Schedule[]> {
     return this.scheduleRepo.listForTenant(opts)

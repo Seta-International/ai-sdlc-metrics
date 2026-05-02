@@ -64,7 +64,7 @@ export class DraftSink {
         taintAtDraftTime: opts.tainted,
       })
     } catch (err) {
-      // R-06.14a: draft persist failure — emit metric + rethrow for the caller to handle.
+      // Draft persist failure — emit metric + rethrow for the caller to handle.
       // The turn handler catches this and emits a progress event with cause='draft_persist_failed'
       // instead of a draft.proposed event. The turn continues without the draft.
       recordDraftPersistFailure(opts.tenantId)

@@ -12,8 +12,6 @@ import { PgBossService } from '../../../../common/jobs/pg-boss.service'
 import type { Schedule } from '../../domain/entities/schedule.entity'
 import { SCHEDULED_TURN_QUEUE, type ScheduledTurnJob } from './scheduled-turn-contracts'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export { SCHEDULED_TURN_QUEUE, type ScheduledTurnJob }
 
 export interface SpawnResult {
@@ -28,8 +26,6 @@ export type PinnedVersions = {
   model_id: string
 }
 
-// ─── PinnedVersionsResolver ───────────────────────────────────────────────────
-
 /**
  * At MVP, returns hardcoded version strings.
  * Future: read from config/env.
@@ -42,8 +38,6 @@ function resolvePinnedVersions(): PinnedVersions {
     model_id: 'gpt-4o-mini',
   }
 }
-
-// ─── ScheduledTurnSpawner ─────────────────────────────────────────────────────
 
 /**
  * Validates all preconditions for a scheduled agent turn and enqueues the
@@ -79,12 +73,10 @@ export class ScheduledTurnSpawner {
   }): Promise<SpawnResult> {
     const { schedule, firedBy, eventPayload } = opts
 
-    // Step 1: Verify schedule is active
     if (schedule.status !== 'active') {
       return { spawned: false, reason: 'paused' }
     }
 
-    // Step 2: Load and verify delegation is active
     const delegation = await this.kernelDelegationFacade.getDelegation({
       tenantId: schedule.tenantId,
       delegationId: schedule.delegationId,
@@ -93,7 +85,6 @@ export class ScheduledTurnSpawner {
       return { spawned: false, reason: 'delegation_expired' }
     }
 
-    // Step 3: Check invocation ceiling
     const todayRunCount = await this.scheduleRunRepo.countTodayBySchedule({
       tenantId: schedule.tenantId,
       scheduleId: schedule.id,
@@ -102,7 +93,6 @@ export class ScheduledTurnSpawner {
       return { spawned: false, reason: 'ceiling_exhausted' }
     }
 
-    // Step 4: Check cost ceiling
     const todayCostUsd = await this.scheduleRunRepo.sumTodayCostBySchedule({
       tenantId: schedule.tenantId,
       scheduleId: schedule.id,
@@ -112,7 +102,6 @@ export class ScheduledTurnSpawner {
       return { spawned: false, reason: 'ceiling_exhausted' }
     }
 
-    // Step 5: Taint seed detection
     const eventType = firedBy.startsWith('event:') ? firedBy.slice('event:'.length) : ''
     const taintSeeded = this.taintSeedDetector.shouldSeedTaint({
       eventType,
@@ -120,19 +109,14 @@ export class ScheduledTurnSpawner {
       schedule,
     })
 
-    // Step 6: Capture pinned versions
     const pinnedVersions = resolvePinnedVersions()
-
-    // Step 7: Generate flow id
     const flowId = uuidv7()
 
-    // Resolve principal
     const { actorPrincipal, userOnBehalfOf } = this.schedulerPrincipal.resolve({
       schedule,
       delegation,
     })
 
-    // Step 8: Enqueue job
     const payload: ScheduledTurnJob = {
       tenant_id: schedule.tenantId,
       user_on_behalf_of: userOnBehalfOf,
@@ -154,7 +138,6 @@ export class ScheduledTurnSpawner {
       `ScheduledTurnSpawner: enqueued flow ${flowId} for schedule ${schedule.id} (firedBy=${firedBy})`,
     )
 
-    // Step 9: Record audit event
     await this.kernelAuditFacade.recordEvent({
       tenantId: schedule.tenantId,
       actorId: userOnBehalfOf ?? 'agent:scheduler',
@@ -169,7 +152,6 @@ export class ScheduledTurnSpawner {
       },
     })
 
-    // Step 10: Return success
     return { spawned: true }
   }
 }

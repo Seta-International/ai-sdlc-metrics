@@ -5,7 +5,7 @@ import {
   type CostReconciliationEntity,
 } from '../../domain/repositories/cost-reconciliation.repository'
 
-/** R-13.12: alert when divergence exceeds 2% */
+/** Alert when divergence exceeds 2%. */
 const DIVERGENCE_THRESHOLD_PCT = 2
 
 @Injectable()
@@ -18,7 +18,7 @@ export class CostReconciliationJob {
   /**
    * Runs the weekly cost reconciliation between internal cost events and
    * vendor invoices. Persists the result and sets `divergenceOverThreshold`
-   * when the divergence exceeds 2% (R-13.12).
+   * when the divergence exceeds 2%.
    *
    * The caller (Task 8 worker) is responsible for fetching `agent_cost_event`
    * totals and vendor invoice data before invoking this method — the sums are

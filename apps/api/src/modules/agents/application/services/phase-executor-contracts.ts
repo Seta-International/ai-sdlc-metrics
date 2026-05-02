@@ -1,16 +1,13 @@
 /**
- * Plan 03 type contracts — phase executor, sub-agent runner, synthesizer.
+ * Type contracts for phase executor, sub-agent runner, and synthesizer.
  *
  * Pure TypeScript. Zero NestJS / Drizzle / Zod dependencies.
- * These types define the interfaces between plan 03 services.
  */
 
 import type { BoundedPlan, SubAgentDirective } from '../../domain/value-objects/router-plan-schema'
 import type { ValidatedSubAgentConfig } from '../../domain/services/sub-agent-types'
 import type { ScorerResult } from '../../domain/scorer-types'
 import type { StreamEmitter } from './stream-gateway'
-
-// ─── Primitive types ──────────────────────────────────────────────────────────
 
 export type Confidence = 'high' | 'med' | 'low'
 
@@ -26,8 +23,6 @@ export type CancellationReason =
 export type ToolName = string
 export type SubAgentKey = string
 
-// ─── ToolCall ─────────────────────────────────────────────────────────────────
-
 /** A single recorded tool invocation within a sub-agent's ReAct loop. */
 export interface ToolCall {
   readonly toolName: ToolName
@@ -42,11 +37,10 @@ export interface ToolCall {
   readonly durationMs: number
 }
 
-// ─── DraftProposal ────────────────────────────────────────────────────────────
-
 /**
  * A write proposal produced by a sub-agent during its ReAct loop.
- * Plan 08 owns the full shape; plan 03 contributes taintSource provenance.
+ * The full shape is shared with plan 08 (drafts module); the phase-executor
+ * contributes taintSource provenance.
  */
 export interface DraftProposal {
   readonly id: string
@@ -54,8 +48,8 @@ export interface DraftProposal {
   readonly args: unknown
   /**
    * Taint provenance — populated by SubAgentRunner when the draft is produced
-   * under a tainted turn state (R-03.32).
-   * Consumed by plan 08 for approval-tier bump rationale + UI presentation.
+   * under a tainted turn state.
+   * Consumed for approval-tier bump rationale + UI presentation.
    */
   readonly taintSource?: {
     readonly subAgentKey: SubAgentKey
@@ -65,10 +59,8 @@ export interface DraftProposal {
   }
 }
 
-// ─── Citation ─────────────────────────────────────────────────────────────────
-
 /**
- * A citation in the synthesizer output (R-03.27, R-03.33).
+ * A citation in the synthesizer output.
  * `subAgentKey` is mandatory — the synthesizer MUST NOT merge citations from
  * different sub-agents into a single record that loses per-key attribution.
  */
@@ -77,11 +69,9 @@ export interface Citation {
   readonly claim: string
   /** The tool invocation(s) in the sub-agent's chain that produced this claim. */
   readonly sources: ToolCall[]
-  /** Which sub-agent's chain produced this claim. Mandatory (R-03.33). */
+  /** Which sub-agent's chain produced this claim. Mandatory. */
   readonly subAgentKey: SubAgentKey
 }
-
-// ─── SubAgentUsage ────────────────────────────────────────────────────────────
 
 export interface SubAgentUsage {
   readonly inputTokens: number
@@ -92,11 +82,9 @@ export interface SubAgentUsage {
   readonly costUsd: number
 }
 
-// ─── SubAgentOutput ───────────────────────────────────────────────────────────
-
 /**
  * Output produced by SubAgentRunner.run() after the ReAct loop completes
- * or terminates (Plan 03 §4 Interface Contracts).
+ * or terminates.
  *
  * `kind` encodes the termination reason:
  *   - `completed`         — loop finished normally; all structured data is valid.
@@ -126,32 +114,28 @@ export interface SubAgentOutput {
   readonly usageTotals: SubAgentUsage
 }
 
-// ─── SynthesizerOutput ────────────────────────────────────────────────────────
-
 /**
- * Output produced by Synthesizer.synthesize() (Plan 03 §4, §9).
+ * Output produced by Synthesizer.synthesize().
  *
- * Plan 18 §1 amendment: `turnEndedReason` widened to include `'errored'` so the
- * post-shape stream-failure fallback path can return a structurally valid result
- * without raising. `usage` is populated when the LLM stream resolves successfully;
- * it is `undefined` on the deterministic fallback path.
+ * `turnEndedReason` includes `'errored'` so the post-shape stream-failure
+ * fallback path can return a structurally valid result without raising.
+ * `usage` is populated when the LLM stream resolves successfully; it is
+ * `undefined` on the deterministic fallback path.
  */
 export interface SynthesizerOutput {
   readonly shape: AnswerShape
   /** Shape-specific content: string | Array | TableData | ChartData | Narrative */
   readonly content: unknown
   readonly citations: Citation[]
-  /** MIN across contributing sub-agents + one-step demotion on contradiction (R-03.22). */
+  /** MIN across contributing sub-agents + one-step demotion on contradiction. */
   readonly confidence: Confidence
   readonly turnEndedReason: 'completed' | 'partial' | 'errored'
   /** Token usage from the LLM stream. Undefined on the deterministic fallback path. */
   readonly usage?: SubAgentUsage
 }
 
-// ─── PhaseExecutionResult ─────────────────────────────────────────────────────
-
 /**
- * Result returned by PhaseExecutor.execute() (Plan 03 §4 Interface Contracts).
+ * Result returned by PhaseExecutor.execute().
  */
 export type PhaseExecutionResult =
   | { kind: 'synthesized'; answer: SynthesizerOutput; drafts: DraftProposal[] }
@@ -159,12 +143,10 @@ export type PhaseExecutionResult =
   | { kind: 'partial'; answer: SynthesizerOutput; reason: 'limit_reached' }
   | { kind: 'aborted'; reason: CancellationReason }
 
-// ─── ConfidenceSignals ────────────────────────────────────────────────────────
-
 /**
  * Observable trace signals collected during a sub-agent's ReAct loop.
  * Used by `deriveConfidence()` to compute per-sub-agent confidence
- * without relying on LLM self-assessment (R-03.22).
+ * without relying on LLM self-assessment.
  */
 export interface ConfidenceSignals {
   /** Number of distinct tool results that corroborate the answer (≥1 = corroborated). */
@@ -183,17 +165,13 @@ export interface ConfidenceSignals {
   readonly circuitBreakerEventOccurred: boolean
 }
 
-// ─── PartialAnswerDecision ────────────────────────────────────────────────────
-
 export type PartialAnswerDecision =
-  | 'surface_partial' // ceiling hit + zero writes → surface partial (R-03.19)
-  | 'suppress_partial' // ceiling hit + writes drafted → suppress, drafts only (R-03.20)
+  | 'surface_partial' // ceiling hit + zero writes → surface partial
+  | 'suppress_partial' // ceiling hit + writes drafted → suppress, drafts only
   | 'no_ceiling' // no sub-agent hit a ceiling; full synthesis proceeds
 
-// ─── CompletionSpec (Plan 12) ─────────────────────────────────────────────────
-
 /**
- * Exit criteria for the iterative supervisor loop (Plan 12 §2).
+ * Exit criteria for the iterative supervisor loop.
  * Pure TypeScript mirror of the Zod CompletionSpecSchema in router-plan-schema.
  */
 export type CompletionSpec = {
@@ -202,8 +180,6 @@ export type CompletionSpec = {
   readonly maxIterations: number
   readonly hintToRouter: string
 }
-
-// ─── IterationRecord (Plan 12) ────────────────────────────────────────────────
 
 /**
  * Immutable record of a single completed iteration in the supervisor loop.
@@ -218,11 +194,9 @@ export type IterationRecord = {
   readonly isComplete: boolean
 }
 
-// ─── Phase executor opts ──────────────────────────────────────────────────────
-
 /**
  * Extended turn state for the phase executor.
- * Lives in the request handler and is threaded through all phase-03 components.
+ * Lives in the request handler and is threaded through all phase-executor components.
  */
 export interface PhaseExecutorTurnState {
   readonly traceId: string
@@ -234,7 +208,6 @@ export interface PhaseExecutorTurnState {
   /** Shared mutable taint flag — any sub-agent can flip it to true. */
   readonly tainted: { value: boolean }
   routerReplanCount: 0 | 1
-  // Added for iterative topology (plan 12)
   /** Current 1-based iteration number (mutable). Undefined for non-iterative topologies. */
   iterationNumber?: number
   /** Exit criteria for the supervisor loop. Undefined for non-iterative topologies. */
@@ -247,7 +220,7 @@ export interface PhaseExecutorTurnState {
   cumulativeWallclockMs?: number
   /**
    * Runtime context note appended to the user message of phase-2 sub-agents.
-   * Set by BoundedExecutor before phase-2 dispatch (Plan 03 R-03.18, Plan 18 §5).
+   * Set by BoundedExecutor before phase-2 dispatch.
    * Read by SubAgentRunnerAdapter when constructing the sub-agent user message.
    * Undefined for phase-1 dispatch (or when no circuit-breaker context exists).
    *
@@ -256,8 +229,6 @@ export interface PhaseExecutorTurnState {
    */
   phaseContextNote?: string
 }
-
-// ─── SubAgentRunnerOpts ───────────────────────────────────────────────────────
 
 export interface SubAgentRunnerOpts {
   readonly directive: SubAgentDirective
@@ -269,15 +240,13 @@ export interface SubAgentRunnerOpts {
   readonly turnState: PhaseExecutorTurnState
 }
 
-// ─── SynthesizerOpts ─────────────────────────────────────────────────────────
-
 /**
- * Plan 18 §1 amendment — the artificial phase1/phase2 split is collapsed into a
- * single `outputs` map. The synthesizer no longer cares whether a given output
- * came from phase 1 or phase 2; iterative orchestration already produced one
- * keyed map per iteration, and bounded execution can flatten its two phases the
- * same way at the call site. `streamEmitter` is required so the adapter can emit
- * per-shape `answer.token` events as the LLM streams.
+ * The artificial phase1/phase2 split is collapsed into a single `outputs` map.
+ * The synthesizer no longer cares whether a given output came from phase 1 or
+ * phase 2; iterative orchestration already produced one keyed map per iteration,
+ * and bounded execution can flatten its two phases the same way at the call
+ * site. `streamEmitter` is required so the adapter can emit per-shape
+ * `answer.token` events as the LLM streams.
  */
 export interface SynthesizerOpts {
   readonly directive: BoundedPlan
@@ -287,8 +256,6 @@ export interface SynthesizerOpts {
   readonly turnState: PhaseExecutorTurnState
   readonly streamEmitter: StreamEmitter
 }
-
-// ─── PhaseShapeMismatch ───────────────────────────────────────────────────────
 
 export interface PhaseShapeMismatch {
   readonly phase2Required: string[]

@@ -1,5 +1,5 @@
 /**
- * auto-rollback-orchestrator.ts — Plan 11 Task 5
+ * auto-rollback-orchestrator.ts
  *
  * Performs automatic (or manual) rollback of a canary rollout when regression
  * signals trip their thresholds. Idempotent: calling rollback on an already
@@ -15,8 +15,6 @@ import { agentRolloutConfig, agentRolloutEvent } from '../../infrastructure/sche
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { SignalResult } from './regression-signal-monitor'
 
-// ─── Public interfaces ────────────────────────────────────────────────────────
-
 export interface RollbackOpts {
   rolloutConfigId: string
   /** Signal results from RegressionSignalMonitor. Empty array for manual rollbacks. */
@@ -25,8 +23,6 @@ export interface RollbackOpts {
   /** If provided, overrides the derived reason string in the event row and audit payload. */
   reason?: string
 }
-
-// ─── AutoRollbackOrchestrator ─────────────────────────────────────────────────
 
 @Injectable()
 export class AutoRollbackOrchestrator {
@@ -46,14 +42,12 @@ export class AutoRollbackOrchestrator {
    * All DB queries are awaited sequentially (single pg.PoolClient per request).
    */
   async rollback(opts: RollbackOpts): Promise<void> {
-    // Step 1: Query rollout config
     const [config] = await this.db
       .select()
       .from(agentRolloutConfig)
       .where(eq(agentRolloutConfig.id, opts.rolloutConfigId))
       .limit(1)
 
-    // Step 2: Guard — config not found
     if (!config) {
       this.logger.warn(
         `AutoRollbackOrchestrator: rolloutConfigId=${opts.rolloutConfigId} not found — skipping`,
@@ -61,7 +55,6 @@ export class AutoRollbackOrchestrator {
       return
     }
 
-    // Step 3: Guard — only allow rollback on active configs
     if (config.status !== 'active') {
       this.logger.warn(
         `AutoRollbackOrchestrator: config not active (status=${config.status}), skipping rollback for rolloutConfigId=${opts.rolloutConfigId}`,
@@ -69,7 +62,6 @@ export class AutoRollbackOrchestrator {
       return
     }
 
-    // Step 4: Guard — respect autoRollbackEnabled flag for automated triggers
     if (opts.triggeredBy === 'auto' && !config.autoRollbackEnabled) {
       this.logger.warn(
         `AutoRollbackOrchestrator: autoRollbackEnabled=false, skipping auto rollback for rolloutConfigId=${opts.rolloutConfigId}`,
@@ -79,7 +71,6 @@ export class AutoRollbackOrchestrator {
 
     const fromPercentage = config.trafficPercentage
 
-    // Step 5: Update rollout config
     await this.db
       .update(agentRolloutConfig)
       .set({
@@ -89,7 +80,6 @@ export class AutoRollbackOrchestrator {
       })
       .where(eq(agentRolloutConfig.id, opts.rolloutConfigId))
 
-    // Step 6: Compute event metadata
     const eventType =
       opts.triggeredBy === 'auto' ? 'auto_rolled_back' : ('manually_rolled_back' as const)
 
@@ -103,7 +93,6 @@ export class AutoRollbackOrchestrator {
           'auto rollback triggered'
         : 'manual rollback')
 
-    // Step 7: Insert rollout event
     await this.db.insert(agentRolloutEvent).values({
       id: uuidv7(),
       rolloutConfigId: opts.rolloutConfigId,
@@ -115,7 +104,6 @@ export class AutoRollbackOrchestrator {
       triggeredBy: triggeredByValue,
     })
 
-    // Step 8: Emit kernel audit
     const auditEventType =
       opts.triggeredBy === 'auto'
         ? 'agent.rollout_auto_rolled_back'
@@ -133,7 +121,6 @@ export class AutoRollbackOrchestrator {
       },
     })
 
-    // Step 9: Log
     this.logger.log(
       `AutoRollbackOrchestrator: rolled back rolloutConfigId=${opts.rolloutConfigId} reason=${reason}`,
     )

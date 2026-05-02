@@ -5,8 +5,6 @@ import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { agentRolloutConfig } from '../../infrastructure/schema/agents.schema'
 
-// ─── Public interfaces ────────────────────────────────────────────────────────
-
 export interface ResolveVersionResult {
   version: string
   fromCandidate: boolean
@@ -21,8 +19,6 @@ export interface ResolveVersionOpts {
   /** pg-boss retry sticky version: bypasses hash logic and returns this version verbatim. */
   retryContextVersion?: string
 }
-
-// ─── Hash routing ─────────────────────────────────────────────────────────────
 
 /**
  * Deterministic hash-based routing.
@@ -42,18 +38,16 @@ function shouldRouteToCandidate(
   return bucket < trafficPercentage
 }
 
-// ─── RolloutResolver ──────────────────────────────────────────────────────────
-
 /**
- * Plan 11 — Resolves which version (baseline vs candidate) a given tenant/user
- * receives for a specific change class.
+ * Resolves which version (baseline vs candidate) a given tenant/user receives
+ * for a specific change class.
  *
- * Stability key rules (§14):
+ * Stability key rules:
  *   - changeClass === 'sub_agent_prompt' → stabilityKey = tenantId + ':' + userId (userId required)
  *   - all other classes                  → stabilityKey = tenantId
  *
- * Safe fallback (§13 Backout): when no active rollout exists, always return
- * the baseline version so rollouts are opt-in and easily reversed.
+ * Safe fallback: when no active rollout exists, always return the baseline
+ * version so rollouts are opt-in and easily reversed.
  */
 @Injectable()
 export class RolloutResolver {
@@ -76,9 +70,9 @@ export class RolloutResolver {
       )
       .limit(1)
 
-    // ── pg-boss retry bypass (§5) ──────────────────────────────────────────
-    // Sticky version: if the caller passes retryContextVersion, return it verbatim.
-    // The rolloutConfigId is included from the live config if present.
+    // pg-boss retry bypass — sticky version: if the caller passes
+    // retryContextVersion, return it verbatim. The rolloutConfigId is included
+    // from the live config if present.
     if (retryContextVersion !== undefined) {
       const fromCandidate = config ? retryContextVersion === config.candidateVersion : false
       return {
@@ -88,19 +82,17 @@ export class RolloutResolver {
       }
     }
 
-    // ── No active rollout → safe baseline fallback (§13) ──────────────────
+    // No active rollout → safe baseline fallback.
     if (!config) {
       return { version: 'baseline', fromCandidate: false, rolloutConfigId: null }
     }
 
-    // ── Compute stability key ─────────────────────────────────────────────
     if (changeClass === 'sub_agent_prompt' && userId === undefined) {
       throw new Error('RolloutResolver: userId is required for changeClass=sub_agent_prompt')
     }
     const stabilityKeyValue =
       changeClass === 'sub_agent_prompt' ? `${tenantId}:${userId ?? ''}` : tenantId
 
-    // ── Hash-based deterministic routing ─────────────────────────────────
     const trafficPct = Number(config.trafficPercentage)
     const isCandidate = shouldRouteToCandidate(config.id, stabilityKeyValue, trafficPct)
 

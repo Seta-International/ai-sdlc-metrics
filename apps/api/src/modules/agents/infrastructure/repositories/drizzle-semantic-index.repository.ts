@@ -1,7 +1,7 @@
 /**
  * DrizzleSemanticIndexRepository — Drizzle ORM implementation of SemanticIndexRepository.
  *
- * Plan 04 R-04.36–R-04.40. Single `agent_semantic_index` table with tenant_id + RLS
+ * Plan 04. Single `agent_semantic_index` table with tenant_id + RLS
  * (Option A — equivalent isolation to per-tenant physical tables; simpler; consistent
  * with every other table in this module).
  *
@@ -35,7 +35,7 @@ export class DrizzleSemanticIndexRepository implements SemanticIndexRepository {
    * Upsert a semantic recall entry for a user.
    *
    * Called from the post-turn `index-turn-semantic` pg-boss job — never inline
-   * on saveMessages (R-04.37, fire-and-forget).
+   * on saveMessages (fire-and-forget).
    *
    * ON CONFLICT DO NOTHING on (tenant_id, source_id): if the same source is
    * re-indexed (e.g. job retry), we skip — the first write wins.
@@ -123,7 +123,7 @@ export class DrizzleSemanticIndexRepository implements SemanticIndexRepository {
    * GDPR erasure: hard-delete all semantic index entries for a user.
    *
    * Returns the real count of deleted rows so the GDPRErasurePipeline can
-   * report accurate semanticIndexPurged counts (R-04.40).
+   * report accurate semanticIndexPurged counts.
    */
   async purgeForUser(opts: { tenantId: string; userId: string }): Promise<{ count: number }> {
     const rows = await this.db

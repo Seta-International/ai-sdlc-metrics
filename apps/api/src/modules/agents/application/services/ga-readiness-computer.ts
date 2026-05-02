@@ -134,7 +134,7 @@ export class GaReadinessComputer {
     let tenantCount = 0
     let interactiveTurnsPerDay = 0
 
-    if (this.gaMetrics !== null) {
+    if (this.gaMetrics !== null && this.gaMetrics.isEnabled()) {
       tenantCount = await this.gaMetrics.getTenantCount()
       interactiveTurnsPerDay = await this.gaMetrics.getInteractiveTurnsPerDay()
     }

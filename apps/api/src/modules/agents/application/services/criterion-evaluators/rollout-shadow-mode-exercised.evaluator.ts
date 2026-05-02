@@ -25,6 +25,10 @@ export class RolloutShadowModeExercisedEvaluator implements CriterionEvaluator {
   constructor(@Inject(METRICS_QUERY_PORT) private readonly metricsQuery: MetricsQueryPort) {}
 
   async evaluate(window: EvalWindow): Promise<CriterionResult> {
+    if (!this.metricsQuery.isEnabled()) {
+      return { observedValue: 'unknown', threshold, passed: false, unableToEvaluate: true }
+    }
+
     const days = await this.metricsQuery.sumCounter({
       metricName: 'agent_shadow_mode_duration_days',
       window,

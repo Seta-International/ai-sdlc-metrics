@@ -12,10 +12,10 @@ import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-au
 /**
  * L3PreferenceService — application boundary for user L3 preferences.
  *
- * Enforces the allowlist (R-04.19) before delegating to the repository.
+ * Enforces the allowlist before delegating to the repository.
  * tRPC mutations MUST NOT use `.meta({ agent })` — they call this service
  * only from user-facing procedures, keeping agents structurally unable to
- * write preferences (R-04.16, R-04.17).
+ * write preferences.
  */
 @Injectable()
 export class L3PreferenceService {
@@ -26,7 +26,7 @@ export class L3PreferenceService {
   ) {}
 
   /**
-   * Set a user preference. Throws if `key` is not in `L3_PREFERENCE_ALLOWLIST` (R-04.19).
+   * Set a user preference. Throws if `key` is not in `L3_PREFERENCE_ALLOWLIST`.
    */
   async set(opts: {
     tenantId: string
@@ -66,8 +66,6 @@ export class L3PreferenceService {
   async delete(opts: { tenantId: string; userId: string; key?: string }): Promise<void> {
     await this.repo.delete(opts)
   }
-
-  // ─── Private ────────────────────────────────────────────────────────────────
 
   private assertAllowlisted(key: string): asserts key is L3PreferenceKey {
     if (!(L3_PREFERENCE_ALLOWLIST as readonly string[]).includes(key)) {

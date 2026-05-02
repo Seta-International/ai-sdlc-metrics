@@ -121,7 +121,7 @@ export class AgentCancelController {
       payload: { cancelled_by: userId, turn_owner: entry.userId },
     })
 
-    // Emit force-stop metric (Plan 06 §8, R-06.2). Self-cancels excluded above.
+    // Emit force-stop metric (Plan 06 §8). Self-cancels excluded above.
     const actorRole: 'admin' | 'platform_admin' = isPlatformAdmin ? 'platform_admin' : 'admin'
     recordTurnForceStopped(tenantId, actorRole)
 

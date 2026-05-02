@@ -1,5 +1,5 @@
 /**
- * drizzle-runbook-dry-run.repository.ts — Plan 13 Task 2
+ * drizzle-runbook-dry-run.repository.ts
  *
  * Drizzle-backed implementation of RunbookDryRunRepository.
  *
@@ -21,8 +21,6 @@ import {
   type RunbookCoverageStatus,
 } from '../../domain/repositories/runbook-dry-run.repository'
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const ALL_RUNBOOK_IDS: RunbookId[] = [
   'provider_outage',
   'budget_exhaustion_midflight',
@@ -35,8 +33,6 @@ const ALL_RUNBOOK_IDS: RunbookId[] = [
 ]
 
 const PASS_OUTCOMES: RunbookOutcome[] = ['pass', 'pass_with_notes']
-
-// ─── Row → domain mapper ──────────────────────────────────────────────────────
 
 type AgentRunbookDryRunRow = typeof agentRunbookDryRun.$inferSelect
 
@@ -52,8 +48,6 @@ function toDomain(row: AgentRunbookDryRunRow): RunbookDryRunEntity {
     timeToRecoveryMinutes: row.timeToRecoveryMinutes ?? null,
   }
 }
-
-// ─── Repository ───────────────────────────────────────────────────────────────
 
 @Injectable()
 export class DrizzleRunbookDryRunRepository implements RunbookDryRunRepository {

@@ -7,6 +7,7 @@ const WINDOW: EvalWindow = { start: new Date('2026-03-26'), end: new Date('2026-
 
 function buildMetrics(response: number | null): MetricsQueryPort {
   return {
+    isEnabled: vi.fn().mockReturnValue(true),
     sumCounter: vi.fn().mockResolvedValue(response),
   }
 }
@@ -43,6 +44,20 @@ describe('RolloutShadowModeExercisedEvaluator', () => {
     expect(result.passed).toBe(false)
     expect(result.unableToEvaluate).toBe(true)
     expect(result.observedValue).toBe('unknown')
+  })
+
+  it('returns unableToEvaluate when port is disabled and does not invoke sumCounter', async () => {
+    const metrics: MetricsQueryPort = {
+      isEnabled: vi.fn().mockReturnValue(false),
+      sumCounter: vi.fn(),
+    }
+    const evaluator = new RolloutShadowModeExercisedEvaluator(metrics)
+
+    const result = await evaluator.evaluate(WINDOW)
+
+    expect(result.passed).toBe(false)
+    expect(result.unableToEvaluate).toBe(true)
+    expect(metrics.sumCounter).not.toHaveBeenCalled()
   })
 
   it('has the correct id and section', () => {

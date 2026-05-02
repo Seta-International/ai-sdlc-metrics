@@ -26,7 +26,7 @@
  *
  * Label cardinality: kind has 3 values; outcome has 4; phase has 2;
  * sub_agent_key is bounded by SubAgentRegistry. No tenant_id, user_id, or
- * trace_id labels are emitted (R-05.30 cardinality guardrail).
+ * trace_id labels are emitted (cardinality guardrail).
  */
 
 import { metrics } from '@opentelemetry/api'

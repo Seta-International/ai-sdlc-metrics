@@ -63,6 +63,17 @@ export function collectToolNames(answer: SynthesizerOutput): string[] {
   return [...seen]
 }
 
+/**
+ * Extracts permission keys cited in the synthesizer output.
+ *
+ * Currently returns []: the `Citation` contract in phase-executor-contracts.ts
+ * does not carry a permission-key field, so there is nothing to extract. Once
+ * citations are extended to carry the permission keys consulted by their
+ * sourced tool invocations, this function should return the unique union of
+ * those keys. The downstream consumer (run-pipeline.factory.ts) stores the
+ * result on `TurnPipelineResult.permissionKeys` and treats an empty array
+ * as "no keys cited" — no silent failure mode, just absent data.
+ */
 export function collectPermissionKeys(_answer: SynthesizerOutput): string[] {
   return []
 }

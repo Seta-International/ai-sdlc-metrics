@@ -25,8 +25,13 @@ export class SecurityRlsUnbypassableEvaluator implements CriterionEvaluator {
   constructor(@Inject(CI_STATE_PORT) private readonly ciState: CiStatePort) {}
 
   async evaluate(window: EvalWindow): Promise<CriterionResult> {
-    const ciPassed = await this.ciState.checkPassed({ checkName: 'ddd-boundaries', window })
     const threshold = CRITERION_THRESHOLDS[CRITERION_ID].threshold
+
+    if (!this.ciState.isEnabled()) {
+      return { observedValue: 'unknown', threshold, passed: false, unableToEvaluate: true }
+    }
+
+    const ciPassed = await this.ciState.checkPassed({ checkName: 'ddd-boundaries', window })
 
     if (ciPassed === null) {
       return { observedValue: 'unknown', threshold, passed: false, unableToEvaluate: true }

@@ -28,7 +28,7 @@
  * Label cardinality: shape ∈ {short-answer, narrative, list, table, chart,
  * unknown} (6 values); surface is bounded by the surface enum; outcome has 2
  * values; cause has 3 values. No tenant_id, user_id, or trace_id labels are
- * emitted (R-05.30 cardinality guardrail).
+ * emitted (cardinality guardrail).
  */
 
 import { metrics } from '@opentelemetry/api'

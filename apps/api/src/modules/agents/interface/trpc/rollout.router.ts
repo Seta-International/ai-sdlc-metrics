@@ -1,6 +1,4 @@
 /**
- * rollout.router.ts — Plan 11 Task 6
- *
  * tRPC router for canary rollout lifecycle management. All procedures require
  * the AGENT_ROLLOUT_MANAGE permission (admin-tier gate enforced by the global
  * permission middleware). DB writes are awaited sequentially (single pg.PoolClient
@@ -23,8 +21,6 @@ import type { KernelAuditFacade } from '../../../kernel/application/facades/kern
 import type { AutoRollbackOrchestrator } from '../../application/services/auto-rollback-orchestrator'
 import type { Db } from '@future/db'
 
-// ─── DiffReport shape ─────────────────────────────────────────────────────────
-
 export interface DiffReport {
   rolloutConfigId: string
   totalRuns: number
@@ -38,15 +34,11 @@ export interface DiffReport {
   toTs: Date
 }
 
-// ─── Handler types ────────────────────────────────────────────────────────────
-
 export interface RolloutHandlers {
   db: Db
   kernelAuditFacade: Pick<KernelAuditFacade, 'recordEvent'>
   autoRollbackOrchestrator: Pick<AutoRollbackOrchestrator, 'rollback'>
 }
-
-// ─── Module-level handler slot ────────────────────────────────────────────────
 
 let handlers: RolloutHandlers | undefined
 
@@ -58,8 +50,6 @@ function h(): RolloutHandlers {
   if (!handlers) throw new Error('rolloutHandlers not wired — boot failure')
   return handlers
 }
-
-// ─── Input schemas ────────────────────────────────────────────────────────────
 
 const CreateRolloutInput = z.object({
   changeClass: z.enum(['router', 'planner', 'model', 'tool_meta', 'sub_agent_prompt']),
@@ -105,8 +95,6 @@ const GetDiffReportInput = z
     path: ['fromTs'],
   })
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
-
 function deriveStabilityKey(
   changeClass: 'router' | 'planner' | 'model' | 'tool_meta' | 'sub_agent_prompt',
 ): 'tenant_id' | 'tenant_id+user_id' {
@@ -128,11 +116,7 @@ async function getConfig(
   return rows[0]
 }
 
-// ─── Router ───────────────────────────────────────────────────────────────────
-
 export const rolloutRouter = router({
-  // ── createRollout ───────────────────────────────────────────────────────────
-
   createRollout: publicProcedure
     .meta({ permission: PERMISSIONS.AGENT_ROLLOUT_MANAGE })
     .input(CreateRolloutInput)
@@ -174,8 +158,6 @@ export const rolloutRouter = router({
 
       return config as AgentRolloutConfigRow
     }),
-
-  // ── shiftPercentage ─────────────────────────────────────────────────────────
 
   shiftPercentage: publicProcedure
     .meta({ permission: PERMISSIONS.AGENT_ROLLOUT_MANAGE })
@@ -260,8 +242,6 @@ export const rolloutRouter = router({
       })
     }),
 
-  // ── rollback ────────────────────────────────────────────────────────────────
-
   rollback: publicProcedure
     .meta({ permission: PERMISSIONS.AGENT_ROLLOUT_MANAGE })
     .input(RollbackInput)
@@ -279,8 +259,6 @@ export const rolloutRouter = router({
         reason: input.reason,
       })
     }),
-
-  // ── complete ────────────────────────────────────────────────────────────────
 
   complete: publicProcedure
     .meta({ permission: PERMISSIONS.AGENT_ROLLOUT_MANAGE })
@@ -348,8 +326,6 @@ export const rolloutRouter = router({
       })
     }),
 
-  // ── list ────────────────────────────────────────────────────────────────────
-
   list: publicProcedure
     .meta({ permission: PERMISSIONS.AGENT_ROLLOUT_MANAGE })
     .query(async ({ ctx }) => {
@@ -365,8 +341,6 @@ export const rolloutRouter = router({
         .where(eq(agentRolloutConfig.tenantId, ctx.tenantId))
         .orderBy(desc(agentRolloutConfig.createdAt))
     }),
-
-  // ── get ─────────────────────────────────────────────────────────────────────
 
   get: publicProcedure
     .meta({ permission: PERMISSIONS.AGENT_ROLLOUT_MANAGE })
@@ -388,8 +362,6 @@ export const rolloutRouter = router({
 
       return config
     }),
-
-  // ── getDiffReport ───────────────────────────────────────────────────────────
 
   getDiffReport: publicProcedure
     .meta({ permission: PERMISSIONS.AGENT_ROLLOUT_MANAGE })

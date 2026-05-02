@@ -98,6 +98,7 @@ function makeGaStateRepo(previousState: GaReadinessStateEntity | null): GaReadin
 
 function makeGaMetrics(tenantCount: number, turnsPerDay: number): GaMetricsPort {
   return {
+    isEnabled: vi.fn().mockReturnValue(true),
     getTenantCount: vi.fn().mockResolvedValue(tenantCount),
     getInteractiveTurnsPerDay: vi.fn().mockResolvedValue(turnsPerDay),
   }
@@ -410,6 +411,40 @@ describe('GaReadinessComputer', () => {
 
       const upsertArg = (gaStateRepo.upsert as ReturnType<typeof vi.fn>).mock.calls[0][0]
       expect(upsertArg.isGaReady).toBe(true)
+    })
+
+    it('skips GA metrics when port isEnabled() returns false and uses 0 fallback values', async () => {
+      const checks = makePassingChecks(['criterion.a'])
+      const prevState: GaReadinessStateEntity = {
+        id: GA_READINESS_SINGLETON_ID,
+        isGaReady: false,
+        computedAt: new Date(),
+        missingCriteria: [],
+        consecutiveWindowsMet: 1,
+        windowStartedPassingAt: THIRTY_ONE_DAYS_AGO,
+        tenantCount: 0,
+        interactiveTurnsPerDay: 0,
+        p1SecurityIncidentsLast90d: 0,
+      }
+      const gaStateRepo = makeGaStateRepo(prevState)
+      const disabledMetrics: GaMetricsPort = {
+        isEnabled: vi.fn().mockReturnValue(false),
+        getTenantCount: vi.fn(),
+        getInteractiveTurnsPerDay: vi.fn(),
+      }
+      const computer = new GaReadinessComputer(
+        makeCheckRepo(checks),
+        gaStateRepo,
+        makeRunbookRepo(makeAllRunbooksCovered()),
+        makeP1Repo(0),
+        disabledMetrics,
+      )
+      const result = await computer.compute()
+
+      expect(disabledMetrics.getTenantCount).not.toHaveBeenCalled()
+      expect(disabledMetrics.getInteractiveTurnsPerDay).not.toHaveBeenCalled()
+      expect(result.tenantCount).toBe(0)
+      expect(result.interactiveTurnsPerDay).toBe(0)
     })
 
     it('uses null GaMetrics stub gracefully when port is not provided', async () => {

@@ -13,7 +13,7 @@
  *   `tenantId` are already resolved by `RlsMiddleware` and flow directly via ctx — so
  *   the synthetic cookie is safe and intentional.
  *
- * Dry-run (Plan 11 R-11.1 + audit Theme F closure):
+ * Dry-run:
  *   When mode is 'dry-run', the procedure is executed inside a Postgres transaction
  *   that ALWAYS rolls back after completion. Drizzle rolls back when the transaction
  *   callback throws — we throw a sentinel symbol after capturing the procedure's
@@ -50,13 +50,9 @@ import type { TrpcContext } from '../../../../common/trpc/trpc-init'
 import { getAppRouter } from '../../../../common/trpc/app-router'
 import { RequestDbContextService } from '../../../../common/db/request-db-context.service'
 
-// ─── Router shape (minimal for navigation) ────────────────────────────────────
-
 type AnyRouter = {
   createCaller: (ctx: TrpcContext) => Record<string, unknown>
 }
-
-// ─── Rollback sentinel ────────────────────────────────────────────────────────
 
 /**
  * A unique symbol used to signal that the dry-run transaction should be rolled
@@ -75,8 +71,6 @@ function isDryRunRollbackSignal(v: unknown): v is DryRunRollbackSignal {
     typeof v === 'object' && v !== null && (v as DryRunRollbackSignal).sentinel === DRY_RUN_ROLLBACK
   )
 }
-
-// ─── TrpcCallerImpl ───────────────────────────────────────────────────────────
 
 @Injectable()
 export class TrpcCallerImpl implements TrpcCaller {

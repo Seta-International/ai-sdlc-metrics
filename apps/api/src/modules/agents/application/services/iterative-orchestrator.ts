@@ -1,9 +1,7 @@
 /**
- * IterativeOrchestrator — Plan 12 §4 "Main loop executor"
- *
  * Drives the iterative supervisor loop for Tier-2 (iterative topology) plans.
  *
- * Algorithm (plan 12 §5):
+ * Algorithm:
  *   1. Set iterationNumber = 1
  *   2. Loop:
  *      a. Check abort signal — exit aborted(user) if fired
@@ -49,8 +47,6 @@ import {
   recordIterationsTotalHistogram,
 } from '../../infrastructure/observability/gateway-metrics'
 
-// ─── Surface-specific iteration caps (R-12.5) ────────────────────────────────
-
 /**
  * Hard ceiling on iterations per surface type.
  * Async surfaces get more room; interactive surfaces are capped tightly.
@@ -60,8 +56,6 @@ const SURFACE_MAX_ITERATIONS: Record<PhaseExecutorTurnState['surface'], number> 
   inline: 10,
   async: 20,
 }
-
-// ─── Runner / Synthesizer interface types ─────────────────────────────────────
 
 /**
  * Subset of SubAgentRunnerOpts used by IterativeOrchestrator.
@@ -85,18 +79,12 @@ export interface ISynthesizer {
   synthesize(opts: SynthesizerOpts): Promise<import('./phase-executor-contracts').SynthesizerOutput>
 }
 
-// ─── DI tokens ────────────────────────────────────────────────────────────────
-
 export const ITERATIVE_ORCHESTRATOR = Symbol('ITERATIVE_ORCHESTRATOR')
 export const I_SUB_AGENT_RUNNER = Symbol('I_SUB_AGENT_RUNNER')
 export const I_SYNTHESIZER = Symbol('I_SYNTHESIZER')
 
-// ─── Default config ───────────────────────────────────────────────────────────
-
 const DEFAULT_TOTAL_COST_BUDGET_USD = 5.0
 const DEFAULT_TOTAL_WALLCLOCK_BUDGET_MS = 60_000
-
-// ─── Execute opts ─────────────────────────────────────────────────────────────
 
 export interface IterativeOrchestratorOpts {
   readonly initialPlan: IterativePlan
@@ -105,8 +93,6 @@ export interface IterativeOrchestratorOpts {
   readonly abortSignal: AbortSignal
   readonly streamEmitter: StreamEmitter
 }
-
-// ─── IterativeOrchestrator ────────────────────────────────────────────────────
 
 @Injectable()
 export class IterativeOrchestrator {
@@ -122,18 +108,15 @@ export class IterativeOrchestrator {
     const { initialPlan, userUtterance, turnState, abortSignal, streamEmitter } = opts
     const { completionCriteria, initialDirective } = initialPlan
 
-    // ── Guard: abort signal already fired ─────────────────────────────────────
     if (abortSignal.aborted) {
       const result: PhaseExecutionResult = { kind: 'aborted', reason: 'user' }
       this._recordTurnMetrics(turnState.tenantId, result, [])
       return result
     }
 
-    // ── Surface-specific iteration cap (R-12.5) ───────────────────────────────
     const surfaceCap = SURFACE_MAX_ITERATIONS[turnState.surface]
     const effectiveMaxIterations = Math.min(completionCriteria.maxIterations, surfaceCap)
 
-    // ── Initialise iterative turn state ───────────────────────────────────────
     turnState.iterationNumber = 1
     turnState.completionCriteria = completionCriteria
     turnState.iterationHistory = []
@@ -148,18 +131,15 @@ export class IterativeOrchestrator {
     // Track whether the loop exited due to max iterations being reached
     let maxIterationsBreached = false
 
-    // ── Main loop ─────────────────────────────────────────────────────────────
     for (;;) {
       const n: number = turnState.iterationNumber!
 
-      // Step (a): Check abort signal
       if (abortSignal.aborted) {
         const result: PhaseExecutionResult = { kind: 'aborted', reason: 'user' }
         this._recordTurnMetrics(turnState.tenantId, result, iterationHistory)
         return result
       }
 
-      // Step (b): Ceiling enforcer
       const ceilingResult = this.ceilingEnforcer.checkBeforeIteration({
         iterationNumber: n,
         maxIterations: effectiveMaxIterations,
@@ -176,7 +156,6 @@ export class IterativeOrchestrator {
         return result
       }
 
-      // Step (c): Emit SSE: iteration.started
       streamEmitter.emit({
         type: 'iteration.started',
         payload: {
@@ -187,7 +166,6 @@ export class IterativeOrchestrator {
         },
       })
 
-      // Step (d): Run SubAgentRunner
       const iterationStartMs = Date.now()
 
       const subOutput = await this.subAgentRunner.run({
@@ -199,16 +177,13 @@ export class IterativeOrchestrator {
 
       const iterationDurationMs = Date.now() - iterationStartMs
 
-      // Step (e): Collect SubAgentOutput; push to iterationHistory
       const iterKey = `iteration-${n}-${currentDirective.sub_agent_key}`
       allOutputs.set(iterKey, subOutput)
 
-      // Step (f): Update cumulativeCostUsd + cumulativeWallclockMs
       turnState.cumulativeCostUsd =
         (turnState.cumulativeCostUsd ?? 0) + (subOutput.usageTotals.costUsd ?? 0)
       turnState.cumulativeWallclockMs = (turnState.cumulativeWallclockMs ?? 0) + iterationDurationMs
 
-      // Step (g): Run CompletionScorerRunner
       const scorerResult = await this.completionScorerRunner.runScorers({
         scorerIds: completionCriteria.scorerIds,
         strategy: completionCriteria.strategy,
@@ -229,7 +204,6 @@ export class IterativeOrchestrator {
       iterationHistory.push(iterRecord)
       turnState.iterationHistory = iterationHistory
 
-      // Step (h): Emit SSE: iteration.validated
       streamEmitter.emit({
         type: 'iteration.validated',
         payload: {
@@ -240,7 +214,6 @@ export class IterativeOrchestrator {
         },
       })
 
-      // Step (i): Emit SSE: iteration.ended
       streamEmitter.emit({
         type: 'iteration.ended',
         payload: {
@@ -256,14 +229,12 @@ export class IterativeOrchestrator {
         },
       })
 
-      // Step (j): Check abort signal again
       if (abortSignal.aborted) {
         const result: PhaseExecutionResult = { kind: 'aborted', reason: 'user' }
         this._recordTurnMetrics(turnState.tenantId, result, iterationHistory)
         return result
       }
 
-      // Step (k): Check exit conditions (scorer complete or maxIterations reached)
       if (scorerResult.isComplete || n >= effectiveMaxIterations) {
         if (n >= effectiveMaxIterations && !scorerResult.isComplete) {
           maxIterationsBreached = true
@@ -271,7 +242,6 @@ export class IterativeOrchestrator {
         break
       }
 
-      // Step (l): IterativeRePlanner.replan()
       const replanResult = await this.replanner.replan({
         turnState,
         priorIteration: iterRecord,
@@ -300,7 +270,6 @@ export class IterativeOrchestrator {
       currentDirective = replanResult.nextDirective
     }
 
-    // ── Post-loop: synthesize all iteration outputs ────────────────────────────
     const result = await this._synthesize(allOutputs, iterationHistory, opts)
 
     // Record turn metrics (including iteration count exceeded if applicable)
@@ -310,12 +279,7 @@ export class IterativeOrchestrator {
   }
 
   /**
-   * Records turn-end metrics for the iterative topology (Plan 12 §8).
-   *
-   * Emits:
-   *   - agent_iterative_turn_total{tenant_id, outcome}
-   *   - agent_turn_iterations_total histogram{tenant_id} with the iteration count
-   *   - agent_iteration_count_exceeded_p95 gauge if maxIterationsBreached
+   * Records turn-end metrics for the iterative topology.
    *
    * Errors from OTel calls are swallowed — metrics must never fail a user turn.
    */
@@ -336,12 +300,10 @@ export class IterativeOrchestrator {
     }
   }
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────────
-
   /**
    * Handles the ceiling-breach exit path.
    *
-   * Plan 12 §5 partial-answer gate:
+   * Partial-answer gate:
    *   - If any drafts were produced → { kind: 'aborted', reason: 'budget' }
    *   - Otherwise → synthesize what we have → { kind: 'partial', reason: 'limit_reached' }
    */
@@ -363,10 +325,9 @@ export class IterativeOrchestrator {
   /**
    * Runs the synthesizer over all iteration outputs.
    *
-   * Plan 18 §1 collapsed the artificial phase1/phase2 split: iterative
-   * orchestration always produced a single keyed map, so the synthesizer now
-   * takes one `outputs` map plus a `streamEmitter` (already plumbed through
-   * `IterativeOrchestratorOpts`) for per-shape `answer.token` events.
+   * Iterative orchestration always produces a single keyed map, so the
+   * synthesizer takes one `outputs` map plus a `streamEmitter` for per-shape
+   * `answer.token` events.
    */
   private async _synthesize(
     allOutputs: Map<string, SubAgentOutput>,

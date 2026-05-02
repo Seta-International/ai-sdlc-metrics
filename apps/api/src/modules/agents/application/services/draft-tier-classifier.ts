@@ -3,8 +3,6 @@ import type { AgentToolDescriptor } from '../../../../common/trpc/agent-tool-met
 import type { TurnState } from './tool-gateway-contracts'
 import type { DraftTier, TenantApprovalPolicy } from './draft-types'
 
-// ─── DraftTierClassifier ──────────────────────────────────────────────────────
-
 @Injectable()
 export class DraftTierClassifier {
   /**

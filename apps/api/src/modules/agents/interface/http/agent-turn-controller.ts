@@ -87,16 +87,14 @@ export class AgentTurnController {
     const conversationId = body?.conversation_id ?? null
     const surface = body?.surface ?? 'global-chat'
 
-    // ── R-07.44: Mint a flow_id for this turn ─────────────────────────────────
     // intentSlug will be resolved by the router later; use 'unclassified' as the
-    // pre-router placeholder (§18.5 — ≤2% unclassified threshold monitors this).
+    // pre-router placeholder (≤2% unclassified threshold monitors this).
     const requestContext = { tenantId, userId, traceId, surface }
     const flowId = this.flowIdPropagation.mint({
       requestContext,
       intentSlug: UNCLASSIFIED_INTENT,
     })
 
-    // ── R-07.43: Create the root TURN span ────────────────────────────────────
     const obsCtx = this.observabilityContextFactory.create({
       requestContext,
       flowId,
@@ -104,7 +102,6 @@ export class AgentTurnController {
       capture: true,
     })
 
-    // ── R-05.1: Pre-turn budget gate ──────────────────────────────────────────
     const budgetResult = await this.budgetChecker.preTurnCheck({ tenantId, userId })
 
     if (!budgetResult.allowed) {
@@ -134,7 +131,6 @@ export class AgentTurnController {
       return
     }
 
-    // ── R-05.1: Stamp budget_tier on tier shift ───────────────────────────────
     // flow_id and intent_slug are already stamped by ObservabilityContextFactory.create
     // via otelRoot.setAttributes (bypassing the denylist wrapper — that is intentional
     // for middleware-owned identity keys). The controller must NOT duplicate those calls
@@ -166,7 +162,7 @@ export class AgentTurnController {
 
     const gateway = createStreamGateway(writeSseEvent, tenantId)
 
-    // Track turn start time for duration metric (Plan 06 §8).
+    // Track turn start time for duration metric.
     const turnStartMs = Date.now()
     let turnEndReason = 'completed'
 
@@ -202,7 +198,7 @@ export class AgentTurnController {
         return
       }
 
-      // ── Persist user message via SaveQueue (fire-and-forget, before runner)
+      // Persist user message via SaveQueue (fire-and-forget, before runner)
       // so the user message is durable even if the pipeline crashes.
       const userMessageContent = body?.user_utterance ?? ''
       this.saveQueue.enqueue({
@@ -219,7 +215,6 @@ export class AgentTurnController {
         },
       })
 
-      // ── Build runtime turn state for the pipeline ──────────────────────────
       const turnState: PhaseExecutorTurnState = {
         traceId,
         tenantId,
@@ -236,15 +231,16 @@ export class AgentTurnController {
         userId,
         traceId,
         surface: surface as 'global-chat' | 'inline' | 'async',
-        // TODO(plan-18-followup): SessionPayload exposes `roles: string[]` but
-        // no canonical roleKey. The pipeline downstream (KernelQueryFacade.
-        // getRolePermissions, RouterPromptBuilder) needs a single roleKey;
-        // resolution rule (primary role? highest-tier?) must be defined and
-        // surfaced via JwtService.verify so this cast disappears.
+        // DEFERRED: SessionPayload exposes `roles: string[]` but no canonical
+        // roleKey. The pipeline downstream (KernelQueryFacade.getRolePermissions,
+        // RouterPromptBuilder) needs a single roleKey; resolution rule (primary
+        // role? highest-tier?) must be defined and surfaced via JwtService.verify
+        // so this cast disappears. Unblocks once that decision is made (Plan 18
+        // follow-up).
         roleKey: (session as { roleKey?: string }).roleKey ?? '',
       }
 
-      // ── Invoke the pipeline runner — emits SSE events via streamEmitter ────
+      // Invoke the pipeline runner — emits SSE events via streamEmitter.
       const pipelineResult = await this.turnPipelineRunner.run({
         userUtterance: userMessageContent,
         conversationId: conversationId ?? '',
@@ -254,7 +250,7 @@ export class AgentTurnController {
         turnState,
       })
 
-      // ── Persist assistant message (only when non-empty) ────────────────────
+      // Persist assistant message (only when non-empty).
       if (pipelineResult.renderedAssistantMessage) {
         this.saveQueue.enqueue({
           conversationId: conversationId ?? '',
@@ -274,7 +270,7 @@ export class AgentTurnController {
         })
       }
 
-      // ── Translate pipeline turnEndReason to SSE close/error ────────────────
+      // Translate pipeline turnEndReason to SSE close/error.
       const usage = pipelineResult.usage ?? ZERO_USAGE
       switch (pipelineResult.turnEndReason) {
         case 'cancelled':
@@ -304,14 +300,12 @@ export class AgentTurnController {
         gateway.error(classifyPipelineError(err), ZERO_USAGE)
       }
     } finally {
-      // ── R-07.43: Close root span with appropriate status ───────────────────
       if (turnError) {
         obsCtx.currentSpan.end({ status: 'error', error: turnError })
       } else {
         obsCtx.currentSpan.end({ status: 'ok' })
       }
 
-      // ── Plan 06 §8: Emit turn total + duration metrics ────────────────────
       const durationMs = Date.now() - turnStartMs
       recordTurnTotal(tenantId, 'bounded', turnEndReason)
       recordTurnDuration(tenantId, turnEndReason, durationMs)
@@ -321,7 +315,7 @@ export class AgentTurnController {
       //   'user'    → userCancelController was aborted (client cancel / EPIPE disconnect)
       //   'timeout' → AbortSignal.timeout wallclock fired
       //   'budget' | 'provider_outage' | 'quality_canary' → systemAbortController (mapped to 'system')
-      // Plan 06 §8: source ∈ 'user' | 'timeout' | 'system'.
+      // source ∈ 'user' | 'timeout' | 'system'.
       if (signal.aborted) {
         const reason = captureReason()
         const source: 'user' | 'timeout' | 'system' =

@@ -1,7 +1,7 @@
 /**
- * SamplingDecider — evaluates a SamplingConfig once at the trace root.
+ * Evaluates a SamplingConfig once at the trace root.
  *
- * R-07.10: The decision is made ONCE at the trace root and inherited via NoOpSpan.
+ * The decision is made ONCE at the trace root and inherited via NoOpSpan.
  * Deterministic for given inputs (no side effects beyond the optional random() call).
  *
  * Application layer — imports from domain/observability only.
@@ -11,8 +11,6 @@ import type {
   SamplingConfig,
   TriggerPredicateContext,
 } from '../../domain/observability/sampling-config'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type SamplingDecisionReason =
   | 'always'
@@ -30,8 +28,6 @@ export interface SamplingDecision {
   /** Names of matched trigger predicates — for diagnostics / logging */
   triggersMatched: string[]
 }
-
-// ─── SamplingDecider ─────────────────────────────────────────────────────────
 
 export class SamplingDecider {
   decide(opts: {

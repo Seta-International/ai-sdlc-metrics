@@ -1,17 +1,15 @@
 /**
- * BoundedExecutor — Plan 18 §4.1.
- *
  * Drives the bounded-tier execution plan:
  *   1. Sequential phase-1 fan-out (CLAUDE.md DB rule — single PoolClient per request)
- *   2. Partial-answer gate (R-03.19, R-03.20):
+ *   2. Partial-answer gate:
  *        - 'no_ceiling'        → continue to (optional) phase-2 + synthesizer
  *        - 'surface_partial'   → synthesize what we have, return { kind: 'partial' }
  *        - 'suppress_partial'  → suppress narrative, return drafts only
  *   3. Optional sequential phase-2 fan-out, with circuit-breaker context note
  *      propagated via `turnState.phaseContextNote` (set BEFORE phase-2 dispatch,
  *      cleared AFTER) so SubAgentRunnerAdapter can read it without a directive
- *      schema change (Plan 18 §5).
- *   4. Single synthesizer call over a unified `outputs` map (Plan 18 §1).
+ *      schema change.
+ *   4. Single synthesizer call over a unified `outputs` map.
  *
  * Returns PhaseExecutionResult — same union shape as IterativeOrchestrator.
  */
@@ -39,11 +37,7 @@ import {
   recordBoundedExecutorDrafts,
 } from '../../infrastructure/observability/pipeline-metrics'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const BOUNDED_EXECUTOR = Symbol('BOUNDED_EXECUTOR')
-
-// ─── Execute opts ─────────────────────────────────────────────────────────────
 
 export interface BoundedExecutorOpts {
   readonly plan: BoundedPlan
@@ -52,8 +46,6 @@ export interface BoundedExecutorOpts {
   readonly abortSignal: AbortSignal
   readonly streamEmitter: StreamEmitter
 }
-
-// ─── BoundedExecutor ──────────────────────────────────────────────────────────
 
 @Injectable()
 export class BoundedExecutor {
@@ -73,7 +65,6 @@ export class BoundedExecutor {
 
     const outputs = new Map<SubAgentKey, SubAgentOutput>()
 
-    // ── Phase 1: sequential fan-out ───────────────────────────────────────────
     const phase1Start = Date.now()
     let phase1Outcome: 'completed' | 'cancelled' | 'errored' = 'completed'
     try {
@@ -117,7 +108,6 @@ export class BoundedExecutor {
       durationMs: Date.now() - phase1Start,
     })
 
-    // ── Partial-answer gate ───────────────────────────────────────────────────
     const gate = evaluatePartialAnswerGate(outputs)
 
     if (gate === 'suppress_partial') {
@@ -149,7 +139,6 @@ export class BoundedExecutor {
 
     // gate === 'no_ceiling'
 
-    // ── Phase 2: optional sequential fan-out ──────────────────────────────────
     if (plan.phase2.length > 0) {
       streamEmitter.emit({ type: 'phase.started', payload: { phase: 'phase-2' } })
 
@@ -198,7 +187,6 @@ export class BoundedExecutor {
       }
     }
 
-    // ── Synthesize over the unified outputs map ───────────────────────────────
     const answer = await this.synthesizer.synthesize({
       directive: plan,
       outputs,
@@ -215,8 +203,6 @@ export class BoundedExecutor {
     }
   }
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function collectDraftsFrom(outputs: Map<SubAgentKey, SubAgentOutput>): DraftProposal[] {
   const drafts: DraftProposal[] = []

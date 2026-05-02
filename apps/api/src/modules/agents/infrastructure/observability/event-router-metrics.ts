@@ -9,14 +9,14 @@
  *
  * For background on the lazy-init pattern, see gateway-metrics.ts.
  *
- * ── Instruments (Plan 09 §8) ──────────────────────────────────────────────────
+ * ── Instruments ──────────────────────────────────────────────────
  *
  * agent_event_router_cross_tenant_rejected_total{tenant_id, event_type}   counter
- *   Any non-zero value is a P0 candidate (R-09.28).
+ *   Any non-zero value is a P0 candidate.
  *   Incremented by AgentEventRouter when event.tenant_id !== schedule.tenant_id.
  *   Labels: tenant_id (the event's tenant), event_type (the domain event type string).
  *
- * ── Label cardinality guardrail (R-05.30 / R-05.31) ─────────────────────────
+ * ── Label cardinality guardrail ─────────────────────────────────────────────
  *
  * BLOCKED_LABELS = [user_id, conversation_id, trace_id, delegation_id, schedule_id]
  * None of the above labels appear on any instrument defined here.
@@ -24,22 +24,18 @@
 
 import { metrics, ValueType, type Counter } from '@opentelemetry/api'
 
-// ─── Instrument interface ─────────────────────────────────────────────────────
-
 interface EventRouterInstruments {
   /**
    * agent_event_router_cross_tenant_rejected_total{tenant_id, event_type}
    *
    * Counter incremented when the event router rejects a cross-tenant pairing —
-   * i.e. event.tenant_id !== schedule.tenant_id (R-09.28).
+   * i.e. event.tenant_id !== schedule.tenant_id.
    * Any non-zero value is a P0 candidate; alert on first increment.
    */
   crossTenantRejectedTotal: Counter
 }
 
 let _instruments: EventRouterInstruments | undefined
-
-// ─── Lazy instrument cache ────────────────────────────────────────────────────
 
 function getInstruments(): EventRouterInstruments {
   if (_instruments) return _instruments
@@ -50,7 +46,7 @@ function getInstruments(): EventRouterInstruments {
     'agent_event_router_cross_tenant_rejected_total',
     {
       description:
-        'Cross-tenant event/schedule routing rejections (R-09.28). ' +
+        'Cross-tenant event/schedule routing rejections. ' +
         'Any non-zero value is a P0 candidate; alert on first increment. ' +
         'Labels: tenant_id (the event tenant), event_type (the domain event type).',
       valueType: ValueType.INT,
@@ -61,8 +57,6 @@ function getInstruments(): EventRouterInstruments {
   return _instruments
 }
 
-// ─── Test-only reset ──────────────────────────────────────────────────────────
-
 /**
  * @internal — test-only. Clears the cached instrument instances so the next
  * helper call re-acquires a fresh meter from the currently registered provider.
@@ -72,10 +66,8 @@ export function __INTERNAL_resetInstruments(): void {
   _instruments = undefined
 }
 
-// ─── Helper functions ─────────────────────────────────────────────────────────
-
 /**
- * Increment the cross-tenant rejection counter (Plan 09 §8, R-09.28).
+ * Increment the cross-tenant rejection counter.
  * Call when the event router detects event.tenant_id !== schedule.tenant_id.
  *
  * Labels: tenant_id (the event's tenant), event_type (the domain event type string).

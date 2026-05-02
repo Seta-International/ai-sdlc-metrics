@@ -155,7 +155,7 @@ describe('collectToolNames', () => {
 // ─── collectPermissionKeys ────────────────────────────────────────────────────
 
 describe('collectPermissionKeys', () => {
-  it('returns empty array (placeholder until citations carry permission keys)', () => {
+  it('returns empty array — Citation has no permission-key field; honest empty result, not a silent stub', () => {
     const a = answer('narrative', 'x', [citation('c1', [toolCall('alpha')])])
     expect(collectPermissionKeys(a)).toEqual([])
   })

@@ -1,5 +1,5 @@
 /**
- * drizzle-p1-incident.repository.ts — Plan 13 Task 2
+ * drizzle-p1-incident.repository.ts
  *
  * Drizzle-backed implementation of P1IncidentRepository.
  */
@@ -17,8 +17,6 @@ import {
   type IncidentCategory,
 } from '../../domain/repositories/p1-incident.repository'
 
-// ─── Row → domain mapper ──────────────────────────────────────────────────────
-
 type AgentP1IncidentLogRow = typeof agentP1IncidentLog.$inferSelect
 
 function toDomain(row: AgentP1IncidentLogRow): P1IncidentEntity {
@@ -33,8 +31,6 @@ function toDomain(row: AgentP1IncidentLogRow): P1IncidentEntity {
     postMortemUrl: row.postMortemUrl ?? null,
   }
 }
-
-// ─── Repository ───────────────────────────────────────────────────────────────
 
 @Injectable()
 export class DrizzleP1IncidentRepository implements P1IncidentRepository {
@@ -61,7 +57,7 @@ export class DrizzleP1IncidentRepository implements P1IncidentRepository {
 
   /**
    * Counts ALL P1 security incidents opened in the last 90 days (open AND closed).
-   * The GA gate (R-13.7) requires zero incidents regardless of resolution status.
+   * The GA gate requires zero incidents regardless of resolution status.
    */
   async countOpenSecurityLast90Days(): Promise<number> {
     const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)

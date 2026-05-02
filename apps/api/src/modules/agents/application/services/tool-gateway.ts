@@ -1,25 +1,26 @@
 /**
- * ToolGateway — orchestrator that composes the 6 pipeline steps from Task 4 into a
- * single `invoke(input): Promise<ToolGatewayResult>` entrypoint.
+ * ToolGateway — orchestrator that composes the pipeline steps into a single
+ * `invoke(input): Promise<ToolGatewayResult>` entrypoint.
  *
  * Responsibilities:
- *  - Phase A: resolve, circuit-breaker check, L1 cache lookup / coalescing.
- *  - Phase B: prepareTaintWrap, ceilingPreCheck, preWriteAbortCheck, register in-flight,
- *             invoke (+ transient single-retry), ceiling budget decrement, applyTaintWrap,
- *             auditEmit, retryCount bookkeeping, circuit-breaker setting.
- *  - Phase C: outermost catch — fail cache handle, audit, return infra_error.
+ *  - Resolve, circuit-breaker check, L1 cache lookup / coalescing.
+ *  - prepareTaintWrap, ceilingPreCheck, preWriteAbortCheck, register in-flight,
+ *    invoke (+ transient single-retry), ceiling budget decrement, applyTaintWrap,
+ *    auditEmit, retryCount bookkeeping, circuit-breaker setting.
+ *  - Outermost catch — fail cache handle, audit, return infra_error.
  *
- * Sanitization (R-01.29):
+ * Sanitization:
  *  - Audit rows carry raw context (audit trail is sanctuary).
  *  - The Tripwire returned to the caller carries sanitized context (retryHint + safe fields).
  *  - Sanitization is implemented by `sanitizeTripwireContext()` (see below).
  *
  * Circuit-breaker:
- *  - Per R-01.21, ONLY `permission_denied` triggers the circuit-breaker within a turn.
+ *  - ONLY `permission_denied` triggers the circuit-breaker within a turn.
  *  - Ceiling, validation, timeout → retryCount bookkeeping + abort downgrade only.
- *  - This is intentional and documented: once the model receives an `abort` disposition
- *    the model planner should not re-attempt (tool selection is in the model's hands);
- *    the breaker only exists to prevent further expense after permission is confirmed revoked.
+ *  - This is intentional: once the model receives an `abort` disposition the model
+ *    planner should not re-attempt (tool selection is in the model's hands); the
+ *    breaker only exists to prevent further expense after permission is confirmed
+ *    revoked.
  *
  * Transient retry:
  *  - `invoke()` in pipeline-steps already classifies SERVICE_UNAVAILABLE, TOO_MANY_REQUESTS,
@@ -71,12 +72,8 @@ import {
   type CacheHit,
 } from '../../infrastructure/cache/semantic-result-cache'
 
-// ─── Plan 14 constants ────────────────────────────────────────────────────────
-
 const SEMANTIC_CACHE_EMBEDDING_MODEL = 'text-embedding-3-small'
 const DEFAULT_SEMANTIC_DISTANCE_THRESHOLD = 0.97
-
-// ─── Sanitization ─────────────────────────────────────────────────────────────
 
 /**
  * Per-variant retry hints shown to the model (not the user or audit log).
@@ -168,8 +165,6 @@ export function sanitizeTripwireContext(
   return Object.freeze(sanitized)
 }
 
-// ─── Audit status mapping ──────────────────────────────────────────────────────
-
 type AuditResultStatus = Parameters<typeof auditEmit>[0]['resultStatus']
 
 function variantToAuditStatus(variant: TripwireVariant): AuditResultStatus {
@@ -200,8 +195,6 @@ function variantToAuditStatus(variant: TripwireVariant): AuditResultStatus {
   }
 }
 
-// ─── Type helpers ─────────────────────────────────────────────────────────────
-
 /**
  * Type-safe tripwire check that works on any `{ kind: string }` union,
  * not just `ToolGatewayResult`. This avoids TS2345 when checking pipeline-step
@@ -213,19 +206,10 @@ function isTripwireVariant<T extends { kind: string }>(
   return r.kind === 'tripwire'
 }
 
-// ─── Jitter helper ────────────────────────────────────────────────────────────
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-// ─── ToolGateway ─────────────────────────────────────────────────────────────
-
-/**
- * NestJS-injectable ToolGateway orchestrator.
- *
- * Consumers: Plan 03 / 08 AgentRuntime (not yet wired — exported by AgentsModule later).
- */
 @Injectable()
 export class ToolGateway implements ToolGatewayPort {
   private readonly logger = new Logger(ToolGateway.name)
@@ -242,10 +226,8 @@ export class ToolGateway implements ToolGatewayPort {
     private readonly semanticCache: SemanticResultCache,
   ) {}
 
-  // ─── Public entrypoint ──────────────────────────────────────────────────────
-
   async invoke(input: ToolGatewayInvokeInput): Promise<ToolGatewayResult> {
-    // Phase C outermost guard — unexpected throws must never surface to the caller.
+    // Outermost guard — unexpected throws must never surface to the caller.
     // Normal operation never throws: every error path returns a Tripwire.
     // This catch exists only for programming bugs (registry throws, etc.).
     let phaseCCacheHandle: ReturnType<typeof input.turnState.l1Cache.registerInFlight> | undefined
@@ -287,8 +269,7 @@ export class ToolGateway implements ToolGatewayPort {
     }
   }
 
-  // ─── Inner implementation (separated so Phase C catch can see cacheHandle) ──
-
+  // Separated so the outer catch can see cacheHandle.
   private async invokeInner(
     input: ToolGatewayInvokeInput,
     onCacheHandle: (handle: ReturnType<typeof input.turnState.l1Cache.registerInFlight>) => void,
@@ -309,9 +290,8 @@ export class ToolGateway implements ToolGatewayPort {
 
     const { tenantId } = requestContext
 
-    // ── Phase A ─────────────────────────────────────────────────────────────
-
-    // Step 1 + 2: resolve + circuit-breaker check — both inside gateway:resolve span.
+    // Resolve + cache.
+    // Resolve + circuit-breaker check live inside the same gateway:resolve span.
     // The circuit_broken: true attribute must land on this span (for dashboards +
     // trace filtering). The closure returns a tagged union so the outer code branches
     // cleanly without needing to re-check the circuit-breaker state.
@@ -435,12 +415,12 @@ export class ToolGateway implements ToolGatewayPort {
 
     const { descriptor } = resolveOutcome
 
-    // Plan 09 R-09.6a: Read-only policy envelope — refuse mutation tools for direct dispatch.
-    // Enforced at the worker/gateway boundary BEFORE ceiling pre-check so the cost meter
-    // never starts on a refused mutation call.
-    // Draft-creation is NOT refused here because drafts are proposals (plan 08); the
-    // actual write happens at approval time. Only direct `mutation` procedure execution
-    // is refused under a read-only policy.
+    // Read-only policy envelope: refuse mutation tools for direct dispatch.
+    // Enforced at the worker/gateway boundary BEFORE ceiling pre-check so the cost
+    // meter never starts on a refused mutation call.
+    // Draft-creation is NOT refused here because drafts are proposals; the actual
+    // write happens at approval time. Only direct `mutation` procedure execution is
+    // refused under a read-only policy.
     if (input.policy.readOnly === true && descriptor.procedure === 'mutation') {
       const rawContext = { toolName: descriptor.name, reason: 'read_only_policy' }
       const auditStart = Date.now()
@@ -463,7 +443,7 @@ export class ToolGateway implements ToolGatewayPort {
       return tripwire('policy_violation', 'abort', rawContext)
     }
 
-    // Plan 08 R-08.36: Domain allowlist check for mutation tools.
+    // Domain allowlist check for mutation tools.
     // `people.*` mutations are gated behind `feature.agent.people_writes` (default off).
     // `planner.*` and `projects.*` are enabled day-1.
     // Non-whitelisted domains reject BEFORE tier classification.
@@ -495,7 +475,7 @@ export class ToolGateway implements ToolGatewayPort {
       }
     }
 
-    // Plan 08 §5: Flow-policy resolution — inserted between Resolve and Ceiling pre-check.
+    // Flow-policy resolution — inserted between Resolve and Ceiling pre-check.
     // Only run for mutation tools; queries have no approval-freshness semantics.
     // Result is used later in the mutation success path to pass effective TTL to DraftProposer.
     let effectivePolicy: EffectivePolicy | undefined
@@ -503,9 +483,8 @@ export class ToolGateway implements ToolGatewayPort {
       effectivePolicy = this.flowPolicyResolver.resolve(intentSlug ?? '', descriptor.meta)
     }
 
-    // Step 3: L1 cache lookup
     // Protocol: a caller passing `undefined` (no arg) is treated as `null` for hashing
-    // purposes. canonicalize() explicitly rejects top-level `undefined` (Task 3).
+    // purposes. canonicalize() explicitly rejects top-level `undefined`.
     // Using an explicit ternary makes the coercion visible and intentional; `?? null`
     // was too easy to read as "null if falsy" which would also collapse `0` and `''`.
     const argsForHash = args === undefined ? null : args
@@ -613,7 +592,7 @@ export class ToolGateway implements ToolGatewayPort {
     // Cache miss
     recordCacheLookup(tenantId, descriptor.name, 'miss')
 
-    // Semantic cache check (Plan 14) — after L1 miss, before ceiling pre-check
+    // Semantic cache check — after L1 miss, before ceiling pre-check.
     if (descriptor.meta.cacheable) {
       const semanticCacheStart = Date.now()
       let semanticHit: CacheHit | undefined
@@ -667,16 +646,15 @@ export class ToolGateway implements ToolGatewayPort {
       }
     }
 
-    // ── Phase B ─────────────────────────────────────────────────────────────
-
-    // Step 4: prepareTaintWrap — pure sync step; called directly (no await) to
-    // preserve the cache-coalescing timing guarantee. The L1 cache's
-    // registerInFlight call (Step 7) must happen in the same microtask as the
-    // cache-miss decision so a concurrent second call sees the in-flight entry
-    // when it calls lookup(). Awaiting any Promise here would yield a tick and
-    // break coalescing. We emit the span inline by calling withGatewayStep without
-    // await; since prepareTaintWrap is sync, the span body runs synchronously
-    // and fieldsToWrap is captured via the closure.
+    // Invoke + cache write.
+    // prepareTaintWrap is a pure sync step; called directly (no await) to preserve
+    // the cache-coalescing timing guarantee. The L1 cache's registerInFlight call
+    // below must happen in the same microtask as the cache-miss decision so a
+    // concurrent second call sees the in-flight entry when it calls lookup().
+    // Awaiting any Promise here would yield a tick and break coalescing. The span
+    // is emitted inline via withGatewayStep without await; since prepareTaintWrap
+    // is sync, the span body runs synchronously and fieldsToWrap is captured via
+    // the closure.
     const taintWrapSetupStart = Date.now()
     let fieldsToWrap: ReadonlyArray<string> = []
     // Fire-and-forget the Promise; the sync body runs immediately due to
@@ -704,8 +682,8 @@ export class ToolGateway implements ToolGatewayPort {
     // — the caller experiences that time regardless.
     const startedAt = Date.now()
 
-    // Step 5: ceilingPreCheck — pure sync step; span emitted inline (no await)
-    // to preserve coalescing timing. See taint-wrap-setup comment above.
+    // ceilingPreCheck is a pure sync step; span emitted inline (no await) to
+    // preserve coalescing timing. See taint-wrap-setup comment above.
     let ceilingResult: ReturnType<typeof ceilingPreCheck> | undefined
     const ceilingCheckStart = Date.now()
     withGatewayStep('ceiling-check', {}, () => {
@@ -790,9 +768,9 @@ export class ToolGateway implements ToolGatewayPort {
       return tw
     }
 
-    // Step 6: preWriteAbortCheck — pure sync step; span emitted inline (no await).
-    // Mutations get a gateway:pre-write-abort-check span per plan §8.
-    // Queries skip the span entirely (plan §8: "only for mutations").
+    // preWriteAbortCheck is a pure sync step; span emitted inline (no await).
+    // Mutations get a gateway:pre-write-abort-check span; queries skip the span
+    // entirely (only mutations need pre-write abort tracing).
     if (descriptor.procedure === 'mutation') {
       let abortResult: ReturnType<typeof preWriteAbortCheck> | undefined
       const abortCheckStart = Date.now()
@@ -811,24 +789,23 @@ export class ToolGateway implements ToolGatewayPort {
       recordStepDuration('pre-write-abort-check', Date.now() - abortCheckStart)
 
       if (isTripwireVariant(abortResult!)) {
-        // Per plan §5 "Pre-write abort": NO audit event
+        // Pre-write abort emits NO audit event by design.
         recordToolCall(tenantId, descriptor.name, 'aborted')
         recordTripwire(tenantId, 'abort_pre_write', 'abort')
         return abortResult!
       }
     } else {
-      // Query — check abort signal without emitting a span (no-span path per plan §8)
+      // Query: check abort signal without emitting a span (queries skip pre-write spans).
       const abortResult = preWriteAbortCheck({ descriptor, abortSignal })
       if (isTripwireVariant(abortResult)) {
         return abortResult
       }
     }
 
-    // Step 7: register in-flight cache entry
     let cacheHandle: ReturnType<typeof turnState.l1Cache.registerInFlight> | undefined
     try {
       cacheHandle = turnState.l1Cache.registerInFlight(descriptor.name, argsHash)
-      // Expose the handle to the Phase C catch so it can fail it on unexpected throws
+      // Expose the handle to the outer catch so it can fail it on unexpected throws
       onCacheHandle(cacheHandle)
     } catch (regErr: unknown) {
       // Double-registration is a programming bug — log and fall through without cache
@@ -839,9 +816,8 @@ export class ToolGateway implements ToolGatewayPort {
       )
     }
 
-    // Step 8: invoke + optional transient retry
     // Each invoke attempt (including retry) gets its own gateway:invoke span — the
-    // retry IS a new invocation attempt, distinct trace subtree per plan §8.
+    // retry IS a new invocation attempt, distinct trace subtree.
     let retryCount = 0
     const invokeStep = async () => {
       const invokeStart = Date.now()
@@ -872,7 +848,6 @@ export class ToolGateway implements ToolGatewayPort {
       invokeResult = await invokeStep()
     }
 
-    // Step 9: handle invoke result
     if (isTripwireVariant(invokeResult)) {
       // Fail the cache handle — releases coalesced waiters
       if (cacheHandle) {
@@ -910,7 +885,7 @@ export class ToolGateway implements ToolGatewayPort {
       cacheHandle.complete(result)
     }
 
-    // Semantic cache put (Plan 14) — fire-and-forget, only for cacheable tools
+    // Semantic cache put — fire-and-forget, only for cacheable tools.
     if (descriptor.meta.cacheable) {
       void this.semanticCache
         .put({
@@ -929,7 +904,7 @@ export class ToolGateway implements ToolGatewayPort {
         })
     }
 
-    // R-04.3a: module-scoped L1 cache invalidation on mutation success.
+    // Module-scoped L1 cache invalidation on mutation success.
     // A write call to `<module>.<op>` invalidates all cached reads matching
     // `<module>.*` in this sub-agent's turn cache. Cross-module writes do NOT
     // cascade — only the first dot-segment is used as the prefix.
@@ -939,7 +914,7 @@ export class ToolGateway implements ToolGatewayPort {
         turnState.l1Cache.invalidate(modulePrefix)
         recordL1Invalidation(subAgentKey, modulePrefix)
 
-        // Semantic cache domain invalidation (Plan 14) — fire-and-forget
+        // Semantic cache domain invalidation — fire-and-forget.
         const invalidateStart = Date.now()
         void this.semanticCache
           .invalidateDomain({ tenantId, domain: modulePrefix })
@@ -975,7 +950,7 @@ export class ToolGateway implements ToolGatewayPort {
       'audit-emit',
       {
         result_status: 'success',
-        // TODO-plan-07: audit_row_id will be available once plan 07 exposes the
+        // DEFERRED: audit_row_id will be available once Plan 07 exposes the
         // audit record ID via KernelAuditFacade. Until then, set to null.
         audit_row_id: undefined,
       },
@@ -994,7 +969,7 @@ export class ToolGateway implements ToolGatewayPort {
 
     recordToolCall(tenantId, descriptor.name, 'success')
 
-    // Plan 08 §5: DraftProposer hookup — called on mutation tool success.
+    // DraftProposer hookup: called on mutation tool success.
     // Resilience contract: a DraftProposer failure is non-fatal — the tool call
     // already succeeded and the audit row is written. Log the error and return
     // without a draft rather than surfacing an infra_error to the caller.
@@ -1027,8 +1002,6 @@ export class ToolGateway implements ToolGatewayPort {
     return ok(wrappedResult, false, draft)
   }
 
-  // ─── Tripwire handler (invoke failures) ─────────────────────────────────────
-
   /**
    * Handles a Tripwire returned by `invoke()` (post-retry):
    * - Retry-count bookkeeping for retryable variants.
@@ -1045,12 +1018,10 @@ export class ToolGateway implements ToolGatewayPort {
     const { variant } = tw
     const { tenantId } = requestContext
 
-    // ── Retry-count bookkeeping for retryable variants ───────────────────────
-    // Per R-01.21: validation_failed and invocation_timeout are retried once,
-    // then downgraded to abort. permission_denied is fixed abort (no retry count).
-    //
-    // Note: transient_infra_error retry was already consumed by the orchestrator's
-    // inline retry above. If we still get transient_infra_error here it means the
+    // Retry-count bookkeeping: validation_failed and invocation_timeout are retried
+    // once, then downgraded to abort. permission_denied is fixed abort (no retry
+    // count). transient_infra_error retry was already consumed by the orchestrator's
+    // inline retry above; if we still get transient_infra_error here it means the
     // retry was also transient — return as-is (already disposition: 'retry').
 
     let returnedTw: Tripwire = tw
@@ -1072,7 +1043,8 @@ export class ToolGateway implements ToolGatewayPort {
       }
     }
 
-    // ── Circuit-breaker: only permission_denied (per R-01.21) ────────────────
+    // Circuit-breaker is only triggered by permission_denied; other variants
+    // produce abort dispositions but do not break the circuit.
     if (variant === 'permission_denied') {
       turnState.circuitBreaker.set(descriptor.name, {
         permissionDenied: true,
@@ -1080,14 +1052,15 @@ export class ToolGateway implements ToolGatewayPort {
       })
     }
 
-    // ── Audit (raw context) ──────────────────────────────────────────────────
+    // Audit row carries raw context (audit is sanctuary); the returned tripwire
+    // is sanitized below.
     const auditStatus = variantToAuditStatus(variant)
     const auditStart = Date.now()
     await withGatewayStep(
       'audit-emit',
       {
         result_status: auditStatus,
-        // TODO-plan-07: audit_row_id will be available once plan 07 exposes the
+        // DEFERRED: audit_row_id will be available once Plan 07 exposes the
         // audit record ID via KernelAuditFacade. Until then, set to null.
         audit_row_id: undefined,
       },
@@ -1103,11 +1076,9 @@ export class ToolGateway implements ToolGatewayPort {
     )
     recordStepDuration('audit-emit', Date.now() - auditStart)
 
-    // ── Metrics ──────────────────────────────────────────────────────────────
     recordToolCall(tenantId, descriptor.name, auditStatus)
     recordTripwire(tenantId, returnedTw.variant, returnedTw.disposition)
 
-    // ── Return sanitized tripwire ────────────────────────────────────────────
     const sanitized = sanitizeTripwireContext(tw.context, variant) as Record<string, unknown>
 
     return tripwire(returnedTw.variant, returnedTw.disposition, sanitized)

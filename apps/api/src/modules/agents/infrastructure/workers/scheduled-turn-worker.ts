@@ -52,7 +52,6 @@ export class ScheduledTurnWorker {
   private async _handleInContext(job: ScheduledTurnJob): Promise<void> {
     const { tenant_id: tenantId, schedule_id: scheduleId, delegation_id: delegationId } = job
 
-    // Step 1: Validate schedule is active
     const schedule = await this.scheduleRepo.getById({ tenantId, scheduleId })
     if (schedule === null) {
       this.logger.warn(
@@ -67,7 +66,6 @@ export class ScheduledTurnWorker {
       return
     }
 
-    // Step 2: Validate delegation is active
     const delegation = await this.kernelDelegationFacade.getDelegation({ tenantId, delegationId })
     if (delegation === null) {
       this.logger.warn(
@@ -82,7 +80,6 @@ export class ScheduledTurnWorker {
       return
     }
 
-    // Step 3: Insert schedule_run row (started)
     const traceId = uuidv7()
     const run = await this.scheduleRunRepo.insert({
       scheduleId,
@@ -100,7 +97,6 @@ export class ScheduledTurnWorker {
       : []
 
     try {
-      // Step 4: Emit schedule_run_started audit
       await this.kernelAuditFacade.recordEvent({
         tenantId,
         actorId: job.actor_principal,
@@ -120,10 +116,9 @@ export class ScheduledTurnWorker {
         },
       })
 
-      // Step 5: Execute real turn pipeline under read-only policy envelope (R-09.6a)
-      // This replaces the dry-run stub. The ScheduledTurnService calls ToolGateway
-      // calling real ToolGateway.invoke for the first permitted tool (MVP deterministic
-      // path; full LLM ReAct loop deferred to Plan 03 integration).
+      // Execute the turn pipeline under the read-only policy envelope.
+      // ScheduledTurnService calls ToolGateway.invoke for the first permitted tool
+      // (MVP deterministic path; full LLM ReAct loop integration deferred).
       // READ_ONLY_POLICY refuses any mutation tool (policy_violation tripwire).
       const turnResult = await this.scheduledTurnService.executeScheduledTurn({
         tenantId,
@@ -139,7 +134,6 @@ export class ScheduledTurnWorker {
         modelId: job.pinned_versions.model_id,
       })
 
-      // Step 6: Map turn outcome to schedule_run outcome
       const runOutcome =
         turnResult.outcome === 'completed'
           ? 'completed'
@@ -155,7 +149,7 @@ export class ScheduledTurnWorker {
         costSpentUsd: turnResult.costSpentUsd,
       })
 
-      // Step 7: Reset consecutive failure count ONLY on 'completed' outcome (R-09.29).
+      // Reset consecutive failure count ONLY on 'completed' outcome.
       // 'refused' and 'error' both increment the counter so a schedule that is
       // permanently broken (e.g. delegation scope contains only mutation tools which
       // will always be refused under READ_ONLY_POLICY) will still auto-pause after
@@ -185,10 +179,10 @@ export class ScheduledTurnWorker {
         }
       }
 
-      // Step 8: Notify owner — behaviour depends on outcome:
+      // Notify owner — behaviour depends on outcome:
       //   • completed: always notify (owner awareness of run result)
       //   • non-completed: respect failureAlertPolicy UNLESS this run triggered auto-pause
-      //     (count=3), in which case always notify regardless of policy (R-09.30).
+      //     (count=3), in which case always notify regardless of policy.
       const notifyUserId = schedule.ownerUserId ?? job.user_on_behalf_of
       let shouldNotifyOwner: boolean
       if (runOutcome === 'completed') {
@@ -198,7 +192,7 @@ export class ScheduledTurnWorker {
         const shouldPause = newFailureCount >= 3
         const policy = schedule.failureAlertPolicy ?? 'owner_and_admin'
         shouldNotifyOwner = shouldPause
-          ? true // R-09.30: count=3 always notifies regardless of policy
+          ? true // count=3 always notifies regardless of policy
           : policy !== 'silent' && policy !== 'admin_only'
       }
       if (shouldNotifyOwner && notifyUserId !== null) {
@@ -218,7 +212,6 @@ export class ScheduledTurnWorker {
         }
       }
 
-      // Step 9: Emit schedule_run_completed audit
       await this.kernelAuditFacade.recordEvent({
         tenantId,
         actorId: job.actor_principal,
@@ -266,10 +259,10 @@ export class ScheduledTurnWorker {
       })
 
       // Notify owner per failure, respecting failureAlertPolicy — EXCEPT at the count=3 auto-pause
-      // threshold which always notifies the owner regardless of policy (R-09.30).
+      // threshold which always notifies the owner regardless of policy.
       const policy = schedule.failureAlertPolicy ?? 'owner_and_admin'
       const shouldNotifyOwner = shouldPause
-        ? true // R-09.30: count=3 always notifies regardless of policy
+        ? true // count=3 always notifies regardless of policy
         : policy !== 'silent' && policy !== 'admin_only'
       const notifyUserId = schedule.ownerUserId ?? job.user_on_behalf_of
 

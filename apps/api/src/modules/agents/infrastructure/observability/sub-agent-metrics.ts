@@ -25,7 +25,7 @@
  * Label cardinality: sub_agent_key is bounded by the SubAgentRegistry; outcome
  * has 4 values; tool_name is bounded by ToolRegistry; tripwire_kind is bounded
  * by the Tripwire variant union; severity has 2 values. No tenant_id, user_id,
- * or trace_id labels are emitted (R-05.30 cardinality guardrail).
+ * or trace_id labels are emitted (cardinality guardrail).
  */
 
 import { metrics, type Counter } from '@opentelemetry/api'

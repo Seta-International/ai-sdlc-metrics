@@ -23,6 +23,10 @@ export class ReliabilityProviderFallbackRateEvaluator implements CriterionEvalua
   constructor(@Inject(METRICS_QUERY_PORT) private readonly metrics: MetricsQueryPort) {}
 
   async evaluate(window: EvalWindow): Promise<CriterionResult> {
+    if (!this.metrics.isEnabled()) {
+      return { observedValue: 'unknown', threshold, passed: false, unableToEvaluate: true }
+    }
+
     const attempted = await this.metrics.sumCounter({
       metricName: 'agent_provider_fallback_total',
       labels: { result: 'attempted' },

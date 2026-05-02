@@ -12,7 +12,7 @@
  * created from a `NoopMeter` remain no-ops permanently even after a real provider
  * is registered later. Lazy initialisation sidesteps this limitation.
  *
- * ── Label discipline (R-05.30 / R-05.31) ──────────────────────────────────
+ * ── Label discipline ──────────────────────────────────────────────────────
  *
  * `agent_tool_call_total`        — labels: tenant_id, tool_name, result_status
  * `agent_tool_tripwire_total`    — labels: tenant_id, variant, disposition
@@ -42,8 +42,6 @@
 
 import { metrics, ValueType, type Counter, type Histogram, type Gauge } from '@opentelemetry/api'
 
-// ─── Lazy instrument cache ────────────────────────────────────────────────────
-
 interface GatewayInstruments {
   callTotal: Counter
   tripwireTotal: Counter
@@ -51,7 +49,7 @@ interface GatewayInstruments {
   stepDurationMs: Histogram
   /**
    * Counts sub-agents hidden during resolveForSession due to module toggles or
-   * role permission filtering (Plan 02 §8, R-02.9a).
+   * role permission filtering.
    * Labels: tenant_id, reason.
    * reason ∈ 'module_disabled' | 'permission_empty_scope'
    *
@@ -68,11 +66,11 @@ interface GatewayInstruments {
    *
    * Plan §8 specifies agent_narrative_cache_hit_ratio as a gauge, but OTel
    * semantics favour two counters (hit + miss) with the ratio computed in
-   * the dashboard via PromQL / OTTL. This is R-02.17..R-02.19.
+   * the dashboard via PromQL / OTTL.
    */
   narrativeCacheTotal: Counter
   /**
-   * Counts router turn decisions by outcome (Plan 02 §8).
+   * Counts router turn decisions by outcome.
    * Labels: tenant_id, outcome.
    * outcome ∈ 'bounded_plan' | 'direct_plan' | 'iterative_plan' | 'disambiguation' | 'parse_escalated'
    *
@@ -80,13 +78,13 @@ interface GatewayInstruments {
    */
   routerDecisionsTotal: Counter
   /**
-   * Counts router parse retries (Plan 02 §8, R-02.23a).
+   * Counts router parse retries.
    * Labels: tenant_id.
    * Incremented once per turn that requires a second LLM call.
    */
   routerParseRetryTotal: Counter
   /**
-   * Counts sub-agent invocations emitted per turn (Plan 02 §8, R-02.23a).
+   * Counts sub-agent invocations emitted per turn.
    * Labels: tenant_id, sub_agent_key, phase.
    *
    * DEVIATION from general cardinality discipline (T5):
@@ -98,15 +96,15 @@ interface GatewayInstruments {
    */
   subAgentInvokedTotal: Counter
   /**
-   * Counts L1 module-scoped cache invalidations triggered by successful mutations (R-04.3a).
+   * Counts L1 module-scoped cache invalidations triggered by successful mutations.
    * Labels: sub_agent_key, module.
    */
   l1InvalidationTotal: Counter
 
-  // ─── Plan 12 §8 iterative-topology metrics ────────────────────────────────
+  // ─── Iterative-topology metrics ───────────────────────────────────────────
 
   /**
-   * Counts iterative turn completions by outcome (Plan 12 §8).
+   * Counts iterative turn completions by outcome.
    * Labels: tenant_id, outcome.
    * outcome ∈ 'synthesized' | 'partial' | 'aborted' | 'disambiguation'
    */
@@ -114,40 +112,40 @@ interface GatewayInstruments {
 
   /**
    * Gauge — set to 1 when an iterative turn's iteration count reaches or
-   * exceeds the p95 threshold (Plan 12 §8, agent_iteration_count_exceeded_p95).
+   * exceeds the p95 threshold.
    * Labels: tenant_id.
    */
   iterationCountExceededGauge: Gauge
 
   /**
-   * Counts bounded re-plans that are topology-downgrade candidates (R-12.20, R-12.21).
+   * Counts bounded re-plans that are topology-downgrade candidates.
    * Labels: tenant_id.
    */
   topologyDowngradeCandidateTotal: Counter
 
   /**
-   * Counts replan LLM call outcomes (Plan 12 §8).
+   * Counts replan LLM call outcomes.
    * Labels: tenant_id, outcome.
    * outcome ∈ 'continue' | 'exit_complete' | 'exit_stuck' | 'exit_disambiguation' | 'parse_error'
    */
   replanLlmCallTotal: Counter
 
   /**
-   * Counts completion scorer failures (throws) per scorer (Plan 12 §8).
+   * Counts completion scorer failures (throws) per scorer.
    * Labels: tenant_id, scorer_id.
    */
   completionScorerFailTotal: Counter
 
   /**
-   * Histogram of iteration counts per iterative turn (Plan 12 §8).
+   * Histogram of iteration counts per iterative turn.
    * Labels: tenant_id.
    */
   iterationsTotalHistogram: Histogram
 
-  // ─── Plan 14 §8 semantic cache metrics ───────────────────────────────────
+  // ─── Semantic cache metrics ──────────────────────────────────────────────
 
   /**
-   * Counts semantic cache lookups by hit kind (Plan 14 §8).
+   * Counts semantic cache lookups by hit kind.
    * Labels: tenant_id, tool_name, hit_kind.
    * hit_kind ∈ 'exact' | 'semantic' | 'miss'
    */
@@ -155,7 +153,7 @@ interface GatewayInstruments {
 
   /**
    * Histogram of time from mutation commit to semantic cache domain invalidation
-   * completion, in ms (Plan 14 §8).
+   * completion, in ms.
    */
   semanticCacheInvalidationLagMs: Histogram
 }
@@ -218,7 +216,7 @@ function getInstruments(): GatewayInstruments {
 
     /**
      * Counts sub-agents hidden during resolveForSession due to module toggles or
-     * role permission filtering (Plan 02 §8, R-02.9a).
+     * role permission filtering.
      * Labels: tenant_id, reason.
      */
     subAgentHiddenTotal: meter.createCounter('agent_sub_agent_hidden_total', {
@@ -228,7 +226,7 @@ function getInstruments(): GatewayInstruments {
     }),
 
     /**
-     * Counts permission narrative cache lookups by outcome (Plan 02 §8, R-02.17..R-02.19).
+     * Counts permission narrative cache lookups by outcome.
      * Labels: tenant_id, outcome.
      */
     narrativeCacheTotal: meter.createCounter('agent_narrative_cache_total', {
@@ -237,7 +235,7 @@ function getInstruments(): GatewayInstruments {
     }),
 
     /**
-     * Counts router turn decisions by outcome (Plan 02 §8).
+     * Counts router turn decisions by outcome.
      * Labels: tenant_id, outcome.
      * outcome ∈ 'bounded_plan' | 'direct_plan' | 'iterative_plan' | 'disambiguation' | 'parse_escalated'
      */
@@ -247,7 +245,7 @@ function getInstruments(): GatewayInstruments {
     }),
 
     /**
-     * Counts router parse retries (Plan 02 §8, R-02.23a).
+     * Counts router parse retries.
      * Labels: tenant_id.
      */
     routerParseRetryTotal: meter.createCounter('agent_router_parse_retry_total', {
@@ -256,7 +254,7 @@ function getInstruments(): GatewayInstruments {
     }),
 
     /**
-     * Counts sub-agent invocations emitted per turn (Plan 02 §8, R-02.23a).
+     * Counts sub-agent invocations emitted per turn.
      * Labels: tenant_id, sub_agent_key, phase.
      *
      * DEVIATION from general cardinality discipline (T5):
@@ -269,7 +267,7 @@ function getInstruments(): GatewayInstruments {
     }),
 
     /**
-     * Counts L1 module-scoped cache invalidations triggered by successful mutations (R-04.3a).
+     * Counts L1 module-scoped cache invalidations triggered by successful mutations.
      * Labels: sub_agent_key, module.
      *
      * `sub_agent_key` IS a label — cardinality is bounded by the number of registered
@@ -281,15 +279,14 @@ function getInstruments(): GatewayInstruments {
      * with no per-tenant security or billing consequence.
      */
     l1InvalidationTotal: meter.createCounter('agent_l1_invalidation_total', {
-      description:
-        'L1 module-scoped cache invalidations fired after successful mutations (R-04.3a).',
+      description: 'L1 module-scoped cache invalidations fired after successful mutations.',
       valueType: ValueType.INT,
     }),
 
-    // ─── Plan 12 §8 iterative-topology metrics ──────────────────────────────
+    // ─── Iterative-topology metrics ─────────────────────────────────────────
 
     /**
-     * Counts iterative turn completions by outcome (Plan 12 §8).
+     * Counts iterative turn completions by outcome.
      * Labels: tenant_id, outcome.
      */
     iterativeTurnTotal: meter.createCounter('agent_iterative_turn_total', {
@@ -299,7 +296,7 @@ function getInstruments(): GatewayInstruments {
 
     /**
      * Gauge set to 1 when an iterative turn reaches or exceeds the p95 iteration
-     * count threshold (Plan 12 §8, agent_iteration_count_exceeded_p95).
+     * count threshold.
      * Labels: tenant_id.
      */
     iterationCountExceededGauge: meter.createGauge('agent_iteration_count_exceeded_p95', {
@@ -309,7 +306,7 @@ function getInstruments(): GatewayInstruments {
     }),
 
     /**
-     * Counts bounded re-plans that are topology-downgrade candidates (R-12.20, R-12.21).
+     * Counts bounded re-plans that are topology-downgrade candidates.
      * Labels: tenant_id.
      */
     topologyDowngradeCandidateTotal: meter.createCounter(
@@ -322,7 +319,7 @@ function getInstruments(): GatewayInstruments {
     ),
 
     /**
-     * Counts replan LLM call outcomes (Plan 12 §8).
+     * Counts replan LLM call outcomes.
      * Labels: tenant_id, outcome.
      */
     replanLlmCallTotal: meter.createCounter('agent_replan_llm_call_total', {
@@ -331,7 +328,7 @@ function getInstruments(): GatewayInstruments {
     }),
 
     /**
-     * Counts completion scorer failures (throws) per scorer (Plan 12 §8).
+     * Counts completion scorer failures (throws) per scorer.
      * Labels: tenant_id, scorer_id.
      */
     completionScorerFailTotal: meter.createCounter('agent_completion_scorer_fail_total', {
@@ -340,7 +337,7 @@ function getInstruments(): GatewayInstruments {
     }),
 
     /**
-     * Histogram of iteration counts per iterative turn (Plan 12 §8).
+     * Histogram of iteration counts per iterative turn.
      * Labels: tenant_id.
      */
     iterationsTotalHistogram: meter.createHistogram('agent_turn_iterations_total', {
@@ -348,10 +345,10 @@ function getInstruments(): GatewayInstruments {
       valueType: ValueType.INT,
     }),
 
-    // ─── Plan 14 §8 semantic cache metrics ──────────────────────────────────
+    // ─── Semantic cache metrics ─────────────────────────────────────────────
 
     /**
-     * Counts semantic cache lookups by hit kind (Plan 14 §8).
+     * Counts semantic cache lookups by hit kind.
      * Labels: tenant_id, tool_name, hit_kind.
      * hit_kind ∈ 'exact' | 'semantic' | 'miss'
      */
@@ -361,7 +358,7 @@ function getInstruments(): GatewayInstruments {
     }),
 
     /**
-     * Histogram of semantic cache domain invalidation lag in ms (Plan 14 §8).
+     * Histogram of semantic cache domain invalidation lag in ms.
      */
     semanticCacheInvalidationLagMs: meter.createHistogram(
       'agent_semantic_cache_invalidation_lag_ms',
@@ -377,7 +374,6 @@ function getInstruments(): GatewayInstruments {
   return _instruments
 }
 
-// ─── Test-only reset ──────────────────────────────────────────────────────────
 // DO NOT import __INTERNAL_resetInstruments outside of test files.
 // This hook exists solely for test teardown when the MeterProvider is replaced
 // between test suites. Calling it in production code will silently drop metrics.
@@ -390,8 +386,6 @@ function getInstruments(): GatewayInstruments {
 export function __INTERNAL_resetInstruments(): void {
   _instruments = undefined
 }
-
-// ─── Helper functions ─────────────────────────────────────────────────────────
 
 /**
  * Record a terminal tool-call event.
@@ -433,7 +427,7 @@ export function recordCacheLookup(
 }
 
 /**
- * Record a sub-agent hidden event during resolveForSession (Plan 02 §8, R-02.9a).
+ * Record a sub-agent hidden event during resolveForSession.
  *
  * `reason`:
  *   - `'module_disabled'`       — every tool in the sub-agent's toolScope belongs to a disabled module.
@@ -453,7 +447,7 @@ export function recordSubAgentHidden(
 }
 
 /**
- * Record a permission narrative cache lookup outcome (Plan 02 §8, R-02.17..R-02.19).
+ * Record a permission narrative cache lookup outcome.
  *
  * `outcome`:
  *   - `'hit'`  — the narrative hash already existed in the store (`wasAppended: false`).
@@ -464,7 +458,7 @@ export function recordNarrativeCache(tenantId: string, outcome: 'hit' | 'miss'):
 }
 
 /**
- * Record a router turn decision outcome (Plan 02 §8, Plan 03 §5).
+ * Record a router turn decision outcome.
  * outcome ∈ 'bounded_plan' | 'direct_plan' | 'iterative_plan' | 'disambiguation' | 'parse_escalated'
  */
 export function recordRouterDecision(
@@ -475,7 +469,7 @@ export function recordRouterDecision(
 }
 
 /**
- * Record a router parse retry event (Plan 02 §8, R-02.23a).
+ * Record a router parse retry event.
  * Call once per turn that triggers the second LLM attempt.
  */
 export function recordRouterParseRetry(tenantId: string): void {
@@ -483,7 +477,7 @@ export function recordRouterParseRetry(tenantId: string): void {
 }
 
 /**
- * Record a sub-agent invocation event (Plan 02 §8, R-02.23a).
+ * Record a sub-agent invocation event.
  * Called once per directive per phase emitted in a bounded plan.
  *
  * DEVIATION from general cardinality discipline:
@@ -503,7 +497,7 @@ export function recordSubAgentInvoked(
 }
 
 /**
- * Record an L1 module-scoped cache invalidation event (R-04.3a).
+ * Record an L1 module-scoped cache invalidation event.
  * Called once per successful mutation, using the first dot-segment of the tool
  * name as the `module` label (e.g. `people.updateEmployee` → module=`people`).
  */
@@ -511,10 +505,8 @@ export function recordL1Invalidation(subAgentKey: string, module: string): void 
   getInstruments().l1InvalidationTotal.add(1, { sub_agent_key: subAgentKey, module })
 }
 
-// ─── Plan 12 §8 iterative-topology helpers ───────────────────────────────────
-
 /**
- * Record an iterative turn completion by outcome (Plan 12 §8).
+ * Record an iterative turn completion by outcome.
  * outcome ∈ 'synthesized' | 'partial' | 'aborted' | 'disambiguation'
  */
 export function recordIterativeTurnTotal(
@@ -533,7 +525,7 @@ export function recordIterationCountExceeded(tenantId: string): void {
 }
 
 /**
- * Increment the topology-downgrade candidate counter for the given tenant (R-12.20, R-12.21).
+ * Increment the topology-downgrade candidate counter for the given tenant.
  * Called when a bounded re-plan fires on an iterative-topology turn.
  */
 export function recordTopologyDowngradeCandidateTotal(tenantId: string): void {
@@ -541,7 +533,7 @@ export function recordTopologyDowngradeCandidateTotal(tenantId: string): void {
 }
 
 /**
- * Record a replan LLM call outcome (Plan 12 §8).
+ * Record a replan LLM call outcome.
  * outcome ∈ 'continue' | 'exit_complete' | 'exit_stuck' | 'exit_disambiguation' | 'parse_error'
  */
 export function recordReplanLlmCallTotal(
@@ -552,24 +544,22 @@ export function recordReplanLlmCallTotal(
 }
 
 /**
- * Record a completion scorer failure (throw) for a specific scorer (Plan 12 §8).
+ * Record a completion scorer failure (throw) for a specific scorer.
  */
 export function recordCompletionScorerFail(tenantId: string, scorerId: string): void {
   getInstruments().completionScorerFailTotal.add(1, { tenant_id: tenantId, scorer_id: scorerId })
 }
 
 /**
- * Record the iteration count histogram for an iterative turn (Plan 12 §8).
+ * Record the iteration count histogram for an iterative turn.
  * Called once at the end of the turn with the total number of iterations executed.
  */
 export function recordIterationsTotalHistogram(tenantId: string, iterationCount: number): void {
   getInstruments().iterationsTotalHistogram.record(iterationCount, { tenant_id: tenantId })
 }
 
-// ─── Plan 14 §8 semantic cache helpers ───────────────────────────────────────
-
 /**
- * Record a semantic cache lookup outcome (Plan 14 §8).
+ * Record a semantic cache lookup outcome.
  * hitKind ∈ 'exact' | 'semantic' | 'miss'
  */
 export function recordSemanticCacheLookup(
@@ -585,7 +575,7 @@ export function recordSemanticCacheLookup(
 }
 
 /**
- * Record semantic cache domain invalidation lag (Plan 14 §8).
+ * Record semantic cache domain invalidation lag.
  * durationMs is the wall-time from mutation commit to invalidation completion.
  */
 export function recordSemanticCacheInvalidationLag(durationMs: number): void {

@@ -15,7 +15,7 @@ import { KernelDelegationFacade } from '../../../kernel/application/facades/kern
 
 /**
  * Sanitize the user utterance when the approver is a different user than the
- * initiator (R-08.24). Strips tokens from the utterance that reference domain
+ * initiator. Strips tokens from the utterance that reference domain
  * objects not visible in the approver's scope by performing a conservative
  * word-level projection: only words that are either common vocabulary (length ≤ 4)
  * or that appear verbatim in the `approverScope` string are retained. Words that
@@ -73,7 +73,7 @@ export class DraftProposer {
     tenantPolicy?: TenantApprovalPolicy
     approvalFreshness?: ApprovalFreshness
     /**
-     * The raw user utterance that triggered this turn (R-08.2, R-08.24).
+     * The raw user utterance that triggered this turn.
      * Sanitized via `sanitizeUtteranceForApprover` when the resolved approver
      * differs from the initiator. Raw when approver === initiator.
      */
@@ -95,14 +95,14 @@ export class DraftProposer {
         ? await opts.resolveApprover(opts.toolName)
         : null
 
-    // R-08.24: sanitize utterance when approver ≠ initiator.
+    // Sanitize utterance when approver ≠ initiator.
     const rawUtterance = opts.userUtterance ?? ''
     const sanitizedUtterance =
       approverUserId !== null && approverUserId !== opts.initiatorUserId
         ? sanitizeUtteranceForApprover(rawUtterance, opts.toolName)
         : rawUtterance
 
-    // R-08.2: derived_from_tainted_sources always present; populated from TurnState.taintSources.
+    // derived_from_tainted_sources always present; populated from TurnState.taintSources.
     const derivedFromTaintedSources = opts.turnState.taintSources.map((s) => ({
       tool: s.tool,
       refs: s.refs,

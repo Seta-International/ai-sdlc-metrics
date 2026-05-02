@@ -1,7 +1,7 @@
 /**
  * SynthesizerOutputSchema — Plan 17 §4.1.
  *
- * Discriminated union over the 5 answer shapes (Plan 03 R-03.24).
+ * Discriminated union over the 5 answer shapes.
  * Pure Zod, zero NestJS imports.
  */
 
