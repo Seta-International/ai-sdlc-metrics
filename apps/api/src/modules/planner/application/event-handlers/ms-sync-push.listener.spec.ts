@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MsSyncPushListener } from './ms-sync-push.listener'
+import type { EventBus } from '@nestjs/cqrs'
 import type { IPlanRepository } from '../../domain/repositories/plan.repository'
 import type { IdentityQueryFacade } from '../../../identity/application/facades/identity-query.facade'
 import type { AdminQueryFacade } from '../../../admin/application/facades/admin-query.facade'
@@ -38,7 +39,9 @@ describe('MsSyncPushListener', () => {
     adminFacade = {
       getPlannerViewFlags: vi.fn().mockResolvedValue({ msSyncAttachmentsEnabled: true }),
     }
+    const fakeEventBus = { subscribe: vi.fn().mockReturnValue({ unsubscribe: vi.fn() }) }
     listener = new MsSyncPushListener(
+      fakeEventBus as unknown as EventBus,
       pgBoss as unknown as PgBossService,
       planRepo as unknown as IPlanRepository,
       identityFacade as unknown as IdentityQueryFacade,
