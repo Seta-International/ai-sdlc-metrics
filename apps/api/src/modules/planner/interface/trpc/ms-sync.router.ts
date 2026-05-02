@@ -111,6 +111,16 @@ export const msSyncRouter = router({
             throw toPlannerTrpcError(e)
           })
       }),
+
+    backfillProgress: publicProcedure
+      .input(z.object({ tenantId: z.string().uuid(), jobId: z.string().uuid() }))
+      .query(async ({ input }) => {
+        return svc()
+          .getBackfillProgress(input.jobId)
+          .catch((e) => {
+            throw toPlannerTrpcError(e)
+          })
+      }),
   }),
 
   status: publicProcedure

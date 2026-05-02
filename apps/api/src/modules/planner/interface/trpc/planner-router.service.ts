@@ -3,6 +3,9 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs'
 import { TRPCError } from '@trpc/server'
 import { AdminQueryFacade } from '../../../admin/application/facades/admin-query.facade'
 import type { PlannerViewFlags } from '../../../admin/application/queries/planner-view-flags.types'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
+
+const MS_SYNC_BACKFILL_PROGRESS_EVENT = 'planner.ms_sync.backfill_progress'
 
 let instance: PlannerRouterService | null = null
 
@@ -12,6 +15,7 @@ export class PlannerRouterService implements OnModuleInit {
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
     private readonly adminQueryFacade: AdminQueryFacade,
+    private readonly kernelAuditFacade: KernelAuditFacade,
   ) {}
 
   onModuleInit() {
@@ -56,6 +60,18 @@ export class PlannerRouterService implements OnModuleInit {
 
   getPlannerViewFlags(tenantId: string): Promise<PlannerViewFlags> {
     return this.adminQueryFacade.getPlannerViewFlags(tenantId)
+  }
+
+  async getBackfillProgress(
+    jobId: string,
+  ): Promise<{ processed: number; total: number; completed: boolean } | null> {
+    const payload = (await this.kernelAuditFacade.getLatestOutboxPayload(
+      jobId,
+      MS_SYNC_BACKFILL_PROGRESS_EVENT,
+    )) as { processed: number; total: number } | null
+    if (!payload) return null
+    const { processed, total } = payload
+    return { processed, total, completed: total > 0 && processed >= total }
   }
 
   command<T>(command: T): Promise<unknown> {

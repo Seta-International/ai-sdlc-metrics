@@ -36,20 +36,20 @@ function makeSyncState(
 }
 
 describe('ListLinkedGroupsHandler', () => {
-  let groupRepo: { listForTenant: ReturnType<typeof vi.fn> }
+  let groupRepo: { listActiveForTenant: ReturnType<typeof vi.fn> }
   let planRepo: { findByTenantId: ReturnType<typeof vi.fn> }
   let syncRepo: { listForTenant: ReturnType<typeof vi.fn> }
   let handler: ListLinkedGroupsHandler
 
   beforeEach(() => {
-    groupRepo = { listForTenant: vi.fn() }
+    groupRepo = { listActiveForTenant: vi.fn() }
     planRepo = { findByTenantId: vi.fn() }
     syncRepo = { listForTenant: vi.fn() }
     handler = new ListLinkedGroupsHandler(groupRepo as never, planRepo as never, syncRepo as never)
   })
 
   it('returns linked groups with planCount=0 when no plans exist', async () => {
-    groupRepo.listForTenant.mockResolvedValue([makeGroup('g1')])
+    groupRepo.listActiveForTenant.mockResolvedValue([makeGroup('g1')])
     planRepo.findByTenantId.mockResolvedValue([])
     syncRepo.listForTenant.mockResolvedValue([])
 
@@ -67,8 +67,19 @@ describe('ListLinkedGroupsHandler', () => {
     })
   })
 
+  it('excludes unlinked groups', async () => {
+    groupRepo.listActiveForTenant.mockResolvedValue([makeGroup('g1')])
+    planRepo.findByTenantId.mockResolvedValue([])
+    syncRepo.listForTenant.mockResolvedValue([])
+
+    const result = await handler.execute(new ListLinkedGroupsQuery(TENANT_ID))
+
+    expect(result).toHaveLength(1)
+    expect(result[0]!.msGroupId).toBe('g1')
+  })
+
   it('counts ms_group plans per linked group', async () => {
-    groupRepo.listForTenant.mockResolvedValue([makeGroup('g1'), makeGroup('g2')])
+    groupRepo.listActiveForTenant.mockResolvedValue([makeGroup('g1'), makeGroup('g2')])
     planRepo.findByTenantId.mockResolvedValue([
       { id: 'p1', container: { type: 'ms_group', externalId: 'g1' }, deletedAt: null },
       { id: 'p2', container: { type: 'ms_group', externalId: 'g1' }, deletedAt: null },
@@ -86,7 +97,7 @@ describe('ListLinkedGroupsHandler', () => {
   })
 
   it('excludes deleted plans from planCount', async () => {
-    groupRepo.listForTenant.mockResolvedValue([makeGroup('g1')])
+    groupRepo.listActiveForTenant.mockResolvedValue([makeGroup('g1')])
     planRepo.findByTenantId.mockResolvedValue([
       { id: 'p1', container: { type: 'ms_group', externalId: 'g1' }, deletedAt: new Date() },
       { id: 'p2', container: { type: 'ms_group', externalId: 'g1' }, deletedAt: null },
@@ -102,7 +113,7 @@ describe('ListLinkedGroupsHandler', () => {
     const earlier = new Date('2026-04-01T10:00:00Z')
     const later = new Date('2026-04-02T10:00:00Z')
 
-    groupRepo.listForTenant.mockResolvedValue([makeGroup('g1')])
+    groupRepo.listActiveForTenant.mockResolvedValue([makeGroup('g1')])
     planRepo.findByTenantId.mockResolvedValue([
       { id: 'p1', container: { type: 'ms_group', externalId: 'g1' }, deletedAt: null },
       { id: 'p2', container: { type: 'ms_group', externalId: 'g1' }, deletedAt: null },
@@ -118,7 +129,7 @@ describe('ListLinkedGroupsHandler', () => {
   })
 
   it('returns lastError from sync state when present', async () => {
-    groupRepo.listForTenant.mockResolvedValue([makeGroup('g1')])
+    groupRepo.listActiveForTenant.mockResolvedValue([makeGroup('g1')])
     planRepo.findByTenantId.mockResolvedValue([
       { id: 'p1', container: { type: 'ms_group', externalId: 'g1' }, deletedAt: null },
     ])

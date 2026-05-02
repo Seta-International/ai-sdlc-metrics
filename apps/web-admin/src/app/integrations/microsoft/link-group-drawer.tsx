@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { useQuery, useMutation } from '@future/api-client'
+import { useQuery, useMutation, useQueryClient } from '@future/api-client'
 import {
   Sheet,
   SheetContent,
@@ -50,6 +50,7 @@ export function LinkGroupDrawer({
 }: LinkGroupDrawerProps) {
   const [search, setSearch] = useState('')
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
+  const queryClient = useQueryClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const plannerGroups = (trpc.planner as any).msSync.groups as PlannerMsGroupsTrpcSlice
@@ -91,6 +92,7 @@ export function LinkGroupDrawer({
       lastJobId = result.linkedGroupId
     }
     setCheckedIds(new Set())
+    queryClient.removeQueries({ queryKey: ['planner.msSync.groups.listAvailable', tenantId] })
     onLinked()
     onOpenChange(false)
     if (lastJobId) {

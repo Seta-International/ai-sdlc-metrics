@@ -36,7 +36,7 @@ export class LinkMsGroupHandler implements ICommandHandler<LinkMsGroupCommand> {
     if (!res.body) throw new Error('Group not found or inaccessible')
 
     const entity = MsLinkedGroupEntity.create({
-      id: randomUUID(),
+      id: existing?.id ?? randomUUID(),
       tenantId: command.tenantId,
       msGroupId: command.msGroupId,
       displayName: res.body.displayName,
