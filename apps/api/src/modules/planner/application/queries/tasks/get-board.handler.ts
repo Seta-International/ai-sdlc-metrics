@@ -99,8 +99,10 @@ export class GetBoardHandler implements IQueryHandler<GetBoardQuery, BoardSnapsh
     const taskCountMap = await this.fetchTaskCounts(planId, tenantId)
 
     // ── Resolve actor display info (one batch call — not a planner DB query) ──
-    const allAssigneeIds = [...new Set(assigneeRows.map((a) => a.actorId))]
-    const actorMap = await this.kernelQueryFacade.getActorsByIds(allAssigneeIds, tenantId)
+    const allActorIds = [
+      ...new Set([...assigneeRows.map((a) => a.actorId), ...memberRows.map((m) => m.actorId)]),
+    ]
+    const actorMap = await this.kernelQueryFacade.getActorsByIds(allActorIds, tenantId)
 
     // ── Assemble ──────────────────────────────────────────────────────────────
 
@@ -174,10 +176,14 @@ export class GetBoardHandler implements IQueryHandler<GetBoardQuery, BoardSnapsh
         id: planRow.id,
         name: planRow.name,
         labels: labelRows.map((l) => ({ slot: l.slot, name: l.name, color: l.color })),
-        members: memberRows.map((m) => ({
-          actorId: m.actorId,
-          role: m.role,
-        })),
+        members: memberRows.map((m) => {
+          const info = actorMap.get(m.actorId)
+          return {
+            actorId: m.actorId,
+            role: m.role,
+            ...(info ? { person: { name: info.displayName, avatarUrl: undefined } } : {}),
+          }
+        }),
       },
       buckets,
     }

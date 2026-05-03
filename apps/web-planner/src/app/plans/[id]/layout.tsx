@@ -92,7 +92,7 @@ export default function PlanLayout({ children }: { children: React.ReactNode }) 
   )
 
   return (
-    <div className="flex flex-col min-h-0">
+    <div className="flex flex-col h-full">
       {/* Plan header */}
       <header className="border-b border-overlay/5 bg-panel">
         {/* Row 1: breadcrumb + settings link */}

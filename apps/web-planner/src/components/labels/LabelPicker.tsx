@@ -1,7 +1,7 @@
 'use client'
 
 import { useQueryClient } from '@future/api-client'
-import { Popover, PopoverContent, Button } from '@future/ui'
+import { Button } from '@future/ui'
 import { trpc } from '../../lib/trpc'
 import { taskKeys } from '../../lib/query-keys'
 import type { BoardSnapshot, PlanLabel, BoardTaskSnapshot } from '../../lib/board-types'
@@ -88,65 +88,64 @@ export function LabelPicker({ task, planId, actorId, tenantId, onClose }: LabelP
   }
 
   return (
-    <Popover
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose()
+    <div
+      className="absolute right-0 top-6 z-50 w-64 overflow-hidden rounded-lg border border-white/8 bg-surface shadow-dialog"
+      data-testid="label-picker"
+      onPointerDown={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose()
       }}
     >
-      <PopoverContent onInteractOutside={onClose} align="start" className="w-64 p-0">
-        <div className="px-3 py-2 border-b border-white/5">
-          <span className="text-caption font-510 text-fg-muted">Labels</span>
-        </div>
+      <div className="px-3 py-2 border-b border-white/5">
+        <span className="text-caption font-510 text-fg-muted">Labels</span>
+      </div>
 
-        <ul role="list" className="max-h-64 overflow-y-auto py-1">
-          {ALL_SLOTS.map((slot, index) => {
-            const label = getLabelForSlot(slot, index)
-            const isApplied = appliedSet.has(slot)
+      <ul role="list" className="max-h-64 overflow-y-auto py-1">
+        {ALL_SLOTS.map((slot, index) => {
+          const label = getLabelForSlot(slot, index)
+          const isApplied = appliedSet.has(slot)
 
-            return (
-              <li key={slot}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  type="button"
-                  onClick={() => void handleToggle(slot)}
-                  aria-pressed={isApplied}
-                  aria-label={`${isApplied ? 'Remove' : 'Apply'} label ${label.name}`}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 justify-start"
-                  data-testid={`label-option-${slot}`}
-                >
-                  {/* Color dot */}
-                  <span
-                    className="size-2.5 flex-shrink-0 rounded-full"
-                    style={{ backgroundColor: label.color }}
+          return (
+            <li key={slot}>
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                onClick={() => void handleToggle(slot)}
+                aria-pressed={isApplied}
+                aria-label={`${isApplied ? 'Remove' : 'Apply'} label ${label.name}`}
+                className="flex w-full items-center gap-2 px-3 py-1.5 justify-start"
+                data-testid={`label-option-${slot}`}
+              >
+                <span
+                  className="size-2.5 flex-shrink-0 rounded-full"
+                  style={{ backgroundColor: label.color }}
+                  aria-hidden
+                />
+
+                <span className="flex-1 truncate text-small font-510">{label.name}</span>
+
+                {isApplied && (
+                  <svg
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    className="size-3 flex-shrink-0 text-accent"
                     aria-hidden
-                  />
-
-                  <span className="flex-1 truncate text-small font-510">{label.name}</span>
-
-                  {isApplied && (
-                    <svg
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      className="size-3 flex-shrink-0 text-accent"
-                      aria-hidden
-                    >
-                      <path
-                        d="M2 6l3 3 5-5"
-                        stroke="currentColor"
-                        strokeWidth={1.5}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  )}
-                </Button>
-              </li>
-            )
-          })}
-        </ul>
-      </PopoverContent>
-    </Popover>
+                  >
+                    <path
+                      d="M2 6l3 3 5-5"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              </Button>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
   )
 }

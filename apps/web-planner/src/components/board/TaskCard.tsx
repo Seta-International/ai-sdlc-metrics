@@ -304,40 +304,28 @@ export function TaskCard({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onPointerDown={(e) => e.stopPropagation()}
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    setActivePicker('assignees')
-                  }}
+                  onSelect={() => setActivePicker('assignees')}
                   data-testid="task-menu-assignees"
                 >
                   Assign members
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onPointerDown={(e) => e.stopPropagation()}
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    setActivePicker('labels')
-                  }}
+                  onSelect={() => setActivePicker('labels')}
                   data-testid="task-menu-labels"
                 >
                   Labels
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onPointerDown={(e) => e.stopPropagation()}
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    setPriorityOpen(true)
-                  }}
+                  onSelect={() => setPriorityOpen(true)}
                   data-testid="task-menu-priority"
                 >
                   Priority
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onPointerDown={(e) => e.stopPropagation()}
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    setActivePicker('dueDate')
-                  }}
+                  onSelect={() => setActivePicker('dueDate')}
                   data-testid="task-menu-due-date"
                 >
                   Due date
