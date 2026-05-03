@@ -331,7 +331,7 @@ export default function PlanSettingsPage() {
       {activeTab === 'members' && (
         <div className="space-y-4">
           <ul className="space-y-1">
-            {plan.members.map((m) => (
+            {plan.members?.map((m) => (
               <li
                 key={m.actorId}
                 className="flex items-center justify-between px-3 py-2 rounded-md bg-surface border border-overlay/5"

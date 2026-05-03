@@ -27,6 +27,7 @@ import type { RoleSummaryDto } from '../queries/list-roles.handler'
 import { GetLocalUsersWithActorsQuery } from '../queries/get-local-users-with-actors.query'
 import type { LocalUserWithActorDto } from '../queries/get-local-users-with-actors.handler'
 import { GetUserIdentityByActorIdQuery } from '../queries/get-user-identity-by-actor-id.query'
+import { PLACEHOLDER_SSO_SUBJECT_PREFIX } from '../../domain/repositories/user-identity.repository.port'
 import { ListTenantsQuery } from '../queries/list-tenants.query'
 import type { TenantSummaryDto } from '../queries/list-tenants.handler'
 
@@ -117,7 +118,10 @@ export class KernelQueryFacade {
     const identity: UserIdentity | null = await this.queryBus.execute(
       new GetUserIdentityByActorIdQuery(actorId, tenantId),
     )
-    return identity?.ssoSubject ?? null
+    if (!identity) return null
+    // Placeholder subjects have not completed Microsoft SSO — not a real AAD OID.
+    if (identity.ssoSubject.startsWith(PLACEHOLDER_SSO_SUBJECT_PREFIX)) return null
+    return identity.ssoSubject
   }
 
   /**

@@ -3,6 +3,7 @@ import { EventBus } from '@nestjs/cqrs'
 import type { Subscription } from 'rxjs'
 import { IdentityQueryFacade } from '../../../identity/application/facades/identity-query.facade'
 import { AdminQueryFacade } from '../../../admin/application/facades/admin-query.facade'
+import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { PLAN_REPOSITORY, type IPlanRepository } from '../../domain/repositories/plan.repository'
 import { PgBossService } from '../../../../common/jobs/pg-boss.service'
 import {
@@ -19,6 +20,8 @@ interface PlannerMutationEvent {
   planId?: string
   bucketId?: string
   attachmentId?: string
+  /** Changed field names carried by task mutation events — written to outbox for push-task dirty detection */
+  changedFields?: readonly string[]
 }
 
 // Intentionally broad: planner mutation events share no single discriminant.
@@ -42,6 +45,7 @@ export class MsSyncPushListener implements OnModuleInit, OnModuleDestroy {
     @Inject(PLAN_REPOSITORY) private readonly planRepo: IPlanRepository,
     private readonly identityFacade: IdentityQueryFacade,
     private readonly adminFacade: AdminQueryFacade,
+    private readonly auditFacade: KernelAuditFacade,
   ) {}
 
   onModuleInit() {
@@ -109,6 +113,16 @@ export class MsSyncPushListener implements OnModuleInit, OnModuleDestroy {
     // Route to job — task takes priority over bucket and plan
     if (taskId) {
       this.logger.log(`[MsSyncPush] enqueuing push-task taskId=${taskId}`)
+      // Write changed fields to outbox so PushTaskHandler can detect what's dirty.
+      // Task mutation handlers publish to the in-process EventBus only; the outbox
+      // is the durable store the push job queries via OutboxDirtyFieldsQuery.
+      if (event.changedFields && event.changedFields.length > 0) {
+        await this.auditFacade.publishOutboxEvent({
+          tenantId,
+          eventName: 'planner.task-mutated',
+          payload: { taskId, changedFields: event.changedFields, origin: event.origin },
+        })
+      }
       await this.pgBoss.enqueue(
         MS_SYNC_PUSH_TASK_JOB,
         { tenantId, taskId },
