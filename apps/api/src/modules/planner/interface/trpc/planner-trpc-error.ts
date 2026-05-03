@@ -20,6 +20,7 @@ import { CaptionRequiredException } from '../../domain/exceptions/caption-requir
 import { CaptionTooLongException } from '../../domain/exceptions/caption-too-long.exception'
 import { EvidenceBodyRequiredException } from '../../domain/exceptions/evidence-body-required.exception'
 import { EvidenceBodyTooLongException } from '../../domain/exceptions/evidence-body-too-long.exception'
+import { MsSyncAcceptNotSupportedException } from '../../domain/exceptions/ms-sync-accept-not-supported.exception'
 
 export function toPlannerTrpcError(error: unknown): TRPCError {
   if (error instanceof UnauthorizedPlanAccessException)
@@ -63,6 +64,8 @@ export function toPlannerTrpcError(error: unknown): TRPCError {
   if (error instanceof EvidenceBodyRequiredException)
     return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
   if (error instanceof EvidenceBodyTooLongException)
+    return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
+  if (error instanceof MsSyncAcceptNotSupportedException)
     return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
   const msg = error instanceof Error ? error.message : 'Internal error'
   return new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: msg })

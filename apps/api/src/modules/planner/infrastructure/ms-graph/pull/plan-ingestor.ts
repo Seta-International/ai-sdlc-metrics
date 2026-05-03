@@ -115,6 +115,8 @@ export class PlanIngestor {
 
     for (const ms of tasks) {
       const mapped = mapMsTaskToDomain(ms, { tenantId: input.tenantId })
+      if (!mapped.msBucketId) continue // task has no bucket in MS; skip — schema requires bucketId NOT NULL
+
       const existingTask = await this.taskRepo.findByMsTaskId(input.tenantId, mapped.msTaskId)
       const taskEtagChanged = !existingTask || existingTask.msTaskEtag !== mapped.msTaskEtag
 

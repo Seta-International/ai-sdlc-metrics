@@ -4,6 +4,7 @@ import { AcceptMsStateForConflictCommand } from './accept-ms-state-for-conflict.
 import type { IMsSyncConflictRepository } from '../../../domain/repositories/ms-sync-conflict.repository'
 import type { ITaskRepository } from '../../../domain/repositories/task.repository'
 import { MsSyncConflictEntity } from '../../../domain/entities/ms-sync-conflict.entity'
+import { MsSyncAcceptNotSupportedException } from '../../../domain/exceptions/ms-sync-accept-not-supported.exception'
 
 function makeConflict(
   overrides: Partial<Parameters<typeof MsSyncConflictEntity.reconstitute>[0]> = {},
@@ -136,8 +137,8 @@ describe('AcceptMsStateForConflictHandler', () => {
     expect(conflictRepo.markResolved).not.toHaveBeenCalled()
   })
 
-  it('throws if theirsValue is null', async () => {
-    const conflict = makeConflict({ theirsValue: null })
+  it('throws MsSyncAcceptNotSupportedException when theirsValue is null', async () => {
+    const conflict = makeConflict({ kind: 'push_412_exhausted', theirsValue: null })
     const conflictRepo: Partial<IMsSyncConflictRepository> = {
       get: vi.fn().mockResolvedValue(conflict),
       markResolved: vi.fn(),
@@ -152,7 +153,7 @@ describe('AcceptMsStateForConflictHandler', () => {
 
     await expect(
       handler.execute(new AcceptMsStateForConflictCommand('tenant-1', 'actor-1', 'conflict-1')),
-    ).rejects.toThrow('No MS state to accept for this conflict kind')
+    ).rejects.toThrow(MsSyncAcceptNotSupportedException)
     expect(taskRepo.applyMsWonFields).not.toHaveBeenCalled()
     expect(conflictRepo.markResolved).not.toHaveBeenCalled()
   })

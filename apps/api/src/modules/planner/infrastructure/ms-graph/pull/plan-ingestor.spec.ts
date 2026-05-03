@@ -258,6 +258,19 @@ describe('PlanIngestor', () => {
     )
   })
 
+  it('skips tasks where MS bucketId is null (cannot store without a bucket)', async () => {
+    const taskWithNoBucket = { ...makeMsTask('t-no-bucket'), bucketId: null }
+    vi.mocked(mockGraph.getAllPages).mockImplementation(async (_t: string, path: string) => {
+      if (path.includes('/buckets')) return [MS_BUCKET]
+      if (path.includes('/tasks')) return [taskWithNoBucket]
+      return []
+    })
+
+    await ingestor.ingestPlan({ tenantId: 't1', msPlanId: 'ms-plan-1', origin: 'ms-sync-backfill' })
+
+    expect(mockTaskRepo.upsertFromMs).not.toHaveBeenCalled()
+  })
+
   it('respects If-None-Match — skips details fetch when task etag unchanged', async () => {
     const existingEtag = 'etag-task-t1'
     vi.mocked(mockTaskRepo.findByMsTaskId).mockResolvedValue({

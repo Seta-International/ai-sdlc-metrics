@@ -97,7 +97,7 @@ describe('<ConflictDetailDrawer />', () => {
     expect(screen.getByRole('button', { name: /Accept MS state/i })).toBeInTheDocument()
   })
 
-  it('shows Retry and Accept MS state buttons for push_failed', () => {
+  it('shows only Retry button for push_failed (no Accept MS state — push_failed has no theirsValue)', () => {
     render(
       <ConflictDetailDrawer
         conflict={makeConflict({ kind: 'push_failed' })}
@@ -108,7 +108,26 @@ describe('<ConflictDetailDrawer />', () => {
     )
 
     expect(screen.getByRole('button', { name: /Retry/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Accept MS state/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Accept MS state/i })).not.toBeInTheDocument()
+  })
+
+  it('shows no action buttons for field_lww (auto-resolved — view/audit only)', () => {
+    render(
+      <ConflictDetailDrawer
+        conflict={makeConflict({
+          kind: 'field_lww',
+          field: 'title',
+          mineValue: 'My title',
+          theirsValue: 'MS title',
+        })}
+        open={true}
+        onOpenChange={vi.fn()}
+        onActionSuccess={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: /Accept MS state/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Retry/i })).not.toBeInTheDocument()
   })
 
   it('calls retry mutation on Retry click for push_412_exhausted', async () => {

@@ -11,11 +11,14 @@ import { PushBucketCommand } from './push-bucket.command'
 /** Sanitize an orderHint before sending to MS Planner.
  *  - '!' at index 0 is rejected by MS; clamp to the minimum valid hint ' !'.
  *  - ASCII 91-96 ([, \, ], ^, _, `) sort after lowercase letters in locale-sensitive
- *    collations but before them bytewise, causing divergent ordering; replace with 'a'. */
+ *    collations but before them bytewise, causing divergent ordering; replace with 'a'.
+ *  - MS Graph requires orderHints to contain at least one space or '!'; append ' !' if
+ *    neither is present after the replacements above. */
 function normalizeOrderHint(hint: string): string {
   if (hint.charCodeAt(0) === 33) return ' !'
   // eslint-disable-next-line no-control-regex
-  return hint.replace(/[\x5b-\x60]/g, 'a')
+  const normalized = hint.replace(/[\x5b-\x60]/g, 'a')
+  return /[ !]/.test(normalized) ? normalized : normalized + ' !'
 }
 
 @CommandHandler(PushBucketCommand)

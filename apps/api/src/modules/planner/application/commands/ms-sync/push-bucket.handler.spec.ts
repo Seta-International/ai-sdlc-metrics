@@ -282,9 +282,25 @@ describe('PushBucketHandler', () => {
     expect(bucketRepo.linkToMs).not.toHaveBeenCalled()
   })
 
-  it('POST: bucket with orderHint containing ASCII 91-96 chars → normalized before POST', async () => {
+  it('POST: bucket with orderHint containing ASCII 91-96 chars → normalized and " !" appended when no space/! remains', async () => {
     bucketRepo.findById.mockResolvedValue(
       makeBucket({ msBucketId: null, msBucketEtag: null, orderHint: '[v' }),
+    )
+
+    await handler.execute(new PushBucketCommand(BUCKET_ID, TENANT_ID))
+
+    // '[' (ASCII 91) → 'a', 'v' is unchanged; result 'av' has no space or '!' so ' !' appended
+    expect(graph.post).toHaveBeenCalledWith(
+      TENANT_ID,
+      '/planner/buckets',
+      expect.objectContaining({ orderHint: 'av !' }),
+      expect.anything(),
+    )
+  })
+
+  it('POST: orderHint "[/" → "a/ !" (ASCII 91-96 replaced, then " !" appended for MS validity)', async () => {
+    bucketRepo.findById.mockResolvedValue(
+      makeBucket({ msBucketId: null, msBucketEtag: null, orderHint: '[/' }),
     )
 
     await handler.execute(new PushBucketCommand(BUCKET_ID, TENANT_ID))
@@ -292,21 +308,21 @@ describe('PushBucketHandler', () => {
     expect(graph.post).toHaveBeenCalledWith(
       TENANT_ID,
       '/planner/buckets',
-      expect.objectContaining({ orderHint: 'av' }),
+      expect.objectContaining({ orderHint: 'a/ !' }),
       expect.anything(),
     )
   })
 
-  it('PATCH: bucket with orderHint containing ASCII 91-96 chars → normalized before PATCH', async () => {
+  it('PATCH: bucket with orderHint containing no ASCII 91-96 chars and no space/! → " !" appended', async () => {
     bucketRepo.findById.mockResolvedValue(makeBucket({ orderHint: 'lv' }))
 
     await handler.execute(new PushBucketCommand(BUCKET_ID, TENANT_ID))
 
-    // 'lv' has no chars in 91-96 range (l=108, v=118), so it passes through unchanged
+    // 'lv' has no chars in 91-96 range, but also no space or '!', so ' !' is appended
     expect(graph.patch).toHaveBeenCalledWith(
       TENANT_ID,
       expect.any(String),
-      expect.objectContaining({ orderHint: 'lv' }),
+      expect.objectContaining({ orderHint: 'lv !' }),
       expect.anything(),
     )
   })
