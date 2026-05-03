@@ -22,16 +22,25 @@ describe('MsOrderHint', () => {
   })
 
   describe('between(undefined, b)', () => {
-    it('returns a hint that sorts BEFORE b lexicographically', () => {
+    it('returns " !" (MS minimum) when b is already at the MS minimum hint', () => {
+      // ' !' is the lowest valid MS orderHint; no valid MS hint sorts strictly before it,
+      // so we return the minimum itself and let MS resolve ordering on next pull.
       const b = ' !'
       const result = MsOrderHint.between(undefined, b)
-      expect(result < b).toBe(true)
+      expect(result).toBe(' !')
     })
 
-    it('returns " " when b starts with "!" (first char is 33)', () => {
+    it('returns " !" when b starts with "!" (first char ASCII 33, still at MS minimum range)', () => {
       const b = '!'
       const result = MsOrderHint.between(undefined, b)
-      expect(result).toBe(' ')
+      expect(result).toBe(' !')
+    })
+
+    it('returns a single char below b when b starts above ASCII 33', () => {
+      const b = '"abc' // starts with '"' (ASCII 34)
+      const result = MsOrderHint.between(undefined, b)
+      expect(result).toBe('!') // String.fromCharCode(33)
+      expect(result < b).toBe(true)
     })
   })
 
@@ -96,8 +105,8 @@ describe('MsOrderHint', () => {
       expect(MsOrderHint.between(' !', undefined)).toBe(' ! !')
     })
 
-    it('between(undefined, " !") === " "', () => {
-      expect(MsOrderHint.between(undefined, ' !')).toBe(' ')
+    it('between(undefined, " !") === " !" (MS minimum — cannot go lower without invalid whitespace)', () => {
+      expect(MsOrderHint.between(undefined, ' !')).toBe(' !')
     })
 
     it('between(" !", " ! !") is between " !" and " ! !" lexicographically', () => {

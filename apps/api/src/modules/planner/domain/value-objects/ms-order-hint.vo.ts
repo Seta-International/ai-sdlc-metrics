@@ -30,9 +30,12 @@ export class MsOrderHint {
     }
 
     if (!a) {
-      // between(undefined, b): insert before b
+      // between(undefined, b): insert before b.
+      // ASCII 32 (space) is the lowest valid MS orderHint character.
+      // ' !' is the lowest non-whitespace-only MS orderHint; nothing valid sorts before it.
+      // When b is already at that floor, return ' !' and let MS resolve any ordering conflict on pull.
       const first = b.charCodeAt(0)
-      if (first <= 33) return ' ' // fallback: can't go lower than space
+      if (first <= 33) return ' !'
       return String.fromCharCode(first - 1)
     }
 

@@ -22,6 +22,6 @@ export function mapMsBucketToDomain(
     msPlanId: ms.planId,
     localPlanId: ctx.localPlanId,
     name: ms.name ?? '',
-    orderHint: ms.orderHint ?? '',
+    orderHint: ms.orderHint ?? ' !',
   }
 }

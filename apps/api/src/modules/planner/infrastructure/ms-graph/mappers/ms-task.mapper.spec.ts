@@ -67,7 +67,7 @@ describe('mapMsTaskToDomain', () => {
     const result = mapMsTaskToDomain(minimal as any, { tenantId: 't1' })
     expect(result.msBucketId).toBeNull()
     expect(result.title).toBe('(untitled)')
-    expect(result.orderHint).toBe('')
+    expect(result.orderHint).toBe(' !')
     expect(result.assigneePriority).toBeNull()
     expect(result.percentComplete).toBe(0)
     expect(result.priority).toBe(5)
