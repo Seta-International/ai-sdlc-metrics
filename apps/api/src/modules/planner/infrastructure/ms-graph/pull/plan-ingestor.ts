@@ -22,7 +22,7 @@ import { mapMsBucketToDomain } from '../mappers/ms-bucket.mapper'
 import { mapMsTaskToDomain } from '../mappers/ms-task.mapper'
 import { mapMsTaskDetailsToDomain } from '../mappers/ms-task-details.mapper'
 import { PgBossService } from '../../../../../common/jobs/pg-boss.service'
-import { MS_SYNC_PULL_ATTACHMENT_JOB } from '../../jobs/job-names'
+import { MS_SYNC_PULL_ATTACHMENT_JOB, MS_SYNC_PUSH_BUCKET_JOB } from '../../jobs/job-names'
 import { uuidv7 } from 'uuidv7'
 
 export type PullOrigin = 'ms-sync-backfill' | 'ms-sync-pull'
@@ -95,7 +95,16 @@ export class PlanIngestor {
         tenantId: input.tenantId,
         localPlanId: localPlan.id,
       })
-      await this.bucketRepo.upsertFromMs(mapped, { origin: input.origin })
+      const { id: bucketId } = await this.bucketRepo.upsertFromMs(mapped, { origin: input.origin })
+      // If MS returned an orderHint containing chars in the ASCII 91-96 zone ([, \, ], ^, _, `),
+      // schedule a push so we normalise and write back a clean hint to MS Planner.
+      if (/[\x5b-\x60]/.test(mapped.orderHint)) {
+        await this.pgBoss.enqueue(
+          MS_SYNC_PUSH_BUCKET_JOB,
+          { bucketId, tenantId: input.tenantId },
+          { singletonKey: `push-bucket:${bucketId}` },
+        )
+      }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -8,7 +8,7 @@
  *  - between(undefined, undefined) → ' !' (baseline)
  *  - between(a, undefined)         → a + ' !'
  *  - between(undefined, b)         → String.fromCharCode(b.charCodeAt(0) - 1)
- *                                     (falls back to ' ' if first char ≤ 33)
+ *                                     (falls back to ' !' if first char ≤ 34 — result '!' at index 0 is rejected by MS)
  *  - between(a, b)                 → midpoint at first differing position;
  *                                     if chars are adjacent, extend with a trailing space
  */
@@ -31,7 +31,7 @@ export function orderHintBetween(a?: string, b?: string): string {
   if (!a) {
     // Insert before b
     const first = b.charCodeAt(0)
-    if (first <= 33) return ' '
+    if (first <= 34) return ' !'
     return String.fromCharCode(first - 1)
   }
 
@@ -44,12 +44,20 @@ export function orderHintBetween(a?: string, b?: string): string {
     if (ca === cb) continue
 
     if (cb - ca > 1) {
-      // Midpoint character exists
-      return a.slice(0, i) + String.fromCharCode(Math.floor((ca + cb) / 2))
+      // Midpoint character exists.
+      // Skip ASCII 91-96 ([, \, ], ^, _, `) — these sort differently across collations.
+      let mid = Math.floor((ca + cb) / 2)
+      if (mid >= 91 && mid <= 96) {
+        mid = ca < 90 ? 90 : 97
+      }
+      if (mid !== ca && mid !== cb) {
+        return a.slice(0, i) + String.fromCharCode(mid)
+      }
+      // No safe midpoint — fall through to extension logic below.
     }
 
-    // Adjacent chars: extend a (never truncate) with virtual spaces up to position i,
-    // then append a trailing space to create a value that slots strictly between a and b.
+    // Adjacent chars (or mid collapsed to endpoint): extend a (never truncate) with virtual
+    // spaces up to position i, then append a trailing space to slot strictly between a and b.
     if (i < a.length) return a + ' '
     const padding = ' '.repeat(i - a.length + 1)
     return a + padding + ' '

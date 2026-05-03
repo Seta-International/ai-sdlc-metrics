@@ -134,7 +134,7 @@ describe('PlanIngestor', () => {
     vi.mocked(mockSyncStateRepo.findByMsPlanId).mockResolvedValue(null)
     vi.mocked(mockPlanRepo.upsertFromMs).mockResolvedValue({ id: 'local-plan-1' })
     vi.mocked(mockSyncStateRepo.upsertState).mockResolvedValue(undefined)
-    vi.mocked(mockBucketRepo.upsertFromMs).mockResolvedValue(undefined)
+    vi.mocked(mockBucketRepo.upsertFromMs).mockResolvedValue({ id: 'local-bucket-1' })
     vi.mocked(mockTaskRepo.findByMsTaskId).mockResolvedValue(null)
     vi.mocked(mockTaskRepo.upsertFromMs).mockResolvedValue({ id: 'local-task-1' })
     vi.mocked(mockTaskRepo.upsertDetailsFromMs).mockResolvedValue(undefined)

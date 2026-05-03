@@ -6,7 +6,7 @@
  *  - between(undefined, undefined) → ' !' (baseline)
  *  - between(a, undefined)         → a + ' !'
  *  - between(undefined, b)         → String.fromCharCode(b.charCodeAt(0) - 1)
- *                                     (falls back to ' ' if first char ≤ 33)
+ *                                     (falls back to ' !' if first char ≤ 34 — result '!' at index 0 is rejected by MS)
  *  - between(a, b)                 → midpoint at first differing position;
  *                                     if chars are adjacent, extend with ' !'
  */
@@ -35,7 +35,7 @@ export class MsOrderHint {
       // ' !' is the lowest non-whitespace-only MS orderHint; nothing valid sorts before it.
       // When b is already at that floor, return ' !' and let MS resolve any ordering conflict on pull.
       const first = b.charCodeAt(0)
-      if (first <= 33) return ' !'
+      if (first <= 34) return ' !'
       return String.fromCharCode(first - 1)
     }
 
@@ -48,11 +48,23 @@ export class MsOrderHint {
       if (ca === cb) continue
 
       if (cb - ca > 1) {
-        // A midpoint character exists between ca and cb
-        return a.slice(0, i) + String.fromCharCode(Math.floor((ca + cb) / 2))
+        // A midpoint character exists between ca and cb.
+        // Skip the ASCII 91-96 zone ([, \, ], ^, _, `) — these characters sort
+        // after lowercase letters in locale-sensitive collations (en_US.utf8) but
+        // before them in bytewise order (COLLATE "C"), causing divergence between
+        // PostgreSQL sort and MS Planner sort.
+        let mid = Math.floor((ca + cb) / 2)
+        if (mid >= 91 && mid <= 96) {
+          // Prefer the safe side below the zone if there is room, otherwise above.
+          mid = ca < 90 ? 90 : 97
+        }
+        if (mid !== ca && mid !== cb) {
+          return a.slice(0, i) + String.fromCharCode(mid)
+        }
+        // No safe midpoint — fall through to extension logic below.
       }
 
-      // Characters are adjacent (cb - ca === 1).
+      // Characters are adjacent (cb - ca === 1), or mid collapsed to an endpoint.
       // Extend a (never truncate) with virtual spaces up to position i, then append a
       // trailing space to create a value that slots strictly between a and b.
       if (i < a.length) return a + ' '

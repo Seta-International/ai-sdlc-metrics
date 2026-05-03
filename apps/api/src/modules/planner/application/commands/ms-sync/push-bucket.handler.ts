@@ -8,6 +8,16 @@ import { PLAN_REPOSITORY, type IPlanRepository } from '../../../domain/repositor
 import { MsGraphClient } from '../../../infrastructure/ms-graph/ms-graph-client'
 import { PushBucketCommand } from './push-bucket.command'
 
+/** Sanitize an orderHint before sending to MS Planner.
+ *  - '!' at index 0 is rejected by MS; clamp to the minimum valid hint ' !'.
+ *  - ASCII 91-96 ([, \, ], ^, _, `) sort after lowercase letters in locale-sensitive
+ *    collations but before them bytewise, causing divergent ordering; replace with 'a'. */
+function normalizeOrderHint(hint: string): string {
+  if (hint.charCodeAt(0) === 33) return ' !'
+  // eslint-disable-next-line no-control-regex
+  return hint.replace(/[\x5b-\x60]/g, 'a')
+}
+
 @CommandHandler(PushBucketCommand)
 export class PushBucketHandler implements ICommandHandler<PushBucketCommand> {
   constructor(
@@ -23,6 +33,12 @@ export class PushBucketHandler implements ICommandHandler<PushBucketCommand> {
     const plan = await this.planRepo.findById(bucket.planId, command.tenantId)
     if (!plan || plan.container.type === 'future_only' || !plan.msPlanId) return
 
+    // MS rejects orderHints that start with '!' (ASCII 33) at index 0.
+    // Also normalise chars in the ASCII 91-96 zone ([, \, ], ^, _, `) to 'a' (97):
+    // these sort after lowercase letters in locale-sensitive collations but before them
+    // in bytewise order, causing divergent ordering between local DB and MS Planner.
+    const safeOrderHint = normalizeOrderHint(bucket.orderHint)
+
     if (!bucket.msBucketId) {
       const res = await this.graph.post<Record<string, unknown>>(
         command.tenantId,
@@ -30,7 +46,7 @@ export class PushBucketHandler implements ICommandHandler<PushBucketCommand> {
         {
           name: bucket.name,
           planId: plan.msPlanId,
-          orderHint: bucket.orderHint,
+          orderHint: safeOrderHint,
         },
         { preferReturnRepresentation: true },
       )
@@ -39,6 +55,7 @@ export class PushBucketHandler implements ICommandHandler<PushBucketCommand> {
         msBucketId: res.body.id as string,
         msBucketEtag: (res.body['@odata.etag'] as string | undefined) ?? res.etag ?? '',
         origin: 'ms-sync-push',
+        orderHint: res.body.orderHint as string | undefined,
       })
       return
     }
@@ -48,7 +65,7 @@ export class PushBucketHandler implements ICommandHandler<PushBucketCommand> {
     const res = await this.graph.patch<Record<string, unknown>>(
       command.tenantId,
       `/planner/buckets/${encodeURIComponent(bucket.msBucketId)}`,
-      { name: bucket.name, orderHint: bucket.orderHint },
+      { name: bucket.name, orderHint: safeOrderHint },
       { ifMatch: bucket.msBucketEtag, preferReturnRepresentation: true },
     )
     const newEtag = (res.body?.['@odata.etag'] as string | undefined) ?? res.etag ?? ''
@@ -57,6 +74,7 @@ export class PushBucketHandler implements ICommandHandler<PushBucketCommand> {
         msBucketId: bucket.msBucketId,
         msBucketEtag: newEtag,
         origin: 'ms-sync-push',
+        orderHint: res.body?.orderHint as string | undefined,
       })
     }
   }

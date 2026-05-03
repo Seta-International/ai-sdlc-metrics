@@ -87,7 +87,7 @@ export class GetBoardHandler implements IQueryHandler<GetBoardQuery, BoardSnapsh
           WHERE plan_id = ${planId}
             AND tenant_id = ${tenantId}
             AND deleted_at IS NULL
-          ORDER BY order_hint ASC`,
+          ORDER BY order_hint COLLATE "C" ASC`,
     )
     const bucketRows = bucketResult.rows
 
@@ -328,7 +328,7 @@ export class GetBoardHandler implements IQueryHandler<GetBoardQuery, BoardSnapsh
             t.priority,
             t.start_date,
             t.due_date,
-            t.order_hint,
+            t.order_hint COLLATE "C" AS order_hint,
             t.completed_at,
             t.completed_by,
             t.checklist_item_count,
@@ -354,7 +354,7 @@ export class GetBoardHandler implements IQueryHandler<GetBoardQuery, BoardSnapsh
             NULL::smallint        AS priority,
             NULL::date            AS start_date,
             NULL::date            AS due_date,
-            NULL::text            AS order_hint,
+            NULL::text COLLATE "C" AS order_hint,
             NULL::timestamptz     AS completed_at,
             NULL::uuid            AS completed_by,
             NULL::smallint        AS checklist_item_count,
@@ -379,7 +379,7 @@ export class GetBoardHandler implements IQueryHandler<GetBoardQuery, BoardSnapsh
             NULL::smallint        AS priority,
             NULL::date            AS start_date,
             NULL::date            AS due_date,
-            NULL::text            AS order_hint,
+            NULL::text COLLATE "C" AS order_hint,
             NULL::timestamptz     AS completed_at,
             NULL::uuid            AS completed_by,
             NULL::smallint        AS checklist_item_count,
