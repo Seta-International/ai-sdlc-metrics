@@ -10,6 +10,74 @@
 
 Six visual gaps vs the design spec, two confirmed bugs, and two drag-and-drop features that are structurally wired but not connected to the API. All changes are co-located in `apps/web-planner/src/components/board/` and the board page.
 
+### What Ships in This Plan
+
+| Category        | Item                                                                             |
+| --------------- | -------------------------------------------------------------------------------- |
+| **UI**          | Add Task button — full-width dashed style                                        |
+| **UI**          | Progress icon — dashed not-started, amber in-progress, dark checkmark            |
+| **UI**          | Priority icon — four semantically distinct shapes per level                      |
+| **UI**          | Empty bucket state — placeholder with copy and kanban icon                       |
+| **UI**          | Column header — always-visible grip, `+` shortcut, name as `<span>`              |
+| **Bug fix**     | Stale `expectedVersion` on rapid priority / due date / label mutations (409 fix) |
+| **Bug fix**     | Due date `onChange` fires mid-input → switched to `onBlur`                       |
+| **DnD wiring**  | Column reorder — connected to `trpc.planner.buckets.reorder` API                 |
+| **DnD verify**  | Same-bucket task reorder — persists after page refresh (existing logic checked)  |
+| **API (minor)** | `setPriority`, `setDates`, `applyLabel`, `removeLabel` return `{ updatedAt }`    |
+
+Does **not** ship: MS Planner sync for column order, task detail panel progress cycling, any changes outside `web-planner` or the `planner` API module.
+
+---
+
+### Locked Principles
+
+These constraints are non-negotiable for this PR:
+
+1. **TDD — tests before implementation.** Every behavioral change has a failing test written first. No test = feature not started.
+2. **No design-system changes.** The `@future/ui` package is not touched. Local styling stays local to `web-planner`.
+3. **No backward-compat shims.** Callers are updated; old interfaces are not preserved.
+4. **Optimistic-first mutations.** Every mutation patches the cache before the API call; rollback on failure. No loading spinners for inline edits.
+5. **Single `DndContext`.** Columns and tasks share one `DndContext` in `BoardDragContext`. Nesting two drag contexts is not supported by @dnd-kit.
+6. **No cross-module imports.** `web-planner` talks to `apps/api` only via tRPC. No direct imports from `apps/api` domain or infrastructure paths.
+
+---
+
+### Module Architecture
+
+```
+apps/web-planner/src/
+│
+├── app/plans/[id]/board/
+│   └── page.tsx                ← Board page: SortableContext for columns,
+│                                  handleReorderColumn, passes props to BoardDragContext
+│
+├── components/board/
+│   ├── BoardDragContext.tsx    ← Single DndContext: detects col-* vs task drags,
+│   │                              dispatches onMove or onReorderColumn
+│   ├── BoardColumn.tsx         ← Column: header layout, empty state, lifts QuickAddTask open state
+│   ├── QuickAddTask.tsx        ← Controlled open/onOpenChange props + restyled closed button
+│   └── TaskCard.tsx            ← Progress toggle always visible; updatedAt cache fix; localDate
+│
+├── components/primitives/
+│   ├── ProgressIcon.tsx        ← Visual-only: dashed/amber/dark-checkmark per progress value
+│   └── PriorityIcon.tsx        ← Visual-only: 4 distinct SVG shapes per priority level
+│
+└── components/labels/
+    └── LabelPicker.tsx         ← updatedAt cache write after applyLabel/removeLabel
+
+apps/api/src/modules/planner/application/commands/tasks/
+    ├── set-task-priority.handler.ts   ← returns { updatedAt }
+    ├── set-task-dates.handler.ts      ← returns { updatedAt }
+    ├── apply-label.handler.ts         ← returns { updatedAt }
+    └── remove-label.handler.ts        ← returns { updatedAt }
+```
+
+Data flows through this plan:
+
+- **Drag end** → `BoardDragContext.handleDragEnd` → detects prefix → calls `onMove` (task) or `onReorderColumn` (column) → optimistic cache patch → API mutation → `invalidateQueries`
+- **Inline edit** (priority / due date / label) → optimistic cache patch → API mutation → write `updatedAt` to cache → `invalidateQueries`
+- **Progress toggle** → `onToggleComplete` on `BoardColumn` → `handleToggleComplete` in board page → `setProgress` mutation (existing flow, no change)
+
 ---
 
 ## 2. UI Changes
@@ -88,15 +156,19 @@ The `TaskCard` only renders the priority icon when `task.priority === 9` (urgent
 ```
 ┌─────────────────────────────────┐
 │   [kanban icon]                 │
-│   No tasks yet                  │
+│   Nothing to review             │
+│   Drop a task here, or it'll    │
+│   arrive when someone moves     │
+│   it along.                     │
 └─────────────────────────────────┘
 ```
 
 Specifics:
 
-- Container: `border: 1px dashed rgba(255,255,255,0.06)`, `border-radius: 8px`, `min-height: 80px`, flex column centered
+- Container: `border: 1px dashed rgba(255,255,255,0.06)`, `border-radius: 8px`, `min-height: 80px`, flex column centered, `padding: 16px`
 - Small kanban SVG icon in a `28×28` rounded container, color `#3e3e44`
-- Text: "No tasks yet", `font-size: 11px`, `color: #3e3e44`
+- Title: **"Nothing to review"**, `font-size: 12px`, `font-weight: 510`, `color: #3e3e44`
+- Description: **"Drop a task here, or it'll arrive when someone moves it along."**, `font-size: 11px`, `color: #3e3e44`, `text-align: center`, `max-width: 180px`
 - On `isOver` (drag hover): existing ring highlight replaces the empty state (current behavior, no change needed)
 
 Condition: render inside the `SortableContext` wrapper when `bucket.tasks.length === 0`.
@@ -261,7 +333,41 @@ async function handleReorderColumn(payload: ReorderColumnPayload) {
 
 **Verify:** Test that same-bucket reorder (e.g., drag task from position 2 to position 1) persists after page refresh. If the server `move` handler accepts same-bucket moves with updated order hints, no change needed. If not, confirm the `MoveTaskCommand` handler accepts `toBucketId === currentBucketId` moves.
 
-No code change expected here — just a verification step during implementation.
+#### Sort-active guard
+
+When `state.sort` is non-null (the user has applied a sort), same-bucket drag-to-reorder is suppressed. The drag gesture still starts — so cross-bucket moves (dropping on a different column) continue to work — but if `handleDragEnd` detects a same-bucket drop with sort active, it returns early without calling `onMove`.
+
+**`BoardDragContext.tsx`:** Add a `sortActive: boolean` prop:
+
+```ts
+interface BoardDragContextProps {
+  // ... existing
+  sortActive: boolean
+}
+```
+
+In `handleDragEnd`, after resolving `toBucketId`, add:
+
+```ts
+const fromBucketId = taskIndex.get(taskId)?.bucketId
+if (sortActive && fromBucketId === toBucketId) return // suppress same-bucket reorder when sort is active
+```
+
+**Board page (`app/plans/[id]/board/page.tsx`):** Pass `sortActive={!!state.sort}` to `BoardDragContext`.
+
+**Visual indicator:** When `state.sort` is active, render a subtle chip in the board toolbar area:
+
+```tsx
+{
+  state.sort && (
+    <span className="text-tiny text-fg-muted">
+      Sorted by {state.sort.field} — drag across columns to move tasks
+    </span>
+  )
+}
+```
+
+This chip can live in the existing filter/sort bar (`ViewStateBar` or equivalent) without a new component. Exact placement follows current toolbar layout.
 
 ---
 
@@ -272,11 +378,11 @@ No code change expected here — just a verification step during implementation.
 | `components/board/QuickAddTask.tsx`      | Add `open`/`onOpenChange` props; restyle closed-state button                                                                                         |
 | `components/board/TaskCard.tsx`          | Remove hover opacity from progress toggle; fix `expectedVersion` pattern for priority + due date mutations; add `localDate` state for due date input |
 | `components/board/BoardColumn.tsx`       | Column header layout; always-visible grip; `+` shortcut; empty bucket state; lift `open` state for QuickAddTask                                      |
-| `components/board/BoardDragContext.tsx`  | Add `onReorderColumn` + `bucketOrderList` props; detect column drags in `handleDragEnd`                                                              |
+| `components/board/BoardDragContext.tsx`  | Add `onReorderColumn` + `bucketOrderList` props; detect column drags in `handleDragEnd`; add `sortActive` prop to guard same-bucket reorder          |
 | `components/primitives/ProgressIcon.tsx` | Dashed not-started; amber in-progress; dark checkmark                                                                                                |
 | `components/primitives/PriorityIcon.tsx` | Four distinct icon shapes per level                                                                                                                  |
 | `components/labels/LabelPicker.tsx`      | Fix `expectedVersion` pattern after toggle                                                                                                           |
-| `app/plans/[id]/board/page.tsx`          | `SortableContext` for columns; `handleReorderColumn`; pass new props to `BoardDragContext`                                                           |
+| `app/plans/[id]/board/page.tsx`          | `SortableContext` for columns; `handleReorderColumn`; pass `sortActive` + new props to `BoardDragContext`; sort-active chip in toolbar               |
 | `apps/api` (optional)                    | If `setPriority`/`setDates`/`applyLabel`/`removeLabel` don't return `updatedAt`, add return value                                                    |
 
 ---
@@ -285,17 +391,18 @@ No code change expected here — just a verification step during implementation.
 
 Per project TDD rules — tests written before implementation.
 
-| Area                         | Test type             | What to cover                                                                                             |
-| ---------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------- |
-| `ProgressIcon`               | Unit                  | Renders dashed stroke at 0; amber fill at 50; green fill + checkmark at 100                               |
-| `PriorityIcon`               | Unit                  | Distinct SVG content per level; correct aria-label                                                        |
-| `TaskCard` progress toggle   | Unit                  | Click fires `onToggleComplete` with `0→100` and `100→0`; never 50                                         |
-| `TaskCard` priority mutation | Integration (real DB) | Two rapid priority changes both succeed; second doesn't fail with 409                                     |
-| `TaskCard` due date          | Unit                  | `onBlur` fires mutation; `onChange` does not                                                              |
-| `BoardColumn` empty state    | Unit                  | Renders placeholder when `bucket.tasks.length === 0`                                                      |
-| `BoardColumn` header `+`     | Unit                  | Clicking `+` expands `QuickAddTask`                                                                       |
-| Column drag                  | Integration           | Drag col A before col B → `buckets.reorder` called with correct hints; board cache updated optimistically |
-| Same-bucket task drag        | E2E Playwright        | Drag task 2 to position 1; refresh page; order persists                                                   |
+| Area                         | Test type             | What to cover                                                                                                            |
+| ---------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `ProgressIcon`               | Unit                  | Renders dashed stroke at 0; amber fill at 50; green fill + checkmark at 100                                              |
+| `PriorityIcon`               | Unit                  | Distinct SVG content per level; correct aria-label                                                                       |
+| `TaskCard` progress toggle   | Unit                  | Click fires `onToggleComplete` with `0→100` and `100→0`; never 50                                                        |
+| `TaskCard` priority mutation | Integration (real DB) | Two rapid priority changes both succeed; second doesn't fail with 409                                                    |
+| `TaskCard` due date          | Unit                  | `onBlur` fires mutation; `onChange` does not                                                                             |
+| `BoardColumn` empty state    | Unit                  | Renders placeholder when `bucket.tasks.length === 0`                                                                     |
+| `BoardColumn` header `+`     | Unit                  | Clicking `+` expands `QuickAddTask`                                                                                      |
+| Column drag                  | Integration           | Drag col A before col B → `buckets.reorder` called with correct hints; board cache updated optimistically                |
+| Same-bucket task drag        | E2E Playwright        | Drag task 2 to position 1; refresh page; order persists                                                                  |
+| Sort-active drag guard       | Unit                  | When `sortActive=true`, dropping task in same bucket calls `onMove` 0 times; cross-bucket drop still calls `onMove` once |
 
 ---
 
@@ -303,4 +410,36 @@ Per project TDD rules — tests written before implementation.
 
 - MS Planner sync for column order (that lives in the ms-sync module)
 - Task detail panel progress cycling (0→50→100)
+- Bucket color coding (MS Planner premium feature — deferred, no design spec yet)
 - Any changes outside `web-planner` zone or the `planner` API module
+
+---
+
+## 8. Decision Log
+
+| #   | Decision                                                                                          | Options Considered                                                                                                        | Rationale                                                                                                                                                                                         |
+| --- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Single PR (Approach A)** — all UI, bug fixes, and drag wiring in one PR                         | A: single PR · B: split into UI-only PR and wiring PR                                                                     | All changes touch the same 8 files; splitting would create two incomplete half-states that can't be tested end-to-end independently                                                               |
+| 2   | **Progress toggle fires 0 ↔ 100 only** — no 50 from the card click                                | A: cycle 0→50→100→0 on each click · B: toggle 0↔100 only                                                                  | In-progress (50) is a meaningful state set deliberately from the task detail panel; a single card click cycling through it would cause accidental state changes                                   |
+| 3   | **`QuickAddTask` closed-state: raw `<button>` styled inline** — not a design-system variant       | A: add `variant="dashed"` to `@future/ui` Button · B: local raw `<button>`                                                | Single use case in one zone; adding a DS variant for it would be premature generalization (YAGNI)                                                                                                 |
+| 4   | **Lift `open` state into `BoardColumn`** for the `+` header shortcut — prop approach              | A: prop `open`/`onOpenChange` · B: `useImperativeHandle` ref on `QuickAddTask`                                            | Props are simpler, easier to test, and avoid imperative ref patterns; the spec explicitly prefers the prop approach                                                                               |
+| 5   | **`updatedAt` cache write after mutation** — use server-returned value, fall back to `new Date()` | A: wait for `invalidateQueries` refetch · B: write server `updatedAt` to cache immediately                                | Refetch is async; a second rapid mutation fires before refetch completes, sending a stale version to the server (409). Writing to cache immediately closes the race window                        |
+| 6   | **API handlers return `{ updatedAt: Date }`** — minimal backend change                            | A: no backend change, always fall back to `new Date()` · B: return `updatedAt` from handler                               | `new Date()` is an approximation; the server clock is authoritative. Returning `updatedAt` from handlers is a one-line change per handler and eliminates any sub-second clock skew risk           |
+| 7   | **Due date uses `onBlur` to fire mutation** — `onChange` only updates local state                 | A: fire mutation on every `onChange` · B: fire on `onBlur` only                                                           | `<input type="date">` fires `onChange` mid-input in Chrome/Safari when partially filling the year; firing the mutation there causes spurious 4-digit-year-is-0022 updates                         |
+| 8   | **Column drag detection via `col-` id prefix** — string prefix on `useSortable` id                | A: separate `DndContext` for columns · B: single `DndContext`, detect by prefix                                           | A single `DndContext` avoids nesting two drag contexts (which @dnd-kit does not support); the `col-` prefix is already present in the existing `useSortable({ id: \`col-${bucket.id}\` })` call   |
+| 9   | **Empty bucket copy: "Nothing to review" / "Drop a task here…"**                                  | Several alternatives drafted                                                                                              | User-specified exact copy during design review                                                                                                                                                    |
+| 10  | **PriorityIcon: semantically distinct shapes per level** — not color-only differentiation         | A: same bar shape, color-coded · B: distinct icons (dash, bars, urgent square)                                            | Color-only distinction fails accessibility; distinct shapes make levels readable at a glance without relying on color perception                                                                  |
+| 11  | **Sort active → block same-bucket drag-to-reorder; cross-bucket move still works**                | A: block same-bucket drag (early return in `handleDragEnd`) · B: allow drag, suppress API call silently · C: out of scope | MS Planner ref: sort and manual order are mutually exclusive. Option A gives honest feedback; snap-back (B) looks like a bug. Cross-bucket moves are always intentional so they remain unblocked. |
+| 12  | **Inline editing stays on the card** — priority, due date, labels, assignees editable from card   | A: keep inline editing on card · B: card is read-only summary; all edits in detail panel (MS Planner model)               | Our design prioritises power-user speed; the detail panel is out of scope for this PR. Diverging from MS Planner's progressive disclosure is a deliberate product choice.                         |
+
+---
+
+## 9. References
+
+| Source                                              | URL                                                                                                                    | Used for                                                            |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| MS Planner — Create buckets                         | https://support.microsoft.com/en-au/office/create-buckets-to-sort-your-tasks-238af119-3c2b-4cbb-a124-29da99488139      | Bucket UX: rename inline, reorder via drag, color coding (deferred) |
+| MS Planner — Manage tasks                           | https://support.microsoft.com/en-us/office/manage-your-tasks-in-microsoft-planner-7e3d66b4-684d-4a2f-8fbe-908c614d8314 | Task card UX: drag between/within buckets, quick actions, filtering |
+| MS Planner — Creating buckets and tasks (RPI guide) | https://itssc.rpi.edu/hc/en-us/articles/19379074676109-Microsoft-Planner-Creating-Buckets-and-Tasks                    | Drag interaction as primary board manipulation model                |
+| MS Learn — Reorder bucket Q&A                       | https://learn.microsoft.com/en-us/answers/questions/c74d742c-4227-4171-b2b9-12c7d71d33bd/reorder-bucket-in-ms-planner  | Bucket reorder: fully draggable; task manual order constraints      |
+| MS Learn — Task ordering issue                      | https://learn.microsoft.com/en-us/answers/questions/5851900/tasks-in-microsoft-planner-grid-can-no-longer-be-r         | Sort vs manual mode exclusivity → Decision 11                       |
