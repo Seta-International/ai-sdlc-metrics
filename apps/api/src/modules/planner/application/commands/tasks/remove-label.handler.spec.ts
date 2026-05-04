@@ -93,7 +93,7 @@ describe('RemoveLabelHandler', () => {
       'category1',
     )
 
-    await handler.execute(command)
+    const result = await handler.execute(command)
 
     expect(authSvc.assertCanEditPlan).toHaveBeenCalledWith(ACTOR_ID, PLAN_ID, TENANT_ID)
     const [updatedTask] = taskRepo.update.mock.calls[0] as [Task, ...unknown[]]
@@ -101,6 +101,7 @@ describe('RemoveLabelHandler', () => {
     expect(eventBus.publish).toHaveBeenCalledWith(expect.any(TaskLabelRemovedEvent))
     const event: TaskLabelRemovedEvent = eventBus.publish.mock.calls[0][0]
     expect(event.slot).toBe('category1')
+    expect(result).toEqual({ updatedAt: expect.any(Date) })
   })
 
   it('rejects invalid slot value', async () => {
