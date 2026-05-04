@@ -701,5 +701,29 @@ describe('IdentityMsGraphCredentialFacade', () => {
       expect(directoryFactory.create).not.toHaveBeenCalled()
       expect(graphProvider.patchUser).not.toHaveBeenCalled()
     })
+
+    it('fails explicitly when the created provider does not support patchUser', async () => {
+      const credential = MsGraphCredentialEntity.create({
+        tenantId: TENANT_ID,
+        clientId: INPUT.clientId,
+        clientSecretRef: SECRET_REF,
+        tenantAdId: INPUT.tenantAdId,
+        scopes: ['https://graph.microsoft.com/.default'],
+        consentedAt: new Date('2026-04-23T00:00:00Z'),
+      })
+      credential.markActive()
+      credentialRepo.get.mockResolvedValue(credential)
+      directoryFactory.create.mockResolvedValue({
+        testConnection: vi.fn(),
+        listUsers: vi.fn(),
+        listGroupsWithMembers: vi.fn(),
+      })
+
+      await expect(
+        facade.patchMicrosoftUser(TENANT_ID, 'ms-user-1', {
+          displayName: 'Alice Example',
+        }),
+      ).rejects.toThrow(/does not support patchUser/)
+    })
   })
 })

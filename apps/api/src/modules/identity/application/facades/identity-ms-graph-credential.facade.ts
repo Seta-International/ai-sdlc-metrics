@@ -155,9 +155,10 @@ export class IdentityMsGraphCredentialFacade {
     }
 
     const providerConfig = this.credentialToProviderConfig(credential)
-    const provider = (await this.directoryFactory.create(
-      providerConfig,
-    )) as DirectoryProviderWithPatchUser
+    const provider = await this.directoryFactory.create(providerConfig)
+    if (!this.supportsPatchUser(provider)) {
+      throw new Error('Directory provider does not support patchUser')
+    }
     await provider.patchUser(msUserId, patch)
   }
 
@@ -259,6 +260,15 @@ export class IdentityMsGraphCredentialFacade {
       createdAt: now,
       updatedAt: now,
     }
+  }
+
+  private supportsPatchUser(provider: unknown): provider is DirectoryProviderWithPatchUser {
+    return (
+      typeof provider === 'object' &&
+      provider !== null &&
+      'patchUser' in provider &&
+      typeof provider.patchUser === 'function'
+    )
   }
 
   private cloneCredential(credential: MsGraphCredentialEntity): MsGraphCredentialEntity {

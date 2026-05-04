@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { Logger } from '@nestjs/common'
 import type { Db } from '@future/db'
 import type { AppliedChange } from '@future/event-contracts'
 import type { ClsService } from 'nestjs-cls'
@@ -36,14 +37,14 @@ function change(fieldPath: string, newValue: unknown, oldValue: unknown = null):
 }
 
 describe('buildGraphPatch', () => {
-  it('maps supported fields into a Graph patch and lets the last name change win', () => {
+  it('prefers preferred_name over full_name for displayName regardless of input order', () => {
     const patch = buildGraphPatch([
+      change('person_profile.preferred_name', 'Alice Preferred'),
       change('person_profile.full_name', 'Alice Example'),
       change('employment.company_email', 'alice@example.com'),
       change('employment_detail.office_location', 'HCM'),
       change('employment_detail.work_phone', '+84281234567'),
       change('employment_detail.personal_phone', '+84901234567'),
-      change('person_profile.preferred_name', 'Alice Preferred'),
     ])
 
     expect(patch).toEqual<GraphUserPatch>({
@@ -52,6 +53,14 @@ describe('buildGraphPatch', () => {
       officeLocation: 'HCM',
       businessPhones: ['+84281234567'],
       mobilePhone: '+84901234567',
+    })
+  })
+
+  it('uses full_name when preferred_name is absent', () => {
+    const patch = buildGraphPatch([change('person_profile.full_name', 'Alice Example')])
+
+    expect(patch).toEqual<GraphUserPatch>({
+      displayName: 'Alice Example',
     })
   })
 
@@ -84,6 +93,7 @@ describe('SyncProfileToMsReversalRegistrar', () => {
   let baseDb: Db
   let requestDbContext: RequestDbContextService
   let cls: ClsService
+  let loggerErrorSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     pgBoss = { registerWorker: vi.fn() }
@@ -94,6 +104,7 @@ describe('SyncProfileToMsReversalRegistrar', () => {
     baseDb = {} as Db
     requestDbContext = { setDb: vi.fn(), getDb: vi.fn() } as unknown as RequestDbContextService
     cls = { run: vi.fn((handler) => handler()) } as unknown as ClsService
+    loggerErrorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {})
 
     registrar = new SyncProfileToMsReversalRegistrar(
       pgBoss as unknown as PgBossService,
@@ -243,5 +254,47 @@ describe('SyncProfileToMsReversalRegistrar', () => {
     ])
 
     expect(identityMsGraphCredentialFacade.patchMicrosoftUser).not.toHaveBeenCalled()
+  })
+
+  it('logs and rethrows when per-job sync fails', async () => {
+    const failure = new Error('graph unavailable')
+    employmentRepo.findById.mockResolvedValue({
+      id: EMPLOYMENT_ID,
+      tenantId: TENANT_ID,
+      personProfileId: PERSON_PROFILE_ID,
+    })
+    personProfileRepo.findById.mockResolvedValue({
+      id: PERSON_PROFILE_ID,
+      tenantId: TENANT_ID,
+      actorId: ACTOR_ID,
+    })
+    identityFacade.getExternalUserId.mockResolvedValue(MS_USER_ID)
+    identityMsGraphCredentialFacade.patchMicrosoftUser.mockRejectedValue(failure)
+
+    let worker:
+      | ((jobs: { data: PeopleSyncProfileToMsReversalJobPayload }[]) => Promise<void>)
+      | null = null
+    pgBoss.registerWorker.mockImplementation((_name, handler) => {
+      worker = handler as typeof worker
+    })
+
+    registrar.onApplicationBootstrap()
+
+    await expect(
+      worker!([
+        {
+          data: {
+            tenantId: TENANT_ID,
+            employmentId: EMPLOYMENT_ID,
+            changes: [change('employment.company_email', 'alice@example.com')],
+          },
+        },
+      ]),
+    ).rejects.toThrow('graph unavailable')
+
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      `Profile MS reversal sync failed tenant=${TENANT_ID} employment=${EMPLOYMENT_ID}`,
+      failure,
+    )
   })
 })

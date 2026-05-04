@@ -26,13 +26,19 @@ import {
 
 export function buildGraphPatch(changes: AppliedChange[]): GraphUserPatch {
   const patch: GraphUserPatch = {}
+  let fullName: string | undefined
+  let preferredName: string | undefined
 
   for (const change of changes) {
     switch (change.fieldPath) {
       case 'person_profile.full_name':
+        if (typeof change.newValue === 'string') {
+          fullName = change.newValue
+        }
+        break
       case 'person_profile.preferred_name':
         if (typeof change.newValue === 'string') {
-          patch.displayName = change.newValue
+          preferredName = change.newValue
         }
         break
       case 'employment.company_email':
@@ -61,6 +67,12 @@ export function buildGraphPatch(changes: AppliedChange[]): GraphUserPatch {
       default:
         break
     }
+  }
+
+  if (preferredName !== undefined) {
+    patch.displayName = preferredName
+  } else if (fullName !== undefined) {
+    patch.displayName = fullName
   }
 
   return patch
@@ -98,37 +110,45 @@ export class SyncProfileToMsReversalRegistrar implements OnApplicationBootstrap 
               cls: this.cls,
             },
             async () => {
-              const employment = await this.employmentRepo.findById(employmentId, tenantId)
-              if (!employment) {
-                return
-              }
+              try {
+                const employment = await this.employmentRepo.findById(employmentId, tenantId)
+                if (!employment) {
+                  return
+                }
 
-              const personProfile = await this.personProfileRepo.findById(
-                employment.personProfileId,
-                tenantId,
-              )
-              if (!personProfile) {
-                return
-              }
+                const personProfile = await this.personProfileRepo.findById(
+                  employment.personProfileId,
+                  tenantId,
+                )
+                if (!personProfile) {
+                  return
+                }
 
-              const msUserId = await this.identityFacade.getExternalUserId(
-                personProfile.actorId,
-                tenantId,
-              )
-              if (!msUserId) {
-                return
-              }
+                const msUserId = await this.identityFacade.getExternalUserId(
+                  personProfile.actorId,
+                  tenantId,
+                )
+                if (!msUserId) {
+                  return
+                }
 
-              const patch = buildGraphPatch(changes)
-              if (Object.keys(patch).length === 0) {
-                return
-              }
+                const patch = buildGraphPatch(changes)
+                if (Object.keys(patch).length === 0) {
+                  return
+                }
 
-              await this.identityMsGraphCredentialFacade.patchMicrosoftUser(
-                tenantId,
-                msUserId,
-                patch,
-              )
+                await this.identityMsGraphCredentialFacade.patchMicrosoftUser(
+                  tenantId,
+                  msUserId,
+                  patch,
+                )
+              } catch (err) {
+                this.logger.error(
+                  `Profile MS reversal sync failed tenant=${tenantId} employment=${employmentId}`,
+                  err,
+                )
+                throw err
+              }
             },
           )
         }
