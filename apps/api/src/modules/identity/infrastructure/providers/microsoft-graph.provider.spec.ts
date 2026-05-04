@@ -107,10 +107,10 @@ describe('MicrosoftGraphProvider', () => {
     await expect(
       provider.patchUser('user id/1', {
         displayName: 'Alice Updated',
-        mail: 'alice.updated@co.com',
-        officeLocation: 'HCM',
+        mail: null,
+        officeLocation: null,
         businessPhones: ['0901', '0902'],
-        mobilePhone: '0911',
+        mobilePhone: null,
       }),
     ).resolves.toBeUndefined()
 
@@ -123,15 +123,15 @@ describe('MicrosoftGraphProvider', () => {
       },
       body: JSON.stringify({
         displayName: 'Alice Updated',
-        mail: 'alice.updated@co.com',
-        officeLocation: 'HCM',
+        mail: null,
+        officeLocation: null,
         businessPhones: ['0901', '0902'],
-        mobilePhone: '0911',
+        mobilePhone: null,
       }),
     })
   })
 
-  it('patchUser throws on non-2xx Graph response', async () => {
+  it('patchUser throws on non-2xx Graph response with response text', async () => {
     fetchMock.mockResolvedValue({
       ok: false,
       status: 400,
@@ -141,7 +141,7 @@ describe('MicrosoftGraphProvider', () => {
     const provider = new MicrosoftGraphProvider(providerEntity, cred, acquirer)
 
     await expect(provider.patchUser('u1', { displayName: 'Alice' })).rejects.toThrow(
-      'Graph PATCH /users/u1 failed: 400',
+      'Graph PATCH /users/u1 failed: 400 Bad Request',
     )
   })
 

@@ -41,10 +41,10 @@ export interface GraphUserProfile {
 
 export interface GraphUserPatch {
   displayName?: string
-  mail?: string
-  officeLocation?: string
+  mail?: string | null
+  officeLocation?: string | null
   businessPhones?: string[]
-  mobilePhone?: string
+  mobilePhone?: string | null
 }
 
 interface GraphDeltaUser {
@@ -173,7 +173,10 @@ export class MicrosoftGraphProvider implements IDirectoryProvider {
       body: JSON.stringify(patch),
     })
     if (!response.ok) {
-      throw new Error(`Graph PATCH /users/${msUserId} failed: ${response.status}`)
+      const text = (await response.text()).trim()
+      throw new Error(
+        `Graph PATCH /users/${msUserId} failed: ${response.status}${text ? ` ${text}` : ''}`,
+      )
     }
   }
 
