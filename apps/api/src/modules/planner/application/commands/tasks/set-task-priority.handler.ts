@@ -8,14 +8,17 @@ import { TaskNotFoundException } from '../../../domain/exceptions/task-not-found
 import { SetTaskPriorityCommand } from './set-task-priority.command'
 
 @CommandHandler(SetTaskPriorityCommand)
-export class SetTaskPriorityHandler implements ICommandHandler<SetTaskPriorityCommand> {
+export class SetTaskPriorityHandler implements ICommandHandler<
+  SetTaskPriorityCommand,
+  { updatedAt: Date }
+> {
   constructor(
     @Inject(TASK_REPOSITORY) private readonly taskRepo: ITaskRepository,
     private readonly authSvc: PlanAuthorizationService,
     private readonly eventBus: EventBus,
   ) {}
 
-  async execute(command: SetTaskPriorityCommand): Promise<void> {
+  async execute(command: SetTaskPriorityCommand): Promise<{ updatedAt: Date }> {
     const task = await this.taskRepo.findById(command.taskId, command.tenantId)
     if (!task) throw new TaskNotFoundException(command.taskId)
 
@@ -35,5 +38,7 @@ export class SetTaskPriorityHandler implements ICommandHandler<SetTaskPriorityCo
         'user',
       ),
     )
+
+    return { updatedAt: task.updatedAt }
   }
 }

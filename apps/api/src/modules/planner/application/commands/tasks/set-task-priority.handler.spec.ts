@@ -63,12 +63,13 @@ describe('SetTaskPriorityHandler', () => {
       1,
     )
 
-    await handler.execute(command)
+    const result = await handler.execute(command)
 
     expect(authSvc.assertCanEditPlan).toHaveBeenCalledWith(ACTOR_ID, PLAN_ID, TENANT_ID)
     const [updatedTask] = taskRepo.update.mock.calls[0]
     expect(updatedTask.priority).toBe(1)
     expect(eventBus.publish).toHaveBeenCalledWith(expect.any(TaskUpdatedEvent))
+    expect(result).toEqual({ updatedAt: expect.any(Date) })
   })
 
   it('throws TaskNotFoundException when task not found', async () => {
