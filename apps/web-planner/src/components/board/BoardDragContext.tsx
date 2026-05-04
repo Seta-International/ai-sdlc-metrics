@@ -15,60 +15,57 @@ import { restrictToWindowEdges } from '@dnd-kit/modifiers'
 export interface MovePayload {
   taskId: string
   toBucketId: string
-  /** orderHint of the task that will be immediately before the dropped position, or undefined */
   hintAfter?: string
-  /** orderHint of the task that will be immediately after the dropped position, or undefined */
   hintBefore?: string
 }
 
-interface BoardDragContextProps {
-  children: ReactNode
-  /** Called when a drag ends with a valid drop target */
-  onMove: (payload: MovePayload) => void
-  /**
-   * Map of taskId → bucketId — needed to compute toBucketId and neighbour hints.
-   * Key: taskId, value: { bucketId, orderHint }
-   */
-  taskIndex: Map<string, { bucketId: string; orderHint: string }>
-  /**
-   * Ordered list of tasks per bucket, keyed by bucketId.
-   * Used to derive hintAfter/hintBefore from the over container.
-   */
-  bucketTaskLists: Map<string, Array<{ id: string; orderHint: string }>>
+export interface ReorderColumnPayload {
+  bucketId: string
+  hintAfter?: string
+  hintBefore?: string
 }
 
-export function BoardDragContext({
-  children,
-  onMove,
-  taskIndex,
-  bucketTaskLists,
-}: BoardDragContextProps) {
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      // Require the pointer to move 8px before starting a drag — prevents
-      // accidental drags when clicking task cards.
-      activationConstraint: { distance: 8 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  )
+interface DragEndHandlerOptions {
+  taskIndex: Map<string, { bucketId: string; orderHint: string }>
+  bucketTaskLists: Map<string, Array<{ id: string; orderHint: string }>>
+  bucketOrderList: Array<{ id: string; orderHint: string }>
+  onMove: (payload: MovePayload) => void
+  onReorderColumn?: (payload: ReorderColumnPayload) => void
+  sortActive?: boolean
+}
 
-  function handleDragEnd(event: DragEndEvent) {
+export function buildDragEndHandler(opts: DragEndHandlerOptions) {
+  return function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
-
     if (!over) return
     if (active.id === over.id) return
 
-    const taskId = String(active.id)
+    const activeId = String(active.id)
     const overId = String(over.id)
 
-    // `over.id` can be either a taskId or a bucketId (when dropped on an empty column)
-    const isOverTask = taskIndex.has(overId)
-    const toBucketId = isOverTask ? (taskIndex.get(overId)?.bucketId ?? overId) : overId // dropped directly onto a bucket droppable
+    // Column drag: IDs are prefixed 'col-<bucketId>'
+    if (activeId.startsWith('col-')) {
+      const bucketId = activeId.slice(4)
+      const overBucketId = overId.startsWith('col-') ? overId.slice(4) : overId
+      if (bucketId === overBucketId) return
 
-    const bucketTasks = bucketTaskLists.get(toBucketId) ?? []
+      const overIndex = opts.bucketOrderList.findIndex((b) => b.id === overBucketId)
+      const hintAfter = opts.bucketOrderList[overIndex - 1]?.orderHint
+      const hintBefore = opts.bucketOrderList[overIndex]?.orderHint
 
+      opts.onReorderColumn?.({ bucketId, hintAfter, hintBefore })
+      return
+    }
+
+    // Task drag
+    const isOverTask = opts.taskIndex.has(overId)
+    const toBucketId = isOverTask ? (opts.taskIndex.get(overId)?.bucketId ?? overId) : overId
+    const fromBucketId = opts.taskIndex.get(activeId)?.bucketId
+
+    // Block same-bucket reorder when sort is active (Decision #11)
+    if (opts.sortActive && fromBucketId === toBucketId) return
+
+    const bucketTasks = opts.bucketTaskLists.get(toBucketId) ?? []
     let hintAfter: string | undefined
     let hintBefore: string | undefined
 
@@ -78,8 +75,46 @@ export function BoardDragContext({
       hintBefore = bucketTasks[overIndex]?.orderHint
     }
 
-    onMove({ taskId, toBucketId, hintAfter, hintBefore })
+    opts.onMove({ taskId: activeId, toBucketId, hintAfter, hintBefore })
   }
+}
+
+interface BoardDragContextProps {
+  children: ReactNode
+  onMove: (payload: MovePayload) => void
+  onReorderColumn?: (payload: ReorderColumnPayload) => void
+  taskIndex: Map<string, { bucketId: string; orderHint: string }>
+  bucketTaskLists: Map<string, Array<{ id: string; orderHint: string }>>
+  bucketOrderList?: Array<{ id: string; orderHint: string }>
+  sortActive?: boolean
+}
+
+export function BoardDragContext({
+  children,
+  onMove,
+  onReorderColumn,
+  taskIndex,
+  bucketTaskLists,
+  bucketOrderList = [],
+  sortActive = false,
+}: BoardDragContextProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  )
+
+  const handleDragEnd = buildDragEndHandler({
+    taskIndex,
+    bucketTaskLists,
+    bucketOrderList,
+    onMove,
+    onReorderColumn,
+    sortActive,
+  })
 
   return (
     <DndContext sensors={sensors} modifiers={[restrictToWindowEdges]} onDragEnd={handleDragEnd}>
