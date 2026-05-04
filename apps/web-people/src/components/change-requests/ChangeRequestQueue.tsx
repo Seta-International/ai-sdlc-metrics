@@ -1,14 +1,9 @@
-// apps/web-people/src/components/change-requests/change-request-queue.tsx
 'use client'
 
 import * as React from 'react'
-import type { ColumnDef, CellContext } from '@future/ui'
+import { useSession } from '@future/auth'
+import type { CellContext, ColumnDef, FutureTableState } from '@future/ui'
 import {
-  DataTable,
-  Badge,
-  Button,
-  Card,
-  Checkbox,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -18,143 +13,228 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
+  Badge,
+  Button,
+  Card,
+  Checkbox,
+  DataTable,
+  Spinner,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-  type FutureTableState,
+  Textarea,
   defaultTableState,
+  toast,
 } from '@future/ui'
-import { Check, X } from '@future/ui/icons'
+import { ArrowRight, Check, X } from '@future/ui/icons'
 import { AvatarNameCell } from '../AvatarNameCell'
-import type { ChangeRequestRow } from '../../lib/types-workflows'
+import { useHrChangeRequests, type HrFilter } from '../../lib/hooks/use-hr-change-requests'
 import { trpc } from '../../lib/trpc'
+import type { ChangeRequestRow } from '../../lib/types-workflows'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const anyTrpc = trpc as any
 
-const columns: ColumnDef<ChangeRequestRow>[] = [
-  {
-    id: 'select',
-    header: ({ table }) => (
-      <Checkbox
-        checked={table.getIsAllPageRowsSelected()}
-        onCheckedChange={(v) => table.toggleAllPageRowsSelected(!!v)}
-        aria-label="Select all"
-      />
-    ),
-    cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(v) => row.toggleSelected(!!v)}
-        aria-label="Select row"
-      />
-    ),
-    enableSorting: false,
-  },
-  {
-    accessorKey: 'employeeName',
-    header: 'Employee',
-    enableSorting: true,
-    cell: ({ row }: CellContext<ChangeRequestRow, unknown>) => (
-      <AvatarNameCell fullName={row.original.employeeName} avatarUrl={row.original.avatarUrl} />
-    ),
-  },
-  {
-    accessorKey: 'fieldLabel',
-    header: 'Field',
-    enableSorting: true,
-  },
-  {
-    id: 'change',
-    header: 'Change',
-    cell: ({ row }: CellContext<ChangeRequestRow, unknown>) => (
-      <div className="flex items-center gap-1 text-xs">
-        <span className="text-muted-foreground line-through truncate max-w-24">
-          {row.original.oldValue}
-        </span>
-        <span className="text-secondary-foreground/60">-&gt;</span>
-        <span className="text-emerald-500 font-510 truncate max-w-24">{row.original.newValue}</span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: 'requestedByName',
-    header: 'Requested By',
-  },
-  {
-    accessorKey: 'requestedAt',
-    header: 'Date',
-    enableSorting: true,
-    cell: ({ getValue }: CellContext<ChangeRequestRow, unknown>) =>
-      new Date(getValue() as string).toLocaleDateString('en-GB'),
-  },
-  {
-    accessorKey: 'effectiveDate',
-    header: 'Effective',
-    cell: ({ getValue }: CellContext<ChangeRequestRow, unknown>) => {
-      const val = getValue() as string | null
-      return val ? new Date(val).toLocaleDateString('en-GB') : '--'
-    },
-  },
-  {
-    accessorKey: 'status',
-    header: 'Status',
-    cell: ({ getValue }: CellContext<ChangeRequestRow, unknown>) => {
-      const status = getValue() as string
-      const cfg: Record<string, { label: string; variant: 'default' | 'subtle' | 'destructive' }> =
-        {
-          pending: { label: 'Pending', variant: 'subtle' },
-          approved: { label: 'Approved', variant: 'default' },
-          rejected: { label: 'Rejected', variant: 'destructive' },
-          cancelled: { label: 'Cancelled', variant: 'subtle' },
-        }
-      const c = cfg[status] ?? { label: status, variant: 'subtle' as const }
-      return <Badge variant={c.variant}>{c.label}</Badge>
-    },
-  },
-]
+const STATUS_BADGE: Record<
+  ChangeRequestRow['status'],
+  { label: string; variant: 'default' | 'subtle' | 'destructive' }
+> = {
+  pending: { label: 'Pending', variant: 'subtle' },
+  approved: { label: 'Approved', variant: 'default' },
+  rejected: { label: 'Rejected', variant: 'destructive' },
+  cancelled: { label: 'Cancelled', variant: 'subtle' },
+}
 
-type FilterTab = 'my_review' | 'all_pending' | 'recent'
+function createColumns(
+  rows: ChangeRequestRow[],
+  selectedIds: string[],
+  onToggleAll: (checked: boolean) => void,
+  onToggleRow: (id: string, checked: boolean) => void,
+): ColumnDef<ChangeRequestRow>[] {
+  const allSelected = rows.length > 0 && rows.every((row) => selectedIds.includes(row.id))
+  const someSelected = rows.some((row) => selectedIds.includes(row.id))
+
+  return [
+    {
+      id: 'select',
+      header: () => (
+        <Checkbox
+          checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+          onCheckedChange={(value) => onToggleAll(value === true)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }: CellContext<ChangeRequestRow, unknown>) => (
+        <Checkbox
+          checked={selectedIds.includes(row.original.id)}
+          onCheckedChange={(value) => onToggleRow(row.original.id, value === true)}
+          aria-label={`Select ${row.original.employeeName}`}
+        />
+      ),
+      enableSorting: false,
+    },
+    {
+      accessorKey: 'employeeName',
+      header: 'Employee',
+      enableSorting: true,
+      cell: ({ row }: CellContext<ChangeRequestRow, unknown>) => (
+        <AvatarNameCell fullName={row.original.employeeName} avatarUrl={row.original.avatarUrl} />
+      ),
+    },
+    {
+      accessorKey: 'fieldLabel',
+      header: 'Field',
+      enableSorting: true,
+    },
+    {
+      id: 'change',
+      header: 'Change',
+      cell: ({ row }: CellContext<ChangeRequestRow, unknown>) => (
+        <div className="flex items-center gap-1 text-xs">
+          <span className="max-w-24 truncate text-muted-foreground line-through">
+            {row.original.oldValue}
+          </span>
+          <ArrowRight className="size-3 text-secondary-foreground/60" aria-hidden="true" />
+          <span className="max-w-24 truncate text-emerald-500 font-510">
+            {row.original.newValue}
+          </span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'requestedByName',
+      header: 'Requested By',
+    },
+    {
+      accessorKey: 'requestedAt',
+      header: 'Date',
+      enableSorting: true,
+      cell: ({ getValue }: CellContext<ChangeRequestRow, unknown>) =>
+        new Date(getValue() as string).toLocaleDateString('en-GB'),
+    },
+    {
+      accessorKey: 'effectiveDate',
+      header: 'Effective',
+      cell: ({ getValue }: CellContext<ChangeRequestRow, unknown>) => {
+        const value = getValue() as string | null
+        return value ? new Date(value).toLocaleDateString('en-GB') : '--'
+      },
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ getValue }: CellContext<ChangeRequestRow, unknown>) => {
+        const status = getValue() as ChangeRequestRow['status']
+        const config = STATUS_BADGE[status] ?? { label: status, variant: 'subtle' as const }
+        return <Badge variant={config.variant}>{config.label}</Badge>
+      },
+    },
+  ]
+}
 
 export function ChangeRequestQueue() {
-  const [activeTab, setActiveTab] = React.useState<FilterTab>('my_review')
-  const [requests, setRequests] = React.useState<ChangeRequestRow[]>([])
-  const [totalCount, setTotalCount] = React.useState(0)
-  const [stats, setStats] = React.useState({
-    pending: 0,
-    approvedToday: 0,
-    rejectedToday: 0,
-    oldestDays: 0,
-  })
+  const session = useSession()
+  const [activeTab, setActiveTab] = React.useState<HrFilter>('all_pending')
   const [tableState, setTableState] = React.useState<FutureTableState>(defaultTableState)
-  const [isLoading, setIsLoading] = React.useState(true)
-  const [selectedIds] = React.useState<string[]>([])
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([])
+  const [rejectNote, setRejectNote] = React.useState('')
+  const [isMutating, setIsMutating] = React.useState(false)
+
+  const { rows, stats, isLoading, refetch } = useHrChangeRequests(activeTab)
 
   React.useEffect(() => {
-    void (async () => {
-      setIsLoading(true)
-      try {
-        const result = await (anyTrpc.people.changeRequests.list.query({
-          filter: activeTab,
-          ...tableState,
-        }) as Promise<{
-          requests: ChangeRequestRow[]
-          totalCount: number
-          stats: typeof stats
-        }>)
-        setRequests(result.requests)
-        setTotalCount(result.totalCount)
-        setStats(result.stats)
-      } finally {
-        setIsLoading(false)
+    setSelectedIds((current) => {
+      const next = current.filter((id) => rows.some((row) => row.id === id))
+      return next.length === current.length && next.every((id, index) => id === current[index])
+        ? current
+        : next
+    })
+  }, [rows])
+
+  React.useEffect(() => {
+    setSelectedIds([])
+    setRejectNote('')
+  }, [activeTab])
+
+  const handleToggleAll = React.useCallback(
+    (checked: boolean) => {
+      setSelectedIds(checked ? rows.map((row) => row.id) : [])
+    },
+    [rows],
+  )
+
+  const handleToggleRow = React.useCallback((id: string, checked: boolean) => {
+    setSelectedIds((current) => {
+      if (checked) {
+        return current.includes(id) ? current : [...current, id]
       }
-    })()
-  }, [activeTab, tableState])
+
+      return current.filter((value) => value !== id)
+    })
+  }, [])
+
+  const columns = React.useMemo(
+    () => createColumns(rows, selectedIds, handleToggleAll, handleToggleRow),
+    [handleToggleAll, handleToggleRow, rows, selectedIds],
+  )
+
+  async function handleBulkApprove() {
+    if (!session?.tenantId || !session.actorId) {
+      toast.error('Unable to approve without an active session')
+      return
+    }
+
+    setIsMutating(true)
+    try {
+      for (const batchId of selectedIds) {
+        await anyTrpc.people.batchApproveChanges.mutate({
+          tenantId: session.tenantId,
+          batchId,
+          approvedBy: session.actorId,
+        })
+      }
+
+      toast.success(`Approved ${selectedIds.length} change request(s)`)
+      setSelectedIds([])
+      refetch()
+    } catch {
+      toast.error('Failed to approve — please try again')
+    } finally {
+      setIsMutating(false)
+    }
+  }
+
+  async function handleBulkReject() {
+    if (!session?.tenantId || !session.actorId) {
+      toast.error('Unable to reject without an active session')
+      return
+    }
+
+    setIsMutating(true)
+    try {
+      for (const batchId of selectedIds) {
+        await anyTrpc.people.batchRejectChanges.mutate({
+          tenantId: session.tenantId,
+          batchId,
+          rejectedBy: session.actorId,
+          note: rejectNote.trim() || undefined,
+        })
+      }
+
+      toast.success(`Rejected ${selectedIds.length} change request(s)`)
+      setRejectNote('')
+      setSelectedIds([])
+      refetch()
+    } catch {
+      toast.error('Failed to reject — please try again')
+    } finally {
+      setIsMutating(false)
+    }
+  }
 
   return (
     <div className="space-y-4">
-      {/* Stats bar */}
       <div className="grid grid-cols-4 gap-4">
         <Card className="border-border bg-card p-4 text-center">
           <div className="text-2xl font-510 text-foreground">{stats.pending}</div>
@@ -174,22 +254,19 @@ export function ChangeRequestQueue() {
         </Card>
       </div>
 
-      {/* Filter tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as FilterTab)}>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as HrFilter)}>
         <div className="flex items-center justify-between">
           <TabsList>
-            <TabsTrigger value="my_review">Pending My Review</TabsTrigger>
             <TabsTrigger value="all_pending">All Pending</TabsTrigger>
             <TabsTrigger value="recent">Recently Decided</TabsTrigger>
           </TabsList>
 
-          {/* Batch actions */}
-          {activeTab !== 'recent' && selectedIds.length > 0 && (
+          {activeTab === 'all_pending' && selectedIds.length > 0 ? (
             <div className="flex gap-2">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="default" size="sm" className="gap-1">
-                    <Check className="h-3.5 w-3.5" />
+                  <Button variant="default" size="sm" className="gap-1" disabled={isMutating}>
+                    <Check className="size-4" />
                     Approve ({selectedIds.length})
                   </Button>
                 </AlertDialogTrigger>
@@ -197,30 +274,68 @@ export function ChangeRequestQueue() {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Approve Selected Changes</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Are you sure you want to approve {selectedIds.length} change request(s)?
+                      Approve {selectedIds.length} change request(s)? This cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction>Approve All</AlertDialogAction>
+                    <AlertDialogAction
+                      onClick={() => {
+                        void handleBulkApprove()
+                      }}
+                    >
+                      {isMutating ? <Spinner className="size-4" /> : null}
+                      Approve All
+                    </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
 
-              <Button variant="outline" size="sm" className="gap-1">
-                <X className="h-3.5 w-3.5" />
-                Reject ({selectedIds.length})
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1" disabled={isMutating}>
+                    <X className="size-4" />
+                    Reject ({selectedIds.length})
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Reject Selected Changes</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Reject {selectedIds.length} change request(s)? Provide a reason below.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="px-6 pb-2">
+                    <Textarea
+                      placeholder="Rejection reason (optional)"
+                      value={rejectNote}
+                      onChange={(event) => setRejectNote(event.target.value)}
+                    />
+                  </div>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={() => {
+                        void handleBulkReject()
+                      }}
+                    >
+                      {isMutating ? <Spinner className="size-4" /> : null}
+                      Reject All
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
-          )}
+          ) : null}
         </div>
 
         <TabsContent value={activeTab} className="mt-4">
           <DataTable
             columns={columns}
-            rows={requests}
+            rows={rows}
             state={tableState}
-            totalCount={totalCount}
+            totalCount={rows.length}
             onStateChange={setTableState}
             isLoading={isLoading}
           />
