@@ -155,8 +155,8 @@ describe('TaskCard', () => {
       wrapper: Wrapper,
     })
 
-    // PriorityIcon renders with aria-label "Priority 9"
-    const icon = screen.getByRole('img', { name: /priority 9/i })
+    // PriorityIcon renders with aria-label "Urgent"
+    const icon = screen.getByRole('img', { name: /urgent/i })
     expect(icon).toBeDefined()
   })
 
