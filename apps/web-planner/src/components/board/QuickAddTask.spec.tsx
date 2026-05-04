@@ -145,4 +145,35 @@ describe('QuickAddTask', () => {
 
     expect(mockCreate).not.toHaveBeenCalled()
   })
+
+  describe('controlled open prop', () => {
+    it('is open when open=true is passed', () => {
+      render(<QuickAddTask {...PROPS} open={true} onOpenChange={vi.fn()} />, { wrapper: Wrapper })
+      expect(screen.getByTestId('quick-add-task-form')).toBeDefined()
+    })
+
+    it('is closed when open=false is passed', () => {
+      render(<QuickAddTask {...PROPS} open={false} onOpenChange={vi.fn()} />, { wrapper: Wrapper })
+      expect(screen.queryByTestId('quick-add-task-form')).toBeNull()
+    })
+
+    it('calls onOpenChange(true) when closed button is clicked', async () => {
+      const onOpenChange = vi.fn()
+      render(<QuickAddTask {...PROPS} open={false} onOpenChange={onOpenChange} />, {
+        wrapper: Wrapper,
+      })
+      await userEvent.click(screen.getByRole('button', { name: 'Add task' }))
+      expect(onOpenChange).toHaveBeenCalledWith(true)
+    })
+  })
+
+  describe('closed-state button style', () => {
+    it('renders a full-width button with dashed border style', () => {
+      render(<QuickAddTask {...PROPS} />, { wrapper: Wrapper })
+      const btn = screen.getByRole('button', { name: 'Add task' })
+      const style = btn.style
+      expect(style.borderStyle).toBe('dashed')
+      expect(style.width).toBe('100%')
+    })
+  })
 })
