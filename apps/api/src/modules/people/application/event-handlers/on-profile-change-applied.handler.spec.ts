@@ -32,7 +32,10 @@ describe('OnProfileChangeAppliedHandler', () => {
       {
         tenantId: TENANT_ID,
         employmentId: EMPLOYMENT_ID,
-        changes: [{ fieldPath: 'person_profile.full_name', oldValue: 'Old', newValue: 'New' }],
+        changes: [
+          { fieldPath: 'person_profile.full_name', oldValue: 'Old', newValue: 'New' },
+          { fieldPath: 'person_profile.preferred_name', oldValue: 'Old', newValue: 'New' },
+        ],
       },
       { retryLimit: 3, retryDelay: 60000 },
     )
@@ -41,8 +44,8 @@ describe('OnProfileChangeAppliedHandler', () => {
   it('does not enqueue when no mapped fields change', async () => {
     await handler.handle(
       new ProfileChangeAppliedEvent(TENANT_ID, EMPLOYMENT_ID, [
-        { fieldPath: 'person_profile.preferred_name', oldValue: 'Old', newValue: 'New' },
         { fieldPath: 'employment_detail.bank_account_number', oldValue: 'Old', newValue: 'New' },
+        { fieldPath: 'employment_detail.social_insurance_id', oldValue: 'Old', newValue: 'New' },
       ]),
     )
 
@@ -53,12 +56,13 @@ describe('OnProfileChangeAppliedHandler', () => {
     await handler.handle(
       new ProfileChangeAppliedEvent(TENANT_ID, EMPLOYMENT_ID, [
         { fieldPath: 'person_profile.full_name', oldValue: 'Old 1', newValue: 'New 1' },
-        { fieldPath: 'person_profile.photo_document_id', oldValue: 'Old 2', newValue: 'New 2' },
-        { fieldPath: 'employment.company_email', oldValue: 'Old 3', newValue: 'New 3' },
-        { fieldPath: 'employment_detail.office_location', oldValue: 'Old 4', newValue: 'New 4' },
-        { fieldPath: 'employment_detail.work_phone', oldValue: 'Old 5', newValue: 'New 5' },
-        { fieldPath: 'employment_detail.personal_phone', oldValue: 'Old 6', newValue: 'New 6' },
-        { fieldPath: 'employment_detail.preferred_language', oldValue: 'Old 7', newValue: 'New 7' },
+        { fieldPath: 'person_profile.preferred_name', oldValue: 'Old 2', newValue: 'New 2' },
+        { fieldPath: 'person_profile.photo_document_id', oldValue: 'Old 3', newValue: 'New 3' },
+        { fieldPath: 'employment.company_email', oldValue: 'Old 4', newValue: 'New 4' },
+        { fieldPath: 'employment_detail.office_location', oldValue: 'Old 5', newValue: 'New 5' },
+        { fieldPath: 'employment_detail.work_phone', oldValue: 'Old 6', newValue: 'New 6' },
+        { fieldPath: 'employment_detail.personal_phone', oldValue: 'Old 7', newValue: 'New 7' },
+        { fieldPath: 'employment_detail.preferred_language', oldValue: 'Old 8', newValue: 'New 8' },
       ]),
     )
 
@@ -70,11 +74,12 @@ describe('OnProfileChangeAppliedHandler', () => {
         employmentId: EMPLOYMENT_ID,
         changes: [
           { fieldPath: 'person_profile.full_name', oldValue: 'Old 1', newValue: 'New 1' },
-          { fieldPath: 'person_profile.photo_document_id', oldValue: 'Old 2', newValue: 'New 2' },
-          { fieldPath: 'employment.company_email', oldValue: 'Old 3', newValue: 'New 3' },
-          { fieldPath: 'employment_detail.office_location', oldValue: 'Old 4', newValue: 'New 4' },
-          { fieldPath: 'employment_detail.work_phone', oldValue: 'Old 5', newValue: 'New 5' },
-          { fieldPath: 'employment_detail.personal_phone', oldValue: 'Old 6', newValue: 'New 6' },
+          { fieldPath: 'person_profile.preferred_name', oldValue: 'Old 2', newValue: 'New 2' },
+          { fieldPath: 'person_profile.photo_document_id', oldValue: 'Old 3', newValue: 'New 3' },
+          { fieldPath: 'employment.company_email', oldValue: 'Old 4', newValue: 'New 4' },
+          { fieldPath: 'employment_detail.office_location', oldValue: 'Old 5', newValue: 'New 5' },
+          { fieldPath: 'employment_detail.work_phone', oldValue: 'Old 6', newValue: 'New 6' },
+          { fieldPath: 'employment_detail.personal_phone', oldValue: 'Old 7', newValue: 'New 7' },
         ],
       },
       { retryLimit: 3, retryDelay: 60000 },

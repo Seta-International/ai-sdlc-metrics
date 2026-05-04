@@ -17,6 +17,7 @@ export interface PeopleSyncProfileToMsReversalJobPayload {
 
 const MS_MAPPABLE_FIELD_PATHS = new Set<string>([
   'person_profile.full_name',
+  'person_profile.preferred_name',
   'person_profile.photo_document_id',
   'employment.company_email',
   'employment_detail.office_location',
