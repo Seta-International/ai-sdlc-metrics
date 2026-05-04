@@ -94,6 +94,75 @@ describe('MicrosoftGraphProvider', () => {
       error: expect.stringContaining('403'),
     })
   })
+
+  it('patchUser sends PATCH with the supplied body and auth header', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 204,
+      text: async () => '',
+    })
+
+    const provider = new MicrosoftGraphProvider(providerEntity, cred, acquirer)
+
+    await expect(
+      provider.patchUser('user id/1', {
+        displayName: 'Alice Updated',
+        mail: 'alice.updated@co.com',
+        officeLocation: 'HCM',
+        businessPhones: ['0901', '0902'],
+        mobilePhone: '0911',
+      }),
+    ).resolves.toBeUndefined()
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith('https://graph.microsoft.com/v1.0/users/user%20id%2F1', {
+      method: 'PATCH',
+      headers: {
+        Authorization: 'Bearer tok',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        displayName: 'Alice Updated',
+        mail: 'alice.updated@co.com',
+        officeLocation: 'HCM',
+        businessPhones: ['0901', '0902'],
+        mobilePhone: '0911',
+      }),
+    })
+  })
+
+  it('patchUser throws on non-2xx Graph response', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 400,
+      text: async () => 'Bad Request',
+    })
+
+    const provider = new MicrosoftGraphProvider(providerEntity, cred, acquirer)
+
+    await expect(provider.patchUser('u1', { displayName: 'Alice' })).rejects.toThrow(
+      'Graph PATCH /users/u1 failed: 400',
+    )
+  })
+
+  it('patchUser accepts an empty patch object', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 204,
+      text: async () => '',
+    })
+
+    const provider = new MicrosoftGraphProvider(providerEntity, cred, acquirer)
+
+    await expect(provider.patchUser('u1', {})).resolves.toBeUndefined()
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://graph.microsoft.com/v1.0/users/u1',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: '{}',
+      }),
+    )
+  })
 })
 
 describe('MicrosoftGraphProvider.listUsersDelta', () => {

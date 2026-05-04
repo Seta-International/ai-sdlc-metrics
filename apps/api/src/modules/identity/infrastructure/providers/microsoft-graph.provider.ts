@@ -39,6 +39,14 @@ export interface GraphUserProfile {
   businessPhones: string[]
 }
 
+export interface GraphUserPatch {
+  displayName?: string
+  mail?: string
+  officeLocation?: string
+  businessPhones?: string[]
+  mobilePhone?: string
+}
+
 interface GraphDeltaUser {
   id: string
   mail?: string | null
@@ -147,6 +155,26 @@ export class MicrosoftGraphProvider implements IDirectoryProvider {
     )
     const photo = await this.fetchUserPhoto(msUserId)
     return { user, photo }
+  }
+
+  async patchUser(msUserId: string, patch: GraphUserPatch): Promise<void> {
+    const token = await this.tokenAcquirer.acquire({
+      tenantAdId: this.credential.tenantAdId,
+      clientId: this.credential.clientId,
+      clientSecretRef: this.credential.clientSecretRef,
+      scopes: this.credential.scopes,
+    })
+    const response = await fetch(`${this.baseUrl}/users/${encodeURIComponent(msUserId)}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(patch),
+    })
+    if (!response.ok) {
+      throw new Error(`Graph PATCH /users/${msUserId} failed: ${response.status}`)
+    }
   }
 
   async listUsersDelta(deltaToken?: string): Promise<UsersDeltaResult> {
