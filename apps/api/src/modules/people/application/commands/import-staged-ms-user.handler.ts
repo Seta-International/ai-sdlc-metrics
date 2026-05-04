@@ -63,8 +63,9 @@ export class ImportStagedMsUserHandler implements ICommandHandler<ImportStagedMs
       throw new StagedMsUserNotPendingException(stagedUserId, staged.status)
     }
 
-    // 3. If an active employment already exists for this AAD user, adopt it — mark the staged
-    //    record as imported and return the existing employment ID without creating duplicates.
+    // 3. If an identity already exists for this AAD user, never create a duplicate actor or
+    //    identity. Adopt the existing employment if present; otherwise mark as imported with no
+    //    employment linkage (the person exists in the system but has no active employment).
     const existingActorId = await this.identityFacade.getActorIdByExternalUserId(
       staged.msExternalId,
       tenantId,
@@ -83,6 +84,9 @@ export class ImportStagedMsUserHandler implements ICommandHandler<ImportStagedMs
         )
         return existingEmployment.id
       }
+      // Identity exists but no active employment — mark as imported to move out of pending.
+      await this.stagedUserRepo.updateStatus(stagedUserId, tenantId, 'imported', undefined)
+      return existingActorId
     }
 
     // 4. Create actor

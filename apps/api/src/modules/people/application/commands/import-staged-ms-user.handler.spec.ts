@@ -151,6 +151,26 @@ describe('ImportStagedMsUserHandler', () => {
     expect(mocks.eventBus.publish).not.toHaveBeenCalled()
   })
 
+  it('marks staged imported when identity exists but no active employment: creates no new actor or identity', async () => {
+    const mocks = makeMocks()
+    vi.mocked(mocks.identityFacade.getActorIdByExternalUserId!).mockResolvedValue('existing-actor')
+    // findActiveByActorId returns null by default (no active employment)
+
+    await makeHandler(mocks).execute(
+      new ImportStagedMsUserCommand(TENANT_ID, STAGED_ID, IMPORTED_BY),
+    )
+
+    expect(mocks.stagedUserRepo.updateStatus).toHaveBeenCalledWith(
+      STAGED_ID,
+      TENANT_ID,
+      'imported',
+      undefined,
+    )
+    expect(mocks.kernelActorFacade.createActor).not.toHaveBeenCalled()
+    expect(mocks.kernelUserIdentityFacade.createUserIdentity).not.toHaveBeenCalled()
+    expect(mocks.eventBus.publish).not.toHaveBeenCalled()
+  })
+
   it('happy path: creates actor, profile, employment, detail, assignment, marks imported', async () => {
     const mocks = makeMocks()
 
