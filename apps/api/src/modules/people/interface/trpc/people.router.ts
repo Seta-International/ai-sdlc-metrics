@@ -1493,6 +1493,34 @@ export function createPeopleRouter(
             ),
           ),
       ),
+
+    batchApproveChanges: permissionProtectedProcedure
+      .meta({ permission: 'people:admin' })
+      .input(
+        z.object({
+          batchId: z.string().uuid(),
+          note: z.string().optional(),
+        }),
+      )
+      .mutation(({ ctx, input }: { ctx: AuthContext; input: { batchId: string; note?: string } }) =>
+        svc().command(
+          new BatchApproveChangesCommand(ctx.tenantId, input.batchId, ctx.actorId, input.note),
+        ),
+      ),
+
+    batchRejectChanges: permissionProtectedProcedure
+      .meta({ permission: 'people:admin' })
+      .input(
+        z.object({
+          batchId: z.string().uuid(),
+          note: z.string().optional(),
+        }),
+      )
+      .mutation(({ ctx, input }: { ctx: AuthContext; input: { batchId: string; note?: string } }) =>
+        svc().command(
+          new BatchRejectChangesCommand(ctx.tenantId, input.batchId, ctx.actorId, input.note),
+        ),
+      ),
   })
 }
 
