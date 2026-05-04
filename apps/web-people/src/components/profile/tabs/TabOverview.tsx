@@ -103,24 +103,48 @@ export function TabOverview({
             </div>
           ) : (
             <>
-              <KVRow label="Preferred name" value={personProfile.preferredName} />
-              {pendingFields.has('person_profile.preferred_name') && (
-                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
-                  Pending
+              <div
+                className="grid border-b border-border/40 py-1.5 last:border-0"
+                style={{ gridTemplateColumns: '160px 1fr' }}
+              >
+                <span className="text-xs text-muted-foreground">Preferred name</span>
+                <span className="flex items-center gap-2 text-xs text-secondary-foreground">
+                  {personProfile.preferredName ?? '—'}
+                  {pendingFields.has('person_profile.preferred_name') && (
+                    <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                      Pending
+                    </span>
+                  )}
                 </span>
-              )}
-              <KVRow label="Date of birth" value={personProfile.dateOfBirth} />
-              {pendingFields.has('person_profile.date_of_birth') && (
-                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
-                  Pending
+              </div>
+              <div
+                className="grid border-b border-border/40 py-1.5 last:border-0"
+                style={{ gridTemplateColumns: '160px 1fr' }}
+              >
+                <span className="text-xs text-muted-foreground">Date of birth</span>
+                <span className="flex items-center gap-2 text-xs text-secondary-foreground">
+                  {personProfile.dateOfBirth ?? '—'}
+                  {pendingFields.has('person_profile.date_of_birth') && (
+                    <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                      Pending
+                    </span>
+                  )}
                 </span>
-              )}
-              <KVRow label="Nationality" value={personProfile.nationality} />
-              {pendingFields.has('person_profile.nationality') && (
-                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
-                  Pending
+              </div>
+              <div
+                className="grid border-b border-border/40 py-1.5 last:border-0"
+                style={{ gridTemplateColumns: '160px 1fr' }}
+              >
+                <span className="text-xs text-muted-foreground">Nationality</span>
+                <span className="flex items-center gap-2 text-xs text-secondary-foreground">
+                  {personProfile.nationality ?? '—'}
+                  {pendingFields.has('person_profile.nationality') && (
+                    <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                      Pending
+                    </span>
+                  )}
                 </span>
-              )}
+              </div>
               <KVRow label="Start date" value={employment.hireDate} />
               <KVRow label="Employee ID" value={employment.employeeCode} mono />
             </>
@@ -184,18 +208,34 @@ export function TabOverview({
             </div>
           ) : (
             <>
-              <KVRow label="Personal email" value={null} />
-              {pendingFields.has('employment_detail.personal_email') && (
-                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
-                  Pending
+              <div
+                className="grid border-b border-border/40 py-1.5 last:border-0"
+                style={{ gridTemplateColumns: '160px 1fr' }}
+              >
+                <span className="text-xs text-muted-foreground">Personal email</span>
+                <span className="flex items-center gap-2 text-xs text-secondary-foreground">
+                  {'—'}
+                  {pendingFields.has('employment_detail.personal_email') && (
+                    <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                      Pending
+                    </span>
+                  )}
                 </span>
-              )}
-              <KVRow label="Personal phone" value={null} />
-              {pendingFields.has('employment_detail.personal_phone') && (
-                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
-                  Pending
+              </div>
+              <div
+                className="grid border-b border-border/40 py-1.5 last:border-0"
+                style={{ gridTemplateColumns: '160px 1fr' }}
+              >
+                <span className="text-xs text-muted-foreground">Personal phone</span>
+                <span className="flex items-center gap-2 text-xs text-secondary-foreground">
+                  {'—'}
+                  {pendingFields.has('employment_detail.personal_phone') && (
+                    <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                      Pending
+                    </span>
+                  )}
                 </span>
-              )}
+              </div>
             </>
           )}
         </ProfileCard>
