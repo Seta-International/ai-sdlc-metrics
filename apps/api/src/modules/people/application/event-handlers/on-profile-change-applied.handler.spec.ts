@@ -27,11 +27,15 @@ describe('OnProfileChangeAppliedHandler', () => {
     )
 
     expect(pgBoss.enqueue).toHaveBeenCalledOnce()
-    expect(pgBoss.enqueue).toHaveBeenCalledWith(PEOPLE_SYNC_PROFILE_TO_MS_REVERSAL_JOB, {
-      tenantId: TENANT_ID,
-      employmentId: EMPLOYMENT_ID,
-      changes: [{ fieldPath: 'person_profile.full_name', oldValue: 'Old', newValue: 'New' }],
-    })
+    expect(pgBoss.enqueue).toHaveBeenCalledWith(
+      PEOPLE_SYNC_PROFILE_TO_MS_REVERSAL_JOB,
+      {
+        tenantId: TENANT_ID,
+        employmentId: EMPLOYMENT_ID,
+        changes: [{ fieldPath: 'person_profile.full_name', oldValue: 'Old', newValue: 'New' }],
+      },
+      { retryLimit: 3, retryDelay: 60000 },
+    )
   })
 
   it('does not enqueue when no mapped fields change', async () => {
@@ -59,17 +63,21 @@ describe('OnProfileChangeAppliedHandler', () => {
     )
 
     expect(pgBoss.enqueue).toHaveBeenCalledOnce()
-    expect(pgBoss.enqueue).toHaveBeenCalledWith(PEOPLE_SYNC_PROFILE_TO_MS_REVERSAL_JOB, {
-      tenantId: TENANT_ID,
-      employmentId: EMPLOYMENT_ID,
-      changes: [
-        { fieldPath: 'person_profile.full_name', oldValue: 'Old 1', newValue: 'New 1' },
-        { fieldPath: 'person_profile.photo_document_id', oldValue: 'Old 2', newValue: 'New 2' },
-        { fieldPath: 'employment.company_email', oldValue: 'Old 3', newValue: 'New 3' },
-        { fieldPath: 'employment_detail.office_location', oldValue: 'Old 4', newValue: 'New 4' },
-        { fieldPath: 'employment_detail.work_phone', oldValue: 'Old 5', newValue: 'New 5' },
-        { fieldPath: 'employment_detail.personal_phone', oldValue: 'Old 6', newValue: 'New 6' },
-      ],
-    })
+    expect(pgBoss.enqueue).toHaveBeenCalledWith(
+      PEOPLE_SYNC_PROFILE_TO_MS_REVERSAL_JOB,
+      {
+        tenantId: TENANT_ID,
+        employmentId: EMPLOYMENT_ID,
+        changes: [
+          { fieldPath: 'person_profile.full_name', oldValue: 'Old 1', newValue: 'New 1' },
+          { fieldPath: 'person_profile.photo_document_id', oldValue: 'Old 2', newValue: 'New 2' },
+          { fieldPath: 'employment.company_email', oldValue: 'Old 3', newValue: 'New 3' },
+          { fieldPath: 'employment_detail.office_location', oldValue: 'Old 4', newValue: 'New 4' },
+          { fieldPath: 'employment_detail.work_phone', oldValue: 'Old 5', newValue: 'New 5' },
+          { fieldPath: 'employment_detail.personal_phone', oldValue: 'Old 6', newValue: 'New 6' },
+        ],
+      },
+      { retryLimit: 3, retryDelay: 60000 },
+    )
   })
 })

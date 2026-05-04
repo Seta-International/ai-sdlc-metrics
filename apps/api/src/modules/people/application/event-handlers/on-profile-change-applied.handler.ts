@@ -4,6 +4,10 @@ import { ProfileChangeAppliedEvent, type AppliedChange } from '@future/event-con
 import { PgBossService } from '../../../../common/jobs/pg-boss.service'
 
 export const PEOPLE_SYNC_PROFILE_TO_MS_REVERSAL_JOB = 'people.sync-profile-to-ms-reversal'
+const PEOPLE_SYNC_PROFILE_TO_MS_REVERSAL_JOB_OPTIONS = {
+  retryLimit: 3,
+  retryDelay: 60_000,
+} as const
 
 export interface PeopleSyncProfileToMsReversalJobPayload {
   tenantId: string
@@ -41,6 +45,7 @@ export class OnProfileChangeAppliedHandler implements IEventHandler<ProfileChang
         employmentId: event.employmentId,
         changes,
       },
+      PEOPLE_SYNC_PROFILE_TO_MS_REVERSAL_JOB_OPTIONS,
     )
   }
 }
