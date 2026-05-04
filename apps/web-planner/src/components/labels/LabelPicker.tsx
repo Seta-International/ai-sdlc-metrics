@@ -61,8 +61,9 @@ export function LabelPicker({ task, planId, actorId, tenantId, onClose }: LabelP
     }
 
     try {
+      let result: unknown
       if (isApplied) {
-        await trpc.planner.tasks.removeLabel.mutate({
+        result = await trpc.planner.tasks.removeLabel.mutate({
           tenantId,
           planId,
           taskId: task.id,
@@ -71,13 +72,24 @@ export function LabelPicker({ task, planId, actorId, tenantId, onClose }: LabelP
           slot,
         })
       } else {
-        await trpc.planner.tasks.applyLabel.mutate({
+        result = await trpc.planner.tasks.applyLabel.mutate({
           tenantId,
           planId,
           taskId: task.id,
           actorId,
           expectedVersion: task.updatedAt.toISOString(),
           slot,
+        })
+      }
+      const afterMutation = queryClient.getQueryData<BoardSnapshot>(queryKey)
+      if (afterMutation) {
+        const newUpdatedAt = (result as { updatedAt?: Date })?.updatedAt ?? new Date()
+        queryClient.setQueryData(queryKey, {
+          ...afterMutation,
+          buckets: afterMutation.buckets.map((b) => ({
+            ...b,
+            tasks: b.tasks.map((t) => (t.id === task.id ? { ...t, updatedAt: newUpdatedAt } : t)),
+          })),
         })
       }
       await queryClient.invalidateQueries({ queryKey })

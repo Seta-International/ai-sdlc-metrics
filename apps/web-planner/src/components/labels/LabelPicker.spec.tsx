@@ -169,4 +169,36 @@ describe('LabelPicker', () => {
     const btn1 = screen.getByTestId('label-option-category1')
     expect(btn1.getAttribute('aria-pressed')).toBe('false')
   })
+
+  it('writes server updatedAt to cache after applyLabel', async () => {
+    const serverUpdatedAt = new Date('2026-06-15T10:00:00Z')
+    mockApply.mockResolvedValue({ updatedAt: serverUpdatedAt })
+
+    const task = makeTask({ updatedAt: new Date('2026-01-01') })
+    const snapshot = makeSnapshot()
+    snapshot.buckets[0]!.tasks = [task]
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    qc.setQueryData(QUERY_KEY, snapshot)
+
+    render(
+      <QueryClientProvider client={qc}>
+        <LabelPicker
+          task={task}
+          planId="plan-1"
+          actorId="actor-1"
+          tenantId="tenant-1"
+          onClose={() => {}}
+        />
+      </QueryClientProvider>,
+    )
+
+    await userEvent.click(screen.getByTestId('label-option-category1'))
+
+    await waitFor(() => expect(mockApply).toHaveBeenCalledTimes(1))
+
+    const cached = qc.getQueryData<typeof snapshot>(QUERY_KEY)
+    const cachedTask = cached?.buckets[0]?.tasks[0]
+    expect(cachedTask?.updatedAt).toEqual(serverUpdatedAt)
+  })
 })
