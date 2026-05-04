@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useSearchParams, usePathname, useRouter } from 'next/navigation'
 import { Skeleton, Tabs, TabsContent } from '@future/ui'
+import { EditProfileBar } from './EditProfileBar'
 import { ProfileHero } from './hero/ProfileHero'
 import { TabOverview } from './tabs/TabOverview'
 import { TabJobHistory } from './tabs/TabJobHistory'
@@ -124,6 +125,8 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
   const [dirtyFields, setDirtyFields] = React.useState(
     new Map<string, { old: unknown; new: unknown }>(),
   )
+  const [editReason, setEditReason] = React.useState('')
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
 
   const fetchProfile = React.useCallback(async () => {
     setIsLoading(true)
@@ -154,6 +157,29 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
   function handleCancelEdit() {
     setIsEditing(false)
     setDirtyFields(new Map())
+  }
+
+  async function handleSubmitChanges() {
+    if (dirtyFields.size === 0) return
+    setIsSubmitting(true)
+    try {
+      const changes = Array.from(dirtyFields.entries()).map(
+        ([fieldPath, { old: oldValue, new: newValue }]) => ({ fieldPath, oldValue, newValue }),
+      )
+      await anyTrpc.people.requestProfileChanges.mutate({
+        employmentId,
+        changes,
+        reason: editReason.trim() || undefined,
+      })
+      setIsEditing(false)
+      setDirtyFields(new Map())
+      setEditReason('')
+      void fetchProfile()
+    } catch {
+      // tRPC errors surface via the global error boundary
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   function handleTabChange(tab: string) {
@@ -235,6 +261,18 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
           <TabActivity employmentId={employmentId} />
         </TabsContent>
       </Tabs>
+      {isEditing && (
+        <EditProfileBar
+          dirtyCount={dirtyFields.size}
+          reason={editReason}
+          onReasonChange={setEditReason}
+          onCancel={handleCancelEdit}
+          onSubmit={() => {
+            void handleSubmitChanges()
+          }}
+          isSubmitting={isSubmitting}
+        />
+      )}
     </main>
   )
 }
