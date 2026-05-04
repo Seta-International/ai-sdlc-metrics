@@ -5,16 +5,12 @@ import type { UseMutationResult, UseQueryResult } from '@future/api-client'
 import { useSession } from '@future/auth'
 import type { MyDayTask } from '@future/api-client/planner'
 import { trpc } from '../trpc'
-import { myDayQueryKey } from './use-my-day'
+import { personalKeys } from '../query-keys'
 
 export interface CarryOverVars {
   fromDate: string
   toDate: string
   taskIds: string[]
-}
-
-export function carryOverCandidatesQueryKey(actorId: string, tenantId: string, date: string) {
-  return ['personal.myDay.carryOverCandidates', actorId, tenantId, date] as const
 }
 
 /**
@@ -23,7 +19,7 @@ export function carryOverCandidatesQueryKey(actorId: string, tenantId: string, d
  * Returns the actor's carry-over candidates (tasks that were on yesterday's
  * My Day and remain unfinished) for display in the carry-over banner above
  * the current `date`'s My Day views. Cached 5 minutes; a successful
- * `useCarryOver` invalidates this key alongside `myDayQueryKey`.
+ * `useCarryOver` invalidates this key alongside `personalKeys.myDay`.
  */
 export function useMyDayCarryOverCandidates(date: string): UseQueryResult<MyDayTask[]> {
   const session = useSession()
@@ -31,7 +27,7 @@ export function useMyDayCarryOverCandidates(date: string): UseQueryResult<MyDayT
   const tenantId = session?.tenantId ?? ''
 
   return useQuery<MyDayTask[]>({
-    queryKey: carryOverCandidatesQueryKey(actorId, tenantId, date),
+    queryKey: personalKeys.myDayCarryOver(actorId, tenantId, date),
     queryFn: () =>
       trpc.planner.personal.myDay.getCarryOverCandidates.query({
         actorId,
@@ -68,13 +64,13 @@ export function useCarryOver(): UseMutationResult<{ carriedCount: number }, Erro
 
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({
-        queryKey: myDayQueryKey(actorId, tenantId, vars.toDate),
+        queryKey: personalKeys.myDay(actorId, tenantId, vars.toDate),
       })
       queryClient.invalidateQueries({
-        queryKey: carryOverCandidatesQueryKey(actorId, tenantId, vars.toDate),
+        queryKey: personalKeys.myDayCarryOver(actorId, tenantId, vars.toDate),
       })
       queryClient.invalidateQueries({
-        queryKey: carryOverCandidatesQueryKey(actorId, tenantId, vars.fromDate),
+        queryKey: personalKeys.myDayCarryOver(actorId, tenantId, vars.fromDate),
       })
     },
   })

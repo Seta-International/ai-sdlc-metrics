@@ -11,8 +11,12 @@ describe('orderHintBetween (client-side mirror of MsOrderHint)', () => {
       expect(orderHintBetween(' !', undefined)).toBe(' ! !')
     })
 
-    it('between(undefined, " !") === " "', () => {
-      expect(orderHintBetween(undefined, ' !')).toBe(' ')
+    it('between(undefined, " !") === " !" (MS minimum — cannot go lower without invalid whitespace)', () => {
+      expect(orderHintBetween(undefined, ' !')).toBe(' !')
+    })
+
+    it('between(undefined, \'"abc\') === " !" (result would be "!" at index 0, rejected by MS)', () => {
+      expect(orderHintBetween(undefined, '"abc')).toBe(' !')
     })
 
     it('between(" !", " ! !") is between " !" and " ! !" lexicographically', () => {
@@ -28,8 +32,8 @@ describe('orderHintBetween (client-side mirror of MsOrderHint)', () => {
       expect(orderHintBetween(a, undefined) > a).toBe(true)
     })
 
-    it('between(undefined, b) sorts before b', () => {
-      const b = ' !'
+    it('between(undefined, b) sorts before b when b is above the MS floor', () => {
+      const b = '"abc' // first char '"' is ASCII 34, above the floor
       expect(orderHintBetween(undefined, b) < b).toBe(true)
     })
 
@@ -65,6 +69,23 @@ describe('orderHintBetween (client-side mirror of MsOrderHint)', () => {
 
     it('throws TypeError when second argument is empty string', () => {
       expect(() => orderHintBetween(undefined, '')).toThrow(TypeError)
+    })
+  })
+
+  describe('ASCII 91-96 zone avoidance', () => {
+    it('result never contains chars in ASCII 91-96 range', () => {
+      const problematic = /[\x5b-\x60]/
+      const cases: Array<[string | undefined, string | undefined]> = [
+        ['Z', 'b'], // gap straddles zone (90..98), midpoint 94 is in zone
+        ['Y', 'a'], // gap includes the whole zone (89..97), midpoint 93 is in zone
+        [' !', 'a!'], // realistic orderHints with zone in range
+      ]
+      for (const [a, b] of cases) {
+        const result = orderHintBetween(a, b)
+        expect(problematic.test(result)).toBe(false)
+        if (a) expect(result > a).toBe(true)
+        if (b) expect(result < b).toBe(true)
+      }
     })
   })
 

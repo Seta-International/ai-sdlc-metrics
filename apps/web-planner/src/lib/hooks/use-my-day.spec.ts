@@ -20,7 +20,8 @@ vi.mock('@future/auth', () => ({
 }))
 
 import { trpc } from '../trpc'
-import { useMyDay, myDayQueryKey } from './use-my-day'
+import { personalKeys } from '../query-keys'
+import { useMyDay } from './use-my-day'
 
 const mockGet = vi.mocked(
   (trpc.planner.personal.myDay as unknown as { get: { query: ReturnType<typeof vi.fn> } }).get
@@ -73,7 +74,7 @@ describe('useMyDay', () => {
   })
 
   it('exports a stable query key factory', () => {
-    expect(myDayQueryKey('a', 't', '2026-04-20')).toEqual([
+    expect(personalKeys.myDay('a', 't', '2026-04-20')).toEqual([
       'personal.myDay',
       'a',
       't',

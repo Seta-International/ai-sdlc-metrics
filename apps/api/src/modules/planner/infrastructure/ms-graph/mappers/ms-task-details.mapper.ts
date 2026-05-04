@@ -19,7 +19,7 @@ export function mapMsTaskDetailsToDomain(ms: any): MappedMsTaskDetails {
         id,
         title: (v.title as string) ?? '',
         isChecked: Boolean(v.isChecked),
-        orderHint: (v.orderHint as string) ?? '',
+        orderHint: (v.orderHint as string) ?? ' !',
       })
     }
   }

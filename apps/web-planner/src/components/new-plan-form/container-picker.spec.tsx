@@ -5,12 +5,14 @@ import React from 'react'
 
 let mockLinkedGroups: { msGroupId: string; displayName: string }[] = []
 let mockLinkedRosters: { msRosterId: string; displayName: string }[] = []
+let mockFlags = { msSyncRostersEnabled: true, msSyncAttachmentsEnabled: false }
 
 vi.mock('@future/api-client', () => ({
-  useQuery: ({ queryKey }: { queryKey: string[] }) => {
-    if (queryKey[0] === 'msSync.rosters.listLinked') {
+  useQuery: ({ queryKey, enabled }: { queryKey: string[]; enabled?: boolean }) => {
+    if (enabled === false) return { data: undefined, isLoading: false }
+    if (queryKey[0] === 'msSync.flags') return { data: mockFlags, isLoading: false }
+    if (queryKey[0] === 'msSync.rosters.listLinked')
       return { data: mockLinkedRosters, isLoading: false }
-    }
     return { data: mockLinkedGroups, isLoading: false }
   },
   useMutation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
@@ -20,6 +22,11 @@ vi.mock('../../lib/trpc', () => ({
   trpc: {
     planner: {
       msSync: {
+        flags: {
+          query: vi
+            .fn()
+            .mockResolvedValue({ msSyncRostersEnabled: true, msSyncAttachmentsEnabled: false }),
+        },
         groups: {
           listLinked: { query: vi.fn().mockResolvedValue([]) },
         },
@@ -41,6 +48,7 @@ afterEach(cleanup)
 beforeEach(() => {
   mockLinkedGroups = []
   mockLinkedRosters = []
+  mockFlags = { msSyncRostersEnabled: true, msSyncAttachmentsEnabled: false }
 })
 
 describe('ContainerPicker', () => {
@@ -150,6 +158,22 @@ describe('ContainerPicker', () => {
     await user.click(screen.getByRole('combobox'))
     expect(screen.getByText('Roster Plans')).toBeDefined()
     expect(screen.getByRole('option', { name: 'Roster A' })).toBeDefined()
+  })
+
+  it('does not show Roster Plans when msSyncRostersEnabled is false', async () => {
+    const user = userEvent.setup()
+    mockFlags = { msSyncRostersEnabled: false, msSyncAttachmentsEnabled: false }
+    mockLinkedRosters = [{ msRosterId: 'r-1', displayName: 'Roster A' }]
+
+    render(
+      <ContainerPicker
+        value={{ containerType: 'future_only', containerRef: null }}
+        onChange={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('combobox'))
+    expect(screen.queryByText('Roster Plans')).toBeNull()
   })
 
   it('calls onChange with ms_roster value when roster is selected', async () => {

@@ -99,12 +99,16 @@ describe('PushBucketHandler', () => {
     graph = {
       post: vi.fn().mockResolvedValue({
         status: 201,
-        body: { id: 'new-ms-bucket-id', '@odata.etag': '"new-bucket-etag"' },
+        body: {
+          id: 'new-ms-bucket-id',
+          '@odata.etag': '"new-bucket-etag"',
+          orderHint: 'ms-hint-post',
+        },
         etag: '"new-bucket-etag"',
       }),
       patch: vi.fn().mockResolvedValue({
         status: 200,
-        body: { '@odata.etag': '"updated-bucket-etag"' },
+        body: { '@odata.etag': '"updated-bucket-etag"', orderHint: 'ms-hint-patch' },
         etag: '"updated-bucket-etag"',
       }),
     }
@@ -135,6 +139,7 @@ describe('PushBucketHandler', () => {
         msBucketId: MS_BUCKET_ID,
         msBucketEtag: '"updated-bucket-etag"',
         origin: 'ms-sync-push',
+        orderHint: 'ms-hint-patch',
       }),
     )
   })
@@ -178,7 +183,11 @@ describe('PushBucketHandler', () => {
     expect(bucketRepo.linkToMs).toHaveBeenCalledWith(
       BUCKET_ID,
       TENANT_ID,
-      expect.objectContaining({ msBucketId: 'new-ms-bucket-id', origin: 'ms-sync-push' }),
+      expect.objectContaining({
+        msBucketId: 'new-ms-bucket-id',
+        origin: 'ms-sync-push',
+        orderHint: 'ms-hint-post',
+      }),
     )
     expect(graph.patch).not.toHaveBeenCalled()
   })
@@ -221,6 +230,48 @@ describe('PushBucketHandler', () => {
     expect(graph.patch).not.toHaveBeenCalled()
   })
 
+  it('POST: bucket with orderHint starting with "!" → sanitized to " !" before POST', async () => {
+    bucketRepo.findById.mockResolvedValue(
+      makeBucket({ msBucketId: null, msBucketEtag: null, orderHint: '! !' }),
+    )
+
+    await handler.execute(new PushBucketCommand(BUCKET_ID, TENANT_ID))
+
+    expect(graph.post).toHaveBeenCalledWith(
+      TENANT_ID,
+      '/planner/buckets',
+      expect.objectContaining({ orderHint: ' !' }),
+      expect.anything(),
+    )
+  })
+
+  it('PATCH: bucket with orderHint starting with "!" → sanitized to " !" before PATCH', async () => {
+    bucketRepo.findById.mockResolvedValue(makeBucket({ orderHint: '! !' }))
+
+    await handler.execute(new PushBucketCommand(BUCKET_ID, TENANT_ID))
+
+    expect(graph.patch).toHaveBeenCalledWith(
+      TENANT_ID,
+      expect.any(String),
+      expect.objectContaining({ orderHint: ' !' }),
+      expect.anything(),
+    )
+  })
+
+  it('POST response without orderHint → linkToMs called without orderHint prop', async () => {
+    bucketRepo.findById.mockResolvedValue(makeBucket({ msBucketId: null, msBucketEtag: null }))
+    graph.post.mockResolvedValue({
+      status: 201,
+      body: { id: 'new-ms-bucket-id', '@odata.etag': '"new-bucket-etag"' },
+      etag: '"new-bucket-etag"',
+    })
+
+    await handler.execute(new PushBucketCommand(BUCKET_ID, TENANT_ID))
+
+    const call = bucketRepo.linkToMs.mock.calls[0][2]
+    expect(call.orderHint).toBeUndefined()
+  })
+
   it('POST returns no id → throws', async () => {
     bucketRepo.findById.mockResolvedValue(makeBucket({ msBucketId: null, msBucketEtag: null }))
     graph.post.mockResolvedValue({ status: 201, body: {}, etag: null })
@@ -229,5 +280,50 @@ describe('PushBucketHandler', () => {
       'plannerBucket create returned no id',
     )
     expect(bucketRepo.linkToMs).not.toHaveBeenCalled()
+  })
+
+  it('POST: bucket with orderHint containing ASCII 91-96 chars → normalized and " !" appended when no space/! remains', async () => {
+    bucketRepo.findById.mockResolvedValue(
+      makeBucket({ msBucketId: null, msBucketEtag: null, orderHint: '[v' }),
+    )
+
+    await handler.execute(new PushBucketCommand(BUCKET_ID, TENANT_ID))
+
+    // '[' (ASCII 91) → 'a', 'v' is unchanged; result 'av' has no space or '!' so ' !' appended
+    expect(graph.post).toHaveBeenCalledWith(
+      TENANT_ID,
+      '/planner/buckets',
+      expect.objectContaining({ orderHint: 'av !' }),
+      expect.anything(),
+    )
+  })
+
+  it('POST: orderHint "[/" → "a/ !" (ASCII 91-96 replaced, then " !" appended for MS validity)', async () => {
+    bucketRepo.findById.mockResolvedValue(
+      makeBucket({ msBucketId: null, msBucketEtag: null, orderHint: '[/' }),
+    )
+
+    await handler.execute(new PushBucketCommand(BUCKET_ID, TENANT_ID))
+
+    expect(graph.post).toHaveBeenCalledWith(
+      TENANT_ID,
+      '/planner/buckets',
+      expect.objectContaining({ orderHint: 'a/ !' }),
+      expect.anything(),
+    )
+  })
+
+  it('PATCH: bucket with orderHint containing no ASCII 91-96 chars and no space/! → " !" appended', async () => {
+    bucketRepo.findById.mockResolvedValue(makeBucket({ orderHint: 'lv' }))
+
+    await handler.execute(new PushBucketCommand(BUCKET_ID, TENANT_ID))
+
+    // 'lv' has no chars in 91-96 range, but also no space or '!', so ' !' is appended
+    expect(graph.patch).toHaveBeenCalledWith(
+      TENANT_ID,
+      expect.any(String),
+      expect.objectContaining({ orderHint: 'lv !' }),
+      expect.anything(),
+    )
   })
 })

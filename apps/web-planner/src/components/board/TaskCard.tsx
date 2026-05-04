@@ -17,6 +17,7 @@ import { AssigneeBlockedIndicator } from './AssigneeBlockedIndicator'
 import { AssigneePicker } from '../assignees/AssigneePicker'
 import { LabelPicker } from '../labels/LabelPicker'
 import { trpc } from '../../lib/trpc'
+import { taskKeys } from '../../lib/query-keys'
 import { Paperclip, MessageSquare, ShieldCheck } from '@future/ui/icons'
 import {
   Badge,
@@ -80,7 +81,7 @@ export function TaskCard({
   const [priorityOpen, setPriorityOpen] = useState(false)
   const pickerRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
-  const queryKey = ['tasks.getBoard', planId, actorId, tenantId] as const
+  const queryKey = taskKeys.board(planId, actorId, tenantId)
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -303,40 +304,28 @@ export function TaskCard({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onPointerDown={(e) => e.stopPropagation()}
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    setActivePicker('assignees')
-                  }}
+                  onSelect={() => setActivePicker('assignees')}
                   data-testid="task-menu-assignees"
                 >
                   Assign members
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onPointerDown={(e) => e.stopPropagation()}
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    setActivePicker('labels')
-                  }}
+                  onSelect={() => setActivePicker('labels')}
                   data-testid="task-menu-labels"
                 >
                   Labels
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onPointerDown={(e) => e.stopPropagation()}
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    setPriorityOpen(true)
-                  }}
+                  onSelect={() => setPriorityOpen(true)}
                   data-testid="task-menu-priority"
                 >
                   Priority
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onPointerDown={(e) => e.stopPropagation()}
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    setActivePicker('dueDate')
-                  }}
+                  onSelect={() => setActivePicker('dueDate')}
                   data-testid="task-menu-due-date"
                 >
                   Due date

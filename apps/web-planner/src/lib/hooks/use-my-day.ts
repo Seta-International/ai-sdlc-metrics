@@ -4,6 +4,7 @@ import { useQuery } from '@future/api-client'
 import { useSession } from '@future/auth'
 import type { MyDayTask } from '@future/api-client/planner'
 import { trpc } from '../trpc'
+import { personalKeys } from '../query-keys'
 
 /**
  * React Query wrapper over `trpc.planner.personal.myDay.get`.
@@ -18,7 +19,7 @@ export function useMyDay(date: string) {
   const tenantId = session?.tenantId ?? ''
 
   return useQuery<MyDayTask[]>({
-    queryKey: myDayQueryKey(actorId, tenantId, date),
+    queryKey: personalKeys.myDay(actorId, tenantId, date),
     queryFn: () =>
       trpc.planner.personal.myDay.get.query({
         actorId,
@@ -28,8 +29,4 @@ export function useMyDay(date: string) {
     enabled: Boolean(actorId && tenantId && date),
     staleTime: 30_000,
   })
-}
-
-export function myDayQueryKey(actorId: string, tenantId: string, date: string) {
-  return ['personal.myDay', actorId, tenantId, date] as const
 }

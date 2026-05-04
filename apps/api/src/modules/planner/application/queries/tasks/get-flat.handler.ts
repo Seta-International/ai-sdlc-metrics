@@ -89,7 +89,7 @@ export class GetFlatTasksHandler implements IQueryHandler<GetFlatTasksQuery, Tas
           WHERE plan_id = ${planId}
             AND tenant_id = ${tenantId}
             AND deleted_at IS NULL
-          ORDER BY order_hint ASC`,
+          ORDER BY order_hint COLLATE "C" ASC`,
     )
 
     const bucketById = new Map(
@@ -132,7 +132,7 @@ export class GetFlatTasksHandler implements IQueryHandler<GetFlatTasksQuery, Tas
             t.priority,
             t.start_date,
             t.due_date,
-            t.order_hint,
+            t.order_hint COLLATE "C" AS order_hint,
             t.checklist_item_count,
             t.checklist_checked_count,
             t.created_at,
@@ -157,7 +157,7 @@ export class GetFlatTasksHandler implements IQueryHandler<GetFlatTasksQuery, Tas
             NULL::smallint           AS priority,
             NULL::date               AS start_date,
             NULL::date               AS due_date,
-            NULL::text               AS order_hint,
+            NULL::text COLLATE "C"   AS order_hint,
             NULL::smallint           AS checklist_item_count,
             NULL::smallint           AS checklist_checked_count,
             NULL::timestamptz        AS created_at,
@@ -181,7 +181,7 @@ export class GetFlatTasksHandler implements IQueryHandler<GetFlatTasksQuery, Tas
             NULL::smallint           AS priority,
             NULL::date               AS start_date,
             NULL::date               AS due_date,
-            NULL::text               AS order_hint,
+            NULL::text COLLATE "C"   AS order_hint,
             NULL::smallint           AS checklist_item_count,
             NULL::smallint           AS checklist_checked_count,
             NULL::timestamptz        AS created_at,

@@ -84,7 +84,7 @@ export class ListTasksForActorHandler implements IQueryHandler<
             AND t.deleted_at IS NULL
             AND (p.owner_actor_id IS NULL OR p.owner_actor_id = ${actorId})
             AND ${progressFilter}
-          ORDER BY p.name ASC, b.order_hint NULLS LAST, t.order_hint NULLS LAST`,
+          ORDER BY p.name ASC, b.order_hint COLLATE "C" NULLS LAST, t.order_hint COLLATE "C" NULLS LAST`,
     )
 
     if (taskResult.rows.length === 0) return []

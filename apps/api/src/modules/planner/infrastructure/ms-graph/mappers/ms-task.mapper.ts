@@ -36,7 +36,7 @@ export function mapMsTaskToDomain(ms: any, ctx: { tenantId: string }): MappedMsT
     msPlanId: ms.planId,
     msBucketId: ms.bucketId ?? null,
     title: ms.title ?? '(untitled)',
-    orderHint: ms.orderHint ?? '',
+    orderHint: ms.orderHint ?? ' !',
     assigneePriority: ms.assigneePriority ?? null,
     percentComplete: typeof ms.percentComplete === 'number' ? ms.percentComplete : 0,
     priority: typeof ms.priority === 'number' ? ms.priority : 5,

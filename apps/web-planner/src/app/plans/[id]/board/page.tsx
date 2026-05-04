@@ -10,6 +10,7 @@ import { BoardColumn } from '../../../../components/board/BoardColumn'
 import { AddBucketButton } from '../../../../components/board/AddBucketButton'
 import { useQueryClient } from '@future/api-client'
 import { trpc } from '../../../../lib/trpc'
+import { taskKeys } from '../../../../lib/query-keys'
 import type {
   BoardSnapshot,
   BoardTaskSnapshot,
@@ -149,7 +150,7 @@ interface BoardInnerProps {
 
 function BoardInner({ snapshot, planId, actorId, tenantId }: BoardInnerProps) {
   const queryClient = useQueryClient()
-  const queryKey = ['tasks.getBoard', planId, actorId, tenantId] as const
+  const queryKey = taskKeys.board(planId, actorId, tenantId)
   const { move } = useOptimisticMove({ planId, actorId, tenantId })
   const { state } = useViewState({ planId })
 

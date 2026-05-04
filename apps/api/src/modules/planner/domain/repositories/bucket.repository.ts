@@ -17,10 +17,10 @@ export interface IBucketRepository {
   findById(id: string, tenantId: string): Promise<Bucket | null>
   save(bucket: Bucket): Promise<void>
   softDelete(id: string, tenantId: string): Promise<void>
-  upsertFromMs(props: MsBucketUpsertProps, opts: { origin: string }): Promise<void>
+  upsertFromMs(props: MsBucketUpsertProps, opts: { origin: string }): Promise<{ id: string }>
   linkToMs(
     id: string,
     tenantId: string,
-    props: { msBucketId: string; msBucketEtag: string; origin: string },
+    props: { msBucketId: string; msBucketEtag: string; origin: string; orderHint?: string },
   ): Promise<void>
 }

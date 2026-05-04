@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@future/api-client'
 import { useSession } from '@future/auth'
 import { trpc } from '../trpc'
+import { taskKeys } from '../query-keys'
 import { applyTaskFilter } from '../task-filter'
 import { sortTasks } from '../task-sort'
 import { groupTasks } from '../task-group'
@@ -37,7 +38,7 @@ export function useFlatTasks({ planId }: { planId: string }): UseFlatTasksResult
   const tenantId = session?.tenantId ?? ''
 
   const query = useQuery({
-    queryKey: ['tasks.getFlat', planId, actorId, tenantId] as const,
+    queryKey: taskKeys.flat(planId, actorId, tenantId),
     queryFn: () =>
       trpc.planner.tasks.getFlat.query({ planId, actorId, tenantId }) as Promise<TaskFlat[]>,
     enabled: Boolean(planId && actorId && tenantId),

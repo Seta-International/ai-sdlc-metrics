@@ -10,6 +10,6 @@ export const outboxEvent = coreSchema.table('outbox_event', {
   eventName: text('event_name').notNull(),
   payload: jsonb('payload').notNull(),
   published: boolean('published').notNull().default(false),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  publishedAt: timestamp('published_at'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
 })

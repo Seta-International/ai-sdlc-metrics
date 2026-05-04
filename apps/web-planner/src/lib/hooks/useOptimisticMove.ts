@@ -3,6 +3,7 @@
 import { useQueryClient } from '@future/api-client'
 import { trpc } from '../trpc'
 import { orderHintBetween } from '../order-hint'
+import { taskKeys } from '../query-keys'
 import type { BoardSnapshot } from '../board-types'
 
 interface UseOptimisticMoveInput {
@@ -23,7 +24,7 @@ interface UseOptimisticMoveInput {
  */
 export function useOptimisticMove({ planId, actorId, tenantId }: UseOptimisticMoveInput) {
   const queryClient = useQueryClient()
-  const queryKey = ['tasks.getBoard', planId, actorId, tenantId] as const
+  const queryKey = taskKeys.board(planId, actorId, tenantId)
 
   function getSnapshot(): BoardSnapshot | undefined {
     return queryClient.getQueryData<BoardSnapshot>(queryKey)

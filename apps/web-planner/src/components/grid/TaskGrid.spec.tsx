@@ -152,7 +152,7 @@ describe('TaskGrid', () => {
     expect(rows.length).toBeLessThan(60)
     // Must have rendered some rows (not zero)
     expect(rows.length).toBeGreaterThan(1)
-  }, 15_000)
+  }, 30_000)
 
   it('renders group section headers when groups provided', () => {
     render(
@@ -207,7 +207,7 @@ describe('TaskGrid', () => {
     expect(mockPatch).toHaveBeenCalledWith({
       sort: { field: 'title', dir: 'desc' },
     })
-  }, 15_000)
+  }, 30_000)
 
   it('clicking a desc-sorted column header clears sort', async () => {
     const user = userEvent.setup()

@@ -99,7 +99,7 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
           FROM planner.task_checklist_item
           WHERE task_id = ${taskId}
             AND tenant_id = ${tenantId}
-          ORDER BY order_hint ASC`,
+          ORDER BY order_hint COLLATE "C" ASC`,
     )
 
     // ── Query 3: Assignees ────────────────────────────────────────────────────

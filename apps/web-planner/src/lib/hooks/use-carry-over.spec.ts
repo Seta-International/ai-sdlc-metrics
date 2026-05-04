@@ -30,12 +30,8 @@ vi.mock('@future/auth', () => ({
 
 import { trpc } from '../trpc'
 import { useSession } from '@future/auth'
-import {
-  useMyDayCarryOverCandidates,
-  useCarryOver,
-  carryOverCandidatesQueryKey,
-} from './use-carry-over'
-import { myDayQueryKey } from './use-my-day'
+import { useMyDayCarryOverCandidates, useCarryOver } from './use-carry-over'
+import { personalKeys } from '../query-keys'
 import type { MyDayTask } from '@future/api-client/planner'
 
 const mockCandidatesQuery = vi.mocked(
@@ -117,8 +113,8 @@ describe('useMyDayCarryOverCandidates', () => {
     expect(result.current.data?.[0]?.id).toBe('t-1')
   })
 
-  it('exposes a stable queryKey shape via carryOverCandidatesQueryKey()', () => {
-    expect(carryOverCandidatesQueryKey('actor-1', 'tenant-1', TODAY)).toEqual([
+  it('exposes a stable queryKey shape via personalKeys.myDayCarryOver()', () => {
+    expect(personalKeys.myDayCarryOver('actor-1', 'tenant-1', TODAY)).toEqual([
       'personal.myDay.carryOverCandidates',
       'actor-1',
       'tenant-1',
@@ -180,13 +176,13 @@ describe('useCarryOver', () => {
     mockCarryOverMutate.mockResolvedValue({ carriedCount: 1 })
 
     // Seed cache so invalidateQueries has something to mark stale.
-    queryClient.setQueryData(myDayQueryKey('actor-1', 'tenant-1', TODAY), [])
+    queryClient.setQueryData(personalKeys.myDay('actor-1', 'tenant-1', TODAY), [])
     queryClient.setQueryData(
-      carryOverCandidatesQueryKey('actor-1', 'tenant-1', TODAY),
+      personalKeys.myDayCarryOver('actor-1', 'tenant-1', TODAY),
       [] as MyDayTask[],
     )
     queryClient.setQueryData(
-      carryOverCandidatesQueryKey('actor-1', 'tenant-1', YESTERDAY),
+      personalKeys.myDayCarryOver('actor-1', 'tenant-1', YESTERDAY),
       [] as MyDayTask[],
     )
 
@@ -205,9 +201,9 @@ describe('useCarryOver', () => {
     const keys = invalidateSpy.mock.calls.map((c) => c[0]?.queryKey)
     expect(keys).toEqual(
       expect.arrayContaining([
-        myDayQueryKey('actor-1', 'tenant-1', TODAY),
-        carryOverCandidatesQueryKey('actor-1', 'tenant-1', TODAY),
-        carryOverCandidatesQueryKey('actor-1', 'tenant-1', YESTERDAY),
+        personalKeys.myDay('actor-1', 'tenant-1', TODAY),
+        personalKeys.myDayCarryOver('actor-1', 'tenant-1', TODAY),
+        personalKeys.myDayCarryOver('actor-1', 'tenant-1', YESTERDAY),
       ]),
     )
   })
