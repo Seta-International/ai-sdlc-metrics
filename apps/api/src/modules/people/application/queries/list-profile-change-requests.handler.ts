@@ -40,8 +40,11 @@ export class ListProfileChangeRequestsHandler implements IQueryHandler<
 
   async execute(query: ListProfileChangeRequestsQuery): Promise<ListProfileChangeRequestsResult> {
     if (query.mode === 'byEmployment') {
+      if (!query.employmentId) {
+        throw new Error('employmentId is required for byEmployment mode')
+      }
       const items = await this.changeRepo.findByEmploymentId(
-        query.employmentId!,
+        query.employmentId,
         query.tenantId,
         query.status ?? undefined,
       )
