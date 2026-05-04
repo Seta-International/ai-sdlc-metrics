@@ -18,11 +18,13 @@ import type {
 } from '../../../../lib/board-types'
 import type { Progress } from '../../../../components/primitives/ProgressIcon'
 import type { TaskFlat } from '@future/api-client/planner'
+import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable'
 import { useViewState } from '../../../../lib/hooks/useViewState'
 import { useViewRenderedTelemetry } from '../../../../lib/hooks/useViewRenderedTelemetry'
 import { applyTaskFilter } from '../../../../lib/task-filter'
 import { sortTasks } from '../../../../lib/task-sort'
 import { DEFAULT_VIEW_STATE } from '../../../../lib/view-state'
+import { orderHintBetween } from '../../../../lib/order-hint'
 
 // ─── Loading skeleton ─────────────────────────────────────────────────────────
 
@@ -198,6 +200,37 @@ function BoardInner({ snapshot, planId, actorId, tenantId }: BoardInnerProps) {
     }
   }
 
+  const bucketOrderList = displaySnapshot.buckets.map((b) => ({ id: b.id, orderHint: b.orderHint }))
+  const bucketSortableIds = displaySnapshot.buckets.map((b) => `col-${b.id}`)
+  const sortActive = !!state.sort
+
+  async function handleReorderColumn(bucketId: string, hintAfter?: string, hintBefore?: string) {
+    const current = queryClient.getQueryData<BoardSnapshot>(queryKey)
+    if (!current) return
+    const predictedHint = orderHintBetween(hintAfter, hintBefore)
+    const updated: BoardSnapshot = {
+      ...current,
+      buckets: current.buckets
+        .map((b) => (b.id === bucketId ? { ...b, orderHint: predictedHint } : b))
+        .sort((a, b) => (a.orderHint < b.orderHint ? -1 : 1)),
+    }
+    queryClient.setQueryData(queryKey, updated)
+    try {
+      await trpc.planner.buckets.reorder.mutate({
+        tenantId,
+        planId,
+        actorId,
+        bucketId,
+        orderHintAfter: hintAfter,
+        orderHintBefore: hintBefore,
+      })
+      await queryClient.invalidateQueries({ queryKey })
+    } catch (err) {
+      queryClient.setQueryData(queryKey, current)
+      console.error('[BoardPage] reorderColumn failed', err)
+    }
+  }
+
   async function handleToggleComplete(taskId: string, nextProgress: Progress) {
     const current = queryClient.getQueryData<BoardSnapshot>(queryKey)
     if (!current) return
@@ -244,25 +277,41 @@ function BoardInner({ snapshot, planId, actorId, tenantId }: BoardInnerProps) {
       onMove={({ taskId, toBucketId, hintAfter, hintBefore }) =>
         void move(taskId, toBucketId, hintAfter, hintBefore)
       }
+      onReorderColumn={({ bucketId, hintAfter, hintBefore }) =>
+        void handleReorderColumn(bucketId, hintAfter, hintBefore)
+      }
       taskIndex={taskIndex}
       bucketTaskLists={bucketTaskLists}
+      bucketOrderList={bucketOrderList}
+      sortActive={sortActive}
     >
-      <div className="flex gap-4 px-6 py-4 overflow-x-auto h-full" data-testid="board-columns">
-        {displaySnapshot.buckets.map((bucket) => (
-          <BoardColumn
-            key={bucket.id}
-            bucket={bucket}
-            planLabels={displaySnapshot.plan.labels}
-            planId={planId}
-            actorId={actorId}
-            tenantId={tenantId}
-            onToggleComplete={(taskId, nextProgress) =>
-              void handleToggleComplete(taskId, nextProgress)
-            }
-          />
-        ))}
-
-        <AddBucketButton planId={planId} actorId={actorId} tenantId={tenantId} />
+      <div className="flex flex-col h-full min-h-0">
+        {sortActive && (
+          <div
+            data-testid="sort-active-chip"
+            className="mx-6 mt-3 flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-fg-muted"
+          >
+            <span>Sorted by {state.sort!.field} — drag to reorder is paused within columns</span>
+          </div>
+        )}
+        <div className="flex gap-4 px-6 py-4 overflow-x-auto h-full" data-testid="board-columns">
+          <SortableContext items={bucketSortableIds} strategy={horizontalListSortingStrategy}>
+            {displaySnapshot.buckets.map((bucket) => (
+              <BoardColumn
+                key={bucket.id}
+                bucket={bucket}
+                planLabels={displaySnapshot.plan.labels}
+                planId={planId}
+                actorId={actorId}
+                tenantId={tenantId}
+                onToggleComplete={(taskId, nextProgress) =>
+                  void handleToggleComplete(taskId, nextProgress)
+                }
+              />
+            ))}
+          </SortableContext>
+          <AddBucketButton planId={planId} actorId={actorId} tenantId={tenantId} />
+        </div>
       </div>
     </BoardDragContext>
   )
