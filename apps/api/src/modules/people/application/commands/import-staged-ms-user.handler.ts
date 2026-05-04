@@ -5,7 +5,6 @@ import { ImportStagedMsUserCommand } from './import-staged-ms-user.command'
 import {
   StagedMsUserNotFoundException,
   StagedMsUserNotPendingException,
-  StagedMsUserAlreadyExistsAsEmploymentException,
 } from '../../domain/exceptions/people.exceptions'
 import {
   MS_STAGED_USER_REPOSITORY,
@@ -64,7 +63,8 @@ export class ImportStagedMsUserHandler implements ICommandHandler<ImportStagedMs
       throw new StagedMsUserNotPendingException(stagedUserId, staged.status)
     }
 
-    // 3. Guard: check if an active employment already exists for this AAD user
+    // 3. If an active employment already exists for this AAD user, adopt it — mark the staged
+    //    record as imported and return the existing employment ID without creating duplicates.
     const existingActorId = await this.identityFacade.getActorIdByExternalUserId(
       staged.msExternalId,
       tenantId,
@@ -75,7 +75,13 @@ export class ImportStagedMsUserHandler implements ICommandHandler<ImportStagedMs
         tenantId,
       )
       if (existingEmployment) {
-        throw new StagedMsUserAlreadyExistsAsEmploymentException(staged.msExternalId)
+        await this.stagedUserRepo.updateStatus(
+          stagedUserId,
+          tenantId,
+          'imported',
+          existingEmployment.id,
+        )
+        return existingEmployment.id
       }
     }
 

@@ -6,7 +6,6 @@ import { ImportStagedMsUserCommand } from './import-staged-ms-user.command'
 import {
   StagedMsUserNotFoundException,
   StagedMsUserNotPendingException,
-  StagedMsUserAlreadyExistsAsEmploymentException,
 } from '../../domain/exceptions/people.exceptions'
 import type { IMsStagedUserRepository } from '../../domain/repositories/ms-staged-user.repository'
 import type { IPersonProfileRepository } from '../../domain/repositories/person-profile.repository'
@@ -128,7 +127,7 @@ describe('ImportStagedMsUserHandler', () => {
     ).rejects.toThrow(StagedMsUserNotPendingException)
   })
 
-  it('throws StagedMsUserAlreadyExistsAsEmploymentException when employment already exists', async () => {
+  it('links existing employment when MS user already has active employment: marks staged imported, returns existing id, creates no new records', async () => {
     const mocks = makeMocks()
     vi.mocked(mocks.identityFacade.getActorIdByExternalUserId!).mockResolvedValue('existing-actor')
     vi.mocked(mocks.employmentRepo.findActiveByActorId!).mockResolvedValue({
@@ -136,9 +135,20 @@ describe('ImportStagedMsUserHandler', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
 
-    await expect(
-      makeHandler(mocks).execute(new ImportStagedMsUserCommand(TENANT_ID, STAGED_ID, IMPORTED_BY)),
-    ).rejects.toThrow(StagedMsUserAlreadyExistsAsEmploymentException)
+    const result = await makeHandler(mocks).execute(
+      new ImportStagedMsUserCommand(TENANT_ID, STAGED_ID, IMPORTED_BY),
+    )
+
+    expect(result).toBe('existing-emp')
+    expect(mocks.stagedUserRepo.updateStatus).toHaveBeenCalledWith(
+      STAGED_ID,
+      TENANT_ID,
+      'imported',
+      'existing-emp',
+    )
+    expect(mocks.kernelActorFacade.createActor).not.toHaveBeenCalled()
+    expect(mocks.employmentRepo.insert).not.toHaveBeenCalled()
+    expect(mocks.eventBus.publish).not.toHaveBeenCalled()
   })
 
   it('happy path: creates actor, profile, employment, detail, assignment, marks imported', async () => {
