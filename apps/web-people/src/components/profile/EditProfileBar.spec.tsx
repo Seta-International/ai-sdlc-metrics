@@ -107,4 +107,34 @@ describe('EditProfileBar', () => {
     fireEvent.click(screen.getByRole('button', { name: /submit/i }))
     expect(onSubmit).toHaveBeenCalledOnce()
   })
+
+  it('calls onReasonChange when textarea value changes', () => {
+    const onReasonChange = vi.fn()
+    render(
+      <EditProfileBar
+        dirtyCount={1}
+        reason=""
+        onReasonChange={onReasonChange}
+        onCancel={vi.fn()}
+        onSubmit={vi.fn()}
+        isSubmitting={false}
+      />,
+    )
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'my reason' } })
+    expect(onReasonChange).toHaveBeenCalledWith('my reason')
+  })
+
+  it('disables Cancel while isSubmitting', () => {
+    render(
+      <EditProfileBar
+        dirtyCount={1}
+        reason=""
+        onReasonChange={vi.fn()}
+        onCancel={vi.fn()}
+        onSubmit={vi.fn()}
+        isSubmitting={true}
+      />,
+    )
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled()
+  })
 })
