@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, cleanup } from '@testing-library/react'
 import { TabOverview } from './TabOverview'
 import type { EmployeeProfile } from '../../../lib/types'
 
@@ -53,11 +53,12 @@ vi.mock('../../../lib/trpc', () => ({
     people: {
       getDirectReports: { query: vi.fn().mockResolvedValue([]) },
       getActivityFeed: { query: vi.fn().mockResolvedValue({ events: [], nextCursor: null }) },
-      updatePersonalProfile: {
-        mutate: vi.fn().mockResolvedValue({}),
-      },
     },
   },
+}))
+
+vi.mock('../../../lib/hooks/use-change-requests', () => ({
+  usePendingFieldPaths: () => new Set(),
 }))
 
 afterEach(() => {
@@ -137,6 +138,8 @@ describe('TabOverview', () => {
         canEditBank={false}
         canViewSalary={false}
         isEditing={false}
+        dirtyFields={new Map()}
+        onFieldChange={vi.fn()}
         onSaved={() => {}}
       />,
     )
@@ -152,6 +155,8 @@ describe('TabOverview', () => {
         canEditBank={false}
         canViewSalary={false}
         isEditing={false}
+        dirtyFields={new Map()}
+        onFieldChange={vi.fn()}
         onSaved={() => {}}
       />,
     )
@@ -167,6 +172,8 @@ describe('TabOverview', () => {
         canEditBank={false}
         canViewSalary={false}
         isEditing={false}
+        dirtyFields={new Map()}
+        onFieldChange={vi.fn()}
         onSaved={() => {}}
       />,
     )
@@ -183,6 +190,8 @@ describe('TabOverview', () => {
         canEditBank={false}
         canViewSalary={true}
         isEditing={false}
+        dirtyFields={new Map()}
+        onFieldChange={vi.fn()}
         onSaved={() => {}}
       />,
     )
@@ -198,6 +207,8 @@ describe('TabOverview', () => {
         canEditBank={false}
         canViewSalary={false}
         isEditing={false}
+        dirtyFields={new Map()}
+        onFieldChange={vi.fn()}
         onSaved={() => {}}
       />,
     )
@@ -213,6 +224,8 @@ describe('TabOverview', () => {
         canEditBank={false}
         canViewSalary={false}
         isEditing={false}
+        dirtyFields={new Map()}
+        onFieldChange={vi.fn()}
         onSaved={() => {}}
       />,
     )
@@ -230,6 +243,8 @@ describe('TabOverview — view mode', () => {
         canEditBank={false}
         canViewSalary={false}
         isEditing={false}
+        dirtyFields={new Map()}
+        onFieldChange={vi.fn()}
         onSaved={() => {}}
       />,
     )
@@ -248,62 +263,11 @@ describe('TabOverview — edit mode', () => {
         canEditBank={false}
         canViewSalary={false}
         isEditing={true}
+        dirtyFields={new Map()}
+        onFieldChange={vi.fn()}
         onSaved={() => {}}
       />,
     )
-    const preferredNameInput = screen.getByPlaceholderText(/preferred name/i)
-    expect(preferredNameInput).toBeDefined()
-  })
-
-  it('calls updatePersonalProfile mutation on Save', async () => {
-    const { trpc } = await import('../../../lib/trpc')
-
-    render(
-      <TabOverview
-        profile={baseProfile}
-        employmentId="emp-1"
-        canEditPersonal={true}
-        canEditBank={false}
-        canViewSalary={false}
-        isEditing={true}
-        onSaved={() => {}}
-      />,
-    )
-
-    const preferredNameInput = screen.getByPlaceholderText(/preferred name/i)
-    fireEvent.change(preferredNameInput, { target: { value: 'An Nguyen' } })
-
-    const aboutSaveButton = screen.getAllByRole('button', { name: /save/i })[0]
-    fireEvent.click(aboutSaveButton!)
-
-    await waitFor(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect((trpc as any).people.updatePersonalProfile.mutate).toHaveBeenCalledWith(
-        expect.objectContaining({ employmentId: 'emp-1', preferredName: 'An Nguyen' }),
-      )
-    })
-  })
-
-  it('Cancel resets About form to saved profile values', async () => {
-    render(
-      <TabOverview
-        profile={baseProfile}
-        employmentId="emp-1"
-        canEditPersonal={true}
-        canEditBank={false}
-        canViewSalary={false}
-        isEditing={true}
-        onSaved={() => {}}
-      />,
-    )
-    const preferredNameInput = screen.getByPlaceholderText(/preferred name/i) as HTMLInputElement
-    fireEvent.change(preferredNameInput, { target: { value: 'Changed Name' } })
-    expect(preferredNameInput.value).toBe('Changed Name')
-
-    const cancelButton = screen.getAllByRole('button', { name: /cancel/i })[0]!
-    fireEvent.click(cancelButton)
-
-    // Should restore to baseProfile value (baseProfile.personProfile.preferredName = 'Ali')
-    expect(preferredNameInput.value).toBe('Ali')
+    expect(screen.getByRole('textbox', { name: /preferred name/i })).toBeTruthy()
   })
 })

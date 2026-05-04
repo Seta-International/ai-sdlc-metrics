@@ -121,6 +121,9 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
   const [permissions, setPermissions] = React.useState<ProfilePermissions>(defaultPermissions)
   const [isLoading, setIsLoading] = React.useState(true)
   const [isEditing, setIsEditing] = React.useState(false)
+  const [dirtyFields, setDirtyFields] = React.useState(
+    new Map<string, { old: unknown; new: unknown }>(),
+  )
 
   const fetchProfile = React.useCallback(async () => {
     setIsLoading(true)
@@ -139,6 +142,19 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
   React.useEffect(() => {
     void fetchProfile()
   }, [fetchProfile])
+
+  function handleFieldChange(fieldPath: string, oldValue: unknown, newValue: unknown) {
+    setDirtyFields((prev) => {
+      const next = new Map(prev)
+      next.set(fieldPath, { old: oldValue, new: newValue })
+      return next
+    })
+  }
+
+  function handleCancelEdit() {
+    setIsEditing(false)
+    setDirtyFields(new Map())
+  }
 
   function handleTabChange(tab: string) {
     const p = new URLSearchParams(searchParams.toString())
@@ -172,7 +188,7 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
           permissions={permissions}
           isEditing={isEditing}
           onEdit={() => setIsEditing(true)}
-          onDoneEditing={() => setIsEditing(false)}
+          onDoneEditing={handleCancelEdit}
           onShare={() => {}}
           onStartOffboarding={permissions.canManage ? () => {} : undefined}
         />
@@ -184,6 +200,8 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
             canEditBank={permissions.canEditBank}
             canViewSalary={permissions.canViewSalary}
             isEditing={isEditing}
+            dirtyFields={dirtyFields}
+            onFieldChange={handleFieldChange}
             onSaved={() => {
               void fetchProfile()
             }}

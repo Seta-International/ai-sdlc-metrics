@@ -37,3 +37,7 @@ export function useChangeRequests(employmentId: string): UseChangeRequestsReturn
 
   return { requests, isLoading, error, refetch: () => setRefetchKey((k) => k + 1) }
 }
+
+export function usePendingFieldPaths(_employmentId: string): Set<string> {
+  return new Set()
+}

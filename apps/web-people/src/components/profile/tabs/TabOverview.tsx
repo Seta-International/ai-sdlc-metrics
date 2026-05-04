@@ -1,14 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { Button, Input, Spinner, toast } from '@future/ui'
+import { Input } from '@future/ui'
 import { ProfileCard, KVRow } from '../cards/ProfileCard'
 import { SideRail } from '../rail/SideRail'
-import { trpc } from '../../../lib/trpc'
 import type { EmployeeProfile } from '../../../lib/types'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const anyTrpc = trpc as any
 
 interface TabOverviewProps {
   profile: EmployeeProfile
@@ -17,6 +13,8 @@ interface TabOverviewProps {
   canEditBank: boolean
   canViewSalary: boolean
   isEditing: boolean
+  dirtyFields: Map<string, { old: unknown; new: unknown }>
+  onFieldChange: (fieldPath: string, oldValue: unknown, newValue: unknown) => void
   onSaved: () => void
 }
 
@@ -27,69 +25,11 @@ export function TabOverview({
   canEditBank: _canEditBank,
   canViewSalary,
   isEditing,
-  onSaved,
+  dirtyFields,
+  onFieldChange,
+  onSaved: _onSaved,
 }: TabOverviewProps) {
   const { personProfile, employment, currentJob, emergencyContacts } = profile
-
-  const [aboutForm, setAboutForm] = React.useState({
-    preferredName: personProfile.preferredName ?? '',
-    dateOfBirth: personProfile.dateOfBirth ?? '',
-    nationality: personProfile.nationality ?? '',
-    nameDisplayOrder: personProfile.nameDisplayOrder,
-  })
-
-  const [contactForm, setContactForm] = React.useState({
-    personalEmail: '',
-    personalPhone: '',
-  })
-
-  React.useEffect(() => {
-    setAboutForm({
-      preferredName: personProfile.preferredName ?? '',
-      dateOfBirth: personProfile.dateOfBirth ?? '',
-      nationality: personProfile.nationality ?? '',
-      nameDisplayOrder: personProfile.nameDisplayOrder,
-    })
-  }, [personProfile])
-
-  const [isAboutPending, setIsAboutPending] = React.useState(false)
-  const [isContactPending, setIsContactPending] = React.useState(false)
-
-  async function saveAbout() {
-    setIsAboutPending(true)
-    try {
-      await anyTrpc.people.updatePersonalProfile.mutate({
-        employmentId,
-        preferredName: aboutForm.preferredName || null,
-        dateOfBirth: aboutForm.dateOfBirth || null,
-        nationality: aboutForm.nationality || null,
-        nameDisplayOrder: aboutForm.nameDisplayOrder,
-      })
-      toast.success('About section saved')
-      onSaved()
-    } catch {
-      toast.error('Failed to save — please try again')
-    } finally {
-      setIsAboutPending(false)
-    }
-  }
-
-  async function saveContact() {
-    setIsContactPending(true)
-    try {
-      await anyTrpc.people.updatePersonalProfile.mutate({
-        employmentId,
-        personalEmail: contactForm.personalEmail || null,
-        personalPhone: contactForm.personalPhone || null,
-      })
-      toast.success('Contact saved')
-      onSaved()
-    } catch {
-      toast.error('Failed to save — please try again')
-    } finally {
-      setIsContactPending(false)
-    }
-  }
 
   return (
     <div className="grid gap-8 p-8" style={{ gridTemplateColumns: '1fr 300px' }}>
@@ -103,55 +43,60 @@ export function TabOverview({
               <div className="grid" style={{ gridTemplateColumns: '160px 1fr' }}>
                 <span className="text-xs text-muted-foreground self-center">Preferred name</span>
                 <Input
-                  value={aboutForm.preferredName}
-                  onChange={(e) => setAboutForm((f) => ({ ...f, preferredName: e.target.value }))}
-                  placeholder="Preferred name"
+                  aria-label="Preferred name"
+                  value={
+                    dirtyFields.has('person_profile.preferred_name')
+                      ? String(dirtyFields.get('person_profile.preferred_name')!.new ?? '')
+                      : (personProfile.preferredName ?? '')
+                  }
+                  onChange={(e) =>
+                    onFieldChange(
+                      'person_profile.preferred_name',
+                      personProfile.preferredName,
+                      e.target.value,
+                    )
+                  }
                   className="h-7 text-xs"
                 />
               </div>
               <div className="grid" style={{ gridTemplateColumns: '160px 1fr' }}>
                 <span className="text-xs text-muted-foreground self-center">Date of birth</span>
                 <Input
+                  aria-label="Date of birth"
                   type="date"
-                  value={aboutForm.dateOfBirth}
-                  onChange={(e) => setAboutForm((f) => ({ ...f, dateOfBirth: e.target.value }))}
+                  value={
+                    dirtyFields.has('person_profile.date_of_birth')
+                      ? String(dirtyFields.get('person_profile.date_of_birth')!.new ?? '')
+                      : (personProfile.dateOfBirth ?? '')
+                  }
+                  onChange={(e) =>
+                    onFieldChange(
+                      'person_profile.date_of_birth',
+                      personProfile.dateOfBirth,
+                      e.target.value,
+                    )
+                  }
                   className="h-7 text-xs"
                 />
               </div>
               <div className="grid" style={{ gridTemplateColumns: '160px 1fr' }}>
                 <span className="text-xs text-muted-foreground self-center">Nationality</span>
                 <Input
-                  value={aboutForm.nationality}
-                  onChange={(e) => setAboutForm((f) => ({ ...f, nationality: e.target.value }))}
-                  placeholder="Nationality"
+                  aria-label="Nationality"
+                  value={
+                    dirtyFields.has('person_profile.nationality')
+                      ? String(dirtyFields.get('person_profile.nationality')!.new ?? '')
+                      : (personProfile.nationality ?? '')
+                  }
+                  onChange={(e) =>
+                    onFieldChange(
+                      'person_profile.nationality',
+                      personProfile.nationality,
+                      e.target.value,
+                    )
+                  }
                   className="h-7 text-xs"
                 />
-              </div>
-              <div className="flex justify-end gap-2 pt-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() =>
-                    setAboutForm({
-                      preferredName: personProfile.preferredName ?? '',
-                      dateOfBirth: personProfile.dateOfBirth ?? '',
-                      nationality: personProfile.nationality ?? '',
-                      nameDisplayOrder: personProfile.nameDisplayOrder,
-                    })
-                  }
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  className="h-7 px-2 text-xs gap-1"
-                  disabled={isAboutPending}
-                  onClick={saveAbout}
-                >
-                  {isAboutPending && <Spinner className="size-3" />}
-                  Save
-                </Button>
               </div>
             </div>
           ) : (
@@ -183,50 +128,48 @@ export function TabOverview({
           )}
         </ProfileCard>
 
-        {isEditing && canEditPersonal && (
-          <ProfileCard title="Contact">
+        <ProfileCard title="Contact">
+          {isEditing && canEditPersonal ? (
             <div className="space-y-2 py-1.5">
               <div className="grid" style={{ gridTemplateColumns: '160px 1fr' }}>
                 <span className="text-xs text-muted-foreground self-center">Personal email</span>
                 <Input
+                  aria-label="Personal email"
                   type="email"
-                  value={contactForm.personalEmail}
-                  onChange={(e) => setContactForm((f) => ({ ...f, personalEmail: e.target.value }))}
-                  placeholder="personal@email.com"
+                  value={
+                    dirtyFields.has('employment_detail.personal_email')
+                      ? String(dirtyFields.get('employment_detail.personal_email')!.new ?? '')
+                      : ''
+                  }
+                  onChange={(e) =>
+                    onFieldChange('employment_detail.personal_email', null, e.target.value)
+                  }
                   className="h-7 text-xs"
                 />
               </div>
               <div className="grid" style={{ gridTemplateColumns: '160px 1fr' }}>
                 <span className="text-xs text-muted-foreground self-center">Personal phone</span>
                 <Input
-                  value={contactForm.personalPhone}
-                  onChange={(e) => setContactForm((f) => ({ ...f, personalPhone: e.target.value }))}
-                  placeholder="+84901234567"
+                  aria-label="Personal phone"
+                  value={
+                    dirtyFields.has('employment_detail.personal_phone')
+                      ? String(dirtyFields.get('employment_detail.personal_phone')!.new ?? '')
+                      : ''
+                  }
+                  onChange={(e) =>
+                    onFieldChange('employment_detail.personal_phone', null, e.target.value)
+                  }
                   className="h-7 text-xs"
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => setContactForm({ personalEmail: '', personalPhone: '' })}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  className="h-7 px-2 text-xs gap-1"
-                  disabled={isContactPending}
-                  onClick={saveContact}
-                >
-                  {isContactPending && <Spinner className="size-3" />}
-                  Save
-                </Button>
-              </div>
             </div>
-          </ProfileCard>
-        )}
+          ) : (
+            <>
+              <KVRow label="Personal email" value={null} />
+              <KVRow label="Personal phone" value={null} />
+            </>
+          )}
+        </ProfileCard>
 
         <ProfileCard
           title="Emergency contacts"
