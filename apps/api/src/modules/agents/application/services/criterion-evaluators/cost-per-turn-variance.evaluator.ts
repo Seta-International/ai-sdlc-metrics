@@ -22,6 +22,10 @@ export class CostPerTurnVarianceEvaluator implements CriterionEvaluator {
   constructor(@Inject(METRICS_QUERY_PORT) private readonly metricsQuery: MetricsQueryPort) {}
 
   async evaluate(window: EvalWindow): Promise<CriterionResult> {
+    if (!this.metricsQuery.isEnabled()) {
+      return { observedValue: 'unknown', threshold, passed: false, unableToEvaluate: true }
+    }
+
     const variance = await this.metricsQuery.sumCounter({
       metricName: 'agent_cost_usd_p95_week_over_week_variance',
       window,

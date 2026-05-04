@@ -12,6 +12,11 @@ vi.mock('@future/auth', () => ({
 vi.mock('@future/api-client', () => ({
   useQuery: vi.fn(),
   useMutation: vi.fn(),
+  useQueryClient: vi.fn(() => ({ removeQueries: vi.fn() })),
+}))
+
+vi.mock('./directory-sync-card', () => ({
+  DirectorySyncCard: () => <div data-testid="directory-sync-card" />,
 }))
 
 vi.mock('./directory-sync-card', () => ({
@@ -36,6 +41,11 @@ vi.mock('../../../lib/trpc', () => ({
         disconnect: {
           pause: { mutate: vi.fn() },
           destroy: { mutate: vi.fn() },
+        },
+        conflicts: {
+          list: { query: vi.fn() },
+          retry: { mutate: vi.fn() },
+          acceptMsState: { mutate: vi.fn() },
         },
       },
     },
@@ -243,5 +253,134 @@ describe('<MicrosoftIntegrationPage />', () => {
 
     expect(screen.getByText(/Coming soon for this tenant/i)).toBeInTheDocument()
     expect(screen.getByText(/planner.ms_sync.enabled/i)).toBeInTheDocument()
+  })
+
+  it('shows Conflicts tab trigger in connected state', () => {
+    const statusData = {
+      data: {
+        connected: true,
+        status: 'active',
+        tenantAdId: '11111111-1111-1111-1111-111111111111',
+        clientId: '22222222-2222-2222-2222-222222222222',
+        connectedAt: '2026-04-24T08:00:00.000Z',
+        lastError: null,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useQuery>
+
+    const flagsData = {
+      data: { msSyncAttachmentsEnabled: true, msSyncRostersEnabled: false },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useQuery>
+
+    const emptyConflictsData = {
+      data: { conflicts: [], nextCursor: null },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useQuery>
+
+    const emptyArrayData = {
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useQuery>
+
+    // useQuery call order: statusQuery, flagsQuery, linkedGroupsQuery, linkedRostersQuery,
+    // openConflictsQuery, LinkGroupDrawer.availableQuery
+    mockedUseQuery
+      .mockReturnValueOnce(statusData)
+      .mockReturnValueOnce(flagsData)
+      .mockReturnValueOnce(emptyArrayData) // linkedGroupsQuery
+      .mockReturnValueOnce(emptyArrayData) // linkedRostersQuery (disabled)
+      .mockReturnValueOnce(emptyConflictsData) // openConflictsQuery
+      .mockReturnValue(emptyArrayData) // LinkGroupDrawer.availableQuery + any extras
+
+    render(<MicrosoftIntegrationPage />)
+
+    expect(screen.getByRole('tab', { name: /Conflicts/i })).toBeInTheDocument()
+  })
+
+  it('shows open-count badge in Conflicts tab when conflicts exist', () => {
+    const statusData = {
+      data: {
+        connected: true,
+        status: 'active',
+        tenantAdId: '11111111-1111-1111-1111-111111111111',
+        clientId: '22222222-2222-2222-2222-222222222222',
+        connectedAt: '2026-04-24T08:00:00.000Z',
+        lastError: null,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useQuery>
+
+    const makeConflict = (id: string) => ({
+      id,
+      kind: 'push_412_exhausted',
+      createdAt: new Date().toISOString(),
+      taskId: null,
+      taskTitle: null,
+      planTitle: null,
+      field: null,
+      mineValue: null,
+      theirsValue: null,
+      limitCode: null,
+      resolution: null,
+      resolvedAt: null,
+      rawError: null,
+    })
+
+    const conflictsData = {
+      data: {
+        conflicts: [makeConflict('c1'), makeConflict('c2'), makeConflict('c3')],
+        nextCursor: null,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useQuery>
+
+    const flagsData = {
+      data: { msSyncAttachmentsEnabled: true, msSyncRostersEnabled: false },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useQuery>
+
+    const emptyArrayData = {
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useQuery>
+
+    // useQuery call order: statusQuery, flagsQuery, linkedGroupsQuery, linkedRostersQuery,
+    // openConflictsQuery, LinkGroupDrawer.availableQuery
+    mockedUseQuery
+      .mockReturnValueOnce(statusData)
+      .mockReturnValueOnce(flagsData)
+      .mockReturnValueOnce(emptyArrayData) // linkedGroupsQuery
+      .mockReturnValueOnce(emptyArrayData) // linkedRostersQuery (disabled)
+      .mockReturnValueOnce(conflictsData) // openConflictsQuery
+      .mockReturnValue(emptyArrayData) // LinkGroupDrawer.availableQuery + any extras
+
+    render(<MicrosoftIntegrationPage />)
+
+    expect(screen.getByRole('tab', { name: /Conflicts \(3\)/i })).toBeInTheDocument()
   })
 })

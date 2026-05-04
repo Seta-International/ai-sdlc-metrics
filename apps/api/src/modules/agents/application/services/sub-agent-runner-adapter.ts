@@ -1,6 +1,4 @@
 /**
- * SubAgentRunnerAdapter — Plan 17 PR 2 Task 6
- *
  * Implements `ISubAgentRunner` for NestJS DI wiring. Drives the real ReAct
  * loop end-to-end:
  *
@@ -8,10 +6,10 @@
  *      `SubAgentRegistry`. Unknown keys throw loud (no silent fallback).
  *   2. Honour pre-fired abort signals — short-circuit to `kind: 'aborted'`.
  *   3. Build a `BridgeAccumulator` and bridge the sub-agent's `toolScope` onto
- *      Vercel-AI-SDK `tool({...})` shapes via `buildSubAgentTools` (Task 4).
+ *      Vercel-AI-SDK `tool({...})` shapes via `buildSubAgentTools`.
  *   4. Resolve the model (static or function-valued) against a `TenantContext`.
- *   5. Run the ReAct loop via `runReactLoop` (Task 5) — catches HardTripwireError
- *      and AbortError, surfaces them as discriminated result branches.
+ *   5. Run the ReAct loop via `runReactLoop` — catches HardTripwireError and
+ *      AbortError, surfaces them as discriminated result branches.
  *   6. Translate the driver result into a `SubAgentOutput` via the existing
  *      `buildSubAgentOutput` helper (precedence: `ceilingHit` > schema-fail >
  *      completed). Hard-tripwire branches feed an empty rawStructured so the
@@ -59,16 +57,14 @@ import type {
 } from '../../domain/services/sub-agent-types'
 import type { SubAgentDirective } from '../../domain/value-objects/router-plan-schema'
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 /**
  * Builds a deterministic user message for the sub-agent. Encodes the directive's
  * input (treated as the user goal) plus the LLM's rationale for dispatch.
  *
  * `phaseContextNote` is appended as the trailing line when defined — set by
- * `BoundedExecutor` before phase-2 dispatch to surface circuit-breaker context
- * (R-03.18, Plan 18 §5). Order matters: the runtime note follows the static
- * directive content so prior sections are not shifted.
+ * `BoundedExecutor` before phase-2 dispatch to surface circuit-breaker context.
+ * Order matters: the runtime note follows the static directive content so prior
+ * sections are not shifted.
  */
 function buildSubAgentUserMessage(directive: SubAgentDirective, phaseContextNote?: string): string {
   const utterance =
@@ -172,8 +168,6 @@ function abortedOutput(
   }
 }
 
-// ─── SubAgentRunnerAdapter ────────────────────────────────────────────────────
-
 @Injectable()
 export class SubAgentRunnerAdapter implements ISubAgentRunner {
   private readonly logger = new Logger(SubAgentRunnerAdapter.name)
@@ -203,7 +197,6 @@ export class SubAgentRunnerAdapter implements ISubAgentRunner {
       return abortedOutput(subAgentKey, accumulator, config.outputSchema)
     }
 
-    // ── Construct gateway invoke context ───────────────────────────────────────
     const requestContext: RequestContext = {
       tenantId: turnState.tenantId,
       userId: turnState.userId,
@@ -237,7 +230,6 @@ export class SubAgentRunnerAdapter implements ISubAgentRunner {
       accumulator,
     })
 
-    // ── Resolve model + run loop ──────────────────────────────────────────────
     const tenantContext: TenantContext = {
       tenantId: turnState.tenantId,
       surface: turnState.surface,
@@ -261,7 +253,6 @@ export class SubAgentRunnerAdapter implements ISubAgentRunner {
       accumulator,
     })
 
-    // ── Branch on driverResult ────────────────────────────────────────────────
     if (driverResult.aborted) {
       recordSubAgentIteration({ subAgentKey, outcome: 'aborted' })
       return abortedOutput(subAgentKey, accumulator, config.outputSchema)

@@ -12,12 +12,8 @@ import {
 import { NotificationsWriteFacade } from '../../../notifications/application/facades/notifications-write.facade'
 import { ToolRegistry } from '../../infrastructure/tool-registry/tool-registry'
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const DELEGATION_MAX_ACTIVE = 10
 const DELEGATION_MAX_DAYS = 180
-
-// ─── DelegationLifecycle ──────────────────────────────────────────────────────
 
 @Injectable()
 export class DelegationLifecycle {
@@ -33,8 +29,6 @@ export class DelegationLifecycle {
     private readonly toolRegistry: ToolRegistry,
   ) {}
 
-  // ─── create() ──────────────────────────────────────────────────────────────
-
   async create(opts: {
     tenantId: string
     delegatorUserId?: string
@@ -44,7 +38,7 @@ export class DelegationLifecycle {
   }): Promise<AgentDelegation> {
     const { tenantId, delegatorUserId, delegate, expiresAt } = opts
 
-    // Step 1: Personal delegation checks (rate limit + max-active)
+    // Personal delegation checks (rate limit + max-active).
     if (delegatorUserId !== undefined) {
       const rateResult = await this.rateLimiter.check({
         tenantId,
@@ -64,11 +58,11 @@ export class DelegationLifecycle {
       }
     }
 
-    // Step 2: Cap expiresAt to 180 days from now
+    // Cap expiresAt to 180 days from now.
     const maxExpiresAt = new Date(Date.now() + DELEGATION_MAX_DAYS * 24 * 3600_000)
     const effectiveExpiresAt = new Date(Math.min(expiresAt.getTime(), maxExpiresAt.getTime()))
 
-    // Step 3: Tool drift check on scope.permitted_tools
+    // Tool drift check on scope.permitted_tools.
     let effectiveScope = { ...opts.scope }
     const requestedTools = opts.scope['permitted_tools']
     if (Array.isArray(requestedTools)) {
@@ -100,7 +94,6 @@ export class DelegationLifecycle {
       }
     }
 
-    // Step 4: Insert delegation via kernel facade
     const { id: delegationId } = await this.delegationFacade.createDelegation({
       tenantId,
       delegatorUserId: delegatorUserId ?? null,
@@ -109,7 +102,6 @@ export class DelegationLifecycle {
       expiresAt: effectiveExpiresAt,
     })
 
-    // Step 5: Emit creation audit
     await this.auditFacade.recordEvent({
       tenantId,
       actorId: delegatorUserId ?? 'system',
@@ -126,15 +118,12 @@ export class DelegationLifecycle {
       },
     })
 
-    // Step 6: Return full hydrated entity
     const delegation = await this.delegationFacade.getDelegation({ tenantId, delegationId })
     if (delegation === null) {
       throw new Error(`DelegationLifecycle: delegation ${delegationId} not found after insert`)
     }
     return delegation
   }
-
-  // ─── revoke() ──────────────────────────────────────────────────────────────
 
   async revoke(opts: { tenantId: string; delegationId: string; reason: string }): Promise<void> {
     const { tenantId, delegationId, reason } = opts
@@ -151,8 +140,6 @@ export class DelegationLifecycle {
     })
   }
 
-  // ─── listActive() ──────────────────────────────────────────────────────────
-
   async listActive(opts: { tenantId: string; userId?: string }): Promise<AgentDelegation[]> {
     const { tenantId, userId } = opts
 
@@ -161,8 +148,6 @@ export class DelegationLifecycle {
     }
     return this.delegationFacade.listActiveForTenant({ tenantId })
   }
-
-  // ─── sweepExpired() ────────────────────────────────────────────────────────
 
   async sweepExpired(): Promise<{ expiredCount: number }> {
     const beforeDate = new Date()
@@ -208,8 +193,6 @@ export class DelegationLifecycle {
 
     return { expiredCount: expiredDelegationIds.length }
   }
-
-  // ─── handleUserOffboarding() ───────────────────────────────────────────────
 
   async handleUserOffboarding(opts: {
     tenantId: string

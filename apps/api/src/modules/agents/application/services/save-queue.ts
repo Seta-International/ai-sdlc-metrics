@@ -3,8 +3,6 @@ import type { ConversationMessageEntity } from '../../domain/entities/conversati
 import type { ConversationMessageRepository } from '../../domain/repositories/conversation-message.repository'
 import { CONVERSATION_MESSAGE_REPOSITORY } from '../../domain/repositories/conversation-message.repository'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface EnqueueOpts {
   conversationId: string
   tenantId: string
@@ -22,17 +20,13 @@ interface QueueEntry {
   stalenessTimer: ReturnType<typeof setTimeout> | null
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const DEBOUNCE_MS = 100
 const STALENESS_MS = 1_000
-
-// ─── Implementation ───────────────────────────────────────────────────────────
 
 /**
  * SaveQueue — debounced write queue for persisting agent conversation messages.
  *
- * Behaviour (R-04.23):
+ * Behaviour:
  * - 100ms debounce per conversationId: messages arriving within 100ms of each
  *   other coalesce into one flush call.
  * - 1s staleness cap: if the oldest buffered message has been waiting longer
@@ -57,8 +51,6 @@ export class SaveQueue {
     @Inject(CONVERSATION_MESSAGE_REPOSITORY)
     private readonly repo: ConversationMessageRepository,
   ) {}
-
-  // ─── Public API ────────────────────────────────────────────────────────────
 
   /**
    * Add a message to the debounced write queue.
@@ -118,8 +110,6 @@ export class SaveQueue {
     const conversationIds = [...this.buffers.keys()]
     await Promise.all(conversationIds.map((id) => this.triggerFlush(id)))
   }
-
-  // ─── Internal ──────────────────────────────────────────────────────────────
 
   /**
    * Schedule a flush for a conversationId, chaining it onto the per-conversation

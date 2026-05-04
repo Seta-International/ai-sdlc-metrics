@@ -1,7 +1,7 @@
 /**
- * GDPRErasurePipeline — full GDPR erasure for a single user (Plan 04, R-04.27..R-04.30)
+ * GDPRErasurePipeline — full GDPR erasure for a single user.
  *
- * Steps (§5 Control Flow):
+ * Steps:
  *   a. Kernel audit event `user_erased_start`
  *   b. MessageStore.hardDeleteContent → nulls content + summary
  *   c. L3Preferences.delete({ userId, tenantId })
@@ -15,8 +15,6 @@ import type { ConversationMessageRepository } from '../../domain/repositories/co
 import type { L3PreferenceRepository } from '../../domain/repositories/l3-preference.repository'
 import type { ScratchpadRepository } from '../../domain/repositories/scratchpad.repository'
 import type { SemanticIndexRepository } from '../../domain/repositories/semantic-index.repository'
-
-// ─── Interfaces ───────────────────────────────────────────────────────────────
 
 /**
  * Minimal KernelAuditFacade interface consumed by the pipeline.
@@ -46,8 +44,6 @@ export interface EraseResult {
   auditEventId: string
 }
 
-// ─── Implementation ───────────────────────────────────────────────────────────
-
 /**
  * GDPRErasurePipeline service.
  *
@@ -63,21 +59,17 @@ export class GDPRErasurePipeline {
     private readonly kernelAudit: KernelAuditFacadeLike,
   ) {}
 
-  // ─── Public API ─────────────────────────────────────────────────────────────
-
   async erase(opts: EraseOpts): Promise<EraseResult> {
     const { userId, tenantId } = opts
 
     const auditEventId = randomUUID()
 
-    // a. Kernel audit start
     await this.kernelAudit.recordEvent({
       eventType: 'user_erased_start',
       userId,
       tenantId,
     })
 
-    // b. DB — hardDeleteContent
     let dbMessagesScrubbed = 0
     try {
       const dbResult = await this.messageRepo.hardDeleteContent({ userId, tenantId })
@@ -100,25 +92,22 @@ export class GDPRErasurePipeline {
       }
     }
 
-    // c. L3 preferences — count keys first, then delete all
+    // L3 preferences — count keys first, then delete all.
     let l3Deleted = 0
     const l3All = await this.l3Repo.getAll({ userId, tenantId })
     l3Deleted = Object.keys(l3All).length
     await this.l3Repo.delete({ userId, tenantId })
 
-    // d. L3.5 scratchpad
     const { count: l35ScratchpadDeleted } = await this.scratchpadRepo.deleteForUser(
       tenantId,
       userId,
     )
 
-    // e. Semantic index purge
     const { count: semanticIndexPurged } = await this.semanticIndex.purgeForUser({
       tenantId,
       userId,
     })
 
-    // f. Final audit event
     await this.kernelAudit.recordEvent({
       eventType: 'user_erased_complete',
       userId,

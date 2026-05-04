@@ -7,6 +7,7 @@ const WINDOW: EvalWindow = { start: new Date('2026-03-26'), end: new Date('2026-
 
 function buildCiState(response: boolean | null): CiStatePort {
   return {
+    isEnabled: vi.fn().mockReturnValue(true),
     checkPassed: vi.fn().mockResolvedValue(response),
   }
 }
@@ -43,6 +44,20 @@ describe('SecurityRlsUnbypassableEvaluator', () => {
     expect(result.passed).toBe(false)
     expect(result.observedValue).toBe('unknown')
     expect(result.unableToEvaluate).toBe(true)
+  })
+
+  it('returns unableToEvaluate when port is disabled and does not invoke checkPassed', async () => {
+    const ciState: CiStatePort = {
+      isEnabled: vi.fn().mockReturnValue(false),
+      checkPassed: vi.fn(),
+    }
+    const evaluator = new SecurityRlsUnbypassableEvaluator(ciState)
+
+    const result = await evaluator.evaluate(WINDOW)
+
+    expect(result.passed).toBe(false)
+    expect(result.unableToEvaluate).toBe(true)
+    expect(ciState.checkPassed).not.toHaveBeenCalled()
   })
 
   it('has the correct id and section', () => {

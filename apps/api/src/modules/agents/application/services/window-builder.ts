@@ -3,17 +3,17 @@
  *
  * Builds γ (global) and α (inline) memory windows for the router prompt.
  *
- * γ window (R-04.11):
- *   - verbatim: last 3 user-turn summaries, delimiter-wrapped (R-04.26b)
- *   - compressed: last 10 summaries beyond the verbatim 3 (concat placeholder — real nano call in Phase 4)
- *   - rolling: concatenation of all available summaries updated when ≥3 turns exist (R-04.26c)
+ * γ window:
+ *   - verbatim: last 3 user-turn summaries, delimiter-wrapped
+ *   - compressed: last 10 summaries beyond the verbatim 3 (concat placeholder — nano summarizer wired in later)
+ *   - rolling: concatenation of all available summaries updated when ≥3 turns exist
  *
- * α window (R-04.12):
+ * α window:
  *   - verbatim: last N user-turn summaries (default 5), delimiter-wrapped
  *   - compressed: [] (α windows carry no compressed tier)
  *   - rolling: null (α windows carry no rolling summary)
  *
- * IMPORTANT: WindowBuilder NEVER invokes L3/L4/domain tools (R-04.13).
+ * IMPORTANT: WindowBuilder NEVER invokes L3/L4/domain tools.
  * Router read surface is γ/α only.
  */
 
@@ -24,19 +24,19 @@ import type {
   VerbatimSummary,
 } from '../../domain/value-objects/windowed-summaries'
 
-// R-04.26c: rolling summary is computed only when ≥3 user turns with summaries exist.
+// Rolling summary is computed only when ≥3 user turns with summaries exist.
 const ROLLING_TURN_THRESHOLD = 3
 
-// R-04.11: γ verbatim count.
+// γ verbatim count.
 const GAMMA_VERBATIM_COUNT = 3
 
-// R-04.11: γ compressed count.
+// γ compressed count.
 const GAMMA_COMPRESSED_COUNT = 10
 
-// R-04.12: α verbatim count default.
+// α verbatim count default.
 const ALPHA_VERBATIM_DEFAULT = 5
 
-// R-04.26b: delimiter tags wrapping every summary at inject time.
+// Delimiter tags wrapping every summary at inject time.
 const SUMMARY_DELIMITER_OPEN = '<conversation_summary source="post_turn_nano">'
 const SUMMARY_DELIMITER_CLOSE = '</conversation_summary>'
 
@@ -44,7 +44,7 @@ export type BuildGlobalOpts = {
   conversationId: string
   tenantId: string
   /**
-   * R-04.14: optional permission-scope field filter. When provided, any
+   * Optional permission-scope field filter. When provided, any
    * field-key token found in the summary text that is NOT in this set will
    * be stripped. Field tokens are expected in the form `key=value` within
    * the raw summary string.
@@ -66,7 +66,7 @@ export class WindowBuilder {
    * Build the γ (global) memory window.
    *
    * Fetches enough messages to populate verbatim (3) + compressed (10) tiers.
-   * Applies delimiter wrapping (R-04.26b) and permission-scope filtering (R-04.14).
+   * Applies delimiter wrapping and permission-scope filtering.
    */
   async buildGlobal(opts: BuildGlobalOpts): Promise<WindowedSummaries> {
     const { conversationId, tenantId, allowedFields } = opts
@@ -95,7 +95,7 @@ export class WindowBuilder {
     const compressedStart = Math.max(0, compressedEnd - GAMMA_COMPRESSED_COUNT)
     const compressedRaw = oldest.slice(compressedStart, compressedEnd)
 
-    // Rolling: computed from ALL available summaries when ≥ ROLLING_TURN_THRESHOLD exist (R-04.26c).
+    // Rolling: computed from ALL available summaries when ≥ ROLLING_TURN_THRESHOLD exist.
     const rolling =
       oldest.length >= ROLLING_TURN_THRESHOLD ? oldest.map((m) => m.summary).join(' ') : null
 
@@ -104,7 +104,7 @@ export class WindowBuilder {
       summary: this.wrapAndFilter(m.summary, allowedFields),
     }))
 
-    // MVP compressed tier: concatenation placeholder (Phase 4 will call the nano summarizer).
+    // MVP compressed tier: concatenation placeholder.
     const compressed: string[] = compressedRaw.map((m) =>
       this.wrapAndFilter(m.summary, allowedFields),
     )
@@ -142,8 +142,8 @@ export class WindowBuilder {
   }
 
   /**
-   * Wrap a raw summary in R-04.26b delimiters and optionally apply
-   * permission-scope field filtering (R-04.14).
+   * Wrap a raw summary in delimiters and optionally apply
+   * permission-scope field filtering.
    *
    * Field filtering strips `key=value` tokens where `key` is not in the
    * allowedFields set. This is an MVP approximation; a production implementation

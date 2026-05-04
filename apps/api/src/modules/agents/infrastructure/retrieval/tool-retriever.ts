@@ -1,5 +1,5 @@
 /**
- * ToolRetriever — per-invocation nearest-neighbour tool selector (Plan 02.5 Task 2).
+ * ToolRetriever — per-invocation nearest-neighbour tool selector.
  *
  * Given a sub-agent directive (goal + constraints), computes a directive embedding
  * and ranks the tool scope by cosine similarity against pre-built tool descriptor
@@ -24,11 +24,7 @@ import { ToolDescriptorEmbedder, TOOL_DESCRIPTOR_EMBEDDER } from './tool-descrip
 import { cosineSimilarity } from './cosine'
 import { RETRIEVAL_EMBEDDING_MODEL } from './retrieval-constants'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const TOOL_RETRIEVER = Symbol('TOOL_RETRIEVER')
-
-// ─── Interfaces ───────────────────────────────────────────────────────────────
 
 export interface RetrieveOpts {
   /** Branded sub-agent key for tracing. */
@@ -54,8 +50,6 @@ export interface RetrieveResult {
   /** SHA-256 hash of the canonicalized directive query. */
   readonly retrievalInputHash: string
 }
-
-// ─── ToolRetriever ────────────────────────────────────────────────────────────
 
 /** Max cached directive embeddings. LRU via Map insertion-order eviction. */
 const MAX_DIRECTIVE_CACHE = 500
@@ -86,8 +80,6 @@ export class ToolRetriever implements OnModuleInit {
     this.openai = createOpenAI({ apiKey })
   }
 
-  // ─── retrieve ─────────────────────────────────────────────────────────────
-
   async retrieve(opts: RetrieveOpts): Promise<RetrieveResult> {
     const startMs = Date.now()
     const span = this.tracer.startSpan('tool-retrieval:retrieve')
@@ -115,7 +107,6 @@ export class ToolRetriever implements OnModuleInit {
   private async _retrieve(opts: RetrieveOpts, startMs: number): Promise<RetrieveResult> {
     const { subAgentKey, directive, toolScope, coreTools, topK } = opts
 
-    // ── Step 1: Canonicalize directive → SHA-256 hash ───────────────────────
     // Sort constraints so order doesn't affect the hash.
     // JSON.stringify avoids ambiguity between a long goal and separate constraints.
     const directiveText = JSON.stringify({
@@ -124,7 +115,6 @@ export class ToolRetriever implements OnModuleInit {
     })
     const retrievalInputHash = createHash('sha256').update(directiveText).digest('hex')
 
-    // ── Step 2: Embed the directive (cache-first) ────────────────────────────
     let directiveEmbedding: number[]
     const cached = this._directiveCache.get(retrievalInputHash)
     if (cached !== undefined) {
@@ -148,7 +138,8 @@ export class ToolRetriever implements OnModuleInit {
           `ToolRetriever: embedding provider unreachable for subAgent=${subAgentKey}. ` +
             `Falling back to full toolScope (${toolScope.length} tools). Error: ${String(error)}`,
         )
-        // TODO plan 07: replace with metric counter agent_tool_retrieval_fallback_fired_total{cause}
+        // DEFERRED: replace with metric counter agent_tool_retrieval_fallback_fired_total{cause}
+        // once Plan 07 metrics infrastructure ships.
         this.logger.warn(
           `tool.retrieval.fallback_fired cause=${error instanceof Error && error.message.includes('timeout') ? 'provider_timeout' : 'provider_error'} sub_agent_key=${subAgentKey}`,
         )
@@ -160,7 +151,6 @@ export class ToolRetriever implements OnModuleInit {
       }
     }
 
-    // ── Step 3: Score each tool by cosine similarity ─────────────────────────
     // Tools without a vector in the embedder's index are skipped.
     const scored: Array<{ tool: AgentToolDescriptor; score: number }> = []
     for (const tool of toolScope) {
@@ -175,14 +165,11 @@ export class ToolRetriever implements OnModuleInit {
       })
     }
 
-    // ── Step 4: Sort descending by similarity, take top-K ───────────────────
     scored.sort((a, b) => b.score - a.score)
     const topKScored = scored.slice(0, topK)
 
-    // ── Step 5: Build tool name lookup for scope ─────────────────────────────
     const scopeByName = new Map<string, AgentToolDescriptor>(toolScope.map((t) => [t.name, t]))
 
-    // ── Step 6: Resolve coreTools (skip names not in scope) ─────────────────
     const resolvedCoreTools: AgentToolDescriptor[] = []
     const coreToolNameSet = new Set<string>()
     for (const name of coreTools) {
@@ -193,7 +180,7 @@ export class ToolRetriever implements OnModuleInit {
       }
     }
 
-    // ── Step 7: Union — coreTools first, then ranked (excluding coreTools) ──
+    // Union — coreTools first, then ranked (excluding coreTools).
     const selected: AgentToolDescriptor[] = [...resolvedCoreTools]
     const seenNames = new Set<string>(coreToolNameSet)
 

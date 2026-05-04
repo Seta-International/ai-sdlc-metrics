@@ -9,6 +9,7 @@ import {
   createBackfillProgressEvent,
   createMsGroupBackfillCompletedEvent,
 } from '@future/event-contracts'
+import { KernelAuditFacade } from '../../../../kernel/application/facades/kernel-audit.facade'
 import { PlanIngestor } from './plan-ingestor'
 
 export interface BackfillJobData {
@@ -28,6 +29,7 @@ export class BackfillGroupWorker {
     @Inject(MS_LINKED_GROUP_REPOSITORY)
     private readonly groupRepo: IMsLinkedGroupRepository,
     private readonly eventBus: EventBus,
+    private readonly auditFacade: KernelAuditFacade,
   ) {}
 
   async run(data: BackfillJobData): Promise<void> {
@@ -39,16 +41,20 @@ export class BackfillGroupWorker {
     let processed = 0
     const total = plans.length
 
-    this.eventBus.publish(
-      createBackfillProgressEvent({
-        jobId: data.linkedGroupId,
-        tenantId: data.tenantId,
-        msGroupId: data.msGroupId,
-        total,
-        processed,
-        occurredAt: new Date().toISOString(),
-      }),
-    )
+    const initialEvent = createBackfillProgressEvent({
+      jobId: data.linkedGroupId,
+      tenantId: data.tenantId,
+      msGroupId: data.msGroupId,
+      total,
+      processed,
+      occurredAt: new Date().toISOString(),
+    })
+    await this.auditFacade.publishOutboxEvent({
+      tenantId: data.tenantId,
+      eventName: initialEvent.type,
+      payload: initialEvent,
+    })
+    this.eventBus.publish(initialEvent)
 
     for (const p of plans) {
       const start = Date.now()
@@ -59,16 +65,20 @@ export class BackfillGroupWorker {
       })
       processed++
 
-      this.eventBus.publish(
-        createBackfillProgressEvent({
-          jobId: data.linkedGroupId,
-          tenantId: data.tenantId,
-          msGroupId: data.msGroupId,
-          total,
-          processed,
-          occurredAt: new Date().toISOString(),
-        }),
-      )
+      const progressEvent = createBackfillProgressEvent({
+        jobId: data.linkedGroupId,
+        tenantId: data.tenantId,
+        msGroupId: data.msGroupId,
+        total,
+        processed,
+        occurredAt: new Date().toISOString(),
+      })
+      await this.auditFacade.publishOutboxEvent({
+        tenantId: data.tenantId,
+        eventName: progressEvent.type,
+        payload: progressEvent,
+      })
+      this.eventBus.publish(progressEvent)
 
       const budget = Math.floor(1000 / this.rpsTarget)
       const elapsed = Date.now() - start

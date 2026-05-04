@@ -54,10 +54,27 @@ export class CanaryQueryRotator {
     return { retired, ingested, newQuarter: opts.newQuarter }
   }
 
-  // MVP stub — at MVP, caller passes pre-formed queries to rotateQuarterly.
-  // Production automation (anonymize → sample → author contract → ingest) is a Beta-phase operation.
+  /**
+   * Production automation (anonymize → sample → author contract → ingest) is
+   * a Beta-phase operation. Returns false until that pipeline is built;
+   * callers MUST gate on this before invoking ingestFromProduction.
+   */
+  isIngestFromProductionEnabled(): boolean {
+    return false
+  }
+
+  /**
+   * Ingest production traces into the canary query corpus.
+   *
+   * Throws until the Beta-phase production-trace pipeline is built. Returning
+   * an empty array silently would let an upstream automation think the ingest
+   * succeeded when nothing was actually processed.
+   */
   ingestFromProduction(_anonymizedTraces: unknown[]): never[] {
-    return []
+    throw new Error(
+      'CanaryQueryRotator.ingestFromProduction is disabled — Beta-phase pipeline not yet built. ' +
+        'Gate calls with isIngestFromProductionEnabled() before invoking.',
+    )
   }
 
   // Compute current quarter string like '2026-Q2'

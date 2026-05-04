@@ -7,11 +7,7 @@ import { DB_TOKEN } from '../../../../common/db/db.module'
 
 import { agentToolInvocations } from '../../infrastructure/schema/agents.schema'
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const RESULT_PREVIEW_MAX_BYTES = 16_384
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface RecordOpts {
   traceId: string
@@ -25,8 +21,6 @@ export interface RecordOpts {
   iteration?: number
   resultStatus: string
 }
-
-// ─── ToolInvocationAuditRecorder ─────────────────────────────────────────────
 
 @Injectable()
 export class ToolInvocationAuditRecorder {

@@ -28,6 +28,9 @@ export interface TenantRow {
   enabledModuleCount?: number | null
   aiKeyConfigured?: boolean | null
   lastAdminActivityAt?: Date | null
+  // MS Sync health — populated from tenantSyncHealth endpoint
+  msSyncStatus?: 'active' | 'disconnected' | null
+  msSyncOpenConflicts?: number | null
 }
 
 interface OrganizationTableProps {
@@ -130,6 +133,41 @@ function buildColumns(
           <Badge variant={configured ? 'success' : 'subtle'}>
             {configured ? 'Configured' : 'None'}
           </Badge>
+        )
+      },
+    },
+    {
+      id: 'msSync',
+      header: 'MS Sync',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const syncStatus = row.original.msSyncStatus
+        const openConflicts = row.original.msSyncOpenConflicts
+
+        if (syncStatus == null) {
+          return <span className="text-sm text-muted-foreground">—</span>
+        }
+
+        return (
+          <div className="flex items-center gap-2">
+            <span
+              className={
+                syncStatus === 'active'
+                  ? 'size-2 rounded-full bg-green-500'
+                  : 'size-2 rounded-full bg-gray-400'
+              }
+              aria-label={syncStatus === 'active' ? 'Active' : 'Disconnected'}
+            />
+            {openConflicts != null && openConflicts > 0 ? (
+              <Badge variant="warning">
+                {openConflicts} conflict{openConflicts !== 1 ? 's' : ''}
+              </Badge>
+            ) : (
+              <span className="text-sm text-muted-foreground">
+                {syncStatus === 'active' ? 'OK' : 'None'}
+              </span>
+            )}
+          </div>
         )
       },
     },

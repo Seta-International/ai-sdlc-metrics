@@ -131,6 +131,16 @@ export class KernelQueryFacade {
   }
 
   /**
+   * Returns IDs of tenants whose status is 'active'.
+   * Used by retention/scheduling jobs that should skip suspended or cancelled tenants
+   * (which often must preserve data for audit/legal hold).
+   */
+  async listActiveTenantIds(): Promise<string[]> {
+    const tenants = await this.tenantRepo.findAll()
+    return tenants.filter((t) => t.status === 'active').map((t) => t.id)
+  }
+
+  /**
    * Returns all tenants (active, suspended, cancelled, hidden system tenant).
    * Intended for platform_admin use — route-level auth enforcement is the caller's
    * responsibility.

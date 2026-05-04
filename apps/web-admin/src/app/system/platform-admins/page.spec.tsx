@@ -13,7 +13,9 @@ vi.mock('@future/api-client', () => ({
 
 vi.mock('@/lib/admin-api', () => ({
   listPlatformTenantsQueryKey: ['admin', 'platform', 'listTenants'],
+  tenantSyncHealthQueryKey: ['planner', 'msSync', 'tenantSyncHealth'],
   listPlatformTenants: vi.fn(),
+  listTenantSyncHealth: vi.fn(),
   updateTenantStatus: vi.fn(),
 }))
 

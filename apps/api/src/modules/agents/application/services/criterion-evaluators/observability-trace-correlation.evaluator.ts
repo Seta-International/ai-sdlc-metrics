@@ -22,6 +22,10 @@ export class ObservabilityTraceCorrelationEvaluator implements CriterionEvaluato
   constructor(@Inject(METRICS_QUERY_PORT) private readonly metricsQuery: MetricsQueryPort) {}
 
   async evaluate(window: EvalWindow): Promise<CriterionResult> {
+    if (!this.metricsQuery.isEnabled()) {
+      return { observedValue: 'unknown', threshold, passed: false, unableToEvaluate: true }
+    }
+
     const rate = await this.metricsQuery.sumCounter({
       metricName: 'agent_trace_correlation_success_rate',
       window,

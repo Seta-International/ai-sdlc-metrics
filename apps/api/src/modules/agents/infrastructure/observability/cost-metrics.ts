@@ -9,62 +9,62 @@
  *
  * For background on the lazy-init pattern, see gateway-metrics.ts.
  *
- * ── Instruments (Plan 05 §8) ──────────────────────────────────────────────────
+ * ── Instruments ──────────────────────────────────────────────────
  *
  * agent_cost_usd_total{tenant_id, layer, model_id, pricing_id}           counter
- *   Records dollar cost per successful LLM call (R-05.6a: once per success only).
+ *   Records dollar cost per successful LLM call (once per success only, never per retry).
  *
  * agent_usage_tokens_total{tenant_id, model_id, kind}                    counter
- *   Tokens consumed per successful LLM call (Plan 05 §8).
+ *   Tokens consumed per successful LLM call.
  *   kind ∈ {input_uncached, input_cached_read, input_cached_write, output, output_reasoning}.
- *   No user_id (R-05.30).
+ *   No user_id.
  *
  * agent_budget_remaining_usd{tenant_id}                                   observable gauge
  *   Snapshots remaining USD budget per tenant after each cost deduction.
  *
  * agent_budget_user_remaining_usd{tenant_id}                              observable gauge
- *   Aggregated per-user remaining budget, reported per tenant (no user_id label per R-05.30).
+ *   Aggregated per-user remaining budget, reported per tenant (no user_id label — cardinality guardrail).
  *   Updated alongside agent_budget_remaining_usd by BudgetChecker / CostRecorder.
  *
  * agent_tier_shift_total{tenant_id, from_tier, to_tier, reason}           counter
- *   Policy-driven tier downgrades (R-05.19). reason ∈ {budget, quality_canary}.
+ *   Policy-driven tier downgrades. reason ∈ {budget, quality_canary}.
  *
  * agent_provider_fallback_total{tenant_id, model_id, error_class}         counter
- *   Error-recovery fallbacks (R-05.20). error_class per VendorError taxonomy.
+ *   Error-recovery fallbacks. error_class per VendorError taxonomy.
  *
  * agent_llm_call_attempt_duration_ms{tenant_id, model_id, layer}          histogram
- *   Duration of the terminal successful attempt only (R-05.6b latency SLO source).
+ *   Duration of the terminal successful attempt only (latency SLO source).
  *
  * agent_llm_call_total_duration_ms{tenant_id, model_id, layer}            histogram
- *   Total duration across all attempts (R-05.6b reliability analysis source).
+ *   Total duration across all attempts (reliability analysis source).
  *
  * agent_vendor_retry_total{tenant_id, model_id, error_class}              counter
- *   Internal vendor retries before success (R-05.6a / R-05.20b). Zero cost impact.
+ *   Internal vendor retries before success. Zero cost impact.
  *
  * agent_rate_limit_rejected_total{tenant_id, limit_key}                   counter
  *   Rate-limit rejections per tenant. limit_key ∈ {queries/user/min,
  *   l3_writes/user/day, schedule_creations/user/day}.
  *
  * agent_adapter_drop_total{adapter, field}                                counter
- *   Adapter-field drops (R-05.5). P1 alert on any non-zero value.
+ *   Adapter-field drops. P1 alert on any non-zero value.
  *   No tenant_id — adapter-level signal, not tenant-attributed.
  *
  * agent_approval_inbox_depth{tenant_id}                                   observable gauge
- *   Approver-aggregate pending draft count (no user_id label per R-05.30).
+ *   Approver-aggregate pending draft count (no user_id label — cardinality guardrail).
  *
  * agent_budget_refill_total{tenant_id, source}                            counter
  *   Budget refill events. source ∈ {midnight, admin_topup}.
  *
  * agent_ladder_step_total{tenant_id, step, trace_tag}                     counter
- *   Per-degradation-step occurrences (Plan 05 §8). step ∈ 1..7.
+ *   Per-degradation-step occurrences. step ∈ 1..7.
  *   trace_tag ∈ {provider_retry, provider_fallback, provider_outage, tier_shift, refused}.
  *
  * agent_ladder_transition_latency_ms{step}                                histogram
- *   Time to execute a ladder step transition (Plan 05 §8). step ∈ 1..7.
+ *   Time to execute a ladder step transition. step ∈ 1..7.
  *   Emitted by GracefulDegradationLadder.evaluate() around each step dispatch.
  *   No tenant_id — ladder-evaluation is CPU-bound; per-step timing is the signal.
  *
- * ── Label cardinality guardrail (R-05.30 / R-05.31) ─────────────────────────
+ * ── Label cardinality guardrail ─────────────────────────────────────────────
  *
  * BLOCKED_LABELS = [user_id, conversation_id, trace_id, delegation_id, schedule_id]
  * None of the above labels appear on any instrument defined here.
@@ -78,8 +78,6 @@ import {
   type ObservableGauge,
   type BatchObservableResult,
 } from '@opentelemetry/api'
-
-// ─── Instrument interface ─────────────────────────────────────────────────────
 
 interface CostInstruments {
   /** agent_cost_usd_total{tenant_id, layer, model_id, pricing_id} */
@@ -114,8 +112,6 @@ interface CostInstruments {
   ladderTransitionLatencyMs: Histogram
 }
 
-// ─── Module-level state ───────────────────────────────────────────────────────
-
 /** Per-tenant remaining USD budget (0 or positive). Updated by setBudgetRemaining. */
 const _budgetRemainingMap = new Map<string, number>()
 
@@ -127,8 +123,6 @@ const _approvalInboxDepthMap = new Map<string, number>()
 
 let _instruments: CostInstruments | undefined
 
-// ─── Lazy instrument cache ────────────────────────────────────────────────────
-
 function getInstruments(): CostInstruments {
   if (_instruments) return _instruments
 
@@ -137,32 +131,32 @@ function getInstruments(): CostInstruments {
   const costUsdTotal = meter.createCounter('agent_cost_usd_total', {
     description:
       'Dollar cost per successful LLM call, labelled by tenant, layer, model, and pricing version. ' +
-      'Incremented once per success (R-05.6a — never per retry attempt).',
+      'Incremented once per success — never per retry attempt.',
     unit: 'USD',
     valueType: ValueType.DOUBLE,
   })
 
   const usageTokensTotal = meter.createCounter('agent_usage_tokens_total', {
     description:
-      'Tokens consumed per successful LLM call (Plan 05 §8). ' +
+      'Tokens consumed per successful LLM call. ' +
       'kind ∈ {input_uncached, input_cached_read, input_cached_write, output, output_reasoning}. ' +
-      'Incremented once per success alongside agent_cost_usd_total (R-05.6a). ' +
-      'No user_id label (R-05.30).',
+      'Incremented once per success alongside agent_cost_usd_total. ' +
+      'No user_id label.',
     valueType: ValueType.INT,
   })
 
   const budgetRemainingUsd = meter.createObservableGauge('agent_budget_remaining_usd', {
     description:
       'Remaining daily USD budget per tenant, snapshotted after each cost deduction. ' +
-      'No user_id label (R-05.30).',
+      'No user_id label.',
     unit: 'USD',
     valueType: ValueType.DOUBLE,
   })
 
   const budgetUserRemainingUsd = meter.createObservableGauge('agent_budget_user_remaining_usd', {
     description:
-      'Aggregated per-user remaining USD budget, reported per tenant (Plan 05 §8). ' +
-      'No user_id label — aggregated at tenant level to avoid cardinality explosion (R-05.30). ' +
+      'Aggregated per-user remaining USD budget, reported per tenant. ' +
+      'No user_id label — aggregated at tenant level to avoid cardinality explosion. ' +
       'Updated alongside agent_budget_remaining_usd by BudgetChecker after each cost deduction.',
     unit: 'USD',
     valueType: ValueType.DOUBLE,
@@ -170,22 +164,22 @@ function getInstruments(): CostInstruments {
 
   const tierShiftTotal = meter.createCounter('agent_tier_shift_total', {
     description:
-      'Policy-driven tier downgrades (R-05.19). ' +
+      'Policy-driven tier downgrades. ' +
       'reason ∈ {budget, quality_canary}. ' +
-      'Distinct from provider_fallback (R-05.21).',
+      'Distinct from provider_fallback.',
     valueType: ValueType.INT,
   })
 
   const providerFallbackTotal = meter.createCounter('agent_provider_fallback_total', {
     description:
-      'Error-recovery-driven provider fallbacks (R-05.20). ' +
+      'Error-recovery-driven provider fallbacks. ' +
       'error_class ∈ {vendor_rate_limit, vendor_overload, vendor_server_error, vendor_timeout, vendor_invalid_response}.',
     valueType: ValueType.INT,
   })
 
   const llmCallAttemptDurationMs = meter.createHistogram('agent_llm_call_attempt_duration_ms', {
     description:
-      'Duration of the terminal successful LLM call attempt only (R-05.6b). ' +
+      'Duration of the terminal successful LLM call attempt only. ' +
       'Latency SLO source. Does not include retry overhead.',
     unit: 'ms',
     valueType: ValueType.DOUBLE,
@@ -193,7 +187,7 @@ function getInstruments(): CostInstruments {
 
   const llmCallTotalDurationMs = meter.createHistogram('agent_llm_call_total_duration_ms', {
     description:
-      'Total wall-time across all LLM call attempts including retries (R-05.6b). ' +
+      'Total wall-time across all LLM call attempts including retries. ' +
       'Reliability analysis source. Gap between this and attempt_duration quantifies retry overhead.',
     unit: 'ms',
     valueType: ValueType.DOUBLE,
@@ -201,44 +195,41 @@ function getInstruments(): CostInstruments {
 
   const vendorRetryTotal = meter.createCounter('agent_vendor_retry_total', {
     description:
-      'Internal vendor retries before a successful response (R-05.6a / R-05.20b). ' +
+      'Internal vendor retries before a successful response. ' +
       'Zero cost impact — never incremented for the successful attempt.',
     valueType: ValueType.INT,
   })
 
   const rateLimitRejectedTotal = meter.createCounter('agent_rate_limit_rejected_total', {
     description:
-      'Rate-limit rejections per tenant and limit key (R-05.23–R-05.26). ' +
+      'Rate-limit rejections per tenant and limit key. ' +
       'limit_key ∈ {queries/user/min, l3_writes/user/day, schedule_creations/user/day}. ' +
-      'No user_id label (R-05.30).',
+      'No user_id label.',
     valueType: ValueType.INT,
   })
 
   const adapterDropTotal = meter.createCounter('agent_adapter_drop_total', {
     description:
-      'Adapter-field drops (R-05.5). ' +
+      'Adapter-field drops. ' +
       'P1 alert on any non-zero value. ' +
       'No tenant_id — adapter-level signal, cardinality is bounded by (adapter × field).',
     valueType: ValueType.INT,
   })
 
   const approvalInboxDepth = meter.createObservableGauge('agent_approval_inbox_depth', {
-    description:
-      'Approver-aggregate pending draft count per tenant (Plan 05 §8). ' +
-      'No user_id label (R-05.30).',
+    description: 'Approver-aggregate pending draft count per tenant. ' + 'No user_id label.',
     valueType: ValueType.INT,
   })
 
   const budgetRefillTotal = meter.createCounter('agent_budget_refill_total', {
     description:
-      'Budget refill events per tenant and source. ' +
-      'source ∈ {midnight, admin_topup} (R-05.33–R-05.34).',
+      'Budget refill events per tenant and source. ' + 'source ∈ {midnight, admin_topup}.',
     valueType: ValueType.INT,
   })
 
   const ladderStepTotal = meter.createCounter('agent_ladder_step_total', {
     description:
-      'Per-degradation-step occurrences for the 7-step graceful degradation ladder (Plan 05 §8). ' +
+      'Per-degradation-step occurrences for the 7-step graceful degradation ladder. ' +
       'step ∈ 1..7. ' +
       'trace_tag ∈ {provider_retry, provider_fallback, provider_outage, tier_shift, refused}.',
     valueType: ValueType.INT,
@@ -246,7 +237,7 @@ function getInstruments(): CostInstruments {
 
   const ladderTransitionLatencyMs = meter.createHistogram('agent_ladder_transition_latency_ms', {
     description:
-      'Time to execute a graceful-degradation ladder step transition (Plan 05 §8). ' +
+      'Time to execute a graceful-degradation ladder step transition. ' +
       'step ∈ 1..7. No tenant_id — ladder evaluation is CPU-bound; per-step timing is the signal.',
     unit: 'ms',
     valueType: ValueType.DOUBLE,
@@ -288,8 +279,6 @@ function getInstruments(): CostInstruments {
   return _instruments
 }
 
-// ─── Test-only reset ──────────────────────────────────────────────────────────
-
 /**
  * @internal — test-only. Clears the cached instrument instances and the gauge
  * backing maps so the next helper call re-acquires a fresh meter from the
@@ -302,11 +291,9 @@ export function __INTERNAL_resetInstruments(): void {
   _approvalInboxDepthMap.clear()
 }
 
-// ─── Helper functions ─────────────────────────────────────────────────────────
-
 /**
- * Record dollar cost for a successful LLM call (Plan 05 §8).
- * Call once per success — never per retry attempt (R-05.6a).
+ * Record dollar cost for a successful LLM call.
+ * Call once per success — never per retry attempt.
  *
  * Labels: tenant_id, layer, model_id, pricing_id.
  * unit: USD.
@@ -327,12 +314,12 @@ export function recordCostUsd(
 }
 
 /**
- * Record token counts for a successful LLM call (Plan 05 §8).
- * Call once per success alongside recordCostUsd — never per retry attempt (R-05.6a).
+ * Record token counts for a successful LLM call.
+ * Call once per success alongside recordCostUsd — never per retry attempt.
  *
  * Labels: tenant_id, model_id, kind.
  * kind ∈ 'input_uncached' | 'input_cached_read' | 'input_cached_write' | 'output' | 'output_reasoning'.
- * No user_id (R-05.30).
+ * No user_id.
  */
 export function recordUsageTokens(
   tenantId: string,
@@ -353,10 +340,10 @@ export function recordUsageTokens(
 }
 
 /**
- * Update the remaining budget gauge for a tenant (Plan 05 §8).
+ * Update the remaining budget gauge for a tenant.
  * Call after each cost deduction or after a budget refill.
  *
- * Labels: tenant_id. No user_id (R-05.30).
+ * Labels: tenant_id. No user_id.
  * unit: USD.
  */
 export function setBudgetRemaining(tenantId: string, remainingUsd: number): void {
@@ -366,8 +353,8 @@ export function setBudgetRemaining(tenantId: string, remainingUsd: number): void
 }
 
 /**
- * Update the per-user remaining budget gauge for a tenant (Plan 05 §8).
- * Aggregated at tenant level — no user_id label (R-05.30 cardinality guardrail).
+ * Update the per-user remaining budget gauge for a tenant.
+ * Aggregated at tenant level — no user_id label (cardinality guardrail).
  * Call alongside setBudgetRemaining after each cost deduction / budget refill.
  *
  * Labels: tenant_id. No user_id.
@@ -380,8 +367,8 @@ export function setBudgetUserRemaining(tenantId: string, remainingUsd: number): 
 }
 
 /**
- * Record a policy-driven tier shift (Plan 05 §8, R-05.19).
- * Distinct from provider_fallback (R-05.21) — conflation is a CI-caught bug.
+ * Record a policy-driven tier shift.
+ * Distinct from provider_fallback — conflation is a CI-caught bug.
  *
  * Labels: tenant_id, from_tier, to_tier, reason.
  * reason ∈ 'budget' | 'quality_canary'.
@@ -401,11 +388,11 @@ export function recordTierShift(
 }
 
 /**
- * Record an error-recovery provider fallback (Plan 05 §8, R-05.20).
- * Triggered by consecutive-same-error ≥3 (R-05.20c). Sticky for the turn.
+ * Record an error-recovery provider fallback.
+ * Triggered by consecutive-same-error ≥3. Sticky for the turn.
  *
  * Labels: tenant_id, model_id, error_class.
- * error_class ∈ VendorError['class'] per R-05.20a.
+ * error_class ∈ VendorError['class'].
  */
 export function recordProviderFallback(
   tenantId: string,
@@ -425,7 +412,7 @@ export function recordProviderFallback(
 }
 
 /**
- * Record the duration of the terminal successful LLM call attempt (Plan 05 §8, R-05.6b).
+ * Record the duration of the terminal successful LLM call attempt.
  * Latency SLO source. Does NOT include time spent on failed retries.
  *
  * Labels: tenant_id, model_id, layer.
@@ -445,7 +432,7 @@ export function recordLlmCallAttemptDuration(
 }
 
 /**
- * Record the total wall-time for an LLM call including all retry attempts (Plan 05 §8, R-05.6b).
+ * Record the total wall-time for an LLM call including all retry attempts.
  * Reliability analysis source. Gap between this and attempt_duration quantifies retry overhead.
  *
  * Labels: tenant_id, model_id, layer.
@@ -465,7 +452,7 @@ export function recordLlmCallTotalDuration(
 }
 
 /**
- * Record an internal vendor retry (Plan 05 §8, R-05.6a, R-05.20b).
+ * Record an internal vendor retry.
  * Incremented once per failed attempt before the eventual success.
  * Zero cost impact — failed attempts never drive CostRecorder.record.
  *
@@ -489,10 +476,10 @@ export function recordVendorRetry(
 }
 
 /**
- * Record a rate-limit rejection (Plan 05 §8, R-05.23–R-05.26).
+ * Record a rate-limit rejection.
  * Call when RateLimiter.check returns { allowed: false }.
  *
- * Labels: tenant_id, limit_key. No user_id (R-05.30).
+ * Labels: tenant_id, limit_key. No user_id.
  */
 export function recordRateLimitRejected(
   tenantId: string,
@@ -505,7 +492,7 @@ export function recordRateLimitRejected(
 }
 
 /**
- * Record an adapter field drop (Plan 05 §8, R-05.5).
+ * Record an adapter field drop.
  * P1 alert must fire on any non-zero value.
  * Call when UsageExtractor.detectDroppedFields returns a non-empty list.
  *
@@ -516,10 +503,10 @@ export function recordAdapterDrop(adapter: string, field: string): void {
 }
 
 /**
- * Update the approval inbox depth gauge for a tenant (Plan 05 §8).
+ * Update the approval inbox depth gauge for a tenant.
  * Call after each checkEligibility to reflect the current approver-aggregate count.
  *
- * Labels: tenant_id. No user_id (R-05.30).
+ * Labels: tenant_id. No user_id.
  */
 export function setApprovalInboxDepth(tenantId: string, depth: number): void {
   _approvalInboxDepthMap.set(tenantId, depth)
@@ -528,7 +515,7 @@ export function setApprovalInboxDepth(tenantId: string, depth: number): void {
 }
 
 /**
- * Record a budget refill event (Plan 05 §8, R-05.33–R-05.34).
+ * Record a budget refill event.
  * Call on midnight refill or admin top-up (both must emit kernel audit separately).
  *
  * Labels: tenant_id, source. source ∈ 'midnight' | 'admin_topup'.
@@ -538,7 +525,7 @@ export function recordBudgetRefill(tenantId: string, source: 'midnight' | 'admin
 }
 
 /**
- * Record a graceful-degradation ladder step occurrence (Plan 05 §8).
+ * Record a graceful-degradation ladder step occurrence.
  * Call on every GracefulDegradationLadder.evaluate transition.
  *
  * Labels: tenant_id, step (1..7), trace_tag.
@@ -557,7 +544,7 @@ export function recordLadderStep(
 }
 
 /**
- * Record the latency of a graceful-degradation ladder step transition (Plan 05 §8).
+ * Record the latency of a graceful-degradation ladder step transition.
  * Called by GracefulDegradationLadder.evaluate() wrapping each step dispatch.
  * No tenant_id — per-step CPU timing is the signal; tenant attribution is on ladderStepTotal.
  *

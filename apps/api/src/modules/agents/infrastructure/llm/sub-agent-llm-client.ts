@@ -1,9 +1,9 @@
 /**
- * SubAgentLlmClient — Plan 17 §4.2 (sub-agent ReAct loop).
+ * SubAgentLlmClient — sub-agent ReAct loop.
  *
  * Wraps Vercel AI SDK `generateText` with `stopWhen: stepCountIs(maxIterations)`,
- * `maxRetries: 0` (Plan 03 R-03.16 — retries live at gateway only), and
- * structured output extraction via `experimental_output: Output.object(...)`.
+ * `maxRetries: 0` (retries live at gateway only), and structured output
+ * extraction via `experimental_output: Output.object(...)`.
  *
  * Falls back to a follow-up `generateObject` call against `outputSchema` if
  * `experimental_output` is unavailable in the installed SDK version.
@@ -26,25 +26,18 @@ import type { ModelChoice } from '../../domain/services/sub-agent-types'
 import type { SubAgentUsage } from '../../application/services/phase-executor-contracts'
 import { mapLanguageModelUsage, type LanguageModelUsageLike } from './usage'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const SUB_AGENT_LLM_CLIENT = Symbol('SUB_AGENT_LLM_CLIENT')
-
-// ─── Tool type ────────────────────────────────────────────────────────────────
 
 /**
  * The Vercel AI SDK tool element type, derived from `generateText`'s `tools`
  * parameter. We expose this as `AiSdkTool` so callers (e.g. the
- * tool-gateway-bridge in Task 4) can build a `Record<string, AiSdkTool>` to
- * pass through.
+ * tool-gateway-bridge) can build a `Record<string, AiSdkTool>` to pass through.
  */
 export type AiSdkTool = Parameters<typeof generateText>[0]['tools'] extends infer T
   ? T extends Record<string, infer U> | undefined
     ? U
     : never
   : never
-
-// ─── Input + Result types ─────────────────────────────────────────────────────
 
 export interface SubAgentLlmClientOpts {
   readonly model: ModelChoice
@@ -68,8 +61,6 @@ export interface SubAgentLlmClient {
   runWithTools(opts: SubAgentLlmClientOpts): Promise<SubAgentLlmClientResult>
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function resolveModel(choice: ModelChoice) {
   switch (choice.provider) {
     case 'openai': {
@@ -77,10 +68,9 @@ function resolveModel(choice: ModelChoice) {
       return client(choice.model)
     }
     case 'anthropic': {
-      // Anthropic provider support is deferred to Plan 12.
       throw new Error(
         `SubAgentLlmClient: provider "anthropic" is not yet supported. ` +
-          `Add @ai-sdk/anthropic and wire it here when Plan 12 ships.`,
+          `Add @ai-sdk/anthropic and wire it here.`,
       )
     }
     default: {
@@ -90,8 +80,6 @@ function resolveModel(choice: ModelChoice) {
     }
   }
 }
-
-// ─── OpenAiSubAgentLlmClient ─────────────────────────────────────────────────
 
 @Injectable()
 export class OpenAiSubAgentLlmClient implements SubAgentLlmClient, OnModuleInit {

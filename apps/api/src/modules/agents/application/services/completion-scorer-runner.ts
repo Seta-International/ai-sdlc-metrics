@@ -1,12 +1,10 @@
 /**
- * completion-scorer-runner.ts — Plan 12 Task 2
- *
  * Resolves completion scorers from the ScorerRegistry and runs them against the
  * most recent iteration output to decide whether the supervisor loop may exit.
  *
- * Plan 12 §3.1 invariant 4: only deterministic scorers may serve as exit-gate
- * scorers. A non-deterministic scorer reaching this runner is a programming
- * error that should have been caught at plan-validation time — so we throw hard.
+ * Invariant: only deterministic scorers may serve as exit-gate scorers. A
+ * non-deterministic scorer reaching this runner is a programming error that
+ * should have been caught at plan-validation time — so we throw hard.
  */
 
 import { Injectable } from '@nestjs/common'
@@ -14,8 +12,6 @@ import { ScorerRegistry } from './scorer-registry'
 import { recordCompletionScorerFail } from '../../infrastructure/observability/gateway-metrics'
 import type { ScorerResult } from '../../domain/scorer-types'
 import type { SubAgentOutput, PhaseExecutorTurnState } from './phase-executor-contracts'
-
-// ─── Public interfaces ────────────────────────────────────────────────────────
 
 export interface RunScorersOpts {
   /** IDs of scorers to execute, in order. */
@@ -31,7 +27,7 @@ export interface RunScorersOpts {
   /** Shared turn-state threaded through all phase-03 components. */
   turnState: PhaseExecutorTurnState
   /**
-   * Tenant ID for metric recording (Plan 12 §8).
+   * Tenant ID for metric recording.
    * Optional — if omitted, scorer-fail metrics are skipped (non-iterative paths).
    */
   tenantId?: string
@@ -43,8 +39,6 @@ export interface RunScorersResult {
   /** Individual scorer outcomes, in the same order as `scorerIds`. */
   results: ScorerResult[]
 }
-
-// ─── Service ──────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class CompletionScorerRunner {
@@ -102,7 +96,6 @@ export class CompletionScorerRunner {
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err)
         results.push({ score: 0, passed: false, reason: `scorer ${scorerId} threw: ${message}` })
-        // Record metric when a scorer throws (Plan 12 §8)
         if (tenantId) {
           try {
             recordCompletionScorerFail(tenantId, scorerId)

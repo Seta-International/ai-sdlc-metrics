@@ -12,7 +12,7 @@ export type TierCalibrationStats = {
 
 export type CalibrationResult = {
   byTier: Record<ConfidenceTier, TierCalibrationStats>
-  /** true if any inversion detected in chain high < med < low (R-10.25/R-10.26) */
+  /** true if any inversion detected in chain high < med < low */
   invertedOrdering: boolean
 }
 
@@ -28,26 +28,29 @@ export class ConfidenceCalibrationService {
   constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
   /**
-   * Correlates synthesizer confidence tier against thumbs-down rate and initiator-approval rate.
+   * Returns true once Plan 08 feedback tables (thumbs-down, initiator-approval)
+   * are wired and `correlate()` is safe to invoke. Currently false — callers
+   * MUST gate on this before calling `correlate()`.
+   */
+  isEnabled(): boolean {
+    return false
+  }
+
+  /**
+   * Correlates synthesizer confidence tier against thumbs-down rate and
+   * initiator-approval rate. Expected ordering:
+   *   thumbsDown(high) < thumbsDown(med) < thumbsDown(low)
+   * Inversion triggers §9 confidence-derivation-rule refinement review.
    *
-   * Expected ordering (R-10.25): thumbsDown(high) < thumbsDown(med) < thumbsDown(low).
-   * Inversion triggers §9 confidence-derivation-rule refinement review (R-10.26).
-   *
-   * MVP stub: thumbs-down and initiator-approval data comes from Plan 08's feedback tables.
-   * Wire real queries when Plan 08 feedback data is available.
+   * Throws until Plan 08 feedback tables are populated. Returning all-zero
+   * data silently would corrupt the calibration audit by suggesting the
+   * ordering check ran against real data.
    */
   async correlate(_opts: CalibrationOpts): Promise<CalibrationResult> {
-    const empty: TierCalibrationStats = { thumbsDownRate: 0, initiatorApprovalRate: 0, count: 0 }
-    const byTier: Record<ConfidenceTier, TierCalibrationStats> = {
-      high: { ...empty },
-      med: { ...empty },
-      low: { ...empty },
-    }
-
-    return {
-      byTier,
-      invertedOrdering: ConfidenceCalibrationService.isInverted(byTier),
-    }
+    throw new Error(
+      'ConfidenceCalibrationService is disabled — Plan 08 feedback tables not yet wired. ' +
+        'Gate calls with isEnabled() before invoking correlate().',
+    )
   }
 
   /**

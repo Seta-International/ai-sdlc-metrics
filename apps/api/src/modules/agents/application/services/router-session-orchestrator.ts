@@ -1,8 +1,5 @@
 /**
- * RouterSessionOrchestrator — Plan 02 Task 10 (§5 "Session start", "Router LLM call",
- * "Structured-output retry", §6 R-02.23a)
- *
- * Composes T1..T9 into a single router-turn pipeline:
+ * Composes the router-turn pipeline:
  *   1. Load or create an `agent_session` row; pin content hashes on create.
  *   2. On subsequent turns, use pinned hashes; re-build prompt + verify hash match.
  *   3. Call the router LLM via RouterLlmClient; parse via RouterDecisionParser.
@@ -59,11 +56,7 @@ import type { PhaseExecutionResult, PhaseExecutorTurnState } from './phase-execu
 import type { StreamEmitter } from './stream-gateway'
 import { RouterLlmFailureError, type RouterLlmFailureCause } from './pipeline-errors'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const ROUTER_SESSION_ORCHESTRATOR = Symbol('ROUTER_SESSION_ORCHESTRATOR')
-
-// ─── Public types ─────────────────────────────────────────────────────────────
 
 export type UUID = string
 
@@ -86,11 +79,7 @@ export type RouteTurnResult =
   | { kind: 'iterative'; result: PhaseExecutionResult; sessionId: UUID; parseRetries: 0 | 1 }
   | { kind: 'disambiguation'; reason: string; sessionId: UUID; parseRetries: 0 | 1 }
 
-// ─── Tracer ───────────────────────────────────────────────────────────────────
-
 const tracer = trace.getTracer('agents.router')
-
-// ─── RouterSessionOrchestrator ────────────────────────────────────────────────
 
 @Injectable()
 export class RouterSessionOrchestrator {
@@ -118,8 +107,6 @@ export class RouterSessionOrchestrator {
     @Inject(ITERATIVE_ORCHESTRATOR) private readonly iterativeOrchestrator: IterativeOrchestrator,
   ) {}
 
-  // ─── Main entry ──────────────────────────────────────────────────────────────
-
   async routeTurn(opts: RouteTurnOpts): Promise<RouteTurnResult> {
     const parentSpan = tracer.startSpan('ROUTER_PLAN')
     const parentCtx = trace.setSpan(context.active(), parentSpan)
@@ -138,8 +125,6 @@ export class RouterSessionOrchestrator {
     }
   }
 
-  // ─── Pipeline ─────────────────────────────────────────────────────────────────
-
   private async _pipeline(opts: RouteTurnOpts, parentSpan: Span): Promise<RouteTurnResult> {
     const {
       tenantId,
@@ -155,7 +140,6 @@ export class RouterSessionOrchestrator {
       promptVariables,
     } = opts
 
-    // ── Step 1: Load existing session (sequential DB read) ─────────────────────
     const existingSession = await this.agentSessionPort.findByConversation({
       tenantId,
       userId,
@@ -170,14 +154,11 @@ export class RouterSessionOrchestrator {
     let pinnedSubAgentPromptHashes: Record<string, string>
 
     if (existingSession) {
-      // ── Existing session ────────────────────────────────────────────────────────
       sessionId = existingSession.id
       pinnedSubAgentPromptHashes = existingSession.pinnedSubAgentPromptHashes
 
-      // Re-build narrative (sequential DB call — may hit cache)
       const narrative = await this._buildNarrativeSpan({ tenantId, roleKey, userId })
 
-      // Re-resolve sub-agents
       const resolved = this.subAgentRegistry.resolveForSession({
         tenantId,
         userId,
@@ -187,7 +168,7 @@ export class RouterSessionOrchestrator {
         promptVariables,
       })
 
-      // Re-build prompt — must reproduce the same hash (wrapped in child span for consistency)
+      // Re-build prompt — must reproduce the same hash.
       const promptResult = await this._buildPromptSpan({
         tenantId,
         userId,
@@ -234,12 +215,8 @@ export class RouterSessionOrchestrator {
         'agent.router.retrieval_activated': false,
       })
     } else {
-      // ── New session ─────────────────────────────────────────────────────────────
-
-      // Step 2: Build permission narrative (sequential DB call, T6)
       const narrative = await this._buildNarrativeSpan({ tenantId, roleKey, userId })
 
-      // Step 3: Resolve sub-agents (T5)
       const resolvedAll = this.subAgentRegistry.resolveForSession({
         tenantId,
         userId,
@@ -249,7 +226,6 @@ export class RouterSessionOrchestrator {
         promptVariables,
       })
 
-      // Step 4: Token budget check + optional retrieval (T7 estimator + T8 retriever)
       const estimated = estimateTokens({
         subAgents: resolvedAll.map((r) => r.config),
         permissionNarrative: narrative.text,
@@ -279,7 +255,6 @@ export class RouterSessionOrchestrator {
         resolvedSubAgents = resolvedAll.filter((r) => narrowedKeys.has(r.config.key as string))
       }
 
-      // Step 5: Build router prompt (T7) — wrapped in a child span
       const promptResult = await this._buildPromptSpan({
         tenantId,
         userId,
@@ -301,7 +276,7 @@ export class RouterSessionOrchestrator {
       const canonicalizerVersionHash = CANONICALIZER_VERSION_HASH
       const permissionNarrativeHash = narrative.narrativeHash
 
-      // Step 6: Create session row (sequential DB write — no Promise.all)
+      // Sequential DB write — no Promise.all (single pg.PoolClient per request).
       pinnedSubAgentPromptHashes = {}
       for (const r of resolvedSubAgents) {
         pinnedSubAgentPromptHashes[r.config.key as string] = r.subAgentPromptHash
@@ -333,12 +308,11 @@ export class RouterSessionOrchestrator {
       })
     }
 
-    // ── Step 7: LLM call + parse-retry loop ────────────────────────────────────
     const resolvedModel = this._resolveRouterModel()
 
     // Attempt 1 — RouterLlmFailureError thrown by _llmCallAndParse on infra
-    // failure (Plan 18 R-18.24); propagates to controller. Only ok/retry
-    // ParseResult shapes reach the post-call branches below.
+    // failure; propagates to controller. Only ok/retry ParseResult shapes reach
+    // the post-call branches below.
     const { parseResult: parseResult1 } = await this._llmCallAndParse(
       resolvedModel,
       systemPrompt,
@@ -349,7 +323,7 @@ export class RouterSessionOrchestrator {
 
     if (parseResult1.kind === 'ok') {
       parentSpan.setAttributes({ router_parse_retries: 0 })
-      // ── Inline surface guard: iterative plan on inline surface → retry with hint ──
+      // Inline surface guard: iterative plan on inline surface → retry with hint.
       if (parseResult1.plan.topology === 'iterative' && surface === 'inline') {
         return this._applyInlineSurfaceGuard(
           resolvedModel,
@@ -403,7 +377,6 @@ export class RouterSessionOrchestrator {
 
     if (parseResult2.kind === 'ok') {
       parentSpan.setAttributes({ router_parse_retries: 1 })
-      // ── Inline surface guard for attempt 2 ──────────────────────────────────────
       if (parseResult2.plan.topology === 'iterative' && surface === 'inline') {
         return this._applyInlineSurfaceGuard(
           resolvedModel,
@@ -436,11 +409,10 @@ export class RouterSessionOrchestrator {
       )
     }
 
-    // ── Escalation: both attempts failed ─────────────────────────────────────────
-    // Emit the final `router-decision:parse` span with parse_outcome='escalate'
-    // to signal that both attempts were exhausted and the router is handing off
-    // to disambiguation. This is the third possible parse_outcome value per Plan 02 §8:
-    // ok | retry | escalate.
+    // Escalation: both attempts failed. Emit the final `router-decision:parse`
+    // span with parse_outcome='escalate' to signal that both attempts were
+    // exhausted and the router is handing off to disambiguation (third possible
+    // parse_outcome value: ok | retry | escalate).
     const escalateParseSpan = tracer.startSpan('router-decision:parse')
     escalateParseSpan.setAttributes({ retry_round: 1, parse_outcome: 'escalate' })
     escalateParseSpan.end()
@@ -451,8 +423,6 @@ export class RouterSessionOrchestrator {
     })
 
     const escalateReason = 'parse_escalated_after_retry'
-    // Plan 06 owns the `refusal.started` schema canonically; this is the agreed stub
-    // shape per Plan 02 R-02.23 + Plan 06 cross-reference.
     await this._safeAudit({
       tenantId,
       actorId: userId,
@@ -471,8 +441,6 @@ export class RouterSessionOrchestrator {
 
     return { kind: 'disambiguation', reason: escalateReason, sessionId, parseRetries: 1 }
   }
-
-  // ─── LLM call + parse helper ─────────────────────────────────────────────────
 
   private async _llmCallAndParse(
     model: { provider: 'openai' | 'anthropic'; model: string },
@@ -504,10 +472,8 @@ export class RouterSessionOrchestrator {
     }
 
     if (result.kind === 'malformed') {
-      // Plan 18 R-18.24 hard cutover — LLM call infra failures (5xx, timeout,
-      // auth) are typed throws, no longer swallowed into a disambiguation
-      // result. The controller (Plan 18 Task 8) catches RouterLlmFailureError
-      // and maps it to an SSE close-error.
+      // LLM call infra failures (5xx, timeout, auth) are typed throws — the
+      // controller catches RouterLlmFailureError and maps it to an SSE close-error.
       throw new RouterLlmFailureError(classifyLlmError(result.error), result.error)
     }
 
@@ -524,10 +490,8 @@ export class RouterSessionOrchestrator {
     return { parseResult }
   }
 
-  // ─── Inline surface guard ─────────────────────────────────────────────────────
-
   /**
-   * Handles the inline surface guard for iterative plans (Plan 12 R-12.4a).
+   * Handles the inline surface guard for iterative plans.
    *
    * When the router emits an iterative plan on an inline surface:
    *   1. Re-invoke the router with an explicit inline hint.
@@ -606,8 +570,6 @@ export class RouterSessionOrchestrator {
     )
   }
 
-  // ─── Handle ok plan (bounded, direct, iterative, or LLM-emitted disambiguation) ──
-
   private async _handleBoundedOrDisambig(
     plan: RouterPlan,
     sessionId: UUID,
@@ -623,7 +585,6 @@ export class RouterSessionOrchestrator {
   ): Promise<RouteTurnResult> {
     const parentSpan = trace.getActiveSpan()
 
-    // ── Iterative topology: permission gate + dispatch ──────────────────────────
     if (plan.topology === 'iterative') {
       parentSpan?.setAttributes({
         router_parse_retries: parseRetries,
@@ -633,7 +594,7 @@ export class RouterSessionOrchestrator {
         plan_topology: 'iterative',
       })
 
-      // Permission gate (R-12.4b): explicit disambiguation — NOT silent bounded downgrade
+      // Permission gate: explicit disambiguation — NOT silent bounded downgrade.
       const allowed = await this.kernelQueryFacade.canDo(userId, 'agent.iterative', { tenantId })
       if (!allowed) {
         await this._safeAudit({
@@ -662,10 +623,8 @@ export class RouterSessionOrchestrator {
 
       this._safeMetric(() => recordRouterDecision(tenantId, 'iterative_plan'))
 
-      // Dispatch to IterativeOrchestrator
-      // NOTE: PhaseExecutorTurnState is owned by the phase executor layer.
-      // The minimal turn state below satisfies the IterativeOrchestrator's type
-      // contract. Full wiring with the real HTTP request context happens in Task 7.
+      // PhaseExecutorTurnState is owned by the phase executor layer; the minimal
+      // turn state below satisfies the IterativeOrchestrator's type contract.
       const turnState: PhaseExecutorTurnState = {
         traceId: turnTraceId,
         tenantId,
@@ -686,11 +645,11 @@ export class RouterSessionOrchestrator {
         streamEmitter: _noopStreamEmitter,
       } satisfies IterativeOrchestratorOpts)
 
-      // ── Topology-downgrade signal (R-12.20, R-12.21) ─────────────────────────
-      // If a bounded re-plan fired during iterative execution, routerReplanCount
-      // will have been incremented to 1. This marks the turn as a topology-downgrade
-      // candidate for observability — the iterative topology had to fall back to a
-      // bounded re-plan, which suggests the task may be better served by bounded.
+      // Topology-downgrade signal: if a bounded re-plan fired during iterative
+      // execution, routerReplanCount will have been incremented to 1. This marks
+      // the turn as a topology-downgrade candidate for observability — the
+      // iterative topology had to fall back to a bounded re-plan, which suggests
+      // the task may be better served by bounded.
       if (turnState.routerReplanCount === 1) {
         parentSpan?.setAttributes({ topology_downgrade_candidate: true })
         this._safeMetric(() => recordTopologyDowngradeCandidateTotal(tenantId))
@@ -699,7 +658,6 @@ export class RouterSessionOrchestrator {
       return { kind: 'iterative', result: iterativeResult, sessionId, parseRetries }
     }
 
-    // ── Direct topology: pass through ──────────────────────────────────────────
     if (plan.topology === 'direct') {
       parentSpan?.setAttributes({
         router_parse_retries: parseRetries,
@@ -724,14 +682,11 @@ export class RouterSessionOrchestrator {
          * flow_id is LLM-generated per-turn. The Zod schema validates UUID format;
          * on format failure the parse retry handles it. The orchestrator does NOT
          * pre-generate a flow_id to cross-check — design choice is to let the LLM
-         * own this correlation id for now; Plan 07 will reconsider if trace
-         * correlation becomes problematic.
+         * own this correlation id.
          */
         flow_id: bounded.flow_id,
       })
 
-      // Plan 06 owns the `refusal.started` schema canonically; this is the agreed stub
-      // shape per Plan 02 R-02.23 + Plan 06 cross-reference.
       await this._safeAudit({
         tenantId,
         actorId: userId,
@@ -751,7 +706,7 @@ export class RouterSessionOrchestrator {
       return { kind: 'disambiguation', reason: bounded.disambiguation, sessionId, parseRetries }
     }
 
-    // Bounded plan — emit audit events per directive (R-02.23a)
+    // Bounded plan — emit audit events per directive.
     // pinnedSubAgentPromptHashes is passed in from _pipeline — no extra DB call needed.
 
     // phase1 directives (sequential awaits — single DB client)
@@ -781,7 +736,7 @@ export class RouterSessionOrchestrator {
       this._safeMetric(() => recordSubAgentInvoked(tenantId, directive.sub_agent_key, 'phase1'))
     }
 
-    // phase2 directives — now an array (0..3) per Plan 03 R-03.37 (sequential awaits)
+    // phase2 directives (array of 0..3, sequential awaits)
     for (const directive of bounded.phase2) {
       const hash = pinnedSubAgentPromptHashes[directive.sub_agent_key]
       if (!hash) {
@@ -816,8 +771,7 @@ export class RouterSessionOrchestrator {
        * flow_id is LLM-generated per-turn. The Zod schema validates UUID format;
        * on format failure the parse retry handles it. The orchestrator does NOT
        * pre-generate a flow_id to cross-check — design choice is to let the LLM
-       * own this correlation id for now; Plan 07 will reconsider if trace
-       * correlation becomes problematic.
+       * own this correlation id.
        */
       flow_id: bounded.flow_id,
     })
@@ -826,8 +780,6 @@ export class RouterSessionOrchestrator {
 
     return { kind: 'bounded', plan, sessionId, parseRetries }
   }
-
-  // ─── Non-critical operation wrappers ─────────────────────────────────────────
 
   /**
    * Fire-and-forget audit event emission. Errors are logged but NEVER re-thrown.
@@ -861,8 +813,6 @@ export class RouterSessionOrchestrator {
       this.logger.error('Metric emission failed — turn continues', { err })
     }
   }
-
-  // ─── Private helpers ──────────────────────────────────────────────────────────
 
   /**
    * Build permission narrative — wrapped in a `permission-narrative:build` child span.
@@ -929,23 +879,20 @@ export class RouterSessionOrchestrator {
 
   /**
    * Resolve the model for the router LLM call.
-   * At MVP the router uses gpt-4o (plan specifies gpt-5.4; use gpt-4o as actual
-   * available model — Plan 12 will wire per-tenant model selection here).
+   * At MVP the router uses gpt-4o; per-tenant model selection is wired later.
    */
   private _resolveRouterModel(): { provider: 'openai'; model: string } {
     return { provider: 'openai', model: 'gpt-4o' }
   }
 }
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
-
 /**
- * Plan 18 R-18.24 — classify a router-LLM call failure into one of three
- * `RouterLlmFailureCause` buckets. The Vercel AI SDK's `APICallError` exposes
- * `statusCode`; AbortController-driven timeouts surface as `AbortError`.
- * Some upstream wrappers may use `status` instead of `statusCode`, so we
- * accept both. Unknown failures fall back to `llm_5xx` (transient retry
- * semantics at the caller layer).
+ * Classify a router-LLM call failure into one of three `RouterLlmFailureCause`
+ * buckets. The Vercel AI SDK's `APICallError` exposes `statusCode`;
+ * AbortController-driven timeouts surface as `AbortError`. Some upstream
+ * wrappers may use `status` instead of `statusCode`, so we accept both.
+ * Unknown failures fall back to `llm_5xx` (transient retry semantics at the
+ * caller layer).
  */
 function classifyLlmError(err: unknown): RouterLlmFailureCause {
   if (typeof err === 'object' && err !== null) {
@@ -974,7 +921,7 @@ function _buildFallbackSchemaPrompt(): string {
 /**
  * No-op StreamEmitter used when RouterSessionOrchestrator dispatches an
  * IterativeOrchestrator.execute() call directly. The full SSE wiring lives
- * in the HTTP controller layer (Task 7). This stub satisfies the type contract.
+ * in the HTTP controller layer; this stub satisfies the type contract.
  */
 const _noopStreamEmitter: StreamEmitter = {
   emit: () => {},

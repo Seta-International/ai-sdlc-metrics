@@ -1,16 +1,12 @@
 /**
- * iteration-ceiling-enforcer.ts — Plan 12 Task 2
- *
  * Pure guard that decides whether the iterative supervisor loop may run
  * another iteration, given the accumulated cost, wallclock time, and
- * iteration count (plan 12 §3 ceiling rules).
+ * iteration count.
  *
  * No external dependencies — all limits are passed via opts at call time.
  */
 
 import { Injectable } from '@nestjs/common'
-
-// ─── Public interfaces ────────────────────────────────────────────────────────
 
 export interface CheckBeforeIterationOpts {
   /** 1-based iteration number about to start. */
@@ -38,8 +34,6 @@ export interface CeilingCheckResult {
   allowed: boolean
   reason?: 'max_iterations' | 'cumulative_cost' | 'cumulative_wallclock'
 }
-
-// ─── Service ──────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class IterationCeilingEnforcer {

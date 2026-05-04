@@ -127,7 +127,12 @@ import { PushBucketHandler } from './application/commands/ms-sync/push-bucket.ha
 import { PushAttachmentHandler } from './application/commands/ms-sync/push-attachment.handler'
 import { PullAttachmentHandler } from './application/commands/ms-sync/pull-attachment.handler'
 import { RetryPendingAttachmentsHandler } from './application/commands/ms-sync/retry-pending-attachments.handler'
+import { RetryConflictHandler } from './application/commands/ms-sync/retry-conflict.handler'
+import { AcceptMsStateForConflictHandler } from './application/commands/ms-sync/accept-ms-state-for-conflict.handler'
 import { MintMsRosterHandler } from './application/commands/ms-sync/mint-ms-roster.handler'
+import { ListConflictsHandler } from './application/queries/ms-sync/list-conflicts.handler'
+import { ForceResyncTaskHandler } from './application/commands/ms-sync/force-resync-task.handler'
+import { SendDailySyncHealthReportHandler } from './application/commands/ms-sync/send-daily-sync-health-report.handler'
 import { OutboxDirtyFieldsQuery } from './infrastructure/outbox/outbox-dirty-fields.query'
 import { MsSyncJobRegistrar } from './infrastructure/jobs/pg-boss.registrar'
 import { IdentityDirectorySyncedListener } from './application/event-handlers/identity-directory-synced.listener'
@@ -135,6 +140,7 @@ import { MsSyncPushListener } from './application/event-handlers/ms-sync-push.li
 import { ListAvailableGroupsHandler } from './application/queries/ms-sync/list-available-groups.handler'
 import { ListLinkedGroupsHandler } from './application/queries/ms-sync/list-linked-groups.handler'
 import { ListLinkedRostersHandler } from './application/queries/ms-sync/list-linked-rosters.handler'
+import { GetTenantSyncHealthHandler } from './application/queries/ms-sync/get-tenant-sync-health.handler'
 import { MS_LINKED_GROUP_REPOSITORY } from './domain/repositories/ms-linked-group.repository'
 import { MS_PLAN_SYNC_STATE_REPOSITORY } from './domain/repositories/ms-plan-sync-state.repository'
 import { MS_SYNC_CONFLICT_REPOSITORY } from './domain/repositories/ms-sync-conflict.repository'
@@ -253,6 +259,7 @@ import { DrizzleRosterMemberRepository } from './infrastructure/repositories/dri
     ListAvailableGroupsHandler,
     ListLinkedGroupsHandler,
     ListLinkedRostersHandler,
+    GetTenantSyncHealthHandler,
     { provide: MS_LINKED_GROUP_REPOSITORY, useClass: DrizzleMsLinkedGroupRepository },
     { provide: MS_PLAN_SYNC_STATE_REPOSITORY, useClass: DrizzleMsPlanSyncStateRepository },
     { provide: MS_SYNC_CONFLICT_REPOSITORY, useClass: DrizzleMsSyncConflictRepository },
@@ -277,7 +284,12 @@ import { DrizzleRosterMemberRepository } from './infrastructure/repositories/dri
     MsSyncResolvePendingRegistrar,
     MsSyncRetryAttachmentsRegistrar,
     RetryPendingAttachmentsHandler,
+    RetryConflictHandler,
+    AcceptMsStateForConflictHandler,
+    ListConflictsHandler,
     MintMsRosterHandler,
+    ForceResyncTaskHandler,
+    SendDailySyncHealthReportHandler,
     PollTenantHandler,
     PlannerQueryFacade,
     PlannerRouterService,

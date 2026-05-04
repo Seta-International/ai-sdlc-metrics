@@ -22,6 +22,10 @@ export class RolloutCanaryStagesEvaluator implements CriterionEvaluator {
   constructor(@Inject(CI_STATE_PORT) private readonly ciState: CiStatePort) {}
 
   async evaluate(window: EvalWindow): Promise<CriterionResult> {
+    if (!this.ciState.isEnabled()) {
+      return { observedValue: 'unknown', threshold, passed: false, unableToEvaluate: true }
+    }
+
     const result = await this.ciState.checkPassed({
       checkName: 'canary-stages-automated',
       window,

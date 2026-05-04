@@ -88,7 +88,7 @@ export const agentDraft = agentsSchema.table(
     provenance: jsonb('provenance').notNull().default({}),
     /**
      * True when any L3.5 scratchpad value read during draft construction was
-     * tainted (R-04.33).  Forces the draft into high_risk_approval_required
+     * tainted. Forces the draft into high_risk_approval_required
      * regardless of the tool's base tier.
      */
     taintAtDraftTime: boolean('taint_at_draft_time').notNull().default(false),

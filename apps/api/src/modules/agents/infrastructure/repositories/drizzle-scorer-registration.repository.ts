@@ -11,8 +11,6 @@ import {
 } from '../../domain/repositories/scorer-registration.repository'
 import type { ScorerKind, ScorerScope } from '../../domain/scorer-types'
 
-// ─── Row → domain mapper ──────────────────────────────────────────────────────
-
 type AgentScorerRegistrationRow = typeof agentScorerRegistration.$inferSelect
 
 function toDomain(row: AgentScorerRegistrationRow): ScorerRegistrationEntity {
@@ -26,8 +24,6 @@ function toDomain(row: AgentScorerRegistrationRow): ScorerRegistrationEntity {
     status: row.status as ScorerStatus,
   }
 }
-
-// ─── Repository ───────────────────────────────────────────────────────────────
 
 @Injectable()
 export class DrizzleScorerRegistrationRepository implements ScorerRegistrationRepository {

@@ -14,7 +14,7 @@ export const CANARY_MARKER = 'obs-canary-marker'
 /**
  * Daily scheduled pg-boss job that checks for cross-tenant trace leaks.
  *
- * Status: DEFERRED — R-07.38a (Plan 07 §1 out-of-scope).
+ * Status: DEFERRED — Plan 07 §1 out-of-scope.
  *
  * The scan requires querying every tenant's trace-read surface for a
  * synthetic fixture-tenant span (carrying `canary_marker: true`). This

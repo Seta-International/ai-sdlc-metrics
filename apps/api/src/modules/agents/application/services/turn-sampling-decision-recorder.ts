@@ -29,7 +29,7 @@ export class TurnSamplingDecisionRecorder {
   constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
   /**
-   * Writes an agent_turn_sampling_decision row (R-07.17a).
+   * Writes an agent_turn_sampling_decision row.
    * Uses ON CONFLICT DO NOTHING so duplicate calls are safe (trace_id is PK).
    */
   async record(opts: RecordTurnDecisionOpts): Promise<void> {
@@ -49,7 +49,7 @@ export class TurnSamplingDecisionRecorder {
   }
 
   /**
-   * Checks whether the tenant has consumed its daily trace quota (R-07.17b).
+   * Checks whether the tenant has consumed its daily trace quota.
    *
    * Counts today's (UTC) captured turns and compares against `maxSampledTurnsPerDay`.
    * The caller is responsible for supplying the tenant's configured limit so this

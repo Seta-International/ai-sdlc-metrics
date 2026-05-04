@@ -7,6 +7,8 @@ import { AdminPageHeader } from '@/components/admin-page-header'
 import {
   listPlatformTenants,
   listPlatformTenantsQueryKey,
+  listTenantSyncHealth,
+  tenantSyncHealthQueryKey,
   updateTenantStatus,
   type TenantStatus,
 } from '@/lib/admin-api'
@@ -20,6 +22,11 @@ export default function PlatformAdminsPage() {
     queryFn: () => listPlatformTenants() as Promise<TenantRow[]>,
   })
 
+  const { data: syncHealthData } = useQuery({
+    queryKey: tenantSyncHealthQueryKey,
+    queryFn: () => listTenantSyncHealth(),
+  })
+
   const updateStatus = useMutation({
     mutationFn: (input: { tenantId: string; status: TenantStatus }) => updateTenantStatus(input),
     onSuccess: () => {
@@ -27,7 +34,18 @@ export default function PlatformAdminsPage() {
     },
   })
 
-  const tenants = (data as TenantRow[] | undefined) ?? []
+  const rawTenants = (data as TenantRow[] | undefined) ?? []
+
+  const syncHealthByTenantId = new Map((syncHealthData ?? []).map((row) => [row.tenantId, row]))
+
+  const tenants: TenantRow[] = rawTenants.map((t) => {
+    const health = syncHealthByTenantId.get(t.id)
+    return {
+      ...t,
+      msSyncStatus: health?.status ?? null,
+      msSyncOpenConflicts: health?.openConflicts ?? null,
+    }
+  })
 
   return (
     <main className="p-8">

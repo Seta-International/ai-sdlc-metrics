@@ -2,13 +2,7 @@
  * AgentEventRouter — routes incoming domain events to matching active schedules
  * and calls ScheduledTurnSpawner.spawn() for each match.
  *
- * Plan 09 §5 (Event-triggered spawn) / R-09.28:
- *
- *   "Event-router MUST filter schedule matches by `event.tenant_id === schedule.tenant_id`
- *   BEFORE calling ScheduledTurnSpawner.spawn(). Any attempted cross-tenant routing is
- *   rejected and audited as a P0 candidate."
- *
- * Cross-tenant guard (R-09.28):
+ * Cross-tenant guard:
  *   Before spawn() is called for any matched schedule, this router HARD-CHECKS that
  *   event.tenant_id === schedule.tenant_id. On mismatch:
  *     1. Skip the spawn (no pg-boss job is enqueued).
@@ -17,8 +11,6 @@
  *
  * The label `tenant_id` on the metric uses the EVENT's tenant_id (not the schedule's),
  * so an alert on any non-zero value fires against the originating tenant context.
- *
- * Observability: Plan 09 §8, metric `agent_event_router_cross_tenant_rejected_total`.
  */
 
 import { Injectable, Logger } from '@nestjs/common'
@@ -26,8 +18,6 @@ import { ScheduledTurnSpawner } from './scheduled-turn-spawner'
 import { recordCrossTenantRejected } from '../../infrastructure/observability/event-router-metrics'
 import { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import type { Schedule } from '../../domain/entities/schedule.entity'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 /**
  * An incoming domain event presented to the router.
@@ -48,11 +38,9 @@ export interface IncomingDomainEvent {
 export interface RouteEventResult {
   /** Number of schedules where spawn() was successfully called. */
   spawnedCount: number
-  /** Number of schedules rejected due to cross-tenant mismatch (R-09.28). */
+  /** Number of schedules rejected due to cross-tenant mismatch. */
   crossTenantRejectedCount: number
 }
-
-// ─── AgentEventRouter ────────────────────────────────────────────────────────
 
 /**
  * Routes a domain event to matching agent schedules.
@@ -80,7 +68,7 @@ export class AgentEventRouter {
    * Route a domain event to its matching schedules.
    *
    * For each candidate schedule:
-   *   1. HARD-CHECK `event.tenantId === schedule.tenantId` (R-09.28).
+   *   1. HARD-CHECK `event.tenantId === schedule.tenantId`.
    *      On mismatch → skip, emit metric + audit, continue.
    *   2. On match → call ScheduledTurnSpawner.spawn().
    *
@@ -99,21 +87,20 @@ export class AgentEventRouter {
     let crossTenantRejectedCount = 0
 
     for (const schedule of candidateSchedules) {
-      // ── R-09.28: Cross-tenant guard ────────────────────────────────────────
+      // Cross-tenant guard.
       if (event.tenantId !== schedule.tenantId) {
         crossTenantRejectedCount++
 
         this.logger.warn(
           `AgentEventRouter: cross-tenant mismatch — event.tenantId=${event.tenantId} ` +
             `schedule.tenantId=${schedule.tenantId} scheduleId=${schedule.id} ` +
-            `eventType=${event.eventType} — REJECTED (R-09.28 P0 candidate)`,
+            `eventType=${event.eventType} — REJECTED (P0 candidate)`,
         )
 
-        // Metric: agent_event_router_cross_tenant_rejected_total{tenant_id, event_type}
-        // Uses event.tenantId so the alert fires in the originating tenant context.
+        // Metric uses event.tenantId so the alert fires in the originating
+        // tenant context.
         recordCrossTenantRejected(event.tenantId, event.eventType)
 
-        // Kernel audit for compliance — P0 candidate
         await this.kernelAuditFacade.recordEvent({
           tenantId: event.tenantId,
           actorId: 'agent:event-router',
@@ -132,7 +119,6 @@ export class AgentEventRouter {
         continue
       }
 
-      // ── Tenant matches — proceed to spawn ──────────────────────────────────
       await this.spawner.spawn({
         schedule,
         firedBy: `event:${event.eventType}`,

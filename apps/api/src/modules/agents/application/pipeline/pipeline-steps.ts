@@ -1,13 +1,13 @@
 /**
- * ToolGateway Pipeline Steps — Task 4 (plan 01).
+ * ToolGateway pipeline steps.
  *
  * Each step is a pure function (or thin async wrapper). Steps return either a
- * step-specific continuation object or a `Tripwire`. The orchestrator (Task 5)
- * composes steps, manages spans, circuit-breaker state, and retry bookkeeping.
+ * step-specific continuation object or a `Tripwire`. The orchestrator composes
+ * steps, manages spans, circuit-breaker state, and retry bookkeeping.
  *
  * Non-goals for this file:
  *  - L1 cache interaction (orchestrator owns it)
- *  - Span creation (Task 6)
+ *  - Span creation
  *  - Retry loops (orchestrator)
  *  - Sanitization of error context (orchestrator applies projectToSchema before handing to sub-agent)
  *  - Dependency injection (all steps are plain functions)
@@ -22,8 +22,6 @@ import type { RequestContext, TurnState } from '../services/tool-gateway-contrac
 import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { tripwire, type Tripwire } from '../../infrastructure/guards/tripwire'
 
-// ─── Retry-key helpers ────────────────────────────────────────────────────────
-
 /**
  * Canonical retry-key factory used by both `ceilingPreCheck` (pipeline) and the
  * ToolGateway orchestrator. Centralised here to avoid key-string drift between the
@@ -34,8 +32,6 @@ export const RETRY_KEY = {
   validation: (toolName: string) => `${toolName}:validation`,
   timeout: (toolName: string) => `${toolName}:timeout`,
 } as const
-
-// ─── Step 1 — resolve ─────────────────────────────────────────────────────────
 
 /**
  * Resolves a tool name to its descriptor, enforcing sub-agent scope.
@@ -68,17 +64,15 @@ export function resolve(input: {
   return { kind: 'ok', descriptor }
 }
 
-// ─── Step 2 — prepareTaintWrap ────────────────────────────────────────────────
-
 /**
  * Extracts the list of field names that should be wrapped with tenant-authored
  * delimiters before the result is handed to the sub-agent LLM context.
  *
  * No tripwire possible — this is purely informational.
  *
- * The actual wrapping is performed in Step 6a (`applyTaintWrap`).
+ * The actual wrapping is performed by `applyTaintWrap`.
  * This step MUST run for every tool call so the orchestrator can emit the
- * `gateway:taint-wrap-setup` span (Task 6) even when there is nothing to wrap.
+ * `gateway:taint-wrap-setup` span even when there is nothing to wrap.
  */
 export function prepareTaintWrap(input: { descriptor: AgentToolDescriptor }): {
   fieldsToWrap: ReadonlyArray<string>
@@ -90,8 +84,6 @@ export function prepareTaintWrap(input: { descriptor: AgentToolDescriptor }): {
   return { fieldsToWrap: tenantAuthoredFreeText }
 }
 
-// ─── Step 3 — ceilingPreCheck ─────────────────────────────────────────────────
-
 /**
  * Reads the current ceiling budget for this tool and tripwires if the budget
  * is already exhausted BEFORE invoking the tool.
@@ -99,11 +91,11 @@ export function prepareTaintWrap(input: { descriptor: AgentToolDescriptor }): {
  * Disposition logic:
  *  - First breach (retryCount for the ceiling key is undefined or 0) → `retry`
  *    so the orchestrator can attempt to recover (e.g. by not calling this tool).
- *  - Second+ breach (retryCount >= 1) → `abort` (per §5 Retry-counting).
+ *  - Second+ breach (retryCount >= 1) → `abort`.
  *
- * The orchestrator (Task 5) owns decrementing the ceiling budget after a
- * successful invocation and incrementing the retry counter after each breach.
- * This step only reads — it never mutates TurnState.
+ * The orchestrator owns decrementing the ceiling budget after a successful
+ * invocation and incrementing the retry counter after each breach. This step
+ * only reads — it never mutates TurnState.
  */
 export function ceilingPreCheck(input: {
   descriptor: AgentToolDescriptor
@@ -154,8 +146,6 @@ export function ceilingPreCheck(input: {
   return { kind: 'ok', remaining }
 }
 
-// ─── Step 4 — preWriteAbortCheck ─────────────────────────────────────────────
-
 /**
  * Guards mutations against a cancelled AbortSignal before any domain side-effects
  * are triggered. Read-only tools (`query` procedures) pass unconditionally.
@@ -182,13 +172,11 @@ export function preWriteAbortCheck(input: {
   return { kind: 'ok' }
 }
 
-// ─── Step 5 — invoke ──────────────────────────────────────────────────────────
-
 /**
  * Interface for the tRPC caller adapter used by `invoke`.
- * A concrete implementation wrapping `getAppRouter().createCaller(ctx)` ships in Task 5.
- * This is a synchronous-signature-but-async-return interface because tRPC createCaller
- * is shaped that way.
+ * The concrete implementation wraps `getAppRouter().createCaller(ctx)`.
+ * This is a synchronous-signature-but-async-return interface because tRPC
+ * createCaller is shaped that way.
  */
 export interface TrpcCaller {
   call(input: {
@@ -213,8 +201,8 @@ export interface TrpcCaller {
  * NOTE on `transient_infra_error`:
  *   This variant IS produced here when the thrown error looks transient (e.g.
  *   SERVICE_UNAVAILABLE, TOO_MANY_REQUESTS, ECONNRESET, ETIMEDOUT). The orchestrator
- *   (Task 5) detects `transient_infra_error` with `disposition: 'retry'` and executes
- *   a single in-gateway retry (with jitter). Only after that retry is exhausted does
+ *   detects `transient_infra_error` with `disposition: 'retry'` and executes a
+ *   single in-gateway retry (with jitter). Only after that retry is exhausted does
  *   the orchestrator return the tripwire to the caller.
  *
  *   Rationale for classifying here rather than adding `rawError` to tripwire context:
@@ -223,7 +211,7 @@ export interface TrpcCaller {
  *   - The original error is available HERE; classify it once, keep it out of the payload.
  *   - The orchestrator only needs the variant + disposition to know it should retry once.
  *
- * NOTE on sanitization (R-01.29):
+ * NOTE on sanitization:
  *   `rawMessage` in the context carries the raw error message. The orchestrator
  *   applies `projectToSchema` / sanitization before handing the context to the
  *   sub-agent, so no sanitization happens here.
@@ -345,8 +333,6 @@ function mapTrpcError(toolName: string, err: TRPCError): Tripwire {
   }
 }
 
-// ─── Step 6a — applyTaintWrap ─────────────────────────────────────────────────
-
 /**
  * Wraps tenant-authored free-text fields in the result with XML-like delimiter
  * markers so the downstream LLM prompt layer can identify and handle them.
@@ -435,14 +421,12 @@ function wrapObjectFields(
   return { wrapped, fields }
 }
 
-// ─── Step 6b — auditEmit ──────────────────────────────────────────────────────
-
 /**
  * Emits an `agent.tool_called` audit event via `KernelAuditFacade.recordEvent`.
  *
  * CRITICAL: This function MUST NOT throw. An audit write failure must never
- * mask a successful tool invocation (§7 — audit-failure is an async compensation
- * concern; it does NOT tripwire the user-visible path). Always returns
+ * mask a successful tool invocation — audit-failure is an async compensation
+ * concern; it does NOT tripwire the user-visible path. Always returns
  * `{ emitted: false, error }` on failure.
  *
  * P1 visibility: when `emitted` is false the step itself logs `toolName` and
@@ -463,7 +447,7 @@ export async function auditEmit(input: {
     | 'timeout'
     | 'ceiling_hit'
     | 'aborted'
-    /** Plan 09 R-09.6a: mutation tool refused under read-only policy envelope. */
+    /** Mutation tool refused under read-only policy envelope. */
     | 'policy_violation'
   resultHash?: string
   extraAttrs?: Readonly<Record<string, unknown>>

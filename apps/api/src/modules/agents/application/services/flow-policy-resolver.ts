@@ -2,8 +2,6 @@ import { Injectable } from '@nestjs/common'
 import type { AgentToolMeta } from '../../../../common/trpc/agent-tool-meta'
 import type { ApprovalFreshness } from './draft-types'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export type FlowPolicyEntry = {
   readonly intent_slug: string
   readonly approvalFreshness?: ApprovalFreshness
@@ -19,8 +17,6 @@ export type EffectivePolicy = {
   readonly tierBump?: 'high_risk_approval_required'
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const DEFAULT_APPROVAL_TTL_HOURS = 72
 const DEFAULT_APPROVAL_FRESHNESS: ApprovalFreshness = 'accept-stale'
 
@@ -28,8 +24,6 @@ const FRESHNESS_RANK: Record<ApprovalFreshness, number> = {
   'accept-stale': 0,
   revalidate: 1,
 }
-
-// ─── FlowPolicyResolver ───────────────────────────────────────────────────────
 
 @Injectable()
 export class FlowPolicyResolver {
@@ -72,8 +66,6 @@ export class FlowPolicyResolver {
     }
   }
 }
-
-// ─── Private helpers ──────────────────────────────────────────────────────────
 
 /** Parse "72h" → 72, "48h" → 48. Returns undefined when input is absent or malformed. */
 function parseApprovalTtlHours(ttl: string | undefined): number | undefined {

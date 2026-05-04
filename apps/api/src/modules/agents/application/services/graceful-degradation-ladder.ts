@@ -13,7 +13,7 @@ import {
 
 export class LadderInvariantError extends Error {
   constructor(step: number) {
-    super(`R-05.40 violation: step ${step} produced an empty userMessage`)
+    super(`ladder invariant violation: step ${step} produced an empty userMessage`)
     this.name = 'LadderInvariantError'
   }
 }
@@ -58,7 +58,6 @@ export class GracefulDegradationLadder {
     // Step 7 — budget refuse (highest priority check, trigger-based)
     if (trigger === 'budget_exhausted') {
       const step = this._buildStep(7, trigger, 'refused', { cancellationReason: 'budget' })
-      // Emit ladder step + tier shift metrics (Plan 05 §8)
       recordLadderStep(tenantId, 7, 'refused')
       recordTierShift(tenantId, opts.currentTier, 'refused', 'budget')
       recordLadderTransitionLatency(7, Date.now() - stepStart)
@@ -108,7 +107,7 @@ export class GracefulDegradationLadder {
       }
       const step = this._buildStep(2, trigger, 'provider_fallback')
       recordLadderStep(tenantId, 2, 'provider_fallback')
-      // Use the actual error class that triggered the fallback (R-05.20a).
+      // Use the actual error class that triggered the fallback.
       // lastOverloadErrorClass tracks whichever class (vendor_overload or vendor_server_error)
       // last incremented the consecutive counter — it is the correct discriminator for the
       // provider_fallback_total metric. Defaulting to 'vendor_overload' here would corrupt
@@ -132,13 +131,13 @@ export class GracefulDegradationLadder {
   }
 
   recordError(modelId: string, errorClass: VendorErrorClass): void {
-    // vendor_rate_limit → wait+retry once; spec forbids fallback for rate-limit errors (R-05.20c)
+    // vendor_rate_limit → wait+retry once; fallback is forbidden for rate-limit errors.
     const isOverload = errorClass === 'vendor_overload' || errorClass === 'vendor_server_error'
     if (isOverload) {
       const current = this.consecutiveOverloadCount.get(modelId) ?? 0
       this.consecutiveOverloadCount.set(modelId, current + 1)
       // Track the last error class so evaluate() can emit the correct error_class
-      // on the provider_fallback metric (R-05.20a). Mixed sequences (overload then
+      // on the provider_fallback metric. Mixed sequences (overload then
       // server_error) record the class of the most recent counted failure.
       this.lastOverloadErrorClass.set(modelId, errorClass)
     }
@@ -156,7 +155,7 @@ export class GracefulDegradationLadder {
   ): LadderStepState {
     const userMessage = this._stepMessages[step] ?? ''
 
-    // R-05.40: every step except step 1 must have a non-empty userMessage
+    // Every step except step 1 must have a non-empty userMessage.
     if (step !== 1 && userMessage === '') {
       throw new LadderInvariantError(step)
     }

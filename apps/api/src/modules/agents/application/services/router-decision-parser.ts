@@ -1,6 +1,4 @@
 /**
- * RouterDecisionParser — Plan 02 Task 9 (R-02.20..R-02.23a)
- *
  * Stateless parser that validates raw LLM output or an already-parsed RouterPlan
  * against the canonical Zod schema plus semantic registry checks.
  *
@@ -14,13 +12,13 @@
  *                        mutual-exclusivity rules are applied.
  *
  * No retry-count tracking. The parser is intentionally stateless — the
- * orchestrator (T10) decides when to call parse a second time.
+ * orchestrator decides when to call parse a second time.
  *
- * No string-repair (R-02.22). A malformed input is returned as `retry`; it is
- * the orchestrator's responsibility to reassemble the prompt and re-call the LLM.
+ * No string-repair. A malformed input is returned as `retry`; it is the
+ * orchestrator's responsibility to reassemble the prompt and re-call the LLM.
  *
  * Escalation: the parser NEVER returns `{ kind: 'escalate' }` on its own.
- * Escalation is the orchestrator's state-machine concern (T10).
+ * Escalation is the orchestrator's state-machine concern.
  */
 
 import { Injectable, Inject } from '@nestjs/common'
@@ -43,17 +41,11 @@ import {
 } from '../../infrastructure/registry/sub-agent-registry'
 import { SCORER_REGISTRY, ScorerRegistry } from './scorer-registry'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const ROUTER_DECISION_PARSER = Symbol('ROUTER_DECISION_PARSER')
-
-// ─── Result type ──────────────────────────────────────────────────────────────
 
 export type ParseResult =
   | { kind: 'ok'; plan: RouterPlan }
   | { kind: 'retry'; reason: string; schemaInjectedPrompt: string }
-
-// ─── Schema injection template ────────────────────────────────────────────────
 
 /**
  * Builds the `schemaInjectedPrompt` included in every `retry` result.
@@ -75,8 +67,6 @@ function buildSchemaInjectedPrompt(reason: string): string {
   )
 }
 
-// ─── RouterDecisionParser ─────────────────────────────────────────────────────
-
 @Injectable()
 export class RouterDecisionParser {
   constructor(
@@ -84,8 +74,6 @@ export class RouterDecisionParser {
     @Inject(SUB_AGENT_REGISTRY) private readonly subAgentRegistry: SubAgentRegistry,
     @Inject(SCORER_REGISTRY) private readonly scorerRegistry: ScorerRegistry,
   ) {}
-
-  // ─── Full pipeline ────────────────────────────────────────────────────────
 
   /**
    * Full parse pipeline: JSON parse → Zod validation → semantic checks.
@@ -98,7 +86,6 @@ export class RouterDecisionParser {
    * Never returns `{ kind: 'escalate' }` — that is the orchestrator's concern.
    */
   parseRaw(rawLlmOutput: string): ParseResult {
-    // Step 1: JSON parse
     let parsed: unknown
     try {
       parsed = JSON.parse(rawLlmOutput)
@@ -107,14 +94,12 @@ export class RouterDecisionParser {
       return { kind: 'retry', reason, schemaInjectedPrompt: buildSchemaInjectedPrompt(reason) }
     }
 
-    // Step 2: Zod validation
     const zodResult = RouterPlanSchema.safeParse(parsed)
     if (!zodResult.success) {
       const reason = `schema validation failed — ${formatZodError(zodResult.error)}`
       return { kind: 'retry', reason, schemaInjectedPrompt: buildSchemaInjectedPrompt(reason) }
     }
 
-    // Step 3: Semantic checks
     return this._semanticCheck(zodResult.data)
   }
 
@@ -132,13 +117,11 @@ export class RouterDecisionParser {
     return this._semanticCheck(plan)
   }
 
-  // ─── Semantic checks ──────────────────────────────────────────────────────
-
   /**
    * Applies semantic validation rules to a Zod-valid RouterPlan.
    *
    * For `direct` and `iterative` topologies: only intent_slug format is checked;
-   * deeper semantic checks live in Plan 01 (direct) and Plan 12 (iterative).
+   * deeper semantic checks live in tier-specific planners.
    *
    * For `bounded` topology:
    *   1. intent_slug must be in IntentRegistry (or be 'unclassified').
@@ -149,19 +132,18 @@ export class RouterDecisionParser {
    *      - If disambiguation is absent: phase1 must have at least 1 directive.
    */
   private _semanticCheck(plan: RouterPlan): ParseResult {
-    // Iterative topology: validate completionCriteria.scorerIds (Plan 12 R-12.10)
+    // Iterative topology: validate completionCriteria.scorerIds.
     if (plan.topology === 'iterative') {
       return this._semanticCheckIterative(plan as IterativePlan)
     }
 
-    // Direct topology: accept after Zod structural validation
+    // Direct topology: accept after Zod structural validation.
     if (plan.topology !== 'bounded') {
       return { kind: 'ok', plan }
     }
 
     const bounded = plan as BoundedPlan
 
-    // Check 1: intent_slug in registry
     if (!this.intentRegistry.has(bounded.intent_slug)) {
       const reason =
         `intent_slug "${bounded.intent_slug}" is not registered in the IntentRegistry. ` +
@@ -172,7 +154,7 @@ export class RouterDecisionParser {
       return { kind: 'retry', reason, schemaInjectedPrompt: buildSchemaInjectedPrompt(reason) }
     }
 
-    // Check 2 + 3: sub_agent_key membership — phase1 and phase2 (now an array)
+    // sub_agent_key membership — phase1 and phase2.
     const unknownKeys: string[] = []
     for (const directive of bounded.phase1) {
       if (!this.subAgentRegistry.has(directive.sub_agent_key)) {
@@ -194,7 +176,7 @@ export class RouterDecisionParser {
       return { kind: 'retry', reason, schemaInjectedPrompt: buildSchemaInjectedPrompt(reason) }
     }
 
-    // Check 4a: mutual exclusivity — disambiguation present
+    // Mutual exclusivity — disambiguation present.
     if (bounded.disambiguation !== undefined) {
       if (bounded.phase1.length > 0 || bounded.phase2.length > 0) {
         const reason =
@@ -204,7 +186,7 @@ export class RouterDecisionParser {
       }
     }
 
-    // Check 4b: mutual exclusivity — disambiguation absent → phase1 must be non-empty
+    // Mutual exclusivity — disambiguation absent → phase1 must be non-empty.
     if (bounded.disambiguation === undefined && bounded.phase1.length === 0) {
       const reason =
         '"phase1" is empty and "disambiguation" is absent. ' +
@@ -215,20 +197,14 @@ export class RouterDecisionParser {
     return { kind: 'ok', plan }
   }
 
-  // ─── Iterative-specific semantic checks ──────────────────────────────────────
-
   /**
    * Validates an IterativePlan's completionCriteria.scorerIds against the
-   * ScorerRegistry (Plan 12 R-12.10).
+   * ScorerRegistry.
    *
    * Rules:
    *   1. All scorer IDs must exist in the ScorerRegistry.
    *   2. All scorer IDs must reference a scorer with kind === 'deterministic'.
    *      Non-deterministic scorers (llm-judge) are prohibited as iterative exit gates.
-   *
-   * Unknown scorer → retry with "Unknown scorer: <id>"
-   * Non-deterministic scorer → retry with "Scorer <id> is kind <kind>, only deterministic scorers
-   *   allowed (plan 12 R-12.10)"
    */
   private _semanticCheckIterative(plan: IterativePlan): ParseResult {
     for (const scorerId of plan.completionCriteria.scorerIds) {
@@ -240,9 +216,7 @@ export class RouterDecisionParser {
       }
 
       if (scorer.kind !== 'deterministic') {
-        const reason =
-          `Scorer ${scorerId} is kind ${scorer.kind}, only deterministic scorers allowed ` +
-          `(plan 12 R-12.10)`
+        const reason = `Scorer ${scorerId} is kind ${scorer.kind}, only deterministic scorers allowed (R-12.10)`
         return { kind: 'retry', reason, schemaInjectedPrompt: buildSchemaInjectedPrompt(reason) }
       }
     }
@@ -250,8 +224,6 @@ export class RouterDecisionParser {
     return { kind: 'ok', plan }
   }
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
  * Formats a Zod error into a concise human-readable string for use in the

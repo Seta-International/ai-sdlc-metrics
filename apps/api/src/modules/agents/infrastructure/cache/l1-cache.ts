@@ -1,15 +1,12 @@
 /**
  * Turn-scoped L1 read cache with in-flight promise coalescing.
- * R-01.22, R-01.24, R-01.25a + §5 Cache-hit-path.
  *
- * Lifetime: one (turn, sub-agent) pair. The orchestrator (Task 5) creates one
- * instance per pair — cross-sub-agent isolation is structural, not keyed.
+ * Lifetime: one (turn, sub-agent) pair. The orchestrator creates one instance
+ * per pair — cross-sub-agent isolation is structural, not keyed.
  * Not a NestJS service; constructed directly by the orchestrator.
  */
 
 import { canonicalize } from './canonical-args'
-
-// ─── Public error type ─────────────────────────────────────────────────────────
 
 /**
  * Thrown into pending promises when `invalidate()` removes their entry mid-flight.
@@ -22,8 +19,6 @@ export class InvalidationAbortError extends Error {
     this.name = 'InvalidationAbortError'
   }
 }
-
-// ─── Internal entry types ──────────────────────────────────────────────────────
 
 interface Deferred {
   promise: Promise<unknown>
@@ -47,14 +42,10 @@ interface CompletedEntry {
 
 type CacheEntry = PendingEntry | CompletedEntry
 
-// ─── Public result types ───────────────────────────────────────────────────────
-
 export type LookupResult =
   | { kind: 'completed'; result: unknown; resultHash: string }
   | { kind: 'pending'; promise: Promise<unknown> }
   | undefined
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function makeKey(toolName: string, argsHash: string): string {
   // `::` is safe as a separator — tool names are dot-path (no `::`)
@@ -84,8 +75,6 @@ function matchesPrefix(toolName: string, prefix: string): boolean {
   if (toolName === prefix) return true
   return toolName.startsWith(prefix + '.')
 }
-
-// ─── L1Cache class ─────────────────────────────────────────────────────────────
 
 export class L1Cache {
   private readonly entries = new Map<string, CacheEntry>()

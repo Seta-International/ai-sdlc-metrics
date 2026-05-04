@@ -1,12 +1,10 @@
 /**
- * SubAgentRunner — Plan 03 §4 "Sub-agent loop"
- *
- * Runs a single sub-agent through the ReAct loop (max 4-5 iterations) using
- * Vercel AI SDK's ToolLoopAgent, with:
- *   - outputSchema validation at exit (R-03.17)
- *   - Rule-based confidence derivation from trace signals (R-03.22)
- *   - DraftProposal taintSource provenance (R-03.32)
- *   - Ceiling-hit detection for the partial-answer gate (R-03.19)
+ * SubAgentRunner — runs a single sub-agent through the ReAct loop (max 4-5
+ * iterations) using Vercel AI SDK's ToolLoopAgent, with:
+ *   - outputSchema validation at exit
+ *   - Rule-based confidence derivation from trace signals
+ *   - DraftProposal taintSource provenance
+ *   - Ceiling-hit detection for the partial-answer gate
  *
  * This module exports the pure helper functions (buildSubAgentOutput,
  * attachTaintSource) that are tested independently without the Vercel AI SDK.
@@ -32,15 +30,13 @@ const ZERO_USAGE: SubAgentUsage = {
   costUsd: 0,
 }
 
-// ─── attachTaintSource ────────────────────────────────────────────────────────
-
 /**
- * Attaches taintSource provenance to a DraftProposal when the turn is tainted
- * (R-03.32). Returns the draft unchanged if the turn is not tainted.
+ * Attaches taintSource provenance to a DraftProposal when the turn is tainted.
+ * Returns the draft unchanged if the turn is not tainted.
  *
- * `taintSource` tells plan 08 WHY the draft requires a higher approval tier:
- * a specific tool call returned tenant-authored free text that entered the
- * LLM context before this draft was produced.
+ * `taintSource` tells the draft pipeline WHY the draft requires a higher
+ * approval tier: a specific tool call returned tenant-authored free text that
+ * entered the LLM context before this draft was produced.
  */
 export function attachTaintSource(
   draft: DraftProposal,
@@ -67,8 +63,6 @@ export function attachTaintSource(
   }
 }
 
-// ─── buildSubAgentOutput ──────────────────────────────────────────────────────
-
 export interface BuildSubAgentOutputOpts {
   /** Raw structured data from the sub-agent's last iteration. */
   readonly rawStructured: unknown
@@ -93,10 +87,9 @@ export interface BuildSubAgentOutputOpts {
  * Constructs a SubAgentOutput from the trace signals and raw data produced by
  * the ReAct loop.
  *
- * R-03.17: `structured` is validated against `config.outputSchema` at exit.
- *          A mismatch → kind='errored' (never throws).
- *
- * R-03.22: confidence is derived from `signals` via `deriveConfidence()`.
+ * `structured` is validated against `config.outputSchema` at exit; a mismatch
+ * → kind='errored' (never throws). Confidence is derived from `signals` via
+ * `deriveConfidence()`.
  *
  * Ceiling-hit precedence: if `signals.ceilingHit` is true, `kind` is forced
  * to 'ceiling_hit' regardless of schema validity.
@@ -132,7 +125,7 @@ export function buildSubAgentOutput(opts: BuildSubAgentOutputOpts): SubAgentOutp
     }
   }
 
-  // Validate structured output against the declared schema (R-03.17)
+  // Validate structured output against the declared schema.
   const parsed = outputSchema.safeParse(rawStructured)
   if (!parsed.success) {
     return {

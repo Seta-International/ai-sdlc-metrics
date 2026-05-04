@@ -115,7 +115,7 @@ describe('RegressionSignalMonitor', () => {
       windowMs: WINDOW_MS,
     })
 
-    expect(result).toEqual({ tripped: false, trippedSignals: [] })
+    expect(result).toEqual({ tripped: false, trippedSignals: [], signals: [] })
   })
 
   // ── 2. Config status !== 'active' ─────────────────────────────────────────
@@ -129,7 +129,7 @@ describe('RegressionSignalMonitor', () => {
       windowMs: WINDOW_MS,
     })
 
-    expect(result).toEqual({ tripped: false, trippedSignals: [] })
+    expect(result).toEqual({ tripped: false, trippedSignals: [], signals: [] })
   })
 
   // ── 3. No shadow runs in window ────────────────────────────────────────────
@@ -198,20 +198,10 @@ describe('RegressionSignalMonitor', () => {
     expect(result.trippedSignals).toHaveLength(0)
   })
 
-  // ── Stub signals never trip ────────────────────────────────────────────────
+  // ── Stub signals are marked disabled ──────────────────────────────────────
 
-  it('stub signals (cost_delta_pct, initiator_approval_drop, router_accuracy_signal) never trip', async () => {
-    // Even with threshold=0 for stubs, observed=0 so 0 > 0 = false → never trips
-    const config = makeConfig({
-      regressionThresholds: {
-        error_rate_max: 0.2,
-        cost_delta_pct_max: 0, // extremely low threshold
-        initiator_approval_drop_max: 0,
-        router_accuracy_signal_max: 0,
-      } satisfies RegressionThresholds,
-    })
-
-    const { db } = buildDb([config], 10, 1) // 1/10 = 0.10 < 0.20 → error_rate also no trip
+  it('stub signals (cost_delta_pct, initiator_approval_drop, router_accuracy_signal) are marked disabled: true', async () => {
+    const { db } = buildDb([makeConfig()], 10, 1)
     const monitor = new RegressionSignalMonitor(db)
 
     const result = await monitor.evaluate({
@@ -219,10 +209,45 @@ describe('RegressionSignalMonitor', () => {
       windowMs: WINDOW_MS,
     })
 
-    // All stubs have observed=0, which is NOT > 0, so they don't trip
+    const stubNames = ['cost_delta_pct', 'initiator_approval_drop', 'router_accuracy_signal']
+    for (const name of stubNames) {
+      const signal = result.signals.find((s) => s.signal === name)
+      expect(signal).toBeDefined()
+      expect(signal?.disabled).toBe(true)
+    }
+  })
+
+  // ── Disabled signals skip evaluation even if observed > threshold ──────────
+
+  it('skips disabled signals even if observed exceeds threshold', async () => {
+    // Set extremely low thresholds for stub signals so observed=0 would NOT trip,
+    // but the important thing is disabled: true prevents them from appearing in trippedSignals.
+    // We verify this by confirming none of the disabled signals appear in trippedSignals.
+    const config = makeConfig({
+      regressionThresholds: {
+        error_rate_max: 0.2,
+        cost_delta_pct_max: 0.05, // lower than anything cost could observe
+        initiator_approval_drop_max: 0.05,
+        router_accuracy_signal_max: 0.05,
+      } satisfies RegressionThresholds,
+    })
+
+    const { db } = buildDb([config], 10, 1) // 1/10 = 0.10 < 0.20 → error_rate no trip
+    const monitor = new RegressionSignalMonitor(db)
+
+    const result = await monitor.evaluate({
+      rolloutConfigId: ROLLOUT_CONFIG_ID,
+      windowMs: WINDOW_MS,
+    })
+
+    // Disabled signals must NOT appear in trippedSignals
     const trippedNames = result.trippedSignals.map((s) => s.signal)
     expect(trippedNames).not.toContain('cost_delta_pct')
     expect(trippedNames).not.toContain('initiator_approval_drop')
     expect(trippedNames).not.toContain('router_accuracy_signal')
+
+    // The disabled signals ARE present in result.signals (observable in reports)
+    const costSignal = result.signals.find((s) => s.signal === 'cost_delta_pct')
+    expect(costSignal?.disabled).toBe(true)
   })
 })

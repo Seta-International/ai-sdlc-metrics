@@ -8,6 +8,11 @@ vi.mock('@/lib/trpc', () => ({
         updateTenantStatus: { mutate: vi.fn() },
       },
     },
+    planner: {
+      msSync: {
+        tenantSyncHealth: { query: vi.fn() },
+      },
+    },
   },
 }))
 

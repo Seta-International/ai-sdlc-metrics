@@ -4,8 +4,6 @@
  * to avoid duplicating pipe-unwrap logic.
  */
 
-// ─── Zod v4 minimal shape for tenant_id check ────────────────────────────────
-
 export interface ZodObjectDef {
   type: 'object'
   shape: Record<string, unknown>

@@ -5,8 +5,6 @@ import { DB_TOKEN } from '../../../../common/db/db.module'
 import { agentRateLimitCounter } from '../../infrastructure/schema/agents.schema'
 import { recordRateLimitRejected } from '../../infrastructure/observability/cost-metrics'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export type RateLimitKey = 'queries/user/min' | 'l3_writes/user/day' | 'schedule_creations/user/day'
 
 export interface RateLimitCheckResult {
@@ -15,15 +13,11 @@ export interface RateLimitCheckResult {
   resetAt?: Date
 }
 
-// ─── Limits per key ───────────────────────────────────────────────────────────
-
 const LIMITS: Record<RateLimitKey, number> = {
   'queries/user/min': 30,
   'l3_writes/user/day': 20,
   'schedule_creations/user/day': 5,
 }
-
-// ─── RateLimiter ──────────────────────────────────────────────────────────────
 
 @Injectable()
 export class RateLimiter {
@@ -36,7 +30,7 @@ export class RateLimiter {
    *
    * Uses a Postgres-backed counter (no Redis dependency at MVP).
    * Fails soft on DB errors: returns `{ allowed: true }` for availability
-   * over enforcement (R-05.26).
+   * over enforcement.
    */
   async check(opts: {
     tenantId: string
@@ -87,22 +81,20 @@ export class RateLimiter {
       const count = row?.count ?? 1
 
       if (count > limit) {
-        // Emit rate-limit rejection metric (Plan 05 §8). No user_id label (R-05.30).
+        // No user_id label.
         recordRateLimitRejected(opts.tenantId, opts.limitKey)
         return { allowed: false, remaining: 0, resetAt }
       }
 
       return { allowed: true, remaining: limit - count, resetAt }
     } catch (err) {
-      // R-05.26: availability over enforcement for transient DB failures
+      // Availability over enforcement for transient DB failures.
       this.logger.warn(
         `RateLimiter DB failure for key=${opts.limitKey} tenant=${opts.tenantId}: ${err}`,
       )
       return { allowed: true }
     }
   }
-
-  // ─── Private ─────────────────────────────────────────────────────────────────
 
   private computeBucket(limitKey: RateLimitKey): { bucket: Date; resetAt: Date } {
     const now = new Date()

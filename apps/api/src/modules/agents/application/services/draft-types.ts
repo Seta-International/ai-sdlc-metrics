@@ -1,11 +1,9 @@
 /**
- * Shared Plan 08 type contracts.
+ * Shared draft type contracts.
  * Pure TypeScript — zero NestJS / Drizzle / Zod dependencies.
  */
 
 export type DraftTier = 'low_risk_auto' | 'high_risk_approval_required'
-
-// ─── Domain model ─────────────────────────────────────────────────────────────
 
 export type Draft = {
   readonly id: string
@@ -91,8 +89,8 @@ export type DraftProposalResult = {
   readonly actionId: string
   readonly tier: DraftTier
   readonly requiresApproval: boolean
-  // Business-intent language summary (R-08.25a): human-readable description of what
-  // this draft will do. Never raw args — must be plain-English intent suitable for
+  // Business-intent language summary: human-readable description of what this
+  // draft will do. Never raw args — must be plain-English intent suitable for
   // display in approval UI and audit logs.
   readonly summary: string
   readonly provenance: DraftProvenance

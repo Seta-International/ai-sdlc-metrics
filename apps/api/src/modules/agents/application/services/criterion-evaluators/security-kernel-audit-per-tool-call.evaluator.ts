@@ -26,6 +26,10 @@ export class SecurityKernelAuditPerToolCallEvaluator implements CriterionEvaluat
   constructor(@Inject(METRICS_QUERY_PORT) private readonly metrics: MetricsQueryPort) {}
 
   async evaluate(window: EvalWindow): Promise<CriterionResult> {
+    if (!this.metrics.isEnabled()) {
+      return { observedValue: 'unknown', threshold, passed: false, unableToEvaluate: true }
+    }
+
     const total = await this.metrics.sumCounter({
       metricName: 'agent_trace_audit_join_miss_total',
       window,

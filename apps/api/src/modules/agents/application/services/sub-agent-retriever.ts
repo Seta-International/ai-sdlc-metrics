@@ -1,18 +1,16 @@
 /**
- * SubAgentRetriever — Plan 02 Task 8 (R-02.26, §4, §5 step 5, §16 Activation Gate)
- *
  * Ships enabled but structurally dormant for the 3-module MVP case:
  *   - At ≤3 sub-agents the rendered prompt is far below the 120 K token ceiling,
- *     so the orchestrator (T10) will NOT call retrieve() — it inlines the full
+ *     so the orchestrator will NOT call retrieve() — it inlines the full
  *     candidate list directly.
- *   - At EI-1..EI-10 scale (12+ sub-agents) the orchestrator detects the ceiling
- *     breach via estimateTokens() and calls retrieve() to narrow the set.
+ *   - At 12+ sub-agents the orchestrator detects the ceiling breach via
+ *     estimateTokens() and calls retrieve() to narrow the set.
  *
- * The gate decision lives in T10 (the orchestrator). T8 owns only:
+ * The gate decision lives in the orchestrator. This service owns only:
  *   1. retrieve() — ranking + alwaysInclude append.
  *   2. estimateTokens() — deterministic character-based approximation helper.
  *
- * Ranking algorithm (R-02.26):
+ * Ranking algorithm:
  *   Deterministic, string-overlap based. No embeddings, no LLM calls.
  *   Score = count of shared non-stopword lowercased terms between the combined
  *   query bag (utterance + recentSummary) and the candidate's description +
@@ -33,11 +31,7 @@ import * as z from 'zod'
 import type { ValidatedSubAgentConfig, SubAgentKey } from '../../domain/services/sub-agent-types'
 import type { WindowedSummaries } from '../../domain/value-objects/windowed-summaries'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const SUB_AGENT_RETRIEVER = Symbol('SUB_AGENT_RETRIEVER')
-
-// ─── Constants ────────────────────────────────────────────────────────────────
 
 /**
  * Minimal English stopword list.
@@ -62,8 +56,6 @@ const STOPWORDS = new Set([
 ])
 
 const ROUTER_TRACER = trace.getTracer('agents.router')
-
-// ─── Schema char cache ─────────────────────────────────────────────────────────
 
 /**
  * WeakMap cache: ValidatedSubAgentConfig object → char count of its serialised
@@ -98,13 +90,11 @@ function getSchemaCharCount(config: ValidatedSubAgentConfig): number {
   return charCount
 }
 
-// ─── Ranker ───────────────────────────────────────────────────────────────────
-
 /**
  * Tokenise a string into a bag-of-words: lowercase, split on non-word chars,
  * drop stopwords and empty tokens.
  *
- * Exported so that Task 02.5 (tool retrieval) can reuse the same pattern.
+ * Exported so the tool-retrieval pipeline can reuse the same pattern.
  */
 export function tokenise(text: string): string[] {
   return text
@@ -141,8 +131,6 @@ export function scoreCandidate(queryBag: ReadonlyArray<string>, candidateText: s
 
   return shared / Math.sqrt(candidateSet.size)
 }
-
-// ─── estimateTokens ───────────────────────────────────────────────────────────
 
 export interface EstimateTokensOpts {
   readonly subAgents: ReadonlyArray<ValidatedSubAgentConfig>
@@ -188,8 +176,6 @@ export function estimateTokens(opts: EstimateTokensOpts): number {
   return Math.ceil(totalChars / 4)
 }
 
-// ─── retrieve opts ────────────────────────────────────────────────────────────
-
 export interface RetrieveOpts {
   /** Reserved for future per-tenant personalized ranking; unused by the MVP string-overlap ranker. */
   readonly tenantId: string
@@ -199,8 +185,6 @@ export interface RetrieveOpts {
   readonly topK: number
   readonly alwaysInclude: ReadonlySet<SubAgentKey>
 }
-
-// ─── SubAgentRetriever ────────────────────────────────────────────────────────
 
 @Injectable()
 export class SubAgentRetriever {
@@ -286,8 +270,6 @@ export class SubAgentRetriever {
     return estimateTokens(opts)
   }
 }
-
-// ─── Internal helpers ─────────────────────────────────────────────────────────
 
 /**
  * Build the combined query text from utterance + γ summaries + α.

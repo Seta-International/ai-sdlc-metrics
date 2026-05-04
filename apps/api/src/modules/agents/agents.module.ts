@@ -1,7 +1,6 @@
 import { Inject, Module, type OnModuleInit, type OnApplicationBootstrap } from '@nestjs/common'
 import { JwtModule } from '@nestjs/jwt'
 import { ConfigModule, ConfigService } from '@nestjs/config'
-// Plan 06 — Streaming + SSE + Cancellation
 import { ActiveTurnRegistry } from './application/services/active-turn-registry'
 import { RequestContextDiscipline } from './application/services/request-context-discipline'
 import { CrossPodCancelService } from './infrastructure/cross-pod-cancel'
@@ -9,7 +8,6 @@ import { AgentTurnController } from './interface/http/agent-turn-controller'
 import { AgentCancelController } from './interface/http/agent-cancel-controller'
 import { JwtService } from '../../common/auth/jwt.service'
 import { JWT_SERVICE } from '../../common/auth/auth.module'
-import { AgentsQueryFacade } from './application/facades/agents-query.facade'
 import { AgentPermissionService } from './application/services/agent-permission.service'
 import { AgentToolExecutor } from './application/services/agent-tool-executor'
 import { McpAuthGuard } from './infrastructure/guards/mcp-auth.guard'
@@ -20,7 +18,6 @@ import { KernelAuditFacade } from '../kernel/application/facades/kernel-audit.fa
 import { KernelQueryFacade } from '../kernel/application/facades/kernel-query.facade'
 import { AdminModule } from '../admin/admin.module'
 import { AdminQueryFacade } from '../admin/application/facades/admin-query.facade'
-// Repository tokens — pre-Plan 04
 import { AGENT_CHAT_SESSION_REPOSITORY } from './domain/repositories/agent-chat-session.repository'
 import { AGENT_SESSION_PORT } from './domain/ports/agent-session.port'
 import { STORED_SUB_AGENT_PORT } from './domain/ports/stored-sub-agent.port'
@@ -28,13 +25,11 @@ import { AGENT_MESSAGE_REPOSITORY } from './domain/repositories/agent-message.re
 import { AGENT_INSIGHT_REPOSITORY } from './domain/repositories/agent-insight.repository'
 import { PROMPT_STORE } from './domain/ports/prompt-store.port'
 import { NARRATIVE_STORE } from './domain/ports/narrative-store.port'
-// Repository tokens — Plan 04
 import { CONVERSATION_REPOSITORY } from './domain/repositories/conversation.repository'
 import { CONVERSATION_MESSAGE_REPOSITORY } from './domain/repositories/conversation-message.repository'
 import { L3_PREFERENCE_REPOSITORY } from './domain/repositories/l3-preference.repository'
 import { SCRATCHPAD_REPOSITORY } from './domain/repositories/scratchpad.repository'
 import { SEMANTIC_INDEX_REPOSITORY } from './domain/repositories/semantic-index.repository'
-// Drizzle repositories — pre-Plan 04
 import { DrizzleAgentChatSessionRepository } from './infrastructure/repositories/drizzle-agent-chat-session.repository'
 import { DrizzleAgentSessionRepository } from './infrastructure/repositories/drizzle-agent-session.repository'
 import { DrizzleStoredSubAgentRepository } from './infrastructure/repositories/drizzle-stored-sub-agent.repository'
@@ -42,20 +37,16 @@ import { DrizzleAgentMessageRepository } from './infrastructure/repositories/dri
 import { DrizzleAgentInsightRepository } from './infrastructure/repositories/drizzle-agent-insight.repository'
 import { DrizzlePromptStoreRepository } from './infrastructure/repositories/drizzle-prompt-store.repository'
 import { DrizzleNarrativeStoreRepository } from './infrastructure/repositories/drizzle-narrative-store.repository'
-// Drizzle repositories — Plan 04
 import { DrizzleConversationRepository } from './infrastructure/repositories/drizzle-conversation.repository'
 import { DrizzleConversationMessageRepository } from './infrastructure/repositories/drizzle-conversation-message.repository'
 import { DrizzleL3PreferenceRepository } from './infrastructure/repositories/drizzle-l3-preference.repository'
 import { DrizzleScratchpadRepository } from './infrastructure/repositories/drizzle-scratchpad.repository'
 import { DrizzleSemanticIndexRepository } from './infrastructure/repositories/drizzle-semantic-index.repository'
-// Command handlers
 import { CreateSessionHandler } from './application/commands/create-session.handler'
 import { SendMessageHandler } from './application/commands/send-message.handler'
 import { DismissInsightHandler } from './application/commands/dismiss-insight.handler'
-// Query handlers
 import { ListSessionsHandler } from './application/queries/list-sessions.handler'
 import { ListInsightsHandler } from './application/queries/list-insights.handler'
-// tRPC handler setters
 import { setAgentSessionHandlers } from './interface/trpc/session.router'
 import { setAgentInsightHandlers } from './interface/trpc/insight.router'
 import { setPreferencesService } from './interface/trpc/preferences.router'
@@ -65,7 +56,6 @@ import { setDraftApprovalService } from './interface/trpc/draft-approval.router'
 import { setScheduleHandlers } from './interface/trpc/schedule-ui-facade'
 import { setRolloutHandlers } from './interface/trpc/rollout.router'
 import { setReadinessHandlers } from './interface/trpc/readiness.router'
-// Plan 09 — Async Agents + Scheduling
 import { SCHEDULE_REPOSITORY } from './domain/repositories/schedule.repository'
 import {
   SCHEDULE_RUN_REPOSITORY,
@@ -89,31 +79,24 @@ import { DelegationExpirySweeper } from './infrastructure/workers/delegation-exp
 import { SemanticResultCache } from './infrastructure/cache/semantic-result-cache'
 import { SemanticCacheSweeper } from './infrastructure/workers/semantic-cache-sweeper'
 import { KernelDelegationFacade } from '../kernel/application/facades/kernel-delegation.facade'
-// Permission narrative builder (Task 6)
 import {
   PermissionNarrativeBuilder,
   PERMISSION_NARRATIVE_BUILDER,
 } from './application/services/permission-narrative-builder'
-// Router prompt builder (Task 7)
 import {
   RouterPromptBuilder,
   ROUTER_PROMPT_BUILDER,
 } from './application/services/router-prompt-builder'
-// Sub-agent retriever (Task 8)
 import { SubAgentRetriever, SUB_AGENT_RETRIEVER } from './application/services/sub-agent-retriever'
-// Router decision parser (Task 9)
 import {
   RouterDecisionParser,
   ROUTER_DECISION_PARSER,
 } from './application/services/router-decision-parser'
-// Router LLM client (Task 9)
 import { RouterLlmClient, ROUTER_LLM_CLIENT } from './infrastructure/llm/router-llm-client'
-// Router session orchestrator (Task 10)
 import {
   RouterSessionOrchestrator,
   ROUTER_SESSION_ORCHESTRATOR,
 } from './application/services/router-session-orchestrator'
-// Plan 18 Task 5/7/9 — Bounded executor + turn pipeline runner + run-pipeline factory
 import { BoundedExecutor, BOUNDED_EXECUTOR } from './application/services/bounded-executor'
 import {
   TurnPipelineRunner,
@@ -121,53 +104,41 @@ import {
   RUN_PIPELINE_FN,
 } from './application/services/turn-pipeline-runner'
 import { createRunPipelineFn } from './application/factories/run-pipeline.factory'
-// Gateway pipeline (Task 5)
 import { ToolRegistry, TOOL_REGISTRY } from './infrastructure/tool-registry/tool-registry'
 import { TrpcCallerImpl } from './application/services/trpc-caller'
 import { ToolGateway } from './application/services/tool-gateway'
 import { TOOL_GATEWAY } from './application/services/tool-gateway-contracts'
-// Plan 17 PR 2 — sub-agent ReAct loop dependencies
 import {
   OpenAiSubAgentLlmClient,
   SUB_AGENT_LLM_CLIENT,
 } from './infrastructure/llm/sub-agent-llm-client'
-// Plan 17 PR 3 — synthesizer LLM client
 import {
   OpenAiSynthesizerLlmClient,
   SYNTHESIZER_LLM_CLIENT,
 } from './infrastructure/llm/synthesizer-llm-client'
+import { DisabledSummarizerAiClient } from './infrastructure/llm/disabled-summarizer-client'
 import { getAppRouter } from '../../common/trpc/app-router'
-// Sub-agent registry (Task 3)
 import { SubAgentRegistry, SUB_AGENT_REGISTRY } from './infrastructure/registry/sub-agent-registry'
-// Intent registry (Task 4)
 import { IntentRegistry, INTENT_REGISTRY } from './infrastructure/registry/intents/intent-registry'
-// Tool descriptor embedder (Plan 02.5 Task 1)
 import {
   ToolDescriptorEmbedder,
   TOOL_DESCRIPTOR_EMBEDDER,
 } from './infrastructure/retrieval/tool-descriptor-embedder'
-// Tool retriever (Plan 02.5 Task 2)
 import { ToolRetriever, TOOL_RETRIEVER } from './infrastructure/retrieval/tool-retriever'
-// When-to-use collision linter (Plan 02.5 Task 3)
 import {
   WhenToUseCollisionLinter,
   WHEN_TO_USE_COLLISION_LINTER,
 } from './application/services/when-to-use-collision-linter'
-// Retrieval quality scorer (Plan 02.5 Task 4)
 import {
   RetrievalQualityScorer,
   RETRIEVAL_QUALITY_SCORER,
 } from './application/services/retrieval-quality-scorer'
-// Plan 04 services
 import { SaveQueue } from './application/services/save-queue'
 import { L3PreferenceService } from './application/services/l3-preferences'
 import { WindowBuilder } from './application/services/window-builder'
 import { Summarizer } from './application/services/summarizer'
 import { GDPRErasurePipeline } from './application/services/gdpr-erasure'
-import {
-  ConversationRetentionScheduler,
-  type TenantListerLike,
-} from './application/services/conversation-retention-scheduler'
+import { ConversationRetentionScheduler } from './application/services/conversation-retention-scheduler'
 import {
   CompositionMonitorWorker,
   type CompositionMonitorJobData,
@@ -175,12 +146,11 @@ import {
 import { LeakCanaryScheduler } from './infrastructure/jobs/leak-canary.scheduler'
 import { TurnSamplingDecisionRecorder } from './application/services/turn-sampling-decision-recorder'
 import { ToolInvocationAuditRecorder } from './application/services/tool-invocation-audit-recorder'
-// Plan 07 — ObservabilityContextFactory + FlowIdPropagation (controller wiring)
 import { ObservabilityContextFactory } from './application/services/observability-context'
 import { FlowIdPropagation } from './application/services/flow-id-propagation'
-// Plan 05 services
 import { PricingResolver } from './infrastructure/pricing/pricing-resolver'
 import { OpenAiUsageExtractor } from './infrastructure/adapters/openai-usage-extractor'
+import { KernelTenantLister } from './infrastructure/adapters/kernel-tenant-lister'
 import { CostRecorder } from './application/services/cost-recorder'
 import { BudgetChecker } from './application/services/budget-checker'
 import { RateLimiter } from './application/services/rate-limiter'
@@ -215,14 +185,12 @@ import type { Db } from '@future/db'
 //   • Adding sub-agents for a NEW domain module: add a new import below and
 //     include the descriptor(s) in the `descriptors` array in onModuleInit().
 import { plannerReadOnlySubAgent } from '../planner/agent/sub-agents'
-// Plan 11 — Shadow-mode Traffic + Canary Rollout
 import { RolloutResolver } from './application/services/rollout-resolver'
 import { ShadowDiffScorer } from './application/services/shadow-diff-scorer'
 import { ShadowExecutor } from './application/services/shadow-executor'
 import { ShadowTurnWorker } from './infrastructure/workers/shadow-turn-worker'
 import { RegressionSignalMonitor } from './application/services/regression-signal-monitor'
 import { AutoRollbackOrchestrator } from './application/services/auto-rollback-orchestrator'
-// Plan 12 — Iterative Supervisor Topology
 import {
   IterativeOrchestrator,
   ITERATIVE_ORCHESTRATOR,
@@ -236,7 +204,6 @@ import { CompletionScorerRunner } from './application/services/completion-scorer
 import { IterativeRePlanner } from './application/services/iterative-replanner'
 import { AGENT_ITERATION_REPOSITORY } from './domain/repositories/agent-iteration.repository'
 import { DrizzleAgentIterationRepository } from './infrastructure/repositories/drizzle-agent-iteration.repository'
-// Plan 13 — Production Readiness Validation Harness
 import {
   READINESS_CHECK_REPOSITORY,
   type ReadinessCheckRepository,
@@ -273,7 +240,6 @@ import { FlowCorrelationProbe } from './application/services/flow-correlation-pr
 import { ReadinessHourlyWorker } from './infrastructure/workers/readiness-hourly-worker'
 import { CostReconciliationWorker } from './infrastructure/workers/cost-reconciliation-worker'
 import { FlowCorrelationWorker } from './infrastructure/workers/flow-correlation-worker'
-// Plan 13 — 25 criterion evaluators
 import { ReliabilityTurnCompletedRateEvaluator } from './application/services/criterion-evaluators/reliability-turn-completed-rate.evaluator'
 import { ReliabilityUncaughtErrorRateEvaluator } from './application/services/criterion-evaluators/reliability-uncaught-error-rate.evaluator'
 import { ReliabilityProviderFallbackRateEvaluator } from './application/services/criterion-evaluators/reliability-provider-fallback-rate.evaluator'
@@ -299,7 +265,6 @@ import { RolloutCanaryStagesEvaluator } from './application/services/criterion-e
 import { RolloutShadowModeExercisedEvaluator } from './application/services/criterion-evaluators/rollout-shadow-mode-exercised.evaluator'
 import { RolloutVersionPinningComplianceEvaluator } from './application/services/criterion-evaluators/rollout-version-pinning-compliance.evaluator'
 import { RolloutIntentSlugCoverageEvaluator } from './application/services/criterion-evaluators/rollout-intent-slug-coverage.evaluator'
-// Plan 10 — Harness + Replay + Canary
 import { ReplayHarness, REPLAY_HARNESS } from './application/services/replay-harness'
 import { ScorerRegistry, SCORER_REGISTRY } from './application/services/scorer-registry'
 import { GoldenTraceRunner, GOLDEN_TRACE_RUNNER } from './application/services/golden-trace-runner'
@@ -342,17 +307,10 @@ import { listMyTasksIntent, listMyPlansIntent, listEvidenceIntent } from '../pla
 import { viewMyProfileIntent } from '../people/agent/intents'
 import { listMyAssignmentsIntent } from '../projects/agent/intents'
 
-// DI tokens for Plan 04 plain-class services
 export const WINDOW_BUILDER = Symbol('WINDOW_BUILDER')
 export const SUMMARIZER = Symbol('SUMMARIZER')
 export const GDPR_ERASURE_PIPELINE = Symbol('GDPR_ERASURE_PIPELINE')
 export const CONVERSATION_RETENTION_SCHEDULER = Symbol('CONVERSATION_RETENTION_SCHEDULER')
-
-class NullTenantLister implements TenantListerLike {
-  async listActiveTenantIds(): Promise<string[]> {
-    return []
-  }
-}
 
 @Module({
   imports: [
@@ -370,7 +328,6 @@ class NullTenantLister implements TenantListerLike {
   ],
   controllers: [AgentTurnController, AgentCancelController],
   providers: [
-    // ── Pre-Plan 04 repositories ───────────────────────────────────────────────
     { provide: AGENT_CHAT_SESSION_REPOSITORY, useClass: DrizzleAgentChatSessionRepository },
     { provide: AGENT_SESSION_PORT, useClass: DrizzleAgentSessionRepository },
     { provide: STORED_SUB_AGENT_PORT, useClass: DrizzleStoredSubAgentRepository },
@@ -378,45 +335,33 @@ class NullTenantLister implements TenantListerLike {
     { provide: AGENT_INSIGHT_REPOSITORY, useClass: DrizzleAgentInsightRepository },
     { provide: PROMPT_STORE, useClass: DrizzlePromptStoreRepository },
     { provide: NARRATIVE_STORE, useClass: DrizzleNarrativeStoreRepository },
-    // ── Plan 04 repositories ───────────────────────────────────────────────────
     { provide: CONVERSATION_REPOSITORY, useClass: DrizzleConversationRepository },
     { provide: CONVERSATION_MESSAGE_REPOSITORY, useClass: DrizzleConversationMessageRepository },
     { provide: L3_PREFERENCE_REPOSITORY, useClass: DrizzleL3PreferenceRepository },
     { provide: SCRATCHPAD_REPOSITORY, useClass: DrizzleScratchpadRepository },
     { provide: SEMANTIC_INDEX_REPOSITORY, useClass: DrizzleSemanticIndexRepository },
-    // ── Command handlers ───────────────────────────────────────────────────────
     CreateSessionHandler,
     SendMessageHandler,
     DismissInsightHandler,
-    // ── Query handlers ─────────────────────────────────────────────────────────
     ListSessionsHandler,
     ListInsightsHandler,
-    // ── Core services ─────────────────────────────────────────────────────────
-    AgentsQueryFacade,
     AgentPermissionService,
     AgentToolExecutor,
     McpAuthGuard,
     ExposureContractGuard,
     ToolPermissionGuard,
-    // ── Permission narrative builder (Task 6) ──────────────────────────────────
     PermissionNarrativeBuilder,
     { provide: PERMISSION_NARRATIVE_BUILDER, useExisting: PermissionNarrativeBuilder },
-    // ── Router prompt builder (Task 7) ─────────────────────────────────────────
     RouterPromptBuilder,
     { provide: ROUTER_PROMPT_BUILDER, useExisting: RouterPromptBuilder },
-    // ── Sub-agent retriever (Task 8) ───────────────────────────────────────────
     SubAgentRetriever,
     { provide: SUB_AGENT_RETRIEVER, useExisting: SubAgentRetriever },
-    // ── Router decision parser (Task 9) ────────────────────────────────────────
     RouterDecisionParser,
     { provide: ROUTER_DECISION_PARSER, useExisting: RouterDecisionParser },
-    // ── Router LLM client (Task 9) ─────────────────────────────────────────────
     RouterLlmClient,
     { provide: ROUTER_LLM_CLIENT, useExisting: RouterLlmClient },
-    // ── Router session orchestrator (Task 10) ──────────────────────────────────
     RouterSessionOrchestrator,
     { provide: ROUTER_SESSION_ORCHESTRATOR, useExisting: RouterSessionOrchestrator },
-    // ── Plan 18 — Bounded executor + live turn pipeline runner ────────────────
     BoundedExecutor,
     { provide: BOUNDED_EXECUTOR, useExisting: BoundedExecutor },
     TurnPipelineRunner,
@@ -451,11 +396,10 @@ class NullTenantLister implements TenantListerLike {
           adminQuery,
         }),
     },
-    // ── Gateway pipeline (Task 5) ──────────────────────────────────────────────
     ToolRegistry,
     // TrpcCallerImpl requires BASE_DB_TOKEN (raw pool — not the request-bound DB_TOKEN proxy)
     // so that gateway-invoked dry-run calls open a real Postgres transaction for rollback
-    // isolation (Plan 11 R-11.1). Using DB_TOKEN would cause nested-transaction issues with
+    // isolation. Using DB_TOKEN would cause nested-transaction issues with
     // RLS session state and violate the single-PoolClient-per-request rule.
     //
     // RequestDbContextService is also injected so dry-run can publish the transaction-bound
@@ -470,43 +414,30 @@ class NullTenantLister implements TenantListerLike {
     ToolGateway,
     { provide: TOOL_GATEWAY, useExisting: ToolGateway },
     { provide: TOOL_REGISTRY, useExisting: ToolRegistry },
-    // ── Plan 17 PR 2 — Sub-agent LLM client (real ReAct loop wiring) ───────────
     OpenAiSubAgentLlmClient,
     { provide: SUB_AGENT_LLM_CLIENT, useExisting: OpenAiSubAgentLlmClient },
-    // ── Plan 17 PR 3 — Synthesizer LLM client (streaming structured output) ────
     OpenAiSynthesizerLlmClient,
     { provide: SYNTHESIZER_LLM_CLIENT, useExisting: OpenAiSynthesizerLlmClient },
-    // ── Sub-agent registry (Task 3) ────────────────────────────────────────────
     SubAgentRegistry,
     { provide: SUB_AGENT_REGISTRY, useExisting: SubAgentRegistry },
-    // ── Intent registry (Task 4) ───────────────────────────────────────────────
     IntentRegistry,
     { provide: INTENT_REGISTRY, useExisting: IntentRegistry },
-    // ── Tool descriptor embedder (Plan 02.5 Task 1) ────────────────────────────
     ToolDescriptorEmbedder,
     { provide: TOOL_DESCRIPTOR_EMBEDDER, useExisting: ToolDescriptorEmbedder },
-    // ── Tool retriever (Plan 02.5 Task 2) ──────────────────────────────────────
     ToolRetriever,
     { provide: TOOL_RETRIEVER, useExisting: ToolRetriever },
-    // ── When-to-use collision linter (Plan 02.5 Task 3) ───────────────────────
     WhenToUseCollisionLinter,
     { provide: WHEN_TO_USE_COLLISION_LINTER, useExisting: WhenToUseCollisionLinter },
-    // ── Retrieval quality scorer (Plan 02.5 Task 4) ────────────────────────────
     RetrievalQualityScorer,
     { provide: RETRIEVAL_QUALITY_SCORER, useExisting: RetrievalQualityScorer },
-    // ── Plan 04 — Memory L1-L4 + Conversation State ───────────────────────────
-    // SaveQueue: @Injectable — constructor-injected CONVERSATION_MESSAGE_REPOSITORY
     SaveQueue,
-    // L3PreferenceService: @Injectable — needs L3_PREFERENCE_REPOSITORY + KernelAuditFacade
     L3PreferenceService,
-    // WindowBuilder: plain class — constructed via useFactory
     {
       provide: WINDOW_BUILDER,
       inject: [CONVERSATION_MESSAGE_REPOSITORY],
       useFactory: (msgRepo: ConversationMessageRepository) => new WindowBuilder(msgRepo),
     },
-    // Summarizer: plain class — constructed via useFactory
-    // AiClient stub: no-op at Phase 1; replaced in Phase 4 when summarization activates.
+    // AiClient: disabled adapter — throws on invocation until Phase-4 wires the real client.
     {
       provide: SUMMARIZER,
       inject: [PgBossService, CONVERSATION_REPOSITORY, CONVERSATION_MESSAGE_REPOSITORY],
@@ -514,9 +445,8 @@ class NullTenantLister implements TenantListerLike {
         pgBoss: PgBossService,
         convRepo: ConversationRepository,
         msgRepo: ConversationMessageRepository,
-      ) => new Summarizer(pgBoss, { generateText: async () => '' }, convRepo, msgRepo),
+      ) => new Summarizer(pgBoss, new DisabledSummarizerAiClient(), convRepo, msgRepo),
     },
-    // GDPRErasurePipeline: plain class — constructed via useFactory
     {
       provide: GDPR_ERASURE_PIPELINE,
       inject: [
@@ -535,22 +465,22 @@ class NullTenantLister implements TenantListerLike {
       ) => new GDPRErasurePipeline(msgRepo, l3Repo, scratchpadRepo, semanticIndex, kernelAudit),
     },
     // ConversationRetentionScheduler: plain class — daily pg-boss cron for 90-day archive
+    KernelTenantLister,
     {
       provide: CONVERSATION_RETENTION_SCHEDULER,
-      inject: [PgBossService, CONVERSATION_REPOSITORY],
-      useFactory: (pgBoss: PgBossService, convRepo: ConversationRepository) =>
-        new ConversationRetentionScheduler(pgBoss, convRepo, new NullTenantLister()),
+      inject: [PgBossService, CONVERSATION_REPOSITORY, KernelTenantLister],
+      useFactory: (
+        pgBoss: PgBossService,
+        convRepo: ConversationRepository,
+        tenantLister: KernelTenantLister,
+      ) => new ConversationRetentionScheduler(pgBoss, convRepo, tenantLister),
     },
-    // ── Composition-attack monitor (Plan 07 Task 6) ───────────────────────────
     CompositionMonitorWorker,
-    // ── Plan 07 — ObservabilityContextFactory + FlowIdPropagation (controller seam) ──
     ObservabilityContextFactory,
     FlowIdPropagation,
-    // ── Plan 07 Task 7 — Observability meta-metrics + quota recorder ──────────
     TurnSamplingDecisionRecorder,
     LeakCanaryScheduler,
     ToolInvocationAuditRecorder,
-    // ── Plan 05 — Cost / budget / rate-limiting / canary / throttle ───────────
     PricingResolver,
     OpenAiUsageExtractor,
     CostRecorder,
@@ -559,7 +489,6 @@ class NullTenantLister implements TenantListerLike {
     QualityCanarySubscription,
     ApprovalInboxThrottle,
     AdminBudgetOps,
-    // ── Plan 08 — Drafts + Approval ───────────────────────────────────────────
     { provide: DRAFT_REPOSITORY, useClass: DrizzleDraftRepository },
     ApprovalExecutorDelegationMinter,
     DraftTierClassifier,
@@ -581,7 +510,6 @@ class NullTenantLister implements TenantListerLike {
           await pgBoss.enqueue(name, data as Record<string, unknown>)
         }),
     },
-    // ── Plan 09 — Async Agents + Scheduling ───────────────────────────────────
     { provide: SCHEDULE_REPOSITORY, useClass: DrizzleScheduleRepository },
     { provide: SCHEDULE_RUN_REPOSITORY, useClass: DrizzleScheduleRunRepository },
     ScheduleRepository,
@@ -595,7 +523,6 @@ class NullTenantLister implements TenantListerLike {
     DelegationExpirySweeper,
     SemanticResultCache,
     SemanticCacheSweeper,
-    // ── Plan 06 — Streaming + SSE + Cancellation ──────────────────────────────
     ActiveTurnRegistry,
     RequestContextDiscipline,
     CrossPodCancelService,
@@ -604,13 +531,10 @@ class NullTenantLister implements TenantListerLike {
       provide: JwtService,
       useExisting: JWT_SERVICE,
     },
-    // ── Plan 10 — Harness + Replay + Canary ───────────────────────────────────
-    // Repositories
     { provide: GOLDEN_TRACE_REPOSITORY, useClass: DrizzleGoldenTraceRepository },
     { provide: CANARY_RUN_REPOSITORY, useClass: DrizzleCanaryRunRepository },
     { provide: CANARY_QUERY_REPOSITORY, useClass: DrizzleCanaryQueryRepository },
     { provide: SCORER_REGISTRATION_REPOSITORY, useClass: DrizzleScorerRegistrationRepository },
-    // Services
     ScorerRegistry,
     { provide: SCORER_REGISTRY, useExisting: ScorerRegistry },
     ReplayHarness,
@@ -628,17 +552,13 @@ class NullTenantLister implements TenantListerLike {
     { provide: TOOL_REGISTRY_TOKEN, useExisting: ToolRegistry },
     IntentDriftScorer,
     { provide: INTENT_DRIFT_SCORER, useExisting: IntentDriftScorer },
-    // ── Plan 11 — Shadow-mode Traffic + Canary Rollout ─────────────────────────
     RolloutResolver,
     ShadowDiffScorer,
     ShadowExecutor,
     ShadowTurnWorker,
     RegressionSignalMonitor,
     AutoRollbackOrchestrator,
-    // ── Plan 12 — Iterative Supervisor Topology ────────────────────────────────
-    // Repository
     { provide: AGENT_ITERATION_REPOSITORY, useClass: DrizzleAgentIterationRepository },
-    // Pure services (no special DI tokens needed at injection site)
     IterationCeilingEnforcer,
     CompletionScorerRunner,
     IterativeRePlanner,
@@ -652,11 +572,8 @@ class NullTenantLister implements TenantListerLike {
     // the phase-executor integration layer.
     SynthesizerAdapter,
     { provide: I_SYNTHESIZER, useExisting: SynthesizerAdapter },
-    // IterativeOrchestrator — the main service; uses I_SUB_AGENT_RUNNER and I_SYNTHESIZER tokens
     IterativeOrchestrator,
     { provide: ITERATIVE_ORCHESTRATOR, useExisting: IterativeOrchestrator },
-    // ── Plan 13 — Production Readiness Validation Harness ──────────────────────
-    // Domain repositories
     { provide: READINESS_CHECK_REPOSITORY, useClass: DrizzleReadinessCheckRepository },
     { provide: GA_READINESS_STATE_REPOSITORY, useClass: DrizzleGaReadinessStateRepository },
     { provide: RUNBOOK_DRY_RUN_REPOSITORY, useClass: DrizzleRunbookDryRunRepository },
@@ -666,7 +583,6 @@ class NullTenantLister implements TenantListerLike {
     { provide: METRICS_QUERY_PORT, useClass: StubMetricsQuery },
     { provide: CI_STATE_PORT, useClass: StubCiState },
     { provide: GA_METRICS_PORT, useClass: StubGaMetrics },
-    // 25 criterion evaluator classes — each injects METRICS_QUERY_PORT or CI_STATE_PORT
     ReliabilityTurnCompletedRateEvaluator,
     ReliabilityUncaughtErrorRateEvaluator,
     ReliabilityProviderFallbackRateEvaluator,
@@ -777,7 +693,6 @@ class NullTenantLister implements TenantListerLike {
         RolloutIntentSlugCoverageEvaluator,
       ],
     },
-    // Application services
     ReadinessValidator,
     GaReadinessComputer,
     RunbookDryRunScheduler,
@@ -792,7 +707,6 @@ class NullTenantLister implements TenantListerLike {
     FlowCorrelationWorker,
   ],
   exports: [
-    AgentsQueryFacade,
     SUB_AGENT_REGISTRY,
     INTENT_REGISTRY,
     PERMISSION_NARRATIVE_BUILDER,
@@ -805,17 +719,6 @@ class NullTenantLister implements TenantListerLike {
     TOOL_RETRIEVER,
     WHEN_TO_USE_COLLISION_LINTER,
     RETRIEVAL_QUALITY_SCORER,
-    // Plan 04
-    CONVERSATION_REPOSITORY,
-    CONVERSATION_MESSAGE_REPOSITORY,
-    L3_PREFERENCE_REPOSITORY,
-    SCRATCHPAD_REPOSITORY,
-    SEMANTIC_INDEX_REPOSITORY,
-    SaveQueue,
-    L3PreferenceService,
-    WINDOW_BUILDER,
-    SUMMARIZER,
-    GDPR_ERASURE_PIPELINE,
   ],
 })
 export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
@@ -841,7 +744,6 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly draftExpirySweeper: DraftExpirySweeper,
     private readonly draftApprovalService: DraftApprovalService,
     @Inject(DRAFT_REPOSITORY) private readonly draftRepo: IDraftRepository,
-    // Plan 09 — Async Agents + Scheduling
     private readonly scheduleRepository: ScheduleRepository,
     private readonly delegationLifecycle: DelegationLifecycle,
     private readonly kernelDelegationFacade: KernelDelegationFacade,
@@ -849,16 +751,13 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly delegationExpirySweeper: DelegationExpirySweeper,
     @Inject(SCHEDULE_RUN_REPOSITORY)
     private readonly scheduleRunRepository: IScheduleRunRepository,
-    // Plan 10 — Harness + Replay + Canary
     private readonly scorerRegistry: ScorerRegistry,
     private readonly intentDriftScorer: IntentDriftScorer,
     private readonly qualityCanaryScheduler: QualityCanaryScheduler,
-    // Plan 11 — Shadow-mode Traffic + Canary Rollout
     private readonly shadowTurnWorker: ShadowTurnWorker,
     @Inject(DB_TOKEN) private readonly db: Db,
     private readonly kernelAuditFacade: KernelAuditFacade,
     private readonly autoRollbackOrchestrator: AutoRollbackOrchestrator,
-    // Plan 13 — Production Readiness Validation Harness
     private readonly readinessHourlyWorker: ReadinessHourlyWorker,
     private readonly costReconciliationWorker: CostReconciliationWorker,
     private readonly flowCorrelationWorker: FlowCorrelationWorker,
@@ -867,7 +766,6 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly gaReadinessStateRepo: GaReadinessStateRepository,
     @Inject(READINESS_CHECK_REPOSITORY)
     private readonly readinessCheckRepo: ReadinessCheckRepository,
-    // Plan 14 — Semantic Result Cache
     private readonly semanticCacheSweeper: SemanticCacheSweeper,
   ) {}
 
@@ -901,14 +799,12 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
       runbookScheduler: this.runbookScheduler,
     })
 
-    // Step 1: Load agent tools from the assembled tRPC router.
     // TrpcModule.onModuleInit() must have run before AgentsModule.onModuleInit()
     // to ensure permission-enforcing routers have been swapped in.
     // NestJS module init order is determined by import order in AppModule;
     // TrpcModule is imported before AgentsModule in app.module.ts.
     this.toolRegistry.loadFromRouter(getAppRouter())
 
-    // Step 2: Boot the sub-agent registry AFTER the tool registry has loaded.
     // Order is critical: SubAgentRegistry.boot validates toolScope entries against
     // the ToolRegistry — the tool registry must be populated first.
     //
@@ -925,15 +821,10 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     // MUST be fixed before deployment — there is no degraded-mode fallback.
     this.subAgentRegistry.boot(descriptors, this.toolRegistry)
 
-    // Step 2.5: Boot the tool descriptor embedder AFTER the tool registry has loaded.
-    // ensureEmbedded upserts embeddings for any tool whose (tool_name, content_hash)
-    // pair is missing from the DB. buildInMemoryIndex loads the latest vector per
-    // tool_name into the in-memory Map for runtime retrieval.
     const allTools = this.toolRegistry.listAgentTools()
     await this.toolDescriptorEmbedder.ensureEmbedded(allTools)
     await this.toolDescriptorEmbedder.buildInMemoryIndex(allTools)
 
-    // Step 3: Boot the intent registry.
     // Order: after subAgentRegistry.boot for readability. The intent registry
     // has no dependency on the tool registry — it validates slugs and domain
     // consistency only.
@@ -960,15 +851,13 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     this.intentRegistry.boot(intentDescriptors)
   }
   async onApplicationBootstrap(): Promise<void> {
-    // Step 4: Register Plan 04 pg-boss workers.
-    // Summarizer worker fires post-turn to generate async summaries (R-04.24).
+    // Summarizer worker fires post-turn to generate async summaries.
     // SUMMARIZER token is a Symbol so we use the injected instance directly.
     await this.summarizer.registerWorkers()
 
-    // Step 5: Register retention scheduler — daily cron to archive idle conversations (R-04.27).
+    // Daily cron to archive idle conversations.
     await this.retentionScheduler.registerWorkers()
 
-    // Step 6: Register composition-attack monitor (Plan 07 Task 6, R-07.46).
     // Best-effort, post-turn async job — never blocks tool calls (Tenet #9).
     await this.pgBossService.registerWorker<CompositionMonitorJobData>(
       'observability-composition-monitor',
@@ -979,11 +868,9 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
       },
     )
 
-    // Step 7: Register leak canary job (Plan 07 Task 7, R-07.§8).
     // Daily 3am UTC scan for cross-tenant trace leaks — MVP stub records 'clean'.
     await this.leakCanaryScheduler.registerJob()
 
-    // Step 8: Register execute-approved-draft worker (Plan 08 T5).
     // Processes approved drafts enqueued by DraftProposer after approval.
     await this.pgBossService.registerWorker<Parameters<ExecuteApprovedDraftWorker['handle']>[0]>(
       'agents.execute-approved-draft',
@@ -994,11 +881,9 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
       },
     )
 
-    // Step 9: Register draft expiry sweeper (Plan 08 T5).
     // Runs every 15 minutes to mark pending-expired drafts as 'expired'.
     await this.draftExpirySweeper.registerJob(this.pgBossService)
 
-    // Step 10: Register scheduled-turn worker (Plan 09).
     // Processes agent.scheduled-turn jobs enqueued by ScheduledTurnSpawner.
     await this.pgBossService.registerWorker<ScheduledTurnJob>(
       SCHEDULED_TURN_QUEUE,
@@ -1009,29 +894,23 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
       },
     )
 
-    // Step 11: Register delegation expiry sweeper (Plan 09).
     // Runs daily at 01:00 UTC to expire stale delegations.
     await this.delegationExpirySweeper.registerJob(this.pgBossService)
 
-    // Step 12: Register Plan 10 IntentDriftScorer with ScorerRegistry
     await this.scorerRegistry.register(this.intentDriftScorer)
 
-    // Step 13: Register quality canary hourly tick (Plan 10)
     await this.pgBossService.schedule('agent.quality-canary-tick', '0 * * * *')
     this.pgBossService.registerWorker('agent.quality-canary-tick', async (_jobs) => {
       await this.qualityCanaryScheduler.tickHourly()
     })
 
-    // Step 14: Register Plan 13 hourly readiness evaluation worker
     await this.readinessHourlyWorker.registerWorker()
 
-    // Step 15: Register Plan 13 weekly cost reconciliation worker
     await this.costReconciliationWorker.registerWorker()
 
-    // Step 16: Register Plan 13 monthly flow correlation worker
     await this.flowCorrelationWorker.registerWorker()
 
-    // Step 17: Register Plan 14 semantic cache sweeper (5-minute sweep of expired cache rows)
+    // 5-minute sweep of expired cache rows.
     await this.semanticCacheSweeper.registerJob(this.pgBossService)
   }
 }

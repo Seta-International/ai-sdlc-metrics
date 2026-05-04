@@ -17,8 +17,6 @@ import {
   type Context as OtelContext,
 } from '@opentelemetry/api'
 
-// ─── Identity-key denylist ────────────────────────────────────────────────────
-
 /**
  * Keys that are auto-stamped by middleware and must never be overridden by
  * caller code. setAttribute/setAttributes enforce this.
@@ -45,8 +43,6 @@ function assertNotDenylistKey(key: string): void {
   }
 }
 
-// ─── UsageSnapshot ────────────────────────────────────────────────────────────
-
 export interface UsageSnapshot {
   inputUncached: number
   inputCachedRead: number
@@ -54,8 +50,6 @@ export interface UsageSnapshot {
   output: number
   outputReasoning: number
 }
-
-// ─── Span interface ───────────────────────────────────────────────────────────
 
 export interface Span {
   readonly spanId: string
@@ -66,8 +60,6 @@ export interface Span {
   recordUsage(usage: UsageSnapshot): void
   end(opts?: { status?: 'ok' | 'error'; error?: Error }): void
 }
-
-// ─── NoOpSpan ─────────────────────────────────────────────────────────────────
 
 export class NoOpSpan implements Span {
   readonly spanId: string
@@ -94,8 +86,6 @@ export class NoOpSpan implements Span {
     // no-op
   }
 }
-
-// ─── OtelSpan ─────────────────────────────────────────────────────────────────
 
 /**
  * Wraps a raw OTel span to enforce the identity-key denylist and

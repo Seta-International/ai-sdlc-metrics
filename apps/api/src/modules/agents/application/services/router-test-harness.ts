@@ -1,6 +1,5 @@
 /**
- * router-test-harness.ts — shared test-only infrastructure for the router integration
- * + property test suites (Plan 02 Task 12).
+ * Shared test-only infrastructure for router integration + property test suites.
  *
  * DO NOT wire into DI. Import only from *.spec.ts files.
  *
@@ -51,9 +50,8 @@ import type { KernelQueryFacade } from '../../../kernel/application/facades/kern
 import type { KernelAuditFacade } from '../../../kernel/application/facades/kernel-audit.facade'
 import { __INTERNAL_resetInstruments } from '../../infrastructure/observability/gateway-metrics'
 
-// ─── OTel providers ───────────────────────────────────────────────────────────
-// These are created once at module load. Tests must call resetOtel() in beforeEach.
-
+// OTel providers are created once at module load. Tests must call resetOtel()
+// in beforeEach.
 let _otelInitialised = false
 
 export let spanExporter: InMemorySpanExporter
@@ -97,8 +95,6 @@ export function resetOtel(): void {
   __INTERNAL_resetInstruments()
 }
 
-// ─── Metric helpers ────────────────────────────────────────────────────────────
-
 export interface DataPoint {
   attributes: Record<string, unknown>
   value: number
@@ -124,8 +120,6 @@ export async function flushMetricPoints(metricName: string): Promise<DataPoint[]
   }
   return points
 }
-
-// ─── InMemoryAgentSessionStore ────────────────────────────────────────────────
 
 export class InMemoryAgentSessionStore implements AgentSessionPort {
   private readonly _sessions = new Map<string, AgentSessionEntry>()
@@ -174,8 +168,6 @@ export class InMemoryAgentSessionStore implements AgentSessionPort {
   }
 }
 
-// ─── InMemoryNarrativeStore ────────────────────────────────────────────────────
-
 /**
  * Map-backed NarrativeStore.
  * Primary key = contentHash (global, not per-tenant, matching production semantics).
@@ -214,8 +206,6 @@ export class InMemoryNarrativeStore implements NarrativeStore {
   }
 }
 
-// ─── InMemoryAuditCapture ─────────────────────────────────────────────────────
-
 export interface CapturedAuditEvent {
   tenantId: string
   actorId: string
@@ -252,8 +242,6 @@ export class InMemoryAuditCapture {
   }
 }
 
-// ─── Tool registry helper ─────────────────────────────────────────────────────
-
 /**
  * Builds a pre-loaded ToolRegistry from a list of (name, permission) pairs.
  * Uses ToolRegistry.loadFromRouter with a synthetic tRPC-like router shape.
@@ -288,8 +276,6 @@ export function makeToolRegistry(
   return registry
 }
 
-// ─── Sub-agent fixture ────────────────────────────────────────────────────────
-
 export function makeSubAgentFixture(opts: {
   key: string
   toolScope: string[]
@@ -315,8 +301,6 @@ export function makeSubAgentFixture(opts: {
   })
 }
 
-// ─── Intent fixture ───────────────────────────────────────────────────────────
-
 export function makeIntentFixture(
   slug: string,
   domain?: string,
@@ -325,8 +309,6 @@ export function makeIntentFixture(
   const d = domain ?? slug.split('.')[0]!
   return { slug, domain: d, description: description ?? `Test intent ${slug}` }
 }
-
-// ─── Registry boot helper ─────────────────────────────────────────────────────
 
 export interface BootedRegistries {
   subAgentRegistry: SubAgentRegistry
@@ -372,8 +354,6 @@ export function bootRegistries(opts: {
   return { subAgentRegistry, intentRegistry, toolRegistry }
 }
 
-// ─── KernelQueryFacade stub ───────────────────────────────────────────────────
-
 export function makeKernelQueryFacade(opts: {
   permissionsByRole: Record<string, string[]>
 }): KernelQueryFacade {
@@ -384,8 +364,6 @@ export function makeKernelQueryFacade(opts: {
     }),
   } as unknown as KernelQueryFacade
 }
-
-// ─── Orchestrator builder ─────────────────────────────────────────────────────
 
 export type RouterLlmResult =
   | {

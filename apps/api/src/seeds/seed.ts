@@ -126,7 +126,7 @@ const ROLE_OVERRIDES: Record<string, string[]> = {
   'canh.ta@seta-international.vn': ['tenant_admin', 'line_manager'],
   'canh.ta@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
   'anh.nguyenviet@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
-  'thang.tran@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
+  'thang.tran@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager', 'platform_admin'],
 }
 
 function getEmailDomain(email: string): string | null {
@@ -347,7 +347,6 @@ async function seedOnboardingTemplate(
   db: ReturnType<typeof createDb>,
   tenantId: string,
   tenantSlug: string,
-  now: Date,
 ) {
   const templateId = deterministicUuid('onboarding-template:' + tenantSlug)
 
@@ -584,7 +583,7 @@ async function main() {
     )
     await seedRolePermissions(db, tenantId, tenantCfg.slug, now)
     await enablePlanner(db, tenantId, tenantCfg.slug)
-    await seedOnboardingTemplate(db, tenantId, tenantCfg.slug, now)
+    await seedOnboardingTemplate(db, tenantId, tenantCfg.slug)
   }
 
   // ── 2. Future tenant (setafuture.onmicrosoft.com / Microsoft Entra) ──────
@@ -669,7 +668,7 @@ async function main() {
   )
   await seedRolePermissions(db, futureTenantId, FUTURE_TENANT.slug, now)
   await enablePlanner(db, futureTenantId, FUTURE_TENANT.slug)
-  await seedOnboardingTemplate(db, futureTenantId, FUTURE_TENANT.slug, now)
+  await seedOnboardingTemplate(db, futureTenantId, FUTURE_TENANT.slug)
 
   // ── 3. Platform admin bootstrap ──────────────────────────────────────────
   const platformAdminEmail =

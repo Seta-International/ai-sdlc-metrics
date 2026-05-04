@@ -58,7 +58,7 @@ export class OpenAiUsageExtractor {
       : null
 
     if (promptDetails) {
-      // R-05.6c: presence check (not value-only), but suppress false positives on genuine zeros.
+      // Presence check (not value-only), but suppress false positives on genuine zeros.
       // A field is "dropped" when: vendor key exists AND vendor value is non-zero AND extractor zeroed it.
       if (
         'cached_tokens' in promptDetails &&

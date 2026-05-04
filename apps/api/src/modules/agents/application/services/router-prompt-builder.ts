@@ -1,28 +1,26 @@
 /**
- * RouterPromptBuilder — Plan 02 Task 7 (R-02.12..R-02.16, R-02.24)
- *
  * Deterministically renders the router LLM's system prompt and developer
  * message from typed inputs only. The output is content-hashed; the hash is
- * pinned into `agent_session` by the orchestrator (T10) for replay determinism.
+ * pinned into `agent_session` by the orchestrator for replay determinism.
  *
- * R-02.14 — NO ADDENDUM INJECTION:
+ * NO ADDENDUM INJECTION:
  *   The `build` method signature does NOT accept `additionalInstructions`,
  *   free-text addenda, or any other escape hatch. The system prompt is generated
  *   exclusively from the typed inputs listed in BuildOpts. Any caller wanting to
  *   customise the prompt must do so by changing typed inputs (e.g. sub-agent
  *   descriptors, permission narrative, role). This is a hard architectural rule
  *   that prevents prompt-injection vectors from sneaking in through a free-text
- *   back-door. Reference: Plan 02 §6 R-02.14.
+ *   back-door.
  *
- * R-02.15 — DETERMINISTIC ASSEMBLY:
- *   Sub-agents are sorted lexicographically by key before rendering.
- *   JSON Schemas are emitted with sorted keys (via Zod v4's native
- *   `z.toJSONSchema()` + canonicalize). No Date.now(), Math.random(), request IDs, or any other
+ * DETERMINISTIC ASSEMBLY:
+ *   Sub-agents are sorted lexicographically by key before rendering. JSON
+ *   Schemas are emitted with sorted keys (via Zod v4's native `z.toJSONSchema()`
+ *   + canonicalize). No Date.now(), Math.random(), request IDs, or any other
  *   non-deterministic value appears in the prompt body.
  *
- * R-02.16 — CONTENT-ONLY OUTPUT:
+ * CONTENT-ONLY OUTPUT:
  *   This builder has no knowledge of `agent_session`. It returns the prompt
- *   strings + hash; the orchestrator (T10) is responsible for persisting the hash.
+ *   strings + hash; the orchestrator is responsible for persisting the hash.
  */
 
 import { Injectable } from '@nestjs/common'
@@ -32,11 +30,7 @@ import type { ResolvedSubAgent } from '../../infrastructure/registry/sub-agent-r
 import type { WindowedSummaries } from '../../domain/value-objects/windowed-summaries'
 import { ROUTER_PLAN_JSON_SCHEMA_PLACEHOLDER } from '../../domain/value-objects/router-plan-schema'
 
-// ─── DI token ─────────────────────────────────────────────────────────────────
-
 export const ROUTER_PROMPT_BUILDER = Symbol('ROUTER_PROMPT_BUILDER')
-
-// ─── Input / output types ──────────────────────────────────────────────────────
 
 export interface BuildOpts {
   readonly tenantId: string
@@ -45,9 +39,9 @@ export interface BuildOpts {
   readonly roleKey: string
   readonly roleAllowedPermissions: ReadonlySet<string>
   readonly subAgents: ReadonlyArray<ResolvedSubAgent>
-  /** Pre-rendered text from PermissionNarrativeBuilder.build().text (T6). */
+  /** Pre-rendered text from PermissionNarrativeBuilder.build().text. */
   readonly permissionNarrative: string
-  /** γ/α window — see WindowedSummaries stub (Plan 04 will extend). */
+  /** γ/α window. */
   readonly recentSummaryWindow: WindowedSummaries
   /** SHA-256 hex hash of the tool catalog; computed once, passed by orchestrator. */
   readonly toolCatalogHash: string
@@ -59,8 +53,6 @@ export interface BuildResult {
   /** SHA-256 hex hash of { systemPrompt, developerMessage, toolCatalogHash }. */
   readonly routerPromptHash: string
 }
-
-// ─── Internal helpers ─────────────────────────────────────────────────────────
 
 /**
  * Convert a Zod schema to a JSON Schema object with sorted keys.
@@ -115,10 +107,10 @@ function renderSubAgentCatalog(subAgents: ReadonlyArray<ResolvedSubAgent>): stri
 
 /**
  * Render the system prompt from typed inputs.
- * Sub-agents are sorted lex by key here to guarantee determinism (R-02.15).
+ * Sub-agents are sorted lex by key here to guarantee determinism.
  */
 function renderSystemPrompt(subAgents: ReadonlyArray<ResolvedSubAgent>): string {
-  // Sort lex by key — determinism invariant (R-02.15).
+  // Sort lex by key — determinism invariant.
   const sorted = [...subAgents].sort((a, b) => {
     const ak = a.config.key as string
     const bk = b.config.key as string
@@ -211,8 +203,6 @@ function renderDeveloperMessage(opts: BuildOpts): string {
   return parts.join('\n')
 }
 
-// ─── RouterPromptBuilder ──────────────────────────────────────────────────────
-
 @Injectable()
 export class RouterPromptBuilder {
   /**
@@ -223,17 +213,17 @@ export class RouterPromptBuilder {
    * tenantId is intentionally excluded from the hash — different tenants can
    * legitimately share a prompt hash when they happen to have identical role +
    * narrative + sub-agent subsets. tenantId is captured separately on the
-   * `agent_session` row by the orchestrator (T10).
+   * `agent_session` row by the orchestrator.
    *
-   * R-02.14: this method does NOT accept additionalInstructions or any
-   * free-text addendum — see file-level comment.
+   * This method does NOT accept additionalInstructions or any free-text
+   * addendum — see file-level comment.
    */
   build(opts: BuildOpts): BuildResult {
     const systemPrompt = renderSystemPrompt(opts.subAgents)
     const developerMessage = renderDeveloperMessage(opts)
 
-    // R-02.15 / R-02.24: every input to the hash passes through canonicalize
-    // (sorted keys, UTC-normalised datetimes, undefined-drop).
+    // Every input to the hash passes through canonicalize (sorted keys,
+    // UTC-normalised datetimes, undefined-drop).
     const { hash: routerPromptHash } = canonicalize({
       systemPrompt,
       developerMessage,

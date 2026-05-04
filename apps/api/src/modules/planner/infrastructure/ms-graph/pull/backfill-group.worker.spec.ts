@@ -31,6 +31,7 @@ describe('BackfillGroupWorker', () => {
   let ingestor: { ingestPlan: ReturnType<typeof vi.fn> }
   let groupRepo: { findById: ReturnType<typeof vi.fn>; upsert: ReturnType<typeof vi.fn> }
   let eventBus: { publish: ReturnType<typeof vi.fn> }
+  let auditFacade: { publishOutboxEvent: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -45,6 +46,7 @@ describe('BackfillGroupWorker', () => {
     } as any
     /* eslint-enable @typescript-eslint/no-explicit-any */
     eventBus = { publish: vi.fn() }
+    auditFacade = { publishOutboxEvent: vi.fn().mockResolvedValue(undefined) }
 
     /* eslint-disable @typescript-eslint/no-explicit-any */
     worker = new BackfillGroupWorker(
@@ -52,6 +54,7 @@ describe('BackfillGroupWorker', () => {
       ingestor as any,
       groupRepo as any,
       eventBus as any,
+      auditFacade as any,
     )
     /* eslint-enable @typescript-eslint/no-explicit-any */
   })
@@ -94,6 +97,20 @@ describe('BackfillGroupWorker', () => {
     expect(events[2]).toMatchObject({ total: 2, processed: 2 })
     expect(events[3].type).toBe(MS_GROUP_BACKFILL_COMPLETED_EVENT)
     expect(events[3]).toMatchObject({ totalPlans: 2, msGroupId: 'g1', linkedGroupId: 'lg-1' })
+
+    // initial + 2 per-plan = 3 outbox writes for progress events
+    expect(auditFacade.publishOutboxEvent).toHaveBeenCalledTimes(3)
+    const outboxCalls = vi.mocked(auditFacade.publishOutboxEvent).mock.calls
+    expect(outboxCalls[0][0]).toMatchObject({
+      tenantId: 't1',
+      eventName: MS_SYNC_BACKFILL_PROGRESS_EVENT,
+      payload: expect.objectContaining({ total: 2, processed: 0 }),
+    })
+    expect(outboxCalls[2][0]).toMatchObject({
+      tenantId: 't1',
+      eventName: MS_SYNC_BACKFILL_PROGRESS_EVENT,
+      payload: expect.objectContaining({ total: 2, processed: 2 }),
+    })
   })
 
   it('calls finishBackfill on the linked group', async () => {
