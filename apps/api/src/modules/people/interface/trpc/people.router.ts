@@ -61,7 +61,6 @@ import { GetOrgChartChildrenQuery } from '../../application/queries/get-org-char
 import { GetOrgChartTreeQuery } from '../../application/queries/get-org-chart-tree.query'
 import { ORG_CHART_NODE_NOT_FOUND } from '../../application/services/org-chart-query.service'
 
-import { UpdatePersonalProfileCommand } from '../../application/commands/update-personal-profile.command'
 import { PeopleTrpcService } from './people-trpc.service'
 import {
   futureListQuerySchema,
@@ -1363,131 +1362,6 @@ export function createPeopleRouter(
         ),
     }),
 
-    // ── Update personal profile mutation ──────────────────────────────────
-    updatePersonalProfile: permissionProtectedProcedure
-      .meta({ permission: 'people:profile:read' })
-      .input(
-        z.object({
-          employmentId: z.string().uuid(),
-          preferredName: z.string().nullable().optional(),
-          dateOfBirth: z.string().date().nullable().optional(),
-          gender: z
-            .enum(['male', 'female', 'non_binary', 'prefer_not_to_say'])
-            .nullable()
-            .optional(),
-          nationality: z.string().nullable().optional(),
-          maritalStatus: z
-            .enum(['single', 'married', 'divorced', 'widowed', 'separated'])
-            .nullable()
-            .optional(),
-          nameDisplayOrder: z.enum(['family_first', 'given_first']).optional(),
-          personalEmail: z.string().email().nullable().optional(),
-          personalPhone: z.string().nullable().optional(),
-          permanentAddress: z.record(z.string(), z.unknown()).nullable().optional(),
-          currentAddress: z.record(z.string(), z.unknown()).nullable().optional(),
-          nationalId: z.string().nullable().optional(),
-          nationalIdType: z.string().nullable().optional(),
-          nationalIdIssuedDate: z.string().date().nullable().optional(),
-          nationalIdExpiryDate: z.string().date().nullable().optional(),
-          passportNumber: z.string().nullable().optional(),
-          passportExpiryDate: z.string().date().nullable().optional(),
-          bankAccountNumber: z.string().nullable().optional(),
-          bankName: z.string().nullable().optional(),
-          bankBranch: z.string().nullable().optional(),
-          bankSwiftCode: z.string().nullable().optional(),
-          bankAccountHolder: z.string().nullable().optional(),
-          emergencyContacts: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
-        }),
-      )
-      .mutation(
-        async ({
-          ctx,
-          input,
-        }: {
-          ctx: AuthContext
-          input: {
-            employmentId: string
-            preferredName?: string | null
-            dateOfBirth?: string | null
-            gender?: string | null
-            nationality?: string | null
-            maritalStatus?: string | null
-            nameDisplayOrder?: 'family_first' | 'given_first'
-            personalEmail?: string | null
-            personalPhone?: string | null
-            permanentAddress?: Record<string, unknown> | null
-            currentAddress?: Record<string, unknown> | null
-            nationalId?: string | null
-            nationalIdType?: string | null
-            nationalIdIssuedDate?: string | null
-            nationalIdExpiryDate?: string | null
-            passportNumber?: string | null
-            passportExpiryDate?: string | null
-            bankAccountNumber?: string | null
-            bankName?: string | null
-            bankBranch?: string | null
-            bankSwiftCode?: string | null
-            bankAccountHolder?: string | null
-            emergencyContacts?: Array<Record<string, unknown>> | null
-          }
-        }) => {
-          const employment = await peopleFacade.getEmployment(ctx.tenantId, input.employmentId)
-          const isSelf = employment?.personProfile?.actorId === ctx.actorId
-          const perms = await kernelFacade.getEffectivePermissions(ctx.actorId, ctx.tenantId)
-          const has = (p: string) => perms.includes(p)
-          const isAdmin = has('people:admin')
-          const canEdit = isAdmin || has('people:profile:update')
-          const canEditBank = isAdmin || has('people:profile:update')
-
-          const hasBankFields =
-            input.bankAccountNumber !== undefined ||
-            input.bankName !== undefined ||
-            input.bankBranch !== undefined ||
-            input.bankSwiftCode !== undefined ||
-            input.bankAccountHolder !== undefined
-
-          if (hasBankFields && !canEditBank) {
-            throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot edit bank details' })
-          }
-
-          if (!isSelf && !canEdit) {
-            throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot edit this profile' })
-          }
-
-          const toDate = (s: string | null | undefined) => (s ? new Date(s) : s)
-
-          return svc().command(
-            new UpdatePersonalProfileCommand(
-              ctx.tenantId,
-              input.employmentId,
-              ctx.actorId,
-              input.preferredName,
-              toDate(input.dateOfBirth) as Date | null | undefined,
-              input.gender,
-              input.nationality,
-              input.maritalStatus,
-              input.nameDisplayOrder,
-              input.personalEmail,
-              input.personalPhone,
-              input.permanentAddress,
-              input.currentAddress,
-              input.nationalId,
-              input.nationalIdType,
-              toDate(input.nationalIdIssuedDate) as Date | null | undefined,
-              toDate(input.nationalIdExpiryDate) as Date | null | undefined,
-              input.passportNumber,
-              toDate(input.passportExpiryDate) as Date | null | undefined,
-              input.bankAccountNumber,
-              input.bankName,
-              input.bankBranch,
-              input.bankSwiftCode,
-              input.bankAccountHolder,
-              input.emergencyContacts,
-            ),
-          )
-        },
-      ),
-
     // ── Lifecycle mutations ────────────────────────────────────────────────
     rehire: permissionProtectedProcedure
       .meta({ permission: 'people:employment:rehire' })
@@ -1532,6 +1406,90 @@ export function createPeopleRouter(
               input.departmentId ?? null,
               input.managerProfileId ?? null,
               ctx.actorId,
+            ),
+          ),
+      ),
+
+    // ── Profile change requests ────────────────────────────────────────────
+    listProfileChangeRequests: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:read' })
+      .input(
+        z.object({
+          mode: z.enum(['byEmployment', 'queue']),
+          employmentId: z.string().uuid().optional(),
+          status: z
+            .enum(['pending', 'approved', 'rejected', 'superseded', 'scheduled', 'applied'])
+            .optional(),
+          limit: z.number().int().min(1).max(100).default(20),
+          offset: z.number().int().min(0).default(0),
+        }),
+      )
+      .query(
+        ({
+          ctx,
+          input,
+        }: {
+          ctx: AuthContext
+          input: {
+            mode: 'byEmployment' | 'queue'
+            employmentId?: string
+            status?: 'pending' | 'approved' | 'rejected' | 'superseded' | 'scheduled' | 'applied'
+            limit: number
+            offset: number
+          }
+        }) =>
+          svc().query(
+            new ListProfileChangeRequestsQuery(
+              ctx.tenantId,
+              input.mode,
+              input.employmentId ?? null,
+              input.status ?? null,
+              input.limit,
+              input.offset,
+            ),
+          ),
+      ),
+
+    requestProfileChanges: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:self:update' })
+      .input(
+        z.object({
+          employmentId: z.string().uuid(),
+          changes: z.array(
+            z.object({
+              fieldPath: z.string(),
+              oldValue: z.unknown().nullable(),
+              newValue: z.unknown(),
+              effectiveDate: z.coerce.date().optional(),
+            }),
+          ),
+          reason: z.string().optional(),
+        }),
+      )
+      .mutation(
+        ({
+          ctx,
+          input,
+        }: {
+          ctx: AuthContext
+          input: {
+            employmentId: string
+            changes: Array<{
+              fieldPath: string
+              oldValue: unknown | null
+              newValue: unknown
+              effectiveDate?: Date
+            }>
+            reason?: string
+          }
+        }) =>
+          svc().command(
+            new RequestProfileChangesCommand(
+              ctx.tenantId,
+              input.employmentId,
+              input.changes,
+              ctx.actorId,
+              input.reason ?? null,
             ),
           ),
       ),
@@ -1587,33 +1545,6 @@ export const peopleRouter = router({
     )
     .query(({ input }) =>
       svc().query(new ListJobProfilesQuery(input.tenantId, input.familyId, input.isActive)),
-    ),
-
-  listProfileChangeRequests: publicProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        mode: z.enum(['byEmployment', 'queue']).default('queue'),
-        employmentId: z.string().uuid().nullable().default(null),
-        status: z
-          .enum(['pending', 'approved', 'rejected', 'superseded', 'scheduled', 'applied'])
-          .nullable()
-          .default(null),
-        limit: z.number().int().min(1).max(200).default(20),
-        offset: z.number().int().min(0).default(0),
-      }),
-    )
-    .query(({ input }) =>
-      svc().query(
-        new ListProfileChangeRequestsQuery(
-          input.tenantId,
-          input.mode,
-          input.employmentId,
-          input.status,
-          input.limit,
-          input.offset,
-        ),
-      ),
     ),
 
   listOnboardingTasks: publicProcedure
@@ -2363,33 +2294,6 @@ export const peopleRouter = router({
   }),
 
   // ── Change requests ────────────────────────────────────────────────────
-
-  requestProfileChanges: publicProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        employmentId: z.string().uuid(),
-        changes: z.array(
-          z.object({
-            fieldPath: z.string(),
-            oldValue: z.unknown().nullable(),
-            newValue: z.unknown(),
-            effectiveDate: z.coerce.date().optional(),
-          }),
-        ),
-        requestedBy: z.string().uuid(),
-      }),
-    )
-    .mutation(({ input }) =>
-      svc().command(
-        new RequestProfileChangesCommand(
-          input.tenantId,
-          input.employmentId,
-          input.changes,
-          input.requestedBy,
-        ),
-      ),
-    ),
 
   batchApproveChanges: publicProcedure
     .input(
