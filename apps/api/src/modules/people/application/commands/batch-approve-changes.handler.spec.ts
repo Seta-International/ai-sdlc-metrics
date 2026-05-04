@@ -4,6 +4,7 @@ import { BatchApproveChangesHandler } from './batch-approve-changes.handler'
 import type { IProfileChangeRequestRepository } from '../../domain/repositories/profile-change-request.repository'
 import type { ProfileChangeRequest } from '../../domain/entities/profile-change-request.entity'
 import { ProfileChangeAppliedEvent } from '@future/event-contracts'
+import type { EventBus } from '@nestjs/cqrs'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const BATCH_ID = '01900000-0000-7000-8000-000000000099'
@@ -45,7 +46,7 @@ describe('BatchApproveChangesHandler', () => {
   })
 
   it('publishes one ProfileChangeAppliedEvent with all applied changes', async () => {
-    const handler = new BatchApproveChangesHandler(changeRepo, eventBus as any)
+    const handler = new BatchApproveChangesHandler(changeRepo, eventBus as unknown as EventBus)
     await handler.execute(new BatchApproveChangesCommand(TENANT_ID, BATCH_ID, ACTOR_ID, 'LGTM'))
 
     expect(eventBus.publish).toHaveBeenCalledOnce()
@@ -65,7 +66,7 @@ describe('BatchApproveChangesHandler', () => {
       updateStatusByBatchId: vi.fn().mockResolvedValue(undefined),
     } as unknown as IProfileChangeRequestRepository
 
-    const handler = new BatchApproveChangesHandler(changeRepo, eventBus as any)
+    const handler = new BatchApproveChangesHandler(changeRepo, eventBus as unknown as EventBus)
     await handler.execute(new BatchApproveChangesCommand(TENANT_ID, BATCH_ID, ACTOR_ID))
     expect(eventBus.publish).not.toHaveBeenCalled()
   })
@@ -76,7 +77,7 @@ describe('BatchApproveChangesHandler', () => {
       updateStatusByBatchId: vi.fn(),
     } as unknown as IProfileChangeRequestRepository
 
-    const handler = new BatchApproveChangesHandler(changeRepo, eventBus as any)
+    const handler = new BatchApproveChangesHandler(changeRepo, eventBus as unknown as EventBus)
     await expect(
       handler.execute(new BatchApproveChangesCommand(TENANT_ID, BATCH_ID, ACTOR_ID)),
     ).rejects.toThrow(`No pending changes found in batch ${BATCH_ID}`)
