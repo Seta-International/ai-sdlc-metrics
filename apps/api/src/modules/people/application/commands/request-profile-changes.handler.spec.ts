@@ -230,4 +230,60 @@ describe('RequestProfileChangesHandler', () => {
       }),
     ])
   })
+
+  it('stores reason on inserted rows', async () => {
+    vi.mocked(employmentRepo.findById).mockResolvedValue({
+      id: EMPLOYMENT_ID,
+      tenantId: TENANT_ID,
+    } as unknown as Employment)
+    vi.mocked(editPolicyService.resolveEditMode).mockResolvedValue({
+      editMode: 'self_service',
+      requiresApproval: false,
+      canEdit: true,
+    })
+    vi.mocked(changeRepo.findPendingByFieldPath).mockResolvedValue(null)
+    vi.mocked(changeRepo.insertMany).mockResolvedValue([])
+
+    const cmd = new RequestProfileChangesCommand(
+      TENANT_ID,
+      EMPLOYMENT_ID,
+      [{ fieldPath: 'person_profile.preferred_name', oldValue: 'Old', newValue: 'New' }],
+      ACTOR_ID,
+      'Updating after name change',
+    )
+
+    await handler.execute(cmd)
+
+    expect(changeRepo.insertMany).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ reason: 'Updating after name change' })]),
+    )
+  })
+
+  it('stores null reason when not provided', async () => {
+    vi.mocked(employmentRepo.findById).mockResolvedValue({
+      id: EMPLOYMENT_ID,
+      tenantId: TENANT_ID,
+    } as unknown as Employment)
+    vi.mocked(editPolicyService.resolveEditMode).mockResolvedValue({
+      editMode: 'self_service',
+      requiresApproval: false,
+      canEdit: true,
+    })
+    vi.mocked(changeRepo.findPendingByFieldPath).mockResolvedValue(null)
+    vi.mocked(changeRepo.insertMany).mockResolvedValue([])
+
+    const cmd = new RequestProfileChangesCommand(
+      TENANT_ID,
+      EMPLOYMENT_ID,
+      [{ fieldPath: 'person_profile.preferred_name', oldValue: 'Old', newValue: 'New' }],
+      ACTOR_ID,
+      // no reason
+    )
+
+    await handler.execute(cmd)
+
+    expect(changeRepo.insertMany).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ reason: null })]),
+    )
+  })
 })

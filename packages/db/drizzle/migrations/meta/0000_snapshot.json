@@ -1,5 +1,5 @@
 {
-  "id": "2889bb4f-241b-482c-b702-4c327b862bb8",
+  "id": "34a7ac7f-5b2b-47fa-ad5d-d212cf0464c7",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -7042,6 +7042,12 @@
         "batch_id": {
           "name": "batch_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

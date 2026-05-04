@@ -988,6 +988,7 @@ CREATE TABLE "people"."profile_change_request" (
 	"tenant_id" uuid NOT NULL,
 	"employment_id" uuid NOT NULL,
 	"batch_id" uuid,
+	"reason" text,
 	"field_path" text NOT NULL,
 	"old_value" jsonb,
 	"new_value" jsonb NOT NULL,

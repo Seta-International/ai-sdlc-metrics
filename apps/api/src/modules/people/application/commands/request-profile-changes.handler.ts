@@ -35,6 +35,7 @@ export class RequestProfileChangesHandler implements ICommandHandler<RequestProf
       tenantId: string
       employmentId: string
       batchId: string
+      reason: string | null
       fieldPath: string
       oldValue: unknown
       newValue: unknown
@@ -82,6 +83,7 @@ export class RequestProfileChangesHandler implements ICommandHandler<RequestProf
         tenantId: command.tenantId,
         employmentId: command.employmentId,
         batchId,
+        reason: command.reason ?? null,
         fieldPath: change.fieldPath,
         oldValue: change.oldValue,
         newValue: change.newValue,

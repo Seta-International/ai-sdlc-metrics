@@ -11,6 +11,7 @@ export interface ProfileChangeRequest {
   tenantId: string
   employmentId: string
   batchId: string | null
+  reason: string | null
   fieldPath: string
   oldValue: unknown | null
   newValue: unknown
