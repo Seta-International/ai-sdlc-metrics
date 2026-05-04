@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import type { IdentityProviderEntity } from '../../domain/entities/identity-provider.entity'
 import { MsGraphCredentialEntity } from '../../domain/entities/ms-graph-credential.entity'
+import type { GraphUserPatch } from '../../infrastructure/providers/microsoft-graph.provider'
 import {
   DIRECTORY_PROVIDER_FACTORY,
   type IdpGroup,
@@ -30,7 +31,13 @@ export interface DisconnectMicrosoftGraphCredentialOptions {
   persistDurableEvent?: () => Promise<void>
 }
 
+export type { GraphUserPatch } from '../../infrastructure/providers/microsoft-graph.provider'
+
 const DEFAULT_SCOPES = ['https://graph.microsoft.com/.default'] as const
+
+interface DirectoryProviderWithPatchUser {
+  patchUser(msUserId: string, patch: GraphUserPatch): Promise<void>
+}
 
 @Injectable()
 export class IdentityMsGraphCredentialFacade {
@@ -135,6 +142,23 @@ export class IdentityMsGraphCredentialFacade {
     const providerConfig = this.credentialToProviderConfig(credential)
     const provider = await this.directoryFactory.create(providerConfig)
     return provider.listGroupsWithMembers()
+  }
+
+  async patchMicrosoftUser(
+    tenantId: string,
+    msUserId: string,
+    patch: GraphUserPatch,
+  ): Promise<void> {
+    const credential = await this.credentialRepo.get(tenantId)
+    if (!credential || credential.status !== 'active') {
+      return
+    }
+
+    const providerConfig = this.credentialToProviderConfig(credential)
+    const provider = (await this.directoryFactory.create(
+      providerConfig,
+    )) as DirectoryProviderWithPatchUser
+    await provider.patchUser(msUserId, patch)
   }
 
   async invalidateCredential(tenantId: string, reason: string): Promise<void> {

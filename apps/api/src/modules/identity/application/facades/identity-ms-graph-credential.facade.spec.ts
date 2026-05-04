@@ -3,7 +3,10 @@ import type { IDirectoryProviderFactory } from '../../domain/ports/directory-pro
 import type { ISecretsStore } from '../../domain/ports/secrets-store.port'
 import type { IMsGraphCredentialRepository } from '../../domain/repositories/ms-graph-credential.repository'
 import { MsGraphCredentialEntity } from '../../domain/entities/ms-graph-credential.entity'
-import { IdentityMsGraphCredentialFacade } from './identity-ms-graph-credential.facade'
+import {
+  type GraphUserPatch,
+  IdentityMsGraphCredentialFacade,
+} from './identity-ms-graph-credential.facade'
 
 const TENANT_ID = 'tenant-1'
 const INPUT = {
@@ -26,7 +29,10 @@ describe('IdentityMsGraphCredentialFacade', () => {
     updateIfSecretRef: ReturnType<typeof vi.fn>
     deleteIfSecretRef: ReturnType<typeof vi.fn>
   }
-  let graphProvider: { testConnection: ReturnType<typeof vi.fn> }
+  let graphProvider: {
+    testConnection: ReturnType<typeof vi.fn>
+    patchUser: ReturnType<typeof vi.fn>
+  }
   let directoryFactory: { create: ReturnType<typeof vi.fn> }
   let facade: IdentityMsGraphCredentialFacade
 
@@ -42,7 +48,10 @@ describe('IdentityMsGraphCredentialFacade', () => {
       updateIfSecretRef: vi.fn().mockResolvedValue(true),
       deleteIfSecretRef: vi.fn().mockResolvedValue(true),
     }
-    graphProvider = { testConnection: vi.fn().mockResolvedValue({ ok: true }) }
+    graphProvider = {
+      testConnection: vi.fn().mockResolvedValue({ ok: true }),
+      patchUser: vi.fn().mockResolvedValue(undefined),
+    }
     directoryFactory = { create: vi.fn().mockResolvedValue(graphProvider) }
     facade = new IdentityMsGraphCredentialFacade(
       secretsStore as unknown as ISecretsStore,
@@ -627,6 +636,70 @@ describe('IdentityMsGraphCredentialFacade', () => {
 
       expect(directoryFactory.create).not.toHaveBeenCalled()
       expect(result).toEqual([])
+    })
+  })
+
+  describe('patchMicrosoftUser', () => {
+    it('calls provider patchUser when credential is active', async () => {
+      const credential = MsGraphCredentialEntity.create({
+        tenantId: TENANT_ID,
+        clientId: INPUT.clientId,
+        clientSecretRef: SECRET_REF,
+        tenantAdId: INPUT.tenantAdId,
+        scopes: ['https://graph.microsoft.com/.default'],
+        consentedAt: new Date('2026-04-23T00:00:00Z'),
+      })
+      credential.markActive()
+      credentialRepo.get.mockResolvedValue(credential)
+
+      const patch: GraphUserPatch = {
+        displayName: 'Alice Example',
+        mail: 'alice@example.com',
+      }
+
+      await facade.patchMicrosoftUser(TENANT_ID, 'ms-user-1', patch)
+
+      expect(directoryFactory.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          providerType: 'microsoft',
+          clientId: INPUT.clientId,
+          clientSecretRef: SECRET_REF,
+          directoryId: INPUT.tenantAdId,
+        }),
+      )
+      expect(graphProvider.patchUser).toHaveBeenCalledWith('ms-user-1', patch)
+    })
+
+    it('returns without calling provider when no credential exists', async () => {
+      credentialRepo.get.mockResolvedValue(null)
+
+      await facade.patchMicrosoftUser(TENANT_ID, 'ms-user-1', {
+        displayName: 'Alice Example',
+      })
+
+      expect(directoryFactory.create).not.toHaveBeenCalled()
+      expect(graphProvider.patchUser).not.toHaveBeenCalled()
+    })
+
+    it('returns without calling provider when credential is not active', async () => {
+      const credential = MsGraphCredentialEntity.create({
+        tenantId: TENANT_ID,
+        clientId: INPUT.clientId,
+        clientSecretRef: SECRET_REF,
+        tenantAdId: INPUT.tenantAdId,
+        scopes: ['https://graph.microsoft.com/.default'],
+        consentedAt: new Date('2026-04-23T00:00:00Z'),
+        status: 'paused',
+      })
+      credentialRepo.get.mockResolvedValue(credential)
+
+      await facade.patchMicrosoftUser(TENANT_ID, 'ms-user-1', {
+        displayName: 'Alice Example',
+      })
+
+      expect(directoryFactory.create).not.toHaveBeenCalled()
+      expect(graphProvider.patchUser).not.toHaveBeenCalled()
     })
   })
 })
