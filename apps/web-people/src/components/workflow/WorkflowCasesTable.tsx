@@ -149,16 +149,14 @@ export function WorkflowCasesTable({ type }: WorkflowCasesTableProps) {
     void (async () => {
       setIsLoading(true)
       try {
-        const result = await (anyTrpc.people[type].listCases.query({
-          ...tableState,
-        }) as Promise<{ cases: WorkflowCase[]; totalCount: number }>)
-        setCases(result.cases)
-        setTotalCount(result.totalCount)
+        const result = await (anyTrpc.people[type].listCases.query({}) as Promise<WorkflowCase[]>)
+        setCases(result)
+        setTotalCount(result.length)
       } finally {
         setIsLoading(false)
       }
     })()
-  }, [tableState, type])
+  }, [type])
 
   return (
     <DataTable

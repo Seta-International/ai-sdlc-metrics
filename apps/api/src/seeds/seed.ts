@@ -14,6 +14,8 @@ import {
   personProfile,
   employment,
   directorySearchIndex,
+  onboardingTemplate,
+  onboardingTaskTemplate,
 } from '../modules/people/infrastructure/schema/people.schema'
 import { tenantSettings } from '../modules/admin/infrastructure/schema/admin.schema'
 import {
@@ -341,6 +343,86 @@ async function enablePlanner(
     })
 }
 
+async function seedOnboardingTemplate(
+  db: ReturnType<typeof createDb>,
+  tenantId: string,
+  tenantSlug: string,
+  now: Date,
+) {
+  const templateId = deterministicUuid('onboarding-template:' + tenantSlug)
+
+  await db
+    .insert(onboardingTemplate)
+    .values({
+      id: templateId,
+      tenantId,
+      name: 'Standard Onboarding',
+      isDefault: true,
+      isActive: true,
+    })
+    .onConflictDoNothing()
+
+  const tasks: Array<{
+    title: string
+    assigneeRole: 'hr' | 'it' | 'project_manager' | 'employee'
+    dueDaysAfterHire: number
+    isRequired: boolean
+    displayOrder: number
+  }> = [
+    {
+      title: 'Sign employment documents',
+      assigneeRole: 'hr',
+      dueDaysAfterHire: 1,
+      isRequired: true,
+      displayOrder: 0,
+    },
+    {
+      title: 'IT account setup',
+      assigneeRole: 'it',
+      dueDaysAfterHire: 3,
+      isRequired: true,
+      displayOrder: 1,
+    },
+    {
+      title: 'Provision equipment',
+      assigneeRole: 'it',
+      dueDaysAfterHire: 5,
+      isRequired: true,
+      displayOrder: 2,
+    },
+    {
+      title: 'Complete personal profile',
+      assigneeRole: 'employee',
+      dueDaysAfterHire: 7,
+      isRequired: true,
+      displayOrder: 3,
+    },
+    {
+      title: 'New hire orientation',
+      assigneeRole: 'project_manager',
+      dueDaysAfterHire: 7,
+      isRequired: false,
+      displayOrder: 4,
+    },
+  ]
+
+  for (const task of tasks) {
+    await db
+      .insert(onboardingTaskTemplate)
+      .values({
+        id: deterministicUuid(`onboarding-task:${tenantSlug}:${task.displayOrder}`),
+        tenantId,
+        templateId,
+        title: task.title,
+        assigneeRole: task.assigneeRole,
+        dueDaysAfterHire: task.dueDaysAfterHire,
+        isRequired: task.isRequired,
+        displayOrder: task.displayOrder,
+      })
+      .onConflictDoNothing()
+  }
+}
+
 /**
  * Deterministic UUID using the bootstrap namespace — must match the namespace
  * used by BootstrapPlatformAdminHandler so both code paths produce the same IDs.
@@ -502,6 +584,7 @@ async function main() {
     )
     await seedRolePermissions(db, tenantId, tenantCfg.slug, now)
     await enablePlanner(db, tenantId, tenantCfg.slug)
+    await seedOnboardingTemplate(db, tenantId, tenantCfg.slug, now)
   }
 
   // ── 2. Future tenant (setafuture.onmicrosoft.com / Microsoft Entra) ──────
@@ -586,6 +669,7 @@ async function main() {
   )
   await seedRolePermissions(db, futureTenantId, FUTURE_TENANT.slug, now)
   await enablePlanner(db, futureTenantId, FUTURE_TENANT.slug)
+  await seedOnboardingTemplate(db, futureTenantId, FUTURE_TENANT.slug, now)
 
   // ── 3. Platform admin bootstrap ──────────────────────────────────────────
   const platformAdminEmail =

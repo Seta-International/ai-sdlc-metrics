@@ -1,8 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common'
 import type { Db } from '@future/db'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import type {
   OnboardingCase,
+  OnboardingCaseStage,
   OnboardingCaseStatus,
 } from '../../domain/entities/onboarding-case.entity'
 import type { OnboardingTemplate } from '../../domain/entities/onboarding-template.entity'
@@ -139,6 +140,51 @@ export class DrizzleOnboardingCaseRepository implements IOnboardingCaseRepositor
       .where(and(eq(onboardingTask.id, taskId), eq(onboardingTask.tenantId, tenantId)))
       .limit(1)
     return rows[0] ?? null
+  }
+
+  async findAllActive(tenantId: string): Promise<OnboardingCase[]> {
+    const rows = await this.db
+      .select()
+      .from(onboardingCase)
+      .where(and(eq(onboardingCase.tenantId, tenantId), eq(onboardingCase.status, 'in_progress')))
+    return rows as OnboardingCase[]
+  }
+
+  async updateStage(id: string, tenantId: string, stage: OnboardingCaseStage): Promise<void> {
+    await this.db
+      .update(onboardingCase)
+      .set({ stage, updatedAt: new Date() })
+      .where(and(eq(onboardingCase.id, id), eq(onboardingCase.tenantId, tenantId)))
+  }
+
+  async getTaskAggregates(
+    caseIds: string[],
+    tenantId: string,
+  ): Promise<
+    Array<{ caseId: string; tasksTotal: number; tasksCompleted: number; blockers: number }>
+  > {
+    if (caseIds.length === 0) return []
+    const rows = await this.db
+      .select({
+        caseId: onboardingTask.caseId,
+        status: onboardingTask.status,
+        isRequired: onboardingTask.isRequired,
+        dueDate: onboardingTask.dueDate,
+      })
+      .from(onboardingTask)
+      .where(and(eq(onboardingTask.tenantId, tenantId), inArray(onboardingTask.caseId, caseIds)))
+
+    const map = new Map<string, { tasksTotal: number; tasksCompleted: number; blockers: number }>()
+    for (const caseId of caseIds) map.set(caseId, { tasksTotal: 0, tasksCompleted: 0, blockers: 0 })
+    const now = new Date()
+    for (const row of rows) {
+      const agg = map.get(row.caseId)!
+      agg.tasksTotal++
+      if (row.status === 'completed') agg.tasksCompleted++
+      if (row.status === 'pending' && row.isRequired && row.dueDate && row.dueDate < now)
+        agg.blockers++
+    }
+    return Array.from(map.entries()).map(([caseId, agg]) => ({ caseId, ...agg }))
   }
 }
 

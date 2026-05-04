@@ -1,5 +1,5 @@
 {
-  "id": "4ed152d7-efde-44da-b42e-b5c31150e011",
+  "id": "2889bb4f-241b-482c-b702-4c327b862bb8",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -9522,6 +9522,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'in_progress'"
+        },
+        "stage": {
+          "name": "stage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'offer_accepted'"
         },
         "created_at": {
           "name": "created_at",

@@ -49,6 +49,8 @@ import { ListJobProfilesQuery } from '../../application/queries/list-job-profile
 // Legacy queries (still functional)
 import { ListProfileChangeRequestsQuery } from '../../application/queries/list-profile-change-requests.query'
 import { ListOnboardingTasksQuery } from '../../application/queries/list-onboarding-tasks.query'
+import { ListOnboardingCasesQuery } from '../../application/queries/list-onboarding-cases.query'
+import { StartOnboardingCaseCommand } from '../../application/commands/start-onboarding-case.command'
 import { ListTemplatesQuery } from '../../application/queries/list-templates.query'
 import { ListContractVersionsQuery } from '../../application/queries/list-contract-versions.query'
 import { GetJobHistoryQuery } from '../../application/queries/get-job-history.query'
@@ -1307,6 +1309,60 @@ export function createPeopleRouter(
         return svc().command(new ResetStagedMsUserCommand(ctx.tenantId, input.id))
       }),
 
+    // ── Onboarding ────────────────────────────────────────────────────────
+    listOnboardingTemplates: permissionProtectedProcedure
+      .meta({ permission: 'people:profile:read' })
+      .input(
+        z.object({
+          countryCode: z.string().optional(),
+          workerType: z.enum(WORKER_TYPE_VALUES as [string, ...string[]]).optional(),
+          employmentType: z.enum(EMPLOYMENT_TYPE_VALUES as [string, ...string[]]).optional(),
+        }),
+      )
+      .query(({ ctx }: { ctx: AuthContext }) =>
+        svc().query(new ListTemplatesQuery(ctx.tenantId, 'onboarding')),
+      ),
+
+    onboarding: router({
+      getCase: permissionProtectedProcedure
+        .meta({ permission: 'people:profile:read' })
+        .input(z.object({ employmentId: z.string().uuid() }))
+        .query(() => null),
+
+      listCases: permissionProtectedProcedure
+        .meta({ permission: 'people:profile:read' })
+        .input(z.object({}))
+        .query(({ ctx }: { ctx: AuthContext }) =>
+          svc().query(new ListOnboardingCasesQuery(ctx.tenantId)),
+        ),
+
+      startCase: permissionProtectedProcedure
+        .meta({ permission: 'people:profile:create' })
+        .input(
+          z.object({
+            employmentId: z.string().uuid(),
+            templateId: z.string().uuid().optional(),
+          }),
+        )
+        .mutation(
+          ({
+            ctx,
+            input,
+          }: {
+            ctx: AuthContext
+            input: { employmentId: string; templateId?: string }
+          }) =>
+            svc().command(
+              new StartOnboardingCaseCommand(
+                ctx.tenantId,
+                ctx.actorId,
+                input.employmentId,
+                input.templateId ?? null,
+              ),
+            ),
+        ),
+    }),
+
     // ── Update personal profile mutation ──────────────────────────────────
     updatePersonalProfile: permissionProtectedProcedure
       .meta({ permission: 'people:profile:read' })
@@ -1568,6 +1624,30 @@ export const peopleRouter = router({
       // No GetOnboardingCaseByEmploymentIdQuery handler yet; returns null until implemented.
 
       .query((_ctx) => null),
+
+    listCases: publicProcedure
+      .input(z.object({ tenantId: z.string().uuid() }))
+      .query(({ input }) => svc().query(new ListOnboardingCasesQuery(input.tenantId))),
+
+    startCase: publicProcedure
+      .input(
+        z.object({
+          tenantId: z.string().uuid(),
+          actorId: z.string().uuid(),
+          employmentId: z.string().uuid(),
+          templateId: z.string().uuid().optional(),
+        }),
+      )
+      .mutation(({ input }) =>
+        svc().command(
+          new StartOnboardingCaseCommand(
+            input.tenantId,
+            input.actorId,
+            input.employmentId,
+            input.templateId ?? null,
+          ),
+        ),
+      ),
   }),
 
   offboarding: router({

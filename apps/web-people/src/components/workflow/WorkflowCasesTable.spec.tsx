@@ -5,7 +5,7 @@ import type { ColumnDef } from '@future/ui'
 
 // Hoist mocks so they are available before vi.mock factories run
 const { mockListCasesQuery } = vi.hoisted(() => ({
-  mockListCasesQuery: vi.fn().mockResolvedValue({ cases: [], totalCount: 0 }),
+  mockListCasesQuery: vi.fn().mockResolvedValue([]),
 }))
 
 // Mock next/navigation
@@ -111,7 +111,7 @@ import { WorkflowCasesTable } from './WorkflowCasesTable'
 describe('WorkflowCasesTable (onboarding)', () => {
   beforeEach(() => {
     capturedColumns = []
-    mockListCasesQuery.mockResolvedValue({ cases: [], totalCount: 0 })
+    mockListCasesQuery.mockResolvedValue([])
   })
 
   afterEach(() => {

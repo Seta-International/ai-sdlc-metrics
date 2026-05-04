@@ -309,6 +309,11 @@ export const onboardingCase = peopleSchema.table('onboarding_case', {
   })
     .notNull()
     .default('in_progress'),
+  stage: text('stage', {
+    enum: ['offer_accepted', 'paperwork', 'equipment', 'first_day_ready'],
+  })
+    .notNull()
+    .default('offer_accepted'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })

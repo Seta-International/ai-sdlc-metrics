@@ -1384,6 +1384,7 @@ CREATE TABLE "people"."onboarding_case" (
 	"employment_id" uuid NOT NULL,
 	"template_id" uuid,
 	"status" text DEFAULT 'in_progress' NOT NULL,
+	"stage" text DEFAULT 'offer_accepted' NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );

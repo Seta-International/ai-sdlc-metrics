@@ -181,3 +181,17 @@ export class StagedMsUserAlreadyExistsAsEmploymentException extends DomainExcept
     super(`An active employment already exists for MS user ${msExternalId}`)
   }
 }
+
+export class OnboardingCaseAlreadyExistsException extends DomainException {
+  readonly code = 'ONBOARDING_CASE_ALREADY_EXISTS'
+  constructor(employmentId: string) {
+    super(`Onboarding case already exists for employment: ${employmentId}`)
+  }
+}
+
+export class NoOnboardingTemplateException extends DomainException {
+  readonly code = 'NO_ONBOARDING_TEMPLATE'
+  constructor(tenantId: string) {
+    super(`No onboarding template found for tenant: ${tenantId}`)
+  }
+}

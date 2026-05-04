@@ -5,6 +5,7 @@ export type OnboardingCase = {
   id: string
   employmentId: string
   employeeName: string
+  jobTitle: string
   avatarUrl: string | null
   templateName: string
   startDate: string
@@ -12,6 +13,8 @@ export type OnboardingCase = {
   tasksTotal: number
   tasksCompleted: number
   department: string
+  stage: 'offer_accepted' | 'paperwork' | 'equipment' | 'first_day_ready'
+  blockers: number
 }
 
 export type OffboardingCase = {

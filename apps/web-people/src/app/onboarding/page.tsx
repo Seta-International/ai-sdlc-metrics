@@ -1,29 +1,34 @@
 'use client'
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@future/ui'
-import { WorkflowCasesTable } from '../../components/workflow/WorkflowCasesTable'
-import { WorkflowMyTasks } from '../../components/workflow/WorkflowMyTasks'
+import * as React from 'react'
+import { Button } from '@future/ui'
+import { Plus } from '@future/ui/icons'
+import { OnboardingKanban } from '../../components/onboarding/OnboardingKanban'
+import { NewOnboardingDialog } from '../../components/onboarding/NewOnboardingDialog'
 
 export default function OnboardingPage() {
+  const [dialogOpen, setDialogOpen] = React.useState(false)
+  const [refreshKey, setRefreshKey] = React.useState(0)
+
   return (
-    <main className="container mx-auto p-3 space-y-6">
-      <div>
+    <main className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h1 className="text-2xl font-510 tracking-h2 text-fg-primary">Onboarding</h1>
-        <p className="mt-1 text-sm text-fg-muted">Manage onboarding cases and tasks.</p>
+        <Button onClick={() => setDialogOpen(true)}>
+          <Plus className="size-4 mr-1.5" /> New onboarding
+        </Button>
       </div>
 
-      <Tabs defaultValue="cases">
-        <TabsList>
-          <TabsTrigger value="cases">Active Cases</TabsTrigger>
-          <TabsTrigger value="my-tasks">My Tasks</TabsTrigger>
-        </TabsList>
-        <TabsContent value="cases" className="mt-4">
-          <WorkflowCasesTable type="onboarding" />
-        </TabsContent>
-        <TabsContent value="my-tasks" className="mt-4">
-          <WorkflowMyTasks type="onboarding" />
-        </TabsContent>
-      </Tabs>
+      <OnboardingKanban key={refreshKey} onAddClick={() => setDialogOpen(true)} />
+
+      <NewOnboardingDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSuccess={() => {
+          setDialogOpen(false)
+          setRefreshKey((k) => k + 1)
+        }}
+      />
     </main>
   )
 }

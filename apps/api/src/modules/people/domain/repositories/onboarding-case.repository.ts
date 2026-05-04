@@ -1,4 +1,8 @@
-import { OnboardingCase, OnboardingCaseStatus } from '../entities/onboarding-case.entity'
+import {
+  OnboardingCase,
+  OnboardingCaseStage,
+  OnboardingCaseStatus,
+} from '../entities/onboarding-case.entity'
 
 export const ONBOARDING_CASE_REPOSITORY = Symbol('IOnboardingCaseRepository')
 
@@ -32,4 +36,15 @@ export interface IOnboardingCaseRepository {
     taskId: string,
     tenantId: string,
   ): Promise<{ id: string; caseId: string; status: string; isRequired: boolean } | null>
+
+  findAllActive(tenantId: string): Promise<OnboardingCase[]>
+
+  updateStage(id: string, tenantId: string, stage: OnboardingCaseStage): Promise<void>
+
+  getTaskAggregates(
+    caseIds: string[],
+    tenantId: string,
+  ): Promise<
+    Array<{ caseId: string; tasksTotal: number; tasksCompleted: number; blockers: number }>
+  >
 }
