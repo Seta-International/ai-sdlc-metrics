@@ -297,4 +297,36 @@ describe('SyncProfileToMsReversalRegistrar', () => {
       failure,
     )
   })
+
+  it('logs and rethrows when tenant context setup fails', async () => {
+    const failure = new Error('tenant context unavailable')
+    vi.mocked(runWithTenantContext).mockRejectedValueOnce(failure)
+    loggerErrorSpy.mockClear()
+
+    let worker:
+      | ((jobs: { data: PeopleSyncProfileToMsReversalJobPayload }[]) => Promise<void>)
+      | null = null
+    pgBoss.registerWorker.mockImplementation((_name, handler) => {
+      worker = handler as typeof worker
+    })
+
+    registrar.onApplicationBootstrap()
+
+    await expect(
+      worker!([
+        {
+          data: {
+            tenantId: TENANT_ID,
+            employmentId: EMPLOYMENT_ID,
+            changes: [change('employment.company_email', 'alice@example.com')],
+          },
+        },
+      ]),
+    ).rejects.toThrow('tenant context unavailable')
+
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      `Profile MS reversal sync failed tenant=${TENANT_ID} employment=${EMPLOYMENT_ID}`,
+      failure,
+    )
+  })
 })

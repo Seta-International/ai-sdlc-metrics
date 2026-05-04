@@ -102,15 +102,15 @@ export class SyncProfileToMsReversalRegistrar implements OnApplicationBootstrap 
         for (const job of jobs) {
           const { tenantId, employmentId, changes } = job.data
           this.logger.log(`Running profile MS reversal sync for tenant=${tenantId}`)
-          await runWithTenantContext(
-            {
-              tenantId,
-              baseDb: this.baseDb,
-              requestDbContext: this.requestDbContext,
-              cls: this.cls,
-            },
-            async () => {
-              try {
+          try {
+            await runWithTenantContext(
+              {
+                tenantId,
+                baseDb: this.baseDb,
+                requestDbContext: this.requestDbContext,
+                cls: this.cls,
+              },
+              async () => {
                 const employment = await this.employmentRepo.findById(employmentId, tenantId)
                 if (!employment) {
                   return
@@ -142,15 +142,15 @@ export class SyncProfileToMsReversalRegistrar implements OnApplicationBootstrap 
                   msUserId,
                   patch,
                 )
-              } catch (err) {
-                this.logger.error(
-                  `Profile MS reversal sync failed tenant=${tenantId} employment=${employmentId}`,
-                  err,
-                )
-                throw err
-              }
-            },
-          )
+              },
+            )
+          } catch (err) {
+            this.logger.error(
+              `Profile MS reversal sync failed tenant=${tenantId} employment=${employmentId}`,
+              err,
+            )
+            throw err
+          }
         }
       },
     )
