@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { and, eq, lte } from 'drizzle-orm'
+import { and, desc, eq, lte } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import type {
@@ -47,6 +47,25 @@ export class DrizzleProfileChangeRequestRepository implements IProfileChangeRequ
       .select()
       .from(profileChangeRequest)
       .where(and(...conditions))) as ProfileChangeRequest[]
+  }
+
+  async findByTenant(
+    tenantId: string,
+    status?: ChangeRequestStatus,
+    limit = 20,
+    offset = 0,
+  ): Promise<ProfileChangeRequest[]> {
+    const conditions = [eq(profileChangeRequest.tenantId, tenantId)]
+    if (status) {
+      conditions.push(eq(profileChangeRequest.status, status))
+    }
+    return (await this.db
+      .select()
+      .from(profileChangeRequest)
+      .where(and(...conditions))
+      .orderBy(desc(profileChangeRequest.createdAt))
+      .limit(limit)
+      .offset(offset)) as ProfileChangeRequest[]
   }
 
   async findPendingByFieldPath(

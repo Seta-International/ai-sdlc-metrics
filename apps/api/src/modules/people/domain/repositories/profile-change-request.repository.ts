@@ -13,6 +13,12 @@ export interface IProfileChangeRequestRepository {
     tenantId: string,
     status?: ChangeRequestStatus,
   ): Promise<ProfileChangeRequest[]>
+  findByTenant(
+    tenantId: string,
+    status?: ChangeRequestStatus,
+    limit?: number,
+    offset?: number,
+  ): Promise<ProfileChangeRequest[]>
   findPendingByFieldPath(
     employmentId: string,
     fieldPath: string,
