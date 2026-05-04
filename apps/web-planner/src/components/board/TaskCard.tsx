@@ -161,7 +161,6 @@ export function TaskCard({
     const snapshot = queryClient.getQueryData<BoardSnapshot>(queryKey)
     if (!snapshot) return
 
-    // Optimistic update
     const updated: BoardSnapshot = {
       ...snapshot,
       buckets: snapshot.buckets.map((b) => ({
@@ -172,7 +171,7 @@ export function TaskCard({
     queryClient.setQueryData(queryKey, updated)
 
     try {
-      await trpc.planner.tasks.setPriority.mutate({
+      const result = await trpc.planner.tasks.setPriority.mutate({
         tenantId,
         planId,
         taskId: task.id,
@@ -180,6 +179,17 @@ export function TaskCard({
         expectedVersion: task.updatedAt.toISOString(),
         priority,
       })
+      const afterMutation = queryClient.getQueryData<BoardSnapshot>(queryKey)
+      if (afterMutation) {
+        const newUpdatedAt = (result as { updatedAt?: Date })?.updatedAt ?? new Date()
+        queryClient.setQueryData(queryKey, {
+          ...afterMutation,
+          buckets: afterMutation.buckets.map((b) => ({
+            ...b,
+            tasks: b.tasks.map((t) => (t.id === task.id ? { ...t, updatedAt: newUpdatedAt } : t)),
+          })),
+        })
+      }
       await queryClient.invalidateQueries({ queryKey })
     } catch (err) {
       queryClient.setQueryData(queryKey, snapshot)

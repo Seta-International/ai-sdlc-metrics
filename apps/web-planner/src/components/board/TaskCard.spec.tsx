@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@future/api-client'
 import React from 'react'
@@ -70,6 +70,14 @@ vi.mock('../../lib/hooks/use-remove-from-my-day', () => ({
   useRemoveFromMyDay: () => ({ mutate: vi.fn(), isPending: false }),
 }))
 
+import { trpc } from '../../lib/trpc'
+const mockSetPriority = vi.mocked(
+  (trpc.planner.tasks.setPriority as { mutate: ReturnType<typeof vi.fn> }).mutate,
+)
+const mockSetDates = vi.mocked(
+  (trpc.planner.tasks.setDates as { mutate: ReturnType<typeof vi.fn> }).mutate,
+)
+
 function makeTask(overrides: Partial<BoardTaskSnapshot> = {}): BoardTaskSnapshot {
   return {
     id: 'task-1',
@@ -120,6 +128,7 @@ function Wrapper({ children }: { children: React.ReactNode }) {
 
 afterEach(() => {
   cleanup()
+  vi.clearAllMocks()
   _queryClientRef = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 })
 
@@ -289,5 +298,78 @@ describe('TaskCard', () => {
     })
     const toggleBtn = screen.getByRole('button', { name: 'Mark complete' })
     expect(toggleBtn.className).not.toContain('opacity-0')
+  })
+
+  it('writes server updatedAt to cache after setPriority mutation', async () => {
+    const serverUpdatedAt = new Date('2026-06-01T12:00:00Z')
+    mockSetPriority.mockResolvedValue({ updatedAt: serverUpdatedAt })
+
+    const task = makeTask({ priority: 3, updatedAt: new Date('2026-01-01') })
+    const snapshot = {
+      plan: { id: 'plan-1', name: 'Plan', labels: [], members: [] },
+      buckets: [{ id: 'bucket-1', name: 'To Do', orderHint: 'a', tasks: [task] }],
+    }
+    _queryClientRef.setQueryData(['tasks.getBoard', 'plan-1', 'actor-1', 'tenant-1'], snapshot)
+
+    render(<TaskCard task={task} planLabels={emptyLabels} {...TASK_PROPS} />, { wrapper: Wrapper })
+
+    await userEvent.click(screen.getByTestId('task-card-menu-btn'))
+    await userEvent.click(screen.getByTestId('task-menu-priority'))
+    await userEvent.click(screen.getByTestId('priority-option-9'))
+
+    await waitFor(() => expect(mockSetPriority).toHaveBeenCalledTimes(1))
+
+    const cached = _queryClientRef.getQueryData<typeof snapshot>([
+      'tasks.getBoard',
+      'plan-1',
+      'actor-1',
+      'tenant-1',
+    ])
+    const cachedTask = cached?.buckets[0]?.tasks[0]
+    expect(cachedTask?.updatedAt).toEqual(serverUpdatedAt)
+  })
+
+  describe('due date input', () => {
+    it('does NOT fire mutation on onChange (only updates local state)', async () => {
+      mockSetDates.mockResolvedValue({ updatedAt: new Date() })
+
+      const task = makeTask()
+      render(<TaskCard task={task} planLabels={emptyLabels} {...TASK_PROPS} />, {
+        wrapper: Wrapper,
+      })
+
+      await userEvent.click(screen.getByTestId('task-card-menu-btn'))
+      await userEvent.click(screen.getByTestId('task-menu-due-date'))
+
+      const dateInput = screen.getByLabelText('Due date input')
+      fireEvent.change(dateInput, { target: { value: '2026-12-31' } })
+
+      expect(mockSetDates).not.toHaveBeenCalled()
+    })
+
+    it('fires mutation on onBlur', async () => {
+      const serverDate = new Date('2026-07-01T00:00:00Z')
+      mockSetDates.mockResolvedValue({ updatedAt: serverDate })
+
+      const task = makeTask()
+      const snapshot = {
+        plan: { id: 'plan-1', name: 'Plan', labels: [], members: [] },
+        buckets: [{ id: 'bucket-1', name: 'To Do', orderHint: 'a', tasks: [task] }],
+      }
+      _queryClientRef.setQueryData(['tasks.getBoard', 'plan-1', 'actor-1', 'tenant-1'], snapshot)
+
+      render(<TaskCard task={task} planLabels={emptyLabels} {...TASK_PROPS} />, {
+        wrapper: Wrapper,
+      })
+
+      await userEvent.click(screen.getByTestId('task-card-menu-btn'))
+      await userEvent.click(screen.getByTestId('task-menu-due-date'))
+
+      const dateInput = screen.getByLabelText('Due date input')
+      fireEvent.change(dateInput, { target: { value: '2026-12-31' } })
+      fireEvent.blur(dateInput)
+
+      await waitFor(() => expect(mockSetDates).toHaveBeenCalledTimes(1))
+    })
   })
 })
