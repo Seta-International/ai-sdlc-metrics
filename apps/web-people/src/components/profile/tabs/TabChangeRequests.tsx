@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Badge } from '@future/ui'
+import { Badge, Button } from '@future/ui'
 import { ArrowRight } from '@future/ui/icons'
 import { useChangeRequests } from '../../../lib/hooks/use-change-requests'
 import type { ChangeRequestSummary } from '../../../lib/hooks/use-change-requests'
@@ -75,7 +75,10 @@ interface TabChangeRequestsProps {
   canApprove: boolean
 }
 
-export function TabChangeRequests({ employmentId }: TabChangeRequestsProps) {
+export function TabChangeRequests({
+  employmentId,
+  canApprove: _canApprove,
+}: TabChangeRequestsProps) {
   const [filter, setFilter] = React.useState<FilterType>('all')
   const { items, isLoading } = useChangeRequests(employmentId)
 
@@ -95,17 +98,14 @@ export function TabChangeRequests({ employmentId }: TabChangeRequestsProps) {
     <div className="p-4 space-y-4">
       <div className="flex gap-2">
         {(['all', 'pending', 'approved', 'rejected'] as FilterType[]).map((f) => (
-          <button
+          <Button
             key={f}
-            className={`px-3 py-1 rounded-full border text-xs font-medium transition-colors ${
-              filter === f
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'border-border text-fg-muted hover:bg-muted'
-            }`}
+            variant={filter === f ? 'outline' : 'ghost'}
+            size="sm"
             onClick={() => setFilter(f)}
           >
             {f.charAt(0).toUpperCase() + f.slice(1)} ({counts[f]})
-          </button>
+          </Button>
         ))}
       </div>
 
