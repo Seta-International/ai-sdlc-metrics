@@ -254,7 +254,7 @@ export function TaskCard({
             size="icon-sm"
             onClick={handleToggleComplete}
             aria-label={progress === 100 ? 'Mark incomplete' : 'Mark complete'}
-            className="mt-px flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
+            className="mt-px flex-shrink-0"
             onPointerDown={(e) => e.stopPropagation()}
           >
             <ProgressIcon progress={progress} className="size-3.5" />

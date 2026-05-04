@@ -282,4 +282,12 @@ describe('TaskCard', () => {
     )
     expect(screen.queryByTestId('pending-upload-badge')).toBeNull()
   })
+
+  it('progress toggle button is always visible (no opacity-0 class)', () => {
+    render(<TaskCard task={makeTask({ progress: 0 })} planLabels={emptyLabels} {...TASK_PROPS} />, {
+      wrapper: Wrapper,
+    })
+    const toggleBtn = screen.getByRole('button', { name: 'Mark complete' })
+    expect(toggleBtn.className).not.toContain('opacity-0')
+  })
 })
