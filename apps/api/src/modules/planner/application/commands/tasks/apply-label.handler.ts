@@ -11,7 +11,7 @@ import { LabelSlotNotDefinedException } from '../../../domain/exceptions/label-s
 import { ApplyLabelCommand } from './apply-label.command'
 
 @CommandHandler(ApplyLabelCommand)
-export class ApplyLabelHandler implements ICommandHandler<ApplyLabelCommand> {
+export class ApplyLabelHandler implements ICommandHandler<ApplyLabelCommand, { updatedAt: Date }> {
   constructor(
     @Inject(TASK_REPOSITORY) private readonly taskRepo: ITaskRepository,
     @Inject(PLAN_REPOSITORY) private readonly planRepo: IPlanRepository,
@@ -19,7 +19,7 @@ export class ApplyLabelHandler implements ICommandHandler<ApplyLabelCommand> {
     private readonly eventBus: EventBus,
   ) {}
 
-  async execute(command: ApplyLabelCommand): Promise<void> {
+  async execute(command: ApplyLabelCommand): Promise<{ updatedAt: Date }> {
     const task = await this.taskRepo.findById(command.taskId, command.tenantId)
     if (!task) throw new TaskNotFoundException(command.taskId)
 
@@ -50,5 +50,7 @@ export class ApplyLabelHandler implements ICommandHandler<ApplyLabelCommand> {
         'user',
       ),
     )
+
+    return { updatedAt: task.updatedAt }
   }
 }
