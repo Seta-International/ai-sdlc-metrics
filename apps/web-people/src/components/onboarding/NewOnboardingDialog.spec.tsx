@@ -168,8 +168,8 @@ describe('NewOnboardingDialog', () => {
     })
 
     const selects = screen.getAllByTestId('select')
-    fireEvent.change(selects[0], { target: { value: 'emp-1' } })
-    fireEvent.change(selects[1], { target: { value: 'tmpl-1' } })
+    fireEvent.change(selects[0]!, { target: { value: 'emp-1' } })
+    fireEvent.change(selects[1]!, { target: { value: 'tmpl-1' } })
 
     await act(async () => {
       fireEvent.click(screen.getByText('Start onboarding'))
@@ -190,7 +190,7 @@ describe('NewOnboardingDialog', () => {
     })
 
     const selects = screen.getAllByTestId('select')
-    fireEvent.change(selects[0], { target: { value: 'emp-1' } })
+    fireEvent.change(selects[0]!, { target: { value: 'emp-1' } })
 
     await act(async () => {
       fireEvent.click(screen.getByText('Start onboarding'))
@@ -211,7 +211,7 @@ describe('NewOnboardingDialog', () => {
     })
 
     const selects = screen.getAllByTestId('select')
-    fireEvent.change(selects[0], { target: { value: 'emp-1' } })
+    fireEvent.change(selects[0]!, { target: { value: 'emp-1' } })
 
     await act(async () => {
       fireEvent.click(screen.getByText('Start onboarding'))
@@ -231,7 +231,7 @@ describe('NewOnboardingDialog', () => {
     })
 
     const selects = screen.getAllByTestId('select')
-    fireEvent.change(selects[0], { target: { value: 'emp-1' } })
+    fireEvent.change(selects[0]!, { target: { value: 'emp-1' } })
 
     await act(async () => {
       fireEvent.click(screen.getByText('Start onboarding'))
@@ -252,6 +252,6 @@ describe('NewOnboardingDialog', () => {
     })
 
     const selects = screen.getAllByTestId('select')
-    expect((selects[1] as HTMLSelectElement).value).toBe('tmpl-solo')
+    expect((selects[1]! as HTMLSelectElement).value).toBe('tmpl-solo')
   })
 })

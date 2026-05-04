@@ -55,7 +55,7 @@ export function NewOnboardingDialog({ open, onOpenChange, onSuccess }: NewOnboar
       ])
       setEmployments(dirResult.rows.map((r) => ({ value: r.id, label: r.fullName })))
       setTemplates(tmpls)
-      if (tmpls.length === 1) setTemplateId(tmpls[0].id)
+      if (tmpls.length === 1) setTemplateId(tmpls[0]!.id)
     })()
   }, [open])
 
