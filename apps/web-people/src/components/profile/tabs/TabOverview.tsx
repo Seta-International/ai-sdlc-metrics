@@ -5,6 +5,7 @@ import { Input } from '@future/ui'
 import { ProfileCard, KVRow } from '../cards/ProfileCard'
 import { SideRail } from '../rail/SideRail'
 import type { EmployeeProfile } from '../../../lib/types'
+import { usePendingFieldPaths } from '../../../lib/hooks/use-change-requests'
 
 interface TabOverviewProps {
   profile: EmployeeProfile
@@ -30,6 +31,7 @@ export function TabOverview({
   onSaved: _onSaved,
 }: TabOverviewProps) {
   const { personProfile, employment, currentJob, emergencyContacts } = profile
+  const pendingFields = usePendingFieldPaths(employmentId)
 
   return (
     <div className="grid gap-8 p-8" style={{ gridTemplateColumns: '1fr 300px' }}>
@@ -102,6 +104,23 @@ export function TabOverview({
           ) : (
             <>
               <KVRow label="Preferred name" value={personProfile.preferredName} />
+              {pendingFields.has('person_profile.preferred_name') && (
+                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                  Pending
+                </span>
+              )}
+              <KVRow label="Date of birth" value={personProfile.dateOfBirth} />
+              {pendingFields.has('person_profile.date_of_birth') && (
+                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                  Pending
+                </span>
+              )}
+              <KVRow label="Nationality" value={personProfile.nationality} />
+              {pendingFields.has('person_profile.nationality') && (
+                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                  Pending
+                </span>
+              )}
               <KVRow label="Start date" value={employment.hireDate} />
               <KVRow label="Employee ID" value={employment.employeeCode} mono />
             </>
@@ -166,7 +185,17 @@ export function TabOverview({
           ) : (
             <>
               <KVRow label="Personal email" value={null} />
+              {pendingFields.has('employment_detail.personal_email') && (
+                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                  Pending
+                </span>
+              )}
               <KVRow label="Personal phone" value={null} />
+              {pendingFields.has('employment_detail.personal_phone') && (
+                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                  Pending
+                </span>
+              )}
             </>
           )}
         </ProfileCard>
