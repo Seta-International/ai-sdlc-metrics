@@ -60,7 +60,9 @@ import { ResetStagedMsUserHandler } from './application/commands/reset-staged-ms
 import { ListStagedMsUsersHandler } from './application/queries/list-staged-ms-users.handler'
 import { GetMsSyncStatusHandler } from './application/queries/get-ms-sync-status.handler'
 import { OnDirectorySyncCompletedListener } from './application/event-handlers/on-directory-sync-completed.listener'
+import { OnProfileChangeAppliedHandler } from './application/event-handlers/on-profile-change-applied.handler'
 import { PeopleMsSyncRegistrar } from './infrastructure/jobs/people-ms-sync.registrar'
+import { SyncProfileToMsReversalRegistrar } from './infrastructure/jobs/sync-profile-to-ms-reversal.registrar'
 
 // ── Legacy repositories (still functional) ────────────────────────────────
 import { DrizzleProfileSectionRepository } from './infrastructure/repositories/drizzle-profile-section.repository'
@@ -411,9 +413,11 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
 
     // ── Event handlers ────────────────────────────────────────────────────
     OnCandidateHiredHandler,
+    OnProfileChangeAppliedHandler,
 
     // ── Microsoft profile sync ───────────────────────────────────────────
     SyncMicrosoftProfileHandler,
+    SyncProfileToMsReversalRegistrar,
     {
       provide: PEOPLE_STORAGE_CLIENT,
       useFactory: () =>
