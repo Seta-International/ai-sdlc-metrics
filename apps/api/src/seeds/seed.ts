@@ -16,7 +16,10 @@ import {
   directorySearchIndex,
 } from '../modules/people/infrastructure/schema/people.schema'
 import { tenantSettings } from '../modules/admin/infrastructure/schema/admin.schema'
-import { identityProvider } from '../modules/identity/infrastructure/schema/identity.schema'
+import {
+  identityProvider,
+  tenantDomain,
+} from '../modules/identity/infrastructure/schema/identity.schema'
 
 function deterministicUuid(seed: string): string {
   const hash = createHash('sha256')
@@ -120,7 +123,7 @@ const FUTURE_TENANT = {
 const ROLE_OVERRIDES: Record<string, string[]> = {
   'canh.ta@seta-international.vn': ['tenant_admin', 'line_manager'],
   'canh.ta@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
-  'anh.nguyenviet@setafuture.onmicrosoft.com': ['employee', 'line_manager'],
+  'anh.nguyenviet@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
   'thang.tran@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
 }
 
@@ -473,6 +476,20 @@ async function main() {
       })
       .onConflictDoNothing()
 
+    if (tenantCfg.domain) {
+      await db
+        .insert(tenantDomain)
+        .values({
+          id: deterministicUuid('domain:' + tenantCfg.slug),
+          tenantId,
+          domain: tenantCfg.domain,
+          status: 'verified',
+          verificationTokenHash: deterministicUuid('domain-token:' + tenantCfg.slug),
+          verifiedAt: now,
+        })
+        .onConflictDoNothing()
+    }
+
     const tenantEmployees = setaEmployees.filter((e) => assignTenant(e)?.slug === tenantCfg.slug)
     await seedTenantEmployees(
       db,
@@ -519,6 +536,18 @@ async function main() {
       status: 'active',
       createdAt: now,
       updatedAt: now,
+    })
+    .onConflictDoNothing()
+
+  await db
+    .insert(tenantDomain)
+    .values({
+      id: deterministicUuid('domain:' + FUTURE_TENANT.slug),
+      tenantId: futureTenantId,
+      domain: FUTURE_TENANT.domain,
+      status: 'verified',
+      verificationTokenHash: deterministicUuid('domain-token:' + FUTURE_TENANT.slug),
+      verifiedAt: now,
     })
     .onConflictDoNothing()
 
