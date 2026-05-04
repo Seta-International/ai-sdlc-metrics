@@ -1590,8 +1590,31 @@ export const peopleRouter = router({
     ),
 
   listProfileChangeRequests: publicProcedure
-    .input(z.object({ tenantId: z.string().uuid() }))
-    .query(({ input }) => svc().query(new ListProfileChangeRequestsQuery(input.tenantId))),
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        mode: z.enum(['byEmployment', 'queue']).default('queue'),
+        employmentId: z.string().uuid().nullable().default(null),
+        status: z
+          .enum(['pending', 'approved', 'rejected', 'superseded', 'scheduled', 'applied'])
+          .nullable()
+          .default(null),
+        limit: z.number().int().min(1).max(200).default(20),
+        offset: z.number().int().min(0).default(0),
+      }),
+    )
+    .query(({ input }) =>
+      svc().query(
+        new ListProfileChangeRequestsQuery(
+          input.tenantId,
+          input.mode,
+          input.employmentId,
+          input.status,
+          input.limit,
+          input.offset,
+        ),
+      ),
+    ),
 
   listOnboardingTasks: publicProcedure
     .input(z.object({ tenantId: z.string().uuid(), caseId: z.string().uuid() }))

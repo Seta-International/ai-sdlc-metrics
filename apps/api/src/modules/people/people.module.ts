@@ -210,7 +210,7 @@ import { GetOrgChartTreeHandler } from './application/queries/get-org-chart-tree
 // ── Legacy query handlers that still compile ───────────────────────────────
 // NOTE: Handlers that reference EMPLOYMENT_PROFILE_REPOSITORY (deleted) are excluded:
 //   - ListPeriodicReviewsHandler    (uses EMPLOYMENT_PROFILE_REPOSITORY + PERIODIC_PROFILE_REVIEW_REPOSITORY)
-//   - ListProfileChangeRequestsHandler (uses EMPLOYMENT_PROFILE_REPOSITORY)
+import { ListProfileChangeRequestsHandler } from './application/queries/list-profile-change-requests.handler'
 import { StartOnboardingCaseHandler } from './application/commands/start-onboarding-case.handler'
 import { ListOnboardingTasksHandler } from './application/queries/list-onboarding-tasks.handler'
 import { ListOnboardingCasesHandler } from './application/queries/list-onboarding-cases.handler'
@@ -394,6 +394,7 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     ListIncompleteProfilesHandler,
 
     // ── Legacy query handlers ────────────────────────────────────────────
+    ListProfileChangeRequestsHandler,
     ListOnboardingTasksHandler,
     ListOnboardingCasesHandler,
     StartOnboardingCaseHandler,
