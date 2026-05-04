@@ -315,4 +315,75 @@ describe('BoardColumn', () => {
     expect(screen.queryByTestId('delete-confirm-dialog')).toBeNull()
     expect(mockDelete).not.toHaveBeenCalled()
   })
+
+  it('renders empty bucket state when there are no tasks', () => {
+    render(<BoardColumn bucket={makeBucket({ tasks: [] })} planLabels={emptyLabels} {...PROPS} />, {
+      wrapper: Wrapper,
+    })
+    expect(screen.getByTestId('empty-bucket-state')).toBeDefined()
+    expect(screen.getByText('Nothing to review')).toBeDefined()
+    expect(screen.getByText(/Drop a task here/)).toBeDefined()
+  })
+
+  it('does NOT render empty state when bucket has tasks', () => {
+    const taskWithMinFields = {
+      id: 'task-1',
+      title: 'Task 1',
+      description: '',
+      progress: 0,
+      priority: 3,
+      startDate: null,
+      dueDate: null,
+      orderHint: 'a0',
+      completedAt: null,
+      completedBy: null,
+      checklistItemCount: 0,
+      checklistCheckedCount: 0,
+      attachmentCount: 0,
+      commentCount: 0,
+      evidenceCount: 0,
+      hasPendingAttachment: false,
+      coverAttachmentId: null,
+      appliedLabels: [],
+      assignees: [],
+      updatedAt: new Date(),
+      msSyncState: null,
+    }
+    render(
+      <BoardColumn
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        bucket={makeBucket({ tasks: [taskWithMinFields as any] })}
+        planLabels={emptyLabels}
+        {...PROPS}
+      />,
+      { wrapper: Wrapper },
+    )
+    expect(screen.queryByTestId('empty-bucket-state')).toBeNull()
+  })
+
+  it('clicking the + header button opens QuickAddTask', async () => {
+    render(<BoardColumn bucket={makeBucket()} planLabels={emptyLabels} {...PROPS} />, {
+      wrapper: Wrapper,
+    })
+    const addBtn = screen.getByTestId('column-add-task-btn')
+    await userEvent.click(addBtn)
+    expect(screen.getByTestId('quick-add-task-form')).toBeDefined()
+  })
+
+  it('column drag handle is always visible (no opacity class)', () => {
+    render(<BoardColumn bucket={makeBucket()} planLabels={emptyLabels} {...PROPS} />, {
+      wrapper: Wrapper,
+    })
+    const handle = screen.getByTestId('column-drag-handle')
+    expect(handle.className).not.toContain('opacity-0')
+  })
+
+  it('column name renders as a span (not a button)', () => {
+    render(
+      <BoardColumn bucket={makeBucket({ name: 'Sprint 1' })} planLabels={emptyLabels} {...PROPS} />,
+      { wrapper: Wrapper },
+    )
+    const nameEl = screen.getByTestId('column-name-btn')
+    expect(nameEl.tagName.toLowerCase()).toBe('span')
+  })
 })

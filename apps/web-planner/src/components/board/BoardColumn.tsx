@@ -35,7 +35,6 @@ interface BoardColumnProps {
   actorId: string
   tenantId: string
   onToggleComplete?: (taskId: string, nextProgress: Progress) => void
-  /** Resolve cover URL from coverAttachmentId */
   resolveCoverUrl?: (coverAttachmentId: string) => string | undefined
 }
 
@@ -61,6 +60,7 @@ export function BoardColumn({
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState(bucket.name)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
 
   const renameInputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
@@ -68,7 +68,6 @@ export function BoardColumn({
 
   const taskIds = bucket.tasks.map((t) => t.id)
 
-  // Focus rename input when opened
   useEffect(() => {
     if (renaming) renameInputRef.current?.select()
   }, [renaming])
@@ -84,11 +83,10 @@ export function BoardColumn({
 
     const snapshot = queryClient.getQueryData<BoardSnapshot>(queryKey)
     if (snapshot) {
-      const updated: BoardSnapshot = {
+      queryClient.setQueryData(queryKey, {
         ...snapshot,
         buckets: snapshot.buckets.map((b) => (b.id === bucket.id ? { ...b, name } : b)),
-      }
-      queryClient.setQueryData(queryKey, updated)
+      })
     }
 
     try {
@@ -118,23 +116,15 @@ export function BoardColumn({
 
   async function handleDelete() {
     setShowDeleteConfirm(false)
-
     const snapshot = queryClient.getQueryData<BoardSnapshot>(queryKey)
     if (snapshot) {
-      const updated: BoardSnapshot = {
+      queryClient.setQueryData(queryKey, {
         ...snapshot,
         buckets: snapshot.buckets.filter((b) => b.id !== bucket.id),
-      }
-      queryClient.setQueryData(queryKey, updated)
-    }
-
-    try {
-      await trpc.planner.buckets.delete.mutate({
-        tenantId,
-        planId,
-        bucketId: bucket.id,
-        actorId,
       })
+    }
+    try {
+      await trpc.planner.buckets.delete.mutate({ tenantId, planId, bucketId: bucket.id, actorId })
       await queryClient.invalidateQueries({ queryKey })
     } catch (err) {
       if (snapshot) queryClient.setQueryData(queryKey, snapshot)
@@ -157,64 +147,80 @@ export function BoardColumn({
       data-bucket-id={bucket.id}
     >
       {/* Column header */}
-      <div className="flex items-center justify-between px-1 pb-2">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          {/* Drag handle for column reorder */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            {...colAttributes}
-            {...colListeners}
-            aria-label={`Drag to reorder ${bucket.name}`}
-            data-testid="column-drag-handle"
-          >
-            <svg viewBox="0 0 12 12" fill="currentColor" className="size-3" aria-hidden>
-              <circle cx={4} cy={3} r={1} />
-              <circle cx={4} cy={6} r={1} />
-              <circle cx={4} cy={9} r={1} />
-              <circle cx={8} cy={3} r={1} />
-              <circle cx={8} cy={6} r={1} />
-              <circle cx={8} cy={9} r={1} />
-            </svg>
-          </Button>
-
-          {renaming ? (
-            <Input
-              ref={renameInputRef}
-              type="text"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value.slice(0, 255))}
-              onKeyDown={handleRenameKeyDown}
-              onBlur={() => void commitRename()}
-              autoFocus
-              maxLength={255}
-              aria-label="Rename bucket"
-              data-testid="column-rename-input"
-            />
-          ) : (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setRenameValue(bucket.name)
-                setRenaming(true)
-              }}
-              aria-label={`Rename ${bucket.name}`}
-              data-testid="column-name-btn"
-            >
-              {bucket.name}
-            </Button>
-          )}
-
-          {/* Count badge — 18px height, 4px radius */}
-          <span className="flex-shrink-0 flex h-4.5 min-w-4.5 items-center justify-center rounded bg-elevated px-1 text-tiny font-510 text-fg-muted">
-            {bucket.tasks.length}
-          </span>
+      <div className="flex items-center gap-1.5 px-1 pb-2">
+        {/* Drag handle — always visible */}
+        <div
+          {...colAttributes}
+          {...colListeners}
+          style={{
+            color: '#62666d',
+            display: 'flex',
+            alignItems: 'center',
+            cursor: 'grab',
+            flexShrink: 0,
+          }}
+          aria-label={`Drag to reorder ${bucket.name}`}
+          data-testid="column-drag-handle"
+        >
+          <svg viewBox="0 0 12 12" fill="currentColor" className="size-3" aria-hidden>
+            <circle cx={4} cy={3} r={1} />
+            <circle cx={4} cy={6} r={1} />
+            <circle cx={4} cy={9} r={1} />
+            <circle cx={8} cy={3} r={1} />
+            <circle cx={8} cy={6} r={1} />
+            <circle cx={8} cy={9} r={1} />
+          </svg>
         </div>
 
-        {/* Column menu — three dots */}
+        {/* Column name / rename input */}
+        {renaming ? (
+          <Input
+            ref={renameInputRef}
+            type="text"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value.slice(0, 255))}
+            onKeyDown={handleRenameKeyDown}
+            onBlur={() => void commitRename()}
+            autoFocus
+            maxLength={255}
+            aria-label="Rename bucket"
+            data-testid="column-rename-input"
+          />
+        ) : (
+          <span
+            className="text-small font-510 text-fg-primary min-w-0 truncate cursor-text flex-1"
+            onClick={() => {
+              setRenameValue(bucket.name)
+              setRenaming(true)
+            }}
+            data-testid="column-name-btn"
+          >
+            {bucket.name}
+          </span>
+        )}
+
+        {/* Count badge */}
+        <span className="flex-shrink-0 flex h-4.5 min-w-4.5 items-center justify-center rounded bg-elevated px-1 text-tiny font-510 text-fg-muted">
+          {bucket.tasks.length}
+        </span>
+
+        <div className="flex-1" />
+
+        {/* + shortcut — opens QuickAddTask */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => setQuickAddOpen(true)}
+          aria-label={`Add task to ${bucket.name}`}
+          data-testid="column-add-task-btn"
+        >
+          <svg viewBox="0 0 12 12" fill="none" className="size-3" aria-hidden>
+            <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
+          </svg>
+        </Button>
+
+        {/* Three-dot menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -244,9 +250,7 @@ export function BoardColumn({
             <DropdownMenuItem
               data-testid="column-menu-delete"
               variant="destructive"
-              onClick={() => {
-                setShowDeleteConfirm(true)
-              }}
+              onClick={() => setShowDeleteConfirm(true)}
             >
               Delete
             </DropdownMenuItem>
@@ -254,7 +258,7 @@ export function BoardColumn({
         </DropdownMenu>
       </div>
 
-      {/* Delete confirmation dialog */}
+      {/* Delete confirmation */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent data-testid="delete-confirm-dialog">
           <AlertDialogHeader>
@@ -276,12 +280,19 @@ export function BoardColumn({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* QuickAddTask at top */}
+      {/* QuickAddTask at top — controlled by quickAddOpen */}
       <div className="pb-2">
-        <QuickAddTask bucketId={bucket.id} planId={planId} actorId={actorId} tenantId={tenantId} />
+        <QuickAddTask
+          bucketId={bucket.id}
+          planId={planId}
+          actorId={actorId}
+          tenantId={tenantId}
+          open={quickAddOpen}
+          onOpenChange={setQuickAddOpen}
+        />
       </div>
 
-      {/* Drop zone — min-h-12 = 48px */}
+      {/* Drop zone */}
       <div
         ref={setDropRef}
         className={[
@@ -306,6 +317,71 @@ export function BoardColumn({
               }
             />
           ))}
+
+          {/* Empty bucket state */}
+          {bucket.tasks.length === 0 && (
+            <div
+              style={{
+                border: '1px dashed rgba(255,255,255,0.06)',
+                borderRadius: '8px',
+                minHeight: '80px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                padding: '16px',
+              }}
+              data-testid="empty-bucket-state"
+            >
+              <div
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  background: 'rgba(255,255,255,0.02)',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+                  <rect
+                    x="3"
+                    y="3"
+                    width="4"
+                    height="10"
+                    rx="1"
+                    stroke="#3e3e44"
+                    strokeWidth="1.4"
+                  />
+                  <rect
+                    x="9"
+                    y="3"
+                    width="4"
+                    height="7"
+                    rx="1"
+                    stroke="#3e3e44"
+                    strokeWidth="1.4"
+                  />
+                </svg>
+              </div>
+              <span style={{ fontSize: '12px', fontWeight: 510, color: '#3e3e44' }}>
+                Nothing to review
+              </span>
+              <span
+                style={{
+                  fontSize: '11px',
+                  color: '#3e3e44',
+                  textAlign: 'center',
+                  maxWidth: '180px',
+                  lineHeight: 1.5,
+                }}
+              >
+                Drop a task here, or it&apos;ll arrive when someone moves it along.
+              </span>
+            </div>
+          )}
         </SortableContext>
       </div>
     </div>
