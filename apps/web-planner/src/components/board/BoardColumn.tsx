@@ -142,7 +142,7 @@ export function BoardColumn({
     <div
       ref={setSortRef}
       style={colStyle}
-      className="flex w-72 flex-shrink-0 flex-col gap-0"
+      className="flex w-72 flex-shrink-0 flex-col gap-0 h-full"
       data-testid="board-column"
       data-bucket-id={bucket.id}
     >
@@ -296,7 +296,7 @@ export function BoardColumn({
       <div
         ref={setDropRef}
         className={[
-          'flex flex-col gap-2 min-h-12 rounded-lg p-1 transition-all',
+          'flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto rounded-lg p-1 transition-all',
           isOver ? 'ring-3 ring-brand bg-brand/4' : '',
         ].join(' ')}
         data-testid="board-column-dropzone"
@@ -324,7 +324,7 @@ export function BoardColumn({
               style={{
                 border: '1px dashed rgba(255,255,255,0.06)',
                 borderRadius: '8px',
-                minHeight: '80px',
+                flex: 1,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
