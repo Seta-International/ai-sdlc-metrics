@@ -78,10 +78,14 @@ export class GetEmploymentHandler implements IQueryHandler<GetEmploymentQuery, E
       employment.personProfileId,
       query.tenantId,
     )
-    const stagedMsUser = await this.stagedUserRepo.findByImportedEmploymentId(
+    const linkedStagedMsUser = await this.stagedUserRepo.findByImportedEmploymentId(
       employment.id,
       query.tenantId,
     )
+    const fallbackStagedMsUser = employment.companyEmail
+      ? await this.stagedUserRepo.findLatestImportedByEmail(employment.companyEmail, query.tenantId)
+      : null
+    const stagedMsUser = linkedStagedMsUser ?? fallbackStagedMsUser ?? null
 
     return {
       employment,

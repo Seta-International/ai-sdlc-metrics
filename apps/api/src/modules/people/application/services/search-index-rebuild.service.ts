@@ -23,6 +23,10 @@ import {
   JOB_PROFILE_REPOSITORY,
   type IJobProfileRepository,
 } from '../../domain/repositories/job-profile.repository'
+import {
+  MS_STAGED_USER_REPOSITORY,
+  type IMsStagedUserRepository,
+} from '../../domain/repositories/ms-staged-user.repository'
 
 @Injectable()
 export class SearchIndexRebuildService {
@@ -39,6 +43,8 @@ export class SearchIndexRebuildService {
     private readonly assignmentRepo: IJobAssignmentRepository,
     @Inject(JOB_PROFILE_REPOSITORY)
     private readonly jobProfileRepo: IJobProfileRepository,
+    @Inject(MS_STAGED_USER_REPOSITORY)
+    private readonly stagedUserRepo: IMsStagedUserRepository,
   ) {}
 
   async rebuildForEmployment(employmentId: string, tenantId: string): Promise<void> {
@@ -56,9 +62,13 @@ export class SearchIndexRebuildService {
 
     const currentAssignment = await this.assignmentRepo.findCurrent(employmentId, tenantId)
     const detail = await this.employmentDetailRepo.findByEmploymentId(employmentId, tenantId)
-    let jobTitle: string | null = detail?.msJobTitle ?? null
+    const fallbackStagedMsUser = employment.companyEmail
+      ? await this.stagedUserRepo.findLatestImportedByEmail(employment.companyEmail, tenantId)
+      : null
+    let jobTitle: string | null = detail?.msJobTitle ?? fallbackStagedMsUser?.jobTitle ?? null
     let jobLevel: string | null = null
-    const departmentName: string | null = detail?.msDepartment ?? null
+    const departmentName: string | null =
+      detail?.msDepartment ?? fallbackStagedMsUser?.department ?? null
 
     if (currentAssignment) {
       const jobProfile = await this.jobProfileRepo.findById(

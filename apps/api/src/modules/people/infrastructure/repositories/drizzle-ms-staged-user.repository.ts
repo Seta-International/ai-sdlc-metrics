@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { and, count, eq } from 'drizzle-orm'
+import { and, count, desc, eq, sql } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { MsStagedUser, MsStagedUserStatus } from '../../domain/entities/ms-staged-user.entity'
@@ -25,6 +25,23 @@ export class DrizzleMsStagedUserRepository implements IMsStagedUserRepository {
       .from(msStagedUser)
       .where(and(eq(msStagedUser.msExternalId, msExternalId), eq(msStagedUser.tenantId, tenantId)))
       .limit(1)
+    return (rows[0] as MsStagedUser | undefined) ?? null
+  }
+
+  async findLatestImportedByEmail(email: string, tenantId: string): Promise<MsStagedUser | null> {
+    const rows = await this.db
+      .select()
+      .from(msStagedUser)
+      .where(
+        and(
+          eq(msStagedUser.tenantId, tenantId),
+          eq(msStagedUser.status, 'imported'),
+          sql`lower(${msStagedUser.email}) = lower(${email})`,
+        ),
+      )
+      .orderBy(desc(msStagedUser.lastSeenAt))
+      .limit(1)
+
     return (rows[0] as MsStagedUser | undefined) ?? null
   }
 

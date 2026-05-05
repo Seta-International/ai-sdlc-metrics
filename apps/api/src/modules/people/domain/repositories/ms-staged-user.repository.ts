@@ -5,6 +5,7 @@ export const MS_STAGED_USER_REPOSITORY = 'MS_STAGED_USER_REPOSITORY'
 export interface IMsStagedUserRepository {
   findById(id: string, tenantId: string): Promise<MsStagedUser | null>
   findByMsExternalId(msExternalId: string, tenantId: string): Promise<MsStagedUser | null>
+  findLatestImportedByEmail(email: string, tenantId: string): Promise<MsStagedUser | null>
   upsertFromSync(
     tenantId: string,
     data: {

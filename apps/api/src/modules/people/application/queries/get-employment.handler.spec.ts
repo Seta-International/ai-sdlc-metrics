@@ -186,6 +186,7 @@ describe('GetEmploymentHandler', () => {
     stagedUserRepo = {
       findById: vi.fn(),
       findByMsExternalId: vi.fn(),
+      findLatestImportedByEmail: vi.fn(),
       upsertFromSync: vi.fn(),
       updateStatus: vi.fn(),
       listByStatus: vi.fn(),
@@ -262,5 +263,25 @@ describe('GetEmploymentHandler', () => {
     expect(result).not.toBeNull()
     expect(result!.stagedMsUser).toEqual(mockStagedUser)
     expect(stagedUserRepo.findByImportedEmploymentId).toHaveBeenCalledWith(EMPLOYMENT_ID, TENANT_ID)
+  })
+
+  it('falls back to the latest imported staged MS user by company email when linkage is missing', async () => {
+    vi.mocked(employmentRepo.findById).mockResolvedValue(mockEmployment)
+    vi.mocked(personProfileRepo.findById).mockResolvedValue(mockProfile)
+    vi.mocked(jobAssignmentRepo.findCurrent).mockResolvedValue(null)
+    vi.mocked(employmentDetailRepo.findByEmploymentId).mockResolvedValue(mockDetail)
+    vi.mocked(profileSectionRepo.findByProfileId).mockResolvedValue([])
+    vi.mocked(stagedUserRepo.findByImportedEmploymentId).mockResolvedValue(null)
+    vi.mocked(stagedUserRepo.findLatestImportedByEmail).mockResolvedValue(mockStagedUser)
+
+    const result = await handler.execute(new GetEmploymentQuery(EMPLOYMENT_ID, TENANT_ID))
+
+    expect(result).not.toBeNull()
+    expect(result!.stagedMsUser).toEqual(mockStagedUser)
+    expect(stagedUserRepo.findByImportedEmploymentId).toHaveBeenCalledWith(EMPLOYMENT_ID, TENANT_ID)
+    expect(stagedUserRepo.findLatestImportedByEmail).toHaveBeenCalledWith(
+      mockEmployment.companyEmail!,
+      TENANT_ID,
+    )
   })
 })

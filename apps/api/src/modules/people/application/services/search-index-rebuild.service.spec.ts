@@ -6,6 +6,7 @@ import type { IEmploymentDetailRepository } from '../../domain/repositories/empl
 import type { IPersonProfileRepository } from '../../domain/repositories/person-profile.repository'
 import type { IJobAssignmentRepository } from '../../domain/repositories/job-assignment.repository'
 import type { IJobProfileRepository } from '../../domain/repositories/job-profile.repository'
+import type { IMsStagedUserRepository } from '../../domain/repositories/ms-staged-user.repository'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const EMPLOYMENT_ID = '01900000-0000-7000-8000-000000000002'
@@ -20,6 +21,7 @@ describe('SearchIndexRebuildService', () => {
   let profileRepo: IPersonProfileRepository
   let assignmentRepo: IJobAssignmentRepository
   let jobProfileRepo: IJobProfileRepository
+  let stagedUserRepo: IMsStagedUserRepository
 
   beforeEach(() => {
     searchIndexRepo = {
@@ -69,6 +71,16 @@ describe('SearchIndexRebuildService', () => {
       update: vi.fn(),
       countByJobFamilyId: vi.fn(),
     }
+    stagedUserRepo = {
+      findById: vi.fn(),
+      findByMsExternalId: vi.fn(),
+      findLatestImportedByEmail: vi.fn().mockResolvedValue(null),
+      upsertFromSync: vi.fn(),
+      updateStatus: vi.fn(),
+      listByStatus: vi.fn(),
+      countByStatus: vi.fn(),
+      findByImportedEmploymentId: vi.fn(),
+    }
 
     service = new SearchIndexRebuildService(
       searchIndexRepo,
@@ -77,6 +89,7 @@ describe('SearchIndexRebuildService', () => {
       profileRepo,
       assignmentRepo,
       jobProfileRepo,
+      stagedUserRepo,
     )
   })
 
@@ -314,6 +327,75 @@ describe('SearchIndexRebuildService', () => {
       expect.objectContaining({
         jobTitle: 'Senior Engineer',
         departmentName: 'Engineering',
+      }),
+    )
+  })
+
+  it('falls back to the latest imported staged MS user by company email when employment detail lacks MS fields', async () => {
+    vi.mocked(employmentRepo.findById).mockResolvedValue({
+      id: EMPLOYMENT_ID,
+      tenantId: TENANT_ID,
+      personProfileId: PROFILE_ID,
+      companyEmail: 'ms@co.com',
+      employmentStatus: 'active',
+      hireDate: new Date('2025-01-15'),
+      workerType: 'employee',
+      employmentType: 'permanent',
+      countryCode: 'VN',
+      employeeCode: null,
+      terminationDate: null,
+      terminationReason: null,
+      originalHireDate: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    vi.mocked(profileRepo.findById).mockResolvedValue({
+      id: PROFILE_ID,
+      tenantId: TENANT_ID,
+      actorId: 'actor-ms',
+      familyName: 'Lê',
+      middleName: null,
+      givenName: 'Hoa',
+      fullName: 'Lê Hoa',
+      fullNameUnaccented: 'Le Hoa',
+      preferredName: null,
+      nameDisplayOrder: 'family_first',
+      dateOfBirth: null,
+      gender: null,
+      nationality: null,
+      maritalStatus: null,
+      photoDocumentId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    vi.mocked(assignmentRepo.findCurrent).mockResolvedValue(null)
+    vi.mocked(employmentDetailRepo.findByEmploymentId).mockResolvedValue(null)
+    vi.mocked(stagedUserRepo.findLatestImportedByEmail).mockResolvedValue({
+      id: 'staged-1',
+      tenantId: TENANT_ID,
+      msExternalId: 'aad-1',
+      displayName: 'Lê Hoa',
+      email: 'ms@co.com',
+      jobTitle: 'AI Engineer',
+      department: 'IT',
+      officeLocation: null,
+      mobilePhone: null,
+      workPhone: null,
+      managerMsId: null,
+      photoDocumentId: null,
+      status: 'imported',
+      importedEmploymentId: null,
+      lastSeenAt: new Date(),
+      createdAt: new Date(),
+    })
+
+    await service.rebuildForEmployment(EMPLOYMENT_ID, TENANT_ID)
+
+    expect(stagedUserRepo.findLatestImportedByEmail).toHaveBeenCalledWith('ms@co.com', TENANT_ID)
+    expect(searchIndexRepo.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobTitle: 'AI Engineer',
+        departmentName: 'IT',
       }),
     )
   })
