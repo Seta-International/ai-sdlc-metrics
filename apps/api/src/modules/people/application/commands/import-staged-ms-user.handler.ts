@@ -29,6 +29,7 @@ import {
 import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
 import { KernelUserIdentityFacade } from '../../../kernel/application/facades/kernel-user-identity.facade'
 import { IdentityQueryFacade } from '../../../identity/application/facades/identity-query.facade'
+import { SearchIndexRebuildService } from '../services/search-index-rebuild.service'
 
 @CommandHandler(ImportStagedMsUserCommand)
 export class ImportStagedMsUserHandler implements ICommandHandler<ImportStagedMsUserCommand> {
@@ -47,6 +48,7 @@ export class ImportStagedMsUserHandler implements ICommandHandler<ImportStagedMs
     private readonly kernelUserIdentityFacade: KernelUserIdentityFacade,
     private readonly identityFacade: IdentityQueryFacade,
     private readonly eventBus: EventBus,
+    private readonly searchIndexRebuildService: SearchIndexRebuildService,
   ) {}
 
   async execute(command: ImportStagedMsUserCommand): Promise<string> {
@@ -76,6 +78,29 @@ export class ImportStagedMsUserHandler implements ICommandHandler<ImportStagedMs
         tenantId,
       )
       if (existingEmployment) {
+        const profile = await this.personProfileRepo.findByActorId(existingActorId, tenantId)
+        if (profile) {
+          await this.personProfileRepo.update(profile.id, tenantId, {
+            fullName: staged.displayName,
+            fullNameUnaccented: staged.displayName,
+            preferredName: staged.displayName,
+            familyName: staged.displayName,
+            givenName: staged.displayName,
+          })
+        }
+        if (staged.email) {
+          await this.employmentRepo.update(existingEmployment.id, tenantId, {
+            companyEmail: staged.email,
+          })
+        }
+        await this.employmentDetailRepo.update(existingEmployment.id, tenantId, {
+          msJobTitle: staged.jobTitle,
+          msDepartment: staged.department,
+          officeLocation: staged.officeLocation ?? undefined,
+          workPhone: staged.workPhone ?? undefined,
+          personalPhone: staged.mobilePhone ?? undefined,
+        })
+        await this.searchIndexRebuildService.rebuildForEmployment(existingEmployment.id, tenantId)
         await this.stagedUserRepo.updateStatus(
           stagedUserId,
           tenantId,
@@ -175,6 +200,8 @@ export class ImportStagedMsUserHandler implements ICommandHandler<ImportStagedMs
       customFields: null,
       officeLocation: staged.officeLocation,
       workPhone: staged.workPhone,
+      msJobTitle: staged.jobTitle,
+      msDepartment: staged.department,
     })
 
     // 10. Insert job assignment (minimal — no job profile required for MS import)

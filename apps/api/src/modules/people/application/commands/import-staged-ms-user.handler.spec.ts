@@ -16,6 +16,7 @@ import type { KernelActorFacade } from '../../../kernel/application/facades/kern
 import type { KernelUserIdentityFacade } from '../../../kernel/application/facades/kernel-user-identity.facade'
 import type { IdentityQueryFacade } from '../../../identity/application/facades/identity-query.facade'
 import type { MsStagedUser } from '../../domain/entities/ms-staged-user.entity'
+import type { SearchIndexRebuildService } from '../services/search-index-rebuild.service'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const STAGED_ID = '01900000-0000-7000-8000-000000000010'
@@ -55,13 +56,16 @@ function makeMocks() {
       .fn()
       .mockResolvedValue({ id: 'pp1', actorId: NEW_ACTOR_ID, tenantId: TENANT_ID }),
     insert: vi.fn().mockResolvedValue({ id: 'pp1', actorId: NEW_ACTOR_ID, tenantId: TENANT_ID }),
+    update: vi.fn().mockResolvedValue(undefined),
   }
   const employmentRepo: Partial<IEmploymentRepository> = {
     findActiveByActorId: vi.fn().mockResolvedValue(null),
     insert: vi.fn().mockResolvedValue({ id: NEW_EMPLOYMENT_ID, tenantId: TENANT_ID }),
+    update: vi.fn().mockResolvedValue(undefined),
   }
   const employmentDetailRepo: Partial<IEmploymentDetailRepository> = {
     insert: vi.fn().mockResolvedValue(undefined),
+    update: vi.fn().mockResolvedValue(undefined),
   }
   const jobAssignmentRepo: Partial<IJobAssignmentRepository> = {
     insert: vi.fn().mockResolvedValue({ id: 'ja1' }),
@@ -78,6 +82,9 @@ function makeMocks() {
     getActorIdByExternalUserId: vi.fn().mockResolvedValue(null),
   }
   const eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
+  const searchIndexRebuildService: Partial<SearchIndexRebuildService> = {
+    rebuildForEmployment: vi.fn().mockResolvedValue(undefined),
+  }
 
   return {
     stagedUserRepo,
@@ -89,6 +96,7 @@ function makeMocks() {
     kernelUserIdentityFacade,
     identityFacade,
     eventBus,
+    searchIndexRebuildService,
   }
 }
 
@@ -103,6 +111,7 @@ function makeHandler(mocks: ReturnType<typeof makeMocks>) {
     mocks.kernelUserIdentityFacade as KernelUserIdentityFacade,
     mocks.identityFacade as IdentityQueryFacade,
     mocks.eventBus as unknown as EventBus,
+    mocks.searchIndexRebuildService as SearchIndexRebuildService,
   )
 }
 
@@ -127,11 +136,17 @@ describe('ImportStagedMsUserHandler', () => {
     ).rejects.toThrow(StagedMsUserNotPendingException)
   })
 
-  it('links existing employment when MS user already has active employment: marks staged imported, returns existing id, creates no new records', async () => {
+  it('links existing employment when MS user already has active employment: updates employment detail with MS365 data, marks staged imported, returns existing id', async () => {
     const mocks = makeMocks()
     vi.mocked(mocks.identityFacade.getActorIdByExternalUserId!).mockResolvedValue('existing-actor')
     vi.mocked(mocks.employmentRepo.findActiveByActorId!).mockResolvedValue({
       id: 'existing-emp',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+    vi.mocked(mocks.personProfileRepo.findByActorId!).mockResolvedValue({
+      id: 'pp-existing',
+      actorId: 'existing-actor',
+      tenantId: TENANT_ID,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
 
@@ -140,6 +155,11 @@ describe('ImportStagedMsUserHandler', () => {
     )
 
     expect(result).toBe('existing-emp')
+    expect(mocks.employmentDetailRepo.update).toHaveBeenCalledWith(
+      'existing-emp',
+      TENANT_ID,
+      expect.objectContaining({ msJobTitle: 'Engineer', msDepartment: 'Eng' }),
+    )
     expect(mocks.stagedUserRepo.updateStatus).toHaveBeenCalledWith(
       STAGED_ID,
       TENANT_ID,
@@ -193,7 +213,9 @@ describe('ImportStagedMsUserHandler', () => {
     )
     expect(mocks.personProfileRepo.insert).toHaveBeenCalled()
     expect(mocks.employmentRepo.insert).toHaveBeenCalled()
-    expect(mocks.employmentDetailRepo.insert).toHaveBeenCalled()
+    expect(mocks.employmentDetailRepo.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ msJobTitle: 'Engineer', msDepartment: 'Eng' }),
+    )
     expect(mocks.jobAssignmentRepo.insert).toHaveBeenCalled()
     expect(mocks.stagedUserRepo.updateStatus).toHaveBeenCalledWith(
       STAGED_ID,
@@ -213,5 +235,63 @@ describe('ImportStagedMsUserHandler', () => {
     )
 
     expect(mocks.kernelUserIdentityFacade.createUserIdentity).not.toHaveBeenCalled()
+  })
+
+  it('existing-actor-with-employment: updates profile name, email, phone, employment detail, rebuilds search index', async () => {
+    const mocks = makeMocks()
+    vi.mocked(mocks.identityFacade.getActorIdByExternalUserId!).mockResolvedValue('existing-actor')
+    vi.mocked(mocks.employmentRepo.findActiveByActorId!).mockResolvedValue({
+      id: 'existing-emp',
+      tenantId: TENANT_ID,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+    vi.mocked(mocks.personProfileRepo.findByActorId!).mockResolvedValue({
+      id: 'pp-existing',
+      actorId: 'existing-actor',
+      tenantId: TENANT_ID,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+
+    await makeHandler(mocks).execute(
+      new ImportStagedMsUserCommand(TENANT_ID, STAGED_ID, IMPORTED_BY),
+    )
+
+    expect(mocks.personProfileRepo.update).toHaveBeenCalledWith(
+      'pp-existing',
+      TENANT_ID,
+      expect.objectContaining({
+        fullName: 'Alice Nguyen',
+        preferredName: 'Alice Nguyen',
+        familyName: 'Alice Nguyen',
+        givenName: 'Alice Nguyen',
+      }),
+    )
+    expect(mocks.employmentRepo.update).toHaveBeenCalledWith(
+      'existing-emp',
+      TENANT_ID,
+      expect.objectContaining({ companyEmail: 'alice@co.com' }),
+    )
+    expect(mocks.employmentDetailRepo.update).toHaveBeenCalledWith(
+      'existing-emp',
+      TENANT_ID,
+      expect.objectContaining({
+        msJobTitle: 'Engineer',
+        msDepartment: 'Eng',
+        personalPhone: '0901',
+      }),
+    )
+    expect(mocks.searchIndexRebuildService.rebuildForEmployment).toHaveBeenCalledWith(
+      'existing-emp',
+      TENANT_ID,
+    )
+    expect(mocks.stagedUserRepo.updateStatus).toHaveBeenCalledWith(
+      STAGED_ID,
+      TENANT_ID,
+      'imported',
+      'existing-emp',
+    )
+    expect(mocks.kernelActorFacade.createActor).not.toHaveBeenCalled()
+    expect(mocks.employmentRepo.insert).not.toHaveBeenCalled()
+    expect(mocks.eventBus.publish).not.toHaveBeenCalled()
   })
 })
