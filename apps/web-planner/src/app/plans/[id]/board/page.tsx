@@ -294,7 +294,7 @@ function BoardInner({ snapshot, planId, actorId, tenantId }: BoardInnerProps) {
             <span>Sorted by {state.sort!.field} — drag to reorder is paused within columns</span>
           </div>
         )}
-        <div className="flex gap-4 px-6 py-4 overflow-x-auto h-full" data-testid="board-columns">
+        <div className="flex gap-4 px-6 py-4 h-full" data-testid="board-columns">
           <SortableContext items={bucketSortableIds} strategy={horizontalListSortingStrategy}>
             {displaySnapshot.buckets.map((bucket) => (
               <BoardColumn
