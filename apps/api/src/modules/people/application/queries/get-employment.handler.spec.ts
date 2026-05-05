@@ -6,11 +6,13 @@ import type { IPersonProfileRepository } from '../../domain/repositories/person-
 import type { IJobAssignmentRepository } from '../../domain/repositories/job-assignment.repository'
 import type { IEmploymentDetailRepository } from '../../domain/repositories/employment-detail.repository'
 import type { IProfileSectionRepository } from '../../domain/repositories/profile-section.repository'
+import type { IMsStagedUserRepository } from '../../domain/repositories/ms-staged-user.repository'
 import type { Employment } from '../../domain/entities/employment.entity'
 import type { PersonProfile } from '../../domain/entities/person-profile.entity'
 import type { JobAssignment } from '../../domain/entities/job-assignment.entity'
 import type { EmploymentDetail } from '../../domain/entities/employment-detail.entity'
 import type { ProfileSection } from '../../domain/entities/profile-section.entity'
+import type { MsStagedUser } from '../../domain/entities/ms-staged-user.entity'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const ACTOR_ID = '01900000-0000-7000-8000-000000000002'
@@ -99,6 +101,8 @@ const mockDetail: EmploymentDetail = {
   customFields: null,
   officeLocation: null,
   workPhone: null,
+  msJobTitle: null,
+  msDepartment: null,
 }
 
 const mockSections: ProfileSection[] = [
@@ -112,6 +116,25 @@ const mockSections: ProfileSection[] = [
   },
 ]
 
+const mockStagedUser: MsStagedUser = {
+  id: '01900000-0000-7000-8000-000000000050',
+  tenantId: TENANT_ID,
+  msExternalId: 'aad-ext-id',
+  displayName: 'John Doe',
+  email: 'john.doe@example.com',
+  jobTitle: 'Software Engineer',
+  department: 'IT',
+  officeLocation: null,
+  mobilePhone: null,
+  workPhone: null,
+  managerMsId: null,
+  photoDocumentId: null,
+  status: 'imported',
+  importedEmploymentId: EMPLOYMENT_ID,
+  lastSeenAt: new Date('2024-01-01'),
+  createdAt: new Date('2024-01-01'),
+}
+
 describe('GetEmploymentHandler', () => {
   let handler: GetEmploymentHandler
   let employmentRepo: IEmploymentRepository
@@ -119,6 +142,7 @@ describe('GetEmploymentHandler', () => {
   let jobAssignmentRepo: IJobAssignmentRepository
   let employmentDetailRepo: IEmploymentDetailRepository
   let profileSectionRepo: IProfileSectionRepository
+  let stagedUserRepo: IMsStagedUserRepository
 
   beforeEach(() => {
     employmentRepo = {
@@ -159,6 +183,15 @@ describe('GetEmploymentHandler', () => {
       update: vi.fn(),
       delete: vi.fn(),
     }
+    stagedUserRepo = {
+      findById: vi.fn(),
+      findByMsExternalId: vi.fn(),
+      upsertFromSync: vi.fn(),
+      updateStatus: vi.fn(),
+      listByStatus: vi.fn(),
+      countByStatus: vi.fn(),
+      findByImportedEmploymentId: vi.fn(),
+    }
 
     handler = new GetEmploymentHandler(
       employmentRepo,
@@ -166,6 +199,7 @@ describe('GetEmploymentHandler', () => {
       jobAssignmentRepo,
       employmentDetailRepo,
       profileSectionRepo,
+      stagedUserRepo,
     )
   })
 
@@ -185,6 +219,7 @@ describe('GetEmploymentHandler', () => {
     vi.mocked(jobAssignmentRepo.findCurrent).mockResolvedValue(mockAssignment)
     vi.mocked(employmentDetailRepo.findByEmploymentId).mockResolvedValue(mockDetail)
     vi.mocked(profileSectionRepo.findByProfileId).mockResolvedValue(mockSections)
+    vi.mocked(stagedUserRepo.findByImportedEmploymentId).mockResolvedValue(null)
 
     const result = await handler.execute(new GetEmploymentQuery(EMPLOYMENT_ID, TENANT_ID))
 
@@ -194,6 +229,7 @@ describe('GetEmploymentHandler', () => {
     expect(result!.currentAssignment).toEqual(mockAssignment)
     expect(result!.detail).toEqual(mockDetail)
     expect(result!.sections).toEqual(mockSections)
+    expect(result!.stagedMsUser).toBeNull()
   })
 
   it('returns employment with null assignment and detail when not available', async () => {
@@ -202,6 +238,7 @@ describe('GetEmploymentHandler', () => {
     vi.mocked(jobAssignmentRepo.findCurrent).mockResolvedValue(null)
     vi.mocked(employmentDetailRepo.findByEmploymentId).mockResolvedValue(null)
     vi.mocked(profileSectionRepo.findByProfileId).mockResolvedValue([])
+    vi.mocked(stagedUserRepo.findByImportedEmploymentId).mockResolvedValue(null)
 
     const result = await handler.execute(new GetEmploymentQuery(EMPLOYMENT_ID, TENANT_ID))
 
@@ -209,5 +246,21 @@ describe('GetEmploymentHandler', () => {
     expect(result!.currentAssignment).toBeNull()
     expect(result!.detail).toBeNull()
     expect(result!.sections).toEqual([])
+    expect(result!.stagedMsUser).toBeNull()
+  })
+
+  it('includes linked staged MS user when employment was imported from MS directory', async () => {
+    vi.mocked(employmentRepo.findById).mockResolvedValue(mockEmployment)
+    vi.mocked(personProfileRepo.findById).mockResolvedValue(mockProfile)
+    vi.mocked(jobAssignmentRepo.findCurrent).mockResolvedValue(null)
+    vi.mocked(employmentDetailRepo.findByEmploymentId).mockResolvedValue(mockDetail)
+    vi.mocked(profileSectionRepo.findByProfileId).mockResolvedValue([])
+    vi.mocked(stagedUserRepo.findByImportedEmploymentId).mockResolvedValue(mockStagedUser)
+
+    const result = await handler.execute(new GetEmploymentQuery(EMPLOYMENT_ID, TENANT_ID))
+
+    expect(result).not.toBeNull()
+    expect(result!.stagedMsUser).toEqual(mockStagedUser)
+    expect(stagedUserRepo.findByImportedEmploymentId).toHaveBeenCalledWith(EMPLOYMENT_ID, TENANT_ID)
   })
 })

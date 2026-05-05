@@ -5,6 +5,7 @@ import type { PersonProfile } from '../../domain/entities/person-profile.entity'
 import type { JobAssignment } from '../../domain/entities/job-assignment.entity'
 import type { EmploymentDetail } from '../../domain/entities/employment-detail.entity'
 import type { ProfileSection } from '../../domain/entities/profile-section.entity'
+import type { MsStagedUser } from '../../domain/entities/ms-staged-user.entity'
 import {
   EMPLOYMENT_REPOSITORY,
   type IEmploymentRepository,
@@ -25,6 +26,10 @@ import {
   PROFILE_SECTION_REPOSITORY,
   type IProfileSectionRepository,
 } from '../../domain/repositories/profile-section.repository'
+import {
+  MS_STAGED_USER_REPOSITORY,
+  type IMsStagedUserRepository,
+} from '../../domain/repositories/ms-staged-user.repository'
 import { GetEmploymentQuery } from './get-employment.query'
 
 export type EmploymentResult = {
@@ -33,6 +38,7 @@ export type EmploymentResult = {
   currentAssignment: JobAssignment | null
   detail: EmploymentDetail | null
   sections: ProfileSection[]
+  stagedMsUser: MsStagedUser | null
 } | null
 
 @QueryHandler(GetEmploymentQuery)
@@ -48,6 +54,8 @@ export class GetEmploymentHandler implements IQueryHandler<GetEmploymentQuery, E
     private readonly employmentDetailRepo: IEmploymentDetailRepository,
     @Inject(PROFILE_SECTION_REPOSITORY)
     private readonly profileSectionRepo: IProfileSectionRepository,
+    @Inject(MS_STAGED_USER_REPOSITORY)
+    private readonly stagedUserRepo: IMsStagedUserRepository,
   ) {}
 
   async execute(query: GetEmploymentQuery): Promise<EmploymentResult> {
@@ -70,6 +78,10 @@ export class GetEmploymentHandler implements IQueryHandler<GetEmploymentQuery, E
       employment.personProfileId,
       query.tenantId,
     )
+    const stagedMsUser = await this.stagedUserRepo.findByImportedEmploymentId(
+      employment.id,
+      query.tenantId,
+    )
 
     return {
       employment,
@@ -77,6 +89,7 @@ export class GetEmploymentHandler implements IQueryHandler<GetEmploymentQuery, E
       currentAssignment,
       detail,
       sections,
+      stagedMsUser,
     }
   }
 }

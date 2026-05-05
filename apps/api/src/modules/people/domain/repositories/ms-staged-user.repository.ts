@@ -33,4 +33,5 @@ export interface IMsStagedUserRepository {
     offset: number,
   ): Promise<MsStagedUser[]>
   countByStatus(tenantId: string, status: MsStagedUserStatus): Promise<number>
+  findByImportedEmploymentId(employmentId: string, tenantId: string): Promise<MsStagedUser | null>
 }

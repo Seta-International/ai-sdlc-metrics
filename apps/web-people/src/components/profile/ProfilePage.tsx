@@ -46,7 +46,28 @@ const defaultPermissions: ProfilePermissions = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function toEmployeeProfile(raw: any): EmployeeProfile | null {
   if (!raw?.employment || !raw?.personProfile) return null
-  const { detail, employment, personProfile } = raw
+  const { currentAssignment, detail, employment, personProfile, stagedMsUser } = raw
+  const resolvedJobTitle = detail?.msJobTitle ?? stagedMsUser?.jobTitle ?? null
+  const resolvedDepartment = detail?.msDepartment ?? stagedMsUser?.department ?? null
+  const currentJob =
+    resolvedJobTitle || resolvedDepartment || currentAssignment
+      ? {
+          id: String(currentAssignment?.id ?? `ms-job-${employment.id}`),
+          jobProfileId: String(currentAssignment?.jobProfileId ?? 'default'),
+          jobTitle: resolvedJobTitle ? String(resolvedJobTitle) : '—',
+          jobLevel: null,
+          jobFamilyName: '',
+          departmentId: String(currentAssignment?.departmentId ?? ''),
+          departmentName: resolvedDepartment ? String(resolvedDepartment) : '—',
+          locationId: currentAssignment?.locationId ?? null,
+          locationName: detail?.officeLocation ?? null,
+          costCenter: currentAssignment?.costCenterId ?? null,
+          managerId: currentAssignment?.managerId ?? null,
+          managerName: null,
+          effectiveDate: String(currentAssignment?.effectiveFrom ?? employment.hireDate),
+        }
+      : null
+
   return {
     personProfile: {
       id: personProfile.id,
@@ -74,9 +95,13 @@ function toEmployeeProfile(raw: any): EmployeeProfile | null {
       hireDate: employment.hireDate,
       terminationDate: employment.terminationDate ?? null,
       terminationReason: employment.terminationReason ?? null,
-      workArrangement: raw.currentAssignment?.workArrangement ?? null,
+      workArrangement: currentAssignment?.workArrangement ?? null,
     },
-    currentJob: null,
+    currentJob,
+    personalEmail: detail?.personalEmail ?? null,
+    personalPhone: detail?.personalPhone ?? null,
+    officeLocation: detail?.officeLocation ?? null,
+    workPhone: detail?.workPhone ?? null,
     emergencyContacts: Array.isArray(detail?.emergencyContacts)
       ? detail.emergencyContacts.map((contact: Record<string, unknown>, index: number) => ({
           id: String(contact['id'] ?? `ec-${index}`),

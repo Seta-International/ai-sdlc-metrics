@@ -131,4 +131,21 @@ export class DrizzleMsStagedUserRepository implements IMsStagedUserRepository {
       .where(and(eq(msStagedUser.tenantId, tenantId), eq(msStagedUser.status, status)))
     return rows[0]?.count ?? 0
   }
+
+  async findByImportedEmploymentId(
+    employmentId: string,
+    tenantId: string,
+  ): Promise<MsStagedUser | null> {
+    const rows = await this.db
+      .select()
+      .from(msStagedUser)
+      .where(
+        and(
+          eq(msStagedUser.importedEmploymentId, employmentId),
+          eq(msStagedUser.tenantId, tenantId),
+        ),
+      )
+      .limit(1)
+    return (rows[0] as MsStagedUser | undefined) ?? null
+  }
 }
