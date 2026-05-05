@@ -200,3 +200,124 @@ describe('agentTurnStore', () => {
     expect(state.topology).toBeNull()
   })
 })
+
+describe('streaming flag', () => {
+  it('is false initially', () => {
+    const store = createAgentTurnStore()
+    expect(store.getState().streaming).toBe(false)
+  })
+
+  it('flips true on turn.started and false on turn.ended', () => {
+    const store = createAgentTurnStore()
+    store.getState().dispatch({
+      seq: 1,
+      type: 'turn.started',
+      payload: { trace_id: 't1', conversation_id: null, topology: 'bounded' },
+    })
+    expect(store.getState().streaming).toBe(true)
+    store.getState().dispatch({
+      seq: 9,
+      type: 'turn.ended',
+      payload: {
+        reason: 'completed',
+        usage: {
+          input_tokens: 10,
+          output_tokens: 5,
+          input_cached_read: 0,
+          input_cached_write: 0,
+          output_reasoning: 0,
+        },
+      },
+    })
+    expect(store.getState().streaming).toBe(false)
+  })
+
+  it('flips false on refusal.started', () => {
+    const store = createAgentTurnStore()
+    store.getState().dispatch({
+      seq: 1,
+      type: 'turn.started',
+      payload: { trace_id: 't1', conversation_id: null, topology: 'bounded' },
+    })
+    store.getState().dispatch({
+      seq: 2,
+      type: 'refusal.started',
+      payload: { reason: 'rate_limit', retry_allowed: false },
+    })
+    expect(store.getState().streaming).toBe(false)
+  })
+
+  it('reset() returns streaming to false', () => {
+    const store = createAgentTurnStore()
+    store.getState().dispatch({
+      seq: 1,
+      type: 'turn.started',
+      payload: { trace_id: 't1', conversation_id: null, topology: 'bounded' },
+    })
+    store.getState().reset()
+    expect(store.getState().streaming).toBe(false)
+  })
+})
+
+describe('usage snapshot', () => {
+  it('captures last usage from iteration.ended', () => {
+    const store = createAgentTurnStore()
+    store.getState().dispatch({
+      seq: 5,
+      type: 'iteration.ended',
+      payload: {
+        n: 1,
+        is_complete: true,
+        usage: {
+          input_tokens: 20,
+          output_tokens: 8,
+          input_cached_read: 0,
+          input_cached_write: 0,
+          output_reasoning: 0,
+        },
+      },
+    })
+    expect(store.getState().usage).toEqual({
+      input_tokens: 20,
+      output_tokens: 8,
+      input_cached_read: 0,
+      input_cached_write: 0,
+      output_reasoning: 0,
+    })
+  })
+
+  it('overwrites usage on later turn.ended', () => {
+    const store = createAgentTurnStore()
+    store.getState().dispatch({
+      seq: 5,
+      type: 'iteration.ended',
+      payload: {
+        n: 1,
+        is_complete: false,
+        usage: {
+          input_tokens: 20,
+          output_tokens: 8,
+          input_cached_read: 0,
+          input_cached_write: 0,
+          output_reasoning: 0,
+        },
+      },
+    })
+    store.getState().dispatch({
+      seq: 9,
+      type: 'turn.ended',
+      payload: {
+        reason: 'completed',
+        usage: {
+          input_tokens: 30,
+          output_tokens: 12,
+          input_cached_read: 0,
+          input_cached_write: 0,
+          output_reasoning: 0,
+        },
+      },
+    })
+    expect(store.getState().usage?.input_tokens).toBe(30)
+    expect(store.getState().usage?.output_tokens).toBe(12)
+  })
+})

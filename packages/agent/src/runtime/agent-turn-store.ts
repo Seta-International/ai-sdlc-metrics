@@ -1,5 +1,11 @@
 import { createStore } from 'zustand/vanilla'
-import type { SseEvent, DraftPayload, TurnEndReason, RefusalReason } from './sse-event-schema'
+import type {
+  SseEvent,
+  DraftPayload,
+  TurnEndReason,
+  RefusalReason,
+  UsageSnapshot,
+} from './sse-event-schema'
 
 export interface AgentTurnState {
   traceId: string | null
@@ -12,6 +18,8 @@ export interface AgentTurnState {
   refusalReason: RefusalReason | null
   isEnded: boolean
   endReason: TurnEndReason | null
+  streaming: boolean
+  usage: UsageSnapshot | null
   dispatch: (event: SseEvent) => void
   reset: () => void
 }
@@ -27,6 +35,8 @@ const initialState = {
   refusalReason: null as RefusalReason | null,
   isEnded: false,
   endReason: null as TurnEndReason | null,
+  streaming: false,
+  usage: null as UsageSnapshot | null,
 }
 
 export function createAgentTurnStore() {
@@ -35,7 +45,11 @@ export function createAgentTurnStore() {
     dispatch(event: SseEvent) {
       switch (event.type) {
         case 'turn.started':
-          set({ traceId: event.payload.trace_id, topology: event.payload.topology })
+          set({
+            traceId: event.payload.trace_id,
+            topology: event.payload.topology,
+            streaming: true,
+          })
           break
         case 'phase.started':
           set({
@@ -60,11 +74,19 @@ export function createAgentTurnStore() {
             ],
           }))
           break
+        case 'iteration.ended':
+          set({ usage: event.payload.usage })
+          break
         case 'refusal.started':
-          set({ isRefused: true, refusalReason: event.payload.reason })
+          set({ isRefused: true, refusalReason: event.payload.reason, streaming: false })
           break
         case 'turn.ended':
-          set({ isEnded: true, endReason: event.payload.reason })
+          set({
+            isEnded: true,
+            endReason: event.payload.reason,
+            streaming: false,
+            usage: event.payload.usage,
+          })
           break
         // iteration.*, progress, answer.token, answer.complete are
         // handled downstream (adapter/consumer) — no store mutation needed
