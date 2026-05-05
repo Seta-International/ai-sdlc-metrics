@@ -20,15 +20,24 @@ import type { TaskPatch } from '@/lib/hooks/useTaskDetail'
 interface Props {
   taskId: string
   planId: string
+  onClose?: () => void
 }
 
-export function TaskDetailPanel({ taskId, planId }: Props) {
+export function TaskDetailPanel({ taskId, planId, onClose }: Props) {
   const router = useRouter()
   const { task, isLoading, saving, update, conflict, clearConflict } = useTaskDetail({
     taskId,
     planId,
   })
   const [localPatch, setLocalPatch] = useState<TaskPatch | null>(null)
+
+  function handleClose(): void {
+    if (onClose) {
+      onClose()
+    } else {
+      router.back()
+    }
+  }
 
   function handleUpdate(patch: TaskPatch): void {
     setLocalPatch(patch)
@@ -45,18 +54,17 @@ export function TaskDetailPanel({ taskId, planId }: Props) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        // The board is still mounted behind this intercepting-route panel.
-        // Look up the task card link by task ID to restore focus reliably.
         const taskLink = document.querySelector<HTMLElement>(
           `[data-task-id="${taskId}"] [data-testid="task-title-link"]`,
         )
         taskLink?.focus()
-        router.back()
+        handleClose()
       }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [router, taskId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskId])
 
   const taskFlatStub: TaskFlatWithPlan | null = task
     ? {
@@ -101,7 +109,7 @@ export function TaskDetailPanel({ taskId, planId }: Props) {
 
   return (
     <div className="flex h-full flex-col" data-testid="task-detail-panel">
-      <TaskPanelHeader title={task?.title ?? ''} isSaving={saving} onClose={() => router.back()} />
+      <TaskPanelHeader title={task?.title ?? ''} isSaving={saving} onClose={handleClose} />
 
       {taskFlatStub ? (
         <div className="flex items-center justify-end border-b px-4 py-2">

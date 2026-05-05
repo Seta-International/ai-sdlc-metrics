@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useSession } from '@future/auth'
 import { Button, Skeleton } from '@future/ui'
@@ -19,6 +20,7 @@ import type {
 import type { Progress } from '../../../../components/primitives/ProgressIcon'
 import type { TaskFlat } from '@future/api-client/planner'
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable'
+import { TaskDetailPanel } from '../../../../components/task-detail/TaskDetailPanel'
 import { useViewState } from '../../../../lib/hooks/useViewState'
 import { useViewRenderedTelemetry } from '../../../../lib/hooks/useViewRenderedTelemetry'
 import { applyTaskFilter } from '../../../../lib/task-filter'
@@ -155,6 +157,7 @@ function BoardInner({ snapshot, planId, actorId, tenantId }: BoardInnerProps) {
   const queryKey = taskKeys.board(planId, actorId, tenantId)
   const { move } = useOptimisticMove({ planId, actorId, tenantId })
   const { state } = useViewState({ planId })
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null)
 
   // Flatten → filter → sort, then reconstruct filtered snapshot for group-by-bucket
   const allFlat = snapshot.buckets.flatMap((b) => b.tasks.map((t) => toTaskFlat(t, b, planId)))
@@ -273,47 +276,60 @@ function BoardInner({ snapshot, planId, actorId, tenantId }: BoardInnerProps) {
   }
 
   return (
-    <BoardDragContext
-      onMove={({ taskId, toBucketId, hintAfter, hintBefore }) =>
-        void move(taskId, toBucketId, hintAfter, hintBefore)
-      }
-      onReorderColumn={({ bucketId, hintAfter, hintBefore }) =>
-        void handleReorderColumn(bucketId, hintAfter, hintBefore)
-      }
-      taskIndex={taskIndex}
-      bucketTaskLists={bucketTaskLists}
-      bucketOrderList={bucketOrderList}
-      sortActive={sortActive}
-    >
-      <div className="flex flex-col h-full min-h-0">
-        {sortActive && (
-          <div
-            data-testid="sort-active-chip"
-            className="mx-6 mt-3 flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-fg-muted"
-          >
-            <span>Sorted by {state.sort!.field} — drag to reorder is paused within columns</span>
+    <>
+      <BoardDragContext
+        onMove={({ taskId, toBucketId, hintAfter, hintBefore }) =>
+          void move(taskId, toBucketId, hintAfter, hintBefore)
+        }
+        onReorderColumn={({ bucketId, hintAfter, hintBefore }) =>
+          void handleReorderColumn(bucketId, hintAfter, hintBefore)
+        }
+        taskIndex={taskIndex}
+        bucketTaskLists={bucketTaskLists}
+        bucketOrderList={bucketOrderList}
+        sortActive={sortActive}
+      >
+        <div className="flex flex-col h-full min-h-0">
+          {sortActive && (
+            <div
+              data-testid="sort-active-chip"
+              className="mx-6 mt-3 flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-fg-muted"
+            >
+              <span>Sorted by {state.sort!.field} — drag to reorder is paused within columns</span>
+            </div>
+          )}
+          <div className="flex gap-4 px-6 py-4 h-full" data-testid="board-columns">
+            <SortableContext items={bucketSortableIds} strategy={horizontalListSortingStrategy}>
+              {displaySnapshot.buckets.map((bucket) => (
+                <BoardColumn
+                  key={bucket.id}
+                  bucket={bucket}
+                  planLabels={displaySnapshot.plan.labels}
+                  planId={planId}
+                  actorId={actorId}
+                  tenantId={tenantId}
+                  onToggleComplete={(taskId, nextProgress) =>
+                    void handleToggleComplete(taskId, nextProgress)
+                  }
+                  onOpenDetail={setOpenTaskId}
+                />
+              ))}
+            </SortableContext>
+            <AddBucketButton planId={planId} actorId={actorId} tenantId={tenantId} />
           </div>
-        )}
-        <div className="flex gap-4 px-6 py-4 h-full" data-testid="board-columns">
-          <SortableContext items={bucketSortableIds} strategy={horizontalListSortingStrategy}>
-            {displaySnapshot.buckets.map((bucket) => (
-              <BoardColumn
-                key={bucket.id}
-                bucket={bucket}
-                planLabels={displaySnapshot.plan.labels}
-                planId={planId}
-                actorId={actorId}
-                tenantId={tenantId}
-                onToggleComplete={(taskId, nextProgress) =>
-                  void handleToggleComplete(taskId, nextProgress)
-                }
-              />
-            ))}
-          </SortableContext>
-          <AddBucketButton planId={planId} actorId={actorId} tenantId={tenantId} />
         </div>
-      </div>
-    </BoardDragContext>
+      </BoardDragContext>
+
+      {openTaskId && (
+        <div className="fixed inset-y-0 right-0 w-120 z-30 shadow-2xl bg-surface">
+          <TaskDetailPanel
+            taskId={openTaskId}
+            planId={planId}
+            onClose={() => setOpenTaskId(null)}
+          />
+        </div>
+      )}
+    </>
   )
 }
 
