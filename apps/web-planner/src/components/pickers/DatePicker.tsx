@@ -38,7 +38,10 @@ export function DatePicker({ label, value, onChange, onClose }: Props) {
             onChange(null)
             return
           }
-          const [year, month, day] = v.split('-').map(Number)
+          const parts = v.split('-').map(Number)
+          const year = parts[0] ?? 1970
+          const month = parts[1] ?? 1
+          const day = parts[2] ?? 1
           onChange(new Date(Date.UTC(year, month - 1, day)))
         }}
         className="h-8 text-sm"

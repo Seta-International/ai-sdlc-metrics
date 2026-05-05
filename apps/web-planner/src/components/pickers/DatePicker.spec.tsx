@@ -23,7 +23,7 @@ describe('DatePicker', () => {
     render(<DatePicker value={null} onChange={onChange} onClose={vi.fn()} />)
     fireEvent.change(screen.getByTestId('date-picker-input'), { target: { value: '2026-07-01' } })
     expect(onChange).toHaveBeenCalledOnce()
-    const arg: Date = onChange.mock.calls[0][0]
+    const arg: Date = onChange.mock.calls[0]![0] as Date
     expect(arg).toBeInstanceOf(Date)
     expect(arg.toISOString().slice(0, 10)).toBe('2026-07-01')
   })
