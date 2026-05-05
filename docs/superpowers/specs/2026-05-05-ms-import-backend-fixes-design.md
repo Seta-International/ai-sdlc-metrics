@@ -76,15 +76,18 @@ Add the following sequential updates (no `Promise.all` — single pool client):
 1. **`personProfileRepo.update()`** → `fullName`, `preferredName`, `familyName`, `givenName` from `staged.displayName`
 2. **`employmentRepo.update()`** → `companyEmail` from `staged.email` (only if `staged.email` is non-null)
 3. **`employmentDetailRepo.update()`** → extend existing call to also set `personalPhone` from `staged.mobilePhone`
+4. **`searchIndexRebuildService.rebuildForEmployment()`** → rebuild the directory search index entry for this employment so the directory overview reflects the updated job title, department, name, and email immediately.
 
-`personProfileRepo` is already injected in this handler — just unused in this branch.
+`personProfileRepo` is already injected in this handler — just unused in this branch. `SearchIndexRebuildService` must be injected as a new dependency.
+
+**Root cause of the directory not updating:** The directory overview reads from the `directorySearchIndex` table, populated by `SearchIndexRebuildService`. `msJobTitle` and `msDepartment` are written to `employment_detail` correctly, but without a rebuild the index entry remains stale. The new-account import path publishes `PersonHiredEvent` (which triggers a rebuild via listener), but the existing-actor path publishes no event and therefore never rebuilds.
 
 ### Files changed
 
-| File                                                         | Change                                                                               |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| `application/commands/import-staged-ms-user.handler.ts`      | Add sequential updates in existing-actor-with-employment branch                      |
-| `application/commands/import-staged-ms-user.handler.spec.ts` | Add test: importing account with existing employment updates profile + email + phone |
+| File                                                         | Change                                                                                                         |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `application/commands/import-staged-ms-user.handler.ts`      | Add sequential updates + `SearchIndexRebuildService` injection in existing-actor-with-employment branch        |
+| `application/commands/import-staged-ms-user.handler.spec.ts` | Add test: importing account with existing employment updates profile + email + phone and rebuilds search index |
 
 ---
 
