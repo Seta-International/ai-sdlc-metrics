@@ -23,7 +23,7 @@ describe('GetMsSyncStatusHandler', () => {
     stagedUserRepo = {
       findById: vi.fn(),
       findByMsExternalId: vi.fn(),
-      upsertPending: vi.fn(),
+      upsertFromSync: vi.fn(),
       updateStatus: vi.fn(),
       listByStatus: vi.fn(),
       countByStatus: vi.fn(),
@@ -45,7 +45,10 @@ describe('GetMsSyncStatusHandler', () => {
       lastSyncedAt: new Date('2026-01-01T10:00:00Z'),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
-    vi.mocked(stagedUserRepo.countByStatus).mockResolvedValueOnce(3).mockResolvedValueOnce(7)
+    vi.mocked(stagedUserRepo.countByStatus)
+      .mockResolvedValueOnce(3) // pendingCount
+      .mockResolvedValueOnce(7) // importedCount
+      .mockResolvedValueOnce(2) // skippedCount
 
     const result = await handler.execute(new GetMsSyncStatusQuery(TENANT))
 
@@ -53,6 +56,7 @@ describe('GetMsSyncStatusHandler', () => {
     expect(result.lastSyncedAt).toBe('2026-01-01T10:00:00.000Z')
     expect(result.pendingCount).toBe(3)
     expect(result.importedCount).toBe(7)
+    expect(result.skippedCount).toBe(2)
   })
 
   it('returns connected=false when credential is null', async () => {
