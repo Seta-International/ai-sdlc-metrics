@@ -1,3 +1,5 @@
+'use client'
+
 import { cn } from '@future/ui'
 import { useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight, Check, RefreshCw, AlertTriangle } from '@future/ui/icons'
