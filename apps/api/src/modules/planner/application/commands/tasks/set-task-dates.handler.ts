@@ -7,14 +7,17 @@ import { TaskNotFoundException } from '../../../domain/exceptions/task-not-found
 import { SetTaskDatesCommand } from './set-task-dates.command'
 
 @CommandHandler(SetTaskDatesCommand)
-export class SetTaskDatesHandler implements ICommandHandler<SetTaskDatesCommand> {
+export class SetTaskDatesHandler implements ICommandHandler<
+  SetTaskDatesCommand,
+  { updatedAt: Date }
+> {
   constructor(
     @Inject(TASK_REPOSITORY) private readonly taskRepo: ITaskRepository,
     private readonly authSvc: PlanAuthorizationService,
     private readonly eventBus: EventBus,
   ) {}
 
-  async execute(command: SetTaskDatesCommand): Promise<void> {
+  async execute(command: SetTaskDatesCommand): Promise<{ updatedAt: Date }> {
     const task = await this.taskRepo.findById(command.taskId, command.tenantId)
     if (!task) throw new TaskNotFoundException(command.taskId)
 
@@ -34,5 +37,7 @@ export class SetTaskDatesHandler implements ICommandHandler<SetTaskDatesCommand>
         'user',
       ),
     )
+
+    return { updatedAt: task.updatedAt }
   }
 }

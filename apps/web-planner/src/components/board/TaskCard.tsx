@@ -79,6 +79,9 @@ export function TaskCard({
 
   const [activePicker, setActivePicker] = useState<ActivePicker>(null)
   const [priorityOpen, setPriorityOpen] = useState(false)
+  const [localDate, setLocalDate] = useState(
+    task.dueDate ? task.dueDate.toISOString().slice(0, 10) : '',
+  )
   const pickerRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
   const queryKey = taskKeys.board(planId, actorId, tenantId)
@@ -101,6 +104,10 @@ export function TaskCard({
       return () => document.removeEventListener('mousedown', handleClick)
     }
   }, [activePicker])
+
+  useEffect(() => {
+    setLocalDate(task.dueDate ? task.dueDate.toISOString().slice(0, 10) : '')
+  }, [task.dueDate])
 
   // Build applied label objects from slots
   const appliedLabelObjects = task.appliedLabels
@@ -161,7 +168,6 @@ export function TaskCard({
     const snapshot = queryClient.getQueryData<BoardSnapshot>(queryKey)
     if (!snapshot) return
 
-    // Optimistic update
     const updated: BoardSnapshot = {
       ...snapshot,
       buckets: snapshot.buckets.map((b) => ({
@@ -172,7 +178,7 @@ export function TaskCard({
     queryClient.setQueryData(queryKey, updated)
 
     try {
-      await trpc.planner.tasks.setPriority.mutate({
+      const result = await trpc.planner.tasks.setPriority.mutate({
         tenantId,
         planId,
         taskId: task.id,
@@ -180,6 +186,17 @@ export function TaskCard({
         expectedVersion: task.updatedAt.toISOString(),
         priority,
       })
+      const afterMutation = queryClient.getQueryData<BoardSnapshot>(queryKey)
+      if (afterMutation) {
+        const newUpdatedAt = (result as { updatedAt?: Date })?.updatedAt ?? new Date()
+        queryClient.setQueryData(queryKey, {
+          ...afterMutation,
+          buckets: afterMutation.buckets.map((b) => ({
+            ...b,
+            tasks: b.tasks.map((t) => (t.id === task.id ? { ...t, updatedAt: newUpdatedAt } : t)),
+          })),
+        })
+      }
       await queryClient.invalidateQueries({ queryKey })
     } catch (err) {
       queryClient.setQueryData(queryKey, snapshot)
@@ -205,7 +222,7 @@ export function TaskCard({
     queryClient.setQueryData(queryKey, updated)
 
     try {
-      await trpc.planner.tasks.setDates.mutate({
+      const result = await trpc.planner.tasks.setDates.mutate({
         tenantId,
         planId,
         taskId: task.id,
@@ -214,6 +231,17 @@ export function TaskCard({
         startDate: task.startDate,
         dueDate,
       })
+      const afterMutation = queryClient.getQueryData<BoardSnapshot>(queryKey)
+      if (afterMutation) {
+        const newUpdatedAt = (result as { updatedAt?: Date })?.updatedAt ?? new Date()
+        queryClient.setQueryData(queryKey, {
+          ...afterMutation,
+          buckets: afterMutation.buckets.map((b) => ({
+            ...b,
+            tasks: b.tasks.map((t) => (t.id === task.id ? { ...t, updatedAt: newUpdatedAt } : t)),
+          })),
+        })
+      }
       await queryClient.invalidateQueries({ queryKey })
     } catch (err) {
       queryClient.setQueryData(queryKey, snapshot)
@@ -254,7 +282,7 @@ export function TaskCard({
             size="icon-sm"
             onClick={handleToggleComplete}
             aria-label={progress === 100 ? 'Mark incomplete' : 'Mark complete'}
-            className="mt-px flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
+            className="mt-px flex-shrink-0"
             onPointerDown={(e) => e.stopPropagation()}
           >
             <ProgressIcon progress={progress} className="size-3.5" />
@@ -385,9 +413,10 @@ export function TaskCard({
                 <p className="mb-2 text-caption font-510 text-fg-muted">Due date</p>
                 <Input
                   type="date"
-                  defaultValue={task.dueDate ? task.dueDate.toISOString().slice(0, 10) : ''}
+                  value={localDate}
                   onPointerDown={(e) => e.stopPropagation()}
-                  onChange={(e) => void handleSetDueDate(e.target.value || null)}
+                  onChange={(e) => setLocalDate(e.target.value)}
+                  onBlur={(e) => void handleSetDueDate(e.target.value || null)}
                   style={{ colorScheme: 'dark' }}
                   aria-label="Due date input"
                 />

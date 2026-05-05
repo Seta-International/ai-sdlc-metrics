@@ -15,10 +15,22 @@ interface QuickAddTaskProps {
   planId: string
   actorId: string
   tenantId: string
+  /** When provided, component is in controlled mode */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export function QuickAddTask({ bucketId, planId, actorId, tenantId }: QuickAddTaskProps) {
-  const [open, setOpen] = useState(false)
+export function QuickAddTask({
+  bucketId,
+  planId,
+  actorId,
+  tenantId,
+  open: openProp,
+  onOpenChange,
+}: QuickAddTaskProps) {
+  const [openInternal, setOpenInternal] = useState(false)
+  const isOpen = openProp !== undefined ? openProp : openInternal
+
   const [title, setTitle] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [showDateField, setShowDateField] = useState(false)
@@ -28,23 +40,25 @@ export function QuickAddTask({ bucketId, planId, actorId, tenantId }: QuickAddTa
   const queryKey = taskKeys.board(planId, actorId, tenantId)
 
   useEffect(() => {
-    if (open) {
+    if (isOpen) {
       inputRef.current?.focus()
     }
-  }, [open])
+  }, [isOpen])
 
   function handleOpen() {
-    setOpen(true)
     setTitle('')
     setDueDate('')
     setShowDateField(false)
+    if (onOpenChange) onOpenChange(true)
+    else setOpenInternal(true)
   }
 
   function handleClose() {
-    setOpen(false)
     setTitle('')
     setDueDate('')
     setShowDateField(false)
+    if (onOpenChange) onOpenChange(false)
+    else setOpenInternal(false)
   }
 
   async function handleSubmit() {
@@ -66,7 +80,6 @@ export function QuickAddTask({ bucketId, planId, actorId, tenantId }: QuickAddTa
 
       await queryClient.invalidateQueries({ queryKey })
 
-      // Keep open for rapid entry, clear and re-focus
       setTitle('')
       setDueDate('')
       setShowDateField(false)
@@ -97,12 +110,31 @@ export function QuickAddTask({ bucketId, planId, actorId, tenantId }: QuickAddTa
   const remaining = title.length
   const showCounter = remaining >= COUNTER_THRESHOLD
 
-  if (!open) {
+  if (!isOpen) {
     return (
-      <Button type="button" variant="ghost" size="sm" onClick={handleOpen} aria-label="Add task">
+      <button
+        type="button"
+        onClick={handleOpen}
+        aria-label="Add task"
+        data-testid="add-task-btn"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          width: '100%',
+          padding: '6px 9px',
+          background: 'rgba(255,255,255,0.015)',
+          border: '1px dashed rgba(255,255,255,0.10)',
+          borderRadius: '7px',
+          color: '#62666d',
+          fontSize: '11px',
+          fontFamily: 'inherit',
+          cursor: 'pointer',
+        }}
+      >
         <PlusIcon className="size-3 flex-shrink-0" />
         Add task
-      </Button>
+      </button>
     )
   }
 
