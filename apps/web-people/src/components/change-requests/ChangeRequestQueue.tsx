@@ -51,29 +51,34 @@ function createColumns(
   selectedIds: string[],
   onToggleAll: (checked: boolean) => void,
   onToggleRow: (id: string, checked: boolean) => void,
+  showSelection: boolean,
 ): ColumnDef<ChangeRequestRow>[] {
   const allSelected = rows.length > 0 && rows.every((row) => selectedIds.includes(row.id))
   const someSelected = rows.some((row) => selectedIds.includes(row.id))
 
   return [
-    {
-      id: 'select',
-      header: () => (
-        <Checkbox
-          checked={allSelected ? true : someSelected ? 'indeterminate' : false}
-          onCheckedChange={(value) => onToggleAll(value === true)}
-          aria-label="Select all"
-        />
-      ),
-      cell: ({ row }: CellContext<ChangeRequestRow, unknown>) => (
-        <Checkbox
-          checked={selectedIds.includes(row.original.id)}
-          onCheckedChange={(value) => onToggleRow(row.original.id, value === true)}
-          aria-label={`Select ${row.original.employeeName}`}
-        />
-      ),
-      enableSorting: false,
-    },
+    ...(showSelection
+      ? [
+          {
+            id: 'select',
+            header: () => (
+              <Checkbox
+                checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                onCheckedChange={(value) => onToggleAll(value === true)}
+                aria-label="Select all"
+              />
+            ),
+            cell: ({ row }: CellContext<ChangeRequestRow, unknown>) => (
+              <Checkbox
+                checked={selectedIds.includes(row.original.id)}
+                onCheckedChange={(value) => onToggleRow(row.original.id, value === true)}
+                aria-label={`Select ${row.original.employeeName}`}
+              />
+            ),
+            enableSorting: false,
+          } satisfies ColumnDef<ChangeRequestRow>,
+        ]
+      : []),
     {
       accessorKey: 'employeeName',
       header: 'Employee',
@@ -175,8 +180,9 @@ export function ChangeRequestQueue() {
   }, [])
 
   const columns = React.useMemo(
-    () => createColumns(rows, selectedIds, handleToggleAll, handleToggleRow),
-    [handleToggleAll, handleToggleRow, rows, selectedIds],
+    () =>
+      createColumns(rows, selectedIds, handleToggleAll, handleToggleRow, activeTab !== 'recent'),
+    [activeTab, handleToggleAll, handleToggleRow, rows, selectedIds],
   )
 
   async function handleBulkApprove() {
@@ -338,6 +344,7 @@ export function ChangeRequestQueue() {
             totalCount={rows.length}
             onStateChange={setTableState}
             isLoading={isLoading}
+            enableRowSelection={false}
           />
         </TabsContent>
       </Tabs>
