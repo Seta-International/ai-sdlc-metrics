@@ -28,7 +28,7 @@ export class DrizzleMsStagedUserRepository implements IMsStagedUserRepository {
     return (rows[0] as MsStagedUser | undefined) ?? null
   }
 
-  async upsertPending(
+  async upsertFromSync(
     tenantId: string,
     data: {
       msExternalId: string
@@ -44,12 +44,34 @@ export class DrizzleMsStagedUserRepository implements IMsStagedUserRepository {
     },
   ): Promise<MsStagedUser> {
     const now = new Date()
+
+    const existing = await this.findByMsExternalId(data.msExternalId, tenantId)
+
+    let newStatus: MsStagedUserStatus = 'pending'
+    if (existing) {
+      const hasChanged =
+        existing.displayName !== data.displayName ||
+        existing.email !== data.email ||
+        existing.jobTitle !== data.jobTitle ||
+        existing.department !== data.department ||
+        existing.officeLocation !== data.officeLocation ||
+        existing.mobilePhone !== data.mobilePhone ||
+        existing.workPhone !== data.workPhone ||
+        existing.managerMsId !== data.managerMsId
+
+      if (existing.status === 'pending' || hasChanged) {
+        newStatus = 'pending'
+      } else {
+        newStatus = existing.status
+      }
+    }
+
     const rows = await this.db
       .insert(msStagedUser)
       .values({
         tenantId,
         ...data,
-        status: 'pending',
+        status: newStatus,
         importedEmploymentId: null,
         lastSeenAt: now,
       })
@@ -65,11 +87,12 @@ export class DrizzleMsStagedUserRepository implements IMsStagedUserRepository {
           workPhone: data.workPhone,
           managerMsId: data.managerMsId,
           photoDocumentId: data.photoDocumentId,
-          status: 'pending',
+          status: newStatus,
           lastSeenAt: now,
         },
       })
       .returning()
+
     if (!rows[0]) throw new Error(`Upsert failed for msExternalId=${data.msExternalId}`)
     return rows[0] as MsStagedUser
   }

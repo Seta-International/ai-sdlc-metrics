@@ -41,21 +41,131 @@ describe('DrizzleMsStagedUserRepository', () => {
     expect(result).toBeNull()
   })
 
-  it('upsertPending throws when insert returns empty', async () => {
-    await expect(
-      repo.upsertPending(TENANT_ID, {
-        msExternalId: 'ext-id',
-        displayName: 'Test User',
-        email: null,
-        jobTitle: null,
-        department: null,
-        officeLocation: null,
-        mobilePhone: null,
-        workPhone: null,
-        managerMsId: null,
-        photoDocumentId: null,
-      }),
-    ).rejects.toThrow('Upsert failed')
+  describe('upsertFromSync', () => {
+    const DATA = {
+      msExternalId: 'ext-id',
+      displayName: 'Test User',
+      email: 'test@co.com',
+      jobTitle: 'Engineer',
+      department: 'R&D',
+      officeLocation: 'HCM',
+      mobilePhone: '0901',
+      workPhone: '0902',
+      managerMsId: null,
+      photoDocumentId: null,
+    }
+
+    function setupInsertMock(returnedStatus: string) {
+      let capturedValues: Record<string, unknown> = {}
+      mockDb.insert.mockReturnValue({
+        values: vi.fn().mockImplementation((v: Record<string, unknown>) => {
+          capturedValues = v
+          return {
+            onConflictDoUpdate: vi.fn().mockReturnValue({
+              returning: vi
+                .fn()
+                .mockResolvedValue([{ ...v, id: 'new-id', status: returnedStatus }]),
+            }),
+          }
+        }),
+      })
+      return () => capturedValues
+    }
+
+    it('inserts as pending when no existing record', async () => {
+      mockDb.select.mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }),
+        }),
+      })
+      const getValues = setupInsertMock('pending')
+
+      await repo.upsertFromSync(TENANT_ID, DATA)
+
+      expect(getValues().status).toBe('pending')
+    })
+
+    it('keeps pending when existing record is already pending', async () => {
+      const existing = { ...DATA, id: STAGED_USER_ID, tenantId: TENANT_ID, status: 'pending' }
+      mockDb.select.mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([existing]) }),
+        }),
+      })
+      const getValues = setupInsertMock('pending')
+
+      await repo.upsertFromSync(TENANT_ID, DATA)
+
+      expect(getValues().status).toBe('pending')
+    })
+
+    it('resets skipped → pending when data has changed', async () => {
+      const existing = {
+        ...DATA,
+        id: STAGED_USER_ID,
+        tenantId: TENANT_ID,
+        status: 'skipped',
+        displayName: 'Old Name',
+      }
+      mockDb.select.mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([existing]) }),
+        }),
+      })
+      const getValues = setupInsertMock('pending')
+
+      await repo.upsertFromSync(TENANT_ID, DATA)
+
+      expect(getValues().status).toBe('pending')
+    })
+
+    it('keeps skipped when data is unchanged', async () => {
+      const existing = { ...DATA, id: STAGED_USER_ID, tenantId: TENANT_ID, status: 'skipped' }
+      mockDb.select.mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([existing]) }),
+        }),
+      })
+      const getValues = setupInsertMock('skipped')
+
+      await repo.upsertFromSync(TENANT_ID, DATA)
+
+      expect(getValues().status).toBe('skipped')
+    })
+
+    it('resets imported → pending when data has changed', async () => {
+      const existing = {
+        ...DATA,
+        id: STAGED_USER_ID,
+        tenantId: TENANT_ID,
+        status: 'imported',
+        jobTitle: 'Old Title',
+      }
+      mockDb.select.mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([existing]) }),
+        }),
+      })
+      const getValues = setupInsertMock('pending')
+
+      await repo.upsertFromSync(TENANT_ID, DATA)
+
+      expect(getValues().status).toBe('pending')
+    })
+
+    it('keeps imported when data is unchanged', async () => {
+      const existing = { ...DATA, id: STAGED_USER_ID, tenantId: TENANT_ID, status: 'imported' }
+      mockDb.select.mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([existing]) }),
+        }),
+      })
+      const getValues = setupInsertMock('imported')
+
+      await repo.upsertFromSync(TENANT_ID, DATA)
+
+      expect(getValues().status).toBe('imported')
+    })
   })
 
   it('findById returns a record when one exists', async () => {
@@ -89,36 +199,6 @@ describe('DrizzleMsStagedUserRepository', () => {
       }),
     })
     const result = await repo.findByMsExternalId('ext-id', TENANT_ID)
-    expect(result).toEqual(fakeRow)
-  })
-
-  it('upsertPending returns the created staged user', async () => {
-    const fakeRow = {
-      id: STAGED_USER_ID,
-      tenantId: TENANT_ID,
-      msExternalId: 'ext-id',
-      displayName: 'Test',
-      status: 'pending',
-    }
-    mockDb.insert.mockReturnValue({
-      values: vi.fn().mockReturnValue({
-        onConflictDoUpdate: vi
-          .fn()
-          .mockReturnValue({ returning: vi.fn().mockResolvedValue([fakeRow]) }),
-      }),
-    })
-    const result = await repo.upsertPending(TENANT_ID, {
-      msExternalId: 'ext-id',
-      displayName: 'Test',
-      email: null,
-      jobTitle: null,
-      department: null,
-      officeLocation: null,
-      mobilePhone: null,
-      workPhone: null,
-      managerMsId: null,
-      photoDocumentId: null,
-    })
     expect(result).toEqual(fakeRow)
   })
 
