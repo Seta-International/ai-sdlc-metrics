@@ -3,6 +3,9 @@
 export {
   AlertTriangle,
   ArrowLeft,
+  Bold,
+  Code,
+  Italic,
   ArrowRight,
   ArrowUpCircle,
   BarChart2,
@@ -94,6 +97,7 @@ export {
   Trash2,
   Trash2Icon,
   TrashIcon,
+  Underline,
   TrendingDown,
   TrendingUp,
   Truck,
