@@ -119,3 +119,26 @@ describe('useAgentState', () => {
     }).toThrow('useAgentState must be used within AgentStateProvider')
   })
 })
+
+describe('collapsed', () => {
+  it('defaults to false', () => {
+    const { result } = renderHook(() => useAgentState(), {
+      wrapper: AgentStateProvider,
+    })
+    expect(result.current.collapsed).toBe(false)
+  })
+
+  it('setCollapsed flips it', () => {
+    const { result } = renderHook(() => useAgentState(), {
+      wrapper: AgentStateProvider,
+    })
+    act(() => {
+      result.current.setCollapsed(true)
+    })
+    expect(result.current.collapsed).toBe(true)
+    act(() => {
+      result.current.setCollapsed(false)
+    })
+    expect(result.current.collapsed).toBe(false)
+  })
+})

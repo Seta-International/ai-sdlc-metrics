@@ -13,6 +13,8 @@ export interface AgentStateContextValue {
   setInsights: (insights: AgentInsight[]) => void
   addInsight: (insight: AgentInsight) => void
   dismissInsight: (id: string) => void
+  collapsed: boolean
+  setCollapsed: (collapsed: boolean) => void
 }
 
 const AgentStateContext = createContext<AgentStateContextValue | null>(null)
@@ -21,6 +23,7 @@ export function AgentStateProvider({ children }: { children: ReactNode }) {
   const [panelOpen, setPanelOpen] = useState(false)
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [insights, setInsights] = useState<AgentInsight[]>([])
+  const [collapsed, setCollapsed] = useState(false)
 
   const togglePanel = useCallback(() => setPanelOpen((prev) => !prev), [])
   const addInsight = useCallback(
@@ -44,6 +47,8 @@ export function AgentStateProvider({ children }: { children: ReactNode }) {
         setInsights,
         addInsight,
         dismissInsight,
+        collapsed,
+        setCollapsed,
       }}
     >
       {children}
