@@ -30,7 +30,7 @@ vi.mock('@future/auth', () => ({
 import { trpc } from '../trpc'
 import { useSession } from '@future/auth'
 import { useAddToMyDay } from './use-add-to-my-day'
-import { myDayQueryKey } from './use-my-day'
+import { personalKeys } from '../query-keys'
 import type { MyDayTask } from '@future/api-client/planner'
 
 const mockMutate = vi.mocked(
@@ -93,7 +93,7 @@ describe('useAddToMyDay', () => {
   })
 
   it('optimistically prepends the task to the cached my-day list, then resolves', async () => {
-    const qk = myDayQueryKey('actor-1', 'tenant-1', DATE)
+    const qk = personalKeys.myDay('actor-1', 'tenant-1', DATE)
     queryClient.setQueryData(qk, [] as MyDayTask[])
 
     const taskStub = makeTaskStub({ id: 'task-1' })
@@ -111,7 +111,7 @@ describe('useAddToMyDay', () => {
   })
 
   it('rolls back on error', async () => {
-    const qk = myDayQueryKey('actor-1', 'tenant-1', DATE)
+    const qk = personalKeys.myDay('actor-1', 'tenant-1', DATE)
     queryClient.setQueryData(qk, [] as MyDayTask[])
 
     mockMutate.mockRejectedValue(new Error('Server error'))
@@ -133,7 +133,7 @@ describe('useAddToMyDay', () => {
   })
 
   it('dispatches the mutate call with actor/tenant from the session + the configured date', async () => {
-    const qk = myDayQueryKey('actor-1', 'tenant-1', DATE)
+    const qk = personalKeys.myDay('actor-1', 'tenant-1', DATE)
     queryClient.setQueryData(qk, [] as MyDayTask[])
 
     const taskStub = makeTaskStub({ id: 'task-42' })

@@ -5,6 +5,7 @@ import { useQueryClient } from '@future/api-client'
 import { Button, Input } from '@future/ui'
 import { PlusIcon } from '@future/ui/icons'
 import { trpc } from '../../lib/trpc'
+import { taskKeys } from '../../lib/query-keys'
 
 const TITLE_MAX = 255
 const COUNTER_THRESHOLD = 240
@@ -24,7 +25,7 @@ export function QuickAddTask({ bucketId, planId, actorId, tenantId }: QuickAddTa
   const [submitting, setSubmitting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
-  const queryKey = ['tasks.getBoard', planId, actorId, tenantId] as const
+  const queryKey = taskKeys.board(planId, actorId, tenantId)
 
   useEffect(() => {
     if (open) {

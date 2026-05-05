@@ -74,20 +74,30 @@ export class PushTaskHandler implements ICommandHandler<PushTaskCommand> {
     if (!plan || plan.container.type === 'future_only') return
 
     if (!task.msTaskId) {
-      // Creation case — not yet implemented (Plan 4.5)
+      this.logger.log(`[PushTask] creating task on MS taskId=${command.taskId}`)
       await this.createTaskOnMs(command.tenantId, plan, task)
       return
     }
 
     const cred = await this.identityFacade.getGraphCredential(command.tenantId)
     if (!cred || cred.status !== 'active') {
+      this.logger.warn(
+        `[PushTask] skipped — no active credential taskId=${command.taskId} credStatus=${cred?.status ?? 'none'}`,
+      )
       if (cred?.status === 'paused') throw new TenantPushPausedError()
       return
     }
 
     const since = task.lastPushedAt ?? new Date(0)
     const dirty = await this.dirtyQuery.forTask(command.taskId, since)
-    if (dirty.size === 0) return
+    if (dirty.size === 0) {
+      this.logger.log(`[PushTask] skipped — no dirty fields taskId=${command.taskId}`)
+      return
+    }
+
+    this.logger.log(
+      `[PushTask] pushing taskId=${command.taskId} msTaskId=${task.msTaskId} dirty=${[...dirty].join(',')}`,
+    )
 
     const aadAssignments: Record<string, { orderHint: string }> = {}
     if (dirty.has('assignees')) {
@@ -97,6 +107,9 @@ export class PushTaskHandler implements ICommandHandler<PushTaskCommand> {
           command.tenantId,
         )
         if (!aadId) {
+          this.logger.warn(
+            `[PushTask] assignee blocked — no AAD user actorId=${assignee.actorId} taskId=${task.id}`,
+          )
           await this.conflictRepo.insert(
             MsSyncConflictEntity.forPushFailed({
               tenantId: command.tenantId,
@@ -143,6 +156,9 @@ export class PushTaskHandler implements ICommandHandler<PushTaskCommand> {
     }
 
     await this.taskRepo.markPushed(task.id, new Date())
+    this.logger.log(
+      `[PushTask] pushed taskId=${command.taskId} msTaskId=${task.msTaskId} fields=${[...dirty].join(',')}`,
+    )
   }
 
   private async patchTaskScope(
@@ -168,7 +184,11 @@ export class PushTaskHandler implements ICommandHandler<PushTaskCommand> {
       if (newEtag) {
         await this.taskRepo.updateMsEtag(task.id, { msTaskEtag: newEtag })
       }
+      this.logger.log(`[PushTask] task-scope PATCH ok taskId=${task.id}`)
     } catch (e) {
+      this.logger.warn(
+        `[PushTask] task-scope PATCH failed taskId=${task.id} err=${(e as Error).message}`,
+      )
       await this.handlePushError(tenantId, task, 'task', patch, dirty, prePushValues, e as Error, 0)
     }
   }
@@ -196,7 +216,11 @@ export class PushTaskHandler implements ICommandHandler<PushTaskCommand> {
       if (newEtag) {
         await this.taskRepo.updateMsEtag(task.id, { msDetailsEtag: newEtag })
       }
+      this.logger.log(`[PushTask] details-scope PATCH ok taskId=${task.id}`)
     } catch (e) {
+      this.logger.warn(
+        `[PushTask] details-scope PATCH failed taskId=${task.id} err=${(e as Error).message}`,
+      )
       await this.handlePushError(
         tenantId,
         task,

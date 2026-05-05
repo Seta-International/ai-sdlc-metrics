@@ -3,6 +3,7 @@
 import { useQuery } from '@future/api-client'
 import { useSession } from '@future/auth'
 import { trpc } from '../trpc'
+import { adminKeys } from '../query-keys'
 
 const DEFAULT_TENANT_TIMEZONE = 'Asia/Ho_Chi_Minh'
 
@@ -23,7 +24,7 @@ export function useTenantTimezone(): TenantTimezoneResult {
   const session = useSession()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin.getTenantTimezone', session?.tenantId],
+    queryKey: adminKeys.tenantTimezone(session?.tenantId),
     queryFn: () => (trpc.admin as unknown as AdminTrpcSlice).getTenantTimezone.query({}),
     enabled: !!session,
     staleTime: 1000 * 60 * 60, // 1h — timezone rarely changes

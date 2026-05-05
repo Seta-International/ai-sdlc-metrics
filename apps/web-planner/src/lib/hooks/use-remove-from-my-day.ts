@@ -5,7 +5,7 @@ import { useSession } from '@future/auth'
 import type { UseMutationResult } from '@future/api-client'
 import type { MyDayTask } from '@future/api-client/planner'
 import { trpc } from '../trpc'
-import { myDayQueryKey } from './use-my-day'
+import { personalKeys } from '../query-keys'
 
 export interface RemoveVariables {
   taskId: string
@@ -27,7 +27,7 @@ export function useRemoveFromMyDay(date: string): UseMutationResult<void, Error,
       }) as Promise<void>,
 
     onMutate: async ({ taskId }) => {
-      const qk = myDayQueryKey(actorId, tenantId, date)
+      const qk = personalKeys.myDay(actorId, tenantId, date)
       await queryClient.cancelQueries({ queryKey: qk })
 
       const previous = queryClient.getQueryData<MyDayTask[]>(qk)
@@ -40,13 +40,13 @@ export function useRemoveFromMyDay(date: string): UseMutationResult<void, Error,
     onError: (_e, _v, ctx) => {
       const context = ctx as { previous: MyDayTask[] | undefined } | undefined
       if (context?.previous !== undefined) {
-        const qk = myDayQueryKey(actorId, tenantId, date)
+        const qk = personalKeys.myDay(actorId, tenantId, date)
         queryClient.setQueryData<MyDayTask[]>(qk, context.previous)
       }
     },
 
     onSettled: () => {
-      const qk = myDayQueryKey(actorId, tenantId, date)
+      const qk = personalKeys.myDay(actorId, tenantId, date)
       queryClient.invalidateQueries({ queryKey: qk })
     },
   })

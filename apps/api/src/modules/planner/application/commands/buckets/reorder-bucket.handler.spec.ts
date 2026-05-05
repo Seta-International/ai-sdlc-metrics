@@ -83,8 +83,8 @@ describe('ReorderBucketHandler', () => {
     )
 
     const saved: Bucket = bucketRepo.save.mock.calls[0][0]
-    // MsOrderHint.between(undefined, '!') → ' ' (fallback since '!' is char 33, ≤ 33)
-    expect(saved.orderHint).toBe(' ')
+    // MsOrderHint.between(undefined, '!') → ' !' (MS minimum; '!' is char 33, can't go lower without whitespace-only string)
+    expect(saved.orderHint).toBe(' !')
   })
 
   it('throws BucketNotFoundException when bucket not found', async () => {

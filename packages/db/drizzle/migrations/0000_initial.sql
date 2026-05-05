@@ -898,8 +898,8 @@ CREATE TABLE "core"."outbox_event" (
 	"event_name" text NOT NULL,
 	"payload" jsonb NOT NULL,
 	"published" boolean DEFAULT false NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"published_at" timestamp
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"published_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "core"."processed_events" (

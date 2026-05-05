@@ -43,10 +43,10 @@ describe('mapMsBucketToDomain', () => {
     expect(result.name).toBe('')
   })
 
-  it('defaults orderHint to empty string when missing', () => {
+  it('defaults orderHint to " !" (MS minimum) when missing', () => {
     const ms = { id: 'b4', name: 'Done', planId: 'p4' }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = mapMsBucketToDomain(ms as any, { tenantId: 't1', localPlanId: 'lp4' })
-    expect(result.orderHint).toBe('')
+    expect(result.orderHint).toBe(' !')
   })
 })

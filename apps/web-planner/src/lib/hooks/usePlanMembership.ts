@@ -3,6 +3,7 @@
 import { useQuery } from '@future/api-client'
 import { useSession } from '@future/auth'
 import { trpc } from '../trpc'
+import { planKeys } from '../query-keys'
 
 export type PlanRole = 'owner' | 'editor' | 'viewer'
 
@@ -33,7 +34,7 @@ export function usePlanMembership(planId: string | null | undefined): PlanMember
   const session = useSession()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['plans.get', planId, session?.actorId, session?.tenantId],
+    queryKey: planKeys.get(planId, session?.actorId, session?.tenantId),
     queryFn: () =>
       trpc.planner.plans.get.query({
         actorId: session!.actorId,

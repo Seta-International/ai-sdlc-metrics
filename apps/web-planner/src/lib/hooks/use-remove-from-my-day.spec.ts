@@ -30,7 +30,7 @@ vi.mock('@future/auth', () => ({
 import { trpc } from '../trpc'
 import { useSession } from '@future/auth'
 import { useRemoveFromMyDay } from './use-remove-from-my-day'
-import { myDayQueryKey } from './use-my-day'
+import { personalKeys } from '../query-keys'
 import type { MyDayTask } from '@future/api-client/planner'
 
 const mockMutate = vi.mocked(
@@ -94,7 +94,7 @@ describe('useRemoveFromMyDay', () => {
   })
 
   it('optimistically removes the row from the cached list', async () => {
-    const qk = myDayQueryKey('actor-1', 'tenant-1', DATE)
+    const qk = personalKeys.myDay('actor-1', 'tenant-1', DATE)
     const t1 = makeMyDayTask({ id: 't1', title: 'Task 1' })
     const t2 = makeMyDayTask({ id: 't2', title: 'Task 2' })
     queryClient.setQueryData(qk, [t1, t2] as MyDayTask[])
@@ -111,7 +111,7 @@ describe('useRemoveFromMyDay', () => {
   })
 
   it('rolls back on error', async () => {
-    const qk = myDayQueryKey('actor-1', 'tenant-1', DATE)
+    const qk = personalKeys.myDay('actor-1', 'tenant-1', DATE)
     const t1 = makeMyDayTask({ id: 't1' })
     queryClient.setQueryData(qk, [t1] as MyDayTask[])
 
@@ -133,7 +133,7 @@ describe('useRemoveFromMyDay', () => {
   })
 
   it('dispatches the mutate call with actor/tenant/taskId/date', async () => {
-    const qk = myDayQueryKey('actor-1', 'tenant-1', DATE)
+    const qk = personalKeys.myDay('actor-1', 'tenant-1', DATE)
     const t1 = makeMyDayTask({ id: 'task-99' })
     queryClient.setQueryData(qk, [t1] as MyDayTask[])
 

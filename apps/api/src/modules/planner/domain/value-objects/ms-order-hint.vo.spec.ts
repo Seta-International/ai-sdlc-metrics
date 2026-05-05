@@ -22,16 +22,33 @@ describe('MsOrderHint', () => {
   })
 
   describe('between(undefined, b)', () => {
-    it('returns a hint that sorts BEFORE b lexicographically', () => {
+    it('returns " !" (MS minimum) when b is already at the MS minimum hint', () => {
+      // ' !' is the lowest valid MS orderHint; no valid MS hint sorts strictly before it,
+      // so we return the minimum itself and let MS resolve ordering on next pull.
       const b = ' !'
       const result = MsOrderHint.between(undefined, b)
-      expect(result < b).toBe(true)
+      expect(result).toBe(' !')
     })
 
-    it('returns " " when b starts with "!" (first char is 33)', () => {
+    it('returns " !" when b starts with "!" (first char ASCII 33, still at MS minimum range)', () => {
       const b = '!'
       const result = MsOrderHint.between(undefined, b)
-      expect(result).toBe(' ')
+      expect(result).toBe(' !')
+    })
+
+    it('returns " !" when b starts with \'"\' (first char ASCII 34, result would be ! at index 0)', () => {
+      // '!' at index 0 is rejected by MS Graph; return the minimum ' !' instead
+      const b = '"abc' // starts with '"' (ASCII 34)
+      const result = MsOrderHint.between(undefined, b)
+      expect(result).toBe(' !')
+      expect(result < b).toBe(true) // ' !' (32, 33) < '"abc' (34, ...) ✓
+    })
+
+    it('returns a single char below b when b starts above ASCII 34', () => {
+      const b = '#abc' // starts with '#' (ASCII 35)
+      const result = MsOrderHint.between(undefined, b)
+      expect(result).toBe('"') // String.fromCharCode(34)
+      expect(result < b).toBe(true)
     })
   })
 
@@ -96,8 +113,8 @@ describe('MsOrderHint', () => {
       expect(MsOrderHint.between(' !', undefined)).toBe(' ! !')
     })
 
-    it('between(undefined, " !") === " "', () => {
-      expect(MsOrderHint.between(undefined, ' !')).toBe(' ')
+    it('between(undefined, " !") === " !" (MS minimum — cannot go lower without invalid whitespace)', () => {
+      expect(MsOrderHint.between(undefined, ' !')).toBe(' !')
     })
 
     it('between(" !", " ! !") is between " !" and " ! !" lexicographically', () => {
@@ -142,6 +159,31 @@ describe('MsOrderHint', () => {
 
     it('does NOT throw when args are valid strings', () => {
       expect(() => MsOrderHint.between(' !', ' ! !')).not.toThrow()
+    })
+  })
+
+  describe('ASCII 91-96 zone avoidance', () => {
+    it('result never contains chars in ASCII 91-96 range', () => {
+      const problematic = /[\x5b-\x60]/
+      const cases: Array<[string | undefined, string | undefined]> = [
+        ['Z', 'b'], // gap straddles zone (90..98), midpoint 94 is in zone
+        ['Y', 'a'], // gap includes the whole zone (89..97), midpoint 93 is in zone
+        [' !', 'a!'], // realistic orderHints with zone in range
+      ]
+      for (const [a, b] of cases) {
+        const result = MsOrderHint.between(a, b)
+        expect(problematic.test(result)).toBe(false)
+        if (a) expect(result > a).toBe(true)
+        if (b) expect(result < b).toBe(true)
+      }
+    })
+
+    it('midpoint between "Z" (90) and "b" (98) skips zone → uses "a" (97)', () => {
+      // mid of (90 + 98) / 2 = 94 (\^), which is in zone; should use 90 ('Z') or fall through to 'a'
+      const result = MsOrderHint.between('Z', 'b')
+      expect(result > 'Z').toBe(true)
+      expect(result < 'b').toBe(true)
+      expect(/[\x5b-\x60]/.test(result)).toBe(false)
     })
   })
 

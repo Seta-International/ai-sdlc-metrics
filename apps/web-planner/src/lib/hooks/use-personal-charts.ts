@@ -4,6 +4,7 @@ import { useQuery } from '@future/api-client'
 import { useSession } from '@future/auth'
 import type { PlannerChartsData } from '@future/api-client/planner'
 import { trpc } from '../trpc'
+import { personalKeys } from '../query-keys'
 
 export interface UsePersonalChartsResult {
   data: PlannerChartsData | undefined
@@ -15,7 +16,7 @@ export function usePersonalCharts(): UsePersonalChartsResult {
   const session = useSession()
 
   const query = useQuery({
-    queryKey: ['planner.personal.getCharts', session?.actorId, session?.tenantId],
+    queryKey: personalKeys.charts(session?.actorId, session?.tenantId),
     queryFn: () =>
       trpc.planner.personal.getCharts
         .query({ actorId: session!.actorId, tenantId: session!.tenantId })

@@ -89,19 +89,23 @@ export class DrizzleBucketRepository implements IBucketRepository {
   async linkToMs(
     id: string,
     tenantId: string,
-    props: { msBucketId: string; msBucketEtag: string; origin: string },
+    props: { msBucketId: string; msBucketEtag: string; origin: string; orderHint?: string },
   ): Promise<void> {
     await this.db
       .update(plannerBucket)
       .set({
         msBucketId: props.msBucketId,
         msBucketEtag: props.msBucketEtag,
+        ...(props.orderHint !== undefined ? { orderHint: props.orderHint } : {}),
         updatedAt: sql`NOW()`,
       })
       .where(and(eq(plannerBucket.id, id), eq(plannerBucket.tenantId, tenantId)))
   }
 
-  async upsertFromMs(props: MsBucketUpsertProps, _opts: { origin: string }): Promise<void> {
+  async upsertFromMs(
+    props: MsBucketUpsertProps,
+    _opts: { origin: string },
+  ): Promise<{ id: string }> {
     const existing = await this.db
       .select({ id: plannerBucket.id })
       .from(plannerBucket)
@@ -123,16 +127,20 @@ export class DrizzleBucketRepository implements IBucketRepository {
           updatedAt: sql`NOW()`,
         })
         .where(eq(plannerBucket.id, existing[0].id))
-      return
+      return { id: existing[0].id }
     }
 
-    await this.db.insert(plannerBucket).values({
-      tenantId: props.tenantId,
-      planId: props.localPlanId,
-      name: props.name,
-      orderHint: props.orderHint,
-      msBucketId: props.msBucketId,
-      msBucketEtag: props.msBucketEtag,
-    })
+    const inserted = await this.db
+      .insert(plannerBucket)
+      .values({
+        tenantId: props.tenantId,
+        planId: props.localPlanId,
+        name: props.name,
+        orderHint: props.orderHint,
+        msBucketId: props.msBucketId,
+        msBucketEtag: props.msBucketEtag,
+      })
+      .returning({ id: plannerBucket.id })
+    return { id: inserted[0]!.id }
   }
 }

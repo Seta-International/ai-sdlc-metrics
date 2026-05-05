@@ -43,7 +43,10 @@ export class InMemoryBucketRepository implements IBucketRepository {
     }
   }
 
-  async upsertFromMs(props: MsBucketUpsertProps, _opts: { origin: string }): Promise<void> {
+  async upsertFromMs(
+    props: MsBucketUpsertProps,
+    _opts: { origin: string },
+  ): Promise<{ id: string }> {
     const existing = [...this.store.values()].find(
       (b) => b.tenantId === props.tenantId && b.msBucketId === props.msBucketId,
     )
@@ -64,6 +67,7 @@ export class InMemoryBucketRepository implements IBucketRepository {
         deletedAt: existing?.deletedAt ?? null,
       }),
     )
+    return { id }
   }
 
   async linkToMs(

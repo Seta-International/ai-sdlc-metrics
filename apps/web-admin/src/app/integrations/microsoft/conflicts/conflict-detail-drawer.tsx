@@ -15,6 +15,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  toast,
 } from '@future/ui'
 import { ExternalLink } from '@future/ui/icons'
 import { trpc } from '../../../../lib/trpc'
@@ -116,6 +117,9 @@ export function ConflictDetailDrawer({
       onOpenChange(false)
       onActionSuccess()
     },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Failed to accept MS state')
+    },
   })
 
   if (!conflict) return null
@@ -193,15 +197,17 @@ export function ConflictDetailDrawer({
                   {retryMutation.isPending && <Spinner className="size-4" />}
                   Retry
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={isPending}
-                  onClick={() => acceptMsMutation.mutate(conflict.id)}
-                >
-                  {acceptMsMutation.isPending && <Spinner className="size-4" />}
-                  Accept MS state
-                </Button>
+                {conflict.kind === 'push_412_exhausted' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isPending}
+                    onClick={() => acceptMsMutation.mutate(conflict.id)}
+                  >
+                    {acceptMsMutation.isPending && <Spinner className="size-4" />}
+                    Accept MS state
+                  </Button>
+                )}
               </>
             )}
 

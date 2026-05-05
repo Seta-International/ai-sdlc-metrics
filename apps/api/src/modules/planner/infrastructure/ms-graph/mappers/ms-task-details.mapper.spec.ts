@@ -86,6 +86,19 @@ describe('mapMsTaskDetailsToDomain', () => {
     expect(result.references).toEqual([])
   })
 
+  it('defaults checklist item orderHint to " !" (MS minimum) when missing', () => {
+    const ms = {
+      id: 't9',
+      '@odata.etag': 'W/"e"',
+      checklist: {
+        'item-1': { title: 'Step', isChecked: false },
+      },
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = mapMsTaskDetailsToDomain(ms as any)
+    expect(result.checklist[0].orderHint).toBe(' !')
+  })
+
   it('handles null alias and type in references', () => {
     const ms = {
       id: 't8',
