@@ -23,6 +23,9 @@
     "@future/schedule": "workspace:*",
     "@future/ui": "workspace:*",
     "@tanstack/react-virtual": "^3.13.24",
+    "@tiptap/extension-mention": "^3.22.5",
+    "@tiptap/react": "^3.22.5",
+    "@tiptap/starter-kit": "^3.22.5",
     "next": "16.2.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
