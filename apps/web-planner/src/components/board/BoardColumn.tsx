@@ -173,38 +173,38 @@ export function BoardColumn({
         </div>
 
         {/* Column name / rename input */}
-        {renaming ? (
-          <Input
-            ref={renameInputRef}
-            type="text"
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value.slice(0, 255))}
-            onKeyDown={handleRenameKeyDown}
-            onBlur={() => void commitRename()}
-            autoFocus
-            maxLength={255}
-            aria-label="Rename bucket"
-            data-testid="column-rename-input"
-          />
-        ) : (
-          <span
-            className="text-small font-510 text-fg-primary min-w-0 truncate cursor-text flex-1"
-            onClick={() => {
-              setRenameValue(bucket.name)
-              setRenaming(true)
-            }}
-            data-testid="column-name-btn"
-          >
-            {bucket.name}
+        <div className="flex-1 flex items-center gap-1.5">
+          {renaming ? (
+            <Input
+              ref={renameInputRef}
+              type="text"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value.slice(0, 255))}
+              onKeyDown={handleRenameKeyDown}
+              onBlur={() => void commitRename()}
+              autoFocus
+              maxLength={255}
+              aria-label="Rename bucket"
+              data-testid="column-rename-input"
+            />
+          ) : (
+            <span
+              className="text-small font-510 text-fg-primary min-w-0 truncate cursor-text"
+              onClick={() => {
+                setRenameValue(bucket.name)
+                setRenaming(true)
+              }}
+              data-testid="column-name-btn"
+            >
+              {bucket.name}
+            </span>
+          )}
+
+          {/* Count badge */}
+          <span className="flex-shrink-0 flex h-4.5 min-w-4.5 items-center justify-center rounded bg-elevated px-1 text-tiny font-510 text-fg-muted">
+            {bucket.tasks.length}
           </span>
-        )}
-
-        {/* Count badge */}
-        <span className="flex-shrink-0 flex h-4.5 min-w-4.5 items-center justify-center rounded bg-elevated px-1 text-tiny font-510 text-fg-muted">
-          {bucket.tasks.length}
-        </span>
-
-        <div className="flex-1" />
+        </div>
 
         {/* + shortcut — opens QuickAddTask */}
         <Button
