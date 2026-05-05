@@ -386,4 +386,66 @@ describe('BoardColumn', () => {
     const nameEl = screen.getByTestId('column-name-btn')
     expect(nameEl.tagName.toLowerCase()).toBe('span')
   })
+
+  it('commits rename on input blur', async () => {
+    mockRename.mockResolvedValue(undefined)
+    render(
+      <BoardColumn bucket={makeBucket({ name: 'To Do' })} planLabels={emptyLabels} {...PROPS} />,
+      { wrapper: Wrapper },
+    )
+
+    await userEvent.click(screen.getByTestId('column-name-btn'))
+    const input = screen.getByTestId('column-rename-input') as HTMLInputElement
+    await userEvent.clear(input)
+    await userEvent.type(input, 'Blurred Name')
+    fireEvent.blur(input)
+
+    await waitFor(() => {
+      expect(mockRename).toHaveBeenCalledWith(expect.objectContaining({ name: 'Blurred Name' }))
+    })
+  })
+
+  it('restores cache snapshot on rename mutation error', async () => {
+    mockRename.mockRejectedValue(new Error('server error'))
+    _queryClientRef.setQueryData(QUERY_KEY, makeEmptySnapshot())
+
+    render(
+      <BoardColumn bucket={makeBucket({ name: 'To Do' })} planLabels={emptyLabels} {...PROPS} />,
+      { wrapper: Wrapper },
+    )
+
+    await userEvent.click(screen.getByTestId('column-name-btn'))
+    const input = screen.getByTestId('column-rename-input') as HTMLInputElement
+    await userEvent.clear(input)
+    await userEvent.type(input, 'New Name')
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    await waitFor(() => expect(mockRename).toHaveBeenCalledTimes(1))
+
+    const cached = _queryClientRef.getQueryData<ReturnType<typeof makeEmptySnapshot>>(QUERY_KEY)
+    expect(cached?.buckets[0]?.name).toBe('To Do')
+  })
+
+  it('restores cache snapshot on delete mutation error', async () => {
+    mockDelete.mockRejectedValue(new Error('server error'))
+    _queryClientRef.setQueryData(QUERY_KEY, makeEmptySnapshot())
+
+    render(
+      <BoardColumn
+        bucket={makeBucket({ name: 'To Do', tasks: [] })}
+        planLabels={emptyLabels}
+        {...PROPS}
+      />,
+      { wrapper: Wrapper },
+    )
+
+    await userEvent.click(screen.getByTestId('column-menu-btn'))
+    await userEvent.click(screen.getByTestId('column-menu-delete'))
+    await userEvent.click(screen.getByTestId('delete-confirm-btn'))
+
+    await waitFor(() => expect(mockDelete).toHaveBeenCalledTimes(1))
+
+    const cached = _queryClientRef.getQueryData<ReturnType<typeof makeEmptySnapshot>>(QUERY_KEY)
+    expect(cached?.buckets).toHaveLength(1)
+  })
 })
