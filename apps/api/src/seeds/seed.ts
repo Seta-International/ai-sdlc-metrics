@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { sql } from 'drizzle-orm'
 import { createDb } from '@future/db'
+import { getSeedDatabaseUrl } from './seed-config'
 import { tenant } from '../modules/kernel/infrastructure/schema/tenant.schema'
 import { actor } from '../modules/kernel/infrastructure/schema/actor.schema'
 import { userIdentity } from '../modules/kernel/infrastructure/schema/user-identity.schema'
@@ -515,9 +516,7 @@ async function bootstrapPlatformAdmin(
 }
 
 async function main() {
-  const db = createDb(
-    process.env['DATABASE_URL'] ?? 'postgresql://future:future@localhost:5432/future_dev',
-  )
+  const db = createDb(getSeedDatabaseUrl(process.env['DATABASE_URL']))
 
   const now = new Date()
 
