@@ -33,16 +33,15 @@ const defaultBoardData = {
           dueDate: null,
           startDate: null,
           orderHint: 'a',
-          // null name/avatarUrl covers the `?? ''` and `?? null` fallback branches
-          assignees: [
-            { actorId: 'x', name: null as string | null, avatarUrl: null as string | null },
-          ],
+          // undefined name/avatarUrl covers the `?? ''` and `?? null` fallback branches
+          assignees: [{ actorId: 'x', name: undefined, avatarUrl: undefined }],
           appliedLabels: [],
           commentCount: 0,
           checklistItemCount: 0,
           checklistCheckedCount: 0,
           attachmentCount: 0,
           evidenceCount: 0,
+          hasPendingAttachment: false,
           description: '',
           completedAt: null,
           completedBy: null,
@@ -65,6 +64,7 @@ const defaultBoardData = {
           checklistCheckedCount: 0,
           attachmentCount: 0,
           evidenceCount: 0,
+          hasPendingAttachment: false,
           description: '',
           completedAt: null,
           completedBy: null,
@@ -181,6 +181,7 @@ vi.mock('../../../../components/board/AddBucketButton', () => ({
   AddBucketButton: () => <button>Add bucket</button>,
 }))
 
+import type { QueryClient } from '@future/api-client'
 import { useBoardSnapshot } from '../../../../lib/hooks/useBoardSnapshot'
 import { useViewState } from '../../../../lib/hooks/useViewState'
 import { useQueryClient } from '@future/api-client'
@@ -231,7 +232,7 @@ beforeEach(() => {
     getQueryData: vi.fn().mockReturnValue(defaultBoardData),
     setQueryData: vi.fn(),
     invalidateQueries: vi.fn().mockResolvedValue(undefined),
-  })
+  } as unknown as QueryClient)
 })
 
 describe('PlanBoardPage with view state', () => {
@@ -318,7 +319,7 @@ describe('PlanBoardPage with view state', () => {
       getQueryData: vi.fn().mockReturnValue(defaultBoardData),
       setQueryData: mockSetQueryData,
       invalidateQueries: vi.fn().mockResolvedValue(undefined),
-    })
+    } as unknown as QueryClient)
     mockSetProgress.mockRejectedValue(new Error('server error'))
 
     render(<PlanBoardPage />)
@@ -351,7 +352,7 @@ describe('PlanBoardPage with view state', () => {
       getQueryData: vi.fn().mockReturnValue(defaultBoardData),
       setQueryData: mockSetQueryData,
       invalidateQueries: vi.fn().mockResolvedValue(undefined),
-    })
+    } as unknown as QueryClient)
     mockReorder.mockRejectedValue(new Error('server error'))
 
     render(<PlanBoardPage />)
