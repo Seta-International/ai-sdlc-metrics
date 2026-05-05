@@ -58,7 +58,7 @@ export class BulkSyncMsProfilesHandler implements ICommandHandler<BulkSyncMsProf
         )
 
         if (!actorId) {
-          await this.stagedUserRepo.upsertPending(tenantId, {
+          await this.stagedUserRepo.upsertFromSync(tenantId, {
             msExternalId: user.externalId,
             displayName: user.displayName,
             email: user.email || null,
@@ -75,7 +75,7 @@ export class BulkSyncMsProfilesHandler implements ICommandHandler<BulkSyncMsProf
 
         const employment = await this.employmentRepo.findActiveByActorId(actorId, tenantId)
         if (!employment) {
-          await this.stagedUserRepo.upsertPending(tenantId, {
+          await this.stagedUserRepo.upsertFromSync(tenantId, {
             msExternalId: user.externalId,
             displayName: user.displayName,
             email: user.email || null,
