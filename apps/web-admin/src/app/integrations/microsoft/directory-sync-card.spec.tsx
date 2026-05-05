@@ -233,8 +233,8 @@ describe('DirectorySyncCard', () => {
       }),
     )
 
-    mockedUseMutation.mockImplementation((options: { onSuccess?: () => void }) => {
-      capturedOnSuccess = options.onSuccess
+    mockedUseMutation.mockImplementation((options: Parameters<typeof useMutation>[0]) => {
+      capturedOnSuccess = options.onSuccess as (() => void) | undefined
       return makeMutationResult()
     })
 
