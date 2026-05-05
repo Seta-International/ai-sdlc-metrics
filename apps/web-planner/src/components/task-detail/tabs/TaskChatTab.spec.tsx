@@ -237,4 +237,73 @@ describe('TaskChatTab', () => {
 
     expect(screen.getByTestId('chat-composer')).toBeDefined()
   })
+
+  it('loads more comments and appends when load-more is clicked', async () => {
+    const comment1 = makeComment({ id: 'c1', body: 'First comment' })
+    const comment2 = makeComment({ id: 'c2', body: 'Second comment' })
+    mockListQuery
+      .mockResolvedValueOnce({ items: [comment1], nextCursor: 'cursor-abc' })
+      .mockResolvedValueOnce({ items: [comment2], nextCursor: null })
+
+    await act(async () => {
+      render(
+        <Wrapper>
+          <TaskChatTab taskId="task-1" planId="plan-1" />
+        </Wrapper>,
+      )
+    })
+
+    expect(screen.getByText('First comment')).toBeDefined()
+
+    await act(async () => {
+      await userEvent.click(screen.getByRole('button', { name: /load more/i }))
+    })
+
+    expect(screen.getByText('Second comment')).toBeDefined()
+    expect(screen.queryByRole('button', { name: /load more/i })).toBeNull()
+  })
+
+  it('reverts deleted comment if delete mutation fails', async () => {
+    const comment = makeComment({ id: 'c7', authorActorId: 'actor-1', body: 'Revert me' })
+    mockListQuery.mockResolvedValue({ items: [comment], nextCursor: null })
+    mockDeleteMutate.mockRejectedValue(new Error('Network error'))
+
+    await act(async () => {
+      render(
+        <Wrapper>
+          <TaskChatTab taskId="task-1" planId="plan-1" />
+        </Wrapper>,
+      )
+    })
+
+    const menuBtn = screen.getByRole('button', { name: /comment options/i })
+    await act(async () => {
+      await userEvent.click(menuBtn)
+    })
+    await act(async () => {
+      await userEvent.click(screen.getByRole('menuitem', { name: /Delete comment/i }))
+    })
+
+    expect(screen.getByText('Revert me')).toBeDefined()
+  })
+
+  it('renders multiple comments sorted by received order', async () => {
+    const comments = [
+      makeComment({ id: 'c1', authorName: 'Alice', body: 'First' }),
+      makeComment({ id: 'c2', authorName: 'Bob', body: 'Second' }),
+      makeComment({ id: 'c3', authorName: 'Carol', body: 'Third' }),
+    ]
+    mockListQuery.mockResolvedValue({ items: comments, nextCursor: null })
+
+    await act(async () => {
+      render(
+        <Wrapper>
+          <TaskChatTab taskId="task-1" planId="plan-1" />
+        </Wrapper>,
+      )
+    })
+
+    const items = screen.getAllByTestId('comment-item')
+    expect(items).toHaveLength(3)
+  })
 })

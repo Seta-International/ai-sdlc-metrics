@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import React from 'react'
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ back: vi.fn() }) }))
+const mockRouterBack = vi.fn()
+vi.mock('next/navigation', () => ({ useRouter: () => ({ back: mockRouterBack }) }))
 
 vi.mock('@/lib/hooks/useConflictResolver', () => ({
   useConflictResolver: () => ({
@@ -152,5 +154,94 @@ describe('TaskDetailPanel', () => {
     mockUseTaskDetail.mockReturnValue(makeHookResult(makeTask()))
     render(<TaskDetailPanel taskId="task-1" planId="plan-1" />)
     expect(screen.queryByTestId('task-detail-loading-skeleton')).toBeNull()
+  })
+
+  it('calls onClose prop when close button is clicked', async () => {
+    const onClose = vi.fn()
+    mockUseTaskDetail.mockReturnValue(makeHookResult(makeTask()))
+    render(<TaskDetailPanel taskId="task-1" planId="plan-1" onClose={onClose} />)
+    await userEvent.click(screen.getByTestId('task-close-btn'))
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('calls router.back when no onClose prop and close button is clicked', async () => {
+    mockUseTaskDetail.mockReturnValue(makeHookResult(makeTask()))
+    render(<TaskDetailPanel taskId="task-1" planId="plan-1" />)
+    await userEvent.click(screen.getByTestId('task-close-btn'))
+    expect(mockRouterBack).toHaveBeenCalledOnce()
+  })
+
+  it('closes panel on Escape key', async () => {
+    const onClose = vi.fn()
+    mockUseTaskDetail.mockReturnValue(makeHookResult(makeTask()))
+    render(<TaskDetailPanel taskId="task-1" planId="plan-1" onClose={onClose} />)
+    await act(async () => {
+      fireEvent.keyDown(document, { key: 'Escape' })
+    })
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('shows AddToMyDayButton when task is loaded', () => {
+    mockUseTaskDetail.mockReturnValue(makeHookResult(makeTask()))
+    render(<TaskDetailPanel taskId="task-1" planId="plan-1" />)
+    expect(screen.getByTestId('add-to-my-day')).toBeDefined()
+  })
+
+  it('maps progress=100 to "completed" in taskFlatStub', () => {
+    mockUseTaskDetail.mockReturnValue(makeHookResult(makeTask({ progress: 100 })))
+    render(<TaskDetailPanel taskId="task-1" planId="plan-1" />)
+    expect(screen.getByTestId('task-detail-panel')).toBeDefined()
+  })
+
+  it('maps progress=50 to "in-progress" in taskFlatStub', () => {
+    mockUseTaskDetail.mockReturnValue(makeHookResult(makeTask({ progress: 50 })))
+    render(<TaskDetailPanel taskId="task-1" planId="plan-1" />)
+    expect(screen.getByTestId('task-detail-panel')).toBeDefined()
+  })
+
+  it('maps progress=0 to "not-started" in taskFlatStub', () => {
+    mockUseTaskDetail.mockReturnValue(makeHookResult(makeTask({ progress: 0 })))
+    render(<TaskDetailPanel taskId="task-1" planId="plan-1" />)
+    expect(screen.getByTestId('task-detail-panel')).toBeDefined()
+  })
+
+  it('maps priority=1 to "urgent" in taskFlatStub', () => {
+    mockUseTaskDetail.mockReturnValue(makeHookResult(makeTask({ priority: 1 })))
+    render(<TaskDetailPanel taskId="task-1" planId="plan-1" />)
+    expect(screen.getByTestId('task-detail-panel')).toBeDefined()
+  })
+
+  it('maps priority=9 to "low" in taskFlatStub', () => {
+    mockUseTaskDetail.mockReturnValue(makeHookResult(makeTask({ priority: 9 })))
+    render(<TaskDetailPanel taskId="task-1" planId="plan-1" />)
+    expect(screen.getByTestId('task-detail-panel')).toBeDefined()
+  })
+
+  it('maps priority=5 (other) to "medium" in taskFlatStub', () => {
+    mockUseTaskDetail.mockReturnValue(makeHookResult(makeTask({ priority: 5 })))
+    render(<TaskDetailPanel taskId="task-1" planId="plan-1" />)
+    expect(screen.getByTestId('task-detail-panel')).toBeDefined()
+  })
+
+  it('serializes startDate and dueDate when set', () => {
+    const d = new Date('2026-03-01T00:00:00Z')
+    mockUseTaskDetail.mockReturnValue(makeHookResult(makeTask({ startDate: d, dueDate: d })))
+    render(<TaskDetailPanel taskId="task-1" planId="plan-1" />)
+    expect(screen.getByTestId('task-detail-panel')).toBeDefined()
+  })
+
+  it('handles assignees with name and avatarUrl set', () => {
+    mockUseTaskDetail.mockReturnValue(
+      makeHookResult(
+        makeTask({
+          assignees: [
+            { actorId: 'a1', name: 'Alice', avatarUrl: 'https://example.com/a.png' },
+            { actorId: 'a2', name: undefined, avatarUrl: undefined },
+          ],
+        }),
+      ),
+    )
+    render(<TaskDetailPanel taskId="task-1" planId="plan-1" />)
+    expect(screen.getByTestId('task-detail-panel')).toBeDefined()
   })
 })

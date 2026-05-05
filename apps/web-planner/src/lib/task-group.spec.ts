@@ -154,4 +154,54 @@ describe('groupTasks', () => {
     expect(groups).toHaveLength(1)
     expect(groups[0]!.label).toBe('p1')
   })
+
+  it('group-by-assignee: second task with same assignee lands in existing group', () => {
+    const assignee = { actorId: 'a1', displayName: 'Alice', avatarUrl: null }
+    const groups = groupTasks(
+      [mkTask({ id: 't1', assignees: [assignee] }), mkTask({ id: 't2', assignees: [assignee] })],
+      'assignee',
+    )
+    expect(groups).toHaveLength(1)
+    expect(groups[0]!.tasks).toHaveLength(2)
+  })
+
+  it('group-by-label: second task with same label lands in existing group', () => {
+    const label = { id: 'l1', name: 'Bug', color: '#f00' }
+    const groups = groupTasks(
+      [mkTask({ id: 't1', labels: [label] }), mkTask({ id: 't2', labels: [label] })],
+      'label',
+    )
+    expect(groups).toHaveLength(1)
+    expect(groups[0]!.tasks).toHaveLength(2)
+  })
+
+  it('group-by-due: routes tasks to correct date buckets', () => {
+    const now = new Date()
+    const todayIso = new Date(now).toISOString()
+    const lateIso = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString()
+    const tomorrowIso = new Date(now.getTime() + 1.5 * 24 * 60 * 60 * 1000).toISOString()
+    const thisWeekIso = new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString()
+    const nextWeekIso = new Date(now.getTime() + 9 * 24 * 60 * 60 * 1000).toISOString()
+    const futureIso = new Date(now.getTime() + 20 * 24 * 60 * 60 * 1000).toISOString()
+
+    const groups = groupTasks(
+      [
+        mkTask({ id: 'late', dueDate: lateIso }),
+        mkTask({ id: 'today', dueDate: todayIso }),
+        mkTask({ id: 'tomorrow', dueDate: tomorrowIso }),
+        mkTask({ id: 'this-week', dueDate: thisWeekIso }),
+        mkTask({ id: 'next-week', dueDate: nextWeekIso }),
+        mkTask({ id: 'future', dueDate: futureIso }),
+        mkTask({ id: 'none', dueDate: null }),
+      ],
+      'due',
+    )
+
+    const lateGroup = groups.find((g) => g.key === 'late')
+    const futureGroup = groups.find((g) => g.key === 'future')
+    const noneGroup = groups.find((g) => g.key === 'none')
+    expect(lateGroup?.tasks[0]?.id).toBe('late')
+    expect(futureGroup?.tasks[0]?.id).toBe('future')
+    expect(noneGroup?.tasks[0]?.id).toBe('none')
+  })
 })

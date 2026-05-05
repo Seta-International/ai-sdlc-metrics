@@ -228,4 +228,111 @@ describe('TaskFilesTab', () => {
 
     expect(screen.getByTestId('add-evidence-btn')).toBeDefined()
   })
+
+  it('shows evidence composer when add-evidence-btn is clicked', async () => {
+    queryClient.setQueryData(QUERY_KEY, makeTask())
+
+    await act(async () => {
+      render(
+        <Wrapper>
+          <TaskFilesTab taskId="task-1" planId="plan-1" />
+        </Wrapper>,
+      )
+    })
+
+    await act(async () => {
+      await userEvent.click(screen.getByTestId('add-evidence-btn'))
+    })
+
+    expect(screen.getByTestId('evidence-kind-file')).toBeDefined()
+    expect(screen.getByTestId('evidence-kind-link')).toBeDefined()
+    expect(screen.getByTestId('evidence-kind-note')).toBeDefined()
+  })
+
+  it('switches active evidence kind when kind button is clicked', async () => {
+    queryClient.setQueryData(QUERY_KEY, makeTask())
+    mockCreateNoteMutate.mockResolvedValue(undefined)
+
+    await act(async () => {
+      render(
+        <Wrapper>
+          <TaskFilesTab taskId="task-1" planId="plan-1" />
+        </Wrapper>,
+      )
+    })
+
+    await act(async () => {
+      await userEvent.click(screen.getByTestId('add-evidence-btn'))
+    })
+    await act(async () => {
+      await userEvent.click(screen.getByTestId('evidence-kind-note'))
+    })
+
+    expect(screen.getByTestId('composer-submit')).toBeDefined()
+  })
+
+  it('calls createNote.mutate when note form is submitted', async () => {
+    queryClient.setQueryData(QUERY_KEY, makeTask())
+    mockCreateNoteMutate.mockResolvedValue(undefined)
+
+    await act(async () => {
+      render(
+        <Wrapper>
+          <TaskFilesTab taskId="task-1" planId="plan-1" />
+        </Wrapper>,
+      )
+    })
+
+    await act(async () => {
+      await userEvent.click(screen.getByTestId('add-evidence-btn'))
+    })
+    await act(async () => {
+      await userEvent.click(screen.getByTestId('evidence-kind-note'))
+    })
+
+    const captionInput = screen.getByPlaceholderText(/What does this prove/i)
+    await act(async () => {
+      await userEvent.type(captionInput, 'Test observation')
+    })
+    await act(async () => {
+      await userEvent.click(screen.getByTestId('composer-submit'))
+    })
+
+    expect(mockCreateNoteMutate).toHaveBeenCalledOnce()
+    expect(mockCreateNoteMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskId: 'task-1',
+        planId: 'plan-1',
+        actorId: 'actor-1',
+        tenantId: 'tenant-1',
+        caption: 'Test observation',
+      }),
+    )
+  })
+
+  it('shows evidence items returned by list query', async () => {
+    queryClient.setQueryData(QUERY_KEY, makeTask())
+    mockEvidenceListQuery.mockResolvedValue({
+      items: [
+        {
+          id: 'ev-1',
+          kind: 'note',
+          caption: 'An observation',
+          submittedBy: 'actor-1',
+          submittedAt: new Date('2026-01-01T00:00:00Z'),
+        },
+      ],
+    })
+
+    await act(async () => {
+      render(
+        <Wrapper>
+          <TaskFilesTab taskId="task-1" planId="plan-1" />
+        </Wrapper>,
+      )
+    })
+
+    expect(screen.getByTestId('evidence-card')).toBeDefined()
+    expect(screen.getByText('An observation')).toBeDefined()
+  })
 })
