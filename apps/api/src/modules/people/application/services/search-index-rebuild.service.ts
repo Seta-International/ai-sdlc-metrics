@@ -8,6 +8,10 @@ import {
   type IEmploymentRepository,
 } from '../../domain/repositories/employment.repository'
 import {
+  EMPLOYMENT_DETAIL_REPOSITORY,
+  type IEmploymentDetailRepository,
+} from '../../domain/repositories/employment-detail.repository'
+import {
   PERSON_PROFILE_REPOSITORY,
   type IPersonProfileRepository,
 } from '../../domain/repositories/person-profile.repository'
@@ -27,6 +31,8 @@ export class SearchIndexRebuildService {
     private readonly searchIndexRepo: IDirectorySearchIndexRepository,
     @Inject(EMPLOYMENT_REPOSITORY)
     private readonly employmentRepo: IEmploymentRepository,
+    @Inject(EMPLOYMENT_DETAIL_REPOSITORY)
+    private readonly employmentDetailRepo: IEmploymentDetailRepository,
     @Inject(PERSON_PROFILE_REPOSITORY)
     private readonly profileRepo: IPersonProfileRepository,
     @Inject(JOB_ASSIGNMENT_REPOSITORY)
@@ -49,19 +55,19 @@ export class SearchIndexRebuildService {
     }
 
     const currentAssignment = await this.assignmentRepo.findCurrent(employmentId, tenantId)
-    let jobTitle: string | null = null
+    const detail = await this.employmentDetailRepo.findByEmploymentId(employmentId, tenantId)
+    let jobTitle: string | null = detail?.msJobTitle ?? null
     let jobLevel: string | null = null
-    let departmentName: string | null = null
+    const departmentName: string | null = detail?.msDepartment ?? null
 
     if (currentAssignment) {
       const jobProfile = await this.jobProfileRepo.findById(
         currentAssignment.jobProfileId,
         tenantId,
       )
-      jobTitle = jobProfile?.title ?? null
+      jobTitle = jobProfile?.title ?? jobTitle
       jobLevel = jobProfile?.level ?? null
-      // departmentName resolved via kernel facade in real implementation
-      departmentName = null
+      // departmentName resolved via kernel facade in real implementation; fall back to MS365 value
     }
 
     await this.searchIndexRepo.upsert({
