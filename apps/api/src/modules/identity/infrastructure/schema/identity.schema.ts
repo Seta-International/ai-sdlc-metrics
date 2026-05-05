@@ -36,6 +36,8 @@ export const identityProvider = identitySchema.table(
     })
       .notNull()
       .default('idle'),
+    syncProcessed: integer('sync_processed').notNull().default(0),
+    syncTotal: integer('sync_total').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },

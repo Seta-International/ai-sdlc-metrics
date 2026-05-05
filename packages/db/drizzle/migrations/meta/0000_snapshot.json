@@ -1,5 +1,5 @@
 {
-  "id": "34a7ac7f-5b2b-47fa-ad5d-d212cf0464c7",
+  "id": "3a17a2b3-f86b-48cc-9ded-4fb8be9628b3",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -4955,6 +4955,20 @@
           "notNull": true,
           "default": "'idle'"
         },
+        "sync_processed": {
+          "name": "sync_processed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "sync_total": {
+          "name": "sync_total",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -8486,6 +8500,18 @@
         },
         "work_phone": {
           "name": "work_phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ms_job_title": {
+          "name": "ms_job_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ms_department": {
+          "name": "ms_department",
           "type": "text",
           "primaryKey": false,
           "notNull": false

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SearchIndexRebuildService } from './search-index-rebuild.service'
 import type { IDirectorySearchIndexRepository } from '../../domain/repositories/directory-search-index.repository'
 import type { IEmploymentRepository } from '../../domain/repositories/employment.repository'
+import type { IEmploymentDetailRepository } from '../../domain/repositories/employment-detail.repository'
 import type { IPersonProfileRepository } from '../../domain/repositories/person-profile.repository'
 import type { IJobAssignmentRepository } from '../../domain/repositories/job-assignment.repository'
 import type { IJobProfileRepository } from '../../domain/repositories/job-profile.repository'
@@ -15,6 +16,7 @@ describe('SearchIndexRebuildService', () => {
   let service: SearchIndexRebuildService
   let searchIndexRepo: IDirectorySearchIndexRepository
   let employmentRepo: IEmploymentRepository
+  let employmentDetailRepo: IEmploymentDetailRepository
   let profileRepo: IPersonProfileRepository
   let assignmentRepo: IJobAssignmentRepository
   let jobProfileRepo: IJobProfileRepository
@@ -55,6 +57,11 @@ describe('SearchIndexRebuildService', () => {
       closeAssignment: vi.fn(),
       delete: vi.fn(),
     }
+    employmentDetailRepo = {
+      findByEmploymentId: vi.fn().mockResolvedValue(null),
+      insert: vi.fn(),
+      update: vi.fn(),
+    }
     jobProfileRepo = {
       findById: vi.fn(),
       listByTenant: vi.fn(),
@@ -66,6 +73,7 @@ describe('SearchIndexRebuildService', () => {
     service = new SearchIndexRebuildService(
       searchIndexRepo,
       employmentRepo,
+      employmentDetailRepo,
       profileRepo,
       assignmentRepo,
       jobProfileRepo,
@@ -211,6 +219,101 @@ describe('SearchIndexRebuildService', () => {
         jobLevel: null,
         departmentName: null,
         workArrangement: 'onsite',
+      }),
+    )
+  })
+
+  it('uses msJobTitle and msDepartment from employment detail when no job profile title', async () => {
+    vi.mocked(employmentRepo.findById).mockResolvedValue({
+      id: EMPLOYMENT_ID,
+      tenantId: TENANT_ID,
+      personProfileId: PROFILE_ID,
+      companyEmail: 'ms@co.com',
+      employmentStatus: 'active',
+      hireDate: new Date('2025-01-15'),
+      workerType: 'employee',
+      employmentType: 'permanent',
+      countryCode: 'VN',
+      employeeCode: null,
+      terminationDate: null,
+      terminationReason: null,
+      originalHireDate: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    vi.mocked(profileRepo.findById).mockResolvedValue({
+      id: PROFILE_ID,
+      tenantId: TENANT_ID,
+      actorId: 'actor-ms',
+      familyName: 'Lê',
+      middleName: null,
+      givenName: 'Hoa',
+      fullName: 'Lê Hoa',
+      fullNameUnaccented: 'Le Hoa',
+      preferredName: null,
+      nameDisplayOrder: 'family_first',
+      dateOfBirth: null,
+      gender: null,
+      nationality: null,
+      maritalStatus: null,
+      photoDocumentId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    vi.mocked(assignmentRepo.findCurrent).mockResolvedValue({
+      id: 'assign-ms',
+      tenantId: TENANT_ID,
+      employmentId: EMPLOYMENT_ID,
+      effectiveFrom: new Date('2025-01-15'),
+      effectiveTo: null,
+      jobProfileId: 'default',
+      departmentId: null,
+      locationId: null,
+      costCenterId: null,
+      workArrangement: 'onsite',
+      managerId: null,
+      eventType: 'hire',
+      reason: null,
+      createdBy: 'system',
+      createdAt: new Date(),
+    })
+    vi.mocked(jobProfileRepo.findById).mockResolvedValue(null)
+    vi.mocked(employmentDetailRepo.findByEmploymentId).mockResolvedValue({
+      id: 'det-1',
+      tenantId: TENANT_ID,
+      employmentId: EMPLOYMENT_ID,
+      nationalId: null,
+      nationalIdType: null,
+      nationalIdIssuedDate: null,
+      nationalIdExpiryDate: null,
+      taxId: null,
+      socialInsuranceId: null,
+      passportNumber: null,
+      passportExpiryDate: null,
+      bankAccountNumber: null,
+      bankName: null,
+      bankBranch: null,
+      bankAccountHolder: null,
+      bankSwiftCode: null,
+      personalEmail: null,
+      personalPhone: null,
+      permanentAddress: null,
+      currentAddress: null,
+      emergencyContacts: null,
+      countryData: null,
+      customFields: null,
+      officeLocation: null,
+      workPhone: null,
+      msJobTitle: 'Senior Engineer',
+      msDepartment: 'Engineering',
+    })
+
+    await service.rebuildForEmployment(EMPLOYMENT_ID, TENANT_ID)
+
+    expect(searchIndexRepo.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobTitle: 'Senior Engineer',
+        departmentName: 'Engineering',
       }),
     )
   })

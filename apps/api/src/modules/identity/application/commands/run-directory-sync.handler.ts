@@ -59,12 +59,18 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
         directoryProvider.listGroupsWithMembers(),
       ])
 
+      await this.providerRepo.update(command.identityProviderId, command.tenantId, {
+        syncTotal: idpUsers.length,
+        syncProcessed: 0,
+      })
+
       const mappings = await this.mappingRepo.findByProviderId(
         command.identityProviderId,
         command.tenantId,
       )
 
       // Provision / deactivate users
+      let syncProcessed = 0
       for (const user of idpUsers) {
         if (user.isActive) {
           const existing = await this.kernelQueryFacade.getUserIdentityBySsoSubject(
@@ -90,6 +96,12 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
           await this.actorFacade.deactivateActor(user.externalId, command.tenantId)
           await this.userIdentityFacade.deprovisionUserIdentity(command.tenantId, user.externalId)
         }
+        syncProcessed++
+        if (syncProcessed % 10 === 0) {
+          await this.providerRepo.update(command.identityProviderId, command.tenantId, {
+            syncProcessed,
+          })
+        }
       }
 
       // Apply group-to-role mappings
@@ -112,6 +124,8 @@ export class RunDirectorySyncHandler implements ICommandHandler<RunDirectorySync
       await this.providerRepo.update(command.identityProviderId, command.tenantId, {
         syncStatus: 'idle',
         lastSyncAt: new Date(),
+        syncProcessed: idpUsers.length,
+        syncTotal: idpUsers.length,
       })
 
       await this.auditFacade.recordEvent({

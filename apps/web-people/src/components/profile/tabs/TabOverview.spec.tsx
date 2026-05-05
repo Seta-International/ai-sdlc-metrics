@@ -110,6 +110,10 @@ const baseProfile: EmployeeProfile = {
     managerName: null,
     effectiveDate: '2023-01-15',
   },
+  personalEmail: null,
+  personalPhone: null,
+  officeLocation: null,
+  workPhone: null,
   emergencyContacts: [
     {
       id: 'ec-1',
@@ -250,6 +254,33 @@ describe('TabOverview — view mode', () => {
     )
     expect(screen.queryByRole('button', { name: /save/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /cancel/i })).toBeNull()
+  })
+
+  it('renders imported Microsoft contact details when they are present on the profile model', () => {
+    render(
+      <TabOverview
+        profile={
+          {
+            ...baseProfile,
+            personalPhone: '0901',
+            officeLocation: 'HCM',
+            workPhone: '0902',
+          } as EmployeeProfile
+        }
+        employmentId="emp-1"
+        canEditPersonal={false}
+        canEditBank={false}
+        canViewSalary={false}
+        isEditing={false}
+        dirtyFields={new Map()}
+        onFieldChange={vi.fn()}
+        onSaved={() => {}}
+      />,
+    )
+
+    expect(screen.getByText('0901')).toBeTruthy()
+    expect(screen.getByText('HCM')).toBeTruthy()
+    expect(screen.getByText('0902')).toBeTruthy()
   })
 })
 

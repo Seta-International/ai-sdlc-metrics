@@ -45,15 +45,50 @@ vi.mock('../../lib/trpc', () => ({
 }))
 
 vi.mock('./hero/ProfileHero', () => ({
-  ProfileHero: ({ onEdit }: { onEdit?: () => void }) => (
+  ProfileHero: ({
+    onEdit,
+    profile,
+  }: {
+    onEdit?: () => void
+    profile?: Record<string, unknown>
+  }) => (
     <div data-testid="hero">
       <button data-testid="hero-edit-btn" onClick={onEdit}>
         Edit profile
       </button>
+      <div data-testid="hero-current-job-title">
+        {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (profile as any)?.currentJob?.jobTitle ?? 'missing-job-title'
+        }
+      </div>
+      <div data-testid="hero-current-department">
+        {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (profile as any)?.currentJob?.departmentName ?? 'missing-department'
+        }
+      </div>
     </div>
   ),
 }))
-vi.mock('./tabs/TabOverview', () => ({ TabOverview: () => null }))
+vi.mock('./tabs/TabOverview', () => ({
+  TabOverview: ({ profile }: { profile?: Record<string, unknown> }) => (
+    <div data-testid="tab-overview">
+      <div data-testid="overview-personal-phone">
+        {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (profile as any)?.personalPhone ?? 'missing-personal-phone'
+        }
+      </div>
+      <div data-testid="overview-office-location">
+        {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (profile as any)?.officeLocation ?? 'missing-office-location'
+        }
+      </div>
+    </div>
+  ),
+}))
 vi.mock('./tabs/TabJobHistory', () => ({ TabJobHistory: () => null }))
 vi.mock('./tabs/TabDocuments', () => ({ TabDocuments: () => null }))
 vi.mock('./tabs/TabCompensation', () => ({ TabCompensation: () => null }))
@@ -153,6 +188,61 @@ describe('ProfilePage', () => {
 
     render(<ProfilePage employmentId="emp-1" />)
     await waitFor(() => expect(mockGetProfilePermissions).toHaveBeenCalled())
+  })
+
+  it('maps imported Microsoft job and contact fields into the overview model', async () => {
+    mockGetEmployment.mockResolvedValueOnce({
+      ...fullEmployment,
+      currentAssignment: {
+        id: 'assignment-1',
+        jobProfileId: 'default',
+        departmentId: null,
+        locationId: null,
+        costCenterId: null,
+        workArrangement: 'onsite',
+        managerId: null,
+        eventType: 'hire',
+        reason: 'MS365 directory import',
+        createdBy: 'actor-1',
+        effectiveFrom: '2025-01-01',
+        effectiveTo: null,
+      },
+      detail: {
+        nationalId: null,
+        nationalIdType: null,
+        nationalIdIssuedDate: null,
+        nationalIdExpiryDate: null,
+        taxId: null,
+        socialInsuranceId: null,
+        passportNumber: null,
+        passportExpiryDate: null,
+        bankAccountNumber: null,
+        bankName: null,
+        bankBranch: null,
+        bankAccountHolder: null,
+        bankSwiftCode: null,
+        personalEmail: null,
+        personalPhone: '0901',
+        permanentAddress: null,
+        currentAddress: null,
+        emergencyContacts: null,
+        countryData: null,
+        customFields: null,
+        officeLocation: 'HCM',
+        workPhone: '0902',
+        msJobTitle: 'Senior Engineer',
+        msDepartment: 'Platform',
+      },
+    })
+
+    render(<ProfilePage employmentId="emp-1" />)
+
+    await waitFor(() =>
+      expect(screen.getByTestId('hero-current-job-title')).toHaveTextContent('Senior Engineer'),
+    )
+    expect(screen.getByTestId('hero-current-department')).toHaveTextContent('Platform')
+    expect(screen.getByTestId('overview-personal-phone')).toHaveTextContent('0901')
+    expect(screen.getByTestId('overview-office-location')).toHaveTextContent('HCM')
   })
 })
 

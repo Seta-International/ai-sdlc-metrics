@@ -36,6 +36,8 @@ const microsoftProvider: IdentityProviderEntity = {
   syncEnabled: true,
   lastSyncAt: null,
   syncStatus: 'idle',
+  syncProcessed: 0,
+  syncTotal: 0,
   createdAt: new Date(),
   updatedAt: new Date(),
 }
@@ -52,6 +54,8 @@ const googleProvider: IdentityProviderEntity = {
   syncEnabled: false,
   lastSyncAt: null,
   syncStatus: 'idle',
+  syncProcessed: 0,
+  syncTotal: 0,
   createdAt: new Date(),
   updatedAt: new Date(),
 }

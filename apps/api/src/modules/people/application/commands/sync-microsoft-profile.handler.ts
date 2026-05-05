@@ -26,6 +26,42 @@ import {
 } from '../../domain/ports/people-storage-client.port'
 import { SyncMicrosoftProfileCommand } from './sync-microsoft-profile.command'
 
+function buildEmploymentDetailInsert(
+  tenantId: string,
+  employmentId: string,
+  data: Partial<Omit<EmploymentDetail, 'id' | 'tenantId' | 'employmentId'>>,
+): Omit<EmploymentDetail, 'id'> {
+  return {
+    tenantId,
+    employmentId,
+    nationalId: null,
+    nationalIdType: null,
+    nationalIdIssuedDate: null,
+    nationalIdExpiryDate: null,
+    taxId: null,
+    socialInsuranceId: null,
+    passportNumber: null,
+    passportExpiryDate: null,
+    bankAccountNumber: null,
+    bankName: null,
+    bankBranch: null,
+    bankAccountHolder: null,
+    bankSwiftCode: null,
+    personalEmail: null,
+    personalPhone: null,
+    permanentAddress: null,
+    currentAddress: null,
+    emergencyContacts: null,
+    countryData: null,
+    customFields: null,
+    officeLocation: null,
+    workPhone: null,
+    msJobTitle: null,
+    msDepartment: null,
+    ...data,
+  }
+}
+
 export interface SyncResult {
   updatedFields: string[]
   skippedFields: string[]
@@ -112,9 +148,27 @@ export class SyncMicrosoftProfileHandler implements ICommandHandler<
       detailUpdates.workPhone = msData.businessPhone
       updatedFields.push('workPhone')
     }
+    if (msData.jobTitle != null) {
+      detailUpdates.msJobTitle = msData.jobTitle
+      updatedFields.push('msJobTitle')
+    }
+    if (msData.department != null) {
+      detailUpdates.msDepartment = msData.department
+      updatedFields.push('msDepartment')
+    }
 
     if (Object.keys(detailUpdates).length > 0) {
-      await this.employmentDetailRepo.update(employment.id, command.tenantId, detailUpdates)
+      const existingDetail = await this.employmentDetailRepo.findByEmploymentId(
+        employment.id,
+        command.tenantId,
+      )
+      if (existingDetail) {
+        await this.employmentDetailRepo.update(employment.id, command.tenantId, detailUpdates)
+      } else {
+        await this.employmentDetailRepo.insert(
+          buildEmploymentDetailInsert(command.tenantId, employment.id, detailUpdates),
+        )
+      }
     }
 
     return { updatedFields, skippedFields }

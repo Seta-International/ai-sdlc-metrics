@@ -687,6 +687,8 @@ CREATE TABLE "identity"."identity_provider" (
 	"sync_enabled" boolean DEFAULT false NOT NULL,
 	"last_sync_at" timestamp,
 	"sync_status" text DEFAULT 'idle' NOT NULL,
+	"sync_processed" integer DEFAULT 0 NOT NULL,
+	"sync_total" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -1217,7 +1219,9 @@ CREATE TABLE "people"."employment_detail" (
 	"country_data" jsonb,
 	"custom_fields" jsonb,
 	"office_location" text,
-	"work_phone" text
+	"work_phone" text,
+	"ms_job_title" text,
+	"ms_department" text
 );
 --> statement-breakpoint
 CREATE TABLE "people"."import_job" (

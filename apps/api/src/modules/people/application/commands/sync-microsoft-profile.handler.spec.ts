@@ -89,6 +89,8 @@ function makeDetail(overrides: Partial<EmploymentDetail> = {}): EmploymentDetail
     customFields: null,
     officeLocation: null,
     workPhone: null,
+    msJobTitle: null,
+    msDepartment: null,
     ...overrides,
   }
 }
@@ -100,6 +102,8 @@ const fullMsData = {
   mobilePhone: '+84901234567',
   businessPhone: '+84281234567',
   photo: Buffer.from('jpeg-bytes'),
+  jobTitle: 'Senior Engineer',
+  department: 'Engineering',
 }
 
 describe('SyncMicrosoftProfileHandler', () => {
@@ -130,7 +134,7 @@ describe('SyncMicrosoftProfileHandler', () => {
       update: vi.fn(),
     }
     employmentDetailRepo = {
-      findByEmploymentId: vi.fn(),
+      findByEmploymentId: vi.fn().mockResolvedValue(makeDetail()),
       insert: vi.fn(),
       update: vi.fn(),
     }
@@ -200,6 +204,8 @@ describe('SyncMicrosoftProfileHandler', () => {
         'officeLocation',
         'personalPhone',
         'workPhone',
+        'msJobTitle',
+        'msDepartment',
       ]),
     )
     expect(personProfileRepo.update).toHaveBeenCalledWith(
@@ -219,6 +225,8 @@ describe('SyncMicrosoftProfileHandler', () => {
         officeLocation: 'Ho Chi Minh City',
         personalPhone: '+84901234567',
         workPhone: '+84281234567',
+        msJobTitle: 'Senior Engineer',
+        msDepartment: 'Engineering',
       }),
     )
     expect(storageClient.putObject).toHaveBeenCalledWith(
@@ -263,6 +271,32 @@ describe('SyncMicrosoftProfileHandler', () => {
 
     expect(personProfileRepo.update).not.toHaveBeenCalled()
     expect(employmentRepo.update).not.toHaveBeenCalled()
+    expect(employmentDetailRepo.update).not.toHaveBeenCalled()
+  })
+
+  it('inserts employment detail when the record is missing', async () => {
+    vi.mocked(employmentRepo.findById).mockResolvedValue(makeEmployment())
+    vi.mocked(personProfileRepo.findById).mockResolvedValue(makeProfile())
+    vi.mocked(identityFacade.getMicrosoftUserData).mockResolvedValue(fullMsData)
+    vi.mocked(storageClient.putObject).mockResolvedValue(undefined)
+    vi.mocked(personProfileRepo.update).mockResolvedValue(makeProfile())
+    vi.mocked(employmentRepo.update).mockResolvedValue(makeEmployment())
+    vi.mocked(employmentDetailRepo.findByEmploymentId).mockResolvedValue(null)
+    vi.mocked(employmentDetailRepo.insert).mockResolvedValue(makeDetail())
+
+    await handler.execute(new SyncMicrosoftProfileCommand(TENANT_ID, EMPLOYMENT_ID, PERFORMER_ID))
+
+    expect(employmentDetailRepo.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: TENANT_ID,
+        employmentId: EMPLOYMENT_ID,
+        officeLocation: 'Ho Chi Minh City',
+        personalPhone: '+84901234567',
+        workPhone: '+84281234567',
+        msJobTitle: 'Senior Engineer',
+        msDepartment: 'Engineering',
+      }),
+    )
     expect(employmentDetailRepo.update).not.toHaveBeenCalled()
   })
 })

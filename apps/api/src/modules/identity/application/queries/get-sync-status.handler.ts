@@ -14,6 +14,8 @@ import { GetSyncStatusQuery } from './get-sync-status.query'
 export interface SyncStatusDto {
   syncEnabled: boolean
   syncStatus: string | null
+  syncProcessed: number | null
+  syncTotal: number | null
   lastSyncAt: string | null
   nextScheduledAt: string | null
   lastSyncStats: {
@@ -43,6 +45,8 @@ export class GetSyncStatusHandler implements IQueryHandler<GetSyncStatusQuery, S
       return {
         syncEnabled: false,
         syncStatus: null,
+        syncProcessed: null,
+        syncTotal: null,
         lastSyncAt: null,
         nextScheduledAt: null,
         lastSyncStats: null,
@@ -56,6 +60,8 @@ export class GetSyncStatusHandler implements IQueryHandler<GetSyncStatusQuery, S
     return {
       syncEnabled: provider.syncEnabled,
       syncStatus: provider.syncStatus,
+      syncProcessed: provider.syncProcessed,
+      syncTotal: provider.syncTotal,
       lastSyncAt: provider.lastSyncAt?.toISOString() ?? null,
       nextScheduledAt: nextScheduled?.toISOString() ?? null,
       lastSyncStats: lastSync

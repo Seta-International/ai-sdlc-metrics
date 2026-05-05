@@ -30,7 +30,16 @@ export function TabOverview({
   onFieldChange,
   onSaved: _onSaved,
 }: TabOverviewProps) {
-  const { personProfile, employment, currentJob, emergencyContacts } = profile
+  const {
+    personProfile,
+    employment,
+    currentJob,
+    personalEmail,
+    personalPhone,
+    officeLocation,
+    workPhone,
+    emergencyContacts,
+  } = profile
   const pendingFields = usePendingFieldPaths(employmentId)
 
   return (
@@ -214,7 +223,7 @@ export function TabOverview({
               >
                 <span className="text-xs text-muted-foreground">Personal email</span>
                 <span className="flex items-center gap-2 text-xs text-secondary-foreground">
-                  {'—'}
+                  {personalEmail ?? '—'}
                   {pendingFields.has('employment_detail.personal_email') && (
                     <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
                       Pending
@@ -228,7 +237,7 @@ export function TabOverview({
               >
                 <span className="text-xs text-muted-foreground">Personal phone</span>
                 <span className="flex items-center gap-2 text-xs text-secondary-foreground">
-                  {'—'}
+                  {personalPhone ?? '—'}
                   {pendingFields.has('employment_detail.personal_phone') && (
                     <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
                       Pending
@@ -236,6 +245,8 @@ export function TabOverview({
                   )}
                 </span>
               </div>
+              <KVRow label="Office location" value={officeLocation} />
+              <KVRow label="Work phone" value={workPhone} />
             </>
           )}
         </ProfileCard>

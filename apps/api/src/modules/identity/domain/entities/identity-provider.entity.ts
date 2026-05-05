@@ -13,6 +13,8 @@ export interface IdentityProviderEntity {
   syncEnabled: boolean
   lastSyncAt: Date | null
   syncStatus: IdpSyncStatus
+  syncProcessed: number
+  syncTotal: number
   createdAt: Date
   updatedAt: Date
 }

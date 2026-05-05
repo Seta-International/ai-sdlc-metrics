@@ -32,6 +32,8 @@ export interface IIdentityProviderRepository {
         | 'syncEnabled'
         | 'lastSyncAt'
         | 'syncStatus'
+        | 'syncProcessed'
+        | 'syncTotal'
       >
     >,
   ): Promise<void>

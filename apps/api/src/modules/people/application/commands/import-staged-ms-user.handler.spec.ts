@@ -64,6 +64,9 @@ function makeMocks() {
     update: vi.fn().mockResolvedValue(undefined),
   }
   const employmentDetailRepo: Partial<IEmploymentDetailRepository> = {
+    findByEmploymentId: vi
+      .fn()
+      .mockResolvedValue({ id: 'detail-1', employmentId: NEW_EMPLOYMENT_ID, tenantId: TENANT_ID }),
     insert: vi.fn().mockResolvedValue(undefined),
     update: vi.fn().mockResolvedValue(undefined),
   }
@@ -293,5 +296,39 @@ describe('ImportStagedMsUserHandler', () => {
     expect(mocks.kernelActorFacade.createActor).not.toHaveBeenCalled()
     expect(mocks.employmentRepo.insert).not.toHaveBeenCalled()
     expect(mocks.eventBus.publish).not.toHaveBeenCalled()
+  })
+
+  it('existing-actor-with-employment: inserts employment detail when the record is missing', async () => {
+    const mocks = makeMocks()
+    vi.mocked(mocks.identityFacade.getActorIdByExternalUserId!).mockResolvedValue('existing-actor')
+    vi.mocked(mocks.employmentRepo.findActiveByActorId!).mockResolvedValue({
+      id: 'existing-emp',
+      tenantId: TENANT_ID,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+    vi.mocked(mocks.personProfileRepo.findByActorId!).mockResolvedValue({
+      id: 'pp-existing',
+      actorId: 'existing-actor',
+      tenantId: TENANT_ID,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+    vi.mocked(mocks.employmentDetailRepo.findByEmploymentId!).mockResolvedValue(null)
+
+    await makeHandler(mocks).execute(
+      new ImportStagedMsUserCommand(TENANT_ID, STAGED_ID, IMPORTED_BY),
+    )
+
+    expect(mocks.employmentDetailRepo.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: TENANT_ID,
+        employmentId: 'existing-emp',
+        msJobTitle: 'Engineer',
+        msDepartment: 'Eng',
+        officeLocation: 'HCM',
+        workPhone: '0902',
+        personalPhone: '0901',
+      }),
+    )
+    expect(mocks.employmentDetailRepo.update).not.toHaveBeenCalled()
   })
 })

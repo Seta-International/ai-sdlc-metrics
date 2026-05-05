@@ -37,6 +37,8 @@ export interface GraphUserProfile {
   officeLocation: string | null
   mobilePhone: string | null
   businessPhones: string[]
+  jobTitle: string | null
+  department: string | null
 }
 
 export interface GraphUserPatch {
@@ -151,7 +153,7 @@ export class MicrosoftGraphProvider implements IDirectoryProvider {
     msUserId: string,
   ): Promise<{ user: GraphUserProfile; photo: Buffer | null }> {
     const user = await this.graphFetch<GraphUserProfile>(
-      `/users/${encodeURIComponent(msUserId)}?$select=id,displayName,mail,officeLocation,mobilePhone,businessPhones`,
+      `/users/${encodeURIComponent(msUserId)}?$select=id,displayName,mail,officeLocation,mobilePhone,businessPhones,jobTitle,department`,
     )
     const photo = await this.fetchUserPhoto(msUserId)
     return { user, photo }
