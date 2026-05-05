@@ -235,6 +235,8 @@ export class IdentityMsGraphCredentialFacade {
       syncEnabled: false,
       lastSyncAt: null,
       syncStatus: 'idle',
+      syncProcessed: 0,
+      syncTotal: 0,
       createdAt: now,
       updatedAt: now,
     }
@@ -257,6 +259,8 @@ export class IdentityMsGraphCredentialFacade {
       syncEnabled: false,
       lastSyncAt: null,
       syncStatus: 'idle',
+      syncProcessed: 0,
+      syncTotal: 0,
       createdAt: now,
       updatedAt: now,
     }
