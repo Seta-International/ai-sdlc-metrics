@@ -206,10 +206,6 @@ function isTripwireVariant<T extends { kind: string }>(
   return r.kind === 'tripwire'
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
 @Injectable()
 export class ToolGateway implements ToolGatewayPort {
   private readonly logger = new Logger(ToolGateway.name)
@@ -836,17 +832,6 @@ export class ToolGateway implements ToolGatewayPort {
     }
 
     let invokeResult = await invokeStep()
-
-    // Single transient retry (200 ms + 0-100 ms jitter)
-    if (
-      isTripwireVariant(invokeResult) &&
-      invokeResult.variant === 'transient_infra_error' &&
-      invokeResult.disposition === 'retry'
-    ) {
-      retryCount = 1
-      await sleep(200 + Math.floor(Math.random() * 100))
-      invokeResult = await invokeStep()
-    }
 
     if (isTripwireVariant(invokeResult)) {
       // Fail the cache handle — releases coalesced waiters

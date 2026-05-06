@@ -610,43 +610,8 @@ describe('ToolGateway', () => {
     })
   })
 
-  describe('transient infra retry', () => {
-    beforeEach(() => {
-      vi.useFakeTimers()
-    })
-    afterEach(() => {
-      vi.useRealTimers()
-    })
-
-    it('caller fails once with ECONNRESET, succeeds on retry — caller called twice, success returned', async () => {
-      const descriptor = makeDescriptor()
-      const registry = makeRegistry(descriptor)
-      const { facade, recordEvent } = makeAuditFacade()
-
-      const callFn = vi
-        .fn()
-        .mockRejectedValueOnce(new Error('read ECONNRESET'))
-        .mockResolvedValueOnce({ tasks: ['retry-success'] })
-      const caller = { call: callFn } as unknown as TrpcCaller
-      const gw = makeGateway(registry, caller, facade)
-
-      const invokePromise = gw.invoke(makeInput())
-      // Advance timers to let the retry sleep pass
-      await vi.runAllTimersAsync()
-      const result = await invokePromise
-
-      expect(callFn).toHaveBeenCalledTimes(2)
-      expect(result.kind).toBe('ok')
-      // Single success audit row
-      expect(recordEvent).toHaveBeenCalledTimes(1)
-      expect(recordEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          payload: expect.objectContaining({ resultStatus: 'success' }),
-        }),
-      )
-    })
-
-    it('both transient failures → transient_infra_error, retry disposition, audit emitted', async () => {
+  describe('transient infra error (no gateway retry — provider retry lives in LLM clients)', () => {
+    it('caller fails with ECONNRESET — surfaces transient_infra_error immediately, caller invoked once', async () => {
       const descriptor = makeDescriptor()
       const registry = makeRegistry(descriptor)
       const { facade, recordEvent } = makeAuditFacade()
@@ -655,11 +620,10 @@ describe('ToolGateway', () => {
       const caller = { call: callFn } as unknown as TrpcCaller
       const gw = makeGateway(registry, caller, facade)
 
-      const invokePromise = gw.invoke(makeInput())
-      await vi.runAllTimersAsync()
-      const result = await invokePromise
+      const result = await gw.invoke(makeInput())
 
-      expect(callFn).toHaveBeenCalledTimes(2)
+      // No retry — exactly one invocation
+      expect(callFn).toHaveBeenCalledTimes(1)
       expect(result.kind).toBe('tripwire')
       if (result.kind === 'tripwire') {
         expect(result.variant).toBe('transient_infra_error')
