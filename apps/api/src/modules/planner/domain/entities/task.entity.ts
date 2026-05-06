@@ -20,6 +20,8 @@ interface TaskProps {
   tenantId: string
   planId: string
   bucketId: string
+  parentTaskId: string | null
+  sprintId: string | null
   title: string
   description: string
   progress: 0 | 50 | 100
@@ -65,10 +67,12 @@ export class Task {
   private _assignees: TaskAssignee[]
   private _appliedLabels: LabelSlot[]
   private _coverAttachmentId: string | null
+  private _sprintId: string | null
 
   readonly id: string
   readonly tenantId: string
   readonly planId: string
+  readonly parentTaskId: string | null
   readonly createdBy: string
   readonly createdAt: Date
   readonly msTaskId: string | null
@@ -81,6 +85,7 @@ export class Task {
     this.id = props.id
     this.tenantId = props.tenantId
     this.planId = props.planId
+    this.parentTaskId = props.parentTaskId
     this._bucketId = props.bucketId
     this._title = props.title
     this._description = props.description
@@ -101,6 +106,7 @@ export class Task {
     this._assignees = props.assignees
     this._appliedLabels = props.appliedLabels
     this._coverAttachmentId = props.coverAttachmentId
+    this._sprintId = props.sprintId
     this.msTaskId = props.msTaskId
     this.msTaskEtag = props.msTaskEtag
     this.msTaskDetailsEtag = props.msTaskDetailsEtag
@@ -182,6 +188,10 @@ export class Task {
     return this._coverAttachmentId
   }
 
+  get sprintId(): string | null {
+    return this._sprintId
+  }
+
   // ─── Factory methods ──────────────────────────────────────────────────────
 
   static create(props: {
@@ -194,6 +204,7 @@ export class Task {
     createdBy: string
     description?: string
     priority?: number
+    parentTaskId?: string | null
   }): Task {
     const now = new Date()
     return new Task({
@@ -201,6 +212,8 @@ export class Task {
       tenantId: props.tenantId,
       planId: props.planId,
       bucketId: props.bucketId,
+      parentTaskId: props.parentTaskId ?? null,
+      sprintId: null,
       title: props.title,
       description: props.description ?? '',
       progress: 0,
@@ -233,6 +246,8 @@ export class Task {
     tenantId: string
     planId: string
     bucketId: string
+    parentTaskId?: string | null
+    sprintId?: string | null
     title: string
     description: string
     progress: number
@@ -263,6 +278,8 @@ export class Task {
       tenantId: props.tenantId,
       planId: props.planId,
       bucketId: props.bucketId,
+      parentTaskId: props.parentTaskId ?? null,
+      sprintId: props.sprintId ?? null,
       title: props.title,
       description: props.description,
       progress: props.progress as 0 | 50 | 100,
@@ -463,6 +480,11 @@ export class Task {
 
   setCoverAttachment(attachmentId: string | null): void {
     this._coverAttachmentId = attachmentId
+    this._updatedAt = new Date()
+  }
+
+  setSprintId(sprintId: string | null): void {
+    this._sprintId = sprintId
     this._updatedAt = new Date()
   }
 
