@@ -168,6 +168,9 @@ import { NotificationsModule } from '../notifications/notifications.module'
 import { NotificationsWriteFacade } from '../notifications/application/facades/notifications-write.facade'
 import { ExecuteApprovedDraftWorker } from './infrastructure/workers/execute-approved-draft'
 import { DraftExpirySweeper } from './infrastructure/workers/sweep-expired-drafts'
+import { WRITE_DEDUP_REPOSITORY } from './domain/repositories/write-dedup.repository'
+import { DrizzleWriteDedupRepository } from './infrastructure/repositories/drizzle-write-dedup.repository'
+import { SweepExpiredWriteDedupWorker } from './infrastructure/workers/sweep-expired-write-dedup'
 import { DraftApprovalService } from './application/services/draft-approval.service'
 import type { ConversationRepository } from './domain/repositories/conversation.repository'
 import type { ConversationMessageRepository } from './domain/repositories/conversation-message.repository'
@@ -497,6 +500,8 @@ export const CONVERSATION_RETENTION_SCHEDULER = Symbol('CONVERSATION_RETENTION_S
     DraftProposer,
     ExecuteApprovedDraftWorker,
     DraftExpirySweeper,
+    { provide: WRITE_DEDUP_REPOSITORY, useClass: DrizzleWriteDedupRepository },
+    SweepExpiredWriteDedupWorker,
     {
       provide: DraftApprovalService,
       inject: [DRAFT_REPOSITORY, KernelAuditFacade, NotificationsWriteFacade, PgBossService],
@@ -767,6 +772,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     @Inject(READINESS_CHECK_REPOSITORY)
     private readonly readinessCheckRepo: ReadinessCheckRepository,
     private readonly semanticCacheSweeper: SemanticCacheSweeper,
+    private readonly sweepExpiredWriteDedupWorker: SweepExpiredWriteDedupWorker,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -912,5 +918,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
 
     // 5-minute sweep of expired cache rows.
     await this.semanticCacheSweeper.registerJob(this.pgBossService)
+
+    await this.sweepExpiredWriteDedupWorker.registerJob(this.pgBossService)
   }
 }
