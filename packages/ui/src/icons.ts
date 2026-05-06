@@ -3,6 +3,7 @@
 export {
   AlertTriangle,
   ArrowLeft,
+  Brain,
   ArrowRight,
   ArrowUpCircle,
   BarChart2,
@@ -74,6 +75,7 @@ export {
   PlusIcon,
   Receipt,
   RefreshCw,
+  Repeat,
   Search,
   Send,
   Settings,
