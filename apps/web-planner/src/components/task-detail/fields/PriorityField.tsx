@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { useQueryClient } from '@future/api-client'
 import { useSession } from '@future/auth'
-import { Spinner } from '@future/ui'
+import { Button, Spinner } from '@future/ui'
 import { PriorityIcon, type Priority } from '../../primitives/PriorityIcon'
 import { PriorityPicker } from '../../pickers/PriorityPicker'
 import { trpc } from '@/lib/trpc'
@@ -63,16 +63,17 @@ export function PriorityField({ taskId, planId, task }: Props) {
 
   return (
     <div className="relative" ref={ref} data-testid="priority-field">
-      <button
+      <Button
+        variant="ghost"
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-white/4"
+        className="flex w-full items-center gap-2 px-2 py-1.5 text-sm"
         aria-label={`Priority: ${PRIORITY_LABEL[priority]}`}
       >
         <PriorityIcon priority={priority} />
         <span className="flex-1 text-left">{PRIORITY_LABEL[priority]}</span>
         {saving && <Spinner className="size-3" />}
-      </button>
+      </Button>
       {open && (
         <PriorityPicker
           currentPriority={priority}
