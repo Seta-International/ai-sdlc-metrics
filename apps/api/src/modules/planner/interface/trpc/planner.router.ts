@@ -10,6 +10,7 @@ import { evidenceRouter } from './evidence.router'
 import { personalRouter } from './personal.router'
 import { msSyncRouter } from './ms-sync.router'
 import { customFieldRouter } from './custom-field.router'
+import { dependencyRouter } from './dependency.router'
 
 export const plannerRouter = router({
   plans: planRouter,
@@ -23,4 +24,5 @@ export const plannerRouter = router({
   personal: personalRouter,
   msSync: msSyncRouter,
   customFields: customFieldRouter,
+  dependencies: dependencyRouter,
 })

@@ -159,6 +159,10 @@ import { DrizzleMsPlanSyncStateRepository } from './infrastructure/repositories/
 import { DrizzleMsSyncConflictRepository } from './infrastructure/repositories/drizzle-ms-sync-conflict.repository'
 import { DrizzleMsLinkedRosterRepository } from './infrastructure/repositories/drizzle-ms-linked-roster.repository'
 import { DrizzleRosterMemberRepository } from './infrastructure/repositories/drizzle-roster-member.repository'
+import { DrizzleTaskDependencyRepository } from './infrastructure/repositories/drizzle-task-dependency.repository'
+import { AddDependencyHandler } from './application/commands/dependencies/add-dependency.handler'
+import { RemoveDependencyHandler } from './application/commands/dependencies/remove-dependency.handler'
+import { TASK_DEPENDENCY_REPOSITORY } from './domain/repositories/task-dependency.repository'
 
 @Module({
   imports: [CqrsModule, KernelModule, AdminModule, IdentityModule, NotificationsModule],
@@ -282,6 +286,9 @@ import { DrizzleRosterMemberRepository } from './infrastructure/repositories/dri
     { provide: MS_SYNC_CONFLICT_REPOSITORY, useClass: DrizzleMsSyncConflictRepository },
     { provide: MS_LINKED_ROSTER_REPOSITORY, useClass: DrizzleMsLinkedRosterRepository },
     { provide: ROSTER_MEMBER_REPOSITORY, useClass: DrizzleRosterMemberRepository },
+    { provide: TASK_DEPENDENCY_REPOSITORY, useClass: DrizzleTaskDependencyRepository },
+    AddDependencyHandler,
+    RemoveDependencyHandler,
     {
       provide: PLANNER_SECRETS_STORE,
       useFactory: () =>

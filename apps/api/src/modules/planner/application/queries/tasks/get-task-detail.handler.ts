@@ -241,6 +241,31 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
           : null,
     }))
 
+    // ── Query 9: Dependencies ─────────────────────────────────────────────────
+    const depsResult = await this.db.execute<{
+      from_task_id: string
+      to_task_id: string
+      kind: string
+      from_title: string
+      to_title: string
+    }>(
+      sql`SELECT d.from_task_id, d.to_task_id, d.kind,
+                 ft.title AS from_title, tt.title AS to_title
+            FROM planner.task_dependency d
+            JOIN planner.task ft ON ft.id = d.from_task_id
+            JOIN planner.task tt ON tt.id = d.to_task_id
+           WHERE (d.from_task_id = ${taskId} OR d.to_task_id = ${taskId})
+             AND d.tenant_id = ${tenantId}`,
+    )
+
+    const predecessors = depsResult.rows
+      .filter((r) => r.to_task_id === taskId)
+      .map((r) => ({ taskId: r.from_task_id, title: r.from_title, kind: r.kind }))
+
+    const successors = depsResult.rows
+      .filter((r) => r.from_task_id === taskId)
+      .map((r) => ({ taskId: r.to_task_id, title: r.to_title, kind: r.kind }))
+
     // ── Resolve presigned GET URLs for file attachments (sequential — single DB client) ──
     const attachments: TaskDetailSnapshot['attachments'] = []
     for (const row of attachmentResult.rows) {
@@ -292,6 +317,8 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
       appliedLabels,
       attachments,
       customFields,
+      predecessors,
+      successors,
     }
   }
 }
