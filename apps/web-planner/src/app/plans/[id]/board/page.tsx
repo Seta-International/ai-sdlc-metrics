@@ -321,13 +321,29 @@ function BoardInner({ snapshot, planId, actorId, tenantId }: BoardInnerProps) {
       </BoardDragContext>
 
       {openTaskId && (
-        <div className="fixed inset-y-0 right-0 w-120 z-30 shadow-2xl bg-surface">
-          <TaskDetailPanel
-            taskId={openTaskId}
-            planId={planId}
-            onClose={() => setOpenTaskId(null)}
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/85"
+            data-testid="modal-overlay"
+            onClick={() => setOpenTaskId(null)}
           />
-        </div>
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-6"
+            data-testid="modal-container"
+          >
+            <div
+              className="relative flex w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-surface shadow-2xl"
+              style={{ height: '90vh', minHeight: '560px' }}
+              data-testid="modal-inner"
+            >
+              <TaskDetailPanel
+                taskId={openTaskId}
+                planId={planId}
+                onClose={() => setOpenTaskId(null)}
+              />
+            </div>
+          </div>
+        </>
       )}
     </>
   )
