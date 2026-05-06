@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, type ReactNode } from 'react'
-import { PermissionContext } from '@future/ui'
+import { PermissionContext, type PermissionContextValue } from '@future/ui'
 
 export type { PermissionContextValue } from '@future/ui'
 export { PermissionContext } from '@future/ui'
