@@ -1,5 +1,5 @@
 {
-  "id": "4ed152d7-efde-44da-b42e-b5c31150e011",
+  "id": "a2ea9751-9a21-48dc-b48b-4bd2fc0ff990",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -540,6 +540,12 @@
         },
         "execution_outcome": {
           "name": "execution_outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "execution_outcome_note": {
+          "name": "execution_outcome_note",
           "type": "text",
           "primaryKey": false,
           "notNull": false

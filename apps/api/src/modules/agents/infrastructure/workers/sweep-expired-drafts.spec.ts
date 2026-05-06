@@ -35,6 +35,7 @@ function makeDraft(overrides: Partial<Draft> = {}): Draft {
     approvedAt: null,
     executedAt: null,
     executionOutcome: null,
+    executionOutcomeNote: null,
     provenance: {
       triggered_by: INITIATOR_ID,
       user_utterance: 'create a task',

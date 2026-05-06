@@ -56,6 +56,7 @@ function makeDraft(overrides?: Partial<Draft>): Draft {
     approvedAt: new Date('2026-01-02T00:00:00Z'),
     executedAt: null,
     executionOutcome: null,
+    executionOutcomeNote: null,
     provenance: {
       triggered_by: 'user',
       user_utterance: 'log 8 hours',
@@ -70,7 +71,7 @@ function makeDraft(overrides?: Partial<Draft>): Draft {
 function makeRepo(): IDraftRepository {
   return {
     insert: vi.fn(),
-    getById: vi.fn(),
+    getById: vi.fn().mockResolvedValue(makeDraft()),
     updateStatus: vi.fn(),
     atomicTransitionToExecuted: vi.fn(),
     listPendingExpired: vi.fn(),
@@ -225,11 +226,37 @@ describe('draftAuditRouter', () => {
     expect(result.items).toHaveLength(0)
   })
 
+  it('getById — returns the full draft row for the tenant-scoped id', async () => {
+    const caller = draftAuditRouter.createCaller(makeCtx())
+    const result = await caller.getById({ draftId: DRAFT_ID })
+
+    expect(repo.getById).toHaveBeenCalledWith({ tenantId: TENANT_A, draftId: DRAFT_ID })
+    expect(result).toMatchObject({
+      id: DRAFT_ID,
+      toolName: 'timesheet.entry.create',
+      args: { hours: 8 },
+      taintAtDraftTime: false,
+      executionOutcomeNote: null,
+    })
+  })
+
+  it('getById — returns null when repository misses', async () => {
+    ;(repo.getById as ReturnType<typeof vi.fn>).mockResolvedValue(null)
+
+    const caller = draftAuditRouter.createCaller(makeCtx())
+    const result = await caller.getById({ draftId: DRAFT_ID })
+
+    expect(result).toBeNull()
+  })
+
   // ── auth guard ────────────────────────────────────────────────────────────
 
   it('throws UNAUTHORIZED when tenantId is missing from context', async () => {
     const caller = createCaller({ tenantId: null, actorId: null })
     await expect(caller.list({})).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+    await expect(caller.getById({ draftId: DRAFT_ID })).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    })
   })
 
   // ── no agent meta ─────────────────────────────────────────────────────────

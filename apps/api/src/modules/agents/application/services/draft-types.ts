@@ -28,6 +28,7 @@ export type Draft = {
   readonly approvedAt: Date | null
   readonly executedAt: Date | null
   readonly executionOutcome: string | null
+  readonly executionOutcomeNote: string | null
   readonly provenance: DraftProvenance
   readonly taintAtDraftTime: boolean
 }

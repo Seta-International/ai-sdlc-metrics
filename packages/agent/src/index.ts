@@ -82,6 +82,10 @@ export { AnswerBubble } from './thread/cards/answer-bubble'
 export type { AnswerBubbleProps } from './thread/cards/answer-bubble'
 export { UserTurn } from './thread/cards/user-turn'
 export type { UserTurnProps } from './thread/cards/user-turn'
+export { DraftCard } from './thread/cards/draft-card'
+export type { DraftCardProps } from './thread/cards/draft-card'
+export { RejectReasonPicker } from './thread/cards/reject-reason-picker'
+export type { RejectReasonPickerProps, RejectReason } from './thread/cards/reject-reason-picker'
 
 // Runtime — part contracts
 export {
@@ -95,3 +99,5 @@ export {
 export type { PlanPartArgs, IterationPartArgs, DraftPartArgs } from './runtime/agent-message-parts'
 export { mapEventToPartUpdate } from './runtime/agent-chat-adapter'
 export type { PartUpdate } from './runtime/agent-chat-adapter'
+export { useCanApproveDrafts } from './hooks/use-can-approve-drafts'
+export { useDraftRow } from './hooks/use-draft-row'

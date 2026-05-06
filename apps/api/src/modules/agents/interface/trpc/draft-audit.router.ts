@@ -63,4 +63,13 @@ export const draftAuditRouter = router({
         pageSize: input.pageSize,
       })
     }),
+  getById: publicProcedure
+    .meta({ permission: PERMISSIONS.AGENT_DRAFT_AUDIT_READ })
+    .input(z.object({ draftId: z.string().uuid() }))
+    .query(({ input, ctx }) => {
+      if (!ctx.tenantId) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing tenant context' })
+      }
+      return repo().getById({ tenantId: ctx.tenantId, draftId: input.draftId })
+    }),
 })

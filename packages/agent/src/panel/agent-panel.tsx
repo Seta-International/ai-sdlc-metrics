@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { QueryClient, QueryClientProvider } from '@future/api-client'
 import { AssistantRuntimeProvider, useLocalRuntime } from '@assistant-ui/react'
 import { useStore } from 'zustand'
 import { useAgentState } from '../hooks/use-agent-state'
@@ -36,6 +37,7 @@ export function AgentPanel({ endpoint = '/api/agent/turn' }: AgentPanelProps) {
     [endpoint, store, ctx],
   )
   const runtime = useLocalRuntime(adapter)
+  const queryClient = useMemo(() => new QueryClient(), [])
 
   if (collapsed) {
     return (
@@ -51,25 +53,27 @@ export function AgentPanel({ endpoint = '/api/agent/turn' }: AgentPanelProps) {
   }
 
   return (
-    <AssistantRuntimeProvider runtime={runtime}>
-      <div
-        data-testid="agent-panel"
-        className="dark h-full w-96 flex-shrink-0 border-l border-white/[0.05] bg-sidebar"
-      >
-        <div className="flex h-full min-h-0 flex-col">
-          <AgentPanelHeader
-            streaming={streaming}
-            taskContext={ctx?.entity ?? null}
-            onCollapse={() => setCollapsed(true)}
-            onNewThread={handleNewThread}
-          />
-          <AgentPanelMetaStrip traceId={traceId} model={null} usage={usage} />
-          <div className="flex-1 min-h-0 overflow-auto">
-            <AgentThread />
+    <QueryClientProvider client={queryClient}>
+      <AssistantRuntimeProvider runtime={runtime}>
+        <div
+          data-testid="agent-panel"
+          className="dark h-full w-96 flex-shrink-0 border-l border-white/[0.05] bg-sidebar"
+        >
+          <div className="flex h-full min-h-0 flex-col">
+            <AgentPanelHeader
+              streaming={streaming}
+              taskContext={ctx?.entity ?? null}
+              onCollapse={() => setCollapsed(true)}
+              onNewThread={handleNewThread}
+            />
+            <AgentPanelMetaStrip traceId={traceId} model={null} usage={usage} />
+            <div className="flex-1 min-h-0 overflow-auto">
+              <AgentThread />
+            </div>
+            <AgentComposer />
           </div>
-          <AgentComposer />
         </div>
-      </div>
-    </AssistantRuntimeProvider>
+      </AssistantRuntimeProvider>
+    </QueryClientProvider>
   )
 }

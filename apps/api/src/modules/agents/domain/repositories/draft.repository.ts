@@ -18,6 +18,7 @@ export interface IDraftRepository {
       approvedAt?: Date
       executedAt?: Date
       executionOutcome?: string
+      executionOutcomeNote?: string | null
     }
   }): Promise<void>
   /**

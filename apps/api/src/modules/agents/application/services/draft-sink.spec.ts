@@ -38,6 +38,7 @@ function makeFakeDraft(overrides: Partial<Draft> = {}): Draft {
     approvedAt: null,
     executedAt: null,
     executionOutcome: null,
+    executionOutcomeNote: null,
     provenance: {
       triggered_by: `user:${INITIATOR}`,
       user_utterance: '',

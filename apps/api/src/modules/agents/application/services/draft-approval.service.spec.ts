@@ -40,6 +40,7 @@ function makePendingDraft(overrides: Partial<Draft> = {}): Draft {
     approvedAt: null,
     executedAt: null,
     executionOutcome: null,
+    executionOutcomeNote: null,
     provenance: {
       triggered_by: `user:${INITIATOR_ID}`,
       user_utterance: 'create a task',
@@ -259,6 +260,49 @@ describe('DraftApprovalService', () => {
       )
     })
 
+    it('persists the optional note when provided', async () => {
+      await service.rejectDraft({
+        tenantId: TENANT_ID,
+        draftId: DRAFT_ID,
+        rejecterId: APPROVER_ID,
+        reason: 'wrong_value',
+        note: 'should target Q2 not Q1',
+      })
+
+      expect(draftRepo.updateStatus).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          draftId: DRAFT_ID,
+          status: 'rejected',
+          extra: expect.objectContaining({
+            executionOutcome: 'wrong_value',
+            executionOutcomeNote: 'should target Q2 not Q1',
+          }),
+        }),
+      )
+    })
+
+    it('sets executionOutcomeNote to null when note is omitted', async () => {
+      await service.rejectDraft({
+        tenantId: TENANT_ID,
+        draftId: DRAFT_ID,
+        rejecterId: APPROVER_ID,
+        reason: 'not_needed',
+      })
+
+      expect(draftRepo.updateStatus).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          draftId: DRAFT_ID,
+          status: 'rejected',
+          extra: expect.objectContaining({
+            executionOutcome: 'not_needed',
+            executionOutcomeNote: null,
+          }),
+        }),
+      )
+    })
+
     it('draft not found → throws, does NOT emit audit event', async () => {
       draftRepo = makeDraftRepo({
         getById: vi.fn().mockResolvedValue(null),
@@ -305,6 +349,25 @@ describe('DraftApprovalService', () => {
 
       const call = vi.mocked(auditFacade.recordEvent).mock.calls[0][0]
       expect(call.flowId).toBe(FLOW_ID)
+    })
+
+    it('records the note in the audit payload when provided', async () => {
+      await service.rejectDraft({
+        tenantId: TENANT_ID,
+        draftId: DRAFT_ID,
+        rejecterId: APPROVER_ID,
+        reason: 'other_with_note',
+        note: 'see ticket FUT-123',
+      })
+
+      expect(auditFacade.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            reason: 'other_with_note',
+            note: 'see ticket FUT-123',
+          }),
+        }),
+      )
     })
 
     it('rejection does NOT enqueue execute-approved-draft job', async () => {

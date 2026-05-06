@@ -38,6 +38,7 @@ function toDomain(row: AgentDraftRow): Draft {
     approvedAt: row.approvedAt ?? null,
     executedAt: row.executedAt ?? null,
     executionOutcome: row.executionOutcome ?? null,
+    executionOutcomeNote: row.executionOutcomeNote ?? null,
     provenance: row.provenance as DraftProvenance,
     taintAtDraftTime: row.taintAtDraftTime,
   }
@@ -95,6 +96,7 @@ export class DrizzleDraftRepository implements IDraftRepository {
       approvedAt?: Date
       executedAt?: Date
       executionOutcome?: string
+      executionOutcomeNote?: string | null
     }
   }): Promise<void> {
     await this.db
@@ -105,6 +107,9 @@ export class DrizzleDraftRepository implements IDraftRepository {
         ...(opts.extra?.executedAt !== undefined ? { executedAt: opts.extra.executedAt } : {}),
         ...(opts.extra?.executionOutcome !== undefined
           ? { executionOutcome: opts.extra.executionOutcome }
+          : {}),
+        ...(opts.extra?.executionOutcomeNote !== undefined
+          ? { executionOutcomeNote: opts.extra.executionOutcomeNote }
           : {}),
       })
       .where(and(eq(agentDraft.tenantId, opts.tenantId), eq(agentDraft.id, opts.draftId)))

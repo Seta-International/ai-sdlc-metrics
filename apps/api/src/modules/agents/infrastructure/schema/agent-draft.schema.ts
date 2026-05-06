@@ -81,6 +81,8 @@ export const agentDraft = agentsSchema.table(
     executedAt: timestamp('executed_at', { withTimezone: true }),
     /** Serialised outcome from the tool call (success payload or error). */
     executionOutcome: text('execution_outcome'),
+    /** Free-text rejection note (<=500 chars). Independent of the enum reason. */
+    executionOutcomeNote: text('execution_outcome_note'),
     /**
      * DraftProvenance — captures caller, flow, schedule context.
      * Shape is defined in the domain layer; stored opaquely here.

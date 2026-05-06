@@ -115,6 +115,7 @@ CREATE TABLE "agents"."agent_draft" (
 	"approved_at" timestamp with time zone,
 	"executed_at" timestamp with time zone,
 	"execution_outcome" text,
+	"execution_outcome_note" text,
 	"provenance" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"taint_at_draft_time" boolean DEFAULT false NOT NULL
 );

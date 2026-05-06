@@ -104,6 +104,7 @@ export class DraftApprovalService {
     draftId: string
     rejecterId: string
     reason: string
+    note?: string
   }): Promise<void> {
     const draft = await this.draftRepo.getById({
       tenantId: opts.tenantId,
@@ -127,7 +128,10 @@ export class DraftApprovalService {
       tenantId: opts.tenantId,
       draftId: opts.draftId,
       status: 'rejected',
-      extra: { executionOutcome: opts.reason },
+      extra: {
+        executionOutcome: opts.reason,
+        executionOutcomeNote: opts.note ?? null,
+      },
     })
 
     // 2. Emit kernel audit event. flowId inherited from the draft row.
@@ -146,6 +150,7 @@ export class DraftApprovalService {
         flowId: draft.flowId,
         traceId: draft.traceId,
         reason: opts.reason,
+        note: opts.note ?? null,
         initiatorUserId: draft.initiatorUserId,
         on_behalf_of: draft.onBehalfOf ?? draft.initiatorUserId,
         via_delegation: draft.viaDelegationId,
@@ -159,7 +164,9 @@ export class DraftApprovalService {
       draftId: draft.id,
       approverId: draft.initiatorUserId,
       toolName: draft.toolName,
-      summary: `Draft rejected: ${opts.reason}`,
+      summary: opts.note
+        ? `Draft rejected: ${opts.reason} - ${opts.note}`
+        : `Draft rejected: ${opts.reason}`,
       tier: draft.tier,
     })
   }

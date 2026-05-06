@@ -30,6 +30,7 @@ describe('Plan 08 — agent_draft schema', () => {
     expect(cols).toContain('approvedAt')
     expect(cols).toContain('executedAt')
     expect(cols).toContain('executionOutcome')
+    expect(cols).toContain('executionOutcomeNote')
     expect(cols).toContain('provenance')
     expect(cols).toContain('taintAtDraftTime')
   })

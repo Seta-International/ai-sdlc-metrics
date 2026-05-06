@@ -112,6 +112,7 @@ describe('DrizzleDraftRepository', () => {
       expect(draft.approvedAt).toBeNull()
       expect(draft.executedAt).toBeNull()
       expect(draft.executionOutcome).toBeNull()
+      expect(draft.executionOutcomeNote).toBeNull()
     })
 
     it('sets expires_at correctly (drafted_at + ttl hours)', async () => {
@@ -201,7 +202,7 @@ describe('DrizzleDraftRepository', () => {
       expect(found!.status).toBe('approved')
     })
 
-    it('sets approvedAt and executionOutcome from extra', async () => {
+    it('sets approvedAt, executionOutcome, and executionOutcomeNote from extra', async () => {
       await setTenantContext(db, TENANT_A)
 
       const inserted = await repo.insert(makeDraft({ tenantId: TENANT_A }))
@@ -215,6 +216,7 @@ describe('DrizzleDraftRepository', () => {
           approvedAt,
           executedAt: new Date('2026-04-02T10:01:00.000Z'),
           executionOutcome: JSON.stringify({ result: 'success' }),
+          executionOutcomeNote: 'see audit trail',
         },
       })
 
@@ -222,6 +224,7 @@ describe('DrizzleDraftRepository', () => {
       expect(found!.status).toBe('executed')
       expect(found!.approvedAt).not.toBeNull()
       expect(found!.executionOutcome).toBe(JSON.stringify({ result: 'success' }))
+      expect(found!.executionOutcomeNote).toBe('see audit trail')
     })
   })
 
