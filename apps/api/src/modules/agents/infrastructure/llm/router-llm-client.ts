@@ -187,7 +187,6 @@ export class RouterLlmClient implements OnModuleInit {
           // API key is injected from process.env.OPENAI_API_KEY by default.
           // Explicitly passing undefined ensures the default env-var lookup is used.
           apiKey: process.env['OPENAI_API_KEY'],
-          maxRetries: 0,
         })
         return openaiClient(modelChoice.model)
       }

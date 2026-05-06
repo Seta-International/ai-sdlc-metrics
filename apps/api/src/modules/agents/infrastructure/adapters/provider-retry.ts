@@ -64,4 +64,7 @@ export async function withProviderRetry<T>(fn: () => Promise<T>, opts: RetryOpts
       await sleep(delayMs)
     }
   }
+  // Unreachable: the loop always returns or throws, but TypeScript cannot
+  // prove it. This satisfies the return-type exhaustiveness check.
+  throw new Error('withProviderRetry: exhausted all attempts')
 }

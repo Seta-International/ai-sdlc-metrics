@@ -81,7 +81,7 @@ export interface SynthesizerLlmClient {
 function resolveModel(choice: ModelChoice) {
   switch (choice.provider) {
     case 'openai': {
-      const client = createOpenAI({ apiKey: process.env['OPENAI_API_KEY'], maxRetries: 0 })
+      const client = createOpenAI({ apiKey: process.env['OPENAI_API_KEY'] })
       return client(choice.model)
     }
     case 'anthropic': {
