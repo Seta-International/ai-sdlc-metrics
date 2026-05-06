@@ -22,6 +22,7 @@ import { AGENT_CHAT_SESSION_REPOSITORY } from './domain/repositories/agent-chat-
 import { AGENT_SESSION_PORT } from './domain/ports/agent-session.port'
 import { STORED_SUB_AGENT_PORT } from './domain/ports/stored-sub-agent.port'
 import { AGENT_MESSAGE_REPOSITORY } from './domain/repositories/agent-message.repository'
+import { MESSAGE_FEEDBACK_REPOSITORY } from './domain/repositories/message-feedback.repository'
 import { AGENT_INSIGHT_REPOSITORY } from './domain/repositories/agent-insight.repository'
 import { PROMPT_STORE } from './domain/ports/prompt-store.port'
 import { NARRATIVE_STORE } from './domain/ports/narrative-store.port'
@@ -34,6 +35,7 @@ import { DrizzleAgentChatSessionRepository } from './infrastructure/repositories
 import { DrizzleAgentSessionRepository } from './infrastructure/repositories/drizzle-agent-session.repository'
 import { DrizzleStoredSubAgentRepository } from './infrastructure/repositories/drizzle-stored-sub-agent.repository'
 import { DrizzleAgentMessageRepository } from './infrastructure/repositories/drizzle-agent-message.repository'
+import { DrizzleMessageFeedbackRepository } from './infrastructure/repositories/drizzle-message-feedback.repository'
 import { DrizzleAgentInsightRepository } from './infrastructure/repositories/drizzle-agent-insight.repository'
 import { DrizzlePromptStoreRepository } from './infrastructure/repositories/drizzle-prompt-store.repository'
 import { DrizzleNarrativeStoreRepository } from './infrastructure/repositories/drizzle-narrative-store.repository'
@@ -43,7 +45,9 @@ import { DrizzleL3PreferenceRepository } from './infrastructure/repositories/dri
 import { DrizzleScratchpadRepository } from './infrastructure/repositories/drizzle-scratchpad.repository'
 import { DrizzleSemanticIndexRepository } from './infrastructure/repositories/drizzle-semantic-index.repository'
 import { CreateSessionHandler } from './application/commands/create-session.handler'
+import { RegenerateLastTurnHandler } from './application/commands/regenerate-last-turn.handler'
 import { SendMessageHandler } from './application/commands/send-message.handler'
+import { SubmitFeedbackHandler } from './application/commands/submit-feedback.handler'
 import { DismissInsightHandler } from './application/commands/dismiss-insight.handler'
 import { ListSessionsHandler } from './application/queries/list-sessions.handler'
 import { ListInsightsHandler } from './application/queries/list-insights.handler'
@@ -58,6 +62,7 @@ import { setScheduleHandlers } from './interface/trpc/schedule-ui-facade'
 import { setRolloutHandlers } from './interface/trpc/rollout.router'
 import { setReadinessHandlers } from './interface/trpc/readiness.router'
 import { setListSuggestionsHandler } from './interface/trpc/suggestions.router'
+import { setSubmitFeedbackHandler } from './interface/trpc/feedback.router'
 import { SCHEDULE_REPOSITORY } from './domain/repositories/schedule.repository'
 import {
   SCHEDULE_RUN_REPOSITORY,
@@ -334,6 +339,7 @@ export const CONVERSATION_RETENTION_SCHEDULER = Symbol('CONVERSATION_RETENTION_S
     { provide: AGENT_SESSION_PORT, useClass: DrizzleAgentSessionRepository },
     { provide: STORED_SUB_AGENT_PORT, useClass: DrizzleStoredSubAgentRepository },
     { provide: AGENT_MESSAGE_REPOSITORY, useClass: DrizzleAgentMessageRepository },
+    { provide: MESSAGE_FEEDBACK_REPOSITORY, useClass: DrizzleMessageFeedbackRepository },
     { provide: AGENT_INSIGHT_REPOSITORY, useClass: DrizzleAgentInsightRepository },
     { provide: PROMPT_STORE, useClass: DrizzlePromptStoreRepository },
     { provide: NARRATIVE_STORE, useClass: DrizzleNarrativeStoreRepository },
@@ -343,7 +349,9 @@ export const CONVERSATION_RETENTION_SCHEDULER = Symbol('CONVERSATION_RETENTION_S
     { provide: SCRATCHPAD_REPOSITORY, useClass: DrizzleScratchpadRepository },
     { provide: SEMANTIC_INDEX_REPOSITORY, useClass: DrizzleSemanticIndexRepository },
     CreateSessionHandler,
+    RegenerateLastTurnHandler,
     SendMessageHandler,
+    SubmitFeedbackHandler,
     DismissInsightHandler,
     ListSessionsHandler,
     ListInsightsHandler,
@@ -727,7 +735,9 @@ export const CONVERSATION_RETENTION_SCHEDULER = Symbol('CONVERSATION_RETENTION_S
 export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
   constructor(
     private readonly createSession: CreateSessionHandler,
+    private readonly regenerateLastTurn: RegenerateLastTurnHandler,
     private readonly sendMessage: SendMessageHandler,
+    private readonly submitFeedback: SubmitFeedbackHandler,
     private readonly dismissInsight: DismissInsightHandler,
     private readonly listSessions: ListSessionsHandler,
     private readonly listInsights: ListInsightsHandler,
@@ -778,6 +788,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
       createSession: this.createSession,
       listSessions: this.listSessions,
       sendMessage: this.sendMessage,
+      regenerateLastTurn: this.regenerateLastTurn,
     })
     setAgentInsightHandlers({
       listInsights: this.listInsights,
@@ -803,6 +814,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
       runbookScheduler: this.runbookScheduler,
     })
     setListSuggestionsHandler(this.listSuggestionsHandler)
+    setSubmitFeedbackHandler(this.submitFeedback)
 
     // TrpcModule.onModuleInit() must have run before AgentsModule.onModuleInit()
     // to ensure permission-enforcing routers have been swapped in.

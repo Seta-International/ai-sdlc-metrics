@@ -101,6 +101,7 @@ export const PERMISSIONS = {
   AGENT_PREFERENCE_READ: 'agent:preference:read',
   AGENT_PREFERENCE_WRITE: 'agent:preference:write',
   AGENT_CONVERSATION_READ: 'agent:conversation:read',
+  AGENT_CONVERSATION_WRITE: 'agent:conversation:write',
   AGENT_CONVERSATION_ARCHIVE: 'agent:conversation:archive',
 
   // ── agent drafts (Plan 08 — compliance audit surface + approval actions) ─

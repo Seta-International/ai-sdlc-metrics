@@ -9,6 +9,7 @@ import { scheduleUiRouter } from './schedule-ui-facade'
 import { rolloutRouter } from './rollout.router'
 import { readinessRouter } from './readiness.router'
 import { suggestionsRouter } from './suggestions.router'
+import { feedbackRouter } from './feedback.router'
 
 export const agentsRouter = router({
   session: sessionRouter,
@@ -21,4 +22,5 @@ export const agentsRouter = router({
   rollout: rolloutRouter,
   readiness: readinessRouter,
   suggestions: suggestionsRouter,
+  feedback: feedbackRouter,
 })

@@ -61,6 +61,7 @@ export const agentChatMessages = agentsSchema.table('agent_chat_message', {
   modelUsed: text('model_used'),
   tokensUsed: integer('tokens_used'),
   isError: boolean('is_error').default(false),
+  supersededAt: timestamp('superseded_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

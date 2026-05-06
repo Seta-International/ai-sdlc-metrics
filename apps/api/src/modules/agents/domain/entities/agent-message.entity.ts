@@ -9,5 +9,6 @@ export interface AgentMessageEntity {
   modelUsed: string | null
   tokensUsed: number | null
   isError: boolean
+  supersededAt?: Date | null
   createdAt: Date
 }

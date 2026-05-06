@@ -1,24 +1,31 @@
 import * as z from 'zod'
+import { TRPCError } from '@trpc/server'
+import { PERMISSIONS } from '../../../../common/auth/permissions'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import { CreateSessionCommand } from '../../application/commands/create-session.command'
+import { RegenerateLastTurnCommand } from '../../application/commands/regenerate-last-turn.command'
 import { SendMessageCommand } from '../../application/commands/send-message.command'
 import { ListSessionsQuery } from '../../application/queries/list-sessions.query'
 import type { CreateSessionHandler } from '../../application/commands/create-session.handler'
+import type { RegenerateLastTurnHandler } from '../../application/commands/regenerate-last-turn.handler'
 import type { SendMessageHandler } from '../../application/commands/send-message.handler'
 import type { ListSessionsHandler } from '../../application/queries/list-sessions.handler'
 
 let createSessionHandler: CreateSessionHandler | undefined
 let listSessionsHandler: ListSessionsHandler | undefined
 let sendMessageHandler: SendMessageHandler | undefined
+let regenerateLastTurnHandler: RegenerateLastTurnHandler | undefined
 
 export function setAgentSessionHandlers(handlers: {
   createSession: CreateSessionHandler
   listSessions: ListSessionsHandler
   sendMessage: SendMessageHandler
+  regenerateLastTurn: RegenerateLastTurnHandler
 }) {
   createSessionHandler = handlers.createSession
   listSessionsHandler = handlers.listSessions
   sendMessageHandler = handlers.sendMessage
+  regenerateLastTurnHandler = handlers.regenerateLastTurn
 }
 
 export const sessionRouter = router({
@@ -90,6 +97,23 @@ export const sessionRouter = router({
           input.tokensUsed,
           input.isError,
         ),
+      )
+    }),
+  regenerateLastTurn: publicProcedure
+    .meta({ permission: PERMISSIONS.AGENT_CONVERSATION_WRITE })
+    .input(z.object({ sessionId: z.string().uuid() }))
+    .mutation(async ({ input, ctx }) => {
+      if (!ctx.tenantId) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing tenant context' })
+      }
+      if (!ctx.actorId) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing actor context' })
+      }
+      if (!regenerateLastTurnHandler) {
+        throw new Error('regenerateLastTurnHandler not wired — boot failure')
+      }
+      return regenerateLastTurnHandler.execute(
+        new RegenerateLastTurnCommand(ctx.tenantId, input.sessionId, ctx.actorId),
       )
     }),
 })
