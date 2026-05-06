@@ -69,10 +69,15 @@ describe('withProviderRetry', () => {
       .mockRejectedValueOnce(makeRateLimitError())
       .mockRejectedValueOnce(makeRateLimitError())
     const opts: RetryOpts = { maxAttempts: 2, baseDelayMs: 10, jitterMs: 0 }
-    const promise = withProviderRetry(fn, opts)
+    let error: unknown
+    const p = withProviderRetry(fn, opts).catch((e) => {
+      error = e
+    })
     await vi.runAllTimersAsync()
-    await expect(promise).rejects.toThrow('rate limit exceeded')
-    expect(fn).toHaveBeenCalledTimes(2) // 1 original + 1 retry = 2 total; no third
+    await p
+    expect(error).toBeDefined()
+    expect((error as Error).message).toBe('rate limit exceeded')
+    expect(fn).toHaveBeenCalledTimes(2)
   })
 
   it('does NOT retry on 401 (non-retryable)', async () => {

@@ -42,6 +42,8 @@ function sleep(ms: number): Promise<void> {
 export async function withProviderRetry<T>(fn: () => Promise<T>, opts: RetryOpts = {}): Promise<T> {
   const { baseDelayMs = 500, multiplier = 2, jitterMs = 200, maxAttempts = 2 } = opts
 
+  if (maxAttempts < 1) throw new Error('maxAttempts must be at least 1')
+
   let lastError: unknown
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
