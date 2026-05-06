@@ -1,5 +1,6 @@
 'use client'
 
+import { useSession } from '@future/auth'
 import type { TaskDetailSnapshot } from '@/lib/board-types'
 import { useTaskDetail } from '@/lib/hooks/useTaskDetail'
 import { AssigneesField } from '../fields/AssigneesField'
@@ -9,6 +10,7 @@ import { DateField } from '../fields/DateField'
 import { BucketField } from '../fields/BucketField'
 import { LabelsField } from '../fields/LabelsField'
 import { RichTextDescription } from '../fields/RichTextDescription'
+import { CustomFieldsSection } from './custom-fields/CustomFieldsSection'
 
 interface Props {
   taskId: string
@@ -20,6 +22,9 @@ const LABEL = 'min-w-[5rem] shrink-0 text-xs text-fg-muted'
 
 export function TaskDetailTab({ taskId, planId, task }: Props) {
   const { update } = useTaskDetail({ taskId, planId })
+  const session = useSession()
+  const actorId = session?.actorId ?? ''
+  const tenantId = session?.tenantId ?? ''
 
   return (
     <div className="flex flex-col gap-0 py-2">
@@ -79,6 +84,17 @@ export function TaskDetailTab({ taskId, planId, task }: Props) {
           onChange={(html) => update({ description: html })}
         />
       </div>
+
+      {/* Custom Fields */}
+      {task.customFields && task.customFields.length > 0 && (
+        <CustomFieldsSection
+          fields={task.customFields}
+          taskId={taskId}
+          planId={planId}
+          tenantId={tenantId}
+          actorId={actorId}
+        />
+      )}
     </div>
   )
 }

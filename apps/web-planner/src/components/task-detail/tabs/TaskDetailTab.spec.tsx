@@ -19,6 +19,9 @@ vi.mock('@/lib/trpc', () => ({
         move: { mutate: vi.fn() },
         update: { mutate: vi.fn() },
       },
+      customFields: {
+        setValue: { mutate: vi.fn() },
+      },
     },
   },
 }))
