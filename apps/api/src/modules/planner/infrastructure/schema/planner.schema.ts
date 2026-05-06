@@ -563,7 +563,7 @@ export const plannerSprint = plannerSchema.table(
     name: text('name').notNull(),
     startDate: date('start_date').notNull(),
     endDate: date('end_date').notNull(),
-    createdBy: uuid('created_by').notNull(),
+    createdBy: uuid('created_by'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     completedAt: timestamp('completed_at', { withTimezone: true }),
   },

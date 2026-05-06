@@ -1648,7 +1648,7 @@ CREATE TABLE "planner"."sprint" (
 	"name" text NOT NULL,
 	"start_date" date NOT NULL,
 	"end_date" date NOT NULL,
-	"created_by" uuid NOT NULL,
+	"created_by" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"completed_at" timestamp with time zone,
 	CONSTRAINT "chk_sprint_name_length" CHECK (char_length("planner"."sprint"."name") <= 100),

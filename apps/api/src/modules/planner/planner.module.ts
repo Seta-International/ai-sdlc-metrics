@@ -163,6 +163,15 @@ import { DrizzleTaskDependencyRepository } from './infrastructure/repositories/d
 import { AddDependencyHandler } from './application/commands/dependencies/add-dependency.handler'
 import { RemoveDependencyHandler } from './application/commands/dependencies/remove-dependency.handler'
 import { TASK_DEPENDENCY_REPOSITORY } from './domain/repositories/task-dependency.repository'
+import { SPRINT_REPOSITORY } from './domain/repositories/sprint.repository'
+import { DrizzleSprintRepository } from './infrastructure/repositories/drizzle-sprint.repository'
+import { CreateSprintHandler } from './application/commands/sprints/create-sprint.handler'
+import { CompleteSprintHandler } from './application/commands/sprints/complete-sprint.handler'
+import { AssignTaskToSprintHandler } from './application/commands/sprints/assign-task-to-sprint.handler'
+import { UnassignTaskFromSprintHandler } from './application/commands/sprints/unassign-task-from-sprint.handler'
+import { ListSprintsHandler } from './application/queries/sprints/list-sprints.handler'
+import { CreateSubtaskHandler } from './application/commands/subtasks/create-subtask.handler'
+import { GetSubtasksHandler } from './application/queries/subtasks/get-subtasks.handler'
 
 @Module({
   imports: [CqrsModule, KernelModule, AdminModule, IdentityModule, NotificationsModule],
@@ -289,6 +298,14 @@ import { TASK_DEPENDENCY_REPOSITORY } from './domain/repositories/task-dependenc
     { provide: TASK_DEPENDENCY_REPOSITORY, useClass: DrizzleTaskDependencyRepository },
     AddDependencyHandler,
     RemoveDependencyHandler,
+    { provide: SPRINT_REPOSITORY, useClass: DrizzleSprintRepository },
+    CreateSprintHandler,
+    CompleteSprintHandler,
+    AssignTaskToSprintHandler,
+    UnassignTaskFromSprintHandler,
+    ListSprintsHandler,
+    CreateSubtaskHandler,
+    GetSubtasksHandler,
     {
       provide: PLANNER_SECRETS_STORE,
       useFactory: () =>

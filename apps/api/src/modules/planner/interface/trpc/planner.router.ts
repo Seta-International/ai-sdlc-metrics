@@ -11,6 +11,8 @@ import { personalRouter } from './personal.router'
 import { msSyncRouter } from './ms-sync.router'
 import { customFieldRouter } from './custom-field.router'
 import { dependencyRouter } from './dependency.router'
+import { subtaskRouter } from './subtask.router'
+import { sprintRouter } from './sprint.router'
 
 export const plannerRouter = router({
   plans: planRouter,
@@ -25,4 +27,6 @@ export const plannerRouter = router({
   msSync: msSyncRouter,
   customFields: customFieldRouter,
   dependencies: dependencyRouter,
+  subtasks: subtaskRouter,
+  sprints: sprintRouter,
 })
