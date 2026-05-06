@@ -172,6 +172,10 @@ import { UnassignTaskFromSprintHandler } from './application/commands/sprints/un
 import { ListSprintsHandler } from './application/queries/sprints/list-sprints.handler'
 import { CreateSubtaskHandler } from './application/commands/subtasks/create-subtask.handler'
 import { GetSubtasksHandler } from './application/queries/subtasks/get-subtasks.handler'
+import { TASK_HISTORY_REPOSITORY } from './domain/repositories/task-history.repository'
+import { DrizzleTaskHistoryRepository } from './infrastructure/repositories/drizzle-task-history.repository'
+import { GetTaskHistoryHandler } from './application/queries/tasks/get-task-history.handler'
+import { TaskHistoryRecorderHandler } from './application/event-handlers/task-history-recorder.handler'
 
 @Module({
   imports: [CqrsModule, KernelModule, AdminModule, IdentityModule, NotificationsModule],
@@ -306,6 +310,9 @@ import { GetSubtasksHandler } from './application/queries/subtasks/get-subtasks.
     ListSprintsHandler,
     CreateSubtaskHandler,
     GetSubtasksHandler,
+    { provide: TASK_HISTORY_REPOSITORY, useClass: DrizzleTaskHistoryRepository },
+    GetTaskHistoryHandler,
+    TaskHistoryRecorderHandler,
     {
       provide: PLANNER_SECRETS_STORE,
       useFactory: () =>

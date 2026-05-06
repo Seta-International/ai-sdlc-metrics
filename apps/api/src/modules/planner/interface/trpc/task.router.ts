@@ -16,6 +16,7 @@ import { UnassignTaskCommand } from '../../application/commands/tasks/unassign-t
 import { ApplyLabelCommand } from '../../application/commands/tasks/apply-label.command'
 import { RemoveLabelCommand } from '../../application/commands/tasks/remove-label.command'
 import { DeleteTaskCommand } from '../../application/commands/tasks/delete-task.command'
+import { GetTaskHistoryQuery } from '../../application/queries/tasks/get-task-history.query'
 import { toPlannerTrpcError } from './planner-trpc-error'
 
 function svc() {
@@ -420,6 +421,26 @@ export const taskRouter = router({
       await svc().assertPlannerEnabled(input.tenantId)
       return svc()
         .command(new DeleteTaskCommand(input.tenantId, input.planId, input.taskId, input.actorId))
+        .catch((e) => {
+          throw toPlannerTrpcError(e)
+        })
+    }),
+
+  getHistory: publicProcedure
+    .input(
+      z.object({
+        planId: z.string().uuid(),
+        taskId: z.string().uuid(),
+        actorId: z.string().uuid(),
+        tenantId: z.string().uuid(),
+        cursor: z.string().optional(),
+        limit: z.number().int().min(1).max(50).default(20),
+      }),
+    )
+    .query(async ({ input }) => {
+      await svc().assertPlannerEnabled(input.tenantId)
+      return svc()
+        .query(new GetTaskHistoryQuery(input.taskId, input.tenantId, input.cursor, input.limit))
         .catch((e) => {
           throw toPlannerTrpcError(e)
         })
