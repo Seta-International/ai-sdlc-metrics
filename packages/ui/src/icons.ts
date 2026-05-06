@@ -1,6 +1,7 @@
 // All lucide-react icons used across the monorepo.
 // Import from '@future/ui/icons', never directly from 'lucide-react'.
 export {
+  AlertCircle,
   AlertTriangle,
   ArrowLeft,
   Brain,
@@ -67,6 +68,7 @@ export {
   MoreHorizontal,
   Network,
   PanelRightClose,
+  PanelRightOpen,
   Paperclip,
   Pencil,
   PieChart,

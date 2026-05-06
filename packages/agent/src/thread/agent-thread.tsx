@@ -1,6 +1,11 @@
 'use client'
 
-import { ThreadPrimitive, MessagePrimitive, useAssistantToolUI } from '@assistant-ui/react'
+import {
+  ThreadPrimitive,
+  MessagePrimitive,
+  useAssistantToolUI,
+  useMessage,
+} from '@assistant-ui/react'
 import { PlanCard } from './cards/plan-card'
 import { IterationStep } from './cards/iteration-step'
 import { UserTurn } from './cards/user-turn'
@@ -14,8 +19,10 @@ import {
   isPlanArgs,
   isIterationArgs,
   isDraftArgs,
+  type IterationPartArgs,
 } from '../runtime/agent-message-parts'
 import { IdleState } from '../panel/idle/idle-state'
+import { IterationGroup } from './iteration/iteration-group'
 
 export function AgentThread() {
   const agentContext = useAgentContext()
@@ -25,13 +32,6 @@ export function AgentThread() {
     render: ({ args }) => {
       if (!isPlanArgs(args)) return null
       return <PlanCard {...args} />
-    },
-  })
-  useAssistantToolUI({
-    toolName: ITERATION_TOOL,
-    render: ({ args }) => {
-      if (!isIterationArgs(args)) return null
-      return <IterationStep {...args} />
     },
   })
   useAssistantToolUI({
@@ -70,8 +70,36 @@ function AgentUserMessage() {
 }
 
 function AgentAssistantMessage() {
+  const message = useMessage()
+  const parts = message.content as ReadonlyArray<{
+    type: string
+    toolName?: string
+    args?: unknown
+    text?: string
+  }>
+
+  const iterationParts: IterationPartArgs[] = []
+  for (const p of parts) {
+    if (p.type === 'tool-call' && p.toolName === ITERATION_TOOL && isIterationArgs(p.args)) {
+      iterationParts.push(p.args)
+    }
+  }
+
   return (
     <MessagePrimitive.Root className="flex flex-col gap-2 px-3 py-1">
+      {iterationParts.length > 0 && (
+        <IterationGroup
+          iterations={iterationParts.map((it) => ({
+            n: it.n,
+            summary: `${it.subAgentDomain} — ${it.selectionReason}`,
+            data: it,
+          }))}
+        >
+          {(item) => (
+            <IterationStep {...(item as typeof item & { data: IterationPartArgs }).data} />
+          )}
+        </IterationGroup>
+      )}
       <MessagePrimitive.Content
         components={{
           Text: ({ text }) => <AnswerBubble>{text}</AnswerBubble>,
