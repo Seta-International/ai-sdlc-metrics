@@ -134,4 +134,6 @@ export interface TaskDetailSnapshot {
       choice?: string
     } | null
   }>
+  predecessors?: Array<{ taskId: string; title: string; kind: string }>
+  successors?: Array<{ taskId: string; title: string; kind: string }>
 }

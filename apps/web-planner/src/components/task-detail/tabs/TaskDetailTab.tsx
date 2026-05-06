@@ -11,6 +11,7 @@ import { BucketField } from '../fields/BucketField'
 import { LabelsField } from '../fields/LabelsField'
 import { RichTextDescription } from '../fields/RichTextDescription'
 import { CustomFieldsSection } from './custom-fields/CustomFieldsSection'
+import { DependenciesSection } from './DependenciesSection'
 
 interface Props {
   taskId: string
@@ -95,6 +96,16 @@ export function TaskDetailTab({ taskId, planId, task }: Props) {
           actorId={actorId}
         />
       )}
+
+      {/* Dependencies */}
+      <DependenciesSection
+        taskId={task.id}
+        planId={planId}
+        tenantId={tenantId}
+        actorId={actorId}
+        predecessors={task.predecessors ?? []}
+        successors={task.successors ?? []}
+      />
     </div>
   )
 }
