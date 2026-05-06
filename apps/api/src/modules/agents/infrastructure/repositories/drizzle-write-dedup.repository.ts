@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { eq, lt } from 'drizzle-orm'
 import type { Db } from '@future/db'
+import { DB_TOKEN } from '../../../../common/db/db.module'
 import {
   agentWriteDedup,
   type AgentWriteDedupRow,
@@ -10,7 +11,7 @@ import type { IWriteDedupRepository } from '../../domain/repositories/write-dedu
 
 @Injectable()
 export class DrizzleWriteDedupRepository implements IWriteDedupRepository {
-  constructor(private readonly db: Db) {}
+  constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 
   async findByKey(idempotencyKey: string): Promise<AgentWriteDedupRow | null> {
     const rows = await this.db
