@@ -1,16 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle, Info, AlertCircle, X } from 'lucide-react'
+import { AlertTriangle, Info, AlertCircle, X } from '@future/ui/icons'
 import { useAgentState } from '../hooks/use-agent-state'
 import { useAgentContext } from '../context/use-agent-context'
+import { IconBtn } from '../primitives/icon-btn'
 
 const SEVERITY_ORDER = { critical: 0, warning: 1, info: 2 } as const
 const SEVERITY_ICONS = { critical: AlertCircle, warning: AlertTriangle, info: Info } as const
 const SEVERITY_STYLES = {
-  critical: 'border-destructive/50 bg-destructive/10 text-destructive',
-  warning: 'border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400',
-  info: 'border-blue-500/50 bg-blue-500/10 text-blue-700 dark:text-blue-400',
+  critical: 'border-red-400/30 bg-red-400/[0.06] text-red-300',
+  warning: 'border-amber-400/30 bg-amber-400/[0.06] text-amber-300',
+  info: 'border-accent/30 bg-accent/[0.06] text-accent',
 } as const
 
 export function AgentBanner() {
@@ -49,12 +50,13 @@ export function AgentBanner() {
           </a>
         )}
       </div>
-      <button
+      <IconBtn
+        aria-label="Dismiss"
         onClick={() => setDismissedIds((prev) => new Set([...prev, top.id]))}
-        className="shrink-0 rounded p-0.5 opacity-60 hover:opacity-100"
+        className="shrink-0"
       >
         <X className="h-3.5 w-3.5" />
-      </button>
+      </IconBtn>
     </div>
   )
 }

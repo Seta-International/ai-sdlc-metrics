@@ -1,8 +1,9 @@
 'use client'
 
-import { Sparkles } from 'lucide-react'
+import { Sparkles } from '@future/ui/icons'
 import { useAgentState } from '../hooks/use-agent-state'
 import { useAgentContext } from '../context/use-agent-context'
+import { Tag } from '../primitives/tag'
 
 export function AgentBadge() {
   const { insights } = useAgentState()
@@ -16,21 +17,16 @@ export function AgentBadge() {
 
   if (matching.length === 0) return null
 
-  const hasCritical = matching.some((i) => i.severity === 'critical')
-  const hasWarning = matching.some((i) => i.severity === 'warning')
-
-  const colorClass = hasCritical
-    ? 'bg-destructive text-destructive-foreground'
-    : hasWarning
-      ? 'bg-yellow-500 text-white'
-      : 'bg-muted text-muted-foreground'
+  const variant = matching.some((i) => i.severity === 'critical')
+    ? 'danger'
+    : matching.some((i) => i.severity === 'warning')
+      ? 'warning'
+      : 'accent'
 
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${colorClass}`}
-    >
-      <Sparkles className="h-3 w-3" />
+    <Tag variant={variant}>
+      <Sparkles className="mr-0.5 h-2.5 w-2.5" />
       {matching.length}
-    </span>
+    </Tag>
   )
 }

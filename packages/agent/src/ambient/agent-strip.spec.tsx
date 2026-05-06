@@ -79,4 +79,12 @@ describe('AgentStrip', () => {
     const { container } = render(<AgentStrip />, { wrapper: emptyWrapper })
     expect(container.firstChild).toBeNull()
   })
+
+  it('uses dark surface tokens', async () => {
+    const { container } = render(<AgentStrip />, { wrapper })
+    await waitFor(() => {
+      const el = container.firstChild as HTMLElement | null
+      expect(el?.className).toMatch(/bg-sidebar/)
+    })
+  })
 })

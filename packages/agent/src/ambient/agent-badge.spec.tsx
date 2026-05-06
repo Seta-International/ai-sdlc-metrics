@@ -74,4 +74,12 @@ describe('AgentBadge', () => {
     const { container } = render(<AgentBadge />, { wrapper: noMatchWrapper })
     expect(container.firstChild).toBeNull()
   })
+
+  it('uses warning variant for warning severity', async () => {
+    const { container } = render(<AgentBadge />, { wrapper })
+    await waitFor(() => {
+      const el = container.firstChild as HTMLElement | null
+      expect(el?.className).toMatch(/text-amber/)
+    })
+  })
 })

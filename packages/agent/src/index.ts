@@ -45,10 +45,17 @@ export type { AgentEventConsumer } from './runtime/event-consumer'
 // Thread
 export { AgentThread } from './thread/agent-thread'
 export { AgentComposer } from './thread/agent-composer'
+export { IterationGroup } from './thread/iteration/iteration-group'
+export type { IterationGroupProps, IterationGroupItem } from './thread/iteration/iteration-group'
+export { IterationHeader } from './thread/iteration/iteration-header'
+export type { IterationHeaderProps } from './thread/iteration/iteration-header'
 
 // Panel
 export { AgentPanel } from './panel/agent-panel'
 export type { AgentPanelProps } from './panel/agent-panel'
+export { AgentChatRail } from './panel/rail/agent-chat-rail'
+export type { AgentChatRailProps } from './panel/rail/agent-chat-rail'
+export { useCollapsedState } from './panel/rail/use-collapsed-state'
 
 // Inline
 export { AgentInlineAction } from './inline/agent-inline-action'

@@ -1,7 +1,9 @@
 'use client'
 
-import { Sparkles } from 'lucide-react'
+import { Sparkles } from '@future/ui/icons'
 import { useAgentState } from '../hooks/use-agent-state'
+import { Tag } from '../primitives/tag'
+import { Mono } from '../primitives/mono'
 
 const MODULE_LABELS: Record<string, string> = {
   people: 'People',
@@ -28,16 +30,16 @@ export function AgentStrip() {
   }, {})
 
   return (
-    <div className="flex h-7 shrink-0 items-center gap-3 border-b bg-muted/30 px-4 text-xs text-muted-foreground">
-      <Sparkles className="h-3 w-3" />
-      <span>
+    <div className="dark flex h-7 flex-shrink-0 items-center gap-2 border-b border-white/[0.05] bg-sidebar px-3 text-muted-foreground">
+      <Sparkles className="h-3 w-3 text-accent" />
+      <Mono className="text-foreground">
         {insights.length} insight{insights.length !== 1 ? 's' : ''}
-      </span>
-      <span className="text-border">·</span>
+      </Mono>
+      <span className="text-muted-foreground/50">·</span>
       {Object.entries(grouped).map(([mod, count]) => (
-        <span key={mod}>
+        <Tag key={mod}>
           {MODULE_LABELS[mod] ?? mod} ({count})
-        </span>
+        </Tag>
       ))}
     </div>
   )

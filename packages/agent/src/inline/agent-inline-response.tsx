@@ -1,7 +1,9 @@
 'use client'
 
-import { X } from 'lucide-react'
-import { Button } from '@future/ui'
+import { X, ArrowRight } from '@future/ui/icons'
+import { AnswerBubble } from '../thread/cards/answer-bubble'
+import { IconBtn } from '../primitives/icon-btn'
+import { TinyBtn } from '../primitives/tiny-btn'
 
 export interface AgentInlineResponseProps {
   content: string
@@ -17,33 +19,24 @@ export function AgentInlineResponse({
   onContinueInPanel,
 }: AgentInlineResponseProps) {
   return (
-    <div className="mt-2 rounded-lg border bg-muted/30 p-3">
+    <div className="dark mt-2 flex flex-col gap-1 rounded-md border border-white/[0.05] bg-sidebar p-2">
       <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 text-sm">
-          {content}
-          {isStreaming && (
-            <span className="ml-1 inline-block h-3 w-1 animate-pulse bg-foreground" />
-          )}
+        <div className="flex-1">
+          <AnswerBubble>
+            {content}
+            {isStreaming && (
+              <span className="ml-1 inline-block h-3 w-1 animate-pulse bg-foreground" />
+            )}
+          </AnswerBubble>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Dismiss"
-          onClick={onDismiss}
-          className="h-6 w-6 shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted"
-        >
+        <IconBtn aria-label="Dismiss" onClick={onDismiss}>
           <X className="h-3.5 w-3.5" />
-        </Button>
+        </IconBtn>
       </div>
       {onContinueInPanel && !isStreaming && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onContinueInPanel}
-          className="mt-2 h-auto p-0 text-xs text-primary hover:underline"
-        >
-          Continue in panel →
-        </Button>
+        <TinyBtn onClick={onContinueInPanel}>
+          Continue in panel <ArrowRight className="ml-0.5 h-3 w-3" />
+        </TinyBtn>
       )}
     </div>
   )
