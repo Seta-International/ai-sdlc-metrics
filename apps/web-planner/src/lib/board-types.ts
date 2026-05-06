@@ -136,4 +136,6 @@ export interface TaskDetailSnapshot {
   }>
   predecessors?: Array<{ taskId: string; title: string; kind: string }>
   successors?: Array<{ taskId: string; title: string; kind: string }>
+  sprintId?: string | null
+  sprintName?: string | null
 }

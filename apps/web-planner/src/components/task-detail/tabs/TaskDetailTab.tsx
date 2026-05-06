@@ -12,6 +12,8 @@ import { LabelsField } from '../fields/LabelsField'
 import { RichTextDescription } from '../fields/RichTextDescription'
 import { CustomFieldsSection } from './custom-fields/CustomFieldsSection'
 import { DependenciesSection } from './DependenciesSection'
+import { SubtasksSection } from './SubtasksSection'
+import { SprintField } from './SprintField'
 
 interface Props {
   taskId: string
@@ -96,6 +98,23 @@ export function TaskDetailTab({ taskId, planId, task }: Props) {
           actorId={actorId}
         />
       )}
+
+      {/* Sprint */}
+      <div className="flex items-center gap-3 px-4 py-1">
+        <span className={LABEL}>Sprint</span>
+        <div className="flex-1">
+          <SprintField
+            taskId={taskId}
+            planId={planId}
+            currentSprintId={task.sprintId}
+            currentSprintName={task.sprintName}
+            expectedVersion={task.updatedAt.toISOString()}
+          />
+        </div>
+      </div>
+
+      {/* Subtasks */}
+      <SubtasksSection taskId={taskId} planId={planId} bucketId={task.bucketId} />
 
       {/* Dependencies */}
       <DependenciesSection
