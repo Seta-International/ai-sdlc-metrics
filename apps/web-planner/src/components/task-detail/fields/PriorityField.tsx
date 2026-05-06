@@ -45,14 +45,30 @@ export function PriorityField({ taskId, planId, task }: Props) {
     setOpen(false)
     setSaving(true)
     try {
-      await trpc.planner.tasks.setPriority.mutate({
-        tenantId,
-        planId,
-        taskId,
-        actorId,
-        expectedVersion: task.updatedAt.toISOString(),
-        priority,
-      })
+      const detailKey = taskKeys.detail(taskId, actorId, tenantId)
+      const cached = queryClient.getQueryData<TaskDetailSnapshot>(detailKey)
+
+      const attempt = async (expectedVersion: string): Promise<void> => {
+        await trpc.planner.tasks.setPriority.mutate({
+          tenantId,
+          planId,
+          taskId,
+          actorId,
+          expectedVersion,
+          priority,
+        })
+      }
+
+      try {
+        await attempt((cached ?? task).updatedAt.toISOString())
+      } catch (err) {
+        const isConflict = (err as { data?: { code?: string } })?.data?.code === 'CONFLICT'
+        if (!isConflict) return
+        await queryClient.refetchQueries({ queryKey: detailKey })
+        const fresh = queryClient.getQueryData<TaskDetailSnapshot>(detailKey)
+        if (fresh) await attempt(fresh.updatedAt.toISOString())
+      }
+
       await queryClient.invalidateQueries({ queryKey: taskKeys.detailBase(taskId) })
     } finally {
       setSaving(false)

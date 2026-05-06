@@ -18,15 +18,23 @@ describe('RichTextDescription', () => {
     expect(el.textContent).toContain('world')
   })
 
-  it('calls onChange on blur with current HTML', async () => {
+  it('does not call onChange when clicking outside without editing', async () => {
     const onChange = vi.fn()
     render(<RichTextDescription value="<p>Initial</p>" onChange={onChange} />)
     const editor = screen.getByRole('textbox')
     editor.focus()
     await userEvent.click(document.body)
-    await waitFor(() => {
-      expect(onChange).toHaveBeenCalled()
-    })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('does not call onChange for empty value on external click without editing', async () => {
+    const onChange = vi.fn()
+    render(<RichTextDescription value="" onChange={onChange} />)
+    screen.getByRole('textbox').focus()
+    await userEvent.click(document.body)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(onChange).not.toHaveBeenCalled()
   })
 
   it('renders toolbar buttons B/I/U', () => {

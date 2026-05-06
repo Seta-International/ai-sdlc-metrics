@@ -141,7 +141,7 @@ export function TaskDetailPanel({ taskId, planId, onClose }: Props) {
         </div>
       ) : (
         <Tabs defaultValue="details" className="flex flex-1 flex-col overflow-hidden">
-          <TabsList className="shrink-0 border-b px-4">
+          <TabsList className="shrink-0 border-b px-4 w-full" data-testid="task-detail-tabs">
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="checklist">Checklist{checklistBadge}</TabsTrigger>
             <TabsTrigger value="files">Files{filesBadge}</TabsTrigger>

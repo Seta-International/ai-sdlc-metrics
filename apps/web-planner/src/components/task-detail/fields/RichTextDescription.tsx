@@ -3,7 +3,6 @@
 import { useRef, useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import Underline from '@tiptap/extension-underline'
 import { Button } from '@future/ui'
 import { Bold, Italic, Underline as UnderlineIcon, Code } from '@future/ui/icons'
 
@@ -14,10 +13,19 @@ interface Props {
 
 export function RichTextDescription({ value, onChange }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
+  // Only save when the user has focused AND edited the content.
+  // hasFocusedRef guards against Tiptap firing onUpdate during initialization / StrictMode
+  // remounts (where refs survive the cycle but the user hasn't touched the editor yet).
+  const hasFocusedRef = useRef(false)
+  const dirtyRef = useRef(false)
+  // Stable ref to avoid re-registering the mousedown listener on every render
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
 
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: [StarterKit, Underline],
+    // StarterKit v3 already includes Underline — no separate import needed
+    extensions: [StarterKit],
     content: value || '',
     editorProps: {
       attributes: {
@@ -25,18 +33,27 @@ export function RichTextDescription({ value, onChange }: Props) {
         'data-testid': 'rich-text-editor-content',
       },
     },
+    onFocus: () => {
+      hasFocusedRef.current = true
+    },
+    onUpdate: ({ transaction }) => {
+      // docChanged is false for selection-only transactions (focus, cursor move).
+      // Only mark dirty when the user actually changed content.
+      if (hasFocusedRef.current && transaction.docChanged) dirtyRef.current = true
+    },
   })
 
   useEffect(() => {
     if (!editor) return
     function handleMouseDown(e: MouseEvent) {
-      if (!containerRef.current?.contains(e.target as Node)) {
-        onChange(editor!.getHTML())
+      if (!containerRef.current?.contains(e.target as Node) && dirtyRef.current) {
+        dirtyRef.current = false
+        onChangeRef.current(editor!.getHTML())
       }
     }
     document.addEventListener('mousedown', handleMouseDown)
     return () => document.removeEventListener('mousedown', handleMouseDown)
-  }, [editor, onChange])
+  }, [editor])
 
   if (!editor) return null
 

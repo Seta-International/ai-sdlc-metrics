@@ -183,4 +183,94 @@ describe('PriorityField', () => {
     )
     expect(screen.getByText('Urgent')).toBeDefined()
   })
+
+  it('uses cache version at mutation time instead of stale prop version', async () => {
+    const staleTask = makeTask({ updatedAt: new Date('2025-12-01T00:00:00Z') })
+    const freshTask = makeTask({ updatedAt: new Date('2026-01-15T00:00:00Z') })
+    queryClient.setQueryData(['tasks.getDetail', 'task-1', 'actor-1', 'tenant-1'], freshTask)
+
+    render(
+      <Wrapper>
+        <PriorityField taskId="task-1" planId="plan-1" task={staleTask} />
+      </Wrapper>,
+    )
+    await userEvent.click(screen.getByRole('button', { name: /Priority:/i }))
+    await act(async () => {
+      await userEvent.click(screen.getByRole('button', { name: 'Pick Urgent' }))
+    })
+
+    expect(mockSetPriorityMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedVersion: freshTask.updatedAt.toISOString() }),
+    )
+  })
+
+  it('falls back to prop version when cache has no entry', async () => {
+    const task = makeTask()
+
+    render(
+      <Wrapper>
+        <PriorityField taskId="task-1" planId="plan-1" task={task} />
+      </Wrapper>,
+    )
+    await userEvent.click(screen.getByRole('button', { name: /Priority:/i }))
+    await act(async () => {
+      await userEvent.click(screen.getByRole('button', { name: 'Pick Urgent' }))
+    })
+
+    expect(mockSetPriorityMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedVersion: task.updatedAt.toISOString() }),
+    )
+  })
+
+  it('retries once on CONFLICT with fresh version', async () => {
+    const task = makeTask()
+    const freshTask = makeTask({ updatedAt: new Date('2026-01-02T00:00:00Z') })
+    queryClient.setQueryData(['tasks.getDetail', 'task-1', 'actor-1', 'tenant-1'], task)
+
+    const conflictError = { data: { code: 'CONFLICT' } }
+    mockSetPriorityMutate.mockRejectedValueOnce(conflictError).mockResolvedValueOnce(undefined)
+
+    const refetchSpy = vi.spyOn(queryClient, 'refetchQueries').mockImplementation(async () => {
+      queryClient.setQueryData(['tasks.getDetail', 'task-1', 'actor-1', 'tenant-1'], freshTask)
+    })
+
+    render(
+      <Wrapper>
+        <PriorityField taskId="task-1" planId="plan-1" task={task} />
+      </Wrapper>,
+    )
+    await userEvent.click(screen.getByRole('button', { name: /Priority:/i }))
+    await act(async () => {
+      await userEvent.click(screen.getByRole('button', { name: 'Pick Urgent' }))
+      await new Promise((r) => setTimeout(r, 20))
+    })
+
+    // spy fires once for the CONFLICT retry + once from invalidateQueries internally
+    expect(refetchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ['tasks.getDetail', 'task-1', 'actor-1', 'tenant-1'] }),
+    )
+    expect(mockSetPriorityMutate).toHaveBeenCalledTimes(2)
+    expect(mockSetPriorityMutate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ expectedVersion: freshTask.updatedAt.toISOString() }),
+    )
+  })
+
+  it('does not retry on non-CONFLICT error', async () => {
+    const task = makeTask()
+    queryClient.setQueryData(['tasks.getDetail', 'task-1', 'actor-1', 'tenant-1'], task)
+    mockSetPriorityMutate.mockRejectedValueOnce(new Error('Network error'))
+
+    render(
+      <Wrapper>
+        <PriorityField taskId="task-1" planId="plan-1" task={task} />
+      </Wrapper>,
+    )
+    await userEvent.click(screen.getByRole('button', { name: /Priority:/i }))
+    await act(async () => {
+      await userEvent.click(screen.getByRole('button', { name: 'Pick Urgent' }))
+      await new Promise((r) => setTimeout(r, 20))
+    })
+
+    expect(mockSetPriorityMutate).toHaveBeenCalledTimes(1)
+  })
 })

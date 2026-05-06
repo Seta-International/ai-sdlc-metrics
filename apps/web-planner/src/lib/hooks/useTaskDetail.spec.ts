@@ -235,6 +235,24 @@ describe('useTaskDetail', () => {
     })
   })
 
+  it('skips mutation when patch values match current cached task', async () => {
+    const fixture = makeTask()
+    queryClient.setQueryData(QUERY_KEY, fixture)
+    mockMutate.mockResolvedValue(undefined)
+
+    const { result } = renderHook(() => useTaskDetail(INPUT), { wrapper: Wrapper })
+
+    await act(async () => {
+      result.current.update({ description: 'Original description' })
+    })
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0))
+    })
+
+    expect(mockMutate).not.toHaveBeenCalled()
+  })
+
   it('sets lastError and clears saving on non-conflict network error', async () => {
     const fixture = makeTask()
     queryClient.setQueryData(QUERY_KEY, fixture)
