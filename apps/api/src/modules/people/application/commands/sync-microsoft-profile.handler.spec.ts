@@ -10,6 +10,7 @@ import type { StorageClient } from '../../domain/ports/people-storage-client.por
 import type { Employment } from '../../domain/entities/employment.entity'
 import type { PersonProfile } from '../../domain/entities/person-profile.entity'
 import type { EmploymentDetail } from '../../domain/entities/employment-detail.entity'
+import type { SearchIndexRebuildService } from '../services/search-index-rebuild.service'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const EMPLOYMENT_ID = '01900000-0000-7000-8000-000000000020'
@@ -113,6 +114,7 @@ describe('SyncMicrosoftProfileHandler', () => {
   let employmentDetailRepo: IEmploymentDetailRepository
   let identityFacade: IdentityQueryFacade
   let storageClient: StorageClient
+  let searchIndexRebuildService: SearchIndexRebuildService
 
   beforeEach(() => {
     employmentRepo = {
@@ -148,6 +150,10 @@ describe('SyncMicrosoftProfileHandler', () => {
       deleteObject: vi.fn(),
       headObject: vi.fn(),
     }
+    searchIndexRebuildService = {
+      rebuildForEmployment: vi.fn(),
+      rebuildAllForTenant: vi.fn(),
+    } as unknown as SearchIndexRebuildService
 
     handler = new SyncMicrosoftProfileHandler(
       employmentRepo,
@@ -155,6 +161,7 @@ describe('SyncMicrosoftProfileHandler', () => {
       employmentDetailRepo,
       identityFacade,
       storageClient,
+      searchIndexRebuildService,
     )
   })
 
@@ -180,6 +187,7 @@ describe('SyncMicrosoftProfileHandler', () => {
     expect(personProfileRepo.update).not.toHaveBeenCalled()
     expect(employmentRepo.update).not.toHaveBeenCalled()
     expect(employmentDetailRepo.update).not.toHaveBeenCalled()
+    expect(searchIndexRebuildService.rebuildForEmployment).not.toHaveBeenCalled()
   })
 
   it('updates all authoritative fields on happy path', async () => {
@@ -234,6 +242,10 @@ describe('SyncMicrosoftProfileHandler', () => {
       fullMsData.photo,
       'image/jpeg',
     )
+    expect(searchIndexRebuildService.rebuildForEmployment).toHaveBeenCalledWith(
+      EMPLOYMENT_ID,
+      TENANT_ID,
+    )
   })
 
   it('skips photo but continues sync when photo is null', async () => {
@@ -256,6 +268,10 @@ describe('SyncMicrosoftProfileHandler', () => {
     expect(result.updatedFields).toEqual(
       expect.arrayContaining(['fullName', 'preferredName', 'companyEmail']),
     )
+    expect(searchIndexRebuildService.rebuildForEmployment).toHaveBeenCalledWith(
+      EMPLOYMENT_ID,
+      TENANT_ID,
+    )
   })
 
   it('propagates Graph API errors without partial writes', async () => {
@@ -272,6 +288,7 @@ describe('SyncMicrosoftProfileHandler', () => {
     expect(personProfileRepo.update).not.toHaveBeenCalled()
     expect(employmentRepo.update).not.toHaveBeenCalled()
     expect(employmentDetailRepo.update).not.toHaveBeenCalled()
+    expect(searchIndexRebuildService.rebuildForEmployment).not.toHaveBeenCalled()
   })
 
   it('inserts employment detail when the record is missing', async () => {
@@ -298,5 +315,9 @@ describe('SyncMicrosoftProfileHandler', () => {
       }),
     )
     expect(employmentDetailRepo.update).not.toHaveBeenCalled()
+    expect(searchIndexRebuildService.rebuildForEmployment).toHaveBeenCalledWith(
+      EMPLOYMENT_ID,
+      TENANT_ID,
+    )
   })
 })

@@ -60,7 +60,11 @@ async function bootstrap() {
         const cause = error.cause
         const causeMessage = cause instanceof Error ? cause.message : undefined
         const message = causeMessage ? `${error.message}\ncause: ${causeMessage}` : error.message
-        logger.error(`tRPC error on '${path}': ${message}`, error.stack)
+        if (error.code === 'INTERNAL_SERVER_ERROR') {
+          logger.error(`tRPC error on '${path}': ${message}`, error.stack)
+        } else {
+          logger.warn(`tRPC ${error.code} on '${path}': ${message}`)
+        }
       },
     } satisfies FastifyTRPCPluginOptions<AppRouter>['trpcOptions'],
   })

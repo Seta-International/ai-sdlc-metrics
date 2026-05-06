@@ -25,6 +25,7 @@ import {
   type StorageClient,
 } from '../../domain/ports/people-storage-client.port'
 import { SyncMicrosoftProfileCommand } from './sync-microsoft-profile.command'
+import { SearchIndexRebuildService } from '../services/search-index-rebuild.service'
 
 function buildEmploymentDetailInsert(
   tenantId: string,
@@ -82,6 +83,7 @@ export class SyncMicrosoftProfileHandler implements ICommandHandler<
     private readonly identityFacade: IdentityQueryFacade,
     @Inject(PEOPLE_STORAGE_CLIENT)
     private readonly storageClient: StorageClient,
+    private readonly searchIndexRebuildService: SearchIndexRebuildService,
   ) {}
 
   async execute(command: SyncMicrosoftProfileCommand): Promise<SyncResult> {
@@ -104,6 +106,7 @@ export class SyncMicrosoftProfileHandler implements ICommandHandler<
 
     const updatedFields: string[] = []
     const skippedFields: string[] = []
+    let shouldRebuildDirectoryIndex = false
 
     const profileUpdates: Partial<
       Omit<PersonProfile, 'id' | 'tenantId' | 'actorId' | 'createdAt'>
@@ -112,6 +115,7 @@ export class SyncMicrosoftProfileHandler implements ICommandHandler<
       profileUpdates.fullName = msData.displayName
       profileUpdates.preferredName = msData.displayName
       updatedFields.push('fullName', 'preferredName')
+      shouldRebuildDirectoryIndex = true
     }
 
     if (msData.photo) {
@@ -133,6 +137,7 @@ export class SyncMicrosoftProfileHandler implements ICommandHandler<
         companyEmail: msData.mail,
       })
       updatedFields.push('companyEmail')
+      shouldRebuildDirectoryIndex = true
     }
 
     const detailUpdates: Partial<Omit<EmploymentDetail, 'id' | 'tenantId' | 'employmentId'>> = {}
@@ -151,10 +156,12 @@ export class SyncMicrosoftProfileHandler implements ICommandHandler<
     if (msData.jobTitle != null) {
       detailUpdates.msJobTitle = msData.jobTitle
       updatedFields.push('msJobTitle')
+      shouldRebuildDirectoryIndex = true
     }
     if (msData.department != null) {
       detailUpdates.msDepartment = msData.department
       updatedFields.push('msDepartment')
+      shouldRebuildDirectoryIndex = true
     }
 
     if (Object.keys(detailUpdates).length > 0) {
@@ -169,6 +176,10 @@ export class SyncMicrosoftProfileHandler implements ICommandHandler<
           buildEmploymentDetailInsert(command.tenantId, employment.id, detailUpdates),
         )
       }
+    }
+
+    if (shouldRebuildDirectoryIndex) {
+      await this.searchIndexRebuildService.rebuildForEmployment(employment.id, command.tenantId)
     }
 
     return { updatedFields, skippedFields }
