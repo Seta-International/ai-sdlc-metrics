@@ -1573,6 +1573,19 @@ CREATE TABLE "planner"."bucket" (
 	"deleted_at" timestamp
 );
 --> statement-breakpoint
+CREATE TABLE "planner"."custom_field_def" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"plan_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"kind" text NOT NULL,
+	"choice_options" jsonb DEFAULT '[]'::jsonb,
+	"position" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "chk_custom_field_kind" CHECK ("planner"."custom_field_def"."kind" IN ('text', 'number', 'date', 'yes_no', 'choice')),
+	CONSTRAINT "chk_custom_field_name_length" CHECK (char_length("planner"."custom_field_def"."name") <= 100)
+);
+--> statement-breakpoint
 CREATE TABLE "planner"."my_day_entry" (
 	"actor_id" uuid NOT NULL,
 	"task_id" uuid NOT NULL,
@@ -1628,6 +1641,20 @@ CREATE TABLE "planner"."plan_member" (
 	CONSTRAINT "plan_member_plan_id_actor_id_pk" PRIMARY KEY("plan_id","actor_id")
 );
 --> statement-breakpoint
+CREATE TABLE "planner"."sprint" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"plan_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"start_date" date NOT NULL,
+	"end_date" date NOT NULL,
+	"created_by" uuid NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"completed_at" timestamp,
+	CONSTRAINT "chk_sprint_name_length" CHECK (char_length("planner"."sprint"."name") <= 100),
+	CONSTRAINT "chk_sprint_dates" CHECK ("planner"."sprint"."end_date" >= "planner"."sprint"."start_date")
+);
+--> statement-breakpoint
 CREATE TABLE "planner"."task" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"tenant_id" uuid NOT NULL,
@@ -1655,6 +1682,8 @@ CREATE TABLE "planner"."task" (
 	"ms_soft_deleted_at" timestamp with time zone,
 	"ms_sync_pushed_at" timestamp with time zone,
 	"pending_ms_assignments" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"parent_task_id" uuid,
+	"sprint_id" uuid,
 	CONSTRAINT "chk_task_progress" CHECK ("planner"."task"."progress" IN (0, 50, 100)),
 	CONSTRAINT "chk_task_priority" CHECK ("planner"."task"."priority" IN (1, 3, 5, 9)),
 	CONSTRAINT "chk_task_description_length" CHECK (char_length("planner"."task"."description") <= 32000),
@@ -1726,6 +1755,31 @@ CREATE TABLE "planner"."task_comment" (
 	CONSTRAINT "chk_task_comment_body_length" CHECK (char_length("planner"."task_comment"."body") <= 4000)
 );
 --> statement-breakpoint
+CREATE TABLE "planner"."task_custom_field_value" (
+	"tenant_id" uuid NOT NULL,
+	"task_id" uuid NOT NULL,
+	"field_def_id" uuid NOT NULL,
+	"value_text" text,
+	"value_number" text,
+	"value_date" date,
+	"value_yes_no" boolean,
+	"value_choice" text,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "task_custom_field_value_task_id_field_def_id_pk" PRIMARY KEY("task_id","field_def_id")
+);
+--> statement-breakpoint
+CREATE TABLE "planner"."task_dependency" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"from_task_id" uuid NOT NULL,
+	"to_task_id" uuid NOT NULL,
+	"kind" text NOT NULL,
+	"created_by" uuid NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "chk_task_dependency_kind" CHECK ("planner"."task_dependency"."kind" IN ('finish_to_start', 'start_to_start', 'finish_to_finish')),
+	CONSTRAINT "chk_task_dependency_no_self" CHECK ("planner"."task_dependency"."from_task_id" <> "planner"."task_dependency"."to_task_id")
+);
+--> statement-breakpoint
 CREATE TABLE "planner"."task_evidence" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"task_id" uuid NOT NULL,
@@ -1750,6 +1804,17 @@ CREATE TABLE "planner"."task_evidence" (
 	CONSTRAINT "chk_task_evidence_caption_length" CHECK (char_length("planner"."task_evidence"."caption") <= 500),
 	CONSTRAINT "chk_task_evidence_body_length" CHECK ("planner"."task_evidence"."body" IS NULL OR char_length("planner"."task_evidence"."body") <= 4000),
 	CONSTRAINT "chk_task_evidence_verification_consistency" CHECK (("planner"."task_evidence"."verified_by" IS NULL AND "planner"."task_evidence"."verified_at" IS NULL) OR ("planner"."task_evidence"."verified_by" IS NOT NULL AND "planner"."task_evidence"."verified_at" IS NOT NULL))
+);
+--> statement-breakpoint
+CREATE TABLE "planner"."task_history" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"task_id" uuid NOT NULL,
+	"actor_id" uuid NOT NULL,
+	"field" text NOT NULL,
+	"old_value" jsonb,
+	"new_value" jsonb,
+	"changed_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "planner"."roster_member" (
@@ -1853,8 +1918,10 @@ CREATE TABLE "projects"."project_role" (
 );
 --> statement-breakpoint
 ALTER TABLE "planner"."bucket" ADD CONSTRAINT "bucket_plan_id_plan_id_fk" FOREIGN KEY ("plan_id") REFERENCES "planner"."plan"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "planner"."custom_field_def" ADD CONSTRAINT "custom_field_def_plan_id_plan_id_fk" FOREIGN KEY ("plan_id") REFERENCES "planner"."plan"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "planner"."plan_label" ADD CONSTRAINT "plan_label_plan_id_plan_id_fk" FOREIGN KEY ("plan_id") REFERENCES "planner"."plan"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "planner"."plan_member" ADD CONSTRAINT "plan_member_plan_id_plan_id_fk" FOREIGN KEY ("plan_id") REFERENCES "planner"."plan"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "planner"."sprint" ADD CONSTRAINT "sprint_plan_id_plan_id_fk" FOREIGN KEY ("plan_id") REFERENCES "planner"."plan"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "planner"."task" ADD CONSTRAINT "task_plan_id_plan_id_fk" FOREIGN KEY ("plan_id") REFERENCES "planner"."plan"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "planner"."task" ADD CONSTRAINT "task_bucket_id_bucket_id_fk" FOREIGN KEY ("bucket_id") REFERENCES "planner"."bucket"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "planner"."task_applied_label" ADD CONSTRAINT "task_applied_label_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -1862,7 +1929,12 @@ ALTER TABLE "planner"."task_assignee" ADD CONSTRAINT "task_assignee_task_id_task
 ALTER TABLE "planner"."task_attachment" ADD CONSTRAINT "task_attachment_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "planner"."task_checklist_item" ADD CONSTRAINT "task_checklist_item_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "planner"."task_comment" ADD CONSTRAINT "task_comment_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "planner"."task_custom_field_value" ADD CONSTRAINT "task_custom_field_value_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "planner"."task_custom_field_value" ADD CONSTRAINT "task_custom_field_value_field_def_id_custom_field_def_id_fk" FOREIGN KEY ("field_def_id") REFERENCES "planner"."custom_field_def"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "planner"."task_dependency" ADD CONSTRAINT "task_dependency_from_task_id_task_id_fk" FOREIGN KEY ("from_task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "planner"."task_dependency" ADD CONSTRAINT "task_dependency_to_task_id_task_id_fk" FOREIGN KEY ("to_task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "planner"."task_evidence" ADD CONSTRAINT "task_evidence_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "planner"."task_history" ADD CONSTRAINT "task_history_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "planner"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "tenant_module_toggle_tenant_module_idx" ON "admin"."tenant_module_toggle" USING btree ("tenant_id","module_key");--> statement-breakpoint
 CREATE INDEX "agent_draft_tenant_status_expires_idx" ON "agents"."agent_draft" USING btree ("tenant_id","status","expires_at");--> statement-breakpoint
 CREATE INDEX "agent_draft_tenant_approver_status_idx" ON "agents"."agent_draft" USING btree ("tenant_id","approver_user_id","status");--> statement-breakpoint
@@ -1943,6 +2015,7 @@ CREATE UNIQUE INDEX "uniq_ms_plan_sync_state_tenant_msplan" ON "planner"."ms_pla
 CREATE INDEX "idx_ms_sync_conflict_tenant" ON "planner"."ms_sync_conflict" USING btree ("tenant_id","resolved_at","created_at");--> statement-breakpoint
 CREATE INDEX "idx_bucket_plan_deleted_order" ON "planner"."bucket" USING btree ("plan_id","deleted_at","order_hint") WHERE "planner"."bucket"."deleted_at" IS NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_bucket_tenant_ms_bucket_id" ON "planner"."bucket" USING btree ("tenant_id","ms_bucket_id") WHERE "planner"."bucket"."ms_bucket_id" IS NOT NULL;--> statement-breakpoint
+CREATE INDEX "idx_custom_field_def_plan" ON "planner"."custom_field_def" USING btree ("plan_id","position");--> statement-breakpoint
 CREATE INDEX "idx_my_day_entry_today" ON "planner"."my_day_entry" USING btree ("tenant_id","actor_id","added_date");--> statement-breakpoint
 CREATE INDEX "idx_my_day_entry_task" ON "planner"."my_day_entry" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "idx_plan_tenant_deleted" ON "planner"."plan" USING btree ("tenant_id","deleted_at") WHERE "planner"."plan"."deleted_at" IS NULL;--> statement-breakpoint
@@ -1950,16 +2023,25 @@ CREATE INDEX "idx_plan_tenant_created_by" ON "planner"."plan" USING btree ("tena
 CREATE UNIQUE INDEX "uq_plan_tenant_ms_plan_id" ON "planner"."plan" USING btree ("tenant_id","ms_plan_id") WHERE "planner"."plan"."ms_plan_id" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX "idx_plan_tenant_owner_actor" ON "planner"."plan" USING btree ("tenant_id","owner_actor_id") WHERE "planner"."plan"."owner_actor_id" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX "idx_plan_member_tenant_actor" ON "planner"."plan_member" USING btree ("tenant_id","actor_id");--> statement-breakpoint
+CREATE INDEX "idx_sprint_plan_created" ON "planner"."sprint" USING btree ("plan_id","created_at");--> statement-breakpoint
 CREATE INDEX "idx_task_tenant_plan_bucket_deleted_order" ON "planner"."task" USING btree ("tenant_id","plan_id","bucket_id","deleted_at","order_hint") WHERE "planner"."task"."deleted_at" IS NULL;--> statement-breakpoint
 CREATE INDEX "idx_task_tenant_due_date" ON "planner"."task" USING btree ("tenant_id","due_date") WHERE "planner"."task"."deleted_at" IS NULL AND "planner"."task"."progress" < 100;--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_task_tenant_ms_task_id" ON "planner"."task" USING btree ("tenant_id","ms_task_id") WHERE "planner"."task"."ms_task_id" IS NOT NULL;--> statement-breakpoint
+CREATE INDEX "idx_task_tenant_parent" ON "planner"."task" USING btree ("tenant_id","parent_task_id") WHERE "planner"."task"."parent_task_id" IS NOT NULL;--> statement-breakpoint
+CREATE INDEX "idx_task_tenant_sprint" ON "planner"."task" USING btree ("tenant_id","sprint_id") WHERE "planner"."task"."sprint_id" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX "idx_task_applied_label_tenant_plan_slot" ON "planner"."task_applied_label" USING btree ("tenant_id","plan_id","slot");--> statement-breakpoint
 CREATE INDEX "idx_task_assignee_tenant_actor" ON "planner"."task_assignee" USING btree ("tenant_id","actor_id");--> statement-breakpoint
 CREATE INDEX "idx_task_attachment_task" ON "planner"."task_attachment" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "idx_task_checklist_item_task_order" ON "planner"."task_checklist_item" USING btree ("task_id","order_hint");--> statement-breakpoint
 CREATE INDEX "idx_task_comment_task_posted" ON "planner"."task_comment" USING btree ("task_id","posted_at") WHERE "planner"."task_comment"."deleted_at" IS NULL;--> statement-breakpoint
+CREATE INDEX "idx_task_custom_field_value_tenant" ON "planner"."task_custom_field_value" USING btree ("tenant_id","task_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "uq_task_dependency" ON "planner"."task_dependency" USING btree ("from_task_id","to_task_id","kind");--> statement-breakpoint
+CREATE INDEX "idx_task_dependency_to" ON "planner"."task_dependency" USING btree ("tenant_id","to_task_id");--> statement-breakpoint
+CREATE INDEX "idx_task_dependency_from" ON "planner"."task_dependency" USING btree ("tenant_id","from_task_id");--> statement-breakpoint
 CREATE INDEX "idx_task_evidence_task_submitted" ON "planner"."task_evidence" USING btree ("task_id","submitted_at");--> statement-breakpoint
 CREATE INDEX "idx_task_evidence_tenant_submitted_by" ON "planner"."task_evidence" USING btree ("tenant_id","submitted_by");--> statement-breakpoint
+CREATE INDEX "idx_task_history_task_changed" ON "planner"."task_history" USING btree ("task_id","changed_at");--> statement-breakpoint
+CREATE INDEX "idx_task_history_tenant_actor" ON "planner"."task_history" USING btree ("tenant_id","actor_id");--> statement-breakpoint
 CREATE INDEX "idx_roster_member_lookup" ON "planner"."roster_member" USING btree ("tenant_id","ms_roster_id");--> statement-breakpoint
 CREATE INDEX "saved_view_tenant_actor_resource_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key");--> statement-breakpoint
 CREATE UNIQUE INDEX "saved_view_unique_default_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key") WHERE is_default = true;

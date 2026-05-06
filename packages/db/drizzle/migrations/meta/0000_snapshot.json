@@ -1,5 +1,5 @@
 {
-  "id": "4ed152d7-efde-44da-b42e-b5c31150e011",
+  "id": "b9f16a51-9fda-4dfd-a13f-63be6b064026",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -10801,6 +10801,112 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "planner.custom_field_def": {
+      "name": "custom_field_def",
+      "schema": "planner",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plan_id": {
+          "name": "plan_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "choice_options": {
+          "name": "choice_options",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'::jsonb"
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_custom_field_def_plan": {
+          "name": "idx_custom_field_def_plan",
+          "columns": [
+            {
+              "expression": "plan_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "custom_field_def_plan_id_plan_id_fk": {
+          "name": "custom_field_def_plan_id_plan_id_fk",
+          "tableFrom": "custom_field_def",
+          "tableTo": "plan",
+          "schemaTo": "planner",
+          "columnsFrom": ["plan_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "chk_custom_field_kind": {
+          "name": "chk_custom_field_kind",
+          "value": "\"planner\".\"custom_field_def\".\"kind\" IN ('text', 'number', 'date', 'yes_no', 'choice')"
+        },
+        "chk_custom_field_name_length": {
+          "name": "chk_custom_field_name_length",
+          "value": "char_length(\"planner\".\"custom_field_def\".\"name\") <= 100"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "planner.my_day_entry": {
       "name": "my_day_entry",
       "schema": "planner",
@@ -11268,6 +11374,116 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "planner.sprint": {
+      "name": "sprint",
+      "schema": "planner",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plan_id": {
+          "name": "plan_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_sprint_plan_created": {
+          "name": "idx_sprint_plan_created",
+          "columns": [
+            {
+              "expression": "plan_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "sprint_plan_id_plan_id_fk": {
+          "name": "sprint_plan_id_plan_id_fk",
+          "tableFrom": "sprint",
+          "tableTo": "plan",
+          "schemaTo": "planner",
+          "columnsFrom": ["plan_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "chk_sprint_name_length": {
+          "name": "chk_sprint_name_length",
+          "value": "char_length(\"planner\".\"sprint\".\"name\") <= 100"
+        },
+        "chk_sprint_dates": {
+          "name": "chk_sprint_dates",
+          "value": "\"planner\".\"sprint\".\"end_date\" >= \"planner\".\"sprint\".\"start_date\""
+        }
+      },
+      "isRLSEnabled": false
+    },
     "planner.task": {
       "name": "task",
       "schema": "planner",
@@ -11435,6 +11651,18 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'[]'::jsonb"
+        },
+        "parent_task_id": {
+          "name": "parent_task_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sprint_id": {
+          "name": "sprint_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -11518,6 +11746,50 @@
           ],
           "isUnique": true,
           "where": "\"planner\".\"task\".\"ms_task_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_task_tenant_parent": {
+          "name": "idx_task_tenant_parent",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "parent_task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"planner\".\"task\".\"parent_task_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_task_tenant_sprint": {
+          "name": "idx_task_tenant_sprint",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sprint_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"planner\".\"task\".\"sprint_id\" IS NOT NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -12096,6 +12368,278 @@
       },
       "isRLSEnabled": false
     },
+    "planner.task_custom_field_value": {
+      "name": "task_custom_field_value",
+      "schema": "planner",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "task_id": {
+          "name": "task_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "field_def_id": {
+          "name": "field_def_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value_text": {
+          "name": "value_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "value_number": {
+          "name": "value_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "value_date": {
+          "name": "value_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "value_yes_no": {
+          "name": "value_yes_no",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "value_choice": {
+          "name": "value_choice",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_task_custom_field_value_tenant": {
+          "name": "idx_task_custom_field_value_tenant",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "task_custom_field_value_task_id_task_id_fk": {
+          "name": "task_custom_field_value_task_id_task_id_fk",
+          "tableFrom": "task_custom_field_value",
+          "tableTo": "task",
+          "schemaTo": "planner",
+          "columnsFrom": ["task_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "task_custom_field_value_field_def_id_custom_field_def_id_fk": {
+          "name": "task_custom_field_value_field_def_id_custom_field_def_id_fk",
+          "tableFrom": "task_custom_field_value",
+          "tableTo": "custom_field_def",
+          "schemaTo": "planner",
+          "columnsFrom": ["field_def_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "task_custom_field_value_task_id_field_def_id_pk": {
+          "name": "task_custom_field_value_task_id_field_def_id_pk",
+          "columns": ["task_id", "field_def_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "planner.task_dependency": {
+      "name": "task_dependency",
+      "schema": "planner",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_task_id": {
+          "name": "from_task_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "to_task_id": {
+          "name": "to_task_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "uq_task_dependency": {
+          "name": "uq_task_dependency",
+          "columns": [
+            {
+              "expression": "from_task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "to_task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_task_dependency_to": {
+          "name": "idx_task_dependency_to",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "to_task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_task_dependency_from": {
+          "name": "idx_task_dependency_from",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "from_task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "task_dependency_from_task_id_task_id_fk": {
+          "name": "task_dependency_from_task_id_task_id_fk",
+          "tableFrom": "task_dependency",
+          "tableTo": "task",
+          "schemaTo": "planner",
+          "columnsFrom": ["from_task_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "task_dependency_to_task_id_task_id_fk": {
+          "name": "task_dependency_to_task_id_task_id_fk",
+          "tableFrom": "task_dependency",
+          "tableTo": "task",
+          "schemaTo": "planner",
+          "columnsFrom": ["to_task_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "chk_task_dependency_kind": {
+          "name": "chk_task_dependency_kind",
+          "value": "\"planner\".\"task_dependency\".\"kind\" IN ('finish_to_start', 'start_to_start', 'finish_to_finish')"
+        },
+        "chk_task_dependency_no_self": {
+          "name": "chk_task_dependency_no_self",
+          "value": "\"planner\".\"task_dependency\".\"from_task_id\" <> \"planner\".\"task_dependency\".\"to_task_id\""
+        }
+      },
+      "isRLSEnabled": false
+    },
     "planner.task_evidence": {
       "name": "task_evidence",
       "schema": "planner",
@@ -12282,6 +12826,122 @@
           "value": "(\"planner\".\"task_evidence\".\"verified_by\" IS NULL AND \"planner\".\"task_evidence\".\"verified_at\" IS NULL) OR (\"planner\".\"task_evidence\".\"verified_by\" IS NOT NULL AND \"planner\".\"task_evidence\".\"verified_at\" IS NOT NULL)"
         }
       },
+      "isRLSEnabled": false
+    },
+    "planner.task_history": {
+      "name": "task_history",
+      "schema": "planner",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "task_id": {
+          "name": "task_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "field": {
+          "name": "field",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "old_value": {
+          "name": "old_value",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "new_value": {
+          "name": "new_value",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "changed_at": {
+          "name": "changed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_task_history_task_changed": {
+          "name": "idx_task_history_task_changed",
+          "columns": [
+            {
+              "expression": "task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "changed_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_task_history_tenant_actor": {
+          "name": "idx_task_history_tenant_actor",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "actor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "task_history_task_id_task_id_fk": {
+          "name": "task_history_task_id_task_id_fk",
+          "tableFrom": "task_history",
+          "tableTo": "task",
+          "schemaTo": "planner",
+          "columnsFrom": ["task_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "planner.roster_member": {
