@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { AgentStateProvider, useAgentState } from '../hooks/use-agent-state'
+import { AgentStateProvider } from '../hooks/use-agent-state'
 import { AgentContextProvider } from '../context/agent-context-provider'
 import { AgentPanel } from './agent-panel'
 
@@ -35,6 +35,7 @@ const wrap = (children: React.ReactNode) => (
 describe('AgentPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
   })
 
   it('renders header, meta strip, and composer', () => {
@@ -48,21 +49,18 @@ describe('AgentPanel', () => {
     expect(screen.getByText(/Refactor token export pipeline/)).toBeTruthy()
   })
 
-  it('renders an empty placeholder when collapsed (rail slot)', () => {
-    function Toggle() {
-      const s = useAgentState()
-      return <button onClick={() => s.setCollapsed(true)}>collapse</button>
-    }
-    render(
-      wrap(
-        <>
-          <Toggle />
-          <AgentPanel />
-        </>,
-      ),
-    )
-    fireEvent.click(screen.getByText('collapse'))
+  it('shows the rail when localStorage indicates collapsed', () => {
+    localStorage.setItem('agent-panel-collapsed:planner', '1')
+    render(wrap(<AgentPanel />))
+    expect(screen.getByTestId('agent-chat-rail')).toBeTruthy()
     expect(screen.queryByText('Action Intelligence')).toBeNull()
-    expect(screen.getByTestId('agent-panel-rail-slot')).toBeTruthy()
+  })
+
+  it('expand button toggles localStorage and shows full panel', () => {
+    localStorage.setItem('agent-panel-collapsed:planner', '1')
+    render(wrap(<AgentPanel />))
+    fireEvent.click(screen.getByRole('button', { name: 'Expand panel' }))
+    expect(localStorage.getItem('agent-panel-collapsed:planner')).toBeNull()
+    expect(screen.getByText('Action Intelligence')).toBeTruthy()
   })
 })

@@ -4,7 +4,6 @@ import { useMemo } from 'react'
 import { QueryClient, QueryClientProvider } from '@future/api-client'
 import { AssistantRuntimeProvider, useLocalRuntime } from '@assistant-ui/react'
 import { useStore } from 'zustand'
-import { useAgentState } from '../hooks/use-agent-state'
 import { useAgentContext } from '../context/use-agent-context'
 import { AgentThread } from '../thread/agent-thread'
 import { AgentComposer } from '../thread/agent-composer'
@@ -12,14 +11,16 @@ import { createAgentChatAdapter } from '../runtime/agent-chat-adapter'
 import { createAgentTurnStore } from '../runtime/agent-turn-store'
 import { AgentPanelHeader } from './agent-panel-header'
 import { AgentPanelMetaStrip } from './agent-panel-meta-strip'
+import { AgentChatRail } from './rail/agent-chat-rail'
+import { useCollapsedState } from './rail/use-collapsed-state'
 
 export interface AgentPanelProps {
   endpoint?: string
 }
 
 export function AgentPanel({ endpoint = '/api/agent/turn' }: AgentPanelProps) {
-  const { collapsed, setCollapsed } = useAgentState()
   const ctx = useAgentContext()
+  const [collapsed, setCollapsed] = useCollapsedState(ctx?.module ?? 'unknown')
 
   const store = useMemo(() => createAgentTurnStore(), [])
   const traceId = useStore(store, (s) => s.traceId)
@@ -40,12 +41,7 @@ export function AgentPanel({ endpoint = '/api/agent/turn' }: AgentPanelProps) {
   const queryClient = useMemo(() => new QueryClient(), [])
 
   if (collapsed) {
-    return (
-      <div
-        data-testid="agent-panel-rail-slot"
-        className="dark h-full w-11 flex-shrink-0 border-l border-white/[0.05] bg-sidebar"
-      />
-    )
+    return <AgentChatRail onExpand={() => setCollapsed(false)} />
   }
 
   const handleNewThread = () => {
