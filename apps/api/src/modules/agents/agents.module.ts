@@ -47,6 +47,7 @@ import { SendMessageHandler } from './application/commands/send-message.handler'
 import { DismissInsightHandler } from './application/commands/dismiss-insight.handler'
 import { ListSessionsHandler } from './application/queries/list-sessions.handler'
 import { ListInsightsHandler } from './application/queries/list-insights.handler'
+import { ListSuggestionsHandler } from './application/queries/list-suggestions.handler'
 import { setAgentSessionHandlers } from './interface/trpc/session.router'
 import { setAgentInsightHandlers } from './interface/trpc/insight.router'
 import { setPreferencesService } from './interface/trpc/preferences.router'
@@ -56,6 +57,7 @@ import { setDraftApprovalService } from './interface/trpc/draft-approval.router'
 import { setScheduleHandlers } from './interface/trpc/schedule-ui-facade'
 import { setRolloutHandlers } from './interface/trpc/rollout.router'
 import { setReadinessHandlers } from './interface/trpc/readiness.router'
+import { setListSuggestionsHandler } from './interface/trpc/suggestions.router'
 import { SCHEDULE_REPOSITORY } from './domain/repositories/schedule.repository'
 import {
   SCHEDULE_RUN_REPOSITORY,
@@ -345,6 +347,7 @@ export const CONVERSATION_RETENTION_SCHEDULER = Symbol('CONVERSATION_RETENTION_S
     DismissInsightHandler,
     ListSessionsHandler,
     ListInsightsHandler,
+    ListSuggestionsHandler,
     AgentPermissionService,
     AgentToolExecutor,
     McpAuthGuard,
@@ -728,6 +731,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     private readonly dismissInsight: DismissInsightHandler,
     private readonly listSessions: ListSessionsHandler,
     private readonly listInsights: ListInsightsHandler,
+    private readonly listSuggestionsHandler: ListSuggestionsHandler,
     private readonly toolRegistry: ToolRegistry,
     private readonly subAgentRegistry: SubAgentRegistry,
     private readonly intentRegistry: IntentRegistry,
@@ -798,6 +802,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
       readinessCheckRepo: this.readinessCheckRepo,
       runbookScheduler: this.runbookScheduler,
     })
+    setListSuggestionsHandler(this.listSuggestionsHandler)
 
     // TrpcModule.onModuleInit() must have run before AgentsModule.onModuleInit()
     // to ensure permission-enforcing routers have been swapped in.

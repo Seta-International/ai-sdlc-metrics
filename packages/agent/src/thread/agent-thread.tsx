@@ -5,14 +5,21 @@ import { PlanCard } from './cards/plan-card'
 import { IterationStep } from './cards/iteration-step'
 import { UserTurn } from './cards/user-turn'
 import { AnswerBubble } from './cards/answer-bubble'
+import { DraftCard } from './cards/draft-card'
+import { useAgentContext } from '../context/use-agent-context'
 import {
   PLAN_TOOL,
   ITERATION_TOOL,
+  DRAFT_TOOL,
   isPlanArgs,
   isIterationArgs,
+  isDraftArgs,
 } from '../runtime/agent-message-parts'
+import { IdleState } from '../panel/idle/idle-state'
 
 export function AgentThread() {
+  const agentContext = useAgentContext()
+
   useAssistantToolUI({
     toolName: PLAN_TOOL,
     render: ({ args }) => {
@@ -27,17 +34,22 @@ export function AgentThread() {
       return <IterationStep {...args} />
     },
   })
+  useAssistantToolUI({
+    toolName: DRAFT_TOOL,
+    render: ({ args }) => {
+      if (!isDraftArgs(args)) return null
+      return <DraftCard {...args} />
+    },
+  })
 
   return (
     <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col">
       <ThreadPrimitive.Viewport className="min-h-0 flex-1 overflow-y-auto py-2">
         <ThreadPrimitive.Empty>
-          <div
-            data-testid="agent-thread-empty"
-            className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground"
-          >
-            <p className="text-sm">Start a conversation</p>
-          </div>
+          <IdleState
+            surface={agentContext?.module ?? 'workspace'}
+            contextEntity={agentContext?.entity ?? null}
+          />
         </ThreadPrimitive.Empty>
         <ThreadPrimitive.Messages
           components={{ UserMessage: AgentUserMessage, AssistantMessage: AgentAssistantMessage }}
