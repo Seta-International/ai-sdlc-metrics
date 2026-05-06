@@ -624,6 +624,16 @@ CREATE TABLE "agents"."agent_user_budget" (
 	CONSTRAINT "agent_user_budget_pk" PRIMARY KEY("tenant_id","user_id","date")
 );
 --> statement-breakpoint
+CREATE TABLE "agents"."agent_write_dedup" (
+	"idempotency_key" text PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"turn_id" uuid NOT NULL,
+	"tool_name" text NOT NULL,
+	"result_json" jsonb NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "documents"."generation_job" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"tenant_id" uuid NOT NULL,
@@ -1918,6 +1928,7 @@ CREATE INDEX "agent_stored_sub_agent_tenant_key_version_desc_idx" ON "agents"."a
 CREATE INDEX "agent_tool_invocation_trace_idx" ON "agents"."agent_tool_invocation" USING btree ("trace_id");--> statement-breakpoint
 CREATE INDEX "agent_tool_invocation_tenant_user_tool_created_idx" ON "agents"."agent_tool_invocation" USING btree ("tenant_id","user_id","tool_name","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_turn_sampling_decision_tenant_created_idx" ON "agents"."agent_turn_sampling_decision" USING btree ("tenant_id","created_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_write_dedup_tenant_expires_idx" ON "agents"."agent_write_dedup" USING btree ("tenant_id","expires_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_identity_provider_tenant_primary" ON "identity"."identity_provider" USING btree ("tenant_id","is_primary") WHERE "identity"."identity_provider"."is_primary" = true;--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_idp_group_mapping_role_scope_scoped" ON "identity"."idp_group_mapping" USING btree ("tenant_id","external_group_id","role_key","scope_type","scope_id") WHERE "identity"."idp_group_mapping"."scope_id" IS NOT NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_idp_group_mapping_role_scope_global" ON "identity"."idp_group_mapping" USING btree ("tenant_id","external_group_id","role_key","scope_type") WHERE "identity"."idp_group_mapping"."scope_id" IS NULL;--> statement-breakpoint
@@ -2225,6 +2236,14 @@ ALTER TABLE agents.agent_semantic_index ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agents.agent_semantic_index FORCE ROW LEVEL SECURITY;
 CREATE POLICY agent_semantic_index_tenant_isolation
   ON agents.agent_semantic_index
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_write_dedup
+ALTER TABLE agents.agent_write_dedup ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_write_dedup FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_write_dedup_tenant_isolation
+  ON agents.agent_write_dedup
   USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
   WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
 

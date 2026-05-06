@@ -797,3 +797,22 @@ export type AgentShadowRunRow = typeof agentShadowRun.$inferSelect
 export type NewAgentRolloutConfigRow = typeof agentRolloutConfig.$inferInsert
 export type NewAgentRolloutEventRow = typeof agentRolloutEvent.$inferInsert
 export type NewAgentShadowRunRow = typeof agentShadowRun.$inferInsert
+
+// ─── R-12 — Write Idempotency ─────────────────────────────────────────────────
+
+export const agentWriteDedup = agentsSchema.table(
+  'agent_write_dedup',
+  {
+    idempotencyKey: text('idempotency_key').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    turnId: uuid('turn_id').notNull(),
+    toolName: text('tool_name').notNull(),
+    resultJson: jsonb('result_json').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [index('agent_write_dedup_tenant_expires_idx').on(t.tenantId, t.expiresAt)],
+)
+
+export type AgentWriteDedupRow = typeof agentWriteDedup.$inferSelect
+export type NewAgentWriteDedupRow = typeof agentWriteDedup.$inferInsert

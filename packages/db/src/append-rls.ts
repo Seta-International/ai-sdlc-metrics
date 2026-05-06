@@ -76,6 +76,7 @@ export const AGENTS_TABLES = [
   'agent_runbook_dry_run',
   'agent_p1_incident_log',
   'agent_semantic_index',
+  'agent_write_dedup',
 ] as const
 
 // core schema tables that also need RLS
