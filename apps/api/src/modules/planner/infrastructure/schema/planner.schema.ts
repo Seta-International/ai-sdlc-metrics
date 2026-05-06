@@ -164,6 +164,8 @@ export const plannerTask = plannerSchema.table(
     pendingMsAssignments: jsonb('pending_ms_assignments')
       .notNull()
       .default(sql`'[]'::jsonb`),
+    parentTaskId: uuid('parent_task_id'), // app-enforced FK → planner.task(id)
+    sprintId: uuid('sprint_id'), // app-enforced FK → planner.sprint(id)
   },
   (table) => [
     check('chk_task_progress', sql`${table.progress} IN (0, 50, 100)`),
@@ -182,6 +184,12 @@ export const plannerTask = plannerSchema.table(
     uniqueIndex('uq_task_tenant_ms_task_id')
       .on(table.tenantId, table.msTaskId)
       .where(sql`${table.msTaskId} IS NOT NULL`),
+    index('idx_task_tenant_parent')
+      .on(table.tenantId, table.parentTaskId)
+      .where(sql`${table.parentTaskId} IS NOT NULL`),
+    index('idx_task_tenant_sprint')
+      .on(table.tenantId, table.sprintId)
+      .where(sql`${table.sprintId} IS NOT NULL`),
   ],
 )
 
@@ -451,4 +459,136 @@ export const msSyncConflict = plannerSchema.table(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('idx_ms_sync_conflict_tenant').on(t.tenantId, t.resolvedAt, t.createdAt)],
+)
+
+// ─── Phase 2: Custom fields ───────────────────────────────────────────────────
+
+export const plannerCustomFieldDef = plannerSchema.table(
+  'custom_field_def',
+  {
+    id: uuid('id')
+      .$defaultFn(() => uuidv7())
+      .primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    planId: uuid('plan_id')
+      .notNull()
+      .references(() => plannerPlan.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    kind: text('kind').notNull(), // 'text' | 'number' | 'date' | 'yes_no' | 'choice'
+    choiceOptions: jsonb('choice_options').default(sql`'[]'::jsonb`),
+    position: integer('position').notNull().default(0),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_custom_field_kind',
+      sql`${table.kind} IN ('text', 'number', 'date', 'yes_no', 'choice')`,
+    ),
+    index('idx_custom_field_def_plan').on(table.planId, table.position),
+    check('chk_custom_field_name_length', sql`char_length(${table.name}) <= 100`),
+  ],
+)
+
+export const plannerTaskCustomFieldValue = plannerSchema.table(
+  'task_custom_field_value',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => plannerTask.id, { onDelete: 'cascade' }),
+    fieldDefId: uuid('field_def_id')
+      .notNull()
+      .references(() => plannerCustomFieldDef.id, { onDelete: 'cascade' }),
+    valueText: text('value_text'),
+    valueNumber: text('value_number'), // stored as text to avoid float precision issues
+    valueDate: date('value_date'),
+    valueYesNo: boolean('value_yes_no'),
+    valueChoice: text('value_choice'),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.taskId, table.fieldDefId] }),
+    index('idx_task_custom_field_value_tenant').on(table.tenantId, table.taskId),
+  ],
+)
+
+// ─── Phase 2: Task dependencies ──────────────────────────────────────────────
+
+export const plannerTaskDependency = plannerSchema.table(
+  'task_dependency',
+  {
+    id: uuid('id')
+      .$defaultFn(() => uuidv7())
+      .primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    fromTaskId: uuid('from_task_id')
+      .notNull()
+      .references(() => plannerTask.id, { onDelete: 'cascade' }), // predecessor
+    toTaskId: uuid('to_task_id')
+      .notNull()
+      .references(() => plannerTask.id, { onDelete: 'cascade' }), // successor
+    kind: text('kind').notNull(), // 'finish_to_start' | 'start_to_start' | 'finish_to_finish'
+    createdBy: uuid('created_by').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_task_dependency_kind',
+      sql`${table.kind} IN ('finish_to_start', 'start_to_start', 'finish_to_finish')`,
+    ),
+    check('chk_task_dependency_no_self', sql`${table.fromTaskId} <> ${table.toTaskId}`),
+    uniqueIndex('uq_task_dependency').on(table.fromTaskId, table.toTaskId, table.kind),
+    index('idx_task_dependency_to').on(table.tenantId, table.toTaskId),
+    index('idx_task_dependency_from').on(table.tenantId, table.fromTaskId),
+  ],
+)
+
+// ─── Phase 2: Sprint ─────────────────────────────────────────────────────────
+
+export const plannerSprint = plannerSchema.table(
+  'sprint',
+  {
+    id: uuid('id')
+      .$defaultFn(() => uuidv7())
+      .primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    planId: uuid('plan_id')
+      .notNull()
+      .references(() => plannerPlan.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    startDate: date('start_date').notNull(),
+    endDate: date('end_date').notNull(),
+    createdBy: uuid('created_by').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    completedAt: timestamp('completed_at'),
+  },
+  (table) => [
+    check('chk_sprint_name_length', sql`char_length(${table.name}) <= 100`),
+    check('chk_sprint_dates', sql`${table.endDate} >= ${table.startDate}`),
+    index('idx_sprint_plan_created').on(table.planId, table.createdAt),
+  ],
+)
+
+// ─── Phase 2: Task history ────────────────────────────────────────────────────
+
+export const plannerTaskHistory = plannerSchema.table(
+  'task_history',
+  {
+    id: uuid('id')
+      .$defaultFn(() => uuidv7())
+      .primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => plannerTask.id, { onDelete: 'cascade' }),
+    actorId: uuid('actor_id').notNull(),
+    field: text('field').notNull(),
+    oldValue: jsonb('old_value'),
+    newValue: jsonb('new_value'),
+    changedAt: timestamp('changed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_task_history_task_changed').on(table.taskId, table.changedAt),
+    index('idx_task_history_tenant_actor').on(table.tenantId, table.actorId),
+  ],
 )
