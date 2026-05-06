@@ -1649,8 +1649,8 @@ CREATE TABLE "planner"."sprint" (
 	"start_date" date NOT NULL,
 	"end_date" date NOT NULL,
 	"created_by" uuid NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"completed_at" timestamp,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"completed_at" timestamp with time zone,
 	CONSTRAINT "chk_sprint_name_length" CHECK (char_length("planner"."sprint"."name") <= 100),
 	CONSTRAINT "chk_sprint_dates" CHECK ("planner"."sprint"."end_date" >= "planner"."sprint"."start_date")
 );
@@ -2035,7 +2035,7 @@ CREATE INDEX "idx_task_attachment_task" ON "planner"."task_attachment" USING btr
 CREATE INDEX "idx_task_checklist_item_task_order" ON "planner"."task_checklist_item" USING btree ("task_id","order_hint");--> statement-breakpoint
 CREATE INDEX "idx_task_comment_task_posted" ON "planner"."task_comment" USING btree ("task_id","posted_at") WHERE "planner"."task_comment"."deleted_at" IS NULL;--> statement-breakpoint
 CREATE INDEX "idx_task_custom_field_value_tenant" ON "planner"."task_custom_field_value" USING btree ("tenant_id","task_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "uq_task_dependency" ON "planner"."task_dependency" USING btree ("from_task_id","to_task_id","kind");--> statement-breakpoint
+CREATE UNIQUE INDEX "uq_task_dependency" ON "planner"."task_dependency" USING btree ("tenant_id","from_task_id","to_task_id","kind");--> statement-breakpoint
 CREATE INDEX "idx_task_dependency_to" ON "planner"."task_dependency" USING btree ("tenant_id","to_task_id");--> statement-breakpoint
 CREATE INDEX "idx_task_dependency_from" ON "planner"."task_dependency" USING btree ("tenant_id","from_task_id");--> statement-breakpoint
 CREATE INDEX "idx_task_evidence_task_submitted" ON "planner"."task_evidence" USING btree ("task_id","submitted_at");--> statement-breakpoint

@@ -1,4 +1,6 @@
-export type DependencyKind = 'finish_to_start' | 'start_to_start' | 'finish_to_finish'
+import type { DependencyKind } from './task-dependency-added.event'
+
+export type { DependencyKind }
 
 export class TaskDependencyRemovedEvent {
   static readonly eventName = 'planner.task-dependency-removed'

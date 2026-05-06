@@ -5,8 +5,8 @@ export interface SprintRecord {
   tenantId: string
   planId: string
   name: string
-  startDate: Date
-  endDate: Date
+  startDate: string // ISO date YYYY-MM-DD
+  endDate: string // ISO date YYYY-MM-DD
   completedAt: Date | null
 }
 

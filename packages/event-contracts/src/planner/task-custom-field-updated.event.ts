@@ -6,5 +6,6 @@ export class TaskCustomFieldUpdatedEvent {
     public readonly taskId: string,
     public readonly planId: string,
     public readonly fieldDefId: string,
+    public readonly fieldName: string,
   ) {}
 }

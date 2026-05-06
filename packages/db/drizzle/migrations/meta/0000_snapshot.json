@@ -1,5 +1,5 @@
 {
-  "id": "b9f16a51-9fda-4dfd-a13f-63be6b064026",
+  "id": "6cf3cbc1-bedb-4ca3-a025-939f97188074",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -11422,14 +11422,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "completed_at": {
           "name": "completed_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         }
@@ -12536,6 +12536,12 @@
         "uq_task_dependency": {
           "name": "uq_task_dependency",
           "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
             {
               "expression": "from_task_id",
               "isExpression": false,
