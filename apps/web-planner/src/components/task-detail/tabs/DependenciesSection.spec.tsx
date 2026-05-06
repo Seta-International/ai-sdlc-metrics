@@ -82,4 +82,28 @@ describe('DependenciesSection', () => {
     render(<DependenciesSection {...defaultProps} predecessors={[]} successors={[]} />)
     expect(screen.getByText(/no dependencies/i)).toBeInTheDocument()
   })
+
+  it('calls add mutation when task selected from picker', async () => {
+    const props = { ...defaultProps }
+    render(<DependenciesSection {...props} />)
+    // Click the "Add predecessor" button to open the picker
+    fireEvent.click(screen.getByRole('button', { name: /add predecessor/i }))
+    // Select the task from the picker
+    await waitFor(() => expect(screen.getByText('Task X')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Task X'))
+    await waitFor(() => {
+      expect(mockAddMutate).toHaveBeenCalledWith(
+        expect.objectContaining({ fromTaskId: 'tx-1', toTaskId: 'task-1' }),
+      )
+    })
+  })
+
+  it('renders successors', () => {
+    const propsWithSuccessors = {
+      ...defaultProps,
+      successors: [{ taskId: 'succ-1', title: 'Successor Task', kind: 'finish_to_start' }],
+    }
+    render(<DependenciesSection {...propsWithSuccessors} />)
+    expect(screen.getByText('Successor Task')).toBeInTheDocument()
+  })
 })

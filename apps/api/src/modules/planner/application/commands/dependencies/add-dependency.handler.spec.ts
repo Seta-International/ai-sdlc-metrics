@@ -125,4 +125,20 @@ describe('AddDependencyHandler', () => {
     await expect(handler.execute(cmd)).rejects.toThrow(TaskNotFoundException)
     expect(depRepo.add).not.toHaveBeenCalled()
   })
+
+  it('throws TaskNotFoundException when successor task not found', async () => {
+    taskRepo.findById.mockImplementation((id: string) =>
+      id === TO_TASK_ID ? Promise.resolve(null) : Promise.resolve(makeTask(id)),
+    )
+    const cmd = new AddDependencyCommand(
+      TENANT_ID,
+      PLAN_ID,
+      ACTOR_ID,
+      FROM_TASK_ID,
+      TO_TASK_ID,
+      'finish_to_start',
+    )
+    await expect(handler.execute(cmd)).rejects.toThrow(TaskNotFoundException)
+    expect(depRepo.add).not.toHaveBeenCalled()
+  })
 })
