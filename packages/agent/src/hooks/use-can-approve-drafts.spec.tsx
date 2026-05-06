@@ -2,7 +2,7 @@
 
 import { cleanup, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { PermissionContext } from '@future/app-layout'
+import { PermissionContext } from '@future/ui'
 import { useCanApproveDrafts } from './use-can-approve-drafts'
 
 function createWrapper(permissions: string[], isLoading = false) {

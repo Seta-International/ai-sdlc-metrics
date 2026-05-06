@@ -126,6 +126,11 @@ export type {
   PaginationState,
 } from '@tanstack/react-table'
 
+// Permission context — shared between app-layout and agent
+export { PermissionContext } from './hooks/permission-context'
+export type { PermissionContextValue } from './hooks/permission-context'
+export { useCanAccess } from './hooks/use-can-access'
+
 // Utilities
 export { cn } from './lib/utils'
 

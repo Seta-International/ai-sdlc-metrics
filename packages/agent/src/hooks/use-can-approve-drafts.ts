@@ -1,6 +1,6 @@
 'use client'
 
-import { useCanAccess } from '@future/app-layout'
+import { useCanAccess } from '@future/ui'
 
 const AGENT_DRAFT_APPROVE_PERMISSION = 'agent:draft:approve'
 

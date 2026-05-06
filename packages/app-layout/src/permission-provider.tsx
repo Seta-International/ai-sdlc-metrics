@@ -1,18 +1,10 @@
 'use client'
 
-import { createContext, useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
+import { PermissionContext } from '@future/ui'
 
-export interface PermissionContextValue {
-  permissions: Set<string>
-  roles: string[]
-  isLoading: boolean
-}
-
-export const PermissionContext = createContext<PermissionContextValue>({
-  permissions: new Set(),
-  roles: [],
-  isLoading: true,
-})
+export type { PermissionContextValue } from '@future/ui'
+export { PermissionContext } from '@future/ui'
 
 /** Minimal tRPC client shape needed by PermissionProvider */
 export interface PermissionTrpcClient {

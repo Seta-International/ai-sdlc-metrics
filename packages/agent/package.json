@@ -18,7 +18,6 @@
   "dependencies": {
     "@assistant-ui/react": "^0.12.25",
     "@future/api-client": "workspace:*",
-    "@future/app-layout": "workspace:*",
     "@future/core": "workspace:*",
     "@future/ui": "workspace:*",
     "@microsoft/fetch-event-source": "^2.0.1",
