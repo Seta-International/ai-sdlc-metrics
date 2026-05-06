@@ -25,6 +25,7 @@ import type { ZodType } from 'zod'
 import type { ModelChoice } from '../../domain/services/sub-agent-types'
 import type { SubAgentUsage } from '../../application/services/phase-executor-contracts'
 import { mapLanguageModelUsage, type LanguageModelUsageLike } from './usage'
+import { withProviderRetry } from '../adapters/provider-retry'
 
 export const SUB_AGENT_LLM_CLIENT = Symbol('SUB_AGENT_LLM_CLIENT')
 
@@ -64,7 +65,7 @@ export interface SubAgentLlmClient {
 function resolveModel(choice: ModelChoice) {
   switch (choice.provider) {
     case 'openai': {
-      const client = createOpenAI({ apiKey: process.env['OPENAI_API_KEY'] })
+      const client = createOpenAI({ apiKey: process.env['OPENAI_API_KEY'], maxRetries: 0 })
       return client(choice.model)
     }
     case 'anthropic': {
@@ -103,43 +104,48 @@ export class OpenAiSubAgentLlmClient implements SubAgentLlmClient, OnModuleInit 
   async runWithTools(opts: SubAgentLlmClientOpts): Promise<SubAgentLlmClientResult> {
     const model = resolveModel(opts.model)
 
-    // Cast is load-bearing: the SDK's `ToolSet` index signature is invariant
-    // over the per-tool input/output generics, so a generic
-    // `Record<string, AiSdkTool>` (where `AiSdkTool` widens to `unknown`-shaped
-    // tools) is not assignable. `experimental_output` is also not yet on the
-    // public input type. Both narrow once the SDK exposes a covariant ToolSet
-    // helper and promotes experimental_output to GenerateTextOptions.
-    const result = await generateText({
-      model,
-      system: opts.system,
-      prompt: opts.userMessage,
-      tools: opts.tools,
-      stopWhen: stepCountIs(opts.maxIterations),
-      maxRetries: 0,
-      abortSignal: opts.abortSignal,
-      experimental_output: Output.object({ schema: opts.outputSchema }),
-    } as Parameters<typeof generateText>[0])
+    return withProviderRetry(
+      async () => {
+        // Cast is load-bearing: the SDK's `ToolSet` index signature is invariant
+        // over the per-tool input/output generics, so a generic
+        // `Record<string, AiSdkTool>` (where `AiSdkTool` widens to `unknown`-shaped
+        // tools) is not assignable. `experimental_output` is also not yet on the
+        // public input type. Both narrow once the SDK exposes a covariant ToolSet
+        // helper and promotes experimental_output to GenerateTextOptions.
+        const result = await generateText({
+          model,
+          system: opts.system,
+          prompt: opts.userMessage,
+          tools: opts.tools,
+          stopWhen: stepCountIs(opts.maxIterations),
+          maxRetries: 0,
+          abortSignal: opts.abortSignal,
+          experimental_output: Output.object({ schema: opts.outputSchema }),
+        } as Parameters<typeof generateText>[0])
 
-    let rawStructured: unknown = (result as unknown as { experimental_output?: unknown })
-      .experimental_output
-    if (rawStructured === undefined) {
-      // Fallback: extract structured output from the final text via generateObject.
-      const followup = await generateObject({
-        model,
-        schema: opts.outputSchema,
-        prompt: result.text,
-        maxRetries: 0,
-        abortSignal: opts.abortSignal,
-      })
-      rawStructured = followup.object
-    }
+        let rawStructured: unknown = (result as unknown as { experimental_output?: unknown })
+          .experimental_output
+        if (rawStructured === undefined) {
+          // Fallback: extract structured output from the final text via generateObject.
+          const followup = await generateObject({
+            model,
+            schema: opts.outputSchema,
+            prompt: result.text,
+            maxRetries: 0,
+            abortSignal: opts.abortSignal,
+          })
+          rawStructured = followup.object
+        }
 
-    return {
-      rawStructured,
-      text: result.text,
-      steps: result.steps as unknown as ReadonlyArray<unknown>,
-      usage: mapLanguageModelUsage(result.usage as LanguageModelUsageLike),
-      finishReason: result.finishReason as SubAgentLlmClientResult['finishReason'],
-    }
+        return {
+          rawStructured,
+          text: result.text,
+          steps: result.steps as unknown as ReadonlyArray<unknown>,
+          usage: mapLanguageModelUsage(result.usage as LanguageModelUsageLike),
+          finishReason: result.finishReason as SubAgentLlmClientResult['finishReason'],
+        }
+      },
+      { maxAttempts: 2 },
+    )
   }
 }
