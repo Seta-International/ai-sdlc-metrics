@@ -29,6 +29,7 @@ function makeConflict(overrides: Partial<TaskDetailSnapshot> = {}): TaskDetailSn
     assignees: [],
     checklist: [],
     attachments: [],
+    customFields: [],
     ...overrides,
   }
 }

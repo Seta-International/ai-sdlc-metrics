@@ -120,7 +120,7 @@ export interface TaskDetailSnapshot {
   assignees: BoardAssignee[]
   checklist: ChecklistItemSnapshot[]
   attachments: AttachmentSnapshot[]
-  customFields?: Array<{
+  customFields: Array<{
     defId: string
     name: string
     kind: 'text' | 'number' | 'date' | 'yes_no' | 'choice'

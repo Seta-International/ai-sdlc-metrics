@@ -86,7 +86,7 @@ export function TaskDetailTab({ taskId, planId, task }: Props) {
       </div>
 
       {/* Custom Fields */}
-      {task.customFields && task.customFields.length > 0 && (
+      {task.customFields.length > 0 && (
         <CustomFieldsSection
           fields={task.customFields}
           taskId={taskId}

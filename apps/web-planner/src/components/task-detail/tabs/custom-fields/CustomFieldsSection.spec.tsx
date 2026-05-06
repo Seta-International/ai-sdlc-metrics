@@ -78,4 +78,11 @@ describe('CustomFieldsSection', () => {
     const checkbox = screen.getByTestId('cf-input-f2')
     expect(checkbox).toBeChecked()
   })
+
+  it('renders nothing when fields is empty', () => {
+    const { container } = render(
+      <CustomFieldsSection fields={[]} taskId="t1" planId="p1" tenantId="tn1" actorId="a1" />,
+    )
+    expect(container.firstChild).toBeNull()
+  })
 })
