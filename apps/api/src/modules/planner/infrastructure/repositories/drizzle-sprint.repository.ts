@@ -1,10 +1,11 @@
-import { Inject } from '@nestjs/common'
+import { Injectable, Inject } from '@nestjs/common'
 import { and, eq } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { plannerSprint } from '../schema/planner.schema'
 import type { ISprintRepository, SprintRecord } from '../../domain/repositories/sprint.repository'
 
+@Injectable()
 export class DrizzleSprintRepository implements ISprintRepository {
   constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
 

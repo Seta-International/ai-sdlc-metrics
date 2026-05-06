@@ -72,6 +72,7 @@ describe('UnassignTaskFromSprintHandler', () => {
     expect(eventBus.publish).toHaveBeenCalledWith(expect.any(TaskSprintAssignedEvent))
     const event: TaskSprintAssignedEvent = eventBus.publish.mock.calls[0][0]
     expect(event.sprintId).toBeNull()
+    expect(event.sprintName).toBe(SPRINT_ID)
   })
 
   it('throws TaskNotFoundException when task does not exist', async () => {

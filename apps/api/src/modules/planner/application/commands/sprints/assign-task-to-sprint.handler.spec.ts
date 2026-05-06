@@ -5,7 +5,6 @@ import { AssignTaskToSprintCommand } from './assign-task-to-sprint.command'
 import { Task } from '../../../domain/entities/task.entity'
 import { TaskSprintAssignedEvent } from '@future/event-contracts'
 import { TaskNotFoundException } from '../../../domain/exceptions/task-not-found.exception'
-import type { ISprintRepository } from '../../../domain/repositories/sprint.repository'
 import type { ITaskRepository } from '../../../domain/repositories/task.repository'
 import { PlanAuthorizationService } from '../../services/plan-authorization.service'
 
@@ -14,10 +13,11 @@ const PLAN_ID = 'plan-1'
 const ACTOR_ID = 'actor-1'
 const TASK_ID = 'task-1'
 const SPRINT_ID = 'sprint-1'
+const PREVIOUS_SPRINT_ID = 'sprint-0'
 const EXPECTED_VERSION = '2026-01-01T00:00:00.000Z'
 
-function makeTask(): Task {
-  return Task.create({
+function makeTask(existingSprintId?: string): Task {
+  const task = Task.create({
     id: TASK_ID,
     tenantId: TENANT_ID,
     planId: PLAN_ID,
@@ -26,11 +26,12 @@ function makeTask(): Task {
     orderHint: '1|a:',
     createdBy: ACTOR_ID,
   })
+  if (existingSprintId) task.setSprintId(existingSprintId)
+  return task
 }
 
 describe('AssignTaskToSprintHandler', () => {
   let handler: AssignTaskToSprintHandler
-  let sprintRepo: { findById: ReturnType<typeof vi.fn> }
   let taskRepo: {
     findById: ReturnType<typeof vi.fn>
     update: ReturnType<typeof vi.fn>
@@ -39,7 +40,6 @@ describe('AssignTaskToSprintHandler', () => {
   let eventBus: { publish: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
-    sprintRepo = { findById: vi.fn().mockResolvedValue(null) }
     taskRepo = {
       findById: vi.fn().mockResolvedValue(makeTask()),
       update: vi.fn().mockResolvedValue(undefined),
@@ -47,14 +47,15 @@ describe('AssignTaskToSprintHandler', () => {
     authSvc = { assertCanEditPlan: vi.fn().mockResolvedValue(undefined) }
     eventBus = { publish: vi.fn().mockResolvedValue(undefined) }
     handler = new AssignTaskToSprintHandler(
-      sprintRepo as unknown as ISprintRepository,
       taskRepo as unknown as ITaskRepository,
       authSvc as unknown as PlanAuthorizationService,
       eventBus as unknown as EventBus,
     )
   })
 
-  it('assigns sprint to task and emits TaskSprintAssignedEvent', async () => {
+  it('assigns sprint to task and emits TaskSprintAssignedEvent with previousSprintId', async () => {
+    taskRepo.findById.mockResolvedValue(makeTask(PREVIOUS_SPRINT_ID))
+
     const command = new AssignTaskToSprintCommand(
       TENANT_ID,
       PLAN_ID,
@@ -78,6 +79,23 @@ describe('AssignTaskToSprintHandler', () => {
     const event: TaskSprintAssignedEvent = eventBus.publish.mock.calls[0][0]
     expect(event.sprintId).toBe(SPRINT_ID)
     expect(event.taskId).toBe(TASK_ID)
+    expect(event.sprintName).toBe(PREVIOUS_SPRINT_ID)
+  })
+
+  it('emits null previousSprintId when task had no sprint', async () => {
+    const command = new AssignTaskToSprintCommand(
+      TENANT_ID,
+      PLAN_ID,
+      ACTOR_ID,
+      TASK_ID,
+      SPRINT_ID,
+      EXPECTED_VERSION,
+    )
+
+    await handler.execute(command)
+
+    const event: TaskSprintAssignedEvent = eventBus.publish.mock.calls[0][0]
+    expect(event.sprintName).toBeNull()
   })
 
   it('throws TaskNotFoundException when task does not exist', async () => {

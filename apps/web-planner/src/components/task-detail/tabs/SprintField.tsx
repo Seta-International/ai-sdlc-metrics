@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@future/api-client'
 import { useSession } from '@future/auth'
 import { Button } from '@future/ui'
@@ -33,14 +33,25 @@ export function SprintField({
   const session = useSession()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    if (open) document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
 
   const tenantId = session?.tenantId ?? ''
   const actorId = session?.actorId ?? ''
 
-  const { data: sprintsData } = useQuery({
+  const { data: sprintsData } = useQuery<{ sprints: Sprint[] }>({
     queryKey: ['planner.sprints.list', planId, tenantId],
-    queryFn: () =>
-      trpc.planner.sprints.list.query({ tenantId, planId }) as Promise<{ sprints: Sprint[] }>,
+    queryFn: async () => {
+      const result = await trpc.planner.sprints.list.query({ tenantId, planId })
+      return result as { sprints: Sprint[] }
+    },
     enabled: Boolean(tenantId && planId),
     staleTime: 30_000,
   })
@@ -81,7 +92,7 @@ export function SprintField({
   }
 
   return (
-    <div className="relative" data-testid="sprint-field">
+    <div ref={ref} className="relative" data-testid="sprint-field">
       <Button
         variant="ghost"
         size="sm"

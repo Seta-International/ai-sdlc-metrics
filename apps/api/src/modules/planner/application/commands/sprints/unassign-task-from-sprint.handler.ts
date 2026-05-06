@@ -20,6 +20,7 @@ export class UnassignTaskFromSprintHandler implements ICommandHandler<UnassignTa
     const task = await this.taskRepo.findById(command.taskId, command.tenantId)
     if (!task) throw new TaskNotFoundException(command.taskId)
 
+    const previousSprintId = task.sprintId
     task.setSprintId(null)
 
     await this.taskRepo.update(task, command.expectedVersion)
@@ -31,7 +32,7 @@ export class UnassignTaskFromSprintHandler implements ICommandHandler<UnassignTa
         command.taskId,
         command.planId,
         null,
-        null,
+        previousSprintId,
       ),
     )
   }

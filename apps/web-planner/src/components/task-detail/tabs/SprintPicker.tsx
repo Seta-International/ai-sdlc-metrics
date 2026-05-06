@@ -24,7 +24,7 @@ export function SprintPicker({ sprints, currentSprintId, onSelect, onClear }: Pr
           key={sp.id}
           variant="ghost"
           size="sm"
-          className={`w-full justify-between ${currentSprintId === sp.id ? 'bg-primary/10 font-500' : ''}`}
+          className={`w-full justify-between ${currentSprintId === sp.id ? 'bg-primary/10 font-medium' : ''}`}
           data-testid={`sprint-option-${sp.id}`}
           onClick={() => onSelect(sp.id)}
         >

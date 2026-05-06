@@ -27,14 +27,16 @@ export function SubtasksSection({ taskId, planId, bucketId }: Props) {
   const tenantId = session?.tenantId ?? ''
   const actorId = session?.actorId ?? ''
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<{ subtasks: SubtaskItem[] }>({
     queryKey: ['planner.subtasks.list', taskId, planId, tenantId],
-    queryFn: () =>
-      trpc.planner.subtasks.list.query({
+    queryFn: async () => {
+      const result = await trpc.planner.subtasks.list.query({
         tenantId,
         planId,
         parentTaskId: taskId,
-      }) as Promise<{ subtasks: SubtaskItem[] }>,
+      })
+      return result as { subtasks: SubtaskItem[] }
+    },
     enabled: Boolean(tenantId && planId && taskId),
     staleTime: 5_000,
   })
