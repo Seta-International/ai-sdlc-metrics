@@ -1,6 +1,6 @@
 import { Inject } from '@nestjs/common'
 import type { Db } from '@future/db'
-import { and, asc, desc, eq, lt, or } from 'drizzle-orm'
+import { and, desc, eq, lt, or } from 'drizzle-orm'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import { plannerTaskHistory } from '../schema/planner.schema'
 import type {
