@@ -25,6 +25,7 @@ vi.mock('@future/api-client', async (importOriginal) => {
   return {
     ...actual,
     useQuery: vi.fn().mockReturnValue({ data: [{ id: 'tx-1', title: 'Task X' }] }),
+    useQueryClient: vi.fn().mockReturnValue({ invalidateQueries: vi.fn() }),
   }
 })
 

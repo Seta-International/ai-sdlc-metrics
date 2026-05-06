@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery } from '@future/api-client'
+import { useQuery, useQueryClient } from '@future/api-client'
 import { useSession } from '@future/auth'
 import { Button } from '@future/ui'
 import { X, Plus } from '@future/ui/icons'
@@ -35,6 +35,7 @@ export function DependenciesSection({
   successors,
 }: Props) {
   const session = useSession()
+  const queryClient = useQueryClient()
   const [showPicker, setShowPicker] = useState<'predecessor' | 'successor' | null>(null)
 
   const resolvedActorId = actorId || session?.actorId || ''
@@ -63,29 +64,39 @@ export function DependenciesSection({
     const fromTaskId = direction === 'predecessor' ? dep.taskId : taskId
     const toTaskId = direction === 'predecessor' ? taskId : dep.taskId
 
-    await trpc.planner.dependencies.remove.mutate({
-      tenantId: resolvedTenantId,
-      planId,
-      actorId: resolvedActorId,
-      fromTaskId,
-      toTaskId,
-      kind: dep.kind as DependencyKind,
-    })
+    try {
+      await trpc.planner.dependencies.remove.mutate({
+        tenantId: resolvedTenantId,
+        planId,
+        actorId: resolvedActorId,
+        fromTaskId,
+        toTaskId,
+        kind: dep.kind as DependencyKind,
+      })
+      void queryClient.invalidateQueries({ queryKey: taskKeys.detailBase(taskId) })
+    } catch (err) {
+      console.error('Failed to remove dependency', err)
+    }
   }
 
   const handleAdd = async (selectedTaskId: string, direction: 'predecessor' | 'successor') => {
     const fromTaskId = direction === 'predecessor' ? selectedTaskId : taskId
     const toTaskId = direction === 'predecessor' ? taskId : selectedTaskId
 
-    await trpc.planner.dependencies.add.mutate({
-      tenantId: resolvedTenantId,
-      planId,
-      actorId: resolvedActorId,
-      fromTaskId,
-      toTaskId,
-      kind: 'finish_to_start' as DependencyKind,
-    })
-    setShowPicker(null)
+    try {
+      await trpc.planner.dependencies.add.mutate({
+        tenantId: resolvedTenantId,
+        planId,
+        actorId: resolvedActorId,
+        fromTaskId,
+        toTaskId,
+        kind: 'finish_to_start' as DependencyKind,
+      })
+      void queryClient.invalidateQueries({ queryKey: taskKeys.detailBase(taskId) })
+      setShowPicker(null)
+    } catch (err) {
+      console.error('Failed to add dependency', err)
+    }
   }
 
   const hasDeps = predecessors.length > 0 || successors.length > 0
@@ -112,7 +123,7 @@ export function DependenciesSection({
                 size="icon-xs"
                 type="button"
                 data-testid={`remove-dep-${dep.taskId}`}
-                aria-label={`Remove dependency on ${dep.title}`}
+                aria-label={`Remove predecessor ${dep.title}`}
                 onClick={() => void handleRemove(dep, 'predecessor')}
               >
                 <X className="size-3.5" />
@@ -136,7 +147,7 @@ export function DependenciesSection({
                 size="icon-xs"
                 type="button"
                 data-testid={`remove-dep-${dep.taskId}`}
-                aria-label={`Remove dependency on ${dep.title}`}
+                aria-label={`Remove successor ${dep.title}`}
                 onClick={() => void handleRemove(dep, 'successor')}
               >
                 <X className="size-3.5" />

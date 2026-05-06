@@ -42,7 +42,7 @@ export class AddDependencyHandler implements ICommandHandler<AddDependencyComman
       throw new DependencyCycleDetectedException(fromTaskId, toTaskId)
     }
 
-    await this.depRepo.add({ fromTaskId, toTaskId, kind, tenantId })
+    await this.depRepo.add({ fromTaskId, toTaskId, kind, tenantId, createdBy: actorId })
 
     await this.eventBus.publish(
       new TaskDependencyAddedEvent(

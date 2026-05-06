@@ -19,7 +19,7 @@ export class DrizzleTaskDependencyRepository implements ITaskDependencyRepositor
       fromTaskId: record.fromTaskId,
       toTaskId: record.toTaskId,
       kind: record.kind,
-      createdBy: record.tenantId, // placeholder — no actorId in DependencyRecord
+      createdBy: record.createdBy,
     })
   }
 
@@ -62,7 +62,8 @@ export class DrizzleTaskDependencyRepository implements ITaskDependencyRepositor
   }
 
   async listEdgesForPlan(planId: string, tenantId: string): Promise<DependencyEdge[]> {
-    // Filter by tenantId only — task UUIDs are globally unique so cross-plan cycles can't happen
+    // Filters by tenantId only — task UUIDs are globally unique so cross-plan cycles cannot form.
+    // The planId parameter is retained for interface compatibility and future use.
     const rows = await this.db
       .select()
       .from(plannerTaskDependency)
@@ -97,6 +98,7 @@ export class DrizzleTaskDependencyRepository implements ITaskDependencyRepositor
           toTaskId: row.toTaskId,
           kind: row.kind as DependencyKind,
           tenantId: row.tenantId,
+          createdBy: row.createdBy,
         })
       } else if (row.fromTaskId === taskId) {
         successors.push({
@@ -104,6 +106,7 @@ export class DrizzleTaskDependencyRepository implements ITaskDependencyRepositor
           toTaskId: row.toTaskId,
           kind: row.kind as DependencyKind,
           tenantId: row.tenantId,
+          createdBy: row.createdBy,
         })
       }
     }

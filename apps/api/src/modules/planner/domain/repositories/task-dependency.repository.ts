@@ -13,6 +13,7 @@ export interface DependencyRecord {
   toTaskId: string
   kind: DependencyKind
   tenantId: string
+  createdBy: string // actor id of the user who created this dependency
 }
 
 export interface ITaskDependencyRepository {

@@ -75,6 +75,7 @@ describe('AddDependencyHandler', () => {
       toTaskId: TO_TASK_ID,
       kind: 'finish_to_start',
       tenantId: TENANT_ID,
+      createdBy: ACTOR_ID,
     })
     expect(eventBus.publish).toHaveBeenCalledWith(expect.any(TaskDependencyAddedEvent))
   })

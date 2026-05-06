@@ -22,7 +22,7 @@ export class RemoveDependencyHandler implements ICommandHandler<RemoveDependency
     await this.authSvc.assertCanEditPlan(actorId, planId, tenantId)
 
     const exists = await this.depRepo.exists(fromTaskId, toTaskId, kind, tenantId)
-    if (!exists) return
+    if (!exists) return // idempotent: already removed, nothing to do
 
     await this.depRepo.remove(fromTaskId, toTaskId, kind, tenantId)
 

@@ -68,6 +68,7 @@ describe('DrizzleTaskDependencyRepository (integration)', () => {
       toTaskId: TO_ID,
       kind: 'finish_to_start',
       tenantId: TENANT_ID,
+      createdBy: 'actor-dep-test',
     })
     const { predecessors } = await repo.listForTask(TO_ID, TENANT_ID)
     expect(predecessors).toHaveLength(1)
@@ -80,6 +81,7 @@ describe('DrizzleTaskDependencyRepository (integration)', () => {
       toTaskId: TO_ID,
       kind: 'finish_to_start',
       tenantId: TENANT_ID,
+      createdBy: 'actor-dep-test',
     })
     expect(await repo.exists(FROM_ID, TO_ID, 'finish_to_start', TENANT_ID)).toBe(true)
   })
@@ -90,6 +92,7 @@ describe('DrizzleTaskDependencyRepository (integration)', () => {
       toTaskId: TO_ID,
       kind: 'finish_to_start',
       tenantId: TENANT_ID,
+      createdBy: 'actor-dep-test',
     })
     const edges = await repo.listEdgesForPlan(PLAN_ID, TENANT_ID)
     expect(edges.length).toBeGreaterThan(0)
@@ -102,6 +105,7 @@ describe('DrizzleTaskDependencyRepository (integration)', () => {
       toTaskId: TO_ID,
       kind: 'finish_to_start',
       tenantId: TENANT_ID,
+      createdBy: 'actor-dep-test',
     })
     await repo.remove(FROM_ID, TO_ID, 'finish_to_start', TENANT_ID)
     expect(await repo.exists(FROM_ID, TO_ID, 'finish_to_start', TENANT_ID)).toBe(false)

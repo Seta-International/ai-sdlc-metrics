@@ -255,7 +255,9 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
             JOIN planner.task ft ON ft.id = d.from_task_id
             JOIN planner.task tt ON tt.id = d.to_task_id
            WHERE (d.from_task_id = ${taskId} OR d.to_task_id = ${taskId})
-             AND d.tenant_id = ${tenantId}`,
+             AND d.tenant_id = ${tenantId}
+             AND ft.deleted_at IS NULL
+             AND tt.deleted_at IS NULL`,
     )
 
     const predecessors = depsResult.rows

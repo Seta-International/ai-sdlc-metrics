@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Input } from '@future/ui'
+import { Button, Input } from '@future/ui'
 
 interface Task {
   id: string
@@ -32,13 +32,14 @@ export function TaskSearchPicker({ tasks, onSelect, excludeId }: Props) {
       <ul className="max-h-48 overflow-y-auto rounded border border-border">
         {filtered.map((task) => (
           <li key={task.id}>
-            <button
-              type="button"
-              className="w-full px-3 py-2 text-left text-sm hover:bg-accent"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start text-sm"
               onClick={() => onSelect(task.id)}
             >
               {task.title}
-            </button>
+            </Button>
           </li>
         ))}
         {filtered.length === 0 && (
