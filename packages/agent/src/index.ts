@@ -72,3 +72,26 @@ export { IconBtn } from './primitives/icon-btn'
 export type { IconBtnProps } from './primitives/icon-btn'
 export { ToolCallShell } from './primitives/tool-call-shell'
 export type { ToolCallShellProps, ToolCallStatus } from './primitives/tool-call-shell'
+
+// Cards
+export { PlanCard } from './thread/cards/plan-card'
+export type { PlanCardProps } from './thread/cards/plan-card'
+export { IterationStep } from './thread/cards/iteration-step'
+export type { IterationStepProps } from './thread/cards/iteration-step'
+export { AnswerBubble } from './thread/cards/answer-bubble'
+export type { AnswerBubbleProps } from './thread/cards/answer-bubble'
+export { UserTurn } from './thread/cards/user-turn'
+export type { UserTurnProps } from './thread/cards/user-turn'
+
+// Runtime — part contracts
+export {
+  PLAN_TOOL,
+  ITERATION_TOOL,
+  DRAFT_TOOL,
+  isPlanArgs,
+  isIterationArgs,
+  isDraftArgs,
+} from './runtime/agent-message-parts'
+export type { PlanPartArgs, IterationPartArgs, DraftPartArgs } from './runtime/agent-message-parts'
+export { mapEventToPartUpdate } from './runtime/agent-chat-adapter'
+export type { PartUpdate } from './runtime/agent-chat-adapter'
