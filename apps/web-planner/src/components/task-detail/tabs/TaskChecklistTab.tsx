@@ -120,7 +120,7 @@ function SortableItem({ item, onToggle, onEdit, onRemove }: SortableItemProps) {
   )
 }
 
-export function TaskChecklist({ taskId, planId }: TaskChecklistProps) {
+export function TaskChecklistTab({ taskId, planId }: TaskChecklistProps) {
   const session = useSession()
   const queryClient = useQueryClient()
   const actorId = session?.actorId ?? ''

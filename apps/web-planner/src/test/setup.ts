@@ -1,5 +1,14 @@
 import '@testing-library/jest-dom/vitest'
 
+// cmdk and some Radix UI components require ResizeObserver
+if (typeof ResizeObserver === 'undefined') {
+  global.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+}
+
 // jsdom doesn't define PointerEvent — Radix UI requires it
 if (typeof PointerEvent === 'undefined') {
   class PointerEvent extends MouseEvent {

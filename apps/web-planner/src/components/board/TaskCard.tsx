@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import Link from 'next/link'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useQueryClient } from '@future/api-client'
@@ -52,6 +51,8 @@ interface TaskCardProps {
   planName?: string
   /** Plan kind for the My Day stub (defaults to 'team') */
   planKind?: 'team' | 'personal'
+  /** Called when the user clicks the card or title to open the detail popup */
+  onOpenDetail?: (taskId: string) => void
 }
 
 const PRIORITY_OPTIONS: { value: 1 | 3 | 5 | 9; label: string }[] = [
@@ -72,6 +73,7 @@ export function TaskCard({
   inMyDay = false,
   planName,
   planKind,
+  onOpenDetail,
 }: TaskCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
@@ -259,6 +261,7 @@ export function TaskCard({
       data-task-id={task.id}
       data-dragging={isDragging ? '' : undefined}
       className="group relative flex flex-col rounded-lg border border-white/8 bg-white/2 cursor-grab active:cursor-grabbing hover:bg-white/4 transition-colors select-none"
+      onClick={() => onOpenDetail?.(task.id)}
     >
       {/* Cover image — only when coverUrl is provided */}
       {coverUrl && <TaskCardCover coverUrl={coverUrl} title={task.title} />}
@@ -288,8 +291,7 @@ export function TaskCard({
             <ProgressIcon progress={progress} className="size-3.5" />
           </Button>
 
-          <Link
-            href={`/plans/${planId}/board/tasks/${task.id}`}
+          <span
             className={`flex-1 text-small font-510 leading-snug ${
               progress === 100 ? 'line-through text-fg-muted' : 'text-fg-primary'
             }`}
@@ -297,7 +299,7 @@ export function TaskCard({
             data-testid="task-title-link"
           >
             {task.title}
-          </Link>
+          </span>
 
           {isHighPriority && (
             <PriorityIcon

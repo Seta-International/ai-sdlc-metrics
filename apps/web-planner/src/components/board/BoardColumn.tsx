@@ -36,6 +36,7 @@ interface BoardColumnProps {
   tenantId: string
   onToggleComplete?: (taskId: string, nextProgress: Progress) => void
   resolveCoverUrl?: (coverAttachmentId: string) => string | undefined
+  onOpenDetail?: (taskId: string) => void
 }
 
 export function BoardColumn({
@@ -46,6 +47,7 @@ export function BoardColumn({
   tenantId,
   onToggleComplete,
   resolveCoverUrl,
+  onOpenDetail,
 }: BoardColumnProps) {
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: bucket.id })
   const {
@@ -312,6 +314,7 @@ export function BoardColumn({
               actorId={actorId}
               tenantId={tenantId}
               onToggleComplete={onToggleComplete}
+              onOpenDetail={onOpenDetail}
               coverUrl={
                 task.coverAttachmentId ? resolveCoverUrl?.(task.coverAttachmentId) : undefined
               }

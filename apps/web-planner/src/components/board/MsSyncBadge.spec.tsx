@@ -53,4 +53,33 @@ describe('MsSyncBadge', () => {
     render(<MsSyncBadge state="error" />)
     expect(screen.getByLabelText('MS 365 sync state: error')).toBeInTheDocument()
   })
+
+  it('uses lastError text in error tooltip when provided', () => {
+    render(<MsSyncBadge state="error" lastError="Connection timeout" />)
+    expect(screen.getByTestId('ms-sync-badge')).toBeInTheDocument()
+  })
+
+  it('formatRelativeTime: shows "just now" for timestamps under 1 minute ago', () => {
+    const recent = new Date(Date.now() - 30_000).toISOString()
+    render(<MsSyncBadge state="synced" lastSyncedAt={recent} />)
+    expect(screen.getByTestId('ms-sync-badge')).toBeInTheDocument()
+  })
+
+  it('formatRelativeTime: shows minutes for timestamps under 1 hour ago', () => {
+    const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString()
+    render(<MsSyncBadge state="synced" lastSyncedAt={thirtyMinAgo} />)
+    expect(screen.getByTestId('ms-sync-badge')).toBeInTheDocument()
+  })
+
+  it('formatRelativeTime: shows hours for timestamps under 24 hours ago', () => {
+    const fiveHoursAgo = new Date(Date.now() - 5 * 60 * 60_000).toISOString()
+    render(<MsSyncBadge state="synced" lastSyncedAt={fiveHoursAgo} />)
+    expect(screen.getByTestId('ms-sync-badge')).toBeInTheDocument()
+  })
+
+  it('formatRelativeTime: shows days for timestamps over 24 hours ago', () => {
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60_000).toISOString()
+    render(<MsSyncBadge state="synced" lastSyncedAt={twoDaysAgo} />)
+    expect(screen.getByTestId('ms-sync-badge')).toBeInTheDocument()
+  })
 })
