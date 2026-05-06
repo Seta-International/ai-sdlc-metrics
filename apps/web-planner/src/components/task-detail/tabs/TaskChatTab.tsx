@@ -130,6 +130,7 @@ export function TaskChatTab({ taskId, planId }: Props) {
   const members = boardSnapshot?.plan.members ?? []
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit,
       Mention.configure({

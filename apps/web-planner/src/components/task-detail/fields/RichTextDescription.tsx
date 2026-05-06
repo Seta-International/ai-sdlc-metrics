@@ -16,6 +16,7 @@ export function RichTextDescription({ value, onChange }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [StarterKit, Underline],
     content: value || '',
     editorProps: {
