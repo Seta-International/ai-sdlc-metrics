@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useQueryClient } from '@future/api-client'
 import { useSession } from '@future/auth'
 import {
@@ -29,7 +29,6 @@ import {
   ImageIcon,
   Trash2,
   Plus,
-  StickyNote,
 } from '@future/ui/icons'
 import { trpc } from '@/lib/trpc'
 import { taskKeys } from '@/lib/query-keys'

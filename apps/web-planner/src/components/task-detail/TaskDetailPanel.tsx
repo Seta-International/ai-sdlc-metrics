@@ -29,15 +29,13 @@ export function TaskDetailPanel({ taskId, planId, onClose }: Props) {
   })
   const [localPatch, setLocalPatch] = useState<TaskPatch | null>(null)
 
-  function handleUpdate(patch: TaskPatch): void {
-    setLocalPatch(patch)
-    update(patch)
-  }
-
   const { conflictingField, myValue, theirValue, keepMine, keepTheirs } = useConflictResolver({
     conflict,
     localPatch,
-    update,
+    update: (patch) => {
+      setLocalPatch(patch)
+      update(patch)
+    },
     clearConflict,
   })
 
@@ -58,7 +56,7 @@ export function TaskDetailPanel({ taskId, planId, onClose }: Props) {
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line @eslint-react/exhaustive-deps
   }, [taskId])
 
   const taskFlatStub: TaskFlatWithPlan | null = task
