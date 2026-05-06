@@ -3,7 +3,8 @@
 **Date:** 2026-05-06
 **Demo checkpoint:** 2026-05-20
 **Sprint go-live:** 2026-05-29
-**SAD reference:** `docs/architecture/agents-sad.md` §8 RAID, §9.2 pre-launch backlog
+**SAD reference:** `docs/architecture/agents-sad.md` §3.2 NFRs, §5.3 data arch, §5.4 integration,
+§8 RAID, §9.2 pre-launch backlog, Appendix C (memory), D (tool meta), E (spans), F (cost)
 **Approach:** Parallel agent dispatch for quick items (B) + scoped KB MVP for demo (C)
 
 ---
@@ -49,7 +50,20 @@ Parallel dispatch is safe for R-13 and R-12 because:
 
 `tool-gateway.ts` performs a single 200 ms + 0–100 ms jitter retry on transient errors.
 `openai-vendor-error-extractor.ts` already extracts `retryAfterMs` from `Retry-After`
-headers. No attempt cap or exponential curve exists.
+headers. No exponential curve exists and the attempt cap is not explicit.
+
+### SAD NFR constraint (§3.2)
+
+> "one retry with exponential backoff and jitter (i.e. up to **two total attempts**); **single
+> layer only** (gateway-owned; SDK retry disabled)"
+
+This means:
+
+- Maximum **2 total attempts** (1 original + 1 retry). Do not allow more.
+- Retry logic lives in the LLM client layer only. The OpenAI SDK's built-in retry must be
+  **disabled** (`maxRetries: 0` on the SDK client constructor).
+- The existing single-retry in `tool-gateway.ts` is already in the right layer — it just
+  needs the exponential curve and `Retry-After` honoring added.
 
 ### Design
 
@@ -61,29 +75,32 @@ interface RetryOpts {
   baseDelayMs?: number // default 500
   multiplier?: number // default 2
   jitterMs?: number // default 0–200 (random)
-  maxAttempts?: number // default 4
+  maxAttempts?: number // default 2 — SAD NFR cap; do not raise without explicit approval
 }
 ```
 
 **Retry logic per attempt:**
 
 1. Catch `VendorError` from `openai-vendor-error-extractor`
-2. If `error.retryAfterMs` is set → wait that duration (capped at 32 s)
-3. Otherwise → wait `min(baseDelayMs × multiplier^attempt + jitter, 32_000)`
-4. Retryable: `429` rate-limit, `500 / 502 / 503 / 504` transient
-5. Non-retryable (throw immediately): `401` auth, context-length exceeded, model refusal
+2. If attempt count has reached `maxAttempts` → re-throw immediately
+3. If `error.retryAfterMs` is set → wait that duration (capped at 32 s)
+4. Otherwise → wait `min(baseDelayMs × multiplier^attempt + jitter, 32_000)`
+5. Retryable: `429` rate-limit, `500 / 502 / 503 / 504` transient
+6. Non-retryable (throw immediately): `401` auth, context-length exceeded, model refusal
 
-**Apply to:** `RouterLlmClient`, `SubAgentLlmClient`, `SynthesizerLlmClient`.
-Remove the existing single-retry logic in the tool-invocation path of `tool-gateway.ts`
+**Apply to:** `RouterLlmClient`, `SubAgentLlmClient`, `SynthesizerLlmClient`. Pass
+`maxRetries: 0` to each SDK client constructor so the SDK never retries independently.
+
+Remove the existing ad-hoc single-retry in the tool-invocation path of `tool-gateway.ts`
 (tools call domain code, not the provider directly — provider retry belongs in LLM clients).
 
 ### Testing
 
 Unit test `withProviderRetry`:
 
-- Happy path on first attempt
-- Retries on 429 and respects `retryAfterMs`
-- Gives up after `maxAttempts` and re-throws
+- Happy path on first attempt — no retry issued
+- Retries once on 429, respects `retryAfterMs`, re-throws on second failure
+- Does **not** issue a third attempt even if the second also fails (SAD cap = 2 total)
 - Does not retry on 401
 
 ---
@@ -93,7 +110,12 @@ Unit test `withProviderRetry`:
 ### Current state
 
 No dedup table exists. The runtime never auto-retries writes (correct per SAD §8),
-but there is no schema guard to make retry-safety auditable or enforceable.
+but data invariant D-5 (SAD §5.3.3) requires the schema guard before agent-driven
+writes can run unattended.
+
+> **D-5 — Idempotency-key column on write-tool results.** The `(tenant_id, idempotency_key)`
+> pair guarantees a retried write returns the original result, never produces a duplicate.
+> Phase-1 readiness backlog (RAID R-12).
 
 ### Schema
 
@@ -138,6 +160,13 @@ In the write-tool execution path:
 4. Execute tool → on success, `INSERT` dedup row with `expires_at = now() + interval '24 hours'`
 5. On failure → do not insert (surface error normally)
 
+### Tool meta field (`idempotencyKey` — Appendix D)
+
+Once the dedup table is live, write tools activate retry-safety by declaring `idempotencyKey`
+in their agent meta block (optional on `.mutation()`). The gateway reads this field to decide
+whether to compute and look up the key. Tools that do not declare it are treated as non-idempotent
+and are never auto-retried.
+
 ### Testing
 
 - Unit: dedup hit returns cached result without calling domain handler
@@ -153,11 +182,20 @@ In the write-tool execution path:
 Upload → chunk → embed → store → retrieve → cite. No quota UI, no deprecate flow,
 no role-restricted visibility, no canary extension. Server-side hard limits only.
 
+### NFRs (SAD §3.2)
+
+| Metric                               | Target                                            |
+| ------------------------------------ | ------------------------------------------------- |
+| Ingestion p95 (document ≤ 1 MB)      | ≤ 60 s end-to-end                                 |
+| Ingestion p95 (document ≤ 5 MB cap)  | ≤ 5 min end-to-end                                |
+| Retrieval p95 (`kb.retrieve`, K ≤ 8) | ≤ 250 ms                                          |
+| Per-tenant quota (default)           | 1 000 documents / 50 MB total / 5 MB per document |
+
 ### Schema
 
-Two new tables added to the squashed migration.
+Four new tables added to the squashed migration (SAD §5.3.1 "Tenant knowledge base" cluster).
 
-**`agents.kb_document`**
+**`agents.agent_kb_document`**
 
 | Column             | Type                          | Notes                                |
 | ------------------ | ----------------------------- | ------------------------------------ |
@@ -177,23 +215,48 @@ Two new tables added to the squashed migration.
 CHECK constraint: `status IN ('pending','processing','ready','failed')`
 RLS + tenant isolation policy (same pattern as all agent tables).
 
-**`agents.kb_chunk`**
+**`agents.agent_kb_chunk`**
 
-| Column        | Type          | Notes                           |
-| ------------- | ------------- | ------------------------------- |
-| `id`          | UUID PK       |                                 |
-| `document_id` | UUID NOT NULL | FK → `kb_document.id`           |
-| `tenant_id`   | UUID NOT NULL | RLS (denormalized for policy)   |
-| `content`     | TEXT NOT NULL | Raw chunk text                  |
-| `embedding`   | VECTOR(1536)  | `text-embedding-3-small` output |
-| `position`    | INT NOT NULL  | Chunk index within document     |
-| `token_count` | INT NOT NULL  |                                 |
-| `created_at`  | TIMESTAMPTZ   |                                 |
+| Column        | Type          | Notes                         |
+| ------------- | ------------- | ----------------------------- |
+| `id`          | UUID PK       |                               |
+| `document_id` | UUID NOT NULL | FK → `agent_kb_document.id`   |
+| `tenant_id`   | UUID NOT NULL | RLS (denormalized for policy) |
+| `content`     | TEXT NOT NULL | Raw chunk text                |
+| `position`    | INT NOT NULL  | Chunk index within document   |
+| `token_count` | INT NOT NULL  |                               |
+| `created_at`  | TIMESTAMPTZ   |                               |
 
-Index: `kb_chunk_embedding_idx` using `ivfflat` on `embedding vector_cosine_ops`.
 RLS + tenant isolation policy.
 
-Both tables must be added to `AGENTS_TABLES` in `@future/db/rls-tables` so the
+**`agents.agent_kb_embedding`** (SAD §5.3.1 — separate from chunk per entity diagram)
+
+| Column      | Type          | Notes                           |
+| ----------- | ------------- | ------------------------------- |
+| `chunk_id`  | UUID PK       | FK → `agent_kb_chunk.id` (1:1)  |
+| `tenant_id` | UUID NOT NULL | RLS (denormalized for policy)   |
+| `embedding` | VECTOR(1536)  | `text-embedding-3-small` output |
+
+Index: `agent_kb_embedding_hnsw_idx` using **HNSW** on `embedding vector_cosine_ops`
+(SAD §5.3.1 explicitly specifies HNSW for the KB vector index).
+RLS + tenant isolation policy.
+
+**`agents.agent_kb_ingestion_run`** (SAD §5.3.1 — ingestion-run audit)
+
+| Column           | Type          | Notes                        |
+| ---------------- | ------------- | ---------------------------- |
+| `id`             | UUID PK       |                              |
+| `document_id`    | UUID NOT NULL | FK → `agent_kb_document.id`  |
+| `tenant_id`      | UUID NOT NULL | RLS                          |
+| `status`         | TEXT NOT NULL | `started\|completed\|failed` |
+| `chunks_written` | INT           | Populated on completion      |
+| `error_message`  | TEXT          | Set on `failed`              |
+| `started_at`     | TIMESTAMPTZ   |                              |
+| `finished_at`    | TIMESTAMPTZ   |                              |
+
+RLS + tenant isolation policy.
+
+All four tables must be added to `AGENTS_TABLES` in `@future/db/rls-tables` so the
 existing `rls-all-tables.integration.spec.ts` gate covers them automatically.
 
 ### API (tRPC)
@@ -205,7 +268,7 @@ New `kb.router.ts` in `apps/api/src/modules/agents/interface/trpc/`:
 - Input: `{ title: string, description?: string, fileSizeBytes: number, contentType: string }`
 - Server-side guard: reject if `fileSizeBytes > 5_242_880` (5 MB) or `contentType` not in
   `['text/plain', 'text/markdown', 'application/pdf']`
-- Creates `kb_document` with `status='pending'`
+- Creates `agent_kb_document` with `status='pending'`
 - Returns `{ documentId, presignedUrl }` (presigned S3 PUT via `@future/storage`)
 - Dispatches pg-boss `kb-ingestion` job `{ documentId, tenantId }`
 
@@ -216,7 +279,7 @@ New `kb.router.ts` in `apps/api/src/modules/agents/interface/trpc/`:
 
 **`agents.kb.listDocuments`** (query)
 
-- Returns all `kb_document` rows for current tenant, ordered `created_at DESC`
+- Returns all `agent_kb_document` rows for current tenant, ordered `created_at DESC`
 
 ### `kb-ingestion` pg-boss Worker
 
@@ -226,61 +289,116 @@ Job payload: `{ documentId: string, tenantId: string }`
 
 Steps:
 
-1. Fetch `kb_document` row — if `status` is not `pending` or `processing`, skip (idempotent)
-2. Set `status = 'processing'`
-3. Download file bytes from S3 via `S3StorageClient`
-4. Extract text:
+1. Fetch `agent_kb_document` — if `status` is not `pending` or `processing`, skip (idempotent)
+2. Create `agent_kb_ingestion_run` row with `status='started'`
+3. Set `agent_kb_document.status = 'processing'`
+4. Download file bytes from S3 via `S3StorageClient`
+5. Extract text:
    - `.txt` / `.md` → read as UTF-8
-   - `.pdf` → `pdfjs-dist` server-side text extraction (no canvas dependency)
-5. Chunk text: split on sentence boundaries, hard-cut at 512 tokens (tiktoken cl100k_base),
+   - `.pdf` → `pdfjs-dist` server-side text extraction (no canvas dependency; text-only PDFs
+     at Phase 1 — OCR for image-PDFs deferred per SAD FR-053)
+6. Chunk text: split on sentence boundaries, hard-cut at 512 tokens (tiktoken cl100k_base),
    50-token overlap between consecutive chunks
-6. For each batch of 25 chunks:
+7. Insert `agent_kb_chunk` rows (content only, no embedding yet)
+8. For each batch of 25 chunks:
    - Call OpenAI `text-embedding-3-small` with `input: chunk[]`
    - Rate-limit at 100 req/s via the existing `RateLimiter` in agents module
-   - Use `withProviderRetry` (R-13 helper)
-   - Insert `kb_chunk` rows with embeddings
-7. Update `kb_document`: `status='ready'`, `chunk_count=N`
-8. On unrecoverable error: `status='failed'`, `error_message=err.message`
+   - Use `withProviderRetry` (R-13 helper, maxAttempts: 2)
+   - Insert `agent_kb_embedding` rows
+9. Update `agent_kb_document`: `status='ready'`, `chunk_count=N`
+10. Update `agent_kb_ingestion_run`: `status='completed'`, `chunks_written=N`, `finished_at=now()`
+11. On unrecoverable error: `agent_kb_document.status='failed'`,
+    `agent_kb_ingestion_run.status='failed'`, `error_message=err.message`
+
+**Observability:** emit `KB_INGEST` span (Appendix E, `entity_type: 'KB'`) wrapping steps 4–10
+with attributes: `document_id`, `tenant_id`, `chunk_count`, `file_size_bytes`, `duration_ms`.
+Embed each batch as a child span. Cost events for embedding calls tagged separately from
+per-turn cost (SAD Appendix F: "Knowledge base ingestion cost — not part of the per-turn budget").
 
 pg-boss config: `retryLimit: 3`, `retryDelay: 60`.
 
-### `knowledge_base.search` Tool
+### `kb.retrieve` Tool (SAD §5.4.1, Appendix D)
+
+> "A worker tool (`kb.retrieve`) — not a separate sub-agent. Returns top-K chunks with
+> `(document_id, section, score)` provenance; tenant-keyed pgvector index."
 
 **Intent declaration**
-`apps/api/src/modules/agents/intents/knowledge-base-search.ts`:
+`apps/api/src/modules/agents/intents/kb-retrieve.ts`:
 
 ```ts
-export const knowledgeBaseSearchIntent: IntentDescriptor = {
-  slug: 'knowledge-base.search',
+export const kbRetrieveIntent: IntentDescriptor = {
+  slug: 'kb.retrieve',
   domain: 'agents',
   description:
-    'User is asking a question answerable from the tenant knowledge base (policies, handbooks, FAQs).',
+    'User is asking a question answerable from the tenant knowledge base (policies, handbooks, FAQs, process guides).',
 }
 ```
 
 **Tool** registered in `ToolRegistry`:
 
-- Name: `knowledge_base.search`
-- Input schema: `{ query: string }`
-- Output: `Array<{ chunkContent: string, documentTitle: string, documentId: string, similarity: number }>`
-- Taint: false (read-only, tenant-scoped, no user-authored free-text trigger)
-- Permission key: `agents:kb:search`
+```ts
+{
+  name: 'kb.retrieve',
+  inputSchema: { query: z.string() },
+  outputSchema: z.array(z.object({
+    documentId: z.string().uuid(),
+    documentTitle: z.string(),
+    section: z.string(),          // chunk position as "chunk N of M"
+    chunkContent: z.string(),
+    score: z.number(),            // cosine similarity 0–1
+  })),
+  // Appendix D required fields:
+  whenToUse: 'Use when the user asks about company policies, HR rules, onboarding procedures, internal FAQs, or any question whose answer is likely in a tenant-curated reference document.',
+  whenNotToUse: 'Do not use for questions about live operational data (tasks, plans, timesheets) — those belong to the Planner or People sub-agents. Do not use when the question is answerable from structured domain data alone.',
+  examples: [
+    { input: 'What is our parental leave policy?', shouldUse: true },
+    { input: 'How many days of annual leave do I have left?', shouldUse: false,
+      reason: 'Live entitlement data — use People/Time sub-agent, not KB.' },
+  ],
+  cacheable: true,    // TTL ~5 min (semantic result cache)
+  bypassable: undefined,  // read-only .query(); field omitted per Appendix D rules
+  tenantAuthoredFreeText: undefined,  // KB content is admin-imported, not user-authored; no taint
+}
+```
 
 **`KbRetriever` service** (`infrastructure/retrieval/kb-retriever.ts`):
 
 ```sql
-SELECT c.content, d.title, d.id,
-       1 - (c.embedding <=> $queryEmbedding) AS similarity
-FROM agents.kb_chunk c
-JOIN agents.kb_document d ON d.id = c.document_id
-WHERE d.tenant_id = current_setting('app.tenant_id', true)::uuid
-  AND d.status = 'ready'
-ORDER BY c.embedding <=> $queryEmbedding
-LIMIT 5
+SELECT c.id   AS chunk_id,
+       c.content,
+       c.position,
+       c.token_count,
+       d.id   AS document_id,
+       d.title,
+       1 - (e.embedding <=> $queryEmbedding) AS score
+FROM   agents.agent_kb_chunk     c
+JOIN   agents.agent_kb_document  d ON d.id = c.document_id
+JOIN   agents.agent_kb_embedding e ON e.chunk_id = c.id
+WHERE  d.tenant_id = current_setting('app.tenant_id', true)::uuid
+  AND  d.status    = 'ready'
+ORDER  BY e.embedding <=> $queryEmbedding
+LIMIT  8   -- SAD NFR: K ≤ 8
 ```
 
-Embed `query` via `text-embedding-3-small` at query time (cached in
-`agent_tool_result_cache` using existing semantic cache infrastructure).
+Embed `query` via `text-embedding-3-small` at query time. Cache the embedding result in
+`agent_tool_result_cache` (existing semantic cache) with a 5-minute TTL.
+
+**Observability:** emit `KB_RETRIEVE` span (`entity_type: 'KB'`, `span_type: 'KB_RETRIEVE'`)
+with attributes: `tenant_id`, `query_token_count`, `k_requested`, `k_returned`,
+`top_score`, `cache_hit`.
+
+### Cost accounting (SAD Appendix F)
+
+Embedding calls during ingestion are **not** part of the per-turn budget. They are tagged
+as a separate `pricing_id`-labelled `agent_cost_event` so admin dashboards show KB
+ingestion cost as a distinct line item.
+
+Per Appendix F estimates (illustrative, rebaseline on provider price change per RAID R-17):
+
+- Embedding rate: $0.02 / 1M tokens (`text-embedding-3-small`, 2026-05)
+- Average tokens/document: ~50 000
+- Cost per document: ~$0.001
+- Phase-1 SETA corpus (~200 documents): ~$0.20 one-off
 
 ### Admin UI
 
@@ -289,10 +407,10 @@ File: `apps/web-admin/src/app/agents/knowledge-base/page.tsx`
 **Upload section:**
 
 - `<Input>` for title (required), `<Textarea>` for description (optional)
-- File picker (`<input type="file">` wrapped in a `<Button>` — file inputs are structural)
+- File picker (`<input type="file">` wrapped in a `<Button>` — file inputs are structural HTML)
   accepting `.txt`, `.md`, `.pdf`
-- Submit calls `agents.kb.requestUpload` → PUT to presigned URL → calls
-  `agents.kb.confirmUpload` → shows inline status
+- Submit: call `agents.kb.requestUpload` → PUT to presigned URL → call
+  `agents.kb.confirmUpload` → show inline status badge
 
 **Document list:**
 
@@ -329,18 +447,55 @@ layouts. `AgentPanel` → `AgentThread` + `AgentComposer` chain exists.
 - `SendMessageCommand` gains `executionMode` field; `TurnPipelineRunner` reads it to set
   `draftApprovalMode`
 
+**Mode constraints (SAD §5.4.2):**
+
+- Mode is read **once per turn** from the conversation row at turn start; it cannot change
+  mid-turn even if the user updates the dropdown
+- If tenant setting `bypass_disabled = true`, gateway forces `'default'` regardless of the
+  user's dropdown value; the UI should reflect this by disabling the Bypass option and
+  showing a "disabled by your organisation" tooltip
+- Inline-preview confirmation (Default mode) is a **typed SSE event** on the existing
+  turn channel — not a new HTTP round-trip. The Confirm button dispatches the event over
+  the already-open SSE connection
+
+**Memory — L2 write-turn entries (SAD Appendix C.5):**
+
+| Write path                          | What enters L2                                              |
+| ----------------------------------- | ----------------------------------------------------------- |
+| Previewed intent (Default mode)     | Nothing until confirmed — intent is L1-only during the turn |
+| Confirmed write (Default or Bypass) | `{ tool, idempotency_key, outcome_summary, draft_id? }`     |
+| Drafted action (inbox path)         | `{ draft_ids[], count, target_module }`                     |
+| Cancelled / declined                | Single line: outcome + timestamp                            |
+
+**Memory surface budgets (SAD Appendix C.6):**
+
+| Surface                | L2 token budget | Notes                                             |
+| ---------------------- | --------------- | ------------------------------------------------- |
+| Global chat panel      | 4 000           | Full conversation context expected                |
+| Inline copilot         | 2 000           | On-screen entity already in prompt; halved budget |
+| Scheduled run (Mode 3) | 0 — no L2       | Fresh per run; no live conversation history       |
+
 **KB citation rendering** in `AgentThread`:
 
 - When a message includes `sources: Array<{ documentTitle: string, excerpt: string }>`,
   render a collapsible `<details>` block below the answer labelled "Sources (N)"
 - Each source: document title as bold label + excerpt in a blockquote
+- Citation inline format in answer text: `[doc-title §section]` (SAD §5.4.1)
 - Uses only `@future/ui` primitives
+
+**Observability — spans required (SAD Appendix E):**
+
+| Span            | Emitted by           | Required attributes                                    |
+| --------------- | -------------------- | ------------------------------------------------------ |
+| `WRITE_PREVIEW` | Synthesizer          | `tool_name`, `args_hash`, `bypassable`, `taint_state`  |
+| `WRITE_CONFIRM` | HTTP turn controller | `tool_name`, `idempotency_key`, `confirmed_at`, `mode` |
 
 **Smoke test** (Playwright, one spec):
 
 - Open web-planner → click agent toggle → panel opens
 - Type "What are my open tasks?" → streamed response appears in thread
 - Switch execution mode to Bypass → verify `execution_mode: 'bypass'` in outgoing request
+- Verify Default-mode inline preview fires a typed SSE confirm event (not a POST)
 
 ---
 
@@ -371,7 +526,7 @@ Four rows seeded by
 | `planner.list-my-tasks` | "What are my open tasks this week?"   | `['planner.list-my-tasks']`      | `list`         | false |
 | `planner.plan-status`   | "What's the status of Project Alpha?" | `['planner.get-plan-status']`    | `narrative`    | false |
 | `planner.role-analysis` | "Which plans are at risk?"            | `['planner.list-at-risk-plans']` | `table`        | false |
-| `kb.leave-policy`       | "What is our annual leave policy?"    | `['knowledge_base.search']`      | `short-answer` | false |
+| `kb.leave-policy`       | "What is our annual leave policy?"    | `['kb.retrieve']`                | `short-answer` | false |
 
 `adversarialCategory: null` for all (clean happy-path flows).
 `answerShapeContract` captures the top-level required fields for each shape.
@@ -397,14 +552,45 @@ rows must pass before demo prep closes (May 19).
 
 ## 8. Key Invariants & Constraints
 
+### Schema
+
 - **Squashed migration rule:** all schema changes go into `0000_initial.sql`. Delete
   existing `.sql` files + `meta/` snapshots, regenerate, re-migrate.
 - **RLS on every new table:** `ENABLE ROW LEVEL SECURITY`, `FORCE ROW LEVEL SECURITY`,
   plus a `<table>_tenant_isolation` policy using `current_setting('app.tenant_id', true)::uuid`.
-- **`AGENTS_TABLES` list:** add `agent_write_dedup`, `kb_document`, `kb_chunk` to
-  `@future/db/rls-tables` so `rls-all-tables.integration.spec.ts` covers them automatically.
+- **`AGENTS_TABLES` list:** add `agent_write_dedup`, `agent_kb_document`, `agent_kb_chunk`,
+  `agent_kb_embedding`, `agent_kb_ingestion_run` to `@future/db/rls-tables` so
+  `rls-all-tables.integration.spec.ts` covers them automatically.
+- **D-5** (SAD §5.3.3): `(tenant_id, idempotency_key)` uniqueness on `agent_write_dedup`
+  is a build-time asserted invariant — the integration spec must verify the unique
+  constraint exists, mirroring the existing D-4 checks.
+
+### Module boundaries
+
 - **No `Promise.all` for DB queries** inside handlers (single pool client per request).
 - **No `.js` extensions** in relative imports.
-- **UI components:** all interactive elements use `@future/ui`; no raw `<button>`,
-  `<input>`, `<select>` for interactive use.
-- **`knowledge_base.search` is read-only** and must never set `taintTriggered`.
+- **No cross-module domain imports** — KB retriever accesses only `agents.*` tables.
+
+### Tool authoring (EXT-10, SAD Appendix A)
+
+Every new agent-callable tool must pass the build-time meta drift suite:
+
+- `whenToUse` and `whenNotToUse` present and non-empty
+- `examples` present with ≥1 negative case
+- `bypassable` declared on every `.mutation()` tool
+- `approvalFreshness` declared on every `.mutation()` tool
+- `compositionSensitive` with minimum group size on every aggregate-returning tool
+- `kb.retrieve` declares `cacheable: true` with TTL ~5 min
+
+### Tenant knowledge base (EXT-11, SAD Appendix A)
+
+- All `agent_kb_*` tables are tenant-keyed and RLS-forced at schema level — EXT-11 is
+  satisfied by construction if `AGENTS_TABLES` is kept current.
+- Cross-tenant leak canary extension to KB chunk retrieval is a **hardening-week
+  requirement** (required before go-live, not demo).
+
+### UI components
+
+- All interactive elements use `@future/ui`; no raw `<button>`, `<input>`, `<select>`
+  for interactive use.
+- `kb.retrieve` is read-only and must never set `taintTriggered`.
