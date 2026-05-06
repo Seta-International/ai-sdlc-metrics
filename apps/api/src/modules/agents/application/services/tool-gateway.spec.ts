@@ -26,7 +26,7 @@
  *  - Permission denied: recordTripwire called with correct labels.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { TRPCError } from '@trpc/server'
 import {
   BasicTracerProvider,

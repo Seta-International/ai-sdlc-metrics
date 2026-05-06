@@ -833,7 +833,7 @@ export class ToolGateway implements ToolGatewayPort {
 
     // Each invoke attempt (including retry) gets its own gateway:invoke span — the
     // retry IS a new invocation attempt, distinct trace subtree.
-    let retryCount = 0
+    const retryCount = 0
     const invokeStep = async () => {
       const invokeStart = Date.now()
       const result = await withGatewayStep(
@@ -850,7 +850,7 @@ export class ToolGateway implements ToolGatewayPort {
       return result
     }
 
-    let invokeResult = await invokeStep()
+    const invokeResult = await invokeStep()
 
     if (isTripwireVariant(invokeResult)) {
       // Fail the cache handle — releases coalesced waiters
