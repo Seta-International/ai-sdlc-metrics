@@ -44,14 +44,10 @@ export async function withProviderRetry<T>(fn: () => Promise<T>, opts: RetryOpts
 
   if (maxAttempts < 1) throw new Error('maxAttempts must be at least 1')
 
-  let lastError: unknown
-
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       return await fn()
     } catch (err) {
-      lastError = err
-
       if (attempt >= maxAttempts - 1) throw err
 
       const vendorError = extractor.extract(err)
@@ -68,6 +64,4 @@ export async function withProviderRetry<T>(fn: () => Promise<T>, opts: RetryOpts
       await sleep(delayMs)
     }
   }
-
-  throw lastError
 }

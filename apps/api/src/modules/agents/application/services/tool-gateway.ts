@@ -5,7 +5,7 @@
  * Responsibilities:
  *  - Resolve, circuit-breaker check, L1 cache lookup / coalescing.
  *  - prepareTaintWrap, ceilingPreCheck, preWriteAbortCheck, register in-flight,
- *    invoke (+ transient single-retry), ceiling budget decrement, applyTaintWrap,
+ *    invoke, ceiling budget decrement, applyTaintWrap,
  *    auditEmit, retryCount bookkeeping, circuit-breaker setting.
  *  - Outermost catch — fail cache handle, audit, return infra_error.
  *
@@ -25,9 +25,9 @@
  * Transient retry:
  *  - `invoke()` in pipeline-steps already classifies SERVICE_UNAVAILABLE, TOO_MANY_REQUESTS,
  *    and ECONNRESET/ETIMEDOUT network errors as `transient_infra_error` with `retry` disposition.
- *  - The orchestrator detects this variant on the first attempt, waits 200 ms + random jitter
- *    (0–100 ms), retries once. If the retry also returns `transient_infra_error`, returns it
- *    as-is to the caller. If it returns a different variant, handles it normally.
+ *  - Provider-level retry (exponential backoff) is handled by `withProviderRetry` in the LLM
+ *    client layer, not here. The gateway receives transient_infra_error only after those retries
+ *    are exhausted, and returns it as-is to the caller.
  */
 
 import { Injectable, Logger } from '@nestjs/common'
@@ -673,9 +673,7 @@ export class ToolGateway implements ToolGatewayPort {
     recordStepDuration('taint-wrap-setup', Date.now() - taintWrapSetupStart)
 
     // Wallclock timer covers everything after resolve — including ceiling checks,
-    // pre-write abort, invoke, and any transient-retry jitter sleep. A transient
-    // retry's wait counts against the tool's wallclock budget; this is deliberate
-    // — the caller experiences that time regardless.
+    // pre-write abort, and invoke. The caller experiences this wall time regardless.
     const startedAt = Date.now()
 
     // ceilingPreCheck is a pure sync step; span emitted inline (no await) to
@@ -1005,9 +1003,9 @@ export class ToolGateway implements ToolGatewayPort {
 
     // Retry-count bookkeeping: validation_failed and invocation_timeout are retried
     // once, then downgraded to abort. permission_denied is fixed abort (no retry
-    // count). transient_infra_error retry was already consumed by the orchestrator's
-    // inline retry above; if we still get transient_infra_error here it means the
-    // retry was also transient — return as-is (already disposition: 'retry').
+    // count). transient_infra_error provider retry is handled in the LLM client layer
+    // (withProviderRetry); if we still receive transient_infra_error here it means
+    // those retries are exhausted — return as-is (already disposition: 'retry').
 
     let returnedTw: Tripwire = tw
 

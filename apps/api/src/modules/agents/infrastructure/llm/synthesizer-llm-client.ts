@@ -128,6 +128,12 @@ export class OpenAiSynthesizerLlmClient implements SynthesizerLlmClient, OnModul
     // nested intersection over `FlexibleSchema<unknown>` × output-mode unions,
     // so a generic `ZodType` opts.schema is not assignable without widening.
     // The cast narrows once the SDK exposes a covariant FlexibleSchema helper.
+
+    // withProviderRetry is intentionally omitted here: streamObject() returns a stream
+    // synchronously — errors surface during async iteration of the stream, not at call
+    // time. Wrapping here would restart the stream from the beginning on retry, which
+    // requires the caller to handle. Full synthesizer retry is deferred to a future task.
+    // SDK-level retries are disabled (maxRetries: 0) so no double-retry occurs.
     const stream = streamObject({
       model,
       schema: opts.schema as never,

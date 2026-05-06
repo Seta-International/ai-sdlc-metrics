@@ -60,7 +60,7 @@ describe('withProviderRetry', () => {
     await vi.runAllTimersAsync()
     await promise
     const delays = setTimeoutSpy.mock.calls.map((c) => c[1] as number)
-    expect(delays.some((d) => d >= 3000 && d <= 32_000)).toBe(true)
+    expect(delays).toContain(3000)
   })
 
   it('does NOT issue a third attempt when maxAttempts=2 and both fail', async () => {
