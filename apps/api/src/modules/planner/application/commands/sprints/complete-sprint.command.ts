@@ -1,0 +1,8 @@
+export class CompleteSprintCommand {
+  constructor(
+    public readonly tenantId: string,
+    public readonly planId: string,
+    public readonly actorId: string,
+    public readonly sprintId: string,
+  ) {}
+}
