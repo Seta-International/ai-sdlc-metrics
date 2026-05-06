@@ -9,6 +9,7 @@ import { commentRouter } from './comment.router'
 import { evidenceRouter } from './evidence.router'
 import { personalRouter } from './personal.router'
 import { msSyncRouter } from './ms-sync.router'
+import { customFieldRouter } from './custom-field.router'
 
 export const plannerRouter = router({
   plans: planRouter,
@@ -21,4 +22,5 @@ export const plannerRouter = router({
   evidence: evidenceRouter,
   personal: personalRouter,
   msSync: msSyncRouter,
+  customFields: customFieldRouter,
 })

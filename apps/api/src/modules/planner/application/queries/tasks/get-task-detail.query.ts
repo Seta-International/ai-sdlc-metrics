@@ -55,4 +55,18 @@ export interface TaskDetailSnapshot {
     createdAt: Date
     msSyncState: 'synced' | 'pending_upload' | 'pending_download' | 'not_syncable'
   }>
+  customFields: Array<{
+    defId: string
+    name: string
+    kind: 'text' | 'number' | 'date' | 'yes_no' | 'choice'
+    choiceOptions: string[] | null
+    position: number
+    value: {
+      text?: string
+      number?: number
+      date?: string
+      yesNo?: boolean
+      choice?: string
+    } | null
+  }>
 }

@@ -57,6 +57,14 @@ import { TASK_COMMENT_REPOSITORY } from './domain/repositories/task-comment.repo
 import { DrizzleTaskCommentRepository } from './infrastructure/repositories/drizzle-task-comment.repository'
 import { TASK_EVIDENCE_REPOSITORY } from './domain/repositories/task-evidence.repository'
 import { DrizzleTaskEvidenceRepository } from './infrastructure/repositories/drizzle-task-evidence.repository'
+import { CUSTOM_FIELD_DEF_REPOSITORY } from './domain/repositories/custom-field-def.repository'
+import { TASK_CUSTOM_FIELD_VALUE_REPOSITORY } from './domain/repositories/task-custom-field-value.repository'
+import { DrizzleCustomFieldDefRepository } from './infrastructure/repositories/drizzle-custom-field-def.repository'
+import { DrizzleTaskCustomFieldValueRepository } from './infrastructure/repositories/drizzle-task-custom-field-value.repository'
+import { DefineCustomFieldHandler } from './application/commands/custom-fields/define-custom-field.handler'
+import { UpdateCustomFieldDefHandler } from './application/commands/custom-fields/update-custom-field-def.handler'
+import { DeleteCustomFieldDefHandler } from './application/commands/custom-fields/delete-custom-field-def.handler'
+import { SetCustomFieldValueHandler } from './application/commands/custom-fields/set-custom-field-value.handler'
 import { STORAGE_CLIENT } from './domain/ports/storage-client.port'
 import { RequestUploadHandler } from './application/commands/attachments/request-upload.handler'
 import { FinalizeUploadHandler } from './application/commands/attachments/finalize-upload.handler'
@@ -165,6 +173,11 @@ import { DrizzleRosterMemberRepository } from './infrastructure/repositories/dri
     { provide: TASK_ATTACHMENT_REPOSITORY, useClass: DrizzleTaskAttachmentRepository },
     { provide: TASK_COMMENT_REPOSITORY, useClass: DrizzleTaskCommentRepository },
     { provide: TASK_EVIDENCE_REPOSITORY, useClass: DrizzleTaskEvidenceRepository },
+    { provide: CUSTOM_FIELD_DEF_REPOSITORY, useClass: DrizzleCustomFieldDefRepository },
+    {
+      provide: TASK_CUSTOM_FIELD_VALUE_REPOSITORY,
+      useClass: DrizzleTaskCustomFieldValueRepository,
+    },
     {
       provide: STORAGE_CLIENT,
       inject: [ConfigService],
@@ -233,6 +246,10 @@ import { DrizzleRosterMemberRepository } from './infrastructure/repositories/dri
     CreateEvidenceNoteHandler,
     RemoveEvidenceHandler,
     ListTaskEvidenceHandler,
+    DefineCustomFieldHandler,
+    UpdateCustomFieldDefHandler,
+    DeleteCustomFieldDefHandler,
+    SetCustomFieldValueHandler,
     OnTaskAssignedHandler,
     OnTaskProgressCompletedHandler,
     IdentityDirectorySyncedListener,

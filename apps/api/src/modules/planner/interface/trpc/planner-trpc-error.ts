@@ -1,4 +1,6 @@
 import { TRPCError } from '@trpc/server'
+import { CustomFieldDefNotFoundException } from '../../domain/exceptions/custom-field-def-not-found.exception'
+import { CustomFieldLimitExceededException } from '../../domain/exceptions/custom-field-limit-exceeded.exception'
 import { UnauthorizedPlanAccessException } from '../../domain/exceptions/unauthorized-plan-access.exception'
 import { PlanNotFoundException } from '../../domain/exceptions/plan-not-found.exception'
 import { BucketNotFoundException } from '../../domain/exceptions/bucket-not-found.exception'
@@ -66,6 +68,10 @@ export function toPlannerTrpcError(error: unknown): TRPCError {
   if (error instanceof EvidenceBodyTooLongException)
     return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
   if (error instanceof MsSyncAcceptNotSupportedException)
+    return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
+  if (error instanceof CustomFieldDefNotFoundException)
+    return new TRPCError({ code: 'NOT_FOUND', message: error.message })
+  if (error instanceof CustomFieldLimitExceededException)
     return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
   const msg = error instanceof Error ? error.message : 'Internal error'
   return new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: msg })

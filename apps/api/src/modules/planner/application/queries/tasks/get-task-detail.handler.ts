@@ -185,6 +185,62 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
 
     const appliedLabels = labelResult.rows.map((r) => r.slot)
 
+    // ── Query 8: Custom field defs + values ──────────────────────────────────
+    const cfResult = await this.db.execute<{
+      def_id: string
+      name: string
+      kind: string
+      choice_options: unknown
+      position: number
+      value_text: string | null
+      value_number: string | null
+      value_date: string | null
+      value_yes_no: boolean | null
+      value_choice: string | null
+    }>(
+      sql`SELECT
+            cfd.id          AS def_id,
+            cfd.name,
+            cfd.kind,
+            cfd.choice_options,
+            cfd.position,
+            cfv.value_text,
+            cfv.value_number,
+            cfv.value_date,
+            cfv.value_yes_no,
+            cfv.value_choice
+          FROM planner.custom_field_def cfd
+          LEFT JOIN planner.task_custom_field_value cfv
+            ON cfv.field_def_id = cfd.id
+           AND cfv.task_id = ${taskId}
+           AND cfv.tenant_id = ${tenantId}
+          WHERE cfd.plan_id = ${taskRow.plan_id}
+            AND cfd.tenant_id = ${tenantId}
+          ORDER BY cfd.position`,
+    )
+
+    const customFields = cfResult.rows.map((r) => ({
+      defId: r.def_id,
+      name: r.name,
+      kind: r.kind as 'text' | 'number' | 'date' | 'yes_no' | 'choice',
+      choiceOptions: Array.isArray(r.choice_options) ? (r.choice_options as string[]) : null,
+      position: r.position,
+      value:
+        r.value_text !== null ||
+        r.value_number !== null ||
+        r.value_date !== null ||
+        r.value_yes_no !== null ||
+        r.value_choice !== null
+          ? {
+              text: r.value_text ?? undefined,
+              number: r.value_number !== null ? parseFloat(r.value_number) : undefined,
+              date: r.value_date ?? undefined,
+              yesNo: r.value_yes_no ?? undefined,
+              choice: r.value_choice ?? undefined,
+            }
+          : null,
+    }))
+
     // ── Resolve presigned GET URLs for file attachments (sequential — single DB client) ──
     const attachments: TaskDetailSnapshot['attachments'] = []
     for (const row of attachmentResult.rows) {
@@ -235,6 +291,7 @@ export class GetTaskDetailHandler implements IQueryHandler<GetTaskDetailQuery, T
       assignees,
       appliedLabels,
       attachments,
+      customFields,
     }
   }
 }
