@@ -149,6 +149,15 @@ export interface ToolGatewayInvokeInput {
    * Optional — when absent, provenance.user_utterance is set to empty string.
    */
   readonly userUtterance?: string
+  /**
+   * Optional. The turn ID for idempotency dedup (D-5). When provided together with
+   * toolCallId, write tool calls are deduplicated within a 24-hour TTL.
+   */
+  readonly turnId?: string
+  /**
+   * Optional. The LLM-assigned tool call ID for idempotency dedup (D-5).
+   */
+  readonly toolCallId?: string
 }
 
 /**

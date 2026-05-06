@@ -30,7 +30,8 @@
  *    are exhausted, and returns it as-is to the caller.
  */
 
-import { Injectable, Logger } from '@nestjs/common'
+import { createHash } from 'node:crypto'
+import { Injectable, Inject, Logger } from '@nestjs/common'
 import type { AgentToolDescriptor } from '../../../../common/trpc/agent-tool-meta'
 import { ToolRegistry } from '../../infrastructure/tool-registry/tool-registry'
 import {
@@ -71,6 +72,10 @@ import {
   SemanticResultCache,
   type CacheHit,
 } from '../../infrastructure/cache/semantic-result-cache'
+import {
+  WRITE_DEDUP_REPOSITORY,
+  type IWriteDedupRepository,
+} from '../../domain/repositories/write-dedup.repository'
 
 const SEMANTIC_CACHE_EMBEDDING_MODEL = 'text-embedding-3-small'
 const DEFAULT_SEMANTIC_DISTANCE_THRESHOLD = 0.97
@@ -220,7 +225,13 @@ export class ToolGateway implements ToolGatewayPort {
     private readonly flowPolicyResolver: FlowPolicyResolver,
     private readonly draftProposer: DraftProposer,
     private readonly semanticCache: SemanticResultCache,
+    @Inject(WRITE_DEDUP_REPOSITORY) private readonly writeDedupRepo: IWriteDedupRepository,
   ) {}
+
+  private computeIdempotencyKey(turnId: string, toolCallId: string, args: unknown): string {
+    const { hash: argsHash } = canonicalize(args)
+    return createHash('sha256').update(`${turnId}:${toolCallId}:${argsHash}`).digest('hex')
+  }
 
   async invoke(input: ToolGatewayInvokeInput): Promise<ToolGatewayResult> {
     // Outermost guard — unexpected throws must never surface to the caller.
@@ -796,6 +807,16 @@ export class ToolGateway implements ToolGatewayPort {
       }
     }
 
+    // D-5: idempotency dedup for mutation tools
+    let _idempotencyKey: string | undefined
+    if (descriptor.procedure === 'mutation' && input.turnId && input.toolCallId) {
+      _idempotencyKey = this.computeIdempotencyKey(input.turnId, input.toolCallId, args)
+      const cached = await this.writeDedupRepo.findByKey(_idempotencyKey)
+      if (cached !== null && cached.expiresAt > new Date()) {
+        return ok(cached.resultJson, true)
+      }
+    }
+
     let cacheHandle: ReturnType<typeof turnState.l1Cache.registerInFlight> | undefined
     try {
       cacheHandle = turnState.l1Cache.registerInFlight(descriptor.name, argsHash)
@@ -951,6 +972,19 @@ export class ToolGateway implements ToolGatewayPort {
     recordStepDuration('audit-emit', Date.now() - auditEmitStart)
 
     recordToolCall(tenantId, descriptor.name, 'success')
+
+    // D-5: persist dedup row after successful mutation so repeated calls with the
+    // same (turnId, toolCallId, args) return the cached result within 24 hours.
+    if (_idempotencyKey && input.turnId) {
+      await this.writeDedupRepo.insert({
+        idempotencyKey: _idempotencyKey,
+        tenantId,
+        turnId: input.turnId,
+        toolName: descriptor.name,
+        resultJson: result as Record<string, unknown>,
+        expiresAt: new Date(Date.now() + 86_400_000),
+      })
+    }
 
     // DraftProposer hookup: called on mutation tool success.
     // Resilience contract: a DraftProposer failure is non-fatal — the tool call
