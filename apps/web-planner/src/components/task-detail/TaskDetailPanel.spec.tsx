@@ -38,6 +38,14 @@ vi.mock('./tabs/TaskChatTab', () => ({
   TaskChatTab: () => React.createElement('div', { 'data-testid': 'tab-chat-content' }),
 }))
 
+vi.mock('./TaskHistoryPane', () => ({
+  TaskHistoryPane: () => null,
+}))
+
+vi.mock('@future/auth', () => ({
+  useSession: () => ({ actorId: 'actor-1', tenantId: 'tenant-1' }),
+}))
+
 import { useTaskDetail } from '@/lib/hooks/useTaskDetail'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import type { TaskDetailSnapshot } from '@/lib/board-types'

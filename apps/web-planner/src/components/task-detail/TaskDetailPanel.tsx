@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSession } from '@future/auth'
 import { Skeleton, Tabs, TabsList, TabsTrigger, TabsContent } from '@future/ui'
 import { useTaskDetail } from '@/lib/hooks/useTaskDetail'
 import { useConflictResolver } from '@/lib/hooks/useConflictResolver'
@@ -12,6 +13,7 @@ import { TaskDetailTab } from './tabs/TaskDetailTab'
 import { TaskChecklistTab } from './tabs/TaskChecklistTab'
 import { TaskFilesTab } from './tabs/TaskFilesTab'
 import { TaskChatTab } from './tabs/TaskChatTab'
+import { TaskHistoryPane } from './TaskHistoryPane'
 import type { TaskFlatWithPlan } from '@future/api-client/planner'
 import type { TaskPatch } from '@/lib/hooks/useTaskDetail'
 
@@ -23,11 +25,13 @@ interface Props {
 
 export function TaskDetailPanel({ taskId, planId, onClose }: Props) {
   const router = useRouter()
+  const session = useSession()
   const { task, isLoading, saving, update, conflict, clearConflict } = useTaskDetail({
     taskId,
     planId,
   })
   const [localPatch, setLocalPatch] = useState<TaskPatch | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const { conflictingField, myValue, theirValue, keepMine, keepTheirs } = useConflictResolver({
     conflict,
@@ -110,8 +114,13 @@ export function TaskDetailPanel({ taskId, planId, onClose }: Props) {
       : ''
 
   return (
-    <div className="flex h-full flex-col" data-testid="task-detail-panel">
-      <TaskPanelHeader title={task?.title ?? ''} isSaving={saving} onClose={handleClose} />
+    <div className="relative flex h-full flex-col" data-testid="task-detail-panel">
+      <TaskPanelHeader
+        title={task?.title ?? ''}
+        isSaving={saving}
+        onClose={handleClose}
+        onHistoryOpen={() => setHistoryOpen(true)}
+      />
 
       {taskFlatStub ? (
         <div className="flex items-center justify-end border-b px-4 py-2">
@@ -163,6 +172,15 @@ export function TaskDetailPanel({ taskId, planId, onClose }: Props) {
           </div>
         </Tabs>
       )}
+
+      <TaskHistoryPane
+        taskId={taskId}
+        planId={planId}
+        tenantId={session?.tenantId ?? ''}
+        actorId={session?.actorId ?? ''}
+        isOpen={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+      />
     </div>
   )
 }
