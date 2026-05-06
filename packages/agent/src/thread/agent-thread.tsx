@@ -62,7 +62,7 @@ function AgentAssistantMessage() {
     <MessagePrimitive.Root className="flex flex-col gap-2 px-3 py-1">
       <MessagePrimitive.Content
         components={{
-          Text: ({ part }) => <AnswerBubble>{part.text}</AnswerBubble>,
+          Text: ({ text }) => <AnswerBubble>{text}</AnswerBubble>,
         }}
       />
     </MessagePrimitive.Root>

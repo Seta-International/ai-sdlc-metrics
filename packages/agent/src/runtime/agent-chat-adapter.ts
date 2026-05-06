@@ -1,5 +1,10 @@
 import { fetchEventSource } from '@microsoft/fetch-event-source'
-import type { ChatModelAdapter, ToolCallContentPart, TextContentPart } from '@assistant-ui/react'
+import type {
+  ChatModelAdapter,
+  ToolCallMessagePart,
+  TextMessagePart,
+  ThreadAssistantMessagePart,
+} from '@assistant-ui/react'
 import { sseEventSchema } from './sse-event-schema'
 import type { SseEvent, TurnEndReason } from './sse-event-schema'
 import type { AgentTurnStore } from './agent-turn-store'
@@ -128,10 +133,8 @@ type PartState = {
   toolParts: Map<string, { toolName: string; args: object }>
 }
 
-function buildContent(
-  state: PartState,
-): Array<TextContentPart | ToolCallContentPart<object, unknown>> {
-  const out: Array<TextContentPart | ToolCallContentPart<object, unknown>> = []
+function buildContent(state: PartState): ThreadAssistantMessagePart[] {
+  const out: ThreadAssistantMessagePart[] = []
   if (state.textActive || state.text) {
     out.push({ type: 'text', text: state.text })
   }
@@ -142,7 +145,7 @@ function buildContent(
       toolName: part.toolName,
       args: part.args,
       argsText: JSON.stringify(part.args),
-    } as ToolCallContentPart<object, unknown>)
+    } as ToolCallMessagePart)
   }
   return out
 }
