@@ -264,4 +264,14 @@ describe('Migration squash — P0 audit findings', () => {
       expect(result.rows).toHaveLength(0)
     })
   })
+
+  // ─── Sub-fix D-5: agent_write_dedup PRIMARY KEY uniqueness ────────────────
+
+  it('agents.agent_write_dedup: idempotency_key column exists', async () => {
+    expect(await columnExists(db, 'agents', 'agent_write_dedup', 'idempotency_key')).toBe(true)
+  })
+
+  it('agents.agent_write_dedup: idempotency_key PRIMARY KEY unique constraint exists', async () => {
+    expect(await uniqueConstraintExists(db, 'agents', 'agent_write_dedup_pkey')).toBe(true)
+  })
 })
