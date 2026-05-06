@@ -17,9 +17,13 @@ vi.mock('next-themes', () => ({
   useTheme: () => ({ resolvedTheme: mockResolvedTheme, setTheme: mockSetTheme }),
 }))
 
-vi.mock('@future/ui', () => ({
-  cn: (...args: string[]) => args.filter(Boolean).join(' '),
-}))
+vi.mock('@future/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@future/ui')>()
+  return {
+    ...actual,
+    cn: (...args: string[]) => args.filter(Boolean).join(' '),
+  }
+})
 
 function createWrapper(permissions: string[]) {
   return function Wrapper({ children }: { children: ReactNode }) {

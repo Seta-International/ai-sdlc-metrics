@@ -29,9 +29,11 @@ vi.mock('./stub-notifications-popover', () => ({
 }))
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-vi.mock('@future/ui', () => {
+vi.mock('@future/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@future/ui')>()
   const D = ({ children }: any) => <div>{children}</div>
   return {
+    ...actual,
     cn: (...args: any[]) => args.filter(Boolean).join(' '),
     AppLauncher: () => null,
     FUTURE_APPS: [],
