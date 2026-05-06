@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@future/api-client'
 import React from 'react'
@@ -70,6 +70,14 @@ vi.mock('../../lib/hooks/use-remove-from-my-day', () => ({
   useRemoveFromMyDay: () => ({ mutate: vi.fn(), isPending: false }),
 }))
 
+import { trpc } from '../../lib/trpc'
+const mockSetPriority = vi.mocked(
+  (trpc.planner.tasks.setPriority as { mutate: ReturnType<typeof vi.fn> }).mutate,
+)
+const mockSetDates = vi.mocked(
+  (trpc.planner.tasks.setDates as { mutate: ReturnType<typeof vi.fn> }).mutate,
+)
+
 function makeTask(overrides: Partial<BoardTaskSnapshot> = {}): BoardTaskSnapshot {
   return {
     id: 'task-1',
@@ -120,6 +128,7 @@ function Wrapper({ children }: { children: React.ReactNode }) {
 
 afterEach(() => {
   cleanup()
+  vi.clearAllMocks()
   _queryClientRef = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 })
 
@@ -155,8 +164,8 @@ describe('TaskCard', () => {
       wrapper: Wrapper,
     })
 
-    // PriorityIcon renders with aria-label "Priority 9"
-    const icon = screen.getByRole('img', { name: /priority 9/i })
+    // PriorityIcon renders with aria-label "Urgent"
+    const icon = screen.getByRole('img', { name: /urgent/i })
     expect(icon).toBeDefined()
   })
 
@@ -281,5 +290,242 @@ describe('TaskCard', () => {
       { wrapper: Wrapper },
     )
     expect(screen.queryByTestId('pending-upload-badge')).toBeNull()
+  })
+
+  it('progress toggle button is always visible (no opacity-0 class)', () => {
+    render(<TaskCard task={makeTask({ progress: 0 })} planLabels={emptyLabels} {...TASK_PROPS} />, {
+      wrapper: Wrapper,
+    })
+    const toggleBtn = screen.getByRole('button', { name: 'Mark complete' })
+    expect(toggleBtn.className).not.toContain('opacity-0')
+  })
+
+  it('writes server updatedAt to cache after setPriority mutation', async () => {
+    const serverUpdatedAt = new Date('2026-06-01T12:00:00Z')
+    mockSetPriority.mockResolvedValue({ updatedAt: serverUpdatedAt })
+
+    const task = makeTask({ priority: 3, updatedAt: new Date('2026-01-01') })
+    const snapshot = {
+      plan: { id: 'plan-1', name: 'Plan', labels: [], members: [] },
+      buckets: [{ id: 'bucket-1', name: 'To Do', orderHint: 'a', tasks: [task] }],
+    }
+    _queryClientRef.setQueryData(['tasks.getBoard', 'plan-1', 'actor-1', 'tenant-1'], snapshot)
+
+    render(<TaskCard task={task} planLabels={emptyLabels} {...TASK_PROPS} />, { wrapper: Wrapper })
+
+    await userEvent.click(screen.getByTestId('task-card-menu-btn'))
+    await userEvent.click(screen.getByTestId('task-menu-priority'))
+    await userEvent.click(screen.getByTestId('priority-option-9'))
+
+    await waitFor(() => expect(mockSetPriority).toHaveBeenCalledTimes(1))
+
+    const cached = _queryClientRef.getQueryData<typeof snapshot>([
+      'tasks.getBoard',
+      'plan-1',
+      'actor-1',
+      'tenant-1',
+    ])
+    const cachedTask = cached?.buckets[0]?.tasks[0]
+    expect(cachedTask?.updatedAt).toEqual(serverUpdatedAt)
+  })
+
+  it('opens assignee picker from menu and closes on Escape', async () => {
+    render(<TaskCard task={makeTask()} planLabels={emptyLabels} {...TASK_PROPS} />, {
+      wrapper: Wrapper,
+    })
+
+    await userEvent.click(screen.getByTestId('task-card-menu-btn'))
+    await userEvent.click(screen.getByTestId('task-menu-assignees'))
+
+    const picker = await screen.findByTestId('assignee-picker')
+    expect(picker).toBeDefined()
+
+    // Escape closes the picker (covers the onClose callback in TaskCard)
+    fireEvent.keyDown(picker, { key: 'Escape' })
+    await waitFor(() => {
+      expect(screen.queryByTestId('assignee-picker')).toBeNull()
+    })
+  })
+
+  it('opens labels picker from menu and closes on Escape', async () => {
+    render(<TaskCard task={makeTask()} planLabels={emptyLabels} {...TASK_PROPS} />, {
+      wrapper: Wrapper,
+    })
+
+    await userEvent.click(screen.getByTestId('task-card-menu-btn'))
+    await userEvent.click(screen.getByTestId('task-menu-labels'))
+
+    const picker = await screen.findByTestId('label-picker')
+    expect(picker).toBeDefined()
+
+    // Escape closes the picker (covers the onClose callback in TaskCard)
+    fireEvent.keyDown(picker, { key: 'Escape' })
+    await waitFor(() => {
+      expect(screen.queryByTestId('label-picker')).toBeNull()
+    })
+  })
+
+  describe('due date input', () => {
+    it('does NOT fire mutation on onChange (only updates local state)', async () => {
+      mockSetDates.mockResolvedValue({ updatedAt: new Date() })
+
+      const task = makeTask()
+      render(<TaskCard task={task} planLabels={emptyLabels} {...TASK_PROPS} />, {
+        wrapper: Wrapper,
+      })
+
+      await userEvent.click(screen.getByTestId('task-card-menu-btn'))
+      await userEvent.click(screen.getByTestId('task-menu-due-date'))
+
+      const dateInput = screen.getByLabelText('Due date input')
+      fireEvent.change(dateInput, { target: { value: '2026-12-31' } })
+
+      expect(mockSetDates).not.toHaveBeenCalled()
+    })
+
+    it('fires mutation on onBlur', async () => {
+      const serverDate = new Date('2026-07-01T00:00:00Z')
+      mockSetDates.mockResolvedValue({ updatedAt: serverDate })
+
+      const task = makeTask()
+      const snapshot = {
+        plan: { id: 'plan-1', name: 'Plan', labels: [], members: [] },
+        buckets: [{ id: 'bucket-1', name: 'To Do', orderHint: 'a', tasks: [task] }],
+      }
+      _queryClientRef.setQueryData(['tasks.getBoard', 'plan-1', 'actor-1', 'tenant-1'], snapshot)
+
+      render(<TaskCard task={task} planLabels={emptyLabels} {...TASK_PROPS} />, {
+        wrapper: Wrapper,
+      })
+
+      await userEvent.click(screen.getByTestId('task-card-menu-btn'))
+      await userEvent.click(screen.getByTestId('task-menu-due-date'))
+
+      const dateInput = screen.getByLabelText('Due date input')
+      fireEvent.change(dateInput, { target: { value: '2026-12-31' } })
+      fireEvent.blur(dateInput)
+
+      await waitFor(() => expect(mockSetDates).toHaveBeenCalledTimes(1))
+    })
+
+    it('initializes input value from task.dueDate when set', async () => {
+      const dueDate = new Date('2026-12-31T00:00:00Z')
+      const task = makeTask({ dueDate })
+
+      render(<TaskCard task={task} planLabels={emptyLabels} {...TASK_PROPS} />, {
+        wrapper: Wrapper,
+      })
+
+      await userEvent.click(screen.getByTestId('task-card-menu-btn'))
+      await userEvent.click(screen.getByTestId('task-menu-due-date'))
+
+      const dateInput = screen.getByLabelText('Due date input') as HTMLInputElement
+      expect(dateInput.value).toBe('2026-12-31')
+
+      // pointerDown on the date input stops propagation (coverage for line 417)
+      fireEvent.pointerDown(dateInput)
+    })
+
+    it('Clear button fires setDates with null dueDate when task has a dueDate', async () => {
+      mockSetDates.mockResolvedValue({ updatedAt: new Date() })
+      const dueDate = new Date('2026-12-31T00:00:00Z')
+      const task = makeTask({ dueDate })
+      const snapshot = {
+        plan: { id: 'plan-1', name: 'Plan', labels: [], members: [] },
+        buckets: [{ id: 'bucket-1', name: 'To Do', orderHint: 'a', tasks: [task] }],
+      }
+      _queryClientRef.setQueryData(['tasks.getBoard', 'plan-1', 'actor-1', 'tenant-1'], snapshot)
+
+      render(<TaskCard task={task} planLabels={emptyLabels} {...TASK_PROPS} />, {
+        wrapper: Wrapper,
+      })
+
+      await userEvent.click(screen.getByTestId('task-card-menu-btn'))
+      await userEvent.click(screen.getByTestId('task-menu-due-date'))
+
+      await userEvent.click(screen.getByText('Clear'))
+
+      await waitFor(() => {
+        expect(mockSetDates).toHaveBeenCalledWith(expect.objectContaining({ dueDate: null }))
+      })
+    })
+
+    it('restores cache snapshot on setDates mutation error', async () => {
+      mockSetDates.mockRejectedValue(new Error('server error'))
+      const task = makeTask()
+      const snapshot = {
+        plan: { id: 'plan-1', name: 'Plan', labels: [], members: [] },
+        buckets: [{ id: 'bucket-1', name: 'To Do', orderHint: 'a', tasks: [task] }],
+      }
+      _queryClientRef.setQueryData(['tasks.getBoard', 'plan-1', 'actor-1', 'tenant-1'], snapshot)
+
+      render(<TaskCard task={task} planLabels={emptyLabels} {...TASK_PROPS} />, {
+        wrapper: Wrapper,
+      })
+
+      await userEvent.click(screen.getByTestId('task-card-menu-btn'))
+      await userEvent.click(screen.getByTestId('task-menu-due-date'))
+
+      const dateInput = screen.getByLabelText('Due date input')
+      fireEvent.change(dateInput, { target: { value: '2026-12-31' } })
+      fireEvent.blur(dateInput)
+
+      await waitFor(() => expect(mockSetDates).toHaveBeenCalledTimes(1))
+
+      const cached = _queryClientRef.getQueryData<typeof snapshot>([
+        'tasks.getBoard',
+        'plan-1',
+        'actor-1',
+        'tenant-1',
+      ])
+      expect(cached?.buckets[0]?.tasks[0]?.dueDate).toBeNull()
+    })
+  })
+
+  it('completion toggle shows "Mark incomplete" aria-label when progress is 100', () => {
+    render(
+      <TaskCard task={makeTask({ progress: 100 })} planLabels={emptyLabels} {...TASK_PROPS} />,
+      { wrapper: Wrapper },
+    )
+    expect(screen.getByRole('button', { name: 'Mark incomplete' })).toBeDefined()
+  })
+
+  it('renders correctly with progress 50 (in-progress) and priority 1', () => {
+    render(
+      <TaskCard
+        task={makeTask({ progress: 50, priority: 1 })}
+        planLabels={emptyLabels}
+        {...TASK_PROPS}
+      />,
+      { wrapper: Wrapper },
+    )
+    // Just assert the card renders without crash (covers progress/priority ternary branches)
+    expect(screen.getByTestId('task-card')).toBeDefined()
+  })
+
+  it('restores cache snapshot on setPriority mutation error', async () => {
+    mockSetPriority.mockRejectedValue(new Error('server error'))
+    const task = makeTask({ priority: 3 })
+    const snapshot = {
+      plan: { id: 'plan-1', name: 'Plan', labels: [], members: [] },
+      buckets: [{ id: 'bucket-1', name: 'To Do', orderHint: 'a', tasks: [task] }],
+    }
+    _queryClientRef.setQueryData(['tasks.getBoard', 'plan-1', 'actor-1', 'tenant-1'], snapshot)
+
+    render(<TaskCard task={task} planLabels={emptyLabels} {...TASK_PROPS} />, { wrapper: Wrapper })
+
+    await userEvent.click(screen.getByTestId('task-card-menu-btn'))
+    await userEvent.click(screen.getByTestId('task-menu-priority'))
+    await userEvent.click(screen.getByTestId('priority-option-9'))
+
+    await waitFor(() => expect(mockSetPriority).toHaveBeenCalledTimes(1))
+
+    const cached = _queryClientRef.getQueryData<typeof snapshot>([
+      'tasks.getBoard',
+      'plan-1',
+      'actor-1',
+      'tenant-1',
+    ])
+    expect(cached?.buckets[0]?.tasks[0]?.priority).toBe(3)
   })
 })

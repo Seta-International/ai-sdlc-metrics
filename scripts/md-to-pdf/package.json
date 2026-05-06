@@ -1,0 +1,11 @@
+{
+  "name": "md-to-pdf-tool",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Standalone tool: convert markdown (with mermaid blocks) to PDF. Not part of the workspace.",
+  "type": "module",
+  "dependencies": {
+    "@mermaid-js/mermaid-cli": "^11.14.0",
+    "md-to-pdf": "^5.2.5"
+  }
+}

@@ -10,7 +10,10 @@ import { PlanNotFoundException } from '../../../domain/exceptions/plan-not-found
 import { RemoveLabelCommand } from './remove-label.command'
 
 @CommandHandler(RemoveLabelCommand)
-export class RemoveLabelHandler implements ICommandHandler<RemoveLabelCommand> {
+export class RemoveLabelHandler implements ICommandHandler<
+  RemoveLabelCommand,
+  { updatedAt: Date }
+> {
   constructor(
     @Inject(TASK_REPOSITORY) private readonly taskRepo: ITaskRepository,
     @Inject(PLAN_REPOSITORY) private readonly planRepo: IPlanRepository,
@@ -18,7 +21,7 @@ export class RemoveLabelHandler implements ICommandHandler<RemoveLabelCommand> {
     private readonly eventBus: EventBus,
   ) {}
 
-  async execute(command: RemoveLabelCommand): Promise<void> {
+  async execute(command: RemoveLabelCommand): Promise<{ updatedAt: Date }> {
     const task = await this.taskRepo.findById(command.taskId, command.tenantId)
     if (!task) throw new TaskNotFoundException(command.taskId)
 
@@ -44,5 +47,7 @@ export class RemoveLabelHandler implements ICommandHandler<RemoveLabelCommand> {
         'user',
       ),
     )
+
+    return { updatedAt: task.updatedAt }
   }
 }

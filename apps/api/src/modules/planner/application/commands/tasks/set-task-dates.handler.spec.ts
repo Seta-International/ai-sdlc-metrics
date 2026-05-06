@@ -66,13 +66,14 @@ describe('SetTaskDatesHandler', () => {
       due,
     )
 
-    await handler.execute(command)
+    const result = await handler.execute(command)
 
     expect(authSvc.assertCanEditPlan).toHaveBeenCalledWith(ACTOR_ID, PLAN_ID, TENANT_ID)
     const [updatedTask] = taskRepo.update.mock.calls[0]
     expect(updatedTask.startDate).toEqual(start)
     expect(updatedTask.dueDate).toEqual(due)
     expect(eventBus.publish).toHaveBeenCalledWith(expect.any(TaskUpdatedEvent))
+    expect(result).toEqual({ updatedAt: expect.any(Date) })
   })
 
   it('clears dates when null passed', async () => {

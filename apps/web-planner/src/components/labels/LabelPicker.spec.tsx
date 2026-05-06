@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@future/api-client'
 import React from 'react'
@@ -168,5 +168,75 @@ describe('LabelPicker', () => {
     // Non-applied labels should not show pressed
     const btn1 = screen.getByTestId('label-option-category1')
     expect(btn1.getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('calls onClose when Escape key is pressed inside the picker', async () => {
+    const onClose = vi.fn()
+    _queryClientRef.setQueryData(QUERY_KEY, makeSnapshot())
+    render(
+      <LabelPicker
+        task={makeTask()}
+        planId="plan-1"
+        actorId="actor-1"
+        tenantId="tenant-1"
+        onClose={onClose}
+      />,
+      { wrapper: Wrapper },
+    )
+
+    const picker = screen.getByTestId('label-picker')
+    fireEvent.keyDown(picker, { key: 'Escape' })
+
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('restores cache snapshot on applyLabel error', async () => {
+    mockApply.mockRejectedValue(new Error('server error'))
+
+    const task = makeTask()
+    const snapshot = makeSnapshot()
+    _queryClientRef.setQueryData(QUERY_KEY, snapshot)
+
+    render(<LabelPicker task={task} {...PROPS} />, { wrapper: Wrapper })
+
+    await userEvent.click(screen.getByTestId('label-option-category1'))
+
+    await waitFor(() => expect(mockApply).toHaveBeenCalledTimes(1))
+
+    // Cache should be restored to the original snapshot
+    const cached = _queryClientRef.getQueryData<typeof snapshot>(QUERY_KEY)
+    expect(cached?.buckets[0]?.tasks[0]?.appliedLabels).toEqual([])
+  })
+
+  it('writes server updatedAt to cache after applyLabel', async () => {
+    const serverUpdatedAt = new Date('2026-06-15T10:00:00Z')
+    mockApply.mockResolvedValue({ updatedAt: serverUpdatedAt })
+
+    const task = makeTask({ updatedAt: new Date('2026-01-01') })
+    const snapshot = makeSnapshot()
+    snapshot.buckets[0]!.tasks = [task]
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    qc.setQueryData(QUERY_KEY, snapshot)
+
+    render(
+      <QueryClientProvider client={qc}>
+        <LabelPicker
+          task={task}
+          planId="plan-1"
+          actorId="actor-1"
+          tenantId="tenant-1"
+          onClose={() => {}}
+        />
+      </QueryClientProvider>,
+    )
+
+    await userEvent.click(screen.getByTestId('label-option-category1'))
+
+    await waitFor(() => expect(mockApply).toHaveBeenCalledTimes(1))
+
+    const cached = qc.getQueryData<typeof snapshot>(QUERY_KEY)
+    const cachedTask = cached?.buckets[0]?.tasks[0]
+    expect(cachedTask?.updatedAt).toEqual(serverUpdatedAt)
   })
 })
