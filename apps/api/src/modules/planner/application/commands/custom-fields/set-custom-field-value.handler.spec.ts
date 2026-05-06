@@ -81,4 +81,14 @@ describe('SetCustomFieldValueHandler', () => {
     })
     await expect(handler.execute(cmd)).rejects.toThrow(TaskNotFoundException)
   })
+
+  it('throws when auth fails', async () => {
+    authSvc.assertCanEditPlan.mockRejectedValue(
+      new UnauthorizedPlanAccessException(ACTOR_ID, PLAN_ID),
+    )
+    const cmd = new SetCustomFieldValueCommand(TENANT_ID, PLAN_ID, TASK_ID, ACTOR_ID, DEF_ID, {
+      number: 1,
+    })
+    await expect(handler.execute(cmd)).rejects.toThrow(UnauthorizedPlanAccessException)
+  })
 })

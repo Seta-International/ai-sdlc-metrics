@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Input } from '@future/ui'
+import { Input, Button, Checkbox } from '@future/ui'
 import { trpc } from '@/lib/trpc'
 
 type CustomFieldValuePayload =
@@ -64,15 +64,14 @@ function CustomFieldRow({ field, onSave }: { field: CustomField; onSave: (v: unk
     return (
       <div className="flex items-center gap-3">
         <label className="flex flex-1 cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
+          <Checkbox
             data-testid={`cf-input-${field.defId}`}
             checked={checked}
-            onChange={(e) => {
-              setLocalValue({ yesNo: e.target.checked })
-              onSave({ yesNo: e.target.checked })
+            onCheckedChange={(val) => {
+              const newVal = val === true
+              setLocalValue({ yesNo: newVal })
+              onSave({ yesNo: newVal })
             }}
-            className="h-4 w-4 rounded border"
           />
           {field.name}
         </label>
@@ -107,10 +106,13 @@ function CustomFieldRow({ field, onSave }: { field: CustomField; onSave: (v: unk
 
   const inputType = field.kind === 'number' ? 'number' : field.kind === 'date' ? 'date' : 'text'
   const rawValue =
-    localValue?.text ??
-    (localValue?.number !== undefined ? String(localValue.number) : '') ??
-    localValue?.date ??
-    ''
+    field.kind === 'number'
+      ? localValue?.number !== undefined
+        ? String(localValue.number)
+        : ''
+      : field.kind === 'date'
+        ? (localValue?.date ?? '')
+        : (localValue?.text ?? '')
 
   return (
     <div className="flex flex-col gap-1">
