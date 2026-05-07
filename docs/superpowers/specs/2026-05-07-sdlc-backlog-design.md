@@ -120,13 +120,17 @@ Epic:            <Epic ID — references the parent Epic in this design>
 Sprint:          Sprint-1 | Sprint-2 | Sprint-3 | Sprint-4 | Sprint-5 | Sprint-6 | Backlog
 Release:         foundation | deployment | phase-1 | phase-1.5 | docs
 Priority:        P0 | P1 | P2 | P3
-Story Point:     1 | 2 | 3 | 5 | 8
+Story Point:     1 | 2 | 3 | 5 | 8 | 13
 Rank:            <integer; lower = higher priority within Epic / Sprint>
 Jira Key:        <blank — populated by atlassian sync after creation>
 Confluence Link: <blank — populated post-creation if a supporting page is linked>
 ```
 
 **Why these fields:** matches the standards.md template exactly except for additions of `ID`, `Sprint`, `Rank`. `Tags` is **not** an authored field — it is **auto-derived during atlassian push** from the other fields (see §14.3). `Jira Key` and `Confluence Link` are present-but-empty so atlassian sync can fill them in-place after creating the issue.
+
+**Story Point sizing rubric** is defined in `skills/sdlc/references/standards.md` §"Story Points" — that table is the single source of truth. Summary: `1` tiny/clear/low-risk · `2` small/clear/isolated · `3` normal (start here) · `5` medium-complex / multi-area · `8` large/risky / cross-system · `13` too large — must split before execution. Estimators **must** start from `3` and only move up or down with a justification (one short sentence in `AI Execution Notes` if non-obvious). Story Points are an authored field on **Stories, Tasks, and Bugs only** — for **Epics**, the value is rolled up from children and is not authored (see §14.2).
+
+**Priority mapping** (markdown → Jira priority): `P0 → Highest`, `P1 → High`, `P2 → Medium`, `P3 → Low`. Default per `standards.md`: most tickets land at `P2`/Medium; `P0`/Highest is reserved for foundation, security, and demo-blocking work.
 
 ### 5.2 Epic template
 
@@ -135,10 +139,9 @@ Confluence Link: <blank — populated post-creation if a supporting page is link
 
 ID: <FOUND-1 | PEOPLE-1 | DEPLOY-1 | PLAN-1 | AGN-1 | ADMIN-1 | DOC-1 | etc.>
 Status: <Backlog | In Progress | Done>
-Sprint: <Sprint-N or range>
+Sprint: <Sprint-N or range — e.g., "Sprint-3" or "Sprint-3..5">
 Release: <release tag>
 Priority: <P0..P3>
-Story Point: <rolled up from children, optional>
 Rank: <integer>
 Jira Key: <blank>
 Confluence Link: <blank>
@@ -157,13 +160,11 @@ Confluence Link: <blank>
 
 ### Out of Scope
 
-- <bullet list with rationale or reference>
+<Include **only** when a specific exclusion is likely to be misread as in-scope. Otherwise omit. Bulleted with one-line rationale.>
 
 ### SRS Coverage
 
-- FR-XX-NNN, FR-XX-NNN, … (or "n/a" for non-SRS epics)
-- UI-XX-NNN, …
-- NFR-XX-NNN, …
+<Include **only** when the epic implements SRS requirements. List FR-/UI-/NFR- identifiers. Omit the section entirely for infrastructure or non-SRS work — do not write "n/a".>
 
 ### Acceptance Criteria
 
@@ -194,34 +195,25 @@ Confluence Link: <blank>
 
 #### Summary
 
-As <persona>, I want <goal>, so that <value>.
+As <persona>, I want <goal>, so that <value>. (2–4 sentences total. Lead with the outcome, then constraints. No file paths. No package directory names. No "AI Execution Notes" / "Built artefact" lines — the implementation is the implementation.)
 
 #### Acceptance Criteria
 
-- [ ] <testable outcome>
+- [ ] <observable behavior — what a tester or user can verify, not an implementation step>
 - [ ] <…>
 - [ ] **E2E** — <one user-visible end-to-end check>
 
-#### AI Execution Notes
+#### Testing
 
-<implementation hints; for retroactive Done tickets, the artefact path goes here>
-
-#### Testing Notes
-
-- Unit / integration / E2E / manual coverage required
-- Happy path: <one sentence>
-- Main error path: <one sentence>
-- Permission / data / sync behaviour: <if relevant>
+<Include **only** when coverage is non-obvious or risk-bearing (security, multi-tenant, sync, migration). 1 sentence in plain language — no test-file paths. Otherwise omit; the project DoR (§5.5) requires ≥70% coverage by default and doesn't need to be re-stated.>
 
 #### Dependencies
 
-- Blocked by: <ticket IDs or "none">
-- Blocks: <ticket IDs or "none">
+<Include **only** when load-bearing (a real ordering constraint a planner needs to know). Plain prose: "Blocked by X. Blocks Y." Human-readable predecessor names, not internal ticket IDs. Otherwise omit.>
 
 #### Definition of Done
 
-- Inherits project DoD.
-- <story-specific DoD items only>
+<Include **only** when the work has DoD items beyond the project-level DoD (§5.6). Do not write boilerplate "Inherits project DoD" — the project DoD applies to every ticket by default and does not need to be re-stated.>
 ```
 
 ### 5.4 Task template
@@ -229,7 +221,7 @@ As <persona>, I want <goal>, so that <value>.
 Same shape as Story, except:
 
 - `#### Summary` is plain prose, not "As X / I want / so that."
-- `#### Requirements` section replaces the user-story summary with a bulleted requirements list.
+- No `#### Requirements` section — outcomes belong in `#### Acceptance Criteria`. Authoring two parallel bullet lists ("requirements" + "AC") leads to drift; one source of truth is enough.
 
 ### 5.5 Project-level Definition of Ready
 
@@ -562,7 +554,6 @@ Atlassian sync derives Jira Labels from other fields without authoring burden. T
 | Epic ID prefix `ADMIN-*`                                 | `module-admin`       |
 | Epic ID prefix `DOC-*`                                   | `module-docs`        |
 | Sprint = `Backlog`                                       | `sprint-backlog`     |
-| Sprint = `Sprint-N`                                      | `sprint-N`           |
 | Story Point ≥ 8                                          | `needs-human-review` |
 | AC mentions RLS / multi-tenant / cross-tenant            | `risk-data`          |
 | AC mentions kernel audit / canDo / permission            | `risk-permission`    |
@@ -573,6 +564,8 @@ Atlassian sync derives Jira Labels from other fields without authoring burden. T
 | Any FR cited in `### SRS Coverage` is unresolved per §13 | `needs-context`      |
 
 The push wrapper script (or the atlassian skill itself) applies these rules — backlog files do NOT carry an authored `Tags:` line.
+
+**Why no `sprint-N` label:** Sprint is set as a native Jira field (`customfield_10020`) per §14.2. Duplicating the sprint membership as a label produces noise (every backlog filter would have to combine native Sprint with a parallel label). The `sprint-backlog` label is kept only because items with `Sprint: Backlog` have an empty native Sprint field — the label is the only signal for "scheduled but not in any sprint yet."
 
 ### 14.4 Push workflow
 
@@ -604,7 +597,14 @@ The Jira description is for engineers executing the ticket — not for tracing b
 - **The internal ID, anywhere.** `## [EPIC] FOUND-1 Monorepo & toolchain` becomes Jira summary `Monorepo & toolchain`. The internal `FOUND-1` / `PLAN-1.S2` / `AGN-3.S4` style ID is **not** prepended to the description, **not** placed in any metadata table, and **not** repeated in body copy. The Jira Key is the identity inside Jira; the internal ID lives only in the markdown source so cross-file references resolve.
 - **Any "Source" / "References" section pointing at internal markdown files** (e.g., `docs/superpowers/specs/...`, `docs/superpowers/plans/...`, the SDLC backlog design doc). Engineers reading the Jira ticket cannot navigate to a repo path; the ticket must stand on its own. SRS / FR identifiers in `### SRS Coverage` are kept — those are stable specification anchors, not file paths.
 - **`### Child Tickets` lists on Epics.** Parent-link relationships in Jira (the Epic's child issues panel) are the source of truth. A bulleted markdown list duplicates that and goes stale the moment a child is added or renamed.
-- **Metadata tables that mirror native Jira fields.** Status, Sprint, Story Points, Priority, Release, Rank are set as native fields (per §14.2). They must not be re-stated as a description-level table. The exception is the **Epic Timeline** table (Start date / Due date / Status / Release) for Epics, since the Epic timeline view in Jira is not always visible and the table aids quick scanning.
+- **Metadata tables that mirror native Jira fields.** Status, Sprint, Story Points, Priority, Release, Start date, Due date, Rank are all set as native fields (per §14.2). They must not be re-stated as any description-level table — including no "Timeline" / "Metadata" / "Fields" block. If a reader needs the dates or status, they read the right-hand panel in Jira. Description prose may reference the sprint window narratively (e.g., "By Sprint-1 close, …") but never as a key/value block.
+- **Code-level paths and file detail.** Descriptions describe **what** the work delivers, never **where** it lives in the repo. Strip:
+  - File paths (`apps/...`, `packages/...`, `src/...`, `.ts`, `.tsx`, `.json`, `.yml`).
+  - "Built artefact:" lines and any `AI Execution Notes` section that is just a list of paths.
+  - Test-file paths in Testing Notes (say "unit test for token parsing", not "`packages/auth/src/parse-token.spec.ts`").
+  - Sub-directory enumerations (`domain/`, `application/`, `infrastructure/` lists).
+
+  Example: `packages/api-client/src/client.ts creates and exports the typed tRPC client` → `creates and exports the typed tRPC client`. Engineers find the code via grep, the design doc, or the codebase tree — not the ticket. Tech-stack names (Drizzle, NestJS, tRPC, lefthook) and well-known config files referenced narratively (`package.json`, `turbo.json`) are fine; concrete repo paths are not.
 
 ### 14.7 What's still your job
 
