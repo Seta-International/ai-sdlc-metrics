@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { PlopTypes } from '@turbo/gen'
+import * as commandGen from './generators/command.gen'
 import * as entityGen from './generators/entity.gen'
 import { flush } from './lib/flush'
 import { renderPlan } from './lib/preview'
@@ -11,6 +12,7 @@ import { runAll, validateName, validateNotReserved } from './lib/validate'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ApplyMap = Record<string, (tree: Tree, args: any) => void>
 const applyByGenerator: ApplyMap = {
+  command: commandGen.apply,
   entity: entityGen.apply,
 }
 
@@ -44,4 +46,5 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
   })
 
   entityGen.register(plop)
+  commandGen.register(plop)
 }

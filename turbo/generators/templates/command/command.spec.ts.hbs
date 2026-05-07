@@ -1,0 +1,10 @@
+import { describe, it, expect } from 'vitest'
+import { {{pascal name}}Handler } from './{{kebab name}}.command'
+
+describe('{{pascal name}}Handler', () => {
+  it('executes successfully on the happy path', async () => {
+    const handler = new {{pascal name}}Handler()
+    const result = await handler.execute({ tenantId: 'tenant-1' })
+    expect(result.ok).toBe(true)
+  })
+})
