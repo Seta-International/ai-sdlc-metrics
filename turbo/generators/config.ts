@@ -6,6 +6,7 @@ import * as commandGen from './generators/command.gen'
 import * as entityGen from './generators/entity.gen'
 import * as moduleGen from './generators/module.gen'
 import * as queryGen from './generators/query.gen'
+import * as zoneGen from './generators/zone.gen'
 import { flush } from './lib/flush'
 import { renderPlan } from './lib/preview'
 import { createTree, type Tree } from './lib/tree'
@@ -14,6 +15,7 @@ import {
   validateModuleDoesNotExist,
   validateName,
   validateNotReserved,
+  validateZoneDoesNotExist,
 } from './lib/validate'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,6 +25,7 @@ const applyByGenerator: ApplyMap = {
   entity: entityGen.apply,
   module: moduleGen.apply,
   query: queryGen.apply,
+  zone: zoneGen.apply,
 }
 
 function repoRoot(): string {
@@ -44,6 +47,7 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
     if (typeof answers['name'] === 'string') {
       const checks = [validateName(answers['name']), validateNotReserved(answers['name'])]
       if (name === 'module') checks.push(validateModuleDoesNotExist(tree, answers['name']))
+      if (name === 'zone') checks.push(validateZoneDoesNotExist(tree, answers['name']))
       const v = runAll(checks)
       if (!v.ok) throw new Error('Validation failed:\n  - ' + v.reasons.join('\n  - '))
     }
@@ -60,4 +64,5 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
   commandGen.register(plop)
   queryGen.register(plop)
   moduleGen.register(plop)
+  zoneGen.register(plop)
 }
