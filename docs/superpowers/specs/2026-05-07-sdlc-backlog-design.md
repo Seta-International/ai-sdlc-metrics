@@ -169,11 +169,6 @@ Confluence Link: <blank>
 
 - [ ] <epic-level outcome, testable>
 
-### Child Tickets
-
-- <ID> <Title> (Story / Task)
-- …
-
 ### Definition of Done
 
 - All child tickets are Done.
@@ -526,26 +521,27 @@ Headers must use the exact `[EPIC]` / `[STORY]` / `[TASK]` markers — the atlas
 
 ### 14.2 Field mapping — design field → Jira field
 
-| Design field                    | Jira field                   | Notes                                                                                                                |
-| ------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Header title                    | Summary                      | The title from `## [EPIC] <ID> <Title>` line                                                                         |
-| `ID:`                           | (in Description prefix)      | Internal ID prepended to Description as `**ID:** PLAN-1.S2` so it stays searchable in Jira                           |
-| `Status:`                       | Status                       | New tickets start in `Backlog`; transitions per `standards.md` workflow rules                                        |
-| `Epic:`                         | Epic Link / Parent           | Resolved by the atlassian skill against the Epic's Jira Key after the Epic is created first                          |
-| `Sprint:`                       | Sprint custom field          | `Sprint-N` maps to the named Jira sprint; `Backlog` leaves the sprint field empty                                    |
-| `Release:`                      | Fix Version                  | `foundation` / `deployment` / `phase-1` / `phase-1.5` / `docs` create matching Fix Versions                          |
-| `Priority:`                     | Priority                     | `P0..P3` maps to Highest / High / Medium / Low                                                                       |
-| `Story Point:`                  | Story Points custom field    | Numeric                                                                                                              |
-| `Rank:`                         | Rank (lexorank) custom field | Lower integer = higher position in board                                                                             |
-| `Jira Key:`                     | (round-trip identifier)      | Blank on author; populated by atlassian skill after issue creation                                                   |
-| `Confluence Link:`              | (Description footer)         | Blank on author; rendered in Description if non-empty                                                                |
-| `#### Summary` body             | Description (top section)    | "As X, I want Y, so that Z" for Stories; bulleted for Tasks                                                          |
-| `#### Acceptance Criteria` body | Description (heading)        | Markdown checkboxes preserved verbatim                                                                               |
-| `#### AI Execution Notes` body  | Description (heading)        | Preserved verbatim                                                                                                   |
-| `#### Testing Notes` body       | Description (heading)        | Preserved verbatim                                                                                                   |
-| `#### Dependencies` body        | Issue Links                  | `Blocked by:` ID list → "is blocked by" links; `Blocks:` ID list → "blocks" links; resolved after all issues created |
-| `#### Definition of Done` body  | Description (heading)        | Preserved verbatim                                                                                                   |
-| (auto) Tags                     | Labels                       | Derived during push — see §14.3                                                                                      |
+| Design field                    | Jira field                                 | Notes                                                                                                                                                                                                                                         |
+| ------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Header title                    | Summary                                    | Descriptive title only — strip the `<ID>` prefix from the heading. Example: `## [EPIC] FOUND-1 Monorepo & toolchain` → Jira summary `Monorepo & toolchain`.                                                                                   |
+| `ID:`                           | _(not pushed)_                             | The internal ID (`FOUND-1.T1`, `PLAN-1.S2`, …) is a markdown-anchor only. The Jira Key is the identity in Jira. Do **not** prepend it to the description, and do **not** include it in any metadata table.                                    |
+| `Status:`                       | Status                                     | New tickets start in `Backlog`; transitions per `standards.md` workflow rules. For retroactive `Status: Done` tickets (FOUND-\*), apply the matching workflow transition during create instead of writing status into the description.        |
+| `Epic:`                         | Parent                                     | Native `parent` field; resolved by the atlassian skill against the Epic's Jira Key after the Epic is created first. Do not duplicate the Epic ID in the description.                                                                          |
+| _(Epic only)_ Sprint range      | Start date + Due date                      | Epic spans Sprint-N..M → Start date = first day of Sprint-N, Due date = last day of Sprint-M. Native: `customfield_10015` (Start date) + `duedate` (Due date). Replaces the markdown timeline table for Epics.                                |
+| `Sprint:`                       | Sprint (`customfield_10020`)               | `Sprint-N` maps to the named Jira sprint by ID. **Sprints must be pre-created in a Jira Software board before push** — the MCP toolset does not expose sprint CRUD. `Backlog` leaves the field empty. Always emit a `sprint-N` Label as well. |
+| `Release:`                      | Fix versions                               | `foundation` / `deployment` / `phase-1` / `phase-1.5` / `docs` map to matching Fix Versions. Create the version on first push if missing.                                                                                                     |
+| `Priority:`                     | Priority                                   | `P0 → Highest`, `P1 → High`, `P2 → Medium`, `P3 → Low`.                                                                                                                                                                                       |
+| `Story Point:`                  | Story point estimate (`customfield_10016`) | Numeric. Stories and Tasks only — Jira Epics in this project do not carry Story Points (Story Points roll up from children).                                                                                                                  |
+| `Rank:`                         | Rank (`customfield_10019`, lexorank)       | Authored as integer in markdown; lower integer = higher position. The atlassian skill translates the integer order into lexorank moves at push time.                                                                                          |
+| `Jira Key:`                     | _(round-trip identifier)_                  | Blank on author; populated by atlassian skill after issue creation. Lives in markdown only — never duplicated in the Jira description.                                                                                                        |
+| `Confluence Link:`              | _(Description footer, optional)_           | Blank on author; rendered in Description as a single trailing link line if non-empty.                                                                                                                                                         |
+| `#### Summary` body             | Description (top section)                  | "As X, I want Y, so that Z" for Stories; bulleted for Tasks                                                                                                                                                                                   |
+| `#### Acceptance Criteria` body | Description (heading)                      | Markdown checkboxes preserved verbatim                                                                                                                                                                                                        |
+| `#### AI Execution Notes` body  | Description (heading)                      | Preserved verbatim                                                                                                                                                                                                                            |
+| `#### Testing Notes` body       | Description (heading)                      | Preserved verbatim                                                                                                                                                                                                                            |
+| `#### Dependencies` body        | Issue Links                                | `Blocked by:` ID list → "is blocked by" links; `Blocks:` ID list → "blocks" links; resolved after all issues created                                                                                                                          |
+| `#### Definition of Done` body  | Description (heading)                      | Preserved verbatim                                                                                                                                                                                                                            |
+| (auto) Tags                     | Labels                                     | Derived during push — see §14.3                                                                                                                                                                                                               |
 
 ### 14.3 Auto-derived Labels (Tags) at push time
 
@@ -601,7 +597,16 @@ If a `Jira Key:` is already populated on a ticket when push runs again, the atla
 
 If a ticket was deleted in Jira but `Jira Key:` is still set in markdown, the atlassian skill detects the 404 and creates a new issue, then writes the new key back to the markdown file.
 
-### 14.6 What's still your job
+### 14.6 What never appears in the Jira description
+
+The Jira description is for engineers executing the ticket — not for tracing back to the design markdown. The following are **excluded** during push, even if present in the source markdown:
+
+- **The internal ID, anywhere.** `## [EPIC] FOUND-1 Monorepo & toolchain` becomes Jira summary `Monorepo & toolchain`. The internal `FOUND-1` / `PLAN-1.S2` / `AGN-3.S4` style ID is **not** prepended to the description, **not** placed in any metadata table, and **not** repeated in body copy. The Jira Key is the identity inside Jira; the internal ID lives only in the markdown source so cross-file references resolve.
+- **Any "Source" / "References" section pointing at internal markdown files** (e.g., `docs/superpowers/specs/...`, `docs/superpowers/plans/...`, the SDLC backlog design doc). Engineers reading the Jira ticket cannot navigate to a repo path; the ticket must stand on its own. SRS / FR identifiers in `### SRS Coverage` are kept — those are stable specification anchors, not file paths.
+- **`### Child Tickets` lists on Epics.** Parent-link relationships in Jira (the Epic's child issues panel) are the source of truth. A bulleted markdown list duplicates that and goes stale the moment a child is added or renamed.
+- **Metadata tables that mirror native Jira fields.** Status, Sprint, Story Points, Priority, Release, Rank are set as native fields (per §14.2). They must not be re-stated as a description-level table. The exception is the **Epic Timeline** table (Start date / Due date / Status / Release) for Epics, since the Epic timeline view in Jira is not always visible and the table aids quick scanning.
+
+### 14.7 What's still your job
 
 The atlassian sync does NOT:
 
