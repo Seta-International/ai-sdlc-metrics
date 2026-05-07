@@ -122,6 +122,7 @@ export class TurnPipelineRunner {
       sessionId: '',
       surface: 'global-chat',
       tainted: { value: false },
+      executionMode: 'default',
       routerReplanCount: 0,
     }
 

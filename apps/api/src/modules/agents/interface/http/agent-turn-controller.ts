@@ -45,6 +45,7 @@ interface TurnRequestBody {
   conversation_id?: string
   user_utterance: string
   context: { current_screen: string; selection?: unknown }
+  execution_mode?: 'default' | 'bypass'
 }
 
 @Controller()
@@ -223,6 +224,7 @@ export class AgentTurnController {
         sessionId: '', // populated by RouterSessionOrchestrator after session load
         surface: surface as 'global-chat' | 'inline' | 'async',
         tainted: { value: false },
+        executionMode: body?.execution_mode === 'bypass' ? 'bypass' : 'default',
         routerReplanCount: 0,
       }
 
