@@ -51,10 +51,10 @@ const agentsKb = trpc.agents as unknown as AgentsKbSlice
 
 const STATUS_BADGE: Record<
   DocumentStatus,
-  { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }
+  { label: string; variant: 'default' | 'subtle' | 'destructive' | 'warning' }
 > = {
-  pending: { label: 'Pending', variant: 'secondary' },
-  processing: { label: 'Processing', variant: 'secondary' },
+  pending: { label: 'Pending', variant: 'subtle' },
+  processing: { label: 'Processing', variant: 'warning' },
   ready: { label: 'Ready', variant: 'default' },
   failed: { label: 'Failed', variant: 'destructive' },
 }
