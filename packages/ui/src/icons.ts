@@ -81,6 +81,7 @@ export {
   SkipForward,
   Sliders,
   Sparkles,
+  Square,
   Star,
   StickyNote,
   Sun,
