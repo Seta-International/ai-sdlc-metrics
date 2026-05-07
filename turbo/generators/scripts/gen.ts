@@ -120,21 +120,37 @@ if (typeof args['name'] === 'string') {
 
 apply(tree, args)
 
-process.stdout.write(renderPlan(tree.changes(), []))
+const changes = tree.changes()
+process.stdout.write(renderPlan(changes, []))
 flush(tree, { dryRun })
 
 if (!dryRun) {
-  const zoneCreate = tree
-    .changes()
-    .find((c) => c.kind === 'create' && c.path.match(/^apps\/web-([^/]+)\//))
-  const zoneName = zoneCreate?.path.match(/^apps\/web-([^/]+)\//)?.[1]
-  try {
-    runTypecheck(repoRoot(), zoneName ? { zoneName } : {})
-  } catch (err) {
-    process.stderr.write(
-      '\n⚠️  Post-write typecheck failed. To undo: `git restore .` and re-run with --dry-run to inspect.\n',
+  // A new workspace package (zone, or module with --with-zone) needs `bun install`
+  // before its package can resolve. Running typecheck here just emits noisy
+  // "package not found" warnings; print a clear next-step hint instead.
+  const newWorkspace = changes.find(
+    (c) => c.kind === 'create' && /^apps\/web-([^/]+)\/package\.json$/.test(c.path),
+  )
+  // `remove` only deletes / edits AST — nothing was added to typecheck. The
+  // existing CI runs the full typecheck; running it here on every remove is
+  // noisy and slow.
+  const isRemove = generator === 'remove'
+
+  if (newWorkspace) {
+    const zoneName = newWorkspace.path.match(/^apps\/web-([^/]+)\//)?.[1]
+    process.stdout.write(
+      `\nNext: \`bun install\` to register @future/web-${zoneName ?? '<name>'}, ` +
+        `then \`bun run --filter @future/web-${zoneName ?? '<name>'} typecheck\`.\n`,
     )
-    throw err
+  } else if (!isRemove) {
+    try {
+      runTypecheck(repoRoot(), {})
+    } catch (err) {
+      process.stderr.write(
+        '\n⚠️  Post-write typecheck failed. To undo: `git restore .` and re-run with --dry-run to inspect.\n',
+      )
+      throw err
+    }
   }
 }
 
