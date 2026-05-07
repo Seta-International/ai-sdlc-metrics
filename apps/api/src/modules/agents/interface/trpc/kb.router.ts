@@ -1,19 +1,29 @@
+import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
+import { PERMISSIONS } from '../../../../common/auth/permissions'
 import type { KbRetriever } from '../../infrastructure/retrieval/kb-retriever'
 import type { S3StorageClient } from '@future/storage'
 import { agentKbDocument } from '../../infrastructure/schema/agents.schema'
 import { desc, eq } from 'drizzle-orm'
 import type { Db } from '@future/db'
+import type { PgBossService } from '../../../../common/jobs/pg-boss.service'
 
 let _retriever: KbRetriever
 let _storage: S3StorageClient
 let _db: Db
+let _pgBoss: PgBossService
 
-export function setKbHandlers(retriever: KbRetriever, storage: S3StorageClient, db: Db): void {
+export function setKbHandlers(
+  retriever: KbRetriever,
+  storage: S3StorageClient,
+  db: Db,
+  pgBoss: PgBossService,
+): void {
   _retriever = retriever
   _storage = storage
   _db = db
+  _pgBoss = pgBoss
 }
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024
@@ -31,6 +41,9 @@ export const kbRouter = router({
       }),
     )
     .mutation(async ({ input, ctx }) => {
+      if (!ctx.tenantId || !ctx.actorId) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing tenant context' })
+      }
       if (input.fileSizeBytes > MAX_FILE_BYTES) {
         throw new Error(`File exceeds 5 MB limit`)
       }
@@ -51,21 +64,32 @@ export const kbRouter = router({
       const { url } = await _storage.getUploadUrl(s3Key, {
         contentType: input.contentType,
         expiresIn: PRESIGNED_TTL_SEC,
+        maxSizeBytes: MAX_FILE_BYTES,
       })
       return { documentId, presignedUrl: url }
     }),
 
   confirmUpload: publicProcedure
     .input(z.object({ documentId: z.string().uuid() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      if (!ctx.tenantId) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing tenant context' })
+      }
       await _db
         .update(agentKbDocument)
         .set({ status: 'processing' })
         .where(eq(agentKbDocument.id, input.documentId))
+      await _pgBoss.enqueue('kb-ingestion', {
+        documentId: input.documentId,
+        tenantId: ctx.tenantId!,
+      })
       return { ok: true }
     }),
 
   listDocuments: publicProcedure.query(async ({ ctx }) => {
+    if (!ctx.tenantId) {
+      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing tenant context' })
+    }
     return _db
       .select()
       .from(agentKbDocument)
@@ -75,6 +99,7 @@ export const kbRouter = router({
 
   retrieve: publicProcedure
     .meta({
+      permission: PERMISSIONS.AGENT_KB_RETRIEVE,
       agent: {
         whenToUse:
           'Use when the user asks about company policies, HR rules, onboarding procedures, internal FAQs, or any question whose answer is likely in a tenant-curated reference document.',
