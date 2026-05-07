@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server'
-import { z } from 'zod'
+import * as z from 'zod'
 import { router, publicProcedure } from '../../../../common/trpc/trpc-init'
 import { PERMISSIONS } from '../../../../common/auth/permissions'
 import type { KbRetriever } from '../../infrastructure/retrieval/kb-retriever'
