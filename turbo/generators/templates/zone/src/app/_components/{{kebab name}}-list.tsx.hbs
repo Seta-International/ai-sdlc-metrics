@@ -1,0 +1,16 @@
+'use client'
+
+import { trpc } from '@future/api-client'
+
+export function {{pascal name}}List() {
+  const { data, isLoading } = trpc.{{camel name}}.list.useQuery()
+  if (isLoading) return <p>Loading…</p>
+  if (!data || data.length === 0) return <p>No {{kebab name}} yet.</p>
+  return (
+    <ul>
+      {data.map((item) => (
+        <li key={item.id}>{item.name}</li>
+      ))}
+    </ul>
+  )
+}

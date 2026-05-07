@@ -1,0 +1,10 @@
+import { trpc } from '@future/api-client'
+
+export default async function {{pascal name}}DetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  return (
+    <main>
+      <h1>{{pascal name}} {id}</h1>
+    </main>
+  )
+}
