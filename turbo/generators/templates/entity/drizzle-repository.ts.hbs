@@ -1,0 +1,62 @@
+import { Inject, Injectable } from '@nestjs/common'
+import { and, eq } from 'drizzle-orm'
+import { DB_TOKEN, type Db } from '../../../../common/db/db.module'
+import type { {{pascal name}} } from '../../domain/entities/{{kebab name}}.entity'
+import {
+  {{screamingSnake name}}_REPOSITORY,
+  type {{pascal name}}Repository,
+} from '../../domain/repositories/{{kebab name}}.repository'
+import { {{camel name}}, type {{pascal name}}Row } from '../schema/{{kebab module}}.schema'
+
+@Injectable()
+export class Drizzle{{pascal name}}Repository implements {{pascal name}}Repository {
+  constructor(@Inject(DB_TOKEN) private readonly db: Db) {}
+
+  async list(tenantId: string): Promise<{{pascal name}}[]> {
+    const rows = await this.db
+      .select()
+      .from({{camel name}})
+      .where(eq({{camel name}}.tenantId, tenantId))
+    return rows.map(toEntity)
+  }
+
+  async get(tenantId: string, id: string): Promise<{{pascal name}} | null> {
+    const [row] = await this.db
+      .select()
+      .from({{camel name}})
+      .where(and(eq({{camel name}}.tenantId, tenantId), eq({{camel name}}.id, id)))
+      .limit(1)
+    return row ? toEntity(row) : null
+  }
+
+  async create(input: { tenantId: string; name: string }): Promise<{{pascal name}}> {
+    const [row] = await this.db.insert({{camel name}}).values(input).returning()
+    return toEntity(row)
+  }
+
+  async update(tenantId: string, id: string, patch: { name?: string }): Promise<{{pascal name}}> {
+    const [row] = await this.db
+      .update({{camel name}})
+      .set({ ...patch, updatedAt: new Date() })
+      .where(and(eq({{camel name}}.tenantId, tenantId), eq({{camel name}}.id, id)))
+      .returning()
+    if (!row) throw new Error(`{{pascal name}} ${id} not found`)
+    return toEntity(row)
+  }
+
+  async delete(tenantId: string, id: string): Promise<void> {
+    await this.db
+      .delete({{camel name}})
+      .where(and(eq({{camel name}}.tenantId, tenantId), eq({{camel name}}.id, id)))
+  }
+}
+
+function toEntity(row: {{pascal name}}Row): {{pascal name}} {
+  return {
+    id: row.id,
+    tenantId: row.tenantId,
+    name: row.name,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }
+}

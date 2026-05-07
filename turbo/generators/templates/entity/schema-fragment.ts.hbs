@@ -1,0 +1,11 @@
+export const {{camel name}} = {{camel module}}Schema.table('{{snake name}}', {
+  id: uuid('id')
+    .$defaultFn(() => uuidv7())
+    .primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export type {{pascal name}}Row = typeof {{camel name}}.$inferSelect
