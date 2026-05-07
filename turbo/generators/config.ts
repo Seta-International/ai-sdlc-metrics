@@ -4,17 +4,24 @@ import { fileURLToPath } from 'node:url'
 import type { PlopTypes } from '@turbo/gen'
 import * as commandGen from './generators/command.gen'
 import * as entityGen from './generators/entity.gen'
+import * as moduleGen from './generators/module.gen'
 import * as queryGen from './generators/query.gen'
 import { flush } from './lib/flush'
 import { renderPlan } from './lib/preview'
 import { createTree, type Tree } from './lib/tree'
-import { runAll, validateName, validateNotReserved } from './lib/validate'
+import {
+  runAll,
+  validateModuleDoesNotExist,
+  validateName,
+  validateNotReserved,
+} from './lib/validate'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ApplyMap = Record<string, (tree: Tree, args: any) => void>
 const applyByGenerator: ApplyMap = {
   command: commandGen.apply,
   entity: entityGen.apply,
+  module: moduleGen.apply,
   query: queryGen.apply,
 }
 
@@ -35,7 +42,9 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
     const tree = createTree(repoRoot())
 
     if (typeof answers['name'] === 'string') {
-      const v = runAll([validateName(answers['name']), validateNotReserved(answers['name'])])
+      const checks = [validateName(answers['name']), validateNotReserved(answers['name'])]
+      if (name === 'module') checks.push(validateModuleDoesNotExist(tree, answers['name']))
+      const v = runAll(checks)
       if (!v.ok) throw new Error('Validation failed:\n  - ' + v.reasons.join('\n  - '))
     }
 
@@ -50,4 +59,5 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
   entityGen.register(plop)
   commandGen.register(plop)
   queryGen.register(plop)
+  moduleGen.register(plop)
 }
