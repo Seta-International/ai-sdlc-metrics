@@ -22,6 +22,7 @@
     "db:migrate": "bun run --cwd packages/db migrate",
     "db:seed": "bun run --cwd apps/api seed",
     "tenant:provision": "bun run apps/api/scripts/provision-tenant.ts",
+    "gen": "bun run turbo/generators/scripts/gen.ts",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "format": "prettier --write --cache .",

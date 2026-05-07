@@ -74,7 +74,7 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
         runTypecheck(repoRoot(), zoneName ? { zoneName } : {})
       } catch (err) {
         process.stderr.write(
-          '\n⚠️  Post-write typecheck failed. To undo: `git restore .` and re-run with --dry-run to inspect.\n',
+          '\n⚠️  Post-write typecheck failed. To undo: `git restore .` and re-run with `bun run gen ... --dry-run` to inspect.\n',
         )
         throw err
       }
