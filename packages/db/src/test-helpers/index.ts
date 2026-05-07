@@ -27,6 +27,7 @@ export async function migrateForTest(): Promise<void> {
   const db = drizzle(pool)
 
   try {
+    await pool.query('CREATE EXTENSION IF NOT EXISTS vector;')
     await migrate(db, { migrationsFolder: MIGRATIONS_DIR })
   } finally {
     await pool.end()
