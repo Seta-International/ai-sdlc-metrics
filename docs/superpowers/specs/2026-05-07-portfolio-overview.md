@@ -17,13 +17,13 @@
 | 1   | Foundation  | `2026-05-07-foundation-backlog.md` | 4      | 14      | 0       | 14      |
 | 2   | People      | `2026-05-07-people-backlog.md`     | 2      | 3       | 4       | 7       |
 | 3   | Deployment  | `2026-05-07-deployment-backlog.md` | 3      | 14      | 0       | 14      |
-| 4   | Planner     | `2026-05-07-planner-backlog.md`    | 7      | 45      | 2       | 47      |
-| 5   | Agents      | `2026-05-07-agents-backlog.md`     | 7      | 40      | 8       | 48      |
+| 4   | Planner     | `2026-05-07-planner-backlog.md`    | 7      | 48      | 0       | 48      |
+| 5   | Agents      | `2026-05-07-agents-backlog.md`     | 7      | 54      | 4       | 58      |
 | 6   | Web Admin   | `2026-05-07-web-admin-backlog.md`  | 1      | 4       | 0       | 4       |
-| 7   | Docs / SDLC | `2026-05-07-docs-sdlc-backlog.md`  | 3      | 18      | 0       | 18      |
-|     | **Total**   |                                    | **27** | **138** | **14**  | **152** |
+| 7   | Docs / SDLC | `2026-05-07-docs-sdlc-backlog.md`  | 3      | 25      | 1       | 26      |
+|     | **Total**   |                                    | **27** | **162** | **9**   | **171** |
 
-(Counts will be reconciled in Task 21 after all backlogs are written; placeholder values may shift ±5.)
+(Counts reconciled against `verify-backlog.sh` output on each file. Sprint: Backlog tickets cite their `Backlog reason:` in `AI Execution Notes`.)
 
 ## 2. Sprint plan
 
