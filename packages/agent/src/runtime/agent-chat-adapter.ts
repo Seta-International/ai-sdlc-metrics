@@ -3,12 +3,15 @@ import type { ChatModelAdapter } from '@assistant-ui/react'
 import { sseEventSchema } from './sse-event-schema'
 import type { AgentTurnStore } from './agent-turn-store'
 import type { AgentContext } from '../types'
+import type { ExecutionMode } from '../hooks/use-agent-state'
 
 export interface AgentChatAdapterOptions {
   endpoint: string
   surface: 'panel' | 'inline'
   store: AgentTurnStore
   context?: AgentContext
+  /** Called at turn-start to read the current execution mode from React state. */
+  getExecutionMode: () => ExecutionMode
 }
 
 export function createAgentChatAdapter(opts: AgentChatAdapterOptions): ChatModelAdapter {
@@ -29,6 +32,7 @@ export function createAgentChatAdapter(opts: AgentChatAdapterOptions): ChatModel
         })),
         surface: opts.surface,
         context: opts.context ?? null,
+        execution_mode: opts.getExecutionMode(),
       })
 
       fetchEventSource(opts.endpoint, {

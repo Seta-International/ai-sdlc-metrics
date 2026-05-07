@@ -1,6 +1,6 @@
 'use client'
 
-import { X, MessageSquare } from 'lucide-react'
+import { X, MessageSquare } from '@future/ui/icons'
 import { AssistantRuntimeProvider, useLocalRuntime } from '@assistant-ui/react'
 import { Button } from '@future/ui'
 import { useAgentState } from '../hooks/use-agent-state'
@@ -17,7 +17,7 @@ export interface AgentPanelProps {
 }
 
 export function AgentPanel({ endpoint = '/api/agent/turn' }: AgentPanelProps) {
-  const { setPanelOpen } = useAgentState()
+  const { setPanelOpen, executionMode } = useAgentState()
   const ctx = useAgentContext()
 
   const store = useMemo(() => createAgentTurnStore(), [])
@@ -28,8 +28,9 @@ export function AgentPanel({ endpoint = '/api/agent/turn' }: AgentPanelProps) {
         surface: 'panel',
         store,
         context: ctx ?? undefined,
+        getExecutionMode: () => executionMode,
       }),
-    [endpoint, store, ctx],
+    [endpoint, store, ctx, executionMode],
   )
   const runtime = useLocalRuntime(adapter)
 

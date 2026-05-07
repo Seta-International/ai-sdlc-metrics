@@ -41,7 +41,12 @@ describe('AgentChatAdapter', () => {
       })
     })
 
-    const adapter = createAgentChatAdapter({ endpoint: '/agent/turn', surface: 'panel', store })
+    const adapter = createAgentChatAdapter({
+      endpoint: '/agent/turn',
+      surface: 'panel',
+      store,
+      getExecutionMode: () => 'default' as const,
+    })
     const gen = adapter.run({
       messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }] as any,
       abortSignal: new AbortController().signal,
@@ -90,7 +95,12 @@ describe('AgentChatAdapter', () => {
       })
     })
 
-    const adapter = createAgentChatAdapter({ endpoint: '/agent/turn', surface: 'panel', store })
+    const adapter = createAgentChatAdapter({
+      endpoint: '/agent/turn',
+      surface: 'panel',
+      store,
+      getExecutionMode: () => 'default' as const,
+    })
     const gen = adapter.run({
       messages: [] as any,
       abortSignal: new AbortController().signal,
@@ -131,7 +141,12 @@ describe('AgentChatAdapter', () => {
       })
     })
 
-    const adapter = createAgentChatAdapter({ endpoint: '/agent/turn', surface: 'panel', store })
+    const adapter = createAgentChatAdapter({
+      endpoint: '/agent/turn',
+      surface: 'panel',
+      store,
+      getExecutionMode: () => 'default' as const,
+    })
     const gen = adapter.run({
       messages: [] as any,
       abortSignal: new AbortController().signal,
@@ -175,7 +190,12 @@ describe('AgentChatAdapter', () => {
       })
     })
 
-    const adapter = createAgentChatAdapter({ endpoint: '/agent/turn', surface: 'panel', store })
+    const adapter = createAgentChatAdapter({
+      endpoint: '/agent/turn',
+      surface: 'panel',
+      store,
+      getExecutionMode: () => 'default' as const,
+    })
     const gen = adapter.run({
       messages: [] as any,
       abortSignal: new AbortController().signal,
@@ -210,7 +230,12 @@ describe('AgentChatAdapter', () => {
       })
     })
 
-    const adapter = createAgentChatAdapter({ endpoint: '/agent/turn', surface: 'panel', store })
+    const adapter = createAgentChatAdapter({
+      endpoint: '/agent/turn',
+      surface: 'panel',
+      store,
+      getExecutionMode: () => 'default' as const,
+    })
     const gen = adapter.run({
       messages: [] as any,
       abortSignal: new AbortController().signal,
@@ -232,7 +257,12 @@ describe('AgentChatAdapter', () => {
       throw networkError
     })
 
-    const adapter = createAgentChatAdapter({ endpoint: '/agent/turn', surface: 'panel', store })
+    const adapter = createAgentChatAdapter({
+      endpoint: '/agent/turn',
+      surface: 'panel',
+      store,
+      getExecutionMode: () => 'default' as const,
+    })
     const gen = adapter.run({
       messages: [] as any,
       abortSignal: new AbortController().signal,
@@ -261,7 +291,12 @@ describe('AgentChatAdapter', () => {
     })
 
     const controller = new AbortController()
-    const adapter = createAgentChatAdapter({ endpoint: '/agent/turn', surface: 'panel', store })
+    const adapter = createAgentChatAdapter({
+      endpoint: '/agent/turn',
+      surface: 'panel',
+      store,
+      getExecutionMode: () => 'default' as const,
+    })
     const gen = adapter.run({
       messages: [] as any,
       abortSignal: controller.signal,
@@ -275,5 +310,37 @@ describe('AgentChatAdapter', () => {
       expect.any(String),
       expect.objectContaining({ signal: controller.signal }),
     )
+  })
+
+  it('includes execution_mode in POST body', async () => {
+    const bodies: string[] = []
+    mockFetchEventSource.mockImplementation(async (_url, opts) => {
+      if (opts?.body) bodies.push(opts.body as string)
+      opts?.onmessage?.({
+        data: JSON.stringify({
+          seq: 1,
+          type: 'turn.ended',
+          payload: { reason: 'completed', usage: minUsage },
+        }),
+        event: '',
+        id: '',
+        retry: undefined,
+      })
+    })
+
+    const adapter = createAgentChatAdapter({
+      endpoint: '/api/agent/turn',
+      surface: 'panel',
+      store,
+      getExecutionMode: () => 'bypass',
+    })
+
+    const gen = adapter.run({ messages: [], abortSignal: new AbortController().signal } as any)
+    for await (const _ of gen as AsyncGenerator<any>) {
+      /* drain */
+    }
+
+    const parsed = JSON.parse(bodies[0] ?? '{}')
+    expect(parsed.execution_mode).toBe('bypass')
   })
 })
