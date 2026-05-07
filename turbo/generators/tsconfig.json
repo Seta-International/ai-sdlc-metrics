@@ -1,12 +1,11 @@
 {
   "extends": "@future/tsconfig/base.json",
   "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": ".",
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "noEmit": true
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "noEmit": true,
+    "types": ["node"]
   },
-  "include": ["**/*.ts"],
+  "include": ["config.ts"],
   "exclude": ["node_modules", "dist", "templates"]
 }
