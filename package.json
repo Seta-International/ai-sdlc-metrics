@@ -5,7 +5,8 @@
   "workspaces": [
     "apps/*",
     "data-platform/*",
-    "packages/*"
+    "packages/*",
+    "turbo/*"
   ],
   "scripts": {
     "prepare": "lefthook install",
