@@ -1,15 +1,16 @@
 # Phase-1 SDLC Backlog — Design
 
-| Field          | Value                                            |
-| -------------- | ------------------------------------------------ |
-| Date           | 2026-05-07                                       |
-| Status         | Draft — pending user review                      |
-| Author         | Brainstorming session, agreed with user          |
-| Project start  | 2026-04-23                                       |
-| Phase-1 finish | 2026-05-31 (May end)                             |
-| Today          | 2026-05-07 (start of Sprint 3)                   |
-| Deliverable    | 8 markdown files under `docs/superpowers/specs/` |
-| Output target  | Markdown only — **no Jira sync**                 |
+| Field         | Value                                                                    |
+| ------------- | ------------------------------------------------------------------------ |
+| Date          | 2026-05-07                                                               |
+| Status        | Draft — pending user review                                              |
+| Author        | Brainstorming session, agreed with user                                  |
+| Project start | 2026-04-23                                                               |
+| MVP demo      | 2026-05-31 (May end). Phase-1 GA slips to a later date set by the user.  |
+| Today         | 2026-05-07 (start of Sprint 3)                                           |
+| Deliverable   | 8 markdown files under `docs/superpowers/specs/`                         |
+| Output target | Markdown only — **no Jira sync**                                         |
+| MVP cut       | Full Phase-1 SRS coverage in tickets; non-MVP items go `Sprint: Backlog` |
 
 ---
 
@@ -22,9 +23,11 @@ The two source SRSs are large:
 - `docs/architecture/agents-srs.md` — 1339 lines, FR-001 through FR-088 (88 functional requirements), UI-001..UI-023, NFR-001..NFR-023.
 - `docs/architecture/planner-srs.md` — 1487 lines, FR-PL-001 through FR-PL-067 (67 functional requirements), UI-PL-001..UI-PL-025.
 
-Both SRSs target a Phase-1 envelope. The acceptance demo date stated in `agents-srs §1.5` (2026-05-20) is inconsistent with the agreed Phase-1 finish (2026-05-31) and with the project-start date (2026-04-23) given a three-engineer team. The date defect is acknowledged and tracked as a Docs / SDLC ticket (DOC-1) that updates the SRSs to match.
+Both SRSs target a Phase-1 envelope. The acceptance demo date stated in `agents-srs §1.5` (2026-05-20) is inconsistent with the agreed MVP demo date (2026-05-31) and with the project-start date (2026-04-23) given a three-engineer team. The date defect is acknowledged and tracked as a Docs / SDLC ticket (DOC-1) that updates the SRSs to match.
 
-There is no `people-srs.md`. The People module epics in this backlog are derived from CLAUDE.md ownership (employment profiles, org placements, offboarding) and from the read-interface contract that Planner and Agents both depend on (planner-srs §UN-PL-04, agents-srs DP-03).
+**MVP-cut framing.** A thorough audit of both SRSs surfaced ~25 ambiguities, missing contracts, and Phase-1-vs-architecture-only items that would have produced confidently-named-but-actually-unworkable tickets. Decisions for each are captured in §13. The May-31 milestone is **MVP demo**, not Phase-1 GA. The portfolio still represents full Phase-1 SRS coverage (every requirement gets a ticket), but only MVP-critical tickets are placed in Sprints S3–S6; non-MVP items go to `Sprint: Backlog`. Phase-1 GA (full SRS launch gates) lands at a later date set by the user. This is an explicit trade-off: the SRS Phase-1 launch gates will not all pass at MVP cut — DOC-1 amends the SRSs accordingly.
+
+There is no `people-srs.md`. The People module scope in MVP is **Profiles only** — placements (manager/reportee, teams, departments), offboarding/GDPR, and fuzzy directory search are deferred to `Sprint: Backlog`. Cascading effects on Agents role-scoped reads are captured in §6.5 and §13.
 
 The Kernel and Identity modules are scaffolded under `apps/api/src/modules/{kernel,identity}/` but are not given dedicated epics in this portfolio. Their Phase-1 surface is folded into consumer-epic acceptance criteria (kernel audit emission, canDo() enforcement, Entra OIDC, delegation grants). Risk #13 below captures the consequences if this proves insufficient.
 
@@ -46,37 +49,45 @@ docs/superpowers/specs/
 └── 2026-05-07-docs-sdlc-backlog.md          (~8 tickets)
 ```
 
-**Total:** 26 epics, ~133 tickets across 7 backlog files plus a portfolio overview index.
+**Total:** 26 epics, ~129 tickets across 7 backlog files plus a portfolio overview index. Of these:
+
+- **~80 tickets MVP-in (S3–S6)** — concentrated on demo-critical surfaces.
+- **~49 tickets `Sprint: Backlog`** — full Phase-1 SRS coverage retained for trace, but unscheduled.
+
+Per-initiative split is in §6 and §7.
 
 ## 3. Methodology decisions
 
-| Decision                           | Choice                                                                                                                                             | Rationale                                                                                                     |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| SRS coverage                       | (a) Full Phase-1 SRS scope as if greenfield. Every requirement gets a ticket regardless of build state.                                            | Matches user request; preserves SRS ↔ ticket trace required by RTM (Appendix D of each SRS).                  |
-| Granularity                        | One Story per cohesive feature outcome, even when it covers 5–15 FRs. FRs become AC checkboxes + traceability rows. SP 13 → split.                 | Reduces total ticket count by ~50% vs. one Story per FR while preserving full SRS coverage.                   |
-| Output                             | Markdown only. No Jira push.                                                                                                                       | User decision; markdown is portable and can be synced later.                                                  |
-| Sprint cadence                     | 1-week sprints, AI-leveraged velocity.                                                                                                             | User decision: "we use AI to leverage the speed; must finish all of these in May."                            |
-| Phase-1 finish                     | 2026-05-31. Source SRS date (2026-05-20) is wrong and gets amended via DOC-1.                                                                      | User decision: "iii — the dates in the SRSs are wrong and need fixing."                                       |
-| Foundation tickets                 | Retroactive, all `Status: Done`, full AC checklist with `[x]` boxes. Each ticket carries a `Built artefact:` line pointing at the code path.       | User decision: "we still need ticket for foundation." Trace is the value.                                     |
-| Hiring tickets                     | Out of scope.                                                                                                                                      | User decision: "don't need ticket for hiring here."                                                           |
-| Tags                               | Removed entirely from ticket templates.                                                                                                            | User decision: "remove tag."                                                                                  |
-| `Jira Key:` and `Confluence Link:` | Removed entirely.                                                                                                                                  | We're not pushing to Jira or Confluence.                                                                      |
-| Sprint and Rank fields             | Added to every ticket (deviation from `standards.md`).                                                                                             | A professional Scrum board needs sprint placement and rank ordering; otherwise the board is unsortable.       |
-| Contract publication stories       | One SP=2 Story on each cross-module facade, all due S3 day-1: Planner read-facade, Planner write-facade, PeopleQueryFacade, Agents internal FE/BE. | Without contracts on S3 day-1, parallel tracks cannot mock against each other and S6 linking fails.           |
-| Out-of-scope modules               | `time`, `hiring`, `performance`, `projects`, `finance`, `goals`, `insights` — not ticketed in this portfolio. Treated as future SRS amendments.    | User confirmed the 5+1 in-scope list (Foundation, People, Deployment, Planner, Agents, Web Admin, Docs/SDLC). |
+| Decision                           | Choice                                                                                                                                                            | Rationale                                                                                                                  |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| SRS coverage                       | (a) Full Phase-1 SRS scope as if greenfield. Every requirement gets a ticket regardless of build state.                                                           | Matches user request; preserves SRS ↔ ticket trace required by RTM (Appendix D of each SRS).                               |
+| MVP cut                            | Full SRS coverage in tickets, but only MVP-critical tickets get sprint placement S3–S6. Non-MVP items go `Sprint: Backlog`. May-31 = MVP demo, not Phase-1 GA.    | User decision after blocker audit revealed ~25 unresolved items; cuts scope to demo-critical surfaces while keeping trace. |
+| People MVP scope                   | Profiles only. Placements, offboarding, GDPR erasure, fuzzy resolution → Backlog.                                                                                 | User decision: "FOR THE PEOPLE NOW JUST NEED TO HAVE THE Profiles IS FINE, OTHER IS DEFERED".                              |
+| Cascading effect on Agents         | Role-scoped reads (FR-060..064 team/dept/manager analysis) → Backlog. NL writes constrained to current-task assignees + exact-email. k-anonymity floor → Backlog. | Without People placements there is no org chart; role-scoped reads cannot be answered correctly.                           |
+| Granularity                        | One Story per cohesive feature outcome, even when it covers 5–15 FRs. FRs become AC checkboxes + traceability rows. SP 13 → split.                                | Reduces total ticket count by ~50% vs. one Story per FR while preserving full SRS coverage.                                |
+| Output                             | Markdown only. No Jira push.                                                                                                                                      | User decision; markdown is portable and can be synced later.                                                               |
+| Sprint cadence                     | 1-week sprints, AI-leveraged velocity.                                                                                                                            | User decision: "we use AI to leverage the speed; must finish all of these in May."                                         |
+| Phase-1 finish                     | 2026-05-31. Source SRS date (2026-05-20) is wrong and gets amended via DOC-1.                                                                                     | User decision: "iii — the dates in the SRSs are wrong and need fixing."                                                    |
+| Foundation tickets                 | Retroactive, all `Status: Done`, full AC checklist with `[x]` boxes. Each ticket carries a `Built artefact:` line pointing at the code path.                      | User decision: "we still need ticket for foundation." Trace is the value.                                                  |
+| Hiring tickets                     | Out of scope.                                                                                                                                                     | User decision: "don't need ticket for hiring here."                                                                        |
+| Tags                               | Removed entirely from ticket templates.                                                                                                                           | User decision: "remove tag."                                                                                               |
+| `Jira Key:` and `Confluence Link:` | Removed entirely.                                                                                                                                                 | We're not pushing to Jira or Confluence.                                                                                   |
+| Sprint and Rank fields             | Added to every ticket (deviation from `standards.md`).                                                                                                            | A professional Scrum board needs sprint placement and rank ordering; otherwise the board is unsortable.                    |
+| Contract publication stories       | One SP=2 Story on each cross-module facade, all due S3 day-1: Planner read-facade, Planner write-facade, PeopleQueryFacade, Agents internal FE/BE.                | Without contracts on S3 day-1, parallel tracks cannot mock against each other and S6 linking fails.                        |
+| Out-of-scope modules               | `time`, `hiring`, `performance`, `projects`, `finance`, `goals`, `insights` — not ticketed in this portfolio. Treated as future SRS amendments.                   | User confirmed the 5+1 in-scope list (Foundation, People, Deployment, Planner, Agents, Web Admin, Docs/SDLC).              |
 
 ## 4. Sprint cadence and capacity
 
 ### 4.1 Sprint plan
 
-| Sprint | Window                       | Sprint goal                                                                                                                                                | State       |
-| ------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| S1     | 2026-04-23 → 2026-04-29      | Monorepo + toolchain ready (FOUND-1)                                                                                                                       | Done        |
-| S2     | 2026-04-30 → 2026-05-06      | Backend + frontend + auth + DB skeletons ready (FOUND-2,3,4)                                                                                               | Done        |
-| **S3** | **2026-05-07 → 2026-05-13**  | Staging deployable on ECS; People+Planner CRUD + evidence walking skeletons; Agents chat+SSE skeleton; **all 4 cross-module contracts published on day-1** | **Current** |
-| S4     | 2026-05-14 → 2026-05-20      | Planner views + hubs; Agents KB + RAG + exec-mode; Deployment prod readiness                                                                               | —           |
-| S5     | 2026-05-21 → 2026-05-27      | Planner MS-365 sync + admin; Agents admin + governance + reliability; People offboarding + GDPR                                                            | —           |
-| S6     | 2026-05-28 → 2026-05-31 (4d) | Linking sprint: Planner cross-module + Agents planner R/W + scheduled runs + Phase-1 acceptance demo + final docs                                          | —           |
+| Sprint | Window                       | Sprint goal                                                                                                                                                               | State       |
+| ------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| S1     | 2026-04-23 → 2026-04-29      | Monorepo + toolchain ready (FOUND-1)                                                                                                                                      | Done        |
+| S2     | 2026-04-30 → 2026-05-06      | Backend + frontend + auth + DB skeletons ready (FOUND-2,3,4)                                                                                                              | Done        |
+| **S3** | **2026-05-07 → 2026-05-13**  | Staging deployable on ECS; People profile CRUD + Planner CRUD + evidence walking skeletons; Agents chat+SSE skeleton; **all 4 cross-module contracts published on day-1** | **Current** |
+| S4     | 2026-05-14 → 2026-05-20      | Planner views + hubs; Agents KB + RAG + exec-mode; Deployment prod readiness                                                                                              | —           |
+| S5     | 2026-05-21 → 2026-05-27      | Planner MS-365 sync + admin (incl. conflict-override flow); Agents admin + reliability/governance core                                                                    | —           |
+| S6     | 2026-05-28 → 2026-05-31 (4d) | Linking sprint: Planner cross-module + Agents planner R/W (own-scope only) + scheduled runs (own-scope only) + **MVP demo** + final docs                                  | —           |
 
 ### 4.2 Capacity model
 
@@ -242,12 +253,25 @@ Inherited from `standards.md` §"Definition of Done" with these project-specific
 
 Each Task has full AC checklist with `[x]` ticked, plus a `Built artefact:` line in `AI Execution Notes` pointing at the code path (e.g., `packages/auth/src/`, `apps/api/src/modules/`).
 
-### 6.2 People (2 epics, ~7 Stories)
+### 6.2 People (2 epics, ~3 MVP Stories + ~4 Backlog)
 
-| Epic                                                                                      | Sprint | Stories |
-| ----------------------------------------------------------------------------------------- | ------ | ------- |
-| PEOPLE-1 Profiles & placements                                                            | S3–S4  | ~4      |
-| PEOPLE-2 Offboarding, GDPR & cross-module facade (PeopleQueryFacade contract on S3 day-1) | S4–S5  | ~3      |
+| Epic                                                                                          | Sprint               | Stories    |
+| --------------------------------------------------------------------------------------------- | -------------------- | ---------- |
+| PEOPLE-1 Profiles & exact-subject facade (PeopleQueryFacade contract on S3 day-1, exact-only) | S3 (S3–S4 if needed) | ~3 MVP     |
+| PEOPLE-2 Placements, offboarding, GDPR erasure, fuzzy directory search                        | **Backlog**          | ~4 Backlog |
+
+**MVP scope (PEOPLE-1):**
+
+- Employment profile CRUD (employee record, status: active/inactive)
+- `PeopleQueryFacade.resolveByExactSubject(sub)` — used by every persisted assignment in Planner; survives directory mutations to display name and email (planner-srs FR-PL-033, UN-PL-04)
+- S3 day-1 contract publication for the facade (SP=2 Story)
+
+**Backlog scope (PEOPLE-2):**
+
+- Org placements (manager/reportee, teams, departments, placement history)
+- Offboarding lifecycle (deactivation, transfers)
+- GDPR right-to-erasure pipeline (audit-preserving anonymisation; Planner UN-PL-10, Agents NFR-017)
+- `PeopleQueryFacade.searchByDisplayName(query, scope)` — fuzzy resolution with confidence ranking
 
 ### 6.3 Deployment (3 epics, ~14 tickets)
 
@@ -269,17 +293,28 @@ Each Task has full AC checklist with `[x]` ticked, plus a `Built artefact:` line
 | PLAN-6 Admin surface                                                                                   | S5     | FR-PL-055..060 + UI-PL-023..025 | ~5                                        |
 | PLAN-7 Cross-module surfaces — LINKING (read-facade contract S3 day-1, write-facade contract S3 day-1) | S6     | FR-PL-060..067                  | ~4 stories + 2 contract Stories + 4 Tasks |
 
-### 6.5 Agents Phase-1 (7 epics, ~40 Stories + 4 Tasks)
+### 6.5 Agents Phase-1 (7 epics, ~37 MVP Stories + ~7 Backlog Stories + 4 Tasks)
 
-| Epic                                                              | Sprint | SRS coverage                                        | Stories                                               |
-| ----------------------------------------------------------------- | ------ | --------------------------------------------------- | ----------------------------------------------------- |
-| AGN-1 Conversational surfaces (web-agents zone scaffold included) | S3     | FR-001..007 + UI-001..010                           | ~7 stories + 1 contract Story (Agents internal FE/BE) |
-| AGN-2 Planner read+write capabilities — LINKING                   | S6     | FR-060..070                                         | ~7                                                    |
-| AGN-3 Tenant KB (RAG)                                             | S4     | FR-050..059 + UI-017                                | ~6                                                    |
-| AGN-4 Execution-mode framework + approval inbox                   | S4     | FR-008..018, FR-040..045 + UI-013, UI-022           | ~6                                                    |
-| AGN-5 Scheduled & event-triggered runs — LINKING                  | S6     | FR-071..075, FR-003                                 | ~5                                                    |
-| AGN-6 Tenant administration                                       | S5     | FR-076..084 + UI-016..019                           | ~6                                                    |
-| AGN-7 Governance, replay, cost, GDPR, reliability                 | S5     | FR-019..039, FR-046..049, FR-085..088, NFR-001..023 | ~9 stories + 4 cross-cutting Tasks                    |
+| Epic                                                              | Sprint                                 | SRS coverage                                        | Stories                                                                                                      |
+| ----------------------------------------------------------------- | -------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| AGN-1 Conversational surfaces (web-agents zone scaffold included) | S3                                     | FR-001..007 + UI-001..010                           | ~7 stories + 1 contract Story (Agents internal FE/BE)                                                        |
+| AGN-2 Planner read+write capabilities — LINKING                   | S6 (own-scope) / Backlog (role-scoped) | FR-060..070                                         | ~4 MVP (own-scope reads + NL writes constrained) + ~3 Backlog (role-scoped reads)                            |
+| AGN-3 Tenant KB (RAG)                                             | S4                                     | FR-050..059 + UI-017                                | ~6                                                                                                           |
+| AGN-4 Execution-mode framework + approval inbox                   | S4                                     | FR-008..018, FR-040..045 + UI-013, UI-022           | ~6                                                                                                           |
+| AGN-5 Scheduled & event-triggered runs — LINKING                  | S6                                     | FR-071..075, FR-003                                 | ~5 MVP (own-scope digests; delegation grant schema with hardcoded 90-day TTL; admin TTL config UI → Backlog) |
+| AGN-6 Tenant administration                                       | S5                                     | FR-076..084 + UI-016..019                           | ~6                                                                                                           |
+| AGN-7 Governance, replay, cost, GDPR, reliability                 | S5                                     | FR-019..039, FR-046..049, FR-085..088, NFR-001..023 | ~8 MVP + ~1 Backlog (k-anonymity floor → Backlog since aggregates depend on placements) + 4 Tasks            |
+
+**Cascading impact of People MVP cut on Agents (per §1 and §13):**
+
+- Role-scoped reads (FR-063 team-lead / dept-lead / org-lead workload, blockers, throughput) require placements → all Backlog.
+- Own-scope reads (FR-060 partial: my open tasks, due-this-week, overdue items I own) → MVP.
+- NL writes (FR-065..070): MVP-in but constrained — owner resolution by exact email or already-assigned-to-current-plan; no fuzzy "reassign to Anh".
+- k-anonymity floor on aggregates (FR-025) → Backlog (no aggregates in MVP role-scoped reads).
+
+**Backlog from Agents AGN-2 (~3 stories):** team workload analysis; blocker/overload analysis; cross-team dependency synthesis.
+
+**Backlog from Agents AGN-7 (~1 story):** k-anonymity threshold + composition-attack defence on aggregate tools.
 
 ### 6.6 Web Admin (1 epic, ~4 Stories) — light
 
@@ -296,17 +331,20 @@ Note: AI config admin lives in AGN-6. Module-specific admin pages (PLAN-6, AGN-6
 | DOC-1 Architecture, ADRs, runbooks | rolling S3–S6 | ~5 (SRS date defect amendment per risk #3, ADR for cross-module facade pattern, ADR for outbox event delivery, ADR for parallel-track contract publication, runbook for prod cutover, runbook for incident response, runbook for GDPR erasure) |
 | DOC-2 SDLC process & PR/CI hygiene | rolling S3–S6 | ~3 (PR template, lefthook hooks, CONTRIBUTING.md updates, release-notes template)                                                                                                                                                              |
 
-## 7. Sprint-load summary
+## 7. Sprint-load summary (MVP only)
 
-| Sprint            | Found |         People | Deploy |                      Planner |         Agents | Admin | Docs | Total tickets |
-| ----------------- | ----: | -------------: | -----: | ---------------------------: | -------------: | ----: | ---: | ------------: |
-| S1 (Done)         |     4 |              — |      — |                            — |              — |     — |    — |             4 |
-| S2 (Done)         |    10 |              — |      — |                            — |              — |     — |    — |            10 |
-| S3                |     — | 2 + 1 contract |      5 | 10 + 1 contract + 1 contract | 7 + 1 contract |     2 |    1 |           ~30 |
-| S4                |     — |              3 |      4 |                            9 |             12 |     2 |    2 |           ~32 |
-| S5                |     — |              2 |      5 |                           13 |             15 |     — |    2 |           ~37 |
-| S6 (linking)      |     — |              — |      — |                            6 |             12 |     — |    3 |           ~21 |
-| **Phase-1 total** |    14 |              7 |     14 |                           42 |             44 |     4 |    8 |      **~133** |
+| Sprint                | Found | People (MVP) | Deploy | Planner | Agents (MVP) | Admin | Docs |    Total |
+| --------------------- | ----: | -----------: | -----: | ------: | -----------: | ----: | ---: | -------: |
+| S1 (Done)             |     4 |            — |      — |       — |            — |     — |    — |        4 |
+| S2 (Done)             |    10 |            — |      — |       — |            — |     — |    — |       10 |
+| S3                    |     — |            3 |      5 |      12 |            8 |     2 |    1 |      ~31 |
+| S4                    |     — |            — |      4 |       9 |           12 |     2 |    2 |      ~29 |
+| S5                    |     — |            — |      5 |      13 |           14 |     — |    2 |      ~34 |
+| S6 (linking)          |     — |            — |      — |       6 |            9 |     — |    3 |      ~18 |
+| **MVP total (S1–S6)** |    14 |            3 |     14 |      40 |           43 |     4 |    8 | **~126** |
+| Backlog               |     — |            4 |      — |       2 |            8 |     — |    — |      ~14 |
+
+Note: counts are approximate (`~`). Discrepancies of ±2 between row sums and totals reflect contract Stories (S3 day-1) being counted in both their owning epic and the S3 column.
 
 ## 8. Risk register
 
@@ -331,22 +369,28 @@ Note: AI config admin lives in AGN-6. Module-specific admin pages (PLAN-6, AGN-6
 
 ## 9. Decision log
 
-| #   | Question                                    | Decision                                                                                                           | Rationale                                                                                               |
-| --- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| D1  | Coverage vs. gap (full SRS vs. delta-only)? | (a) Full Phase-1 SRS coverage as if greenfield.                                                                    | User explicitly chose (a). Preserves SRS ↔ ticket trace required by RTM.                                |
-| D2  | Granularity rule?                           | One Story per cohesive feature outcome (not per FR).                                                               | Cuts ticket count by ~50% while preserving full SRS coverage.                                           |
-| D3  | Output format?                              | Markdown only, no Jira sync.                                                                                       | User decision.                                                                                          |
-| D4  | Scrum cadence?                              | 1-week sprints, May-end finish, AI-leveraged velocity.                                                             | User decision.                                                                                          |
-| D5  | Foundation tickets?                         | Yes, retroactive, all `Status: Done`.                                                                              | User decision: "we still need ticket for foundation."                                                   |
-| D6  | Hiring tickets?                             | No.                                                                                                                | User decision: "don't need ticket for hiring here."                                                     |
-| D7  | Web admin scope?                            | Light — one epic for shell + platform-admin view.                                                                  | User decision: "and light web-admin."                                                                   |
-| D8  | Kernel + Identity epics?                    | Folded into consumer ACs, not in scope as standalone epics.                                                        | User decision: "keep call it the people."                                                               |
-| D9  | Out-of-scope modules?                       | time, hiring, performance, projects, finance, goals, insights — not ticketed.                                      | User confirmed in-scope list.                                                                           |
-| D10 | DOC-1 SRS-amendment ticket?                 | Keep. Scope = update SRS docs to match reality OR write ADR if a decision is needed.                               | User decision: "update SRS doc to match or decision if need."                                           |
-| D11 | Contract-publication stories?               | Keep all four (Planner read, Planner write, PeopleQueryFacade, Agents internal FE/BE), all SP=2, all due S3 day-1. | Without contracts on S3 day-1, parallel tracks cannot mock against each other and S6 linking fails.     |
-| D12 | `Sprint:` and `Rank:` field additions?      | Add both to every ticket.                                                                                          | A professional Scrum board needs sprint placement and rank ordering; otherwise the board is unsortable. |
+| #        | Question                                     | Decision                                                                                                                     | Rationale                                                                                                                                |
+| -------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| D1       | Coverage vs. gap (full SRS vs. delta-only)?  | (a) Full Phase-1 SRS coverage as if greenfield.                                                                              | User explicitly chose (a). Preserves SRS ↔ ticket trace required by RTM.                                                                 |
+| D2       | Granularity rule?                            | One Story per cohesive feature outcome (not per FR).                                                                         | Cuts ticket count by ~50% while preserving full SRS coverage.                                                                            |
+| D3       | Output format?                               | Markdown only, no Jira sync.                                                                                                 | User decision.                                                                                                                           |
+| D4       | Scrum cadence?                               | 1-week sprints, May-end finish, AI-leveraged velocity.                                                                       | User decision.                                                                                                                           |
+| D5       | Foundation tickets?                          | Yes, retroactive, all `Status: Done`.                                                                                        | User decision: "we still need ticket for foundation."                                                                                    |
+| D6       | Hiring tickets?                              | No.                                                                                                                          | User decision: "don't need ticket for hiring here."                                                                                      |
+| D7       | Web admin scope?                             | Light — one epic for shell + platform-admin view.                                                                            | User decision: "and light web-admin."                                                                                                    |
+| D8       | Kernel + Identity epics?                     | Folded into consumer ACs, not in scope as standalone epics.                                                                  | User decision: "keep call it the people."                                                                                                |
+| D9       | Out-of-scope modules?                        | time, hiring, performance, projects, finance, goals, insights — not ticketed.                                                | User confirmed in-scope list.                                                                                                            |
+| D10      | DOC-1 SRS-amendment ticket?                  | Keep. Scope = update SRS docs to match reality OR write ADR if a decision is needed.                                         | User decision: "update SRS doc to match or decision if need."                                                                            |
+| D11      | Contract-publication stories?                | Keep all four (Planner read, Planner write, PeopleQueryFacade, Agents internal FE/BE), all SP=2, all due S3 day-1.           | Without contracts on S3 day-1, parallel tracks cannot mock against each other and S6 linking fails.                                      |
+| D12      | `Sprint:` and `Rank:` field additions?       | Add both to every ticket.                                                                                                    | A professional Scrum board needs sprint placement and rank ordering; otherwise the board is unsortable.                                  |
+| D13      | May-31 milestone framing?                    | **MVP demo, not Phase-1 GA.** Phase-1 GA slips to a later date set by the user. SRSs amended via DOC-1.                      | User decision after blocker audit: ship demo-critical MVP by May-31; defer non-MVP to Backlog with full SRS coverage retained for trace. |
+| D14      | People MVP scope?                            | **Profiles only.** Placements, offboarding, GDPR erasure, fuzzy resolution → Backlog.                                        | User decision: "FOR THE PEOPLE NOW JUST NEED TO HAVE THE Profiles IS FINE, OTHER IS DEFERED".                                            |
+| D15      | Cascading effect on Agents role-scoped reads | Team/dept/manager analysis → Backlog (no org chart). Own-scope reads + NL writes (constrained) → MVP. k-anonymity → Backlog. | Without People placements there is no org chart; role-scoped reads cannot be answered correctly.                                         |
+| D16..D40 | All Tier 1 + Tier 2 SRS blocker resolutions  | See §13 for full resolution table.                                                                                           | Blocker audit result locked through batch user approval.                                                                                 |
 
-## 10. Out of scope
+## 10. Out of scope and Backlog
+
+### 10.1 Out of scope (not in any backlog file)
 
 The following are explicitly **not** in this portfolio:
 
@@ -354,8 +398,29 @@ The following are explicitly **not** in this portfolio:
 - **Hiring tickets** — user reassigns staffing separately.
 - **Tags field** on tickets — removed from templates per user.
 - **Jira sync / Confluence sync** — markdown only.
-- **Phase-1.5 deferral candidates** (Planner §1.5.2.1 and Agents §1.5 deferred items): Copy Plan, Export Excel/CSV, per-bucket colour, Custom fields, Conditional coloring, People view, sprints/backlog, custom calendars, Copilot in Planner, server-side rich-text editing, cross-conversation memory, multi-region, multi-AI failover at runtime, OCR, LLM-as-judge, Slack/Teams channel surfaces, event-source triggers — listed in `portfolio-overview.md` "Deferred" appendix only, not ticketed.
+- **Phase-1.5 deferral candidates** (Planner §1.5.2.1 and Agents §1.5 deferred items): Copy Plan, Export Excel/CSV, per-bucket colour, Custom fields, Conditional coloring, People view, sprints/backlog, custom calendars, Copilot in Planner, **per-occurrence recurrence edits**, **server-side rich-text editing of new descriptions**, cross-conversation memory, multi-region, multi-AI failover at runtime, OCR, LLM-as-judge, Slack/Teams channel surfaces, event-source triggers — listed in `portfolio-overview.md` "Deferred" appendix only, not ticketed.
 - **Subtasks** — banned by `standards.md`. Implementation breakdown is owned by the implementer.
+
+### 10.2 MVP-out — present as tickets in `Sprint: Backlog`
+
+These items have full tickets in their owning backlog file but carry `Sprint: Backlog`. They are deferred from MVP for one of two reasons: nice-to-have polish, or cascade from People MVP cut.
+
+**Nice-to-have polish (deferred to Backlog by user):**
+
+- Configurable delegation-grant TTL admin UI (Agents AGN-5) — schema with hardcoded 90-day default ships in MVP.
+- Multi-provider LLM abstraction layer (Agents) — direct OpenAI in MVP code.
+- i18n externalisation infrastructure (`t()` wrapper + JSON catalog) — English-only inline strings in MVP.
+
+**Cascade from People MVP cut:**
+
+- People placements (manager/reportee, teams, departments, placement history).
+- People offboarding lifecycle.
+- People GDPR right-to-erasure pipeline.
+- People fuzzy directory search (`searchByDisplayName`).
+- Agents role-scoped planner reads (FR-063 team/dept/manager workload, blockers, throughput).
+- Agents NL fuzzy owner resolution (still works for already-assigned-to-current-plan + exact email).
+- Agents k-anonymity floor on aggregates (FR-025) — moot until aggregates land.
+- Planner manager-as-evidence-verifier inferred from org chart (replaced in MVP by explicit per-plan `verify_evidence` permission grants via kernel role).
 
 ## 11. Output writing strategy
 
@@ -371,3 +436,59 @@ Each commit is independently reviewable. If shape needs revision, only the next 
 ## 12. Next step
 
 After user review of this design doc, invoke `superpowers:writing-plans` to produce the implementation plan for generating the 8 backlog files. The plan will sequence the four batches above with explicit per-file content checklists and per-batch acceptance criteria.
+
+## 13. SRS Blocker Resolutions
+
+A two-agent audit of the agents-srs and planner-srs surfaced ~25 ambiguities, missing contracts, and Phase-1-vs-architecture-only items. Each is resolved below with an explicit decision so backlog tickets can be written without `needs-context` ambiguity.
+
+Resolutions are split into:
+
+- **Tier 1 — architectural decisions** (10 items) that change the shape of multiple tickets.
+- **Tier 2 — defaults** (16 items) where I committed a recommendation under user batch-approval.
+
+All Tier 1 + Tier 2 decisions are user-approved (`ok` / `same as Tier 1` batched responses).
+
+### 13.1 Tier 1 — architectural decisions
+
+| ID    | Blocker                                                                                     | Decision                                                                                                                                                                                                                                                              | Sprint placement                                              |
+| ----- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| T1-1  | Approval-inbox event contract (EI-010, FR-040 auto-reject TTL ownership).                   | Agents owns draft creation; approval-inbox owns TTL/auto-reject. Event shape: `{tenant_id, draft_id, initiator_user_id, tool_id, intent_payload, permission_envelope_at_draft, expires_at}`. Confirmation event back: `{draft_id, decision, decided_by, decided_at}`. | MVP S4 (AGN-4)                                                |
+| T1-2  | Kernel audit transactional emission (Agents FR-021, Planner FR-PL-050) failure mode.        | Audit emission writes `kernel.audit_event` row in the SAME Drizzle transaction as the domain mutation. Kernel write failure → tx rolls back, mutation not persisted. **No fallback, no kill-switch.**                                                                 | MVP-critical S3–S5 (every write across all modules)           |
+| T1-3  | PeopleQueryFacade query capabilities (fuzzy vs exact).                                      | Two methods on the facade: `resolveByExactSubject(sub)` (canonical, used for all persisted assignments). `searchByDisplayName(query, scope)` (fuzzy, used for NL resolution; threshold confidence 0.9 to auto-resolve, else surface candidates).                      | Exact: MVP S3 (PEOPLE-1). Fuzzy: **Backlog** (cascade D14).   |
+| T1-4  | Delegation grant schema (Agents FR-026, FR-072).                                            | Schema: `{grant_id, tenant_id, principal_user_id, agent_run_kind, scope:{tools, read_resources, write_resources:[]}, expires_at, created_by, audited_event_id}`. Default TTL 90 days hardcoded; user-revocable; auto-revoked on user deactivation; audited each use.  | Schema MVP S5 (AGN-5). **TTL admin UI → Backlog.**            |
+| T1-5  | MS-365 sync conflict-override re-validation (FR-PL-064).                                    | On admin override, re-run domain invariants (e.g., `due_date ≥ start_date`). Override that violates is rejected with structured error naming the failing invariant. Admin must edit losing snapshot before applying.                                                  | MVP S5 (PLAN-6) — full override flow.                         |
+| T1-6  | Audit-shell failure rollback for Planner sync workers.                                      | Same as T1-2 (sync worker treats kernel failure as DB failure: mark sync attempt failed, retry per EIR-PL-010 backoff, surface in FR-PL-035 sync-health summary). No special path.                                                                                    | MVP-critical S4–S5                                            |
+| T1-7  | Rich-text round-trip during Future-side edits (Appendix B.5).                               | Future-side description edits replace the opaque rich-text payload with new plain-text content. Rich-text is lost on push. Editor warns: "Editing this description will lose original formatting." Server-side rich-text editor for new content → Backlog.            | Read-only preservation MVP S4 (PLAN-5). **Editor → Backlog.** |
+| T1-8  | MS-365 recurrence + field edits (FR-PL-053).                                                | Non-recurrence-field edits push to the parent recurring task (apply to all future occurrences — Microsoft's own behaviour). Per-occurrence edits are not supported in MVP; UI surfaces "this is recurring; edits apply to schedule" warning.                          | MVP S4 (PLAN-5). **Per-occurrence → Backlog (Phase-1.5).**    |
+| T1-9  | Multi-provider LLM abstraction (Agents §1.5 "drop-in but not activated").                   | Direct OpenAI in MVP code; no `LlmProvider` interface. Adding a second provider later is a refactor, not a swap.                                                                                                                                                      | **Backlog.**                                                  |
+| T1-10 | i18n externalisation infrastructure (NFR-021, I18N-03 "architected so additional locales"). | English-only inline strings in MVP code; no `t()` wrapper, no JSON catalog, no fallback rules. Future-locale support is a refactor.                                                                                                                                   | **Backlog.**                                                  |
+
+### 13.2 Tier 2 — committed defaults
+
+| ID  | Blocker                                                       | Default committed                                                                                                                                                                                                                 |
+| --- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1  | Output-shape declaration vs TTFT (FR-004 vs NFR-001).         | Shape declaration is **metadata-only, NOT counted toward TTFT**. p95 ≤ 2.5s applies to first content token.                                                                                                                       |
+| B1  | Taint scope (FR-017).                                         | Conservative-secure: **any tool result containing tenant-authored free text (read OR write) taints all subsequent writes in the same turn.** Forces inbox routing for any write after a free-text read.                           |
+| B2  | Minimum-group-size threshold (FR-025).                        | Platform default = 5 across all aggregate tools. Per-tool override allowed (declared on tool registration). k-anonymity = bucketed counts only when below threshold. **(Moot in MVP — k-anonymity → Backlog per §13.1 cascade.)** |
+| C3  | Notification module channels in Phase-1.                      | **Email + in-app only** (existing platform channels). No Slack/Teams (Agents §1.5 explicit deferral).                                                                                                                             |
+| D1  | MS-365 task ceiling per Microsoft tier (NFR-PL-PERF-11).      | **Hard-cap default 1000 active tasks/plan** (matches Microsoft Planner Basic published limit). Surface error to admin if exceeded; pause sync for that plan until under cap. Tunable per tenant.                                  |
+| D5  | Bucket ordering after sync (FR-PL-006/029).                   | **LWW with last-write timestamp**, same rule as task fields per FR-PL-031. Conflict log entry if both sides changed within sync window.                                                                                           |
+| E2  | Quality-canary "success" definition (NFR-030).                | Success = tool returned without error AND latency within tier SLA AND no user-rated-negative within turn. Rolling 30-min window; 429s and timeouts count as failures.                                                             |
+| E3  | Sync pull cadence adaptive widening trigger (line 405).       | Trigger: any Microsoft 429 OR cumulative backoff > 1 min in last 10 min. Double cadence each trigger, ceiling 30 min, decay back to 1-min steady state after 10 successful pulls.                                                 |
+| G1  | $0.10 minimum-remaining budget (NFR-004).                     | Keep $0.10 — intentional, lets users spend most of their budget. Document rationale. Tenant-overridable to higher floor.                                                                                                          |
+| G2  | 50 concurrent turns/tenant (NFR-003).                         | Keep 50, document as pilot-tuned. Tunable per tenant.                                                                                                                                                                             |
+| G3  | 1000 docs / 5MB per doc (FR-057, FR-058).                     | Keep both as pilot defaults. 5MB derived from OpenAI embedding chunk-count limit; 1000 derived from typical handbook+policy+FAQ size. Tunable.                                                                                    |
+| H1  | Image-PDF rejection point.                                    | Reject at upload time via MIME + magic-bytes detection in browser; backend re-validates on receive. Fail fast.                                                                                                                    |
+| H2  | Carry-Over sweep + computation timing (FR-PL-018, FR-PL-019). | Sweep at 23:00 user-tz; Carry-Over compute at 00:00 user-tz. Sweep runs first. Avoids stale orphan pins in next-day Carry-Over.                                                                                                   |
+| H3  | Download proxying vs signed URL (EIR-PL-019).                 | **Signed URL with 5-min expiry + IP-binding where supported.** Backend authorises issue, S3 enforces expiry. Faster + cheaper than streaming proxy.                                                                               |
+| I1  | Storage quota enforcement (FR-PL-062).                        | Hard-error at upload finalize with structured error code. UI shows quota-remaining bar.                                                                                                                                           |
+| I2  | Checklist 20-item limit (FR-PL-011).                          | Hard-error with user-visible message referencing Microsoft Planner limit ("Microsoft Planner allows up to 20 items").                                                                                                             |
+
+### 13.3 Implications baked into ticket writing
+
+When backlog files are written, every Story / Task with AC related to a Tier-1 or Tier-2 item carries the resolution as an explicit AC checkbox or DoD line. Examples:
+
+- Every domain-write Story includes AC: `[ ] Kernel audit_event row written in same DB transaction as the domain mutation; tx rolls back if audit write fails (per §13 T1-2)`.
+- Every Agents write Story includes AC: `[ ] Free-text taint flag honored — any prior tool result with tenant-authored free text routes this write through the approval inbox (per §13 B1)`.
+- Every Story with download / attachment delivery includes AC: `[ ] Signed URL issued with 5-min expiry, IP-binding where supported (per §13 H3)`.
+- Every Backlog story carries `Sprint: Backlog` and a `Backlog reason:` field referencing the §13 ID.
