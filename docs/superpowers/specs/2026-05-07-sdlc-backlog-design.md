@@ -9,7 +9,7 @@
 | MVP demo      | 2026-05-31 (May end). Phase-1 GA slips to a later date set by the user.  |
 | Today         | 2026-05-07 (start of Sprint 3)                                           |
 | Deliverable   | 8 markdown files under `docs/superpowers/specs/`                         |
-| Output target | Markdown only — **no Jira sync**                                         |
+| Output target | Markdown — **atlassian-pushable** via `sdlc:spec-to-backlog` (see §14)   |
 | MVP cut       | Full Phase-1 SRS coverage in tickets; non-MVP items go `Sprint: Backlog` |
 
 ---
@@ -65,7 +65,7 @@ Per-initiative split is in §6 and §7.
 | People MVP scope                   | Profiles only. Placements, offboarding, GDPR erasure, fuzzy resolution → Backlog.                                                                                 | User decision: "FOR THE PEOPLE NOW JUST NEED TO HAVE THE Profiles IS FINE, OTHER IS DEFERED".                              |
 | Cascading effect on Agents         | Role-scoped reads (FR-060..064 team/dept/manager analysis) → Backlog. NL writes constrained to current-task assignees + exact-email. k-anonymity floor → Backlog. | Without People placements there is no org chart; role-scoped reads cannot be answered correctly.                           |
 | Granularity                        | One Story per cohesive feature outcome, even when it covers 5–15 FRs. FRs become AC checkboxes + traceability rows. SP 13 → split.                                | Reduces total ticket count by ~50% vs. one Story per FR while preserving full SRS coverage.                                |
-| Output                             | Markdown only. No Jira push.                                                                                                                                      | User decision; markdown is portable and can be synced later.                                                               |
+| Output                             | Markdown formatted for `sdlc:spec-to-backlog` / `atlassian:spec-to-backlog` consumption. `Jira Key:` and `Confluence Link:` present-but-empty until sync.         | Lets the user push the entire backlog to Jira with one skill invocation later. Field mapping in §14.                       |
 | Sprint cadence                     | 1-week sprints, AI-leveraged velocity.                                                                                                                            | User decision: "we use AI to leverage the speed; must finish all of these in May."                                         |
 | Phase-1 finish                     | 2026-05-31. Source SRS date (2026-05-20) is wrong and gets amended via DOC-1.                                                                                     | User decision: "iii — the dates in the SRSs are wrong and need fixing."                                                    |
 | Foundation tickets                 | Retroactive, all `Status: Done`, full AC checklist with `[x]` boxes. Each ticket carries a `Built artefact:` line pointing at the code path.                      | User decision: "we still need ticket for foundation." Trace is the value.                                                  |
@@ -114,28 +114,34 @@ Capacity for People (~7 tickets) and Web Admin (~4 tickets) and Docs/SDLC (~8 ti
 ### 5.1 Field set on every ticket
 
 ```
-Status:        Backlog | Todo | In Progress | In Review | Testing | Done
-Epic:          <Epic title or ID>
-Sprint:        Sprint-1 | Sprint-2 | Sprint-3 | Sprint-4 | Sprint-5 | Sprint-6 | Backlog
-Release:       foundation | deployment | phase-1 | phase-1.5 | docs
-Priority:      P0 | P1 | P2 | P3
-Story Point:   1 | 2 | 3 | 5 | 8
-Rank:          <integer; lower = higher priority within Epic / Sprint>
+ID:              <internal ID like PLAN-1.S2 — stable, used for cross-references in this repo>
+Status:          Backlog | Todo | In Progress | In Review | Testing | Done
+Epic:            <Epic ID — references the parent Epic in this design>
+Sprint:          Sprint-1 | Sprint-2 | Sprint-3 | Sprint-4 | Sprint-5 | Sprint-6 | Backlog
+Release:         foundation | deployment | phase-1 | phase-1.5 | docs
+Priority:        P0 | P1 | P2 | P3
+Story Point:     1 | 2 | 3 | 5 | 8
+Rank:            <integer; lower = higher priority within Epic / Sprint>
+Jira Key:        <blank — populated by atlassian sync after creation>
+Confluence Link: <blank — populated post-creation if a supporting page is linked>
 ```
 
-Removed from `standards.md` defaults: `Tags`, `Jira Key`, `Confluence Link`. Added: `Sprint`, `Rank`.
+**Why these fields:** matches the standards.md template exactly except for additions of `ID`, `Sprint`, `Rank`. `Tags` is **not** an authored field — it is **auto-derived during atlassian push** from the other fields (see §14.3). `Jira Key` and `Confluence Link` are present-but-empty so atlassian sync can fill them in-place after creating the issue.
 
 ### 5.2 Epic template
 
 ```markdown
 ## [EPIC] <ID> <Title>
 
+ID: <FOUND-1 | PEOPLE-1 | DEPLOY-1 | PLAN-1 | AGN-1 | ADMIN-1 | DOC-1 | etc.>
 Status: <Backlog | In Progress | Done>
 Sprint: <Sprint-N or range>
 Release: <release tag>
 Priority: <P0..P3>
 Story Point: <rolled up from children, optional>
 Rank: <integer>
+Jira Key: <blank>
+Confluence Link: <blank>
 
 ### Summary
 
@@ -180,6 +186,7 @@ Rank: <integer>
 ```markdown
 ### [STORY] <ID> <Title>
 
+ID: <PLAN-1.S2 | AGN-3.S4 | etc. — stable, used for cross-references>
 Status: <status>
 Epic: <Epic ID>
 Sprint: <Sprint-N>
@@ -187,6 +194,8 @@ Release: <release tag>
 Priority: <P0..P3>
 Story Point: <1 | 2 | 3 | 5 | 8>
 Rank: <integer>
+Jira Key: <blank>
+Confluence Link: <blank>
 
 #### Summary
 
@@ -405,7 +414,7 @@ The following are explicitly **not** in this portfolio:
 - **Modules:** `time`, `hiring`, `performance`, `projects`, `finance`, `goals`, `insights` — future SRS amendments.
 - **Hiring tickets** — user reassigns staffing separately.
 - **Tags field** on tickets — removed from templates per user.
-- **Jira sync / Confluence sync** — markdown only.
+- **Authored Tags / Labels** — derived automatically at push time per §14.3 (not manually authored on each ticket).
 - **Phase-1.5 deferral candidates** (Planner §1.5.2.1 and Agents §1.5 deferred items): Copy Plan, Export Excel/CSV, per-bucket colour, Custom fields, Conditional coloring, People view, sprints/backlog, custom calendars, Copilot in Planner, **per-occurrence recurrence edits**, **server-side rich-text editing of new descriptions**, cross-conversation memory, multi-region, multi-AI failover at runtime, OCR, LLM-as-judge, Slack/Teams channel surfaces, event-source triggers — listed in `portfolio-overview.md` "Deferred" appendix only, not ticketed.
 - **Subtasks** — banned by `standards.md`. Implementation breakdown is owned by the implementer.
 
@@ -500,3 +509,103 @@ When backlog files are written, every Story / Task with AC related to a Tier-1 o
 - Every Agents write Story includes AC: `[ ] Free-text taint flag honored — any prior tool result with tenant-authored free text routes this write through the approval inbox (per §13 B1)`.
 - Every Story with download / attachment delivery includes AC: `[ ] Signed URL issued with 5-min expiry, IP-binding where supported (per §13 H3)`.
 - Every Backlog story carries `Sprint: Backlog` and a `Backlog reason:` field referencing the §13 ID.
+
+## 14. Atlassian sync — making the backlog files Jira-pushable
+
+Backlog files are written so that **`atlassian:spec-to-backlog`** (or `mcp__atlassian__jira_create_issue` directly) can ingest them with minimal transformation. This section documents the field mapping, the ticket-recognition contract, and the push workflow.
+
+### 14.1 Ticket-recognition contract
+
+The atlassian skill identifies tickets by markdown structure:
+
+- `## [EPIC] <ID> <Title>` → Jira Epic
+- `### [STORY] <ID> <Title>` → Jira Story (parented to its containing Epic)
+- `### [TASK] <ID> <Title>` → Jira Task (parented to its containing Epic)
+
+Headers must use the exact `[EPIC]` / `[STORY]` / `[TASK]` markers — the atlassian skill greps for these.
+
+### 14.2 Field mapping — design field → Jira field
+
+| Design field                    | Jira field                   | Notes                                                                                                                |
+| ------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Header title                    | Summary                      | The title from `## [EPIC] <ID> <Title>` line                                                                         |
+| `ID:`                           | (in Description prefix)      | Internal ID prepended to Description as `**ID:** PLAN-1.S2` so it stays searchable in Jira                           |
+| `Status:`                       | Status                       | New tickets start in `Backlog`; transitions per `standards.md` workflow rules                                        |
+| `Epic:`                         | Epic Link / Parent           | Resolved by the atlassian skill against the Epic's Jira Key after the Epic is created first                          |
+| `Sprint:`                       | Sprint custom field          | `Sprint-N` maps to the named Jira sprint; `Backlog` leaves the sprint field empty                                    |
+| `Release:`                      | Fix Version                  | `foundation` / `deployment` / `phase-1` / `phase-1.5` / `docs` create matching Fix Versions                          |
+| `Priority:`                     | Priority                     | `P0..P3` maps to Highest / High / Medium / Low                                                                       |
+| `Story Point:`                  | Story Points custom field    | Numeric                                                                                                              |
+| `Rank:`                         | Rank (lexorank) custom field | Lower integer = higher position in board                                                                             |
+| `Jira Key:`                     | (round-trip identifier)      | Blank on author; populated by atlassian skill after issue creation                                                   |
+| `Confluence Link:`              | (Description footer)         | Blank on author; rendered in Description if non-empty                                                                |
+| `#### Summary` body             | Description (top section)    | "As X, I want Y, so that Z" for Stories; bulleted for Tasks                                                          |
+| `#### Acceptance Criteria` body | Description (heading)        | Markdown checkboxes preserved verbatim                                                                               |
+| `#### AI Execution Notes` body  | Description (heading)        | Preserved verbatim                                                                                                   |
+| `#### Testing Notes` body       | Description (heading)        | Preserved verbatim                                                                                                   |
+| `#### Dependencies` body        | Issue Links                  | `Blocked by:` ID list → "is blocked by" links; `Blocks:` ID list → "blocks" links; resolved after all issues created |
+| `#### Definition of Done` body  | Description (heading)        | Preserved verbatim                                                                                                   |
+| (auto) Tags                     | Labels                       | Derived during push — see §14.3                                                                                      |
+
+### 14.3 Auto-derived Labels (Tags) at push time
+
+Atlassian sync derives Jira Labels from other fields without authoring burden. The derivation rule:
+
+| Source field / detection                                 | Label generated      |
+| -------------------------------------------------------- | -------------------- |
+| `Release: foundation`                                    | `release-foundation` |
+| `Release: deployment`                                    | `release-deployment` |
+| `Release: phase-1`                                       | `release-phase-1`    |
+| `Release: phase-1.5`                                     | `release-phase-1-5`  |
+| `Release: docs`                                          | `release-docs`       |
+| Epic ID prefix `FOUND-*`                                 | `module-foundation`  |
+| Epic ID prefix `PEOPLE-*`                                | `module-people`      |
+| Epic ID prefix `DEPLOY-*`                                | `module-deployment`  |
+| Epic ID prefix `PLAN-*`                                  | `module-planner`     |
+| Epic ID prefix `AGN-*`                                   | `module-agents`      |
+| Epic ID prefix `ADMIN-*`                                 | `module-admin`       |
+| Epic ID prefix `DOC-*`                                   | `module-docs`        |
+| Sprint = `Backlog`                                       | `sprint-backlog`     |
+| Sprint = `Sprint-N`                                      | `sprint-N`           |
+| Story Point ≥ 8                                          | `needs-human-review` |
+| AC mentions RLS / multi-tenant / cross-tenant            | `risk-data`          |
+| AC mentions kernel audit / canDo / permission            | `risk-permission`    |
+| AC mentions MS-365 / Graph / sync                        | `risk-external-sync` |
+| AC mentions migration / 0000_initial.sql                 | `risk-migration`     |
+| AC mentions GDPR / right-to-erasure / PII                | `risk-data`          |
+| Ticket has full AC + testing notes + DoD + clear scope   | `ai-ready`           |
+| Any FR cited in `### SRS Coverage` is unresolved per §13 | `needs-context`      |
+
+The push wrapper script (or the atlassian skill itself) applies these rules — backlog files do NOT carry an authored `Tags:` line.
+
+### 14.4 Push workflow
+
+```
+1. Author writes / updates the 7 backlog files.
+2. Run `superpowers:requesting-code-review` for one final pass on the markdown.
+3. Invoke `sdlc:spec-to-backlog` (which delegates to `atlassian:spec-to-backlog` if installed).
+   - Skill reads the backlog file front-to-back.
+   - For each `## [EPIC]` block: creates Jira Epic, captures returned key.
+   - For each `### [STORY]` / `### [TASK]` block: creates issue with Epic Link
+     resolved from the parent Epic's captured key.
+   - Auto-derives Labels per §14.3.
+   - Writes `Jira Key:` back into the markdown file in-place.
+   - Commits the markdown change so the local file mirrors Jira state.
+4. Resolve `#### Dependencies` Issue Links in a second pass (after all issues exist).
+5. (Optional) Push design doc to Confluence; populate `Confluence Link:` in each ticket.
+```
+
+### 14.5 Idempotency and re-push
+
+If a `Jira Key:` is already populated on a ticket when push runs again, the atlassian skill **updates** the existing issue instead of creating a duplicate. This makes the backlog file the source of truth — edits flow author → markdown → Jira, never the other direction.
+
+If a ticket was deleted in Jira but `Jira Key:` is still set in markdown, the atlassian skill detects the 404 and creates a new issue, then writes the new key back to the markdown file.
+
+### 14.6 What's still your job
+
+The atlassian sync does NOT:
+
+- Configure Jira workflows / statuses / custom fields. Confirm `Sprint`, `Story Points`, and `Rank` custom fields exist in your Jira project before first push.
+- Confirm the project key (e.g., `FUTURE`) and pass it to the atlassian skill.
+- Set initial Sprint membership in Jira Software (Jira Cloud requires a Sprint to exist before tickets can be added). Sprints S1..S6 must be pre-created or the skill creates them on first push if it has permission.
+- Configure Fix Versions (`foundation`, `deployment`, `phase-1`, `phase-1.5`, `docs`) — the skill creates them on first push if it has permission.
