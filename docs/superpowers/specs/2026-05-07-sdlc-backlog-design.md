@@ -1,16 +1,16 @@
 # Phase-1 SDLC Backlog — Design
 
-| Field         | Value                                                                    |
-| ------------- | ------------------------------------------------------------------------ |
-| Date          | 2026-05-07                                                               |
-| Status        | Draft — pending user review                                              |
-| Author        | Brainstorming session, agreed with user                                  |
-| Project start | 2026-04-23                                                               |
-| MVP demo      | 2026-05-31 (May end). Phase-1 GA slips to a later date set by the user.  |
-| Today         | 2026-05-07 (start of Sprint 3)                                           |
-| Deliverable   | 8 markdown files under `docs/superpowers/specs/`                         |
-| Output target | Markdown — **atlassian-pushable** via `sdlc:spec-to-backlog` (see §14)   |
-| MVP cut       | Full Phase-1 SRS coverage in tickets; non-MVP items go `Sprint: Backlog` |
+| Field         | Value                                                                       |
+| ------------- | --------------------------------------------------------------------------- |
+| Date          | 2026-05-07                                                                  |
+| Status        | Draft — pending user review                                                 |
+| Author        | Brainstorming session, agreed with user                                     |
+| Project start | 2026-04-23                                                                  |
+| MVP demo      | 2026-05-31 (May end). Phase-1 GA slips to a later date set by the user.     |
+| Today         | 2026-05-07 (start of Sprint 3)                                              |
+| Deliverable   | 8 markdown files under `docs/superpowers/specs/`                            |
+| Output target | Markdown — **atlassian-pushable** via `atlassian:spec-to-backlog` (see §14) |
+| MVP cut       | Full Phase-1 SRS coverage in tickets; non-MVP items go `Sprint: Backlog`    |
 
 ---
 
@@ -65,7 +65,7 @@ Per-initiative split is in §6 and §7.
 | People MVP scope                   | Profiles only. Placements, offboarding, GDPR erasure, fuzzy resolution → Backlog.                                                                                 | User decision: "FOR THE PEOPLE NOW JUST NEED TO HAVE THE Profiles IS FINE, OTHER IS DEFERED".                              |
 | Cascading effect on Agents         | Role-scoped reads (FR-060..064 team/dept/manager analysis) → Backlog. NL writes constrained to current-task assignees + exact-email. k-anonymity floor → Backlog. | Without People placements there is no org chart; role-scoped reads cannot be answered correctly.                           |
 | Granularity                        | One Story per cohesive feature outcome, even when it covers 5–15 FRs. FRs become AC checkboxes + traceability rows. SP 13 → split.                                | Reduces total ticket count by ~50% vs. one Story per FR while preserving full SRS coverage.                                |
-| Output                             | Markdown formatted for `sdlc:spec-to-backlog` / `atlassian:spec-to-backlog` consumption. `Jira Key:` and `Confluence Link:` present-but-empty until sync.         | Lets the user push the entire backlog to Jira with one skill invocation later. Field mapping in §14.                       |
+| Output                             | Markdown formatted for `atlassian:spec-to-backlog` consumption. `Jira Key:` and `Confluence Link:` present-but-empty until sync.                                  | Lets the user push the entire backlog to Jira with one skill invocation later. Field mapping in §14.                       |
 | Sprint cadence                     | 1-week sprints, AI-leveraged velocity.                                                                                                                            | User decision: "we use AI to leverage the speed; must finish all of these in May."                                         |
 | Phase-1 finish                     | 2026-05-31. Source SRS date (2026-05-20) is wrong and gets amended via DOC-1.                                                                                     | User decision: "iii — the dates in the SRSs are wrong and need fixing."                                                    |
 | Foundation tickets                 | Retroactive, all `Status: Done`, full AC checklist with `[x]` boxes. Each ticket carries a `Built artefact:` line pointing at the code path.                      | User decision: "we still need ticket for foundation." Trace is the value.                                                  |
@@ -583,7 +583,7 @@ The push wrapper script (or the atlassian skill itself) applies these rules — 
 ```
 1. Author writes / updates the 7 backlog files.
 2. Run `superpowers:requesting-code-review` for one final pass on the markdown.
-3. Invoke `sdlc:spec-to-backlog` (which delegates to `atlassian:spec-to-backlog` if installed).
+3. Invoke `atlassian:spec-to-backlog`.
    - Skill reads the backlog file front-to-back.
    - For each `## [EPIC]` block: creates Jira Epic, captures returned key.
    - For each `### [STORY]` / `### [TASK]` block: creates issue with Epic Link

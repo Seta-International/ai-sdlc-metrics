@@ -4,7 +4,7 @@
 
 **Goal:** Generate 8 sprint-ready, atlassian-pushable markdown files (1 portfolio overview + 7 backlog files containing ~145 MVP-in tickets and ~14 Backlog tickets) under `docs/superpowers/specs/`, materializing the validated spec at `docs/superpowers/specs/2026-05-07-sdlc-backlog-design.md`.
 
-**Architecture:** Pure documentation. No code. Each batch produces independent files using the templates in §5 of the spec, with content derived from the source SRSs (`agents-srs.md`, `planner-srs.md`) and the architecture docs. Atlassian-readiness is enforced via grep/awk verification scripts so files can be pushed to Jira via `sdlc:spec-to-backlog` later. Files are committed batch-by-batch so each batch is independently reviewable and revertable.
+**Architecture:** Pure documentation. No code. Each batch produces independent files using the templates in §5 of the spec, with content derived from the source SRSs (`agents-srs.md`, `planner-srs.md`) and the architecture docs. Atlassian-readiness is enforced via grep/awk verification scripts so files can be pushed to Jira via `atlassian:spec-to-backlog` later. Files are committed batch-by-batch so each batch is independently reviewable and revertable.
 
 **Tech Stack:** Markdown (Prettier-formatted, GFM tables), Bash + grep + awk for verification, lefthook pre-commit hooks (auto-format check).
 
@@ -163,7 +163,7 @@ Use the structure below verbatim (substituting `<TICKET_COUNTS_TBD>` placeholder
 | MVP demo      | 2026-05-31                                                                      |
 | Today         | 2026-05-07 (start of Sprint 3)                                                  |
 | Methodology   | Scrum, 1-week sprints, AI-leveraged velocity                                    |
-| Output target | Markdown — atlassian-pushable via `sdlc:spec-to-backlog`                        |
+| Output target | Markdown — atlassian-pushable via `atlassian:spec-to-backlog`                   |
 | Source design | `docs/superpowers/specs/2026-05-07-sdlc-backlog-design.md` at commit `36edab8f` |
 
 ## 1. Initiatives
@@ -246,7 +246,7 @@ Inherited from `skills/sdlc/references/standards.md` §"Definition of Done" with
 
 ## 7. Atlassian sync
 
-Push to Jira via `sdlc:spec-to-backlog` per `2026-05-07-sdlc-backlog-design.md` §14. Pre-push setup:
+Push to Jira via `atlassian:spec-to-backlog` per `2026-05-07-sdlc-backlog-design.md` §14. Pre-push setup:
 
 - Confirm Jira project key (e.g., `FUTURE`).
 - Confirm `Sprint` and `Story Points` and `Rank` custom fields exist.
@@ -1390,7 +1390,7 @@ Cross-file dependency references all resolve.
 Per-file totals reconciled against actual ticket counts in each backlog file.
 All 8 files pass docs/superpowers/plans/.scripts/verify-backlog.sh.
 
-Backlog is ready for atlassian push via sdlc:spec-to-backlog
+Backlog is ready for atlassian push via atlassian:spec-to-backlog
 (see docs/superpowers/specs/2026-05-07-sdlc-backlog-design.md §14).
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
@@ -1418,7 +1418,7 @@ Backlog generation complete.
   - 2026-05-07-web-admin-backlog.md        (~4 Stories)
   - 2026-05-07-docs-sdlc-backlog.md        (~18 Tasks)
 
-Next step: invoke sdlc:spec-to-backlog against each file to push to Jira.
+Next step: invoke atlassian:spec-to-backlog against each file to push to Jira.
 Pre-push setup checklist in docs/superpowers/specs/2026-05-07-sdlc-backlog-design.md §14.6.
 ```
 

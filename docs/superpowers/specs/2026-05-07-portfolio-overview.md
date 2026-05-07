@@ -7,7 +7,7 @@
 | MVP demo      | 2026-05-31                                                                      |
 | Today         | 2026-05-07 (start of Sprint 3)                                                  |
 | Methodology   | Scrum, 1-week sprints, AI-leveraged velocity                                    |
-| Output target | Markdown — atlassian-pushable via `sdlc:spec-to-backlog`                        |
+| Output target | Markdown — atlassian-pushable via `atlassian:spec-to-backlog`                   |
 | Source design | `docs/superpowers/specs/2026-05-07-sdlc-backlog-design.md` at commit `36edab8f` |
 
 ## 1. Initiatives
@@ -90,7 +90,7 @@ Inherited from `skills/sdlc/references/standards.md` §"Definition of Done" with
 
 ## 7. Atlassian sync
 
-Push to Jira via `sdlc:spec-to-backlog` per `2026-05-07-sdlc-backlog-design.md` §14. Pre-push setup:
+Push to Jira via `atlassian:spec-to-backlog` per `2026-05-07-sdlc-backlog-design.md` §14. Pre-push setup:
 
 - Confirm Jira project key (e.g., `FUTURE`).
 - Confirm `Sprint` and `Story Points` and `Rank` custom fields exist.
