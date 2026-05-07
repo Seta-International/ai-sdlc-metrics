@@ -262,10 +262,17 @@ export class SubAgentRegistry {
       // A sub-agent is dropped if EVERY tool in its toolScope belongs to a
       // disabled module. Mixed scopes (tools spanning enabled + disabled modules)
       // survive; only those tools in disabled modules are excluded in stage (b).
-      const allToolsDisabled = config.toolScope.every((toolName) => {
-        const toolModule = toolName.split('.')[0] ?? ''
-        return !enabledModules.has(toolModule)
-      })
+      //
+      // Zero-config guard: if the tenant has no toggle rows at all, enabledModules
+      // is an empty Set. Treating that as "all disabled" would silently drop every
+      // sub-agent. Instead, treat zero-config as "all modules enabled" (opt-out
+      // model — an admin who hasn't configured anything hasn't disabled anything).
+      const allToolsDisabled =
+        enabledModules.size > 0 &&
+        config.toolScope.every((toolName) => {
+          const toolModule = toolName.split('.')[0] ?? ''
+          return !enabledModules.has(toolModule)
+        })
 
       if (allToolsDisabled) {
         // Collect the distinct modules that caused the drop (for span attrs)
@@ -289,7 +296,7 @@ export class SubAgentRegistry {
       // be unusable anyway. The original config is NOT mutated.
       const effectiveToolScope = config.toolScope.filter((toolName) => {
         const toolModule = toolName.split('.')[0] ?? ''
-        if (!enabledModules.has(toolModule)) return false
+        if (enabledModules.size > 0 && !enabledModules.has(toolModule)) return false
         const descriptor = toolRegistry.getDescriptor(toolName)
         if (!descriptor) return false
         return roleAllowedPermissions.has(descriptor.permission)

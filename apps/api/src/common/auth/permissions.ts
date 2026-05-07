@@ -114,6 +114,9 @@ export const PERMISSIONS = {
 
   // ── agent readiness (Plan 13 — production readiness validation harness) ──
   AGENT_READINESS_READ: 'agent:readiness:read',
+
+  // ── agent knowledge base (R-19 — KB ingestion + retrieval) ─────────────
+  AGENT_KB_RETRIEVE: 'agent:kb:retrieve',
 } as const
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

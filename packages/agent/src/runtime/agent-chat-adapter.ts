@@ -12,6 +12,8 @@ export interface AgentChatAdapterOptions {
   context?: AgentContext
   /** Called at turn-start to read the current execution mode from React state. */
   getExecutionMode: () => ExecutionMode
+  /** Called at turn-start to read the current conversation ID (for message persistence). */
+  getConversationId?: () => string | null
 }
 
 export function createAgentChatAdapter(opts: AgentChatAdapterOptions): ChatModelAdapter {
@@ -25,14 +27,22 @@ export function createAgentChatAdapter(opts: AgentChatAdapterOptions): ChatModel
       let done = false
       let capturedError: unknown = null
 
+      // Extract the last user message text — the backend expects user_utterance: string,
+      // not the full messages array from @assistant-ui/react.
+      const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user')
+      const userUtterance =
+        lastUserMsg?.content
+          .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+          .map((p) => p.text)
+          .join('') ?? ''
+
+      const conversationId = opts.getConversationId?.() ?? null
       const body = JSON.stringify({
-        messages: messages.map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
+        user_utterance: userUtterance,
         surface: opts.surface,
         context: opts.context ?? null,
         execution_mode: opts.getExecutionMode(),
+        ...(conversationId ? { conversation_id: conversationId } : {}),
       })
 
       fetchEventSource(opts.endpoint, {

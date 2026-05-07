@@ -233,13 +233,7 @@ export class AgentTurnController {
         userId,
         traceId,
         surface: surface as 'global-chat' | 'inline' | 'async',
-        // DEFERRED: SessionPayload exposes `roles: string[]` but no canonical
-        // roleKey. The pipeline downstream (KernelQueryFacade.getRolePermissions,
-        // RouterPromptBuilder) needs a single roleKey; resolution rule (primary
-        // role? highest-tier?) must be defined and surfaced via JwtService.verify
-        // so this cast disappears. Unblocks once that decision is made (Plan 18
-        // follow-up).
-        roleKey: (session as { roleKey?: string }).roleKey ?? '',
+        roleKey: session.roles?.[0] ?? '',
       }
 
       // Invoke the pipeline runner — emits SSE events via streamEmitter.

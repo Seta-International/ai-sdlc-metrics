@@ -32,6 +32,7 @@ export function AgentComposer() {
           <ComposerPrimitive.Send
             aria-label="Send"
             className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary/50 disabled:opacity-50"
+            suppressHydrationWarning
           >
             <Send className="h-4 w-4" />
           </ComposerPrimitive.Send>
