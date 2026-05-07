@@ -59,6 +59,17 @@ export class S3StorageClient implements StorageClient {
     )
   }
 
+  async getObjectBuffer(key: string): Promise<Buffer> {
+    const command = new GetObjectCommand({ Bucket: this.bucket, Key: key })
+    const response = await this.s3.send(command)
+    if (!response.Body) throw new Error(`S3StorageClient: empty body for key ${key}`)
+    const chunks: Uint8Array[] = []
+    for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
+      chunks.push(chunk)
+    }
+    return Buffer.concat(chunks)
+  }
+
   async deleteObject(key: string): Promise<void> {
     await this.s3.send(
       new DeleteObjectCommand({
