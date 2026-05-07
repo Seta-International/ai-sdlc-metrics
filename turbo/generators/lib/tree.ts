@@ -24,7 +24,7 @@ export interface Tree {
   root(): string
 }
 
-export type TreeSnapshot = { ops: Op[]; readCache: Map<string, string> }
+export type TreeSnapshot = { ops: Op[] }
 
 type Op = { type: 'write'; path: string; contents: string } | { type: 'delete'; path: string }
 
@@ -73,7 +73,7 @@ export function createTree(root: string, opts: { seed?: Record<string, string> }
       ops.push({ type: 'delete', path: rel })
     },
     snapshot() {
-      return { ops: [...ops], readCache: new Map(readCache) }
+      return { ops: [...ops] }
     },
     restore(snap) {
       ops.length = 0
