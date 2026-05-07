@@ -3,7 +3,7 @@ import { buildTypecheckCommand, buildLintCommand } from './postwrite'
 
 describe('buildTypecheckCommand', () => {
   it('targets api-only when no zone', () => {
-    expect(buildTypecheckCommand({ apiOnly: true })).toBe('turbo run typecheck --filter=api')
+    expect(buildTypecheckCommand()).toBe('turbo run typecheck --filter=api')
   })
   it('includes the zone when provided', () => {
     expect(buildTypecheckCommand({ zoneName: 'billing' })).toBe(

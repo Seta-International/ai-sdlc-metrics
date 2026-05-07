@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process'
 
-export function buildTypecheckCommand(opts: { apiOnly?: boolean; zoneName?: string }): string {
+export function buildTypecheckCommand(opts: { zoneName?: string } = {}): string {
   const filters = ['--filter=api']
   if (opts.zoneName) filters.push(`--filter=@future/web-${opts.zoneName}`)
   return `turbo run typecheck ${filters.join(' ')}`.trim()

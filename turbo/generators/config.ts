@@ -71,7 +71,7 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
         .find((c) => c.kind === 'create' && c.path.match(/^apps\/web-([^/]+)\//))
       const zoneName = zoneCreate?.path.match(/^apps\/web-([^/]+)\//)?.[1]
       try {
-        runTypecheck(repoRoot(), zoneName ? { zoneName } : { apiOnly: true })
+        runTypecheck(repoRoot(), zoneName ? { zoneName } : {})
       } catch (err) {
         process.stderr.write(
           '\n⚠️  Post-write typecheck failed. To undo: `git restore .` and re-run with --dry-run to inspect.\n',
