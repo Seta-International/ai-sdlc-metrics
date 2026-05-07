@@ -155,7 +155,7 @@ export class SynthesizerAdapter implements ISynthesizer {
               const delta = content.slice(lastEmittedContentLen)
               opts.streamEmitter.emit({
                 type: 'answer.token',
-                payload: { text: delta },
+                payload: { token: delta },
               })
               lastEmittedContentLen = content.length
               tokensEmitted = true
@@ -165,7 +165,7 @@ export class SynthesizerAdapter implements ISynthesizer {
             for (let i = lastEmittedItemCount; i < items.length; i++) {
               opts.streamEmitter.emit({
                 type: 'answer.token',
-                payload: { text: `- ${items[i]}\n` },
+                payload: { token: `- ${items[i]}\n` },
               })
               tokensEmitted = true
             }
@@ -229,7 +229,7 @@ export class SynthesizerAdapter implements ISynthesizer {
     if (!STREAMING_SHAPES.has(finalObject.shape)) {
       opts.streamEmitter.emit({
         type: 'answer.token',
-        payload: { text: JSON.stringify(finalObject), format: 'json' },
+        payload: { token: JSON.stringify(finalObject), format: 'json' },
       })
     } else if (!tokensEmitted) {
       // Degenerate stream: a streaming shape was declared but no partials ever
@@ -240,7 +240,7 @@ export class SynthesizerAdapter implements ISynthesizer {
       const synthetic = synthesizeTerminalToken(finalObject)
       opts.streamEmitter.emit({
         type: 'answer.token',
-        payload: { text: synthetic },
+        payload: { token: synthetic },
       })
     }
     opts.streamEmitter.emit({ type: 'answer.complete', payload: {} })
