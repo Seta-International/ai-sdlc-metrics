@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import type { PlopTypes } from '@turbo/gen'
 import * as commandGen from './generators/command.gen'
 import * as entityGen from './generators/entity.gen'
+import * as queryGen from './generators/query.gen'
 import { flush } from './lib/flush'
 import { renderPlan } from './lib/preview'
 import { createTree, type Tree } from './lib/tree'
@@ -14,6 +15,7 @@ type ApplyMap = Record<string, (tree: Tree, args: any) => void>
 const applyByGenerator: ApplyMap = {
   command: commandGen.apply,
   entity: entityGen.apply,
+  query: queryGen.apply,
 }
 
 function repoRoot(): string {
@@ -47,4 +49,5 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
 
   entityGen.register(plop)
   commandGen.register(plop)
+  queryGen.register(plop)
 }
