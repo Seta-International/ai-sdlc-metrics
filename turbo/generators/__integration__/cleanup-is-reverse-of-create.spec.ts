@@ -11,10 +11,27 @@ describe('cleanup is reverse of create', () => {
   it('module create + module remove leaves the workspace identical', () => {
     const dir = mkdtempSync(join(tmpdir(), 'gen-rt-'))
     try {
-      // Pre-seed app.module.ts and app-router.ts so AST edits have something to edit/restore.
+      // Pre-seed app.module.ts and app-router.ts with one existing module so AST edits
+      // operate on a realistic populated file (round-trip on empty fixtures leaves
+      // ts-morph cosmetic drift that doesn't reflect real-world usage).
       mkdirSync(join(dir, 'apps/api/src/common/trpc'), { recursive: true })
-      const appModule = `import { Module } from '@nestjs/common'\n@Module({ imports: [] })\nexport class AppModule {}\n`
-      const appRouter = `import { router } from './trpc-init'\nexport const appRouter = router({})\nexport type AppRouter = typeof appRouter\n`
+      const appModule = `import { Module } from '@nestjs/common'
+import { PreferencesModule } from './modules/preferences/preferences.module'
+
+@Module({
+  imports: [PreferencesModule],
+})
+export class AppModule {}
+`
+      const appRouter = `import { router } from './trpc-init'
+import { preferencesRouter } from '../../modules/preferences/interface/trpc/preferences.router'
+
+export const appRouter = router({
+  preferences: preferencesRouter,
+})
+
+export type AppRouter = typeof appRouter
+`
       writeFileSync(join(dir, 'apps/api/src/app.module.ts'), appModule)
       writeFileSync(join(dir, 'apps/api/src/common/trpc/app-router.ts'), appRouter)
 
