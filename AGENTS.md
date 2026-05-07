@@ -112,7 +112,7 @@ No FK constraints across schema boundaries. No imports from another module's `do
 - Use CLI: `bun add <pkg>`, `bun add -d <pkg>`, `bun remove <pkg>`.
 - To audit dependency updates, run `bun run deps:outdated` from the repo root. It scans `apps/*` and `packages/*` directly.
 - To update those folders, use `bun run deps:update`, `bun run deps:update:interactive`, or `bun run deps:update:latest` from the repo root.
-- New workspace: `turbo gen workspace`. Never create manually.
+- New API module: `bunx turbo gen module --name <kebab>` (add `--with-zone` to also scaffold the Next.js zone). Sub-pieces: `bunx turbo gen command|query|entity --module <name> --name <name>`. Cleanup: `bunx turbo gen remove --kind module|zone --name <name>`. Preview with `TURBO_GEN_DRY_RUN=1`. See `docs/superpowers/scaffolding.md`.
 - NestJS components: `bunx nest generate module|controller|service|resource <name> --no-spec` from `apps/api`.
 
 ### Git
