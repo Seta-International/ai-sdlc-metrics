@@ -1,6 +1,7 @@
 import { mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { format } from 'prettier'
 import { describe, expect, it } from 'vitest'
 import { apply as moduleApply } from '../generators/module.gen'
 import { apply as removeApply } from '../generators/remove.gen'
@@ -8,7 +9,7 @@ import { flush } from '../lib/flush'
 import { createTree } from '../lib/tree'
 
 describe('cleanup is reverse of create', () => {
-  it('module create + module remove leaves the workspace identical', () => {
+  it('module create + module remove leaves the workspace identical', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'gen-rt-'))
     try {
       // Pre-seed app.module.ts and app-router.ts with one existing module so AST edits
@@ -25,7 +26,6 @@ export class AppModule {}
 `
       const appRouter = `import { router } from './trpc-init'
 import { preferencesRouter } from '../../modules/preferences/interface/trpc/preferences.router'
-
 export const appRouter = router({
   preferences: preferencesRouter,
 })
@@ -35,7 +35,7 @@ export type AppRouter = typeof appRouter
       writeFileSync(join(dir, 'apps/api/src/app.module.ts'), appModule)
       writeFileSync(join(dir, 'apps/api/src/common/trpc/app-router.ts'), appRouter)
 
-      const before = snapshot(dir)
+      const before = await snapshot(dir)
       const tree1 = createTree(dir)
       moduleApply(tree1, { name: 'billing' })
       flush(tree1, { dryRun: false })
@@ -44,7 +44,7 @@ export type AppRouter = typeof appRouter
       removeApply(tree2, { kind: 'module', name: 'billing' })
       flush(tree2, { dryRun: false })
 
-      const after = snapshot(dir)
+      const after = await snapshot(dir)
       expect(after).toEqual(before)
     } finally {
       rmSync(dir, { recursive: true, force: true })
@@ -52,15 +52,22 @@ export type AppRouter = typeof appRouter
   })
 })
 
-function snapshot(root: string): Record<string, string> {
+async function snapshot(root: string): Promise<Record<string, string>> {
   const out: Record<string, string> = {}
-  function walk(sub: string): void {
+  async function walk(sub: string): Promise<void> {
     for (const ent of readdirSync(join(root, sub), { withFileTypes: true })) {
       const rel = sub ? `${sub}/${ent.name}` : ent.name
-      if (ent.isDirectory()) walk(rel)
-      else out[rel] = readFileSync(join(root, rel), 'utf8')
+      if (ent.isDirectory()) await walk(rel)
+      else {
+        const raw = readFileSync(join(root, rel), 'utf8')
+        if (rel.endsWith('.ts') || rel.endsWith('.tsx')) {
+          out[rel] = await format(raw, { parser: 'typescript' })
+        } else {
+          out[rel] = raw
+        }
+      }
     }
   }
-  walk('')
+  await walk('')
   return out
 }

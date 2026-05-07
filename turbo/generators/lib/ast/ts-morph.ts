@@ -1,4 +1,4 @@
-import { Project, QuoteKind, type SourceFile } from 'ts-morph'
+import { IndentationText, Project, QuoteKind, type SourceFile } from 'ts-morph'
 import type { Tree } from '../tree'
 
 export function withSourceFile(
@@ -11,7 +11,11 @@ export function withSourceFile(
   }
   const project = new Project({
     useInMemoryFileSystem: true,
-    manipulationSettings: { quoteKind: QuoteKind.Single, useTrailingCommas: true },
+    manipulationSettings: {
+      quoteKind: QuoteKind.Single,
+      useTrailingCommas: true,
+      indentationText: IndentationText.TwoSpaces,
+    },
   })
   const sf = project.createSourceFile(relPath, tree.read(relPath))
   mutate(sf)
