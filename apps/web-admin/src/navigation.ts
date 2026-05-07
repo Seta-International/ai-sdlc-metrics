@@ -53,6 +53,12 @@ export const adminNavConfig: NavigationConfig = {
         { label: 'Agent Definitions', icon: Bot, href: '/agents', permission: 'admin:agent:read' },
         { label: 'Sessions', icon: Bot, href: '/agents/sessions', permission: 'admin:agent:read' },
         {
+          label: 'Knowledge Base',
+          icon: Bot,
+          href: '/agents/knowledge-base',
+          permission: 'admin:agent:read',
+        },
+        {
           label: 'GA Readiness',
           icon: ShieldCheck,
           href: '/agents/readiness',

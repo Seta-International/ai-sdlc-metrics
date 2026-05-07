@@ -1,7 +1,15 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { TabChangeRequests } from './TabChangeRequests'
+import type { ChangeRequestSummary } from '../../../lib/hooks/use-change-requests'
+
+vi.mock('../../../lib/trpc', () => ({ trpc: {} }))
+
+let mockItems: ChangeRequestSummary[] = []
+vi.mock('../../../lib/hooks/use-change-requests', () => ({
+  useChangeRequests: () => ({ items: mockItems, isLoading: false }),
+  usePendingFieldPaths: () => new Set(),
+}))
 
 afterEach(() => {
   cleanup()
@@ -9,36 +17,48 @@ afterEach(() => {
 })
 
 describe('TabChangeRequests', () => {
-  it('renders filter pills: Pending, Approved, Rejected, All', () => {
+  beforeEach(() => {
+    mockItems = []
+  })
+
+  it('shows empty state when no requests', () => {
+    render(<TabChangeRequests employmentId="emp-1" canApprove={false} />)
+    expect(screen.getByText(/no change requests/i)).toBeTruthy()
+  })
+
+  it('renders a pending request with Pending badge', () => {
+    mockItems = [
+      {
+        id: 'cr-1',
+        fieldPath: 'person_profile.preferred_name',
+        batchId: 'batch-1',
+        status: 'pending',
+        reason: 'Post-promotion',
+        reviewNote: null,
+        oldValue: 'Old',
+        newValue: 'New',
+        createdAt: new Date('2026-05-01'),
+      },
+    ]
     render(<TabChangeRequests employmentId="emp-1" canApprove={false} />)
     expect(screen.getByText('Pending')).toBeTruthy()
-    expect(screen.getByText('Approved')).toBeTruthy()
-    expect(screen.getByText('Rejected')).toBeTruthy()
-    expect(screen.getByText('All')).toBeTruthy()
   })
 
-  it('renders mock change request rows', () => {
+  it('shows rejection note for rejected requests', () => {
+    mockItems = [
+      {
+        id: 'cr-2',
+        fieldPath: 'person_profile.preferred_name',
+        batchId: 'batch-2',
+        status: 'rejected',
+        reason: null,
+        reviewNote: 'Not approved per policy',
+        oldValue: 'Old',
+        newValue: 'New',
+        createdAt: new Date('2026-05-01'),
+      },
+    ]
     render(<TabChangeRequests employmentId="emp-1" canApprove={false} />)
-    // At least one row must be visible (from hardcoded data)
-    expect(screen.getByText('Job title')).toBeTruthy()
-  })
-
-  it('shows detail panel on row click', async () => {
-    render(<TabChangeRequests employmentId="emp-1" canApprove={false} />)
-    const firstRow = document.querySelector('[data-testid="cr-row"]') as HTMLElement
-    if (firstRow) await userEvent.click(firstRow)
-    expect(screen.getByText('Request detail')).toBeTruthy()
-  })
-
-  it('shows Approve and Reject buttons when canApprove is true', () => {
-    render(<TabChangeRequests employmentId="emp-1" canApprove={true} />)
-    expect(screen.getByText('Approve')).toBeTruthy()
-    expect(screen.getByText('Reject')).toBeTruthy()
-  })
-
-  it('hides Approve and Reject buttons when canApprove is false', () => {
-    render(<TabChangeRequests employmentId="emp-1" canApprove={false} />)
-    expect(screen.queryByText('Approve')).toBeNull()
-    expect(screen.queryByText('Reject')).toBeNull()
+    expect(screen.getByText(/not approved per policy/i)).toBeTruthy()
   })
 })

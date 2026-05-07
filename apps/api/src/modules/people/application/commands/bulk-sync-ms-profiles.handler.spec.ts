@@ -46,7 +46,7 @@ function makeMocks() {
   }
   const stagedUserRepo: Partial<IMsStagedUserRepository> = {
     findByMsExternalId: vi.fn().mockResolvedValue(null),
-    upsertPending: vi.fn().mockResolvedValue({ id: 'su1', status: 'pending' }),
+    upsertFromSync: vi.fn().mockResolvedValue({ id: 'su1', status: 'pending' }),
     updateStatus: vi.fn().mockResolvedValue(undefined),
   }
   const employmentRepo: Partial<IEmploymentRepository> = {
@@ -105,11 +105,9 @@ describe('BulkSyncMsProfilesHandler', () => {
 
     await handler.execute(new BulkSyncMsProfilesCommand(TENANT_ID))
 
-    expect(mocks.stagedUserRepo.upsertPending).toHaveBeenCalledWith(
+    expect(mocks.stagedUserRepo.upsertFromSync).toHaveBeenCalledWith(
       TENANT_ID,
-      expect.objectContaining({
-        msExternalId: 'ms-u1',
-      }),
+      expect.objectContaining({ msExternalId: 'ms-u1' }),
     )
     expect(mocks.commandBus.execute).not.toHaveBeenCalledWith(
       expect.any(SyncMicrosoftProfileCommand),
@@ -141,7 +139,7 @@ describe('BulkSyncMsProfilesHandler', () => {
     expect(mocks.commandBus.execute).toHaveBeenCalledWith(
       expect.objectContaining({ employmentId: EMPLOYMENT_ID }),
     )
-    expect(mocks.stagedUserRepo.upsertPending).not.toHaveBeenCalled()
+    expect(mocks.stagedUserRepo.upsertFromSync).not.toHaveBeenCalled()
   })
 
   it('persists the new delta token after processing', async () => {
@@ -249,6 +247,6 @@ describe('BulkSyncMsProfilesHandler', () => {
     await handler.execute(new BulkSyncMsProfilesCommand(TENANT_ID))
 
     // Should still have staged the second user despite first failing
-    expect(mocks.stagedUserRepo.upsertPending).toHaveBeenCalledOnce()
+    expect(mocks.stagedUserRepo.upsertFromSync).toHaveBeenCalledOnce()
   })
 })

@@ -7,3 +7,4 @@
  */
 
 export { unclassifiedIntent } from './unclassified'
+export { kbRetrieveIntent } from './kb-retrieve'

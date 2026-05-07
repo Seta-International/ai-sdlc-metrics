@@ -427,6 +427,50 @@ CREATE TABLE "agents"."agent_insight" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "agents"."agent_kb_chunk" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"document_id" uuid NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"content" text NOT NULL,
+	"position" integer NOT NULL,
+	"token_count" integer NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_kb_document" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"title" text NOT NULL,
+	"description" text,
+	"s3_key" text NOT NULL,
+	"visibility_scope" text DEFAULT 'all' NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"file_size_bytes" integer,
+	"chunk_count" integer,
+	"error_message" text,
+	"created_by" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "agent_kb_document_status_check" CHECK ("agents"."agent_kb_document"."status" IN ('pending', 'processing', 'ready', 'failed'))
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_kb_embedding" (
+	"chunk_id" uuid PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"embedding" vector(1536) NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "agents"."agent_kb_ingestion_run" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"document_id" uuid NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"status" text DEFAULT 'started' NOT NULL,
+	"chunks_written" integer,
+	"error_message" text,
+	"started_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"finished_at" timestamp with time zone,
+	CONSTRAINT "agent_kb_ingestion_run_status_check" CHECK ("agents"."agent_kb_ingestion_run"."status" IN ('started', 'completed', 'failed'))
+);
+--> statement-breakpoint
 CREATE TABLE "agents"."agent_l3_preference" (
 	"tenant_id" uuid NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -624,6 +668,16 @@ CREATE TABLE "agents"."agent_user_budget" (
 	CONSTRAINT "agent_user_budget_pk" PRIMARY KEY("tenant_id","user_id","date")
 );
 --> statement-breakpoint
+CREATE TABLE "agents"."agent_write_dedup" (
+	"idempotency_key" text PRIMARY KEY NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"turn_id" uuid NOT NULL,
+	"tool_name" text NOT NULL,
+	"result_json" jsonb NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "documents"."generation_job" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"tenant_id" uuid NOT NULL,
@@ -687,6 +741,8 @@ CREATE TABLE "identity"."identity_provider" (
 	"sync_enabled" boolean DEFAULT false NOT NULL,
 	"last_sync_at" timestamp,
 	"sync_status" text DEFAULT 'idle' NOT NULL,
+	"sync_processed" integer DEFAULT 0 NOT NULL,
+	"sync_total" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -988,6 +1044,7 @@ CREATE TABLE "people"."profile_change_request" (
 	"tenant_id" uuid NOT NULL,
 	"employment_id" uuid NOT NULL,
 	"batch_id" uuid,
+	"reason" text,
 	"field_path" text NOT NULL,
 	"old_value" jsonb,
 	"new_value" jsonb NOT NULL,
@@ -1216,7 +1273,9 @@ CREATE TABLE "people"."employment_detail" (
 	"country_data" jsonb,
 	"custom_fields" jsonb,
 	"office_location" text,
-	"work_phone" text
+	"work_phone" text,
+	"ms_job_title" text,
+	"ms_department" text
 );
 --> statement-breakpoint
 CREATE TABLE "people"."import_job" (
@@ -1384,6 +1443,7 @@ CREATE TABLE "people"."onboarding_case" (
 	"employment_id" uuid NOT NULL,
 	"template_id" uuid,
 	"status" text DEFAULT 'in_progress' NOT NULL,
+	"stage" text DEFAULT 'offer_accepted' NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -1897,6 +1957,9 @@ CREATE INDEX "agent_cost_event_tenant_created_idx" ON "agents"."agent_cost_event
 CREATE INDEX "agent_cost_event_tenant_user_created_idx" ON "agents"."agent_cost_event" USING btree ("tenant_id","user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_cost_event_tenant_schedule_idx" ON "agents"."agent_cost_event" USING btree ("tenant_id","via_schedule_id");--> statement-breakpoint
 CREATE INDEX "agent_golden_trace_tenant_active_idx" ON "agents"."agent_golden_trace" USING btree ("tenant_id") WHERE removed_at IS NULL;--> statement-breakpoint
+CREATE INDEX "agent_kb_chunk_document_position_idx" ON "agents"."agent_kb_chunk" USING btree ("document_id","position");--> statement-breakpoint
+CREATE INDEX "agent_kb_document_tenant_status_idx" ON "agents"."agent_kb_document" USING btree ("tenant_id","status");--> statement-breakpoint
+CREATE INDEX "agent_kb_ingestion_run_document_idx" ON "agents"."agent_kb_ingestion_run" USING btree ("document_id","started_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE UNIQUE INDEX "agent_pricing_model_effective_from_uidx" ON "agents"."agent_pricing" USING btree ("model_id","effective_from");--> statement-breakpoint
 CREATE INDEX "agent_rate_limit_counter_lookup_idx" ON "agents"."agent_rate_limit_counter" USING btree ("tenant_id","user_id","limit_key","bucket");--> statement-breakpoint
 CREATE INDEX "agent_rollout_config_tenant_status_class_idx" ON "agents"."agent_rollout_config" USING btree ("tenant_id","status","change_class");--> statement-breakpoint
@@ -1912,6 +1975,7 @@ CREATE INDEX "agent_stored_sub_agent_tenant_key_version_desc_idx" ON "agents"."a
 CREATE INDEX "agent_tool_invocation_trace_idx" ON "agents"."agent_tool_invocation" USING btree ("trace_id");--> statement-breakpoint
 CREATE INDEX "agent_tool_invocation_tenant_user_tool_created_idx" ON "agents"."agent_tool_invocation" USING btree ("tenant_id","user_id","tool_name","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "agent_turn_sampling_decision_tenant_created_idx" ON "agents"."agent_turn_sampling_decision" USING btree ("tenant_id","created_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "agent_write_dedup_tenant_expires_idx" ON "agents"."agent_write_dedup" USING btree ("tenant_id","expires_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_identity_provider_tenant_primary" ON "identity"."identity_provider" USING btree ("tenant_id","is_primary") WHERE "identity"."identity_provider"."is_primary" = true;--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_idp_group_mapping_role_scope_scoped" ON "identity"."idp_group_mapping" USING btree ("tenant_id","external_group_id","role_key","scope_type","scope_id") WHERE "identity"."idp_group_mapping"."scope_id" IS NOT NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_idp_group_mapping_role_scope_global" ON "identity"."idp_group_mapping" USING btree ("tenant_id","external_group_id","role_key","scope_type") WHERE "identity"."idp_group_mapping"."scope_id" IS NULL;--> statement-breakpoint
@@ -1963,6 +2027,9 @@ CREATE INDEX "idx_task_evidence_tenant_submitted_by" ON "planner"."task_evidence
 CREATE INDEX "idx_roster_member_lookup" ON "planner"."roster_member" USING btree ("tenant_id","ms_roster_id");--> statement-breakpoint
 CREATE INDEX "saved_view_tenant_actor_resource_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key");--> statement-breakpoint
 CREATE UNIQUE INDEX "saved_view_unique_default_idx" ON "preferences"."saved_view" USING btree ("tenant_id","actor_id","resource_key") WHERE is_default = true;
+-- Enable pgvector extension (required for VECTOR column and HNSW index)
+CREATE EXTENSION IF NOT EXISTS vector;
+
 -- BEGIN RLS DDL (generated by packages/db/src/append-rls.ts) — DO NOT EDIT
 -- Generated by packages/db/src/append-rls.ts — do not edit manually.
 
@@ -2222,6 +2289,46 @@ CREATE POLICY agent_semantic_index_tenant_isolation
   USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
   WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
 
+-- agents.agent_write_dedup
+ALTER TABLE agents.agent_write_dedup ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_write_dedup FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_write_dedup_tenant_isolation
+  ON agents.agent_write_dedup
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_kb_document
+ALTER TABLE agents.agent_kb_document ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_kb_document FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_kb_document_tenant_isolation
+  ON agents.agent_kb_document
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_kb_chunk
+ALTER TABLE agents.agent_kb_chunk ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_kb_chunk FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_kb_chunk_tenant_isolation
+  ON agents.agent_kb_chunk
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_kb_embedding
+ALTER TABLE agents.agent_kb_embedding ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_kb_embedding FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_kb_embedding_tenant_isolation
+  ON agents.agent_kb_embedding
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+-- agents.agent_kb_ingestion_run
+ALTER TABLE agents.agent_kb_ingestion_run ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agents.agent_kb_ingestion_run FORCE ROW LEVEL SECURITY;
+CREATE POLICY agent_kb_ingestion_run_tenant_isolation
+  ON agents.agent_kb_ingestion_run
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
 -- core.agent_delegation
 ALTER TABLE core.agent_delegation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE core.agent_delegation FORCE ROW LEVEL SECURITY;
@@ -2245,3 +2352,9 @@ CREATE POLICY roster_member_tenant_isolation
   ON planner.roster_member
   USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
   WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+
+
+-- HNSW cosine-distance index for KB embeddings (SAD §5.3.1)
+CREATE INDEX IF NOT EXISTS agent_kb_embedding_hnsw_idx
+  ON agents.agent_kb_embedding USING hnsw (embedding vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64);

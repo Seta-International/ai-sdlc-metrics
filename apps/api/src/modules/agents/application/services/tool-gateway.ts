@@ -5,7 +5,7 @@
  * Responsibilities:
  *  - Resolve, circuit-breaker check, L1 cache lookup / coalescing.
  *  - prepareTaintWrap, ceilingPreCheck, preWriteAbortCheck, register in-flight,
- *    invoke (+ transient single-retry), ceiling budget decrement, applyTaintWrap,
+ *    invoke, ceiling budget decrement, applyTaintWrap,
  *    auditEmit, retryCount bookkeeping, circuit-breaker setting.
  *  - Outermost catch — fail cache handle, audit, return infra_error.
  *
@@ -25,12 +25,13 @@
  * Transient retry:
  *  - `invoke()` in pipeline-steps already classifies SERVICE_UNAVAILABLE, TOO_MANY_REQUESTS,
  *    and ECONNRESET/ETIMEDOUT network errors as `transient_infra_error` with `retry` disposition.
- *  - The orchestrator detects this variant on the first attempt, waits 200 ms + random jitter
- *    (0–100 ms), retries once. If the retry also returns `transient_infra_error`, returns it
- *    as-is to the caller. If it returns a different variant, handles it normally.
+ *  - Provider-level retry (exponential backoff) is handled by `withProviderRetry` in the LLM
+ *    client layer, not here. The gateway receives transient_infra_error only after those retries
+ *    are exhausted, and returns it as-is to the caller.
  */
 
-import { Injectable, Logger } from '@nestjs/common'
+import { createHash } from 'node:crypto'
+import { Injectable, Inject, Logger } from '@nestjs/common'
 import type { AgentToolDescriptor } from '../../../../common/trpc/agent-tool-meta'
 import { ToolRegistry } from '../../infrastructure/tool-registry/tool-registry'
 import {
@@ -71,6 +72,10 @@ import {
   SemanticResultCache,
   type CacheHit,
 } from '../../infrastructure/cache/semantic-result-cache'
+import {
+  WRITE_DEDUP_REPOSITORY,
+  type IWriteDedupRepository,
+} from '../../domain/repositories/write-dedup.repository'
 
 const SEMANTIC_CACHE_EMBEDDING_MODEL = 'text-embedding-3-small'
 const DEFAULT_SEMANTIC_DISTANCE_THRESHOLD = 0.97
@@ -206,10 +211,6 @@ function isTripwireVariant<T extends { kind: string }>(
   return r.kind === 'tripwire'
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
 @Injectable()
 export class ToolGateway implements ToolGatewayPort {
   private readonly logger = new Logger(ToolGateway.name)
@@ -224,7 +225,13 @@ export class ToolGateway implements ToolGatewayPort {
     private readonly flowPolicyResolver: FlowPolicyResolver,
     private readonly draftProposer: DraftProposer,
     private readonly semanticCache: SemanticResultCache,
+    @Inject(WRITE_DEDUP_REPOSITORY) private readonly writeDedupRepo: IWriteDedupRepository,
   ) {}
+
+  private computeIdempotencyKey(turnId: string, toolCallId: string, args: unknown): string {
+    const { hash: argsHash } = canonicalize(args)
+    return createHash('sha256').update(`${turnId}:${toolCallId}:${argsHash}`).digest('hex')
+  }
 
   async invoke(input: ToolGatewayInvokeInput): Promise<ToolGatewayResult> {
     // Outermost guard — unexpected throws must never surface to the caller.
@@ -677,9 +684,7 @@ export class ToolGateway implements ToolGatewayPort {
     recordStepDuration('taint-wrap-setup', Date.now() - taintWrapSetupStart)
 
     // Wallclock timer covers everything after resolve — including ceiling checks,
-    // pre-write abort, invoke, and any transient-retry jitter sleep. A transient
-    // retry's wait counts against the tool's wallclock budget; this is deliberate
-    // — the caller experiences that time regardless.
+    // pre-write abort, and invoke. The caller experiences this wall time regardless.
     const startedAt = Date.now()
 
     // ceilingPreCheck is a pure sync step; span emitted inline (no await) to
@@ -802,6 +807,16 @@ export class ToolGateway implements ToolGatewayPort {
       }
     }
 
+    // D-5: idempotency dedup for mutation tools
+    let _idempotencyKey: string | undefined
+    if (descriptor.procedure === 'mutation' && input.turnId && input.toolCallId) {
+      _idempotencyKey = this.computeIdempotencyKey(input.turnId, input.toolCallId, args)
+      const cached = await this.writeDedupRepo.findByKey(_idempotencyKey)
+      if (cached !== null && cached.expiresAt > new Date()) {
+        return ok(cached.resultJson, true)
+      }
+    }
+
     let cacheHandle: ReturnType<typeof turnState.l1Cache.registerInFlight> | undefined
     try {
       cacheHandle = turnState.l1Cache.registerInFlight(descriptor.name, argsHash)
@@ -818,7 +833,7 @@ export class ToolGateway implements ToolGatewayPort {
 
     // Each invoke attempt (including retry) gets its own gateway:invoke span — the
     // retry IS a new invocation attempt, distinct trace subtree.
-    let retryCount = 0
+    const retryCount = 0
     const invokeStep = async () => {
       const invokeStart = Date.now()
       const result = await withGatewayStep(
@@ -835,18 +850,7 @@ export class ToolGateway implements ToolGatewayPort {
       return result
     }
 
-    let invokeResult = await invokeStep()
-
-    // Single transient retry (200 ms + 0-100 ms jitter)
-    if (
-      isTripwireVariant(invokeResult) &&
-      invokeResult.variant === 'transient_infra_error' &&
-      invokeResult.disposition === 'retry'
-    ) {
-      retryCount = 1
-      await sleep(200 + Math.floor(Math.random() * 100))
-      invokeResult = await invokeStep()
-    }
+    const invokeResult = await invokeStep()
 
     if (isTripwireVariant(invokeResult)) {
       // Fail the cache handle — releases coalesced waiters
@@ -969,6 +973,19 @@ export class ToolGateway implements ToolGatewayPort {
 
     recordToolCall(tenantId, descriptor.name, 'success')
 
+    // D-5: persist dedup row after successful mutation so repeated calls with the
+    // same (turnId, toolCallId, args) return the cached result within 24 hours.
+    if (_idempotencyKey && input.turnId) {
+      await this.writeDedupRepo.insert({
+        idempotencyKey: _idempotencyKey,
+        tenantId,
+        turnId: input.turnId,
+        toolName: descriptor.name,
+        resultJson: result as Record<string, unknown>,
+        expiresAt: new Date(Date.now() + 86_400_000),
+      })
+    }
+
     // DraftProposer hookup: called on mutation tool success.
     // Resilience contract: a DraftProposer failure is non-fatal — the tool call
     // already succeeded and the audit row is written. Log the error and return
@@ -1020,9 +1037,9 @@ export class ToolGateway implements ToolGatewayPort {
 
     // Retry-count bookkeeping: validation_failed and invocation_timeout are retried
     // once, then downgraded to abort. permission_denied is fixed abort (no retry
-    // count). transient_infra_error retry was already consumed by the orchestrator's
-    // inline retry above; if we still get transient_infra_error here it means the
-    // retry was also transient — return as-is (already disposition: 'retry').
+    // count). transient_infra_error provider retry is handled in the LLM client layer
+    // (withProviderRetry); if we still receive transient_infra_error here it means
+    // those retries are exhausted — return as-is (already disposition: 'retry').
 
     let returnedTw: Tripwire = tw
 

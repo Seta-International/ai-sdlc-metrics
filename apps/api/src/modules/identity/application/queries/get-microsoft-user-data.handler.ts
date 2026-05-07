@@ -20,6 +20,8 @@ export interface MicrosoftUserData {
   mobilePhone: string | null
   businessPhone: string | null
   photo: Buffer | null
+  jobTitle: string | null
+  department: string | null
 }
 
 @QueryHandler(GetMicrosoftUserDataQuery)
@@ -59,6 +61,8 @@ export class GetMicrosoftUserDataHandler implements IQueryHandler<
       mobilePhone: user.mobilePhone ?? null,
       businessPhone: user.businessPhones?.[0] ?? null,
       photo,
+      jobTitle: user.jobTitle ?? null,
+      department: user.department ?? null,
     }
   }
 }

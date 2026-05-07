@@ -68,6 +68,8 @@ export async function runMigrations(connectionString?: string): Promise<void> {
   try {
     // Acquire session-level advisory lock — blocks until available, released on disconnect.
     await client.query('SELECT pg_advisory_lock($1)', [MIGRATION_LOCK_KEY])
+    // Ensure vector type exists before migrations that declare vector(...) columns.
+    await client.query('CREATE EXTENSION IF NOT EXISTS vector;')
     const db = drizzle(client)
     await migrate(db, { migrationsFolder: MIGRATIONS_DIR })
     console.log('[db] migrations complete')

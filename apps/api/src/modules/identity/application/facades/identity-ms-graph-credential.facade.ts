@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import type { IdentityProviderEntity } from '../../domain/entities/identity-provider.entity'
 import { MsGraphCredentialEntity } from '../../domain/entities/ms-graph-credential.entity'
+import type { GraphUserPatch } from '../../infrastructure/providers/microsoft-graph.provider'
 import {
   DIRECTORY_PROVIDER_FACTORY,
   type IdpGroup,
@@ -30,7 +31,13 @@ export interface DisconnectMicrosoftGraphCredentialOptions {
   persistDurableEvent?: () => Promise<void>
 }
 
+export type { GraphUserPatch } from '../../infrastructure/providers/microsoft-graph.provider'
+
 const DEFAULT_SCOPES = ['https://graph.microsoft.com/.default'] as const
+
+interface DirectoryProviderWithPatchUser {
+  patchUser(msUserId: string, patch: GraphUserPatch): Promise<void>
+}
 
 @Injectable()
 export class IdentityMsGraphCredentialFacade {
@@ -137,6 +144,24 @@ export class IdentityMsGraphCredentialFacade {
     return provider.listGroupsWithMembers()
   }
 
+  async patchMicrosoftUser(
+    tenantId: string,
+    msUserId: string,
+    patch: GraphUserPatch,
+  ): Promise<void> {
+    const credential = await this.credentialRepo.get(tenantId)
+    if (!credential || credential.status !== 'active') {
+      return
+    }
+
+    const providerConfig = this.credentialToProviderConfig(credential)
+    const provider = await this.directoryFactory.create(providerConfig)
+    if (!this.supportsPatchUser(provider)) {
+      throw new Error('Directory provider does not support patchUser')
+    }
+    await provider.patchUser(msUserId, patch)
+  }
+
   async invalidateCredential(tenantId: string, reason: string): Promise<void> {
     const cred = await this.credentialRepo.get(tenantId)
     if (!cred) return
@@ -210,6 +235,8 @@ export class IdentityMsGraphCredentialFacade {
       syncEnabled: false,
       lastSyncAt: null,
       syncStatus: 'idle',
+      syncProcessed: 0,
+      syncTotal: 0,
       createdAt: now,
       updatedAt: now,
     }
@@ -232,9 +259,20 @@ export class IdentityMsGraphCredentialFacade {
       syncEnabled: false,
       lastSyncAt: null,
       syncStatus: 'idle',
+      syncProcessed: 0,
+      syncTotal: 0,
       createdAt: now,
       updatedAt: now,
     }
+  }
+
+  private supportsPatchUser(provider: unknown): provider is DirectoryProviderWithPatchUser {
+    return (
+      typeof provider === 'object' &&
+      provider !== null &&
+      'patchUser' in provider &&
+      typeof provider.patchUser === 'function'
+    )
   }
 
   private cloneCredential(credential: MsGraphCredentialEntity): MsGraphCredentialEntity {

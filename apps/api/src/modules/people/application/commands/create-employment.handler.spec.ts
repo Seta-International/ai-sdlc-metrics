@@ -83,6 +83,8 @@ function makeDetail(): EmploymentDetail {
     customFields: null,
     officeLocation: null,
     workPhone: null,
+    msJobTitle: null,
+    msDepartment: null,
   }
 }
 

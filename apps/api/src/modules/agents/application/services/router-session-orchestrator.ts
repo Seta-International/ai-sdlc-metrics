@@ -633,6 +633,7 @@ export class RouterSessionOrchestrator {
         sessionId,
         surface,
         tainted: { value: false },
+        executionMode: 'default',
         routerReplanCount: 0,
       }
       const abortController = new AbortController()

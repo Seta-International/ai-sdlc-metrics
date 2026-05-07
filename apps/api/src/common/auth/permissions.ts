@@ -37,6 +37,7 @@ export const PERMISSIONS = {
   // ── people (profiles, directory, settings) ────────────────────────────
   PEOPLE_PROFILE_READ: 'people:profile:read',
   PEOPLE_PROFILE_SELF_READ: 'people:profile:self:read',
+  PEOPLE_PROFILE_SELF_UPDATE: 'people:profile:self:update',
   PEOPLE_PROFILE_TEAM_READ: 'people:profile:team:read',
   PEOPLE_PROFILE_CREATE: 'people:profile:create',
   PEOPLE_PROFILE_UPDATE: 'people:profile:update',
@@ -113,6 +114,9 @@ export const PERMISSIONS = {
 
   // ── agent readiness (Plan 13 — production readiness validation harness) ──
   AGENT_READINESS_READ: 'agent:readiness:read',
+
+  // ── agent knowledge base (R-19 — KB ingestion + retrieval) ─────────────
+  AGENT_KB_RETRIEVE: 'agent:kb:retrieve',
 } as const
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

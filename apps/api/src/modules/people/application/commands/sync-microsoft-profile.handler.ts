@@ -25,6 +25,43 @@ import {
   type StorageClient,
 } from '../../domain/ports/people-storage-client.port'
 import { SyncMicrosoftProfileCommand } from './sync-microsoft-profile.command'
+import { SearchIndexRebuildService } from '../services/search-index-rebuild.service'
+
+function buildEmploymentDetailInsert(
+  tenantId: string,
+  employmentId: string,
+  data: Partial<Omit<EmploymentDetail, 'id' | 'tenantId' | 'employmentId'>>,
+): Omit<EmploymentDetail, 'id'> {
+  return {
+    tenantId,
+    employmentId,
+    nationalId: null,
+    nationalIdType: null,
+    nationalIdIssuedDate: null,
+    nationalIdExpiryDate: null,
+    taxId: null,
+    socialInsuranceId: null,
+    passportNumber: null,
+    passportExpiryDate: null,
+    bankAccountNumber: null,
+    bankName: null,
+    bankBranch: null,
+    bankAccountHolder: null,
+    bankSwiftCode: null,
+    personalEmail: null,
+    personalPhone: null,
+    permanentAddress: null,
+    currentAddress: null,
+    emergencyContacts: null,
+    countryData: null,
+    customFields: null,
+    officeLocation: null,
+    workPhone: null,
+    msJobTitle: null,
+    msDepartment: null,
+    ...data,
+  }
+}
 
 export interface SyncResult {
   updatedFields: string[]
@@ -46,6 +83,7 @@ export class SyncMicrosoftProfileHandler implements ICommandHandler<
     private readonly identityFacade: IdentityQueryFacade,
     @Inject(PEOPLE_STORAGE_CLIENT)
     private readonly storageClient: StorageClient,
+    private readonly searchIndexRebuildService: SearchIndexRebuildService,
   ) {}
 
   async execute(command: SyncMicrosoftProfileCommand): Promise<SyncResult> {
@@ -68,6 +106,7 @@ export class SyncMicrosoftProfileHandler implements ICommandHandler<
 
     const updatedFields: string[] = []
     const skippedFields: string[] = []
+    let shouldRebuildDirectoryIndex = false
 
     const profileUpdates: Partial<
       Omit<PersonProfile, 'id' | 'tenantId' | 'actorId' | 'createdAt'>
@@ -76,6 +115,7 @@ export class SyncMicrosoftProfileHandler implements ICommandHandler<
       profileUpdates.fullName = msData.displayName
       profileUpdates.preferredName = msData.displayName
       updatedFields.push('fullName', 'preferredName')
+      shouldRebuildDirectoryIndex = true
     }
 
     if (msData.photo) {
@@ -97,6 +137,7 @@ export class SyncMicrosoftProfileHandler implements ICommandHandler<
         companyEmail: msData.mail,
       })
       updatedFields.push('companyEmail')
+      shouldRebuildDirectoryIndex = true
     }
 
     const detailUpdates: Partial<Omit<EmploymentDetail, 'id' | 'tenantId' | 'employmentId'>> = {}
@@ -112,9 +153,33 @@ export class SyncMicrosoftProfileHandler implements ICommandHandler<
       detailUpdates.workPhone = msData.businessPhone
       updatedFields.push('workPhone')
     }
+    if (msData.jobTitle != null) {
+      detailUpdates.msJobTitle = msData.jobTitle
+      updatedFields.push('msJobTitle')
+      shouldRebuildDirectoryIndex = true
+    }
+    if (msData.department != null) {
+      detailUpdates.msDepartment = msData.department
+      updatedFields.push('msDepartment')
+      shouldRebuildDirectoryIndex = true
+    }
 
     if (Object.keys(detailUpdates).length > 0) {
-      await this.employmentDetailRepo.update(employment.id, command.tenantId, detailUpdates)
+      const existingDetail = await this.employmentDetailRepo.findByEmploymentId(
+        employment.id,
+        command.tenantId,
+      )
+      if (existingDetail) {
+        await this.employmentDetailRepo.update(employment.id, command.tenantId, detailUpdates)
+      } else {
+        await this.employmentDetailRepo.insert(
+          buildEmploymentDetailInsert(command.tenantId, employment.id, detailUpdates),
+        )
+      }
+    }
+
+    if (shouldRebuildDirectoryIndex) {
+      await this.searchIndexRebuildService.rebuildForEmployment(employment.id, command.tenantId)
     }
 
     return { updatedFields, skippedFields }

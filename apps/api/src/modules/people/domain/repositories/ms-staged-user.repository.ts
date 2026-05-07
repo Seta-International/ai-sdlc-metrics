@@ -5,7 +5,8 @@ export const MS_STAGED_USER_REPOSITORY = 'MS_STAGED_USER_REPOSITORY'
 export interface IMsStagedUserRepository {
   findById(id: string, tenantId: string): Promise<MsStagedUser | null>
   findByMsExternalId(msExternalId: string, tenantId: string): Promise<MsStagedUser | null>
-  upsertPending(
+  findLatestImportedByEmail(email: string, tenantId: string): Promise<MsStagedUser | null>
+  upsertFromSync(
     tenantId: string,
     data: {
       msExternalId: string
@@ -33,4 +34,5 @@ export interface IMsStagedUserRepository {
     offset: number,
   ): Promise<MsStagedUser[]>
   countByStatus(tenantId: string, status: MsStagedUserStatus): Promise<number>
+  findByImportedEmploymentId(employmentId: string, tenantId: string): Promise<MsStagedUser | null>
 }

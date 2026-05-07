@@ -52,10 +52,12 @@
         "date-fns-tz": "^3.2.0",
         "drizzle-orm": "^0.45.2",
         "fastify": "^5.8.5",
+        "gpt-tokenizer": "^3.4.0",
         "ioredis": "^5.10.1",
         "jose": "^6.2.2",
         "latest": "^0.2.0",
         "nestjs-cls": "^6.2.0",
+        "pg": "^8.20.0",
         "pg-boss": "^12.15.0",
         "reflect-metadata": "^0.2.2",
         "rxjs": "^7.8.2",
@@ -66,6 +68,7 @@
         "@future/eslint-config": "workspace:*",
         "@future/tsconfig": "workspace:*",
         "@nestjs/cli": "^11.0.21",
+        "@types/pg": "^8.20.0",
         "@vitest/coverage-v8": "^4.1.4",
         "eslint": "^10.2.1",
         "happy-dom": "^20.9.0",
@@ -2571,6 +2574,8 @@
     "globalthis": ["globalthis@1.0.4", "", { "dependencies": { "define-properties": "^1.2.1", "gopd": "^1.0.1" } }, "sha512-DpLKbNU4WylpxJykQujfCcwYWiV/Jhm50Goo0wrVILAv5jOr9d+H+UR3PhSCD2rCCEIg0uc+G+muBTwD54JhDQ=="],
 
     "gopd": ["gopd@1.2.0", "", {}, "sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg=="],
+
+    "gpt-tokenizer": ["gpt-tokenizer@3.4.0", "", {}, "sha512-wxFLnhIXTDjYebd9A9pGl3e31ZpSypbpIJSOswbgop5jLte/AsZVDvjlbEuVFlsqZixVKqbcoNmRlFDf6pz/UQ=="],
 
     "graceful-fs": ["graceful-fs@4.2.11", "", {}, "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ=="],
 

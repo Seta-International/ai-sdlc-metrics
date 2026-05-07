@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation } from '@future/api-client'
 import {
   Alert,
@@ -11,6 +12,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  Progress,
   Spinner,
   toast,
 } from '@future/ui'
@@ -21,6 +23,8 @@ import { trpc } from '../../../lib/trpc'
 interface SyncStatusResponse {
   syncEnabled: boolean
   syncStatus: string | null
+  syncProcessed: number
+  syncTotal: number
   lastSyncAt: string | null
   nextScheduledAt: string | null
   lastSyncStats: {
@@ -38,15 +42,23 @@ interface SyncStatusResponse {
 const identityTrpc = (trpc as any).identity.admin
 
 export function DirectorySyncCard() {
+  // pollAfterTrigger bridges the gap between "job enqueued" and the job worker setting
+  // syncStatus:'running'. Without it, the onSuccess refetch may return 'idle' (job not yet
+  // picked up), refetchInterval drops to false, and the progress bar never appears.
+  const [pollAfterTrigger, setPollAfterTrigger] = useState(false)
+
   const syncStatusQuery = useQuery({
     queryKey: ['identity.admin.getSyncStatus'],
     queryFn: () => identityTrpc.getSyncStatus.query({}) as Promise<SyncStatusResponse>,
+    refetchInterval: (q) =>
+      q.state.data?.syncStatus === 'running' || pollAfterTrigger ? 2000 : false,
   })
 
   const triggerMutation = useMutation({
     mutationFn: () => identityTrpc.triggerSync.mutate({}) as Promise<{ jobId: string }>,
     onSuccess: () => {
       toast.success('Directory sync triggered — this may take a few minutes')
+      setPollAfterTrigger(true)
       void syncStatusQuery.refetch()
     },
     onError: (err: unknown) => {
@@ -57,6 +69,18 @@ export function DirectorySyncCard() {
   const status = syncStatusQuery.data
   const isRunning = status?.syncStatus === 'running'
   const isBusy = isRunning || triggerMutation.isPending
+
+  // Once the job is visible as running, the refetchInterval condition takes over.
+  useEffect(() => {
+    if (isRunning) setPollAfterTrigger(false)
+  }, [isRunning])
+
+  // Safety: stop bridging poll after 30 s regardless (handles enqueue failures not surfaced as errors).
+  useEffect(() => {
+    if (!pollAfterTrigger) return
+    const t = setTimeout(() => setPollAfterTrigger(false), 30_000)
+    return () => clearTimeout(t)
+  }, [pollAfterTrigger])
 
   const lastSyncLabel = status?.lastSyncAt ? new Date(status.lastSyncAt).toLocaleString() : 'Never'
 
@@ -113,6 +137,14 @@ export function DirectorySyncCard() {
             Sync Now
           </Button>
         </div>
+        {isRunning && (status?.syncTotal ?? 0) > 0 && (
+          <div className="mt-3 flex flex-col gap-1.5">
+            <Progress value={(status!.syncProcessed / status!.syncTotal) * 100} />
+            <p className="text-xs text-muted-foreground">
+              {status!.syncProcessed} / {status!.syncTotal} users synced
+            </p>
+          </div>
+        )}
         {status?.lastSyncStats?.errorMessage && (
           <p className="mt-2 text-xs text-destructive">{status.lastSyncStats.errorMessage}</p>
         )}

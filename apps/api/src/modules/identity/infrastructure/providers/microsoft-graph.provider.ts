@@ -37,6 +37,16 @@ export interface GraphUserProfile {
   officeLocation: string | null
   mobilePhone: string | null
   businessPhones: string[]
+  jobTitle: string | null
+  department: string | null
+}
+
+export interface GraphUserPatch {
+  displayName?: string
+  mail?: string | null
+  officeLocation?: string | null
+  businessPhones?: string[]
+  mobilePhone?: string | null
 }
 
 interface GraphDeltaUser {
@@ -143,10 +153,33 @@ export class MicrosoftGraphProvider implements IDirectoryProvider {
     msUserId: string,
   ): Promise<{ user: GraphUserProfile; photo: Buffer | null }> {
     const user = await this.graphFetch<GraphUserProfile>(
-      `/users/${encodeURIComponent(msUserId)}?$select=id,displayName,mail,officeLocation,mobilePhone,businessPhones`,
+      `/users/${encodeURIComponent(msUserId)}?$select=id,displayName,mail,officeLocation,mobilePhone,businessPhones,jobTitle,department`,
     )
     const photo = await this.fetchUserPhoto(msUserId)
     return { user, photo }
+  }
+
+  async patchUser(msUserId: string, patch: GraphUserPatch): Promise<void> {
+    const token = await this.tokenAcquirer.acquire({
+      tenantAdId: this.credential.tenantAdId,
+      clientId: this.credential.clientId,
+      clientSecretRef: this.credential.clientSecretRef,
+      scopes: this.credential.scopes,
+    })
+    const response = await fetch(`${this.baseUrl}/users/${encodeURIComponent(msUserId)}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(patch),
+    })
+    if (!response.ok) {
+      const text = (await response.text()).trim()
+      throw new Error(
+        `Graph PATCH /users/${msUserId} failed: ${response.status}${text ? ` ${text}` : ''}`,
+      )
+    }
   }
 
   async listUsersDelta(deltaToken?: string): Promise<UsersDeltaResult> {

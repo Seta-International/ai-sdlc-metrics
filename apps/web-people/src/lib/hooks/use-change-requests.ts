@@ -1,39 +1,58 @@
+'use client'
+
 import * as React from 'react'
 import { trpc } from '../trpc'
-import type { ChangeRequest } from '../types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const anyTrpc = trpc as any
 
-type UseChangeRequestsReturn = {
-  requests: ChangeRequest[]
-  isLoading: boolean
-  error: string | null
-  refetch: () => void
+export interface ChangeRequestSummary {
+  id: string
+  fieldPath: string
+  batchId: string | null
+  status: string
+  reason: string | null
+  reviewNote: string | null
+  oldValue: unknown
+  newValue: unknown
+  createdAt: Date
 }
 
-export function useChangeRequests(employmentId: string): UseChangeRequestsReturn {
-  const [requests, setRequests] = React.useState<ChangeRequest[]>([])
+export function useChangeRequests(employmentId: string): {
+  items: ChangeRequestSummary[]
+  isLoading: boolean
+} {
+  const [items, setItems] = React.useState<ChangeRequestSummary[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
-  const [refetchKey, setRefetchKey] = React.useState(0)
 
   React.useEffect(() => {
-    void (async () => {
-      setIsLoading(true)
-      setError(null)
-      try {
-        const result = await (anyTrpc.people.profile.changeRequests.query({
-          employmentId,
-        }) as Promise<{ requests: ChangeRequest[] }>)
-        setRequests(result.requests)
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load change requests')
-      } finally {
-        setIsLoading(false)
-      }
-    })()
-  }, [employmentId, refetchKey])
+    let cancelled = false
+    setIsLoading(true)
+    void anyTrpc.people.listProfileChangeRequests
+      .query({ mode: 'byEmployment', employmentId })
+      .then((result: { items: ChangeRequestSummary[] } | null) => {
+        if (cancelled) return
+        setItems(result?.items ?? [])
+      })
+      .catch(() => {
+        if (!cancelled) setItems([])
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [employmentId])
 
-  return { requests, isLoading, error, refetch: () => setRefetchKey((k) => k + 1) }
+  return { items, isLoading }
+}
+
+/** Returns a Set of fieldPaths that have a pending change request */
+export function usePendingFieldPaths(employmentId: string): Set<string> {
+  const { items } = useChangeRequests(employmentId)
+  return React.useMemo(
+    () => new Set(items.filter((i) => i.status === 'pending').map((i) => i.fieldPath)),
+    [items],
+  )
 }

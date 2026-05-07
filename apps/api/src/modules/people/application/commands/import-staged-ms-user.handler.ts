@@ -5,7 +5,6 @@ import { ImportStagedMsUserCommand } from './import-staged-ms-user.command'
 import {
   StagedMsUserNotFoundException,
   StagedMsUserNotPendingException,
-  StagedMsUserAlreadyExistsAsEmploymentException,
 } from '../../domain/exceptions/people.exceptions'
 import {
   MS_STAGED_USER_REPOSITORY,
@@ -23,6 +22,7 @@ import {
   EMPLOYMENT_DETAIL_REPOSITORY,
   type IEmploymentDetailRepository,
 } from '../../domain/repositories/employment-detail.repository'
+import type { EmploymentDetail } from '../../domain/entities/employment-detail.entity'
 import {
   JOB_ASSIGNMENT_REPOSITORY,
   type IJobAssignmentRepository,
@@ -30,6 +30,43 @@ import {
 import { KernelActorFacade } from '../../../kernel/application/facades/kernel-actor.facade'
 import { KernelUserIdentityFacade } from '../../../kernel/application/facades/kernel-user-identity.facade'
 import { IdentityQueryFacade } from '../../../identity/application/facades/identity-query.facade'
+import { SearchIndexRebuildService } from '../services/search-index-rebuild.service'
+
+function buildEmploymentDetailInsert(
+  tenantId: string,
+  employmentId: string,
+  data: Partial<Omit<EmploymentDetail, 'id' | 'tenantId' | 'employmentId'>>,
+): Omit<EmploymentDetail, 'id'> {
+  return {
+    tenantId,
+    employmentId,
+    nationalId: null,
+    nationalIdType: null,
+    nationalIdIssuedDate: null,
+    nationalIdExpiryDate: null,
+    taxId: null,
+    socialInsuranceId: null,
+    passportNumber: null,
+    passportExpiryDate: null,
+    bankAccountNumber: null,
+    bankName: null,
+    bankBranch: null,
+    bankAccountHolder: null,
+    bankSwiftCode: null,
+    personalEmail: null,
+    personalPhone: null,
+    permanentAddress: null,
+    currentAddress: null,
+    emergencyContacts: null,
+    countryData: null,
+    customFields: null,
+    officeLocation: null,
+    workPhone: null,
+    msJobTitle: null,
+    msDepartment: null,
+    ...data,
+  }
+}
 
 @CommandHandler(ImportStagedMsUserCommand)
 export class ImportStagedMsUserHandler implements ICommandHandler<ImportStagedMsUserCommand> {
@@ -48,6 +85,7 @@ export class ImportStagedMsUserHandler implements ICommandHandler<ImportStagedMs
     private readonly kernelUserIdentityFacade: KernelUserIdentityFacade,
     private readonly identityFacade: IdentityQueryFacade,
     private readonly eventBus: EventBus,
+    private readonly searchIndexRebuildService: SearchIndexRebuildService,
   ) {}
 
   async execute(command: ImportStagedMsUserCommand): Promise<string> {
@@ -64,7 +102,9 @@ export class ImportStagedMsUserHandler implements ICommandHandler<ImportStagedMs
       throw new StagedMsUserNotPendingException(stagedUserId, staged.status)
     }
 
-    // 3. Guard: check if an active employment already exists for this AAD user
+    // 3. If an identity already exists for this AAD user, never create a duplicate actor or
+    //    identity. Adopt the existing employment if present; otherwise mark as imported with no
+    //    employment linkage (the person exists in the system but has no active employment).
     const existingActorId = await this.identityFacade.getActorIdByExternalUserId(
       staged.msExternalId,
       tenantId,
@@ -75,8 +115,51 @@ export class ImportStagedMsUserHandler implements ICommandHandler<ImportStagedMs
         tenantId,
       )
       if (existingEmployment) {
-        throw new StagedMsUserAlreadyExistsAsEmploymentException(staged.msExternalId)
+        const profile = await this.personProfileRepo.findByActorId(existingActorId, tenantId)
+        if (profile) {
+          await this.personProfileRepo.update(profile.id, tenantId, {
+            fullName: staged.displayName,
+            fullNameUnaccented: staged.displayName,
+            preferredName: staged.displayName,
+            familyName: staged.displayName,
+            givenName: staged.displayName,
+          })
+        }
+        if (staged.email) {
+          await this.employmentRepo.update(existingEmployment.id, tenantId, {
+            companyEmail: staged.email,
+          })
+        }
+        const detailUpdates = {
+          msJobTitle: staged.jobTitle,
+          msDepartment: staged.department,
+          officeLocation: staged.officeLocation ?? undefined,
+          workPhone: staged.workPhone ?? undefined,
+          personalPhone: staged.mobilePhone ?? undefined,
+        }
+        const existingDetail = await this.employmentDetailRepo.findByEmploymentId(
+          existingEmployment.id,
+          tenantId,
+        )
+        if (existingDetail) {
+          await this.employmentDetailRepo.update(existingEmployment.id, tenantId, detailUpdates)
+        } else {
+          await this.employmentDetailRepo.insert(
+            buildEmploymentDetailInsert(tenantId, existingEmployment.id, detailUpdates),
+          )
+        }
+        await this.searchIndexRebuildService.rebuildForEmployment(existingEmployment.id, tenantId)
+        await this.stagedUserRepo.updateStatus(
+          stagedUserId,
+          tenantId,
+          'imported',
+          existingEmployment.id,
+        )
+        return existingEmployment.id
       }
+      // Identity exists but no active employment — mark as imported to move out of pending.
+      await this.stagedUserRepo.updateStatus(stagedUserId, tenantId, 'imported', undefined)
+      return existingActorId
     }
 
     // 4. Create actor
@@ -165,6 +248,8 @@ export class ImportStagedMsUserHandler implements ICommandHandler<ImportStagedMs
       customFields: null,
       officeLocation: staged.officeLocation,
       workPhone: staged.workPhone,
+      msJobTitle: staged.jobTitle,
+      msDepartment: staged.department,
     })
 
     // 10. Insert job assignment (minimal — no job profile required for MS import)

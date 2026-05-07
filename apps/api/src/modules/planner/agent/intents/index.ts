@@ -9,3 +9,5 @@
 export { listMyTasksIntent } from './list-my-tasks'
 export { listMyPlansIntent } from './list-my-plans'
 export { listEvidenceIntent } from './list-evidence'
+export { getPlanStatusIntent } from './get-plan-status'
+export { listAtRiskPlansIntent } from './list-at-risk-plans'

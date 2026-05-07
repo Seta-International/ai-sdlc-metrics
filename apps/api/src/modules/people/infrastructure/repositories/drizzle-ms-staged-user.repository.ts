@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { and, count, eq } from 'drizzle-orm'
+import { and, count, desc, eq, sql } from 'drizzle-orm'
 import type { Db } from '@future/db'
 import { DB_TOKEN } from '../../../../common/db/db.module'
 import type { MsStagedUser, MsStagedUserStatus } from '../../domain/entities/ms-staged-user.entity'
@@ -28,7 +28,24 @@ export class DrizzleMsStagedUserRepository implements IMsStagedUserRepository {
     return (rows[0] as MsStagedUser | undefined) ?? null
   }
 
-  async upsertPending(
+  async findLatestImportedByEmail(email: string, tenantId: string): Promise<MsStagedUser | null> {
+    const rows = await this.db
+      .select()
+      .from(msStagedUser)
+      .where(
+        and(
+          eq(msStagedUser.tenantId, tenantId),
+          eq(msStagedUser.status, 'imported'),
+          sql`lower(${msStagedUser.email}) = lower(${email})`,
+        ),
+      )
+      .orderBy(desc(msStagedUser.lastSeenAt))
+      .limit(1)
+
+    return (rows[0] as MsStagedUser | undefined) ?? null
+  }
+
+  async upsertFromSync(
     tenantId: string,
     data: {
       msExternalId: string
@@ -44,12 +61,34 @@ export class DrizzleMsStagedUserRepository implements IMsStagedUserRepository {
     },
   ): Promise<MsStagedUser> {
     const now = new Date()
+
+    const existing = await this.findByMsExternalId(data.msExternalId, tenantId)
+
+    let newStatus: MsStagedUserStatus = 'pending'
+    if (existing) {
+      const hasChanged =
+        existing.displayName !== data.displayName ||
+        existing.email !== data.email ||
+        existing.jobTitle !== data.jobTitle ||
+        existing.department !== data.department ||
+        existing.officeLocation !== data.officeLocation ||
+        existing.mobilePhone !== data.mobilePhone ||
+        existing.workPhone !== data.workPhone ||
+        existing.managerMsId !== data.managerMsId
+
+      if (existing.status === 'pending' || hasChanged) {
+        newStatus = 'pending'
+      } else {
+        newStatus = existing.status
+      }
+    }
+
     const rows = await this.db
       .insert(msStagedUser)
       .values({
         tenantId,
         ...data,
-        status: 'pending',
+        status: newStatus,
         importedEmploymentId: null,
         lastSeenAt: now,
       })
@@ -65,11 +104,12 @@ export class DrizzleMsStagedUserRepository implements IMsStagedUserRepository {
           workPhone: data.workPhone,
           managerMsId: data.managerMsId,
           photoDocumentId: data.photoDocumentId,
-          status: 'pending',
+          status: newStatus,
           lastSeenAt: now,
         },
       })
       .returning()
+
     if (!rows[0]) throw new Error(`Upsert failed for msExternalId=${data.msExternalId}`)
     return rows[0] as MsStagedUser
   }
@@ -107,5 +147,22 @@ export class DrizzleMsStagedUserRepository implements IMsStagedUserRepository {
       .from(msStagedUser)
       .where(and(eq(msStagedUser.tenantId, tenantId), eq(msStagedUser.status, status)))
     return rows[0]?.count ?? 0
+  }
+
+  async findByImportedEmploymentId(
+    employmentId: string,
+    tenantId: string,
+  ): Promise<MsStagedUser | null> {
+    const rows = await this.db
+      .select()
+      .from(msStagedUser)
+      .where(
+        and(
+          eq(msStagedUser.importedEmploymentId, employmentId),
+          eq(msStagedUser.tenantId, tenantId),
+        ),
+      )
+      .limit(1)
+    return (rows[0] as MsStagedUser | undefined) ?? null
   }
 }

@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { EventBus } from '@nestjs/cqrs'
+import { ProfileChangeAppliedEvent } from '@future/event-contracts'
 import {
   PROFILE_CHANGE_REQUEST_REPOSITORY,
   type IProfileChangeRequestRepository,
@@ -13,10 +14,6 @@ export class ApplyScheduledChangesJob {
     private readonly eventBus: EventBus,
   ) {}
 
-  /**
-   * Runs daily. Finds all scheduled changes with effective_date <= today,
-   * applies them, and emits ProfileChangeAppliedEvent.
-   */
   async handle(tenantId: string): Promise<void> {
     const today = new Date()
     const scheduled = await this.changeRepo.findScheduledBeforeDate(tenantId, today)
@@ -29,16 +26,27 @@ export class ApplyScheduledChangesJob {
         undefined,
         'Auto-applied by scheduled job',
       )
+    }
 
-      this.eventBus.publish({
-        type: 'ProfileChangeAppliedEvent',
-        tenantId,
-        employmentId: change.employmentId,
-        fieldPath: change.fieldPath,
-        oldValue: change.oldValue,
-        newValue: change.newValue,
-        effectiveDate: change.effectiveDate,
-      })
+    const byEmployment = new Map<string, typeof scheduled>()
+    for (const c of scheduled) {
+      const arr = byEmployment.get(c.employmentId) ?? []
+      arr.push(c)
+      byEmployment.set(c.employmentId, arr)
+    }
+
+    for (const [employmentId, changes] of byEmployment) {
+      this.eventBus.publish(
+        new ProfileChangeAppliedEvent(
+          tenantId,
+          employmentId,
+          changes.map((c) => ({
+            fieldPath: c.fieldPath,
+            oldValue: c.oldValue,
+            newValue: c.newValue,
+          })),
+        ),
+      )
     }
   }
 }

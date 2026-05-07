@@ -11,4 +11,6 @@ export interface IPersonProfileRepository {
     tenantId: string,
     data: Partial<Omit<PersonProfile, 'id' | 'tenantId' | 'actorId' | 'createdAt'>>,
   ): Promise<PersonProfile>
+
+  findManyByIds(ids: string[], tenantId: string): Promise<PersonProfile[]>
 }

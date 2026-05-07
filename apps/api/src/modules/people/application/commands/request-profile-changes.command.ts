@@ -11,5 +11,6 @@ export class RequestProfileChangesCommand {
     readonly employmentId: string,
     readonly changes: ProfileChangeItem[],
     readonly requestedBy: string,
+    readonly reason?: string | null,
   ) {}
 }

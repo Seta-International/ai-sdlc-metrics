@@ -1020,4 +1020,32 @@ describe('AgentTurnController — Plan 18 live pipeline (R-18.1, R-18.2, R-18.3,
     expect(evt.payload.reason).toBe('error')
     expect(evt.payload.cause).toBe('synthesizer_failure')
   })
+
+  it('passes execution_mode bypass from body to PhaseExecutorTurnState', async () => {
+    const { controller, pipelineRunner } = makeController()
+    const req = makeReq({
+      cookieHeader: makeCookieHeader('valid-token'),
+      body: { user_utterance: 'hello', surface: 'panel', execution_mode: 'bypass' },
+    })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    const arg = (pipelineRunner.run as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]
+    expect(arg.turnState?.executionMode).toBe('bypass')
+  })
+
+  it('defaults executionMode to default when field is absent', async () => {
+    const { controller, pipelineRunner } = makeController()
+    const req = makeReq({
+      cookieHeader: makeCookieHeader('valid-token'),
+      body: { user_utterance: 'hello', surface: 'panel' },
+    })
+    const res = makeRes()
+
+    await controller.streamTurn(req as never, res as never)
+
+    const arg = (pipelineRunner.run as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]
+    expect(arg.turnState?.executionMode).toBe('default')
+  })
 })

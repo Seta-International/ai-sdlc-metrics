@@ -43,6 +43,8 @@ const fakeProvider: IdentityProviderEntity = {
   syncEnabled: true,
   lastSyncAt: new Date('2026-04-10T10:00:00Z'),
   syncStatus: 'idle',
+  syncProcessed: 0,
+  syncTotal: 0,
   createdAt: new Date(),
   updatedAt: new Date(),
 }

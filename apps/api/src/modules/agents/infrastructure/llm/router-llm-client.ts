@@ -29,6 +29,7 @@ import { RouterPlanSchema } from '../../domain/value-objects/router-plan-schema'
 import type { RouterPlan } from '../../domain/value-objects/router-plan-schema'
 import type { ModelChoice } from '../../domain/services/sub-agent-types'
 import { ROUTER_LLM_TIMEOUT_MS } from '../../application/services/router-budget'
+import { withProviderRetry } from '../adapters/provider-retry'
 
 export const ROUTER_LLM_CLIENT = Symbol('ROUTER_LLM_CLIENT')
 
@@ -111,23 +112,28 @@ export class RouterLlmClient implements OnModuleInit {
       // are caught and returned as { kind: 'malformed' } rather than thrown.
       const languageModel = this._resolveModel(model)
 
-      const result = await generateObject({
-        model: languageModel,
-        schema: RouterPlanSchema,
-        // systemPrompt is the router's top-level policy/persona prompt (high trust).
-        // developerMessage is the constraints/format section (developer-level trust).
-        // userMessage is the raw user utterance (user-level trust).
-        // Vercel AI SDK v6 supports `system` + `messages` simultaneously.
-        system: systemPrompt,
-        messages: [
-          // A second system-role message carries developer-level instructions.
-          // OpenAI accepts multiple system messages in the array; the SDK v6
-          // `ModelMessage` type includes `{ role: 'system', content: string }`.
-          { role: 'system', content: developerMessage },
-          { role: 'user', content: userMessage },
-        ],
-        abortSignal: controller.signal,
-      })
+      const result = await withProviderRetry(
+        () =>
+          generateObject({
+            model: languageModel,
+            schema: RouterPlanSchema,
+            // systemPrompt is the router's top-level policy/persona prompt (high trust).
+            // developerMessage is the constraints/format section (developer-level trust).
+            // userMessage is the raw user utterance (user-level trust).
+            // Vercel AI SDK v6 supports `system` + `messages` simultaneously.
+            system: systemPrompt,
+            messages: [
+              // A second system-role message carries developer-level instructions.
+              // OpenAI accepts multiple system messages in the array; the SDK v6
+              // `ModelMessage` type includes `{ role: 'system', content: string }`.
+              { role: 'system', content: developerMessage },
+              { role: 'user', content: userMessage },
+            ],
+            maxRetries: 0,
+            abortSignal: controller.signal,
+          }),
+        { maxAttempts: 2 },
+      )
 
       // SDK v6 `LanguageModelUsage` uses `inputTokens`/`outputTokens`/`totalTokens`.
       // We map to our canonical names so downstream code is SDK-agnostic.

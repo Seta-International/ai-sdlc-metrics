@@ -1,41 +1,41 @@
 import * as React from 'react'
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, cleanup, act } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { ColumnDef } from '@future/ui'
+import type { ChangeRequestRow } from '../../lib/types-workflows'
 
-// Hoist mocks so they are available before vi.mock factories run
-const { mockListQuery } = vi.hoisted(() => ({
-  mockListQuery: vi.fn().mockResolvedValue({
-    requests: [],
-    totalCount: 0,
-    stats: { pending: 0, approvedToday: 0, rejectedToday: 0, oldestDays: 0 },
-  }),
+const mockUseHrChangeRequests = vi.fn()
+
+vi.mock('../../lib/hooks/use-hr-change-requests', () => ({
+  useHrChangeRequests: (filter: 'all_pending' | 'recent') => mockUseHrChangeRequests(filter),
 }))
 
-// Mock next/navigation
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn() }),
-  usePathname: () => '/',
-}))
-
-// Mock trpc with a deep stub for the changeRequests path
 vi.mock('../../lib/trpc', () => ({
   trpc: {
     people: {
-      changeRequests: {
-        list: {
-          query: mockListQuery,
-        },
-      },
+      batchApproveChanges: { mutate: vi.fn() },
+      batchRejectChanges: { mutate: vi.fn() },
     },
   },
 }))
 
-// Capture columns passed to DataTable so we can assert on them
-let _capturedColumns: ColumnDef<unknown>[] = []
+vi.mock('@future/auth', () => ({
+  useSession: () => ({
+    actorId: '01900000-0000-7000-8000-000000000001',
+    tenantId: '01900000-0000-7000-8000-000000000002',
+  }),
+}))
 
-// Mock @future/ui with simple passthrough components
+let capturedColumns: ColumnDef<ChangeRequestRow>[] = []
+let capturedEnableRowSelection: boolean | undefined
+
 vi.mock('@future/ui', () => {
+  const TabsContext = React.createContext<{
+    value: string
+    onValueChange: (value: string) => void
+  } | null>(null)
+
   const defaultTableState = {
     search: '',
     filters: [],
@@ -48,218 +48,212 @@ vi.mock('@future/ui', () => {
 
   function DataTable({
     columns,
-    isLoading,
+    enableRowSelection,
   }: {
-    columns: ColumnDef<unknown>[]
-    rows: unknown[]
+    columns: ColumnDef<ChangeRequestRow>[]
+    rows: ChangeRequestRow[]
+    state: unknown
+    totalCount: number
+    onStateChange: (state: unknown) => void
     isLoading?: boolean
-    state?: unknown
-    totalCount?: number
-    onStateChange?: (s: unknown) => void
+    enableRowSelection?: boolean
   }) {
-    _capturedColumns = columns
-    if (isLoading) return <div data-testid="data-table-loading">Loading...</div>
-    return (
-      <div data-testid="data-table">
-        <table>
-          <thead>
-            <tr>
-              {columns.map((col) => {
-                const key =
-                  'id' in col ? col.id : 'accessorKey' in col ? String(col.accessorKey) : ''
-                const header = typeof col.header === 'string' ? col.header : key
-                return <th key={key}>{header}</th>
-              })}
-            </tr>
-          </thead>
-        </table>
-      </div>
-    )
-  }
-
-  function Badge({ children, variant }: { children: React.ReactNode; variant?: string }) {
-    return (
-      <span data-testid="badge" data-variant={variant}>
-        {children}
-      </span>
-    )
-  }
-
-  function Button({
-    children,
-    ...props
-  }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-    variant?: string
-    size?: string
-    asChild?: boolean
-  }) {
-    return <button {...props}>{children}</button>
-  }
-
-  function Card({ children, className }: { children: React.ReactNode; className?: string }) {
-    return (
-      <div data-testid="stats-card" className={className}>
-        {children}
-      </div>
-    )
-  }
-
-  function AlertDialog({ children }: { children: React.ReactNode }) {
-    return <div>{children}</div>
-  }
-
-  function AlertDialogTrigger({
-    children,
-    asChild: _asChild,
-  }: {
-    children: React.ReactNode
-    asChild?: boolean
-  }) {
-    return <div>{children}</div>
-  }
-
-  function AlertDialogContent({ children }: { children: React.ReactNode }) {
-    return <div>{children}</div>
-  }
-
-  function AlertDialogHeader({ children }: { children: React.ReactNode }) {
-    return <div>{children}</div>
-  }
-
-  function AlertDialogTitle({ children }: { children: React.ReactNode }) {
-    return <div>{children}</div>
-  }
-
-  function AlertDialogDescription({ children }: { children: React.ReactNode }) {
-    return <div>{children}</div>
-  }
-
-  function AlertDialogFooter({ children }: { children: React.ReactNode }) {
-    return <div>{children}</div>
-  }
-
-  function AlertDialogAction({ children }: { children: React.ReactNode }) {
-    return <button>{children}</button>
-  }
-
-  function AlertDialogCancel({ children }: { children: React.ReactNode }) {
-    return <button>{children}</button>
+    capturedColumns = columns
+    capturedEnableRowSelection = enableRowSelection
+    return <div data-testid="data-table" />
   }
 
   function Tabs({
     children,
     value,
-    onValueChange: _onValueChange,
+    onValueChange,
   }: {
     children: React.ReactNode
-    value?: string
-    onValueChange?: (v: string) => void
+    value: string
+    onValueChange: (value: string) => void
   }) {
     return (
-      <div data-testid="tabs" data-value={value}>
-        {children}
-      </div>
+      <TabsContext.Provider value={{ value, onValueChange }}>
+        <div>{children}</div>
+      </TabsContext.Provider>
     )
   }
 
   function TabsList({ children }: { children: React.ReactNode }) {
-    return <div data-testid="tabs-list">{children}</div>
-  }
-
-  function TabsTrigger({ children, value }: { children: React.ReactNode; value: string }) {
-    return <button data-testid={`tab-${value}`}>{children}</button>
-  }
-
-  function TabsContent({ children }: { children: React.ReactNode; value?: string }) {
     return <div>{children}</div>
   }
 
+  function TabsTrigger({ children, value }: { children: React.ReactNode; value: string }) {
+    const ctx = React.useContext(TabsContext)
+    return (
+      <button type="button" role="tab" onClick={() => ctx?.onValueChange(value)}>
+        {children}
+      </button>
+    )
+  }
+
+  function TabsContent({ children, value }: { children: React.ReactNode; value: string }) {
+    const ctx = React.useContext(TabsContext)
+    return ctx?.value === value ? <div>{children}</div> : null
+  }
+
+  function Card({ children }: { children: React.ReactNode; className?: string }) {
+    return <div data-testid="stats-card">{children}</div>
+  }
+
+  function Button({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+    return <button {...props}>{children}</button>
+  }
+
+  function Checkbox() {
+    return <div data-testid="checkbox" />
+  }
+
+  function Badge({ children }: { children: React.ReactNode; variant?: string }) {
+    return <span>{children}</span>
+  }
+
+  function AlertDialog({ children }: { children: React.ReactNode }) {
+    return <div>{children}</div>
+  }
+  function AlertDialogTrigger({ children }: { children: React.ReactNode; asChild?: boolean }) {
+    return <div>{children}</div>
+  }
+  function AlertDialogContent({ children }: { children: React.ReactNode }) {
+    return <div>{children}</div>
+  }
+  function AlertDialogHeader({ children }: { children: React.ReactNode }) {
+    return <div>{children}</div>
+  }
+  function AlertDialogTitle({ children }: { children: React.ReactNode }) {
+    return <div>{children}</div>
+  }
+  function AlertDialogDescription({ children }: { children: React.ReactNode }) {
+    return <div>{children}</div>
+  }
+  function AlertDialogFooter({ children }: { children: React.ReactNode }) {
+    return <div>{children}</div>
+  }
+  function AlertDialogAction({ children }: { children: React.ReactNode }) {
+    return <button>{children}</button>
+  }
+  function AlertDialogCancel({ children }: { children: React.ReactNode }) {
+    return <button>{children}</button>
+  }
+  function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+    return <textarea {...props} />
+  }
+  function Spinner() {
+    return <div data-testid="spinner" />
+  }
+  const toast = { success: vi.fn(), error: vi.fn() }
+
   return {
-    DataTable,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
     Badge,
     Button,
     Card,
-    AlertDialog,
-    AlertDialogTrigger,
-    AlertDialogContent,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogAction,
-    AlertDialogCancel,
+    Checkbox,
+    DataTable,
+    Spinner,
     Tabs,
+    TabsContent,
     TabsList,
     TabsTrigger,
-    TabsContent,
+    Textarea,
     defaultTableState,
+    toast,
   }
 })
 
-// Mock avatar-name-cell
-vi.mock('../avatar-name-cell', () => ({
-  AvatarNameCell: ({ fullName }: { fullName: string; avatarUrl?: string | null }) => (
-    <div data-testid="avatar-name-cell">
-      <span>{fullName}</span>
-    </div>
-  ),
+vi.mock('@future/ui/icons', () => ({
+  ArrowRight: () => <span>{'->'}</span>,
+  Check: () => <span>check</span>,
+  X: () => <span>x</span>,
 }))
 
-import { ChangeRequestQueue } from './ChangeRequestQueue'
+vi.mock('../AvatarNameCell', () => ({
+  AvatarNameCell: ({ fullName }: { fullName: string }) => <div>{fullName}</div>,
+}))
+
+const pendingRow: ChangeRequestRow = {
+  id: 'batch-1',
+  employmentId: 'emp-1',
+  employeeName: 'Alice Johnson',
+  avatarUrl: null,
+  fieldPath: 'employment_detail.personal_phone',
+  fieldLabel: 'Personal phone',
+  oldValue: '0901',
+  newValue: '0902',
+  requestedBy: 'actor-1',
+  requestedByName: 'Alice Johnson',
+  requestedAt: '2026-05-05T00:00:00.000Z',
+  effectiveDate: null,
+  status: 'pending',
+  reviewedBy: null,
+  reviewedByName: null,
+  reviewedAt: null,
+  reviewNote: null,
+  editPolicyLabel: 'HR approval',
+}
+
+const decidedRow: ChangeRequestRow = {
+  ...pendingRow,
+  id: 'batch-2',
+  status: 'approved',
+  reviewedBy: 'reviewer-1',
+  reviewedByName: 'HR Reviewer',
+  reviewedAt: '2026-05-05T01:00:00.000Z',
+}
+
+async function renderQueue() {
+  const { ChangeRequestQueue } = await import('./ChangeRequestQueue')
+  render(<ChangeRequestQueue />)
+}
 
 describe('ChangeRequestQueue', () => {
   beforeEach(() => {
-    _capturedColumns = []
-    mockListQuery.mockResolvedValue({
-      requests: [],
-      totalCount: 0,
-      stats: { pending: 0, approvedToday: 0, rejectedToday: 0, oldestDays: 0 },
-    })
+    capturedColumns = []
+    capturedEnableRowSelection = undefined
+    mockUseHrChangeRequests.mockImplementation((filter: 'all_pending' | 'recent') => ({
+      rows: filter === 'recent' ? [decidedRow] : [pendingRow],
+      stats: { pending: 1, approvedToday: 1, rejectedToday: 0, oldestDays: 0 },
+      isLoading: false,
+      refetch: vi.fn(),
+    }))
   })
 
   afterEach(() => {
     cleanup()
   })
 
-  it('renders without crashing (smoke test)', async () => {
-    const { container } = render(<ChangeRequestQueue />)
-    expect(container).toBeTruthy()
-    await act(async () => {
-      await Promise.resolve()
-    })
+  it('renders the stats bar with four cards', async () => {
+    await renderQueue()
+    expect(screen.getAllByTestId('stats-card')).toHaveLength(4)
   })
 
-  it('renders 4 stats cards', async () => {
-    await act(async () => {
-      render(<ChangeRequestQueue />)
-      await Promise.resolve()
-    })
-    const cards = screen.getAllByTestId('stats-card')
-    expect(cards).toHaveLength(4)
+  it('disables built-in DataTable row selection for this screen', async () => {
+    await renderQueue()
+    expect(capturedEnableRowSelection).toBe(false)
   })
 
-  it('renders all three tab triggers', async () => {
-    await act(async () => {
-      render(<ChangeRequestQueue />)
-      await Promise.resolve()
-    })
-    expect(screen.getByTestId('tab-my_review')).toBeInTheDocument()
-    expect(screen.getByTestId('tab-all_pending')).toBeInTheDocument()
-    expect(screen.getByTestId('tab-recent')).toBeInTheDocument()
+  it('includes a custom select column in the All Pending tab', async () => {
+    await renderQueue()
+    await userEvent.click(screen.getByRole('tab', { name: /all pending/i }))
+    expect(capturedColumns.some((column) => 'id' in column && column.id === 'select')).toBe(true)
   })
 
-  it('renders tab labels correctly', async () => {
-    await act(async () => {
-      render(<ChangeRequestQueue />)
-      await Promise.resolve()
-    })
-    expect(screen.getByText('Pending My Review')).toBeInTheDocument()
-    expect(screen.getByText('All Pending')).toBeInTheDocument()
-    expect(screen.getByText('Recently Decided')).toBeInTheDocument()
-  })
-
-  it('renders DataTable in loading state initially', () => {
-    render(<ChangeRequestQueue />)
-    expect(screen.getByTestId('data-table-loading')).toBeInTheDocument()
+  it('does not include a select column in the Recently Decided tab', async () => {
+    await renderQueue()
+    await userEvent.click(screen.getByRole('tab', { name: /recently decided/i }))
+    expect(capturedColumns.some((column) => 'id' in column && column.id === 'select')).toBe(false)
   })
 })

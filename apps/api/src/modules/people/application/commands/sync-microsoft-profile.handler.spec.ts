@@ -10,6 +10,7 @@ import type { StorageClient } from '../../domain/ports/people-storage-client.por
 import type { Employment } from '../../domain/entities/employment.entity'
 import type { PersonProfile } from '../../domain/entities/person-profile.entity'
 import type { EmploymentDetail } from '../../domain/entities/employment-detail.entity'
+import type { SearchIndexRebuildService } from '../services/search-index-rebuild.service'
 
 const TENANT_ID = '01900000-0000-7000-8000-000000000001'
 const EMPLOYMENT_ID = '01900000-0000-7000-8000-000000000020'
@@ -89,6 +90,8 @@ function makeDetail(overrides: Partial<EmploymentDetail> = {}): EmploymentDetail
     customFields: null,
     officeLocation: null,
     workPhone: null,
+    msJobTitle: null,
+    msDepartment: null,
     ...overrides,
   }
 }
@@ -100,6 +103,8 @@ const fullMsData = {
   mobilePhone: '+84901234567',
   businessPhone: '+84281234567',
   photo: Buffer.from('jpeg-bytes'),
+  jobTitle: 'Senior Engineer',
+  department: 'Engineering',
 }
 
 describe('SyncMicrosoftProfileHandler', () => {
@@ -109,6 +114,7 @@ describe('SyncMicrosoftProfileHandler', () => {
   let employmentDetailRepo: IEmploymentDetailRepository
   let identityFacade: IdentityQueryFacade
   let storageClient: StorageClient
+  let searchIndexRebuildService: SearchIndexRebuildService
 
   beforeEach(() => {
     employmentRepo = {
@@ -130,7 +136,7 @@ describe('SyncMicrosoftProfileHandler', () => {
       update: vi.fn(),
     }
     employmentDetailRepo = {
-      findByEmploymentId: vi.fn(),
+      findByEmploymentId: vi.fn().mockResolvedValue(makeDetail()),
       insert: vi.fn(),
       update: vi.fn(),
     }
@@ -144,6 +150,10 @@ describe('SyncMicrosoftProfileHandler', () => {
       deleteObject: vi.fn(),
       headObject: vi.fn(),
     }
+    searchIndexRebuildService = {
+      rebuildForEmployment: vi.fn(),
+      rebuildAllForTenant: vi.fn(),
+    } as unknown as SearchIndexRebuildService
 
     handler = new SyncMicrosoftProfileHandler(
       employmentRepo,
@@ -151,6 +161,7 @@ describe('SyncMicrosoftProfileHandler', () => {
       employmentDetailRepo,
       identityFacade,
       storageClient,
+      searchIndexRebuildService,
     )
   })
 
@@ -176,6 +187,7 @@ describe('SyncMicrosoftProfileHandler', () => {
     expect(personProfileRepo.update).not.toHaveBeenCalled()
     expect(employmentRepo.update).not.toHaveBeenCalled()
     expect(employmentDetailRepo.update).not.toHaveBeenCalled()
+    expect(searchIndexRebuildService.rebuildForEmployment).not.toHaveBeenCalled()
   })
 
   it('updates all authoritative fields on happy path', async () => {
@@ -200,6 +212,8 @@ describe('SyncMicrosoftProfileHandler', () => {
         'officeLocation',
         'personalPhone',
         'workPhone',
+        'msJobTitle',
+        'msDepartment',
       ]),
     )
     expect(personProfileRepo.update).toHaveBeenCalledWith(
@@ -219,12 +233,18 @@ describe('SyncMicrosoftProfileHandler', () => {
         officeLocation: 'Ho Chi Minh City',
         personalPhone: '+84901234567',
         workPhone: '+84281234567',
+        msJobTitle: 'Senior Engineer',
+        msDepartment: 'Engineering',
       }),
     )
     expect(storageClient.putObject).toHaveBeenCalledWith(
       expect.stringMatching(new RegExp(`^people/photos/${TENANT_ID}/${PROFILE_ID}/[\\w-]+\\.jpg$`)),
       fullMsData.photo,
       'image/jpeg',
+    )
+    expect(searchIndexRebuildService.rebuildForEmployment).toHaveBeenCalledWith(
+      EMPLOYMENT_ID,
+      TENANT_ID,
     )
   })
 
@@ -248,6 +268,10 @@ describe('SyncMicrosoftProfileHandler', () => {
     expect(result.updatedFields).toEqual(
       expect.arrayContaining(['fullName', 'preferredName', 'companyEmail']),
     )
+    expect(searchIndexRebuildService.rebuildForEmployment).toHaveBeenCalledWith(
+      EMPLOYMENT_ID,
+      TENANT_ID,
+    )
   })
 
   it('propagates Graph API errors without partial writes', async () => {
@@ -264,5 +288,36 @@ describe('SyncMicrosoftProfileHandler', () => {
     expect(personProfileRepo.update).not.toHaveBeenCalled()
     expect(employmentRepo.update).not.toHaveBeenCalled()
     expect(employmentDetailRepo.update).not.toHaveBeenCalled()
+    expect(searchIndexRebuildService.rebuildForEmployment).not.toHaveBeenCalled()
+  })
+
+  it('inserts employment detail when the record is missing', async () => {
+    vi.mocked(employmentRepo.findById).mockResolvedValue(makeEmployment())
+    vi.mocked(personProfileRepo.findById).mockResolvedValue(makeProfile())
+    vi.mocked(identityFacade.getMicrosoftUserData).mockResolvedValue(fullMsData)
+    vi.mocked(storageClient.putObject).mockResolvedValue(undefined)
+    vi.mocked(personProfileRepo.update).mockResolvedValue(makeProfile())
+    vi.mocked(employmentRepo.update).mockResolvedValue(makeEmployment())
+    vi.mocked(employmentDetailRepo.findByEmploymentId).mockResolvedValue(null)
+    vi.mocked(employmentDetailRepo.insert).mockResolvedValue(makeDetail())
+
+    await handler.execute(new SyncMicrosoftProfileCommand(TENANT_ID, EMPLOYMENT_ID, PERFORMER_ID))
+
+    expect(employmentDetailRepo.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: TENANT_ID,
+        employmentId: EMPLOYMENT_ID,
+        officeLocation: 'Ho Chi Minh City',
+        personalPhone: '+84901234567',
+        workPhone: '+84281234567',
+        msJobTitle: 'Senior Engineer',
+        msDepartment: 'Engineering',
+      }),
+    )
+    expect(employmentDetailRepo.update).not.toHaveBeenCalled()
+    expect(searchIndexRebuildService.rebuildForEmployment).toHaveBeenCalledWith(
+      EMPLOYMENT_ID,
+      TENANT_ID,
+    )
   })
 })

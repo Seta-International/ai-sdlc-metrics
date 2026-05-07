@@ -103,4 +103,26 @@ describe('S3StorageClient', () => {
 
     expect(mockSend).toHaveBeenCalledOnce()
   })
+
+  it('getObjectBuffer returns concatenated chunks from object body stream', async () => {
+    const bodyStream: AsyncIterable<Uint8Array> = {
+      async *[Symbol.asyncIterator]() {
+        yield Buffer.from('hello ')
+        yield Buffer.from('world')
+      },
+    }
+    mockSend.mockResolvedValue({ Body: bodyStream })
+
+    const result = await client.getObjectBuffer('tenant/file.txt')
+
+    expect(result).toEqual(Buffer.from('hello world'))
+  })
+
+  it('getObjectBuffer throws when response body is empty', async () => {
+    mockSend.mockResolvedValue({ Body: undefined })
+
+    await expect(client.getObjectBuffer('tenant/file.txt')).rejects.toThrow(
+      'S3StorageClient: empty body for key tenant/file.txt',
+    )
+  })
 })

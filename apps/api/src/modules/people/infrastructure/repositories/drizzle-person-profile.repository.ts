@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import type { Db } from '@future/db'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import type { PersonProfile } from '../../domain/entities/person-profile.entity'
 import type { IPersonProfileRepository } from '../../domain/repositories/person-profile.repository'
 import { DB_TOKEN } from '../../../../common/db/db.module'
@@ -49,5 +49,14 @@ export class DrizzlePersonProfileRepository implements IPersonProfileRepository 
       .where(and(eq(personProfile.id, id), eq(personProfile.tenantId, tenantId)))
       .returning()
     return rows[0] as PersonProfile
+  }
+
+  async findManyByIds(ids: string[], tenantId: string): Promise<PersonProfile[]> {
+    if (ids.length === 0) return []
+    const rows = await this.db
+      .select()
+      .from(personProfile)
+      .where(and(eq(personProfile.tenantId, tenantId), inArray(personProfile.id, ids)))
+    return rows as PersonProfile[]
   }
 }

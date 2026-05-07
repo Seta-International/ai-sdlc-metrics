@@ -124,6 +124,8 @@ export class OnCandidateHiredHandler implements IEventHandler<CandidateHiredEven
       customFields: null,
       officeLocation: null,
       workPhone: null,
+      msJobTitle: null,
+      msDepartment: null,
     })
 
     // 4. Create initial job assignment

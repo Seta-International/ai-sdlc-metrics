@@ -157,6 +157,8 @@ export const employmentDetail = peopleSchema.table(
     customFields: jsonb('custom_fields'),
     officeLocation: text('office_location'),
     workPhone: text('work_phone'),
+    msJobTitle: text('ms_job_title'),
+    msDepartment: text('ms_department'),
   },
   (table) => [
     uniqueIndex('employment_detail_tenant_employment_uidx').on(table.tenantId, table.employmentId),
@@ -309,6 +311,11 @@ export const onboardingCase = peopleSchema.table('onboarding_case', {
   })
     .notNull()
     .default('in_progress'),
+  stage: text('stage', {
+    enum: ['offer_accepted', 'paperwork', 'equipment', 'first_day_ready'],
+  })
+    .notNull()
+    .default('offer_accepted'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })

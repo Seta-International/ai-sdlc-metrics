@@ -34,6 +34,8 @@ const makeProvider = (overrides = {}) => ({
   syncEnabled: true,
   lastSyncAt: null,
   syncStatus: 'idle' as const,
+  syncProcessed: 0,
+  syncTotal: 0,
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,
@@ -237,6 +239,54 @@ describe('RunDirectorySyncHandler', () => {
     const publishedEvent = eventBus.publish.mock.calls[0][0] as DirectorySyncCompletedEvent
     expect(publishedEvent.tenantId).toBe(TENANT_ID)
     expect(publishedEvent.identityProviderId).toBe(PROVIDER_ID)
+  })
+
+  it('sets syncTotal to user count and syncProcessed=0 before processing users', async () => {
+    vi.mocked(providerRepo.findById).mockResolvedValue(makeProvider())
+    vi.mocked(providerRepo.update).mockResolvedValue(undefined)
+    const idpUsers: IdpUser[] = [
+      { externalId: 'u1', email: 'u1@seta.vn', displayName: 'U1', isActive: true },
+      { externalId: 'u2', email: 'u2@seta.vn', displayName: 'U2', isActive: true },
+      { externalId: 'u3', email: 'u3@seta.vn', displayName: 'U3', isActive: true },
+    ]
+    vi.mocked(directoryProvider.listUsers).mockResolvedValue(idpUsers)
+    vi.mocked(directoryProvider.listGroupsWithMembers).mockResolvedValue([])
+    vi.mocked(mappingRepo.findByProviderId).mockResolvedValue([])
+    vi.mocked(actorFacade.createActor).mockResolvedValue('new-actor')
+    vi.mocked(userIdentityFacade.createUserIdentity).mockResolvedValue(undefined)
+
+    await handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID))
+
+    const updateCalls = vi.mocked(providerRepo.update).mock.calls
+    const progressInitCall = updateCalls.find(
+      ([, , data]) =>
+        'syncTotal' in data &&
+        (data as Record<string, unknown>).syncTotal === 3 &&
+        (data as Record<string, unknown>).syncProcessed === 0,
+    )
+    expect(progressInitCall).toBeDefined()
+  })
+
+  it('sets syncProcessed to total user count after successful sync', async () => {
+    vi.mocked(providerRepo.findById).mockResolvedValue(makeProvider())
+    vi.mocked(providerRepo.update).mockResolvedValue(undefined)
+    const idpUsers: IdpUser[] = [
+      { externalId: 'u1', email: 'u1@seta.vn', displayName: 'U1', isActive: true },
+      { externalId: 'u2', email: 'u2@seta.vn', displayName: 'U2', isActive: true },
+    ]
+    vi.mocked(directoryProvider.listUsers).mockResolvedValue(idpUsers)
+    vi.mocked(directoryProvider.listGroupsWithMembers).mockResolvedValue([])
+    vi.mocked(mappingRepo.findByProviderId).mockResolvedValue([])
+    vi.mocked(actorFacade.createActor).mockResolvedValue('new-actor')
+    vi.mocked(userIdentityFacade.createUserIdentity).mockResolvedValue(undefined)
+
+    await handler.execute(new RunDirectorySyncCommand(TENANT_ID, PROVIDER_ID))
+
+    expect(providerRepo.update).toHaveBeenCalledWith(
+      PROVIDER_ID,
+      TENANT_ID,
+      expect.objectContaining({ syncStatus: 'idle', syncProcessed: 2, syncTotal: 2 }),
+    )
   })
 
   it('does NOT publish event when sync throws', async () => {

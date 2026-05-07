@@ -3,6 +3,8 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import type { AgentInsight } from '../types'
 
+export type ExecutionMode = 'default' | 'bypass'
+
 export interface AgentStateContextValue {
   panelOpen: boolean
   setPanelOpen: (open: boolean) => void
@@ -13,6 +15,8 @@ export interface AgentStateContextValue {
   setInsights: (insights: AgentInsight[]) => void
   addInsight: (insight: AgentInsight) => void
   dismissInsight: (id: string) => void
+  executionMode: ExecutionMode
+  setExecutionMode: (mode: ExecutionMode) => void
 }
 
 const AgentStateContext = createContext<AgentStateContextValue | null>(null)
@@ -21,6 +25,7 @@ export function AgentStateProvider({ children }: { children: ReactNode }) {
   const [panelOpen, setPanelOpen] = useState(false)
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [insights, setInsights] = useState<AgentInsight[]>([])
+  const [executionMode, setExecutionMode] = useState<ExecutionMode>('default')
 
   const togglePanel = useCallback(() => setPanelOpen((prev) => !prev), [])
   const addInsight = useCallback(
@@ -44,6 +49,8 @@ export function AgentStateProvider({ children }: { children: ReactNode }) {
         setInsights,
         addInsight,
         dismissInsight,
+        executionMode,
+        setExecutionMode,
       }}
     >
       {children}

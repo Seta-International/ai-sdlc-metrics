@@ -31,6 +31,10 @@ const EMPLOYEE_DEFAULTS: DefaultPermissionEntry[] = [
   { permissionKey: PERMISSIONS.PLANNER_PLAN_CREATE, isLocked: false },
   { permissionKey: PERMISSIONS.PLANNER_PERSONAL_READ, isLocked: false },
   { permissionKey: PERMISSIONS.PLANNER_PERSONAL_WRITE, isLocked: false },
+  { permissionKey: PERMISSIONS.PLANNER_AGENT_LIST_MY_TASKS, isLocked: false },
+  { permissionKey: PERMISSIONS.PLANNER_AGENT_LIST_MY_PLANS, isLocked: false },
+  { permissionKey: PERMISSIONS.PLANNER_AGENT_LIST_EVIDENCE, isLocked: false },
+  { permissionKey: PERMISSIONS.AGENT_KB_RETRIEVE, isLocked: false },
 ]
 
 /**
@@ -86,6 +90,10 @@ export const DEFAULT_ROLE_PERMISSIONS: DefaultRolePermissionMap = {
     { permissionKey: PERMISSIONS.PEOPLE_DIRECTORY_READ, isLocked: false },
     { permissionKey: PERMISSIONS.TIME_LEAVE_APPROVE, isLocked: false },
     { permissionKey: PERMISSIONS.PERFORMANCE_REVIEW_SUBMIT, isLocked: false },
+    { permissionKey: PERMISSIONS.PLANNER_AGENT_LIST_MY_TASKS, isLocked: false },
+    { permissionKey: PERMISSIONS.PLANNER_AGENT_LIST_MY_PLANS, isLocked: false },
+    { permissionKey: PERMISSIONS.PLANNER_AGENT_LIST_EVIDENCE, isLocked: false },
+    { permissionKey: PERMISSIONS.AGENT_KB_RETRIEVE, isLocked: false },
   ],
 
   hr_ops: [

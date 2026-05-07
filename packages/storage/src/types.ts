@@ -26,6 +26,7 @@ export interface StorageClient {
   getUploadUrl(key: string, opts: UploadOpts): Promise<PresignedUrl>
   getDownloadUrl(key: string, expiresIn?: number): Promise<PresignedUrl>
   putObject(key: string, body: Buffer, contentType: string): Promise<void>
+  getObjectBuffer(key: string): Promise<Buffer>
   deleteObject(key: string): Promise<void>
   headObject(key: string): Promise<ObjectMeta | null>
 }

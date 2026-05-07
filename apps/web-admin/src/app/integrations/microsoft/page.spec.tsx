@@ -19,6 +19,10 @@ vi.mock('./directory-sync-card', () => ({
   DirectorySyncCard: () => <div data-testid="directory-sync-card" />,
 }))
 
+vi.mock('./directory-sync-card', () => ({
+  DirectorySyncCard: () => <div data-testid="directory-sync-card" />,
+}))
+
 vi.mock('../../../lib/trpc', () => ({
   trpc: {
     planner: {

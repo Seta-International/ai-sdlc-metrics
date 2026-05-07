@@ -42,6 +42,10 @@ export type EmployeeProfile = {
   personProfile: PersonProfile
   employment: Employment
   currentJob: CurrentJobAssignment | null
+  personalEmail: string | null
+  personalPhone: string | null
+  officeLocation: string | null
+  workPhone: string | null
   emergencyContacts: EmergencyContact[]
   addresses: Address[]
   countryFields: CountryFieldValue[]

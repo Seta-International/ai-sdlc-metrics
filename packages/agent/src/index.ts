@@ -26,8 +26,8 @@ export type { AgentProviderProps } from './agent-provider'
 // Runtime
 export { createAgentChatAdapter } from './runtime/agent-chat-adapter'
 export type { AgentChatAdapterOptions } from './runtime/agent-chat-adapter'
-export { createAgentTurnStore } from './runtime/agent-turn-store'
-export type { AgentTurnStore, AgentTurnState } from './runtime/agent-turn-store'
+export { createAgentTurnStore, useAgentTurnStore } from './runtime/agent-turn-store'
+export type { AgentTurnStore, AgentTurnState, Citation } from './runtime/agent-turn-store'
 export { sseEventSchema } from './runtime/sse-event-schema'
 export type {
   SseEvent,

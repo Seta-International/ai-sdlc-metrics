@@ -26,7 +26,7 @@
  *  - Permission denied: recordTripwire called with correct labels.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { TRPCError } from '@trpc/server'
 import {
   BasicTracerProvider,
@@ -61,6 +61,8 @@ import type { DraftProposer } from './draft-proposer'
 import type { DraftProposalResult } from './draft-types'
 import type { IntentSlug } from './flow-id-propagation'
 import type { SemanticResultCache } from '../../infrastructure/cache/semantic-result-cache'
+import type { IWriteDedupRepository } from '../../domain/repositories/write-dedup.repository'
+import type { AgentWriteDedupRow } from '../../infrastructure/schema/agents.schema'
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -191,6 +193,22 @@ function makeSemanticCache(hitResult?: {
   return { semanticCache, getFn, putFn, invalidateDomainFn }
 }
 
+function makeWriteDedupRepo(hitRow?: AgentWriteDedupRow): {
+  writeDedupRepo: IWriteDedupRepository
+  findByKeyFn: ReturnType<typeof vi.fn>
+  insertFn: ReturnType<typeof vi.fn>
+} {
+  const findByKeyFn = vi.fn().mockResolvedValue(hitRow ?? null)
+  const insertFn = vi.fn().mockResolvedValue(undefined)
+  const deleteExpiredFn = vi.fn().mockResolvedValue({ deletedCount: 0 })
+  const writeDedupRepo = {
+    findByKey: findByKeyFn,
+    insert: insertFn,
+    deleteExpired: deleteExpiredFn,
+  } as unknown as IWriteDedupRepository
+  return { writeDedupRepo, findByKeyFn, insertFn }
+}
+
 function makeGateway(
   registry: ToolRegistry,
   caller: TrpcCaller,
@@ -198,6 +216,7 @@ function makeGateway(
   flowPolicyResolver?: FlowPolicyResolver,
   draftProposer?: DraftProposer,
   semanticCache?: SemanticResultCache,
+  writeDedupRepo?: IWriteDedupRepository,
 ): ToolGateway {
   return new ToolGateway(
     registry,
@@ -206,6 +225,7 @@ function makeGateway(
     flowPolicyResolver ?? makeFlowPolicyResolver(),
     draftProposer ?? makeDraftProposer().draftProposer,
     semanticCache ?? makeSemanticCache().semanticCache,
+    writeDedupRepo ?? makeWriteDedupRepo().writeDedupRepo,
   )
 }
 
@@ -610,43 +630,8 @@ describe('ToolGateway', () => {
     })
   })
 
-  describe('transient infra retry', () => {
-    beforeEach(() => {
-      vi.useFakeTimers()
-    })
-    afterEach(() => {
-      vi.useRealTimers()
-    })
-
-    it('caller fails once with ECONNRESET, succeeds on retry — caller called twice, success returned', async () => {
-      const descriptor = makeDescriptor()
-      const registry = makeRegistry(descriptor)
-      const { facade, recordEvent } = makeAuditFacade()
-
-      const callFn = vi
-        .fn()
-        .mockRejectedValueOnce(new Error('read ECONNRESET'))
-        .mockResolvedValueOnce({ tasks: ['retry-success'] })
-      const caller = { call: callFn } as unknown as TrpcCaller
-      const gw = makeGateway(registry, caller, facade)
-
-      const invokePromise = gw.invoke(makeInput())
-      // Advance timers to let the retry sleep pass
-      await vi.runAllTimersAsync()
-      const result = await invokePromise
-
-      expect(callFn).toHaveBeenCalledTimes(2)
-      expect(result.kind).toBe('ok')
-      // Single success audit row
-      expect(recordEvent).toHaveBeenCalledTimes(1)
-      expect(recordEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          payload: expect.objectContaining({ resultStatus: 'success' }),
-        }),
-      )
-    })
-
-    it('both transient failures → transient_infra_error, retry disposition, audit emitted', async () => {
+  describe('transient infra error (no gateway retry — provider retry lives in LLM clients)', () => {
+    it('caller fails with ECONNRESET — surfaces transient_infra_error immediately, caller invoked once', async () => {
       const descriptor = makeDescriptor()
       const registry = makeRegistry(descriptor)
       const { facade, recordEvent } = makeAuditFacade()
@@ -655,11 +640,10 @@ describe('ToolGateway', () => {
       const caller = { call: callFn } as unknown as TrpcCaller
       const gw = makeGateway(registry, caller, facade)
 
-      const invokePromise = gw.invoke(makeInput())
-      await vi.runAllTimersAsync()
-      const result = await invokePromise
+      const result = await gw.invoke(makeInput())
 
-      expect(callFn).toHaveBeenCalledTimes(2)
+      // No retry — exactly one invocation
+      expect(callFn).toHaveBeenCalledTimes(1)
       expect(result.kind).toBe('tripwire')
       if (result.kind === 'tripwire') {
         expect(result.variant).toBe('transient_infra_error')
@@ -2013,5 +1997,147 @@ describe('R-08.36 — people.* domain allowlist', () => {
 
     expect(result.kind).toBe('ok')
     expect(callFn).toHaveBeenCalledOnce()
+  })
+
+  // ── D-5: idempotency dedup ────────────────────────────────────────────────────
+
+  describe('D-5 idempotency dedup', () => {
+    it('returns cached result without calling the tool when findByKey returns a non-expired row', async () => {
+      const descriptor = makeDescriptor({
+        name: 'planner.createTask',
+        procedure: 'mutation',
+        permission: 'planner:task:write',
+        meta: MUTATION_META,
+      })
+      const registry = makeRegistry(descriptor)
+      const { facade } = makeAuditFacade()
+      const { caller, callFn } = makeCaller({ taskId: 't-1' })
+
+      const cachedResult = { taskId: 'cached-t-1' }
+      const hitRow: AgentWriteDedupRow = {
+        idempotencyKey: 'some-key',
+        tenantId: 'tenant-1',
+        turnId: 'turn-abc',
+        toolName: 'planner.createTask',
+        resultJson: cachedResult,
+        createdAt: new Date(Date.now() - 60_000),
+        expiresAt: new Date(Date.now() + 3_600_000),
+      }
+      const { writeDedupRepo, findByKeyFn, insertFn } = makeWriteDedupRepo(hitRow)
+      const gw = makeGateway(
+        registry,
+        caller,
+        facade,
+        undefined,
+        undefined,
+        undefined,
+        writeDedupRepo,
+      )
+
+      const result = await gw.invoke(
+        makeInput({
+          toolName: 'planner.createTask',
+          subAgentScope: ['planner:task'],
+          turnId: 'turn-abc',
+          toolCallId: 'call-xyz',
+        }),
+      )
+
+      expect(result.kind).toBe('ok')
+      if (result.kind === 'ok') {
+        expect(result.result).toEqual(cachedResult)
+      }
+      // Tool caller must NOT be invoked — result came from dedup cache
+      expect(callFn).not.toHaveBeenCalled()
+      expect(findByKeyFn).toHaveBeenCalledOnce()
+      // No insert when serving from cache
+      expect(insertFn).not.toHaveBeenCalled()
+    })
+
+    it('executes the tool and inserts a dedup row when findByKey returns null', async () => {
+      const descriptor = makeDescriptor({
+        name: 'planner.createTask',
+        procedure: 'mutation',
+        permission: 'planner:task:write',
+        meta: MUTATION_META,
+      })
+      const registry = makeRegistry(descriptor)
+      const { facade } = makeAuditFacade()
+      const toolResult = { taskId: 'new-t-1' }
+      const { caller, callFn } = makeCaller(toolResult)
+
+      const { writeDedupRepo, findByKeyFn, insertFn } = makeWriteDedupRepo(undefined)
+      const gw = makeGateway(
+        registry,
+        caller,
+        facade,
+        undefined,
+        undefined,
+        undefined,
+        writeDedupRepo,
+      )
+
+      const result = await gw.invoke(
+        makeInput({
+          toolName: 'planner.createTask',
+          subAgentScope: ['planner:task'],
+          turnId: 'turn-abc',
+          toolCallId: 'call-xyz',
+        }),
+      )
+
+      expect(result.kind).toBe('ok')
+      // Tool caller must be invoked — no dedup hit
+      expect(callFn).toHaveBeenCalledOnce()
+      expect(findByKeyFn).toHaveBeenCalledOnce()
+      // Dedup row must be inserted after success
+      expect(insertFn).toHaveBeenCalledOnce()
+      expect(insertFn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-1',
+          turnId: 'turn-abc',
+          toolName: 'planner.createTask',
+          resultJson: toolResult,
+        }),
+      )
+    })
+
+    it('skips dedup check for query tools even when turnId and toolCallId are provided', async () => {
+      const descriptor = makeDescriptor({
+        name: 'planner.task.getBoard',
+        procedure: 'query',
+        permission: 'planner:task:read',
+        meta: BASE_META,
+      })
+      const registry = makeRegistry(descriptor)
+      const { facade } = makeAuditFacade()
+      const { caller, callFn } = makeCaller({ tasks: [] })
+
+      const { writeDedupRepo, findByKeyFn, insertFn } = makeWriteDedupRepo(undefined)
+      const gw = makeGateway(
+        registry,
+        caller,
+        facade,
+        undefined,
+        undefined,
+        undefined,
+        writeDedupRepo,
+      )
+
+      const result = await gw.invoke(
+        makeInput({
+          toolName: 'planner.task.getBoard',
+          subAgentScope: ['planner:task'],
+          turnId: 'turn-abc',
+          toolCallId: 'call-xyz',
+        }),
+      )
+
+      expect(result.kind).toBe('ok')
+      expect(callFn).toHaveBeenCalledOnce()
+      // findByKey must NOT be called for query tools
+      expect(findByKeyFn).not.toHaveBeenCalled()
+      expect(insertFn).not.toHaveBeenCalled()
+    })
   })
 })

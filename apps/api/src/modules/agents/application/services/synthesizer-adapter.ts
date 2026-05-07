@@ -273,7 +273,7 @@ export class SynthesizerAdapter implements ISynthesizer {
     const tail = args.disclosures.length > 0 ? ' ' + args.disclosures.join(' ') : ''
     const content = (clarityProse + tail).trim() || 'No data retrieved.'
 
-    args.streamEmitter.emit({ type: 'answer.token', payload: { token: content } })
+    args.streamEmitter.emit({ type: 'answer.token', payload: { text: content } })
     args.streamEmitter.emit({ type: 'answer.complete', payload: {} })
 
     return {

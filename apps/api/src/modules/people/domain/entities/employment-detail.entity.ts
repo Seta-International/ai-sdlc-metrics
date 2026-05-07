@@ -24,4 +24,6 @@ export interface EmploymentDetail {
   customFields: Record<string, unknown> | null
   officeLocation: string | null
   workPhone: string | null
+  msJobTitle: string | null
+  msDepartment: string | null
 }

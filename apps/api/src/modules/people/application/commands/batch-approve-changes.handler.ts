@@ -1,5 +1,6 @@
 import { Inject } from '@nestjs/common'
 import { CommandHandler, EventBus, type ICommandHandler } from '@nestjs/cqrs'
+import { ProfileChangeAppliedEvent } from '@future/event-contracts'
 import {
   PROFILE_CHANGE_REQUEST_REPOSITORY,
   type IProfileChangeRequestRepository,
@@ -31,18 +32,28 @@ export class BatchApproveChangesHandler implements ICommandHandler<BatchApproveC
     )
 
     const now = new Date()
-    for (const change of pending) {
-      const isImmediate = !change.effectiveDate || change.effectiveDate <= now
-      if (isImmediate) {
-        this.eventBus.publish({
-          type: 'ProfileChangeAppliedEvent',
-          tenantId: command.tenantId,
-          employmentId: change.employmentId,
-          fieldPath: change.fieldPath,
-          oldValue: change.oldValue,
-          newValue: change.newValue,
-          effectiveDate: change.effectiveDate,
-        })
+    const immediateChanges = pending.filter((c) => !c.effectiveDate || c.effectiveDate <= now)
+
+    if (immediateChanges.length > 0) {
+      const byEmployment = new Map<string, typeof immediateChanges>()
+      for (const c of immediateChanges) {
+        const arr = byEmployment.get(c.employmentId) ?? []
+        arr.push(c)
+        byEmployment.set(c.employmentId, arr)
+      }
+
+      for (const [employmentId, empChanges] of byEmployment) {
+        this.eventBus.publish(
+          new ProfileChangeAppliedEvent(
+            command.tenantId,
+            employmentId,
+            empChanges.map((c) => ({
+              fieldPath: c.fieldPath,
+              oldValue: c.oldValue,
+              newValue: c.newValue,
+            })),
+          ),
+        )
       }
     }
   }

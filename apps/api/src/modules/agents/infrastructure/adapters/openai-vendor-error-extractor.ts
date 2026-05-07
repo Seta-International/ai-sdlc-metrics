@@ -70,7 +70,7 @@ export class OpenAiVendorErrorExtractor {
     }
 
     // Server error
-    if (status === 500 || status === 502 || status === 503) {
+    if (status === 500 || status === 502 || status === 503 || status === 504) {
       return { class: 'vendor_server_error', vendorMessage }
     }
 

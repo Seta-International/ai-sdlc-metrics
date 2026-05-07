@@ -360,6 +360,56 @@ describe('sseEventSchema', () => {
     ).toThrow()
   })
 
+  // ── write.preview ─────────────────────────────────────────────────────────
+  describe('write.preview event', () => {
+    it('parses a valid write.preview event', () => {
+      const raw = {
+        seq: 10,
+        type: 'write.preview',
+        payload: {
+          tool_name: 'planner.create-task',
+          args_hash: 'abc123',
+          bypassable: true,
+          taint_state: false,
+          summary: 'Create task "Fix login bug" in Project Alpha',
+        },
+      }
+      const result = sseEventSchema.safeParse(raw)
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.type).toBe('write.preview')
+        expect(result.data.payload.tool_name).toBe('planner.create-task')
+      }
+    })
+
+    it('rejects write.preview missing required fields', () => {
+      const raw = { seq: 10, type: 'write.preview', payload: { tool_name: 'x' } }
+      expect(sseEventSchema.safeParse(raw).success).toBe(false)
+    })
+  })
+
+  // ── write.confirm ─────────────────────────────────────────────────────────
+  describe('write.confirm event', () => {
+    it('parses a valid write.confirm event', () => {
+      const raw = {
+        seq: 11,
+        type: 'write.confirm',
+        payload: {
+          tool_name: 'planner.create-task',
+          idempotency_key: 'sha256abc',
+          confirmed_at: '2026-05-06T12:00:00.000Z',
+          mode: 'default',
+        },
+      }
+      const result = sseEventSchema.safeParse(raw)
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.type).toBe('write.confirm')
+        expect(result.data.payload.mode).toBe('default')
+      }
+    })
+  })
+
   // ── general ───────────────────────────────────────────────────────────────
   it('rejects unknown event type', () => {
     expect(() => sseEventSchema.parse({ seq: 99, type: 'unknown.event', payload: {} })).toThrow()

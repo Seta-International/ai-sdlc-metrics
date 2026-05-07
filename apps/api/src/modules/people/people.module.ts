@@ -5,7 +5,7 @@ import { IdentityModule } from '../identity/identity.module'
 import { S3StorageClient } from '@future/storage'
 import { PeopleQueryFacade } from './application/facades/people-query.facade'
 import { SyncMicrosoftProfileHandler } from './application/commands/sync-microsoft-profile.handler'
-import { UpdatePersonalProfileHandler } from './application/commands/update-personal-profile.handler'
+
 import { PEOPLE_STORAGE_CLIENT } from './domain/ports/people-storage-client.port'
 
 // ── New repositories ───────────────────────────────────────────────────────
@@ -60,7 +60,9 @@ import { ResetStagedMsUserHandler } from './application/commands/reset-staged-ms
 import { ListStagedMsUsersHandler } from './application/queries/list-staged-ms-users.handler'
 import { GetMsSyncStatusHandler } from './application/queries/get-ms-sync-status.handler'
 import { OnDirectorySyncCompletedListener } from './application/event-handlers/on-directory-sync-completed.listener'
+import { OnProfileChangeAppliedHandler } from './application/event-handlers/on-profile-change-applied.handler'
 import { PeopleMsSyncRegistrar } from './infrastructure/jobs/people-ms-sync.registrar'
+import { SyncProfileToMsReversalRegistrar } from './infrastructure/jobs/sync-profile-to-ms-reversal.registrar'
 
 // ── Legacy repositories (still functional) ────────────────────────────────
 import { DrizzleProfileSectionRepository } from './infrastructure/repositories/drizzle-profile-section.repository'
@@ -210,8 +212,10 @@ import { GetOrgChartTreeHandler } from './application/queries/get-org-chart-tree
 // ── Legacy query handlers that still compile ───────────────────────────────
 // NOTE: Handlers that reference EMPLOYMENT_PROFILE_REPOSITORY (deleted) are excluded:
 //   - ListPeriodicReviewsHandler    (uses EMPLOYMENT_PROFILE_REPOSITORY + PERIODIC_PROFILE_REVIEW_REPOSITORY)
-//   - ListProfileChangeRequestsHandler (uses EMPLOYMENT_PROFILE_REPOSITORY)
+import { ListProfileChangeRequestsHandler } from './application/queries/list-profile-change-requests.handler'
+import { StartOnboardingCaseHandler } from './application/commands/start-onboarding-case.handler'
 import { ListOnboardingTasksHandler } from './application/queries/list-onboarding-tasks.handler'
+import { ListOnboardingCasesHandler } from './application/queries/list-onboarding-cases.handler'
 import { ListTemplatesHandler } from './application/queries/list-templates.handler'
 import { ListContractVersionsHandler } from './application/queries/list-contract-versions.handler'
 
@@ -392,7 +396,10 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
     ListIncompleteProfilesHandler,
 
     // ── Legacy query handlers ────────────────────────────────────────────
+    ListProfileChangeRequestsHandler,
     ListOnboardingTasksHandler,
+    ListOnboardingCasesHandler,
+    StartOnboardingCaseHandler,
     ListTemplatesHandler,
     ListContractVersionsHandler,
 
@@ -406,10 +413,11 @@ import { PeopleTrpcService } from './interface/trpc/people-trpc.service'
 
     // ── Event handlers ────────────────────────────────────────────────────
     OnCandidateHiredHandler,
+    OnProfileChangeAppliedHandler,
 
     // ── Microsoft profile sync ───────────────────────────────────────────
     SyncMicrosoftProfileHandler,
-    UpdatePersonalProfileHandler,
+    SyncProfileToMsReversalRegistrar,
     {
       provide: PEOPLE_STORAGE_CLIENT,
       useFactory: () =>

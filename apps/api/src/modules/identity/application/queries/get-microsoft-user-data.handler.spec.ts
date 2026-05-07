@@ -48,6 +48,8 @@ const fakeUserProfile = {
   officeLocation: 'Ho Chi Minh City',
   mobilePhone: '+84901234567',
   businessPhones: ['+84281234567'],
+  jobTitle: 'Senior Engineer',
+  department: 'Engineering',
 }
 
 describe('GetMicrosoftUserDataHandler', () => {
@@ -140,6 +142,8 @@ describe('GetMicrosoftUserDataHandler', () => {
       mobilePhone: '+84901234567',
       businessPhone: '+84281234567',
       photo: photoBuffer,
+      jobTitle: 'Senior Engineer',
+      department: 'Engineering',
     })
   })
 

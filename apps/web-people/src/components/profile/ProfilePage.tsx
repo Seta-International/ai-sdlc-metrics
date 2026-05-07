@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useSearchParams, usePathname, useRouter } from 'next/navigation'
 import { Skeleton, Tabs, TabsContent } from '@future/ui'
+import { EditProfileBar } from './EditProfileBar'
 import { ProfileHero } from './hero/ProfileHero'
 import { TabOverview } from './tabs/TabOverview'
 import { TabJobHistory } from './tabs/TabJobHistory'
@@ -45,7 +46,28 @@ const defaultPermissions: ProfilePermissions = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function toEmployeeProfile(raw: any): EmployeeProfile | null {
   if (!raw?.employment || !raw?.personProfile) return null
-  const { detail, employment, personProfile } = raw
+  const { currentAssignment, detail, employment, personProfile, stagedMsUser } = raw
+  const resolvedJobTitle = detail?.msJobTitle ?? stagedMsUser?.jobTitle ?? null
+  const resolvedDepartment = detail?.msDepartment ?? stagedMsUser?.department ?? null
+  const currentJob =
+    resolvedJobTitle || resolvedDepartment || currentAssignment
+      ? {
+          id: String(currentAssignment?.id ?? `ms-job-${employment.id}`),
+          jobProfileId: String(currentAssignment?.jobProfileId ?? 'default'),
+          jobTitle: resolvedJobTitle ? String(resolvedJobTitle) : '—',
+          jobLevel: null,
+          jobFamilyName: '',
+          departmentId: String(currentAssignment?.departmentId ?? ''),
+          departmentName: resolvedDepartment ? String(resolvedDepartment) : '—',
+          locationId: currentAssignment?.locationId ?? null,
+          locationName: detail?.officeLocation ?? null,
+          costCenter: currentAssignment?.costCenterId ?? null,
+          managerId: currentAssignment?.managerId ?? null,
+          managerName: null,
+          effectiveDate: String(currentAssignment?.effectiveFrom ?? employment.hireDate),
+        }
+      : null
+
   return {
     personProfile: {
       id: personProfile.id,
@@ -73,9 +95,13 @@ function toEmployeeProfile(raw: any): EmployeeProfile | null {
       hireDate: employment.hireDate,
       terminationDate: employment.terminationDate ?? null,
       terminationReason: employment.terminationReason ?? null,
-      workArrangement: raw.currentAssignment?.workArrangement ?? null,
+      workArrangement: currentAssignment?.workArrangement ?? null,
     },
-    currentJob: null,
+    currentJob,
+    personalEmail: detail?.personalEmail ?? null,
+    personalPhone: detail?.personalPhone ?? null,
+    officeLocation: detail?.officeLocation ?? null,
+    workPhone: detail?.workPhone ?? null,
     emergencyContacts: Array.isArray(detail?.emergencyContacts)
       ? detail.emergencyContacts.map((contact: Record<string, unknown>, index: number) => ({
           id: String(contact['id'] ?? `ec-${index}`),
@@ -121,6 +147,11 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
   const [permissions, setPermissions] = React.useState<ProfilePermissions>(defaultPermissions)
   const [isLoading, setIsLoading] = React.useState(true)
   const [isEditing, setIsEditing] = React.useState(false)
+  const [dirtyFields, setDirtyFields] = React.useState(
+    new Map<string, { old: unknown; new: unknown }>(),
+  )
+  const [editReason, setEditReason] = React.useState('')
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
 
   const fetchProfile = React.useCallback(async () => {
     setIsLoading(true)
@@ -139,6 +170,42 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
   React.useEffect(() => {
     void fetchProfile()
   }, [fetchProfile])
+
+  function handleFieldChange(fieldPath: string, oldValue: unknown, newValue: unknown) {
+    setDirtyFields((prev) => {
+      const next = new Map(prev)
+      next.set(fieldPath, { old: oldValue, new: newValue })
+      return next
+    })
+  }
+
+  function handleCancelEdit() {
+    setIsEditing(false)
+    setDirtyFields(new Map())
+  }
+
+  async function handleSubmitChanges() {
+    if (dirtyFields.size === 0) return
+    setIsSubmitting(true)
+    try {
+      const changes = Array.from(dirtyFields.entries()).map(
+        ([fieldPath, { old: oldValue, new: newValue }]) => ({ fieldPath, oldValue, newValue }),
+      )
+      await anyTrpc.people.requestProfileChanges.mutate({
+        employmentId,
+        changes,
+        reason: editReason.trim() || undefined,
+      })
+      setIsEditing(false)
+      setDirtyFields(new Map())
+      setEditReason('')
+      void fetchProfile()
+    } catch {
+      // tRPC errors surface via the global error boundary
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   function handleTabChange(tab: string) {
     const p = new URLSearchParams(searchParams.toString())
@@ -172,7 +239,7 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
           permissions={permissions}
           isEditing={isEditing}
           onEdit={() => setIsEditing(true)}
-          onDoneEditing={() => setIsEditing(false)}
+          onDoneEditing={handleCancelEdit}
           onShare={() => {}}
           onStartOffboarding={permissions.canManage ? () => {} : undefined}
         />
@@ -184,6 +251,8 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
             canEditBank={permissions.canEditBank}
             canViewSalary={permissions.canViewSalary}
             isEditing={isEditing}
+            dirtyFields={dirtyFields}
+            onFieldChange={handleFieldChange}
             onSaved={() => {
               void fetchProfile()
             }}
@@ -217,6 +286,18 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
           <TabActivity employmentId={employmentId} />
         </TabsContent>
       </Tabs>
+      {isEditing && (
+        <EditProfileBar
+          dirtyCount={dirtyFields.size}
+          reason={editReason}
+          onReasonChange={setEditReason}
+          onCancel={handleCancelEdit}
+          onSubmit={() => {
+            void handleSubmitChanges()
+          }}
+          isSubmitting={isSubmitting}
+        />
+      )}
     </main>
   )
 }

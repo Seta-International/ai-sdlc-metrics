@@ -65,14 +65,9 @@ describe('OnSearchIndexUpdateHandler', () => {
 
   it('triggers rebuild on ProfileChangeAppliedEvent', async () => {
     await handler.handle(
-      new ProfileChangeAppliedEvent(
-        TENANT_ID,
-        EMPLOYMENT_ID,
-        'person_profile.family_name',
-        'Old',
-        'New',
-        new Date(),
-      ),
+      new ProfileChangeAppliedEvent(TENANT_ID, EMPLOYMENT_ID, [
+        { fieldPath: 'person_profile.family_name', oldValue: 'Old', newValue: 'New' },
+      ]),
     )
     expect(rebuildService.rebuildForEmployment).toHaveBeenCalledWith(EMPLOYMENT_ID, TENANT_ID)
   })

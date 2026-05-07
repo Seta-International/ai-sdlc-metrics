@@ -1,4 +1,5 @@
-import { initTRPC } from '@trpc/server'
+import { initTRPC, TRPCError } from '@trpc/server'
+import { DomainException } from '@future/core'
 import { createAuthMiddleware, type AuthContext } from './auth-middleware'
 import type { JwtService } from '../auth/jwt.service'
 import type { PermissionKey } from '../auth/permissions'
@@ -29,8 +30,16 @@ export interface TrpcContext {
 
 const t = initTRPC.meta<TrpcMeta>().context<TrpcContext>().create()
 
+const domainExceptionMw = t.middleware(async ({ next }) => {
+  const result = await next()
+  if (!result.ok && result.error.cause instanceof DomainException) {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: result.error.cause.message, cause: result.error.cause })
+  }
+  return result
+})
+
 export const router = t.router
-export const publicProcedure = t.procedure
+export const publicProcedure = t.procedure.use(domainExceptionMw)
 export const middleware = t.middleware
 
 /**

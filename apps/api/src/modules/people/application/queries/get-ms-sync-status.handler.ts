@@ -16,6 +16,7 @@ export interface MsSyncStatusDto {
   lastSyncedAt: string | null
   pendingCount: number
   importedCount: number
+  skippedCount: number
 }
 
 @QueryHandler(GetMsSyncStatusQuery)
@@ -36,12 +37,14 @@ export class GetMsSyncStatusHandler implements IQueryHandler<
     const syncState = await this.syncStateRepo.findByTenantId(query.tenantId)
     const pendingCount = await this.stagedUserRepo.countByStatus(query.tenantId, 'pending')
     const importedCount = await this.stagedUserRepo.countByStatus(query.tenantId, 'imported')
+    const skippedCount = await this.stagedUserRepo.countByStatus(query.tenantId, 'skipped')
 
     return {
       connected: credential?.status === 'active',
       lastSyncedAt: syncState?.lastSyncedAt?.toISOString() ?? null,
       pendingCount,
       importedCount,
+      skippedCount,
     }
   }
 }

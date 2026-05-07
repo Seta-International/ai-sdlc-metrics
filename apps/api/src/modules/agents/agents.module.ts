@@ -168,6 +168,9 @@ import { NotificationsModule } from '../notifications/notifications.module'
 import { NotificationsWriteFacade } from '../notifications/application/facades/notifications-write.facade'
 import { ExecuteApprovedDraftWorker } from './infrastructure/workers/execute-approved-draft'
 import { DraftExpirySweeper } from './infrastructure/workers/sweep-expired-drafts'
+import { WRITE_DEDUP_REPOSITORY } from './domain/repositories/write-dedup.repository'
+import { DrizzleWriteDedupRepository } from './infrastructure/repositories/drizzle-write-dedup.repository'
+import { SweepExpiredWriteDedupWorker } from './infrastructure/workers/sweep-expired-write-dedup'
 import { DraftApprovalService } from './application/services/draft-approval.service'
 import type { ConversationRepository } from './domain/repositories/conversation.repository'
 import type { ConversationMessageRepository } from './domain/repositories/conversation-message.repository'
@@ -303,7 +306,22 @@ import { DrizzleScorerRegistrationRepository } from './infrastructure/repositori
 //   • Adding intents for a NEW domain module: add a new import below and
 //     include the descriptor(s) in the `intentDescriptors` array in onModuleInit().
 import { unclassifiedIntent } from './intents'
-import { listMyTasksIntent, listMyPlansIntent, listEvidenceIntent } from '../planner/agent/intents'
+import { KbIngestionWorker } from './infrastructure/workers/kb-ingestion.worker'
+import type { EmbedBatchFn, KbIngestionJob } from './infrastructure/workers/kb-ingestion.worker'
+import { KbRetriever } from './infrastructure/retrieval/kb-retriever'
+import type { EmbedQueryFn } from './infrastructure/retrieval/kb-retriever'
+import { setKbHandlers } from './interface/trpc/kb.router'
+import { RETRIEVAL_EMBEDDING_MODEL } from './infrastructure/retrieval/retrieval-constants'
+import { S3StorageClient } from '@future/storage'
+import { embed, embedMany } from 'ai'
+import { createOpenAI } from '@ai-sdk/openai'
+import {
+  listMyTasksIntent,
+  listMyPlansIntent,
+  listEvidenceIntent,
+  getPlanStatusIntent,
+  listAtRiskPlansIntent,
+} from '../planner/agent/intents'
 import { viewMyProfileIntent } from '../people/agent/intents'
 import { listMyAssignmentsIntent } from '../projects/agent/intents'
 
@@ -311,6 +329,7 @@ export const WINDOW_BUILDER = Symbol('WINDOW_BUILDER')
 export const SUMMARIZER = Symbol('SUMMARIZER')
 export const GDPR_ERASURE_PIPELINE = Symbol('GDPR_ERASURE_PIPELINE')
 export const CONVERSATION_RETENTION_SCHEDULER = Symbol('CONVERSATION_RETENTION_SCHEDULER')
+const KB_STORAGE_CLIENT = Symbol('KB_STORAGE_CLIENT')
 
 @Module({
   imports: [
@@ -497,6 +516,8 @@ export const CONVERSATION_RETENTION_SCHEDULER = Symbol('CONVERSATION_RETENTION_S
     DraftProposer,
     ExecuteApprovedDraftWorker,
     DraftExpirySweeper,
+    { provide: WRITE_DEDUP_REPOSITORY, useClass: DrizzleWriteDedupRepository },
+    SweepExpiredWriteDedupWorker,
     {
       provide: DraftApprovalService,
       inject: [DRAFT_REPOSITORY, KernelAuditFacade, NotificationsWriteFacade, PgBossService],
@@ -705,6 +726,50 @@ export const CONVERSATION_RETENTION_SCHEDULER = Symbol('CONVERSATION_RETENTION_S
     ReadinessHourlyWorker,
     CostReconciliationWorker,
     FlowCorrelationWorker,
+    // KB subsystem (R-19)
+    {
+      provide: KB_STORAGE_CLIENT,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService): S3StorageClient =>
+        new S3StorageClient({
+          bucket: config.getOrThrow<string>('S3_BUCKET'),
+          region: config.getOrThrow<string>('S3_REGION'),
+        }),
+    },
+    {
+      provide: KbIngestionWorker,
+      inject: [BASE_DB_TOKEN, KB_STORAGE_CLIENT],
+      useFactory: (db: Db, storage: S3StorageClient): KbIngestionWorker => {
+        const apiKey = process.env['OPENAI_API_KEY']
+        const openai = apiKey ? createOpenAI({ apiKey }) : null
+        const embedBatch: EmbedBatchFn = async (inputs) => {
+          if (!openai) throw new Error('KbIngestionWorker: OPENAI_API_KEY not configured')
+          const { embeddings } = await embedMany({
+            model: openai.embedding(RETRIEVAL_EMBEDDING_MODEL),
+            values: inputs,
+          })
+          return embeddings
+        }
+        return new KbIngestionWorker(db, storage, embedBatch)
+      },
+    },
+    {
+      provide: KbRetriever,
+      inject: [BASE_DB_TOKEN],
+      useFactory: (db: Db): KbRetriever => {
+        const apiKey = process.env['OPENAI_API_KEY']
+        const openai = apiKey ? createOpenAI({ apiKey }) : null
+        const embedQuery: EmbedQueryFn = async (query) => {
+          if (!openai) throw new Error('KbRetriever: OPENAI_API_KEY not configured')
+          const { embedding } = await embed({
+            model: openai.embedding(RETRIEVAL_EMBEDDING_MODEL),
+            value: query,
+          })
+          return embedding
+        }
+        return new KbRetriever(db, embedQuery)
+      },
+    },
   ],
   exports: [
     SUB_AGENT_REGISTRY,
@@ -767,6 +832,10 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
     @Inject(READINESS_CHECK_REPOSITORY)
     private readonly readinessCheckRepo: ReadinessCheckRepository,
     private readonly semanticCacheSweeper: SemanticCacheSweeper,
+    private readonly sweepExpiredWriteDedupWorker: SweepExpiredWriteDedupWorker,
+    private readonly kbIngestionWorker: KbIngestionWorker,
+    private readonly kbRetriever: KbRetriever,
+    @Inject(KB_STORAGE_CLIENT) private readonly kbStorage: S3StorageClient,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -798,6 +867,7 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
       readinessCheckRepo: this.readinessCheckRepo,
       runbookScheduler: this.runbookScheduler,
     })
+    setKbHandlers(this.kbRetriever, this.kbStorage, this.db, this.pgBossService)
 
     // TrpcModule.onModuleInit() must have run before AgentsModule.onModuleInit()
     // to ensure permission-enforcing routers have been swapped in.
@@ -840,6 +910,8 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
       listMyTasksIntent,
       listMyPlansIntent,
       listEvidenceIntent,
+      getPlanStatusIntent,
+      listAtRiskPlansIntent,
       // People module intents
       viewMyProfileIntent,
       // Projects module intents
@@ -912,5 +984,14 @@ export class AgentsModule implements OnModuleInit, OnApplicationBootstrap {
 
     // 5-minute sweep of expired cache rows.
     await this.semanticCacheSweeper.registerJob(this.pgBossService)
+
+    await this.sweepExpiredWriteDedupWorker.registerJob(this.pgBossService)
+
+    // KB document ingestion — triggered by confirmUpload in kb.router.ts.
+    await this.pgBossService.registerWorker<KbIngestionJob>('kb-ingestion', async (jobs) => {
+      for (const job of jobs) {
+        await this.kbIngestionWorker.handle(job.data)
+      }
+    })
   }
 }

@@ -22,6 +22,22 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   },
 })
 
+const vector = customType<{
+  data: number[]
+  driverData: string
+  config: { dimensions: number }
+}>({
+  dataType(config) {
+    return `vector(${config?.dimensions ?? 1536})`
+  },
+  fromDriver(value: string): number[] {
+    return JSON.parse(value) as number[]
+  },
+  toDriver(value: number[]): string {
+    return `[${value.join(',')}]`
+  },
+})
+
 export const agentsSchema = pgSchema('agents')
 
 /**
@@ -797,3 +813,96 @@ export type AgentShadowRunRow = typeof agentShadowRun.$inferSelect
 export type NewAgentRolloutConfigRow = typeof agentRolloutConfig.$inferInsert
 export type NewAgentRolloutEventRow = typeof agentRolloutEvent.$inferInsert
 export type NewAgentShadowRunRow = typeof agentShadowRun.$inferInsert
+
+// ─── R-12 — Write Idempotency ─────────────────────────────────────────────────
+
+export const agentWriteDedup = agentsSchema.table(
+  'agent_write_dedup',
+  {
+    idempotencyKey: text('idempotency_key').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    turnId: uuid('turn_id').notNull(),
+    toolName: text('tool_name').notNull(),
+    resultJson: jsonb('result_json').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [index('agent_write_dedup_tenant_expires_idx').on(t.tenantId, t.expiresAt)],
+)
+
+// ─── KB: Tenant Knowledge Base (R-19) ────────────────────────────────────
+
+export const agentKbDocument = agentsSchema.table(
+  'agent_kb_document',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull(),
+    title: text('title').notNull(),
+    description: text('description'),
+    s3Key: text('s3_key').notNull(),
+    visibilityScope: text('visibility_scope').notNull().default('all'),
+    status: text('status').notNull().default('pending'),
+    fileSizeBytes: integer('file_size_bytes'),
+    chunkCount: integer('chunk_count'),
+    errorMessage: text('error_message'),
+    createdBy: uuid('created_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('agent_kb_document_tenant_status_idx').on(t.tenantId, t.status),
+    check(
+      'agent_kb_document_status_check',
+      sql`${t.status} IN ('pending', 'processing', 'ready', 'failed')`,
+    ),
+  ],
+)
+
+export const agentKbChunk = agentsSchema.table(
+  'agent_kb_chunk',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    documentId: uuid('document_id').notNull(),
+    tenantId: uuid('tenant_id').notNull(),
+    content: text('content').notNull(),
+    position: integer('position').notNull(),
+    tokenCount: integer('token_count').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('agent_kb_chunk_document_position_idx').on(t.documentId, t.position)],
+)
+
+export const agentKbEmbedding = agentsSchema.table('agent_kb_embedding', {
+  chunkId: uuid('chunk_id').primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  embedding: vector('embedding', { dimensions: 1536 }).notNull(),
+})
+
+export const agentKbIngestionRun = agentsSchema.table(
+  'agent_kb_ingestion_run',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    documentId: uuid('document_id').notNull(),
+    tenantId: uuid('tenant_id').notNull(),
+    status: text('status').notNull().default('started'),
+    chunksWritten: integer('chunks_written'),
+    errorMessage: text('error_message'),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('agent_kb_ingestion_run_document_idx').on(t.documentId, t.startedAt.desc()),
+    check(
+      'agent_kb_ingestion_run_status_check',
+      sql`${t.status} IN ('started', 'completed', 'failed')`,
+    ),
+  ],
+)
+
+export type AgentWriteDedupRow = typeof agentWriteDedup.$inferSelect
+export type NewAgentWriteDedupRow = typeof agentWriteDedup.$inferInsert
+export type AgentKbDocumentRow = typeof agentKbDocument.$inferSelect
+export type NewAgentKbDocumentRow = typeof agentKbDocument.$inferInsert
+export type AgentKbChunkRow = typeof agentKbChunk.$inferSelect
+export type NewAgentKbChunkRow = typeof agentKbChunk.$inferInsert
+export type AgentKbIngestionRunRow = typeof agentKbIngestionRun.$inferSelect
+export type NewAgentKbIngestionRunRow = typeof agentKbIngestionRun.$inferInsert

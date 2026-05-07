@@ -207,6 +207,7 @@ export interface PhaseExecutorTurnState {
   readonly surface: 'global-chat' | 'inline' | 'async'
   /** Shared mutable taint flag — any sub-agent can flip it to true. */
   readonly tainted: { value: boolean }
+  readonly executionMode: 'default' | 'bypass'
   routerReplanCount: 0 | 1
   /** Current 1-based iteration number (mutable). Undefined for non-iterative topologies. */
   iterationNumber?: number

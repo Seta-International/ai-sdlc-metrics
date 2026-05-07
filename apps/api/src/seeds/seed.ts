@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { sql } from 'drizzle-orm'
 import { createDb } from '@future/db'
+import { getSeedDatabaseUrl } from './seed-config'
 import { tenant } from '../modules/kernel/infrastructure/schema/tenant.schema'
 import { actor } from '../modules/kernel/infrastructure/schema/actor.schema'
 import { userIdentity } from '../modules/kernel/infrastructure/schema/user-identity.schema'
@@ -14,9 +15,14 @@ import {
   personProfile,
   employment,
   directorySearchIndex,
+  onboardingTemplate,
+  onboardingTaskTemplate,
 } from '../modules/people/infrastructure/schema/people.schema'
 import { tenantSettings } from '../modules/admin/infrastructure/schema/admin.schema'
-import { identityProvider } from '../modules/identity/infrastructure/schema/identity.schema'
+import {
+  identityProvider,
+  tenantDomain,
+} from '../modules/identity/infrastructure/schema/identity.schema'
 
 function deterministicUuid(seed: string): string {
   const hash = createHash('sha256')
@@ -120,7 +126,7 @@ const FUTURE_TENANT = {
 const ROLE_OVERRIDES: Record<string, string[]> = {
   'canh.ta@seta-international.vn': ['tenant_admin', 'line_manager'],
   'canh.ta@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
-  'anh.nguyenviet@setafuture.onmicrosoft.com': ['employee', 'line_manager'],
+  'anh.nguyenviet@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager'],
   'thang.tran@setafuture.onmicrosoft.com': ['tenant_admin', 'line_manager', 'platform_admin'],
 }
 
@@ -338,6 +344,85 @@ async function enablePlanner(
     })
 }
 
+async function seedOnboardingTemplate(
+  db: ReturnType<typeof createDb>,
+  tenantId: string,
+  tenantSlug: string,
+) {
+  const templateId = deterministicUuid('onboarding-template:' + tenantSlug)
+
+  await db
+    .insert(onboardingTemplate)
+    .values({
+      id: templateId,
+      tenantId,
+      name: 'Standard Onboarding',
+      isDefault: true,
+      isActive: true,
+    })
+    .onConflictDoNothing()
+
+  const tasks: Array<{
+    title: string
+    assigneeRole: 'hr' | 'it' | 'project_manager' | 'employee'
+    dueDaysAfterHire: number
+    isRequired: boolean
+    displayOrder: number
+  }> = [
+    {
+      title: 'Sign employment documents',
+      assigneeRole: 'hr',
+      dueDaysAfterHire: 1,
+      isRequired: true,
+      displayOrder: 0,
+    },
+    {
+      title: 'IT account setup',
+      assigneeRole: 'it',
+      dueDaysAfterHire: 3,
+      isRequired: true,
+      displayOrder: 1,
+    },
+    {
+      title: 'Provision equipment',
+      assigneeRole: 'it',
+      dueDaysAfterHire: 5,
+      isRequired: true,
+      displayOrder: 2,
+    },
+    {
+      title: 'Complete personal profile',
+      assigneeRole: 'employee',
+      dueDaysAfterHire: 7,
+      isRequired: true,
+      displayOrder: 3,
+    },
+    {
+      title: 'New hire orientation',
+      assigneeRole: 'project_manager',
+      dueDaysAfterHire: 7,
+      isRequired: false,
+      displayOrder: 4,
+    },
+  ]
+
+  for (const task of tasks) {
+    await db
+      .insert(onboardingTaskTemplate)
+      .values({
+        id: deterministicUuid(`onboarding-task:${tenantSlug}:${task.displayOrder}`),
+        tenantId,
+        templateId,
+        title: task.title,
+        assigneeRole: task.assigneeRole,
+        dueDaysAfterHire: task.dueDaysAfterHire,
+        isRequired: task.isRequired,
+        displayOrder: task.displayOrder,
+      })
+      .onConflictDoNothing()
+  }
+}
+
 /**
  * Deterministic UUID using the bootstrap namespace — must match the namespace
  * used by BootstrapPlatformAdminHandler so both code paths produce the same IDs.
@@ -431,9 +516,7 @@ async function bootstrapPlatformAdmin(
 }
 
 async function main() {
-  const db = createDb(
-    process.env['DATABASE_URL'] ?? 'postgresql://future:future@localhost:5432/future_dev',
-  )
+  const db = createDb(getSeedDatabaseUrl(process.env['DATABASE_URL']))
 
   const now = new Date()
 
@@ -473,6 +556,20 @@ async function main() {
       })
       .onConflictDoNothing()
 
+    if (tenantCfg.domain) {
+      await db
+        .insert(tenantDomain)
+        .values({
+          id: deterministicUuid('domain:' + tenantCfg.slug),
+          tenantId,
+          domain: tenantCfg.domain,
+          status: 'verified',
+          verificationTokenHash: deterministicUuid('domain-token:' + tenantCfg.slug),
+          verifiedAt: now,
+        })
+        .onConflictDoNothing()
+    }
+
     const tenantEmployees = setaEmployees.filter((e) => assignTenant(e)?.slug === tenantCfg.slug)
     await seedTenantEmployees(
       db,
@@ -485,6 +582,7 @@ async function main() {
     )
     await seedRolePermissions(db, tenantId, tenantCfg.slug, now)
     await enablePlanner(db, tenantId, tenantCfg.slug)
+    await seedOnboardingTemplate(db, tenantId, tenantCfg.slug)
   }
 
   // ── 2. Future tenant (setafuture.onmicrosoft.com / Microsoft Entra) ──────
@@ -519,6 +617,18 @@ async function main() {
       status: 'active',
       createdAt: now,
       updatedAt: now,
+    })
+    .onConflictDoNothing()
+
+  await db
+    .insert(tenantDomain)
+    .values({
+      id: deterministicUuid('domain:' + FUTURE_TENANT.slug),
+      tenantId: futureTenantId,
+      domain: FUTURE_TENANT.domain,
+      status: 'verified',
+      verificationTokenHash: deterministicUuid('domain-token:' + FUTURE_TENANT.slug),
+      verifiedAt: now,
     })
     .onConflictDoNothing()
 
@@ -557,6 +667,7 @@ async function main() {
   )
   await seedRolePermissions(db, futureTenantId, FUTURE_TENANT.slug, now)
   await enablePlanner(db, futureTenantId, FUTURE_TENANT.slug)
+  await seedOnboardingTemplate(db, futureTenantId, FUTURE_TENANT.slug)
 
   // ── 3. Platform admin bootstrap ──────────────────────────────────────────
   const platformAdminEmail =

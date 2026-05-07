@@ -39,6 +39,7 @@ export interface DataTableProps<TData> {
   error?: string
   onRetry?: () => void
   className?: string
+  enableRowSelection?: boolean
 }
 
 const DENSITY_CELL_CLASS: Record<FutureTableState['density'], string> = {
@@ -64,6 +65,7 @@ export function DataTable<TData>({
   error,
   onRetry,
   className,
+  enableRowSelection = true,
 }: DataTableProps<TData>) {
   // Local expanded state (not persisted)
   const [expanded, setExpanded] = React.useState<ExpandedState>({})
@@ -133,7 +135,7 @@ export function DataTable<TData>({
   }
 
   const allColumns: ColumnDef<TData>[] = [
-    selectionColumn,
+    ...(enableRowSelection ? [selectionColumn] : []),
     ...(renderExpandedRow ? [expandColumn] : []),
     ...columns,
   ]
@@ -148,7 +150,7 @@ export function DataTable<TData>({
       rowSelection,
       expanded,
     },
-    enableRowSelection: true,
+    enableRowSelection,
     onRowSelectionChange: setRowSelection,
     onExpandedChange: setExpanded,
     getCoreRowModel: getCoreRowModel(),
@@ -218,7 +220,12 @@ export function DataTable<TData>({
       )}
 
       {/* Body area */}
-      {showLoading && <DataTableLoading rows={5} columns={columns.length + 1} />}
+      {showLoading && (
+        <DataTableLoading
+          rows={5}
+          columns={columns.length + (enableRowSelection ? 1 : 0) + (renderExpandedRow ? 1 : 0)}
+        />
+      )}
 
       {showError && <DataTableError message={error!} onRetry={onRetry} />}
 

@@ -22,6 +22,8 @@ const fakeProvider: IdentityProviderEntity = {
   syncEnabled: true,
   lastSyncAt: new Date('2026-04-11T08:00:00Z'),
   syncStatus: 'idle',
+  syncProcessed: 0,
+  syncTotal: 0,
   createdAt: new Date(),
   updatedAt: new Date(),
 }
@@ -77,6 +79,8 @@ describe('GetSyncStatusHandler', () => {
       syncStatus: 'idle',
       lastSyncAt: '2026-04-11T08:00:00.000Z',
       nextScheduledAt: '2026-04-11T09:00:00.000Z',
+      syncProcessed: 0,
+      syncTotal: 0,
       lastSyncStats: {
         usersCreated: 5,
         usersDeactivated: 1,
@@ -85,6 +89,23 @@ describe('GetSyncStatusHandler', () => {
         errorMessage: null,
       },
     })
+  })
+
+  it('returns syncProcessed and syncTotal from provider when running', async () => {
+    vi.mocked(providerRepo.findPrimaryByTenantId).mockResolvedValue({
+      ...fakeProvider,
+      syncStatus: 'running',
+      syncProcessed: 30,
+      syncTotal: 100,
+    })
+    vi.mocked(syncHistoryRepo.findLatestByTenantId).mockResolvedValue([])
+    vi.mocked(jobScheduler.getNextScheduledSync).mockResolvedValue(null)
+
+    const result = await handler.execute(new GetSyncStatusQuery(TENANT_ID))
+
+    expect(result.syncProcessed).toBe(30)
+    expect(result.syncTotal).toBe(100)
+    expect(result.syncStatus).toBe('running')
   })
 
   it('returns null fields when no provider configured', async () => {
@@ -97,6 +118,8 @@ describe('GetSyncStatusHandler', () => {
       syncStatus: null,
       lastSyncAt: null,
       nextScheduledAt: null,
+      syncProcessed: null,
+      syncTotal: null,
       lastSyncStats: null,
     })
   })
