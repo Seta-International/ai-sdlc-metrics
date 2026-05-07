@@ -10,6 +10,11 @@
  * Re-running is safe — onConflictDoUpdate on primary key id.
  */
 
+import { drizzle } from 'drizzle-orm/node-postgres'
+import { Pool } from 'pg'
+import { sql } from 'drizzle-orm'
+import { agentGoldenTrace } from '../infrastructure/schema/agents.schema'
+
 // ── Exported fixture constants (also used by the spec) ────────────────────────
 
 export const GOLDEN_TRACE_FIXTURES = [
@@ -80,13 +85,6 @@ async function main() {
     console.error('SETA_TENANT_ID and SETA_ADMIN_USER_ID env vars are required')
     process.exit(1)
   }
-
-  // Dynamic imports keep DB deps out of the module graph when the spec
-  // imports only GOLDEN_TRACE_FIXTURES from this file.
-  const { drizzle } = await import('drizzle-orm/node-postgres')
-  const { Pool } = await import('pg')
-  const { sql } = await import('drizzle-orm')
-  const { agentGoldenTrace } = await import('../infrastructure/schema/agents.schema')
 
   const pool = new Pool({ connectionString: dbUrl })
   const db = drizzle(pool)
