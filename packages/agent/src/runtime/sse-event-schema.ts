@@ -178,6 +178,31 @@ const draftProposedEvent = z.object({
   metadata: metadataSchema,
 })
 
+const writePreviewEvent = z.object({
+  seq: z.number(),
+  type: z.literal('write.preview'),
+  payload: z.object({
+    tool_name: z.string(),
+    args_hash: z.string(),
+    bypassable: z.boolean(),
+    taint_state: z.boolean(),
+    summary: z.string(),
+  }),
+  metadata: metadataSchema,
+})
+
+const writeConfirmEvent = z.object({
+  seq: z.number(),
+  type: z.literal('write.confirm'),
+  payload: z.object({
+    tool_name: z.string(),
+    idempotency_key: z.string(),
+    confirmed_at: z.string(),
+    mode: z.enum(['default', 'bypass']),
+  }),
+  metadata: metadataSchema,
+})
+
 const turnEndedEvent = z.object({
   seq: z.number(),
   type: z.literal('turn.ended'),
@@ -201,6 +226,8 @@ export const sseEventSchema = z.discriminatedUnion('type', [
   answerTokenEvent,
   answerCompleteEvent,
   draftProposedEvent,
+  writePreviewEvent,
+  writeConfirmEvent,
   turnEndedEvent,
 ])
 
@@ -213,3 +240,5 @@ export type ScorerResult = z.infer<typeof scorerResultSchema>
 export type DraftProvenance = z.infer<typeof draftProvenanceSchema>
 
 export type DraftPayload = z.infer<typeof draftProposedEvent>['payload']
+export type WritePreviewPayload = z.infer<typeof writePreviewEvent>['payload']
+export type WriteConfirmPayload = z.infer<typeof writeConfirmEvent>['payload']
