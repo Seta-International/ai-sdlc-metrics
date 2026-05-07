@@ -118,4 +118,22 @@ describe('useAgentState', () => {
       renderHook(() => useAgentState())
     }).toThrow('useAgentState must be used within AgentStateProvider')
   })
+
+  it('defaults executionMode to default', () => {
+    const { result } = renderHook(() => useAgentState(), { wrapper })
+    expect(result.current.executionMode).toBe('default')
+  })
+
+  it('sets executionMode to bypass', () => {
+    const { result } = renderHook(() => useAgentState(), { wrapper })
+    act(() => result.current.setExecutionMode('bypass'))
+    expect(result.current.executionMode).toBe('bypass')
+  })
+
+  it('sets executionMode back to default', () => {
+    const { result } = renderHook(() => useAgentState(), { wrapper })
+    act(() => result.current.setExecutionMode('bypass'))
+    act(() => result.current.setExecutionMode('default'))
+    expect(result.current.executionMode).toBe('default')
+  })
 })
