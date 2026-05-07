@@ -1,4 +1,4 @@
-import { mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -29,6 +29,18 @@ describe('module generator', () => {
       for (const p of expectedPresent) {
         expect(files).toContain(p)
       }
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('with --with-zone, also creates apps/web-<name>', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gen-mod-zone-'))
+    try {
+      const tree = createTree(dir)
+      moduleApply(tree, { name: 'billing', withZone: true })
+      flush(tree, { dryRun: false })
+      expect(existsSync(join(dir, 'apps/web-billing/package.json'))).toBe(true)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

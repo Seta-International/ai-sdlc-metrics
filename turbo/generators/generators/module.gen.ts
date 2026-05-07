@@ -10,9 +10,11 @@ import { compose, type GeneratorApply } from '../lib/compose'
 import * as entityGen from './entity.gen'
 import * as commandGen from './command.gen'
 import * as queryGen from './query.gen'
+import * as zoneGen from './zone.gen'
 
 export interface ModuleArgs {
   name: string
+  withZone?: boolean
 }
 
 const __filename = fileURLToPath(import.meta.url)
@@ -58,12 +60,20 @@ export const apply: GeneratorApply<ModuleArgs> = (tree, args) => {
   // 5) Wire into app.module.ts and app-router.ts (AST edits — only if those files exist in the Tree)
   if (tree.exists('apps/api/src/app.module.ts')) addModuleToAppModule(tree, args.name)
   if (tree.exists('apps/api/src/common/trpc/app-router.ts')) addRouterToAppRouter(tree, args.name)
+
+  // 6) Optionally compose a Next.js zone for this module
+  if (args.withZone) {
+    compose(tree, zoneGen.apply, { name: args.name })
+  }
 }
 
 export function register(plop: PlopTypes.NodePlopAPI): void {
   plop.setGenerator('module', {
     description: 'Scaffold a new API DDD module with CRUD on a sample entity',
-    prompts: [{ type: 'input', name: 'name', message: 'Module name (kebab-case):' }],
+    prompts: [
+      { type: 'input', name: 'name', message: 'Module name (kebab-case):' },
+      { type: 'confirm', name: 'withZone', message: 'Also generate web zone?', default: true },
+    ],
     actions: [{ type: 'invoke-apply', generator: 'module' } as unknown as PlopTypes.ActionType],
   })
 }
