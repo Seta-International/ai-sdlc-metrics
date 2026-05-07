@@ -6,7 +6,9 @@
   "scripts": {
     "test:unit": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "drift:check": "bun run scripts/check-template-drift.ts",
+    "drift:sync": "bun run scripts/sync-templates.ts"
   },
   "dependencies": {
     "@turbo/gen": "^2.9.6",

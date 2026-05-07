@@ -13,6 +13,9 @@ pre-commit:
     ui-components:
       glob: '*.tsx'
       run: bash scripts/check-ui-components.sh {staged_files}
+    template-drift:
+      glob: 'turbo/generators/templates/**'
+      run: bun run --filter @future/generators drift:check
 
 pre-push:
   parallel: true
