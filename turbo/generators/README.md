@@ -31,6 +31,10 @@ bun run dev
 # Visit http://localhost:3000/<name>
 ```
 
+## Post-write checks
+
+After flushing files to disk (i.e., not in `--dry-run` mode), the CLI runs `turbo run typecheck` against the touched workspaces (`api` always; `@future/web-<name>` if a zone was generated). If typecheck fails, the CLI prints a hint and exits non-zero. To undo: `git restore .` and re-run with `TURBO_GEN_DRY_RUN=1` to inspect what would be written.
+
 ## Verifying end-to-end
 
 ```bash

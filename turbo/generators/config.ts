@@ -9,6 +9,7 @@ import * as queryGen from './generators/query.gen'
 import * as removeGen from './generators/remove.gen'
 import * as zoneGen from './generators/zone.gen'
 import { flush } from './lib/flush'
+import { runTypecheck } from './lib/postwrite'
 import { renderPlan } from './lib/preview'
 import { createTree, type Tree } from './lib/tree'
 import {
@@ -63,6 +64,22 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
     const dryRun = process.env['TURBO_GEN_DRY_RUN'] === '1'
     process.stdout.write(renderPlan(tree.changes(), []))
     flush(tree, { dryRun })
+
+    if (!dryRun) {
+      const zoneCreate = tree
+        .changes()
+        .find((c) => c.kind === 'create' && c.path.match(/^apps\/web-([^/]+)\//))
+      const zoneName = zoneCreate?.path.match(/^apps\/web-([^/]+)\//)?.[1]
+      try {
+        runTypecheck(repoRoot(), zoneName ? { zoneName } : { apiOnly: true })
+      } catch (err) {
+        process.stderr.write(
+          '\n⚠️  Post-write typecheck failed. To undo: `git restore .` and re-run with --dry-run to inspect.\n',
+        )
+        throw err
+      }
+    }
+
     return dryRun ? '(dry-run; no files written)' : 'applied'
   })
 
