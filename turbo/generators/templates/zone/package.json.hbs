@@ -1,0 +1,33 @@
+{
+  "name": "@future/web-{{kebab name}}",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev --port {{port}}",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "test:unit": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@future/agent": "workspace:*",
+    "@future/api-client": "workspace:*",
+    "@future/app-layout": "workspace:*",
+    "@future/auth": "workspace:*",
+    "@future/ui": "workspace:*",
+    "next": "16.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@future/eslint-config": "workspace:*",
+    "@future/tsconfig": "workspace:*",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^10.2.1",
+    "eslint-config-next": "^16.2.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
+  }
+}

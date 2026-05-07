@@ -296,7 +296,7 @@ export class DrizzleTaskRepository implements ITaskRepository {
   async softDelete(id: string, tenantId: string): Promise<void> {
     await this.db
       .update(plannerTask)
-      .set({ deletedAt: sql`NOW()`, updatedAt: sql`NOW()` })
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(
         and(
           eq(plannerTask.id, id),
@@ -309,7 +309,7 @@ export class DrizzleTaskRepository implements ITaskRepository {
   async softDeleteMany(bucketId: string, tenantId: string): Promise<string[]> {
     const rows = await this.db
       .update(plannerTask)
-      .set({ deletedAt: sql`NOW()`, updatedAt: sql`NOW()` })
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(
         and(
           eq(plannerTask.bucketId, bucketId),
@@ -395,7 +395,7 @@ export class DrizzleTaskRepository implements ITaskRepository {
           completedAt,
           msTaskEtag: props.msTaskEtag,
           pendingMsAssignments: props.pendingMsAssignments,
-          updatedAt: sql`NOW()`,
+          updatedAt: new Date(),
         })
         .where(eq(plannerTask.id, taskId))
     } else {
@@ -460,7 +460,7 @@ export class DrizzleTaskRepository implements ITaskRepository {
         msTaskDetailsEtag: props.msDetailsEtag,
         checklistItemCount: props.checklist.length,
         checklistCheckedCount: checkedCount,
-        updatedAt: sql`NOW()`,
+        updatedAt: new Date(),
       })
       .where(eq(plannerTask.id, props.taskId))
 
@@ -483,7 +483,7 @@ export class DrizzleTaskRepository implements ITaskRepository {
   async softDeleteFromMs(id: string, _opts: { origin: string }): Promise<void> {
     await this.db
       .update(plannerTask)
-      .set({ msSoftDeletedAt: sql`NOW()`, updatedAt: sql`NOW()` })
+      .set({ msSoftDeletedAt: new Date(), updatedAt: new Date() })
       .where(eq(plannerTask.id, id))
   }
 
@@ -527,7 +527,7 @@ export class DrizzleTaskRepository implements ITaskRepository {
 
     await this.db
       .update(plannerTask)
-      .set({ pendingMsAssignments: resolution.stillPending, updatedAt: sql`NOW()` })
+      .set({ pendingMsAssignments: resolution.stillPending, updatedAt: new Date() })
       .where(eq(plannerTask.id, taskId))
 
     for (const actorId of resolution.newAssignees) {

@@ -1,0 +1,25 @@
+{
+  "name": "@future/generators",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:unit": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "drift:check": "bun run scripts/check-template-drift.ts",
+    "drift:sync": "bun run scripts/sync-templates.ts"
+  },
+  "dependencies": {
+    "@turbo/gen": "^2.9.6",
+    "handlebars": "^4.7.8",
+    "ts-morph": "^28.0.0"
+  },
+  "devDependencies": {
+    "@future/eslint-config": "workspace:*",
+    "@future/tsconfig": "workspace:*",
+    "@types/node": "^25.6.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
+  }
+}

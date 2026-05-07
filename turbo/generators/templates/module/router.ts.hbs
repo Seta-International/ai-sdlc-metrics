@@ -1,0 +1,17 @@
+import * as z from 'zod'
+import { publicProcedure, router } from '../../../../common/trpc/trpc-init'
+
+export const {{camel name}}Router = router({
+  list: publicProcedure.query(() => {
+    // TODO: inject {{pascal name}}QueryFacade and call facade.list(ctx.tenantId).
+    // See docs/superpowers/scaffolding.md → "Wiring a facade into a router".
+    return [] as Array<{ id: string; tenantId: string; name: string; createdAt: Date; updatedAt: Date }>
+  }),
+
+  get: publicProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(({ input }) => {
+      // TODO: inject facade and call facade.get(ctx.tenantId, input.id)
+      return null as null | { id: string; tenantId: string; name: string; createdAt: Date; updatedAt: Date }
+    }),
+})

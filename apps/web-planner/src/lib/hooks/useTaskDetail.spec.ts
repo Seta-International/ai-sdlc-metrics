@@ -210,6 +210,106 @@ describe('useTaskDetail', () => {
     expect(result.current.saving).toBe(false)
   })
 
+  it('normalizes attachment msSyncState when a valid value is provided', async () => {
+    _mockQuery.mockResolvedValue({
+      ...makeTask(),
+      attachments: [
+        {
+          kind: 'file',
+          id: 'att-1',
+          filename: 'doc.txt',
+          contentType: 'text/plain',
+          sizeBytes: 10,
+          url: 'https://example.com/doc.txt',
+          createdBy: 'actor-1',
+          createdAt: '2026-01-07T00:00:00.000Z',
+          msSyncState: 'pending_upload',
+        },
+      ],
+    } as unknown as TaskDetailSnapshot)
+
+    const { result } = renderHook(() => useTaskDetail(INPUT), { wrapper: Wrapper })
+
+    await waitFor(() => {
+      expect(result.current.task?.attachments[0]?.msSyncState).toBe('pending_upload')
+    })
+  })
+
+  it('skips mutation when patch values match current cached task', async () => {
+    const fixture = makeTask()
+    queryClient.setQueryData(QUERY_KEY, fixture)
+    mockMutate.mockResolvedValue(undefined)
+
+    const { result } = renderHook(() => useTaskDetail(INPUT), { wrapper: Wrapper })
+
+    await act(async () => {
+      result.current.update({ description: 'Original description' })
+    })
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0))
+    })
+
+    expect(mockMutate).not.toHaveBeenCalled()
+  })
+
+  it('sets lastError and clears saving on non-conflict network error', async () => {
+    const fixture = makeTask()
+    queryClient.setQueryData(QUERY_KEY, fixture)
+    mockMutate.mockRejectedValue(new Error('Network failure'))
+
+    const { result } = renderHook(() => useTaskDetail(INPUT), { wrapper: Wrapper })
+
+    await act(async () => {
+      result.current.update({ title: 'New title' })
+      await new Promise((r) => setTimeout(r, 20))
+    })
+
+    expect(result.current.lastError).toBeInstanceOf(Error)
+    expect(result.current.lastError?.message).toBe('Network failure')
+    expect(result.current.saving).toBe(false)
+  })
+
+  it('sets lastError on non-Error rejection', async () => {
+    const fixture = makeTask()
+    queryClient.setQueryData(QUERY_KEY, fixture)
+    mockMutate.mockRejectedValue('string error')
+
+    const { result } = renderHook(() => useTaskDetail(INPUT), { wrapper: Wrapper })
+
+    await act(async () => {
+      result.current.update({ title: 'New title' })
+      await new Promise((r) => setTimeout(r, 20))
+    })
+
+    expect(result.current.lastError).toBeInstanceOf(Error)
+    expect(result.current.saving).toBe(false)
+  })
+
+  it('sets lastError when retry fails after CONFLICT', async () => {
+    const fixture = makeTask({ title: 'Original' })
+    queryClient.setQueryData(QUERY_KEY, fixture)
+
+    const conflictError = { data: { code: 'CONFLICT' }, message: 'Conflict' }
+    // First call: CONFLICT, second call: network error
+    mockMutate.mockRejectedValueOnce(conflictError).mockRejectedValueOnce(new Error('Retry failed'))
+
+    const serverTask = makeTask({ title: 'Mine', updatedAt: new Date('2026-01-02T00:00:00Z') })
+    vi.spyOn(queryClient, 'refetchQueries').mockImplementation(async () => {
+      queryClient.setQueryData(QUERY_KEY, serverTask)
+    })
+
+    const { result } = renderHook(() => useTaskDetail(INPUT), { wrapper: Wrapper })
+
+    await act(async () => {
+      result.current.update({ title: 'Mine' })
+      await new Promise((r) => setTimeout(r, 50))
+    })
+
+    expect(result.current.lastError).toBeInstanceOf(Error)
+    expect(result.current.saving).toBe(false)
+  })
+
   it('silent merge when 409 CONFLICT but server value matches what we sent', async () => {
     const fixture = makeTask({ title: 'Original title' })
     queryClient.setQueryData(QUERY_KEY, fixture)

@@ -1,0 +1,10 @@
+import { describe, it, expect } from 'vitest'
+import { {{camel name}}Router } from './{{kebab name}}.router'
+
+describe('{{pascal name}} tRPC router', () => {
+  it('list returns an empty array by default (TODO: replace with facade-backed test)', async () => {
+    const caller = {{camel name}}Router.createCaller({} as never)
+    const out = await caller.list()
+    expect(out).toEqual([])
+  })
+})

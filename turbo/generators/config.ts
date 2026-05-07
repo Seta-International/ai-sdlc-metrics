@@ -1,0 +1,92 @@
+import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import type { PlopTypes } from '@turbo/gen'
+import * as commandGen from './generators/command.gen'
+import * as entityGen from './generators/entity.gen'
+import * as moduleGen from './generators/module.gen'
+import * as queryGen from './generators/query.gen'
+import * as removeGen from './generators/remove.gen'
+import * as zoneGen from './generators/zone.gen'
+import { flush } from './lib/flush'
+import { runTypecheck } from './lib/postwrite'
+import { renderPlan } from './lib/preview'
+import { createTree, type Tree } from './lib/tree'
+import {
+  runAll,
+  validateModuleDoesNotExist,
+  validateModuleExists,
+  validateName,
+  validateNotReserved,
+  validateZoneDoesNotExist,
+} from './lib/validate'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ApplyMap = Record<string, (tree: Tree, args: any) => void>
+const applyByGenerator: ApplyMap = {
+  command: commandGen.apply,
+  entity: entityGen.apply,
+  module: moduleGen.apply,
+  query: queryGen.apply,
+  remove: removeGen.apply,
+  zone: zoneGen.apply,
+}
+
+function repoRoot(): string {
+  // turbo/generators/config.ts → repo root is two dirs up
+  const here = dirname(fileURLToPath(import.meta.url))
+  let cur = here
+  while (cur !== '/' && !existsSync(join(cur, 'turbo.json'))) cur = dirname(cur)
+  return cur
+}
+
+export default function generator(plop: PlopTypes.NodePlopAPI): void {
+  plop.setActionType('invoke-apply', (answers, config) => {
+    const { generator: name } = config as unknown as { generator: string }
+    const apply = applyByGenerator[name]
+    if (!apply) throw new Error(`No apply() for generator "${name}"`)
+
+    const tree = createTree(repoRoot())
+
+    if (typeof answers['name'] === 'string') {
+      const checks = [validateName(answers['name']), validateNotReserved(answers['name'])]
+      if (name === 'module') checks.push(validateModuleDoesNotExist(tree, answers['name']))
+      if (name === 'zone') checks.push(validateZoneDoesNotExist(tree, answers['name']))
+      if (name === 'remove' && answers['kind'] === 'module') {
+        checks.push(validateModuleExists(tree, answers['name']))
+      }
+      const v = runAll(checks)
+      if (!v.ok) throw new Error('Validation failed:\n  - ' + v.reasons.join('\n  - '))
+    }
+
+    apply(tree, answers)
+
+    const dryRun = process.env['TURBO_GEN_DRY_RUN'] === '1'
+    process.stdout.write(renderPlan(tree.changes(), []))
+    flush(tree, { dryRun })
+
+    if (!dryRun) {
+      const zoneCreate = tree
+        .changes()
+        .find((c) => c.kind === 'create' && c.path.match(/^apps\/web-([^/]+)\//))
+      const zoneName = zoneCreate?.path.match(/^apps\/web-([^/]+)\//)?.[1]
+      try {
+        runTypecheck(repoRoot(), zoneName ? { zoneName } : {})
+      } catch (err) {
+        process.stderr.write(
+          '\n⚠️  Post-write typecheck failed. To undo: `git restore .` and re-run with --dry-run to inspect.\n',
+        )
+        throw err
+      }
+    }
+
+    return dryRun ? '(dry-run; no files written)' : 'applied'
+  })
+
+  entityGen.register(plop)
+  commandGen.register(plop)
+  queryGen.register(plop)
+  moduleGen.register(plop)
+  zoneGen.register(plop)
+  removeGen.register(plop)
+}

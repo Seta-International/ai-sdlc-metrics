@@ -94,4 +94,62 @@ describe('useConflictResolver', () => {
     expect(clearConflict).toHaveBeenCalledOnce()
     expect(update).not.toHaveBeenCalled()
   })
+
+  it('conflictingField is null when all patch keys match the conflict snapshot', () => {
+    const conflict = makeConflict({ title: 'Same Title' })
+    const { result } = renderHook(() =>
+      useConflictResolver({
+        conflict,
+        localPatch: { title: 'Same Title' },
+        update: vi.fn(),
+        clearConflict: vi.fn(),
+      }),
+    )
+    expect(result.current.conflictingField).toBeNull()
+    expect(result.current.myValue).toBeUndefined()
+    expect(result.current.theirValue).toBeUndefined()
+  })
+
+  it('detects conflict in Date fields when dates differ', () => {
+    const date1 = new Date('2026-01-01T00:00:00Z')
+    const date2 = new Date('2026-01-02T00:00:00Z')
+    const conflict = makeConflict({ startDate: date2 })
+    const { result } = renderHook(() =>
+      useConflictResolver({
+        conflict,
+        localPatch: { startDate: date1 },
+        update: vi.fn(),
+        clearConflict: vi.fn(),
+      }),
+    )
+    expect(result.current.conflictingField).toBe('startDate')
+    expect(result.current.myValue).toEqual(date1)
+    expect(result.current.theirValue).toEqual(date2)
+  })
+
+  it('does not conflict when Date fields are equal', () => {
+    const sameDate = new Date('2026-01-01T00:00:00Z')
+    const conflict = makeConflict({ startDate: sameDate, title: 'Same' })
+    const { result } = renderHook(() =>
+      useConflictResolver({
+        conflict,
+        localPatch: { startDate: sameDate, title: 'Same' },
+        update: vi.fn(),
+        clearConflict: vi.fn(),
+      }),
+    )
+    expect(result.current.conflictingField).toBeNull()
+  })
+
+  it('keepMine does not call update when localPatch is null', () => {
+    const update = vi.fn()
+    const clearConflict = vi.fn()
+    const conflict = makeConflict()
+    const { result } = renderHook(() =>
+      useConflictResolver({ conflict, localPatch: null, update, clearConflict }),
+    )
+    result.current.keepMine()
+    expect(update).not.toHaveBeenCalled()
+    expect(clearConflict).toHaveBeenCalledOnce()
+  })
 })

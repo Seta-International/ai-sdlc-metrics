@@ -185,4 +185,150 @@ describe('useOptimisticMove', () => {
 
     expect(mockMutate).not.toHaveBeenCalled()
   })
+
+  it('does nothing when task is not found in snapshot', async () => {
+    const snapshot = makeSnapshot()
+    queryClient.setQueryData(QUERY_KEY, snapshot)
+    mockMutate.mockResolvedValue({ orderHint: 'b0' })
+
+    const { result } = renderHook(() => useOptimisticMove(INPUT), {
+      wrapper: Wrapper,
+    })
+
+    await act(async () => {
+      await result.current.move('nonexistent-task', 'bucket-b', undefined, undefined)
+    })
+
+    expect(mockMutate).not.toHaveBeenCalled()
+  })
+
+  it('retries on CONFLICT and updates cache on retry success', async () => {
+    const snapshot = makeSnapshot()
+    queryClient.setQueryData(QUERY_KEY, snapshot)
+
+    const conflictError = { data: { code: 'CONFLICT' }, message: 'Conflict' }
+    mockMutate
+      .mockRejectedValueOnce(conflictError)
+      .mockResolvedValueOnce({ orderHint: 'b1', updatedAt: new Date('2026-01-02T00:00:00Z') })
+
+    vi.spyOn(queryClient, 'refetchQueries').mockResolvedValue()
+
+    const { result } = renderHook(() => useOptimisticMove(INPUT), {
+      wrapper: Wrapper,
+    })
+
+    await act(async () => {
+      await result.current.move('task-1', 'bucket-b', undefined, undefined)
+    })
+
+    expect(mockMutate).toHaveBeenCalledTimes(2)
+    const after = queryClient.getQueryData<BoardSnapshot>(QUERY_KEY)
+    expect(after).toBeDefined()
+  })
+
+  it('uses predicted hint when server returns no orderHint', async () => {
+    const snapshot = makeSnapshot()
+    queryClient.setQueryData(QUERY_KEY, snapshot)
+    // Server returns result without orderHint — uses predictedHint
+    mockMutate.mockResolvedValue({ updatedAt: new Date('2026-01-02T00:00:00Z') })
+
+    const { result } = renderHook(() => useOptimisticMove(INPUT), {
+      wrapper: Wrapper,
+    })
+
+    await act(async () => {
+      await result.current.move('task-1', 'bucket-b', 'a0', 'a2')
+    })
+
+    expect(mockMutate).toHaveBeenCalledOnce()
+    const after = queryClient.getQueryData<BoardSnapshot>(QUERY_KEY)
+    const bucketB = after?.buckets.find((b) => b.id === 'bucket-b')
+    expect(bucketB?.tasks).toHaveLength(1)
+  })
+
+  it('sorts tasks in target bucket by orderHint after move', async () => {
+    const snapshotWithMultiple: BoardSnapshot = {
+      plan: { id: 'plan-1', name: 'Test', labels: [], members: [] },
+      buckets: [
+        {
+          id: 'bucket-a',
+          name: 'To Do',
+          orderHint: 'a',
+          tasks: [
+            {
+              id: 'task-1',
+              title: 'Task 1',
+              description: '',
+              progress: 0,
+              priority: 3,
+              startDate: null,
+              dueDate: null,
+              orderHint: 'a0',
+              completedAt: null,
+              completedBy: null,
+              checklistItemCount: 0,
+              checklistCheckedCount: 0,
+              attachmentCount: 0,
+              commentCount: 0,
+              evidenceCount: 0,
+              hasPendingAttachment: false,
+              coverAttachmentId: null,
+              appliedLabels: [],
+              assignees: [],
+              updatedAt: BASE_DATE,
+            },
+          ],
+        },
+        {
+          id: 'bucket-b',
+          name: 'In Progress',
+          orderHint: 'b',
+          tasks: [
+            {
+              id: 'task-2',
+              title: 'Task 2',
+              description: '',
+              progress: 0,
+              priority: 3,
+              startDate: null,
+              dueDate: null,
+              orderHint: 'b5',
+              completedAt: null,
+              completedBy: null,
+              checklistItemCount: 0,
+              checklistCheckedCount: 0,
+              attachmentCount: 0,
+              commentCount: 0,
+              evidenceCount: 0,
+              hasPendingAttachment: false,
+              coverAttachmentId: null,
+              appliedLabels: [],
+              assignees: [],
+              updatedAt: BASE_DATE,
+            },
+          ],
+        },
+      ],
+    }
+
+    queryClient.setQueryData(QUERY_KEY, snapshotWithMultiple)
+    // Server returns result without updatedAt — uses currentTask.updatedAt
+    mockMutate.mockResolvedValue({ orderHint: 'b3' })
+
+    const { result } = renderHook(() => useOptimisticMove(INPUT), {
+      wrapper: Wrapper,
+    })
+
+    await act(async () => {
+      // Move task-1 into bucket-b between nothing and task-2
+      await result.current.move('task-1', 'bucket-b', undefined, 'b5')
+    })
+
+    const after = queryClient.getQueryData<BoardSnapshot>(QUERY_KEY)
+    const bucketB = after?.buckets.find((b) => b.id === 'bucket-b')
+    expect(bucketB?.tasks).toHaveLength(2)
+    // task-1 (b3) should come before task-2 (b5)
+    expect(bucketB?.tasks[0]?.id).toBe('task-1')
+    expect(bucketB?.tasks[1]?.id).toBe('task-2')
+  })
 })

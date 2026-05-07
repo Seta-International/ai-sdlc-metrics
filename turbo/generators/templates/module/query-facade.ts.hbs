@@ -1,0 +1,21 @@
+import { Inject, Injectable } from '@nestjs/common'
+import {
+  {{screamingSnake name}}_REPOSITORY,
+  type {{pascal name}}Repository,
+} from '../../domain/repositories/{{kebab name}}.repository'
+import type { {{pascal name}} } from '../../domain/entities/{{kebab name}}.entity'
+
+@Injectable()
+export class {{pascal name}}QueryFacade {
+  constructor(
+    @Inject({{screamingSnake name}}_REPOSITORY) private readonly repo: {{pascal name}}Repository,
+  ) {}
+
+  list(tenantId: string): Promise<{{pascal name}}[]> {
+    return this.repo.list(tenantId)
+  }
+
+  get(tenantId: string, id: string): Promise<{{pascal name}} | null> {
+    return this.repo.get(tenantId, id)
+  }
+}

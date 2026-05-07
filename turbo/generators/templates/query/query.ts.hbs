@@ -1,0 +1,17 @@
+import { Injectable } from '@nestjs/common'
+
+export interface {{pascal name}}Input {
+  tenantId: string
+}
+
+export interface {{pascal name}}Result {
+  // TODO
+  items: unknown[]
+}
+
+@Injectable()
+export class {{pascal name}}Handler {
+  async execute(_input: {{pascal name}}Input): Promise<{{pascal name}}Result> {
+    return { items: [] }
+  }
+}

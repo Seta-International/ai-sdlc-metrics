@@ -528,4 +528,34 @@ describe('TaskCard', () => {
     ])
     expect(cached?.buckets[0]?.tasks[0]?.priority).toBe(3)
   })
+
+  it('calls onOpenDetail with taskId when task title is clicked', async () => {
+    const onOpenDetail = vi.fn()
+    render(
+      <TaskCard
+        task={makeTask({ title: 'My task' })}
+        planLabels={emptyLabels}
+        onOpenDetail={onOpenDetail}
+        {...TASK_PROPS}
+      />,
+      { wrapper: Wrapper },
+    )
+    await userEvent.click(screen.getByTestId('task-title-link'))
+    expect(onOpenDetail).toHaveBeenCalledWith('task-1')
+  })
+
+  it('does NOT call onOpenDetail when completion toggle is clicked', async () => {
+    const onOpenDetail = vi.fn()
+    render(
+      <TaskCard
+        task={makeTask()}
+        planLabels={emptyLabels}
+        onOpenDetail={onOpenDetail}
+        {...TASK_PROPS}
+      />,
+      { wrapper: Wrapper },
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Mark complete' }))
+    expect(onOpenDetail).not.toHaveBeenCalled()
+  })
 })

@@ -158,9 +158,11 @@ vi.mock('../../../../components/board/BoardColumn', () => ({
   BoardColumn: ({
     bucket,
     onToggleComplete,
+    onOpenDetail,
   }: {
     bucket: { tasks: Array<{ id: string; title: string }> }
     onToggleComplete?: (taskId: string, nextProgress: number) => void
+    onOpenDetail?: (taskId: string) => void
   }) => (
     <div data-testid="board-column">
       {bucket.tasks.map((t) => (
@@ -171,8 +173,24 @@ vi.mock('../../../../components/board/BoardColumn', () => ({
               Toggle
             </button>
           )}
+          {onOpenDetail && (
+            <button data-testid={`open-detail-${t.id}`} onClick={() => onOpenDetail(t.id)}>
+              Open
+            </button>
+          )}
         </div>
       ))}
+    </div>
+  ),
+}))
+
+vi.mock('../../../../components/task-detail/TaskDetailPanel', () => ({
+  TaskDetailPanel: ({ taskId, onClose }: { taskId: string; onClose?: () => void }) => (
+    <div data-testid="task-detail-panel">
+      <span data-testid="panel-task-id">{taskId}</span>
+      <button data-testid="panel-close-btn" onClick={onClose}>
+        Close
+      </button>
     </div>
   ),
 }))
@@ -362,5 +380,71 @@ describe('PlanBoardPage with view state', () => {
     await waitFor(() => expect(mockSetQueryData).toHaveBeenCalledTimes(2))
     // Second call is the rollback to the original snapshot
     expect(mockSetQueryData.mock.calls[1]?.[1]).toEqual(defaultBoardData)
+  })
+})
+
+describe('PlanBoardPage task detail modal', () => {
+  beforeEach(() => {
+    vi.mocked(useViewState).mockReturnValue(noFilterViewState)
+  })
+
+  it('does not render modal overlay before any task is opened', () => {
+    render(<PlanBoardPage />)
+    expect(screen.queryByTestId('modal-overlay')).not.toBeInTheDocument()
+  })
+
+  it('opens modal overlay when a task card detail is requested', async () => {
+    const user = userEvent.setup()
+    render(<PlanBoardPage />)
+    await user.click(screen.getByTestId('open-detail-t1'))
+    expect(screen.getByTestId('modal-overlay')).toBeInTheDocument()
+  })
+
+  it('renders modal container centered on screen when task is opened', async () => {
+    const user = userEvent.setup()
+    render(<PlanBoardPage />)
+    await user.click(screen.getByTestId('open-detail-t1'))
+    expect(screen.getByTestId('modal-container')).toBeInTheDocument()
+  })
+
+  it('renders TaskDetailPanel inside modal when task is opened', async () => {
+    const user = userEvent.setup()
+    render(<PlanBoardPage />)
+    await user.click(screen.getByTestId('open-detail-t1'))
+    expect(screen.getByTestId('task-detail-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('panel-task-id').textContent).toBe('t1')
+  })
+
+  it('closes modal when overlay backdrop is clicked', async () => {
+    const user = userEvent.setup()
+    render(<PlanBoardPage />)
+    await user.click(screen.getByTestId('open-detail-t1'))
+    expect(screen.getByTestId('modal-overlay')).toBeInTheDocument()
+    await user.click(screen.getByTestId('modal-overlay'))
+    expect(screen.queryByTestId('modal-overlay')).not.toBeInTheDocument()
+  })
+
+  it('closes modal when panel onClose is called', async () => {
+    const user = userEvent.setup()
+    render(<PlanBoardPage />)
+    await user.click(screen.getByTestId('open-detail-t1'))
+    await user.click(screen.getByTestId('panel-close-btn'))
+    expect(screen.queryByTestId('task-detail-panel')).not.toBeInTheDocument()
+  })
+
+  it('modal inner container has a height applied via style', async () => {
+    const user = userEvent.setup()
+    render(<PlanBoardPage />)
+    await user.click(screen.getByTestId('open-detail-t1'))
+    const inner = screen.getByTestId('modal-inner')
+    expect(inner.style.height).toBeTruthy()
+  })
+
+  it('modal inner container has a min-height via style to prevent jerk on tab change', async () => {
+    const user = userEvent.setup()
+    render(<PlanBoardPage />)
+    await user.click(screen.getByTestId('open-detail-t1'))
+    const inner = screen.getByTestId('modal-inner')
+    expect(inner.style.minHeight).toBeTruthy()
   })
 })

@@ -1,0 +1,17 @@
+{
+  "extends": "@future/tsconfig/base.json",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": [
+    "config.ts",
+    "lib/**/*.ts",
+    "generators/**/*.ts",
+    "scripts/**/*.ts",
+    "__integration__/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist", "templates"]
+}

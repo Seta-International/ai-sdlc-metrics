@@ -1,0 +1,18 @@
+import { Injectable } from '@nestjs/common'
+
+export interface {{pascal name}}Input {
+  tenantId: string
+  // TODO: add more inputs
+}
+
+export interface {{pascal name}}Result {
+  // TODO: add result fields
+  ok: true
+}
+
+@Injectable()
+export class {{pascal name}}Handler {
+  async execute(_input: {{pascal name}}Input): Promise<{{pascal name}}Result> {
+    return { ok: true }
+  }
+}

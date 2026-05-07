@@ -4,3 +4,8 @@ dist
 .turbo
 coverage
 *.tsbuildinfo
+
+# Handlebars generator templates contain TS source with {{...}} placeholders
+# that Prettier's glimmer parser can't parse. The generator runs them through
+# Handlebars first; formatting happens on the generated files.
+turbo/generators/templates/**/*.hbs

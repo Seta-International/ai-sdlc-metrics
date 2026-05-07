@@ -1,0 +1,13 @@
+import { Module } from '@nestjs/common'
+import { {{screamingSnake name}}_REPOSITORY } from './domain/repositories/{{kebab name}}.repository'
+import { Drizzle{{pascal name}}Repository } from './infrastructure/repositories/drizzle-{{kebab name}}.repository'
+import { {{pascal name}}QueryFacade } from './application/facades/{{kebab name}}-query.facade'
+
+@Module({
+  providers: [
+    { provide: {{screamingSnake name}}_REPOSITORY, useClass: Drizzle{{pascal name}}Repository },
+    {{pascal name}}QueryFacade,
+  ],
+  exports: [{{pascal name}}QueryFacade],
+})
+export class {{pascal name}}Module {}

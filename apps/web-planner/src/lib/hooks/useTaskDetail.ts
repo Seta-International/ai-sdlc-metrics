@@ -165,6 +165,15 @@ export function useTaskDetail({ taskId, planId }: UseTaskDetailInput): UseTaskDe
     const task = queryClient.getQueryData<TaskDetailSnapshot>(queryKey)
     if (!task) return
 
+    const hasChange = (Object.keys(patch) as (keyof TaskPatch)[]).some((key) => {
+      const newVal = patch[key]
+      const oldVal = task[key as keyof TaskDetailSnapshot] as unknown
+      if (newVal instanceof Date && oldVal instanceof Date)
+        return newVal.getTime() !== oldVal.getTime()
+      return newVal !== oldVal
+    })
+    if (!hasChange) return
+
     setSaving(true)
     setLastError(null)
 

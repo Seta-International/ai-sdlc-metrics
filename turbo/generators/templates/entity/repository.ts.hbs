@@ -1,0 +1,11 @@
+import type { {{pascal name}} } from '../entities/{{kebab name}}.entity'
+
+export const {{screamingSnake name}}_REPOSITORY = Symbol('{{pascal name}}Repository')
+
+export interface {{pascal name}}Repository {
+  list(tenantId: string): Promise<{{pascal name}}[]>
+  get(tenantId: string, id: string): Promise<{{pascal name}} | null>
+  create(input: { tenantId: string; name: string }): Promise<{{pascal name}}>
+  update(tenantId: string, id: string, patch: { name?: string }): Promise<{{pascal name}}>
+  delete(tenantId: string, id: string): Promise<void>
+}
