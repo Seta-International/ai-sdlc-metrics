@@ -6,6 +6,7 @@ import * as commandGen from './generators/command.gen'
 import * as entityGen from './generators/entity.gen'
 import * as moduleGen from './generators/module.gen'
 import * as queryGen from './generators/query.gen'
+import * as removeGen from './generators/remove.gen'
 import * as zoneGen from './generators/zone.gen'
 import { flush } from './lib/flush'
 import { renderPlan } from './lib/preview'
@@ -13,6 +14,7 @@ import { createTree, type Tree } from './lib/tree'
 import {
   runAll,
   validateModuleDoesNotExist,
+  validateModuleExists,
   validateName,
   validateNotReserved,
   validateZoneDoesNotExist,
@@ -25,6 +27,7 @@ const applyByGenerator: ApplyMap = {
   entity: entityGen.apply,
   module: moduleGen.apply,
   query: queryGen.apply,
+  remove: removeGen.apply,
   zone: zoneGen.apply,
 }
 
@@ -48,6 +51,9 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
       const checks = [validateName(answers['name']), validateNotReserved(answers['name'])]
       if (name === 'module') checks.push(validateModuleDoesNotExist(tree, answers['name']))
       if (name === 'zone') checks.push(validateZoneDoesNotExist(tree, answers['name']))
+      if (name === 'remove' && answers['kind'] === 'module') {
+        checks.push(validateModuleExists(tree, answers['name']))
+      }
       const v = runAll(checks)
       if (!v.ok) throw new Error('Validation failed:\n  - ' + v.reasons.join('\n  - '))
     }
@@ -65,4 +71,5 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
   queryGen.register(plop)
   moduleGen.register(plop)
   zoneGen.register(plop)
+  removeGen.register(plop)
 }
