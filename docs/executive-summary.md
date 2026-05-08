@@ -1,17 +1,23 @@
-# Future — Phase-1 Kickoff Signoff
+# Seta Future — Phase-1 Kickoff Signoff
 
-| Field             | Value                                            |
-| ----------------- | ------------------------------------------------ |
-| Document          | Project signoff for kickoff                      |
-| For               | CEO · CTO · PMO                                  |
-| Author            | Project Management Office                        |
-| Status            | **For signature — kickoff blocked until signed** |
-| Proposed kickoff  | **2026-04-23**                                   |
-| MVP demonstration | **2026-05-31** (6-week window)                   |
+| Field             | Value                                                   |
+| ----------------- | ------------------------------------------------------- |
+| Document          | Project signoff for kickoff                             |
+| For               | CEO · CTO · PMO                                         |
+| Author            | Project Management Office                               |
+| Kickoff (actual)  | **2026-04-23** (S1–S2 complete on provisional approval) |
+| First demo        | **2026-05-20** (interim · end of S4)                    |
+| MVP demonstration | **2026-05-31** (staging only · 6-week window)           |
 
 ## 1. The Ask
 
-Approve a **six-week, six-FTE Phase-1 build** of Future kicking off **2026-04-23**, ending in a live MVP demonstration on **2026-05-31** against SETA's own data. This document is the scope-and-timeline contract.
+### 1.1 Why this matters to SETA
+
+- **Task & plan management** — plans, buckets, tasks, evidence-backed completion, 4 views, 4 personal hubs, bidirectional M365 Planner sync (detail in §5.1).
+- **AI assistant for every employee** — KB Q&A with citations, "my overdue tasks / why at-risk" answers, scheduled digests, approval-inbox-mediated writes, four-axis cost ceilings.
+- **Proves AI-leveraged velocity** — 2 non-trivial modules in 6 weeks with 6 FTE; S3 retro burn is the board-facing artefact for the rest of the SETA ecosystem build.
+- **Builds the platform core once** — kernel/RLS, identity, multi-tenancy, approval inbox, agent runtime, audit/replay, M365 connector, Terraform. Every later module (people · time · hiring · performance · projects · finance · goals) plugs in.
+- **SETA-internal pilot, staging only at MVP** — production cutover and external-tenant surface are post-MVP gates.
 
 ---
 
@@ -81,18 +87,24 @@ flowchart TB
 
 ### 3.2 Acceptance criteria — demo on 2026-05-31
 
-Live, end-to-end run on real SETA data. Demo proves capability; production write activation is gated post-MVP per Agents SAD §9.3, and full Planner launch is **2026-06-08** per Planner SAD §9.1.
+Live, end-to-end run on real SETA data **on the staging environment only** — no production deployment in Phase-1. Production cutover, agent write activation (Agents SAD §9.3), and full Planner launch (2026-06-08, Planner SAD §9.1) are post-MVP gates.
 
-1. Magic-link login via Entra SSO.
-2. KB Q&A with handbook citations — ≥80% accuracy on a held-out rubric.
-3. "What are my overdue tasks?" — agent reads Planner under caller scope.
-4. Mark task complete with evidence → approval inbox → approve → propagates to M365 Planner.
-5. **Multi-tenant probe** — second tenant cannot see tenant 1's data; leak canary green.
-6. **Failure modes** — sync conflict surfaces in log; cost-ceiling tripwire fires; KB miss returns plain-language refusal.
-7. Daily digest subscription delivers next business day.
-8. Admin surfaces: sync-health · conflict log · cost ledger · audit query.
+1. Magic-link or SSO login via Entra SSO.
+2. **Plan & task management** — create plan + buckets + tasks (assignees · dates · labels · checklists · attachments); render Board, Grid, Charts, and Schedule views; My Day + My Tasks hubs load under caller scope.
+3. **Mark task complete with evidence** → approval inbox → approve → propagates to M365 Planner via bidirectional sync; sync conflict surfaces in log with field-level diff.
+4. **AI — KB Q&A** with handbook citations — ≥80% accuracy on a held-out rubric.
+5. **AI — conversational Planner query & analysis** — natural-language questions on tasks, workload, and plan health, plus role-scoped throughput / balance / cross-team risk. Agent reads under caller scope, k-anonymity floor on team views, cites tasks.
+6. **AI — inline copilot** in Planner with auto screen context; daily digest subscription delivers next business day.
+7. **AI — conversational Planner control** — user issues task intents in natural language (create, update, reassign, reschedule, mark complete with evidence). Agent translates intent into a structured Planner write, routes through the approval inbox, executes on user approval under caller scope, and propagates to M365.
+8. **Multi-tenant probe** — second tenant cannot see tenant 1's data; leak canary green.
+9. **Failure modes** — cost-ceiling tripwire fires; KB miss returns plain-language refusal; sync retries idempotent.
+10. Admin surfaces: sync-health · conflict log · cost ledger · audit query.
 
 **Gates:** Board p95 ≤ 400 ms · My Tasks p95 ≤ 1.0 s · agent answer p95 ≤ 8 s · zero leak canary failures.
+
+**Quality bar:** **≥70% unit-test coverage** across lines, functions, and branches (CI-blocking — TDD per CLAUDE.md) · **main user flows covered by Playwright E2E (~20% of test surface)** — login + magic link, KB Q&A with citations, Planner task → evidence → approval → M365 sync, multi-tenant isolation probe.
+
+**Security gate (before staging hosts real data):** secrets in AWS Secrets Manager · RLS policy-coverage test green · dep/container scan clean of criticals · M365 tokens encrypted with rotation · staff comms sent. Pen-test, DPIA, GDPR erasure → post-MVP.
 
 ### 3.3 Out of scope — programme-wide
 
@@ -100,6 +112,7 @@ Module-specific cuts in §4.3 and §5.2.
 
 - **Other domain modules** — people, time, hiring, performance, projects, finance, goals
 - **Manager / team-lead dashboards** and at-risk alerts
+- **Meeting-transcript → plan conversion** (auto-generate plans/tasks from meeting scripts) — Phase-1.5 candidate
 - **Multi-language UI · native mobile · multi-region · cross-tenant collab**
 - **Slack / Teams chat surfaces · Outlook calendar**
 - **External tenant onboarding** — SETA-internal pilot only
@@ -109,6 +122,7 @@ Module-specific cuts in §4.3 and §5.2.
 | ✅ It is                                            | ❌ It is not                                  |
 | --------------------------------------------------- | --------------------------------------------- |
 | MVP demonstration on real SETA data                 | General Availability                          |
+| Deployed to staging only                            | Deployed to production                        |
 | PMO performance-evaluation anchor for the programme | External pilot launch                         |
 | Foundation for the post-MVP Phase-1 GA gate         | An all-modules platform                       |
 | Internal-use ready (SETA staff, existing privacy)   | External-tenant ready (GDPR erasure required) |
@@ -117,9 +131,9 @@ Module-specific cuts in §4.3 and §5.2.
 
 ## 4. Agents Module — Detailed Scope
 
-Conversational AI assistant for every SETA employee. Trust is earned in four phases: A (Q&A), B (Insights), C (Action Proposals), D (Autonomous). **MVP = A + B + constrained C** (own-scope writes only, all routed through the approval inbox). **D is out.**
+Conversational AI assistant for every SETA employee. **MVP scope:** question-answering, role-scoped insights, and constrained writes (own-scope only, every write routed through the approval inbox). Autonomous writes are out.
 
-The **approval inbox** is the safety mechanic: writes either preview inline (single-target, Bypass mode) or route through the inbox (bulk, cross-target, destructive, or any write after free-text user input). On approval, preconditions revalidate; narrowed permissions fail the write with a structured event — never silently.
+The **approval inbox** is the safety mechanic: writes either preview inline (single-target) or route through the inbox (bulk, cross-target, destructive, or any write after free-text input). On approval, preconditions revalidate before execution; narrowed permissions fail the write with a structured event — never silently.
 
 ### 4.1 Runtime architecture — one turn, end to end
 
@@ -158,27 +172,26 @@ sequenceDiagram
     Note over R,S: Per-tool circuit breaker — 2 failures → tool disabled rest of turn (ADR-017)<br/>Mode 2 supervisor (cross-worker iteration) deferred — invariants pre-declared (ADR-033)
 ```
 
-**Not shown:** layered memory L1/L2/L3 (App. C) · `pg-boss` async workers (`scheduled-turn`, `execute-approved-draft`, `kb-ingestion`) — all enqueue into the same Router, none bypass the Gateway · **Mode 2 supervisor** (cross-worker iteration) pre-declared but not wired (ADR-033).
-
 ### 4.2 MVP capability buckets
 
-| Bucket                                | Capabilities (FR refs)                                                                                                                                                                                                                                                                                                                                                                          |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Conversational surface**            | Global chat with token streaming + turn cancel · Inline copilot panels in Planner with auto screen context · Per-user concurrent threads (FR-001–007)                                                                                                                                                                                                                                           |
-| **Router · sub-agents · synthesizer** | Three LLM-driven roles in one turn (Mode 1, bounded DAG): **Router** plans once with strict output shape · 1–2 **sub-agents** dispatched in parallel under separate budgets, each running a capped **ReAct loop** (≤4–5 iterations, abortable, audited, observable) · **Synthesizer** composes the final answer · Per-tool circuit breaker: 2 failures → tool disabled for the rest of the turn |
-| **Layered memory model (App. C)**     | **L1** sub-agent ReAct trace + turn-scoped read cache · **L2** conversation history — last-K turns verbatim + earlier turns as **compacted summaries** (compaction is a first-class instrumented LLM call off the hot path, threshold default 6,000 tokens, ADR-030) · **L3** non-domain user preferences (display format, default currency view)                                               |
-| **Tenant Knowledge Base**             | Markdown / plain-text / text-PDF ingestion (no OCR) · Tenant-keyed retrieval, cross-tenant search structurally prohibited · Q&A with citations · Admin upload / browse / edit / deprecate / re-index / failure reports (FR-050–059)                                                                                                                                                             |
-| **Planner knowledge & analytics**     | "My open / due / overdue tasks", workload, blockage · Plan status synthesis (on-track / at-risk / done; stale items; standup) · Role-scoped analysis: IC throughput · team-lead balance · org-leader cross-team risk · k-anonymity floor on aggregates (FR-025, 060–064)                                                                                                                        |
-| **Approval inbox & writes**           | Two modes: **Default** (every write confirms) · **Bypass** (single-target inline) · Non-bypassable floor: bulk · cross-target · destructive · post-free-text (FR-008–018, 040–045)                                                                                                                                                                                                              |
-| **Scheduled digests**                 | Opt-in **cron-fired** only — morning brief · end-of-week status · stale-task nudges · at-risk alerts · Read-only or inbox-draft, never autonomous · Explicit per-user delegation · Self-service manage (FR-071–075)                                                                                                                                                                             |
-| **Cost & governance**                 | Four-axis USD ceilings: **per-turn · per-user-day · per-tenant-day · per-delegation** (cache-aware) · Caller-scoped, no service-account elevation · Admin: model, ceilings, schedule, tool visibility, mode policy (FR-019–027)                                                                                                                                                                 |
-| **Audit, replay, honesty**            | Caller-identity audit on every action · Deterministic replay from trace ID · Plain-language refusal with reason (budget / unavailable / refused) · Single-layer retry + per-tool circuit breaker · Model-degradation ladder with trace tags (FR-028–049)                                                                                                                                        |
+| Capability                   | What it does                                                                                                                                                              |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Conversational surface**   | Global chat plus inline copilot inside Planner; per-user threads with streaming responses                                                                                 |
+| **Knowledge base Q&A**       | Ingest tenant handbooks / docs (Markdown · PDF · text); answer with citations; admin upload, edit, deprecate, re-index                                                    |
+| **Planner query & analysis** | Natural-language questions on tasks, workload, plan health; role-scoped views (IC throughput · team-lead balance · org-leader cross-team risk) with k-anonymity on teams  |
+| **Planner control (write)**  | Natural-language task intents → structured Planner write → routed through approval inbox → executed under caller scope on approval. Never silent, never autonomous at MVP |
+| **Scheduled digests**        | Opt-in morning brief · end-of-week status · stale-task nudges · at-risk alerts. Read-only or inbox-draft only                                                             |
+| **Cost & governance**        | Four-axis USD ceilings (per turn · user-day · tenant-day · delegation); admin controls model, ceilings, schedules, tool visibility                                        |
+| **Audit & replay**           | Caller-identity audit on every action; deterministic replay from trace ID; plain-language refusal with reason (budget / unavailable / refused)                            |
+
+_Internals (Router / sub-agents / Synthesizer · layered memory · ReAct loops · circuit breakers) are specified in the Agents SAD; FR-level refs in the SDLC traceability matrix._
 
 ### 4.3 Agents-specific deferrals
 
 - **Cross-conversation memory** — within-conversation context only (no "you said X yesterday")
 - **Autonomous writes** — scheduled / event-triggered runs cannot write without inbox approval
 - **Event-triggered runs** — cron only at MVP; outbox-event subscriptions pre-designed, not wired
+- **Meeting-transcript → plan conversion** — auto-generation of plans/tasks from meeting scripts is Phase-1.5
 - **Image / OCR ingestion** — text KB only
 - **Multi-provider routing** — single-provider (OpenAI); abstraction is post-Phase-1
 - **LLM-as-judge gating** — deferred until ≥95% inter-rater corpus; deterministic scorers only
@@ -191,15 +204,16 @@ A work-tracking surface that **complements** Microsoft 365 Planner today and is 
 
 ### 5.1 MVP capability buckets
 
-| Bucket                           | Capabilities (FR-PL refs)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Plans, buckets, tasks**        | Team plans (multi-member) + personal plans (auto-provisioned, private) · Three plan types fixed at first link: `future-only` · `ms-group` · `ms-roster` · Ordered buckets · 25 label slots (renameable, not addable) · Task CRUD with title ≤255 / desc ≤32 KB / dates / assignees / labels / checklists (max 20) / attachments / comments · Soft-delete with audit-shell · Atomic re-auth on cross-bucket / cross-plan move (FR-PL-001–016)                                                                                                                                   |
-| **Four view modes**              | **Board** kanban · **Grid** sortable/filterable table · **Charts** bar/donut by bucket/assignee/progress/priority · **Schedule** timeline by date (day/week/month) — **NOT a Gantt** (no dependencies, critical path, milestones) · Single filter+search across all four views (FR-PL-023, UI-PL-011–014)                                                                                                                                                                                                                                                                      |
-| **Four personal hubs**           | **My Day** today's pins + Carry-Over · **My Tasks** all open tasks across visible plans, grouped, with due-date proximity · **Personal Charts** 7/30/90-day completion, open count by priority/plan · **Carry-Over** auto roll-forward of unfinished pins (FR-PL-017–022)                                                                                                                                                                                                                                                                                                      |
-| **Evidence model**               | First-class records, **distinct from attachments** · Kinds: file · link · note · States: unsubmitted · submitted · verified · rejected (independent of task completion) · `evidence.verified` outbox event (FR-PL-016, 058)                                                                                                                                                                                                                                                                                                                                                    |
-| **M365 bidirectional sync**      | Tenant-admin OAuth (once per tenant) · **Pull**: adaptive cadence, Graph delta query, reconcile · **Push**: idempotency per entity-version, no duplicate edits on retry · **Conflict**: last-write-wins by version; losing snapshot kept in log with both before-states · Dry-preview on first sync · Pre-flight M365 limit enforcement · Recurrence schedules opaque + round-tripped · Daily admin health summary (per-plan pull success / retries / conflicts / unresolved / time-since-last-pull) · Credential revoke pauses sync within one cycle + alerts (FR-PL-027–067) |
-| **Admin surface**                | M365 connect / disconnect · Conflict log with field-level diff; accept either side or force-resync per task/bucket/plan · Unresolved assignment lookup · Attachment-upload retry mgmt · Tenant attachment quota + max-file-size · "What changed and why" answer for any plan/day from one query · Personal-plan **operations** visible to admins; **content** is not (UI-PL-023–025)                                                                                                                                                                                           |
-| **Outbox events & admin alerts** | **Daily sync-health summary** to each tenant administrator at tenant-configurable time (FR-PL-035) · **Credential revocation/refusal pauses sync within one cycle + admin alert** (FR-PL-036) · Delivery (channels, per-user preferences) handled by the platform **Notifications module** (DEP-PL-03)                                                                                                                                                                                                                                                                         |
+| Capability                  | What it does                                                                                                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Plans, buckets, tasks**   | Team plans (multi-member) and personal plans (auto-provisioned, private); ordered buckets; tasks with assignees, dates, labels, checklists, attachments, comments; soft-delete + audit      |
+| **Four view modes**         | Board (kanban) · Grid (sortable table) · Charts (by bucket / assignee / progress / priority) · Schedule (timeline by day / week / month). Single filter+search across all four. Not a Gantt |
+| **Four personal hubs**      | My Day · My Tasks · Personal Charts · Carry-Over (auto roll-forward of unfinished pins)                                                                                                     |
+| **Evidence model**          | First-class records (file · link · note); states unsubmitted / submitted / verified / rejected; tracked independently of task completion                                                    |
+| **M365 bidirectional sync** | Tenant OAuth · adaptive pull + idempotent push · last-write-wins conflict log with both before-states · dry-preview on first sync · credential revoke pauses sync within one cycle          |
+| **Admin surface**           | M365 connect / disconnect · conflict log with field-level diff and per-task force-resync · "what changed and why" query · daily sync-health summary · attachment quotas                     |
+
+_Field-level limits, FR-PL refs, plan-type fixing, and Graph delta-query specifics are in the Planner SAD._
 
 ### 5.2 Planner-specific deferrals
 
@@ -227,7 +241,7 @@ A work-tracking surface that **complements** Microsoft 365 Planner today and is 
 
 ```mermaid
 gantt
-    title Phase-1 Sprint Plan (2026-04-23 → 2026-05-31) · today = 2026-05-07 (S3 D1)
+    title Phase-1 Sprint Plan (2026-04-23 → 2026-05-31) · today = 2026-05-08 (S3 D2)
     dateFormat YYYY-MM-DD
     axisFormat %m-%d
 
@@ -237,21 +251,21 @@ gantt
 
     section Parallel feature build
     S3 — Skeletons + 4 contracts       :crit, active, s3, 2026-05-07, 2026-05-13
-    S4 — Views, KB, sync core          :s4, 2026-05-14, 2026-05-20
+    S4 — Views, KB, sync core (staging):s4, 2026-05-14, 2026-05-20
     S5 — Feature-complete + linking    :crit, s5, 2026-05-21, 2026-05-27
 
     section Hardening
     S6 — Hardening + DEMO              :crit, s6, 2026-05-28, 2026-05-31
 ```
 
-| Sprint | Window                 | Goal                                                                                             | Gate                           |
-| ------ | ---------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------ |
-| ~~S1~~ | 04-23 → 04-29          | Monorepo + toolchain — **Done**                                                                  | —                              |
-| ~~S2~~ | 04-30 → 05-06          | Backend, frontend, auth, DB skeletons + SSO — **Done**                                           | —                              |
-| **S3** | 05-07 → 05-13          | Staging deployable · People + Planner CRUD + Agents chat skeleton · **4 contracts locked Day 1** | **Velocity re-baseline retro** |
-| **S4** | 05-14 → 05-20          | Planner views + hubs + sync core · Agents KB + RAG + exec-mode · Deploy prod                     | Walkthrough                    |
-| **S5** | 05-21 → 05-27          | **MVP feature-complete + linking · code freeze at S5 close**                                     | Go / no-go gate for S6         |
-| **S6** | 05-28 → 05-31 (4 days) | **Hardening only** — bug fixes, perf/a11y, security, demo prep, RTM verification                 | **MVP demo — 2026-05-31**      |
+| Sprint | Window                 | Goal                                                                                                              | Gate                           |
+| ------ | ---------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| ~~S1~~ | 04-23 → 04-29          | Monorepo + toolchain — **Done**                                                                                   | —                              |
+| ~~S2~~ | 04-30 → 05-06          | Backend, frontend, auth, DB skeletons + SSO — **Done**                                                            | —                              |
+| **S3** | 05-07 → 05-13          | Staging deployable · People + Planner CRUD + Agents chat skeleton · **4 cross-module API contracts locked Day 1** | **Velocity re-baseline retro** |
+| **S4** | 05-14 → 05-20          | Planner views + hubs + sync core · Agents KB + retrieval-augmented Q&A + write/execute mode · staging hardened    | **First demo — 2026-05-20**    |
+| **S5** | 05-21 → 05-27          | **MVP feature-complete + linking · code freeze at S5 close**                                                      | Go / no-go gate for S6         |
+| **S6** | 05-28 → 05-31 (4 days) | **Hardening only** — bug fixes, performance / accessibility, security, demo prep, requirements-traceability check | **MVP demo — 2026-05-31**      |
 
 ### 6.1 Load-bearing dates
 
@@ -259,8 +273,8 @@ If any slips, the demo slips.
 
 - **S3 D2 (05-08).** M365 sandbox + Entra consent + Graph scopes (SETA IT); KB ingestion pipeline complete (Agents track).
 - **S3 retro (05-13).** Velocity re-baseline — target ~45 SP/eng/sprint; below plan → §6.2 cut order applies.
+- **End of S4 (05-20).** **First demo** — interim walkthrough on staging; Planner views + hubs + KB Q&A working end-to-end. Surfaces gaps before code freeze.
 - **End of S5 (05-27).** Code freeze. Linking complete; integration smoke must be green or S6 hardening cannot land the demo.
-- **S6 = 4 calendar days, but includes a weekend → 2 working days of hardening before the Sunday demo.**
 
 ### 6.2 Phase-1.5 cut order (pre-agreed, applies at S3 retro)
 
@@ -277,11 +291,11 @@ Six checkpoints, not three. AI-leveraged velocity (~45 SP/eng/sprint) is a forec
 | Role             | Allocation              | Status                                      | Owns                                                                                                                 |
 | ---------------- | ----------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Planner Module   | 1 fullstack             | Existing 0.5 + need to hire 0.5             | Plans/tasks/evidence → views/hubs → M365 sync → linking · web-admin Planner surfaces · People exact-subject resolver |
-| Agents Module    | 1 AI + 1 fullstack      | Existing 1 AI · need to hire 1 fullstack    | Chat → KB + execution modes → admin/governance → linking · web-admin KB surfaces                                     |
-| Deployment       | 1 DevOps                | Existing **(needs IT support)**             | Staging → production → web-shell SSO + magic-link · dual-tenant probe                                                |
-| **QA Engineer**  | 1.0 FTE                 | **To hire — onboard by S3**                 | Manual + exploratory · regression · launch-gate verification                                                         |
+| Agents Module    | 1 AI + 1 fullstack      | Existing 1 AI · need to hire 1 fullstack    | Chat → KB + writes via approval inbox → admin/governance → linking · web-admin KB surfaces                           |
+| Deployment       | 1 DevOps                | Existing **(needs IT support)**             | Staging environment · web-shell SSO + magic-link · dual-tenant probe                                                 |
+| **QA Engineer**  | 1.0 FTE                 | **To hire — onboard immediately**           | Manual + exploratory · regression · launch-gate verification                                                         |
 | Business Analyst | 0.5 FTE                 | Existing                                    | Requirements · acceptance · traceability · pilot feedback · **doc work-stream owner**                                |
-| Scrum Master     | 0.5 FTE                 | **To hire — onboard by S3**                 | Cadence · retros · impediments · velocity                                                                            |
+| Scrum Master     | 0.5 FTE                 | **To hire — onboard immediately**           | Cadence · retros · impediments · velocity                                                                            |
 | **Total**        | **6.0 FTE for 6 weeks** | **To hire — 1.5 fullstack + 1 QA + 0.5 SM** |                                                                                                                      |
 
 **Bus factor.** Planner = single fullstack; Agents = single AI engineer. Either absence > 3 days → §6.2 cut activates (see §8 R3, R4).
@@ -292,16 +306,16 @@ Six checkpoints, not three. AI-leveraged velocity (~45 SP/eng/sprint) is a forec
 
 ## 8. Risks That Bear on Scope or Timeline
 
-The eight below need a CEO/CTO/PMO ruling **before** signoff. Full register in the board paper.
+The six below need a CEO/CTO/PMO ruling **before** signoff. Full register in the board paper.
 
-| #   | Risk                                                                  | P/I   | Mitigation / Action                                                                                                |
-| --- | --------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------ |
-| R1  | AI-leveraged velocity (~45 SP/eng/sprint) is a forecast, not measured | M / H | S3 retro re-baselines from real burn; below forecast → §6.2 cut order                                              |
-| R2  | Hire slips past S3 (1.5 FS + 1 QA + 0.5 SM)                           | M / H | Commit onboard ≤ 2026-05-07; if 1 FS misses → §6.2 cut #2                                                          |
-| R3  | Single-fullstack Planner — bus factor                                 | M / H | PR reviewer named; absence > 3 days → §6.2 cut #2                                                                  |
-| R4  | Single-AI-engineer Agents — bus factor                                | M / H | FS cross-trains on Router/Synth in S2; AI absence > 3 days → KB-only (cut #5)                                      |
-| R5  | M365 Graph throttling untested at SETA scale                          | M / M | S4 backfill rehearsal (Planner SAD §9.2); adaptive cadence + pre-flight limits                                     |
-| R6  | S5 overload — feature-complete + linking same week                    | M / H | Code-freeze threshold mid-week; late-cut PLAN-6 polish + AGN-7 model-degradation if behind (per SDLC plan risk #9) |
+| #   | Risk                                                                           | P/I   | Mitigation / Action                                                                                                             |
+| --- | ------------------------------------------------------------------------------ | ----- | ------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | AI-leveraged velocity (~45 SP/eng/sprint) is a forecast, not measured          | M / H | S3 retro re-baselines from real burn; below forecast → §6.2 cut order                                                           |
+| R2  | Hires not yet onboard (1.5 FS + 1 QA + 0.5 SM) — already late vs. 05-07 target | H / H | Onboard immediately; each week of FS slip ≈ one §6.2 cut                                                                        |
+| R3  | Single-fullstack Planner — bus factor                                          | M / H | PR reviewer named; absence > 3 days → §6.2 cut #2                                                                               |
+| R4  | Single-AI-engineer Agents — bus factor                                         | M / H | FS cross-trained on chat + KB in S2; AI absence > 3 days → reduce Agents to KB Q&A + chat (drop Planner analysis + writes)      |
+| R5  | M365 Graph throttling untested at SETA scale                                   | M / M | S4 backfill rehearsal (Planner SAD §9.2); adaptive cadence + pre-flight limits                                                  |
+| R6  | S5 overload — feature-complete + linking same week                             | M / H | Code-freeze threshold mid-week; if behind, late-cut Planner UI polish + Agents model-degradation ladder (per SDLC plan risk #9) |
 
 ---
 
@@ -309,7 +323,7 @@ The eight below need a CEO/CTO/PMO ruling **before** signoff. Full register in t
 
 | Line item                                                                                             | USD/month   | Status           |
 | ----------------------------------------------------------------------------------------------------- | ----------- | ---------------- |
-| AWS infrastructure (prod ~$349 + staging ~$127)                                                       | ~$476       | Budgeted         |
+| AWS infrastructure — staging during MVP (~$127); prod (~$349) activates at post-MVP cutover           | ~$476 (GA)  | Budgeted         |
 | Claude Code Max subscriptions (developer tooling)                                                     | ~$220       | Budgeted         |
 | OpenAI inference — SETA-scale forecast (300 staff · ~10 turns/user/day · 4-axis cost ceilings active) | ~$880       | Budgeted         |
 | Team payroll (6.0 FTE × 6 weeks)                                                                      | (existing)  | Already approved |
@@ -321,17 +335,21 @@ One-offs: M365 sandbox (zero marginal); KB ingestion of SETA corpus (~$0.20).
 
 ---
 
-## 10. Decisions Required Before 2026-04-22
+## 10. Decisions Required — Sign by 2026-05-13 (S3 retro)
+
+S1–S2 were executed on provisional approval. Signing now **ratifies that work and authorises S3–S6**. Latest defensible signoff is the **S3 retro on 2026-05-13** — beyond that, the §6.2 cut order applies without re-escalation.
 
 By signing, approvers confirm each of:
 
-1. **Approve commencement** 2026-04-23 with the scope, timeline, team, and budget above.
-2. **Authorise hires** — 1.5 fullstack + 1 QA + 0.5 SM, onboard ≤ 2026-05-07.
-3. **Authorise IT** to provision M365 sandbox + Entra consent before 2026-04-22.
-4. **Confirm work-stream fold-ins** per §7 (People · web-admin · web-shell · Documentation). 6.0 FTE assumes these; reject → scope re-baselines.
-5. **Ring-fence the team** for six weeks — no client-services pulls. AI-velocity bet is void otherwise.
-6. **Pre-agree the §6.2 cut order** — applies at S3 retro without further escalation.
-7. **Acknowledge** 2026-05-31 = MVP demo, not GA. Agent writes activate post-MVP per SAD §9.3; Planner launch 2026-06-08 per SAD §9.1.
+1. **Ratify** the 2026-04-23 commencement and the S1–S2 work delivered on provisional approval.
+2. **Authorise S3–S6** with the scope, timeline, team, and budget above.
+3. **Authorise outstanding hires immediately** — 1.5 fullstack + 1 QA + 0.5 SM. **Any further hiring delay slips the timeline** (already late vs. original ≤ 2026-05-07 target — see R2). Each week of slip on FS hire ≈ one cut from §6.2.
+4. **Confirm M365 dependency** — sandbox + Entra consent + Graph scopes due **today, 2026-05-08** (S3 D2). Slip → §6.2 cut #2 (sync → one-way push) activates.
+5. **Confirm work-stream fold-ins** per §7 (People · web-admin · web-shell · Documentation). 6.0 FTE assumes these; reject → scope re-baselines.
+6. **Ring-fence the team** for the remaining four sprints — no client-services pulls. AI-velocity bet is void otherwise.
+7. **Pre-agree the §6.2 cut order** — applies at S3 retro without further escalation.
+8. **Acknowledge agile delivery** — scope may be refined mid-sprint for clarity, quality, or improvement opportunities surfaced during implementation. **Material changes (in/out of §3.1, demo-affecting) are communicated to CEO/CTO/PMO within 24h** with rationale and impact; non-material refinements land in the sprint demo.
+9. **Acknowledge** 2026-05-31 = MVP demo on **staging**, not GA. Production cutover, agent writes (Agents SAD §9.3), and Planner launch (2026-06-08, Planner SAD §9.1) are post-MVP gates.
 
 ---
 

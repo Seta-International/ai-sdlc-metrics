@@ -16,7 +16,6 @@ import { PushBucketCommand } from './push-bucket.command'
  *    neither is present after the replacements above. */
 function normalizeOrderHint(hint: string): string {
   if (hint.charCodeAt(0) === 33) return ' !'
-  // eslint-disable-next-line no-control-regex
   const normalized = hint.replace(/[\x5b-\x60]/g, 'a')
   return /[ !]/.test(normalized) ? normalized : normalized + ' !'
 }
