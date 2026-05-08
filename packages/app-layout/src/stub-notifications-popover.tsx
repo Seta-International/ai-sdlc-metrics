@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { NotificationsPopover, type NotificationItem } from '@future/ui'
+import { NotificationsPopover, type NotificationItem } from '@future/ui/notifications-popover'
 
 function buildInitialItems(): NotificationItem[] {
   if (process.env.NEXT_PUBLIC_LOCAL_DEV !== 'true') return []

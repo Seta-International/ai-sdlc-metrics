@@ -80,9 +80,15 @@ export function useHrChangeRequests(filter: HrFilter): UseHrChangeRequestsResult
     setTick((current) => current + 1)
   }, [])
 
+  const requestKey = `${filter}:${tick}`
+  const [prevRequestKey, setPrevRequestKey] = React.useState(requestKey)
+  if (prevRequestKey !== requestKey) {
+    setPrevRequestKey(requestKey)
+    setIsLoading(true)
+  }
+
   React.useEffect(() => {
     let cancelled = false
-    setIsLoading(true)
 
     const status = filter === 'all_pending' ? 'pending' : undefined
 

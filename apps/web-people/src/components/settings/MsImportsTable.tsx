@@ -48,7 +48,7 @@ type ImportedProps = {
 type MsImportsTableProps = PendingProps | SkippedProps | ImportedProps
 
 export function MsImportsTable(props: MsImportsTableProps) {
-  const [selected, setSelected] = React.useState<Set<string>>(new Set())
+  const [selected, setSelected] = React.useState<Set<string>>(() => new Set())
 
   function toggleAll() {
     if (selected.size === props.users.length) {

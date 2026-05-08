@@ -107,9 +107,11 @@ export function TaskCard({
     }
   }, [activePicker])
 
-  useEffect(() => {
+  const [prevDueDate, setPrevDueDate] = useState(task.dueDate)
+  if (prevDueDate !== task.dueDate) {
+    setPrevDueDate(task.dueDate)
     setLocalDate(task.dueDate ? task.dueDate.toISOString().slice(0, 10) : '')
-  }, [task.dueDate])
+  }
 
   // Build applied label objects from slots
   const appliedLabelObjects = task.appliedLabels

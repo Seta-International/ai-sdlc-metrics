@@ -148,7 +148,7 @@ export function ProfilePage({ employmentId }: ProfilePageProps) {
   const [isLoading, setIsLoading] = React.useState(true)
   const [isEditing, setIsEditing] = React.useState(false)
   const [dirtyFields, setDirtyFields] = React.useState(
-    new Map<string, { old: unknown; new: unknown }>(),
+    () => new Map<string, { old: unknown; new: unknown }>(),
   )
   const [editReason, setEditReason] = React.useState('')
   const [isSubmitting, setIsSubmitting] = React.useState(false)

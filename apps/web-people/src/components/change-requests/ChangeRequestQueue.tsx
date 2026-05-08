@@ -148,19 +148,23 @@ export function ChangeRequestQueue() {
 
   const { rows, stats, isLoading, refetch } = useHrChangeRequests(activeTab)
 
-  React.useEffect(() => {
+  const [prevRows, setPrevRows] = React.useState(rows)
+  if (prevRows !== rows) {
+    setPrevRows(rows)
     setSelectedIds((current) => {
       const next = current.filter((id) => rows.some((row) => row.id === id))
       return next.length === current.length && next.every((id, index) => id === current[index])
         ? current
         : next
     })
-  }, [rows])
+  }
 
-  React.useEffect(() => {
+  const [prevActiveTab, setPrevActiveTab] = React.useState(activeTab)
+  if (prevActiveTab !== activeTab) {
+    setPrevActiveTab(activeTab)
     setSelectedIds([])
     setRejectNote('')
-  }, [activeTab])
+  }
 
   const handleToggleAll = React.useCallback(
     (checked: boolean) => {

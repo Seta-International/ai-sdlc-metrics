@@ -15,6 +15,14 @@
       "import": "./src/lib/fonts.ts",
       "types": "./src/lib/fonts.ts"
     },
+    "./user-menu": {
+      "import": "./src/components/user-menu.tsx",
+      "types": "./src/components/user-menu.tsx"
+    },
+    "./notifications-popover": {
+      "import": "./src/components/notifications-popover.tsx",
+      "types": "./src/components/notifications-popover.tsx"
+    },
     "./src/styles/globals.css": "./src/styles/globals.css"
   },
   "scripts": {

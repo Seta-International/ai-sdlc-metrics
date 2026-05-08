@@ -25,9 +25,14 @@ export function useChangeRequests(employmentId: string): {
   const [items, setItems] = React.useState<ChangeRequestSummary[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
 
+  const [prevEmploymentId, setPrevEmploymentId] = React.useState(employmentId)
+  if (prevEmploymentId !== employmentId) {
+    setPrevEmploymentId(employmentId)
+    setIsLoading(true)
+  }
+
   React.useEffect(() => {
     let cancelled = false
-    setIsLoading(true)
     void anyTrpc.people.listProfileChangeRequests
       .query({ mode: 'byEmployment', employmentId })
       .then((result: { items: ChangeRequestSummary[] } | null) => {

@@ -73,9 +73,9 @@ vi.mock('@future/ui', () => {
     onValueChange: (value: string) => void
   }) {
     return (
-      <TabsContext.Provider value={{ value, onValueChange }}>
+      <TabsContext value={{ value, onValueChange }}>
         <div>{children}</div>
-      </TabsContext.Provider>
+      </TabsContext>
     )
   }
 
@@ -84,7 +84,7 @@ vi.mock('@future/ui', () => {
   }
 
   function TabsTrigger({ children, value }: { children: React.ReactNode; value: string }) {
-    const ctx = React.useContext(TabsContext)
+    const ctx = React.use(TabsContext)
     return (
       <button type="button" role="tab" onClick={() => ctx?.onValueChange(value)}>
         {children}
@@ -93,7 +93,7 @@ vi.mock('@future/ui', () => {
   }
 
   function TabsContent({ children, value }: { children: React.ReactNode; value: string }) {
-    const ctx = React.useContext(TabsContext)
+    const ctx = React.use(TabsContext)
     return ctx?.value === value ? <div>{children}</div> : null
   }
 
@@ -223,12 +223,21 @@ describe('ChangeRequestQueue', () => {
   beforeEach(() => {
     capturedColumns = []
     capturedEnableRowSelection = undefined
-    mockUseHrChangeRequests.mockImplementation((filter: 'all_pending' | 'recent') => ({
-      rows: filter === 'recent' ? [decidedRow] : [pendingRow],
+    const pendingResult = {
+      rows: [pendingRow],
       stats: { pending: 1, approvedToday: 1, rejectedToday: 0, oldestDays: 0 },
       isLoading: false,
       refetch: vi.fn(),
-    }))
+    }
+    const recentResult = {
+      rows: [decidedRow],
+      stats: { pending: 1, approvedToday: 1, rejectedToday: 0, oldestDays: 0 },
+      isLoading: false,
+      refetch: vi.fn(),
+    }
+    mockUseHrChangeRequests.mockImplementation((filter: 'all_pending' | 'recent') =>
+      filter === 'recent' ? recentResult : pendingResult,
+    )
   })
 
   afterEach(() => {

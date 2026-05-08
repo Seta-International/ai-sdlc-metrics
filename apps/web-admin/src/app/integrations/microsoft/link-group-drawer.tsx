@@ -49,7 +49,7 @@ export function LinkGroupDrawer({
   onBackfillStarted,
 }: LinkGroupDrawerProps) {
   const [search, setSearch] = useState('')
-  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(() => new Set())
   const queryClient = useQueryClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -351,7 +351,6 @@ describe('BoardColumn', () => {
     }
     render(
       <BoardColumn
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         bucket={makeBucket({ tasks: [taskWithMinFields as any] })}
         planLabels={emptyLabels}
         {...PROPS}

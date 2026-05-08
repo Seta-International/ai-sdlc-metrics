@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { UserMenu, type UserMenuUser } from '@future/ui'
+import { UserMenu, type UserMenuUser } from '@future/ui/user-menu'
 import { getZoneRoutes } from './zone-routes'
 
 export interface SessionUserMenuProps {

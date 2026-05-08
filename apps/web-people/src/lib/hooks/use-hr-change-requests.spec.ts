@@ -1,4 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('../trpc', () => ({
+  trpc: {
+    people: {
+      listProfileChangeRequests: { query: vi.fn() },
+    },
+  },
+}))
 
 describe('use-hr-change-requests module', () => {
   it('exports useHrChangeRequests function', async () => {

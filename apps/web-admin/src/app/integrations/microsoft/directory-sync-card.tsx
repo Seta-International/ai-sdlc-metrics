@@ -71,9 +71,9 @@ export function DirectorySyncCard() {
   const isBusy = isRunning || triggerMutation.isPending
 
   // Once the job is visible as running, the refetchInterval condition takes over.
-  useEffect(() => {
-    if (isRunning) setPollAfterTrigger(false)
-  }, [isRunning])
+  if (isRunning && pollAfterTrigger) {
+    setPollAfterTrigger(false)
+  }
 
   // Safety: stop bridging poll after 30 s regardless (handles enqueue failures not surfaced as errors).
   useEffect(() => {

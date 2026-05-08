@@ -27,7 +27,7 @@ interface TabDocumentsProps {
 export function TabDocuments({ employmentId, canUpload }: TabDocumentsProps) {
   const [documents, setDocuments] = React.useState<EmployeeDocument[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
-  const [selected, setSelected] = React.useState<Set<string>>(new Set())
+  const [selected, setSelected] = React.useState<Set<string>>(() => new Set())
   const [deleteTarget, setDeleteTarget] = React.useState<EmployeeDocument[] | null>(null)
 
   React.useEffect(() => {
