@@ -16,7 +16,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@assistant-ui/react": "^0.12.25",
+    "@assistant-ui/react": "^0.14.0",
     "@future/api-client": "workspace:*",
     "@future/core": "workspace:*",
     "@future/ui": "workspace:*",
