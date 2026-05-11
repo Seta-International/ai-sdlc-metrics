@@ -637,6 +637,12 @@ importers:
 
   platform/tenant:
     dependencies:
+      '@seta/middleware':
+        specifier: workspace:*
+        version: link:../middleware
+      hono:
+        specifier: 4.12.18
+        version: 4.12.18
       zod:
         specifier: 4.4.3
         version: 4.4.3

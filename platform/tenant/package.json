@@ -17,6 +17,8 @@
     "dist"
   ],
   "dependencies": {
+    "@seta/middleware": "workspace:*",
+    "hono": "4.12.18",
     "zod": "4.4.3"
   },
   "devDependencies": {

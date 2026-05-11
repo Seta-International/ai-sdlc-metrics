@@ -50,8 +50,8 @@ export class Unprocessable extends DomainError {
   }
 }
 export class Unauthorized extends DomainError {
-  constructor(detail: string) {
-    super(401, 'unauthorized', { detail })
+  constructor(reason: string) {
+    super(401, reason)
   }
 }
 export class BadRequest extends DomainError {
