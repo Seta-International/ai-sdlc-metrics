@@ -1,9 +1,11 @@
 packages:
   - "apps/*"
   - "modules/channels/*"
+  - "modules/connectors/*"
   - "modules/products/*"
   - "platform/*"
   - "platform/agent/*"
+  - "examples/*"
 allowBuilds:
   esbuild: true
   lefthook: true
