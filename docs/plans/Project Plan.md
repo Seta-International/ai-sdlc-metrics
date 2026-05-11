@@ -58,13 +58,14 @@ These KPIs determine whether P2 (production cutover) is approved at the P1 gate.
 
 ### 2. The one-paragraph version (90-second CEO read)
 
-> Build a slim, multi-tenant, multi-channel agent platform for Seta's ERP. **P1 (7 weeks, 7 people)** delivers **three specialist agents** (Planner, Analytics, **Seta FAQ**) in Microsoft Teams that read, write, analyze, and answer questions about Seta itself via RAG over our corporate knowledge base — with **inbound SSO** (Entra + Google OIDC), **working memory**, **full RAG** (chunking + embeddings + vector + composition), deployed to AWS staging via Terraform, kernel published as open-source. **P2 (5 weeks, +1 frontend, ~$158k)** cuts over to production with Studio web UI, audit log, GDPR delete, and semantic-recall memory. Total program (P1–P4, **~$792k, 21 weeks**) reaches enterprise-grade production-ready with SOC 2 prep, multi-channel surfaces, and Knowledge Graph.
+> Build a slim, multi-tenant, multi-channel agent platform for Seta's ERP using a **dual-language architecture**: a **Python agentic framework** (open-source SDK for AI engineers) + a **TypeScript platform** (API, channels, auth, tenancy). **P1 (7 weeks, 7 people)** delivers **three specialist agents** (Planner, Analytics, **Seta FAQ**) in Microsoft Teams that read, write, analyze, and answer questions about Seta itself via RAG over our corporate knowledge base — with **inbound SSO** (Entra + Google OIDC), **working memory**, **full RAG** (chunking + embeddings + vector + composition), deployed to AWS staging via Terraform, framework published as open-source. The Python framework distills core agentic patterns (Agent Runtime, Tool System, LLM Abstraction, Memory, Storage) inspired by industry frameworks (Mastra, PydanticAI) into a slim, composable SDK. Workflow Engine deferred to P2 — teams use Python native `async/await` orchestration in P1. **RAG data survey runs in parallel from W1** (2 weeks survey + 1 week POC) to unblock Seta FAQ Agent. **P2 (5 weeks, +1 frontend, ~$158k)** cuts over to production with Studio web UI, audit log, GDPR delete, Workflow Engine, and semantic-recall memory. Total program (P1–P4, **~$792k, 21 weeks**) reaches enterprise-grade production-ready with SOC 2 prep, multi-channel surfaces, and Knowledge Graph.
 
 ### 3. P1 Strategic Objectives
 
 | #   | Objective                                                  | What it means in plain terms                                                                                                                     |
 | --- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 1   | **Three specialist agents live in Microsoft Teams**        | A Planner Agent (project management), an Analytics Agent (workload insights), and a Seta FAQ Agent (company knowledge) — all reachable in Teams. |
+| 1b  | **Dual-language architecture (Python framework + TypeScript platform)** | Python agentic framework for AI engineers (open-source SDK); TypeScript platform for API, channels, auth, tenancy. Communication via HTTP + SSE. |
 | 2   | **Full Planner workflow in one agent**                     | Users can read, create, update, analyze, and ask questions about Planner data without leaving Teams.                                             |
 | 3   | **Seta knowledge base with citations**                     | Agent answers questions about Seta itself (pricing, policies, processes) and shows where the answer came from.                                   |
 | 3b  | **Visualization-first responses — charts and tables, not just text** | When users ask "who's overloaded?" they get a bar chart; "what's overdue?" returns a structured table — all inside the Teams conversation.       |
@@ -72,10 +73,12 @@ These KPIs determine whether P2 (production cutover) is approved at the P1 gate.
 | 5   | **Web login (single sign-on)**                             | Foundation for users to log into a web admin in P2 — Entra ID and Google OIDC supported.                                                         |
 | 6   | **Conversational memory within a session**                 | Agent remembers context across messages in the same conversation.                                                                                |
 | 7   | **Foundation for knowledge-base Q&A in any future domain** | The same Seta-FAQ approach works for customer documentation, internal wikis, contract libraries — reusable.                                      |
+| 7b  | **RAG data survey starts W1, POC by W3**                   | Data survey runs in parallel from day 1 (2 weeks). RAG POC + demo in week 3. Unblocks Seta FAQ Agent without blocking framework build.            |
 | 8   | **Automated quality bar**                                  | 12 end-to-end tests run on every change; demo-able to any reviewer.                                                                              |
 | 9   | **Live, publicly-accessible staging environment on AWS**   | Sponsor can interact with the system from a URL; not a localhost demo.                                                                           |
-| 10  | **Open-source release**                                    | Public GitHub repo + first package published; positions Seta as agent-native vendor; recruiting funnel.                                          |
+| 10  | **Open-source release**                                    | Public GitHub repo + Python framework published to PyPI + TypeScript SDK to npm; positions Seta as agent-native vendor; recruiting funnel.       |
 | 11  | **Production foundation in place**                         | Cloud infrastructure, secrets management, deployment automation — reusable for P2 production cutover.                                            |
+| 12  | **Workflow Engine deferred to P2**                          | P1 uses Python native `async/await` orchestration. Full Workflow Engine (builder, branching, suspend/resume) lands in P2.                        |
 
 ### 4. Release Roadmap (P1, 7 weeks)
 
@@ -83,17 +86,19 @@ These KPIs determine whether P2 (production cutover) is approved at the P1 gate.
 | ------------------------------------------- | ------------- | -------- | -------- | ------------------ | -------- | -------- | --------------- | ------------------------- |
 | Research (R)                                | 05-11 → 05-15 | █        |          |                    |          |          |                 |                           |
 | Setup (S)                                   | 05-11 → 05-15 | ◆        |          |                    |          |          |                 |                           |
-| Kernel (K)                                  | 05-12 → 05-25 | █        | █        | ◆                  |          |          |                 |                           |
-| Wrap (W)                                    | 05-12 → 05-28 | █        | █        | █                  |          |          |                 |                           |
+| Kernel (K) — Python framework               | 05-12 → 05-25 | █        | █        | ◆                  |          |          |                 |                           |
+| Wrap (W) — TS platform                      | 05-12 → 05-28 | █        | █        | █                  |          |          |                 |                           |
 | Early AWS (D1–D2)                           | 05-13 → 05-15 | █        |          |                    |          |          |                 |                           |
+| **RAG Data Survey (X0)**                    | 05-11 → 05-25 | █        | █        | ◆ POC              |          |          |                 |                           |
 | MS365 (M)                                   | 05-26 → 06-03 |          |          | █                  | █        |          |                 |                           |
 | Teams (T)                                   | 06-01 → 06-05 |          |          |                    | █        |          |                 |                           |
 | Agents (A) + Wiring (N) + Orchestration (O) | 06-01 → 06-12 |          |          |                    | █        | █        |                 |                           |
-| **Memory + RAG primitives (Y) + SSO (Z)**   | 06-15 → 06-23 |          |          |                    |          |          | █               | █                         |
+| **Memory + RAG primitives (Y)**              | 06-15 → 06-20 |          |          |                    |          |          | █               |                           |
+| **Inbound SSO (Z)**                         | 06-22 → 06-26 |          |          |                    |          |          |                 | █                         |
 | Deploy staging (D)                          | 06-08 → 06-22 |          |          |                    |          | █        | █               | ◆                         |
-| E2E suite (Q4 — now 11 tests)               | 06-08 → 06-23 |          |          |                    |          | █        |                 | █                         |
+| E2E suite (Q4 — now 12 tests)               | 06-08 → 06-24 |          |          |                    |          | █        |                 | █                         |
 | Hardening + Demo (H)                        | 06-22 → 06-26 |          |          |                    |          |          |                 | ◆                         |
-| **Milestones**                              | —             |          |          | M1 Kernel · M2 API | M3 MS365 | M4 Teams | M5 Staging core | M6 Public Release (06-26) |
+| **Milestones**                              | —             |          |          | M1 Kernel · M2 API | M3 MS365 | M4 Teams | M5 Staging · M5b Memory+RAG | M5c SSO · M6 Release (06-26) |
 
 ### 5. Key Milestones
 
@@ -105,7 +110,8 @@ These KPIs determine whether P2 (production cutover) is approved at the P1 gate.
 | M3  | MS365 admin OAuth + Planner working             | M     | 2026-06-03  |                23 | M2 + Q5.3                      |
 | M4  | Teams round-trip in dev tunnel                  | T+A   | 2026-06-10  |                30 | A5, Q4.2 + Q5.4                |
 | M5  | AWS staging deploy + core 10 E2E tests green    | D+Q   | 2026-06-15  |                35 | D7, Q4.1–Q4.10 + Q5.5          |
-| M5b | Memory + RAG primitives + SSO + Q4.11 E2E green | Y+Z+Q | 2026-06-23  |                43 | Y2, Z2, Q4.11                  |
+| M5b | Memory + RAG primitives + Q4.12 E2E green        | Y+Q   | 2026-06-20  |                40 | Y1, X4, Q4.12                  |
+| M5c | Inbound SSO + Q4.11 E2E green                    | Z+Q   | 2026-06-26  |                46 | Z1, Q4.11                      |
 | M6  | P1 public release + BK-1, BK-2 measured         | H     | 2026-06-26  |                46 | H4, H5 + business KPI baseline |
 
 ### 6. Day-1 Executable Work
@@ -114,10 +120,10 @@ The team fans out on Monday 2026-05-11 — no Week-1 idle time waiting for setup
 
 | Role   | Day-1 capability                                                                                               |
 | ------ | -------------------------------------------------------------------------------------------------------------- |
-| PM     | R1, R2, R4 — landscape research (OpenClaw, Helmet Security, AutoGen, others) + MS API analysis + risk register |
-| FS     | S1, S3 — monorepo toolchain + repository hygiene                                                               |
-| AG-S   | K1 (architecture: taxonomy + MessageList), K3 (interface + Anthropic SDK)                                      |
-| AG-F   | K2 (Tool framework — well-scoped intro), K6 (TestKit — onboarding through tests)                               |
+| PM     | R1, R2, R4 — landscape research (Mastra, PydanticAI, AutoGen, others) + MS API analysis + risk register + **X0: RAG data survey kickoff** |
+| FS     | S1, S3 — monorepo toolchain + repository hygiene (TypeScript platform)                                         |
+| AG-S   | K1 (architecture: taxonomy + MessageList — **Python**), K3 (interface + LLM adapter — **Python**)              |
+| AG-F   | K2 (Tool framework — **Python**, well-scoped intro), K6 (TestKit — onboarding through tests)                   |
 | QA     | Q1 — test strategy & policy draft                                                                              |
 | DevOps | S2 (local dev env), D1 (AWS account + IAM + cost cap), early Terraform skeleton                                |
 
@@ -134,7 +140,37 @@ Evaluated adopting an existing framework vs. building a slim in-house kernel. De
 | OSS leverage           | We can release `@seta/agent-core` as a slim, focused alternative               | –                                                                    |
 | Long-term cost         | ~6 weeks to own the kernel vs ongoing tax of working around framework opinions | –                                                                    |
 
-R sub-phase spikes compare design against **OpenClaw**, **Helmet Security**, **AutoGen**, **CrewAI**, **LangGraph**, **Semantic Kernel**, and others. Decisions captured as ADRs in the repo.
+R sub-phase spikes compare design against **Mastra**, **PydanticAI**, **AutoGen**, **CrewAI**, **LangGraph**, **Semantic Kernel**, and others. Decisions captured as ADRs in the repo.
+
+### 7b. Dual-Language Architecture Decision
+
+**Decision**: Python for the agentic framework, TypeScript for the platform. Not a compromise — a deliberate split aligned with team expertise and user needs.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  TypeScript Platform (seta-os monorepo)                          │
+│  apps/api (Hono), modules/channels/teams, platform/auth,         │
+│  platform/db, platform/oauth, platform/tenant                    │
+│  ↕ HTTP + SSE (OpenAPI contract)                                 │
+├──────────────────────────────────────────────────────────────────┤
+│  Python Agentic Framework (open-source SDK)                      │
+│  Agent Runtime, Tool System, LLM Abstraction (LiteLLM),          │
+│  Memory, Storage — FastAPI service                               │
+│  → Published to PyPI as @seta/agent-framework                    │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+| Aspect | Python Framework | TypeScript Platform |
+|--------|-----------------|-------------------|
+| **What** | Agent Runtime, Tools, LLM, Memory, Storage | API gateway, channels, auth, tenancy, deploy |
+| **Why this language** | Team = AI engineers (Python native); external teams also Python; ML/AI ecosystem strongest | Web APIs, real-time SSE/WS, Teams Bot Framework, OAuth — TS ecosystem stronger |
+| **OSS target** | PyPI — external teams import SDK to build agent workflows | npm — TypeScript SDK for TS consumers; platform itself may stay private |
+| **Communication** | FastAPI service, exposes HTTP + SSE endpoints | Hono API relays to Python service; OpenAPI spec as shared contract |
+| **Reference frameworks** | Mastra (architecture concepts), PydanticAI (Python patterns) | Existing seta-os scaffolding (Hono, Drizzle, Zod) |
+
+**Key constraint**: TS ↔ Python contract (OpenAPI spec) must be locked by end of W1. All downstream work depends on this interface.
+
+**Workflow Engine**: Deferred to P2. P1 uses Python native `async/await` orchestration — teams compose agents via standard Python code. This covers ~90% of use cases; the full Workflow Engine (builder, branching, suspend/resume, state persistence) adds value for power users in P2.
 
 ### 8. Capacity & Allocation (P1)
 
@@ -235,11 +271,11 @@ This is what the team will **show** at the M6 demo on 2026-06-19. Concrete, inte
 
 | Not shown                                                | Why                                                                           | Available in           |
 | -------------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------- |
-| Production environment (`api.os.seta-international.com`) | P1 = staging only; prod cutover dedicated 6-week phase                        | **P2** (by 2026-07-31) |
+| Production environment (`api.os.seta-international.com`) | P1 = staging only; prod cutover dedicated 5-week phase                        | **P2** (by 2026-07-31) |
 | Web Studio UI                                            | Out of P1 scope; admin via API only                                           | **P2** (by 2026-07-31) |
 | Inbound SSO (Entra/Google web login)                     | Teams handles identity in P1; web SSO needs Studio                            | **P2** (by 2026-07-31) |
 | Audit log + GDPR delete                                  | Compliance baseline begins P2                                                 | **P2** (by 2026-07-31) |
-| Knowledge-base Q&A (RAG)                                 | Not in P1; requires chunking + embeddings + vector                            | **P3** (by 2026-09-04) |
+| Workflow Engine (builder, branching, suspend/resume)     | P1 uses Python native orchestration; full engine deferred                     | **P2** (by 2026-07-31) |
 | Long-term memory across conversations                    | Not in P1; isolated per thread                                                | **P3** (by 2026-09-04) |
 | Slack / Email / Voice channels                           | One channel proven (Teams); others follow same pattern                        | **P3** (by 2026-09-04) |
 | Billing / metering integration                           | Counters logged in P1; enforcement + billing vendor (TBD) in commercial phase | **P3** (by 2026-09-04) |
@@ -248,7 +284,7 @@ This is what the team will **show** at the M6 demo on 2026-06-19. Concrete, inte
 
 ---
 
-## Sheet 3 — P1 Capabilities (59 capabilities, 152.40 MD)
+## Sheet 3 — P1 Capabilities (62 capabilities, 154.90 MD)
 
 **Audience note** — This sheet has dual audience:
 
@@ -260,7 +296,7 @@ Each row = **a business-meaningful capability**. Owner uses role short codes; mu
 | Cap ID | Phase | Capability                                                                                                                                                                                                 | Why it matters                                                                                    | Owner(s)                                                                       |     SP |   Base MD |      AI MD | Start      | End   | Status      |
 | ------ | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -----: | --------: | ---------: | ---------- | ----- | ----------- |
 |        |       | **R — Foundation Research**                                                                                                                                                                                | Locks design decisions; outputs ADRs                                                              |                                                                                | **23** |  **6.50** |   **5.85** |            |       |             |
-| R1     | R     | Agent framework landscape research (OpenClaw, Helmet Security, AutoGen, CrewAI, LangGraph, Semantic Kernel + others) → kernel design ADRs                                                                  | Validates build-vs-buy decision; surfaces patterns to copy and anti-patterns to avoid             | PM + AG-S                                                                      |      9 |      2.50 |       2.25 | 05-11      | 05-12 | Not Started |
+| R1     | R     | Agent framework landscape research (Mastra, PydanticAI, AutoGen, CrewAI, LangGraph, Semantic Kernel + others) → kernel design ADRs                                                                  | Validates build-vs-buy decision; surfaces patterns to adopt into Python framework. Focus on distilling core agentic patterns from Mastra's architecture. | PM + AG-S                                                                      |      9 |      2.50 |       2.25 | 05-11      | 05-12 | Not Started |
 | R2     | R     | External API analysis (MS Graph, Bot Framework, Adaptive Cards)                                                                                                                                            | Surfaces quirks before implementation hits them                                                   | PM                                                                             |      7 |      2.00 |       1.80 | 05-12      | 05-13 | Not Started |
 | R3     | R     | Security architecture (KMS envelope, tenancy backstop, agent policy model)                                                                                                                                 | Locks key handling + tenant isolation + Helmet-style policy model                                 | PM + FS                                                                        |      4 |      1.00 |       0.90 | 05-13      | 05-14 | Not Started |
 | R4     | R     | Scope discipline + risk baseline                                                                                                                                                                           | "What we don't build" + weekly risk review                                                        | PM                                                                             |      4 |      1.00 |       0.90 | 05-15      | 05-15 | Not Started |
@@ -271,10 +307,10 @@ Each row = **a business-meaningful capability**. Owner uses role short codes; mu
 | S4     | S     | Initial package scaffolding                                                                                                                                                                                | Empty-but-green scaffolds so all teams start parallel from W2                                     | FS                                                                             |      5 |      1.50 |       0.83 | 05-14      | 05-14 | Not Started |
 | S5     | S     | CI/CD pipeline                                                                                                                                                                                             | Every PR validated; signed remote cache                                                           | DevOps                                                                         |      6 |      1.75 |       1.10 | 05-14      | 05-15 | Not Started |
 | S6     | S     | Documentation foundation + setup acceptance gate                                                                                                                                                           | README, contribution guide, ADR stubs; validates green start                                      | PM + FS                                                                        |      3 |      1.00 |       0.45 | 05-15      | 05-15 | Not Started |
-|        |       | **K — Agent Kernel (hand-rolled, slim)**                                                                                                                                                                   | The brain of every agent                                                                          |                                                                                | **53** | **16.00** |  **10.40** |            |       |             |
+|        |       | **K — Agent Kernel (Python framework, slim, code-first)**                                                                                                                                                     | The brain of every agent — Python agentic framework distilling core patterns from Mastra/PydanticAI |                                                                                | **53** | **16.00** |  **10.40** |            |       |             |
 | K1     | K     | Message system (taxonomy, list, store, replay determinism)                                                                                                                                                 | Foundation for conversation state, persistence, deterministic testing                             | AG-S (architecture) + AG-F (cursor + replay)                                   |     11 |      3.00 |       1.95 | 05-12      | 05-19 | Not Started |
 | K2     | K     | Tool framework                                                                                                                                                                                             | Standard contract for every agent capability                                                      | AG-F (with AG-S review)                                                        |      4 |      1.00 |       0.65 | 05-12      | 05-18 | Not Started |
-| K3     | K     | Model layer: OpenAI + OpenAI-compatible adapter + router (works with Azure OpenAI, OpenRouter, Together AI, Ollama via base-URL override)                                                                  | No vendor lock-in within the OpenAI-compatible ecosystem                                          | AG-S (interface + compatible adapter + router) + AG-F (OpenAI primary)         |     10 |      3.00 |       2.00 | 05-13      | 05-20 | Not Started |
+| K3     | K     | Model layer: LiteLLM unified adapter + router (OpenAI, Anthropic, Google, Azure OpenAI, OpenRouter, Together AI, Ollama — all via LiteLLM)                                                                     | No vendor lock-in; LiteLLM handles provider specifics in Python                                   | AG-S (interface + router) + AG-F (OpenAI primary)                              |     10 |      3.00 |       2.00 | 05-13      | 05-20 | Not Started |
 | K4     | K     | Run loop (multi-step, parallel tools, cancellation)                                                                                                                                                        | Core orchestration — complex concurrency                                                          | AG-S (step + loop + parallel) + AG-F (abort)                                   |     13 |      4.00 |       2.70 | 05-20      | 05-22 | Not Started |
 | K5     | K     | Streaming protocol                                                                                                                                                                                         | Frozen protocol; all consumers depend on it. Subtle backpressure.                                 | AG-S                                                                           |      7 |      2.00 |       1.40 | 05-13      | 05-22 | Not Started |
 | K6     | K     | Test infrastructure (LLM record + replay)                                                                                                                                                                  | Deterministic CI without live LLM costs. Great fresher onboarding.                                | AG-F                                                                           |      7 |      2.00 |       1.30 | 05-13      | 05-20 | Not Started |
@@ -333,6 +369,10 @@ Each row = **a business-meaningful capability**. Owner uses role short codes; mu
 |        |       | **Y — Working Memory (per-thread context)**                                                       | Multi-turn agent feels coherent across messages                                |        |     **5** |   **2.00** | **1.40**   |       |             |     |
 | Y1     | Y     | Working memory infrastructure (per-thread scratchpad + LRU eviction + prompt injection middleware)                                                                                                         | Foundation for agent context awareness; semantic recall deferred to P2                            | AG-S + AG-F1                                                                   |      5 |      2.00 |       1.40 | 06-15      | 06-17 | Not Started |
 |        |       | **X — RAG Stack + Seta Knowledge Base**                                                           | Powers Seta FAQ Agent; reusable for any future knowledge-Q&A use case          |        |    **28** |  **11.50** | **7.95**   |       |             |     |
+|        |       | **X0 — RAG Data Survey (parallel track from W1)**                                                  | Unblocks RAG build; identifies, catalogs, and prepares Seta knowledge corpus   |        |     **5** |   **2.50** | **2.00**   |       |             |     |
+| X0.1   | X     | Data source inventory (Seta docs, website, Confluence, internal wikis, policies, pricing sheets) — catalog what exists, format, size, access method                                                             | Must know what we have before we can chunk it                                                     | PM + AG-F2                                                                     |      3 |      1.00 |       0.80 | 05-11      | 05-18 | Not Started |
+| X0.2   | X     | Data quality assessment + gap analysis — identify missing docs, stale content, format issues                                                                                                                     | Prevents garbage-in-garbage-out in RAG                                                            | PM + AG-F2                                                                     |      2 |      0.50 |       0.40 | 05-18      | 05-22 | Not Started |
+| X0.3   | X     | RAG POC + demo — small-scale chunking + embedding + retrieval on 10–20 representative docs, evaluate retrieval quality                                                                                         | Validates approach before full build; surfaces issues early                                        | AG-F2 + AG-S                                                                   |      3 |      1.00 |       0.80 | 05-22      | 05-25 | Not Started |
 | X1     | X     | `@seta/agent-chunking` package (token-aware text chunker)                                                                                                                                                  | Foundation primitive for RAG                                                                      | AG-F2                                                                          |      3 |      1.00 |       0.55 | 06-15      | 06-15 | Not Started |
 | X2     | X     | `@seta/agent-embeddings` package (OpenAI text-embedding-3-small + LRU cache)                                                                                                                               | Foundation primitive for RAG                                                                      | AG-F2                                                                          |      5 |      1.50 |       0.83 | 06-16      | 06-17 | Not Started |
 | X3     | X     | `@seta/agent-vector` package (pgvector store ops + HNSW + similarity search)                                                                                                                               | Foundation primitive for RAG                                                                      | AG-S + AG-F1                                                                   |      5 |      2.00 |       1.30 | 06-16      | 06-18 | Not Started |
@@ -344,10 +384,10 @@ Each row = **a business-meaningful capability**. Owner uses role short codes; mu
 |        |       | **A6 — Seta FAQ Agent** (3rd specialist agent)                                                    | RAG-augmented agent answers questions about Seta itself                        |        |     **5** |   **1.50** | **1.05**   |       |             |     |
 | A6     | A     | Seta FAQ Agent (read-only, RAG-augmented, model=gpt-4o-mini for cost) + Coordinator update to route Seta-FAQ queries                                                                                       | A real agent users can ask _"what's Seta's pricing?"_ or _"how does the refund process work?"_    | AG-F2 + AG-S (Coordinator)                                                     |      5 |      1.50 |       1.05 | 06-23      | 06-24 | Not Started |
 |        |       | **Q4 expansion — 2 more E2E tests**                                                               | Total E2E suite: 12 tests                                                      |        |     **6** |   **2.00** | **1.60**   |       |             |     |
-| Q4.11  | Q     | E2E: SSO login → session → authenticated agent run                                                                                                                                                         | Validates Z1 end-to-end with W3 API auth                                                          | QA + AG-F2                                                                     |      3 |      1.00 |       0.80 | 06-23      | 06-23 | Not Started |
+| Q4.11  | Q     | E2E: SSO login → session → authenticated agent run                                                                                                                                                         | Validates Z1 end-to-end with W3 API auth                                                          | QA + AG-F2                                                                     |      3 |      1.00 |       0.80 | 06-25      | 06-26 | Not Started |
 | Q4.12  | Q     | E2E: Seta FAQ Agent answers question with valid citations to source docs                                                                                                                                   | Validates A6 + X4 + X5 end-to-end                                                                 | QA + AG-F2                                                                     |      3 |      1.00 |       0.80 | 06-24      | 06-24 | Not Started |
-|        |       | **GRAND TOTAL (59 capabilities)**                                                                 |                                                                                |        |   **456** | **152.40** | **112.72** |       |             |     |
-|        |       | **WITH 15% BUFFER**                                                                               |                                                                                |        |   **524** | **175.26** | **129.63** |       |             |     |
+|        |       | **GRAND TOTAL (62 capabilities)**                                                                 |                                                                                |        |   **461** | **154.90** | **114.72** |       |             |     |
+|        |       | **WITH 15% BUFFER**                                                                               |                                                                                |        |   **530** | **178.14** | **131.93** |       |             |     |
 
 ---
 
@@ -556,6 +596,8 @@ Each row = **a business-meaningful capability**. Owner uses role short codes; mu
 | M3 MS365 OAuth + Planner   | AG-S             | PM              | Security, Legal, Seta IT        | CEO, CTO                        |
 | M4 Teams round-trip        | AG-S + AG-F + FS | PM              | QA, Security                    | CTO                             |
 | M5 Staging deploy + 10 E2E | DevOps + QA      | PM              | All team                        | CEO, CTO, PMO                   |
+| M5b Memory + RAG             | AG-S + AG-F + QA | PM              | FS, DevOps                      | CTO                             |
+| M5c Inbound SSO              | FS + AG-S        | PM              | QA, Security                    | CTO                             |
 | M6 P1 public release       | PM + FS          | PM              | Legal (H2), Security, Marketing | CEO, CTO, PMO, all stakeholders |
 | P2 go/no-go                | PM               | CEO + CTO       | PMO, Sales (BK-2), Security     | All stakeholders                |
 
@@ -599,11 +641,11 @@ Each row = **a business-meaningful capability**. Owner uses role short codes; mu
 
 | Phase     | Window                | Theme                                        | Headline deliverable                                                                                       |          $ | Production Status              |
 | --------- | --------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------: | ------------------------------ |
-| **P1**    | 6 wks · 05-11 → 06-19 | **MVP on AWS staging**                       | Working agent in Teams; 10 E2E green; OSS published                                                        |      $125k | Staging only                   |
-| **P2**    | 6 wks · 06-22 → 07-31 | **Production cutover**                       | Prod env (multi-AZ); inbound SSO; basic Studio UI; first design-partner tenant live                        |      $167k | **🟢 First production deploy** |
-| **P3**    | 5 wks · 08-03 → 09-04 | **Channels + commercial + memory**           | Slack/Email channels; semantic-recall memory; metering + billing integration (vendor TBD); workflow engine |      $209k | Multi-channel prod             |
+| **P1**    | 7 wks · 05-11 → 06-26 | **MVP on AWS staging**                       | Python agentic framework + 3 agents in Teams; RAG data surveyed + POC; 12 E2E green; OSS published (PyPI + npm) |      $125k | Staging only                   |
+| **P2**    | 5 wks · 06-29 → 07-31 | **Production cutover + Workflow Engine**      | Prod env (multi-AZ); inbound SSO; basic Studio UI; Workflow Engine; first design-partner tenant live        |      $167k | **🟢 First production deploy** |
+| **P3**    | 5 wks · 08-03 → 09-04 | **Channels + commercial + memory**           | Slack/Email channels; semantic-recall memory; metering + billing integration (vendor TBD)                   |      $209k | Multi-channel prod             |
 | **P4**    | 4 wks · 09-07 → 10-02 | **Scale + Knowledge Graph + security audit** | Multi-region active-active; Knowledge Graph; SOC 2 Type I prep; 3rd-party security audit                   |      $228k | **🟢 Enterprise-grade prod**   |
-| **TOTAL** | **20 wks**            | **Zero → enterprise agent platform**         | All industry-standard features at production quality                                                       | **~$729k** | Full production-ready          |
+| **TOTAL** | **21 wks**            | **Zero → enterprise agent platform**         | All industry-standard features at production quality                                                       | **~$729k** | Full production-ready          |
 
 ### Production-Ready Definition (cumulative from end of P2)
 
@@ -624,7 +666,7 @@ Each row = **a business-meaningful capability**. Owner uses role short codes; mu
 | ----------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | P1 Gate                       | 2026-06-19 | All Sheet 2 deliverables shown · 10 E2E green · BK-1 baseline measured · BK-2 design-partner LOI in flight · OSS public · npm publish live        |
 | **Production Cutover**        | 2026-07-31 | Prod AWS env serving traffic · SLOs defined · Studio MVP usable · first design-partner tenant live and using it weekly · runbooks approved by ops |
-| P3 Gate                       | 2026-09-04 | 3+ channels live in prod · billing live for 1+ tenant · workflow engine demonstrated · RAG-powered Q&A working · Python SDK on PyPI               |
+| P3 Gate                       | 2026-09-04 | 3+ channels live in prod · billing live for 1+ tenant · RAG-powered Q&A working · Python SDK on PyPI                                            |
 | **Production-Ready Complete** | 2026-10-02 | Multi-region failover drill green · SOC 2 Type I evidence complete · security audit report clean · Knowledge Graph Q&A demonstrated               |
 
 ### Hiring Plan
@@ -645,14 +687,15 @@ P2 is scoped narrower than initially proposed (was 4 weeks, now 6 weeks) per Sen
 | P2-A      | Production AWS environment (multi-AZ, prod-grade RDS, prod Secrets Manager) |              10 | DevOps                                                                         |
 | P2-B      | Inbound SSO (Entra OIDC + Google OIDC)                                      |              12 | FS + AG-S                                                                      |
 | P2-C      | Studio web UI MVP (agent list, config viewer, basic chat playground)        |              18 | Frontend (new HC) + FS                                                         |
+| P2-C2     | **Workflow Engine** (builder, execution engine, branching, suspend/resume, state persistence) |              12 | AG-S + AG-F                                                                    |
 | P2-D      | Audit log domain + GDPR delete capability                                   |               8 | FS                                                                             |
 | P2-E      | Prod secret rotation automation                                             |               4 | DevOps                                                                         |
 | P2-F      | CloudWatch SLO dashboards + alerting                                        |               5 | DevOps                                                                         |
 | P2-G      | First design-partner onboarding (Entra consent, key issuance, training)     |               6 | PM + Sales + CSM                                                               |
 | P2-H      | P2 hardening + demo + P3 plan                                               |               8 | PM + QA + all                                                                  |
-| Subtotal  | **8 sub-phases**                                                            |      **~71 MD** | 7 HC × 6 wks = 210 MD capacity (34% util — comfortable for first prod cutover) |
+| Subtotal  | **9 sub-phases**                                                            |      **~83 MD** | 8 HC × 5 wks = 200 MD capacity (42% util — comfortable for first prod cutover + Workflow Engine) |
 
-**Deferred to P3** (was originally P2): RAG primitives, memory tiers — these are non-trivial features that deserve dedicated focus, not squeezed into prod-cutover phase.
+**Deferred to P3** (was originally P2): memory tiers (semantic recall) — this is a non-trivial feature that deserves dedicated focus, not squeezed into prod-cutover phase. Note: Workflow Engine moved from P3 to P2 to enable teams to build structured agent workflows early.
 
 ---
 
