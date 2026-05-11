@@ -22,6 +22,7 @@
     "@seta/audit": "workspace:*",
     "@seta/connector-registry": "workspace:*",
     "@seta/db": "workspace:*",
+    "dotenv": "17.4.2",
     "drizzle-orm": "0.45.2",
     "lru-cache": "11.3.6",
     "uuid": "14.0.0",
