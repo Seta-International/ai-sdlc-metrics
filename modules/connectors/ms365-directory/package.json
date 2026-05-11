@@ -21,6 +21,7 @@
     "@seta/connector-registry": "workspace:*",
     "@seta/db": "workspace:*",
     "@seta/directory": "workspace:*",
+    "dotenv": "17.4.2",
     "drizzle-orm": "0.45.2",
     "zod": "4.4.3"
   },
