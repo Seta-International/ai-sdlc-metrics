@@ -8,6 +8,13 @@ export type CreateLoggerOpts = {
   destination?: DestinationStream
 }
 
+// pino's `*` wildcard matches exactly ONE nesting level, so `*.access_token`
+// catches `{ x: { access_token } }` but NOT a top-level `{ access_token }`.
+// We list BOTH forms for every sensitive key so logs are scrubbed regardless
+// of whether the secret appears at the top level (common for OAuth response
+// bundles) or one level deep (common for `{ req: { headers: ... } }` shapes).
+// Pino does not support recursive globs (no `**`); a key nested two or more
+// levels deep won't be matched. Keep this in mind when designing log shapes.
 const REDACT_PATHS = [
   'req.headers.authorization',
   'req.headers.cookie',
