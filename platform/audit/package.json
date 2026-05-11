@@ -19,6 +19,7 @@
   "dependencies": {
     "@seta/db": "workspace:*",
     "@seta/observability": "workspace:*",
+    "dotenv": "17.4.2",
     "drizzle-orm": "0.45.2",
     "zod": "4.4.3"
   },
