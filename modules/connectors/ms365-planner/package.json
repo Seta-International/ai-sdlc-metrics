@@ -1,7 +1,7 @@
 {
-  "name": "@seta/ms365-planner",
+  "name": "@seta/connector-ms365-planner",
   "version": "0.1.0",
-  "description": "Microsoft Planner ops (plans, tasks, buckets) + agent tool wrappers",
+  "description": "MS365 Planner connector — typed client + cache + ETag wiring",
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --sourcemap",

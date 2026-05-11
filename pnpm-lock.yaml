@@ -50,6 +50,9 @@ importers:
       '@seta/auth':
         specifier: workspace:*
         version: link:../../platform/auth
+      '@seta/connector-ms365-planner':
+        specifier: workspace:*
+        version: link:../../modules/connectors/ms365-planner
       '@seta/db':
         specifier: workspace:*
         version: link:../../platform/db
@@ -59,9 +62,6 @@ importers:
       '@seta/ms-graph':
         specifier: workspace:*
         version: link:../../platform/ms-graph
-      '@seta/ms365-planner':
-        specifier: workspace:*
-        version: link:../../platform/ms365-planner
       '@seta/oauth':
         specifier: workspace:*
         version: link:../../platform/oauth
@@ -137,6 +137,74 @@ importers:
         specifier: 4.1.5
         version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.12.3)(@vitest/coverage-v8@4.1.5)(vite@8.0.11(@types/node@24.12.3)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.4))
 
+  modules/connectors/ms365-directory:
+    dependencies:
+      '@seta/audit':
+        specifier: workspace:*
+        version: link:../../../platform/audit
+      '@seta/connector-registry':
+        specifier: workspace:*
+        version: link:../../../platform/connector-registry
+      '@seta/db':
+        specifier: workspace:*
+        version: link:../../../platform/db
+      '@seta/directory':
+        specifier: workspace:*
+        version: link:../../../platform/directory
+      drizzle-orm:
+        specifier: 0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@seta/tsconfig':
+        specifier: workspace:*
+        version: link:../../../platform/tsconfig
+      '@types/node':
+        specifier: ^24.12.3
+        version: 24.12.3
+      drizzle-kit:
+        specifier: 0.31.10
+        version: 0.31.10
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.5
+        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.12.3)(@vitest/coverage-v8@4.1.5)(vite@8.0.11(@types/node@24.12.3)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.4))
+
+  modules/connectors/ms365-planner:
+    dependencies:
+      '@seta/agent-core':
+        specifier: workspace:*
+        version: link:../../../platform/agent/core
+      '@seta/ms-graph':
+        specifier: workspace:*
+        version: link:../../../platform/ms-graph
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@seta/tsconfig':
+        specifier: workspace:*
+        version: link:../../../platform/tsconfig
+      '@types/node':
+        specifier: ^24.12.3
+        version: 24.12.3
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.5
+        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.12.3)(@vitest/coverage-v8@4.1.5)(vite@8.0.11(@types/node@24.12.3)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.4))
+
   modules/products/agent:
     dependencies:
       '@seta/agent-core':
@@ -145,9 +213,9 @@ importers:
       '@seta/auth':
         specifier: workspace:*
         version: link:../../../platform/auth
-      '@seta/ms365-planner':
+      '@seta/connector-ms365-planner':
         specifier: workspace:*
-        version: link:../../../platform/ms365-planner
+        version: link:../../connectors/ms365-planner
       '@seta/teams':
         specifier: workspace:*
         version: link:../../channels/teams
