@@ -66,7 +66,7 @@ import { sql } from "drizzle-orm"
 import { pgTable, pgPolicy, pgRole, uuid, text, timestamp } from "drizzle-orm/pg-core"
 
 export const tenantUser = pgRole("tenant_user")          // app role; sets app.tenant_id per request
-export const setaAdmin  = pgRole("seta_admin", { bypassRls: true }) // migrations / ops only
+export const platformAdmin = pgRole("platform_admin", { bypassRls: true }) // migrations / ops only — not a tenant identity
 
 export const threads = pgTable("threads", {
   id:        uuid("id").primaryKey().defaultRandom(),
@@ -94,6 +94,34 @@ export const threads = pgTable("threads", {
 > ALTER TABLE <table> ENABLE ROW LEVEL SECURITY;
 > ALTER TABLE <table> FORCE ROW LEVEL SECURITY;
 > ```
+
+### Schema-per-module (DDD)
+
+**Each bounded context owns its own Postgres schema.** Drizzle schema files + migrations live with the owner package, not centralized in `@seta/db`. This is what keeps `modules/connectors/<vendor>/` clean — a new connector adds its own schema without touching shared tables — and it makes ownership unambiguous when boundary lines get tested at PR-review time.
+
+**P1 schemas:**
+
+| Schema | Owner package | Purpose |
+|---|---|---|
+| `auth` | `@seta/auth` | `users`, `sessions`, `api_keys` |
+| `tenant` | `@seta/tenant` | `tenants`, `tenant_connectors` |
+| `directory` | `@seta/directory` *(new)* | `external_identities` — canonical user ↔ external-IdP subjects, JIT-populated on OIDC sign-in |
+| `oauth` | `@seta/oauth` | `oauth_tokens` (KMS-envelope encrypted), `oauth_state` (CSRF state, 15-min TTL) |
+| `audit` | `@seta/audit` *(new)* | `audit_log` — every privileged op + every external API call |
+| `connector_ms365_directory` | `@seta/connector-ms365-directory` | `directory_users`, `directory_groups`, `directory_group_members`, `sync_state` — MS Graph directory mirror |
+| `connector_ms365_planner` | `@seta/connector-ms365-planner` | `planner_tasks_cache`, `planner_task_details_cache`, `planner_plans_cache`, `planner_buckets_cache`, `sync_watermarks` — MS Graph Planner mirror |
+| `agent` | `@seta/agent` (product) | `write_continuations` — HMAC-signed preview→commit tokens; future: conversations, runs, working memory |
+
+Future connectors (`@seta/connector-trello`, `@seta/connector-google-directory`, `@seta/connector-jira`) land as new `connector_<vendor>_<surface>` schemas alongside.
+
+**DDD rules — enforced by review, not by tooling (yet):**
+
+- **No cross-schema foreign keys.** References across bounded contexts are by ID only. `tenant_id` (UUID) is the cross-cutting correlation key, present in every tenant-scoped table.
+- **Each schema is owned exclusively by its owner package's Drizzle schema file.** No package reads another's tables directly — go through the owner's exported API.
+- **Migrations partitioned by schema.** Each owner package has its own `drizzle.config.ts` and `migrations/` directory; see §12 for the per-package shape. A top-level migration runner applies them in dependency order at boot (`auth` → `tenant` → `directory` → `oauth` → `audit` → each `connector_*` → `agent`).
+- **Forward-only.** No downgrade migrations.
+
+**What `@seta/db` is for now.** With schema definitions distributed to owner packages, `@seta/db` is the **connection pool + cross-cutting utilities** (`withTenant`, the `tenantUser`/`platformAdmin` role exports, the migration runner, the RLS-policy macro). It owns no application tables.
 
 ### `@seta/db` request wrapper — the only correct way to set the GUC
 
@@ -132,9 +160,9 @@ const threads  = await withTenant(tenantId, (tx) => tx`SELECT * FROM threads`)
 
 Anything that does `await sql\`SELECT ...\`` directly on the root client without `withTenant` will have `app.tenant_id` unset — RLS will reject the query. That's the desired failure mode: deny by default. (Verified against porsager/postgres docs.)
 
-> **Pool sizing.** Default `max: 10` is too low for a tenant-per-tx workload. Each in-flight request holds one connection for its whole transaction. Start at `max: 20`; raise if you see `connect_timeout` errors under load. Postgres' own `max_connections` (default 100) is the upstream cap — leave headroom for `seta_admin` migrations.
+> **Pool sizing.** Default `max: 10` is too low for a tenant-per-tx workload. Each in-flight request holds one connection for its whole transaction. Start at `max: 20`; raise if you see `connect_timeout` errors under load. Postgres' own `max_connections` (default 100) is the upstream cap — leave headroom for `platform_admin` migrations.
 
-The bypass role (`seta_admin`) is reserved for migrations and ops scripts; the app connects as `tenant_user`.
+The bypass role (`platform_admin`) is reserved for migrations and ops scripts; the app connects as `tenant_user`. **Naming note**: `platform_admin` rather than `seta_admin` so the role describes its privilege level (platform-level operator), not a tenant identity — Seta itself is just an ordinary tenant.
 
 ## 4. Auth & secrets
 
@@ -146,13 +174,66 @@ Multi-tenant from day 1 — tenantId flows through every layer.
 | AES-GCM encryption | node:crypto | (built-in) | Encrypts `oauth_tokens.*_token` and session secrets |
 | KMS (AWS) | @aws-sdk/client-kms | **3.1045.0** | Local dev = env DEK |
 | KMS (Azure) | @azure/keyvault-keys | **4.10.0** | Pick per cloud |
-| Outbound OAuth (Graph, PKCE, OBO) | hand-rolled fetch + `node:crypto` | (built-in) | Happy-path ~80 LOC; full impl with refresh races, conditional-access challenges, `claims` step-up, consent prompts: budget **300–400 LOC + recurring MS-drift tax**. Still cheaper than `msal-node`'s dep tree. |
-| JWT validation (Bot Framework + Entra) | jose | **6.2.3** | Web-Crypto-based; tree-shakable |
-| Microsoft Graph | fetch + types only | **@microsoft/microsoft-graph-types 2.43.1** | Types only; calls hand-rolled |
+| Outbound OAuth (Entra: admin consent, OBO, client_credentials, refresh) | @azure/msal-node | **5.2.0** | `ConfidentialClientApplication` covers `acquireTokenByCode` (admin consent), `acquireTokenOnBehalfOf` (Teams SSO → Graph), `acquireTokenByClientCredential` (app-only / sync worker), and the JWKS/JWT plumbing. MS absorbs protocol drift via SDK updates; we don't pay the recurring 300-400 LOC tax. **MSAL is treated as stateless by `@seta/oauth`** — we don't wire its `ICachePlugin`; the encrypted `oauth.oauth_tokens` table is the only SOR, with single-flight refresh via `SELECT … FOR UPDATE`. One CCA instance per tenant id, cached in an LRU. (Verified May 2026 against `@azure/msal-node` 5.2.0 + Microsoft Learn admin-consent docs.) |
+| JWT validation (Bot Framework + inbound Entra ID tokens) | jose | **6.2.3** | Web-Crypto-based; tree-shakable. Used for Bot Framework JWKS-based JWT verification and (P2) inbound OIDC ID-token validation. **Not** used for outbound Entra OAuth — MSAL owns that. |
+| Microsoft Graph (HTTP) | raw `fetch` + thin typed wrapper in `@seta/ms-graph` | — | `@microsoft/microsoft-graph-client` last published 2022 (dead); `@microsoft/msgraph-sdk` (Kiota) still pre-GA in 2026. Our `@seta/ms-graph` wrapper handles 429 backoff, 5xx retry, ETag passthrough (`If-Match` on PATCH), `$batch` (≤20 ops), audit middleware, and OTel spans. |
+| Microsoft Graph types | @microsoft/microsoft-graph-types | **2.43.1** | Types only; safe to depend on even though the SDK is dead. |
 | Rate limiting | hono-rate-limiter | **0.x (verify at install)** | Per-tenant + per-IP limits; in-memory store P1, Redis store when scaling triggers hit |
 | Secret rotation | Documented runbook | — | `MS_BOT_SECRET`, OAuth client secrets, DEKs — quarterly rotation drill, KMS key rotation annual |
 | **Inbound SSO (P2 — user-facing web login)** | Entra ID + Google OIDC via hand-rolled `jose` + PKCE | (built-in + jose) | Same `jose` already used for Bot Framework JWT; no extra SDK; multi-tenant SSO config in `sso_providers` table |
 | Inbound session storage (P2) | Postgres `sessions` table + signed cookies | (drizzle + node:crypto) | No Redis in P1/P2; LRU cache for hot lookup |
+
+### MSAL Node — multi-tenant Entra usage pattern (verified against @azure/msal-node 5.2.0 + Microsoft Learn)
+
+`@seta/oauth` exposes a provider-agnostic `OAuthProvider` interface; the Entra implementation wraps `ConfidentialClientApplication`. Three things make the multi-tenant SaaS shape work:
+
+1. **One CCA per tenant id, cached in an LRU.** App-only (`acquireTokenByClientCredential`) requires a tenant-specific authority (`https://login.microsoftonline.com/<tenantId>/v2.0`), so we can't reuse a single CCA across tenants. LRU(256, 60min TTL) keeps the working set bounded; Redis-ready in shape today.
+
+2. **MSAL is stateless from our perspective.** We do not wire `ICachePlugin`. Each call goes through MSAL; we normalize the `AuthenticationResult` to our `TokenBundle` and persist via `TokenVault` (`oauth.oauth_tokens`, KMS-envelope encrypted, see KMS provider abstraction below). Reasons: (a) future providers (Trello/Atlassian, Google) have no MSAL — uniform handling; (b) MSAL's serialized cache format is opaque, our schema stays clean; (c) we own single-flight via `SELECT … FOR UPDATE` on the token row, which MSAL Node does NOT coordinate across instances ([issue #7909](https://github.com/AzureAD/microsoft-authentication-library-for-js/issues/7909)).
+
+3. **Admin consent via the dedicated `/adminconsent` endpoint, not `getAuthCodeUrl`.** Only the dedicated endpoint can grant **application** permissions in one click. Build the URL as `https://login.microsoftonline.com/organizations/v2.0/adminconsent?client_id=…&redirect_uri=…&scope=https://graph.microsoft.com/.default&state=…`. The `.default` scope consents to *everything* declared in the App Registration's required-permissions list (delegated + application together); per-connector scope union is then a sanity check, not a URL parameter.
+
+Skeleton:
+
+```ts
+// platform/oauth/src/providers/entra.ts
+import { ConfidentialClientApplication } from "@azure/msal-node"
+import { LRUCache } from "lru-cache"
+
+const ccaCache = new LRUCache<string, ConfidentialClientApplication>({ max: 256, ttl: 60 * 60_000 })
+
+function getCca(tenantId: string) {
+  let cca = ccaCache.get(tenantId)
+  if (!cca) {
+    cca = new ConfidentialClientApplication({
+      auth: {
+        clientId:     env.ENTRA_CLIENT_ID,
+        clientSecret: env.ENTRA_CLIENT_SECRET,   // or certificate in P3
+        authority:    `https://login.microsoftonline.com/${tenantId}/v2.0`,
+      },
+      system: { loggerOptions: { logLevel: 3 /* Warning */ } },
+    })
+    ccaCache.set(tenantId, cca)
+  }
+  return cca
+}
+
+// app-only — used by the sync worker (Epic 3)
+export async function acquireAppOnly(tenantId: string, scopes: string[]) {
+  const cca = getCca(tenantId)
+  const res = await cca.acquireTokenByClientCredential({ scopes })
+  return normalize(res)                          // → TokenBundle stored in oauth.oauth_tokens
+}
+
+// OBO — used per user request triggered by Teams SSO assertion
+export async function acquireOnBehalfOf(tenantId: string, userAssertion: string, scopes: string[]) {
+  const cca = getCca(tenantId)
+  const res = await cca.acquireTokenOnBehalfOf({ oboAssertion: userAssertion, scopes })
+  return normalize(res)
+}
+```
+
+Full provider interface, callback handler, scope-union from the connector registry, and revocation-detection path are in `docs/superpowers/specs/2026-05-11-ms365-auth-design.md`.
 
 ### API-key verify path with `needsRehash` (verified against argon2 docs)
 
@@ -419,7 +500,7 @@ CREATE INDEX chunks_embedding_idx ON chunks
   USING hnsw (embedding vector_cosine_ops)
   WITH (m = 16, ef_construction = 128);   -- defaults are 16/64; bump construction for better recall
 
--- One-shot: speed up the initial bulk build. SET in a `seta_admin` session.
+-- One-shot: speed up the initial bulk build. SET in a `platform_admin` session.
 SET maintenance_work_mem = '8GB';
 SET max_parallel_maintenance_workers = 7;
 ```
@@ -478,10 +559,10 @@ For Entra (inbound SSO P2), repeat with `https://login.microsoftonline.com/<tena
 
 Every Planner update (`PATCH /planner/tasks/{id}`, `PATCH /planner/plans/{id}`, `PATCH /planner/buckets/{id}`) **requires `If-Match` with the resource's current ETag**. Skip it and Graph returns `412 Precondition Required`. The ETag arrives in the `@odata.etag` field on a prior GET.
 
-`@seta/ms365-planner` bakes the read-then-update flow into every mutating helper:
+`@seta/connector-ms365-planner` bakes the read-then-update flow into every mutating helper (and the agent-product preview/commit tools snapshot the ETag at preview time so concurrency conflicts surface as friendly retry messages, not silent overwrites):
 
 ```ts
-// platform/ms365-planner/src/tasks.ts
+// modules/connectors/ms365-planner/src/client.ts
 export async function updateTaskAssignment(taskId: string, userId: string, orderHint = " !") {
   // 1. Fetch current ETag.
   const cur = await graph.GET(`/planner/tasks/${taskId}`)            // returns { '@odata.etag': '...', ...task }
@@ -792,7 +873,6 @@ jobs:
 | LangChain / LlamaIndex | Too much surface; defeats kernel-first |
 | Prisma | Heavier; weaker pgvector + FTS DX vs Drizzle |
 | Vercel AI SDK | Duplicates the kernel we're building |
-| MSAL-node / oslo | Hand-rolled PKCE/OBO ~80 LOC; one less dep tree |
 | `@microsoft/agents-hosting` (M365 Agents SDK) | Heavy, opinionated runtime; we implement Bot Framework REST ourselves |
 | `botbuilder` (classic Bot Framework SDK) | Superseded; also too heavy |
 | `@microsoft/teams-ai` | Folded into the SDK we're not using |
@@ -817,7 +897,7 @@ seta/
 │   │       └── main.ts                     # composition: mount channels + products + platform routes
 │   └── studio/                             # (P2) Vite + React web app — uses @seta/ui + @seta/agent-sdk
 │
-├── modules/                                # MOUNTED CAPABILITIES — channels (transport) + products (business)
+├── modules/                                # MOUNTED CAPABILITIES — channels (transport) + connectors (vendor adapters) + products (business)
 │   ├── channels/                           # transport adapters: webhook in → handler out
 │   │   └── teams/                          # @seta/teams   ← P1 — generic Bot Framework adapter
 │   │       └── src/
@@ -831,22 +911,39 @@ seta/
 │   │           ├── manifest/               # Teams app manifest + icons
 │   │           └── index.ts                # exports { teamsRouter(handler), TeamsHandler }
 │   │
+│   ├── connectors/                         # vendor adapters — one per external system (each owns its own Postgres schema)
+│   │   ├── ms365-planner/                  # @seta/connector-ms365-planner ← P1 — Planner client + cache + ETag/If-Match
+│   │   │   └── src/
+│   │   │       ├── manifest.ts             # ConnectorDefinition: id, provider=entra, scopes, rationale
+│   │   │       ├── client.ts               # Typed Planner endpoints over @seta/ms-graph
+│   │   │       ├── schema.ts               # Drizzle: planner_tasks_cache, …, sync_watermarks (schema connector_ms365_planner)
+│   │   │       ├── cache.ts                # Cache-first read-through (60s TTL, stale-fallback)
+│   │   │       ├── etag.ts                 # ETag store + If-Match wiring
+│   │   │       └── index.ts                # exports { plannerConnector, plannerClient, ... }
+│   │   │
+│   │   └── ms365-directory/                # @seta/connector-ms365-directory ← P1 — Users + Groups from MS Graph
+│   │       └── src/
+│   │           ├── manifest.ts             # ConnectorDefinition: scopes User.Read.All, Group.Read.All
+│   │           ├── jit-mapper.ts           # ID-token claims → auth.users + directory.external_identities
+│   │           ├── schema.ts               # Drizzle: directory_users, directory_groups, …, sync_state
+│   │           └── index.ts
+│   │
 │   └── products/                           # business modules — implement channel handlers, expose own routes
 │       └── agent/                          # @seta/agent   ← P1 — the Seta Agent product
 │           └── src/
 │               ├── agent.ts                # definition: name, system prompt, model, tool wiring
-│               ├── tools/                  # Planner tool wrappers (use @seta/ms365-planner)
-│               │   ├── list-my-tasks.ts
-│               │   ├── create-plan.ts
-│               │   ├── assign-task.ts
-│               │   └── summarize-my-work.ts
+│               ├── tools/                  # Planner tools (use @seta/connector-ms365-planner)
+│               │   └── planner/
+│               │       ├── read/           # list_my_tasks, list_plan_tasks, get_task, list_plans, list_buckets, workload_analysis
+│               │       └── write/          # create_tasks.preview/.commit, update_tasks.preview/.commit, … (preview→commit pairs)
+│               ├── schema.ts               # Drizzle: agent.write_continuations (HMAC-signed preview→commit tokens)
 │               ├── cards/                  # Adaptive Cards specific to this agent
 │               │   ├── task-list.ts
 │               │   └── text.ts
 │               ├── teams-handler.ts        # implements @seta/teams TeamsHandler — parses text, runs agent, builds card
 │               └── index.ts                # exports { agent, teamsHandler, routes }
 │
-├── platform/                               # AGENT RUNTIME + SHARED FRAMEWORK
+├── platform/                               # AGENT RUNTIME + SHARED FRAMEWORK (vendor-neutral)
 │   ├── agent/                              # sub-namespace: anything uniquely about the agent runtime/API surface
 │   │   │── P1
 │   │   ├── core/                           # @seta/agent-core       — kernel (K1–K7), one release unit
@@ -860,10 +957,12 @@ seta/
 │   │── P1 packages (non-agent)
 │   ├── middleware/                         # @seta/middleware       — auth + tenant + errors + openapi + rate-limit
 │   ├── observability/                      # @seta/observability    — pino + OTel SDK init + auto-instrumentations + req-id
-│   ├── oauth/                              # @seta/oauth            — generic OAuth 2.0 PKCE + OBO + encrypted token store
-│   ├── ms-graph/                           # @seta/ms-graph         — Microsoft Graph HTTP client (depends on @seta/oauth)
-│   ├── ms365-planner/                      # @seta/ms365-planner    — Planner ops (plans, tasks, buckets) + agent tools (handles ETag/If-Match — see §7)
-│   ├── db/                                 # @seta/db               — drizzle client + base schema + migrations + RLS template
+│   ├── oauth/                              # @seta/oauth            — OAuthProvider interface + Entra impl (MSAL Node 5.2.0) + TokenVault (KMS envelope) + admin-consent routes
+│   ├── connector-registry/                 # @seta/connector-registry — ConnectorDefinition type + runtime registry + scope-union
+│   ├── ms-graph/                           # @seta/ms-graph         — Generic Graph HTTP wrapper (429 backoff, ETag, $batch, audit middleware)
+│   ├── directory/                          # @seta/directory        — Canonical directory tables (external_identities); JIT mapper interface
+│   ├── audit/                              # @seta/audit            — audit_log table + recordAudit() writer (synchronous, OTel-correlated)
+│   ├── db/                                 # @seta/db               — pool + withTenant + role exports + migration runner (no app tables; owners hold schemas)
 │   ├── auth/                               # @seta/auth             — API keys + AES-GCM + RBAC + KmsProvider
 │   ├── tenant/                             # @seta/tenant           — AsyncLocalStorage + guards
 │   ├── tsconfig/                           # @seta/tsconfig         — shared TS configs
@@ -889,7 +988,7 @@ seta/
 ├── infra/                                  # DEPLOYMENT + LOCAL-DEV INFRASTRUCTURE
 │   ├── otel-collector.yaml                 # referenced by docker-compose.yml
 │   └── postgres/
-│       └── init.sql                        # pgvector + pg_trgm extensions, RLS bypass role (seta_admin)
+│       └── init.sql                        # pgvector + pg_trgm extensions, RLS bypass role (platform_admin)
 │
 ├── tooling/                                # REPO-WIDE SCRIPTS (not shipped as packages)
 │   └── scripts/
@@ -903,29 +1002,43 @@ seta/
     └── agent-sdk-browser/                  # SSE streaming from a browser via @seta/agent-sdk
 ```
 
-**P1 scope locked** = 11 platform packages (2 in `platform/agent/`, 9 non-agent) + 2 modules (`@seta/teams` channel + `@seta/agent` product) + 1 app (`apps/api`). **Multi-tenant from day 1** (tenantId on every row + Postgres RLS backstop, `@seta/tenant` context). RAG primitives, shared UI, the studio app, and **inbound SSO (Entra + Google)** land in P2 once the MVP (core agent + Teams + Planner data) ships. P1 user identity rides on Teams SSO (Entra → OBO → Graph); standalone web SSO arrives with Studio.
+**P1 scope locked** = 13 platform packages (2 in `platform/agent/`, 11 non-agent) + 4 modules (`@seta/teams` channel + `@seta/connector-ms365-planner` + `@seta/connector-ms365-directory` connectors + `@seta/agent` product) + 1 app (`apps/api`). **Multi-tenant from day 1** (tenantId on every row + Postgres RLS backstop, `@seta/tenant` context). RAG primitives, shared UI, the studio app, and **inbound SSO web UI (Entra + Google)** land in P2 once the MVP (core agent + Teams + Planner data + MS365 directory sync) ships. P1 user identity rides on Teams SSO (Entra → OBO → Graph) plus JIT provisioning of `auth.users` from the directory connector; standalone web SSO arrives with Studio.
 
 ### Module boundary rules (enforced by `tooling/scripts/check-public-private.ts` + Biome import rules)
 
-- `modules/channels/*` = transport adapters (webhook in → handler interface out). **Channels never import products and never import other channels.**
-- `modules/products/*` = business modules (own routes + agent definitions + channel-handler implementations). **Products may depend on `modules/channels/*` only to implement that channel's handler interface** — never on another product.
-- `platform/*` = primitives and framework (kernel, middleware, observability, db, auth, oauth, ms-graph, …). Used by everything; depends on nothing in `modules/` or `apps/`.
-- `apps/*` = composition only (mount channels + products + platform routes; wire env). No business logic.
+- `modules/channels/*` = transport adapters (webhook in → handler interface out). **Channels never import products, never import connectors, and never import other channels.**
+- `modules/connectors/<vendor>/` = vendor adapters (one external system each: MS365 Planner, MS365 Directory, future Trello/Jira/Google Workspace). **A connector may import `platform/*` and other `modules/connectors/*`; never `modules/products/*` and never `modules/channels/*`.** Each connector owns its own Postgres schema (`connector_<vendor>_<surface>`).
+- `modules/products/*` = business modules (own routes + agent definitions + channel-handler implementations). **Products may depend on `modules/channels/*` only to implement that channel's handler interface, and on `modules/connectors/*` to call external systems** — never on another product.
+- `platform/*` = primitives and framework, vendor-neutral. Used by everything; depends on nothing in `modules/` or `apps/`.
+- `apps/*` = composition only (mount channels + products + platform routes; register connectors; wire env). No business logic.
 
 ### Composition example — `apps/api/src/main.ts`
 
 ```ts
 import { teamsRouter } from "@seta/teams"
 import { teamsHandler, agentRoutes } from "@seta/agent"
+import { createConnectorRegistry } from "@seta/connector-registry"
+import { plannerConnector }   from "@seta/connector-ms365-planner"
+import { directoryConnector } from "@seta/connector-ms365-directory"
+import { oauthRoutes } from "@seta/oauth"
 
-// channels
+// 1. Connectors — static registration in the composition root (per "no plugin loaders" rule)
+const registry = createConnectorRegistry()
+registry.register(plannerConnector)
+registry.register(directoryConnector)
+// future: registry.register(trelloConnector)
+
+// 2. Platform routes
+app.route("/oauth", oauthRoutes(registry))   // POST /oauth/:provider/consent-url, GET /oauth/:provider/callback, …
+
+// 3. Channels
 app.route("/teams", teamsRouter(teamsHandler))
 
-// products
-app.route("/agent", agentRoutes())
+// 4. Products
+app.route("/agent", agentRoutes(registry))
 ```
 
-Every module package exports `routes(handler?: Handler) => Hono`. Mount prefix is owned by `apps/api/src/main.ts`. Future modules (PMO, Timesheet, Finance, Slack channel, voice channel) follow the same shape.
+Every module package exports `routes(...) => Hono` and (where applicable) a `connector: ConnectorDefinition` manifest. Mount prefix is owned by `apps/api/src/main.ts`. Future modules (PMO, Timesheet, Finance, Slack channel, Trello connector, voice channel) follow the same shape.
 
 ### Graceful shutdown — `apps/api/src/main.ts` tail (verified against @hono/node-server)
 
@@ -958,25 +1071,31 @@ Order matters: drain HTTP first (so traces complete), then flush OTel. Reverse o
 
 ### Dependency direction
 ```
-apps/*                          →  modules/channels/*, modules/products/*,
-                                   platform/agent/*, platform/{middleware,observability,oauth,
-                                   ms-graph,ms365-planner,db,auth,tenant}
-modules/channels/*              →  platform/{middleware,observability,oauth,db,auth,tenant}
-modules/products/*              →  modules/channels/*  (handler-impl only),
-                                   platform/agent/*, platform/{middleware,observability,db,auth,tenant}
-platform/agent/rag              →  platform/agent/{chunking, embeddings, vector} + platform/db
-platform/agent/vector           →  platform/db
-platform/agent/embeddings       →  (no internal deps; pure TS + openai)
-platform/agent/chunking         →  (no internal deps; pure TS)
-platform/agent/sdk              →  (no internal deps; types only)
-platform/agent/core             →  (no internal deps; pure TS)
-platform/middleware             →  platform/{auth, tenant, observability}
-platform/observability          →  (no internal deps)
-platform/ms-graph               →  platform/oauth
-platform/ms365-planner          →  platform/{ms-graph, agent/core}
+apps/*                              →  modules/channels/*, modules/connectors/*, modules/products/*,
+                                       platform/agent/*, platform/{middleware,observability,oauth,
+                                       connector-registry,ms-graph,directory,audit,db,auth,tenant}
+modules/channels/*                  →  platform/{middleware,observability,oauth,db,auth,tenant,audit}
+modules/connectors/<vendor>         →  platform/{ms-graph,oauth,connector-registry,db,audit,tenant,observability}
+                                       (and other modules/connectors/* if a vendor shares plumbing)
+modules/products/*                  →  modules/channels/* (handler-impl only),
+                                       modules/connectors/*,
+                                       platform/agent/*, platform/{middleware,observability,db,auth,tenant,audit}
+platform/agent/rag                  →  platform/agent/{chunking, embeddings, vector} + platform/db
+platform/agent/vector               →  platform/db
+platform/agent/embeddings           →  (no internal deps; pure TS + openai)
+platform/agent/chunking             →  (no internal deps; pure TS)
+platform/agent/sdk                  →  (no internal deps; types only)
+platform/agent/core                 →  (no internal deps; pure TS)
+platform/middleware                 →  platform/{auth, tenant, observability}
+platform/observability              →  (no internal deps)
+platform/connector-registry         →  (no internal deps; types + runtime registry only)
+platform/audit                      →  platform/db
+platform/directory                  →  platform/db
+platform/oauth                      →  platform/{db, audit, connector-registry}
+platform/ms-graph                   →  platform/{oauth, audit}
 ```
 
-**Future ERP modules** (P2+) drop in under `modules/products/<name>/` — one package per domain, containing routes + service + drizzle schema + agent tools.
+**Future connectors / products** drop in under `modules/connectors/<vendor>/` or `modules/products/<domain>/`. Each connector owns its own Postgres schema and registers via the composition root.
 
 ---
 
@@ -988,6 +1107,7 @@ platform/ms365-planner          →  platform/{ms-graph, agent/core}
 packages:
   - "apps/*"
   - "modules/channels/*"
+  - "modules/connectors/*"
   - "modules/products/*"
   - "platform/*"
   - "platform/agent/*"
@@ -1103,28 +1223,57 @@ save-workspace-protocol=rolling
 
 > Full rationale (cache stability, remote cache, signing) lives in §18. **Audit note:** `$TURBO_DEFAULT$` and `pruneIncludesGlobalFiles` are the current Turborepo recommendations (per `turborepo.com` skill best-practice docs) — they were missing in the first draft.
 
-### `platform/db/drizzle.config.ts`
+### Per-package `drizzle.config.ts` (schema-per-module pattern)
 
 > Verified against drizzle-team/drizzle-orm-docs for drizzle-kit 0.31.x. Required by `drizzle-kit generate` / `migrate` / `push`.
 
+Per §3 (Schema-per-module DDD), **each owner package has its own `drizzle.config.ts` and `migrations/` directory** — `@seta/auth`, `@seta/tenant`, `@seta/directory`, `@seta/oauth`, `@seta/audit`, each `@seta/connector-*`, and `@seta/agent` (product). `@seta/db` no longer owns any application schema; it provides pool + `withTenant` + role exports + a migration runner.
+
+Shape used by every owner package (only the `schemaFilter` and `out` change):
+
 ```ts
+// e.g. platform/oauth/drizzle.config.ts
 import "dotenv/config"
 import { defineConfig } from "drizzle-kit"
 
 export default defineConfig({
-  dialect:    "postgresql",
-  schema:     "./src/schema/*.ts",      // RLS-enabled tables (see §3 pgPolicy example)
-  out:        "./migrations",
-  dbCredentials: {
-    url: process.env.DATABASE_URL!,     // postgres-js URL; drizzle-kit auto-detects driver
-  },
+  dialect:      "postgresql",
+  schema:       "./src/schema.ts",          // tables for THIS bounded context only
+  out:          "./migrations",
+  schemaFilter: ["oauth"],                  // owner schema name; tells drizzle-kit to introspect only this
+  dbCredentials: { url: process.env.DATABASE_URL! },
   // Surface every statement before applying — important for RLS-touching migrations.
   verbose: true,
   strict:  true,
 })
 ```
 
-Workflow: edit a schema file → `pnpm --filter @seta/db exec drizzle-kit generate` (creates SQL under `migrations/`) → review the diff → commit → CI applies via `pnpm --filter @seta/db exec drizzle-kit migrate`. **Never use `drizzle-kit push` outside local dev** — it bypasses migration history.
+| Owner package | `schemaFilter` |
+|---|---|
+| `@seta/auth` | `["auth"]` |
+| `@seta/tenant` | `["tenant"]` |
+| `@seta/directory` | `["directory"]` |
+| `@seta/oauth` | `["oauth"]` |
+| `@seta/audit` | `["audit"]` |
+| `@seta/connector-ms365-directory` | `["connector_ms365_directory"]` |
+| `@seta/connector-ms365-planner` | `["connector_ms365_planner"]` |
+| `@seta/agent` (product) | `["agent"]` |
+
+**Migration runner.** `@seta/db` exposes a single `runMigrations({ url, roleName: "platform_admin" })` helper that applies every package's `migrations/` in **dependency order**: `auth` → `tenant` → `directory` → `oauth` → `audit` → each `connector_*` → `agent`. Order is a static list inside the helper (not auto-discovered, per CLAUDE.md "no plugin loaders").
+
+**Per-package script.** `pnpm --filter @seta/<owner> exec drizzle-kit generate` creates SQL under that package's `migrations/`. `pnpm migrate` at the root runs all packages' migrations in order via the runner. **Never use `drizzle-kit push` outside local dev** — it bypasses migration history.
+
+**Naming convention.** Each Drizzle schema file declares `pgSchema("<schema_name>")` once and exports all its tables under that schema:
+
+```ts
+// platform/oauth/src/schema.ts
+import { pgSchema, uuid, text, bytea, smallint, timestamp, jsonb } from "drizzle-orm/pg-core"
+
+export const oauth = pgSchema("oauth")
+
+export const oauthTokens = oauth.table("oauth_tokens", { /* … */ })
+export const oauthState  = oauth.table("oauth_state",  { /* … */ })
+```
 
 ### Root `vitest.config.ts` (Vitest 3.2+ `projects` API)
 
@@ -1149,6 +1298,7 @@ export default defineConfig({
       "platform/*",
       "platform/agent/*",
       "modules/channels/*",
+      "modules/connectors/*",
       "modules/products/*",
       "apps/*",
       "tests/integration",
@@ -1606,19 +1756,50 @@ pnpm --filter @seta/observability add pino@10.3.1 pino-pretty@13.1.3 uuid@14.0.0
 pnpm --filter @seta/observability add -D vitest@4.1.5 tsup@8.5.1 typescript@6.0.3 @types/node@24
 ```
 
-### Identity & integrations — `@seta/oauth`, `@seta/ms-graph`, `@seta/ms365-planner`
+### Cross-cutting platform primitives — `@seta/connector-registry`, `@seta/directory`, `@seta/audit`
 
 ```bash
-# generic OAuth + PKCE + OBO + encrypted token storage
-pnpm --filter @seta/oauth add jose@6.2.3 zod@4.4.3 @seta/db@workspace:*
+# Connector registry (runtime + types)
+pnpm --filter @seta/connector-registry add zod@4.4.3
 
-# Microsoft Graph HTTP client
+# Canonical directory (auth.users ↔ external IdP subjects, JIT mapper interface)
+pnpm --filter @seta/directory         add zod@4.4.3 drizzle-orm@0.45.2 \
+  @seta/db@workspace:* @seta/audit@workspace:*
+
+# Audit log writer
+pnpm --filter @seta/audit             add zod@4.4.3 drizzle-orm@0.45.2 \
+  @seta/db@workspace:* @seta/observability@workspace:*
+```
+
+### Identity & integrations — `@seta/oauth`, `@seta/ms-graph`
+
+```bash
+# OAuthProvider interface + Entra impl (MSAL Node) + KMS-envelope TokenVault + admin-consent routes
+pnpm --filter @seta/oauth add \
+  @azure/msal-node@5.2.0 \
+  @aws-sdk/client-kms@3.1045.0 \
+  lru-cache@11.3.6 uuid@14.0.0 zod@4.4.3 \
+  drizzle-orm@0.45.2 \
+  @seta/db@workspace:* @seta/connector-registry@workspace:* @seta/audit@workspace:*
+
+# Microsoft Graph HTTP wrapper (raw fetch + 429/5xx backoff + ETag + $batch + audit middleware)
 pnpm --filter @seta/ms-graph add @microsoft/microsoft-graph-types@2.43.1 zod@4.4.3 \
-  @seta/oauth@workspace:*
+  @seta/oauth@workspace:* @seta/audit@workspace:*
+```
 
-# Planner ops + agent tool wrappers
-pnpm --filter @seta/ms365-planner add zod@4.4.3 \
-  @seta/ms-graph@workspace:* @seta/agent-core@workspace:*
+### Connectors — `@seta/connector-ms365-planner`, `@seta/connector-ms365-directory`
+
+```bash
+# MS365 Planner connector — typed client + cache schema + cache-first read-through + ETag wiring
+pnpm --filter @seta/connector-ms365-planner add zod@4.4.3 drizzle-orm@0.45.2 p-queue@9.2.0 \
+  @seta/ms-graph@workspace:* @seta/oauth@workspace:* \
+  @seta/connector-registry@workspace:* @seta/db@workspace:* @seta/audit@workspace:*
+
+# MS365 Directory connector — Users/Groups mirror, JIT mapper
+pnpm --filter @seta/connector-ms365-directory add zod@4.4.3 drizzle-orm@0.45.2 \
+  @seta/ms-graph@workspace:* @seta/oauth@workspace:* \
+  @seta/connector-registry@workspace:* @seta/directory@workspace:* \
+  @seta/db@workspace:* @seta/audit@workspace:*
 ```
 
 ### Knowledge primitives *(P2 — deferred; install when RAG sub-phase starts)* — `@seta/agent-chunking`, `@seta/agent-embeddings`, `@seta/agent-vector`, `@seta/agent-rag`
@@ -1654,10 +1835,13 @@ pnpm --filter @seta/teams add -D vitest@4.1.5 tsup@8.5.1 typescript@6.0.3 @types
 ### Module — `@seta/agent` (P1 — Seta Agent product)
 
 ```bash
-pnpm --filter @seta/agent add zod@4.4.3 adaptivecards-templating@2.3.1 \
-  @seta/agent-core@workspace:* @seta/ms365-planner@workspace:* \
+pnpm --filter @seta/agent add zod@4.4.3 adaptivecards-templating@2.3.1 p-queue@9.2.0 uuid@14.0.0 \
+  drizzle-orm@0.45.2 \
+  @seta/agent-core@workspace:* \
+  @seta/connector-ms365-planner@workspace:* @seta/connector-ms365-directory@workspace:* \
+  @seta/connector-registry@workspace:* @seta/oauth@workspace:* \
   @seta/teams@workspace:* \
-  @seta/auth@workspace:* @seta/tenant@workspace:*
+  @seta/auth@workspace:* @seta/tenant@workspace:* @seta/audit@workspace:* @seta/db@workspace:*
 pnpm --filter @seta/agent add -D vitest@4.1.5 tsup@8.5.1 typescript@6.0.3 @types/node@24
 ```
 
@@ -1667,7 +1851,9 @@ pnpm --filter @seta/agent add -D vitest@4.1.5 tsup@8.5.1 typescript@6.0.3 @types
 pnpm --filter @seta/api add \
   hono@4.12.18 @hono/node-server@2.0.2 dotenv@17.4.2 zod@4.4.3 \
   @seta/agent-core@workspace:* @seta/middleware@workspace:* @seta/observability@workspace:* \
-  @seta/oauth@workspace:* @seta/ms-graph@workspace:* @seta/ms365-planner@workspace:* \
+  @seta/oauth@workspace:* @seta/ms-graph@workspace:* \
+  @seta/connector-registry@workspace:* @seta/directory@workspace:* @seta/audit@workspace:* \
+  @seta/connector-ms365-planner@workspace:* @seta/connector-ms365-directory@workspace:* \
   @seta/db@workspace:* @seta/auth@workspace:* @seta/tenant@workspace:* \
   @seta/teams@workspace:* @seta/agent@workspace:*
 ```
@@ -1692,6 +1878,7 @@ cat > pnpm-workspace.yaml <<'EOF'
 packages:
   - "apps/*"
   - "modules/channels/*"
+  - "modules/connectors/*"
   - "modules/products/*"
   - "platform/*"
   - "platform/agent/*"
@@ -1718,7 +1905,7 @@ mkdir -p examples
 #   docs/runbooks/{restore-drill,secret-rotation,oncall}.md
 # Drop infra files:
 #   infra/otel-collector.yaml
-#   infra/postgres/init.sql  (pgvector + pg_trgm + seta_admin RLS-bypass role)
+#   infra/postgres/init.sql  (pgvector + pg_trgm + platform_admin RLS-bypass role)
 # Drop tooling scripts:
 #   tooling/scripts/new-package.ts            (§15 — package scaffolder; `pnpm new:package`)
 #   tooling/scripts/check-public-private.ts   (§15 — boundary CI guard)
@@ -1764,15 +1951,28 @@ pnpm --filter @seta/middleware add hono@4.12.18 @hono/zod-openapi@1.4.0 @hono/no
   hono-rate-limiter \
   @seta/auth@workspace:* @seta/tenant@workspace:* @seta/observability@workspace:*
 
-# 6. identity & MS Graph
-for p in oauth ms-graph ms365-planner; do
+# 6. cross-cutting platform primitives (registry, directory, audit)
+for p in connector-registry directory audit; do
   mkdir -p platform/$p/src && cd platform/$p && pnpm init && cd ../..
 done
-pnpm --filter @seta/oauth         add jose@6.2.3 zod@4.4.3 @seta/db@workspace:*
-pnpm --filter @seta/ms-graph      add @microsoft/microsoft-graph-types@2.43.1 zod@4.4.3 @seta/oauth@workspace:*
-pnpm --filter @seta/ms365-planner add zod@4.4.3 @seta/ms-graph@workspace:* @seta/agent-core@workspace:*
+pnpm --filter @seta/connector-registry add zod@4.4.3
+pnpm --filter @seta/audit              add zod@4.4.3 drizzle-orm@0.45.2 \
+  @seta/db@workspace:* @seta/observability@workspace:*
+pnpm --filter @seta/directory          add zod@4.4.3 drizzle-orm@0.45.2 \
+  @seta/db@workspace:* @seta/audit@workspace:*
 
-# 7. (P2) knowledge primitives — defer until RAG sub-phase starts
+# 7. identity & MS Graph
+for p in oauth ms-graph; do
+  mkdir -p platform/$p/src && cd platform/$p && pnpm init && cd ../..
+done
+pnpm --filter @seta/oauth    add \
+  @azure/msal-node@5.2.0 @aws-sdk/client-kms@3.1045.0 \
+  lru-cache@11.3.6 uuid@14.0.0 zod@4.4.3 drizzle-orm@0.45.2 \
+  @seta/db@workspace:* @seta/connector-registry@workspace:* @seta/audit@workspace:*
+pnpm --filter @seta/ms-graph add @microsoft/microsoft-graph-types@2.43.1 zod@4.4.3 \
+  @seta/oauth@workspace:* @seta/audit@workspace:*
+
+# 8. (P2) knowledge primitives — defer until RAG sub-phase starts
 # for p in chunking embeddings vector rag; do
 #   mkdir -p platform/agent/$p/src && cd platform/agent/$p && pnpm init && cd ../../..
 # done
@@ -1781,33 +1981,52 @@ pnpm --filter @seta/ms365-planner add zod@4.4.3 @seta/ms-graph@workspace:* @seta
 # pnpm --filter @seta/agent-vector     add zod@4.4.3 @seta/db@workspace:*
 # pnpm --filter @seta/agent-rag        add zod@4.4.3 @seta/agent-chunking@workspace:* @seta/agent-embeddings@workspace:* @seta/agent-vector@workspace:*
 
-# 8. modules/channels/teams (P1 — generic Bot Framework channel adapter)
+# 9. modules/channels/teams (P1 — generic Bot Framework channel adapter)
 mkdir -p modules/channels/teams/src/manifest
 cd modules/channels/teams && pnpm init && cd ../../..
 pnpm --filter @seta/teams add hono@4.12.18 jose@6.2.3 zod@4.4.3 lru-cache@11.3.6 \
-  @seta/oauth@workspace:* @seta/tenant@workspace:*
+  @seta/oauth@workspace:* @seta/tenant@workspace:* @seta/audit@workspace:*
 
-# 9. modules/products/agent (P1 — Seta Agent product)
-mkdir -p modules/products/agent/src/{tools,cards}
+# 10. modules/connectors — vendor adapters (each owns its own Postgres schema)
+mkdir -p modules/connectors/ms365-planner/src
+cd modules/connectors/ms365-planner && pnpm init && cd ../../..
+pnpm --filter @seta/connector-ms365-planner add zod@4.4.3 drizzle-orm@0.45.2 p-queue@9.2.0 \
+  @seta/ms-graph@workspace:* @seta/oauth@workspace:* \
+  @seta/connector-registry@workspace:* @seta/db@workspace:* @seta/audit@workspace:*
+
+mkdir -p modules/connectors/ms365-directory/src
+cd modules/connectors/ms365-directory && pnpm init && cd ../../..
+pnpm --filter @seta/connector-ms365-directory add zod@4.4.3 drizzle-orm@0.45.2 \
+  @seta/ms-graph@workspace:* @seta/oauth@workspace:* \
+  @seta/connector-registry@workspace:* @seta/directory@workspace:* \
+  @seta/db@workspace:* @seta/audit@workspace:*
+
+# 11. modules/products/agent (P1 — Seta Agent product)
+mkdir -p modules/products/agent/src/{tools/planner/read,tools/planner/write,cards}
 cd modules/products/agent && pnpm init && cd ../../..
-pnpm --filter @seta/agent add zod@4.4.3 adaptivecards-templating@2.3.1 \
-  @seta/agent-core@workspace:* @seta/ms365-planner@workspace:* \
+pnpm --filter @seta/agent add zod@4.4.3 adaptivecards-templating@2.3.1 p-queue@9.2.0 uuid@14.0.0 \
+  drizzle-orm@0.45.2 \
+  @seta/agent-core@workspace:* \
+  @seta/connector-ms365-planner@workspace:* @seta/connector-ms365-directory@workspace:* \
+  @seta/connector-registry@workspace:* @seta/oauth@workspace:* \
   @seta/teams@workspace:* \
-  @seta/auth@workspace:* @seta/tenant@workspace:*
+  @seta/auth@workspace:* @seta/tenant@workspace:* @seta/audit@workspace:* @seta/db@workspace:*
 
-# 10. apps/api (the deployable — pure composition; mounts modules)
+# 12. apps/api (the deployable — pure composition; mounts modules)
 mkdir -p apps/api/src/routes
 cd apps/api && pnpm init && cd ../..
 pnpm --filter @seta/api add hono@4.12.18 @hono/node-server@2.0.2 dotenv@17.4.2 zod@4.4.3 \
   @seta/agent-core@workspace:* @seta/middleware@workspace:* @seta/observability@workspace:* \
-  @seta/oauth@workspace:* @seta/ms-graph@workspace:* @seta/ms365-planner@workspace:* \
+  @seta/oauth@workspace:* @seta/ms-graph@workspace:* \
+  @seta/connector-registry@workspace:* @seta/directory@workspace:* @seta/audit@workspace:* \
+  @seta/connector-ms365-planner@workspace:* @seta/connector-ms365-directory@workspace:* \
   @seta/db@workspace:* @seta/auth@workspace:* @seta/tenant@workspace:* \
   @seta/teams@workspace:* @seta/agent@workspace:*
 
-# 11. local services
+# 13. local services
 docker compose up -d pg jaeger otel-collector
 
-# 12. claim npm scope (run once per org, then deprecate placeholder)
+# 14. claim npm scope (run once per org, then deprecate placeholder)
 #   npm login --scope=@seta
 #   mkdir -p /tmp/seta-placeholder && cd /tmp/seta-placeholder
 #   npm init -y --scope=@seta
@@ -1815,7 +2034,7 @@ docker compose up -d pg jaeger otel-collector
 #   npm publish --access public
 #   npm deprecate @seta/placeholder@0.0.0 "Reserved scope; see github.com/Seta-International/seta-os"
 
-# 13. ready to start on K1.1 (message types)
+# 15. ready to start on K1.1 (message types)
 pnpm --filter @seta/agent-core dev
 ```
 
@@ -1830,7 +2049,7 @@ pnpm --filter @seta/agent-core dev
 | Paths | No TS path aliases; use workspace package names (`@seta/agent-core`) |
 | Tests | Co-located `*.test.ts`; integration tests in `tests/integration/*.test.ts` |
 | LLM recordings | `__recordings__/` per package; checked into git |
-| Migrations | `platform/db/migrations/*.sql` generated by `drizzle-kit generate` |
+| Migrations | Per owner package: `<owner>/migrations/*.sql` generated by `drizzle-kit generate` (schema-per-module — see §3 + §12). Top-level `pnpm migrate` applies all owners in dependency order via `@seta/db`'s runner. |
 | Secrets in dev | `.env.local` (gitignored); production via KMS at startup |
 | Logging | `logger` from `@seta/middleware`; never `console.log` outside CLI |
 | Errors | `DomainError` subclasses from `@seta/middleware/errors`; mapped to RFC7807 |
@@ -1840,7 +2059,7 @@ pnpm --filter @seta/agent-core dev
 | **`z` import for OpenAPI routes** | In any file using `@hono/zod-openapi`, **import `z` from `@hono/zod-openapi`** — not from `zod`. The package re-exports a wrapped Zod whose schemas have a `.openapi(...)` extension method; importing `z` from `zod` directly silently drops that method (TS will accept it, runtime breaks at `app.openapi(route, …)` doc generation). Biome rule + ADR 0005 enforce this. |
 | **OTel init order** | `apps/api` MUST start with `node --import ./instrumentation.ts …` (or `tsx watch --import` in dev). NodeSDK + auto-instrumentations register hooks; if any module imports BEFORE the SDK starts, that module is invisible to traces. Never call `sdk.start()` from inside `main.ts`. See §8 for the canonical pattern. |
 | **OpenAPI route paths** | `@hono/zod-openapi` uses OpenAPI-style `/users/{id}`, NOT Hono native `/users/:id`. Routes registered via `OpenAPIHono.openapi()` follow OpenAPI; routes registered via `app.get("/users/:id", …)` follow Hono. Don't mix in one router. |
-| **Adding a package** | **CLI only** — `pnpm new:package` (wraps `tooling/scripts/new-package.ts`). Never `mkdir` + hand-write `package.json`. Scaffolder enforces correct path (`platform/agent/*` vs `modules/channels/*` vs `modules/products/*`), tsconfig extends, scripts block, and registers in `pnpm-workspace.yaml` if needed. |
+| **Adding a package** | **CLI only** — `pnpm new:package` (wraps `tooling/scripts/new-package.ts`). Never `mkdir` + hand-write `package.json`. Scaffolder enforces correct path (`platform/agent/*` vs `platform/*` vs `modules/channels/*` vs `modules/connectors/*` vs `modules/products/*`), tsconfig extends, scripts block, and registers in `pnpm-workspace.yaml` if needed. |
 | **Installing / removing deps** | **CLI only** — `pnpm --filter <pkg> add <dep>` / `pnpm --filter <pkg> remove <dep>` / `pnpm --filter <pkg> add -D <dep>`. **Never** hand-edit `dependencies` / `devDependencies` / `peerDependencies` blocks. Reason: pnpm resolves the version, updates the lockfile, and runs install hooks atomically — manual edits drift from the lockfile and cause silent install failures. |
 | **Renaming / moving a package** | `pnpm pkg set name=@seta/<new>` + `git mv` for the directory + `pnpm install` to refresh the lockfile. Don't hand-edit `package.json`. |
 | **Bumping versions** | `pnpm changeset` → `pnpm changeset version` → commit. Never hand-edit `version` fields. |
@@ -1857,15 +2076,16 @@ $ pnpm new:package
   › platform-agent       (under platform/agent/<name> — agent runtime/API)
     platform             (under platform/<name> — shared infra/framework)
     channel              (under modules/channels/<name> — transport adapter)
+    connector            (under modules/connectors/<name> — vendor adapter, owns its Postgres schema)
     product              (under modules/products/<name> — business module)
     app                  (under apps/<name> — deployable)
     example              (under examples/<name> — public-facing usage example)
-? Package short name (no @seta/ prefix): planner
-? One-line description: Microsoft Planner ops + agent tools
+? Package short name (no @seta/ prefix): trello
+? One-line description: Trello connector — boards, lists, cards
 
-→ mkdir -p platform/<resolved-path>/src
+→ mkdir -p modules/connectors/trello/src
 → cd <path> && pnpm init
-→ pnpm pkg set name=@seta/<computed-name> version=0.1.0 type=module private=true
+→ pnpm pkg set name=@seta/connector-trello version=0.1.0 type=module private=true
 → pnpm pkg set main=./dist/index.js types=./dist/index.d.ts
 → pnpm pkg set scripts.build="tsup src/index.ts --format esm --dts --sourcemap"
 → pnpm pkg set scripts.dev="tsup src/index.ts --format esm --dts --watch"
@@ -1873,14 +2093,15 @@ $ pnpm new:package
 → pnpm pkg set scripts.typecheck="tsc --noEmit -p tsconfig.json"
 → write tsconfig.json (extends platform/tsconfig/node.json)
 → write vitest.config.ts (extends tooling/vitest.base.ts)
-→ write src/index.ts ("export {}")
+→ write drizzle.config.ts (schemaFilter: ["connector_trello"])
+→ write src/{manifest.ts,client.ts,schema.ts,index.ts}
 → pnpm install   (registers in pnpm-workspace.yaml glob)
-✓ @seta/planner created at platform/planner. Next: pnpm --filter @seta/planner add <deps>
+✓ @seta/connector-trello created at modules/connectors/trello. Next: pnpm --filter @seta/connector-trello add <deps>
 ```
 
 Refusal cases the scaffolder enforces:
-- Naming: `agent-` prefix only allowed for `platform-agent` kind.
-- Paths: a `channel` kind cannot land under `modules/products/`.
+- Naming: `agent-` prefix only allowed for `platform-agent` kind; `connector-` prefix auto-prepended for `connector` kind.
+- Paths: a `channel` kind cannot land under `modules/products/` or `modules/connectors/`; a `connector` kind cannot land under `platform/`.
 - Public packages (`platform-agent core/sdk` only at P1) get the §9 `package.json` additions automatically.
 
 ### `tooling/scripts/check-no-manual-pkg-edit.ts` — CI guard
@@ -1905,8 +2126,8 @@ Refusal cases the scaffolder enforces:
 
 1. §14 bootstrap script runs clean on a fresh clone
 2. `pnpm install` completes; `pnpm typecheck` green
-3. `docker compose up -d` brings up pg + jaeger; `infra/postgres/init.sql` applies pgvector + pg_trgm + `seta_admin` role
-4. `pnpm --filter @seta/db exec drizzle-kit migrate` applies base schema; RLS template (`platform/db/migrations/_template_rls.sql`) committed
+3. `docker compose up -d` brings up pg + jaeger; `infra/postgres/init.sql` applies pgvector + pg_trgm + `platform_admin` role
+4. `pnpm migrate` (top-level) runs every owner package's migrations in dependency order: `auth` → `tenant` → `directory` → `oauth` → `audit` → each `connector_*` → `agent`. RLS template (`platform/db/migrations/_template_rls.sql`) committed.
 5. `pnpm --filter @seta/agent-core test` runs (empty pass)
 6. CI green on first PR (Postgres service container reachable; integration tests run, not skipped)
 7. `tooling/scripts/check-public-private.ts` wired into CI — fails build if a `"private": false` package imports a `"private": true` workspace package
@@ -2036,7 +2257,8 @@ import { defineConfig } from "vitest/config"
 export default defineConfig({
   test: {
     projects: ["platform/*", "platform/agent/*", "modules/channels/*",
-               "modules/products/*", "apps/*", "tests/integration", "tests/e2e"],
+               "modules/connectors/*", "modules/products/*", "apps/*",
+               "tests/integration", "tests/e2e"],
     // global pool / coverage / thresholds defined here, inherited by projects
   },
 })
