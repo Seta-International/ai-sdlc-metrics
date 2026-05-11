@@ -21,7 +21,6 @@
     "@hono/zod-openapi": "1.4.0",
     "@seta/auth": "workspace:*",
     "@seta/observability": "workspace:*",
-    "@seta/tenant": "workspace:*",
     "hono": "4.12.18",
     "hono-rate-limiter": "^0.5.3",
     "zod": "4.4.3"
