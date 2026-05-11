@@ -248,20 +248,26 @@ import { createPool, withTenant } from "./client.js"
 const DATABASE_URL = process.env.DATABASE_URL ?? "postgres://seta:dev@localhost:5432/seta"
 
 describe("withTenant", () => {
-  const sql = createPool(DATABASE_URL)
+  // max:1 guarantees the post-withTenant probe lands on the same backend
+  // as the transaction. Without this the "outside === ''" assertion only
+  // proves a fresh connection has no GUC — not that set_config(..., true)
+  // is tx-scoped. Don't "optimize" this away.
+  const sql = createPool(DATABASE_URL, { max: 1 })
 
   it("sets app.tenant_id for the transaction and unsets it after", async () => {
     const tid = "00000000-0000-0000-0000-000000000001"
 
     const inside = await withTenant(sql, tid, async (tx) => {
       const rows = await tx`SELECT current_setting('app.tenant_id', true) AS t`
-      return rows[0].t
+      return rows[0]?.t
     })
     expect(inside).toBe(tid)
 
-    // Outside the transaction the GUC is cleared (SET LOCAL is tx-scoped)
+    // Outside the transaction the GUC is cleared. With max:1, this query MUST
+    // land on the same backend; if SET were used (session-scoped) instead of
+    // set_config(..., true), the GUC would still be visible.
     const outside = await sql`SELECT current_setting('app.tenant_id', true) AS t`
-    expect(outside[0].t).toBe("")
+    expect(outside[0]?.t).toBe("")
   })
 })
 ```
@@ -282,7 +288,7 @@ Create `platform/db/src/client.ts`:
 import postgres from "postgres"
 import type { Sql } from "postgres"
 
-export type DbSql = Sql<{}>
+export type DbSql = Sql
 
 export function createPool(url: string, opts?: Partial<postgres.Options<{}>>): DbSql {
   return postgres(url, {
@@ -303,12 +309,16 @@ export function createPool(url: string, opts?: Partial<postgres.Options<{}>>): D
 export async function withTenant<T>(
   sql: DbSql,
   tenantId: string,
-  fn: (tx: postgres.TransactionSql<{}>) => Promise<T>,
+  fn: (tx: postgres.TransactionSql) => Promise<T>,
 ): Promise<T> {
+  // NOTE: postgres-js parameterizes tagged-template values, so
+  //   `tx`SET LOCAL app.tenant_id = ${tenantId}`` produces `SET LOCAL ... = $1`,
+  // which Postgres rejects (no bind params in SET). Use set_config with
+  // is_local=true instead — same tx-scoped semantics, accepts bind parameters.
   return sql.begin(async (tx) => {
-    await tx`SET LOCAL app.tenant_id = ${tenantId}`
+    await tx`SELECT set_config('app.tenant_id', ${tenantId}, true)`
     return fn(tx)
-  })
+  }) as Promise<T>
 }
 ```
 
@@ -323,10 +333,15 @@ import { pgRole } from "drizzle-orm/pg-core"
 export const tenantUser = pgRole("tenant_user")
 
 /**
- * Platform operator role. BYPASSRLS — used for migrations + ops only.
+ * Platform operator role. Used for migrations + ops only.
  * Not a tenant identity. (Seta itself is just an ordinary tenant.)
+ *
+ * NOTE: BYPASSRLS is NOT a drizzle-orm 0.45.2 `pgRole` option (PgRoleConfig
+ * has only `createDb` / `createRole` / `inherit`). The BYPASSRLS attribute
+ * is granted at role creation in `infra/postgres/init.sql` (Task C8):
+ *   CREATE ROLE platform_admin WITH LOGIN BYPASSRLS …
  */
-export const platformAdmin = pgRole("platform_admin", { bypassRls: true })
+export const platformAdmin = pgRole("platform_admin")
 ```
 
 - [ ] **Step 5: Write `index.ts`**
@@ -1524,7 +1539,7 @@ export interface AuditWriter {
   recordAudit(entry: AuditEntry): Promise<void>
 }
 
-export function createAuditWriter(sql: Sql<{}>): AuditWriter {
+export function createAuditWriter(sql: Sql): AuditWriter {
   return {
     async recordAudit(e) {
       const actorType = e.actor.type
@@ -1543,7 +1558,7 @@ export function createAuditWriter(sql: Sql<{}>): AuditWriter {
 }
 
 /** Backwards-compatible top-level helper for code that already has a sql instance. */
-export async function recordAudit(sql: Sql<{}>, e: AuditEntry): Promise<void> {
+export async function recordAudit(sql: Sql, e: AuditEntry): Promise<void> {
   return createAuditWriter(sql).recordAudit(e)
 }
 ```
@@ -1954,7 +1969,7 @@ export class KmsAuthTagInvalid extends ServiceUnavailable {
   constructor() { super("token decrypt failed — auth tag mismatch") }
 }
 
-export function createTokenVault(deps: { sql: Sql<{}>; kms: KmsClient }): TokenVault {
+export function createTokenVault(deps: { sql: Sql; kms: KmsClient }): TokenVault {
   const { sql, kms } = deps
 
   return {
@@ -2139,7 +2154,7 @@ export interface TokenAcquirer {
 }
 
 export type CreateTokenAcquirerDeps = {
-  sql:     Sql<{}>
+  sql:     Sql
   vault:   TokenVault
   refresh: RefreshFn
   /** How many seconds before expiry we treat the token as needing refresh. Default 300. */
@@ -2471,7 +2486,7 @@ export interface StateStore {
   consume(state: string): Promise<StateRow | null>
 }
 
-export function createStateStore(sql: Sql<{}>): StateStore {
+export function createStateStore(sql: Sql): StateStore {
   return {
     async mint({ providerId, connectorIds, ttlSec = 900 }) {
       const state = randomBytes(24).toString("base64url")
@@ -3128,7 +3143,7 @@ export interface JitMapper {
   upsertFromIdToken(claims: IdTokenClaims): Promise<CanonicalUser>
 }
 
-export function createJitMapper(sql: Sql<{}>): JitMapper {
+export function createJitMapper(sql: Sql): JitMapper {
   return {
     async upsertFromIdToken(claims) {
       return sql.begin(async (tx) => {

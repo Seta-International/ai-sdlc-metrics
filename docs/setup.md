@@ -66,7 +66,11 @@ import { sql } from "drizzle-orm"
 import { pgTable, pgPolicy, pgRole, uuid, text, timestamp } from "drizzle-orm/pg-core"
 
 export const tenantUser = pgRole("tenant_user")          // app role; sets app.tenant_id per request
-export const platformAdmin = pgRole("platform_admin", { bypassRls: true }) // migrations / ops only — not a tenant identity
+// NOTE: drizzle-orm 0.45.2's pgRole has no `bypassRls` option (PgRoleConfig
+// only supports createDb/createRole/inherit). The BYPASSRLS attribute is
+// set at role creation in `infra/postgres/init.sql`:
+//   CREATE ROLE platform_admin WITH LOGIN BYPASSRLS …
+export const platformAdmin = pgRole("platform_admin") // migrations / ops only — not a tenant identity
 
 export const threads = pgTable("threads", {
   id:        uuid("id").primaryKey().defaultRandom(),
@@ -145,7 +149,10 @@ export const sql = postgres(env.DATABASE_URL, {
 // THE only entrypoint for tenant-scoped queries. RLS depends on this.
 export function withTenant<T>(tenantId: string, fn: (tx: postgres.TransactionSql) => Promise<T>) {
   return sql.begin(async (tx) => {
-    await tx`SET LOCAL app.tenant_id = ${tenantId}`
+    // postgres-js parameterizes tagged values, so `SET LOCAL key = ${val}` becomes
+    // `SET LOCAL key = $1` which Postgres rejects (no bind params in SET).
+    // Use set_config with is_local=true — same tx-scoped semantics, accepts bind params.
+    await tx`SELECT set_config('app.tenant_id', ${tenantId}, true)`
     return fn(tx)
   })
 }
