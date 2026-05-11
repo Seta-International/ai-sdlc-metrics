@@ -61,7 +61,7 @@ For "add library X" without a known pin, run `pnpm view <pkg> version` and propo
 - **OpenAPI uses `{id}`**, Hono native uses `:id`. Don't mix in one router.
 - **OTel init order**: `apps/api` MUST start via `node --import ./instrumentation.ts …` (dev: `tsx watch --import`). Anything imported before `sdk.start()` is invisible to traces. Never call `sdk.start()` from `main.ts`.
 - **Tenant id is never a function parameter.** Read from `tenantContext.getTenantId()` (`@seta/tenant`). DB client sets `app.tenant_id` via `SET LOCAL` per request; RLS is the backstop.
-- **App connects as `tenant_user`** (RLS-enforced). `platform_admin` (`bypassRls: true`) is migrations/ops only — *no Seta-named role*; Seta itself is just an ordinary tenant.
+- **App connects as `tenant_user`** (RLS-enforced). `platform_admin` (`bypassRls: true`) is migrations/ops only.
 - **Streaming**: use `streamKernelSSE(c, run)` from `@seta/agent-core` (wires `onAbort`, keep-alive, error handler).
 - **`drizzle-kit push`** is local-dev only — never against shared DBs.
 - **LLM in tests**: only via `@seta/agent-core/testkit` recordings. Never live model APIs in CI.
