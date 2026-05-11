@@ -1,0 +1,9 @@
+{
+  "name": "@seta/tsconfig",
+  "version": "0.1.0",
+  "description": "Shared TypeScript configs for the seta-os monorepo",
+  "scripts": {},
+  "license": "Apache-2.0",
+  "type": "module",
+  "private": true
+}

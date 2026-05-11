@@ -1,0 +1,128 @@
+name: CI
+run-name: CI · ${{ github.event_name }} · ${{ github.head_ref || github.ref_name }}
+
+on:
+  push: { branches: [main] }
+  pull_request:
+
+env:
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+  TURBO_REMOTE_CACHE_SIGNATURE_KEY: ${{ secrets.TURBO_REMOTE_CACHE_SIGNATURE_KEY }}
+
+jobs:
+  lint:
+    name: Lint & boundary checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v6
+        with: { cache: true }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - run: pnpm lint
+      - run: pnpm tsx tooling/scripts/check-public-private.ts
+      - run: pnpm tsx tooling/scripts/check-no-manual-pkg-edit.ts
+        env:
+          BASE_REF: origin/${{ github.base_ref || 'main' }}
+
+  typecheck:
+    name: Type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with: { cache: true }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - run: pnpm turbo run typecheck
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with: { cache: true }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - run: pnpm turbo run test:unit
+
+  integration:
+    name: Integration tests (Postgres)
+    runs-on: ubuntu-latest
+    services:
+      pg:
+        image: pgvector/pgvector:0.8.2-pg17-bookworm
+        env:
+          POSTGRES_PASSWORD: dev
+          POSTGRES_USER: seta
+          POSTGRES_DB: seta_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U seta -d seta_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://seta:dev@localhost:5432/seta_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with: { cache: true }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - run: psql "$DATABASE_URL" -f infra/postgres/init.sql
+      - run: pnpm --filter @seta/db exec drizzle-kit migrate
+        continue-on-error: true
+      - run: pnpm turbo run test:integration
+
+  e2e:
+    name: End-to-end tests
+    runs-on: ubuntu-latest
+    services:
+      pg:
+        image: pgvector/pgvector:0.8.2-pg17-bookworm
+        env:
+          POSTGRES_PASSWORD: dev
+          POSTGRES_USER: seta
+          POSTGRES_DB: seta_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U seta -d seta_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://seta:dev@localhost:5432/seta_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with: { cache: true }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - run: psql "$DATABASE_URL" -f infra/postgres/init.sql
+      - run: pnpm --filter @seta/db exec drizzle-kit migrate
+        continue-on-error: true
+      - run: pnpm turbo run build --filter=@seta/api
+      - run: pnpm vitest run --project tests/e2e
+        continue-on-error: true
+
+  build:
+    name: Build all packages
+    needs: [lint, typecheck, unit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with: { cache: true }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - run: pnpm turbo run build

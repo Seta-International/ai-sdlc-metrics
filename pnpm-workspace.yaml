@@ -1,0 +1,10 @@
+packages:
+  - "apps/*"
+  - "modules/channels/*"
+  - "modules/products/*"
+  - "platform/*"
+  - "platform/agent/*"
+allowBuilds:
+  esbuild: true
+  lefthook: true
+  protobufjs: true

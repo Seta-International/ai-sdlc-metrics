@@ -1,0 +1,38 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "ui": "tui",
+  "remoteCache": { "signature": true },
+  "futureFlags": { "pruneIncludesGlobalFiles": true },
+  "globalEnv": ["NODE_ENV", "CI"],
+  "globalDependencies": [".npmrc", "tsconfig.base.json", "biome.json", "vitest.config.ts"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "tsup.config.ts"],
+      "outputs": ["dist/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "tsconfig.json"],
+      "outputs": [".tsbuildinfo"]
+    },
+    "test:unit": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "vitest.config.ts", "__recordings__/**", "__fixtures__/**"],
+      "outputs": []
+    },
+    "test:integration": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "vitest.config.ts", "__recordings__/**"],
+      "outputs": [],
+      "env": ["DATABASE_URL"]
+    },
+    "coverage": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "vitest.config.ts"],
+      "outputs": ["coverage/**"]
+    },
+    "lint": { "inputs": ["$TURBO_DEFAULT$", "biome.json"] },
+    "dev": { "cache": false, "persistent": true }
+  }
+}

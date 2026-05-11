@@ -1,0 +1,16 @@
+# Fast checks only on commit; heavier checks on push.
+pre-commit:
+  parallel: true
+  commands:
+    biome:
+      glob: "*.{ts,tsx,js,json}"
+      run: pnpm biome check --write {staged_files}
+      stage_fixed: true
+
+pre-push:
+  parallel: true
+  commands:
+    typecheck:
+      run: pnpm turbo run typecheck --filter='...[origin/main]'
+    test:
+      run: pnpm turbo run test:unit --filter='...[origin/main]'

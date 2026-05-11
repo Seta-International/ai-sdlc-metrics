@@ -1,0 +1,31 @@
+{
+  "name": "@seta/ms365-planner",
+  "version": "0.1.0",
+  "description": "Microsoft Planner ops (plans, tasks, buckets) + agent tool wrappers",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --sourcemap",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "license": "Apache-2.0",
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@seta/agent-core": "workspace:*",
+    "@seta/ms-graph": "workspace:*",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@seta/tsconfig": "workspace:*",
+    "@types/node": "^24.12.3",
+    "tsup": "8.5.1",
+    "typescript": "6.0.3",
+    "vitest": "4.1.5"
+  }
+}

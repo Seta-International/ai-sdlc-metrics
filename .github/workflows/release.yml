@@ -1,0 +1,33 @@
+name: Release
+run-name: Release · ${{ github.ref_name }} · @${{ github.actor }}
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: Publish to npm (Changesets)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v6
+        with: { cache: true }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: "https://registry.npmjs.org"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - uses: changesets/action@v1
+        with:
+          publish: pnpm release
+          version: pnpm changeset version
+          createGithubReleases: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

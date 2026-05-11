@@ -1,0 +1,43 @@
+{
+  "name": "@seta/api",
+  "version": "0.1.0",
+  "description": "Seta OS API — single Hono server (pure composition; mounts channels + products)",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --sourcemap",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "license": "Apache-2.0",
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@hono/node-server": "2.0.2",
+    "@seta/agent": "workspace:*",
+    "@seta/agent-core": "workspace:*",
+    "@seta/auth": "workspace:*",
+    "@seta/db": "workspace:*",
+    "@seta/middleware": "workspace:*",
+    "@seta/ms-graph": "workspace:*",
+    "@seta/ms365-planner": "workspace:*",
+    "@seta/oauth": "workspace:*",
+    "@seta/observability": "workspace:*",
+    "@seta/teams": "workspace:*",
+    "@seta/tenant": "workspace:*",
+    "dotenv": "17.4.2",
+    "hono": "4.12.18",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@seta/tsconfig": "workspace:*",
+    "@types/node": "^24.12.3",
+    "tsup": "8.5.1",
+    "typescript": "6.0.3",
+    "vitest": "4.1.5"
+  }
+}

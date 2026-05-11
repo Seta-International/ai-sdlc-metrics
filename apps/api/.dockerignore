@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/.turbo
+**/.tsbuildinfo
+**/coverage
+**/__recordings__
+**/__fixtures__
+**/*.test.ts
+**/tests
+.git
+.github
+docs
+*.md
