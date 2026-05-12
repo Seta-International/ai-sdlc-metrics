@@ -562,12 +562,18 @@ importers:
       '@seta/middleware':
         specifier: workspace:*
         version: link:../middleware
+      '@seta/tenant':
+        specifier: workspace:*
+        version: link:../tenant
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
+      hono:
+        specifier: 4.12.18
+        version: 4.12.18
       lru-cache:
         specifier: 11.3.6
         version: 11.3.6
@@ -581,6 +587,12 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
     devDependencies:
+      '@seta/connector-ms365-directory':
+        specifier: workspace:*
+        version: link:../../modules/connectors/ms365-directory
+      '@seta/connector-ms365-planner':
+        specifier: workspace:*
+        version: link:../../modules/connectors/ms365-planner
       '@seta/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
