@@ -20,7 +20,7 @@ const CommentItem = z.object({
   body: z.string().min(1).max(4000),
 })
 
-const Input = z.object({ comments: z.array(CommentItem).min(1).max(20) })
+const Input = z.object({ comments: z.array(CommentItem).min(1).max(100) })
 
 const Output = z.object({
   card: z.record(z.string(), z.unknown()),
