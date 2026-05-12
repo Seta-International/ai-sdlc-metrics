@@ -19,9 +19,12 @@
   ],
   "dependencies": {
     "@anthropic-ai/sdk": "0.95.1",
+    "@opentelemetry/api": "1.9.1",
     "@seta/middleware": "workspace:*",
     "@seta/observability": "workspace:*",
+    "@seta/tenant": "workspace:*",
     "hono": "4.12.18",
+    "js-tiktoken": "1.0.21",
     "msw": "2.14.6",
     "openai": "6.37.0",
     "uuid": "14.0.0",
