@@ -533,34 +533,6 @@ importers:
         specifier: 4.1.5
         version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.12.3)(@vitest/coverage-v8@4.1.5)(vite@8.0.11(@types/node@24.12.3)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.4))
 
-  platform/ms365-planner:
-    dependencies:
-      '@seta/agent-core':
-        specifier: workspace:*
-        version: link:../agent/core
-      '@seta/ms-graph':
-        specifier: workspace:*
-        version: link:../ms-graph
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
-    devDependencies:
-      '@seta/tsconfig':
-        specifier: workspace:*
-        version: link:../tsconfig
-      '@types/node':
-        specifier: ^24.12.3
-        version: 24.12.3
-      tsup:
-        specifier: 8.5.1
-        version: 8.5.1(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: 4.1.5
-        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.12.3)(@vitest/coverage-v8@4.1.5)(vite@8.0.11(@types/node@24.12.3)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.4))
-
   platform/oauth:
     dependencies:
       '@aws-sdk/client-kms':
@@ -691,6 +663,15 @@ importers:
         version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.12.3)(@vitest/coverage-v8@4.1.5)(vite@8.0.11(@types/node@24.12.3)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.4))
 
   platform/tsconfig: {}
+
+  tooling:
+    dependencies:
+      '@seta/db':
+        specifier: workspace:*
+        version: link:../platform/db
+      dotenv:
+        specifier: 17.4.2
+        version: 17.4.2
 
 packages:
 

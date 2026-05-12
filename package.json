@@ -19,7 +19,7 @@
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "typecheck": "turbo run typecheck",
-    "migrate": "pnpm --filter @seta/db exec drizzle-kit migrate",
+    "migrate": "pnpm --filter @seta/tooling exec tsx scripts/migrate.ts",
     "db:up": "docker compose up -d pg jaeger otel-collector",
     "db:down": "docker compose down",
     "new:package": "tsx tooling/scripts/new-package.ts",

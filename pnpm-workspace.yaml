@@ -6,6 +6,7 @@ packages:
   - "platform/*"
   - "platform/agent/*"
   - "examples/*"
+  - "tooling"
 allowBuilds:
   esbuild: true
   lefthook: true

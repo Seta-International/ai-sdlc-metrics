@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import * as path from 'node:path'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate as drizzleMigrate } from 'drizzle-orm/postgres-js/migrator'
@@ -50,14 +51,11 @@ export async function runMigrations(opts: RunMigrationsOpts): Promise<void> {
 
   for (const owner of owners) {
     const migrationsFolder = path.join(repoRoot, OWNER_PACKAGE_PATH[owner])
-    try {
-      await drizzleMigrate(db, { migrationsFolder })
-    } catch (err: unknown) {
-      const code = (err as { code?: string }).code
-      // Skip owners that don't have a migrations dir yet (e.g., agent in Epic 1)
-      if (code === 'ENOENT') continue
-      throw err
-    }
+    // Skip owners that don't have a migrations dir yet (e.g., agent in Epic 1).
+    // drizzle-orm 0.45.2's migrator throws a plain Error when meta/_journal.json
+    // is missing, so we check up-front rather than parsing error messages.
+    if (!existsSync(path.join(migrationsFolder, 'meta', '_journal.json'))) continue
+    await drizzleMigrate(db, { migrationsFolder })
   }
   await sql.end()
 }
