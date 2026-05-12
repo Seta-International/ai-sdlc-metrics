@@ -44,7 +44,7 @@ registry.register(directoryConnector)
 
 const graph = createGraphFetch({ recordAudit: audit.recordAudit.bind(audit) })
 
-const plannerTools = createPlannerTools({
+const _plannerTools = createPlannerTools({
   registry,
   vault,
   graph,
