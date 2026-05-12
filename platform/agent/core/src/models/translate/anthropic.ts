@@ -92,15 +92,21 @@ export function kernelToAnthropic(req: AdapterRequest): AnthropicRequest {
         }))
       : undefined
 
-  const base: AnthropicRequest = {
+  const cacheable = applyAnthropicCacheControl(
+    {
+      ...(system !== undefined ? { system } : {}),
+      ...(tools !== undefined ? { tools } : {}),
+    } as Parameters<typeof applyAnthropicCacheControl>[0],
+    req.cacheTtl ?? null,
+  )
+
+  return {
     model: req.model,
     max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
-    ...(system !== undefined ? { system } : {}),
-    ...(tools !== undefined ? { tools } : {}),
+    ...(cacheable.system !== undefined ? { system: cacheable.system as never } : {}),
+    ...(cacheable.tools !== undefined ? { tools: cacheable.tools as never } : {}),
     messages: rest.map(mapKernelMessage),
   }
-
-  return applyAnthropicCacheControl(base, req.cacheTtl ?? null)
 }
 
 export interface AnthropicStreamState {
@@ -222,16 +228,20 @@ export function anthropicEventToKernelChunks(
 }
 
 export function anthropicFinalToKernelMessage(msg: Anthropic.Message): KernelMessage {
-  return {
-    role: 'assistant',
-    content: msg.content.map((b): KernelMessage['content'][number] => {
-      if (b.type === 'text') return { type: 'text', text: b.text }
-      return {
+  const content: KernelMessage['content'] = []
+  for (const b of msg.content) {
+    if (b.type === 'text') {
+      content.push({ type: 'text', text: b.text })
+    } else if (b.type === 'tool_use') {
+      content.push({
         type: 'tool_use',
         toolCallId: b.id,
         name: b.name,
         args: b.input as unknown,
-      }
-    }),
+      })
+    }
+    // Thinking, redacted_thinking, server_tool_use, etc. have no kernel equivalent
+    // and are intentionally dropped from the canonical message form.
   }
+  return { role: 'assistant', content }
 }

@@ -23,9 +23,8 @@ describe('applyAnthropicCacheControl', () => {
   it("propagates '1h' ttl onto system", () => {
     const req = { system: 'stable' }
     const out = applyAnthropicCacheControl(req, '1h')
-    expect((out.system as Array<{ cache_control: { ttl: string } }>)[0]!.cache_control.ttl).toBe(
-      '1h',
-    )
+    const blocks = out.system as unknown as Array<{ cache_control: { ttl: string } }>
+    expect(blocks[0]?.cache_control.ttl).toBe('1h')
   })
 
   it('marks only the last tool with cache_control', () => {

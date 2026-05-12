@@ -13,18 +13,20 @@ interface AnthropicToolLike {
   cache_control?: { type: 'ephemeral'; ttl: AnthropicCacheTtl }
 }
 
-interface CacheableRequest {
-  system?: string | SystemTextBlock[]
-  tools?: AnthropicToolLike[]
-}
-
-export function applyAnthropicCacheControl<T extends CacheableRequest>(
-  req: T,
-  cacheTtl: AnthropicCacheTtl | null,
-): T {
+// Permissive shape that accepts both kernel-built AnthropicRequest and arbitrary
+// test fixtures; system may be omitted, a plain string, or an array of blocks.
+export function applyAnthropicCacheControl<
+  T extends {
+    system?: string | SystemTextBlock[]
+    tools?: AnthropicToolLike[]
+  },
+>(req: T, cacheTtl: AnthropicCacheTtl | null): T {
   if (cacheTtl === null) return req
 
-  const out: CacheableRequest = { ...req }
+  const out = { ...req } as T & {
+    system?: SystemTextBlock[]
+    tools?: AnthropicToolLike[]
+  }
 
   if (out.system !== undefined) {
     const blocks: SystemTextBlock[] =
@@ -47,5 +49,5 @@ export function applyAnthropicCacheControl<T extends CacheableRequest>(
     out.tools = tools
   }
 
-  return out as T
+  return out
 }
