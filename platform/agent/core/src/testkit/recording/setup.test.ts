@@ -6,6 +6,8 @@ import { setupLLMRecording } from './setup'
 import { loadRecordingFile, recordingFilePath, saveRecordingFile } from './store'
 import type { RecordingFile } from './types'
 
+type FetchInput = Parameters<typeof fetch>[0]
+
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 
@@ -92,7 +94,7 @@ describe('setupLLMRecording', () => {
     const filepath = recordingFilePath(dir, 'record-miss')
 
     const realFetch = globalThis.fetch
-    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    globalThis.fetch = (async (input: FetchInput, init?: RequestInit): Promise<Response> => {
       const url = typeof input === 'string' || input instanceof URL ? String(input) : input.url
       if (url === ANTHROPIC_URL) {
         return new Response(JSON.stringify({ id: 'msg_recorded', content: [] }), {
@@ -100,7 +102,7 @@ describe('setupLLMRecording', () => {
           headers: { 'content-type': 'application/json' },
         })
       }
-      return realFetch(input as RequestInfo, init)
+      return realFetch(input as FetchInput, init)
     }) as typeof fetch
 
     try {
@@ -147,7 +149,7 @@ describe('setupLLMRecording', () => {
     })
 
     const realFetch = globalThis.fetch
-    globalThis.fetch = (async (input: RequestInfo | URL): Promise<Response> => {
+    globalThis.fetch = (async (input: FetchInput): Promise<Response> => {
       const url = typeof input === 'string' || input instanceof URL ? String(input) : input.url
       if (url === ANTHROPIC_URL) {
         return new Response(JSON.stringify({ id: 'fresh' }), {
@@ -155,7 +157,7 @@ describe('setupLLMRecording', () => {
           headers: { 'content-type': 'application/json' },
         })
       }
-      return realFetch(input as RequestInfo)
+      return realFetch(input as FetchInput)
     }) as typeof fetch
 
     try {
@@ -263,12 +265,12 @@ describe('setupLLMRecording', () => {
     rec.start()
     try {
       const realFetch = globalThis.fetch
-      globalThis.fetch = (async (input: RequestInfo | URL): Promise<Response> => {
+      globalThis.fetch = (async (input: FetchInput): Promise<Response> => {
         const url = typeof input === 'string' || input instanceof URL ? String(input) : input.url
         if (url.startsWith('https://example.invalid/')) {
           return new Response('ok', { status: 200 })
         }
-        return realFetch(input as RequestInfo)
+        return realFetch(input as FetchInput)
       }) as typeof fetch
       try {
         const res = await fetch('https://example.invalid/x')
@@ -296,7 +298,7 @@ describe('setupLLMRecording', () => {
     const filepath = recordingFilePath(dir, 'header-strip')
 
     const realFetch = globalThis.fetch
-    globalThis.fetch = (async (input: RequestInfo | URL): Promise<Response> => {
+    globalThis.fetch = (async (input: FetchInput): Promise<Response> => {
       const url = typeof input === 'string' || input instanceof URL ? String(input) : input.url
       if (url === ANTHROPIC_URL) {
         return new Response(JSON.stringify({ id: 'ok' }), {
@@ -309,7 +311,7 @@ describe('setupLLMRecording', () => {
           },
         })
       }
-      return realFetch(input as RequestInfo)
+      return realFetch(input as FetchInput)
     }) as typeof fetch
 
     try {

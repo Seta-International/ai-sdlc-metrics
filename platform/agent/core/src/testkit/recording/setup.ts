@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { bypass, HttpResponse, http } from 'msw'
-import { type SetupServerApi, setupServer } from 'msw/node'
+import { setupServer } from 'msw/node'
 import { hashRequest } from './hash'
 import { getRecordingMode } from './mode'
 import { loadRecordingFile, recordingFilePath, saveRecordingFile } from './store'
@@ -152,7 +152,7 @@ function recordingToResponse(recording: LLMRecording): Response {
 export function setupLLMRecording(opts: SetupLLMRecordingOptions): LLMRecordingHandle {
   const recordingsDir = opts.recordingsDir ?? path.join(process.cwd(), '__recordings__')
   const filepath = recordingFilePath(recordingsDir, opts.name)
-  let server: SetupServerApi | null = null
+  let server: ReturnType<typeof setupServer> | null = null
   let started = false
 
   const state: RecorderState = {
@@ -160,8 +160,8 @@ export function setupLLMRecording(opts: SetupLLMRecordingOptions): LLMRecordingH
     filepath,
     file: emptyFile(opts.name),
     dirty: false,
-    transformRequest: opts.transformRequest,
     name: opts.name,
+    ...(opts.transformRequest ? { transformRequest: opts.transformRequest } : {}),
   }
 
   async function handle(request: Request): Promise<Response> {
@@ -174,8 +174,14 @@ export function setupLLMRecording(opts: SetupLLMRecordingOptions): LLMRecordingH
     if (state.mode === 'force') {
       const recording = await captureFromBypass(request, hash, transformed.url, transformed.body)
       state.file.recordings.push(recording)
-      state.file.meta.provider ??= providerFromUrl(request.url)
-      state.file.meta.model ??= modelFromBody(transformed.body)
+      if (!state.file.meta.provider) {
+        const p = providerFromUrl(request.url)
+        if (p) state.file.meta.provider = p
+      }
+      if (!state.file.meta.model) {
+        const m = modelFromBody(transformed.body)
+        if (m) state.file.meta.model = m
+      }
       state.dirty = true
       return recordingToResponse(recording)
     }
@@ -189,8 +195,14 @@ export function setupLLMRecording(opts: SetupLLMRecordingOptions): LLMRecordingH
 
     const recording = await captureFromBypass(request, hash, transformed.url, transformed.body)
     state.file.recordings.push(recording)
-    state.file.meta.provider ??= providerFromUrl(request.url)
-    state.file.meta.model ??= modelFromBody(transformed.body)
+    if (!state.file.meta.provider) {
+      const p = providerFromUrl(request.url)
+      if (p) state.file.meta.provider = p
+    }
+    if (!state.file.meta.model) {
+      const m = modelFromBody(transformed.body)
+      if (m) state.file.meta.model = m
+    }
     state.dirty = true
     return recordingToResponse(recording)
   }
@@ -209,7 +221,7 @@ export function setupLLMRecording(opts: SetupLLMRecordingOptions): LLMRecordingH
     }
   }
 
-  function makeServer(): SetupServerApi {
+  function makeServer(): ReturnType<typeof setupServer> {
     return setupServer(
       http.all('https://api.anthropic.com/*', resolver),
       http.all('https://api.openai.com/*', resolver),
