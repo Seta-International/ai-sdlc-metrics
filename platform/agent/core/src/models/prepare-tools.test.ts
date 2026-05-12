@@ -27,14 +27,14 @@ describe('prepareTools', () => {
   it('pins $schema to draft-07', () => {
     const t = toolFrom('x', z.object({ a: z.string() }))
     const [out] = prepareTools([t])
-    expect(out!.inputSchema.$schema).toBe('http://json-schema.org/draft-07/schema#')
+    expect(out?.inputSchema.$schema).toBe('http://json-schema.org/draft-07/schema#')
   })
 
   it('repairs typeless properties (z.any() becomes a permissive union)', () => {
     const t = toolFrom('x', z.object({ payload: z.any() }))
     const [out] = prepareTools([t])
-    const props = out!.inputSchema.properties as Record<string, { type: unknown }>
-    expect(props['payload']!.type).toEqual([
+    const props = out?.inputSchema.properties as Record<string, { type: unknown }>
+    expect(props.payload?.type).toEqual([
       'string',
       'number',
       'integer',
@@ -54,10 +54,10 @@ describe('prepareTools', () => {
       }),
     )
     const [out] = prepareTools([t])
-    const props = out!.inputSchema.properties as Record<string, { type: string }>
-    expect(props['name']!.type).toBe('string')
-    expect(props['count']!.type).toBe('number')
-    expect(props['active']!.type).toBe('boolean')
+    const props = out?.inputSchema.properties as Record<string, { type: string }>
+    expect(props.name?.type).toBe('string')
+    expect(props.count?.type).toBe('number')
+    expect(props.active?.type).toBe('boolean')
   })
 
   it('preserves $ref / anyOf / oneOf / allOf without inserting type', () => {
@@ -68,9 +68,10 @@ describe('prepareTools', () => {
       }),
     )
     const [out] = prepareTools([t])
-    const props = out!.inputSchema.properties as Record<string, Record<string, unknown>>
-    expect('anyOf' in props['either']! || 'oneOf' in props['either']!).toBe(true)
-    expect((props['either'] as { type?: unknown }).type).not.toEqual([
+    const props = out?.inputSchema.properties as Record<string, Record<string, unknown>>
+    const either = props.either as Record<string, unknown>
+    expect('anyOf' in either || 'oneOf' in either).toBe(true)
+    expect((either as { type?: unknown }).type).not.toEqual([
       'string',
       'number',
       'integer',
@@ -90,9 +91,10 @@ describe('prepareTools', () => {
       }),
     )
     const [out] = prepareTools([t])
-    const meta = (out!.inputSchema.properties as Record<string, Record<string, unknown>>)['meta']!
-    const metaProps = meta['properties'] as Record<string, { type: unknown }>
-    expect(metaProps['payload']!.type).toEqual([
+    const meta = (out?.inputSchema.properties as Record<string, Record<string, unknown>>)
+      .meta as Record<string, unknown>
+    const metaProps = meta.properties as Record<string, { type: unknown }>
+    expect(metaProps.payload?.type).toEqual([
       'string',
       'number',
       'integer',
@@ -105,8 +107,9 @@ describe('prepareTools', () => {
   it('recurses into array items', () => {
     const t = toolFrom('x', z.object({ items: z.array(z.any()) }))
     const [out] = prepareTools([t])
-    const items = (out!.inputSchema.properties as Record<string, Record<string, unknown>>)['items']!
-    const inner = items['items'] as { type: unknown }
+    const items = (out?.inputSchema.properties as Record<string, Record<string, unknown>>)
+      .items as Record<string, unknown>
+    const inner = items.items as { type: unknown }
     expect(inner.type).toEqual(['string', 'number', 'integer', 'boolean', 'object', 'null'])
   })
 
