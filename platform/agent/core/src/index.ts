@@ -14,6 +14,7 @@ export {
 export type { ErrorClass } from './errors/classify'
 export { classifyError, isAbortError } from './errors/classify'
 export type { ModelAdapter } from './models/adapter'
+export { prepareTools } from './models/prepare-tools'
 export type { AdapterRegistry } from './models/registry'
 export { createAdapterRegistry } from './models/registry'
 export type { RetryOpts } from './models/retry'
