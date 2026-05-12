@@ -1,5 +1,6 @@
 import { serve } from '@hono/node-server'
 import { createPlannerTools } from '@seta/agent'
+import type { Tool, ToolExecutionContext } from '@seta/agent-core'
 import { createAuditWriter } from '@seta/audit'
 import { directoryConnector } from '@seta/connector-ms365-directory'
 import { plannerConnector } from '@seta/connector-ms365-planner'
@@ -14,6 +15,7 @@ import {
   EntraProvider,
 } from '@seta/oauth'
 import { logger } from '@seta/observability'
+import { tenantContext } from '@seta/tenant'
 import { Hono } from 'hono'
 import './agent'
 import { sql } from './db'
@@ -44,7 +46,7 @@ registry.register(directoryConnector)
 
 const graph = createGraphFetch({ recordAudit: audit.recordAudit.bind(audit) })
 
-const _plannerTools = createPlannerTools({
+const plannerTools = createPlannerTools({
   registry,
   vault,
   graph,
@@ -104,6 +106,47 @@ app.route(
     },
   }),
 )
+
+if (env.NODE_ENV !== 'production') {
+  app.post('/v1/tools/invoke', async (c) => {
+    const tenantId = c.req.header('x-tenant-id')
+    const userId = c.req.header('x-user-id')
+    if (!tenantId) return c.json({ error: 'X-Tenant-Id header required' }, 400)
+
+    const body = await c.req.json<{ tool: string; input: unknown }>()
+    if (!body.tool) return c.json({ error: 'body.tool required' }, 400)
+
+    const tool = plannerTools.find((t) => t.id === body.tool) as Tool | undefined
+    if (!tool) {
+      return c.json(
+        { error: `unknown tool: ${body.tool}`, available: plannerTools.map((t) => t.id) },
+        404,
+      )
+    }
+
+    const ac = new AbortController()
+    const runId = crypto.randomUUID()
+    const ctx: ToolExecutionContext = {
+      surface: 'direct',
+      abortSignal: ac.signal,
+      runId,
+      requestContext: {
+        runId,
+        signal: ac.signal,
+        retryCount: 0,
+        now: () => Date.now(),
+        generateId: () => crypto.randomUUID(),
+        currentDate: () => new Date(),
+      },
+    }
+
+    const store = userId ? { tenantId, userId } : { tenantId }
+    const result = await tenantContext.run(store, () => tool.execute(body.input as never, ctx))
+
+    return c.json(result)
+  })
+  logger.info('POST /v1/tools/invoke enabled (dev only)')
+}
 
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   logger.info({ port: info.port }, 'api listening')
