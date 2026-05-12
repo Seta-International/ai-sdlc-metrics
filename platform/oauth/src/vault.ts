@@ -12,14 +12,20 @@ export type TokenBundle = {
 }
 
 export interface TokenVault {
-  get(tenantId: string, providerId: string, partitionKey: string): Promise<TokenBundle | null>
+  get(
+    tenantId: string,
+    providerId: string,
+    partitionKey: string,
+    executor?: Sql,
+  ): Promise<TokenBundle | null>
   put(
     tenantId: string,
     providerId: string,
     partitionKey: string,
     bundle: TokenBundle,
+    executor?: Sql,
   ): Promise<void>
-  delete(tenantId: string, providerId: string, partitionKey: string): Promise<void>
+  delete(tenantId: string, providerId: string, partitionKey: string, executor?: Sql): Promise<void>
 }
 
 export class KmsAuthTagInvalid extends ServiceUnavailable {
@@ -32,7 +38,8 @@ export function createTokenVault(deps: { sql: Sql; kms: KmsClient }): TokenVault
   const { sql, kms } = deps
 
   return {
-    async put(tenantId, providerId, partitionKey, bundle) {
+    async put(tenantId, providerId, partitionKey, bundle, executor) {
+      const x = executor ?? sql
       const dek = await kms.generateDataKey()
       try {
         const iv = randomBytes(12)
@@ -50,12 +57,12 @@ export function createTokenVault(deps: { sql: Sql; kms: KmsClient }): TokenVault
         const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()])
         const authTag = cipher.getAuthTag()
 
-        await sql`
+        await x`
           INSERT INTO oauth.oauth_tokens
             (tenant_id, provider_id, partition_key, scope_set, envelope_version,
              kms_key_id, wrapped_dek, iv, auth_tag, ciphertext, expires_at)
           VALUES
-            (${tenantId}, ${providerId}, ${partitionKey}, ${sql.json(bundle.scopes as never)}, 1,
+            (${tenantId}, ${providerId}, ${partitionKey}, ${x.json(bundle.scopes as never)}, 1,
              ${dek.keyId}, ${Buffer.from(dek.ciphertextBlob)}, ${iv}, ${authTag}, ${ciphertext},
              ${bundle.expiresAt})
           ON CONFLICT (tenant_id, provider_id, partition_key) DO UPDATE SET
@@ -74,8 +81,9 @@ export function createTokenVault(deps: { sql: Sql; kms: KmsClient }): TokenVault
       }
     },
 
-    async get(tenantId, providerId, partitionKey) {
-      const rows = await sql<
+    async get(tenantId, providerId, partitionKey, executor) {
+      const x = executor ?? sql
+      const rows = await x<
         Array<{
           kms_key_id: string
           wrapped_dek: Uint8Array
@@ -123,8 +131,9 @@ export function createTokenVault(deps: { sql: Sql; kms: KmsClient }): TokenVault
       }
     },
 
-    async delete(tenantId, providerId, partitionKey) {
-      await sql`
+    async delete(tenantId, providerId, partitionKey, executor) {
+      const x = executor ?? sql
+      await x`
         DELETE FROM oauth.oauth_tokens
          WHERE tenant_id = ${tenantId}
            AND provider_id = ${providerId}
