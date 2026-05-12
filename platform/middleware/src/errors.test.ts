@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { describe, expect, it } from 'vitest'
-import { ConflictError, DomainError, NotFound, onError } from './errors.js'
+import { ConflictError, DomainError, NotFound, onError } from './errors'
 
 describe('DomainError', () => {
   it('carries an RFC 7807 problem document', () => {

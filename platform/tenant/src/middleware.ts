@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from 'hono'
-import { tenantContext } from './context.js'
+import { tenantContext } from './context'
 
 /**
  * Hono middleware that establishes tenant context for a request.

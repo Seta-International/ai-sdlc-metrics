@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { OWNER_ORDER } from './migrate.js'
+import { OWNER_ORDER } from './migrate'
 
 describe('migration runner', () => {
   it('applies owners in dependency order', () => {

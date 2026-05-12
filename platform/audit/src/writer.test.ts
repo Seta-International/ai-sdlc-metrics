@@ -1,6 +1,6 @@
 import postgres from 'postgres'
 import { afterAll, describe, expect, it } from 'vitest'
-import { createAuditWriter } from './writer.js'
+import { createAuditWriter } from './writer'
 
 const URL = process.env.DATABASE_URL ?? 'postgres://seta:dev@localhost:5432/seta'
 

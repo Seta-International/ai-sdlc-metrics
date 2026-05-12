@@ -1,5 +1,5 @@
 import { DomainError } from '@seta/middleware'
-import type { ConnectorDefinition, ConnectorRegistry } from './types.js'
+import type { ConnectorDefinition, ConnectorRegistry } from './types'
 
 export class ConnectorNotConsented extends DomainError {
   constructor(tenantId: string, connectorId: string) {

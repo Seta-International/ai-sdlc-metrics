@@ -1,3 +1,3 @@
-export type { RequireConsentFn } from './runtime.js'
-export { ConnectorNotConsented, ConnectorUnknown, createConnectorRegistry } from './runtime.js'
-export type { ConnectorDefinition, ConnectorRegistry } from './types.js'
+export type { RequireConsentFn } from './runtime'
+export { ConnectorNotConsented, ConnectorUnknown, createConnectorRegistry } from './runtime'
+export type { ConnectorDefinition, ConnectorRegistry } from './types'

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type ConnectorDefinition, createConnectorRegistry } from './index.js'
+import { type ConnectorDefinition, createConnectorRegistry } from './index'
 
 const plannerStub: ConnectorDefinition = {
   id: 'ms365-planner',

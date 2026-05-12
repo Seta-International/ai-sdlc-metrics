@@ -1,4 +1,4 @@
-export type { AlertInput, AlertSeverity, AlertSink } from './alert-sink.js'
-export { MultiSink } from './alert-sink.js'
-export type { CreateLoggerOpts, Logger } from './logger.js'
-export { createLogger, logger } from './logger.js'
+export type { AlertInput, AlertSeverity, AlertSink } from './alert-sink'
+export { MultiSink } from './alert-sink'
+export type { CreateLoggerOpts, Logger } from './logger'
+export { createLogger, logger } from './logger'

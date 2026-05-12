@@ -1,3 +1,3 @@
-export * from './schema.js'
-export type { AuditActor, AuditEntry, AuditWriter } from './writer.js'
-export { createAuditWriter, recordAudit } from './writer.js'
+export * from './schema'
+export type { AuditActor, AuditEntry, AuditWriter } from './writer'
+export { createAuditWriter, recordAudit } from './writer'

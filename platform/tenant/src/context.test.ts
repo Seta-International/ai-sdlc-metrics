@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { tenantContext } from './context.js'
+import { tenantContext } from './context'
 
 describe('tenantContext', () => {
   it('throws if accessed outside a run()', () => {

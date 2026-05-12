@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { type AlertInput, type AlertSink, MultiSink } from './alert-sink.js'
+import { type AlertInput, type AlertSink, MultiSink } from './alert-sink'
 
 describe('MultiSink', () => {
   it('fans out an alert to every registered sink', async () => {
