@@ -1,6 +1,9 @@
+import { tenantUser } from '@seta/db'
+import { sql } from 'drizzle-orm'
 import {
   customType,
   jsonb,
+  pgPolicy,
   pgSchema,
   smallint,
   text,
@@ -35,7 +38,19 @@ export const oauthTokens = oauthSchema.table(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [uniqueIndex('oauth_tokens_unique').on(t.tenantId, t.providerId, t.partitionKey)],
+  (t) => [
+    uniqueIndex('oauth_tokens_unique').on(t.tenantId, t.providerId, t.partitionKey),
+    // RLS — drizzle-kit emits ENABLE + CREATE POLICY for this declaration.
+    // FORCE ROW LEVEL SECURITY and the tenant_user GRANT are appended by hand
+    // in 0001_security_hardening.sql (drizzle 0.45.2 doesn't model those).
+    pgPolicy('tenant_isolation_oauth_tokens', {
+      as: 'permissive',
+      to: tenantUser,
+      for: 'all',
+      using: sql`${t.tenantId} = current_setting('app.tenant_id', true)::uuid`,
+      withCheck: sql`${t.tenantId} = current_setting('app.tenant_id', true)::uuid`,
+    }),
+  ],
 )
 
 export const oauthState = oauthSchema.table('oauth_state', {

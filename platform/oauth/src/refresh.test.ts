@@ -1,8 +1,8 @@
 import postgres from 'postgres'
 import { afterAll, describe, expect, it } from 'vitest'
-import { EnvDekProvider } from './kms.js'
-import { createTokenAcquirer } from './refresh.js'
-import { createTokenVault } from './vault.js'
+import { EnvDekProvider } from './kms'
+import { createTokenAcquirer } from './refresh'
+import { createTokenVault } from './vault'
 
 const URL = process.env.DATABASE_URL ?? 'postgres://seta:dev@localhost:5432/seta'
 

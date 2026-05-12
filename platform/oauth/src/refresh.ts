@@ -1,6 +1,6 @@
 import { Unauthorized } from '@seta/middleware'
 import type { Sql } from 'postgres'
-import type { TokenBundle, TokenVault } from './vault.js'
+import type { TokenBundle, TokenVault } from './vault'
 
 export type RefreshFn = (bundle: TokenBundle) => Promise<TokenBundle>
 
@@ -35,6 +35,9 @@ export function createTokenAcquirer(deps: CreateTokenAcquirerDeps): TokenAcquire
   return {
     async acquireToken({ tenantId, providerId, partitionKey }) {
       return (await sql.begin(async (tx) => {
+        // Set tenant context inside the tx so RLS on oauth_tokens (and any
+        // joined tenant-data tables) admits the FOR UPDATE select.
+        await tx`SELECT set_config('app.tenant_id', ${tenantId}, true)`
         const rows = await tx<{ expires_at: Date }[]>`
           SELECT expires_at
             FROM oauth.oauth_tokens

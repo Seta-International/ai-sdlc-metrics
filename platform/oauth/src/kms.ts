@@ -7,9 +7,15 @@ export type DataKey = {
   ciphertextBlob: Uint8Array
 }
 
+export type EncryptionContext = Record<string, string>
+
 export interface KmsClient {
-  generateDataKey(): Promise<DataKey>
-  decrypt(ciphertextBlob: Uint8Array, keyId: string): Promise<Uint8Array>
+  generateDataKey(context?: EncryptionContext): Promise<DataKey>
+  decrypt(
+    ciphertextBlob: Uint8Array,
+    keyId: string,
+    context?: EncryptionContext,
+  ): Promise<Uint8Array>
 }
 
 export class AwsKmsClient implements KmsClient {
@@ -18,11 +24,12 @@ export class AwsKmsClient implements KmsClient {
     this.client = new KMSClient({ region: opts.region })
   }
 
-  async generateDataKey(): Promise<DataKey> {
+  async generateDataKey(context?: EncryptionContext): Promise<DataKey> {
     const res = await this.client.send(
       new GenerateDataKeyCommand({
         KeyId: this.opts.keyArn,
         KeySpec: 'AES_256',
+        ...(context ? { EncryptionContext: context } : {}),
       }),
     )
     if (!res.Plaintext || !res.CiphertextBlob || !res.KeyId) {
@@ -31,9 +38,17 @@ export class AwsKmsClient implements KmsClient {
     return { keyId: res.KeyId, plaintext: res.Plaintext, ciphertextBlob: res.CiphertextBlob }
   }
 
-  async decrypt(ciphertextBlob: Uint8Array, keyId: string): Promise<Uint8Array> {
+  async decrypt(
+    ciphertextBlob: Uint8Array,
+    keyId: string,
+    context?: EncryptionContext,
+  ): Promise<Uint8Array> {
     const res = await this.client.send(
-      new DecryptCommand({ CiphertextBlob: ciphertextBlob, KeyId: keyId }),
+      new DecryptCommand({
+        CiphertextBlob: ciphertextBlob,
+        KeyId: keyId,
+        ...(context ? { EncryptionContext: context } : {}),
+      }),
     )
     if (!res.Plaintext) throw new ServiceUnavailable('KMS decrypt returned no plaintext')
     return res.Plaintext
@@ -44,6 +59,9 @@ export class AwsKmsClient implements KmsClient {
  * Local-dev KMS provider — does NOT call AWS. The "ciphertext blob" is a tiny
  * framed envelope `[1B version][32B plaintext]` so decrypt round-trips. NOT secure;
  * never enable in production. Selected when `KMS_PROVIDER=env`.
+ *
+ * EncryptionContext is accepted for parity with AwsKmsClient but ignored — the
+ * AES-GCM AAD layer in the vault is the actual swap-attack defense in dev.
  */
 export class EnvDekProvider implements KmsClient {
   constructor(private opts: { keyId: string; plaintextKey: Uint8Array }) {
@@ -52,14 +70,26 @@ export class EnvDekProvider implements KmsClient {
     }
   }
 
-  async generateDataKey(): Promise<DataKey> {
+  async generateDataKey(_context?: EncryptionContext): Promise<DataKey> {
     const blob = Buffer.concat([Buffer.from([1]), Buffer.from(this.opts.plaintextKey)])
-    return { keyId: this.opts.keyId, plaintext: this.opts.plaintextKey, ciphertextBlob: blob }
+    // Return a FRESH copy of the master key so that callers zeroizing
+    // `plaintext` after use don't wipe the dev provider's internal master.
+    return {
+      keyId: this.opts.keyId,
+      plaintext: Buffer.from(this.opts.plaintextKey),
+      ciphertextBlob: blob,
+    }
   }
 
-  async decrypt(blob: Uint8Array, _keyId: string): Promise<Uint8Array> {
+  async decrypt(
+    blob: Uint8Array,
+    _keyId: string,
+    _context?: EncryptionContext,
+  ): Promise<Uint8Array> {
     if (blob[0] !== 1) throw new ServiceUnavailable('EnvDekProvider: bad envelope version')
-    return blob.subarray(1)
+    // Copy out so callers zeroizing the returned buffer don't mutate the blob
+    // (and through it, the master key bytes embedded in our toy envelope).
+    return Buffer.from(blob.subarray(1))
   }
 }
 
