@@ -1,5 +1,7 @@
 # Seta Agent Foundation — Project Plan
 
+> **Plan revision: 2026-05-12 (v3.1) — re-expansion after sponsor scope additions.** This document supersedes plan v3.0 (compression rewrite from earlier today). On 2026-05-12 the sponsor rejected part of v3.0's drop list and mandated three items back into P1: **Analytics Agent**, **Seta FAQ Agent**, and the **full RAG track** (`@seta/agent-chunking`, `@seta/agent-embeddings`, `@seta/agent-vector`, `@seta/agent-rag`) plus a parallel **RAG data survey + corpus ingestion** track. Headcount (3.5 FTE), deadline (2026-05-31), and the previously-dropped items (web SSO, Studio, OSS flip, dual-language Python, AWS Terraform staging) remain unchanged. The math has now moved from *marginally infeasible* (v3.0) to *structurally infeasible* — see §0.5. The remainder of this plan is best-effort under that mandate; the sponsor decisions in §10 are the single biggest determinant of whether P1 lands as a coherent release or a partial slip.
+
 ---
 
 ## §0 — Business Case (read this first)
@@ -12,34 +14,113 @@ Seta's SaaS ERP customers spend significant time on routine coordination work in
 
 LLM costs have dropped ~10× in 18 months; multi-tenant agent patterns have matured. The 12-month window to establish agent-native positioning closes mid-2026. If we wait until late 2026 to start, we ship in 2027 against competitors who will have second-generation systems. **Cost of inaction**: pricing pressure on existing ERP renewals (customers ask "why no AI?"), lost expansion revenue, and a structural gap that takes 2+ years to close.
 
-### The thesis (how this pays back)
+### Scope re-expansion note — strategic risk under v3.1
+
+The v3.0 plan delivered a slim P1 (Planner-only agent + kernel + memory + minimal workflow) in 14 working days with 3.5 FTE at 82–98% utilisation. The sponsor's 2026-05-12 scope expansion re-injects three substantial workstreams (Analytics Agent, FAQ Agent, full RAG track + corpus survey) — **adding +20 to +25 PD of demand to an already-tight 40–48 PD demand against 49 PD supply**. The literal mandate (all P1 scope, 3.5 FTE, 2026-05-31 hard deadline) cannot be satisfied. The PM's job is to surface this clearly so the sponsor chooses one of A/B/D in §0.5; Option C (further scope cut) directly contradicts the new sponsor direction and is recorded but not recommended.
+
+### The thesis (how this pays back) — unchanged
 
 | Lever                  | Mechanism                                                                                | Time-to-value             |
 | ---------------------- | ---------------------------------------------------------------------------------------- | ------------------------- |
 | Higher ARPU            | Agent capability sold as add-on or premium tier                                          | P3 (commercial readiness) |
 | Lower churn            | Stickier daily-active workflow tied to ERP data                                          | P2 (first prod tenant)    |
 | Faster module delivery | Agent + tools pattern reusable; future ERP domains land in ~3 weeks vs ~6 (proven by P1) | P2 onwards                |
-| Sales positioning      | "Agent-native" answer in every RFP from M6 onward                                        | Immediate post-P1         |
-| OSS lead generation    | `@seta/agent-core` public attracts developer awareness, recruiting funnel                | Post-P1                   |
+| Sales positioning      | "Agent-native" answer in every RFP from M6 onward                                        | Post-P1.5 (was P1)        |
+| OSS lead generation    | `@seta/agent-core` public attracts developer awareness, recruiting funnel                | Post-P1.5 (was P1)        |
 
-### The "do nothing" alternative
+### The "do nothing" alternative — unchanged
 
-Adopt an off-the-shelf agent platform (e.g., Microsoft Copilot Studio embedded in Teams). Cost: low up-front, ~$30/user/month recurring. Strategic cost: **locked into Microsoft's roadmap, no IP, no commercial leverage, no differentiation** in our own SaaS ERP. Reviewed and rejected — captured in ADR-0009 (Build vs. Buy).
+Adopt an off-the-shelf agent platform (e.g., Microsoft Copilot Studio embedded in Teams). Reviewed and rejected — captured in ADR-0009 (Build vs. Buy).
 
-### What success looks like (business KPIs)
+### What success looks like (revised business KPIs — v3.1)
 
-Beyond the engineering acceptance criteria, P1 succeeds if:
+The v3.0 KPI bar was already trimmed (BK-1/3/4/6 only). Under v3.1 the *aspirational* bar is wider (three agents, RAG-backed FAQ with citations) but the *achievable* bar — without an Option A/B/D sponsor decision — is at best a partial subset of v3.0.
 
-| #    | Business KPI                                                      | Target                                                                            | Measured by                          | Owner          |
-| ---- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------ | -------------- |
-| BK-1 | At least **1 internal Seta team** uses @SetaAgent in Teams weekly | ≥ 5 weekly active users by M6+30 days                                             | Teams telemetry                      | CTO + PM       |
-| BK-2 | At least **1 design-partner customer** committed to P2 pilot      | Letter of intent signed by M6+14 days                                             | Sales pipeline                       | CEO + Sales    |
-| BK-3 | Token cost per agent run                                          | Average < $0.05/run on staging                                                    | CloudWatch + cost dashboard          | DevOps + PM    |
-| BK-4 | End-to-end latency for common queries ("summarize my tasks")      | p95 < 4 seconds                                                                   | Synthetic monitoring on staging      | DevOps + QA    |
-| BK-5 | OSS traction signal                                               | ≥ 50 GitHub stars + ≥ 5 external npm installs within 30 days of public flip       | GitHub Insights + npm download stats | PM + Marketing |
-| BK-6 | Internal time-savings (qualitative; baseline for ROI)             | Survey of pilot users reports ≥ 20% reduction in manual Planner coordination time | Survey at M6+30 days                 | PM             |
+| #     | Business KPI                                                                  | Target (revised v3.1)                                                                                       | Measured by                       | Owner    |
+| ----- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------- | -------- |
+| BK-1  | Internal demo green to CTO+CEO on staging-equivalent (dev compose ok)         | One live end-to-end demo: Planner READ + WRITE through Teams against MS Graph; Analytics chart-card; FAQ Q&A with citations | Live demo + recording             | PM + CTO |
+| BK-3  | Token cost per agent run in demo                                              | Average < $0.15/run on demo set (further relaxed from v3.0's $0.10 — FAQ RAG calls add cost)               | Per-run usage log                 | AG-S     |
+| BK-4  | End-to-end latency for "summarize my tasks" (Planner) and FAQ retrieve+answer | p95 < 6 s Planner; p95 < 8 s FAQ (RAG retrieve adds ~1.5 s)                                                | Synthetic check in smoke suite    | AG-S     |
+| BK-6  | Internal feasibility evidence for sponsor decision on P1.5 / P2 scope         | Sponsor reviews demo + capacity actuals on 2026-06-01 and approves next-increment scope                    | Decision memo                     | PM       |
+| BK-7  | **(NEW)** Cited answer rate on FAQ Agent for the curated demo question set    | ≥80% of FAQ answers carry ≥1 retrieved-chunk citation                                                      | Manual review of FAQ demo loop    | AG-S     |
+| BK-2  | **DEFERRED to P1.5** — design-partner LOI                                     | Not achievable inside 14 working days                                                                       | —                                 | —        |
+| BK-5  | **DEFERRED to P1.5** — OSS traction                                           | Public flip removed from P1 scope                                                                           | —                                 | —        |
 
-These KPIs determine whether P2 (production cutover) is approved at the P1 gate.
+These revised KPIs determine whether **P1.5** is approved — and, under Option D in §0.5, P1.5 is *where the cited demo actually lands*.
+
+---
+
+## §0.5 — Constraint reality check (read second)
+
+> *After the 2026-05-12 sponsor scope additions (Analytics, FAQ, full RAG), the literal mandate (all P1 scope, 3.5 FTE, 2026-05-31 hard deadline) is structurally infeasible. The remainder of this plan is best-effort under that mandate; the sponsor decisions in §10 are the single biggest determinant of whether P1 lands as a coherent release or a partial slip.*
+
+### The math
+
+| Item                                                     | v2.7 baseline | v3.0 (slim P1) | **v3.1 (post-2026-05-12 expansion)** |
+| -------------------------------------------------------- | ------------- | -------------- | ------------------------------------ |
+| Headcount                                                | 7 FTE         | 3.5 FTE        | **3.5 FTE**                          |
+| Working days (kickoff → deadline)                        | 35            | ~14            | **~14 (2026-05-12 → 2026-05-29)**    |
+| Person-days of capacity (raw)                            | 245 PD        | 49 PD          | **49 PD**                            |
+| Demand (planned PD)                                      | 154.9 base    | 40–48 PD       | **~60–73 PD**                        |
+| Capacity ratio (supply / demand)                         | 158%          | 102–122%       | **67%–82%**                          |
+| Demand as % of supply                                    | 63%           | 82–98%         | **122%–149% — STRUCTURALLY OVER**    |
+
+The v3.0 plan ran at 82–98% utilisation with zero slack. **v3.1 adds ~20–25 PD of new demand on top:**
+
+| New demand item (v3.1)                                              | PD estimate (conservative) | Owner pool                  |
+| ------------------------------------------------------------------- | -------------------------: | --------------------------- |
+| Analytics Agent (definition + 2-3 read-only tools + chart-card UX)  |                       5–6  | AG-F (defn+tools) + AG-S (review) |
+| Seta FAQ Agent (definition + RAG retrieve/cite tools)               |                       4–5  | AG-F + AG-S (RAG wiring)    |
+| `@seta/agent-chunking`                                              |                          2 | AG-F                        |
+| `@seta/agent-embeddings`                                            |                          2 | AG-F                        |
+| `@seta/agent-vector` (schema + pgvector HNSW + iterative_scan gate) |                          4 | AG-S (schema + correctness) |
+| `@seta/agent-rag` (composition over chunking+embeddings+vector)     |                          3 | AG-S                        |
+| RAG data survey (corpus collection, curation, structuring)          |                          4 | FS + AG-F (part-time)       |
+| RAG ingestion run (chunk + embed + upsert; FTS fallback)            |                          2 | FS                          |
+| **Subtotal new demand**                                             |                  **26–28** |                             |
+| Optimistic compression (parallel survey, reused fixtures, sharing)  |                       –5–6 |                             |
+| **Net added demand**                                                |                  **20–22** |                             |
+
+Combined with v3.0's 40–48 PD baseline, **v3.1 demand lands at ~60–70 PD** against **49 PD supply** — a structural deficit of **11–21 PD** (22%–43% over supply) before any rework, sick day, or spec ambiguity. No realistic reorder of the same hours closes that gap.
+
+### The honest options
+
+Option C (the v3.0 pick) is now off the table — it directly contradicts the 2026-05-12 sponsor direction to put Analytics + FAQ + RAG back into P1.
+
+| #  | Option                                                       | Description                                                                                                                                                                                                                                                                            | Tradeoff                                                                                                                                                                              | Recommendation |
+| -- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| A  | **Deadline extension to ~2026-06-12**                        | Extend by ~10 additional working days (49 → ~84 PD supply). Same team, same scope. Demand 60–70 PD lands at ~71–83% utilisation — healthy.                                                                                                                                            | Slips the sponsor-imposed 2026-05-31. May affect external commitments / RFP messaging.                                                                                                | **VIABLE**     |
+| B  | **Team expansion (+1 senior AI + 0.5 DevOps)**               | Add 1.0 FTE dedicated senior AI engineer (not 2×0.5 split) and 0.5 DevOps from 2026-05-12. Effective supply ~70+ PD on the original deadline.                                                                                                                                          | Requires immediate hire/contract. If the hire isn't onboarded by 2026-05-15 the option collapses. Burn ↑.                                                                              | **VIABLE if hire is immediate** |
+| C  | **Further scope cut (drop FAQ or drop RAG)**                 | Drop Seta FAQ Agent (most expensive due to RAG dependency) **or** drop the full RAG track and keep FAQ as static knowledge served from a YAML file in W2-W3 (no vector store). Either path brings demand back to ~50 PD.                                                              | **Directly contradicts the 2026-05-12 sponsor mandate.** Recorded for completeness only.                                                                                              | Not recommended |
+| D  | **Accept the slip; pre-announce P1.5 split**                 | Proceed under current constraints. Land what's stable by 2026-05-29 as **P1.0** (Planner Agent + kernel + memory + workflow + RAG-1 + Teams round-trip). Ship Analytics Agent, FAQ Agent, RAG-2/3 composition, and full corpus integration as **P1.5** on 2026-06-01 → 2026-06-12.   | Pre-announce, don't surprise. Honest delivery, no heroics. Closest in spirit to "all sponsor scope honoured" without violating physics.                                              | **Recommended under the literal mandate** |
+
+**The PM's recommendation: Option A or Option B is the only path that delivers the full sponsor mandate.** If the sponsor cannot move the deadline (Option A) and cannot authorise the hire (Option B), then **Option D is the only honest plan** — accept the slip, pre-announce P1.5, and let the team deliver well rather than deliver everything badly. **Option C is not chosen** because it overrides the sponsor's most recent decision and the PM does not override sponsors unilaterally.
+
+### Why the prior "Option C in v3.0" no longer holds
+
+v3.0 picked Option C (hard scope cut) because the sponsor at that time accepted the drop list. The 2026-05-12 sponsor reversal *materially changes* the constraint set: three substantial streams returned. The PM cannot satisfy "all scope, original team, original deadline" by reorganising hours — the gap is too large. **The honest answer is the slip; the rest of §10 makes the trade visible.**
+
+### Team composition (unchanged from v3.0)
+
+| Role                       | FTE  | Notes                                                                                                  |
+| -------------------------- | ---: | ------------------------------------------------------------------------------------------------------ |
+| Senior AI (AG-S)           | 1.0  | 2 × 0.5 split — must operate as a single owner for kernel + memory + workflow + agent-vector + agent-rag composition |
+| Fresher AI (AG-F1, AG-F2)  | 2.0  | Two heads; supervised pattern-following — kernel/run-loop internals + vector-store correctness off-limits |
+| Full-stack (FS)            | 0.5  | Owns `apps/api` composition, OAuth gaps, env/OTel wiring, smoke harness, **and RAG corpus ingestion**  |
+| **TOTAL**                  | **3.5** | **No dedicated PM, QA, or DevOps headcount.** Doubling-up note (unchanged from v3.0) still applies.  |
+
+### What does fit in 49 PD under v3.1 (Option D allocation)
+
+Under Option D, **the 2026-05-29 demo carries P1.0**: Planner READ+WRITE, kernel, memory, workflow `.then()`, Teams round-trip, **RAG-1 packages built but not integrated end-to-end**, RAG-2 vector schema in place with one tenant fixture, **corpus survey complete with structured drops** but no end-user FAQ Agent yet. Analytics Agent and FAQ Agent **slip to P1.5** (2026-06-01 → 2026-06-12).
+
+A defensible 49-PD plan covers, roughly:
+
+- **AG-S (14 PD):** kernel + run loop + streaming SSE + memory provider + workflow DSL + `agent-vector` schema (HNSW + iterative_scan correctness gate) + `agent-rag` composition spike + write-tool safety review. 100% utilisation, zero slack.
+- **AG-F1 (14 PD):** Planner READ tools + OpenAI adapter + `agent-chunking` library + LLM record/replay testkit + Teams JWT verifier (AG-S review). Analytics Agent definition stretches into the budget but lands in P1.5 if W2 burn is at plan.
+- **AG-F2 (14 PD):** Planner WRITE tools (preview/commit) + Graph client + MS365 Planner connector + `agent-embeddings` library + fixture recordings.
+- **FS (7 PD):** `apps/api/src/main.ts` wiring + OAuth completion + env/OTel + docker compose + smoke harness + **RAG corpus ingestion driver script** (part-time, parallel to wiring).
+
+The Analytics-Agent, FAQ-Agent, and RAG-3 composition wiring deliberately do **not** fit and are pre-announced as P1.5. See §6 for the explicit split and §10 Q9 for the sponsor "if exactly one ships" choice.
 
 ---
 
@@ -47,674 +128,450 @@ These KPIs determine whether P2 (production cutover) is approved at the P1 gate.
 
 ### 1. Project Information
 
-| Field           | Value                                                                                          | Field         | Value                                                                  |
-| --------------- | ---------------------------------------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------- |
-| Project Manager | Canh Ta                                                                                        | Sponsor       | Seta International (CEO + CTO)                                         |
-| P1 Start        | 2026-05-11                                                                                     | P1 Target End | 2026-06-26                                                             |
-| Project Code    | SETA-OS-P1                                                                                     | Convention    | 1 BMM = 22 working days · 1 SP ≈ 0.5 ideal MD                          |
-| P1 Working Days | **35 (7 weeks)**                                                                               | Headcount     | **7** (1 PM · 1 FS · 1 Senior AG · **2 Fresher AG** · 1 QA · 1 DevOps) |
-| Deploy target   | **AWS staging via infrastructure-as-code (Terraform)** — full cloud stack details in Sheet 7.2 | SP scale      | Fibonacci (1, 2, 3, 5, 8, 13)                                          |
-| AI assist       | Claude Code — **upside only, not committed in budget**                                         | Full Roadmap  | **P1 → P4 = 21 weeks** to enterprise-grade production-ready            |
+| Field            | Value                                                                                          | Field            | Value                                                                  |
+| ---------------- | ---------------------------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------- |
+| Project Manager  | Canh Ta (acting; doubles as AG-S tech lead)                                                    | Sponsor          | Seta International (CEO + CTO)                                         |
+| P1 Start         | 2026-05-12                                                                                     | P1 Target End    | **2026-05-31** (hard sponsor-imposed — see §10 Q1)                     |
+| Project Code     | SETA-OS-P1                                                                                     | Convention       | 1 SP ≈ 0.5 ideal PD                                                    |
+| P1 Working Days  | **~14 (Mon–Fri, 05-12 → 05-29; 05-30/05-31 are weekend — demo lands Friday 05-29)** | Headcount        | **3.5 FTE** (1.0 AG-S · 2.0 AG-F · 0.5 FS — no PM/QA/DevOps headcount) |
+| Deploy target    | **Dev docker compose only** — AWS staging via Terraform deferred to P1.5/P2                    | SP scale         | Fibonacci (1, 2, 3, 5, 8, 13)                                          |
+| AI assist        | Claude Code — **upside only, not committed in budget**                                         | Plan revision    | **v3.1 (re-expansion after 2026-05-12 sponsor reversal)**              |
+| **P1.0 / P1.5 split** | **P1.0 lands 2026-05-29 (Option D); P1.5 lands 2026-06-12 — see §0.5 + §6**           | **In-scope agents** | **Planner (P1.0); Analytics + FAQ (P1.5 under Option D)**          |
 
 ### 2. The one-paragraph version (90-second CEO read)
 
-> Build a slim, multi-tenant, multi-channel agent platform for Seta's ERP using a **dual-language architecture**: a **Python agentic framework** (open-source SDK for AI engineers) + a **TypeScript platform** (API, channels, auth, tenancy). **P1 (7 weeks, 7 people)** delivers **three specialist agents** (Planner, Analytics, **Seta FAQ**) in Microsoft Teams that read, write, analyze, and answer questions about Seta itself via RAG over our corporate knowledge base — with **inbound SSO** (Entra + Google OIDC), **working memory**, **full RAG** (chunking + embeddings + vector + composition), deployed to AWS staging via Terraform, framework published as open-source. The Python framework distills core agentic patterns (Agent Runtime, Tool System, LLM Abstraction, Memory, Storage) inspired by industry frameworks (Mastra, PydanticAI) into a slim, composable SDK. Workflow Engine deferred to P2 — teams use Python native `async/await` orchestration in P1. **RAG data survey runs in parallel from W1** (2 weeks survey + 1 week POC) to unblock Seta FAQ Agent. **P2 (5 weeks, +1 frontend, ~$158k)** cuts over to production with Studio web UI, audit log, GDPR delete, Workflow Engine, and semantic-recall memory. Total program (P1–P4, **~$792k, 21 weeks**) reaches enterprise-grade production-ready with SOC 2 prep, multi-channel surfaces, and Knowledge Graph.
+> Build a slim, multi-tenant agent foundation in TypeScript on top of the Epic-1 auth/oauth/audit foundation already shipped. The sponsor mandate as of 2026-05-12 calls for **three specialist agents** (Planner, Analytics, Seta FAQ), the **kernel** (`@seta/agent-core`), **`@seta/agent-memory`**, **`@seta/agent-workflows`**, and the **full RAG track** (`@seta/agent-chunking`, `@seta/agent-embeddings`, `@seta/agent-vector`, `@seta/agent-rag`) plus a **parallel RAG data survey**, all in 14 working days with 3.5 FTE. The capacity math shows demand of 60–70 PD against supply of 49 PD — **the literal mandate cannot be met** (§0.5). The PM recommends **Option A (deadline extension)** or **Option B (one immediate senior-AI hire)**; failing both, **Option D (accept the slip, pre-announce P1.5)** lands Planner + kernel + memory + workflow + RAG-1 packages + corpus survey by 2026-05-29 as **P1.0**, with Analytics, FAQ, RAG-2/3 composition and corpus integration shipping 2026-06-01 → 2026-06-12 as **P1.5**. Inbound web SSO, Studio, OSS public flip, dual-language Python, and AWS Terraform staging remain deferred. The demo on 2026-05-29 is internal-only, on a dev machine via docker compose. **§10 Q1 and Q10 must be answered by 2026-05-15 EOD or the team defaults to Option D.**
 
-### 3. P1 Strategic Objectives
+### 3. P1 Strategic Objectives (revised v3.1 — 9 objectives, P1.0 vs P1.5 marked)
 
-| #   | Objective                                                  | What it means in plain terms                                                                                                                     |
-| --- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | **Three specialist agents live in Microsoft Teams**        | A Planner Agent (project management), an Analytics Agent (workload insights), and a Seta FAQ Agent (company knowledge) — all reachable in Teams. |
-| 1b  | **Dual-language architecture (Python framework + TypeScript platform)** | Python agentic framework for AI engineers (open-source SDK); TypeScript platform for API, channels, auth, tenancy. Communication via HTTP + SSE. |
-| 2   | **Full Planner workflow in one agent**                     | Users can read, create, update, analyze, and ask questions about Planner data without leaving Teams.                                             |
-| 3   | **Seta knowledge base with citations**                     | Agent answers questions about Seta itself (pricing, policies, processes) and shows where the answer came from.                                   |
-| 3b  | **Visualization-first responses — charts and tables, not just text** | When users ask "who's overloaded?" they get a bar chart; "what's overdue?" returns a structured table — all inside the Teams conversation.       |
-| 4   | **Designed for multiple customer tenants from day one**    | Customer data isolated end-to-end; one customer cannot see another's data.                                                                       |
-| 5   | **Web login (single sign-on)**                             | Foundation for users to log into a web admin in P2 — Entra ID and Google OIDC supported.                                                         |
-| 6   | **Conversational memory within a session**                 | Agent remembers context across messages in the same conversation.                                                                                |
-| 7   | **Foundation for knowledge-base Q&A in any future domain** | The same Seta-FAQ approach works for customer documentation, internal wikis, contract libraries — reusable.                                      |
-| 7b  | **RAG data survey starts W1, POC by W3**                   | Data survey runs in parallel from day 1 (2 weeks). RAG POC + demo in week 3. Unblocks Seta FAQ Agent without blocking framework build.            |
-| 8   | **Automated quality bar**                                  | 12 end-to-end tests run on every change; demo-able to any reviewer.                                                                              |
-| 9   | **Live, publicly-accessible staging environment on AWS**   | Sponsor can interact with the system from a URL; not a localhost demo.                                                                           |
-| 10  | **Open-source release**                                    | Public GitHub repo + Python framework published to PyPI + TypeScript SDK to npm; positions Seta as agent-native vendor; recruiting funnel.       |
-| 11  | **Production foundation in place**                         | Cloud infrastructure, secrets management, deployment automation — reusable for P2 production cutover.                                            |
-| 12  | **Workflow Engine deferred to P2**                          | P1 uses Python native `async/await` orchestration. Full Workflow Engine (builder, branching, suspend/resume) lands in P2.                        |
+| #   | Objective                                                                    | Tier | What it means in plain terms                                                                                                  |
+| --- | ---------------------------------------------------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Planner Agent live in Microsoft Teams**                                    | P1.0 | A Planner Agent reachable in Teams that reads tasks and writes safely (preview → confirm → commit).                          |
+| 2   | **Agent kernel that other modules can build on**                             | P1.0 | `@seta/agent-core`: model adapter, run loop, tool contract, streaming protocol — frozen enough that P1.5/P2 don't re-architect. |
+| 3   | **Memory persistence (P1 override)**                                         | P1.0 | `@seta/agent-memory` persists conversation history + working-memory scratchpad in Postgres; multi-turn feels coherent.        |
+| 4   | **Minimal workflow engine (P1 override)**                                    | P1.0 | `@seta/agent-workflows` supports linear DAG (`.then()` / `.parallel()`) with suspend/resume.                                  |
+| 5   | **RAG-1: chunking + embeddings libraries**                                   | P1.0 | `@seta/agent-chunking` + `@seta/agent-embeddings` shipped as libraries; unit + integration tested.                            |
+| 6   | **RAG-2: vector store with HNSW + iterative_scan**                           | P1.0 | `@seta/agent-vector` ships schema (`agent_vector.chunks` per setup.md §6) + pgvector HNSW index + iterative_scan correctness gate. |
+| 7   | **RAG corpus survey + structuring**                                          | P1.0 | Seta corporate knowledge corpus identified, collected, structured into ingestion-ready chunks (parallel track from W1).      |
+| 8   | **Analytics Agent (chart-card responses)**                                   | P1.5 | Workload analysis specialist with chart-card adaptive cards — "who's overloaded", "task distribution".                       |
+| 9   | **Seta FAQ Agent (RAG-backed, citation-bearing)**                            | P1.5 | RAG-3 composition + FAQ Agent definition + retrieve/cite tools; ≥80% answers carry ≥1 citation (BK-7).                       |
 
-### 4. Release Roadmap (P1, 7 weeks)
+Under **Option A (deadline 2026-06-12)** or **Option B (hire authorised)** all nine objectives are P1. Under **Option D (slip)** objectives 1–7 are P1.0 (lands 2026-05-29), objectives 8–9 are P1.5 (lands 2026-06-12). Under **Option C (further cut, NOT recommended)** objective 9 drops; 8 lands as text-only (no chart cards).
 
-| Phase                                       | Window        | W1 05/11 | W2 05/18 | W3 05/25           | W4 06/01 | W5 06/08 | W6 06/15        | W7 06/22                  |
-| ------------------------------------------- | ------------- | -------- | -------- | ------------------ | -------- | -------- | --------------- | ------------------------- |
-| Research (R)                                | 05-11 → 05-15 | █        |          |                    |          |          |                 |                           |
-| Setup (S)                                   | 05-11 → 05-15 | ◆        |          |                    |          |          |                 |                           |
-| Kernel (K) — Python framework               | 05-12 → 05-25 | █        | █        | ◆                  |          |          |                 |                           |
-| Wrap (W) — TS platform                      | 05-12 → 05-28 | █        | █        | █                  |          |          |                 |                           |
-| Early AWS (D1–D2)                           | 05-13 → 05-15 | █        |          |                    |          |          |                 |                           |
-| **RAG Data Survey (X0)**                    | 05-11 → 05-25 | █        | █        | ◆ POC              |          |          |                 |                           |
-| MS365 (M)                                   | 05-26 → 06-03 |          |          | █                  | █        |          |                 |                           |
-| Teams (T)                                   | 06-01 → 06-05 |          |          |                    | █        |          |                 |                           |
-| Agents (A) + Wiring (N) + Orchestration (O) | 06-01 → 06-12 |          |          |                    | █        | █        |                 |                           |
-| **Memory + RAG primitives (Y)**              | 06-15 → 06-20 |          |          |                    |          |          | █               |                           |
-| **Inbound SSO (Z)**                         | 06-22 → 06-26 |          |          |                    |          |          |                 | █                         |
-| Deploy staging (D)                          | 06-08 → 06-22 |          |          |                    |          | █        | █               | ◆                         |
-| E2E suite (Q4 — now 12 tests)               | 06-08 → 06-24 |          |          |                    |          | █        |                 | █                         |
-| Hardening + Demo (H)                        | 06-22 → 06-26 |          |          |                    |          |          |                 | ◆                         |
-| **Milestones**                              | —             |          |          | M1 Kernel · M2 API | M3 MS365 | M4 Teams | M5 Staging · M5b Memory+RAG | M5c SSO · M6 Release (06-26) |
+### 4. Release Roadmap (revised v3.1 — 3 weeks Mon–Fri working + P1.5 increment)
 
-### 5. Key Milestones
+`█` = active. ◆ = milestone. Calendar dates Mon–Fri; weekends omitted. P1.5 column shown for sponsor visibility under Option D.
 
-| #   | Milestone                                       | Phase | Target Date | Days from kickoff | Gate                           |
-| --- | ----------------------------------------------- | ----- | ----------- | ----------------: | ------------------------------ |
-| M0  | Setup foundation green                          | S     | 2026-05-15  |                 4 | Capability S6                  |
-| M1  | Kernel acceptance gate                          | K     | 2026-05-25  |                14 | K7 + Q5.1                      |
-| M2  | API end-to-end (key → agent run → stream)       | W     | 2026-05-29  |                18 | W5, W6 + Q5.2                  |
-| M3  | MS365 admin OAuth + Planner working             | M     | 2026-06-03  |                23 | M2 + Q5.3                      |
-| M4  | Teams round-trip in dev tunnel                  | T+A   | 2026-06-10  |                30 | A5, Q4.2 + Q5.4                |
-| M5  | AWS staging deploy + core 10 E2E tests green    | D+Q   | 2026-06-15  |                35 | D7, Q4.1–Q4.10 + Q5.5          |
-| M5b | Memory + RAG primitives + Q4.12 E2E green        | Y+Q   | 2026-06-20  |                40 | Y1, X4, Q4.12                  |
-| M5c | Inbound SSO + Q4.11 E2E green                    | Z+Q   | 2026-06-26  |                46 | Z1, Q4.11                      |
-| M6  | P1 public release + BK-1, BK-2 measured         | H     | 2026-06-26  |                46 | H4, H5 + business KPI baseline |
+| Phase / Stream                                  | W1 (05-12 → 05-15, 4d)                                              | W2 (05-18 → 05-22, 5d)                                                          | W3 (05-25 → 05-29, 5d)                                                                  | **P1.5 W4 (06-01 → 06-05, 5d)** | **P1.5 W5 (06-08 → 06-12, 5d)** |
+| ----------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------- | ------------------------------- |
+| **K — `@seta/agent-core` kernel**                | █ AG-S: model adapter, ModelStream, run loop; AG-F1 testkit         | █ AG-S: streaming SSE + tool exec; AG-F1: OpenAI adapter                       | ◆ K-gate 05-26                                                                          |                                 |                                 |
+| **MEM — `@seta/agent-memory`**                   | █ AG-S: schema, migration, scaffold                                 | █ AG-S: recall/saveTurn/working-memory + integration test                      | ◆ MEM-gate 05-27                                                                        |                                 |                                 |
+| **WF — `@seta/agent-workflows`**                 |                                                                     | █ AG-S: schema + DSL `.then()`/`.parallel()`; advisory-lock resume             | █ integration test + smoke wiring; ◆ WF-gate 05-28                                      |                                 |                                 |
+| **X0 — RAG data survey (parallel)**              | █ FS + AG-F (part-time): corpus inventory, sources, access rights   | █ FS: corpus curation + chunk-source structuring                                | █ FS: ingestion driver dry-run on subset; ◆ X0-gate 05-29 (corpus ready)                | █ Full corpus ingest            |                                 |
+| **RAG-1 chunking + embeddings**                  | █ AG-F1: `agent-chunking` package scaffold + chunk strategies      | █ AG-F1: chunking complete + tests; AG-F2: `agent-embeddings` package + provider abstraction | █ AG-F2: embeddings tests + record/replay fixtures; ◆ RAG-1-gate 05-28           |                                 |                                 |
+| **RAG-2 vector**                                 |                                                                     | █ AG-S: `agent_vector.chunks` schema + HNSW index + RLS + iterative_scan gate  | █ AG-S: per-tenant fixture tests; ◆ RAG-2-gate 05-29                                    |                                 |                                 |
+| **RAG-3 composition (`agent-rag`)**              |                                                                     | █ AG-S: composition spike (chunking + embeddings + vector wired)               | █ AG-S: package shipped library-only (no end-user product yet); ◆ RAG-3-gate 05-29     | █ Wire into FAQ Agent           |                                 |
+| **MS — `platform/ms-graph` + Planner connector** | █ AG-F2: Graph client (auth + pagination + retry)                  | █ AG-F2: Planner read endpoints + fixtures                                     | █ AG-F2: Planner write endpoints + cache/etag                                           |                                 |                                 |
+| **PRD-P — Planner Agent (Product)**              |                                                                     | █ AG-F1: Planner READ tools (list, get, search)                                | █ AG-F1/AG-S: Planner WRITE tools (preview/commit)                                      |                                 |                                 |
+| **A1 — Analytics Agent (P1.5)**                  |                                                                     |                                                                                 |                                                                                          | █ AG-F1: definition + 2-3 read-only aggregation tools | █ AG-F1+AG-S: chart-card adaptive cards; ◆ A1-gate 06-12 |
+| **A2 — Seta FAQ Agent (P1.5)**                   |                                                                     |                                                                                 |                                                                                          | █ AG-F2: definition + retrieve/cite tools | █ AG-S: RAG-3 wire + citation review; ◆ A2-gate 06-12 |
+| **CH — `modules/channels/teams`**                | █ FS: manifest + bot-token reply skeleton                          | █ FS+AG-F1: JWT/JWKS verify; OBO refresh                                       | █ FS: handler binds Planner product; ◆ CH-gate 05-28                                   |                                 |                                 |
+| **WRP — `apps/api/src/main.ts`**                 | █ FS: env + OTel boot                                              | █ FS: mount kernel + memory + workflows                                        | █ FS: smoke compose + smoke suite                                                       |                                 |                                 |
+| **Demo + handover**                              |                                                                     |                                                                                 | █ AG-S+FS: 5-min P1.0 recorded demo; ◆ M6 P1.0 2026-05-29                              |                                 | ◆ M7 P1.5 2026-06-12            |
+| **Milestones**                                   |                                                                     | M-K (05-22)                                                                     | M-MEM (05-27) · M-WF (05-28) · M-CH (05-28) · M-RAG (05-29) · **M6 P1.0 (05-29)**       |                                 | **M7 P1.5 (06-12)**             |
 
-### 6. Day-1 Executable Work
+**Note on the deadline:** 2026-05-31 is a Sunday. The last working day of P1.0 is Friday 2026-05-29. Under Option D, P1.5 lands Friday 2026-06-12. Under Option A, the unified P1 deadline is 2026-06-12. Under Option B, the original 2026-05-31 holds with the new hire onboarded by 2026-05-15.
 
-The team fans out on Monday 2026-05-11 — no Week-1 idle time waiting for setup. Each role has a concrete first task:
+### 5. Key Milestones (revised v3.1)
 
-| Role   | Day-1 capability                                                                                               |
-| ------ | -------------------------------------------------------------------------------------------------------------- |
-| PM     | R1, R2, R4 — landscape research (Mastra, PydanticAI, AutoGen, others) + MS API analysis + risk register + **X0: RAG data survey kickoff** |
-| FS     | S1, S3 — monorepo toolchain + repository hygiene (TypeScript platform)                                         |
-| AG-S   | K1 (architecture: taxonomy + MessageList — **Python**), K3 (interface + LLM adapter — **Python**)              |
-| AG-F   | K2 (Tool framework — **Python**, well-scoped intro), K6 (TestKit — onboarding through tests)                   |
-| QA     | Q1 — test strategy & policy draft                                                                              |
-| DevOps | S2 (local dev env), D1 (AWS account + IAM + cost cap), early Terraform skeleton                                |
+| #     | Milestone                                                                                              | Phase          | Target Date | Working days from kickoff | Gate                                                                                                |
+| ----- | ------------------------------------------------------------------------------------------------------ | -------------- | ----------- | ------------------------: | --------------------------------------------------------------------------------------------------- |
+| M-K   | `@seta/agent-core` kernel green                                                                         | K              | 2026-05-22  |                         9 | Unit smoke + integration replay test                                                                |
+| M-MEM | `@seta/agent-memory` provider bound in `apps/api/src/main.ts`                                           | MEM            | 2026-05-27  |                        12 | Real provider returns persisted turns; integration test green                                       |
+| M-WF  | `@seta/agent-workflows` smoke — `.then(a).parallel([b,c])` suspends and resumes                          | WF             | 2026-05-28  |                        13 | Advisory-lock contention test green; suspend snapshot persisted; resume returns same output         |
+| M-CH  | Teams round-trip in dev tunnel — Planner READ end-to-end                                                | CH+PRD-P       | 2026-05-28  |                        13 | Live Teams message → SSE stream back → Adaptive Card with task list                                 |
+| M-RAG | RAG-1 + RAG-2 + RAG-3 library green; corpus ingestion dry-run on subset                                 | RAG + X0       | 2026-05-29  |                        14 | `agent_vector.chunks` schema applied; HNSW + iterative_scan integration test green per tenant fixture |
+| **M6 (P1.0)** | **Internal demo + recording — Planner READ + WRITE + memory + workflow + RAG libraries shipped**  | Demo           | **2026-05-29** |                       14 | 5-min recording on dev compose; CTO/CEO review next business day                                    |
+| M7 (P1.5)     | **Analytics Agent + FAQ Agent demo (Option D)**                                                     | A1 + A2        | **2026-06-12** |                       24 | Chart-card response live; FAQ Q&A with ≥1 citation per answer on demo loop                          |
 
-### 7. Build vs. Buy Position (ADR-0009)
+### 6. P1 disposition table — what lands when (v3.1)
 
-Evaluated adopting an existing framework vs. building a slim in-house kernel. Decision: **build**.
+This table replaces the v3.0 single "drop list" with a tri-state disposition: **P1.0** (lands 2026-05-29), **P1.5** (lands 2026-06-12 under Option D, lands 2026-05-29 under Options A/B), **DROPPED** (not in P1 at all under any option).
 
-| Concern                | Why building wins                                                              | Reference points reviewed                                            |
-| ---------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| Multi-tenant by design | Most OSS frameworks assume single-tenant; retrofit is invasive                 | OpenClaw (single-user focus), AutoGen, CrewAI                        |
-| Vendor neutrality      | We control the API; can evolve without waiting for upstream                    | –                                                                    |
-| Right-size footprint   | Mature frameworks are 10–50× the code we need                                  | –                                                                    |
-| Security posture       | Multi-tenant + encrypted token vault + RLS hard to assert about external code  | Helmet Security model for agent policy enforcement informs P2 design |
-| OSS leverage           | We can release `@seta/agent-core` as a slim, focused alternative               | –                                                                    |
-| Long-term cost         | ~6 weeks to own the kernel vs ongoing tax of working around framework opinions | –                                                                    |
+| Item                                                          | Disposition under recommended path (Option D) | Disposition under Option A (deadline 06-12) | Disposition under Option C (NOT recommended) | Where dropped items land |
+| ------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------- | -------------------------------------------- | ------------------------ |
+| **Planner Agent**                                             | P1.0                                          | P1                                          | P1                                            | —                        |
+| `@seta/agent-core` kernel                                     | P1.0                                          | P1                                          | P1                                            | —                        |
+| `@seta/agent-memory`                                          | P1.0                                          | P1                                          | P1                                            | —                        |
+| `@seta/agent-workflows`                                       | P1.0                                          | P1                                          | P1                                            | —                        |
+| `@seta/agent-chunking`                                        | P1.0 (library)                                | P1                                          | P1 if RAG kept; DROPPED if RAG cut           | P2                       |
+| `@seta/agent-embeddings`                                      | P1.0 (library)                                | P1                                          | P1 if RAG kept; DROPPED if RAG cut           | P2                       |
+| `@seta/agent-vector` (schema + HNSW + iterative_scan)         | P1.0 (schema in place; per-tenant fixture)    | P1 (fully integrated)                       | P1 if RAG kept; DROPPED if RAG cut           | P2                       |
+| `@seta/agent-rag` composition                                 | P1.0 (library; not wired to product)          | P1 (wired to FAQ)                           | P1 if RAG kept; DROPPED if RAG cut           | P2                       |
+| RAG corpus survey + structuring                               | P1.0 (corpus ready)                           | P1 (corpus + ingestion complete)            | P1 if RAG kept                               | P2                       |
+| Full RAG corpus ingestion (production-scale)                  | P1.5                                          | P1                                          | DROPPED if RAG cut                            | P2                       |
+| **Analytics Agent**                                           | **P1.5**                                      | P1                                          | If forced (Option C), DROPPED                | P2                       |
+| **Seta FAQ Agent**                                            | **P1.5**                                      | P1                                          | If forced (Option C), DROPPED                | P2                       |
+| Teams channel + JWT/JWKS + OBO                                | P1.0                                          | P1                                          | P1                                            | —                        |
+| Inbound SSO web UI (Entra OIDC + Google OIDC)                 | DROPPED                                       | DROPPED                                     | DROPPED                                      | P2                       |
+| Studio web app                                                | DROPPED                                       | DROPPED                                     | DROPPED                                      | P2                       |
+| OSS public flip + npm publish + Legal sign-off                | DROPPED                                       | DROPPED                                     | DROPPED                                      | P2                       |
+| Dual-language Python framework + FastAPI service              | DROPPED                                       | DROPPED                                     | DROPPED                                      | P2                       |
+| AWS Terraform staging                                         | DROPPED                                       | DROPPED                                     | DROPPED                                      | P2                       |
+| 12 → 4 E2E tests                                              | 4 smoke tests in P1.0                          | 4 smoke + expand toward 12                  | 4 smoke                                       | P1.5 expands             |
+| 30-query eval set + replay harness                            | DROPPED                                       | DROPPED                                     | DROPPED                                      | P2                       |
+| Sentry / CloudWatch dashboards / cost alerts                  | DROPPED                                       | DROPPED                                     | DROPPED                                      | P2                       |
+| Multi-agent Coordinator + handoff                             | DROPPED                                       | DROPPED                                     | DROPPED                                      | P2                       |
+| Supervisor pattern (scorer + retry-on-fail)                   | DROPPED                                       | DROPPED                                     | DROPPED                                      | P2                       |
 
-R sub-phase spikes compare design against **Mastra**, **PydanticAI**, **AutoGen**, **CrewAI**, **LangGraph**, **Semantic Kernel**, and others. Decisions captured as ADRs in the repo.
+### 7. Day-1 executable work — 2026-05-12 (Tue)
 
-### 7b. Dual-Language Architecture Decision
-
-**Decision**: Python for the agentic framework, TypeScript for the platform. Not a compromise — a deliberate split aligned with team expertise and user needs.
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  TypeScript Platform (seta-os monorepo)                          │
-│  apps/api (Hono), modules/channels/teams, platform/auth,         │
-│  platform/db, platform/oauth, platform/tenant                    │
-│  ↕ HTTP + SSE (OpenAPI contract)                                 │
-├──────────────────────────────────────────────────────────────────┤
-│  Python Agentic Framework (open-source SDK)                      │
-│  Agent Runtime, Tool System, LLM Abstraction (LiteLLM),          │
-│  Memory, Storage — FastAPI service                               │
-│  → Published to PyPI as @seta/agent-framework                    │
-└──────────────────────────────────────────────────────────────────┘
-```
-
-| Aspect | Python Framework | TypeScript Platform |
-|--------|-----------------|-------------------|
-| **What** | Agent Runtime, Tools, LLM, Memory, Storage | API gateway, channels, auth, tenancy, deploy |
-| **Why this language** | Team = AI engineers (Python native); external teams also Python; ML/AI ecosystem strongest | Web APIs, real-time SSE/WS, Teams Bot Framework, OAuth — TS ecosystem stronger |
-| **OSS target** | PyPI — external teams import SDK to build agent workflows | npm — TypeScript SDK for TS consumers; platform itself may stay private |
-| **Communication** | FastAPI service, exposes HTTP + SSE endpoints | Hono API relays to Python service; OpenAPI spec as shared contract |
-| **Reference frameworks** | Mastra (architecture concepts), PydanticAI (Python patterns) | Existing seta-os scaffolding (Hono, Drizzle, Zod) |
-
-**Key constraint**: TS ↔ Python contract (OpenAPI spec) must be locked by end of W1. All downstream work depends on this interface.
-
-**Workflow Engine**: Deferred to P2. P1 uses Python native `async/await` orchestration — teams compose agents via standard Python code. This covers ~90% of use cases; the full Workflow Engine (builder, branching, suspend/resume, state persistence) adds value for power users in P2.
-
-### 8. Capacity & Allocation (P1)
-
-**Two Agent dev tiers** — explicit seniority split:
-
-- **AG-S (Senior)**: architecture decisions, security-sensitive code, novel patterns, complex algorithms. ~15% review/mentorship overhead pre-baked.
-- **AG-F (Fresher)**: well-scoped pattern-following work. Pairs with AG-S on first task of each pattern. Productivity ramp 80%/90%/100% W1–W3 factored in.
-
-**Now sized for 7-week P1** — supply per role rises from 30 to 35 MD; total team supply 210 MD.
-
-| Role                   |    HC |    Base MD |      AI MD |            Supply MD | Base Util | AI Util | Status                                      |
-| ---------------------- | ----: | ---------: | ---------: | -------------------: | --------: | ------: | ------------------------------------------- |
-| PM                     |     1 |      15.00 |      12.75 |                 35.0 |       43% |     36% | Healthy                                     |
-| Fullstack (FS)         |     1 |  **31.93** |      22.35 |                 35.0 |   **91%** |     64% | Healthy (M1 OAuth now FS)                   |
-| AG-Senior              |     1 |  **29.22** |      20.10 |                 35.0 |   **83%** |     57% | Healthy (M moved to FS+AG-F1)               |
-| AG-Fresher #1          |     1 |  **27.00** |      20.25 |                 35.0 |   **77%** |     58% | Healthy (M2 Graph/Planner client now AG-F1) |
-| AG-Fresher #2 (new HC) |     1 |      12.50 |       9.38 | 28.0 (ramp-adjusted) |       45% |     33% | Healthy (new joiner, ramps W1→W3)           |
-| QA                     |     1 |      31.25 |      25.00 |                 35.0 |       89% |     71% | Healthy                                     |
-| DevOps (DO)            |     1 |      12.25 |       8.58 |                 35.0 |       35% |     25% | Spare                                       |
-| **TOTAL**              | **7** | **159.15** | **118.41** |            **238.0** |   **67%** | **50%** | Healthy                                     |
-
-> **Rebalanced**: MS365 work (M1 OAuth + token vault → FS; M2 Graph/Planner client → AG-F1) moved off AG-S. AG-S now focuses on kernel architecture (K1/K4/K5), security spike review, supervisor pattern (O2), multi-agent orchestration (O3), Teams JWT/OBO (T1.3/T1.7), and Planner WRITE/ANALYSIS logic. No role exceeds 91% base util — best balance to date.
-
-**Mandatory pre-kickoff mitigations** (apply before 2026-05-11):
-
-| #   | Action                                                                                          | From          | To            | MD freed | New util                             |
-| --- | ----------------------------------------------------------------------------------------------- | ------------- | ------------- | -------: | ------------------------------------ |
-| 1   | **Move N5.1 (prompt versioning) + N5.2 (token budget guard) from AG-S to AG-F**                 | AG-S          | AG-F          |      1.0 | AG-S → 98%, AG-F → 77%               |
-| 2   | **DevOps takes Q4.7 (provider failover E2E) + Q4.8 (SDK quickstart) + Q4.9 (rate-limit burst)** | QA            | DO            |      2.5 | QA → 94%, DO → 39%                   |
-| 3   | **Name FS as architectural backup for AG-S K-phase work** (FS has overlapping skillset)         | (contingency) | (contingency) |        – | Triggers if AG-S unavailable >3 days |
-
-**Post-mitigation steady state**: PM 46% · FS 78% · AG-S 98% · AG-F 77% · QA 94% · DO 39%.
-
-**Critical note for budget approval**: Plan and budget commit on **Base MD only** (130.40 MD raw human effort). AI assist (97.22 MD) is reported as upside — actual savings will be tracked weekly vs. baseline. **Do not commit to delivery dates assuming AI savings will materialize.**
+| Role  | Day-1 task                                                                                                                |
+| ----- | ------------------------------------------------------------------------------------------------------------------------- |
+| AG-S  | Create `@seta/agent-core` package via `pnpm new:package`; commit `ModelAdapter` + `KernelChunk` types + `ModelStream<T>` interface; ADR-0010 (kernel boundary). **Spike `agent_vector.chunks` schema design in parallel notebook** to de-risk the W2 RAG-2 stream. |
+| AG-F1 | Create `@seta/agent-core/testkit` shape; implement `setupLLMRecording({name})` via msw. Scaffold `@seta/agent-chunking` package (W1 second-half work). |
+| AG-F2 | Fill in missing files in `modules/connectors/ms365-planner/` per its SCOPE.md "Missing vs setup.md §11": `client.ts`, `cache.ts`, `etag.ts`, `schema.ts`, `drizzle.config.ts`, `migrations/`. Scaffold `@seta/agent-embeddings` package (W1 second-half work). |
+| FS    | Audit `apps/api/src/main.ts` and `env.ts` for env vars; wire OTel boot per CLAUDE.md footgun (start via `node --import ./instrumentation.ts`); commit docker compose with Postgres + pgvector + Jaeger. **Kick off RAG data survey (X0) — corpus source inventory by EOD 2026-05-13.** |
 
 ---
 
-## Sheet 2 — What the CEO/CTO/PMO Will See at End of P1 (the demo)
+## Sheet 2 — What the sponsor will see at M6 demo (revised v3.1)
 
-This is what the team will **show** at the M6 demo on 2026-06-19. Concrete, interactive — not slideware.
+### 2.1 Live demo flow — P1.0 on 2026-05-29 (5 minutes, recorded)
 
-### 2.1 Live demo flow (5 minutes, recorded + live re-run)
+| #  | What you see                                                                                  | Where                | Why it matters                                                                       |
+| -- | --------------------------------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------ |
+| 1  | Open Microsoft Teams (dev tunnel via `ngrok`), type "Summarize my open Planner tasks"         | Teams desktop        | Real Teams round-trip                                                                |
+| 2  | Streaming response renders word-by-word                                                       | Teams chat           | Kernel + SSE protocol end-to-end                                                     |
+| 3  | Receive a simple Adaptive Card with a task list (no charts in P1.0)                           | Teams chat           | Real Planner data through MS Graph                                                   |
+| 4  | Type a follow-up referring to the prior turn                                                  | Teams chat           | `@seta/agent-memory` recall returns prior context                                    |
+| 5  | Type "Create a task in plan X called Y"                                                       | Teams chat           | WRITE path with preview/commit safety                                                |
+| 6  | Agent returns a **preview card** with confirmation buttons                                    | Teams chat           | `write_continuations` HMAC-protected preview/commit gate                             |
+| 7  | User confirms; agent commits; new task appears in Microsoft Planner                           | Teams chat + Planner | Write reflects in real MS Planner immediately                                        |
+| 8  | (Optional) Demonstrate workflow `.then(a).parallel([b,c])` via dev shell                      | Terminal             | Proves `@seta/agent-workflows` minimum surface                                       |
+| 9  | **(NEW)** Show CLI ingestion: `pnpm rag:ingest --subset` → vector store fills; query returns top-k chunks for a sample query | Terminal | Proves RAG-1 + RAG-2 + RAG-3 libraries work end-to-end, even though no user-facing FAQ Agent yet |
 
-| #   | What you see                                                                                                                                                         | Where                | Why it matters                                                                                                                           |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **Open Microsoft Teams**, click into a channel where @SetaAgent is installed. Type: _"Summarize my open Planner tasks"_                                              | Teams desktop or web | Proof: real Teams integration; not a mockup                                                                                              |
-| 2   | Watch streaming response render in real-time — chat bubble appears word-by-word                                                                                      | Teams chat           | Proof: streaming protocol works end-to-end (SSE through Bot Framework)                                                                   |
-| 3   | Receive a **rich Adaptive Card** showing: 12 open tasks, due dates, status colors, assignee chips                                                                    | Teams chat           | Proof: structured UI; real Planner data integrated                                                                                       |
-| 4   | Type follow-up: _"Who on my team is overloaded?"_                                                                                                                    | Teams chat           | Proof: multi-turn conversation, agent remembers context                                                                                  |
-| 5   | Card returns **workload-by-assignee as a bar chart** (John: 15 tasks, Mary: 4, etc.) + underlying data table                                                          | Teams chat           | Proof: visualization-first output (chart + table), not just text. Same card system reusable for any future analytics in any agent.        |
-| 6   | Type: _"Create three tasks under John's plan to clear his backlog"_                                                                                                  | Teams chat           | Proof: **Write** capability — the agent doesn't just read                                                                                |
-| 7   | Agent asks for **confirmation** before writing: _"I'll create 3 tasks in plan 'Q3 Workstreams'. Proceed?"_                                                           | Teams chat           | Proof: write safety — no destructive ops without confirmation                                                                            |
-| 8   | User confirms; agent creates tasks, returns card listing new task IDs + Planner links                                                                                | Teams chat           | Proof: round-trip — write reflects in Microsoft Planner immediately                                                                      |
-| 9   | Type: _"What's overdue and who can I reassign things to?"_                                                                                                           | Teams chat           | Proof: **multi-agent orchestration** — Coordinator dispatches to Analytics agent for analysis, surfaces back to Planner agent for action |
-| 10  | Agent emits status updates as it works ("Analyzing workload... Identifying candidates..."), returns a combined response with overdue list + reassignment suggestions | Teams chat           | Proof: complex orchestration works; lifecycle events visible                                                                             |
+### 2.2 Live demo flow — P1.5 on 2026-06-12 (under Option D)
 
-> Demo step 9–10 uses the **multi-agent orchestration infrastructure (O3.1–O3.6)** with the Coordinator agent driving the dispatch via prompt-engineered tool selection. No additional code macro required.
+| #  | What you see                                                                                  | Where        | Why it matters                                                       |
+| -- | --------------------------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------------- |
+| 1  | "Who is overloaded this week?" → Analytics Agent returns bar-chart Adaptive Card              | Teams chat   | Analytics Agent + chart-card UX live                                 |
+| 2  | "Summarize task distribution across plans X / Y / Z" → grouped chart                          | Teams chat   | Read-only aggregation tools                                          |
+| 3  | "What is Seta's PTO policy?" → FAQ Agent returns answer with **inline citations** to corpus chunks | Teams chat | RAG-3 wired; ≥80% citation coverage on demo loop (BK-7)              |
+| 4  | Click a citation → expands to source chunk (provenance gate)                                  | Teams chat   | Multi-tenant RAG with auditable provenance                           |
 
-### 2.2 Tangible deliverables (shown after live demo)
+### 2.3 Tangible deliverables (revised)
 
-| #   | Artifact                             | URL / Location                                                                                                               | Verifiable how?                         |
-| --- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| 1   | **Live AWS staging URL**             | `https://staging-api.os.seta-international.com/healthz` → 200; `/docs` → OpenAPI explorer                                    | Open URL in browser                     |
-| 2   | **Public GitHub repo**               | `github.com/Seta-International/seta-os` (private → public flipped); README, contributing guide, 13+ packages, green CI badge | Browse repo; see Actions tab            |
-| 3   | **First npm packages live**          | `npmjs.com/package/@seta/agent-core` + `@seta/agent-sdk` at `0.1.0-next`                                                     | `npm view @seta/agent-core`             |
-| 4   | **Terraform-managed AWS staging**    | `terraform plan` against staging is clean (no drift)                                                                         | Live `terraform plan` projected         |
-| 5   | **10 E2E tests all green**           | GitHub Actions latest commit on main — Q4.1–Q4.10 all green                                                                  | Open Actions; expand E2E job            |
-| 6   | **30-query eval set with pass rate** | `pnpm --filter @seta/agent eval` runs live                                                                                   | Run command; show pass/fail             |
-| 7   | **CloudWatch dashboard** for staging | Latency p50/p95/p99, error rate, token usage, cost-per-1k-requests                                                           | Open dashboard URL                      |
-| 8   | **Live curl against API**            | SSE stream from `staging-api.../agents/seta-planner/stream`                                                                  | Run in terminal; show chunks            |
-| 9   | **Docs site**                        | README quickstart, Planner+Teams cookbook, 9 ADRs (0001–0009), 4 runbooks                                                    | Browse `os.seta-international.com/docs` |
-| 10  | **5-min recorded demo video**        | Polished walkthrough for stakeholder sharing                                                                                 | Play during meeting                     |
-| 11  | **Restore drill execution log**      | RDS snapshot restored in <15 min, dated runbook entry                                                                        | Read runbook; show timestamp            |
-| 12  | **Cost-to-date for staging**         | AWS Cost Explorer: $X/month actual vs. budget                                                                                | Open Cost Explorer                      |
+| #  | Artifact                                                                                                            | Where it lives                                                                                             | Tier |
+| -- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---- |
+| 1  | Recorded 5-min P1.0 demo                                                                                            | `docs/demos/2026-05-29-p1.0-demo.mp4`                                                                      | P1.0 |
+| 2  | Repo at green CI on `main`                                                                                          | `pnpm typecheck && pnpm lint && pnpm test:unit` green; smoke suite green                                   | P1.0 |
+| 3  | New packages: `@seta/agent-core`, `-memory`, `-workflows`, `-chunking`, `-embeddings`, `-vector`, `-rag`             | Seven new platform packages                                                                                | P1.0 |
+| 4  | ADR-0010 (kernel boundary), ADR-0011 (workflow MV surface), ADR-0012 (memory home), ADR-0013 (vector schema + iterative_scan), ADR-0014 (RAG corpus structure) | `docs/adr/`                                  | P1.0 |
+| 5  | Decision memo for sponsor (P1.5 scope confirmation)                                                                 | `docs/plans/2026-05-31-p1.0-outcome.md`                                                                    | P1.0 |
+| 6  | Dev docker compose                                                                                                  | `pnpm db:up && pnpm dev`                                                                                   | P1.0 |
+| 7  | Corpus inventory + structured drops                                                                                 | `docs/corpus/` + `apps/api/data/corpus/`                                                                   | P1.0 |
+| 8  | **(P1.5)** Analytics Agent + FAQ Agent live + recorded demo                                                         | `docs/demos/2026-06-12-p1.5-demo.mp4`                                                                      | P1.5 |
 
-### 2.3 Business KPI baseline at M6 (the ROI-related part)
+### 2.4 What is explicitly NOT in the P1 demo (any option)
 
-| BK # | Metric                            | Status at M6                                     |
-| ---- | --------------------------------- | ------------------------------------------------ |
-| BK-1 | Internal Seta WAU on @SetaAgent   | Baseline measured; 30-day target check at M6+30  |
-| BK-2 | Design-partner LOI signed         | Sales-led; target by M6+14                       |
-| BK-3 | Token cost / agent run            | Measured live on staging                         |
-| BK-4 | p95 latency for "summarize tasks" | Measured live on staging                         |
-| BK-5 | OSS traction (stars, installs)    | Counter starts at M6 (public flip); 30-day check |
-| BK-6 | Internal time-savings             | Pilot survey at M6+30                            |
-
-### 2.4 What you can do with this in the next 30 days
-
-| What                                       | Possible because                                             | Path                                                                     |
-| ------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| Show to a prospective customer             | Working demo on staging URL; supports their tenant via OAuth | Issue tenant API key + walk through Entra consent                        |
-| Onboard a 2nd ERP domain (e.g., Timesheet) | Architecture proven; pattern replicable                      | New module `modules/products/timesheet/`; ~3 weeks vs the 6 we just took |
-| Add a 2nd channel (Slack)                  | Channel abstraction in place                                 | New module `modules/channels/slack/`; ~2 weeks                           |
-| Migrate to production (P2)                 | Terraform modules reusable; runbooks established             | Execute §9 P2 plan (6 weeks)                                             |
-| Onboard another engineer                   | Public repo; clean architecture; ADRs explain decisions      | Direct to README + ADRs; productive in <1 week                           |
-
-### 2.5 What is explicitly NOT in the P1 demo (sets expectations)
-
-| Not shown                                                | Why                                                                           | Available in           |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------- |
-| Production environment (`api.os.seta-international.com`) | P1 = staging only; prod cutover dedicated 5-week phase                        | **P2** (by 2026-07-31) |
-| Web Studio UI                                            | Out of P1 scope; admin via API only                                           | **P2** (by 2026-07-31) |
-| Inbound SSO (Entra/Google web login)                     | Teams handles identity in P1; web SSO needs Studio                            | **P2** (by 2026-07-31) |
-| Audit log + GDPR delete                                  | Compliance baseline begins P2                                                 | **P2** (by 2026-07-31) |
-| Workflow Engine (builder, branching, suspend/resume)     | P1 uses Python native orchestration; full engine deferred                     | **P2** (by 2026-07-31) |
-| Long-term memory across conversations                    | Not in P1; isolated per thread                                                | **P3** (by 2026-09-04) |
-| Slack / Email / Voice channels                           | One channel proven (Teams); others follow same pattern                        | **P3** (by 2026-09-04) |
-| Billing / metering integration                           | Counters logged in P1; enforcement + billing vendor (TBD) in commercial phase | **P3** (by 2026-09-04) |
-| Multi-region failover                                    | Single region in P1/P2 is correct for our load                                | **P4** (by 2026-10-02) |
-| SOC 2 audit ready                                        | Compliance baseline P2; full prep is multi-week                               | **P4** (by 2026-10-02) |
+No AWS staging URL, no public repo, no npm packages, no SSO web login, no Studio, no Python framework, no eval set, no Sentry / CloudWatch / cost dashboards, no multi-agent Coordinator, no Supervisor scorer.
 
 ---
 
-## Sheet 3 — P1 Capabilities (62 capabilities, 154.90 MD)
+## Sheet 3 — Stream / package breakdown with SP estimates (revised v3.1)
 
-**Audience note** — This sheet has dual audience:
+The revised plan groups work by **package** because the team is too small to coordinate at capability granularity.
 
-- **Executive readers (CEO, CFO, PMO)**: read the **Capability name + Why it matters** columns. Skip SP/MD/role columns — those are engineering planning detail.
-- **Technical readers (CTO, engineering)**: read all columns. "Why it matters" includes some technical framing (e.g., "RLS backstop", "OBO flow", "RRF fusion") — these are intentional terms for the engineering planning layer.
+| Stream                                  | Owner(s)        | Packages touched                                              | SP (Fib) | PD est. | Tier | Capacity budget                            |
+| --------------------------------------- | --------------- | ------------------------------------------------------------- | -------: | ------: | ---- | ------------------------------------------ |
+| K — Kernel (`@seta/agent-core`)         | AG-S + AG-F1    | `platform/agent/core`                                         |       21 |    10–11 | P1.0 | AG-S 8 PD + AG-F1 3 PD                     |
+| MEM — Memory                            | AG-S            | `platform/agent/memory`, `platform/db`                        |        8 |     4–5 | P1.0 | AG-S 4 PD                                  |
+| WF — Workflows                          | AG-S            | `platform/agent/workflows`, `platform/db`                     |        8 |     4–5 | P1.0 | AG-S 4 PD                                  |
+| **X0 — RAG data survey + structuring**  | FS + AG-F (PT)  | `docs/corpus/`, `apps/api/data/corpus/`                       |    **8** | **4**   | P1.0 | FS 3 PD + AG-F 1 PD                        |
+| **RAG-1a — `@seta/agent-chunking`**     | AG-F1           | `platform/agent/chunking` (new)                               |    **5** | **2**   | P1.0 | AG-F1 2 PD                                 |
+| **RAG-1b — `@seta/agent-embeddings`**   | AG-F2           | `platform/agent/embeddings` (new)                             |    **5** | **2**   | P1.0 | AG-F2 2 PD                                 |
+| **RAG-2 — `@seta/agent-vector`**        | AG-S            | `platform/agent/vector` (new), `platform/db`                  |    **8** | **4**   | P1.0 | AG-S 4 PD                                  |
+| **RAG-3 — `@seta/agent-rag`**           | AG-S            | `platform/agent/rag` (new)                                    |    **5** | **3**   | P1.0 | AG-S 3 PD                                  |
+| MS — Graph + Planner connector          | AG-F2           | `platform/ms-graph`, `modules/connectors/ms365-planner`       |       13 |     8–9 | P1.0 | AG-F2 9 PD                                 |
+| PRD-P — Planner product (agent)         | AG-F1 + AG-S    | `modules/products/agent` (`tools/planner/{read,write}`)       |       13 |     7–8 | P1.0 | AG-F1 6 PD + AG-S 1 PD                     |
+| CH — Teams channel                      | FS + AG-F1      | `modules/channels/teams`                                      |        8 |     4–5 | P1.0 | FS 3 PD + AG-F1 2 PD                       |
+| WRP — `apps/api` composition            | FS              | `apps/api/src/main.ts`, `env.ts`, `instrumentation.ts`        |        5 |     2–3 | P1.0 | FS 2 PD                                    |
+| Smoke + P1.0 demo                       | AG-S + FS       | 4 smoke tests + demo recording                                |        3 |     1–2 | P1.0 | shared, last 2 days                        |
+| **A1 — Analytics Agent (P1.5 under D)** | AG-F1 + AG-S    | `modules/products/agent` (Analytics defn + tools)             |    **8** | **5–6** | P1.5 | AG-F1 4 PD + AG-S 1 PD                     |
+| **A2 — Seta FAQ Agent (P1.5 under D)**  | AG-F2 + AG-S    | `modules/products/agent` (FAQ defn + retrieve/cite tools)     |    **8** | **4–5** | P1.5 | AG-F2 3 PD + AG-S 2 PD                     |
+| **TOTAL P1.0 (planned)**                |                 |                                                               |  **110** | **57–69 PD** | — | **49 PD supply (3.5 FTE × 14d)**           |
+| **TOTAL P1.5 (planned, under D)**       |                 |                                                               |   **16** | **9–11 PD**  | — | **17.5 PD supply (3.5 FTE × 5d, parallel ramp-down assumed)** |
 
-Each row = **a business-meaningful capability**. Owner uses role short codes; multi-role splits shown as `A + B`. Detailed engineering tasks (sub-tasks per capability) tracked in team backlog, not in this document.
+**Utilisation (P1.0 only):** 57–69 / 49 = **116%–141% — STRUCTURALLY OVER.** This is the v3.1 capacity crisis in one number. Even at the optimistic end (57 PD) the team is 8 PD over supply; at the conservative end (69 PD) the gap is 20 PD. Mitigation: Options A/B/D in §0.5. **There is no realistic reshuffle of these hours that closes the gap inside 49 PD.**
 
-| Cap ID | Phase | Capability                                                                                                                                                                                                 | Why it matters                                                                                    | Owner(s)                                                                       |     SP |   Base MD |      AI MD | Start      | End   | Status      |
-| ------ | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -----: | --------: | ---------: | ---------- | ----- | ----------- |
-|        |       | **R — Foundation Research**                                                                                                                                                                                | Locks design decisions; outputs ADRs                                                              |                                                                                | **23** |  **6.50** |   **5.85** |            |       |             |
-| R1     | R     | Agent framework landscape research (Mastra, PydanticAI, AutoGen, CrewAI, LangGraph, Semantic Kernel + others) → kernel design ADRs                                                                  | Validates build-vs-buy decision; surfaces patterns to adopt into Python framework. Focus on distilling core agentic patterns from Mastra's architecture. | PM + AG-S                                                                      |      9 |      2.50 |       2.25 | 05-11      | 05-12 | Not Started |
-| R2     | R     | External API analysis (MS Graph, Bot Framework, Adaptive Cards)                                                                                                                                            | Surfaces quirks before implementation hits them                                                   | PM                                                                             |      7 |      2.00 |       1.80 | 05-12      | 05-13 | Not Started |
-| R3     | R     | Security architecture (KMS envelope, tenancy backstop, agent policy model)                                                                                                                                 | Locks key handling + tenant isolation + Helmet-style policy model                                 | PM + FS                                                                        |      4 |      1.00 |       0.90 | 05-13      | 05-14 | Not Started |
-| R4     | R     | Scope discipline + risk baseline                                                                                                                                                                           | "What we don't build" + weekly risk review                                                        | PM                                                                             |      4 |      1.00 |       0.90 | 05-15      | 05-15 | Not Started |
-|        |       | **S — Foundation Setup**                                                                                                                                                                                   | Production-grade monorepo, CI/CD, local dev                                                       |                                                                                | **31** | **10.00** |   **5.85** |            |       |             |
-| S1     | S     | Toolchain & build pipeline                                                                                                                                                                                 | Workspace, TypeScript strict, build, lint, test config                                            | FS                                                                             |     10 |      2.50 |       1.50 | 05-11      | 05-12 | Not Started |
-| S2     | S     | Local development environment                                                                                                                                                                              | Postgres + pgvector + tracing stack one-command up                                                | DevOps                                                                         |      3 |      0.75 |       0.48 | 05-12      | 05-12 | Not Started |
-| S3     | S     | Repository hygiene & quality gates                                                                                                                                                                         | Package scaffolder + CI guards (prevents drift)                                                   | FS                                                                             |      8 |      2.50 |       1.50 | 05-13      | 05-13 | Not Started |
-| S4     | S     | Initial package scaffolding                                                                                                                                                                                | Empty-but-green scaffolds so all teams start parallel from W2                                     | FS                                                                             |      5 |      1.50 |       0.83 | 05-14      | 05-14 | Not Started |
-| S5     | S     | CI/CD pipeline                                                                                                                                                                                             | Every PR validated; signed remote cache                                                           | DevOps                                                                         |      6 |      1.75 |       1.10 | 05-14      | 05-15 | Not Started |
-| S6     | S     | Documentation foundation + setup acceptance gate                                                                                                                                                           | README, contribution guide, ADR stubs; validates green start                                      | PM + FS                                                                        |      3 |      1.00 |       0.45 | 05-15      | 05-15 | Not Started |
-|        |       | **K — Agent Kernel (Python framework, slim, code-first)**                                                                                                                                                     | The brain of every agent — Python agentic framework distilling core patterns from Mastra/PydanticAI |                                                                                | **53** | **16.00** |  **10.40** |            |       |             |
-| K1     | K     | Message system (taxonomy, list, store, replay determinism)                                                                                                                                                 | Foundation for conversation state, persistence, deterministic testing                             | AG-S (architecture) + AG-F (cursor + replay)                                   |     11 |      3.00 |       1.95 | 05-12      | 05-19 | Not Started |
-| K2     | K     | Tool framework                                                                                                                                                                                             | Standard contract for every agent capability                                                      | AG-F (with AG-S review)                                                        |      4 |      1.00 |       0.65 | 05-12      | 05-18 | Not Started |
-| K3     | K     | Model layer: LiteLLM unified adapter + router (OpenAI, Anthropic, Google, Azure OpenAI, OpenRouter, Together AI, Ollama — all via LiteLLM)                                                                     | No vendor lock-in; LiteLLM handles provider specifics in Python                                   | AG-S (interface + router) + AG-F (OpenAI primary)                              |     10 |      3.00 |       2.00 | 05-13      | 05-20 | Not Started |
-| K4     | K     | Run loop (multi-step, parallel tools, cancellation)                                                                                                                                                        | Core orchestration — complex concurrency                                                          | AG-S (step + loop + parallel) + AG-F (abort)                                   |     13 |      4.00 |       2.70 | 05-20      | 05-22 | Not Started |
-| K5     | K     | Streaming protocol                                                                                                                                                                                         | Frozen protocol; all consumers depend on it. Subtle backpressure.                                 | AG-S                                                                           |      7 |      2.00 |       1.40 | 05-13      | 05-22 | Not Started |
-| K6     | K     | Test infrastructure (LLM record + replay)                                                                                                                                                                  | Deterministic CI without live LLM costs. Great fresher onboarding.                                | AG-F                                                                           |      7 |      2.00 |       1.30 | 05-13      | 05-20 | Not Started |
-| K7     | K     | Kernel acceptance gate                                                                                                                                                                                     | **Hard gate** — wrap work blocked until green                                                     | AG-S + AG-F                                                                    |      4 |      1.00 |       0.80 | 05-25      | 05-25 | Not Started |
-|        |       | **W — API & Storage Wrap**                                                                                                                                                                                 | Multi-tenant data + HTTP API                                                                      |                                                                                | **40** | **12.50** |   **8.10** |            |       |             |
-| W1     | W     | Multi-tenant data layer (Postgres + Drizzle + composite keys + RLS)                                                                                                                                        | Defense-in-depth tenant isolation                                                                 | FS                                                                             |     13 |      4.00 |       2.60 | 05-18      | 05-21 | Not Started |
-| W2     | W     | Tenant isolation runtime (AsyncLocalStorage + guards)                                                                                                                                                      | Impossible to forget the WHERE clause                                                             | FS                                                                             |      4 |      1.00 |       0.65 | 05-19      | 05-20 | Not Started |
-| W3     | W     | API authentication (issuance, verification, revocation, admin API)                                                                                                                                         | Only inbound auth in P1; SSO comes in P2                                                          | FS                                                                             |      7 |      2.00 |       1.45 | 05-22      | 05-25 | Not Started |
-| W4     | W     | HTTP server foundation (Hono + middleware + OpenAPI + rate-limiting)                                                                                                                                       | Single deployable; spec drives SDK codegen                                                        | FS                                                                             |      8 |      2.50 |       1.60 | 05-20      | 05-26 | Not Started |
-| W5     | W     | Agent HTTP API (run, stream, threads)                                                                                                                                                                      | Public API — what clients call                                                                    | AG-S (stream) + AG-F (sync + threads)                                          |      7 |      2.00 |       1.33 | 05-26      | 05-27 | Not Started |
-| W6     | W     | TypeScript SDK                                                                                                                                                                                             | DX for any team integrating Seta agents                                                           | AG-F                                                                           |      3 |      1.00 |       0.60 | 05-28      | 05-28 | Not Started |
-|        |       | **M — Microsoft 365 Integration**                                                                                                                                                                          | First domain — pattern for every future ERP module                                                |                                                                                | **23** |  **7.50** |   **4.88** |            |       |             |
-| M1     | M     | OAuth & encrypted token vault (Entra + PKCE + AES-GCM)                                                                                                                                                     | Web auth flow + security — natural FS work                                                        | **FS** (with AG-S security review)                                             |     10 |      3.00 |       2.20 | 05-26      | 05-28 | Not Started |
-| M2     | M     | Microsoft Graph + Planner client (full ops + delta sync)                                                                                                                                                   | HTTP client + CRUD + retries + pagination — pattern-following work                                | **AG-F1** (with AG-S consult on delta-sync edge cases)                         |     13 |      4.50 |       2.68 | 05-28      | 06-03 | Not Started |
-|        |       | **T — Microsoft Teams Channel**                                                                                                                                                                            | First user-facing channel; pattern for Slack/Voice/Email                                          |                                                                                | **23** |  **9.00** |   **6.30** |            |       |             |
-| T1     | T     | Bot Framework protocol (JWT, dispatch, replies, Teams SSO via OBO, manifest)                                                                                                                               | Hand-rolled (no MS SDK weight); full control                                                      | AG-S (JWT + OBO) + AG-F (types + dispatch) + FS (bot token + reply + manifest) |     23 |      9.00 |       6.30 | 06-01      | 06-05 | Not Started |
-|        |       | **A — Agent Definitions**                                                                                                                                                                                  | Multiple specialist agents                                                                        |                                                                                | **10** |  **4.25** |   **2.83** |            |       |             |
-| A1     | A     | Agent module scaffold                                                                                                                                                                                      | Foundation for all business modules                                                               | AG-F                                                                           |      2 |      0.50 |       0.28 | 06-03      | 06-03 | Not Started |
-| A2     | A     | Two-agent system (Planner Agent + Analytics Agent)                                                                                                                                                         | Planner = full toolset (gpt-4o). Analytics = read+analysis only (gpt-4o-mini for cost).           | AG-S (Planner) + AG-F (Analytics)                                              |      4 |      1.50 |       1.00 | 06-03      | 06-04 | Not Started |
-| A4     | A     | Rich response output — text, **data tables, charts (bar / line / pie)**, task-list, workload, overdue, plan-health cards                                                                                   | Visualization-first responses in Teams (Adaptive Cards + server-rendered chart images), not text-only. Patterns reusable across all future agents. | AG-F                                                                           |      3 |      1.00 |       0.65 | 06-05      | 06-05 | Not Started |
-| A5     | A     | Teams handler with Coordinator dispatch                                                                                                                                                                    | Routes user intent between Planner and Analytics                                                  | AG-S                                                                           |      3 |      1.25 |       0.90 | 06-05      | 06-08 | Not Started |
-|        |       | **N — Agent ↔ Planner Capabilities**                                                                                                                                                                       | The actual Planner ops agents perform                                                             |                                                                                | **47** | **11.50** |   **7.65** |            |       |             |
-| N1     | N     | **READ** — list/search tasks, get details, list plans/buckets                                                                                                                                              | What every Q&A query reads                                                                        | AG-F                                                                           |      8 |      2.00 |       1.23 | 06-04      | 06-09 | Not Started |
-| N2     | N     | **WRITE** + safety (dry-run, confirm for destructive ops)                                                                                                                                                  | Agent changes data, not just reads                                                                | AG-S                                                                           |      9 |      2.25 |       1.57 | 06-04      | 06-10 | Not Started |
-| N3     | N     | **ANALYSIS** — workload by assignee, overdue + completion trend                                                                                                                                            | Insights LLM can't compute from raw lists. At-risk + plan-health deferred to P2.                  | AG-S                                                                           |      4 |      1.00 |       0.70 | 06-05      | 06-11 | Not Started |
-| N4     | N     | **FAQ + evaluation** — 30-query eval set + replay harness                                                                                                                                                  | Foundation for regression-eval                                                                    | PM + AG-S + AG-F + QA                                                          |      9 |      2.75 |       2.25 | 06-08      | 06-11 | Not Started |
-| N5     | N     | **Performance** — prompt versioning, token-budget guard, cost tracking. Response cache deferred to P2.                                                                                                     | Cost visibility day 1                                                                             | **AG-F** (per mitigation #1)                                                   |      6 |      1.50 |       0.99 | 06-08      | 06-11 | Not Started |
-| N6     | N     | **Chunking** — pagination, truncation, "show more", summarization fallback                                                                                                                                 | Handles 1000s of tasks without blowing context                                                    | AG-F                                                                           |      8 |      2.00 |       1.40 | 06-08      | 06-12 | Not Started |
-|        |       | **O — Multi-Agent Orchestration · Supervisor · Config**                                                                                                                                                    | Core P1 capability                                                                                |                                                                                | **27** |  **7.50** |   **5.30** |            |       |             |
-| O1     | O     | Per-tenant agent configuration (override prompt/tools/model/limits)                                                                                                                                        | Different orgs configure agents without code changes                                              | FS + AG-F                                                                      |      7 |      1.75 |       1.22 | 06-01      | 06-09 | Not Started |
-| O2     | O     | Supervisor pattern (scorer + retry-on-fail)                                                                                                                                                                | Quality safety net                                                                                | AG-S                                                                           |      6 |      1.50 |       1.10 | 06-08      | 06-11 | Not Started |
-| O3     | O     | **Multi-agent orchestration** (subAgentTool + registry + protocol + concurrent + handoff + macro example)                                                                                                  | Planner delegates to Analytics. Foundation for any agent network. Demo step 9–10 depends on this. | AG-S + AG-F + PM                                                               |     12 |      3.25 |       2.32 | 06-08      | 06-12 | Not Started |
-| O4     | O     | Run lifecycle observability (events + per-run trace)                                                                                                                                                       | Replay-debug any past agent run                                                                   | AG-F                                                                           |      4 |      1.00 |       0.68 | 06-08      | 06-09 | Not Started |
-|        |       | **Q — Quality Assurance (cross-cutting)**                                                                                                                                                                  | 10 E2E tests + integration + contract + manual gates                                              |                                                                                | **80** | **30.00** |  **24.00** |            |       |             |
-| Q1     | Q     | Test strategy & policy                                                                                                                                                                                     | Quality bar set day 1                                                                             | QA                                                                             |      5 |      1.50 |       1.28 | 05-11      | 05-15 | Not Started |
-| Q2     | Q     | Test infrastructure (Vitest projects, msw fixtures, LLM recording, E2E harness, seed)                                                                                                                      | Foundation every test layer depends on                                                            | QA                                                                             |     12 |      4.00 |       2.88 | 05-18      | 05-26 | Not Started |
-| Q3     | Q     | Unit + integration + contract coverage                                                                                                                                                                     | Catches drift before prod                                                                         | QA                                                                             |     19 |      7.00 |       5.30 | 05-25      | 06-12 | Not Started |
-| Q4     | Q     | **End-to-end test suite (10 tests)** — streaming, Teams, tenant isolation, auth fuzz, OAuth, multi-turn, **provider failover (DevOps)**, **SDK quickstart (DevOps)**, **rate-limit (DevOps)**, multi-agent | Acceptance bar — all 10 must pass for P1 ship                                                     | QA (7) + DevOps (3, per mitigation #2)                                         |     28 |     13.00 |      10.05 | 06-08      | 06-12 | Not Started |
-| Q5     | Q     | Manual milestone gate passes (5 gates: M1–M5)                                                                                                                                                              | Human sign-off complements automated tests                                                        | QA                                                                             |     10 |      2.50 |       2.50 | 05-25      | 06-15 | Not Started |
-| Q6     | Q     | Operational quality (flake watch + release readiness checklist)                                                                                                                                            | Gates M6                                                                                          | QA                                                                             |      6 |      2.00 |       1.85 | 05-18      | 06-18 | Not Started |
-| Q7     | Q     | Demo dry-runs (internal + stakeholder)                                                                                                                                                                     | Rehearse M6 demo                                                                                  | QA + PM                                                                        |      4 |      1.00 |       0.90 | 06-10      | 06-16 | Not Started |
-|        |       | **D — AWS Staging Deployment (Terraform-managed)**                                                                                                                                                         | Live, publicly-accessible staging URL                                                             |                                                                                | **25** |  **8.75** |   **6.13** |            |       |             |
-| D1     | D     | AWS environment (account, IAM OIDC, VPC, naming, Cost Explorer alerts)                                                                                                                                     | Cost discipline day 1; OIDC = no static creds in CI                                               | DevOps + PM                                                                    |      2 |      0.50 |       0.40 | 05-13      | 05-13 | Not Started |
-| D2     | D     | Terraform skeleton + ECR                                                                                                                                                                                   | IaC foundation; reusable modules for P2 prod                                                      | DevOps                                                                         |      5 |      1.50 |       1.05 | 05-14      | 06-09 | Not Started |
-| D3     | D     | Data & secrets infrastructure (RDS PostgreSQL + pgvector + Secrets Manager + KMS + AwsKmsProvider)                                                                                                         | Managed DB + managed secrets                                                                      | DevOps + FS                                                                    |      6 |      2.00 |       1.45 | 06-09      | 06-10 | Not Started |
-| D4     | D     | Compute & ingress (ECS Fargate + ALB + ACM cert + Route53)                                                                                                                                                 | Public staging URL with HTTPS                                                                     | DevOps                                                                         |      3 |      1.00 |       0.70 | 06-10      | 06-11 | Not Started |
-| D5     | D     | Deployment automation (GitHub Actions → AWS OIDC → ECR push → ECS task update)                                                                                                                             | Every merge to main auto-deploys; no static creds                                                 | DevOps                                                                         |      3 |      1.00 |       0.65 | 06-11      | 06-12 | Not Started |
-| D6     | D     | External wiring (Entra redirect + Bot endpoint → staging URL)                                                                                                                                              | OAuth + Teams work against AWS staging                                                            | FS                                                                             |      3 |      0.75 |       0.65 | 06-12      | 06-12 | Not Started |
-| D7     | D     | Acceptance & runbooks (smoke test + Terraform plan/apply runbook + RDS restore drill executed)                                                                                                             | Validates deploy stack is operable. **GATE for M5.**                                              | DevOps + QA + PM                                                               |      3 |      2.00 |       1.23 | 06-12      | 06-15 | Not Started |
-|        |       | **H — Hardening, Demo, Public Release**                                                                                                                                                                    | P1 ship readiness                                                                                 |                                                                                | **22** |  **7.50** |   **5.43** |            |       |             |
-| H1     | H     | Performance hardening + load smoke (50 concurrent streams)                                                                                                                                                 | Confirms staging holds; tunes rate-limiter                                                        | DevOps + QA                                                                    |      2 |      0.50 |       0.40 | 06-15      | 06-16 | Not Started |
-| H2     | H     | OSS release readiness + **legal sign-off** (secret scrub, dep audit, README, CoC, LICENSE, IP-assignment confirmation, dep license compatibility review)                                                   | Pre-public checklist with Legal department sign-off — blocks H5 if not approved                   | PM + FS + Legal review                                                         |      3 |      1.00 |       0.85 | 06-15      | 06-16 | Not Started |
-| H3     | H     | Demo to stakeholders (seed data + 5-min recording + live dry-run on AWS staging)                                                                                                                           | Validates the story end-to-end                                                                    | PM + QA + FS                                                                   |      7 |      2.50 |       2.13 | 06-15      | 06-18 | Not Started |
-| H4     | H     | Documentation suite (README, quickstart, cookbook, per-pkg READMEs, ADRs 0001–0010 finalized)                                                                                                              | First impression for external developers                                                          | PM + FS                                                                        |      9 |      2.50 |       1.50 | 06-22      | 06-25 | Not Started |
-| H5     | H     | Public flip + first npm publish                                                                                                                                                                            | **M6 release gate** — requires H2 Legal sign-off complete                                         | PM + FS                                                                        |      3 |      1.00 |       0.85 | 06-26      | 06-26 | Not Started |
-|        |       | **Y — Working Memory (per-thread context)**                                                       | Multi-turn agent feels coherent across messages                                |        |     **5** |   **2.00** | **1.40**   |       |             |     |
-| Y1     | Y     | Working memory infrastructure (per-thread scratchpad + LRU eviction + prompt injection middleware)                                                                                                         | Foundation for agent context awareness; semantic recall deferred to P2                            | AG-S + AG-F1                                                                   |      5 |      2.00 |       1.40 | 06-15      | 06-17 | Not Started |
-|        |       | **X — RAG Stack + Seta Knowledge Base**                                                           | Powers Seta FAQ Agent; reusable for any future knowledge-Q&A use case          |        |    **28** |  **11.50** | **7.95**   |       |             |     |
-|        |       | **X0 — RAG Data Survey (parallel track from W1)**                                                  | Unblocks RAG build; identifies, catalogs, and prepares Seta knowledge corpus   |        |     **5** |   **2.50** | **2.00**   |       |             |     |
-| X0.1   | X     | Data source inventory (Seta docs, website, Confluence, internal wikis, policies, pricing sheets) — catalog what exists, format, size, access method                                                             | Must know what we have before we can chunk it                                                     | PM + AG-F2                                                                     |      3 |      1.00 |       0.80 | 05-11      | 05-18 | Not Started |
-| X0.2   | X     | Data quality assessment + gap analysis — identify missing docs, stale content, format issues                                                                                                                     | Prevents garbage-in-garbage-out in RAG                                                            | PM + AG-F2                                                                     |      2 |      0.50 |       0.40 | 05-18      | 05-22 | Not Started |
-| X0.3   | X     | RAG POC + demo — small-scale chunking + embedding + retrieval on 10–20 representative docs, evaluate retrieval quality                                                                                         | Validates approach before full build; surfaces issues early                                        | AG-F2 + AG-S                                                                   |      3 |      1.00 |       0.80 | 05-22      | 05-25 | Not Started |
-| X1     | X     | `@seta/agent-chunking` package (token-aware text chunker)                                                                                                                                                  | Foundation primitive for RAG                                                                      | AG-F2                                                                          |      3 |      1.00 |       0.55 | 06-15      | 06-15 | Not Started |
-| X2     | X     | `@seta/agent-embeddings` package (OpenAI text-embedding-3-small + LRU cache)                                                                                                                               | Foundation primitive for RAG                                                                      | AG-F2                                                                          |      5 |      1.50 |       0.83 | 06-16      | 06-17 | Not Started |
-| X3     | X     | `@seta/agent-vector` package (pgvector store ops + HNSW + similarity search)                                                                                                                               | Foundation primitive for RAG                                                                      | AG-S + AG-F1                                                                   |      5 |      2.00 |       1.30 | 06-16      | 06-18 | Not Started |
-| X4     | X     | `@seta/agent-rag` composition (RRF fusion + hybrid retrieval + reranking interface)                                                                                                                        | The full RAG pipeline used by Seta FAQ Agent                                                      | AG-S + AG-F1                                                                   |      5 |      2.00 |       1.50 | 06-18      | 06-22 | Not Started |
-| X5     | X     | Seta knowledge corpus ingestion (scrape Seta docs/website → chunk → embed → store)                                                                                                                         | The actual knowledge base behind the FAQ agent                                                    | AG-F2 + FS                                                                     |      8 |      3.00 |       2.10 | 06-18      | 06-22 | Not Started |
-| X6     | X     | Citation surfacing — RAG retrievals link back to source URLs in responses                                                                                                                                  | Trust + verifiability — answers point to source documents                                         | AG-F2                                                                          |      5 |      2.00 |       1.20 | 06-22      | 06-23 | Not Started |
-|        |       | **Z — Inbound SSO (infrastructure, slim)**                                                        | Foundation for P2 web admin / Studio; users can log in to manage their tenant  |        |    **13** |   **5.00** | **3.50**   |       |             |     |
-| Z1     | Z     | OIDC client (Entra + Google) + `sso_providers` + `sessions` tables + login/callback/logout endpoints                                                                                                       | Web auth foundation; admin UI deferred to P2 Studio                                               | FS + AG-S                                                                      |     13 |      5.00 |       3.50 | 06-22      | 06-26 | Not Started |
-|        |       | **A6 — Seta FAQ Agent** (3rd specialist agent)                                                    | RAG-augmented agent answers questions about Seta itself                        |        |     **5** |   **1.50** | **1.05**   |       |             |     |
-| A6     | A     | Seta FAQ Agent (read-only, RAG-augmented, model=gpt-4o-mini for cost) + Coordinator update to route Seta-FAQ queries                                                                                       | A real agent users can ask _"what's Seta's pricing?"_ or _"how does the refund process work?"_    | AG-F2 + AG-S (Coordinator)                                                     |      5 |      1.50 |       1.05 | 06-23      | 06-24 | Not Started |
-|        |       | **Q4 expansion — 2 more E2E tests**                                                               | Total E2E suite: 12 tests                                                      |        |     **6** |   **2.00** | **1.60**   |       |             |     |
-| Q4.11  | Q     | E2E: SSO login → session → authenticated agent run                                                                                                                                                         | Validates Z1 end-to-end with W3 API auth                                                          | QA + AG-F2                                                                     |      3 |      1.00 |       0.80 | 06-25      | 06-26 | Not Started |
-| Q4.12  | Q     | E2E: Seta FAQ Agent answers question with valid citations to source docs                                                                                                                                   | Validates A6 + X4 + X5 end-to-end                                                                 | QA + AG-F2                                                                     |      3 |      1.00 |       0.80 | 06-24      | 06-24 | Not Started |
-|        |       | **GRAND TOTAL (62 capabilities)**                                                                 |                                                                                |        |   **461** | **154.90** | **114.72** |       |             |     |
-|        |       | **WITH 15% BUFFER**                                                                               |                                                                                |        |   **530** | **178.14** | **131.93** |       |             |     |
+**Note on SP-to-PD ratio:** v3.0 used 1 SP ≈ 0.5–0.6 PD. v3.1 retains the same ratio. RAG-1a/1b are sized at the low end (1 SP ≈ 0.4 PD) reflecting library-only deliverables with limited integration burden in P1.0; RAG-2 is at the high end (1 SP ≈ 0.5 PD) reflecting the schema correctness work. If actuals come in higher, RAG-3 composition collapses first.
 
 ---
 
-## Sheet 4 — Master Timeline (weekly Gantt)
+## Sheet 4 — Master Timeline (compressed weekly, revised v3.1)
 
-`█` = active in week. ◆ = milestone.
+`█` = active. ◆ = milestone. Dates Mon–Fri working days only. P1.5 columns shown under Option D.
 
-| Cap | Capability                     | Owner(s)              | Base MD | Start | End   |  W1   | W2  |  W3   |  W4   |  W5   |  W6   |
-| --- | ------------------------------ | --------------------- | ------: | ----- | ----- | :---: | :-: | :---: | :---: | :---: | :---: |
-| R1  | Framework landscape research   | PM + AG-S             |    2.50 | 05-11 | 05-12 |   █   |     |       |       |       |       |
-| R2  | External API analysis          | PM                    |    2.00 | 05-12 | 05-13 |   █   |     |       |       |       |       |
-| R3  | Security architecture          | PM + FS               |    1.00 | 05-13 | 05-14 |   █   |     |       |       |       |       |
-| R4  | Scope + risk baseline          | PM                    |    1.00 | 05-15 | 05-15 |   █   |     |       |       |       |       |
-| S1  | Toolchain & build              | FS                    |    2.50 | 05-11 | 05-12 |   █   |     |       |       |       |       |
-| S2  | Local dev env                  | DO                    |    0.75 | 05-12 | 05-12 |   █   |     |       |       |       |       |
-| S3  | Repo hygiene & guards          | FS                    |    2.50 | 05-13 | 05-13 |   █   |     |       |       |       |       |
-| S4  | Package scaffolding            | FS                    |    1.50 | 05-14 | 05-14 |   █   |     |       |       |       |       |
-| S5  | CI/CD pipeline                 | DO                    |    1.75 | 05-14 | 05-15 |   █   |     |       |       |       |       |
-| S6  | Docs + setup gate              | PM + FS               |    1.00 | 05-15 | 05-15 | █ ◆M0 |     |       |       |       |       |
-| K1  | Message system                 | AG-S + AG-F           |    3.00 | 05-12 | 05-19 |   █   |  █  |       |       |       |       |
-| K2  | Tool framework                 | AG-F                  |    1.00 | 05-12 | 05-18 |   █   |  █  |       |       |       |       |
-| K3  | Multi-provider model           | AG-S + AG-F           |    3.00 | 05-13 | 05-20 |   █   |  █  |       |       |       |       |
-| K4  | Run loop                       | AG-S + AG-F           |    4.00 | 05-20 | 05-22 |       |  █  |       |       |       |       |
-| K5  | Streaming protocol             | AG-S                  |    2.00 | 05-13 | 05-22 |   █   |  █  |       |       |       |       |
-| K6  | Test infrastructure            | AG-F                  |    2.00 | 05-13 | 05-20 |   █   |  █  |       |       |       |       |
-| K7  | Kernel acceptance gate         | AG-S + AG-F           |    1.00 | 05-25 | 05-25 |       |     |  ◆M1  |       |       |       |
-| W1  | Multi-tenant data              | FS                    |    4.00 | 05-18 | 05-21 |       |  █  |       |       |       |       |
-| W2  | Tenant isolation runtime       | FS                    |    1.00 | 05-19 | 05-20 |       |  █  |       |       |       |       |
-| W3  | API authentication             | FS                    |    2.00 | 05-22 | 05-25 |       |  █  |   █   |       |       |       |
-| W4  | HTTP server foundation         | FS                    |    2.50 | 05-20 | 05-26 |       |  █  |   █   |       |       |       |
-| W5  | Agent HTTP API                 | AG-S + AG-F           |    2.00 | 05-26 | 05-27 |       |     |   █   |       |       |       |
-| W6  | TypeScript SDK                 | AG-F                  |    1.00 | 05-28 | 05-28 |       |     | █ ◆M2 |       |       |       |
-| M1  | OAuth & token vault            | AG-S                  |    3.00 | 05-26 | 05-28 |       |     |   █   |       |       |       |
-| M2  | Graph + Planner client         | AG-S + AG-F           |    4.50 | 05-28 | 06-03 |       |     |   █   | █ ◆M3 |       |       |
-| T1  | Bot Framework protocol         | AG-S + AG-F + FS      |    9.00 | 06-01 | 06-05 |       |     |       |   █   |       |       |
-| A1  | Agent module scaffold          | AG-F                  |    0.50 | 06-03 | 06-03 |       |     |       |   █   |       |       |
-| A2  | Two-agent system               | AG-S + AG-F           |    1.50 | 06-03 | 06-04 |       |     |       |   █   |       |       |
-| A4  | Response cards                 | AG-F                  |    1.00 | 06-05 | 06-05 |       |     |       |   █   |       |       |
-| A5  | Teams handler + Coordinator    | AG-S                  |    1.25 | 06-05 | 06-08 |       |     |       |   █   |   █   |       |
-| N1  | Planner READ                   | AG-F                  |    2.00 | 06-04 | 06-09 |       |     |       |   █   |   █   |       |
-| N2  | Planner WRITE                  | AG-S                  |    2.25 | 06-04 | 06-10 |       |     |       |   █   |   █   |       |
-| N3  | Planner ANALYSIS               | AG-S                  |    1.00 | 06-05 | 06-11 |       |     |       |   █   |   █   |       |
-| N4  | FAQ + evaluation               | PM + AG-S + AG-F + QA |    2.75 | 06-08 | 06-11 |       |     |       |       |   █   |       |
-| N5  | Performance optimization       | AG-F                  |    1.50 | 06-08 | 06-11 |       |     |       |       |   █   |       |
-| N6  | Large-result handling          | AG-F                  |    2.00 | 06-08 | 06-12 |       |     |       |       |   █   |       |
-| O1  | Per-tenant agent config        | FS + AG-F             |    1.75 | 06-01 | 06-09 |       |     |       |   █   |   █   |       |
-| O2  | Supervisor pattern             | AG-S                  |    1.50 | 06-08 | 06-11 |       |     |       |       |   █   |       |
-| O3  | Multi-agent orchestration      | AG-S + AG-F + PM      |    3.25 | 06-08 | 06-12 |       |     |       |       |   █   |       |
-| O4  | Run lifecycle observability    | AG-F                  |    1.00 | 06-08 | 06-09 |       |     |       |       |   █   |       |
-| Q1  | Test strategy                  | QA                    |    1.50 | 05-11 | 05-15 |   █   |     |       |       |       |       |
-| Q2  | Test infrastructure            | QA                    |    4.00 | 05-18 | 05-26 |       |  █  |   █   |       |       |       |
-| Q3  | Unit + integration + contract  | QA                    |    7.00 | 05-25 | 06-12 |       |     |   █   |   █   |   █   |       |
-| Q4  | E2E test suite (10)            | QA + DO               |   13.00 | 06-08 | 06-12 |       |     |       |       | █ ◆M4 |       |
-| Q5  | Manual milestone gates         | QA                    |    2.50 | 05-25 | 06-15 |       |     |   █   |   █   |   █   |   █   |
-| Q6  | Operational quality            | QA                    |    2.00 | 05-18 | 06-18 |       |  █  |   █   |   █   |   █   |   █   |
-| Q7  | Demo dry-runs                  | QA + PM               |    1.00 | 06-10 | 06-16 |       |     |       |       |   █   |   █   |
-| D1  | AWS environment setup          | DO + PM               |    0.50 | 05-13 | 05-13 |   █   |     |       |       |       |       |
-| D2  | Terraform + ECR                | DO                    |    1.50 | 05-14 | 06-09 |   █   |     |       |       |   █   |       |
-| D3  | Data & secrets (RDS + KMS)     | DO + FS               |    2.00 | 06-09 | 06-10 |       |     |       |       |   █   |       |
-| D4  | Compute & ingress              | DO                    |    1.00 | 06-10 | 06-11 |       |     |       |       |   █   |       |
-| D5  | Deployment automation          | DO                    |    1.00 | 06-11 | 06-12 |       |     |       |       |   █   |       |
-| D6  | External wiring                | FS                    |    0.75 | 06-12 | 06-12 |       |     |       |       |   █   |       |
-| D7  | Acceptance & runbooks          | DO + QA + PM          |    2.00 | 06-12 | 06-15 |       |     |       |       |   █   | █ ◆M5 |
-| H1  | Perf hardening + load smoke    | DO + QA               |    0.50 | 06-15 | 06-16 |       |     |       |       |       |   █   |
-| H2  | OSS readiness + Legal sign-off | PM + FS + Legal       |    1.00 | 06-15 | 06-16 |       |     |       |       |       |   █   |
-| H3  | Demo to stakeholders           | PM + QA + FS          |    2.50 | 06-15 | 06-18 |       |     |       |       |       |   █   |
-| H4  | Documentation suite            | PM + FS               |    2.50 | 06-15 | 06-18 |       |     |       |       |       |   █   |
-| H5  | Public flip + npm publish      | PM + FS               |    1.00 | 06-19 | 06-19 |       |     |       |       |       | █ ◆M6 |
+| Stream                  | Owner          | PD  | W1 05-12 → 05-15 | W2 05-18 → 05-22 | W3 05-25 → 05-29 | P1.5 W4 06-01 → 06-05 | P1.5 W5 06-08 → 06-12 |
+| ----------------------- | -------------- | --: | :--------------: | :--------------: | :--------------: | :-------------------: | :-------------------: |
+| K — Kernel              | AG-S + AG-F1   |  10 |        █         |       █ ◆        |                  |                       |                       |
+| MEM — Memory            | AG-S           |   4 |        █         |        █         |       █ ◆        |                       |                       |
+| WF — Workflows          | AG-S           |   4 |                  |        █         |       █ ◆        |                       |                       |
+| **X0 — RAG survey**     | FS + AG-F (PT) |   4 |        █         |        █         |       █ ◆        |          █            |                       |
+| **RAG-1a chunking**     | AG-F1          |   2 |        █         |        █         |        ◆         |                       |                       |
+| **RAG-1b embeddings**   | AG-F2          |   2 |                  |        █         |       █ ◆        |                       |                       |
+| **RAG-2 vector**        | AG-S           |   4 |                  |        █         |       █ ◆        |                       |                       |
+| **RAG-3 composition**   | AG-S           |   3 |                  |        █         |       █ ◆        |                       |                       |
+| MS — Graph + Planner    | AG-F2          |   9 |        █         |        █         |        █         |                       |                       |
+| PRD-P — Planner Agent   | AG-F1 + AG-S   |   8 |                  |        █         |       █ ◆        |                       |                       |
+| CH — Teams channel      | FS + AG-F1     |   5 |        █         |        █         |       █ ◆        |                       |                       |
+| WRP — apps/api wiring   | FS             |   3 |        █         |        █         |        █         |                       |                       |
+| Smoke + P1.0 demo       | AG-S + FS      |   2 |                  |                  |    █ ◆ M6 P1.0   |                       |                       |
+| **A1 — Analytics (P1.5)** | AG-F1 + AG-S |   6 |                  |                  |                  |          █            |       █ ◆ M7          |
+| **A2 — FAQ (P1.5)**     | AG-F2 + AG-S   |   5 |                  |                  |                  |          █            |       █ ◆ M7          |
 
 ---
 
-## Sheet 5 — Resources Plan (weekly MM)
+## Sheet 5 — Resources Plan (weekly person-days, revised v3.1)
 
-| Role           |    HC |       W1 |       W2 |       W3 |       W4 |       W5 |       W6 |   May MM |   Jun MM | TOTAL MM | TOTAL AI MM |
-| -------------- | ----: | -------: | -------: | -------: | -------: | -------: | -------: | -------: | -------: | -------: | ----------: |
-| PM             |     1 |     0.27 |     0.00 |     0.03 |     0.05 |     0.07 |     0.21 |     0.30 |     0.33 |     0.63 |        0.53 |
-| Fullstack (FS) |     1 |     0.34 |     0.32 |     0.14 |     0.16 |     0.07 |     0.04 |     0.80 |     0.27 |     1.07 |        0.75 |
-| AG-Senior      |     1 |     0.05 |     0.32 |     0.18 |     0.30 |     0.46 |     0.00 |     0.55 |     0.76 |     1.31 |        0.91 |
-| AG-Fresher     |     1 |     0.05 |     0.23 |     0.16 |     0.32 |     0.27 |     0.00 |     0.44 |     0.59 |     1.03 |        0.77 |
-| QA             |     1 |     0.07 |     0.16 |     0.18 |     0.18 |     0.50 |     0.30 |     0.41 |     0.98 |     1.39 |        1.15 |
-| DevOps (DO)    |     1 |     0.16 |     0.00 |     0.00 |     0.00 |     0.25 |     0.07 |     0.16 |     0.32 |     0.42 |        0.29 |
-| **TOTAL (MM)** | **6** | **0.94** | **1.03** | **0.69** | **1.01** | **1.62** | **0.62** | **2.66** | **3.25** | **5.85** |    **4.40** |
+Each "FTE" cell is in person-days for the week. Working days: W1 = 4, W2 = 5, W3 = 5. **Demand exceeds supply per role in W2 and W3 even with aggressive parallelisation.** This is the capacity crisis in tabular form.
 
-6 HC × 5/22 × 6 weeks ≈ **6.82 MM** capacity. Base 86% utilization; AI 64% utilization. W5 is crunch week — front-load Q2 to W2 and D1+D2 to W1 (already scheduled).
+| Role              | FTE | W1 supply | W1 demand                                          | W2 supply | W2 demand                                                                       | W3 supply | W3 demand                                                                       | Total supply | Total demand | Overrun |
+| ----------------- | --: | --------: | -------------------------------------------------: | --------: | ------------------------------------------------------------------------------: | --------: | ------------------------------------------------------------------------------: | -----------: | -----------: | ------: |
+| **AG-S** (1.0)    | 1.0 |      4    | 4 (K3 + MEM1)                                       | 5         | 7 (K2 + MEM2 + WF1 + RAG-2 1 + RAG-3 1)                                          | 5         | 7 (WF2 + PRD WRITE1 + RAG-2 2 + RAG-3 2)                                         | 14           | **18**       | **+4**  |
+| **AG-F1** (1.0)   | 1.0 |      4    | 4 (K-testkit 2 + RAG-1a chunking 1 + Planner READ prep 1) | 5    | 6 (OpenAI adapter 1 + RAG-1a chunking 1 + Planner READ 3 + Teams JWT 1)        | 5         | 6 (Planner READ 2 + Teams JWT 1 + smoke 1 + buffer 2)                          | 14           | **16**       | **+2**  |
+| **AG-F2** (1.0)   | 1.0 |      4    | 4 (Graph client)                                    | 5         | 6 (Planner connector READ 3 + RAG-1b embeddings 2 + fixtures 1)                  | 5         | 6 (Planner connector WRITE 3 + RAG-1b embeddings 1 + fixtures 2)                | 14           | **16**       | **+2**  |
+| **FS** (0.5)      | 0.5 |      2    | 3 (apps/api boot 1.5 + X0 corpus survey 1.5)        | 2.5       | 4 (Teams skeleton 1.5 + mount 1 + X0 corpus curation 1.5)                       | 2.5       | 3 (smoke 1 + demo 1 + X0 ingestion dry-run 1)                                   | 7            | **10**       | **+3**  |
+| **TOTAL**         | **3.5** | **14**| **15**                                              | **17.5**  | **23**                                                                          | **17.5**  | **22**                                                                          | **49**       | **60**       | **+11** |
 
----
+Utilisation: **60 / 49 = 122%**. Conservative estimate; high end of band reaches **149%** (73 PD demand). **Every role is over.** AG-S is over by 4 PD (29% over capacity) — and AG-S is the single point of failure for kernel + memory + workflow + vector + RAG composition. One sick day collapses three streams.
 
-## Sheet 6 — Status Dashboard
+### Capacity overruns by role (visible to sponsor)
 
-### KPIs
+| Role  | Supply | Demand (mid) | Overrun | What gets dropped first if not mitigated                                          |
+| ----- | -----: | -----------: | ------: | --------------------------------------------------------------------------------- |
+| AG-S  |    14  |          18  |    +4   | RAG-3 composition (defers to P1.5); then `.parallel()` from WF                    |
+| AG-F1 |    14  |          16  |    +2   | Planner READ "search" tool (keep list + get only); Analytics defn stretch removed |
+| AG-F2 |    14  |          16  |    +2   | RAG-1b embeddings deeper test coverage; Planner WRITE etag edge cases             |
+| FS    |     7  |          10  |    +3   | X0 ingestion dry-run (corpus stays as files, not vectorised in W3); smoke pared   |
 
-| Total Capabilities | Total SP | Total Base MD | Total AI MD | Overall Progress % |
-| -----------------: | -------: | ------------: | ----------: | -----------------: |
-|                 50 |      401 |        130.40 |       97.22 |                 0% |
-
-### Progress by Phase
-
-| Phase     |   Caps |      SP |        PM |        FS |      AG-S |      AG-F |        QA |       DO |    Base MD |     AI MD |
-| --------- | -----: | ------: | --------: | --------: | --------: | --------: | --------: | -------: | ---------: | --------: |
-| R         |      4 |      23 |      5.60 |      0.30 |      0.60 |         0 |         0 |        0 |       6.50 |      5.85 |
-| S         |      6 |      31 |      0.88 |      6.63 |         0 |         0 |         0 |     2.50 |      10.00 |      5.85 |
-| K         |      7 |      53 |         0 |         0 |     10.00 |      6.00 |         0 |        0 |      16.00 |     10.40 |
-| W         |      6 |      40 |         0 |      9.50 |      1.00 |      2.00 |         0 |        0 |      12.50 |      8.10 |
-| M         |      2 |      23 |         0 |         0 |      5.25 |      2.25 |         0 |        0 |       7.50 |      4.88 |
-| T         |      1 |      23 |         0 |      3.00 |      3.50 |      2.50 |         0 |        0 |       9.00 |      6.30 |
-| A         |      4 |      10 |         0 |         0 |      2.25 |      2.00 |         0 |        0 |       4.25 |      2.83 |
-| N         |      6 |      47 |      1.03 |         0 |      3.97 |      5.50 |      1.00 |        0 |      11.50 |      7.65 |
-| O         |      4 |      27 |      0.50 |      1.00 |      3.50 |      2.50 |         0 |        0 |       7.50 |      5.30 |
-| Q         |      7 |      80 |      0.50 |         0 |         0 |         0 |     29.50 |        0 |      30.00 |     24.00 |
-| D         |      7 |      25 |      0.50 |      1.25 |         0 |         0 |      0.50 |     6.50 |       8.75 |      6.13 |
-| H         |      5 |      22 |      4.75 |      1.75 |         0 |         0 |      0.75 |     0.25 |       7.50 |      5.43 |
-| **TOTAL** | **50** | **401** | **13.75** | **23.43** | **30.47** | **22.75** | **31.75** | **9.25** | **130.40** | **97.22** |
-
-> Note: v2.7 mitigation #1 moved N5.1+N5.2 (1.0 MD) from AG-S to AG-F. Per-phase view above reflects post-mitigation state.
-
-### Top Risks (updated with CTO-grade concerns)
-
-| #   | Risk                                                                                                    | Likelihood | Impact       | Mitigation                                                                                                                                                                                                           | Owner                 |
-| --- | ------------------------------------------------------------------------------------------------------- | ---------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
-| 1   | **AG-Senior single point of failure** (resignation, illness, family emergency >3 days)                  | Med        | **Critical** | FS named as architectural backup (overlapping skillset). Trigger: AG-S unavailable >3 days → FS picks up K-phase critical path. Cross-pollinate via daily standups + pair-programming on K1.2, K4.1, M1.3, T1.7, O3. | PM                    |
-| 2   | AG-Senior over capacity (98% post-mitigation)                                                           | Med        | High         | Pre-kickoff mitigations #1 + #3 applied. Weekly capacity check at Friday standup. If AG-S trends >85%, defer N3 (analysis) to P2.                                                                                    | PM                    |
-| 3   | QA over capacity (94% post-mitigation)                                                                  | Med        | High         | DevOps absorbs Q4.7/Q4.8/Q4.9. If breached, Q4.7 (provider failover) goes nightly-only instead of every-PR.                                                                                                          | PM                    |
-| 4   | **Microsoft Entra admin-consent friction** at Seta IT (often takes 2–4 weeks for new app permissions)   | High       | High         | PM kicks off Entra app registration paperwork **Week 0 (before kickoff)**. Fallback: dev tenant for M3 demo if prod consent delayed.                                                                                 | PM + Seta IT          |
-| 5   | **MS Bot Framework / Graph API drift** mid-build                                                        | Med        | High         | Contract tests (Q3); ~1 day/quarter drift budget post-P1                                                                                                                                                             | AG-S                  |
-| 6   | **LLM API cost overrun on staging** (eval runs + E2E loops)                                             | Med        | Med          | Recorded fixtures default; CloudWatch budget alert at $200/$400/$600 monthly thresholds; AG-F owns weekly cost review                                                                                                | DevOps + PM           |
-| 7   | **Customer-data privacy review** for Planner data flowing through Anthropic/OpenAI                      | Med        | **High**     | Security + Legal review checkpoint at M3 (before Teams demo to stakeholders); zero-retention API agreements in place with both vendors; data-residency confirmation                                                  | PM + Security + Legal |
-| 8   | **Legal review of OSS publishing** blocks H5 (license choice, IP assignment, dep license compatibility) | Med        | **High**     | H2 capability now explicitly includes Legal sign-off as blocker for H5. Engage Legal at M0 (Week 1) not at H2 (Week 6)                                                                                               | PM + Legal            |
-| 9   | **AI assist savings don't materialize** for security/novel code                                         | Med        | Med          | Plan committed on Base MD (130.40) not AI MD. Weekly tracking of actual vs base; revert to base if AI savings <10% sustained                                                                                         | PM                    |
-| 10  | **AWS RDS pgvector setup complexity**                                                                   | Low        | Med          | D3 spike-tested in W1 by DevOps; fallback to self-hosted Postgres on EC2 if RDS pgvector blocked                                                                                                                     | DevOps                |
-| 11  | **Terraform state corruption** (state lock, accidental destroy)                                         | Low        | High         | Remote state in S3 + DynamoDB lock from D2; weekly state backup; no manual apply outside CI                                                                                                                          | DevOps                |
-| 12  | **Multi-agent orchestration novel — first attempt risk**                                                | Med        | High         | R1 spike validates pattern; K7 hard gate; O3.7 macro deferred to P2                                                                                                                                                  | AG-S                  |
-| 13  | **Scope creep mid-phase** (new "must-have" from stakeholders during P1)                                 | High       | Med          | Decision rights: PM can approve changes <2 MD without re-baseline; >2 MD requires CTO sign-off + scope swap from existing P1 items                                                                                   | PM + CTO              |
-| 14  | **Hiring lead time for P2 Frontend** (recruiting takes 6–8 weeks)                                       | Med        | High         | Recruiting starts **Week 3 of P1** (2026-05-25), not after P1 ends. Job description finalized W2.                                                                                                                    | PM + HR               |
-| 15  | **Design-partner customer not signed by M6+14** (blocks P2 business case)                               | Med        | High         | Sales team engaged Week 1; PM provides 1-pager deck for prospect conversations; 3 candidate accounts identified by M2                                                                                                | PM + Sales + CEO      |
+**Total overrun: ~11 PD on the mid estimate; up to 24 PD on the conservative end.** Without Options A/B/D this is the slip in numerical form.
 
 ---
 
-## Sheet 7 — Cost & Commercials (P1–P4)
+## Sheet 6 — Status Dashboard (revised v3.1)
 
-### 7.1 Headcount by phase
+### KPIs (engineering)
 
-| Role                   | P1 (7w) | P2 (5w) | P3 (5w) | P4 (4w) |
-| ---------------------- | :-----: | :-----: | :-----: | :-----: |
-| PM                     |    1    |    1    |    1    |    1    |
-| FS                     |    1    |    1    |    1    |    1    |
-| AG-Senior              |    1    |    1    |    1    |    1    |
-| AG-Fresher #1          |    1    |    1    |    1    |    1    |
-| AG-Fresher #2          |    1    |    1    |    1    |    1    |
-| QA                     |    1    |    1    |    1    |    1    |
-| DevOps                 |    1    |    1    |    1    |    1    |
-| Frontend (joins P2)    |    –    |    1    |    1    |    1    |
-| AG-3 (joins P3)        |    –    |    –    |    1    |    1    |
-| Frontend-2 (joins P3)  |    –    |    –    |    1    |    1    |
-| SRE (joins P4)         |    –    |    –    |    –    |    1    |
-| Security (joins P4)    |    –    |    –    |    –    |    1    |
-| **HC total per phase** |  **7**  |  **8**  | **10**  | **12**  |
+| Total streams | Total SP (P1.0) | Total PD est. (P1.0) | Total PD supply | Pre-rework util | P1.5 streams | P1.5 PD est. |
+| ------------: | --------------: | -------------------: | --------------: | --------------: | -----------: | -----------: |
+|            13 |             110 |              57–69   |              49 |    **116–141%** |            2 |        9–11  |
 
-### 7.2 AWS infrastructure cost
+### Progress by stream (kickoff state)
 
-| Phase            | Environment                                                                           | Monthly | Phase total |
-| ---------------- | ------------------------------------------------------------------------------------- | ------: | ----------: |
-| P1               | Staging (Fargate small, RDS db.t3.medium, ALB, NAT, ECR) + embedding ingestion bursts |     TBU |         TBU |
-| P2               | Staging + Prod (Fargate HA, RDS Multi-AZ db.r6g.large, ALB×2, NAT×2)                  |     TBU |         TBU |
-| P3               | + WAF, +CloudFront, +SES (email channel)                                              |     TBU |         TBU |
-| P4               | + Multi-region (us-east-1 + us-west-2 active-active), +Aurora cluster                 |     TBU |         TBU |
-| **AWS subtotal** |                                                                                       |         |     **TBU** |
-
-### 7.3 LLM API budget (OpenAI + OpenAI-compatible providers)
-
-| Phase            | Usage profile                                                                  | Monthly | Phase total |
-| ---------------- | ------------------------------------------------------------------------------ | ------: | ----------: |
-| P1               | Mostly recorded fixtures; embedding ingestion of Seta corpus; eval set + smoke |     TBU |         TBU |
-| P2               | First prod tenant pilot; light traffic                                         |     TBU |         TBU |
-| P3               | 3+ channels live; 2–5 paying tenants                                           |     TBU |         TBU |
-| P4               | Scale phase; 10+ tenants                                                       |     TBU |         TBU |
-| **LLM subtotal** |                                                                                |         |     **TBU** |
+| Stream     | SP | Owner pool      | PD est. | Tier | Status      |
+| ---------- | -: | --------------- | ------: | ---- | ----------- |
+| K          | 21 | AG-S + AG-F1    |   10–11 | P1.0 | Not started |
+| MEM        |  8 | AG-S            |    4–5  | P1.0 | Not started |
+| WF         |  8 | AG-S            |    4–5  | P1.0 | Not started |
+| X0         |  8 | FS + AG-F (PT)  |    4    | P1.0 | Not started |
+| RAG-1a     |  5 | AG-F1           |    2    | P1.0 | Not started |
+| RAG-1b     |  5 | AG-F2           |    2    | P1.0 | Not started |
+| RAG-2      |  8 | AG-S            |    4    | P1.0 | Not started |
+| RAG-3      |  5 | AG-S            |    3    | P1.0 | Not started |
+| MS         | 13 | AG-F2           |    8–9  | P1.0 | Not started |
+| PRD-P      | 13 | AG-F1 + AG-S    |    7–8  | P1.0 | Not started |
+| CH         |  8 | FS + AG-F1      |    4–5  | P1.0 | Not started |
+| WRP        |  5 | FS              |    2–3  | P1.0 | Not started |
+| Smoke+demo |  3 | AG-S + FS       |    1–2  | P1.0 | Not started |
+| A1 (Analytics) | 8 | AG-F1 + AG-S |    5–6  | P1.5 | Not started |
+| A2 (FAQ)   |  8 | AG-F2 + AG-S    |    4–5  | P1.5 | Not started |
 
 ---
 
-## Sheet 8 — Stakeholders, RACI & Communications Plan
+## §7 — Risk register (revised v3.1 — top 5, sharpened)
 
-### 8.1 Stakeholder map
+| #  | Risk                                                                                                                                                                                                                                                                                                                                                                                                                          | Likelihood   | Impact       | Mitigation                                                                                                                                                                                                                                                                                                                                                                          | Owner       |
+| -- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1  | **PLAN DEMAND EXCEEDS SUPPLY BY 22–49%. Slip is the central case, not the tail.** v3.1 demand 60–73 PD against 49 PD supply (§0.5, Sheet 5). Slip cannot be engineered away by reordering hours; it can only be addressed by Option A (deadline), Option B (hire), or Option D (pre-announce P1.5).                                                                                                                                                              | **Certain (without sponsor decision)** | **Critical** | **Sponsor decision on §10 Q1 and Q10 by 2026-05-15 EOD.** If neither A nor B is chosen, AG-S executes Option D: P1.0 lands Planner + RAG libraries on 2026-05-29; Analytics + FAQ pre-announced as P1.5 on 2026-06-12. **No silent slips.** The 2026-05-15 EOD checkpoint is the only honest pivot point. | AG-S (PM)   |
+| 2  | **RAG track is the largest single bet of new work** — 4 new packages + corpus collection + chart-card UX (P1.5), none of which existed in any form before this week. High execution risk; high integration risk between chunking↔embeddings↔vector↔rag. setup.md §6 explicitly calls out the iterative_scan correctness gate, which is silent-failure on regression.                                                       | **High**     | **Critical** | RAG-2 schema spike on Day 1 (2026-05-12, AG-S in parallel notebook). RAG-1a + RAG-1b ship as **libraries only in P1.0** — no product integration until P1.5 unless Option A/B chosen. Per-tenant correctness fixtures land before any product wires to vector. RAG-3 composition is the first stream dropped if AG-S overruns.                                                  | AG-S        |
+| 3  | **Senior AI 2 × 0.5 split is the single most fragile element.** AG-S now serves kernel + memory + workflow + agent-vector + RAG composition oversight (18 PD demand vs 14 PD supply per Sheet 5). One sick day collapses three streams. Architecture work is on the AG-S critical path for K, MEM, WF, RAG-2, RAG-3.                                                                                                       | **Med-High** | **Critical** | FS named architecture backup. Daily 15-min sync. AG-S writes ADRs as design unfolds (FS can pick up from them). **If AG-S is sick for >1 day, drop RAG-3 composition first, then `.parallel()` from WF, then `agent-vector` HNSW (keep schema only with sequential scan).**                                                                                                          | AG-S + FS   |
+| 4  | **FAQ Agent has a hard external dependency** — the corpus from the RAG data survey (X0). If the corpus isn't usable by EOD W2 (2026-05-22), FAQ Agent cannot integration-test in W3 even under Options A/B. Corpus risks: data not collected, format inconsistent, access rights unclear, citation requirements not met.                                                                                                  | **High**     | High         | X0 corpus inventory completes by EOD 2026-05-13 (Day 2). FS escalates immediately if any corpus source has unclear access rights or licensing. **If corpus isn't usable by 2026-05-22, FAQ Agent slips to P1.5 regardless of option** (Option D base case); Analytics Agent stays on 05-29 under Options A/B. PM communicates the corpus-readiness gate to sponsor on the 2026-05-15 status.                                       | FS + AG-S   |
+| 5  | **Multi-tenant pgvector + HNSW + iterative_scan + RLS is a known-correctness footgun zone.** setup.md §6 specifically flags the iterative_scan fix; errors here are **silent** — wrong rows returned, no exception. Cross-tenant data leak is the worst-case outcome. RLS bypass via vector similarity is a regression surface every test must hit.                                                                       | Med          | **Critical** | Per-tenant fixture tests **before** any production data lands in the vector store. Explicit `SET LOCAL app.tenant_id` test that runs an identical similarity query as two tenants and asserts disjoint chunk IDs. iterative_scan correctness test from setup.md §6 is a CI gate. AG-S owns the schema; freshers never write directly to `agent_vector.chunks` migrations.       | AG-S        |
 
-| Stakeholder              | Role                                   | Interest | Influence | Engagement                                                      |
-| ------------------------ | -------------------------------------- | -------- | --------- | --------------------------------------------------------------- |
-| CEO                      | Sponsor (business outcome)             | High     | High      | Approve · Weekly summary · Gate reviews (M3, M6)                |
-| CTO                      | Sponsor (technical)                    | High     | High      | Approve · Weekly · M0–M6 gate sign-off                          |
-| PMO                      | Approver (program governance)          | High     | High      | Approve · Weekly status report · Risk register review bi-weekly |
-| Head of Sales            | Consulted (design partner sourcing)    | High     | Med       | Inform · Bi-weekly · Owns BK-2                                  |
-| Head of Customer Success | Consulted (rollout plan)               | Med      | Med       | Inform · Bi-weekly post-M3                                      |
-| Head of Security         | Consulted (security review)            | Med      | High      | Approve at M3 gate + H2 OSS release · Owns Risk #7              |
-| Head of Legal            | Consulted (OSS license, customer data) | Low      | High      | Approve H2 OSS release · Owns Risk #8                           |
-| Head of Marketing        | Informed (OSS launch comms)            | Low      | Med       | Inform · M5 onwards · Owns BK-5                                 |
-| Seta IT                  | Consulted (Entra admin consent)        | Low      | High      | Owns Risk #4 · Engage Week 0                                    |
-| HR / Recruiting          | Consulted (P2 Frontend hiring)         | Low      | Med       | Owns Risk #14 · Engage W3 of P1                                 |
-| Engineering org (wider)  | Informed                               | Low      | Low       | Inform · Bi-weekly tech-share session                           |
-| Project team (6 HC)      | Responsible                            | High     | –         | Daily standup · Weekly retro                                    |
+### Risks de-emphasised vs v3.0 (and why)
 
-### 8.2 RACI for P1 phase gates
+- **v3.0 Risk #4 (MS Graph admin consent friction)** — still present but lower likelihood under v3.1 because RAG-2 silent-correctness now dominates. Mitigation: reuse Epic 1 app registration; new scopes via dev tenant fallback.
+- **v3.0 Risk #5 (WF minimum surface)** — now subsumed under v3.1 Risk #3 (AG-S critical path). Same drop order applies.
 
-| Decision / Gate            | R (Responsible)  | A (Accountable) | C (Consulted)                   | I (Informed)                    |
-| -------------------------- | ---------------- | --------------- | ------------------------------- | ------------------------------- |
-| M0 Setup green             | PM + FS          | PM              | DevOps, AG-S, AG-F, QA          | CTO                             |
-| M1 Kernel acceptance       | AG-S + AG-F      | PM              | QA, FS                          | CTO                             |
-| M2 API end-to-end          | FS + AG-F        | PM              | QA, AG-S                        | CTO                             |
-| M3 MS365 OAuth + Planner   | AG-S             | PM              | Security, Legal, Seta IT        | CEO, CTO                        |
-| M4 Teams round-trip        | AG-S + AG-F + FS | PM              | QA, Security                    | CTO                             |
-| M5 Staging deploy + 10 E2E | DevOps + QA      | PM              | All team                        | CEO, CTO, PMO                   |
-| M5b Memory + RAG             | AG-S + AG-F + QA | PM              | FS, DevOps                      | CTO                             |
-| M5c Inbound SSO              | FS + AG-S        | PM              | QA, Security                    | CTO                             |
-| M6 P1 public release       | PM + FS          | PM              | Legal (H2), Security, Marketing | CEO, CTO, PMO, all stakeholders |
-| P2 go/no-go                | PM               | CEO + CTO       | PMO, Sales (BK-2), Security     | All stakeholders                |
+### Risks de-emphasised vs v2.7 — unchanged from v3.0
 
-### 8.3 Communications cadence
-
-| What                         | Audience                        | Frequency        | Format                              | Owner          |
-| ---------------------------- | ------------------------------- | ---------------- | ----------------------------------- | -------------- |
-| Daily standup                | Project team                    | Daily, 9:30 AM   | 15 min sync                         | PM             |
-| Weekly status report         | CEO, CTO, PMO                   | Friday EOD       | 1-page email: progress, risks, asks | PM             |
-| Bi-weekly stakeholder update | All stakeholders                | Every 2nd Friday | 30-min meeting + slide deck         | PM             |
-| Risk register review         | PM + CTO                        | Bi-weekly        | 30 min, walks Sheet 6 risks         | PM             |
-| Tech-share session           | Engineering org (wider)         | Bi-weekly        | 30 min open-invite demo             | AG-S           |
-| Sales enablement             | Sales team                      | M2, M4, M6       | Demo + Q&A                          | PM + Sales     |
-| Stakeholder demo             | CEO, CTO, PMO, all stakeholders | M6 (2026-06-19)  | 60 min + recording                  | PM + QA + AG-S |
-| Postmortem                   | PM + team                       | M6+7 days        | Retrospective document              | PM             |
-
-### 8.4 Decision rights (avoid mid-phase paralysis)
-
-| Decision class                                       | Approver                 | Examples                             |
-| ---------------------------------------------------- | ------------------------ | ------------------------------------ |
-| Scope change <2 MD or trivial (renaming, file moves) | PM                       | Reassign a task between team members |
-| Scope change 2–5 MD or swap of equal MD              | PM with CTO informed     | Defer N3.3 in exchange for N7.1      |
-| Scope change >5 MD or affecting milestones           | CTO with PMO informed    | Defer entire sub-capability to P2    |
-| Headcount change                                     | CEO + CTO                | Add/remove team member               |
-| Tech stack change (e.g., AWS → GCP)                  | CTO with PMO informed    | Material framework swap              |
-| Budget overrun >10%                                  | CEO + CTO + CFO          | Anything pushing P1 past $137k       |
-| Public communication (OSS launch, blog)              | PM with Marketing review | M6 announcement                      |
-
-### 8.5 Change management for Seta employees (post-M6)
-
-| Audience                | Action                                                    | Owner          | When       |
-| ----------------------- | --------------------------------------------------------- | -------------- | ---------- |
-| First pilot team (BK-1) | Onboarding session + Teams app install + feedback channel | PM + CSM       | M6+7 days  |
-| Wider engineering       | Tech-share on architecture + how to add new modules       | AG-S           | M6+14 days |
-| All Seta employees      | Optional: company-wide demo + opt-in for early access     | PM + Marketing | M6+30 days |
-| Sales team              | Sales-enablement deck + 2-min product video               | PM + Marketing | M6         |
+The compressed plan removes (or downgrades) these v2.7 risks because the corresponding scope is dropped: Customer-data privacy review, Legal/OSS, AI assist savings, AWS RDS pgvector setup, Terraform state, P2 Frontend hiring lead time, Design-partner LOI.
 
 ---
 
-## §9a — Multi-Phase Roadmap (P1 → P4 narrative)
+## §8 — What was deferred to P1.5 / P2 (explicit, for sponsor visibility, revised v3.1)
 
-| Phase     | Window                | Theme                                        | Headline deliverable                                                                                       |          $ | Production Status              |
-| --------- | --------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------: | ------------------------------ |
-| **P1**    | 7 wks · 05-11 → 06-26 | **MVP on AWS staging**                       | Python agentic framework + 3 agents in Teams; RAG data surveyed + POC; 12 E2E green; OSS published (PyPI + npm) |      $125k | Staging only                   |
-| **P2**    | 5 wks · 06-29 → 07-31 | **Production cutover + Workflow Engine**      | Prod env (multi-AZ); inbound SSO; basic Studio UI; Workflow Engine; first design-partner tenant live        |      $167k | **🟢 First production deploy** |
-| **P3**    | 5 wks · 08-03 → 09-04 | **Channels + commercial + memory**           | Slack/Email channels; semantic-recall memory; metering + billing integration (vendor TBD)                   |      $209k | Multi-channel prod             |
-| **P4**    | 4 wks · 09-07 → 10-02 | **Scale + Knowledge Graph + security audit** | Multi-region active-active; Knowledge Graph; SOC 2 Type I prep; 3rd-party security audit                   |      $228k | **🟢 Enterprise-grade prod**   |
-| **TOTAL** | **21 wks**            | **Zero → enterprise agent platform**         | All industry-standard features at production quality                                                       | **~$729k** | Full production-ready          |
+P1.5 is a proposed 2-week follow-on increment **2026-06-01 → 2026-06-12** that captures what doesn't fit in P1.0 under Option D. The sponsor must decide whether to authorise it (see §10 Q6) — but absent Options A or B, the team will deliver Option D regardless of authorisation: the only question is whether P1.5 is funded as a named increment or appears as an unplanned slip.
 
-### Production-Ready Definition (cumulative from end of P2)
+### Deferred to P1.5 (Option D base case)
 
-| Pillar            | Standard                                                                                                                              |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Availability      | 99.9% SLA with documented incident response runbook                                                                                   |
-| Disaster Recovery | RDS automated snapshots + WAL retention; cross-region replica P4; quarterly restore drill                                             |
-| Security          | SOC 2 in-progress (P4); annual 3rd-party security audit; quarterly secret rotation; encryption at rest + in transit; KMS-wrapped DEKs |
-| Observability     | OTel distributed tracing → CloudWatch + X-Ray; SLI/SLO dashboards; alerting                                                           |
-| Compliance        | Append-only audit log per tenant; GDPR delete; data-residency options                                                                 |
-| Commercial        | Metering enforced; per-tenant quotas; billing integration (vendor TBD); usage dashboard                                               |
-| Scale             | Load-tested; horizontal scale validated; multi-region active-active by P4                                                             |
-| Operations        | On-call rotation; top-10 incident runbooks; postmortem template                                                                       |
+| Item                                                  | Reason for deferral                  | Recovery cost (est.) | Lands by   |
+| ----------------------------------------------------- | ------------------------------------ | -------------------: | ---------- |
+| **Analytics Agent** (definition + tools + chart-card) | v3.1 capacity overrun                | ~5–6 PD              | 2026-06-12 |
+| **Seta FAQ Agent** (definition + retrieve/cite)       | v3.1 capacity overrun + corpus dependency | ~4–5 PD          | 2026-06-12 |
+| RAG-3 composition wired to FAQ product                | Library lands P1.0; product wire P1.5 | ~2 PD AG-S           | 2026-06-12 |
+| Full corpus ingestion run                             | Dry-run only in P1.0                 | ~2 PD FS             | 2026-06-12 |
+| Sentry wiring                                         | No DevOps headcount in P1            | ~1 PD FS             | P1.5       |
+| Inbound SSO web UI (Entra OIDC + Google OIDC)         | Sponsor confirmed deferral           | ~5 PD FS + AG-S      | P2         |
+| 30-query eval set + replay harness                    | No QA headcount in P1                | ~3 PD                | P1.5       |
+| Documentation suite + cookbook                        | Cut from P1.0 critical path          | ~2 PD                | P1.5       |
+| Public OSS flip + npm publish + Legal sign-off        | Sponsor confirmed deferral           | ~3 PD                | P2         |
 
-### Per-Phase Acceptance Gates
+### Deferred to P2 (confirmed not P1 under any option)
 
-| Gate                          | At end of  | Pass criteria                                                                                                                                     |
-| ----------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P1 Gate                       | 2026-06-19 | All Sheet 2 deliverables shown · 10 E2E green · BK-1 baseline measured · BK-2 design-partner LOI in flight · OSS public · npm publish live        |
-| **Production Cutover**        | 2026-07-31 | Prod AWS env serving traffic · SLOs defined · Studio MVP usable · first design-partner tenant live and using it weekly · runbooks approved by ops |
-| P3 Gate                       | 2026-09-04 | 3+ channels live in prod · billing live for 1+ tenant · RAG-powered Q&A working · Python SDK on PyPI                                            |
-| **Production-Ready Complete** | 2026-10-02 | Multi-region failover drill green · SOC 2 Type I evidence complete · security audit report clean · Knowledge Graph Q&A demonstrated               |
-
-### Hiring Plan
-
-| Phase | HC  | Add                            | Recruiting kickoff                                 |
-| ----- | --- | ------------------------------ | -------------------------------------------------- |
-| P1    | 6   | –                              | –                                                  |
-| P2    | 7   | +1 Frontend (Studio)           | **Week 3 of P1** (2026-05-25) — 6–8 week lead time |
-| P3    | 9   | +1 AG specialist + +1 Frontend | Week 1 of P2 (2026-06-22)                          |
-| P4    | 11  | +1 SRE + +1 Security           | Week 1 of P3 (2026-08-03)                          |
-
-## §9b — P2 Detailed Plan (preview)
-
-P2 is scoped narrower than initially proposed (was 4 weeks, now 6 weeks) per Senior PM review — original P2 scope was 12+ weeks of work compressed into 4. Realistic P2:
-
-| Sub-phase | Capability                                                                  | Effort (est MD) | Owner                                                                          |
-| --------- | --------------------------------------------------------------------------- | --------------: | ------------------------------------------------------------------------------ |
-| P2-A      | Production AWS environment (multi-AZ, prod-grade RDS, prod Secrets Manager) |              10 | DevOps                                                                         |
-| P2-B      | Inbound SSO (Entra OIDC + Google OIDC)                                      |              12 | FS + AG-S                                                                      |
-| P2-C      | Studio web UI MVP (agent list, config viewer, basic chat playground)        |              18 | Frontend (new HC) + FS                                                         |
-| P2-C2     | **Workflow Engine** (builder, execution engine, branching, suspend/resume, state persistence) |              12 | AG-S + AG-F                                                                    |
-| P2-D      | Audit log domain + GDPR delete capability                                   |               8 | FS                                                                             |
-| P2-E      | Prod secret rotation automation                                             |               4 | DevOps                                                                         |
-| P2-F      | CloudWatch SLO dashboards + alerting                                        |               5 | DevOps                                                                         |
-| P2-G      | First design-partner onboarding (Entra consent, key issuance, training)     |               6 | PM + Sales + CSM                                                               |
-| P2-H      | P2 hardening + demo + P3 plan                                               |               8 | PM + QA + all                                                                  |
-| Subtotal  | **9 sub-phases**                                                            |      **~83 MD** | 8 HC × 5 wks = 200 MD capacity (42% util — comfortable for first prod cutover + Workflow Engine) |
-
-**Deferred to P3** (was originally P2): memory tiers (semantic recall) — this is a non-trivial feature that deserves dedicated focus, not squeezed into prod-cutover phase. Note: Workflow Engine moved from P3 to P2 to enable teams to build structured agent workflows early.
+| Item                                          | Confirms                                                                       |
+| --------------------------------------------- | ------------------------------------------------------------------------------ |
+| AWS staging via Terraform (multi-AZ prod env) | Confirmed                                                                      |
+| Studio web UI                                 | Confirmed; frontend role not on team                                           |
+| Dual-language Python framework + FastAPI      | Confirmed                                                                      |
+| Audit log domain + GDPR delete                | Confirmed                                                                      |
+| Production secret rotation automation         | Confirmed                                                                      |
+| CloudWatch SLO dashboards + alerting          | Confirmed                                                                      |
+| Workflow engine `.branch()` / `.dowhile()` / `.foreach()` + pluggable `ExecutionEngine` | Per `platform/agent/workflows/SCOPE.md` |
+| Semantic-recall memory (vector-backed)        | Per `platform/agent/memory/SCOPE.md`                                            |
+| Long-term memory across conversations         | Per v2.7 §2.5 "P3"                                                              |
+| Slack / Email / Voice channels                | Per v2.7 §2.5                                                                  |
+| Billing / metering integration                | Per v2.7 §2.5                                                                  |
+| Multi-region failover                         | Per v2.7 §2.5                                                                  |
+| SOC 2 prep                                    | Per v2.7 §2.5                                                                  |
 
 ---
 
+## §9 — Stakeholders, RACI & comms (compressed, revised v3.1)
 
-## §10 — Pre-Kickoff Approval Checklist
+### 9.1 Stakeholder map (revised)
 
-Before this plan is approved and the project kicks off Monday 2026-05-11, the following must be true:
+| Stakeholder                      | Role                       | Engagement (compressed cadence)                                        |
+| -------------------------------- | -------------------------- | ---------------------------------------------------------------------- |
+| CEO + CTO                        | Sponsor                    | **Twice-weekly written status** (Tue + Fri EOD); **mid-W1 capacity-gate decision Fri 2026-05-15 16:00**; P1.0 demo 2026-05-29; P1.5 demo 2026-06-12 (under Option D) |
+| PMO                              | Approver                   | Friday-only written status; risk register attached                     |
+| Head of Sales                    | Consulted                  | M6 demo recording shared; LOI track P1.5+                              |
+| Head of Security                 | Consulted                  | Two review checkpoints: M-MEM (2026-05-27) + **M-RAG vector RLS gate (2026-05-29)** |
+| Head of Legal                    | (Not engaged in P1)        | Re-engaged in P1.5+ if OSS publishing authorised                       |
+| Seta IT                          | Consulted (Entra + corpus) | Engaged via Epic 1; **also engaged for corpus access rights review by EOD 2026-05-13** |
+| Project team (3.5 FTE)           | Responsible                | Daily 15-min standup (9:30); Friday 30-min retro                       |
 
-| #   | Item                                                           | Owner         | Status  |
-| --- | -------------------------------------------------------------- | ------------- | ------- |
-| 1   | Business case (§0) reviewed by CEO                             | CEO           | Pending |
-| 2   | Total $ envelope (~$715k) approved by CFO                      | CFO           | Pending |
-| 3   | P1 commit (~$125k + 6 HC × 6 wks opportunity cost) signed off  | CEO + CTO     | Pending |
-| 4   | All 6 P1 team members confirmed available 100% from 2026-05-11 | CTO + HR      | Pending |
-| 5   | Entra admin consent paperwork initiated with Seta IT           | PM + Seta IT  | Pending |
-| 6   | Sales team briefed on BK-2 (design partner LOI by M6+14)       | PM + Sales    | Pending |
-| 7   | Legal engaged for OSS license review (H2 prep)                 | PM + Legal    | Pending |
-| 8   | Security briefed on customer-data review (M3 checkpoint)       | PM + Security | Pending |
-| 9   | P2 Frontend recruiting brief drafted (kickoff W3 of P1)        | PM + HR       | Pending |
-| 10  | This plan v2.7 (or successor) signed by CEO, CTO, PMO          | All           | Pending |
+### 9.2 RACI for the revised P1 gates
+
+| Gate                              | R (Responsible)  | A (Accountable) | C (Consulted)         | I (Informed)        |
+| --------------------------------- | ---------------- | --------------- | --------------------- | ------------------- |
+| **W1 capacity-gate (2026-05-15)** | AG-S             | **CEO + CTO**   | FS                    | PMO                 |
+| M-K Kernel acceptance             | AG-S + AG-F1     | AG-S            | FS                    | CTO                 |
+| M-MEM Memory bound                | AG-S             | AG-S            | FS, Security          | CTO                 |
+| M-WF Workflow smoke               | AG-S             | AG-S            | FS                    | CTO                 |
+| **M-RAG (vector + RLS gate)**     | AG-S             | AG-S            | **Security**          | CTO                 |
+| **X0-gate (corpus ready)**        | FS               | AG-S            | Seta IT               | CTO                 |
+| M-CH Teams round-trip             | FS + AG-F1       | AG-S            | AG-F2                 | CTO, Seta IT        |
+| **M6 P1.0 Demo (2026-05-29)**     | AG-S + FS        | AG-S            | All team              | CEO, CTO, PMO       |
+| **M7 P1.5 Demo (2026-06-12)**     | AG-S + AG-F      | AG-S            | All team              | CEO, CTO, PMO       |
+| P1.5 / P2 go/no-go                | AG-S (recommend) | CEO + CTO       | PMO                   | All stakeholders    |
+
+### 9.3 Communications cadence (compressed)
+
+| What                              | Audience           | Frequency                        | Format                                      | Owner   |
+| --------------------------------- | ------------------ | -------------------------------- | ------------------------------------------- | ------- |
+| Daily standup                     | Project team       | Mon–Fri 9:30                     | 15 min sync                                 | AG-S    |
+| Written status                    | CEO, CTO, PMO      | Tue + Fri EOD                    | 1-page email: progress + Risk #1 status     | AG-S    |
+| **W1 capacity-gate review**       | CEO, CTO, AG-S, FS | **Fri 2026-05-15 16:00**         | **30 min — sponsor picks A/B/C/D**          | AG-S    |
+| Weekly retro                      | Project team       | Fri 16:00                        | 30 min                                      | AG-S    |
+| **M6 P1.0 demo**                  | CEO, CTO, PMO      | Fri 2026-05-29 14:00             | 5-min recording + 25 min Q&A                | AG-S    |
+| Post-P1.0 decision memo           | CEO, CTO, PMO      | Mon 2026-06-01 EOD               | Written: P1.5 scope + execution status      | AG-S    |
+| **M7 P1.5 demo (Option D)**       | CEO, CTO, PMO      | Fri 2026-06-12 14:00             | 5-min recording + 25 min Q&A                | AG-S    |
 
 ---
+
+## §10 — Decisions required from sponsor (BEFORE 2026-05-15 EOD)
+
+v3.1 sharpens the sponsor-decision list because the deadline for the most important question (Q1) has moved earlier. Under the v3.1 mandate, **Q1 must be answered before W1 close** — if 2026-05-31 is still hard and the hire is not authorised, Option D is the only achievable path and the sponsor must hear it now to avoid a surprise on 2026-05-29.
+
+| #   | Decision                                                                                                                                                                                                                                                                                | Default if not answered                                                                                                                            | Deadline       |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| Q1  | **Is 2026-05-31 still a hard deadline given the v3.1 scope additions, or will it move to 2026-06-12 (Option A)?** §0.5 demonstrates the literal mandate is infeasible. If 05-31 is hard *and* Q10 says "no hire", Option D is the only honest plan.                                | Treated as **hard** — Option D in effect (P1.0 on 05-29; P1.5 on 06-12).                                                                          | **2026-05-15 EOD** |
+| Q2  | OSS public flip + npm publish — confirmed slip to P1.5+?                                                                                                                                                                                                                                | Treated as **slipped** (no change from v3.0).                                                                                                       | 2026-05-12 AM  |
+| Q3  | Inbound web SSO (Entra + Google OIDC web flow) — confirmed deferred to P2?                                                                                                                                                                                                              | Treated as **deferred** (no change from v3.0).                                                                                                      | 2026-05-12 AM  |
+| Q4  | AWS staging deployment — confirmed dev compose only?                                                                                                                                                                                                                                    | Treated as **dev compose only** (no change from v3.0).                                                                                              | 2026-05-12 AM  |
+| Q5  | Memory + workflow P1 overrides — still firm under v3.1?                                                                                                                                                                                                                                 | Treated as **firm**. Drop order if forced: `.parallel()` from WF, then RAG-3 composition, then full WF, then memory recall (working-memory only). | 2026-05-13 EOD |
+| Q6  | **P1.5 increment (2026-06-01 → 2026-06-12) — authorised?** This is the home for Analytics + FAQ + RAG product wire under Option D. Recruiting/contracting for P1.5 needs notice now if planned.                                                                                       | Treated as **TBD — confirm at M6 demo 2026-05-29**. AG-S executes P1.5 work plan regardless, but staffing decisions stall without authorisation.   | 2026-05-15 EOD |
+| Q7  | In the event of slippage, preferred remedy — deadline relief (A), team expansion (B), scope cut (C, contradicts mandate), or pre-announced split (D)?                                                                                                                                  | Treated as **Option D** per PM recommendation in §0.5.                                                                                              | **2026-05-15 EOD** |
+| Q8  | "No dedicated QA in P1" — sponsor accepts freshers doubling as QA?                                                                                                                                                                                                                      | Treated as **yes** (no change from v3.0).                                                                                                           | 2026-05-12 AM  |
+| **Q9** | **(NEW) Of the three agents (Planner / Analytics / FAQ), if exactly one must ship by 2026-05-31, which is it?** AG-S recommends **Planner** (lowest external dependency; most tool-call complete via Epic-1 ground work). Analytics ships next under Option D (read-only, no RAG). **FAQ slips to P1.5** because it has the most external dependencies (corpus + RAG-3 wire + citation review). | Treated as **Planner only on 05-29**; Analytics + FAQ to P1.5.                                                                                     | **2026-05-15 EOD** |
+| **Q10** | **(NEW) Will the sponsor authorise a +1 senior AI hire (Option B), onboarded by 2026-05-15, to make P1 + 2026-05-31 achievable with full scope?** This is the only path to "all scope, original deadline" without heroics. A "no" here, combined with a "hard" Q1, forces Option D. | Treated as **no hire** — Option D execution proceeds.                                                                                              | **2026-05-15 EOD** |
+
+**The three decisions that must come by 2026-05-15 EOD** to avoid a silent slip: **Q1 (deadline), Q7 (remedy preference), Q10 (hire authorisation)**. Q6 and Q9 are strongly preferred by 2026-05-15 but can land within W2 without breaking the plan.
+
+---
+
+## §11 — Pre-kickoff approval checklist (revised v3.1)
+
+| #   | Item                                                                                                                  | Owner            | Status  |
+| --- | --------------------------------------------------------------------------------------------------------------------- | ---------------- | ------- |
+| 1   | §0.5 capacity math reviewed and acknowledged by CEO + CTO                                                              | CEO + CTO        | Pending |
+| 2   | **Option A / B / C / D chosen explicitly** (PM recommends A or B; failing both, D)                                    | CEO + CTO        | **Pending — 2026-05-15 EOD** |
+| 3   | §10 sponsor decisions Q1–Q10 answered (or defaults accepted in writing)                                                | CEO + CTO        | Pending |
+| 4   | §6 disposition table reviewed; sponsor accepts the P1.0/P1.5/DROPPED split for the chosen option                       | CEO + CTO        | Pending |
+| 5   | §0 revised BK KPIs accepted (BK-1/3/4/6/7 — BK-2, BK-5 deferred)                                                       | CEO + CTO        | Pending |
+| 6   | All 3.5 P1 team members confirmed available 100% of their FTE from 2026-05-12 to 2026-05-29 (and to 2026-06-12 under D) | CTO + HR         | Pending |
+| 7   | Entra admin consent for existing Planner scopes verified; **corpus access rights for X0 confirmed by 2026-05-13**     | AG-S + Seta IT   | Pending |
+| 8   | Acknowledgement that v3.1 demand exceeds supply by 22–49% — slip is the central case without a sponsor decision        | AG-S + CEO + CTO | Pending |
+| **9** | **(NEW) Q10 (hire authorisation) answered by 2026-05-15 EOD** — if "no" and Q1 is "hard", Option D is in force      | CEO + CTO + HR   | **Pending — 2026-05-15 EOD** |
+
+---
+
+## §12 — Changelog vs prior plans
+
+This section documents the disposition of every prior section. No content has been silently dropped.
+
+### v3.0 → v3.1 changes (this revision, 2026-05-12)
+
+| Area                                          | v3.0 state                                                       | v3.1 state                                                                                                              |
+| --------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| §0.5 capacity math                            | Demand 40–48 PD vs supply 49 PD (marginally infeasible)          | **Demand 60–73 PD vs supply 49 PD (structurally infeasible)** — opens with explicit honest framing.                     |
+| §0.5 options                                  | A / B / C with C recommended                                     | **A / B / C / D; A or B recommended, D as honest fallback under literal mandate. C explicitly NOT recommended** (contradicts sponsor reversal). |
+| §3 objectives                                 | 6 objectives                                                     | **9 objectives, P1.0 / P1.5 tier marked**                                                                               |
+| §4 roadmap                                    | 3 weeks                                                          | **3 weeks P1.0 + 2 weeks P1.5 columns**; 6 new streams added (X0, RAG-1a, RAG-1b, RAG-2, RAG-3, A1, A2)                  |
+| §5 milestones                                 | M-K, M-MEM, M-WF, M-CH, M6                                       | **+ M-RAG, X0-gate, M7 P1.5**                                                                                            |
+| §6 disposition                                | Single drop list                                                 | **Tri-state disposition table: P1.0 / P1.5 / DROPPED, with Option-A vs Option-D vs Option-C columns**                  |
+| Sheet 3 SP table                              | 8 streams, 79 SP, 40–48 PD                                       | **15 streams, 126 SP total, 57–69 PD P1.0 + 9–11 PD P1.5**                                                              |
+| Sheet 5 capacity table                        | 96% utilisation                                                  | **122% utilisation (mid); every role overrun visible per row**                                                          |
+| §7 risks                                      | Top 5; #1 was "math doesn't work, slip is base case"             | **Top 5 sharpened**: #1 = structural infeasibility; #2 = RAG bet; #3 = AG-S split; #4 = corpus dependency; #5 = pgvector + iterative_scan + RLS silent-failure |
+| §10 sponsor decisions                         | Q1–Q8                                                            | **Q1–Q10; Q9 (one-agent-by-05-31) and Q10 (hire authorisation) NEW; Q1 deadline moves earlier to 2026-05-15 EOD**       |
+| §11 pre-kickoff checklist                     | 8 items                                                          | **9 items; item 2 makes the A/B/C/D choice explicit**                                                                   |
+
+### Re-added to P1 in v3.1 (vs v3.0 drop list)
+
+- **Analytics Agent** — back in P1.5 under Option D; back in P1 fully under Options A/B.
+- **Seta FAQ Agent** — back in P1.5 under Option D; back in P1 fully under Options A/B.
+- **Full RAG track** (`@seta/agent-chunking`, `-embeddings`, `-vector`, `-rag`) — libraries in P1.0; product wire in P1.5 under Option D; fully in P1 under Options A/B.
+- **RAG data survey + corpus structuring** — parallel from W1 regardless of option.
+
+### Items still dropped in v3.1 (sponsor has NOT overridden)
+
+- Inbound web SSO (Entra + Google OIDC web flow) — Teams SSO + OBO only.
+- Studio web UI.
+- OSS public flip + npm publish.
+- Dual-language Python framework + FastAPI service.
+- AWS Terraform staging.
+- (Plus all v2.7 → v3.0 items already listed in §6.)
+
+### References to external contracts (unchanged + additions)
+
+- The kernel + memory + workflow contracts: same as v3.0 (`platform/agent/core/SCOPE.md`, `platform/agent/memory/SCOPE.md`, `platform/agent/workflows/SCOPE.md`).
+- **(NEW)** The RAG track contracts must land as new SCOPE.md files in W1 for each new package — `platform/agent/chunking/SCOPE.md`, `platform/agent/embeddings/SCOPE.md`, `platform/agent/vector/SCOPE.md`, `platform/agent/rag/SCOPE.md`. AG-S authors these alongside ADR-0013 (vector schema + iterative_scan).
+- `platform/db` `OWNER_ORDER` must be expanded by 3 owners under v3.1: memory, workflows, **vector**.
+- setup.md §6 specifies `agent_vector.chunks` schema, pgvector HNSW, and the iterative_scan fix — all are P1.0 requirements and the M-RAG gate.
+
+---
+
+**End of plan v3.1 (re-expansion after 2026-05-12 sponsor reversal).**
