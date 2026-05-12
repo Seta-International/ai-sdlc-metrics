@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { LlmError } from '../errors'
+import type { ModelAdapter } from '../models/adapter'
 import { createAdapterRegistry } from '../models/registry'
 import { FakeAdapter } from '../testkit/fake-adapter'
-import type { AdapterRequest, AgentConfig, KernelChunk, ModelAdapter, RunCtx } from '../types'
+import type { AdapterRequest, AgentConfig, KernelChunk, ModelStream, RunCtx } from '../types'
 import { runModelStepWithFallback } from './fallback'
 
 function makeCtx(signal = new AbortController().signal): RunCtx {
@@ -29,7 +30,7 @@ class ThrowAdapter implements ModelAdapter {
   readonly provider = 'x'
   private calls = 0
   constructor(private readonly errs: unknown[]) {}
-  async stream(_req: AdapterRequest, _ctx: RunCtx): ReturnType<ModelAdapter['stream']> {
+  async stream(_req: AdapterRequest, _ctx: RunCtx): Promise<ModelStream<KernelChunk>> {
     const err = this.errs[this.calls++]
     if (err === undefined) throw new Error('adapter exhausted')
     throw err

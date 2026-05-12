@@ -1,3 +1,4 @@
+import type { KernelError } from '../errors'
 import { kernelErrorOf, LlmError } from '../errors'
 import { isAbortError } from '../errors/classify'
 import { prepareTools } from '../models/prepare-tools'
@@ -5,7 +6,6 @@ import type {
   AdapterRequest,
   AgentConfig,
   KernelChunk,
-  KernelError,
   KernelMessage,
   ProcessorContext,
   RunCtx,
