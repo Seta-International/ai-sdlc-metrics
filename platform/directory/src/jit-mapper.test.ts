@@ -10,15 +10,15 @@ describe('JIT mapper', () => {
 
   afterAll(() => sql.end())
 
-  it('inserts auth.users and directory.external_identities on first sight', async () => {
+  it('upserts then idempotently updates on second sighting', async () => {
     const tenantId = '66666666-6666-6666-6666-666666666666'
     const subject = 'entra-subject-1'
     await sql`INSERT INTO tenant.tenants (id, slug) VALUES (${tenantId}, ${`t-${tenantId.slice(0, 8)}`}) ON CONFLICT DO NOTHING`
     // Clean up any prior runs of these tests so we start from a known state
-    await sql`DELETE FROM directory.external_identities WHERE external_subject = ${subject}`
-    await sql`DELETE FROM auth.users WHERE external_subject = ${subject}`
+    await sql`DELETE FROM directory.external_identities WHERE provider_id = 'entra' AND external_subject = ${subject}`
+    await sql`DELETE FROM auth.users WHERE external_provider = 'entra' AND external_subject = ${subject}`
 
-    const user = await mapper.upsertFromIdToken({
+    const user1 = await mapper.upsertFromIdToken({
       tenantId,
       providerId: 'entra',
       externalSubject: subject,
@@ -26,21 +26,13 @@ describe('JIT mapper', () => {
       displayName: 'Alice',
       rawProfile: { upn: 'alice@example.com' },
     })
-    expect(user.email).toBe('alice@example.com')
+    expect(user1.email).toBe('alice@example.com')
 
     const ext = await sql<
       Array<{ user_id: string }>
-    >`SELECT user_id FROM directory.external_identities WHERE external_subject = ${subject}`
+    >`SELECT user_id FROM directory.external_identities WHERE provider_id = 'entra' AND external_subject = ${subject}`
     expect(ext).toHaveLength(1)
-    expect(ext[0]?.user_id).toBe(user.id)
-  })
-
-  it('updates existing user on subsequent sighting (idempotent)', async () => {
-    const tenantId = '66666666-6666-6666-6666-666666666666'
-    const subject = 'entra-subject-1'
-    const user1 = await sql<
-      Array<{ id: string }>
-    >`SELECT id FROM auth.users WHERE external_subject = ${subject}`
+    expect(ext[0]?.user_id).toBe(user1.id)
 
     const user2 = await mapper.upsertFromIdToken({
       tenantId,
@@ -50,7 +42,7 @@ describe('JIT mapper', () => {
       displayName: 'Alice (renamed)',
       rawProfile: {},
     })
-    expect(user2.id).toBe(user1[0]?.id)
+    expect(user2.id).toBe(user1.id)
     expect(user2.email).toBe('alice+new@example.com')
   })
 })
