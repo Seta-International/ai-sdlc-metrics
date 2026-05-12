@@ -17,6 +17,7 @@
     "@seta/oauth": "workspace:*",
     "@seta/tsconfig": "workspace:*",
     "@types/node": "^24.12.3",
+    "hono": "4.12.18",
     "postgres": "3.4.9",
     "tsx": "4.21.0",
     "typescript": "6.0.3",
