@@ -8,26 +8,26 @@
 
 Mastra splits memory cleanly into **kernel-facing interface** (abstract `MastraMemory`) and **storage adapter** (`MemoryStorage` domain), so the agent loop is unaware of the backing store.
 
-- **Kernel interface** — `MastraMemory` abstract class at `/Users/canh/Projects/Seta/mastra/packages/core/src/memory/memory.ts:114` declares exactly four hooks the agent loop calls:
+- **Kernel interface** — `MastraMemory` abstract class at `mastra/packages/core/src/memory/memory.ts:114` declares exactly four hooks the agent loop calls:
   - `recall(...)` — read history (with optional `vectorSearchString` for semantic) — `memory.ts:472`.
   - `saveMessages({ messages, memoryConfig })` — write turn — `memory.ts:458`.
   - `getWorkingMemory({ threadId, resourceId })` / `updateWorkingMemory(...)` — persist working memory — `memory.ts:614`, `memory.ts:636`.
   - Plus thread CRUD: `getThreadById`, `saveThread`, `listThreads`, `deleteThread`, `createThread` — `memory.ts:404`, `:438`, `:445`, `:494`, `:531`.
 - **Agent call sites** are narrow. The agent only touches memory at three points:
-  - `Agent.getMemoryMessages()` → `memory.recall(...)` — `/Users/canh/Projects/Seta/mastra/packages/core/src/agent/agent.ts:3206-3239`.
+  - `Agent.getMemoryMessages()` → `memory.recall(...)` — `mastra/packages/core/src/agent/agent.ts:3206-3239`.
   - Post-step persistence → `memory.saveMessages(...)` — `agent.ts:3766`, `:3949`.
   - Signal persistence in thread runtime → `agent.ts` signal flow into `thread-stream-runtime.ts:144`.
-- **Storage adapter shape.** `MemoryStorage` abstract domain at `/Users/canh/Projects/Seta/mastra/packages/core/src/storage/domains/memory/base.ts:38` defines `getThreadById`, `saveThread`, `updateThread`, `deleteThread`, `listMessages`, `listMessagesById`, `saveMessages`, `updateMessages`, `listThreads`, `getResourceById`/`saveResource`/`updateResource` (resource = working-memory owner: `base.ts:134-160`). Resource-level working memory lives on its own table (`StorageResourceType`, `storage/types.ts:243`). Each adapter (`stores/pg`, `stores/libsql`, `stores/mongodb`, etc.) implements this one domain — `MastraCompositeStore.getStore('memory')` is the lookup (`storage/base.ts:225`, `:316`).
-- **Working memory is a string blob**, scoped `'thread' | 'resource'` (default `resource`) — `/Users/canh/Projects/Seta/mastra/packages/core/src/memory/types.ts:175-198`. `getWorkingMemory` reads from resource row if scope=resource, thread metadata otherwise (`memory/index.ts:1258-1298`).
+- **Storage adapter shape.** `MemoryStorage` abstract domain at `mastra/packages/core/src/storage/domains/memory/base.ts:38` defines `getThreadById`, `saveThread`, `updateThread`, `deleteThread`, `listMessages`, `listMessagesById`, `saveMessages`, `updateMessages`, `listThreads`, `getResourceById`/`saveResource`/`updateResource` (resource = working-memory owner: `base.ts:134-160`). Resource-level working memory lives on its own table (`StorageResourceType`, `storage/types.ts:243`). Each adapter (`stores/pg`, `stores/libsql`, `stores/mongodb`, etc.) implements this one domain — `MastraCompositeStore.getStore('memory')` is the lookup (`storage/base.ts:225`, `:316`).
+- **Working memory is a string blob**, scoped `'thread' | 'resource'` (default `resource`) — `mastra/packages/core/src/memory/types.ts:175-198`. `getWorkingMemory` reads from resource row if scope=resource, thread metadata otherwise (`memory/index.ts:1258-1298`).
 - **Observational memory** (delta summarisation, reflections) is a *separate* per-adapter capability (`supportsObservationalMemory`, `base.ts:44`) with ~12 methods. P1 does not need it; ignore.
 
 ## What setup.md plans
 
-§3 (`/Users/canh/Projects/Seta/seta-os/docs/setup.md:117`):
+§3 (`seta-os/docs/setup.md:117`):
 
 > `agent` | `@seta/agent` (product) | `write_continuations` — HMAC-signed preview→commit tokens; **future: conversations, runs, working memory**
 
-§6 (`/Users/canh/Projects/Seta/seta-os/docs/setup.md:428-438`): RAG primitives split into `agent-chunking`, `agent-embeddings`, `agent-vector`, `agent-rag`; pgvector HNSW + cosine; no live vector store in P1. Memory recall is not mentioned — semantic recall belongs to P2 once `@seta/agent-vector` exists.
+§6 (`seta-os/docs/setup.md:428-438`): RAG primitives split into `agent-chunking`, `agent-embeddings`, `agent-vector`, `agent-rag`; pgvector HNSW + cosine; no live vector store in P1. Memory recall is not mentioned — semantic recall belongs to P2 once `@seta/agent-vector` exists.
 
 ## Delta
 

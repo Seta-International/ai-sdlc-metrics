@@ -8,7 +8,7 @@
 
 A workflow engine — chainable step DSL with suspend/resume, durable execution, and HITL approval gates — gives a product author explicit control over multi-step orchestration that can't be expressed cleanly as an LLM-planned tool-call loop inside a single HTTP turn.
 
-Mastra ships one (`/Users/canh/Projects/Seta/mastra/workflows/`, `packages/core/src/run/`). Temporal, Inngest, AWS Step Functions, and Restate occupy the same niche externally.
+Mastra ships one (`mastra/workflows/`, `packages/core/src/run/`). Temporal, Inngest, AWS Step Functions, and Restate occupy the same niche externally.
 
 **Seta OS builds a minimal in-house engine in P1 so it composes natively with the kernel, the tenant ALS, and the existing `write_continuations` preview/commit primitive.** Read on for the scope boundaries.
 

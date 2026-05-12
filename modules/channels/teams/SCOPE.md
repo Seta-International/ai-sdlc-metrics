@@ -39,6 +39,8 @@ All exports from `modules/channels/teams/src/index.ts`. Signatures only — bodi
 - `teamsRouter(handler: TeamsHandler) => Hono` — alias retained for setup.md §11 wording (`teamsRouter(teamsHandler)`). May be the same callable as `routes`; pick one and re-export the other.
 - `TeamsHandler` — interface with `onMessage(ctx, activity)`, `onConversationUpdate(ctx, activity)`, `onInvoke(ctx, activity)` (setup.md §11 `handler.ts`).
 - `Activity`, `MessageActivity`, `InvokeActivity`, `TokenExchangeActivity` — Zod schemas + inferred types (setup.md §11 `activity.ts`).
+- `ConversationScope` — discriminated union `'personal' | 'groupChat' | 'channel'`, derived from inbound `activity.conversation.conversationType` (with `channelData.team` presence as the channel discriminator). Exposed on `TeamsContext` so handlers branch on it. **P1 conversation-scope routing constraint (2026-05-12):** in `personal` (1:1) the product router selects across all agents (Planner / Analytics / FAQ); in `groupChat` and `channel`, the router MUST short-circuit to FAQ Agent only.
+- `derefConversationScope(activity: Activity) => ConversationScope` — pure helper exported for tests + product reuse. Channel detection: `conversation.conversationType === 'channel'` OR presence of `channelData.team`. Group chat detection: `conversationType === 'groupChat'`. Personal: everything else (default).
 - `verifyBotFrameworkJwt(token: string) => Promise<JwtPayload>` — internal-but-exported for tests; encapsulates `createRemoteJWKSet` + `jwtVerify` + multi-kid handling (setup.md §7).
 - `getBotToken() => Promise<string>` — outbound client-credentials token, LRU-cached (setup.md §7).
 - `replyToActivity(serviceUrl: string, conversationId: string, activity: OutboundActivity) => Promise<void>` — async reply (setup.md §7).
@@ -80,6 +82,7 @@ All exports from `modules/channels/teams/src/index.ts`. Signatures only — bodi
 - **Idempotent webhook entry** — Bot Framework will replay activities on retry; use the activity `id` as the natural key (CLAUDE.md "Idempotent external boundaries").
 - **`routes(handler) => Hono` factory shape** — single mandated module export shape (CLAUDE.md "Every `modules/*` package exports `routes(handler?: Handler) => Hono`").
 - **Errors throw `DomainError` subclasses from `@seta/middleware/errors`** — RFC 7807 mapping happens centrally (CLAUDE.md conventions; setup.md §15).
+- **Conversation-scope detection runs before the handler is called.** `routes(handler)` derives the `ConversationScope` via `derefConversationScope(activity)` and passes it on `TeamsContext`. The handler MUST use it to gate which agent dispatches: `personal` → all agents available; `groupChat` or `channel` → FAQ Agent only. The channel does NOT decide which agent runs (that's `@seta/agent`'s job); it only surfaces the scope so the product can branch. Rationale: 1:1 conversations are private and acceptable for full Planner write tools + analytics queries; group/channel posts are public and must constrain to read-only FAQ responses to avoid noisy or surprising side-effects in a shared conversation.
 
 ## Patterns to avoid
 
@@ -90,6 +93,8 @@ All exports from `modules/channels/teams/src/index.ts`. Signatures only — bodi
 - **Omitting `algorithms`** in `jwtVerify` — opens "none"/HS-confusion attack surface (setup.md §7 jose pattern 2).
 - **Per-cold-start JWKS refetch with no cache** — hits MS rate limits (setup.md §7 "Stateless deployments").
 - **Synchronous reply on the inbound request** — Bot Framework expects an immediate 200; reply via the outbound transport (setup.md §7 table).
+- **Enforcing the agent-restriction policy inside the channel** — the channel surfaces `ConversationScope`; it does NOT decide which agent runs. Pushing that decision into transport leaks product knowledge into the channel layer (CLAUDE.md "channels never import products"). The product router enforces the constraint.
+- **Treating `groupChat` and `channel` as identical** — they share the FAQ-only constraint in P1 but they're distinct Bot Framework conversation types; keep the `ConversationScope` union strict so a future relaxation (e.g., Analytics in `groupChat` only) is a clean change.
 - **Threading `tenantId` as a function parameter** — read from `@seta/tenant`'s AsyncLocalStorage (CLAUDE.md).
 - **`console.log`** — use `logger` from `@seta/middleware`/`@seta/observability` (CLAUDE.md conventions).
 - **`vi.mock` of internal `@seta/*` modules** — if you feel the urge, the seam is wrong (CLAUDE.md "never mock internal `@seta/*` modules").

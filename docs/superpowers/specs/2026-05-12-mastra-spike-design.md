@@ -10,7 +10,7 @@
 
 `seta-os` (this repo) is a multi-tenant agent platform monorepo. The full P1 spec is `docs/setup.md` (~2400 lines): pnpm + Turborepo + Hono + Drizzle + Postgres RLS, kernel-first agent runtime (`@seta/agent-core`), MS Teams + MS365 Planner connectors, OpenAI + Anthropic SDKs used directly. Setup.md §10 lists explicit non-picks (LangChain, Vercel AI SDK, NestJS, etc.) but does **not** list Mastra.
 
-Mastra (`/Users/canh/Projects/Seta/mastra`) is a sibling OSS project — a TypeScript AI framework with agents, workflows, model routing, memory, RAG, MCP, evals, and a sizable working monorepo. It is **not** being adopted at runtime by seta-os; setup.md's kernel-first stance stays intact.
+Mastra (`mastra`) is a sibling OSS project — a TypeScript AI framework with agents, workflows, model routing, memory, RAG, MCP, evals, and a sizable working monorepo. It is **not** being adopted at runtime by seta-os; setup.md's kernel-first stance stays intact.
 
 The spike's value: **cross-check setup.md's choices against a working 2026 monorepo, and produce per-package scope documents that give future implementing agents full context to build each P1 package without re-reading Mastra or all of setup.md.**
 
@@ -69,9 +69,9 @@ A single PR contains both artifacts. The skeleton is the credibility check on th
 
 **Shared brief template** every subagent receives (self-contained — they have no conversation context):
 
-> You are doing a research spike for the `seta-os` project (path: `/Users/canh/Projects/Seta/seta-os`), a multi-tenant agent platform monorepo. The full P1 spec is `docs/setup.md` (~2400 lines). You are reading the Mastra OSS project at `/Users/canh/Projects/Seta/mastra` to extract patterns that should inform seta-os's foundation. **Do not modify any files in either repo except to write your one output file.** Do not run install/build commands. Do not write `@seta/*` code.
+> You are doing a research spike for the `seta-os` project (path: `seta-os`), a multi-tenant agent platform monorepo. The full P1 spec is `docs/setup.md` (~2400 lines). You are reading the Mastra OSS project at `mastra` to extract patterns that should inform seta-os's foundation. **Do not modify any files in either repo except to write your one output file.** Do not run install/build commands. Do not write `@seta/*` code.
 >
-> **Output**: a single markdown file at `/Users/canh/Projects/Seta/seta-os/docs/explorations/2026-05-12-mastra-spike/<NN>-<topic>.md`, structured as four H2 sections:
+> **Output**: a single markdown file at `seta-os/docs/explorations/2026-05-12-mastra-spike/<NN>-<topic>.md`, structured as four H2 sections:
 > 1. **What Mastra does** — annotated with `file_path:line_number` refs.
 > 2. **What setup.md plans** — quoted excerpts from the listed setup.md sections.
 > 3. **Delta** — patterns to fold in, patterns to deliberately avoid, open questions.

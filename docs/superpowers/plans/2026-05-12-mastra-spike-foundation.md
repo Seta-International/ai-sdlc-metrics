@@ -8,12 +8,12 @@
 
 **Tech Stack:** pnpm 11, Turborepo 2.9, Node 24, TypeScript 6, Biome 2.4, Vitest 4.1, Hono 4.12, Drizzle 0.45, Postgres 17 + pgvector. Spike-time tools: Agent tool, Bash, Read, Write, Edit.
 
-**Spec:** `/Users/canh/Projects/Seta/seta-os/docs/superpowers/specs/2026-05-12-mastra-spike-design.md`
+**Spec:** `seta-os/docs/superpowers/specs/2026-05-12-mastra-spike-design.md`
 
 **Reference paths used throughout:**
-- Seta-os repo: `/Users/canh/Projects/Seta/seta-os`
-- Mastra checkout: `/Users/canh/Projects/Seta/mastra`
-- Setup spec: `/Users/canh/Projects/Seta/seta-os/docs/setup.md`
+- Seta-os repo: `seta-os`
+- Mastra checkout: `mastra`
+- Setup spec: `seta-os/docs/setup.md`
 
 ---
 
@@ -141,22 +141,22 @@ Commits land in execution order; the spec § 5 "logical commit order" is a nice-
 
 - [ ] **Step 1: Verify clean working tree**
 
-Run: `cd /Users/canh/Projects/Seta/seta-os && git status --short`
+Run: `cd seta-os && git status --short`
 Expected: empty output (no uncommitted changes other than the design spec which is already committed).
 
 - [ ] **Step 2: Create branch**
 
-Run: `cd /Users/canh/Projects/Seta/seta-os && git checkout -b spike/mastra-foundation`
+Run: `cd seta-os && git checkout -b spike/mastra-foundation`
 Expected: `Switched to a new branch 'spike/mastra-foundation'`.
 
 - [ ] **Step 3: Create the exploration output directory**
 
-Run: `mkdir -p /Users/canh/Projects/Seta/seta-os/docs/explorations/2026-05-12-mastra-spike`
+Run: `mkdir -p seta-os/docs/explorations/2026-05-12-mastra-spike`
 Expected: no output, directory exists.
 
 - [ ] **Step 4: Verify Mastra checkout is present**
 
-Run: `test -d /Users/canh/Projects/Seta/mastra/packages/core/src/agent && echo OK`
+Run: `test -d mastra/packages/core/src/agent && echo OK`
 Expected: `OK`. Halt the plan and ask the user if not present.
 
 ---
@@ -168,7 +168,7 @@ Expected: `OK`. Halt the plan and ask the user if not present.
 
 **Shared brief preamble** (every subagent receives this verbatim as the start of its prompt):
 
-> You are doing a research spike for the `seta-os` project (path: `/Users/canh/Projects/Seta/seta-os`), a multi-tenant agent platform monorepo. The full P1 spec is `docs/setup.md` (~2400 lines). You are reading the Mastra OSS project at `/Users/canh/Projects/Seta/mastra` to extract patterns that should inform seta-os's foundation. **Do not modify any files in either repo except to write your one output file.** Do not run install/build commands. Do not write `@seta/*` code. Do not invent paths — if you can't find a Mastra file, say so in the report.
+> You are doing a research spike for the `seta-os` project (path: `seta-os`), a multi-tenant agent platform monorepo. The full P1 spec is `docs/setup.md` (~2400 lines). You are reading the Mastra OSS project at `mastra` to extract patterns that should inform seta-os's foundation. **Do not modify any files in either repo except to write your one output file.** Do not run install/build commands. Do not write `@seta/*` code. Do not invent paths — if you can't find a Mastra file, say so in the report.
 >
 > **Output**: a single markdown file at the path given below, structured as exactly four H2 sections in this order:
 >
@@ -188,23 +188,23 @@ Each subagent prompt = shared brief preamble + the topic-specific block below.
 > **Topic:** Monorepo + build/test infrastructure.
 >
 > **Mastra paths to read:**
-> - `/Users/canh/Projects/Seta/mastra/package.json` (root)
-> - `/Users/canh/Projects/Seta/mastra/pnpm-workspace.yaml`
-> - `/Users/canh/Projects/Seta/mastra/turbo.json`
-> - `/Users/canh/Projects/Seta/mastra/tsconfig.json`
-> - `/Users/canh/Projects/Seta/mastra/tsconfig.build.json`
-> - `/Users/canh/Projects/Seta/mastra/vitest.config.ts`
-> - `/Users/canh/Projects/Seta/mastra/eslint.config.js`
-> - `/Users/canh/Projects/Seta/mastra/lint-staged.config.js`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/tsup.config.ts`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/turbo.json`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/package.json`
+> - `mastra/package.json` (root)
+> - `mastra/pnpm-workspace.yaml`
+> - `mastra/turbo.json`
+> - `mastra/tsconfig.json`
+> - `mastra/tsconfig.build.json`
+> - `mastra/vitest.config.ts`
+> - `mastra/eslint.config.js`
+> - `mastra/lint-staged.config.js`
+> - `mastra/packages/core/tsup.config.ts`
+> - `mastra/packages/core/turbo.json`
+> - `mastra/packages/core/package.json`
 > - Check for `.npmrc` at repo root.
 > - Note any `pnpm.catalog` usage in root package.json.
 >
 > **setup.md sections to compare against:** §1 (Toolchain), §12 (all config files in the Config files section, lines ~1109–1700).
 >
-> **Output path:** `/Users/canh/Projects/Seta/seta-os/docs/explorations/2026-05-12-mastra-spike/01-monorepo-build-test.md`
+> **Output path:** `seta-os/docs/explorations/2026-05-12-mastra-spike/01-monorepo-build-test.md`
 >
 > **Specific questions to answer:** Does Mastra use pnpm catalog deps? How does its `turbo.json` differ from setup.md §12? Does Mastra's tsup config reveal defaults we should adopt? Where does Mastra's eslint config carry rules that Biome (setup.md's pick) can't replicate?
 
@@ -213,19 +213,19 @@ Each subagent prompt = shared brief preamble + the topic-specific block below.
 > **Topic:** Agent core — Agent class, per-provider model **adapters** (the wrappers around OpenAI/Anthropic SDKs), message normalization, processors/hooks seams, DI divergence, error shape. **Do NOT cover provider selection from config / cross-provider tool-call shape normalization / token counting / retry-fallback / response caching** — those are SA-10's scope. If you find router-shaped code in `packages/core/src/llm/`, note its path and defer commentary to SA-10.
 >
 > **Mastra paths to read:**
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/agent/` (the directory, all files)
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/llm/` (all files)
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/_types/`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/base.ts`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/mastra/`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/processors/`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/hooks/`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/error/`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/di/` (for the divergence note only)
+> - `mastra/packages/core/src/agent/` (the directory, all files)
+> - `mastra/packages/core/src/llm/` (all files)
+> - `mastra/packages/core/src/_types/`
+> - `mastra/packages/core/src/base.ts`
+> - `mastra/packages/core/src/mastra/`
+> - `mastra/packages/core/src/processors/`
+> - `mastra/packages/core/src/hooks/`
+> - `mastra/packages/core/src/error/`
+> - `mastra/packages/core/src/di/` (for the divergence note only)
 >
 > **setup.md sections:** §5 (LLM & agent kernel), §15 (DomainError + RFC 7807). Also check `CLAUDE.md` at repo root for the "No DI containers" rule.
 >
-> **Output path:** `/Users/canh/Projects/Seta/seta-os/docs/explorations/2026-05-12-mastra-spike/02-agent-core.md`
+> **Output path:** `seta-os/docs/explorations/2026-05-12-mastra-spike/02-agent-core.md`
 >
 > **Specific questions:** What is Mastra's `Agent` class public surface? How does it normalize between OpenAI vs Anthropic message shapes? What processor/hook seams should `@seta/agent-core` leave even if the implementation is deferred? Confirm DI divergence: Mastra uses it, setup.md/CLAUDE.md forbid it — what concrete capability do we lose? Compare error shapes.
 
@@ -234,14 +234,14 @@ Each subagent prompt = shared brief preamble + the topic-specific block below.
 > **Topic:** Run loop — tool-call iteration, streaming, abort wiring, retries, prompt caching.
 >
 > **Mastra paths to read:**
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/loop/`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/stream/`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/run/`
-> - Streaming-related files inside `/Users/canh/Projects/Seta/mastra/packages/core/src/llm/`
+> - `mastra/packages/core/src/loop/`
+> - `mastra/packages/core/src/stream/`
+> - `mastra/packages/core/src/run/`
+> - Streaming-related files inside `mastra/packages/core/src/llm/`
 >
 > **setup.md sections:** §5 specifically the `streamKernelSSE`, the abort wiring discussion, the Anthropic prompt-caching paragraph, the OpenAI/Anthropic SDK `.stream()` helper usage. Also any places setup.md mentions per-tool budgets, max iterations, retry policy.
 >
-> **Output path:** `/Users/canh/Projects/Seta/seta-os/docs/explorations/2026-05-12-mastra-spike/03-run-loop.md`
+> **Output path:** `seta-os/docs/explorations/2026-05-12-mastra-spike/03-run-loop.md`
 >
 > **Specific questions:** How does Mastra terminate the tool-call loop? Where does the AbortSignal thread through? How does Mastra ensure SSE keep-alive + onAbort match setup.md §5's three rules? Any patterns we should adopt for deterministic recording (relates to SA-6)? What's the relationship between Mastra's loop and its workflows (relates to SA-5)?
 
@@ -250,14 +250,14 @@ Each subagent prompt = shared brief preamble + the topic-specific block below.
 > **Topic:** Tool definition + MCP server exposure.
 >
 > **Mastra paths to read:**
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/action/`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/mcp/`
-> - `/Users/canh/Projects/Seta/mastra/packages/mcp/`
-> - `/Users/canh/Projects/Seta/mastra/packages/mcp-docs-server/`
+> - `mastra/packages/core/src/action/`
+> - `mastra/packages/core/src/mcp/`
+> - `mastra/packages/mcp/`
+> - `mastra/packages/mcp-docs-server/`
 >
 > **setup.md sections:** §11 (the `modules/products/agent/tools/` tree showing read/ and write/ subdirs with preview/commit pairs), §3 (`agent.write_continuations` HMAC-signed preview→commit tokens).
 >
-> **Output path:** `/Users/canh/Projects/Seta/seta-os/docs/explorations/2026-05-12-mastra-spike/04-tools-mcp.md`
+> **Output path:** `seta-os/docs/explorations/2026-05-12-mastra-spike/04-tools-mcp.md`
 >
 > **Specific questions:** What's the shape of a Mastra tool definition (input Zod, output Zod, execution context)? How does the tool registry work? Does Mastra MCP expose tools 1:1 or does it transform? How would seta's preview→commit pattern fit Mastra's tool shape if we adopted it? What footguns does Mastra hit (loop in tool execution, schema mismatch, etc.)?
 
@@ -266,13 +266,13 @@ Each subagent prompt = shared brief preamble + the topic-specific block below.
 > **Topic:** Workflows — `.then() / .branch() / .parallel()`, suspend/resume. **setup.md has no workflow primitive; this report explicitly flags whether to add one in P1 or punt to P2/P3.**
 >
 > **Mastra paths to read:**
-> - `/Users/canh/Projects/Seta/mastra/workflows/` (top-level directory)
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/run/` (suspend/resume bits)
+> - `mastra/workflows/` (top-level directory)
+> - `mastra/packages/core/src/run/` (suspend/resume bits)
 > - Any `packages/core/src/*workflow*` paths you find.
 >
 > **setup.md sections:** None — explicitly flag the absence. Reference §3 `agent.write_continuations` (the closest existing primitive) and §11 `modules/products/agent/` (where workflows would live if added).
 >
-> **Output path:** `/Users/canh/Projects/Seta/seta-os/docs/explorations/2026-05-12-mastra-spike/05-workflows.md`
+> **Output path:** `seta-os/docs/explorations/2026-05-12-mastra-spike/05-workflows.md`
 >
 > **Specific questions:** Is Mastra's workflow engine load-bearing for production agent reliability or is it sugar over the tool-call loop? What does suspend/resume require from storage (relates to SA-9)? Recommendation: P1, P2, or P3? Justify. Punch list should bias to `P2-defer: <reason>` unless you find a P1-blocking gap.
 
@@ -281,13 +281,13 @@ Each subagent prompt = shared brief preamble + the topic-specific block below.
 > **Topic:** LLM recording / replay for deterministic tests.
 >
 > **Mastra paths to read:**
-> - `/Users/canh/Projects/Seta/mastra/packages/_llm-recorder/`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/test-utils/`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/harness/`
+> - `mastra/packages/_llm-recorder/`
+> - `mastra/packages/core/src/test-utils/`
+> - `mastra/packages/core/src/harness/`
 >
 > **setup.md sections:** §5 (footnote: "LLM in tests only via `@seta/agent-core/testkit` recordings, never live model APIs in CI"), the Commands table (`RECORD=1 pnpm vitest run -t <name>`), §12 turbo inputs section (`__recordings__/**` listed in test:unit inputs).
 >
-> **Output path:** `/Users/canh/Projects/Seta/seta-os/docs/explorations/2026-05-12-mastra-spike/06-llm-recording-replay.md`
+> **Output path:** `seta-os/docs/explorations/2026-05-12-mastra-spike/06-llm-recording-replay.md`
 >
 > **Specific questions:** What's Mastra's request → fixture mapping strategy (URL? hash of body? hash of prompt)? Where are recordings stored on disk? How does it handle streaming responses (sequence of SSE chunks)? What env var gates record vs replay? Concrete shape for `@seta/agent-core/testkit` that we can carry into Phase 2 SCOPE.md.
 
@@ -296,12 +296,12 @@ Each subagent prompt = shared brief preamble + the topic-specific block below.
 > **Topic:** Request context / tenant propagation via AsyncLocalStorage.
 >
 > **Mastra paths to read:**
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/request-context/`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/di/` (only the intersection with request-context)
+> - `mastra/packages/core/src/request-context/`
+> - `mastra/packages/core/src/di/` (only the intersection with request-context)
 >
 > **setup.md sections:** §3 the multi-tenancy paragraph + `withTenant` wrapper + the AsyncLocalStorage footgun discussion (SET vs SET LOCAL, pooled-connection tenant leak).
 >
-> **Output path:** `/Users/canh/Projects/Seta/seta-os/docs/explorations/2026-05-12-mastra-spike/07-request-context.md`
+> **Output path:** `seta-os/docs/explorations/2026-05-12-mastra-spike/07-request-context.md`
 >
 > **Specific questions:** How does Mastra's request-context propagate across async boundaries? How does it integrate with the model SDKs (which spawn their own promises)? Any patterns to prevent context leak across requests on a reused connection? Concrete API shape for `@seta/tenant`'s `tenantContext.getTenantId()`.
 
@@ -310,12 +310,12 @@ Each subagent prompt = shared brief preamble + the topic-specific block below.
 > **Topic:** Zod compatibility layer. **setup.md §2 flags an explicit open question:** "Verify Zod 4 internal compatibility before P1 close-out — if it still pins Zod 3, OpenAPI routes use Zod 3 internally and we lose unified schema types."
 >
 > **Mastra paths to read:**
-> - `/Users/canh/Projects/Seta/mastra/packages/schema-compat/`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/schema/`
+> - `mastra/packages/schema-compat/`
+> - `mastra/packages/core/src/schema/`
 >
 > **setup.md sections:** §2 the `@hono/zod-openapi` row + the `z` import rule (must come from `@hono/zod-openapi`, not `zod`, or `.openapi(...)` is silently dropped), §15 footguns.
 >
-> **Output path:** `/Users/canh/Projects/Seta/seta-os/docs/explorations/2026-05-12-mastra-spike/08-schema-compat.md`
+> **Output path:** `seta-os/docs/explorations/2026-05-12-mastra-spike/08-schema-compat.md`
 >
 > **Specific questions:** What versions of Zod does Mastra support concurrently? Does it expose a Standard Schema v1 adapter? Any patterns for the `@hono/zod-openapi`-style `.openapi()` extension that survive Zod 4? Does the open question in setup.md §2 have a clear answer based on what Mastra does?
 
@@ -324,14 +324,14 @@ Each subagent prompt = shared brief preamble + the topic-specific block below.
 > **Topic:** Memory hooks. **P1 does NOT implement memory; the report's job is to define the kernel-side seam `@seta/agent-core` must leave in P1 so the P2 implementation drops in without a kernel rewrite.**
 >
 > **Mastra paths to read:**
-> - `/Users/canh/Projects/Seta/mastra/packages/memory/`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/memory/`
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/storage/`
-> - `/Users/canh/Projects/Seta/mastra/stores/` (high-level scan only — don't read every adapter)
+> - `mastra/packages/memory/`
+> - `mastra/packages/core/src/memory/`
+> - `mastra/packages/core/src/storage/`
+> - `mastra/stores/` (high-level scan only — don't read every adapter)
 >
 > **setup.md sections:** §3 (agent schema notes — `agent.write_continuations` is the only P1 table; "future: conversations, runs, working memory"), §6 (P2 RAG primitives).
 >
-> **Output path:** `/Users/canh/Projects/Seta/seta-os/docs/explorations/2026-05-12-mastra-spike/09-memory.md`
+> **Output path:** `seta-os/docs/explorations/2026-05-12-mastra-spike/09-memory.md`
 >
 > **Specific questions:** What's the storage adapter shape Mastra uses for memory? What kernel hooks (read history, write turn, persist working memory) does memory require? Recommendation: which hooks does `@seta/agent-core` need to expose in P1 as `null`-implementations so P2 just plugs in?
 
@@ -340,14 +340,14 @@ Each subagent prompt = shared brief preamble + the topic-specific block below.
 > **Topic:** LLM model router — the layer between agent config and the per-provider SDK adapters. Covers: provider selection from `cfg.model`, cross-provider tool-call shape normalization (OpenAI `tools` vs Anthropic `tools` are structurally different), token counting integration via `js-tiktoken`, retry/fallback policy on transient errors, response caching (distinct from Anthropic's prompt caching).
 >
 > **Mastra paths to read:**
-> - `/Users/canh/Projects/Seta/mastra/packages/core/src/llm/` — focus on router/selection/normalization, NOT on per-provider adapter internals (those are SA-2's).
-> - Any `packages/*model-router*`, `packages/*provider*`, or `packages/llm-*` paths if they exist (check `ls /Users/canh/Projects/Seta/mastra/packages/`).
+> - `mastra/packages/core/src/llm/` — focus on router/selection/normalization, NOT on per-provider adapter internals (those are SA-2's).
+> - Any `packages/*model-router*`, `packages/*provider*`, or `packages/llm-*` paths if they exist (check `ls mastra/packages/`).
 > - Token-counting + tiktoken usage anywhere in `packages/core/src/`.
 > - Retry/fallback patterns in `packages/core/src/llm/` and `packages/core/src/loop/` (skim only — full loop is SA-3's).
 >
 > **setup.md sections:** §5 in full — the `ModelStream<TChunk>` interface, the `.stream()` helper pattern for OpenAI/Anthropic, the Anthropic prompt-caching note (5m/1h ephemeral), the `js-tiktoken` pin, the abort wiring requirement; §11 (where `cfg.model` is used in `modules/products/agent`); §13 (kernel package deps).
 >
-> **Output path:** `/Users/canh/Projects/Seta/seta-os/docs/explorations/2026-05-12-mastra-spike/10-llm-model-router.md`
+> **Output path:** `seta-os/docs/explorations/2026-05-12-mastra-spike/10-llm-model-router.md`
 >
 > **Specific questions to answer:** Does Mastra have a unified "model" type that abstracts OpenAI vs Anthropic shape, or does the router thread provider-specific configs through? How does it normalize tool-call request/response shapes across providers? Where does token counting integrate — is it called pre-request (budget check) or post-response (cost record)? What retry/fallback policy does Mastra use (per-provider? cross-provider failover?)? Is there response caching beyond what the provider SDK offers? Concrete recommendation: what's the minimum router surface `@seta/agent-core` needs to leave in P1, and what does setup.md §5 need to add to make that explicit (it currently doesn't name a router layer)?
 
@@ -365,14 +365,14 @@ The tool-call message returns when all subagents finish. Read their summary mess
 
 - [ ] **Step 1: Confirm all 10 files exist**
 
-Run: `ls /Users/canh/Projects/Seta/seta-os/docs/explorations/2026-05-12-mastra-spike/*.md`
+Run: `ls seta-os/docs/explorations/2026-05-12-mastra-spike/*.md`
 Expected: exactly 10 files matching the names from Task 2 (01–10).
 
 - [ ] **Step 2: Confirm each file has the four required H2 sections**
 
 Run:
 ```bash
-for f in /Users/canh/Projects/Seta/seta-os/docs/explorations/2026-05-12-mastra-spike/[0-1]*.md; do
+for f in seta-os/docs/explorations/2026-05-12-mastra-spike/[0-1]*.md; do
   echo "=== $f ==="
   grep -c '^## ' "$f"
 done
@@ -383,7 +383,7 @@ Expected: each file shows `4` (one count per `## ` H2 heading, allowing for the 
 
 Run:
 ```bash
-for f in /Users/canh/Projects/Seta/seta-os/docs/explorations/2026-05-12-mastra-spike/[0-1]*.md; do
+for f in seta-os/docs/explorations/2026-05-12-mastra-spike/[0-1]*.md; do
   echo "=== $(basename $f) ==="
   grep -n '^## Punch list' "$f" || echo "MISSING"
 done
@@ -416,7 +416,7 @@ Use the Write tool to create `docs/explorations/2026-05-12-mastra-spike/README.m
 - [ ] **Step 3: Commit Phase 1 output**
 
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 git add docs/explorations/2026-05-12-mastra-spike/
 git commit -m "$(cat <<'EOF'
 docs(explorations): mastra spike reports — phases per design
@@ -458,43 +458,43 @@ If Task 3 Step 4 surfaced cosmetic amendments to any of these, fold them in here
 
 - [ ] **Step 1: Write `pnpm-workspace.yaml`**
 
-Read `docs/setup.md` lines 1113–1122 to get the exact YAML block, then write to `/Users/canh/Projects/Seta/seta-os/pnpm-workspace.yaml`. Strip the surrounding triple-backtick fence.
+Read `docs/setup.md` lines 1113–1122 to get the exact YAML block, then write to `seta-os/pnpm-workspace.yaml`. Strip the surrounding triple-backtick fence.
 
 - [ ] **Step 2: Write `.npmrc`**
 
-Read `docs/setup.md` lines 1126–1144, strip the fence, write to `/Users/canh/Projects/Seta/seta-os/.npmrc`.
+Read `docs/setup.md` lines 1126–1144, strip the fence, write to `seta-os/.npmrc`.
 
 - [ ] **Step 3: Write root `package.json`**
 
-Read `docs/setup.md` lines 1150–1188, strip the fence, write to `/Users/canh/Projects/Seta/seta-os/package.json`.
+Read `docs/setup.md` lines 1150–1188, strip the fence, write to `seta-os/package.json`.
 
 - [ ] **Step 4: Write `turbo.json`**
 
-Read `docs/setup.md` lines 1192–1229, strip the fence, write to `/Users/canh/Projects/Seta/seta-os/turbo.json`.
+Read `docs/setup.md` lines 1192–1229, strip the fence, write to `seta-os/turbo.json`.
 
 - [ ] **Step 5: Write `vitest.config.ts`**
 
-Read `docs/setup.md` lines 1289–1316, strip the fence, write to `/Users/canh/Projects/Seta/seta-os/vitest.config.ts`.
+Read `docs/setup.md` lines 1289–1316, strip the fence, write to `seta-os/vitest.config.ts`.
 
 - [ ] **Step 6: Write `tsconfig.base.json`**
 
-Read `docs/setup.md` lines 1337–1361, strip the fence, write to `/Users/canh/Projects/Seta/seta-os/tsconfig.base.json`.
+Read `docs/setup.md` lines 1337–1361, strip the fence, write to `seta-os/tsconfig.base.json`.
 
 - [ ] **Step 7: Write `biome.json`**
 
-Read `docs/setup.md` lines 1365–1381, strip the fence, write to `/Users/canh/Projects/Seta/seta-os/biome.json`.
+Read `docs/setup.md` lines 1365–1381, strip the fence, write to `seta-os/biome.json`.
 
 - [ ] **Step 8: Write `lefthook.yml`**
 
-Read `docs/setup.md` lines 1385–1404, strip the fence, write to `/Users/canh/Projects/Seta/seta-os/lefthook.yml`.
+Read `docs/setup.md` lines 1385–1404, strip the fence, write to `seta-os/lefthook.yml`.
 
 - [ ] **Step 9: Write `docker-compose.yml`**
 
-Read `docs/setup.md` lines 1517–1543, strip the fence, write to `/Users/canh/Projects/Seta/seta-os/docker-compose.yml`.
+Read `docs/setup.md` lines 1517–1543, strip the fence, write to `seta-os/docker-compose.yml`.
 
 - [ ] **Step 10: Write `.gitignore`**
 
-Write `/Users/canh/Projects/Seta/seta-os/.gitignore`:
+Write `seta-os/.gitignore`:
 
 ```
 node_modules/
@@ -513,7 +513,7 @@ pnpm-debug.log*
 
 - [ ] **Step 11: Write `.nvmrc`**
 
-Write `/Users/canh/Projects/Seta/seta-os/.nvmrc` with the single line:
+Write `seta-os/.nvmrc` with the single line:
 
 ```
 24
@@ -537,11 +537,11 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 LOG_LEVEL=info
 ```
 
-Write to `/Users/canh/Projects/Seta/seta-os/.env.example`.
+Write to `seta-os/.env.example`.
 
 - [ ] **Step 13: Write root `README.md`**
 
-Write `/Users/canh/Projects/Seta/seta-os/README.md`:
+Write `seta-os/README.md`:
 
 ```markdown
 # Seta OS
@@ -571,12 +571,12 @@ pnpm test            # all packages
 License: Apache-2.0 once OSS-flipped (see setup.md §9).
 ```
 
-Write to `/Users/canh/Projects/Seta/seta-os/README.md`.
+Write to `seta-os/README.md`.
 
 - [ ] **Step 14: Commit root configs**
 
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 git add package.json pnpm-workspace.yaml .npmrc turbo.json biome.json \
         tsconfig.base.json vitest.config.ts lefthook.yml docker-compose.yml \
         .gitignore .nvmrc .env.example README.md
@@ -603,7 +603,7 @@ EOF
 
 - [ ] **Step 1: Create infra directory tree**
 
-Run: `mkdir -p /Users/canh/Projects/Seta/seta-os/infra/postgres`
+Run: `mkdir -p seta-os/infra/postgres`
 
 - [ ] **Step 2: Write `infra/postgres/init.sql`**
 
@@ -634,7 +634,7 @@ GRANT CONNECT ON DATABASE seta TO tenant_user;
 GRANT CONNECT ON DATABASE seta TO platform_admin;
 ```
 
-Write to `/Users/canh/Projects/Seta/seta-os/infra/postgres/init.sql`.
+Write to `seta-os/infra/postgres/init.sql`.
 
 - [ ] **Step 3: Write `infra/otel-collector.yaml`**
 
@@ -678,12 +678,12 @@ service:
       exporters: [debug]
 ```
 
-Write to `/Users/canh/Projects/Seta/seta-os/infra/otel-collector.yaml`.
+Write to `seta-os/infra/otel-collector.yaml`.
 
 - [ ] **Step 4: Commit infra files**
 
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 git add infra/
 git commit -m "$(cat <<'EOF'
 chore(infra): postgres init + otel-collector config
@@ -707,7 +707,7 @@ EOF
 
 - [ ] **Step 1: Create tooling directory tree**
 
-Run: `mkdir -p /Users/canh/Projects/Seta/seta-os/tooling/scripts`
+Run: `mkdir -p seta-os/tooling/scripts`
 
 - [ ] **Step 2: Write `check-public-private.ts` stub**
 
@@ -720,7 +720,7 @@ console.log("[check-public-private] stub — exiting 0 (real impl is a follow-up
 process.exit(0)
 ```
 
-Write to `/Users/canh/Projects/Seta/seta-os/tooling/scripts/check-public-private.ts`.
+Write to `seta-os/tooling/scripts/check-public-private.ts`.
 
 - [ ] **Step 3: Write `check-no-manual-pkg-edit.ts` stub**
 
@@ -732,7 +732,7 @@ console.log("[check-no-manual-pkg-edit] stub — exiting 0 (real impl is a follo
 process.exit(0)
 ```
 
-Write to `/Users/canh/Projects/Seta/seta-os/tooling/scripts/check-no-manual-pkg-edit.ts`.
+Write to `seta-os/tooling/scripts/check-no-manual-pkg-edit.ts`.
 
 - [ ] **Step 4: Write `new-package.ts` stub**
 
@@ -745,7 +745,7 @@ console.error("[new-package] stub — not yet implemented")
 process.exit(1)
 ```
 
-Write to `/Users/canh/Projects/Seta/seta-os/tooling/scripts/new-package.ts`. (Exit 1 because invoking this stub indicates intent that isn't met yet — caller should know.)
+Write to `seta-os/tooling/scripts/new-package.ts`. (Exit 1 because invoking this stub indicates intent that isn't met yet — caller should know.)
 
 - [ ] **Step 5: Write `verify-versions.ts` stub**
 
@@ -757,12 +757,12 @@ console.log("[verify-versions] stub — exiting 0 (real impl is a follow-up task
 process.exit(0)
 ```
 
-Write to `/Users/canh/Projects/Seta/seta-os/tooling/scripts/verify-versions.ts`.
+Write to `seta-os/tooling/scripts/verify-versions.ts`.
 
 - [ ] **Step 6: Commit tooling stubs**
 
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 git add tooling/scripts/
 git commit -m "$(cat <<'EOF'
 chore(tooling): stub CI scripts (exit-0)
@@ -788,7 +788,7 @@ EOF
 
 - [ ] **Step 1: Create directory**
 
-Run: `mkdir -p /Users/canh/Projects/Seta/seta-os/platform/tsconfig`
+Run: `mkdir -p seta-os/platform/tsconfig`
 
 - [ ] **Step 2: Write `platform/tsconfig/package.json`**
 
@@ -806,7 +806,7 @@ Run: `mkdir -p /Users/canh/Projects/Seta/seta-os/platform/tsconfig`
 }
 ```
 
-Write to `/Users/canh/Projects/Seta/seta-os/platform/tsconfig/package.json`.
+Write to `seta-os/platform/tsconfig/package.json`.
 
 - [ ] **Step 3: Write `platform/tsconfig/base.json`**
 
@@ -816,11 +816,11 @@ Write to `/Users/canh/Projects/Seta/seta-os/platform/tsconfig/package.json`.
 }
 ```
 
-Write to `/Users/canh/Projects/Seta/seta-os/platform/tsconfig/base.json`. (Thin re-export so consumers can `"extends": "@seta/tsconfig/base.json"`.)
+Write to `seta-os/platform/tsconfig/base.json`. (Thin re-export so consumers can `"extends": "@seta/tsconfig/base.json"`.)
 
 - [ ] **Step 4: Write `platform/tsconfig/node.json`**
 
-Read `docs/setup.md` lines 1687–1698, strip the fence, write to `/Users/canh/Projects/Seta/seta-os/platform/tsconfig/node.json`. Then adjust the `extends` path: setup.md shows `"extends": "../../tsconfig.base.json"`, which works because this file's parent dir is `platform/tsconfig/`. Confirm the path is correct relative to the file location and edit if needed.
+Read `docs/setup.md` lines 1687–1698, strip the fence, write to `seta-os/platform/tsconfig/node.json`. Then adjust the `extends` path: setup.md shows `"extends": "../../tsconfig.base.json"`, which works because this file's parent dir is `platform/tsconfig/`. Confirm the path is correct relative to the file location and edit if needed.
 
 - [ ] **Step 5: Write `platform/tsconfig/README.md`**
 
@@ -835,7 +835,7 @@ Shared TypeScript configurations. Consume via `"extends": "@seta/tsconfig/<name>
 See [`SCOPE.md`](./SCOPE.md) for the package contract.
 ```
 
-Write to `/Users/canh/Projects/Seta/seta-os/platform/tsconfig/README.md`.
+Write to `seta-os/platform/tsconfig/README.md`.
 
 ---
 
@@ -944,7 +944,7 @@ for d in platform/db platform/observability platform/middleware \
          modules/channels/teams \
          modules/connectors/ms365-planner modules/connectors/ms365-directory \
          modules/products/agent; do
-  mkdir -p "/Users/canh/Projects/Seta/seta-os/$d/src"
+  mkdir -p "seta-os/$d/src"
 done
 ```
 
@@ -968,7 +968,7 @@ Substitute `<NAME>` and `<ONE_LINE>` from setup.md §11's "Repo layout" comments
 
 Run:
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 for d in platform/db platform/observability platform/middleware \
          platform/tenant platform/auth platform/oauth \
          platform/ms-graph platform/connector-registry \
@@ -986,7 +986,7 @@ Expected: 16 lines, all `OK`.
 - [ ] **Step 7: Commit platform + module + agent-platform stubs (skipping owner-only files)**
 
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 git add platform/ modules/
 git commit -m "$(cat <<'EOF'
 chore(platform,modules): package stubs for all P1 packages
@@ -1061,7 +1061,7 @@ Substitute the schema name from the table above. Write to `<package-dir>/drizzle
 
 Run:
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 for d in platform/auth platform/tenant platform/directory platform/oauth platform/audit \
          modules/connectors/ms365-planner modules/connectors/ms365-directory \
          modules/products/agent; do
@@ -1093,7 +1093,7 @@ Edit each owner's `src/index.ts` from `export {}` to `export * from "./schema"`.
 
 Run:
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 for d in platform/auth platform/tenant platform/directory platform/oauth platform/audit \
          modules/connectors/ms365-planner modules/connectors/ms365-directory \
          modules/products/agent; do
@@ -1107,7 +1107,7 @@ Expected: 8 lines, all `OK`.
 - [ ] **Step 7: Commit owner-package extras**
 
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 git add platform/auth platform/tenant platform/directory platform/oauth platform/audit \
         modules/connectors/ms365-planner modules/connectors/ms365-directory \
         modules/products/agent
@@ -1134,7 +1134,7 @@ EOF
 
 - [ ] **Step 1: Create directory tree**
 
-Run: `mkdir -p /Users/canh/Projects/Seta/seta-os/apps/api/src`
+Run: `mkdir -p seta-os/apps/api/src`
 
 - [ ] **Step 2: Write `apps/api/package.json`**
 
@@ -1170,7 +1170,7 @@ Run: `mkdir -p /Users/canh/Projects/Seta/seta-os/apps/api/src`
 }
 ```
 
-Write to `/Users/canh/Projects/Seta/seta-os/apps/api/package.json`. (Note: `@opentelemetry/exporter-trace-otlp-proto` version is wildcard here because setup.md doesn't pin it; pnpm will resolve to a compatible version. If `pnpm install` flags it, pin to whatever resolves.)
+Write to `seta-os/apps/api/package.json`. (Note: `@opentelemetry/exporter-trace-otlp-proto` version is wildcard here because setup.md doesn't pin it; pnpm will resolve to a compatible version. If `pnpm install` flags it, pin to whatever resolves.)
 
 - [ ] **Step 3: Write `apps/api/tsconfig.json`**
 
@@ -1186,11 +1186,11 @@ Write to `/Users/canh/Projects/Seta/seta-os/apps/api/package.json`. (Note: `@ope
 }
 ```
 
-Write to `/Users/canh/Projects/Seta/seta-os/apps/api/tsconfig.json`.
+Write to `seta-os/apps/api/tsconfig.json`.
 
 - [ ] **Step 4: Write `apps/api/src/env.ts`**
 
-Read `docs/setup.md` lines 1496–1512 (the env.ts block from §12), strip the fence, write to `/Users/canh/Projects/Seta/seta-os/apps/api/src/env.ts`. Then **relax the schema for the boot-smoke test**: since we don't have real MS/OpenAI/Anthropic creds in dev, change the required fields to `.optional()` for now. After edit:
+Read `docs/setup.md` lines 1496–1512 (the env.ts block from §12), strip the fence, write to `seta-os/apps/api/src/env.ts`. Then **relax the schema for the boot-smoke test**: since we don't have real MS/OpenAI/Anthropic creds in dev, change the required fields to `.optional()` for now. After edit:
 
 ```typescript
 import "dotenv/config"
@@ -1241,7 +1241,7 @@ process.on("SIGTERM", () => {
 })
 ```
 
-Write to `/Users/canh/Projects/Seta/seta-os/apps/api/src/instrumentation.ts`.
+Write to `seta-os/apps/api/src/instrumentation.ts`.
 
 - [ ] **Step 6: Write `apps/api/src/main.ts`**
 
@@ -1278,7 +1278,7 @@ process.on("SIGTERM", shutdown("SIGTERM"))
 process.on("SIGINT",  shutdown("SIGINT"))
 ```
 
-Write to `/Users/canh/Projects/Seta/seta-os/apps/api/src/main.ts`.
+Write to `seta-os/apps/api/src/main.ts`.
 
 (`console.log` is used here because `@seta/observability` doesn't exist yet — this is the harness-only boot, not the real wiring. Real logging via `pino` lands when `@seta/observability` gets code.)
 
@@ -1302,12 +1302,12 @@ curl http://localhost:8080/healthz
 ```
 ```
 
-Write to `/Users/canh/Projects/Seta/seta-os/apps/api/README.md`.
+Write to `seta-os/apps/api/README.md`.
 
 - [ ] **Step 8: Commit apps/api skeleton**
 
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 git add apps/api
 git commit -m "$(cat <<'EOF'
 chore(apps): apps/api boot harness
@@ -1335,12 +1335,12 @@ EOF
 
 **Shared brief preamble for scope writers:**
 
-> You are writing scope documents for the `seta-os` project (path: `/Users/canh/Projects/Seta/seta-os`). Each SCOPE.md you produce gives a future implementing agent **full context to build that package** without having to re-read the Mastra spike or all of setup.md.
+> You are writing scope documents for the `seta-os` project (path: `seta-os`). Each SCOPE.md you produce gives a future implementing agent **full context to build that package** without having to re-read the Mastra spike or all of setup.md.
 >
 > **Required reading before you write:**
-> 1. The spec at `/Users/canh/Projects/Seta/seta-os/docs/superpowers/specs/2026-05-12-mastra-spike-design.md`.
+> 1. The spec at `seta-os/docs/superpowers/specs/2026-05-12-mastra-spike-design.md`.
 > 2. Setup.md §11 (Repo layout — dependency rules), §13 (Per-package dependency seed — pins your package needs).
-> 3. The Phase-1 reports listed in your specific assignment below, all in `/Users/canh/Projects/Seta/seta-os/docs/explorations/2026-05-12-mastra-spike/`.
+> 3. The Phase-1 reports listed in your specific assignment below, all in `seta-os/docs/explorations/2026-05-12-mastra-spike/`.
 > 4. Your assigned packages' existing files: `package.json`, `tsconfig.json`, `src/index.ts`, `README.md`. Owner packages also have `drizzle.config.ts` + `src/schema.ts` — read those too.
 >
 > **Constraints:**
@@ -1396,10 +1396,10 @@ Each scope-writer's prompt = shared brief preamble + the assignment block below.
 > **setup.md sections:** §3 (`@seta/db` connection pool + withTenant + role exports + migration runner), §8 (observability + pino + OTel init order), §13 (per-package deps for middleware/observability), §15 (errors → DomainError → RFC 7807 in middleware).
 >
 > **Output paths:**
-> - `/Users/canh/Projects/Seta/seta-os/platform/tsconfig/SCOPE.md`
-> - `/Users/canh/Projects/Seta/seta-os/platform/db/SCOPE.md`
-> - `/Users/canh/Projects/Seta/seta-os/platform/observability/SCOPE.md`
-> - `/Users/canh/Projects/Seta/seta-os/platform/middleware/SCOPE.md`
+> - `seta-os/platform/tsconfig/SCOPE.md`
+> - `seta-os/platform/db/SCOPE.md`
+> - `seta-os/platform/observability/SCOPE.md`
+> - `seta-os/platform/middleware/SCOPE.md`
 
 **SW-2 Tenancy/auth (3 packages):**
 
@@ -1410,9 +1410,9 @@ Each scope-writer's prompt = shared brief preamble + the assignment block below.
 > **setup.md sections:** §3 (multi-tenancy + RLS + withTenant + role exports), §4 (auth & secrets in full — argon2 hashing pattern, KmsProvider interface, MSAL Node multi-tenant Entra pattern, JWT validation via jose), §13 (deps), §15 (TokenVault single-flight refresh pattern).
 >
 > **Output paths:**
-> - `/Users/canh/Projects/Seta/seta-os/platform/tenant/SCOPE.md`
-> - `/Users/canh/Projects/Seta/seta-os/platform/auth/SCOPE.md`
-> - `/Users/canh/Projects/Seta/seta-os/platform/oauth/SCOPE.md`
+> - `seta-os/platform/tenant/SCOPE.md`
+> - `seta-os/platform/auth/SCOPE.md`
+> - `seta-os/platform/oauth/SCOPE.md`
 
 **SW-3 External integration (4 packages):**
 
@@ -1423,10 +1423,10 @@ Each scope-writer's prompt = shared brief preamble + the assignment block below.
 > **setup.md sections:** §3 (audit schema, directory schema), §4 (KMS provider abstraction relevant to oauth which audit logs), §7 (MS Graph $batch, ETag/If-Match, 429 backoff — ms-graph), §11 (connector boundary rules: connectors don't import products/channels, may import other connectors).
 >
 > **Output paths:**
-> - `/Users/canh/Projects/Seta/seta-os/platform/ms-graph/SCOPE.md`
-> - `/Users/canh/Projects/Seta/seta-os/platform/connector-registry/SCOPE.md`
-> - `/Users/canh/Projects/Seta/seta-os/platform/directory/SCOPE.md`
-> - `/Users/canh/Projects/Seta/seta-os/platform/audit/SCOPE.md`
+> - `seta-os/platform/ms-graph/SCOPE.md`
+> - `seta-os/platform/connector-registry/SCOPE.md`
+> - `seta-os/platform/directory/SCOPE.md`
+> - `seta-os/platform/audit/SCOPE.md`
 
 **SW-4 Agent runtime (2 packages — densest scope work):**
 
@@ -1439,8 +1439,8 @@ Each scope-writer's prompt = shared brief preamble + the assignment block below.
 > **Note:** `@seta/agent-sdk` is the **public client + SSE helper** — it's the consumer-facing surface for agent runs over HTTP. It depends on `@seta/agent-core` types only (no runtime imports). Its scope is small.
 >
 > **Output paths:**
-> - `/Users/canh/Projects/Seta/seta-os/platform/agent/core/SCOPE.md`
-> - `/Users/canh/Projects/Seta/seta-os/platform/agent/sdk/SCOPE.md`
+> - `seta-os/platform/agent/core/SCOPE.md`
+> - `seta-os/platform/agent/sdk/SCOPE.md`
 
 **SW-5 Modules (4 packages):**
 
@@ -1451,10 +1451,10 @@ Each scope-writer's prompt = shared brief preamble + the assignment block below.
 > **setup.md sections:** §7 (Teams surface — full hand-rolled Bot Framework), §11 (channel/connector/product boundary rules — critical), §13 (deps for each module).
 >
 > **Output paths:**
-> - `/Users/canh/Projects/Seta/seta-os/modules/channels/teams/SCOPE.md`
-> - `/Users/canh/Projects/Seta/seta-os/modules/connectors/ms365-planner/SCOPE.md`
-> - `/Users/canh/Projects/Seta/seta-os/modules/connectors/ms365-directory/SCOPE.md`
-> - `/Users/canh/Projects/Seta/seta-os/modules/products/agent/SCOPE.md`
+> - `seta-os/modules/channels/teams/SCOPE.md`
+> - `seta-os/modules/connectors/ms365-planner/SCOPE.md`
+> - `seta-os/modules/connectors/ms365-directory/SCOPE.md`
+> - `seta-os/modules/products/agent/SCOPE.md`
 
 **SW-6 App (1 package):**
 
@@ -1466,7 +1466,7 @@ Each scope-writer's prompt = shared brief preamble + the assignment block below.
 >
 > **Note:** apps/api is composition-only — no business logic. Its SCOPE.md is mostly about what it MUST NOT do (no business logic, no DI, no plugin loaders) and the composition order (instrumentation → env → middleware → channels → products → platform routes → error handler → SIGTERM shutdown).
 >
-> **Output path:** `/Users/canh/Projects/Seta/seta-os/apps/api/SCOPE.md`
+> **Output path:** `seta-os/apps/api/SCOPE.md`
 
 - [ ] **Step 2: Spawn the 6 scope-writer subagents in parallel**
 
@@ -1484,7 +1484,7 @@ The tool-call message returns when all subagents finish. Read their summary mess
 
 Run:
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 EXPECTED=(
   platform/tsconfig platform/db platform/observability platform/middleware
   platform/tenant platform/auth platform/oauth
@@ -1503,7 +1503,7 @@ Expected: 18 lines, all `OK`.
 
 Run:
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 for f in $(find platform modules apps -name SCOPE.md); do
   H2_COUNT=$(grep -c '^## ' "$f")
   echo "$H2_COUNT $f"
@@ -1515,7 +1515,7 @@ Expected: every line shows `8 <path>` (8 H2 sections per the template: Purpose, 
 
 Run:
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 for f in $(find platform modules apps -name SCOPE.md); do
   # A heuristic: a SCOPE.md should have at most a handful of multi-line code blocks
   # for signatures. >10 fenced blocks is a strong signal of code-body leakage.
@@ -1528,7 +1528,7 @@ Expected: empty output. Any file flagged for review should be inspected manually
 - [ ] **Step 4: Commit Phase 2 output**
 
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 git add platform/*/SCOPE.md platform/agent/*/SCOPE.md \
         modules/channels/*/SCOPE.md modules/connectors/*/SCOPE.md \
         modules/products/*/SCOPE.md apps/api/SCOPE.md
@@ -1558,17 +1558,17 @@ EOF
 
 - [ ] **Step 1: Create directory**
 
-Run: `mkdir -p /Users/canh/Projects/Seta/seta-os/.github/workflows`
+Run: `mkdir -p seta-os/.github/workflows`
 
 - [ ] **Step 2: Write `ci.yml`**
 
-Read `docs/setup.md` lines 1547–1682 (the full CI workflow block from §12), strip the fence, write to `/Users/canh/Projects/Seta/seta-os/.github/workflows/ci.yml`.
+Read `docs/setup.md` lines 1547–1682 (the full CI workflow block from §12), strip the fence, write to `seta-os/.github/workflows/ci.yml`.
 
 **Then trim:** remove the `integration` and `e2e` jobs from the workflow, since the skeleton has no integration or e2e tests yet. Leave `setup`, `lint`, `typecheck`, `unit`, `build`. The `unit` job runs `pnpm turbo run test:unit` — which Turbo will skip cleanly because no package defines a `test:unit` script yet, but the job exists and is wired so the first test addition flips it green.
 
 Confirm by running:
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 grep -E '^\s+(integration|e2e):' .github/workflows/ci.yml && echo "STILL PRESENT" || echo "REMOVED"
 ```
 Expected: `REMOVED`.
@@ -1576,7 +1576,7 @@ Expected: `REMOVED`.
 - [ ] **Step 3: Commit CI workflow**
 
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 git add .github/workflows/ci.yml
 git commit -m "$(cat <<'EOF'
 ci: lint + typecheck + unit + build workflow
@@ -1597,7 +1597,7 @@ EOF
 
 - [ ] **Step 1: Install all workspace dependencies**
 
-Run: `cd /Users/canh/Projects/Seta/seta-os && pnpm install`
+Run: `cd seta-os && pnpm install`
 Expected: completes without `ERR_PNPM_PEER_DEP_ISSUES`, without unresolved workspace links, without errors. The `strict-peer-dependencies=true` in `.npmrc` makes peer issues a hard failure.
 
 - [ ] **Step 2: Investigate any failures**
@@ -1611,18 +1611,18 @@ Fix the root cause; do not pass `--no-strict-peer-dependencies` to paper over.
 
 - [ ] **Step 3: Verify lockfile created**
 
-Run: `test -f /Users/canh/Projects/Seta/seta-os/pnpm-lock.yaml && echo OK`
+Run: `test -f seta-os/pnpm-lock.yaml && echo OK`
 Expected: `OK`.
 
 - [ ] **Step 4: Install lefthook hooks**
 
-Run: `cd /Users/canh/Projects/Seta/seta-os && pnpm exec lefthook install`
+Run: `cd seta-os && pnpm exec lefthook install`
 Expected: `sync hooks: ✔️ (pre-commit, pre-push)` or similar success message.
 
 - [ ] **Step 5: Commit lockfile**
 
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 git add pnpm-lock.yaml
 git commit -m "$(cat <<'EOF'
 chore(repo): add pnpm-lock.yaml after workspace install
@@ -1643,7 +1643,7 @@ EOF
 
 - [ ] **Step 1: Run workspace typecheck**
 
-Run: `cd /Users/canh/Projects/Seta/seta-os && pnpm turbo run typecheck`
+Run: `cd seta-os && pnpm turbo run typecheck`
 Expected: all 17 packages with a typecheck script (excluding `@seta/tsconfig`) pass. `@seta/api` includes typecheck on the actual src files.
 
 - [ ] **Step 2: Investigate any failures**
@@ -1662,14 +1662,14 @@ Fix the root cause.
 
 - [ ] **Step 1: Run Biome lint**
 
-Run: `cd /Users/canh/Projects/Seta/seta-os && pnpm lint`
+Run: `cd seta-os && pnpm lint`
 Expected: zero errors. Biome rules from `biome.json`: `useImportType` and `useNodejsImportProtocol` may flag minor things in the skeleton stubs — fix in-place rather than disable rules.
 
 - [ ] **Step 2: Run guard scripts**
 
 Run each:
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 pnpm tsx tooling/scripts/check-public-private.ts
 pnpm tsx tooling/scripts/check-no-manual-pkg-edit.ts
 pnpm tsx tooling/scripts/verify-versions.ts
@@ -1682,19 +1682,19 @@ Expected: each exits 0 (they're stubs).
 
 - [ ] **Step 1: Start local infra**
 
-Run: `cd /Users/canh/Projects/Seta/seta-os && docker compose up -d pg jaeger otel-collector`
+Run: `cd seta-os && docker compose up -d pg jaeger otel-collector`
 Expected: three services come up. Verify with `docker compose ps`.
 
 - [ ] **Step 2: Apply postgres init**
 
-Run: `cd /Users/canh/Projects/Seta/seta-os && PGPASSWORD=dev psql -h localhost -U seta -d seta -f infra/postgres/init.sql`
+Run: `cd seta-os && PGPASSWORD=dev psql -h localhost -U seta -d seta -f infra/postgres/init.sql`
 Expected: `CREATE EXTENSION` lines + `DO` block prints. No errors. If `psql` isn't installed locally, run inside the container: `docker compose exec pg psql -U seta -d seta -f /dev/stdin < infra/postgres/init.sql`.
 
 - [ ] **Step 3: Start apps/api in the background**
 
 Run (foreground for debugging, then Ctrl-C — or use `run_in_background`):
 ```bash
-cd /Users/canh/Projects/Seta/seta-os && pnpm --filter @seta/api dev
+cd seta-os && pnpm --filter @seta/api dev
 ```
 Expected: stdout shows the line `{"level":"info","msg":"api listening","port":8080}` (or similar JSON).
 
@@ -1722,7 +1722,7 @@ If it hangs > 2s, the shutdown sequence isn't draining HTTP correctly — inspec
 
 - [ ] **Step 7: Tear down local infra**
 
-Run: `cd /Users/canh/Projects/Seta/seta-os && docker compose down`
+Run: `cd seta-os && docker compose down`
 Expected: services stop cleanly. (We don't `down -v` — keep the dev volume.)
 
 ---
@@ -1731,14 +1731,14 @@ Expected: services stop cleanly. (We don't `down -v` — keep the dev volume.)
 
 - [ ] **Step 1: Push the branch**
 
-Run: `cd /Users/canh/Projects/Seta/seta-os && git push -u origin spike/mastra-foundation`
+Run: `cd seta-os && git push -u origin spike/mastra-foundation`
 Expected: branch pushed; `gh pr create` works against it.
 
 - [ ] **Step 2: Open the PR**
 
 Run:
 ```bash
-cd /Users/canh/Projects/Seta/seta-os
+cd seta-os
 gh pr create --title "spike: mastra-derived foundation + per-package SCOPE.md" --body "$(cat <<'EOF'
 ## Summary
 
