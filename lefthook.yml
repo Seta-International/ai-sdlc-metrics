@@ -11,6 +11,6 @@ pre-push:
   parallel: true
   commands:
     typecheck:
-      run: pnpm turbo run typecheck --filter='...[origin/main]'
+      run: ./node_modules/.bin/turbo run typecheck --filter='...[origin/main]'
     test:
-      run: pnpm turbo run test:unit --filter='...[origin/main]'
+      run: ./node_modules/.bin/turbo run test:unit --filter='...[origin/main]'
