@@ -1,34 +1,15 @@
 import type { Tool } from '@seta/agent-core'
 import { Unauthorized } from '@seta/middleware'
-import type { BatchRequest, GraphFetch } from '@seta/ms-graph'
+import type { BatchRequest } from '@seta/ms-graph'
 import { tenantContext } from '@seta/tenant'
 import PQueue from 'p-queue'
 import { z } from 'zod'
 import { ContinuationConsumed } from '../_errors'
 import type { OpResult } from './_classify'
 import { classifyBatchItem } from './_classify'
+import type { CommitDeps } from './update_tasks.commit'
 
-export interface CreateTasksCommitDeps {
-  registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
-  tokenForUser: (tenantId: string, userId: string) => Promise<{ accessToken: string }>
-  buildGraph: () => GraphFetch
-  buildCache: () => {
-    task: {
-      upsert(taskId: string, etag: string, raw: unknown): Promise<void>
-      softDelete(taskId: string): Promise<void>
-    }
-  }
-  continuationStore: {
-    verify(v: {
-      token: string
-      userId: string
-      tenantId: string
-      toolId: string
-    }): Promise<{ payload: Record<string, unknown>; etagSnapshot: Record<string, string> }>
-    markConsumed(token: string, card: Record<string, unknown>): Promise<void>
-  }
-  batchConcurrency: number
-}
+export type { CommitDeps }
 
 const Input = z.object({ token: z.string().min(1) })
 
@@ -90,7 +71,7 @@ function buildResultCard(
 }
 
 export function createTasksCommitTool(
-  deps: CreateTasksCommitDeps,
+  deps: CommitDeps,
 ): Tool<z.infer<typeof Input>, z.infer<typeof Output>> {
   return {
     id: 'planner.create_tasks.commit',
@@ -147,7 +128,7 @@ export function createTasksCommitTool(
           chunks.map((chunk) =>
             queue.add(async () => {
               const requests: BatchRequest[] = chunk.map((task, idx) => ({
-                id: `create-${allResults.length + idx}`,
+                id: String(idx),
                 method: 'POST',
                 url: '/planner/tasks',
                 body: task,
@@ -162,12 +143,20 @@ export function createTasksCommitTool(
 
               for (const item of batchItems) {
                 const r = classifyBatchItem(item)
-                allResults.push(r)
+                // For creates, the real taskId is in the response body, not the batch request id
+                const taskId =
+                  r.status === 'ok' &&
+                  r.raw != null &&
+                  typeof r.raw === 'object' &&
+                  'id' in (r.raw as object)
+                    ? (r.raw as { id: string }).id
+                    : r.taskId
+                allResults.push({ ...r, taskId })
 
                 if (r.status === 'ok' && r.newEtag != null) {
-                  await cache.task.upsert(r.taskId, r.newEtag, r.raw)
+                  await cache.task.upsert(taskId, r.newEtag, r.raw)
                 } else if (r.status === 'missing') {
-                  await cache.task.softDelete(r.taskId)
+                  await cache.task.softDelete(taskId)
                 }
               }
             }),

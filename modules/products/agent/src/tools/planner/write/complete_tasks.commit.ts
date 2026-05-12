@@ -1,34 +1,15 @@
 import type { Tool } from '@seta/agent-core'
 import { Unauthorized } from '@seta/middleware'
-import type { BatchRequest, GraphFetch } from '@seta/ms-graph'
+import type { BatchRequest } from '@seta/ms-graph'
 import { tenantContext } from '@seta/tenant'
 import PQueue from 'p-queue'
 import { z } from 'zod'
 import { ContinuationConsumed } from '../_errors'
 import type { OpResult } from './_classify'
 import { classifyBatchItem } from './_classify'
+import type { CommitDeps } from './update_tasks.commit'
 
-export interface CompleteTasksCommitDeps {
-  registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
-  tokenForUser: (tenantId: string, userId: string) => Promise<{ accessToken: string }>
-  buildGraph: () => GraphFetch
-  buildCache: () => {
-    task: {
-      upsert(taskId: string, etag: string, raw: unknown): Promise<void>
-      softDelete(taskId: string): Promise<void>
-    }
-  }
-  continuationStore: {
-    verify(v: {
-      token: string
-      userId: string
-      tenantId: string
-      toolId: string
-    }): Promise<{ payload: Record<string, unknown>; etagSnapshot: Record<string, string> }>
-    markConsumed(token: string, card: Record<string, unknown>): Promise<void>
-  }
-  batchConcurrency: number
-}
+export type { CommitDeps }
 
 const Input = z.object({ token: z.string().min(1) })
 
@@ -81,7 +62,7 @@ function buildResultCard(
 }
 
 export function completeTasksCommitTool(
-  deps: CompleteTasksCommitDeps,
+  deps: CommitDeps,
 ): Tool<z.infer<typeof Input>, z.infer<typeof Output>> {
   return {
     id: 'planner.complete_tasks.commit',
@@ -142,6 +123,7 @@ export function completeTasksCommitTool(
                 method: 'PATCH',
                 url: `/planner/tasks/${taskId}`,
                 headers: {
+                  // etagSnapshot is populated for every taskId in the payload by the preview tool before minting
                   'If-Match': verified.etagSnapshot[taskId]!,
                   Prefer: 'return=representation',
                 },

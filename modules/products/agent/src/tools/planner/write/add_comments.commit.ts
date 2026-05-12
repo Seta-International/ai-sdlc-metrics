@@ -37,7 +37,7 @@ export function addCommentsCommitTool(
   return {
     id: 'planner.add_comments.commit',
     description:
-      'Commit a previously previewed planner.add_comments request. Currently stubbed — comment posting via Graph conversation threads is pending pattern verification.',
+      'Add comments to Planner tasks. Note: comment posting via group conversation threads is not yet supported in this release.',
     inputSchema: Input as never,
     outputSchema: Output as never,
     annotations: { destructiveHint: true, idempotentHint: true },
