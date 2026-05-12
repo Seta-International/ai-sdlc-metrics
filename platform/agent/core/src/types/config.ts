@@ -1,14 +1,9 @@
+import type { AdapterRegistry } from '../models/registry'
 import type { MemoryProvider } from './memory'
 import type { KernelMessage } from './message'
 import type { Processor } from './processor'
 import type { StepResult } from './run'
 import type { JsonSchemaTool, Tool } from './tool'
-
-export interface AdapterRegistryRef {
-  register: unknown
-  get: unknown
-  select: unknown
-}
 
 export interface AgentConfig {
   model: string
@@ -22,7 +17,7 @@ export interface AgentConfig {
 export type StopCondition = (steps: StepResult[]) => boolean | Promise<boolean>
 
 export interface RunLoopOptions {
-  adapters: AdapterRegistryRef
+  adapters: AdapterRegistry
   memory?: MemoryProvider
   signal?: AbortSignal
   processors?: Processor[]
