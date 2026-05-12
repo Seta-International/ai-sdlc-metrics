@@ -134,7 +134,6 @@ export function updateTasksCommitTool(
 
         const allResults: OpResult[] = []
 
-        // Chunk updates into groups of 20
         const chunks: UpdateItem[][] = []
         for (let i = 0; i < payload.updates.length; i += 20) {
           chunks.push(payload.updates.slice(i, i + 20))
@@ -150,6 +149,7 @@ export function updateTasksCommitTool(
                 method: 'PATCH',
                 url: `/planner/tasks/${u.taskId}`,
                 headers: {
+                  // etagSnapshot is populated for every taskId in the payload by the preview tool before minting
                   'If-Match': verified.etagSnapshot[u.taskId]!,
                   Prefer: 'return=representation',
                 },
@@ -164,9 +164,10 @@ export function updateTasksCommitTool(
               })
 
               for (const item of batchItems) {
-                const r = classifyBatchItem({ ...item, taskId: item.id })
+                const r = classifyBatchItem(item)
                 allResults.push(r)
 
+                // cache.task.upsert requires a non-null etag; skip write-through if Graph omitted it
                 if (r.status === 'ok' && r.newEtag != null) {
                   await cache.task.upsert(r.taskId, r.newEtag, r.raw)
                 } else if (r.status === 'missing') {

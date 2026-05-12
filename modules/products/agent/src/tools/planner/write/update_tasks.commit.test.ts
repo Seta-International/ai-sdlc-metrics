@@ -96,11 +96,9 @@ describe('planner.update_tasks.commit', () => {
       expect(t2Result?.status).toBe('conflict')
     }
 
-    // upsert called only for T1 (200 ok)
     expect(mocks.upsert).toHaveBeenCalledOnce()
     expect(mocks.upsert).toHaveBeenCalledWith('T1', 'W/"e1-new"', expect.anything())
 
-    // markConsumed called with the token
     expect(mocks.markConsumed).toHaveBeenCalledOnce()
     expect(mocks.markConsumed).toHaveBeenCalledWith('tok-valid', expect.any(Object))
   })
