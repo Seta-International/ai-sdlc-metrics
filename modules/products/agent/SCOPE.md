@@ -22,7 +22,8 @@ The Seta Agent product — the only `modules/products/*` package in P1. Owns the
   - Directory mirror or JIT mapping — `@seta/connector-ms365-directory` (setup.md §11).
   - The kernel itself — `@seta/agent-core` provides the streaming K-loop, `ModelAdapter`, `Processor` seams, `streamKernelSSE(c, run)` helper, and the testkit (spike `02-agent-core.md`; CLAUDE.md footguns).
   - Other products — products never import other products (CLAUDE.md; setup.md §11 "never on another product").
-  - Workflow DSL / DAG / suspend-resume engine — explicitly not in P1; multi-step plans are LLM-planned tool calls inside the kernel loop. Two-phase writes use `write_continuations`, not a workflow (spike `05-workflows.md`).
+  - Workflow DSL / DAG / suspend-resume engine — that lives in `@seta/agent-workflows` (P1, override; spike `05-workflows.md` § "P1 override"). This product **composes** workflows (registers named workflows, exposes run/resume HTTP routes) but does not implement the engine.
+  - Memory persistence — that lives in `@seta/agent-memory` (P1, override; spike `09-memory.md` § "P1 override"). This product owns thread CRUD **HTTP routes** but delegates persistence to `@seta/agent-memory` via the `MemoryProvider` interface declared in `@seta/agent-core`.
   - MCP server exposure of these tools — P2-deferred (spike `04-tools-mcp.md` punch list).
 
 ## Current state (Epic 1)
@@ -55,6 +56,8 @@ No `Handler` interface lives here — `@seta/teams` defines `TeamsHandler`; this
 
 - **Allowed internal (per setup.md §11 dep direction `modules/products/* → modules/channels/* (handler-impl only), modules/connectors/*, platform/agent/*, platform/{middleware,observability,db,auth,tenant,audit}`):**
   - `@seta/agent-core` — kernel, `streamKernelSSE`, `ModelAdapter`, `Processor` seams, testkit (spike `02-agent-core.md`; setup.md §5).
+  - `@seta/agent-memory` — `MemoryProvider` implementation; the product's thread CRUD HTTP routes call into this for conversation history and working memory (P1 override; spike `09-memory.md` § "P1 override").
+  - `@seta/agent-workflows` — workflow DSL (`createWorkflow().then(...).parallel(...)`) and `resume(runId, ...)`; the product registers named workflows for multi-step plans that exceed one HTTP turn (P1 override; spike `05-workflows.md` § "P1 override").
   - `@seta/teams` — **only** to implement its `TeamsHandler` interface (setup.md §11 "may depend on `modules/channels/*` only to implement that channel's handler interface").
   - `@seta/connector-ms365-planner` — Planner client + manifest (already declared).
   - `@seta/connector-ms365-directory` — directory lookups inside `workload_analysis` and other tools (setup.md §13 — **missing in current `package.json`**).
@@ -74,7 +77,7 @@ No `Handler` interface lives here — `@seta/teams` defines `TeamsHandler`; this
   - `botbuilder`, `botbuilder-core`, `@microsoft/teams-ai` — transport is in `@seta/teams`, not here.
   - `@microsoft/microsoft-graph-client` — Graph calls go through `@seta/connector-ms365-*` → `@seta/ms-graph`.
   - Mastra (`@mastra/core`, `@mastra/mcp`, `@internal/llm-recorder`) — spike-only references; not deps.
-  - Workflow engines (`@mastra/workflows`, Temporal SDK, Inngest SDK) — P2-deferred (spike `05-workflows.md`).
+  - External workflow engines (`@mastra/workflows`, Temporal SDK, Inngest SDK) — P1 uses the in-house `@seta/agent-workflows` package; external durable-workflow engines stay P2-deferred (spike `05-workflows.md` § "P1 override" punch list).
   - `process.env.X` reads anywhere except via the typed `env` from `@seta/api` boot (CLAUDE.md "`process.env` → typed `env`").
 
 - **External (pinned per setup.md §13):**
@@ -97,8 +100,10 @@ No `Handler` interface lives here — `@seta/teams` defines `TeamsHandler`; this
 - **Schema-per-module Drizzle layout** — `src/schema.ts` declares the `agent` pgSchema, `drizzle.config.ts` with `schemaFilter: ['agent']`, `migrations/` directory; never hand-edit migrations (CLAUDE.md "Schema-driven"; setup.md §11 `schema.ts`).
 - **Multi-tenant from day one** — `write_continuations.tenant_id uuid not null`, RLS policy, app role `tenant_user` (CLAUDE.md).
 - **Idempotent commit** — `write_continuations.consumed_at` is the idempotency token; replaying a commit is a no-op (CLAUDE.md "Idempotent external boundaries").
-- **Tool result envelope carries an optional `{ suspend?: { reason, resumeLabel } }` discriminant — shape only, not wired** — future-compatible with HITL without importing Mastra's branded `InnerOutput` (spike `05-workflows.md` punch list).
-- **`Run` identifier (ULID) threaded through the kernel** and a placeholder `RunStatus` type (`'created'|'running'|'completed'|'failed'`) so a later `workflow_snapshots` table joins by `run_id` without refactor (spike `05-workflows.md` punch list).
+- **Compose workflows via `@seta/agent-workflows`'s `.then()` / `.parallel()` for multi-step plans that exceed one HTTP turn.** The workflow is the *outer* multi-turn shape; the kernel handles each inner LLM turn. Use preview/commit for the *inner* per-step HITL still (write_continuations); use workflow `ctx.suspend({ reason, resumeLabel, payload })` for outer multi-turn approval gates that span hours-to-days. (P1 override; spike `05-workflows.md` § "P1 override".)
+- **Tool result envelope's `{ suspend?: { reason, resumeLabel } }` discriminant is wired** by `@seta/agent-workflows` — when a tool returns `suspend` inside a workflow-step body, the engine persists the snapshot. Outside a workflow context the discriminant is ignored (spike `05-workflows.md` punch list).
+- **`Run` identifier (ULID) threaded through the kernel** and `RunStatus` type (`'created'|'running'|'completed'|'failed'`) — `workflow_snapshots.run_id` joins to this kernel `Run` so workflow-level and kernel-level audit rows share an id space (spike `05-workflows.md` punch list).
+- **Memory persistence goes through `@seta/agent-memory`** — the product's thread CRUD HTTP routes (list / get / delete threads) call into the `MemoryProvider` implementation; the product does NOT own `conversations` / `turns` / `working_memory` tables (P1 override; spike `09-memory.md` § "P1 override").
 - **`Processor` seams reserved** in `@seta/agent-core` (`processInput`, `processOutputStep`, `processAPIError`); the product wires only what it needs in P1 (spike `02-agent-core.md`).
 - **LLM in tests only via `@seta/agent-core/testkit` recordings** — msw-based, content-hashed, `__recordings__/` checked in (CLAUDE.md footguns; spike `06-llm-recording-replay.md`).
 - **Errors throw `DomainError` subclasses** from `@seta/middleware/errors`; kernel/tool errors extend `KernelError extends DomainError` with `{ code, domain: 'AGENT'|'LLM'|'TOOL', category }` (spike `02-agent-core.md` punch list; setup.md §15).
@@ -111,8 +116,8 @@ No `Handler` interface lives here — `@seta/teams` defines `TeamsHandler`; this
 - **Direct `openai` or `@anthropic-ai/sdk` imports** — go through `@seta/agent-core`'s `ModelAdapter` (spike `02-agent-core.md`; setup.md §5).
 - **`runTools()` / `beta.messages.toolRunner()`** — the kernel owns the tool-call loop (K4) to enforce per-tool budgets, RLS-aware tool exec, cost accounting, deterministic replay (setup.md §5; CLAUDE.md footguns).
 - **Re-supplying the write payload at `.commit`** — commit takes `{ continuation_id }` only; payload comes from the signed envelope (spike `04-tools-mcp.md`).
-- **In-process HITL `approveToolCall(runId)`** — Mastra-style, conflicts with stateless multi-instance request path; preview/commit + HMAC continuations cover the same need statelessly (spike `04-tools-mcp.md` "P2-defer"; CLAUDE.md "Stateless request path").
-- **Workflow DSL** (`.then`/`.branch`/`.parallel`/`.dowhile`/`.foreach`) or a DAG executor — P2-deferred; multi-step plans are LLM-planned tool calls inside the kernel loop (spike `05-workflows.md`).
+- **In-process HITL `approveToolCall(runId)`** — Mastra-style, conflicts with stateless multi-instance request path; preview/commit + HMAC continuations (per-step) and `@seta/agent-workflows` `ctx.suspend()` (workflow-level) cover the same need statelessly (spike `04-tools-mcp.md` "P2-defer"; CLAUDE.md "Stateless request path").
+- **Hand-rolling a workflow DSL inside this product** — multi-step flows compose `@seta/agent-workflows` (P1, override). `.branch()` / `.dowhile()` / `.foreach()` / `.sleep()` operators are P2 in the workflow package; do not work around their absence with ad-hoc product-side state machines — surface the need and expand the workflow surface instead (spike `05-workflows.md` § "P1 override").
 - **Auto-converting agents/workflows to MCP tools** — explicit registration in `apps/api/src/main.ts` only (CLAUDE.md "one registry"; spike `04-tools-mcp.md`).
 - **Tenant id as a function parameter** — read from `tenantContext.getTenantId()` (CLAUDE.md).
 - **`vi.mock` of internal `@seta/*` modules or live model APIs in tests** — testkit recordings only (CLAUDE.md footguns; spike `06-llm-recording-replay.md`).
@@ -141,6 +146,6 @@ No `Handler` interface lives here — `@seta/teams` defines `TeamsHandler`; this
 - HMAC key rotation: does `@seta/auth` KMS provider expose a versioned key id that goes into `write_continuations.hmac` so older continuations remain verifiable post-rotation? Suggest `hmac_kid` column on the table.
 - `Tool` type ownership — does `@seta/agent-core` export a `Tool` type (spike open question `04-tools-mcp.md`) or do tools live as opaque callables typed inside `@seta/agent`? Default assumption: `@seta/agent-core` exports the type.
 - `toModelOutput` transform seam — adaptive-card payloads need a plain-text shape for the model without duplicating tools (spike `04-tools-mcp.md` punch list). Confirm `@seta/agent-core` exposes this hook.
-- Conversation persistence — `write_continuations` is the only `agent` schema row in P1; `conversations`, `runs`, `working_memory` are future (setup.md §3 line 117). When conversation persistence lands, does it live under the `agent` schema or a separate `agent_runs` schema?
+- Conversation persistence — **resolved (P1 override 2026-05-12):** `write_continuations` remains the only table in the `agent` schema (product-owned). Conversation history, working memory, and recall (`conversations`, `turns`, `working_memory`) move to the **`agent_memory` schema owned by `@seta/agent-memory`** (P1; not this product). Thread CRUD HTTP routes still live in this product but delegate persistence to `@seta/agent-memory` via the `MemoryProvider` interface. Workflow snapshots live in the **`agent_workflows` schema owned by `@seta/agent-workflows`** (P1). See `platform/agent/memory/SCOPE.md` and `platform/agent/workflows/SCOPE.md`. Setup.md §3 line 117 should be amended in a follow-up to reflect this schema split.
 - Streaming reply to Teams — Bot Framework does not stream; the agent runs to completion then posts a single reply. Confirm `streamKernelSSE` is used only for direct REST callers in P1, not Teams.
 - `workload_analysis` tool: read-only across Planner + Directory, but it cross-joins by `entra_object_id` — no FK, the join is at query time in the product. Confirm the join key matches `connector_ms365_directory.directory_users.entra_object_id`.

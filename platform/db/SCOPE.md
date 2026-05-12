@@ -16,15 +16,22 @@ owner-package migrations in dependency order. Owns no application tables — sch
   - `OWNER_ORDER` + `runMigrations({url, roleName?, repoRoot?, owners?})` — applies every
     owner package's `migrations/` directory in dependency order (`auth → tenant →
     directory → oauth → audit → connector_ms365_directory → connector_ms365_planner →
-    agent`). Skips owners with no `meta/_journal.json`.
+    agent → agent_memory → agent_workflows`). Skips owners with no `meta/_journal.json`.
+    **P1 override (2026-05-12):** `agent_memory` and `agent_workflows` are new owners added
+    after `agent`. They have no cross-schema FKs (CLAUDE.md "no cross-schema foreign keys")
+    but conceptually depend on the kernel's `Run` id space defined alongside the `agent`
+    product surface; placing them after `agent` is order-stable and lets the agent
+    composition root assume both schemas are migrated by boot. See
+    `docs/explorations/2026-05-12-mastra-spike/README.md` § "P1 scope override" and the
+    spike reports (`05-workflows.md`, `09-memory.md`) § "P1 override" subsections.
   - `tenantUser` / `platformAdmin` drizzle `pgRole` exports — used by owner packages when
     declaring RLS policies (`as: "permissive", to: tenantUser, …`).
 - **Does NOT own:**
   - **Application tables / schemas.** Every owner package (`@seta/auth`, `@seta/tenant`,
     `@seta/directory`, `@seta/oauth`, `@seta/audit`, each `@seta/connector-*`,
-    `@seta/agent`) declares its own Drizzle schema file, `drizzle.config.ts`, and
-    `migrations/` directory. setup.md §3 "Schema-per-module (DDD)" is explicit:
-    `@seta/db` owns no application tables.
+    `@seta/agent`, `@seta/agent-memory`, `@seta/agent-workflows`) declares its own Drizzle
+    schema file, `drizzle.config.ts`, and `migrations/` directory. setup.md §3
+    "Schema-per-module (DDD)" is explicit: `@seta/db` owns no application tables.
   - **Cross-schema foreign keys.** CLAUDE.md / setup.md §3: cross-context references are by
     ID only; `tenant_id` is the universal correlation key.
   - **Migration **generation**.** `drizzle-kit generate` runs in each owner package and
@@ -40,7 +47,11 @@ Implemented and minimal — exactly the four concerns above.
 - `src/client.ts` — `createPool` (postgres-js with pool defaults) and `withTenant` (tx +
   bind-param-safe `set_config('app.tenant_id', $1, true)`). Cast at the `sql.begin` return
   boundary because postgres-js's `UnwrapPromiseArray<T>` does not reduce generically.
-- `src/migrate.ts` — `OWNER_ORDER` constant (8 owners in dependency order), `runMigrations`
+- `src/migrate.ts` — `OWNER_ORDER` constant (8 owners in dependency order today; **the P1
+  override 2026-05-12 expands this to 10 by adding `agent_memory` + `agent_workflows`
+  after `agent`** — see `docs/explorations/2026-05-12-mastra-spike/README.md` § "P1 scope
+  override"; the constant + tests update lands alongside the `@seta/agent-memory` and
+  `@seta/agent-workflows` package-creation PRs), `runMigrations`
   using `drizzle-orm/postgres-js/migrator`. `SET ROLE "<role>"` runs via `sql.unsafe`
   because `SET ROLE` rejects bind params (the role name is operator-controlled, with `"`
   escaped). Owners with no `meta/_journal.json` are skipped — drizzle 0.45.2 throws a plain
@@ -63,9 +74,11 @@ From `src/index.ts`:
 - `function withTenant<T>(sql: DbSql, tenantId: string, fn: (tx: TransactionSql) =>
   Promise<T>): Promise<T>` — THE only entrypoint for tenant-scoped queries. Calls
   `sql.begin` and `SELECT set_config('app.tenant_id', ${tenantId}, true)` before `fn(tx)`.
-- `type Owner` — union of the 8 P1 owner package names.
+- `type Owner` — union of the 10 P1 owner package names (8 original + `agent_memory` +
+  `agent_workflows` per P1 override 2026-05-12).
 - `const OWNER_ORDER: readonly Owner[]` — `["auth","tenant","directory","oauth","audit",
-  "connector_ms365_directory","connector_ms365_planner","agent"]`.
+  "connector_ms365_directory","connector_ms365_planner","agent","agent_memory",
+  "agent_workflows"]`.
 - `type RunMigrationsOpts = { url; roleName?; repoRoot?; owners? }`.
 - `async function runMigrations(opts: RunMigrationsOpts): Promise<void>` — applies each
   owner's `migrations/` in order; skips owners with no `meta/_journal.json`.
@@ -125,7 +138,8 @@ From `src/index.ts`:
 
 ## Test strategy
 - **Unit** (`src/migrate.test.ts`): pins `OWNER_ORDER` against the spec. Pure constant
-  check; no DB.
+  check; no DB. The expected list updates when `agent_memory` and `agent_workflows` land
+  (P1 override 2026-05-12) — the test is the spec-fence.
 - **Integration** (`src/with-tenant.test.ts`): connects to `DATABASE_URL` (defaults
   `postgres://seta:dev@localhost:5432/seta`); asserts (a) `app.tenant_id` is visible inside
   the tx, and (b) **the GUC is empty after the tx on the same backend** (`max:1` pins

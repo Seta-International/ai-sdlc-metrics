@@ -1,4 +1,8 @@
-# 09 — Memory hooks (P1 seam for P2 implementation)
+# 09 — Memory hooks (P1 implementation)
+
+## P1 override
+
+**Date:** 2026-05-12. **Scope change:** the original spike recommendation in this report was to keep memory implementation P2-deferred and fold it into `@seta/agent` (the product) when it eventually lands. **User-directed override:** memory persistence is required in P1, and the implementation home is a new platform package **`@seta/agent-memory`** under `platform/agent/memory/`, owning the `agent_memory` Postgres schema (`conversations`, `turns`, `working_memory`). The kernel-side `MemoryProvider` interface + `NullMemoryProvider` still ship in `@seta/agent-core` as the seam; `apps/api/src/main.ts` binds the **real** `@seta/agent-memory` provider in P1, not the null one. Rationale: setup.md §11 enumerates multiple products (PMO, Timesheet, Finance) behind `@seta/agent`, and memory is platform-runtime state — not a product concern. See `platform/agent/memory/SCOPE.md` for the full P1 contract. The "Avoid" notes about composite multi-backend storage, observational memory, and the embeddings/vector RAG path still stand as P2-deferred.
 
 ## What Mastra does
 
@@ -47,13 +51,18 @@ Mastra splits memory cleanly into **kernel-facing interface** (abstract `MastraM
 ## Punch list
 
 - `@seta/agent-core`: export `interface MemoryProvider { recall(ctx): Promise<RecallResult>; saveTurn(ctx, msgs): Promise<void>; getWorkingMemory(ctx): Promise<string|null>; updateWorkingMemory(ctx, text): Promise<void> }` — modeled on `memory.ts:404-660`, **minus thread CRUD**.
-- `@seta/agent-core`: ship a `NullMemoryProvider` (all methods return empty/no-op) as the P1 default; kernel never branches on `if (memory)`.
+- `@seta/agent-core`: ship a `NullMemoryProvider` (all methods return empty/no-op) as a test-only fallback; kernel never branches on `if (memory)`. **P1 override: the composition root binds `@seta/agent-memory`'s real provider, not the null one.**
 - `@seta/agent-core`: agent loop calls `provider.recall()` before model call and `provider.saveTurn()` after, mirroring `agent.ts:3229` and `agent.ts:3766` — wire the two call sites in P1 even with the null provider so P2 is a one-line swap.
 - `@seta/agent-core`: `RecallResult` shape = `{ messages, total, page, perPage, hasMore }` (`memory.ts:479-486`); `MemoryContext` = `{ threadId, conversationId?, scope: 'thread'|'resource' }` — **no `resourceId`**, **no `tenantId`** (read from AsyncLocalStorage per CLAUDE.md).
 - `@seta/agent-core`: include `vectorSearchString?: string` on `recall()` args from day one (P2 wiring); kernel passes `undefined` in P1.
-- setup.md §3: clarify line 117 — name the future tables `agent.conversations`, `agent.turns`, `agent.working_memory` (resource-scoped row keyed by `tenant_id` + future `principal_id`); note that `@seta/agent-core` exposes the seam but ships only `NullMemoryProvider` in P1.
-- setup.md §5: add a sub-bullet "Memory seam: kernel calls `MemoryProvider.recall()` / `.saveTurn()` around the model call; P1 binds `NullMemoryProvider`."
-- setup.md §6: cross-link — semantic-recall path in P2 calls `@seta/agent-vector.searchChunks()` from inside the `@seta/agent` memory implementation, not from the kernel.
-- P2-defer: thread CRUD, working memory persistence, semantic recall implementation — all live in `@seta/agent` (product), not `@seta/agent-core` (kernel).
+- setup.md §3: clarify line 117 — name the P1 tables `agent_memory.conversations`, `agent_memory.turns`, `agent_memory.working_memory` (resource-scoped row keyed by `tenant_id` + future `principal_id`) in the new **`agent_memory` schema owned by `@seta/agent-memory`** (P1 override; previously planned under the `agent` namespace). `@seta/agent-core` exposes the seam and ships `NullMemoryProvider` for tests; the composition root binds the real `@seta/agent-memory` provider in P1.
+- setup.md §5: add a sub-bullet "Memory seam: kernel calls `MemoryProvider.recall()` / `.saveTurn()` around the model call; P1 binds `@seta/agent-memory`'s real provider."
+- setup.md §6: cross-link — semantic-recall path in P2 calls `@seta/agent-vector.searchChunks()` from inside `@seta/agent-memory`, not from the kernel.
+- P1 (override): `@seta/agent-memory` package — implements `MemoryProvider`; owns `agent_memory` schema; thread CRUD HTTP routes still live in `@seta/agent` (the product) but call into this provider.
+- P1 (override): working memory persistence (resource-scoped row in `agent_memory.working_memory`).
+- P1 (override): non-semantic recall (history pagination, token-budget trimming) — lives in `@seta/agent-memory`.
+- P2-defer: thread CRUD **HTTP routes** still live in `@seta/agent` (product), not the platform package — the product owns the route layer; this is unchanged.
+- P2-defer: semantic-recall implementation (`vectorSearchString` wiring) — the field stays on `MemoryContext` in P1 but `@seta/agent-memory` ignores it until `@seta/agent-vector` lands.
 - P2-defer: observational memory (`storage/domains/memory/base.ts:175-340`) — re-evaluate post-P3, only if a concrete summarisation use-case appears.
 - P2-defer: composite/multi-backend storage (`storage/base.ts:225`) — single Postgres adapter is enough; revisit when a non-Postgres store is actually needed.
+- P2-defer: embeddings / chunking / vector indexes (`@seta/agent-embeddings`, `@seta/agent-chunking`, `@seta/agent-vector`) — RAG track per setup.md §6 §11.

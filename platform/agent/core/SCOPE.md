@@ -37,9 +37,11 @@ server, no thread CRUD).
     always carrying `abortSignal` and a read-only request handle; tenant id is NOT a field
     — it is read from `@seta/tenant` (`04-tools-mcp.md:52`, CLAUDE.md "Tenant id is never a
     function parameter").
-  - `MemoryProvider` interface + `NullMemoryProvider` shipped as the P1 default; the loop
-    calls `recall()` pre-model and `saveTurn()` post-model unconditionally
-    (`09-memory.md:49-51`).
+  - `MemoryProvider` interface + `NullMemoryProvider` (kept for unit tests and the testkit)
+    — the loop calls `recall()` pre-model and `saveTurn()` post-model unconditionally
+    (`09-memory.md:49-51`). **P1 override:** the real provider lives in
+    `@seta/agent-memory` (P1) and is bound by `apps/api/src/main.ts`; the kernel always
+    speaks to the seam.
   - The `Processor` seam (3 hooks reserved: `processInput`, `processOutputStep`,
     `processAPIError`) — `02-agent-core.md:51`.
   - `streamKernelSSE(c, run)` — the single SSE helper that wires `stream.onAbort`,
@@ -49,8 +51,11 @@ server, no thread CRUD).
     `@seta/middleware/errors`) with `{ code, domain, category, details? }` fields matching
     Mastra's `MastraErrorJSON` shape — `02-agent-core.md:53`, README "§15".
   - `Run` identifier (ULID) + `RunStatus` (`'created'|'running'|'completed'|'failed'`)
-    threaded through the loop — `05-workflows.md:36` (reserves the seam for a future
-    `workflow_snapshots` table without refactor).
+    threaded through the loop — `05-workflows.md:36`. **P1 override:** the workflow
+    engine itself lives in `@seta/agent-workflows` (P1) and `Run` is the join key between
+    kernel runs and `agent_workflows.workflow_snapshots.run_id`. The tool result envelope's
+    `{ suspend?: { reason, resumeLabel } }` discriminant is wired by `@seta/agent-workflows`
+    (it was shape-only under the pre-override spike).
   - `src/testkit/` — `setupLLMRecording({ name, recordingsDir?, transformRequest? })`,
     `serializeRequestContent(url, body)`, `hashRequest(url, body)`. MSW-backed, intercepts
     Anthropic + OpenAI base URLs (`06-llm-recording-replay.md:67-69`).
@@ -61,19 +66,26 @@ server, no thread CRUD).
 - **Does NOT own:**
   - HTTP route registration / OpenAPI docs — that is `@seta/middleware` + each product's
     `routes()` (CLAUDE.md "Every `modules/*` package exports `routes()`").
-  - Thread CRUD, conversation persistence, working-memory storage. Those tables
-    (`agent.conversations`, `agent.turns`, `agent.working_memory`) live in
-    `modules/products/agent` (`09-memory.md:54, 57`).
+  - Memory persistence — that is `@seta/agent-memory` (P1, per `09-memory.md` § "P1
+    override"). The `agent_memory.conversations` / `.turns` / `.working_memory` tables and
+    the `MemoryProvider` implementation live there; the kernel only owns the seam.
+  - Thread CRUD HTTP routes — those live in `modules/products/agent` (the product owns the
+    route layer; it calls into `@seta/agent-memory` for persistence).
+  - The workflow DSL (`.then()` / `.parallel()` / future `.branch()` etc.) and the
+    `agent_workflows.workflow_snapshots` / `.workflow_steps` tables — that is
+    `@seta/agent-workflows` (P1, per `05-workflows.md` § "P1 override"). The kernel only
+    owns the `Run` + `RunStatus` join keys and the `{ suspend? }` discriminant on tool
+    results.
   - The `agent.write_continuations` HMAC preview→commit table — that is the agent product's
     schema, not the kernel's (`04-tools-mcp.md:50`).
   - Connector / Graph calls — see `@seta/ms-graph` and `modules/connectors/ms365-*`.
   - Tenant context — read via `tenantContext.getTenantId()` from `@seta/tenant`
     (`07-request-context.md:36`, CLAUDE.md "Footguns").
-  - Workflow DSL / suspend-resume / `.then`/`.branch`/`.parallel` — P2-deferred
-    (`05-workflows.md:32-33`, README "P2-deferred (deliberate)").
   - MCP server exposure — P2-deferred (`04-tools-mcp.md:56`).
   - RAG vector storage and chunking — `@seta/agent-vector`, `@seta/agent-chunking`,
     `@seta/agent-embeddings`, `@seta/agent-rag` (all P2-deferred, setup.md §13:1812).
+  - Pluggable workflow `ExecutionEngine` adapters (Inngest / Temporal) — those would land in
+    `@seta/agent-workflows` if/when they're needed; P2.
 
 ## Current state (Epic 1)
 **Stub-only.** Epic 1 was scoped to MS365 authentication and authorization; the agent
@@ -192,8 +204,11 @@ authoritative spec; this SCOPE.md is the package's gatekeeper until the K-series
   `tenantId`** (tenant id is read from ALS) (`09-memory.md:52-53`).
 - `interface RecallResult` — `{ messages: KernelMessage[]; total: number; page: number;
   perPage: number; hasMore: boolean }` — pagination from day one (`09-memory.md:35`).
-- `class NullMemoryProvider implements MemoryProvider` — P1 default; `recall` returns
-  empty, `saveTurn` is a no-op, `getWorkingMemory` returns `null` (`09-memory.md:50`).
+- `class NullMemoryProvider implements MemoryProvider` — no-op fallback retained for
+  `@seta/agent-core` unit tests and the testkit; `recall` returns empty, `saveTurn` is a
+  no-op, `getWorkingMemory` returns `null` (`09-memory.md:50`). **P1 override:** the
+  composition root in `apps/api/src/main.ts` binds the real `@seta/agent-memory` provider;
+  `NullMemoryProvider` is not the runtime binding.
 
 ### Processor seam (3 of Mastra's 8 reserved)
 
@@ -335,9 +350,10 @@ authoritative spec; this SCOPE.md is the package's gatekeeper until the K-series
   Anthropic call (`06-llm-recording-replay.md:69`).
 - **Injectable `{ now, generateId, currentDate }` on `RunCtx`** — for byte-stable
   recordings (`03-run-loop.md:67`).
-- **Memory seam always wired, even with `NullMemoryProvider`** — kernel never branches on
-  `if (memory)`; `recall()` runs pre-model, `saveTurn()` runs post-model
-  (`09-memory.md:51`).
+- **Memory seam always wired** — kernel never branches on `if (memory)`; `recall()` runs
+  pre-model, `saveTurn()` runs post-model. **P1 binds the real `@seta/agent-memory`
+  provider** in the composition root; `NullMemoryProvider` is only used by `@seta/agent-core`
+  unit tests and the testkit (`09-memory.md:51`, `09-memory.md` § "P1 override").
 - **Token counting at two specific points** — pre-request to record
   `estimatedInputTokens` on the future audit row, post-response to reconcile against
   provider `usage`. **No pre-request budget enforcement in P1** (`10-llm-model-router.md:54`).
@@ -351,9 +367,11 @@ authoritative spec; this SCOPE.md is the package's gatekeeper until the K-series
   CLAUDE.md "Boundaries"; `02-agent-core.md:35`. `apps/api/src/main.ts` is the only
   registry. Reject the Mastra `Mastra` class + `__registerMastra` back-pointer pattern
   outright.
-- **No workflow engine / no DAG primitive in P1** — `05-workflows.md:32`. Chat agents
-  need tool-loop + preview→commit, not `.then`/`.branch`/`.parallel`. Leave the `Run` +
-  `RunStatus` seams shape-only.
+- **No workflow engine inside `@seta/agent-core`** — the engine lives in
+  `@seta/agent-workflows` (P1, override). The kernel owns only the `Run` + `RunStatus`
+  join key and the `{ suspend? }` discriminant on tool results; the DSL
+  (`.then()` / `.parallel()`) lives in the workflow package. No `.then`/`.branch`/`.parallel`
+  helpers in `@seta/agent-core` itself.
 - **No MCP server exposure in P1** — `04-tools-mcp.md:56`. P1 surface is Teams + REST.
   Revisit with Studio.
 - **No in-process HITL `approveToolCall(runId)`** — `04-tools-mcp.md:57`. Preview/commit +
@@ -411,7 +429,7 @@ authoritative spec; this SCOPE.md is the package's gatekeeper until the K-series
   currentDate: fixedDate }` into `RunCtx` so recordings are byte-stable
   (`03-run-loop.md:67`).
 - **No integration tests against live Postgres** here — the kernel is DB-free. Memory tests
-  use `NullMemoryProvider`; the real provider is tested in `modules/products/agent`.
+  use `NullMemoryProvider`; the real provider is tested in `@seta/agent-memory` (P1).
 
 ## Open questions
 

@@ -2,6 +2,17 @@
 
 **Date:** 2026-05-12  •  **Branch:** `spike/mastra-foundation`  •  **Spec:** [`docs/superpowers/specs/2026-05-12-mastra-spike-design.md`](../../superpowers/specs/2026-05-12-mastra-spike-design.md)
 
+## P1 scope override (2026-05-12)
+
+The spike originally recommended **P2-defer** for both memory implementation (report 09) and the workflow engine (report 05). User-directed scope change: **both memory and workflow are required in P1.**
+
+- **Memory** lands as a new platform package **`@seta/agent-memory`** under `platform/agent/memory/`, owning the `agent_memory` Postgres schema. The kernel-side `MemoryProvider` interface stays in `@seta/agent-core`; `apps/api/src/main.ts` binds the real `@seta/agent-memory` provider in P1 (not `NullMemoryProvider`). See [`09-memory.md`](./09-memory.md) §"P1 override" and [`platform/agent/memory/SCOPE.md`](../../../platform/agent/memory/SCOPE.md).
+- **Workflows** land as a new platform package **`@seta/agent-workflows`** under `platform/agent/workflows/`, owning the `agent_workflows` Postgres schema. The P1 surface is intentionally narrow: `.then()` / `.parallel()` linear DAG only; suspend/resume via Postgres advisory lock; in-process `p-queue` runner; no external broker. `.branch()` / `.dowhile()` / `.foreach()` and the pluggable `ExecutionEngine` (Inngest/Temporal adapters) remain P2. See [`05-workflows.md`](./05-workflows.md) §"P1 override" and [`platform/agent/workflows/SCOPE.md`](../../../platform/agent/workflows/SCOPE.md).
+
+The rest of this README reflects the override; the rows in the table below for reports 05 and 09 have been updated, and the consolidated punch list separates "P1 (override)" items from the remaining "P2-deferred (deliberate)" bullets.
+
+---
+
 Cross-check setup.md's P1 choices against Mastra's working 2026 monorepo. **Pattern extraction only — Mastra is not adopted at runtime.** setup.md §10's kernel-first stance stands. Each report below is `What Mastra does → What setup.md plans → Delta → Punch list`, with file_path:line_number refs.
 
 ---
@@ -14,11 +25,11 @@ Cross-check setup.md's P1 choices against Mastra's working 2026 monorepo. **Patt
 | 02 | [`02-agent-core.md`](./02-agent-core.md) | Mastra exposes an 8-method `Processor` pipeline and a `MastraErrorJSON` with `domain` / `category` / `code` triad. `@seta/agent-core` should reserve a 3-method processor seam (`onBeforeModelCall` / `onAfterModelCall` / `onApiError`), export a `ModelAdapter` interface, and ship `KernelError` / `AgentError` / `LlmError` / `ToolError` subclasses of `DomainError`. |
 | 03 | [`03-run-loop.md`](./03-run-loop.md) | Mastra has explicit `maxSteps` / `stopWhen` / per-tool budgets / `isRetryable` error classification / abort-aware chunk consumption. setup.md §5 promises these by name but never defines them — fold concrete defaults (`maxSteps: 16`, `maxRetries: 2`) into the spec. |
 | 04 | [`04-tools-mcp.md`](./04-tools-mcp.md) | Mastra tools are `{ id, description, inputSchema, outputSchema, execute, annotations? }`; output-validation errors are **returned as typed values**, not thrown. MCP exposure is P2-defer (no P1 consumer). setup.md §3 should spell out the `write_continuations` row shape (ULID, HMAC-SHA-256, etag_snapshot jsonb, TTL). |
-| 05 | [`05-workflows.md`](./05-workflows.md) | **P2-defer.** Chat agents need tool-loop + preview→commit, not a DAG primitive. Leave a minimal Run-id + `RunStatus` seam in the kernel so a later `workflow_snapshots` table joins by `run_id` without refactor. |
+| 05 | [`05-workflows.md`](./05-workflows.md) | **P1 with minimum-viable scope (override).** New `@seta/agent-workflows` package — linear DAG (`.then()` / `.parallel()` only), advisory-lock suspend/resume, in-process `p-queue` runner, `agent_workflows` schema. `.branch()`/`.dowhile()`/`.foreach()` and pluggable `ExecutionEngine` (Inngest/Temporal) stay P2. `Run` + `RunStatus` in `@seta/agent-core` are the join key. |
 | 06 | [`06-llm-recording-replay.md`](./06-llm-recording-replay.md) | Mastra's `_llm-recorder` uses `msw` + `md5(url + canonicalized body).slice(0,16)` fixture mapping + streaming chunk recording (`chunks[] + chunkTimings[]`). `@seta/agent-core/testkit` should export `setupLLMRecording({ name, recordingsDir?, transformRequest? })` — small surface, msw-backed. |
 | 07 | [`07-request-context.md`](./07-request-context.md) | **Notable: Mastra does NOT use ALS for request context** — only for OTel spans. Confirms setup.md §3's ALS choice for `@seta/tenant` is the right call. Specify the API surface: `tenantContext.run({tenantId, userId, requestId}, fn)` is the only setter; store is frozen; `tryGetTenantId()` for background jobs; `runAsTenant()` for queue handlers. |
 | 08 | [`08-schema-compat.md`](./08-schema-compat.md) | **setup.md §2 open question RESOLVED.** `@hono/zod-openapi` calls `extendZodWithOpenApi(z)` once at module load and mutates the shared `zod` module. Peer-dep is `zod ^4.0.0` — works with our Zod 4.4.3 pin as long as pnpm resolves a single instance (which it does). Keep the existing §15 import rule. |
-| 09 | [`09-memory.md`](./09-memory.md) | Leave a `MemoryProvider` interface (`recall` / `saveTurn` / `getWorkingMemory` / `updateWorkingMemory`) in `@seta/agent-core`. Ship `NullMemoryProvider` as P1 default — kernel always calls the seam, P2 implementation is a one-line swap. No memory tables in P1 schema. |
+| 09 | [`09-memory.md`](./09-memory.md) | **Real `MemoryProvider` implementation in `@seta/agent-memory` (P1 — override).** Kernel-side interface (`recall` / `saveTurn` / `getWorkingMemory` / `updateWorkingMemory`) + `NullMemoryProvider` stay in `@seta/agent-core`; the composition root binds the real provider. New `agent_memory` schema owns `conversations` / `turns` / `working_memory`. Embeddings/vector RAG stay P2. |
 | 10 | [`10-llm-model-router.md`](./10-llm-model-router.md) | Setup.md §5 is missing a **Model Router** subsection. Add one specifying `selectModel(cfg) → ModelStream<TChunk>` at `platform/agent/core/src/models/router.ts`; use provider-qualified model IDs (`"openai/gpt-5"`, `"anthropic/claude-4-7-sonnet"`); add `prepare-tools.ts` for cross-provider tool-shape normalization. Move `js-tiktoken` pin from §6 (agent-chunking) to §5 (agent-core). |
 
 ---
@@ -33,7 +44,7 @@ Cross-check setup.md's P1 choices against Mastra's working 2026 monorepo. **Patt
 - **§3 (line 117):** Spell out the `write_continuations` row shape: `continuation_id ULID, tenant_id, tool_id, input_hash, etag_snapshot jsonb, hmac, expires_at, consumed_at`; HMAC-SHA-256 over canonicalized payload + server secret from `@seta/auth` KMS. (SA-4)
 - **§3:** Add API-surface paragraph for `@seta/tenant`: `tenantContext.run(...)` is the only setter; store is frozen; `tryGetTenantId()` for background entrypoints; `runAsTenant()` audit-logged. (SA-7)
 - **§3:** Note that long-running SSE streams must re-enter tenant context per chunk producer (mirrors the `SET LOCAL` warning at §3:132). (SA-7)
-- **§3 (line 117):** Name the future memory tables `agent.conversations`, `agent.turns`, `agent.working_memory`. (SA-9)
+- **§3 (line 117):** Name the **P1** memory tables `agent_memory.conversations`, `agent_memory.turns`, `agent_memory.working_memory` in a new `agent_memory` schema owned by `@seta/agent-memory` (P1 override; previously planned as future tables in the `agent` namespace). Add `agent_workflows.workflow_snapshots` + `agent_workflows.workflow_steps` in a new `agent_workflows` schema owned by `@seta/agent-workflows` (P1 override). `platform/db` `OWNER_ORDER` must include both new schemas. (SA-9, SA-5)
 
 ### setup.md amendments — `§5` (LLM & agent kernel — the densest area)
 
@@ -47,14 +58,14 @@ Cross-check setup.md's P1 choices against Mastra's working 2026 monorepo. **Patt
 - Add **per-tool budget** sub-bullet: `{ maxCalls, maxTokens?, timeoutMs? }`. (SA-3)
 - Extend abort paragraph: re-check `signal.aborted` on every consumed chunk (providers keep emitting after abort). (SA-3)
 - Spec **token-counting integration**: `js-tiktoken` called pre-request (estimate audit row) and post-response (reconcile against `usage`). No pre-request budget enforcement in P1. (SA-10)
-- Spec **memory seam**: kernel calls `MemoryProvider.recall()` / `.saveTurn()` around the model call; P1 binds `NullMemoryProvider`. (SA-9)
+- Spec **memory seam**: kernel calls `MemoryProvider.recall()` / `.saveTurn()` around the model call; **P1 binds the real `@seta/agent-memory` provider** (P1 override; `NullMemoryProvider` retained for tests only). (SA-9)
 - Spec **LLM recording**: msw-based, `md5(url + canonicalize(body)).slice(0,16)` fixture map, `chunks[] + chunkTimings[]` for streaming, env-var gate `RECORD=1` (record-if-missing) / `RECORD=force` / default strict-replay. (SA-6)
 - Explicit non-pick: **no response-content cache in P1**; rely on Anthropic ephemeral prompt cache + OpenAI structured-output cache. (SA-10)
 - `streamKernelSSE`: require **safeEnqueue** semantics on the writer — `stream.writeSSE` after client-disconnect must not throw the loop. (SA-3)
 
 ### setup.md amendments — `§9–§15` (publishing, layout, footguns)
 
-- **§11 (line 939):** Add one-line note under `modules/products/agent` — "No workflow DSL in P1; multi-step plans are LLM-planned tool calls inside the kernel loop. Two-phase writes use `write_continuations`." (SA-5)
+- **§11 (line 939):** Replace any "no workflow DSL in P1" note under `modules/products/agent` with — "Multi-step plans that exceed one HTTP turn compose `@seta/agent-workflows` `.then()` / `.parallel()` (linear DAG only in P1); two-phase writes still use `write_continuations` for inner per-step HITL. Memory persistence lives in `@seta/agent-memory`." (SA-5, SA-9)
 - **§11:** Each tool exports `{ id, description, inputSchema, outputSchema, execute, annotations? }`; `outputSchema` **required for write tools** (commit pairs). (SA-4)
 - **§11:** Under `tools/planner/write/`: `.preview` returns `{ continuation_id, summary, etag_snapshot }`; `.commit` accepts `{ continuation_id }` only — prevents argument tampering between turns. (SA-4)
 - **§12 `pnpm-workspace.yaml`:** Add a `catalog:` block pinning `typescript`, `vitest`, `@vitest/coverage-v8`, `zod`; rewrite §13 to use `"catalog:"` references. (SA-1)
@@ -86,18 +97,25 @@ Cross-check setup.md's P1 choices against Mastra's working 2026 monorepo. **Patt
 - `Run` identifier (ULID) + `RunStatus` type — even with no workflow primitive. (SA-5)
 - `KernelError extends DomainError` with `domain` / `category` / `code`. (SA-2)
 
+### P1 (override, 2026-05-12)
+
+- `@seta/agent-memory` — implements `MemoryProvider`; owns `agent_memory.conversations` / `.turns` / `.working_memory`. Composition root binds the real provider (not `NullMemoryProvider`). (SA-9)
+- `@seta/agent-workflows` — linear-DAG engine (`.then()` / `.parallel()` only) + `agent_workflows.workflow_snapshots` / `.workflow_steps`; advisory-lock suspend/resume; in-process `p-queue` runner. (SA-5)
+
 ### P2-deferred (deliberate)
 
-- Workflow engine (DAG, `.then` / `.branch` / `.parallel`, suspend/resume). (SA-5)
+- `.branch()` / `.dowhile()` / `.dountil()` / `.foreach()` / `.map()` / `.sleep()` / `.sleepUntil()` DSL operators in `@seta/agent-workflows` — linear DAG only in P1. (SA-5)
+- Pluggable workflow `ExecutionEngine` abstraction + Inngest / Temporal / Restate adapters. (SA-5)
+- Scheduled / cron-driven step wakeups inside workflows. (SA-5)
 - MCP server exposure of seta tools. (SA-4)
 - In-process HITL `approveToolCall(runId)` — preview/commit + HMAC continuations cover the same need statelessly. (SA-4)
 - Full 8-method processor pipeline. (SA-2)
 - Chunk-replay cache + `resumeStream()`; output-stream processor stack. (SA-3)
-- Workflow-as-loop architecture (snapshot persistence). (SA-3)
 - Provider-specific schema compat layers (`AnthropicSchemaCompatLayer` etc.). (SA-2, SA-8)
 - Cross-version Zod / Arktype / Valibot adapters. (SA-8)
-- Thread CRUD, working-memory persistence, semantic recall implementation. (SA-9)
-- Composite / multi-backend storage. (SA-9)
+- Observational memory (delta summarisation, reflections). (SA-9)
+- Composite / multi-backend memory storage (`MastraCompositeStore`); single Postgres adapter is enough. (SA-9)
+- Embeddings / chunking / vector index — `@seta/agent-embeddings`, `@seta/agent-chunking`, `@seta/agent-vector`, `@seta/agent-rag` (RAG track per setup.md §6 §11). Semantic recall (`vectorSearchString`) wiring inside `@seta/agent-memory` waits on these. (SA-9)
 - Response-content cache; provider gateway / BYO-endpoint. (SA-10)
 - Vercel AI SDK adoption — revisit if we add a third provider. (SA-10)
 - Cross-process tenant-context forwarding; impersonation flows. (SA-7)

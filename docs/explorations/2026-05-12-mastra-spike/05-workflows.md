@@ -1,5 +1,19 @@
 # Mastra spike — Workflows (suspend/resume, `.then/.branch/.parallel`)
 
+## P1 override
+
+**Date:** 2026-05-12. **Scope change:** the original spike recommendation in this report was a hard P2-defer on the workflow engine — the argument being that chat agents need the tool-loop + `write_continuations` preview/commit, not a DAG. **User-directed override:** multiple internal Seta workflows (procurement approvals, multi-day onboarding, scheduled report generation) require durable suspend/resume + outer-level HITL approval gates that span hours-to-days across multiple actor sessions. `write_continuations` is a single-hop HMAC TTL token; it does not model multi-step approval chains.
+
+A new platform package **`@seta/agent-workflows`** is created in P1 under `platform/agent/workflows/`, owning the `agent_workflows` Postgres schema (`workflow_snapshots`, `workflow_steps`). Building in-house in P1 avoids a runtime dependency on Temporal or Inngest. The minimum P1 surface is intentionally smaller than what Mastra ships — see "Minimum viable P1 surface" below. The pluggable `ExecutionEngine` abstraction (`execution-engine.ts:51`) and the Inngest/Temporal adapters remain P2-deferred. See `platform/agent/workflows/SCOPE.md` for the full P1 contract.
+
+## Minimum viable P1 surface
+
+- **DSL:** `createWorkflow().then(step).parallel([stepA, stepB]).commit()` — linear DAG only. `.branch()` / `.dowhile()` / `.dountil()` / `.foreach()` / `.map()` / `.sleep()` / `.sleepUntil()` are **P2-deferred**.
+- **Suspend/resume concurrency:** Postgres advisory lock at resume time (`pg_try_advisory_xact_lock(hashtext(run_id))`). Only one consumer wins; no Redis broker.
+- **Job runner:** in-process `p-queue@9.2.0` (already pinned in setup.md §13). No external job broker. Scheduled / time-based wakeups out of P1.
+- **HITL primitive:** `ctx.suspend({ reason, resumeLabel, payload })` inside a step; `workflow.resume(runId, { label, payload })` from a product route. Inner per-step writes still use `write_continuations` preview/commit; workflow-level approval is the outer gate.
+- **Schema:** `agent_workflows.workflow_snapshots` + `agent_workflows.workflow_steps` (field names mirror Mastra's `WorkflowRunState` `workflows/types.ts:363` so a future port is mechanical).
+
 ## What Mastra does
 
 Mastra ships a typed, chainable workflow builder that composes `Step`s (validated by Zod-shaped `inputSchema`/`outputSchema`/`resumeSchema`/`suspendSchema`) into a serialized step-flow graph:
@@ -21,18 +35,24 @@ That is the only durable two-phase primitive in P1, and it is a Planner-write id
 
 ## Delta
 
-**Fold in (cheap, no engine needed):** the `suspendPayload` / `resumeLabel` *shape* (`step.ts:13`) is a clean spec for human-in-the-loop approvals. `WorkflowRunState` (`types.ts:363`) is the right serialization shape if/when we need it — copy field names so a later port is mechanical.
+**Fold in:** the `suspendPayload` / `resumeLabel` *shape* (`step.ts:13`) is the clean spec for HITL approvals — adopted verbatim. `WorkflowRunState` (`types.ts:363`) field names are mirrored in `agent_workflows.workflow_snapshots` so a future engine swap is mechanical.
 
-**Avoid:** importing Mastra's workflow package. It is load-bearing for *durable, long-running* graphs (sleepUntil, foreach over batches, branch on external signal). For chat-driven agents whose unit of work is a single tool-call loop bounded by an HTTP/SSE response, it is sugar — the LLM is the planner, tools are the steps, and the kernel already owns retries + abort + streaming.
+**Recommendation (P1 override):** build a minimum-viable in-house engine in `@seta/agent-workflows` covering only what the Seta P1 product flows actually need (linear DAG, advisory-lock concurrency, in-process runner). The full Mastra surface (`.branch()`, `.foreach()`, `.sleep()`, pluggable `ExecutionEngine` with Inngest/Temporal adapters) stays P2 — we expand the surface when a real product flow demonstrably needs it.
 
-**Open questions:** (a) Will Planner *bulk* writes ever exceed one request? — bulk preview→commit already covers this without a workflow. (b) Do we need timer-driven follow-ups ("ping me in 1h")? — that is a scheduler concern, not a workflow concern; defer with the scheduler. (c) SA-9 (durable agent state): suspend/resume requires `workflow_snapshots(run_id, snapshot jsonb, updated_at)` + concurrency control (`supportsConcurrentUpdates`, `base.ts:13`) — explicit P2 cost.
+**Avoid:** importing Mastra's workflow package, Temporal SDK, or Inngest SDK directly. Implement the minimum P1 surface in-house against Postgres + `p-queue`. Mastra's source remains a reference for field names and step semantics, not a runtime dependency.
+
+**Open questions:** (a) Snapshot retention policy — completed workflows accumulate; document a 30-day prune before P1 close-out. (b) Run-id source — share the ULID generator with `@seta/agent-core` `RunCtx.generateId` so workflow runs and kernel runs share an id space. (c) Cross-tenant fan-out in `.parallel([...])` — disallowed in P1 (steps inherit the parent tenant via `tenantContext.run()` at step boundary).
 
 ## Punch list
 
-- `P2-defer: workflow engine — chat agents need tool-loop + preview→commit, not a DAG. Re-evaluate when a product ships timer-driven, multi-hour, or HITL-approval flows that exceed one HTTP turn.`
-- `P2-defer: suspend/resume storage — requires snapshot table + RLS policy + concurrency strategy mirroring storage/domains/workflows/base.ts:39. No P1 use case justifies the schema.`
-- `setup.md §3 (line 117): add parenthetical to the agent schema row — "(future: workflow_snapshots if a product needs suspend/resume; until then, tool-loop is the only execution primitive)" so the absence is intentional, not an oversight.`
-- `setup.md §11 (line 939): add a one-line note under modules/products/agent — "No workflow DSL in P1; multi-step plans are LLM-planned tool calls inside the kernel loop. Two-phase writes use write_continuations."`
-- `@seta/agent-core: leave a minimal seam — Run identifier (ULID) threaded through the kernel and a placeholder RunStatus type ('created'|'running'|'completed'|'failed', matching run/types.ts:1) on the run record, so a later workflow_snapshots table joins by run_id without refactor.`
-- `@seta/agent-core: tool result envelope should carry an optional { suspend?: { reason, resumeLabel } } discriminant (shape-only, not wired) so HITL tools have a forward-compatible return without us importing Mastra's branded InnerOutput trick.`
-- `P2-defer: pluggable ExecutionEngine abstraction (execution-engine.ts:51) and Inngest/Temporal adapters — only meaningful once we own a durable workflow; revisit alongside the scheduling trigger in §3 "scaling triggers".`
+- `P1 (override): @seta/agent-workflows — new platform package under platform/agent/workflows/. Owns the in-house linear-DAG workflow engine (.then() / .parallel() only) plus the agent_workflows schema (workflow_snapshots, workflow_steps). See platform/agent/workflows/SCOPE.md.`
+- `P1 (override): suspend/resume storage — agent_workflows.workflow_snapshots(run_id ulid pk, tenant_id, workflow_id, serialized_step_graph jsonb, active_paths jsonb, suspended_paths jsonb, step_results jsonb, status text, updated_at) + agent_workflows.workflow_steps(run_id fk, step_id, status, input_hash, output jsonb, started_at, finished_at). Field names mirror Mastra's WorkflowRunState (types.ts:363).`
+- `P1 (override): suspend/resume concurrency via Postgres advisory lock — pg_try_advisory_xact_lock(hashtext(run_id)) inside the resume tx. Loser bails cleanly; at-least-once + idempotent (run_id, step_id) is the contract.`
+- `P1 (override): in-process job runner using p-queue@9.2.0 (already pinned setup.md §13). No external broker; out-of-process scaling triggers the P2 broker move per setup.md §3 scaling triggers.`
+- `setup.md §3 (line 117): amend the schema list — agent_memory schema owned by @seta/agent-memory, agent_workflows schema owned by @seta/agent-workflows (P1). Existing agent schema (@seta/agent product) remains for write_continuations only.`
+- `setup.md §11 (line 939): replace the previous "No workflow DSL in P1" note under modules/products/agent with — "Multi-step plans that exceed one HTTP turn compose @seta/agent-workflows .then()/.parallel(); two-phase writes still use write_continuations for inner per-step HITL."`
+- `@seta/agent-core: keep the Run identifier (ULID) + RunStatus ('created'|'running'|'completed'|'failed', matching run/types.ts:1) — these are the join key between kernel runs and workflow_snapshots.run_id.`
+- `@seta/agent-core: tool result envelope { suspend?: { reason, resumeLabel } } discriminant is now wired by @seta/agent-workflows — when a tool returns suspend inside a workflow-step body, the engine persists the snapshot.`
+- `P2-defer: .branch() / .dowhile() / .dountil() / .foreach() / .map() / .sleep() / .sleepUntil() DSL operators — linear DAG only in P1. Expand when a real product flow can't be linearized.`
+- `P2-defer: pluggable ExecutionEngine abstraction (execution-engine.ts:51) and Inngest/Temporal adapters — only meaningful once an in-process runner saturates. Revisit alongside the scaling trigger in §3.`
+- `P2-defer: scheduled / cron-driven step wakeups — products that need scheduled triggers use the cron / scheduled-sync surface, not workflow .sleep() in P1.`
