@@ -10,7 +10,7 @@ export function workloadAnalysisTool(): Tool<z.infer<typeof Input>, z.infer<type
     description: 'Aggregate Planner task load per assignee for a plan. Returns chart-ready data.',
     inputSchema: Input as never,
     outputSchema: Output as never,
-    annotations: { readOnlyHint: true },
+    annotations: { readOnlyHint: true, idempotentHint: true },
     async execute(_input, _ctx) {
       return {
         ok: false,

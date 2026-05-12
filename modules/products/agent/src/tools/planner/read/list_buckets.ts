@@ -1,4 +1,5 @@
 import type { Tool } from '@seta/agent-core'
+import { Unauthorized } from '@seta/middleware'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
 import type { ReadToolDeps } from './list_my_tasks'
@@ -22,7 +23,8 @@ export function listBucketsTool(
     async execute(input, _ctx) {
       try {
         const tenantId = tenantContext.getTenantId()
-        const userId = tenantContext.getUserId() ?? ''
+        const userId = tenantContext.getUserId()
+        if (!userId) throw new Unauthorized('no user context')
         await deps.registry.requireConsent(tenantId, 'ms365-planner')
         const { accessToken } = await deps.tokenForUser(tenantId, userId)
         const client = deps.buildClient(accessToken)

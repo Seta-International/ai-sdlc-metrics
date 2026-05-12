@@ -1,5 +1,6 @@
 import type { Tool } from '@seta/agent-core'
 import type { PlannerCache, PlannerClient } from '@seta/connector-ms365-planner'
+import { Unauthorized } from '@seta/middleware'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
 
@@ -29,7 +30,8 @@ export function listMyTasksTool(
     async execute(_input, _ctx) {
       try {
         const tenantId = tenantContext.getTenantId()
-        const userId = tenantContext.getUserId() ?? ''
+        const userId = tenantContext.getUserId()
+        if (!userId) throw new Unauthorized('no user context')
         await deps.registry.requireConsent(tenantId, 'ms365-planner')
         const { accessToken } = await deps.tokenForUser(tenantId, userId)
         const client = deps.buildClient(accessToken)
