@@ -1,0 +1,26 @@
+{
+  "name": "@seta/integration-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:integration": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@seta/audit": "workspace:*",
+    "@seta/connector-ms365-directory": "workspace:*",
+    "@seta/connector-ms365-planner": "workspace:*",
+    "@seta/connector-registry": "workspace:*",
+    "@seta/db": "workspace:*",
+    "@seta/middleware": "workspace:*",
+    "@seta/oauth": "workspace:*",
+    "@seta/tsconfig": "workspace:*",
+    "@types/node": "^24.12.3",
+    "hono": "4.12.18",
+    "postgres": "3.4.9",
+    "tsx": "4.21.0",
+    "typescript": "6.0.3",
+    "vitest": "4.1.5"
+  }
+}

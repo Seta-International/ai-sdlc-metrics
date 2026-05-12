@@ -47,15 +47,27 @@ importers:
       '@seta/agent-core':
         specifier: workspace:*
         version: link:../../platform/agent/core
+      '@seta/audit':
+        specifier: workspace:*
+        version: link:../../platform/audit
       '@seta/auth':
         specifier: workspace:*
         version: link:../../platform/auth
+      '@seta/connector-ms365-directory':
+        specifier: workspace:*
+        version: link:../../modules/connectors/ms365-directory
       '@seta/connector-ms365-planner':
         specifier: workspace:*
         version: link:../../modules/connectors/ms365-planner
+      '@seta/connector-registry':
+        specifier: workspace:*
+        version: link:../../platform/connector-registry
       '@seta/db':
         specifier: workspace:*
         version: link:../../platform/db
+      '@seta/directory':
+        specifier: workspace:*
+        version: link:../../platform/directory
       '@seta/middleware':
         specifier: workspace:*
         version: link:../../platform/middleware
@@ -93,6 +105,9 @@ importers:
       tsup:
         specifier: 8.5.1
         version: 8.5.1(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)
+      tsx:
+        specifier: 4.21.0
+        version: 4.21.0
       typescript:
         specifier: 6.0.3
         version: 6.0.3
@@ -451,6 +466,9 @@ importers:
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
+      postgres:
+        specifier: 3.4.9
+        version: 3.4.9
       zod:
         specifier: 4.4.3
         version: 4.4.3
@@ -562,12 +580,18 @@ importers:
       '@seta/middleware':
         specifier: workspace:*
         version: link:../middleware
+      '@seta/tenant':
+        specifier: workspace:*
+        version: link:../tenant
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
+      hono:
+        specifier: 4.12.18
+        version: 4.12.18
       lru-cache:
         specifier: 11.3.6
         version: 11.3.6
@@ -679,14 +703,80 @@ importers:
 
   platform/tsconfig: {}
 
+  tests/integration:
+    devDependencies:
+      '@seta/audit':
+        specifier: workspace:*
+        version: link:../../platform/audit
+      '@seta/connector-ms365-directory':
+        specifier: workspace:*
+        version: link:../../modules/connectors/ms365-directory
+      '@seta/connector-ms365-planner':
+        specifier: workspace:*
+        version: link:../../modules/connectors/ms365-planner
+      '@seta/connector-registry':
+        specifier: workspace:*
+        version: link:../../platform/connector-registry
+      '@seta/db':
+        specifier: workspace:*
+        version: link:../../platform/db
+      '@seta/middleware':
+        specifier: workspace:*
+        version: link:../../platform/middleware
+      '@seta/oauth':
+        specifier: workspace:*
+        version: link:../../platform/oauth
+      '@seta/tsconfig':
+        specifier: workspace:*
+        version: link:../../platform/tsconfig
+      '@types/node':
+        specifier: ^24.12.3
+        version: 24.12.3
+      hono:
+        specifier: 4.12.18
+        version: 4.12.18
+      postgres:
+        specifier: 3.4.9
+        version: 3.4.9
+      tsx:
+        specifier: 4.21.0
+        version: 4.21.0
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.5
+        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.12.3)(@vitest/coverage-v8@4.1.5)(vite@8.0.11(@types/node@24.12.3)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.4))
+
   tooling:
     dependencies:
+      '@seta/audit':
+        specifier: workspace:*
+        version: link:../platform/audit
+      '@seta/connector-ms365-directory':
+        specifier: workspace:*
+        version: link:../modules/connectors/ms365-directory
+      '@seta/connector-ms365-planner':
+        specifier: workspace:*
+        version: link:../modules/connectors/ms365-planner
+      '@seta/connector-registry':
+        specifier: workspace:*
+        version: link:../platform/connector-registry
       '@seta/db':
         specifier: workspace:*
         version: link:../platform/db
+      '@seta/oauth':
+        specifier: workspace:*
+        version: link:../platform/oauth
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
+      postgres:
+        specifier: 3.4.9
+        version: 3.4.9
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
 packages:
 

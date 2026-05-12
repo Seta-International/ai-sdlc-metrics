@@ -1,8 +1,8 @@
 import { type AuthenticationResult, ConfidentialClientApplication } from '@azure/msal-node'
 import { ServiceUnavailable } from '@seta/middleware'
 import { LRUCache } from 'lru-cache'
-import type { OAuthProvider } from '../provider.js'
-import type { TokenBundle } from '../vault.js'
+import type { OAuthProvider } from '../provider'
+import type { TokenBundle } from '../vault'
 
 class EntraNoResultError extends ServiceUnavailable {
   constructor() {

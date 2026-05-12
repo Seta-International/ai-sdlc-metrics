@@ -1,4 +1,4 @@
-import type { TokenBundle } from './vault.js'
+import type { TokenBundle } from './vault'
 
 export interface OAuthProvider {
   /** Stable identifier — 'entra', 'google', 'atlassian'. */

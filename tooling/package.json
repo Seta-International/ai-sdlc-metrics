@@ -5,7 +5,14 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@seta/audit": "workspace:*",
+    "@seta/connector-ms365-directory": "workspace:*",
+    "@seta/connector-ms365-planner": "workspace:*",
+    "@seta/connector-registry": "workspace:*",
     "@seta/db": "workspace:*",
-    "dotenv": "17.4.2"
+    "@seta/oauth": "workspace:*",
+    "dotenv": "17.4.2",
+    "postgres": "3.4.9",
+    "zod": "4.4.3"
   }
 }
