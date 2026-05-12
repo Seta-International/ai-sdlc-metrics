@@ -86,14 +86,13 @@ platform/agent/core/
 │           └── types.ts                     # RecordingFile, LLMRecording, RecordingMeta, options
 └── tests/
     └── integration/
-        ├── sdk-intercept.test.ts            # real Anthropic + OpenAI SDK calls under MSW
+        ├── sdk-intercept.test.ts            # real OpenAI SDK call under MSW (Anthropic deferred to K2)
         └── __recordings__/
-            ├── sdk-intercept-anthropic.json # canned recording for the Anthropic SDK call
-            └── sdk-intercept-openai.json    # canned recording for the OpenAI SDK call
+            └── sdk-intercept-openai.json    # redacted canned recording for the OpenAI SDK call
 ```
 
 Plus:
-- `platform/agent/core/package.json`: add `msw@2.12.11` to `dependencies`; add `"test:integration": "vitest run tests/"` script; change `"test:unit": "vitest run"` → `"test:unit": "vitest run src/"` (keeps unit fast, gates the integration test behind explicit `pnpm test:integration`).
+- `platform/agent/core/package.json`: add `msw@2.14.6` to `dependencies`; add `"test:integration": "vitest run tests/"` script; change `"test:unit": "vitest run"` → `"test:unit": "vitest run src/"` (keeps unit fast, gates the integration test behind explicit `pnpm test:integration`).
 - `platform/agent/core/vitest.config.ts`: unchanged (project name only).
 
 **Out of scope this PR:** any edit to `apps/api/src/main.ts`, any edit outside `platform/agent/core/`.
@@ -362,7 +361,7 @@ For reviewer reference, the explicit cuts:
 - [ ] `setupLLMRecording`, `serializeRequestContent`, `hashRequest` exported from `@seta/agent-core/testkit`.
 - [ ] All unit tests pass under `pnpm --filter @seta/agent-core test:unit`.
 - [ ] Integration test passes under `pnpm --filter @seta/agent-core test:integration` against the committed OpenAI recording.
-- [ ] `msw@2.12.11` pinned in `dependencies`; CI guard `check-no-manual-pkg-edit.ts` passes (added via `pnpm --filter @seta/agent-core add msw@2.12.11`).
+- [ ] `msw@2.14.6` pinned in `dependencies`; CI guard `check-no-manual-pkg-edit.ts` passes (added via `pnpm --filter @seta/agent-core add msw@2.14.6`).
 - [ ] `pnpm typecheck` clean.
 - [ ] `pnpm lint` clean.
 - [ ] `pnpm build` emits `dist/testkit/index.{js,d.ts}` containing the new exports plus the existing `FakeAdapter`.

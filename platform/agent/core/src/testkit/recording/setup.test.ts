@@ -9,7 +9,6 @@ import type { RecordingFile } from './types'
 type FetchInput = Parameters<typeof fetch>[0]
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
-const _OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 
 describe('setupLLMRecording', () => {
   let dir: string

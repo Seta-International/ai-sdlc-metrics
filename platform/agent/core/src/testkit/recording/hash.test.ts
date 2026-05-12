@@ -34,6 +34,12 @@ describe('serializeRequestContent', () => {
     expect(a).toBe(b)
   })
 
+  it('canonicalizes ISO date strings with millisecond precision', () => {
+    const a = serializeRequestContent('https://x/y', { t: '2026-05-12T10:00:00.123Z' })
+    const b = serializeRequestContent('https://x/y', { t: '2026-05-12T10:00:00.123000Z' })
+    expect(a).toBe(b)
+  })
+
   it('handles string bodies', () => {
     expect(serializeRequestContent('https://x/y', 'hello')).toBe('https://x/y:hello')
   })
