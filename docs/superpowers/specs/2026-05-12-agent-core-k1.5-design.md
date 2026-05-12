@@ -274,15 +274,18 @@ export function hashRequest(url: string, body: unknown): string    // md5(serial
 
 ## 6. Integration test (`tests/integration/sdk-intercept.test.ts`)
 
-Verifies the open question from spike `06:55` ("does the SDK use global fetch?") with the actual pinned SDK versions:
+Verifies the open question from spike `06:55` ("does the SDK use global fetch?") with the actual pinned SDK versions, against OpenAI:
 
-1. `setupLLMRecording({ name: 'sdk-intercept-anthropic' }).start()`.
-2. Construct `new Anthropic({ apiKey: 'sk-test-fake' })`.
-3. `await client.messages.create({ model: 'claude-3-5-haiku-latest', max_tokens: 16, messages: [{ role: 'user', content: 'ping' }] })`.
-4. Assert the result is the canned response from the committed `__recordings__/sdk-intercept-anthropic.json`. If MSW didn't intercept, the call would fail with auth or DNS (fake key + isolated env).
-5. Repeat for OpenAI with `new OpenAI({ apiKey: 'sk-test-fake' })` + `client.chat.completions.create(...)`.
+1. `setupLLMRecording({ name: 'sdk-intercept-openai' }).start()`.
+2. Construct `new OpenAI({ apiKey: 'sk-test-fake', maxRetries: 0 })`.
+3. `await client.chat.completions.create({ model: 'gpt-4o-mini', max_tokens: 16, messages: [{ role: 'user', content: 'ping' }] })`.
+4. Assert the result is the canned response from the committed `__recordings__/sdk-intercept-openai.json`. If MSW didn't intercept, the call would fail with auth or DNS (fake key + isolated env).
 
-Both recordings are seeded by running the test once with `RECORD=1` against the real APIs and committing the resulting JSONs.
+The OpenAI recording is seeded once via `OPENAI_API_KEY=<key> RECORD=1 pnpm test:integration`, then redacted (drop `openai-organization`, `openai-project`, `x-request-id`, `cf-ray`, ratelimit headers, dates) and committed.
+
+`maxRetries: 0` on the SDK client is required — without it, an SDK call to a missing recording (which the testkit returns as HTTP 500) is retried by the SDK with exponential backoff and times out instead of failing fast.
+
+**Anthropic SDK interception** is verified at the unit level by `setup.test.ts` (MSW handlers for `https://api.anthropic.com/*` plus the bypass test). A real-recording end-to-end test for Anthropic lands in K2 (Anthropic adapter PR) — that's the first PR with both Anthropic API access and an Anthropic-side need to exercise the kernel against canned fixtures.
 
 **This test is the only place that constructs real SDK clients in K1.5** — adapter code lands in K2/K3.
 
@@ -337,7 +340,7 @@ For reviewer reference, the explicit cuts:
 - Real `@anthropic-ai/sdk@0.95.1` client → MSW intercepts → canned response returned.
 - Real `openai@6.37.0` client → same.
 
-**Recordings checked into git:** `tests/integration/__recordings__/sdk-intercept-{anthropic,openai}.json` (small, ~1 KB each). `turbo.json` already pins `__recordings__/**` per setup.md §12.
+**Recordings checked into git:** `tests/integration/__recordings__/sdk-intercept-openai.json` (~2 KB, redacted). `turbo.json` already pins `__recordings__/**` per setup.md §12. The matching Anthropic fixture is deferred to K2.
 
 ## 11. Open questions
 
@@ -358,12 +361,12 @@ For reviewer reference, the explicit cuts:
 
 - [ ] `setupLLMRecording`, `serializeRequestContent`, `hashRequest` exported from `@seta/agent-core/testkit`.
 - [ ] All unit tests pass under `pnpm --filter @seta/agent-core test:unit`.
-- [ ] Integration test passes under `pnpm --filter @seta/agent-core test:integration` against committed recordings.
+- [ ] Integration test passes under `pnpm --filter @seta/agent-core test:integration` against the committed OpenAI recording.
 - [ ] `msw@2.12.11` pinned in `dependencies`; CI guard `check-no-manual-pkg-edit.ts` passes (added via `pnpm --filter @seta/agent-core add msw@2.12.11`).
 - [ ] `pnpm typecheck` clean.
 - [ ] `pnpm lint` clean.
 - [ ] `pnpm build` emits `dist/testkit/index.{js,d.ts}` containing the new exports plus the existing `FakeAdapter`.
-- [ ] `__recordings__/sdk-intercept-{anthropic,openai}.json` committed and pretty-printed.
+- [ ] `__recordings__/sdk-intercept-openai.json` committed, pretty-printed, redacted.
 - [ ] No `vi.mock` / `vitest.mock` against `openai` or `@anthropic-ai/sdk` anywhere in the diff.
 - [ ] No source comments referencing K1.5 / AG-F1 / spike line numbers / plan IDs.
 - [ ] Changeset added (`pnpm changeset`) — even though `@seta/agent-core` is private, the convention applies if/when it's published.
