@@ -282,7 +282,7 @@ export function createGraphFetch(deps: GraphFetchDeps): GraphFetch {
         actor: input.actor,
         connectorId: input.connectorId,
         providerId: 'entra',
-        operation: `graph.${req?.method ?? 'UNKNOWN'}.${path}`,
+        operation: `graph.${req?.method ?? 'UNKNOWN'}.${normalizePath(path)}`,
         result: r.status >= 200 && r.status < 300 ? 'ok' : 'failure',
         metadata: { status: r.status },
       })

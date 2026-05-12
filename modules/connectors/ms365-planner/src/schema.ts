@@ -36,7 +36,7 @@ export const plannerTasksCache = connectorMs365PlannerSchema.table(
     primaryKey({ columns: [t.tenantId, t.graphTaskId] }),
     index('planner_tasks_by_plan').on(t.tenantId, t.planId),
     index('planner_tasks_by_due').on(t.tenantId, t.dueDate),
-    index('planner_tasks_by_assignees').using('gin', t.tenantId, t.assigneeIds),
+    index('planner_tasks_by_assignees').using('gin', t.assigneeIds),
   ],
 )
 

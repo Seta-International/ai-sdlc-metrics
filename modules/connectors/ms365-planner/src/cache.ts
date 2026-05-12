@@ -164,7 +164,8 @@ const taskOps: EntityOps = {
     DO UPDATE SET
       etag = EXCLUDED.etag,
       raw = EXCLUDED.raw,
-      synced_at = EXCLUDED.synced_at
+      synced_at = EXCLUDED.synced_at,
+      soft_deleted_at = NULL
   `,
   softDeleteRow: (sql, tenantId, id) => sql`
     UPDATE connector_ms365_planner.planner_tasks_cache
@@ -230,7 +231,8 @@ const planOps: EntityOps = {
     DO UPDATE SET
       etag = EXCLUDED.etag,
       raw = EXCLUDED.raw,
-      synced_at = EXCLUDED.synced_at
+      synced_at = EXCLUDED.synced_at,
+      soft_deleted_at = NULL
   `,
   softDeleteRow: (sql, tenantId, id) => sql`
     UPDATE connector_ms365_planner.planner_plans_cache
@@ -267,7 +269,8 @@ const bucketOps: EntityOps = {
     DO UPDATE SET
       etag = EXCLUDED.etag,
       raw = EXCLUDED.raw,
-      synced_at = EXCLUDED.synced_at
+      synced_at = EXCLUDED.synced_at,
+      soft_deleted_at = NULL
   `,
   softDeleteRow: (sql, tenantId, id) => sql`
     UPDATE connector_ms365_planner.planner_buckets_cache
