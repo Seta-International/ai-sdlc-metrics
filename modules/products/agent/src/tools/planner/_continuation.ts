@@ -42,8 +42,18 @@ function hmac(key: string, parts: string[]): string {
   return b64url(h.digest())
 }
 
+function canonicalize(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(canonicalize).join(',')}]`
+  const sorted = Object.keys(value as Record<string, unknown>)
+    .sort()
+    .map((k) => `${JSON.stringify(k)}:${canonicalize((value as Record<string, unknown>)[k])}`)
+    .join(',')
+  return `{${sorted}}`
+}
+
 function shaPayload(payload: unknown): string {
-  return b64url(createHash('sha256').update(JSON.stringify(payload)).digest())
+  return b64url(createHash('sha256').update(canonicalize(payload)).digest())
 }
 
 export function createContinuationStore(deps: ContinuationStoreDeps) {
@@ -59,7 +69,7 @@ export function createContinuationStore(deps: ContinuationStoreDeps) {
         (token, uuid, tenant_id, user_id, tool_id, payload, etag_snapshot, expires_at)
       VALUES
         (${token}, ${uuid}, ${input.tenantId}, ${input.userId}, ${input.toolId},
-         ${JSON.stringify(input.payload)}::jsonb, ${JSON.stringify(input.etagSnapshot)}::jsonb,
+         ${input.payload}, ${input.etagSnapshot},
          ${expiresAt})
     `
     return { token, expiresAt }
@@ -118,7 +128,7 @@ export function createContinuationStore(deps: ContinuationStoreDeps) {
     await deps.sql`
       UPDATE agent.write_continuations
       SET consumed_at = NOW(),
-          result_card = ${JSON.stringify(resultCard)}::jsonb
+          result_card = ${resultCard}
       WHERE token = ${token} AND consumed_at IS NULL
     `
   }
