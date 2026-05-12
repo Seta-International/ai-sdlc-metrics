@@ -1,11 +1,24 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import type {
+  AdapterRequest,
+  AgentConfig,
   JsonSchemaTool,
   KernelChunk,
   KernelMessage,
   KernelMessageContent,
+  MemoryContext,
+  MemoryProvider,
   ModelStream,
+  Processor,
+  ProcessorContext,
+  RecallResult,
+  Run,
+  RunInput,
+  RunLoopOptions,
+  RunStatus,
   StandardSchemaV1,
+  StepResult,
+  StopCondition,
   TokenUsage,
   Tool,
   ToolAnnotations,
@@ -161,5 +174,110 @@ describe('ToolExecutionContext', () => {
       requestContext: runCtx,
     }
     expect(teams.surface === 'teams' && direct.surface === 'direct').toBe(true)
+  })
+})
+
+describe('Run + RunCtx (extended)', () => {
+  it('RunStatus is a closed union', () => {
+    const statuses: RunStatus[] = ['created', 'running', 'completed', 'failed']
+    expect(statuses).toHaveLength(4)
+  })
+
+  it('Run carries tenantId', () => {
+    const r: Run = {
+      id: '0192...',
+      status: 'running',
+      tenantId: 'tnt_123',
+      createdAt: new Date(),
+    }
+    expect(r.status).toBe('running')
+  })
+
+  it('StepResult discriminates model vs tool', () => {
+    const m: StepResult = { kind: 'model', chunks: [] }
+    const t: StepResult = { kind: 'tool', chunks: [] }
+    expect(m.kind === 'model' || t.kind === 'tool').toBe(true)
+  })
+
+  it('RunInput holds messages and optional thread/conversation ids', () => {
+    const i: RunInput = { messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }] }
+    expect(i.messages).toHaveLength(1)
+  })
+})
+
+describe('MemoryProvider seam', () => {
+  it('shape: 4 hooks', () => {
+    class TestMem implements MemoryProvider {
+      async recall(): Promise<RecallResult> {
+        return { messages: [], total: 0, page: 1, perPage: 0, hasMore: false }
+      }
+      async saveTurn(): Promise<void> {}
+      async getWorkingMemory(): Promise<string | null> {
+        return null
+      }
+      async updateWorkingMemory(): Promise<void> {}
+    }
+    const m = new TestMem()
+    expect(typeof m.recall).toBe('function')
+  })
+
+  it('MemoryContext omits tenantId and resourceId', () => {
+    const ctx: MemoryContext = { threadId: 't1', scope: 'thread' }
+    // @ts-expect-error tenantId is not on the interface
+    const _bad: MemoryContext = { threadId: 't1', scope: 'thread', tenantId: 'x' }
+    void _bad
+    expect(ctx.threadId).toBe('t1')
+  })
+})
+
+describe('Processor seam', () => {
+  it('all three hooks are optional', () => {
+    const p: Processor = {}
+    expect(p.processInput).toBeUndefined()
+    expect(p.processOutputStep).toBeUndefined()
+    expect(p.processAPIError).toBeUndefined()
+  })
+
+  it('ProcessorContext shape', () => {
+    const ctrl = new AbortController()
+    const ctx: ProcessorContext = {
+      runId: 'r1',
+      abort: (() => {
+        throw new Error('aborted')
+      }) as ProcessorContext['abort'],
+      abortSignal: ctrl.signal,
+      retryCount: 0,
+      writer: { custom: () => {} },
+    }
+    expect(ctx.runId).toBe('r1')
+  })
+})
+
+describe('Configuration', () => {
+  it('AgentConfig uses provider-qualified model id', () => {
+    const cfg: AgentConfig = { model: 'anthropic/claude-4-7-sonnet' }
+    expect(cfg.model.includes('/')).toBe(true)
+  })
+
+  it('RunLoopOptions requires the adapters registry', () => {
+    // @ts-expect-error adapters is required
+    const _bad: RunLoopOptions = {}
+    void _bad
+    expect(true).toBe(true)
+  })
+
+  it('StopCondition returns boolean or Promise<boolean>', () => {
+    const sync: StopCondition = () => true
+    const asyncCond: StopCondition = async () => false
+    expect(typeof sync).toBe('function')
+    expect(typeof asyncCond).toBe('function')
+  })
+
+  it('AdapterRequest carries a bare model id', () => {
+    const r: AdapterRequest = {
+      model: 'claude-4-7-sonnet',
+      messages: [],
+    }
+    expect(r.model.includes('/')).toBe(false)
   })
 })
