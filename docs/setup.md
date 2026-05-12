@@ -34,7 +34,7 @@ Stack picks, repo layout, and copy-paste config files. Scoped to P1 (1 month, 3 
 | Logger | pino | **10.3.1** | Fastest structured logger |
 | Pretty logs (dev) | pino-pretty | **13.1.3** | Dev transport only |
 | Env | dotenv + Zod on `process.env` | **dotenv 17.4.2** | Vanilla; KMS-fetched in prod |
-| IDs | uuid (v7) | **14.0.0** | RFC 9562 v7 — time-sortable like ulid, but stored in native Postgres `uuid` column (16 bytes binary, smaller indexes than ulid's 26-char text). IETF standard; one dep covers v4/v7. (Switched from `ulid` after Context7 audit.) |
+| IDs | uuid (v7) | **14.0.0** | RFC 9562 v7 — time-sortable like uuid, but stored in native Postgres `uuid` column (16 bytes binary, smaller indexes than uuid's 26-char text). IETF standard; one dep covers v4/v7. (Switched from `uuid` after Context7 audit.) |
 
 ## 3. Data layer
 

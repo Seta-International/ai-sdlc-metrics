@@ -56,7 +56,7 @@ interface MemoryProvider {
 }
 
 interface MemoryContext {
-  threadId: string                          // ULID; the conversation primary key
+  threadId: string                          // UUID; the conversation primary key
   conversationId?: string                   // optional grouping above thread (rarely used)
   scope: 'thread' | 'resource'              // resource = principal-wide memory
   vectorSearchString?: string               // for P2 semantic recall (kernel passes undefined in P1)

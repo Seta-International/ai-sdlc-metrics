@@ -45,7 +45,7 @@ For each table `<table>` in a tenant-data schema, eight tests:
 
 ```ts
 // pseudocode — real harness uses createTenantWithData() from §5
-const A = ulid(), B = ulid()
+const A = uuid(), B = uuid()
 await runAsPlatformAdmin(sql, () => seedTenant(A, { kind: 'minimal' }))
 await runAsPlatformAdmin(sql, () => seedTenant(B, { kind: 'minimal' }))
 const aRowId = ... // PK of a row written under A

@@ -42,7 +42,12 @@ Concrete provider adapters (Anthropic, OpenAI / OpenAI-compatible) ship in **K2*
 - **ESM only**, `import type` for type-only imports, no TS path aliases, co-located `*.test.ts`.
 - **No `console.log`** — `logger` from `@seta/observability`.
 - **External SDK pins** already in `package.json`: `zod@4.4.3`, `openai@6.37.0`, `@anthropic-ai/sdk@0.95.1`. K1 imports `zod` only; `openai` / `@anthropic-ai/sdk` stay declared but unused until K2.
-- **New dep this PR:** `ulid` (run-id generation, injectable for determinism). Install via `pnpm --filter @seta/agent-core add ulid`.
+- **New deps this PR:**
+  - `uuid@14.0.0` (run-id generation, v7 for time-sortable IDs; matches the project's chosen ID strategy at setup.md line 37 and existing pins in `@seta/oauth` / `@seta/observability`). Injectable for determinism.
+  - `hono@4.12.18` (runtime — `streamKernelSSE` imports `streamSSE` from `hono/streaming`; matches the pin in `apps/api`).
+  - `@seta/middleware@workspace:*` (workspace — `KernelError extends DomainError`).
+  - `@seta/observability@workspace:*` (workspace — `logger`).
+  - Installed via `pnpm --filter @seta/agent-core add uuid@14.0.0 hono@4.12.18 @seta/middleware@workspace:* @seta/observability@workspace:*` per CLAUDE.md "CLI only".
 
 ## 4. File layout
 
@@ -213,7 +218,7 @@ import type { KernelMessage } from './message'
 export type RunStatus = 'created' | 'running' | 'completed' | 'failed'
 
 export interface Run {
-  id: string                  // ULID
+  id: string                  // UUID v7 (time-sortable; matches project convention at setup.md:37)
   status: RunStatus
   tenantId: string
   createdAt: Date
@@ -467,7 +472,7 @@ export interface RunLoopOptions {
   toolCallConcurrency?: number               // K1 reserved; default 10
   perToolBudget?: { maxCalls?: number; maxTokens?: number; timeoutMs?: number }  // reserved
   onIterationComplete?: (steps: StepResult[]) => void | Promise<void>            // K1 no-op
-  generateId?: () => string                  // for RunCtx; default ulid()
+  generateId?: () => string                  // for RunCtx; default uuidv7()
   now?: () => number                         // default () => Date.now()
   currentDate?: () => Date                   // default () => new Date()
 }
@@ -614,8 +619,8 @@ Lives in `src/testkit/` and is exported from the public barrel **only via the `.
 ├── (type-only) @seta/middleware/errors → DomainError
 ├── @seta/observability → logger
 ├── (external) zod@4.4.3
-├── (external) ulid (new dep this PR)
-└── (external) hono → Context, hono/streaming → streamSSE
+├── (external) uuid@14.0.0 (new dep this PR; v7 for run-ids)
+└── (external) hono@4.12.18 → Context, hono/streaming → streamSSE
 ```
 
 No `openai`, no `@anthropic-ai/sdk`, no `msw`, no `@seta/db`, no `@seta/tenant` (the latter is reserved for K2+ when tools start reading tenant id).

@@ -40,14 +40,14 @@
 - Schema-via-Standard-Schema wrapping at the tool layer. Seta is Zod-everywhere; convert to JSON Schema only at the MCP `ListTools` boundary.
 
 **Open questions:**
-- Where does ETag snapshotting live — inside the connector's `preview()` return, or in a separate `write_continuations` row keyed by ULID? (Setup.md implies row; connector ETag is just payload.)
+- Where does ETag snapshotting live — inside the connector's `preview()` return, or in a separate `write_continuations` row keyed by UUID? (Setup.md implies row; connector ETag is just payload.)
 - Does `agent-core` get a `Tool` type at all in P1, or does the @seta/agent product define its own and the kernel just accepts opaque callables? (Mastra's coupling between `Tool` and `Mastra` is heavy — `tool.ts:115` `mastra?: Mastra` — seta should resist.)
 - Mastra's `mcp.elicitation.sendRequest` is interesting for multi-turn input gathering (Teams adaptive card prompts) — but it's MCP-protocol-coupled. Defer.
 
 ## Punch list
 
 - setup.md §11: add a one-line note that each tool exports `{ id, description, inputSchema, outputSchema, execute, annotations? }` and that `outputSchema` is **required for write tools** (commit pairs) — mirrors Mastra `server.ts:739-761` structured-content validation.
-- setup.md §3: spell out the `write_continuations` row shape (`continuation_id ULID, tenant_id, tool_id, input_hash, etag_snapshot jsonb, hmac, expires_at, consumed_at`) and the HMAC algorithm pin (HMAC-SHA-256 over canonicalized payload + server secret from `@seta/auth` KMS).
+- setup.md §3: spell out the `write_continuations` row shape (`continuation_id UUID, tenant_id, tool_id, input_hash, etag_snapshot jsonb, hmac, expires_at, consumed_at`) and the HMAC algorithm pin (HMAC-SHA-256 over canonicalized payload + server secret from `@seta/auth` KMS).
 - setup.md §11: under `tools/planner/write/`, document that `.preview` returns `{ continuation_id, summary, etag_snapshot }` and `.commit` accepts `{ continuation_id }` only (no re-supplying the payload) — prevents argument-tampering between turns.
 - @seta/agent-core: leave a hook in the tool-execution context for `requestContext: RequestContext` (tenant id, auth subject, traceparent) — Mastra `types.ts:392` shows this carries across agent/workflow/mcp surfaces. Tenant id stays read from `tenantContext.getTenantId()` per CLAUDE.md, not a tool param.
 - @seta/agent-core: leave a hook for `abortSignal` on every `execute` call so streaming `onAbort` cancels in-flight Graph requests (Mastra wires this through `ToolExecutionContext.abortSignal`).

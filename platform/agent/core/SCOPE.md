@@ -50,7 +50,7 @@ server, no thread CRUD).
   - `KernelError`/`AgentError`/`LlmError`/`ToolError` extending `DomainError` (from
     `@seta/middleware/errors`) with `{ code, domain, category, details? }` fields matching
     Mastra's `MastraErrorJSON` shape — `02-agent-core.md:53`, README "§15".
-  - `Run` identifier (ULID) + `RunStatus` (`'created'|'running'|'completed'|'failed'`)
+  - `Run` identifier (UUID) + `RunStatus` (`'created'|'running'|'completed'|'failed'`)
     threaded through the loop — `05-workflows.md:36`. **P1 override:** the workflow
     engine itself lives in `@seta/agent-workflows` (P1) and `Run` is the join key between
     kernel runs and `agent_workflows.workflow_snapshots.run_id`. The tool result envelope's
@@ -159,7 +159,7 @@ authoritative spec; this SCOPE.md is the package's gatekeeper until the K-series
 ### Run loop
 
 - `interface RunCtx` — explicit per-call record; **not** a typed `RequestContext` map
-  (`02-agent-core.md:42`). Fields: `runId: string` (ULID), `signal: AbortSignal`,
+  (`02-agent-core.md:42`). Fields: `runId: string` (UUID), `signal: AbortSignal`,
   injectable `{ now, generateId, currentDate }` for byte-stable replay
   (`03-run-loop.md:67`), `retryCount: number`.
 - `type RunStatus = 'created' | 'running' | 'completed' | 'failed'` —
@@ -304,7 +304,7 @@ authoritative spec; this SCOPE.md is the package's gatekeeper until the K-series
   - `msw` (version per testkit landing PR) — only inside `src/testkit/`, declared as a
     regular dep so consumers can import it (Mastra puts `_llm-recorder` in a separate
     package; we keep it co-located per `06-llm-recording-replay.md:67`).
-  - `ulid` (or a Node `randomUUID`-based ULID generator) — `Run.id` generation; injectable
+  - `uuid` (or a Node `randomUUID`-based UUID generator) — `Run.id` generation; injectable
     via `RunCtx.generateId` for testkit determinism (`03-run-loop.md:67`).
 - **NOT installed:**
   - Vercel AI SDK (`@ai-sdk/*`) — explicitly avoided; direct SDK use gives us

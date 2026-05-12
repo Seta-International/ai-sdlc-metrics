@@ -209,7 +209,7 @@ Implemented and shipped on `main`:
 - **Idempotent external boundaries.** Refresh and OBO callbacks must
   tolerate replays — CLAUDE.md "Webhooks, OAuth callbacks, LLM/Graph
   calls, queue handlers must tolerate replays. Use natural keys (…
-  ulid) for cross-system correlation — never auto-increment ints."
+  uuid) for cross-system correlation — never auto-increment ints."
   Partition keys (`app:<clientId>` / `user:<homeAccountId>`) are the
   natural keys here.
 

@@ -26,7 +26,7 @@ The spike `05-workflows.md` originally argued for P2-defer on four grounds. Thos
 ## Minimum viable P1 surface
 
 - **DSL:** `createWorkflow().then(step).parallel([stepA, stepB]).commit()` — linear DAG only. **Drop `.branch()` / `.dowhile()` / `.dountil()` / `.foreach()` / `.map()` / `.sleep()` / `.sleepUntil()` to P2.** A `.then(step)` after a `.parallel([...])` is a join; that's the entire composition surface.
-- **Schema (owned by this package):** `agent_workflows.workflow_snapshots(run_id ulid pk, tenant_id, workflow_id, serialized_step_graph jsonb, active_paths jsonb, suspended_paths jsonb, step_results jsonb, status text, updated_at)` and `agent_workflows.workflow_steps(run_id fk, step_id, status, input_hash, output jsonb, started_at, finished_at)`. Names mirror Mastra's `WorkflowRunState` (`workflows/types.ts:363`) so a future port is mechanical.
+- **Schema (owned by this package):** `agent_workflows.workflow_snapshots(run_id uuid pk, tenant_id, workflow_id, serialized_step_graph jsonb, active_paths jsonb, suspended_paths jsonb, step_results jsonb, status text, updated_at)` and `agent_workflows.workflow_steps(run_id fk, step_id, status, input_hash, output jsonb, started_at, finished_at)`. Names mirror Mastra's `WorkflowRunState` (`workflows/types.ts:363`) so a future port is mechanical.
 - **Suspend/resume concurrency:** Postgres advisory lock at resume time — `pg_try_advisory_xact_lock(hashtext(run_id))` inside the resume transaction. Only one consumer wins; the loser observes `lock not acquired` and bails. No Redis required.
 - **Job runner:** in-process `p-queue@9.2.0` (already pinned in setup.md §13). No external job broker. Scheduled / time-based wakeups are out of P1 scope — products use cron / scheduled sync paths instead.
 - **HITL primitive:** a `step.suspend({ reason, resumeLabel, payload })` call inside an executing step returns a branded-void; the engine persists the snapshot and the channel sends a card prompt. Resume is `workflow.resume(runId, { label, payload })` from any product-owned route handler. The inner per-step write (e.g., "set task status") still uses the kernel's `write_continuations` preview/commit; workflow-level approval is the *outer* gate.
@@ -40,7 +40,7 @@ The spike `05-workflows.md` originally argued for P2-defer on four grounds. Thos
   - The `Step` contract: input/output Zod schemas, `suspend(payload, {resumeLabel})` and `bail()` branded-void helpers (shape per Mastra `step.ts:13`).
   - `resume(runId, { label, payload })` entrypoint.
 - **Does NOT own:**
-  - The `Run` identifier (ULID) or `RunStatus` type — those live in `@seta/agent-core` already as the join key between kernel runs and workflow snapshots. (See [`platform/agent/core/SCOPE.md`](../core/SCOPE.md) § Run loop, lines around 153–156. `workflow_snapshots.run_id` joins to the kernel's `Run`.)
+  - The `Run` identifier (UUID) or `RunStatus` type — those live in `@seta/agent-core` already as the join key between kernel runs and workflow snapshots. (See [`platform/agent/core/SCOPE.md`](../core/SCOPE.md) § Run loop, lines around 153–156. `workflow_snapshots.run_id` joins to the kernel's `Run`.)
   - The tool execution context — that's `@seta/agent-core`.
   - Per-product workflow definitions — those live alongside the product (e.g., `modules/products/agent/src/workflows/`).
   - HTTP routes for kicking off / resuming workflows — those live in the consuming product (e.g., `modules/products/agent`).
@@ -51,7 +51,7 @@ The spike `05-workflows.md` originally argued for P2-defer on four grounds. Thos
 
 - **Directory placeholder only.** This SCOPE.md exists; no `package.json`, no `src/`, no migrations land in this PR. The package is created in the next PR via `pnpm new:package`.
 - The kernel-side seams are already specified in `@seta/agent-core` (and remain there):
-  - `Run` identifier (ULID) threaded through the kernel loop — the join key.
+  - `Run` identifier (UUID) threaded through the kernel loop — the join key.
   - `RunStatus` type (`'created' | 'running' | 'completed' | 'failed'`) exported from `@seta/agent-core`.
   - Tool result envelope's optional `{ suspend?: { reason: string; resumeLabel: string } }` discriminant — in P1 the engine wires this so a tool returning `suspend` causes the *workflow step* wrapping that tool call to persist a snapshot.
 - **P1 composition (apps/api/src/main.ts):** mounts the `@seta/agent-workflows` in-process runner alongside the kernel; products register named workflows at boot.
@@ -89,7 +89,7 @@ The package also exports its Drizzle schema (`agentWorkflowsSchema`, `workflowSn
 
 - **Allowed internal:** `@seta/agent-core` (`Run` / `RunStatus` types, `KernelError` subclasses), `@seta/db` (pool + `withTenant` + role exports + migration runner), `@seta/tenant` (context reads — workflows run under the originating tenant), `@seta/audit` (record suspend / resume / step transitions), `@seta/observability` (logger + OTel spans for step boundaries).
 - **Forbidden:** any `modules/*` package, `apps/*`, `@seta/middleware` (this is a library, not a route module). No model SDKs.
-- **External (pinned per setup.md §13):** `zod@4.4.3`, `drizzle-orm@0.45.2`, `postgres@3.4.9` (transitively via `@seta/db`), `p-queue@9.2.0`, `ulid` (or `uuid@14.0.0` v7) for run id generation.
+- **External (pinned per setup.md §13):** `zod@4.4.3`, `drizzle-orm@0.45.2`, `postgres@3.4.9` (transitively via `@seta/db`), `p-queue@9.2.0`, `uuid` (or `uuid@14.0.0` v7) for run id generation.
 
 ## Patterns to follow
 
@@ -99,7 +99,7 @@ The package also exports its Drizzle schema (`agentWorkflowsSchema`, `workflowSn
 - **Advisory-lock the resume path** — `pg_try_advisory_xact_lock(hashtext(run_id))` inside the resume tx; loser bails cleanly without retrying. Idempotent at-least-once is the contract (not exactly-once).
 - **Idempotent step execution** — every step's `(run_id, step_id)` is the natural idempotency key; a re-run of the same step with the same input returns the recorded output.
 - **Run advances via `p-queue`** — bounded concurrency from the start (per CLAUDE.md "LRU + `p-queue` + pgvector"). Concurrency is per-tenant; the queue key is `tenant_id`.
-- **Thread `Run` identifier through to the kernel** — `workflow_snapshots.run_id` is the same ULID the kernel uses for its run, joining workflow-level and kernel-level audit rows without an extra correlation column.
+- **Thread `Run` identifier through to the kernel** — `workflow_snapshots.run_id` is the same UUID the kernel uses for its run, joining workflow-level and kernel-level audit rows without an extra correlation column.
 - **Schema-per-module migrations** — `drizzle-kit generate` produces `migrations/*.sql` in this package; the top-level runner in `@seta/db` applies them in `OWNER_ORDER`. Never hand-edit migration SQL.
 
 ## Patterns to avoid
@@ -126,7 +126,7 @@ The package also exports its Drizzle schema (`agentWorkflowsSchema`, `workflowSn
 3. **Cross-tenant fan-out.** `.parallel([...])` steps inherit the parent tenant — never split across tenants in P1. Confirmed by `tenantContext.run()` scoping at step boundary.
 4. **Retry policy per step — exponential vs fixed?** Mirror `@seta/agent-core`'s `withRetry` defaults (`maxRetries: 2`, transient-only). Per-step override via the step definition.
 5. **Snapshot pruning.** Completed snapshots accumulate. Document a retention policy (e.g., 30 days post-completion) before P1 close-out; not enforced in v1.
-6. **Run id source.** Use the same ULID generator (`@seta/agent-core` `RunCtx.generateId`) so a workflow-created run and a kernel-created run share an id space.
+6. **Run id source.** Use the same UUID generator (`@seta/agent-core` `RunCtx.generateId`) so a workflow-created run and a kernel-created run share an id space.
 
 ## Cross-references
 

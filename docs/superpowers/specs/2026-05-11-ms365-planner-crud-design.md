@@ -323,11 +323,11 @@ Per call: `graph.method`, `graph.path` (normalized), `graph.status`, `graph.batc
 
 ### 7.1 Continuation token
 
-**Format**: `<ulid>.<hmac>` (base64url, ~50 chars)
-- `ulid` — PK of `agent.write_continuations`
-- `hmac` — HMAC-SHA256 over `(ulid || tenant_id || user_id || tool_id || sha256(payload))` with `CONTINUATION_HMAC_KEY` (Secrets Manager)
+**Format**: `<uuid>.<hmac>` (base64url, ~50 chars)
+- `uuid` — PK of `agent.write_continuations`
+- `hmac` — HMAC-SHA256 over `(uuid || tenant_id || user_id || tool_id || sha256(payload))` with `CONTINUATION_HMAC_KEY` (Secrets Manager)
 
-**Verify**: parse → SELECT by ulid (RLS) → constant-time HMAC compare → `consumed_at IS NULL` → `expires_at > now()` → `user_id` matches caller.
+**Verify**: parse → SELECT by uuid (RLS) → constant-time HMAC compare → `consumed_at IS NULL` → `expires_at > now()` → `user_id` matches caller.
 
 ### 7.2 Preview flow (canonical)
 
@@ -413,8 +413,8 @@ Channel adapter (Epic 4) maps `Action.Execute.verb` to a tool id and re-enters t
 
 ```
 agent.write_continuations
-  token         text pk           -- '<ulid>.<hmac>'
-  ulid          text unique
+  token         text pk           -- '<uuid>.<hmac>'
+  uuid          text unique
   tenant_id     uuid
   user_id       uuid
   tool_id       text              -- 'planner.update_tasks'
@@ -598,7 +598,7 @@ Kernel (paper contracts):
 
 Third-party (additions over Epic 1):
 - `p-queue` — concurrency cap on batch dispatch
-- `nanoid` or `ulid` — token mint
+- `nanoid` or `uuid` — token mint
 - `node:crypto` — HMAC-SHA256 (built-in)
 
 **Not used**: `@microsoft/microsoft-graph-client` (dead); `@microsoft/msgraph-sdk` (pre-GA).
