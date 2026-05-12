@@ -556,6 +556,9 @@ importers:
       '@seta/db':
         specifier: workspace:*
         version: link:../db
+      '@seta/middleware':
+        specifier: workspace:*
+        version: link:../middleware
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
