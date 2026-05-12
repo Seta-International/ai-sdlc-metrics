@@ -51,7 +51,8 @@ docs/explorations/2026-05-12-mastra-spike/
 ├── 06-llm-recording-replay.md
 ├── 07-request-context.md
 ├── 08-schema-compat.md
-└── 09-memory.md
+├── 09-memory.md
+└── 10-llm-model-router.md
 ```
 
 Each file follows the same four-H2 shape: *What Mastra does → What setup.md plans → Delta → Punch list*. Targets ~400–600 words each.
@@ -83,7 +84,7 @@ A single PR contains both artifacts. The skeleton is the credibility check on th
 | # | Output file | Mastra paths to read | setup.md sections | Words |
 |---|---|---|---|---|
 | 01 | `01-monorepo-build-test.md` | root `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.{json,build.json}`, `vitest.config.ts`, `eslint.config.js`, `lint-staged.config.js`, `packages/core/{tsup.config.ts,turbo.json,package.json}`, root `.npmrc` if present, pnpm catalog usage | §1, §12 | 500 |
-| 02 | `02-agent-core.md` | `packages/core/src/{agent,llm,_types,base.ts,mastra,processors,hooks,error}/` (+ `di/` for divergence note) | §5, §15 (errors), CLAUDE.md (no-DI rule) | 600 |
+| 02 | `02-agent-core.md` | `packages/core/src/{agent,llm,_types,base.ts,mastra,processors,hooks,error}/` (+ `di/` for divergence note). **Scope:** Agent class surface + per-provider model *adapters* + message normalization + processors/hooks + DomainError shape + DI divergence. **Do NOT cover provider selection / cross-provider tool-call normalization / token counting / retry-fallback** — those belong to SA-10. | §5, §15 (errors), CLAUDE.md (no-DI rule) | 600 |
 | 03 | `03-run-loop.md` | `packages/core/src/{loop,stream,run}/` + streaming bits of `packages/core/src/llm/` | §5 (`streamKernelSSE`, abort wiring, Anthropic prompt cache) | 600 |
 | 04 | `04-tools-mcp.md` | `packages/core/src/{action,mcp}/`, `packages/mcp/`, `packages/mcp-docs-server/` | §11 `modules/products/agent/tools/` + preview/commit pattern, §3 `agent.write_continuations` | 500 |
 | 05 | `05-workflows.md` | `workflows/` (top-level), `packages/core/src/run/` (suspend/resume) | none — explicitly flag as a setup.md gap | 500 |
@@ -91,10 +92,11 @@ A single PR contains both artifacts. The skeleton is the credibility check on th
 | 07 | `07-request-context.md` | `packages/core/src/request-context/` (+ `di/` intersection) | §3 tenant context + `withTenant` + AsyncLocalStorage footgun | 400 |
 | 08 | `08-schema-compat.md` | `packages/schema-compat/`, `packages/core/src/schema/` | §2 Zod 4 + `@hono/zod-openapi` open question, Standard Schema v1 note | 400 |
 | 09 | `09-memory.md` | `packages/memory/`, `packages/core/src/{memory,storage}/`, `stores/` (high-level only) | §3 (agent schema future), §6 (P2 RAG primitives) | 500 |
+| 10 | `10-llm-model-router.md` | `packages/core/src/llm/` (router/selection/normalization parts), any `packages/*model-router*` or `packages/*provider*` paths if present. **Scope:** provider selection from agent config, cross-provider tool-call shape normalization (OpenAI `tools` vs Anthropic `tools` differ), token counting integration with `js-tiktoken`, retry/fallback policy, response caching (distinct from Anthropic prompt caching). | §5 (`ModelStream<TChunk>` interface, `.stream()` helpers, Anthropic prompt caching note, js-tiktoken pin), §11 (`cfg.model` in `modules/products/agent`), §13 (kernel deps) | 600 |
 
-Total: ~4500 words across the 9 files + a ~500-word README I write after.
+Total: ~5100 words across the 10 files + a ~500-word README I write after.
 
-**Spawning.** One message containing nine `Agent` tool uses with `subagent_type: "general-purpose"` (Phase 1 agents must write files; `Explore` is read-only and cannot Write).
+**Spawning.** One message containing ten `Agent` tool uses with `subagent_type: "general-purpose"` (Phase 1 agents must write files; `Explore` is read-only and cannot Write).
 
 ---
 
@@ -271,7 +273,7 @@ Failures fixed in-place — no skip-flags.
 
 | Phase | Count | Type | Parallel? |
 |---|---|---|---|
-| Phase 1 (spike reports) | 9 | `general-purpose` | Yes — single message, nine `Agent` calls |
+| Phase 1 (spike reports) | 10 | `general-purpose` | Yes — single message, ten `Agent` calls |
 | Phase 2 (SCOPE.md writers) | 6 | `general-purpose` | Yes — single message, six `Agent` calls, after Phase 1 |
 | Phase 3 (skeleton + validation + README) | 0 (main agent) | n/a | Sequential after Phase 2 |
 
