@@ -1,3 +1,4 @@
+import { SpanStatusCode, trace } from '@opentelemetry/api'
 import { AgentError } from '../errors'
 import type {
   AgentConfig,
@@ -25,6 +26,15 @@ export interface ToolLoopArgs {
   tools: Tool[]
 }
 
+type LoopStopReason =
+  | 'natural_stop'
+  | 'natural_length'
+  | 'stop_when'
+  | 'step_limit'
+  | 'error'
+  | 'aborted'
+  | 'processor_aborted'
+
 export async function* runToolLoop(
   args: ToolLoopArgs,
 ): AsyncGenerator<KernelChunk, KernelMessage[]> {
@@ -35,63 +45,44 @@ export async function* runToolLoop(
   let messages = initialMessages
   let modelStepCount = 0
 
-  while (true) {
-    if (ctx.signal.aborted) {
-      yield { type: 'abort' }
-      return addedMessages
-    }
+  const loopSpan = trace
+    .getTracer('@seta/agent-core')
+    .startSpan('agent.run.loop', { attributes: { 'run.id': ctx.runId } })
+  let spanEnded = false
+  const endSpan = (reason: LoopStopReason) => {
+    if (spanEnded) return
+    spanEnded = true
+    loopSpan.setAttribute('loop.stop_reason', reason)
+    loopSpan.setAttribute('loop.iterations', modelStepCount)
+    loopSpan.setStatus({
+      code: reason === 'error' ? SpanStatusCode.ERROR : SpanStatusCode.OK,
+    })
+    loopSpan.end()
+  }
 
-    const modelStep = yield* runModelStepWithFallback({ cfg, ctx, opts, messages, tools })
-    modelStepCount++
-    accumulatedSteps.push(modelStep)
-    if (modelStep.message) {
-      messages = [...messages, modelStep.message]
-      addedMessages.push(modelStep.message)
-    }
-    if (opts.processors?.length) {
-      try {
-        const rewritten = await runProcessOutputStep(
-          opts.processors,
-          makeProcessorCtx(ctx),
-          modelStep,
-        )
-        if (rewritten.message && rewritten.message !== modelStep.message) {
-          messages[messages.length - 1] = rewritten.message
-          addedMessages[addedMessages.length - 1] = rewritten.message
-        }
-      } catch (err) {
-        if (err instanceof ProcessorAbortSignal) {
-          yield processorAbortChunk(
-            'processOutputStep',
-            findProcessorIndex(opts.processors, 'processOutputStep'),
-          )
-          yield { type: 'abort' }
-          return addedMessages
-        }
-        throw err
+  try {
+    while (true) {
+      if (ctx.signal.aborted) {
+        yield { type: 'abort' }
+        endSpan('aborted')
+        return addedMessages
       }
-    }
 
-    if (modelStep.error) return addedMessages
-    if (modelStep.finishReason !== 'tool_calls') return addedMessages
-
-    if (modelStepCount >= maxSteps) {
-      yield synthesizeFinish('length', sumUsage(accumulatedSteps))
-      return addedMessages
-    }
-
-    const toolCalls = extractToolCalls(modelStep.message)
-    const toolSteps = await executeTools({ toolCalls, tools, ctx, opts })
-    for (const step of toolSteps) {
-      accumulatedSteps.push(step)
-      if (step.message) {
-        messages = [...messages, step.message]
-        addedMessages.push(step.message)
+      const modelStep = yield* runModelStepWithFallback({ cfg, ctx, opts, messages, tools })
+      modelStepCount++
+      accumulatedSteps.push(modelStep)
+      if (modelStep.message) {
+        messages = [...messages, modelStep.message]
+        addedMessages.push(modelStep.message)
       }
       if (opts.processors?.length) {
         try {
-          const rewritten = await runProcessOutputStep(opts.processors, makeProcessorCtx(ctx), step)
-          if (rewritten.message && rewritten.message !== step.message) {
+          const rewritten = await runProcessOutputStep(
+            opts.processors,
+            makeProcessorCtx(ctx),
+            modelStep,
+          )
+          if (rewritten.message && rewritten.message !== modelStep.message) {
             messages[messages.length - 1] = rewritten.message
             addedMessages[addedMessages.length - 1] = rewritten.message
           }
@@ -102,37 +93,91 @@ export async function* runToolLoop(
               findProcessorIndex(opts.processors, 'processOutputStep'),
             )
             yield { type: 'abort' }
+            endSpan('processor_aborted')
             return addedMessages
           }
           throw err
         }
       }
-    }
 
-    if (opts.stopWhen) {
-      const predicates = Array.isArray(opts.stopWhen) ? opts.stopWhen : [opts.stopWhen]
-      let results: boolean[]
-      try {
-        results = await Promise.all(
-          predicates.map((p) => Promise.resolve(p({ steps: accumulatedSteps }))),
-        )
-      } catch (err) {
-        yield {
-          type: 'error',
-          error: new AgentError({
-            code: 'STOP_WHEN_FAILED',
-            category: 'SYSTEM',
-            message: 'stopWhen predicate threw',
-            cause: err,
-          }),
-        }
+      if (modelStep.error) {
+        endSpan('error')
         return addedMessages
       }
-      if (results.some(Boolean)) {
-        yield synthesizeFinish('stop', sumUsage(accumulatedSteps))
+      if (modelStep.finishReason !== 'tool_calls') {
+        endSpan(modelStep.finishReason === 'length' ? 'natural_length' : 'natural_stop')
         return addedMessages
+      }
+
+      if (modelStepCount >= maxSteps) {
+        yield synthesizeFinish('length', sumUsage(accumulatedSteps))
+        endSpan('step_limit')
+        return addedMessages
+      }
+
+      const toolCalls = extractToolCalls(modelStep.message)
+      const toolSteps = await executeTools({ toolCalls, tools, ctx, opts })
+      for (const step of toolSteps) {
+        accumulatedSteps.push(step)
+        if (step.message) {
+          messages = [...messages, step.message]
+          addedMessages.push(step.message)
+        }
+        if (opts.processors?.length) {
+          try {
+            const rewritten = await runProcessOutputStep(
+              opts.processors,
+              makeProcessorCtx(ctx),
+              step,
+            )
+            if (rewritten.message && rewritten.message !== step.message) {
+              messages[messages.length - 1] = rewritten.message
+              addedMessages[addedMessages.length - 1] = rewritten.message
+            }
+          } catch (err) {
+            if (err instanceof ProcessorAbortSignal) {
+              yield processorAbortChunk(
+                'processOutputStep',
+                findProcessorIndex(opts.processors, 'processOutputStep'),
+              )
+              yield { type: 'abort' }
+              endSpan('processor_aborted')
+              return addedMessages
+            }
+            throw err
+          }
+        }
+      }
+
+      if (opts.stopWhen) {
+        const predicates = Array.isArray(opts.stopWhen) ? opts.stopWhen : [opts.stopWhen]
+        let results: boolean[]
+        try {
+          results = await Promise.all(
+            predicates.map((p) => Promise.resolve(p({ steps: accumulatedSteps }))),
+          )
+        } catch (err) {
+          yield {
+            type: 'error',
+            error: new AgentError({
+              code: 'STOP_WHEN_FAILED',
+              category: 'SYSTEM',
+              message: 'stopWhen predicate threw',
+              cause: err,
+            }),
+          }
+          endSpan('error')
+          return addedMessages
+        }
+        if (results.some(Boolean)) {
+          yield synthesizeFinish('stop', sumUsage(accumulatedSteps))
+          endSpan('stop_when')
+          return addedMessages
+        }
       }
     }
+  } finally {
+    if (!spanEnded) endSpan('error')
   }
 }
 
