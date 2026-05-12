@@ -187,15 +187,24 @@ export function anthropicEventToKernelChunks(
     case 'message_delta': {
       const d = event.delta as { stop_reason?: string | null }
       state.finishReason = mapStopReason(d.stop_reason)
-      const u = (event as { usage?: Record<string, number> }).usage
-      if (u !== undefined && state.usage !== null) {
-        if (typeof u['input_tokens'] === 'number') state.usage.inputTokens = u['input_tokens']
-        if (typeof u['output_tokens'] === 'number') state.usage.outputTokens = u['output_tokens']
-        if (typeof u['cache_read_input_tokens'] === 'number') {
-          state.usage.cacheReadInputTokens = u['cache_read_input_tokens']
+      const u = (
+        event as {
+          usage?: {
+            input_tokens?: number
+            output_tokens?: number
+            cache_read_input_tokens?: number
+            cache_creation_input_tokens?: number
+          }
         }
-        if (typeof u['cache_creation_input_tokens'] === 'number') {
-          state.usage.cacheCreationInputTokens = u['cache_creation_input_tokens']
+      ).usage
+      if (u !== undefined && state.usage !== null) {
+        if (typeof u.input_tokens === 'number') state.usage.inputTokens = u.input_tokens
+        if (typeof u.output_tokens === 'number') state.usage.outputTokens = u.output_tokens
+        if (typeof u.cache_read_input_tokens === 'number') {
+          state.usage.cacheReadInputTokens = u.cache_read_input_tokens
+        }
+        if (typeof u.cache_creation_input_tokens === 'number') {
+          state.usage.cacheCreationInputTokens = u.cache_creation_input_tokens
         }
       }
       return []
