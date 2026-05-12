@@ -41,21 +41,24 @@ export async function runMigrations(opts: RunMigrationsOpts): Promise<void> {
   const owners = opts.owners ?? OWNER_ORDER
 
   const sql = postgres(opts.url, { max: 1, prepare: false })
-  if (opts.roleName) {
-    // Use unsafe() because SET ROLE doesn't accept bind parameters and the
-    // role name is operator-controlled (not user-controlled). Caller must
-    // pass a trusted role name.
-    await sql.unsafe(`SET ROLE "${opts.roleName.replace(/"/g, '""')}"`)
-  }
-  const db = drizzle(sql)
+  try {
+    if (opts.roleName) {
+      // Use unsafe() because SET ROLE doesn't accept bind parameters and the
+      // role name is operator-controlled (not user-controlled). Caller must
+      // pass a trusted role name.
+      await sql.unsafe(`SET ROLE "${opts.roleName.replace(/"/g, '""')}"`)
+    }
+    const db = drizzle(sql)
 
-  for (const owner of owners) {
-    const migrationsFolder = path.join(repoRoot, OWNER_PACKAGE_PATH[owner])
-    // Skip owners that don't have a migrations dir yet (e.g., agent in Epic 1).
-    // drizzle-orm 0.45.2's migrator throws a plain Error when meta/_journal.json
-    // is missing, so we check up-front rather than parsing error messages.
-    if (!existsSync(path.join(migrationsFolder, 'meta', '_journal.json'))) continue
-    await drizzleMigrate(db, { migrationsFolder })
+    for (const owner of owners) {
+      const migrationsFolder = path.join(repoRoot, OWNER_PACKAGE_PATH[owner])
+      // Skip owners that don't have a migrations dir yet (e.g., agent in Epic 1).
+      // drizzle-orm 0.45.2's migrator throws a plain Error when meta/_journal.json
+      // is missing, so we check up-front rather than parsing error messages.
+      if (!existsSync(path.join(migrationsFolder, 'meta', '_journal.json'))) continue
+      await drizzleMigrate(db, { migrationsFolder })
+    }
+  } finally {
+    await sql.end()
   }
-  await sql.end()
 }
