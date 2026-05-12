@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer'
-import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import {
   ContinuationBadHmac,
   ContinuationConsumed,
@@ -43,7 +43,7 @@ function hmac(key: string, parts: string[]): string {
 }
 
 function shaPayload(payload: unknown): string {
-  return b64url(createHmac('sha256', 'p').update(JSON.stringify(payload)).digest())
+  return b64url(createHash('sha256').update(JSON.stringify(payload)).digest())
 }
 
 export function createContinuationStore(deps: ContinuationStoreDeps) {
@@ -80,7 +80,7 @@ export function createContinuationStore(deps: ContinuationStoreDeps) {
              consumed_at AS "consumedAt", user_id AS "userId", tool_id AS "toolId",
              tenant_id AS "tenantId"
       FROM agent.write_continuations
-      WHERE uuid = ${uuid}
+      WHERE uuid = ${uuid} AND tenant_id = ${v.tenantId}
       LIMIT 1
     `
     const row = rows[0] as
@@ -99,9 +99,11 @@ export function createContinuationStore(deps: ContinuationStoreDeps) {
     if (!row) throw new ContinuationBadHmac()
 
     const expectedSig = hmac(deps.hmacKey, [row.uuid, row.toolId, shaPayload(row.payload)])
+    // Structural check: expected length is always 43 chars (HMAC-SHA256 base64url), public knowledge.
+    if (sig.length !== expectedSig.length) throw new ContinuationBadHmac()
     const a = Buffer.from(sig)
     const b = Buffer.from(expectedSig)
-    if (a.length !== b.length || !timingSafeEqual(a, b)) throw new ContinuationBadHmac()
+    if (!timingSafeEqual(a, b)) throw new ContinuationBadHmac()
 
     if (row.consumedAt) throw new ContinuationConsumed(row.resultCard ?? undefined)
     if (row.expiresAt.getTime() < now()) throw new ContinuationExpired()
@@ -110,6 +112,8 @@ export function createContinuationStore(deps: ContinuationStoreDeps) {
     return { payload: row.payload, etagSnapshot: row.etagSnapshot }
   }
 
+  // Atomic: the WHERE guard ensures only one concurrent caller can stamp consumed_at.
+  // Callers must still handle ContinuationConsumed on verify() if another request races.
   async function markConsumed(token: string, resultCard: Record<string, unknown>): Promise<void> {
     await deps.sql`
       UPDATE agent.write_continuations
