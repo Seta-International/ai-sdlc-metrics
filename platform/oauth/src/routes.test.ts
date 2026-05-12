@@ -169,3 +169,124 @@ describe('GET /oauth/:provider/callback', () => {
     await sql2.end()
   })
 })
+
+describe('POST /oauth/:provider/revoke', () => {
+  it('deletes the vault row and audits revocation', async () => {
+    const sql = postgres(URL, { max: 1, prepare: false })
+    const kms = new EnvDekProvider({ keyId: 'local', plaintextKey: Buffer.alloc(32, 13) })
+    const vault = createTokenVault({ sql, kms })
+    const registry = createConnectorRegistry()
+    registry.register(plannerConnector)
+    const providers = {
+      entra: new EntraProvider({
+        clientId: 'client-x',
+        clientSecret: 'secret-y',
+        ccaFactory: () => ({}) as never,
+      }),
+    }
+    const stateStore = createStateStore(sql)
+    const audit = createAuditWriter(sql)
+
+    const app = new Hono().onError(onError).route(
+      '/oauth',
+      createOAuthRoutes({
+        providers,
+        registry,
+        stateStore,
+        vault,
+        audit,
+        redirectBase: 'https://api.example.com',
+      }),
+    )
+
+    const tenantId = '08120700-f459-4a90-9b53-9501f06bb842'
+    await vault.put(tenantId, 'entra', 'app:client-x', {
+      accessToken: 'tok-x',
+      refreshToken: null,
+      scopes: ['https://graph.microsoft.com/.default'],
+      expiresAt: new Date(Date.now() + 3600_000),
+      meta: { tid: tenantId },
+    })
+
+    const res = await app.request('/oauth/entra/revoke', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ tenantId, partitionKey: 'app:client-x' }),
+    })
+    expect(res.status).toBe(200)
+
+    expect(await vault.get(tenantId, 'entra', 'app:client-x')).toBeNull()
+
+    const rows = await sql<
+      Array<{ operation: string }>
+    >`SELECT operation FROM audit.audit_log WHERE tenant_id = ${tenantId} ORDER BY ts DESC LIMIT 1`
+    expect(rows[0]?.operation).toBe('oauth.revoke_manual')
+
+    await sql`DELETE FROM audit.audit_log WHERE tenant_id = ${tenantId}`
+    await sql.end()
+  })
+})
+
+describe('POST /oauth/:provider/exchange-obo', () => {
+  it('stores a per-user OBO token bundle', async () => {
+    const sql = postgres(URL, { max: 1, prepare: false })
+    const kms = new EnvDekProvider({ keyId: 'local', plaintextKey: Buffer.alloc(32, 13) })
+    const vault = createTokenVault({ sql, kms })
+    const registry = createConnectorRegistry()
+    registry.register(plannerConnector)
+    const audit = createAuditWriter(sql)
+
+    const tenantId = '854f1c0f-edaf-4d95-81f5-c5c66662c512'
+
+    const fakeCca = () => ({
+      acquireTokenOnBehalfOf: vi.fn().mockResolvedValue({
+        accessToken: 'obo-token',
+        expiresOn: new Date(Date.now() + 3600_000),
+        scopes: ['https://graph.microsoft.com/Tasks.ReadWrite'],
+        account: { homeAccountId: 'user-home-1', tenantId },
+        tenantId,
+      }),
+    })
+
+    const providers = {
+      entra: new EntraProvider({
+        clientId: 'client-x',
+        clientSecret: 'secret-y',
+        ccaFactory: fakeCca as never,
+      }),
+    }
+    const stateStore = createStateStore(sql)
+
+    const app = new Hono().onError(onError).route(
+      '/oauth',
+      createOAuthRoutes({
+        providers,
+        registry,
+        stateStore,
+        vault,
+        audit,
+        redirectBase: 'https://api.example.com',
+      }),
+    )
+
+    const res = await app.request('/oauth/entra/exchange-obo', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tenantId,
+        userAssertion: 'user-assertion-xyz',
+        scopes: ['https://graph.microsoft.com/Tasks.ReadWrite'],
+      }),
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { ok: boolean; homeAccountId: string }
+    expect(body.homeAccountId).toBe('user-home-1')
+
+    const bundle = await vault.get(tenantId, 'entra', 'user:user-home-1')
+    expect(bundle?.accessToken).toBe('obo-token')
+
+    await sql`DELETE FROM oauth.oauth_tokens WHERE tenant_id = ${tenantId}`
+    await sql`DELETE FROM audit.audit_log WHERE tenant_id = ${tenantId}`
+    await sql.end()
+  })
+})

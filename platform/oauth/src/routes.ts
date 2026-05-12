@@ -120,5 +120,59 @@ export function createOAuthRoutes(deps: OAuthRoutesDeps) {
 </body></html>`)
   })
 
+  app.post('/:provider/revoke', async (c) => {
+    const providerId = c.req.param('provider')
+    const provider = deps.providers[providerId]
+    if (!provider) throw new BadRequest(`unknown provider '${providerId}'`)
+
+    const { tenantId, partitionKey } = z
+      .object({
+        tenantId: z.string().uuid(),
+        partitionKey: z.string().min(1),
+      })
+      .parse(await c.req.json())
+
+    if (deps.vault) await deps.vault.delete(tenantId, providerId, partitionKey)
+    await deps.audit?.recordAudit({
+      tenantId,
+      actor: { type: 'system', label: 'oauth-admin' },
+      providerId,
+      operation: 'oauth.revoke_manual',
+      result: 'ok',
+      metadata: { partition_key: partitionKey },
+    })
+    return c.json({ ok: true })
+  })
+
+  app.post('/:provider/exchange-obo', async (c) => {
+    const providerId = c.req.param('provider')
+    const provider = deps.providers[providerId]
+    if (!provider) throw new BadRequest(`unknown provider '${providerId}'`)
+
+    const body = z
+      .object({
+        tenantId: z.string().uuid(),
+        userAssertion: z.string().min(1),
+        scopes: z.array(z.string()).min(1),
+      })
+      .parse(await c.req.json())
+
+    const bundle = await provider.acquireOnBehalfOf({
+      tenantId: body.tenantId,
+      userAssertion: body.userAssertion,
+      scopes: body.scopes,
+    })
+    const homeAccountId = bundle.meta.homeAccountId as string
+    if (deps.vault) await deps.vault.put(body.tenantId, providerId, `user:${homeAccountId}`, bundle)
+    await deps.audit?.recordAudit({
+      tenantId: body.tenantId,
+      actor: { type: 'user', userId: homeAccountId },
+      providerId,
+      operation: 'oauth.exchange_obo',
+      result: 'ok',
+    })
+    return c.json({ ok: true, homeAccountId })
+  })
+
   return app
 }
