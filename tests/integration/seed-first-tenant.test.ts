@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -11,12 +12,7 @@ function resolveScript(): string {
     path.resolve(process.cwd(), '../../tooling/scripts/seed-first-tenant.ts'),
   ]
   for (const c of candidates) {
-    try {
-      execSync(`test -f ${c}`)
-      return c
-    } catch {
-      // try next
-    }
+    if (existsSync(c)) return c
   }
   throw new Error('seed-first-tenant.ts not found')
 }

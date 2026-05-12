@@ -17,7 +17,7 @@ const Env = z.object({
   BOOTSTRAP_ENTRA_CLIENT_SECRET: z.string().min(1),
   BOOTSTRAP_ADMIN_EMAIL: z.email(),
   BOOTSTRAP_CONNECTORS: z.string().min(1),
-  BOOTSTRAP_OFFLINE: z.string().optional(),
+  BOOTSTRAP_OFFLINE: z.enum(['0', '1']).default('0'),
   KMS_PROVIDER: z.enum(['aws', 'env']).default('env'),
   DEV_DEK_BASE64: z.string().optional(),
   AWS_REGION: z.string().optional(),
@@ -50,6 +50,9 @@ const entra = new EntraProvider({
 const SEED_MODE_OFFLINE = env.BOOTSTRAP_OFFLINE === '1'
 
 async function main(): Promise<void> {
+  // Pre-flight: validate connector ids before opening a transaction.
+  for (const cid of connectorIds) registry.get(cid) // throws ConnectorUnknown early
+
   const tenantId = (await sql.begin(async (tx) => {
     const existing = await tx<
       Array<{ id: string }>
@@ -65,7 +68,8 @@ async function main(): Promise<void> {
         RETURNING id
       `
       const row = rows[0]
-      if (!row) throw new Error('tenant insert returned no row')
+      if (!row)
+        throw new Error(`tenant insert returned no row for slug=${env.BOOTSTRAP_TENANT_SLUG}`)
       id = row.id
     }
 

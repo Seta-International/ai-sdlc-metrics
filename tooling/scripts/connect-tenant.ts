@@ -25,5 +25,6 @@ if (!res.ok) {
   process.exit(1)
 }
 
-const { url } = (await res.json()) as { url: string; state: string }
+const { url, state } = (await res.json()) as { url: string; state: string }
+console.error(`state: ${state}`) // for log correlation
 console.log(url)
