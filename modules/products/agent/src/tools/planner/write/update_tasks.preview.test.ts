@@ -23,32 +23,30 @@ function makeDeps(
     mint: ReturnType<typeof vi.fn>
   }> = {},
 ) {
-  const taskOne = overrides.taskOne ?? vi.fn().mockResolvedValue(makeTask())
-  const etagGet = overrides.etagGet ?? vi.fn().mockResolvedValue('W/"etag1"')
-  const mint =
-    overrides.mint ?? vi.fn().mockResolvedValue({ token: 'tok-abc', expiresAt: new Date() })
-
-  return {
+  const mocks = {
+    taskOne: overrides.taskOne ?? vi.fn().mockResolvedValue(makeTask()),
+    etagGet: overrides.etagGet ?? vi.fn().mockResolvedValue('W/"etag1"'),
+    mint: overrides.mint ?? vi.fn().mockResolvedValue({ token: 'tok-abc', expiresAt: new Date() }),
+  }
+  const deps = {
     registry: {
       requireConsent: overrides.requireConsent ?? vi.fn().mockResolvedValue(undefined),
     },
     tokenForUser: vi.fn().mockResolvedValue({ accessToken: 'at' }),
     buildClient: vi.fn().mockReturnValue({}),
     buildCache: vi.fn().mockReturnValue({
-      task: { one: taskOne },
+      task: { one: mocks.taskOne },
     }),
-    etagStore: { get: etagGet },
-    continuationStore: { mint },
+    etagStore: { get: mocks.etagGet },
+    continuationStore: { mint: mocks.mint },
     ttlMinutes: 15,
-    _taskOne: taskOne,
-    _etagGet: etagGet,
-    _mint: mint,
   }
+  return { deps, mocks }
 }
 
 describe('planner.update_tasks.preview', () => {
   it('happy path: returns ok with card and token, mint called with etagSnapshot', async () => {
-    const deps = makeDeps()
+    const { deps, mocks } = makeDeps()
     const tool = updateTasksPreviewTool(deps as never)
 
     const result = await tenantContext.run({ tenantId: 'tenant1', userId: 'user1' }, () =>
@@ -56,14 +54,14 @@ describe('planner.update_tasks.preview', () => {
     )
 
     expect('ok' in result && result.ok).toBe(true)
-    if (!('ok' in result) || !result.ok) return
+    if ('ok' in result && result.ok) {
+      expect(result.value.token).toBe('tok-abc')
+      expect(result.value.ttlMinutes).toBe(15)
+      expect(result.value.card['type']).toBe('AdaptiveCard')
+    }
 
-    expect(result.value.token).toBe('tok-abc')
-    expect(result.value.ttlMinutes).toBe(15)
-    expect(result.value.card['type']).toBe('AdaptiveCard')
-
-    expect(deps._mint).toHaveBeenCalledOnce()
-    const mintCall = deps._mint.mock.calls[0]?.[0] as Record<string, unknown>
+    expect(mocks.mint).toHaveBeenCalledOnce()
+    const mintCall = mocks.mint.mock.calls[0]?.[0] as Record<string, unknown>
     expect(mintCall['etagSnapshot']).toEqual({ T1: 'W/"etag1"' })
     expect(mintCall['tenantId']).toBe('tenant1')
     expect(mintCall['userId']).toBe('user1')
@@ -73,7 +71,7 @@ describe('planner.update_tasks.preview', () => {
   it('aborts when task not found in cache', async () => {
     const taskOne = vi.fn().mockResolvedValue(null)
     const mint = vi.fn()
-    const deps = makeDeps({ taskOne, mint })
+    const { deps } = makeDeps({ taskOne, mint })
     const tool = updateTasksPreviewTool(deps as never)
 
     const result = await tenantContext.run({ tenantId: 't', userId: 'u' }, () =>
@@ -90,7 +88,7 @@ describe('planner.update_tasks.preview', () => {
   it('aborts when etag missing from etagStore', async () => {
     const etagGet = vi.fn().mockResolvedValue(null)
     const mint = vi.fn()
-    const deps = makeDeps({ etagGet, mint })
+    const { deps } = makeDeps({ etagGet, mint })
     const tool = updateTasksPreviewTool(deps as never)
 
     const result = await tenantContext.run({ tenantId: 't', userId: 'u' }, () =>
@@ -106,7 +104,7 @@ describe('planner.update_tasks.preview', () => {
 
   it('aborts when consent check rejects', async () => {
     const requireConsent = vi.fn().mockRejectedValue(new Error('not consented'))
-    const deps = makeDeps({ requireConsent })
+    const { deps } = makeDeps({ requireConsent })
     const tool = updateTasksPreviewTool(deps as never)
 
     const result = await tenantContext.run({ tenantId: 't', userId: 'u' }, () =>

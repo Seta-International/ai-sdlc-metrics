@@ -35,10 +35,9 @@ const Output = z.object({
   ttlMinutes: z.number().int().positive(),
 })
 
-type InputType = z.infer<typeof Input>
-type OutputType = z.infer<typeof Output>
-
-export function updateTasksPreviewTool(deps: PreviewDeps): Tool<InputType, OutputType> {
+export function updateTasksPreviewTool(
+  deps: PreviewDeps,
+): Tool<z.infer<typeof Input>, z.infer<typeof Output>> {
   return {
     id: 'planner.update_tasks.preview',
     description:

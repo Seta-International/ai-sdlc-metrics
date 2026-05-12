@@ -26,7 +26,7 @@ export function buildPreviewCard(i: PreviewCardInput): Record<string, unknown> {
       },
       {
         type: 'FactSet',
-        facts: i.facts.map((f) => ({ title: f.title, value: f.value })),
+        facts: i.facts,
       },
       {
         type: 'TextBlock',
