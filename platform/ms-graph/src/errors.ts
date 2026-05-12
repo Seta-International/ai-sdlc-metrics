@@ -8,19 +8,19 @@ export class GraphNotFound extends DomainError {
 
 export class GraphPreconditionFailed extends DomainError {
   constructor(detail?: string) {
-    super(412, 'precondition failed', { detail })
+    super(412, 'precondition failed', detail !== undefined ? { detail } : {})
   }
 }
 
 export class GraphPermissionDenied extends DomainError {
   constructor(detail?: string) {
-    super(403, 'permission denied', { detail })
+    super(403, 'permission denied', detail !== undefined ? { detail } : {})
   }
 }
 
 export class GraphUnauthorized extends DomainError {
   constructor(detail?: string) {
-    super(401, 'unauthorized', { detail })
+    super(401, 'unauthorized', detail !== undefined ? { detail } : {})
   }
 }
 
