@@ -31,8 +31,8 @@ export function applyAnthropicCacheControl<T extends CacheableRequest>(
       typeof out.system === 'string'
         ? [{ type: 'text', text: out.system }]
         : out.system.map((b) => ({ ...b }))
-    if (blocks.length > 0) {
-      const last = blocks[blocks.length - 1]!
+    const last = blocks[blocks.length - 1]
+    if (last !== undefined) {
       last.cache_control = { type: 'ephemeral', ttl: cacheTtl }
     }
     out.system = blocks
@@ -40,8 +40,10 @@ export function applyAnthropicCacheControl<T extends CacheableRequest>(
 
   if (out.tools !== undefined && out.tools.length > 0) {
     const tools = out.tools.map((t) => ({ ...t }))
-    const last = tools[tools.length - 1]!
-    last.cache_control = { type: 'ephemeral', ttl: cacheTtl }
+    const last = tools[tools.length - 1]
+    if (last !== undefined) {
+      last.cache_control = { type: 'ephemeral', ttl: cacheTtl }
+    }
     out.tools = tools
   }
 
