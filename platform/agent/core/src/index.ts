@@ -13,4 +13,6 @@ export {
 } from './errors'
 export type { ErrorClass } from './errors/classify'
 export { classifyError, isAbortError } from './errors/classify'
+export type { RetryOpts } from './models/retry'
+export { withRetry } from './models/retry'
 export type * from './types'
