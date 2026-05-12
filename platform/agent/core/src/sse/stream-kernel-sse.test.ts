@@ -56,6 +56,10 @@ describe('streamKernelSSE', () => {
     expect(frames.some((f) => f.includes('event: error') && f.includes('"code":"X"'))).toBe(true)
   })
 
+  // Skipped: Hono's in-process request transport does not propagate
+  // AbortController.signal to streamSSE's onAbort callback. The wiring in
+  // stream-kernel-sse.ts is structurally correct; covered end-to-end by the
+  // MSW recording testkit's integration suite against a real HTTP listener.
   it.skip('calls iter.return() to interrupt the generator on client abort', async () => {
     const returnSpy = vi.fn()
     let consumed = 0
