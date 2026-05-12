@@ -42,6 +42,8 @@ export interface PlannerClient {
   listPlanTasks(planId: string): AsyncIterable<unknown>
   listMyPlans(): AsyncIterable<unknown>
   listBuckets(planId: string): AsyncIterable<unknown>
+  getPlan(id: string): Promise<{ data: unknown; etag: string | null }>
+  getBucket(id: string): Promise<{ data: unknown; etag: string | null }>
   createPlan(input: {
     owner: string
     title: string
@@ -94,6 +96,14 @@ export function createPlannerClient(deps: PlannerClientDeps): PlannerClient {
     listMyPlans: () => deps.graph.paginate({ ...base, method: 'GET', path: '/me/planner/plans' }),
     listBuckets: (planId) =>
       deps.graph.paginate({ ...base, method: 'GET', path: `/planner/plans/${planId}/buckets` }),
+    getPlan: async (id) => {
+      const r = await deps.graph.call({ ...base, method: 'GET', path: `/planner/plans/${id}` })
+      return { data: r.data, etag: r.etag }
+    },
+    getBucket: async (id) => {
+      const r = await deps.graph.call({ ...base, method: 'GET', path: `/planner/buckets/${id}` })
+      return { data: r.data, etag: r.etag }
+    },
     createPlan: async (input) => {
       const r = await deps.graph.call({
         ...base,

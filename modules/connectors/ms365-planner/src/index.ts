@@ -1,1 +1,7 @@
+export type { PlannerCache, PlannerCacheDeps, ReadResult, ReadSource } from './cache'
+export { createPlannerCache } from './cache'
+export type { CreateTaskInput, PlannerClient, TaskUpdate } from './client'
+export { createPlannerClient } from './client'
+export { createEtagStore } from './etag'
 export { plannerConnector } from './manifest'
+export * from './schema'
