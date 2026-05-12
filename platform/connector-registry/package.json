@@ -1,0 +1,30 @@
+{
+  "name": "@seta/connector-registry",
+  "version": "0.1.0",
+  "description": "Connector registry — declarations + scope union + consent gate",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --sourcemap",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "license": "Apache-2.0",
+  "type": "module",
+  "private": true,
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@seta/middleware": "workspace:*",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@seta/tsconfig": "workspace:*",
+    "@types/node": "^24.12.3",
+    "tsup": "8.5.1",
+    "typescript": "6.0.3",
+    "vitest": "4.1.5"
+  }
+}

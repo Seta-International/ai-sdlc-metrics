@@ -1,1 +1,5 @@
-export {}
+export type { DbSql } from './client'
+export { createPool, withTenant } from './client'
+export type { Owner, RunMigrationsOpts } from './migrate'
+export { OWNER_ORDER, runMigrations } from './migrate'
+export { platformAdmin, tenantUser } from './roles'

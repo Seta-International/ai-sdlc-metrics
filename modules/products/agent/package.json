@@ -19,7 +19,7 @@
   "dependencies": {
     "@seta/agent-core": "workspace:*",
     "@seta/auth": "workspace:*",
-    "@seta/ms365-planner": "workspace:*",
+    "@seta/connector-ms365-planner": "workspace:*",
     "@seta/teams": "workspace:*",
     "@seta/tenant": "workspace:*",
     "adaptivecards-templating": "2.3.1",
