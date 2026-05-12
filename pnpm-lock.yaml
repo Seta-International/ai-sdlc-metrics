@@ -921,6 +921,21 @@ importers:
 
   platform/tsconfig: {}
 
+  tests/e2e:
+    devDependencies:
+      '@seta/tsconfig':
+        specifier: workspace:*
+        version: link:../../platform/tsconfig
+      '@types/node':
+        specifier: ^24.12.3
+        version: 24.12.3
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.5
+        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.12.3)(@vitest/coverage-v8@4.1.5)(msw@2.7.0(@types/node@24.12.3)(typescript@6.0.3))(vite@8.0.11(@types/node@24.12.3)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.4))
+
   tests/integration:
     devDependencies:
       '@seta/audit':
