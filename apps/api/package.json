@@ -6,7 +6,6 @@
   "scripts": {
     "build": "tsup src/main.ts src/instrumentation.ts --format esm --sourcemap",
     "dev": "tsx watch --import ./src/instrumentation.ts src/main.ts",
-    "test:unit": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "start": "node --import ./dist/instrumentation.js dist/main.js"
   },

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { EntraProvider } from './entra.js'
+import { EntraProvider } from './entra'
 
 describe('EntraProvider', () => {
   it('acquireAppOnly normalizes MSAL AuthenticationResult to a TokenBundle', async () => {

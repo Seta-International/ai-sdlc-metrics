@@ -4,11 +4,11 @@ import { onError } from '@seta/middleware'
 import { Hono } from 'hono'
 import postgres from 'postgres'
 import { afterAll, describe, expect, it, vi } from 'vitest'
-import { EnvDekProvider } from './kms.js'
-import { EntraProvider } from './providers/entra.js'
-import { createOAuthRoutes } from './routes.js'
-import { createStateStore } from './state-store.js'
-import { createTokenVault } from './vault.js'
+import { EnvDekProvider } from './kms'
+import { EntraProvider } from './providers/entra'
+import { createOAuthRoutes } from './routes'
+import { createStateStore } from './state-store'
+import { createTokenVault } from './vault'
 
 // Test-only fixture connectors. We intentionally do not import the real
 // modules/connectors/* packages here: platform/* must not depend on modules/*.

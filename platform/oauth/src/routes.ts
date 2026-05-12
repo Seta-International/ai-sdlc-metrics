@@ -3,9 +3,9 @@ import type { ConnectorRegistry } from '@seta/connector-registry'
 import { BadRequest, ServiceUnavailable } from '@seta/middleware'
 import { Hono } from 'hono'
 import { z } from 'zod'
-import type { OAuthProvider } from './provider.js'
-import type { StateStore } from './state-store.js'
-import type { TokenVault } from './vault.js'
+import type { OAuthProvider } from './provider'
+import type { StateStore } from './state-store'
+import type { TokenVault } from './vault'
 
 export type OAuthRoutesDeps = {
   providers: Record<string, OAuthProvider>
