@@ -185,6 +185,9 @@ importers:
       '@seta/agent-core':
         specifier: workspace:*
         version: link:../../../platform/agent/core
+      '@seta/connector-registry':
+        specifier: workspace:*
+        version: link:../../../platform/connector-registry
       '@seta/ms-graph':
         specifier: workspace:*
         version: link:../../../platform/ms-graph

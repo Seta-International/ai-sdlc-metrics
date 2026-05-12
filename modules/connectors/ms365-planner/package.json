@@ -18,6 +18,7 @@
   ],
   "dependencies": {
     "@seta/agent-core": "workspace:*",
+    "@seta/connector-registry": "workspace:*",
     "@seta/ms-graph": "workspace:*",
     "zod": "4.4.3"
   },

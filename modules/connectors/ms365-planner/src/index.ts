@@ -1,1 +1,1 @@
-export {}
+export { plannerConnector } from './manifest'
