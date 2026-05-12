@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Never guess.** If a type, version, API shape, or owner is unclear — ask, or read the source/docs (`context7` MCP for pinned libraries). Don't fabricate.
 - **No legacy, no backward compat.** Pre-1.0, active dev. Change every caller in the same PR and delete the old shape. No compat shims, deprecation aliases, or "for now" comments.
-- **No process-metadata comments in code.** Never reference plan numbers, ticket IDs, task IDs, issue numbers, epic names, or PR numbers in source comments (e.g. `// PLAN-12`, `// TASK-3.2`, `// fixes JIRA-456`, `// per Epic 1`). Code quality is independent of the process that produced it; that context belongs in commit messages, PR descriptions, and the tracker — not in the code, where it rots.
+- **No process metadata in comments.** No plan, task, ticket, issue, epic, or PR IDs in source. That belongs in commits and the tracker.
 
 ## Boundaries (CI-enforced)
 

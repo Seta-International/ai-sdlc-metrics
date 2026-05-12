@@ -52,7 +52,7 @@ export async function runMigrations(opts: RunMigrationsOpts): Promise<void> {
 
     for (const owner of owners) {
       const migrationsFolder = path.join(repoRoot, OWNER_PACKAGE_PATH[owner])
-      // Skip owners that don't have a migrations dir yet (e.g., agent in Epic 1).
+      // Skip owners that don't have a migrations dir yet.
       // drizzle-orm 0.45.2's migrator throws a plain Error when meta/_journal.json
       // is missing, so we check up-front rather than parsing error messages.
       if (!existsSync(path.join(migrationsFolder, 'meta', '_journal.json'))) continue
