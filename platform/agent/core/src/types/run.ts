@@ -1,3 +1,4 @@
+import type { KernelError } from '../errors'
 import type { KernelChunk } from './chunk'
 import type { KernelMessage } from './message'
 
@@ -30,4 +31,8 @@ export interface StepResult {
   kind: 'model' | 'tool'
   chunks: KernelChunk[]
   message?: KernelMessage
+  finishReason?: 'stop' | 'tool_calls' | 'length' | 'error'
+  toolCallId?: string
+  toolName?: string
+  error?: KernelError
 }

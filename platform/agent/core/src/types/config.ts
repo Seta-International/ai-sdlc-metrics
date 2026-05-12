@@ -14,7 +14,16 @@ export interface AgentConfig {
   fallback?: string[]
 }
 
-export type StopCondition = (steps: StepResult[]) => boolean | Promise<boolean>
+/**
+ * Evaluated after each iteration (one model call + its tool executions).
+ *
+ * Only invoked when the most recent model step's `finishReason === 'tool_calls'`.
+ * On natural `stop` or `length`, predicates are not consulted.
+ *
+ * Array form combines with logical OR; predicates may be async and are awaited
+ * in parallel.
+ */
+export type StopCondition = (args: { steps: StepResult[] }) => boolean | Promise<boolean>
 
 export interface RunLoopOptions {
   adapters: AdapterRegistry
