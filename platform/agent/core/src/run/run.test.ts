@@ -7,7 +7,7 @@ import { run } from './run'
 
 function setup(scriptChunks: KernelChunk[]) {
   const adapters = createAdapterRegistry()
-  adapters.register('fake', new FakeAdapter({ chunks: scriptChunks }))
+  adapters.register('fake', new FakeAdapter([{ chunks: scriptChunks }]))
   return { adapters }
 }
 
@@ -78,13 +78,15 @@ describe('run()', () => {
     const adapters = createAdapterRegistry()
     adapters.register(
       'fake',
-      new FakeAdapter({
-        chunks: [
-          { type: 'text', delta: '1' },
-          { type: 'text', delta: '2' },
-          { type: 'text', delta: '3' },
-        ],
-      }),
+      new FakeAdapter([
+        {
+          chunks: [
+            { type: 'text', delta: '1' },
+            { type: 'text', delta: '2' },
+            { type: 'text', delta: '3' },
+          ],
+        },
+      ]),
     )
     const cfg: AgentConfig = { model: 'fake/test' }
     const got: KernelChunk[] = []
@@ -100,10 +102,12 @@ describe('run()', () => {
     const adapters = createAdapterRegistry()
     adapters.register(
       'fake',
-      new FakeAdapter({
-        chunks: [{ type: 'text', delta: 'x' }],
-        throwOn: { afterChunks: 1, error: { status: 500, message: 'boom' } },
-      }),
+      new FakeAdapter([
+        {
+          chunks: [{ type: 'text', delta: 'x' }],
+          throwOn: { afterChunks: 1, error: { status: 500, message: 'boom' } },
+        },
+      ]),
     )
     const cfg: AgentConfig = { model: 'fake/test' }
     const got: KernelChunk[] = []
@@ -129,7 +133,7 @@ describe('run()', () => {
       provider: 'fake',
       async stream(req: unknown) {
         seenReqs.push(req)
-        return new FakeAdapter({ chunks: [{ type: 'finish', reason: 'stop' }] }).stream(
+        return new FakeAdapter([{ chunks: [{ type: 'finish', reason: 'stop' }] }]).stream(
           req as Parameters<FakeAdapter['stream']>[0],
           {
             runId: 'x',
@@ -157,7 +161,7 @@ describe('run()', () => {
       provider: 'fake',
       async stream(req: unknown) {
         seenReqs.push(req)
-        return new FakeAdapter({ chunks: [{ type: 'finish', reason: 'stop' }] }).stream(
+        return new FakeAdapter([{ chunks: [{ type: 'finish', reason: 'stop' }] }]).stream(
           req as Parameters<FakeAdapter['stream']>[0],
           {
             runId: 'x',
