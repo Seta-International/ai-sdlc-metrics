@@ -1,19 +1,9 @@
 import type { Tool } from '@seta/agent-core'
-import type { PlannerCache, PlannerClient } from '@seta/connector-ms365-planner'
 import { Unauthorized } from '@seta/middleware'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
-import type { MintInput } from '../_continuation'
 import { buildPreviewCard } from './_card'
-
-interface CreateTasksPreviewDeps {
-  registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
-  tokenForUser: (tenantId: string, userId: string) => Promise<{ accessToken: string }>
-  buildClient: (token: string) => PlannerClient
-  buildCache: (client: PlannerClient) => PlannerCache
-  continuationStore: { mint(i: MintInput): Promise<{ token: string; expiresAt: Date }> }
-  ttlMinutes: number
-}
+import type { PreviewDepsBase } from './update_tasks.preview'
 
 const TaskToCreate = z.object({
   planId: z.string().min(1),
@@ -33,7 +23,7 @@ const Output = z.object({
 })
 
 export function createTasksPreviewTool(
-  deps: CreateTasksPreviewDeps,
+  deps: PreviewDepsBase,
 ): Tool<z.infer<typeof Input>, z.infer<typeof Output>> {
   return {
     id: 'planner.create_tasks.preview',

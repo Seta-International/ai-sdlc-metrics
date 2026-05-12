@@ -66,7 +66,6 @@ describe('planner.create_tasks.preview', () => {
       expect(result.value.card['type']).toBe('AdaptiveCard')
     }
 
-    // unique planIds — plan.one should be called exactly once
     expect(mocks.planOne).toHaveBeenCalledOnce()
     expect(mocks.planOne).toHaveBeenCalledWith('P1')
 

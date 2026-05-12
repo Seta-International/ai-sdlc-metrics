@@ -107,6 +107,17 @@ describe('planner.complete_tasks.preview', () => {
     }
   })
 
+  it('returns error when consent check rejects', async () => {
+    const { deps } = makeDeps({
+      requireConsent: vi.fn().mockRejectedValue(new Error('not consented')),
+    })
+    const tool = completeTasksPreviewTool(deps as never)
+    const result = await tenantContext.run({ tenantId: 't', userId: 'u' }, () =>
+      tool.execute({ taskIds: ['T1'] }, makeCtx()),
+    )
+    expect('ok' in result && !result.ok).toBe(true)
+  })
+
   it('aborts when ETag missing from etagStore', async () => {
     const etagGet = vi.fn().mockResolvedValue(null)
     const mint = vi.fn()

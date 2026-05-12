@@ -1,19 +1,9 @@
 import type { Tool } from '@seta/agent-core'
-import type { PlannerCache, PlannerClient } from '@seta/connector-ms365-planner'
 import { Unauthorized } from '@seta/middleware'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
-import type { MintInput } from '../_continuation'
 import { buildPreviewCard } from './_card'
-
-interface AddCommentsPreviewDeps {
-  registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
-  tokenForUser: (tenantId: string, userId: string) => Promise<{ accessToken: string }>
-  buildClient: (token: string) => PlannerClient
-  buildCache: (client: PlannerClient) => PlannerCache
-  continuationStore: { mint(i: MintInput): Promise<{ token: string; expiresAt: Date }> }
-  ttlMinutes: number
-}
+import type { PreviewDepsBase } from './update_tasks.preview'
 
 const CommentItem = z.object({
   taskId: z.string().min(1),
@@ -29,7 +19,7 @@ const Output = z.object({
 })
 
 export function addCommentsPreviewTool(
-  deps: AddCommentsPreviewDeps,
+  deps: PreviewDepsBase,
 ): Tool<z.infer<typeof Input>, z.infer<typeof Output>> {
   return {
     id: 'planner.add_comments.preview',
@@ -50,12 +40,13 @@ export function addCommentsPreviewTool(
         const client = deps.buildClient(accessToken)
         const cache = deps.buildCache(client)
 
-        for (const comment of input.comments) {
-          const taskResult = await cache.task.one(comment.taskId)
+        const uniqueTaskIds = [...new Set(input.comments.map((c) => c.taskId))]
+        for (const taskId of uniqueTaskIds) {
+          const taskResult = await cache.task.one(taskId)
           if (taskResult === null) {
             return {
               ok: false,
-              error: { name: 'NotFound', message: `Task ${comment.taskId} not found` },
+              error: { name: 'NotFound', message: `Task ${taskId} not found` },
             }
           }
         }

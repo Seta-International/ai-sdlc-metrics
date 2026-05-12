@@ -6,14 +6,17 @@ import { z } from 'zod'
 import type { MintInput } from '../_continuation'
 import { buildPreviewCard } from './_card'
 
-export interface PreviewDeps {
+export interface PreviewDepsBase {
   registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
   tokenForUser: (tenantId: string, userId: string) => Promise<{ accessToken: string }>
   buildClient: (token: string) => PlannerClient
   buildCache: (client: PlannerClient) => PlannerCache
-  etagStore: { get(taskId: string): Promise<string | null> }
   continuationStore: { mint(i: MintInput): Promise<{ token: string; expiresAt: Date }> }
   ttlMinutes: number
+}
+
+export interface PreviewDeps extends PreviewDepsBase {
+  etagStore: { get(taskId: string): Promise<string | null> }
 }
 
 const UpdateOne = z.object({
