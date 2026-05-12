@@ -5,7 +5,7 @@ import { createConnectorRegistry } from '@seta/connector-registry'
 import { onError } from '@seta/middleware'
 import { Hono } from 'hono'
 import postgres from 'postgres'
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import { EnvDekProvider } from './kms.js'
 import { EntraProvider } from './providers/entra.js'
 import { createOAuthRoutes } from './routes.js'
@@ -37,6 +37,10 @@ describe('POST /oauth/:provider/consent-url', () => {
       redirectBase: 'https://api.example.com',
     }),
   )
+
+  afterAll(async () => {
+    await sql.end()
+  })
 
   it('returns a consent URL containing the .default scope and state', async () => {
     const res = await app.request('/oauth/entra/consent-url', {
@@ -108,6 +112,10 @@ describe('GET /oauth/:provider/callback', () => {
     }),
   )
 
+  afterAll(async () => {
+    await sql.end()
+  })
+
   it('completes the callback: state consumed, app-only token stored, audit written', async () => {
     const state = await stateStore.mint({
       providerId: 'entra',
@@ -137,7 +145,6 @@ describe('GET /oauth/:provider/callback', () => {
 
     await sql`DELETE FROM oauth.oauth_tokens WHERE tenant_id = ${customerTenantId}`
     await sql`DELETE FROM audit.audit_log WHERE tenant_id = ${customerTenantId}`
-    await sql.end()
   })
 
   it('rejects when tenant query param mismatches token tid', async () => {

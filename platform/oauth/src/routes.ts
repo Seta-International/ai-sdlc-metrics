@@ -1,6 +1,6 @@
 import type { AuditWriter } from '@seta/audit'
 import type { ConnectorRegistry } from '@seta/connector-registry'
-import { BadRequest } from '@seta/middleware'
+import { BadRequest, ServiceUnavailable } from '@seta/middleware'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { OAuthProvider } from './provider.js'
@@ -122,8 +122,7 @@ export function createOAuthRoutes(deps: OAuthRoutesDeps) {
 
   app.post('/:provider/revoke', async (c) => {
     const providerId = c.req.param('provider')
-    const provider = deps.providers[providerId]
-    if (!provider) throw new BadRequest(`unknown provider '${providerId}'`)
+    if (!deps.providers[providerId]) throw new BadRequest(`unknown provider '${providerId}'`)
 
     const { tenantId, partitionKey } = z
       .object({
@@ -162,7 +161,10 @@ export function createOAuthRoutes(deps: OAuthRoutesDeps) {
       userAssertion: body.userAssertion,
       scopes: body.scopes,
     })
-    const homeAccountId = bundle.meta.homeAccountId as string
+    const homeAccountId = bundle.meta.homeAccountId
+    if (typeof homeAccountId !== 'string') {
+      throw new ServiceUnavailable('OBO result missing homeAccountId')
+    }
     if (deps.vault) await deps.vault.put(body.tenantId, providerId, `user:${homeAccountId}`, bundle)
     await deps.audit?.recordAudit({
       tenantId: body.tenantId,
