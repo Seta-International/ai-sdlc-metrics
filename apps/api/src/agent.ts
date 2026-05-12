@@ -14,11 +14,15 @@ export const agentRegistry = createAdapterRegistry()
 export const agentMemory = new AgentMemoryProvider({ sql })
 logger.info('agent memory provider bound')
 
-agentRegistry.register('anthropic', createAnthropicAdapter({ apiKey: env.ANTHROPIC_API_KEY }))
-logger.info({ provider: 'anthropic' }, 'adapter registered')
+if (env.ANTHROPIC_API_KEY !== undefined) {
+  agentRegistry.register('anthropic', createAnthropicAdapter({ apiKey: env.ANTHROPIC_API_KEY }))
+  logger.info({ provider: 'anthropic' }, 'adapter registered')
+}
 
-agentRegistry.register('openai', createOpenAIAdapter({ apiKey: env.OPENAI_API_KEY }))
-logger.info({ provider: 'openai' }, 'adapter registered')
+if (env.OPENAI_API_KEY !== undefined) {
+  agentRegistry.register('openai', createOpenAIAdapter({ apiKey: env.OPENAI_API_KEY }))
+  logger.info({ provider: 'openai' }, 'adapter registered')
+}
 
 if (env.AZURE_OPENAI_ENDPOINT !== undefined && env.AZURE_OPENAI_API_KEY !== undefined) {
   agentRegistry.register(
