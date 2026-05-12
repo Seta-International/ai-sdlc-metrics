@@ -15,13 +15,6 @@
       "when": 1778578826719,
       "tag": "0001_rls",
       "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1778579829596,
-      "tag": "0002_cold_bloodaxe",
-      "breakpoints": true
     }
   ]
 }

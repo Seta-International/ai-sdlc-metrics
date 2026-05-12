@@ -71,4 +71,4 @@ CREATE TABLE "connector_ms365_planner"."sync_watermarks" (
 CREATE INDEX "planner_buckets_by_plan" ON "connector_ms365_planner"."planner_buckets_cache" USING btree ("tenant_id","plan_id");--> statement-breakpoint
 CREATE INDEX "planner_tasks_by_plan" ON "connector_ms365_planner"."planner_tasks_cache" USING btree ("tenant_id","plan_id");--> statement-breakpoint
 CREATE INDEX "planner_tasks_by_due" ON "connector_ms365_planner"."planner_tasks_cache" USING btree ("tenant_id","due_date");--> statement-breakpoint
-CREATE INDEX "planner_tasks_by_assignees" ON "connector_ms365_planner"."planner_tasks_cache" USING gin ("tenant_id","assignee_ids");
+CREATE INDEX "planner_tasks_by_assignees" ON "connector_ms365_planner"."planner_tasks_cache" USING gin ("assignee_ids");

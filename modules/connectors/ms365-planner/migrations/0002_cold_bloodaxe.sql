@@ -1,2 +1,0 @@
-DROP INDEX "connector_ms365_planner"."planner_tasks_by_assignees";--> statement-breakpoint
-CREATE INDEX "planner_tasks_by_assignees" ON "connector_ms365_planner"."planner_tasks_cache" USING gin ("assignee_ids");
