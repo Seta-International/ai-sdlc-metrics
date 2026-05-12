@@ -14,6 +14,7 @@ import {
 } from '@seta/oauth'
 import { logger } from '@seta/observability'
 import { Hono } from 'hono'
+import './agent'
 import { env } from './env'
 
 const sql = createPool(env.DATABASE_URL)
