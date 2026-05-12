@@ -87,18 +87,22 @@ server, no thread CRUD).
   - Pluggable workflow `ExecutionEngine` adapters (Inngest / Temporal) — those would land in
     `@seta/agent-workflows` if/when they're needed; P2.
 
-## Current state (Epic 1)
-**Stub-only.** Epic 1 was scoped to MS365 authentication and authorization; the agent
-kernel itself was not implemented. The current package contains:
-- `src/index.ts` — `export {}` placeholder.
-- `src/index.test.ts` — placeholder test (`expect(true).toBe(true)`).
-- `package.json` — already pinned to `zod@4.4.3`, `openai@6.37.0`, `@anthropic-ai/sdk@0.95.1`
-  per setup.md §13 line 1734.
+## Current state
+The package ships:
+- K1 kernel surface (types, errors, registry, run loop, SSE, NullMemoryProvider, FakeAdapter).
+- K1.5 MSW-backed testkit (`setupLLMRecording`, `hashRequest`, `serializeRequestContent`).
+- K2 concrete provider adapters: `createAnthropicAdapter`, `createOpenAIAdapter`,
+  `createAzureOpenAIAdapter`. Pure helpers (`cache-control`, `tokens`, `translate/*`)
+  compose into each adapter. `startLlmSpan` emits one OTel span per call with
+  baseline attrs (`llm.provider`, `llm.model`, `run.id`, `tenant.id`) and end-state
+  attrs (`finishReason`, `inputTokens`, `outputTokens`, `cacheReadInputTokens`,
+  `errorCode`, `aborted`).
+- First wire-up in `apps/api/src/agent.ts` registers Anthropic + OpenAI (and Azure
+  when configured) into the adapter registry at boot.
 
-There is no model adapter, no `Tool` type, no run loop, no `streamKernelSSE`, no testkit.
-Everything in the "Public interface" section below is the contract future kernel work
-(K1–K6 per setup.md §5) must respect. The Phase-1 reports and setup.md §5 are the
-authoritative spec; this SCOPE.md is the package's gatekeeper until the K-series PRs land.
+Outstanding before tool execution end-to-end: tool-call iteration outer loop
+(`accumulatedSteps[]`, `stopWhen`, fallback-model failover, concurrent tool
+execution, processor pipeline) and real `@seta/agent-memory` provider binding.
 
 ## Public interface
 
@@ -435,22 +439,25 @@ authoritative spec; this SCOPE.md is the package's gatekeeper until the K-series
 
 - **`StopCondition` array semantics.** Documented as logical-OR; confirm at K4 land that
   no caller wants AND. (`03-run-loop.md:69`)
-- **`cacheTtl` parity with OpenAI.** §5 line 393 says OpenAI structured-output caching is
-  automatic; do we also expose `cacheTtl` as a no-op flag for parity, or document the
-  Anthropic-only semantics? (`10-llm-model-router.md:44`)
+- **`cacheTtl` parity with OpenAI.** **Resolved**: the OpenAIAdapter and AzureOpenAIAdapter
+  ignore `cacheTtl` entirely. OpenAI's automatic structured-output caching covers parity
+  with no annotation required.
 - **Cost-record sink.** Does `@seta/audit` define the surface for per-LLM-call cost rows,
   or does the kernel emit OTel span attributes only? (`10-llm-model-router.md:45`)
 - **Per-tool budget shape.** `{ maxCalls, maxTokens?, timeoutMs? }` proposed; setup.md §5
   promised "per-tool budgets" but never specified. Confirm before K4.
   (`03-run-loop.md:57, 63`)
-- **Fixture scoping — per-test vs per-scenario.** Pick the first time a kernel test exists
-  and document the convention in setup.md §5 (`06-llm-recording-replay.md:74`).
+- **Fixture scoping — per-test vs per-scenario.** **Resolved**: per-test. Each integration
+  test owns a single recording file named identically to the test
+  (e.g., `anthropic-text-stream.json`).
 - **`transformRequest` in `vitest.config.ts` plugin form.** P1 callers pass it inline;
   revisit if the same redaction set repeats across packages
   (`06-llm-recording-replay.md:72`).
-- **SSE re-entry of tenant context per chunk producer.** `streamKernelSSE` must verify
-  that ALS survives into the `pull()` callback or wrap each producer in
-  `tenantContext.run()` — needs an integration test (`07-request-context.md:31, 40`).
+- **SSE re-entry of tenant context per chunk producer.** **Resolved**: Node 22's
+  `AsyncLocalStorage` survives `await sdk.stream(...)` microtask boundaries. The
+  `tenant-als` integration test asserts the LLM span records `tenant.id` after the
+  adapter awaits the SDK. Adapters do not spawn worker threads; if that ever changes,
+  ALS propagation must be re-verified.
 - **`@hono/zod-openapi` and Zod-4-native validators.** `z.iso.datetime()`, top-level
   `z.email()` round-trip through `@asteasolutions/zod-to-openapi` v8 — needs a one-off
   spike before route authors lean on them (`08-schema-compat.md:34`). Not blocking the
