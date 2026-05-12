@@ -1,13 +1,21 @@
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 import { NullMemoryProvider } from '../memory/null-provider'
 import { createAdapterRegistry } from '../models/registry'
 import { FakeAdapter } from '../testkit/fake-adapter'
-import type { AgentConfig, KernelChunk, MemoryProvider, RecallResult, RunInput } from '../types'
+import type {
+  AgentConfig,
+  KernelChunk,
+  MemoryProvider,
+  RecallResult,
+  RunInput,
+  Tool,
+} from '../types'
 import { run } from './run'
 
 function setup(scriptChunks: KernelChunk[]) {
   const adapters = createAdapterRegistry()
-  adapters.register('fake', new FakeAdapter({ chunks: scriptChunks }))
+  adapters.register('fake', new FakeAdapter([{ chunks: scriptChunks }]))
   return { adapters }
 }
 
@@ -78,13 +86,15 @@ describe('run()', () => {
     const adapters = createAdapterRegistry()
     adapters.register(
       'fake',
-      new FakeAdapter({
-        chunks: [
-          { type: 'text', delta: '1' },
-          { type: 'text', delta: '2' },
-          { type: 'text', delta: '3' },
-        ],
-      }),
+      new FakeAdapter([
+        {
+          chunks: [
+            { type: 'text', delta: '1' },
+            { type: 'text', delta: '2' },
+            { type: 'text', delta: '3' },
+          ],
+        },
+      ]),
     )
     const cfg: AgentConfig = { model: 'fake/test' }
     const got: KernelChunk[] = []
@@ -100,10 +110,12 @@ describe('run()', () => {
     const adapters = createAdapterRegistry()
     adapters.register(
       'fake',
-      new FakeAdapter({
-        chunks: [{ type: 'text', delta: 'x' }],
-        throwOn: { afterChunks: 1, error: { status: 500, message: 'boom' } },
-      }),
+      new FakeAdapter([
+        {
+          chunks: [{ type: 'text', delta: 'x' }],
+          throwOn: { afterChunks: 1, error: { status: 500, message: 'boom' } },
+        },
+      ]),
     )
     const cfg: AgentConfig = { model: 'fake/test' }
     const got: KernelChunk[] = []
@@ -129,7 +141,7 @@ describe('run()', () => {
       provider: 'fake',
       async stream(req: unknown) {
         seenReqs.push(req)
-        return new FakeAdapter({ chunks: [{ type: 'finish', reason: 'stop' }] }).stream(
+        return new FakeAdapter([{ chunks: [{ type: 'finish', reason: 'stop' }] }]).stream(
           req as Parameters<FakeAdapter['stream']>[0],
           {
             runId: 'x',
@@ -157,7 +169,7 @@ describe('run()', () => {
       provider: 'fake',
       async stream(req: unknown) {
         seenReqs.push(req)
-        return new FakeAdapter({ chunks: [{ type: 'finish', reason: 'stop' }] }).stream(
+        return new FakeAdapter([{ chunks: [{ type: 'finish', reason: 'stop' }] }]).stream(
           req as Parameters<FakeAdapter['stream']>[0],
           {
             runId: 'x',
@@ -202,5 +214,116 @@ describe('run()', () => {
     await iter.next()
     await iter.return?.(undefined)
     expect(abortSpy).toHaveBeenCalled()
+  })
+})
+
+describe('run() — validation', () => {
+  it('yields INVALID_MAX_STEPS when maxSteps <= 0', async () => {
+    const cfg: AgentConfig = { model: 'fake/test' }
+    const { adapters } = setup([{ type: 'finish', reason: 'stop' }])
+    const got: KernelChunk[] = []
+    for await (const c of run(cfg, baseInput, { adapters, maxSteps: 0 })) got.push(c)
+    expect(got[0]?.type).toBe('error')
+    if (got[0]?.type === 'error') expect(got[0].error.code).toBe('INVALID_MAX_STEPS')
+  })
+
+  it('yields INVALID_CONCURRENCY when toolCallConcurrency <= 0', async () => {
+    const cfg: AgentConfig = { model: 'fake/test' }
+    const { adapters } = setup([{ type: 'finish', reason: 'stop' }])
+    const got: KernelChunk[] = []
+    for await (const c of run(cfg, baseInput, { adapters, toolCallConcurrency: 0 })) got.push(c)
+    expect(got[0]?.type).toBe('error')
+    if (got[0]?.type === 'error') expect(got[0].error.code).toBe('INVALID_CONCURRENCY')
+  })
+})
+
+const anySchema = z.any() as unknown as Tool['inputSchema']
+
+describe('run() — multi-step', () => {
+  it('saveTurn called once with assistant + tool + assistant chain', async () => {
+    const saveTurn = vi.fn<MemoryProvider['saveTurn']>(async () => {})
+    const mem: MemoryProvider = {
+      recall: async () => ({ messages: [], total: 0, page: 1, perPage: 0, hasMore: false }),
+      saveTurn,
+      getWorkingMemory: async () => null,
+      updateWorkingMemory: async () => {},
+    }
+    const adapters = createAdapterRegistry()
+    adapters.register(
+      'f',
+      new FakeAdapter([
+        {
+          chunks: [{ type: 'finish', reason: 'tool_calls' }],
+          finalMessage: {
+            role: 'assistant',
+            content: [{ type: 'tool_use', toolCallId: 't1', name: 'echo', args: { x: 1 } }],
+          },
+        },
+        {
+          chunks: [
+            { type: 'text', delta: 'ok' },
+            { type: 'finish', reason: 'stop' },
+          ],
+        },
+      ]),
+    )
+    const echo: Tool = {
+      id: 'echo',
+      description: 'echo',
+      inputSchema: anySchema,
+      outputSchema: anySchema,
+      execute: async (input) => ({ ok: true, value: input }),
+    }
+    const cfg: AgentConfig = { model: 'f/x', tools: [echo] }
+    for await (const _c of run(cfg, baseInput, { adapters, memory: mem })) void _c
+    expect(saveTurn).toHaveBeenCalledOnce()
+    const saved = saveTurn.mock.calls[0]?.[1]
+    expect(saved?.map((m) => m.role)).toEqual(['user', 'assistant', 'tool', 'assistant'])
+  })
+
+  it('saveTurn skipped on abort', async () => {
+    const ctrl = new AbortController()
+    const saveTurn = vi.fn<MemoryProvider['saveTurn']>(async () => {})
+    const mem: MemoryProvider = {
+      recall: async () => ({ messages: [], total: 0, page: 1, perPage: 0, hasMore: false }),
+      saveTurn,
+      getWorkingMemory: async () => null,
+      updateWorkingMemory: async () => {},
+    }
+    const adapters = createAdapterRegistry()
+    adapters.register(
+      'f',
+      new FakeAdapter([
+        {
+          chunks: [
+            { type: 'text', delta: 'a' },
+            { type: 'text', delta: 'b' },
+            { type: 'text', delta: 'c' },
+            { type: 'finish', reason: 'stop' },
+          ],
+        },
+      ]),
+    )
+    const cfg: AgentConfig = { model: 'f/x' }
+    let i = 0
+    for await (const _c of run(cfg, baseInput, { adapters, memory: mem, signal: ctrl.signal })) {
+      void _c
+      if (++i === 1) ctrl.abort()
+    }
+    expect(saveTurn).not.toHaveBeenCalled()
+  })
+
+  it('saveTurn skipped on error chunk', async () => {
+    const saveTurn = vi.fn<MemoryProvider['saveTurn']>(async () => {})
+    const mem: MemoryProvider = {
+      recall: async () => ({ messages: [], total: 0, page: 1, perPage: 0, hasMore: false }),
+      saveTurn,
+      getWorkingMemory: async () => null,
+      updateWorkingMemory: async () => {},
+    }
+    const adapters = createAdapterRegistry()
+    const cfg: AgentConfig = { model: 'cohere/r-plus' }
+    for await (const _c of run(cfg, baseInput, { adapters, memory: mem })) void _c
+    expect(saveTurn).not.toHaveBeenCalled()
   })
 })

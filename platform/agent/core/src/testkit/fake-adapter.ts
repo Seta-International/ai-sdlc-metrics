@@ -71,8 +71,18 @@ class FakeStream implements ModelStream<KernelChunk> {
 
 export class FakeAdapter implements ModelAdapter {
   readonly provider = 'fake'
-  constructor(private readonly script: FakeAdapterScript) {}
+  private readonly scripts: FakeAdapterScript[]
+  private callIndex = 0
+
+  constructor(scripts: FakeAdapterScript[]) {
+    if (scripts.length === 0) throw new Error('FakeAdapter requires at least one script')
+    this.scripts = scripts
+  }
+
   async stream(_req: AdapterRequest, ctx: RunCtx): Promise<ModelStream<KernelChunk>> {
-    return new FakeStream(this.script, ctx)
+    const script = this.scripts[this.callIndex]
+    if (!script) throw new Error('FakeAdapter script exhausted')
+    this.callIndex++
+    return new FakeStream(script, ctx)
   }
 }

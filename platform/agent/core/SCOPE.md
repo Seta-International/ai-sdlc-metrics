@@ -97,12 +97,28 @@ The package ships:
   baseline attrs (`llm.provider`, `llm.model`, `run.id`, `tenant.id`) and end-state
   attrs (`finishReason`, `inputTokens`, `outputTokens`, `cacheReadInputTokens`,
   `errorCode`, `aborted`).
+- K4 tool-call iteration outer loop: `accumulatedSteps[]`, `stopWhen` (OR
+  semantics, async-aware, only evaluated on `tool_calls` finish), `maxSteps`
+  cap (default 16, counts model calls), bounded concurrent tool execution
+  (`toolCallConcurrency` default 10, collapses to 1 on `requireApproval`),
+  per-tool budgets (`{ maxCalls?, timeoutMs? }`), fallback-model failover
+  on transient-exhausted classes (`LLM_TRANSIENT_EXHAUSTED`,
+  `LLM_SERVER_ERROR`, `LLM_RATE_LIMITED`), three live processor hooks
+  (`processInput` once, `processOutputStep` per step, `processAPIError`
+  bounded by internal cap), `tool.<name>.execute` + `agent.run.loop` OTel
+  spans (loop span carries `loop.stop_reason` ∈
+  `natural_stop|natural_length|stop_when|step_limit|error|aborted|processor_aborted`
+  and `loop.iterations`). Stable error codes catalogued in
+  `src/errors/codes.md`.
 - First wire-up in `apps/api/src/agent.ts` registers Anthropic + OpenAI (and Azure
   when configured) into the adapter registry at boot.
 
-Outstanding before tool execution end-to-end: tool-call iteration outer loop
-(`accumulatedSteps[]`, `stopWhen`, fallback-model failover, concurrent tool
-execution, processor pipeline) and real `@seta/agent-memory` provider binding.
+Outstanding: real `@seta/agent-memory` provider binding (MEM stream) and
+`@seta/agent-workflows` runtime that handles the `{suspend}` tool-result
+discriminant (currently surfaced as `TOOL_SUSPEND_NOT_SUPPORTED`). K4
+integration recordings (`__recordings__/loop-*.json`) need
+`RECORD=1 pnpm vitest run tests/integration/loop-*.test` with live API
+keys; tests skip gracefully without them.
 
 ## Public interface
 
@@ -437,15 +453,18 @@ execution, processor pipeline) and real `@seta/agent-memory` provider binding.
 
 ## Open questions
 
-- **`StopCondition` array semantics.** Documented as logical-OR; confirm at K4 land that
-  no caller wants AND. (`03-run-loop.md:69`)
+- **`StopCondition` array semantics.** **Resolved** (K4 §8.3): logical OR.
+  Predicates may be async; only evaluated on `finishReason='tool_calls'`.
+  Argument shape is `({ steps }) => ...`. (`03-run-loop.md:69`)
 - **`cacheTtl` parity with OpenAI.** **Resolved**: the OpenAIAdapter and AzureOpenAIAdapter
   ignore `cacheTtl` entirely. OpenAI's automatic structured-output caching covers parity
   with no annotation required.
 - **Cost-record sink.** Does `@seta/audit` define the surface for per-LLM-call cost rows,
   or does the kernel emit OTel span attributes only? (`10-llm-model-router.md:45`)
-- **Per-tool budget shape.** `{ maxCalls, maxTokens?, timeoutMs? }` proposed; setup.md §5
-  promised "per-tool budgets" but never specified. Confirm before K4.
+- **Per-tool budget shape.** **Resolved** (K4 §8.5): `{ maxCalls?, timeoutMs? }`.
+  `maxTokens` dropped — no concrete use case picks the unit; reconsider when
+  one appears. Keyed-by-tool overrides (`byTool: Record<string, ...>`) deferred
+  as an additive non-breaking change.
   (`03-run-loop.md:57, 63`)
 - **Fixture scoping — per-test vs per-scenario.** **Resolved**: per-test. Each integration
   test owns a single recording file named identically to the test
