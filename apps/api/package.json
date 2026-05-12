@@ -2,7 +2,7 @@
   "name": "@seta/api",
   "version": "0.1.0",
   "description": "Seta OS API — single Hono server (pure composition; mounts channels + products)",
-  "main": "./dist/index.js",
+  "main": "./dist/main.js",
   "scripts": {
     "build": "tsup src/main.ts src/instrumentation.ts --format esm --sourcemap",
     "dev": "tsx watch --import ./src/instrumentation.ts src/main.ts",
@@ -12,7 +12,7 @@
   },
   "license": "Apache-2.0",
   "type": "module",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/main.d.ts",
   "private": true,
   "files": [
     "dist"

@@ -58,11 +58,14 @@ app.route(
     vault,
     audit,
     redirectBase: env.PUBLIC_BASE_URL,
+    // TODO(rls): tenant_user may lack INSERT on tenant.tenants / tenant.tenant_connectors
+    // in production. Dev DB connects as `seta` superuser so it works locally.
+    // Tracked for J3 follow-up — needs explicit grants or a SECURITY DEFINER helper.
     onConsented: async ({ tenantId, connectorIds, scopesGranted }) => {
       await sql.begin(async (tx) => {
         await tx`
           INSERT INTO tenant.tenants (id, slug, display_name, status)
-          VALUES (${tenantId}, ${`t-${tenantId.slice(0, 8)}`}, ${tenantId}, 'active')
+          VALUES (${tenantId}, ${`t-${tenantId}`}, ${tenantId}, 'active')
           ON CONFLICT (id) DO NOTHING
         `
         for (const connectorId of connectorIds) {
