@@ -1,3 +1,4 @@
+import { SpanStatusCode, trace } from '@opentelemetry/api'
 import { ToolError } from '../errors'
 import type {
   KernelMessage,
@@ -7,6 +8,34 @@ import type {
   Tool,
   ToolExecutionContext,
 } from '../types'
+
+interface ToolSpanHandle {
+  end(opts: {
+    errorCode?: string | undefined
+    timedOut?: boolean | undefined
+    budgetExceeded?: boolean | undefined
+  }): void
+}
+
+function startToolSpan(toolName: string, toolId: string, runId: string): ToolSpanHandle {
+  const tracer = trace.getTracer('@seta/agent-core')
+  const span = tracer.startSpan(`tool.${toolName}.execute`, {
+    attributes: { 'tool.name': toolName, 'tool.id': toolId, 'run.id': runId },
+  })
+  return {
+    end({ errorCode, timedOut, budgetExceeded }) {
+      if (errorCode !== undefined) {
+        span.setAttribute('tool.error_code', errorCode)
+        span.setStatus({ code: SpanStatusCode.ERROR, message: errorCode })
+      } else {
+        span.setStatus({ code: SpanStatusCode.OK })
+      }
+      if (timedOut === true) span.setAttribute('tool.timed_out', true)
+      if (budgetExceeded === true) span.setAttribute('tool.budget_exceeded', true)
+      span.end()
+    },
+  }
+}
 
 export interface ToolCall {
   toolCallId: string
@@ -105,64 +134,19 @@ async function runOneToolCall(
   timeoutMs: number | undefined,
 ): Promise<StepResult> {
   const tool = toolsById.get(tc.name)
-  if (!tool) {
-    const err = new ToolError({
-      code: 'TOOL_UNKNOWN',
-      category: 'THIRD_PARTY',
-      message: `unknown tool: ${tc.name}`,
-      details: { toolCallId: tc.toolCallId, name: tc.name },
-    })
-    return {
-      kind: 'tool',
-      chunks: [],
-      message: toolResultMessage(tc.toolCallId, errorPayload(err), true),
-      toolCallId: tc.toolCallId,
-      toolName: tc.name,
-      error: err,
-    }
-  }
-
-  if (maxCalls !== undefined) {
-    const used = budgetCalls.get(tool.id) ?? 0
-    if (used >= maxCalls) {
-      const err = new ToolError({
-        code: 'TOOL_BUDGET_EXCEEDED',
-        category: 'USER',
-        message: `tool ${tool.id} exceeded maxCalls=${maxCalls}`,
-        details: { toolCallId: tc.toolCallId, toolId: tool.id, maxCalls },
-      })
-      return {
-        kind: 'tool',
-        chunks: [],
-        message: toolResultMessage(tc.toolCallId, errorPayload(err), true),
-        toolCallId: tc.toolCallId,
-        toolName: tc.name,
-        error: err,
-      }
-    }
-    budgetCalls.set(tool.id, used + 1)
-  }
-
-  const toolSignal: AbortSignal =
-    timeoutMs !== undefined
-      ? AbortSignal.any([ctx.signal, AbortSignal.timeout(timeoutMs)])
-      : ctx.signal
-
-  const stepCtx: ToolExecutionContext = {
-    surface: 'direct',
-    abortSignal: toolSignal,
-    runId: ctx.runId,
-    requestContext: ctx,
-  }
+  const span = startToolSpan(tc.name, tool?.id ?? '<unknown>', ctx.runId)
+  let errorCode: string | undefined
+  let timedOut = false
+  let budgetExceeded = false
 
   try {
-    const result = await tool.execute(tc.args as never, stepCtx)
-    if ('suspend' in result) {
+    if (!tool) {
+      errorCode = 'TOOL_UNKNOWN'
       const err = new ToolError({
-        code: 'TOOL_SUSPEND_NOT_SUPPORTED',
-        category: 'SYSTEM',
-        message: `tool ${tool.id} returned suspend; workflow runtime not bound`,
-        details: { toolCallId: tc.toolCallId, toolId: tool.id, reason: result.suspend.reason },
+        code: 'TOOL_UNKNOWN',
+        category: 'THIRD_PARTY',
+        message: `unknown tool: ${tc.name}`,
+        details: { toolCallId: tc.toolCallId, name: tc.name },
       })
       return {
         kind: 'tool',
@@ -173,45 +157,105 @@ async function runOneToolCall(
         error: err,
       }
     }
-    if (result.ok === false) {
+
+    if (maxCalls !== undefined) {
+      const used = budgetCalls.get(tool.id) ?? 0
+      if (used >= maxCalls) {
+        errorCode = 'TOOL_BUDGET_EXCEEDED'
+        budgetExceeded = true
+        const err = new ToolError({
+          code: 'TOOL_BUDGET_EXCEEDED',
+          category: 'USER',
+          message: `tool ${tool.id} exceeded maxCalls=${maxCalls}`,
+          details: { toolCallId: tc.toolCallId, toolId: tool.id, maxCalls },
+        })
+        return {
+          kind: 'tool',
+          chunks: [],
+          message: toolResultMessage(tc.toolCallId, errorPayload(err), true),
+          toolCallId: tc.toolCallId,
+          toolName: tc.name,
+          error: err,
+        }
+      }
+      budgetCalls.set(tool.id, used + 1)
+    }
+
+    const toolSignal: AbortSignal =
+      timeoutMs !== undefined
+        ? AbortSignal.any([ctx.signal, AbortSignal.timeout(timeoutMs)])
+        : ctx.signal
+
+    const stepCtx: ToolExecutionContext = {
+      surface: 'direct',
+      abortSignal: toolSignal,
+      runId: ctx.runId,
+      requestContext: ctx,
+    }
+
+    try {
+      const result = await tool.execute(tc.args as never, stepCtx)
+      if ('suspend' in result) {
+        errorCode = 'TOOL_SUSPEND_NOT_SUPPORTED'
+        const err = new ToolError({
+          code: 'TOOL_SUSPEND_NOT_SUPPORTED',
+          category: 'SYSTEM',
+          message: `tool ${tool.id} returned suspend; workflow runtime not bound`,
+          details: { toolCallId: tc.toolCallId, toolId: tool.id, reason: result.suspend.reason },
+        })
+        return {
+          kind: 'tool',
+          chunks: [],
+          message: toolResultMessage(tc.toolCallId, errorPayload(err), true),
+          toolCallId: tc.toolCallId,
+          toolName: tc.name,
+          error: err,
+        }
+      }
+      if (result.ok === false) {
+        return {
+          kind: 'tool',
+          chunks: [],
+          message: toolResultMessage(tc.toolCallId, result.error, true),
+          toolCallId: tc.toolCallId,
+          toolName: tc.name,
+        }
+      }
+      const rendered = tool.toModelOutput ? tool.toModelOutput(result.value) : result.value
       return {
         kind: 'tool',
         chunks: [],
-        message: toolResultMessage(tc.toolCallId, result.error, true),
+        message: toolResultMessage(tc.toolCallId, rendered, false),
         toolCallId: tc.toolCallId,
         toolName: tc.name,
       }
-    }
-    const rendered = tool.toModelOutput ? tool.toModelOutput(result.value) : result.value
-    return {
-      kind: 'tool',
-      chunks: [],
-      message: toolResultMessage(tc.toolCallId, rendered, false),
-      toolCallId: tc.toolCallId,
-      toolName: tc.name,
-    }
-  } catch (err) {
-    const isTimeout = toolSignal.aborted && timeoutMs !== undefined && !ctx.signal.aborted
-    const kerr = new ToolError({
-      code: isTimeout ? 'TOOL_TIMEOUT' : 'TOOL_EXECUTION_FAILED',
-      category: 'SYSTEM',
-      message: isTimeout
-        ? `tool ${tool.id} timed out after ${timeoutMs}ms`
-        : `tool ${tool.id} execution failed`,
-      details: {
+    } catch (err) {
+      const isTimeout = toolSignal.aborted && timeoutMs !== undefined && !ctx.signal.aborted
+      errorCode = isTimeout ? 'TOOL_TIMEOUT' : 'TOOL_EXECUTION_FAILED'
+      timedOut = isTimeout
+      const kerr = new ToolError({
+        code: errorCode,
+        category: 'SYSTEM',
+        message: isTimeout
+          ? `tool ${tool.id} timed out after ${timeoutMs}ms`
+          : `tool ${tool.id} execution failed`,
+        details: {
+          toolCallId: tc.toolCallId,
+          toolId: tool.id,
+          ...(isTimeout ? { timeoutMs } : {}),
+        },
+        cause: err,
+      })
+      return {
+        kind: 'tool',
+        chunks: [],
+        message: toolResultMessage(tc.toolCallId, errorPayload(kerr), true),
         toolCallId: tc.toolCallId,
-        toolId: tool.id,
-        ...(isTimeout ? { timeoutMs } : {}),
-      },
-      cause: err,
-    })
-    return {
-      kind: 'tool',
-      chunks: [],
-      message: toolResultMessage(tc.toolCallId, errorPayload(kerr), true),
-      toolCallId: tc.toolCallId,
-      toolName: tc.name,
-      error: kerr,
+        toolName: tc.name,
+        error: kerr,
+      }
     }
+  } finally {
+    span.end({ errorCode, timedOut, budgetExceeded })
   }
 }

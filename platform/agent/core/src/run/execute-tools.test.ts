@@ -1,7 +1,22 @@
-import { describe, expect, it } from 'vitest'
+import { InMemorySpanExporter, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base'
+import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import type { RunCtx, Tool } from '../types'
 import { executeTools } from './execute-tools'
+
+const exporter = new InMemorySpanExporter()
+const provider = new NodeTracerProvider({
+  spanProcessors: [new SimpleSpanProcessor(exporter)],
+})
+
+beforeAll(() => {
+  provider.register()
+})
+
+afterAll(async () => {
+  await provider.shutdown()
+})
 
 function makeCtx(signal = new AbortController().signal): RunCtx {
   return {
@@ -243,5 +258,68 @@ describe('executeTools — timeout', () => {
     ctrl.abort()
     const [step] = await promise
     expect(step?.error?.code).toBe('TOOL_EXECUTION_FAILED')
+  })
+})
+
+describe('executeTools — OTel', () => {
+  beforeEach(() => {
+    exporter.reset()
+  })
+
+  it('emits one tool.<name>.execute span per tool call', async () => {
+    const tool = makeTool('e', async () => ({ ok: true, value: 1 }))
+    await executeTools({
+      toolCalls: [
+        { toolCallId: '1', name: 'e', args: {} },
+        { toolCallId: '2', name: 'e', args: {} },
+      ],
+      tools: [tool],
+      ctx: makeCtx(),
+      opts: {},
+    })
+    const names = exporter.getFinishedSpans().map((s) => s.name)
+    expect(names).toEqual(['tool.e.execute', 'tool.e.execute'])
+  })
+
+  it('records tool.error_code attr on failure', async () => {
+    const tool = makeTool('boom', async () => {
+      throw new Error('x')
+    })
+    await executeTools({
+      toolCalls: [{ toolCallId: '1', name: 'boom', args: {} }],
+      tools: [tool],
+      ctx: makeCtx(),
+      opts: {},
+    })
+    const span = exporter.getFinishedSpans()[0]
+    expect(span?.attributes['tool.error_code']).toBe('TOOL_EXECUTION_FAILED')
+  })
+
+  it('records tool.budget_exceeded attr on budget breach', async () => {
+    const tool = makeTool('b', async () => ({ ok: true, value: 1 }))
+    await executeTools({
+      toolCalls: [
+        { toolCallId: '1', name: 'b', args: {} },
+        { toolCallId: '2', name: 'b', args: {} },
+      ],
+      tools: [tool],
+      ctx: makeCtx(),
+      opts: { perToolBudget: { maxCalls: 1 } },
+    })
+    const spans = exporter.getFinishedSpans()
+    const breach = spans.find((s) => s.attributes['tool.budget_exceeded'] === true)
+    expect(breach?.attributes['tool.error_code']).toBe('TOOL_BUDGET_EXCEEDED')
+  })
+
+  it('records tool.id=<unknown> for unknown tools', async () => {
+    await executeTools({
+      toolCalls: [{ toolCallId: '1', name: 'ghost', args: {} }],
+      tools: [],
+      ctx: makeCtx(),
+      opts: {},
+    })
+    const span = exporter.getFinishedSpans()[0]
+    expect(span?.attributes['tool.id']).toBe('<unknown>')
+    expect(span?.attributes['tool.error_code']).toBe('TOOL_UNKNOWN')
   })
 })
