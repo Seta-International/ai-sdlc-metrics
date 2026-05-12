@@ -241,7 +241,10 @@ export function createGraphFetch(deps: GraphFetchDeps): GraphFetch {
         id: r.id,
         method: r.method,
         url: r.url,
-        ...(r.headers ? { headers: r.headers } : {}),
+        headers: {
+          ...(r.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+          ...r.headers,
+        },
         ...(r.body !== undefined ? { body: r.body } : {}),
         ...(r.dependsOn ? { dependsOn: r.dependsOn } : {}),
       })),
@@ -257,7 +260,13 @@ export function createGraphFetch(deps: GraphFetchDeps): GraphFetch {
     })
 
     if (!resp.ok) {
-      throw new GraphUnavailable(`$batch failed with status ${resp.status}`)
+      let body = ''
+      try {
+        body = await resp.text()
+      } catch {
+        /* ignore */
+      }
+      throw new GraphUnavailable(`$batch failed with status ${resp.status}: ${body.slice(0, 300)}`)
     }
 
     const json = (await resp.json()) as {
