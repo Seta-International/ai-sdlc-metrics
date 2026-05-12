@@ -1,9 +1,13 @@
 import type { AuditEntry } from '@seta/audit'
+import { tenantContext } from '@seta/tenant'
 import { HttpResponse, http } from 'msw'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { normalizePath } from './audit-middleware'
 import { createGraphFetch } from './graph-fetch'
 import { mswServer } from './test/msw-server'
+
+const withTenant = <T>(fn: () => Promise<T>): Promise<T> =>
+  tenantContext.run({ tenantId: 'test-tenant-id' }, fn)
 
 beforeAll(() => mswServer.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => mswServer.resetHandlers())
@@ -37,13 +41,15 @@ describe('audit middleware', () => {
     )
     const recordAudit = vi.fn(async () => {})
     const gf = createGraphFetch({ recordAudit })
-    await gf.call({
-      token: 't',
-      method: 'GET',
-      path: '/me/planner/tasks/T1',
-      actor: { type: 'user', userId: 'u' },
-      connectorId: 'ms365-planner',
-    })
+    await withTenant(() =>
+      gf.call({
+        token: 't',
+        method: 'GET',
+        path: '/me/planner/tasks/T1',
+        actor: { type: 'user', userId: 'u' },
+        connectorId: 'ms365-planner',
+      }),
+    )
     expect(recordAudit).toHaveBeenCalledOnce()
     expect(recordAudit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -69,15 +75,17 @@ describe('audit middleware', () => {
     )
     const recordAudit = vi.fn(async () => {})
     const gf = createGraphFetch({ recordAudit })
-    await gf.batch({
-      token: 't',
-      actor: { type: 'user', userId: 'u' },
-      connectorId: 'ms365-planner',
-      requests: [
-        { id: '1', method: 'GET', url: '/me/planner/tasks/T1' },
-        { id: '2', method: 'GET', url: '/me/planner/tasks/T2' },
-      ],
-    })
+    await withTenant(() =>
+      gf.batch({
+        token: 't',
+        actor: { type: 'user', userId: 'u' },
+        connectorId: 'ms365-planner',
+        requests: [
+          { id: '1', method: 'GET', url: '/me/planner/tasks/T1' },
+          { id: '2', method: 'GET', url: '/me/planner/tasks/T2' },
+        ],
+      }),
+    )
     expect(recordAudit).toHaveBeenCalledTimes(2)
     const calls = recordAudit.mock.calls as unknown as [[AuditEntry], [AuditEntry]]
     const allEntries = calls.map((c) => c[0])
@@ -95,15 +103,17 @@ describe('audit middleware', () => {
     )
     const recordAudit = vi.fn(async () => {})
     const gf = createGraphFetch({ recordAudit })
-    await expect(
-      gf.call({
-        token: 't',
-        method: 'GET',
-        path: '/me/planner/tasks/T1',
-        actor: { type: 'user', userId: 'u' },
-        connectorId: 'ms365-planner',
-      }),
-    ).rejects.toBeTruthy()
+    await withTenant(() =>
+      expect(
+        gf.call({
+          token: 't',
+          method: 'GET',
+          path: '/me/planner/tasks/T1',
+          actor: { type: 'user', userId: 'u' },
+          connectorId: 'ms365-planner',
+        }),
+      ).rejects.toBeTruthy(),
+    )
     expect(recordAudit).toHaveBeenCalledOnce()
     expect(recordAudit).toHaveBeenCalledWith(expect.objectContaining({ result: 'failure' }))
   })

@@ -1,5 +1,6 @@
 import { trace } from '@opentelemetry/api'
 import type { AuditEntry } from '@seta/audit'
+import { tenantContext } from '@seta/tenant'
 import { normalizePath } from './audit-middleware'
 import {
   GraphNotFound,
@@ -68,6 +69,14 @@ export interface GraphFetch {
   paginate<T>(input: GraphCall): AsyncIterable<T>
 }
 
+function tryGetTenantId(): string {
+  try {
+    return tenantContext.getTenantId()
+  } catch {
+    return ''
+  }
+}
+
 const MAX_RETRIES = 3
 const BASE_URL = 'https://graph.microsoft.com/v1.0'
 const tracer = trace.getTracer('@seta/ms-graph')
@@ -124,8 +133,6 @@ async function execFetch(deps: GraphFetchDeps, input: GraphCall): Promise<GraphR
   if (input.etag) reqHeaders['If-Match'] = input.etag
 
   let retries = 0
-  let _lastStatus = 0
-  let _lastRetryAfter = 0
 
   while (true) {
     const fetchOpts: RequestInit = {
@@ -134,8 +141,6 @@ async function execFetch(deps: GraphFetchDeps, input: GraphCall): Promise<GraphR
     }
     if (input.body !== undefined) fetchOpts.body = JSON.stringify(input.body)
     const resp = await fetchImpl(url.toString(), fetchOpts)
-
-    _lastStatus = resp.status
 
     if (resp.status === 204) {
       return { data: null, etag: null, status: 204 }
@@ -148,7 +153,6 @@ async function execFetch(deps: GraphFetchDeps, input: GraphCall): Promise<GraphR
 
     if (resp.status === 429) {
       const retryAfter = Number(resp.headers.get('Retry-After') ?? '1')
-      _lastRetryAfter = retryAfter
       if (canRetry) {
         retries++
         await delay(Math.min(retryAfter * 1000, retryDelayCapMs))
@@ -196,7 +200,7 @@ export function createGraphFetch(deps: GraphFetchDeps): GraphFetch {
     } catch (err) {
       span.end()
       await deps.recordAudit({
-        tenantId: 'unknown',
+        tenantId: tryGetTenantId(),
         actor: input.actor,
         connectorId: input.connectorId,
         providerId: 'entra',
@@ -208,7 +212,7 @@ export function createGraphFetch(deps: GraphFetchDeps): GraphFetch {
     }
 
     await deps.recordAudit({
-      tenantId: 'unknown',
+      tenantId: tryGetTenantId(),
       actor: input.actor,
       connectorId: input.connectorId,
       providerId: 'entra',
@@ -274,7 +278,7 @@ export function createGraphFetch(deps: GraphFetchDeps): GraphFetch {
       const req = input.requests.find((x) => x.id === r.id)
       const path = req?.url ?? '?'
       await deps.recordAudit({
-        tenantId: 'unknown',
+        tenantId: tryGetTenantId(),
         actor: input.actor,
         connectorId: input.connectorId,
         providerId: 'entra',
