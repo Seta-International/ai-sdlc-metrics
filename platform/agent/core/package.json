@@ -4,8 +4,8 @@
   "description": "Type-safe, framework-free agent kernel: messages + tools + model router + run loop + streaming",
   "main": "./dist/index.js",
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --sourcemap",
-    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "build": "tsup src/index.ts src/testkit/index.ts --format esm --dts --sourcemap",
+    "dev": "tsup src/index.ts src/testkit/index.ts --format esm --dts --watch",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
@@ -18,7 +18,11 @@
   ],
   "dependencies": {
     "@anthropic-ai/sdk": "0.95.1",
+    "@seta/middleware": "workspace:*",
+    "@seta/observability": "workspace:*",
+    "hono": "4.12.18",
     "openai": "6.37.0",
+    "uuid": "14.0.0",
     "zod": "4.4.3"
   },
   "devDependencies": {
@@ -27,5 +31,15 @@
     "tsup": "8.5.1",
     "typescript": "6.0.3",
     "vitest": "4.1.5"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./testkit": {
+      "import": "./dist/testkit/index.js",
+      "types": "./dist/testkit/index.d.ts"
+    }
   }
 }
