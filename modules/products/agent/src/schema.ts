@@ -8,7 +8,7 @@ export const writeContinuations = agentSchema.table(
     token: text('token').primaryKey(),
     uuid: text('uuid').notNull().unique(),
     tenantId: uuid('tenant_id').notNull(),
-    userId: uuid('user_id').notNull(),
+    userId: text('user_id').notNull(), // MSAL homeAccountId is "<objectId>.<tenantId>", not a bare UUID
     toolId: text('tool_id').notNull(),
     payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
     etagSnapshot: jsonb('etag_snapshot').$type<Record<string, string>>().notNull(),
