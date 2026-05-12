@@ -1,18 +1,25 @@
 {
-  "name": "@seta/tooling",
+  "name": "@seta/integration-tests",
   "version": "0.0.0",
-  "description": "Repo-wide CLI scripts (migrate, seed, package scaffolding). Not published.",
   "private": true,
   "type": "module",
-  "dependencies": {
+  "scripts": {
+    "test:integration": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
     "@seta/audit": "workspace:*",
     "@seta/connector-ms365-directory": "workspace:*",
     "@seta/connector-ms365-planner": "workspace:*",
     "@seta/connector-registry": "workspace:*",
     "@seta/db": "workspace:*",
+    "@seta/middleware": "workspace:*",
     "@seta/oauth": "workspace:*",
-    "dotenv": "17.4.2",
+    "@seta/tsconfig": "workspace:*",
+    "@types/node": "^24.12.3",
     "postgres": "3.4.9",
-    "zod": "4.4.3"
+    "tsx": "4.21.0",
+    "typescript": "6.0.3",
+    "vitest": "4.1.5"
   }
 }
