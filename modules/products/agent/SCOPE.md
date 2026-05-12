@@ -1,19 +1,35 @@
 # SCOPE — modules/products/agent  (@seta/agent)
 
+> **P1 scope override (2026-05-12 — agents expansion):** the product previously scoped a single **Planner Agent** (per setup.md §11 `modules/products/agent` layout — one `agent.ts`, one tool tree under `tools/planner/`). User-directed scope change: **three specialist agents** are required in P1 — **Planner Agent** (project management; Planner tool calls), **Analytics Agent** (workload analysis; chart-card responses), and **Seta FAQ Agent** (RAG-backed company-knowledge Q&A with citations). The FAQ Agent's dependency on the RAG track is what drives the parallel P1 override of `@seta/agent-chunking`, `@seta/agent-embeddings`, `@seta/agent-vector`, `@seta/agent-rag` (see `platform/agent/{chunking,embeddings,vector,rag}/SCOPE.md`). setup.md §11's single-agent layout stays as-written; this SCOPE.md is the override citation point.
+
 ## Purpose
 
-The Seta Agent product — the only `modules/products/*` package in P1. Owns the agent definition (system prompt, model, tool set), the Planner tools (`read/` and `write/.preview` + `write/.commit` pairs), the `agent.write_continuations` schema for HMAC-signed preview→commit tokens, the Adaptive Cards the agent renders, the `TeamsHandler` implementation that turns inbound Teams messages into agent runs, and the product-level routes mounted at `/agent` in `apps/api`. (setup.md §11 agent section, §7 last paragraph, §5; spike `04-tools-mcp.md`, `02-agent-core.md`, `06-llm-recording-replay.md`.)
+The Seta Agent product — the only `modules/products/*` package in P1. Owns **three specialist agent definitions** (Planner / Analytics / Seta FAQ — see override notice above), the tool sets each agent calls, the `agent.write_continuations` schema for HMAC-signed preview→commit tokens, the Adaptive Cards the agents render, the `TeamsHandler` implementation that turns inbound Teams messages into agent runs (with trigger-phrase-based routing across the three agents), and the product-level routes mounted at `/agent` in `apps/api`. (setup.md §11 agent section, §7 last paragraph, §5; spike `04-tools-mcp.md`, `02-agent-core.md`, `06-llm-recording-replay.md`.)
 
 ## Responsibilities
 
 - **Owns:**
-  - The agent definition — name, system prompt, model selection, tool wiring (setup.md §11 `agent.ts`).
-  - Planner tools, organized as setup.md §11 specifies:
-    - `tools/planner/read/` — `list_my_tasks`, `list_plan_tasks`, `get_task`, `list_plans`, `list_buckets`, `workload_analysis`.
-    - `tools/planner/write/` — preview→commit pairs: `create_tasks.preview`/`.commit`, `update_tasks.preview`/`.commit`, etc.
-  - The `agent.write_continuations` Drizzle schema — HMAC-signed preview→commit tokens (`continuation_id ULID, tenant_id, tool_id, input_hash, etag_snapshot jsonb, hmac, expires_at, consumed_at`) per spike `04-tools-mcp.md` punch list; setup.md §11 `schema.ts`.
-  - Adaptive Cards specific to this agent: `cards/task-list.ts`, `cards/text.ts` (setup.md §11). Templating via `adaptivecards-templating@2.3.1`.
-  - The `TeamsHandler` implementation — parses text, runs the agent through `@seta/agent-core`, builds the appropriate card, returns it (setup.md §11 `teams-handler.ts`).
+  - **Three agent definitions** in `src/agents/` (each a `{ name, instructions, model, tools }` record consumed by `@seta/agent-core`) — P1 override 2026-05-12:
+    - `src/agents/planner.ts` — **Planner Agent**: project-management specialist. Tool set = Planner read/write pairs from `tools/planner/`. System prompt focuses on task triage, plan navigation, preview→commit confirmations.
+    - `src/agents/analytics.ts` — **Analytics Agent**: workload-analysis specialist ("who's overloaded", per-assignee distribution, bucket-level fill). Tool set = `tools/analytics/` (read-only aggregations cross-joining Planner + Directory). Renders chart-card responses via `cards/chart-ybar.ts`.
+    - `src/agents/faq.ts` — **Seta FAQ Agent**: RAG-backed company-knowledge specialist. Tool set = `tools/faq/` (`search_knowledge_base`, `cite_sources`). System prompt requires every answer to cite at least one retrieved source.
+  - Tool directories under `src/tools/`:
+    - `tools/planner/` (existing per setup.md §11):
+      - `tools/planner/read/` — `list_my_tasks`, `list_plan_tasks`, `get_task`, `list_plans`, `list_buckets`, `workload_analysis`.
+      - `tools/planner/write/` — preview→commit pairs: `create_tasks.preview`/`.commit`, `update_tasks.preview`/`.commit`, etc.
+    - `tools/analytics/` (new — P1 override):
+      - **Read-only aggregations** over `@seta/connector-ms365-planner` + `@seta/connector-ms365-directory` joined by `entra_object_id`. Examples: `workload_by_assignee`, `bucket_fill_distribution`, `due-date heatmap`, `unassigned_tasks_count`. No write paths.
+      - All tools annotate `readOnlyHint: true` per spike `04-tools-mcp.md`.
+    - `tools/faq/` (new — P1 override):
+      - `search_knowledge_base` — wraps `@seta/agent-rag.retrieve(query, opts)`; returns `RagHit[]` with `citation` payload. `readOnlyHint: true`.
+      - `cite_sources` — pure formatter; turns `RagHit[]` into an Adaptive Card section with source links. No side effects.
+  - The `agent.write_continuations` Drizzle schema — HMAC-signed preview→commit tokens (`continuation_id ULID, tenant_id, tool_id, input_hash, etag_snapshot jsonb, hmac, expires_at, consumed_at`) per spike `04-tools-mcp.md` punch list; setup.md §11 `schema.ts`. Only the Planner Agent writes; Analytics + FAQ are read-only and produce no continuations.
+  - Adaptive Cards specific to this product (setup.md §11 `cards/`):
+    - `cards/task-list.ts` (Planner) — existing per setup.md §11.
+    - `cards/text.ts` (shared) — existing per setup.md §11.
+    - `cards/chart-ybar.ts` (Analytics — P1 override) — Y-axis bar chart using the Adaptive Cards 1.5 `Chart.VerticalBar` element, templated via `adaptivecards-templating@2.3.1`. Used by the Analytics Agent for workload-distribution answers per the Project Plan §3 visualization requirement.
+    - `cards/faq-answer.ts` (FAQ — P1 override) — answer body + a citations section rendered from `RagHit[]`.
+  - The `TeamsHandler` implementation — parses text, **routes to one of the three agents by trigger phrase** (see "Public interface" for the routing decision), runs the selected agent through `@seta/agent-core`, builds the appropriate card, returns it (setup.md §11 `teams-handler.ts`).
   - The product's `routes(): Hono` factory mounted at `/agent` in `apps/api/src/main.ts` (setup.md §11 composition example).
 
 - **Does NOT own:**
@@ -33,8 +49,8 @@ Epic 1 focused on auth (`@seta/oauth`, `@seta/auth`, `@seta/middleware`, MSAL No
 - `modules/products/agent/src/index.ts` — `export {}`. No `agent`, no `teamsHandler`, no `routes`.
 - `modules/products/agent/src/index.test.ts` — placeholder.
 - `package.json` declares the right intent: `@seta/agent-core`, `@seta/auth`, `@seta/connector-ms365-planner`, `@seta/teams`, `@seta/tenant`, `adaptivecards-templating@2.3.1`, `zod@4.4.3`.
-- **Missing vs setup.md §13 deps for `@seta/agent`:** `@seta/connector-ms365-directory`, `@seta/connector-registry`, `@seta/oauth`, `@seta/audit`, `@seta/db`, `drizzle-orm@0.45.2`, `p-queue@9.2.0`, `uuid@14.0.0`.
-- **Missing vs setup.md §11 layout:** `agent.ts`, `tools/planner/{read,write}/`, `schema.ts`, `cards/`, `teams-handler.ts`, the `routes` export.
+- **Missing vs setup.md §13 deps for `@seta/agent`:** `@seta/connector-ms365-directory`, `@seta/connector-registry`, `@seta/oauth`, `@seta/audit`, `@seta/db`, `drizzle-orm@0.45.2`, `p-queue@9.2.0`, `uuid@14.0.0`. **Plus (P1 override 2026-05-12):** `@seta/agent-memory`, `@seta/agent-workflows`, `@seta/agent-rag` — all new platform packages.
+- **Missing vs setup.md §11 layout + P1 override 2026-05-12 three-agent expansion:** `src/agents/{planner,analytics,faq}.ts` (replacing the single `agent.ts`), `tools/planner/{read,write}/`, `tools/analytics/`, `tools/faq/`, `schema.ts`, `cards/{task-list,text,chart-ybar,faq-answer}.ts`, `teams-handler.ts` (now with trigger-phrase routing), the `routes` export.
 
 Everything below is the contract that future work must respect; nothing is implemented yet.
 
@@ -43,11 +59,15 @@ Everything below is the contract that future work must respect; nothing is imple
 All exports from `modules/products/agent/src/index.ts`. Signatures only.
 
 - `routes(registry: ConnectorRegistry): Hono` — **mandatory `routes(handler?: Handler) => Hono` export** per CLAUDE.md. Mounted at `/agent` (setup.md §11 composition example). May expose product-level endpoints (run, history when persisted, admin); does NOT include `/teams` routes (those come from `@seta/teams`).
-- `teamsHandler: TeamsHandler` — concrete `TeamsHandler` implementation passed into `teamsRouter(teamsHandler)` (setup.md §11 composition example; `@seta/teams` defines the interface).
-- `agent` — agent definition record `{ name, instructions, model, tools }` consumed by `@seta/agent-core` (setup.md §11 `agent.ts`; spike `02-agent-core.md` "K1 should be functions over a config record, not a class hierarchy").
+- `teamsHandler: TeamsHandler` — **single combined `TeamsHandler`** that routes inbound activities to one of the three agents by **trigger phrase** (P1 override decision — see Open questions for the trigger-phrase vs separate-handler trade-off). Phrases (subject to refinement):
+  - default / no prefix / "@planner …" → `plannerAgent`
+  - "@analytics …" / "workload …" / "who's overloaded …" → `analyticsAgent`
+  - "@faq …" / "@seta …" / "how do I …" / "what is our …" → `faqAgent`
+  Routing logic lives in `src/teams-handler.ts`; once routed, the selected agent runs through `@seta/agent-core` and renders the agent-appropriate card.
+- `plannerAgent`, `analyticsAgent`, `faqAgent` — three agent definition records `{ name, instructions, model, tools }` consumed by `@seta/agent-core` (setup.md §11 `agent.ts`; spike `02-agent-core.md` "K1 should be functions over a config record, not a class hierarchy"). Exported individually so unit tests and (future) direct REST callers can target a specific agent without going through the combined handler.
 - `agentRoutes(registry: ConnectorRegistry): Hono` — alias retained for the setup.md §11 composition example wording; canonical is `routes`.
 - Tool exports per spike `04-tools-mcp.md`: each tool is `{ id, description, inputSchema, outputSchema, execute, annotations? }`. `outputSchema` is **required for write tools** to keep LLM-hallucination caught at the Zod boundary.
-- Drizzle exports: `agentSchema` (pg schema `agent`), `writeContinuations` table, inferred row types.
+- Drizzle exports: `agentSchema` (pg schema `agent`), `writeContinuations` table, inferred row types. **Only the Planner Agent's write tools touch `write_continuations`**; Analytics and FAQ are read-only.
 - `WriteContinuation` — Zod-inferred type for the preview→commit envelope.
 
 No `Handler` interface lives here — `@seta/teams` defines `TeamsHandler`; this product implements it.
@@ -58,6 +78,7 @@ No `Handler` interface lives here — `@seta/teams` defines `TeamsHandler`; this
   - `@seta/agent-core` — kernel, `streamKernelSSE`, `ModelAdapter`, `Processor` seams, testkit (spike `02-agent-core.md`; setup.md §5).
   - `@seta/agent-memory` — `MemoryProvider` implementation; the product's thread CRUD HTTP routes call into this for conversation history and working memory (P1 override; spike `09-memory.md` § "P1 override").
   - `@seta/agent-workflows` — workflow DSL (`createWorkflow().then(...).parallel(...)`) and `resume(runId, ...)`; the product registers named workflows for multi-step plans that exceed one HTTP turn (P1 override; spike `05-workflows.md` § "P1 override").
+  - `@seta/agent-rag` — `retrieve(query, opts)` and `ingest(sourceId, content)` for the FAQ Agent's `search_knowledge_base` tool (P1 override 2026-05-12; see `platform/agent/rag/SCOPE.md`). The product consumes the full RAG stack **indirectly** through `@seta/agent-rag` only — never imports `@seta/agent-chunking`, `@seta/agent-embeddings`, or `@seta/agent-vector` directly (single composition seam per setup.md §6 "Split into single-purpose packages so any one is reusable").
   - `@seta/teams` — **only** to implement its `TeamsHandler` interface (setup.md §11 "may depend on `modules/channels/*` only to implement that channel's handler interface").
   - `@seta/connector-ms365-planner` — Planner client + manifest (already declared).
   - `@seta/connector-ms365-directory` — directory lookups inside `workload_analysis` and other tools (setup.md §13 — **missing in current `package.json`**).
@@ -104,6 +125,9 @@ No `Handler` interface lives here — `@seta/teams` defines `TeamsHandler`; this
 - **Tool result envelope's `{ suspend?: { reason, resumeLabel } }` discriminant is wired** by `@seta/agent-workflows` — when a tool returns `suspend` inside a workflow-step body, the engine persists the snapshot. Outside a workflow context the discriminant is ignored (spike `05-workflows.md` punch list).
 - **`Run` identifier (ULID) threaded through the kernel** and `RunStatus` type (`'created'|'running'|'completed'|'failed'`) — `workflow_snapshots.run_id` joins to this kernel `Run` so workflow-level and kernel-level audit rows share an id space (spike `05-workflows.md` punch list).
 - **Memory persistence goes through `@seta/agent-memory`** — the product's thread CRUD HTTP routes (list / get / delete threads) call into the `MemoryProvider` implementation; the product does NOT own `conversations` / `turns` / `working_memory` tables (P1 override; spike `09-memory.md` § "P1 override").
+- **Visualization-first responses for the Analytics Agent** — workload-distribution answers return Adaptive Cards using the **chart-Y-bar template** (`cards/chart-ybar.ts`), not text blobs. The agent's system prompt instructs the LLM to call `cards/chart-ybar.ts` rather than narrate aggregations in prose. (Per setup.md §11 `cards/` directory pattern + Project Plan §3 visualization requirement; P1 override 2026-05-12.)
+- **FAQ Agent answers always cite sources** — the FAQ Agent's system prompt requires every response to include `cite_sources` output rendered via `cards/faq-answer.ts`. Answers without retrieved hits return a "no source found" template, never an LLM-only response. The `RagHit.citation` payload from `@seta/agent-rag` is the source of truth for span / sourceId. (P1 override 2026-05-12; setup.md §6 RAG primitives.)
+- **Three-agent trigger-phrase routing in the combined `teamsHandler`** — the handler matches the inbound text prefix and dispatches to the appropriate agent record (`plannerAgent` | `analyticsAgent` | `faqAgent`). Routing is in `src/teams-handler.ts` only; the agent records themselves are surface-agnostic and reusable from future direct-REST callers. (P1 override 2026-05-12.)
 - **`Processor` seams reserved** in `@seta/agent-core` (`processInput`, `processOutputStep`, `processAPIError`); the product wires only what it needs in P1 (spike `02-agent-core.md`).
 - **LLM in tests only via `@seta/agent-core/testkit` recordings** — msw-based, content-hashed, `__recordings__/` checked in (CLAUDE.md footguns; spike `06-llm-recording-replay.md`).
 - **Errors throw `DomainError` subclasses** from `@seta/middleware/errors`; kernel/tool errors extend `KernelError extends DomainError` with `{ code, domain: 'AGENT'|'LLM'|'TOOL', category }` (spike `02-agent-core.md` punch list; setup.md §15).
@@ -138,6 +162,8 @@ No `Handler` interface lives here — `@seta/teams` defines `TeamsHandler`; this
   - End-to-end preview→commit against msw-recorded Graph fixtures from `@seta/connector-ms365-planner`.
 - **E2E (`tests/e2e/**`)** — full Teams activity → `@seta/teams` → `teamsHandler` → kernel → tool → Graph (msw) → card reply.
 - **LLM via testkit recordings only** — `setupLLMRecording({ name })` from `@seta/agent-core/testkit`; msw over `api.anthropic.com` / `api.openai.com`; recordings checked in under `__recordings__/`; `RECORD=1 pnpm vitest run -t <name>` to re-record (CLAUDE.md commands table; spike `06-llm-recording-replay.md` punch list; setup.md §5 `:2185-:2198`).
+- **FAQ Agent integration tests require recorded LLM fixtures AND fixture corpora** — the testkit recordings cover the OpenAI embedding calls (via `@seta/agent-embeddings`) and the Anthropic / OpenAI completion calls (via `@seta/agent-core`'s `ModelAdapter`). Fixture corpora — small representative FAQ documents — live under `modules/products/agent/__recordings__/rag/` and are ingested via `@seta/agent-rag.ingest` at test setup against the dockerized pg. (P1 override 2026-05-12; spike `06-llm-recording-replay.md`; `platform/agent/rag/SCOPE.md` test strategy.)
+- **Analytics Agent integration tests** — exercise the cross-join between `connector_ms365_planner` and `connector_ms365_directory` against msw-recorded Graph fixtures + dockerized pg; assert the rendered chart-Y-bar card contains the expected category counts.
 - **No live model APIs, no live Graph, no `vi.mock` of internal `@seta/*` modules** (CLAUDE.md footguns).
 
 ## Open questions
@@ -148,4 +174,8 @@ No `Handler` interface lives here — `@seta/teams` defines `TeamsHandler`; this
 - `toModelOutput` transform seam — adaptive-card payloads need a plain-text shape for the model without duplicating tools (spike `04-tools-mcp.md` punch list). Confirm `@seta/agent-core` exposes this hook.
 - Conversation persistence — **resolved (P1 override 2026-05-12):** `write_continuations` remains the only table in the `agent` schema (product-owned). Conversation history, working memory, and recall (`conversations`, `turns`, `working_memory`) move to the **`agent_memory` schema owned by `@seta/agent-memory`** (P1; not this product). Thread CRUD HTTP routes still live in this product but delegate persistence to `@seta/agent-memory` via the `MemoryProvider` interface. Workflow snapshots live in the **`agent_workflows` schema owned by `@seta/agent-workflows`** (P1). See `platform/agent/memory/SCOPE.md` and `platform/agent/workflows/SCOPE.md`. Setup.md §3 line 117 should be amended in a follow-up to reflect this schema split.
 - Streaming reply to Teams — Bot Framework does not stream; the agent runs to completion then posts a single reply. Confirm `streamKernelSSE` is used only for direct REST callers in P1, not Teams.
-- `workload_analysis` tool: read-only across Planner + Directory, but it cross-joins by `entra_object_id` — no FK, the join is at query time in the product. Confirm the join key matches `connector_ms365_directory.directory_users.entra_object_id`.
+- `workload_analysis` tool: read-only across Planner + Directory, but it cross-joins by `entra_object_id` — no FK, the join is at query time in the product. Confirm the join key matches `connector_ms365_directory.directory_users.entra_object_id`. (Note: with the 2026-05-12 P1 override, `workload_analysis` migrates from `tools/planner/read/` to `tools/analytics/` and becomes one of several Analytics-Agent tools.)
+- **Trigger-phrase routing vs separate handlers (P1 override 2026-05-12).** The decision documented above is a **single combined `teamsHandler`** with prefix-based routing. Alternative: register three handlers in `@seta/teams` and route at the channel layer. Combined-handler wins because (a) `@seta/teams.TeamsHandler` is a single-implementation interface per channel surface; (b) per-agent handler registration would require a channel-layer routing primitive that doesn't exist. Re-evaluate if a fourth agent or voice channel arrives. Final trigger-phrase set and fallback behaviour (default → planner? or → ask-to-disambiguate?) is open.
+- **Seta knowledge-base corpus source (P1 override 2026-05-12).** The FAQ Agent depends on a corpus of company-knowledge documents to retrieve from. Source-of-truth is unresolved: SharePoint export? a new `modules/connectors/seta-faq/` connector? a static Markdown bundle checked in under `modules/products/agent/corpus/`? Outputs of the RAG data survey (referenced as a parallel P1 track in `docs/superpowers/specs/2026-05-12-mastra-spike-design.md` and the Project Plan §3) determines the loader shape and the FTS-leg table referenced by `@seta/agent-rag.retrieve`'s `ftsTable` option.
+- **Per-agent vs per-thread MemoryProvider namespacing (P1 override 2026-05-12).** Three agents sharing one `@seta/agent-memory` `MemoryProvider`: do they share working-memory state per `(tenantId, principalId)` regardless of agent (one cross-agent scratchpad), or is working memory keyed by `(tenantId, principalId, agentName)` (per-agent scratchpad)? Conversation history (threads) is unambiguously per-thread regardless. Recommend per-agent working memory — the agents have distinct concerns and cross-agent prompt-bleed risks user-confusing answers. Flag for `platform/agent/memory/SCOPE.md` open-question follow-up.
+- **Three-agent model selection.** All three default to the same `model` slot (per spike `10-llm-model-router.md` model-router; setup.md §5). Analytics may benefit from a tools-oriented model variant; FAQ may benefit from a citation-tuned variant. Defer to telemetry post-launch.

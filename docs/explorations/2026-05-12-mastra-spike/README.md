@@ -8,6 +8,7 @@ The spike originally recommended **P2-defer** for both memory implementation (re
 
 - **Memory** lands as a new platform package **`@seta/agent-memory`** under `platform/agent/memory/`, owning the `agent_memory` Postgres schema. The kernel-side `MemoryProvider` interface stays in `@seta/agent-core`; `apps/api/src/main.ts` binds the real `@seta/agent-memory` provider in P1 (not `NullMemoryProvider`). See [`09-memory.md`](./09-memory.md) §"P1 override" and [`platform/agent/memory/SCOPE.md`](../../../platform/agent/memory/SCOPE.md).
 - **Workflows** land as a new platform package **`@seta/agent-workflows`** under `platform/agent/workflows/`, owning the `agent_workflows` Postgres schema. The P1 surface is intentionally narrow: `.then()` / `.parallel()` linear DAG only; suspend/resume via Postgres advisory lock; in-process `p-queue` runner; no external broker. `.branch()` / `.dowhile()` / `.foreach()` and the pluggable `ExecutionEngine` (Inngest/Temporal adapters) remain P2. See [`05-workflows.md`](./05-workflows.md) §"P1 override" and [`platform/agent/workflows/SCOPE.md`](../../../platform/agent/workflows/SCOPE.md).
+- **Three specialist agents + full RAG track in P1.** Override applied alongside memory + workflow. New packages **`@seta/agent-chunking`**, **`@seta/agent-embeddings`**, **`@seta/agent-vector`**, **`@seta/agent-rag`** land under `platform/agent/` (P1, not P2 per setup.md §6). Three agent definitions live in `modules/products/agent/src/agents/`: **Planner** (project management — Planner tool calls), **Analytics** (workload analysis — chart-card responses), **Seta FAQ** (RAG-backed company-knowledge Q&A with citations). The RAG packages own a new `agent_vector` schema (per the pgvector pattern in setup.md §6). See [`modules/products/agent/SCOPE.md`](../../../modules/products/agent/SCOPE.md) and the four `platform/agent/{chunking,embeddings,vector,rag}/SCOPE.md` files.
 
 The rest of this README reflects the override; the rows in the table below for reports 05 and 09 have been updated, and the consolidated punch list separates "P1 (override)" items from the remaining "P2-deferred (deliberate)" bullets.
 
@@ -101,6 +102,8 @@ Cross-check setup.md's P1 choices against Mastra's working 2026 monorepo. **Patt
 
 - `@seta/agent-memory` — implements `MemoryProvider`; owns `agent_memory.conversations` / `.turns` / `.working_memory`. Composition root binds the real provider (not `NullMemoryProvider`). (SA-9)
 - `@seta/agent-workflows` — linear-DAG engine (`.then()` / `.parallel()` only) + `agent_workflows.workflow_snapshots` / `.workflow_steps`; advisory-lock suspend/resume; in-process `p-queue` runner. (SA-5)
+- **`@seta/agent-chunking`, `@seta/agent-embeddings`, `@seta/agent-vector`, `@seta/agent-rag`** — full RAG track moves from P2 (setup.md §6) to P1; new `agent_vector` Postgres schema owned by `@seta/agent-vector` (HNSW + `iterative_scan = strict_order` for the multi-tenant LIMIT correctness fix per setup.md §6); RRF fusion in `@seta/agent-rag` (Cohere rerank-v3 still P2). (SA-9, override 2026-05-12)
+- **Three specialist agents in `modules/products/agent`** — `plannerAgent`, `analyticsAgent`, `faqAgent` exported individually; single combined `teamsHandler` routes by trigger phrase. Analytics renders chart-Y-bar Adaptive Cards; FAQ cites sources from `@seta/agent-rag.retrieve` on every answer. (Override 2026-05-12)
 
 ### P2-deferred (deliberate)
 
@@ -115,7 +118,8 @@ Cross-check setup.md's P1 choices against Mastra's working 2026 monorepo. **Patt
 - Cross-version Zod / Arktype / Valibot adapters. (SA-8)
 - Observational memory (delta summarisation, reflections). (SA-9)
 - Composite / multi-backend memory storage (`MastraCompositeStore`); single Postgres adapter is enough. (SA-9)
-- Embeddings / chunking / vector index — `@seta/agent-embeddings`, `@seta/agent-chunking`, `@seta/agent-vector`, `@seta/agent-rag` (RAG track per setup.md §6 §11). Semantic recall (`vectorSearchString`) wiring inside `@seta/agent-memory` waits on these. (SA-9)
+- **Cohere `rerank-v3`** — RRF fusion in `@seta/agent-rag` suffices for P1 per setup.md §6. Learned reranking is P2. (Override 2026-05-12; previously the whole RAG track was P2 — only the reranker remains here.)
+- Semantic-recall wiring (`vectorSearchString`) inside `@seta/agent-memory` — the field stays on `MemoryContext` in P1 (no signature break later) but `@seta/agent-memory` does not call `@seta/agent-vector.searchChunks` until P2. The RAG packages themselves are P1 (override 2026-05-12); only memory's *use* of them is deferred. (SA-9)
 - Response-content cache; provider gateway / BYO-endpoint. (SA-10)
 - Vercel AI SDK adoption — revisit if we add a third provider. (SA-10)
 - Cross-process tenant-context forwarding; impersonation flows. (SA-7)
