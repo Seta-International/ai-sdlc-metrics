@@ -6,8 +6,9 @@
   "scripts": {
     "build": "tsup src/index.ts src/testkit/index.ts --format esm --dts --sourcemap",
     "dev": "tsup src/index.ts src/testkit/index.ts --format esm --dts --watch",
-    "test:unit": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "test:unit": "vitest run src/",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:integration": "vitest run tests/"
   },
   "license": "Apache-2.0",
   "type": "module",
@@ -21,6 +22,7 @@
     "@seta/middleware": "workspace:*",
     "@seta/observability": "workspace:*",
     "hono": "4.12.18",
+    "msw": "2.14.6",
     "openai": "6.37.0",
     "uuid": "14.0.0",
     "zod": "4.4.3"
