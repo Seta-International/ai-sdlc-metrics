@@ -28,7 +28,7 @@ function hasRecording(name: string): boolean {
 }
 
 function shouldRun(name: string): boolean {
-  return process.env['RECORD'] !== undefined || hasRecording(name)
+  return process.env.RECORD !== undefined || hasRecording(name)
 }
 
 const FROZEN_NOW = new Date('2026-05-12T00:00:00Z').getTime()
@@ -48,7 +48,7 @@ describe('tenant ALS across adapter await boundary', () => {
         const adapters = createAdapterRegistry()
         adapters.register(
           'anthropic',
-          createAnthropicAdapter({ apiKey: process.env['ANTHROPIC_API_KEY'] ?? 'sk-test' }),
+          createAnthropicAdapter({ apiKey: process.env.ANTHROPIC_API_KEY ?? 'sk-test' }),
         )
 
         const cfg: AgentConfig = {

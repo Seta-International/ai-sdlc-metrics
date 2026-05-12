@@ -19,7 +19,7 @@ function hasRecording(name: string): boolean {
 }
 
 function shouldRun(name: string): boolean {
-  return process.env['RECORD'] !== undefined || hasRecording(name)
+  return process.env.RECORD !== undefined || hasRecording(name)
 }
 
 function buildRegistry() {
@@ -27,15 +27,15 @@ function buildRegistry() {
   reg.register(
     'azure-openai',
     createAzureOpenAIAdapter({
-      apiKey: process.env['AZURE_OPENAI_API_KEY'] ?? 'sk-test',
-      endpoint: process.env['AZURE_OPENAI_ENDPOINT'] ?? 'https://test.openai.azure.com',
-      apiVersion: process.env['AZURE_OPENAI_API_VERSION'] ?? '2024-10-21',
+      apiKey: process.env.AZURE_OPENAI_API_KEY ?? 'sk-test',
+      endpoint: process.env.AZURE_OPENAI_ENDPOINT ?? 'https://test.openai.azure.com',
+      apiVersion: process.env.AZURE_OPENAI_API_VERSION ?? '2024-10-21',
     }),
   )
   return reg
 }
 
-const DEPLOYMENT = process.env['AZURE_OPENAI_DEPLOYMENT'] ?? 'gpt-4o-mini'
+const DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT ?? 'gpt-4o-mini'
 const MODEL_ID = `azure-openai/${DEPLOYMENT}` as const
 
 async function drain(stream: AsyncIterable<KernelChunk>): Promise<KernelChunk[]> {

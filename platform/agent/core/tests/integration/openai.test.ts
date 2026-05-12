@@ -20,15 +20,12 @@ function hasRecording(name: string): boolean {
 }
 
 function shouldRun(name: string): boolean {
-  return process.env['RECORD'] !== undefined || hasRecording(name)
+  return process.env.RECORD !== undefined || hasRecording(name)
 }
 
 function buildRegistry() {
   const reg = createAdapterRegistry()
-  reg.register(
-    'openai',
-    createOpenAIAdapter({ apiKey: process.env['OPENAI_API_KEY'] ?? 'sk-test' }),
-  )
+  reg.register('openai', createOpenAIAdapter({ apiKey: process.env.OPENAI_API_KEY ?? 'sk-test' }))
   return reg
 }
 
