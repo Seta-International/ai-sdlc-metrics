@@ -123,6 +123,6 @@ describe('update_tasks: preview → commit round trip', () => {
     const [{ count }] = await sql`
       SELECT COUNT(*) AS count FROM audit.audit_log WHERE tenant_id = ${TEST_TENANT_ID}
     `
-    expect(Number(count)).toBeGreaterThanOrEqual(1)
+    expect(Number(count)).toBeGreaterThanOrEqual(2)
   })
 })
