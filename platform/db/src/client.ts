@@ -26,12 +26,16 @@ export async function withTenant<T>(
   sql: DbSql,
   tenantId: string,
   fn: (tx: TransactionSql) => Promise<T>,
+  userId?: string,
 ): Promise<T> {
   // sql.begin's return is Promise<UnwrapPromiseArray<T>>; for a non-array T this is T,
   // but the conditional won't reduce generically — cast at the boundary.
   return sql.begin(async (tx) => {
     // SET LOCAL doesn't accept bind parameters; set_config(..., is_local=true) is the parameterizable equivalent (tx-scoped).
     await tx`SELECT set_config('app.tenant_id', ${tenantId}, true)`
+    if (userId) {
+      await tx`SELECT set_config('app.user_id', ${userId}, true)`
+    }
     return fn(tx)
   }) as Promise<T>
 }
