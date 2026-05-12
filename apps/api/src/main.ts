@@ -1,9 +1,11 @@
 import { serve } from '@hono/node-server'
+import { createPlannerTools } from '@seta/agent'
 import { createAuditWriter } from '@seta/audit'
 import { directoryConnector } from '@seta/connector-ms365-directory'
 import { plannerConnector } from '@seta/connector-ms365-planner'
 import { createConnectorRegistry } from '@seta/connector-registry'
 import { onError } from '@seta/middleware'
+import { createGraphFetch } from '@seta/ms-graph'
 import {
   createKmsClient,
   createOAuthRoutes,
@@ -39,6 +41,24 @@ const registry = createConnectorRegistry(async (tenantId, connectorId) => {
 })
 registry.register(plannerConnector)
 registry.register(directoryConnector)
+
+const graph = createGraphFetch({ recordAudit: audit.recordAudit.bind(audit) })
+
+const plannerTools = createPlannerTools({
+  registry,
+  vault,
+  graph,
+  sql: sql as Parameters<typeof createPlannerTools>[0]['sql'],
+  hmacKey: env.CONTINUATION_HMAC_KEY,
+  ttls: {
+    tasks: env.PLANNER_CACHE_TTL_TASKS_SEC,
+    plans: env.PLANNER_CACHE_TTL_PLANS_SEC,
+    buckets: env.PLANNER_CACHE_TTL_BUCKETS_SEC,
+    staleFallbackMax: env.PLANNER_CACHE_STALE_FALLBACK_MAX_SEC,
+  },
+  continuationTtlMin: env.CONTINUATION_TTL_MIN,
+  batchConcurrency: env.PLANNER_BATCH_CONCURRENCY,
+})
 
 const entra = new EntraProvider({
   clientId: env.ENTRA_CLIENT_ID,
