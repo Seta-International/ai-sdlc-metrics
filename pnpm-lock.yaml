@@ -605,12 +605,6 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
     devDependencies:
-      '@seta/connector-ms365-directory':
-        specifier: workspace:*
-        version: link:../../modules/connectors/ms365-directory
-      '@seta/connector-ms365-planner':
-        specifier: workspace:*
-        version: link:../../modules/connectors/ms365-planner
       '@seta/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig

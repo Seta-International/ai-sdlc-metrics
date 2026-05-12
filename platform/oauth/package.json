@@ -33,8 +33,6 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@seta/connector-ms365-directory": "workspace:*",
-    "@seta/connector-ms365-planner": "workspace:*",
     "@seta/tsconfig": "workspace:*",
     "@types/node": "^24.12.3",
     "drizzle-kit": "0.31.10",

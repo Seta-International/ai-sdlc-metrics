@@ -1,7 +1,5 @@
 import { createAuditWriter } from '@seta/audit'
-import { directoryConnector } from '@seta/connector-ms365-directory'
-import { plannerConnector } from '@seta/connector-ms365-planner'
-import { createConnectorRegistry } from '@seta/connector-registry'
+import { type ConnectorDefinition, createConnectorRegistry } from '@seta/connector-registry'
 import { onError } from '@seta/middleware'
 import { Hono } from 'hono'
 import postgres from 'postgres'
@@ -11,6 +9,35 @@ import { EntraProvider } from './providers/entra.js'
 import { createOAuthRoutes } from './routes.js'
 import { createStateStore } from './state-store.js'
 import { createTokenVault } from './vault.js'
+
+// Test-only fixture connectors. We intentionally do not import the real
+// modules/connectors/* packages here: platform/* must not depend on modules/*.
+// These also break the turbo build cycle (@seta/oauth -> @seta/connector-ms365-planner
+// -> @seta/ms-graph -> @seta/oauth).
+const plannerConnector: ConnectorDefinition = {
+  id: 'ms365-planner',
+  providerId: 'entra',
+  displayName: 'Microsoft 365 Planner',
+  description: 'fixture',
+  customerFacingRationale: 'fixture',
+  requiredScopes: {
+    delegated: ['Tasks.ReadWrite', 'Group.ReadWrite.All', 'Group.Read.All'],
+    application: ['Tasks.Read.All', 'Group.Read.All'],
+  },
+  capabilities: { syncable: true, writes: true },
+}
+const directoryConnector: ConnectorDefinition = {
+  id: 'ms365-directory',
+  providerId: 'entra',
+  displayName: 'Microsoft 365 Directory',
+  description: 'fixture',
+  customerFacingRationale: 'fixture',
+  requiredScopes: {
+    delegated: ['User.Read'],
+    application: ['User.Read.All', 'Group.Read.All'],
+  },
+  capabilities: { syncable: true, writes: false },
+}
 
 const URL = process.env.DATABASE_URL ?? 'postgres://seta:dev@localhost:5432/seta'
 
