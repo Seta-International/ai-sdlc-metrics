@@ -67,7 +67,7 @@ describe('createStreamingResponse', () => {
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toBe('text/event-stream')
 
-    const reader = res.body!.getReader()
+    const reader = res.body?.getReader()
     const decoder = new TextDecoder()
     const out: string[] = []
     while (true) {
@@ -94,7 +94,7 @@ describe('createStreamingResponse', () => {
       },
     }
     const start = Date.now()
-    const reader = createStreamingResponse(recording).body!.getReader()
+    const reader = createStreamingResponse(recording).body?.getReader()
     while (true) {
       const { done } = await reader.read()
       if (done) break
@@ -115,7 +115,7 @@ describe('createStreamingResponse', () => {
         isStreaming: true,
       },
     }
-    const reader = createStreamingResponse(recording).body!.getReader()
+    const reader = createStreamingResponse(recording).body?.getReader()
     const first = await reader.read()
     expect(first.done).toBe(false)
     await reader.cancel()

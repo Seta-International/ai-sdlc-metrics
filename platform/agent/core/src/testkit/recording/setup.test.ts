@@ -9,7 +9,7 @@ import type { RecordingFile } from './types'
 type FetchInput = Parameters<typeof fetch>[0]
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
-const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
+const _OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 
 describe('setupLLMRecording', () => {
   let dir: string
@@ -120,9 +120,9 @@ describe('setupLLMRecording', () => {
       }
       const stored = loadRecordingFile(filepath)
       expect(stored).not.toBeNull()
-      expect(stored!.recordings).toHaveLength(1)
-      expect(stored!.recordings[0]!.response.body).toEqual({ id: 'msg_recorded', content: [] })
-      expect(stored!.meta.provider).toBe('anthropic')
+      expect(stored?.recordings).toHaveLength(1)
+      expect(stored?.recordings[0]?.response.body).toEqual({ id: 'msg_recorded', content: [] })
+      expect(stored?.meta.provider).toBe('anthropic')
     } finally {
       globalThis.fetch = realFetch
     }
@@ -173,8 +173,8 @@ describe('setupLLMRecording', () => {
         rec.stop()
       }
       const stored = loadRecordingFile(filepath)
-      expect(stored!.recordings).toHaveLength(1)
-      expect(stored!.recordings[0]!.request.body).toEqual({ model: 'new' })
+      expect(stored?.recordings).toHaveLength(1)
+      expect(stored?.recordings[0]?.request.body).toEqual({ model: 'new' })
     } finally {
       globalThis.fetch = realFetch
     }
@@ -327,7 +327,7 @@ describe('setupLLMRecording', () => {
         rec.stop()
       }
       const stored = loadRecordingFile(filepath)
-      const headers = stored!.recordings[0]!.response.headers
+      const headers = stored?.recordings[0]?.response.headers
       expect(headers.authorization).toBeUndefined()
       expect(headers['set-cookie']).toBeUndefined()
       expect(headers['x-anthropic-id']).toBe('keep-me')
