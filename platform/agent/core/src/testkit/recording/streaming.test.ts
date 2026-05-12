@@ -68,6 +68,7 @@ describe('createStreamingResponse', () => {
     expect(res.headers.get('content-type')).toBe('text/event-stream')
 
     const reader = res.body?.getReader()
+    if (!reader) throw new Error('expected a body')
     const decoder = new TextDecoder()
     const out: string[] = []
     while (true) {
@@ -95,6 +96,7 @@ describe('createStreamingResponse', () => {
     }
     const start = Date.now()
     const reader = createStreamingResponse(recording).body?.getReader()
+    if (!reader) throw new Error('expected a body')
     while (true) {
       const { done } = await reader.read()
       if (done) break
@@ -116,6 +118,7 @@ describe('createStreamingResponse', () => {
       },
     }
     const reader = createStreamingResponse(recording).body?.getReader()
+    if (!reader) throw new Error('expected a body')
     const first = await reader.read()
     expect(first.done).toBe(false)
     await reader.cancel()

@@ -326,7 +326,7 @@ describe('setupLLMRecording', () => {
         rec.stop()
       }
       const stored = loadRecordingFile(filepath)
-      const headers = stored?.recordings[0]?.response.headers
+      const headers = stored?.recordings[0]?.response.headers ?? {}
       expect(headers.authorization).toBeUndefined()
       expect(headers['set-cookie']).toBeUndefined()
       expect(headers['x-anthropic-id']).toBe('keep-me')
