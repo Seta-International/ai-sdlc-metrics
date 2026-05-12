@@ -1,5 +1,8 @@
-import { expect, test } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-test('placeholder', () => {
-  expect(true).toBe(true)
+describe('@seta/agent-core barrel', () => {
+  it('package imports cleanly', async () => {
+    const mod = await import('./index')
+    expect(mod).toBeTypeOf('object')
+  })
 })
