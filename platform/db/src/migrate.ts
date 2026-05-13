@@ -14,6 +14,7 @@ export const OWNER_ORDER = [
   'connector_ms365_planner',
   'agent',
   'agent_memory',
+  'agent_workflows',
 ] as const
 
 export type Owner = (typeof OWNER_ORDER)[number]
@@ -28,6 +29,7 @@ const OWNER_PACKAGE_PATH: Record<Owner, string> = {
   connector_ms365_planner: 'modules/connectors/ms365-planner/migrations',
   agent: 'modules/products/agent/migrations',
   agent_memory: 'platform/agent/memory/migrations',
+  agent_workflows: 'platform/agent/workflows/migrations',
 }
 
 export type RunMigrationsOpts = {

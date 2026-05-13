@@ -13,6 +13,7 @@ describe('migration runner', () => {
       'connector_ms365_planner',
       'agent',
       'agent_memory',
+      'agent_workflows',
     ])
   })
 
@@ -21,5 +22,12 @@ describe('migration runner', () => {
     const memIdx = OWNER_ORDER.indexOf('agent_memory')
     expect(agentIdx).toBeGreaterThanOrEqual(0)
     expect(memIdx).toBeGreaterThan(agentIdx)
+  })
+
+  it('places agent_workflows after agent_memory', () => {
+    const memIdx = OWNER_ORDER.indexOf('agent_memory')
+    const wfIdx = OWNER_ORDER.indexOf('agent_workflows')
+    expect(memIdx).toBeGreaterThanOrEqual(0)
+    expect(wfIdx).toBeGreaterThan(memIdx)
   })
 })
