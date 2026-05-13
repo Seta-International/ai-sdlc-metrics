@@ -1,0 +1,28 @@
+{
+  "name": "@seta/agent-workflows",
+  "version": "0.1.0",
+  "description": "Typed workflow DSL with in-memory runner; durable suspend/resume in W2",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --sourcemap",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "license": "Apache-2.0",
+  "type": "module",
+  "private": true,
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@opentelemetry/api": "1.9.1",
+    "@seta/agent-core": "workspace:*",
+    "@seta/middleware": "workspace:*",
+    "@seta/observability": "workspace:*",
+    "@seta/tenant": "workspace:*",
+    "uuid": "14.0.0",
+    "zod": "4.4.3"
+  }
+}
