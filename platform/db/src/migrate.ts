@@ -58,7 +58,13 @@ export async function runMigrations(opts: RunMigrationsOpts): Promise<void> {
       // drizzle-orm 0.45.2's migrator throws a plain Error when meta/_journal.json
       // is missing, so we check up-front rather than parsing error messages.
       if (!existsSync(path.join(migrationsFolder, 'meta', '_journal.json'))) continue
-      await drizzleMigrate(db, { migrationsFolder })
+      // Per-owner migrations table; otherwise drizzle compares folderMillis across
+      // owners and skips a newer owner's older 0000 when a previous owner's 0001
+      // has a higher timestamp.
+      await drizzleMigrate(db, {
+        migrationsFolder,
+        migrationsTable: `__drizzle_migrations_${owner}`,
+      })
     }
   } finally {
     await sql.end()

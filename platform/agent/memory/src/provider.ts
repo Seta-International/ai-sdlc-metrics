@@ -5,7 +5,7 @@ import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import type { Sql } from 'postgres'
 import { actorFromContext } from './audit'
-import { MemoryPersistFailedError, WorkingMemoryTooLargeError } from './errors'
+import { MemoryPersistFailedError } from './errors'
 import { fetchRecallPage, trimToTokenBudget } from './recall'
 import { ensureThread, saveMessages } from './save-turn'
 import { readWorkingMemory, upsertWorkingMemory } from './working-memory'
@@ -164,8 +164,6 @@ export class AgentMemoryProvider implements MemoryProvider {
         )
       })
     } catch (err) {
-      // USER-class errors (cap exceeded) must reach the caller; only wrap SYSTEM failures.
-      if (err instanceof WorkingMemoryTooLargeError) throw err
       throw new MemoryPersistFailedError(err)
     }
   }

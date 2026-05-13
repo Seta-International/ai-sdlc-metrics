@@ -93,7 +93,7 @@
 | Headcount                          | 4.0 FTE (1.5 AG-S + 1.0 AG-F1 + 1.0 AG-F2 + 0.5 FS)               |
 | Raw supply                         | 60 MD (≈ 2.73 BMM)                                                 |
 | AI-assist uplift (committed)       | ×1.25 → **75 effective MD** (≈ 3.41 BMM)                           |
-| Demand (planned WBS)               | **69.5 MD**                                                        |
+| Demand (planned WBS)               | **70.5 MD**                                                        |
 | Utilisation                        | **94% (effective)** — 5.5 MD slack against AI-uplift               |
 | Deploy target                      | Dev docker compose only                                            |
 | Demo                               | Fri 2026-05-29 14:00 — recorded, internal                          |
@@ -268,15 +268,17 @@ No formal training in P1. AG-S is responsible for spreading ADR-level knowledge 
 | 1.7    | P1    | Kernel       | OpenAI `ModelAdapter` implementation (gpt-4o-mini default).                          | AG-F1 | P0  | 1.2      | D03 2026-05-13 | D04 2026-05-14 |      1.5 | Adapter passes `runKernel` test against a recorded OpenAI fixture (no live calls).                                                 |
 | 1.8    | P1    | Kernel       | `@seta/agent-core/testkit`: `setupLLMRecording({name})` via msw.                     | AG-F1 | P0  | 1.4      | D05 2026-05-15 | D06 2026-05-18 |      1.5 | `RECORD=1 pnpm vitest run -t kernel` captures; replay works without `RECORD=1`. Unit + integration green.                            |
 
-##### EP-02 · `@seta/agent-memory` (AG-S, 4 MD, P0)
+##### EP-02 · `@seta/agent-memory` (AG-S, 5 MD, P0)
 
 | WBS ID | Phase | Feature Area | Task Name                                                                            | Role  | Pri | Deps      | Start          | End            | Est (MD) | DoD / Acceptance Criteria                                                                                                          |
 | ------ | ----- | ------------ | ------------------------------------------------------------------------------------ | ----- | --- | --------- | -------------- | -------------- | -------: | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 2.1    | P1    | Memory       | Drizzle schema (`agent_memory.turns`, `agent_memory.working`) + RLS + migration.     | AG-S  | P0  | —         | D02 2026-05-12 | D02 2026-05-12 |      1.0 | Migration generated via `drizzle-kit generate`; `app_tenant_id` RLS policy applied; integration test asserts two tenants see disjoint rows. |
-| 2.2    | P1    | Memory       | `MemoryProvider` impl: `recall(convoId)` / `saveTurn(turn)` / `working.set/get`.     | AG-S  | P0  | 2.1, 1.3  | D11 2026-05-25 | D12 2026-05-26 |      1.5 | Three integration tests green (save → recall returns persisted; working scratchpad survives suspend).                              |
-| 2.3    | P1    | Memory       | Bind real provider in `apps/api/src/main.ts` (replaces in-memory stub).              | AG-S  | P0  | 2.2, 14.3 | D12 2026-05-26 | D12 2026-05-26 |      0.5 | Curl against `/agent/run` returns turn N; next request observes turn N-1 in recall.                                                |
-| 2.4    | P1    | Memory       | ADR-0012 (memory home, RLS posture, multi-turn semantics).                           | AG-S  | P0  | 2.1       | D13 2026-05-27 | D13 2026-05-27 |      0.5 | ADR committed; reviewed by FS (architecture backup).                                                                               |
-| 2.5    | P1    | Memory       | Tenant-isolation correctness fixture (cross-tenant leak test).                       | AG-S  | P0  | 2.2       | D13 2026-05-27 | D13 2026-05-27 |      0.5 | Test: two tenants insert turns; each sees only its own; `SET LOCAL app.tenant_id` enforced.                                          |
+| 2.1    | P1    | Memory       | Drizzle schema (`agent_memory.conversations`, `agent_memory.turns`, `agent_memory.working_memory`) + RLS + migration. | AG-S  | P0  | —         | D02 2026-05-12 | D02 2026-05-12 |      1.0 | Migration generated via `drizzle-kit generate` (no hand-edit of `0000`); 3 tables have `ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY`; per-table `tenant_isolation_*` policy filters by `current_setting('app.tenant_id', true)::uuid` for `tenant_user` role; integration test asserts two tenants see disjoint rows. |
+| 2.2    | P1    | Memory       | `MemoryProvider` impl: 4 hooks `recall` / `saveTurn` / `getWorkingMemory` / `updateWorkingMemory` via `withTenant`. | AG-S  | P0  | 2.1, 1.3  | D11 2026-05-25 | D12 2026-05-26 |      1.5 | Four hooks implemented; `recall` trims to `recallTokenBudget` (default 4k tokens) via `js-tiktoken`; `saveTurn` idempotent on `(thread_id, id)` replay; all persistence through `withTenant` (no raw `sql` queries); integration tests cover save → recall round-trip, working scratchpad survives across turns, token-budget trim keeps last user message. |
+| 2.3    | P1    | Memory       | Bind real provider in `apps/api/src/main.ts` (replaces `NullMemoryProvider` stub).   | AG-S  | P0  | 2.2, 14.3 | D12 2026-05-26 | D12 2026-05-26 |      0.5 | Composition root binds `AgentMemoryProvider`; `NullMemoryProvider` kept only for `@seta/agent-core` unit tests + testkit; curl against `/agent/run` returns turn N; next request observes turn N-1 in recall. |
+| 2.4    | P1    | Memory       | ADR-0012 (memory home, RLS posture, multi-turn semantics, P1 override rationale).    | AG-S  | P0  | 2.1       | D13 2026-05-27 | D13 2026-05-27 |      0.5 | ADR committed; covers schema-per-module, no cross-schema FK, P1 override (own package vs folding into `@seta/agent`); reviewed by FS (architecture backup). |
+| 2.5    | P1    | Memory       | Tenant-isolation correctness fixture (cross-tenant leak test).                       | AG-S  | P0  | 2.2       | D13 2026-05-27 | D13 2026-05-27 |      0.5 | Test: two tenants insert turns; each sees only its own via `tenant_user` role; `withTenant` + `set_config('app.tenant_id', $1, true)` enforced; cross-tenant UPDATE blocked by RLS `WITH CHECK`. |
+| 2.6    | P1    | Memory       | `@seta/db` `OWNER_ORDER` registration + per-owner migrations table.                  | AG-S  | P0  | 2.1       | D02 2026-05 | D02 2026-05 |      0.5 | `OWNER_ORDER` in `platform/db/src/migrate.ts` includes `agent_memory` after `agent`; per-owner `__drizzle_migrations_<owner>` table prevents cross-owner timestamp conflicts; `migrate.test.ts` asserts the new entry; `pnpm migrate` applies all owners on fresh volume. |
+| 2.7    | P1    | Memory       | Audit log integration: `recordAudit` from all 4 provider hooks.                      | AG-S  | P0  | 2.2       | D12 2026-05-26 | D12 2026-05-26 |      0.5 | All 4 hooks call `recordAudit` with operations `memory.recall` / `memory.save_turn` / `memory.get_working_memory` / `memory.update_working_memory`; integration test asserts audit rows visible in `audit.audit_log` post-call with correct `tenant_id` + `actor`. |
 
 ##### EP-03 · `@seta/agent-workflows` (AG-S, 4 MD, P0)
 
@@ -407,7 +409,7 @@ No formal training in P1. AG-S is responsible for spreading ADR-level knowledge 
 | Epic   | Stream                                                  | Tasks | Est (MD) |
 | ------ | ------------------------------------------------------- | ----: | -------: |
 | EP-01  | `@seta/agent-core` kernel                               |     8 |   10.0   |
-| EP-02  | `@seta/agent-memory`                                    |     5 |    4.0   |
+| EP-02  | `@seta/agent-memory`                                    |     7 |    5.0   |
 | EP-03  | `@seta/agent-workflows`                                 |     5 |    4.0   |
 | EP-04  | `@seta/agent-chunking`                                  |     3 |    2.0   |
 | EP-05  | `@seta/agent-embeddings`                                |     3 |    2.0   |
@@ -421,7 +423,7 @@ No formal training in P1. AG-S is responsible for spreading ADR-level knowledge 
 | EP-13  | Teams channel                                           |     6 |    4.5   |
 | EP-14  | `apps/api` composition                                  |     5 |    3.0   |
 | EP-15  | Demo + handover                                         |     4 |    2.0   |
-| **TOTAL** |                                                      | **72** | **69.5** |
+| **TOTAL** |                                                      | **74** | **70.5** |
 
 #### 5.2.2 Schedule allocation (Master Timeline — daily Gantt)
 

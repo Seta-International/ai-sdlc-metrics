@@ -2,7 +2,7 @@ import postgres from 'postgres'
 import { afterAll, describe, expect, it } from 'vitest'
 import { createJitMapper } from './jit-mapper'
 
-const URL = process.env.DATABASE_URL ?? 'postgres://seta:dev@localhost:5432/seta'
+const URL = process.env.DATABASE_URL ?? 'postgres://seta:dev@localhost:5433/seta'
 
 describe('JIT mapper', () => {
   const sql = postgres(URL, { max: 1, prepare: false })
