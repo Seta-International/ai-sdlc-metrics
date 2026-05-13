@@ -20,7 +20,7 @@ export function getQueue(tenantId: string): PQueue {
 }
 
 export async function enqueueRun(tenantId: string, fn: () => Promise<void>): Promise<void> {
-  await getQueue(tenantId).add(fn, { throwOnTimeout: false })
+  await getQueue(tenantId).add(fn)
 }
 
 export function getQueueSize(tenantId: string): number {

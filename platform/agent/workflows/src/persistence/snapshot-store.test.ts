@@ -11,6 +11,7 @@ describe('snapshot-store', () => {
       runId: 'r',
       tenantId: 't',
       workflowId: 'w',
+      runInput: {},
       serializedStepGraph: [{ kind: 'single', stepId: 's1' }],
       activePaths: [0],
       suspendedPaths: {},
