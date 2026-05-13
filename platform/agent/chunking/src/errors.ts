@@ -16,8 +16,8 @@ export class ChunkingError extends KernelError {
       domain: 'KERNEL',
       category: args.category ?? 'SYSTEM',
       message: args.message,
-      details: args.details,
-      cause: args.cause,
+      ...(args.details !== undefined ? { details: args.details } : {}),
+      ...(args.cause !== undefined ? { cause: args.cause } : {}),
     })
   }
 }
