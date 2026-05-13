@@ -102,7 +102,8 @@ export const onError: ErrorHandler = (err, c) => {
       { 'Content-Type': 'application/problem+json' },
     )
   }
-  // Unknown — never leak internals
+  // Unknown — log the real error, never leak internals to the client
+  console.error('[onError] unhandled error', err)
   return c.json(
     {
       type: `${ERROR_TYPE_BASE}/internal`,
