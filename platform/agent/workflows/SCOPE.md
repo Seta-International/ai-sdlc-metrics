@@ -88,7 +88,7 @@ The package also exports its Drizzle schema (`agentWorkflowsSchema`, `workflowSn
 ## Imports (when implementation lands — P1)
 
 - **Allowed internal:** `@seta/agent-core` (`Run` / `RunStatus` types, `KernelError` subclasses), `@seta/db` (pool + `withTenant` + role exports + migration runner), `@seta/tenant` (context reads — workflows run under the originating tenant), `@seta/audit` (record suspend / resume / step transitions), `@seta/observability` (logger + OTel spans for step boundaries).
-- **Forbidden:** any `modules/*` package, `apps/*`, `@seta/middleware` (this is a library, not a route module). No model SDKs.
+- **Forbidden:** any `modules/*` package, `apps/*`. `@seta/middleware` route helpers (Hono / OpenAPI) are forbidden — this is a library, not a route module. The `@seta/middleware/errors` subpath (`DomainError` base) is allowed and is the canonical project contract per CLAUDE.md. No model SDKs.
 - **External (pinned per setup.md §13):** `zod@4.4.3`, `drizzle-orm@0.45.2`, `postgres@3.4.9` (transitively via `@seta/db`), `p-queue@9.2.0`, `uuid` (or `uuid@14.0.0` v7) for run id generation.
 
 ## Patterns to follow

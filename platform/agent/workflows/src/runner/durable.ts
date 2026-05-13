@@ -149,55 +149,55 @@ export async function resumeDurable<TOut>(
   // the awaiter — so a concurrent resume caller cannot clobber the winner's
   // result via a shared deferred.
 
-  let resumeStepId: string
-  let startAtNodeIndex: number
-  let stepInput: unknown
+  const { resumeStepId, startAtNodeIndex, stepInput } = await withTenant(
+    sql,
+    tenantId,
+    async (tx) => {
+      const acquired = await tryAcquireRunLock(tx, args.runId)
+      if (!acquired) throw new WorkflowResumeContended(args.runId)
 
-  ;({ resumeStepId, startAtNodeIndex, stepInput } = await withTenant(sql, tenantId, async (tx) => {
-    const acquired = await tryAcquireRunLock(tx, args.runId)
-    if (!acquired) throw new WorkflowResumeContended(args.runId)
+      const snap = await readSnapshot(tx, args.runId)
+      if (!snap) throw new WorkflowSnapshotNotFound(args.runId)
+      if (snap.workflowId !== def.id) throw new WorkflowMismatch(def.id, snap.workflowId)
+      if (snap.status !== 'suspended') throw new WorkflowNotSuspended(args.runId, snap.status)
+      const ref = snap.resumeLabels[args.label]
+      if (!ref) throw new WorkflowResumeLabelUnknown(args.label)
 
-    const snap = await readSnapshot(tx, args.runId)
-    if (!snap) throw new WorkflowSnapshotNotFound(args.runId)
-    if (snap.workflowId !== def.id) throw new WorkflowMismatch(def.id, snap.workflowId)
-    if (snap.status !== 'suspended') throw new WorkflowNotSuspended(args.runId, snap.status)
-    const ref = snap.resumeLabels[args.label]
-    if (!ref) throw new WorkflowResumeLabelUnknown(args.label)
+      const nodeIndex = ref.executionPath[0] ?? 0
+      const input = deriveStepInput(snap, nodeIndex)
 
-    const nodeIndex = ref.executionPath[0] ?? 0
-    const input = deriveStepInput(snap, nodeIndex)
+      const nextSuspended = { ...snap.suspendedPaths }
+      delete nextSuspended[ref.stepId]
+      const nextResumeLabels = { ...snap.resumeLabels }
+      delete nextResumeLabels[args.label]
 
-    const nextSuspended = { ...snap.suspendedPaths }
-    delete nextSuspended[ref.stepId]
-    const nextResumeLabels = { ...snap.resumeLabels }
-    delete nextResumeLabels[args.label]
+      await updateSnapshot(tx, args.runId, {
+        status: 'running',
+        suspendedPaths: nextSuspended,
+        resumeLabels: nextResumeLabels,
+        activePaths: [nodeIndex],
+      })
 
-    await updateSnapshot(tx, args.runId, {
-      status: 'running',
-      suspendedPaths: nextSuspended,
-      resumeLabels: nextResumeLabels,
-      activePaths: [nodeIndex],
-    })
+      await recordAudit(tx as unknown as Sql, {
+        tenantId,
+        actor: actorFromContext(),
+        operation: 'workflow.resumed',
+        resource: { type: 'workflow_run', ids: [args.runId] },
+        result: 'ok',
+        metadata: {
+          workflowId: def.id,
+          label: args.label,
+          payloadHash: hashStepInput(args.payload ?? null).slice(0, 32),
+        },
+      })
 
-    await recordAudit(tx as unknown as Sql, {
-      tenantId,
-      actor: actorFromContext(),
-      operation: 'workflow.resumed',
-      resource: { type: 'workflow_run', ids: [args.runId] },
-      result: 'ok',
-      metadata: {
-        workflowId: def.id,
-        label: args.label,
-        payloadHash: hashStepInput(args.payload ?? null).slice(0, 32),
-      },
-    })
-
-    return {
-      resumeStepId: ref.stepId,
-      startAtNodeIndex: nodeIndex,
-      stepInput: input,
-    }
-  }))
+      return {
+        resumeStepId: ref.stepId,
+        startAtNodeIndex: nodeIndex,
+        stepInput: input,
+      }
+    },
+  )
 
   // Phase 2: we won the lock. Register awaiter, enqueue.
   if (opts.await) registerAwaiter(args.runId)
