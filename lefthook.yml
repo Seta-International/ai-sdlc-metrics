@@ -4,13 +4,13 @@ pre-commit:
   commands:
     biome:
       glob: "*.{ts,tsx,js,json}"
-      run: ./node_modules/.bin/biome check --write {staged_files}
+      run: pnpm biome check --write {staged_files}
       stage_fixed: true
 
 pre-push:
   parallel: true
   commands:
     typecheck:
-      run: ./node_modules/.bin/turbo run typecheck --filter='...[origin/main]'
+      run: pnpm turbo run typecheck --filter='...[origin/main]'
     test:
-      run: ./node_modules/.bin/turbo run test:unit --filter='...[origin/main]'
+      run: pnpm turbo run test:unit --filter='...[origin/main]'
