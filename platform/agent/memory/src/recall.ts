@@ -9,7 +9,8 @@ function countTokens(m: KernelMessage): number {
 
 function findLastIndex<T>(arr: T[], pred: (t: T) => boolean): number {
   for (let i = arr.length - 1; i >= 0; i--) {
-    if (pred(arr[i]!)) return i
+    const v = arr[i]
+    if (v !== undefined && pred(v)) return i
   }
   return -1
 }
@@ -26,7 +27,8 @@ export function trimToTokenBudget(
   const floor = lastUserIdx >= 0 ? lastUserIdx : msgs.length - 1
   let i = 0
   while (total > budget && i < floor) {
-    total -= sizes[i]!
+    const size = sizes[i] ?? 0
+    total -= size
     i++
     dropped++
   }
