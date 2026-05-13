@@ -2,6 +2,7 @@ import { describe, expectTypeOf, it } from 'vitest'
 import { z } from 'zod'
 import { createWorkflow } from '../create-workflow'
 import { defineStep } from '../define-step'
+import type { RunResult } from './result'
 
 const stepIn = defineStep({
   id: 'in',
@@ -60,7 +61,7 @@ describe('workflow type tests', () => {
       .commit()
 
     expectTypeOf(wf.run).parameter(0).toEqualTypeOf<{ x: number }>()
-    expectTypeOf(wf.run).returns.toEqualTypeOf<Promise<{ z: string }>>()
+    expectTypeOf(wf.run).returns.toEqualTypeOf<Promise<RunResult<{ z: string }>>>()
   })
 
   it('rejects a .then() whose input schema does not match upstream output', () => {
@@ -88,7 +89,7 @@ describe('workflow type tests', () => {
       .commit()
 
     expectTypeOf(wf.run).returns.toEqualTypeOf<
-      Promise<{ a: { aOut: number }; b: { bOut: string } }>
+      Promise<RunResult<{ a: { aOut: number }; b: { bOut: string } }>>
     >()
   })
 

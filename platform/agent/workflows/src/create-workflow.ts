@@ -1,14 +1,24 @@
 import type { ZodType } from 'zod'
 import { WorkflowBuildError } from './errors'
 import { type GraphNode, parallel as parallelNode, single } from './graph'
-import { type RunInvocationOptions, runWorkflow } from './runner/in-memory'
+import { resumeDurable, runDurable } from './runner/durable'
 import type { ParallelOutput } from './types/parallel-output'
+import type { RunResult } from './types/result'
 import type { Step } from './types/step'
 
 export interface CreateWorkflowOptions<TIn, TOut> {
   id: string
   inputSchema: ZodType<TIn>
   outputSchema: ZodType<TOut>
+}
+
+export interface RunOpts {
+  signal?: AbortSignal
+}
+
+export interface ResumeParams<TPayload = unknown> {
+  label: string
+  payload?: TPayload
 }
 
 export interface Workflow<TInit, TCurrent, TFinal> {
@@ -25,7 +35,18 @@ export interface Workflow<TInit, TCurrent, TFinal> {
 
 export interface BuiltWorkflow<TInit, TFinal> {
   readonly id: string
-  run(input: TInit, opts?: { signal?: AbortSignal }): Promise<TFinal>
+  run(input: TInit, opts?: RunOpts): Promise<RunResult<TFinal>>
+  runAsync(input: TInit, opts?: RunOpts): Promise<{ runId: string }>
+  resume<TPayload = unknown>(
+    runId: string,
+    params: ResumeParams<TPayload>,
+    opts?: RunOpts,
+  ): Promise<RunResult<TFinal>>
+  resumeAsync<TPayload = unknown>(
+    runId: string,
+    params: ResumeParams<TPayload>,
+    opts?: RunOpts,
+  ): Promise<{ runId: string }>
   then(_: never): never
   parallel(_: never): never
   commit(_: never): never
@@ -82,14 +103,52 @@ function builderFromState<TInit, TCurrent, TFinal>(
 }
 
 function buildFinal<TInit, TFinal>(state: BuilderState): BuiltWorkflow<TInit, TFinal> {
+  const def = { id: state.workflowId, nodes: state.nodes }
   const built: BuiltWorkflow<TInit, TFinal> = {
     id: state.workflowId,
-    async run(input: TInit, opts?: RunInvocationOptions): Promise<TFinal> {
-      return await runWorkflow<TInit, TFinal>(
-        { workflowId: state.workflowId, nodes: state.nodes },
-        input,
-        opts,
+    async run(input, opts) {
+      const r = await runDurable<TFinal>(def, input, {
+        ...(opts?.signal ? { signal: opts.signal } : {}),
+        await: true,
+      })
+      return r as RunResult<TFinal>
+    },
+    async runAsync(input, opts) {
+      const r = await runDurable<TFinal>(def, input, {
+        ...(opts?.signal ? { signal: opts.signal } : {}),
+        await: false,
+      })
+      return r as { runId: string }
+    },
+    async resume(runId, params, opts) {
+      const r = await resumeDurable<TFinal>(
+        def,
+        {
+          runId,
+          label: params.label,
+          ...(params.payload !== undefined ? { payload: params.payload } : {}),
+        },
+        {
+          ...(opts?.signal ? { signal: opts.signal } : {}),
+          await: true,
+        },
       )
+      return r as RunResult<TFinal>
+    },
+    async resumeAsync(runId, params, opts) {
+      const r = await resumeDurable<TFinal>(
+        def,
+        {
+          runId,
+          label: params.label,
+          ...(params.payload !== undefined ? { payload: params.payload } : {}),
+        },
+        {
+          ...(opts?.signal ? { signal: opts.signal } : {}),
+          await: false,
+        },
+      )
+      return r as { runId: string }
     },
     // biome-ignore lint/suspicious/noThenProperty: DSL — .then() is the chained-step operator
     then() {
