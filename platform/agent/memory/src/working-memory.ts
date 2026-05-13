@@ -19,7 +19,7 @@ export async function readWorkingMemory(
     SELECT resource_id FROM agent_memory.threads WHERE id = ${threadId} LIMIT 1
   `
   const t = trows[0]
-  if (!t || !t.resource_id) return { resourceId: null, workingMemory: null }
+  if (!t?.resource_id) return { resourceId: null, workingMemory: null }
 
   const rrows = await tx<Array<{ working_memory: string | null }>>`
     SELECT working_memory FROM agent_memory.resources WHERE id = ${t.resource_id} LIMIT 1
@@ -43,7 +43,7 @@ export async function upsertWorkingMemory(
     SELECT resource_id FROM agent_memory.threads WHERE id = ${threadId} LIMIT 1
   `
   const t = trows[0]
-  if (!t || !t.resource_id) {
+  if (!t?.resource_id) {
     return { skipped: true, reason: 'no_resource_id' }
   }
 
