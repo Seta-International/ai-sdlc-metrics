@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createPool, withTenant } from './client'
 
-const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://seta:dev@localhost:5432/seta'
+const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://seta:dev@localhost:5433/seta'
 
 describe('withTenant', () => {
   // max: 1 guarantees the post-withTenant probe lands on the same backend as the
