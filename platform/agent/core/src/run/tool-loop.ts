@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { SpanStatusCode, trace } from '@opentelemetry/api'
 import { AgentError } from '../errors'
 import type {
@@ -17,6 +18,10 @@ import { runModelStepWithFallback } from './fallback'
 import { ProcessorAbortSignal, runProcessOutputStep } from './processors'
 
 const DEFAULT_MAX_STEPS = 16
+
+function stampId(m: KernelMessage): KernelMessage {
+  return m.id ? m : { ...m, id: randomUUID() }
+}
 
 export interface ToolLoopArgs {
   cfg: AgentConfig
@@ -72,8 +77,9 @@ export async function* runToolLoop(
       modelStepCount++
       accumulatedSteps.push(modelStep)
       if (modelStep.message) {
-        messages = [...messages, modelStep.message]
-        addedMessages.push(modelStep.message)
+        const stamped = stampId(modelStep.message)
+        messages = [...messages, stamped]
+        addedMessages.push(stamped)
       }
       if (opts.processors?.length) {
         try {
@@ -83,8 +89,9 @@ export async function* runToolLoop(
             modelStep,
           )
           if (rewritten.message && rewritten.message !== modelStep.message) {
-            messages[messages.length - 1] = rewritten.message
-            addedMessages[addedMessages.length - 1] = rewritten.message
+            const stamped = stampId(rewritten.message)
+            messages[messages.length - 1] = stamped
+            addedMessages[addedMessages.length - 1] = stamped
           }
         } catch (err) {
           if (err instanceof ProcessorAbortSignal) {
@@ -120,8 +127,9 @@ export async function* runToolLoop(
       for (const step of toolSteps) {
         accumulatedSteps.push(step)
         if (step.message) {
-          messages = [...messages, step.message]
-          addedMessages.push(step.message)
+          const stamped = stampId(step.message)
+          messages = [...messages, stamped]
+          addedMessages.push(stamped)
         }
         if (opts.processors?.length) {
           try {
@@ -131,8 +139,9 @@ export async function* runToolLoop(
               step,
             )
             if (rewritten.message && rewritten.message !== step.message) {
-              messages[messages.length - 1] = rewritten.message
-              addedMessages[addedMessages.length - 1] = rewritten.message
+              const stamped = stampId(rewritten.message)
+              messages[messages.length - 1] = stamped
+              addedMessages[addedMessages.length - 1] = stamped
             }
           } catch (err) {
             if (err instanceof ProcessorAbortSignal) {

@@ -188,6 +188,70 @@ describe('runToolLoop — stopWhen', () => {
   })
 })
 
+describe('runToolLoop — message id stamping', () => {
+  it('stamps a uuid id on every added message (assistant + tool)', async () => {
+    const adapters = createAdapterRegistry()
+    adapters.register(
+      'f',
+      new FakeAdapter([
+        {
+          chunks: [
+            { type: 'tool_call', toolCallId: 't1', name: 'echo', args: { x: 1 } },
+            { type: 'finish', reason: 'tool_calls' },
+          ],
+          finalMessage: {
+            role: 'assistant',
+            content: [{ type: 'tool_use', toolCallId: 't1', name: 'echo', args: { x: 1 } }],
+          },
+        },
+        {
+          chunks: [
+            { type: 'text', delta: 'done' },
+            { type: 'finish', reason: 'stop' },
+          ],
+        },
+      ]),
+    )
+    const tool = makeTool('echo', async (input) => ({ ok: true, value: input }))
+    const cfg: AgentConfig = { model: 'f/x' }
+    const { ret } = await drain(
+      runToolLoop({ cfg, ctx: makeCtx(), opts: { adapters }, initialMessages: [], tools: [tool] }),
+    )
+    expect(ret.length).toBeGreaterThan(0)
+    const uuidV4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    for (const m of ret) {
+      expect(typeof m.id).toBe('string')
+      expect(m.id).toMatch(uuidV4)
+    }
+    // ids must be distinct
+    const ids = ret.map((m) => m.id)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('preserves an id supplied by the adapter (does not regenerate)', async () => {
+    const presetId = '11111111-1111-4111-8111-111111111111'
+    const adapters = createAdapterRegistry()
+    adapters.register(
+      'f',
+      new FakeAdapter([
+        {
+          chunks: [{ type: 'finish', reason: 'stop' }],
+          finalMessage: {
+            id: presetId,
+            role: 'assistant',
+            content: [{ type: 'text', text: 'hi' }],
+          },
+        },
+      ]),
+    )
+    const cfg: AgentConfig = { model: 'f/x' }
+    const { ret } = await drain(
+      runToolLoop({ cfg, ctx: makeCtx(), opts: { adapters }, initialMessages: [], tools: [] }),
+    )
+    expect(ret[0]?.id).toBe(presetId)
+  })
+})
+
 describe('runToolLoop — ADAPTER_PROTOCOL_VIOLATION', () => {
   it('throws when finishReason=tool_calls but no tool_use blocks', async () => {
     const adapters = createAdapterRegistry()
