@@ -88,7 +88,10 @@ export function createPlanCommitTool(
           token: accessToken,
           method: 'POST',
           path: '/planner/plans',
-          body: { owner: payload.ownerGroupId, title: payload.title },
+          body: {
+            container: { url: `https://graph.microsoft.com/v1.0/groups/${payload.ownerGroupId}` },
+            title: payload.title,
+          },
           actor: { type: 'user', userId },
           connectorId: 'ms365-planner',
         })
