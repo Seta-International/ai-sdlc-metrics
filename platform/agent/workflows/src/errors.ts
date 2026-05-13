@@ -75,3 +75,69 @@ export class WorkflowBailed extends WorkflowError {
     super(500, message, { type: `${ERROR_TYPE_BASE}/bailed` })
   }
 }
+
+export class WorkflowSuspended extends WorkflowError {
+  public stepId: string | null = null
+  constructor(
+    public readonly resumeLabel: string,
+    public readonly payload?: unknown,
+  ) {
+    super(500, `workflow suspended: ${resumeLabel}`, {
+      type: `${ERROR_TYPE_BASE}/suspended`,
+    })
+  }
+}
+
+export class WorkflowResumeContended extends WorkflowError {
+  constructor(runId: string) {
+    super(409, `resume contended: ${runId}`, {
+      type: `${ERROR_TYPE_BASE}/resume-contended`,
+      detail: { runId },
+    })
+  }
+}
+
+export class WorkflowSnapshotNotFound extends WorkflowError {
+  constructor(runId: string) {
+    super(404, `snapshot not found: ${runId}`, {
+      type: `${ERROR_TYPE_BASE}/snapshot-not-found`,
+      detail: { runId },
+    })
+  }
+}
+
+export class WorkflowNotSuspended extends WorkflowError {
+  constructor(runId: string, status: string) {
+    super(409, `workflow not suspended: ${runId} (status=${status})`, {
+      type: `${ERROR_TYPE_BASE}/not-suspended`,
+      detail: { runId, status },
+    })
+  }
+}
+
+export class WorkflowMismatch extends WorkflowError {
+  constructor(expected: string, actual: string) {
+    super(409, `workflow id mismatch: expected ${expected}, got ${actual}`, {
+      type: `${ERROR_TYPE_BASE}/mismatch`,
+      detail: { expected, actual },
+    })
+  }
+}
+
+export class WorkflowResumeLabelUnknown extends WorkflowError {
+  constructor(label: string) {
+    super(400, `resume label unknown: ${label}`, {
+      type: `${ERROR_TYPE_BASE}/resume-label-unknown`,
+      detail: { label },
+    })
+  }
+}
+
+export class WorkflowNotRegistered extends WorkflowError {
+  constructor(id: string) {
+    super(500, `workflow not registered: ${id}`, {
+      type: `${ERROR_TYPE_BASE}/not-registered`,
+      detail: { id },
+    })
+  }
+}

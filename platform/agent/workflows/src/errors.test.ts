@@ -7,6 +7,13 @@ import {
   WorkflowBailed,
   WorkflowBuildError,
   WorkflowError,
+  WorkflowMismatch,
+  WorkflowNotRegistered,
+  WorkflowNotSuspended,
+  WorkflowResumeContended,
+  WorkflowResumeLabelUnknown,
+  WorkflowSnapshotNotFound,
+  WorkflowSuspended,
 } from './errors'
 
 describe('WorkflowError hierarchy', () => {
@@ -53,5 +60,26 @@ describe('WorkflowError hierarchy', () => {
     const e = new WorkflowBailed('done early')
     expect(e).toBeInstanceOf(WorkflowError)
     expect(e.message).toBe('done early')
+  })
+})
+
+describe('W2 error classes', () => {
+  it('WorkflowSuspended carries resumeLabel + payload + extends DomainError', () => {
+    const err = new WorkflowSuspended('approve', { ok: true })
+    expect(err).toBeInstanceOf(DomainError)
+    expect(err.resumeLabel).toBe('approve')
+    expect(err.payload).toEqual({ ok: true })
+    expect(err.stepId).toBeNull()
+  })
+
+  it.each<[Error, number]>([
+    [new WorkflowResumeContended('r'), 409],
+    [new WorkflowSnapshotNotFound('r'), 404],
+    [new WorkflowNotSuspended('r', 'running'), 409],
+    [new WorkflowMismatch('a', 'b'), 409],
+    [new WorkflowResumeLabelUnknown('x'), 400],
+    [new WorkflowNotRegistered('w'), 500],
+  ])('%s has expected status %i', (err, status) => {
+    expect((err as DomainError).problem.status).toBe(status)
   })
 })
