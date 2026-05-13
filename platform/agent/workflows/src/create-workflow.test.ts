@@ -74,3 +74,49 @@ describe('createWorkflow builder', () => {
     ).toThrow(/at least one step required/i)
   })
 })
+
+describe('createWorkflow .parallel()', () => {
+  const a = defineStep({
+    id: 'a',
+    inputSchema: z.object({ x: z.number() }),
+    outputSchema: z.object({ a: z.number() }),
+    async execute(input) {
+      return { a: input.x + 1 }
+    },
+  })
+  const b = defineStep({
+    id: 'b',
+    inputSchema: z.object({ x: z.number() }),
+    outputSchema: z.object({ b: z.number() }),
+    async execute(input) {
+      return { b: input.x + 2 }
+    },
+  })
+
+  it('accepts .parallel() and commits', () => {
+    const wf = createWorkflow({
+      id: 'wf.parallel',
+      inputSchema: z.object({ x: z.number() }),
+      outputSchema: z.object({ a: z.number(), b: z.number() }) as unknown as z.ZodType<{
+        a: { a: number }
+        b: { b: number }
+      }>,
+    })
+      .parallel([a, b])
+      .commit()
+
+    expect(wf.id).toBe('wf.parallel')
+  })
+
+  it('throws on duplicate id between chained step and parallel branches', () => {
+    expect(() =>
+      createWorkflow({
+        id: 'wf.dup-par',
+        inputSchema: z.object({ x: z.number() }),
+        outputSchema: z.unknown(),
+      })
+        .then(a)
+        .parallel([a, b]),
+    ).toThrow(/duplicate step id/i)
+  })
+})

@@ -1,6 +1,6 @@
 import type { ZodType } from 'zod'
 import { WorkflowBuildError } from './errors'
-import { type GraphNode, single } from './graph'
+import { type GraphNode, parallel as parallelNode, single } from './graph'
 import type { ParallelOutput } from './types/parallel-output'
 import type { Step } from './types/step'
 
@@ -65,8 +65,11 @@ function builderFromState<TInit, TCurrent, TFinal>(
       guardDuplicate(state.workflowId, collectIds(state.nodes), [step.id])
       return builderFromState({ ...state, nodes: [...state.nodes, single(step)] })
     },
-    parallel(_steps) {
-      throw new WorkflowBuildError(`workflow ${state.workflowId}: parallel() not implemented yet`)
+    parallel(steps) {
+      const branchIds = steps.map((s) => s.id)
+      guardDuplicate(state.workflowId, collectIds(state.nodes), branchIds)
+      const node = parallelNode(steps as unknown as ReadonlyArray<Step<unknown, unknown, string>>)
+      return builderFromState({ ...state, nodes: [...state.nodes, node] })
     },
     commit() {
       if (state.nodes.length === 0) {
