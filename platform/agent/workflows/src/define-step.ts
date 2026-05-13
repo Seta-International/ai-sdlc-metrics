@@ -1,11 +1,12 @@
 import type { ZodType } from 'zod'
-import type { Step, StepExecuteFn } from './types/step'
+import type { RetryPolicy, Step, StepExecuteFn } from './types/step'
 
 export interface DefineStepOptions<TIn, TOut, TId extends string> {
   id: TId
   inputSchema: ZodType<TIn>
   outputSchema: ZodType<TOut>
   execute: StepExecuteFn<TIn, TOut>
+  retry?: RetryPolicy
 }
 
 export function defineStep<TIn, TOut, TId extends string>(
@@ -16,5 +17,6 @@ export function defineStep<TIn, TOut, TId extends string>(
     inputSchema: opts.inputSchema,
     outputSchema: opts.outputSchema,
     execute: opts.execute,
+    ...(opts.retry ? { retry: opts.retry } : {}),
   } as Step<TIn, TOut, TId>
 }

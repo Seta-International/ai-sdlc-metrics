@@ -7,6 +7,7 @@ import {
   StepInputValidationError,
   StepOutputValidationError,
   WorkflowBailed,
+  WorkflowSuspended,
 } from '../errors'
 import type { Step, StepCtx } from '../types/step'
 
@@ -17,6 +18,7 @@ export interface RunContext {
   readonly logger: Logger
   readonly tracer: Tracer
   readonly signal: AbortSignal
+  readonly resumePayload?: unknown
 }
 
 function hashInput(value: unknown): string {
@@ -54,8 +56,12 @@ export async function executeStep<TIn, TOut, TId extends string>(
     tenantId: run.tenantId,
     logger: stepLogger,
     signal: run.signal,
+    ...(run.resumePayload !== undefined ? { resumePayload: run.resumePayload } : {}),
     bail(reason) {
       throw new WorkflowBailed(reason ?? 'workflow bailed')
+    },
+    suspend(opts) {
+      throw new WorkflowSuspended(opts.resumeLabel, opts.payload)
     },
   }
 
@@ -70,6 +76,12 @@ export async function executeStep<TIn, TOut, TId extends string>(
     try {
       rawOutput = await step.execute(input, ctx)
     } catch (err) {
+      if (err instanceof WorkflowSuspended) {
+        err.stepId = step.id
+        span.setStatus({ code: SpanStatusCode.OK })
+        span.end()
+        throw err
+      }
       if (err instanceof WorkflowBailed) {
         span.setStatus({ code: SpanStatusCode.OK })
         span.end()
