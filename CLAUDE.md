@@ -49,7 +49,7 @@ For "add library X" without a known pin, run `pnpm view <pkg> version` and propo
 
 ## Schema-driven — always generate, never hand-write
 
-- **Drizzle schema → migration SQL** via `drizzle-kit generate`. Never hand-edit `migrations/*.sql`; fix the schema and regenerate.
+- **Drizzle schema → migration SQL** via `drizzle-kit generate`. Never hand-edit `migrations/*.sql`; fix the schema and regenerate. For migrations the schema cannot express (`FORCE ROW LEVEL SECURITY`, `GRANT`, `CREATE EXTENSION`, raw DDL), generate the skeleton with `drizzle-kit generate --custom --name <slug>` so the journal + snapshot stay in sync — never hand-create them or `cp` snapshots.
 - **Schema-per-module (DDD).** Each owner package holds its own Drizzle schema file + `drizzle.config.ts` (with `schemaFilter`) + `migrations/` dir. `@seta/db` owns no application tables — it provides pool, `withTenant`, role exports, and the top-level migration runner that applies owners in dependency order. **No cross-schema foreign keys**; cross-context references by ID only (`tenant_id` is the universal correlation key).
 - **Zod schema → TS types** via `z.infer<typeof X>`. Never maintain a parallel `interface`.
 - **Drizzle table → row types** via `$inferSelect` / `$inferInsert`.
