@@ -1,3 +1,5 @@
+export type { Chunk } from './chunk-text'
+export { chunkText } from './chunk-text'
 export { ChunkingError } from './errors'
 export type { ChunkOptions, SupportedModel } from './options'
 export {
