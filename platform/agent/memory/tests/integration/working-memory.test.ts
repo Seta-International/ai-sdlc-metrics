@@ -1,16 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { withTenant } from '@seta/db'
 import { tenantContext } from '@seta/tenant'
-import postgres from 'postgres'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { WorkingMemoryTooLargeError } from '../../src/errors'
 import { ensureThread } from '../../src/save-turn'
-import {
-  readWorkingMemory,
-  upsertWorkingMemory,
-  WORKING_MEMORY_BYTE_CAP,
-} from '../../src/working-memory'
-import { ensureMigrations, TEST_DATABASE_URL, testSql, truncateMemoryTables } from './_helpers'
+import { readWorkingMemory, upsertWorkingMemory } from '../../src/working-memory'
+import { ensureMigrations, testSql, truncateMemoryTables } from './_helpers'
 
 const TENANT = '00000000-0000-0000-0000-000000000001'
 
@@ -72,33 +66,5 @@ describe('working memory', () => {
         expect(r).toEqual({ skipped: true, reason: 'no_resource_id' })
       })
     })
-  })
-
-  it('rejects 8193 bytes with WorkingMemoryTooLargeError', async () => {
-    const threadId = randomUUID()
-    await tenantContext.run({ tenantId: TENANT, userId: 'alice' }, async () => {
-      await withTenant(testSql(), TENANT, async (tx) => {
-        await ensureThread(tx, TENANT, threadId)
-        await expect(
-          upsertWorkingMemory(tx, TENANT, threadId, 'a'.repeat(WORKING_MEMORY_BYTE_CAP + 1)),
-        ).rejects.toBeInstanceOf(WorkingMemoryTooLargeError)
-      })
-    })
-  })
-
-  it('CHECK constraint backstops the cap when bypassed', async () => {
-    // Direct write as platform_admin (RLS bypass) — must still hit the CHECK.
-    const admin = postgres(TEST_DATABASE_URL, { max: 1, prepare: false })
-    try {
-      await admin.unsafe('SET ROLE platform_admin')
-      await expect(
-        admin`
-          INSERT INTO agent_memory.resources (id, tenant_id, working_memory)
-          VALUES ('rogue', ${TENANT}, ${'b'.repeat(8193)})
-        `,
-      ).rejects.toThrow(/working_memory_8k|check constraint/i)
-    } finally {
-      await admin.end()
-    }
   })
 })

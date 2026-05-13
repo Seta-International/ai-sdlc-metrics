@@ -2,7 +2,6 @@ import type { KernelMessageContent } from '@seta/agent-core'
 import { tenantUser } from '@seta/db'
 import { sql } from 'drizzle-orm'
 import {
-  check,
   index,
   integer,
   jsonb,
@@ -15,8 +14,8 @@ import {
 
 export const agentMemorySchema = pgSchema('agent_memory')
 
-export const threads = agentMemorySchema.table(
-  'threads',
+export const conversations = agentMemorySchema.table(
+  'conversations',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     tenantId: uuid('tenant_id').notNull(),
@@ -28,8 +27,12 @@ export const threads = agentMemorySchema.table(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
-    index('threads_tenant_resource_updated_idx').on(t.tenantId, t.resourceId, t.updatedAt.desc()),
-    pgPolicy('tenant_isolation_threads', {
+    index('conversations_tenant_resource_updated_idx').on(
+      t.tenantId,
+      t.resourceId,
+      t.updatedAt.desc(),
+    ),
+    pgPolicy('tenant_isolation_conversations', {
       as: 'permissive',
       to: tenantUser,
       for: 'all',
@@ -39,8 +42,8 @@ export const threads = agentMemorySchema.table(
   ],
 )
 
-export const messages = agentMemorySchema.table(
-  'messages',
+export const turns = agentMemorySchema.table(
+  'turns',
   {
     id: uuid('id').primaryKey(),
     threadId: uuid('thread_id').notNull(),
@@ -52,8 +55,8 @@ export const messages = agentMemorySchema.table(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
-    index('messages_thread_created_idx').on(t.tenantId, t.threadId, t.createdAt.desc(), t.id),
-    pgPolicy('tenant_isolation_messages', {
+    index('turns_thread_created_idx').on(t.tenantId, t.threadId, t.createdAt.desc(), t.id),
+    pgPolicy('tenant_isolation_turns', {
       as: 'permissive',
       to: tenantUser,
       for: 'all',
@@ -63,8 +66,8 @@ export const messages = agentMemorySchema.table(
   ],
 )
 
-export const resources = agentMemorySchema.table(
-  'resources',
+export const workingMemory = agentMemorySchema.table(
+  'working_memory',
   {
     id: text('id').primaryKey(),
     tenantId: uuid('tenant_id').notNull(),
@@ -74,8 +77,7 @@ export const resources = agentMemorySchema.table(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
-    check('working_memory_8k', sql`octet_length(${t.workingMemory}) <= 8192`),
-    pgPolicy('tenant_isolation_resources', {
+    pgPolicy('tenant_isolation_working_memory', {
       as: 'permissive',
       to: tenantUser,
       for: 'all',
@@ -85,9 +87,9 @@ export const resources = agentMemorySchema.table(
   ],
 )
 
-export type Thread = typeof threads.$inferSelect
-export type NewThread = typeof threads.$inferInsert
-export type MessageRow = typeof messages.$inferSelect
-export type NewMessage = typeof messages.$inferInsert
-export type Resource = typeof resources.$inferSelect
-export type NewResource = typeof resources.$inferInsert
+export type Conversation = typeof conversations.$inferSelect
+export type NewConversation = typeof conversations.$inferInsert
+export type TurnRow = typeof turns.$inferSelect
+export type NewTurn = typeof turns.$inferInsert
+export type WorkingMemoryRow = typeof workingMemory.$inferSelect
+export type NewWorkingMemory = typeof workingMemory.$inferInsert

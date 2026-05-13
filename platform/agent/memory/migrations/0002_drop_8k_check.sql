@@ -1,0 +1,1 @@
+ALTER TABLE "agent_memory"."working_memory" DROP CONSTRAINT "working_memory_8k";

@@ -56,7 +56,7 @@ export async function fetchRecallPage(
 ): Promise<RecallPage> {
   const rows = await tx<RecallRow[]>`
     SELECT id, role, content, tool_call_id
-    FROM agent_memory.messages
+    FROM agent_memory.turns
     WHERE thread_id = ${threadId}
     ORDER BY created_at DESC, id DESC
     LIMIT ${pageSize + 1}
@@ -73,7 +73,7 @@ export async function fetchRecallPage(
   }))
 
   const trows = await tx<Array<{ message_count: number }>>`
-    SELECT message_count FROM agent_memory.threads WHERE id = ${threadId} LIMIT 1
+    SELECT message_count FROM agent_memory.conversations WHERE id = ${threadId} LIMIT 1
   `
 
   return { messages: kmsgs, total: trows[0]?.message_count ?? kmsgs.length, hasMore }

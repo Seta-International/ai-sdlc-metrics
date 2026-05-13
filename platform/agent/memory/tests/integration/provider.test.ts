@@ -82,18 +82,6 @@ describe('AgentMemoryProvider', () => {
     })
   })
 
-  it('updateWorkingMemory throws WORKING_MEMORY_TOO_LARGE at 8193 bytes', async () => {
-    const provider = new AgentMemoryProvider({ sql: testSql() })
-    const threadId = randomUUID()
-
-    await tenantContext.run({ tenantId: TENANT, userId: 'alice' }, async () => {
-      await provider.saveTurn(ctx(threadId), [userMsg('hi')])
-      await expect(
-        provider.updateWorkingMemory(ctx(threadId), 'a'.repeat(8193)),
-      ).rejects.toMatchObject({ code: 'WORKING_MEMORY_TOO_LARGE' })
-    })
-  })
-
   it('token-budget trims old messages on recall', async () => {
     const provider = new AgentMemoryProvider({ sql: testSql(), recallTokenBudget: 10 })
     const threadId = randomUUID()

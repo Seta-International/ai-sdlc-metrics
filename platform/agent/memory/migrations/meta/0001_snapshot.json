@@ -4,8 +4,8 @@
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "agent_memory.messages": {
-      "name": "messages",
+    "agent_memory.turns": {
+      "name": "turns",
       "schema": "agent_memory",
       "columns": {
         "id": {
@@ -59,8 +59,8 @@
         }
       },
       "indexes": {
-        "messages_thread_created_idx": {
-          "name": "messages_thread_created_idx",
+        "turns_thread_created_idx": {
+          "name": "turns_thread_created_idx",
           "columns": [
             {
               "expression": "tenant_id",
@@ -88,29 +88,29 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {
-        "tenant_isolation_messages": {
-          "name": "tenant_isolation_messages",
+        "tenant_isolation_turns": {
+          "name": "tenant_isolation_turns",
           "as": "PERMISSIVE",
           "for": "ALL",
           "to": ["tenant_user"],
-          "using": "\"agent_memory\".\"messages\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid",
-          "withCheck": "\"agent_memory\".\"messages\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid"
+          "using": "\"agent_memory\".\"turns\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid",
+          "withCheck": "\"agent_memory\".\"turns\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid"
         }
       },
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "agent_memory.resources": {
-      "name": "resources",
+    "agent_memory.working_memory": {
+      "name": "working_memory",
       "schema": "agent_memory",
       "columns": {
         "id": {
@@ -157,25 +157,25 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {
-        "tenant_isolation_resources": {
-          "name": "tenant_isolation_resources",
+        "tenant_isolation_working_memory": {
+          "name": "tenant_isolation_working_memory",
           "as": "PERMISSIVE",
           "for": "ALL",
           "to": ["tenant_user"],
-          "using": "\"agent_memory\".\"resources\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid",
-          "withCheck": "\"agent_memory\".\"resources\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid"
+          "using": "\"agent_memory\".\"working_memory\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid",
+          "withCheck": "\"agent_memory\".\"working_memory\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid"
         }
       },
       "checkConstraints": {
         "working_memory_8k": {
           "name": "working_memory_8k",
-          "value": "octet_length(\"agent_memory\".\"resources\".\"working_memory\") <= 8192"
+          "value": "octet_length(\"agent_memory\".\"working_memory\".\"working_memory\") <= 8192"
         }
       },
       "isRLSEnabled": false
     },
-    "agent_memory.threads": {
-      "name": "threads",
+    "agent_memory.conversations": {
+      "name": "conversations",
       "schema": "agent_memory",
       "columns": {
         "id": {
@@ -232,8 +232,8 @@
         }
       },
       "indexes": {
-        "threads_tenant_resource_updated_idx": {
-          "name": "threads_tenant_resource_updated_idx",
+        "conversations_tenant_resource_updated_idx": {
+          "name": "conversations_tenant_resource_updated_idx",
           "columns": [
             {
               "expression": "tenant_id",
@@ -255,22 +255,22 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {
-        "tenant_isolation_threads": {
-          "name": "tenant_isolation_threads",
+        "tenant_isolation_conversations": {
+          "name": "tenant_isolation_conversations",
           "as": "PERMISSIVE",
           "for": "ALL",
           "to": ["tenant_user"],
-          "using": "\"agent_memory\".\"threads\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid",
-          "withCheck": "\"agent_memory\".\"threads\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid"
+          "using": "\"agent_memory\".\"conversations\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid",
+          "withCheck": "\"agent_memory\".\"conversations\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid"
         }
       },
       "checkConstraints": {},
@@ -281,10 +281,10 @@
   "schemas": {
     "agent_memory": "agent_memory"
   },
-  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {},
+  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},

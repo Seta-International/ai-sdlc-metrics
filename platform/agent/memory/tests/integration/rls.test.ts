@@ -57,7 +57,7 @@ describe('RLS isolation (tenant_user role)', () => {
     })
 
     await tenantContext.run({ tenantId: TENANT_B, userId: 'alice' }, async () => {
-      // Same threadId, but RLS hides the threads row, so resource_id resolves to null.
+      // Same threadId, but RLS hides the conversations row, so resource_id resolves to null.
       const wm = await provider.getWorkingMemory({ threadId, scope: 'thread' })
       expect(wm).toBeNull()
     })
@@ -77,7 +77,7 @@ describe('RLS isolation (tenant_user role)', () => {
     await tenantContext.run({ tenantId: TENANT_B, userId: 'bob' }, async () => {
       await withTenant(tenantUserSql, TENANT_B, async (tx) => {
         const updated = await tx`
-          UPDATE agent_memory.threads SET title = 'pwned' WHERE id = ${threadId} RETURNING id
+          UPDATE agent_memory.conversations SET title = 'pwned' WHERE id = ${threadId} RETURNING id
         `
         expect(updated.length).toBe(0)
       })
@@ -85,7 +85,7 @@ describe('RLS isolation (tenant_user role)', () => {
 
     // Verify the tenant A row is untouched.
     const rows = await testSql()<Array<{ title: string | null }>>`
-      SELECT title FROM agent_memory.threads WHERE id = ${threadId}
+      SELECT title FROM agent_memory.conversations WHERE id = ${threadId}
     `
     expect(rows[0]?.title ?? null).toBeNull()
   })

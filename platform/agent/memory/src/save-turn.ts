@@ -10,12 +10,12 @@ export async function ensureThread(
 ): Promise<{ resourceId: string | null }> {
   const userId = tenantContext.getUserId() ?? null
   await tx`
-    INSERT INTO agent_memory.threads (id, tenant_id, resource_id)
+    INSERT INTO agent_memory.conversations (id, tenant_id, resource_id)
     VALUES (${threadId}, ${tenantId}, ${userId})
     ON CONFLICT (id) DO NOTHING
   `
   const rows = await tx<Array<{ resource_id: string | null }>>`
-    SELECT resource_id FROM agent_memory.threads WHERE id = ${threadId} LIMIT 1
+    SELECT resource_id FROM agent_memory.conversations WHERE id = ${threadId} LIMIT 1
   `
   return { resourceId: rows[0]?.resource_id ?? null }
 }
@@ -32,7 +32,7 @@ export async function saveMessages(
   if (filtered.length === 0) return 0
 
   const t = await tx<Array<{ resource_id: string | null }>>`
-    SELECT resource_id FROM agent_memory.threads WHERE id = ${threadId} LIMIT 1
+    SELECT resource_id FROM agent_memory.conversations WHERE id = ${threadId} LIMIT 1
   `
   const resourceId = t[0]?.resource_id ?? null
 
@@ -47,7 +47,7 @@ export async function saveMessages(
   }))
 
   const inserted = await tx<Array<{ id: string }>>`
-    INSERT INTO agent_memory.messages ${tx(
+    INSERT INTO agent_memory.turns ${tx(
       rows,
       'id',
       'thread_id',
@@ -63,7 +63,7 @@ export async function saveMessages(
 
   if (inserted.length > 0) {
     await tx`
-      UPDATE agent_memory.threads
+      UPDATE agent_memory.conversations
       SET message_count = message_count + ${inserted.length}, updated_at = now()
       WHERE id = ${threadId}
     `

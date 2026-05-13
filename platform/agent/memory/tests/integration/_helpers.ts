@@ -2,7 +2,7 @@ import { createPool, type DbSql, runMigrations } from '@seta/db'
 import postgres from 'postgres'
 
 export const TEST_DATABASE_URL =
-  process.env.DATABASE_URL ?? 'postgres://seta:dev@localhost:5432/seta'
+  process.env.DATABASE_URL ?? 'postgres://seta:dev@localhost:5433/seta'
 
 let cachedSql: DbSql | undefined
 
@@ -34,7 +34,7 @@ export async function truncateMemoryTables(): Promise<void> {
   const admin = postgres(TEST_DATABASE_URL, { max: 1, prepare: false })
   try {
     await admin.unsafe(
-      `TRUNCATE agent_memory.messages, agent_memory.threads, agent_memory.resources, audit.audit_log RESTART IDENTITY CASCADE`,
+      `TRUNCATE agent_memory.turns, agent_memory.conversations, agent_memory.working_memory, audit.audit_log RESTART IDENTITY CASCADE`,
     )
   } finally {
     await admin.end()

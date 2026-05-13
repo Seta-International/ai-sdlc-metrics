@@ -103,7 +103,7 @@ describe('kernel + AgentMemoryProvider round-trip', () => {
 
       // Both turns persisted: at least user1, asst1, user2, asst2.
       const rows = await testSql()<Array<{ role: string }>>`
-        SELECT role FROM agent_memory.messages
+        SELECT role FROM agent_memory.turns
         WHERE thread_id = ${threadId} AND tenant_id = ${TENANT}
         ORDER BY created_at, id
       `

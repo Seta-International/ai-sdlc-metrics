@@ -33,7 +33,7 @@ describe('ensureThread', () => {
         expect(r.resourceId).toBe('alice')
       })
     })
-    const rows = await testSql()`SELECT * FROM agent_memory.threads WHERE id = ${threadId}`
+    const rows = await testSql()`SELECT * FROM agent_memory.conversations WHERE id = ${threadId}`
     expect(rows.length).toBe(1)
     expect(rows[0]?.resource_id).toBe('alice')
   })
@@ -47,7 +47,7 @@ describe('ensureThread', () => {
       })
     })
     const rows =
-      await testSql()`SELECT count(*)::int as n FROM agent_memory.threads WHERE id = ${threadId}`
+      await testSql()`SELECT count(*)::int as n FROM agent_memory.conversations WHERE id = ${threadId}`
     expect(rows[0]?.n).toBe(1)
   })
 
@@ -83,7 +83,7 @@ describe('saveMessages', () => {
       })
     })
 
-    const rows = await testSql()`SELECT id FROM agent_memory.messages WHERE thread_id = ${threadId}`
+    const rows = await testSql()`SELECT id FROM agent_memory.turns WHERE thread_id = ${threadId}`
     expect(rows.length).toBe(2)
   })
 
@@ -104,8 +104,7 @@ describe('saveMessages', () => {
       })
     })
 
-    const rows =
-      await testSql()`SELECT role FROM agent_memory.messages WHERE thread_id = ${threadId}`
+    const rows = await testSql()`SELECT role FROM agent_memory.turns WHERE thread_id = ${threadId}`
     expect(rows.map((r) => r.role)).toEqual(['user'])
   })
 
@@ -120,7 +119,7 @@ describe('saveMessages', () => {
       })
     })
 
-    const rows = await testSql()`SELECT id FROM agent_memory.messages WHERE thread_id = ${threadId}`
+    const rows = await testSql()`SELECT id FROM agent_memory.turns WHERE thread_id = ${threadId}`
     expect(rows.length).toBe(1)
     expect(rows[0]?.id).toMatch(/^[0-9a-f-]{36}$/i)
   })
@@ -138,7 +137,7 @@ describe('saveMessages', () => {
       })
     })
     const rows =
-      await testSql()`SELECT message_count FROM agent_memory.threads WHERE id = ${threadId}`
+      await testSql()`SELECT message_count FROM agent_memory.conversations WHERE id = ${threadId}`
     expect(rows[0]?.message_count).toBe(3)
   })
 
@@ -151,7 +150,7 @@ describe('saveMessages', () => {
       })
     })
     const rows =
-      await testSql()`SELECT resource_id FROM agent_memory.messages WHERE thread_id = ${threadId}`
+      await testSql()`SELECT resource_id FROM agent_memory.turns WHERE thread_id = ${threadId}`
     expect(rows[0]?.resource_id).toBe('alice')
   })
 })

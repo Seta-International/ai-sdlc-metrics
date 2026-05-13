@@ -6,7 +6,7 @@ export default defineConfig({
   schema: './src/schema.ts',
   out: './migrations',
   schemaFilter: ['agent_memory'],
-  dbCredentials: { url: process.env.DATABASE_URL ?? 'postgres://seta:dev@localhost:5432/seta' },
+  dbCredentials: { url: process.env.DATABASE_URL ?? 'postgres://seta:dev@localhost:5433/seta' },
   verbose: true,
   strict: true,
 })

@@ -1,9 +1,111 @@
 {
-  "id": "feadede5-3b27-4a74-beb2-eb22298a3709",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "337ece06-e628-4d60-bf29-b95a22c83b24",
+  "prevId": "c818d9db-a5b1-42a3-aae8-0bec30c1e43b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "agent_memory.conversations": {
+      "name": "conversations",
+      "schema": "agent_memory",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resource_id": {
+          "name": "resource_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "message_count": {
+          "name": "message_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "conversations_tenant_resource_updated_idx": {
+          "name": "conversations_tenant_resource_updated_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "resource_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "tenant_isolation_conversations": {
+          "name": "tenant_isolation_conversations",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": ["tenant_user"],
+          "using": "\"agent_memory\".\"conversations\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid",
+          "withCheck": "\"agent_memory\".\"conversations\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "agent_memory.turns": {
       "name": "turns",
       "schema": "agent_memory",
@@ -164,113 +266,6 @@
           "to": ["tenant_user"],
           "using": "\"agent_memory\".\"working_memory\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid",
           "withCheck": "\"agent_memory\".\"working_memory\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid"
-        }
-      },
-      "checkConstraints": {
-        "working_memory_8k": {
-          "name": "working_memory_8k",
-          "value": "octet_length(\"agent_memory\".\"working_memory\".\"working_memory\") <= 8192"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "agent_memory.conversations": {
-      "name": "conversations",
-      "schema": "agent_memory",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "resource_id": {
-          "name": "resource_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "metadata": {
-          "name": "metadata",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "message_count": {
-          "name": "message_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "conversations_tenant_resource_updated_idx": {
-          "name": "conversations_tenant_resource_updated_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "resource_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "updated_at",
-              "isExpression": false,
-              "asc": false,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {
-        "tenant_isolation_conversations": {
-          "name": "tenant_isolation_conversations",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": ["tenant_user"],
-          "using": "\"agent_memory\".\"conversations\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid",
-          "withCheck": "\"agent_memory\".\"conversations\".\"tenant_id\" = current_setting('app.tenant_id', true)::uuid"
         }
       },
       "checkConstraints": {},
