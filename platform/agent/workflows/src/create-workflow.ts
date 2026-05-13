@@ -1,6 +1,7 @@
 import type { ZodType } from 'zod'
 import { WorkflowBuildError } from './errors'
 import { type GraphNode, parallel as parallelNode, single } from './graph'
+import { type RunInvocationOptions, runWorkflow } from './runner/in-memory'
 import type { ParallelOutput } from './types/parallel-output'
 import type { Step } from './types/step'
 
@@ -83,8 +84,12 @@ function builderFromState<TInit, TCurrent, TFinal>(
 function buildFinal<TInit, TFinal>(state: BuilderState): BuiltWorkflow<TInit, TFinal> {
   const built: BuiltWorkflow<TInit, TFinal> = {
     id: state.workflowId,
-    async run(_input: TInit, _opts?: { signal?: AbortSignal }): Promise<TFinal> {
-      throw new WorkflowBuildError(`workflow ${state.workflowId}: runner not implemented yet`)
+    async run(input: TInit, opts?: RunInvocationOptions): Promise<TFinal> {
+      return await runWorkflow<TInit, TFinal>(
+        { workflowId: state.workflowId, nodes: state.nodes },
+        input,
+        opts,
+      )
     },
     // biome-ignore lint/suspicious/noThenProperty: DSL — .then() is the chained-step operator
     then() {
