@@ -47,6 +47,9 @@ importers:
       '@seta/agent-core':
         specifier: workspace:*
         version: link:../../platform/agent/core
+      '@seta/agent-memory':
+        specifier: workspace:*
+        version: link:../../platform/agent/memory
       '@seta/audit':
         specifier: workspace:*
         version: link:../../platform/audit
@@ -372,6 +375,12 @@ importers:
       drizzle-kit:
         specifier: 0.31.10
         version: 0.31.10
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
 
   platform/agent/sdk:
     dependencies:

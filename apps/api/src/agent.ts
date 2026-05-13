@@ -4,10 +4,15 @@ import {
   createAzureOpenAIAdapter,
   createOpenAIAdapter,
 } from '@seta/agent-core'
+import { AgentMemoryProvider } from '@seta/agent-memory'
 import { logger } from '@seta/observability'
+import { sql } from './db'
 import { env } from './env'
 
 export const agentRegistry = createAdapterRegistry()
+
+export const agentMemory = new AgentMemoryProvider({ sql })
+logger.info('agent memory provider bound')
 
 agentRegistry.register('anthropic', createAnthropicAdapter({ apiKey: env.ANTHROPIC_API_KEY }))
 logger.info({ provider: 'anthropic' }, 'adapter registered')
