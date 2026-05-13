@@ -326,7 +326,17 @@ importers:
         specifier: 4.1.6
         version: 4.1.6(@opentelemetry/api@1.9.1)(@types/node@25.7.0)(@vitest/coverage-v8@4.1.6)(msw@2.7.0(@types/node@25.7.0)(typescript@6.0.3))(vite@8.0.11(@types/node@25.7.0)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.4))
 
-  platform/agent/chunking: {}
+  platform/agent/chunking:
+    dependencies:
+      '@seta/agent-core':
+        specifier: workspace:*
+        version: link:../core
+      js-tiktoken:
+        specifier: 1.0.21
+        version: 1.0.21
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
   platform/agent/core:
     dependencies:

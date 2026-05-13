@@ -15,5 +15,10 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist"
-  ]
+  ],
+  "dependencies": {
+    "@seta/agent-core": "workspace:*",
+    "js-tiktoken": "1.0.21",
+    "zod": "4.4.3"
+  }
 }
