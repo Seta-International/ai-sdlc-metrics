@@ -363,6 +363,12 @@ importers:
       '@seta/tsconfig':
         specifier: workspace:*
         version: link:../../tsconfig
+      '@types/node':
+        specifier: ^24.12.3
+        version: 24.12.3
+      dotenv:
+        specifier: 17.4.2
+        version: 17.4.2
       drizzle-kit:
         specifier: 0.31.10
         version: 0.31.10
