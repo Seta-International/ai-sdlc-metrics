@@ -4,6 +4,7 @@ CREATE TABLE "agent_workflows"."workflow_snapshots" (
 	"run_id" uuid PRIMARY KEY NOT NULL,
 	"tenant_id" uuid NOT NULL,
 	"workflow_id" text NOT NULL,
+	"run_input" jsonb NOT NULL,
 	"serialized_step_graph" jsonb NOT NULL,
 	"active_paths" jsonb NOT NULL,
 	"suspended_paths" jsonb NOT NULL,

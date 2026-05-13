@@ -38,6 +38,7 @@ export const workflowSnapshots = agentWorkflowsSchema.table(
     runId: uuid('run_id').primaryKey(),
     tenantId: uuid('tenant_id').notNull(),
     workflowId: text('workflow_id').notNull(),
+    runInput: jsonb('run_input').notNull(),
     serializedStepGraph: jsonb('serialized_step_graph').$type<SerializedStepGraph>().notNull(),
     activePaths: jsonb('active_paths').$type<number[]>().notNull(),
     suspendedPaths: jsonb('suspended_paths').$type<Record<string, number[]>>().notNull(),

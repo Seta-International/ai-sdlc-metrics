@@ -1,5 +1,5 @@
 {
-  "id": "d9ace2c6-31bb-479d-adc1-d67ae4904367",
+  "id": "2c200f75-d92c-4114-852f-4126c8a18882",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -23,6 +23,12 @@
         "workflow_id": {
           "name": "workflow_id",
           "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_input": {
+          "name": "run_input",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": true
         },

@@ -1,6 +1,6 @@
 {
-  "id": "919246e3-098a-4406-9168-4a976c4e8698",
-  "prevId": "d9ace2c6-31bb-479d-adc1-d67ae4904367",
+  "id": "581d74ce-5b17-4221-afa4-59cfb2a96387",
+  "prevId": "2c200f75-d92c-4114-852f-4126c8a18882",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -23,6 +23,12 @@
         "workflow_id": {
           "name": "workflow_id",
           "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_input": {
+          "name": "run_input",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": true
         },
