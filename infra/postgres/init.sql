@@ -14,12 +14,18 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'platform_admin') THEN
     CREATE ROLE platform_admin WITH LOGIN BYPASSRLS PASSWORD 'dev_only_change_me';
-    GRANT ALL ON DATABASE seta TO platform_admin;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'tenant_user') THEN
     CREATE ROLE tenant_user WITH LOGIN PASSWORD 'dev_only_change_me';
-    GRANT CONNECT ON DATABASE seta TO tenant_user;
   END IF;
+END
+$$;
+
+-- Grant on the current database (works for `seta`, `seta_test`, etc.).
+DO $$
+BEGIN
+  EXECUTE format('GRANT ALL ON DATABASE %I TO platform_admin', current_database());
+  EXECUTE format('GRANT CONNECT ON DATABASE %I TO tenant_user', current_database());
 END
 $$;
 

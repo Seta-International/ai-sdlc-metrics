@@ -78,8 +78,8 @@ jobs:
         with: { node-version: 24 }
       - run: pnpm install --frozen-lockfile --prefer-offline
       - run: psql "$DATABASE_URL" -f infra/postgres/init.sql
-      - run: pnpm --filter @seta/db exec drizzle-kit migrate
-        continue-on-error: true
+      - run: pnpm turbo run build --filter=@seta/db
+      - run: pnpm migrate
       - run: pnpm turbo run test:integration
 
   e2e:
@@ -108,11 +108,10 @@ jobs:
         with: { node-version: 24 }
       - run: pnpm install --frozen-lockfile --prefer-offline
       - run: psql "$DATABASE_URL" -f infra/postgres/init.sql
-      - run: pnpm --filter @seta/db exec drizzle-kit migrate
-        continue-on-error: true
+      - run: pnpm turbo run build --filter=@seta/db
+      - run: pnpm migrate
       - run: pnpm turbo run build --filter=@seta/api
       - run: pnpm vitest run --project tests/e2e
-        continue-on-error: true
 
   build:
     name: Build all packages
