@@ -154,27 +154,30 @@ type ParallelOutput<S extends readonly Step<any, any, string>[]> = {
 ```ts
 interface BuiltWorkflow<TIn, TOut> {
   readonly id: string
-  run(input: TIn): Promise<TOut>
+  run(input: TIn, opts?: { signal?: AbortSignal }): Promise<TOut>
   // .then / .parallel / .commit are typed `never` — calling them is a TS error
 }
 ```
+
+External callers (route handlers, tests) can pass a parent `AbortSignal`; the runner chains its internal controller to it.
 
 ### 6.5 Step context
 
 ```ts
 interface StepCtx<TInput> {
   readonly input: TInput
-  readonly runId: string                    // UUID v7 from @seta/agent-core helper
+  readonly runId: string                    // UUID v7 generated at run entry
   readonly stepId: string
   readonly workflowId: string
   readonly tenantId: string                 // snapshotted from tenantContext at run entry
   readonly logger: Logger                   // bound { runId, stepId, workflowId, tenantId }
+  readonly signal: AbortSignal              // see §7.5
 
   bail(reason?: string): never              // throws WorkflowBailed — runner treats as clean stop
 }
 ```
 
-No `ctx.suspend()` in W1. No abort signal in W1 (W2 wires this when the kernel's run abort lifecycle integrates).
+No `ctx.suspend()` in W1. `signal` is the production-ready cancellation surface (see §7.5).
 
 ### 6.6 Errors
 
@@ -197,17 +200,34 @@ export class WorkflowBailed extends WorkflowError {}         // thrown by ctx.ba
 ### 7.1 Run entry
 
 ```ts
-async run(input: TIn): Promise<TOut> {
-  const tenantId = tenantContext.getTenantId()  // throws if absent — callers must be tenant-scoped
-  const runId = generateRunId()                  // import from @seta/agent-core
+async run(input: TIn, opts?: { signal?: AbortSignal }): Promise<TOut> {
+  const tenantId = tenantContext.getTenantId()        // throws if absent
+  const runId = uuidv7()                              // matches createRunCtx's pattern
   const logger = baseLogger.child({ runId, workflowId: this.id, tenantId })
+
+  const runController = new AbortController()
+  const parent = opts?.signal
+  if (parent) {
+    if (parent.aborted) runController.abort(parent.reason)
+    else parent.addEventListener('abort', () => runController.abort(parent.reason), { once: true })
+  }
+
   return await runSpan(`workflow.${this.id}`, async () => {
     return await tenantContext.run(tenantId, async () => {
-      return await this.#executeGraph(input, { runId, tenantId, logger })
+      return await this.#executeGraph(input, {
+        runId, tenantId, logger, signal: runController.signal,
+      })
     })
   })
 }
 ```
+
+### 7.5 Cancellation contract
+
+- `ctx.signal` is always non-null. Steps that perform IO should pass it through (`fetch(url, { signal: ctx.signal })`, `pg.query(..., { signal: ctx.signal })`, etc.).
+- On the **outer signal aborting**, the runner's internal controller fires; the currently-executing step (and all in-flight parallel siblings) observe `ctx.signal.aborted === true`.
+- On a **parallel branch rejecting**, the *parallel* sub-controller aborts; sibling branches observe abort, the run rejects with the first error.
+- The runner does **not** kill step bodies that ignore the signal — abort is cooperative. Steps that ignore cancellation will finish their work; their results are discarded. This matches Node's HTTP/DB client behaviour and is the standard contract for `AbortSignal`-aware code.
 
 ### 7.2 `.then` execution
 
@@ -216,14 +236,25 @@ For each chained step: input-validate via Zod → `tracer.startActiveSpan('step.
 ### 7.3 `.parallel` execution
 
 ```ts
-const results = await Promise.all(steps.map(step =>
-  this.#executeStep(step, currentInput, { runId, tenantId, logger })
-))
-const keyed = Object.fromEntries(steps.map((s, i) => [s.id, results[i]]))
-return keyed
+// Pseudocode — see implementation plan for the concrete shape.
+const branchController = new AbortController()
+const parentSignal = run.signal
+const onParentAbort = () => branchController.abort(parentSignal.reason)
+parentSignal.addEventListener('abort', onParentAbort, { once: true })
+try {
+  const results = await Promise.all(
+    steps.map(step =>
+      this.#executeStep(step, currentInput, { ...run, signal: branchController.signal })
+        .catch(err => { branchController.abort(err); throw err })
+    )
+  )
+  return Object.fromEntries(steps.map((s, i) => [s.id, results[i]]))
+} finally {
+  parentSignal.removeEventListener('abort', onParentAbort)
+}
 ```
 
-All branches share the same `currentInput` from the upstream `.then()` (or the workflow input if `.parallel()` is the first node). `Promise.all` short-circuits on first rejection — a failing branch aborts the run; sibling branches continue running but their results are discarded.
+All branches share the same `currentInput` from the upstream `.then()` (or the workflow input if `.parallel()` is the first node). On the **first rejection**, `branchController.abort(err)` fires — sibling steps observing `ctx.signal.aborted` should bail promptly. Steps whose `execute` does not poll the signal will still run to completion in the background, but their results are discarded. The runner does not `await` the in-flight branches after the first failure.
 
 ### 7.4 OTel spans
 
@@ -336,11 +367,13 @@ W2 should require **no breaking change** to the W1 public API. Adding `suspend()
 ## 15. Open questions
 
 1. **`StepCtx` extensibility.** Mastra threads an `engine` reference into ctx so steps can call workflow-level helpers. W1 ships a minimal ctx; if W2 needs to add (e.g.) `ctx.snapshotKey()` for the durability layer, the additive shape is the test. Confirm shape stability before W1 ships.
-2. **`generateRunId` location.** SCOPE.md says "Use the same UUID generator (`@seta/agent-core` `RunCtx.generateId`)". Confirm the helper is exported from `@seta/agent-core` as a top-level function (not bound to a `RunCtx` instance). If not, K-stream follow-up to expose it.
-3. **`@seta/middleware` import in `platform/*`.** SCOPE.md lists `@seta/middleware` as **forbidden** ("this is a library, not a route module"). But `DomainError` lives in `@seta/middleware/errors`. Either (a) move `DomainError` to `@seta/observability` or a new `@seta/errors` package, or (b) carve out an import allowance for `@seta/middleware/errors` specifically. Sibling packages (`@seta/agent-core` K1 spec §3) import from `@seta/middleware` already, so option (b) is the precedent. **Confirm before implementation.**
-4. **Workflow id collisions across products.** If product A and product B both register a workflow with id `task.review`, what happens? W1 has no registry — `wf.run()` is a direct method call, so collisions are impossible. W2 adds the resume path; the registry it implies probably belongs in `apps/api/src/main.ts` per SCOPE.md §"Patterns to follow". Document explicitly in W2 spec.
-5. **`uuid` v7 vs v4 for `runId`.** Agent-core uses v7 (time-sortable). Confirm `generateRunId` reuses that, not a fresh v4 path, so workflow `runId` and kernel `runId` share encoding even when one is generated outside the other.
-6. **Sibling cancellation on `.parallel()` failure.** W1 uses `Promise.all`: first rejection aborts the run, but sibling branches keep running to completion in the background and their results are discarded. Production-OSS expectation may be active abort via a shared `AbortSignal` threaded into `StepCtx`. W1 ctx intentionally has no abort signal (§6.5); add one in W1, or accept fire-and-forget for now and design the signal into W2's run lifecycle? Branches in W1 are typically short and IO-free since persistence is W2, so fire-and-forget is *probably* fine.
+2. **Workflow id collisions across products.** If product A and product B both register a workflow with id `task.review`, what happens? W1 has no registry — `wf.run()` is a direct method call, so collisions are impossible. W2 adds the resume path; the registry it implies probably belongs in `apps/api/src/main.ts` per SCOPE.md §"Patterns to follow". Document explicitly in W2 spec.
+
+### Resolved
+
+- **Run id generation (was Q2/Q5).** `@seta/agent-core` does not export a standalone `generateRunId`; its `createRunCtx` calls `uuidv7()` inline (`platform/agent/core/src/run/make-run-ctx.ts:1`). Workflows imports `v7 as uuidv7` from `uuid` directly, matching that pattern. v7 (time-sortable) preserves the encoding so workflow `runId` and kernel `runId` share an id space.
+- **`@seta/middleware` import (was Q3).** Resolved as **import `@seta/middleware`**, matching the K1 precedent at `platform/agent/core/src/errors/index.ts:1`. CLAUDE.md "Errors: throw `DomainError` subclasses from `@seta/middleware/errors`; mapped to RFC 7807" is the authoritative project contract — `WorkflowError extends DomainError` gives free RFC 7807 mapping at the HTTP edge. SCOPE.md's "forbidden: @seta/middleware" line is stale relative to K1; submit a follow-up SCOPE.md edit to scope the prohibition to route-handler imports only (not `errors`).
+- **Sibling cancellation on `.parallel()` failure (was Q6).** Resolved as **production-ready AbortSignal**. `run()` accepts `{ signal?: AbortSignal }`; the runner creates an internal `AbortController`, chains to the parent if provided, threads `ctx.signal` into every step. On first rejection inside `.parallel()` a sub-controller aborts; siblings observe `ctx.signal.aborted` and should bail promptly. Steps that ignore the signal still complete in the background; their results are discarded. This matches the standard contract for `AbortSignal`-aware code (Node HTTP, `fetch`, `pg`). See §7.5.
 
 ## 16. Cross-references
 
