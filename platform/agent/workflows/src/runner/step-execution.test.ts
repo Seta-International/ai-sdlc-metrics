@@ -73,7 +73,7 @@ describe('executeStep', () => {
       inputSchema: z.object({ x: z.number() }),
       outputSchema: z.object({ y: z.number() }),
       async execute(_input, ctx) {
-        ctx.bail('done early')
+        return ctx.bail('done early')
       },
     })
     await expect(executeStep(bailStep, { x: 1 }, baseCtx)).rejects.toThrow(WorkflowBailed)

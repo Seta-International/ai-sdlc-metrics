@@ -109,14 +109,13 @@ describe('createWorkflow .parallel()', () => {
   })
 
   it('throws on duplicate id between chained step and parallel branches', () => {
+    const builder = createWorkflow({
+      id: 'wf.dup-par',
+      inputSchema: z.object({ x: z.number() }),
+      outputSchema: z.unknown(),
+    }).then(a)
     expect(() =>
-      createWorkflow({
-        id: 'wf.dup-par',
-        inputSchema: z.object({ x: z.number() }),
-        outputSchema: z.unknown(),
-      })
-        .then(a)
-        .parallel([a, b]),
+      (builder as unknown as { parallel: (steps: unknown[]) => unknown }).parallel([a, b]),
     ).toThrow(/duplicate step id/i)
   })
 })

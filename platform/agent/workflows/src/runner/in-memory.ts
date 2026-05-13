@@ -87,5 +87,41 @@ async function executeNode(node: GraphNode, input: unknown, run: RunContext): Pr
       executeStep(node.step, input, run),
     )
   }
-  throw new WorkflowError(500, `workflow ${run.workflowId}: parallel not implemented`)
+
+  const branchController = new AbortController()
+  const parent = run.signal
+  const onParentAbort = () => branchController.abort(parent.reason)
+  if (parent.aborted) branchController.abort(parent.reason)
+  else parent.addEventListener('abort', onParentAbort, { once: true })
+
+  const branchRun: RunContext = { ...run, signal: branchController.signal }
+
+  try {
+    const settled = await Promise.allSettled(
+      node.branches.map((step) =>
+        tenantContext.run({ tenantId: run.tenantId }, () =>
+          executeStep(step, input, branchRun).catch((err) => {
+            // First rejection signals siblings to cooperate in shutting down.
+            if (!branchController.signal.aborted) branchController.abort(err)
+            throw err
+          }),
+        ),
+      ),
+    )
+
+    const failed = settled.find((r): r is PromiseRejectedResult => r.status === 'rejected')
+    if (failed) throw failed.reason
+
+    const keyed: Record<string, unknown> = {}
+    for (let i = 0; i < node.branches.length; i++) {
+      const branch = node.branches[i]
+      const result = settled[i]
+      if (branch !== undefined && result?.status === 'fulfilled') {
+        keyed[branch.id] = result.value
+      }
+    }
+    return keyed
+  } finally {
+    parent.removeEventListener('abort', onParentAbort)
+  }
 }
