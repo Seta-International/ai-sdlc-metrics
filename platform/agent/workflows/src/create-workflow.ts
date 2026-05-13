@@ -26,9 +26,10 @@ export interface Workflow<TInit, TCurrent, TFinal> {
 export interface BuiltWorkflow<TInit, TFinal> {
   readonly id: string
   run(input: TInit, opts?: { signal?: AbortSignal }): Promise<TFinal>
+  // biome-ignore lint/suspicious/noThenProperty: DSL — typed-never to forbid post-commit chaining
   then(_: never): never
   parallel(_: never): never
-  commit(): never
+  commit(_: never): never
 }
 
 interface BuilderState {
@@ -100,7 +101,7 @@ function buildFinal<TInit, TFinal>(state: BuilderState): BuiltWorkflow<TInit, TF
         `workflow ${state.workflowId}: cannot .parallel() after .commit()`,
       )
     },
-    commit() {
+    commit(_: never) {
       throw new WorkflowBuildError(`workflow ${state.workflowId}: already committed`)
     },
   }
