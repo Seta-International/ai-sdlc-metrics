@@ -12,6 +12,14 @@ describe('migration runner', () => {
       'connector_ms365_directory',
       'connector_ms365_planner',
       'agent',
+      'agent_memory',
     ])
+  })
+
+  it('places agent_memory after agent', () => {
+    const agentIdx = OWNER_ORDER.indexOf('agent')
+    const memIdx = OWNER_ORDER.indexOf('agent_memory')
+    expect(agentIdx).toBeGreaterThanOrEqual(0)
+    expect(memIdx).toBeGreaterThan(agentIdx)
   })
 })
