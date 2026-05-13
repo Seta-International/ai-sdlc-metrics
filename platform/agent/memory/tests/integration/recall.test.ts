@@ -37,17 +37,20 @@ describe('fetchRecallPage', () => {
     })
   })
 
-  it('returns messages in chronological order', async () => {
+  it('returns messages in chronological order (across turns)', async () => {
     const threadId = randomUUID()
     const msgs = [userMsg('one'), userMsg('two'), userMsg('three')]
 
     await tenantContext.run({ tenantId: TENANT, userId: 'alice' }, async () => {
-      await withTenant(testSql(), TENANT, async (tx) => {
-        await ensureThread(tx, TENANT, threadId)
-        for (const m of msgs) {
+      // Separate withTenant calls = separate transactions = distinct now() values,
+      // matching the real saveTurn-per-turn flow. Within one turn many messages
+      // share now() and tie-break by id; that is intentional and Mastra-aligned.
+      for (const m of msgs) {
+        await withTenant(testSql(), TENANT, async (tx) => {
+          await ensureThread(tx, TENANT, threadId)
           await saveMessages(tx, TENANT, threadId, [m])
-        }
-      })
+        })
+      }
       await withTenant(testSql(), TENANT, async (tx) => {
         const res = await fetchRecallPage(tx, threadId, 40)
         expect(res.messages.map((m) => m.id)).toEqual(msgs.map((m) => m.id))
@@ -60,12 +63,12 @@ describe('fetchRecallPage', () => {
   it('hasMore true when pageSize+1 rows exist', async () => {
     const threadId = randomUUID()
     await tenantContext.run({ tenantId: TENANT, userId: 'alice' }, async () => {
-      await withTenant(testSql(), TENANT, async (tx) => {
-        await ensureThread(tx, TENANT, threadId)
-        for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 5; i++) {
+        await withTenant(testSql(), TENANT, async (tx) => {
+          await ensureThread(tx, TENANT, threadId)
           await saveMessages(tx, TENANT, threadId, [userMsg(`m${i}`)])
-        }
-      })
+        })
+      }
       await withTenant(testSql(), TENANT, async (tx) => {
         const res = await fetchRecallPage(tx, threadId, 3)
         expect(res.messages.length).toBe(3)
