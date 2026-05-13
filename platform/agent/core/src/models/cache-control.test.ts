@@ -36,9 +36,9 @@ describe('applyAnthropicCacheControl', () => {
       ],
     }
     const out = applyAnthropicCacheControl(req, '5m')
-    expect(out.tools![0]).not.toHaveProperty('cache_control')
-    expect(out.tools![1]).not.toHaveProperty('cache_control')
-    expect(out.tools![2]).toMatchObject({
+    expect(out.tools?.[0]).not.toHaveProperty('cache_control')
+    expect(out.tools?.[1]).not.toHaveProperty('cache_control')
+    expect(out.tools?.[2]).toMatchObject({
       cache_control: { type: 'ephemeral', ttl: '5m' },
     })
   })
@@ -46,7 +46,7 @@ describe('applyAnthropicCacheControl', () => {
   it('marks the single tool when only one is present', () => {
     const req = { tools: [{ name: 'a', description: 'a', input_schema: {} }] }
     const out = applyAnthropicCacheControl(req, '5m')
-    expect(out.tools![0]).toMatchObject({
+    expect(out.tools?.[0]).toMatchObject({
       cache_control: { type: 'ephemeral', ttl: '5m' },
     })
   })

@@ -25,7 +25,7 @@ function mapAnthropicError(err: unknown, model: string): LlmError {
     const headers = err.headers as Record<string, string> | undefined
     const requestId = headers?.['request-id'] ?? headers?.['x-request-id']
     const details: Record<string, unknown> = { provider: 'anthropic', model, status }
-    if (typeof requestId === 'string') details['requestId'] = requestId
+    if (typeof requestId === 'string') details.requestId = requestId
 
     if (status === 401 || status === 403) {
       return new LlmError({

@@ -3,7 +3,6 @@ import { createAuditWriter } from '@seta/audit'
 import { directoryConnector } from '@seta/connector-ms365-directory'
 import { plannerConnector } from '@seta/connector-ms365-planner'
 import { createConnectorRegistry } from '@seta/connector-registry'
-import { createPool } from '@seta/db'
 import { onError } from '@seta/middleware'
 import {
   createKmsClient,
@@ -15,9 +14,9 @@ import {
 import { logger } from '@seta/observability'
 import { Hono } from 'hono'
 import './agent'
+import { sql } from './db'
 import { env } from './env'
 
-const sql = createPool(env.DATABASE_URL)
 const kms = createKmsClient({
   KMS_PROVIDER: env.KMS_PROVIDER,
   ...(env.AWS_REGION !== undefined && { AWS_REGION: env.AWS_REGION }),
