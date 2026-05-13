@@ -89,37 +89,8 @@ export async function updateSnapshot(
   runId: string,
   patch: SnapshotPatch,
 ): Promise<void> {
-  const setClauses: string[] = []
-  const values: unknown[] = []
-  if (patch.status !== undefined) {
-    setClauses.push('status')
-    values.push(patch.status)
-  }
-  if (patch.activePaths !== undefined) {
-    setClauses.push('active_paths')
-    values.push(tx.json(patch.activePaths as never))
-  }
-  if (patch.suspendedPaths !== undefined) {
-    setClauses.push('suspended_paths')
-    values.push(tx.json(patch.suspendedPaths as never))
-  }
-  if (patch.stepResults !== undefined) {
-    setClauses.push('step_results')
-    values.push(tx.json(patch.stepResults as never))
-  }
-  if (patch.resumeLabels !== undefined) {
-    setClauses.push('resume_labels')
-    values.push(tx.json(patch.resumeLabels as never))
-  }
-  if (patch.error !== undefined) {
-    setClauses.push('error')
-    values.push(patch.error ? tx.json(patch.error as never) : null)
-  }
-  if (setClauses.length === 0) return
-
-  // postgres-js doesn't support tagged composition mid-template; build the
-  // UPDATE statement by emitting one query per patched column. The advisory
-  // lock around the caller's tx serialises this — order doesn't matter.
+  // postgres-js doesn't support tagged composition mid-template; emit one
+  // UPDATE per patched column. The caller's advisory lock serialises these.
   if (patch.status !== undefined) {
     await tx`UPDATE agent_workflows.workflow_snapshots SET status = ${patch.status}, updated_at = now() WHERE run_id = ${runId}`
   }

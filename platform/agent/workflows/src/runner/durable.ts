@@ -145,66 +145,62 @@ export async function resumeDurable<TOut>(
   const tenantId = tenantContext.getTenantId()
   const logger = baseLogger.child({ workflowId: def.id, runId: args.runId, tenantId })
 
-  if (opts.await) registerAwaiter(args.runId)
+  // Phase 1: lock + validate. Lock losers throw immediately and never reach
+  // the awaiter — so a concurrent resume caller cannot clobber the winner's
+  // result via a shared deferred.
 
   let resumeStepId: string
   let startAtNodeIndex: number
   let stepInput: unknown
 
-  try {
-    ;({ resumeStepId, startAtNodeIndex, stepInput } = await withTenant(
-      sql,
+  ;({ resumeStepId, startAtNodeIndex, stepInput } = await withTenant(sql, tenantId, async (tx) => {
+    const acquired = await tryAcquireRunLock(tx, args.runId)
+    if (!acquired) throw new WorkflowResumeContended(args.runId)
+
+    const snap = await readSnapshot(tx, args.runId)
+    if (!snap) throw new WorkflowSnapshotNotFound(args.runId)
+    if (snap.workflowId !== def.id) throw new WorkflowMismatch(def.id, snap.workflowId)
+    if (snap.status !== 'suspended') throw new WorkflowNotSuspended(args.runId, snap.status)
+    const ref = snap.resumeLabels[args.label]
+    if (!ref) throw new WorkflowResumeLabelUnknown(args.label)
+
+    const nodeIndex = ref.executionPath[0] ?? 0
+    const input = deriveStepInput(snap, nodeIndex)
+
+    const nextSuspended = { ...snap.suspendedPaths }
+    delete nextSuspended[ref.stepId]
+    const nextResumeLabels = { ...snap.resumeLabels }
+    delete nextResumeLabels[args.label]
+
+    await updateSnapshot(tx, args.runId, {
+      status: 'running',
+      suspendedPaths: nextSuspended,
+      resumeLabels: nextResumeLabels,
+      activePaths: [nodeIndex],
+    })
+
+    await recordAudit(tx as unknown as Sql, {
       tenantId,
-      async (tx) => {
-        const acquired = await tryAcquireRunLock(tx, args.runId)
-        if (!acquired) throw new WorkflowResumeContended(args.runId)
-
-        const snap = await readSnapshot(tx, args.runId)
-        if (!snap) throw new WorkflowSnapshotNotFound(args.runId)
-        if (snap.workflowId !== def.id) throw new WorkflowMismatch(def.id, snap.workflowId)
-        if (snap.status !== 'suspended') throw new WorkflowNotSuspended(args.runId, snap.status)
-        const ref = snap.resumeLabels[args.label]
-        if (!ref) throw new WorkflowResumeLabelUnknown(args.label)
-
-        const nodeIndex = ref.executionPath[0] ?? 0
-        const input = deriveStepInput(snap, nodeIndex)
-
-        const nextSuspended = { ...snap.suspendedPaths }
-        delete nextSuspended[ref.stepId]
-        const nextResumeLabels = { ...snap.resumeLabels }
-        delete nextResumeLabels[args.label]
-
-        await updateSnapshot(tx, args.runId, {
-          status: 'running',
-          suspendedPaths: nextSuspended,
-          resumeLabels: nextResumeLabels,
-          activePaths: [nodeIndex],
-        })
-
-        await recordAudit(tx as unknown as Sql, {
-          tenantId,
-          actor: actorFromContext(),
-          operation: 'workflow.resumed',
-          resource: { type: 'workflow_run', ids: [args.runId] },
-          result: 'ok',
-          metadata: {
-            workflowId: def.id,
-            label: args.label,
-            payloadHash: hashStepInput(args.payload ?? null).slice(0, 32),
-          },
-        })
-
-        return {
-          resumeStepId: ref.stepId,
-          startAtNodeIndex: nodeIndex,
-          stepInput: input,
-        }
+      actor: actorFromContext(),
+      operation: 'workflow.resumed',
+      resource: { type: 'workflow_run', ids: [args.runId] },
+      result: 'ok',
+      metadata: {
+        workflowId: def.id,
+        label: args.label,
+        payloadHash: hashStepInput(args.payload ?? null).slice(0, 32),
       },
-    ))
-  } catch (err) {
-    if (opts.await) settleRun(args.runId, mapErrorToResult(args.runId, err))
-    throw err
-  }
+    })
+
+    return {
+      resumeStepId: ref.stepId,
+      startAtNodeIndex: nodeIndex,
+      stepInput: input,
+    }
+  }))
+
+  // Phase 2: we won the lock. Register awaiter, enqueue.
+  if (opts.await) registerAwaiter(args.runId)
 
   const controller = chainSignal(opts.signal)
   enqueue(
@@ -224,10 +220,6 @@ export async function resumeDurable<TOut>(
     return (await awaitRun(args.runId)) as RunResult<TOut>
   }
   return { runId: args.runId }
-}
-
-function mapErrorToResult(runId: string, err: unknown): RunResult<unknown> {
-  return { status: 'failed', runId, error: serializeError(err) }
 }
 
 function deriveStepInput(snap: WorkflowSnapshotRow, nodeIndex: number): unknown {
@@ -419,9 +411,10 @@ async function executeSingleNode(
   const { runId, tenantId, workflowId, sql, signal, logger } = args
   const inputHash = hashStepInput(input)
 
+  // Per-step writes don't need the run-scoped advisory lock — the
+  // workflow_steps PK (run_id, step_id) handles per-cell concurrency, and
+  // parallel sibling branches must be able to start concurrently.
   await withTenant(sql, tenantId, async (tx) => {
-    const ok = await tryAcquireRunLock(tx, runId)
-    if (!ok) throw new WorkflowResumeContended(runId)
     await upsertStepStart(tx, {
       runId,
       stepId: step.id,
@@ -460,18 +453,11 @@ async function executeSingleNode(
     }
     if (err instanceof WorkflowBailed) {
       await withTenant(sql, tenantId, async (tx) => {
-        const ok = await tryAcquireRunLock(tx, runId)
-        if (!ok) throw new WorkflowResumeContended(runId)
-        await updateStepTerminal(tx, runId, step.id, {
-          status: 'completed',
-          output: null,
-        })
+        await updateStepTerminal(tx, runId, step.id, { status: 'completed', output: null })
       })
       throw err
     }
     await withTenant(sql, tenantId, async (tx) => {
-      const ok = await tryAcquireRunLock(tx, runId)
-      if (!ok) throw new WorkflowResumeContended(runId)
       await updateStepTerminal(tx, runId, step.id, {
         status: 'failed',
         error: serializeError(err),
@@ -480,26 +466,22 @@ async function executeSingleNode(
     throw err
   }
 
+  // Step completed. Update the step row and merge into snapshot.step_results
+  // using an atomic jsonb concat so parallel branches don't race.
+  const completed: StepResultRow = {
+    status: 'completed',
+    output,
+    finishedAt: new Date().toISOString(),
+  }
   await withTenant(sql, tenantId, async (tx) => {
-    const ok = await tryAcquireRunLock(tx, runId)
-    if (!ok) throw new WorkflowResumeContended(runId)
-
     await updateStepTerminal(tx, runId, step.id, { status: 'completed', output })
-    const snap = await readSnapshot(tx, runId)
-    if (snap) {
-      const nextStepResults: Record<string, StepResultRow> = {
-        ...snap.stepResults,
-        [step.id]: {
-          status: 'completed',
-          output,
-          finishedAt: new Date().toISOString(),
-        },
-      }
-      await updateSnapshot(tx, runId, {
-        stepResults: nextStepResults,
-        activePaths: [nodeIndex + 1],
-      })
-    }
+    await tx`
+      UPDATE agent_workflows.workflow_snapshots
+      SET step_results = step_results || ${tx.json({ [step.id]: completed } as never)}::jsonb,
+          active_paths = ${tx.json([nodeIndex + 1] as never)}::jsonb,
+          updated_at = now()
+      WHERE run_id = ${runId}
+    `
   })
 
   return output

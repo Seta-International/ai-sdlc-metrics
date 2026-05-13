@@ -8,10 +8,11 @@ import {
   workflowRegistry,
 } from '../../src'
 import { __resetQueueRegistryForTests } from '../../src/runner/queue'
-import { clearAgentWorkflows, clearAuditFor, getPool } from './support/db'
+import { clearWorkflow, getAdminPool, getPool } from './support/db'
 import { asTenant, TENANT_A } from './support/tenant'
 
-const sql = getPool()
+const runnerSql = getPool()
+const sql = getAdminPool()
 
 const step1 = defineStep({
   id: 'step1',
@@ -56,16 +57,15 @@ const wf = createWorkflow({
 
 describe('golden path: run → suspend → resume → complete', () => {
   beforeAll(() => {
-    setDurableSql(sql)
-    setResumeSql(sql)
+    setDurableSql(runnerSql)
+    setResumeSql(runnerSql)
   })
 
   beforeEach(async () => {
     workflowRegistry.__resetForTests()
     __resetQueueRegistryForTests()
     workflowRegistry.register(wf)
-    await clearAuditFor(sql, TENANT_A, 'wf.golden')
-    await clearAgentWorkflows(sql)
+    await clearWorkflow(sql, 'wf.golden')
   })
 
   afterAll(async () => {
