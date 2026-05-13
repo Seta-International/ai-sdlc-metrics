@@ -97,6 +97,17 @@ describe('KernelMessage canonical form', () => {
     }
     expect(m.toolCallId).toBe('tc_1')
   })
+
+  it('carries an optional id', () => {
+    const withId: KernelMessage = {
+      id: '00000000-0000-4000-8000-000000000000',
+      role: 'user',
+      content: [{ type: 'text', text: 'hi' }],
+    }
+    const without: KernelMessage = { role: 'user', content: [{ type: 'text', text: 'hi' }] }
+    expectTypeOf(withId.id).toEqualTypeOf<string | undefined>()
+    expectTypeOf(without.id).toEqualTypeOf<string | undefined>()
+  })
 })
 
 describe('ModelStream type', () => {

@@ -6,6 +6,7 @@ export type KernelMessageContent =
   | { type: 'tool_result'; toolCallId: string; result: unknown; isError?: boolean }
 
 export interface KernelMessage {
+  id?: string
   role: KernelRole
   content: KernelMessageContent[]
   toolCallId?: string
