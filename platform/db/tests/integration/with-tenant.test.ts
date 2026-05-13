@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createPool, withTenant } from './client'
+import { createPool, withTenant } from '../../src/client'
 
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://seta:dev@localhost:5432/seta'
 
