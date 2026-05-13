@@ -3,8 +3,7 @@ import { recordAudit } from '@seta/audit'
 import { type DbSql, withTenant } from '@seta/db'
 import { logger as baseLogger, type Logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
-import { drizzle } from 'drizzle-orm/postgres-js'
-import type { Sql, TransactionSql } from 'postgres'
+import type { Sql } from 'postgres'
 import { v7 as uuidv7 } from 'uuid'
 import { actorFromContext } from '../audit/actor'
 import {
@@ -19,18 +18,8 @@ import {
 } from '../errors'
 import type { GraphNode } from '../graph'
 import { tryAcquireRunLock } from '../persistence/advisory-lock'
-import {
-  insertSnapshot,
-  readSnapshot,
-  type DrizzleTx as SnapshotTx,
-  updateSnapshot,
-} from '../persistence/snapshot-store'
-import {
-  hashStepInput,
-  type StepStoreTx,
-  updateStepTerminal,
-  upsertStepStart,
-} from '../persistence/step-store'
+import { insertSnapshot, readSnapshot, updateSnapshot } from '../persistence/snapshot-store'
+import { hashStepInput, updateStepTerminal, upsertStepStart } from '../persistence/step-store'
 import { executeWithRetry } from '../retry/apply-retry'
 import type { SerializedStepGraph, StepResultRow, WorkflowSnapshotRow } from '../schema'
 import { type RunResult, serializeError } from '../types/result'
@@ -79,11 +68,6 @@ function serializeGraph(nodes: ReadonlyArray<GraphNode>): SerializedStepGraph {
   )
 }
 
-function combinedTx(tx: TransactionSql): SnapshotTx & StepStoreTx {
-  const db = drizzle(tx as never)
-  return db as unknown as SnapshotTx & StepStoreTx
-}
-
 function chainSignal(parent: AbortSignal | undefined): AbortController {
   const c = new AbortController()
   if (parent) {
@@ -116,8 +100,7 @@ export async function runDurable<TOut>(
     const acquired = await tryAcquireRunLock(tx, runId)
     if (!acquired) throw new WorkflowResumeContended(runId)
 
-    const cx = combinedTx(tx)
-    await insertSnapshot(cx, {
+    await insertSnapshot(tx, {
       runId,
       tenantId,
       workflowId: def.id,
@@ -176,8 +159,7 @@ export async function resumeDurable<TOut>(
         const acquired = await tryAcquireRunLock(tx, args.runId)
         if (!acquired) throw new WorkflowResumeContended(args.runId)
 
-        const cx = combinedTx(tx)
-        const snap = await readSnapshot(cx, args.runId)
+        const snap = await readSnapshot(tx, args.runId)
         if (!snap) throw new WorkflowSnapshotNotFound(args.runId)
         if (snap.workflowId !== def.id) throw new WorkflowMismatch(def.id, snap.workflowId)
         if (snap.status !== 'suspended') throw new WorkflowNotSuspended(args.runId, snap.status)
@@ -192,7 +174,7 @@ export async function resumeDurable<TOut>(
         const nextResumeLabels = { ...snap.resumeLabels }
         delete nextResumeLabels[args.label]
 
-        await updateSnapshot(cx, args.runId, {
+        await updateSnapshot(tx, args.runId, {
           status: 'running',
           suspendedPaths: nextSuspended,
           resumeLabels: nextResumeLabels,
@@ -352,7 +334,7 @@ async function executeRunForward(args: ExecuteRunForwardArgs): Promise<void> {
       await withTenant(sql, tenantId, async (tx) => {
         const ok = await tryAcquireRunLock(tx, runId)
         if (!ok) throw new WorkflowResumeContended(runId)
-        await updateSnapshot(combinedTx(tx), runId, { status: 'completed' })
+        await updateSnapshot(tx, runId, { status: 'completed' })
         await recordAudit(tx as unknown as Sql, {
           tenantId,
           actor: actorFromContext(),
@@ -392,7 +374,7 @@ async function handleTerminalError(args: ExecuteRunForwardArgs, err: unknown): P
     await withTenant(sql, tenantId, async (tx) => {
       const ok = await tryAcquireRunLock(tx, runId)
       if (!ok) throw new WorkflowResumeContended(runId)
-      await updateSnapshot(combinedTx(tx), runId, { status: 'bailed' })
+      await updateSnapshot(tx, runId, { status: 'bailed' })
       await recordAudit(tx as unknown as Sql, {
         tenantId,
         actor: actorFromContext(),
@@ -410,7 +392,7 @@ async function handleTerminalError(args: ExecuteRunForwardArgs, err: unknown): P
   await withTenant(sql, tenantId, async (tx) => {
     const ok = await tryAcquireRunLock(tx, runId)
     if (!ok) throw new WorkflowResumeContended(runId)
-    await updateSnapshot(combinedTx(tx), runId, { status: 'failed', error: serialized })
+    await updateSnapshot(tx, runId, { status: 'failed', error: serialized })
     await recordAudit(tx as unknown as Sql, {
       tenantId,
       actor: actorFromContext(),
@@ -440,7 +422,7 @@ async function executeSingleNode(
   await withTenant(sql, tenantId, async (tx) => {
     const ok = await tryAcquireRunLock(tx, runId)
     if (!ok) throw new WorkflowResumeContended(runId)
-    await upsertStepStart(combinedTx(tx), {
+    await upsertStepStart(tx, {
       runId,
       stepId: step.id,
       tenantId,
@@ -480,7 +462,7 @@ async function executeSingleNode(
       await withTenant(sql, tenantId, async (tx) => {
         const ok = await tryAcquireRunLock(tx, runId)
         if (!ok) throw new WorkflowResumeContended(runId)
-        await updateStepTerminal(combinedTx(tx), runId, step.id, {
+        await updateStepTerminal(tx, runId, step.id, {
           status: 'completed',
           output: null,
         })
@@ -490,7 +472,7 @@ async function executeSingleNode(
     await withTenant(sql, tenantId, async (tx) => {
       const ok = await tryAcquireRunLock(tx, runId)
       if (!ok) throw new WorkflowResumeContended(runId)
-      await updateStepTerminal(combinedTx(tx), runId, step.id, {
+      await updateStepTerminal(tx, runId, step.id, {
         status: 'failed',
         error: serializeError(err),
       })
@@ -501,9 +483,9 @@ async function executeSingleNode(
   await withTenant(sql, tenantId, async (tx) => {
     const ok = await tryAcquireRunLock(tx, runId)
     if (!ok) throw new WorkflowResumeContended(runId)
-    const cx = combinedTx(tx)
-    await updateStepTerminal(cx, runId, step.id, { status: 'completed', output })
-    const snap = await readSnapshot(cx, runId)
+
+    await updateStepTerminal(tx, runId, step.id, { status: 'completed', output })
+    const snap = await readSnapshot(tx, runId)
     if (snap) {
       const nextStepResults: Record<string, StepResultRow> = {
         ...snap.stepResults,
@@ -513,7 +495,7 @@ async function executeSingleNode(
           finishedAt: new Date().toISOString(),
         },
       }
-      await updateSnapshot(cx, runId, {
+      await updateSnapshot(tx, runId, {
         stepResults: nextStepResults,
         activePaths: [nodeIndex + 1],
       })
@@ -588,16 +570,16 @@ async function persistSuspend(args: {
   await withTenant(args.sql, args.tenantId, async (tx) => {
     const ok = await tryAcquireRunLock(tx, args.runId)
     if (!ok) throw new WorkflowResumeContended(args.runId)
-    const cx = combinedTx(tx)
-    await updateStepTerminal(cx, args.runId, args.stepId, { status: 'suspended' })
-    const snap = await readSnapshot(cx, args.runId)
+
+    await updateStepTerminal(tx, args.runId, args.stepId, { status: 'suspended' })
+    const snap = await readSnapshot(tx, args.runId)
     if (!snap) throw new WorkflowSnapshotNotFound(args.runId)
     const nextSuspended = { ...snap.suspendedPaths, [args.stepId]: args.executionPath }
     const nextResumeLabels = {
       ...snap.resumeLabels,
       [args.resumeLabel]: { stepId: args.stepId, executionPath: args.executionPath },
     }
-    await updateSnapshot(cx, args.runId, {
+    await updateSnapshot(tx, args.runId, {
       status: 'suspended',
       suspendedPaths: nextSuspended,
       resumeLabels: nextResumeLabels,

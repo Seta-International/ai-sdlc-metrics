@@ -1,11 +1,6 @@
 import { createHash } from 'node:crypto'
-import { and, eq, sql } from 'drizzle-orm'
-import {
-  type NewWorkflowStep,
-  type SerializedError,
-  type WorkflowStepRow,
-  workflowSteps,
-} from '../schema'
+import type { TransactionSql } from 'postgres'
+import type { SerializedError, WorkflowStepRow } from '../schema'
 
 export function hashStepInput(value: unknown): string {
   let json: string
@@ -17,19 +12,6 @@ export function hashStepInput(value: unknown): string {
   return createHash('sha256').update(json).digest('hex')
 }
 
-export interface StepStoreTx {
-  insert(table: typeof workflowSteps): {
-    values(row: NewWorkflowStep): {
-      onConflictDoUpdate(args: { target: unknown; set: Partial<NewWorkflowStep> }): Promise<unknown>
-    }
-  }
-  update(table: typeof workflowSteps): {
-    set(patch: Partial<NewWorkflowStep>): {
-      where(cond: unknown): Promise<unknown>
-    }
-  }
-}
-
 export interface UpsertStepStartArgs {
   runId: string
   stepId: string
@@ -38,27 +20,33 @@ export interface UpsertStepStartArgs {
   inputHash: string
 }
 
-export async function upsertStepStart(tx: StepStoreTx, args: UpsertStepStartArgs): Promise<void> {
-  await tx
-    .insert(workflowSteps)
-    .values({
-      ...args,
-      status: 'running',
-      output: null,
-      error: null,
-      finishedAt: null,
-    } as NewWorkflowStep)
-    .onConflictDoUpdate({
-      target: [workflowSteps.runId, workflowSteps.stepId],
-      set: {
-        status: 'running',
-        inputHash: args.inputHash,
-        startedAt: sql`now()` as never,
-        output: null,
-        error: null,
-        finishedAt: null,
-      },
-    })
+export async function upsertStepStart(
+  tx: TransactionSql,
+  args: UpsertStepStartArgs,
+): Promise<void> {
+  await tx`
+    INSERT INTO agent_workflows.workflow_steps
+      (run_id, step_id, tenant_id, workflow_id, status, input_hash, output, error, started_at, finished_at)
+    VALUES (
+      ${args.runId},
+      ${args.stepId},
+      ${args.tenantId},
+      ${args.workflowId},
+      'running',
+      ${args.inputHash},
+      NULL,
+      NULL,
+      now(),
+      NULL
+    )
+    ON CONFLICT (run_id, step_id) DO UPDATE SET
+      status = 'running',
+      input_hash = EXCLUDED.input_hash,
+      started_at = now(),
+      output = NULL,
+      error = NULL,
+      finished_at = NULL
+  `
 }
 
 export type StepTerminalPatch =
@@ -67,22 +55,37 @@ export type StepTerminalPatch =
   | { status: 'suspended' }
 
 export async function updateStepTerminal(
-  tx: StepStoreTx,
+  tx: TransactionSql,
   runId: string,
   stepId: string,
   patch: StepTerminalPatch,
 ): Promise<void> {
-  const base: Partial<NewWorkflowStep> = { finishedAt: sql`now()` as never }
-  const set: Partial<NewWorkflowStep> =
-    patch.status === 'completed'
-      ? { ...base, status: 'completed', output: patch.output as never }
-      : patch.status === 'failed'
-        ? { ...base, status: 'failed', error: patch.error }
-        : { ...base, status: 'suspended' }
-  await tx
-    .update(workflowSteps)
-    .set(set)
-    .where(and(eq(workflowSteps.runId, runId), eq(workflowSteps.stepId, stepId)))
+  if (patch.status === 'completed') {
+    await tx`
+      UPDATE agent_workflows.workflow_steps
+      SET status = 'completed',
+          output = ${tx.json(patch.output as never)},
+          finished_at = now()
+      WHERE run_id = ${runId} AND step_id = ${stepId}
+    `
+    return
+  }
+  if (patch.status === 'failed') {
+    await tx`
+      UPDATE agent_workflows.workflow_steps
+      SET status = 'failed',
+          error = ${tx.json(patch.error as never)},
+          finished_at = now()
+      WHERE run_id = ${runId} AND step_id = ${stepId}
+    `
+    return
+  }
+  await tx`
+    UPDATE agent_workflows.workflow_steps
+    SET status = 'suspended',
+        finished_at = now()
+    WHERE run_id = ${runId} AND step_id = ${stepId}
+  `
 }
 
 export type { WorkflowStepRow }

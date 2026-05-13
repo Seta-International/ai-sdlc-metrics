@@ -1,5 +1,8 @@
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
-  test: { name: '@seta/agent-workflows' },
+  test: {
+    name: '@seta/agent-workflows',
+    include: ['src/**/*.test.ts'],
+  },
 })

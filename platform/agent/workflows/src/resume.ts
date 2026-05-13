@@ -1,9 +1,8 @@
 import { type DbSql, withTenant } from '@seta/db'
 import { tenantContext } from '@seta/tenant'
-import { drizzle } from 'drizzle-orm/postgres-js'
 import type { ResumeParams, RunOpts } from './create-workflow'
 import { WorkflowError, WorkflowNotRegistered, WorkflowSnapshotNotFound } from './errors'
-import { type DrizzleTx, readSnapshot } from './persistence/snapshot-store'
+import { readSnapshot } from './persistence/snapshot-store'
 import { workflowRegistry } from './registry'
 import type { RunResult } from './types/result'
 
@@ -24,8 +23,7 @@ async function lookupSnapshotWorkflowId(runId: string): Promise<string | null> {
   const sql = getSql()
   const tenantId = tenantContext.getTenantId()
   return withTenant(sql, tenantId, async (tx) => {
-    const cx = drizzle(tx as never) as unknown as DrizzleTx
-    const snap = await readSnapshot(cx, runId)
+    const snap = await readSnapshot(tx, runId)
     return snap?.workflowId ?? null
   })
 }
