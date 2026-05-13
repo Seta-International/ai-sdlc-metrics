@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --sourcemap",
     "dev": "tsup src/index.ts --format esm --dts --watch",
-    "test:unit": "vitest run",
+    "test:unit": "vitest run src/",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:integration": "vitest run tests/"
   },
