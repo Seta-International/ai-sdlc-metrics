@@ -338,6 +338,46 @@ importers:
         specifier: 4.1.6
         version: 4.1.6(@opentelemetry/api@1.9.1)(@types/node@25.7.0)(@vitest/coverage-v8@4.1.6)(msw@2.7.0(@types/node@25.7.0)(typescript@6.0.3))(vite@8.0.11(@types/node@25.7.0)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.4))
 
+  modules/products/analytics:
+    dependencies:
+      '@seta/agent-core':
+        specifier: workspace:*
+        version: link:../../../platform/agent/core
+      '@seta/agent-server':
+        specifier: workspace:*
+        version: link:../../../platform/agent/server
+      '@seta/connector-ms365-directory':
+        specifier: workspace:*
+        version: link:../../connectors/ms365-directory
+      '@seta/connector-ms365-planner':
+        specifier: workspace:*
+        version: link:../../connectors/ms365-planner
+      '@seta/db':
+        specifier: workspace:*
+        version: link:../../../platform/db
+      '@seta/middleware':
+        specifier: workspace:*
+        version: link:../../../platform/middleware
+      '@seta/tenant':
+        specifier: workspace:*
+        version: link:../../../platform/tenant
+      drizzle-orm:
+        specifier: 0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
+      lru-cache:
+        specifier: 11.3.6
+        version: 11.3.6
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      drizzle-kit:
+        specifier: 0.31.10
+        version: 0.31.10
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)
+
   modules/products/planner:
     dependencies:
       '@seta/agent-core':

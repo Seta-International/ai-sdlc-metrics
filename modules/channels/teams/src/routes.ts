@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
-import { ActivitySchema } from './activity.js'
-import type { TeamsHandler } from './handler.js'
+import { ActivitySchema } from './activity'
+import type { TeamsHandler } from './handler'
 
 export interface TeamsRouterOpts {
   botId: string

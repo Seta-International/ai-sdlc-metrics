@@ -1,5 +1,5 @@
-import { getBotToken } from './bot-token.js'
-import type { OutboundActivity } from './handler.js'
+import { getBotToken } from './bot-token'
+import type { OutboundActivity } from './handler'
 
 export async function replyToActivity(
   serviceUrl: string,
