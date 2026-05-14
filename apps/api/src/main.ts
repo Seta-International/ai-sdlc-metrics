@@ -1,12 +1,19 @@
 import { serve } from '@hono/node-server'
-import { createPlannerTools } from '@seta/agent'
-import type { Tool, ToolExecutionContext } from '@seta/agent-core'
+import { createAgentRouter, createToolRegistry, seedAgentProfiles } from '@seta/agent-server'
+import { ANALYTICS_PROFILE_SEED, createAnalyticsTools } from '@seta/analytics'
 import { createAuditWriter } from '@seta/audit'
 import { directoryConnector } from '@seta/connector-ms365-directory'
-import { plannerConnector } from '@seta/connector-ms365-planner'
+import {
+  createEtagStore,
+  createPlannerCache,
+  createPlannerClient,
+  createPlannerSyncWorker,
+  plannerConnector,
+} from '@seta/connector-ms365-planner'
 import { createConnectorRegistry } from '@seta/connector-registry'
-import { onError } from '@seta/middleware'
+import { onError, Unauthorized } from '@seta/middleware'
 import { createGraphFetch } from '@seta/ms-graph'
+import { createTeamsHandler } from '@seta/ms-teams'
 import {
   createKmsClient,
   createOAuthRoutes,
@@ -15,11 +22,19 @@ import {
   EntraProvider,
 } from '@seta/oauth'
 import { logger } from '@seta/observability'
+import {
+  createContinuationStore,
+  createPlannerTools,
+  createTaskIndexer,
+  PLANNER_PROFILE_SEED,
+} from '@seta/planner'
 import { tenantContext } from '@seta/tenant'
 import { Hono } from 'hono'
-import './agent'
+import { agentMemory, agentRegistry } from './agent'
 import { sql } from './db'
 import { env } from './env'
+
+// ── Infrastructure ────────────────────────────────────────────────────────────
 
 const kms = createKmsClient({
   KMS_PROVIDER: env.KMS_PROVIDER,
@@ -30,6 +45,7 @@ const kms = createKmsClient({
 const vault = createTokenVault({ sql, kms })
 const stateStore = createStateStore(sql)
 const audit = createAuditWriter(sql)
+const graph = createGraphFetch({ recordAudit: audit.recordAudit.bind(audit) })
 
 const registry = createConnectorRegistry(async (tenantId, connectorId) => {
   const rows = await sql<Array<{ ok: number }>>`
@@ -44,28 +60,104 @@ const registry = createConnectorRegistry(async (tenantId, connectorId) => {
 registry.register(plannerConnector)
 registry.register(directoryConnector)
 
-const graph = createGraphFetch({ recordAudit: audit.recordAudit.bind(audit) })
-
-const plannerTools = createPlannerTools({
-  registry,
-  vault,
-  graph,
-  sql: sql as Parameters<typeof createPlannerTools>[0]['sql'],
-  hmacKey: env.CONTINUATION_HMAC_KEY,
-  ttls: {
-    tasks: env.PLANNER_CACHE_TTL_TASKS_SEC,
-    plans: env.PLANNER_CACHE_TTL_PLANS_SEC,
-    buckets: env.PLANNER_CACHE_TTL_BUCKETS_SEC,
-    staleFallbackMax: env.PLANNER_CACHE_STALE_FALLBACK_MAX_SEC,
-  },
-  continuationTtlMin: env.CONTINUATION_TTL_MIN,
-  batchConcurrency: env.PLANNER_BATCH_CONCURRENCY,
-})
-
 const entra = new EntraProvider({
   clientId: env.ENTRA_CLIENT_ID,
   clientSecret: env.ENTRA_CLIENT_SECRET,
 })
+
+// ── Tool registry ─────────────────────────────────────────────────────────────
+
+const embeddingsStub = {
+  embed: async (): Promise<never> => {
+    throw new Error('No embeddings provider configured')
+  },
+} as never
+
+const continuationStore = createContinuationStore({
+  sql: sql as never,
+  hmacKey: env.CONTINUATION_HMAC_KEY,
+  ttlMin: env.CONTINUATION_TTL_MIN,
+})
+const etagStore = createEtagStore(sql as never)
+
+const tokenForUser = async (tenantId: string, userId: string) => {
+  const bundle = await vault.get(tenantId, 'entra', `user:${userId}`)
+  if (!bundle) throw new Unauthorized('no token for user')
+  return { accessToken: bundle.accessToken }
+}
+
+const buildClient = (token: string) =>
+  createPlannerClient({
+    graph,
+    token,
+    actor: { type: 'user', userId: tenantContext.getUserId() ?? 'unknown' },
+  })
+
+const buildCache = (client: Parameters<typeof createPlannerCache>[0]['client']) =>
+  createPlannerCache({
+    sql: sql as never,
+    client,
+    ttlTasksSec: env.PLANNER_CACHE_TTL_TASKS_SEC,
+    ttlPlansSec: env.PLANNER_CACHE_TTL_PLANS_SEC,
+    ttlBucketsSec: env.PLANNER_CACHE_TTL_BUCKETS_SEC,
+    staleFallbackMaxSec: env.PLANNER_CACHE_STALE_FALLBACK_MAX_SEC,
+  })
+
+const toolRegistry = createToolRegistry()
+
+const plannerTools = createPlannerTools({
+  sql: sql as never,
+  registry,
+  tokenForUser,
+  buildClient,
+  buildCache,
+  buildGraph: () => graph,
+  continuationStore,
+  etagStore,
+  embeddings: embeddingsStub,
+  vector: embeddingsStub,
+  ttlMinutes: env.CONTINUATION_TTL_MIN,
+  batchConcurrency: env.PLANNER_BATCH_CONCURRENCY,
+})
+
+const analyticsTools = createAnalyticsTools({ sql: sql as never })
+
+for (const [id, tool] of Object.entries(plannerTools)) toolRegistry.register(id, tool)
+for (const [id, tool] of Object.entries(analyticsTools)) toolRegistry.register(id, tool)
+
+logger.info('tool registry populated')
+
+// ── Workflow engine (stub) ────────────────────────────────────────────────────
+
+const workflowEngine = {
+  getStatus: async (_runId: string) => ({ status: 'unknown' }),
+  resume: async (
+    _runId: string,
+    _body: { action: 'confirm' | 'cancel'; payload?: Record<string, unknown> },
+  ) => {},
+} as never
+
+// ── Agent-server routes ───────────────────────────────────────────────────────
+
+const agentRouter = createAgentRouter({
+  sql: sql as never,
+  toolRegistry,
+  memory: agentMemory,
+  workflowEngine,
+  adapters: agentRegistry,
+})
+
+// ── Teams handler ─────────────────────────────────────────────────────────────
+
+const teamsHandler = createTeamsHandler({
+  sql: sql as never,
+  toolRegistry,
+  memory: agentMemory,
+  workflowEngine,
+  adapters: agentRegistry,
+})
+
+// ── Hono app ──────────────────────────────────────────────────────────────────
 
 const app = new Hono().onError(onError)
 
@@ -80,9 +172,6 @@ app.route(
     vault,
     audit,
     redirectBase: env.PUBLIC_BASE_URL,
-    // TODO(rls): tenant_user may lack INSERT on tenant.tenants / tenant.tenant_connectors
-    // in production. Dev DB connects as `seta` superuser so it works locally.
-    // Tracked for J3 follow-up — needs explicit grants or a SECURITY DEFINER helper.
     onConsented: async ({ tenantId, connectorIds, scopesGranted }) => {
       await sql.begin(async (tx) => {
         await tx`
@@ -107,49 +196,65 @@ app.route(
   }),
 )
 
-if (env.NODE_ENV !== 'production') {
-  app.post('/v1/tools/invoke', async (c) => {
-    const tenantId = c.req.header('x-tenant-id')
-    const userId = c.req.header('x-user-id')
-    if (!tenantId) return c.json({ error: 'X-Tenant-Id header required' }, 400)
+app.route('/agent', agentRouter)
 
-    const body = await c.req.json<{ tool: string; input: unknown }>()
-    if (!body.tool) return c.json({ error: 'body.tool required' }, 400)
+app.post('/teams/messages', async (c) => {
+  const tenantId = c.req.header('x-tenant-id') ?? tenantContext.getTenantId()
+  const userId = c.req.header('x-user-id') ?? ''
+  const activity = await c.req.json()
+  if (activity.type !== 'message') return c.json({ ok: true })
+  const result = await teamsHandler(activity, { tenantId, userId })
+  return c.json(result)
+})
 
-    const tool = plannerTools.find((t) => t.id === body.tool) as Tool | undefined
-    if (!tool) {
-      return c.json(
-        { error: `unknown tool: ${body.tool}`, available: plannerTools.map((t) => t.id) },
-        404,
-      )
-    }
+// ── Boot: seed agent profiles ─────────────────────────────────────────────────
 
-    const ac = new AbortController()
-    const runId = crypto.randomUUID()
-    const ctx: ToolExecutionContext = {
-      surface: 'direct',
-      abortSignal: ac.signal,
-      runId,
-      requestContext: {
-        runId,
-        signal: ac.signal,
-        retryCount: 0,
-        now: () => Date.now(),
-        generateId: () => crypto.randomUUID(),
-        currentDate: () => new Date(),
-      },
-    }
+async function boot() {
+  await seedAgentProfiles(sql as never, [PLANNER_PROFILE_SEED, ANALYTICS_PROFILE_SEED])
+  logger.info('agent profiles seeded')
 
-    const store = userId ? { tenantId, userId } : { tenantId }
-    const result = await tenantContext.run(store, () => tool.execute(body.input as never, ctx))
-
-    return c.json(result)
+  const taskIndexer = createTaskIndexer({
+    sql: sql as never,
+    embeddings: embeddingsStub,
+    vector: embeddingsStub,
   })
-  logger.info('POST /v1/tools/invoke enabled (dev only)')
+
+  const getActiveTenantIds = async (): Promise<string[]> => {
+    const rows = (await sql`
+      SELECT DISTINCT tenant_id::text FROM tenant.tenants WHERE status = 'active'
+    `) as Array<{ tenant_id: string }>
+    return rows.map((r) => r.tenant_id)
+  }
+
+  const getAppToken = async (tenantId: string): Promise<string> => {
+    const bundle = await entra.acquireAppOnly(tenantId, ['https://graph.microsoft.com/.default'])
+    return bundle.accessToken
+  }
+
+  const syncWorker = createPlannerSyncWorker({
+    db: sql as never,
+    graph,
+    getAppToken,
+    intervalMs: env.PLANNER_SYNC_INTERVAL_MS,
+    afterSync: async (tenantId, changedTaskIds) => {
+      if (changedTaskIds.length > 0) {
+        await taskIndexer.indexTasks(tenantId, changedTaskIds)
+      }
+      await sql`REFRESH MATERIALIZED VIEW CONCURRENTLY analytics.mv_assignee_workload`
+      await sql`REFRESH MATERIALIZED VIEW CONCURRENTLY analytics.mv_plan_weekly_velocity`
+    },
+  })
+
+  const tenantIds = await getActiveTenantIds()
+  syncWorker.start(tenantIds)
+  logger.info({ tenants: tenantIds.length }, 'planner sync worker started')
 }
 
-const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
+// ── Server start ──────────────────────────────────────────────────────────────
+
+const server = serve({ fetch: app.fetch, port: env.PORT }, async (info) => {
   logger.info({ port: info.port }, 'api listening')
+  await boot().catch((err) => logger.error({ err }, 'boot failed'))
 })
 
 const shutdown = (signal: string) => async () => {

@@ -24,6 +24,12 @@ const Env = z.object({
   PLANNER_CACHE_STALE_FALLBACK_MAX_SEC: z.coerce.number().int().positive().default(3600),
   PLANNER_BATCH_CONCURRENCY: z.coerce.number().int().positive().default(3),
   CONTINUATION_TTL_MIN: z.coerce.number().int().positive().default(15),
+  MS_BOT_ID: z.string().min(1),
+  MS_BOT_SECRET: z.string().min(1),
+  TEAMS_SKIP_JWT_VERIFY: z.coerce.boolean().default(false),
+  PLANNER_SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(180_000),
+  OPENAI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
+  AGENT_EMBEDDINGS_PROVIDER: z.enum(['openai', 'azure-openai', 'none']).default('none'),
 })
 
 export const env = Env.parse(process.env)

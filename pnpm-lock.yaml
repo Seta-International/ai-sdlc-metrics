@@ -47,15 +47,18 @@ importers:
       '@hono/node-server':
         specifier: 2.0.2
         version: 2.0.2(hono@4.12.18)
-      '@seta/agent':
-        specifier: workspace:*
-        version: link:../../modules/products/agent
       '@seta/agent-core':
         specifier: workspace:*
         version: link:../../platform/agent/core
       '@seta/agent-memory':
         specifier: workspace:*
         version: link:../../platform/agent/memory
+      '@seta/agent-server':
+        specifier: workspace:*
+        version: link:../../platform/agent/server
+      '@seta/analytics':
+        specifier: workspace:*
+        version: link:../../modules/products/analytics
       '@seta/audit':
         specifier: workspace:*
         version: link:../../platform/audit
@@ -83,15 +86,18 @@ importers:
       '@seta/ms-graph':
         specifier: workspace:*
         version: link:../../platform/ms-graph
+      '@seta/ms-teams':
+        specifier: workspace:*
+        version: link:../../modules/channels/teams
       '@seta/oauth':
         specifier: workspace:*
         version: link:../../platform/oauth
       '@seta/observability':
         specifier: workspace:*
         version: link:../../platform/observability
-      '@seta/teams':
+      '@seta/planner':
         specifier: workspace:*
-        version: link:../../modules/channels/teams
+        version: link:../../modules/products/planner
       '@seta/tenant':
         specifier: workspace:*
         version: link:../../platform/tenant
@@ -126,12 +132,27 @@ importers:
 
   modules/channels/teams:
     dependencies:
+      '@seta/agent-core':
+        specifier: workspace:*
+        version: link:../../../platform/agent/core
+      '@seta/agent-memory':
+        specifier: workspace:*
+        version: link:../../../platform/agent/memory
+      '@seta/agent-server':
+        specifier: workspace:*
+        version: link:../../../platform/agent/server
+      '@seta/agent-workflows':
+        specifier: workspace:*
+        version: link:../../../platform/agent/workflows
+      '@seta/middleware':
+        specifier: workspace:*
+        version: link:../../../platform/middleware
       '@seta/oauth':
         specifier: workspace:*
         version: link:../../../platform/oauth
-      '@seta/tenant':
-        specifier: workspace:*
-        version: link:../../../platform/tenant
+      adm-zip:
+        specifier: 0.5.17
+        version: 0.5.17
       hono:
         specifier: 4.12.18
         version: 4.12.18
@@ -148,6 +169,9 @@ importers:
       '@seta/tsconfig':
         specifier: workspace:*
         version: link:../../../platform/tsconfig
+      '@types/adm-zip':
+        specifier: ^0.5.8
+        version: 0.5.8
       '@types/node':
         specifier: ^25.7.0
         version: 25.7.0
@@ -256,23 +280,69 @@ importers:
         specifier: 4.1.6
         version: 4.1.6(@opentelemetry/api@1.9.1)(@types/node@25.7.0)(@vitest/coverage-v8@4.1.6)(msw@2.14.6(@types/node@25.7.0)(typescript@6.0.3))(vite@8.0.11(@types/node@25.7.0)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.4))
 
-  modules/products/agent:
+  modules/products/analytics:
     dependencies:
       '@seta/agent-core':
         specifier: workspace:*
         version: link:../../../platform/agent/core
-      '@seta/audit':
+      '@seta/agent-server':
         specifier: workspace:*
-        version: link:../../../platform/audit
-      '@seta/auth':
+        version: link:../../../platform/agent/server
+      '@seta/connector-ms365-directory':
         specifier: workspace:*
-        version: link:../../../platform/auth
+        version: link:../../connectors/ms365-directory
       '@seta/connector-ms365-planner':
         specifier: workspace:*
         version: link:../../connectors/ms365-planner
-      '@seta/connector-registry':
+      '@seta/db':
         specifier: workspace:*
-        version: link:../../../platform/connector-registry
+        version: link:../../../platform/db
+      '@seta/middleware':
+        specifier: workspace:*
+        version: link:../../../platform/middleware
+      '@seta/tenant':
+        specifier: workspace:*
+        version: link:../../../platform/tenant
+      drizzle-orm:
+        specifier: 0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
+      lru-cache:
+        specifier: 11.3.6
+        version: 11.3.6
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      drizzle-kit:
+        specifier: 0.31.10
+        version: 0.31.10
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)
+
+  modules/products/planner:
+    dependencies:
+      '@seta/agent-core':
+        specifier: workspace:*
+        version: link:../../../platform/agent/core
+      '@seta/agent-embeddings':
+        specifier: workspace:*
+        version: link:../../../platform/agent/embeddings
+      '@seta/agent-server':
+        specifier: workspace:*
+        version: link:../../../platform/agent/server
+      '@seta/agent-vector':
+        specifier: workspace:*
+        version: link:../../../platform/agent/vector
+      '@seta/agent-workflows':
+        specifier: workspace:*
+        version: link:../../../platform/agent/workflows
+      '@seta/connector-ms365-directory':
+        specifier: workspace:*
+        version: link:../../connectors/ms365-directory
+      '@seta/connector-ms365-planner':
+        specifier: workspace:*
+        version: link:../../connectors/ms365-planner
       '@seta/db':
         specifier: workspace:*
         version: link:../../../platform/db
@@ -282,52 +352,25 @@ importers:
       '@seta/ms-graph':
         specifier: workspace:*
         version: link:../../../platform/ms-graph
-      '@seta/oauth':
-        specifier: workspace:*
-        version: link:../../../platform/oauth
-      '@seta/teams':
-        specifier: workspace:*
-        version: link:../../channels/teams
       '@seta/tenant':
         specifier: workspace:*
         version: link:../../../platform/tenant
-      adaptivecards-templating:
-        specifier: 2.3.1
-        version: 2.3.1(adaptive-expressions@4.23.3)
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
       p-queue:
         specifier: 8.1.0
         version: 8.1.0
-      uuid:
-        specifier: 14.0.0
-        version: 14.0.0
       zod:
         specifier: 4.4.3
         version: 4.4.3
     devDependencies:
-      '@seta/tsconfig':
-        specifier: workspace:*
-        version: link:../../../platform/tsconfig
-      '@types/node':
-        specifier: ^25.7.0
-        version: 25.7.0
       drizzle-kit:
         specifier: 0.31.10
         version: 0.31.10
-      msw:
-        specifier: 2.7.0
-        version: 2.7.0(@types/node@25.7.0)(typescript@6.0.3)
       tsup:
         specifier: 8.5.1
         version: 8.5.1(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: 4.1.6
-        version: 4.1.6(@opentelemetry/api@1.9.1)(@types/node@25.7.0)(@vitest/coverage-v8@4.1.6)(msw@2.7.0(@types/node@25.7.0)(typescript@6.0.3))(vite@8.0.11(@types/node@25.7.0)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.4))
 
   platform/agent/chunking:
     dependencies:
@@ -556,6 +599,18 @@ importers:
       drizzle-kit:
         specifier: 0.31.10
         version: 0.31.10
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)
+
+  platform/agent/vector:
+    devDependencies:
+      '@seta/tsconfig':
+        specifier: workspace:*
+        version: link:../../tsconfig
+      '@types/node':
+        specifier: ^25.7.0
+        version: 25.7.0
       tsup:
         specifier: 8.5.1
         version: 8.5.1(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)
@@ -1719,10 +1774,6 @@ packages:
   '@microsoft/microsoft-graph-types@2.43.1':
     resolution: {integrity: sha512-7r3FiJYW2qTWnl+Li8GV5MzJqPiJp27hvY98kH5V/ZMzGuIOkcJqOfIpusoIQrskLDfYk5kFT8AjpeW713qcIg==}
 
-  '@microsoft/recognizers-text-data-types-timex-expression@1.3.1':
-    resolution: {integrity: sha512-jarJIFIJZBqeofy3hh0vdQo1yOmTM+jCjj6/zmo9JunsQ6LO750eZHCg9eLptQhsvq321XCt5xdRNLCwU8YeNA==}
-    engines: {node: '>=10.3.0'}
-
   '@mswjs/interceptors@0.37.6':
     resolution: {integrity: sha512-wK+5pLK5XFmgtH3aQ2YVvA3HohS3xqV/OxuVOdNx9Wpnz7VE/fnC+e1A7ln6LFYeck7gOJ/dsZV6OLplOtAJ2w==}
     engines: {node: '>=18'}
@@ -2792,14 +2843,11 @@ packages:
   '@tybys/wasm-util@0.10.2':
     resolution: {integrity: sha512-RoBvJ2X0wuKlWFIjrwffGw1IqZHKQqzIchKaadZZfnNpsAYp2mM0h36JtPCjNDAHGgYez/15uMBpfGwchhiMgg==}
 
-  '@types/atob-lite@2.0.2':
-    resolution: {integrity: sha512-BbCDWqZzlBBq8czVNYPiQNnHPrdPmR1mcyv3c8autpLEDmBMJY4hjziedi4RlXC+jnquD6Ba/yFU6bboZ3ZKVA==}
+  '@types/adm-zip@0.5.8':
+    resolution: {integrity: sha512-RVVH7QvZYbN+ihqZ4kX/dMiowf6o+Jk1fNwiSdx0NahBJLU787zkULhGhJM8mf/obmLGmgdMM0bXsQTmyfbR7Q==}
 
   '@types/aws-lambda@8.10.161':
     resolution: {integrity: sha512-rUYdp+MQwSFocxIOcSsYSF3YYYC/uUpMbCY/mbO21vGqfrEYvNSoPyKYDj6RhXXpPfS0KstW9RwG3qXh9sL7FQ==}
-
-  '@types/btoa-lite@1.0.2':
-    resolution: {integrity: sha512-ZYbcE2x7yrvNFJiU7xJGrpF/ihpkM7zKgw8bha3LNJSesvTtUNxbpzaT7WXBIryf6jovisrxTBvymxMeLLj1Mg==}
 
   '@types/bunyan@1.8.11':
     resolution: {integrity: sha512-758fRH7umIMk5qt5ELmRMff4mLDlN+xyYzC+dkPTdKwbSkJFvz6xwyScrytPU0QIBbRRwbiE8/BIg8bpajerNQ==}
@@ -2821,9 +2869,6 @@ packages:
 
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
-
-  '@types/lru-cache@5.1.1':
-    resolution: {integrity: sha512-ssE3Vlrys7sdIzs5LOxCzTVMsU7i9oa/IaW92wF32JFb3CVczqOkru2xspuKczHEbG3nvmPY7IFqVmGGHdNbYw==}
 
   '@types/memcached@2.2.10':
     resolution: {integrity: sha512-AM9smvZN55Gzs2wRrqeMHVP7KE8KWgCJO/XL5yCly2xF6EKa4YlbpK+cLSAH4NG/Ah64HrlegmGqW8kYws7Vxg==}
@@ -2860,9 +2905,6 @@ packages:
 
   '@types/tough-cookie@4.0.5':
     resolution: {integrity: sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==}
-
-  '@types/xmldom@0.1.34':
-    resolution: {integrity: sha512-7eZFfxI9XHYjJJuugddV6N5YNeXgQE1lArWOcd1eCOKWb/FGs5SIjacSYuEJuwhsGS3gy4RuZ5EUIcqYscuPDA==}
 
   '@vitest/coverage-v8@4.1.6':
     resolution: {integrity: sha512-36l628fQ/9a/8ihy97eOtEnvWQEdqULQOJtcaxtoNq0G1w3Mxd4szSahOaMM9/NGyZ+hyKcMtIW/WIxq0XQViQ==}
@@ -2931,10 +2973,6 @@ packages:
   '@vitest/utils@4.1.6':
     resolution: {integrity: sha512-FxIY+U81R3LGKCxaHHFRQ5+g6/iRgGLmeHWdp2Amj4ljQRrEIWHmZyDfDYBRZlpyqA7qKxtS9DD1dhk8RnRIVQ==}
 
-  '@xmldom/xmldom@0.8.13':
-    resolution: {integrity: sha512-KRYzxepc14G/CEpEGc3Yn+JKaAeT63smlDr+vjB8jRfgTBBI9wRj/nkQEO+ucV8p8I9bfKLWp37uHgFrbntPvw==}
-    engines: {node: '>=10.0.0'}
-
   acorn-import-attributes@1.9.5:
     resolution: {integrity: sha512-n02Vykv5uA3eHGM/Z2dQrcD56kL8TyDb2p1+0P83PClMnC/nc+anbQRhIOWnSq4Ke/KvDPrY3C9hDtC/A3eHnQ==}
     peerDependencies:
@@ -2945,13 +2983,9 @@ packages:
     engines: {node: '>=0.4.0'}
     hasBin: true
 
-  adaptive-expressions@4.23.3:
-    resolution: {integrity: sha512-7i1Ka6SR0gVcyHgoaZDiZi3BW3m9jN+lqfiMF6IY7SjugfeauXoZRl5sIDwJkYZNnffrfUuK7Pc3I3JiKfPBMw==}
-
-  adaptivecards-templating@2.3.1:
-    resolution: {integrity: sha512-rYN1tCb+4NeWUCbo7xzGhwuOG3XllpGWCtgdl/drSJA32tljAvDrMeBO/eUk7uwXx8/1hSc5WJvzbAZQWMd35Q==}
-    peerDependencies:
-      adaptive-expressions: ^4.11.0
+  adm-zip@0.5.17:
+    resolution: {integrity: sha512-+Ut8d9LLqwEvHHJl1+PIHqoyDxFgVN847JTVM3Izi3xHDWPE4UtzzXysMZQs64DMcrJfBeS/uoEP4AD3HQHnQQ==}
+    engines: {node: '>=12.0'}
 
   agent-base@7.1.4:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
@@ -2968,9 +3002,6 @@ packages:
   ansi-styles@4.3.0:
     resolution: {integrity: sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg==}
     engines: {node: '>=8'}
-
-  antlr4ts@0.5.0-alpha.4:
-    resolution: {integrity: sha512-WPQDt1B74OfPv/IMS2ekXAKkTZIHl88uMetg6q3OTqgFxZ/dxDXI0EWLyZid/1Pe6hTftyg5N7gel5wNAGxXyQ==}
 
   any-promise@1.3.0:
     resolution: {integrity: sha512-7UvmKalWRt1wgjL1RrGxoSJW/0QZFIegpeGvZG9kjp8vrRu55XTHbwnqq2GpXm9uLbcuhxm3IqX9OB4MZR1b2A==}
@@ -2992,9 +3023,6 @@ packages:
   ast-v8-to-istanbul@1.0.0:
     resolution: {integrity: sha512-1fSfIwuDICFA4LKkCzRPO7F0hzFf0B7+Xqrl27ynQaa+Rh0e1Es0v6kWHPott3lU10AyAr7oKHa65OppjLn3Rg==}
 
-  atob-lite@2.0.0:
-    resolution: {integrity: sha512-LEeSAWeh2Gfa2FtlQE1shxQ8zi5F9GHarrGKz08TMdODD5T4eH6BMsvtnhbWZ+XQn+Gb6om/917ucvRu7l7ukw==}
-
   atomic-sleep@1.0.0:
     resolution: {integrity: sha512-kNOjDqAh7px0XWNI+4QbzoiR/nTkHAWNud2uvnJquD1/x5a7EQZMJT0AczqK0Qn67oY/TTQ1LbUKajZpp3I9tQ==}
     engines: {node: '>=8.0.0'}
@@ -3006,10 +3034,6 @@ packages:
     resolution: {integrity: sha512-pbnl5XzGBdrFU/wT4jqmJVPn2B6UHPBOhzMQkY/SPUPB6QtUXtmBHBIwCbXJol93mOpGMnQyP/+BB19q04xj7g==}
     engines: {node: '>=4'}
 
-  big-integer@1.6.52:
-    resolution: {integrity: sha512-QxD8cf2eVqJOOz63z6JIN9BzvVs/dlySa5HGSBH5xtR8dPteIRQnBxxKqkNTiT6jbDTF6jAfrd4oMcND9RGbQg==}
-    engines: {node: '>=0.6'}
-
   bignumber.js@9.3.1:
     resolution: {integrity: sha512-Ko0uX15oIUS7wJ3Rb30Fs6SkVbLmPBAKdlm7q9+ak9bbIeFf0MwuBsQV6z7+X768/cHsfg+WlysDWJcmthjsjQ==}
 
@@ -3019,9 +3043,6 @@ packages:
   braces@3.0.3:
     resolution: {integrity: sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==}
     engines: {node: '>=8'}
-
-  btoa-lite@1.0.0:
-    resolution: {integrity: sha512-gvW7InbIyF8AicrqWoptdW08pUxuhq8BEgowNajy9RhiE86fmGAGl+bLKo6oB8QP0CkqHLowfN0oJdKC/J6LbA==}
 
   buffer-equal-constant-time@1.0.1:
     resolution: {integrity: sha512-zRpUiDwd/xk6ADqPMATG8vc9VPrkck7T07OIx0gnjmJAnHnTVXNQG3vfvWNuiZIkwu9KrKdA1iJKfsfTVxE6NA==}
@@ -3097,19 +3118,12 @@ packages:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
     engines: {node: '>= 8'}
 
-  d3-format@3.1.2:
-    resolution: {integrity: sha512-AJDdYOdnyRDV5b6ArilzCPPwc1ejkHcoyFarqlPqT7zRYjhavcT3uSrqcMvsgh2CgoPbK3RCwyHaVyxYcP2Arg==}
-    engines: {node: '>=12'}
-
   data-uri-to-buffer@4.0.1:
     resolution: {integrity: sha512-0R9ikRb668HB7QDxT1vkpuUBtqc53YyAwMwGeUFKRojY/NWKvdZ+9UYtRfGmhqNbRkTSVpMbmyhXipFFv2cb/A==}
     engines: {node: '>= 12'}
 
   dateformat@4.6.3:
     resolution: {integrity: sha512-2P0p0pFGzHS5EMnhdxQi7aJN+iMheud0UhG4dlE1DLAlvL8JHjJJTX/CSm4JXwV0Ka5nGk3zC5mcb5bUQUxxMA==}
-
-  dayjs@1.11.20:
-    resolution: {integrity: sha512-YbwwqR/uYpeoP4pu043q+LTDLFBLApUP6VxRihdfNTqu4ubqMlGDLd6ErXhEgsyvY0K6nCs7nggYumAN+9uEuQ==}
 
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
@@ -3518,10 +3532,6 @@ packages:
     resolution: {integrity: sha512-MT/xP0CrubFRNLNKvxJ2BYfy53Zkm++5bX9dtuPbqAeQpTVe0MQTFhao8+Cp//EmJp244xt6Drw/GVEGCUj40g==}
     engines: {node: '>=12', npm: '>=6'}
 
-  jspath@0.4.0:
-    resolution: {integrity: sha512-2/R8wkot8NCXrppBT/onp+4mcAUAZqtPxsW6aSJU3hrFAVqKqtFYcat2XJZ7inN4RtATUxfv0UQSYOmvJKiIGA==}
-    engines: {node: '>= 0.4.0'}
-
   jwa@2.0.1:
     resolution: {integrity: sha512-hRF04fqJIP8Abbkq5NKGN0Bbr3JxlQ+qhZufXVr0DvujKy93ZCbXZMHDL4EOtodSbCWxOqR8MS1tXA5hwqCXDg==}
 
@@ -3698,18 +3708,12 @@ packages:
   lodash.startcase@4.4.0:
     resolution: {integrity: sha512-+WKqsK294HMSc2jEbNgpHpd0JfIBhp7rEV4aqXWqFr6AlXov+SlcgB1Fv01y2kGe3Gc8nMW7VA0SrGuSkRfIEg==}
 
-  lodash@4.18.1:
-    resolution: {integrity: sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==}
-
   long@5.3.2:
     resolution: {integrity: sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==}
 
   lru-cache@11.3.6:
     resolution: {integrity: sha512-Gf/KoL3C/MlI7Bt0PGI9I+TeTC/I6r/csU58N4BSNc4lppLBeKsOdFYkK+dX0ABDUMJNfCHTyPpzwwO21Awd3A==}
     engines: {node: 20 || >=22}
-
-  lru-cache@5.1.1:
-    resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -4311,11 +4315,6 @@ packages:
   url-parse@1.5.10:
     resolution: {integrity: sha512-WypcfiRhfeUP9vvF0j6rw0J3hrWrw6iZv3+22h6iRMJ/8z1Tj6XfLP4DsUix5MhMPnXpiHDoKyoZ/bdCkwBCiQ==}
 
-  uuid@10.0.0:
-    resolution: {integrity: sha512-8XkAphELsDnEGrDxUOHB3RGvXz6TeuYSGEZBOjtTtPm2lwhGBjLgOzLHB63IUWfBpNucQjND6d3AOudO+H3RWQ==}
-    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
-    hasBin: true
-
   uuid@14.0.0:
     resolution: {integrity: sha512-Qo+uWgilfSmAhXCMav1uYFynlQO7fMFiMVZsQqZRMIXp0O7rR7qjkj+cPvBHLgBqi960QCoo/PH2/6ZtVqKvrg==}
     hasBin: true
@@ -4474,10 +4473,6 @@ packages:
     resolution: {integrity: sha512-k8KO9hrMyNk6tUWqUfkTEZbezRRpONVOzUTnc97VnCvyj6Tf9lyUR9EDAIeiVLv56jsMcoXEwjW8Kv5yPY52lw==}
     engines: {node: '>=16.0.0'}
 
-  xpath@0.0.34:
-    resolution: {integrity: sha512-FxF6+rkr1rNSQrhUNYrAFJpRXNzlDoMxeXN5qI84939ylEv3qqPFKa85Oxr6tDaJKqwW6KKyo2v26TSv3k6LeA==}
-    engines: {node: '>=0.6.0'}
-
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
     engines: {node: '>=0.4'}
@@ -4485,9 +4480,6 @@ packages:
   y18n@5.0.8:
     resolution: {integrity: sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==}
     engines: {node: '>=10'}
-
-  yallist@3.1.1:
-    resolution: {integrity: sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g==}
 
   yaml@2.8.4:
     resolution: {integrity: sha512-ml/JPOj9fOQK8RNnWojA67GbZ0ApXAUlN2UQclwv2eVgTgn7O9gg9o7paZWKMp4g0H3nTLtS9LVzhkpOFIKzog==}
@@ -5353,8 +5345,6 @@ snapshots:
       read-yaml-file: 1.1.0
 
   '@microsoft/microsoft-graph-types@2.43.1': {}
-
-  '@microsoft/recognizers-text-data-types-timex-expression@1.3.1': {}
 
   '@mswjs/interceptors@0.37.6':
     dependencies:
@@ -6599,11 +6589,11 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@types/atob-lite@2.0.2': {}
+  '@types/adm-zip@0.5.8':
+    dependencies:
+      '@types/node': 25.7.0
 
   '@types/aws-lambda@8.10.161': {}
-
-  '@types/btoa-lite@1.0.2': {}
 
   '@types/bunyan@1.8.11':
     dependencies:
@@ -6625,8 +6615,6 @@ snapshots:
   '@types/estree@1.0.8': {}
 
   '@types/estree@1.0.9': {}
-
-  '@types/lru-cache@5.1.1': {}
 
   '@types/memcached@2.2.10':
     dependencies:
@@ -6671,8 +6659,6 @@ snapshots:
       '@types/node': 25.7.0
 
   '@types/tough-cookie@4.0.5': {}
-
-  '@types/xmldom@0.1.34': {}
 
   '@vitest/coverage-v8@4.1.6(vitest@4.1.6)':
     dependencies:
@@ -6781,38 +6767,13 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
 
-  '@xmldom/xmldom@0.8.13': {}
-
   acorn-import-attributes@1.9.5(acorn@8.16.0):
     dependencies:
       acorn: 8.16.0
 
   acorn@8.16.0: {}
 
-  adaptive-expressions@4.23.3:
-    dependencies:
-      '@microsoft/recognizers-text-data-types-timex-expression': 1.3.1
-      '@types/atob-lite': 2.0.2
-      '@types/btoa-lite': 1.0.2
-      '@types/lru-cache': 5.1.1
-      '@types/xmldom': 0.1.34
-      '@xmldom/xmldom': 0.8.13
-      antlr4ts: 0.5.0-alpha.4
-      atob-lite: 2.0.0
-      big-integer: 1.6.52
-      btoa-lite: 1.0.0
-      d3-format: 3.1.2
-      dayjs: 1.11.20
-      fast-xml-parser: 5.8.0
-      jspath: 0.4.0
-      lodash: 4.18.1
-      lru-cache: 5.1.1
-      uuid: 10.0.0
-      xpath: 0.0.34
-
-  adaptivecards-templating@2.3.1(adaptive-expressions@4.23.3):
-    dependencies:
-      adaptive-expressions: 4.23.3
+  adm-zip@0.5.17: {}
 
   agent-base@7.1.4: {}
 
@@ -6823,8 +6784,6 @@ snapshots:
   ansi-styles@4.3.0:
     dependencies:
       color-convert: 2.0.1
-
-  antlr4ts@0.5.0-alpha.4: {}
 
   any-promise@1.3.0: {}
 
@@ -6844,8 +6803,6 @@ snapshots:
       estree-walker: 3.0.3
       js-tokens: 10.0.0
 
-  atob-lite@2.0.0: {}
-
   atomic-sleep@1.0.0: {}
 
   base64-js@1.5.1: {}
@@ -6854,8 +6811,6 @@ snapshots:
     dependencies:
       is-windows: 1.0.2
 
-  big-integer@1.6.52: {}
-
   bignumber.js@9.3.1: {}
 
   bowser@2.14.1: {}
@@ -6863,8 +6818,6 @@ snapshots:
   braces@3.0.3:
     dependencies:
       fill-range: 7.1.1
-
-  btoa-lite@1.0.0: {}
 
   buffer-equal-constant-time@1.0.1: {}
 
@@ -6921,13 +6874,9 @@ snapshots:
       shebang-command: 2.0.0
       which: 2.0.2
 
-  d3-format@3.1.2: {}
-
   data-uri-to-buffer@4.0.1: {}
 
   dateformat@4.6.3: {}
-
-  dayjs@1.11.20: {}
 
   debug@4.4.3:
     dependencies:
@@ -7268,8 +7217,6 @@ snapshots:
       ms: 2.1.3
       semver: 7.8.0
 
-  jspath@0.4.0: {}
-
   jwa@2.0.1:
     dependencies:
       buffer-equal-constant-time: 1.0.1
@@ -7401,15 +7348,9 @@ snapshots:
 
   lodash.startcase@4.4.0: {}
 
-  lodash@4.18.1: {}
-
   long@5.3.2: {}
 
   lru-cache@11.3.6: {}
-
-  lru-cache@5.1.1:
-    dependencies:
-      yallist: 3.1.1
 
   magic-string@0.30.21:
     dependencies:
@@ -8050,8 +7991,6 @@ snapshots:
       querystringify: 2.2.0
       requires-port: 1.0.0
 
-  uuid@10.0.0: {}
-
   uuid@14.0.0: {}
 
   vite@8.0.11(@types/node@24.12.3)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.4):
@@ -8196,13 +8135,9 @@ snapshots:
 
   xml-naming@0.1.0: {}
 
-  xpath@0.0.34: {}
-
   xtend@4.0.2: {}
 
   y18n@5.0.8: {}
-
-  yallist@3.1.1: {}
 
   yaml@2.8.4: {}
 
