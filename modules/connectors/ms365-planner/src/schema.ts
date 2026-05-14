@@ -98,6 +98,7 @@ export const syncWatermarks = connectorMs365PlannerSchema.table(
     scopeId: text('scope_id').notNull(),
     lastSyncAt: timestamp('last_sync_at', { withTimezone: true }),
     status: text('status'),
+    deltaToken: text('delta_token'),
   },
   (t) => [primaryKey({ columns: [t.tenantId, t.scopeKind, t.scopeId] })],
 )
@@ -111,3 +112,4 @@ export type NewPlannerPlan = typeof plannerPlansCache.$inferInsert
 export type PlannerBucketRow = typeof plannerBucketsCache.$inferSelect
 export type NewPlannerBucket = typeof plannerBucketsCache.$inferInsert
 export type SyncWatermarkRow = typeof syncWatermarks.$inferSelect
+export type NewSyncWatermark = typeof syncWatermarks.$inferInsert
