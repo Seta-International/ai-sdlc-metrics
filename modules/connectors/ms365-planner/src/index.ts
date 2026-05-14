@@ -5,6 +5,16 @@ export type { CreateTaskInput, PlannerClient, TaskUpdate } from './client'
 export { createPlannerClient } from './client'
 export { createEtagStore } from './etag'
 export { plannerConnector } from './manifest'
+export {
+  queryBlockedTasks,
+  queryCompletionRate,
+  queryDueSoonTasks,
+  queryPlanTitle,
+  queryPlanTitles,
+  queryTaskCountByStatus,
+  queryUnassignedTasks,
+  queryVisiblePlanIds,
+} from './queries'
 export * from './schema'
 export type { PlannerSyncWorker, PlannerSyncWorkerDeps } from './sync'
 export { createPlannerSyncWorker } from './sync'
