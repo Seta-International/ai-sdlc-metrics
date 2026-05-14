@@ -3,8 +3,8 @@ import { createPool } from '@seta/db'
 import { createGraphFetch } from '@seta/ms-graph'
 import { HttpResponse, http } from 'msw'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { createDispatch, DATABASE_URL, TEST_TENANT_ID, truncatePlannerData } from './_harness.js'
-import { mswPlanner, TEST_PLAN_ID } from './_msw-planner.js'
+import { createDispatch, DATABASE_URL, TEST_TENANT_ID, truncatePlannerData } from './_harness'
+import { mswPlanner, TEST_PLAN_ID } from './_msw-planner'
 
 describe('update_tasks: partial failure + idempotent re-commit + token tamper', () => {
   const sql = createPool(DATABASE_URL)

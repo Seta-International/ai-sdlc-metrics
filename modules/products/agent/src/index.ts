@@ -27,7 +27,7 @@ import {
   updateTasksCommitTool,
   updateTasksPreviewTool,
   workloadAnalysisTool,
-} from './tools/planner/index.js'
+} from './tools/planner/index'
 
 type DbSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>
 

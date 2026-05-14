@@ -1,6 +1,6 @@
 import { HttpResponse, http } from 'msw'
 import { setupServer } from 'msw/node'
-import { TEST_GROUP_ID } from './_harness.js'
+import { TEST_GROUP_ID } from './_harness'
 
 const BASE = 'https://graph.microsoft.com/v1.0'
 

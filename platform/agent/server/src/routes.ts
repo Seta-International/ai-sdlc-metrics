@@ -4,14 +4,14 @@ import { DomainError } from '@seta/middleware'
 import { tenantContext } from '@seta/tenant'
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { buildActionTool } from './actions/build-action-tool.js'
+import { buildActionTool } from './actions/build-action-tool'
 import {
   hydrateAgent,
   invalidateProfileCache,
   loadAgentActions,
   resolveAgentProfile,
-} from './profile-registry.js'
-import type { ToolRegistry } from './tool-registry.js'
+} from './profile-registry'
+import type { ToolRegistry } from './tool-registry'
 
 type DbSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>
 

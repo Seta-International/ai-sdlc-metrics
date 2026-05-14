@@ -1,6 +1,6 @@
 import type { Tool, ToolResult } from '@seta/agent-core'
 import { z } from 'zod'
-import type { AgentActionRow } from '../schema.js'
+import type { AgentActionRow } from '../schema'
 
 type OpenApiOperation = {
   path: string

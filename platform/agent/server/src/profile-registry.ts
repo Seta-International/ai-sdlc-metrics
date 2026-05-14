@@ -1,8 +1,8 @@
 import type { AgentConfig } from '@seta/agent-core'
 import { DomainError } from '@seta/middleware'
 import { LRUCache } from 'lru-cache'
-import type { AgentActionRow, AgentProfileRow } from './schema.js'
-import type { ToolRegistry } from './tool-registry.js'
+import type { AgentActionRow, AgentProfileRow } from './schema'
+import type { ToolRegistry } from './tool-registry'
 
 type DbSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>
 

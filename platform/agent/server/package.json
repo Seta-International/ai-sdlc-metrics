@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@hono/zod-openapi": "1.4.0",
-    "drizzle-kit": "0.31.10"
+    "drizzle-kit": "0.31.10",
+    "tsup": "8.5.1"
   }
 }

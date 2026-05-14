@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 // Run: pnpm tsx platform/agent/chunking/src/scripts/demo.ts
-import { chunkText } from '../index.js'
+import { chunkText } from '../index'
 
 const RESET = '\x1b[0m'
 const BOLD = '\x1b[1m'

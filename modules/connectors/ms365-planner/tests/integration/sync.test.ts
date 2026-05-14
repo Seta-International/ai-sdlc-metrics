@@ -1,6 +1,6 @@
 import { createPool } from '@seta/db'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { createPlannerSyncWorker } from '../../src/sync.js'
+import { createPlannerSyncWorker } from '../../src/sync'
 
 const DATABASE_URL = process.env.DATABASE_URL
 if (!DATABASE_URL) throw new Error('DATABASE_URL required for integration tests')
