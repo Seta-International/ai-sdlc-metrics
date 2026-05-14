@@ -19,3 +19,10 @@ export function createAnalyticsTools(deps: AnalyticsToolDeps): Record<string, To
   ]
   return Object.fromEntries(tools.map((t) => [t.id, t])) as Record<string, Tool>
 }
+
+export async function refreshAnalyticsViews(
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>,
+): Promise<void> {
+  await sql`REFRESH MATERIALIZED VIEW CONCURRENTLY analytics.mv_assignee_workload`
+  await sql`REFRESH MATERIALIZED VIEW CONCURRENTLY analytics.mv_plan_weekly_velocity`
+}

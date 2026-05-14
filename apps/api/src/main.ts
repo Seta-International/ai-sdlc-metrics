@@ -5,7 +5,11 @@ import {
   seedAgentProfiles,
   type ThreadStore,
 } from '@seta/agent-server'
-import { ANALYTICS_PROFILE_SEED, createAnalyticsTools } from '@seta/analytics'
+import {
+  ANALYTICS_PROFILE_SEED,
+  createAnalyticsTools,
+  refreshAnalyticsViews,
+} from '@seta/analytics'
 import { createAuditWriter } from '@seta/audit'
 import { directoryConnector } from '@seta/connector-ms365-directory'
 import {
@@ -33,7 +37,12 @@ import {
   createTaskIndexer,
   PLANNER_PROFILE_SEED,
 } from '@seta/planner'
-import { tenantContext } from '@seta/tenant'
+import {
+  getActiveTenantIds,
+  isConnectorConsented,
+  recordConsent,
+  tenantContext,
+} from '@seta/tenant'
 import { Hono } from 'hono'
 import { agentMemory, agentRegistry } from './agent'
 import { sql } from './db'
@@ -52,16 +61,9 @@ const stateStore = createStateStore(sql)
 const audit = createAuditWriter(sql)
 const graph = createGraphFetch({ recordAudit: audit.recordAudit.bind(audit) })
 
-const registry = createConnectorRegistry(async (tenantId, connectorId) => {
-  const rows = await sql<Array<{ ok: number }>>`
-    SELECT 1 AS ok FROM tenant.tenant_connectors
-     WHERE tenant_id = ${tenantId}
-       AND connector_id = ${connectorId}
-       AND status = 'active'
-     LIMIT 1
-  `
-  return rows.length > 0
-})
+const registry = createConnectorRegistry(async (tenantId, connectorId) =>
+  isConnectorConsented(sql as never, tenantId, connectorId),
+)
 registry.register(plannerConnector)
 registry.register(directoryConnector)
 
@@ -193,27 +195,8 @@ app.route(
     vault,
     audit,
     redirectBase: env.PUBLIC_BASE_URL,
-    onConsented: async ({ tenantId, connectorIds, scopesGranted }) => {
-      await sql.begin(async (tx) => {
-        await tx`
-          INSERT INTO tenant.tenants (id, slug, display_name, status)
-          VALUES (${tenantId}, ${`t-${tenantId}`}, ${tenantId}, 'active')
-          ON CONFLICT (id) DO NOTHING
-        `
-        for (const connectorId of connectorIds) {
-          await tx`
-            INSERT INTO tenant.tenant_connectors
-              (tenant_id, connector_id, status, consented_at, scope_set)
-            VALUES (${tenantId}, ${connectorId}, 'active', now(), ${tx.json(scopesGranted as never)})
-            ON CONFLICT (tenant_id, connector_id) DO UPDATE
-              SET status       = 'active',
-                  consented_at = excluded.consented_at,
-                  scope_set    = excluded.scope_set,
-                  updated_at   = now()
-          `
-        }
-      })
-    },
+    onConsented: async ({ tenantId, connectorIds, scopesGranted }) =>
+      recordConsent(sql as never, { tenantId, connectorIds, scopesGranted }),
   }),
 )
 
@@ -240,13 +223,6 @@ async function boot() {
     vector: embeddingsStub,
   })
 
-  const getActiveTenantIds = async (): Promise<string[]> => {
-    const rows = (await sql`
-      SELECT DISTINCT tenant_id::text FROM tenant.tenants WHERE status = 'active'
-    `) as Array<{ tenant_id: string }>
-    return rows.map((r) => r.tenant_id)
-  }
-
   const getAppToken = async (tenantId: string): Promise<string> => {
     const bundle = await entra.acquireAppOnly(tenantId, ['https://graph.microsoft.com/.default'])
     return bundle.accessToken
@@ -261,12 +237,11 @@ async function boot() {
       if (changedTaskIds.length > 0) {
         await taskIndexer.indexTasks(tenantId, changedTaskIds)
       }
-      await sql`REFRESH MATERIALIZED VIEW CONCURRENTLY analytics.mv_assignee_workload`
-      await sql`REFRESH MATERIALIZED VIEW CONCURRENTLY analytics.mv_plan_weekly_velocity`
+      await refreshAnalyticsViews(sql as never)
     },
   })
 
-  const tenantIds = await getActiveTenantIds()
+  const tenantIds = await getActiveTenantIds(sql as never)
   syncWorker.start(tenantIds)
   logger.info({ tenants: tenantIds.length }, 'planner sync worker started')
 }
