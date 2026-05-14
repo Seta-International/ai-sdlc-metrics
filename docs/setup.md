@@ -1817,6 +1817,7 @@ pnpm --filter @seta/connector-ms365-directory add zod@4.4.3 drizzle-orm@0.45.2 \
 
 ```bash
 pnpm --filter @seta/agent-chunking   add js-tiktoken@1.0.21 zod@4.4.3
+pnpm --filter @seta/agent-chunking   add -D fast-check@4.8.0
 pnpm --filter @seta/agent-embeddings add openai@6.37.0 zod@4.4.3
 pnpm --filter @seta/agent-vector     add zod@4.4.3 @seta/db@workspace:*
 pnpm --filter @seta/agent-rag    add zod@4.4.3 \
