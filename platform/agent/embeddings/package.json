@@ -20,5 +20,11 @@
     "@seta/agent-core": "workspace:*",
     "openai": "6.37.0",
     "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@seta/tsconfig": "workspace:*",
+    "@types/node": "^24.12.3",
+    "tsup": "8.5.1",
+    "typescript": "6.0.3"
   }
 }
