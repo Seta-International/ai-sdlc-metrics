@@ -24,6 +24,9 @@ const Env = z.object({
   PLANNER_CACHE_STALE_FALLBACK_MAX_SEC: z.coerce.number().int().positive().default(3600),
   PLANNER_BATCH_CONCURRENCY: z.coerce.number().int().positive().default(3),
   CONTINUATION_TTL_MIN: z.coerce.number().int().positive().default(15),
+  MS_BOT_ID: z.string().min(1),
+  MS_BOT_SECRET: z.string().min(1),
+  TEAMS_SKIP_JWT_VERIFY: z.coerce.boolean().default(false),
 })
 
 export const env = Env.parse(process.env)

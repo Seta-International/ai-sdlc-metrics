@@ -15,6 +15,7 @@ import {
   EntraProvider,
 } from '@seta/oauth'
 import { logger } from '@seta/observability'
+import { type TeamsHandler, routes as teamsRoutes } from '@seta/teams'
 import { tenantContext } from '@seta/tenant'
 import { Hono } from 'hono'
 import './agent'
@@ -104,6 +105,21 @@ app.route(
         }
       })
     },
+  }),
+)
+
+const stubTeamsHandler: TeamsHandler = async (activity) => {
+  if (activity.type === 'message') return { type: 'message', text: 'Coming soon' }
+  if (activity.type === 'invoke') return { type: 'invokeResponse', value: { status: 200 } }
+  return null
+}
+
+app.route(
+  '/teams',
+  teamsRoutes(stubTeamsHandler, {
+    botId: env.MS_BOT_ID,
+    botSecret: env.MS_BOT_SECRET,
+    skipJwtVerify: env.TEAMS_SKIP_JWT_VERIFY,
   }),
 )
 

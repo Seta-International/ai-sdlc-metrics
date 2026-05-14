@@ -7,7 +7,8 @@
     "build": "tsup src/index.ts --format esm --dts --sourcemap",
     "dev": "tsup src/index.ts --format esm --dts --watch",
     "test:unit": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build:manifest": "tsx src/manifest/build.ts"
   },
   "license": "Apache-2.0",
   "type": "module",
@@ -17,8 +18,10 @@
     "dist"
   ],
   "dependencies": {
+    "@seta/middleware": "workspace:*",
     "@seta/oauth": "workspace:*",
     "@seta/tenant": "workspace:*",
+    "adm-zip": "0.5.17",
     "hono": "4.12.18",
     "jose": "6.2.3",
     "lru-cache": "11.3.6",
@@ -26,6 +29,7 @@
   },
   "devDependencies": {
     "@seta/tsconfig": "workspace:*",
+    "@types/adm-zip": "^0.5.8",
     "@types/node": "^25.7.0",
     "tsup": "8.5.1",
     "typescript": "6.0.3",
