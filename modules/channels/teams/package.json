@@ -18,9 +18,12 @@
     "dist"
   ],
   "dependencies": {
+    "@seta/agent-core": "workspace:*",
+    "@seta/agent-memory": "workspace:*",
+    "@seta/agent-server": "workspace:*",
+    "@seta/agent-workflows": "workspace:*",
     "@seta/middleware": "workspace:*",
     "@seta/oauth": "workspace:*",
-    "@seta/tenant": "workspace:*",
     "adm-zip": "0.5.17",
     "hono": "4.12.18",
     "jose": "6.2.3",

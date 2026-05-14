@@ -126,15 +126,24 @@ importers:
 
   modules/channels/teams:
     dependencies:
+      '@seta/agent-core':
+        specifier: workspace:*
+        version: link:../../../platform/agent/core
+      '@seta/agent-memory':
+        specifier: workspace:*
+        version: link:../../../platform/agent/memory
+      '@seta/agent-server':
+        specifier: workspace:*
+        version: link:../../../platform/agent/server
+      '@seta/agent-workflows':
+        specifier: workspace:*
+        version: link:../../../platform/agent/workflows
       '@seta/middleware':
         specifier: workspace:*
         version: link:../../../platform/middleware
       '@seta/oauth':
         specifier: workspace:*
         version: link:../../../platform/oauth
-      '@seta/tenant':
-        specifier: workspace:*
-        version: link:../../../platform/tenant
       adm-zip:
         specifier: 0.5.17
         version: 0.5.17
