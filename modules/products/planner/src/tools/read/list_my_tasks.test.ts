@@ -34,16 +34,16 @@ describe('listMyTasksTool', () => {
     ])
     const tool = listMyTasksTool({ sql: sql as never })
     const result = await tool.execute({ timeRange: 'today', limit: 20 }, makeCtx())
-    expect(result.ok).toBe(true)
-    if (result.ok) expect(result.value.tasks).toHaveLength(1)
+    expect('ok' in result && result.ok).toBe(true)
+    if ('ok' in result && result.ok) expect(result.value.tasks).toHaveLength(1)
   })
 
   it('returns empty when view returns no rows', async () => {
     const sql = makeSql([])
     const tool = listMyTasksTool({ sql: sql as never })
     const result = await tool.execute({ timeRange: 'today', limit: 20 }, makeCtx())
-    expect(result.ok).toBe(true)
-    if (result.ok) {
+    expect('ok' in result && result.ok).toBe(true)
+    if ('ok' in result && result.ok) {
       expect(result.value.tasks).toHaveLength(0)
       expect(result.value.summary.total).toBe(0)
     }
