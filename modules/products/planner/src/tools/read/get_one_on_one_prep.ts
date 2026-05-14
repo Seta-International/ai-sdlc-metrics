@@ -1,7 +1,7 @@
 import type { Tool } from '@seta/agent-core'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
-import type { ReadToolDeps } from './list_my_tasks.js'
+import type { ReadToolDeps } from './list_my_tasks'
 
 const Input = z.object({
   targetUserId: z.string(),

@@ -1,31 +1,31 @@
 import type { Tool } from '@seta/agent-core'
 import type { PlannerCache, PlannerClient } from '@seta/connector-ms365-planner'
 import type { GraphFetch } from '@seta/ms-graph'
-import { getOneOnOnePrepTool } from './tools/read/get_one_on_one_prep.js'
-import { getProjectStatusTool } from './tools/read/get_project_status.js'
-import { getTaskTool } from './tools/read/get_task.js'
-import { listBucketsTool } from './tools/read/list_buckets.js'
-import type { ReadToolDeps } from './tools/read/list_my_tasks.js'
-import { listMyTasksTool } from './tools/read/list_my_tasks.js'
-import { listPlanTasksTool } from './tools/read/list_plan_tasks.js'
-import { listPlansTool } from './tools/read/list_plans.js'
+import { getOneOnOnePrepTool } from './tools/read/get_one_on_one_prep'
+import { getProjectStatusTool } from './tools/read/get_project_status'
+import { getTaskTool } from './tools/read/get_task'
+import { listBucketsTool } from './tools/read/list_buckets'
+import type { ReadToolDeps } from './tools/read/list_my_tasks'
+import { listMyTasksTool } from './tools/read/list_my_tasks'
+import { listPlanTasksTool } from './tools/read/list_plan_tasks'
+import { listPlansTool } from './tools/read/list_plans'
 import type {
   EmbeddingProvider,
   SemanticSearchDeps,
   VectorStore,
-} from './tools/read/search_tasks_semantic.js'
-import { searchTasksSemanticTool } from './tools/read/search_tasks_semantic.js'
-import type { MintInput } from './tools/write/_continuation.js'
-import { addCommentsCommitTool } from './tools/write/add_comments.commit.js'
-import { addCommentsPreviewTool } from './tools/write/add_comments.preview.js'
-import { completeTasksCommitTool } from './tools/write/complete_tasks.commit.js'
-import { completeTasksPreviewTool } from './tools/write/complete_tasks.preview.js'
-import { createPlanCommitTool } from './tools/write/create_plan.commit.js'
-import { createPlanPreviewTool } from './tools/write/create_plan.preview.js'
-import { createTasksCommitTool } from './tools/write/create_tasks.commit.js'
-import { createTasksPreviewTool } from './tools/write/create_tasks.preview.js'
-import { updateTasksCommitTool } from './tools/write/update_tasks.commit.js'
-import { updateTasksPreviewTool } from './tools/write/update_tasks.preview.js'
+} from './tools/read/search_tasks_semantic'
+import { searchTasksSemanticTool } from './tools/read/search_tasks_semantic'
+import type { MintInput } from './tools/write/_continuation'
+import { addCommentsCommitTool } from './tools/write/add_comments.commit'
+import { addCommentsPreviewTool } from './tools/write/add_comments.preview'
+import { completeTasksCommitTool } from './tools/write/complete_tasks.commit'
+import { completeTasksPreviewTool } from './tools/write/complete_tasks.preview'
+import { createPlanCommitTool } from './tools/write/create_plan.commit'
+import { createPlanPreviewTool } from './tools/write/create_plan.preview'
+import { createTasksCommitTool } from './tools/write/create_tasks.commit'
+import { createTasksPreviewTool } from './tools/write/create_tasks.preview'
+import { updateTasksCommitTool } from './tools/write/update_tasks.commit'
+import { updateTasksPreviewTool } from './tools/write/update_tasks.preview'
 
 export interface PlannerToolsDeps {
   sql: ReadToolDeps['sql']
@@ -120,18 +120,18 @@ export function createPlannerTools(deps: PlannerToolsDeps): Record<string, Tool>
   return Object.fromEntries(tools.map((t) => [t.id, t])) as Record<string, Tool>
 }
 
-export type { TaskIndexerDeps } from './indexer.js'
-export { createTaskIndexer } from './indexer.js'
+export type { TaskIndexerDeps } from './indexer'
+export { createTaskIndexer } from './indexer'
 export {
   PLANNER_INSTRUCTIONS,
   PLANNER_PROFILE_SEED,
   PLANNER_SLUG,
   PLANNER_TOOL_IDS,
   PLANNER_WORKING_MEMORY_TEMPLATE,
-} from './seeds/planner.js'
+} from './seeds/planner'
 export type {
   EmbeddingProvider,
   VectorChunk,
   VectorStore,
   VectorUpsertInput,
-} from './tools/read/search_tasks_semantic.js'
+} from './tools/read/search_tasks_semantic'

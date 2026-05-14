@@ -3,8 +3,8 @@ import type { PlannerCache, PlannerClient } from '@seta/connector-ms365-planner'
 import { Unauthorized } from '@seta/middleware'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
-import { buildPreviewCard } from './_card.js'
-import type { MintInput } from './_continuation.js'
+import { buildPreviewCard } from './_card'
+import type { MintInput } from './_continuation'
 
 export interface PreviewDepsBase {
   registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }

@@ -2,8 +2,8 @@ import type { Tool } from '@seta/agent-core'
 import { Unauthorized } from '@seta/middleware'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
-import { buildPreviewCard } from './_card.js'
-import type { PreviewDepsBase } from './update_tasks.preview.js'
+import { buildPreviewCard } from './_card'
+import type { PreviewDepsBase } from './update_tasks.preview'
 
 const TaskToCreate = z.object({
   planId: z.string().min(1),

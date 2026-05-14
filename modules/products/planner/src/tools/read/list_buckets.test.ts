@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { listBucketsTool } from './list_buckets.js'
+import { listBucketsTool } from './list_buckets'
 
 const makeSql = (rows: unknown[]) =>
   vi

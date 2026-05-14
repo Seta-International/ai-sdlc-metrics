@@ -5,7 +5,7 @@ import {
   ContinuationConsumed,
   ContinuationExpired,
   ContinuationUserMismatch,
-} from './_errors.js'
+} from './_errors'
 
 export interface ContinuationStoreDeps {
   sql: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>

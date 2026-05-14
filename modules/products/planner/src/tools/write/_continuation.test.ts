@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createContinuationStore } from './_continuation.js'
-import { ContinuationConsumed, ContinuationExpired } from './_errors.js'
+import { createContinuationStore } from './_continuation'
+import { ContinuationConsumed, ContinuationExpired } from './_errors'
 
 const HMAC_KEY = 'a'.repeat(64)
 

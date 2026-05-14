@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { listMyTasksTool } from './list_my_tasks.js'
+import { listMyTasksTool } from './list_my_tasks'
 
 const makeSql = (rows: unknown[]) =>
   vi

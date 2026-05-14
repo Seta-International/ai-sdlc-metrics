@@ -4,9 +4,9 @@ import type { BatchRequest, GraphFetch } from '@seta/ms-graph'
 import { tenantContext } from '@seta/tenant'
 import PQueue from 'p-queue'
 import { z } from 'zod'
-import type { OpResult } from './_classify.js'
-import { classifyBatchItem } from './_classify.js'
-import { ContinuationConsumed } from './_errors.js'
+import type { OpResult } from './_classify'
+import { classifyBatchItem } from './_classify'
+import { ContinuationConsumed } from './_errors'
 
 export interface CommitDeps {
   registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }

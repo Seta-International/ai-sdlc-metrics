@@ -334,9 +334,15 @@ importers:
       '@seta/agent-core':
         specifier: workspace:*
         version: link:../../../platform/agent/core
+      '@seta/agent-embeddings':
+        specifier: workspace:*
+        version: link:../../../platform/agent/embeddings
       '@seta/agent-server':
         specifier: workspace:*
         version: link:../../../platform/agent/server
+      '@seta/agent-vector':
+        specifier: workspace:*
+        version: link:../../../platform/agent/vector
       '@seta/agent-workflows':
         specifier: workspace:*
         version: link:../../../platform/agent/workflows
@@ -461,6 +467,8 @@ importers:
         specifier: 4.1.6
         version: 4.1.6(@opentelemetry/api@1.9.1)(@types/node@25.7.0)(@vitest/coverage-v8@4.1.6)(msw@2.14.6(@types/node@25.7.0)(typescript@6.0.3))(vite@8.0.11(@types/node@25.7.0)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.4))
 
+  platform/agent/embeddings: {}
+
   platform/agent/memory:
     dependencies:
       '@seta/agent-core':
@@ -580,6 +588,8 @@ importers:
       tsup:
         specifier: 8.5.1
         version: 8.5.1(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)
+
+  platform/agent/vector: {}
 
   platform/agent/workflows:
     dependencies:

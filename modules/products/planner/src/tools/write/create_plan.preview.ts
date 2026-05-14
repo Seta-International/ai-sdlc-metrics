@@ -2,8 +2,8 @@ import type { Tool } from '@seta/agent-core'
 import { Unauthorized } from '@seta/middleware'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
-import { buildPreviewCard } from './_card.js'
-import type { MintInput } from './_continuation.js'
+import { buildPreviewCard } from './_card'
+import type { MintInput } from './_continuation'
 
 interface CreatePlanPreviewDeps {
   registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }

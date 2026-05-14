@@ -1,6 +1,6 @@
 import type { Tool } from '@seta/agent-core'
 import { z } from 'zod'
-import type { ReadToolDeps } from './list_my_tasks.js'
+import type { ReadToolDeps } from './list_my_tasks'
 
 const Input = z.object({ limit: z.number().min(1).max(50).default(20) })
 const Output = z.object({ plans: z.array(z.unknown()) })

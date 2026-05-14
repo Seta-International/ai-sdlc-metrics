@@ -2,8 +2,8 @@ import type { Tool } from '@seta/agent-core'
 import { Unauthorized } from '@seta/middleware'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
-import { buildPreviewCard } from './_card.js'
-import type { PreviewDeps } from './update_tasks.preview.js'
+import { buildPreviewCard } from './_card'
+import type { PreviewDeps } from './update_tasks.preview'
 
 const Input = z.object({ taskIds: z.array(z.string().min(1)).min(1).max(100) })
 

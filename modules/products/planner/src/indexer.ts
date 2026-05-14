@@ -1,5 +1,6 @@
+import type { EmbeddingProvider } from '@seta/agent-embeddings'
+import type { VectorStore } from '@seta/agent-vector'
 import PQueue from 'p-queue'
-import type { EmbeddingProvider, VectorStore } from './tools/read/search_tasks_semantic.js'
 
 export type { EmbeddingProvider, VectorStore }
 

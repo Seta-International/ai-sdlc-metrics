@@ -4,10 +4,10 @@ import type { BatchRequest } from '@seta/ms-graph'
 import { tenantContext } from '@seta/tenant'
 import PQueue from 'p-queue'
 import { z } from 'zod'
-import type { OpResult } from './_classify.js'
-import { classifyBatchItem } from './_classify.js'
-import { ContinuationConsumed } from './_errors.js'
-import type { CommitDeps } from './update_tasks.commit.js'
+import type { OpResult } from './_classify'
+import { classifyBatchItem } from './_classify'
+import { ContinuationConsumed } from './_errors'
+import type { CommitDeps } from './update_tasks.commit'
 
 export type { CommitDeps }
 

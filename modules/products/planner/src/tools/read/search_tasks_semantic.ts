@@ -1,36 +1,11 @@
 import type { Tool } from '@seta/agent-core'
+import type { EmbeddingProvider } from '@seta/agent-embeddings'
+import type { VectorChunk, VectorStore, VectorUpsertInput } from '@seta/agent-vector'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
-import type { ReadToolDeps } from './list_my_tasks.js'
+import type { ReadToolDeps } from './list_my_tasks'
 
-export interface EmbeddingProvider {
-  embed(text: string): Promise<number[]>
-}
-
-export interface VectorChunk {
-  sourceId: string
-  content: string
-  score: number
-}
-
-export interface VectorUpsertInput {
-  sourceId: string
-  tenantId: string
-  content: string
-  charRange: { start: number; end: number }
-  metadata: Record<string, unknown>
-  embedding: number[]
-}
-
-export interface VectorStore {
-  search(opts: {
-    tenantId: string
-    vector: number[]
-    topK: number
-    filter?: Record<string, unknown>
-  }): Promise<VectorChunk[]>
-  upsert(input: VectorUpsertInput): Promise<void>
-}
+export type { EmbeddingProvider, VectorChunk, VectorStore, VectorUpsertInput }
 
 export interface SemanticSearchDeps extends ReadToolDeps {
   embeddings: EmbeddingProvider

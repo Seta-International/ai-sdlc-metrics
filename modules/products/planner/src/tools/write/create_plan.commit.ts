@@ -3,7 +3,7 @@ import { Unauthorized } from '@seta/middleware'
 import type { GraphFetch } from '@seta/ms-graph'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
-import { ContinuationConsumed } from './_errors.js'
+import { ContinuationConsumed } from './_errors'
 
 export interface CreatePlanCommitDeps {
   registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
