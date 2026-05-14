@@ -1,8 +1,7 @@
+import { type DbSql, withTenant } from '@seta/db'
 import type { GraphFetch } from '@seta/ms-graph'
+import { logger } from '@seta/observability'
 import { createPlannerClient } from './client.js'
-
-type DbSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>
-type SqlWithArray = DbSql & { array(arr: unknown[]): unknown[] }
 
 interface PlanRow {
   id: string
@@ -11,7 +10,7 @@ interface PlanRow {
 }
 
 export interface PlannerSyncWorkerDeps {
-  sql: SqlWithArray
+  db: DbSql
   graph: GraphFetch
   getAppToken: (tenantId: string) => Promise<string>
   intervalMs?: number
@@ -20,43 +19,11 @@ export interface PlannerSyncWorkerDeps {
 }
 
 const SYNC_ACTOR = { type: 'system' as const, label: 'planner-sync' }
+const log = logger.child({ component: 'planner-sync-worker' })
 
 export function createPlannerSyncWorker(deps: PlannerSyncWorkerDeps) {
-  const { sql, graph, getAppToken, intervalMs = 3 * 60 * 1000, afterSync, onSyncError } = deps
+  const { db, graph, getAppToken, intervalMs = 3 * 60 * 1000, afterSync, onSyncError } = deps
   let timer: ReturnType<typeof setInterval> | null = null
-
-  async function upsertPlansBatch(tenantId: string, plans: PlanRow[]): Promise<void> {
-    for (const plan of plans) {
-      await sql`
-        INSERT INTO connector_ms365_planner.planner_plans_cache
-          (tenant_id, graph_plan_id, owner_group_id, title, container_url, raw, synced_at, soft_deleted_at)
-        VALUES (
-          ${tenantId}::uuid, ${plan.id}, ${plan.ownerGroupId},
-          ${(plan.raw as { title?: string }).title ?? null},
-          ${(plan.raw as { container?: { url?: string } }).container?.url ?? null},
-          ${JSON.stringify(plan.raw)}::jsonb, now(), NULL
-        )
-        ON CONFLICT (tenant_id, graph_plan_id) DO UPDATE SET
-          owner_group_id  = EXCLUDED.owner_group_id,
-          title           = EXCLUDED.title,
-          container_url   = EXCLUDED.container_url,
-          raw             = EXCLUDED.raw,
-          synced_at       = now(),
-          soft_deleted_at = NULL
-      `
-    }
-  }
-
-  async function softDeleteRemovedPlans(tenantId: string, seenPlanIds: string[]): Promise<void> {
-    if (seenPlanIds.length === 0) return
-    await sql`
-      UPDATE connector_ms365_planner.planner_plans_cache
-      SET soft_deleted_at = now()
-      WHERE tenant_id    = ${tenantId}::uuid
-        AND soft_deleted_at IS NULL
-        AND graph_plan_id <> ALL(${sql.array(seenPlanIds)})
-    `
-  }
 
   async function syncTenantTasksDelta(
     tenantId: string,
@@ -65,99 +32,105 @@ export function createPlannerSyncWorker(deps: PlannerSyncWorkerDeps) {
   ): Promise<string[]> {
     const client = createPlannerClient({ graph, token, actor: SYNC_ACTOR })
 
-    const watermarkRows = await sql`
+    const watermarkRows = await withTenant(
+      db,
+      tenantId,
+      (tx) => tx`
       SELECT delta_token FROM connector_ms365_planner.sync_watermarks
       WHERE tenant_id  = ${tenantId}::uuid
         AND scope_kind = 'tasks'
         AND scope_id   = ${planId}
-    `
+    `,
+    )
     const storedToken =
       (watermarkRows[0] as { delta_token?: string } | undefined)?.delta_token ?? undefined
 
     const { items, nextDeltaToken } = await client.listPlanTasksDelta(planId, storedToken)
     const changedTaskIds: string[] = []
 
-    for (const raw of items) {
-      const task = raw as {
-        id: string
-        planId?: string
-        bucketId?: string
-        title?: string
-        percentComplete?: number
-        priority?: number
-        dueDateTime?: string | null
-        assignments?: Record<string, unknown>
-        createdBy?: { user?: { id?: string } }
-        createdDateTime?: string | null
-        lastModifiedBy?: { user?: { id?: string } }
-        lastModifiedDateTime?: string | null
-        '@odata.etag'?: string
-        '@removed'?: unknown
-      }
+    await withTenant(db, tenantId, async (tx) => {
+      for (const raw of items) {
+        const task = raw as {
+          id: string
+          planId?: string
+          bucketId?: string
+          title?: string
+          percentComplete?: number
+          priority?: number
+          dueDateTime?: string | null
+          assignments?: Record<string, unknown>
+          createdBy?: { user?: { id?: string } }
+          createdDateTime?: string | null
+          lastModifiedBy?: { user?: { id?: string } }
+          lastModifiedDateTime?: string | null
+          '@odata.etag'?: string
+          '@removed'?: unknown
+        }
 
-      if (task['@removed']) {
-        await sql`
-          UPDATE connector_ms365_planner.planner_tasks_cache
-          SET soft_deleted_at = now()
-          WHERE tenant_id    = ${tenantId}::uuid
-            AND graph_task_id = ${task.id}
+        if (task['@removed']) {
+          await tx`
+            UPDATE connector_ms365_planner.planner_tasks_cache
+            SET soft_deleted_at = now()
+            WHERE tenant_id    = ${tenantId}::uuid
+              AND graph_task_id = ${task.id}
+          `
+          continue
+        }
+
+        const assigneeIds = Object.keys(task.assignments ?? {})
+        await tx`
+          INSERT INTO connector_ms365_planner.planner_tasks_cache (
+            tenant_id, graph_task_id, plan_id, bucket_id, title,
+            percent_complete, priority, due_date, assignee_ids,
+            created_by, created_at_graph, last_modified_by, last_modified_at_graph,
+            etag, raw, synced_at
+          ) VALUES (
+            ${tenantId}::uuid,
+            ${task.id},
+            ${task.planId ?? planId},
+            ${task.bucketId ?? null},
+            ${task.title ?? null},
+            ${task.percentComplete ?? 0},
+            ${task.priority ?? 1},
+            ${task.dueDateTime ?? null}::timestamptz,
+            ${db.array(assigneeIds)},
+            ${task.createdBy?.user?.id ?? null},
+            ${task.createdDateTime ?? null}::timestamptz,
+            ${task.lastModifiedBy?.user?.id ?? null},
+            ${task.lastModifiedDateTime ?? null}::timestamptz,
+            ${task['@odata.etag'] ?? null},
+            ${JSON.stringify(raw)}::jsonb,
+            now()
+          )
+          ON CONFLICT (tenant_id, graph_task_id) DO UPDATE SET
+            plan_id              = EXCLUDED.plan_id,
+            bucket_id            = EXCLUDED.bucket_id,
+            title                = EXCLUDED.title,
+            percent_complete     = EXCLUDED.percent_complete,
+            priority             = EXCLUDED.priority,
+            due_date             = EXCLUDED.due_date,
+            assignee_ids         = EXCLUDED.assignee_ids,
+            last_modified_by     = EXCLUDED.last_modified_by,
+            last_modified_at_graph = EXCLUDED.last_modified_at_graph,
+            etag                 = EXCLUDED.etag,
+            raw                  = EXCLUDED.raw,
+            synced_at            = now(),
+            soft_deleted_at      = NULL
         `
-        continue
+        changedTaskIds.push(task.id)
       }
 
-      const assigneeIds = Object.keys(task.assignments ?? {})
-      await sql`
-        INSERT INTO connector_ms365_planner.planner_tasks_cache (
-          tenant_id, graph_task_id, plan_id, bucket_id, title,
-          percent_complete, priority, due_date, assignee_ids,
-          created_by, created_at_graph, last_modified_by, last_modified_at_graph,
-          etag, raw, synced_at
-        ) VALUES (
-          ${tenantId}::uuid,
-          ${task.id},
-          ${task.planId ?? planId},
-          ${task.bucketId ?? null},
-          ${task.title ?? null},
-          ${task.percentComplete ?? 0},
-          ${task.priority ?? 1},
-          ${task.dueDateTime ?? null}::timestamptz,
-          ${sql.array(assigneeIds)},
-          ${task.createdBy?.user?.id ?? null},
-          ${task.createdDateTime ?? null}::timestamptz,
-          ${task.lastModifiedBy?.user?.id ?? null},
-          ${task.lastModifiedDateTime ?? null}::timestamptz,
-          ${task['@odata.etag'] ?? null},
-          ${JSON.stringify(raw)}::jsonb,
-          now()
-        )
-        ON CONFLICT (tenant_id, graph_task_id) DO UPDATE SET
-          plan_id              = EXCLUDED.plan_id,
-          bucket_id            = EXCLUDED.bucket_id,
-          title                = EXCLUDED.title,
-          percent_complete     = EXCLUDED.percent_complete,
-          priority             = EXCLUDED.priority,
-          due_date             = EXCLUDED.due_date,
-          assignee_ids         = EXCLUDED.assignee_ids,
-          last_modified_by     = EXCLUDED.last_modified_by,
-          last_modified_at_graph = EXCLUDED.last_modified_at_graph,
-          etag                 = EXCLUDED.etag,
-          raw                  = EXCLUDED.raw,
-          synced_at            = now(),
-          soft_deleted_at      = NULL
+      await tx`
+        INSERT INTO connector_ms365_planner.sync_watermarks
+          (tenant_id, scope_kind, scope_id, last_sync_at, status, delta_token)
+        VALUES
+          (${tenantId}::uuid, 'tasks', ${planId}, now(), 'ok', ${nextDeltaToken})
+        ON CONFLICT (tenant_id, scope_kind, scope_id) DO UPDATE SET
+          last_sync_at = now(),
+          status       = 'ok',
+          delta_token  = EXCLUDED.delta_token
       `
-      changedTaskIds.push(task.id)
-    }
-
-    await sql`
-      INSERT INTO connector_ms365_planner.sync_watermarks
-        (tenant_id, scope_kind, scope_id, last_sync_at, status, delta_token)
-      VALUES
-        (${tenantId}::uuid, 'tasks', ${planId}, now(), 'ok', ${nextDeltaToken})
-      ON CONFLICT (tenant_id, scope_kind, scope_id) DO UPDATE SET
-        last_sync_at = now(),
-        status       = 'ok',
-        delta_token  = EXCLUDED.delta_token
-    `
+    })
 
     return changedTaskIds
   }
@@ -175,24 +148,30 @@ export function createPlannerSyncWorker(deps: PlannerSyncWorkerDeps) {
       const member = raw as { id?: string }
       if (!member.id) continue
       seenUserIds.push(member.id)
-      await sql`
-        INSERT INTO connector_ms365_planner.plan_members (tenant_id, plan_id, user_id, synced_at)
-        VALUES (${tenantId}::uuid, ${planId}, ${member.id}, now())
-        ON CONFLICT (tenant_id, plan_id, user_id) DO UPDATE SET synced_at = now()
-      `
     }
 
-    if (seenUserIds.length > 0) {
-      await sql`
-        DELETE FROM connector_ms365_planner.plan_members
-        WHERE tenant_id = ${tenantId}::uuid
-          AND plan_id   = ${planId}
-          AND user_id   <> ALL(${sql.array(seenUserIds)})
-      `
-    }
+    await withTenant(db, tenantId, async (tx) => {
+      for (const userId of seenUserIds) {
+        await tx`
+          INSERT INTO connector_ms365_planner.plan_members (tenant_id, plan_id, user_id, synced_at)
+          VALUES (${tenantId}::uuid, ${planId}, ${userId}, now())
+          ON CONFLICT (tenant_id, plan_id, user_id) DO UPDATE SET synced_at = now()
+        `
+      }
+
+      if (seenUserIds.length > 0) {
+        await tx`
+          DELETE FROM connector_ms365_planner.plan_members
+          WHERE tenant_id = ${tenantId}::uuid
+            AND plan_id   = ${planId}
+            AND user_id   <> ALL(${db.array(seenUserIds)})
+        `
+      }
+    })
   }
 
   async function syncTenant(tenantId: string): Promise<void> {
+    log.info({ tenantId }, 'sync.start')
     const token = await getAppToken(tenantId)
     const client = createPlannerClient({ graph, token, actor: SYNC_ACTOR })
 
@@ -211,23 +190,56 @@ export function createPlannerSyncWorker(deps: PlannerSyncWorkerDeps) {
 
       const changed = await syncTenantTasksDelta(tenantId, token, plan.id)
       allChangedTaskIds.push(...changed)
+      log.info({ tenantId, planId: plan.id, changed: changed.length }, 'sync.plan.tasks')
 
       if (plan.ownerGroupId) {
         await syncTenantPlanMembers(tenantId, token, plan.id, plan.ownerGroupId)
       }
     }
 
-    if (seenPlans.length === 0) return
+    if (seenPlans.length === 0) {
+      log.info({ tenantId }, 'sync.complete.empty')
+      return
+    }
 
-    await upsertPlansBatch(tenantId, seenPlans)
-    await softDeleteRemovedPlans(
-      tenantId,
-      seenPlans.map((p) => p.id),
-    )
+    await withTenant(db, tenantId, async (tx) => {
+      for (const plan of seenPlans) {
+        await tx`
+          INSERT INTO connector_ms365_planner.planner_plans_cache
+            (tenant_id, graph_plan_id, owner_group_id, title, container_url, raw, synced_at, soft_deleted_at)
+          VALUES (
+            ${tenantId}::uuid, ${plan.id}, ${plan.ownerGroupId},
+            ${(plan.raw as { title?: string }).title ?? null},
+            ${(plan.raw as { container?: { url?: string } }).container?.url ?? null},
+            ${JSON.stringify(plan.raw)}::jsonb, now(), NULL
+          )
+          ON CONFLICT (tenant_id, graph_plan_id) DO UPDATE SET
+            owner_group_id  = EXCLUDED.owner_group_id,
+            title           = EXCLUDED.title,
+            container_url   = EXCLUDED.container_url,
+            raw             = EXCLUDED.raw,
+            synced_at       = now(),
+            soft_deleted_at = NULL
+        `
+      }
+
+      await tx`
+        UPDATE connector_ms365_planner.planner_plans_cache
+        SET soft_deleted_at = now()
+        WHERE tenant_id    = ${tenantId}::uuid
+          AND soft_deleted_at IS NULL
+          AND graph_plan_id <> ALL(${db.array(seenPlans.map((p) => p.id))})
+      `
+    })
 
     if (allChangedTaskIds.length > 0) {
       await afterSync?.(tenantId, allChangedTaskIds)
     }
+
+    log.info(
+      { tenantId, plans: seenPlans.length, tasks: allChangedTaskIds.length },
+      'sync.complete',
+    )
   }
 
   return {
@@ -236,6 +248,7 @@ export function createPlannerSyncWorker(deps: PlannerSyncWorkerDeps) {
       timer = setInterval(() => {
         for (const tenantId of tenantIds) {
           syncTenant(tenantId).catch((err) => {
+            log.error({ tenantId, err }, 'sync.error')
             onSyncError?.(tenantId, err)
           })
         }

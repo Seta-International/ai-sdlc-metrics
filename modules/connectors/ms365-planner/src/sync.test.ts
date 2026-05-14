@@ -9,9 +9,18 @@ function stubGraph() {
 }
 
 function makeSql() {
-  return Object.assign(vi.fn().mockResolvedValue([]), {
-    array: (arr: unknown[]) => arr,
-  }) as ReturnType<typeof vi.fn> & { array(a: unknown[]): unknown[] }
+  const fn = vi.fn().mockResolvedValue([])
+  // withTenant calls db.begin(async (tx) => { await tx`set_config`; return userFn(tx) })
+  // Use a passthrough tx that delegates to fn so set_config calls don't consume sequenced values
+  fn.begin = vi.fn().mockImplementation((callback: (tx: unknown) => unknown) => {
+    const tx = Object.assign(
+      (strings: TemplateStringsArray, ...values: unknown[]) => fn(strings, ...values),
+      { array: (arr: unknown[]) => arr },
+    )
+    return callback(tx)
+  })
+  fn.array = (arr: unknown[]) => arr
+  return fn as unknown as import('@seta/db').DbSql
 }
 
 const TENANT = '00000000-0000-0000-0000-000000000001'
@@ -47,7 +56,7 @@ describe('createPlannerSyncWorker', () => {
     sql.mockResolvedValueOnce([{ graph_plan_id: 'P1', owner_group_id: 'G1' }])
 
     const worker = createPlannerSyncWorker({
-      sql,
+      db: sql,
       graph: g.gf,
       getAppToken: async () => 'tok',
     })
@@ -83,7 +92,7 @@ describe('createPlannerSyncWorker', () => {
       .mockResolvedValueOnce([{ graph_plan_id: 'P1', owner_group_id: 'G1' }]) // planRows query
 
     const worker = createPlannerSyncWorker({
-      sql,
+      db: sql,
       graph: g.gf,
       getAppToken: async () => 'tok',
       afterSync,
@@ -117,7 +126,7 @@ describe('createPlannerSyncWorker', () => {
       .mockResolvedValueOnce([{ graph_plan_id: 'P1', owner_group_id: 'G1' }])
 
     const worker = createPlannerSyncWorker({
-      sql,
+      db: sql,
       graph: g.gf,
       getAppToken: async () => 'tok',
       afterSync,
@@ -146,11 +155,11 @@ describe('createPlannerSyncWorker', () => {
       status: 200,
     })
     sql
-      .mockResolvedValueOnce([{ delta_token: 'STORED_TOKEN' }]) // watermark row
-      .mockResolvedValueOnce([{ graph_plan_id: 'P1', owner_group_id: null }])
+      .mockResolvedValueOnce([]) // set_config inside withTenant
+      .mockResolvedValueOnce([{ delta_token: 'STORED_TOKEN' }]) // watermark SELECT
 
     const worker = createPlannerSyncWorker({
-      sql,
+      db: sql,
       graph: g.gf,
       getAppToken: async () => 'tok',
     })
@@ -166,7 +175,7 @@ describe('createPlannerSyncWorker', () => {
   it('start / stop: does not throw; stop clears the timer', () => {
     vi.useFakeTimers()
     const worker = createPlannerSyncWorker({
-      sql,
+      db: sql,
       graph: g.gf,
       getAppToken: async () => 'tok',
       intervalMs: 5000,
