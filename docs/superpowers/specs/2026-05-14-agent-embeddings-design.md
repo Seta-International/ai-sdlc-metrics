@@ -112,20 +112,22 @@ async function embed(
     if (signal.aborted) throw new DOMException('aborted', 'AbortError')
     const batch = texts.slice(i, i + EMBEDDING_BATCH_SIZE)
 
-    const res = await withRetry(
-      async () => {
-        try {
-          return await client.embeddings.create(
-            { model: EMBEDDING_MODEL, input: batch },
-            { signal },
-          )
-        } catch (err) {
-          if (err instanceof Error && err.name === 'AbortError') throw err
-          throw mapOpenAIError(err, EMBEDDING_MODEL, 'openai')
-        }
-      },
-      { maxRetries: 2, signal },
-    )
+    let res: Awaited<ReturnType<typeof client.embeddings.create>>
+    try {
+      // Throw the RAW SDK error to withRetry so `classifyError` reads
+      // `err.status` (OpenAI.APIError exposes status as a top-level
+      // property; a mapped LlmError would hide it inside `.details.status`
+      // and classifyError would treat every error as terminal). Mapping
+      // happens once retries are exhausted — outer catch below.
+      res = await withRetry(
+        () =>
+          client.embeddings.create({ model: EMBEDDING_MODEL, input: batch }, { signal }),
+        { maxRetries: 2, signal },
+      )
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') throw err
+      throw mapOpenAIError(err, EMBEDDING_MODEL, 'openai')
+    }
 
     if (res.data.length !== batch.length) {
       throw new LlmError({
@@ -150,11 +152,11 @@ async function embed(
 | Concern | Behaviour |
 |---|---|
 | Retry budget | `withRetry({ maxRetries: 2 })` only. SDK `maxRetries: 0`. Backoff per `retry.ts`: 250ms × 2^n, capped at 4s, ±20% jitter. |
-| Retry classification | `classifyError` from agent-core reads `err.status` from `LlmError.details.status` (populated by `mapOpenAIError`). 408/429/5xx → transient; everything else → terminal. |
-| Abort within batch | `signal` threads into `client.embeddings.create(..., { signal })`. SDK throws `AbortError`; we re-throw without mapping. `withRetry` short-circuits when `signal.aborted` becomes true. |
+| Retry classification | `classifyError` from agent-core reads `err.status` directly. `OpenAI.APIError` exposes `.status` as a top-level property, so the retry callback throws the **raw** SDK error (not a mapped `LlmError`). 408/429/500/502/503/504 → transient; everything else → terminal. |
+| Abort within batch | `signal` threads into `client.embeddings.create(..., { signal })`. SDK throws `AbortError`; `withRetry` short-circuits when `signal.aborted` becomes true and re-throws unchanged. The outer `catch` checks `err.name === 'AbortError'` and re-throws without mapping. |
 | Abort between batches | Explicit `signal.aborted` check at the top of every iteration — fail fast before the next `.create` call. |
 | Partial results on abort | None. `result.embeddings[i]` must correspond to `texts[i]`; a partial array silently breaks that invariant. |
-| Error mapping | All non-abort OpenAI SDK errors → `mapOpenAIError` → `LlmError(LLM_AUTH_FAILED \| LLM_BAD_REQUEST \| LLM_RATE_LIMITED \| LLM_SERVER_ERROR \| LLM_CONTENT_POLICY \| LLM_TRANSIENT_EXHAUSTED \| LLM_UNKNOWN)`. |
+| Error mapping | Happens **after** `withRetry` exhausts the budget, not inside the retry callback. All non-abort SDK errors → `mapOpenAIError` → `LlmError(LLM_AUTH_FAILED \| LLM_BAD_REQUEST \| LLM_RATE_LIMITED \| LLM_SERVER_ERROR \| LLM_CONTENT_POLICY \| LLM_TRANSIENT_EXHAUSTED \| LLM_UNKNOWN)`. |
 | `Retry-After` honouring | Not honoured in P1. Tracked as kernel-side follow-up; benefits both this package and the LLM adapter when `withRetry` learns to consume the header. |
 | Response-length invariant | Defensive assert `res.data.length === batch.length` per batch. OpenAI guarantees order; we re-assert at the type boundary. |
 | Logging | None inside the package. Caller wraps. `withRetry`'s `onAttempt` is not exposed in `EmbedOptions` for P1. |
