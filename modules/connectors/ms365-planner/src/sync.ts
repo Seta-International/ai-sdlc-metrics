@@ -1,6 +1,7 @@
 import { type DbSql, withTenant } from '@seta/db'
 import type { GraphFetch } from '@seta/ms-graph'
 import { logger } from '@seta/observability'
+import { tenantContext } from '@seta/tenant'
 import { createPlannerClient } from './client'
 
 interface PlanRow {
@@ -14,7 +15,7 @@ export interface PlannerSyncWorkerDeps {
   graph: GraphFetch
   getAppToken: (tenantId: string) => Promise<string>
   intervalMs?: number
-  afterSync?: (tenantId: string, changedTaskIds: string[]) => Promise<void>
+  afterSync?: (changedTaskIds: string[]) => Promise<void>
   onSyncError?: (tenantId: string, err: unknown) => void
 }
 
@@ -171,75 +172,77 @@ export function createPlannerSyncWorker(deps: PlannerSyncWorkerDeps) {
   }
 
   async function syncTenant(tenantId: string): Promise<void> {
-    log.info({ tenantId }, 'sync.start')
-    const token = await getAppToken(tenantId)
-    const client = createPlannerClient({ graph, token, actor: SYNC_ACTOR })
+    return tenantContext.run({ tenantId }, async () => {
+      log.info({ tenantId }, 'sync.start')
+      const token = await getAppToken(tenantId)
+      const client = createPlannerClient({ graph, token, actor: SYNC_ACTOR })
 
-    const seenPlans: PlanRow[] = []
-    const allChangedTaskIds: string[] = []
+      const seenPlans: PlanRow[] = []
+      const allChangedTaskIds: string[] = []
 
-    for await (const raw of client.listAllPlans()) {
-      const graphPlan = raw as {
-        id: string
-        owner?: string
-        title?: string
-        container?: { url?: string }
+      for await (const raw of client.listAllPlans()) {
+        const graphPlan = raw as {
+          id: string
+          owner?: string
+          title?: string
+          container?: { url?: string }
+        }
+        const plan: PlanRow = { id: graphPlan.id, ownerGroupId: graphPlan.owner ?? null, raw }
+        seenPlans.push(plan)
+
+        const changed = await syncTenantTasksDelta(tenantId, token, plan.id)
+        allChangedTaskIds.push(...changed)
+        log.info({ tenantId, planId: plan.id, changed: changed.length }, 'sync.plan.tasks')
+
+        if (plan.ownerGroupId) {
+          await syncTenantPlanMembers(tenantId, token, plan.id, plan.ownerGroupId)
+        }
       }
-      const plan: PlanRow = { id: graphPlan.id, ownerGroupId: graphPlan.owner ?? null, raw }
-      seenPlans.push(plan)
 
-      const changed = await syncTenantTasksDelta(tenantId, token, plan.id)
-      allChangedTaskIds.push(...changed)
-      log.info({ tenantId, planId: plan.id, changed: changed.length }, 'sync.plan.tasks')
-
-      if (plan.ownerGroupId) {
-        await syncTenantPlanMembers(tenantId, token, plan.id, plan.ownerGroupId)
+      if (seenPlans.length === 0) {
+        log.info({ tenantId }, 'sync.complete.empty')
+        return
       }
-    }
 
-    if (seenPlans.length === 0) {
-      log.info({ tenantId }, 'sync.complete.empty')
-      return
-    }
+      await withTenant(db, tenantId, async (tx) => {
+        for (const plan of seenPlans) {
+          await tx`
+            INSERT INTO connector_ms365_planner.planner_plans_cache
+              (tenant_id, graph_plan_id, owner_group_id, title, container_url, raw, synced_at, soft_deleted_at)
+            VALUES (
+              ${tenantId}::uuid, ${plan.id}, ${plan.ownerGroupId},
+              ${(plan.raw as { title?: string }).title ?? null},
+              ${(plan.raw as { container?: { url?: string } }).container?.url ?? null},
+              ${JSON.stringify(plan.raw)}::jsonb, now(), NULL
+            )
+            ON CONFLICT (tenant_id, graph_plan_id) DO UPDATE SET
+              owner_group_id  = EXCLUDED.owner_group_id,
+              title           = EXCLUDED.title,
+              container_url   = EXCLUDED.container_url,
+              raw             = EXCLUDED.raw,
+              synced_at       = now(),
+              soft_deleted_at = NULL
+          `
+        }
 
-    await withTenant(db, tenantId, async (tx) => {
-      for (const plan of seenPlans) {
         await tx`
-          INSERT INTO connector_ms365_planner.planner_plans_cache
-            (tenant_id, graph_plan_id, owner_group_id, title, container_url, raw, synced_at, soft_deleted_at)
-          VALUES (
-            ${tenantId}::uuid, ${plan.id}, ${plan.ownerGroupId},
-            ${(plan.raw as { title?: string }).title ?? null},
-            ${(plan.raw as { container?: { url?: string } }).container?.url ?? null},
-            ${JSON.stringify(plan.raw)}::jsonb, now(), NULL
-          )
-          ON CONFLICT (tenant_id, graph_plan_id) DO UPDATE SET
-            owner_group_id  = EXCLUDED.owner_group_id,
-            title           = EXCLUDED.title,
-            container_url   = EXCLUDED.container_url,
-            raw             = EXCLUDED.raw,
-            synced_at       = now(),
-            soft_deleted_at = NULL
+          UPDATE connector_ms365_planner.planner_plans_cache
+          SET soft_deleted_at = now()
+          WHERE tenant_id    = ${tenantId}::uuid
+            AND soft_deleted_at IS NULL
+            AND graph_plan_id <> ALL(${db.array(seenPlans.map((p) => p.id))})
         `
+      })
+
+      if (allChangedTaskIds.length > 0) {
+        await afterSync?.(allChangedTaskIds)
       }
 
-      await tx`
-        UPDATE connector_ms365_planner.planner_plans_cache
-        SET soft_deleted_at = now()
-        WHERE tenant_id    = ${tenantId}::uuid
-          AND soft_deleted_at IS NULL
-          AND graph_plan_id <> ALL(${db.array(seenPlans.map((p) => p.id))})
-      `
+      log.info(
+        { tenantId, plans: seenPlans.length, tasks: allChangedTaskIds.length },
+        'sync.complete',
+      )
     })
-
-    if (allChangedTaskIds.length > 0) {
-      await afterSync?.(tenantId, allChangedTaskIds)
-    }
-
-    log.info(
-      { tenantId, plans: seenPlans.length, tasks: allChangedTaskIds.length },
-      'sync.complete',
-    )
   }
 
   return {

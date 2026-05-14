@@ -1,5 +1,6 @@
 import { trace } from '@opentelemetry/api'
 import type { AuditEntry } from '@seta/audit'
+import { BadRequest } from '@seta/middleware'
 import { tenantContext } from '@seta/tenant'
 import { normalizePath } from './audit-middleware'
 import {
@@ -231,7 +232,7 @@ export function createGraphFetch(deps: GraphFetchDeps): GraphFetch {
     requests: BatchRequest[]
   }): Promise<BatchResponseItem[]> {
     if (input.requests.length > 20) {
-      throw new Error('batch requests must be <= 20')
+      throw new BadRequest('batch requests must be <= 20')
     }
 
     const { baseUrl = BASE_URL, fetchImpl = fetch } = deps

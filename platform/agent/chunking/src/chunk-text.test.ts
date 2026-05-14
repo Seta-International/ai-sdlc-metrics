@@ -18,11 +18,13 @@ describe('chunkText — edge cases', () => {
     const input = 'hi'
     const chunks = chunkText(input, SMALL)
     expect(chunks).toHaveLength(1)
-    expect(chunks[0]!.startChar).toBe(0)
-    expect(chunks[0]!.endChar).toBe(input.length)
-    expect(chunks[0]!.content).toBe(input)
-    expect(chunks[0]!.tokenCount).toBeGreaterThan(0)
-    expect(chunks[0]!.tokenCount).toBeLessThanOrEqual(SMALL.maxTokens)
+    // biome-ignore lint/style/noNonNullAssertion: length verified above
+    const c0 = chunks[0]!
+    expect(c0.startChar).toBe(0)
+    expect(c0.endChar).toBe(input.length)
+    expect(c0.content).toBe(input)
+    expect(c0.tokenCount).toBeGreaterThan(0)
+    expect(c0.tokenCount).toBeLessThanOrEqual(SMALL.maxTokens)
   })
 
   test('long input produces multiple chunks each respecting maxTokens', () => {
@@ -35,7 +37,9 @@ describe('chunkText — edge cases', () => {
       expect(c.tokenCount).toBeGreaterThan(0)
       expect(c.content).toBe(input.slice(c.startChar, c.endChar))
     }
+    // biome-ignore lint/style/noNonNullAssertion: length > 1 verified above
     expect(chunks[0]!.startChar).toBe(0)
+    // biome-ignore lint/style/noNonNullAssertion: last index, length > 1 verified above
     expect(chunks[chunks.length - 1]!.endChar).toBe(input.length)
   })
 
@@ -46,6 +50,7 @@ describe('chunkText — edge cases', () => {
     expect(chunks.length).toBeGreaterThan(1)
     // Adjacent chunks should not share content: c[i+1].startChar >= c[i].endChar
     for (let i = 1; i < chunks.length; i++) {
+      // biome-ignore lint/style/noNonNullAssertion: loop bounds guarantee valid indices
       expect(chunks[i]!.startChar).toBeGreaterThanOrEqual(chunks[i - 1]!.endChar)
     }
   })

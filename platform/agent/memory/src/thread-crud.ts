@@ -5,13 +5,15 @@ import type { Thread } from './schema'
 export type StorageOrderBy = Partial<Record<'createdAt' | 'updatedAt', 'asc' | 'desc'>>
 
 export interface ListThreadsOptions {
-  page?: number | undefined              // 0-indexed (default 0)
-  perPage?: number | false | undefined   // false = return all (default 100)
+  page?: number | undefined // 0-indexed (default 0)
+  perPage?: number | false | undefined // false = return all (default 100)
   orderBy?: StorageOrderBy | undefined
-  filter?: {
-    resourceId?: string | undefined
-    metadata?: Record<string, unknown> | undefined
-  } | undefined
+  filter?:
+    | {
+        resourceId?: string | undefined
+        metadata?: Record<string, unknown> | undefined
+      }
+    | undefined
 }
 
 export interface ListThreadsResult {
@@ -23,7 +25,7 @@ export interface ListThreadsResult {
 }
 
 export interface CreateThreadInput {
-  resourceId: string         // required, matches Mastra
+  resourceId: string // required, matches Mastra
   threadId?: string | undefined
   title?: string | null | undefined
   metadata?: Record<string, unknown> | null | undefined
@@ -36,7 +38,7 @@ export interface GetThreadInput {
 
 export interface SaveThreadInput {
   id: string
-  resourceId: string         // required, matches Mastra's StorageThreadType
+  resourceId: string // required, matches Mastra's StorageThreadType
   title?: string | null | undefined
   metadata?: Record<string, unknown> | null | undefined
 }
@@ -46,8 +48,8 @@ export interface SaveThreadArgs {
 }
 
 export interface ThreadPatch {
-  title: string                       // required, matches Mastra's replace semantics
-  metadata: Record<string, unknown>   // required, matches Mastra's replace semantics
+  title: string // required, matches Mastra's replace semantics
+  metadata: Record<string, unknown> // required, matches Mastra's replace semantics
 }
 
 export type UpdateThreadInput = ThreadPatch & { id: string }
@@ -100,7 +102,8 @@ export async function getThreadById(
     LIMIT 1
   `
   const thread = rows[0] ? toThread(rows[0]) : null
-  if (!thread || (input.resourceId !== undefined && thread.resourceId !== input.resourceId)) return null
+  if (!thread || (input.resourceId !== undefined && thread.resourceId !== input.resourceId))
+    return null
   return thread
 }
 
@@ -109,7 +112,7 @@ export async function listThreads(
   _tenantId: string,
   opts?: ListThreadsOptions,
 ): Promise<ListThreadsResult> {
-  const page = Math.max(0, opts?.page ?? 0)  // 0-indexed
+  const page = Math.max(0, opts?.page ?? 0) // 0-indexed
   const perPage = opts?.perPage ?? 100
   const offset = page * (perPage === false ? 0 : perPage)
 
@@ -121,9 +124,7 @@ export async function listThreads(
   const metadata = opts?.filter?.metadata ?? null
 
   const resourceFilter = resourceId != null ? tx`AND resource_id = ${resourceId}` : tx``
-  const metaFilter = metadata != null
-    ? tx`AND metadata @> ${tx.json(metadata as never)}`
-    : tx``
+  const metaFilter = metadata != null ? tx`AND metadata @> ${tx.json(metadata as never)}` : tx``
   const limitClause = perPage !== false ? tx`LIMIT ${perPage + 1}` : tx``
 
   const rows = await tx<ThreadRow[]>`
@@ -169,7 +170,9 @@ export async function createThread(
     )
     RETURNING id, tenant_id, resource_id, title, metadata, message_count, created_at, updated_at
   `
-  return toThread(rows[0]!)
+  const row = rows[0]
+  if (!row) throw new Error('createThread: INSERT RETURNING returned no row')
+  return toThread(row)
 }
 
 export async function saveThread(
@@ -194,7 +197,9 @@ export async function saveThread(
           updated_at  = now()
     RETURNING id, tenant_id, resource_id, title, metadata, message_count, created_at, updated_at
   `
-  return toThread(rows[0]!)
+  const row = rows[0]
+  if (!row) throw new Error('saveThread: INSERT RETURNING returned no row')
+  return toThread(row)
 }
 
 export async function updateThread(

@@ -1,6 +1,7 @@
 import type { Tool } from '@seta/agent-core'
+import type { BatchRequest } from '@seta/connector-ms365-planner'
 import { Unauthorized } from '@seta/middleware'
-import type { BatchRequest } from '@seta/ms-graph'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import PQueue from 'p-queue'
 import { z } from 'zod'
@@ -8,6 +9,8 @@ import type { OpResult } from './_classify'
 import { classifyBatchItem } from './_classify'
 import { ContinuationConsumed } from './_errors'
 import type { CommitDeps } from './update_tasks.commit'
+
+const log = logger.child({ component: 'planner.complete_tasks.commit' })
 
 export type { CommitDeps }
 
@@ -73,11 +76,16 @@ export function completeTasksCommitTool(
     annotations: { destructiveHint: true, idempotentHint: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'planner.complete_tasks.commit.start',
+        )
+
         const tenantId = tenantContext.getTenantId()
         const userId = tenantContext.getUserId()
         if (!userId) throw new Unauthorized('no user context')
 
-        await deps.registry.requireConsent(tenantId, 'ms365-planner')
+        await deps.registry.requireConsent('ms365-planner')
 
         let verified: { payload: Record<string, unknown>; etagSnapshot: Record<string, string> }
         try {
@@ -124,6 +132,7 @@ export function completeTasksCommitTool(
                 url: `/planner/tasks/${taskId}`,
                 headers: {
                   // etagSnapshot is populated for every taskId in the payload by the preview tool before minting
+                  // biome-ignore lint/style/noNonNullAssertion: guaranteed by preview tool contract
                   'If-Match': verified.etagSnapshot[taskId]!,
                   Prefer: 'return=representation',
                 },
@@ -170,6 +179,7 @@ export function completeTasksCommitTool(
           },
         }
       } catch (e) {
+        log.error({ err: e }, 'planner.complete_tasks.commit.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },

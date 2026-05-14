@@ -1,7 +1,10 @@
 import type { Tool } from '@seta/agent-core'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
 import type { ReadToolDeps } from './list_my_tasks'
+
+const log = logger.child({ component: 'planner.get_one_on_one_prep' })
 
 const Input = z.object({
   targetUserId: z.string(),
@@ -28,6 +31,11 @@ export function getOneOnOnePrepTool(
     annotations: { readOnlyHint: true, idempotentHint: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'planner.get_one_on_one_prep.start',
+        )
+
         const tenantId = tenantContext.getTenantId()
         const userId = tenantContext.getUserId()
 
@@ -91,6 +99,7 @@ export function getOneOnOnePrepTool(
           value: { targetName, completed, inProgress, blocked, workloadPercent, talkingPoints },
         }
       } catch (e) {
+        log.error({ err: e }, 'planner.get_one_on_one_prep.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },

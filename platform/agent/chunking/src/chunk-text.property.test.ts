@@ -51,7 +51,9 @@ describe('chunkText — property tests', () => {
       fc.property(inputArb, optsArb, (input, opts) => {
         const chunks = chunkText(input, opts)
         if (chunks.length === 0) return
+        // biome-ignore lint/style/noNonNullAssertion: length > 0 checked above
         expect(chunks[0]!.startChar).toBe(0)
+        // biome-ignore lint/style/noNonNullAssertion: last index, length > 0 checked above
         expect(chunks[chunks.length - 1]!.endChar).toBe(input.length)
       }),
       { numRuns: 200 },
@@ -69,7 +71,9 @@ describe('chunkText — property tests', () => {
 
         for (let n = 1; n < trace.chunks.length; n++) {
           // Skip the last pair if the previous chunk reached the end of tokens — final stride may be truncated.
+          // biome-ignore lint/style/noNonNullAssertion: loop bounds guarantee valid indices
           const prev = trace.chunks[n - 1]!
+          // biome-ignore lint/style/noNonNullAssertion: loop bounds guarantee valid indices
           const cur = trace.chunks[n]!
           const prevTokIdx = tokenIdxFor(prev.startChar)
           const curTokIdx = tokenIdxFor(cur.startChar)

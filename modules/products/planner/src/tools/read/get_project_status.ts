@@ -1,8 +1,11 @@
 import type { Tool } from '@seta/agent-core'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import PQueue from 'p-queue'
 import { z } from 'zod'
 import type { ReadToolDeps } from './list_my_tasks'
+
+const log = logger.child({ component: 'planner.get_project_status' })
 
 const Input = z.object({
   planId: z.string(),
@@ -30,6 +33,11 @@ export function getProjectStatusTool(
     annotations: { readOnlyHint: true, idempotentHint: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'planner.get_project_status.start',
+        )
+
         const tenantId = tenantContext.getTenantId()
         const sinceDate = new Date(
           input.since === '7 days ago' ? Date.now() - 7 * 86400_000 : input.since,
@@ -91,14 +99,15 @@ export function getProjectStatusTool(
           ok: true,
           value: {
             planName,
-            completed: completed!,
-            inProgress: inProgress!,
-            blocked: blocked!,
-            upcoming: upcoming!,
-            unassigned: unassigned!,
+            completed: (completed ?? []) as unknown[],
+            inProgress: (inProgress ?? []) as unknown[],
+            blocked: (blocked ?? []) as unknown[],
+            upcoming: (upcoming ?? []) as unknown[],
+            unassigned: (unassigned ?? []) as unknown[],
           },
         }
       } catch (e) {
+        log.error({ err: e }, 'planner.get_project_status.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },

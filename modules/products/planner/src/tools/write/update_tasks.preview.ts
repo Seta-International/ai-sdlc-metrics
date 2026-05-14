@@ -1,13 +1,16 @@
 import type { Tool } from '@seta/agent-core'
 import type { PlannerCache, PlannerClient } from '@seta/connector-ms365-planner'
 import { Unauthorized } from '@seta/middleware'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
 import { buildPreviewCard } from './_card'
 import type { MintInput } from './_continuation'
 
+const log = logger.child({ component: 'planner.update_tasks.preview' })
+
 export interface PreviewDepsBase {
-  registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
+  registry: { requireConsent(connectorId: string): Promise<void> }
   tokenForUser: (tenantId: string, userId: string) => Promise<{ accessToken: string }>
   buildClient: (token: string) => PlannerClient
   buildCache: (client: PlannerClient) => PlannerCache
@@ -50,11 +53,16 @@ export function updateTasksPreviewTool(
     annotations: { destructiveHint: false, requireApproval: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'planner.update_tasks.preview.start',
+        )
+
         const tenantId = tenantContext.getTenantId()
         const userId = tenantContext.getUserId()
         if (!userId) throw new Unauthorized('no user context')
 
-        await deps.registry.requireConsent(tenantId, 'ms365-planner')
+        await deps.registry.requireConsent('ms365-planner')
 
         const { accessToken } = await deps.tokenForUser(tenantId, userId)
         const client = deps.buildClient(accessToken)
@@ -102,6 +110,7 @@ export function updateTasksPreviewTool(
 
         return { ok: true, value: { card, token, ttlMinutes: deps.ttlMinutes } }
       } catch (e) {
+        log.error({ err: e }, 'planner.update_tasks.preview.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },

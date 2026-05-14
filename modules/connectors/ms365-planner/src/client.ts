@@ -1,5 +1,8 @@
 import type { AuditActor, GraphFetch } from '@seta/ms-graph'
 import { GraphUnavailable } from '@seta/ms-graph'
+import { logger } from '@seta/observability'
+
+const log = logger.child({ component: 'planner-client' })
 
 export type TaskUpdate = Partial<{
   title: string
@@ -86,6 +89,7 @@ export function createPlannerClient(deps: PlannerClientDeps): PlannerClient {
         headers: { Prefer: 'return=representation' },
         body: patch,
       })
+      log.info({ taskId: id }, 'planner.updateTask')
       return { data: r.data, etag: r.etag }
     },
     createTask: async (input) => {
@@ -95,10 +99,12 @@ export function createPlannerClient(deps: PlannerClientDeps): PlannerClient {
         path: '/planner/tasks',
         body: input,
       })
+      log.info({ planId: input.planId, title: input.title }, 'planner.createTask')
       return { data: r.data, etag: r.etag }
     },
     deleteTask: async (id, etag) => {
       await deps.graph.call({ ...base, method: 'DELETE', path: `/planner/tasks/${id}`, etag })
+      log.info({ taskId: id }, 'planner.deleteTask')
     },
     listMyTasks: () => deps.graph.paginate({ ...base, method: 'GET', path: '/me/planner/tasks' }),
     listPlanTasks: (planId) =>

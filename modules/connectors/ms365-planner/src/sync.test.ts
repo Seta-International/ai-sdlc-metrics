@@ -99,7 +99,7 @@ describe('createPlannerSyncWorker', () => {
     })
     await worker.syncTenant(TENANT)
 
-    expect(afterSync).toHaveBeenCalledWith(TENANT, ['T1'])
+    expect(afterSync).toHaveBeenCalledWith(['T1'])
   })
 
   it('syncTenant: does NOT call afterSync when no tasks changed', async () => {

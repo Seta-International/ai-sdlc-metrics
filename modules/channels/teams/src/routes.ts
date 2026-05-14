@@ -8,7 +8,7 @@ export interface TeamsRouterOpts {
   skipJwtVerify?: boolean
 }
 
-export function routes(handler: TeamsHandler, opts: TeamsRouterOpts): Hono {
+export function routes(_handler: TeamsHandler, _opts: TeamsRouterOpts): Hono {
   const app = new Hono()
 
   app.post('/messages', async (c) => {

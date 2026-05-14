@@ -1,6 +1,9 @@
 import type { Tool } from '@seta/agent-core'
+import { logger } from '@seta/observability'
 import { tenantContext } from '@seta/tenant'
 import { z } from 'zod'
+
+const log = logger.child({ component: 'planner.list_my_tasks' })
 
 export type DbSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>
 
@@ -41,6 +44,11 @@ export function listMyTasksTool(
     annotations: { readOnlyHint: true, idempotentHint: true },
     async execute(input, _ctx) {
       try {
+        log.debug(
+          { tenantId: tenantContext.getTenantIdOrUndefined() },
+          'planner.list_my_tasks.start',
+        )
+
         const userId = tenantContext.getUserId()
         const now = new Date()
         const todayEnd = new Date(now)
@@ -113,6 +121,7 @@ export function listMyTasksTool(
           value: { tasks: rows, summary: { total: rows.length, overdue, dueToday } },
         }
       } catch (e) {
+        log.error({ err: e }, 'planner.list_my_tasks.failed')
         return { ok: false, error: { name: (e as Error).name, message: (e as Error).message } }
       }
     },

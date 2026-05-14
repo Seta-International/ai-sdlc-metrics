@@ -1,6 +1,5 @@
 import type { Tool } from '@seta/agent-core'
-import type { PlannerCache, PlannerClient } from '@seta/connector-ms365-planner'
-import type { GraphFetch } from '@seta/ms-graph'
+import type { GraphFetch, PlannerCache, PlannerClient } from '@seta/connector-ms365-planner'
 import { getOneOnOnePrepTool } from './tools/read/get_one_on_one_prep'
 import { getProjectStatusTool } from './tools/read/get_project_status'
 import { getTaskTool } from './tools/read/get_task'
@@ -29,7 +28,7 @@ import { updateTasksPreviewTool } from './tools/write/update_tasks.preview'
 
 export interface PlannerToolsDeps {
   sql: ReadToolDeps['sql']
-  registry: { requireConsent(tenantId: string, connectorId: string): Promise<void> }
+  registry: { requireConsent(connectorId: string): Promise<void> }
   tokenForUser: (tenantId: string, userId: string) => Promise<{ accessToken: string }>
   buildClient: (token: string) => PlannerClient
   buildCache: (client: PlannerClient) => PlannerCache
