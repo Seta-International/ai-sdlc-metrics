@@ -48,7 +48,7 @@ describe('chunkBy — preserves order and content', () => {
     const items = Array.from({ length: 250 }, (_, i) => `i${i}`)
     const batches = chunkBy(items, 100)
     expect(batches.slice(0, -1).every((b) => b.length === 100)).toBe(true)
-    expect(batches.at(-1)!.length).toBeLessThanOrEqual(100)
+    expect(batches.at(-1)?.length).toBeLessThanOrEqual(100)
   })
 
   test('size 100 with 100 items: exactly one full batch (no empty trailing batch)', () => {
