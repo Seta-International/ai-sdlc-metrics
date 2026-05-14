@@ -13,6 +13,15 @@ export interface VectorChunk {
   score: number
 }
 
+export interface VectorUpsertInput {
+  sourceId: string
+  tenantId: string
+  content: string
+  charRange: { start: number; end: number }
+  metadata: Record<string, unknown>
+  embedding: number[]
+}
+
 export interface VectorStore {
   search(opts: {
     tenantId: string
@@ -20,6 +29,7 @@ export interface VectorStore {
     topK: number
     filter?: Record<string, unknown>
   }): Promise<VectorChunk[]>
+  upsert(input: VectorUpsertInput): Promise<void>
 }
 
 export interface SemanticSearchDeps extends ReadToolDeps {
