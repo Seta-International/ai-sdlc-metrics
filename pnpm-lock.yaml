@@ -334,6 +334,9 @@ importers:
       '@seta/agent-core':
         specifier: workspace:*
         version: link:../../../platform/agent/core
+      '@seta/agent-server':
+        specifier: workspace:*
+        version: link:../../../platform/agent/server
       '@seta/agent-workflows':
         specifier: workspace:*
         version: link:../../../platform/agent/workflows

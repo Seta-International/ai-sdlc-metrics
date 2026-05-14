@@ -18,6 +18,7 @@
   ],
   "dependencies": {
     "@seta/agent-core": "workspace:*",
+    "@seta/agent-server": "workspace:*",
     "@seta/agent-workflows": "workspace:*",
     "@seta/connector-ms365-directory": "workspace:*",
     "@seta/connector-ms365-planner": "workspace:*",
