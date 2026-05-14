@@ -47,15 +47,18 @@ importers:
       '@hono/node-server':
         specifier: 2.0.2
         version: 2.0.2(hono@4.12.18)
-      '@seta/agent':
-        specifier: workspace:*
-        version: link:../../modules/products/agent
       '@seta/agent-core':
         specifier: workspace:*
         version: link:../../platform/agent/core
       '@seta/agent-memory':
         specifier: workspace:*
         version: link:../../platform/agent/memory
+      '@seta/agent-server':
+        specifier: workspace:*
+        version: link:../../platform/agent/server
+      '@seta/analytics':
+        specifier: workspace:*
+        version: link:../../modules/products/analytics
       '@seta/audit':
         specifier: workspace:*
         version: link:../../platform/audit
@@ -92,6 +95,9 @@ importers:
       '@seta/observability':
         specifier: workspace:*
         version: link:../../platform/observability
+      '@seta/planner':
+        specifier: workspace:*
+        version: link:../../modules/products/planner
       '@seta/tenant':
         specifier: workspace:*
         version: link:../../platform/tenant
