@@ -32,7 +32,7 @@ export async function* run(
   const memCtx: MemoryContext = {
     threadId: input.threadId ?? ctx.runId,
     ...(input.conversationId !== undefined ? { conversationId: input.conversationId } : {}),
-    scope: 'thread',
+    scope: 'resource',
   }
 
   try {

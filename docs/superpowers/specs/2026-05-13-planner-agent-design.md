@@ -1,9 +1,9 @@
 # Planner Agent + Analytics Agent — Design Spec
 
-**Date:** 2026-05-13  
-**Revised:** 2026-05-14 — DB-driven agent profiles + Agent CRUD API + ERP-module architecture  
-**Scope:** `platform/agent/server` (new) · `modules/products/planner` (ERP Module #1) · `modules/products/analytics` (ERP Module #2) · `modules/channels/teams` (Channel #1) · `modules/connectors/ms365-planner` (sync extension)  
-**Status:** Approved for implementation  
+**Date:** 2026-05-13
+**Revised:** 2026-05-14 — DB-driven agent profiles + Agent CRUD API + ERP-module architecture
+**Scope:** `platform/agent/server` (new) · `modules/products/planner` (ERP Module #1) · `modules/products/analytics` (ERP Module #2) · `modules/channels/teams` (Channel #1) · `modules/connectors/ms365-planner` (sync extension)
+**Status:** Approved for implementation
 **WBS coverage:** EP-09 (partial), EP-10, EP-11, EP-13.5, EP-13.6, EP-14.3
 
 ---

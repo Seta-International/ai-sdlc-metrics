@@ -15,6 +15,10 @@ function ctx(threadId: string): MemoryContext {
   return { threadId, scope: 'thread' }
 }
 
+function resourceCtx(threadId: string): MemoryContext {
+  return { threadId, scope: 'resource' }
+}
+
 beforeAll(async () => {
   await ensureMigrations()
 })
@@ -91,6 +95,33 @@ describe('AgentMemoryProvider', () => {
       await expect(
         provider.updateWorkingMemory(ctx(threadId), 'a'.repeat(8193)),
       ).rejects.toMatchObject({ code: 'WORKING_MEMORY_TOO_LARGE' })
+    })
+  })
+
+  it('getWorkingMemory with scope resource reads by userId across threads', async () => {
+    const provider = new AgentMemoryProvider({ sql: testSql() })
+    const thread1 = randomUUID()
+    const thread2 = randomUUID()
+
+    await tenantContext.run({ tenantId: TENANT, userId: 'alice' }, async () => {
+      await provider.saveTurn(resourceCtx(thread1), [userMsg('hi')])
+      await provider.updateWorkingMemory(resourceCtx(thread1), 'cross-thread fact')
+
+      // new thread, same user — should still read the same working memory
+      await provider.saveTurn(resourceCtx(thread2), [userMsg('hey')])
+      const wm = await provider.getWorkingMemory(resourceCtx(thread2))
+      expect(wm).toBe('cross-thread fact')
+    })
+  })
+
+  it('getWorkingMemory with scope resource returns null when no userId', async () => {
+    const provider = new AgentMemoryProvider({ sql: testSql() })
+    const threadId = randomUUID()
+
+    await tenantContext.run({ tenantId: TENANT }, async () => {
+      await provider.saveTurn(resourceCtx(threadId), [userMsg('hi')])
+      const wm = await provider.getWorkingMemory(resourceCtx(threadId))
+      expect(wm).toBeNull()
     })
   })
 

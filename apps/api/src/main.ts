@@ -1,5 +1,10 @@
 import { serve } from '@hono/node-server'
-import { createAgentRouter, createToolRegistry, seedAgentProfiles } from '@seta/agent-server'
+import {
+  createAgentRouter,
+  createToolRegistry,
+  seedAgentProfiles,
+  type ThreadStore,
+} from '@seta/agent-server'
 import { ANALYTICS_PROFILE_SEED, createAnalyticsTools } from '@seta/analytics'
 import { createAuditWriter } from '@seta/audit'
 import { directoryConnector } from '@seta/connector-ms365-directory'
@@ -137,12 +142,28 @@ const workflowEngine = {
   ) => {},
 } as never
 
+const threadStore: ThreadStore = {
+  recall: agentMemory.recall.bind(agentMemory),
+  saveTurn: agentMemory.saveTurn.bind(agentMemory),
+  getWorkingMemory: agentMemory.getWorkingMemory.bind(agentMemory),
+  updateWorkingMemory: agentMemory.updateWorkingMemory.bind(agentMemory),
+  listThreads: async () => {
+    const result = await agentMemory.listThreads()
+    return result.threads
+  },
+  getThread: async (threadId) => {
+    const result = await agentMemory.recall({ threadId, scope: 'thread' })
+    return result.messages
+  },
+  deleteThread: agentMemory.deleteThread.bind(agentMemory),
+}
+
 // ── Agent-server routes ───────────────────────────────────────────────────────
 
 const agentRouter = createAgentRouter({
   sql: sql as never,
   toolRegistry,
-  memory: agentMemory,
+  memory: threadStore,
   workflowEngine,
   adapters: agentRegistry,
 })
@@ -152,7 +173,7 @@ const agentRouter = createAgentRouter({
 const teamsHandler = createTeamsHandler({
   sql: sql as never,
   toolRegistry,
-  memory: agentMemory,
+  memory: threadStore,
   workflowEngine,
   adapters: agentRegistry,
 })
