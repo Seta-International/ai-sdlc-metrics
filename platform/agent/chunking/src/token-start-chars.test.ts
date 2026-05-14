@@ -28,6 +28,7 @@ describe('tokenStartChars', () => {
     const ofs = tokenStartChars(tokens, enc, input)
 
     for (let i = 1; i < ofs.length; i++) {
+      // biome-ignore lint/style/noNonNullAssertion: loop bounds guarantee i-1 is valid
       expect(ofs[i]).toBeGreaterThanOrEqual(ofs[i - 1]!)
     }
   })
@@ -40,6 +41,7 @@ describe('tokenStartChars', () => {
 
     // For ASCII, every boundary advances at least one char (no zero-width tokens).
     for (let i = 1; i < ofs.length; i++) {
+      // biome-ignore lint/style/noNonNullAssertion: loop bounds guarantee i-1 is valid
       expect(ofs[i]).toBeGreaterThan(ofs[i - 1]!)
     }
   })
@@ -52,6 +54,7 @@ describe('tokenStartChars', () => {
 
     let assembled = ''
     for (let i = 0; i < tokens.length; i++) {
+      // biome-ignore lint/style/noNonNullAssertion: ofs has tokens.length+1 entries; i and i+1 are always valid
       assembled += input.slice(ofs[i]!, ofs[i + 1]!)
     }
     expect(assembled).toBe(input)
@@ -75,6 +78,7 @@ describe('tokenStartChars', () => {
 
     let assembled = ''
     for (let i = 0; i < tokens.length; i++) {
+      // biome-ignore lint/style/noNonNullAssertion: ofs has tokens.length+1 entries; i and i+1 are always valid
       assembled += input.slice(ofs[i]!, ofs[i + 1]!)
     }
     expect(assembled).toBe(input)
@@ -88,6 +92,7 @@ describe('tokenStartChars', () => {
 
     let assembled = ''
     for (let i = 0; i < tokens.length; i++) {
+      // biome-ignore lint/style/noNonNullAssertion: ofs has tokens.length+1 entries; i and i+1 are always valid
       assembled += input.slice(ofs[i]!, ofs[i + 1]!)
     }
     expect(assembled).toBe(input)

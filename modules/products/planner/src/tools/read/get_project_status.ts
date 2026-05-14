@@ -99,11 +99,11 @@ export function getProjectStatusTool(
           ok: true,
           value: {
             planName,
-            completed: completed!,
-            inProgress: inProgress!,
-            blocked: blocked!,
-            upcoming: upcoming!,
-            unassigned: unassigned!,
+            completed: (completed ?? []) as unknown[],
+            inProgress: (inProgress ?? []) as unknown[],
+            blocked: (blocked ?? []) as unknown[],
+            upcoming: (upcoming ?? []) as unknown[],
+            unassigned: (unassigned ?? []) as unknown[],
           },
         }
       } catch (e) {

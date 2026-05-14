@@ -158,6 +158,7 @@ export function updateTasksCommitTool(
                 url: `/planner/tasks/${u.taskId}`,
                 headers: {
                   // etagSnapshot is populated for every taskId in the payload by the preview tool before minting
+                  // biome-ignore lint/style/noNonNullAssertion: guaranteed by preview tool contract
                   'If-Match': verified.etagSnapshot[u.taskId]!,
                   Prefer: 'return=representation',
                 },
