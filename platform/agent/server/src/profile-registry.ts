@@ -41,7 +41,7 @@ export async function resolveAgentProfile(
     LIMIT 1
   `
   if (!rows.length) {
-    throw new DomainError('agent_profile_not_found', { slugOrId, tenantId })
+    throw new DomainError(404, `Agent profile not found: ${slugOrId}`, { detail: slugOrId })
   }
   const row = rows[0] as AgentProfileRow
   profileCache.set(key, row)

@@ -15,7 +15,7 @@ export function createToolRegistry(): ToolRegistry {
     resolve(toolIds) {
       return toolIds.map((id) => {
         const tool = map.get(id)
-        if (!tool) throw new DomainError('unknown_tool_id', { toolId: id })
+        if (!tool) throw new DomainError(404, `Unknown tool id: ${id}`, { detail: id })
         return tool
       })
     },
