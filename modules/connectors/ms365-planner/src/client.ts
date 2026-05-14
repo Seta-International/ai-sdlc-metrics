@@ -1,4 +1,5 @@
 import type { AuditActor, GraphFetch } from '@seta/ms-graph'
+import { GraphUnavailable } from '@seta/ms-graph'
 
 export type TaskUpdate = Partial<{
   title: string
@@ -48,6 +49,15 @@ export interface PlannerClient {
     owner: string
     title: string
   }): Promise<{ data: unknown; etag: string | null }>
+  listAllPlans(): AsyncIterable<unknown>
+  listPlanTasksDelta(
+    planId: string,
+    deltaToken?: string,
+  ): Promise<{
+    items: unknown[]
+    nextDeltaToken: string
+  }>
+  listGroupMembers(groupId: string): AsyncIterable<unknown>
 }
 
 const CONNECTOR_ID = 'ms365-planner'
@@ -113,5 +123,38 @@ export function createPlannerClient(deps: PlannerClientDeps): PlannerClient {
       })
       return { data: r.data, etag: r.etag }
     },
+
+    listAllPlans: () => deps.graph.paginate({ ...base, method: 'GET', path: '/planner/plans' }),
+
+    listPlanTasksDelta: async (planId, deltaToken) => {
+      const startPath = deltaToken
+        ? `/planner/plans/${planId}/tasks/delta?$deltatoken=${deltaToken}`
+        : `/planner/plans/${planId}/tasks/delta`
+      const items: unknown[] = []
+      let path = startPath
+      while (true) {
+        const res = await deps.graph.call<{
+          value?: unknown[]
+          '@odata.nextLink'?: string
+          '@odata.deltaLink'?: string
+        }>({ ...base, method: 'GET', path })
+        const page = res.data
+        if (page.value) items.push(...page.value)
+        if (page['@odata.deltaLink']) {
+          const url = new URL(page['@odata.deltaLink'])
+          const nextToken = url.searchParams.get('$deltatoken') ?? ''
+          return { items, nextDeltaToken: nextToken }
+        }
+        if (page['@odata.nextLink']) {
+          const nextUrl = new URL(page['@odata.nextLink'])
+          path = nextUrl.pathname.replace(/^\/v1\.0/, '') + nextUrl.search
+          continue
+        }
+        throw new GraphUnavailable('delta response missing both nextLink and deltaLink')
+      }
+    },
+
+    listGroupMembers: (groupId) =>
+      deps.graph.paginate({ ...base, method: 'GET', path: `/groups/${groupId}/members` }),
   }
 }

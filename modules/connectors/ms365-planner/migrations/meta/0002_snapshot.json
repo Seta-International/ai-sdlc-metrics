@@ -1,6 +1,6 @@
 {
-  "id": "f7dadfdb-fd06-43b2-aabe-bfd1516b4377",
-  "prevId": "35917bfc-3223-4e6a-8dd2-a0dae488891e",
+  "id": "e80b3a52-79c9-4d6b-bdfc-e9549227c380",
+  "prevId": "f7dadfdb-fd06-43b2-aabe-bfd1516b4377",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -448,6 +448,12 @@
         },
         "status": {
           "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "delta_token": {
+          "name": "delta_token",
           "type": "text",
           "primaryKey": false,
           "notNull": false

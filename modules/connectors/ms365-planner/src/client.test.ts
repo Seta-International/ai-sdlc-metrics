@@ -64,4 +64,70 @@ describe('PlannerClient', () => {
     expect(out).toEqual([{ id: 'T1' }])
     expect(s.paginate).toHaveBeenCalledWith(expect.objectContaining({ path: '/me/planner/tasks' }))
   })
+
+  it('listAllPlans paginates /planner/plans', async () => {
+    const s = stubGraph()
+    s.paginate.mockReturnValue(
+      (async function* () {
+        yield { id: 'P1' }
+      })(),
+    )
+    const c = createPlannerClient({ graph: s.gf, actor: { type: 'user', userId: 'u' }, token: 't' })
+    const out = []
+    for await (const p of c.listAllPlans()) out.push(p)
+    expect(out).toEqual([{ id: 'P1' }])
+    expect(s.paginate).toHaveBeenCalledWith(expect.objectContaining({ path: '/planner/plans' }))
+  })
+
+  it('listPlanTasksDelta GETs delta endpoint and extracts nextDeltaToken', async () => {
+    const s = stubGraph()
+    s.call.mockResolvedValue({
+      data: {
+        value: [{ id: 'T1' }],
+        '@odata.deltaLink':
+          'https://graph.microsoft.com/v1.0/planner/plans/P1/tasks/delta?$deltatoken=tok42',
+      },
+      etag: null,
+      status: 200,
+    })
+    const c = createPlannerClient({ graph: s.gf, actor: { type: 'user', userId: 'u' }, token: 't' })
+    const result = await c.listPlanTasksDelta('P1')
+    expect(result.items).toEqual([{ id: 'T1' }])
+    expect(result.nextDeltaToken).toBe('tok42')
+    expect(s.call).toHaveBeenCalledWith(
+      expect.objectContaining({ path: '/planner/plans/P1/tasks/delta' }),
+    )
+  })
+
+  it('listPlanTasksDelta resumes from stored delta token', async () => {
+    const s = stubGraph()
+    s.call.mockResolvedValue({
+      data: {
+        value: [],
+        '@odata.deltaLink':
+          'https://graph.microsoft.com/v1.0/planner/plans/P1/tasks/delta?$deltatoken=tok99',
+      },
+      etag: null,
+      status: 200,
+    })
+    const c = createPlannerClient({ graph: s.gf, actor: { type: 'user', userId: 'u' }, token: 't' })
+    await c.listPlanTasksDelta('P1', 'prevTok')
+    expect(s.call).toHaveBeenCalledWith(
+      expect.objectContaining({ path: '/planner/plans/P1/tasks/delta?$deltatoken=prevTok' }),
+    )
+  })
+
+  it('listGroupMembers paginates /groups/:id/members', async () => {
+    const s = stubGraph()
+    s.paginate.mockReturnValue(
+      (async function* () {
+        yield { id: 'U1' }
+      })(),
+    )
+    const c = createPlannerClient({ graph: s.gf, actor: { type: 'user', userId: 'u' }, token: 't' })
+    const out = []
+    for await (const m of c.listGroupMembers('G1')) out.push(m)
+    expect(out).toEqual([{ id: 'U1' }])
+    expect(s.paginate).toHaveBeenCalledWith(expect.objectContaining({ path: '/groups/G1/members' }))
+  })
 })

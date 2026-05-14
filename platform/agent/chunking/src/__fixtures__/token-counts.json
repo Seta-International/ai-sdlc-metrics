@@ -1,0 +1,82 @@
+[
+  {
+    "name": "ascii-short",
+    "text": "hello world",
+    "counts": {
+      "text-embedding-3-small": 2,
+      "gpt-5": 2
+    }
+  },
+  {
+    "name": "ascii-sentence",
+    "text": "The quick brown fox jumps over the lazy dog.",
+    "counts": {
+      "text-embedding-3-small": 10,
+      "gpt-5": 10
+    }
+  },
+  {
+    "name": "cjk-short",
+    "text": "你好世界",
+    "counts": {
+      "text-embedding-3-small": 5,
+      "gpt-5": 2
+    }
+  },
+  {
+    "name": "cjk-sentence",
+    "text": "今天天气真好,我们去公园散步吧。",
+    "counts": {
+      "text-embedding-3-small": 19,
+      "gpt-5": 14
+    }
+  },
+  {
+    "name": "emoji-single",
+    "text": "🌍",
+    "counts": {
+      "text-embedding-3-small": 3,
+      "gpt-5": 2
+    }
+  },
+  {
+    "name": "emoji-zwj-family",
+    "text": "👨‍👩‍👧‍👦",
+    "counts": {
+      "text-embedding-3-small": 18,
+      "gpt-5": 11
+    }
+  },
+  {
+    "name": "mixed-script",
+    "text": "Hello 世界 🌍 hola mundo",
+    "counts": {
+      "text-embedding-3-small": 11,
+      "gpt-5": 6
+    }
+  },
+  {
+    "name": "code-block",
+    "text": "```ts\nconst x = 42\nconsole.log(x)\n```",
+    "counts": {
+      "text-embedding-3-small": 14,
+      "gpt-5": 14
+    }
+  },
+  {
+    "name": "whitespace-runs",
+    "text": "a   b\t\tc\n\n\nd",
+    "counts": {
+      "text-embedding-3-small": 7,
+      "gpt-5": 7
+    }
+  },
+  {
+    "name": "long-paragraph",
+    "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
+    "counts": {
+      "text-embedding-3-small": 45,
+      "gpt-5": 44
+    }
+  }
+]

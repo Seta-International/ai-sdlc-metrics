@@ -1,0 +1,36 @@
+{
+  "name": "@seta/agent-server",
+  "version": "0.1.0",
+  "description": "HTTP infrastructure: agent profile store, tool registry, Hono route factory",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --sourcemap",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "license": "Apache-2.0",
+  "type": "module",
+  "private": true,
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@seta/agent-core": "workspace:*",
+    "@seta/agent-memory": "workspace:*",
+    "@seta/agent-workflows": "workspace:*",
+    "@seta/db": "workspace:*",
+    "@seta/middleware": "workspace:*",
+    "@seta/tenant": "workspace:*",
+    "drizzle-orm": "0.45.2",
+    "hono": "4.12.18",
+    "lru-cache": "11.3.6",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@hono/zod-openapi": "1.4.0",
+    "drizzle-kit": "0.31.10",
+    "tsup": "8.5.1"
+  }
+}
