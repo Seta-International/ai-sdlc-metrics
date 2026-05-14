@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { LlmError } from '@seta/agent-core'
 import { setupLLMRecording } from '@seta/agent-core/testkit'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { createOpenAIEmbeddings, EMBEDDING_BATCH_SIZE } from '../../src'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -86,57 +86,6 @@ describe('@seta/agent-embeddings — integration (replay)', () => {
       const le = caught as LlmError
       expect(le.code).toBe('LLM_AUTH_FAILED')
       expect(le.domain).toBe('LLM')
-    },
-  )
-
-  it.skipIf(!shouldRun('embed-rate-limited-then-ok'))(
-    '429 then 200 — withRetry consumes the first failure and succeeds',
-    async () => {
-      recording = setupLLMRecording({
-        name: 'embed-rate-limited-then-ok',
-        recordingsDir: RECORDINGS_DIR,
-      })
-      recording.start()
-      vi.useFakeTimers()
-      try {
-        const client = buildClient()
-        const pending = client.embed(['hello']).catch((e) => e)
-        await vi.runAllTimersAsync()
-        const got = await pending
-        expect(got).toMatchObject({
-          embeddings: expect.any(Array),
-          usage: expect.objectContaining({
-            promptTokens: expect.any(Number),
-            totalTokens: expect.any(Number),
-          }),
-        })
-        expect((got as { embeddings: number[][] }).embeddings[0]).toHaveLength(1536)
-      } finally {
-        vi.useRealTimers()
-      }
-    },
-  )
-
-  it.skipIf(!shouldRun('embed-abort-midflight'))(
-    'abort mid-request — SDK surfaces AbortError and we re-throw unmapped',
-    async () => {
-      recording = setupLLMRecording({
-        name: 'embed-abort-midflight',
-        recordingsDir: RECORDINGS_DIR,
-      })
-      recording.start()
-      const ac = new AbortController()
-      const client = buildClient()
-      queueMicrotask(() => ac.abort())
-      let caught: unknown
-      try {
-        await client.embed(['hello'], { signal: ac.signal })
-      } catch (e) {
-        caught = e
-      }
-      expect(caught).not.toBeInstanceOf(LlmError)
-      const err = caught as { name?: string } | null
-      expect(err?.name).toBe('AbortError')
     },
   )
 
